@@ -47,11 +47,16 @@ internal sealed partial class TownWorld
         var travelling = IsUnderWay(occupant);
         var stopMps = _config.Driving.StopSpeedMps;
         var still = Cars.VelocityMps[car].LengthSquared() <= stopMps * stopMps;
+
+        // <b>Blocked, it goes nowhere</b> (CAR-50): its line runs on, but it can neither get past what stands in
+        // front of it nor back up for the room to, so to whoever comes up behind it is a body to get past.
+        var blocked = still && Cars.Context[occupant].Blocked;
         for (var at = 0; at < count; at++)
         {
             ref readonly var cover = ref under[at];
             var onward = LaneOccupancy.NoWay;
             var onItsLine = travelling && IsOnItsLine(occupant, cover.Way, out onward);
+            if (blocked) onward = LaneOccupancy.NoWay;
             _occupancy.LayBody(
                 cover.Way, cover.FromM, cover.ToM, onItsLine ? Cars.AlongMps[occupant] : 0f, occupant,
                 LaneRoster.Driving, onItsLine, onward, still);

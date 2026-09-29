@@ -301,14 +301,15 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
         // <b>One table, sized for every shape either roster can be in</b> (TER-4c): every way a body can be
         // over, and a plan down its own line with every section its marks link it to. A driver may also
-        // hold a road shut (SRV-6), and every stretch a light holds is a hold (TLT-1) — each one piece placed
-        // on one way.
+        // hold a road shut (SRV-6) and the ground behind it it backs up over (TER-4c.7), and every stretch a
+        // light holds is a hold (TLT-1) — each one piece placed on one way.
         _occupancy = new LaneOccupancy(
             _ways,
-            (drivers * (MostWaysUnderABody + MostPlannedPer(MostWaysAlongALine + 1, _atlas.Marks)))
+            (drivers * (MostWaysUnderABody + MostPlannedPer(MostWaysAlongALine + 1, _atlas.Marks)
+                        + MostPlannedPer(BackingPieces, _atlas.Marks)))
             + (walkers * (MostWaysUnderABody + 1 + MostPlannedPer(MostWaysAlongAWalk, _atlas.Marks)))
             + _signalHolds.Count,
-            (drivers * 2) + walkers + _signalHolds.Count,
+            (drivers * 3) + walkers + _signalHolds.Count,
             _atlas.Marks);
         _carHold = new int[drivers];
         _walkerHold = new int[walkers];

@@ -33,6 +33,10 @@ internal static class DrivingWords
         // The lane beside is a line of its own to a watcher, whatever bound the speed along it (CAR-46).
         if (cars.Pass[car].Begun) return "overtaking";
 
+        // Neither past what stands in front of it nor back for the room to, which the traffic behind reads as a body
+        // going nowhere (CAR-50).
+        if (cars.Context[car].Blocked) return "blocked";
+
         return HoldName(cars.Hold[car]);
     }
 
@@ -60,6 +64,7 @@ internal static class DrivingWords
         DrivingHold.Waiting => "waiting for the junction",
         DrivingHold.Reach => "keeping within its plan",
         DrivingHold.LostLine => "off its line",
+        DrivingHold.BackingUp => "backing up to pass",
         _ => "driving",
     };
 }

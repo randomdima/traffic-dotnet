@@ -101,6 +101,8 @@ internal sealed class CarFleet
         Array.Fill(LightAheadM, float.PositiveInfinity);
         Pass = new Control.Overtake[capacity];
         Array.Fill(Pass, Control.Overtake.None);
+        BackRoomM = new float[capacity];
+        Array.Fill(BackRoomM, float.NaN);
         WheelSpinMps = new float[capacity * TyreModel.Wheels];
         TreadPhaseM = new float[capacity * TyreModel.Wheels];
         ScrubTravelM = new float[capacity * TyreModel.Wheels];
@@ -456,6 +458,13 @@ internal sealed class CarFleet
     /// </summary>
     public Control.Overtake[] Pass { get; }
 
+    /// <summary>
+    /// <b>How far behind its tail the ground this car asked to back up over was had</b> (CAR-50, TER-4c.7) — the
+    /// grant of a car backing up, as <see cref="AuthorityM"/> is of one going forwards: infinite where all it asked
+    /// for was had, and <see cref="float.NaN"/> where it asked for none.
+    /// </summary>
+    public float[] BackRoomM { get; }
+
     public Span<int> RouteOf(int car) => RouteLanes.AsSpan(car * RouteLanesPerCar, RouteLanesPerCar);
 
     /// <summary>
@@ -642,6 +651,7 @@ internal sealed class CarFleet
         GroundCoefficient[car] = 1f;
         Command[car] = DriveCommand.Parked;
         Hold[car] = Control.DrivingHold.None;
+        Context[car] = Control.DriveContext.Clear;
         RouteCount[car] = 0;
         RouteTaken[car] = 0;
         RouteRunsOut[car] = false;
@@ -655,6 +665,7 @@ internal sealed class CarFleet
         InsideTheBox[car] = false;
         LightAheadM[car] = float.PositiveInfinity;
         Pass[car] = Control.Overtake.None;
+        BackRoomM[car] = float.NaN;
         SlipThrottle[car] = 1f;
         DrivenSlipping[car] = false;
         for (var wheel = car * TyreModel.Wheels; wheel < (car + 1) * TyreModel.Wheels; wheel++)

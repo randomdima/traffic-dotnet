@@ -194,10 +194,9 @@ internal static class CarLamps
     /// </summary>
     static CarLampSet OnThePass(in Control.Overtake pass, float progressM, float alongMps, float stepBackLeadS)
     {
-        var steppedOutM = pass.OutM + pass.StepM;
-        if (progressM < steppedOutM) return Towards(pass.AsideM);
+        if (progressM < pass.SteppedOutM) return Towards(pass.AsideM);
 
-        var sayBackFromM = MathF.Max(steppedOutM, pass.BackM - (MathF.Max(0f, alongMps) * stepBackLeadS));
+        var sayBackFromM = MathF.Max(pass.SteppedOutM, pass.BackM - (MathF.Max(0f, alongMps) * stepBackLeadS));
         return progressM >= sayBackFromM ? Towards(-pass.AsideM) : CarLampSet.None;
     }
 

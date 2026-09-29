@@ -116,8 +116,39 @@ internal sealed partial class LaneOccupancy
             return false;
         }
 
-        if (!plansToo) return true;
+        return !plansToo || IsUnplannedForAPass(way, fromM, toM, occupant, of, passed);
+    }
 
+    /// <summary>
+    /// <b>Whether a car's pass is free over a way it holds more of than its body sweeps</b> (TER-4c.6) — a movement
+    /// through a box, held whole: no body but the asker's where its body goes, no other pass over any of what it
+    /// holds, and no ground another holder plans there but what it passes.
+    /// </summary>
+    /// <remarks>
+    /// <b>A body is read where the pass's body goes, and a plan wherever the pass holds</b>: a movement is held whole
+    /// so that nothing is let into it that the pass would then wait on, which is a question of plans. A body standing
+    /// on the movement clear of where the pass's body goes is in nobody's way — and where it stands inside the box
+    /// itself, it is what the pass is getting past.
+    /// </remarks>
+    public bool IsFreeForAPass(
+        int way, float sweptFromM, float sweptToM, float heldFromM, float heldToM, int occupant, LaneRoster of,
+        ReadOnlySpan<LaneClaim> passed)
+    {
+        for (var at = _bodies[way]; at != NoSlot; at = _next[at])
+        {
+            ref readonly var body = ref _slots[at];
+            if (body.FromM >= heldToM) break;
+            if (body.ToM <= heldFromM || (body.Occupant == occupant && body.Of == of)) continue;
+            if (body.Passing || (body.ToM > sweptFromM && body.FromM < sweptToM)) return false;
+        }
+
+        return IsUnplannedForAPass(way, heldFromM, heldToM, occupant, of, passed);
+    }
+
+    /// <summary>Whether no holder but the asker and what it passes plans any of a stretch of one way.</summary>
+    bool IsUnplannedForAPass(
+        int way, float fromM, float toM, int occupant, LaneRoster of, ReadOnlySpan<LaneClaim> passed)
+    {
         for (var at = _planned[way]; at != NoSlot; at = _next[at])
         {
             ref readonly var piece = ref _slots[at];
@@ -139,16 +170,30 @@ internal sealed partial class LaneOccupancy
     /// <b>Two passes asked on one tick are settled by roster and occupant, the lower keeping its own</b>: both
     /// holders read one layer, so the one comparison gives both of them one answer and exactly one withdraws.
     /// </remarks>
-    public bool KeepsItsPass(int way, float fromM, float toM, int occupant, LaneRoster of)
+    public bool KeepsItsPass(int way, float fromM, float toM, int occupant, LaneRoster of) =>
+        KeepsItsPass(way, fromM, toM, fromM, toM, occupant, of);
+
+    /// <summary>
+    /// And the same over a way the pass holds more of than its body sweeps — a movement through a box, held whole:
+    /// a body where the pass's body goes, and another pass anywhere it holds
+    /// (<see cref="IsFreeForAPass(int, float, float, float, float, int, LaneRoster, ReadOnlySpan{LaneClaim})"/>).
+    /// </summary>
+    public bool KeepsItsPass(
+        int way, float sweptFromM, float sweptToM, float heldFromM, float heldToM, int occupant, LaneRoster of)
     {
         for (var at = _bodies[way]; at != NoSlot; at = _next[at])
         {
             ref readonly var body = ref _slots[at];
-            if (body.FromM >= toM) break;
-            if (body.ToM <= fromM || (body.Occupant == occupant && body.Of == of)) continue;
-            if (body.Passing && (body.Of > of || (body.Of == of && body.Occupant > occupant))) continue;
+            if (body.FromM >= heldToM) break;
+            if (body.ToM <= heldFromM || (body.Occupant == occupant && body.Of == of)) continue;
+            if (body.Passing)
+            {
+                if (body.Of > of || (body.Of == of && body.Occupant > occupant)) continue;
 
-            return false;
+                return false;
+            }
+
+            if (body.ToM > sweptFromM && body.FromM < sweptToM) return false;
         }
 
         return true;

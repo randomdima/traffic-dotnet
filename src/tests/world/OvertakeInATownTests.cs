@@ -165,17 +165,28 @@ public class OvertakeInATownTests
     /// the lane beyond it.
     /// </summary>
     [Fact]
-    public void ACarGetsPastAWreckShortOfAJunctionThroughTheBox()
+    public void ACarGetsPastAWreckShortOfAJunctionThroughTheBox() => GetsPastAWreckAtABox(inTheBox: false);
+
+    /// <summary>
+    /// <b>Nor is a box an end to what may be passed</b>: a wreck standing in the middle of the movement a car goes
+    /// straight on through is got past over the movement beside it. The movement the wreck stands on is held whole
+    /// against every plan, and its body read only where the pass's body goes — held whole against bodies too, the
+    /// pass would stand over the very thing it is getting past.
+    /// </summary>
+    [Fact]
+    public void ACarGetsPastAWreckStandingInABox() => GetsPastAWreckAtABox(inTheBox: true);
+
+    static void GetsPastAWreckAtABox(bool inTheBox)
     {
         using var world = new TownWorld(Towns.Built, Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         loop.Advance(WarmUpTicks);
 
-        var staged = StageAWreckShortOfABox(world);
+        var staged = StageAWreckAtABox(world, inTheBox);
         for (var tick = 0; tick < WatchedAtAJunctionTicks && staged.Driver < 0; tick += WarmUpTicks)
         {
             loop.Advance(WarmUpTicks);
-            staged = StageAWreckShortOfABox(world);
+            staged = StageAWreckAtABox(world, inTheBox);
         }
 
         var (driver, lane, beyond) = staged;
@@ -202,10 +213,11 @@ public class OvertakeInATownTests
 
     /// <summary>
     /// A driven car on a quiet two-way street whose line goes straight on through the box at its end onto another
-    /// two-way street, and a wreck put down in its lane <see cref="ShortOfTheBoxM"/> short of that box.
+    /// two-way street, and a wreck put down in its lane <see cref="ShortOfTheBoxM"/> short of that box — or, where
+    /// asked, in the middle of the movement through it.
     /// </summary>
     /// <returns>The car, the lane it is on, and the lane beyond the box — or a driver of −1 where there is none yet.</returns>
-    static (int Driver, int Lane, int Beyond) StageAWreckShortOfABox(TownWorld world)
+    static (int Driver, int Lane, int Beyond) StageAWreckAtABox(TownWorld world, bool inTheBox)
     {
         var cars = world.Cars;
         var roads = world.Roads;
@@ -243,7 +255,9 @@ public class OvertakeInATownTests
             {
                 if (wreck == driver) continue;
 
-                var at = Spline.SampleAt(roads.ArcsOf(lane), atM);
+                var at = inTheBox
+                    ? Spline.SampleAt(roads.ConnectorArcs(join), roads.ConnectorLengthM(join) * IntoTheBoxShare)
+                    : Spline.SampleAt(roads.ArcsOf(lane), atM);
                 PutDown(world, wreck, at.PositionM, at.HeadingRad);
                 return (driver, lane, beyond);
             }
@@ -335,6 +349,71 @@ public class OvertakeInATownTests
     }
 
     /// <summary>
+    /// <b>A car turns out as soon as it has its pass</b>: the step out begins where the car stood when the pass was
+    /// had, and not further on at the last place its body could still clear what it passes.
+    /// </summary>
+    [Fact]
+    public void ACarTurnsOutWhereItHasItsPass()
+    {
+        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
+        var loop = new SimLoop<TownWorld>(world, Config);
+        loop.Advance(WarmUpTicks);
+
+        var (driver, _, _, _, _) = StageAWreckAhead(world, alsoInTheLaneBeside: false);
+        var cars = world.Cars;
+        for (var tick = 0; tick < WatchedTicks && !cars.Pass[driver].Any; tick++) loop.Advance(1);
+
+        var pass = cars.Pass[driver];
+        Assert.True(pass.Any, $"car {driver} never asked for a pass; it was held by {cars.GrantCutBy[driver]}");
+        Assert.Equal(cars.ProgressM[driver], pass.OutM);
+    }
+
+    /// <summary>
+    /// <b>A car pulls away along its pass</b>: stepping out from a standstill round two wrecks standing nose to tail,
+    /// it is let pick up pace on the straight alongside them rather than held to the crawl its step out was drawn for,
+    /// and steps back at the pace it has picked up.
+    /// </summary>
+    [Fact]
+    public void ACarPullsAwayAlongItsPass()
+    {
+        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
+        var loop = new SimLoop<TownWorld>(world, Config);
+        loop.Advance(WarmUpTicks);
+
+        var (driver, lane, _, _, beside) = StageAWreckAhead(world, alsoInTheLaneBeside: true, alsoPastIt: true);
+        var cars = world.Cars;
+        var (moving, stoodFor) = (false, 0);
+        for (var tick = 0; tick < WatchedTicks && stoodFor < StandsForTicks; tick++)
+        {
+            loop.Advance(1);
+            if (cars.AlongMps[driver] > Config.Driving.StopSpeedMps) (moving, stoodFor) = (true, 0);
+            else if (moving) stoodFor++;
+        }
+
+        PutDown(world, beside, FarOffTheTownM, 0f);
+        for (var tick = 0; tick < WatchedTicks && !cars.Pass[driver].Begun; tick++) loop.Advance(1);
+
+        var pass = cars.Pass[driver];
+        Assert.True(pass.Begun, $"car {driver} never began a pass once the lane beside was clear; held by {cars.GrantCutBy[driver]}");
+
+        var fastestAlongsideMps = 0f;
+        for (var tick = 0; tick < WatchedTicks && cars.Pass[driver].Begun && cars.LaneOf(driver) == lane; tick++)
+        {
+            loop.Advance(1);
+            var atM = cars.ProgressM[driver];
+            if (atM > pass.SteppedOutM && atM < pass.BackM) fastestAlongsideMps = MathF.Max(fastestAlongsideMps, cars.AlongMps[driver]);
+        }
+
+        Assert.True(pass.BackM > pass.SteppedOutM, $"car {driver}'s pass had no straight alongside what it passed");
+        Assert.True(
+            pass.BackMps > pass.OutMps,
+            $"car {driver} stepped out at {pass.OutMps:F2} m/s and was drawn to step back at {pass.BackMps:F2}");
+        Assert.True(
+            fastestAlongsideMps > pass.OutMps * PulledAwayShare,
+            $"car {driver} stepped out at {pass.OutMps:F2} m/s and went no faster than {fastestAlongsideMps:F2} alongside");
+    }
+
+    /// <summary>
     /// <b>A car held behind a wreck stands where it can step out round it</b>, and no further back: once the lane
     /// beside clears it begins its pass from where it stands, and what it passes is less than a step in front of it —
     /// its step out runs on alongside what it passes rather than being done behind it.
@@ -375,8 +454,138 @@ public class OvertakeInATownTests
             pass.OutM - stoodAtM <= Config.Driving.PassSpareM,
             $"car {driver} stood at {stoodAtM:F2} m and stepped out from {pass.OutM:F2} m");
         Assert.True(
-            wreckTailM - noseM < pass.StepM,
-            $"car {driver} stood {wreckTailM - noseM:F2} m short of the wreck with a step of {pass.StepM:F2} m");
+            wreckTailM - noseM < pass.OutStepM,
+            $"car {driver} stood {wreckTailM - noseM:F2} m short of the wreck with a step of {pass.OutStepM:F2} m");
+    }
+
+    /// <summary>
+    /// <b>A car standing too near a wreck to step out round it backs up for the room, and gets past</b> (CAR-50):
+    /// put down a stand-off in front of it once it has stopped, the wreck is nearer than any step out from rest
+    /// clears, and the car backs down its own lane until it can step out — never past the room it keeps to — before
+    /// its pass, having touched nothing.
+    /// </summary>
+    [Fact]
+    public void ACarStandingTooNearAWreckBacksUpForTheRoomAndGetsPast()
+    {
+        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
+        var loop = new SimLoop<TownWorld>(world, Config);
+        loop.Advance(WarmUpTicks);
+
+        var (driver, lane, clearsM, beside) = StandTooNearAWreck(world, loop);
+        var cars = world.Cars;
+        var stoodAtM = cars.ProgressM[driver];
+        var shortM = -cars.AuthorityM[driver];
+        Assert.True(shortM > 0f, $"car {driver} put a stand-off from the wreck was granted {cars.AuthorityM[driver]:F2} m, and is not too near");
+
+        PutDown(world, beside, FarOffTheTownM, 0f);
+        var leastM = stoodAtM;
+        var touched = false;
+        var furthestM = float.NegativeInfinity;
+        for (var tick = 0; tick < WatchedTicks && cars.LaneOf(driver) == lane; tick++)
+        {
+            loop.Advance(1);
+            if (cars.LaneOf(driver) != lane) break;
+
+            if (!cars.Pass[driver].Begun) leastM = MathF.Min(leastM, cars.ProgressM[driver]);
+            furthestM = MathF.Max(furthestM, cars.ProgressM[driver]);
+            touched |= world.PhysicsForInstruments.OverlapOf(cars.Body[driver]) > SoakProbe.OverlapAllowanceM;
+        }
+
+        var backedM = stoodAtM - leastM;
+        Assert.True(
+            backedM > Config.Driving.PassSpareM && backedM <= shortM + Config.Driving.PassSpareM,
+            $"car {driver} was {shortM:F2} m short of the room to step out and backed up {backedM:F2} m");
+        Assert.True(
+            furthestM - cars.BuildOf(driver).TailBehindAxleM > clearsM || cars.LaneOf(driver) != lane,
+            $"car {driver} got its tail to {furthestM - cars.BuildOf(driver).TailBehindAxleM:F1} m of lane {lane}, "
+            + $"and the wreck ends at {clearsM:F1} m; held by {cars.GrantCutBy[driver]}, {cars.Hold[driver]}");
+        Assert.False(touched, $"car {driver} touched something backing up or getting past");
+    }
+
+    /// <summary>
+    /// <b>A car too near a wreck to step out round it, with no room behind it to back up into, is a body going
+    /// nowhere</b> (CAR-50, TER-4c.2): it does not move, and its body says to whoever comes up behind it that it is
+    /// something to get past rather than a queue.
+    /// </summary>
+    [Fact]
+    public void ACarTooNearAWreckWithNoRoomBehindItGoesNowhere()
+    {
+        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
+        var loop = new SimLoop<TownWorld>(world, Config);
+        loop.Advance(WarmUpTicks);
+
+        var (driver, lane, _, beside) = StandTooNearAWreck(world, loop);
+        var cars = world.Cars;
+        var stoodAtM = cars.ProgressM[driver];
+        var behind = AnotherCar(world, driver, beside);
+        var tailM = stoodAtM - cars.BuildOf(driver).TailBehindAxleM - cars.LaneStartsOf(driver)[0];
+        PutDownOn(
+            world, behind, world.Roads.ArcsOf(lane),
+            tailM - Config.Driving.StandOffM - (cars.BuildOf(behind).LengthM * 0.5f));
+        PutDown(world, beside, FarOffTheTownM, 0f);
+
+        loop.Advance(StandsForTicks);
+
+        Assert.True(
+            stoodAtM - cars.ProgressM[driver] < Config.Driving.StopSpeedMps,
+            $"car {driver} backed up {stoodAtM - cars.ProgressM[driver]:F2} m into ground a wreck stands on");
+        Assert.True(
+            TheBodyOn(world, driver, world.Ways.OfRoadLane(lane)).GoesNowhere,
+            $"car {driver}, too near the wreck with none of the ground behind it, is laid as a body going somewhere");
+    }
+
+    /// <summary>
+    /// A car standing still behind a wreck with a second wreck alongside it in the lane beside, and the first wreck
+    /// then put down again a stand-off in front of its nose — nearer than it could step out round it from.
+    /// </summary>
+    /// <returns>The car, the lane, where along it the wreck ends, and the one in the lane beside.</returns>
+    static (int Driver, int Lane, float ClearsM, int Beside) StandTooNearAWreck(TownWorld world, SimLoop<TownWorld> loop)
+    {
+        var (driver, lane, _, wreck, beside) = StageAWreckAhead(world, alsoInTheLaneBeside: true);
+        var cars = world.Cars;
+
+        var (moving, stoodFor) = (false, 0);
+        for (var tick = 0; tick < WatchedTicks && stoodFor < StandsForTicks; tick++)
+        {
+            loop.Advance(1);
+            if (cars.AlongMps[driver] > Config.Driving.StopSpeedMps) (moving, stoodFor) = (true, 0);
+            else if (moving) stoodFor++;
+        }
+
+        Assert.True(stoodFor >= StandsForTicks, $"car {driver} never stood behind the wreck; it was held by {cars.GrantCutBy[driver]}");
+
+        var noseM = cars.ProgressM[driver] + cars.BuildOf(driver).NoseAheadOfAxleM - cars.LaneStartsOf(driver)[0];
+        var atM = noseM + Config.Driving.StandOffM + (cars.BuildOf(wreck).LengthM * 0.5f);
+        PutDownOn(world, wreck, world.Roads.ArcsOf(lane), atM);
+        loop.Advance(1);
+
+        return (driver, lane, atM + (cars.BuildOf(wreck).LengthM * 0.5f), beside);
+    }
+
+    /// <summary>Any car of the town but those named.</summary>
+    static int AnotherCar(TownWorld world, params int[] not)
+    {
+        for (var car = 0; car < world.Cars.Count; car++)
+        {
+            if (Array.IndexOf(not, car) < 0 && !world.Cars.Broken[car]) return car;
+        }
+
+        Assert.Fail("the fixture had no car to spare");
+        return -1;
+    }
+
+    /// <summary>A car's body on one way, as the physical layer holds it (TER-4c.2).</summary>
+    static LaneClaim TheBodyOn(TownWorld world, int car, int way)
+    {
+        Span<LaneClaim> bodies = stackalloc LaneClaim[64];
+        var count = world.Occupancy.CopyBodiesTo(way, bodies);
+        for (var at = 0; at < count; at++)
+        {
+            if (bodies[at].Occupant == car && bodies[at].Of == LaneRoster.Driving && !bodies[at].Passing) return bodies[at];
+        }
+
+        Assert.Fail($"car {car} has no body on way {way}");
+        return LaneClaim.Nothing;
     }
 
     /// <summary>
@@ -461,11 +670,12 @@ public class OvertakeInATownTests
 
     /// <summary>
     /// A driven car on a quiet two-way street with room ahead, and a wreck put down in its lane
-    /// <see cref="WreckAheadM"/> in front of it — and, where asked, a second one level with it in the lane beside.
+    /// <see cref="WreckAheadM"/> in front of it — and, where asked, a second one level with it in the lane beside,
+    /// and a third in its lane nose to tail with the first, <see cref="NoseToTailM"/> on.
     /// </summary>
-    /// <returns>The car, the lane, where along it the wreck ends, the wreck, and the one beside it or −1.</returns>
+    /// <returns>The car, the lane, where along it the first wreck ends, that wreck, and the one beside it or −1.</returns>
     static (int Driver, int Lane, float ClearsM, int Wreck, int Beside) StageAWreckAhead(
-        TownWorld world, bool alsoInTheLaneBeside)
+        TownWorld world, bool alsoInTheLaneBeside, bool alsoPastIt = false)
     {
         var cars = world.Cars;
         var roads = world.Roads;
@@ -481,24 +691,31 @@ public class OvertakeInATownTests
 
             var atM = fromM + cars.BuildOf(driver).NoseAheadOfAxleM + WreckAheadM;
             var clearsM = float.NaN;
-            var (inTheLane, beside) = (-1, -1);
-            for (var wreck = 0; wreck < cars.Count && (inTheLane < 0 || (alsoInTheLaneBeside && beside < 0)); wreck++)
+            var (inTheLane, beside, past) = (-1, -1, -1);
+            for (var wreck = 0; wreck < cars.Count; wreck++)
             {
                 if (wreck == driver) continue;
 
-                var first = inTheLane < 0;
-                var on = first ? lane : back;
-                var alongM = first ? atM : roads.LaneLengthM[back] - atM;
-                var at = Spline.SampleAt(roads.ArcsOf(on), alongM);
-                PutDown(world, wreck, at.PositionM, at.HeadingRad);
-                if (!first)
+                if (inTheLane < 0)
+                {
+                    inTheLane = wreck;
+                    PutDownOn(world, wreck, roads.ArcsOf(lane), atM);
+                    clearsM = atM + (cars.BuildOf(wreck).LengthM * 0.5f);
+                }
+                else if (alsoInTheLaneBeside && beside < 0)
                 {
                     beside = wreck;
-                    continue;
+                    PutDownOn(world, wreck, roads.ArcsOf(back), roads.LaneLengthM[back] - atM);
                 }
-
-                inTheLane = wreck;
-                clearsM = atM + (cars.BuildOf(wreck).LengthM * 0.5f);
+                else if (alsoPastIt && past < 0)
+                {
+                    past = wreck;
+                    PutDownOn(world, wreck, roads.ArcsOf(lane), atM + NoseToTailM);
+                }
+                else
+                {
+                    break;
+                }
             }
 
             return (driver, lane, clearsM, inTheLane, beside);
@@ -532,6 +749,13 @@ public class OvertakeInATownTests
         return false;
     }
 
+    /// <summary>A car broken where it is put down on a lane, at a metre of it and pointed along it.</summary>
+    static void PutDownOn(TownWorld world, int car, ReadOnlySpan<ArcSeg> lane, float alongM)
+    {
+        var at = Spline.SampleAt(lane, alongM);
+        PutDown(world, car, at.PositionM, at.HeadingRad);
+    }
+
     /// <summary>A car broken where it is put down: nothing drives it, and it holds its ground as a body (TER-4c.2).</summary>
     static void PutDown(TownWorld world, int car, Vector2 atM, float headingRad)
     {
@@ -560,11 +784,24 @@ public class OvertakeInATownTests
     /// <summary>How far in front of the car's nose the wreck is put down: a town speed's stop and more.</summary>
     const float WreckAheadM = 45f;
 
+    /// <summary>How far on from the first a second wreck nose to tail with it stands: too little room between to come back into.</summary>
+    const float NoseToTailM = 8f;
+
+    /// <summary>How far past the pace of its step out a car pulling away alongside what it passes is held to have got.</summary>
+    const float PulledAwayShare = 1.2f;
+
     /// <summary>How much of its lane a car must have ahead of it for a wreck and the whole of a pass round it.</summary>
     const float RoomAheadM = 140f;
 
     /// <summary>How far short of the box at a lane's end a wreck is put down: less than a pass needs to come back in.</summary>
     const float ShortOfTheBoxM = 8f;
+
+    /// <summary>
+    /// How far through the movement a wreck standing in a box is put down. <b>Well in</b>: nearer the mouth, the car
+    /// waits where the room to step out it keeps on a street (<see cref="Core.Config.DrivingFigures.StandOffM"/>)
+    /// puts it, and the ribbons flaring at the mouth are read as a little more ground than that room allows for.
+    /// </summary>
+    const float IntoTheBoxShare = 0.75f;
 
     /// <summary>How much of the street past the box a pass round a wreck that close to it runs on into.</summary>
     const float PastTheBoxM = 60f;

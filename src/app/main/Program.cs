@@ -308,14 +308,18 @@ internal static class Program
     {
         if (string.Equals(name, "all", StringComparison.Ordinal)) return Kept(CheckCatalogue.RunAll(config));
 
-        // Seven checks are about a particular town, so the command line's --map reaches them, and two that
-        // run every shipped town run the one it names; every other check builds the world it needs.
+        // Seven checks are about a particular town, so the command line's --map reaches them; two that run every
+        // shipped town run the one it names, and the stuck probe runs it instead of its own; every other check builds
+        // the world it needs.
         switch (name)
         {
             case "soak" when map is not null:
                 return Kept(SoakProbe.Run(config, map));
             case "drive" when map is not null:
                 DriveProbe.Run(config, map);
+                return 0;
+            case "stuck" when map is not null:
+                StuckProbe.Run(map, config);
                 return 0;
             case "load":
                 LoadProbe.Run(map ?? Options.FixtureMap, config);

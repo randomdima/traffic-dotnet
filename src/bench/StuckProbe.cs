@@ -186,6 +186,9 @@ internal static class StuckProbe
         Console.WriteLine(
             $"passes: cars asked {world.PassesAsked}, withdrew {world.PassesWithdrawn}, made {world.PassesMade}; " +
             $"walkers asked {world.SidestepsAsked}, withdrew {world.SidestepsWithdrawn}, made {world.SidestepsMade}");
+        Console.WriteLine(
+            $"too near to step out (CAR-50): {world.CarTicksBackingUp} car-ticks backing up for the room, " +
+            $"{world.CarTicksBlocked} blocked with none of the ground behind them");
         if (passesBegun.Count > 0) Console.WriteLine($"  the first begun, to frame with --shot: {string.Join("; ", passesBegun)}");
         ReportCars(world, config, carStillTicks, carWorstTicks);
         ReportPeople(world, config, personStillTicks, personWorstTicks);
@@ -286,6 +289,13 @@ internal static class StuckProbe
                 $"drivable ground {world.Terrain.At(rearAxleM).Drivable}");
             Console.WriteLine(
                 $"    grant {cars.AuthorityM[car]:F2} m cut by {cars.GrantCutBy[car]} {WhatHeld(world, world.DriveHold(car))}");
+
+            // Whether it means to get past what holds it (CAR-46): decided and waiting on the ground, or refused by the
+            // road itself — no lane back, too near to step out, a zebra, a bend — which is no decision at all.
+            var context = cars.Context[car];
+            Console.WriteLine(
+                $"    waits to pass {context.WaitsToPass}, " +
+                (context.PassAsideM != 0f ? $"decided on the lane {context.PassAsideM:F2} m across" : "no pass decided"));
             Console.WriteLine(
                 $"    line {cars.Line[car].ArcCount} arcs, progress {cars.ProgressM[car]:F1} m, lane " +
                 $"{cars.LaneOf(car)}, line way {cars.LineWay[car]}, plan {cars.ClaimFromM[car]:F1}–{cars.ClaimToM[car]:F1} m " +

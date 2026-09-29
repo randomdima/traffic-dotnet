@@ -3,6 +3,74 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-09-29 — a car too near to step out backs up, and one that cannot is going nowhere
+
+**The owner saw cars that would not get past something because they stood too near it**, and asked for a car
+that close to back up a little over a claim of the lowest rung behind it — and, where it can do neither, to count as
+stuck and be something the traffic behind gets past in turn (CAR-50, TER-4c.7).
+
+**Why a car was ever too near**: it keeps room to step out only behind a body already going nowhere when it comes
+up (`KeptOffM`). Behind anything else it may pass — a queue making another movement, a car backing out of a bay, the
+head of a queue then stood down — it closes to the stand-off, and no step out from rest clears that: a reservation
+has no across (TER-4c), so the whole body has to be off its lane before it is level with what it passes, and reading
+the other body's shape instead is reading another agent (TER-4c.5). At rest the car asked anyway, its swept body was
+over the metres of what it passed, and it was decided — indicating — for ever. On the stuck probe's five minutes of
+Odesa the car standing longest behind a wreck, 178 s, was one of these, 3.3 m inside its room.
+
+- **It backs up by as much as it is too near, whatever it passes, and only where nothing else refuses the pass**
+  (`AskForAPass`). Asked only behind a body going nowhere, it never started for the case the owner then showed: a car
+  a few metres behind a stopped car on its line, the lane beside empty, indicating and doing nothing — on Odesa
+  54 000 car-ticks were cars decided and too near behind a queue making another movement, and not one asked. Asked
+  wherever it is too near, the 27 000 car-ticks it was then blocked were all cars whose room past what they passed
+  was held by a queue, which backing up does not give them, and each was laid as going nowhere for the cars behind.
+- **It backs up until it could step out** — the pass's spare past that is what it asks for, so in the fixture a car
+  3.1 m short of that room backed 2.45 m and stepped out from there.
+- **The car queued behind it gives up the ground it planned up to its tail** (TER-4c.7), where it could still stop
+  short of it. Weaker than that plan too, a queue locked itself: of the car-ticks cars were blocked, a quarter were
+  refused by the plan of the car stopped behind them.
+- **The rung is p9, below every movement, and not the p8 asked for.** p8 is the turn across the oncoming stream, and
+  an approach to one holds p8 too (TER-5g.1): level with it, a tie goes to whoever is nearer, and the car backing
+  onto the ground behind its own tail always is — so it would have taken that ground off a car behind about to turn
+  left and given it up to one going straight on.
+- **Blocked means refused the whole of what it needs**: backing part of the way still leaves it too near, and a car
+  standing where it stopped is easier to get past than one that has moved.
+- **What it was granted behind is infinite where all of it was had**, as the grant in front is: a length carried out
+  to the lane's metres and back came home a float's grain short and read as a refusal.
+- **A change of gear no longer swings the rack.** The wheel a tick starts from was carried in the frame of the gear
+  last driven in, so the first tick in the other gear began from the wheel's mirror image; it is carried in the
+  frame of the gear being driven now.
+
+Over the stuck probe's five minutes of Odesa, River and Test no car backed up, none was blocked and none asked for a
+pass, as none had before. Every car there decided and too near waits on room past what it passes that a queue
+holds; the rest are refused by the road first — on Odesa a zebra (63 000 car-ticks), a line bending past what the
+lock leaves (46 000), or more bodies than one pass gets past (16 000).
+
+## 2026-09-29 — a pass is turned into when it is had, and laid for the pace the car picks up
+
+**The owner saw cars queue where they could have passed, and stay on the lane beside too long** (CAR-46), and
+asked for the pass to be made for the room past the obstacle, claimed whole where the road is free, turned into as
+soon as it is had, and laid as though the car keeps its pace or pulls away — slowing only while it is not had.
+
+- **The step out begins where the car stands when it has the pass**, stretched towards where the step back may
+  begin and no further. It began as late as the body allowed: a car with the pass drove on straight for a while,
+  17 m at 12 m/s in the fixture, before it turned. Stretched to where the body must be off its lane by the obstacle
+  instead, a step out ran on past a car-length wreck and held the lane beside a further half second.
+- **The step back is drawn for the pace picked up by where it begins**, and the two steps are drawn apart
+  (`Overtake`). One speed held the whole pass: at speed the car was held at what it asked at (11.9 m/s, pulling
+  away to 25), and from rest at the lock's crawl (4.75 m/s) the whole way, straight alongside included. It now
+  pulls away alongside; at speed it went 12 → 14.8 m/s and was back in lane 5 m sooner and 1.4 s sooner. **From
+  rest the steps are what they were**: a 10 m step at the lock is driven at what the tyres hold round it, and a
+  longer one takes longer.
+- **What the pass makes for may be held by something it may not pass**: that is waited for, decided, and no longer
+  refuses the pass outright — which had left such a car with no indicator and no ask.
+- **A body already passed was found again past its own end** a float's grain short where its way's metres and
+  the line's disagree — on every lane of a line but the first, and in every box — and passed again until the pass
+  ran out of room for bodies and was given up. It is now told apart by who it is (`TheNextBodyPast`).
+
+**Most of what still waits in Odesa waits on a zebra.** Over the stuck probe's five minutes, four of the five
+cars held behind an obstacle for a minute or more are refused only because their pass would cross one, which
+CAR-46 forbids; the fifth stands nearer its obstacle than it can step out from.
+
 ## 2026-09-29 — a car indicates a pass from when it decides on one
 
 **The owner asked for the indicator to come on when the car decides to overtake, and not when it gets the
@@ -12,14 +80,14 @@ with the claim — at speed about 1.4 s ahead of the step out, from rest one reb
 car waited behind a wreck for the lane beside.
 
 **The decision is what the driver asks from**: where it would begin slowing for what it passes, and wherever the
-pass is then waiting only on the car's own pace or on the lane beside coming free. A refusal that is the road's own —
-nowhere to come back in, a zebra, a bend, a place the car was sent to — is no decision, and the ground check is split
-into the road and who holds it so the two can be told apart (`IsThePassOnTheRoad`, `IsThePassUnheld`). **Its side is
-carried on the tick's `DriveContext`** because the pass is the only place the side of the lane beside is known and a
-car waiting for one has no pass; the context is written every tick the car decides and cleared every tick it does not,
-so nothing is left to clear and the lamp is still no state of its own (CAR-14). `WaitsToPass` was left as it was: it is
-true from any distance for the gentle approach, and a car flashing at something a hundred metres off is announcing
-nothing anybody can act on.
+pass is then waiting only on the car's own pace or on its ground coming free. A refusal that is the road's own —
+a line ending before it can be come back onto, a zebra, a bend, a place the car was sent to — is no decision, and
+the ground check is split into the road and who holds it so the two can be told apart (`IsThePassOnTheRoad`,
+`IsThePassUnheld`). **Its side is carried on the tick's `DriveContext`** because the pass is the only place the side
+of the lane beside is known and a car waiting for one has no pass; the context is written every tick the car decides
+and cleared every tick it does not, so nothing is left to clear and the lamp is still no state of its own (CAR-14).
+`WaitsToPass` was left as it was: it is true from any distance for the gentle approach, and a car flashing at
+something a hundred metres off is announcing nothing anybody can act on.
 
 **Dark alongside, and the step back said a lead ahead of it** (`LampFigures.StepBackLeadS`, a driver's habit in
 seconds), the way a driver cancels once out and signals again to come in.

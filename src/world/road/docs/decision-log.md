@@ -4,6 +4,31 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-09-29 — a car backing up plans behind itself, at a rung of its own
+
+**The ground a car backs up over is a plan like any other** (TER-4c.7, CAR-50), asked and answered on the one
+comparison (`LaneOccupancy.ReachBack`, `TakeBack`), read down the way from the holder's tail. **It is asked once every
+other plan is settled**: it is weaker than all of them, so nothing it could take would be given back, and laid last
+nothing is weighed against it later in the rebuild — which spares the cut and the settling a hold running against
+its way's metres. **What its holder can no longer stop short of is laid as its own piece**, committed, since a
+piece's committed ground is the stretch below a metre and a car rolling back has it above one.
+
+**It takes the plan of somebody queued behind it** — a hold its holder's body cut — wherever that one could still
+stop short (`LaneOccupancy.IsQueuedBehind`). Weaker than that too, it was a queue locking itself: the owner saw a
+car stand too near a car in front with the lane beside empty, and the car stopped behind it planned every metre up
+to its tail, so no car of a queue could ever back up. The plan is cut with the one cut any taking makes, and the
+backing hold keeps the pass's spare off the body behind, which is now all that is left between them.
+
+## 2026-09-29 — a movement a pass holds whole is held whole against plans, not bodies
+
+**A wreck standing in a box could never be passed** (TER-4c.6). The pass holds every movement its body is swept
+over whole, and the movement the wreck stood on was the car's own, so the pass's ground held the wreck's body and
+was never free. Holding a movement whole is about what is let into it — a car crossing the box let in and cut in
+the middle of it — which is a question of plans and of other passes. **A body is now read only where the pass's
+body goes** (`LaneOccupancy.IsFreeForAPass`, `KeepsItsPass`, `TownWorld.TheBodyInThePass`); a body elsewhere on the
+movement is in nobody's way, and a driven one standing there still plans the room to pull away, which the whole
+movement is held against.
+
 ## 2026-09-29 — a moving car plans no further than its corners let it rest
 
 **A plan drew back on its own as its car slowed for a bend** — the owner saw a car's hold reach round a

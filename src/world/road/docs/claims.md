@@ -90,7 +90,9 @@ turned across its own lane holds the corner of the next and not its own shadow d
   that its line runs on down this way and is not yet laid past it, or ends where it stands. A car on a way of
   its own line, or a walker on the way it is walking, is a queue to whoever comes up behind it; anywhere else it
   is standing there, going nowhere down it. **And it says whether it is at rest.** The holder says all of it of
-  itself, so no reader looks another agent up to find out.
+  itself, so no reader looks another agent up to find out. **A car that can neither get past what stands in front
+  of it nor back up for the room to says its line ends where it stands** (CAR-50): to whoever comes up behind it,
+  it is going nowhere.
 - **A coupled pair is one occupant** (`EVA-5`): the car on the bar is laid under the vehicle pulling it, so a
   truck's own plan is never cut at its own trailer.
 - **A walker is always on the way it walks**, over the stretch its own body takes of it — the one way it must
@@ -116,7 +118,10 @@ has left its own way cannot safely go back. So it is asked for only where it can
   ground the holder's network does not have is a pass run off it, and is not asked for.
 - **A movement through a box is held whole**, as a car in a box plans the rest of the join: held in part, a car
   crossing the box is let in and cut in the middle of it, standing over the pass's ground on the movement beside
-  its own, the pass and it each waiting on the other.
+  its own, the pass and it each waiting on the other. **Whole against plans and other passes, and against a body
+  only where the pass's own body goes**: holding the movement whole is about what is let into it, and a body
+  standing on it clear of the pass is in nobody's way — where it stands in the box itself, it is what the pass is
+  getting past.
 - **Only over ground nobody has**: no body on any of it but the asker's, and no ground another holder plans,
   the plans of what is being passed aside — a body at rest plans the room to pull away and nothing it can no
   longer stop short of, and the pass laid over it cuts it. The paint of a zebra a walker's pass only skirts at
@@ -175,6 +180,17 @@ it, and only something that beats it takes it.
   held off it as it is held off any body. Nothing but the answer says where a car waits.
 - **Nothing is ever released.** Every plan is laid again from its holder every tick, so a body that stops,
   is wrecked or is taken over by a hand plans nothing on the tick after.
+
+**TER-4c.7** `P3` **A car backing up plans behind itself, weaker than every other plan.** Its ground is the
+stretch of the lane it is on behind its tail that it means to back over (CAR-50), at the bottom of the ladder
+(TER-5g), and is answered from the tail down: the pass's spare short of the far edge of the first body behind it,
+and at the nearest metre of any other plan there, since every one of them beats it. **It is asked once every other
+plan is settled** and takes nothing any of them keeps, except where its holder is already rolling back: what it can
+no longer stop short of is committed like anybody's (TER-5e). It never runs behind the start of the lane.
+
+- **The plan of somebody queued behind it is the one exception**: a plan its own body cut runs up to it only because
+  it stands there, and gives up whatever of that ground its holder could still stop short of, cut back to where the
+  backing is laid from.
 
 **TER-5c.1** `P3` **A plan is main claims and secondary claims, and only a main claim is ever answered.** A
 **main claim** is ground on a way of the holder's own line. A **secondary claim** is the whole of the section
@@ -274,6 +290,8 @@ reservations learns what a police car, an ambulance or a signal is.
   (TER-5c.3) bring this rung to its lane, and gives up the pavement its turn sweeps at a corner the same way.
 - **p6, p7, p8 — the movements** (TER-5e): straight through, then ordinary traffic — the near-side turn and
   every way that is not a join through a box — and then the turn across the oncoming stream.
+- **p9 — a car backing up** (TER-4c.7): below every movement and never level with one, since a tie goes to
+  whoever is nearer, and a car backing onto the ground behind its own tail always is.
 
 **TER-5g.1** `P3` **The rung never grows along a hold.** One holder's ground is one run from its front
 outward (TER-5c.2), and nothing it holds further along is held more strongly than what it holds this side

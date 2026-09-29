@@ -293,6 +293,72 @@ public class LaneOccupancyTests
         Assert.Equal(50f, index.PlannedToM(way, 25f, occupant: 2, LaneRoster.Driving));
     }
 
+    /// <summary>
+    /// <b>A hold backing down a way is had back to what it keeps off the far edge of the first body behind its
+    /// holder</b> (TER-4c.7): the nearest of them, reading down from the tail, and never one in front of it.
+    /// </summary>
+    [Fact]
+    public void AHoldBackingDownAWayIsHadBackToTheFirstBodyBehindIt()
+    {
+        var (way, _, _) = ThreeWays();
+        var index = Index();
+
+        index.Begin();
+        index.LayBody(way, 4f, 8f, 0f, 3, LaneRoster.Driving, onItsLine: true);
+        index.LayBody(way, 12f, 16f, 0f, 4, LaneRoster.Driving, onItsLine: true);
+        index.LayBody(way, 35f, 39f, 0f, 5, LaneRoster.Driving, onItsLine: true);
+
+        var reachM = index.ReachBack(Ask(0, 1, ClaimPriority.Backing, 0f), way, 0f, 30f, 30f, 0.5f, out var cutBy);
+        Assert.Equal(16.5f, reachM);
+        Assert.Equal(4, cutBy.Occupant);
+    }
+
+    /// <summary>
+    /// <b>Backing is weaker than every plan</b> (TER-5g): a hold backing down a way is had back to the nearest metre of
+    /// anybody's plan behind it — but <b>what its holder can no longer stop short of it keeps</b> (TER-5e), and is cut
+    /// only below that.
+    /// </summary>
+    [Fact]
+    public void AHoldBackingDownAWayGivesWayToEveryPlanButWhereItCannotStop()
+    {
+        var (way, _, _) = ThreeWays();
+        var index = Index();
+
+        index.Begin();
+        Plan(index, way, 29.5f, hold => Ask(hold, 2, ClaimPriority.FirmAcross, 5f, aheadM: 20f));
+
+        Assert.Equal(29.5f, index.ReachBack(Ask(0, 1, ClaimPriority.Backing, 0f), way, 0f, 30f, 30f, 0f, out _));
+        Assert.Equal(29f, index.ReachBack(Ask(0, 1, ClaimPriority.Backing, 0f), way, 0f, 30f, 29f, 0f, out _));
+    }
+
+    /// <summary>
+    /// <b>Except the plan of somebody queued behind it</b> (TER-4c.7): a hold its holder's body cut gives up to a hold
+    /// backing down the way whatever of that ground its own holder could still stop short of, and is cut back to where
+    /// the backing hold is laid from.
+    /// </summary>
+    [Theory]
+    [InlineData(float.NegativeInfinity, 5.5f)]
+    [InlineData(20f, 20f)]
+    public void AHoldBackingDownAWayTakesWhatSomebodyQueuedBehindItCouldStillStopShortOf(float committedToM, float reachesM)
+    {
+        var (way, _, _) = ThreeWays();
+        var index = Index();
+
+        index.Begin();
+        index.LayBody(way, 30f, 34f, 0f, 1, LaneRoster.Driving, onItsLine: true);
+        index.LayBody(way, 1f, 5f, 0f, 2, LaneRoster.Driving, onItsLine: true);
+        var queued = 0;
+        Plan(index, way, 60f, hold => Ask(queued = hold, 2, ClaimPriority.Firm, 5f, committedToM: committedToM));
+        Assert.Equal(30f, EndsAtM(index, queued));
+
+        var backing = Ask(index.BeginHold(standingMarginM: 0f), 1, ClaimPriority.Backing, 0f);
+        var reachM = index.ReachBack(backing, way, 0f, 30f, 30f, 0.5f, out _);
+        index.TakeBack(backing, way, reachM, 30f, 30f);
+
+        Assert.Equal(reachesM, reachM);
+        Assert.Equal(reachesM, EndsAtM(index, queued));
+    }
+
     /// <summary><b>Ground its holder can no longer stop short of beats every rung</b> (TER-5e), a call included.</summary>
     [Fact]
     public void CommittedGroundBeatsEveryRung()

@@ -39,17 +39,26 @@ beside it.
   in front of them would stand them in the car's way with nowhere to go.
 - **Not short of a place in the road it was sent to** (AMB-5, EVA-3, SRV-6, CTL-8a): what stands before a car
   sent there is what it was sent to, and a pass ending past the place would drive it by.
-- **As short on the lane beside as the car can make it**: the step out begins as late as the car's body can be
-  off its own lane by the time it is level with what it passes, and the step back as soon past it as the body
-  can come back — a step runs on alongside what it passes rather than being done behind it.
-- **Each step the shortest the car can drive at the speed it is doing**, and driven at that speed: one swing of
-  the wheel and back, its bend never tighter than the lock or than the tyres hold at that speed, and changing no
-  faster than the rack turns (CAR-3a) while the car rolls it. Where the line bends under the pass, what it bends
-  is taken off what the step may. A car getting past from a standstill is let up to the pace below which a step
-  at the lock is no shorter.
-- **Without slowing where the lane beside is free**: a car asks from where it would begin slowing for what it
-  passes, and slows for it gently (`SimConfig.Driving`), asking again all the way in — so a pass it can have is
-  had at the pace it came up at, and one it cannot is waited for coming up slowly.
+- **Made for the room past what it passes**: the first stretch of the car's own line past it long enough to come
+  back into — the step back, and the car's length and stand-off past that. Another body the car may pass standing
+  in that room is passed too, and the room looked for past it. **Anything else standing there is waited for**:
+  the room is still where the car means to come back, so it has decided on the pass (CAR-14.7) and asks again
+  until the room is its own.
+- **Decided where the car would begin slowing for what it passes**, which is the place it has to choose between
+  stepping out and slowing down: had there, the pass is taken at the pace the car came up at; not had, the car
+  slows gently (`SimConfig.Driving`) and asks again all the way in.
+- **Turned into at once**: the step out begins where the car stands when it has the pass, and runs no further
+  than where the step back may begin — nor so far that its body is still over its own lane when it is level with
+  what it passes. **The step back begins as soon past what it passes as the body can come back**, so the car is
+  swinging back in while its tail is still alongside, and off the lane beside as soon as its steps allow.
+- **Each step no shorter than the car can drive at the pace it is drawn for, and driven no faster than its
+  length allows**: one swing of the wheel and back, its bend never tighter than the lock or than the tyres hold
+  at that speed, and changing no faster than the rack turns (CAR-3a) while the car rolls it. Where the line bends
+  under the pass, what it bends is taken off what the step may. A car getting past from a standstill steps out at
+  the pace below which a step at the lock is no shorter.
+- **Laid as though the car pulls away along it**: the step back is drawn for the pace the car picks up by where
+  it begins, at its own acceleration and up to what the road lets it plan for, and the straight between the two
+  steps is the car's own to pull away along. A pass never slows the car below the pace it had it at.
 - **Waited for with room to step out, and no more**: behind a body going nowhere — at rest and not travelling
   the way on: a wreck, a car stood down, a car whose line ends where it stands, somebody standing in the road — a
   car stands where it could step out round it from a standstill, where the lane it is on has one back beside it,
@@ -58,6 +67,20 @@ beside it.
 - **Driven as the pass bends**: the wheel is turned for the bend of the pass where the car is and corrected by
   pure pursuit of it (S-1) — pursuit alone turns into each step a lookahead early and cuts it — and a car on a
   pass is off its line by how far off the pass it is and no further (CAR-9).
+
+**CAR-50** `P5` **A car too near what it means to get past to step out round it backs up for the room, and one
+that cannot is going nowhere** ([TER-4c.7](../../../world/road/docs/claims.md)).
+
+- **At rest, with the pass decided and nothing but its nearness refusing it** (CAR-46) — whatever it passes, a
+  queue making another movement as much as a wreck: it backs down its own lane until it could step out from where it
+  stands. Where the room past what it passes is held by something it may not pass, it waits where it is.
+- **Over ground it asks for behind its tail**, at the weakest rung there is, so whatever else wants that ground has
+  it but a car queued behind it; **never behind the start of the lane it is on**, which is the box it came through.
+- **Refused the whole of what it needs, it is blocked**: it does not move, and its body says it is going nowhere
+  (TER-4c.2), so what comes up behind it keeps room to step out round it and may get past it and what it is stuck
+  behind together. A line of such cars comes apart from its tail, where the room is.
+- **It is decided every tick from where the car stands and the pass it asks for**, and nothing about it is kept:
+  the room behind it is a grant like the one in front, read off the reservations.
 
 ## What a car is and does
 
@@ -206,7 +229,8 @@ leave to legal ground.
 agents.
 
 **CAR-6.5** `P5` Reverse **only along one of the town's own ways at a bay**, in the gear that way was laid
-for (GEN-4j). There is nowhere else in the town a car goes backwards.
+for (GEN-4j), **or back down its own lane for the room to step out round what it means to get past** (CAR-50).
+There is nowhere else in the town a car goes backwards.
 
 **CAR-7** `P5` Yielding to another agent that blocks the path is legitimate idling and is the normal way cars
 resolve conflicts.
@@ -393,8 +417,9 @@ indicating towards it. **Once it is on the pass**, it indicates the side it step
 done, **nothing alongside what it passes**, and the side it steps back to from a lead short of the step
 back — never before the step out is done, so a step out running straight into the step back hands one side
 straight to the other. **The pass outranks the junction**: from the decision until the car is back in its
-own lane, the turn at a junction beyond it is not announced. A pass the road itself refuses — no room to
-come back in, a zebra, a bend, a place the car was sent to — is no decision and says nothing.
+own lane, the turn at a junction beyond it is not announced. A pass the road itself refuses — a line that
+ends before there is room to come back onto it, a zebra, a bend, a place the car was sent to — is no decision
+and says nothing; room held by something that will move on is waited for, and is.
 
 Where the numbers are: `SimConfig.Lamps` — how much of the line is read for a turn and how far that
 stretch must bend, how long before the step back a pass says it, the rates the flashing ones flash at, and

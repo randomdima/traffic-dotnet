@@ -87,10 +87,19 @@ internal enum HeadwayKind : byte
 /// granted</b>: it is set from where the car would begin slowing for what it passes, while it waits for the lane
 /// beside as when it has it, and it is what the indicator says until the pass is begun (CAR-14.7).
 /// </param>
+/// <param name="BackUpM">
+/// <b>How far behind its tail this car means to back up</b> for the room to step out round what it has decided to
+/// get past (CAR-50), or zero. Asked for in the rebuild after, which says how much of it was had
+/// (<see cref="Body.CarFleet.BackRoomM"/>).
+/// </param>
+/// <param name="Blocked">
+/// <b>It can neither get past what stands in front of it nor back up for the room to</b> (CAR-50): the rebuild after
+/// lays its body as one going nowhere, which the traffic behind it may get past in turn.
+/// </param>
 internal readonly record struct DriveContext(
     float GroundCoefficient, float AuthorityM = float.PositiveInfinity, HeadwayKind GrantCutBy = HeadwayKind.Nothing,
     float PlaceStopM = float.PositiveInfinity, float MarginM = 0f, bool WaitsToPass = false,
-    float HorizonM = float.PositiveInfinity, float PassAsideM = 0f)
+    float HorizonM = float.PositiveInfinity, float PassAsideM = 0f, float BackUpM = 0f, bool Blocked = false)
 {
     public static DriveContext Clear => new(1f);
 
@@ -145,6 +154,12 @@ internal enum DrivingHold : byte
 
     /// <summary>It is not on its line at all (CAR-9), and what it does about that is the leg's.</summary>
     LostLine,
+
+    /// <summary>
+    /// <b>Backing down its own lane</b> for the room to step out round what it means to get past (CAR-50), to where
+    /// that room begins or the ground behind it was had to, whichever is nearer.
+    /// </summary>
+    BackingUp,
 }
 
 /// <summary>What a tick of the driver came to: the command, and what decided it.</summary>
@@ -300,6 +315,22 @@ internal static class CarFollower
         return true;
     }
 
+    /// <summary>
+    /// <b>The most a step this long may be driven at</b> (CAR-46) — <see cref="ShapeAPass"/> the other way round: its
+    /// bend and the line's under it inside what the tyres hold at the speed, and its bend changing no faster than the
+    /// rack turns while the car rolls it. Nothing where the two together bend tighter than the lock.
+    /// </summary>
+    /// <param name="lineBend">The most the line under the step bends, at the lane or the lane beside.</param>
+    public static float StepMps(in CarBuild car, float stepM, float asideM, float corneringMps2, float lineBend)
+    {
+        var bend = Overtake.MostBendOfAStep(asideM, stepM) + lineBend;
+        if (bend > 1f / car.TurningRadiusM) return 0f;
+
+        var gripMps = MathF.Sqrt(corneringMps2 / bend);
+        var rackMps = car.SteerRateRadPerS / (Overtake.MostBendChangeOfAStep(asideM, stepM) * car.WheelbaseM);
+        return MathF.Min(gripMps, rackMps);
+    }
+
     /// <summary>What the car plans a corner to hold on the ground it is on: the tyres' grip, less the margin kept back.</summary>
     public static float CorneringMps2(SimConfig config, in CarBuild car, float groundCoefficient) =>
         car.GripMps2 * groundCoefficient * config.Driving.GripMargin;
@@ -350,6 +381,20 @@ internal static class CarFollower
                + (releaseS * (1f + (onMps2 / (2f * brakingMps2))));
     }
 
+    /// <summary>
+    /// <b>The pace a car backing up for the room to step out drives at</b> (CAR-50): its reverse cap, and down to
+    /// rest by <paramref name="toGoM"/> behind it, taken a lead ahead as every stop is.
+    /// </summary>
+    /// <param name="alongMps">How fast it is going the way it is backing.</param>
+    /// <param name="lastMps2">Where the pedal was left last tick (<see cref="PedalMps2"/>), which the lead travels from.</param>
+    public static float BackingMps(
+        SimConfig config, in CarBuild car, float toGoM, float alongMps, float groundCoefficient, float lastMps2)
+    {
+        var brakingMps2 = BrakingMps2(config, car, groundCoefficient);
+        var leadM = MathF.Abs(alongMps) * LeadS(config, car, brakingMps2, lastMps2);
+        return MathF.Min(car.ReverseMaxMps, ApproachMps(0f, toGoM - leadM, brakingMps2));
+    }
+
     /// <summary>How far ahead the wheel is aimed: a time, floored at the car's own length and ceilinged.</summary>
     public static float LookaheadM(in CarBuild car, float speedMps, float lookaheadS) =>
         Math.Clamp(speedMps * lookaheadS, car.LookaheadFloorM, car.LookaheadCeilingM);
@@ -366,8 +411,8 @@ internal static class CarFollower
     /// towards as well as by the one it can reach before the next decision.
     /// </param>
     /// <param name="pass">
-    /// The pass the car is on (CAR-46), whose steps are drawn for <see cref="Overtake.DriveMps"/> and driven no
-    /// faster: quicker, the rack could not keep up with their bend nor the tyres hold it.
+    /// The pass the car is on (CAR-46), each of whose steps is driven no faster than its own figure
+    /// (<see cref="Overtake.MostMpsAtM"/>): quicker, the rack could not keep up with its bend nor the tyres hold it.
     /// </param>
     /// <param name="lastMps2">Where the pedal was left last tick (<see cref="PedalMps2"/>), which the lead travels from.</param>
     /// <param name="entryM">
@@ -413,8 +458,15 @@ internal static class CarFollower
             startM = endM;
         }
 
-        // Held to it from the tick the pass begins: a car let run on up to the step out has to brake back down onto it.
-        if (pass.Begun) Bind(ref targetMps, pass.DriveMps, DrivingHold.Corner, ref hold);
+        // Each step of a pass no faster than it was drawn for, and the straight between them the car's own — which it
+        // pulls away along, as far as it can come down again to the pace of the step back by where that begins.
+        if (pass.Begun)
+        {
+            Bind(ref targetMps, pass.MostMpsAtM(progressM), DrivingHold.Corner, ref hold);
+            Bind(
+                ref targetMps, ApproachMps(pass.BackMps, pass.BackM - progressM - leadM, brakingMps2), DrivingHold.Corner,
+                ref hold);
+        }
 
         Bind(ref targetMps, ApproachMps(0f, lineLengthM - progressM - leadM, brakingMps2), DrivingHold.LineEnd, ref hold);
 

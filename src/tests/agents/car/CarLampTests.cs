@@ -206,7 +206,8 @@ public class CarLampTests
     /// back over 60–80 m.
     /// </summary>
     static readonly Overtake PassOnTheLeft = new(
-        Lane: 0, OutM: 10f, BackM: 60f, AsideM: -3f, StepM: 20f, DriveMps: 10f, ClearsM: 55f, Begun: true);
+        Lane: 0, OutM: 10f, OutStepM: 20f, BackM: 60f, BackStepM: 20f, AsideM: -3f, OutMps: 10f, BackMps: 10f,
+        ClearsM: 55f, Begun: true);
 
     static CarLampSet Side(int side) => side switch
     {
@@ -273,10 +274,10 @@ public class CarLampTests
     [Fact]
     public void TheStepBackIsNotSaidBeforeTheStepOutIsDone()
     {
-        var pass = PassOnTheLeft with { BackM = PassOnTheLeft.OutM + PassOnTheLeft.StepM };
+        var pass = PassOnTheLeft with { BackM = PassOnTheLeft.SteppedOutM };
         var fleet = Rolling();
         fleet.Pass[0] = pass;
-        fleet.AlongMps[0] = pass.StepM / Config.Lamps.StepBackLeadS;
+        fleet.AlongMps[0] = pass.OutStepM / Config.Lamps.StepBackLeadS;
 
         fleet.ProgressM[0] = pass.BackM - 0.1f;
         Assert.Equal(CarLampSet.TurnLeft, Showing(fleet));

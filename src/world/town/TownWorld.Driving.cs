@@ -138,7 +138,14 @@ internal sealed partial class TownWorld
 
         // CAR-46: getting past what stands in the lane, asked for off the grant this rebuild gave.
         var toTheStopM = Cars.AuthorityM[car] - coveredM;
-        var waitsToPass = ConsiderAPass(car, progressM, alongMps, toTheStopM, out var passAsideM);
+        var waitsToPass = ConsiderAPass(car, progressM, alongMps, toTheStopM, out var passAsideM, out var tooNearByM);
+
+        // CAR-50: too near what it means to get past to step out round it, it backs up for the room where the ground
+        // behind it was had, and is blocked where it was not.
+        var backUpM = BackUpForM(tooNearByM);
+        var backsUp = backUpM > 0f && Cars.BackRoomM[car] >= backUpM;
+        var blocked = backUpM > 0f && Cars.BackRoomM[car] < backUpM;
+        if (blocked) CarTicksBlocked++;
 
         // S-4: the junction ahead. Whether the box is this car's is its grant's to say, and a light is in the
         // grant too — its hold is ground like any other (TLT-1).
@@ -155,9 +162,18 @@ internal sealed partial class TownWorld
         // line on the road that place left it.
         var context = new DriveContext(
             Cars.GroundCoefficient[car], toTheStopM, Cars.GrantCutBy[car], ToTheSceneM(car), Cars.GrantMarginM[car],
-            waitsToPass, Cars.HorizonM[car] - coveredM, passAsideM);
+            waitsToPass, Cars.HorizonM[car] - coveredM, passAsideM, backUpM, blocked);
 
         Cars.Context[car] = context;
+
+        // A car that was backing up and has no more of it to do comes to rest in the gear it is in.
+        var stillRollingBack = Cars.Hold[car] == DrivingHold.BackingUp && alongMps < -_config.Driving.StopSpeedMps;
+        if (backsUp || stillRollingBack)
+        {
+            DriveBack(car, build, pose, line, progressM, backsUp ? backUpM : 0f, Cars.GroundCoefficient[car]);
+            return;
+        }
+
         Drive(
             car, build, pose, line, progressM, Cars.Line[car].LengthM, context, forward, alongMps,
             reverse: false);
@@ -212,10 +228,10 @@ internal sealed partial class TownWorld
         var rearAxleM = CarFollower.RearAxleM(build, pose.PositionM, pose.Forward);
         var lookaheadM = CarFollower.LookaheadM(build, MathF.Abs(alongMps), _config.Driving.LookaheadS);
 
-        // Pure pursuit asks, or the pass the car is on (CAR-46); the rack answers (CAR-3a). The angle carried is
-        // the one this side of the gear, since a reverse command is the same wheel with its sign turned round on
-        // the way out.
-        var wasRad = Cars.Command[car].Reverse ? -Cars.Command[car].SteerRad : Cars.Command[car].SteerRad;
+        // Pure pursuit asks, or the pass the car is on (CAR-46); the rack answers (CAR-3a). The wheel as it stands is
+        // carried into the frame of the gear this tick drives in, since a reverse command is the same wheel with its
+        // sign turned round on the way out — whichever gear it was left in, so a change of gear is no jump of the rack.
+        var wasRad = reverse ? -Cars.Command[car].SteerRad : Cars.Command[car].SteerRad;
         var wantedRad = Cars.Pass[car].Begun
             ? CarFollower.SteerThePass(build, line, Cars.Pass[car], progressM, rearAxleM, travel, lookaheadM)
             : CarFollower.Steer(build, line, progressM, rearAxleM, travel, lookaheadM);

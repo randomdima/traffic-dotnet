@@ -74,4 +74,15 @@ internal enum ClaimPriority : byte
 
     /// <summary><b>p8 — the turn across the oncoming stream</b> (TER-4a): the weakest movement a box admits, because it is the last one there is (TER-5f).</summary>
     FirmAcross = 8,
+
+    /// <summary>
+    /// <b>p9 — a car backing up for the room to step out round what stands in its lane</b> (TER-4c.7, CAR-50):
+    /// below every movement, so whatever else wants the ground behind it has it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Strictly below and never equal to <see cref="FirmAcross"/></b>: the approach to a turn across is held at
+    /// that rung too (TER-5g.1), and a tie goes to whoever is nearer — which a car backing onto the ground behind
+    /// its own tail always is.
+    /// </remarks>
+    Backing = 9,
 }

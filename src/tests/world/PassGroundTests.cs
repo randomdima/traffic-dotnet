@@ -229,6 +229,59 @@ public class PassGroundTests
         Assert.False(index.KeepsItsPass(way, 20f, 40f, 1, LaneRoster.Driving));
     }
 
+    /// <summary>
+    /// <b>A movement a pass holds whole is free of a body clear of where the pass's body goes</b> — which, standing in
+    /// the box itself, is what the pass is getting past — and not of one standing where it goes.
+    /// </summary>
+    [Fact]
+    public void AMovementHeldWholeIsFreeOfABodyClearOfWhereThePassGoes()
+    {
+        var (way, _) = TwoWays();
+        var index = Index();
+
+        index.Begin();
+        index.LayBody(way, 30f, 34f, 0f, 2, LaneRoster.Driving, onItsLine: false, still: true);
+
+        Assert.True(index.IsFreeForAPass(way, 5f, 25f, 0f, 60f, 1, LaneRoster.Driving, []));
+        Assert.False(index.IsFreeForAPass(way, 5f, 31f, 0f, 60f, 1, LaneRoster.Driving, []));
+    }
+
+    /// <summary>But not of another pass, nor of a plan, anywhere the movement is held: those are what holding it whole is for.</summary>
+    [Fact]
+    public void AMovementHeldWholeIsNotFreeOfAnotherPassOrAPlanAnywhereOnIt()
+    {
+        var (way, _) = TwoWays();
+        var index = Index();
+
+        index.Begin();
+        index.LayPass(way, 40f, 50f, 5f, 3, LaneRoster.Driving);
+        Assert.False(index.IsFreeForAPass(way, 5f, 25f, 0f, 60f, 1, LaneRoster.Driving, []));
+
+        index.Begin();
+        Lay(index, way, holder: 4, fromM: 40f, toM: 50f);
+        Assert.False(index.IsFreeForAPass(way, 5f, 25f, 0f, 60f, 1, LaneRoster.Driving, []));
+    }
+
+    /// <summary>
+    /// <b>And kept the same way</b>: a body clear of where the pass's body goes withdraws nothing, and a pass asked
+    /// on the same tick by a holder numbered before it withdraws it wherever the movement is held.
+    /// </summary>
+    [Fact]
+    public void APassOverAMovementHeldWholeIsWithdrawnByAnotherPassAnywhereOnItAndABodyOnlyWhereItGoes()
+    {
+        var (way, _) = TwoWays();
+        var index = Index();
+
+        index.Begin();
+        index.LayPass(way, 0f, 60f, 5f, 4, LaneRoster.Driving);
+        index.LayBody(way, 30f, 34f, 0f, 2, LaneRoster.Driving, onItsLine: false, still: true);
+        Assert.True(index.KeepsItsPass(way, 5f, 25f, 0f, 60f, 4, LaneRoster.Driving));
+        Assert.False(index.KeepsItsPass(way, 5f, 31f, 0f, 60f, 4, LaneRoster.Driving));
+
+        index.LayPass(way, 45f, 55f, -5f, 1, LaneRoster.Driving);
+        Assert.False(index.KeepsItsPass(way, 5f, 25f, 0f, 60f, 4, LaneRoster.Driving));
+    }
+
     /// <summary>One hold of one piece, answered and laid over a stretch of a way.</summary>
     static void Lay(LaneOccupancy index, int way, int holder, float fromM, float toM)
     {

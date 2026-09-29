@@ -118,6 +118,10 @@ internal sealed partial class TownWorld
 
         SettleThePlans(ways, walk);
 
+        // The ground a car backs up over is weaker than every plan (TER-4c.7), so it is asked once all of them are
+        // settled and takes nothing any of them keeps — but what the car queued behind it could still stop short of.
+        for (var car = 0; car < Cars.Count; car++) LayTheCarsBackUp(car);
+
         for (var car = 0; car < Cars.Count; car++) ReadTheGrant(car);
         for (var person = 0; person < People.Count; person++)
         {

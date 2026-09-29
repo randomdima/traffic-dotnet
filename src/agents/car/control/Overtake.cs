@@ -20,9 +20,12 @@ namespace TrafficSimulation.Agents.Car.Control;
 /// rack is never asked to be in two places at once and the car is driven at speed along the whole of it.
 /// </para>
 /// <para>
-/// <b>Its length is the shortest the car can drive at <see cref="DriveMps"/></b> (<see cref="ShortestStepM"/>):
-/// bent no tighter than the lock, or than the tyres hold at that speed, and its bend changing no faster than the
-/// rack turns in the time the car rolls it.
+/// <b>The two steps are drawn apart</b>, each no shorter than the car can drive at the pace it is drawn for
+/// (<see cref="ShortestStepM"/>): the step out from where the car stood when the pass was had, stretched towards
+/// where the step back may begin; the step back from as soon past what it passes as the body can come back, for the
+/// pace the car has picked up by then. <b>Each is driven no faster than its own bend and the rack
+/// allow</b> (<see cref="OutMps"/>, <see cref="BackMps"/>), and between them the car is on a straight, and pulls
+/// away along it.
 /// </para>
 /// <para>
 /// <b>Asked for, then begun</b>: a pass is laid a rebuild before the car moves over (TER-4c.6), so that two
@@ -34,23 +37,29 @@ namespace TrafficSimulation.Agents.Car.Control;
 /// anywhere else no longer is — or <see cref="NoLane"/>.
 /// </param>
 /// <param name="OutM">Where the step out begins.</param>
+/// <param name="OutStepM">How much of the line the step out takes.</param>
 /// <param name="BackM">Where the step back begins.</param>
+/// <param name="BackStepM">And how much of it the step back takes.</param>
 /// <param name="AsideM">How far across the lane beside stands, along the driver's right — negative on its left.</param>
-/// <param name="StepM">How much of the line one step takes.</param>
-/// <param name="DriveMps">The speed its steps are drawn for, and the most they are driven at.</param>
+/// <param name="OutMps">The most the step out may be driven at: what its bend and the rack allow.</param>
+/// <param name="BackMps">And the step back.</param>
 /// <param name="ClearsM">Where along the line what is being passed ends, which is where the ground the car comes back into begins.</param>
 /// <param name="Begun">Whether the pass has been kept past the rebuild it was laid in, and the car is moving over.</param>
 internal readonly record struct Overtake(
-    int Lane, float OutM, float BackM, float AsideM, float StepM, float DriveMps, float ClearsM, bool Begun)
+    int Lane, float OutM, float OutStepM, float BackM, float BackStepM, float AsideM, float OutMps, float BackMps,
+    float ClearsM, bool Begun)
 {
     public const int NoLane = -1;
 
-    public static Overtake None => new(NoLane, 0f, 0f, 0f, 0f, 0f, 0f, false);
+    public static Overtake None => new(NoLane, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, false);
 
     public bool Any => Lane != NoLane;
 
+    /// <summary>Where the step out is done and the car is on the lane beside.</summary>
+    public float SteppedOutM => OutM + OutStepM;
+
     /// <summary>Where the car is back in its own lane and the pass is over.</summary>
-    public float EndsM => BackM + StepM;
+    public float EndsM => BackM + BackStepM;
 
     /// <summary>
     /// <b>The shortest step <paramref name="asideM"/> across</b> whose bend is never more than
@@ -70,34 +79,53 @@ internal readonly record struct Overtake(
         return MathF.Max(byTheBendM, byTheRackM);
     }
 
+    /// <summary>The most a step of this length <paramref name="asideM"/> across bends: 2π·d ⁄ L².</summary>
+    public static float MostBendOfAStep(float asideM, float stepM) => Tau * MathF.Abs(asideM) / (stepM * stepM);
+
+    /// <summary>And the most its bend changes a metre: 4π²·d ⁄ L³.</summary>
+    public static float MostBendChangeOfAStep(float asideM, float stepM) =>
+        Tau * Tau * MathF.Abs(asideM) / (stepM * stepM * stepM);
+
     /// <summary>How far across its line the rear axle is aimed at this metre of it.</summary>
     public float AsideAtM(float atM)
     {
         if (atM <= OutM || atM >= EndsM) return 0f;
-        if (atM < OutM + StepM) return AcrossAStep(atM - OutM);
+        if (atM < SteppedOutM) return AsideM * Rise((atM - OutM) / OutStepM);
         if (atM <= BackM) return AsideM;
 
-        return AsideM - AcrossAStep(atM - BackM);
+        return AsideM * (1f - Rise((atM - BackM) / BackStepM));
     }
 
     /// <summary>And how steeply: metres across for a metre along.</summary>
     public float SlopeAtM(float atM)
     {
         if (atM <= OutM || atM >= EndsM) return 0f;
-        if (atM < OutM + StepM) return SlopeOfAStep(atM - OutM);
+        if (atM < SteppedOutM) return AsideM / OutStepM * RiseSlope((atM - OutM) / OutStepM);
         if (atM <= BackM) return 0f;
 
-        return -SlopeOfAStep(atM - BackM);
+        return -AsideM / BackStepM * RiseSlope((atM - BackM) / BackStepM);
     }
 
     /// <summary>And how that slope is changing, a metre along.</summary>
     public float TurnAtM(float atM)
     {
         if (atM <= OutM || atM >= EndsM) return 0f;
-        if (atM < OutM + StepM) return TurnOfAStep(atM - OutM);
+        if (atM < SteppedOutM) return TurnOfAStep(atM - OutM, OutStepM);
         if (atM <= BackM) return 0f;
 
-        return -TurnOfAStep(atM - BackM);
+        return -TurnOfAStep(atM - BackM, BackStepM);
+    }
+
+    /// <summary>
+    /// <b>The most the pass may be driven at, at this metre of it</b>: its step out's figure until that step is
+    /// done, its step back's from where that one begins, and nothing between — the straight alongside what it
+    /// passes is the car's own to pull away along.
+    /// </summary>
+    public float MostMpsAtM(float atM)
+    {
+        if (atM < SteppedOutM) return OutMps;
+
+        return atM >= BackM ? BackMps : float.PositiveInfinity;
     }
 
     /// <summary>
@@ -136,12 +164,7 @@ internal readonly record struct Overtake(
     public Overtake From(int lane, float shiftM) =>
         this with { Lane = lane, OutM = OutM - shiftM, BackM = BackM - shiftM, ClearsM = ClearsM - shiftM };
 
-    /// <summary>How far across a step the axle is this far into it.</summary>
-    float AcrossAStep(float intoM) => AsideM * Rise(intoM / StepM);
-
-    float SlopeOfAStep(float intoM) => AsideM / StepM * RiseSlope(intoM / StepM);
-
-    float TurnOfAStep(float intoM) => AsideM / (StepM * StepM) * Tau * MathF.Sin(Tau * intoM / StepM);
+    float TurnOfAStep(float intoM, float stepM) => AsideM / (stepM * stepM) * Tau * MathF.Sin(Tau * intoM / stepM);
 
     /// <summary>How much of the way across a step is <paramref name="share"/> of the way into it.</summary>
     public static float Rise(float share) => share - (MathF.Sin(Tau * share) / Tau);
