@@ -157,9 +157,17 @@ it, and only something that beats it takes it.
   zebra is ground too, cut where anything on it is like any other (TER-5c.3).
 - **A plan reaches as far as its holder means to be able to stop**, and no further. For a driver that is the
   ground it can no longer stop short of, the room to pull away, and — while it is moving — what it reaches over
-  a stated run pulling up to the speed it is planning for and a stop from there; a body at rest plans the
-  room to pull away and nothing more, so a queue waiting at a junction plans none of the box. For a walker it
-  is the ground it would come to rest in from its pace (`PER-26`).
+  a stated run pulling up to the speed the road lets it plan for and a stop from there; a body at rest plans the
+  room to pull away and nothing more, so a queue waiting at a junction plans none of the box. **A moving driver
+  means no further than the corners ahead let it be at rest**: the first arc past its front, entered at what that
+  arc may be entered at (S-2), and a stop from there. So a car that will take a bend slowly plans the stop the bend
+  allows and not the one its approach would, and what it plans only grows as it goes on into the bend. For a
+  walker it is the ground it would come to rest in from its pace (`PER-26`).
+- **And never further than a plan may reach**: a stated length, the driver's own stop from its top speed, and
+  the mouth of the join past the stated number of joins that break its line — a turn, or a join that bends the
+  road on. The road carried straight on through a box breaks nothing, however many movements cross it there:
+  those are plans, and it is the plans that answer for them. **A driver whose plan was held short by this drives
+  to stop by the end of it** (S-2), so the ground it can no longer stop short of never runs past ground it holds.
 - **A car in a box plans its way out of it**: at least to the far side of the join its nose is on and its
   own length past that, however slowly it is going.
 - **A car refused ground waits short of it, wherever that is.** Refused inside a box, it waits in the box,

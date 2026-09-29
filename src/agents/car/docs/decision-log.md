@@ -3,6 +3,35 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-09-29 — the wheel's corner is the car's and not the road's
+
+**The corner the wheel is asking for is left out of the planned speed** (S-2, TER-4c.1) and named on its own
+(`DrivingHold.Wheel`). The planned speed is the ceiling on a car's next plan, and the wheel says where the car is
+rather than what the road holds: a car steering back onto its line planned as though the road bent there, and drew
+its plan back for a bend the road did not have. With it in the planned speed, two to four in five of the ticks on
+which a plan nothing cut still drew back were this.
+
+**It is named apart because what it showed is not the road's.** A car cornering at its share of grip on a gentle
+bend braked a little, had nothing left in the tyres to turn with, ran wide, asked the wheel for more, and the
+wheel's corner braked it harder — 16 m/s to 3 in a second and a half on a 60 m radius, a metre off its line. The
+tyres answer to one ellipse and the profile brakes as though they did not (`CarFollower.BrakingMps2`); the drive
+probe's wheel column is how often that is what holds a car.
+
+## 2026-09-29 — corners are read off the arcs
+
+**The owner asked for speed limits on the segments, so a car decides how far to plan by looking at them** (S-2).
+Every arc of a line carries what it may be entered at and still hold every corner past it, braking into each
+tighter one (`CornerLimits`), laid once when the line is — the join a route takes decides what a lane is braked
+for, so it is the line and not the lane that carries it. **It is carried as the entry speed squared over the
+grip**, a length, so one line serves every build: a corner and a stop both scale with the grip a car plans
+against, and a car's own figure is its utmost braking on the ground under it times the arc's. It replaced
+walking every arc within braking range on every tick: the arcs the lead point has reached still bind at their
+own corner, and the first it has not binds at its entry, which already holds everything past it.
+
+**The end of its own plan is beside the grant and never in it** (`CarFleet.HorizonM`): nothing cut it, so it
+is no queue, spends no clock and says nothing in the words but that the car is keeping within its plan; and it
+is left out of the planned speed, as the grant is, or the next plan would shrink to fit it and let it go.
+
 ## 2026-09-29 — one stand-off
 
 **The owner asked for one gap**: a car comes to rest one stand-off short of the end of its grant whatever ended

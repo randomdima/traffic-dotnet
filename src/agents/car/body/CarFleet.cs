@@ -50,6 +50,7 @@ internal sealed class CarFleet
         LaneChain = new int[capacity * LineAssembler.MostLanes];
         LaneStartM = new float[capacity * LineAssembler.MostLanes];
         LaneEndM = new float[capacity * LineAssembler.MostLanes];
+        JoinBreaks = new bool[capacity * LineAssembler.MostLanes];
         ProgressM = new float[capacity];
         AlongMps = new float[capacity];
         OffLineM = new float[capacity];
@@ -61,6 +62,7 @@ internal sealed class CarFleet
         SinceDecisionS = new float[capacity];
         Line = new DrivenLine[capacity];
         LineArcs = new ArcSeg[capacity * arcsPerCar];
+        LineEntryM = new float[capacity * arcsPerCar];
         LineWay = new int[capacity];
         Array.Fill(LineWay, NoWay);
         TailWay = new int[capacity];
@@ -72,6 +74,8 @@ internal sealed class CarFleet
         CommittedToM = new float[capacity];
         AuthorityM = new float[capacity];
         Array.Fill(AuthorityM, float.PositiveInfinity);
+        HorizonM = new float[capacity];
+        Array.Fill(HorizonM, float.PositiveInfinity);
         GrantMarginM = new float[capacity];
         GrantCutBy = new Control.HeadwayKind[capacity];
         PlannedMps = new float[capacity];
@@ -313,6 +317,17 @@ internal sealed class CarFleet
     public float[] AuthorityM { get; }
 
     /// <summary>
+    /// <b>How far ahead of its nose the car's own plan ends where it was held short of what the car wanted</b> by
+    /// how far a plan may reach (TER-4c.1) — or infinity where the car planned all it wanted. Walked in by the
+    /// ground covered since, as <see cref="AuthorityM"/> is.
+    /// </summary>
+    /// <remarks>
+    /// <b>Beside the grant and never inside it</b>: nothing cut this plan, so it is not what holds a car in a queue,
+    /// a car's clock or its words — only a stop point the profile drives to like the end of its line (S-2).
+    /// </remarks>
+    public float[] HorizonM { get; }
+
+    /// <summary>
     /// <b>The ground the grant was taken short of what cut it</b> — the gap the car keeps, so that the grant and
     /// this together are the whole of the section it holds.
     /// </summary>
@@ -530,11 +545,25 @@ internal sealed class CarFleet
 
     public ReadOnlySpan<ArcSeg> LineOf(int car) => LineArcs.AsSpan(car * _arcsPerCar, Line[car].ArcCount);
 
+    /// <summary>
+    /// <b>The speed each arc of the line in hand may be entered at</b> (<see cref="CornerLimits"/>), as its square
+    /// over the grip — laid with the line, one to an arc.
+    /// </summary>
+    public Span<float> LineEntriesOf(int car) => LineEntryM.AsSpan(car * _arcsPerCar, _arcsPerCar);
+
+    public ReadOnlySpan<float> EntriesOf(int car) => LineEntryM.AsSpan(car * _arcsPerCar, Line[car].ArcCount);
+
     public Span<int> ChainOf(int car) => LaneChain.AsSpan(car * LineAssembler.MostLanes, LineAssembler.MostLanes);
 
     public Span<float> LaneStartsOf(int car) => LaneStartM.AsSpan(car * LineAssembler.MostLanes, LineAssembler.MostLanes);
 
     public Span<float> LaneEndsOf(int car) => LaneEndM.AsSpan(car * LineAssembler.MostLanes, LineAssembler.MostLanes);
+
+    /// <summary>
+    /// <b>Whether the join after each lane of the chain breaks the line</b> (<see cref="RoadGraph.BreaksTheLine"/>),
+    /// laid with the line — what says how many lanes ahead a plan may reach (TER-4c.1).
+    /// </summary>
+    public Span<bool> JoinBreaksOf(int car) => JoinBreaks.AsSpan(car * LineAssembler.MostLanes, LineAssembler.MostLanes);
 
     /// <summary>
     /// The way the line in hand <em>is</em>, or <see cref="NoWay"/>. <b>A line with no arcs is no way</b>,
@@ -604,6 +633,7 @@ internal sealed class CarFleet
         TailWay[car] = NoWay;
         TurnsBackOn[car] = NoLane;
         AuthorityM[car] = float.PositiveInfinity;
+        HorizonM[car] = float.PositiveInfinity;
         GrantMarginM[car] = 0f;
         GrantCutBy[car] = Control.HeadwayKind.Nothing;
         PlannedMps[car] = 0f;
@@ -656,4 +686,8 @@ internal sealed class CarFleet
     public const int NoWay = -1;
 
     ArcSeg[] LineArcs { get; }
+
+    float[] LineEntryM { get; }
+
+    bool[] JoinBreaks { get; }
 }

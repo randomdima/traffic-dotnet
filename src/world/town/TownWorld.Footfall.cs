@@ -216,7 +216,7 @@ internal sealed partial class TownWorld
             var reachM = _occupancy.Reach(WalkAsk(person, hold, way), way.Way, way.ToM, way.FromM, out var cutBy);
             if (reachM >= way.ToM) continue;
 
-            return new PlanAnswer(OnTheLineM(way, reachM), _config.PersonStandstillGapM, cutBy, way.Way);
+            return new PlanAnswer(OnTheLineM(way, reachM), _config.PersonStandstillGapM, cutBy, way.Way, index, reachM);
         }
 
         return PlanAnswer.Whole;
@@ -230,7 +230,8 @@ internal sealed partial class TownWorld
             ref readonly var way = ref ways[index];
             if (way.LineFromM >= answer.CutLineM) break;
 
-            _occupancy.Take(WalkAsk(person, hold, way), way.Way, OnTheWayM(way, answer.CutLineM));
+            _occupancy.Take(WalkAsk(person, hold, way), way.Way, LaidToM(answer, index, way));
+            if (index == answer.CutAt) break;
         }
 
         _occupancy.EndHold(hold, answer.CutLineM, answer.MarginM, answer.CutBy, answer.CutOn);

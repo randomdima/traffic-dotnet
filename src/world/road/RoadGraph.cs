@@ -51,13 +51,14 @@ internal sealed class RoadGraph : ILaneEnds
     readonly int[] _junctionOutLanes;
     readonly int[] _junctionInOffsets;
     readonly int[] _junctionInLanes;
+    readonly bool[] _breaksTheLine;
 
     /// <summary>The lanes over a grid, which is the whole of what <see cref="NearestLane"/> is.</summary>
     readonly ChainIndex _nearest;
 
     RoadGraph(
         LaneLines lines, int[] junctionOutOffsets, int[] junctionOutLanes, int[] junctionInOffsets,
-        int[] junctionInLanes, LanePlaces places, GridLevel nearestLevel)
+        int[] junctionInLanes, LanePlaces places, GridLevel nearestLevel, bool[] breaksTheLine)
     {
         _lines = lines;
         Places = places;
@@ -65,6 +66,7 @@ internal sealed class RoadGraph : ILaneEnds
         _junctionOutLanes = junctionOutLanes;
         _junctionInOffsets = junctionInOffsets;
         _junctionInLanes = junctionInLanes;
+        _breaksTheLine = breaksTheLine;
 
         var builder = new ChainIndex.Builder();
         for (var lane = 0; lane < lines.LaneCount; lane++)
@@ -283,6 +285,15 @@ internal sealed class RoadGraph : ILaneEnds
 
     public float ConnectorLengthM(int connector) => _lines.ConnectorLengthM[connector];
 
+    /// <summary>
+    /// <b>Whether a join breaks the line a car is driving</b> (TER-4c.1): its curvature, or the curvature of the
+    /// lane it lands on, departs from the lane it leaves by more than
+    /// <see cref="DrivingFigures.JoinBendStepPerM"/>. A turn does; the road carried straight on through a box does
+    /// not, however many movements cross it there — those are the plans on it, and it is the plans that answer
+    /// for them.
+    /// </summary>
+    public bool BreaksTheLine(int connector) => _breaksTheLine[connector];
+
     /// <summary>How wide the ground a movement is driven over is: the narrower of the two lanes it joins (TER-5d.1).</summary>
     public float ConnectorWidthM(int connector) => _lines.ConnectorWidthM(connector);
 
@@ -340,7 +351,28 @@ internal sealed class RoadGraph : ILaneEnds
 
         return new RoadGraph(
             lines, junctionOutOffsets, junctionOutLanes, junctionInOffsets, junctionInLanes, places,
-            config.Grid.Main);
+            config.Grid.Main, JoinsThatBreakTheLine(lines, config.Driving.JoinBendStepPerM));
+    }
+
+    /// <summary>Every connector's <see cref="BreaksTheLine"/>, read off the arcs either side of it once.</summary>
+    static bool[] JoinsThatBreakTheLine(LaneLines lines, float stepPerM)
+    {
+        var breaks = new bool[lines.ConnectorCount];
+        for (var connector = 0; connector < breaks.Length; connector++)
+        {
+            var leaving = lines.ArcsOf(lines.ConnectorFromLane[connector]);
+            var onPerM = leaving.Length > 0 ? leaving[^1].Curvature : 0f;
+
+            var mostPerM = 0f;
+            foreach (var arc in lines.ArcsOfConnector(connector)) mostPerM = MathF.Max(mostPerM, MathF.Abs(arc.Curvature - onPerM));
+
+            var landing = lines.ArcsOf(lines.ConnectorToLane[connector]);
+            if (landing.Length > 0) mostPerM = MathF.Max(mostPerM, MathF.Abs(landing[0].Curvature - onPerM));
+
+            breaks[connector] = mostPerM > stepPerM;
+        }
+
+        return breaks;
     }
 
     /// <summary>

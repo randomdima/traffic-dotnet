@@ -76,9 +76,15 @@ internal enum HeadwayKind : byte
 /// the section the car holds.
 /// </param>
 /// <param name="WaitsToPass">Whether what cut it is something this car means to get past (CAR-46).</param>
+/// <param name="HorizonM">
+/// How far ahead of the nose the car's own plan ends where it was held short of what the car wanted by how far a
+/// plan may reach (TER-4c.1), or <see cref="float.PositiveInfinity"/> where it planned all it wanted. Nothing cut
+/// it, so it is no part of the grant.
+/// </param>
 internal readonly record struct DriveContext(
     float GroundCoefficient, float AuthorityM = float.PositiveInfinity, HeadwayKind GrantCutBy = HeadwayKind.Nothing,
-    float PlaceStopM = float.PositiveInfinity, float MarginM = 0f, bool WaitsToPass = false)
+    float PlaceStopM = float.PositiveInfinity, float MarginM = 0f, bool WaitsToPass = false,
+    float HorizonM = float.PositiveInfinity)
 {
     public static DriveContext Clear => new(1f);
 
@@ -99,6 +105,12 @@ internal enum DrivingHold : byte
     /// <summary>The corner being driven, or one within braking range ahead.</summary>
     Corner,
 
+    /// <summary>
+    /// <b>The corner the wheel is asking for</b>, tighter than the line's where the car is: steering back onto its
+    /// line, or turning harder than the tyres let it and asking for more.
+    /// </summary>
+    Wheel,
+
     /// <summary>The end of the line it has been given.</summary>
     LineEnd,
 
@@ -111,6 +123,12 @@ internal enum DrivingHold : byte
 
     /// <summary>A light holding the road in front of it (<see cref="HeadwayKind.Light"/>): the grant, cut at a bar.</summary>
     Waiting,
+
+    /// <summary>
+    /// <b>The end of its own plan</b> (<see cref="DriveContext.HorizonM"/>): nothing in front, and the road it may
+    /// plan runs out before the road it wanted. On an open road this is the pace the town is driven at.
+    /// </summary>
+    Reach,
 
     /// <summary>
     /// <b>The place this car was sent to</b> — a casualty, a wreck, a scene a police car is closing the
@@ -185,9 +203,10 @@ internal static class CarFollower
     }
 
     /// <summary>One tick of one driver: the line, what is on it, and what the body is doing, into one command.</summary>
+    /// <param name="entryM">The line's own entry figures (<see cref="World.Road.CornerLimits"/>), one to an arc.</param>
     public static DriveDecision Step(
-        SimConfig config, in CarBuild car, in CarPose pose, ReadOnlySpan<ArcSeg> line, float progressM,
-        float lineLengthM, in DriveContext context, float dtS)
+        SimConfig config, in CarBuild car, in CarPose pose, ReadOnlySpan<ArcSeg> line, ReadOnlySpan<float> entryM,
+        float progressM, float lineLengthM, in DriveContext context, float dtS)
     {
         var forward = pose.Forward;
         var alongMps = Vector2.Dot(pose.VelocityMps, forward);
@@ -196,7 +215,8 @@ internal static class CarFollower
         var lookaheadM = LookaheadM(car, MathF.Abs(alongMps), config.Driving.LookaheadS);
         var steerRad = Steer(car, line, progressM, rearAxleM, forward, lookaheadM);
         var targetMps = TargetSpeedMps(
-            config, car, line, progressM, lineLengthM, steerRad, alongMps, lookaheadM, context, out var hold, out _);
+            config, car, line, entryM, progressM, lineLengthM, steerRad, alongMps, lookaheadM, context, out var hold,
+            out _);
 
         return new DriveDecision(Pedals(config, car, steerRad, targetMps, alongMps, dtS), hold, targetMps);
     }
@@ -333,20 +353,24 @@ internal static class CarFollower
     /// it, where it must be stopped by, and the ground it was granted to stop in.
     /// </summary>
     /// <param name="plannedMps">
-    /// What it would have asked for with the road to itself — every term but the grant. <b>It is the
-    /// ceiling on the next claim</b>, and it is taken here because this is where the terms are: the
-    /// road a car holds is bounded by the speed it is driving towards as well as by the one it can reach
-    /// before the next decision.
+    /// What it would have asked for with the road to itself — every term the road sets, and not the grant, the end
+    /// of its own plan or the corner its wheel is asking for. <b>It is the ceiling on the next claim</b>, and it is
+    /// taken here because this is where the terms are: the road a car holds is bounded by the speed it is driving
+    /// towards as well as by the one it can reach before the next decision.
     /// </param>
     /// <param name="pass">
     /// The pass the car is on (CAR-46), whose steps are drawn for <see cref="Overtake.DriveMps"/> and driven no
     /// faster: quicker, the rack could not keep up with their bend nor the tyres hold it.
     /// </param>
     /// <param name="lastMps2">Where the pedal was left last tick (<see cref="PedalMps2"/>), which the lead travels from.</param>
+    /// <param name="entryM">
+    /// The line's own entry figures (<see cref="World.Road.CornerLimits"/>), one to an arc: every corner past an
+    /// arc, folded into what that arc may be entered at.
+    /// </param>
     public static float TargetSpeedMps(
-        SimConfig config, in CarBuild car, ReadOnlySpan<ArcSeg> line, float progressM, float lineLengthM,
-        float steerRad, float alongMps, float lookaheadM, in DriveContext context, out DrivingHold hold,
-        out float plannedMps, in Overtake pass = default, float lastMps2 = 0f)
+        SimConfig config, in CarBuild car, ReadOnlySpan<ArcSeg> line, ReadOnlySpan<float> entryM, float progressM,
+        float lineLengthM, float steerRad, float alongMps, float lookaheadM, in DriveContext context,
+        out DrivingHold hold, out float plannedMps, in Overtake pass = default, float lastMps2 = 0f)
     {
         hold = DrivingHold.None;
         var lateralMps2 = CorneringMps2(config, car, context.GroundCoefficient);
@@ -354,32 +378,29 @@ internal static class CarFollower
         var leadM = MathF.Abs(alongMps) * LeadS(config, car, brakingMps2, lastMps2);
 
         var targetMps = car.MaxSpeedMps;
-        Bind(ref targetMps, CornerMps(MathF.Tan(steerRad) / car.WheelbaseM, lateralMps2), DrivingHold.Corner, ref hold);
 
-        // Every corner within braking range, each read as the speed this car may be doing *here* and
-        // still be down to that corner's own speed by the time it arrives at it. The line is walked a
-        // piece at a time and not a sample at a time: a piece is one constant curvature by
-        // construction, so one corner speed per arc is the whole answer and costs the arc rather than
-        // the metre.
-        var rangeM = (alongMps * alongMps / (2f * brakingMps2)) + leadM + lookaheadM;
+        // Every corner ahead, off the segments. A corner is reached by the *lead point* before it is reached by the
+        // car, and the wheel is already turning into it by then — counting the lookahead as well as the reaction
+        // lead is what stops a car arriving at the corner speed a lookahead too late, which is a car on the pavement
+        // at the exit of every tight bend. So each arc the lead point has reached binds at its own corner, and the
+        // first it has not binds the braking into it: its entry figure already holds every corner past it.
+        var gripMps2 = car.UtmostBrakingMps2(context.GroundCoefficient);
+        var reachedM = progressM + leadM + lookaheadM;
         var startM = 0f;
-        foreach (var arc in line)
+        for (var arc = 0; arc < line.Length; arc++)
         {
-            var endM = startM + arc.LengthM;
+            var endM = startM + line[arc].LengthM;
             if (endM >= progressM)
             {
-                var aheadM = MathF.Max(0f, startM - progressM);
-                if (aheadM > rangeM) break;
+                if (startM > reachedM)
+                {
+                    Bind(
+                        ref targetMps, ApproachMps(MathF.Sqrt(gripMps2 * entryM[arc]), startM - reachedM, brakingMps2),
+                        DrivingHold.Corner, ref hold);
+                    break;
+                }
 
-                // A corner is reached by the *lead point* before it is reached by the car, and the
-                // wheel is already turning into it by then. Counting the lookahead as well as the
-                // reaction lead — in the range as well as the approach — is what stops a car arriving
-                // at the corner speed a lookahead too late, which is a car on the pavement at the exit of
-                // every tight bend.
-                Bind(
-                    ref targetMps,
-                    ApproachMps(CornerMps(arc.Curvature, lateralMps2), aheadM - leadM - lookaheadM, brakingMps2),
-                    DrivingHold.Corner, ref hold);
+                Bind(ref targetMps, CornerMps(line[arc].Curvature, lateralMps2), DrivingHold.Corner, ref hold);
             }
 
             startM = endM;
@@ -398,6 +419,16 @@ internal static class CarFollower
         // The road to itself, which is the figure the next claim is asked for at — before the grant
         // is folded in, and never after it.
         plannedMps = MathF.Max(0f, targetMps);
+
+        // <b>And the corner the wheel is asking for</b>, which is the car's and not the road's: left out of the planned
+        // speed, or a car steering back onto its line would draw its plan back for a bend the road does not have.
+        Bind(ref targetMps, CornerMps(MathF.Tan(steerRad) / car.WheelbaseM, lateralMps2), DrivingHold.Wheel, ref hold);
+
+        // <b>And the end of its own plan</b> (TER-4c.1), where it was held short of what the car wanted: past it is
+        // road nobody holds for this car, so ground it could no longer stop short of could run on beyond anything
+        // the town can see it coming. Left out of the planned speed, as the grant is, or the plan would shrink to
+        // fit it and let it go.
+        Bind(ref targetMps, ApproachMps(0f, context.HorizonM - leadM, brakingMps2), DrivingHold.Reach, ref hold);
 
         // <b>And the grant, which is the whole of following</b> (S-2a). The ground the reservations gave this
         // car to stop in inverts straight into a speed, taken a lead ahead as every stop point above is: what may

@@ -23,7 +23,9 @@ internal sealed partial class TownWorld
     /// <para>
     /// <b>How far it reaches</b> is what the car could not stop short of, what it takes to pull away from where
     /// it stands, and — while it is moving — what it takes to reach the speed it is planning for, hold it a
-    /// while and stop from there (TER-5g); never past the end of its line. <b>A light is not asked here</b>: its
+    /// while and stop from there (TER-5g), those two no further than the corners ahead let it be at rest
+    /// (<see cref="CornerLimits.RestToM"/>); never past the end of its line, nor past how far a plan may reach
+    /// (<see cref="HorizonToM"/>), where the car then drives to stop by its end. <b>A light is not asked here</b>: its
     /// hold is ground on the way, and the plan is answered against it (TLT-1). <b>A body that is not moving
     /// states nothing beyond the first two</b>, so a queue waiting at a junction plans none of the box it is
     /// waiting for.
@@ -59,6 +61,7 @@ internal sealed partial class TownWorld
         Cars.ClaimToM[car] = noseM;
         Cars.CommittedToM[car] = noseM;
         Cars.AuthorityM[car] = float.PositiveInfinity;
+        Cars.HorizonM[car] = float.PositiveInfinity;
         Cars.GrantMarginM[car] = 0f;
         Cars.GrantCutBy[car] = HeadwayKind.Nothing;
         if (HandAtTheWheel(car))
@@ -85,14 +88,29 @@ internal sealed partial class TownWorld
         var pullsAwayM = (reachableMps * _config.CarReactionS) + StoppingM(reachableMps, brakingMps2)
                          + MathF.Max(standOffM, keptOffM);
 
-        var meansM = alongMps > _config.Driving.StopSpeedMps
-            ? MeansToM(alongMps, plannedMps, build.AccelerationMps2, brakingMps2) + standOffM
-            : 0f;
+        var moving = alongMps > _config.Driving.StopSpeedMps;
+        var meansM = moving ? MeansToM(alongMps, plannedMps, build.AccelerationMps2, brakingMps2) + standOffM : 0f;
 
-        var wantedM = MathF.Max(committedM, MathF.Max(pullsAwayM, meansM));
+        // <b>And while it is moving, never past where the corners ahead let it be at rest</b>: the run holds the speed
+        // the car is planning for, which on the approach to a bend is the approach's and not the bend's.
+        var meantM = MathF.Max(pullsAwayM, meansM);
+        if (moving)
+        {
+            meantM = MathF.Min(
+                meantM, CornerLimits.RestToM(Cars.LineOf(car), Cars.EntriesOf(car), noseM, _config) - noseM + standOffM);
+        }
+
+        var wantedM = MathF.Max(committedM, meantM);
         var lengthM = Cars.Line[car].LengthM;
-        var planToM = MathF.Min(noseM + wantedM, lengthM);
+        var wantedToM = MathF.Min(noseM + wantedM, lengthM);
         var committedToM = noseM + committedM;
+
+        // <b>A car on a pass plans from where it is back in its own lane</b> (TER-4c.6): the ground up to there
+        // is its pass's, laid as a body, and only a body standing inside it can end it short.
+        var planFromM = PlannedFromM(car);
+
+        // <b>No further than a plan may reach</b>, and never short of what the car can no longer stop short of.
+        var planToM = MathF.Min(MathF.Max(committedToM, MathF.Min(wantedToM, HorizonToM(car, planFromM, build))), lengthM);
 
         // <b>A box is ground a car cannot give back once it cannot stop short of the mouth</b>: it is going in, so
         // the whole of the join is committed. A car already in one plans the rest of the join and its own length
@@ -105,10 +123,8 @@ internal sealed partial class TownWorld
 
         Cars.ClaimToM[car] = planToM;
         Cars.CommittedToM[car] = committedToM;
+        if (planToM < wantedToM) Cars.HorizonM[car] = planToM - noseM;
 
-        // <b>A car on a pass plans from where it is back in its own lane</b> (TER-4c.6): the ground up to there
-        // is its pass's, laid as a body, and only a body standing inside it can end it short.
-        var planFromM = PlannedFromM(car);
         if (Cars.Pass[car].Begun && TheBodyInThePass(car, out var inTheWayM, out var inTheWay, out var on))
         {
             var held = _occupancy.BeginHold(standOffM);
@@ -190,7 +206,7 @@ internal sealed partial class TownWorld
             var reachM = _occupancy.Reach(AskOn(car, hold, way, rungs[index]), way.Way, way.ToM, way.FromM, out var cutBy);
             if (reachM >= way.ToM) continue;
 
-            return new PlanAnswer(OnTheLineM(way, reachM), KeptOffM(car, cutBy), cutBy, way.Way);
+            return new PlanAnswer(OnTheLineM(way, reachM), KeptOffM(car, cutBy), cutBy, way.Way, index, reachM);
         }
 
         return PlanAnswer.Whole;
@@ -205,7 +221,8 @@ internal sealed partial class TownWorld
             ref readonly var way = ref ways[index];
             if (way.LineFromM >= answer.CutLineM) break;
 
-            _occupancy.Take(AskOn(car, hold, way, rungs[index]), way.Way, OnTheWayM(way, answer.CutLineM));
+            _occupancy.Take(AskOn(car, hold, way, rungs[index]), way.Way, LaidToM(answer, index, way));
+            if (index == answer.CutAt) break;
         }
 
         _occupancy.EndHold(hold, answer.CutLineM, answer.MarginM, answer.CutBy, answer.CutOn);
@@ -257,6 +274,33 @@ internal sealed partial class TownWorld
         var reachedMps = alongMps + (accelerationMps2 * climbS);
         var coveredM = (alongMps * climbS) + (0.5f * accelerationMps2 * climbS * climbS) + (reachedMps * (runS - climbS));
         return coveredM + StoppingM(reachedMps, brakingMps2);
+    }
+
+    /// <summary>
+    /// <b>How far a plan begun at <paramref name="fromM"/> may reach</b> (TER-4c.1): no further than any plan
+    /// reaches (<see cref="Core.Config.DrivingFigures.PlanMostM"/>), nor than this car could stop from its own top
+    /// speed, nor into the join past the last one it may pass that breaks its line
+    /// (<see cref="Core.Config.DrivingFigures.PlanMostJoins"/>).
+    /// </summary>
+    /// <remarks>
+    /// <b>A join the nose is already past the mouth of is not counted</b>: the car is in it, and a car in a box
+    /// plans its way out of it whatever this says.
+    /// </remarks>
+    float HorizonToM(int car, float fromM, in CarBuild build)
+    {
+        var toM = fromM + MathF.Min(_config.Driving.PlanMostM, build.SightM);
+        if (Cars.LineWayOf(car) != CarFleet.NoWay) return toM;
+
+        var ends = Cars.LaneEndsOf(car);
+        var breaks = Cars.JoinBreaksOf(car);
+        var passed = 0;
+        for (var slot = 0; slot + 1 < Cars.Line[car].LaneCount && ends[slot] < toM; slot++)
+        {
+            if (ends[slot] <= fromM || !breaks[slot]) continue;
+            if (++passed > _config.Driving.PlanMostJoins) return ends[slot];
+        }
+
+        return toM;
     }
 
     /// <summary>One piece of a car's plan as the terms it is asked on.</summary>
@@ -315,8 +359,9 @@ internal sealed partial class TownWorld
     /// </summary>
     /// <remarks>
     /// <b>A car nothing cut is held by nobody</b>, and its grant stays infinite rather than coming back as
-    /// the length of its own plan: the plan is what the profile already drives to, and handing it back as a
-    /// limit would make a car alone on an empty road read as one queueing behind itself. Negative where the
+    /// the length of its own plan: handing it back as a limit would make a car alone on an empty road read as
+    /// one queueing behind itself. Where the plan was held short of what the car wanted, its end is a stop point
+    /// of its own beside the grant (<see cref="CarFleet.HorizonM"/>). Negative where the
     /// car cannot stop in what is left, which is a fact about a contact rather than a gap.
     /// </remarks>
     void ReadTheGrant(int car)

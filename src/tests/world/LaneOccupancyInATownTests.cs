@@ -464,6 +464,61 @@ public class LaneOccupancyInATownTests
         }
     }
 
+    /// <summary>
+    /// <b>No plan reaches further than a plan may</b> (TER-4c.1): however empty the street, no further than any plan
+    /// reaches, nor than the car could stop from its own top speed — and since the ground a car can no longer stop
+    /// short of is never cut, a car that holds no more than that is one that drove to stop by the end of its plan.
+    /// </summary>
+    /// <remarks>
+    /// A car in a box plans its way out of it whatever this says, and one on a pass plans from where the pass ends.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void NoPlanReachesFurtherThanAPlanMay(string map)
+    {
+        var world = Run(map);
+
+        for (var car = 0; car < world.Cars.Count; car++)
+        {
+            var plannedM = world.Cars.ClaimToM[car] - world.Cars.ClaimFromM[car];
+            if (plannedM <= 0f || NoseInABox(world, car) || world.Cars.Pass[car].Begun) continue;
+
+            var mostM = MathF.Min(Config.Driving.PlanMostM, world.Cars.BuildOf(car).SightM);
+            Assert.True(
+                plannedM <= mostM + Tolerance,
+                $"{map}: car {car} plans {plannedM:0.0} m of road, past the {mostM:0.0} m a plan may reach");
+        }
+    }
+
+    /// <summary>
+    /// <b>No plan passes more joins that break its line than a plan may</b> (TER-4c.1): a turn, or a join that bends
+    /// the road on, is somewhere the road ahead stops being the road the car is on, and a plan runs through no more
+    /// of them than <see cref="DrivingFigures.PlanMostJoins"/>.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void NoPlanPassesMoreJoinsThatBreakItsLineThanAPlanMay(string map)
+    {
+        var world = Run(map);
+
+        for (var car = 0; car < world.Cars.Count; car++)
+        {
+            if (world.Cars.ClaimToM[car] <= world.Cars.ClaimFromM[car] || NoseInABox(world, car)) continue;
+
+            var ends = world.Cars.LaneEndsOf(car);
+            var breaks = world.Cars.JoinBreaksOf(car);
+            var passed = 0;
+            for (var slot = 0; slot + 1 < world.Cars.Line[car].LaneCount; slot++)
+            {
+                if (breaks[slot] && ends[slot] > world.Cars.ClaimFromM[car] && ends[slot] < world.Cars.ClaimToM[car]) passed++;
+            }
+
+            Assert.True(
+                passed <= Config.Driving.PlanMostJoins,
+                $"{map}: car {car} plans through {passed} joins that break its line");
+        }
+    }
+
     /// <summary>Whether a car's nose is past the mouth of the box ahead of it, where its plan runs to the far side of the join.</summary>
     static bool NoseInABox(TownWorld world, int car) => world.Cars.InsideTheBox[car] || world.Cars.ToTheBoxM[car] <= 0f;
 

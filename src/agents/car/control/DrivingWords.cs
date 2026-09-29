@@ -54,9 +54,11 @@ internal static class DrivingWords
     public static string HoldName(DrivingHold hold) => hold switch
     {
         DrivingHold.Corner => "slowing for a corner",
+        DrivingHold.Wheel => "turning harder than its line",
         DrivingHold.LineEnd => "stopping at the end of its line",
         DrivingHold.Claimed => "queueing",
         DrivingHold.Waiting => "waiting for the junction",
+        DrivingHold.Reach => "keeping within its plan",
         DrivingHold.LostLine => "off its line",
         _ => "driving",
     };

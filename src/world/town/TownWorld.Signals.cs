@@ -71,7 +71,7 @@ internal sealed partial class TownWorld
 
         toTheBoxM = ends[ahead] - noseM;
         Cars.CommittedToTheBox[car] = Cars.CommittedToM[car] > ends[ahead];
-        claimed = noseM + Cars.AuthorityM[car] > ends[ahead];
+        claimed = noseM + MathF.Min(Cars.AuthorityM[car], Cars.HorizonM[car]) > ends[ahead];
     }
 
     /// <summary>

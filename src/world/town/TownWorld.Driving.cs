@@ -155,7 +155,7 @@ internal sealed partial class TownWorld
         // line on the road that place left it.
         var context = new DriveContext(
             Cars.GroundCoefficient[car], toTheStopM, Cars.GrantCutBy[car], ToTheSceneM(car), Cars.GrantMarginM[car],
-            waitsToPass);
+            waitsToPass, Cars.HorizonM[car] - coveredM);
 
         Cars.Context[car] = context;
         Drive(
@@ -195,7 +195,7 @@ internal sealed partial class TownWorld
 
         var context = new DriveContext(
             Cars.GroundCoefficient[car], Cars.AuthorityM[car] - coveredM, Cars.GrantCutBy[car],
-            MarginM: Cars.GrantMarginM[car]);
+            MarginM: Cars.GrantMarginM[car], HorizonM: Cars.HorizonM[car] - coveredM);
 
         Cars.Context[car] = context;
         Drive(car, build, pose, line, progressM, lengthM, context, travel, alongMps, reverse);
@@ -226,8 +226,8 @@ internal sealed partial class TownWorld
         // negates the wheel and nothing else.
         var lastMps2 = CarFollower.PedalMps2(Cars.Command[car]);
         var targetMps = CarFollower.TargetSpeedMps(
-            _config, build, line, progressM, lengthM, steerRad, alongMps, lookaheadM, context, out var hold,
-            out var plannedMps, Cars.Pass[car], lastMps2);
+            _config, build, line, Cars.EntriesOf(car), progressM, lengthM, steerRad, alongMps, lookaheadM, context,
+            out var hold, out var plannedMps, Cars.Pass[car], lastMps2);
 
         // <b>A bay's own way is driven at manoeuvring pace</b> whichever way round it is taken, and the
         // reverse cap is that pace — deliberately off the forward cap's scale, because this is its only
@@ -717,5 +717,15 @@ internal sealed partial class TownWorld
         Cars.Line[car] = LineAssembler.Assemble(
             _roads, chain[..lanes], Cars.LineArcsOf(car), Cars.LaneStartsOf(car), Cars.LaneEndsOf(car),
             tail == CarFleet.NoWay ? float.PositiveInfinity : _bayWays.AtLaneM(tail));
+
+        // What a plan reads of the line it runs down (TER-4c.1, S-2): the corners folded into each arc, and which
+        // joins break it — once a line, so the plan and the profile read segments rather than walk geometry.
+        CornerLimits.Lay(Cars.LineOf(car), Cars.LineEntriesOf(car), _config);
+        var breaks = Cars.JoinBreaksOf(car);
+        for (var slot = 0; slot + 1 < Cars.Line[car].LaneCount; slot++)
+        {
+            var join = _roads.ConnectorBetween(chain[slot], chain[slot + 1]);
+            breaks[slot] = join != RoadGraph.NoConnector && _roads.BreaksTheLine(join);
+        }
     }
 }

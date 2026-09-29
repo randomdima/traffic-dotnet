@@ -368,6 +368,29 @@ internal sealed class DrivingFigures
     public float PlannedRunS { get; init; } = 2f;
 
     /// <summary>
+    /// <b>The furthest any plan reaches past where it begins</b> (TER-4c.1), however fast its holder means to go.
+    /// </summary>
+    /// <remarks>
+    /// <b>A car drives to stop by the end of its own plan</b> (S-2), so on an open road this is what bounds its
+    /// pace, and with it how long a car caught by an amber takes to reach the bar it cannot stop short of.
+    /// </remarks>
+    public float PlanMostM { get; init; } = 40f;
+
+    /// <summary>
+    /// <b>How many joins that break the line one plan may pass</b> (TER-4c.1) — every turn, and every join that bends
+    /// the road on by more than <see cref="JoinBendStepPerM"/>. A join that carries the road straight on is not
+    /// counted.
+    /// </summary>
+    public int PlanMostJoins { get; init; } = 2;
+
+    /// <summary>
+    /// <b>How far a join's curvature may depart from the lane it leaves and still carry the road on</b> (TER-4c.1),
+    /// as a step in curvature: past it, the join is a turn or a kink and counts against
+    /// <see cref="PlanMostJoins"/>.
+    /// </summary>
+    public float JoinBendStepPerM { get; init; } = 0.05f;
+
+    /// <summary>
     /// How long a pedal takes to travel from one stop to the other, which is what bounds the rate the
     /// commanded acceleration may change at. <b>Without it the pedal is a relay</b>: the profile asks for
     /// whatever closes the speed error in one tick, so an error of a fifth of a metre a second saturates it,

@@ -92,6 +92,7 @@ internal sealed partial class TownWorld
         if ((Spline.SampleAt(arcs, alongM).PositionM - axleM).Length() > _config.CarOffPathM) return false;
 
         arcs.CopyTo(Cars.LineArcsOf(car));
+        CornerLimits.Lay(arcs, Cars.LineEntriesOf(car), _config);
         Cars.Line[car] = new DrivenLine(arcs.Length, 0, lengthM);
         Cars.ProgressM[car] = alongM;
         Cars.LineIsReverse[car] = _bayWays.IsDrivenInReverse(way);

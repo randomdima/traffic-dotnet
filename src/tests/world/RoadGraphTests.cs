@@ -324,6 +324,42 @@ public class RoadGraphTests
         }
     }
 
+    /// <summary>
+    /// <b>A turn breaks the line a car is driving, and the road carried straight on through a box does not</b>
+    /// (TER-4c.1): the tightest near-side turn in the town is a join a plan counts, and a straight on between two
+    /// lanes that are straight where it meets them is not — however many movements cross it there.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void ATurnBreaksTheLineAndTheRoadCarriedOnDoesNot(string map)
+    {
+        var graph = GraphOf(map);
+        var tightest = RoadGraph.NoConnector;
+        var tightestPerM = 0f;
+        var carriedOn = RoadGraph.NoConnector;
+        for (var connector = 0; connector < graph.ConnectorCount; connector++)
+        {
+            var bendPerM = 0f;
+            foreach (var arc in graph.ConnectorArcs(connector)) bendPerM = MathF.Max(bendPerM, MathF.Abs(arc.Curvature));
+
+            if (graph.KindOf(connector) == LaneTurn.NearSide && bendPerM > tightestPerM)
+            {
+                (tightest, tightestPerM) = (connector, bendPerM);
+            }
+
+            if (carriedOn == RoadGraph.NoConnector && graph.KindOf(connector) == LaneTurn.Straight && bendPerM == 0f
+                && graph.ArcsOf(graph.ConnectorFrom(connector))[^1].Curvature == 0f
+                && graph.ArcsOf(graph.ConnectorTo(connector))[0].Curvature == 0f)
+            {
+                carriedOn = connector;
+            }
+        }
+
+        Assert.True(tightest != RoadGraph.NoConnector && carriedOn != RoadGraph.NoConnector, $"{map} has no turn and no straight on to ask");
+        Assert.True(graph.BreaksTheLine(tightest), $"{map}: the near-side turn {tightest} carries the line on");
+        Assert.False(graph.BreaksTheLine(carriedOn), $"{map}: the straight on {carriedOn} breaks the line");
+    }
+
     /// <summary>Five centimetres, which is <see cref="ArcSeg"/>'s own arithmetic and not the join's geometry.</summary>
     const float JoinToleranceM = 0.05f;
 }

@@ -246,9 +246,12 @@ may repeat them.
 never further than the corner being driven is wide.
 
 **S-2** `P5` Speed is the minimum of every constraint — the gear cap, the corners, the end of the line,
-**the road the car was granted** and the place the car was sent to — every distance taken a lead ahead of
-where the car is, against *usable* grip. The lead is the staleness of the driver's own decision and the
-travel of the pedal that answers it, from wherever the pedal is.
+**the road the car was granted**, the end of its own plan where that was held short of what it wanted
+(TER-4c.1) and the place the car was sent to — every distance taken a lead ahead of where the car is, against
+*usable* grip. The lead is the staleness of the driver's own decision and the travel of the pedal that answers
+it, from wherever the pedal is. **The corners are read off the line and not walked**: each arc carries, from
+when the line was laid, what it may be entered at and still hold every corner past it, and a car reads the arcs
+its lead point has reached at their own corner and the first it has not at that entry.
 
 **S-2a** `P3` **Take the road ahead before driving down it, and keep to what was granted.** Every tick, a
 driver plans the stretch of its own line from its nose (TER-4c.1) to where it means to be able to stop, and

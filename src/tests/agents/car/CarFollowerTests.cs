@@ -3,6 +3,7 @@ using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Road;
 using Xunit;
 
 namespace TrafficSimulation.Tests.Agents.Car;
@@ -28,9 +29,19 @@ public class CarFollowerTests
             Figures.Car.MassKg, Vector2.Zero);
 
     static float Target(ReadOnlySpan<ArcSeg> line, float progressM, float alongMps, in DriveContext context, out DrivingHold hold) =>
-        CarFollower.TargetSpeedMps(
-            Figures, Car, line, progressM, Spline.TotalLengthM(line), 0f, alongMps,
-            CarFollower.LookaheadM(Car, alongMps, Figures.Driving.LookaheadS), context, out hold, out _);
+        Target(line, progressM, alongMps, context, out hold, out _);
+
+    static float Target(
+        ReadOnlySpan<ArcSeg> line, float progressM, float alongMps, in DriveContext context, out DrivingHold hold,
+        out float plannedMps)
+    {
+        var entryM = new float[line.Length];
+        CornerLimits.Lay(line, entryM, Figures);
+
+        return CarFollower.TargetSpeedMps(
+            Figures, Car, line, entryM, progressM, Spline.TotalLengthM(line), 0f, alongMps,
+            CarFollower.LookaheadM(Car, alongMps, Figures.Driving.LookaheadS), context, out hold, out plannedMps);
+    }
 
     [Fact]
     public void AStraightAheadAsksForNoSteeringAtAll()
@@ -173,6 +184,37 @@ public class CarFollowerTests
         Assert.True(CarFollower.IsAHazard(Figures, Car, AlongMps, DriveContext.Clear with { AuthorityM = utmostM * 0.9f }));
         Assert.False(CarFollower.IsAHazard(Figures, Car, AlongMps, DriveContext.Clear with { AuthorityM = utmostM * 1.1f }));
         Assert.False(CarFollower.IsAHazard(Figures, Car, AlongMps, DriveContext.Clear));
+    }
+
+    /// <summary>
+    /// <b>A bend ahead is braked for off the arc the car is coming to</b> (S-2): nearer it the car is held to less,
+    /// and what holds it is the corner.
+    /// </summary>
+    [Fact]
+    public void ABendAheadIsBrakedForBeforeTheCarReachesIt()
+    {
+        ReadOnlySpan<ArcSeg> line = [new ArcSeg(Vector2.Zero, 0f, 200f, 0f), new ArcSeg(new Vector2(200f, 0f), 0f, 30f, 1f / 15f)];
+
+        var far = Target(line, 20f, 20f, DriveContext.Clear, out _);
+        var near = Target(line, 150f, 20f, DriveContext.Clear, out var hold);
+
+        Assert.True(near < far);
+        Assert.Equal(DrivingHold.Corner, hold);
+    }
+
+    /// <summary>
+    /// <b>The end of its own plan is a stop point and not a limit on the plan</b> (TER-4c.1): it slows the car, and
+    /// the speed the next plan is sized by is what the car would do without it — or the plan would shrink to fit it.
+    /// </summary>
+    [Fact]
+    public void TheEndOfItsOwnPlanSlowsTheCarAndNotItsNextPlan()
+    {
+        var open = Target(Straight, 10f, 20f, DriveContext.Clear, out _, out var openPlannedMps);
+        var held = Target(Straight, 10f, 20f, DriveContext.Clear with { HorizonM = 20f }, out var hold, out var heldPlannedMps);
+
+        Assert.True(held < open);
+        Assert.Equal(DrivingHold.Reach, hold);
+        Assert.Equal(openPlannedMps, heldPlannedMps);
     }
 
     /// <summary>Ground worth less is planned against as ground worth less, in the corner and in the stop alike.</summary>

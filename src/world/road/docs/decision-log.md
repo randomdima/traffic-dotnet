@@ -4,6 +4,57 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-09-29 — a moving car plans no further than its corners let it rest
+
+**A plan drew back on its own as its car slowed for a bend** — the owner saw a car's hold reach round a
+right-angle turn and down the road past it, then shrink to the join as the car braked for the turn, with nothing
+cutting it: a car that knows it will crawl round a turn should never have planned that much. The planned run
+held the speed the car was planning for (TER-4c.1), which on the approach to a bend is the approach's and not the
+bend's. **What a moving car means to use now ends where the corners ahead let it be at rest**
+(`CornerLimits.RestToM`): the first arc begun past its nose, entered at its entry figure, and a stop from there.
+It is read off the arcs the line was laid with and it is every build's alike, since the grip a car corners on and
+the grip it stops on cancel; and it only moves on as the nose does, so a plan bounded by it grows as the car goes
+into the bend and never draws back.
+
+**Read at the nose and not at the lead point the follower brakes from**: the lead point carries the pedal, and a
+foot coming off the throttle pulled it back over an arc's start and the plan with it, by as much as 12 m. **The
+room to pull away is bounded with the run**, or a car cornering a little faster than the entry figures (a build
+whose pedal stops it before its tyres would) planned past the bound by that and drew it back as it slowed. Over a
+minute of each of the suite's towns, ticks on which a plan nothing cut drew back went from 10 155 and 2 018 to 28
+and 31 (`PlansInATownTests`, with the wheel out of the planned speed: car log). What is left is a car slowing for
+its own wheel, a brake applied for a light still coming off the pedal, and a car read a few metres back along its
+line for a tick in a tight arc.
+
+## 2026-09-29 — a plan is laid to the metre it was answered
+
+**Cars were driving reds seconds into the red, at full speed** — the owner saw them "not even trying to stop".
+The light's hold was gone from under them: a plan refused at the bar was answered at the hold's first metre,
+carried to the line and back to be laid, and came home a hair past it. Laid there it took that hair off the hold
+(TER-4c.3), and a secondary claim cut anywhere goes whole (TER-5c.2) — so the whole of the light went, the plan
+was answered again against a road with no light on it, and it did so every tick. On the drive probe three reds
+in five on Odesa and on River were this, and none of them could be told from a car committed when the amber
+ran out without asking how far into the red it was. **The piece a plan was refused on is laid to the
+metre it was answered at** (`PlanAnswer.CutWayM`), for drivers and walkers alike; only the pieces before it are
+carried over from the line, and they end at their own ends. `LightsInATownTests` holds every red's bar tick by
+tick.
+
+## 2026-09-29 — a plan reaches no further than a plan may
+
+**The owner asked for plans bounded by the road rather than by speed alone** (TER-4c.1): a stated length
+(`DrivingFigures.PlanMostM`), the car's own stop from its top speed, and no more than two joins that break its
+line — "connectors give unpredictability and extra curvature, so actors should not plan too much ahead on
+those". **Which joins count is geometry and not a junction's arms**: one whose curvature, or the curvature of
+the lane it lands on, departs from the lane it leaves by more than a step (`JoinBendStepPerM`,
+`RoadGraph.BreaksTheLine`), so a turn counts and the road carried straight on through a crossroads does not.
+The movements crossing it there are plans, and it is the plans that answer for them.
+
+**A plan held short is a stop point** (S-2, `DrivingHold.Reach`), or the ground a car can no longer stop short
+of would run past ground it holds and meet nothing there — a light's hold past the end of the plan included.
+So the length is what bounds pace on an open road: at 40 m the drive probe tops out at 27 m/s against 46
+before, the mean is unmoved, and the reach binds about two car-ticks in five. **The amber was not derived from
+it**: a car at the nominal build's braking caught at the edge of what it can stop short of reaches the bar
+about 1.5 s later, which is the amber's own length, and a softer-braking build a little over it.
+
 ## 2026-09-29 — a zebra is planned like any other ground
 
 **The whole-or-nothing zebra went** (TER-5c.3): a plan reaching a zebra ran on to the car's own length clear of

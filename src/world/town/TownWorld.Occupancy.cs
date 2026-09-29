@@ -25,7 +25,15 @@ internal readonly record struct LineWay(int Way, float FromM, float ToM, float L
 /// <param name="CutLineM">Infinity where it can have all it asked for.</param>
 /// <param name="CutBy"><see cref="LaneClaim.Nothing"/> where nothing ended it.</param>
 /// <param name="CutOn">The way it was refused on, or <see cref="LaneOccupancy.NoHold"/>.</param>
-internal readonly record struct PlanAnswer(float CutLineM, float MarginM, LaneClaim CutBy, int CutOn)
+/// <param name="CutAt">Which of the plan's pieces that was, or −1.</param>
+/// <param name="CutWayM">
+/// Where on that piece's own way it was refused — <b>the metre the answer was read at, and the one the piece is
+/// laid to</b>. Carried to the line and back instead, it comes home a hair past where it was refused, and laid
+/// there it takes that hair off whatever refused it: a light's hold, a secondary claim met at its very start,
+/// went whole to a plan it had just refused (<see cref="LaneOccupancy.Take"/>).
+/// </param>
+internal readonly record struct PlanAnswer(
+    float CutLineM, float MarginM, LaneClaim CutBy, int CutOn, int CutAt = -1, float CutWayM = float.PositiveInfinity)
 {
     public static PlanAnswer Whole => new(float.PositiveInfinity, 0f, LaneClaim.Nothing, LaneOccupancy.NoHold);
 }
@@ -411,6 +419,14 @@ internal sealed partial class TownWorld
     /// </summary>
     static float OnTheWayM(in LineWay way, float lineM) =>
         Math.Clamp(way.FromM + (lineM - way.LineFromM), way.FromM, way.ToM);
+
+    /// <summary>
+    /// How far along the <paramref name="index"/>th piece of a plan its answer lets it be laid: the metre it was
+    /// refused at on the piece it was refused on (<see cref="PlanAnswer.CutWayM"/>), and the answer carried
+    /// over from the line on every piece before that.
+    /// </summary>
+    static float LaidToM(in PlanAnswer answer, int index, in LineWay way) =>
+        index == answer.CutAt ? answer.CutWayM : OnTheWayM(way, answer.CutLineM);
 
     /// <summary>
     /// The same trip home: where a place in one way's own metres falls on the line that ran over it. <b>The
