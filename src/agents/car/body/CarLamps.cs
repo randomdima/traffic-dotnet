@@ -10,7 +10,7 @@ internal enum CarLampSet : byte
 {
     None = 0,
 
-    /// <summary>The side the line ahead bends to, which is the side the car is about to turn towards.</summary>
+    /// <summary>The side the car is about to turn towards at a junction, or to step across to on a pass.</summary>
     TurnLeft = 1,
     TurnRight = 2,
 
@@ -33,7 +33,7 @@ internal enum CarLampFitting : byte
     /// <summary>The rear cluster: red under the pedal, white in reverse gear.</summary>
     Rear,
 
-    /// <summary>A front corner lamp, which flashes on the side the line ahead bends to.</summary>
+    /// <summary>A front corner lamp, which flashes on the side the car is about to turn or step across to.</summary>
     Indicator,
 
     /// <summary>One end of a beacon bar, red at rest. Lit, the bar's two ends swap colours (AMB-4).</summary>
@@ -107,6 +107,11 @@ internal enum CarLamp : byte
 /// about to drive, so nothing has to state it.
 /// </para>
 /// <para>
+/// <b>A pass outranks the junction</b> (CAR-14.7): from the tick the driver decides to get past something
+/// (<see cref="Control.DriveContext.PassAsideM"/>) until it is back in its own lane, the indicator is the pass's —
+/// its side is the side the lane beside is on, which the pass is the one place that holds.
+/// </para>
+/// <para>
 /// This is kept beside the body it is a fact about rather than in the renderer that draws it, on the
 /// argument <see cref="TyreModel"/> is: where a lamp <em>is</em> is the car's — its variant's art, read
 /// as <see cref="CarLens"/> (CAR-14a) — and what a lamp looks like is not.
@@ -151,6 +156,17 @@ internal static class CarLamps
         if (cars.BlueLight[car] || handAtTheWheel) set |= CarLampSet.Beacon;
         if (cars.AtWork[car]) set |= CarLampSet.Works;
 
+        // CAR-14.7: a pass is the whole of what the indicator says until the car is back in its lane, dark
+        // alongside what it passes included — a junction past it is announced once it is over.
+        var pass = cars.Pass[car];
+        if (pass.Begun && cars.ProgressM[car] < pass.EndsM)
+        {
+            return set | OnThePass(pass, cars.ProgressM[car], cars.AlongMps[car], config.Lamps.StepBackLeadS);
+        }
+
+        var passAsideM = cars.Context[car].PassAsideM;
+        if (passAsideM != 0f) return set | Towards(passAsideM);
+
         // CAR-14.1: an indicator answers a junction. A car with none in front of it, or one whose way
         // through the one in front is straight on, is announcing nothing — a constant-radius road is a road
         // and not a turn, and every car on one indicating its way round is the defect this gate exists for.
@@ -169,6 +185,24 @@ internal static class CarLamps
 
         return set;
     }
+
+    /// <summary>
+    /// <b>What a car on a pass says</b> (CAR-14.7): the side it steps out to until that step is done, nothing
+    /// alongside what it passes, and the side it steps back to from <paramref name="stepBackLeadS"/> short of the
+    /// step back — never before the step out is done, so a step out running straight into the step back hands one
+    /// side straight to the other.
+    /// </summary>
+    static CarLampSet OnThePass(in Control.Overtake pass, float progressM, float alongMps, float stepBackLeadS)
+    {
+        var steppedOutM = pass.OutM + pass.StepM;
+        if (progressM < steppedOutM) return Towards(pass.AsideM);
+
+        var sayBackFromM = MathF.Max(steppedOutM, pass.BackM - (MathF.Max(0f, alongMps) * stepBackLeadS));
+        return progressM >= sayBackFromM ? Towards(-pass.AsideM) : CarLampSet.None;
+    }
+
+    /// <summary>The indicator on the side of the car something this far across its line is, the right where positive.</summary>
+    static CarLampSet Towards(float asideM) => asideM > 0f ? CarLampSet.TurnRight : CarLampSet.TurnLeft;
 
     /// <summary>
     /// How far the line bends over the next <paramref name="aheadM"/> metres of it, positive towards the

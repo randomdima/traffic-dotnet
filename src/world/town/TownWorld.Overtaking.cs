@@ -85,9 +85,14 @@ internal sealed partial class TownWorld
     /// it was asked for, and asked for where the grant was ended by something the car may get past.
     /// </summary>
     /// <param name="toTheStopM">How far ahead of the nose the car's grant has it stop.</param>
+    /// <param name="passAsideM">
+    /// The lane beside the car has decided to pass on and has not begun to (<see cref="DriveContext.PassAsideM"/>),
+    /// or zero.
+    /// </param>
     /// <returns>Whether the car is coming up to something it means to get past, and has not begun to.</returns>
-    bool ConsiderAPass(int car, float progressM, float alongMps, float toTheStopM)
+    bool ConsiderAPass(int car, float progressM, float alongMps, float toTheStopM, out float passAsideM)
     {
+        passAsideM = 0f;
         var pass = Cars.Pass[car];
         if (pass.Begun)
         {
@@ -98,15 +103,17 @@ internal sealed partial class TownWorld
             return false;
         }
 
+        // Withdrawn, it is asked for again on the next tick: the car has not changed its mind.
         if (pass.Any)
         {
+            passAsideM = pass.AsideM;
             KeepOrWithdrawThePass(car, pass, progressM);
             return !Cars.Pass[car].Begun;
         }
 
         if (!MayGetPastWhatCutIt(car, out var cutBy, out var cutOn)) return false;
 
-        AskForAPass(car, progressM, alongMps, toTheStopM, cutBy, cutOn);
+        passAsideM = AskForAPass(car, progressM, alongMps, toTheStopM, cutBy, cutOn);
         return true;
     }
 
@@ -189,8 +196,13 @@ internal sealed partial class TownWorld
     /// before it there is what it was sent to, and a pass ending past the place would drive it by.
     /// </para>
     /// </remarks>
+    /// <returns>
+    /// <b>Where the car has decided to pass, the lane beside</b> — as how far across it stands, whether or not the
+    /// pass was had this tick — or zero. It is decided wherever the pass is only waiting on the car's own pace or on
+    /// the lane beside coming free, and not where something about the road itself refuses it.
+    /// </returns>
     [SkipLocalsInit]
-    void AskForAPass(int car, float progressM, float alongMps, float toTheStopM, in LaneClaim cutBy, int cutOn)
+    float AskForAPass(int car, float progressM, float alongMps, float toTheStopM, in LaneClaim cutBy, int cutOn)
     {
         ref readonly var build = ref Cars.BuildOf(car);
         var speedMps = MathF.Max(0f, alongMps);
@@ -198,7 +210,7 @@ internal sealed partial class TownWorld
         var brakingMps2 = CarFollower.BrakingMps2(_config, build, ground);
         var slowsFromM = StoppingM(speedMps, brakingMps2 * _config.Driving.WaitingToPassBrakingShare)
                          + (speedMps * CarFollower.LeadS(_config, build, brakingMps2)) + _config.Driving.PassSpareM;
-        if (toTheStopM > slowsFromM) return;
+        if (toTheStopM > slowsFromM) return 0f;
 
         var lane = Cars.LaneOf(car);
         var back = _roads.LaneReverse[lane];
@@ -206,7 +218,7 @@ internal sealed partial class TownWorld
         var lineM = Cars.Line[car].LengthM;
         Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];
         var count = WaysAlong(car, noseM, lineM, ways);
-        if (!OnTheLine(ways[..count], cutOn, cutBy.FromM, out var standsFromM)) return;
+        if (!OnTheLine(ways[..count], cutOn, cutBy.FromM, out var standsFromM)) return 0f;
 
         var asideM = AsideOnTheLaneBeside(lane, back, Math.Clamp(progressM, 0f, _roads.LaneLengthM[lane]));
 
@@ -215,7 +227,7 @@ internal sealed partial class TownWorld
         Span<LaneClaim> passed = stackalloc LaneClaim[MostPassedAtOnce];
         var passedCount = 0;
         var clearsM = noseM;
-        if (!Passes(car, ways[..count], cutOn, cutBy, passed, ref passedCount, ref clearsM)) return;
+        if (!Passes(car, ways[..count], cutOn, cutBy, passed, ref passedCount, ref clearsM)) return 0f;
 
         var corneringMps2 = CarFollower.CorneringMps2(_config, build, ground);
         var bandM = _roads.LaneWidthM[lane] * 0.5f;
@@ -223,25 +235,25 @@ internal sealed partial class TownWorld
         Overtake pass;
         while (true)
         {
-            if (!CarFollower.ShapeAPass(build, speedMps, asideM, corneringMps2, lineBend, out var stepM, out var driveMps)) return;
+            if (!CarFollower.ShapeAPass(build, speedMps, asideM, corneringMps2, lineBend, out var stepM, out var driveMps)) return 0f;
 
             var latestOutM = standsFromM - StepOutLeadM(build, asideM, stepM, bandM);
-            if (latestOutM < progressM && speedMps > _config.Driving.StopSpeedMps) return;
+            if (latestOutM < progressM && speedMps > _config.Driving.StopSpeedMps) return asideM;
 
             var outM = MathF.Max(progressM, latestOutM);
             var backM = MathF.Max(clearsM + StepBackTrailM(build, asideM, stepM, bandM), outM + stepM);
             var reachM = backM + stepM + build.NoseAheadOfAxleM + _config.Driving.StandOffM;
             if (TheNextBodyPast(car, ways[..count], clearsM, reachM, out var next, out var nextOn))
             {
-                if (!Passes(car, ways[..count], nextOn, next, passed, ref passedCount, ref clearsM)) return;
+                if (!Passes(car, ways[..count], nextOn, next, passed, ref passedCount, ref clearsM)) return 0f;
 
                 continue;
             }
 
-            if (reachM > lineM) return;
+            if (reachM > lineM) return 0f;
 
             var bend = MostBendUnderThePass(car, progressM, reachM, asideM);
-            if (float.IsPositiveInfinity(bend)) return;
+            if (float.IsPositiveInfinity(bend)) return 0f;
 
             if (bend > lineBend)
             {
@@ -253,11 +265,13 @@ internal sealed partial class TownWorld
             break;
         }
 
-        if (progressM + ToTheSceneM(car) < pass.EndsM) return;
-        if (!IsThePassFree(car, pass, progressM, pass.EndsM + _config.Driving.StandOffM, passed[..passedCount])) return;
+        var toM = pass.EndsM + _config.Driving.StandOffM;
+        if (progressM + ToTheSceneM(car) < pass.EndsM || !IsThePassOnTheRoad(car, pass, progressM, toM)) return 0f;
+        if (!IsThePassUnheld(car, pass, progressM, toM, passed[..passedCount])) return asideM;
 
         Cars.Pass[car] = pass;
         PassesAsked++;
+        return asideM;
     }
 
     /// <summary>
@@ -445,18 +459,15 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>Whether the ground a pass would cover is free</b> (TER-4c.6): on the carriageway — a stretch over ground
-    /// the traffic does not drive is a pass run off the road — clear of every zebra, with nobody standing on any of
-    /// it but the car, and nobody planning it but what it passes.
+    /// <b>Whether the ground a pass would cover is road a pass may be had on</b> (TER-4c.6): on the carriageway — a
+    /// stretch over ground the traffic does not drive is a pass run off the road — and clear of every zebra.
     /// </summary>
     /// <remarks>
-    /// <b>Nobody else is asked for with room to spare</b> (<see cref="DrivingFigures.PassSpareM"/>) — and the ground
-    /// is laid and kept without it: a pass that cleared what it passes by a hair was asked for one tick and withdrawn
-    /// the next, as that body settled a hair nearer. The road and the paint are asked of the body alone, since the
-    /// spare is room to stray into and not a place the car is taken.
+    /// Asked of the body alone, since the spare (<see cref="DrivingFigures.PassSpareM"/>) is room to stray into and
+    /// not a place the car is taken.
     /// </remarks>
     [SkipLocalsInit]
-    bool IsThePassFree(int car, in Overtake pass, float fromM, float toM, ReadOnlySpan<LaneClaim> passed)
+    bool IsThePassOnTheRoad(int car, in Overtake pass, float fromM, float toM)
     {
         Span<WayCover> under = stackalloc WayCover[MostWaysUnderABody];
         for (var station = 0; station < StationsOfThePass(car, fromM, toM); station++)
@@ -467,8 +478,27 @@ internal sealed partial class TownWorld
                 ref readonly var cover = ref under[at];
                 if (!IsCarriageway(cover.Way) || CrossesAZebra(cover.Way, cover.FromM, cover.ToM)) return false;
             }
+        }
 
-            count = UnderTheCarOnThePass(car, pass, fromM, toM, station, _config.Driving.PassSpareM, under, out _);
+        return true;
+    }
+
+    /// <summary>
+    /// <b>And whether it is free</b> (TER-4c.6): nobody standing on any of it but the car, and nobody planning it but
+    /// what it passes.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nobody else is asked for with room to spare</b> (<see cref="DrivingFigures.PassSpareM"/>) — and the ground
+    /// is laid and kept without it: a pass that cleared what it passes by a hair was asked for one tick and withdrawn
+    /// the next, as that body settled a hair nearer.
+    /// </remarks>
+    [SkipLocalsInit]
+    bool IsThePassUnheld(int car, in Overtake pass, float fromM, float toM, ReadOnlySpan<LaneClaim> passed)
+    {
+        Span<WayCover> under = stackalloc WayCover[MostWaysUnderABody];
+        for (var station = 0; station < StationsOfThePass(car, fromM, toM); station++)
+        {
+            var count = UnderTheCarOnThePass(car, pass, fromM, toM, station, _config.Driving.PassSpareM, under, out _);
             for (var at = 0; at < count; at++)
             {
                 if (!IsCarriageway(under[at].Way)) continue;

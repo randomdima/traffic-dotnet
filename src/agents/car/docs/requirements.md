@@ -322,9 +322,9 @@ wheel reads are `TyreModel`'s and `CarPose`'s own.
 ## What a car shows
 
 **CAR-14** `P6` A car **says what it is doing with its lamps**, and every lamp is a fact the car already
-holds: the pedal, the gear, the line in front of it and the priority it carries. **No lamp is state of
-its own** — there is nothing to set, nothing to clear and nothing that can disagree with the car it is
-bolted to.
+holds: the pedal, the gear, the line in front of it, the pass it has decided on and the priority it
+carries. **No lamp is state of its own** — there is nothing to set, nothing to clear and nothing that can
+disagree with the car it is bolted to.
 
 **CAR-14a** `P6` A lamp is a **section of the car's own picture**, and the variant's file says which one: every
 lens is measured off the art it is drawn on, so a lamp lights the panel an artist drew a lens on and
@@ -341,10 +341,11 @@ where the art draws no lamp there at all** — it is a lens invented for a car t
 lamp the artist did draw it reads as a sticker on the paint.
 
 **CAR-14.1** `P6` The **indicator announces the turn a car is about to make at the junction in front of it**,
-and nothing else. It is shown only while a junction is **within reach** of the car and only where the
-movement its own line takes through that junction is a **turn rather than straight on** — the road's own
-classification of the pair of lanes the line joins (`TownWorld.ReadTheBoxAhead`, `CarFleet.TurningAtTheBox`),
-so what a car announces and what it gives way to are one answer about one movement.
+and nothing else but a pass (CAR-14.7). It is shown only while a junction is **within reach** of the car
+and only where the movement its own line takes through that junction is a **turn rather than straight
+on** — the road's own classification of the pair of lanes the line joins (`TownWorld.ReadTheBoxAhead`,
+`CarFleet.TurningAtTheBox`), so what a car announces and what it gives way to are one answer about one
+movement.
 
 **A bend is not a turn.** A road of constant radius bends past any threshold for ever, and a car announcing
 that all the way round a circuit is announcing something nobody can act on: there is nowhere else for it to
@@ -385,8 +386,19 @@ both ways round and through the standing still between them — and it is up whe
 giving that truck the road (EVA-4). **It grants nothing**: no movement gives way to it and no rule of the
 road reads it. What it says is that there is a truck working in this street.
 
+**CAR-14.7** `P6` A car **getting past something says so with its indicator from the moment it decides to**
+(CAR-46) — from where it would begin slowing for what it passes, whether or not the lane beside is free
+yet — and not from when the pass is its own. A car waiting behind a wreck for the lane beside is
+indicating towards it. **Once it is on the pass**, it indicates the side it steps out to until that step is
+done, **nothing alongside what it passes**, and the side it steps back to from a lead short of the step
+back — never before the step out is done, so a step out running straight into the step back hands one side
+straight to the other. **The pass outranks the junction**: from the decision until the car is back in its
+own lane, the turn at a junction beyond it is not announced. A pass the road itself refuses — no room to
+come back in, a zebra, a bend, a place the car was sent to — is no decision and says nothing.
+
 Where the numbers are: `SimConfig.Lamps` — how much of the line is read for a turn and how far that
-stretch must bend, the rates the flashing ones flash at, and how far the light around a lit one spills.
+stretch must bend, how long before the step back a pass says it, the rates the flashing ones flash at, and
+how far the light around a lit one spills.
 **Neither where a lamp is nor what it looks like is a number here**: where is the variant's own file,
 beside the picture it was measured off, and what is the town's one lamp sheet, cut from those same
 pictures (CAR-14a).

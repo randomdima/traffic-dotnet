@@ -138,7 +138,7 @@ internal sealed partial class TownWorld
 
         // CAR-46: getting past what stands in the lane, asked for off the grant this rebuild gave.
         var toTheStopM = Cars.AuthorityM[car] - coveredM;
-        var waitsToPass = ConsiderAPass(car, progressM, alongMps, toTheStopM);
+        var waitsToPass = ConsiderAPass(car, progressM, alongMps, toTheStopM, out var passAsideM);
 
         // S-4: the junction ahead. Whether the box is this car's is its grant's to say, and a light is in the
         // grant too — its hold is ground like any other (TLT-1).
@@ -155,7 +155,7 @@ internal sealed partial class TownWorld
         // line on the road that place left it.
         var context = new DriveContext(
             Cars.GroundCoefficient[car], toTheStopM, Cars.GrantCutBy[car], ToTheSceneM(car), Cars.GrantMarginM[car],
-            waitsToPass, Cars.HorizonM[car] - coveredM);
+            waitsToPass, Cars.HorizonM[car] - coveredM, passAsideM);
 
         Cars.Context[car] = context;
         Drive(

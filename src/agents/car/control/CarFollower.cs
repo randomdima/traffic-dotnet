@@ -81,10 +81,16 @@ internal enum HeadwayKind : byte
 /// plan may reach (TER-4c.1), or <see cref="float.PositiveInfinity"/> where it planned all it wanted. Nothing cut
 /// it, so it is no part of the grant.
 /// </param>
+/// <param name="PassAsideM">
+/// <b>The lane beside this car has decided to get past what cut it on</b> (CAR-46), as how far across it stands
+/// along the driver's right, negative on its left — or zero where it has decided on no pass. <b>Decided and not
+/// granted</b>: it is set from where the car would begin slowing for what it passes, while it waits for the lane
+/// beside as when it has it, and it is what the indicator says until the pass is begun (CAR-14.7).
+/// </param>
 internal readonly record struct DriveContext(
     float GroundCoefficient, float AuthorityM = float.PositiveInfinity, HeadwayKind GrantCutBy = HeadwayKind.Nothing,
     float PlaceStopM = float.PositiveInfinity, float MarginM = 0f, bool WaitsToPass = false,
-    float HorizonM = float.PositiveInfinity)
+    float HorizonM = float.PositiveInfinity, float PassAsideM = 0f)
 {
     public static DriveContext Clear => new(1f);
 

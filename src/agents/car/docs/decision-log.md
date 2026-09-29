@@ -3,6 +3,27 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-09-29 — a car indicates a pass from when it decides on one
+
+**The owner asked for the indicator to come on when the car decides to overtake, and not when it gets the
+claim** (CAR-14.7). Before this a pass said nothing, and near a junction it said the wrong thing: a car stepping
+out left round a wreck showed the right turn it would make after it. Read off the pass alone, the lamp would come on
+with the claim — at speed about 1.4 s ahead of the step out, from rest one rebuild ahead of it, and never while the
+car waited behind a wreck for the lane beside.
+
+**The decision is what the driver asks from**: where it would begin slowing for what it passes, and wherever the
+pass is then waiting only on the car's own pace or on the lane beside coming free. A refusal that is the road's own —
+nowhere to come back in, a zebra, a bend, a place the car was sent to — is no decision, and the ground check is split
+into the road and who holds it so the two can be told apart (`IsThePassOnTheRoad`, `IsThePassUnheld`). **Its side is
+carried on the tick's `DriveContext`** because the pass is the only place the side of the lane beside is known and a
+car waiting for one has no pass; the context is written every tick the car decides and cleared every tick it does not,
+so nothing is left to clear and the lamp is still no state of its own (CAR-14). `WaitsToPass` was left as it was: it is
+true from any distance for the gentle approach, and a car flashing at something a hundred metres off is announcing
+nothing anybody can act on.
+
+**Dark alongside, and the step back said a lead ahead of it** (`LampFigures.StepBackLeadS`, a driver's habit in
+seconds), the way a driver cancels once out and signals again to come in.
+
 ## 2026-09-29 — a driver brakes inside what its tyres have left
 
 **A car braking in a bend ran straight on out of it** (CAR-47). Cornering at its share of grip on a 60 m radius, a

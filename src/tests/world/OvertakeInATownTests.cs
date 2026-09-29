@@ -273,6 +273,41 @@ public class OvertakeInATownTests
     }
 
     /// <summary>
+    /// <b>A car indicates towards the lane beside from when it decides to get past, and not from when it has
+    /// it</b> (CAR-14.7): held behind a wreck with a second one standing in the lane beside, it has no pass and is
+    /// indicating towards the lane beside all the same.
+    /// </summary>
+    [Fact]
+    public void ACarWaitingForTheLaneBesideIndicatesTowardsIt()
+    {
+        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
+        var loop = new SimLoop<TownWorld>(world, Config);
+        loop.Advance(WarmUpTicks);
+
+        var (driver, _, _, _, beside) = StageAWreckAhead(world, alsoInTheLaneBeside: true);
+        var cars = world.Cars;
+
+        var (moving, stoodFor) = (false, 0);
+        for (var tick = 0; tick < WatchedTicks && stoodFor < StandsForTicks; tick++)
+        {
+            loop.Advance(1);
+            if (cars.AlongMps[driver] > Config.Driving.StopSpeedMps) (moving, stoodFor) = (true, 0);
+            else if (moving) stoodFor++;
+        }
+
+        Assert.True(stoodFor >= StandsForTicks, $"car {driver} never stood behind the wreck; it was held by {cars.GrantCutBy[driver]}");
+        Assert.False(cars.Pass[driver].Any, $"car {driver} has a pass over a held lane");
+
+        var right = Heading.RightOf(new Vector2(MathF.Cos(cars.HeadingRad[driver]), MathF.Sin(cars.HeadingRad[driver])));
+        var towards = Vector2.Dot(cars.PositionM[beside] - cars.PositionM[driver], right) > 0f
+            ? CarLampSet.TurnRight
+            : CarLampSet.TurnLeft;
+        var indicating = CarLamps.Showing(cars, driver, Config, handAtTheWheel: false)
+                         & (CarLampSet.TurnLeft | CarLampSet.TurnRight);
+        Assert.Equal(towards, indicating);
+    }
+
+    /// <summary>
     /// <b>A car that finds the lane beside free gets past without stopping</b>: its pass is drawn for the speed it is
     /// doing and asked for before it would begin to slow, so it never comes to a stand behind the wreck.
     /// </summary>

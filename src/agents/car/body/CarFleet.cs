@@ -451,7 +451,8 @@ internal sealed class CarFleet
 
     /// <summary>
     /// The pass this car is getting past something on (CAR-46), or <see cref="Control.Overtake.None"/>. <b>The
-    /// driver's own and read by nobody else</b>: what the town sees of it is the ground it covers (TER-4c.6).
+    /// driver's own and read by nobody else</b> but its own indicator (CAR-14.7): what the town sees of it is the
+    /// ground it covers (TER-4c.6).
     /// </summary>
     public Control.Overtake[] Pass { get; }
 

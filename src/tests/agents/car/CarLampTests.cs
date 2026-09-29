@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
+using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
@@ -198,6 +199,111 @@ public class CarLampTests
         fleet.Line[0] = new DrivenLine(1, 1, 20f);
 
         Assert.Equal(CarLampSet.TurnLeft, Showing(fleet));
+    }
+
+    /// <summary>
+    /// A pass round something on the car's left: out over the first 10–30 m of its line, alongside to 60 m and
+    /// back over 60–80 m.
+    /// </summary>
+    static readonly Overtake PassOnTheLeft = new(
+        Lane: 0, OutM: 10f, BackM: 60f, AsideM: -3f, StepM: 20f, DriveMps: 10f, ClearsM: 55f, Begun: true);
+
+    static CarLampSet Side(int side) => side switch
+    {
+        1 => CarLampSet.TurnRight,
+        -1 => CarLampSet.TurnLeft,
+        _ => CarLampSet.None,
+    };
+
+    /// <summary>
+    /// CAR-14.7 — <b>a car says it is getting past something from when it decides to, and not from when the lane
+    /// beside is its own</b>: with no pass yet, it indicates towards the lane beside.
+    /// </summary>
+    [Theory]
+    [InlineData(-3f, -1)]
+    [InlineData(3f, 1)]
+    public void ACarThatHasDecidedToPassIndicatesTowardsTheLaneBesideBeforeItHasIt(float asideM, int side)
+    {
+        var fleet = Rolling();
+        fleet.Context[0] = DriveContext.Clear with { PassAsideM = asideM };
+
+        Assert.Equal(Side(side), Showing(fleet));
+    }
+
+    /// <summary>
+    /// CAR-14.7 — <b>on a pass it says the side it steps out to until that step is done, nothing alongside what it
+    /// passes, and the side it steps back to</b>. Staged at rest, where the step back is said from where it begins.
+    /// </summary>
+    /// <param name="side">Which lamp, as the side of the body it is on: +1 the car's right, −1 its left, 0 neither.</param>
+    [Theory]
+    [InlineData(5f, -1)]
+    [InlineData(25f, -1)]
+    [InlineData(45f, 0)]
+    [InlineData(65f, 1)]
+    public void APassSaysItsStepOutAndItsStepBackAndNothingBetween(float progressM, int side)
+    {
+        var fleet = Rolling();
+        fleet.Pass[0] = PassOnTheLeft;
+        fleet.ProgressM[0] = progressM;
+
+        Assert.Equal(Side(side), Showing(fleet));
+    }
+
+    /// <summary>CAR-14.7 — the step back is said its lead's time before the car reaches it, at the pace it is doing.</summary>
+    [Fact]
+    public void TheStepBackIsSaidItsLeadAhead()
+    {
+        const float speedMps = 5f;
+        var leadM = speedMps * Config.Lamps.StepBackLeadS;
+        var fleet = Rolling();
+        fleet.Pass[0] = PassOnTheLeft;
+        fleet.AlongMps[0] = speedMps;
+
+        fleet.ProgressM[0] = PassOnTheLeft.BackM - (leadM * 1.5f);
+        Assert.Equal(CarLampSet.None, Showing(fleet));
+
+        fleet.ProgressM[0] = PassOnTheLeft.BackM - (leadM * 0.5f);
+        Assert.Equal(CarLampSet.TurnRight, Showing(fleet));
+    }
+
+    /// <summary>
+    /// CAR-14.7 — <b>but never before the step out is done</b>: a step out running straight into the step back hands
+    /// one side straight to the other, however far ahead the lead would have said it.
+    /// </summary>
+    [Fact]
+    public void TheStepBackIsNotSaidBeforeTheStepOutIsDone()
+    {
+        var pass = PassOnTheLeft with { BackM = PassOnTheLeft.OutM + PassOnTheLeft.StepM };
+        var fleet = Rolling();
+        fleet.Pass[0] = pass;
+        fleet.AlongMps[0] = pass.StepM / Config.Lamps.StepBackLeadS;
+
+        fleet.ProgressM[0] = pass.BackM - 0.1f;
+        Assert.Equal(CarLampSet.TurnLeft, Showing(fleet));
+
+        fleet.ProgressM[0] = pass.BackM + 0.1f;
+        Assert.Equal(CarLampSet.TurnRight, Showing(fleet));
+    }
+
+    /// <summary>CAR-14.7 — <b>a pass decided on outranks the turn at the junction ahead</b>, which is said once it is over.</summary>
+    [Fact]
+    public void DecidingToPassOutranksTheTurnAtTheJunctionAhead()
+    {
+        var fleet = Rolling(curvature: 0.05f);
+        fleet.Context[0] = DriveContext.Clear with { PassAsideM = -3f };
+
+        Assert.Equal(CarLampSet.TurnLeft, Showing(fleet));
+    }
+
+    /// <summary>CAR-14.7 — and alongside what it passes, where the pass says nothing, the turn ahead is not said either.</summary>
+    [Fact]
+    public void AlongsideWhatItPassesTheTurnAheadIsNotSaid()
+    {
+        var fleet = Rolling(curvature: 0.05f, lengthM: 200f);
+        fleet.Pass[0] = PassOnTheLeft;
+        fleet.ProgressM[0] = 45f;
+
+        Assert.Equal(CarLampSet.None, Showing(fleet));
     }
 
     [Fact]

@@ -267,6 +267,12 @@ internal sealed class LampFigures
     /// </summary>
     public float JunctionAheadM { get; init; } = 50f;
 
+    /// <summary>
+    /// How long before its step back begins a car on a pass says it is coming back in (CAR-14.7): the time the
+    /// traffic it rejoins has to read it. Never before its step out is done.
+    /// </summary>
+    public float StepBackLeadS { get; init; } = 2f;
+
     /// <summary>What the pedal has to be asking for before the brake lamps are on. Any real pressure, and nothing from the tyres.</summary>
     public float BrakeMps2 { get; init; } = 0.2f;
 
