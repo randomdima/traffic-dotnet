@@ -322,6 +322,12 @@ internal sealed class DrivingFigures
     public float PassPatienceS { get; init; } = 10f;
 
     /// <summary>
+    /// <b>How often a car at rest off its line looks for the lane under it again</b> (CAR-9): what it stands on does not
+    /// change while it stands, so it is not asked every tick.
+    /// </summary>
+    public float RejoinLooksEveryS { get; init; } = 1f;
+
+    /// <summary>
     /// <b>The widest a car swings away from a bay before it turns in nose first</b> (GEN-4f), as the angle off its
     /// own line. A car standing nearer the bay than its own circle swings out by the least that lets the turn end
     /// square; one that would have to swing further than this does not nose in from where it is.
@@ -600,6 +606,18 @@ internal sealed class PersonFigures
     /// town's walkers then spend the run drawing destinations instead of walking to them.
     /// </remarks>
     public float GivesUpAfterS { get; init; } = 20f;
+
+    /// <summary>
+    /// <b>How often a walker waiting on the pass it decided asks for the ground again</b> (PER-28), and looks again at
+    /// whether the one it passes is still standing where it was.
+    /// </summary>
+    public float SidestepAskEveryS { get; init; } = 1f;
+
+    /// <summary>
+    /// <b>How long a walker waits on the pass it decided before it lets it go</b> (PER-28) and decides again from where
+    /// it stands: the ground it committed to was swept once.
+    /// </summary>
+    public float SidestepPatienceS { get; init; } = 5f;
 
     public float DiameterInPropDiameters { get; init; } = 0.5f;
     public float ExitSearchRadiusInPropDiameters { get; init; } = 1f;

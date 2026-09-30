@@ -13,11 +13,15 @@ namespace TrafficSimulation.Agents.Person.Actions;
 /// </summary>
 internal sealed class WalkingBack(WalkingGround ground, PersonActions actions)
 {
+    /// <summary>Where each walker walking back decided to walk back to, when it stepped off the pavement.</summary>
+    readonly Vector2[] _backToM = new Vector2[ground.People.Capacity];
+
     PersonFleet People => ground.People;
 
     /// <summary>
     /// <b>Begun or ended by where the walker stands</b>: a walker walking its route off the pavement altogether is
-    /// getting back onto it, and one on it — or hopping off the end of it onto its goal — walks it.
+    /// getting back onto it — to where it decides then, and nowhere else after — and one on it, or hopping off the end
+    /// of it onto its goal, walks it.
     /// </summary>
     public void Consider(int person)
     {
@@ -25,15 +29,17 @@ internal sealed class WalkingBack(WalkingGround ground, PersonActions actions)
 
         var onIt = People.OnWay[person] != PersonFleet.NoWay || ground.IsHopping(person)
                    || People.CurrentRouteWay(person) == PersonFleet.NoWay || StandsOnThePavement(person);
+        if (!onIt && People.Action[person] != PersonAction.Rejoin) _backToM[person] = BackOntoItsWayM(person);
+
         actions.Enter(person, onIt ? PersonAction.Walk : PersonAction.Rejoin);
     }
 
     /// <summary>The ground the walk back covers, nearest first: every way the straight back onto its way crosses.</summary>
     public Span<LineWay> WaysOf(int person, Span<LineWay> into) =>
-        into[..ground.TheStraightAhead(person, BackOntoItsWayM(person), People.RadiusM[person], ground.PlansAheadM, into)];
+        into[..ground.TheStraightAhead(person, _backToM[person], People.RadiusM[person], ground.PlansAheadM, into)];
 
     /// <summary>Aimed down the straight back, no further than it was granted.</summary>
-    public void Aim(int person) => ground.AimAlongTheStraight(person, BackOntoItsWayM(person));
+    public void Aim(int person) => ground.AimAlongTheStraight(person, _backToM[person]);
 
     /// <summary>
     /// <b>Where a walker off the ground of its way walks back onto it</b>: the nearest of it, abeam of where the body

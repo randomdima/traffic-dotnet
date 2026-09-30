@@ -57,8 +57,28 @@ internal sealed class WalkingGround(
 
     public SimConfig Config { get; } = config;
 
+    /// <summary>
+    /// How many runs one walker's straight is kept in (<see cref="SweptGround"/>). A bound on the table and not a
+    /// figure behaviour reads: a straight is a hop off a route, a walk back onto one, or an officer's across a street.
+    /// </summary>
+    const int MostRunsOfAStraight = 128;
+
+    /// <summary>The straight each walker walking straight at a place committed to, and the ground under it swept once.</summary>
+    readonly SweptGround _straight = new(people.Capacity, MostRunsOfAStraight);
+
+    readonly Vector2[] _straightFromM = new Vector2[people.Capacity];
+
+    readonly Vector2[] _straightToM = Unset(people.Capacity);
+
     /// <summary>The hold each walker laid this rebuild, or <see cref="LaneOccupancy.NoHold"/>.</summary>
     public int[] WalkHold { get; } = new int[people.Capacity];
+
+    static Vector2[] Unset(int count)
+    {
+        var places = new Vector2[count];
+        Array.Fill(places, new Vector2(float.NaN));
+        return places;
+    }
 
     /// <summary>
     /// <b>How far in front of itself a walker plans</b>: what it needs to come to rest at the pace it walks —
@@ -324,46 +344,84 @@ internal sealed class WalkingGround(
 
     /// <summary>
     /// <b>A straight walk, planned</b> (PER-25, PER-26) — the hop off the end of the route, the walk back onto it, an
-    /// officer's to their post: every way the atlas finds under the straight from the front of the body towards
+    /// officer's to their post: every way under the straight from the front of the body towards
     /// <paramref name="toM"/>, as far as it would take to come to rest — nearest first, each from where the straight
-    /// comes onto it.
+    /// comes onto it — read off the ground the straight was swept over when the walker set off down it
+    /// (<see cref="CommitTheStraight"/>).
     /// </summary>
     /// <remarks>
     /// <b>The ground the network does not walk is still ground somebody may have</b>: the pavement round a door,
     /// or the carriageway an ordered walk strikes out over. A way the straight crosses rather than runs along is
     /// held over the stretch the body's width takes of it, which is what the atlas reads a body over too.
     /// </remarks>
-    [SkipLocalsInit]
     public int TheStraightAhead(int person, Vector2 toM, float frontM, float aheadM, Span<LineWay> into)
     {
-        var bodyM = People.PositionM[person];
-        var along = toM - bodyM;
-        var lengthM = along.Length();
-        var runM = MathF.Min(lengthM - frontM, aheadM);
-        if (runM <= 0f) return 0;
+        if (!IsOnTheStraightTo(person, toM)) CommitTheStraight(person, toM);
 
-        var forward = along / lengthM;
-        Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
-        var count = Atlas.UnderBox(
-            bodyM + (forward * (frontM + (runM * 0.5f))), forward, runM * 0.5f, People.RadiusM[person], under);
+        var fromM = _straightFromM[person];
+        var line = toM - fromM;
+        var lengthM = line.Length();
+        var alongM = lengthM > 0f ? Vector2.Dot(People.PositionM[person] - fromM, line / lengthM) : 0f;
+        var nearM = alongM + frontM;
+        var farM = MathF.Min(lengthM, nearM + aheadM);
+        if (farM <= nearM) return 0;
 
+        var strideM = People.RadiusM[person] * 2f;
         var written = 0;
-        for (var at = 0; at < count && written < into.Length; at++)
+        foreach (ref readonly var run in _straight.Of(person))
         {
-            ref readonly var cover = ref under[at];
-            var line = Lines.LineOf(cover.Way, out _);
-            var enteredM = MathF.Min(
-                Vector2.Dot(Spline.SampleAt(line, cover.FromM).PositionM - bodyM, forward),
-                Vector2.Dot(Spline.SampleAt(line, cover.ToM).PositionM - bodyM, forward));
-            var piece = new LineWay(cover.Way, cover.FromM, cover.ToM, MathF.Max(frontM, enteredM));
+            if (run.FirstAtM > farM || written == into.Length) break;
+            if (run.LastAtM + strideM < nearM) continue;
 
-            // Nearest first, which a handful of ways under a stride is sorted by walking it once.
-            var slot = written++;
-            for (; slot > 0 && into[slot - 1].LineFromM > piece.LineFromM; slot--) into[slot] = into[slot - 1];
-            into[slot] = piece;
+            into[written++] = new LineWay(run.Way, run.FromM, run.ToM, MathF.Max(frontM, run.FirstAtM - alongM));
         }
 
         return written;
+    }
+
+    /// <summary>
+    /// Whether the walker walks the straight it committed to towards <paramref name="toM"/> — the same place, and its
+    /// body within a stride of the line, since a walker shoved off it is somewhere the straight was not drawn from.
+    /// </summary>
+    bool IsOnTheStraightTo(int person, Vector2 toM)
+    {
+        if (_straightToM[person] != toM) return false;
+
+        var fromM = _straightFromM[person];
+        var line = toM - fromM;
+        var lengthSquaredM2 = line.LengthSquared();
+        var shareOf = lengthSquaredM2 > 0f
+            ? Math.Clamp(Vector2.Dot(People.PositionM[person] - fromM, line) / lengthSquaredM2, 0f, 1f)
+            : 0f;
+        return (People.PositionM[person] - (fromM + (line * shareOf))).Length() <= AStrideM;
+    }
+
+    /// <summary>
+    /// <b>A straight committed to</b> (TER-4c.8): from where the walker stands to <paramref name="toM"/>, the ground
+    /// under it swept once — a body's width at a time, kept as runs of two (<see cref="SweptGround"/>) — for its plan
+    /// to be read off as it walks. What does not fit is planned no further, which is a walk planning short and never
+    /// one planning through somebody.
+    /// </summary>
+    [SkipLocalsInit]
+    void CommitTheStraight(int person, Vector2 toM)
+    {
+        var fromM = People.PositionM[person];
+        _straightFromM[person] = fromM;
+        _straightToM[person] = toM;
+        _straight.Clear(person);
+
+        var line = toM - fromM;
+        var lengthM = line.Length();
+        var forward = lengthM > 0f ? line / lengthM : Vector2.Zero;
+        var radiusM = People.RadiusM[person];
+        var strideM = radiusM * 2f;
+        Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
+        for (var atM = 0f; ; atM += strideM)
+        {
+            var toStationM = MathF.Min(lengthM, atM + strideM);
+            var count = UnderTheStretch(fromM + (forward * atM), fromM + (forward * toStationM), radiusM, under);
+            if (!_straight.Station(person, atM, strideM * 2f, under[..count]) || toStationM >= lengthM) return;
+        }
     }
 
     /// <summary>

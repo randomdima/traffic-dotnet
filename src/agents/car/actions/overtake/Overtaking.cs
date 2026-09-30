@@ -165,7 +165,7 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
 
     /// <summary>
     /// <b>A car waiting on its pass driven down its line</b>, towards the place its step out from rest begins and no
-    /// further (<see cref="DriveContext.StepOutM"/>) until it has the pass — and indicating towards the lane beside
+    /// further (<see cref="DriveContext.WaitAtM"/>) until it has the pass — and indicating towards the lane beside
     /// (CAR-14.7). <b>A car already past that place is driven on its grant alone</b>: stopped short of where it is, it
     /// would stand in the road for a place it has left behind, and come to rest too near it backs up (CAR-50).
     /// </summary>
@@ -175,10 +175,11 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
         where TTown : struct, ICarTown
     {
         var fromRest = _shapes[Holder(car, FromRest)];
-        var stepOutM = fromRest.OutM - progressM;
+        var waits = !Cars.Pass[car].Begun;
+        var toTheStepM = fromRest.OutM - progressM;
         town.DriveOnTheLine(
-            car, pose, progressM, alongMps, coveredM, waitsToPass: !Cars.Pass[car].Begun, fromRest.AsideM, backUpM, blocked,
-            stepOutM >= 0f ? stepOutM : float.PositiveInfinity);
+            car, pose, progressM, alongMps, coveredM, waits, fromRest.AsideM, backUpM, blocked,
+            waits && toTheStepM >= 0f ? toTheStepM : float.PositiveInfinity);
     }
 
     /// <summary>

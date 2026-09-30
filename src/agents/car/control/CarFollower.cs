@@ -96,15 +96,16 @@ internal enum HeadwayKind : byte
 /// <b>It can neither get past what stands in front of it nor back up for the room to</b> (CAR-50): the rebuild after
 /// lays its body as one going nowhere, which the traffic behind it may get past in turn.
 /// </param>
-/// <param name="StepOutM">
-/// <b>How far ahead of the rear axle the step out of the pass it waits for begins</b> (CAR-46), which is where it stands
-/// until it has the pass — or infinity where it waits for none.
+/// <param name="WaitAtM">
+/// <b>How far ahead of the rear axle the car stands until it has the ground for what it does next</b> — where the step
+/// out of the pass it waits for begins (CAR-46), or the first piece of its manoeuvre into a bay (GEN-4f) — or infinity
+/// where it waits for nothing.
 /// </param>
 internal readonly record struct DriveContext(
     float GroundCoefficient, float AuthorityM = float.PositiveInfinity, HeadwayKind GrantCutBy = HeadwayKind.Nothing,
     float PlaceStopM = float.PositiveInfinity, float MarginM = 0f, bool WaitsToPass = false,
     float HorizonM = float.PositiveInfinity, float PassAsideM = 0f, float BackUpM = 0f, bool Blocked = false,
-    float StepOutM = float.PositiveInfinity)
+    float WaitAtM = float.PositiveInfinity)
 {
     public static DriveContext Clear => new(1f);
 
@@ -508,15 +509,17 @@ internal static class CarFollower
             context.GrantCutBy == HeadwayKind.Light ? DrivingHold.Waiting : DrivingHold.Claimed, ref hold);
 
         // Something the car means to get past is slowed for gently (CAR-46), so it is come up to slower and the
-        // lane beside has longer to clear before the car has to stand — and stood for where its step out begins.
+        // lane beside has longer to clear before the car has to stand.
         if (context.WaitsToPass)
         {
             Bind(
                 ref targetMps,
                 ApproachMps(0f, context.AuthorityM - leadM, brakingMps2 * config.Driving.WaitingToPassBrakingShare),
                 DrivingHold.Claimed, ref hold);
-            Bind(ref targetMps, ApproachMps(0f, context.StepOutM - leadM, brakingMps2), DrivingHold.Claimed, ref hold);
         }
+
+        // And stood for where it waits for the ground for what it does next: its step out, or its manoeuvre's first piece.
+        Bind(ref targetMps, ApproachMps(0f, context.WaitAtM - leadM, brakingMps2), DrivingHold.Claimed, ref hold);
 
         return MathF.Max(0f, targetMps);
     }

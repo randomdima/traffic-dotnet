@@ -285,7 +285,8 @@ not: the light's hold is below its rung (AMB-4.2), so it cannot be in breach of 
 **CAR-9** `P5` A car that is no longer driving the line it was given **stops and takes the lane it is
 actually standing on** — the shortest way back onto the network, which is the walker's own answer to the
 same state said of a driver (PER-25). Nothing is placed and nothing is corrected: the follower steers the
-body back onto that lane's line like any other.
+body back onto that lane's line like any other. **It looks for that lane on its own clock** (`RejoinLooksEveryS`),
+since a car at rest stands on the same ground from one tick to the next.
 
 **CAR-9a** `P5` Where no lane runs the way the body is pointing, the car covers no ground and **the leg's own
 clock ends it** (CAR-15a): it is stood down where it stands, on its handbrake, which makes it no longer an

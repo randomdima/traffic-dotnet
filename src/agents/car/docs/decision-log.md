@@ -3,6 +3,20 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-09-30 — a car off its line looks for a lane on a clock, and a bay's manoeuvre is still shaped as the car goes
+
+**A car at rest off its line looks for the lane under it every `RejoinLooksEveryS`** (CAR-9), and not every tick:
+what it stands on does not change while it stands. It read neither Odesa nor River any differently.
+
+**A manoeuvre into a bay was committed to as a pass is, and it jammed the town, so it is not** (GEN-4f). Shaped
+once and waited for on a clock, a car that did not have its ground at once stood in its lane at the place it had
+shaped from — first the end of its line, where a nose-in could not be made from in 343 of 770 tries, then a car's
+length short of it, where one nearly always could. Either way the traffic it held filled the ground the shape
+needed, and shaped again from the same place the shape was the same. Over 24 minutes of Odesa it parked 20 cars a
+minute by the end where it had parked 51, with 541 standing to 440. **Shaped from where the car is, as it comes
+up**, the car tries a different shape every tick and has one it can make before it stops; that stays until a
+manoeuvre can be committed to without standing in the lane it needs.
+
 ## 2026-09-30 — a pass is decided once and committed to
 
 **The owner asked why a car decides anything more than once** (CAR-46, CAR-50): an action it has begun has control,

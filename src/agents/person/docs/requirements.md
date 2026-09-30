@@ -68,7 +68,9 @@ body shoved off its line is standing on grass, a casualty put back on its feet i
 left it. The route is laid again from where the body has got to and its first leg is the straight back
 onto the pavement. **The straight is planned like any walk** (PER-26), over whatever ways it crosses: off the
 pavement altogether — in the carriageway, on a verge — the walker claims the lanes between it and its way before
-it steps over them. **A body between the two lanes of a pavement, or shoved across a corner, walks its route**:
+it steps over them. **A straight is decided once**: where it goes is fixed as the walker sets off down it, and
+the ground under it swept then — a straight back, a hop onto a doorstep, an officer's to their post — and only
+a walker shoved off it, or sent somewhere else, decides it again. **A body between the two lanes of a pavement, or shoved across a corner, walks its route**:
 what it steps over getting back onto its way is pavement its own body stands on, and where it goes is its plan's.
 
 **Which of the two it is, is read off the way the route handed it and never searched for**: the body's
@@ -163,6 +165,9 @@ is not making its own next movement, on a stretch of pavement with a lane runnin
   stands (PER-3), so no step of it is angled along the route.
 - **A walker on a pass is off its way on purpose**, by as far as the lane beside stands off it, and has not
   lost it (PER-25).
+- **Decided once, and committed to**: drawn and swept where the walker stands, then asked for every
+  `SidestepAskEveryS` (`SimConfig.Person`) — and let go, to be decided afresh, once the one it passes has gone
+  or moved, or once it has waited `SidestepPatienceS`.
 
 ## The trip
 

@@ -4,6 +4,24 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-30 — a walker decides its pass and its straights once
+
+**The owner asked that an action decide once, commit to its geometry and wait for its ground on a clock** — the
+car's log has the pass. A walker cut short by somebody it may pass drew its pass, swept it and asked for it every
+rebuild, and every rebuild swept it again to lay it, keep it and look for a body in it; one walking straight back,
+to a doorstep or to a post read the atlas under a fresh stretch of the straight every rebuild, and walking back it
+aimed each tick at wherever its way was abeam of it then.
+
+- **A pass is decided once** (PER-28, `Sidestepping`): drawn and swept where the walker stands, kept as runs
+  (`SweptGround`), asked for every `SidestepAskEveryS` (1 s), let go where the one it passes has gone or moved or
+  after `SidestepPatienceS` (5 s), and withdrawn back to waiting rather than to walking.
+- **A straight is decided once** (PER-25, `WalkingGround.TheStraightAhead`): where it goes is fixed as the walker
+  sets off down it — the walk back aims at where its way was abeam of it then — and the ground under it swept, the
+  plan read off that as it walks. A walker shoved a stride off it, or sent elsewhere, decides it again.
+
+Over Odesa's and River's five minutes walks given up read 430 and 340 (438 and 333 before) with fewer passes
+begun (1 and 6, where 10 and 13 were); the walker's pass test that had failed since before 83180f2 passes.
+
 ## 2026-09-30 — somebody on foot does one named thing at a time
 
 **The owner asked for every actor's actions to be separate states** (PER-25b, `PersonAction`), as a car's now are
