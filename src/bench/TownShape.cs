@@ -592,11 +592,18 @@ internal static class TownShape
 
     /// <summary>
     /// <b>How many car parks the map asked for</b>, which is what its planned buildings come to
-    /// (<see cref="SimConfig.CarParksFor"/>, GEN-6) — so what is printed beside it is what the ground could
-    /// carry of that (GEN-8). <b>A map laid in code has no brief and asks for none.</b>
+    /// (<see cref="SimConfig.CarParksFor"/>, GEN-6) and a yard for each of its districts' services (GEN-56) — so
+    /// what is printed beside it is what the ground could carry of that (GEN-8). <b>A map laid in code has no
+    /// brief and asks for none.</b>
     /// </summary>
-    static int AskedFor(CityPlan plan, SimConfig config) =>
-        Maps.IsGenerated(plan.Name) ? config.CarParksFor(Maps.Brief(plan.Name).Buildings) : 0;
+    static int AskedFor(CityPlan plan, SimConfig config)
+    {
+        if (!Maps.IsGenerated(plan.Name)) return 0;
+
+        var buildings = Maps.Brief(plan.Name).Buildings;
+        return config.CarParksFor(buildings)
+               + (ServiceBuildings.Uses.Length * ServiceBuildings.OfEachUse(buildings, plan.Districts));
+    }
 
     static int ArmsAt(CityPlan plan, int count)
     {

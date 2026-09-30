@@ -4,6 +4,26 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-30 — no connection goes beyond the pavement
+
+**The owner ruled that connections do not go beyond the sidewalk.** Odesa's walk had 63 connections with their
+line on the grass, 153 m of it, and 81 with their band there: 80 were joins from one crossing onto another at a
+corner, whose two straights meet where the two paint lines do — and at a corner whose crossings stand back from
+it further than the walk is wide, that is out on the verge. Planters laid wholly on the grass (GEN-6a) stood on
+them, and walkers leant on them for the rest of the run.
+
+**Every connection now keeps its band off the verge, read off the ground's own outer face** (`GroundRings.WalkSides`,
+the lattice the ground answers the walk off). A reading of it as the outer face's distance from the boundary was
+tried first and refused: it does not fill a block corner's notch as the drawn walk does, and it refused 639
+connections that stood on concrete. **A join widens its turn before it is given up**, a half band at a time to the
+widest the two poses fit, since a wider circle stands back off the corner towards the kerb; where no circle stays
+on, it goes by a lane's course — up the paint, onto the course, off it down the other — which is the lane's own
+two connections met on the course, and joints that carry straight on (WLK-14). The curve straight between the two
+paints is the last shape asked, and recovered four.
+
+**What it costs is two connections Odesa no longer lays**: one direction of one join at an acute corner, and one
+lane's way onto one paint. Everything else is laid, and nothing leaves the walk (`--bench census`, "off the walk").
+
 ## 2026-09-28 — a connection runs down its lane's course and turns about its own inside edge
 
 **The owner ruled that off the paint a walker is never on the traffic's ground** (WLK-16). A junction's

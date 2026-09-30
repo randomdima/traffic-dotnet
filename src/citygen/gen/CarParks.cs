@@ -64,8 +64,8 @@ namespace TrafficSimulation.CityGen.Gen;
 /// shortfall rather than the generator trying again.
 /// </para>
 /// <para>
-/// <b>The first few are cut for the services and not for the town</b> (GEN-55): every hospital, police
-/// station and depot the roster asks for gets a yard of its own — one rank, on one side, as wide as a car
+/// <b>The first few are cut for the services and not for the town</b> (GEN-55): every district's hospital,
+/// police station and depot (GEN-56) gets a yard of its own inside it — one rank, on one side, as wide as a car
 /// park gets — and the building is stood past the far end of it afterwards (<see cref="BuildingStage"/>).
 /// They are cut first because the sites are ranked by distance from the car parks already cut, so taking
 /// them first is what puts the services as far apart as the town's roads allow.
@@ -95,13 +95,20 @@ internal static class CarParks
     /// <summary>The two sides of a road, as the driver's right of its own direction and its left.</summary>
     static readonly bool[] Sides = [true, false];
 
-    /// <param name="townM">The town's own middle, which a yard's rank faces (<see cref="FaceTheTown"/>).</param>
-    public static Laid Lay(TownLayout layout, TownBrief brief, SimConfig config, Vector2 townM, ref Rng draw)
+    /// <param name="districts">
+    /// The wheel the town was laid on: its hub is the middle a yard's rank faces (<see cref="FaceTheTown"/>), and
+    /// each district is cut a yard for each service (GEN-56).
+    /// </param>
+    /// <param name="sizes">The service buildings' footprints, which say how far across its rank a yard's building reaches.</param>
+    public static Laid Lay(
+        TownLayout layout, TownBrief brief, SimConfig config, DistrictWheel districts, BuildingSizes sizes,
+        ref Rng draw)
     {
-        var wanted = config.CarParksFor(brief.Buildings);
+        var services = TheServicesWanted(brief, districts);
+        var wanted = services.Count + config.CarParksFor(brief.Buildings);
         if (wanted <= 0) return Laid.None;
 
-        var services = TheServicesWanted(brief, config);
+        var townM = districts.HubM;
 
         var junction = new List<int>();
         var bayOffsets = new List<int> { 0 };
@@ -124,7 +131,7 @@ internal static class CarParks
             // the street has to stand off is how far the longest rank reaches along it, so the size of the
             // car park is what decides which places can carry one — rather than a place being taken and the
             // bays that did not fit on it being taken back off again (GEN-10).
-            var use = want < services.Count ? services[want] : BuildingUse.Ordinary;
+            var (use, district) = want < services.Count ? services[want] : (BuildingUse.Ordinary, AnyDistrict);
             if (use == BuildingUse.Ordinary) BaysPerSide(config, perSide, ref draw);
             else AYard(config, perSide);
 
@@ -133,6 +140,7 @@ internal static class CarParks
             var mostBays = Math.Max(perSide[0], perSide[1]);
             var standoffM = config.CarParkStandoffM(mostBays);
             var curvatureMax = config.CarParkCurvatureMax(mostBays);
+            var reach = use == BuildingUse.Ordinary ? default : YardReach.Of(config, sizes, use, mostBays);
 
             Cut? cut = null;
             var taken = 0;
@@ -146,6 +154,8 @@ internal static class CarParks
                 (sites[0], sites[first]) = (sites[first], sites[0]);
                 foreach (var site in sites)
                 {
+                    if (!IsIn(layout, site, districts, district, reach)) continue;
+
                     cut = At(layout, config, site, standoffM, mostBays, arms, perSide, facingM, onTheRight, out taken);
                     if (cut is not null) break;
                 }
@@ -164,16 +174,23 @@ internal static class CarParks
                 refused.Clear();
                 for (var entry = book.Next(); entry >= 0; entry = book.Next())
                 {
-                    cut = At(
-                        layout, config, book[entry], standoffM, mostBays, arms, perSide, facingM, onTheRight,
-                        out taken);
-                    if (cut is not null) break;
+                    if (IsIn(layout, book[entry], districts, district, reach))
+                    {
+                        cut = At(
+                            layout, config, book[entry], standoffM, mostBays, arms, perSide, facingM, onTheRight,
+                            out taken);
+                        if (cut is not null) break;
+                    }
 
                     refused.Add(entry);
                 }
 
                 foreach (var entry in refused) book.Queue(entry);
             }
+
+            // <b>A district with nowhere to cut a yard stands that service nowhere</b> (GEN-8), and the next
+            // is still asked for: it is that district's ground that ran out and not the town's.
+            if (cut is null && use != BuildingUse.Ordinary) continue;
 
             if (cut is not { } made) break;
 
@@ -193,6 +210,40 @@ internal static class CarParks
 
         return new Laid(
             [.. junction], [.. bayOffsets], [.. road], [.. right], [.. cutRoads], [.. forUse]);
+    }
+
+    const int AnyDistrict = -1;
+
+    /// <summary>
+    /// <b>Whether a site is inside the district a yard is wanted in</b> (GEN-56): the ground its building will
+    /// stand on, across the rank on the side it faces (<see cref="FaceTheTown"/>), near face and far face both.
+    /// <b>The building and not the road</b>, because a district's edge is as often as not a spoke or the orbital:
+    /// asked of the road alone, a yard cut into one stood its building in the district over the road, and a yard
+    /// cut into one facing into the district is that district's.
+    /// </summary>
+    static bool IsIn(TownLayout layout, CutJunctions.Site site, DistrictWheel districts, int district, YardReach reach)
+    {
+        if (district == AnyDistrict) return true;
+
+        var at = Spline.SampleAt(layout.LineOf(site.Road), site.AlongM);
+        var townward = Vector2.Dot(at.Right, districts.HubM - at.PositionM) >= 0f ? at.Right : -at.Right;
+        return districts.At(at.PositionM + (townward * reach.NearM)) == district
+               && districts.At(at.PositionM + (townward * reach.FarM)) == district;
+    }
+
+    /// <summary>How far from its road's line a yard's building stands: its face on the walk, and its back.</summary>
+    readonly record struct YardReach(float NearM, float FarM)
+    {
+        /// <summary>
+        /// The road's own half, the rank, the walk wrapping it and the pitch a face is walked at (GEN-55), and the
+        /// building's depth behind that.
+        /// </summary>
+        public static YardReach Of(SimConfig config, BuildingSizes sizes, BuildingUse use, int mostBays)
+        {
+            var nearM = config.LaneWidthM + config.CarParkArmStandM(mostBays, config.LaneOffsetM) + config.WalkOuterM
+                        + config.CityGen.BuildingPitchM;
+            return new YardReach(nearM, nearM + sizes.Of(use).Y);
+        }
     }
 
     /// <summary>One car park cut at one site, or nothing where the town cannot have it there.</summary>
@@ -457,31 +508,28 @@ internal static class CarParks
     }
 
     /// <summary>
-    /// <b>The uses a town cuts a yard for before it cuts a car park of its own</b> (GEN-55), one entry a
-    /// service building: as many hospitals, police stations and depots as the roster's own share of the
-    /// buildings the map plans (<see cref="SimConfig.HospitalsFor"/>, AMB-1, SRV-1).
+    /// <b>The yards a town cuts before it cuts a car park of its own</b> (GEN-55, GEN-56), one entry a service
+    /// building: a hospital, a police station and a depot in every district, each to be cut inside it.
     /// </summary>
     /// <remarks>
     /// <b>They are cut first because the sites are ranked by distance from the car parks already cut</b>
-    /// (<see cref="SiteBook"/>): taken first, the services land as far apart as the town's roads allow, which
-    /// is the whole of what spreading them over a town is and needs no spacing of its own.
+    /// (<see cref="SiteBook"/>): taken first, and one use across every district before the next, the services
+    /// land as far apart as each district's roads allow, which needs no spacing of its own.
     /// <para>
-    /// <b>And they are taken out of the town's own count</b> (GEN-53): a town with fewer car parks than its
-    /// roster asks for services stands fewer services, which the census reports (GEN-8, AMB-2, SRV-2).
+    /// <b>And they are cut on top of the town's own count</b> (GEN-53): the parking a town's buildings ask for is
+    /// its people's, and a district's services are not a share of it.
     /// </para>
     /// </remarks>
-    static List<BuildingUse> TheServicesWanted(TownBrief brief, SimConfig config)
+    static List<(BuildingUse Use, int District)> TheServicesWanted(TownBrief brief, DistrictWheel districts)
     {
-        var wanted = new List<BuildingUse>();
-        Add(BuildingUse.Hospital, config.HospitalsFor(brief.Buildings));
-        Add(BuildingUse.PoliceStation, config.PoliceStationsFor(brief.Buildings));
-        Add(BuildingUse.Depot, config.DepotsFor(brief.Buildings));
-        return wanted;
-
-        void Add(BuildingUse use, int count)
+        var wanted = new List<(BuildingUse, int)>();
+        var each = ServiceBuildings.OfEachUse(brief.Buildings, districts);
+        foreach (var use in ServiceBuildings.Uses)
         {
-            for (var at = 0; at < count; at++) wanted.Add(use);
+            for (var district = 0; district < each; district++) wanted.Add((use, district));
         }
+
+        return wanted;
     }
 
     /// <summary>

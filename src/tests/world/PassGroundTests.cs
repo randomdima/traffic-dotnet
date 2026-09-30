@@ -242,8 +242,8 @@ public class PassGroundTests
         index.Begin();
         index.LayBody(way, 30f, 34f, 0f, 2, LaneRoster.Driving, onItsLine: false, still: true);
 
-        Assert.True(index.IsFreeForAPass(way, 5f, 25f, 0f, 60f, 1, LaneRoster.Driving, []));
-        Assert.False(index.IsFreeForAPass(way, 5f, 31f, 0f, 60f, 1, LaneRoster.Driving, []));
+        Assert.True(index.IsFreeForAPass(way, 5f, 25f, 0f, 60f, 1, LaneRoster.Driving, [], PassTerms.Plain));
+        Assert.False(index.IsFreeForAPass(way, 5f, 31f, 0f, 60f, 1, LaneRoster.Driving, [], PassTerms.Plain));
     }
 
     /// <summary>But not of another pass, nor of a plan, anywhere the movement is held: those are what holding it whole is for.</summary>
@@ -255,11 +255,11 @@ public class PassGroundTests
 
         index.Begin();
         index.LayPass(way, 40f, 50f, 5f, 3, LaneRoster.Driving);
-        Assert.False(index.IsFreeForAPass(way, 5f, 25f, 0f, 60f, 1, LaneRoster.Driving, []));
+        Assert.False(index.IsFreeForAPass(way, 5f, 25f, 0f, 60f, 1, LaneRoster.Driving, [], PassTerms.Plain));
 
         index.Begin();
         Lay(index, way, holder: 4, fromM: 40f, toM: 50f);
-        Assert.False(index.IsFreeForAPass(way, 5f, 25f, 0f, 60f, 1, LaneRoster.Driving, []));
+        Assert.False(index.IsFreeForAPass(way, 5f, 25f, 0f, 60f, 1, LaneRoster.Driving, [], PassTerms.Plain));
     }
 
     /// <summary>
@@ -275,20 +275,130 @@ public class PassGroundTests
         index.Begin();
         index.LayPass(way, 0f, 60f, 5f, 4, LaneRoster.Driving);
         index.LayBody(way, 30f, 34f, 0f, 2, LaneRoster.Driving, onItsLine: false, still: true);
-        Assert.True(index.KeepsItsPass(way, 5f, 25f, 0f, 60f, 4, LaneRoster.Driving));
-        Assert.False(index.KeepsItsPass(way, 5f, 31f, 0f, 60f, 4, LaneRoster.Driving));
+        Assert.True(index.KeepsItsPass(way, 5f, 25f, 0f, 60f, 4, LaneRoster.Driving, PassTerms.Plain));
+        Assert.False(index.KeepsItsPass(way, 5f, 31f, 0f, 60f, 4, LaneRoster.Driving, PassTerms.Plain));
 
         index.LayPass(way, 45f, 55f, -5f, 1, LaneRoster.Driving);
-        Assert.False(index.KeepsItsPass(way, 5f, 25f, 0f, 60f, 4, LaneRoster.Driving));
+        Assert.False(index.KeepsItsPass(way, 5f, 25f, 0f, 60f, 4, LaneRoster.Driving, PassTerms.Plain));
+    }
+
+    /// <summary>
+    /// <b>A holder on a call gets past a queue, and past traffic that is moving</b> (AMB-4.4): never somebody on
+    /// foot who is moving, who is crossing, and never a pass.
+    /// </summary>
+    [Fact]
+    public void AQueueAndMovingTrafficArePassedOnACall()
+    {
+        var waiting = new LaneClaim(10f, 14f, 0f, 3, ClaimPriority.Hard, OnItsLine: true, Onward: 7, Still: true);
+        var crossing = new LaneClaim(10f, 11f, 0f, 3, ClaimPriority.Hard, LaneRoster.Walking, Still: false);
+
+        Assert.True(waiting.MayBePassedBy(onward: 7, onACall: true));
+        Assert.True(waiting.MayBePassedBy(onward: LaneOccupancy.RunsOn, onACall: true));
+        Assert.True((waiting with { Still = false }).MayBePassedBy(onward: 7, onACall: true));
+        Assert.False((waiting with { Still = false }).MayBePassedBy(onward: 8));
+        Assert.False(crossing.MayBePassedBy(onward: 7, onACall: true));
+        Assert.False((waiting with { Passing = true }).MayBePassedBy(onward: 8, onACall: true));
+    }
+
+    /// <summary>
+    /// <b>What a call's pass gets past holds none of its ground but what it can no longer stop short of</b>: a car
+    /// it passes moving is held short of the pass, and one that cannot be refuses it. Every other pass gets past
+    /// bodies at rest alone, and takes their plans whole.
+    /// </summary>
+    [Fact]
+    public void ACallsPassIsRefusedOnlyByWhatItPassesThatCanNoLongerStop()
+    {
+        var (way, _) = TwoWays();
+        var index = Index();
+        var call = new PassTerms(ClaimPriority.Special, 0f, 0f);
+        Span<LaneClaim> passed = stackalloc LaneClaim[1];
+        passed[0] = new LaneClaim(10f, 14f, 4f, 2, ClaimPriority.Hard, Still: false);
+
+        index.Begin();
+        Lay(index, way, holder: 2, fromM: 14f, toM: 30f, committedToM: 16f);
+        Assert.True(index.IsFreeForAPass(way, 18f, 40f, 18f, 40f, 1, LaneRoster.Driving, passed, call));
+        Assert.False(index.IsFreeForAPass(way, 15f, 40f, 15f, 40f, 1, LaneRoster.Driving, passed, call));
+        Assert.True(index.IsFreeForAPass(way, 15f, 40f, 15f, 40f, 1, LaneRoster.Driving, passed, PassTerms.Plain));
+    }
+
+    /// <summary>
+    /// <b>A body moving down a way comes to rest where its plan there says it can no longer stop short of</b>, or
+    /// where it stands, whichever is further.
+    /// </summary>
+    [Fact]
+    public void AMovingBodyStopsByTheEndOfWhatItCanNoLongerStopShortOf()
+    {
+        var (way, _) = TwoWays();
+        var index = Index();
+        var moving = new LaneClaim(10f, 14f, 4f, 2, ClaimPriority.Hard, Still: false);
+
+        index.Begin();
+        Assert.Equal(14f, index.StopsByM(way, moving));
+
+        Lay(index, way, holder: 2, fromM: 14f, toM: 30f, committedToM: 19f);
+        Assert.Equal(19f, index.StopsByM(way, moving));
+    }
+
+    /// <summary>
+    /// <b>A call's pass takes a plan its rung beats</b> (TER-4c.6, TER-5e): a movement's plan holds none of its
+    /// ground, and ground a holder can no longer stop short of and another call's plan hold it as they hold any pass.
+    /// </summary>
+    [Fact]
+    public void ACallsPassTakesAPlanItsRungBeatsAndNoOther()
+    {
+        var (way, _) = TwoWays();
+        var index = Index();
+        var call = new PassTerms(ClaimPriority.Special, 0f, 0f);
+
+        index.Begin();
+        Lay(index, way, holder: 4, fromM: 20f, toM: 40f);
+        Assert.True(index.IsFreeForAPass(way, 5f, 25f, 5f, 25f, 1, LaneRoster.Driving, [], call));
+        Assert.False(index.IsFreeForAPass(way, 5f, 25f, 5f, 25f, 1, LaneRoster.Driving, [], PassTerms.Plain));
+
+        index.Begin();
+        Lay(index, way, holder: 4, fromM: 20f, toM: 40f, committedToM: 30f);
+        Assert.False(index.IsFreeForAPass(way, 5f, 25f, 5f, 25f, 1, LaneRoster.Driving, [], call));
+
+        index.Begin();
+        Lay(index, way, holder: 4, fromM: 20f, toM: 40f, rung: ClaimPriority.Special);
+        Assert.False(index.IsFreeForAPass(way, 5f, 25f, 5f, 25f, 1, LaneRoster.Driving, [], call));
+    }
+
+    /// <summary>
+    /// <b>Somebody on foot on the paint a call's pass claims is waited for</b>, and neither refuses the pass nor
+    /// withdraws it; somebody off the paint, and a car on it, do both.
+    /// </summary>
+    [Fact]
+    public void ACallsPassWaitsForSomebodyOnThePaintAndNothingElse()
+    {
+        var (way, _) = TwoWays();
+        var index = Index();
+        var overThePaint = new PassTerms(ClaimPriority.Special, 15f, 19f);
+
+        index.Begin();
+        index.LayPass(way, 5f, 25f, 5f, 1, LaneRoster.Driving);
+        index.LayBody(way, 16f, 17f, 0f, 2, LaneRoster.Walking, onItsLine: false);
+        Assert.True(index.IsFreeForAPass(way, 5f, 25f, 5f, 25f, 1, LaneRoster.Driving, [], overThePaint));
+        Assert.True(index.KeepsItsPass(way, 5f, 25f, 5f, 25f, 1, LaneRoster.Driving, overThePaint));
+        Assert.False(index.KeepsItsPass(way, 5f, 25f, 5f, 25f, 1, LaneRoster.Driving, PassTerms.Plain));
+
+        index.LayBody(way, 21f, 22f, 0f, 3, LaneRoster.Walking, onItsLine: false);
+        Assert.False(index.IsFreeForAPass(way, 5f, 25f, 5f, 25f, 1, LaneRoster.Driving, [], overThePaint));
+
+        index.Begin();
+        index.LayBody(way, 16f, 20f, 0f, 3, LaneRoster.Driving, onItsLine: false, still: true);
+        Assert.False(index.IsFreeForAPass(way, 5f, 25f, 5f, 25f, 1, LaneRoster.Driving, [], overThePaint));
     }
 
     /// <summary>One hold of one piece, answered and laid over a stretch of a way.</summary>
-    static void Lay(LaneOccupancy index, int way, int holder, float fromM, float toM)
+    static void Lay(
+        LaneOccupancy index, int way, int holder, float fromM, float toM, ClaimPriority rung = ClaimPriority.Firm,
+        float committedToM = float.NegativeInfinity)
     {
         var hold = index.BeginHold(0f);
         var ask = new PlannedAsk(
-            hold, holder, LaneRoster.Driving, ClaimPriority.Firm, fromM, LineFromM: fromM, AheadM: 0f,
-            CommittedToM: float.NegativeInfinity, AlongMps: 0f);
+            hold, holder, LaneRoster.Driving, rung, fromM, LineFromM: fromM, AheadM: 0f,
+            CommittedToM: committedToM, AlongMps: 0f);
         var reachM = index.Reach(ask, way, toM, fromM, out var cutBy);
         index.Take(ask, way, reachM);
         index.EndHold(hold, reachM < toM ? reachM : float.PositiveInfinity, 0f, cutBy);

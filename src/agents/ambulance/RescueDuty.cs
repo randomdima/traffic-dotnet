@@ -14,8 +14,11 @@ namespace TrafficSimulation.Agents.Ambulance;
 /// </remarks>
 internal enum RescueStage : byte
 {
-    /// <summary>Standing at its station with nobody to fetch. Where an ambulance spends most of a run.</summary>
+    /// <summary>Standing with nobody to fetch: at its station, or — for one that patrols — before its first beat.</summary>
     Waiting,
+
+    /// <summary>Driving its district's beat with nobody to fetch, blue light out: ordinary traffic (SRV-5).</summary>
+    Patrolling,
 
     /// <summary>Under way to the standoff short of the scene, blue light on: the leg the priority is for.</summary>
     Running,
@@ -90,8 +93,8 @@ internal sealed class RescueDuty
 
     public const int NoBay = -1;
 
-    /// <summary>Whether this ambulance is on a call at all, which is every stage but the one it stands in.</summary>
-    public bool IsOnACall(int car) => Stage[car] != RescueStage.Waiting;
+    /// <summary>Whether this ambulance is on a call at all, which is every stage but the two it has nobody to fetch in.</summary>
+    public bool IsOnACall(int car) => Stage[car] is not (RescueStage.Waiting or RescueStage.Patrolling);
 
     /// <summary>
     /// Whether it is carrying the priority (AMB-4): <b>the whole of the call from the moment it is taken
@@ -103,8 +106,7 @@ internal sealed class RescueDuty
     /// spent: an ambulance standing at a scene holds its ground at the emergency rank for as long as the
     /// scene lasts — which is seconds, and bounded by AMB-9 above that.
     /// </remarks>
-    public bool IsHurrying(int car) =>
-        Stage[car] is not (RescueStage.Waiting or RescueStage.HandingOver or RescueStage.GoingHome);
+    public bool IsHurrying(int car) => IsOnACall(car) && Stage[car] is not (RescueStage.HandingOver or RescueStage.GoingHome);
 
     /// <summary>The call given up or discharged: everything it held, dropped in one place.</summary>
     public void Clear(int car)

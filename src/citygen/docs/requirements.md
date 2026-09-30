@@ -201,14 +201,13 @@ and one of them then found to have a car park outside it.
   side because there is one building and it stands past the far end of the rank; the widest because the
   apron a station holds is the bays nearest its door. **The side faces the town's middle**, because the
   edge of a town is where the ground to stand the building on runs out.
-- **The yards are cut before the town's own car parks and out of the same count.** Each car park is cut at
-  the site furthest from every car park already cut (`GEN-53`), so taking the services first puts them as
-  far apart as the town's roads allow with no spacing rule of its own. **A town with fewer car parks than
-  its roster asks for services stands fewer services** (`GEN-8`), which the census reports (`AMB-2`,
-  `SRV-2`).
-- **How many there are is the roster's share of the buildings the map plans** (`GEN-6`,
-  `SimConfig.ServicesFor`), the same figure the fleets are laid off (`World.Statics.BuildingRoster`) — a
-  vehicle and a crew apiece.
+- **The yards are cut before the town's own car parks and on top of their count.** Each car park is cut at
+  the site furthest from every car park already cut (`GEN-53`), so taking the services first, one use across
+  every district before the next, puts them as far apart as each district's roads allow with no spacing rule
+  of its own. The parking a town's buildings ask for is its people's, and a district's services are not a
+  share of it.
+- **How many there are is the town's districts'** (`GEN-56`), and a district whose ground carries no yard
+  stands none of that use (`GEN-8`), which the census reports (`AMB-2`, `SRV-2`).
 - **The building stands on the rank's own normal**: past its far end, square to the street, **in the middle
   of it**, with its door on the walk that wraps the rank. **That is the face again and not a second
   placement** (`GEN-54`); what differs is only which stretch of it, and that this one is centred rather than
@@ -225,6 +224,19 @@ the car park at an angle, and one down a side fronts the row of bays edge-on.
 - **It is why a service is centred rather than stepped to.** The face is walked at a pitch (`GEN-54`), and a
   hospital as wide as its own yard has to be on the middle of the flat to the metre, so the station the
   rank's normal reaches is slid along the flat to the middle before the building is stood on it.
+
+**GEN-56** `P5` **Every district stands one hospital, one police station and one depot, each inside it**, where
+the town plans a building at all. A district is one of the pieces the town's wheel cuts the ground into — a
+sector between two spokes, inside the orbital or outside it — and **the plan carries the wheel**
+(`CityPlan.Districts`), so the district a point stands in is still a question once the town is laid: it is
+what a service's beat is kept to (`SRV-5`). A map not laid on a wheel is one district.
+
+- **Inside it is the building's ground and not the road's.** A yard is cut only where its building's near face
+  and far face, across the rank on the side it faces, both stand in the district. A district's edge is as often
+  as not a spoke or the orbital: asked of the road alone, a yard cut into one stood its building over the road
+  in the next district, and a yard cut into one facing into the district is that district's.
+- **A district with no street stands nothing**, which is an outer sector the town never reached as often as
+  a sector under the water.
 
 **GEN-7** `P5` Initial state: cars start **stopped in parking spaces**, and **a person starts inside the
 building the map stood them at**, dwelling out the interval an arrival dwells (PER-11). A trip ends by

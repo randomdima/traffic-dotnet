@@ -57,32 +57,31 @@ internal sealed class Districts
     const int SpokesMost = 5;
 
     readonly District[] _districts;
-    readonly float _firstSpokeRad;
 
-    Districts(District[] districts, int spokes, Vector2 hubM, float ringRadiusM, float firstSpokeRad)
+    Districts(District[] districts, DistrictWheel wheel)
     {
         _districts = districts;
-        Spokes = spokes;
-        HubM = hubM;
-        RingRadiusM = ringRadiusM;
-        _firstSpokeRad = firstSpokeRad;
+        Wheel = wheel;
     }
 
-    public int Spokes { get; }
+    /// <summary>The wheel they are laid on, which the plan carries on (GEN-56).</summary>
+    public DistrictWheel Wheel { get; }
 
-    public Vector2 HubM { get; }
+    public int Spokes => Wheel.Spokes;
+
+    public Vector2 HubM => Wheel.HubM;
 
     /// <summary>How far out the orbital stands, or zero where the brief lays none.</summary>
-    public float RingRadiusM { get; }
+    public float RingRadiusM => Wheel.RingRadiusM;
 
-    public bool HasRing => RingRadiusM > 0f;
+    public bool HasRing => Wheel.HasRing;
 
     public int Count => _districts.Length;
 
     public District this[int district] => _districts[district];
 
     /// <summary>The bearing a spoke runs out on. The first is drawn, so a town is not always laid to the compass.</summary>
-    public float SpokeBearingRad(int spoke) => _firstSpokeRad + (spoke * MathF.Tau / Spokes);
+    public float SpokeBearingRad(int spoke) => Wheel.FirstSpokeRad + (spoke * MathF.Tau / Spokes);
 
     public static Districts Lay(
         TownBrief brief, SimConfig config, GroundShapes ground, TerrainStage.Water water, ref Rng draw)
@@ -126,7 +125,7 @@ internal sealed class Districts
             ? MathF.Atan2(-inlandM.Y, -inlandM.X)
             : draw.NextFloat(0f, MathF.Tau / spokes);
 
-        return new Districts(districts, spokes, hubM, ringRadiusM, firstSpokeRad);
+        return new Districts(districts, new DistrictWheel(hubM, ringRadiusM, firstSpokeRad, spokes));
     }
 
     /// <summary>
@@ -159,27 +158,8 @@ internal sealed class Districts
         return atM;
     }
 
-    /// <summary>Which district a point stands in, or −1 where it is outside the town's own ground.</summary>
-    public int At(Vector2 pointM)
-    {
-        var offsetM = pointM - HubM;
-        var radiusM = offsetM.Length();
-        var sector = SectorAt(offsetM);
-        var inside = !HasRing || radiusM <= RingRadiusM;
-        for (var district = 0; district < _districts.Length; district++)
-        {
-            if (_districts[district].Sector == sector && _districts[district].Inside == inside) return district;
-        }
-
-        return -1;
-    }
-
-    int SectorAt(Vector2 offsetM)
-    {
-        var angle = MathF.Atan2(offsetM.Y, offsetM.X) - _firstSpokeRad;
-        angle -= MathF.Tau * MathF.Floor(angle / MathF.Tau);
-        return (int)(angle / (MathF.Tau / Spokes)) % Spokes;
-    }
+    /// <summary>Which district a point stands in (<see cref="DistrictWheel.At"/>).</summary>
+    public int At(Vector2 pointM) => Wheel.At(pointM);
 
     /// <summary>The town's own centre, and the bearing each spoke leaves it on, as a direction.</summary>
     public Vector2 SpokeUnit(int spoke) => Heading.Unit(SpokeBearingRad(spoke));

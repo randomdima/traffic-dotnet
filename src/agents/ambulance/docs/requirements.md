@@ -10,8 +10,8 @@ drives what every car drives** ([agents/car](../../car/docs/requirements.md) `CA
 ## The places and the vehicles
 
 **AMB-1** `P4` Some of a town's buildings are **hospitals**. Which ones is **declared by the map** (GEN-9),
-never by behaviour and never by a run, so a map's hospitals are the same every time it is opened. A town
-with a building on it has at least one.
+never by behaviour and never by a run, so a map's hospitals are the same every time it is opened. Every
+district of a town with a building on it has one (GEN-56).
 
 **AMB-1a** `P6` A hospital **wears the hospital's own roof**, and no other building may. The roof is fitted
 inside whatever plot the map chose rather than matched by size, and it is kept out of the catalogue an
@@ -21,8 +21,9 @@ four ways round the art could be laid, the one whose door points most nearly at 
 (OBJ-4), because a sign that reads down a side street is a building nobody can find the entrance of.
 
 **AMB-2** `P5` Each hospital stands an **apron** of ambulances (GEN-4k), one in each bay, from before the
-first tick. A hospital with fewer free bays near it than the apron asks for stands fewer, and one with none
-stands none: both are real states and are reported rather than hidden.
+first tick, with their crews aboard (SRV-3), half of them to patrol its district (SRV-5). A hospital with fewer
+free bays near it than the apron asks for stands fewer, and one with none stands none: both are real states and
+are reported rather than hidden.
 
 **AMB-3** `P5` An ambulance is an ordinary car with one fact about it: it wears the ambulance's variant from
 the service list. The rest of what it is made of is `SRV-3`.
@@ -40,8 +41,15 @@ the service list. The rest of what it is made of is `SRV-3`.
   answer (TER-5g) and not a courtesy this rule grants. **There is nothing else at a crossing for a blue
   light to outrank**, a walker being granted nothing of its own.
 - **AMB-4.4** `P5` It crosses the centreline to get past what stands in front of it as any car does
-  (CAR-46), which spends no patience first, and a queue making its own movement is no more something to get
-  past for it than for anybody: the ground it asks for past the queue is already at its rung (AMB-4.1).
+  (CAR-46), which spends no patience first — **and its pass is asked at its rung** (TER-4c.6), through a box
+  as along a street. A queue at rest making its own movement is something it gets past, since what the queue
+  waits for is ground the call takes, **and so is traffic going slower than the call means to**, which is held
+  short of where the pass steps back in; ground another movement only plans is no refusal, the lane beside
+  included, and only what a holder can no longer stop short of is; and the paint of a zebra is claimed whole,
+  whoever is already on it waited for short of the paint and nobody else let onto it.
+- **AMB-4.5** `P5` **It plans further than anybody else**: the road it means to use, and how far a plan may reach
+  (TER-4c.1), are a stated multiple of any other driver's, so what it will cross gives way to it before it is
+  there. What it can no longer stop short of is a fact about its speed, and is not stretched.
 
 **AMB-4a** `P3` **The blue light buys the road and never the tyres.** A rescue keeps every constraint the
 speed profile already takes — the corners, the grip, the body in front, the hazard — and is held to a
@@ -49,8 +57,8 @@ pace of its own above them. What a priority orders is who waits; it is never a l
 somebody, and what it takes is only ground its holder has not reached and can give back.
 
 **AMB-4b** `P5` The priority is the **errand** and not the vehicle, **and not who is sitting in it**. An
-ambulance standing at its station, handing over or driving home is ordinary traffic and holds its road like
-anybody else; one standing at a scene with nobody in it is still answering a call, and the light stays on.
+ambulance standing at its station, on its beat, handing over or driving home is ordinary traffic and holds its
+road like anybody else; one standing at a scene with nobody in it is still answering a call, and the light stays on.
 What that costs is the ground round the scene held at the call's own rung for as long as the scene lasts,
 which is seconds and is bounded by `AMB-9` above that.
 
@@ -61,7 +69,8 @@ The instrument that says what this costs is `--bench rescue`.
 ## The call
 
 **AMB-5** `P5` A person knocked down and left alive (PER-18) is a **casualty**, and a casualty is a call. The
-nearest ambulance with nothing else to do takes it, and **nearest is measured against every other free
+nearest ambulance with nothing else to do takes it — standing on its apron or out on its beat (SRV-5), and
+whichever district either is in — and **nearest is measured against every other free
 ambulance and not against every other casualty**: an ambulance that is not the nearest to the body it would
 have gone to takes nothing and asks again. **One casualty to a call and one call to a casualty**: two
 ambulances sent to one body is one of them crossing the town to find the place already attended.
@@ -98,8 +107,8 @@ because the casualty is aboard and there is no better answer than trying again.
 
 ## Where the numbers are
 
-On `SimConfig.Ambulance` ([core](../../../core/docs/requirements.md#where-a-figure-lives)): how many of a
-town's buildings are hospitals, how far from one its ambulances may stand, the pace a call is driven at,
+On `SimConfig.Ambulance` ([core](../../../core/docs/requirements.md#where-a-figure-lives)): how far from a
+hospital its ambulances may stand, the pace a call is driven at and how much further it plans,
 how long loading and treatment take, how far short of the casualty the vehicle is stopped and how near that
-mark it has to have got, and the bound on a leg. How many bays an apron holds is `SimConfig.Service`'s,
-being the same figure a police station's is.
+mark it has to have got, and the bound on a leg. How many bays an apron holds, who rides in an ambulance and
+how many patrol are `SimConfig.Service`'s, being the same figures a police station's are.

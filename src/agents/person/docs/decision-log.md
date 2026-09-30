@@ -4,6 +4,20 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-30 — a route that ran out of room is laid on before the plan reaches its end
+
+**Five minutes of Odesa left a walker and a car standing at a zebra for the rest of the run.** The walker's
+route had filled its chain on the way before the paint, ending at the kerb, so its plan reached nothing past the
+kerb and it ran the last of the pavement at full pace. Laid again only once it stood at the end, it asked for the
+crossing with its body already over the lane; refused by a car that could no longer stop, it stood over the lane
+in front of that car, and the car stood on the paint the walker needed — each waiting on the other (PER-27,
+TER-5c.3).
+
+**So a chain that ran out is laid again while its end is still within the plan's reach and a decision's walk**
+(`TownWorld.ComesToTheEndOfItsChain`) — the same laying from the same place a body that has lost its line gets, on
+the decision before the one that would have walked it out. What a chain carries is unchanged; only when the rest
+of the route is laid moved.
+
 ## 2026-09-29 — a walker gets past somebody standing on its way
 
 **The owner asked for overtaking for walkers on the same four rules as cars** (PER-28, TER-4c.6). Read as

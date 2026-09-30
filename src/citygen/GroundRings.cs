@@ -153,6 +153,19 @@ internal sealed class GroundRings
         return kerb.Near(pointM, reachM + Walk.OutwardM, near, alongM) > 0;
     }
 
+    RingSides? _walkSides;
+
+    /// <summary>
+    /// <b>Which side of the walk's outer face a point stands on</b> (<see cref="RingSides"/>): the lattice the
+    /// ground answers the walk off, laid on the first ask and read by whatever else must keep to the walk — the
+    /// connections a crossing is walked through (WLK-15) — so the two cannot disagree about one metre of it.
+    /// </summary>
+    /// <remarks><b>It encloses the carriageway</b>, the layer being the offset whole (TER-7b).</remarks>
+    public RingSides WalkSides(SimConfig config)
+    {
+        lock (_indexing) return _walkSides ??= RingSides.Of(Walk.Rings, config.ShellLevel);
+    }
+
     /// <summary>
     /// <b>The town's ground beside a road, struck in one move of its outline and nothing else.</b>
     /// <paramref name="shell"/> is the town's own (<see cref="Paving.Perimeter"/>) rather than one laid for

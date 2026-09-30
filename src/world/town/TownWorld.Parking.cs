@@ -100,6 +100,7 @@ internal sealed partial class TownWorld
         Cars.Line[car] = new DrivenLine(arcs.Length, 0, lengthM);
         Cars.ProgressM[car] = alongM;
         Cars.LineIsReverse[car] = _bayWays.IsDrivenInReverse(way);
+        Cars.ManoeuvreBegun[car] = false;
         Cars.LineWay[car] = way;
         return true;
     }
@@ -149,13 +150,37 @@ internal sealed partial class TownWorld
         return best;
     }
 
+    /// <summary>
+    /// <b>The street a way out of a bay has landed the car on</b>, taken from where the body stands on it: the
+    /// lane arriving at the car park on that side and on through its box (<see cref="BayWays.StreetOf"/>),
+    /// the car seated on it about the metre the way landed at.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not the lane under the car</b> (<see cref="TakeTheLaneUnderIt"/>): a way out lands a car on the
+    /// street's line across the car park's own box, where no lane runs, and the nearest lane end to a point
+    /// there is as likely to be the one ahead of it — a line that begins in front of the body, which the follower
+    /// calls lost the tick it is handed one. From the lane behind, the car is inside a junction on its line,
+    /// which is a place every car crossing one has been.
+    /// </remarks>
+    bool TakeTheStreetOutOfTheBay(int car, int way)
+    {
+        var landedM = _bayWays.OnTheStreetM(way);
+        Cars.ChainOf(car)[0] = _bayWays.StreetOf(way);
+        LayLine(car, 1, landedM);
+        if (Cars.Line[car].ArcCount == 0) return false;
+
+        ref readonly var build = ref Cars.BuildOf(car);
+        var axleM = CarFollower.RearAxleM(build, Cars.PositionM[car], ForwardOf(car));
+        Cars.ProgressM[car] = CarFollower.ProgressM(build, Cars.LineOf(car), axleM, landedM);
+        return true;
+    }
+
     /// <summary>The direction the body is pointing, which every line is read back through.</summary>
     Vector2 ForwardOf(int car) => Heading.Unit(Cars.HeadingRad[car]);
 
     /// <summary>
-    /// The lane the car is standing on and pointing along, taken as the front of a line. The nearest
-    /// centreline is as likely to be the oncoming lane as its own, so <b>direction decides, not
-    /// distance</b>.
+    /// The lane the car is standing on and pointing along, taken as the front of a line — or the join it is
+    /// standing in and the lanes either side of it (<see cref="TheCarriagewayUnder"/>).
     /// </summary>
     /// <remarks>
     /// Refused where the car is standing on no lane at all, which is a leg with nothing to drive: the
@@ -167,24 +192,103 @@ internal sealed partial class TownWorld
     {
         var forward = ForwardOf(car);
         var rearAxleM = CarFollower.RearAxleM(Cars.BuildOf(car), Cars.PositionM[car], forward);
-        var lane = _roads.NearestStreetLane(rearAxleM, out var alongM);
-        if (lane < 0) return false;
+        var under = TheCarriagewayUnder(rearAxleM, forward);
+        if (under.Lane < 0) return false;
 
-        if (Vector2.Dot(Spline.SampleAt(_roads.ArcsOf(lane), alongM).Direction, forward) <= 0f)
+        LayLine(car, TheChainFrom(car, under));
+        Cars.ProgressM[car] = under.AlongM;
+        return Cars.Line[car].ArcCount > 0;
+    }
+
+    /// <summary>A line's first lanes as a body standing on the carriageway has them, and how many that is.</summary>
+    int TheChainFrom(int car, in StandingOn under)
+    {
+        var chain = Cars.ChainOf(car);
+        chain[0] = under.Lane;
+        if (under.Onward == CarFleet.NoLane) return 1;
+
+        chain[1] = under.Onward;
+        return 2;
+    }
+
+    /// <summary>
+    /// <b>Where on the carriageway a body stands, as a line is laid from</b>: the lane it is on and pointing
+    /// along — or, <b>standing in a junction's box, where no lane runs, the lane it came off and the one the
+    /// join it stands in leads onto</b> — with how far along a line over them it stands.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The nearest centreline is as likely to be the oncoming lane as its own, so direction decides, not
+    /// distance.</b>
+    /// </para>
+    /// <para>
+    /// <b>And in a box, the nearest lane end is as likely to be the one ahead of the body as the one behind
+    /// it.</b> A line laid from there begins in front of the car, which the follower calls lost the tick it
+    /// is handed one — and every recovery asked the same question again and got the same answer, so a car
+    /// that came to rest in a box stood there for the rest of the run. A way out of a bay lands a car in its
+    /// car park's box (GEN-4f), which is where that was first met.
+    /// </para>
+    /// </remarks>
+    StandingOn TheCarriagewayUnder(Vector2 rearAxleM, Vector2 forward)
+    {
+        var lane = _roads.NearestStreetLane(rearAxleM, out var alongM);
+        if (lane < 0) return StandingOn.Nowhere;
+
+        if (Vector2.Dot(Spline.SampleAt(_roads.ArcsOf(lane), alongM).Direction, forward) <= 0f
+            && _roads.LaneReverse[lane] is var back and >= 0)
         {
-            var back = _roads.LaneReverse[lane];
-            if (back >= 0)
+            lane = back;
+            alongM = Spline.ProjectM(
+                _roads.ArcsOf(lane), rearAxleM, _roads.LaneLengthM[lane] * 0.5f, _roads.LaneLengthM[lane]);
+        }
+
+        var onLane = new StandingOn(lane, CarFleet.NoLane, alongM, Spline.SampleAt(_roads.ArcsOf(lane), alongM));
+        if (alongM >= _roads.LaneLengthM[lane] - LineTolerance.RoundingM)
+        {
+            foreach (var onto in _roads.LanesFrom(lane)) OnTheJoin(lane, onto, rearAxleM, forward, ref onLane);
+        }
+        else if (alongM <= LineTolerance.RoundingM)
+        {
+            foreach (var from in _roads.LanesIntoJunction(_roads.LaneFromJunction[lane]))
             {
-                lane = back;
-                alongM = Spline.ProjectM(
-                    _roads.ArcsOf(lane), rearAxleM, _roads.LaneLengthM[lane] * 0.5f, _roads.LaneLengthM[lane]);
+                OnTheJoin(from, lane, rearAxleM, forward, ref onLane);
             }
         }
 
-        Cars.ChainOf(car)[0] = lane;
-        LayLine(car, 1);
-        Cars.ProgressM[car] = alongM;
-        return Cars.Line[car].ArcCount > 0;
+        return onLane;
+    }
+
+    /// <summary>
+    /// The join between two lanes, taken over <paramref name="best"/> where the body stands nearer its line
+    /// than that and it runs the way the body points.
+    /// </summary>
+    void OnTheJoin(int from, int onto, Vector2 rearAxleM, Vector2 forward, ref StandingOn best)
+    {
+        if (_roads.IsABayArm(from) || _roads.IsABayArm(onto)) return;
+
+        var join = _roads.ConnectorBetween(from, onto);
+        if (join == RoadGraph.NoConnector) return;
+
+        var arcs = _roads.ConnectorArcs(join);
+        if (arcs.Length == 0) return;
+
+        var onM = Spline.ProjectM(arcs, rearAxleM, 0f, _roads.ConnectorLengthM(join), out var offSq);
+        if (offSq >= (best.At.PositionM - rearAxleM).LengthSquared()) return;
+
+        var at = Spline.SampleAt(arcs, onM);
+        if (Vector2.Dot(at.Direction, forward) <= 0f) return;
+
+        best = new StandingOn(from, onto, _roads.LaneLengthM[from] + onM, at);
+    }
+
+    /// <summary>
+    /// What <see cref="TheCarriagewayUnder"/> found: the lane a line over it begins on, the lane after the join
+    /// the body stands in (or <see cref="CarFleet.NoLane"/> on a lane), how far along that line the body
+    /// stands, and the point of the line there.
+    /// </summary>
+    readonly record struct StandingOn(int Lane, int Onward, float AlongM, SplineSample At)
+    {
+        public static StandingOn Nowhere => new(CarFleet.NoLane, CarFleet.NoLane, 0f, default);
     }
 
     /// <summary>

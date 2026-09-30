@@ -33,8 +33,8 @@ internal sealed partial class SimConfig
 
     /// <summary>
     /// The nominal car's circle opened by <see cref="CarFigures.ParkingTemplateArcMargin"/>, so a turn laid on
-    /// it is one a car holds rather than one it is exactly at the limit of. <see cref="CarParkTurnRadiusM"/>
-    /// is taken in from it, and nothing else reads it.
+    /// it is one a car holds rather than one it is exactly at the limit of. It is the turn a bay's own ways
+    /// make between the street and the space (GEN-4f), and <see cref="CarParkTurnRadiusM"/> is taken in from it.
     /// </summary>
     public float CarParkingTemplateRadiusM => CarTurningRadiusM * Car.ParkingTemplateArcMargin;
 
@@ -463,35 +463,6 @@ internal sealed partial class SimConfig
     /// </remarks>
     public int CarParksFor(int buildings) => buildings / CityGen.BuildingsPerCarPark;
 
-    /// <summary>How many of a town's buildings are hospitals (AMB-1).</summary>
-    public int HospitalsFor(int buildings) =>
-        ServicesFor(buildings, Ambulance.HospitalsPerBuilding, Ambulance.MostHospitals);
-
-    /// <summary>How many are police stations (SRV-1).</summary>
-    public int PoliceStationsFor(int buildings) =>
-        ServicesFor(buildings, Service.StationsPerBuilding, Service.MostStations);
-
-    /// <summary>How many are depots (SRV-1).</summary>
-    public int DepotsFor(int buildings) => ServicesFor(buildings, Service.DepotsPerBuilding, Service.MostDepots);
-
-    /// <summary>
-    /// <b>How many buildings of one service use a town of this many buildings has</b> (AMB-1, SRV-1): a
-    /// share of the count the map plans, capped, and never none where there is a building to be one.
-    /// </summary>
-    /// <remarks>
-    /// <b>Struck here because two readers want it and neither may hold a second copy</b>: the generator cuts
-    /// a yard for every one of them before it stands a building (GEN-55), and the fleets are laid off the
-    /// finished plan (<c>World.Statics.BuildingRoster.CountIn</c>) — a vehicle a bay, nobody aboard. The two
-    /// disagreeing is an ambulance with no hospital to go home to.
-    /// </remarks>
-    public static int ServicesFor(int buildings, float perBuilding, int most)
-    {
-        if (buildings <= 0) return 0;
-
-        var wanted = (int)MathF.Round(buildings * perBuilding);
-        return Math.Clamp(wanted, 1, Math.Min(most, buildings));
-    }
-
     /// <summary>
     /// <b>The tightest a road may bend where a car park is cut into it</b> (GEN-53), as a curvature: the one
     /// that leaves the longest movement in the car park no further off its lane than
@@ -653,20 +624,20 @@ internal sealed partial class SimConfig
     /// </summary>
     public float ParkingSpaceWidthM => Car.WidthM * (1f + Road.ParkingSpaceSideMarginInCarWidths * 2f);
 
-    /// <summary>How much of its street lane a bay's way runs along (<see cref="RoadFigures.ParkingStagedInCarLengths"/>).</summary>
-    public float ParkingStagedInM => Car.LengthM * Road.ParkingStagedInCarLengths;
+    /// <summary>How far along its street a way out of a bay runs past its turn (<see cref="RoadFigures.ParkingRunOutInCarLengths"/>).</summary>
+    public float ParkingRunOutM => Car.LengthM * Road.ParkingRunOutInCarLengths;
 
     /// <summary>And how much straight it ends on, which is what puts the car in the bay square.</summary>
     public float ParkingStraightensUpM => Car.LengthM * Road.ParkingStraightensUpInCarLengths;
 
     /// <summary>
-    /// <b>How far clear of its road's own ends a car park's frontage has to stand</b>: the run-in every
-    /// bay's way in is staged over (<see cref="ParkingStagedInM"/>), and a stretch of street beyond that for
-    /// the car to have been driving down before it turns in. <b>Nothing reads it</b>: no bay's way is laid
-    /// (GEN-4f).
+    /// <b>How far clear of its road's own ends a car park's frontage has to stand</b>: the run-out every
+    /// bay's way out takes along the street (<see cref="ParkingRunOutM"/>), and a stretch of street beyond that
+    /// for the car to have been driving down before it turns in. <b>Nothing reads it</b>: a car park's
+    /// standoff is its junction's (GEN-53).
     /// </summary>
     public float ParkingFrontageClearOfTheEndsM =>
-        ParkingStagedInM + (Car.LengthM * Road.ParkingFrontageClearInCarLengths);
+        ParkingRunOutM + (Car.LengthM * Road.ParkingFrontageClearInCarLengths);
 
     /// <summary>Half a pavement band plus the front gap plus a person: how close a door counts as reached.</summary>
     public float WayInTouchingReachM => PavementWidthM * 0.5f + Building.FrontGapM + PersonDiameterM;

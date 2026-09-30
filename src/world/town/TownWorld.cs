@@ -167,6 +167,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     readonly RescueDuty _duty;
     readonly PatrolDuty _beat;
     readonly RecoveryDuty _recovery;
+    readonly ServiceBeat _serviceBeat;
 
     readonly SelectionSet _selected;
 
@@ -274,19 +275,19 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             else if (kind == SpawnKindCar) drivers++;
         }
 
-        // The service vehicles are laid on top of the plan's own spawns: a car for every bay of every
-        // hospital's and every station's apron, and one for every depot (AMB-2, SRV-2), which is why
-        // the counts have to be answerable from the plan alone. A building that turns out to have no bay
-        // near it leaves its slots unused, which is what makes the rosters the fleets' own counts rather
-        // than these capacities. Which buildings they are is the map's (GEN-9).
+        // The service vehicles are laid on top of the plan's own spawns: a vehicle for every bay of every
+        // hospital's, station's and depot's apron (AMB-2, SRV-2), which is why the counts have to be answerable
+        // from the plan alone. A building that turns out to have no bay near it leaves its slots unused, which
+        // is what makes the rosters the fleets' own counts rather than these capacities. Which buildings they
+        // are is the map's (GEN-9).
         _uses = BuildingUses.Of(plan);
 
-        var served = ((_uses.Hospitals.Count + _uses.PoliceStations.Count) * config.Service.ApronBays)
-                     + _uses.Depots.Count;
+        var served = (_uses.Hospitals.Count + _uses.PoliceStations.Count + _uses.Depots.Count)
+                     * config.Service.ApronBays;
 
-        // <b>The car roster grows by the vehicles, and the walker roster by the officer each police car carries</b>
-        // (SRV-3, SRV-11) — laid now, since a roster is never grown once the town stands.
-        walkers += _uses.PoliceStations.Count * config.Service.ApronBays;
+        // <b>The car roster grows by the vehicles, and the walker roster by the crew each one carries</b>
+        // (SRV-3) — laid now, since a roster is never grown once the town stands.
+        walkers += served * CrewAboard(config);
         drivers += served;
 
         People = new PersonFleet(walkers);
@@ -333,6 +334,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _closedLanes = new bool[_roads.LaneCount];
         _closedLinks = new bool[_driving.Graph.LinkCount];
         _recovery = new RecoveryDuty(drivers);
+        _serviceBeat = new ServiceBeat(drivers);
+        LayTheDistrictStreets();
 
         if (standStatics) StandStatics();
 
@@ -748,7 +751,10 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // is wide has lost it — shoved, knocked aside, put down beside a vehicle — and what it is owed is
         // the line laid again from where it now stands, whose first leg is the straight back onto the
         // network. Left alone it would walk at a point on ground it is no longer near.
-        if (HasLostItsLine(agent))
+        //
+        // <b>And a chain that ran out of room is laid on from where the body has got to before its plan runs off
+        // the end of it</b>, which is the same laying from the same place (<see cref="ComesToTheEndOfItsChain"/>).
+        if (HasLostItsLine(agent) || ComesToTheEndOfItsChain(agent))
         {
             LayWalk(agent, reachTheGoal: People.Stage[agent] is TripStage.WalkingToTheDoor or TripStage.UnderOrders);
 

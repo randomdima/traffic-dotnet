@@ -13,10 +13,10 @@ namespace TrafficSimulation.Agents.Service;
 /// </remarks>
 internal enum PatrolStage : byte
 {
-    /// <summary>Standing on its station's apron, waiting out the interval before the next beat.</summary>
+    /// <summary>Standing on its station's apron, waiting for a call — or, for one that patrols, for its first beat.</summary>
     Standing,
 
-    /// <summary>Under way to somewhere in the town it was sent, with no priority over anybody.</summary>
+    /// <summary>Under way to a place on its district's beat, with no priority over anybody.</summary>
     Patrolling,
 
     /// <summary>Under way to the entrance of a lane it has been called to close, carrying the priority for that leg (SRV-6).</summary>
@@ -28,7 +28,7 @@ internal enum PatrolStage : byte
     /// <summary>The scene over: its officer walking back to the car, which waits for them before it goes (SRV-11).</summary>
     Reopening,
 
-    /// <summary>The beat driven out, on its way back to its own bay.</summary>
+    /// <summary>On its way back to its own bay: a call over for a car that does not patrol, or no street to patrol.</summary>
     ReturningToStation,
 }
 
@@ -56,8 +56,6 @@ internal sealed class PatrolDuty
         HomeBay = new int[cars];
         Array.Fill(HomeBay, NoBay);
         SinceS = new float[cars];
-        RestS = new float[cars];
-        LegsLeft = new int[cars];
         Casualty = new int[cars];
         Array.Fill(Casualty, Nobody);
         Wreck = new int[cars];
@@ -82,17 +80,8 @@ internal sealed class PatrolDuty
     /// <summary>The bay on that station's apron held for it for the whole run (SRV-2, GEN-4k).</summary>
     public int[] HomeBay { get; }
 
-    /// <summary>
-    /// How long this stage has been running: the wait before a beat while it stands, and the bound on a leg
-    /// while it drives (SRV-5).
-    /// </summary>
+    /// <summary>How long this stage has been running, which is the bound on a leg while it drives (SRV-5).</summary>
     public float[] SinceS { get; }
-
-    /// <summary>How long this stand is to last, drawn when the car came home so no two of a station's cars share it.</summary>
-    public float[] RestS { get; }
-
-    /// <summary>How many more places this beat visits before the car is due back at its station.</summary>
-    public int[] LegsLeft { get; }
 
     /// <summary>
     /// <b>The scene this car has been called to</b> (SRV-6): a casualty lying in the road, or a wreck
@@ -139,8 +128,9 @@ internal sealed class PatrolDuty
     public float[] StandM { get; }
 
     /// <summary>
-    /// <b>The officer this car carries</b> (SRV-11), or <see cref="Nobody"/> — who stands at the entrance and whose
-    /// body is what blocks it (SRV-9). Laid with the car and never another, since the walker roster is not grown.
+    /// <b>The officer this car puts out at a closure</b> (SRV-11) — the first of its crew — or <see cref="Nobody"/>:
+    /// who stands at the entrance and whose body is what blocks it (SRV-9). The rest of the crew stay aboard. Laid
+    /// with the car and never another, since the walker roster is not grown.
     /// </summary>
     public int[] Officer { get; }
 

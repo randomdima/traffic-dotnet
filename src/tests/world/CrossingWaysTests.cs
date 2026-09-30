@@ -180,6 +180,45 @@ public class CrossingWaysTests
     const float MergedWithinM = 12f;
 
     /// <summary>
+    /// <b>No connection goes beyond the pavement</b> (WLK-15): the band of every connection a junction lays — onto
+    /// the paint, off it, and from one crossing onto another — stands on ground the town answers as something other
+    /// than the verge, a touch in from its edges. <b>Asked at crossings merged from as far apart as the fixture
+    /// carries</b>, where the lines of two paints meet furthest out.
+    /// </summary>
+    [Fact]
+    public void NoConnectionGoesBeyondThePavement()
+    {
+        var config = new SimConfig { Road = new RoadFigures { FootNodeMergeM = MergedWithinM } };
+        var plan = Towns.Of(Towns.Fixture);
+        var ground = new GroundShapes(plan.Paving(config), config);
+        var ways = CrossingWays.Of(plan, PavementLanes.Of(plan, config), config);
+
+        var inM = (config.WalkingLaneWidthM * 0.5f) - config.RibbonTouchM;
+        var asked = 0;
+        foreach (var way in ways.Ways)
+        {
+            if (way.Kind != FootEdgeKind.Pavement) continue;
+
+            asked++;
+            var lengthM = Spline.TotalLengthM(way.Arcs);
+            for (var atM = 0f; atM <= lengthM; atM += config.RibbonTouchM)
+            {
+                var at = Spline.SampleAt(way.Arcs, atM);
+                foreach (var edgeM in (ReadOnlySpan<Vector2>)[at.PositionM + (at.Right * inM), at.PositionM - (at.Right * inM)])
+                {
+                    Assert.True(
+                        ground.At(edgeM) is not (Ground.Grass or Ground.Water),
+                        $"the connection from {way.FromM.X:F1},{way.FromM.Y:F1} to {way.OntoM.X:F1},{way.OntoM.Y:F1} "
+                        + $"stands on {ground.At(edgeM)} at {edgeM.X:F1},{edgeM.Y:F1}");
+                }
+            }
+        }
+
+        // The staging and not the claim: a fixture whose walk crosses nothing would ask nothing.
+        Assert.True(asked > 0, "the fixture's crossings lay no connection");
+    }
+
+    /// <summary>
     /// <b>A course out of reach costs its own lane and not the crossing</b> (WLK-15): a junction hands over
     /// at a point per connected lane, so a lane whose course answers from further off than
     /// <see cref="RoadFigures.CrossingMeetsTheWalkWithinM"/> is left out of the place — which still stands,

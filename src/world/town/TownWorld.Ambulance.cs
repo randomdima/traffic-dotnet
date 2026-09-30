@@ -161,7 +161,13 @@ internal sealed partial class TownWorld
         switch (stage)
         {
             case RescueStage.Waiting:
-                TakeACall(car);
+                if (!TakeACall(car) && IsDueOnTheBeat(car)) DriveTheBeat(car);
+
+                return;
+
+            case RescueStage.Patrolling:
+                if (!TakeACall(car) && IsDoneWithThePlace(car, _duty.SinceS[car])) DriveTheBeat(car);
+
                 return;
 
             case RescueStage.Running:
@@ -207,7 +213,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>The nearest casualty nobody is on their way to</b>, and the run to them. Asked only of an
-    /// ambulance standing at its station, and only while there is anybody to fetch.
+    /// ambulance with nobody to fetch — standing or on its beat — and only while there is anybody to fetch.
     /// </summary>
     /// <remarks>
     /// <b>One casualty to a call and one call to a casualty.</b> Two ambulances sent to one body is one of
@@ -215,9 +221,9 @@ internal sealed partial class TownWorld
     /// available for; the claim is the <see cref="RescueDuty.Casualty"/> field and there is no second
     /// register of it.
     /// </remarks>
-    void TakeACall(int car)
+    bool TakeACall(int car)
     {
-        if (_woundedCount == 0) return;
+        if (_woundedCount == 0) return false;
 
         var fromM = Cars.PositionM[car];
         var best = RescueDuty.Nobody;
@@ -234,13 +240,14 @@ internal sealed partial class TownWorld
             bestM = farM;
         }
 
-        if (best < 0 || !IsTheNearestFreeAmbulanceTo(car, best, bestM)) return;
+        if (best < 0 || !IsTheNearestFreeAmbulanceTo(car, best, bestM)) return false;
 
         _duty.Casualty[car] = best;
         _duty.SinceS[car] = 0f;
         _duty.LoadedForS[car] = 0f;
         EnterTheStage(car, RescueStage.Running);
         SendTo(car, TheStandoffM(car, best), ParkingRegistry.NoBay);
+        return true;
     }
 
     /// <summary>
@@ -445,10 +452,19 @@ internal sealed partial class TownWorld
         GoHome(car);
     }
 
-    /// <summary>Back to its own bay on the hospital's apron, with the light out: an ambulance between calls is ordinary traffic.</summary>
+    /// <summary>
+    /// Back to its own bay on the hospital's apron, with the light out: an ambulance between calls is ordinary
+    /// traffic. <b>One that patrols goes back to its beat instead</b> (SRV-5), from wherever the call left it.
+    /// </summary>
     void GoHome(int car)
     {
         _duty.Casualty[car] = RescueDuty.Nobody;
+        if (_serviceBeat.Patrols[car])
+        {
+            StandDown(car);
+            if (DriveTheBeat(car)) return;
+        }
+
         EnterTheStage(car, RescueStage.GoingHome);
 
         // Already standing in its own bay, or nowhere at its hospital to stand: either way there is no leg
@@ -684,13 +700,14 @@ internal sealed partial class TownWorld
     /// </summary>
     /// <remarks>
     /// The errands that have one are a rescue's run to a body in the road (AMB-5), a recovery's run to a
-    /// wreck and haul to a yard slot (EVA-3, EVA-6) and a patrol's beat and run to a scene (SRV-5, SRV-6) — a
+    /// wreck and haul to a yard slot (EVA-3, EVA-6), a patrol's run to a scene (SRV-6) and every service's beat
+    /// (SRV-5) — a
     /// leg that claimed a bay would be a car that parked instead of arriving. <b>And two of the player's four
     /// orders</b> (CTL-8a, CTL-8c), which is the whole of what makes "drive to that spot" different from
     /// "park near it".
     /// </remarks>
     bool IsAimedAtAPlaceInTheRoad(int car) =>
-        IsOnItsWayToAScene(car) || IsOnItsWayToAWreck(car) || IsOnItsBeatOrToAScene(car)
+        IsOnItsWayToAScene(car) || IsOnItsWayToAWreck(car) || IsOnItsBeatOrToAScene(car) || IsDrivingItsBeat(car)
         || IsOrderedToAPlaceInTheRoad(car);
 
     /// <summary>The world seed's stream an ambulance is drawn from, which belongs to nothing else.</summary>

@@ -1,11 +1,38 @@
 # The ambulance — decision log
 
-## 2026-09-29 — a call gets past what any car gets past, and no queue
+## 2026-09-30 — a call gets past slower traffic, and plans twice as far
 
-**AMB-4.4 counted a queue as something a call gets past.** Overtaking came back as a pass (CAR-46) on the
-owner's rule that nobody passes somebody making their own movement there, and that rule has no exemption for a
-call; the patience AMB-4.4 spared an ambulance is gone for everybody, since a pass is asked the tick it can be
-had. What a call still has over a queue is its rung on every ground it asks for (AMB-4.1).
+**The owner asked for a call to get to its incident as soon as it can, whatever it takes, and to claim twice as
+far** (AMB-4.4, AMB-4.5). A call behind a jam that crept waited for as long as it crept, since only a body at
+rest could be passed — the second of the owner's four passing rules, which the owner now lifted for a call.
+**It passes traffic going slower than it means to** (`TownWorld.MayGetPast`, the car's own `PlannedMps`): what
+goes as fast is no hindrance, and without it an escort on the idle ring, held under its charge's pace and so
+never catching it, came to a standstill (`IdleRingTests`). What it passes moving it clears where that can come to rest
+(`LaneOccupancy.StopsByM`), and a car that cannot stop short of the pass refuses it (`PassTerms.Takes`), so the
+traffic it passes is held short of it rather than driven into it. Nobody on foot who is moving is passed.
+
+**It plans `CallReachShare` times as far** — what it means to use and how far a plan may reach, and not what it
+can no longer stop short of, which is its speed's and would take from everybody ground the call could still
+give back. The pace it is held to (`CallPaceMps`) is left where it is: uncapped, a rescue crossed River at 75 m/s
+and wrecked itself.
+
+## 2026-09-29 — a call's pass is asked at its rung, past a queue and over the paint
+
+**The owner asked for any car with its siren on to overtake with its priority claim** where the lane beside is
+only planned by something weaker, and to overtake at junctions too (AMB-4.4). Asked, the owner lifted rule 1 —
+nobody passes somebody making their own movement there — for a call, and said a call claims a zebra over the
+people on foot, not only an empty one. Before, a call's pass was anybody's: any plan on the lane beside refused
+it, so the oncoming car's reach held it as surely as a body; a queue at a red was waited behind like a wreck
+nobody may pass; and a junction's zebras refused every pass through its box. What a call had over a queue was
+its rung on the ground past it (AMB-4.1), which a body in its lane never let it reach.
+
+**What refuses it now is what its rung does not beat** — a body, ground a holder can no longer stop short of,
+another call's plan — read off the reservations like any pass (TER-4c.6). **And no count of bodies does**: one
+pass got past four at most, a bound on a stack span that a queue at a red outgrew, and a call behind six stood
+cars waited for the green as if nothing had changed. The bound is now past what a line laid its sight ahead
+holds nose to tail, so the line and the ground end a long pass. The scenario map stages it (the car on a call
+behind a queue of five waiting at a red): the call goes round the whole of it over the lane beside, the paint
+and the box, and is through before its head; with the old bound it waits for the green.
 
 ## 2026-08-27 — the standoff is a place on the lane
 

@@ -81,6 +81,9 @@ internal sealed class CityPlan
 
     public required WaterArrays Water { get; init; }
 
+    /// <summary>The districts the town was laid in (GEN-56), which a service's beat is kept to (SRV-5).</summary>
+    public DistrictWheel Districts { get; init; } = DistrictWheel.Whole;
+
     /// <summary>
     /// The shapes the ground is cut from, as the one bundle every reading of the town's surface takes
     /// (<see cref="GroundShapes"/>).

@@ -72,8 +72,9 @@ internal sealed partial class TownWorld
     int _onTheBar;
 
     /// <summary>
-    /// <b>The car stood in the first bay of a depot's run becomes that depot's evacuator</b> (SRV-2, EVA-2):
-    /// the yard it delivers to and the bay held for it, which is where every recovery begins and ends.
+    /// <b>A car stood on a depot's apron becomes one of that depot's evacuators</b> (SRV-2, EVA-2): the yard it
+    /// delivers to and the bay held for it, which is where every recovery of one that does not patrol begins and
+    /// ends.
     /// </summary>
     void TakeUpTheRecovery(int car, int depot, int yard)
     {
@@ -134,7 +135,13 @@ internal sealed partial class TownWorld
         switch (stage)
         {
             case RecoveryStage.Waiting:
-                TakeAWreck(car);
+                if (!TakeAWreck(car) && IsDueOnTheBeat(car)) DriveTheBeat(car);
+
+                return;
+
+            case RecoveryStage.Patrolling:
+                if (!TakeAWreck(car) && IsDoneWithThePlace(car, _recovery.SinceS[car])) DriveTheBeat(car);
+
                 return;
 
             case RecoveryStage.Running:
@@ -158,9 +165,9 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>The nearest wreck nobody is on their way to</b>, and the run to it. Asked only of an evacuator
-    /// standing at its depot, only while there is anything to fetch, and <b>only while its yard has a slot
-    /// free to put it in</b> (EVA-3).
+    /// <b>The nearest wreck nobody is on their way to</b>, and the run to it. Asked only of an evacuator with
+    /// nothing to clear — standing or on its beat — only while there is anything to fetch, and <b>only while its
+    /// yard has a slot free to put it in</b> (EVA-3).
     /// </summary>
     /// <remarks>
     /// <b>Somewhere to put it is part of taking the call and not a problem discovered on arrival.</b> An
@@ -169,14 +176,14 @@ internal sealed partial class TownWorld
     /// evacuator taken out of service by bookkeeping. A depot whose yard is full has stopped collecting, and
     /// that is a state with a count against it (<see cref="YardsFoundFull"/>).
     /// </remarks>
-    void TakeAWreck(int car)
+    bool TakeAWreck(int car)
     {
-        if (_wreckCount == 0) return;
+        if (_wreckCount == 0) return false;
 
-        if (AFreeYardSlot(_recovery.Yard[car]) < 0)
+        if (!HasRoomInItsYard(car))
         {
             YardsFoundFull++;
-            return;
+            return false;
         }
 
         var fromM = Cars.PositionM[car];
@@ -192,13 +199,14 @@ internal sealed partial class TownWorld
             bestM = farM;
         }
 
-        if (best < 0 || !IsTheNearestFreeEvacuatorTo(car, best, bestM)) return;
+        if (best < 0 || !IsTheNearestFreeEvacuatorTo(car, best, bestM)) return false;
 
         _recovery.Wreck[car] = best;
         _recovery.SinceS[car] = 0f;
         _recovery.HitchedForS[car] = 0f;
         EnterTheRecoveryStage(car, RecoveryStage.Running);
         SendTo(car, Cars.PositionM[best], ParkingRegistry.NoBay);
+        return true;
     }
 
     /// <summary>
@@ -232,10 +240,10 @@ internal sealed partial class TownWorld
         for (var other = 0; other < Cars.Count; other++)
         {
             if (other == car || !IsAnEvacuator(other) || Cars.Broken[other] || _recovery.IsOnARecovery(other)) continue;
-            if (AFreeYardSlot(_recovery.Yard[other]) < 0) continue;
 
             var otherM = (Cars.PositionM[wreck] - Cars.PositionM[other]).LengthSquared();
-            if (otherM < farM || (otherM == farM && other < car)) return false;
+            var nearer = otherM < farM || (otherM == farM && other < car);
+            if (nearer && HasRoomInItsYard(other)) return false;
         }
 
         return true;
@@ -733,10 +741,19 @@ internal sealed partial class TownWorld
         GoBackToTheDepot(car);
     }
 
-    /// <summary>Back to its own bay at its depot, with the priority out: an evacuator between recoveries is ordinary traffic.</summary>
+    /// <summary>
+    /// Back to its own bay at its depot, with the priority out: an evacuator between recoveries is ordinary
+    /// traffic. <b>One that patrols goes back to its beat instead</b> (SRV-5), from wherever the recovery left it.
+    /// </summary>
     void GoBackToTheDepot(int car)
     {
         _recovery.Wreck[car] = RecoveryDuty.Nothing;
+        if (_serviceBeat.Patrols[car])
+        {
+            StandTheEvacuatorDown(car);
+            if (DriveTheBeat(car)) return;
+        }
+
         EnterTheRecoveryStage(car, RecoveryStage.GoingHome);
 
         var home = _recovery.HomeBay[car];
@@ -769,6 +786,31 @@ internal sealed partial class TownWorld
             car,
             slot >= 0 ? _parking.CentreM(slot) : depot >= 0 ? _plan.Buildings.CentreM[depot] : Cars.PositionM[car],
             ParkingRegistry.NoBay);
+    }
+
+    /// <summary>
+    /// <b>Whether this evacuator's yard has a slot for one more wreck</b> (EVA-3): its empty slots, less one for every
+    /// other truck of the same yard with a wreck taken and not yet set down. A yard is its depot's and not one
+    /// truck's (EVA-2), and two trucks that each counted the one slot left would bring two wrecks back to it.
+    /// </summary>
+    bool HasRoomInItsYard(int car)
+    {
+        var yard = _recovery.Yard[car];
+        if (yard < 0) return false;
+
+        var room = 0;
+        for (var slot = 0; slot < _config.Evacuator.YardSlots; slot++)
+        {
+            var bay = YardSlot(yard, slot);
+            if (bay >= 0 && _parking.CarInBay(bay) == ParkingRegistry.Nobody) room++;
+        }
+
+        for (var other = 0; other < Cars.Count && room > 0; other++)
+        {
+            if (other != car && _recovery.Yard[other] == yard && _recovery.Wreck[other] != RecoveryDuty.Nothing) room--;
+        }
+
+        return room > 0;
     }
 
     /// <summary>The first slot of this yard with nothing standing in it, or −1 for a yard that is full or was never laid.</summary>
@@ -869,7 +911,7 @@ internal sealed partial class TownWorld
     /// to a wreck and the haul to a yard slot the evacuator itself does not park in.
     /// </summary>
     bool IsOnItsWayToAWreck(int car) =>
-        IsAnEvacuator(car) && _recovery.Stage[car] is not (RecoveryStage.Waiting or RecoveryStage.GoingHome);
+        IsAnEvacuator(car) && _recovery.IsOnARecovery(car) && _recovery.Stage[car] != RecoveryStage.GoingHome;
 
     /// <summary>
     /// <b>Where this evacuator is to be stopped</b>, and infinity when nothing is asking it to: the wreck

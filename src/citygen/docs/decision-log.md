@@ -1,5 +1,22 @@
 # CityGen — decision log
 
+## 2026-09-30 — a hospital, a police station and a depot in every district
+
+**The owner asked for every district to have its own services** (GEN-56). A town had a share of its buildings
+as services, capped — Odesa six hospitals, four stations and two depots — spread over the whole town, and
+nothing knew a district once the streets were laid. **The plan now carries the wheel the districts were laid
+on** (`CityPlan.Districts`), and each district is cut a yard for each use inside it; the shares and their caps
+are gone. **The yards are cut on top of the town's own count** rather than out of it: taken out of it, the
+suite's town of fifty car parks gave eighteen to its six districts' services and a third of its parking with
+them.
+
+**Inside is asked of the building's ground and not of the road.** Asked of the road, two of the suite's town's
+eighteen stood across a spoke in the next district — a district's edge is as often as not a spoke or the
+orbital. Asked of the road and the building both, a small district ran out of sites for its third yard; a yard
+on a boundary road facing into the district is that district's, so the building's two faces are what is
+asked. **A district the town never reached stands nothing**: two of River's outer sectors hold three
+junctions between them.
+
 ## 2026-09-29 — a car is stood in a bay again, and on a lane only where a town cut none
 
 **The spawn stage stands the brief's cars in the town's own car parks** (GEN-7), spread over their bays as it
@@ -197,10 +214,6 @@ sites being ranked by distance from every car park already cut.
 buildings perched across the rounding at a rank's corner or down its sides. The frontage now has to stand
 wholly on the flat, and **a service is slid to the middle of its rank**: the three civic roofs are 18 m wide
 against a six-bay yard's 21.6 m, so a step of the pitch either way put one over the corner.
-
-**How many services there are is one figure read in two places** — the yards the generator cuts and the
-fleets laid off the finished plan — so it is struck once (`SimConfig.ServicesFor`) and
-`World.Statics.BuildingRoster.CountIn` reads it.
 
 ## 2026-09-19 — a kerb's end is read at the figure two places are one place at, and every handover is one
 

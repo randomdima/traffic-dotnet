@@ -4,6 +4,61 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-09-30 — a holder at rest cannot stop short of its own front
+
+**Five minutes of Odesa left a car and a walker standing at a zebra for the rest of the run**, because a car at
+rest held the paint on some rebuilds and not others. Its committed ground ran from its front by its reaction
+and a stop, so a car settling at a few millimetres a second held a hair past its nose — and at a zebra that hair
+is a metre of the paint, which places both walking lanes committed whole (TER-5c.3). On a rebuild the speed came
+back at exactly nought the walker had the paint and took a stride; on the next it was refused again, a stride
+further out, until it stood on the lane in front of the car that was waiting for it.
+
+**Dropping the hair was tried and refused.** With nothing committed at rest a car let into a box and cut in the
+middle of it lost its way out to the car its own body was holding up, and one stood with its nose on the paint
+lost it to walkers its body stood in the way of — both gridlocked on the first run. What the hair had been doing
+was keeping ground its holder's front already stood in. **So the end metre is committed** (`CannotStopShortOf`):
+at rest the metre at the front is ground the holder cannot stop short of, on every rebuild and not only on those
+the solver left a residue on. **It is the ladder's reading only** — a call's pass still takes the plan of a car
+it passes, and a place a body is put down on is still refused only by ground somebody will cover
+(`LaneClaim.CommittedAt`).
+
+**Read over a secondary claim's whole section, TER-5e's second tier was tried as well and refused.** A zebra's
+marks are whole, so the section on a lane and the section on a walking lane are different ground; standing in
+one was not standing in the other, the car won the meeting on its lane and the walker the meeting on the paint,
+and the rebuilds stopped settling (a tenfold rise in plans laid again).
+
+## 2026-09-30 — what a call's pass gets past moving ends where it can stop
+
+**A call passes traffic that is moving** (TER-4c.6, the ambulance log), and a pass is laid for where what it
+passes ends: made for a body standing where it stands, the step back would come down in front of a car still
+rolling into it. **A moving body is passed to where it can come to rest** (`LaneOccupancy.StopsByM`) — the
+furthest its plan on the way says it can no longer stop short of, read off the planned layer and not off the
+car — and the pass laid past that cuts its plan, so it stops short. **What a pass gets past no longer holds none
+of its ground, for a call's**: a plan of it the pass would lie over is taken only where its holder can still stop
+short (`PassTerms.Takes`), since a moving car cut there drives on into the pass. Every other pass gets past bodies
+at rest alone, whose plans hold nothing they cannot give back, and takes them whole as before.
+
+## 2026-09-29 — a call's pass is asked on terms, and holds a zebra whole
+
+**A pass was ground nobody plans, whoever asked** (TER-4c.6), so a call's rung bought it nothing: the oncoming
+car's reach, a light's hold over the box and the movements crossing it each refused it as a body would. The
+owner asked for a car on a call to overtake with its priority claim (the ambulance log). **A pass is now asked
+on terms** (`PassTerms`): a call's takes a plan its rung beats and whose holder can still stop short of it, and
+every other is asked at no rung and takes nothing — the same ground as before. It is still laid at p0 and never
+given up, so ground an oncoming holder can no longer stop short of refuses it, and the spare it is asked with is
+what keeps that ground clear through the rebuild it is laid in.
+
+**The paint is claimed whole, and whoever is on it is waited for.** A zebra's walking lanes are ribbons the
+atlas reads under a swept body, and not ways the traffic drives, so a pass over one was refused as a pass run
+off the road before the zebra was ever asked about; to a call they are road. Laid on the traffic's ways alone, a
+pass over the paint held nobody on foot, who would step out in front of it — so it lays the paint kerb to kerb on
+every walking lane (`LayThePaintItCrosses`), the one ground off its holder's network it holds, the zebra being
+the one ground the two networks share (TER-5c.3). Somebody already on the paint is not held by it — a pass holds
+nobody standing on its ground — and neither refuses nor withdraws it (`PassTerms.WaitsFor`); the car stands
+short of the paint until it is empty (`TheBodyInThePass`). Held only by a body in its way, as every other pass
+is, it could come to rest with its nose across the walking lane of somebody on the paint in front of it, each
+waiting for the other. A car already over the paint drives on off it.
+
 ## 2026-09-29 — a car backing up plans behind itself, at a rung of its own
 
 **The ground a car backs up over is a plan like any other** (TER-4c.7, CAR-50), asked and answered on the one

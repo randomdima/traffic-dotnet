@@ -1,7 +1,5 @@
 using System.Diagnostics;
 using System.Numerics;
-using TrafficSimulation.Agents.Ambulance;
-using TrafficSimulation.Agents.Service;
 using TrafficSimulation.Agents.TrafficLight.Control;
 using TrafficSimulation.App.Render;
 using TrafficSimulation.CityGen;
@@ -181,19 +179,18 @@ internal static class TownCensus
         Console.WriteLine("the roster the plan asks for");
         Console.WriteLine($"  {people} people, {cars} cars");
 
-        // What the map's service buildings lay on top of its own spawns: a car for every bay of
-        // every apron and one at each depot (AMB-2, SRV-2). They are what the town has room for — a
-        // building with fewer bays near it than the apron asks for stands fewer, and one with none stands
-        // none. Where the shares this build would place them at differ from what the file declares, the
-        // map is due another `--place-services`.
+        // What the map's service buildings lay on top of its own spawns: a vehicle for every bay of every
+        // apron and a crew in each (AMB-2, SRV-2, SRV-3). They are what the town has room for — a building
+        // with fewer bays near it than the apron asks for stands fewer, and one with none stands none.
         var uses = BuildingUses.Of(plan);
-        var apron = (uses.Hospitals.Count + uses.PoliceStations.Count) * config.Service.ApronBays;
+        var wanted = ServiceBuildings.OfEachUse(plan);
+        var services = uses.Hospitals.Count + uses.PoliceStations.Count + uses.Depots.Count;
+        var apron = (services * config.Service.ApronBays) + (uses.Depots.Count * config.Evacuator.YardSlots);
         Console.WriteLine(
-            $"  plus an apron of {config.Service.ApronBays} cars, an officer aboard each police car (SRV-11), at " +
-            $"each of the map's own hospitals ({uses.Hospitals.Count} of {HospitalRoster.CountIn(plan, config)} " +
-            $"this build would place) and police stations ({uses.PoliceStations.Count} of " +
-            $"{PoliceStationRoster.CountIn(plan, config)}), and one at each of its depots " +
-            $"({uses.Depots.Count} of {DepotRoster.CountIn(plan, config)}) — {apron} bays held off the town");
+            $"  plus an apron of {config.Service.ApronBays} vehicles, {config.Service.CrewPerVehicle} crew aboard " +
+            $"each (SRV-3), at each of the map's {plan.Districts.Count} districts' hospitals " +
+            $"({uses.Hospitals.Count} of {wanted}), police stations ({uses.PoliceStations.Count} of {wanted}) and " +
+            $"depots ({uses.Depots.Count} of {wanted}, with a yard) — {apron} bays held off the town");
         Console.WriteLine();
 
         Networks(plan, config);
@@ -466,6 +463,7 @@ internal static class TownCensus
         Console.WriteLine($"  searched at    {Searching(walkRuns)}");
 
         Console.WriteLine($"  laid in        {walkElapsed.TotalMilliseconds,7:F0}  ms");
+        OffThePavement(plan, config, pavement, crossed);
         Smoothness(foot, walking);
         Boundary(plan, config);
     }
@@ -519,6 +517,85 @@ internal static class TownCensus
                               $"{loose.Length} runs left open over {openM:F1} m, ends up to " +
                               $"{endsApartM:F3} m apart");
         }
+    }
+
+    /// <summary>
+    /// <b>How much of the walk's own lines stand off the pavement</b> (WLK-15, WLK-1): every connection a crossing
+    /// is walked through and every course, read a touch at a time, and the ones whose line — or the band either
+    /// side of it — stands on ground that is not the walk's. The road's side is <see cref="CrossingWays"/>'s own
+    /// guard; what is counted here is the verge.
+    /// </summary>
+    static void OffThePavement(CityPlan plan, SimConfig config, PavementLanes pavement, CrossingWays crossed)
+    {
+        var ground = new GroundShapes(plan.Paving(config), config);
+        var connections = new OffTheWalk();
+        foreach (var way in crossed.Ways)
+        {
+            if (way.Kind == FootEdgeKind.Pavement) connections.Walk(way.Arcs, ground, config);
+        }
+
+        var courses = new OffTheWalk();
+        for (var lane = 0; lane < pavement.Count; lane++)
+        {
+            foreach (var ring in pavement.RingsOf(lane)) courses.Walk(ring, ground, config);
+        }
+
+        Console.WriteLine($"  off the walk   {connections.Lines,7}  connections, {connections.Say()}");
+        Console.WriteLine($"  off the walk   {courses.Lines,7}  courses, {courses.Say()}");
+    }
+
+    /// <summary>What a run of walked lines came to against the pavement, gathered as it is walked.</summary>
+    sealed class OffTheWalk
+    {
+        public int Lines { get; private set; }
+
+        int _lineOff;
+        int _bandOff;
+        float _lineOffM;
+        float _bandOffM;
+        float _worstM;
+        Vector2 _worstAtM;
+
+        public void Walk(ReadOnlySpan<ArcSeg> line, GroundShapes ground, SimConfig config)
+        {
+            Lines++;
+            var stepM = config.RibbonTouchM;
+
+            // A band's edge a touch past the face is on it, as the crossings lay their connections (TER-5c).
+            var halfM = (config.WalkingLaneWidthM * 0.5f) - config.RibbonTouchM;
+            var lengthM = Spline.TotalLengthM(line);
+            var lineOffM = 0f;
+            var bandOffM = 0f;
+            var firstAtM = Vector2.Zero;
+            for (var atM = 0f; atM <= lengthM; atM += stepM)
+            {
+                var at = Spline.SampleAt(line, atM);
+                var onTheVerge = IsVerge(ground.At(at.PositionM));
+                if (onTheVerge) lineOffM += stepM;
+                if (onTheVerge
+                    || IsVerge(ground.At(at.PositionM + (at.Right * halfM)))
+                    || IsVerge(ground.At(at.PositionM - (at.Right * halfM))))
+                {
+                    if (bandOffM == 0f) firstAtM = at.PositionM;
+                    bandOffM += stepM;
+                }
+            }
+
+            if (lineOffM > 0f) _lineOff++;
+            if (bandOffM > 0f) _bandOff++;
+            _lineOffM += lineOffM;
+            _bandOffM += bandOffM;
+            if (bandOffM <= _worstM) return;
+
+            _worstM = bandOffM;
+            _worstAtM = firstAtM;
+        }
+
+        static bool IsVerge(CityGen.Ground ground) => ground is CityGen.Ground.Grass or CityGen.Ground.Water;
+
+        public string Say() =>
+            $"{_lineOff} with their line on the verge over {_lineOffM:F1} m, {_bandOff} with their band there over " +
+            $"{_bandOffM:F1} m — the most {_worstM:F1} m of one, from {_worstAtM.X:F1},{_worstAtM.Y:F1}";
     }
 
     /// <summary>

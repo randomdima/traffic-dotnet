@@ -155,7 +155,7 @@ internal sealed partial class TownWorld
         // the standing and the turn alike (GEN-4l).
         _parking.Vacate(car);
         _parking.LeaveTheTurn(car);
-        return TakeTheLaneUnderIt(car);
+        return TakeTheStreetOutOfTheBay(car, way) || TakeTheLaneUnderIt(car);
     }
 
     /// <summary>

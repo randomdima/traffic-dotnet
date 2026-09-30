@@ -1,14 +1,13 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Service;
-using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Parking;
 
 namespace TrafficSimulation.World.Town;
 
 /// <summary>
-/// <b>The beat</b> (SRV-5): the police cars standing on a station's apron, and the errand that takes each
-/// of them round the town and brings it back — and <b>the call that interrupts it</b> (SRV-6), which is what a
-/// police car is for (SRV-8). <b>The driving itself is the leg's</b> — a police car drives what every other car
+/// <b>The police car's errand</b> (SRV-5): the half of a station's cars standing on its apron, the half driving
+/// its district's beat (<c>TownWorld.Beat.cs</c>) — and <b>the call that interrupts both</b> (SRV-6), which is
+/// what a police car is for (SRV-8). <b>The driving itself is the leg's</b> — a police car drives what every other car
 /// drives (CAR-15) — and what is here is only the reason those legs are being driven. What happens at a scene
 /// once the car is there is <c>TownWorld.Closure.cs</c>.
 /// </summary>
@@ -22,10 +21,9 @@ namespace TrafficSimulation.World.Town;
 /// lives.
 /// </para>
 /// <para>
-/// <b>Where it goes is drawn and never searched for.</b> Nothing in the town asks for a police car, so a
-/// beat cannot be aimed at anything; what a patrol is, is a car that keeps choosing a place on a lane and
-/// driving to it. Picking the least-patrolled quarter would be a better beat and a worse rule — a search over the
-/// town on every arrival, buying something nobody watching could tell from a draw.
+/// <b>Where it goes is drawn and never searched for</b> (<see cref="DriveTheBeat"/>). Picking the
+/// least-patrolled street would be a better beat and a worse rule — a search over the district on every
+/// arrival, buying something nobody watching could tell from a draw.
 /// </para>
 /// </remarks>
 internal sealed partial class TownWorld
@@ -47,10 +45,7 @@ internal sealed partial class TownWorld
         IsAPatrolCar(car) && _beat.Stage[car] is PatrolStage.Patrolling or PatrolStage.Attending or PatrolStage.Closing
             or PatrolStage.Reopening;
 
-    /// <summary>
-    /// A police car stood on its station's apron (SRV-2, SRV-7), standing by for its first beat. <b>The first
-    /// stand is drawn like every later one</b>, so four cars stood in the same instant do not leave in it.
-    /// </summary>
+    /// <summary>A police car stood on its station's apron (SRV-2, SRV-7), standing by for a call or its first beat.</summary>
     void BeginTheBeat(int car, int station, int bay)
     {
         _beat.Station[car] = station;
@@ -79,10 +74,10 @@ internal sealed partial class TownWorld
         {
             case PatrolStage.Standing:
                 // <b>A scene is what a stand is interrupted by</b> (SRV-6). Asked first, because a police
-                // car waiting out its rest is the one with least reason not to go.
+                // car standing on its apron is the one with least reason not to go.
                 if (TakeAScene(car)) return;
 
-                if (_beat.SinceS[car] >= _beat.RestS[car]) SetOutOnABeat(car);
+                if (IsDueOnTheBeat(car)) TakeTheNextPlace(car);
 
                 return;
 
@@ -91,10 +86,7 @@ internal sealed partial class TownWorld
                 // out of a hat is never worth more than a road that has to be shut.
                 if (TakeAScene(car)) return;
 
-                // Arrived, or the leg has run out of clock: either way this place is done with. A patrol has
-                // nowhere it must be, so a road that would not let it through costs it the next street and
-                // nothing else.
-                if (!Cars.Driven[car] || _beat.SinceS[car] >= _config.PatrolGiveUpS) TakeTheNextPlace(car);
+                if (IsDoneWithThePlace(car, _beat.SinceS[car])) TakeTheNextPlace(car);
 
                 return;
 
@@ -131,22 +123,8 @@ internal sealed partial class TownWorld
         }
     }
 
-    /// <summary>Standing on its apron with the next beat's interval drawn — where a police car spends most of a run.</summary>
-    void StandBy(int car)
-    {
-        EnterThePatrolStage(car, PatrolStage.Standing);
-        _beat.LegsLeft[car] = 0;
-        _beat.RestS[car] = Cars.Draw[car].NextFloat(
-            _config.Service.RestBetweenBeatsMinS, _config.Service.RestBetweenBeatsMaxS);
-    }
-
-    /// <summary>Out on a beat of a drawn number of places, the first of them chosen here.</summary>
-    void SetOutOnABeat(int car)
-    {
-        EnterThePatrolStage(car, PatrolStage.Patrolling);
-        _beat.LegsLeft[car] = 1 + Cars.Draw[car].NextInt(_config.Service.MostPlacesOnABeat);
-        TakeTheNextPlace(car);
-    }
+    /// <summary>Standing on its apron — where the half of a station's cars that does not patrol waits for a call.</summary>
+    void StandBy(int car) => EnterThePatrolStage(car, PatrolStage.Standing);
 
     /// <summary>
     /// <b>The one place a patrol's stage changes</b>, so the priority is decided in exactly one place
@@ -311,50 +289,15 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// One place of a beat done with: the next one drawn, or the station where the beat runs out.
+    /// <b>What a police car does with nothing to do</b>: the next place of its district's beat where it is one of
+    /// the station's patrols, and home to its bay where it is not — or where there is no street to be sent to.
     /// </summary>
     void TakeTheNextPlace(int car)
     {
         _beat.SinceS[car] = 0f;
-        if (_beat.LegsLeft[car] > 0 && SendOnPatrol(car))
-        {
-            _beat.LegsLeft[car]--;
-            return;
-        }
+        if (_serviceBeat.Patrols[car] && DriveTheBeat(car)) return;
 
         ReturnToTheStation(car);
-    }
-
-    /// <summary>
-    /// <b>A place on one of the town's lanes, drawn from this car's own stream</b> — the whole of where a
-    /// beat goes. False where the map has no lane to be sent to, which sends the car home instead of
-    /// nowhere.
-    /// </summary>
-    /// <remarks>
-    /// <b>Somewhere along a lane and never a junction's middle.</b> A leg ends by the car standing where it
-    /// got to, so a destination is a place a patrol will be parked for a moment — and the middle of a
-    /// junction is the one place in this town where standing still is being driven into. Aimed at the
-    /// junction centres, the fixture town's patrol was wrecked inside the first box it reached.
-    /// </remarks>
-    bool SendOnPatrol(int car)
-    {
-        var lanes = _roads.LaneCount;
-        if (lanes == 0) return false;
-
-        // <b>A street and never a bay's arm</b> (GEN-4h): an arm is a space and a dead end, and a leg aimed
-        // at a place on it is a car driven into a bay it holds no claim on.
-        ref var draw = ref Cars.Draw[car];
-        var lane = draw.NextInt(lanes);
-        for (var redraw = 0; redraw < lanes && _roads.IsABayArm(lane); redraw++)
-        {
-            lane = (lane + 1) % lanes;
-        }
-
-        var alongM = draw.NextFloat() * _roads.LaneLengthM[lane];
-
-        EnterThePatrolStage(car, PatrolStage.Patrolling);
-        SendTo(car, Spline.SampleAt(_roads.ArcsOf(lane), alongM).PositionM, ParkingRegistry.NoBay);
-        return true;
     }
 
     /// <summary>The beat over: the clock restarted on the drive home, and the first attempt at it made.</summary>

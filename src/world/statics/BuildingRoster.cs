@@ -1,5 +1,4 @@
 using TrafficSimulation.CityGen;
-using TrafficSimulation.Core.Config;
 
 namespace TrafficSimulation.World.Statics;
 
@@ -60,12 +59,4 @@ internal sealed class BuildingRoster
 
         return new BuildingRoster(buildings);
     }
-
-    /// <summary>
-    /// How many of a use a plan is worth, without placing them. <b>The fleets are laid before the town
-    /// is</b> and a service vehicle is a car and a crew apiece, so the count has to be answerable from
-    /// the plan alone.
-    /// </summary>
-    public static int CountIn(CityPlan plan, float perBuilding, int most) =>
-        SimConfig.ServicesFor(plan.Buildings.Count, perBuilding, most);
 }

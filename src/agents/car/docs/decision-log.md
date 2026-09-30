@@ -3,6 +3,12 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-09-29 — a car on a call keeps room behind what it may pass
+
+**A call gets past a queue at rest and slower traffic** (CAR-46, AMB-4.4), so either is something it may come to
+pass and it keeps back with room to step out from a standstill (`KeptOffM`), as every car does behind a body
+going nowhere. At the stand-off it would stand too near to step out and back up for the room first (CAR-50).
+
 ## 2026-09-29 — a car nothing drives runs its own round from bay to bay
 
 **Once bays could be driven into, nothing moved a car** (CAR-1): nobody boards one (PER-11), and the tour was
@@ -241,9 +247,8 @@ under an order passed anything — which is every car the scenario map sends.
 
 **Never over a zebra.** A pass holding part of a zebra stood a walker on the rest of the paint in the car's
 way, and each waited for the other. A car park's junction carries no zebra (WLK-10), so this costs nothing of
-what the owner asked junctions to stop costing.
-
-**AMB-4.4 is reworded**: it counted a queue as something a call gets past, which rule 1 forbids for any car.
+what the owner asked junctions to stop costing. A call is the one exception, and holds the paint whole instead
+(the ambulance log).
 
 Measured on Odesa over 300 s: 57 passes asked, none withdrawn, 56 made (at the lock and the crawl it was 17 and
 16); 52 drive legs given up; 30 touches and 8 wrecked, none of the wrecks within 700 m of a pass. With passes

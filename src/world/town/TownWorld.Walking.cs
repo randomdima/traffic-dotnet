@@ -148,6 +148,36 @@ internal sealed partial class TownWorld
     const int NothingBehind = -1;
 
     /// <summary>
+    /// <b>Whether this walker's chain ran out of room and its end is coming within the plan's reach</b> (PER-25,
+    /// PER-27): nearer down the chain than the front of the body, the ground its plan covers past that, and what
+    /// it walks before its next decision.
+    /// </summary>
+    /// <remarks>
+    /// <b>A plan reaches no further than the chain does</b>, so the last of a chain walked out before it is laid
+    /// again is walked blind: a crossing past its end is asked for only from the kerb, by a body already standing
+    /// over the lane — and refused there, it stands in front of the car it gave way to, each waiting on the other.
+    /// </remarks>
+    bool ComesToTheEndOfItsChain(int person)
+    {
+        if (!People.Walking[person] || !People.RouteRunsOut[person]) return false;
+
+        var at = People.RouteAt(person);
+        if (at < 0) return false;
+
+        var reachM = People.RadiusM[person] + PlansAheadM
+                     + (_config.PersonWalkSpeedMps * _config.Sim.AgentDecisionIntervalS);
+        var walkedM = 0f;
+        for (var slot = at; slot < People.RouteCount[person]; slot++)
+        {
+            WalkedOfSlot(person, slot, out var fromM, out var endM);
+            walkedM += MathF.Max(0f, endM - fromM);
+            if (walkedM > reachM) return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// How far along the chain's last way the walk stops. <b>Where the destination stands</b> when the
     /// chain reached it, and the end of that way where the chain ran out of room first — the rest is then
     /// laid again from there.

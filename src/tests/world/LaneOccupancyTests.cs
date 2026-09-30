@@ -398,6 +398,37 @@ public class LaneOccupancyTests
         Assert.False(LaneOccupancy.Beats(standing, 20f, askStands: false, straight, otherStands: false));
     }
 
+    /// <summary>
+    /// <b>A holder at rest still cannot stop short of its own front</b> (TER-5e): ground two ways share that its
+    /// front is already inside is ground it keeps against a stronger rung, and the holder it was taken from is cut
+    /// at its own side of the mark — whichever of the two is laid first. Short of the shared ground, at rest, it is
+    /// answered where that begins.
+    /// </summary>
+    [Theory]
+    [InlineData(22f, true, float.PositiveInfinity)]
+    [InlineData(22f, false, float.PositiveInfinity)]
+    [InlineData(18f, true, 20f)]
+    [InlineData(18f, false, 20f)]
+    public void AHolderAtRestKeepsTheSharedGroundItsFrontIsInside(float frontM, bool restingFirst, float restingEndsAtM)
+    {
+        var (a, b, _) = ThreeWays();
+        var index = Index(Marks((a, (20f, 24f), b, (30f, 35f))));
+        index.Begin();
+
+        int resting = -1, straight = -1;
+        void LayResting() =>
+            Plan(index, a, 50f, hold => Ask(resting = hold, 1, ClaimPriority.FirmAcross, frontM, committedToM: frontM));
+        void LayStraight() => Plan(index, b, 50f, hold => Ask(straight = hold, 2, ClaimPriority.FirmStraight, 25f));
+
+        if (restingFirst) LayResting();
+        LayStraight();
+        if (!restingFirst) LayResting();
+
+        var keeps = float.IsPositiveInfinity(restingEndsAtM);
+        Assert.Equal(restingEndsAtM, EndsAtM(index, resting));
+        Assert.Equal(keeps ? 30f : float.PositiveInfinity, EndsAtM(index, straight));
+    }
+
     /// <summary>And with nothing else between them, whoever has less of its own line to cover gets there first.</summary>
     [Fact]
     public void OfTwoEqualHoldersTheNearerKeepsTheGround()

@@ -117,12 +117,10 @@ public class BuildingsTests
     public void EveryServiceStandsAtTheEndOfItsOwnYard()
     {
         var plan = Plan;
-        var services = 0;
         for (var building = 0; building < plan.Buildings.Count; building++)
         {
             if (plan.Buildings.Use[building] == BuildingUse.Ordinary) continue;
 
-            services++;
             var centreM = plan.Buildings.CentreM[building];
             var doorM = plan.Buildings.EntryPointM[plan.Buildings.EntryOffsets[building]] - centreM;
 
@@ -137,11 +135,29 @@ public class BuildingsTests
                 $"the {plan.Buildings.Use[building]} at {centreM} has no rank of bays between its door and " +
                 $"the street within {reachM:F1} m");
         }
+    }
 
-        Assert.Equal(
-            Config.HospitalsFor(Towns.BuildingsBuilt) + Config.PoliceStationsFor(Towns.BuildingsBuilt)
-            + Config.DepotsFor(Towns.BuildingsBuilt),
-            services);
+    /// <summary>
+    /// <b>Every district stands one hospital, one police station and one depot, each inside it</b> (GEN-56) —
+    /// the building a district's own fleets stand at and keep their beat from (SRV-5).
+    /// </summary>
+    [Fact]
+    public void EveryDistrictStandsOneOfEachService()
+    {
+        var plan = Plan;
+        var uses = ServiceBuildings.Uses;
+        var stood = new int[plan.Districts.Count * uses.Length];
+        for (var building = 0; building < plan.Buildings.Count; building++)
+        {
+            var use = uses.IndexOf(plan.Buildings.Use[building]);
+            if (use < 0) continue;
+
+            stood[(plan.Districts.At(plan.Buildings.CentreM[building]) * uses.Length) + use]++;
+        }
+
+        Assert.True(
+            Array.TrueForAll(stood, count => count == 1),
+            $"each district's {string.Join(", ", uses.ToArray())}: {string.Join(" | ", stood.Chunk(uses.Length).Select(each => string.Join(" ", each)))}");
     }
 
     /// <summary>

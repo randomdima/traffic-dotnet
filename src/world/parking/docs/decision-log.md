@@ -4,17 +4,44 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-30 — a bay is turned into and out of on the car's own circle, and a car backs out only a little
+
+**The owner found parking and unparking far too long.** A bay's ways were the car park's own movements: a car
+stopped two car lengths short of the box, crossed the whole of it, and hooked in on a circle tighter than it
+turns — and backed out along the same line, across the box and two car lengths beyond it, up the street
+against its own traffic. The movements are the car park's ground and nothing a car has to drive.
+
+- **Each way is the bay's arm and the street's line joined by one arc on the car's parking circle** (GEN-4f,
+  `BayWays.Build`), at the corner the two lines make. A way in leaves its lane where its turn begins, or at the
+  lane's end. A way out runs `ParkingRunOutM` (the longest vehicle) along the street past its turn: ended on the
+  turn, a way handed its car over crosswise, because a line is handed on with the car at rest anywhere in its
+  last car length — on Odesa a car stood 4 m off its line in the middle of a street, the traffic queued behind it.
+- **A car backing out swings its tail up the street and pulls away forwards** from wherever that leaves it,
+  usually inside the box: the way names the street's line it lands on (`BayWays.StreetOf`), and the car is
+  seated on that line and not on the lane nearest it.
+- **A body standing in a box takes the join it stands in** (`TownWorld.TheCarriagewayUnder`). The nearest lane
+  end to a point in a box is as likely to be the one ahead, so a car at rest there that asked for the lane under
+  it — a leg stalled, a bay re-aimed, a line lost — was handed a line beginning in front of it, called it lost,
+  and stood for the rest of the run: six cars on Odesa once ways out landed in boxes.
+- **A manoeuvre at a bay is claimed whole or not begun, and held whole once it is** (GEN-4f,
+  `TownWorld.PlanTheDrive`, `CarFleet.ManoeuvreBegun`). A car standing in a bay planned only the room to pull
+  away, so it set off into a gap it had no claim on; traffic arriving behind took the run-out at the street's
+  own rung, above a bay's, and pulled up to its tail, and each waited on the other — six cars on River stood
+  like that for the rest of the run. A car now lays none of its way until it can have all of it, and once it has
+  moved the rest is committed ground. The whole of it and not the part across the street, because the part
+  inside the space is the car's already.
+
+Stuck probe, 300 s: Odesa parked 397 → 424, drive legs given up 1 → 0, cars standing at the end 14 → 11, lost
+lines 3 → 0, car-ticks blocked backing up (CAR-50) 10 325 → 5; River parked 367 → 413, legs given up 7 → 7 (one
+queue at a junction north of a car park, there before), standing 43 → 16, none of them at a bay, walks given up
+394 → 168. Odesa's walks given up went 125 → 177, on stuck cells none of which is at a car park.
+
 ## 2026-09-29 — the bays are laid off their car parks, and nothing reverses into one
 
 **The owner asked for parking and unparking back, for every vehicle**, so a police car can go home to its
 station. A car park had been a junction cut into a road with its arms the bays (GEN-53) since 2026-09-14, with
 the arms laid as lanes and no bay's ways laid at all.
 
-- **A bay's ways are read off its car park and draw nothing** (GEN-4f, `BayWays.Build`): nose in, the last of
-  the lane, the movement onto the arm and the arm; backed in, the arm, the movement off it and the first of the
-  lane it lands on. Each runs `ParkingStagedInM` along its street lane: ended on the turn, a way handed its car
-  over crosswise in the street, because a line is handed on with the car at rest anywhere in its last car
-  length — on Odesa a car stood 4 m off its line in the middle of a street, the traffic queued behind it.
 - **Nothing reverses into a bay** (GEN-4j). A car backing in had driven past the car park, the car following it
   stopped at its tail on the ground it had to reverse over, and each waited on the other until both clocks ran
   out — a queue of six on Odesa behind one. A car in a bay has nobody queued behind it, so reversing out cannot
@@ -94,14 +121,10 @@ With it gone, Odesa's parks over the measured minute went 22 → 35 and emergenc
 narrow bays swept the middle of their street, taking emergency stops 19 → 31, which is the table doing its
 job rather than the bar doing it early.
 
-## 2026-08-24 — one shape at a bay, driven both ways
+## 2026-08-24 — a bay's way is walked as finely as the sample budget allows
 
-Two shapes — a forward-in solved from the lane and a reverse-out solved from the bay — meant the way out
-landed *near* the lane rather than on it, closed by three figures all paying for the same missing
-constraint, and the two answers could disagree. One shape solved once and driven both ways closes both. The
-real bug was the resolution of the crossing measurement: sampled at the crossing clearance, two metres of
-slop could not see the 1.6 m a centred car stands clear, so every parked car read as cutting its street.
-Bay ways are walked as finely as the sample budget allows.
+Sampled at the crossing clearance, two metres of slop could not see the 1.6 m a centred car stands clear of
+its street, so every parked car read as cutting it.
 
 ## 2026-08-24 — a bay is two of the road's own ways
 

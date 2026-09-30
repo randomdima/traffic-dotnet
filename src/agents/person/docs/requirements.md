@@ -68,8 +68,10 @@ line than the way has pavement either side of it is on none of it — the same b
 line lost by.
 
 **A route is a bound on work and never a plan.** It carries a fixed number of ways, and a route longer than
-that is walked as far as it reaches and laid again from there — which is the same thing that happens to a
-body that has lost it, and needs no second mechanism.
+that is laid again from wherever the body has got to before what it plans runs off the end — which is the same
+thing that happens to a body that has lost it, and needs no second mechanism. **Before, and not at the end**:
+a plan reaches no further than the route does, so the last of one walked out first is walked blind, and a
+crossing past its end is asked for from the kerb rather than from a stop short of it (PER-27).
 
 **A leg that gets nowhere is given up.** There is nothing to arbitrate between, because a leg is the
 whole of what a walker does (AGT-7): a body that has got no nearer the **end of the way it is walking**

@@ -103,7 +103,8 @@ internal sealed class CrossingWays
     /// <summary>
     /// <b>And how many connections no curve would join</b> (WLK-14): a movement whose two poses ask a walker
     /// to set off behind where they arrived is one the place does not offer, so it is not laid — and what
-    /// that costs a town is a reading rather than a rough line through a junction.
+    /// that costs a town is a reading rather than a rough line through a junction. <b>So is one no curve joins
+    /// on the walk</b> (WLK-15): a connection out over the verge is not laid either.
     /// </summary>
     public int Unjoined { get; private set; }
 
@@ -161,8 +162,13 @@ internal sealed class CrossingWays
     /// what the walk is cut at is what the road is crossed by, and a second laying is a second set.
     /// </summary>
     public static CrossingWays Of(
-        CityPlan plan, PavementLanes pavement, Crossings crossings, SimConfig config) =>
-        Lay(pavement, KerbLines.Of(plan.Paving(config).Perimeter(config), config), crossings, config);
+        CityPlan plan, PavementLanes pavement, Crossings crossings, SimConfig config)
+    {
+        var paving = plan.Paving(config);
+        return Lay(
+            pavement, KerbLines.Of(paving.Perimeter(config), config), paving.Rings(config).WalkSides(config),
+            crossings, config);
+    }
 
     /// <summary>
     /// Lays every crossing's junctions and ways and files the places they part the walk at. Build-time only —
@@ -171,8 +177,12 @@ internal sealed class CrossingWays
     /// <param name="boundary">
     /// The driven ground's own outline (TER-7b), which is where the paint stops and the pavement begins.
     /// </param>
+    /// <param name="walk">
+    /// And the walk's outer face as the ground answers it (<see cref="GroundRings.WalkSides"/>), which is where the
+    /// pavement ends and no connection goes past.
+    /// </param>
     public static CrossingWays Lay(
-        PavementLanes pavement, KerbLines boundary, Crossings crossings, SimConfig config)
+        PavementLanes pavement, KerbLines boundary, RingSides walk, Crossings crossings, SimConfig config)
     {
         if (pavement.Count == 0 || crossings.Count == 0) return None;
 
@@ -186,7 +196,7 @@ internal sealed class CrossingWays
             for (var ring = 0; ring < rings.Length; ring++) parting[lane][ring] = [];
         }
 
-        var reading = new Reading(pavement, courses, boundary, config);
+        var reading = new Reading(pavement, courses, boundary, walk, config);
         var refused = 0;
 
         // <b>The mouths first and the junctions after</b>: two to a crossing, each the place its paint stops
@@ -257,8 +267,7 @@ internal sealed class CrossingWays
         var merged = 0;
         foreach (var place in places)
         {
-            unjoined += Through(
-                ways, place, mouths, laid, reading, config.WalkingLaneWidthM, config.WalkerTightestTurnM);
+            unjoined += Through(ways, place, mouths, laid, reading, config.WalkingLaneWidthM);
             File(parting, place);
             merged += place.Mouths.Count - 1;
         }
@@ -413,8 +422,7 @@ internal sealed class CrossingWays
     /// </para>
     /// </remarks>
     static int Through(
-        List<Walked> ways, Place place, Mouth[] mouths, bool[] laid, Reading reading, float walkM,
-        float tightestM)
+        List<Walked> ways, Place place, Mouth[] mouths, bool[] laid, Reading reading, float walkM)
     {
         var owned = new Owned?[place.Arriving.Length];
         for (var lane = 0; lane < owned.Length; lane++)
@@ -455,9 +463,9 @@ internal sealed class CrossingWays
             {
                 if (other == at || !laid[other]) continue;
 
-                unjoined += Join(
-                    ways, mouth.ArrivesM, mouth.ArrivesRad, mouths[other].SetsOffM, mouths[other].SetsOffRad,
-                    walkM, tightestM);
+                var joined = reading.Joined(
+                    mouth.ArrivesM, mouth.ArrivesRad, mouths[other].SetsOffM, mouths[other].SetsOffRad, owned);
+                unjoined += Laid(ways, joined, walkM);
             }
         }
 
@@ -493,32 +501,7 @@ internal sealed class CrossingWays
         return reversed;
     }
 
-    /// <summary>
-    /// <b>A connection from one crossing onto another at the same place</b> (WLK-3, WLK-14, WLK-16): straight
-    /// along each paint's own line and between them one arc no wider than half the walk's band
-    /// (<see cref="Spline.StraightArcStraightInto"/>). <b>Or nothing</b>, where no such turn joins the two at a
-    /// circle the feet can hold.
-    /// </summary>
-    /// <remarks>
-    /// <b>At half its band a turn pivots about its own inside edge</b>, so its ground is the ground of the two
-    /// straights it joins and none besides — each of them standing on the kerb square across its own paint.
-    /// </remarks>
-    static int Join(
-        List<Walked> ways, Vector2 fromM, float fromRad, Vector2 ontoM, float ontoRad, float walkM,
-        float tightestM)
-    {
-        var radiusM = MathF.Min(walkM * 0.5f, Spline.WidestTurnM(fromM, fromRad, ontoM, ontoRad));
-        if (radiusM < tightestM) return 1;
-
-        Span<ArcSeg> drawn = stackalloc ArcSeg[MostArcsInAConnection];
-        var laid = Spline.StraightArcStraightInto(fromM, fromRad, ontoM, ontoRad, radiusM, drawn);
-        if (laid == 0) return 1;
-
-        ways.Add(new Walked(drawn[..laid].ToArray(), FootEdgeKind.Pavement, walkM));
-        return 0;
-    }
-
-    /// <summary>Room for the line a connection is drawn as: a straight, the turn and a straight (<see cref="Join"/>).</summary>
+    /// <summary>Room for the line a connection is drawn as: a straight, the turn and a straight (<see cref="Reading.Joined"/>).</summary>
     const int MostArcsInAConnection = 3;
 
     /// <summary>The plain line between two places, which is what a crossing's paint is.</summary>
@@ -543,9 +526,10 @@ internal sealed class CrossingWays
 
     /// <summary>
     /// The lines one caller reads a junction off: the pavement it is cut into, the boundary the paint stops
-    /// at, and the figures that place it.
+    /// at, the walk's outer face its connections keep inside, and the figures that place it.
     /// </summary>
-    sealed class Reading(PavementLanes pavement, KerbLines[] courses, KerbLines boundary, SimConfig config)
+    sealed class Reading(
+        PavementLanes pavement, KerbLines[] courses, KerbLines boundary, RingSides walk, SimConfig config)
     {
         /// <summary>
         /// <b>One end of one crossing as the mouth it is</b> (WLK-15), or false where the paint stops nowhere
@@ -706,16 +690,103 @@ internal sealed class CrossingWays
         /// </remarks>
         public ArcSeg[]? OntoThePaint(ArcSeg[] course, Vector2 mouthM, float intoTheRoadRad)
         {
-            if (!boundary.NearestTo(mouthM, out var kerb)) return null;
-
-            var down = Heading.Unit(intoTheRoadRad);
-            var paint = new Paint(mouthM, down, intoTheRoadRad, MathF.Sign(Vector2.Dot(down, kerb.Right)));
-            if (Departed(course, paint) is { } departed) return departed;
+            if (!PaintAt(mouthM, intoTheRoadRad, out var paint)) return null;
+            if (Departed(course, paint) is { } departed && BandOffTheVerge(departed)) return departed;
 
             Span<ArcSeg> drawn = stackalloc ArcSeg[MostArcsInAConnection];
             var laid = Spline.CorneredInto(
                 course[0].StartM, course[0].HeadingRad, mouthM, intoTheRoadRad, config.WalkerTightestTurnM, drawn);
-            return laid > 0 && BandOffTheRoad(drawn[..laid], paint.RoadHand) ? drawn[..laid].ToArray() : null;
+            return laid > 0 && BandOffTheRoad(drawn[..laid], paint.RoadHand) && BandOffTheVerge(drawn[..laid])
+                ? drawn[..laid].ToArray()
+                : null;
+        }
+
+        /// <summary>
+        /// <b>A walk from one crossing onto another at the same place</b> (WLK-3, WLK-14, WLK-16), from where the
+        /// first arrives to where the second sets off — the first of these that keeps its band on the walk, or
+        /// nothing:
+        /// <list type="number">
+        /// <item><b>Straight along each paint's own line and one arc between them</b>
+        /// (<see cref="Spline.StraightArcStraightInto"/>): half the walk's band wide, and widened a half band at a
+        /// time up to the widest the two fit.</item>
+        /// <item><b>Up the first paint and one turn onto a lane's course, down it, and one turn off it onto the
+        /// second</b> (<see cref="ByTheCourse"/>).</item>
+        /// <item><b>The curve straight from one paint to the other</b> (<see cref="Spline.CorneredInto"/>), off the
+        /// road, as a paint's own connection falls back on.</item>
+        /// </list>
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>At half its band a turn pivots about its own inside edge</b>, so its ground is the ground of the two
+        /// straights it joins and none besides — each of them standing on the kerb square across its own paint.
+        /// </para>
+        /// <para>
+        /// <b>But the two straights meet where the paint lines do</b>, and at a corner whose two crossings stand
+        /// back from it further than a walk is wide, that is out on the verge. A wider circle stands back off that
+        /// corner by more, towards the kerb the two crossings share, so the widening spends on the turn only the
+        /// ground it has to. <b>Where no circle fits that stays on</b> — the two stand back further still — the walk
+        /// between them is the pavement's own, round the corner on a lane's course.
+        /// </para>
+        /// </remarks>
+        public ArcSeg[]? Joined(Vector2 fromM, float fromRad, Vector2 ontoM, float ontoRad, ReadOnlySpan<Owned?> owned)
+        {
+            var tightestM = config.WalkerTightestTurnM;
+            var widestM = Spline.WidestTurnM(fromM, fromRad, ontoM, ontoRad);
+            var stepM = config.WalkingLaneWidthM * 0.5f;
+            var radiusM = MathF.Min(stepM, widestM);
+
+            Span<ArcSeg> drawn = stackalloc ArcSeg[MostArcsInAConnection];
+            while (radiusM >= tightestM)
+            {
+                var laid = Spline.StraightArcStraightInto(fromM, fromRad, ontoM, ontoRad, radiusM, drawn);
+                if (laid > 0 && BandOffTheVerge(drawn[..laid])) return drawn[..laid].ToArray();
+                if (radiusM >= widestM) break;
+
+                radiusM = MathF.Min(radiusM + stepM, widestM);
+            }
+
+            foreach (var stretch in owned)
+            {
+                if (stretch is { } walked && ByTheCourse(walked, fromM, fromRad, ontoM, ontoRad) is { } line) return line;
+            }
+
+            // The road is on the hand of the boundary the first paint runs down into it on.
+            var curved = Spline.CorneredInto(fromM, fromRad, ontoM, ontoRad, tightestM, drawn);
+            return curved > 0 && OnTheWalk(drawn[..curved], fromM, Spline.WrapRad(fromRad + MathF.PI))
+                ? drawn[..curved].ToArray()
+                : null;
+        }
+
+        /// <summary>
+        /// <b>A walk from one paint onto another by the course between them</b>: the lane's connection off the
+        /// first paint and its connection onto the second (<see cref="OntoThePaint"/>), met on the course — up the
+        /// first paint, one turn onto the course, down it, and one turn off it down the second. <b>Or nothing</b>,
+        /// where the lane comes to its turn onto the second before its turn off the first, or no turn joins either,
+        /// or the band leaves the walk.
+        /// </summary>
+        ArcSeg[]? ByTheCourse(in Owned stretch, Vector2 fromM, float fromRad, Vector2 ontoM, float ontoRad)
+        {
+            // Off the paint is onto it walked backwards, and turned round (Through).
+            if (!PaintAt(fromM, Spline.WrapRad(fromRad + MathF.PI), out var off)
+                || !DepartsAt(stretch.Back, off, out var offM)
+                || !PaintAt(ontoM, ontoRad, out var onto)
+                || !DepartsAt(stretch.Walked, onto, out var leavesM))
+            {
+                return null;
+            }
+
+            var landsM = Spline.TotalLengthM(stretch.Walked) - offM;
+            if (landsM > leavesM) return null;
+
+            Span<ArcSeg> down = stackalloc ArcSeg[2];
+            var offLaid = OntoItFrom(stretch.Back, offM, off, down);
+
+            var line = new ArcSeg[offLaid + stretch.Walked.Length + 2];
+            Spline.ReverseInto(down[..offLaid], line);
+            var laid = offLaid + Spline.SubChainInto(stretch.Walked, landsM, leavesM, line.AsSpan(offLaid));
+            laid += OntoItFrom(stretch.Walked, leavesM, onto, line.AsSpan(laid));
+
+            return BandOffTheVerge(line.AsSpan(0, laid)) ? line[..laid] : null;
         }
 
         /// <summary>
@@ -724,10 +795,32 @@ internal sealed class CrossingWays
         /// </summary>
         readonly record struct Paint(Vector2 MouthM, Vector2 Down, float DownRad, int RoadHand);
 
+        /// <summary>The paint whose lane meets the boundary at a mouth, run down into the road on a heading — or false where no boundary answers.</summary>
+        bool PaintAt(Vector2 mouthM, float intoTheRoadRad, out Paint paint)
+        {
+            paint = default;
+            if (!boundary.NearestTo(mouthM, out var kerb)) return false;
+
+            var down = Heading.Unit(intoTheRoadRad);
+            paint = new Paint(mouthM, down, intoTheRoadRad, MathF.Sign(Vector2.Dot(down, kerb.Right)));
+            return true;
+        }
+
         /// <summary>The course as far as the first metre a turn leaves it from, the turn, and down the paint.</summary>
         ArcSeg[]? Departed(ArcSeg[] course, in Paint paint)
         {
-            var leavesM = float.NaN;
+            if (!DepartsAt(course, paint, out var leavesM)) return null;
+
+            var line = new ArcSeg[course.Length + 2];
+            var laid = Spline.SubChainInto(course, 0f, leavesM, line);
+            laid += OntoItFrom(course, leavesM, paint, line.AsSpan(laid));
+            return line[..laid];
+        }
+
+        /// <summary>The first metre of a course one turn leaves from onto the paint (<see cref="Leaves"/>), closed in on — or false where none does.</summary>
+        bool DepartsAt(ArcSeg[] course, in Paint paint, out float leavesM)
+        {
+            leavesM = float.NaN;
             var beforeM = 0f;
             var lengthM = Spline.TotalLengthM(course);
             for (var atM = 0f; atM <= lengthM; atM += LineTolerance.JoinedM)
@@ -741,7 +834,7 @@ internal sealed class CrossingWays
                 beforeM = atM;
             }
 
-            if (float.IsNaN(leavesM)) return null;
+            if (float.IsNaN(leavesM)) return false;
 
             for (var halving = 0; leavesM > 0f && halving < Halvings; halving++)
             {
@@ -750,15 +843,20 @@ internal sealed class CrossingWays
                 else beforeM = midM;
             }
 
+            return true;
+        }
+
+        /// <summary>The turn off a course at a metre of it and the straight down the paint to the mouth, as many of the two as there are.</summary>
+        int OntoItFrom(ArcSeg[] course, float leavesM, in Paint paint, Span<ArcSeg> into)
+        {
             Leaves(course, leavesM, paint, out var round);
+            into[0] = round;
+
             var downM = Vector2.Dot(paint.MouthM - round.EndM, paint.Down);
+            if (downM <= LineTolerance.RoundingM) return 1;
 
-            var line = new ArcSeg[course.Length + 2];
-            var laid = Spline.SubChainInto(course, 0f, leavesM, line);
-            line[laid++] = round;
-            if (downM > LineTolerance.RoundingM) line[laid++] = new ArcSeg(round.EndM, paint.DownRad, downM, 0f);
-
-            return line[..laid];
+            into[1] = new ArcSeg(round.EndM, paint.DownRad, downM, 0f);
+            return 2;
         }
 
         /// <summary>
@@ -810,6 +908,37 @@ internal sealed class CrossingWays
         bool OnTheRoad(Vector2 pointM, int roadHand) =>
             boundary.NearestTo(pointM, out var kerb)
             && Vector2.Dot(pointM - kerb.PositionM, kerb.Right) * roadHand > config.RibbonTouchM;
+
+        /// <summary>
+        /// <b>Whether a line's band stands on the walk the whole way</b>: off the road on the hand the road is on at
+        /// the paint it runs down into it (<see cref="BandOffTheRoad"/>), and off the verge.
+        /// </summary>
+        public bool OnTheWalk(ReadOnlySpan<ArcSeg> line, Vector2 mouthM, float intoTheRoadRad) =>
+            boundary.NearestTo(mouthM, out var kerb)
+            && BandOffTheRoad(line, MathF.Sign(Vector2.Dot(Heading.Unit(intoTheRoadRad), kerb.Right)))
+            && BandOffTheVerge(line);
+
+        /// <summary>
+        /// <b>Whether a line's band stands off the verge</b>: both its edges, a touch apart along it, no further past
+        /// the walk's outer face than a touch (<see cref="SimConfig.RibbonTouchM"/>, TER-5c) — the face the ground
+        /// answers the walk off, notches filled and all (<see cref="GroundRings.WalkSides"/>). <b>A connection is the
+        /// walk's own ground and none besides</b>, whichever of its shapes it takes (WLK-15).
+        /// </summary>
+        public bool BandOffTheVerge(ReadOnlySpan<ArcSeg> line)
+        {
+            var inM = (config.WalkingLaneWidthM * 0.5f) - config.RibbonTouchM;
+            var lengthM = Spline.TotalLengthM(line);
+            for (var atM = 0f; atM <= lengthM; atM += config.RibbonTouchM)
+            {
+                var at = Spline.SampleAt(line, atM);
+                if (!walk.Encloses(at.PositionM + (at.Right * inM)) || !walk.Encloses(at.PositionM - (at.Right * inM)))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
 
         /// <summary>Where the paint stops, which is where the tarmac does.</summary>
         bool OnTheKerb(Vector2 paintM, out Vector2 kerbM)

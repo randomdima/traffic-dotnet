@@ -601,23 +601,9 @@ internal sealed class DamageFigures
     public float CarWreckKj { get; init; } = 20f;
 }
 
-/// <summary>The rescue: how many hospitals a town has, how long each step of a call takes, and what a blue light buys.</summary>
+/// <summary>The rescue: how long each step of a call takes, and what a blue light buys.</summary>
 internal sealed class AmbulanceFigures
 {
-    /// <summary>
-    /// <b>How many of a town's buildings are hospitals</b> (AMB-1). It is a share rather than a count so
-    /// that a village and a city both come out with a plausible number of them, and it is drawn from the
-    /// world seed, so which buildings they are is a fact about the map.
-    /// </summary>
-    public float HospitalsPerBuilding { get; init; } = 0.02f;
-
-    /// <summary>
-    /// The ceiling on that, and the floor under it. <b>A town with a building on it has a hospital</b>,
-    /// because a town where nobody can be collected is a town this whole slice does nothing on; and a city
-    /// with two thousand buildings does not want forty ambulances standing about in it.
-    /// </summary>
-    public int MostHospitals { get; init; } = 6;
-
     /// <summary>
     /// <b>The pace a rescue is driven at</b> — 22 m/s, half again what this town's traffic manages on an
     /// ordinary street and a third of what the gearbox would give.
@@ -631,6 +617,13 @@ internal sealed class AmbulanceFigures
     /// up by what is in front of it and not by a pace of its own.
     /// </remarks>
     public float CallPaceMps { get; init; } = 22f;
+
+    /// <summary>
+    /// <b>How much further a call plans than any other driver</b> (AMB-4.5): the road it means to use and how far
+    /// a plan may reach are both this many times what they would be, so what it will cross gives way to it before
+    /// it is there. Ground it can no longer stop short of is a fact about its speed and is not stretched.
+    /// </summary>
+    public float CallReachShare { get; init; } = 2f;
 
     /// <summary>How long getting a casualty aboard takes, the ambulance standing still at its standoff meanwhile (AMB-6).</summary>
     public float LoadingS { get; init; } = 4f;
@@ -680,28 +673,9 @@ internal sealed class AmbulanceFigures
     public float HomeWithinBlockSpacings { get; init; } = 1f;
 }
 
-/// <summary>The other service vehicles: how many buildings stand one, and how near it may wait.</summary>
+/// <summary>The service vehicles: how many a building stands and who rides in them, how near it they wait, and their beat.</summary>
 internal sealed class ServiceFigures
 {
-    /// <summary>
-    /// <b>How many of a town's buildings are police stations</b> and how many are depots (SRV-1). Shares
-    /// rather than counts, drawn from the world seed, on the terms <see cref="AmbulanceFigures.HospitalsPerBuilding"/>
-    /// is: a village and a city both come out with a plausible number of each.
-    /// </summary>
-    public float StationsPerBuilding { get; init; } = 0.015f;
-
-    public float DepotsPerBuilding { get; init; } = 0.008f;
-
-    /// <summary>
-    /// The ceilings on those, and the floor of one under each. <b>A town with a building on it has a
-    /// station and a depot</b>, because a service vehicle no shipped map stands is one nothing exercises;
-    /// and there are fewer of both than there are hospitals, because a town needs collecting from more
-    /// often than it needs clearing.
-    /// </summary>
-    public int MostStations { get; init; } = 4;
-
-    public int MostDepots { get; init; } = 2;
-
     /// <summary>
     /// How far from its own building a service vehicle may stand waiting, in block spacings —
     /// <see cref="AmbulanceFigures.HomeWithinBlockSpacings"/> said of a station and a depot.
@@ -709,9 +683,9 @@ internal sealed class ServiceFigures
     public float HomeWithinBlockSpacings { get; init; } = 1f;
 
     /// <summary>
-    /// <b>How many bays a hospital's and a police station's apron holds</b> (GEN-4k), and therefore how
-    /// many vehicles each of them stands. A depot's apron is not this figure: it is its one evacuator's bay
-    /// and the yard's slots (<see cref="EvacuatorFigures.YardSlots"/>, SRV-2).
+    /// <b>How many vehicles a service building stands</b> (GEN-4k, AMB-2, SRV-2), one to a bay of its apron — a
+    /// hospital's ambulances, a station's police cars and a depot's evacuators alike. A depot's apron holds its
+    /// yard's slots besides (<see cref="EvacuatorFigures.YardSlots"/>).
     /// </summary>
     /// <remarks>
     /// Four is a shift rather than a vehicle: one ambulance to a hospital meant a second casualty across
@@ -723,20 +697,25 @@ internal sealed class ServiceFigures
     public int ApronBays { get; init; } = 4;
 
     /// <summary>
-    /// <b>How many places a patrol visits before it is due back at its station</b> (SRV-5), drawn from one
-    /// to this. A beat of several legs is what keeps a police car out on the streets rather than shuttling
-    /// to one place and back, and the return is what keeps its apron in use.
+    /// <b>How many people ride in each service vehicle</b> (SRV-3), in its crew seats and in its building's
+    /// uniform. A police car's first is its officer (SRV-11).
     /// </summary>
-    public int MostPlacesOnABeat { get; init; } = 5;
+    public int CrewPerVehicle { get; init; } = 2;
 
     /// <summary>
-    /// How long a police car stands on its apron between beats, drawn between the two. <b>The spread is
-    /// what keeps a station's four cars off one timetable</b>: stood together before the first tick, a
-    /// single interval would send all four out of the same gate at the same moment for the whole run.
+    /// <b>How much of a building's fleet drives its district's streets</b> (SRV-5); the rest stand on the apron
+    /// until a call takes them.
     /// </summary>
-    public float RestBetweenBeatsMinS { get; init; } = 20f;
+    public float PatrolShare { get; init; } = 0.5f;
 
-    public float RestBetweenBeatsMaxS { get; init; } = 90f;
+    /// <summary>
+    /// How long a patrolling vehicle stands on its apron before it first sets out, drawn between the two.
+    /// <b>The spread is what keeps a building's fleet off one timetable</b>: stood together before the first tick,
+    /// a single interval would send them out of the same gate at the same moment.
+    /// </summary>
+    public float FirstBeatAfterMinS { get; init; } = 5f;
+
+    public float FirstBeatAfterMaxS { get; init; } = 60f;
 
     /// <summary>
     /// How long one leg of a beat may run before it is given up and another place drawn, in blocked-road

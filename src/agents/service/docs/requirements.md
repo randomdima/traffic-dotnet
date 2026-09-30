@@ -5,7 +5,8 @@ police station, the **ambulance** at a hospital and the **evacuator** at a depot
 evacuator each have a slice of their own, because each one's errand is a whole machine
 ([agents/ambulance](../../ambulance/docs/requirements.md),
 [agents/evacuator](../../evacuator/docs/requirements.md) — `EVA-1` to `EVA-8` and `SimConfig.Evacuator`);
-what is here is what all three are made of, where they stand, and the two errands a police car runs.
+what is here is what all three are made of, where they stand, the beat all three drive, and the call a police
+car runs.
 
 **A service vehicle is a car and drives what every car drives**
 ([agents/car](../../car/docs/requirements.md) `CAR-15`). Nothing here is a second driver.
@@ -14,7 +15,8 @@ what is here is what all three are made of, where they stand, and the two errand
 
 **SRV-1** `P4` Some of a town's buildings are **police stations** and some are **depots**, declared by the
 map on the terms a hospital is (AMB-1). **A building serves one use at most**, which one field settles
-rather than the order anything is read in. A town with a building on it has one of each.
+rather than the order anything is read in. **Every district of a town with a building on it has one of each**
+(GEN-56).
 
 ## The vehicles
 
@@ -23,11 +25,12 @@ depot wears the **repair shop's**; no other building may wear either — the who
 station and of a depot. A depot's roof is the one that names its yard: the wrecks standing in it are cars
 waiting on the workshop behind that shutter (EVA-7).
 
-**SRV-2** `P5` Each police station stands an **apron** of police cars (GEN-4k), one in each bay, and each
-depot **one evacuator** in a bay held for it, from before the first tick and on the terms AMB-2 stands a
-hospital's ambulances on: a building with fewer free bays near it stands fewer, and one with none stands
-none. **A depot's apron is its evacuator's bay and its yard's slots besides**, and what a yard is for is
-`EVA-2`. How many of each a map has room for is the roster line of `--bench census`.
+**SRV-2** `P5` Each police station stands an **apron** of police cars (GEN-4k) and each depot an apron of
+**evacuators**, one in each bay, from before the first tick and on the terms AMB-2 stands a hospital's
+ambulances on — **the same number at each of the three** (`SimConfig.Service.ApronBays`): a building with fewer
+free bays near it stands fewer, and one with none stands none. **A depot's apron is its evacuators' bays and
+its yard's slots besides**, and what a yard is for is `EVA-2`. How many of each a map has room for is the
+roster line of `--bench census`.
 
 **SRV-7** `P1` **A police car starts on its police station's parking**: stood in a bay of the station's own
 yard (GEN-55) before the first tick, and home to it when its errands are done.
@@ -37,18 +40,20 @@ yard (GEN-55) before the first tick, and home to it when its errands are done.
 
 - **What makes it a car that acts is the errand and not a seat** (CAR-1). What drives a service vehicle is its
   errand, so nothing about its own acting is decided by who is inside it, and its light stays on regardless
-  (AMB-4b). **A police car carries its officer** (SRV-11) **in a crew seat and never at the wheel**; an
-  ambulance and an evacuator carry nobody.
+  (AMB-4b). **Every one carries a crew of two** (`SimConfig.Service.CrewPerVehicle`) **in its crew seats and
+  never at the wheel**, stood with it before the first tick; a police car's first is its officer (SRV-11).
 - **And what keeps it out of anybody else's hands is the building it stands on the strength of**, and never
   who is sitting in it. A vehicle struck off its building (`EVA-7`) is an ordinary car in service paint.
-- **One errand is worked on foot, and it is the closure** (SRV-11). The casualty is got aboard at the standoff
-  (AMB-10) and the arm is worked from the truck (`EVA-5`); what that costs is recorded in the known gaps
+- **One errand is worked on foot, and it is the closure** (SRV-11): the officer gets out and the rest of the crew
+  stays aboard. The casualty is got aboard at the standoff (AMB-10) and the arm is worked from the truck
+  (`EVA-5`) with their crews in their seats; what that costs is recorded in the known gaps
   ([docs/index.md](../../../../docs/index.md#known-gaps)) rather than written here as a decision.
 
-**SRV-3a** `P6` **A police officer wears the police uniform, and nobody else in the town wears a service
-uniform.** The uniforms are a second list in the person catalogue on the terms SRV-3's service list is the
-fleet's: a walker's look is drawn by wrapping the ordinary list, and that wrap cannot reach past it, so a
-uniform is worn only by somebody named to wear one — an officer stood with their car (SRV-11).
+**SRV-3a** `P6` **A crew wears its own service's uniform** — a paramedic's, a police officer's, a recovery
+driver's — **and nobody else in the town wears one.** The uniforms are a second list in the person catalogue on
+the terms SRV-3's service list is the fleet's: a walker's look is drawn by wrapping the ordinary list, and that
+wrap cannot reach past it, so a uniform is worn only by somebody named to wear one — a crew stood with their
+vehicle (SRV-3).
 
 **SRV-4** `P5` **A service vehicle breaks like every other car** (PHY-3), the evacuator included. Four
 things follow from what a broken one can be in the middle of.
@@ -56,10 +61,10 @@ things follow from what a broken one can be in the middle of.
 - **A wrecked evacuator drops what it was pulling where it stands.** The car on the arm is a call again
   from that moment, no worse off than where it fell — EVA-8's own argument about a haul that will not get
   through, said of a crash instead of a clock — and the errand it was on is given up.
-- **Its depot has no evacuator until somebody else clears it.** The truck is a call like any other wreck,
-  and the bay held for it is held for nobody from then on (`ParkingRegistry.Claimed`) — it does not go
-  back to the town; the yard's slots stay held for the wrecks standing in them. A depot whose evacuator broke and whose town has no other one is a town that has stopped
-  collecting, which is `EVA-2`'s own state and is counted rather than hidden.
+- **Its depot has one evacuator fewer from then.** The truck is a call like any other wreck, and the bay held
+  for it is held for nobody from then on (`ParkingRegistry.Claimed`) — it does not go back to the town; the
+  yard's slots stay held for the wrecks standing in them. A town whose every evacuator broke is a town that has
+  stopped collecting, which is `EVA-2`'s own state and is counted rather than hidden.
 - **And a mended one comes back as an ordinary car**, on `EVA-7`'s terms: nothing hands a depot its truck
   back.
 - **A wrecked police car gives its closure up**, and an officer standing out on the road is an ordinary walker
@@ -67,26 +72,31 @@ things follow from what a broken one can be in the middle of.
 
 ## The beat
 
-**SRV-5** `P5` A police car **patrols**: it stands on its station's apron for a drawn interval, then drives to
-a drawn place in the town, then to another, for a drawn number of places, and then home to its own bay to
-stand again. Five things follow, and the third is the point of the rule:
+**SRV-5** `P5` **Half of every service building's fleet patrols its district, and the other half stands on its
+apron** (`SimConfig.Service.PatrolShare`) — an ambulance, a police car and an evacuator alike. A patrol drives
+from one drawn place in the district its building stands in (GEN-56) to another for as long as nothing calls
+it; the rest stand in their bays until something does. Six things follow, and the fourth is the point of the
+rule:
 
-- **A beat is drawn and never searched for.** Nothing in the town asks for a police car on its beat, so a beat
-  is aimed at nothing: it is a place along one of the town's lanes, taken from the car's own stream (AGT-6),
-  and the driving to it is an ordinary leg (CAR-15). **A lane and not a junction**, because a leg ends by
-  the car standing where it got to and a junction's middle is the one place standing still is being driven
-  into — **and a street and not a car park's arm**, which is a bay (GEN-4h).
+- **A beat is drawn and never searched for.** Nothing in the town asks for a vehicle on its beat, so a beat is
+  aimed at nothing: it is a place along one of its district's streets, taken from the vehicle's own stream
+  (AGT-6), and the driving to it is an ordinary leg (CAR-15). **A lane and not a junction**, because a leg ends
+  by the car standing where it got to and a junction's middle is the one place standing still is being driven
+  into — **and a street and not a car park's arm**, which is a bay (GEN-4h). A place drawn on the part of a
+  street past the district's edge is moved to the street's middle, which is the district's.
 - **Every leg is bounded**, on AMB-9's argument said of a patrol: a place the traffic will not let a
-  police car reach costs it the next street and nothing more, because a patrol has nowhere it must be.
+  vehicle reach costs it the next street and nothing more, because a patrol has nowhere it must be.
 - **A patrol carries no priority.** None of AMB-4 applies to a beat: no rung above other movements, no
-  exemption from a red or a bar, no pace of its own. A police car crossing this town is ordinary traffic
-  that happens to be going somewhere nobody lives. **A call is the other errand** (SRV-6), and the leg out
-  to a scene does carry it.
-- **The interval before a beat is drawn per car and not per station**, so an apron of four cars stood in
-  the same instant does not leave in it.
+  exemption from a red or a bar, no pace of its own, and no amber bar. A service vehicle crossing this town on
+  its beat is ordinary traffic that happens to be going somewhere nobody lives. **A call is the other errand**
+  (SRV-6, AMB-5, EVA-3), and the leg out to it does carry it.
+- **The beat is kept to the district and the calls are not.** Whoever is nearest and free takes a call, a
+  patrol as much as a vehicle standing on its apron, wherever the call is — and after it, a patrol picks its beat
+  up again from wherever the call left it, and the rest go home to their bays.
+- **The first stand is drawn per vehicle and not per building**, so an apron stood in the same instant does not
+  leave in it.
 - **A beat gives way to a call** (SRV-6, SRV-8) — standing, patrolling or on the way home. A place drawn out of
-  a hat is never worth more than a road that has to be shut, and the beat is picked up again from wherever the
-  scene left the car.
+  a hat is never worth more than a road that has to be shut.
 
 ## The closure
 
@@ -142,10 +152,10 @@ is the point of the rule.
 
 ## Where the numbers are
 
-On `SimConfig.Service` ([core](../../../core/docs/requirements.md#where-a-figure-lives)): how many of a
-town's buildings are police stations and how many are depots, how near its own building one may stand, how
-many bays an apron holds — a hospital's as well as a station's — the three the beat is drawn from (the
-places on one, the interval between two, and the bound on a leg), and **the five a closure is**: how many lanes
+On `SimConfig.Service` ([core](../../../core/docs/requirements.md#where-a-figure-lives)): how near its own
+building a vehicle may stand, how many bays an apron holds — a hospital's and a depot's as well as a
+station's — and how many crew ride in each vehicle, the three the beat is drawn from (the share of a fleet that
+patrols, the first stand before it sets out, and the bound on a leg), and **the five a closure is**: how many lanes
 back it may reach, how far into the entrance its officer stands or how far short of a zebra over it, how much
 clear ground the car keeps behind its tail, and how long one may stand — with **the two its officer walks by**,
 how near a place counts as there and how long they have to get back to their seat.

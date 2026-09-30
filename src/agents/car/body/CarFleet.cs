@@ -96,6 +96,7 @@ internal sealed class CarFleet
         FuseJitter = new float[capacity];
         BacksIntoBays = new bool[capacity];
         LineIsReverse = new bool[capacity];
+        ManoeuvreBegun = new bool[capacity];
         InsideTheBox = new bool[capacity];
         LightAheadM = new float[capacity];
         Array.Fill(LightAheadM, float.PositiveInfinity);
@@ -438,6 +439,13 @@ internal sealed class CarFleet
     public bool[] LineIsReverse { get; }
 
     /// <summary>
+    /// <b>Whether the car has moved on the bay's way it is driving</b> (GEN-4f) — which is what turns a way it
+    /// may only set off down whole into one it holds whole. Meaningless on any other line, and set false every
+    /// time a bay's way is taken.
+    /// </summary>
+    public bool[] ManoeuvreBegun { get; }
+
+    /// <summary>
     /// Whether the body is <em>in</em> the junction box rather than approaching one. <b>Waiting at a
     /// boundary is not standing across a lane.</b> An instrument's: the stuck probe prints it and nothing
     /// decides by it.
@@ -662,6 +670,7 @@ internal sealed class CarFleet
         FuseJitter[car] = Draw[car].NextFloat(1f - FuseJitterShare, 1f + FuseJitterShare);
         BacksIntoBays[car] = backsIntoBays;
         LineIsReverse[car] = false;
+        ManoeuvreBegun[car] = false;
         InsideTheBox[car] = false;
         LightAheadM[car] = float.PositiveInfinity;
         Pass[car] = Control.Overtake.None;

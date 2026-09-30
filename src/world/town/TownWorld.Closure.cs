@@ -1,10 +1,8 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
-using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Agents.Service;
 using TrafficSimulation.Core.Geometry;
-using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Containment;
 using TrafficSimulation.World.Parking;
 using TrafficSimulation.World.Physics;
@@ -462,26 +460,4 @@ internal sealed partial class TownWorld
         People.TimerS[officer] = 0f;
         People.DestinationM[officer] = People.PositionM[officer];
     }
-
-    /// <summary>
-    /// <b>The officer a police car carries</b> (SRV-11): a walker in the police uniform (SRV-3a), stood with the car
-    /// before the first tick and put straight into its crew seat.
-    /// </summary>
-    void StandTheOfficer(int car)
-    {
-        var positionM = Cars.PositionM[car];
-        var body = _physics.AddPerson(positionM);
-        var officer = People.Add(
-            body, positionM, Cars.HeadingRad[car], _physics.MassOf(body), _config.PersonDiameterM * 0.5f,
-            (byte)PersonCatalog.Shared.Police, new Rng(_agentSeed, OfficerStream + (ulong)car), reckless: false);
-        _physics.Tag(body, new BodyTag(BodyKind.Person, officer));
-        _progress.Restart(officer);
-
-        People.Stage[officer] = TripStage.OnDuty;
-        _beat.Officer[car] = officer;
-        if (_containers.TryTakeACrewSeat(car, officer)) Contain(officer);
-    }
-
-    /// <summary>The world seed's stream an officer is drawn from, belonging to nothing else.</summary>
-    const ulong OfficerStream = 0x4F464643;
 }

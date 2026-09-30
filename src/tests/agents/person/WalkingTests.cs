@@ -31,15 +31,16 @@ public class WalkingTests
     /// <summary>
     /// <b>GEN-7: everybody the plan stands is inside a building before the first tick.</b> A body stood at
     /// a way in walks through it as the town is stood up, so the first thing any walker does is a dwell and
-    /// not a leg nothing drew. <b>The plan's people are stood first</b>, and a police car's officer after them,
-    /// aboard their car (SRV-11).
+    /// not a leg nothing drew. <b>The plan's people are stood first</b>, and every service vehicle's crew after
+    /// them, aboard their vehicle (SRV-3).
     /// </summary>
     [Fact]
     public void EverybodyTheTownStandsBeginsInsideABuilding()
     {
         using var world = Stood(out var plan);
 
-        Assert.Equal(PeopleStood(plan) + world.PoliceCars, world.People.Count);
+        var crews = (world.Ambulances + world.PoliceCars + world.Evacuators) * Config.Service.CrewPerVehicle;
+        Assert.Equal(PeopleStood(plan) + crews, world.People.Count);
         for (var person = 0; person < PeopleStood(plan); person++)
         {
             Assert.Equal(TripStage.Dwelling, world.People.Stage[person]);
@@ -433,6 +434,64 @@ public class WalkingTests
         StandAtTheKerbOf(world, person, from, edge);
 
         HoldsTheZebraWhole(world, person, world.Ways.OfFootway(edge));
+    }
+
+    /// <summary>
+    /// <b>PER-25: a chain that ran out of room is laid on from where the body has got to before its plan runs off
+    /// the end</b>, and not while the end is further off than that — so whatever lies past the end, a crossing
+    /// above all (PER-27), is asked for from a stop short of it rather than from the kerb.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void AChainThatRanOutIsLaidOnBeforeThePlanRunsOffItsEnd(bool withinTheGapOfItsEnd)
+    {
+        using var world = Walking(out var afoot);
+        var person = afoot[0];
+        var lane = APavementLaneAtLeast(world, FarFromTheEndM * 2f);
+
+        var endM = world.Walking.WayLengthM(lane);
+        StandOnARunOutChain(world, person, lane, endM - (withinTheGapOfItsEnd ? Config.PersonStandstillGapM : FarFromTheEndM));
+        world.DecideAgent(world.Roster.AgentOfPerson(person), Config.Sim.AgentDecisionIntervalS);
+
+        Assert.Equal(withinTheGapOfItsEnd, world.People.RouteCount[person] > 1);
+    }
+
+    /// <summary>
+    /// Far enough short of a chain's end that nothing a walker plans or walks before its next decision comes near
+    /// it — several strides.
+    /// </summary>
+    const float FarFromTheEndM = 8f;
+
+    /// <summary>A stretch of pavement at least this long, walked by nobody's rule but the pavement's own.</summary>
+    static int APavementLaneAtLeast(TownWorld world, float lengthM)
+    {
+        for (var edge = 0; edge < world.Foot.EdgeCount; edge++)
+        {
+            if (world.Foot.KindOf(edge) == FootEdgeKind.Pavement && world.Walking.WayLengthM(edge) >= lengthM) return edge;
+        }
+
+        Assert.Fail($"the town has no stretch of pavement {lengthM:0} m long");
+        return -1;
+    }
+
+    /// <summary>
+    /// This walker put on one stretch of pavement by hand, as far along it as asked, walking a chain of that stretch
+    /// alone that ran out of room at its end — the last way of a route longer than a chain carries.
+    /// </summary>
+    static void StandOnARunOutChain(TownWorld world, int person, int lane, float atM)
+    {
+        var people = world.People;
+        people.RouteOf(person)[0] = lane;
+        people.RouteCount[person] = 1;
+        people.RouteTaken[person] = 1;
+        people.RouteRunsOut[person] = true;
+        people.RouteToM[person] = world.Walking.WayLengthM(lane);
+        people.OnWayM[person] = atM;
+        people.VelocityMps[person] = Vector2.Zero;
+        people.PositionM[person] = Spline.SampleAt(world.Walking.WayArcs(lane), atM).PositionM;
+
+        world.RebuildProximityIndex();
     }
 
     /// <summary>

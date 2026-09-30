@@ -89,9 +89,13 @@ internal readonly record struct LaneClaim(
     /// <summary>
     /// <b>Whether a holder whose own line takes <paramref name="onward"/> next may get past this</b> (TER-4c.6):
     /// a body at rest that is not a pass itself, and not making the reader's own movement — somebody making it is
-    /// waiting for what the reader would wait for.
+    /// waiting for what the reader would wait for. <b>A holder on a call gets past that too, and past traffic
+    /// that is moving</b> (<paramref name="onACall"/>): what the queue waits for is ground its rung takes, and a
+    /// car it passes is held short of where it steps back in. Never somebody on foot who is moving, who is
+    /// crossing.
     /// </summary>
-    public bool MayBePassedBy(int onward) => HasBody && Still && !Passing && !MakesTheMovementOf(onward);
+    public bool MayBePassedBy(int onward, bool onACall = false) =>
+        HasBody && !Passing && (onACall ? Still || IsTraffic : Still && !MakesTheMovementOf(onward));
 
     /// <summary>
     /// <b>Whether this is a body going nowhere down this way</b>: at rest, not a pass, and not travelling the way
@@ -116,8 +120,15 @@ internal readonly record struct LaneClaim(
     /// <summary><b>Whether this is wheeled traffic standing here</b>: a body of the driving roster.</summary>
     public bool IsTraffic => HasBody && Of == LaneRoster.Driving;
 
-    /// <summary>Whether the metre <paramref name="atM"/> of it is ground its holder can no longer stop short of.</summary>
+    /// <summary>Whether the metre <paramref name="atM"/> of it is ground its holder will still cover before it can be at rest.</summary>
     public bool CommittedAt(float atM) => !HasBody && atM < CommittedToM;
+
+    /// <summary>
+    /// <b>Whether its holder can no longer stop short of the metre <paramref name="atM"/></b>, which is what the
+    /// ladder is settled on (<see cref="LaneOccupancy.Beats"/>): the ground it will still cover and the metre at its
+    /// own front, as <see cref="PlannedAsk.CannotStopShortOf"/> has it.
+    /// </summary>
+    public bool CannotStopShortOf(float atM) => !HasBody && atM <= CommittedToM;
 
     /// <summary>How far its holder has to travel to reach the metre <paramref name="atM"/> of it.</summary>
     public float ArrivalAt(float atM) => AheadM + (Secondary ? 0f : MathF.Max(0f, atM - FromM));
@@ -136,7 +147,16 @@ internal readonly record struct PlannedAsk(
     float CommittedToM, float AlongMps)
 {
     /// <summary>Whether the metre <paramref name="atM"/> of it is ground its holder can no longer stop short of.</summary>
-    public bool CommittedAt(float atM) => atM < CommittedToM;
+    /// <remarks>
+    /// <b>The end metre included, so a holder at rest still cannot stop short of its own front</b> (TER-5e): ground
+    /// two ways share that its front is already inside is ground it keeps, and a secondary claim placed from there
+    /// is committed whole. Open at the end, the answer turns on whether a car settling at a zebra comes back at
+    /// exactly nought on a tick or a hair above it — the paint is the car's one rebuild and the walker's the next,
+    /// and the walker steps a stride further out each time it has it. <b>The ladder's question and no other</b>: what a
+    /// pass takes and where a body is put down ask what the holder will still cover
+    /// (<see cref="LaneClaim.CommittedAt"/>), and a body at rest covers nothing (TER-4c.6).
+    /// </remarks>
+    public bool CannotStopShortOf(float atM) => atM <= CommittedToM;
 
     /// <summary>How far its holder has to travel to reach the metre <paramref name="atM"/> of this way.</summary>
     public float ArrivalAt(float atM) => AheadM + MathF.Max(0f, atM - FromM);
@@ -524,7 +544,7 @@ internal sealed partial class LaneOccupancy
                 new LaneClaim(
                     mark.FromM, mark.ToM, 0f, ask.Occupant, ask.Rung, ask.Of, Hold: ask.Hold,
                     LineFromM: ask.LineAt(atM), AheadM: ask.ArrivalAt(atM),
-                    CommittedToM: ask.CommittedAt(atM) ? float.PositiveInfinity : float.NegativeInfinity,
+                    CommittedToM: ask.CannotStopShortOf(atM) ? float.PositiveInfinity : float.NegativeInfinity,
                     Secondary: true));
         }
 
@@ -654,8 +674,8 @@ internal sealed partial class LaneOccupancy
     /// <param name="otherStands">And whether the other's holder's body is.</param>
     public static bool Beats(in PlannedAsk ask, float atM, bool askStands, in LaneClaim other, bool otherStands)
     {
-        var askCommitted = ask.CommittedAt(atM);
-        var otherCommitted = other.CommittedAt(atM);
+        var askCommitted = ask.CannotStopShortOf(atM);
+        var otherCommitted = other.CannotStopShortOf(atM);
         if (askCommitted != otherCommitted) return askCommitted;
         if (askStands != otherStands) return askStands;
         if (!askCommitted && ask.Rung != other.Priority) return ask.Rung < other.Priority;

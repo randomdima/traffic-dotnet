@@ -1,5 +1,26 @@
 # The service vehicles — decision log
 
+## 2026-09-30 — four vehicles and eight people a building, half of them on the district's beat
+
+**The owner asked for a police station, a hospital and a depot in every district (GEN-56), four vehicles and
+eight people at each — two to a vehicle — half the vehicles parked and half patrolling the district, and the
+nearest one still to take the call.** Before, a depot stood one evacuator, only a police car carried anybody,
+and every police car took turns: a drawn rest, a beat of a few places anywhere in the town, and home.
+
+- **The half is fixed per vehicle and not taken in turns.** The last of each apron's vehicles as they were stood
+  patrol and the first stand by the door, so what the owner asked for is what a look at any instant shows; a
+  rota would leave a building with none out and then all out. A patrol stands a drawn first interval before it
+  first leaves (`FirstBeatAfterMinS`, `FirstBeatAfterMaxS`) for the reason the old rest was drawn, and after a
+  call goes back to its beat from wherever it is, where the rest go home.
+- **The beat is one machine for all three** (`TownWorld.Beat.cs`): each errand gains a patrolling stage that is
+  free for a call, carries no priority and — for an evacuator — no amber bar. What an errand does on a call is
+  unchanged.
+- **The beat is kept to the district and the calls are not.** The owner's own words were that the closest still
+  gets the call, and a district line is not a reason to send the far one.
+- **The crew rides and does not yet work.** Two sit in every vehicle's crew seats in their service's uniform; the
+  police car's first is the officer who stands at a closure, and the second stays aboard. A paramedic walking to
+  the casualty and a driver working the arm on foot are the known gap they were before.
+
 ## 2026-09-29 — the car stands past a zebra and the officer short of it, and the light stays up
 
 **The owner saw a police car closing a lane from on top of the zebra across its mouth**, and asked for the car to
@@ -94,7 +115,7 @@ so `Service.json` can be reordered. A third catalogue with its own file and read
 ## 2026-08-25 — a beat is a drawn place and not a search
 
 A beat is the first errand that is not *for* anything, so there is nothing to aim it at. Drawn: places
-along the town's lanes off the car's own stream. Searched: the quarter nothing has driven through for
+along the lanes off the car's own stream — the town's then, its district's since the beat was kept to one. Searched: the quarter nothing has driven through for
 longest, which needs a coverage map kept per tick and a walk of it on the hot path, to buy something
 indistinguishable from a shuffle. It is a lane and not a junction because a leg ends with the car standing
 where it got to, and the fixture town's patrol was wrecked inside the first box it reached.

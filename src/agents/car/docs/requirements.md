@@ -29,14 +29,16 @@ bay's way in front of it, or the road — and whether it is on a pass (CAR-46).
 
 **CAR-46** `P5` **A car gets past what stands in its lane over the lane beside it**, as a pass
 ([TER-4c.6](../../../world/road/docs/claims.md)): asked for where its grant was ended by a body at rest that
-is not making its own next movement, anywhere on its line, while the lane it is on has a lane running back
-beside it.
+is not making its own next movement — or, on a call, by any body at rest or traffic going slower than it means
+to (AMB-4.4) — anywhere on its line, while the lane it is on has a lane running back beside it.
 
 - **Along its own line, through a box as along a street**: the pass is the car's line moved across and back,
   and it is had wherever its ground is carriageway nobody holds — a car park's junction cutting a street into
   short lanes is no end to one. A stretch with no lane back (TER-4d) offers no pass.
-- **Never over a zebra**: somebody on the paint is somebody crossing, and a pass holding the rest of the zebra
-  in front of them would stand them in the car's way with nowhere to go.
+- **Never over a zebra, but on a call**: somebody on the paint is somebody crossing, and a pass holding the rest
+  of the zebra in front of them would stand them in the car's way with nowhere to go. A car on a call is above
+  everybody on foot (AMB-4.4): its pass claims the paint whole, and it waits short of it for whoever is already
+  on it.
 - **Not short of a place in the road it was sent to** (AMB-5, EVA-3, SRV-6, CTL-8a): what stands before a car
   sent there is what it was sent to, and a pass ending past the place would drive it by.
 - **Made for the room past what it passes**: the first stretch of the car's own line past it long enough to come
@@ -63,7 +65,7 @@ beside it.
   the way on: a wreck, a car stood down, a car whose line ends where it stands, somebody standing in the road — a
   car stands where it could step out round it from a standstill, where the lane it is on has one back beside it,
   and keeps it in its plan while it stands. Everything else, a queue whatever it does next, is waited behind at
-  the stand-off (S-2a).
+  the stand-off (S-2a) — **but by a car on a call**, which keeps that room behind anything at rest it may pass.
 - **Driven as the pass bends**: the wheel is turned for the bend of the pass where the car is and corrected by
   pure pursuit of it (S-1) — pursuit alone turns into each step a lookahead early and cuts it — and a car on a
   pass is off its line by how far off the pass it is and no further (CAR-9).
@@ -428,8 +430,8 @@ done, **nothing alongside what it passes**, and the side it steps back to from a
 back — never before the step out is done, so a step out running straight into the step back hands one side
 straight to the other. **The pass outranks the junction**: from the decision until the car is back in its
 own lane, the turn at a junction beyond it is not announced. A pass the road itself refuses — a line that
-ends before there is room to come back onto it, a zebra, a bend, a place the car was sent to — is no decision
-and says nothing; room held by something that will move on is waited for, and is.
+ends before there is room to come back onto it, a zebra off a call, a bend, a place the car was sent to — is no
+decision and says nothing; room held by something that will move on is waited for, and is.
 
 Where the numbers are: `SimConfig.Lamps` — how much of the line is read for a turn and how far that
 stretch must bend, how long before the step back a pass says it, the rates the flashing ones flash at, and

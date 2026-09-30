@@ -402,7 +402,6 @@ internal sealed partial class TownWorld
         var at = People.RouteAt(person);
         if (at < 0 || at >= count) return 0;
 
-        var walking = Walking;
         var written = 0;
         var walkedM = 0f;
 
@@ -411,15 +410,7 @@ internal sealed partial class TownWorld
             var townWay = WayOf(route[slot]);
             if (townWay == PersonFleet.NoWay) break;
 
-            walking.SpanOfWay(
-                slot > 0 ? route[slot - 1] : WalkingNetwork.NoLane, route[slot],
-                slot + 1 < count ? route[slot + 1] : WalkingNetwork.NoLane, out var fromM, out var endM);
-
-            if (slot == count - 1) endM = MathF.Min(endM, People.RouteToM[person]);
-
-            // The body's own place is where the statement begins, and every way after it is stated from
-            // wherever the walk joins it.
-            if (slot == at) fromM = MathF.Max(fromM, People.OnWayM[person]);
+            WalkedOfSlot(person, slot, out var fromM, out var endM);
             if (endM <= fromM) continue;
 
             into[written++] = new LineWay(townWay, fromM, fromM + MathF.Min(endM - fromM, aheadM - walkedM), walkedM);
@@ -427,6 +418,23 @@ internal sealed partial class TownWorld
         }
 
         return written;
+    }
+
+    /// <summary>
+    /// <b>The stretch of one way of this walker's chain that the walk still covers</b>: the way's span between
+    /// the ways either side of it, from the body's own place on the way it is on — every way after that being
+    /// stated from wherever the walk joins it — and to where the walk stops on the last.
+    /// </summary>
+    void WalkedOfSlot(int person, int slot, out float fromM, out float endM)
+    {
+        var route = People.RouteOf(person);
+        var count = People.RouteCount[person];
+        Walking.SpanOfWay(
+            slot > 0 ? route[slot - 1] : WalkingNetwork.NoLane, route[slot],
+            slot + 1 < count ? route[slot + 1] : WalkingNetwork.NoLane, out fromM, out endM);
+
+        if (slot == count - 1) endM = MathF.Min(endM, People.RouteToM[person]);
+        if (slot == People.RouteAt(person)) fromM = MathF.Max(fromM, People.OnWayM[person]);
     }
 
     /// <summary>How fast this walker is going the way it is facing, which is the only direction it walks in.</summary>

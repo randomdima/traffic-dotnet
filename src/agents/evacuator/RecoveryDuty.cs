@@ -13,8 +13,11 @@ namespace TrafficSimulation.Agents.Evacuator;
 /// </remarks>
 internal enum RecoveryStage : byte
 {
-    /// <summary>Standing in its own bay at its depot with nothing to clear. Where an evacuator spends most of a run.</summary>
+    /// <summary>Standing with nothing to clear: in its own bay at its depot, or — for one that patrols — before its first beat.</summary>
     Waiting,
+
+    /// <summary>Driving its district's beat with nothing to clear and no priority: ordinary traffic (SRV-5).</summary>
+    Patrolling,
 
     /// <summary>Under way to the wreck, carrying the priority: the one leg of a recovery that is urgent (EVA-4).</summary>
     Running,
@@ -47,7 +50,7 @@ internal enum RecoveryStage : byte
 /// </para>
 /// <para>
 /// <b>A recovery is bounded</b> (<see cref="SinceS"/>, EVA-8), exactly as a call is: a wreck the traffic
-/// never lets an evacuator reach must not hold the town's only evacuator off every later one.
+/// never lets an evacuator reach must not hold that evacuator off every later one.
 /// </para>
 /// </remarks>
 internal sealed class RecoveryDuty
@@ -139,8 +142,8 @@ internal sealed class RecoveryDuty
 
     public const int NoBay = -1;
 
-    /// <summary>Whether this evacuator is on a recovery at all, which is every stage but the one it stands in.</summary>
-    public bool IsOnARecovery(int car) => Stage[car] != RecoveryStage.Waiting;
+    /// <summary>Whether this evacuator is on a recovery at all, which is every stage but the two it has nothing to clear in.</summary>
+    public bool IsOnARecovery(int car) => Stage[car] is not (RecoveryStage.Waiting or RecoveryStage.Patrolling);
 
     /// <summary>
     /// Whether it is carrying the priority (EVA-4): the one leg it is hurrying on, and none of the four it

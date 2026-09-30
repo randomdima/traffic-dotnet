@@ -25,10 +25,11 @@ internal sealed partial class TownWorld
     /// it stands, and — while it is moving — what it takes to reach the speed it is planning for, hold it a
     /// while and stop from there (TER-5g), those two no further than the corners ahead let it be at rest
     /// (<see cref="CornerLimits.RestToM"/>); never past the end of its line, nor past how far a plan may reach
-    /// (<see cref="HorizonToM"/>), where the car then drives to stop by its end. <b>A light is not asked here</b>: its
-    /// hold is ground on the way, and the plan is answered against it (TLT-1). <b>A body that is not moving
-    /// states nothing beyond the first two</b>, so a queue waiting at a junction plans none of the box it is
-    /// waiting for.
+    /// (<see cref="HorizonToM"/>), where the car then drives to stop by its end. <b>A call means further</b>
+    /// (<see cref="ReachShare"/>, AMB-4.5), all but what it can no longer stop short of. <b>A light is not asked
+    /// here</b>: its hold is ground on the way, and the plan is answered against it (TLT-1). <b>A body that is not
+    /// moving states nothing beyond the first two</b>, so a queue waiting at a junction plans none of the box it
+    /// is waiting for.
     /// </para>
     /// <para>
     /// <b>The ground it can no longer stop short of is committed</b> (<see cref="ClaimPriority.Committed"/>):
@@ -100,7 +101,7 @@ internal sealed partial class TownWorld
                 meantM, CornerLimits.RestToM(Cars.LineOf(car), Cars.EntriesOf(car), noseM, _config) - noseM + standOffM);
         }
 
-        var wantedM = MathF.Max(committedM, meantM);
+        var wantedM = MathF.Max(committedM, meantM * ReachShare(car));
         var lengthM = Cars.Line[car].LengthM;
         var wantedToM = MathF.Min(noseM + wantedM, lengthM);
         var committedToM = noseM + committedM;
@@ -119,6 +120,16 @@ internal sealed partial class TownWorld
         if (TheNextBox(car, noseM, out var mouthM, out var boxEndsAtM) && noseM >= mouthM)
         {
             planToM = MathF.Max(planToM, MathF.Min(boxEndsAtM + build.LengthM + standOffM, lengthM));
+        }
+
+        // <b>A manoeuvre at a bay is planned whole</b> (GEN-4f): into the space, or out of it and round onto the
+        // street — a car stood half across a street is a car the street queues behind while it waits on that
+        // queue. So it is not begun until the whole of it can be had (<see cref="LayTheDrive"/>), and once
+        // begun it is ground the car can no longer give back, which nothing takes.
+        if (Cars.LineWayOf(car) != CarFleet.NoWay)
+        {
+            planToM = lengthM;
+            if (Cars.ManoeuvreBegun[car]) committedToM = lengthM;
         }
 
         Cars.ClaimToM[car] = planToM;
@@ -206,16 +217,27 @@ internal sealed partial class TownWorld
             var reachM = _occupancy.Reach(AskOn(car, hold, way, rungs[index]), way.Way, way.ToM, way.FromM, out var cutBy);
             if (reachM >= way.ToM) continue;
 
-            return new PlanAnswer(OnTheLineM(way, reachM), KeptOffM(car, cutBy), cutBy, way.Way, index, reachM);
+            return new PlanAnswer(OnTheLineM(way, reachM), KeptOffM(car, cutBy, way.Way), cutBy, way.Way, index, reachM);
         }
 
         return PlanAnswer.Whole;
     }
 
     /// <summary><b>A car's plan laid</b> over what its answer left, and finished with what it came to.</summary>
+    /// <remarks>
+    /// <b>Or nothing at all, for a manoeuvre at a bay it cannot have the whole of before it begins</b> (GEN-4f):
+    /// the car waits where it stands, holding no more than its body does, and asks again the next rebuild. Laid
+    /// short, the piece it had would hold the street off a car that is not going to drive it.
+    /// </remarks>
     void LayTheDrive(
         int car, int hold, ReadOnlySpan<LineWay> ways, ReadOnlySpan<ClaimPriority> rungs, in PlanAnswer answer)
     {
+        if (WaitsForTheWholeWay(car, answer))
+        {
+            _occupancy.EndHold(hold, Cars.ClaimFromM[car], 0f, answer.CutBy, answer.CutOn);
+            return;
+        }
+
         for (var index = 0; index < ways.Length; index++)
         {
             ref readonly var way = ref ways[index];
@@ -245,12 +267,20 @@ internal sealed partial class TownWorld
         LevelTheRungs(car, ways[..count], rungs);
 
         var answer = AnswerTheDrive(car, hold, ways[..count], rungs);
-        if (answer.CutLineM == endsAtM) return false;
+        var laidToM = WaitsForTheWholeWay(car, answer) ? Cars.ClaimFromM[car] : answer.CutLineM;
+        if (laidToM == endsAtM) return false;
 
         _occupancy.ReopenHold(hold);
         LayTheDrive(car, hold, ways[..count], rungs, answer);
         return true;
     }
+
+    /// <summary>
+    /// Whether this answer leaves a car standing where it is: short of the end of a bay's way it has not yet
+    /// begun to drive (<see cref="CarFleet.ManoeuvreBegun"/>).
+    /// </summary>
+    bool WaitsForTheWholeWay(int car, in PlanAnswer answer) =>
+        Cars.LineWayOf(car) != CarFleet.NoWay && !Cars.ManoeuvreBegun[car] && answer.CutLineM < Cars.ClaimToM[car];
 
     /// <summary>The hold a car laid this rebuild, for an instrument asking what held it.</summary>
     public int DriveHold(int car) => _carHold[car];
@@ -280,7 +310,8 @@ internal sealed partial class TownWorld
     /// <b>How far a plan begun at <paramref name="fromM"/> may reach</b> (TER-4c.1): no further than any plan
     /// reaches (<see cref="Core.Config.DrivingFigures.PlanMostM"/>), nor than this car could stop from its own top
     /// speed, nor into the join past the last one it may pass that breaks its line
-    /// (<see cref="Core.Config.DrivingFigures.PlanMostJoins"/>).
+    /// (<see cref="Core.Config.DrivingFigures.PlanMostJoins"/>) — each of them <see cref="ReachShare"/> times over
+    /// for a call (AMB-4.5).
     /// </summary>
     /// <remarks>
     /// <b>A join the nose is already past the mouth of is not counted</b>: the car is in it, and a car in a box
@@ -288,20 +319,28 @@ internal sealed partial class TownWorld
     /// </remarks>
     float HorizonToM(int car, float fromM, in CarBuild build)
     {
-        var toM = fromM + MathF.Min(_config.Driving.PlanMostM, build.SightM);
+        var reach = ReachShare(car);
+        var toM = fromM + (MathF.Min(_config.Driving.PlanMostM, build.SightM) * reach);
         if (Cars.LineWayOf(car) != CarFleet.NoWay) return toM;
 
         var ends = Cars.LaneEndsOf(car);
         var breaks = Cars.JoinBreaksOf(car);
+        var mostJoins = (int)MathF.Round(_config.Driving.PlanMostJoins * reach);
         var passed = 0;
         for (var slot = 0; slot + 1 < Cars.Line[car].LaneCount && ends[slot] < toM; slot++)
         {
             if (ends[slot] <= fromM || !breaks[slot]) continue;
-            if (++passed > _config.Driving.PlanMostJoins) return ends[slot];
+            if (++passed > mostJoins) return ends[slot];
         }
 
         return toM;
     }
+
+    /// <summary>
+    /// <b>How many times further than any other driver this car plans</b> (AMB-4.5): a call's reach, and one for
+    /// everybody else.
+    /// </summary>
+    float ReachShare(int car) => Cars.BlueLight[car] ? _config.Ambulance.CallReachShare : 1f;
 
     /// <summary>One piece of a car's plan as the terms it is asked on.</summary>
     PlannedAsk AskOn(int car, int hold, in LineWay way, ClaimPriority rung) =>

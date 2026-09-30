@@ -104,9 +104,14 @@ has left its own way cannot safely go back. So it is asked for only where it can
 
 - **Only past a body at rest that is not making the asker's own movement**: not a pass itself, and not
   travelling that way on to the way the asker's own line takes next. Something waiting for what the asker
-  would wait for is a queue, and is never passed. **A line not yet laid past the way makes every movement**,
-  the holder's or the asker's: its holder is further than it can see from the way's end, so what holds it
-  there is on the way.
+  would wait for is a queue, and is never passed — **but by a holder on a call**, since what the queue waits
+  for is ground a call's rung takes. **A line not yet laid past the way makes every movement**, the holder's
+  or the asker's: its holder is further than it can see from the way's end, so what holds it there is on the
+  way.
+- **A holder on a call gets past traffic that is moving, too**, where it goes slower than the call means to:
+  what it gets past is then where that traffic can come to rest — the far end of the ground its plan says it
+  can no longer stop short of — and not where it stands, since the pass laid past it is what it is then held
+  short of. Never somebody on foot who is moving, who is crossing.
 - **Over the lane beside and back**: the asker's own line moved across onto the way running back beside it,
   and back onto that line past what it passes, with room there to come back into. **A junction is no end to
   one**: the line runs on through a box, and so does the pass, wherever its ground can be had.
@@ -115,7 +120,8 @@ has left its own way cannot safely go back. So it is asked for only where it can
   pass puts it and turned the way the pass turns it there, and whichever ways lie under those bodies are the
   ways it holds. It is laid on the network its holder travels and on no other — a car's on the ways the traffic
   drives, a walker's on the pavement — so neither holds the other's ground, and a pass whose body stands over
-  ground the holder's network does not have is a pass run off it, and is not asked for.
+  ground the holder's network does not have is a pass run off it, and is not asked for. **The paint of a zebra
+  is the one exception**, being the one ground the two share, and only a call's pass is ever over it (below).
 - **A movement through a box is held whole**, as a car in a box plans the rest of the join: held in part, a car
   crossing the box is let in and cut in the middle of it, standing over the pass's ground on the movement beside
   its own, the pass and it each waiting on the other. **Whole against plans and other passes, and against a body
@@ -128,13 +134,21 @@ has left its own way cannot safely go back. So it is asked for only where it can
   the kerb is aside too: the traffic holds it whole wherever it crosses (TER-5c.3). **A car asks with room to
   spare** — as far as it is let stray off its steps — and lays and keeps without it, so a pass clearing
   something by a hair is not asked one rebuild and withdrawn the next.
+- **A holder on a call asks at its call's rung** (`AMB-4.4`): a plan that rung beats holds none of the ground,
+  and the pass laid over it cuts it as it cuts the plans of what it passes. What still refuses it is a body, ground
+  a holder can no longer stop short of — what it passes among them — and another call's plan. **And a zebra is ground it may have**: its pass
+  holds the paint whole, kerb to kerb on every walking lane, as a plan over any of it does (TER-5c.3), so nobody
+  on foot steps onto it. Somebody already on the paint refuses nothing and withdraws nothing; the holder stands
+  short of the paint until nobody is on it, or, already over it, drives on off it — held on the paint, it would
+  stand across the way they walk, each waiting for the other.
 - **Asked for, laid, then kept or withdrawn once**, in the rebuild after: withdrawn where a body has stepped
   onto the ground since, and — of two passes asked over one ground on one tick — kept by the lower of the two
   by roster and occupant. Kept, it is never given up, and **what it has covered is given back as it goes**: it
   is laid from where its holder stands every rebuild.
 - **Whoever holds it plans from its far end**, the ground up to there being its own, and is held short of its
-  end by nothing but a body standing inside it. **And a pass holds nobody already standing on its ground**:
-  its holder is held off them instead, since held against each other the two would each wait for the other.
+  end by nothing but a body standing inside it, or on paint it crosses. **And a pass holds nobody already
+  standing on its ground**: its holder is held off them instead, since held against each other the two would
+  each wait for the other.
 
 How far a pass runs and how sharply it steps across is the holder's (`CAR-46`, `PER-28`); what it holds is
 this rule's.
@@ -160,7 +174,8 @@ it, and only something that beats it takes it.
 - **Nothing but the answer stops a plan.** A red is ground: the light holds its bar (`TLT-1`), and a plan
   refused there is one stretch that ends there, so a car waiting at a red holds none of the box beyond it. A
   zebra is ground too, cut where anything on it is like any other (TER-5c.3).
-- **A plan reaches as far as its holder means to be able to stop**, and no further. For a driver that is the
+- **A plan reaches as far as its holder means to be able to stop**, and no further — but for a call, which
+  means a stated multiple of it and may reach as much further (`AMB-4.5`). For a driver that is the
   ground it can no longer stop short of, the room to pull away, and — while it is moving — what it reaches over
   a stated run pulling up to the speed the road lets it plan for and a stop from there; a body at rest plans the
   room to pull away and nothing more, so a queue waiting at a junction plans none of the box. **A moving driver
@@ -242,7 +257,11 @@ work.
 order:
 
 1. **Ground its holder can no longer stop short of is taken by nothing.** A right of way orders who waits and
-   never who is driven into, so it beats every rung.
+   never who is driven into, so it beats every rung. **The metre at a holder's own front is such ground, at
+   rest as much as moving**: shared ground its front is already inside is ground it keeps, and what it places
+   from there across a mark is held whole — so a car let into a box and cut short in the middle of it drives on
+   out, and one stood with its nose on the paint drives on off it. It is the ladder's reading and no other: a
+   pass still takes the plan of a body at rest, which will cover nothing (TER-4c.6).
 2. **Then ground its holder is already standing on.** A plan over metres somebody's body is on cannot be
    driven until that body has left them, and held against that body it is two holders each waiting for the
    other.

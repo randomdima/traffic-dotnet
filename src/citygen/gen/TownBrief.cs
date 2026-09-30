@@ -100,10 +100,9 @@ internal sealed class TownBrief
     public int People { get; init; }
 
     /// <summary>
-    /// How many buildings the town plans (GEN-54). <b>It is what its car parks and its services are counted
-    /// off too</b> (<see cref="SimConfig.CarParksFor"/>, <see cref="SimConfig.HospitalsFor"/>, GEN-53,
-    /// GEN-55), so a map that grows carries the parking and the stations for what it grew into without
-    /// anybody authoring a second count.
+    /// How many buildings the town plans (GEN-54). <b>It is what its car parks are counted off too</b>
+    /// (<see cref="SimConfig.CarParksFor"/>, GEN-53), so a map that grows carries the parking for what it grew
+    /// into without anybody authoring a second count; its services are its districts' (GEN-56).
     /// </summary>
     /// <remarks>
     /// <b>A count the ground cannot carry is what fitted</b> (GEN-8): the buildings are stood along the

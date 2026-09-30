@@ -37,10 +37,10 @@ namespace TrafficSimulation.World.Parking;
 /// other line in the town.
 /// </para>
 /// <para>
-/// <b>A bay is an arm of a car park's junction</b> (GEN-4h), so every way here is laid over ground the road
-/// already has — the arm's own lanes and the movements onto and off them (<see cref="Build"/>). The road's
-/// lanes and these ways cover the same ground, and the atlas marks every pair of them that does, which is
-/// what holds a car on one off a body on the other.
+/// <b>A bay is an arm of a car park's junction</b> (GEN-4h), so every way here runs down the arm's own line
+/// and meets the street's own line, <b>turning between the two on the car's own circle</b> (<see cref="Build"/>).
+/// The road's lanes and these ways cover the same ground, and the atlas marks every pair of them that does,
+/// which is what holds a car on one off a body on the other.
 /// </para>
 /// </remarks>
 internal sealed class BayWays
@@ -58,6 +58,8 @@ internal sealed class BayWays
     readonly int[] _bay;
     readonly int[] _lane;
     readonly float[] _atLaneM;
+    readonly int[] _street;
+    readonly float[] _onTheStreetM;
     readonly float[] _lengthM;
     readonly float[] _drivenM;
     readonly bool[] _isEntry;
@@ -69,7 +71,7 @@ internal sealed class BayWays
 
     BayWays(
         int firstWay, int[] firstWayOfBay, int[] firstBayOfLane, int[] baysOffLane, int[] bay, int[] lane,
-        float[] atLaneM, float[] lengthM, float[] drivenM,
+        float[] atLaneM, int[] street, float[] onTheStreetM, float[] lengthM, float[] drivenM,
         bool[] isEntry, bool[] isNoseIn, int[] arcOffsets, ArcSeg[] arcs, Vector2[] atTheBayM)
     {
         _firstWay = firstWay;
@@ -79,6 +81,8 @@ internal sealed class BayWays
         _bay = bay;
         _lane = lane;
         _atLaneM = atLaneM;
+        _street = street;
+        _onTheStreetM = onTheStreetM;
         _lengthM = lengthM;
         _drivenM = drivenM;
         _isEntry = isEntry;
@@ -144,7 +148,7 @@ internal sealed class BayWays
     public Vector2 AtTheBayM(int way) => _atTheBayM[way - _firstWay];
 
     /// <summary>
-    /// <b>The other half of this way's pair</b> — one shape driven the other way (GEN-4f) — or
+    /// <b>The other half of this way's pair</b> — in and out of one standing off one lane (GEN-4f) — or
     /// <see cref="NoWay"/> where the lane laid only the one.
     /// </summary>
     public int PairOf(int way) => TheWay(BayOfWay(way), LaneOf(way), !IsEntry(way), IsNoseIn(way));
@@ -290,10 +294,51 @@ internal sealed class BayWays
     public int LaneOf(int way) => _lane[way - _firstWay];
 
     /// <summary>
-    /// And how far along that lane it does so — where a route down the lane runs out, and where a car
-    /// backing out lands. One metre for both of a pair, because it is one line.
+    /// And how far along that lane it does so — where a route down the lane runs out into a way in, and where
+    /// a way out lands, which is the lane's own end or start where it lands in the car park's box
+    /// (<see cref="OnTheStreetM"/>).
     /// </summary>
     public float AtLaneM(int way) => _atLaneM[way - _firstWay];
+
+    /// <summary>
+    /// <b>The street this way meets, as the lane a line down it is laid from</b>: the carriageway lane that
+    /// arrives at the car park on that side, whose line runs on straight through the box
+    /// (<see cref="ThroughTheBox"/>). A way in leaves it, and a way out lands on it — often inside the box,
+    /// where no lane runs.
+    /// </summary>
+    public int StreetOf(int way) => _street[way - _firstWay];
+
+    /// <summary>
+    /// And where along that line — the lane's own metres, run on past its end through the box. It is what a
+    /// car leaving a bay is seated on its street by (<c>TownWorld.TakeTheStreetOutOfTheBay</c>).
+    /// </summary>
+    public float OnTheStreetM(int way) => _onTheStreetM[way - _firstWay];
+
+    /// <summary>
+    /// <b>The lane a car on this one carries on to through a car park's box</b>, or <see cref="NoLane"/>:
+    /// the one movement off it that is not onto a bay's arm, since no junction turns a car back the way it
+    /// came (TER-5f).
+    /// </summary>
+    public static int ThroughTheBox(RoadGraph roads, int lane)
+    {
+        foreach (var onto in roads.LanesFrom(lane))
+        {
+            if (!roads.IsABayArm(onto)) return onto;
+        }
+
+        return NoLane;
+    }
+
+    /// <summary>And the lane a car arrives on this one from, the same way round.</summary>
+    static int IntoTheBox(RoadGraph roads, int lane)
+    {
+        foreach (var from in roads.LanesIntoJunction(roads.LaneFromJunction[lane]))
+        {
+            if (!roads.IsABayArm(from) && roads.ConnectorBetween(from, lane) != RoadGraph.NoConnector) return from;
+        }
+
+        return NoLane;
+    }
 
     /// <summary>
     /// <b>The way's own metres, end to end</b> — which for a way in runs past the pose a car comes to rest
@@ -333,26 +378,34 @@ internal sealed class BayWays
     public int MostArcs { get; private init; }
 
     /// <summary>
-    /// <b>The ways, read off the car parks the plan cut</b> (GEN-53, GEN-4h): a bay is its arm, the arm's two
-    /// lanes are the space driven in over and out over, and the car park's own movements are what join the
-    /// arm to the street. <b>Nothing here draws a curve</b> — every way is the town's lines, joined end to end
-    /// and, for the half driven in reverse, walked the other way.
+    /// <b>The ways, laid off the car parks the plan cut</b> (GEN-53, GEN-4h): a bay is its arm, and <b>every way
+    /// is the arm's line and the street's joined by one turn on the car's own circle</b>
+    /// (<see cref="SimConfig.CarParkingTemplateRadiusM"/>), at the corner the two lines make.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Nose in, the shape is the last of the lane the movement leaves, the movement onto the arm and the
-    /// arm</b>: driven forwards, and backed out over the same ground onto the same place. <b>Backed in, it is
-    /// the arm, the movement off it and the first of the lane it lands on</b>: driven out forwards, and
-    /// reversed in from there — so a car backing in has passed the car park and stands clear of its box before
-    /// it changes gear. <b>Either shape runs a staging length along its lane</b>
-    /// (<see cref="SimConfig.ParkingStagedInM"/>): a leg hands one line over to the next with the car at rest in
-    /// the last car length of it (<c>TownWorld.TheLineIsSpent</c>), and a way that ended on the turn would hand
-    /// a car over crosswise in the street.
+    /// <b>Not the car park's own movements.</b> Those are laid tighter than a car turns
+    /// (<see cref="SimConfig.CarParkTurnRadiusM"/>) and run from the edge of the box, so a way read off them
+    /// put a car through every metre of the box both ways: backing out of the furthest bay was the whole box
+    /// and a staging length beyond it, up the street against its own traffic.
     /// </para>
     /// <para>
-    /// <b>Only a way that crosses no oncoming stream is reversed over</b> (GEN-4j): the near side's, and
-    /// either side of a street that runs one way. Across the carriageway a car noses in and drives out, and
-    /// backs over neither.
+    /// <b>A way in leaves its lane where its turn begins, or at the lane's end where the turn is further on</b>
+    /// — a route stops on a lane and never inside a box (<see cref="LineAssembler.Assemble"/>), so a car bound
+    /// for a bay deeper in carries on straight across the box to its turn. <b>A way out runs a run-out along
+    /// the street past its turn</b> (<see cref="SimConfig.ParkingRunOutM"/>): a leg hands one line on with the
+    /// car at rest in the last car length of it (<c>TownWorld.TheLineIsSpent</c>), and a way that ended on the
+    /// turn would hand a car over crosswise in the street.
+    /// </para>
+    /// <para>
+    /// <b>Nose in, a car turns in forwards and backs out with its tail swung up the street</b>, so it stands
+    /// facing the way the street runs and pulls away. Backed in, it drives out forwards; nothing reverses in
+    /// (GEN-4j). <b>Only a way that crosses no oncoming stream is reversed over</b>: the near side's, and either
+    /// side of a street that runs one way.
+    /// </para>
+    /// <para>
+    /// <b>The turn is no wider than the room</b>, and where the room is tighter than the car park's own turn the
+    /// standing is not laid off that lane at all.
     /// </para>
     /// </remarks>
     public static BayWays Build(CityPlan plan, RoadGraph roads, SimConfig config)
@@ -361,7 +414,7 @@ internal sealed class BayWays
         var (armIn, armOut) = TheArms(parks, roads);
         var armOfLane = ArmsByLane(roads.LaneCount, armIn, armOut);
         var (turnsIn, turnsOut) = TheMovements(roads, armIn, armOut, armOfLane);
-        var laying = new Laying(roads, config, MostArcsOfAShape(roads), parks.Road.Length);
+        var laying = new Laying(roads, config, MostArcsThroughABox(roads), parks.Road.Length);
 
         for (var bay = 0; bay < parks.Road.Length; bay++)
         {
@@ -380,12 +433,17 @@ internal sealed class BayWays
     /// <b>The ways as they are laid, one bay at a time</b> — a bay's run of ways being contiguous is what
     /// <see cref="WayOf"/> reads them by.
     /// </summary>
-    sealed class Laying(RoadGraph roads, SimConfig config, int mostArcsOfAShape, int bays)
+    sealed class Laying(RoadGraph roads, SimConfig config, int mostArcsThroughABox, int bays)
     {
+        /// <summary>The most one way takes: the straight before its turn, the turn, and the straight after it.</summary>
+        const int ArcsOfAWay = 3;
+
         readonly int[] _firstWayOfBay = new int[bays + 1];
         readonly List<int> _bay = [];
         readonly List<int> _lane = [];
         readonly List<float> _atLaneM = [];
+        readonly List<int> _street = [];
+        readonly List<float> _onTheStreetM = [];
         readonly List<float> _lengthM = [];
         readonly List<float> _drivenM = [];
         readonly List<bool> _isEntry = [];
@@ -393,17 +451,19 @@ internal sealed class BayWays
         readonly List<int> _arcOffsets = [0];
         readonly List<ArcSeg> _arcs = [];
         readonly List<Vector2> _atTheBayM = [];
-        readonly ArcSeg[] _shape = new ArcSeg[mostArcsOfAShape];
-        readonly ArcSeg[] _reversed = new ArcSeg[mostArcsOfAShape];
+        readonly ArcSeg[] _shape = new ArcSeg[ArcsOfAWay];
+        readonly ArcSeg[] _streetLine = new ArcSeg[mostArcsThroughABox];
+        readonly int[] _streetLanes = new int[2];
+        readonly float[] _streetLaneStartM = new float[2];
+        readonly float[] _streetLaneEndM = new float[2];
+        readonly float _turnM = config.CarParkingTemplateRadiusM;
         int _mostArcs;
         int _space;
-        int _in;
-        int _out;
-        float _armM;
-        float _noseInM;
-        float _backedInM;
         Vector2 _noseInAxleM;
         Vector2 _backedInAxleM;
+        Vector2 _farEndM;
+        float _intoRad;
+        float _streetM;
 
         public void Begin(int bay)
         {
@@ -417,60 +477,183 @@ internal sealed class BayWays
         /// </summary>
         public void AtTheArm(int into, int outOf)
         {
-            _in = into;
-            _out = outOf;
-            _armM = roads.LaneLengthM[into];
-            _noseInM = BayTemplate.RearAxleIntoTheBayM(config.CarCentreAheadOfAxleM, _armM, noseIn: true);
-            _backedInM = MathF.Max(
+            var armM = roads.LaneLengthM[into];
+            var noseInM = BayTemplate.RearAxleIntoTheBayM(config.CarCentreAheadOfAxleM, armM, noseIn: true);
+            var backedInM = MathF.Max(
                 0f,
-                roads.LaneLengthM[outOf] - BayTemplate.RearAxleIntoTheBayM(config.CarCentreAheadOfAxleM, _armM, noseIn: false));
-            _noseInAxleM = Spline.SampleAt(roads.ArcsOf(into), _noseInM).PositionM;
-            _backedInAxleM = Spline.SampleAt(roads.ArcsOf(outOf), _backedInM).PositionM;
+                roads.LaneLengthM[outOf] - BayTemplate.RearAxleIntoTheBayM(config.CarCentreAheadOfAxleM, armM, noseIn: false));
+            _noseInAxleM = Spline.SampleAt(roads.ArcsOf(into), noseInM).PositionM;
+            _backedInAxleM = Spline.SampleAt(roads.ArcsOf(outOf), backedInM).PositionM;
+
+            var farEnd = Spline.SampleAt(roads.ArcsOf(into), armM);
+            _farEndM = farEnd.PositionM;
+            _intoRad = farEnd.HeadingRad;
         }
 
-        /// <summary>
-        /// The last of the lane, the movement onto the arm and the arm: in forwards, and out in reverse where that
-        /// crosses nothing.
-        /// </summary>
+        /// <summary>In forwards off the lane, and out backwards onto it where that crosses nothing.</summary>
         public void NoseIn(int connector)
         {
             var lane = roads.ConnectorFrom(connector);
-            var laneM = roads.LaneLengthM[lane];
-            var stagedM = MathF.Min(config.ParkingStagedInM, laneM);
-            var turnM = roads.ConnectorLengthM(connector);
+            var street = TheStreet(lane);
+            if (!TheCorner(street, _noseInAxleM, out var cornerM, out var depthM)) return;
 
-            var count = Spline.SubChainInto(roads.ArcsOf(lane), laneM - stagedM, laneM, _shape);
-            count = Append(_shape, count, roads.ConnectorArcs(connector));
-            count = Append(_shape, count, roads.ArcsOf(_in));
-            var inM = stagedM + turnM;
-            Add(lane, laneM - stagedM, _noseInAxleM, _shape.AsSpan(0, count), inM + _armM, inM + _noseInM, entry: true, noseIn: true);
+            // <b>Up to the far end of the space and driven as far as the pose</b> (GEN-4f), square in it for the
+            // last of that, and begun wherever the turn begins — or at the lane's end, where the car carries on
+            // across the box to a turn further on.
+            var squaresUpM = config.ParkingStraightensUpM;
+            var perM = PerRadiusM(Spline.WrapRad(_intoRad - Spline.SampleAt(street, cornerM).HeadingRad));
+            var startM = Math.Clamp(cornerM - (MathF.Min(_turnM, (depthM - squaresUpM) / perM) * perM), 0f, roads.LaneLengthM[lane]);
+            var start = Spline.SampleAt(street, startM);
+            var radiusM = TheTurnM(start.PositionM, start.HeadingRad, _noseInAxleM, _intoRad, squaresUpM);
+            var count = radiusM > 0f
+                ? Spline.StraightArcStraightInto(start.PositionM, start.HeadingRad, _farEndM, _intoRad, radiusM, _shape)
+                : 0;
+            if (count > 0)
+            {
+                var way = _shape.AsSpan(0, count);
+                var lengthM = LengthOf(way);
+                var drivenM = lengthM - Vector2.Distance(_farEndM, _noseInAxleM);
+                Add(lane, startM, lane, startM, _noseInAxleM, way, lengthM, drivenM, entry: true, noseIn: true);
+            }
 
             if (!BacksOverNothingOncoming(roads, connector, lane)) return;
 
-            count = Spline.SubChainInto(roads.ArcsOf(lane), laneM - stagedM, laneM, _shape);
-            count = Append(_shape, count, roads.ConnectorArcs(connector));
-            count += Spline.SubChainInto(roads.ArcsOf(_in), 0f, _noseInM, _shape.AsSpan(count));
-            Spline.ReverseInto(_shape.AsSpan(0, count), _reversed);
-            Add(lane, laneM - stagedM, _noseInAxleM, _reversed.AsSpan(0, count), inM + _noseInM, inM + _noseInM, entry: false, noseIn: true);
+            if (Out(street, _noseInAxleM, cornerM, depthM, upTheStreet: true, out var landingM, out count))
+            {
+                var way = _shape.AsSpan(0, count);
+                var lengthM = LengthOf(way);
+                var atLaneM = MathF.Min(landingM, roads.LaneLengthM[lane]);
+                Add(lane, atLaneM, lane, landingM, _noseInAxleM, way, lengthM, lengthM, entry: false, noseIn: true);
+            }
         }
 
         /// <summary>
-        /// The arm, the movement off it and the first of the lane it lands on, driven out forwards. <b>Never
-        /// reversed in</b>: a car backing in has driven past the car park first, and whoever was following it
-        /// stops at its tail — on the ground it has to reverse over, and waiting on it to move.
+        /// Out forwards onto the lane. <b>Never reversed in</b>: a car backing in has driven past the car park
+        /// first, and whoever was following it stops at its tail — on the ground it has to reverse over, and
+        /// waiting on it to move.
         /// </summary>
         public void BackedIn(int connector)
         {
             var lane = roads.ConnectorTo(connector);
-            var turnM = roads.ConnectorLengthM(connector);
-            var onM = MathF.Min(config.ParkingStagedInM, roads.LaneLengthM[lane]);
-            var armOutM = roads.LaneLengthM[_out];
+            var from = IntoTheBox(roads, lane);
+            if (from == NoLane || ThroughTheBox(roads, from) != lane) return;
 
-            var count = Spline.SubChainInto(roads.ArcsOf(_out), _backedInM, armOutM, _shape);
-            count = Append(_shape, count, roads.ConnectorArcs(connector));
-            count += Spline.SubChainInto(roads.ArcsOf(lane), 0f, onM, _shape.AsSpan(count));
-            var outM = armOutM - _backedInM + turnM + onM;
-            Add(lane, onM, _backedInAxleM, _shape.AsSpan(0, count), outM, outM, entry: false, noseIn: false);
+            var street = TheStreet(from);
+            if (!TheCorner(street, _backedInAxleM, out var cornerM, out var depthM)) return;
+            if (!Out(street, _backedInAxleM, cornerM, depthM, upTheStreet: false, out var landingM, out var count)) return;
+
+            var way = _shape.AsSpan(0, count);
+            var lengthM = LengthOf(way);
+            var atLaneM = Math.Clamp(landingM - _streetLaneStartM[1], 0f, roads.LaneLengthM[lane]);
+            Add(lane, atLaneM, from, landingM, _backedInAxleM, way, lengthM, lengthM, entry: false, noseIn: false);
+        }
+
+        /// <summary>
+        /// <b>A way out of the space from a pose in it</b>: out along the arm, round onto the street at the corner
+        /// the two lines make, and a run-out along it (<see cref="SimConfig.ParkingRunOutM"/>) — backwards up the
+        /// street where the car reverses out, and forwards down it where it drives out.
+        /// </summary>
+        bool Out(
+            ReadOnlySpan<ArcSeg> street, Vector2 poseM, float cornerM, float depthM, bool upTheStreet,
+            out float landingM, out int count)
+        {
+            count = 0;
+            landingM = cornerM;
+            var outRad = _intoRad + MathF.PI;
+            var alongRad = Spline.SampleAt(street, cornerM).HeadingRad + (upTheStreet ? MathF.PI : 0f);
+            var perM = PerRadiusM(Spline.WrapRad(alongRad - outRad));
+            var runM = (MathF.Min(_turnM, depthM / perM) * perM) + config.ParkingRunOutM;
+            var landing = default(SplineSample);
+            var landRad = 0f;
+            var radiusM = 0f;
+
+            // <b>The run-out is exact and the corner is not</b>: read abeam of the pose, it is where the street's
+            // line was there, and a street may bend a little between that and where the car lands. Each pass
+            // lands the car, measures the straight the turn actually leaves it, and moves the landing by the
+            // difference.
+            for (var pass = 0; pass < LandingPasses; pass++)
+            {
+                landingM = upTheStreet ? cornerM - runM : cornerM + runM;
+                if (landingM < 0f || landingM > _streetM) return false;
+
+                landing = Spline.SampleAt(street, landingM);
+                landRad = landing.HeadingRad + (upTheStreet ? MathF.PI : 0f);
+                if (!Spline.ToTheCorner(poseM, outRad, landing.PositionM, landRad, out var turnRad, out var beforeM, out var toLandingM))
+                {
+                    return false;
+                }
+
+                perM = PerRadiusM(turnRad);
+                radiusM = MathF.Min(_turnM, beforeM / perM);
+                runM += config.ParkingRunOutM - (toLandingM - (radiusM * perM));
+            }
+
+            if (radiusM < config.CarParkTurnRadiusM) return false;
+
+            count = Spline.StraightArcStraightInto(poseM, outRad, landing.PositionM, landRad, radiusM, _shape);
+            return count > 0;
+        }
+
+        /// <summary>
+        /// How many times a way out's landing is moved onto its run-out — each pass takes the error in the one
+        /// before down by the street's bend over the few metres the two landings stand apart.
+        /// </summary>
+        const int LandingPasses = 3;
+
+        /// <summary>
+        /// <b>The street's own line on one side of the car park</b>: the lane that arrives at it, run on through
+        /// the box onto the lane it carries straight on to (<see cref="ThroughTheBox"/>), measured from that
+        /// first lane's own nought as <see cref="OnTheStreetM"/> is.
+        /// </summary>
+        ReadOnlySpan<ArcSeg> TheStreet(int lane)
+        {
+            _streetLanes[0] = lane;
+            var lanes = 1;
+            if (ThroughTheBox(roads, lane) is var onward and not NoLane) _streetLanes[lanes++] = onward;
+
+            var laid = LineAssembler.Assemble(
+                roads, _streetLanes.AsSpan(0, lanes), _streetLine, _streetLaneStartM, _streetLaneEndM);
+            _streetM = laid.LengthM;
+            return _streetLine.AsSpan(0, laid.ArcCount);
+        }
+
+        /// <summary>
+        /// <b>Where the arm's line crosses the street's</b>, as a metre of the street, and how deep into the space
+        /// the pose stands past it — read off the street abeam of the pose, which is where a street straight
+        /// enough to carry a car park (GEN-53) is still the line the turn is made onto.
+        /// </summary>
+        bool TheCorner(ReadOnlySpan<ArcSeg> street, Vector2 poseM, out float cornerM, out float depthM)
+        {
+            var abeamM = Spline.ProjectM(street, poseM, 0f, _streetM);
+            var abeam = Spline.SampleAt(street, abeamM);
+            var crosses = Spline.ToTheCorner(abeam.PositionM, abeam.HeadingRad, poseM, _intoRad, out _, out var aheadM, out depthM);
+            cornerM = abeamM + aheadM;
+            return crosses;
+        }
+
+        /// <summary>
+        /// <b>The widest turn that fits between two poses</b>, up to the car's own circle and leaving
+        /// <paramref name="afterM"/> of straight past it — or nought where only a turn tighter than the car park's
+        /// own would (<see cref="SimConfig.CarParkTurnRadiusM"/>).
+        /// </summary>
+        float TheTurnM(Vector2 fromM, float fromRad, Vector2 toM, float toRad, float afterM)
+        {
+            if (!Spline.ToTheCorner(fromM, fromRad, toM, toRad, out var turnRad, out var beforeM, out var toCornerM)) return 0f;
+
+            var perM = PerRadiusM(turnRad);
+            var radiusM = MathF.Min(_turnM, MathF.Min(beforeM, toCornerM - afterM) / perM);
+            return radiusM >= config.CarParkTurnRadiusM ? radiusM : 0f;
+        }
+
+        /// <summary>How far a turn through this angle stands off the corner, per metre of its radius.</summary>
+        static float PerRadiusM(float turnRad) => MathF.Abs(MathF.Tan(turnRad * 0.5f));
+
+        static float LengthOf(ReadOnlySpan<ArcSeg> way)
+        {
+            var lengthM = 0f;
+            foreach (var arc in way) lengthM += arc.LengthM;
+
+            return lengthM;
         }
 
         public BayWays Into(int firstWay, int[] armOfLane)
@@ -480,20 +663,22 @@ internal sealed class BayWays
 
             return new BayWays(
                 firstWay, _firstWayOfBay, firstBayOfLane, baysOffLane, [.. _bay], [.. _lane], [.. _atLaneM],
-                [.. _lengthM], [.. _drivenM], [.. _isEntry], [.. _isNoseIn], [.. _arcOffsets], [.. _arcs],
-                [.. _atTheBayM])
+                [.. _street], [.. _onTheStreetM], [.. _lengthM], [.. _drivenM], [.. _isEntry], [.. _isNoseIn],
+                [.. _arcOffsets], [.. _arcs], [.. _atTheBayM])
             {
                 MostArcs = _mostArcs, OffTheRoad = roads, SpaceWidthM = config.ParkingSpaceWidthM, ArmOfLane = armOfLane,
             };
         }
 
         void Add(
-            int lane, float onLaneM, Vector2 axleM, ReadOnlySpan<ArcSeg> line, float lengthM, float drivenM,
-            bool entry, bool noseIn)
+            int lane, float onLaneM, int street, float onTheStreetM, Vector2 axleM, ReadOnlySpan<ArcSeg> line,
+            float lengthM, float drivenM, bool entry, bool noseIn)
         {
             _bay.Add(_space);
             _lane.Add(lane);
             _atLaneM.Add(onLaneM);
+            _street.Add(street);
+            _onTheStreetM.Add(onTheStreetM);
             _atTheBayM.Add(axleM);
             _lengthM.Add(lengthM);
             _drivenM.Add(drivenM);
@@ -562,10 +747,10 @@ internal sealed class BayWays
     }
 
     /// <summary>
-    /// The most pieces one shape can take: the longest arm, the longest movement and the longest stretch of
-    /// lane a backed-in way is carried on down — each bounded by the most any one line of the town took.
+    /// The most pieces a street's line through a car park can take (<see cref="Laying.TheStreet"/>): two lanes
+    /// and the movement between them, each bounded by the most any one line of the town took.
     /// </summary>
-    static int MostArcsOfAShape(RoadGraph roads)
+    static int MostArcsThroughABox(RoadGraph roads)
     {
         var mostLane = 0;
         for (var lane = 0; lane < roads.LaneCount; lane++) mostLane = Math.Max(mostLane, roads.ArcsOf(lane).Length);
@@ -577,12 +762,6 @@ internal sealed class BayWays
         }
 
         return (2 * mostLane) + mostTurn;
-    }
-
-    static int Append(ArcSeg[] into, int count, ReadOnlySpan<ArcSeg> arcs)
-    {
-        arcs.CopyTo(into.AsSpan(count));
-        return count + arcs.Length;
     }
 
     /// <summary>

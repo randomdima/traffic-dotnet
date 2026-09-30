@@ -206,6 +206,7 @@ internal sealed partial class TownWorld
         Cars.AlongMps[car] = alongMps;
         Cars.OffLineM[car] = CarFollower.OffLineM(line, rearAxleM, progressM);
         Cars.GroundCoefficient[car] = _terrain.At(pose.PositionM).Coefficient;
+        if (MathF.Abs(alongMps) > _config.Driving.StopSpeedMps) Cars.ManoeuvreBegun[car] = true;
 
         Cars.CommittedToTheBox[car] = false;
 
@@ -312,33 +313,27 @@ internal sealed partial class TownWorld
     {
         if (!_terrain.At(rearAxleM).Drivable) return;
 
-        var lane = _roads.NearestStreetLane(rearAxleM, out var alongM);
-        if (lane < 0) return;
-
         var forward = ForwardOf(car);
-        if (Vector2.Dot(Spline.SampleAt(_roads.ArcsOf(lane), alongM).Direction, forward) <= 0f)
-        {
-            lane = _roads.LaneReverse[lane];
-            if (lane < 0) return;
+        var under = TheCarriagewayUnder(rearAxleM, forward);
+        if (under.Lane < 0) return;
+        if ((under.At.PositionM - rearAxleM).Length() > _config.CarOffPathM * OffLineTolerance) return;
+        if (Vector2.Dot(under.At.Direction, forward) <= 0f) return;
 
-            var arcs = _roads.ArcsOf(lane);
-            alongM = Spline.ProjectM(arcs, rearAxleM, _roads.LaneLengthM[lane] * 0.5f, _roads.LaneLengthM[lane]);
+        // <b>The same lanes taken again are not a line to lay again.</b> A body that has come to rest off
+        // its line is asked this every tick until something moves it, and laying the line means searching
+        // the network for the route behind it — the same answer, from the same lanes, for as long as the
+        // car stands there. What has to keep up is where the body is on it, which is arithmetic.
+        Cars.ProgressM[car] = under.AlongM;
+        var chain = Cars.ChainOf(car);
+        var lanes = Cars.Line[car].LaneCount;
+        if (lanes > 0 && chain[0] == under.Lane
+            && (under.Onward == CarFleet.NoLane || (lanes > 1 && chain[1] == under.Onward)))
+        {
+            return;
         }
 
-        var onto = Spline.SampleAt(_roads.ArcsOf(lane), alongM);
-        if ((onto.PositionM - rearAxleM).Length() > _config.CarOffPathM * OffLineTolerance) return;
-        if (Vector2.Dot(onto.Direction, forward) <= 0f) return;
-
-        // <b>The same lane taken again is not a line to lay again.</b> A body that has come to rest off
-        // its line is asked this every tick until something moves it, and laying the line means searching
-        // the network for the route behind it — the same answer, from the same lane, for as long as the
-        // car stands there. What has to keep up is where the body is on it, which is arithmetic.
-        Cars.ProgressM[car] = alongM;
-        if (Cars.ChainOf(car)[0] == lane && Cars.Line[car].LaneCount > 0) return;
-
-        Cars.ChainOf(car)[0] = lane;
-        LayLine(car, 1);
-        Cars.ProgressM[car] = alongM;
+        LayLine(car, TheChainFrom(car, under));
+        Cars.ProgressM[car] = under.AlongM;
         LinesReacquired++;
     }
 

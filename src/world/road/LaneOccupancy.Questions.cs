@@ -85,6 +85,23 @@ internal sealed partial class LaneOccupancy
     public bool AnyBodyOver(int way, float fromM, float toM, int excluding, LaneRoster excludingOf) =>
         AheadBody(way, fromM, toM, excluding, out _, excludingOf);
 
+    /// <summary>The nearest body of one roster over a stretch of one way.</summary>
+    public bool AheadBodyOf(LaneRoster of, int way, float fromM, float toM, out LaneClaim found)
+    {
+        for (var at = _bodies[way]; at != NoSlot; at = _next[at])
+        {
+            ref readonly var body = ref _slots[at];
+            if (body.FromM >= toM) break;
+            if (body.Of != of || body.ToM <= fromM) continue;
+
+            found = body;
+            return true;
+        }
+
+        found = LaneClaim.Nothing;
+        return false;
+    }
+
     /// <summary>
     /// <b>Whether a stretch of one way is free for a pass</b> (TER-4c.6): no body over it but the asker's own,
     /// and — where <paramref name="plansToo"/> — no ground any other holder plans to use.
@@ -116,13 +133,13 @@ internal sealed partial class LaneOccupancy
             return false;
         }
 
-        return !plansToo || IsUnplannedForAPass(way, fromM, toM, occupant, of, passed);
+        return !plansToo || IsUnplannedForAPass(way, fromM, toM, occupant, of, passed, PassTerms.Plain);
     }
 
     /// <summary>
     /// <b>Whether a car's pass is free over a way it holds more of than its body sweeps</b> (TER-4c.6) — a movement
     /// through a box, held whole: no body but the asker's where its body goes, no other pass over any of what it
-    /// holds, and no ground another holder plans there but what it passes.
+    /// holds, and no ground another holder plans there but what it passes and what its terms take.
     /// </summary>
     /// <remarks>
     /// <b>A body is read where the pass's body goes, and a plan wherever the pass holds</b>: a movement is held whole
@@ -132,17 +149,17 @@ internal sealed partial class LaneOccupancy
     /// </remarks>
     public bool IsFreeForAPass(
         int way, float sweptFromM, float sweptToM, float heldFromM, float heldToM, int occupant, LaneRoster of,
-        ReadOnlySpan<LaneClaim> passed)
+        ReadOnlySpan<LaneClaim> passed, in PassTerms terms)
     {
         for (var at = _bodies[way]; at != NoSlot; at = _next[at])
         {
             ref readonly var body = ref _slots[at];
             if (body.FromM >= heldToM) break;
-            if (body.ToM <= heldFromM || (body.Occupant == occupant && body.Of == of)) continue;
+            if (body.ToM <= heldFromM || (body.Occupant == occupant && body.Of == of) || terms.WaitsFor(body)) continue;
             if (body.Passing || (body.ToM > sweptFromM && body.FromM < sweptToM)) return false;
         }
 
-        return IsUnplannedForAPass(way, heldFromM, heldToM, occupant, of, passed);
+        return IsUnplannedForAPass(way, heldFromM, heldToM, occupant, of, passed, terms);
     }
 
     /// <summary>
@@ -159,20 +176,44 @@ internal sealed partial class LaneOccupancy
         return false;
     }
 
-    /// <summary>Whether no holder but the asker and what it passes plans any of a stretch of one way.</summary>
+    /// <summary>
+    /// Whether no holder but the asker and what it passes plans any of a stretch of one way — nothing, that is, but
+    /// what the pass's terms take.
+    /// </summary>
     bool IsUnplannedForAPass(
-        int way, float fromM, float toM, int occupant, LaneRoster of, ReadOnlySpan<LaneClaim> passed)
+        int way, float fromM, float toM, int occupant, LaneRoster of, ReadOnlySpan<LaneClaim> passed,
+        in PassTerms terms)
     {
         for (var at = _planned[way]; at != NoSlot; at = _next[at])
         {
             ref readonly var piece = ref _slots[at];
             if (piece.FromM >= toM) break;
-            if (piece.ToM <= fromM || IsOneOf(piece, occupant, of, passed)) continue;
+            if (piece.ToM <= fromM || (piece.Occupant == occupant && piece.Of == of)) continue;
+            if (terms.Takes(piece, MathF.Max(fromM, piece.FromM), IsOneOf(piece, occupant, of, passed))) continue;
 
             return false;
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// <b>Where a holder travelling a way can come to rest on it</b>: the far end of its body there, or of the
+    /// ground its plan on the way says it can no longer stop short of, whichever is further — past the way's own
+    /// end where that ground runs on off it.
+    /// </summary>
+    public float StopsByM(int way, in LaneClaim body)
+    {
+        var stopsM = body.ToM;
+        for (var at = _planned[way]; at != NoSlot; at = _next[at])
+        {
+            ref readonly var piece = ref _slots[at];
+            if (piece.Occupant != body.Occupant || piece.Of != body.Of || piece.Secondary) continue;
+
+            stopsM = MathF.Max(stopsM, piece.CommittedToM);
+        }
+
+        return stopsM;
     }
 
     /// <summary>
@@ -185,21 +226,22 @@ internal sealed partial class LaneOccupancy
     /// holders read one layer, so the one comparison gives both of them one answer and exactly one withdraws.
     /// </remarks>
     public bool KeepsItsPass(int way, float fromM, float toM, int occupant, LaneRoster of) =>
-        KeepsItsPass(way, fromM, toM, fromM, toM, occupant, of);
+        KeepsItsPass(way, fromM, toM, fromM, toM, occupant, of, PassTerms.Plain);
 
     /// <summary>
     /// And the same over a way the pass holds more of than its body sweeps — a movement through a box, held whole:
-    /// a body where the pass's body goes, and another pass anywhere it holds
-    /// (<see cref="IsFreeForAPass(int, float, float, float, float, int, LaneRoster, ReadOnlySpan{LaneClaim})"/>).
+    /// a body where the pass's body goes but one its terms wait for, and another pass anywhere it holds
+    /// (<see cref="IsFreeForAPass(int, float, float, float, float, int, LaneRoster, ReadOnlySpan{LaneClaim}, in PassTerms)"/>).
     /// </summary>
     public bool KeepsItsPass(
-        int way, float sweptFromM, float sweptToM, float heldFromM, float heldToM, int occupant, LaneRoster of)
+        int way, float sweptFromM, float sweptToM, float heldFromM, float heldToM, int occupant, LaneRoster of,
+        in PassTerms terms)
     {
         for (var at = _bodies[way]; at != NoSlot; at = _next[at])
         {
             ref readonly var body = ref _slots[at];
             if (body.FromM >= heldToM) break;
-            if (body.ToM <= heldFromM || (body.Occupant == occupant && body.Of == of)) continue;
+            if (body.ToM <= heldFromM || (body.Occupant == occupant && body.Of == of) || terms.WaitsFor(body)) continue;
             if (body.Passing)
             {
                 if (body.Of > of || (body.Of == of && body.Occupant > occupant)) continue;

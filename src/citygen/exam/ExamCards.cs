@@ -484,7 +484,32 @@ internal static class ExamCards
         Card("Getting past a car stood in its lane", ExamFamily.Queues, ExamShape.Crossroads,
             "A car behind one stood in its lane goes round it over the free lane beside, and on through the junction.",
             Pass, [Stands(South, BackM), Drives(South, North, FarM)], []),
+        Card("A car on a call gets past a queue at a red", ExamFamily.Emergency, ExamShape.Crossroads,
+            "A car on a call behind a queue waiting at a red goes round the whole of it over the free lane beside, the "
+            + "paint and the box, and is through before its head.", $"{Call}, {Pass}, {Light}",
+            [
+                Queued(0), Queued(1), Queued(2), Queued(3), Queued(4),
+                Siren(South, North, QueueCallBackM, ExamStart.OnRed, FurthestM),
+            ],
+            [Before(5, 0)]) with { Lit = true },
     ];
+
+    /// <summary>
+    /// The <paramref name="place"/>th car from the head of a queue waiting at a red on the south arm: stood
+    /// <see cref="QueuedApartM"/> further back than the one in front and sent that much less far on, so none is
+    /// stood on its place in the lane of one still to come.
+    /// </summary>
+    static ExamDriver Queued(int place) =>
+        OnRed(South, North, AheadM + (place * QueuedApartM), WellPastM - (place * QueuedApartM));
+
+    /// <summary>How far apart two cars of a queue are stood, and their places are: a car and its stand-off, and over.</summary>
+    const float QueuedApartM = 8f;
+
+    /// <summary>
+    /// How far back a car on a call stands behind a queue it gets past: behind the last of it, and far enough
+    /// that the queue has closed up at the bar before it comes up.
+    /// </summary>
+    const float QueueCallBackM = 95f;
 
     /// <summary>A car gets past a body going nowhere in its lane, over the lane beside where that is free.</summary>
     const string Pass = "CAR-46, TER-4c.6";
@@ -516,8 +541,8 @@ internal static class ExamCards
     /// </summary>
     const float OnTheRingFirstS = 4f;
 
-    static ExamDriver OnRed(ExamArm from, ExamArm to, float backM = BackM) =>
-        new(from, to, backM, RunOnM, ExamStart.OnRed, 0f, Emergency: false, Parked: false);
+    static ExamDriver OnRed(ExamArm from, ExamArm to, float backM = BackM, float runOnM = RunOnM) =>
+        new(from, to, backM, runOnM, ExamStart.OnRed, 0f, Emergency: false, Parked: false);
 
     static ExamDriver OnGreen(ExamArm from, ExamArm to, float backM = BackM, float runOnM = RunOnM) =>
         new(from, to, backM, runOnM, ExamStart.OnGreen, 0f, Emergency: false, Parked: false);

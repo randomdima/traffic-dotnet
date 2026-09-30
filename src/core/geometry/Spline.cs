@@ -1030,7 +1030,7 @@ internal static class Spline
     /// The turn between two poses and where the point their two lines cross stands — how far ahead of the
     /// first, and how far behind the second — or false where the lines are parallel or facing.
     /// </summary>
-    static bool ToTheCorner(
+    public static bool ToTheCorner(
         Vector2 fromM, float fromHeadingRad, Vector2 toM, float toHeadingRad, out float turnRad,
         out float fromCornerM, out float cornerToM)
     {

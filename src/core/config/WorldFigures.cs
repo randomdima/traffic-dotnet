@@ -347,13 +347,12 @@ internal sealed class RoadFigures
     public float ParkingSpaceSideMarginInCarWidths { get; init; } = 0.25f;
 
     /// <summary>
-    /// <b>How much of its street lane a bay's way runs along</b> (GEN-4f): the last of the lane a car noses in
-    /// off and the first of the lane a car backs in from and drives out onto. <b>More than a car</b>, because a
-    /// line is handed over with the car at rest in its last car length, and a way that ended on the turn
-    /// would hand a car over crosswise in the street; <b>not much more</b>, because a car backing in reverses
-    /// the whole of it.
+    /// <b>How far along its street a way out of a bay runs past its turn</b> (GEN-4f). <b>The longest vehicle's
+    /// length</b>, because a line is handed over with the car at rest anywhere in its last car length, and a way
+    /// that ended on the turn would hand a car over crosswise in the street; <b>and no more</b>, because a car
+    /// reversing out drives all of it backwards up the street before it pulls away.
     /// </summary>
-    public float ParkingStagedInCarLengths { get; init; } = 2f;
+    public float ParkingRunOutInCarLengths { get; init; } = 1.1f;
 
     /// <summary>
     /// <b>The least straight a parking template may end on</b>, so it does not end with the rack still

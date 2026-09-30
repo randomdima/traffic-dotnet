@@ -21,6 +21,18 @@ internal enum BuildingUse : byte
     /// <summary>A police station: where its patrol cars stand between beats (SRV-1).</summary>
     PoliceStation = 2,
 
-    /// <summary>A repair shop: where the evacuator waits, and the yard it brings a wreck back to (SRV-1, EVA-2).</summary>
+    /// <summary>A repair shop: where its evacuators wait, and the yard they bring a wreck back to (SRV-1, EVA-2).</summary>
     Depot = 3,
+}
+
+/// <summary><b>The service buildings a town is laid with</b> (GEN-56): one of each use in every district.</summary>
+internal static class ServiceBuildings
+{
+    /// <summary>The uses a district stands one of, in the order their yards are cut.</summary>
+    public static ReadOnlySpan<BuildingUse> Uses => [BuildingUse.Hospital, BuildingUse.PoliceStation, BuildingUse.Depot];
+
+    /// <summary>How many buildings of one use a town asks for: one a district, and none where it plans no building.</summary>
+    public static int OfEachUse(int buildings, DistrictWheel districts) => buildings > 0 ? districts.Count : 0;
+
+    public static int OfEachUse(CityPlan plan) => OfEachUse(plan.Buildings.Count, plan.Districts);
 }

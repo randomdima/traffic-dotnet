@@ -67,7 +67,7 @@ retired number, which the owning slice's log records.
 | `AGT-5`, `AGT-7` | The terminal state; every leg bounded | [requirements.md](requirements.md#agents) |
 | `VER-1…12` | What must be demonstrated | [verification.md](verification.md) |
 | `SIM-3`, `SIM-4`, `SIM-8`, `AGT-6` | Units, the two seeds, the one grid, where randomness comes from | [core](../src/core/docs/requirements.md) |
-| `GEN-1…3`, `GEN-5…19`, `GEN-46…55` | The brief and the maps, laying a town, buildings and their uses, lane width, water and bridges, one-way streets, roundabouts, junctions as connection points and movements, no dangling lane, car parks cut into a road, where a building stands and which are services | [citygen](../src/citygen/docs/requirements.md) |
+| `GEN-1…3`, `GEN-5…19`, `GEN-46…56` | The brief and the maps, laying a town, buildings and their uses, lane width, water and bridges, one-way streets, roundabouts, junctions as connection points and movements, no dangling lane, car parks cut into a road, where a building stands, which are services and the district each serves | [citygen](../src/citygen/docs/requirements.md) |
 | `TER-1…3d`, `TER-7…7b`, `PHY-8` | The ground, the pavement and its kerb, water and decks, and the stack of layers the mesh is | [world/terrain](../src/world/terrain/docs/requirements.md) |
 | `TER-4`, `TER-4a`, `TER-4b`, `TER-4d`, `TER-5…5b`, `TER-5d`, `TER-5d.1`, `TER-5f`, `TER-5i`, `TER-6`, `TER-6a` | Roads, junctions, crossings, paint and the arrow a lane carries | [world/road](../src/world/road/docs/requirements.md) |
 | `TER-4c…4c.7`, `TER-5c…5c.3`, `TER-5e`, `TER-5g`, `TER-5g.1` | The ribbon atlas and its marks, a zebra held whole, where the bodies are, the ground a pass covers, where they mean to be, the ground a car backs up over, right of way and the ladder | [world/road/claims](../src/world/road/docs/claims.md) |
@@ -79,7 +79,7 @@ retired number, which the owning slice's log records.
 | `CAR-1…15b`, `CAR-45`, `CAR-46`, `CAR-50`, `S-1…7`, `S-2a` | The driver and its leg, getting past what stands in its lane and backing up for the room to, the car, its controls, its tyres and its lamps, and the standing rules every tick answers to | [agents/car](../src/agents/car/docs/requirements.md) |
 | `PER-1`, `PER-3`, `PER-6…9`, `PER-11`, `PER-18`, `PER-23`, `PER-25…28` | The walker, its route, its body and its plan, the one rung it plans at, getting past somebody standing on its way, the trip and what a car does to it | [agents/person](../src/agents/person/docs/requirements.md) |
 | `AMB-1…10` | Hospitals, the apron of ambulances, the priority a call carries, the rescue and the standoff it stops at | [agents/ambulance](../src/agents/ambulance/docs/requirements.md) |
-| `SRV-1…11` | Police stations and depots, what a service vehicle is and the officer a police car carries, what a wrecked one costs, the beat, the station's parking a police car starts on, and the road it closes by standing at its entrances with those lanes out of every route | [agents/service](../src/agents/service/docs/requirements.md) |
+| `SRV-1…11` | Police stations and depots, what a service vehicle is and the crew it carries, what a wrecked one costs, the district beat half of every fleet drives, the station's parking a police car starts on, and the road it closes by standing at its entrances with those lanes out of every route | [agents/service](../src/agents/service/docs/requirements.md) |
 | `EVA-1…8` | The wreck as a call, a depot's yard, the recovery, the tow's priority, the arm and the set-down | [agents/evacuator](../src/agents/evacuator/docs/requirements.md) |
 | `TLT-1…4` | The signal agent and its cycle | [agents/trafficlight](../src/agents/trafficlight/docs/requirements.md) |
 | `OBS-1…1c` | The camera | [app/camera](../src/app/camera/docs/requirements.md) |
@@ -102,11 +102,11 @@ owning slice's log; this list says only what is absent now and what closes it.
 - **An arm still dangles** (`GEN-50`): a bay's arm is a lane of the road graph that ends at a node nothing
   leaves. It is driven only as the bay's own ways and never as a lane (`GEN-4h`), which is what keeps it from
   mattering, and it is the one exemption `GEN-50` is asked with.
-- **One errand is worked on foot and the rest are not.** No leg of a trip is driven (`PER-11`), and only a
-  police car carries a crew — its officer, who stands at a closure's mouth (`SRV-11`). The other errands that
-  had a body working them cover the ground another way: a casualty is taken aboard at the ambulance's standoff
-  by a placement (`AMB-10`), and a wreck is hitched and set down from the truck (`EVA-5`, `EVA-6`). **Nobody
-  wears the paramedic's or the recovery crew's uniform** (`SRV-3a`), since nobody is named to.
+- **One errand is worked on foot and the rest are not.** No leg of a trip is driven (`PER-11`), and every
+  service vehicle carries a crew (`SRV-3`), but only a police car's officer ever gets out — to stand at a
+  closure's mouth (`SRV-11`). The other errands that had a body working them cover the ground another way,
+  their crews in their seats: a casualty is taken aboard at the ambulance's standoff by a placement
+  (`AMB-10`), and a wreck is hitched and set down from the truck (`EVA-5`, `EVA-6`).
 - **A car is neither brought back nor turned round.** A car whose rear axle is off drivable ground gives
   its leg up; on the road it takes the nearest lane only where that runs its way (`CAR-9`). There is no
   straight back onto the carriageway and no reversing out of a jam, and a car routed into a dead end stands

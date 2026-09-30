@@ -140,7 +140,7 @@ internal static class TownGenerator
         // done to a layout: a cut road's arms are its line's own, so nothing may be offered to the layout
         // after one (<see cref="CutJunctions"/>).
         var carPark = new Rng(brief.Seed, CarParkStream);
-        var carParks = CarParks.Lay(layout, brief, config, districts.HubM, ref carPark);
+        var carParks = CarParks.Lay(layout, brief, config, districts.Wheel, sizes, ref carPark);
         Took("car parks");
 
         var signals = new Rng(brief.Seed, SignalStream);
@@ -182,6 +182,7 @@ internal static class TownGenerator
             Name = brief.Name,
             WorldSizeM = new Vector2(brief.WidthM, brief.HeightM),
             PavementWidthM = config.PavementWidthM,
+            Districts = districts.Wheel,
             Junctions = roads.Junctions,
             JunctionCorners = roads.Corners,
             Roads = roads.Roads,

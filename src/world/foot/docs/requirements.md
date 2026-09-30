@@ -137,7 +137,16 @@ line to the kerb — so a body steps onto a crossing and off it without pivoting
 the paint do not already cover. **Where no place on the course turns that tight onto the paint** — a course
 rounded well back from a tight corner — the connection is the curve straight from the hand-over point, laid
 only where its band stays off the road. **What neither joins is a movement the place does not offer** and is
-not laid. A connection between two crossings merged into one place is the same turn between their two lines.
+not laid. A connection between two crossings merged into one place is the same turn between their two lines,
+**widened as far as the two fit where the tight one would leave the walk**; where no turn stays on it, it is the
+lane's own course between them — up one paint, one turn onto the course, one turn off it down the other — and
+last the curve straight from one paint to the other.
+
+**No connection goes beyond the pavement.** Whatever shape it takes, its band stands off the verge the whole
+way — no further past the walk's outer face than a touch, the face the ground answers the walk off (TER-3c.3) —
+and a shape that would leave it is not laid. So where two crossings stand back from a corner further than the
+walk is wide, the walk between them goes round the corner on the pavement rather than across the grass the
+two paint lines meet on.
 Where the walk turns a corner within a weld of a hand-over point the place carries two headings, and the
 corner there is the pavement's own rather than the connection's.
 

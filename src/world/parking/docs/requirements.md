@@ -68,16 +68,26 @@ given ground on.
 
 ## The ways at a bay, and which way round a car stands in it
 
-**GEN-4f** `P4` **A bay is reached over the town's own ways, and the way in is the way out.** A bay's ways are
-carried per standing and per lane as a pair — in from the lane, and out to it (`BayWays.PairOf`) — and each
-is one of the town's own ways: numbered with the rest, carrying metres of its own, in the table of what is
-driven over what (`TER-5c`) and driven as a line like any other (`CAR-15`). So a car working into a bay is
-held off the traffic, and the traffic off it, by the ground each of them holds and by no second mechanism
-(`SIM-7`). **They are read off the car park the plan cut** (`GEN-4h`, `BayWays.Build`): the last of the lane a
-car noses in off, the car park's movement onto the bay's arm, and the arm — or the arm, the movement off it and
-the first of the lane it lands on — and no curve of a bay's own. **Each runs a staging length along its street
-lane** (`SimConfig.ParkingStagedInM`), because a leg hands one line to the next with the car at rest in its last
-car length, and a way that ended on the turn would hand a car over crosswise in the street.
+**GEN-4f** `P4` **A bay is reached over the town's own ways, and a car gets into it and out of it by one turn
+on its own circle.** A bay's ways are carried per standing and per lane as a pair — in from the lane, and out
+to it (`BayWays.PairOf`) — and each is one of the town's own ways: numbered with the rest, carrying metres of
+its own, in the table of what is driven over what (`TER-5c`) and driven as a line like any other (`CAR-15`). So
+a car working into a bay is held off the traffic, and the traffic off it, by the ground each of them holds and
+by no second mechanism (`SIM-7`). **Each is the bay's arm and the street's own line, joined at the corner the two
+make by one arc on the car's own parking circle** (`GEN-4h`, `BayWays.Build`,
+`SimConfig.CarParkingTemplateRadiusM`) — and not the car park's movements, which are laid tighter than a car
+turns and run from the edge of its box.
+
+- **A way in leaves its lane where its turn begins**, or at the lane's end where the turn is further on: a
+  route stops on a lane, so a car bound for a bay deeper in carries on straight across the box to its turn.
+- **A way out runs a short run-out along the street past its turn** (`SimConfig.ParkingRunOutM`), because a
+  leg hands one line to the next with the car at rest in its last car length, and a way that ended on the turn
+  would hand a car over crosswise in the street. **A car backing out swings its tail up the street and pulls
+  away forwards from there**, facing the way the street runs; it never backs across the box to where it would
+  have turned in. Where that leaves it inside the box, it is on the street's line through it
+  (`BayWays.StreetOf`), which is a place any car crossing a junction has been.
+- **A turn no wider than the room there is**, and no standing laid off a lane where only a turn tighter than
+  the car park's own would fit (`SimConfig.CarParkTurnRadiusM`).
 
 Four consequences of what is there, and the last is the reason for the rule:
 
@@ -100,6 +110,11 @@ Four consequences of what is there, and the last is the reason for the rule:
   the car moves onto it and given back where its body is past it — the protocol of `TER-5c.1` with a bay's
   way for the join. There is no gap looked at, no patience but the leg's own (`CAR-15a`) and no wait of its
   own, because a bay is a place a car gives way at and the town already knows how one of those works.
+- **A manoeuvre at a bay is claimed whole or not begun, and held whole once it is.** A car does not set off
+  down a bay's way — in or out — until its plan has the whole of it; short of that it lays none of it and stands
+  where it is, so the street is not held off by a car that is not moving. Once it has moved, the rest of the
+  way is ground it can no longer give back (`TER-5e`), which nothing takes: a car stood half across a street
+  waiting on the traffic it has stopped is a car that traffic waits on in turn.
 
 **GEN-4j** `P5` **A car stands in a bay one of two ways round, and reversing happens on a bay's own ways and
 nowhere else** (`CAR-6.5`). Nose first, it drove in and must reverse out; backed in, it was stood there — a
@@ -161,7 +176,7 @@ geometry says that nowhere. It is offered by both bays and painted once.
 **GEN-4k** `P5` **A special building's bays are held for its own vehicles and for nobody else.** A hospital and
 a police station ([agents/ambulance](../../../agents/ambulance/docs/requirements.md),
 [agents/service](../../../agents/service/docs/requirements.md)) each keep an **apron** — the free bays
-nearest them, up to the figure — and a depot its evacuator's bay and its yard (`EVA-2`). Each bay of an
+nearest them, up to the figure — and a depot its evacuators' bays and its yard (`EVA-2`). Each bay of an
 apron is held for the single vehicle stood in it, for the whole run and not only while that vehicle is in
 it; **a vehicle struck off its building leaves its bay held for nobody** (`ParkingRegistry.Claimed`,
 `SRV-4`, `EVA-7`). Five consequences:
@@ -189,8 +204,8 @@ it; **a vehicle struck off its building leaves its bay held for nobody** (`Parki
 **GEN-4h** `P4` **A car park is a junction cut into the road, and every bay of it is an arm of that
 junction** — the cut of `GEN-52`, which does not move the road, laid as `GEN-53` lays it
 ([citygen](../../../citygen/docs/requirements.md)): what a car takes to reach a bay is a movement across a
-box like every other turn it makes, and a bay's own ways (`GEN-4f`) are that arm and the movements onto and
-off it. Three consequences:
+box like every other turn it makes, and a bay's own ways (`GEN-4f`) are that arm and the car's own turn
+between it and the street. Three consequences:
 
 - **A car park has a node, and everything about one is decided on the road.** It is granted, refused and
   ranked by the rules a junction already carries (TER-5c, TER-5e) — so there is no second mechanism for

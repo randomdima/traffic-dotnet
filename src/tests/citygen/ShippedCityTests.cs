@@ -1,10 +1,7 @@
-using TrafficSimulation.Agents.Ambulance;
-using TrafficSimulation.Agents.Service;
 using TrafficSimulation.Bench;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
-using TrafficSimulation.World.Statics;
 using TrafficSimulation.World.Town;
 using Xunit;
 
@@ -63,30 +60,6 @@ public class ShippedCityTests
     [Theory]
     [MemberData(nameof(Cities))]
     public void ItsBoundaryCloses(string map) => Conformance.ItsBoundaryCloses(map);
-
-    /// <summary>
-    /// <b>A city declares the services this build would place</b> (AMB-1, SRV-1). The fleets are laid for
-    /// an ambulance and a crew a hospital, so a brief that authored six of them where the roster's share
-    /// works out at five is a city that stands a vehicle with nowhere to go home to.
-    /// </summary>
-    /// <remarks>
-    /// <b>It belongs to the city and not to the engine.</b> The count is authored in the brief and the share
-    /// is the engine's, so the two agreeing is a fact about how somebody tuned a map — which is why it is
-    /// asked here, of the maps that author one, rather than of a town the suite laid to ask about something
-    /// else. The day the generator places the roster's own count rather than the brief's, this goes.
-    /// </remarks>
-    [Theory]
-    [MemberData(nameof(Cities))]
-    public void ItDeclaresTheServicesThisBuildWouldPlace(string map)
-    {
-        var plan = Towns.Of(map);
-        var config = SimConfig.Shipped();
-
-        Assert.Equal(HospitalRoster.CountIn(plan, config), BuildingRoster.Of(plan, BuildingUse.Hospital).Count);
-        Assert.Equal(
-            PoliceStationRoster.CountIn(plan, config), BuildingRoster.Of(plan, BuildingUse.PoliceStation).Count);
-        Assert.Equal(DepotRoster.CountIn(plan, config), BuildingRoster.Of(plan, BuildingUse.Depot).Count);
-    }
 
     /// <summary>
     /// A minute of the city, against the claim the town itself keeps (PHY-1). <b>A city nobody can drive

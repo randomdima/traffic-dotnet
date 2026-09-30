@@ -28,14 +28,21 @@ namespace TrafficSimulation.World.Town;
 /// <b>A pass is never given up once the car has moved over</b>: it cannot safely be, so it is asked for only
 /// over ground nobody holds, and it holds that ground at p0, where nothing takes it.
 /// </para>
+/// <para>
+/// <b>A car on a call asks at its call's rung</b> (AMB-4.4, <see cref="TermsOfThePass"/>): a plan that rung beats
+/// holds none of the ground, a queue making the car's own movement is got past like anything else at rest and so is
+/// traffic slower than the call (<see cref="MayGetPast"/>), and the paint of a zebra is claimed whole — somebody on
+/// foot already on it is waited for short of the paint.
+/// </para>
 /// </remarks>
 internal sealed partial class TownWorld
 {
     /// <summary>
     /// How many bodies one pass may get past at once. A bound on a stack span and not a figure behaviour
-    /// reads: a line of standing bodies longer than this is waited behind.
+    /// reads: past the cars a line laid its sight ahead holds nose to tail, so what ends a long pass — a call's
+    /// past a queue at a red — is the line and the ground and never this.
     /// </summary>
-    const int MostPassedAtOnce = 4;
+    const int MostPassedAtOnce = 24;
 
     /// <summary>Passes asked for since the town was laid (CAR-46).</summary>
     public long PassesAsked { get; private set; }
@@ -76,7 +83,24 @@ internal sealed partial class TownWorld
 
                 var held = HeldByThePass(under[at]);
                 _occupancy.LayPass(held.Way, held.FromM, held.ToM, 0f, car, LaneRoster.Driving);
+                LayThePaintItCrosses(car, under[at]);
             }
+        }
+    }
+
+    /// <summary>
+    /// <b>The paint of every zebra a stretch of a pass crosses, laid whole</b> (TER-4c.6, TER-5c.3): kerb to kerb
+    /// on each of its walking lanes, as a car's plan over any of it holds all of it — so nobody on foot steps onto
+    /// it in front of the pass. Only a call's pass is ever over one.
+    /// </summary>
+    void LayThePaintItCrosses(int car, in WayCover swept)
+    {
+        foreach (ref readonly var mark in _occupancy.Marks.Of(swept.Way))
+        {
+            if (mark.MineFromM >= swept.ToM) break;
+            if (mark.MineToM <= swept.FromM || ZebraOf(mark.OnWay) == RibbonMarks.NoZebra) continue;
+
+            _occupancy.LayPass(mark.OnWay, mark.FromM, mark.ToM, 0f, car, LaneRoster.Driving);
         }
     }
 
@@ -124,8 +148,8 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>Whether the car may get past what ended its grant</b>: a body it may pass (<see cref="LaneClaim.MayBePassedBy"/>),
-    /// in a lane that has a lane running back beside it, on the route's own line driven forwards.
+    /// <b>Whether the car may get past what ended its grant</b>: a body it may pass (<see cref="MayGetPast"/>), in a
+    /// lane that has a lane running back beside it, on the route's own line driven forwards.
     /// </summary>
     bool MayGetPastWhatCutIt(int car, out LaneClaim cutBy, out int cutOn)
     {
@@ -136,8 +160,19 @@ internal sealed partial class TownWorld
 
         _occupancy.HoldEndsAtM(hold, out _, out cutBy);
         cutOn = _occupancy.HoldCutOn(hold);
-        return cutBy.Found && cutBy.MayBePassedBy(OnwardAlongTheLine(car, cutOn));
+        return cutBy.Found && MayGetPast(car, cutBy, cutOn);
     }
+
+    /// <summary>
+    /// <b>Whether this car may get past a body on one of its ways</b> (<see cref="LaneClaim.MayBePassedBy"/>): at
+    /// rest, not a pass, and — unless the car is on a call — not making the car's own movement there. <b>A car on a
+    /// call gets past traffic that is moving too, where it is going slower than the call means to</b>
+    /// (<see cref="CarFleet.PlannedMps"/>): what goes as fast is no hindrance, and an escort held under its charge's
+    /// pace is never one.
+    /// </summary>
+    bool MayGetPast(int car, in LaneClaim body, int on) =>
+        body.MayBePassedBy(OnwardAlongTheLine(car, on), Cars.BlueLight[car])
+        && (body.Still || body.AlongMps < Cars.PlannedMps[car]);
 
     /// <summary>
     /// Whether the car could pass anything at all where it is: on the route's own line driven forwards, in a
@@ -169,7 +204,9 @@ internal sealed partial class TownWorld
                 if (!IsCarriageway(swept.Way)) continue;
 
                 var held = HeldByThePass(swept);
-                if (_occupancy.KeepsItsPass(held.Way, swept.FromM, swept.ToM, held.FromM, held.ToM, car, LaneRoster.Driving))
+                if (_occupancy.KeepsItsPass(
+                        held.Way, swept.FromM, swept.ToM, held.FromM, held.ToM, car, LaneRoster.Driving,
+                        TermsOfThePass(car, swept)))
                 {
                     continue;
                 }
@@ -306,7 +343,7 @@ internal sealed partial class TownWorld
 
             if (found)
             {
-                if (!next.MayBePassedBy(OnwardAlongTheLine(car, nextOn))) return asideM;
+                if (!MayGetPast(car, next, nextOn)) return asideM;
                 if (!Passes(car, ways[..count], nextOn, next, passed, ref passedCount, ref clearsM)) return 0f;
 
                 continue;
@@ -573,14 +610,17 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>One more body the pass gets past</b>, where it is one this car may: the pass then clears it, wherever on
-    /// the car's line it ends.
+    /// the car's line it ends — <b>and, where it is moving, wherever it can come to rest</b>
+    /// (<see cref="LaneOccupancy.StopsByM"/>), since the pass laid past it is what it is then held short of.
     /// </summary>
     bool Passes(
         int car, ReadOnlySpan<LineWay> ways, int on, in LaneClaim body, Span<LaneClaim> passed, ref int count,
         ref float clearsM)
     {
-        if (count == passed.Length || !body.MayBePassedBy(OnwardAlongTheLine(car, on))) return false;
-        if (!OnTheLine(ways, on, body.ToM, out var endsM)) return false;
+        if (count == passed.Length || !MayGetPast(car, body, on)) return false;
+
+        var endsAtM = body.Still ? body.ToM : _occupancy.StopsByM(on, body);
+        if (!OnTheLine(ways, on, endsAtM, out var endsM)) return false;
 
         passed[count++] = body;
         clearsM = MathF.Max(clearsM, endsM);
@@ -658,7 +698,8 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>Whether the ground a pass would cover is road a pass may be had on</b> (TER-4c.6): on the carriageway — a
-    /// stretch over ground the traffic does not drive is a pass run off the road — and clear of every zebra.
+    /// stretch over ground the traffic does not drive is a pass run off the road — and clear of every zebra, but for
+    /// a car on a call, whose rung is above everybody on foot (TER-5g): the paint it crosses is road to it.
     /// </summary>
     /// <remarks>
     /// Asked of the body alone, since the spare (<see cref="DrivingFigures.PassSpareM"/>) is room to stray into and
@@ -667,6 +708,7 @@ internal sealed partial class TownWorld
     [SkipLocalsInit]
     bool IsThePassOnTheRoad(int car, in Overtake pass, float fromM, float toM)
     {
+        var overThePaint = Cars.BlueLight[car];
         Span<WayCover> under = stackalloc WayCover[MostWaysUnderABody];
         for (var station = 0; station < StationsOfThePass(car, fromM, toM); station++)
         {
@@ -674,7 +716,14 @@ internal sealed partial class TownWorld
             for (var at = 0; at < count; at++)
             {
                 ref readonly var cover = ref under[at];
-                if (!IsCarriageway(cover.Way) || CrossesAZebra(cover.Way, cover.FromM, cover.ToM)) return false;
+                if (overThePaint)
+                {
+                    if (!IsCarriageway(cover.Way) && !IsTheCrossing(cover.Way)) return false;
+                }
+                else if (!IsCarriageway(cover.Way) || CrossesAZebra(cover.Way, cover.FromM, cover.ToM))
+                {
+                    return false;
+                }
             }
         }
 
@@ -683,12 +732,13 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>And whether it is free</b> (TER-4c.6): nobody standing on any of it but the car, and nobody planning it but
-    /// what it passes.
+    /// what it passes — and, for a car on a call, but what its terms take and wait for (<see cref="TermsOfThePass"/>).
     /// </summary>
     /// <remarks>
     /// <b>Nobody else is asked for with room to spare</b> (<see cref="DrivingFigures.PassSpareM"/>) — and the ground
     /// is laid and kept without it: a pass that cleared what it passes by a hair was asked for one tick and withdrawn
-    /// the next, as that body settled a hair nearer.
+    /// the next, as that body settled a hair nearer. For a call's pass the spare is also what keeps the ground it
+    /// takes clear of what an oncoming holder can no longer stop short of by the rebuild the pass is laid in.
     /// </remarks>
     [SkipLocalsInit]
     bool IsThePassUnheld(int car, in Overtake pass, float fromM, float toM, ReadOnlySpan<LaneClaim> passed)
@@ -704,7 +754,8 @@ internal sealed partial class TownWorld
 
                 var held = HeldByThePass(swept);
                 if (!_occupancy.IsFreeForAPass(
-                        held.Way, swept.FromM, swept.ToM, held.FromM, held.ToM, car, LaneRoster.Driving, passed))
+                        held.Way, swept.FromM, swept.ToM, held.FromM, held.ToM, car, LaneRoster.Driving, passed,
+                        TermsOfThePass(car, swept)))
                 {
                     return false;
                 }
@@ -720,8 +771,15 @@ internal sealed partial class TownWorld
     /// where it stood at the last station with nobody on its ground.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>Read where the pass's body goes</b>, and not over the whole of a movement the pass holds: a body on that
     /// movement clear of it is in nobody's way, and is what the pass is getting past where it stands in a box.
+    /// </para>
+    /// <para>
+    /// <b>And short of a zebra's paint while anybody on foot is on any of it</b> — the pass holds it whole, and
+    /// somebody already on it crosses — so the car never stands on the paint across the way they walk, each waiting
+    /// for the other. <b>A car already over the paint drives on off it</b>, and is held by a body in its way alone.
+    /// </para>
     /// </remarks>
     [SkipLocalsInit]
     bool TheBodyInThePass(int car, out float inTheWayM, out LaneClaim body, out int on)
@@ -729,21 +787,32 @@ internal sealed partial class TownWorld
         var pass = Cars.Pass[car];
         var fromM = Cars.ProgressM[car];
         var clearM = fromM;
+        var onThePaint = true;
         Span<WayCover> under = stackalloc WayCover[MostWaysUnderABody];
         for (var station = 0; station < StationsOfThePass(car, fromM, pass.EndsM); station++)
         {
             var count = UnderTheCarOnThePass(car, pass, fromM, pass.EndsM, station, 0f, under, out var atM);
+            var overThePaint = false;
             for (var at = 0; at < count; at++)
             {
                 ref readonly var swept = ref under[at];
                 if (!IsCarriageway(swept.Way)) continue;
-                if (!_occupancy.AheadBody(swept.Way, swept.FromM, swept.ToM, car, out body)) continue;
+
+                on = swept.Way;
+                var inTheWay = _occupancy.AheadBody(swept.Way, swept.FromM, swept.ToM, car, out body);
+                if (!inTheWay && CrossesAZebra(swept.Way, swept.FromM, swept.ToM))
+                {
+                    overThePaint = true;
+                    inTheWay = !onThePaint && SomebodyOnThePaint(swept, out body, out on);
+                }
+
+                if (!inTheWay) continue;
 
                 inTheWayM = clearM + Cars.BuildOf(car).NoseAheadOfAxleM;
-                on = swept.Way;
                 return true;
             }
 
+            onThePaint &= overThePaint;
             clearM = atM;
         }
 
@@ -786,6 +855,50 @@ internal sealed partial class TownWorld
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// <b>Somebody on foot on the paint of a zebra a stretch of one way lies under</b> — anywhere on any of its
+    /// walking lanes, kerb to kerb — and the walking lane they are on.
+    /// </summary>
+    bool SomebodyOnThePaint(in WayCover swept, out LaneClaim body, out int on)
+    {
+        foreach (ref readonly var mark in _occupancy.Marks.Of(swept.Way))
+        {
+            if (mark.MineFromM >= swept.ToM) break;
+            if (mark.MineToM <= swept.FromM || ZebraOf(mark.OnWay) == RibbonMarks.NoZebra) continue;
+            if (!_occupancy.AheadBodyOf(LaneRoster.Walking, mark.OnWay, mark.FromM, mark.ToM, out body)) continue;
+
+            on = mark.OnWay;
+            return true;
+        }
+
+        body = LaneClaim.Nothing;
+        on = LaneOccupancy.NoHold;
+        return false;
+    }
+
+    /// <summary>
+    /// <b>What a car's pass is asked and kept on over one stretch of a way it sweeps</b> (<see cref="PassTerms"/>):
+    /// for a car on a call, its call's rung (AMB-4.4) and the paint of any zebra there, where somebody on foot is
+    /// waited for (<see cref="TheBodyInThePass"/>) rather than refusing the pass; for every other car, neither.
+    /// </summary>
+    PassTerms TermsOfThePass(int car, in WayCover swept)
+    {
+        if (!Cars.BlueLight[car]) return PassTerms.Plain;
+
+        var paintFromM = float.PositiveInfinity;
+        var paintToM = float.NegativeInfinity;
+        foreach (ref readonly var mark in _occupancy.Marks.Of(swept.Way))
+        {
+            if (mark.MineFromM >= swept.ToM) break;
+            if (mark.MineToM <= swept.FromM || ZebraOf(mark.OnWay) == RibbonMarks.NoZebra) continue;
+
+            paintFromM = MathF.Min(paintFromM, mark.MineFromM);
+            paintToM = MathF.Max(paintToM, mark.MineToM);
+        }
+
+        return new PassTerms(ClaimPriority.Special, paintFromM, paintToM);
     }
 
     /// <summary>
@@ -835,17 +948,20 @@ internal sealed partial class TownWorld
     /// <remarks>
     /// <para>
     /// <b>A queue is waited behind at the stand-off whatever its next movement</b>, so a line of cars at a light
-    /// closes up behind one turning off. The room is kept only for what the car may come to pass.
+    /// closes up behind one turning off. The room is kept only for what the car may come to pass — <b>and a car on a
+    /// call keeps it behind anything at rest it may pass</b>, a queue included (<see cref="MayGetPast"/>).
     /// </para>
     /// <para>
     /// <b>Read on a straight</b>: where the line bends under the step, the step is longer and the car asks from
     /// where it stands, which the ground then answers.
     /// </para>
     /// </remarks>
-    float KeptOffM(int car, in LaneClaim cutBy)
+    /// <param name="cutOn">The way <paramref name="cutBy"/> was met on.</param>
+    float KeptOffM(int car, in LaneClaim cutBy, int cutOn)
     {
         var standOffM = _config.Driving.StandOffM;
-        if (!cutBy.GoesNowhere || !HasALaneToPassOn(car)) return standOffM;
+        var roomFor = Cars.BlueLight[car] ? MayGetPast(car, cutBy, cutOn) : cutBy.GoesNowhere;
+        if (!roomFor || !HasALaneToPassOn(car)) return standOffM;
 
         ref readonly var build = ref Cars.BuildOf(car);
         var lane = Cars.LaneOf(car);

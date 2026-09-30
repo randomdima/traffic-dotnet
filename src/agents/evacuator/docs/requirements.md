@@ -1,6 +1,6 @@
 # The evacuator — requirements
 
-The recovery: the depots a town has, the evacuator standing at each, and what happens between a car being
+The recovery: the depots a town has, the evacuators standing at each, and what happens between a car being
 wrecked in the street and being a car again.
 
 **An evacuator is a service vehicle and drives what every car drives**
@@ -15,8 +15,9 @@ couples two bodies together.
 the car breaks, so nothing searches the fleet for one, and it stays one until an evacuator has it on the
 bar. A wreck standing in a yard slot is not a call, and neither is one already somebody's.
 
-**EVA-2** `P5` Each depot keeps a **yard**: its evacuator's own bay, and a run of **slots** beside it held for
-wrecks and for nobody else (`GEN-4k`). Three things follow.
+**EVA-2** `P5` Each depot keeps a **yard**: its evacuators' own bays, and a run of **slots** beside them held
+for wrecks and for nobody else (`GEN-4k`) — one yard however many trucks bring wrecks to it. Three things
+follow.
 
 - **A yard slot is a hold that names no vehicle.** An apron bay is held for the one car that stands in it
   for the whole run; a slot is held for whichever wreck was fetched last, and stands empty most of the time
@@ -28,14 +29,17 @@ wrecks and for nobody else (`GEN-4k`). Three things follow.
 
 ## The errand
 
-**EVA-3** `P5` The nearest evacuator with nothing else to do takes the nearest wreck nobody is on their way to,
+**EVA-3** `P5` The nearest evacuator with nothing else to do — standing on its apron or out on its beat
+(SRV-5), and whichever district either is in — takes the nearest wreck nobody is on their way to,
 and **nearest is measured against every other free evacuator and not against every other wreck**: a truck
 that is not the nearest to the wreck it would have gone to takes nothing and asks again. **One wreck to a
 recovery and one recovery to a wreck.**
 
 **Somewhere to put it is part of taking the call.** An evacuator whose yard has no free slot takes nothing,
 because one that set off anyway would arrive with a wreck on the bar and nowhere to set it down, and would
-then stand at its own yard holding it for the rest of the run.
+then stand at its own yard holding it for the rest of the run. **A slot another truck of the same yard is
+already bringing a wreck to is not free**: the yard is the depot's, and two trucks counting its last slot
+would bring back two wrecks.
 
 **EVA-4** `P5` An evacuator **on its way to a wreck** carries the whole of an ambulance's priority (`AMB-4`)
 and a pace of its own. Two limits, and the second is the point of the rule.
@@ -100,8 +104,8 @@ where it stands and left there, an ordinary parked car in an ordinary space. Two
   rather than hidden.
 
 **EVA-8** `P5` **Every leg of a recovery is bounded.** A wreck the traffic never lets an evacuator reach is
-given up on and the evacuator goes home, so one unreachable wreck cannot hold a town's only evacuator out
-of service for the rest of the run. A **haul** that runs out of clock is drawn again from where the truck
+given up on and the evacuator goes home — or back to its beat (`SRV-5`) — so one unreachable wreck cannot hold
+an evacuator out of service for the rest of the run. A **haul** that runs out of clock is drawn again from where the truck
 has got to — and only so many times: past that the wreck is **set down where it stands** and becomes a call
 again. A rescue's delivery is never given up because the casualty is aboard and there is nothing better to
 do with them; a wreck set down is no worse off than where it fell, and what giving it up buys is the town's

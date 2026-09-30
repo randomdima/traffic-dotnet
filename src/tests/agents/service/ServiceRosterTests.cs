@@ -1,6 +1,4 @@
-using TrafficSimulation.Agents.Service;
 using TrafficSimulation.CityGen;
-using TrafficSimulation.Core.Config;
 using TrafficSimulation.Tests.CityGen;
 using TrafficSimulation.World.Statics;
 using Xunit;
@@ -16,8 +14,6 @@ namespace TrafficSimulation.Tests.Agents.Service;
 [Trait(Priority.Key, Priority.P3)]
 public class ServiceRosterTests
 {
-    static readonly SimConfig Config = SimConfig.Shipped();
-
     public static TheoryData<string> Maps => Towns.EveryTown();
 
     /// <summary>
@@ -40,30 +36,8 @@ public class ServiceRosterTests
         }
     }
 
-    /// <summary>
-    /// <b>A town with a building on it gets one of each</b>, and never more of either than its ceiling —
-    /// which is what makes a service vehicle something every shipped map can be looked at for.
-    /// </summary>
-    [Theory]
-    [InlineData(1)]
-    [InlineData(3)]
-    [InlineData(40)]
-    public void ATownWithBuildingsHasAStationAndADepot(int buildings)
-    {
-        var few = Towns.WithBuildings(buildings);
-
-        Assert.InRange(PoliceStationRoster.CountIn(few, Config), 1, Math.Min(Config.Service.MostStations, buildings));
-        Assert.InRange(DepotRoster.CountIn(few, Config), 1, Math.Min(Config.Service.MostDepots, buildings));
-    }
-
-    /// <summary>And a map with nothing on it stands none, rather than one of nothing.</summary>
+    /// <summary>A map with nothing on it asks for no service, rather than one of nothing (GEN-56).</summary>
     [Fact]
-    public void AMapWithNoBuildingsStandsNothing()
-    {
-        var plan = Towns.WithBuildings(0);
-
-        Assert.Equal(0, PoliceStationRoster.CountIn(plan, Config));
-        Assert.Equal(0, DepotRoster.CountIn(plan, Config));
-        Assert.Equal(0, BuildingRoster.Of(plan, BuildingUse.PoliceStation).Count);
-    }
+    public void AMapWithNoBuildingsAsksForNoService() =>
+        Assert.Equal(0, ServiceBuildings.OfEachUse(Towns.WithBuildings(0)));
 }
