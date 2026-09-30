@@ -1,3 +1,4 @@
+using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 
 namespace TrafficSimulation.Agents.Car.Control;
@@ -10,34 +11,31 @@ namespace TrafficSimulation.Agents.Car.Control;
 internal static class DrivingWords
 {
     /// <summary>
-    /// <b>What a car is, and then what is limiting it</b> — in that order, because a car that is not
-    /// being driven has no hold, and reading its <see cref="DrivingHold.None"/> off as a name called
+    /// <b>What a car is doing, and — following its route — what is limiting it</b>: the action first (CAR-15b), since
+    /// a car that is not being driven has no hold, and reading its <see cref="DrivingHold.None"/> off as a name called
     /// every driverless car in every bay in the town <c>driving</c>.
     /// </summary>
-    /// <remarks>
-    /// <b>The hold is the whole of what a car is doing</b> (CAR-15). There is no name beside it to drift
-    /// from it: what a driver is at is a line and a term of the speed profile, and which line it is on is
-    /// the one thing this adds — a manoeuvre at a bay is the last metres of a leg either way round (GEN-4f).
-    /// </remarks>
     public static string CarName(CarFleet cars, int car)
     {
         if (cars.Broken[car]) return "wrecked";
-        if (!cars.Driven[car]) return "parked";
-        if (cars.Line[car].ArcCount == 0) return "no line";
 
-        if (cars.Line[car].LaneCount == 0)
+        var reverse = cars.LineIsReverse[car];
+        return cars.Action[car] switch
         {
-            return cars.LineIsReverse[car] ? "backing at a bay" : "driving at a bay";
-        }
+            CarAction.Towed => "on a bar",
+            CarAction.Hand => "under a hand",
+            CarAction.Stand => cars.Driven[car] ? "no line" : "parked",
+            CarAction.Rejoin => HoldName(DrivingHold.LostLine),
+            CarAction.Overtake => cars.Pass[car].Begun ? "overtaking" : "waiting to overtake",
 
-        // The lane beside is a line of its own to a watcher, whatever bound the speed along it (CAR-46).
-        if (cars.Pass[car].Begun) return "overtaking";
-
-        // Neither past what stands in front of it nor back for the room to, which the traffic behind reads as a body
-        // going nowhere (CAR-50).
-        if (cars.Context[car].Blocked) return "blocked";
-
-        return HoldName(cars.Hold[car]);
+            // Neither past what stands in front of it nor back for the room to, which the traffic behind reads as a
+            // body going nowhere (CAR-50).
+            CarAction.BackUp => cars.Context[car].Blocked ? "blocked" : HoldName(DrivingHold.BackingUp),
+            CarAction.Park when cars.Line[car].LaneCount > 0 => "coming up to its bay",
+            CarAction.Park => reverse ? "backing into a bay" : "driving into a bay",
+            CarAction.Unpark => reverse ? "backing out of a bay" : "driving out of a bay",
+            _ => HoldName(cars.Hold[car]),
+        };
     }
 
     /// <summary>

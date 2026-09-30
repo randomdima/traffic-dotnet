@@ -1,3 +1,4 @@
+using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.World.Parking;
 using TrafficSimulation.World.Routing;
@@ -68,7 +69,7 @@ internal sealed partial class TownWorld
     {
         // A car with nobody in it takes no action, and a hand at the wheel suspends the leg — neither is a
         // car for this to have opinions about, and the clock is the leg's rather than the body's.
-        if (!Cars.Driven[car] || Cars.Broken[car] || HandAtTheWheel(car))
+        if (!Cars.Driven[car] || Cars.Broken[car] || Cars.Action[car] == CarAction.Hand)
         {
             _driveProgress.Restart(car);
             return;

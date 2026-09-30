@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Person.Control;
@@ -304,6 +305,7 @@ internal sealed partial class TownWorld
         _carOrders.Release(car);
         Cars.Broken[car] = true;
         Cars.Driven[car] = false;
+        if (Cars.Action[car] != CarAction.Towed) Enter(car, CarAction.Stand);
         Cars.Command[car] = DriveCommand.LockedAt(Cars.Command[car].SteerRad);
         Cars.Hold[car] = DrivingHold.None;
         Cars.Line[car] = default;

@@ -581,6 +581,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     public void RebuildProximityIndex()
     {
+        TakeUpTheHands();
         LayTheClosures();
         DriveTheEmptyMap();
         MendTheYards(_config.TickSeconds);

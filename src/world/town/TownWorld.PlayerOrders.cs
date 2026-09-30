@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.World.Containment;
@@ -121,7 +122,7 @@ internal sealed partial class TownWorld
     /// </remarks>
     void RunTheOrder(int car)
     {
-        if (HandAtTheWheel(car)) return;
+        if (Cars.Action[car] == CarAction.Hand) return;
 
         switch (_carOrders.Kind[car])
         {

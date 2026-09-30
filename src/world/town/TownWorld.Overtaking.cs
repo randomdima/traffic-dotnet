@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Geometry;
@@ -64,11 +65,11 @@ internal sealed partial class TownWorld
     void LayTheCarsPass(int car)
     {
         var pass = Cars.Pass[car];
-        if (!pass.Any) return;
+        if (Cars.Action[car] != CarAction.Overtake || !pass.Any) return;
 
         if (!IsUnderWay(car) || Cars.LaneOf(car) != pass.Lane)
         {
-            Cars.Pass[car] = Overtake.None;
+            Enter(car, CarAction.Follow);
             return;
         }
 
@@ -102,49 +103,6 @@ internal sealed partial class TownWorld
 
             _occupancy.LayPass(mark.OnWay, mark.FromM, mark.ToM, 0f, car, LaneRoster.Driving);
         }
-    }
-
-    /// <summary>
-    /// <b>This tick of a car's pass</b>: over once the car is back in its lane, begun or withdrawn in the tick after
-    /// it was asked for, and asked for where the grant was ended by something the car may get past.
-    /// </summary>
-    /// <param name="toTheStopM">How far ahead of the nose the car's grant has it stop.</param>
-    /// <param name="passAsideM">
-    /// The lane beside the car has decided to pass on and has not begun to (<see cref="DriveContext.PassAsideM"/>),
-    /// or zero.
-    /// </param>
-    /// <param name="tooNearByM">
-    /// How much nearer than it could step out round it from rest the car stands to what it means to get past — what it
-    /// backs up for (CAR-50) — or zero.
-    /// </param>
-    /// <returns>Whether the car is coming up to something it means to get past, and has not begun to.</returns>
-    bool ConsiderAPass(
-        int car, float progressM, float alongMps, float toTheStopM, out float passAsideM, out float tooNearByM)
-    {
-        passAsideM = 0f;
-        tooNearByM = 0f;
-        var pass = Cars.Pass[car];
-        if (pass.Begun)
-        {
-            if (progressM < pass.EndsM) return false;
-
-            Cars.Pass[car] = Overtake.None;
-            PassesMade++;
-            return false;
-        }
-
-        // Withdrawn, it is asked for again on the next tick: the car has not changed its mind.
-        if (pass.Any)
-        {
-            passAsideM = pass.AsideM;
-            KeepOrWithdrawThePass(car, pass, progressM);
-            return !Cars.Pass[car].Begun;
-        }
-
-        if (!MayGetPastWhatCutIt(car, out var cutBy, out var cutOn)) return false;
-
-        passAsideM = AskForAPass(car, progressM, alongMps, toTheStopM, cutBy, cutOn, out tooNearByM);
-        return true;
     }
 
     /// <summary>
@@ -258,10 +216,16 @@ internal sealed partial class TownWorld
     /// pass was had this tick — or zero. It is decided wherever the pass is only waiting on the car's own pace or on
     /// the lane beside coming free, and not where something about the road itself refuses it.
     /// </returns>
+    /// <param name="toTheStopM">How far ahead of the nose the car's grant has it stop.</param>
+    /// <param name="ask">
+    /// Whether a pass that can be had is asked for — false for a car only measuring how near it stands, which backing
+    /// up does (CAR-50).
+    /// </param>
     /// <param name="tooNearByM">How much nearer than it could step out from rest it stands to what it passes, or zero.</param>
     [SkipLocalsInit]
     float AskForAPass(
-        int car, float progressM, float alongMps, float toTheStopM, in LaneClaim cutBy, int cutOn, out float tooNearByM)
+        int car, float progressM, float alongMps, float toTheStopM, in LaneClaim cutBy, int cutOn, bool ask,
+        out float tooNearByM)
     {
         tooNearByM = 0f;
         ref readonly var build = ref Cars.BuildOf(car);
@@ -370,7 +334,7 @@ internal sealed partial class TownWorld
         if (progressM + ToTheSceneM(car) < pass.EndsM || !IsThePassOnTheRoad(car, pass, progressM, toM)) return 0f;
 
         tooNearByM = nearByM;
-        if (nearByM > 0f || !IsThePassUnheld(car, pass, progressM, toM, passed[..passedCount])) return asideM;
+        if (!ask || nearByM > 0f || !IsThePassUnheld(car, pass, progressM, toM, passed[..passedCount])) return asideM;
 
         Cars.Pass[car] = pass;
         PassesAsked++;

@@ -23,10 +23,13 @@ against the point the wheel is aimed at. Past it the road is priced up and the r
 last reroute the place is given up for another near where the car got to; past that the leg is over and
 the car is stood down where it stands. **There is no other exit**, and it is finite because the clock is.
 
-**CAR-15b** `P4` **What a driver is doing is which line it is on and which term bound its speed**
-(`DrivingHold`). There is no name beside those to drift from them, no state to be in and no step to be
-recorded: which part of a leg a car is at is read off where it is standing — a piece of its manoeuvre under
-it, a bay its line stops for, or the road — and whether it is on a pass (CAR-46).
+**CAR-15b** `P4` **A car does one thing at a time, and the thing is named** (`CarAction`): following its route,
+getting past something (CAR-46), backing up for the room to (CAR-50), getting into a bay or out of one (GEN-4f),
+getting back onto its line (CAR-9) — or standing, under a hand (CTL-5) or on a bar (EVA-5). **An action is entered
+and left in one place**, and what it leaves — a pass, a manoeuvre — goes with it; every claim a car lays and every
+command it gives is its action's, and nothing works out what a car is doing from its line, its pass or its
+manoeuvre. **Each knows its own ends**: what it is for, when it is done and what it hands over to. Which term bound
+the speed is a second fact beside it (`DrivingHold`), read off the profile and never the action.
 
 **CAR-46** `P5` **A car gets past what stands in its lane over the lane beside it**, as a pass
 ([TER-4c.6](../../../world/road/docs/claims.md)): asked for where its grant was ended by a body at rest that

@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Geometry;
@@ -21,9 +22,9 @@ namespace TrafficSimulation.World.Town;
 /// which is a fact about the line and not something to wait a decision for; and the tyres are last,
 /// because what they are given is a command and never a position.
 /// <para>
-/// <b>Which procedure runs is the line's own question.</b> A line with lanes under it is the route's; a
-/// line that is one of the town's own ways is a bay's, driven in the gear it was laid for. There is no
-/// third kind, because a driver lays no geometry of its own (CAR-15).
+/// <b>Which procedure runs is the car's action</b> (CAR-15b, <see cref="CarAction"/>): the route's own line for a
+/// car following it, getting past something on it, backing down it or coming up it to its bay, and a piece of the
+/// manoeuvre it shaped for itself, in the gear that piece was shaped for, for a car getting into a bay or out of one.
 /// </para>
 /// <para>
 /// <b>Everything here runs every tick.</b> What runs on the driver's own clock is the leg
@@ -46,7 +47,7 @@ internal sealed partial class TownWorld
         }
 
         var pose = PoseOf(car);
-        if (HandAtTheWheel(car))
+        if (Cars.Action[car] == CarAction.Hand)
         {
             // Under a hand nothing of the leg is decided and no soft rule is consulted (S-7).
             HandDrive(car, pose);
@@ -61,32 +62,243 @@ internal sealed partial class TownWorld
 
         Cars.SinceDecisionS[car] += _config.TickSeconds;
 
-        // <b>A car being driven with no line still has its leg</b>, and the clock still runs: a leg
-        // that can be given no line at all is ended by the clock like every other one that gets nowhere
-        // (<see cref="WatchTheProgress"/>). It has nothing to drive, so the body holds — but it is decided
-        // about like any other car.
         // Off a route there is no movement into a box: a manoeuvre at a bay is laid over ground the graph
         // has no turn for. Left as it was, the last junction this car approached would still be what its
         // indicator is announcing.
         if (Cars.Line[car].LaneCount == 0) Cars.TurningAtTheBox[car] = false;
 
-        if (Cars.Line[car].ArcCount == 0) Hold(car, pose, DrivingHold.None);
-        else if (Cars.Line[car].LaneCount > 0) DriveTheRoute(car, pose);
-        else DriveTheWay(car, pose);
+        switch (Cars.Action[car])
+        {
+            case CarAction.Follow:
+                FollowTheRoute(car, pose);
+                break;
+
+            case CarAction.Overtake:
+                GetPast(car, pose);
+                break;
+
+            case CarAction.BackUp:
+                BackUpForTheRoom(car, pose);
+                break;
+
+            case CarAction.Park:
+                Park(car, pose);
+                break;
+
+            case CarAction.Unpark:
+                DriveTheWay(car, pose);
+                break;
+
+            case CarAction.Rejoin:
+                Rejoin(car, pose);
+                break;
+
+            default:
+                Hold(car, pose, DrivingHold.None);
+                break;
+        }
     }
 
     /// <summary>
-    /// A car on the route's own line: the lanes under it, the junction ahead of it, the paint across it,
-    /// and what the claims say is down it.
+    /// <b>Follow</b> (CAR-15): the route's own lanes, driven on the ground planned down them — and handed over where
+    /// the line stops for its bay and the car is near enough to shape its way in (GEN-4f), or where what ended its
+    /// grant is something it has decided to get past (CAR-46).
     /// </summary>
-    void DriveTheRoute(int car, in CarPose pose)
+    void FollowTheRoute(int car, in CarPose pose)
+    {
+        if (ReadTheLine(car, pose, out var progressM, out var alongMps, out var coveredM))
+        {
+            FollowOn(car, pose, progressM, alongMps, coveredM);
+        }
+    }
+
+    /// <summary>Follow, once the line under the car has been read this tick.</summary>
+    void FollowOn(int car, in CarPose pose, float progressM, float alongMps, float coveredM)
+    {
+        // GEN-4f: a line that stops for a bay is where the car takes up its manoeuvre into it.
+        if (Cars.StopsForBayOf(car) is var bay and not CarFleet.NoBay && TakeUpTheBay(car, bay, progressM, alongMps))
+        {
+            Enter(car, CarAction.Park);
+            DriveOnTheLine(car, pose, progressM, alongMps, coveredM);
+            return;
+        }
+
+        // CAR-46: something ended the grant that the car may get past. Slowed for gently from the first, and — where
+        // the car has come to where it would begin slowing for it and the road lets it — decided on.
+        if (!MayGetPastWhatCutIt(car, out var cutBy, out var cutOn))
+        {
+            DriveOnTheLine(car, pose, progressM, alongMps, coveredM);
+            return;
+        }
+
+        var toTheStopM = Cars.AuthorityM[car] - coveredM;
+        var passAsideM = AskForAPass(car, progressM, alongMps, toTheStopM, cutBy, cutOn, ask: true, out var tooNearByM);
+        if (passAsideM != 0f) Enter(car, tooNearByM > 0f ? CarAction.BackUp : CarAction.Overtake);
+
+        DriveOnTheLine(
+            car, pose, progressM, alongMps, coveredM, waitsToPass: true, passAsideM, BackUpForM(tooNearByM));
+    }
+
+    /// <summary>
+    /// <b>Overtake</b> (CAR-46): decided on, asked for whole, then driven — and over once the car is back in its own
+    /// lane, or once what it was getting past is no longer something it may, or the road no longer lets it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Too near to step out, it backs up for the room</b> (CAR-50) and comes back to this once it has it.
+    /// </remarks>
+    void GetPast(int car, in CarPose pose)
+    {
+        if (!ReadTheLine(car, pose, out var progressM, out var alongMps, out var coveredM)) return;
+        if (Cars.Action[car] != CarAction.Overtake)
+        {
+            FollowOn(car, pose, progressM, alongMps, coveredM);
+            return;
+        }
+
+        var pass = Cars.Pass[car];
+        if (pass.Begun)
+        {
+            if (progressM >= pass.EndsM)
+            {
+                PassesMade++;
+                Enter(car, CarAction.Follow);
+            }
+
+            DriveOnTheLine(car, pose, progressM, alongMps, coveredM);
+            return;
+        }
+
+        // Asked for in the tick before and laid since: kept, or withdrawn and asked for again next tick — the car has
+        // not changed its mind.
+        if (pass.Any)
+        {
+            KeepOrWithdrawThePass(car, pass, progressM);
+            DriveOnTheLine(car, pose, progressM, alongMps, coveredM, waitsToPass: !Cars.Pass[car].Begun, pass.AsideM);
+            return;
+        }
+
+        if (!MayGetPastWhatCutIt(car, out var cutBy, out var cutOn))
+        {
+            Enter(car, CarAction.Follow);
+            DriveOnTheLine(car, pose, progressM, alongMps, coveredM);
+            return;
+        }
+
+        var toTheStopM = Cars.AuthorityM[car] - coveredM;
+        var passAsideM = AskForAPass(car, progressM, alongMps, toTheStopM, cutBy, cutOn, ask: true, out var tooNearByM);
+        if (passAsideM == 0f) Enter(car, CarAction.Follow);
+        else if (tooNearByM > 0f) Enter(car, CarAction.BackUp);
+
+        DriveOnTheLine(
+            car, pose, progressM, alongMps, coveredM, waitsToPass: true, passAsideM, BackUpForM(tooNearByM));
+    }
+
+    /// <summary>
+    /// <b>Back up</b> (CAR-50): down its own lane in reverse, over ground asked for behind it whole, for as long as it
+    /// stands too near what it has decided to get past to step out round it — and blocked where that ground was
+    /// refused. Over once it is at rest with the room made, or with nothing left to make room for.
+    /// </summary>
+    /// <remarks>
+    /// <b>It measures the pass and never asks for it</b>: the pass is the overtake's, asked once the car is at rest
+    /// with the room, so a pass is never laid from a car still rolling back.
+    /// </remarks>
+    void BackUpForTheRoom(int car, in CarPose pose)
+    {
+        if (!ReadTheLine(car, pose, out var progressM, out var alongMps, out var coveredM)) return;
+
+        var passAsideM = 0f;
+        var tooNearByM = 0f;
+        var mayGetPast = MayGetPastWhatCutIt(car, out var cutBy, out var cutOn);
+        if (mayGetPast)
+        {
+            passAsideM = AskForAPass(
+                car, progressM, alongMps, Cars.AuthorityM[car] - coveredM, cutBy, cutOn, ask: false, out tooNearByM);
+        }
+
+        var backUpM = BackUpForM(tooNearByM);
+        var backsUp = backUpM > 0f && Cars.BackRoomM[car] >= backUpM;
+        var blocked = backUpM > 0f && Cars.BackRoomM[car] < backUpM;
+        if (blocked) CarTicksBlocked++;
+
+        // A car that was backing up and has no more of it to do comes to rest in the gear it is in.
+        var stillRollingBack = alongMps < -_config.Driving.StopSpeedMps;
+        if (backsUp || stillRollingBack)
+        {
+            SetTheContext(car, progressM, coveredM, mayGetPast, passAsideM, backUpM, blocked);
+            DriveBack(
+                car, Cars.BuildOf(car), pose, Cars.LineOf(car), progressM, backsUp ? backUpM : 0f,
+                Cars.GroundCoefficient[car]);
+            return;
+        }
+
+        if (!blocked) Enter(car, passAsideM != 0f ? CarAction.Overtake : CarAction.Follow);
+        DriveOnTheLine(car, pose, progressM, alongMps, coveredM, mayGetPast, passAsideM, backUpM, blocked);
+    }
+
+    /// <summary>
+    /// <b>Park</b> (GEN-4f): up the route's line to where the car waits for its manoeuvre into the bay, the manoeuvre
+    /// shaped afresh from where it stands and asked for whole — and, had, the manoeuvre itself, a piece at a time.
+    /// </summary>
+    void Park(int car, in CarPose pose)
+    {
+        if (_manoeuvres.IsBegun(car))
+        {
+            DriveTheWay(car, pose);
+            return;
+        }
+
+        if (!ReadTheLine(car, pose, out var progressM, out var alongMps, out var coveredM)) return;
+
+        if (_manoeuvres.Stage[car] == ManoeuvreStage.Asked)
+        {
+            if (KeepOrWithdrawTheManoeuvre(car))
+            {
+                TakeThePiece(car, 0);
+                DriveTheWay(car, pose);
+                return;
+            }
+        }
+        else
+        {
+            TakeUpTheBay(car, _manoeuvres.Bay[car], progressM, alongMps);
+        }
+
+        DriveOnTheLine(car, pose, progressM, alongMps, coveredM);
+    }
+
+    /// <summary>
+    /// <b>Rejoin</b> (CAR-9): a car that has lost its line comes to rest and takes the lane it is standing on, and
+    /// follows it once it is back on its line.
+    /// </summary>
+    void Rejoin(int car, in CarPose pose)
+    {
+        if (ReadTheLine(car, pose, out var progressM, out var alongMps, out var coveredM))
+        {
+            Enter(car, CarAction.Follow);
+            FollowOn(car, pose, progressM, alongMps, coveredM);
+        }
+    }
+
+    /// <summary>
+    /// <b>The route's line under the car, read</b>: where along it the body is, the lanes it has passed shifted off the
+    /// chain and the chain grown to its sight. False where the car is off it past what it may be (CAR-10a), which
+    /// hands it to <see cref="Rejoin"/>, stopping.
+    /// </summary>
+    bool ReadTheLine(int car, in CarPose pose, out float progressM, out float alongMps, out float coveredM)
     {
         ref readonly var build = ref Cars.BuildOf(car);
         var forward = pose.Forward;
-        var alongMps = Vector2.Dot(pose.VelocityMps, forward);
+        alongMps = Vector2.Dot(pose.VelocityMps, forward);
         var rearAxleM = CarFollower.RearAxleM(build, pose.PositionM, forward);
-        var progressM = CarFollower.ProgressM(build, Cars.LineOf(car), rearAxleM, Cars.ProgressM[car]);
-        var coveredM = MathF.Abs(progressM - Cars.ProgressM[car]);
+        if (Cars.Line[car].LaneCount == 0)
+        {
+            progressM = coveredM = 0f;
+            LoseTheLine(car, pose, alongMps, rearAxleM);
+            return false;
+        }
+
+        progressM = CarFollower.ProgressM(build, Cars.LineOf(car), rearAxleM, Cars.ProgressM[car]);
+        coveredM = MathF.Abs(progressM - Cars.ProgressM[car]);
         if (progressM >= Cars.LaneStartsOf(car)[1] && Cars.Line[car].LaneCount > 1)
         {
             progressM = AdvanceLane(car, rearAxleM, progressM);
@@ -97,7 +309,7 @@ internal sealed partial class TownWorld
         Cars.GroundCoefficient[car] = _terrain.At(pose.PositionM).Coefficient;
 
         // A pass is laid along the lane the car is on and nowhere else (CAR-46).
-        if (Cars.Pass[car].Any && Cars.LaneOf(car) != Cars.Pass[car].Lane) Cars.Pass[car] = Overtake.None;
+        if (Cars.Pass[car].Any && Cars.LaneOf(car) != Cars.Pass[car].Lane) Enter(car, CarAction.Follow);
 
         Cars.OffLineM[car] = CarFollower.OffLineM(Cars.LineOf(car), rearAxleM, progressM, AsideAtM(car, progressM));
 
@@ -105,22 +317,10 @@ internal sealed partial class TownWorld
         // recommendation and every car holds it with its own steering, so a long car cuts a corner a short
         // one takes cleanly and neither is corrected — what is watched for is the car that is no longer
         // driving the line at all.
-        //
-        // A car that has lost its own line stops and takes the lane it is actually standing on — the
-        // driver's whole answer to being off its line, and the walker's own (PER-25): get back onto the
-        // network by the shortest way there is. One that can be given no lane at all covers no ground,
-        // which is what the leg's clock is for (<see cref="WatchTheProgress"/>).
         if (Cars.OffLineM[car] > OffTheLineAllowanceM(car))
         {
-            Cars.Pass[car] = Overtake.None;
-            Cars.InsideTheBox[car] = false;
-            Cars.LightAheadM[car] = float.PositiveInfinity;
-            Cars.ToTheBoxM[car] = float.PositiveInfinity;
-            Cars.TurningAtTheBox[car] = false;
-            Cars.BoxIsOurs[car] = false;
-            Hold(car, pose, DrivingHold.LostLine);
-            if (MathF.Abs(alongMps) <= _config.Driving.StopSpeedMps) Reacquire(car, rearAxleM);
-            return;
+            LoseTheLine(car, pose, alongMps, rearAxleM);
+            return false;
         }
 
         // A line laid a sight distance ahead runs out mid-lane on a town whose runs are kilometres long,
@@ -134,27 +334,46 @@ internal sealed partial class TownWorld
             LayLine(car, Cars.Line[car].LaneCount, progressM);
         }
 
-        // GEN-4f: a line that stops for a bay is where the car asks for its manoeuvre into it, and the
-        // manoeuvre, once begun, is its line from here.
-        if (Cars.StopsForBayOf(car) is var bay and not CarFleet.NoBay && ConsiderParking(car, bay, progressM, alongMps))
-        {
-            DriveTheWay(car, pose);
-            return;
-        }
+        return true;
+    }
 
-        var line = Cars.LineOf(car);
+    /// <summary>
+    /// <b>A car no longer driving its line</b> (CAR-9) stops and takes the lane it is actually standing on — the
+    /// driver's whole answer to being off its line, and the walker's own (PER-25): get back onto the network by the
+    /// shortest way there is. One that can be given no lane at all covers no ground, which is what the leg's clock is
+    /// for (<see cref="WatchTheProgress"/>).
+    /// </summary>
+    void LoseTheLine(int car, in CarPose pose, float alongMps, Vector2 rearAxleM)
+    {
+        Enter(car, CarAction.Rejoin);
+        Cars.InsideTheBox[car] = false;
+        Cars.LightAheadM[car] = float.PositiveInfinity;
+        Cars.ToTheBoxM[car] = float.PositiveInfinity;
+        Cars.TurningAtTheBox[car] = false;
+        Cars.BoxIsOurs[car] = false;
+        Hold(car, pose, DrivingHold.LostLine);
+        if (MathF.Abs(alongMps) <= _config.Driving.StopSpeedMps) Reacquire(car, rearAxleM);
+    }
 
-        // CAR-46: getting past what stands in the lane, asked for off the grant this rebuild gave.
-        var toTheStopM = Cars.AuthorityM[car] - coveredM;
-        var waitsToPass = ConsiderAPass(car, progressM, alongMps, toTheStopM, out var passAsideM, out var tooNearByM);
+    /// <summary>
+    /// <b>A car driven forwards down the route's own line</b>: the junction ahead of it, the paint across it and what
+    /// the claims say is down it, with whatever its action says about a pass it is waiting for or the room it means
+    /// to back up for.
+    /// </summary>
+    void DriveOnTheLine(
+        int car, in CarPose pose, float progressM, float alongMps, float coveredM, bool waitsToPass = false,
+        float passAsideM = 0f, float backUpM = 0f, bool blocked = false)
+    {
+        var context = SetTheContext(car, progressM, coveredM, waitsToPass, passAsideM, backUpM, blocked);
+        Drive(
+            car, Cars.BuildOf(car), pose, Cars.LineOf(car), progressM, Cars.Line[car].LengthM, context, pose.Forward,
+            alongMps, reverse: false);
+    }
 
-        // CAR-50: too near what it means to get past to step out round it, it backs up for the room where the ground
-        // behind it was had, and is blocked where it was not.
-        var backUpM = BackUpForM(tooNearByM);
-        var backsUp = backUpM > 0f && Cars.BackRoomM[car] >= backUpM;
-        var blocked = backUpM > 0f && Cars.BackRoomM[car] < backUpM;
-        if (blocked) CarTicksBlocked++;
-
+    /// <summary>What a car on the route's line is told about the world this tick, and the junction ahead of it read.</summary>
+    DriveContext SetTheContext(
+        int car, float progressM, float coveredM, bool waitsToPass, float passAsideM, float backUpM, bool blocked)
+    {
         // S-4: the junction ahead. Whether the box is this car's is its grant's to say, and a light is in the
         // grant too — its hold is ground like any other (TLT-1).
         ReadTheBoxAhead(car, progressM, out var toTheBoxM, out var claimed);
@@ -169,22 +388,11 @@ internal sealed partial class TownWorld
         // named. It is a term of the same minimum the grant is in, so a driver stopping for one is running its
         // line on the road that place left it.
         var context = new DriveContext(
-            Cars.GroundCoefficient[car], toTheStopM, Cars.GrantCutBy[car], ToTheSceneM(car), Cars.GrantMarginM[car],
-            waitsToPass, Cars.HorizonM[car] - coveredM, passAsideM, backUpM, blocked);
+            Cars.GroundCoefficient[car], Cars.AuthorityM[car] - coveredM, Cars.GrantCutBy[car], ToTheSceneM(car),
+            Cars.GrantMarginM[car], waitsToPass, Cars.HorizonM[car] - coveredM, passAsideM, backUpM, blocked);
 
         Cars.Context[car] = context;
-
-        // A car that was backing up and has no more of it to do comes to rest in the gear it is in.
-        var stillRollingBack = Cars.Hold[car] == DrivingHold.BackingUp && alongMps < -_config.Driving.StopSpeedMps;
-        if (backsUp || stillRollingBack)
-        {
-            DriveBack(car, build, pose, line, progressM, backsUp ? backUpM : 0f, Cars.GroundCoefficient[car]);
-            return;
-        }
-
-        Drive(
-            car, build, pose, line, progressM, Cars.Line[car].LengthM, context, forward, alongMps,
-            reverse: false);
+        return context;
     }
 
     /// <summary>
@@ -342,6 +550,7 @@ internal sealed partial class TownWorld
         LayLine(car, TheChainFrom(car, under));
         Cars.ProgressM[car] = under.AlongM;
         LinesReacquired++;
+        Enter(car, CarAction.Follow);
     }
 
     /// <summary>A car that is doing nothing this tick, and the one reason it is not.</summary>

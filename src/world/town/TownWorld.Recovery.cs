@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Ambulance;
@@ -722,6 +723,7 @@ internal sealed partial class TownWorld
     {
         _recovery.Towing[car] = wreck;
         _recovery.OnTheHookOf[wreck] = car;
+        Enter(wreck, CarAction.Towed);
     }
 
     /// <summary>And parted, at whichever end the errand ended.</summary>
@@ -729,6 +731,7 @@ internal sealed partial class TownWorld
     {
         _recovery.Towing[car] = RecoveryDuty.Nothing;
         _recovery.OnTheHookOf[wreck] = RecoveryDuty.Nothing;
+        Enter(wreck, CarAction.Stand);
     }
 
     /// <summary>The recovery given up: the wreck released for whoever can reach it, and the evacuator sent home.</summary>

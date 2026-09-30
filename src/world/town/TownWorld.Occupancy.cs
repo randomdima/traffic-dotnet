@@ -191,21 +191,14 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// Whether this car is a driver on a route rather than a shape on the road — what decides whether it
-    /// plans at all, and whether the ways of its own line are ways it is travelling.
+    /// plans down its line, and whether the ways of its own line are ways it is travelling.
     /// </summary>
     /// <remarks>
-    /// <b>Its own state and nobody else's.</b> How far off its line the car is was measured by the sensing
-    /// half of last tick; a hand at the wheel is the one case that leaves it standing at whatever the road
-    /// last wrote, and it is named apart for that reason.
+    /// <b>Its own action and nobody else's</b> (<see cref="DrivesTheRoute"/>), and on its line: how far off it the
+    /// car is was measured by the sensing half of last tick.
     /// </remarks>
-    bool IsUnderWay(int car)
-    {
-        if (!Cars.Driven[car] || Cars.Broken[car]) return false;
-        if (Cars.Line[car].LaneCount == 0) return false;
-        if (HandAtTheWheel(car)) return false;
-
-        return Cars.OffLineM[car] <= OffTheLineAllowanceM(car);
-    }
+    bool IsUnderWay(int car) =>
+        DrivesTheRoute(car) && Cars.Line[car].LaneCount > 0 && Cars.OffLineM[car] <= OffTheLineAllowanceM(car);
 
     /// <summary>
     /// Where a place on one of this car's lanes falls on the line it is driving — <see cref="WaysAlong"/>'s

@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Geometry;
@@ -20,10 +21,10 @@ namespace TrafficSimulation.World.Town;
 /// before it comes level with what it passes, however little of the lane that takes up.
 /// </para>
 /// <para>
-/// <b>Nothing is kept from one tick to the next</b>: how far a car means to back up and whether it is blocked are
-/// worked out every tick from where it stands and the pass it asked for, and carried on its
-/// <see cref="DriveContext"/> to the rebuild after — which lays the ground and says how much of it was had
-/// (<see cref="CarFleet.BackRoomM"/>).
+/// <b>Nothing is kept from one tick to the next but the action</b> (<see cref="CarAction.BackUp"/>): how far a car
+/// means to back up and whether it is blocked are worked out every tick from where it stands and the pass it has
+/// decided on, and carried on its <see cref="DriveContext"/> to the rebuild after — which lays the ground and says
+/// how much of it was had (<see cref="CarFleet.BackRoomM"/>).
 /// </para>
 /// </remarks>
 internal sealed partial class TownWorld
@@ -76,6 +77,8 @@ internal sealed partial class TownWorld
     void LayTheCarsBackUp(int car)
     {
         Cars.BackRoomM[car] = float.NaN;
+        if (Cars.Action[car] != CarAction.BackUp) return;
+
         var askedM = Cars.Context[car].BackUpM;
         var backingMps = MathF.Max(0f, -Cars.AlongMps[car]);
         if (askedM <= 0f && backingMps <= _config.Driving.StopSpeedMps) return;

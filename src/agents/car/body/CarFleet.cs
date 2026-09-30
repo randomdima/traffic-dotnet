@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Physics;
@@ -43,6 +44,7 @@ internal sealed class CarFleet
         Variant = new byte[capacity];
         Draw = new Rng[capacity];
         Driven = new bool[capacity];
+        Action = new CarAction[capacity];
         Broken = new bool[capacity];
         Ambulance = new bool[capacity];
         BlueLight = new bool[capacity];
@@ -151,6 +153,12 @@ internal sealed class CarFleet
     /// sets it. Without it the car is an inert dynamic object holding its handbrake.
     /// </summary>
     public bool[] Driven { get; }
+
+    /// <summary>
+    /// <b>What each car is doing</b> (CAR-15b) — one action, changed in one place in the town and read everywhere
+    /// else. Every claim a car lays and every command it gives is its action's.
+    /// </summary>
+    public CarAction[] Action { get; }
 
     /// <summary>
     /// PHY-3's terminal state for a car, which is the whole of what damage does to one: broken, never
@@ -602,6 +610,7 @@ internal sealed class CarFleet
         DrivenFrontShare[car] = build.DrivenFrontShare;
         Draw[car] = draw;
         Driven[car] = false;
+        Action[car] = CarAction.Stand;
         Broken[car] = false;
         Ambulance[car] = false;
         BlueLight[car] = false;

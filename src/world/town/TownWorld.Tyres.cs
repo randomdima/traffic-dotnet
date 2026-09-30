@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.World.Physics;
 using TrafficSimulation.World.Foot;
@@ -128,7 +129,7 @@ internal sealed partial class TownWorld
 
         var ground = Cars.GroundCoefficient[car];
         var acrossMps2 = Cars.AccelerationMps2[car].Y;
-        if (HandAtTheWheel(car))
+        if (Cars.Action[car] == CarAction.Hand)
         {
             return TyreModel.DriveLeftMps2(Cars.BuildOf(car).GripMps2 * ground, acrossMps2);
         }

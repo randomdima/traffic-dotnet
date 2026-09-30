@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Person.Body;
@@ -242,7 +243,10 @@ internal sealed partial class TownWorld
             // A car whose wheel is already held over has somebody deciding for it, which is the whole of
             // what this rule exists to supply. Handing it a lane as well would lay a line nothing drives.
             if (Cars.Driven[car] || Cars.Broken[car] || WheelIsHeldOver(car)) continue;
-            if (TakeTheLaneUnderIt(car)) Cars.Driven[car] = true;
+            if (!TakeTheLaneUnderIt(car)) continue;
+
+            Enter(car, CarAction.Follow);
+            Cars.Driven[car] = true;
         }
     }
 

@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Geometry;
@@ -65,7 +66,7 @@ internal sealed partial class TownWorld
         Cars.HorizonM[car] = float.PositiveInfinity;
         Cars.GrantMarginM[car] = 0f;
         Cars.GrantCutBy[car] = HeadwayKind.Nothing;
-        if (HandAtTheWheel(car))
+        if (Cars.Action[car] == CarAction.Hand)
         {
             HoldWhatTheHandCannotStopShortOf(car);
             return;
@@ -243,10 +244,10 @@ internal sealed partial class TownWorld
     /// </summary>
     bool SettleTheDrive(int car, Span<LineWay> ways)
     {
-        // <b>A manoeuvre's hold is not a plan down its line</b> (GEN-4f): answered again as one, a car waiting for
-        // its ground was handed the whole of a piece it has no ways along, and drove it.
+        // <b>Only a plan down the route's line is</b> (CAR-15b): a manoeuvre's hold answered again as one handed a car
+        // waiting for its ground the whole of a piece it has no ways along, and it drove it.
         var hold = _carHold[car];
-        if (hold == LaneOccupancy.NoHold || IsManoeuvring(car)) return false;
+        if (hold == LaneOccupancy.NoHold || !DrivesTheRoute(car)) return false;
 
         var endsAtM = _occupancy.HoldEndsAtM(hold, out _, out var cutBy);
         if (float.IsPositiveInfinity(endsAtM) || (cutBy.Found && cutBy.HasBody)) return false;

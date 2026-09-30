@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Geometry;
@@ -200,24 +201,15 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>This tick of a car's manoeuvre into a bay</b>, on its way to the place it waits for it: shaped afresh from
-    /// where it stands and asked for, or kept or withdrawn in the tick after it was laid. True where it was begun,
-    /// and the car's line is now its first piece.
+    /// <b>A car's manoeuvre into a bay, shaped afresh from where it stands</b> on its way to the place it waits for it,
+    /// and asked for where all of its ground is free. True where it was shaped.
     /// </summary>
     /// <remarks>
-    /// <b>Asked only once the car is near enough to stop for it</b>: a shape laid from further off is one the car
-    /// would drive a street of before it began, holding that street as it went.
+    /// <b>Only once the car is near enough to stop for it</b>: a shape laid from further off is one the car would
+    /// drive a street of before it began, holding that street as it went.
     /// </remarks>
-    bool ConsiderParking(int car, int bay, float progressM, float alongMps)
+    bool TakeUpTheBay(int car, int bay, float progressM, float alongMps)
     {
-        if (_manoeuvres.Stage[car] == ManoeuvreStage.Asked)
-        {
-            if (!KeepOrWithdrawTheManoeuvre(car)) return false;
-
-            TakeThePiece(car, 0);
-            return true;
-        }
-
         ref readonly var build = ref Cars.BuildOf(car);
         var brakingMps2 = CarFollower.BrakingMps2(_config, build, Cars.GroundCoefficient[car]);
         var toTheStopM = Cars.Line[car].LengthM - progressM;
@@ -227,7 +219,7 @@ internal sealed partial class TownWorld
         if (!ShapeTheWayIn(car, bay, lane)) return false;
 
         AskForTheManoeuvre(car);
-        return false;
+        return true;
     }
 
     /// <summary>
@@ -285,7 +277,6 @@ internal sealed partial class TownWorld
         CornerLimits.Lay(arcs, Cars.LineEntriesOf(car), _config);
         Cars.Line[car] = new DrivenLine(arcs.Length, 0, Spline.TotalLengthM(arcs));
         Cars.LineIsReverse[car] = _manoeuvres.Shape[car].IsReverse(piece);
-        Cars.Pass[car] = Overtake.None;
         _manoeuvres.Piece[car] = piece;
 
         // The grant the last rebuild read was down another line; the next one reads this.
@@ -319,7 +310,11 @@ internal sealed partial class TownWorld
         _manoeuvres.Clear(car);
         if (kind == ManoeuvreKind.Park)
         {
-            if (bay == _parking.TurnOf(car) && ShapeTheWayOut(car, bay)) return true;
+            if (bay == _parking.TurnOf(car) && ShapeTheWayOut(car, bay))
+            {
+                Enter(car, CarAction.Unpark);
+                return true;
+            }
 
             ParkIt(car, bay);
             return true;
@@ -327,34 +322,30 @@ internal sealed partial class TownWorld
 
         _parking.Vacate(car);
         _parking.LeaveTheTurn(car);
-        return TakeTheLaneUnderIt(car);
+        return TakeTheRoad(car);
     }
 
     /// <summary>Whether the car's line is a piece of its manoeuvre rather than the route's chain.</summary>
-    bool IsManoeuvring(int car) => _manoeuvres.Any(car) && Cars.Line[car].LaneCount == 0 && Cars.Line[car].ArcCount > 0;
+    bool IsManoeuvring(int car) =>
+        Cars.Action[car] == CarAction.Unpark || (Cars.Action[car] == CarAction.Park && _manoeuvres.IsBegun(car));
 
     /// <summary>
     /// <b>The ground a car's manoeuvre will cover, laid as a body</b> (TER-4c.6) — once asked and every rebuild after
-    /// it is begun, from where the car stands on its piece to the end of its last. <b>A manoeuvre the car is no
-    /// longer making is dropped here</b>: one asked for a bay the line stops for no longer, or one begun by a car
-    /// that has stopped driving it.
+    /// it is begun, from where the car stands on its piece to the end of its last. <b>A manoeuvre into a bay the line
+    /// stops for no longer is given up here</b>, for the road.
     /// </summary>
     void LayTheCarsManoeuvre(int car)
     {
-        var stage = _manoeuvres.Stage[car];
-        if (stage is ManoeuvreStage.None or ManoeuvreStage.Shaped) return;
+        if (!IsAtABay(Cars.Action[car])) return;
 
-        var making = Cars.Driven[car] && !Cars.Broken[car] && !HandAtTheWheel(car)
-                     && (stage == ManoeuvreStage.Begun
-                         ? IsManoeuvring(car)
-                         : _manoeuvres.Kind[car] == ManoeuvreKind.Leave
-                             ? IsManoeuvring(car)
-                             : Cars.StopsForBayOf(car) == _manoeuvres.Bay[car]);
-        if (!making)
+        if (Cars.Action[car] == CarAction.Park && !_manoeuvres.IsBegun(car)
+            && Cars.StopsForBayOf(car) != _manoeuvres.Bay[car])
         {
-            _manoeuvres.Clear(car);
+            Enter(car, CarAction.Follow);
             return;
         }
+
+        if (_manoeuvres.Stage[car] is ManoeuvreStage.None or ManoeuvreStage.Shaped) return;
 
         OverTheGround(car, GroundAsk.Lay);
     }

@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Person.Control;
@@ -56,9 +57,24 @@ internal sealed partial class TownWorld
         // a lane it may take (GEN-53).
         var standingIn = _parking.BayOf(car);
         if (standingIn < 0) standingIn = _parking.BayHolding(Cars.PositionM[car]);
-        if (standingIn >= 0 && ShapeTheWayOut(car, standingIn)) return;
+        if (standingIn >= 0 && ShapeTheWayOut(car, standingIn))
+        {
+            Enter(car, CarAction.Unpark);
+            return;
+        }
 
-        TakeTheLaneUnderIt(car);
+        TakeTheRoad(car);
+    }
+
+    /// <summary>
+    /// <b>The road taken from where the car stands</b>: the lane under it followed (<see cref="TakeTheLaneUnderIt"/>),
+    /// or — with no lane under it to take — the car off its line, at rest until it has one (CAR-9).
+    /// </summary>
+    bool TakeTheRoad(int car)
+    {
+        var taken = TakeTheLaneUnderIt(car);
+        Enter(car, taken ? CarAction.Follow : CarAction.Rejoin);
+        return taken;
     }
 
     /// <summary>The direction the body is pointing, which every line is read back through.</summary>
@@ -185,6 +201,7 @@ internal sealed partial class TownWorld
         Cars.Line[car] = default;
         Cars.ClearRoute(car);
         GiveUpTheTurn(car);
+        Enter(car, CarAction.Stand);
         _manoeuvres.Clear(car);
         Cars.HasDestination[car] = false;
         Cars.Driven[car] = false;

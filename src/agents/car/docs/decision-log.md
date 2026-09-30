@@ -3,6 +3,31 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-09-30 — a car does one named thing at a time
+
+**The owner asked for every actor's actions to be separate states** that cannot be confused with one another, each
+expert at its one thing and knowing its own ends (CAR-15b, `CarAction`). What a car was doing had been read, on every
+question, off a mix of its line (no lanes meant a manoeuvre), its pass, its manoeuvre's stage, its hold and how far
+off its line it stood — and every procedure guarded against the others. The wreck bug of the entry below was two of
+those readings answering one car. Now one field says it, one method changes it (`TownWorld.Enter`) and drops what
+the action left owned, and each action's tick is its own (`FollowTheRoute`, `GetPast`, `BackUpForTheRoom`, `Park`,
+`DriveTheWay`, `Rejoin`).
+
+- **Overtake is from the decision on**: the car has come to where it would begin slowing for what it passes and the
+  road lets it, through asking for the ground whole and driving it, to back in its lane. Before the decision a car
+  slowing gently for something it could pass is still following.
+- **Backing up is its own action** and never asks for the pass it backs up for — it measures how near it stands, and
+  hands back to the overtake at rest with the room made. Asked from a car still rolling back, a pass was laid from
+  a body that was not where the pass began.
+- **Park runs from the first shape**, up the route's line to where the car waits, so a car on its final approach
+  neither overtakes nor is re-planned as a follower; the line no longer stopping for the bay hands it back.
+- **A hand is taken up and let go of once a tick**, before anything is laid: let go, the car follows the line it
+  still stands on or gets back onto one (CAR-9). **A car off its line holds nothing it had**: a manoeuvre asked for on
+  the way into a bay was laid, every rebuild, by a car that had lost its line short of it.
+
+Five minutes of Odesa read as before but for a car-tick or two; River's 5 243 → 6 394 car-ticks blocked with no room
+behind, 445 → 438 bays parked.
+
 ## 2026-09-30 — a car makes its own manoeuvre at a bay, and a manoeuvre's hold is never settled as a plan
 
 A car gets into and out of a bay by a manoeuvre shaped on its own circle (GEN-4f; the parking log has why).
@@ -374,8 +399,6 @@ driving the bay's own way**, taken as the next line from rest at its mouth rathe
 route's line — threading only ever worked for the half of the templates driven forwards, and dropping it is
 what deleted them. **The emergency stop and the place an errand sent a car to became terms of the speed
 profile** (`CarFollower.IsAHazard`, `DrivingHold.Place`), neither having imposed anything a term could not.
-The read-out lost nothing: what a car is doing is its line and the term that bound it (`CAR-15b`), which is
-what the panel drew beside the entry's name anyway.
 
 **What went, and what it cost.** The four entries that drew geometry went with the rest — the swerve
 (`E-4`), the back-off (`E-3`), the straight back to legal ground (`E-8`) and the shunt (`P-19`) — and the
