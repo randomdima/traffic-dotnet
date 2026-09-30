@@ -244,6 +244,8 @@ internal sealed partial class TownWorld
     /// <summary>
     /// <b>A manoeuvre laid in this rebuild, kept or withdrawn</b> before the car moves on it — kept where nothing but
     /// the car itself is on its ground, as a pass is (<see cref="LaneOccupancy.KeepsItsPass(int, float, float, float, float, int, LaneRoster, in PassTerms)"/>).
+    /// <b>Kept, the whole of its ground is the car's from this tick</b>, and a car getting into a bay takes up its
+    /// first piece in place of the route's line.
     /// </summary>
     bool KeepOrWithdrawTheManoeuvre(int car)
     {
@@ -261,8 +263,11 @@ internal sealed partial class TownWorld
         {
             if (_manoeuvres.Shape[car].IsReverse(_manoeuvres.Shape[car].Pieces - 1)) ParkedBackedIn++;
             else ParkedNoseIn++;
+
+            TakeThePiece(car, 0);
         }
 
+        Cars.AuthorityM[car] = float.PositiveInfinity;
         return true;
     }
 
@@ -270,6 +275,11 @@ internal sealed partial class TownWorld
     /// <b>One piece of the manoeuvre taken as the car's line</b>, driven in its own gear. It is the one place a line
     /// that is not the route's is written, and the piece it is is written with it.
     /// </summary>
+    /// <remarks>
+    /// <b>Taken, it grants nothing</b> until its ground is read again against it — in the rebuild after, or where the
+    /// manoeuvre is kept (<see cref="KeepOrWithdrawTheManoeuvre"/>): the grant the last rebuild read was down another
+    /// line.
+    /// </remarks>
     void TakeThePiece(int car, int piece)
     {
         var arcs = _manoeuvres.PieceOf(car, piece);
@@ -279,8 +289,7 @@ internal sealed partial class TownWorld
         Cars.LineIsReverse[car] = _manoeuvres.Shape[car].IsReverse(piece);
         _manoeuvres.Piece[car] = piece;
 
-        // The grant the last rebuild read was down another line; the next one reads this.
-        Cars.AuthorityM[car] = float.PositiveInfinity;
+        Cars.AuthorityM[car] = 0f;
         Cars.HorizonM[car] = float.PositiveInfinity;
         Cars.GrantMarginM[car] = 0f;
 
@@ -351,10 +360,10 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>Where the car has to stop short of a body standing inside what is left of its manoeuvre</b> — the one thing
-    /// that ends its ground short of its end, since nothing planned can be laid over it (TER-4c.1): where it stood at
-    /// the last station of this piece with nobody on its ground. And a manoeuvre not yet begun is ground the car does
-    /// not have, so it stands where it is.
+    /// <b>What a car's manoeuvre grants it</b>: the whole of its ground, but short of a body standing inside what is
+    /// left of it — the one thing that ends its ground short of its end, since nothing planned can be laid over it
+    /// (TER-4c.1): where it stood at the last station of this piece with nobody on its ground. And a manoeuvre not
+    /// yet begun is ground the car does not have, so it stands where it is.
     /// </summary>
     void HoldTheManoeuvre(int car)
     {
@@ -369,7 +378,11 @@ internal sealed partial class TownWorld
             return;
         }
 
-        if (!TheBodyInTheManoeuvre(car, out var inTheWayM, out var body, out var on)) return;
+        if (!TheBodyInTheManoeuvre(car, out var inTheWayM, out var body, out var on))
+        {
+            Cars.AuthorityM[car] = float.PositiveInfinity;
+            return;
+        }
 
         var held = _occupancy.BeginHold(standOffM);
         _carHold[car] = held;

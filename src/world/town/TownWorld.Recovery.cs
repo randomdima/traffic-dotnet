@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
@@ -8,6 +9,7 @@ using TrafficSimulation.Agents.Service;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Parking;
 using TrafficSimulation.World.Physics;
+using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Town;
 
@@ -318,7 +320,7 @@ internal sealed partial class TownWorld
         // fork first when the truck could not be driven right onto it. See the decision log: a truck cannot
         // get its own tail onto a body lying in the lane ahead of it without reversing onto it, which no
         // driver does but in a manoeuvre at a bay (CAR-6.5), so the last few metres are a placement (PHY-7a).
-        if (WhatTheArmIsTouching(car, out _) != wreck) WinchItOntoTheFork(car, wreck);
+        if (WhatTheArmIsTouching(car, out _) != wreck && !WinchItOntoTheFork(car, wreck)) return;
 
         WorkTheArm(car);
         _recovery.HaulsLeft[car] = _config.Evacuator.HaulsBeforeSettingItDown;
@@ -329,12 +331,36 @@ internal sealed partial class TownWorld
     /// <summary>
     /// <b>The wreck pulled onto the fork by the winch</b>, over the last few metres and no more: it is put
     /// where the arm holds it, in line behind the truck, which is the same placement a container makes when
-    /// it sets a body down (PHY-7a).
+    /// it sets a body down (PHY-7a) — <b>and only where nobody but the pair holds that ground</b> (TER-4c.8). False
+    /// where somebody does, and the winch waits.
     /// </summary>
-    void WinchItOntoTheFork(int car, int wreck)
+    bool WinchItOntoTheFork(int car, int wreck)
     {
         var behindM = TowBar.SetDownBehindM(Cars.BuildOf(car), Cars.BuildOf(wreck));
-        SetTheWreckDown(wreck, Cars.PositionM[car] - (ForwardOf(car) * behindM), Cars.HeadingRad[car]);
+        var atM = Cars.PositionM[car] - (ForwardOf(car) * behindM);
+        if (!IsFreeToSetDown(wreck, car, atM, Cars.HeadingRad[car])) return false;
+
+        SetTheWreckDown(wreck, atM, Cars.HeadingRad[car]);
+        return true;
+    }
+
+    /// <summary>
+    /// <b>Whether a car can be put down here</b> (TER-4c.8): nobody but it and the truck putting it there stands on
+    /// the ground its body would, and nobody has ground there it can no longer stop short of.
+    /// </summary>
+    [SkipLocalsInit]
+    bool IsFreeToSetDown(int car, int by, Vector2 atM, float headingRad)
+    {
+        var halfM = Cars.BuildOf(car).CollisionSizeM * 0.5f;
+        Span<WayCover> under = stackalloc WayCover[MostWaysUnderABody];
+        var count = _atlas.UnderBox(atM, Heading.Unit(headingRad), halfM.X, halfM.Y, under);
+        for (var at = 0; at < count; at++)
+        {
+            ref readonly var cover = ref under[at];
+            if (_occupancy.IsTakenByOthers(cover.Way, cover.FromM, cover.ToM, car, by, LaneRoster.Driving)) return false;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -453,7 +479,10 @@ internal sealed partial class TownWorld
         _recovery.HitchedForS[car] += sinceLastDecisionS;
         if (_recovery.HitchedForS[car] < _config.Evacuator.HitchingS) return;
 
-        SetTheWreckDown(wreck, _parking.CentreM(slot), BayTemplate.StandingHeadingRad(_parking.HeadingRad(slot), noseIn: true));
+        var headingRad = BayTemplate.StandingHeadingRad(_parking.HeadingRad(slot), noseIn: true);
+        if (!IsFreeToSetDown(wreck, car, _parking.CentreM(slot), headingRad)) return;
+
+        SetTheWreckDown(wreck, _parking.CentreM(slot), headingRad);
         _parking.Occupy(slot, wreck);
 
         LetGoOfIt(car, wreck);

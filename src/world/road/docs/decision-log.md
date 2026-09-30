@@ -4,6 +4,39 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-09-30 — nothing moves over a way it has not claimed
+
+**The owner asked that no action drive or walk the road without a claim on it** — any lane, the pavement's too,
+forwards or in reverse — and that anything not claimed be approved by name. Their answer to the list put to them:
+every planned movement claims the lanes it crosses, ground on no way needs nothing, and a push or an accident plans
+nothing (TER-4c.8). Before, a grant was infinite by default and only a plan made it less, so a holder that laid
+nothing could go anywhere:
+
+- **a car back on its line after losing it** drove a tick on a line nothing had planned, the rebuild before having
+  seen it still off;
+- **the last metres of a car's line** were never planned: a plan stopped where the axle's line did, and the nose of a
+  car at rest there stands a nose further on. Granted nothing there, every car pulling up at its bay stood on the
+  brakes — 204 → 1 493 car-ticks on Odesa — until the plan reached where the nose would be;
+- **a walker off the pavement** walked back over the carriageway holding only its body, and **an officer** walked to
+  the post and back with no plan at all.
+
+**A grant is zero unless the action laid a claim this rebuild** (`TownWorld.PlanTheDrive`, `ReadTheWalkersGrant`),
+and goes with the action that laid it: the one claim handed from one action to the next is a plan down a car's own
+line. **The claim nobody drives is committed ground**: a hand's (S-7) and now a tow's, held under the truck. **A
+placement is put down only where nobody holds the ground** — the door and the pavement already were; the winch and
+the yard now wait for it. **An officer on duty and their car are one occupant**, as a tow is: the officer walks to the
+post beside the car on the same lane, and a reservation has no across to tell the two apart.
+
+**A walk back is claimed only off the pavement.** Claimed from anywhere off its own way, walkers shoved across a
+corner stood in each other's straight lines back and each waited for the other: 439 → 776 walks given up on Odesa.
+One between a pavement's two lanes walks its route, its body and its plan holding what it steps over. And **a body a
+walker is level with cuts nothing**, read off where the walker's own body lies on the way rather than where its
+straight comes onto it — the words TER-4c.1 always had.
+
+Five minutes each (`--bench stuck`, against the commit before these changes): Odesa 477 bays, 438 walks given up
+(439), 173 car-ticks spent the braking margin (204), no wreck; River 451 bays (445), 333 walks given up (342), no
+wreck. `CarActionTests` and `PersonActionTests` hold every car and walker of the suite's city to it every tick.
+
 ## 2026-09-30 — a holder at rest cannot stop short of its own front
 
 **Five minutes of Odesa left a car and a walker standing at a zebra for the rest of the run**, because a car at

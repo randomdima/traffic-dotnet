@@ -1,6 +1,7 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using TrafficSimulation.Agents.Person.Body;
+using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Road;
 
@@ -90,6 +91,7 @@ internal sealed partial class TownWorld
         // PHY-7: inside a container there is no body in the world and nothing in anybody's way.
         if (People.Inside[person].Any) return;
 
+        var occupant = GroundHeldAs(person, out var roster);
         var radiusM = People.RadiusM[person];
         var walking = People.OnWay[person];
         var alongMps = AlongItsWalkMps(person);
@@ -106,7 +108,7 @@ internal sealed partial class TownWorld
             ref readonly var cover = ref under[at];
             var onItsLine = cover.Way == walking;
             _occupancy.LayBody(
-                cover.Way, cover.FromM, cover.ToM, onItsLine ? alongMps : 0f, person, LaneRoster.Walking,
+                cover.Way, cover.FromM, cover.ToM, onItsLine ? alongMps : 0f, occupant, roster,
                 onItsLine, onItsLine ? onward : LaneOccupancy.NoWay, still);
         }
 
@@ -115,7 +117,29 @@ internal sealed partial class TownWorld
         var atM = People.OnWayM[person];
         _occupancy.LayBody(
             walking, MathF.Max(0f, atM - radiusM), MathF.Min(_ways.LengthM(walking), atM + radiusM), alongMps,
-            person, LaneRoster.Walking, onItsLine: true, onward, still);
+            occupant, roster, onItsLine: true, onward, still);
+    }
+
+    /// <summary>
+    /// <b>Whose ground a walker's is</b> — its own, <b>or, for an officer out on duty, their car's</b> (SRV-11): the
+    /// officer is the car's closure on foot, and the two are one occupant as a coupled pair is (EVA-5). So the
+    /// officer's walk to the post is never held off the car it steps out of, which stands beside it on the same lane
+    /// — a reservation has no across (TER-4c) — and the car is never held off its own officer.
+    /// </summary>
+    int GroundHeldAs(int person, out LaneRoster roster)
+    {
+        roster = LaneRoster.Walking;
+        if (People.Stage[person] != TripStage.OnDuty || People.Inside[person].Any) return person;
+
+        for (var car = 0; car < Cars.Count; car++)
+        {
+            if (_beat.Officer[car] != person) continue;
+
+            roster = LaneRoster.Driving;
+            return car;
+        }
+
+        return person;
     }
 
     /// <summary>

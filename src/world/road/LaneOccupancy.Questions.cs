@@ -177,6 +177,53 @@ internal sealed partial class LaneOccupancy
     }
 
     /// <summary>
+    /// <b>Whether anybody but two holders has a stretch of one way</b> — <see cref="IsTaken"/> asked for a body put
+    /// down next to where it and the one putting it there already stand, whose own ground is no objection.
+    /// </summary>
+    public bool IsTakenByOthers(int way, float fromM, float toM, int occupant, int alsoOccupant, LaneRoster of)
+    {
+        for (var at = _bodies[way]; at != NoSlot; at = _next[at])
+        {
+            ref readonly var body = ref _slots[at];
+            if (body.FromM >= toM) break;
+            if (body.ToM > fromM && !IsEither(body, occupant, alsoOccupant, of)) return true;
+        }
+
+        for (var at = _planned[way]; at != NoSlot; at = _next[at])
+        {
+            ref readonly var piece = ref _slots[at];
+            if (piece.FromM >= toM) break;
+            if (piece.ToM > fromM && !IsEither(piece, occupant, alsoOccupant, of)
+                && piece.CommittedAt(MathF.Max(fromM, piece.FromM)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+
+        static bool IsEither(in LaneClaim claim, int one, int other, LaneRoster of) =>
+            claim.Of == of && (claim.Occupant == one || claim.Occupant == other);
+    }
+
+    /// <summary>
+    /// <b>How far along one way a holder's own body reaches</b> — the far edge of its collider there, never of a pass —
+    /// or negative infinity where it is not on the way at all. What a plan asked over that way is level with already
+    /// (<see cref="Reach"/>'s <c>standsToM</c>).
+    /// </summary>
+    public float BodyReachesToM(int way, int occupant, LaneRoster of)
+    {
+        var toM = float.NegativeInfinity;
+        for (var at = _bodies[way]; at != NoSlot; at = _next[at])
+        {
+            ref readonly var body = ref _slots[at];
+            if (body.Occupant == occupant && body.Of == of && !body.Passing) toM = MathF.Max(toM, body.ToM);
+        }
+
+        return toM;
+    }
+
+    /// <summary>
     /// Whether no holder but the asker and what it passes plans any of a stretch of one way — nothing, that is, but
     /// what the pass's terms take.
     /// </summary>

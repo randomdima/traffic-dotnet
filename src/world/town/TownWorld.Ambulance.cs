@@ -3,6 +3,7 @@ using TrafficSimulation.Agents.Ambulance;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Evacuator;
+using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Core.Geometry;
@@ -104,6 +105,7 @@ internal sealed partial class TownWorld
         _physics.PutOnLayer(People.Body[person], CollisionLayer.Downed);
         People.Wounded[person] = true;
         People.Walking[person] = false;
+        Enter(person, PersonAction.Down);
         People.ClearRoute(person);
         GiveUpTheClaims(person);
         _woundedCount++;

@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Foot;
@@ -90,6 +91,34 @@ internal sealed partial class TownWorld
         WalkTheWay(person);
 
         if (IsAfoot(person, out var way)) People.OnWay[person] = way;
+
+        // PER-25: a walker walking its route off the pavement altogether is getting back onto it, and one on it — or
+        // hopping off the end of it onto its goal — walks it.
+        if (People.Action[person] is PersonAction.Walk or PersonAction.Rejoin && People.Walking[person])
+        {
+            var onIt = People.OnWay[person] != PersonFleet.NoWay || IsHopping(person)
+                       || People.CurrentRouteWay(person) == PersonFleet.NoWay || StandsOnThePavement(person);
+            Enter(person, onIt ? PersonAction.Walk : PersonAction.Rejoin);
+        }
+    }
+
+    /// <summary>
+    /// <b>Whether a walker's body stands on any of the pavement</b>, its own way or not. One between the two lanes of a
+    /// pavement, or shoved across the corner of one, walks its route: what it steps over getting back onto its way is
+    /// ground its body stands on, and where it is going is its plan's (PER-26). <b>Off the pavement altogether</b> —
+    /// in the carriageway, on a verge — it is walking back over ground only a straight of its own can claim.
+    /// </summary>
+    [SkipLocalsInit]
+    bool StandsOnThePavement(int person)
+    {
+        Span<WayCover> under = stackalloc WayCover[MostWaysUnderABody];
+        var count = _atlas.UnderDisc(People.PositionM[person], People.RadiusM[person], under);
+        for (var at = 0; at < count; at++)
+        {
+            if (!_ways.IsDriven(under[at].Way)) return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -98,8 +127,9 @@ internal sealed partial class TownWorld
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>A body on no way of the network plans nothing</b>: it is walking straight at the network (PER-25)
-    /// over ground the town does not number, and what it holds while it does is its body.
+    /// <b>A body walking straight at a place plans the straight</b> — back onto its way (PER-25), off the end of it
+    /// onto its goal, or an officer to their post (SRV-11) — over whatever ways it crosses, the carriageway
+    /// among them. Ground on no way is nobody's to hold.
     /// </para>
     /// <para>
     /// <b>Every way of it is held at one rung</b> (<see cref="ClaimPriority.Afoot"/>, PER-27), a zebra's paint
@@ -115,6 +145,7 @@ internal sealed partial class TownWorld
     void PlanTheWalk(int person, Span<LineWay> walk)
     {
         _walkerHold[person] = LaneOccupancy.NoHold;
+        if (!WalksOnItsOwnFeet(person)) return;
 
         // <b>A walker on a pass is held only by a body inside it</b> (TER-4c.6): the ground up to its end is the
         // pass's, and what it plans begins past there.
@@ -126,13 +157,45 @@ internal sealed partial class TownWorld
             return;
         }
 
-        var ways = TheWalkAhead(person, walk);
-        if (ways.IsEmpty) return;
-
+        // <b>A hold with nothing to lay is still laid</b>: a walk whose ground lies on no way — a lawn, a yard, what
+        // is left of it inside the body's own reach — has claimed all there is of it, where a walker laying none
+        // would be granted nothing.
+        var ways = WaysOfTheWalk(person, walk);
         var hold = _occupancy.BeginHold(_config.PersonStandstillGapM);
         _walkerHold[person] = hold;
         LayTheWalk(person, hold, ways, AnswerTheWalk(person, hold, ways));
     }
+
+    /// <summary>
+    /// <b>Whether a walker walks on its own account</b> — down its route, round somebody on it or back onto it, or an
+    /// officer to their post — and so claims what it walks (PER-25b). Standing, inside, down or under a hand, it
+    /// claims nothing and is granted nothing.
+    /// </summary>
+    bool WalksOnItsOwnFeet(int person) =>
+        People.Walking[person] && (WalksItsRoute(People.Action[person]) || People.Action[person] == PersonAction.Post);
+
+    /// <summary>
+    /// <b>The ground a walker's action walks</b>, nearest first: down its route or off the end of it (<see cref="TheWalkAhead"/>),
+    /// and for a walker walking straight at a place — back onto its way (PER-25), or an officer to their post (SRV-11)
+    /// — every way the straight crosses.
+    /// </summary>
+    Span<LineWay> WaysOfTheWalk(int person, Span<LineWay> into) => People.Action[person] switch
+    {
+        PersonAction.Rejoin => into[..TheStraightAhead(person, BackOntoItsWayM(person), People.RadiusM[person], PlansAheadM, into)],
+        PersonAction.Post => into[..TheStraightAhead(person, People.GoalM[person], People.RadiusM[person], PlansAheadM, into)],
+        _ => TheWalkAhead(person, into),
+    };
+
+    /// <summary>
+    /// <b>Where a walker off the ground of its way walks back onto it</b> (PER-25): the nearest of it, abeam of where
+    /// the body stands — the shortest way back, over as little of anybody else's ground as there is.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not a stride down it</b>: aimed there from a corner, the straight back crossed the paint of the zebra beside
+    /// the one it walks, and the two lights held it by turns for the rest of the run.
+    /// </remarks>
+    Vector2 BackOntoItsWayM(int person) =>
+        Spline.SampleAt(Walking.WayArcs(People.CurrentRouteWay(person)), People.OnWayM[person]).PositionM;
 
     /// <summary>
     /// <b>The ways a walker's plan is laid down</b>, from the front of its body — what is behind that is the
@@ -145,7 +208,7 @@ internal sealed partial class TownWorld
         if (People.Inside[person].Any || !HasAWalkToPlan(person)) return default;
 
         var frontM = WalkPlannedFromM(person);
-        if (IsHopping(person)) return into[..TheHopAhead(person, frontM, PlansAheadM, into)];
+        if (IsHopping(person)) return into[..TheStraightAhead(person, People.DestinationM[person], frontM, PlansAheadM, into)];
 
         var count = WaysAlongTheWalk(person, frontM + PlansAheadM, into);
 
@@ -165,9 +228,10 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>The hop off the end of the route, planned</b> (PER-25, PER-26): every way the atlas finds under the
-    /// straight from the front of the body towards where it is walking, as far as it would take to come to rest
-    /// — nearest first, each from where the straight comes onto it.
+    /// <b>A straight walk, planned</b> (PER-25, PER-26) — the hop off the end of the route, the walk back onto it, an
+    /// officer's to their post: every way the atlas finds under the straight from the front of the body towards
+    /// <paramref name="toM"/>, as far as it would take to come to rest — nearest first, each from where the straight
+    /// comes onto it.
     /// </summary>
     /// <remarks>
     /// <b>The ground the network does not walk is still ground somebody may have</b>: the pavement round a door,
@@ -175,10 +239,10 @@ internal sealed partial class TownWorld
     /// held over the stretch the body's width takes of it, which is what the atlas reads a body over too.
     /// </remarks>
     [SkipLocalsInit]
-    int TheHopAhead(int person, float frontM, float aheadM, Span<LineWay> into)
+    int TheStraightAhead(int person, Vector2 toM, float frontM, float aheadM, Span<LineWay> into)
     {
         var bodyM = People.PositionM[person];
-        var along = People.DestinationM[person] - bodyM;
+        var along = toM - bodyM;
         var lengthM = along.Length();
         var runM = MathF.Min(lengthM - frontM, aheadM);
         if (runM <= 0f) return 0;
@@ -208,12 +272,19 @@ internal sealed partial class TownWorld
     }
 
     /// <summary><b>How far this walker's plan can be had</b>, read and never written.</summary>
+    /// <remarks>
+    /// <b>A body its own is level with cuts nothing</b> (TER-4c.1): it is beside the walker or behind it. A straight
+    /// walk crosses a way along the width of the walker's own body as well as ahead of it, so what it is level with
+    /// there is read off where that body lies on the way, and not off where the straight comes onto it.
+    /// </remarks>
     PlanAnswer AnswerTheWalk(int person, int hold, ReadOnlySpan<LineWay> ways)
     {
+        var occupant = GroundHeldAs(person, out var roster);
         for (var index = 0; index < ways.Length; index++)
         {
             ref readonly var way = ref ways[index];
-            var reachM = _occupancy.Reach(WalkAsk(person, hold, way), way.Way, way.ToM, way.FromM, out var cutBy);
+            var levelWithM = MathF.Max(way.FromM, _occupancy.BodyReachesToM(way.Way, occupant, roster));
+            var reachM = _occupancy.Reach(WalkAsk(person, hold, way), way.Way, way.ToM, levelWithM, out var cutBy);
             if (reachM >= way.ToM) continue;
 
             return new PlanAnswer(OnTheLineM(way, reachM), _config.PersonStandstillGapM, cutBy, way.Way, index, reachM);
@@ -249,7 +320,7 @@ internal sealed partial class TownWorld
         var endsAtM = _occupancy.HoldEndsAtM(hold, out _, out var cutBy);
         if (float.IsPositiveInfinity(endsAtM) || (cutBy.Found && cutBy.HasBody)) return false;
 
-        var ways = TheWalkAhead(person, walk);
+        var ways = WaysOfTheWalk(person, walk);
         var answer = AnswerTheWalk(person, hold, ways);
         if (answer.CutLineM == endsAtM) return false;
 
@@ -264,7 +335,7 @@ internal sealed partial class TownWorld
     /// <summary>One piece of a walker's plan as the terms it is asked on.</summary>
     PlannedAsk WalkAsk(int person, int hold, in LineWay way) =>
         new(
-            hold, person, LaneRoster.Walking, ClaimPriority.Afoot, way.FromM, way.LineFromM,
+            hold, GroundHeldAs(person, out var roster), roster, ClaimPriority.Afoot, way.FromM, way.LineFromM,
             way.LineFromM - People.RadiusM[person], float.NegativeInfinity, AlongItsWalkMps(person));
 
     /// <summary>Whether one of the town's ways is the paint of a zebra, walked from one kerb to the other.</summary>
@@ -272,14 +343,14 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>What the walker got</b>: how far past the front of its body its plan survived, less the gap it keeps
-    /// off what cut it — infinity where nothing did, and where it planned nothing.
+    /// off what cut it — infinity where nothing did, and nothing where it planned nothing (PER-25b).
     /// </summary>
     void ReadTheWalkersGrant(int person)
     {
         var hold = _walkerHold[person];
         var endsAtM = _occupancy.HoldEndsAtM(hold, out var marginM, out _);
-        People.GrantM[person] = float.IsPositiveInfinity(endsAtM)
-            ? float.PositiveInfinity
+        People.GrantM[person] = hold == LaneOccupancy.NoHold ? 0f
+            : float.IsPositiveInfinity(endsAtM) ? float.PositiveInfinity
             : endsAtM - marginM - People.RadiusM[person];
         People.OnCrossing[person] = TheZebraOf(person, hold);
     }

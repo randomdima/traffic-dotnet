@@ -425,7 +425,7 @@ internal static class StuckProbe
         {
             if (stillTicks[person] < StillTicks) continue;
 
-            var key = $"{people.Stage[person]} walking {people.Walking[person]} " +
+            var key = $"{people.Action[person]}, {people.Stage[person]} walking {people.Walking[person]} " +
                       $"on {(people.OnWay[person] == PersonFleet.NoWay ? "no way" : "a way")}";
             byStage[key] = byStage.GetValueOrDefault(key) + 1;
         }
@@ -443,7 +443,7 @@ internal static class StuckProbe
                 $"still {stillTicks[person] / (float)config.Sim.TickRateHz:F0} s now, worst " +
                 $"{worstTicks[person] / (float)config.Sim.TickRateHz:F0} s");
             Console.WriteLine(
-                $"    stage {people.Stage[person]}, timer {people.TimerS[person]:F1} s, walking " +
+                $"    {people.Action[person]}, stage {people.Stage[person]}, timer {people.TimerS[person]:F1} s, walking " +
                 $"{people.Walking[person]}, route {people.RouteTaken[person]}/{people.RouteCount[person]} taken, " +
                 $"runs out {people.RouteRunsOut[person]}, goal ({people.GoalM[person].X:F1}, " +
                 $"{people.GoalM[person].Y:F1}), building {people.DestinationBuilding[person]}");

@@ -94,7 +94,9 @@ turned across its own lane holds the corner of the next and not its own shadow d
   of it nor back up for the room to says its line ends where it stands** (CAR-50): to whoever comes up behind it,
   it is going nowhere.
 - **A coupled pair is one occupant** (`EVA-5`): the car on the bar is laid under the vehicle pulling it, so a
-  truck's own plan is never cut at its own trailer.
+  truck's own plan is never cut at its own trailer. **So are an officer out on duty and their car** (`SRV-11`):
+  the officer is the car's closure on foot, and walks to the post beside the car — on the same lane, which a
+  reservation has no across to tell apart — without being held off it.
 - **A walker is always on the way it walks**, over the stretch its own body takes of it — the one way it must
   never be missing from, however the lattice falls under a body narrower than it.
 
@@ -195,6 +197,20 @@ it, and only something that beats it takes it.
   held off it as it is held off any body. Nothing but the answer says where a car waits.
 - **Nothing is ever released.** Every plan is laid again from its holder every tick, so a body that stops,
   is wrecked or is taken over by a hand plans nothing on the tick after.
+
+**TER-4c.8** `P3` **Nothing moves over a way it has not claimed.** Every movement an agent's action makes — a car's
+or a walker's, forwards or in reverse, down its own line, over the lane beside, into a bay or back onto its way — is
+over ground that action asked for and was granted before it moved: a plan, cut where it was cut, or the whole of a
+pass's or a manoeuvre's ground held as a body. **An action that claimed nothing is granted nothing** and stands, and
+one newly taken up stands until its own claim is read; the one claim handed from one action to the next is a plan down
+a car's own line. What moves a body that nobody planned — a contact, a shove, the solver — claims nothing and needs
+nothing claimed.
+
+- **Ground on no way is nobody's**: a walk across a lawn or a yard has claimed all there is of it.
+- **A car nobody in the town drives holds what it can no longer stop short of** — under a hand (`S-7`), or on a bar
+  under the truck pulling it (`EVA-5`) — being the whole of what anybody can say of where it goes.
+- **A body put somewhere rather than moved there** — out of a door, onto the pavement, down in a yard — is put only
+  where nobody holds the ground (`PHY-7a`).
 
 **TER-4c.7** `P3` **A car backing up plans behind itself, weaker than every other plan.** Its ground is the
 stretch of the lane it is on behind its tail that it means to back over (CAR-50), at the bottom of the ladder
@@ -322,7 +338,8 @@ look-up of another agent's state, no register of whose turn it is, and nothing o
 decisions that another reads in the same walk of them. What is left outside is the town's own infrastructure and its
 special agents, each named where it is made: **a light and a call**, which are rungs of the ladder, a light's
 placed before any plan is laid (`TLT-1`); **a closure**, which is an officer's body standing at the mouth of the
-lanes it holds and those lanes out of every route and every tour (`SRV-9`, `SRV-10`); **a hand at the wheel,
-a recovery and a tow**, which place a body where they put it — a hand holding what its car can no longer stop
-short of like any moving body (`S-7`); **a pass**, which places a body over ground its holder has still to
-reach (TER-4c.6); and **the solver**, which is what two bodies in one place come to.
+lanes it holds and those lanes out of every route and every tour (`SRV-9`, `SRV-10`); **a hand at the wheel
+and a tow**, which move a car where they take it, holding what it can no longer stop short of like any moving
+body (`S-7`, `EVA-5`); **a recovery**, which puts a body down only where nobody holds the ground (TER-4c.8);
+**a pass**, which places a body over ground its holder has still to reach (TER-4c.6); and **the solver**, which is
+what two bodies in one place come to.

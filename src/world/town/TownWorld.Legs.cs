@@ -115,7 +115,7 @@ internal sealed partial class TownWorld
             return _manoeuvres.IsBegun(car) && TheManoeuvreIsDriven(car);
         }
 
-        // A line that stops for a bay waits there for the manoeuvre into it (<see cref="ConsiderParking"/>),
+        // A line that stops for a bay waits there for the manoeuvre into it (<see cref="Park"/>),
         // which is not a line run out.
         if (IsOnTheFinalApproach(car)) return false;
 

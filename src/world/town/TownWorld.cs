@@ -759,7 +759,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
             // A route that could not be laid again leaves nothing to walk (PER-25). Left walking, the body
             // would set off at its goal in a straight line over whatever lay between.
-            People.Walking[agent] = People.RouteCount[agent] > 0;
+            SetWalking(agent, People.RouteCount[agent] > 0);
         }
 
         // <b>And the clock runs through that</b>, which is the half that was missing. A body that has lost
@@ -795,7 +795,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             // new goal of the walker's own.
             if (People.Manual[agent])
             {
-                People.Walking[agent] = false;
+                SetWalking(agent, false);
                 People.Stage[agent] = TripStage.UnderOrders;
                 return;
             }

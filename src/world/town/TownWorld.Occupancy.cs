@@ -214,7 +214,9 @@ internal sealed partial class TownWorld
     /// <remarks>
     /// <b>The metres of a way and the metres of a line run at the same rate and start together</b> (TER-5d):
     /// the line over a lane is that lane's own arcs from its own first metre, so a stretch carried across is
-    /// the same stretch of the same bending ground and not a chord over it.
+    /// the same stretch of the same bending ground and not a chord over it. <b>The last lane is its whole
+    /// length</b>, though a line may stop short of it where a car waits for its bay: the line is the axle's, and
+    /// the nose of a car at rest at its end stands further on.
     /// </remarks>
     public int WaysAlong(int car, float fromLineM, float toLineM, Span<LineWay> into)
     {
@@ -227,8 +229,9 @@ internal sealed partial class TownWorld
         for (var index = 0; index < lanes && written < into.Length; index++)
         {
             var leavingOn = index < lanes - 1 ? _roads.ConnectorBetween(chain[index], chain[index + 1]) : RoadGraph.NoConnector;
+            var endsM = index < lanes - 1 ? ends[index] : starts[index] + _roads.LaneLengthM[chain[index]];
 
-            if (Overlaps(fromLineM, toLineM, starts[index], ends[index], out var fromM, out var toM))
+            if (Overlaps(fromLineM, toLineM, starts[index], endsM, out var fromM, out var toM))
             {
                 into[written++] = new LineWay(
                     _ways.OfRoadLane(chain[index]), fromM - starts[index], toM - starts[index], fromM);

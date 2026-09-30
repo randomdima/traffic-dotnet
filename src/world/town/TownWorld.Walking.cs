@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
+using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Core.Geometry;
@@ -239,8 +240,9 @@ internal sealed partial class TownWorld
     /// </remarks>
     void WalkTheWay(int person)
     {
-        // An officer on duty walks straight at their post and has no way of the network to walk (SRV-11).
-        if (!People.Walking[person] || People.Stage[person] == TripStage.OnDuty) return;
+        // Only a walk down its route has a route to walk: an officer on duty walks straight at their post (SRV-11),
+        // and a hand walks a walker wherever it likes (CTL-6).
+        if (!People.Walking[person] || !WalksItsRoute(People.Action[person])) return;
 
         // Walking with no way of the network under it: a body stands until the next decision lays it a
         // route, whose first leg is the straight back onto the pavement (PER-25). Aimed at the goal
@@ -290,7 +292,7 @@ internal sealed partial class TownWorld
             // body stands on its own doorstep aiming at it until the give-up clock takes the trip away.
             if ((endsAtM - People.PositionM[person]).Length() <= People.RadiusM[person])
             {
-                People.Walking[person] = false;
+                SetWalking(person, false);
             }
         }
     }
@@ -327,6 +329,23 @@ internal sealed partial class TownWorld
     {
         if (!People.Walking[person]) return;
 
+        switch (People.Action[person])
+        {
+            case PersonAction.Post:
+                AimAlongTheStraight(person, People.GoalM[person]);
+                return;
+
+            case PersonAction.Rejoin:
+                AimAlongTheStraight(person, BackOntoItsWayM(person));
+                return;
+
+            case PersonAction.Walk or PersonAction.Sidestep:
+                break;
+
+            default:
+                return;
+        }
+
         var way = People.CurrentRouteWay(person);
         if (way == PersonFleet.NoWay) return;
 
@@ -355,6 +374,19 @@ internal sealed partial class TownWorld
         var strideM = MathF.Min(_config.PersonWalkAheadM, People.GrantM[person]);
         var aheadM = MathF.Min(People.OnWayM[person] + strideM, EndOfTheWayM(person, walking));
         People.DestinationM[person] = Spline.SampleAt(walking.WayArcs(way), aheadM).PositionM;
+    }
+
+    /// <summary>
+    /// <b>A walker walking straight at a place aims at it</b>, and no further along the straight than it was granted
+    /// (PER-26) — so one granted nothing stands where it is.
+    /// </summary>
+    void AimAlongTheStraight(int person, Vector2 toM)
+    {
+        var towards = toM - People.PositionM[person];
+        var reachM = MathF.Max(0f, People.GrantM[person]);
+        People.DestinationM[person] = towards.LengthSquared() > reachM * reachM
+            ? People.PositionM[person] + (Vector2.Normalize(towards) * reachM)
+            : toM;
     }
 
     /// <summary>

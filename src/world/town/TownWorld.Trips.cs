@@ -123,7 +123,7 @@ internal sealed partial class TownWorld
         // the body has got to. A leg that cannot be laid at all is one this trip has no way of
         // finishing, and it is given up rather than re-asked sixty times a second.
         LayWalk(person, reachTheGoal: true);
-        People.Walking[person] = People.RouteCount[person] > 0;
+        SetWalking(person, People.RouteCount[person] > 0);
         if (People.Walking[person])
         {
             // A fresh chain is fresh ground to be measured against: the clock run up reaching the end of
@@ -159,7 +159,7 @@ internal sealed partial class TownWorld
         // <b>Standing by is not walking</b>, and the draw below may well find nowhere to go. Left true from
         // the leg that just failed, a body stood here holding no route at all — which is neither of PER-25's
         // two walks — and every clock in the town went on treating it as a walker under way.
-        People.Walking[person] = false;
+        SetWalking(person, false);
         People.ClearRoute(person);
 
         var buildings = _plan.Buildings;
@@ -306,7 +306,7 @@ internal sealed partial class TownWorld
         // whose search came back with nothing walked at a door on the far side of town in a straight line,
         // over whatever lay between it and the carriageway included — and nothing stopped it, the goal
         // getting nearer every tick keeping the give-up clock from ever running up.
-        People.Walking[person] = People.RouteCount[person] > 0;
+        SetWalking(person, People.RouteCount[person] > 0);
         _progress.Restart(person);
     }
 }

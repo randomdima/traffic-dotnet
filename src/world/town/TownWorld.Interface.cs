@@ -442,7 +442,7 @@ internal sealed partial class TownWorld
     /// the follower produces one, so the per-gear speed caps, the steering lock and the friction ellipse
     /// all still bind. The traffic is told, though — a hand-driven car holds the road it can no longer stop
     /// short of, straight ahead of it on whatever ways that crosses, so the cars around it give way to what
-    /// the hand cannot help as they would to any other car going in (<see cref="HoldWhatTheHandCannotStopShortOf"/>).
+    /// the hand cannot help as they would to any other car going in (<see cref="HoldWhatCannotBeStoppedShortOf"/>).
     /// </remarks>
     void HandDrive(int car, in CarPose pose)
     {

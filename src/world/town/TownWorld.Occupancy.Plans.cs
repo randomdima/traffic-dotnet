@@ -62,14 +62,24 @@ internal sealed partial class TownWorld
         Cars.ClaimFromM[car] = noseM;
         Cars.ClaimToM[car] = noseM;
         Cars.CommittedToM[car] = noseM;
-        Cars.AuthorityM[car] = float.PositiveInfinity;
         Cars.HorizonM[car] = float.PositiveInfinity;
         Cars.GrantMarginM[car] = 0f;
         Cars.GrantCutBy[car] = HeadwayKind.Nothing;
-        if (Cars.Action[car] == CarAction.Hand)
+
+        // <b>Nothing claimed is nothing granted</b> (CAR-15b): a car moves over ground its action has claimed this
+        // rebuild and over no other, so what an action lays below is the only thing that grants it road.
+        Cars.AuthorityM[car] = 0f;
+
+        switch (Cars.Action[car])
         {
-            HoldWhatTheHandCannotStopShortOf(car);
-            return;
+            case CarAction.Hand:
+                HoldWhatCannotBeStoppedShortOf(car, car);
+                return;
+
+            // EVA-5: a car on a bar is the truck's to move, and what it cannot stop short of is held under the truck.
+            case CarAction.Towed:
+                HoldWhatCannotBeStoppedShortOf(car, LaidAs(car));
+                return;
         }
 
         // <b>A car manoeuvring at a bay plans nothing</b> (GEN-4f): the ground it drives is its manoeuvre's, laid as
@@ -111,7 +121,10 @@ internal sealed partial class TownWorld
         }
 
         var wantedM = MathF.Max(committedM, meantM * ReachShare(car));
-        var lengthM = Cars.Line[car].LengthM;
+
+        // <b>The line is the axle's, and the plan the nose's</b> (CAR-4a): a car brought to rest at its line's end has
+        // its nose that much further on, over ground it has to hold to get there.
+        var lengthM = Cars.Line[car].LengthM + LeadingEdgeAheadOfTheAxleM(car);
         var wantedToM = MathF.Min(noseM + wantedM, lengthM);
         var committedToM = noseM + committedM;
 
@@ -143,7 +156,12 @@ internal sealed partial class TownWorld
             return;
         }
 
-        if (planToM <= planFromM) return;
+        // A pass that reaches past all the car means to plan is the whole of its ground, and nothing in it.
+        if (planToM <= planFromM)
+        {
+            if (Cars.Pass[car].Begun) Cars.AuthorityM[car] = float.PositiveInfinity;
+            return;
+        }
 
         var hold = _occupancy.BeginHold(standOffM);
         _carHold[car] = hold;
@@ -156,17 +174,19 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>A car under a hand holds the road it can no longer stop short of</b> (TER-5e, CTL-5): the stretch
-    /// straight ahead of it that its speed carries it over before it could be at rest, on every way the atlas
-    /// finds under it, as committed ground — so the traffic plans round what the hand cannot help, and nothing
-    /// is said about what the hand means to do.
+    /// <b>A car nobody in the town is driving holds the road it can no longer stop short of</b> (TER-5e) — one under
+    /// a hand (CTL-5) and one on a bar (EVA-5): the stretch straight ahead of it that its speed carries it over
+    /// before it could be at rest, on every way the atlas finds under it, as committed ground under
+    /// <paramref name="occupant"/> — so the traffic plans round what the hand or the truck cannot help, and nothing
+    /// is said about where either means to go.
     /// </summary>
     /// <remarks>
-    /// <b>Its own hold and never the drive's</b>: a hand drives no line, so nothing here is asked again when the
-    /// plans are settled, and no grant is read back — the hand is the car's whole answer (S-7).
+    /// <b>Its own hold and never the drive's</b>: it drives no line, so nothing here is asked again when the plans
+    /// are settled, and no grant is read back — the hand or the truck is the car's whole answer (S-7).
     /// </remarks>
+    /// <param name="occupant">Whose ground it is held as: the car's own, or the truck's it is laid under.</param>
     [SkipLocalsInit]
-    void HoldWhatTheHandCannotStopShortOf(int car)
+    void HoldWhatCannotBeStoppedShortOf(int car, int occupant)
     {
         var velocity = Cars.VelocityMps[car];
         var speedMps = velocity.Length();
@@ -193,10 +213,10 @@ internal sealed partial class TownWorld
                 Vector2.Dot(Spline.SampleAt(line, cover.FromM).PositionM - Cars.PositionM[car], travel),
                 Vector2.Dot(Spline.SampleAt(line, cover.ToM).PositionM - Cars.PositionM[car], travel)) - frontM);
             var ask = new PlannedAsk(
-                hold, car, LaneRoster.Driving, ClaimPriority.Firm, cover.FromM, aheadM, aheadM,
+                hold, occupant, LaneRoster.Driving, ClaimPriority.Firm, cover.FromM, aheadM, aheadM,
                 float.PositiveInfinity, speedMps);
 
-            // Never over a body (TER-4c.1): what is standing there is what the hand is about to meet.
+            // Never over a body (TER-4c.1): what is standing there is what the car is about to meet.
             _occupancy.Take(ask, cover.Way, _occupancy.Reach(ask, cover.Way, cover.ToM, cover.FromM, out _));
         }
 
@@ -375,17 +395,24 @@ internal sealed partial class TownWorld
     /// it keeps off whatever cut it — and infinity where nothing did.
     /// </summary>
     /// <remarks>
-    /// <b>A car nothing cut is held by nobody</b>, and its grant stays infinite rather than coming back as
-    /// the length of its own plan: handing it back as a limit would make a car alone on an empty road read as
-    /// one queueing behind itself. Where the plan was held short of what the car wanted, its end is a stop point
-    /// of its own beside the grant (<see cref="CarFleet.HorizonM"/>). Negative where the
-    /// car cannot stop in what is left, which is a fact about a contact rather than a gap.
+    /// <b>A car nothing cut is held by nobody</b>, and its grant is infinite rather than the length of its own plan:
+    /// handing it back as a limit would make a car alone on an empty road read as one queueing behind itself. Its
+    /// plan reached as far as it means to be able to stop, and where it was held short of that, its end is a stop
+    /// point of its own beside the grant (<see cref="CarFleet.HorizonM"/>). Negative where the car cannot stop in what
+    /// is left, which is a fact about a contact rather than a gap. <b>A car that laid no hold keeps what its action
+    /// granted it</b> (<see cref="PlanTheDrive"/>) — the whole of a manoeuvre's or a pass's ground, or nothing.
     /// </remarks>
     void ReadTheGrant(int car)
     {
         var hold = _carHold[car];
+        if (hold == LaneOccupancy.NoHold) return;
+
         var endsAtM = _occupancy.HoldEndsAtM(hold, out var marginM, out var cutBy);
-        if (float.IsPositiveInfinity(endsAtM)) return;
+        if (float.IsPositiveInfinity(endsAtM))
+        {
+            Cars.AuthorityM[car] = float.PositiveInfinity;
+            return;
+        }
 
         Cars.AuthorityM[car] = endsAtM - marginM - Cars.ClaimFromM[car];
         Cars.GrantMarginM[car] = marginM;

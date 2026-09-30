@@ -56,11 +56,20 @@ them, and what it is held short of is what its reservations are answered with (P
 originates no geometry of its own beyond the one short hop off the network onto a doorstep — and the step
 across onto the lane beside while it gets past somebody (PER-28), which is the pavement's own lane too.
 
+**PER-25b** `P4` **Somebody on foot does one thing at a time, and the thing is named** (`PersonAction`): walking
+its route and the hop off the end of it, getting past somebody (PER-28), getting back onto its way (PER-25), an
+officer walking to their post (SRV-11) — or standing, inside (PHY-7), down (PER-18) or under a hand (CTL-6). As a
+car's is (CAR-15b), an action is entered and left in one place, and a walker walks only the ground its action
+claimed (TER-4c.8).
+
 **A body that is on no way of the network walks straight at the nearest point of one.** That is the whole
 of the second case and it is the common one, not a corner of the rule — a doorway stands off the walk, a
 body shoved off its line is standing on grass, a casualty put back on its feet is wherever the hospital
 left it. The route is laid again from where the body has got to and its first leg is the straight back
-onto the pavement.
+onto the pavement. **The straight is planned like any walk** (PER-26), over whatever ways it crosses: off the
+pavement altogether — in the carriageway, on a verge — the walker claims the lanes between it and its way before
+it steps over them. **A body between the two lanes of a pavement, or shoved across a corner, walks its route**:
+what it steps over getting back onto its way is pavement its own body stands on, and where it goes is its plan's.
 
 **Which of the two it is, is read off the way the route handed it and never searched for**: the body's
 place is where it projects onto that way's own line, worked out once a tick, and a body further off that

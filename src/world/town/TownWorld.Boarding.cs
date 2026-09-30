@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Core.Geometry;
@@ -118,6 +119,7 @@ internal sealed partial class TownWorld
     void Contain(int person)
     {
         People.Walking[person] = false;
+        Enter(person, PersonAction.Inside);
         People.ClearRoute(person);
         _impulseNs[person] = Vector2.Zero;
         People.DeclaredMps[person] = Vector2.Zero;
@@ -133,7 +135,7 @@ internal sealed partial class TownWorld
         People.HeadingRad[person] = headingRad;
         People.DestinationM[person] = atM;
         People.GoalM[person] = atM;
-        People.Walking[person] = false;
+        SetWalking(person, false);
         People.ClearRoute(person);
         _impulseNs[person] = Vector2.Zero;
         _progress.Restart(person);

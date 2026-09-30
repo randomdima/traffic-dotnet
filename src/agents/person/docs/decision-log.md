@@ -4,6 +4,16 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-30 — somebody on foot does one named thing at a time
+
+**The owner asked for every actor's actions to be separate states** (PER-25b, `PersonAction`), as a car's now are
+(CAR-15b). What a walker was doing was read off whether it was walking, its stage, whether it was inside or down,
+its pass, the way it was on and whether it was hopping. Now one field says it and one method changes it
+(`TownWorld.Enter`): a walk that sets off or stops says so with it (`SetWalking`), a door and a car say inside, a
+casualty says down, an officer let out says post, a pass asked for says sidestep and a pass over or withdrawn says
+walk. **Getting back onto its way is its own action** only off the pavement altogether; why, and what every action
+claims, is the road log's entry of the same day.
+
 ## 2026-09-30 — a route that ran out of room is laid on before the plan reaches its end
 
 **Five minutes of Odesa left a walker and a car standing at a zebra for the rest of the run.** The walker's

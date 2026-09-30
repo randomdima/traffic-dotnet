@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
+using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Agents.Service;
 using TrafficSimulation.Core.Geometry;
@@ -359,6 +360,7 @@ internal sealed partial class TownWorld
         People.DestinationM[officer] = atM;
         People.GoalM[officer] = atM;
         People.Walking[officer] = true;
+        Enter(officer, PersonAction.Post);
     }
 
     /// <summary>
@@ -454,7 +456,7 @@ internal sealed partial class TownWorld
     /// </summary>
     void ReleaseTheOfficer(int officer)
     {
-        People.Walking[officer] = false;
+        SetWalking(officer, false);
         People.Stage[officer] = TripStage.StandingBy;
         People.TimerS[officer] = 0f;
         People.DestinationM[officer] = People.PositionM[officer];

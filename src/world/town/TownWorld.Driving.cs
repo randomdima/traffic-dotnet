@@ -253,7 +253,6 @@ internal sealed partial class TownWorld
         {
             if (KeepOrWithdrawTheManoeuvre(car))
             {
-                TakeThePiece(car, 0);
                 DriveTheWay(car, pose);
                 return;
             }
@@ -940,7 +939,7 @@ internal sealed partial class TownWorld
 
         // <b>A line whose last lane is the one the car's own bay is worked off stops where the car waits for
         // its manoeuvre into it</b> (GEN-4f, <see cref="StopForTheBayM"/>), and the manoeuvre is what the car
-        // drives next once it has the ground for it (<see cref="ConsiderParking"/>). It is not threaded onto the
+        // drives next once it has the ground for it (<see cref="Park"/>). It is not threaded onto the
         // end of this line: a manoeuvre is shaped from where the car is when it gets there, in whichever gear
         // each of its pieces is driven.
         var bay = TheBayTheLineStopsFor(car, chain[lanes - 1]);

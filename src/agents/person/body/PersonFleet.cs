@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Containment;
@@ -39,6 +40,7 @@ internal sealed class PersonFleet
         HeadingRad = new float[capacity];
         DestinationM = new Vector2[capacity];
         Walking = new bool[capacity];
+        Action = new PersonAction[capacity];
         Manual = new bool[capacity];
         Wounded = new bool[capacity];
         Reckless = new bool[capacity];
@@ -59,7 +61,6 @@ internal sealed class PersonFleet
         OnCrossing = new int[capacity];
         Array.Fill(OnCrossing, NoCrossing);
         GrantM = new float[capacity];
-        Array.Fill(GrantM, float.PositiveInfinity);
         Pass = new Sidestep[capacity];
         GoalM = new Vector2[capacity];
         Stage = new TripStage[capacity];
@@ -182,7 +183,8 @@ internal sealed class PersonFleet
     /// <summary>
     /// <b>How far down its walk this walker was granted room to stop</b> (PER-26): its plan as it survived
     /// every body and every other plan, from the front of its body, less the gap it keeps — infinite where
-    /// nothing cut it. <b>A walker's counterpart of a driver's grant</b>, and what it walks to.
+    /// nothing cut it, and nothing where its action claimed nothing (PER-25b). <b>A walker's counterpart of a
+    /// driver's grant</b>, and what it walks to.
     /// </summary>
     /// <remarks>
     /// <b>A walker refused a crossing stands at the kerb</b> (PER-27): what the traffic holds of a zebra it
@@ -234,6 +236,12 @@ internal sealed class PersonFleet
     public bool[] RouteRunsOut { get; }
 
     public bool[] Walking { get; }
+
+    /// <summary>
+    /// <b>What each walker is doing</b> (PER-25b) — one action, changed in one place in the town and read everywhere
+    /// else. Every claim a walker lays and every place it aims at is its action's.
+    /// </summary>
+    public PersonAction[] Action { get; }
 
     /// <summary>CTL-4: an ordered walker idles awaiting the next order instead of drawing a new destination.</summary>
     public bool[] Manual { get; }
@@ -307,6 +315,7 @@ internal sealed class PersonFleet
         HeadingRad[person] = headingRad;
         DestinationM[person] = positionM;
         Walking[person] = false;
+        Action[person] = PersonAction.Stand;
         Manual[person] = false;
         Wounded[person] = false;
         MassKg[person] = massKg;
@@ -324,7 +333,7 @@ internal sealed class PersonFleet
         OnWayM[person] = 0f;
         OffWayM[person] = 0f;
         OnCrossing[person] = NoCrossing;
-        GrantM[person] = float.PositiveInfinity;
+        GrantM[person] = 0f;
         Pass[person] = Sidestep.None;
         Stage[person] = TripStage.StandingBy;
         DestinationBuilding[person] = NoBuilding;
@@ -397,6 +406,6 @@ internal sealed class PersonFleet
         OnWayM[person] = 0f;
         OffWayM[person] = 0f;
         OnCrossing[person] = NoCrossing;
-        GrantM[person] = float.PositiveInfinity;
+        GrantM[person] = 0f;
     }
 }

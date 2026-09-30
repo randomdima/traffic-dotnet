@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Core.Geometry;
@@ -43,10 +44,10 @@ internal sealed partial class TownWorld
     [SkipLocalsInit]
     void LayTheWalkersPass(int person)
     {
-        if (!People.Pass[person].Any) return;
+        if (People.Action[person] != PersonAction.Sidestep) return;
         if (!WhereOnItsSidestep(person, out var place))
         {
-            People.Pass[person] = Sidestep.None;
+            Enter(person, PersonAction.Walk);
             return;
         }
 
@@ -71,23 +72,25 @@ internal sealed partial class TownWorld
     /// </summary>
     void ConsiderASidestep(int person)
     {
-        var pass = People.Pass[person];
-        if (pass.Begun)
+        if (People.Action[person] == PersonAction.Walk)
         {
-            if (!WhereOnItsSidestep(person, out var place) || place.Leg != SidestepLeg.Over) return;
-
-            People.Pass[person] = Sidestep.None;
-            SidestepsMade++;
+            AskForASidestep(person);
             return;
         }
 
-        if (pass.Any)
+        if (People.Action[person] != PersonAction.Sidestep) return;
+
+        var pass = People.Pass[person];
+        if (!pass.Begun)
         {
             KeepOrWithdrawTheSidestep(person, pass);
             return;
         }
 
-        AskForASidestep(person);
+        if (!WhereOnItsSidestep(person, out var place) || place.Leg != SidestepLeg.Over) return;
+
+        SidestepsMade++;
+        Enter(person, PersonAction.Walk);
     }
 
     /// <summary>A walker's pass laid in this rebuild, kept where it still has its ground to itself and withdrawn otherwise.</summary>
@@ -108,8 +111,8 @@ internal sealed partial class TownWorld
                     continue;
                 }
 
-                People.Pass[person] = Sidestep.None;
                 SidestepsWithdrawn++;
+                Enter(person, PersonAction.Walk);
                 return;
             }
         }
@@ -154,6 +157,7 @@ internal sealed partial class TownWorld
 
         People.Pass[person] = pass;
         SidestepsAsked++;
+        Enter(person, PersonAction.Sidestep);
     }
 
     /// <summary>

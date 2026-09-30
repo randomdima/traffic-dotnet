@@ -73,7 +73,6 @@ internal sealed class CarFleet
         ClaimToM = new float[capacity];
         CommittedToM = new float[capacity];
         AuthorityM = new float[capacity];
-        Array.Fill(AuthorityM, float.PositiveInfinity);
         HorizonM = new float[capacity];
         Array.Fill(HorizonM, float.PositiveInfinity);
         GrantMarginM = new float[capacity];
@@ -298,9 +297,10 @@ internal sealed class CarFleet
     public float[] CommittedToM { get; }
 
     /// <summary>
-    /// <b>How far ahead of its nose the car was granted room to stop</b> — its plan as it survived every
-    /// body and every other plan, less the ground it keeps off whatever cut it. Infinite where nothing cut
-    /// it: an empty road, or a car that is not under way at all.
+    /// <b>How far ahead of its nose the car was granted room to stop</b> — its action's claim as it survived every
+    /// body and every other plan, less the ground it keeps off whatever cut it. Infinite where nothing cut it —
+    /// an empty road, or a manoeuvre with nobody on its ground — and <b>nothing at all where its action claimed
+    /// nothing</b> (CAR-15b): a car moves over no ground it has not claimed.
     /// </summary>
     /// <remarks>
     /// It is a distance from the nose and is walked in by the ground covered since it was granted: a car
@@ -626,7 +626,7 @@ internal sealed class CarFleet
         Line[car] = default;
         StopsForBay[car] = NoBay;
         TurnsBackOn[car] = NoLane;
-        AuthorityM[car] = float.PositiveInfinity;
+        AuthorityM[car] = 0f;
         HorizonM[car] = float.PositiveInfinity;
         GrantMarginM[car] = 0f;
         GrantCutBy[car] = Control.HeadwayKind.Nothing;
