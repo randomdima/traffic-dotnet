@@ -355,13 +355,7 @@ internal sealed partial class TownWorld
     /// <b>An officer on duty walking straight to a place and standing on it</b> (SRV-11): no route and no clock,
     /// since where they stand is the closure's and the ground under it is the road's.
     /// </summary>
-    void AimTheOfficer(int officer, Vector2 atM)
-    {
-        People.DestinationM[officer] = atM;
-        People.GoalM[officer] = atM;
-        People.Walking[officer] = true;
-        Enter(officer, PersonAction.Post);
-    }
+    void AimTheOfficer(int officer, Vector2 atM) => _walkingToThePost.Begin(officer, atM);
 
     /// <summary>
     /// <b>Whether a car carrying a call is coming down the lane this car closes and has not yet reached the

@@ -46,24 +46,6 @@ internal sealed partial class TownWorld
         && People.OffWayM[person] > (_config.WalkerOffLaneM * OffLineTolerance) + MathF.Abs(People.Pass[person].AsideM);
 
     /// <summary>
-    /// <b>Whether the body is on the ground of the way it is walking</b>, rather than merely near it: a
-    /// pavement is walked a lane each way a lane's width apart (WLK-8), so past the half-band the body is
-    /// nearer its sibling and the ground walk would name that one instead.
-    /// </summary>
-    /// <remarks>
-    /// <b>It is regularly false for a stretch at the start of a walk</b>, and that is the state and not a
-    /// fault: a walker standing on one lane of a pavement may be routed down the other (WLK-8,
-    /// <see cref="WalkingNetwork.EntriesNear"/>), and until it has crossed to it, it is between the two —
-    /// holding the ground its own disc is over like any body, and not yet on the way it walks. What it plans
-    /// is that way all the same (<see cref="HasAWalkToPlan"/>): where it is going does not wait on its feet.
-    /// </remarks>
-    bool IsOnItsWay(int person)
-    {
-        var way = People.CurrentRouteWay(person);
-        return way != PersonFleet.NoWay && People.OffWayM[person] <= Walking.WayWidthM(way) * 0.5f;
-    }
-
-    /// <summary>
     /// A body whose controller is paused — the same thing done for a body nobody is deciding for: a
     /// walker holds its stance on its own feet, and a car is left with no pedals and no
     /// steering, so what happens to it is the tyres' and the solver's.
@@ -140,7 +122,7 @@ internal sealed partial class TownWorld
         // that way, the entry's own metre being the fine graph's and this the lane's.
         people.RouteTaken[person] = 1;
         people.OnWayM[person] = walking.LaneMOf(into[0], enteredAtM);
-        PlaceItOnItsWay(person, walking, float.PositiveInfinity);
+        _walkingGround.PlaceItOnItsWay(person, float.PositiveInfinity);
 
         MoveTheGoalOntoTheWalk(person, reachTheGoal, walking, into[..written]);
     }
@@ -165,12 +147,12 @@ internal sealed partial class TownWorld
         var at = People.RouteAt(person);
         if (at < 0) return false;
 
-        var reachM = People.RadiusM[person] + PlansAheadM
+        var reachM = People.RadiusM[person] + _walkingGround.PlansAheadM
                      + (_config.PersonWalkSpeedMps * _config.Sim.AgentDecisionIntervalS);
         var walkedM = 0f;
         for (var slot = at; slot < People.RouteCount[person]; slot++)
         {
-            WalkedOfSlot(person, slot, out var fromM, out var endM);
+            _walkingGround.WalkedOfSlot(person, slot, out var fromM, out var endM);
             walkedM += MathF.Max(0f, endM - fromM);
             if (walkedM > reachM) return false;
         }
@@ -225,225 +207,6 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>One tick of walking the chain</b>: where the body now stands on the way it is on, and the next way
-    /// off the chain where it has walked this one out. Where along it the body aims is the grant's, and is
-    /// read once the grant is (<see cref="AimTheWalker"/>).
-    /// </summary>
-    /// <remarks>
-    /// <b>It is the driver's line-taking in the walking side's words</b> — a car takes the next lane off
-    /// its route when the line over the one it is on runs out (<see cref="NextLaneOnRoute"/>), and this is
-    /// that with the line being the way's own arc and no assembly in between.
-    /// <para>
-    /// <b>The goal is walked to off the network and not along it.</b> The chain ends where the pavement
-    /// does; what is left is the one short hop, and the body aims straight at it.
-    /// </para>
-    /// </remarks>
-    void WalkTheWay(int person)
-    {
-        // Only a walk down its route has a route to walk: an officer on duty walks straight at their post (SRV-11),
-        // and a hand walks a walker wherever it likes (CTL-6).
-        if (!People.Walking[person] || !WalksItsRoute(People.Action[person])) return;
-
-        // Walking with no way of the network under it: a body stands until the next decision lays it a
-        // route, whose first leg is the straight back onto the pavement (PER-25). Aimed at the goal
-        // instead it struck out for a door across town over whatever lay between — which is the one thing
-        // the pavement graph exists to stop, and nothing here searched to find out it was doing it.
-        if (People.CurrentRouteWay(person) == PersonFleet.NoWay)
-        {
-            People.DestinationM[person] = People.PositionM[person];
-            return;
-        }
-
-        var walking = Walking;
-        PlaceItOnItsWay(person, walking, AStrideM);
-
-        while (HasWalkedOut(person, EndOfTheWayM(person, walking)) && !People.OnTheLastWay(person))
-        {
-            var before = People.CurrentRouteWay(person);
-            if (!People.TakeNextRouteWay(person, out var next)) break;
-
-            walking.SpanOfWay(before, next, People.PeekNextRouteWay(person), out var fromM, out _);
-            People.OnWayM[person] = fromM;
-            PlaceItOnItsWay(person, walking, AStrideM);
-
-            // Taking a way *is* progress, and the clock that decides a walker has given up is measured
-            // against where it is aiming. Left standing it would run up over a long way and call a walker
-            // that had just been handed a fresh one stuck.
-            _progress.Restart(person);
-        }
-
-        var stopsAtM = EndOfTheWayM(person, walking);
-        if (People.OnTheLastWay(person) && HasWalkedOut(person, stopsAtM))
-        {
-            // The chain is walked out. What is left is the hop onto the goal, over ground the network does
-            // not number — or, where the chain stopped for want of room rather than because it arrived,
-            // nothing at all: the walk ends on the network and the rest of it is laid again from there.
-            var endsAtM = People.GoalM[person];
-            if (People.RouteRunsOut[person]
-                && !walking.EndOfTheWalk(People.RouteOf(person)[..People.RouteCount[person]], stopsAtM, out endsAtM))
-            {
-                endsAtM = People.PositionM[person];
-            }
-
-            People.DestinationM[person] = endsAtM;
-
-            // And the hop walked too, the leg is over: what happens next is the trip's to say — arriving,
-            // waiting for a place, or laying the next leg (<see cref="StandingStill"/>). Left walking, a
-            // body stands on its own doorstep aiming at it until the give-up clock takes the trip away.
-            if ((endsAtM - People.PositionM[person]).Length() <= People.RadiusM[person])
-            {
-                SetWalking(person, false);
-            }
-        }
-    }
-
-    /// <summary>
-    /// <b>Whether the body has walked a way out as far as <paramref name="endM"/></b> — standing within a
-    /// tick's walk of it, which is the tick that would carry it there.
-    /// </summary>
-    /// <remarks>
-    /// <b>Never "at or past" it.</b> The body's metre is a projection onto the way's arcs, and on a way of
-    /// several arcs the most it can come back as is the sum of their lengths in float — an ulp short of the
-    /// way's own length on some. Asked exactly, a walker stood on the end of such a way aiming at the end of
-    /// it and was never handed the next.
-    /// </remarks>
-    bool HasWalkedOut(int person, float endM) => People.OnWayM[person] >= endM - _config.PersonStepM;
-
-    /// <summary>
-    /// <b>Where a walker on its way aims, on the grant this rebuild gave it</b> (PER-26): a stride down the
-    /// way, or along the hop off the end of it towards where that is walked (<see cref="WalkTheWay"/>), and never
-    /// past the road it was granted — so a walker with none granted stands where it is.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Read after the grant and not before it</b>, as a driver's is: aimed while the chain was walked, a
-    /// walker stepped on the grant the tick before had left it.
-    /// </para>
-    /// <para>
-    /// <b>The aim is where the middle of the body gets to</b>, and the follower takes it there and no further
-    /// (<see cref="WalkerFollower"/>). The grant is how far the front of the body may go, which is how far
-    /// the middle may, so it is the grant that is added to the body's own place and not the grant and a radius.
-    /// </para>
-    /// </remarks>
-    void AimTheWalker(int person)
-    {
-        if (!People.Walking[person]) return;
-
-        switch (People.Action[person])
-        {
-            case PersonAction.Post:
-                AimAlongTheStraight(person, People.GoalM[person]);
-                return;
-
-            case PersonAction.Rejoin:
-                AimAlongTheStraight(person, BackOntoItsWayM(person));
-                return;
-
-            case PersonAction.Walk or PersonAction.Sidestep:
-                break;
-
-            default:
-                return;
-        }
-
-        var way = People.CurrentRouteWay(person);
-        if (way == PersonFleet.NoWay) return;
-
-        if (People.GrantM[person] <= 0f)
-        {
-            People.DestinationM[person] = People.PositionM[person];
-            return;
-        }
-
-        // The hop is aimed at where it was walked to, and no further along the straight than it was granted.
-        if (IsHopping(person))
-        {
-            var towards = People.DestinationM[person] - People.PositionM[person];
-            var reachM = People.GrantM[person];
-            if (towards.LengthSquared() > reachM * reachM)
-            {
-                People.DestinationM[person] = People.PositionM[person] + (Vector2.Normalize(towards) * reachM);
-            }
-
-            return;
-        }
-
-        if (AimTheSidestep(person)) return;
-
-        var walking = Walking;
-        var strideM = MathF.Min(_config.PersonWalkAheadM, People.GrantM[person]);
-        var aheadM = MathF.Min(People.OnWayM[person] + strideM, EndOfTheWayM(person, walking));
-        People.DestinationM[person] = Spline.SampleAt(walking.WayArcs(way), aheadM).PositionM;
-    }
-
-    /// <summary>
-    /// <b>A walker walking straight at a place aims at it</b>, and no further along the straight than it was granted
-    /// (PER-26) — so one granted nothing stands where it is.
-    /// </summary>
-    void AimAlongTheStraight(int person, Vector2 toM)
-    {
-        var towards = toM - People.PositionM[person];
-        var reachM = MathF.Max(0f, People.GrantM[person]);
-        People.DestinationM[person] = towards.LengthSquared() > reachM * reachM
-            ? People.PositionM[person] + (Vector2.Normalize(towards) * reachM)
-            : toM;
-    }
-
-    /// <summary>
-    /// <b>Whether this walker has walked its chain out</b> and what is left is the hop off the end of it — onto the
-    /// goal, over ground the network does not number.
-    /// </summary>
-    bool IsHopping(int person) =>
-        People.OnTheLastWay(person) && HasWalkedOut(person, EndOfTheWayM(person, Walking));
-
-    /// <summary>
-    /// How far along the way it is on this walk goes: the end of that way's own stretch of the chain, or
-    /// where the destination stands on it where it is the last of them.
-    /// </summary>
-    float EndOfTheWayM(int person, WalkingNetwork walking)
-    {
-        if (People.OnTheLastWay(person)) return People.RouteToM[person];
-
-        walking.SpanOfWay(
-            People.RouteWayBefore(person), People.CurrentRouteWay(person), People.PeekNextRouteWay(person),
-            out _, out var endM);
-        return endM;
-    }
-
-    /// <summary>
-    /// <b>Where on the way it is walking this body now stands, and how far off it</b> — one projection,
-    /// answering both (SIM-7).
-    /// </summary>
-    /// <remarks>
-    /// <b>Found and not carried.</b> A body is pushed about by the solver, so its place on a way is where
-    /// it actually stands rather than where a step of arithmetic said it should be — and seeded at the
-    /// metre it held a tick ago, the search is a stride of one way rather than a walk of the town.
-    /// </remarks>
-    /// <param name="windowM">
-    /// How far either side of the metre it last held the way is searched. <b>A stride is enough while a
-    /// walk is under way</b> and the whole way is what a body newly handed one needs, the metre it is
-    /// carrying then being the previous way's or none at all.
-    /// </param>
-    void PlaceItOnItsWay(int person, WalkingNetwork walking, float windowM)
-    {
-        var arcs = walking.WayArcs(People.CurrentRouteWay(person));
-        if (arcs.Length == 0)
-        {
-            People.OffWayM[person] = 0f;
-            return;
-        }
-
-        var atM = People.PositionM[person];
-        var alongM = Spline.ProjectM(arcs, atM, People.OnWayM[person], windowM);
-
-        People.OnWayM[person] = alongM;
-        People.OffWayM[person] = (Spline.SampleAt(arcs, alongM).PositionM - atM).Length();
-    }
-
-    /// <summary>A stride and the ground either side of the line, which is as far as a body moves between two ticks.</summary>
-    float AStrideM => _config.PersonWalkAheadM + _config.WalkerOffLaneM;
-
-    /// <summary>
     /// <b>PER-8: a body that cannot walk back to the network is set down on it.</b> The second walk is the
     /// recovery for everything that puts a walker off its line, and it is the whole of it right up to the
     /// case where the straight back runs through a wall — so this is what that case falls to, and only
@@ -460,7 +223,7 @@ internal sealed partial class TownWorld
     /// <returns>Whether the body was moved, which it is not for a walker that is on its way.</returns>
     bool PutItBackOnThePavement(int person)
     {
-        if (IsOnItsWay(person)) return false;
+        if (_walkingGround.IsOnItsWay(person)) return false;
 
         var goals = _walkSearch.Goals;
         if (_walking.GoalsAt(People.PositionM[person], goals) == 0) return false;
@@ -491,7 +254,7 @@ internal sealed partial class TownWorld
     /// front of the body and moves forward with it, so the distance to it is the stride itself whether the
     /// walk is going well or not at all — a clock measured against it read a walker at full pace down a
     /// long stretch as a walker that had not moved. <b>What is left of one way is enough</b>, because
-    /// taking the next one restarts the clock (<see cref="WalkTheWay"/>): progress down the chain is the
+    /// taking the next one restarts the clock (<see cref="WalkingItsRoute.WalkTheWay"/>): progress down the chain is the
     /// handover, and progress along a way is this.
     /// <para>
     /// <b>And the ground back onto the line counts as ground still to be walked</b>, which is PER-25's
@@ -508,7 +271,7 @@ internal sealed partial class TownWorld
 
         // Past the end of the chain what is left is the hop onto a place that stands still, so the
         // straight to it is a distance that shrinks as the body covers it.
-        if (People.OnTheLastWay(person) && HasWalkedOut(person, People.RouteToM[person]))
+        if (People.OnTheLastWay(person) && _walkingGround.HasWalkedOut(person, People.RouteToM[person]))
         {
             return (People.DestinationM[person] - People.PositionM[person]).Length();
         }
@@ -517,6 +280,6 @@ internal sealed partial class TownWorld
         // is shoved across it, and that wander is a record low every few decisions — so the lane itself
         // counts for nothing here and only the ground beyond it is a distance the walk has to close.
         var backOntoItM = MathF.Max(0f, People.OffWayM[person] - _config.WalkerOffLaneM);
-        return backOntoItM + MathF.Max(0f, EndOfTheWayM(person, Walking) - People.OnWayM[person]);
+        return backOntoItM + MathF.Max(0f, _walkingGround.EndOfTheWayM(person) - People.OnWayM[person]);
     }
 }

@@ -5,6 +5,7 @@ using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Evacuator;
+using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Agents.Service;
@@ -315,7 +316,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             _ways,
             (drivers * (MostWaysUnderABody + MostPlannedPer(MostWaysAlongALine + 1, _atlas.Marks)
                         + MostPlannedPer(BackingUp.BackingPieces, _atlas.Marks)))
-            + (walkers * (MostWaysUnderABody + 1 + MostPlannedPer(MostWaysAlongAWalk, _atlas.Marks)))
+            + (walkers * (MostWaysUnderABody + 1 + MostPlannedPer(WalkingGround.MostWaysAlongAWalk, _atlas.Marks)))
             + _signalHolds.Count,
             (drivers * 2) + walkers + _signalHolds.Count,
             _atlas.Marks);
@@ -324,7 +325,12 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _carActions = new CarActions(_ground, _manoeuvres);
         _overtaking = new Overtaking(_ground, _carActions);
         _backingUp = new BackingUp(_ground, _carActions, _overtaking);
-        _walkerHold = new int[walkers];
+        _walkingGround = new WalkingGround(People, _occupancy, _atlas, _ways, _lines, _walking, config);
+        _personActions = new PersonActions(People);
+        _sidestepping = new Sidestepping(_walkingGround, _personActions);
+        _walkingItsRoute = new WalkingItsRoute(_walkingGround, _personActions, _sidestepping, _progress);
+        _walkingBack = new WalkingBack(_walkingGround, _personActions);
+        _walkingToThePost = new WalkingToThePost(_walkingGround, _personActions);
         _wheels = new WheelScratch(drivers);
         _behindTheBar = new bool[drivers];
         Marks = new DriftMarks(config.Marks.Capacity);
@@ -785,7 +791,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // <b>A light holding the crossing in front is the one wait that spends no clock</b>, as it is a driver's
         // (TLT-2a): it will change on its own, so the wait is bought and the standing is not given back.
         var remainingM = RemainingOnTheWalkM(agent);
-        if (HeldByALight(agent)) _progress.Hold(agent, remainingM);
+        if (_walkingGround.HeldByALight(agent)) _progress.Hold(agent, remainingM);
         else _progress.Note(agent, remainingM, _config.PersonDiameterM, sinceLastDecisionS);
 
         // Standing here means the follower has already answered: either it arrived, or it never had

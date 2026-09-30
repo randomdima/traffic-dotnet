@@ -61,32 +61,25 @@ internal sealed partial class TownWorld
 
     bool DrivesTheRoute(int car) => _carActions.DrivesTheRoute(car);
 
-    /// <summary>
-    /// <b>A walker handed over to another action</b> (PER-25b), and what the one it leaves owned let go: a pass is its
-    /// sidestep's.
-    /// </summary>
-    void Enter(int person, PersonAction action)
-    {
-        var was = People.Action[person];
-        if (was == action) return;
+    /// <summary>What every walker is doing, and the one place that changes (<see cref="PersonActions"/>).</summary>
+    readonly PersonActions _personActions;
 
-        if (was == PersonAction.Sidestep) People.Pass[person] = Sidestep.None;
-        People.Action[person] = action;
-    }
+    readonly WalkingGround _walkingGround;
 
-    /// <summary>Whether a walker's action walks the ways of its route — down them, round somebody on them, or back onto them.</summary>
-    static bool WalksItsRoute(PersonAction action) =>
-        action is PersonAction.Walk or PersonAction.Sidestep or PersonAction.Rejoin;
+    readonly WalkingItsRoute _walkingItsRoute;
 
-    /// <summary>
-    /// <b>Whether a walker has somewhere to walk</b>, as its trip says — and with it the action that goes with that:
-    /// down its route, or standing.
-    /// </summary>
-    void SetWalking(int person, bool walking)
-    {
-        People.Walking[person] = walking;
-        Enter(person, walking ? PersonAction.Walk : PersonAction.Stand);
-    }
+    readonly Sidestepping _sidestepping;
+
+    readonly WalkingBack _walkingBack;
+
+    readonly WalkingToThePost _walkingToThePost;
+
+    /// <summary>Walkers getting past somebody on their way (PER-28), and its instruments.</summary>
+    public Sidestepping Sidestepping => _sidestepping;
+
+    void Enter(int person, PersonAction action) => _personActions.Enter(person, action);
+
+    void SetWalking(int person, bool walking) => _personActions.SetWalking(person, walking);
 
     /// <summary>
     /// <b>A hand taken to a car's wheel or a walker's keys, or taken off</b> (CTL-5, CTL-5d, CTL-6), before anything

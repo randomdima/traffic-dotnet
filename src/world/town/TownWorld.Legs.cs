@@ -1,5 +1,6 @@
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
+using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.World.Parking;
 using TrafficSimulation.World.Routing;
 
@@ -12,7 +13,7 @@ namespace TrafficSimulation.World.Town;
 /// is on next.
 /// </summary>
 /// <remarks>
-/// <b>It is the walker's own tick in the driver's words</b> (<see cref="WalkTheWay"/>, PER-25). One
+/// <b>It is the walker's own tick in the driver's words</b> (<see cref="WalkingItsRoute.WalkTheWay"/>, PER-25). One
 /// search lays a chain of the network's ways, the body is held on each in turn, and the leg is laid again
 /// from wherever the body has got to when a chain runs out. What a driver holds that a walker does not is
 /// the assembled line over the next few lanes — a car at road speed has to see the corners a walker takes

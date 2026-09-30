@@ -1,6 +1,7 @@
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
+using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Road;
@@ -70,7 +71,7 @@ internal sealed partial class TownWorld
         // down before anything is asked for.
         for (var car = 0; car < Cars.Count; car++) _overtaking.Lay(car, IsUnderWay(car));
         for (var car = 0; car < Cars.Count; car++) _bays.Lay(car);
-        for (var person = 0; person < People.Count; person++) LayTheWalkersPass(person);
+        for (var person = 0; person < People.Count; person++) _sidestepping.Lay(person);
 
         // The lights before any plan: a light's hold is placed rather than asked for, so it has to be down before
         // the plans it refuses are answered (TLT-1).
@@ -79,7 +80,7 @@ internal sealed partial class TownWorld
         Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];
         for (var car = 0; car < Cars.Count; car++) PlanTheDrive(car, ways);
 
-        Span<LineWay> walk = stackalloc LineWay[MostWaysAlongAWalk];
+        Span<LineWay> walk = stackalloc LineWay[WalkingGround.MostWaysAlongAWalk];
         for (var person = 0; person < People.Count; person++) PlanTheWalk(person, walk);
 
         SettleThePlans(ways, walk);
@@ -91,8 +92,8 @@ internal sealed partial class TownWorld
         for (var car = 0; car < Cars.Count; car++) _ground.ReadTheGrant(car);
         for (var person = 0; person < People.Count; person++)
         {
-            ReadTheWalkersGrant(person);
-            ConsiderASidestep(person);
+            _walkingGround.ReadTheGrant(person);
+            _sidestepping.Consider(person);
             AimTheWalker(person);
         }
     }

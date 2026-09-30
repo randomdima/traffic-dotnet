@@ -94,8 +94,8 @@ internal sealed partial class TownWorld
         var occupant = GroundHeldAs(person, out var roster);
         var radiusM = People.RadiusM[person];
         var walking = People.OnWay[person];
-        var alongMps = AlongItsWalkMps(person);
-        var onward = walking == PersonFleet.NoWay ? LaneOccupancy.NoWay : WayOf(People.PeekNextRouteWay(person));
+        var alongMps = _walkingGround.AlongItsWalkMps(person);
+        var onward = walking == PersonFleet.NoWay ? LaneOccupancy.NoWay : _walkingGround.WayOf(People.PeekNextRouteWay(person));
 
         // A walker has no acceleration (PER-3): it is walking or it has declared nothing, and a casualty declares
         // nothing whatever it is sliding at.

@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Control;
+using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Town;
@@ -52,12 +53,12 @@ internal sealed partial class DebugOverlay
 
     /// <summary>
     /// <b>A walker's pass</b>: what is left of it, as the places it walks through — across onto the lane beside, down
-    /// it and back onto its route (<see cref="TownWorld.SidestepPathM"/>).
+    /// it and back onto its route (<see cref="Sidestepping.PathM"/>).
     /// </summary>
     static void WalkerSidestep(ref ScreenDraw draw, TownWorld world, int person, float widthM, Vector4 colour)
     {
         Span<Vector2> path = stackalloc Vector2[MostSidestepPlaces];
-        var count = world.SidestepPathM(person, path);
+        var count = world.Sidestepping.PathM(person, path);
         for (var at = 1; at < count; at++)
         {
             draw.LineM(path[at - 1], path[at], widthM, colour);
