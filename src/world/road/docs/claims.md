@@ -118,9 +118,11 @@ has left its own way cannot safely go back. So it is asked for only where it can
   and back onto that line past what it passes, with room there to come back into. **A junction is no end to
   one**: the line runs on through a box, and so does the pass, wherever its ground can be had.
 - **Its ground is the holder's own body swept down the whole of it and read off the atlas, as a body's is**
-  (TER-4c.2): from where the holder stands to where it is back on its line, a body stood at every place the
+  (TER-4c.2): from where its step out begins to where it is back on its line, a body stood at every place the
   pass puts it and turned the way the pass turns it there, and whichever ways lie under those bodies are the
-  ways it holds. It is laid on the network its holder travels and on no other — a car's on the ways the traffic
+  ways it holds — **and the holder's own way from where it stands when it asks up to there**, so every metre it
+  moves from asking to the end of the pass is the pass's. **Swept once, when the pass is decided**, and kept:
+  asked for, laid and given back as the holder goes by from what was swept, and never swept again. It is laid on the network its holder travels and on no other — a car's on the ways the traffic
   drives, a walker's on the pavement — so neither holds the other's ground, and a pass whose body stands over
   ground the holder's network does not have is a pass run off it, and is not asked for. **The paint of a zebra
   is the one exception**, being the one ground the two share, and only a call's pass is ever over it (below).

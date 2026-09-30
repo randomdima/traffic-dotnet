@@ -30,11 +30,12 @@ internal interface ICarTown
     /// </summary>
     void DriveOnTheLine(
         int car, in CarPose pose, float progressM, float alongMps, float coveredM, bool waitsToPass = false,
-        float passAsideM = 0f, float backUpM = 0f, bool blocked = false);
+        float passAsideM = 0f, float backUpM = 0f, bool blocked = false, float stepOutM = float.PositiveInfinity);
 
     /// <summary>What a car on the route's line is told about the world this tick, and the junction ahead of it read.</summary>
     DriveContext SetTheContext(
-        int car, float progressM, float coveredM, bool waitsToPass, float passAsideM, float backUpM, bool blocked);
+        int car, float progressM, float coveredM, bool waitsToPass, float passAsideM, float backUpM, bool blocked,
+        float stepOutM = float.PositiveInfinity);
 
     /// <summary>S-1, S-2 and S-5 down any line the car is on, in the gear given: the wheel and the pedals.</summary>
     void Drive(

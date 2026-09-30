@@ -21,8 +21,8 @@ namespace TrafficSimulation.Agents.Car.Control;
 /// </para>
 /// <para>
 /// <b>The two steps are drawn apart</b>, each no shorter than the car can drive at the pace it is drawn for
-/// (<see cref="ShortestStepM"/>): the step out from where the car stood when the pass was had, stretched towards
-/// where the step back may begin; the step back from as soon past what it passes as the body can come back, for the
+/// (<see cref="ShortestStepM"/>): the step out from the last place the body clears what it passes, fixed in the line's
+/// metres when the pass is decided; the step back from as soon past what it passes as the body can come back, for the
 /// pace the car has picked up by then. <b>Each is driven no faster than its own bend and the rack
 /// allow</b> (<see cref="OutMps"/>, <see cref="BackMps"/>), and between them the car is on a straight, and pulls
 /// away along it.

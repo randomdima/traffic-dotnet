@@ -353,11 +353,12 @@ public class OvertakeInATownTests
     }
 
     /// <summary>
-    /// <b>A car turns out as soon as it has its pass</b>: the step out begins where the car stood when the pass was
-    /// had, and not further on at the last place its body could still clear what it passes.
+    /// <b>A car turns out where the pass it decided begins</b> (CAR-46): coming up to a wreck with the lane beside free,
+    /// the pass it asks for begins ahead of where it is when it asks — at the last place its body clears the wreck —
+    /// and the pass it drives is that one.
     /// </summary>
     [Fact]
-    public void ACarTurnsOutWhereItHasItsPass()
+    public void ACarTurnsOutWhereThePassItDecidedBegins()
     {
         using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
@@ -367,9 +368,14 @@ public class OvertakeInATownTests
         var cars = world.Cars;
         for (var tick = 0; tick < WatchedTicks && !cars.Pass[driver].Any; tick++) loop.Advance(1);
 
-        var pass = cars.Pass[driver];
-        Assert.True(pass.Any, $"car {driver} never asked for a pass; it was held by {cars.GrantCutBy[driver]}");
-        Assert.Equal(cars.ProgressM[driver], pass.OutM);
+        var asked = cars.Pass[driver];
+        var askedAtM = cars.ProgressM[driver];
+        Assert.True(asked.Any, $"car {driver} never asked for a pass; it was held by {cars.GrantCutBy[driver]}");
+        Assert.True(asked.OutM > askedAtM, $"car {driver} asked at {askedAtM:F2} m for a pass beginning at {asked.OutM:F2} m");
+
+        for (var tick = 0; tick < WatchedTicks && !cars.Pass[driver].Begun; tick++) loop.Advance(1);
+
+        Assert.Equal(asked.OutM, cars.Pass[driver].OutM);
     }
 
     /// <summary>

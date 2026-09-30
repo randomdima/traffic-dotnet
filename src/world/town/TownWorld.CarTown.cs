@@ -20,12 +20,14 @@ internal sealed partial class TownWorld
 
         public void DriveOnTheLine(
             int car, in CarPose pose, float progressM, float alongMps, float coveredM, bool waitsToPass = false,
-            float passAsideM = 0f, float backUpM = 0f, bool blocked = false) =>
-            town.DriveOnTheLine(car, pose, progressM, alongMps, coveredM, waitsToPass, passAsideM, backUpM, blocked);
+            float passAsideM = 0f, float backUpM = 0f, bool blocked = false, float stepOutM = float.PositiveInfinity) =>
+            town.DriveOnTheLine(
+                car, pose, progressM, alongMps, coveredM, waitsToPass, passAsideM, backUpM, blocked, stepOutM);
 
         public DriveContext SetTheContext(
-            int car, float progressM, float coveredM, bool waitsToPass, float passAsideM, float backUpM, bool blocked) =>
-            town.SetTheContext(car, progressM, coveredM, waitsToPass, passAsideM, backUpM, blocked);
+            int car, float progressM, float coveredM, bool waitsToPass, float passAsideM, float backUpM, bool blocked,
+            float stepOutM = float.PositiveInfinity) =>
+            town.SetTheContext(car, progressM, coveredM, waitsToPass, passAsideM, backUpM, blocked, stepOutM);
 
         public void Drive(
             int car, in CarBuild build, in CarPose pose, ReadOnlySpan<ArcSeg> line, float progressM, float lengthM,

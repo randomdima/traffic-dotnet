@@ -96,10 +96,15 @@ internal enum HeadwayKind : byte
 /// <b>It can neither get past what stands in front of it nor back up for the room to</b> (CAR-50): the rebuild after
 /// lays its body as one going nowhere, which the traffic behind it may get past in turn.
 /// </param>
+/// <param name="StepOutM">
+/// <b>How far ahead of the rear axle the step out of the pass it waits for begins</b> (CAR-46), which is where it stands
+/// until it has the pass — or infinity where it waits for none.
+/// </param>
 internal readonly record struct DriveContext(
     float GroundCoefficient, float AuthorityM = float.PositiveInfinity, HeadwayKind GrantCutBy = HeadwayKind.Nothing,
     float PlaceStopM = float.PositiveInfinity, float MarginM = 0f, bool WaitsToPass = false,
-    float HorizonM = float.PositiveInfinity, float PassAsideM = 0f, float BackUpM = 0f, bool Blocked = false)
+    float HorizonM = float.PositiveInfinity, float PassAsideM = 0f, float BackUpM = 0f, bool Blocked = false,
+    float StepOutM = float.PositiveInfinity)
 {
     public static DriveContext Clear => new(1f);
 
@@ -458,11 +463,15 @@ internal static class CarFollower
             startM = endM;
         }
 
-        // Each step of a pass no faster than it was drawn for, and the straight between them the car's own — which it
-        // pulls away along, as far as it can come down again to the pace of the step back by where that begins.
+        // Each step of a pass no faster than it was drawn for — come up to at that pace where the car has its pass short
+        // of where the step out begins — and the straight between them the car's own, which it pulls away along, as far
+        // as it can come down again to the pace of the step back by where that begins.
         if (pass.Begun)
         {
-            Bind(ref targetMps, pass.MostMpsAtM(progressM), DrivingHold.Corner, ref hold);
+            var stepMps = progressM < pass.OutM
+                ? ApproachMps(pass.OutMps, pass.OutM - progressM - leadM, brakingMps2)
+                : pass.MostMpsAtM(progressM);
+            Bind(ref targetMps, stepMps, DrivingHold.Corner, ref hold);
             Bind(
                 ref targetMps, ApproachMps(pass.BackMps, pass.BackM - progressM - leadM, brakingMps2), DrivingHold.Corner,
                 ref hold);
@@ -499,13 +508,14 @@ internal static class CarFollower
             context.GrantCutBy == HeadwayKind.Light ? DrivingHold.Waiting : DrivingHold.Claimed, ref hold);
 
         // Something the car means to get past is slowed for gently (CAR-46), so it is come up to slower and the
-        // lane beside has longer to clear before the car has to stand.
+        // lane beside has longer to clear before the car has to stand — and stood for where its step out begins.
         if (context.WaitsToPass)
         {
             Bind(
                 ref targetMps,
                 ApproachMps(0f, context.AuthorityM - leadM, brakingMps2 * config.Driving.WaitingToPassBrakingShare),
                 DrivingHold.Claimed, ref hold);
+            Bind(ref targetMps, ApproachMps(0f, context.StepOutM - leadM, brakingMps2), DrivingHold.Claimed, ref hold);
         }
 
         return MathF.Max(0f, targetMps);

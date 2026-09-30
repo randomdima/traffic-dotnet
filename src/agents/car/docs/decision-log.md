@@ -3,6 +3,40 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-09-30 — a pass is decided once and committed to
+
+**The owner asked why a car decides anything more than once** (CAR-46, CAR-50): an action it has begun has control,
+works out the section it needs once, and waits for it — checking now and then rather than every tick, since cars do
+not move that fast — and never works its geometry out again. A car waiting to pass drew its whole pass again every
+tick: the step out stretched by doubling and halving, the step back read three times over, every step sampled
+half a metre at a time — and swept its body down the lot and read the atlas at every station, to find the ground it
+would then ask for; the follower asked it again to decide, and a car backing up asked it every tick only to learn
+how near it stood. Late in Odesa's run a hundred cars were doing that every tick: the cars' share of the tick went
+from 1 050 µs to 1 900, and to 3 900 in the minute one fast call waited behind a queue.
+
+- **Two shapes, drawn and swept once, when the pass is decided** (`Overtaking.Decide`): one for the pace the car came
+  up at, had only while it can still come up to where that one begins at a pace it may be driven at, and one from
+  rest, where it waits and what it backs up for. One shape would not do: drawn for the pace, the car waited behind
+  a step too long to leave a straight alongside what it passed; drawn from rest, a car on a free road would have
+  swung round a parked car at the lock's crawl. **Each begins at the last place the body clears what it passes**, a
+  place fixed in the line's metres that the car drives up to — where it began on the car, the shape was stale the
+  tick after it was drawn.
+- **The ground is kept as runs** (`SweptGround`): one way under a car's length of stations, laid, kept, asked for and
+  given back by reading them. With the car's own lane from where it stands up to the step out, so every metre it
+  moves from asking to the end of the pass is the pass's (TER-4c.6).
+- **Waited for on a clock** (`PassAskEveryS`, 1 s): asked, and what it passes looked at again — let go where that has
+  gone, has moved or can no longer be passed, and after `PassPatienceS` (10 s), to be decided afresh from where the
+  car then stands. A body that has moved is a new state of the road, and a pass drawn round moving traffic by a call
+  is let go at its next look.
+- **The room to step out from rest is drawn once a lane and a ground** (`KeptOffM`), which were sampled again for
+  every car standing behind something going nowhere, every rebuild.
+- **A car past where its step from rest begins is driven on its grant alone**: stopped short of where it stood, the
+  escort on the idle ring braked to a stand and backed up behind the car it escorts.
+
+The cars' share of the tick in minutes 12 to 24 of Odesa is now 550–680 µs: 0.9 pass drawings a tick where there were
+112. Over the stuck probe's five minutes Odesa and River read as before but for passes (21 → 25 made on Odesa,
+42 → 35 on River) and River's braking margin spent (298 → 360 car-ticks).
+
 ## 2026-09-30 — a car does one named thing at a time
 
 **The owner asked for every actor's actions to be separate states** that cannot be confused with one another, each
@@ -89,7 +123,7 @@ over the metres of what it passed, and it was decided — indicating — for eve
 Odesa the car standing longest behind a wreck, 178 s, was one of these, 3.3 m inside its room.
 
 - **It backs up by as much as it is too near, whatever it passes, and only where nothing else refuses the pass**
-  (`AskForAPass`). Asked only behind a body going nowhere, it never started for the case the owner then showed: a car
+  (`Overtaking.BacksUp`). Asked only behind a body going nowhere, it never started for the case the owner then showed: a car
   a few metres behind a stopped car on its line, the lane beside empty, indicating and doing nothing — on Odesa
   54 000 car-ticks were cars decided and too near behind a queue making another movement, and not one asked. Asked
   wherever it is too near, the 27 000 car-ticks it was then blocked were all cars whose room past what they passed
@@ -116,16 +150,12 @@ pass, as none had before. Every car there decided and too near waits on room pas
 holds; the rest are refused by the road first — on Odesa a zebra (63 000 car-ticks), a line bending past what the
 lock leaves (46 000), or more bodies than one pass gets past (16 000).
 
-## 2026-09-29 — a pass is turned into when it is had, and laid for the pace the car picks up
+## 2026-09-29 — a pass is laid for the pace the car picks up
 
 **The owner saw cars queue where they could have passed, and stay on the lane beside too long** (CAR-46), and
-asked for the pass to be made for the room past the obstacle, claimed whole where the road is free, turned into as
-soon as it is had, and laid as though the car keeps its pace or pulls away — slowing only while it is not had.
+asked for the pass to be made for the room past the obstacle, claimed whole where the road is free, and laid as
+though the car keeps its pace or pulls away — slowing only while it is not had.
 
-- **The step out begins where the car stands when it has the pass**, stretched towards where the step back may
-  begin and no further. It began as late as the body allowed: a car with the pass drove on straight for a while,
-  17 m at 12 m/s in the fixture, before it turned. Stretched to where the body must be off its lane by the obstacle
-  instead, a step out ran on past a car-length wreck and held the lane beside a further half second.
 - **The step back is drawn for the pace picked up by where it begins**, and the two steps are drawn apart
   (`Overtake`). One speed held the whole pass: at speed the car was held at what it asked at (11.9 m/s, pulling
   away to 25), and from rest at the lock's crawl (4.75 m/s) the whole way, straight alongside included. It now

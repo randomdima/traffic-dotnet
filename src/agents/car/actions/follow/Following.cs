@@ -37,21 +37,22 @@ internal sealed class Following(DrivingGround ground, CarActions actions, Overta
         }
 
         // CAR-46: something ended the grant that the car may get past. Slowed for gently from the first, and — where
-        // the car has come to where it would begin slowing for it and the road lets it — decided on.
+        // the car has come to where it would begin slowing for it and the road lets it — decided on, once.
         if (!overtaking.MayGetPastWhatCutIt(car, out var cutBy, out var cutOn))
         {
             town.DriveOnTheLine(car, pose, progressM, alongMps, coveredM);
             return;
         }
 
-        var toTheStopM = Cars.AuthorityM[car] - coveredM;
-        var passAsideM = overtaking.AskForAPass(
-            car, progressM, alongMps, toTheStopM, town.ToTheSceneM(car), cutBy, cutOn, ask: true, out var tooNearByM);
-        if (passAsideM != 0f) actions.Enter(car, tooNearByM > 0f ? CarAction.BackUp : CarAction.Overtake);
+        if (!overtaking.ComesUpTo(car, alongMps, Cars.AuthorityM[car] - coveredM)
+            || !overtaking.Decide(car, progressM, alongMps, town.ToTheSceneM(car), cutBy, cutOn))
+        {
+            town.DriveOnTheLine(car, pose, progressM, alongMps, coveredM, waitsToPass: true);
+            return;
+        }
 
-        town.DriveOnTheLine(
-            car, pose, progressM, alongMps, coveredM, waitsToPass: true, passAsideM,
-            BackingUp.BackUpForM(Config, tooNearByM));
+        actions.Enter(car, overtaking.BacksUp(car, progressM, alongMps) ? CarAction.BackUp : CarAction.Overtake);
+        overtaking.WaitAtTheStep(ref town, car, pose, progressM, alongMps, coveredM);
     }
 
     /// <summary>

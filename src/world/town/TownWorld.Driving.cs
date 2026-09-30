@@ -150,7 +150,7 @@ internal sealed partial class TownWorld
         Cars.GroundCoefficient[car] = _terrain.At(pose.PositionM).Coefficient;
 
         // A pass is laid along the lane the car is on and nowhere else (CAR-46).
-        if (Cars.Pass[car].Any && Cars.LaneOf(car) != Cars.Pass[car].Lane) Enter(car, CarAction.Follow);
+        if (_overtaking.IsOffTheLaneOfItsPass(car)) Enter(car, CarAction.Follow);
 
         Cars.OffLineM[car] = CarFollower.OffLineM(Cars.LineOf(car), rearAxleM, progressM, _overtaking.AsideAtM(car, progressM));
 
@@ -185,9 +185,9 @@ internal sealed partial class TownWorld
     /// </summary>
     void DriveOnTheLine(
         int car, in CarPose pose, float progressM, float alongMps, float coveredM, bool waitsToPass = false,
-        float passAsideM = 0f, float backUpM = 0f, bool blocked = false)
+        float passAsideM = 0f, float backUpM = 0f, bool blocked = false, float stepOutM = float.PositiveInfinity)
     {
-        var context = SetTheContext(car, progressM, coveredM, waitsToPass, passAsideM, backUpM, blocked);
+        var context = SetTheContext(car, progressM, coveredM, waitsToPass, passAsideM, backUpM, blocked, stepOutM);
         Drive(
             car, Cars.BuildOf(car), pose, Cars.LineOf(car), progressM, Cars.Line[car].LengthM, context, pose.Forward,
             alongMps, reverse: false);
@@ -195,7 +195,8 @@ internal sealed partial class TownWorld
 
     /// <summary>What a car on the route's line is told about the world this tick, and the junction ahead of it read.</summary>
     DriveContext SetTheContext(
-        int car, float progressM, float coveredM, bool waitsToPass, float passAsideM, float backUpM, bool blocked)
+        int car, float progressM, float coveredM, bool waitsToPass, float passAsideM, float backUpM, bool blocked,
+        float stepOutM = float.PositiveInfinity)
     {
         // S-4: the junction ahead. Whether the box is this car's is its grant's to say, and a light is in the
         // grant too — its hold is ground like any other (TLT-1).
@@ -212,7 +213,7 @@ internal sealed partial class TownWorld
         // line on the road that place left it.
         var context = new DriveContext(
             Cars.GroundCoefficient[car], Cars.AuthorityM[car] - coveredM, Cars.GrantCutBy[car], ToTheSceneM(car),
-            Cars.GrantMarginM[car], waitsToPass, Cars.HorizonM[car] - coveredM, passAsideM, backUpM, blocked);
+            Cars.GrantMarginM[car], waitsToPass, Cars.HorizonM[car] - coveredM, passAsideM, backUpM, blocked, stepOutM);
 
         Cars.Context[car] = context;
         return context;
@@ -375,7 +376,7 @@ internal sealed partial class TownWorld
         for (var index = 1; index < lanes; index++) chain[index - 1] = chain[index];
 
         // A pass carries on into the next lane, measured from where that lane begins (CAR-46).
-        if (Cars.Pass[car].Any) Cars.Pass[car] = Cars.Pass[car].From(chain[0], shiftM);
+        _overtaking.ShiftTheLine(car, chain[0], shiftM);
 
         LayLine(car, lanes - 1);
         return CarFollower.ProgressM(

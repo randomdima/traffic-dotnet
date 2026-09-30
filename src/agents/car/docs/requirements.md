@@ -48,15 +48,22 @@ to (AMB-4.4) — anywhere on its line, while the lane it is on has a lane runnin
 - **Made for the room past what it passes**: the first stretch of the car's own line past it long enough to come
   back into — the step back, and the car's length and stand-off past that. Another body the car may pass standing
   in that room is passed too, and the room looked for past it. **Anything else standing there is waited for**:
-  the room is still where the car means to come back, so it has decided on the pass (CAR-14.7) and asks again
-  until the room is its own.
-- **Decided where the car would begin slowing for what it passes**, which is the place it has to choose between
-  stepping out and slowing down: had there, the pass is taken at the pace the car came up at; not had, the car
-  slows gently (`SimConfig.Driving`) and asks again all the way in.
-- **Turned into at once**: the step out begins where the car stands when it has the pass, and runs no further
-  than where the step back may begin — nor so far that its body is still over its own lane when it is level with
-  what it passes. **The step back begins as soon past what it passes as the body can come back**, so the car is
-  swinging back in while its tail is still alongside, and off the lane beside as soon as its steps allow.
+  the room is still where the car means to come back, so it has decided on the pass (CAR-14.7) and waits until
+  the room is its own.
+- **Decided once, where the car would begin slowing for what it passes**, which is the place it has to choose
+  between stepping out and slowing down — **and committed to**: drawn there in two shapes, from rest and, for a
+  car still rolling, for the pace it came up at, each swept once for the ground it covers, and never drawn or
+  swept again. The one drawn for its pace is had only while the car can still come up to where it begins at a
+  pace it may be driven at; after that the car slows gently (`SimConfig.Driving`) and stands where the one from
+  rest begins.
+- **Waited for on its own clock**: asked for as it is decided and then every `PassAskEveryS`, and let go —
+  to be decided afresh from where the car then stands — once what it passes is gone, has moved, or is no longer
+  something it may pass, or once the car has waited `PassPatienceS`.
+- **Turned into where it was drawn to begin**: the step out begins at the last place the car's body clears what
+  it passes, so it is not over its own lane when it is level with it, and a car that has the pass short of there
+  drives on to it at the pace the step was drawn for. **The step back begins as soon past what it passes as the
+  body can come back**, so the car is swinging back in while its tail is still alongside, and off the lane beside
+  as soon as its steps allow.
 - **Each step no shorter than the car can drive at the pace it is drawn for, and driven no faster than its
   length allows**: one swing of the wheel and back, its bend never tighter than the lock or than the tyres hold
   at that speed, and changing no faster than the rack turns (CAR-3a) while the car rolls it. Where the line bends
@@ -64,7 +71,8 @@ to (AMB-4.4) — anywhere on its line, while the lane it is on has a lane runnin
   the pace below which a step at the lock is no shorter.
 - **Laid as though the car pulls away along it**: the step back is drawn for the pace the car picks up by where
   it begins, at its own acceleration and up to what the road lets it plan for, and the straight between the two
-  steps is the car's own to pull away along. A pass never slows the car below the pace it had it at.
+  steps is the car's own to pull away along. A pass drawn for the pace the car came up at never slows it below
+  that pace.
 - **Waited for with room to step out, and no more**: behind a body going nowhere — at rest and not travelling
   the way on: a wreck, a car stood down, a car whose line ends where it stands, somebody standing in the road — a
   car stands where it could step out round it from a standstill, where the lane it is on has one back beside it,
@@ -78,15 +86,16 @@ to (AMB-4.4) — anywhere on its line, while the lane it is on has a lane runnin
 that cannot is going nowhere** ([TER-4c.7](../../../world/road/docs/claims.md)).
 
 - **At rest, with the pass decided and nothing but its nearness refusing it** (CAR-46) — whatever it passes, a
-  queue making another movement as much as a wreck: it backs down its own lane until it could step out from where it
-  stands. Where the room past what it passes is held by something it may not pass, it waits where it is.
+  queue making another movement as much as a wreck: it backs down its own lane to where the step out it decided
+  from rest begins. Where the room past what it passes is held by something it may not pass, it waits where it is.
 - **Over ground it asks for behind its tail**, at the weakest rung there is, so whatever else wants that ground has
   it but a car queued behind it; **never behind the start of the lane it is on**, which is the box it came through.
 - **Refused the whole of what it needs, it is blocked**: it does not move, and its body says it is going nowhere
   (TER-4c.2), so what comes up behind it keeps room to step out round it and may get past it and what it is stuck
   behind together. A line of such cars comes apart from its tail, where the room is.
-- **It is decided every tick from where the car stands and the pass it asks for**, and nothing about it is kept:
-  the room behind it is a grant like the one in front, read off the reservations.
+- **How far it backs up is the pass's, decided once**, and the room behind it is a grant like the one in front,
+  read off the reservations: asked for every rebuild while it rolls back, and on the pass's clock while it is
+  refused.
 
 ## What a car is and does
 

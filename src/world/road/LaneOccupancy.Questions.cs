@@ -163,6 +163,22 @@ internal sealed partial class LaneOccupancy
     }
 
     /// <summary>
+    /// <b>One holder's body on a way, as it stands this rebuild</b> — its first stretch there, never a pass — or false
+    /// where it stands nowhere on it.
+    /// </summary>
+    public bool TheBodyOf(int way, int occupant, LaneRoster of, out LaneClaim body)
+    {
+        for (var at = _bodies[way]; at != NoSlot; at = _next[at])
+        {
+            body = _slots[at];
+            if (body.Occupant == occupant && body.Of == of && !body.Passing) return true;
+        }
+
+        body = LaneClaim.Nothing;
+        return false;
+    }
+
+    /// <summary>
     /// <b>Whether one holder's body stands on a way at all</b> — which of the town's lanes a scene lies across
     /// (SRV-9), read off the ground the body was laid on rather than measured again.
     /// </summary>

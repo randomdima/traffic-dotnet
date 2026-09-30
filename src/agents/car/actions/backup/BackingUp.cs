@@ -7,10 +7,11 @@ using TrafficSimulation.World.Road;
 namespace TrafficSimulation.Agents.Car.Actions;
 
 /// <summary>
-/// <b>Back up</b> (CAR-50, TER-4c.7): a car too near what it has decided to get past to step out round it, backing
-/// down its own lane in reverse over ground asked for behind its tail at the weakest rung there is — and, refused
-/// that ground, blocked: a car going nowhere that whatever comes up behind it may get past in turn. Over once it is at
-/// rest with the room made, or with nothing left to make room for.
+/// <b>Back up</b> (CAR-50, TER-4c.7): a car standing past where the step out of the pass it decided begins, backing
+/// down its own lane in reverse to there over ground asked for behind its tail at the weakest rung there is — and,
+/// refused that ground, blocked: a car going nowhere that whatever comes up behind it may get past in turn, asking again
+/// on the pass's clock (<see cref="DrivingFigures.PassAskEveryS"/>). Over once it is at rest with the room made, or
+/// with nothing left to make room for.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -21,14 +22,13 @@ namespace TrafficSimulation.Agents.Car.Actions;
 /// own lane before it comes level with what it passes, however little of the lane that takes up.
 /// </para>
 /// <para>
-/// <b>It measures the pass and never asks for it</b>: the pass is the overtake's, asked once the car is at rest with
-/// the room, so a pass is never laid from a car still rolling back.
+/// <b>Where it backs up to is the pass's, decided once</b> (<see cref="Overtaking.StepsOutAtM"/>): the car backs up
+/// for the pass it has and never draws another, and the pass is asked for by the overtake once the car is at rest there.
 /// </para>
 /// <para>
-/// <b>Nothing is kept from one tick to the next but the action</b>: how far a car means to back up and whether it is
-/// blocked are worked out every tick from where it stands and the pass it has decided on, and carried on its
-/// <see cref="DriveContext"/> to the rebuild after — which lays the ground and says how much of it was had
-/// (<see cref="CarFleet.BackRoomM"/>).
+/// <b>What it asks for rides on its <see cref="DriveContext"/> to the rebuild after</b> — which lays the ground and
+/// says how much of it was had (<see cref="CarFleet.BackRoomM"/>): every rebuild while it rolls back, and when its
+/// clock comes round while it is blocked.
 /// </para>
 /// </remarks>
 internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overtaking overtaking)
@@ -52,53 +52,52 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
     public long CarTicksBlocked { get; private set; }
 
     /// <summary>
-    /// <b>How far a car means to back up this tick</b> (CAR-50): as much nearer than it could step out from rest as
-    /// it stands to what it has decided to get past, and the pass's spare with it
-    /// (<see cref="DrivingFigures.PassSpareM"/>) — zero where it is not too near.
-    /// </summary>
-    /// <remarks>
-    /// <b>Whatever it passes</b>, a queue making another movement as much as a wreck: it has decided, and nothing but
-    /// the room refuses the pass (<see cref="Overtaking.AskForAPass"/>).
-    /// </remarks>
-    /// <param name="tooNearByM">How much nearer than it could step out it stands, as the pass it asked for said.</param>
-    public static float BackUpForM(SimConfig config, float tooNearByM) =>
-        tooNearByM > 0f ? tooNearByM + config.Driving.PassSpareM : 0f;
-
-    /// <summary>
-    /// <b>This tick of a car backing up</b>, once the line under it has been read: down its own lane in reverse for as
-    /// long as it stands too near what it has decided to get past, and blocked where the ground behind it was refused
-    /// — then, at rest, handed back to the overtake with the room made, or to following with nothing to make room for.
+    /// <b>This tick of a car backing up</b>, once the line under it has been read: down its own lane in reverse to
+    /// where its pass's step out begins, and blocked where the ground behind it was refused — then, at rest, handed back
+    /// to the overtake with the room made, or to following once what it passes has gone.
     /// </summary>
     public void Tick<TTown>(ref TTown town, int car, in CarPose pose, float progressM, float alongMps, float coveredM)
         where TTown : struct, ICarTown
     {
-        var passAsideM = 0f;
-        var tooNearByM = 0f;
-        var mayGetPast = overtaking.MayGetPastWhatCutIt(car, out var cutBy, out var cutOn);
-        if (mayGetPast)
-        {
-            passAsideM = overtaking.AskForAPass(
-                car, progressM, alongMps, Cars.AuthorityM[car] - coveredM, town.ToTheSceneM(car), cutBy, cutOn,
-                ask: false, out tooNearByM);
-        }
-
-        var backUpM = BackUpForM(Config, tooNearByM);
+        // Looked round on the pass's clock: what it passes gone, or the room past it held by something it may not pass,
+        // and there is nothing to back up for.
+        var looks = overtaking.IsTimeToLook(car);
+        var stillThere = !looks || overtaking.IsStillThere(car);
+        var roomHeld = looks && stillThere && overtaking.IsTheRoomHeld(car);
+        var backUpM = stillThere && !roomHeld && overtaking.IsTooNear(car, progressM)
+            ? progressM - overtaking.StepsOutAtM(car)
+            : 0f;
         var backsUp = backUpM > 0f && Cars.BackRoomM[car] >= backUpM;
-        var blocked = backUpM > 0f && Cars.BackRoomM[car] < backUpM;
+        var blocked = backUpM > 0f && !backsUp;
         if (blocked) CarTicksBlocked++;
+
+        // Asked for every rebuild while it rolls back, and on its clock while it is refused.
+        var asksM = backsUp || (blocked && looks) ? backUpM : 0f;
 
         // A car that was backing up and has no more of it to do comes to rest in the gear it is in.
         var stillRollingBack = alongMps < -Config.Driving.StopSpeedMps;
         if (backsUp || stillRollingBack)
         {
-            town.SetTheContext(car, progressM, coveredM, mayGetPast, passAsideM, backUpM, blocked);
+            town.SetTheContext(car, progressM, coveredM, stillThere, overtaking.AsideOfItsPassM(car), asksM, blocked);
             DriveBack(ref town, car, Cars.BuildOf(car), pose, Cars.LineOf(car), progressM, backsUp ? backUpM : 0f,
                 Cars.GroundCoefficient[car]);
             return;
         }
 
-        if (!blocked) actions.Enter(car, passAsideM != 0f ? CarAction.Overtake : CarAction.Follow);
-        town.DriveOnTheLine(car, pose, progressM, alongMps, coveredM, mayGetPast, passAsideM, backUpM, blocked);
+        if (!stillThere)
+        {
+            actions.Enter(car, CarAction.Follow);
+            town.DriveOnTheLine(car, pose, progressM, alongMps, coveredM);
+            return;
+        }
+
+        if (!blocked)
+        {
+            actions.Enter(car, CarAction.Overtake);
+            overtaking.LookNow(car);
+        }
+
+        overtaking.WaitAtTheStep(ref town, car, pose, progressM, alongMps, coveredM, asksM, blocked);
     }
 
     /// <summary>

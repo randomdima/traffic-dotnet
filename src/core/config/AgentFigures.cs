@@ -310,6 +310,18 @@ internal sealed class DrivingFigures
     public float PassSpareM { get; init; } = 0.25f;
 
     /// <summary>
+    /// <b>How often a car waiting on its pass asks for the ground again</b> (CAR-46, CAR-50) — the lane beside, or the
+    /// ground behind it to back up over — and looks again at whether what it passes is still there to be passed.
+    /// </summary>
+    public float PassAskEveryS { get; init; } = 1f;
+
+    /// <summary>
+    /// <b>How long a car waits on the pass it decided before it lets it go</b> (CAR-46) and decides again from where it
+    /// stands: the ground it committed to was swept once, and a town that has moved on round it is waited out this long.
+    /// </summary>
+    public float PassPatienceS { get; init; } = 10f;
+
+    /// <summary>
     /// <b>The widest a car swings away from a bay before it turns in nose first</b> (GEN-4f), as the angle off its
     /// own line. A car standing nearer the bay than its own circle swings out by the least that lets the turn end
     /// square; one that would have to swing further than this does not nose in from where it is.
