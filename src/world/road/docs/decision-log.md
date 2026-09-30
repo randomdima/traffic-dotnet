@@ -20,9 +20,9 @@ nothing could go anywhere:
 - **a walker off the pavement** walked back over the carriageway holding only its body, and **an officer** walked to
   the post and back with no plan at all.
 
-**A grant is zero unless the action laid a claim this rebuild** (`TownWorld.PlanTheDrive`, `ReadTheWalkersGrant`),
-and goes with the action that laid it: the one claim handed from one action to the next is a plan down a car's own
-line. **The claim nobody drives is committed ground**: a hand's (S-7) and now a tow's, held under the truck. **A
+**A grant is zero unless the action laid a claim this rebuild** (`DrivingGround.ReadTheGrant`,
+`WalkingGround.ReadTheGrant`), and goes with the action that laid it: the one claim handed from one action to the next
+is a plan down a car's own line. **The claim nobody drives is committed ground**: a hand's (S-7) and now a tow's, held under the truck. **A
 placement is put down only where nobody holds the ground** — the door and the pavement already were; the winch and
 the yard now wait for it. **An officer on duty and their car are one occupant**, as a tow is: the officer walks to the
 post beside the car on the same lane, and a reservation has no across to tell the two apart.

@@ -38,7 +38,10 @@ nothing else, and `evacuator/` → nothing at all: each is a roster of buildings
 the driving they ask for is the car's own leg, reached from the composition seam like every other one.
 **An errand's slice never depends on `agents/car/`**, which is why the arithmetic of a tow is `TowBar` in
 `agents/car/body/` beside the tyre model and not in the slice whose rules it serves: what happens to a car
-on a hook is a fact about a car. Inside `app/`, it is screen ← render ← hud, screen ← render ← debug, and
+on a hook is a fact about a car. **What a car or a walker does is `actions/` in its slice**, a folder per
+action (CAR-15b, PER-25b) over the slice's `body/` and `control/`: an action reads the world through its slice's
+ground (`DrivingGround`, `WalkingGround`) and never the composition, and what only the town has — a car's line, the
+standing rules, the tyres — it asks for through `ICarTown`, which the seam implements. Inside `app/`, it is screen ← render ← hud, screen ← render ← debug, and
 hud → debug because the settings panel draws the switches the layers own and the selection's own path is
 drawn in the layers' path vocabulary (`PathMarks`), so one route lands on the same stones at the same
 weight whichever of them drew it. `app/shot/` sits under

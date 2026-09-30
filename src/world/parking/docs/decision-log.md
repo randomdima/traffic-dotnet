@@ -13,7 +13,7 @@ a car park was a junction cut into its street with every bay an arm, and a car d
 the town, in and out of each bay off each lane.
 
 - **The manoeuvre is shaped from where the car stands, on its own circle** (GEN-4f, `BayManoeuvre`,
-  `TownWorld.ShapeTheWayIn`, `ShapeTheWayOut`): `CarBuild.ParkingTemplateRadiusM`, `ParkingStraightensUpM` and
+  `ParkingIn.ShapeTheWayIn`, `PullingOut.ShapeTheWayOut`): `CarBuild.ParkingTemplateRadiusM`, `ParkingStraightensUpM` and
   the car's own body. Into a bay there are two shapes — nose in, with a swing away first where the car stands
   nearer the bay than its circle, and on past the bay and back in — and **the one whose swept body takes less of
   the street wins**, read off the atlas as a pass's ground is (`WhatTheShapeTakes`); the driver's habit settles

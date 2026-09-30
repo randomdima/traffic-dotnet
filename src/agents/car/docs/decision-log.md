@@ -9,9 +9,16 @@ are here: a superseded one is deleted, not annotated.
 expert at its one thing and knowing its own ends (CAR-15b, `CarAction`). What a car was doing had been read, on every
 question, off a mix of its line (no lanes meant a manoeuvre), its pass, its manoeuvre's stage, its hold and how far
 off its line it stood — and every procedure guarded against the others. The wreck bug of the entry below was two of
-those readings answering one car. Now one field says it, one method changes it (`TownWorld.Enter`) and drops what
-the action left owned, and each action's tick is its own (`FollowTheRoute`, `GetPast`, `BackUpForTheRoom`, `Park`,
-`DriveTheWay`, `Rejoin`).
+those readings answering one car. Now one field says it, and one method changes it (`CarActions.Enter`) and drops
+what the action left owned.
+
+**Each action is a class in a folder of its own under `actions/`** — `follow/Following`, `overtake/Overtaking`,
+`backup/BackingUp`, `park/ParkingIn` and `unpark/PullingOut` over the manoeuvre the two share (`bay/BayManoeuvring`),
+`rejoin/Rejoining` — and the town hands the tick, the claim and the grant to whichever the car is doing. An action
+reads the town through `DrivingGround` and asks it for what only the town has — the line, the standing rules, the
+tyres — through `ICarTown`, **which the town implements as a struct passed by reference**: every call is bound when
+the JIT compiles it, and the steady state allocates nothing. The move changed no behaviour; the 300 s stuck probe
+on Odesa and River printed byte for byte what it had before it.
 
 - **Overtake is from the decision on**: the car has come to where it would begin slowing for what it passes and the
   road lets it, through asking for the ground whole and driving it, to back in its lane. Before the decision a car
@@ -32,7 +39,7 @@ behind, 445 → 438 bays parked.
 
 A car gets into and out of a bay by a manoeuvre shaped on its own circle (GEN-4f; the parking log has why).
 **A car waiting for its manoeuvre's ground is held where it stands by the manoeuvre, and nothing answers that
-hold again** (`TownWorld.SettleTheDrive`). The first cut settled it as a plan down the car's line: a piece has no
+hold again** (`Following.Settle`). The first cut settled it as a plan down the car's line: a piece has no
 ways along it, so settling handed the car the whole piece and it drove out without its ground — 16 wrecks on
 Odesa in 300 s, every one a car leaving a bay whose manoeuvre was still only shaped. Plans are settled only in a
 rebuild where one cut another, which a quiet town never has, so the suite stages it with every other car sent

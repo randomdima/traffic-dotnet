@@ -9,10 +9,15 @@ XML docs.
 **The owner asked for every actor's actions to be separate states** (PER-25b, `PersonAction`), as a car's now are
 (CAR-15b). What a walker was doing was read off whether it was walking, its stage, whether it was inside or down,
 its pass, the way it was on and whether it was hopping. Now one field says it and one method changes it
-(`TownWorld.Enter`): a walk that sets off or stops says so with it (`SetWalking`), a door and a car say inside, a
+(`PersonActions.Enter`): a walk that sets off or stops says so with it (`SetWalking`), a door and a car say inside, a
 casualty says down, an officer let out says post, a pass asked for says sidestep and a pass over or withdrawn says
 walk. **Getting back onto its way is its own action** only off the pavement altogether; why, and what every action
 claims, is the road log's entry of the same day.
+
+**Each action is a class in a folder of its own under `actions/`**, as a car's is — `walk/WalkingItsRoute`,
+`sidestep/Sidestepping`, `rejoin/WalkingBack`, `post/WalkingToThePost` — each saying what ground it walks and where
+it aims, and `WalkingGround` laying, answering and settling the one claim all of them make over that ground. The
+move changed no behaviour; the 300 s stuck probe on Odesa and River printed byte for byte what it had before it.
 
 ## 2026-09-30 — a route that ran out of room is laid on before the plan reaches its end
 
