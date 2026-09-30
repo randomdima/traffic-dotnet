@@ -56,9 +56,9 @@ public class SimConfigTests
     }
 
     /// <summary>
-    /// <b>A bay is narrower than the lane its way is driven out of</b> (GEN-4c). A way into a bay lays the
-    /// ground its own space is wide for every metre it runs, and it leaves along its lane — so a space
-    /// wider than that lane puts a lip of tarmac past the kerb at every bay in the town.
+    /// <b>A bay's space is narrower than a lane</b> (GEN-4c). A rank stands its bays a lane apart, each on a
+    /// lane's width of tarmac (GEN-53), and a body standing in one holds its space — so a space wider than
+    /// that lane is one laid over its neighbour's and past its own tarmac at every bay in the town.
     /// </summary>
     /// <remarks>
     /// <b>It is a relation between two authored figures and not a derivation written twice</b> (VER-12):
@@ -67,13 +67,13 @@ public class SimConfigTests
     /// drew four hundred and sixty-one steps of perimeter onto that lip.
     /// </remarks>
     [Fact]
-    public void ABayIsNarrowerThanTheLaneItsWayIsDrivenOutOf()
+    public void ABaysSpaceIsNarrowerThanALane()
     {
         var config = SimConfig.Shipped();
 
         Assert.True(
             config.ParkingSpaceWidthM < config.LaneWidthM,
-            $"a bay is {config.ParkingSpaceWidthM:F2} m wide and the lane it is worked off "
+            $"a bay's space is {config.ParkingSpaceWidthM:F2} m wide and a lane "
             + $"{config.LaneWidthM:F2} m");
     }
 

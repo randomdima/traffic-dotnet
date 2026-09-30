@@ -26,8 +26,8 @@ internal sealed partial class BandShell
     /// </para>
     /// <para>
     /// <b>And a cut is a place: every boundary standing at one is cut there</b> (<see cref="Alike"/>). A
-    /// car park lays a dozen bands along one lane — every bay's way opens with a straight down the lane it
-    /// is worked off — and their boundaries stand millimetres apart over metres. Which of them is outermost
+    /// car park lays its bays side by side, each sharing an edge with the next, and their boundaries stand
+    /// millimetres apart over metres. Which of them is outermost
     /// changes over the length of a stretch, so neighbours that are cut alike weigh the same gap at the same
     /// station and one of them keeps it, where neighbours cut differently read the same gap from either
     /// side of the figure that settles it and keep it twice or drop it twice.
@@ -607,7 +607,7 @@ internal sealed partial class BandShell
         /// <para>
         /// <b>Which side of the boundary the question is asked from is the whole of it.</b> Two bands the
         /// town means to touch — the two lanes of a carriageway, a movement and the lane it carries on from,
-        /// a bay's way and its neighbour's — are laid at one place and come out a fraction of a millimetre
+        /// a bay and its neighbour — are laid at one place and come out a fraction of a millimetre
         /// apart, so the edge they share lies on the boundary of both and strictly inside neither. Asked on
         /// the line, both copies of that seam are kept and every pair of them has a line down the middle
         /// of it. Asked a millimetre out, each copy lands inside the other band and both go, which is what

@@ -381,7 +381,7 @@ internal static class Spline
     /// </summary>
     /// <remarks>
     /// The window is the whole reason this is not a search over the line: a route that doubles back
-    /// past itself has two nearest points, and a car half way round a bay's own way is nearer to where
+    /// past itself has two nearest points, and a car half way round its manoeuvre into a bay is nearer to where
     /// it started than to where it is going. What a caller wants is the nearest point to the progress it
     /// had, which is a local question.
     /// </remarks>

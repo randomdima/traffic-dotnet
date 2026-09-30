@@ -5,8 +5,8 @@ using TrafficSimulation.World.Routing;
 namespace TrafficSimulation.World.Town;
 
 /// <summary>
-/// <b>A drive leg</b> (CAR-15): the ways of the route the car is on, the bay's own way at either end of
-/// it, and the clock that says a leg is getting nowhere. Nothing here steers or brakes — what a car is
+/// <b>A drive leg</b> (CAR-15): the ways of the route the car is on, the manoeuvre at a bay at either end
+/// of it, and the clock that says a leg is getting nowhere. Nothing here steers or brakes — what a car is
 /// doing is the standing rules' (<see cref="TickCar"/>), and what is decided here is only which line it
 /// is on next.
 /// </summary>
@@ -15,12 +15,13 @@ namespace TrafficSimulation.World.Town;
 /// search lays a chain of the network's ways, the body is held on each in turn, and the leg is laid again
 /// from wherever the body has got to when a chain runs out. What a driver holds that a walker does not is
 /// the assembled line over the next few lanes — a car at road speed has to see the corners a walker takes
-/// one stride at a time — and the gear: the town's ways at a bay are driven in whichever one they were
-/// laid for (GEN-4j), which is the whole of parking and unparking.
+/// one stride at a time — and the gear: a manoeuvre's pieces are driven in whichever one they were shaped
+/// for (GEN-4f), which is the whole of parking and unparking.
 /// <para>
-/// <b>There is no state here to be in.</b> Which step of a leg the car is on is read off where it is
-/// standing — a bay's way under it, a bay's way in front of it, or the road — so a car cannot be doing
-/// one thing and be recorded as doing another.
+/// <b>The one state here is the manoeuvre's</b> (<see cref="Agents.Car.Control.Manoeuvres"/>): which shape a car was given and
+/// which piece of it it is on. Everything else about which step of a leg the car is on is read off where it
+/// is standing — in a bay or on the road — so a car cannot be doing one thing and be recorded as doing
+/// another.
 /// </para>
 /// </remarks>
 internal sealed partial class TownWorld
@@ -88,30 +89,34 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>The line has been driven to its end and the car has stopped there.</b> A leg's steps hand over at
-    /// rest and nowhere else: the ways at a bay are driven in the gear they were laid for, and a car
-    /// changing gear while it is still rolling is a car driven into whatever it was reversing away from.
+    /// rest and nowhere else: a manoeuvre's pieces are driven in their own gears, and a car changing gear while
+    /// it is still rolling is a car driven into whatever it was reversing away from. <b>A piece is spent at its
+    /// end and not a car length short of it</b>: its end is where the car stands square in the bay, or straight on
+    /// its lane, and short of that it is still turning.
     /// </summary>
     bool TheLineIsSpent(int car) =>
         Cars.Line[car].ArcCount > 0
-        && Cars.Line[car].LengthM - Cars.ProgressM[car] <= Cars.BuildOf(car).LengthM
+        && Cars.Line[car].LengthM - Cars.ProgressM[car]
+           <= (IsManoeuvring(car) ? Cars.BuildOf(car).FlankM : Cars.BuildOf(car).LengthM)
         && MathF.Abs(Cars.AlongMps[car]) <= _config.Driving.StopSpeedMps;
 
     /// <summary>
     /// <b>The next line this leg is driven on</b>, read off where the car is standing rather than off a
-    /// stage it was recorded in: on a bay's own way it is the road, at the mouth of one it is the bay, and
-    /// on the road it is the route laid again from here.
+    /// stage it was recorded in: on a piece of a manoeuvre it is the next piece, the bay or the road, and on the
+    /// road it is the route laid again from here.
     /// </summary>
     /// <returns>Whether there was a next line at all — false is a leg with nothing left to drive.</returns>
     bool TakeTheNextStepOfTheLeg(int car)
     {
-        var way = Cars.LineWayOf(car);
-        if (way != CarFleet.NoWay) return TheWayAtTheBayIsDriven(car, way);
+        if (IsManoeuvring(car))
+        {
+            // A manoeuvre out of a bay that has not been had yet is not driven, whatever its line reads.
+            return _manoeuvres.IsBegun(car) && TheManoeuvreIsDriven(car);
+        }
 
-        // The bay this leg is going to, whose own way in leaves the lane the car has stopped on — named
-        // when the line was laid (<see cref="TheWayIntoTheBay"/>). It is the end of the leg: the way is one
-        // of the town's, so the claim runs along it and the traffic it crosses is cut by the town's own
-        // table.
-        if (TakeTheWayAtTheBay(car, Cars.TailWayOf(car))) return true;
+        // A line that stops for a bay waits there for the manoeuvre into it (<see cref="ConsiderParking"/>),
+        // which is not a line run out.
+        if (IsOnTheFinalApproach(car)) return false;
 
         // Anywhere else the road has run out under the car, so it is taken again from where the body has
         // actually got to — the walker's own answer to a chain that runs out (PER-25).
@@ -137,25 +142,6 @@ internal sealed partial class TownWorld
         var leftM = Cars.Line[car].LengthM - Cars.ProgressM[car];
         Cars.ClearRoute(car);
         return TakeTheLaneUnderIt(car) && Cars.Line[car].LengthM - Cars.ProgressM[car] > leftM;
-    }
-
-    /// <summary>
-    /// A bay's own way, driven to its end: <b>the way in is a car parked and the way out is a leg that has
-    /// reached the road</b>. Both are the town's own ways and neither is a shape a driver invented.
-    /// </summary>
-    bool TheWayAtTheBayIsDriven(int car, int way)
-    {
-        if (_bayWays.IsEntry(way))
-        {
-            ParkIt(car, _bayWays.BayOfWay(way));
-            return true;
-        }
-
-        // Out of the bay and onto the road: the place is the town's again the moment the car is off it,
-        // the standing and the turn alike (GEN-4l).
-        _parking.Vacate(car);
-        _parking.LeaveTheTurn(car);
-        return TakeTheStreetOutOfTheBay(car, way) || TakeTheLaneUnderIt(car);
     }
 
     /// <summary>

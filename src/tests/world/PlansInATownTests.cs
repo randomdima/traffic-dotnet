@@ -77,16 +77,16 @@ public class PlansInATownTests
     }
 
     /// <summary>
-    /// A car's plan and the line it was laid on: the way or first lane its metres count from, and the next lane's
-    /// nought.
+    /// A car's plan and the line it was laid on: whether that is a piece of a manoeuvre, the first lane its metres
+    /// count from, and the next lane's nought.
     /// </summary>
-    readonly record struct Laid(int Way, int First, int Next, float NextStartM, float FromM = 0f, float ToM = 0f);
+    readonly record struct Laid(bool Manoeuvre, int First, int Next, float NextStartM, float FromM = 0f, float ToM = 0f);
 
     static Laid FrameOf(CarFleet cars, int car)
     {
         var lanes = cars.Line[car].LaneCount;
         return new Laid(
-            cars.LineWayOf(car), lanes > 0 ? cars.ChainOf(car)[0] : -1, lanes > 1 ? cars.ChainOf(car)[1] : -1,
+            lanes == 0, lanes > 0 ? cars.ChainOf(car)[0] : -1, lanes > 1 ? cars.ChainOf(car)[1] : -1,
             lanes > 1 ? cars.LaneStartsOf(car)[1] : 0f);
     }
 
@@ -94,7 +94,7 @@ public class PlansInATownTests
     static bool InOneFrame(in Laid was, in Laid now, out float shiftM)
     {
         shiftM = 0f;
-        if (was.Way != now.Way) return false;
+        if (was.Manoeuvre || was.Manoeuvre != now.Manoeuvre) return false;
         if (was.First == now.First) return true;
 
         shiftM = was.NextStartM;

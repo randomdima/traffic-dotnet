@@ -118,7 +118,7 @@ internal static class LineAssembler
     /// <b>The two measures run at the same rate and start together at the lane's own start.</b> The line over
     /// a lane <em>is</em> that lane's own arcs and nothing else (<see cref="Spline.SubChainInto"/>), so a
     /// metre of one is a metre of the other. It is still clamped to the stretch being driven, because a line
-    /// may stop short of a lane's end for the way into a bay.
+    /// may stop short of a lane's end where a car waits for its manoeuvre into a bay.
     /// </remarks>
     public static float OnTheLineM(
         ReadOnlySpan<float> laneStartM, ReadOnlySpan<float> laneEndM, int slot, float alongLaneM) =>

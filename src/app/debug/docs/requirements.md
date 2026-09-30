@@ -96,7 +96,7 @@ is struck off rather than on any layer of it.
   the same tallies.
 
 **OBS-2p** `P8` **The outside of the town's driven ground is a layer**: every lane, every movement through a
-box and every way into a bay taken as the ribbon of ground it covers, all of them merged into one shape, and
+box and every bay taken as the ribbon of ground it covers, all of them merged into one shape, and
 the boundary of that shape drawn ([`LaneShell`](../../../citygen/LaneShell.cs)). **The boundary of an area
 and never a stretch of a line.** The perimeter of a plain road is the outer edge of its outer lanes, and at a
 junction it is whatever piece of whichever band reaches past the rest — so what is drawn stands half a band

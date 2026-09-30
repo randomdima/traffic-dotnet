@@ -48,7 +48,7 @@ internal static class SpawnStage
         foreach (var place in Spread(places.Count, cars, ref draw))
         {
             var on = places[place];
-            var at = Spline.SampleAt(lanes.ArcsOf(on), lanes.LaneLengthM[on] * 0.5f);
+            var at = Spline.SampleAt(lanes.ArcsOf(on), MiddleOfThePlaceM(lanes, on, config));
 
             kind[taken] = Car;
             positionM[taken] = at.PositionM;
@@ -77,13 +77,22 @@ internal static class SpawnStage
     }
 
     /// <summary>
-    /// <b>Every bay of the town's own car parks, as the lane driven into it</b> (GEN-53): the middle of that
-    /// lane is the middle of the space, and its bearing is the way a car nosed in points.
+    /// <b>Where along a place's lane a car is stood</b>: the middle of the space for a bay, which is the deepest
+    /// bay-length of its lane (<see cref="SimConfig.CarParkBayDepthM"/>), and the middle of the lane otherwise.
+    /// </summary>
+    static float MiddleOfThePlaceM(LaneLines lanes, int lane, SimConfig config) =>
+        lanes.LaneOverOneLine[lane]
+            ? lanes.LaneLengthM[lane] - (config.CarParkBayLengthM * 0.5f)
+            : lanes.LaneLengthM[lane] * 0.5f;
+
+    /// <summary>
+    /// <b>Every bay of the town's own car parks, as the lane driven into it</b> (GEN-53): the middle of the
+    /// space is on that lane (<see cref="MiddleOfThePlaceM"/>), and its bearing is the way a car nosed in points.
     /// </summary>
     static List<int> TheBays(LaneLines lanes, CarParks.Laid carParks)
     {
         var ordinary = new HashSet<int>();
-        for (var park = 0; park < carParks.Junction.Length; park++)
+        for (var park = 0; park < carParks.Count; park++)
         {
             if (carParks.For[park] != BuildingUse.Ordinary) continue;
 

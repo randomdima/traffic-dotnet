@@ -83,7 +83,10 @@ public class BuildingsTests
         for (var way = 0; way < plan.Buildings.EntryPointM.Length; way++)
         {
             var offM = OffTheBoundaryM(plan.Buildings.EntryPointM[way]);
-            Assert.InRange(offM, Config.WalkInnerM, Config.WalkOuterM);
+            Assert.True(
+                offM >= Config.WalkInnerM && offM <= Config.WalkOuterM,
+                $"the way in at {plan.Buildings.EntryPointM[way]} stands {offM:F2} m off the boundary, outside the walk "
+                + $"from {Config.WalkInnerM:F2} m to {Config.WalkOuterM:F2} m");
         }
     }
 

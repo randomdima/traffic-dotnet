@@ -211,7 +211,7 @@ public class JunctionClaimTests
             for (var slot = 0; slot < count; slot++)
             {
                 ref readonly var piece = ref slots[slot];
-                if (piece.Of != LaneRoster.Driving || world.Cars.LineWayOf(piece.Occupant) != CarFleet.NoWay) continue;
+                if (piece.Of != LaneRoster.Driving || world.Cars.Line[piece.Occupant].LaneCount == 0) continue;
 
                 if (piece.Secondary)
                 {

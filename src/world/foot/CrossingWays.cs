@@ -33,7 +33,7 @@ namespace TrafficSimulation.World.Foot;
 /// <b>The walk keeps its own geometry and is parted rather than laid again.</b> A course is the whole town's
 /// boundary moved off itself once (WLK-1, <see cref="PavementLanes"/>), and what a junction wants of it is
 /// somewhere to hand over — so the line is cut at those places and every metre of it stays exactly where the
-/// move put it, the stretch between two cuts being the junction's own. It is the same injection a car park
+/// move put it, the stretch between two cuts being the junction's own. It is the same injection a junction
 /// is cut into a street with (<c>CityGen.CutJunctions</c>, GEN-52): the road that was there is parted, keeps
 /// its line, and what is new is the arms and the nodes between the pieces.
 /// </para>

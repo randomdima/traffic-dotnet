@@ -26,7 +26,8 @@ public class DrivingNetworkTests
         var plan = Towns.Of(map);
         var config = SimConfig.Shipped();
         var roads = RoadGraph.Build(plan, config);
-        return (roads, DrivingNetwork.Build(roads, BayWays.WhereALegMayTurn(roads, BayWays.Build(plan, roads, config)), plan, config));
+        return (roads, DrivingNetwork.Build(
+            roads, BayStreets.WhereALegMayTurn(roads, BayStreets.Build(plan, roads), config.TurnAtALotWithinM), plan, config));
     }
 
     /// <summary>Every road still belongs to some run, exactly once, in one place along it.</summary>
@@ -55,8 +56,8 @@ public class DrivingNetworkTests
     /// round, because each direction catches a different fault: a bend a link ends at is a decision nobody
     /// makes, and a junction no link ends at is a turn no route could ever plan. <b>Nowhere is promoted for
     /// being somewhere a leg is sent</b>: a destination is a place on a link and carries how far into it it
-    /// stands (<see cref="RouteGoal"/>), so a bay's way in is named as a metre of its lane without a node of
-    /// its own.
+    /// stands (<see cref="RouteGoal"/>), so a bay is named as the metre of its street's lane its mouth stands
+    /// abeam of, without a node of its own.
     /// </summary>
     /// <remarks>
     /// <para>

@@ -1024,7 +1024,7 @@ public class GroundMeshTests
     /// <summary>Enough buildings that the town counts car parks off them, which is <c>CarParkTests</c>' figure.</summary>
     const int BuildingsWithLots = 48;
 
-    /// <summary>The middle of one road, which for a bay's way is the middle of the ground that bay is reached over.</summary>
+    /// <summary>The middle of one road's line, which for a bay is the middle of its apron and space together.</summary>
     static Vector2 Middle(CityPlan plan, int road)
     {
         var line = plan.Roads.SegmentsOf(road);

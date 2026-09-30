@@ -271,11 +271,10 @@ internal sealed partial class TownWorld
     /// (CAR-8). Where it has none — a town that cut no car park (GEN-7) — it stands at the plan's own pose.
     /// </para>
     /// <para>
-    /// <b>And the pose is the bay's own and not the plan's</b> (GEN-4i), for a spawn that lands in one: the
-    /// bay's ways meet at the pose a car square in the middle of the space stands at, and a car standing off
-    /// the way it is about to drive is a car whose first move out of the car park is a recovery. <b>Which of
-    /// the two poses that is is the driver's habit</b> (GEN-4j), so a town starts with cars standing both
-    /// ways round wherever its bays lay a way out of both.
+    /// <b>And the pose is the bay's own and not the plan's</b> (GEN-4i), for a spawn that lands in one: every
+    /// manoeuvre out is shaped from the pose a car square in the middle of the space stands at, and a car
+    /// standing off it is a car whose first move out of the car park is a recovery. <b>Which of the two poses
+    /// that is is the driver's habit</b> (GEN-4j), so a town starts with cars standing both ways round.
     /// </para>
     /// </remarks>
     void StandCar(int spawn, byte variant)
@@ -301,8 +300,7 @@ internal sealed partial class TownWorld
 
         if (bay >= 0)
         {
-            headingRad = BayTemplate.StandingHeadingRad(
-                _parking.HeadingRad(bay), _bayWays.TheStandingOnOffer(bay, !backsIn));
+            headingRad = BayTemplate.StandingHeadingRad(_parking.HeadingRad(bay), !backsIn);
 
             positionM = _parking.CentreM(bay);
         }

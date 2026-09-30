@@ -714,18 +714,17 @@ internal sealed class CityGenFigures
     public int BuildingsPerCarPark { get; init; } = 4;
 
     /// <summary>
-    /// <b>How tight a bay is turned into, as a share of the circle the car itself turns on</b> (GEN-53,
-    /// <see cref="SimConfig.CarParkTurnRadiusM"/>). One is the car's own parking circle; less than one is
-    /// tighter than the nominal car can hold.
+    /// <b>How far a car park's spaces stand back from the carriageway's edge</b> (GEN-53): an apron of the
+    /// bay's own tarmac between the street and the space, which a car turning in or backing out swings across
+    /// rather than across the street.
     /// </summary>
     /// <remarks>
-    /// <b>Seven tenths is inside the steering lock, and deliberately</b>: what a car park's movements are
-    /// laid for is the hook a car actually makes off a street at a walking pace, which is shorter than the
-    /// circle its own front wheels describe at full lock from a standstill. A car tracking one of these
-    /// lines has the wheel on its stop and runs a little wide of it; what that costs is the driver's to
-    /// answer for and not the plan's.
+    /// <b>It is also what keeps a rank's end a corner the walk can be struck round</b> (TER-3c.8): a rank's end
+    /// runs this and a bay back from the kerb, and one only a bay deep is a side the walk's outset
+    /// (<see cref="SimConfig.WalkOuterM"/> and <see cref="RoadFigures.LineRoundedM"/>) all but folds shut on — a
+    /// crossing three centimetres off the corner, which on three rank ends of Odesa it did not find.
     /// </remarks>
-    public float BayTurnInParkingCircles { get; init; } = 0.7f;
+    public float BaySetbackM { get; init; } = 1.5f;
 
     /// <summary>
     /// <b>How long a bay is</b> (GEN-53, <see cref="SimConfig.CarParkBayLengthM"/>): a length of ground,

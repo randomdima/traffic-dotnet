@@ -62,10 +62,10 @@ internal readonly record struct PlanAnswer(
 internal sealed partial class TownWorld
 {
     /// <summary>
-    /// How many ways one line may be cut into: every lane it is laid over, the join between each pair, and
-    /// the one way at a bay it may finish on. A bound on a stack span and not a figure behaviour reads.
+    /// How many ways one line may be cut into: every lane it is laid over and the join between each pair. A
+    /// bound on a stack span and not a figure behaviour reads.
     /// </summary>
-    public const int MostWaysAlongALine = (LineAssembler.MostLanes * 2) - 1 + 1;
+    public const int MostWaysAlongALine = (LineAssembler.MostLanes * 2) - 1;
 
     /// <summary>
     /// How many ways one body may be found over. A bound on a stack span; a way past it is dropped and
@@ -101,8 +101,10 @@ internal sealed partial class TownWorld
         for (var person = 0; person < People.Count; person++) LayTheWalkersBody(person);
         for (var car = 0; car < Cars.Count; car++) LayTheCarsBody(car);
 
-        // The ground a pass will cover is a body's (TER-4c.6), and is down before anything is asked for.
+        // The ground a pass will cover is a body's (TER-4c.6), and so is a manoeuvre's at a bay (GEN-4f): both are
+        // down before anything is asked for.
         for (var car = 0; car < Cars.Count; car++) LayTheCarsPass(car);
+        for (var car = 0; car < Cars.Count; car++) LayTheCarsManoeuvre(car);
         for (var person = 0; person < People.Count; person++) LayTheWalkersPass(person);
 
         // The lights before any plan: a light's hold is placed rather than asked for, so it has to be down before
@@ -199,7 +201,7 @@ internal sealed partial class TownWorld
     bool IsUnderWay(int car)
     {
         if (!Cars.Driven[car] || Cars.Broken[car]) return false;
-        if (Cars.Line[car].LaneCount == 0 && Cars.LineWayOf(car) == CarFleet.NoWay) return false;
+        if (Cars.Line[car].LaneCount == 0) return false;
         if (HandAtTheWheel(car)) return false;
 
         return Cars.OffLineM[car] <= OffTheLineAllowanceM(car);
@@ -223,16 +225,6 @@ internal sealed partial class TownWorld
     /// </remarks>
     public int WaysAlong(int car, float fromLineM, float toLineM, Span<LineWay> into)
     {
-        // A line that <em>is</em> one of the town's ways — a bay's way out — is that way and no other, and
-        // its metres are the line's own: there is no chain under it and no setback to carry across.
-        var lineWay = Cars.LineWayOf(car);
-        if (lineWay != CarFleet.NoWay)
-        {
-            return Overlaps(fromLineM, toLineM, 0f, Cars.Line[car].LengthM, out var wayFromM, out var wayToM)
-                ? Written(into, new LineWay(lineWay, wayFromM, wayToM, wayFromM))
-                : 0;
-        }
-
         var lanes = Cars.Line[car].LaneCount;
         var chain = Cars.ChainOf(car);
         var starts = Cars.LaneStartsOf(car);
@@ -261,22 +253,13 @@ internal sealed partial class TownWorld
             }
         }
 
-        // And the way the line finishes on, where it finishes on one (<see cref="CarFleet.TailWay"/>).
-        var tail = Cars.TailWayOf(car);
-        if (tail != CarFleet.NoWay && written < into.Length && lanes > 0
-            && Overlaps(fromLineM, toLineM, ends[lanes - 1], Cars.Line[car].LengthM, out var tailFromM, out var tailToM))
-        {
-            into[written++] = new LineWay(
-                tail, tailFromM - ends[lanes - 1], tailToM - ends[lanes - 1], tailFromM);
-        }
-
         return written;
     }
 
     /// <summary>
-    /// <b>Whether one of the town's ways is one this car's own line runs over</b> — the lanes of its chain,
-    /// the joins between them, and the way its line is or finishes on — and <b>which way the line takes after
-    /// it</b> (<see cref="LaneClaim.Onward"/>).
+    /// <b>Whether one of the town's ways is one this car's own line runs over</b> — the lanes of its chain and
+    /// the joins between them — and <b>which way the line takes after it</b> (<see cref="LaneClaim.Onward"/>). A
+    /// manoeuvre at a bay runs over none: the car making one is standing on whatever it is over.
     /// </summary>
     /// <remarks>
     /// <b>A line's last lane is not where it ends until the car is at its end.</b> A line is laid a sight distance
@@ -287,9 +270,6 @@ internal sealed partial class TownWorld
     bool IsOnItsLine(int car, int way, out int onward)
     {
         onward = LaneOccupancy.NoWay;
-        var tail = Cars.TailWayOf(car);
-        if (Cars.LineWayOf(car) == way || tail == way) return true;
-
         var lanes = Cars.Line[car].LaneCount;
         var chain = Cars.ChainOf(car);
         for (var index = 0; index < lanes; index++)
@@ -299,7 +279,6 @@ internal sealed partial class TownWorld
             if (_ways.OfRoadLane(chain[index]) == way)
             {
                 onward = joinWay != LaneOccupancy.NoWay ? joinWay
-                    : index == lanes - 1 && tail != CarFleet.NoWay ? tail
                     : RunsOnPastItself(car) ? LaneOccupancy.RunsOn
                     : LaneOccupancy.NoWay;
                 return true;
@@ -329,30 +308,33 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>The line any one of the town's ways is travelled on, and how wide it is</b> — a lane's own arcs, a
-    /// junction's join, the way at a bay, one side of a pavement or the mitre at its corner. <b>The one
-    /// place the kinds are told apart</b>, because this is the only slice that may know all of them.
+    /// junction's join, one side of a pavement or the mitre at its corner. <b>The one place the kinds are told
+    /// apart</b>, because this is the only slice that may know all of them.
     /// </summary>
     /// <remarks>
     /// <b>Each is the width that way is travelled at</b> and never a second figure: a lane's is the lane's, a
-    /// join's the narrower of the two it joins (TER-5d.1), a bay's the space it serves, and a footway's and a
+    /// join's the narrower of the two it joins (TER-5d.1), a bay's the space it serves
+    /// (<see cref="Core.Config.SimConfig.ParkingSpaceWidthM"/>) and not the tarmac laid for it, and a footway's and a
     /// mitre's the walking lane's. It is what the atlas lays every ribbon from (<see cref="RibbonAtlas"/>).
+    /// <para>
+    /// <b>A bay's is the space because the ground between two spaces is nobody's</b> (GEN-4c): a car turning
+    /// into one swings a corner over its neighbour's mouth, and read at the width of the tarmac that would stand
+    /// it on the neighbour's ground wherever a car stood there, which is every car park the town fills.
+    /// </para>
     /// </remarks>
     public ReadOnlySpan<ArcSeg> LineOfWay(int way, out float widthM)
     {
         switch (_ways.KindOf(way))
         {
             case WayKind.Lane:
-                widthM = _roads.LaneWidthM[_ways.RoadLaneOf(way)];
-                return _roads.ArcsOf(_ways.RoadLaneOf(way));
+                var lane = _ways.RoadLaneOf(way);
+                widthM = _roads.IsABayArm(lane) ? _config.ParkingSpaceWidthM : _roads.LaneWidthM[lane];
+                return _roads.ArcsOf(lane);
 
             case WayKind.Connector:
                 var slot = _ways.RoadConnectorOf(way);
                 widthM = _roads.ConnectorWidthM(slot);
                 return _roads.ConnectorArcs(slot);
-
-            case WayKind.Bay:
-                widthM = _bayWays.Ways.LaneWidthM(way);
-                return _bayWays.ArcsOf(way);
 
             case WayKind.Footway:
                 var edge = _ways.FootwayOf(way);

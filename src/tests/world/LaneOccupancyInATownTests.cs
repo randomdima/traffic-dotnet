@@ -44,7 +44,7 @@ public class LaneOccupancyInATownTests
 
                 var car = bodies[slot].Occupant;
                 Assert.True(
-                    world.Cars.Line[car].LaneCount > 0 || world.Cars.LineWayOf(car) != CarFleet.NoWay,
+                    world.Cars.Line[car].LaneCount > 0,
                     $"car {car} is a body on its line on way {way} and has no line");
             }
         }
@@ -66,7 +66,7 @@ public class LaneOccupancyInATownTests
         for (var car = 0; car < cars.Count; car++)
         {
             var lanes = cars.Line[car].LaneCount;
-            if (lanes == 0 || cars.TailWayOf(car) != CarFleet.NoWay) continue;
+            if (lanes == 0 || cars.StopsForBayOf(car) != CarFleet.NoBay) continue;
 
             // A car's length of line left past its nose, so the tick driven since the bodies were laid cannot
             // have carried it to the end.

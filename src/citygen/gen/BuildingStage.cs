@@ -68,7 +68,7 @@ internal static class BuildingStage
     static readonly bool[] Sides = [true, false];
 
     public static CityPlan.BuildingArrays Lay(
-        TownBrief brief, CarParks.Laid carParks, CityPlan.RoadArrays roads, Vector2[] junctionM,
+        TownBrief brief, CarParks.Laid carParks, CityPlan.RoadArrays roads,
         Paving paving, GroundShapes ground, GenClaims claims, BuildingSizes sizes, SimConfig config,
         ref Rng draw)
     {
@@ -77,7 +77,7 @@ internal static class BuildingStage
         var stations = AlongTheFace(paving.Rings(config), config);
         if (stations.Count == 0) return CityPlan.BuildingArrays.None;
 
-        var ranks = new Ranks(TheRanks(carParks, roads, junctionM), config);
+        var ranks = new Ranks(TheRanks(carParks, roads), config);
         var built = new Built();
         TheServices(carParks, ranks, stations, sizes, config, ground, claims, built);
 
@@ -128,19 +128,19 @@ internal static class BuildingStage
     }
 
     /// <summary>
-    /// <b>Every rank in the town, read off the arms its car park was cut as</b> (GEN-53). The arms of a rank
-    /// are parallel and their far ends lie on one line parallel to the carriageway, so the ends averaged are
-    /// the middle of that line, the bearing is every arm's, and the furthest end either way plus half a bay
-    /// is how far the rank reaches along the street. <b>A car park with a rank each side is two of these</b>.
+    /// <b>Every rank in the town, read off its car park's bays</b> (GEN-53). The bays of a rank are parallel
+    /// and their far ends lie on one line parallel to the carriageway, so the ends averaged are the middle of
+    /// that line, the bearing is every bay's, and the furthest end either way plus half a bay is how far the
+    /// rank reaches along the street. <b>A car park with a rank each side is two of these</b>.
     /// </summary>
-    static List<Rank> TheRanks(CarParks.Laid carParks, CityPlan.RoadArrays roads, Vector2[] junctionM)
+    static List<Rank> TheRanks(CarParks.Laid carParks, CityPlan.RoadArrays roads)
     {
         var ranks = new List<Rank>();
         for (var park = 0; park + 1 < carParks.BayOffsets.Length; park++)
         {
             foreach (var right in Sides)
             {
-                if (RankOf(carParks, roads, junctionM, park, right) is { } rank) ranks.Add(rank);
+                if (RankOf(carParks, roads, park, right) is { } rank) ranks.Add(rank);
             }
         }
 
@@ -148,8 +148,7 @@ internal static class BuildingStage
     }
 
     /// <summary>One side's rank, or nothing where that side of the road carries no bay.</summary>
-    static Rank? RankOf(
-        CarParks.Laid carParks, CityPlan.RoadArrays roads, Vector2[] junctionM, int park, bool right)
+    static Rank? RankOf(CarParks.Laid carParks, CityPlan.RoadArrays roads, int park, bool right)
     {
         var from = carParks.BayOffsets[park];
         var to = carParks.BayOffsets[park + 1];
@@ -185,10 +184,10 @@ internal static class BuildingStage
             halfAcrossM = MathF.Max(halfAcrossM, MathF.Abs(Vector2.Dot(endM - tipM, along)));
         }
 
-        // And how deep it runs: back to the node, which is where the rank's tarmac gives on to the street's.
-        var nodeM = junctionM[carParks.Junction[park]];
+        // And how deep it runs: back to the street's own line, which is where the rank's tarmac gives on to the
+        // street's.
         return new Rank(
-            park, tipM, outward, halfAcrossM + halfABayM, MathF.Abs(Vector2.Dot(tipM - nodeM, outward)));
+            park, tipM, outward, halfAcrossM + halfABayM, MathF.Abs(Vector2.Dot(tipM - carParks.AtM[park], outward)));
     }
 
     static Vector2 EndOfABayM(CityPlan.RoadArrays roads, int bay)

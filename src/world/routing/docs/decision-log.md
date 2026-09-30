@@ -4,12 +4,14 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
-## 2026-09-26 — rules reworded to what the code does
+## 2026-09-30 — a car park ends no link, and a leg turns only near a lane's end
 
-The owner ruled the code the source of truth for this audit.
-
-- **Where a link ends**: a car park's junction ends a link like any place with a choice (GEN-4h); what needs no
-  node is a destination — a doorway, or the metre a bay's way in leaves its lane at.
+A car park stopped being a junction (GEN-53), so the street past one is one link and a bay is a place on it —
+the metre of each lane its mouth stands abeam of (`BayStreets`). **The router turns a leg only at a lane's
+end**, which a bay mid-lane is not: a lane may be come back from only where a bay stands within
+`SimConfig.TurnAtALotWithinM` of its end (`BayStreets.WhereALegMayTurn`). Turning at every bay on a lane was
+tried and flip-flopped: the car turned mid-lane landed behind the place its plan had it, and was re-routed
+round and back again.
 
 ## 2026-09-20 — the clock a leg is given up by belongs to both agent kinds
 

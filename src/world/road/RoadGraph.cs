@@ -175,16 +175,17 @@ internal sealed class RoadGraph : ILaneEnds
 
     /// <summary>
     /// <b>Whether this lane and its reverse are one line rather than two halves of a carriageway</b>
-    /// (GEN-4f): a bay's way is a car's width of ground driven in over and backed out over, so the ground
+    /// (GEN-53): a bay is a car's width of ground a car stands on whichever way round it stands, so the ground
     /// under it carries both directions at once. <b>The town's own answer</b>
     /// (<see cref="LaneLines.LaneOverOneLine"/>) and not a distance measured between two lines.
     /// </summary>
     public bool[] LaneOverOneLine => _lines.LaneOverOneLine;
 
     /// <summary>
-    /// <b>Whether this lane is a car park's arm</b> (GEN-53) — a bay, driven only as the bay's own ways and never
-    /// as a lane a route or a tour runs down. The same fact as <see cref="LaneOverOneLine"/>: a bay's way is
-    /// the only ground in the town driven both ways over one line, and a second flag would be a second answer.
+    /// <b>Whether this lane is a car park's bay</b> (GEN-53) — joined to nothing, got into and out of by a car's
+    /// own manoeuvre (GEN-4f), and never a lane a route or a tour runs down. The same fact as
+    /// <see cref="LaneOverOneLine"/>: a bay is the only ground in the town driven both ways over one line, and a
+    /// second flag would be a second answer.
     /// </summary>
     public bool IsABayArm(int lane) => _lines.LaneOverOneLine[lane];
 
@@ -327,7 +328,7 @@ internal sealed class RoadGraph : ILaneEnds
     public int NearestLane(Vector2 pointM, out float progressM) => _nearest.Nearest(pointM, out progressM);
 
     /// <summary>
-    /// <b>And the nearest lane of the carriageway</b>, a car park's arms left out (<see cref="IsABayArm"/>) —
+    /// <b>And the nearest lane of the carriageway</b>, bays left out (<see cref="IsABayArm"/>) —
     /// what a car takes when it takes the lane under it, and where a place asked of the road is looked for.
     /// </summary>
     public int NearestStreetLane(Vector2 pointM, out float progressM) => _nearestStreet.Nearest(pointM, out progressM);

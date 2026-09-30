@@ -79,7 +79,7 @@ internal sealed partial class TownWorld
         var askedM = Cars.Context[car].BackUpM;
         var backingMps = MathF.Max(0f, -Cars.AlongMps[car]);
         if (askedM <= 0f && backingMps <= _config.Driving.StopSpeedMps) return;
-        if (!IsUnderWay(car) || Cars.LineWayOf(car) != CarFleet.NoWay || Cars.Line[car].LaneCount == 0) return;
+        if (!IsUnderWay(car)) return;
 
         ref readonly var build = ref Cars.BuildOf(car);
         var lane = Cars.LaneOf(car);

@@ -21,9 +21,10 @@ namespace TrafficSimulation.CityGen;
 /// <b>So a road with neither a deck nor a stretch of paint on it answers nothing</b>, and
 /// <see cref="GroundShapes.Answers"/> is what keeps it out of the index altogether: both figures here are
 /// read off a road's own runs, a road with no runs leaves both untouched, and the shipped city carries paint
-/// on a quarter of its roads and a deck on none of them.
+/// on a quarter of its roads and a deck on none of them. <b>A bay answers too</b> (GEN-53): the ground of a
+/// space is parking, whatever tarmac it is part of.
 /// </remarks>
-internal readonly record struct RoadGround(bool Deck, bool Crossing);
+internal readonly record struct RoadGround(bool Deck, bool Crossing, bool Bay);
 
 internal sealed partial class GroundShapes
 {
@@ -86,10 +87,11 @@ internal sealed partial class GroundShapes
 
         var deck = false;
         var crossing = false;
+        var bay = false;
         var count = Math.Min(found, near.Length);
         for (var index = 0; index < count; index++)
         {
-            Weigh(near[index], alongM[index], pointM, ref deck, ref crossing);
+            Weigh(near[index], alongM[index], pointM, ref deck, ref crossing, ref bay);
         }
 
         // The index answered with more roads than there was room for, so what it gave back is part of the
@@ -104,14 +106,14 @@ internal sealed partial class GroundShapes
 
                 var arcs = _pieces.Roads.SegmentsOf(road);
                 var atM = Spline.ProjectM(arcs, pointM, _roadLengthM[road] * 0.5f, _roadLengthM[road]);
-                Weigh(road, atM, pointM, ref deck, ref crossing);
+                Weigh(road, atM, pointM, ref deck, ref crossing, ref bay);
             }
         }
 
-        return new RoadGround(deck, crossing);
+        return new RoadGround(deck, crossing, bay);
     }
 
-    void Weigh(int road, float atM, Vector2 pointM, ref bool deck, ref bool crossing)
+    void Weigh(int road, float atM, Vector2 pointM, ref bool deck, ref bool crossing, ref bool bay)
     {
         var arcs = _pieces.Roads.SegmentsOf(road);
         var on = Spline.SampleAt(arcs, atM);
@@ -132,6 +134,7 @@ internal sealed partial class GroundShapes
         if (acrossM <= _roadHalfM[road])
         {
             crossing |= Covers(_paintAt, _paintFromM, _paintToM, road, atM);
+            bay |= _pieces.Roads.IsABay(road);
         }
 
         for (var run = _deckAt[road]; run < _deckAt[road + 1]; run++)
@@ -262,12 +265,12 @@ internal sealed partial class GroundShapes
     }
 
     /// <summary>
-    /// <b>Whether this road has anything to say about a point at all</b>: a stretch of paint on it, or a deck
-    /// carried over something. Those are the whole of <see cref="RoadGround"/>, so a road with neither is a
-    /// candidate that costs a projection and answers no.
+    /// <b>Whether this road has anything to say about a point at all</b>: a stretch of paint on it, a deck
+    /// carried over something, or the whole of it a bay. Those are the whole of <see cref="RoadGround"/>, so a
+    /// road with none of them is a candidate that costs a projection and answers no.
     /// </summary>
     bool Answers(int road) =>
-        _deckAt[road + 1] > _deckAt[road] || _paintAt[road + 1] > _paintAt[road];
+        _deckAt[road + 1] > _deckAt[road] || _paintAt[road + 1] > _paintAt[road] || _pieces.Roads.IsABay(road);
 
     /// <summary>
     /// Count + 1 offsets over records that each name a road, by counting them into place. A record naming

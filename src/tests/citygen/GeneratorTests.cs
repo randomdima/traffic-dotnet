@@ -572,8 +572,6 @@ public class GeneratorTests
         var drawn = new bool[plan.Junctions.Count];
         for (var junction = 0; junction < drawn.Length; junction++) drawn[junction] = arms[junction] >= 3 && ringOf[junction] < 0;
 
-        foreach (var junction in plan.CarParks.Junction) drawn[junction] = false;
-
         return drawn;
     }
 

@@ -58,7 +58,7 @@ internal static class LaneTour
     }
 
     /// <summary>
-    /// Whether a lane may be toured onto: a lane of the carriageway, never a car park's arm (GEN-4h), and one no
+    /// Whether a lane may be toured onto: a lane of the carriageway, never a bay (GEN-4h), and one no
     /// closure holds.
     /// </summary>
     static bool IsOpen(RoadGraph graph, int lane, ReadOnlySpan<bool> closed) =>

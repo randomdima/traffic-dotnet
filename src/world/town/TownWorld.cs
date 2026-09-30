@@ -144,8 +144,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     readonly ParkingRegistry _parking;
 
-    /// <summary>The ways at every bay, laid with the town like the joins through a junction.</summary>
-    readonly BayWays _bayWays;
+    /// <summary>The street every bay is worked off (GEN-4f); getting in and out of one is the car's own manoeuvre.</summary>
+    readonly BayStreets _bayStreets;
 
     /// <summary>The ground of every way, and which ways share it (<see cref="RibbonAtlas"/>).</summary>
     readonly RibbonAtlas _atlas;
@@ -210,14 +210,15 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _roads = RoadGraph.Build(plan, config);
         RoadsMs = Stopwatch.GetElapsedTime(roadsAt).TotalMilliseconds;
 
-        // The bays' own ways come before the network that prices them: the one movement a route may make
-        // that no junction admits is a turn back — at a car park (GEN-4l) or at a dead end — and whether a
-        // frontage lays one is a question about its bays' ways.
-        _bayWays = BayWays.Build(plan, _roads, config);
+        // The bays' streets come before the network that prices them: the one movement a route may make that
+        // no junction admits is a turn back — at a car park (GEN-4l) or at a dead end — and whether a frontage
+        // has a bay to make one in is a question about which bays it works.
+        _bayStreets = BayStreets.Build(plan, _roads);
 
         // Laid with the town rather than on demand: a structure the tick reads belongs to the town's
         // own standing cost.
-        _driving = DrivingNetwork.Build(_roads, BayWays.WhereALegMayTurn(_roads, _bayWays), plan, config);
+        _driving = DrivingNetwork.Build(
+            _roads, BayStreets.WhereALegMayTurn(_roads, _bayStreets, config.TurnAtALotWithinM), plan, config);
         _driveSearch = new RouteSearch(_driving.Graph, mostEntries: 1, mostGoals: 2, MostRunsInARoute);
         _surcharges = new LinkSurcharges(MostWaysGivenUpOn);
         _walkSurcharges = new LinkSurcharges(MostWaysGivenUpOn);
@@ -251,7 +252,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // <b>And then the one table all of them are numbered in</b> (TER-4c.2, <see cref="TownWays"/>). It is
         // laid last of the networks because it is laid over them: what it takes from each is a run of
         // lengths, so no network below it learns that the others are there.
-        _ways = TownWays.Of(_roads, _bayWays.LengthsM, PavementLengthsM(_walking, out var mitreLengthM), mitreLengthM);
+        _ways = TownWays.Of(_roads, PavementLengthsM(_walking, out var mitreLengthM), mitreLengthM);
 
         // The interface's own room to plan a whole route into (CTL-1a), laid with the selection it is
         // bounded by and never on the frame that wants it.
@@ -298,7 +299,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // one thing against itself, and they were parked with the layer they were laid on.
         _builds = CarBuilds.OfTheFleet(config, CarCatalog.Shared);
 
-        Cars = new CarFleet(drivers, LineAssembler.ArcsFor(_roads) + _bayWays.MostArcs, _builds);
+        Cars = new CarFleet(drivers, Math.Max(LineAssembler.ArcsFor(_roads), BayManoeuvre.MostArcsPerPiece), _builds);
+        _manoeuvres = new Manoeuvres(drivers);
 
         // <b>One table, sized for every shape either roster can be in</b> (TER-4c): every way a body can be
         // over, and a plan down its own line with every section its marks link it to. A driver may also
@@ -321,7 +323,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _velocityIntoTickMps = new Vector2[walkers + drivers];
 
         _containers = new Containers(_plan.Buildings.Capacity, drivers, People.Inside);
-        _parking = ParkingRegistry.Build(plan, _bayWays, config, drivers);
+        _parking = ParkingRegistry.Build(plan, _bayStreets, config, drivers);
         _round = new ParkedRound(drivers);
         for (var bay = 0; bay < _parking.BayCount && !_townParks; bay++) _townParks = _parking.CanBeReached(bay);
 
@@ -406,12 +408,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     public RoadGraph Roads => _roads;
 
-    /// <summary>
-    /// The ways at every bay — the rest of the driving network, for whoever draws it or measures it.
-    /// A layer that drew the lanes and the joins and left these out would say a car reaches a bay by
-    /// teleporting off the end of a lane.
-    /// </summary>
-    public BayWays BayWays => _bayWays;
+    /// <summary>The street every bay is worked off, for whoever draws it or measures it.</summary>
+    public BayStreets BayStreets => _bayStreets;
 
     /// <summary>
     /// <b>Who is on each way of the town this tick</b>, for whoever draws it or measures it. <b>The claims

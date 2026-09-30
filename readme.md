@@ -187,7 +187,7 @@ with its card docked in the corner. A sheet's cells take the same two as `"point
 
 `--bench census --map NAME` says what a town holds and what the graphs made of it; `--bench shape`,
 `--bench joints` and `--bench parks` say what shape it came out — how its roads bend, where its junctions
-stand, which of them are places nothing meets (GEN-51) and which of them are car parks cut into a road
+stand, which of them are places nothing meets (GEN-51) and where its car parks stand off a street
 (GEN-53). `--bench outset` moves that town's own boundary off itself and **exits non-zero if any run of it
 is left open**, printing the boundary and the candidate set either side of the first hole. `--bench fill`
 cuts that boundary into the triangles the ground is drawn out of and reads the cut on the four things that

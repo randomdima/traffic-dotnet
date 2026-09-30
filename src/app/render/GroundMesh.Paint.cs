@@ -17,8 +17,8 @@ internal sealed partial class GroundMesh
     /// <para>
     /// <b>Where a run stops and what it is a line down is the road's</b> and nothing this pass works out:
     /// what is here is the pitch, the width and the shade. A run is handed over as the one chain it is, so
-    /// a street with a car park cut into it is one line and one phase rather than a piece either side of
-    /// the lot.
+    /// a street with a node nothing turns at is one line and one phase rather than a piece either side of
+    /// it.
     /// </para>
     /// <para>
     /// <b>And where it stops short of the paint at either end is the run's too</b>
@@ -189,16 +189,18 @@ internal sealed partial class GroundMesh
                     var pieces = Between(roads, parks.Road[one], parks.Road[other], seam);
                     if (pieces == 0) continue;
 
+                    // Along the space and not the apron in front of it (GEN-53), which is ground the street's side of it.
                     var line = seam.AsSpan(0, pieces);
                     var lengthM = Spline.TotalLengthM(line);
-                    DashRun(line, 0f, lengthM, lengthM, lengthM, strokeM * 0.5f, tint, periods);
+                    var fromM = MathF.Max(0f, lengthM - config.CarParkBayLengthM);
+                    DashRun(line, fromM, lengthM, lengthM - fromM, lengthM - fromM, strokeM * 0.5f, tint, periods);
                 }
             }
         }
     }
 
     /// <summary>
-    /// The line two bays' ways meet along, or nothing where they do not meet: a half-width off the one,
+    /// The line two bays meet along, or nothing where they do not meet: a half-width off the one,
     /// toward the other, where the two stand exactly their two half-widths apart.
     /// </summary>
     /// <remarks>

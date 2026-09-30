@@ -93,7 +93,7 @@ internal static class ConnectionPoints
     /// <b>Whether this arm's points stand on its own line rather than half a lane either side of it</b>
     /// (<see cref="Point"/>). Two roads are like that and no others: a roundabout's ring, which is the one
     /// road the town does not move onto the half its traffic drives (<c>RoadStage.OntoTheDrivenHalf</c>,
-    /// GEN-19), and a bay's own way, whose two ways share one line (GEN-53).
+    /// GEN-19), and a bay, whose two ways share one line (GEN-53).
     /// </param>
     internal readonly record struct Arm(
         int Junction, Vector2 NodeM, Vector2 OutwardUnit, float Curvature, Vector2 StandM, Vector2 StandUnit,

@@ -16,9 +16,7 @@ namespace TrafficSimulation.CityGen.Gen;
 /// <param name="LeadM">
 /// How far out along that bearing the arm's own road begins — <b>the standoff at that end of the turn</b>,
 /// as the cut's own standoff is the one at the street's end of it. The ordinary one is
-/// <see cref="CityGenFigures.ConnectionStandoffM"/>, which is what a cut whose arms are streets asks for; a
-/// car park asks for whatever the turn into that bay spends (<see cref="SimConfig.CarParkBayLeadM"/>), which
-/// is the arm's own because the lane it is turned off may run either side of the node (TER-4d, GEN-53).
+/// <see cref="CityGenFigures.ConnectionStandoffM"/>, which is what a cut whose arms are streets asks for.
 /// </param>
 /// <param name="StandM">
 /// How far out along that bearing the arm's far connection points stand, measured from the arm's own foot.

@@ -135,6 +135,7 @@ internal sealed partial class GroundShapes
     {
         var roads = Roads(scan.Roads, pointM);
         if (roads.Crossing) return Ground.Crosswalk;
+        if (roads.Bay) return Ground.Parking;
         if (_carriageway.Encloses(pointM)) return Ground.Road;
         if (SlabReaches(pointM)) return Ground.Parking;
         if (roads.Deck) return Ground.Sidewalk;

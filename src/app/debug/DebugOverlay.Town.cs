@@ -192,7 +192,7 @@ internal sealed partial class DebugOverlay
         }
 
         Movements(ref draw, roads, config, sagM, pitch, Theme.DrivingNodes, viewCentreM, viewSpanM, _marks);
-        BayApproaches(ref draw, world.BayWays, sagM, pitch, Theme.DrivingNodes, viewCentreM, viewSpanM, _marks);
+        BayApproaches(ref draw, world, sagM, pitch, Theme.DrivingNodes, viewCentreM, viewSpanM, _marks);
 
         // And on the walking side, every lane of the town's pavement as the graph holds it (WLK-1), which is
         // the same reading as the driving side above: the line a body is actually held on, walked its own way.
@@ -369,37 +369,33 @@ internal sealed partial class DebugOverlay
     }
 
     /// <summary>
-    /// The ways at every bay — for each lane it is worked off, the line a car is driven in on and the same
-    /// line it is backed out on — read off the town rather than laid again here, and drawn exactly as a
-    /// junction's movements are (<see cref="Movements"/>). They are movements of the same network: a way off
-    /// a lane, onto ground that is not a lane, with a dot where it leaves the road and a dot where it
-    /// arrives.
+    /// <b>Every manoeuvre a car has in hand at a bay</b> (GEN-4f) — each piece of the shape it laid for itself,
+    /// drawn exactly as a junction's movements are (<see cref="Movements"/>), with a dot where it leaves one
+    /// line and a dot where it arrives. There is nothing to draw at a bay nobody is getting into or out of: the
+    /// town lays no way to one.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Drawn in the driving colour and not a colour of their own</b>, because that is what they are —
-    /// ways of the same numbering, in the same table of what is driven over what. A layer that gave a car park
-    /// its own colour would be saying a bay is a different kind of thing, which is the reading this whole
-    /// slice exists to refuse.
-    /// </para>
-    /// <para>
-    /// <b>The reversed way takes the shade of the same colour that says the car is going backwards down
-    /// it</b> (<see cref="Theme.DrivingReverse"/>). A pair covers one piece of ground, so drawn in one
-    /// colour they are a single line whose chevrons cross each other — and which way a car is pointing while
-    /// it travels them is the whole of what tells them apart and the whole of what this picture is opened
-    /// for. Which of a pair that is is the standing's (GEN-4j): a bay backed into is driven into in reverse
-    /// and out of under power, so its pair is shaded the other way round from a bay nosed into.
-    /// </para>
+    /// <b>A piece driven in reverse takes the shade of the same colour that says the car is going backwards down
+    /// it</b> (<see cref="Theme.DrivingReverse"/>): a car backing in pulls on past the bay and comes back over
+    /// the same street, and which way it is pointing while it travels each is the whole of what tells the two
+    /// apart.
     /// </remarks>
     static void BayApproaches(
-        ref ScreenDraw draw, BayWays ways, float sagM, GridLevel? pitch, Vector4 colour, Vector2 viewCentreM,
+        ref ScreenDraw draw, TownWorld world, float sagM, GridLevel? pitch, Vector4 colour, Vector2 viewCentreM,
         Vector2 viewSpanM, MarkClaims claims)
     {
-        for (var way = ways.FirstWay; way < ways.TotalWayCount; way++)
+        var manoeuvres = world.Manoeuvres;
+        for (var car = 0; car < world.Cars.Count; car++)
         {
-            Link(
-                ref draw, ways.ArcsOf(way), sagM, pitch, bothWays: false,
-                ways.IsDrivenInReverse(way) ? Theme.DrivingReverse : colour, viewCentreM, viewSpanM, claims);
+            if (!manoeuvres.Any(car)) continue;
+
+            var shape = manoeuvres.Shape[car];
+            for (var piece = manoeuvres.Piece[car]; piece < shape.Pieces; piece++)
+            {
+                Link(
+                    ref draw, manoeuvres.PieceOf(car, piece), sagM, pitch, bothWays: false,
+                    shape.IsReverse(piece) ? Theme.DrivingReverse : colour, viewCentreM, viewSpanM, claims);
+            }
         }
     }
 

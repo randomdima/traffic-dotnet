@@ -86,15 +86,32 @@ internal static class StuckProbe
         var personPassing = new bool[people.Count];
         var passesBegun = new List<string>();
 
+        var wasDoing = new Doing[cars.Count];
+        var history = new Doing[HistoryTicks * cars.Count];
+        var wasBroken = new bool[cars.Count];
+        var wrecksSaid = new List<string>();
+
         for (var car = 0; car < cars.Count; car++) carStillFromM[car] = cars.PositionM[car];
         for (var person = 0; person < people.Count; person++) personStillFromM[person] = people.PositionM[person];
 
         for (var tick = 0; tick < MeasuredTicks; tick++)
         {
+            for (var car = 0; car < cars.Count; car++)
+            {
+                wasDoing[car] = Doing.Of(world, car);
+                history[((tick % HistoryTicks) * cars.Count) + car] = wasDoing[car];
+            }
+
             loop.Advance();
 
             for (var car = 0; car < cars.Count; car++)
             {
+                if (cars.Broken[car] && !wasBroken[car])
+                {
+                    wasBroken[car] = true;
+                    if (wrecksSaid.Count < MostWrecksSaid) wrecksSaid.Add(SayTheWreck(world, car, tick, wasDoing, history));
+                }
+
                 Began(cars.Pass[car].Begun, ref carPassing[car], "car", car, cars.PositionM[car], world, passesBegun);
                 if (!Watched(cars, car))
                 {
@@ -187,9 +204,19 @@ internal static class StuckProbe
             $"passes: cars asked {world.PassesAsked}, withdrew {world.PassesWithdrawn}, made {world.PassesMade}; " +
             $"walkers asked {world.SidestepsAsked}, withdrew {world.SidestepsWithdrawn}, made {world.SidestepsMade}");
         Console.WriteLine(
+            $"manoeuvres at a bay (GEN-4f): asked {world.ManoeuvresAsked}, withdrew {world.ManoeuvresWithdrawn}, " +
+            $"begun {world.ManoeuvresBegun} — parked {world.ParkedNoseIn} nose in and {world.ParkedBackedIn} backed in, " +
+            $"{(world.ManoeuvresBegun > 0 ? world.ManoeuvreStreetM / world.ManoeuvresBegun : 0):F1} m of the street's ways each");
+        Console.WriteLine(
             $"too near to step out (CAR-50): {world.CarTicksBackingUp} car-ticks backing up for the room, " +
             $"{world.CarTicksBlocked} blocked with none of the ground behind them");
         if (passesBegun.Count > 0) Console.WriteLine($"  the first begun, to frame with --shot: {string.Join("; ", passesBegun)}");
+        if (wrecksSaid.Count > 0)
+        {
+            Console.WriteLine("the first wrecks, each car as it was the tick before:");
+            foreach (var wreck in wrecksSaid) Console.WriteLine(wreck);
+        }
+
         ReportCars(world, config, carStillTicks, carWorstTicks);
         ReportPeople(world, config, personStillTicks, personWorstTicks);
         ReportCrowds(world, config, inACrowdTicks, crowd, crowdSize, biggestCrowd, biggestCrowdTick, biggestCrowdSays);
@@ -197,6 +224,65 @@ internal static class StuckProbe
 
     /// <summary>No walker at all — what a search of the roster comes back with when it finds nobody.</summary>
     const int Nobody = -1;
+
+    /// <summary>How many wrecks are said as they happen; the rest are counted.</summary>
+    const int MostWrecksSaid = 8;
+
+    /// <summary>How near a car stood to a wreck to be said with it: two car lengths, centre to centre.</summary>
+    const float WreckNearM = 8f;
+
+    /// <summary>How far back a wrecked car's own doing is kept, and how often within that it is said.</summary>
+    const int HistoryTicks = 180;
+
+    /// <inheritdoc cref="HistoryTicks"/>
+    const int HistoryStepTicks = 15;
+
+    /// <summary>
+    /// What one car was doing the tick before, kept for every car every tick because a wreck is only known once it
+    /// has happened, and by then the car is doing nothing.
+    /// </summary>
+    readonly record struct Doing(
+        Vector2 AtM, float AlongMps, DrivingHold Hold, HeadwayKind CutBy, float GrantM, bool Driven,
+        ManoeuvreKind Kind, ManoeuvreStage Stage, int Piece, int Lane, float ProgressM, float LineM, bool Reverse,
+        bool Passing)
+    {
+        public static Doing Of(TownWorld world, int car)
+        {
+            var cars = world.Cars;
+            var manoeuvres = world.Manoeuvres;
+            return new Doing(
+                cars.PositionM[car], cars.AlongMps[car], cars.Hold[car], cars.GrantCutBy[car], cars.AuthorityM[car],
+                cars.Driven[car], manoeuvres.Kind[car], manoeuvres.Stage[car], manoeuvres.Piece[car], cars.LaneOf(car),
+                cars.ProgressM[car], cars.Line[car].LengthM, cars.LineIsReverse[car], cars.Pass[car].Begun);
+        }
+
+        public override string ToString() =>
+            $"at ({AtM.X:F1}, {AtM.Y:F1}) {AlongMps:F2} m/s, hold {Hold} grant {GrantM:F2} m cut by {CutBy}, " +
+            $"driven {Driven}, lane {Lane}, line {ProgressM:F1}/{LineM:F1} m reverse {Reverse}, " +
+            $"manoeuvre {Kind} {Stage} piece {Piece}, passing {Passing}";
+    }
+
+    /// <summary>A car the tick it was wrecked, and every car near it, each as it was the tick before.</summary>
+    static string SayTheWreck(TownWorld world, int car, int tick, Doing[] wasDoing, Doing[] history)
+    {
+        var cars = world.Cars;
+        var said = new List<string> { $"  car {car} at tick {tick}: {wasDoing[car]}" };
+        for (var back = HistoryTicks - 1; back > 0; back -= HistoryStepTicks)
+        {
+            if (tick - back < 0) continue;
+
+            said.Add($"      {back} ticks before: {history[(((tick - back) % HistoryTicks) * cars.Count) + car]}");
+        }
+
+        for (var other = 0; other < cars.Count; other++)
+        {
+            if (other == car || (wasDoing[other].AtM - wasDoing[car].AtM).Length() > WreckNearM) continue;
+
+            said.Add($"    car {other}: {wasDoing[other]}");
+        }
+
+        return string.Join(Environment.NewLine, said);
+    }
 
     /// <summary>How many passes begun are said by where and when — enough to pick one to look at, and no list.</summary>
     const int PassesSaid = 6;
@@ -298,9 +384,9 @@ internal static class StuckProbe
                 (context.PassAsideM != 0f ? $"decided on the lane {context.PassAsideM:F2} m across" : "no pass decided"));
             Console.WriteLine(
                 $"    line {cars.Line[car].ArcCount} arcs, progress {cars.ProgressM[car]:F1} m, lane " +
-                $"{cars.LaneOf(car)}, line way {cars.LineWay[car]}, plan {cars.ClaimFromM[car]:F1}–{cars.ClaimToM[car]:F1} m " +
+                $"{cars.LaneOf(car)}, plan {cars.ClaimFromM[car]:F1}–{cars.ClaimToM[car]:F1} m " +
                 $"committed to {cars.CommittedToM[car]:F1} m, " +
-                $"tail way {cars.TailWay[car]}, box in {cars.ToTheBoxM[car]:F1} m " +
+                $"stops for bay {cars.StopsForBay[car]}, box in {cars.ToTheBoxM[car]:F1} m " +
                 $"ours {cars.BoxIsOurs[car]}, inside {cars.InsideTheBox[car]}, committed {cars.CommittedToTheBox[car]}, " +
                 $"light in {cars.LightAheadM[car]:F1} m");
             Console.WriteLine(

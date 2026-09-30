@@ -109,12 +109,11 @@ internal sealed class CarFigures
     /// <summary>
     /// How much wider than the car's own turning circle the turn into a bay is taken, so the steering is
     /// not sitting on its stop for the whole of an arc a car has to hold in both gears. What reads it is the
-    /// circle a car park's turn is sized off (<see cref="SimConfig.CarParkTurnRadiusM"/>).
+    /// circle each car's manoeuvre at a bay is shaped on (<c>CarBuild.ParkingTemplateRadiusM</c>).
     /// </summary>
     /// <remarks>
-    /// <b>The margin is paid for in ground</b> (GEN-53): how much of the road a car park's junction takes,
-    /// along the street and off it, is read off that one turn (<see cref="SimConfig.CarParkStandoffM"/>,
-    /// <see cref="SimConfig.CarParkBayLeadM"/>), so every centimetre of margin is a bigger cut.
+    /// <b>The margin is paid for in street</b> (GEN-4f): a manoeuvre's ground is the body swept down it, so
+    /// every centimetre of margin is more of the street held while a car parks or leaves.
     /// </remarks>
     public float ParkingTemplateArcMargin { get; init; } = 1.05f;
 }
@@ -309,6 +308,13 @@ internal sealed class DrivingFigures
     /// and the pass's end.
     /// </summary>
     public float PassSpareM { get; init; } = 0.25f;
+
+    /// <summary>
+    /// <b>The widest a car swings away from a bay before it turns in nose first</b> (GEN-4f), as the angle off its
+    /// own line. A car standing nearer the bay than its own circle swings out by the least that lets the turn end
+    /// square; one that would have to swing further than this does not nose in from where it is.
+    /// </summary>
+    public float ParkingSwingMostDeg { get; init; } = 45f;
 
     /// <summary>
     /// <b>How much of its braking a car coming up to something it means to get past slows at</b> (CAR-46): gently,

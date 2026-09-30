@@ -82,7 +82,7 @@ rule:
   aimed at nothing: it is a place along one of its district's streets, taken from the vehicle's own stream
   (AGT-6), and the driving to it is an ordinary leg (CAR-15). **A lane and not a junction**, because a leg ends
   by the car standing where it got to and a junction's middle is the one place standing still is being driven
-  into — **and a street and not a car park's arm**, which is a bay (GEN-4h). A place drawn on the part of a
+  into — **and a street and not a bay** (GEN-4h). A place drawn on the part of a
   street past the district's edge is moved to the street's middle, which is the district's.
 - **Every leg is bounded**, on AMB-9's argument said of a patrol: a place the traffic will not let a
   vehicle reach costs it the next street and nothing more, because a patrol has nowhere it must be.

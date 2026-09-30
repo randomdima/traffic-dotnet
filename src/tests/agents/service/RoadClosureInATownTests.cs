@@ -77,6 +77,9 @@ public class RoadClosureInATownTests
         var nearestM = OfficerComesNearestTheirPostM(world, loop, patrol, officer);
         Assert.True(nearestM <= Config.Service.CrewReachM, $"the officer came no nearer their post than {nearestM:F2} m");
 
+        // Within reach of the post is still on the way to it — from the car, across the paint — so where the officer
+        // stands is read once they have walked the rest.
+        loop.Advance(OfficerWalksTicks);
         var officerM = IntoTheLaneM(world, lane, world.People.PositionM[officer]) + (Config.PersonDiameterM * 0.5f);
         Assert.True(officerM < zebraFromM, $"the officer reaches {officerM:F2} m into lane {lane}, over a zebra from {zebraFromM:F2} m");
 
@@ -283,6 +286,10 @@ public class RoadClosureInATownTests
         world.Cars.VelocityMps[victim] = Vector2.Zero;
         world.PhysicsForInstruments.Release(world.Cars.Body[victim], positionM, headingRad);
         world.Apply(new BodyTag(BodyKind.Car, victim), DamageOutcome.Broken);
+
+        // Held off the recovery, as a wreck an evacuator has already taken: one towing it away ends the scene, and
+        // whether it gets there before the police is where the town happened to stand a depot, not what is asked.
+        world.Recovery.Wreck[victim] = victim;
         return victim;
     }
 

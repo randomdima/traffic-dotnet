@@ -360,7 +360,8 @@ internal static class TownCensus
     {
         var started = Stopwatch.GetTimestamp();
         var roads = RoadGraph.Build(plan, config);
-        var driving = DrivingNetwork.Build(roads, BayWays.WhereALegMayTurn(roads, BayWays.Build(plan, roads, config)), plan, config);
+        var driving = DrivingNetwork.Build(
+            roads, BayStreets.WhereALegMayTurn(roads, BayStreets.Build(plan, roads), config.TurnAtALotWithinM), plan, config);
         var elapsed = Stopwatch.GetElapsedTime(started);
 
         var runs = driving.Runs;

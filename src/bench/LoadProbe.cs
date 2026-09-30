@@ -94,7 +94,8 @@ internal static class LoadProbe
         Fold(ref hash, plan.Roads.ToJunction);
         Fold(ref hash, plan.Junctions.CentreM);
         Fold(ref hash, plan.Junctions.Lit);
-        Fold(ref hash, plan.CarParks.Junction);
+        Fold(ref hash, plan.CarParks.Street);
+        Fold(ref hash, plan.CarParks.Road);
         Fold(ref hash, plan.Buildings.CentreM);
         Fold(ref hash, plan.Buildings.HeadingRad);
         Fold(ref hash, plan.Props.CentreM);

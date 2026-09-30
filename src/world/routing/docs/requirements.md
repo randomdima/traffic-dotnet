@@ -25,10 +25,10 @@ the map, shared by every agent of its kind, laid with the town and never touched
   them is a place bodies pass through each other and nothing in the town notices (TER-4b).
 - **Nothing ends a link for being somewhere a leg is aimed at.** A doorway or a bay is a destination, and
   a destination is a **place on a link**, carried with how far into that link it stands; getting to it off
-  the link is the local tier's problem. A leg into a bay names the metre of its lane the bay's way in leaves
-  at, and wants no node there.
-- **A car park's junction is a junction like any other** (GEN-4h): a car on the street through it may go
-  on or turn into a bay, so a link ends there as it does at every place with a choice.
+  the link is the local tier's problem. A leg into a bay names the metre of its lane the bay's mouth stands
+  abeam of, and wants no node there.
+- **A car park ends no link** (GEN-4h): its bays are joined to nothing, so the street past one is the link it
+  would be without it, and turning into a bay is a manoeuvre and not a choice the network offers.
 
 The price of the first rule is real and accepted: **a route can no longer turn round at a bend.** A
 two-road junction ends no link, so the way back is taken at a junction with a choice at it, or at a dead

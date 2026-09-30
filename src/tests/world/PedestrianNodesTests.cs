@@ -235,97 +235,24 @@ public class PedestrianNodesTests
     }
 
     /// <summary>
-    /// <b>A road end at a car park's junction stands no pedestrian node</b> (WLK-2): the street carries on
-    /// past the rank, so the mouth is ground the walk goes round rather than a corner it arrives at — while
-    /// an end at a place streets really meet stands its pair.
+    /// <b>A bay stands no pedestrian node at either of its ends</b> (WLK-2, GEN-53): it is ground a car is put down
+    /// on, joined to nothing, and the walk goes round the rank rather than arriving anywhere in it.
     /// </summary>
     [Fact]
-    public void ARoadEndAtACarParksJunctionStandsNoNode()
+    public void ABayStandsNoPedestrianNode()
     {
         var config = SimConfig.Shipped();
         var plan = Towns.LayFresh(Towns.Brief(Towns.CitySeed, buildings: BuildingsWithLots));
         var nodes = FootJunctions.Lay(plan, config);
-        var arms = JunctionArms.Of(plan);
 
-        var atARank = 0;
-        var elsewhere = 0;
-        var roads = plan.Roads;
-        for (var road = 0; road < roads.Count; road++)
+        Assert.True(plan.CarParks.Road.Length > 0, "the town laid no car park");
+        foreach (var road in plan.CarParks.Road)
         {
-            if (roads.IsABay(road) || arms.Circulates(road)) continue;
-
-            foreach (var atTo in (ReadOnlySpan<bool>)[false, true])
-            {
-                var junction = atTo ? roads.ToJunction[road] : roads.FromJunction[road];
-                if (junction < 0) continue;
-
-                var end = JunctionArms.End(road, atTo);
-                var where = $"{plan.Junctions.CentreM[junction].X:F0},{plan.Junctions.CentreM[junction].Y:F0}";
-                if (arms.Special(junction))
-                {
-                    atARank++;
-                    Assert.False(nodes.StandsAt(end), $"a pedestrian node stands at the car park at {where}");
-                }
-                else
-                {
-                    elsewhere++;
-                    Assert.True(nodes.StandsAt(end), $"no pedestrian node stands at the junction at {where}");
-                }
-            }
+            Assert.False(nodes.StandsAt(JunctionArms.End(road, atTo: false)), $"a pedestrian node stands at bay {road}'s mouth");
+            Assert.False(nodes.StandsAt(JunctionArms.End(road, atTo: true)), $"a pedestrian node stands at bay {road}'s far end");
         }
-
-        Assert.True(atARank > 0, "the town laid no car park");
-        Assert.True(elsewhere > 0, "the town has no ordinary junction");
     }
 
-    /// <summary>
-    /// <b>The walk down a street runs through the junction a car park was cut into it at</b> (WLK-2): the
-    /// node at one end of the street reaches the node past the rank, on the same physical side, rather than
-    /// stopping at a corner the cut left behind.
-    /// </summary>
-    [Fact]
-    public void TheWalkDownAStreetCarriesThroughACarParksJunction()
-    {
-        var config = SimConfig.Shipped();
-        var plan = Towns.LayFresh(Towns.Brief(Towns.CitySeed, buildings: BuildingsWithLots));
-        var nodes = FootJunctions.Lay(plan, config);
-        var arms = JunctionArms.Of(plan);
-        var roads = plan.Roads;
-
-        var carried = 0;
-        for (var road = 0; road < roads.Count; road++)
-        {
-            if (roads.IsABay(road) || arms.Circulates(road)) continue;
-
-            foreach (var atTo in (ReadOnlySpan<bool>)[false, true])
-            {
-                // The end away from the rank, whose node is the one the street's walk sets off from.
-                var cut = JunctionArms.End(road, atTo);
-                var junction = atTo ? roads.ToJunction[road] : roads.FromJunction[road];
-                if (junction < 0 || !arms.Special(junction)) continue;
-
-                var across = arms.Across(junction, cut);
-                Assert.NotEqual(JunctionArms.NoEnd, across);
-
-                var from = JunctionArms.End(road, !atTo);
-                var onward = JunctionArms.End(JunctionArms.Road(across), !JunctionArms.AtTo(across));
-                if (!nodes.StandsAt(from) || !nodes.StandsAt(onward)) continue;
-
-                // Each hop reverses the bearing its road leaves on, so the same side of the street is the
-                // other hand at the road's far end, this hand again across the cut, and the other hand at
-                // the far end of the road past it.
-                carried++;
-                foreach (var hand in (ReadOnlySpan<int>)[-1, +1])
-                {
-                    Assert.Equal(
-                        FootJunctions.Node(onward, -hand),
-                        nodes.DownTheRoad(FootJunctions.Node(from, hand)));
-                }
-            }
-        }
-
-        Assert.True(carried > 0, "the town laid no car park a street runs through");
-    }
 
     /// <summary>
     /// <b>Two pedestrian nodes standing within the merge distance of one another are one place</b>

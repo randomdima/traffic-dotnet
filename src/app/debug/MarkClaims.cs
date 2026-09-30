@@ -17,7 +17,7 @@ namespace TrafficSimulation.App.Debug;
 /// </para>
 /// <para>
 /// <b>Two marks that say opposite things are not a smear.</b> A pair of lines over one piece of ground —
-/// the way into a bay and the way back out of it, a stretch travelled both ways — is read by its chevrons
+/// a bay's two lanes over its one line, a stretch travelled both ways — is read by its chevrons
 /// crossing, and that crossing is the whole of what tells the pair apart. So a stone is refused only to a
 /// mark saying what the mark already standing there says.
 /// </para>

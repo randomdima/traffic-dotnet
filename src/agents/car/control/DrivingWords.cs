@@ -17,7 +17,7 @@ internal static class DrivingWords
     /// <remarks>
     /// <b>The hold is the whole of what a car is doing</b> (CAR-15). There is no name beside it to drift
     /// from it: what a driver is at is a line and a term of the speed profile, and which line it is on is
-    /// the one thing this adds — a bay's own way is the last dozen metres of a leg either way round.
+    /// the one thing this adds — a manoeuvre at a bay is the last metres of a leg either way round (GEN-4f).
     /// </remarks>
     public static string CarName(CarFleet cars, int car)
     {
@@ -25,7 +25,7 @@ internal static class DrivingWords
         if (!cars.Driven[car]) return "parked";
         if (cars.Line[car].ArcCount == 0) return "no line";
 
-        if (cars.LineWayOf(car) != CarFleet.NoWay)
+        if (cars.Line[car].LaneCount == 0)
         {
             return cars.LineIsReverse[car] ? "backing at a bay" : "driving at a bay";
         }

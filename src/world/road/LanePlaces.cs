@@ -53,7 +53,7 @@ internal interface ILaneEnds
 /// </remarks>
 internal sealed class LanePlaces
 {
-    /// <summary>Where a lane runs out onto no place of this network's — a bay's way onto the carriageway.</summary>
+    /// <summary>Where a lane runs out onto no place of this network's — a bay, joined to nothing.</summary>
     public const int NoPlace = -1;
 
     readonly int[] _placeOfEnd;

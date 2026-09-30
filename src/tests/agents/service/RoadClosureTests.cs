@@ -22,7 +22,7 @@ public class RoadClosureTests
     /// <summary>
     /// <b>No car coming down the road is left a lane whose one way on is closed</b> (SRV-9, SRV-10): every lane of
     /// the carriageway leading into a closure is either closed with it or leads somewhere else as well — so its
-    /// entrance is never a bend, nor a car park's cut, whose arms are no way on (GEN-4h).
+    /// entrance is never a bend, and a bay is no way on (GEN-4h).
     /// </summary>
     [Fact]
     public void EveryLaneIntoAClosureIsClosedOrLeadsSomewhereElse()

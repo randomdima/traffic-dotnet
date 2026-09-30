@@ -27,7 +27,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>Each district's streets</b>: <c>[offsets[d], offsets[d + 1])</c> of <see cref="_districtLanes"/> are the
-    /// lanes whose middle stands in district <c>d</c>, never a bay's arm — laid once, since the town does not move.
+    /// lanes whose middle stands in district <c>d</c>, never a bay — laid once, since the town does not move.
     /// </summary>
     int[] _districtLaneOffsets = [0];
 
@@ -92,7 +92,7 @@ internal sealed partial class TownWorld
     /// <b>Somewhere along a lane and never a junction's middle</b>, because a leg ends by the car standing where it
     /// got to and the middle of a junction is the one place standing still is being driven into — aimed at the
     /// junction centres, the fixture town's patrol was wrecked inside the first box it reached. <b>And a street
-    /// and never a bay's arm</b> (GEN-4h), an arm being a space and a dead end. A district with no street of its
+    /// and never a bay</b> (GEN-4h), a bay being a space joined to nothing. A district with no street of its
     /// own draws from the town's.
     /// </remarks>
     bool DriveTheBeat(int car)

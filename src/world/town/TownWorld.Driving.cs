@@ -65,7 +65,7 @@ internal sealed partial class TownWorld
         // that can be given no line at all is ended by the clock like every other one that gets nowhere
         // (<see cref="WatchTheProgress"/>). It has nothing to drive, so the body holds — but it is decided
         // about like any other car.
-        // Off a route there is no movement into a box: a way out of a bay is laid over ground the graph
+        // Off a route there is no movement into a box: a manoeuvre at a bay is laid over ground the graph
         // has no turn for. Left as it was, the last junction this car approached would still be what its
         // indicator is announcing.
         if (Cars.Line[car].LaneCount == 0) Cars.TurningAtTheBox[car] = false;
@@ -134,6 +134,14 @@ internal sealed partial class TownWorld
             LayLine(car, Cars.Line[car].LaneCount, progressM);
         }
 
+        // GEN-4f: a line that stops for a bay is where the car asks for its manoeuvre into it, and the
+        // manoeuvre, once begun, is its line from here.
+        if (Cars.StopsForBayOf(car) is var bay and not CarFleet.NoBay && ConsiderParking(car, bay, progressM, alongMps))
+        {
+            DriveTheWay(car, pose);
+            return;
+        }
+
         var line = Cars.LineOf(car);
 
         // CAR-46: getting past what stands in the lane, asked for off the grant this rebuild gave.
@@ -155,7 +163,7 @@ internal sealed partial class TownWorld
 
         // The grant was taken against the claims while they were being laid, so it is a distance from where the
         // nose stood then: walking it in by the ground covered since is what stops it receding at exactly
-        // the car's own speed, which is the same correction a bay's way gets (<see cref="DriveTheWay"/>).
+        // the car's own speed, which is the same correction a manoeuvre's piece gets (<see cref="DriveTheWay"/>).
         // <b>And the place this car was sent to is a stop point like any other</b> (AMB-5, EVA-3, SRV-6,
         // CTL-8a): a casualty, a wreck, a scene a police car is closing the road at, or a place a hand
         // named. It is a term of the same minimum the grant is in, so a driver stopping for one is running its
@@ -180,17 +188,18 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>A car whose line is one of the town's own ways</b> — a bay's way out, driven backwards. The same
-    /// wheel and the same profile as a route, and the same reservations underneath: what is in front comes
-    /// off the index, and the road ahead is the grant.
+    /// <b>A car whose line is a piece of its manoeuvre at a bay</b> (GEN-4f), driven in the piece's own gear. The
+    /// same wheel and the same profile as a route, and the same reservations underneath: the ground it drives is
+    /// its own, held as a body, and the grant is cut only by a body standing in it.
     /// </summary>
     /// <remarks>
-    /// <b>It is one of the town's own ways, and that is the whole point</b>: the plan runs along it, the
-    /// lanes it crosses carry its secondary claims, and there is nothing here that a car on a lane does not
-    /// also do.
+    /// <b>A manoeuvre out of a bay is not driven until its ground is had</b>: the car stands in the bay with the
+    /// first piece as its line, asking for it, and its grant holds it where it is until then.
     /// </remarks>
     void DriveTheWay(int car, in CarPose pose)
     {
+        if (!_manoeuvres.IsBegun(car)) ConsiderLeaving(car);
+
         ref readonly var build = ref Cars.BuildOf(car);
         var reverse = Cars.LineIsReverse[car];
         var forward = pose.Forward;
@@ -206,8 +215,6 @@ internal sealed partial class TownWorld
         Cars.AlongMps[car] = alongMps;
         Cars.OffLineM[car] = CarFollower.OffLineM(line, rearAxleM, progressM);
         Cars.GroundCoefficient[car] = _terrain.At(pose.PositionM).Coefficient;
-        if (MathF.Abs(alongMps) > _config.Driving.StopSpeedMps) Cars.ManoeuvreBegun[car] = true;
-
         Cars.CommittedToTheBox[car] = false;
 
         var context = new DriveContext(
@@ -246,10 +253,10 @@ internal sealed partial class TownWorld
             _config, build, line, Cars.EntriesOf(car), progressM, lengthM, steerRad, alongMps, lookaheadM, context,
             out var hold, out var plannedMps, Cars.Pass[car], lastMps2);
 
-        // <b>A bay's own way is driven at manoeuvring pace</b> whichever way round it is taken, and the
+        // <b>A manoeuvre at a bay is driven at manoeuvring pace</b> whichever gear its piece is in, and the
         // reverse cap is that pace — deliberately off the forward cap's scale, because this is its only
-        // use. The line being one of the town's ways rather than a lane is the whole of the test: those
-        // are the ways at a bay and there are no others (GEN-4j).
+        // use. A line with no lanes is the whole of the test: a manoeuvre's pieces are the only such lines
+        // (GEN-4f).
         var capMps = reverse || Cars.Line[car].LaneCount == 0 ? build.ReverseMaxMps : float.PositiveInfinity;
 
         // AMB-4: <b>a blue light buys the road and never the tyres.</b> A car on a call keeps every
@@ -418,9 +425,9 @@ internal sealed partial class TownWorld
         // free to turn in yet, which is asked again every time the line is laid.
         if (TurnsBackHere(car, fromLane)) return CarFleet.NoLane;
 
-        // The lane the leg's own bay is reached from is where the road runs out: the line finishes on the
-        // way into that bay, so it is not grown past it and the route is not asked for again.
-        if (TheWayIntoTheBay(car, fromLane) != CarFleet.NoWay) return CarFleet.NoLane;
+        // The lane the leg's own bay is worked off is where the road runs out: the line stops there for the
+        // manoeuvre into that bay, so it is not grown past it and the route is not asked for again.
+        if (TheBayTheLineStopsFor(car, fromLane) != CarFleet.NoBay) return CarFleet.NoLane;
 
         if (searched) return LaneTour.NextLane(_roads, _config, fromLane, _closedLanes, ref Cars.Draw[car]);
 
@@ -430,7 +437,7 @@ internal sealed partial class TownWorld
         if (next >= 0) return next;
         if (TurnsBackHere(car, fromLane)) return CarFleet.NoLane;
 
-        return TheWayIntoTheBay(car, fromLane) != CarFleet.NoWay
+        return TheBayTheLineStopsFor(car, fromLane) != CarFleet.NoBay
             ? CarFleet.NoLane
             : LaneTour.NextLane(_roads, _config, fromLane, _closedLanes, ref Cars.Draw[car]);
     }
@@ -518,9 +525,9 @@ internal sealed partial class TownWorld
     /// car is going (CTL-1a), and two readings of that would be two routes.
     /// </summary>
     /// <remarks>
-    /// Where the leg ends is the metre the bay's own way in leaves its lane (<see cref="BayGoals"/>), and
-    /// never the nearest lane to the bay: the bay is entered from whichever lane lays it a way, which may be
-    /// the one on the other side of the road. <b>An errand's leg ends on a lane instead</b> (AMB-5, EVA-3) — beside a
+    /// Where the leg ends is the metre of each lane of its street the bay's mouth stands abeam of
+    /// (<see cref="BayGoals"/>), and never the nearest lane to the bay: the car manoeuvres in off whichever
+    /// lane it gets there on, which may be the one on the other side of the road. <b>An errand's leg ends on a lane instead</b> (AMB-5, EVA-3) — beside a
     /// body or a wreck rather than inside a bay — and both directions of the stretch it stands on are
     /// offered, because only the search can say which of them reaches it first.
     /// </remarks>
@@ -718,21 +725,20 @@ internal sealed partial class TownWorld
             if (seenM >= reachM) break;
         }
 
-        // A route is driven forwards and is a chain rather than a way, whatever the last line this car was
-        // given was: both belong to the line and not to the car.
+        // A route is driven forwards, whatever the last line this car was given was: the gear belongs to the
+        // line and not to the car.
         Cars.LineIsReverse[car] = false;
-        Cars.LineWay[car] = CarFleet.NoWay;
 
-        // <b>A line whose last lane is the one the car's own bay is reached from stops where the bay's own
-        // way leaves it</b>, and that way is what the car drives next (GEN-4j,
-        // <see cref="TakeTheNextStepOfTheLeg"/>). It is not threaded onto the end of this line: a way at a
-        // bay is driven in the gear it was laid for and a route is driven forwards, so half of them run
-        // against the car — and one rule for both is what makes parking the same thing as unparking.
-        var tail = TheWayIntoTheBay(car, chain[lanes - 1]);
-        Cars.TailWay[car] = tail;
+        // <b>A line whose last lane is the one the car's own bay is worked off stops where the car waits for
+        // its manoeuvre into it</b> (GEN-4f, <see cref="StopForTheBayM"/>), and the manoeuvre is what the car
+        // drives next once it has the ground for it (<see cref="ConsiderParking"/>). It is not threaded onto the
+        // end of this line: a manoeuvre is shaped from where the car is when it gets there, in whichever gear
+        // each of its pieces is driven.
+        var bay = TheBayTheLineStopsFor(car, chain[lanes - 1]);
+        Cars.StopsForBay[car] = bay;
         Cars.Line[car] = LineAssembler.Assemble(
             _roads, chain[..lanes], Cars.LineArcsOf(car), Cars.LaneStartsOf(car), Cars.LaneEndsOf(car),
-            tail == CarFleet.NoWay ? float.PositiveInfinity : _bayWays.AtLaneM(tail));
+            bay == CarFleet.NoBay ? float.PositiveInfinity : StopForTheBayM(car, bay, chain[lanes - 1]));
 
         // What a plan reads of the line it runs down (TER-4c.1, S-2): the corners folded into each arc, and which
         // joins break it — once a line, so the plan and the profile read segments rather than walk geometry.

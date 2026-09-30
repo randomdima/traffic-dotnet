@@ -9,9 +9,9 @@ namespace TrafficSimulation.CityGen.Gen;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>What can carry lights</b> is a junction of <see cref="ArmsLeast"/> arms or more that is neither on a
-/// roundabout's ring nor a car park's: fewer arms admit no movements to conflict, a ring's circulating traffic
-/// is driven over what is entering by the ranking alone (GEN-19), and a car park's arms are its bays (GEN-53).
+/// <b>What can carry lights</b> is a junction of <see cref="ArmsLeast"/> arms or more that is not on a
+/// roundabout's ring: fewer arms admit no movements to conflict, and a ring's circulating traffic is driven
+/// over what is entering by the ranking alone (GEN-19).
 /// </para>
 /// <para>
 /// <b>How many is the brief's</b> (<see cref="TownBrief.UnregulatedJunctionShare"/>), and exactly that many are
@@ -31,15 +31,13 @@ internal static class LitJunctions
     /// <param name="PhaseOffsetS">Where in its cycle each lit junction's clock starts; nought where unlit.</param>
     internal readonly record struct Drawn(bool[] Lit, float[] PhaseOffsetS);
 
-    /// <param name="carParks">The junctions the town's car parks are cut as (GEN-53).</param>
-    public static Drawn Draw(
-        TownLayout layout, ReadOnlySpan<int> carParks, TownBrief brief, SimConfig config, ref Rng draw)
+    public static Drawn Draw(TownLayout layout, TownBrief brief, SimConfig config, ref Rng draw)
     {
         var count = layout.NodeM.Count;
         var lit = new bool[count];
         var offsetS = new float[count];
         var arms = layout.Arms();
-        var barred = Unlightable(layout, carParks);
+        var barred = Unlightable(layout);
 
         var candidates = new List<int>();
         var keys = new List<float>();
@@ -70,8 +68,8 @@ internal static class LitJunctions
     /// <summary>How many movements a junction of this many arms admits: every arm to every other.</summary>
     static int Movements(int arms) => arms * (arms - 1);
 
-    /// <summary>The nodes a roundabout's ring stands on and the junctions a car park is cut as.</summary>
-    static bool[] Unlightable(TownLayout layout, ReadOnlySpan<int> carParks)
+    /// <summary>The nodes a roundabout's ring stands on. A car park's bays stand on nodes nothing else meets at.</summary>
+    static bool[] Unlightable(TownLayout layout)
     {
         var barred = new bool[layout.NodeM.Count];
         foreach (var edge in layout.Edges)
@@ -81,8 +79,6 @@ internal static class LitJunctions
             barred[edge.From] = true;
             barred[edge.To] = true;
         }
-
-        foreach (var junction in carParks) barred[junction] = true;
 
         return barred;
     }

@@ -3,6 +3,25 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-09-30 — a car makes its own manoeuvre at a bay, and a manoeuvre's hold is never settled as a plan
+
+A car gets into and out of a bay by a manoeuvre shaped on its own circle (GEN-4f; the parking log has why).
+**A car waiting for its manoeuvre's ground is held where it stands by the manoeuvre, and nothing answers that
+hold again** (`TownWorld.SettleTheDrive`). The first cut settled it as a plan down the car's line: a piece has no
+ways along it, so settling handed the car the whole piece and it drove out without its ground — 16 wrecks on
+Odesa in 300 s, every one a car leaving a bay whose manoeuvre was still only shaped. Plans are settled only in a
+rebuild where one cut another, which a quiet town never has, so the suite stages it with every other car sent
+across the town (`BayManoeuvreTests`).
+
+Measured on Odesa against the commit before (`--bench town`, `--bench stuck`, Release): the tick 1 488 → 1 376
+µs and River's 1 679 → 1 446 µs, the index 923 → 579 µs and the cars 817 → 997 µs of it. Over 300 s: 437 → 477
+bays parked, no wreck and no drive leg given up either side; 558 cars parked nose in and 11 backed in. **What it
+costs**: 180 → 2 008 car-ticks backing up for room to step out and 3 → 1 489 blocked with nothing behind them,
+since a car behind one manoeuvring is stopped nearer it than a queue stands; and 5 cars standing at the end
+where none did — one backing into a bay with the car behind it stopped inside its reverse sweep, each waiting on
+the other, and two left off their line. Walks given up went 107 → 439, at pavement spots nowhere near a car park:
+the same wedge the walk had before, found at other places by a town with other streets.
+
 ## 2026-09-29 — a car on a call keeps room behind what it may pass
 
 **A call gets past a queue at rest and slower traffic** (CAR-46, AMB-4.4), so either is something it may come to

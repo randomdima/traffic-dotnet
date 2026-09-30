@@ -244,8 +244,8 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// One service vehicle standing in its bay (SRV-3). <b>The same pose a spawned car comes
-    /// to rest in</b> (GEN-4i): the bay's ways meet at it, so the first thing it does when it is given
-    /// something to do is drive rather than recover.
+    /// to rest in</b> (GEN-4i): every manoeuvre out of the bay is shaped from it, so the first thing it does
+    /// when it is given something to do is drive rather than recover.
     /// </summary>
     /// <remarks>
     /// <b>What makes it a car that acts is the errand rather than a seat</b> (SRV-3), and what keeps it out of
@@ -257,8 +257,7 @@ internal sealed partial class TownWorld
         // Its own stream, off the bay it stands in, so standing one cannot move what any spawn draws.
         var draw = new Rng(_agentSeed, stream + (ulong)bay);
         var backsIn = draw.NextFloat() < _config.Driving.BacksIntoBaysShare;
-        var headingRad = BayTemplate.StandingHeadingRad(
-            _parking.HeadingRad(bay), _bayWays.TheStandingOnOffer(bay, !backsIn));
+        var headingRad = BayTemplate.StandingHeadingRad(_parking.HeadingRad(bay), !backsIn);
         var positionM = _parking.CentreM(bay);
 
         ref readonly var build = ref _builds.Of(variant);

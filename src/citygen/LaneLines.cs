@@ -227,8 +227,8 @@ internal sealed class LaneLines
             var runsAgainstIt = roads.Flow[road] != RoadFlow.WithTheRoad;
             var halfLaneM = roads.LaneWidthM(road) * 0.5f;
 
-            // <b>A bay's way is driven both ways over one line</b> (GEN-53, GEN-4f): a car's width of ground
-            // it drives in over and backs out over, so its two lanes are the line itself and not two halves
+            // <b>A bay is driven both ways over one line</b> (GEN-53, GEN-4f): a car's width of ground a car
+            // stands on whichever way round it stands, so its two lanes are the line itself and not two halves
             // of a carriageway. It is the same exception a one-way road's single lane already is.
             var overOneLine = roads.DrivenOverOneLine(road);
             var laneOffsetM = roads.LanesMeetOnItsLine(road) ? halfLaneM * config.RoadSideSign : 0f;
@@ -433,12 +433,8 @@ internal sealed class LaneLines
     /// movement no car makes. Coming back the way it went is a bay's (GEN-4l).
     /// </para>
     /// <para>
-    /// <b>Nor does a bay's way join another bay's</b> (GEN-53). A car park's bays all hang off one node, so
-    /// the arithmetic would otherwise offer a turn out of every bay into every other — movements no car
-    /// makes, over ground that is the car park's to cross rather than a road with a right of way on it. A
-    /// bay joins the street the car park was cut into and nothing else — both of its ways, the street
-    /// standing off the whole rank so that no bay is behind the lane end a car arrives on
-    /// (<see cref="SimConfig.CarParkStandoffM"/>).
+    /// <b>A bay joins nothing</b> (GEN-53): its two nodes are its own, and at each the only lane leaving is its
+    /// own reverse. A car gets into one and out of it by a manoeuvre of its own (GEN-4f).
     /// </para>
     /// <para>
     /// <b>And a sharp turn is a sharp turn and not a reversal.</b> Two arms may be drawn as little as
@@ -463,11 +459,9 @@ internal sealed class LaneLines
             var arriving = laneArcs[laneArcOffsets[lane + 1] - 1];
             var arrivingRad = arriving.HeadingAtRad(arriving.LengthM);
             var node = laneToJunction[lane];
-            var outOfABay = roads.IsABay(laneRoad[lane]);
             foreach (var leaving in outLanes.AsSpan(outOffsets[node], outOffsets[node + 1] - outOffsets[node]))
             {
                 if (leaving == laneReverse[lane]) continue;
-                if (outOfABay && roads.IsABay(laneRoad[leaving])) continue;
 
                 var starts = laneArcs[laneArcOffsets[leaving]];
                 if (MathF.PI - MathF.Abs(Spline.WrapRad(starts.HeadingRad - arrivingRad)) <= LineTolerance.RoundingM) continue;
@@ -537,7 +531,6 @@ internal sealed class LaneLines
         var lengthM = new float[connectorCount];
         var drawn = new ArcSeg[3];
         var joined = new ArcSeg[3];
-        var bayRadiusM = config.CarParkTurnRadiusM;
 
         for (var lane = 0; lane < laneLengthM.Count; lane++)
         {
@@ -546,10 +539,9 @@ internal sealed class LaneLines
                 var onto = connectorToLane[connector];
                 var from = Spline.SampleAt(ArcsOf(lane), laneLengthM[lane]);
                 var to = Spline.SampleAt(ArcsOf(onto), 0f);
-                var atABay = roads.IsABay(laneRoad[lane]) || roads.IsABay(laneRoad[onto]);
                 var laid = TheSameEnd(from.PositionM, to.PositionM)
                     ? 0
-                    : Turn(bayRadiusM, atABay, from, to, drawn);
+                    : Spline.BiarcInto(from.PositionM, from.HeadingRad, to.PositionM, to.HeadingRad, drawn);
 
                 laid = Spline.JoinedInto(drawn.AsSpan(0, laid), LineTolerance.RoundingM, joined);
                 for (var arc = 0; arc < laid; arc++)
@@ -566,38 +558,6 @@ internal sealed class LaneLines
 
         ReadOnlySpan<ArcSeg> ArcsOf(int lane) =>
             laneArcs.AsSpan(laneArcOffsets[lane], laneArcOffsets[lane + 1] - laneArcOffsets[lane]);
-    }
-
-    /// <summary>
-    /// <b>The line one movement is driven over</b>: the biarc between the two lane ends, which shares the
-    /// turn evenly between them and is what every movement between two streets is.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Except at a bay, where the turn is the car's own and not the room's</b> (GEN-53): one arc on the
-    /// circle a car at a standstill hooks round on (<see cref="SimConfig.CarParkTurnRadiusM"/>), straight
-    /// street before it and straight bay after it. A biarc would spend the whole box on the turn — a car on
-    /// its way to park drifting out of its lane from the moment it entered the junction, across the mouths
-    /// of every bay before its own, and one that had left a bay still curving a box later. Nothing about
-    /// parking is driven at a design speed, so nothing about it is laid at a design speed's radius.
-    /// </para>
-    /// <para>
-    /// <b>It moves no lane end</b> — both lines join the same two poses, and which of them a movement gets
-    /// is the only thing decided here. Where the turn does not fit in the room there is the biarc is still
-    /// the answer (<see cref="Spline.StraightArcStraightInto"/>), which joins any two poses at all.
-    /// </para>
-    /// </remarks>
-    static int Turn(
-        float bayRadiusM, bool atABay, in SplineSample from, in SplineSample to, Span<ArcSeg> into)
-    {
-        var laid = atABay
-            ? Spline.StraightArcStraightInto(
-                from.PositionM, from.HeadingRad, to.PositionM, to.HeadingRad, bayRadiusM, into)
-            : 0;
-
-        return laid > 0
-            ? laid
-            : Spline.BiarcInto(from.PositionM, from.HeadingRad, to.PositionM, to.HeadingRad, into);
     }
 
     /// <summary>Whether a lane ends where the next one starts, within <see cref="SameEndM"/>.</summary>

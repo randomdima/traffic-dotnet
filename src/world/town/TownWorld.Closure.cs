@@ -95,8 +95,8 @@ internal sealed partial class TownWorld
     /// laid again from the lane it is on, where it can still stop short of the box it would turn in at.
     /// </summary>
     /// <remarks>
-    /// <b>The queue of every car, and the line only of one driving the road</b>: a car on a bay's way has that way
-    /// for its line, and the queue it takes up at the end of it is the stale one.
+    /// <b>The queue of every car, and the line only of one driving the road</b>: a car manoeuvring at a bay has
+    /// the manoeuvre's piece for its line, and the queue it takes up at the end of it is the stale one.
     /// </remarks>
     void SendRoundTheClosures(int car)
     {
@@ -105,8 +105,7 @@ internal sealed partial class TownWorld
         var routeCrosses = false;
         foreach (var lane in Cars.RouteOf(car)[Cars.RouteTaken[car]..Cars.RouteCount[car]]) routeCrosses |= _closedLanes[lane];
 
-        var onTheRoad = Cars.LineWayOf(car) == CarFleet.NoWay;
-        var chain = Cars.ChainOf(car)[..(onTheRoad ? Cars.Line[car].LaneCount : 0)];
+        var chain = Cars.ChainOf(car)[..Cars.Line[car].LaneCount];
         var lineCrosses = false;
         for (var slot = 1; slot < chain.Length; slot++) lineCrosses |= _closedLanes[chain[slot]];
 

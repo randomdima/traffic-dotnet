@@ -416,80 +416,57 @@ end, so a piece that went on drawing its other bearing would draw one its line w
 - **It is the last thing done to a layout.** A cut road's arms are its line's own, so an offer weighed
   against the chord it was joined on would be weighed against a bearing it does not leave on.
 
-**GEN-53** `P6` **A car park is a junction cut into a road, and every bay of it is an arm of that junction.**
-So a car park of four bays one side and five the other is an eleven-armed junction: the road either side of
-it, and one arm a bay. **A bay's way is its arm's lane** — one lane wide, **driven both ways over that one
-line** (GEN-4f), because a car drives into a bay over the same ground it comes back out over. The junction's
-own arithmetic then connects every bay to every way in and every way out, and nothing downstream carries a
-rule about car parks at all.
+**No stage cuts one any more**: a car park stands beside its street rather than in it (GEN-53). What is kept is
+the reading — a road laid where it already stands has its arms read off its own line — which a car park's bays
+are laid by.
 
-- **The bays of one side stand in a rank off the street, a lane apart and centred on the node**, a bay being
-  a lane wide (GEN-15) and a rank sharing the line between each pair of them (GEN-4c). **A bay is one length
-  of ground the whole town over** (`SimConfig.CityGen.BayLengthM`), **longer than the longest vehicle the
-  town draws** — the longest and not the nominal, because every bay is one anything in the town can stand
-  in — and not much longer, because a bay driven straight into is not one anything reverses into. **So an arm
-  is a bay and the turn into it and nothing besides**: where the rank stands off the kerb is what that turn
-  spends reaching it (`SimConfig.CarParkArmStandM`), rather than a setback chosen for it.
-- **It is the lane the bays are turned off that the rank stands off, not the line the node stands on**
-  (`SimConfig.CarParkBayLeadM`). A street of two ways carries a lane each side of that line, so both ranks
-  stand the same reach from it; a street driven one way carries its one lane on the half its traffic was
-  moved onto (TER-4d), **so the two sides ask for different reaches and get the same clearance**. **A road
-  type is never assumed here**: how far toward a side that side's lane runs is read off the road being cut.
-- **Every arm of a rank runs square to the street, so a rank is parallel and not a fan.** A car drives
-  straight into a bay and backs straight out, so what tells two bays of a side apart is where each one's way
-  meets the street and never which way it points: the ways are parallel and their far ends lie on one line
-  parallel to the carriageway. **An arm therefore need not leave from the node**: its foot stands its own
-  step along the street, and what joins it to the road is the movement the junction draws between two lane
-  ends, as for every other turn.
-- **A bay joins the street the car park was cut into and nothing else**, so **no movement joins one bay to
-  another** — the ground between two ranks is the car park's to cross and not a road with a right of way on
-  it. The turn is left out of the table rather than priced out of it.
-- **And it joins the street every way that street runs**: every bay is reached from each of them and leaves
-  onto each of them — two of each on an ordinary street and one on a street the scatter took one way
-  (GEN-18). **That is what the car park's own standoff is for** (`SimConfig.CarParkStandoffM`): the street is
-  parted far enough back that the whole rank stands inside the junction and every bay lies ahead of every
-  arrival. A bay behind the lane end a car arrives on is reached only by a turn tighter than the junction
-  corners (GEN-5) — a bay laid where it cannot be driven into.
-- **And it is parted no further back than that.** The standoff is **the place the turn into the furthest bay
-  of the rank runs out onto the street**: a junction longer than that is ground with a movement drawn over
-  it that no car turns on, and a stretch of ordinary street taken out of the town for nothing.
-- **A bay is turned into on one circle of its own, and the junction is that circle's size.** A car parks
-  from a standstill, so its line off the street is decided by the hook it makes and not by a design speed —
-  a share of the car's own parking circle (`SimConfig.CarParkTurnRadiusM`,
-  `SimConfig.CityGen.BayTurnInParkingCircles`) rather than the junction's cornering radius. **So the junction
-  is as big as that turn and no bigger, in both directions**: the street is parted the rank's reach and one
-  tangent back (`SimConfig.CarParkStandoffM`) and the bay's own way begins one tangent off the street
-  (`SimConfig.CarParkBayLeadM`). **The bays themselves do not move for it**: the turn decides only how much
-  street the junction takes and how sharply a car comes off it.
-- **A car holds the street until its own bay, and leaves a bay onto the street at once.** A movement at a
-  bay is **one turn with a straight either side of it**, where every other movement shares its turn evenly
-  between the two lane ends it joins — which would have a car drifting across the mouths of every bay
-  before its own, and one that had left a bay still curving a box later. **It moves no lane end**: both
-  lines join the same two poses.
-- **The bays are counted before the place is chosen.** How far back the street stands off is how far the
-  longer rank reaches along it, so the size of a car park decides which places can carry one. **A place is
-  never taken and the bays that did not fit taken back off it** (GEN-10); a town with nowhere to put the car
-  park it drew lays fewer of them (GEN-8).
-- **A rank is an apron and not a fan of carriageways, so its arms are not held square** (GEN-13). That rule
-  measures the angle between two arms, every arm of a rank leaves on the same bearing, and what they make
-  between them is one piece of tarmac with nothing filleted, crossed or barred between two bays.
-- **How many bays a side carries is a handful or none** (GEN-4b), and **not none on both sides** — a car
-  park with no bay either side is a junction cut into a road for nothing.
-- **A road that runs one way is cut like any other** (GEN-18, TER-4d). The two pieces are that street parted
-  rather than two streets meeting, and each bay is reached and left the one way the street runs, which is
-  every way it has.
-- **Nor is a road that bends too far across the ground the junction takes** (`SimConfig.CarParkCurvatureMax`).
-  A rank is laid off the tangent at the node and a movement holds the street straight, so a road turning
-  away across the box is one whose kerb that rank no longer faces and whose lane the straight leaves. **How
-  far a road may bend is read off how far that straight may leave its lane**
-  (`SimConfig.CityGen.CarParkOffLaneMaxM`) and nothing else, so a wide car park — whose longest movement runs
-  the length of the whole box and the rank again — asks for a straighter road than a narrow one.
+**GEN-53** `P6` **A car park is a rank of bays laid off the kerb of a street that stays whole, and every bay is a
+short road of its own joined to nothing.** The street is not parted and no junction stands at a car park; a bay
+is a lane's width of ground square to the kerb, **driven both ways over its one line** so a body standing in it
+is on it whichever way round it stands, on two nodes of its own. What gets a car in and out is its own
+manoeuvre (GEN-4f), and nothing downstream carries a rule about how a car park is reached.
+
+- **The bays of one side stand in a rank off the street, a lane apart and centred on the car park's middle**, a
+  bay being a lane wide (GEN-15) and a rank sharing the line between each pair of them (GEN-4c). **Every bay of a
+  rank runs square to the street at that middle, so a rank is parallel and not a fan**, and their far ends lie
+  on one line parallel to the carriageway.
+- **A bay is an apron and a space.** The space is one length the whole town over
+  (`SimConfig.CityGen.BayLengthM`), **longer than the longest vehicle the town draws** — every bay is one anything
+  in the town can stand in — and it stands back from the carriageway behind an apron of its own
+  (`SimConfig.CityGen.BaySetbackM`) that a car turning in or backing out swings across rather than across the
+  street. **The apron is also what keeps a rank's end a corner the walk can be struck round** (TER-3c.8).
+- **Each bay's mouth runs back over the street's own ground by a hair** (`SimConfig.CarParkKerbOverlapM`) — read
+  under the bay's own mouth off the kerb that is actually there, so the rank and the street are one piece of
+  tarmac on a street that bends a little, and on one that does not, ground the two do not share (TER-5c). **It is
+  the street's own lane that the rank stands off, not the line the street was laid down**: a street driven one
+  way carries its one lane on the half its traffic was moved onto (TER-4d), so the two sides stand off different
+  metres of it and get the same kerb (`CarParks.LaneTowardM`). **A road type is never assumed here.**
+- **The bays are counted before the place is chosen.** How much street a car park takes is its longer rank and
+  the frontage a car manoeuvres over past either end of it (`SimConfig.CarParkFrontageM`), so the size of a car
+  park decides which places can carry one. **A place is never taken and the bays that did not fit taken back off
+  it** (GEN-10); a town with nowhere to put the car park it drew lays fewer of them (GEN-8).
+- **Nor is a street that bends too far under the rank** (`SimConfig.CarParkCurvatureMax`). A rank is laid off the
+  tangent at its middle, so a street turning away under it is one whose kerb the rank no longer faces. **How far
+  a street may bend is read off how far its kerb may leave the rank's line** at the rank's end
+  (`SimConfig.CityGen.CarParkOffLaneMaxM`) and nothing else, so a wide car park asks for a straighter street than
+  a narrow one.
+- **Every node of a bay owes the town a locality** (GEN-16), the one over the street as much as the one past the
+  far end, and a bay's ground is held to the ground every road already holds (GEN-49) but its own street's.
+  **A car park's own nodes are exempt from each other**, on the terms a roundabout's are: one car park laid out
+  along a kerb rather than spacings that landed on the same ground.
+- **A bay's arms are read off its own line** (GEN-52's reading, `CityPlan.RoadArrays.WasCut`): it was laid where
+  the kerb is, and each node stands a lead off an end of it.
+- **How many bays a side carries is a handful or none** (GEN-4b), and **not none on both sides** — a car park
+  with no bay either side is no car park.
+- **A road that runs one way carries car parks like any other** (GEN-18, TER-4d): each bay is reached the one way
+  the street runs, which is every way it has.
 - **How many the town has is counted off the buildings it plans** (GEN-6, `SimConfig.CarParksFor`): the map
   says how many buildings it is a town of and the engine how many of those one car park stands the cars of
   (`SimConfig.CityGen.BuildingsPerCarPark`), so a map that grows carries the parking for what it grew into.
-  **They are spread rather than scattered**: each is cut at the site furthest from every car park already
-  cut, and what keeps two of them off each other is the locality every pair of junctions owes (GEN-16).
-  **What the ground cannot carry is what fitted** (GEN-8), reported and never retried.
+  **They are spread rather than scattered**: each is laid at the site furthest from every car park already
+  laid, and what keeps two of them off each other is the locality every node owes (GEN-16). **What the ground
+  cannot carry is what fitted** (GEN-8), reported and never retried.
+
 
 **GEN-49** `P3` **A junction is the only place two roads may touch.** No road crosses another, runs into the
 side of another or lies along one: two roads that are not joined at a junction stand at least one road's
@@ -514,9 +491,8 @@ walks or claims a way across it has anything to say about who goes first.
 arrives where there is still a choice, and every one the town keeps is one it can still be driven round.** It
 is a rule about the **streets the scatter chooses** and not about every road that runs one way: a
 roundabout's ring is one direction laid at one place and is none of this pass's business (GEN-19), though a
-street taken at one of its nodes is still two of them meeting. **And the pieces a car park's cut parted one
-street into are that street** (GEN-53): they meet at the car park and lie on one chord, so they are neither
-two of them meeting nor two of them crowding.
+street taken at one of its nodes is still two of them meeting. **A car park parts no street** (GEN-53), so it
+makes neither a meeting nor a crowding.
 
 A street runs one way (TER-4d) wherever the scatter puts it — no district, bearing or side of the orbital
 decides it — and the scatter is three relations and nothing else: **no junction carries two of them**, so
@@ -563,9 +539,9 @@ one-way road the scatter took (GEN-18) can be told from one nobody chose.
   drive against, so a car goes round it turning away from its own kerb.
 - **Nothing on the ring is lit** (TLT-3). A timetable over a ring node stops the circle to let an arm in,
   which is the one thing a roundabout is laid instead of.
-- **No car park is cut into one** (`CutJunctions`, GEN-53). A ring is one junction's worth of ground, and
-  a car park cut into it would be a junction entered off circulating traffic. A building fronts one on the
-  terms it fronts any street, off the walk round it (GEN-54).
+- **No car park stands on one** (`CutJunctions.SitesOn`, GEN-53). A ring is one junction's worth of ground,
+  and a bay off it would be one a car turns into off circulating traffic. A building fronts one on the terms
+  it fronts any street, off the walk round it (GEN-54).
 - **Every piece of the ring is one arc of one circle, node to node**, so the ring is smooth: there is no
   straight in it and no join a reader can find. Its bend is never tighter than the radius the roundabout's
   own design speed affords (`SimConfig.RoundaboutDesignSpeedMps`), which is the exception GEN-47's floor
@@ -612,7 +588,7 @@ arterial's, a lattice's, a frontage's — and where two of them land almost on t
 is a pair nothing downstream can make sense of: two junction boxes with their fillets, crossings and bars
 laid over each other, or two car parks with a stride of pavement pinched between them. **Which of the two is
 left is decided by what hangs off it**: a junction the layout placed is merged rather than refused, because
-refusing one deletes every road at it (GEN-8), where a car park is simply not cut — it is cut into a town
+refusing one deletes every road at it (GEN-8), where a car park is simply not laid — it is laid beside a town
 that stands without it. Both are nodes, and a node is a point measured centre to centre.
 
 - **Two nodes are one junction**, standing where the node the town cares more about stood, and every road at
@@ -623,12 +599,11 @@ that stands without it. Both are nodes, and a node is a point measured centre to
   chain are one place: asked pair by pair, the third is left where it stood and whatever ran through it
   hangs off a town it no longer reaches. **It is asked of the nodes rather than of the roads at them**, which
   is what makes it cost nothing — a junction moved once a road stands is every road at it drawn again.
-- **A car park inside a locality of a junction is not cut** (`CutJunctions`, GEN-52) — its own node and the
-  node at the end of every bay alike, against every node the town already has, the car parks cut before it
-  included. So two car parks are kept apart by the nodes they are made of, and the one that stays is the one
-  cut first. **This is the one place the rule refuses rather than merges**, and it can because nothing hangs
-  off a car park: the site is left out, and a count the town could not carry is reported by the census
-  (GEN-8).
+- **A car park inside a locality of a junction is not laid** (`CarParks`, GEN-53) — its site and both nodes of
+  every bay alike, against every node the town already has, the car parks laid before it included. So two car
+  parks are kept apart by the nodes they are made of, and the one that stays is the one laid first. **This is
+  the one place the rule refuses rather than merges**, and it can because nothing hangs off a car park: the
+  site is left out, and a count the town could not carry is reported by the census (GEN-8).
 
 **And a roundabout's own nodes are exempt** (GEN-19). They stand inside a locality of each other on purpose:
 a ring is one junction laid out as a circle by one construction, not the accident this rule is about, and

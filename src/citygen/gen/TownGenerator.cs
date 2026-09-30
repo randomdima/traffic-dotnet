@@ -136,9 +136,8 @@ internal static class TownGenerator
         OneWayStreets.Lay(layout, config);
         Took("one-way");
 
-        // <b>And the car parks are cut into what that leaves</b> (GEN-52, GEN-53), which is the last thing
-        // done to a layout: a cut road's arms are its line's own, so nothing may be offered to the layout
-        // after one (<see cref="CutJunctions"/>).
+        // <b>And the car parks are laid off the kerbs of what that leaves</b> (GEN-53), which is the last thing
+        // done to a layout: a bay's arms are its line's own, so nothing may be offered to the layout after one.
         var carPark = new Rng(brief.Seed, CarParkStream);
         var carParks = CarParks.Lay(layout, brief, config, districts.Wheel, sizes, ref carPark);
         Took("car parks");
@@ -164,7 +163,7 @@ internal static class TownGenerator
         // before the props because a verge carries what is left over beside what is built (GEN-6b).
         var building = new Rng(brief.Seed, BuildingStream);
         var buildings = BuildingStage.Lay(
-            brief, carParks, roads.Roads, roads.Junctions.CentreM, paving, streets, claims, sizes, config,
+            brief, carParks, roads.Roads, paving, streets, claims, sizes, config,
             ref building);
         Took("buildings");
 
@@ -190,14 +189,14 @@ internal static class TownGenerator
             Roundabouts = roads.Roundabouts,
             CarParks = new CityPlan.CarParkArrays
             {
-                Junction = carParks.Junction, BayOffsets = carParks.BayOffsets, Road = carParks.Road,
-                Right = carParks.Right,
+                Street = carParks.Street, AtM = carParks.AtM, BayOffsets = carParks.BayOffsets,
+                Road = carParks.Road, Right = carParks.Right,
             },
             PavedAreas = CityPlan.PavedAreaArrays.None,
             Crosswalks = roads.Crosswalks,
 
-            // <b>No bay</b>: a car park is the junction its arms are cut as (GEN-53) and the spaces on them
-            // are not laid, which is named in the known gaps rather than half-kept.
+            // <b>No lot</b>: a car park's bays are roads of their own (GEN-53) and a lot is a shape nothing
+            // lays here.
             ParkingLots = paved.ParkingLots,
             Buildings = buildings,
             Props = props,

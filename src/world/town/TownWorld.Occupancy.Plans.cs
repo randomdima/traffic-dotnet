@@ -71,6 +71,14 @@ internal sealed partial class TownWorld
             return;
         }
 
+        // <b>A car manoeuvring at a bay plans nothing</b> (GEN-4f): the ground it drives is its manoeuvre's, laid as
+        // a body, and all it is held by is a body standing in it — or, before it has that ground, where it stands.
+        if (IsManoeuvring(car))
+        {
+            HoldTheManoeuvre(car);
+            return;
+        }
+
         if (!IsUnderWay(car)) return;
 
         ref readonly var build = ref Cars.BuildOf(car);
@@ -120,16 +128,6 @@ internal sealed partial class TownWorld
         if (TheNextBox(car, noseM, out var mouthM, out var boxEndsAtM) && noseM >= mouthM)
         {
             planToM = MathF.Max(planToM, MathF.Min(boxEndsAtM + build.LengthM + standOffM, lengthM));
-        }
-
-        // <b>A manoeuvre at a bay is planned whole</b> (GEN-4f): into the space, or out of it and round onto the
-        // street — a car stood half across a street is a car the street queues behind while it waits on that
-        // queue. So it is not begun until the whole of it can be had (<see cref="LayTheDrive"/>), and once
-        // begun it is ground the car can no longer give back, which nothing takes.
-        if (Cars.LineWayOf(car) != CarFleet.NoWay)
-        {
-            planToM = lengthM;
-            if (Cars.ManoeuvreBegun[car]) committedToM = lengthM;
         }
 
         Cars.ClaimToM[car] = planToM;
@@ -224,20 +222,9 @@ internal sealed partial class TownWorld
     }
 
     /// <summary><b>A car's plan laid</b> over what its answer left, and finished with what it came to.</summary>
-    /// <remarks>
-    /// <b>Or nothing at all, for a manoeuvre at a bay it cannot have the whole of before it begins</b> (GEN-4f):
-    /// the car waits where it stands, holding no more than its body does, and asks again the next rebuild. Laid
-    /// short, the piece it had would hold the street off a car that is not going to drive it.
-    /// </remarks>
     void LayTheDrive(
         int car, int hold, ReadOnlySpan<LineWay> ways, ReadOnlySpan<ClaimPriority> rungs, in PlanAnswer answer)
     {
-        if (WaitsForTheWholeWay(car, answer))
-        {
-            _occupancy.EndHold(hold, Cars.ClaimFromM[car], 0f, answer.CutBy, answer.CutOn);
-            return;
-        }
-
         for (var index = 0; index < ways.Length; index++)
         {
             ref readonly var way = ref ways[index];
@@ -256,8 +243,10 @@ internal sealed partial class TownWorld
     /// </summary>
     bool SettleTheDrive(int car, Span<LineWay> ways)
     {
+        // <b>A manoeuvre's hold is not a plan down its line</b> (GEN-4f): answered again as one, a car waiting for
+        // its ground was handed the whole of a piece it has no ways along, and drove it.
         var hold = _carHold[car];
-        if (hold == LaneOccupancy.NoHold) return false;
+        if (hold == LaneOccupancy.NoHold || IsManoeuvring(car)) return false;
 
         var endsAtM = _occupancy.HoldEndsAtM(hold, out _, out var cutBy);
         if (float.IsPositiveInfinity(endsAtM) || (cutBy.Found && cutBy.HasBody)) return false;
@@ -267,20 +256,12 @@ internal sealed partial class TownWorld
         LevelTheRungs(car, ways[..count], rungs);
 
         var answer = AnswerTheDrive(car, hold, ways[..count], rungs);
-        var laidToM = WaitsForTheWholeWay(car, answer) ? Cars.ClaimFromM[car] : answer.CutLineM;
-        if (laidToM == endsAtM) return false;
+        if (answer.CutLineM == endsAtM) return false;
 
         _occupancy.ReopenHold(hold);
         LayTheDrive(car, hold, ways[..count], rungs, answer);
         return true;
     }
-
-    /// <summary>
-    /// Whether this answer leaves a car standing where it is: short of the end of a bay's way it has not yet
-    /// begun to drive (<see cref="CarFleet.ManoeuvreBegun"/>).
-    /// </summary>
-    bool WaitsForTheWholeWay(int car, in PlanAnswer answer) =>
-        Cars.LineWayOf(car) != CarFleet.NoWay && !Cars.ManoeuvreBegun[car] && answer.CutLineM < Cars.ClaimToM[car];
 
     /// <summary>The hold a car laid this rebuild, for an instrument asking what held it.</summary>
     public int DriveHold(int car) => _carHold[car];
@@ -321,8 +302,6 @@ internal sealed partial class TownWorld
     {
         var reach = ReachShare(car);
         var toM = fromM + (MathF.Min(_config.Driving.PlanMostM, build.SightM) * reach);
-        if (Cars.LineWayOf(car) != CarFleet.NoWay) return toM;
-
         var ends = Cars.LaneEndsOf(car);
         var breaks = Cars.JoinBreaksOf(car);
         var mostJoins = (int)MathF.Round(_config.Driving.PlanMostJoins * reach);
@@ -376,8 +355,6 @@ internal sealed partial class TownWorld
     bool TheNextBox(int car, float noseM, out float mouthM, out float endsAtM)
     {
         mouthM = endsAtM = float.NaN;
-        if (Cars.LineWayOf(car) != CarFleet.NoWay) return false;
-
         var starts = Cars.LaneStartsOf(car);
         var ends = Cars.LaneEndsOf(car);
         for (var slot = 0; slot + 1 < Cars.Line[car].LaneCount; slot++)

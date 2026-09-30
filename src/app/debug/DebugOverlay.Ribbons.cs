@@ -10,7 +10,7 @@ internal sealed partial class DebugOverlay
 {
     /// <summary>
     /// <b>The driven ground itself, as the ribbons it is merged out of</b> (OBS-2s): every lane, movement
-    /// and way into a bay drawn whole, at that line's own width — the area the boundary beside it
+    /// and bay drawn whole, at that line's own width — the area the boundary beside it
     /// (<see cref="Perimeter"/>) is the outside of.
     /// </summary>
     /// <remarks>

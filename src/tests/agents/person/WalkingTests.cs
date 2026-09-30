@@ -277,7 +277,9 @@ public class WalkingTests
         {
             var count = world.Walking.EntriesNear(world.People.PositionM[person], entries);
 
-            Assert.True(count == 2, $"walker {person} was offered {count} ways onto the network rather than two");
+            Assert.True(
+                count == 2,
+                $"walker {person} at {world.People.PositionM[person]} was offered {count} ways onto the network rather than two");
             Assert.True(
                 entries[0].Link != entries[1].Link,
                 $"walker {person} was offered link {entries[0].Link} twice");

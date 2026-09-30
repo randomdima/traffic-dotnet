@@ -81,7 +81,7 @@ internal static class TownShape
         Console.WriteLine($"  junctions        {plan.Junctions.Count}, {ArmsAt(plan, 2)} of two arms, {ArmsAt(plan, 1)} dead ends");
         Console.WriteLine(
             $"  car parks        {plan.CarParks.Count} of {AskedFor(plan, config)} asked, " +
-            $"{Bays(plan)} bays, one arm each");
+            $"{Bays(plan)} bays, each a road of its own");
         Console.WriteLine();
         Console.WriteLine("  road length      " + Spread(roads.LengthM, " m"));
         Console.WriteLine("  arcs per road    " + Spread(roads.Arcs));
@@ -115,15 +115,14 @@ internal static class TownShape
     /// this says is that neither structure kept it and never why.
     /// </remarks>
     /// <summary>
-    /// <b>Every car park the town cut into a road</b> (GEN-53): where its junction stands, how many arms it
-    /// carries, how many bays stand each side of the road — which is what a reader needs to frame a picture
-    /// of one (<c>--at</c>, SHT-1) — and how many of those bays the street reaches both of its ways.
+    /// <b>Every car park the town laid off a kerb</b> (GEN-53): where the middle of its rank stands, how many bays
+    /// stand each side of its street — which is what a reader needs to frame a picture of one (<c>--at</c>,
+    /// SHT-1) — which street that is and which way it runs, and how far the bays' mouths run back over it.
     /// </summary>
     /// <remarks>
-    /// <b>The reached column is what the car park's standoff is read off</b> (GEN-53): the street is parted
-    /// far enough back that the whole rank stands inside the junction, so every bay should carry both ways
-    /// in and both ways out, and a row short of its own bay count is a rank that outran its junction. What
-    /// refuses that rather than reporting it is <c>CarParkTests</c>.
+    /// <b>The kerb column is what the rank's tarmac joining the street's is read off</b> (TER-3c.8): the deepest
+    /// and the shallowest any bay's mouth reaches back over the street's own band, across its width. A positive
+    /// shallowest is a bay standing off its street, a strip of verge between them.
     /// </remarks>
     public static void Parks(string map, SimConfig config)
     {
@@ -131,128 +130,65 @@ internal static class TownShape
         var parks = plan.CarParks;
 
         Console.WriteLine(
-            $"{plan.Name}  {parks.Count} car parks of {AskedFor(plan, config)} asked, "
-            + $"{plan.Junctions.Count} junctions, {Bays(plan)} bays, one arm each, "
+            $"{plan.Name}  {parks.Count} car parks of {AskedFor(plan, config)} asked, {Bays(plan)} bays, "
             + $"{OnAOneWayStreet(plan)} on a street that runs one way");
 
         if (parks.Count == 0) return;
 
-        var waysIn = WaysIntoEachBay(plan, config);
-        var (late, allTurns) = TurnsAtEachBay(plan, config);
-
         Console.WriteLine();
-        Console.WriteLine(
-            $"  {"at",6}{"x",9}{"y",9}{"arms",6}{"bays",10}{"reached",17}{"one turn",13}"
-            + "   the road it was cut into");
+        Console.WriteLine($"  {"x",9}{"y",9}{"bays",10}{"street",9}{"runs",11}{"kerb overlap cm",20}");
         for (var park = 0; park < parks.Count; park++)
         {
-            var junction = parks.Junction[park];
-            var atM = plan.Junctions.CentreM[junction];
+            var atM = parks.AtM[park];
+            var street = parks.Street[park];
             var bays = $"{parks.BaysOn(park, right: true)}+{parks.BaysOn(park, right: false)}";
-            var cut = parks.RoadsOf(park).Length == 0 ? -1 : PieceAt(plan, junction, parks.RoadsOf(park));
-
-            // <b>A bay is reached every way its street runs</b> (GEN-53), which is two on an ordinary street
-            // and one on a street the scatter took (GEN-18) — so the column is read against the street.
-            var ways = cut >= 0 && plan.Roads.Flow[cut] != RoadFlow.BothWays ? 1 : 2;
-            var reachedAll = 0;
-            var oneTurn = 0;
-            var movements = 0;
-            foreach (var bay in parks.RoadsOf(park))
-            {
-                if (waysIn[bay] >= ways) reachedAll++;
-
-                oneTurn += late[bay];
-                movements += allTurns[bay];
-            }
-
-            var reached = $"{reachedAll}/{parks.RoadsOf(park).Length} {(ways == 2 ? "both ways" : "one way")}";
-            var turns = $"{oneTurn}/{movements}";
+            var (leastM, mostM) = KerbOverlapM(plan, street, parks.RoadsOf(park));
             Console.WriteLine(
-                $"  {junction,6}{atM.X,9:F0}{atM.Y,9:F0}{2 + parks.RoadsOf(park).Length,6}{bays,10}"
-                + $"{reached,17}{turns,13}"
-                + $"   road {cut}, {Spline.TotalLengthM(plan.Roads.SegmentsOf(cut)):F0} m of it past the junction");
+                $"  {atM.X,9:F0}{atM.Y,9:F0}{bays,10}{street,9}{plan.Roads.Flow[street],11}"
+                + $"{leastM * 100f,10:F1}{mostM * 100f,10:F1}");
         }
     }
 
     /// <summary>
-    /// How many of the town's car parks are cut into a street that runs one way (GEN-18, GEN-53), whose bays
-    /// are each reached the one way there is rather than two.
+    /// <b>How far the bays' mouths run back over their street's band</b> — the least and the most over every
+    /// mouth's two corners, measured square off the street's own line.
+    /// </summary>
+    static (float LeastM, float MostM) KerbOverlapM(CityPlan plan, int street, ReadOnlySpan<int> bays)
+    {
+        var line = plan.Roads.SegmentsOf(street);
+        var lengthM = Spline.TotalLengthM(line);
+        var halfM = plan.Roads.WidthM[street] * 0.5f;
+        var leastM = float.PositiveInfinity;
+        var mostM = float.NegativeInfinity;
+        foreach (var bay in bays)
+        {
+            var mouth = plan.Roads.SegmentsOf(bay)[0];
+            var across = Heading.RightOf(mouth.StartUnit) * (plan.Roads.WidthM[bay] * 0.5f);
+            foreach (var cornerM in (ReadOnlySpan<Vector2>)[mouth.StartM + across, mouth.StartM - across])
+            {
+                var on = Spline.SampleAt(line, Spline.ProjectM(line, cornerM, lengthM * 0.5f, lengthM));
+                var overlapM = halfM - MathF.Abs(Vector2.Dot(cornerM - on.PositionM, on.Right));
+                leastM = MathF.Min(leastM, overlapM);
+                mostM = MathF.Max(mostM, overlapM);
+            }
+        }
+
+        return (leastM, mostM);
+    }
+
+    /// <summary>
+    /// How many of the town's car parks stand on a street that runs one way (GEN-18, GEN-53), whose bays are each
+    /// reached the one way there is rather than two.
     /// </summary>
     static int OnAOneWayStreet(CityPlan plan)
     {
         var found = 0;
-        for (var park = 0; park < plan.CarParks.Count; park++)
+        foreach (var street in plan.CarParks.Street)
         {
-            var arms = plan.CarParks.RoadsOf(park);
-            if (arms.Length == 0) continue;
-
-            var cut = PieceAt(plan, plan.CarParks.Junction[park], arms);
-            if (cut >= 0 && plan.Roads.Flow[cut] != RoadFlow.BothWays) found++;
+            if (plan.Roads.Flow[street] != RoadFlow.BothWays) found++;
         }
 
         return found;
-    }
-
-    /// <summary>How many movements end on the way into each road's bay, or nought for a road that is not one.</summary>
-    static int[] WaysIntoEachBay(CityPlan plan, SimConfig config)
-    {
-        var lanes = plan.Paving(config).Lanes;
-        var waysIn = new int[plan.Roads.Count];
-        for (var connector = 0; connector < lanes.ConnectorCount; connector++)
-        {
-            var onto = lanes.ConnectorToLane[connector];
-            var road = lanes.LaneRoad[onto];
-            if (plan.Roads.IsABay(road) && lanes.LaneForward[onto]) waysIn[road]++;
-        }
-
-        return waysIn;
-    }
-
-    /// <summary>
-    /// How many of each bay's movements are <b>the one turn on the car's own circle</b> (GEN-53) and how
-    /// many there are — a car holding the street to its own bay and turning in at a standstill, against the
-    /// biarc a pair of poses gets when that turn does not fit between them.
-    /// </summary>
-    static (int[] Late, int[] All) TurnsAtEachBay(CityPlan plan, SimConfig config)
-    {
-        var lanes = plan.Paving(config).Lanes;
-        var late = new int[plan.Roads.Count];
-        var all = new int[plan.Roads.Count];
-        var bayRadiusM = config.CarParkTurnRadiusM;
-        for (var connector = 0; connector < lanes.ConnectorCount; connector++)
-        {
-            var intoABay = plan.Roads.IsABay(lanes.LaneRoad[lanes.ConnectorToLane[connector]]);
-            var outOfABay = plan.Roads.IsABay(lanes.LaneRoad[lanes.ConnectorFromLane[connector]]);
-            if (!intoABay && !outOfABay) continue;
-
-            var bay = lanes.LaneRoad[intoABay ? lanes.ConnectorToLane[connector] : lanes.ConnectorFromLane[connector]];
-            var line = lanes.ArcsOfConnector(connector);
-            var turns = 0;
-            var offTheCircle = false;
-            foreach (var arc in line)
-            {
-                if (MathF.Abs(arc.Curvature) < StraightCurvature) continue;
-
-                turns++;
-                offTheCircle |= MathF.Abs((1f / MathF.Abs(arc.Curvature)) - bayRadiusM) > 0.01f;
-            }
-
-            all[bay]++;
-            if (turns == 1 && !offTheCircle) late[bay]++;
-        }
-
-        return (late, all);
-    }
-
-    /// <summary>The piece of the road a car park was cut into that carries on past its junction.</summary>
-    static int PieceAt(CityPlan plan, int junction, ReadOnlySpan<int> arms)
-    {
-        for (var road = 0; road < plan.Roads.Count; road++)
-        {
-            if (plan.Roads.FromJunction[road] == junction && !arms.Contains(road)) return road;
-        }
-
-        return -1;
     }
 
     public static void Joints(string map, SimConfig config)

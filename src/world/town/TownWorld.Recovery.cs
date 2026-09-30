@@ -316,7 +316,7 @@ internal sealed partial class TownWorld
         // <b>The errand works the same arm a hand works</b> (EVA-5, CTL-7) — and winches the wreck onto the
         // fork first when the truck could not be driven right onto it. See the decision log: a truck cannot
         // get its own tail onto a body lying in the lane ahead of it without reversing onto it, which no
-        // driver does off a bay's own way (CAR-6.5), so the last few metres are a placement (PHY-7a).
+        // driver does but in a manoeuvre at a bay (CAR-6.5), so the last few metres are a placement (PHY-7a).
         if (WhatTheArmIsTouching(car, out _) != wreck) WinchItOntoTheFork(car, wreck);
 
         WorkTheArm(car);
@@ -452,8 +452,7 @@ internal sealed partial class TownWorld
         _recovery.HitchedForS[car] += sinceLastDecisionS;
         if (_recovery.HitchedForS[car] < _config.Evacuator.HitchingS) return;
 
-        var standing = _bayWays.TheStandingOnOffer(slot, wantsNoseIn: true);
-        SetTheWreckDown(wreck, _parking.CentreM(slot), BayTemplate.StandingHeadingRad(_parking.HeadingRad(slot), standing));
+        SetTheWreckDown(wreck, _parking.CentreM(slot), BayTemplate.StandingHeadingRad(_parking.HeadingRad(slot), noseIn: true));
         _parking.Occupy(slot, wreck);
 
         LetGoOfIt(car, wreck);

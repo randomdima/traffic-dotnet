@@ -28,8 +28,7 @@ namespace TrafficSimulation.World.Road;
 /// <para>
 /// <b>Its span is the two points it is handed</b> — at a station, the carriageway's two edges, read off the
 /// width of the lanes there. <b>What is handed no station carries no band</b>: a bay, a roundabout's
-/// circulating carriageway (GEN-19), every end at a car park's junction, and every end at a box that does not
-/// fork.
+/// circulating carriageway (GEN-19), and every end at a box that does not fork.
 /// </para>
 /// </remarks>
 internal sealed class Crossings

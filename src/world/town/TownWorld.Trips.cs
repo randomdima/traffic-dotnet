@@ -195,7 +195,7 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// Where a walk to a car would be aimed: the bay's own way in where it is parked in one, and the ground
+    /// Where a walk to a car would be aimed: beside its door in the bay where it is parked in one, and the ground
     /// off the driver's door where it is not — one at a kerb, one stopped in the road (GEN-4e). Which flank
     /// of the bay that is is the standing the car came to rest in (GEN-4j). <b>Nothing calls it</b>: no
     /// walk is aimed at a car, every trip being walked (PER-11).
@@ -245,45 +245,29 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>Where a drive leg into a bay ends: the metre of the run its way in leaves the carriageway at.</b>
-    /// <b>One goal per lane the bay can be driven into off</b>, so which side of the street the leg
-    /// approaches on is priced by the search and not decided before it.
+    /// <b>Where a drive leg into a bay ends: the metre of each street lane the bay's mouth stands abeam of.</b>
+    /// <b>One goal per lane the bay is worked off</b> (GEN-4f), so which side of the street the leg approaches on
+    /// is priced by the search and not decided before it.
     /// </summary>
     /// <remarks>
-    /// <b>The metre and not a node.</b> A destination has always been a place on a link
-    /// (<see cref="RouteGoal"/>), and the place a way in leaves its lane is exactly where the leg stops
-    /// driving the road — so the search, the price, the reroute and the line all name that one place. The
-    /// route's line stops there and the way in is driven as the next line
-    /// (<see cref="TakeTheNextStepOfTheLeg"/>), which is what covers the rest of the distance.
-    /// <para>
-    /// <b>The bay itself is what the search steers by</b>, because the two lanes are driven in opposite
-    /// directions and neither of their ends is where the car is going.
-    /// </para>
+    /// <b>The metre and not a node.</b> A destination has always been a place on a link (<see cref="RouteGoal"/>),
+    /// and the bay's mouth is where the leg stops driving the road — so the search, the price, the reroute and the
+    /// line all name that one place. The route's line stops short of it where the car waits for its manoeuvre
+    /// (<see cref="StopForTheBayM"/>), and the manoeuvre is what covers the rest of the distance.
     /// </remarks>
     int BayGoals(int bay, Span<RouteGoal> into)
     {
         if (bay < 0) return 0;
 
         var written = 0;
-        Span<int> takenLane = stackalloc int[into.Length];
-        for (var slot = 0; slot < _bayWays.WayCountOf(bay) && written < into.Length; slot++)
+        foreach (var lane in _bayStreets.LanesOf(bay))
         {
-            var way = _bayWays.WayOf(bay, slot);
-            if (!_bayWays.IsEntry(way)) continue;
+            if (written == into.Length) break;
 
-            var lane = _bayWays.LaneOf(way);
             var link = _driving.LinkOfLane(lane);
             if (link == TravelGraph.NoLink) continue;
 
-            // One goal per lane and not per way: a lane that lays both standings is two ways in and one
-            // place to be routed to. <b>Asked of the lane and not of the run it is part of</b>, because one
-            // run carries both ways in wherever a frontage is worked off two stretches of one street.
-            var seen = false;
-            for (var at = 0; at < written && !seen; at++) seen = takenLane[at] == lane;
-            if (seen) continue;
-
-            takenLane[written] = lane;
-            into[written++] = new RouteGoal(link, _driving.PlaceOfM(lane, _bayWays.AtLaneM(way)));
+            into[written++] = new RouteGoal(link, _driving.PlaceOfM(lane, _bayStreets.AtLaneM(bay, lane)));
         }
 
         return written;

@@ -29,9 +29,9 @@ internal enum RoadClass : byte
     Roundabout,
 
     /// <summary>
-    /// The arm a car park's junction reaches its bays over (GEN-53). <b>It is laid rather than drawn</b>: a
-    /// straight square to the road the junction was cut into, of the length the reach past that road's edge
-    /// makes it, so nothing here wanders, jitters or bends.
+    /// A car park's bay (GEN-53), a road of its own joined to nothing. <b>It is laid rather than drawn</b>: a
+    /// straight square to the street it stands off, from over that street's kerb to the far end of the space,
+    /// so nothing here wanders, jitters or bends.
     /// </summary>
     CarPark,
 }
@@ -774,6 +774,16 @@ internal sealed class TownLayout(
 
         Added(after, afterLine);
         for (var arm = 0; arm < arms.Length; arm++) Added(arms[arm], armLines[arm]);
+    }
+
+    /// <summary>
+    /// <b>Roads on nodes of their own, joined to nothing already laid</b> — a car park's bays (GEN-53), done
+    /// where the layout stands. The nodes are appended first and the roads after them, in the order given.
+    /// </summary>
+    public void Stand(ReadOnlySpan<Vector2> nodesM, ReadOnlySpan<LayoutEdge> roads, ReadOnlySpan<ArcSeg[]> roadLines)
+    {
+        foreach (var atM in nodesM) Appended(atM);
+        for (var road = 0; road < roads.Length; road++) Added(roads[road], roadLines[road]);
     }
 
     void Appended(Vector2 atM)

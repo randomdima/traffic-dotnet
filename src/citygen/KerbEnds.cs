@@ -71,11 +71,11 @@ namespace TrafficSimulation.CityGen;
 /// lane being the thing that answers it rather than the thing compared.
 /// </para>
 /// <para>
-/// <b>A car park's way is not a street</b> (<see cref="CityPlan.RoadArrays.IsABay"/>, GEN-53): it is a road
-/// in the plan like any other, but a walk beside it is a walk into a car park rather than down a pavement,
-/// and the place it leaves the street is the street's own kerb running past its mouth. So a piece of
-/// boundary standing off a bay's way answers no road, and a park cut into a street leaves the street's
-/// kerb one line with no ends in it.
+/// <b>A bay is not a street</b> (<see cref="CityPlan.RoadArrays.IsABay"/>, GEN-53): it is a road in the plan
+/// like any other, but a walk beside it is a walk into a car park rather than down a pavement, and the place
+/// it meets the street is the street's own kerb running past its mouth. So a piece of boundary standing off
+/// a bay answers no road, and a car park laid off a street leaves the street's kerb one line with no ends in
+/// it.
 /// </para>
 /// <para>
 /// <b>And a box that does not fork is not an end either</b> (GEN-5a, <see cref="ForkedArms"/>). A bend
@@ -641,12 +641,11 @@ internal sealed class KerbEnds
             // the road, and a kerb is still a kerb the far side of it.
             if (StepsRound(reading, changes, at)) continue;
 
-            // <b>A park takes every end at its box with it and not only its own</b>: what a walk does where
-            // a car park is cut into a street is carry on past it, so no end at that box is a place the
-            // walk stops — the apron's, the street's opposite it, and the handover from one street to the
-            // next that the park's arm is the reason for (GEN-53).
+            // <b>A park is no end of its street</b>: what a walk does where a car park stands off a kerb is carry
+            // on round it, so neither the boundary leaving the kerb for the rank nor the round it turns into the
+            // rank on is a place the walk stops (GEN-53).
             if (left == Park || taken == Park) continue;
-            if (reading.AtAPark(change.Left, change.AtM) || reading.AtAPark(change.Taken, change.AtM)) continue;
+            if (RoundsIntoAPark(reading, changes, at)) continue;
 
             var lane = change.Left != None ? change.Left : change.Taken;
 
@@ -710,6 +709,26 @@ internal sealed class KerbEnds
     }
 
     /// <summary>
+    /// <b>Whether one change is a kerb turning off into a car park's rank</b>, or back out of one: the round it
+    /// hands the boundary to, or took it from, runs on into a bay rather than into the next street (GEN-53).
+    /// </summary>
+    static bool RoundsIntoAPark(Reading reading, List<(Vector2 AtM, int Left, int Taken)> changes, int at)
+    {
+        var change = changes[at];
+        if (reading.Road(change.Taken) == None)
+        {
+            return reading.Road(changes[(at + 1) % changes.Count].Taken) == Park;
+        }
+
+        if (reading.Road(change.Left) == None)
+        {
+            return reading.Road(changes[((at - 1) % changes.Count + changes.Count) % changes.Count].Left) == Park;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// One caller's working set for reading what a place on the boundary follows: the lines it is weighed
     /// against, and the room the index needs to answer.
     /// </summary>
@@ -719,7 +738,6 @@ internal sealed class KerbEnds
     {
         readonly int[] _near = new int[index.ChainCount];
         readonly float[] _alongM = new float[index.ChainCount];
-        readonly bool[] _parked = ParkedJunctions(roads, junctions.CentreM.Length);
 
         /// <summary>
         /// <b>This reading's own working set over the index</b> (<see cref="ChainIndex.NewScan"/>). The
@@ -752,13 +770,6 @@ internal sealed class KerbEnds
         /// </summary>
         public bool Circulates(int lane) =>
             lane != None && circulating[lanes.LaneRoad[lane]];
-
-        /// <summary>Whether one end of a kerb stands at a box a car park has an arm at.</summary>
-        public bool AtAPark(int lane, Vector2 pointM)
-        {
-            var junction = JunctionOf(lane, pointM);
-            return junction != None && _parked[junction];
-        }
 
         /// <summary>
         /// <b>Whether one end of a kerb stands at a box that does not fork</b> — a bend or a dead end
@@ -825,17 +836,6 @@ internal sealed class KerbEnds
     }
 
     /// <summary>
-    /// <b>Which boxes a car park has an arm at</b> (<see cref="CityPlan.RoadArrays.IsABay"/>, GEN-53) — the
-    /// ones no kerb end is placed at, the streets meeting there included.
-    /// </summary>
-    /// <remarks>
-    /// <b>The box and not the ground</b>: a park's own apron answers <see cref="Park"/> wherever the
-    /// boundary stands off one of its ways, but the street opposite hands over to the next street on a kerb
-    /// that never comes near the park — an ordinary road-to-road handover, at a junction that only exists
-    /// because the park is cut in there. Read off the ground alone it is indistinguishable from a street
-    /// corner, and one stray end is what it looks like.
-    /// </remarks>
-    /// <summary>
     /// <b>Which roads are a roundabout's own circulating carriageway</b> (GEN-19) — the ones no kerb end is
     /// placed on, their arms' ends at the same boxes standing as they always did (WLK-2).
     /// </summary>
@@ -845,25 +845,6 @@ internal sealed class KerbEnds
         foreach (var ring in ground.Roundabouts.Road) circulating[ring] = true;
 
         return circulating;
-    }
-
-    static bool[] ParkedJunctions(CityPlan.RoadArrays roads, int junctions)
-    {
-        var parked = new bool[junctions];
-        for (var road = 0; road < roads.FromJunction.Length; road++)
-        {
-            if (!roads.IsABay(road)) continue;
-
-            Mark(roads.FromJunction[road]);
-            Mark(roads.ToJunction[road]);
-        }
-
-        return parked;
-
-        void Mark(int junction)
-        {
-            if (junction >= 0 && junction < parked.Length) parked[junction] = true;
-        }
     }
 
     /// <summary>
@@ -895,7 +876,7 @@ internal sealed class KerbEnds
     /// <para>
     /// <b>The nearest of what answers and not the first of them</b>. The order the index hands its lines
     /// back in is the grid's (<see cref="ChainIndex.Near"/>), so a place two lines could both be the edge of
-    /// — a bay's way laid along the street it is cut into, two arms leaving one box at a hair of an angle —
+    /// — a bay's mouth laid over the street's kerb, two arms leaving one box at a hair of an angle —
     /// would otherwise answer whichever cell was walked first, and a kerb would change hands where nothing
     /// about the town changed. Settled on the line the place stands nearest the edge of, and on the lower
     /// line where two are the same distance, for the reason <see cref="ChainIndex.Measure"/> settles its own

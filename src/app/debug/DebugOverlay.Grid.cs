@@ -55,10 +55,10 @@ internal sealed partial class DebugOverlay
     /// </para>
     /// <para>
     /// <b>Every driven line the town has</b> (<see cref="CityGen.Paving.DrivenLines"/>) — the lanes, the
-    /// movements through every box and the ways into every bay. <b>The lanes' own index would be the wrong
-    /// picture</b>, and it read as one: drawn over a car park, the cells the bays' ways run through came back
-    /// unwashed beside the very lines they hold, because "which lane is this car on" is a question that may
-    /// not answer with a bay's way and that index holds lanes alone. A picture of a grid has to be a picture
+    /// movements through every box and every bay. <b>The lanes' own index would be the wrong picture</b>, and
+    /// it read as one: drawn over a car park, the cells the bays run through came back unwashed beside the very
+    /// lines they hold, because "which lane is this car on" is a question that may not answer with a bay and
+    /// that index holds lanes alone. A picture of a grid has to be a picture
     /// of everything binned into it, or the empty cell is the layer's and not the town's.
     /// </para>
     /// </remarks>

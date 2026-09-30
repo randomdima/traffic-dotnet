@@ -153,10 +153,10 @@ internal readonly record struct CarBuild
         }
     }
 
-    /// <summary>This car's own circle with the steering off its stop, at the margin a bay is turned into on. Nothing reads it.</summary>
+    /// <summary>This car's own circle with the steering off its stop, which every manoeuvre it makes at a bay is shaped on (GEN-4f).</summary>
     public required float ParkingTemplateRadiusM { get; init; }
 
-    /// <summary>And how much straight a way into a bay would end on to put <em>this</em> body in it square. Nothing reads it.</summary>
+    /// <summary>And how much straight a manoeuvre ends on to put <em>this</em> body square in a bay or along a lane.</summary>
     public required float ParkingStraightensUpM { get; init; }
 
     /// <summary>How far ahead this car has to be able to see: its own stopping distance from its own top speed.</summary>

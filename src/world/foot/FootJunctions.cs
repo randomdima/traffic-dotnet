@@ -25,11 +25,9 @@ namespace TrafficSimulation.World.Foot;
 /// (<see cref="Node"/>).
 /// </para>
 /// <para>
-/// <b>A bay carries none, and neither does the junction it hangs off</b> (GEN-53, WLK-2). A car park's bay
-/// is ground a car is put down on rather than a street with a frontage, and the node its rank was cut into
-/// the street at is not a place the street stops (<see cref="JunctionArms.Special"/>) — so no node stands
-/// there, nothing is handed over there, and <b>the walk down the street runs straight through it</b>
-/// (<see cref="DownTheRoad"/>) as the one stretch of course that goes round the mouth of the rank.
+/// <b>A bay carries none</b> (GEN-53, WLK-2). A car park's bay is ground a car is put down on rather than a
+/// street with a frontage, joined to nothing, and the street it stands off is not parted by it — so <b>the walk
+/// down the street runs straight past the rank</b> as the one stretch of course that goes round its mouths.
 /// </para>
 /// </remarks>
 internal sealed class FootJunctions
@@ -84,8 +82,7 @@ internal sealed class FootJunctions
 
     /// <summary>
     /// <b>Whether a road end carries a pair of nodes at all</b> (WLK-2): every end of a road that is neither
-    /// a bay nor a roundabout's ring, standing at a place the street really stops rather than at a junction
-    /// cut into one that carries on past it (<see cref="JunctionArms.Special"/>).
+    /// a bay nor a roundabout's ring.
     /// </summary>
     public bool StandsAt(int end) => _standsAtEnd[end];
 
@@ -125,8 +122,8 @@ internal sealed class FootJunctions
     /// <summary>
     /// <b>The node at the far end of the walk down this node's own side of the street</b> (WLK-1a, WLK-2):
     /// the node on the same physical side at the other end of the road, and <b>at the far end of the road
-    /// after it wherever the road runs into a junction cut into the street</b> — a car park's, which stands
-    /// no node, so the street's own walk carries through it.
+    /// after it wherever the road runs into a junction cut into the street</b> (GEN-52), which stands no
+    /// node, so the street's own walk carries through it.
     /// </summary>
     /// <remarks>
     /// <b>The side is physical and the hand is not.</b> A node's hand is read off the bearing its road
@@ -195,12 +192,7 @@ internal sealed class FootJunctions
                 // way between its two sides being the way round the town.
                 if (!roads.IsABay(road)) junctionOfEnd[end] = junction;
 
-                // <b>A junction cut into a street stands no node</b> (WLK-2): a rank of bays hung off a
-                // street that carries on past it is a hole in the pavement the walk goes round rather than
-                // a corner it arrives at, so there is nothing to cross at, nothing to turn through and no
-                // place — the street's own walk runs through the mouth in one stretch
-                // (<see cref="DownTheStreet"/>).
-                if (!carriesAWalk[road] || (junction >= 0 && arms.Special(junction))) continue;
+                if (!carriesAWalk[road]) continue;
 
                 standsAtEnd[end] = true;
                 onTheLineAtEnd[end] = at.PositionM;

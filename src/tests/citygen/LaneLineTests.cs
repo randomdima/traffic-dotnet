@@ -21,11 +21,9 @@ public class LaneLineTests
     /// with a joint in it the car does not turn at.
     /// </summary>
     /// <remarks>
-    /// <b>A lane and a way into a bay are not asked, and neither is left out for tidiness.</b> How much of a
-    /// lane's own end is curved is read off its pieces and decides the setbacks (TER-5b), so joining two of
-    /// them moves where the lane hands over; and a way into a bay is one band of a car park's bundle, which
-    /// the boundary settles inside two millimetres — where a chain is cut decides the nearest point read off
-    /// it to about one. Both are measured in citygen's decision log.
+    /// <b>A lane is not asked, and is not left out for tidiness.</b> How much of a lane's own end is curved is
+    /// read off its pieces and decides the setbacks (TER-5b), so joining two of them moves where the lane hands
+    /// over. It is measured in citygen's decision log.
     /// </remarks>
     [Theory]
     [InlineData(Towns.Fixture)]

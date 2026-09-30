@@ -66,7 +66,7 @@ internal sealed partial class TownWorld
         var pass = Cars.Pass[car];
         if (!pass.Any) return;
 
-        if (!IsUnderWay(car) || Cars.LaneOf(car) != pass.Lane || Cars.LineWayOf(car) != CarFleet.NoWay)
+        if (!IsUnderWay(car) || Cars.LaneOf(car) != pass.Lane)
         {
             Cars.Pass[car] = Overtake.None;
             return;
@@ -180,7 +180,7 @@ internal sealed partial class TownWorld
     /// </summary>
     bool HasALaneToPassOn(int car)
     {
-        if (Cars.LineWayOf(car) != CarFleet.NoWay || Cars.LineIsReverse[car]) return false;
+        if (Cars.Line[car].LaneCount == 0 || Cars.LineIsReverse[car]) return false;
 
         var lane = Cars.LaneOf(car);
         return lane != CarFleet.NoLane && _roads.LaneReverse[lane] >= 0 && !_roads.LaneOverOneLine[lane];

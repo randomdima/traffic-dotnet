@@ -102,8 +102,8 @@ internal sealed class DrivingNetwork
 
     /// <param name="turnsAtALot">
     /// One flag per lane: <b>whether a leg may come back down the other side of this stretch</b> by parking
-    /// in a bay off it and leaving the other way (GEN-4l). It is handed in as data rather than read off the
-    /// car parks, which hang off the road and are above it (<see cref="Parking.BayWays.WhereALegMayTurn"/>).
+    /// in a bay near its end and leaving the other way (GEN-4l). It is handed in as data rather than read off
+    /// the car parks, which stand beside the road and are above it (<see cref="Parking.BayStreets.WhereALegMayTurn"/>).
     /// </param>
     public static DrivingNetwork Build(
         RoadGraph roads, ReadOnlySpan<bool> turnsAtALot, CityPlan plan, SimConfig config)
@@ -153,14 +153,14 @@ internal sealed class DrivingNetwork
     /// <b>A pair of lanes the road did not join is refused and never free.</b> No box admits a movement that
     /// reverses the direction of travel (TER-5f), so the two lanes of one stretch have no turn between them
     /// anywhere: priced at nothing, every junction in the town would offer a free turn-around, which is the
-    /// one way this graph could hand a driver a route with no ground under it. A stretch some bay is worked
-    /// off both ways is the exception, and it is priced rather than free because what happens there is a
-    /// whole park and a whole unpark with the traffic given way to twice.
+    /// one way this graph could hand a driver a route with no ground under it. A stretch with a bay near its
+    /// end is the exception, and it is priced rather than free because what happens there is a whole park and
+    /// a whole unpark with the traffic given way to twice.
     /// <para>
-    /// <b>A car park's arm is never a lane a route runs down</b> (GEN-4h): it is a bay, driven only as that
-    /// bay's own ways (GEN-4f), and a route is aimed at the street lane a bay's way leaves. Offered as a lane,
-    /// every arm is a dead end the search may turn a leg at (<see cref="Parking.BayWays.WhereALegMayTurn"/>)
-    /// and nothing turns the car there — which is a car routed nose first into a neighbour's space.
+    /// <b>A bay is never a lane a route runs down</b> (GEN-4h): it is joined to nothing and got into by the
+    /// car's own manoeuvre (GEN-4f), and a route is aimed at the street lane its mouth stands abeam of.
+    /// Offered as a lane, every bay is a dead end the search may turn a leg at
+    /// (<see cref="Parking.BayStreets.WhereALegMayTurn"/>) and nothing turns the car there.
     /// </para>
     /// </remarks>
     readonly struct Pricer(RoadGraph roads, bool[] turnsAtALot, SimConfig config) : IEdgeTurnPricer

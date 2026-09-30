@@ -67,7 +67,7 @@ retired number, which the owning slice's log records.
 | `AGT-5`, `AGT-7` | The terminal state; every leg bounded | [requirements.md](requirements.md#agents) |
 | `VER-1…12` | What must be demonstrated | [verification.md](verification.md) |
 | `SIM-3`, `SIM-4`, `SIM-8`, `AGT-6` | Units, the two seeds, the one grid, where randomness comes from | [core](../src/core/docs/requirements.md) |
-| `GEN-1…3`, `GEN-5…19`, `GEN-46…56` | The brief and the maps, laying a town, buildings and their uses, lane width, water and bridges, one-way streets, roundabouts, junctions as connection points and movements, no dangling lane, car parks cut into a road, where a building stands, which are services and the district each serves | [citygen](../src/citygen/docs/requirements.md) |
+| `GEN-1…3`, `GEN-5…19`, `GEN-46…56` | The brief and the maps, laying a town, buildings and their uses, lane width, water and bridges, one-way streets, roundabouts, junctions as connection points and movements, no dangling lane, car parks laid off a street, where a building stands, which are services and the district each serves | [citygen](../src/citygen/docs/requirements.md) |
 | `TER-1…3d`, `TER-7…7b`, `PHY-8` | The ground, the pavement and its kerb, water and decks, and the stack of layers the mesh is | [world/terrain](../src/world/terrain/docs/requirements.md) |
 | `TER-4`, `TER-4a`, `TER-4b`, `TER-4d`, `TER-5…5b`, `TER-5d`, `TER-5d.1`, `TER-5f`, `TER-5i`, `TER-6`, `TER-6a` | Roads, junctions, crossings, paint and the arrow a lane carries | [world/road](../src/world/road/docs/requirements.md) |
 | `TER-4c…4c.7`, `TER-5c…5c.3`, `TER-5e`, `TER-5g`, `TER-5g.1` | The ribbon atlas and its marks, a zebra held whole, where the bodies are, the ground a pass covers, where they mean to be, the ground a car backs up over, right of way and the ladder | [world/road/claims](../src/world/road/docs/claims.md) |
@@ -75,7 +75,7 @@ retired number, which the owning slice's log records.
 | `PHY-1…6`, `PHY-9` | Collision, damage energy, what a body is left in and what a wreck does to its driver | [world/physics](../src/world/physics/docs/requirements.md) |
 | `SOL-1…22`, `SOL-35`, `SOL-36` | What this project's own solver must be | [world/physics/solver](../src/world/physics/docs/solver.md) |
 | `PHY-7`, `PHY-7a` | Containment and how a container is left | [world/containment](../src/world/containment/docs/requirements.md) |
-| `GEN-4…4m` | A car park as a junction whose arms are bays, the ways at one, the claim on one, and the apron held for a service building's vehicles | [world/parking](../src/world/parking/docs/requirements.md) |
+| `GEN-4…4m` | A car park as a rank of bays joined to nothing, the manoeuvre into and out of one, the claim on one, turning round in one, and the apron held for a service building's vehicles | [world/parking](../src/world/parking/docs/requirements.md) |
 | `CAR-1…15b`, `CAR-45`, `CAR-46`, `CAR-50`, `S-1…7`, `S-2a` | The driver and its leg, getting past what stands in its lane and backing up for the room to, the car, its controls, its tyres and its lamps, and the standing rules every tick answers to | [agents/car](../src/agents/car/docs/requirements.md) |
 | `PER-1`, `PER-3`, `PER-6…9`, `PER-11`, `PER-18`, `PER-23`, `PER-25…28` | The walker, its route, its body and its plan, the one rung it plans at, getting past somebody standing on its way, the trip and what a car does to it | [agents/person](../src/agents/person/docs/requirements.md) |
 | `AMB-1…10` | Hospitals, the apron of ambulances, the priority a call carries, the rescue and the standoff it stops at | [agents/ambulance](../src/agents/ambulance/docs/requirements.md) |
@@ -96,11 +96,12 @@ retired number, which the owning slice's log records.
 Absences that are gaps rather than decisions, and none of them is silent. Why each came about is the
 owning slice's log; this list says only what is absent now and what closes it.
 
-- **A lot's own arithmetic is not reworded**: `GEN-4b`, `GEN-4c` and `GEN-4d` still describe kerbside lots,
-  which the plan partly reads (`CarParks.BaysPerLotMost`). A car park is a junction cut into a road with its
-  arms the bays (`GEN-52`, `GEN-53`, `GEN-4h`), and the rules that size one are the cut's.
-- **An arm still dangles** (`GEN-50`): a bay's arm is a lane of the road graph that ends at a node nothing
-  leaves. It is driven only as the bay's own ways and never as a lane (`GEN-4h`), which is what keeps it from
+- **A lot's own arithmetic is not reworded**: `GEN-4b` and `GEN-4d` still describe kerbside lots laid along a
+  chord, which the plan partly reads (`CarParks.BaysPerLotMost`). A car park is a rank of bays laid off a street
+  that stays whole (`GEN-53`, `GEN-4h`), and the rules that size and space one are `GEN-53`'s and the
+  locality's (`GEN-16`).
+- **A bay is a lane nothing drives onto** (`GEN-50`): it is a road of its own joined to nothing, got into and
+  out of by a car's own manoeuvre (`GEN-4f`) and never routed down (`GEN-4h`), which is what keeps it from
   mattering, and it is the one exemption `GEN-50` is asked with.
 - **One errand is worked on foot and the rest are not.** No leg of a trip is driven (`PER-11`), and every
   service vehicle carries a crew (`SRV-3`), but only a police car's officer ever gets out — to stand at a
@@ -111,9 +112,9 @@ owning slice's log; this list says only what is absent now and what closes it.
   its leg up; on the road it takes the nearest lane only where that runs its way (`CAR-9`). There is no
   straight back onto the carriageway and no reversing out of a jam, and a car routed into a dead end stands
   there until its leg's clock gives the leg up — the route turns at one, and nothing turns the car
-  (`GEN-4l`). **No car park lays a turn either**: nosed in, a car reverses out onto the lane it came down,
-  and nothing reverses into a bay (`GEN-4j`), so a bay turns nobody round and a leg comes back the other way
-  only by going round the block.
+  (`GEN-4l`). **A car turns round only in a bay** (`GEN-4l`), so a lane is one a leg may come back from only
+  where a car park stands near its end; everywhere else a leg comes back the other way by going round the
+  block.
 - **The ground does not answer whether a point is on a crossing** (`GroundShapes.Roads` reads the plan's
   empty `Crosswalks`), which a slice below the road cannot ask the road for. It closes the way the zebras
   and the bars did: one laying — `Crossings`, handed to the walk, the lanes that carry it, the bands beneath

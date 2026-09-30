@@ -57,9 +57,8 @@ public class MarkClaimTests
     }
 
     /// <summary>
-    /// <b>But a mark saying the opposite thing stands on the same stone</b>: the way into a bay and the way
-    /// back out of it are one piece of ground, and their chevrons crossing is the whole of what tells the
-    /// pair apart.
+    /// <b>But a mark saying the opposite thing stands on the same stone</b>: a bay's two lanes are one piece
+    /// of ground, and their chevrons crossing is the whole of what tells the pair apart.
     /// </summary>
     [Fact]
     public void AMarkSayingTheOppositeThingStandsOnTheSameStone()

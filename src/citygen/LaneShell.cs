@@ -5,7 +5,7 @@ namespace TrafficSimulation.CityGen;
 
 /// <summary>
 /// <b>The outside of the ground the town is driven over</b>: every lane, every movement through a box and
-/// every way into a bay taken as the band of ground it covers, and all of those merged into one shape
+/// every bay taken as the band of ground it covers, and all of those merged into one shape
 /// (<see cref="BandShell"/>, GEN-4b, TER-5).
 /// </summary>
 /// <remarks>

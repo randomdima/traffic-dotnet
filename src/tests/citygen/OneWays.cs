@@ -19,9 +19,9 @@ namespace TrafficSimulation.Tests.CityGen;
 /// crowding each other — but a street the scatter took at one of its nodes still is.
 /// </para>
 /// <para>
-/// <b>And the pieces a car park's cut made of one street are that street</b> (GEN-53,
-/// <see cref="Streets"/>), on the same terms: the scatter chose one street and a cut parted it, so the two
-/// pieces meeting at the car park are not two of them meeting and their middles are one middle.
+/// <b>And the pieces a cut made of one street are that street</b> (GEN-52, <see cref="Streets"/>), on the
+/// same terms: the scatter chose one street and a cut parted it, so the two pieces meeting at the cut are not
+/// two of them meeting and their middles are one middle.
 /// </para>
 /// </remarks>
 internal static class OneWays
@@ -117,8 +117,8 @@ internal static class OneWays
     }
 
     /// <summary>
-    /// <b>Which street each road is a piece of</b> (GEN-18, GEN-53): every road is its own street but for the
-    /// pieces a car park's cut parted one into, which are that one street. <b>The value is an index into
+    /// <b>Which street each road is a piece of</b> (GEN-18, GEN-52): every road is its own street but for the
+    /// pieces a cut parted one into, which are that one street. <b>The value is an index into
     /// itself</b> and is read with <see cref="Root"/>.
     /// </summary>
     public static int[] Streets(CityPlan plan)
@@ -162,14 +162,11 @@ internal static class OneWays
         if (one != other) street[other] = one;
     }
 
-    /// <summary>Which of the town's junctions a car park's cut made (GEN-53).</summary>
-    static bool[] CutJunctions(CityPlan plan)
-    {
-        var found = new bool[plan.Junctions.Count];
-        foreach (var junction in plan.CarParks.Junction) found[junction] = true;
-
-        return found;
-    }
+    /// <summary>
+    /// Which of the town's junctions a cut made (GEN-52) — none, a car park standing off its street's kerb rather
+    /// than parting it (GEN-53).
+    /// </summary>
+    static bool[] CutJunctions(CityPlan plan) => new bool[plan.Junctions.Count];
 
     /// <summary>
     /// <b>Which one-way street arrives somewhere it takes the last choice away</b>, or <c>null</c> where every

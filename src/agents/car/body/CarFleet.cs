@@ -63,10 +63,8 @@ internal sealed class CarFleet
         Line = new DrivenLine[capacity];
         LineArcs = new ArcSeg[capacity * arcsPerCar];
         LineEntryM = new float[capacity * arcsPerCar];
-        LineWay = new int[capacity];
-        Array.Fill(LineWay, NoWay);
-        TailWay = new int[capacity];
-        Array.Fill(TailWay, NoWay);
+        StopsForBay = new int[capacity];
+        Array.Fill(StopsForBay, NoBay);
         TurnsBackOn = new int[capacity];
         Array.Fill(TurnsBackOn, NoLane);
         ClaimFromM = new float[capacity];
@@ -96,7 +94,6 @@ internal sealed class CarFleet
         FuseJitter = new float[capacity];
         BacksIntoBays = new bool[capacity];
         LineIsReverse = new bool[capacity];
-        ManoeuvreBegun = new bool[capacity];
         InsideTheBox = new bool[capacity];
         LightAheadM = new float[capacity];
         Array.Fill(LightAheadM, float.PositiveInfinity);
@@ -208,8 +205,8 @@ internal sealed class CarFleet
     public float[] ProgressM { get; }
 
     /// <summary>
-    /// How fast the body is going <b>along the direction its line is driven in</b>, which for a bay's way
-    /// taken in reverse is the way the car is not pointing. The tick works it out and the leg reads it, so
+    /// How fast the body is going <b>along the direction its line is driven in</b>, which for a piece of a
+    /// manoeuvre taken in reverse is the way the car is not pointing. The tick works it out and the leg reads it, so
     /// nothing has to know which gear the line is in to ask whether the car is moving.
     /// </summary>
     public float[] AlongMps { get; }
@@ -254,30 +251,15 @@ internal sealed class CarFleet
     public DrivenLine[] Line { get; }
 
     /// <summary>
-    /// <b>The numbered way this car's line <em>is</em></b>, or <see cref="NoWay"/> where the line is the
-    /// route's chain of lanes.
+    /// <b>The bay this car's line stops short of</b> — the one the leg parks in off the last lane of the line,
+    /// where the car waits for its manoeuvre (GEN-4f) — or <see cref="NoBay"/> where the line ends on the road.
+    /// <b>Read through <see cref="StopsForBayOf"/></b>, which is what makes it impossible for it to be stale.
     /// </summary>
     /// <remarks>
-    /// A bay's own ways are the lines of this kind: they are not lanes, so they carry no chain, and the
-    /// town laid them, so they are not geometry a driver invented (CAR-15). What it buys is that a car driving it is a car on a way — its
-    /// claim is laid along it, its grant is cut by the table, and nothing about it needs a second
-    /// mechanism. <b>Read through <see cref="LineWayOf"/></b>, which is what makes it impossible for it to
-    /// be stale.
+    /// <b>Written where the line is assembled and nowhere else</b>, so it cannot describe a line the car is not
+    /// holding: the line's end was placed for this bay, and the manoeuvre into it is asked from there.
     /// </remarks>
-    public int[] LineWay { get; }
-
-    /// <summary>
-    /// <b>The way this car's line finishes on past its last lane</b> — the way into the bay the leg is
-    /// aimed at — or <see cref="NoWay"/> where the line ends on the road. <b>Read through
-    /// <see cref="TailWayOf"/></b>, which is what makes it impossible for it to be stale.
-    /// </summary>
-    /// <remarks>
-    /// It is what claims the last dozen metres of a leg like every other metre of it: the
-    /// claim runs along it, the traffic on the lane it crosses is held off it by the town's own table
-    /// of crossings, and a driver working into a bay is a driver on a way. <b>Written where the line is
-    /// assembled and nowhere else</b>, so it cannot describe a line the car is not holding.
-    /// </remarks>
-    public int[] TailWay { get; }
+    public int[] StopsForBay { get; }
 
     /// <summary>
     /// <b>The lane this leg comes back down after turning at a car park</b> (GEN-4l), or
@@ -426,24 +408,17 @@ internal sealed class CarFleet
 
     /// <summary>
     /// <b>Whether this driver backs into parking spaces</b> (GEN-4j) — drawn once when it joins the roster,
-    /// like the fuse jitter, because it is a habit and not a decision. A bay that lays only the other
-    /// standing overrules it (<see cref="World.Parking.BayWays.TheStandingOnOffer"/>).
+    /// like the fuse jitter, because it is a habit and not a decision: the way round it is stood in a bay, and
+    /// the shape it takes into one where two take the same ground.
     /// </summary>
     public bool[] BacksIntoBays { get; }
 
     /// <summary>
-    /// Whether the line in hand is driven backwards. <b>A property of the line and not of the car</b>: a
-    /// bay's way laid for reverse (GEN-4j) is laid in the direction the rear axle travels, and the follower
-    /// steers against it.
+    /// Whether the line in hand is driven backwards. <b>A property of the line and not of the car</b>: a piece
+    /// of a manoeuvre driven in reverse (GEN-4f) is laid in the direction the rear axle travels, and the
+    /// follower steers against it.
     /// </summary>
     public bool[] LineIsReverse { get; }
-
-    /// <summary>
-    /// <b>Whether the car has moved on the bay's way it is driving</b> (GEN-4f) — which is what turns a way it
-    /// may only set off down whole into one it holds whole. Meaningless on any other line, and set false every
-    /// time a bay's way is taken.
-    /// </summary>
-    public bool[] ManoeuvreBegun { get; }
 
     /// <summary>
     /// Whether the body is <em>in</em> the junction box rather than approaching one. <b>Waiting at a
@@ -584,18 +559,11 @@ internal sealed class CarFleet
     public Span<bool> JoinBreaksOf(int car) => JoinBreaks.AsSpan(car * LineAssembler.MostLanes, LineAssembler.MostLanes);
 
     /// <summary>
-    /// The way the line in hand <em>is</em>, or <see cref="NoWay"/>. <b>A line with no arcs is no way</b>,
-    /// whatever was last written — so a car whose line was taken away holds none, and nothing has to
-    /// remember to say so.
+    /// The bay the line in hand stops short of, or <see cref="NoBay"/>. <b>A line with no lanes stops for no
+    /// bay</b>, whatever was last written — which is what makes a manoeuvre taken as the line drop it, and
+    /// nothing has to remember to.
     /// </summary>
-    public int LineWayOf(int car) => Line[car].ArcCount > 0 ? LineWay[car] : NoWay;
-
-    /// <summary>
-    /// The way the line in hand finishes on past its last lane, or <see cref="NoWay"/>. <b>A line with no
-    /// lanes has no tail</b>, whatever was last written — which is what makes a bay's way taken as the line
-    /// drop the route's tail with it, and nothing has to remember to.
-    /// </summary>
-    public int TailWayOf(int car) => Line[car].LaneCount > 0 ? TailWay[car] : NoWay;
+    public int StopsForBayOf(int car) => Line[car].LaneCount > 0 ? StopsForBay[car] : NoBay;
 
     /// <summary>The lane the car is on, which is the first of its chain — or <see cref="NoLane"/> when it is on none.</summary>
     public int LaneOf(int car) => Line[car].LaneCount > 0 ? LaneChain[car * LineAssembler.MostLanes] : NoLane;
@@ -647,8 +615,7 @@ internal sealed class CarFleet
         CommittedToTheBox[car] = false;
         SinceDecisionS[car] = 0f;
         Line[car] = default;
-        LineWay[car] = NoWay;
-        TailWay[car] = NoWay;
+        StopsForBay[car] = NoBay;
         TurnsBackOn[car] = NoLane;
         AuthorityM[car] = float.PositiveInfinity;
         HorizonM[car] = float.PositiveInfinity;
@@ -670,7 +637,6 @@ internal sealed class CarFleet
         FuseJitter[car] = Draw[car].NextFloat(1f - FuseJitterShare, 1f + FuseJitterShare);
         BacksIntoBays[car] = backsIntoBays;
         LineIsReverse[car] = false;
-        ManoeuvreBegun[car] = false;
         InsideTheBox[car] = false;
         LightAheadM[car] = float.PositiveInfinity;
         Pass[car] = Control.Overtake.None;
@@ -699,6 +665,9 @@ internal sealed class CarFleet
 
     /// <summary>A car that is on no lane at all — parked, or shoved off the network and recovering.</summary>
     public const int NoLane = -1;
+
+    /// <summary>A line that stops for no bay.</summary>
+    public const int NoBay = -1;
 
     /// <summary>
     /// No way at all: a car committed to no movement, claiming no stretch, or whose line is a chain of

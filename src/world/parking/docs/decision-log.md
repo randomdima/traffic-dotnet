@@ -4,57 +4,46 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
-## 2026-09-30 — a bay is turned into and out of on the car's own circle, and a car backs out only a little
+## 2026-09-30 — a bay is a short road of its own, and getting in and out is the car's own manoeuvre
 
-**The owner found parking and unparking far too long.** A bay's ways were the car park's own movements: a car
-stopped two car lengths short of the box, crossed the whole of it, and hooked in on a circle tighter than it
-turns — and backed out along the same line, across the box and two car lengths beyond it, up the street
-against its own traffic. The movements are the car park's ground and nothing a car has to drive.
+**The owner asked for car parks not to be junctions any more**: a bay laid as a short lane beside the road and
+joined to nothing, and parking a car action of its own that reserves the street it needs and lays its own
+manoeuvre, differently for each car by what that car is — **reserving as little of the road as it can**. Before,
+a car park was a junction cut into its street with every bay an arm, and a car drove a pair of ways laid with
+the town, in and out of each bay off each lane.
 
-- **Each way is the bay's arm and the street's line joined by one arc on the car's parking circle** (GEN-4f,
-  `BayWays.Build`), at the corner the two lines make. A way in leaves its lane where its turn begins, or at the
-  lane's end. A way out runs `ParkingRunOutM` (the longest vehicle) along the street past its turn: ended on the
-  turn, a way handed its car over crosswise, because a line is handed on with the car at rest anywhere in its
-  last car length — on Odesa a car stood 4 m off its line in the middle of a street, the traffic queued behind it.
-- **A car backing out swings its tail up the street and pulls away forwards** from wherever that leaves it,
-  usually inside the box: the way names the street's line it lands on (`BayWays.StreetOf`), and the car is
-  seated on that line and not on the lane nearest it.
-- **A body standing in a box takes the join it stands in** (`TownWorld.TheCarriagewayUnder`). The nearest lane
-  end to a point in a box is as likely to be the one ahead, so a car at rest there that asked for the lane under
-  it — a leg stalled, a bay re-aimed, a line lost — was handed a line beginning in front of it, called it lost,
-  and stood for the rest of the run: six cars on Odesa once ways out landed in boxes.
-- **A manoeuvre at a bay is claimed whole or not begun, and held whole once it is** (GEN-4f,
-  `TownWorld.PlanTheDrive`, `CarFleet.ManoeuvreBegun`). A car standing in a bay planned only the room to pull
-  away, so it set off into a gap it had no claim on; traffic arriving behind took the run-out at the street's
-  own rung, above a bay's, and pulled up to its tail, and each waited on the other — six cars on River stood
-  like that for the rest of the run. A car now lays none of its way until it can have all of it, and once it has
-  moved the rest is committed ground. The whole of it and not the part across the street, because the part
-  inside the space is the car's already.
+- **The manoeuvre is shaped from where the car stands, on its own circle** (GEN-4f, `BayManoeuvre`,
+  `TownWorld.ShapeTheWayIn`, `ShapeTheWayOut`): `CarBuild.ParkingTemplateRadiusM`, `ParkingStraightensUpM` and
+  the car's own body. Into a bay there are two shapes — nose in, with a swing away first where the car stands
+  nearer the bay than its circle, and on past the bay and back in — and **the one whose swept body takes less of
+  the street wins**, read off the atlas as a pass's ground is (`WhatTheShapeTakes`); the driver's habit settles
+  a tie. Out of a bay there is one shape per lane of the street, ranked by where the car is going and then by the
+  street it takes. Nose in takes less street almost everywhere: Odesa parked 558 nose in and 11 backed in over
+  300 s.
+- **Its ground is laid as a pass's** (TER-4c.6, `OverTheGround`): the body swept down the shape, asked for where
+  all of it is free with the pass's spare, laid at p0, kept or withdrawn once, and given back as it is driven.
+  A car that has begun a manoeuvre holds the street it swept and nothing takes it; one waiting for it holds none.
+  This replaces the claim-whole-or-not-begun rule a bay's way needed, and the same protocol now does both jobs.
+- **Reversing into a bay is allowed again**, which it was not while a car backed in over a way the follower had
+  already stopped on: the whole manoeuvre is asked for before the car pulls past the bay, so whoever follows
+  is held short of it by the ground and not caught behind the car on it.
+- **A bay's ribbon is the space's width and not the tarmac's** (`TownWorld.LineOfWay`): a car turning into one
+  swings a corner over its neighbour's mouth, and read at the lane's width that stood it on the neighbour's
+  ground whenever a car stood there — which is every rank a town fills.
+- **A turn at a lot is made in the bay furthest along its lane and near its end** (GEN-4l,
+  `TurnAtALotWithinM`), and the car comes straight back out onto the lane running back, its leg kept. The router
+  turns a leg at a lane's end; turned at the first bay it came to, a car landed on the lane back further along
+  than its route was planned for, and the two routes that followed each turned it round again — a police car
+  parked and left the same frontage five times over. **The cost is turns**: a car park that is not near its
+  lane's end is no longer somewhere a leg may turn, where every car park was one while it was a junction.
+- **A body standing in a box takes the join it stands in** (`TownWorld.TheCarriagewayUnder`) and **a body in a
+  bay is found by the bay whose space holds it** (`ParkingRegistry.BayHolding`), both still: a car stood down
+  anywhere in a space it was never written into still leaves by that space's manoeuvre.
 
-Stuck probe, 300 s: Odesa parked 397 → 424, drive legs given up 1 → 0, cars standing at the end 14 → 11, lost
-lines 3 → 0, car-ticks blocked backing up (CAR-50) 10 325 → 5; River parked 367 → 413, legs given up 7 → 7 (one
-queue at a junction north of a car park, there before), standing 43 → 16, none of them at a bay, walks given up
-394 → 168. Odesa's walks given up went 125 → 177, on stuck cells none of which is at a car park.
-
-## 2026-09-29 — the bays are laid off their car parks, and nothing reverses into one
-
-**The owner asked for parking and unparking back, for every vehicle**, so a police car can go home to its
-station. A car park had been a junction cut into a road with its arms the bays (GEN-53) since 2026-09-14, with
-the arms laid as lanes and no bay's ways laid at all.
-
-- **Nothing reverses into a bay** (GEN-4j). A car backing in had driven past the car park, the car following it
-  stopped at its tail on the ground it had to reverse over, and each waited on the other until both clocks ran
-  out — a queue of six on Odesa behind one. A car in a bay has nobody queued behind it, so reversing out cannot
-  lock that way. A car stood backed in — a spawn, a service vehicle — still drives out forwards.
-- **An arm is never a lane a route or a tour runs down** (GEN-4h). Offered as lanes, every arm was a dead end
-  the router could turn a leg at (`WhereALegMayTurn`), and cars leaving one bay were routed nose first into the
-  next to turn round — 44 cars on Odesa stood at the back of a neighbour's space for the rest of the run.
-- **A body in a bay is found by the bay whose space holds it** as well as by the register
-  (`ParkingRegistry.BayHolding`): a leg given up on the way in stood a car down in a space it was never written
-  into, and the lane under it was the arm.
-
-On the stuck probe's five minutes of Odesa: 400 cars parked, no leg given up, 32 cars standing still at the
-end — against the tour's 46 legs given up and 30 standing.
+Load (`--bench load`, Release): Odesa opens in 2 968 → 1 522 ms and River in 2 122 → 1 250 ms — the world
+1 569 → 604 ms and the plan's ground 757 → 319 ms on Odesa. Odesa's atlas is 106.0 → 48.9 MiB and 12.4 → 5.0
+million entries, its lanes 8 272 → 5 200. The tick and the stuck probe are in the car slice's log of the same
+day.
 
 ## 2026-09-26 — rules reworded to what the code does
 
@@ -63,84 +52,13 @@ The owner ruled the code the source of truth for this audit.
 - `GEN-4e`: a walk to a parked car was aimed at the bay's point → the point is kept and nothing asks for it.
 - `GEN-4g`: the hold began when a trip picked the bay → when a leg is sent or re-aimed; a bay is also
   refused while turned in, held or unreachable.
-- `GEN-4i`: the pose the ways are drawn to, and a depth priced by the street's crossing → the pose a car is
-  stood at and a way ends at.
 - `GEN-4k`: a hospital's and a station's apron → a depot's too, and a struck-off vehicle's bay held for
   nobody.
-- `GEN-4l`: the only way round, kerb-side against across the carriageway, the habit settling a bay that lays
-  both → the router also turns a leg at a dead end where nothing turns the car, and nose in is taken first.
-
-## 2026-09-12 — the ways at the bays are indexed, because a city lays eight thousand of them
-
-The ways at neighbouring bays were compared pairwise on the boxes their lines stand in, which was cheaper
-than an index *for a few hundred ways*. A city laid 8 606 of them — 37 million pairs proving that two lines
-a district apart do not touch. **Which pairs are compared is now the geometry grid's to say**
-(`ChainIndex.Crossing`), and what a pair comes to is still the two boxes and then the two lines, so the
-table is the table it was. The cost follows how crowded a car park is rather than how many the town has.
 
 ## 2026-09-11 — the room beside a car and the room at its ends are two figures
 
 One margin sized both (`ParkingSpaceMarginInCarWidths`), and what sized it was the ends: a parallel bay is
 reversed into, so half a car width at either end is the manoeuvre's and not a comfort. Read at the same
-figure down the sides, a space came out **4.0 m against a 3.6 m lane** — wider than the traffic lane its
-own way is driven out of — and the outside of the driven ground (`LaneShell`) stepped off the lane onto
-the bay's way and straight back **461 times on Odesa**. `ParkingSpaceSideMarginInCarWidths` is the side's
-own, at a quarter of a car width — a door's swing. Nothing manoeuvres sideways, so the two figures were
-never one. GEN-4c carries the relation and `SimConfigTests` gates it.
-
-## 2026-09-03 — a bay's way runs the length of its space, and is driven as far as the pose
-
-A way ending where the car did left the deepest metres of every space belonging to no way, so a person
-standing in front of a parked car claimed nothing and the driver aiming there read the space as free.
-`LengthM` is the way's own metres and `DrivenLengthM` how many are driven — the split a lane has carried
-all along (`TER-5d`). A way out has none: ground behind a leaving car is not ground its line covers.
-
-## 2026-09-02 — a bay is a network, and a parked car is laid onto it like any other body
-
-A car in a bay was the one body the placing walk was never asked about, so a car standing across somebody
-else's bay stood on nothing, and a car shoved half out of a space held neither the ground it rested on nor
-the space it came from. The bays are the town's third network ([`BayNetwork`](../BayNetwork.cs)), walked by
-the same code as the other two, and `PlaceTheBody` has no branches left. Which networks the claims are laid
-over is stated once, because naming them at the call site left the walkers behind. The band is the space's
-width and not the lane's, or every car driving past a frontage would stand on every bay it passed.
-
-## 2026-08-27 — a bay is where a car turns round, and the turn claims it like any other
-
-No junction admits a movement that reverses direction (TER-5f), and a bay already has a way in off either
-lane and a way out onto either (GEN-4j). The standing is the turn's and not the driver's habit, since only
-one standing comes out the other way off a given lane. A leg holds two bays while it turns, because a claim
-dropped and re-taken is a leg that loses its place while turning round to reach it.
-
-## 2026-08-25 — how far a bay's way reaches over the street is the table's question and nobody else's
-
-The builder held up a bar of its own, because a nose-in way crossed the middle of an eight-metre street and
-nothing appeared to hold anybody off it. That misread the table: two lines a car's width apart are two
-*bodies* touching (`TER-5c`), and two lines 2.05 m apart are two bodies passing with 5 cm between them. It
-was a second gate in front of one already answering (`SIM-7`) and it refused 1260 of Odesa's 1264 bays.
-With it gone, Odesa's parks over the measured minute went 22 → 35 and emergency stops 83 → 65; River's
-narrow bays swept the middle of their street, taking emergency stops 19 → 31, which is the table doing its
-job rather than the bar doing it early.
-
-## 2026-08-24 — a bay's way is walked as finely as the sample budget allows
-
-Sampled at the crossing clearance, two metres of slop could not see the 1.6 m a centred car stands clear of
-its street, so every parked car read as cutting it.
-
-## 2026-08-24 — a bay is two of the road's own ways
-
-The last dozen metres of every leg were outside the ways altogether: a car park was somewhere the town's
-own mechanisms did not reach. The two lines at a bay are laid once with the town as ways of the road, so
-the traffic is held off by the marks ([`RibbonAtlas`](../../road/RibbonAtlas.cs)) like any other. The whole bay was asked for first
-and cannot be had: laid from the mouth in, it takes 0.77 m of the lane's own driven ground, and every parked
-car cut the street beside it — Odesa's parks 17 → 4.
-
-## 2026-08-24 — the departure is a movement, and the bay's own claim is a register
-
-Leaving a bay held the street off with a sweep, a gap probe, a patience and a random beat — the town
-already knows what a car crossing a stream of traffic does, and a car leaving a bay was doing it by hand.
-The way out is driven like any way, and a movement is a way and not a turn, so one protocol serves a bay's
-way out and a junction's join. A bay's own claim is a register — the hold begins before anybody has a line
-to hold ground along. Odesa's emergency stops went 121 → 41 and abandonments 14 → 1; legs settled 1 → 8 is
-the price, and it is the yield's to tune rather than the bay's to special-case. A parked neighbour can
-still stand in a way out: a mark reads a section from first contact to last, which costs nothing while a
-row is half empty and will bite a full one.
+figure down the sides, a space came out **4.0 m against a 3.6 m lane**. `ParkingSpaceSideMarginInCarWidths`
+is the side's own, at a quarter of a car width — a door's swing. Nothing manoeuvres sideways, so the two
+figures were never one. GEN-4c carries the relation and `SimConfigTests` gates it.

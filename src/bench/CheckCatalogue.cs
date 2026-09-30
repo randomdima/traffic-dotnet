@@ -40,7 +40,7 @@ internal static class CheckCatalogue
         new("load", "What opening a map costs, stage by stage", Quoted(config => LoadProbe.Run("Odesa", config))),
         new("shape", "What shape a town came out: how its roads bend, where its junctions stand", Quoted(config => TownShape.Run("Odesa", config))),
         new("joints", "Every junction only two roads meet at, and which structure kept it", Quoted(config => TownShape.Joints("Odesa", config))),
-        new("parks", "Every car park a town cut into a road: where it stands, its arms and its bays", Quoted(config => TownShape.Parks("Odesa", config))),
+        new("parks", "Every car park a town laid off a street: where it stands and its bays", Quoted(config => TownShape.Parks("Odesa", config))),
         new("outset", "A town's boundary moved off itself: what closed, and the two ends of what did not", config => BoundaryProbe.Outset("Odesa", config)),
         new("fill", "A town's driven ground cut into triangles: what the cut costs, and what it lost", Quoted(config => FillProbe.Run("Odesa", config))),
         new("shapes", "One row a map: extent, roads, how much of each bends", Quoted(TownShape.Table)),

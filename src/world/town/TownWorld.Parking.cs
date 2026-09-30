@@ -12,14 +12,16 @@ namespace TrafficSimulation.World.Town;
 /// <summary>
 /// The town's side of a drive leg: where it begins, where the line it is driven on comes from, which bay
 /// it is aimed at, and what stands the car down at the end of it. <b>Which line a leg is on next is
-/// <see cref="TakeTheNextStepOfTheLeg"/>'s</b> — what is here is only what needs the whole composition.
+/// <see cref="TakeTheNextStepOfTheLeg"/>'s</b>, and how a car gets into a bay and out of one is its own
+/// manoeuvre (<see cref="ShapeTheWayIn"/>, <see cref="ShapeTheWayOut"/>) — what is here is only what needs the
+/// whole composition.
 /// </summary>
 internal sealed partial class TownWorld
 {
     /// <summary>
     /// A drive leg begun for whoever has got in, aimed at the bay that leg claimed. <b>A car standing in a
-    /// bay drives the bay's own way out; one standing anywhere else takes the lane it is on and is routed
-    /// from there.</b> <b>Nothing calls it</b>: nobody boards a car (CAR-1), and every leg a car is sent on is
+    /// bay manoeuvres out of it; one standing anywhere else takes the lane it is on and is routed from
+    /// there.</b> <b>Nothing calls it</b>: nobody boards a car (CAR-1), and every leg a car is sent on is
     /// begun by <see cref="SendTo"/>.
     /// </summary>
     void SetOff(int car)
@@ -41,138 +43,22 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>The line a leg begins on</b>: the way out of the bay the car is standing in, or the lane it is
-    /// standing on and the route from there. A car that can be given neither has nothing to drive, and the
-    /// clock is what ends such a leg.
+    /// <b>The line a leg begins on</b>: the first piece of the manoeuvre out of the bay the car is standing in,
+    /// or the lane it is standing on and the route from there. A car that can be given neither has nothing to
+    /// drive, and the clock is what ends such a leg.
     /// </summary>
     void LayTheFirstLine(int car)
     {
+        _manoeuvres.Clear(car);
+
         // <b>The bay the body is in, whether or not it was registered there</b>: a leg given up on the way
-        // into a bay stands the car down in the space it never reached the end of, and the arm under it is not a
-        // lane it may take (GEN-4h).
+        // into a bay stands the car down in the space it never reached the end of, and the bay under it is not
+        // a lane it may take (GEN-53).
         var standingIn = _parking.BayOf(car);
         if (standingIn < 0) standingIn = _parking.BayHolding(Cars.PositionM[car]);
-        if (standingIn >= 0 && TakeTheWayOutOfTheBay(car, standingIn)) return;
+        if (standingIn >= 0 && ShapeTheWayOut(car, standingIn)) return;
 
         TakeTheLaneUnderIt(car);
-    }
-
-    /// <summary>
-    /// <b>The town's own way out of a bay, taken up as it stands</b> — the same line the car was parked
-    /// on, driven in whichever gear that way was laid for (GEN-4j).
-    /// </summary>
-    /// <remarks>
-    /// <b>This is the whole of what makes leaving a bay ordinary.</b> The line is a numbered way, so the
-    /// car's claim runs along it, its grant is cut by the town's own table of what is driven over what,
-    /// and the ground it takes before it moves is taken by the protocol a car crossing a junction uses —
-    /// there is no gap to be looked at, no patience to be spent, and nothing here that a car turning
-    /// across a junction does not also do. <b>Refused where the car is not standing at the bay end of
-    /// it</b>: a line the body is not on is a line the follower calls lost the moment it is handed one.
-    /// </remarks>
-    bool TakeTheWayOutOfTheBay(int car, int bay) => TakeTheWayAtTheBay(car, TheWayOutThatSuits(car, bay));
-
-    /// <summary>
-    /// One of the ways at a bay, taken as the line. <b>It is the one place a line that is not the route's
-    /// is written</b>, and the way it is is written with it, so the two can never describe different
-    /// things.
-    /// </summary>
-    bool TakeTheWayAtTheBay(int car, int way)
-    {
-        if (way == BayWays.NoWay) return false;
-
-        var arcs = _bayWays.ArcsOf(way);
-        if (arcs.Length == 0) return false;
-
-        // <b>Seated where the body actually is</b>, searched over the first car length of the way and no
-        // further (CAR-10b): a car stops with its nose at the end of the line it was given, so its axle
-        // stands short of the mouth by its own overhang — and a way begun at nought regardless is a line
-        // the follower calls lost on the tick it is handed one. Refused where the body is not on the
-        // way's own ground, which is a car that has overshot the turn-in and drives on.
-        ref readonly var build = ref Cars.BuildOf(car);
-        var lengthM = _bayWays.DrivenLengthM(way);
-        var axleM = CarFollower.RearAxleM(build, Cars.PositionM[car], ForwardOf(car));
-        var alongM = Spline.ProjectM(arcs, axleM, 0f, build.LengthM);
-        if (alongM >= lengthM) return false;
-        if ((Spline.SampleAt(arcs, alongM).PositionM - axleM).Length() > _config.CarOffPathM) return false;
-
-        arcs.CopyTo(Cars.LineArcsOf(car));
-        CornerLimits.Lay(arcs, Cars.LineEntriesOf(car), _config);
-        Cars.Line[car] = new DrivenLine(arcs.Length, 0, lengthM);
-        Cars.ProgressM[car] = alongM;
-        Cars.LineIsReverse[car] = _bayWays.IsDrivenInReverse(way);
-        Cars.ManoeuvreBegun[car] = false;
-        Cars.LineWay[car] = way;
-        return true;
-    }
-
-    /// <summary>
-    /// <b>Which of the ways out of a bay this car has.</b> They begin at two poses, one per standing, and
-    /// <b>the car is standing in one of them</b> — so the standing picks the gear and the lane, and only
-    /// then is there a choice at all: the lane already running the way the car is going (GEN-4f). Setting
-    /// off into the stream running the other way is a leg that starts by driving round the block.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// Read off the pose and never off the register (GEN-4j). A car nose-first in its space reverses out onto
-    /// the lane beside it and has no other way out; one that backed in drives out, and may cross the
-    /// carriageway doing it.
-    /// </para>
-    /// <para>
-    /// <b>It is also the whole of what makes a turn at a lot a turn</b> (GEN-4l): a car that parked there
-    /// to come back the other way is leaving for the lane its destination lies down, which is the question
-    /// this already asks of every unpark.
-    /// </para>
-    /// </remarks>
-    int TheWayOutThatSuits(int car, int bay)
-    {
-        if (bay < 0) return BayWays.NoWay;
-
-        var noseIn = BayTemplate.StandsNoseIn(_parking.HeadingRad(bay), Cars.HeadingRad[car]);
-        var knowsWhereItIsGoing = Cars.HasDestination[car];
-        var goingM = Cars.DestinationM[car];
-        var best = BayWays.NoWay;
-        var bestM = float.NegativeInfinity;
-
-        for (var slot = 0; slot < _bayWays.WayCountOf(bay); slot++)
-        {
-            var way = _bayWays.WayOf(bay, slot);
-            if (_bayWays.IsEntry(way) || _bayWays.IsNoseIn(way) != noseIn) continue;
-            if (!knowsWhereItIsGoing) return way;
-
-            var at = Spline.SampleAt(_roads.ArcsOf(_bayWays.LaneOf(way)), _bayWays.AtLaneM(way));
-            var towardsM = Vector2.Dot(goingM - at.PositionM, at.Direction);
-            if (towardsM <= bestM) continue;
-
-            best = way;
-            bestM = towardsM;
-        }
-
-        return best;
-    }
-
-    /// <summary>
-    /// <b>The street a way out of a bay has landed the car on</b>, taken from where the body stands on it: the
-    /// lane arriving at the car park on that side and on through its box (<see cref="BayWays.StreetOf"/>),
-    /// the car seated on it about the metre the way landed at.
-    /// </summary>
-    /// <remarks>
-    /// <b>Not the lane under the car</b> (<see cref="TakeTheLaneUnderIt"/>): a way out lands a car on the
-    /// street's line across the car park's own box, where no lane runs, and the nearest lane end to a point
-    /// there is as likely to be the one ahead of it — a line that begins in front of the body, which the follower
-    /// calls lost the tick it is handed one. From the lane behind, the car is inside a junction on its line,
-    /// which is a place every car crossing one has been.
-    /// </remarks>
-    bool TakeTheStreetOutOfTheBay(int car, int way)
-    {
-        var landedM = _bayWays.OnTheStreetM(way);
-        Cars.ChainOf(car)[0] = _bayWays.StreetOf(way);
-        LayLine(car, 1, landedM);
-        if (Cars.Line[car].ArcCount == 0) return false;
-
-        ref readonly var build = ref Cars.BuildOf(car);
-        var axleM = CarFollower.RearAxleM(build, Cars.PositionM[car], ForwardOf(car));
-        Cars.ProgressM[car] = CarFollower.ProgressM(build, Cars.LineOf(car), axleM, landedM);
-        return true;
     }
 
     /// <summary>The direction the body is pointing, which every line is read back through.</summary>
@@ -184,9 +70,9 @@ internal sealed partial class TownWorld
     /// </summary>
     /// <remarks>
     /// Refused where the car is standing on no lane at all, which is a leg with nothing to drive: the
-    /// clock is what ends one (<see cref="WatchTheProgress"/>). <b>A lane of the carriageway and never a car
-    /// park's arm</b> (GEN-4h): an arm is a bay, driven only as its own ways, and taken as a lane it is a dead
-    /// end the car drives to the back of.
+    /// clock is what ends one (<see cref="WatchTheProgress"/>). <b>A lane of the carriageway and never a
+    /// bay</b> (GEN-53): a bay is joined to nothing, and taken as a lane it is a dead end the car drives to
+    /// the back of.
     /// </remarks>
     bool TakeTheLaneUnderIt(int car)
     {
@@ -225,8 +111,7 @@ internal sealed partial class TownWorld
     /// <b>And in a box, the nearest lane end is as likely to be the one ahead of the body as the one behind
     /// it.</b> A line laid from there begins in front of the car, which the follower calls lost the tick it
     /// is handed one — and every recovery asked the same question again and got the same answer, so a car
-    /// that came to rest in a box stood there for the rest of the run. A way out of a bay lands a car in its
-    /// car park's box (GEN-4f), which is where that was first met.
+    /// that came to rest in a box stood there for the rest of the run.
     /// </para>
     /// </remarks>
     StandingOn TheCarriagewayUnder(Vector2 rearAxleM, Vector2 forward)
@@ -264,8 +149,6 @@ internal sealed partial class TownWorld
     /// </summary>
     void OnTheJoin(int from, int onto, Vector2 rearAxleM, Vector2 forward, ref StandingOn best)
     {
-        if (_roads.IsABayArm(from) || _roads.IsABayArm(onto)) return;
-
         var join = _roads.ConnectorBetween(from, onto);
         if (join == RoadGraph.NoConnector) return;
 
@@ -292,8 +175,8 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// A car with nothing left to do: no line, no route, no turn, no destination and no movement, handbrake
-    /// on. <b>Nobody is let out</b>: nobody is ever in a car to let out (CAR-1).
+    /// A car with nothing left to do: no line, no route, no turn, no manoeuvre, no destination and no movement,
+    /// handbrake on. <b>Nobody is let out</b>: nobody is ever in a car to let out (CAR-1).
     /// </summary>
     void StandTheCarDown(int car)
     {
@@ -302,6 +185,7 @@ internal sealed partial class TownWorld
         Cars.Line[car] = default;
         Cars.ClearRoute(car);
         GiveUpTheTurn(car);
+        _manoeuvres.Clear(car);
         Cars.HasDestination[car] = false;
         Cars.Driven[car] = false;
         Cars.Command[car] = DriveCommand.Parked;
@@ -349,7 +233,7 @@ internal sealed partial class TownWorld
             Cars.ClearRoute(car);
 
             // The place changed, so the route that was aiming at the old one is not this leg's any more:
-            // the line is laid again from where the body is — the bay's way out where it is still in one,
+            // the line is laid again from where the body is — the way out of a bay where it is still in one,
             // and the lane under it otherwise — which plans to the new place.
             LayTheFirstLine(car);
             return true;
@@ -365,17 +249,17 @@ internal sealed partial class TownWorld
     int BayAimedAt(int car) => _parking.ClaimedBayOf(car);
 
     /// <summary>
-    /// <b>The bay the line in hand finishes in</b>: the one this leg is turning in while it has one to turn
-    /// in (GEN-4l), and the place it is going to otherwise. One question, so that the line, the plan and the
-    /// route cannot disagree about which bay the last dozen metres of the line belong to.
+    /// <b>The bay the line in hand finishes at</b>: the one this leg is turning in while it has one to turn
+    /// in (GEN-4l), and the place it is going to otherwise. One question, so that the line, the manoeuvre and
+    /// the route cannot disagree about which bay the last metres of the line belong to.
     /// </summary>
     int BayTheLineEndsIn(int car) => _parking.TurnOf(car) is var turn and >= 0 ? turn : BayAimedAt(car);
 
     /// <summary>
-    /// <b>A bay of this frontage to turn in</b> (GEN-4l): free, still in front of the car, driven into off
-    /// the lane it is coming down and back out onto the lane it means to leave by, in the standing that
-    /// pair of ways is laid for (GEN-4j). The first one that answers all of that, since a bay of a section
-    /// is a bay of it.
+    /// <b>A bay of this frontage to turn in</b> (GEN-4l): free, worked off the lane running back as well, near the
+    /// lane's end (<see cref="Core.Config.SimConfig.TurnAtALotWithinM"/>) and still in front of the car — <b>the one
+    /// furthest along</b>, since the route turns the leg at the lane's end and lands it at the start of the lane
+    /// running back.
     /// </summary>
     /// <remarks>
     /// <b>A leg that finds none is not a leg that has failed.</b> The line then ends where the frontage
@@ -388,14 +272,20 @@ internal sealed partial class TownWorld
     {
         if (_parking.TurnOf(car) >= 0) return true;
 
-        foreach (var bay in _bayWays.BaysOffLane(fromLane))
+        var best = BayStreets.NoBay;
+        var bestM = _roads.LaneLengthM[fromLane] - _config.TurnAtALotWithinM;
+        foreach (var bay in _bayStreets.BaysOffLane(fromLane))
         {
-            if (!_parking.IsFreeFor(car, bay)) continue;
+            var atM = _bayStreets.AtLaneM(bay, fromLane);
+            if (atM < bestM || !_parking.IsFreeFor(car, bay) || float.IsNaN(_bayStreets.AtLaneM(bay, backLane))) continue;
+            if (!StandsShortOf(car, fromLane, StopForTheBayM(car, bay, fromLane))) continue;
 
-            var way = _bayWays.TheWayToTurnIn(bay, fromLane, backLane);
-            if (way == BayWays.NoWay || !StandsShortOfTheWay(car, fromLane, way)) continue;
-            if (!_parking.TakeTheTurn(car, bay)) continue;
+            best = bay;
+            bestM = atM;
+        }
 
+        if (best != BayStreets.NoBay && _parking.TakeTheTurn(car, best))
+        {
             TurnsAtALotBegun++;
             return true;
         }
@@ -425,20 +315,19 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>Whether the mouth of a way is still in front of this car</b>, its own nose included. A line ends
-    /// where the way it finishes at begins, so a way whose mouth is behind the car is a line of no length
-    /// — a leg with nothing to drive, standing in a lane it has already passed the turn-in for.
+    /// <b>Whether a metre of a lane is still in front of this car</b>, its own nose included. A line that stops
+    /// for a bay stops there, so one whose stop is behind the car is a line of no length — a leg standing in a
+    /// lane it has already passed its turn-in on.
     /// </summary>
     /// <remarks>
     /// <b>Asked of the body and not of the line</b>, because it is asked while the line is being laid: what
-    /// it compares is the metre of the lane the way leaves against the metre this car's nose stands at,
-    /// projected onto the same lane. A lane the car is nowhere near answers yes, which is right — every
-    /// lane further down the chain is ahead of it by construction.
+    /// it compares is the metre against the one this car's nose stands at, projected onto the same lane. A lane
+    /// the car is nowhere near answers yes, which is right — every lane further down the chain is ahead of it by
+    /// construction.
     /// </remarks>
-    bool StandsShortOfTheWay(int car, int lane, int way)
+    bool StandsShortOf(int car, int lane, float atM)
     {
         var arcs = _roads.ArcsOf(lane);
-        var atM = _bayWays.AtLaneM(way);
         var noseM = Cars.PositionM[car] + (ForwardOf(car) * Cars.BuildOf(car).HalfLengthM);
 
         return atM > Spline.ProjectM(arcs, noseM, atM, _roads.LaneLengthM[lane]);
@@ -518,58 +407,33 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// Whether the line in hand finishes at the bay this leg is aimed at — which is what says the car is
-    /// past driving the road and into the last dozen metres of the leg.
+    /// Whether the line in hand stops for the bay this leg is aimed at — which is what says the car is past
+    /// driving the road and into the last metres of the leg.
     /// </summary>
-    bool IsOnTheFinalApproach(int car) => Cars.TailWayOf(car) != CarFleet.NoWay;
+    bool IsOnTheFinalApproach(int car) => Cars.StopsForBayOf(car) != CarFleet.NoBay;
 
     /// <summary>
-    /// How far ahead of the rear axle the line leaves the road for the bay, which is where the last lane's
-    /// own stretch of the line ends. Infinity where the line finishes on the road.
-    /// </summary>
-    float ToTheWayIntoTheBayM(int car)
-    {
-        var lanes = Cars.Line[car].LaneCount;
-        if (lanes == 0 || Cars.TailWayOf(car) == CarFleet.NoWay) return float.PositiveInfinity;
-
-        return Cars.LaneEndsOf(car)[lanes - 1] - Cars.ProgressM[car];
-    }
-
-    /// <summary>
-    /// <b>The way into the bay this line ends in, where the line being laid actually reaches it</b>: the
-    /// bay is reached from this lane and the route has run out on it. Anything else is a leg still driving
-    /// the road, and its line ends where the lane does. <b>Which bay that is is the leg's own question</b>
-    /// (<see cref="BayTheLineEndsIn"/>) — the one it is turning in comes first, and it is the same answer
-    /// the plan's next step was drawn from.
+    /// <b>The bay this line stops for, where the line being laid actually reaches it</b>: the bay is worked off
+    /// this lane, the route has run out on it, and where the car waits for it is still in front of the car.
+    /// Anything else is a leg still driving the road, and its line ends where the lane does. <b>Which bay that
+    /// is is the leg's own question</b> (<see cref="BayTheLineEndsIn"/>) — the one it is turning in comes first.
     /// </summary>
     /// <remarks>
     /// It is asked once, where the line is assembled, and the answer is carried on the car
-    /// (<see cref="CarFleet.TailWay"/>) rather than re-derived — a leg that gave its bay up between the two
-    /// askings would otherwise be a line whose geometry and whose claims disagreed about where it ends.
-    /// <b>The driver's habit is what picks between the two standings</b> (GEN-4j), and it is a habit rather
-    /// than a draw precisely so that the two askings agree — <b>except at a turn, where the way out is what
-    /// picks</b> (GEN-4l): a car parking here to come back the other way has one standing that gets it out
-    /// onto that lane, and nose in is taken where a bay lays both (<c>BayWays.TheWayToTurnIn</c>).
+    /// (<see cref="CarFleet.StopsForBay"/>) rather than re-derived — a leg that gave its bay up between the two
+    /// askings would otherwise be a line whose end and whose manoeuvre disagreed about where it goes.
     /// <para>
-    /// <b>And never a way whose mouth is already behind the body</b> (<see cref="StandsShortOfTheWay"/>). A
-    /// way into a bay leaves its lane part-way along it, so a leg that has driven past that point has
-    /// overshot its own turn-in; threaded on regardless, the last dozen metres of the line are laid behind
-    /// the car and the follower calls the line lost the moment it is handed one — with the same answer
-    /// coming back every time the line is re-laid, which is a car standing in a clear lane for the rest of
-    /// the run. What a driver who has overshot does is drive on and ask for the route again, and leaving
-    /// the way off is what lets it (<see cref="NextLaneOnRoute"/>).
+    /// <b>And never a bay whose place to wait is already behind the body</b> (<see cref="StandsShortOf"/>): a leg
+    /// that has driven past it has overshot its own turn-in, and what a driver who has done that does is drive on
+    /// and ask for the route again, which leaving the bay off is what lets it (<see cref="NextLaneOnRoute"/>).
     /// </para>
     /// </remarks>
-    int TheWayIntoTheBay(int car, int lastLane)
+    int TheBayTheLineStopsFor(int car, int lastLane)
     {
         var bay = BayTheLineEndsIn(car);
-        if (bay < 0 || Cars.RouteTaken[car] < Cars.RouteCount[car]) return CarFleet.NoWay;
+        if (bay < 0 || Cars.RouteTaken[car] < Cars.RouteCount[car]) return CarFleet.NoBay;
+        if (float.IsNaN(_bayStreets.AtLaneM(bay, lastLane))) return CarFleet.NoBay;
 
-        var backLane = _roads.LaneReverse[lastLane];
-        var way = bay == _parking.TurnOf(car) && backLane >= 0
-            ? _bayWays.TheWayToTurnIn(bay, lastLane, backLane)
-            : _bayWays.WayInOffLane(bay, lastLane, !Cars.BacksIntoBays[car]);
-
-        return way != BayWays.NoWay && StandsShortOfTheWay(car, lastLane, way) ? way : CarFleet.NoWay;
+        return StandsShortOf(car, lastLane, StopForTheBayM(car, bay, lastLane)) ? bay : CarFleet.NoBay;
     }
 }

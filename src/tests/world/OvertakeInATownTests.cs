@@ -226,9 +226,9 @@ public class OvertakeInATownTests
             var lane = cars.LaneOf(driver);
             if (!cars.Driven[driver] || cars.Broken[driver] || lane < 0 || cars.Line[driver].LaneCount < 2) continue;
 
-            // Driving through and not parking there: a line that ends in a bay is a car arriving where it was
+            // Driving through and not parking there: a line that stops for a bay is a car arriving where it was
             // sent, which passes nothing (CAR-46).
-            if (cars.TailWayOf(driver) != CarFleet.NoWay) continue;
+            if (cars.StopsForBayOf(driver) != CarFleet.NoBay) continue;
 
             var beyond = cars.ChainOf(driver)[1];
             var join = roads.ConnectorBetween(lane, beyond);
@@ -686,7 +686,7 @@ public class OvertakeInATownTests
         for (var driver = 0; driver < cars.Count; driver++)
         {
             var lane = cars.LaneOf(driver);
-            if (!cars.Driven[driver] || cars.Broken[driver] || lane < 0 || cars.LineWayOf(driver) >= 0) continue;
+            if (!cars.Driven[driver] || cars.Broken[driver] || lane < 0) continue;
 
             var back = roads.LaneReverse[lane];
             var fromM = cars.ProgressM[driver];

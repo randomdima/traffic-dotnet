@@ -187,11 +187,10 @@ internal sealed partial class DebugOverlay
     /// <remarks>
     /// <para>
     /// <b>It is the one hold in the town that is not a piece of road</b> (GEN-4g), which is why it is the one
-    /// thing on this layer that is not a stretch of a way. A bay's ways are drawn to the rear axle and stop
-    /// there, so the block a parked car's claim lays covers the ground behind that axle and none of
-    /// the two metres of car in front of it — the picture of a taken bay has to come off the register that
-    /// takes it. What the block beside it then says is the narrower thing it has always said: which metres of
-    /// the way the traffic is held off.
+    /// thing on this layer that is not a stretch of a way. A claim on a bay holds no ground — a body standing
+    /// in one is laid on the bay's own lane like on any other — so the picture of a taken bay has to come off
+    /// the register that takes it. What the block beside it then says is the narrower thing it has always
+    /// said: which metres of the way the traffic is held off.
     /// </para>
     /// <para>
     /// <b>Washed is a body and outlined is a bay claimed</b>, and that is a difference in what is being

@@ -110,7 +110,7 @@ internal sealed class Paving
 
     /// <summary>
     /// <b>Every driven line over the town's own geometry grid</b> (<see cref="ChainIndex"/>): the one index
-    /// that holds all of them — every lane, every movement through a box and every way into a bay — so that
+    /// that holds all of them — every lane, every movement through a box and every bay — so that
     /// which lines are near a place, or could cross one, costs the cells round it.
     /// </summary>
     /// <remarks>
@@ -119,7 +119,7 @@ internal sealed class Paving
     /// away with it, which meant the only complete index of the town's geometry existed for the length of one
     /// method — so a second reader either indexed the same lines again or asked an index of some subset of
     /// them and got an answer about that subset. The lanes' own index (<c>RoadGraph</c>) is the one a tick
-    /// asks and is right to hold lanes alone: "which lane is this car on" may not answer with a bay's way.
+    /// asks and is right to hold lanes alone: "which lane is this car on" may not answer with a bay.
     /// </para>
     /// <para>
     /// Laid on the first ask, like the perimeter, and at the grid's main cell (<see cref="SimConfig.Grid"/>,

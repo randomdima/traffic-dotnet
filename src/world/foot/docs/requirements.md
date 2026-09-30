@@ -75,8 +75,7 @@ wider circle swings the inside edge out past it, onto the road, and a tighter on
 meet, `Road.FootNodeClearM` out along the road past the further of the street's two kerb ends, and runs from
 the carriageway's edge on that kerb's side to its other edge; the band runs between those two points.
 **Where a walk crosses is the whole of the placement** — an end the kerb ends put no station at asks for no
-paint, which is what leaves a bay, a roundabout's ring, every end at a car park's junction and every end at
-a bend or a dead end with none.
+paint, which is what leaves a bay, a roundabout's ring and every end at a bend or a dead end with none.
 
 **The paint is the road's and the placement is not.** What a zebra *is* — a band of carriageway
 pedestrians may walk over, the width it reaches, what a bar behind it does — is
@@ -86,8 +85,8 @@ anything of this slice's**, the road tier standing below the walk ([slice-map.md
 
 **A street end at a box that forks nothing has none.** A bend and a dead end carry the traffic straight
 through, so the kerb turning there is a corner the pavement turns with rather than a place the walk stops and
-is crossed; and a street runs past a car park's cut with no end there at all, the rank's mouth being a hole
-in the pavement. **The node network's own placement** — a zebra wherever a road end's two pedestrian nodes
+is crossed; and a street runs past a car park with no end there at all, the rank's mouth being a hole in the
+pavement. **The node network's own placement** — a zebra wherever a road end's two pedestrian nodes
 hand a crossing over to each other (`FootConnectors.Crossed`) — is held in code with the rest of it and laid
 by no town (below).
 
@@ -157,7 +156,7 @@ two lanes stand in the middle of each half of the paint's depth (WLK-8), each wa
 traffic it is about to meet on its own walker's side (TER-4a).
 
 **The walk keeps its own line and is parted rather than laid again** (WLK-1): the course is cut where a
-junction hands over and every metre of it stays where the move put it — the same injection a car park is cut
+junction hands over and every metre of it stays where the move put it — the same injection a junction is cut
 into a street with ([GEN-52](../../../citygen/docs/requirements.md)). **A place within a weld of a corner is
 not cut at all**, the node being there already.
 
@@ -248,7 +247,7 @@ walk beside it, while its arms are ordinary and carry theirs. A junction cut int
 past it (GEN-52) is a hole in the pavement a walk goes round, not a corner: no node stands there, no zebra is
 asked for (WLK-10), and **the walk down the street runs through the junction in one stretch** (WLK-11).
 **It is not the same question as whether a junction forks**: a bend and a dead end fork nothing and are
-ordinary ends of a street, while a car park's node is a street's middle.
+ordinary ends of a street, while a node cut into one is a street's middle.
 
 **And the pieces a cut parted a street into are one street.** The node a walk reaches down a road is the one
 on the same physical side at the far end of it, and past every cut after that until an end that stands one —

@@ -19,7 +19,7 @@ public class CentrelineRunsTests
 {
     /// <summary>
     /// <b>Every street with two ribbons is painted down exactly one run, and nothing else is in any</b>
-    /// (TER-6): a one-way street and a bay's way have a single ribbon apiece and no seam for a line to
+    /// (TER-6): a one-way street and a bay have a single ribbon apiece and no seam for a line to
     /// stand in, and a road in two runs would be a street painted twice.
     /// </summary>
     [Fact]
@@ -64,9 +64,9 @@ public class CentrelineRunsTests
 
     /// <summary>
     /// <b>A run carries on through a junction that forks nothing and stops at one that does</b> — the one
-    /// thing a run says that a road does not. A car park is a node cut into a street (GEN-52) and its bays
-    /// are not somewhere a driver going past could turn, so the two halves of that street are one
-    /// carriageway and take one line; anything a driver could turn onto ends the run.
+    /// thing a run says that a road does not. A node two streets meet at is not somewhere a driver going
+    /// past could turn, so the two halves of that street are one carriageway and take one line; anything a
+    /// driver could turn onto ends the run.
     /// </summary>
     [Fact]
     public void ARunCarriesOnThroughAJunctionThatForksNothing()

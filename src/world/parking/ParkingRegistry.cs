@@ -7,8 +7,8 @@ namespace TrafficSimulation.World.Parking;
 
 /// <summary>
 /// Every bay in the town: where it stands, where a walk to it is aimed, who is standing in it, who is on
-/// their way to it and who is turning in it. <b>How each one is reached is <see cref="BayWays"/>'s</b> —
-/// the ways at a bay, laid with the town like the joins through a junction.
+/// their way to it and who is turning in it. <b>Which street each one is reached from is
+/// <see cref="BayStreets"/>'s</b>, and how a car gets in and out of one is its own manoeuvre (GEN-4f).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -20,9 +20,9 @@ namespace TrafficSimulation.World.Parking;
 /// </para>
 /// <para>
 /// <b>What such a claim is not is a second opinion about the road.</b> It says which bay a leg is aimed at
-/// and no more: the ground the car takes getting there is its claim on the bay's own way, laid and
-/// answered like any other (TER-4c.1), and a body already standing where the claiming car means to go
-/// refuses it there rather than here.
+/// and no more: the ground the car takes getting there is its plan down the street and then its manoeuvre,
+/// laid and answered like any other (TER-4c.1, TER-4c.6), and a body already standing where the claiming car
+/// means to go refuses it there rather than here.
 /// </para>
 /// <para>
 /// <b>The bays are indexed by where they stand</b> (<see cref="BaysNear"/>), because the question asked of
@@ -39,7 +39,7 @@ namespace TrafficSimulation.World.Parking;
 /// </remarks>
 internal sealed class ParkingRegistry
 {
-    readonly BayWays _ways;
+    readonly BayStreets _streets;
     readonly Vector2[] _centreM;
     readonly float[] _headingRad;
     readonly Vector2[] _doorM;
@@ -55,9 +55,9 @@ internal sealed class ParkingRegistry
     readonly float _spaceLengthM;
     readonly float _spaceWidthM;
 
-    ParkingRegistry(BayWays ways, BucketGrid near, int bays, int cars, float spaceLengthM, float spaceWidthM)
+    ParkingRegistry(BayStreets streets, BucketGrid near, int bays, int cars, float spaceLengthM, float spaceWidthM)
     {
-        _ways = ways;
+        _streets = streets;
         _near = near;
         _spaceLengthM = spaceLengthM;
         _spaceWidthM = spaceWidthM;
@@ -100,8 +100,8 @@ internal sealed class ParkingRegistry
     public Vector2 WayInM(int bay, bool noseIn) =>
         _centreM[bay] + (noseIn ? _doorM[bay] : -_doorM[bay]);
 
-    /// <summary>Whether the town laid this bay a way at all, which is the one question there is: it is driven both ways.</summary>
-    public bool CanBeReached(int bay) => _ways.CanBeReached(bay);
+    /// <summary>Whether any street runs past this bay, which is the one question there is: the manoeuvre is the car's.</summary>
+    public bool CanBeReached(int bay) => _streets.CanBeReached(bay);
 
     /// <summary>
     /// <b>Whether a body this size stands inside a bay at all</b> (CAR-11b). The spaces are one size,
@@ -169,7 +169,7 @@ internal sealed class ParkingRegistry
     /// vehicle is out on an errand is still that vehicle's apron.
     /// </summary>
     public bool IsFreeFor(int car, int bay) =>
-        _carInBay[bay] == Nobody && _claimedBy[bay] == Nobody && _ways.CanBeReached(bay)
+        _carInBay[bay] == Nobody && _claimedBy[bay] == Nobody && _streets.CanBeReached(bay)
         && (_turningIn[bay] == Nobody || _turningIn[bay] == car)
         && (_heldFor[bay] == Nobody || _heldFor[bay] == car);
 
@@ -326,21 +326,22 @@ internal sealed class ParkingRegistry
     }
 
     /// <summary>
-    /// <b>One bay per arm of every car park the plan cut</b> (GEN-53), numbered as the plan lists them — the
-    /// numbering <see cref="BayWays"/> lays their ways in. The space is the arm: its middle is where a car
-    /// stands (GEN-4i), and its bearing out from the car park is the way a car nosed in points.
+    /// <b>One bay per bay of every car park the plan laid</b> (GEN-53), numbered as the plan lists them — the
+    /// numbering <see cref="BayStreets"/> keeps them in. The space is the bay's own road: its middle is where a
+    /// car stands (GEN-4i), and its bearing out from the street is the way a car nosed in points.
     /// </summary>
-    public static ParkingRegistry Build(CityPlan plan, BayWays ways, SimConfig config, int cars)
+    public static ParkingRegistry Build(CityPlan plan, BayStreets streets, SimConfig config, int cars)
     {
         var arms = plan.CarParks.Road;
         var registry = new ParkingRegistry(
-            ways, new BucketGrid(config.Grid.Main, plan.WorldSizeM), arms.Length, cars,
+            streets, new BucketGrid(config.Grid.Main, plan.WorldSizeM), arms.Length, cars,
             config.CarParkBayLengthM, config.ParkingSpaceWidthM);
 
         for (var bay = 0; bay < arms.Length; bay++)
         {
+            // The space is the deepest bay-length of its road, the apron in front of it being the street's side of it.
             var line = plan.Roads.SegmentsOf(arms[bay]);
-            var middle = Spline.SampleAt(line, Spline.TotalLengthM(line) * 0.5f);
+            var middle = Spline.SampleAt(line, Spline.TotalLengthM(line) - (config.CarParkBayLengthM * 0.5f));
             var centreM = middle.PositionM;
             var headingRad = middle.HeadingRad;
             registry._centreM[bay] = centreM;

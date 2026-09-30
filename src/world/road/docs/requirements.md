@@ -54,8 +54,7 @@ having to recognise which of those it is.
 
 **A junction's radius is a planning figure and never a piece of ground.** It is the standoff its arms'
 lanes end at (`GEN-46`, TER-5d) — one figure for every junction the town lays, the arms following the
-standoff and never the standoff the arms — and a car park's junction takes the standoff its rank needs
-(`GEN-53`). Nothing is placed off it and nothing reads it as a surface: no ground is answered from it, no
+standoff and never the standoff the arms. Nothing is placed off it and nothing reads it as a surface: no ground is answered from it, no
 pavement is laid round it, and none is drawn. The census prints its mean as the junctions' reach.
 
 **A corner is solved on the two arms it stands between** (TER-4d). Where a
@@ -153,7 +152,7 @@ beyond their terrain attributes.
   ends, which is held at its two kerb ends — places carrying no paint, so the bar's setback is taken clear of
   the place itself.
 - **A road end the kerb ends put no station at carries no paint**: a bay, a roundabout's circulating
-  carriageway (GEN-19), every end at a car park's junction, and every end at a box where fewer than three
+  carriageway (GEN-19), and every end at a box where fewer than three
   roads meet. **Nor does the ring carry a bar**: a
   bar is where a driver holds when the junction refuses them, and circulating traffic is never refused — the
   entries hold for it and it holds for nothing, so the ring is a road with no paint on it at all.
@@ -165,10 +164,10 @@ beyond their terrain attributes.
   line the roads either side of it hand over on, so the line runs **through the bend and the node** and on
   down the other arm, as it does along any road that turns a corner. What breaks it is the paint standing
   there, wherever the paint is.
-- **A junction injected into a street is one of those** (`GEN-52`). A car park's bays are nowhere a driver
-  going past could turn, so a street with three lots down it is four roads and **one carriageway**, and one
-  line runs the length of it — which is also what it is centred on, four pieces of line being four phases
-  and a half dash at every lot. Which roads are one carriageway is `CentrelineRuns`.
+- **A junction injected into a street is one of those** (`GEN-52`). Nothing turns there, so the roads either
+  side of it are **one carriageway**, and one line runs the length of it — which is also what it is centred
+  on, two pieces of line being two phases and a half dash at the node. Which roads are one carriageway is
+  `CentrelineRuns`.
 - **A band in the middle of a street stops nothing** (`WLK-10a`). What a line stops for is the paint at the
   end of the arm it runs into, and a street crossed once between its ends carries its zebra nowhere near
   either: trimmed to that, a run would be cut from both ends towards a band in the middle of it and there
@@ -215,7 +214,7 @@ and never a glyph of its own** — there is no catalogue of shapes and no combin
 
 Everything painted on the ground is **engine-drawn primitives, never art**: lane centrelines (dashed, and
 **laid between two lane ribbons that touch and nowhere else** — the line a road's two ways were laid either
-side of, `CityPlan.RoadArrays.LanesMeetOnItsLine` — so a one-way street and a bay's way have nothing to part
+side of, `CityPlan.RoadArrays.LanesMeetOnItsLine` — so a one-way street and a bay have nothing to part
 and carry none; stopping behind the outermost paint an arm carries, TER-6), kerb lines (broken exactly
 where the pavement's edge is, and over a car park's mouth, where the ground on the far side of the line
 is the lot's own tarmac and there is no kerb to be the edge of), pavement and deck edge lines, stop bars

@@ -61,9 +61,9 @@ internal sealed class CityPlan
     public RoundaboutArrays Roundabouts { get; init; } = RoundaboutArrays.None;
 
     /// <summary>
-    /// <b>The town's car parks, as the junctions they were cut into roads at</b> (GEN-53). A car park is an
-    /// ordinary junction with an arm out to its bays, so this says which those are and nothing else — there
-    /// is no car park geometry and no rule downstream about one.
+    /// <b>The town's car parks, as the street each stands off and its bays</b> (GEN-53). A bay is a short road
+    /// of its own joined to nothing, so this says which roads those are and which street they front — there is
+    /// no car park geometry beyond the bays' own lines.
     /// </summary>
     public CarParkArrays CarParks { get; init; } = CarParkArrays.None;
 
@@ -189,7 +189,7 @@ internal sealed class CityPlan
         public int LanesOn(int road) => Flow[road] == RoadFlow.BothWays ? 2 : 1;
 
         /// <summary>
-        /// <b>Which roads are a car park's bays</b> (GEN-53), the arm being the way its bay is reached over.
+        /// <b>Which roads are a car park's bays</b> (GEN-53), each the space itself and joined to nothing.
         /// <b>Empty where the town lays none.</b>
         /// </summary>
         public bool[] Bay { get; init; } = [];
@@ -200,7 +200,7 @@ internal sealed class CityPlan
         /// <summary>
         /// <b>Whether a road is driven both ways over one line</b> — a car's width of ground driven in over
         /// and driven back out over (GEN-4f), so its two lanes are its own line rather than two halves of a
-        /// carriageway. <b>A bay's way is the only ground in this town that is</b>, which is why it is that
+        /// carriageway. <b>A bay is the only ground in this town that is</b>, which is why it is that
         /// and not a flag of its own: two arrays that must agree are two answers.
         /// </summary>
         public bool DrivenOverOneLine(int road) => IsABay(road);
@@ -216,7 +216,7 @@ internal sealed class CityPlan
         /// <summary>
         /// <b>Whether a road's two ways are laid either side of its own line</b>, so the ground each of them
         /// is driven over meets the other's along it. A one-way street carries one lane down the middle
-        /// (TER-4d) and a bay's way carries two over one line
+        /// (TER-4d) and a bay carries two over one line
         /// (<see cref="DrivenOverOneLine(int)"/>): neither has two ribbons to part.
         /// </summary>
         /// <remarks>
@@ -254,8 +254,9 @@ internal sealed class CityPlan
         /// <summary>
         /// <b>Which roads were cut</b> (GEN-52): ones whose line stood before the junction at one of their
         /// ends did, so <b>both</b> their arms are read off that line rather than drawn for it
-        /// (<see cref="ConnectionPoints.ArmOf"/>). <b>Empty where the town cut none</b>, which is every map
-        /// that lays no car park.
+        /// (<see cref="ConnectionPoints.ArmOf"/>). A car park's bays are read the same way, their lines being
+        /// laid where the kerb is (GEN-53). <b>Empty where the town cut none</b>, which is every map that lays
+        /// no car park.
         /// </summary>
         /// <remarks>
         /// <b>Both ends and not the cut one.</b> An arm is drawn toward the far end of its own road
@@ -322,36 +323,39 @@ internal sealed class CityPlan
     }
 
     /// <summary>
-    /// <b>The town's car parks</b> (GEN-53), as the junction each was cut into a road at and the arms that
-    /// junction carries out to its bays. <b>Membership and counts, and no geometry</b>: where an arm reaches
-    /// is its own road's to say, the same way a roundabout carries no circle.
+    /// <b>The town's car parks</b> (GEN-53), as the street each stands off, the place on it, and the bays laid
+    /// off its kerb. <b>Membership and counts, and no geometry</b>: where a bay reaches is its own road's to
+    /// say, the same way a roundabout carries no circle.
     /// </summary>
     internal sealed class CarParkArrays
     {
         /// <summary>A map with no car park on it, which is every map that lays none.</summary>
-        public static CarParkArrays None => new() { Junction = [], BayOffsets = [0], Road = [], Right = [] };
+        public static CarParkArrays None => new() { Street = [], AtM = [], BayOffsets = [0], Road = [], Right = [] };
 
-        /// <summary>The junction the car park was cut into a road at, one per car park.</summary>
-        public required int[] Junction { get; init; }
+        /// <summary>The road each car park's bays stand off, one per car park. It is not parted (GEN-53).</summary>
+        public required int[] Street { get; init; }
+
+        /// <summary>The middle of each car park's rank, on its street's line.</summary>
+        public required Vector2[] AtM { get; init; }
 
         /// <summary>Count + 1 entries, over <see cref="Road"/> and <see cref="Right"/>.</summary>
         public required int[] BayOffsets { get; init; }
 
         /// <summary>
-        /// <b>One road a bay</b> (GEN-53): the way that bay is reached over, running from the car park's
-        /// junction out to the node the bay itself stands at. It is one lane wide and its lane is driven both
-        /// ways over one line (<see cref="RoadArrays.DrivenOverOneLine"/>).
+        /// <b>One road a bay</b> (GEN-53): the space itself, from the kerb out, on nodes of its own and joined to
+        /// nothing. It is one lane wide and its lane is driven both ways over one line
+        /// (<see cref="RoadArrays.DrivenOverOneLine"/>), so it runs into the bay from the street.
         /// </summary>
         public required int[] Road { get; init; }
 
         /// <summary>
-        /// Which side of the road the car park was cut into each bay stands on — the driver's right of that
-        /// road's own direction, or its left. <b>The two counts are what a car park's size is</b>, each of
-        /// them nought or a handful (GEN-4b), and not both nought.
+        /// Which side of its street each bay stands on — the driver's right of that road's own direction, or
+        /// its left. <b>The two counts are what a car park's size is</b>, each of them nought or a handful
+        /// (GEN-4b), and not both nought.
         /// </summary>
         public required bool[] Right { get; init; }
 
-        public int Count => Junction.Length;
+        public int Count => Street.Length;
 
         public ReadOnlySpan<int> RoadsOf(int carPark) =>
             Road.AsSpan(BayOffsets[carPark], BayOffsets[carPark + 1] - BayOffsets[carPark]);
@@ -369,8 +373,8 @@ internal sealed class CityPlan
         }
 
         /// <summary>
-        /// The longer of a car park's two ranks, which is how far along the street it reaches and so how far
-        /// back its street stands off (GEN-53, <see cref="SimConfig.CarParkStandoffM"/>).
+        /// The longer of a car park's two ranks, which is how far along the street it reaches
+        /// (GEN-53, <see cref="SimConfig.CarParkFrontageM"/>).
         /// </summary>
         public int MostBaysOnASide(int carPark) =>
             Math.Max(BaysOn(carPark, right: true), BaysOn(carPark, right: false));

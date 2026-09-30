@@ -1,5 +1,26 @@
 # CityGen — decision log
 
+## 2026-09-30 — a car park is a rank of bays laid off the kerb, joined to nothing
+
+**The owner asked for car parks not to be junctions any more** (GEN-53; the parking slice's log has the
+manoeuvre). A car park no longer parts its street: each bay is a short road of its own, laid square off the kerb
+at the street's own lane, with a node a `ConnectionStandoffM` lead off each end (`TownLayout.Stand`).
+
+- **Every bay owes the locality at both nodes** (GEN-16), the one over the street too: checking the far node
+  alone let a bay's near node stand inside another junction's locality across the street.
+- **A bay stands back from the kerb behind an apron** (`CityGenFigures.BaySetbackM`). Laid flush, the walk
+  wrapped each rank's end as a notch the outset could not close — open runs on every shipped city
+  (TER-3c.8). The apron is also what a car swings across rather than the street.
+- **Its mouth runs back over the street's ground by half a ribbon touch** (`SimConfig.CarParkKerbOverlapM`),
+  measured off the kerb actually under the mouth, so the rank and the street are one piece of tarmac on a
+  street that bends a little and share no more ground than that on one that does not (TER-5c).
+- **The kerb ends round into a car park rather than stopping at it** (`KerbEnds.RoundsIntoAPark`): a rank's
+  mouth is no road end, and read as one it stood stray zebras and lights at car parks.
+- **`BayTurnInParkingCircles` is retired with the turn it sized.** Seven tenths of the parking circle was the
+  owner's call for a turn laid with the town; nothing is laid with the town now, and each car's manoeuvre is
+  shaped on that car's own circle, which the owner asked for in as many words ("each car might do this
+  differently depending on stats").
+
 ## 2026-09-30 — a hospital, a police station and a depot in every district
 
 **The owner asked for every district to have its own services** (GEN-56). A town had a share of its buildings
@@ -176,9 +197,9 @@ The owner ruled the code the source of truth for this audit.
   a cell of a classification.
 - `GEN-6`: car parks are counted off the buildings a map plans (`SimConfig.CarParksFor`), not off
   `GEN-4b`'s relation.
-- `GEN-16`: two car parks are kept apart by the locality every node owes (`CutJunctions`), measured centre
-  to centre, not as rectangles along a kerb.
-- `GEN-19`: a building fronts a ring like any street; what is refused is a car park cut into one.
+- `GEN-16`: two car parks are kept apart by the locality every node owes (`TownLayout.StandsClear`), measured
+  node to node, not as rectangles along a kerb.
+- `GEN-19`: a building fronts a ring like any street; what is refused is a car park laid off one.
 
 ## 2026-09-19 — the verge is spaced by its own step, not by the props' girth
 
@@ -316,9 +337,9 @@ failing with it — nine tests over four classes, each of which passed alone. Th
 ask are behind one lock (`Paving`), build-time and uncontended after the first ask, so it costs a frame
 nothing.
 
-## 2026-09-14 — a car park is a junction cut into a road, and a cut reads its arms off the line
+## 2026-09-14 — a cut reads its arms off the line
 
-**The parting had to be exact.** A car park parts a street into two roads with a node between them and may
+**The parting had to be exact.** A cut parts a street into two roads with a node between them and may
 not move the street, so the pieces are the arcs the road was laid as, cut with `Spline.SubChainInto` and
 never drawn again. **That inverts the layer's causality** — everywhere else an arm is drawn first and the
 road is laid to it (`GEN-46`) — so `ConnectionPoints` grew a third source beside the bridge's and the
@@ -334,69 +355,30 @@ by the wander and jitter the two new links draw, which is what the cut exists to
 towns with `ChainIndex.Nearest` reported millimetres of drift between a town and itself, so the test walks
 the parted lane and the lane it was at the same metre instead.
 
-**A one-way street is cut like any other**: the pieces are one street on one chord, neither two meeting nor
-two crowding (`GEN-18`, read by the suite through `OneWays.Streets`), and each bay is reached and left the
-one way the street runs.
+**A rank stands off the lane its bays are worked off, not the line the street was laid down.** A one-way
+carriageway is moved onto its driven half (`RoadStage.OntoTheDrivenHalf`), so a rank measured off the layout's
+line stood the far rank a lane and a half off its kerb and the near one a metre. It is measured off the lane,
+read off `RoadStage.DrivenHalfM`, the one site that moves the carriageway (`CarParks.LaneTowardM`).
 
-**A rank stands off the lane its bays turn off, not the line its node stands on.** A one-way carriageway is
-moved onto its driven half (`RoadStage.OntoTheDrivenHalf`), so a lead of half a lane stood the far rank a
-lane and a half off its kerb and the near one a metre. The lead takes the lane it is measured from
-(`CarParkBayLeadM`), read off `RoadStage.DrivenHalfM`, the one site that moves the carriageway, and each
-`CutArm` carries its own. The node stays on the layout's line, so the arms' own reading is skewed by that
-half lane at a car park exactly as at every other junction the street has; the rank is read back off the
-chord between the two stand points, which a step the same at both ends does not move.
+**The bay is five metres** (`CityGenFigures.BayLengthM`) against the longest vehicle the catalogue draws, the
+recovery truck's 4.40 m. The plan is laid before a car exists, so `CarCatalogTests` and `SimConfigTests` gate
+the pair rather than a derivation.
 
-**A bay is an arm, and its way is that arm's lane.** The first cut gave each side one two-way arm with the
-bay count beside it as data, which made every car park the same 2×2 junction. **A rank is parallel, so an
-arm need not leave from the node** — each foot stands its own step along the street (`CutArm.AsideM`) and
-the junction's movement joins it to the carriageway — and **a rank is an apron and not a fan**, so `GEN-13`
-is not asked of it.
-
-**A bay joins the street and no other bay**: the junction's arithmetic paired every bay with every other, a
-fan of hairpins across ground that is the car park's to cross, and the pair is refused in
-`LaneLines.Connectors` beside the reversal `TER-5f` refuses. **And a bay joins both ways of the street**,
-which on the first cut only about four bays in ten did — a bay further along than the lane end a car arrives
-on can only be looped back into. **The street is parted the rank's own reach further back**
-(`SimConfig.CarParkStandoffM`), so every bay is ahead of both arrivals and Odesa reads `n/n both ways`. The
-standoff is what the sites are found with, so **the bays are counted before the place is chosen**
-(`GEN-10`), and what that costs is sites rather than bays (`GEN-8`).
-
-**The turn is made where it belongs, and at the car's own radius.** An equal-tangent biarc starts turning as
-a car enters the box, drifting a car on its way to park across every bay mouth before its own, so a bay
-movement is one turn with a straight either side (`Spline.StraightArcStraightInto`) between the same two
-poses. Solved out of the poses, the radius was whatever the box afforded — nearly eight metres where the car
-holds four, a lorry making a delivery — so it is given: `CarParkTurnRadiusM`. **Seven tenths of the car's own
-parking circle, inside its lock, is the owner's call** (`BayTurnInParkingCircles`): asked for twice after
-watching cars pivot from a standstill, the second time after the alternative — that the rank and not the
-turn is two thirds of the box — had been put. A car tracking it has the wheel on its stop and runs a little
-wide, which is the driver's to answer for.
-
-**Once the turn was the car's, the junction was the turn's.** The street is parted the rank's reach and one
-tangent back and the bay's way begins one tangent off the street, both having been figures the geometry
-left lying about; a six-a-side box went 34 → 27 m. **An arm is a bay and its turn, with nothing left over**:
-the lead's floor laid a metre of the bay's own line twice, and the ten-metre setback authored for the arm
-left 8.5 m of bay for a 4 m car. The bay is now **five metres** (`CityGenFigures.BayLengthM`) against the
-longest vehicle the catalogue draws, the recovery truck's 4.40 m. The plan is laid before a car exists, so
-`CarCatalogTests` and `SimConfigTests` gate the pair rather than a derivation.
-
-**The bound on the bend is the drift it was always about.** A movement holding the street holds a straight,
-which parts from its lane by the tangent offset — the square of the run, and a car park's longest run is
-its whole box and its rank again. So the departure is authored (`CarParkOffLaneMaxM`, a fifth of a metre, a
-ninth of what the car has spare in its lane) and the curvature, the swing and both standoffs are read off
-it: near a degree across a wide car park's box, where the angle authored before it said five. `--bench
+**The bound on the bend is the drift from the rank's line.** A rank is laid off the tangent at its middle, and
+a street bending under it leaves the rank's line by the tangent offset — the square of the run. So the
+departure is authored (`CarParkOffLaneMaxM`, a fifth of a metre) and the curvature is read off it. `--bench
 parks` reports it.
 
 **The plan carries the bays once.** A per-road `OneLine` flag beside "is it a bay" was two arrays that must
-always agree, so the array is `RoadArrays.Bay` and `DrivenOverOneLine` reads it — a bay's way being the only
-ground driven both ways over one line (`GEN-4f`), the exception a ring arc already was
+always agree, so the array is `RoadArrays.Bay` and `DrivenOverOneLine` reads it — a bay being the only ground
+driven both ways over one line (`GEN-53`), the exception a ring arc already was
 (`ConnectionPoints.Arm.OnTheLine`).
 
 **How many a town has is counted off its buildings rather than authored beside them**: a car park count on
 the brief drifts silently from the town it describes, so the brief carries the buildings and the engine one
 car park per `CityGenFigures.BuildingsPerCarPark` of them (four, the owner's ratio). Asking for many more
-showed the supply bound — a straight, long, empty stretch per car park: Odesa then asked 300 and cut 239,
-River 275 and 134. **The bays themselves are not laid**, so each arm ends at a node nothing leaves
-([a known gap](../../../docs/index.md#known-gaps)).
+showed the supply bound — a straight, long, empty stretch per car park: Odesa then asked 300 and laid 239,
+River 275 and 134.
 
 ## 2026-09-14 — the nodes are settled before the first road is laid, and nothing is merged afterwards
 

@@ -8,11 +8,8 @@ namespace TrafficSimulation.World.Road;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>A bay is not an arm.</b> A car park is a junction injected into a street that already stood (GEN-52,
-/// GEN-53) and its bays are nowhere a driver going past could turn, so a node with two road arms and any
-/// number of bays is a place one street passes through rather than a place streets meet. <b>That such a
-/// node is not a place streets meet is answered here too</b> (<see cref="Special"/>), because it is the
-/// same reading of the same arms.
+/// <b>A bay is not an arm.</b> A car park's bays stand on nodes of their own joined to nothing (GEN-53), and are
+/// nowhere a driver going past could turn.
 /// </para>
 /// <para>
 /// <b>One question, and two marks read opposite answers off it</b>: a lane line carries on through a
@@ -27,14 +24,12 @@ internal sealed class JunctionArms
 
     readonly int[] _ends;
     readonly bool[] _forks;
-    readonly bool[] _special;
     readonly bool[] _circulates;
 
-    JunctionArms(int[] ends, bool[] forks, bool[] special, bool[] circulates)
+    JunctionArms(int[] ends, bool[] forks, bool[] circulates)
     {
         _ends = ends;
         _forks = forks;
-        _special = special;
         _circulates = circulates;
     }
 
@@ -51,23 +46,6 @@ internal sealed class JunctionArms
     /// driver has a choice to make.
     /// </summary>
     public bool Forks(int junction) => _forks[junction];
-
-    /// <summary>
-    /// <b>Whether a junction is something cut into the street network rather than a place streets meet</b>
-    /// (WLK-2) — at present a car park's, which is a rank of bays hung off a street that already stood
-    /// (GEN-52) and carries on past it.
-    /// </summary>
-    /// <remarks>
-    /// <b>It is not <see cref="Forks"/>.</b> A bend and a dead end fork nothing and are still ordinary
-    /// street junctions; what makes a car park's node different is that the street does not end there, the
-    /// rank being a hole in the pavement the walk goes round rather than a corner anybody arrives at. <b>The
-    /// street itself carries straight on through</b>, walk and all: no pedestrian node stands at one of
-    /// these and the walk down the street runs through it (WLK-2). <b>Nor is a roundabout's junction one of
-    /// these</b>: an arm really does meet the ring there,
-    /// so the corner is a corner — what carries no walk is the ring itself (<see cref="Circulates"/>),
-    /// which is a road and not a junction.
-    /// </remarks>
-    public bool Special(int junction) => _special[junction];
 
     /// <summary>
     /// <b>Whether a road is a roundabout's own ring rather than an arm onto one</b> (GEN-19). A ring is a
@@ -97,29 +75,18 @@ internal sealed class JunctionArms
         var ends = new int[junctions * 2];
         Array.Fill(ends, NoEnd);
         var forks = new bool[junctions];
-        var special = new bool[junctions];
         var circulates = new bool[roads.Count];
         foreach (var ring in plan.Roundabouts.Road) circulates[ring] = true;
 
         for (var road = 0; road < roads.Count; road++)
         {
-            if (roads.IsABay(road))
-            {
-                Mark(roads.FromJunction[road]);
-                Mark(roads.ToJunction[road]);
-                continue;
-            }
+            if (roads.IsABay(road)) continue;
 
             Take(roads.FromJunction[road], End(road, atTo: false));
             Take(roads.ToJunction[road], End(road, atTo: true));
         }
 
-        return new JunctionArms(ends, forks, special, circulates);
-
-        void Mark(int junction)
-        {
-            if (junction >= 0) special[junction] = true;
-        }
+        return new JunctionArms(ends, forks, circulates);
 
         void Take(int junction, int end)
         {

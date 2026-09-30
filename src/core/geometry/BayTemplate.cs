@@ -8,10 +8,10 @@ namespace TrafficSimulation.Core.Geometry;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The line between the lane and the bay is the town's</b> and not this file's: a bay's ways are the
-/// town's (<c>World.Parking.BayWays</c>). What is here is what a pose in a bay <em>is</em> — which way round
-/// the car stands (GEN-4j) and where its rear axle is (GEN-4i) — read by whatever lays a way to one or stands
-/// a car in one.
+/// <b>The line between the lane and the bay is the car's</b> and not this file's: it is shaped when the car
+/// makes the manoeuvre (<see cref="BayManoeuvre"/>, GEN-4f). What is here is what a pose in a bay <em>is</em>
+/// — which way round the car stands (GEN-4j) and where its rear axle is (GEN-4i) — read by whatever shapes a
+/// way to one or stands a car in one.
 /// </para>
 /// </remarks>
 internal static class BayTemplate

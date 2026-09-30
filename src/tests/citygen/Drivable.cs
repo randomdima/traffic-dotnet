@@ -19,11 +19,10 @@ namespace TrafficSimulation.Tests.CityGen;
 internal static class Drivable
 {
     /// <summary>
-    /// <b>The lanes of a car park's own arms</b> (GEN-53) — <b>the one thing in this build that a car is
-    /// driven onto and not off again as a lane</b>. An arm is a bay, driven only as the bay's own ways and never
-    /// as a lane (GEN-4h), and [it dangles as one](../../../docs/index.md#known-gaps), so the questions below
-    /// are asked of the rest of the town rather than answered with a state that is already named. It is the
-    /// whole of what GEN-50 is excused for.
+    /// <b>The lanes of a car park's bays</b> (GEN-53) — <b>the one thing in this build no lane is driven onto
+    /// or off</b>. A bay is a road of its own joined to nothing, got into and out of by a car's own manoeuvre
+    /// (GEN-4f), so the questions below are asked of the rest of the town — and a bay's own nodes, which only
+    /// its lanes reach, are no place the town is driven to. It is the whole of what GEN-50 is excused for.
     /// </summary>
     public static bool[] OnACarParksArm(CityPlan plan, RoadGraph roads)
     {
@@ -62,7 +61,7 @@ internal static class Drivable
 
         for (var junction = 0; junction < roads.JunctionCount; junction++)
         {
-            if (roads.LanesIntoJunction(junction).Length == 0) continue;
+            if (!AnyLaneAsked(roads.LanesIntoJunction(junction), passedOver)) continue;
 
             // Walked backwards from the lanes arriving at it, so one walk says which lanes reach this
             // junction rather than one walk a lane saying which junctions it reaches.
@@ -96,6 +95,17 @@ internal static class Drivable
         }
 
         return null;
+    }
+
+    /// <summary>Whether any of these lanes is one the questions are asked of rather than passed over.</summary>
+    static bool AnyLaneAsked(ReadOnlySpan<int> lanes, bool[]? passedOver)
+    {
+        foreach (var lane in lanes)
+        {
+            if (passedOver?[lane] != true) return true;
+        }
+
+        return false;
     }
 
     /// <summary>

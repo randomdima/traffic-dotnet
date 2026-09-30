@@ -9,10 +9,9 @@ namespace TrafficSimulation.Agents.Service;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The entrance is walked back to a junction a driver chooses at</b>, and never stopped at a car park's cut or
-/// a bend: a lane whose only way on is into the closure is a lane a car turned back at the mouth would be trapped
-/// in, since no junction turns a car round (TER-5f) and a bay turns nobody (GEN-4l). A car park's arms are not a
-/// way on (GEN-4h). <b>Where more than one lane feeds the entrance</b>, each that leads nowhere else is closed with
+/// <b>The entrance is walked back to a junction a driver chooses at</b>, and never stopped at a bend: a lane whose
+/// only way on is into the closure is a lane a car turned back at the mouth would be trapped in, since no junction
+/// turns a car round (TER-5f). A bay is not a way on (GEN-4h). <b>Where more than one lane feeds the entrance</b>, each that leads nowhere else is closed with
 /// it, walked back the same way: the officer stands at the one mouth, and the rest is out of every route (SRV-10).
 /// </para>
 /// <para>
@@ -91,7 +90,7 @@ internal static class RoadClosure
         return feeder;
     }
 
-    /// <summary>Whether a car on <paramref name="lane"/> has no way on but into <paramref name="closed"/>, a car park's arms not counted.</summary>
+    /// <summary>Whether a car on <paramref name="lane"/> has no way on but into <paramref name="closed"/>, bays not counted.</summary>
     static bool LeadsOnlyInto(RoadGraph roads, int lane, ReadOnlySpan<int> closed)
     {
         foreach (var onward in roads.LanesFrom(lane))

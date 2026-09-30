@@ -14,7 +14,7 @@ namespace TrafficSimulation.World.Road;
 /// <para>
 /// <b>A bar is placed by the station at its own arm alone</b> and asks nothing of the junction behind it
 /// (TER-6, rule 3): where the walk is cut decides where the stop is, and the two derived apart would differ
-/// by metres the first time either moved. It is also the whole of which arms carry one — a bay's way, a
+/// by metres the first time either moved. It is also the whole of which arms carry one — a bay, a
 /// roundabout's ring and every node that forks nothing stand no station (<see cref="Crossings"/>) and so
 /// carry no bar.
 /// </para>
