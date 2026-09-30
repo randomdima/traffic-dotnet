@@ -201,15 +201,15 @@ internal static class StuckProbe
             $"plans: {world.PlansLaidAgain} laid again where what another came to moved their answer, " +
             $"{world.Unsettled} rebuilds left still moving");
         Console.WriteLine(
-            $"passes: cars asked {world.PassesAsked}, withdrew {world.PassesWithdrawn}, made {world.PassesMade}; " +
+            $"passes: cars asked {world.Overtaking.Asked}, withdrew {world.Overtaking.Withdrawn}, made {world.Overtaking.Made}; " +
             $"walkers asked {world.SidestepsAsked}, withdrew {world.SidestepsWithdrawn}, made {world.SidestepsMade}");
         Console.WriteLine(
-            $"manoeuvres at a bay (GEN-4f): asked {world.ManoeuvresAsked}, withdrew {world.ManoeuvresWithdrawn}, " +
-            $"begun {world.ManoeuvresBegun} — parked {world.ParkedNoseIn} nose in and {world.ParkedBackedIn} backed in, " +
-            $"{(world.ManoeuvresBegun > 0 ? world.ManoeuvreStreetM / world.ManoeuvresBegun : 0):F1} m of the street's ways each");
+            $"manoeuvres at a bay (GEN-4f): asked {world.Bays.Asked}, withdrew {world.Bays.Withdrawn}, " +
+            $"begun {world.Bays.Begun} — parked {world.Bays.ParkedNoseIn} nose in and {world.Bays.ParkedBackedIn} backed in, " +
+            $"{(world.Bays.Begun > 0 ? world.Bays.StreetM / world.Bays.Begun : 0):F1} m of the street's ways each");
         Console.WriteLine(
-            $"too near to step out (CAR-50): {world.CarTicksBackingUp} car-ticks backing up for the room, " +
-            $"{world.CarTicksBlocked} blocked with none of the ground behind them");
+            $"too near to step out (CAR-50): {world.BackingUp.CarTicksBackingUp} car-ticks backing up for the room, " +
+            $"{world.BackingUp.CarTicksBlocked} blocked with none of the ground behind them");
         if (passesBegun.Count > 0) Console.WriteLine($"  the first begun, to frame with --shot: {string.Join("; ", passesBegun)}");
         if (wrecksSaid.Count > 0)
         {

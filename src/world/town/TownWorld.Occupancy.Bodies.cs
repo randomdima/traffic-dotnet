@@ -56,7 +56,7 @@ internal sealed partial class TownWorld
         {
             ref readonly var cover = ref under[at];
             var onward = LaneOccupancy.NoWay;
-            var onItsLine = travelling && IsOnItsLine(occupant, cover.Way, out onward);
+            var onItsLine = travelling && _ground.IsOnItsLine(occupant, cover.Way, out onward);
             if (blocked) onward = LaneOccupancy.NoWay;
             _occupancy.LayBody(
                 cover.Way, cover.FromM, cover.ToM, onItsLine ? Cars.AlongMps[occupant] : 0f, occupant,

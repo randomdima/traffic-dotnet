@@ -101,7 +101,7 @@ internal sealed partial class TownWorld
             ref readonly var way = ref ways[index];
             if (!_occupancy.AheadPlanned(way.Way, way.FromM, way.ToM, LaneRoster.Signal, out var held)) continue;
 
-            return MathF.Max(0f, OnTheLineM(way, held.FromM) - noseM);
+            return MathF.Max(0f, LineWays.OnTheLineM(way, held.FromM) - noseM);
         }
 
         return float.PositiveInfinity;
@@ -113,7 +113,7 @@ internal sealed partial class TownWorld
     float BarOnLineM(int car, int ahead, int lane)
     {
         var barAlongM = _furniture.StopBarAlongM(lane);
-        return float.IsPositiveInfinity(barAlongM) ? float.PositiveInfinity : OnTheLineM(car, ahead, barAlongM);
+        return float.IsPositiveInfinity(barAlongM) ? float.PositiveInfinity : _ground.OnTheLineM(car, ahead, barAlongM);
     }
 
     /// <summary>

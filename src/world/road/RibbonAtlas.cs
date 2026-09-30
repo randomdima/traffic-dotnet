@@ -160,6 +160,12 @@ internal sealed class RibbonAtlas
     /// </summary>
     public WayCrossings Marks { get; }
 
+    /// <summary>
+    /// How many ways one body may be found over. A bound on a caller's stack span; a way past it is dropped and
+    /// counted (<see cref="Dropped"/>), and a gate holds that count at nothing.
+    /// </summary>
+    public const int MostWaysUnderABody = 48;
+
     /// <summary>How far apart the lattice's points stand.</summary>
     public float StepM => _level.CellM;
 

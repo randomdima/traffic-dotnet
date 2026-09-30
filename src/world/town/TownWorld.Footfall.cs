@@ -6,6 +6,7 @@ using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Routing;
+using static TrafficSimulation.World.Road.LineWays;
 
 namespace TrafficSimulation.World.Town;
 
@@ -287,7 +288,7 @@ internal sealed partial class TownWorld
             var reachM = _occupancy.Reach(WalkAsk(person, hold, way), way.Way, way.ToM, levelWithM, out var cutBy);
             if (reachM >= way.ToM) continue;
 
-            return new PlanAnswer(OnTheLineM(way, reachM), _config.PersonStandstillGapM, cutBy, way.Way, index, reachM);
+            return new PlanAnswer(LineWays.OnTheLineM(way, reachM), _config.PersonStandstillGapM, cutBy, way.Way, index, reachM);
         }
 
         return PlanAnswer.Whole;
@@ -339,7 +340,7 @@ internal sealed partial class TownWorld
             way.LineFromM - People.RadiusM[person], float.NegativeInfinity, AlongItsWalkMps(person));
 
     /// <summary>Whether one of the town's ways is the paint of a zebra, walked from one kerb to the other.</summary>
-    public bool IsTheCrossing(int way) => ZebraOf(way) != RibbonMarks.NoZebra;
+    public bool IsTheCrossing(int way) => _lines.IsTheCrossing(way);
 
     /// <summary>
     /// <b>What the walker got</b>: how far past the front of its body its plan survived, less the gap it keeps

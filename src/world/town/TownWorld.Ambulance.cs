@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Ambulance;
+using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Evacuator;
@@ -30,7 +31,7 @@ namespace TrafficSimulation.World.Town;
 /// </para>
 /// <para>
 /// <b>The whole of what a blue light does to the road is elsewhere</b>, because it belongs to the road:
-/// the rung a plan is laid at (<see cref="RungOn"/>), which is also what takes it through a red — a light's
+/// the rung a plan is laid at (<see cref="Following"/>), which is also what takes it through a red — a light's
 /// hold is below it (TLT-1). What this file decides is only whether the light is on.
 /// </para>
 /// </remarks>

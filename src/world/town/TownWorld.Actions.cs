@@ -7,56 +7,59 @@ using TrafficSimulation.World.Road;
 namespace TrafficSimulation.World.Town;
 
 /// <summary>
-/// <b>What each car is doing, one action at a time</b> (CAR-15b): the one place a car's action changes, and what
-/// the action it leaves owned — a pass, a manoeuvre — dropped with it.
+/// <b>Who is doing what</b>: each car's action and each walker's, changed in one place each (CAR-15b, PER-25b), and a
+/// hand at a wheel or on the keys taken up and let go of before anything is laid.
 /// </summary>
-/// <remarks>
-/// <b>Nothing reads a car's doing off its line, its pass or its manoeuvre</b>: those are what its action holds, and
-/// the action is what says which of them is in force. Two readings of one car were how a car waiting for its
-/// manoeuvre was once answered as a plan down its line and drove it.
-/// </remarks>
 internal sealed partial class TownWorld
 {
+    /// <summary>What every car is doing, and the one place that changes (<see cref="CarActions"/>).</summary>
+    readonly CarActions _carActions;
+
+    readonly Overtaking _overtaking;
+
+    readonly BackingUp _backingUp;
+
+    readonly Manoeuvres _manoeuvres;
+
+    readonly BayManoeuvring _bays;
+
+    readonly ParkingIn _parkingIn;
+
+    readonly PullingOut _pullingOut;
+
+    readonly Rejoining _rejoining;
+
+    /// <summary>Getting past what stands in a lane (CAR-46), and its instruments.</summary>
+    public Overtaking Overtaking => _overtaking;
+
+    /// <summary>Backing up for the room to (CAR-50), and its instruments.</summary>
+    public BackingUp BackingUp => _backingUp;
+
+    /// <summary>Every car's manoeuvre at a bay (GEN-4f), and its instruments.</summary>
+    public BayManoeuvring Bays => _bays;
+
+    /// <summary>The manoeuvres, for an instrument or the debug layer; the driver's own and read by nothing else.</summary>
+    public Manoeuvres Manoeuvres => _manoeuvres;
+
+    bool IsManoeuvring(int car) => _carActions.IsManoeuvring(car);
+
     /// <summary>
-    /// <b>A car handed over to another action</b>, and what the one it leaves owned let go: a pass is its overtake's,
-    /// and a manoeuvre its bay's — kept from a manoeuvre into a bay to the one straight back out of it, where a leg
-    /// turns there (GEN-4l).
+    /// <b>A piece of a manoeuvre driven to its end</b>: the next piece, or — at the end of the last — whatever the
+    /// action it is ends in: a car parked, or out on its lane.
     /// </summary>
-    void Enter(int car, CarAction action)
+    bool TheManoeuvreIsDriven(int car)
     {
-        var was = Cars.Action[car];
-        if (was == action) return;
+        if (_bays.TakeTheNextPiece(car)) return true;
 
-        if (was == CarAction.Overtake) Cars.Pass[car] = Overtake.None;
-        if (IsAtABay(was) && !IsAtABay(action)) _manoeuvres.Clear(car);
-
-        // <b>A grant is its action's claim</b>, and goes with it: the one claim two actions share is a plan down the
-        // route's line, handed on between the actions that drive it. Anything else stands until its own is laid.
-        if (!(PlansDownTheRoute(was) && PlansDownTheRoute(action) && _carHold[car] != LaneOccupancy.NoHold))
-        {
-            Cars.AuthorityM[car] = 0f;
-        }
-
-        Cars.Action[car] = action;
+        var town = new CarTown(this);
+        return Cars.Action[car] == CarAction.Park ? _parkingIn.Arrive(ref town, car) : _pullingOut.Arrive(ref town, car);
     }
 
-    static bool IsAtABay(CarAction action) => action is CarAction.Park or CarAction.Unpark;
+    void Enter(int car, CarAction action) => _carActions.Enter(car, action);
 
-    /// <summary>Whether an action plans down the route's own line — a car getting into a bay does, up to where it waits.</summary>
-    static bool PlansDownTheRoute(CarAction action) =>
-        action is CarAction.Follow or CarAction.Overtake or CarAction.BackUp or CarAction.Park;
+    static bool IsAtABay(CarAction action) => CarActions.IsAtABay(action);
 
-    /// <summary>
-    /// <b>Whether a car's action drives the route's own line</b> — and so plans down it (TER-4c.1): following it,
-    /// getting past something on it, backing down it for room, or coming up it to where it waits for its bay.
-    /// </summary>
-    bool DrivesTheRoute(int car) =>
-        Cars.Action[car] switch
-        {
-            CarAction.Follow or CarAction.Overtake or CarAction.BackUp => true,
-            CarAction.Park => !_manoeuvres.IsBegun(car),
-            _ => false,
-        };
+    bool DrivesTheRoute(int car) => _carActions.DrivesTheRoute(car);
 
     /// <summary>
     /// <b>A walker handed over to another action</b> (PER-25b), and what the one it leaves owned let go: a pass is its

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Numerics;
 using TrafficSimulation.Agents.Ambulance;
+using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Evacuator;
@@ -150,6 +151,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <summary>The ground of every way, and which ways share it (<see cref="RibbonAtlas"/>).</summary>
     readonly RibbonAtlas _atlas;
 
+    /// <summary>The line every way is travelled on, and the zebra it paints (<see cref="WayLines"/>).</summary>
+    readonly WayLines _lines;
+
     /// <summary>
     /// <b>The zebras this town paints, laid once and read by both networks</b> (TER-6, WLK-10): the walk is
     /// cut and joined at them, the lanes they are painted across carry them as furniture, and the bands
@@ -264,7 +268,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // <b>The ground of every way at once</b> (TER-4c.4): which ribbons cover which ground, and which share
         // it. Laid over the one numbering, so it comes after every network that numbers a way.
         var atlasAt = Stopwatch.GetTimestamp();
-        _atlas = RibbonAtlas.Lay(new TownRibbons(this), config.RibbonLevel, config.RibbonTouchM);
+        _lines = new WayLines(_roads, _walking, _ways, _crossingEdges, config);
+        _atlas = RibbonAtlas.Lay(_lines, config.RibbonLevel, config.RibbonTouchM);
         AtlasMs = Stopwatch.GetElapsedTime(atlasAt).TotalMilliseconds;
         RefuseFurnitureOnTheRoad();
 
@@ -309,12 +314,16 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _occupancy = new LaneOccupancy(
             _ways,
             (drivers * (MostWaysUnderABody + MostPlannedPer(MostWaysAlongALine + 1, _atlas.Marks)
-                        + MostPlannedPer(BackingPieces, _atlas.Marks)))
+                        + MostPlannedPer(BackingUp.BackingPieces, _atlas.Marks)))
             + (walkers * (MostWaysUnderABody + 1 + MostPlannedPer(MostWaysAlongAWalk, _atlas.Marks)))
             + _signalHolds.Count,
             (drivers * 2) + walkers + _signalHolds.Count,
             _atlas.Marks);
-        _carHold = new int[drivers];
+        _ground = new DrivingGround(Cars, _occupancy, _atlas, _ways, _roads, _lines, config);
+        _carHold = _ground.PlanHold;
+        _carActions = new CarActions(_ground, _manoeuvres);
+        _overtaking = new Overtaking(_ground, _carActions);
+        _backingUp = new BackingUp(_ground, _carActions, _overtaking);
         _walkerHold = new int[walkers];
         _wheels = new WheelScratch(drivers);
         _behindTheBar = new bool[drivers];
@@ -324,6 +333,11 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
         _containers = new Containers(_plan.Buildings.Capacity, drivers, People.Inside);
         _parking = ParkingRegistry.Build(plan, _bayStreets, config, drivers);
+        _bays = new BayManoeuvring(_ground, _carActions, _manoeuvres);
+        _pullingOut = new PullingOut(_ground, _bays, _parking, _bayStreets);
+        _parkingIn = new ParkingIn(_ground, _carActions, _bays, _pullingOut, _parking, _bayStreets);
+        _following = new Following(_ground, _carActions, _overtaking, _parkingIn);
+        _rejoining = new Rejoining(_ground, _carActions, _following);
         _round = new ParkedRound(drivers);
         for (var bay = 0; bay < _parking.BayCount && !_townParks; bay++) _townParks = _parking.CanBeReached(bay);
 

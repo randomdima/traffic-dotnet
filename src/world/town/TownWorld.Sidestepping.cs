@@ -6,6 +6,7 @@ using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Road;
+using static TrafficSimulation.World.Road.LineWays;
 
 namespace TrafficSimulation.World.Town;
 
@@ -446,6 +447,19 @@ internal sealed partial class TownWorld
         if (!OnTheWalkAt(person, pass.ClearM, out var from) || !OnTheWalkAt(person, pass.ClearM + roomM, out var to)) return -1;
 
         return UnderTheStretch(from.PositionM, to.PositionM, People.RadiusM[person], under);
+    }
+
+    /// <summary>
+    /// The ground a body walking straight from one place to another covers, as the ways the atlas finds under it —
+    /// <paramref name="halfWidthM"/> either side of the straight and past both ends of it.
+    /// </summary>
+    int UnderTheStretch(Vector2 fromM, Vector2 toM, float halfWidthM, Span<WayCover> under)
+    {
+        var along = toM - fromM;
+        var lengthM = along.Length();
+        return lengthM <= 0f
+            ? _atlas.UnderDisc(fromM, halfWidthM, under)
+            : _atlas.UnderBox((fromM + toM) * 0.5f, along / lengthM, (lengthM * 0.5f) + halfWidthM, halfWidthM, under);
     }
 
     /// <summary>

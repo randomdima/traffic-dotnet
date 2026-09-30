@@ -14,8 +14,8 @@ namespace TrafficSimulation.World.Town;
 /// The town's side of a drive leg: where it begins, where the line it is driven on comes from, which bay
 /// it is aimed at, and what stands the car down at the end of it. <b>Which line a leg is on next is
 /// <see cref="TakeTheNextStepOfTheLeg"/>'s</b>, and how a car gets into a bay and out of one is its own
-/// manoeuvre (<see cref="ShapeTheWayIn"/>, <see cref="ShapeTheWayOut"/>) — what is here is only what needs the
-/// whole composition.
+/// action (<see cref="ParkingIn"/>, <see cref="PullingOut"/>) — what is here is only what needs the whole
+/// composition.
 /// </summary>
 internal sealed partial class TownWorld
 {
@@ -57,7 +57,7 @@ internal sealed partial class TownWorld
         // a lane it may take (GEN-53).
         var standingIn = _parking.BayOf(car);
         if (standingIn < 0) standingIn = _parking.BayHolding(Cars.PositionM[car]);
-        if (standingIn >= 0 && ShapeTheWayOut(car, standingIn))
+        if (standingIn >= 0 && _pullingOut.ShapeTheWayOut(car, standingIn))
         {
             Enter(car, CarAction.Unpark);
             return;
@@ -295,7 +295,7 @@ internal sealed partial class TownWorld
         {
             var atM = _bayStreets.AtLaneM(bay, fromLane);
             if (atM < bestM || !_parking.IsFreeFor(car, bay) || float.IsNaN(_bayStreets.AtLaneM(bay, backLane))) continue;
-            if (!StandsShortOf(car, fromLane, StopForTheBayM(car, bay, fromLane))) continue;
+            if (!StandsShortOf(car, fromLane, _parkingIn.StopForTheBayM(car, bay, fromLane))) continue;
 
             best = bay;
             bestM = atM;
@@ -451,6 +451,6 @@ internal sealed partial class TownWorld
         if (bay < 0 || Cars.RouteTaken[car] < Cars.RouteCount[car]) return CarFleet.NoBay;
         if (float.IsNaN(_bayStreets.AtLaneM(bay, lastLane))) return CarFleet.NoBay;
 
-        return StandsShortOf(car, lastLane, StopForTheBayM(car, bay, lastLane)) ? bay : CarFleet.NoBay;
+        return StandsShortOf(car, lastLane, _parkingIn.StopForTheBayM(car, bay, lastLane)) ? bay : CarFleet.NoBay;
     }
 }

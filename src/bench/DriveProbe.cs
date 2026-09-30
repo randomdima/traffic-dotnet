@@ -94,8 +94,8 @@ internal static class DriveProbe
         var cars = world.Cars;
         var arrivedBefore = world.BaysParkedIn;
         var hardBefore = world.HardBrakings;
-        var askedBefore = world.PassesAsked;
-        var madeBefore = world.PassesMade;
+        var askedBefore = world.Overtaking.Asked;
+        var madeBefore = world.Overtaking.Made;
         var redsBefore = world.RedBarCrossings;
         var samples = 0L;
         var stopped = 0L;
@@ -155,6 +155,6 @@ internal static class DriveProbe
             stopped / (double)per, offRoad / (double)per, holds, samples,
             DrivenCount(cars) == 0 ? 0 : coveredSum / DrivenCount(cars), wentNowhere,
             world.BaysParkedIn - arrivedBefore, world.HardBrakings - hardBefore,
-            world.PassesAsked - askedBefore, world.PassesMade - madeBefore, world.RedBarCrossings - redsBefore);
+            world.Overtaking.Asked - askedBefore, world.Overtaking.Made - madeBefore, world.RedBarCrossings - redsBefore);
     }
 }
