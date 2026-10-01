@@ -597,29 +597,31 @@ internal sealed class RibbonAtlas
 
         if (leastM.X > mostM.X) leastM = mostM = Vector2.Zero;
 
-        var cells = GridWindow.Over(main, leastM, mostM);
+        if (1 << (2 * shift) > byte.MaxValue + 1)
+        {
+            throw new InvalidOperationException($"{1 << shift} points across a main cell are more than a filing can name");
+        }
 
-        // Every way's own points, found a way at a time on as many threads as there are, and counted under
-        // their cells as they are found.
-        var perWay = new ArraySegment<Sample>[wayCount];
+        var cells = GridWindow.Over(main, leastM, mostM);
+        var reachM = ReachOf(stepM);
+
+        // Every way's own points, found a way at a time on as many threads as there are, kept as what filing
+        // them needs, and counted under their cells as they are found.
+        var perWay = new ArraySegment<Filing>[wayCount];
         var cellCount = new int[cells.Count];
         InChunks.Over(
             wayCount,
-            () => new Laying(),
+            () => new Laying(cells, shift, reachM),
             (laying, way) =>
             {
                 var laid = laying.Kept(PointsOf(lines, way, lengthM[way], level, laying.Found));
                 perWay[way] = laid;
-                foreach (var sample in laid.AsSpan())
-                {
-                    Interlocked.Increment(ref cellCount[cells.IndexOf(sample.X >> shift, sample.Y >> shift)]);
-                }
+                foreach (var filing in laid.AsSpan()) Interlocked.Increment(ref cellCount[filing.Cell]);
             });
 
         // Filed a cell at a time: the cells that hold any given their place, every point put in its cell in
         // whatever order the threads reach it, and each cell then put in row, column and way order — which
         // no two entries share, so the order they were filed in is gone.
-        var mask = (1 << shift) - 1;
         var cellSlot = new int[cells.Count];
         var slots = 0;
         for (var cell = 0; cell < cells.Count; cell++) cellSlot[cell] = cellCount[cell] > 0 ? slots++ : -1;
@@ -641,37 +643,42 @@ internal sealed class RibbonAtlas
         }
 
         var total = slotFirst[slots];
-        var keys = new long[total];
+        var inCellOf = new byte[total];
         var entries = new Entry[total];
         var cursor = (int[])slotFirst.Clone();
-        var reachM = ReachOf(stepM);
         InChunks.Over(
             wayCount,
             () => 0,
             (_, way) =>
             {
-                foreach (var sample in perWay[way].AsSpan())
+                foreach (var filing in perWay[way].AsSpan())
                 {
-                    var slot = cellSlot[cells.IndexOf(sample.X >> shift, sample.Y >> shift)];
-                    var at = Interlocked.Increment(ref cursor[slot]) - 1;
-                    var inCell = ((sample.Y & mask) << shift) | (sample.X & mask);
-                    keys[at] = ((long)inCell << 32) | (uint)way;
-                    entries[at] = new Entry(Outside(sample.MarginM, reachM), Filed(sample.AlongM), way);
+                    var at = Interlocked.Increment(ref cursor[cellSlot[filing.Cell]]) - 1;
+                    inCellOf[at] = filing.InCell;
+                    entries[at] = new Entry(filing.Outside, filing.Along, way);
                 }
             });
+
+        // A cell's sort keys are made on the thread sorting it, in a buffer as long as the fullest cell, rather
+        // than held for every entry of the town at once.
+        var mostInACell = 0;
+        for (var slot = 0; slot < slots; slot++) mostInACell = Math.Max(mostInACell, slotFirst[slot + 1] - slotFirst[slot]);
 
         var startsPerCell = (1 << (2 * shift)) + 1;
         var pointStart = new ushort[slots * startsPerCell];
         var census = new (int Points, int MostAtAPoint)[slots];
         InChunks.Over(
             slots,
-            () => 0,
-            (_, slot) =>
+            () => new long[mostInACell],
+            (keys, slot) =>
             {
                 var first = slotFirst[slot];
                 var count = slotFirst[slot + 1] - first;
-                var cellKeys = keys.AsSpan(first, count);
-                cellKeys.Sort(entries.AsSpan(first, count));
+                var cellKeys = keys.AsSpan(0, count);
+                var cellEntries = entries.AsSpan(first, count);
+                var cellInCell = inCellOf.AsSpan(first, count);
+                for (var at = 0; at < count; at++) cellKeys[at] = ((long)cellInCell[at] << 32) | (uint)cellEntries[at].Way;
+                cellKeys.Sort(cellEntries);
                 census[slot] = Started(cellKeys, pointStart.AsSpan(slot * startsPerCell, startsPerCell));
             });
 
@@ -727,14 +734,14 @@ internal sealed class RibbonAtlas
     }
 
     /// <summary>
-    /// <b>One thread's lattice points</b>: every way it has laid, back to back in blocks, so a way's points are
-    /// a stretch of a block rather than an array of their own.
+    /// <b>One thread's lattice points</b>: every way it has laid, back to back in blocks and as they will be
+    /// filed, so a way's points are a stretch of a block rather than an array of their own.
     /// </summary>
     /// <remarks>
     /// An array a way is tens of thousands of small allocations from every thread at once, and the workstation
     /// heap hands out room under one lock: on Odesa a third of the pass's CPU went to waiting for it.
     /// </remarks>
-    sealed class Laying
+    sealed class Laying(GridWindow cells, int shift, float reachM)
     {
         /// <summary>How many points a block holds, unless one way's own need more.</summary>
         const int BlockPoints = 1 << 16;
@@ -742,24 +749,42 @@ internal sealed class RibbonAtlas
         /// <summary>The one way being laid, found before it is kept.</summary>
         public readonly List<Sample> Found = [];
 
-        Sample[] _block = [];
+        readonly int _mask = (1 << shift) - 1;
+        Filing[] _block = [];
         int _used;
 
-        /// <summary>A way's points, copied into this thread's block, and where they now stand.</summary>
-        public ArraySegment<Sample> Kept(ReadOnlySpan<Sample> points)
+        /// <summary>A way's points, filed into this thread's block, and where they now stand.</summary>
+        public ArraySegment<Filing> Kept(ReadOnlySpan<Sample> points)
         {
             if (_used + points.Length > _block.Length)
             {
-                _block = GC.AllocateUninitializedArray<Sample>(Math.Max(BlockPoints, points.Length));
+                _block = GC.AllocateUninitializedArray<Filing>(Math.Max(BlockPoints, points.Length));
                 _used = 0;
             }
 
-            points.CopyTo(_block.AsSpan(_used));
-            var kept = new ArraySegment<Sample>(_block, _used, points.Length);
+            var kept = _block.AsSpan(_used, points.Length);
+            for (var at = 0; at < points.Length; at++)
+            {
+                var point = points[at];
+                kept[at] = new Filing(
+                    cells.IndexOf(point.X >> shift, point.Y >> shift),
+                    (byte)(((point.Y & _mask) << shift) | (point.X & _mask)),
+                    Outside(point.MarginM, reachM),
+                    Filed(point.AlongM));
+            }
+
+            var segment = new ArraySegment<Filing>(_block, _used, points.Length);
             _used += points.Length;
-            return kept;
+            return segment;
         }
     }
+
+    /// <summary>
+    /// <b>One point as it is filed</b>: its main cell, which point of that cell, and its entry's two figures
+    /// already worked out — half a <see cref="Sample"/>, which is what every point of the town costs while it
+    /// waits between being found and being filed.
+    /// </summary>
+    readonly record struct Filing(int Cell, byte InCell, byte Outside, ushort Along);
 
     /// <summary>
     /// One lattice point a way's ribbon covers: which cell of the points' level it is the middle of, how far

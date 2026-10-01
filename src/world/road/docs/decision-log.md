@@ -4,6 +4,29 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-10-01 — a point waits to be filed in eight bytes, and a cell's keys are made where it is sorted
+
+**The atlas's lay was most of an open's peak**, and almost none of it was the atlas. At ten times Odesa's area
+(O10, the people and districts at Odesa's density) it kept 566 MiB and held, at once, every point's `Sample`
+between being found and being filed (16 bytes an entry, 920 MB) and a sort key for every entry of the town
+(8 bytes, 460 MB).
+
+- **A point is kept in its block as what filing it needs** (`RibbonAtlas.Filing`): its main cell, which point
+  of the cell, and its entry's two figures, worked out where the point is found rather than where it is filed.
+- **A cell's sort keys are made on the thread that sorts it**, in a buffer as long as the fullest cell, from a
+  byte an entry naming its point; the key and so the order are what they were.
+
+The atlas is the same to the bit: every array it keeps hashed equal on O1 and O10 before and after. Measured on
+`qq prof --bench load`:
+
+| | atlas before | atlas after | peak before | peak after |
+|---|---|---|---|---|
+| O1 (Odesa) | 199 ms | 203 ms | 354 MiB | 336 MiB |
+| O10 | 2158 ms | 2057 ms | 3159 MiB | 2490 MiB |
+
+**Not done: filing straight off a second walk of every way**, which would hold no points at all. It is a
+second run of the stage's geometry, and the blocks are now about a sixth of the peak.
+
 ## 2026-10-01 — the claims are laid every 0.05 s, not every tick
 
 **The owner set the rule that an actor's behaviour runs on nothing per tick**, and laying the claims was most of
@@ -81,7 +104,7 @@ CPU was waiting on it. Filing the points into their cells, and building the entr
 then two passes over five million entries on one thread.
 
 - **A way's points are a stretch of its thread's block** (`RibbonAtlas.Laying`), deduplicated in place, and
-  each cell's share is counted as they are found. The pass allocates 88 MiB, in blocks.
+  each cell's share is counted as they are found.
 - **A point is filed by whichever thread reaches it**, at a place taken atomically from its cell's cursor,
   and its entry is built there. The order points land in is lost to the cell's sort, whose key — point,
   then way — no two entries share, so the atlas is the same to the bit: every array it keeps hashed equal
