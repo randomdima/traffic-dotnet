@@ -26,7 +26,8 @@ internal sealed class ParkingIn(
 
     /// <summary>
     /// <b>This tick of a car getting into a bay</b>: the manoeuvre, where it is begun; otherwise up the route's line to
-    /// where it waits, the manoeuvre kept where it was asked for last tick, or shaped afresh and asked for.
+    /// where it waits, the manoeuvre kept where it was asked for last tick. Shaping it afresh is the car's decision
+    /// (<see cref="Decide"/>).
     /// </summary>
     public void Tick<TTown>(ref TTown town, int car, in CarPose pose)
         where TTown : struct, ICarTown
@@ -39,20 +40,24 @@ internal sealed class ParkingIn(
 
         if (!town.ReadTheLine(car, pose, out var progressM, out var alongMps, out var coveredM)) return;
 
-        if (Manoeuvres.Stage[car] == ManoeuvreStage.Asked)
+        if (Manoeuvres.Stage[car] == ManoeuvreStage.Asked && bays.KeepOrWithdraw(car))
         {
-            if (bays.KeepOrWithdraw(car))
-            {
-                bays.DriveThePiece(ref town, car, pose);
-                return;
-            }
-        }
-        else
-        {
-            TakeUpTheBay(car, Manoeuvres.Bay[car], progressM, alongMps);
+            bays.DriveThePiece(ref town, car, pose);
+            return;
         }
 
         town.DriveOnTheLine(car, pose, progressM, alongMps, coveredM);
+    }
+
+    /// <summary>
+    /// <b>A car waiting for its manoeuvre into a bay, on its own clock</b>: shaped afresh from where it stands and asked
+    /// for, where the last one asked for was not had.
+    /// </summary>
+    public void Decide(int car)
+    {
+        if (Manoeuvres.IsBegun(car) || Manoeuvres.Stage[car] == ManoeuvreStage.Asked) return;
+
+        TakeUpTheBay(car, Manoeuvres.Bay[car], Cars.ProgressM[car], Cars.AlongMps[car]);
     }
 
     /// <summary>

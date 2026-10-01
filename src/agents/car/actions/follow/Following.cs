@@ -22,20 +22,13 @@ internal sealed class Following(DrivingGround ground, CarActions actions, Overta
     SimConfig Config => ground.Config;
 
     /// <summary>
-    /// <b>This tick of a car following its route</b>, once the line under it has been read: into its bay's manoeuvre,
-    /// onto a pass or backing up for the room to, or on down the line on the ground it was granted.
+    /// <b>This tick of a car following its route</b>, once the line under it has been read: onto a pass or backing up
+    /// for the room to, or on down the line on the ground it was granted. Into its bay's manoeuvre is decided on the
+    /// car's own clock (<see cref="Decide"/>).
     /// </summary>
     public void Tick<TTown>(ref TTown town, int car, in CarPose pose, float progressM, float alongMps, float coveredM)
         where TTown : struct, ICarTown
     {
-        // GEN-4f: a line that stops for a bay is where the car takes up its manoeuvre into it.
-        if (Cars.StopsForBayOf(car) is var bay and not CarFleet.NoBay && parkingIn.TakeUpTheBay(car, bay, progressM, alongMps))
-        {
-            actions.Enter(car, CarAction.Park);
-            town.DriveOnTheLine(car, pose, progressM, alongMps, coveredM);
-            return;
-        }
-
         // CAR-46: something ended the grant that the car may get past. Slowed for gently from the first, and — where
         // the car has come to where it would begin slowing for it and the road lets it — decided on, once.
         if (!overtaking.MayGetPastWhatCutIt(car, out var cutBy, out var cutOn))
@@ -53,6 +46,19 @@ internal sealed class Following(DrivingGround ground, CarActions actions, Overta
 
         actions.Enter(car, overtaking.BacksUp(car, progressM, alongMps) ? CarAction.BackUp : CarAction.Overtake);
         overtaking.WaitAtTheStep(ref town, car, pose, progressM, alongMps, coveredM);
+    }
+
+    /// <summary>
+    /// <b>A car following its route, on its own clock</b>: where the line stops for its bay and the car is near enough,
+    /// its manoeuvre in shaped from where it stands and asked for (GEN-4f).
+    /// </summary>
+    public void Decide(int car)
+    {
+        if (Cars.StopsForBayOf(car) is var bay and not CarFleet.NoBay
+            && parkingIn.TakeUpTheBay(car, bay, Cars.ProgressM[car], Cars.AlongMps[car]))
+        {
+            actions.Enter(car, CarAction.Park);
+        }
     }
 
     /// <summary>

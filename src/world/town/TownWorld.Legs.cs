@@ -76,6 +76,8 @@ internal sealed partial class TownWorld
             return;
         }
 
+        DecideTheAction(car);
+
         if (TheLineIsSpent(car) && TakeTheNextStepOfTheLeg(car))
         {
             _driveProgress.Restart(car);
@@ -83,6 +85,24 @@ internal sealed partial class TownWorld
         }
 
         WatchTheProgress(car, sinceLastDecisionS);
+    }
+
+    /// <summary>
+    /// <b>What the car's action decides, on the car's own clock</b> rather than its tick (CAR-15b): into a bay's
+    /// manoeuvre from the route's line, and a manoeuvre shaped afresh while it waits for the last one's ground.
+    /// </summary>
+    void DecideTheAction(int car)
+    {
+        switch (Cars.Action[car])
+        {
+            case CarAction.Follow:
+                _following.Decide(car);
+                return;
+
+            case CarAction.Park:
+                _parkingIn.Decide(car);
+                return;
+        }
     }
 
     /// <summary>

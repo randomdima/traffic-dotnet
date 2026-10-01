@@ -3,6 +3,28 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-10-01 — a car takes up its bay on its own clock, not its tick
+
+**The owner set the rule that an actor's behaviour runs on nothing per tick**: a tick is the bodies, the player's
+input and what is drawn. Shaping a manoeuvre into a bay was the largest decision still taken every tick — both
+shapes drawn and swept off the atlas, and the ground asked for, every tick a car in `Park` waited for the last
+shape's ground: 3.4 % of Odesa's CPU from its first minute to its sixth.
+
+**Taking up the bay and shaping it afresh are now the action's decision** (`Following.Decide`,
+`ParkingIn.Decide`, from `DecideDriver`), at most a decision interval after the car comes near enough. Keeping an
+asked shape is still the tick's, since it is answered in the rebuild after the ask. A car near its bay can now
+decide a pass in the ticks before its decision comes round, which the bay used to pre-empt.
+
+Measured on `--bench age --map Odesa`, µs a tick, two runs each:
+
+| | before | after |
+|---|---|---|
+| cars, 1 / 3 / 5 min | 223–230 / 503–504 / 588–590 | 217–224 / 445–454 / 491–500 |
+| whole tick, 1 / 3 / 5 min | 755–767 / 1162–1182 / 1217–1224 | 734–745 / 1089–1097 / 1102–1110 |
+
+`--bench stuck --map Odesa` parked 502 cars (503) off 1 282 manoeuvres asked (1 285), none withdrawn; cars asked
+for 28 passes (19).
+
 ## 2026-10-01 — a manoeuvre's pieces are swept once, for the ask they are laid for
 
 **A manoeuvre at a bay was the largest single cost left in a running town**: `BayManoeuvring.UnderTheCarOnThePiece`
