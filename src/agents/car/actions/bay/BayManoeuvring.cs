@@ -61,6 +61,12 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     readonly long[] _sweptFor = new long[manoeuvres.Piece.Length];
 
     /// <summary>
+    /// And which ask the claims were last laid for — what an ask is answered after, kept or withdrawn, and not before:
+    /// the claims are laid once a decision interval.
+    /// </summary>
+    readonly long[] _laidFor = new long[manoeuvres.Piece.Length];
+
+    /// <summary>
     /// <b>The station each car stands at on the piece it drives, read once a rebuild</b>: <see cref="Lay"/> and
     /// <see cref="Hold"/> both begin from it, the second after every pass is down, so the first to ask keeps its
     /// stretches of carriageway here for the other.
@@ -119,10 +125,13 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     /// <b>A manoeuvre laid in this rebuild, kept or withdrawn</b> before the car moves on it — kept where nothing but
     /// the car itself is on its ground, as a pass is (<see cref="LaneOccupancy.KeepsItsPass(int, float, float, float, float, int, LaneRoster, in PassTerms)"/>).
     /// <b>Kept, the whole of its ground is the car's from this tick</b>, and a car getting into a bay takes up its
-    /// first piece in place of the route's line. One whose ground did not fit the table is withdrawn.
+    /// first piece in place of the route's line. One whose ground did not fit the table is withdrawn, and one the
+    /// claims have not been laid for since it was asked waits for them.
     /// </summary>
     public bool KeepOrWithdraw(int car)
     {
+        if (_laidFor[car] != _askedAs[car]) return false;
+
         if (!IsSwept(car) || !TheGroundIsKept(car))
         {
             manoeuvres.Stage[car] = ManoeuvreStage.Shaped;
@@ -163,6 +172,7 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
         manoeuvres.Piece[car] = piece;
 
         Cars.AuthorityM[car] = 0f;
+        Cars.CoveredSinceClaimM[car] = 0f;
         Cars.HorizonM[car] = float.PositiveInfinity;
         Cars.GrantMarginM[car] = 0f;
 
@@ -200,8 +210,7 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
         var lengthM = Cars.Line[car].LengthM;
         var progressM = CarFollower.ProgressM(build, line, rearAxleM, Cars.ProgressM[car]);
         var alongMps = Vector2.Dot(pose.VelocityMps, travel);
-        var coveredM = MathF.Abs(progressM - Cars.ProgressM[car]);
-
+        Cars.CoveredSinceClaimM[car] += MathF.Abs(progressM - Cars.ProgressM[car]);
         Cars.ProgressM[car] = progressM;
         Cars.AlongMps[car] = alongMps;
         Cars.OffLineM[car] = CarFollower.OffLineM(line, rearAxleM, progressM);
@@ -209,8 +218,8 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
         Cars.CommittedToTheBox[car] = false;
 
         var context = new DriveContext(
-            Cars.GroundCoefficient[car], Cars.AuthorityM[car] - coveredM, Cars.GrantCutBy[car],
-            MarginM: Cars.GrantMarginM[car], HorizonM: Cars.HorizonM[car] - coveredM);
+            Cars.GroundCoefficient[car], Cars.GrantLeftM(car), Cars.GrantCutBy[car],
+            MarginM: Cars.GrantMarginM[car], HorizonM: Cars.HorizonM[car] - Cars.CoveredSinceClaimM[car]);
 
         Cars.Context[car] = context;
         town.Drive(car, build, pose, line, progressM, lengthM, context, travel, alongMps, reverse);
@@ -243,7 +252,12 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
         if (manoeuvres.Stage[car] is ManoeuvreStage.None or ManoeuvreStage.Shaped) return;
 
         var begun = manoeuvres.IsBegun(car);
-        if (!begun) SweepThePieces(car);
+        if (!begun)
+        {
+            SweepThePieces(car);
+            _laidFor[car] = _askedAs[car];
+        }
+
         if (!IsSwept(car)) return;
 
         var firstPiece = 0;

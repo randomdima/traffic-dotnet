@@ -34,6 +34,7 @@ internal sealed class CarActions(DrivingGround ground, Manoeuvres manoeuvres)
         if (!(PlansDownTheRoute(was) && PlansDownTheRoute(action) && ground.PlanHold[car] != LaneOccupancy.NoHold))
         {
             cars.AuthorityM[car] = 0f;
+            cars.CoveredSinceClaimM[car] = 0f;
         }
 
         cars.Action[car] = action;

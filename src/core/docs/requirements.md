@@ -66,15 +66,15 @@ shift the draws of the passes after it.
 **The loop order is fixed and it matters:**
 
 1. read the player's direct input, so the keys land before the decisions they feed;
-2. rebuild from the body roster what the tick knows about where bodies are — the walkers' **proximity
-   index** and the lanes' **occupancy**;
+2. on the ticks the claims are laid (TER-49), rebuild from the body roster what the town knows about where
+   bodies are and mean to be — the walkers' **proximity index** and the lanes' **occupancy**;
 3. `Decide` for every non-terminal agent, in a stable roster order;
 4. `Step` every body — this is where impulses are applied;
 5. end-of-tick contact arbitration → damage.
 
-Nothing in the index survives a tick and no body moves before step 4, so **every decision in a tick is
-taken against the same instant of the world**. A host with no index — a test fixture, a single-agent rig
-— reports "nothing nearby" rather than crashing.
+Nothing in the index survives a laying of the claims and no body moves before step 4, so **every decision
+in a tick is taken against the same instant of the world** — the last laying's. A host with no index — a test
+fixture, a single-agent rig — reports "nothing nearby" rather than crashing.
 
 **Never place a body at a velocity it did not accelerate into.** Drive it up to speed instead; a tyre model
 reading a velocity no wheel produced reports an acceleration no tyre could have caused — silent in the tick
@@ -82,17 +82,21 @@ it happens and simply wrong in the next.
 
 ## The decision clock
 
-**Bodies move every tick. Decisions do not.** Each agent decides — its errand, and the next line of its
-leg — every `AgentDecisionIntervalS`, staggered by the agent's own index so the town's thinking spreads
-across the ticks rather than spiking on one. Three rules hold it honest:
+**Bodies move every tick. Decisions do not, and neither do the claims.** The tick is the bodies, the
+player's input and what is drawn; what an agent does about the town is not taken on it. Each agent decides —
+its errand, the next line of its leg, and every choice its action makes — every `AgentDecisionIntervalS`,
+staggered by the agent's own index so the town's thinking spreads across the ticks rather than spiking on
+one; the claims are laid every `ClaimsIntervalS` (TER-49). Three rules hold it honest:
 
 - **It is stated in seconds, never in ticks**, because what it bounds is how far the world moves under a
   stale answer.
 - **It is a floor on the rate, never a ceiling**: an agent may declare that it decides every tick
   (`ISimWorld.DecidesEveryTick`).
-- **The hard rules, the sensing and the claims are taken every tick regardless**, and are not decisions.
-  Setting the interval to 0 must make every agent decide every tick and reproduce the un-clocked town
-  exactly; that equivalence is the test that the clock changed no behaviour it should not have.
+- **What a body does with the grant it holds is taken every tick**, and is not a decision: the wheel and the
+  pedals driven at what the last laying granted, walked in by the ground covered since, the reflex that brakes
+  for a hazard, and the answer to an ask in the laying after it. Setting both intervals to 0 must make every
+  agent decide every tick against claims laid every tick and reproduce the un-clocked town exactly; that
+  equivalence is the test that the clocks changed no behaviour they should not have.
 
 ## Determinism, and how far it goes
 

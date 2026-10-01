@@ -69,9 +69,12 @@ internal sealed partial class TownWorld
             return;
         }
 
+        // The claim's metres are the line's as it was when the claims were laid, so what it committed to is carried
+        // over as a reach from the nose it was laid from, which the ground covered since has walked on.
         toTheBoxM = ends[ahead] - noseM;
-        Cars.CommittedToTheBox[car] = Cars.CommittedToM[car] > ends[ahead];
-        claimed = noseM + MathF.Min(Cars.AuthorityM[car], Cars.HorizonM[car]) > ends[ahead];
+        var committedM = Cars.CommittedToM[car] - Cars.ClaimFromM[car];
+        Cars.CommittedToTheBox[car] = noseM - Cars.CoveredSinceClaimM[car] + committedM > ends[ahead];
+        claimed = noseM + MathF.Min(Cars.GrantLeftM(car), Cars.HorizonM[car] - Cars.CoveredSinceClaimM[car]) > ends[ahead];
     }
 
     /// <summary>

@@ -66,7 +66,19 @@ internal sealed class DrivingGround(
         Cars.GrantMarginM[car] = 0f;
         Cars.GrantCutBy[car] = HeadwayKind.Nothing;
         Cars.AuthorityM[car] = 0f;
+        Cars.CoveredSinceClaimM[car] = 0f;
         return keptOffM;
+    }
+
+    /// <summary>
+    /// <b>A car's grant forgotten where it takes a line afresh</b>: what it was granted was read down the line it had,
+    /// in that line's metres, and is nothing on the one it takes — until the claims are next laid.
+    /// </summary>
+    public void ForgetTheGrant(int car)
+    {
+        Cars.AuthorityM[car] = 0f;
+        Cars.CoveredSinceClaimM[car] = 0f;
+        Cars.HorizonM[car] = float.PositiveInfinity;
     }
 
     /// <summary>

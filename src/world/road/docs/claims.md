@@ -8,9 +8,15 @@ crossing *are* is [requirements.md](requirements.md); the ground itself is
 
 **There are two layers over one numbering of ways, and they are the only two things an agent reads of
 another.** The **physical** layer is where the bodies are; the **planned** layer is where they mean to be.
-Both are rebuilt from the bodies every tick, both are intervals of one way's own metres, and **what two ways
-share is worked out once, when the town is laid** — so nothing about either layer computes geometry while
-the town runs.
+Both are laid again from the bodies every time the claims are laid (TER-49), both are intervals of one way's
+own metres, and **what two ways share is worked out once, when the town is laid** — so nothing about either
+layer computes geometry while the town runs.
+
+**TER-49** `P4` **The claims are laid every `Sim.ClaimsIntervalS`, and not every tick.** Between two layings every
+agent holds to the grant it was given, walked in by the ground it has covered since (`CarFleet.GrantLeftM`); a grant
+is read only down the lanes it was read down, and a line begun afresh carries none; and **an ask is answered in the
+laying after it**, kept or withdrawn there and never before. An interval of nothing lays them every tick, and is the
+town as it was.
 
 ## The ground
 
@@ -197,8 +203,8 @@ it, and only something that beats it takes it.
 - **A car refused ground waits short of it, wherever that is.** Refused inside a box, it waits in the box,
   over ground it was given: its body there is on every way it stands over, and what crosses that ground is
   held off it as it is held off any body. Nothing but the answer says where a car waits.
-- **Nothing is ever released.** Every plan is laid again from its holder every tick, so a body that stops,
-  is wrecked or is taken over by a hand plans nothing on the tick after.
+- **Nothing is ever released.** Every plan is laid again from its holder every time the claims are laid (TER-49),
+  so a body that stops, is wrecked or is taken over by a hand plans nothing at the laying after.
 
 **TER-4c.8** `P3` **Nothing moves over a way it has not claimed.** Every movement an agent's action makes — a car's
 or a walker's, forwards or in reverse, down its own line, over the lane beside, into a bay or back onto its way — is

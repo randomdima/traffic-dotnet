@@ -324,6 +324,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             _atlas.Marks);
         _ground = new DrivingGround(Cars, _occupancy, _atlas, _ways, _roads, _lines, config);
         _carHold = _ground.PlanHold;
+        _claims = new TickGroups(config.Sim.ClaimsIntervalS, config.Sim.TickRateHz);
         _carActions = new CarActions(_ground, _manoeuvres);
         _overtaking = new Overtaking(_ground, _carActions);
         _backingUp = new BackingUp(_ground, _carActions, _overtaking);
@@ -601,13 +602,42 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <summary>Whether the agent loop has reached the cars, so that the crossing is stamped once rather than per agent.</summary>
     bool _decidingCars;
 
+    /// <summary>
+    /// <b>When the claims are laid: every <see cref="SimFigures.ClaimsIntervalS"/>, and not every tick</b> — between two
+    /// layings each agent holds to the grant it was given, walked in by the ground it has covered since
+    /// (<see cref="CarFleet.GrantLeftM"/>), and an ask is answered in the laying after it. An interval of nothing lays
+    /// them every tick.
+    /// </summary>
+    readonly TickGroups _claims;
+
+    /// <summary>Ticks since the town was stood up, which is what <see cref="_claims"/> counts.</summary>
+    long _ticks;
+
+    /// <summary>
+    /// Whether the claims were laid this tick — so whoever reads what the layer holds against where the bodies are
+    /// reads it on a tick the two are of one instant.
+    /// </summary>
+    public bool ClaimsLaidThisTick { get; private set; }
+
+    /// <summary>
+    /// <b>The claims laid now, off their clock</b> — for whoever has put something down and asks what the layer makes
+    /// of it. The tick lays them once a decision interval (<see cref="_claims"/>).
+    /// </summary>
+    public void LayTheClaims()
+    {
+        RebuildLaneOccupancy();
+        ClaimsLaidThisTick = true;
+    }
+
     public void RebuildProximityIndex()
     {
         TakeUpTheHands();
         LayTheClosures();
         DriveTheEmptyMap();
         MendTheYards(_config.TickSeconds);
-        RebuildLaneOccupancy();
+
+        ClaimsLaidThisTick = _claims.Turn(_ticks++, 0);
+        if (ClaimsLaidThisTick) RebuildLaneOccupancy();
 
         // Phase 3 begins on the walkers, which is the end of the roster the loop walks first.
         if (!Timed) return;

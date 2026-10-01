@@ -103,6 +103,12 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     readonly bool[] _looks = new bool[ground.Cars.Capacity];
 
     /// <summary>
+    /// Whether the claims have been laid since a car asked for its pass — which is when the ask is answered, kept or
+    /// withdrawn, and not before: the claims are laid once a decision interval.
+    /// </summary>
+    readonly bool[] _laidSinceAsked = new bool[ground.Cars.Capacity];
+
+    /// <summary>
     /// The room each car keeps to step out from rest (<see cref="KeptOffM"/>), and the lane and ground it was drawn for —
     /// the only things it reads that change.
     /// </summary>
@@ -154,8 +160,8 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
             return;
         }
 
-        // Asked for in the tick before and laid since: kept, or withdrawn and asked for again when the car next looks.
-        if (pass.Any) KeepOrWithdrawThePass(car, pass, progressM);
+        // Asked for and laid since: kept, or withdrawn and asked for again when the car next looks.
+        if (pass.Any && _laidSinceAsked[car]) KeepOrWithdrawThePass(car, pass, progressM);
 
         WaitAtTheStep(ref town, car, pose, progressM, alongMps, coveredM);
     }
@@ -269,6 +275,7 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
 
         Cars.Pass[car] = _shapes[at];
         _asking[car] = shape;
+        _laidSinceAsked[car] = false;
         Asked++;
     }
 
@@ -413,6 +420,8 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
             Occupancy.LayPass(held.Way, held.FromM, held.ToM, 0f, car, LaneRoster.Driving);
             LayThePaintItCrosses(car, run.Cover);
         }
+
+        _laidSinceAsked[car] = true;
     }
 
     /// <summary>

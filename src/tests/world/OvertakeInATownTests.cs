@@ -484,8 +484,8 @@ public class OvertakeInATownTests
         var (driver, lane, clearsM, beside) = StandTooNearAWreck(world, loop);
         var cars = world.Cars;
         var stoodAtM = cars.ProgressM[driver];
-        var shortM = -cars.AuthorityM[driver];
-        Assert.True(shortM > 0f, $"car {driver} put a stand-off from the wreck was granted {cars.AuthorityM[driver]:F2} m, and is not too near");
+        var shortM = -cars.GrantLeftM(driver);
+        Assert.True(shortM > 0f, $"car {driver} put a stand-off from the wreck was granted {cars.GrantLeftM(driver):F2} m, and is not too near");
 
         PutDown(world, beside, FarOffTheTownM, 0f);
         var leastM = stoodAtM;
@@ -567,7 +567,7 @@ public class OvertakeInATownTests
         var noseM = cars.ProgressM[driver] + cars.BuildOf(driver).NoseAheadOfAxleM - cars.LaneStartsOf(driver)[0];
         var atM = noseM + Config.Driving.StandOffM + (cars.BuildOf(wreck).LengthM * 0.5f);
         PutDownOn(world, wreck, world.Roads.ArcsOf(lane), atM);
-        loop.Advance(1);
+        Claims.UntilLaid(loop);
 
         return (driver, lane, atM + (cars.BuildOf(wreck).LengthM * 0.5f), beside);
     }

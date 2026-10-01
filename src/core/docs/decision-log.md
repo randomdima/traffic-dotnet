@@ -1,5 +1,14 @@
 # The kernel — decision log
 
+## 2026-10-01 — the tick is the bodies, the input and the picture
+
+**The owner set it: an actor's behaviour runs on nothing per tick.** What the tick is for is the physics, the
+player's input and what is drawn; a decision, a look round, a patience run out and the claims are taken on clocks
+of their own — the decision clock, and the claims laid every `Sim.ClaimsIntervalS` (TER-49). What stays the tick's is
+what a body does with what it already holds: the wheel and the pedals at the grant walked in, the reflex that brakes
+for a hazard, a manoeuvre's or a pass's piece ended where it is driven to its end, and an ask answered in the laying
+after it. The decisions are the car and walker slices' logs, and the claims the road slice's.
+
 ## 2026-10-01 — an index walks each chain once, on every core
 
 **`ChainIndex.Builder.Seal` was the largest serial cost of opening Odesa**: 29 indexes and 175 ms, every

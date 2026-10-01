@@ -181,9 +181,13 @@ internal sealed partial class TownWorld
         return Cars.Line[car].ArcCount > 0;
     }
 
-    /// <summary>A line's first lanes as a body standing on the carriageway has them, and how many that is.</summary>
+    /// <summary>
+    /// A line's first lanes as a body standing on the carriageway has them, and how many that is. <b>A chain begun
+    /// afresh carries no grant</b> (<see cref="DrivingGround.ForgetTheGrant"/>).
+    /// </summary>
     int TheChainFrom(int car, in StandingOn under)
     {
+        _ground.ForgetTheGrant(car);
         var chain = Cars.ChainOf(car);
         chain[0] = under.Lane;
         if (under.Onward == CarFleet.NoLane) return 1;

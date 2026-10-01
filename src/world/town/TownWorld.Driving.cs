@@ -138,6 +138,7 @@ internal sealed partial class TownWorld
 
         progressM = CarFollower.ProgressM(build, Cars.LineOf(car), rearAxleM, Cars.ProgressM[car]);
         coveredM = MathF.Abs(progressM - Cars.ProgressM[car]);
+        Cars.CoveredSinceClaimM[car] += coveredM;
 
         // <b>Never onto a lane the line lays none of</b>: a leg that stops at the very first metre of its last lane — a
         // place drawn at a node, a turn-in that begins where the lane does — ends where that lane begins, and a car
@@ -209,15 +210,16 @@ internal sealed partial class TownWorld
         Cars.BoxIsOurs[car] = claimed;
 
         // The grant was taken against the claims while they were being laid, so it is a distance from where the
-        // nose stood then: walking it in by the ground covered since is what stops it receding at exactly
-        // the car's own speed, which is the same correction a manoeuvre's piece gets (<see cref="DriveTheWay"/>).
+        // nose stood then: walking it in by the ground covered since (<see cref="CarFleet.GrantLeftM"/>) is what
+        // stops it receding at exactly the car's own speed, however many ticks ago the claims were laid.
         // <b>And the place this car was sent to is a stop point like any other</b> (AMB-5, EVA-3, SRV-6,
         // CTL-8a): a casualty, a wreck, a scene a police car is closing the road at, or a place a hand
         // named. It is a term of the same minimum the grant is in, so a driver stopping for one is running its
         // line on the road that place left it.
         var context = new DriveContext(
-            Cars.GroundCoefficient[car], Cars.AuthorityM[car] - coveredM, Cars.GrantCutBy[car], ToTheSceneM(car),
-            Cars.GrantMarginM[car], waitsToPass, Cars.HorizonM[car] - coveredM, passAsideM, backUpM, blocked, waitAtM);
+            Cars.GroundCoefficient[car], Cars.GrantLeftM(car), Cars.GrantCutBy[car], ToTheSceneM(car),
+            Cars.GrantMarginM[car], waitsToPass, Cars.HorizonM[car] - Cars.CoveredSinceClaimM[car], passAsideM, backUpM,
+            blocked, waitAtM);
 
         Cars.Context[car] = context;
         return context;
@@ -385,7 +387,7 @@ internal sealed partial class TownWorld
         // Where the body stands on the shifted chain, before the line is laid over it: the route is searched from
         // there (<see cref="AlongTheEntryM"/>). The projection below is what the caller keeps.
         Cars.ProgressM[car] = MathF.Max(0f, progressM - shiftM);
-        LayLine(car, lanes - 1);
+        LayLine(car, lanes - 1, keptLanes: lanes - 1);
         return CarFollower.ProgressM(
             Cars.BuildOf(car), Cars.LineOf(car), rearAxleM, MathF.Max(0f, progressM - shiftM));
     }
@@ -723,9 +725,16 @@ internal sealed partial class TownWorld
     /// How much of the chain already in hand is behind the car, so that what is drawn is a sight distance
     /// <em>ahead of the body</em> rather than ahead of the line's own origin.
     /// </param>
-    void LayLine(int car, int from, float spentM = 0f)
+    /// <param name="keptLanes">
+    /// How many of the chain's slots are lanes of the line the car had, which its grant was read down — all of them
+    /// unless the chain was shifted on before this (<see cref="AdvanceLane"/>).
+    /// </param>
+    void LayLine(int car, int from, float spentM = 0f, int keptLanes = -1)
     {
         var chain = Cars.ChainOf(car);
+        var wasLanes = keptLanes < 0 ? Cars.Line[car].LaneCount : keptLanes;
+        Span<int> was = stackalloc int[LineAssembler.MostLanes];
+        chain[..wasLanes].CopyTo(was);
         var lanes = from;
         var reachM = SightM(car);
         var seenM = -spentM;
@@ -780,5 +789,27 @@ internal sealed partial class TownWorld
             var join = _roads.ConnectorBetween(chain[slot], chain[slot + 1]);
             breaks[slot] = join != RoadGraph.NoConnector && _roads.BreaksTheLine(join);
         }
+
+        KeepTheGrantOnTheLanesKept(car, was[..wasLanes]);
+    }
+
+    /// <summary>
+    /// <b>A grant holds only down the lanes it was read down</b> (TER-4c.8): where a line is laid again between two
+    /// layings of the claims, the grant ends where the first lane laid differently begins — past there is ground
+    /// nothing claimed, and the claims laid next say what of it the car may have.
+    /// </summary>
+    void KeepTheGrantOnTheLanesKept(int car, ReadOnlySpan<int> was)
+    {
+        var chain = Cars.ChainOf(car);
+        var lanes = Cars.Line[car].LaneCount;
+        var slot = 0;
+        while (slot < lanes && slot < was.Length && chain[slot] == was[slot]) slot++;
+        if (slot >= was.Length) return;
+
+        // Measured from the nose as it stands and walked back out by the ground covered since the claim, since the
+        // claim's own metres are the line's as it was when the claims were laid.
+        var keptToM = slot < lanes ? Cars.LaneStartsOf(car)[slot] : Cars.Line[car].LengthM;
+        var noseM = Cars.ProgressM[car] + _ground.LeadingEdgeAheadOfTheAxleM(car);
+        Cars.AuthorityM[car] = MathF.Min(Cars.AuthorityM[car], keptToM - noseM + Cars.CoveredSinceClaimM[car]);
     }
 }

@@ -251,7 +251,7 @@ internal static class StuckProbe
             var cars = world.Cars;
             var manoeuvres = world.Manoeuvres;
             return new Doing(
-                cars.PositionM[car], cars.AlongMps[car], cars.Hold[car], cars.GrantCutBy[car], cars.AuthorityM[car],
+                cars.PositionM[car], cars.AlongMps[car], cars.Hold[car], cars.GrantCutBy[car], cars.GrantLeftM(car),
                 cars.Driven[car], manoeuvres.Kind[car], manoeuvres.Stage[car], manoeuvres.Piece[car], cars.LaneOf(car),
                 cars.ProgressM[car], cars.Line[car].LengthM, cars.LineIsReverse[car], cars.Pass[car].Begun);
         }
@@ -374,7 +374,7 @@ internal static class StuckProbe
                 $"{cars.Reroutes[car]}, speed {cars.AlongMps[car]:F2} m/s, off-line {cars.OffLineM[car]:F2} m, " +
                 $"drivable ground {world.Terrain.At(rearAxleM).Drivable}");
             Console.WriteLine(
-                $"    grant {cars.AuthorityM[car]:F2} m cut by {cars.GrantCutBy[car]} {WhatHeld(world, world.DriveHold(car))}");
+                $"    grant {cars.GrantLeftM(car):F2} m cut by {cars.GrantCutBy[car]} {WhatHeld(world, world.DriveHold(car))}");
 
             // Whether it means to get past what holds it (CAR-46): decided and waiting on the ground, or refused by the
             // road itself — no lane back, too near to step out, a zebra, a bend — which is no decision at all.
@@ -609,7 +609,7 @@ internal static class StuckProbe
 
             if (cars.GrantCutBy[car] is not (HeadwayKind.Queue or HeadwayKind.Obstruction)) continue;
 
-            var gapM = cars.AuthorityM[car];
+            var gapM = cars.GrantLeftM(car);
             if (!float.IsFinite(gapM)) continue;
 
             var forward = new Vector2(MathF.Cos(cars.HeadingRad[car]), MathF.Sin(cars.HeadingRad[car]));
@@ -687,7 +687,7 @@ internal static class StuckProbe
 
             Console.WriteLine(
                 $"      car {car} {awayM:F1} m off — {DrivingWords.CarName(cars, car)}, " +
-                $"{cars.AlongMps[car]:F2} m/s, grant {cars.AuthorityM[car]:F2} m cut by {cars.GrantCutBy[car]}");
+                $"{cars.AlongMps[car]:F2} m/s, grant {cars.GrantLeftM(car):F2} m cut by {cars.GrantCutBy[car]}");
         }
 
         var people = world.People;

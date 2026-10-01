@@ -158,7 +158,7 @@ internal static class UnitReadout
         line = rows.Next("room");
         if (float.IsFinite(cars.AuthorityM[car]))
         {
-            line.Add(cars.AuthorityM[car], "F1");
+            line.Add(cars.GrantLeftM(car), "F1");
             line.Add(" m, cut by ");
             line.Add(DrivingWords.AheadName(cars.GrantCutBy[car]));
         }

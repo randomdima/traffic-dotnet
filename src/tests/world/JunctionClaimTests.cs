@@ -74,7 +74,7 @@ public class JunctionClaimTests
         for (var tick = 0; tick < Ticks; tick++)
         {
             loop.Advance(1);
-            world.RebuildProximityIndex();
+            world.LayTheClaims();
 
             NothingStoppedAtARedHoldsTheBox(world, map, tick, found);
             APlanReachesIntoTheBoxFromItsMouth(world, map, tick, found);
@@ -276,7 +276,7 @@ public class JunctionClaimTests
         world.Cars.Broken[car] = true;
         world.Cars.PositionM[car] = atM;
         world.Cars.VelocityMps[car] = Vector2.Zero;
-        world.RebuildProximityIndex();
+        world.LayTheClaims();
 
         Assert.True(IsABodyOn(world, join, car), $"{map}: join {join}, which it is lying on, does not have it");
         Assert.True(IsABodyOn(world, crossing, car), $"{map}: join {crossing}, which crosses that one, does not have it");
@@ -309,7 +309,7 @@ public class JunctionClaimTests
             for (var across = -overM; across <= overM; across += halfM.X)
             {
                 world.Cars.PositionM[car] = atM + new Vector2(across, down);
-                world.RebuildProximityIndex();
+                world.LayTheClaims();
 
                 foreach (var way in world.Occupancy.OccupiedWays)
                 {

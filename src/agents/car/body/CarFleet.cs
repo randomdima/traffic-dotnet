@@ -73,6 +73,7 @@ internal sealed class CarFleet
         ClaimToM = new float[capacity];
         CommittedToM = new float[capacity];
         AuthorityM = new float[capacity];
+        CoveredSinceClaimM = new float[capacity];
         HorizonM = new float[capacity];
         Array.Fill(HorizonM, float.PositiveInfinity);
         GrantMarginM = new float[capacity];
@@ -306,11 +307,21 @@ internal sealed class CarFleet
     /// nothing</b> (CAR-15b): a car moves over no ground it has not claimed.
     /// </summary>
     /// <remarks>
-    /// It is a distance from the nose and is walked in by the ground covered since it was granted: a car
-    /// that held it unchanged while driving at it would be holding a point receding at its own speed. Negative where the car is
+    /// It is a distance from the nose where the claim was laid from (<see cref="ClaimFromM"/>) and is walked in by
+    /// the ground covered since (<see cref="CoveredSinceClaimM"/>, <see cref="GrantLeftM"/>): a car that held it
+    /// unchanged while driving at it would be holding a point receding at its own speed. Negative where the car is
     /// already inside ground somebody else has, which is a fact about a contact and not about a gap.
     /// </remarks>
     public float[] AuthorityM { get; }
+
+    /// <summary>
+    /// <b>The ground a car has covered along its line since its claim was laid</b> — every tick's, until the claims are
+    /// laid again, which is a decision interval and not a tick.
+    /// </summary>
+    public float[] CoveredSinceClaimM { get; }
+
+    /// <summary>How much of its grant a car has still in front of its nose: <see cref="AuthorityM"/> walked in.</summary>
+    public float GrantLeftM(int car) => AuthorityM[car] - CoveredSinceClaimM[car];
 
     /// <summary>
     /// <b>How far ahead of its nose the car's own plan ends where it was held short of what the car wanted</b> by
@@ -644,6 +655,7 @@ internal sealed class CarFleet
         StopsAtItsPlace[car] = false;
         TurnsBackOn[car] = NoLane;
         AuthorityM[car] = 0f;
+        CoveredSinceClaimM[car] = 0f;
         HorizonM[car] = float.PositiveInfinity;
         GrantMarginM[car] = 0f;
         GrantCutBy[car] = Control.HeadwayKind.Nothing;

@@ -43,6 +43,9 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
 
     SimConfig Config => ground.Config;
 
+    /// <summary>The most ground behind it each car has asked for since the claims were last laid, which laying them reads.</summary>
+    readonly float[] _askedM = new float[ground.Cars.Capacity];
+
     /// <summary>Car-ticks spent backing up for the room to step out (CAR-50), since the town was laid.</summary>
     public long CarTicksBackingUp { get; private set; }
 
@@ -71,8 +74,10 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
         var blocked = backUpM > 0f && !backsUp;
         if (blocked) CarTicksBlocked++;
 
-        // Asked for every rebuild while it rolls back, and on its clock while it is refused.
+        // Asked for every rebuild while it rolls back, and on its clock while it is refused — and kept until the claims
+        // are next laid, which is not every tick.
         var asksM = backsUp || (blocked && looks) ? backUpM : 0f;
+        _askedM[car] = MathF.Max(_askedM[car], asksM);
 
         // A car that was backing up and has no more of it to do comes to rest in the gear it is in.
         var stillRollingBack = alongMps < -Config.Driving.StopSpeedMps;
@@ -123,9 +128,10 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
     public void Lay(int car, bool underWay)
     {
         Cars.BackRoomM[car] = float.NaN;
+        var askedM = _askedM[car];
+        _askedM[car] = 0f;
         if (Cars.Action[car] != CarAction.BackUp) return;
 
-        var askedM = Cars.Context[car].BackUpM;
         var backingMps = MathF.Max(0f, -Cars.AlongMps[car]);
         if (askedM <= 0f && backingMps <= Config.Driving.StopSpeedMps) return;
         if (!underWay) return;

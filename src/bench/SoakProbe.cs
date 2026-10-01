@@ -211,7 +211,7 @@ internal static class SoakProbe
 
         for (var car = 0; car < world.Cars.Count; car++)
         {
-            into[world.People.Count + car] = PastM(world.Cars.AuthorityM[car]);
+            into[world.People.Count + car] = PastM(world.Cars.GrantLeftM(car));
         }
 
         static float PastM(float grantedM) => float.IsFinite(grantedM) ? MathF.Max(0f, -grantedM) : 0f;

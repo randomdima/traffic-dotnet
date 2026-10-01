@@ -3,7 +3,7 @@ namespace TrafficSimulation.Core.Simulation;
 /// <summary>
 /// The five phases of one tick, in the fixed order, plus the roster phase 3 walks. The order is what
 /// makes every decision in a tick see the same instant of the world: nothing in the proximity index
-/// survives a tick, and no body moves before <see cref="StepBodies"/>.
+/// survives the next time it is laid, and no body moves before <see cref="StepBodies"/>.
 /// </summary>
 /// <remarks>
 /// <see cref="SimLoop{TWorld}"/> takes this as a type parameter, never as a field of interface type,
@@ -24,10 +24,13 @@ internal interface ISimWorld
     /// <summary>Phase 1 — the player's input, so keys land before the decisions they feed.</summary>
     void ReadPlayerInput();
 
-    /// <summary>Phase 2 — the proximity index rebuilt from the body roster. It survives nothing.</summary>
+    /// <summary>
+    /// Phase 2 — the proximity index rebuilt from the body roster, on the ticks a world lays its claims; it survives
+    /// until it is laid again.
+    /// </summary>
     void RebuildProximityIndex();
 
-    /// <summary>Phase 3a — hard rules and the junction claim, asked every tick regardless of the clock.</summary>
+    /// <summary>Phase 3a — what each body does with what it holds: the hard rules, the wheel and the pedals, every tick.</summary>
     void TickAgent(int agent);
 
     /// <summary>Phase 3b — each agent's own decision, run on the decision clock: a car's errand and its leg, a walker's trip.</summary>

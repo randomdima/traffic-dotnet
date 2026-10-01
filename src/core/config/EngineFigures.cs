@@ -36,6 +36,17 @@ internal sealed class SimFigures
     /// <summary>How stale an agent's decision may be. A floor on the rate, never a ceiling; 0 makes every agent think every tick.</summary>
     public float AgentDecisionIntervalS { get; init; } = 0.1f;
 
+    /// <summary>
+    /// <b>How stale a grant may be</b>: the claims are laid this often and not every tick (TER-4c), and between two
+    /// layings each agent holds to the grant it was given. 0 lays them every tick.
+    /// </summary>
+    /// <remarks>
+    /// Half a decision interval, and not a whole one: a car plans to stop at the very end of its grant, so ground taken
+    /// back from it is overrun by what it covers before it hears — and at a whole interval a car coming out of a stem
+    /// ran its nose onto a zebra somebody had stopped on (the exam's card 89), where at half it stopped short.
+    /// </remarks>
+    public float ClaimsIntervalS { get; init; } = 0.05f;
+
     /// <summary>A time scale above this integrates the physics coarsely and manufactures collisions the model never had.</summary>
     public float SoakMaxTimeScale { get; init; } = 5f;
 

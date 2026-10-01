@@ -93,7 +93,7 @@ public class WalkingTests
 
         // Read straight off a rebuild: a walk moves its body's place on its way during the tick, and what is
         // asked is where the two stood when the reservations were laid.
-        world.RebuildProximityIndex();
+        world.LayTheClaims();
 
         Span<LaneClaim> bodies = stackalloc LaneClaim[MostClaimsOnAWay];
         foreach (var person in afoot)
@@ -309,7 +309,7 @@ public class WalkingTests
 
         world.People.PositionM[person] = Spline.SampleAt(world.Roads.ArcsOf(lane), alongM).PositionM;
         world.People.VelocityMps[person] = Vector2.Zero;
-        world.RebuildProximityIndex();
+        world.LayTheClaims();
 
         var way = world.Ways.OfRoadLane(lane);
         Assert.True(
@@ -493,7 +493,7 @@ public class WalkingTests
         people.VelocityMps[person] = Vector2.Zero;
         people.PositionM[person] = Spline.SampleAt(world.Walking.WayArcs(lane), atM).PositionM;
 
-        world.RebuildProximityIndex();
+        world.LayTheClaims();
     }
 
     /// <summary>
@@ -613,7 +613,7 @@ public class WalkingTests
         people.VelocityMps[person] = Vector2.Zero;
         people.PositionM[person] = Spline.SampleAt(world.Walking.WayArcs(from), atM).PositionM;
 
-        world.RebuildProximityIndex();
+        world.LayTheClaims();
     }
 
     /// <summary>
@@ -670,7 +670,7 @@ public class WalkingTests
         people.OnWayM[person] = alongM;
         people.PositionM[person] = Spline.SampleAt(world.LineOfWay(way, out _), alongM).PositionM;
 
-        world.RebuildProximityIndex();
+        world.LayTheClaims();
     }
 
     /// <summary>Whether this body holds a stretch of any way of the pavement at p0, which is PER-26's first claim.</summary>

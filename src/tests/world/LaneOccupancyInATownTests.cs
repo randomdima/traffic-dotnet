@@ -55,35 +55,46 @@ public class LaneOccupancyInATownTests
     /// line is laid a sight distance ahead, so on a long lane the lane under a car is often the last its line has
     /// yet — and read as its line ending there, a queue on it was a car going nowhere to everybody behind.
     /// </summary>
+    /// <remarks>
+    /// Read on every laying of the claims over a minute of the town, since whether a car is on the last lane of its line
+    /// at any one of them is the town's own business.
+    /// </remarks>
     [Fact]
     public void ACarOnTheLastLaneOfItsLineIsGoingOnDownIt()
     {
-        var world = Run(Towns.City);
+        using var world = new TownWorld(Towns.Of(Towns.City), Config);
+        var loop = new SimLoop<TownWorld>(world, Config);
         var cars = world.Cars;
 
         Span<LaneClaim> bodies = stackalloc LaneClaim[64];
         var read = 0;
-        for (var car = 0; car < cars.Count; car++)
+        for (var tick = 0; tick < TicksWatched; tick++)
         {
-            var lanes = cars.Line[car].LaneCount;
-            if (lanes == 0 || cars.StopsForBayOf(car) != CarFleet.NoBay) continue;
+            loop.Advance(1);
+            if (!world.ClaimsLaidThisTick) continue;
 
-            // A car's length of line left past its nose, so the tick driven since the bodies were laid cannot
-            // have carried it to the end.
-            ref readonly var build = ref cars.BuildOf(car);
-            if (cars.Line[car].LengthM - cars.ProgressM[car] - build.NoseAheadOfAxleM < build.LengthM) continue;
-
-            var lastWay = world.Ways.OfRoadLane(cars.ChainOf(car)[lanes - 1]);
-            var count = world.Occupancy.CopyBodiesTo(lastWay, bodies);
-            for (var slot = 0; slot < count; slot++)
+            for (var car = 0; car < cars.Count; car++)
             {
-                if (bodies[slot].Occupant != car || bodies[slot].Of != LaneRoster.Driving || !bodies[slot].OnItsLine) continue;
+                var lanes = cars.Line[car].LaneCount;
+                if (lanes == 0 || cars.StopsForBayOf(car) != CarFleet.NoBay) continue;
 
-                read++;
-                Assert.True(
-                    bodies[slot].Onward == LaneOccupancy.RunsOn,
-                    $"car {car} is on the last lane of its line with {cars.Line[car].LengthM - cars.ProgressM[car]:F1} m of "
-                    + $"it to run, and was laid going on to {bodies[slot].Onward}");
+                // A car's length of line left past its nose, so the tick driven since the bodies were laid cannot
+                // have carried it to the end.
+                ref readonly var build = ref cars.BuildOf(car);
+                if (cars.Line[car].LengthM - cars.ProgressM[car] - build.NoseAheadOfAxleM < build.LengthM) continue;
+
+                var lastWay = world.Ways.OfRoadLane(cars.ChainOf(car)[lanes - 1]);
+                var count = world.Occupancy.CopyBodiesTo(lastWay, bodies);
+                for (var slot = 0; slot < count; slot++)
+                {
+                    if (bodies[slot].Occupant != car || bodies[slot].Of != LaneRoster.Driving || !bodies[slot].OnItsLine) continue;
+
+                    read++;
+                    Assert.True(
+                        bodies[slot].Onward == LaneOccupancy.RunsOn,
+                        $"car {car} is on the last lane of its line with {cars.Line[car].LengthM - cars.ProgressM[car]:F1} m "
+                        + $"of it to run at tick {tick}, and was laid going on to {bodies[slot].Onward}");
+                }
             }
         }
 
@@ -119,7 +130,7 @@ public class LaneOccupancyInATownTests
         // A hand at the wheel, on the handbrake: the car stands where the route left it — in the box.
         world.Select(new Selection(SelectionKind.Car, driver));
         world.Hands(new HandInput(Held: true, Throttle: 0f, Steer: 0f, Handbrake: true, WalkDirection: Vector2.Zero));
-        loop.Advance(1);
+        Claims.UntilLaid(loop);
 
         Assert.True(world.HandsOn, "the hand never reached the wheel");
         Assert.True(
@@ -262,7 +273,7 @@ public class LaneOccupancyInATownTests
         world.Cars.VelocityMps[wreck] = Vector2.Zero;
         world.Cars.PositionM[wreck] = on.PositionM;
         world.Cars.HeadingRad[wreck] = MathF.Atan2(on.Direction.Y, on.Direction.X) + (MathF.PI * 0.5f);
-        world.RebuildProximityIndex();
+        world.LayTheClaims();
 
         var way = world.Ways.OfRoadLane(lane);
         Assert.Equal(hauler, BodyOn(world, way, alongM));
@@ -547,7 +558,7 @@ public class LaneOccupancyInATownTests
         world.Cars.VelocityMps[TheBodyToStand] = Vector2.Zero;
         world.Cars.PositionM[TheBodyToStand] = atM;
         world.Cars.HeadingRad[TheBodyToStand] = headingRad;
-        world.RebuildProximityIndex();
+        world.LayTheClaims();
         return TheBodyToStand;
     }
 
@@ -695,6 +706,7 @@ public class LaneOccupancyInATownTests
         var world = new TownWorld(Towns.Of(opened), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         loop.Advance(TicksWatched);
+        Claims.UntilLaid(loop);
         return world;
     });
 
