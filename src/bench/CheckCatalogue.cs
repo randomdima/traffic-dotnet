@@ -28,6 +28,7 @@ internal static class CheckCatalogue
         new("solver", "The solver's allocated bytes per step, over the whole table", Quoted(SolverProbe.Run)),
         new("walk", "One walker's pace, how far it takes to reach and lose it, and how far a shove carries it", Quoted(WalkProbe.Run)),
         new("town", "A standing town's tick, ranked by phase, with its allocation", Quoted(TownProbe.Run)),
+        new("age", "One town's tick at fixed ages, ranked by phase, with a digest of where every body stands", Quoted(AgeProbe.Run)),
         new("drive", "What the town's cars are actually doing, read back off them", Quoted(config => DriveProbe.Run(config))),
         new("crash", "Every damage band staged, and what each one did", Quoted(CrashProbe.Run)),
         new("soak", "A whole town asked whether anything is inside anything else", config => SoakProbe.Run(config)),

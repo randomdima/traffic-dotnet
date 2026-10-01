@@ -318,6 +318,9 @@ internal static class Program
             case "town" when map is not null:
                 TownProbe.Run(config, map);
                 return 0;
+            case "age" when map is not null:
+                AgeProbe.Run(config, map);
+                return 0;
             case "drive" when map is not null:
                 DriveProbe.Run(config, map);
                 return 0;
