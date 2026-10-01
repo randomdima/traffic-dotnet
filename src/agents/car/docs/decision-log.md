@@ -3,25 +3,33 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
-## 2026-10-01 — the piece a car is manoeuvring on is swept once a rebuild
+## 2026-10-01 — a manoeuvre's pieces are swept once, for the ask they are laid for
 
 **A manoeuvre at a bay was the largest single cost left in a running town**: `BayManoeuvring.UnderTheCarOnThePiece`
-was a tenth of Odesa's CPU after a minute and a half, all of it atlas reads. Every rebuild swept the piece a car
-is on twice, station by station — once to lay its ground and once to find the body standing in it — and the two
-are the same reads: one piece, one stretch of it, one gear.
+was a tenth of Odesa's CPU, all of it atlas reads. Every rebuild swept what was left of the piece a car was driving,
+station by station from where it stood, and every later piece whole; the rebuild after an ask swept every piece to
+lay it and the keeping swept them all again. The shape does not move once it is asked for — it is kept or withdrawn
+as shaped and driven as kept — so all of those were the same reads.
 
-**The first to ask keeps each station's stretches of carriageway, and the second walks them**
-(`BayManoeuvring.SweepOfThePiece`). The hold cannot be answered while the ground is laid, because it is asked of
-the passes laid after it. A sweep is kept against everything it is read from, the rebuild included, so a kept one
-is a fresh one to the bit: `--bench soak --map Odesa`, six seeds, printed the same table before and after.
+**The rebuild after an ask sweeps every piece from its start, once** (`BayManoeuvring._pieces`, a
+`SweptGround` with a run to each station and way), and the keeping, every later lay and the body check read those
+stations. Only the station the car stands at moves, and it is read afresh once a rebuild. The stations ahead of the
+car are now the piece's own, from its start, rather than counted from wherever the car stood, so the body check
+holds a car half a width short of the first station a body is in, as a pass's does. A piece too long for the table
+is a manoeuvre withdrawn.
 
-Measured on `--bench town --map Odesa`, two runs each:
+Measured on `--bench age --map Odesa`, µs a tick with the timing on, two runs each:
 
 | | before | after |
 |---|---|---|
-| µs a tick, first window | 1168–1180 | 1092–1115 |
+| index, 1 min | 373–379 | 338–340 |
+| index, 3 min | 499–509 | 444–458 |
+| index, 5 min | 435–441 | 398–416 |
+| whole tick, 1 min | 744–760 | 717 |
+| whole tick, 3 min | 1168–1197 | 1124–1145 |
 
-The after runs reached further into the town's life in the same minute, which costs more a tick, not less.
+`--bench stuck --map Odesa` (300 s) parked the same 507 cars off the same 1 288 manoeuvres asked and begun, none
+withdrawn; the town is no longer the same to the bit, and at five minutes it costs what it did.
 
 ## 2026-09-30 — a car is held back by its engine and not by the road it drives on
 
