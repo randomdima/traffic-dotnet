@@ -76,7 +76,7 @@ internal sealed partial class TownWorld
             return;
         }
 
-        DecideTheAction(car);
+        DecideTheAction(car, sinceLastDecisionS);
 
         if (TheLineIsSpent(car) && TakeTheNextStepOfTheLeg(car))
         {
@@ -89,18 +89,31 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>What the car's action decides, on the car's own clock</b> rather than its tick (CAR-15b): into a bay's
-    /// manoeuvre from the route's line, and a manoeuvre shaped afresh while it waits for the last one's ground.
+    /// manoeuvre or onto a pass from the route's line, a manoeuvre shaped afresh while it waits for the last one's
+    /// ground, a pass looked round for and given up, and the lane under a car off its line taken.
     /// </summary>
-    void DecideTheAction(int car)
+    void DecideTheAction(int car, float sinceLastDecisionS)
     {
+        var town = new CarTown(this);
         switch (Cars.Action[car])
         {
             case CarAction.Follow:
-                _following.Decide(car);
+                _following.Decide(ref town, car, sinceLastDecisionS);
+
+                // A pass drawn now is looked round for at once, as it was on the tick after it was drawn.
+                if (Cars.Action[car] == CarAction.Overtake) _overtaking.Decide(car, 0f);
+                return;
+
+            case CarAction.Overtake or CarAction.BackUp:
+                _overtaking.Decide(car, sinceLastDecisionS);
                 return;
 
             case CarAction.Park:
                 _parkingIn.Decide(car);
+                return;
+
+            case CarAction.Rejoin:
+                _rejoining.Decide(ref town, car, sinceLastDecisionS);
                 return;
         }
     }

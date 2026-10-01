@@ -94,28 +94,12 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
 
     /// <summary>
     /// <b>This rebuild's word on a walker's pass</b>, read once its grant is: begun or withdrawn in the rebuild after it
-    /// was asked for. Everything else about the pass is the walker's decision (<see cref="Decide"/>).
+    /// was asked for, and over once the walker is back on its route past the one it passed — in the rebuild it gets
+    /// there, since past there is ground the pass never held (TER-4c.8). Everything else about the pass is the walker's
+    /// decision (<see cref="Decide"/>).
     /// </summary>
     public void Consider(int person)
     {
-        var pass = People.Pass[person];
-        if (People.Action[person] == PersonAction.Sidestep && pass.Any && !pass.Begun) KeepOrWithdrawTheSidestep(person, pass);
-    }
-
-    /// <summary>
-    /// <b>A walker's pass, on its own clock</b>: decided where the grant was ended by somebody it may get past; while it
-    /// waits, looked round every <see cref="PersonFigures.SidestepAskEveryS"/> — asked for, or let go where the one it
-    /// passes has gone or it has waited its patience out; and over once it is back on its route past the one it passed.
-    /// </summary>
-    /// <param name="sinceLastDecisionS">How much of the town's time this decision answers for, which its clocks run by.</param>
-    public void Decide(int person, float sinceLastDecisionS)
-    {
-        if (People.Action[person] == PersonAction.Walk)
-        {
-            if (DrawThePass(person, sinceLastDecisionS)) actions.Enter(person, PersonAction.Sidestep);
-            return;
-        }
-
         if (People.Action[person] != PersonAction.Sidestep) return;
 
         var pass = People.Pass[person];
@@ -128,7 +112,24 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
             return;
         }
 
-        if (pass.Any) return;
+        if (pass.Any) KeepOrWithdrawTheSidestep(person, pass);
+    }
+
+    /// <summary>
+    /// <b>A walker's pass, on its own clock</b>: decided where the grant was ended by somebody it may get past; and while
+    /// it waits, looked round every <see cref="PersonFigures.SidestepAskEveryS"/> — asked for, or let go where the one it
+    /// passes has gone or it has waited its patience out.
+    /// </summary>
+    /// <param name="sinceLastDecisionS">How much of the town's time this decision answers for, which its clocks run by.</param>
+    public void Decide(int person, float sinceLastDecisionS)
+    {
+        if (People.Action[person] == PersonAction.Walk)
+        {
+            if (DrawThePass(person, sinceLastDecisionS)) actions.Enter(person, PersonAction.Sidestep);
+            return;
+        }
+
+        if (People.Action[person] != PersonAction.Sidestep || People.Pass[person].Any) return;
 
         _waitedS[person] += sinceLastDecisionS;
         if (!IsTimeToLook(person, sinceLastDecisionS)) return;

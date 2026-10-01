@@ -22,42 +22,40 @@ internal sealed class Following(DrivingGround ground, CarActions actions, Overta
     SimConfig Config => ground.Config;
 
     /// <summary>
-    /// <b>This tick of a car following its route</b>, once the line under it has been read: onto a pass or backing up
-    /// for the room to, or on down the line on the ground it was granted. Into its bay's manoeuvre is decided on the
-    /// car's own clock (<see cref="Decide"/>).
+    /// <b>This tick of a car following its route</b>, once the line under it has been read: on down the line on the
+    /// ground it was granted, slowed for gently from the first where what ended the grant is something it may get past
+    /// (CAR-46). Into its bay's manoeuvre or onto a pass is decided on the car's own clock (<see cref="Decide"/>).
     /// </summary>
     public void Tick<TTown>(ref TTown town, int car, in CarPose pose, float progressM, float alongMps, float coveredM)
         where TTown : struct, ICarTown
     {
-        // CAR-46: something ended the grant that the car may get past. Slowed for gently from the first, and — where
-        // the car has come to where it would begin slowing for it and the road lets it — decided on, once.
-        if (!overtaking.MayGetPastWhatCutIt(car, out var cutBy, out var cutOn))
-        {
-            town.DriveOnTheLine(car, pose, progressM, alongMps, coveredM);
-            return;
-        }
-
-        if (!overtaking.ComesUpTo(car, alongMps, Cars.AuthorityM[car] - coveredM)
-            || !overtaking.Decide(car, progressM, alongMps, town.ToTheSceneM(car), cutBy, cutOn))
-        {
-            town.DriveOnTheLine(car, pose, progressM, alongMps, coveredM, waitsToPass: true);
-            return;
-        }
-
-        actions.Enter(car, overtaking.BacksUp(car, progressM, alongMps) ? CarAction.BackUp : CarAction.Overtake);
-        overtaking.WaitAtTheStep(ref town, car, pose, progressM, alongMps, coveredM);
+        var waitsToPass = overtaking.MayGetPastWhatCutIt(car, out _, out _);
+        town.DriveOnTheLine(car, pose, progressM, alongMps, coveredM, waitsToPass);
     }
 
     /// <summary>
     /// <b>A car following its route, on its own clock</b>: where the line stops for its bay and the car is near enough,
-    /// its manoeuvre in shaped from where it stands and asked for (GEN-4f).
+    /// its manoeuvre in shaped from where it stands and asked for (GEN-4f); otherwise, where something ended its grant
+    /// that it may get past and it has come to where it would begin slowing for it, its pass drawn — once — and taken
+    /// up, or backed up for (CAR-46, CAR-50).
     /// </summary>
-    public void Decide(int car)
+    /// <param name="sinceLastDecisionS">How much of the town's time this decision answers for, which its clocks run by.</param>
+    public void Decide<TTown>(ref TTown town, int car, float sinceLastDecisionS)
+        where TTown : struct, ICarTown
     {
-        if (Cars.StopsForBayOf(car) is var bay and not CarFleet.NoBay
-            && parkingIn.TakeUpTheBay(car, bay, Cars.ProgressM[car], Cars.AlongMps[car]))
+        var progressM = Cars.ProgressM[car];
+        var alongMps = Cars.AlongMps[car];
+        if (Cars.StopsForBayOf(car) is var bay and not CarFleet.NoBay && parkingIn.TakeUpTheBay(car, bay, progressM, alongMps))
         {
             actions.Enter(car, CarAction.Park);
+            return;
+        }
+
+        if (overtaking.MayGetPastWhatCutIt(car, out var cutBy, out var cutOn)
+            && overtaking.ComesUpTo(car, alongMps, Cars.Context[car].AuthorityM)
+            && overtaking.DrawThePass(car, sinceLastDecisionS, progressM, alongMps, town.ToTheSceneM(car), cutBy, cutOn))
+        {
+            actions.Enter(car, overtaking.BacksUp(car, progressM, alongMps) ? CarAction.BackUp : CarAction.Overtake);
         }
     }
 

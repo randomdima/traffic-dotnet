@@ -99,6 +99,9 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// <summary>How long until a car refused a pass by the road decides on one again.</summary>
     readonly float[] _decidesInS = new float[ground.Cars.Capacity];
 
+    /// <summary>Whether a car backing up for its room has a look round its next tick is to take (<see cref="TakeTheLook"/>).</summary>
+    readonly bool[] _looks = new bool[ground.Cars.Capacity];
+
     /// <summary>
     /// The room each car keeps to step out from rest (<see cref="KeptOffM"/>), and the lane and ground it was drawn for —
     /// the only things it reads that change.
@@ -127,10 +130,14 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     public long Made { get; private set; }
 
     /// <summary>
-    /// <b>This tick of a car getting past something</b>, once the line under it has been read: over once it is back in
-    /// its lane, begun or withdrawn in the tick after it was asked for — and while it waits, looked round on its own
-    /// clock: asked for, backed up for where the car stands past where its step out begins, or let go.
+    /// <b>This tick of a car getting past something</b>, once the line under it has been read: driven down its pass and
+    /// over once it is back in its lane, or waiting for it — begun or withdrawn in the tick after it was asked for.
+    /// Everything else about the pass is the car's decision (<see cref="Decide"/>).
     /// </summary>
+    /// <remarks>
+    /// <b>The pass ends in the tick the car drives past its end</b>, as a manoeuvre's piece does: past there it is ground
+    /// the pass never held, and a car still on a pass there is one standing on ground it has not claimed (TER-4c.8).
+    /// </remarks>
     public void Tick<TTown>(ref TTown town, int car, in CarPose pose, float progressM, float alongMps, float coveredM)
         where TTown : struct, ICarTown
     {
@@ -149,18 +156,39 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
 
         // Asked for in the tick before and laid since: kept, or withdrawn and asked for again when the car next looks.
         if (pass.Any) KeepOrWithdrawThePass(car, pass, progressM);
-        else
-        {
-            _waitedS[car] += Config.TickSeconds;
-            if (IsTimeToLook(car) && !LookRound(car, progressM, alongMps))
-            {
-                actions.Enter(car, CarAction.Follow);
-                town.DriveOnTheLine(car, pose, progressM, alongMps, coveredM);
-                return;
-            }
-        }
 
         WaitAtTheStep(ref town, car, pose, progressM, alongMps, coveredM);
+    }
+
+    /// <summary>
+    /// <b>A car waiting for its pass, on its own clock</b>: looked round every <see cref="DrivingFigures.PassAskEveryS"/>
+    /// — asked for, backed up for where the car stands past where its step out begins, or let go. A car backing up for
+    /// the room is looked round for on the same clock, and the look is read by its next tick (<see cref="TakeTheLook"/>).
+    /// </summary>
+    /// <param name="sinceLastDecisionS">How much of the town's time this decision answers for, which its clocks run by.</param>
+    public void Decide(int car, float sinceLastDecisionS)
+    {
+        if (Cars.Action[car] == CarAction.BackUp)
+        {
+            _looks[car] |= IsTimeToLook(car, sinceLastDecisionS);
+            return;
+        }
+
+        if (Cars.Pass[car].Any) return;
+
+        _waitedS[car] += sinceLastDecisionS;
+        if (IsTimeToLook(car, sinceLastDecisionS) && !LookRound(car, Cars.ProgressM[car], Cars.AlongMps[car]))
+        {
+            actions.Enter(car, CarAction.Follow);
+        }
+    }
+
+    /// <summary>Whether the car's clock came round for a look since its last tick read it — once.</summary>
+    public bool TakeTheLook(int car)
+    {
+        var looks = _looks[car];
+        _looks[car] = false;
+        return looks;
     }
 
     /// <summary>
@@ -269,20 +297,20 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     int Asking(int car) => Holder(car, _asking[car]);
 
     /// <summary>
-    /// <b>Whether a car waiting on its pass looks round this tick</b> — every <see cref="DrivingFigures.PassAskEveryS"/>
-    /// from when it decided, whichever of its pass's actions it is in.
+    /// <b>Whether a car waiting on its pass looks round at this decision</b> — every
+    /// <see cref="DrivingFigures.PassAskEveryS"/> from when it decided, whichever of its pass's actions it is in.
     /// </summary>
-    public bool IsTimeToLook(int car)
+    bool IsTimeToLook(int car, float sinceLastDecisionS)
     {
         ref var inS = ref _looksInS[car];
-        inS -= Config.TickSeconds;
+        inS -= sinceLastDecisionS;
         if (inS > 0f) return false;
 
         inS = Config.Driving.PassAskEveryS;
         return true;
     }
 
-    /// <summary>The car looks round on its next tick — one that has just made the room it backed up for.</summary>
+    /// <summary>The car looks round at its next decision — one that has just made the room it backed up for.</summary>
     public void LookNow(int car) => _looksInS[car] = 0f;
 
     /// <summary>
@@ -522,11 +550,13 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// before it there is what it was sent to, and a pass ending past the place would drive it by.
     /// </para>
     /// </remarks>
+    /// <param name="sinceLastDecisionS">How much of the town's time this decision answers for, which its clock runs by.</param>
     /// <param name="toTheSceneM">How far ahead along the line the place the car was sent to stands, or infinity.</param>
-    public bool Decide(int car, float progressM, float alongMps, float toTheSceneM, in LaneClaim cutBy, int cutOn)
+    public bool DrawThePass(
+        int car, float sinceLastDecisionS, float progressM, float alongMps, float toTheSceneM, in LaneClaim cutBy, int cutOn)
     {
         ref var inS = ref _decidesInS[car];
-        inS -= Config.TickSeconds;
+        inS -= sinceLastDecisionS;
         if (inS > 0f) return false;
 
         // Refused, it is not drawn again before the car would next look round.

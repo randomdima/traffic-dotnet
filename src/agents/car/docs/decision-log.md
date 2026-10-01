@@ -3,6 +3,21 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-10-01 — a car's pass and its way back onto its line are decided on its own clock
+
+**The rest of what the car's actions decided every tick is the car's decision now** (`DecideTheAction`): drawing a
+pass (`Overtaking.DrawThePass`, from `Following.Decide`), looking round for it, asking for it and giving up past its
+patience (`Overtaking.Decide`), the look a car backing up for its room takes (read once by its next tick,
+`Overtaking.TakeTheLook`), and a car off its line looking for the lane under it (`Rejoining.Decide`). Every one of
+their clocks runs by the interval a decision answers for. A pass drawn is looked round for in the same decision, as
+it was on the tick after it was drawn.
+
+**Two things stay the tick's**: keeping or withdrawing an asked pass, answered in the rebuild after the ask, and
+ending a driven one, in the tick the car drives past its end — moved to the clock, a car past the end of its pass
+was still on it for up to a decision interval, standing on ground the pass never held
+(`OvertakeInATownTests.ACarOnAPassStandsOnlyOnTheGroundItsPassHeldWhenItBegan`). Nothing about the cost moved on
+`--bench age --map Odesa`; `--bench stuck --map Odesa` asked for 26 passes and made 25 (28, 27).
+
 ## 2026-10-01 — a car takes up its bay on its own clock, not its tick
 
 **The owner set the rule that an actor's behaviour runs on nothing per tick**: a tick is the bodies, the player's

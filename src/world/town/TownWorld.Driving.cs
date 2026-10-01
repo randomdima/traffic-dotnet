@@ -132,7 +132,7 @@ internal sealed partial class TownWorld
         if (Cars.Line[car].LaneCount == 0)
         {
             progressM = coveredM = 0f;
-            _rejoining.LoseTheLine(ref town, car, pose, alongMps, rearAxleM);
+            _rejoining.LoseTheLine(ref town, car, pose);
             return false;
         }
 
@@ -164,7 +164,7 @@ internal sealed partial class TownWorld
         // driving the line at all.
         if (Cars.OffLineM[car] > OffTheLineAllowanceM(car))
         {
-            _rejoining.LoseTheLine(ref town, car, pose, alongMps, rearAxleM);
+            _rejoining.LoseTheLine(ref town, car, pose);
             return false;
         }
 

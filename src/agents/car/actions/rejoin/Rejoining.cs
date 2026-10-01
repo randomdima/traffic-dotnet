@@ -1,6 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.Agents.Car.Actions;
 
@@ -36,10 +37,10 @@ internal sealed class Rejoining(DrivingGround ground, CarActions actions, Follow
     }
 
     /// <summary>
-    /// <b>A car found off its line</b> (CAR-10a): the junction it was coming to forgotten, the car held, and — at rest —
-    /// the lane under it taken, where it stands on one pointing along it.
+    /// <b>A car found off its line</b> (CAR-10a): the junction it was coming to forgotten and the car held. Taking the
+    /// lane under it is the car's decision (<see cref="Decide"/>).
     /// </summary>
-    public void LoseTheLine<TTown>(ref TTown town, int car, in CarPose pose, float alongMps, Vector2 rearAxleM)
+    public void LoseTheLine<TTown>(ref TTown town, int car, in CarPose pose)
         where TTown : struct, ICarTown
     {
         if (Cars.Action[car] != CarAction.Rejoin) _looksInS[car] = 0f;
@@ -51,13 +52,26 @@ internal sealed class Rejoining(DrivingGround ground, CarActions actions, Follow
         Cars.TurningAtTheBox[car] = false;
         Cars.BoxIsOurs[car] = false;
         town.Hold(car, pose, DrivingHold.LostLine);
-        if (MathF.Abs(alongMps) > ground.Config.Driving.StopSpeedMps) return;
+    }
+
+    /// <summary>
+    /// <b>A car off its line, on its own clock</b>: at rest, the lane under it taken where it stands on one pointing along
+    /// it, looked for every <see cref="DrivingFigures.RejoinLooksEveryS"/>.
+    /// </summary>
+    public void Decide<TTown>(ref TTown town, int car, float sinceLastDecisionS)
+        where TTown : struct, ICarTown
+    {
+        var forward = Heading.Unit(Cars.HeadingRad[car]);
+        if (MathF.Abs(Vector2.Dot(Cars.VelocityMps[car], forward)) > ground.Config.Driving.StopSpeedMps) return;
 
         ref var inS = ref _looksInS[car];
-        inS -= ground.Config.TickSeconds;
+        inS -= sinceLastDecisionS;
         if (inS > 0f) return;
 
         inS = ground.Config.Driving.RejoinLooksEveryS;
-        if (town.Reacquire(car, rearAxleM)) actions.Enter(car, CarAction.Follow);
+        if (town.Reacquire(car, CarFollower.RearAxleM(Cars.BuildOf(car), Cars.PositionM[car], forward)))
+        {
+            actions.Enter(car, CarAction.Follow);
+        }
     }
 }

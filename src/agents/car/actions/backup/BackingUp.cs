@@ -59,9 +59,9 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
     public void Tick<TTown>(ref TTown town, int car, in CarPose pose, float progressM, float alongMps, float coveredM)
         where TTown : struct, ICarTown
     {
-        // Looked round on the pass's clock: what it passes gone, or the room past it held by something it may not pass,
-        // and there is nothing to back up for.
-        var looks = overtaking.IsTimeToLook(car);
+        // Looked round on the pass's clock, which the car's decision runs: what it passes gone, or the room past it held
+        // by something it may not pass, and there is nothing to back up for.
+        var looks = overtaking.TakeTheLook(car);
         var stillThere = !looks || overtaking.IsStillThere(car);
         var roomHeld = looks && stillThere && overtaking.IsTheRoomHeld(car);
         var backUpM = stillThere && !roomHeld && overtaking.IsTooNear(car, progressM)

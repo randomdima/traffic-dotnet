@@ -11,10 +11,12 @@ considered in every rebuild — drawn, waited for on a look-round clock counted 
 patience, and ended once walked — and since the rebuild runs while the town is held, its clocks ran on through a
 pause that stops every other clock a walker has.
 
-**All of that is `Sidestepping.Decide` now, on the walker's decision clock, and its clocks run by the interval a
-decision answers for.** Only keeping or withdrawing an asked pass is still the rebuild's (`Consider`), since it is
-answered in the rebuild after the ask. Nothing about the cost moved on `--bench age --map Odesa` (the pass was half
-a percent of the tick); `--bench stuck --map Odesa` walked 27 walks to their door (28) and asked no pass (2).
+**Drawing it, looking round, asking and giving up are `Sidestepping.Decide` now, on the walker's decision clock,
+and its clocks run by the interval a decision answers for.** Two things stay the rebuild's (`Consider`): keeping or
+withdrawing an asked pass, which is answered in the rebuild after the ask, and ending a walked one, in the rebuild the
+walker is back on its route — past there is ground the pass never held (TER-4c.8). Nothing about the cost moved on
+`--bench age --map Odesa` (the pass was half a percent of the tick); `--bench stuck --map Odesa` walked 27 walks to
+their door (28) and asked no pass (2).
 
 ## 2026-09-30 — a walker walks at life's pace
 
