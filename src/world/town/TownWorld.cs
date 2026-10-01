@@ -267,11 +267,14 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _signalHolds = SignalHolds.Of(_signals, _bars, _crossingEdges, _roads, _ways);
 
         // <b>The ground of every way at once</b> (TER-4c.4): which ribbons cover which ground, and which share
-        // it. Laid over the one numbering, so it comes after every network that numbers a way.
+        // it. Laid over the one numbering, so it comes after every network that numbers a way — and between two
+        // collections (CollectTheLay).
+        CollectTheLay(plan, config);
         var atlasAt = Stopwatch.GetTimestamp();
         _lines = new WayLines(_roads, _walking, _ways, _crossingEdges, config);
         _atlas = RibbonAtlas.Lay(_lines, config.RibbonLevel, config.RibbonTouchM);
         AtlasMs = Stopwatch.GetElapsedTime(atlasAt).TotalMilliseconds;
+        CollectTheLay(plan, config);
         RefuseFurnitureOnTheRoad();
 
         var walkers = 0;
@@ -379,6 +382,25 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
         StoodMs = Stopwatch.GetElapsedTime(stoodAt).TotalMilliseconds;
     }
+
+    /// <summary>
+    /// <b>What laying the town has left behind, collected and given back</b>, either side of the atlas: the
+    /// open's largest working set, laid on top of what the networks left, with the fleets, the claims and the
+    /// bodies laid straight after it. Only for a town of <see cref="SimFigures.CollectTheLayAboveKm2"/> or more.
+    /// </summary>
+    /// <remarks>
+    /// Aggressive, because a collection that keeps what it freed committed lays the next stage into reused room,
+    /// which the runtime clears page by page — and a table that is mostly room, laid on pages nothing has written,
+    /// holds none of that room in memory (root <c>decision-log.md</c>).
+    /// </remarks>
+    static void CollectTheLay(CityPlan plan, SimConfig config)
+    {
+        if (plan.WorldSizeM.X * plan.WorldSizeM.Y < config.Sim.CollectTheLayAboveKm2 * SquareMetresPerKm2) return;
+
+        GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+    }
+
+    const float SquareMetresPerKm2 = 1e6f;
 
     /// <summary>
     /// <b>What standing this town up cost</b>, and how much of that went on each of the three graphs that

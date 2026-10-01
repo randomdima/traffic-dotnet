@@ -23,7 +23,19 @@ districts at Odesa's density (O10), a windowed run's twenty seconds after the wa
 | GC committed | 532 MB | 189 MB | 3 860 MB | 1 781 MB |
 | live heap | 191 MB | 191 MB | 1 807 MB | 1 807 MB |
 
-The open's peak is untouched, since the collection comes after it; that is the lay's own to bring down.
+**The open's peak is the lay's, and it was the atlas's**: the fleets, the claims and the bodies were laid on top
+of the atlas's working sets, and those on top of what laying the networks left. A town of
+`Sim.CollectTheLayAboveKm2` or more is collected either side of the atlas (`TownWorld.CollectTheLay`). Aggressive
+here too, and for a second reason: a collection that keeps what it freed committed lays the next stage into reused
+room the runtime clears page by page, so a table that is mostly room — the claims', the swept ground's — becomes
+resident; on pages nothing has written it holds none of that room. Smaller towns are left alone, because the
+suite lays one a test and a full collection each put a fifth on the town tier. Measured with `qq prof --bench load
+--memory`, the open's peak resident set:
+
+| | before | after |
+|---|---|---|
+| O10 | 2 460 MiB | 1 887 MiB, now the plan's own |
+| O30, thirty times the area | 7 103 MiB | 5 881 MiB, the atlas's lay |
 
 ## 2026-09-27 — one grid under every index
 

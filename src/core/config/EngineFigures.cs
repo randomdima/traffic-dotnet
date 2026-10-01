@@ -51,6 +51,13 @@ internal sealed class SimFigures
     public float SoakMaxTimeScale { get; init; } = 5f;
 
     /// <summary>
+    /// <b>How large a town has to be for its open to collect either side of the atlas</b> (<c>TownWorld.CollectTheLay</c>).
+    /// A smaller one leaves too little behind to be worth a full collection, and a suite that lays a town a test
+    /// would pay for every one.
+    /// </summary>
+    public float CollectTheLayAboveKm2 { get; init; } = 16f;
+
+    /// <summary>
     /// <b>How wide the one grid's main cell is</b> (SIM-8), in car widths — the cell every index over the map
     /// numbers its own on, and the one anything asked about a car or a street is binned at.
     /// </summary>
