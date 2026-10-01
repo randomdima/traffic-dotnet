@@ -91,10 +91,27 @@ internal sealed class RibbonAtlas
 
     /// <summary>
     /// <b>One way over one point</b>: how far outside the way's band the point stands in
-    /// <see cref="OutsidePerReach"/>ths of the reach and rounded up — nothing for a point on the band — the
-    /// metre along the way in tenths, and the way. Which point it is over is where it is kept.
+    /// <see cref="OutsidePerReach"/>ths of the reach and rounded up — nothing for a point on the band — the point's
+    /// column in its cell, the metre along the way in tenths, and the way. Which row it is over is where it is kept.
     /// </summary>
-    readonly record struct Entry(byte Outside, ushort Along, int Way);
+    /// <remarks>
+    /// The column rides in the record's padding, so it costs nothing, and it is what lets a start stand for a run of
+    /// points rather than one (<see cref="PointsAStartShift"/>): a read takes the runs the body reaches and passes
+    /// over the columns outside it.
+    /// </remarks>
+    readonly record struct Entry(byte Outside, byte Column, ushort Along, int Way);
+
+    /// <summary>
+    /// <b>How many points of a row one start stands for</b>, as a shift: two, 1 m at the ribbon's level. A start a
+    /// point reads only the body's own points at 257 starts a cell, the atlas's second largest table; a start a row
+    /// reads past a car's box to the cell's edge on every row, and a crowded junction's point carries many ways.
+    /// </summary>
+    const int PointsAStartShift = 1;
+
+    static int StartShiftOf(int shift) => Math.Min(PointsAStartShift, shift);
+
+    /// <summary>A kept cell's starts: one a run of every row, and one past the last.</summary>
+    static int StartsPerCellOf(int shift) => (1 << ((2 * shift) - StartShiftOf(shift))) + 1;
 
     /// <summary>
     /// One way found under a body so far, in the tenths the atlas files a metre in, so a body's stretch of it
@@ -115,7 +132,13 @@ internal sealed class RibbonAtlas
     /// <summary>A point's row or column within its main cell, as a mask.</summary>
     readonly int _mask;
 
-    /// <summary>How many starts one kept cell has: one a point, and one past the last.</summary>
+    /// <summary>How many points of a row one start stands for, as a shift — <see cref="PointsAStartShift"/>, or fewer in a smaller cell.</summary>
+    readonly int _startShift;
+
+    /// <summary>How many starts one row of a kept cell has, as a shift.</summary>
+    readonly int _rowStartsShift;
+
+    /// <summary>How many starts one kept cell has: <see cref="_rowStartsShift"/>'s worth a row, and one past the last.</summary>
     readonly int _startsPerCell;
 
     /// <summary>What one step of <see cref="Entry.Outside"/> is in metres.</summary>
@@ -131,8 +154,8 @@ internal sealed class RibbonAtlas
     readonly int[] _slotFirst;
 
     /// <summary>
-    /// Where each point of a kept cell has its entries, row by row, counted from the cell's first entry — one
-    /// past the last point is the cell's count.
+    /// Where each run of points of a kept cell has its entries (<see cref="PointsAStartShift"/>), row by row, counted
+    /// from the cell's first entry — one past the last run is the cell's count.
     /// </summary>
     readonly ushort[] _pointStart;
 
@@ -146,7 +169,9 @@ internal sealed class RibbonAtlas
         _level = level;
         _shift = level.Depth - cells.Level.Depth;
         _mask = (1 << _shift) - 1;
-        _startsPerCell = (1 << (2 * _shift)) + 1;
+        _startShift = StartShiftOf(_shift);
+        _rowStartsShift = _shift - _startShift;
+        _startsPerCell = StartsPerCellOf(_shift);
         _metresPerOutside = ReachOf(level.CellM) / OutsidePerReach;
         _cells = cells;
         _cellSlot = cellSlot;
@@ -483,7 +508,7 @@ internal sealed class RibbonAtlas
             if (toColumn < fromColumn) continue;
 
             var cellRow = row >> _shift;
-            var rowFirstPoint = (row & _mask) << _shift;
+            var rowFirstStart = (row & _mask) << _rowStartsShift;
             for (var cellColumn = fromColumn >> _shift; cellColumn <= toColumn >> _shift; cellColumn++)
             {
                 if (!_cells.Holds(cellColumn, cellRow)) continue;
@@ -493,24 +518,25 @@ internal sealed class RibbonAtlas
 
                 var cellFirstColumn = cellColumn << _shift;
                 var first = _slotFirst[slot];
-                var starts = (slot * _startsPerCell) + rowFirstPoint;
+                var starts = (slot * _startsPerCell) + rowFirstStart;
+                var firstColumn = Math.Max(fromColumn - cellFirstColumn, 0);
                 var lastColumn = Math.Min(toColumn - cellFirstColumn, _mask);
-                for (var column = Math.Max(fromColumn - cellFirstColumn, 0); column <= lastColumn; column++)
+                var columns = (uint)(lastColumn - firstColumn);
+                var end = first + _pointStart[starts + (lastColumn >> _startShift) + 1];
+                for (var at = first + _pointStart[starts + (firstColumn >> _startShift)]; at < end; at++)
                 {
-                    var end = first + _pointStart[starts + column + 1];
-                    for (var at = first + _pointStart[starts + column]; at < end; at++)
-                    {
-                        ref readonly var entry = ref _entries[at];
-                        if (entry.Outside != 0)
-                        {
-                            var depthM = body.DepthM(new Vector2(_level.MiddleM(cellFirstColumn + column), y));
-                            var outsideM = entry.Outside * _metresPerOutside;
-                            slack = MathF.Min(slack, MathF.Abs(depthM - outsideM));
-                            if (depthM <= outsideM) continue;
-                        }
+                    ref readonly var entry = ref _entries[at];
+                    if ((uint)(entry.Column - firstColumn) > columns) continue;
 
-                        written = Grow(found, written, entry.Way, entry.Along);
+                    if (entry.Outside != 0)
+                    {
+                        var depthM = body.DepthM(new Vector2(_level.MiddleM(cellFirstColumn + entry.Column), y));
+                        var outsideM = entry.Outside * _metresPerOutside;
+                        slack = MathF.Min(slack, MathF.Abs(depthM - outsideM));
+                        if (depthM <= outsideM) continue;
                     }
+
+                    written = Grow(found, written, entry.Way, entry.Along);
                 }
             }
         }
@@ -643,6 +669,7 @@ internal sealed class RibbonAtlas
         }
 
         var total = slotFirst[slots];
+        var mask = (1 << shift) - 1;
         var inCellOf = new byte[total];
         var entries = new Entry[total];
         var cursor = (int[])slotFirst.Clone();
@@ -655,7 +682,7 @@ internal sealed class RibbonAtlas
                 {
                     var at = Interlocked.Increment(ref cursor[cellSlot[filing.Cell]]) - 1;
                     inCellOf[at] = filing.InCell;
-                    entries[at] = new Entry(filing.Outside, filing.Along, way);
+                    entries[at] = new Entry(filing.Outside, (byte)(filing.InCell & mask), filing.Along, way);
                 }
             });
 
@@ -664,7 +691,7 @@ internal sealed class RibbonAtlas
         var mostInACell = 0;
         for (var slot = 0; slot < slots; slot++) mostInACell = Math.Max(mostInACell, slotFirst[slot + 1] - slotFirst[slot]);
 
-        var startsPerCell = (1 << (2 * shift)) + 1;
+        var startsPerCell = StartsPerCellOf(shift);
         var pointStart = new ushort[slots * startsPerCell];
         var census = new (int Points, int MostAtAPoint)[slots];
         InChunks.Over(
@@ -679,7 +706,7 @@ internal sealed class RibbonAtlas
                 var cellInCell = inCellOf.AsSpan(first, count);
                 for (var at = 0; at < count; at++) cellKeys[at] = ((long)cellInCell[at] << 32) | (uint)cellEntries[at].Way;
                 cellKeys.Sort(cellEntries);
-                census[slot] = Started(cellKeys, pointStart.AsSpan(slot * startsPerCell, startsPerCell));
+                census[slot] = Started(cellKeys, pointStart.AsSpan(slot * startsPerCell, startsPerCell), shift);
             });
 
         var points = 0;
@@ -706,15 +733,17 @@ internal sealed class RibbonAtlas
         (byte)Math.Clamp(MathF.Ceiling((reachM - marginM) / reachM * OutsidePerReach), 0f, OutsidePerReach);
 
     /// <summary>
-    /// Where each point of one cell has its entries, read off the cell's keys in order; how many points hold
-    /// any, and the most ways at one of them.
+    /// Where each run of one cell's points has its entries, read off the cell's keys in order; how many points
+    /// hold any, and the most ways at one of them. A point's run is its place in the cell shifted down, because
+    /// its column is the low bits of it.
     /// </summary>
-    static (int Points, int MostAtAPoint) Started(ReadOnlySpan<long> keys, Span<ushort> starts)
+    static (int Points, int MostAtAPoint) Started(ReadOnlySpan<long> keys, Span<ushort> starts, int shift)
     {
+        var startShift = StartShiftOf(shift);
         var points = 0;
         var mostAtAPoint = 0;
         var atThePoint = 0;
-        var point = 0;
+        var run = 0;
         for (var at = 0; at < keys.Length; at++)
         {
             var inCell = (int)(keys[at] >> 32);
@@ -725,10 +754,10 @@ internal sealed class RibbonAtlas
             }
 
             mostAtAPoint = Math.Max(mostAtAPoint, ++atThePoint);
-            for (; point <= inCell; point++) starts[point] = (ushort)at;
+            for (; run <= inCell >> startShift; run++) starts[run] = (ushort)at;
         }
 
-        for (; point < starts.Length; point++) starts[point] = (ushort)keys.Length;
+        for (; run < starts.Length; run++) starts[run] = (ushort)keys.Length;
 
         return (points, mostAtAPoint);
     }

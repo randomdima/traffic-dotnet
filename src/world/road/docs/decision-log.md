@@ -4,6 +4,30 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-10-01 — a start stands for a run of two points, and an entry names its column
+
+**A start for every point was a fifth of a large town's memory.** The atlas kept 257 starts a cell, so that a
+lookup read the entries of the points inside a body and no others; at thirty times Odesa's area (O30) that was
+391 MB of a 4.4 GB working set, against 1.4 GB of entries.
+
+- **An entry names its point's column in the cell** (`Entry.Column`), in what was the record's padding: it is
+  still eight bytes.
+- **A start stands for a run of points along a row** (`RibbonAtlas.PointsAStartShift`), and a lookup reads the
+  runs a body reaches and passes over the columns outside it — at most one point either end.
+
+The entries a lookup reaches for the points it covers, and their order, are the ones it read before, so the
+town is the same to the bit (`--bench age` digests at 1, 3 and 5 minutes). Measured on `--bench age --map
+Odesa`, interleaved runs, µs a tick of the index phase:
+
+| a start every | 1 min | 3 min | 5 min | starts at O30 |
+|---|---|---|---|---|
+| point | 142–147 | 173–188 | 161–173 | 391 MB |
+| two points | 143–149 | 180–190 | 168–187 | 196 MB |
+| four points | 145–151 | 182–191 | 172–191 | 98 MB |
+
+**Two, and not four**: the cost is in the five-minute window's crowded junctions, where a point carries many
+ways and every extra point read is all of them, and two points holds it to about 2 % of the tick.
+
 ## 2026-10-01 — a point waits to be filed in eight bytes, and a cell's keys are made where it is sorted
 
 **The atlas's lay was most of an open's peak**, and almost none of it was the atlas. At ten times Odesa's area
@@ -401,8 +425,8 @@ cell at a time shares nothing between cars.
 **What a lookup paid for was reading entries it then passed over.** A car's row, read from its first entry,
 held 172 entries for the 50 the car stood on, and deciding which to skip was branches. So:
 
-- **Every point of a kept cell has a start**, and a lookup reads the entries of the points inside the body
-  and no others. The atlas grows from 49.2 to 58.9 MiB on Odesa.
+- **A lookup reads the points inside the body and next to nothing else**, off starts kept inside each cell
+  (how fine they are is the 2026-10-01 entry on runs).
 - **A way's stretch is gathered in the tenths the atlas files**, and turned into metres once per way rather
   than divided once per entry. They are floats: integer least and most compile to branches, and those cost
   a lookup a fifth.
@@ -417,7 +441,6 @@ held 172 entries for the 50 the car stood on, and deciding which to skip was bra
 
 Tried and left out:
 
-- **A start every 2 m**: 2 MiB instead of 10, and a fifth of the gain.
 - **Remembering a cell's slot across its rows**: no gain, and a call a row.
 - **Integer tenths**: 20 % slower than before.
 - **The solver's own direction for a car**, in place of a sine and cosine of the fleet's heading. The two
