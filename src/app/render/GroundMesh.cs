@@ -458,6 +458,10 @@ internal sealed partial class GroundMesh
         mesh.Arrows(paving.Lanes, bars, config, Paint, periods);
         mesh.Laid(GroundPart.Paint, marks);
 
+        // Grown by doubling and kept for the whole run, the two lists would keep up to as much again as they hold.
+        mesh._vertices.TrimExcess();
+        mesh._indices.TrimExcess();
+
         mesh.LaidMs = Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
         return mesh;
     }
