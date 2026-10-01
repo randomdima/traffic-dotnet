@@ -91,13 +91,20 @@ internal sealed partial class GroundShapes
     /// about two places at once (<see cref="ChainIndex.Scan"/>). A scan belongs to one thread at a time.
     /// </summary>
     /// <remarks>
-    /// <b>The roads' alone</b>, because the roads are the one set a question gathers candidates from. The
-    /// boundary, the slabs and the water are lattices, boxes and rings read in place, and hold nothing
-    /// between one ask and the next.
+    /// <b>The roads', and the boundary's for <see cref="PavingWithin(Scan, Vector2, float)"/></b>, because
+    /// those are the sets a question gathers candidates from. The sides of the boundary, the slabs and the
+    /// water are lattices, boxes and rings read in place, and hold nothing between one ask and the next.
     /// </remarks>
     internal sealed class Scan(ChainIndex.Scan roads)
     {
         internal ChainIndex.Scan Roads { get; } = roads;
+
+        /// <summary>
+        /// The boundary's, made on this scan's first ask for paving — which is when the index it reads is laid
+        /// (<see cref="GroundRings.PavedWithin(ChainIndex.Scan?, Vector2, float)"/>), and a ground that is
+        /// never asked lays neither.
+        /// </summary>
+        internal ChainIndex.Scan? Kerb { get; set; }
     }
 
     /// <summary>A scan of this ground's own indexes, for a caller that means to ask off its own thread.</summary>
@@ -108,6 +115,14 @@ internal sealed partial class GroundShapes
 
     readonly Paving _paving;
     readonly SimConfig _config;
+
+    GroundRings? _layers;
+
+    /// <summary>
+    /// The pavement's layers, held here once asked so that a point asked about does not take the pavement's
+    /// gate (<see cref="Paving.Rings"/>) to find them again.
+    /// </summary>
+    GroundRings Layers => _layers ??= _paving.Rings(_config);
 
     /// <summary>
     /// The last piece of ground laid over the point, found by asking the pieces in the reverse of the
@@ -181,11 +196,20 @@ internal sealed partial class GroundShapes
 
     /// <summary>The same of a rectangle standing on a bearing — what a building and a car park ask.</summary>
     public bool IsAll(Vector2 centreM, Vector2 axis, Vector2 halfExtentM, float stepM, Ground ground) =>
-        IsAll(centreM, axis, halfExtentM, stepM, ground, ground);
+        IsAll(_ownScan, centreM, axis, halfExtentM, stepM, ground, ground);
+
+    /// <inheritdoc cref="IsAll(Vector2, Vector2, Vector2, float, Ground)"/>
+    /// <param name="scan">This caller's own working set (<see cref="NewScan"/>), for an ask off its own thread.</param>
+    public bool IsAll(Scan scan, Vector2 centreM, Vector2 axis, Vector2 halfExtentM, float stepM, Ground ground) =>
+        IsAll(scan, centreM, axis, halfExtentM, stepM, ground, ground);
 
     /// <summary>And of either of two grounds.</summary>
     public bool IsAll(
-        Vector2 centreM, Vector2 axis, Vector2 halfExtentM, float stepM, Ground ground, Ground orGround)
+        Vector2 centreM, Vector2 axis, Vector2 halfExtentM, float stepM, Ground ground, Ground orGround) =>
+        IsAll(_ownScan, centreM, axis, halfExtentM, stepM, ground, orGround);
+
+    bool IsAll(
+        Scan scan, Vector2 centreM, Vector2 axis, Vector2 halfExtentM, float stepM, Ground ground, Ground orGround)
     {
         var side = new Vector2(-axis.Y, axis.X);
         for (var alongM = -halfExtentM.X; ; alongM += stepM)
@@ -195,7 +219,7 @@ internal sealed partial class GroundShapes
             {
                 var atAcrossM = MathF.Min(acrossM, halfExtentM.Y);
                 var atM = centreM + (axis * atAlongM) + (side * atAcrossM);
-                if (!Is(atM, ground) && !Is(atM, orGround)) return false;
+                if (!Is(scan, atM, ground) && !Is(scan, atM, orGround)) return false;
 
                 if (atAcrossM >= halfExtentM.Y) break;
             }
@@ -211,14 +235,21 @@ internal sealed partial class GroundShapes
     /// slab, or the shore the water is set in. What a prop asks to be <em>well clear</em> of (GEN-6b).
     /// </summary>
     /// <remarks>
-    /// <b>Off the boundary and not off the road records</b> (TER-7b, <see cref="GroundRings.PavedWithin"/>).
+    /// <b>Off the boundary and not off the road records</b> (TER-7b, <see cref="GroundRings.PavedWithin(Vector2, float)"/>).
     /// A road's own half says where its lanes were laid and not where the concrete ends, and it says nothing
     /// at all about a junction's corner or a roundabout's island; the boundary says all of it at once, and
     /// it is the boundary the verge is measured off too, so the strip between the two passes is one figure
     /// wide everywhere.
     /// </remarks>
-    public bool PavingWithin(Vector2 pointM, float reachM) =>
-        _paving.Rings(_config).PavedWithin(pointM, reachM)
+    public bool PavingWithin(Vector2 pointM, float reachM) => PavingWithin(kerb: null, pointM, reachM);
+
+    /// <inheritdoc cref="PavingWithin(Vector2, float)"/>
+    /// <param name="scan">This caller's own working set (<see cref="NewScan"/>), for an ask off its own thread.</param>
+    public bool PavingWithin(Scan scan, Vector2 pointM, float reachM) =>
+        PavingWithin(scan.Kerb ??= Layers.NewKerbScan(), pointM, reachM);
+
+    bool PavingWithin(ChainIndex.Scan? kerb, Vector2 pointM, float reachM) =>
+        Layers.PavedWithin(kerb, pointM, reachM)
         || SlabWithin(pointM, reachM)
         || _shore.Within(pointM, reachM);
 
@@ -228,6 +259,8 @@ internal sealed partial class GroundShapes
     /// nothing, so off the town is not grass — even though <see cref="At"/> answers grass out there, which
     /// is what a body pushed off the map needs.
     /// </summary>
-    bool Is(Vector2 pointM, Ground ground) => Contains(pointM) && At(pointM) == ground;
+    bool Is(Vector2 pointM, Ground ground) => Is(_ownScan, pointM, ground);
+
+    bool Is(Scan scan, Vector2 pointM, Ground ground) => Contains(pointM) && At(scan, pointM) == ground;
 
 }

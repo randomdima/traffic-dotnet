@@ -64,6 +64,12 @@ internal interface ICarTown
     void ParkIt(int car, int bay);
 
     /// <summary>
+    /// <b>Out of the bay a car stands in, route first</b> (GEN-4f): the route laid from the bay, and the manoeuvre out
+    /// shaped onto the lane that route sets off down. False where the car can be got out onto no lane at all.
+    /// </summary>
+    bool LeaveTheBay(int car, int bay);
+
+    /// <summary>
     /// <b>The road taken from where the car stands</b>: the lane under it followed, or — with no lane under it to take —
     /// the car off its line, at rest until it has one (CAR-9). True where it had a lane.
     /// </summary>

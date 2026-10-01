@@ -83,6 +83,13 @@ internal sealed class RibbonAtlas
     const float StraightCurvature = 1e-6f;
 
     /// <summary>
+    /// What two readings of one point's depth in a body may differ by in rounding alone, as a share of how far the
+    /// body reaches from its centre — some hundreds of times what single-precision arithmetic over that reach can
+    /// put between them.
+    /// </summary>
+    const float RoundingShare = 1f / 4096f;
+
+    /// <summary>
     /// <b>One way over one point</b>: how far outside the way's band the point stands in
     /// <see cref="OutsidePerReach"/>ths of the reach and rounded up — nothing for a point on the band — the
     /// metre along the way in tenths, and the way. Which point it is over is where it is kept.
@@ -200,24 +207,162 @@ internal sealed class RibbonAtlas
     /// them, widened by half a lattice step at each end and held to the way.
     /// </summary>
     /// <returns>How many ways were written; a way past the room given is dropped and counted.</returns>
-    public int UnderBox(Vector2 centreM, Vector2 forward, float halfLengthM, float halfWidthM, Span<WayCover> into)
-    {
-        var box = new Box(centreM, forward, halfLengthM, halfWidthM);
-        return Widened(into, Read(box, box.LeastY, box.MostY, into));
-    }
+    public int UnderBox(Vector2 centreM, Vector2 forward, float halfLengthM, float halfWidthM, Span<WayCover> into) =>
+        Widened(into, Read(new Box(centreM, forward, halfLengthM, halfWidthM), into, out _));
 
     /// <summary>The same for a disc — a walker's collider.</summary>
     public int UnderDisc(Vector2 centreM, float radiusM, Span<WayCover> into) =>
-        Widened(into, Read(new Disc(centreM, radiusM), centreM.Y - radiusM, centreM.Y + radiusM, into));
+        Widened(into, Read(new Disc(centreM, radiusM), into, out _));
+
+    /// <summary>
+    /// <see cref="UnderBox(Vector2, Vector2, float, float, Span{WayCover})"/> <b>for one body of a roster</b>, kept
+    /// in <paramref name="recall"/>: its last answer where no verdict that answer was made of can have changed
+    /// since, and a fresh read where one can — the same to the bit either way.
+    /// </summary>
+    /// <returns>The ways, good until this body is next asked for.</returns>
+    public ReadOnlySpan<WayCover> UnderBox(
+        Vector2 centreM, Vector2 forward, float halfLengthM, float halfWidthM, Recall recall, int body)
+    {
+        var box = new Box(centreM, forward, halfLengthM, halfWidthM);
+        var asked = new Recall.Reading(centreM, forward, halfLengthM, halfWidthM, 0f, 0);
+        ref readonly var last = ref recall.Last[body];
+
+        // No point inside the box is further from its centre than a corner is, so no depth in it moves by more
+        // than the centre moved, the corner swung and either half grew.
+        var reachM = MathF.Sqrt((halfLengthM * halfLengthM) + (halfWidthM * halfWidthM));
+        var movedM = Vector2.Distance(centreM, last.CentreM) + (reachM * Vector2.Distance(forward, last.Forward))
+                     + MathF.Abs(halfLengthM - last.HalfLengthM) + MathF.Abs(halfWidthM - last.HalfWidthM);
+        var kept = asked.SamePose(last)
+                   || (Unmoved(movedM, reachM, last.SlackM)
+                       && SamePoints(box, new Box(last.CentreM, last.Forward, last.HalfLengthM, last.HalfWidthM)));
+
+        return Recalled(box, kept, recall, body, asked);
+    }
+
+    /// <summary>The same for a disc — a walker's collider, whose radius is kept as its half length.</summary>
+    public ReadOnlySpan<WayCover> UnderDisc(Vector2 centreM, float radiusM, Recall recall, int body)
+    {
+        var disc = new Disc(centreM, radiusM);
+        var asked = new Recall.Reading(centreM, Vector2.Zero, radiusM, 0f, 0f, 0);
+        ref readonly var last = ref recall.Last[body];
+        var movedM = Vector2.Distance(centreM, last.CentreM) + MathF.Abs(radiusM - last.HalfLengthM);
+        var kept = asked.SamePose(last)
+                   || (Unmoved(movedM, radiusM, last.SlackM) && SamePoints(disc, new Disc(last.CentreM, last.HalfLengthM)));
+
+        return Recalled(disc, kept, recall, body, asked);
+    }
 
     /// <summary>How many ways have been dropped for want of room since the town was laid — a gate's figure.</summary>
     public long Dropped => _dropped;
 
     long _dropped;
 
+    /// <summary>
+    /// <b>What the atlas last found under each body of one roster</b>, the pose it found it at, and how near that
+    /// reading came to another answer — so a body that has not moved far enough to change one is not read again.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A standing body is almost never exactly where it stood a tick ago</b>: nothing sleeps, and a parked car
+    /// the town has once touched is shuffled by microns on its tyres for as long as the town runs. So an answer is
+    /// kept against how far the body may move — the <see cref="Reading.SlackM"/> — and not against its pose.
+    /// </para>
+    /// <para>
+    /// <b>A read's answer is made of two things and nothing else</b>: which lattice points lie inside the body,
+    /// and which of their ways the body reaches further past than the point stands outside them. The first is
+    /// asked again exactly (<see cref="SamePoints"/>); the second cannot have turned while no depth has moved by
+    /// the slack. A body at exactly the pose it was read at is neither: the same read, so the same answer.
+    /// </para>
+    /// <para>
+    /// Laid once for a roster's capacity, a body's room is <see cref="MostWaysUnderABody"/>, and a body over more
+    /// ways than that is dropped and counted once for the reading rather than once a tick.
+    /// </para>
+    /// </remarks>
+    public sealed class Recall
+    {
+        public Recall(int bodies)
+        {
+            Last = new Reading[bodies];
+            Array.Fill(Last, Reading.Never);
+            _covers = new WayCover[bodies * MostWaysUnderABody];
+        }
+
+        /// <summary>
+        /// One body's last reading: the pose it was read at, the least any depth test it took stood from the
+        /// other verdict, and how many ways it found.
+        /// </summary>
+        internal readonly record struct Reading(
+            Vector2 CentreM, Vector2 Forward, float HalfLengthM, float HalfWidthM, float SlackM, int Count)
+        {
+            /// <summary>A body never read: it stands nowhere and has no slack, so it is always read.</summary>
+            public static readonly Reading Never = new(new Vector2(float.NaN), Vector2.Zero, 0f, 0f, 0f, 0);
+
+            /// <summary>Whether this is the other's pose exactly — a read of the same thing, so the same answer.</summary>
+            public bool SamePose(in Reading other) =>
+                CentreM == other.CentreM && Forward == other.Forward
+                && HalfLengthM == other.HalfLengthM && HalfWidthM == other.HalfWidthM;
+        }
+
+        internal readonly Reading[] Last;
+
+        readonly WayCover[] _covers;
+
+        internal Span<WayCover> CoversOf(int body) => _covers.AsSpan(body * MostWaysUnderABody, MostWaysUnderABody);
+    }
+
+    /// <summary>
+    /// Whether a body whose every depth has moved by at most <paramref name="movedM"/> is still on the side of
+    /// every depth test its last reading took, less what the two readings' rounding may differ by.
+    /// </summary>
+    static bool Unmoved(float movedM, float reachM, float slackM) => movedM + (reachM * RoundingShare) < slackM;
+
+    /// <summary>A body's last answer where <paramref name="kept"/>, and a fresh read, kept for next time, where not.</summary>
+    ReadOnlySpan<WayCover> Recalled<TBody>(scoped in TBody body, bool kept, Recall recall, int index, Recall.Reading asked)
+        where TBody : struct, IBody
+    {
+        var covers = recall.CoversOf(index);
+        ref var last = ref recall.Last[index];
+        if (kept) return covers[..last.Count];
+
+        var count = Widened(covers, Read(body, covers, out var slackM));
+        last = asked with { SlackM = slackM, Count = count };
+        return covers[..count];
+    }
+
+    /// <summary>
+    /// Whether two bodies take in the same lattice points — the same rows, and the same columns of each — asked
+    /// exactly as <see cref="Read"/> asks it.
+    /// </summary>
+    bool SamePoints<TBody>(in TBody one, in TBody other) where TBody : struct, IBody
+    {
+        var firstRow = _level.FirstMiddleFrom(one.LeastY);
+        var lastRow = _level.LastMiddleTo(one.MostY);
+        if (firstRow != _level.FirstMiddleFrom(other.LeastY) || lastRow != _level.LastMiddleTo(other.MostY)) return false;
+
+        for (var row = firstRow; row <= lastRow; row++)
+        {
+            var y = _level.MiddleM(row);
+            var crosses = one.Across(y, out var fromX, out var toX);
+            if (crosses != other.Across(y, out var otherFromX, out var otherToX)) return false;
+            if (!crosses) continue;
+
+            if (_level.FirstMiddleFrom(fromX) != _level.FirstMiddleFrom(otherFromX)
+                || _level.LastMiddleTo(toX) != _level.LastMiddleTo(otherToX))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /// <summary>A body's collider, as how far inside it a point lies and where a row of points crosses it.</summary>
     interface IBody
     {
+        float LeastY { get; }
+
+        float MostY { get; }
+
         float DepthM(Vector2 pointM);
 
         /// <summary>Where one horizontal line crosses the body, as the span of x inside it.</summary>
@@ -290,6 +435,10 @@ internal sealed class RibbonAtlas
 
     readonly struct Disc(Vector2 centreM, float radiusM) : IBody
     {
+        public float LeastY => centreM.Y - radiusM;
+
+        public float MostY => centreM.Y + radiusM;
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float DepthM(Vector2 pointM) => radiusM - Vector2.Distance(pointM, centreM);
 
@@ -315,12 +464,14 @@ internal sealed class RibbonAtlas
     /// further past it than it stands outside that way's band — so ground the body and the band both hold lies
     /// between them, and a body whose edge only meets the band's is not on it.
     /// </summary>
-    int Read<TBody>(in TBody body, float leastY, float mostY, Span<WayCover> into) where TBody : struct, IBody
+    /// <param name="slackM">The least any of those depths stood from its way's outside, either side of it.</param>
+    int Read<TBody>(in TBody body, Span<WayCover> into, out float slackM) where TBody : struct, IBody
     {
         var found = MemoryMarshal.Cast<WayCover, Found>(into);
-        var firstRow = _level.FirstMiddleFrom(leastY);
-        var lastRow = _level.LastMiddleTo(mostY);
+        var firstRow = _level.FirstMiddleFrom(body.LeastY);
+        var lastRow = _level.LastMiddleTo(body.MostY);
 
+        var slack = float.PositiveInfinity;
         var written = 0;
         for (var row = firstRow; row <= lastRow; row++)
         {
@@ -350,10 +501,12 @@ internal sealed class RibbonAtlas
                     for (var at = first + _pointStart[starts + column]; at < end; at++)
                     {
                         ref readonly var entry = ref _entries[at];
-                        if (entry.Outside != 0 &&
-                            body.DepthM(new Vector2(_level.MiddleM(cellFirstColumn + column), y)) <= entry.Outside * _metresPerOutside)
+                        if (entry.Outside != 0)
                         {
-                            continue;
+                            var depthM = body.DepthM(new Vector2(_level.MiddleM(cellFirstColumn + column), y));
+                            var outsideM = entry.Outside * _metresPerOutside;
+                            slack = MathF.Min(slack, MathF.Abs(depthM - outsideM));
+                            if (depthM <= outsideM) continue;
                         }
 
                         written = Grow(found, written, entry.Way, entry.Along);
@@ -362,6 +515,7 @@ internal sealed class RibbonAtlas
             }
         }
 
+        slackM = slack;
         return written;
     }
 
@@ -433,6 +587,11 @@ internal sealed class RibbonAtlas
         {
             var arcs = lines.LineOf(way, out var widthM);
             lengthM[way] = Spline.TotalLengthM(arcs);
+            if (lengthM[way] * AlongPerMetre > ushort.MaxValue)
+            {
+                throw new InvalidOperationException($"a way {lengthM[way]:F0} m long is longer than the atlas can file");
+            }
+
             foreach (var arc in arcs) Bound(arc, (widthM * 0.5f) + ReachOf(stepM), ref leastM, ref mostM);
         }
 
@@ -440,22 +599,27 @@ internal sealed class RibbonAtlas
 
         var cells = GridWindow.Over(main, leastM, mostM);
 
-        // Every way's own points, found a way at a time on as many threads as there are.
-        var perWay = new Sample[wayCount][];
+        // Every way's own points, found a way at a time on as many threads as there are, and counted under
+        // their cells as they are found.
+        var perWay = new ArraySegment<Sample>[wayCount];
+        var cellCount = new int[cells.Count];
         InChunks.Over(
             wayCount,
-            () => new List<Sample>(),
-            (found, way) => perWay[way] = PointsOf(lines, way, lengthM[way], level, found));
+            () => new Laying(),
+            (laying, way) =>
+            {
+                var laid = laying.Kept(PointsOf(lines, way, lengthM[way], level, laying.Found));
+                perWay[way] = laid;
+                foreach (var sample in laid.AsSpan())
+                {
+                    Interlocked.Increment(ref cellCount[cells.IndexOf(sample.X >> shift, sample.Y >> shift)]);
+                }
+            });
 
-        // Filed a cell at a time: counted, the cells that hold any given their place, and each cell then
-        // put in row, column and way order.
+        // Filed a cell at a time: the cells that hold any given their place, every point put in its cell in
+        // whatever order the threads reach it, and each cell then put in row, column and way order — which
+        // no two entries share, so the order they were filed in is gone.
         var mask = (1 << shift) - 1;
-        var cellCount = new int[cells.Count];
-        foreach (var samples in perWay)
-        {
-            foreach (var sample in samples) cellCount[cells.IndexOf(sample.X >> shift, sample.Y >> shift)]++;
-        }
-
         var cellSlot = new int[cells.Count];
         var slots = 0;
         for (var cell = 0; cell < cells.Count; cell++) cellSlot[cell] = cellCount[cell] > 0 ? slots++ : -1;
@@ -466,70 +630,57 @@ internal sealed class RibbonAtlas
             if (cellSlot[cell] >= 0) slotFirst[cellSlot[cell] + 1] = cellCount[cell];
         }
 
-        for (var slot = 0; slot < slots; slot++) slotFirst[slot + 1] += slotFirst[slot];
-
-        var total = slotFirst[slots];
-        var keys = new long[total];
-        var items = new long[total];
-        var cursor = (int[])slotFirst.Clone();
-        for (var way = 0; way < wayCount; way++)
-        {
-            foreach (var sample in perWay[way])
-            {
-                var at = cursor[cellSlot[cells.IndexOf(sample.X >> shift, sample.Y >> shift)]]++;
-                var inCell = ((sample.Y & mask) << shift) | (sample.X & mask);
-                keys[at] = ((long)inCell << 32) | (uint)way;
-                items[at] = ((long)BitConverter.SingleToInt32Bits(sample.MarginM) << 32)
-                            | (uint)BitConverter.SingleToInt32Bits(sample.AlongM);
-            }
-
-            perWay[way] = [];
-        }
-
-        InChunks.Over(
-            slots,
-            () => 0,
-            (_, slot) => Array.Sort(keys, items, slotFirst[slot], slotFirst[slot + 1] - slotFirst[slot]));
-
-        var startsPerCell = (1 << (2 * shift)) + 1;
-        var pointStart = new ushort[slots * startsPerCell];
-        var entries = new Entry[total];
-        var reachM = ReachOf(stepM);
-        var points = 0;
-        var mostAtAPoint = 0;
-        var atThePoint = 0;
         for (var slot = 0; slot < slots; slot++)
         {
-            var first = slotFirst[slot];
-            if (slotFirst[slot + 1] - first > ushort.MaxValue)
+            if (slotFirst[slot + 1] > ushort.MaxValue)
             {
                 throw new InvalidOperationException($"a cell {main.CellM:F0} m across holds more than {ushort.MaxValue} entries");
             }
 
-            var starts = slot * startsPerCell;
-            var point = 0;
-            for (var at = first; at < slotFirst[slot + 1]; at++)
+            slotFirst[slot + 1] += slotFirst[slot];
+        }
+
+        var total = slotFirst[slots];
+        var keys = new long[total];
+        var entries = new Entry[total];
+        var cursor = (int[])slotFirst.Clone();
+        var reachM = ReachOf(stepM);
+        InChunks.Over(
+            wayCount,
+            () => 0,
+            (_, way) =>
             {
-                var inCell = (int)(keys[at] >> 32);
-                var way = (int)(uint)keys[at];
-                var alongM = BitConverter.Int32BitsToSingle((int)(uint)items[at]);
-                if (at == first || (int)(keys[at - 1] >> 32) != inCell)
+                foreach (var sample in perWay[way].AsSpan())
                 {
-                    points++;
-                    atThePoint = 0;
+                    var slot = cellSlot[cells.IndexOf(sample.X >> shift, sample.Y >> shift)];
+                    var at = Interlocked.Increment(ref cursor[slot]) - 1;
+                    var inCell = ((sample.Y & mask) << shift) | (sample.X & mask);
+                    keys[at] = ((long)inCell << 32) | (uint)way;
+                    entries[at] = new Entry(Outside(sample.MarginM, reachM), Filed(sample.AlongM), way);
                 }
+            });
 
-                mostAtAPoint = Math.Max(mostAtAPoint, ++atThePoint);
-                for (; point <= inCell; point++) pointStart[starts + point] = (ushort)(at - first);
+        var startsPerCell = (1 << (2 * shift)) + 1;
+        var pointStart = new ushort[slots * startsPerCell];
+        var census = new (int Points, int MostAtAPoint)[slots];
+        InChunks.Over(
+            slots,
+            () => 0,
+            (_, slot) =>
+            {
+                var first = slotFirst[slot];
+                var count = slotFirst[slot + 1] - first;
+                var cellKeys = keys.AsSpan(first, count);
+                cellKeys.Sort(entries.AsSpan(first, count));
+                census[slot] = Started(cellKeys, pointStart.AsSpan(slot * startsPerCell, startsPerCell));
+            });
 
-                // Rounded up, so that a body whose edge only meets the band's is never read as over it.
-                var outsideM = reachM - BitConverter.Int32BitsToSingle((int)(items[at] >> 32));
-                entries[at] = new Entry(
-                    (byte)Math.Clamp(MathF.Ceiling(outsideM / reachM * OutsidePerReach), 0f, OutsidePerReach),
-                    Filed(alongM, lengthM[way]), way);
-            }
-
-            for (; point < startsPerCell; point++) pointStart[starts + point] = (ushort)(slotFirst[slot + 1] - first);
+        var points = 0;
+        var mostAtAPoint = 0;
+        foreach (var cell in census)
+        {
+            points += cell.Points;
+            mostAtAPoint = Math.Max(mostAtAPoint, cell.MostAtAPoint);
         }
 
         var marks = RibbonMarks.Of(lines, lengthM, stepM, touchM, main);
@@ -537,16 +688,77 @@ internal sealed class RibbonAtlas
         return new RibbonAtlas(level, cells, cellSlot, slotFirst, pointStart, entries, lengthM, marks, points, mostAtAPoint);
     }
 
-    /// <summary>A metre along a way as the atlas files it, which a way longer than the field holds refuses.</summary>
-    static ushort Filed(float alongM, float lengthM)
+    /// <summary>A metre along a way as the atlas files it; a way longer than the field holds is refused when laid.</summary>
+    static ushort Filed(float alongM) => (ushort)Math.Clamp(MathF.Round(alongM * AlongPerMetre), 0f, ushort.MaxValue);
+
+    /// <summary>
+    /// How far outside its way's band a point stands, as <see cref="Entry.Outside"/> files it — rounded up, so
+    /// that a body whose edge only meets the band's is never read as over it.
+    /// </summary>
+    static byte Outside(float marginM, float reachM) =>
+        (byte)Math.Clamp(MathF.Ceiling((reachM - marginM) / reachM * OutsidePerReach), 0f, OutsidePerReach);
+
+    /// <summary>
+    /// Where each point of one cell has its entries, read off the cell's keys in order; how many points hold
+    /// any, and the most ways at one of them.
+    /// </summary>
+    static (int Points, int MostAtAPoint) Started(ReadOnlySpan<long> keys, Span<ushort> starts)
     {
-        var filed = MathF.Round(alongM * AlongPerMetre);
-        if (lengthM * AlongPerMetre > ushort.MaxValue)
+        var points = 0;
+        var mostAtAPoint = 0;
+        var atThePoint = 0;
+        var point = 0;
+        for (var at = 0; at < keys.Length; at++)
         {
-            throw new InvalidOperationException($"a way {lengthM:F0} m long is longer than the atlas can file");
+            var inCell = (int)(keys[at] >> 32);
+            if (at == 0 || (int)(keys[at - 1] >> 32) != inCell)
+            {
+                points++;
+                atThePoint = 0;
+            }
+
+            mostAtAPoint = Math.Max(mostAtAPoint, ++atThePoint);
+            for (; point <= inCell; point++) starts[point] = (ushort)at;
         }
 
-        return (ushort)Math.Clamp(filed, 0f, ushort.MaxValue);
+        for (; point < starts.Length; point++) starts[point] = (ushort)keys.Length;
+
+        return (points, mostAtAPoint);
+    }
+
+    /// <summary>
+    /// <b>One thread's lattice points</b>: every way it has laid, back to back in blocks, so a way's points are
+    /// a stretch of a block rather than an array of their own.
+    /// </summary>
+    /// <remarks>
+    /// An array a way is tens of thousands of small allocations from every thread at once, and the workstation
+    /// heap hands out room under one lock: on Odesa a third of the pass's CPU went to waiting for it.
+    /// </remarks>
+    sealed class Laying
+    {
+        /// <summary>How many points a block holds, unless one way's own need more.</summary>
+        const int BlockPoints = 1 << 16;
+
+        /// <summary>The one way being laid, found before it is kept.</summary>
+        public readonly List<Sample> Found = [];
+
+        Sample[] _block = [];
+        int _used;
+
+        /// <summary>A way's points, copied into this thread's block, and where they now stand.</summary>
+        public ArraySegment<Sample> Kept(ReadOnlySpan<Sample> points)
+        {
+            if (_used + points.Length > _block.Length)
+            {
+                _block = GC.AllocateUninitializedArray<Sample>(Math.Max(BlockPoints, points.Length));
+                _used = 0;
+            }
+
+            points.CopyTo(_block.AsSpan(_used));
+            var kept = new ArraySegment<Sample>(_block, _used, points.Length);
+            _used += points.Length;
+            return kept;
+        }
     }
 
     /// <summary>
@@ -564,8 +776,9 @@ internal sealed class RibbonAtlas
     /// inside of a joint — keeps the reading it lies deepest inside. <b>The ends are square</b>: a foot past
     /// the first piece's start or the last piece's end is off the ribbon, which is what keeps a lane and the
     /// connector it hands over to from sharing the metre they meet at.
+    /// <para>What it returns is a view of <paramref name="found"/>, good until that list is next used.</para>
     /// </remarks>
-    static Sample[] PointsOf(IRibbonLines lines, int way, float lengthM, GridLevel level, List<Sample> found)
+    static ReadOnlySpan<Sample> PointsOf(IRibbonLines lines, int way, float lengthM, GridLevel level, List<Sample> found)
     {
         found.Clear();
         var arcs = lines.LineOf(way, out var widthM);
@@ -612,15 +825,16 @@ internal sealed class RibbonAtlas
             : one.X != other.X ? one.X.CompareTo(other.X)
             : other.MarginM.CompareTo(one.MarginM));
 
-        var kept = new List<Sample>(found.Count);
-        foreach (var sample in found)
+        var sorted = CollectionsMarshal.AsSpan(found);
+        var kept = 0;
+        foreach (var sample in sorted)
         {
-            if (kept.Count > 0 && kept[^1].X == sample.X && kept[^1].Y == sample.Y) continue;
+            if (kept > 0 && sorted[kept - 1].X == sample.X && sorted[kept - 1].Y == sample.Y) continue;
 
-            kept.Add(sample);
+            sorted[kept++] = sample;
         }
 
-        return [.. kept];
+        return sorted[..kept];
     }
 
     /// <summary>

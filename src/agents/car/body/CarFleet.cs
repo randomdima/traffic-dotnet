@@ -61,12 +61,12 @@ internal sealed class CarFleet
         TurningAtTheBox = new bool[capacity];
         BoxIsOurs = new bool[capacity];
         CommittedToTheBox = new bool[capacity];
-        SinceDecisionS = new float[capacity];
         Line = new DrivenLine[capacity];
         LineArcs = new ArcSeg[capacity * arcsPerCar];
         LineEntryM = new float[capacity * arcsPerCar];
         StopsForBay = new int[capacity];
         Array.Fill(StopsForBay, NoBay);
+        StopsAtItsPlace = new bool[capacity];
         TurnsBackOn = new int[capacity];
         Array.Fill(TurnsBackOn, NoLane);
         ClaimFromM = new float[capacity];
@@ -89,6 +89,9 @@ internal sealed class CarFleet
         RouteCount = new int[capacity];
         RouteTaken = new int[capacity];
         RouteRunsOut = new bool[capacity];
+        RouteEndsOn = new int[capacity];
+        Array.Fill(RouteEndsOn, NoLane);
+        RouteEndsAtM = new float[capacity];
         DestinationM = new Vector2[capacity];
         HasDestination = new bool[capacity];
         Reroutes = new byte[capacity];
@@ -248,13 +251,6 @@ internal sealed class CarFleet
     /// </summary>
     public bool[] CommittedToTheBox { get; }
 
-    /// <summary>
-    /// How long this car has been driven since its leg last decided — run up by the tick, spent by the
-    /// decision. <b>The decision's own elapsed time and not the loop's nominal interval</b>, which is what the
-    /// leg's clock and an errand's clocks integrate over.
-    /// </summary>
-    public float[] SinceDecisionS { get; }
-
     public DrivenLine[] Line { get; }
 
     /// <summary>
@@ -267,6 +263,13 @@ internal sealed class CarFleet
     /// holding: the line's end was placed for this bay, and the manoeuvre into it is asked from there.
     /// </remarks>
     public int[] StopsForBay { get; }
+
+    /// <summary>
+    /// <b>Whether this car's line ends at the place its leg is aimed at in the road</b> — where the route ends, and
+    /// where the car stands once it has driven the line out (SRV-5). <b>Read through <see cref="StopsAtItsPlaceOf"/></b>,
+    /// and written where the line is assembled and nowhere else, as <see cref="StopsForBay"/> is.
+    /// </summary>
+    public bool[] StopsAtItsPlace { get; }
 
     /// <summary>
     /// <b>The lane this leg comes back down after turning at a car park</b> (GEN-4l), or
@@ -400,6 +403,16 @@ internal sealed class CarFleet
     /// </remarks>
     public bool[] RouteRunsOut { get; }
 
+    /// <summary>
+    /// <b>The lane the queue ends on where it ends at the place it was searched for</b>, or <see cref="NoLane"/> where it
+    /// stops short of it — out of room (<see cref="RouteRunsOut"/>) or at a frontage it turns back on
+    /// (<see cref="TurnsBackOn"/>). A route that is already there when it is laid ends on the lane it was laid from.
+    /// </summary>
+    public int[] RouteEndsOn { get; }
+
+    /// <summary>How far along <see cref="RouteEndsOn"/> that place stands, in the lane's own metres.</summary>
+    public float[] RouteEndsAtM { get; }
+
     /// <summary>Where this car is going. A place in the town, and not a node: a destination always is.</summary>
     public Vector2[] DestinationM { get; }
 
@@ -483,6 +496,7 @@ internal sealed class CarFleet
         RouteCount[car] = 0;
         RouteTaken[car] = 0;
         RouteRunsOut[car] = false;
+        RouteEndsOn[car] = NoLane;
         TurnsBackOn[car] = NoLane;
     }
 
@@ -573,6 +587,9 @@ internal sealed class CarFleet
     /// </summary>
     public int StopsForBayOf(int car) => Line[car].LaneCount > 0 ? StopsForBay[car] : NoBay;
 
+    /// <summary>Whether the line in hand ends at the place its leg is aimed at in the road — never for a line with no lanes.</summary>
+    public bool StopsAtItsPlaceOf(int car) => Line[car].LaneCount > 0 && StopsAtItsPlace[car];
+
     /// <summary>The lane the car is on, which is the first of its chain — or <see cref="NoLane"/> when it is on none.</summary>
     public int LaneOf(int car) => Line[car].LaneCount > 0 ? LaneChain[car * LineAssembler.MostLanes] : NoLane;
 
@@ -622,9 +639,9 @@ internal sealed class CarFleet
         TurningAtTheBox[car] = false;
         BoxIsOurs[car] = false;
         CommittedToTheBox[car] = false;
-        SinceDecisionS[car] = 0f;
         Line[car] = default;
         StopsForBay[car] = NoBay;
+        StopsAtItsPlace[car] = false;
         TurnsBackOn[car] = NoLane;
         AuthorityM[car] = 0f;
         HorizonM[car] = float.PositiveInfinity;
@@ -639,6 +656,7 @@ internal sealed class CarFleet
         RouteCount[car] = 0;
         RouteTaken[car] = 0;
         RouteRunsOut[car] = false;
+        RouteEndsOn[car] = NoLane;
         HasDestination[car] = false;
         Reroutes[car] = 0;
 

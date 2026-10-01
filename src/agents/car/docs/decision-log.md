@@ -3,6 +3,68 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-10-01 — the piece a car is manoeuvring on is swept once a rebuild
+
+**A manoeuvre at a bay was the largest single cost left in a running town**: `BayManoeuvring.UnderTheCarOnThePiece`
+was a tenth of Odesa's CPU after a minute and a half, all of it atlas reads. Every rebuild swept the piece a car
+is on twice, station by station — once to lay its ground and once to find the body standing in it — and the two
+are the same reads: one piece, one stretch of it, one gear.
+
+**The first to ask keeps each station's stretches of carriageway, and the second walks them**
+(`BayManoeuvring.SweepOfThePiece`). The hold cannot be answered while the ground is laid, because it is asked of
+the passes laid after it. A sweep is kept against everything it is read from, the rebuild included, so a kept one
+is a fresh one to the bit: `--bench soak --map Odesa`, six seeds, printed the same table before and after.
+
+Measured on `--bench town --map Odesa`, two runs each:
+
+| | before | after |
+|---|---|---|
+| µs a tick, first window | 1168–1180 | 1092–1115 |
+
+The after runs reached further into the town's life in the same minute, which costs more a tick, not less.
+
+## 2026-09-30 — a car is held back by its engine and not by the road it drives on
+
+**The owner reported the cars slow beside the town's walkers** (CAR-51). Tarmac's rolling resistance was a feel
+figure, 0.1223 against a road tyre's ≈ 0.012, chosen so a car let off would not coast the length of the town — and
+spent outside the traction budget it was 1.2 m/s² paid under power too, a third of what a front-driven car's tyres
+put down pulling away. **Tarmac is a tyre's own now, and what stops a car floating is its engine**
+(`Car.EngineBrakingResistance`, 0.1 of its weight on the driven axle): a brake on the wheels the engine turns,
+all of it with the pedal up and none at the floor, faded in between so the pedal has no step where the engine
+lets go. Let off, a car slows about as it did; floored, it keeps the whole of its tyres. **The front-driven looks
+state their balance** (`frontWeightShare`, 0.57–0.63): the even split the file had left them on was nobody's
+actual car and put a tenth less on the axle that drives. Over the drive probe the mean pace rose 8–11 % on
+every map; the top speed is the plan's reach (TER-4c.1) and did not move.
+
+## 2026-09-30 — a leg ends where its route does, and a car is not sent round the block from its own stop
+
+**The owner reported cars going in loops before reaching where they were going, and said any actor can stop
+wherever it decides to — a service vehicle above all** (CAR-15, SRV-5). Six minutes of Odesa, watched for a car
+passing the same point the same way twice in one leg, found 62 of 874 legs doing it, a median 690 m a loop. Four
+causes, each fixed where it lives:
+
+- **A leg aimed at a place in the road never stopped there.** Only a bay stopped a line, so at the place's lane the
+  route was asked for again from that lane's far end, the place read as behind, and the car went round the block —
+  every lap, until the leg's clock ran out: a patrol circled its beat place for twenty minutes (`PatrolGiveUpS`). 45
+  of the 62. **The route now carries where it ends** (`CarFleet.RouteEndsOn`), the line stops there
+  (`ThePlaceTheLineStopsAtM`), and a car standing at the end of that line has arrived and runs no clock.
+- **A bay was called overshot by a car streets away** (`StandsShortOf`): the car's nose was projected onto a lane it
+  was not on, and a car coming round the block passes the far end of its bay's lane first. It is now asked only of
+  the lane the car is on, and of the rear axle, which is the point a line's end brings to rest — asked of the nose,
+  a stop in a lane's first metres was one the bonnet had already covered as the car came onto that lane.
+- **A search from a car that had just left a bay began at the far end of its lane** (`AlongTheEntryM`): the line it
+  held was the manoeuvre's, with no lanes, so the goal it had turned in a bay to come back to read as behind it, and
+  it turned in a bay again. The progress is now set for the chain before the line is laid over it.
+- **A car was handed onto a lane its line laid none of** (`ReadTheLine`): a stop at a lane's very first metre ends
+  the line where that lane begins, and the handover laid the line again at the car's own stop.
+
+**Loops fell to 0.1–0.2 % of legs on Odesa and River over ten minutes, and the cost of them showed.** A car that
+used to drive past its bay and round the block now stands at its turn-in until the manoeuvre's ground is had, and
+the lane queues behind it: cars standing at a bay's stop went from 9 % to 15 % of those driving at the tenth
+minute on Odesa and from 9 % to 24 % on River, cars standing at all from 37 % to 58 % and from 31 % to 47 %, while
+the bays parked in stayed where they were (971 and 920, 964 and 963). That is the manoeuvre's ground left unsolved
+by the entry below, which the loops had been hiding by keeping those cars moving.
+
 ## 2026-09-30 — a car off its line looks for a lane on a clock, and a bay's manoeuvre is still shaped as the car goes
 
 **A car at rest off its line looks for the lane under it every `RejoinLooksEveryS`** (CAR-9), and not every tick:

@@ -46,7 +46,7 @@ public class WalkerFollowerTests
     [Fact]
     public void AnAimInsideATicksWalkIsReachedExactly()
     {
-        var aimM = new Vector2(-0.03f, 0.05f);
+        var aimM = Vector2.Normalize(new Vector2(-0.6f, 1f)) * (Config.PersonStepM * 0.5f);
         var step = Step(aimM);
 
         Assert.Equal(aimM.X, step.ImpulseNs.X / MassKg * Dt, 5);

@@ -33,7 +33,12 @@ internal static class TownProbe
     /// <summary>The two allocation windows, which count bytes rather than time and need no wall clock.</summary>
     public const int AllocationTicks = 900;
 
-    public static void Run(SimConfig config)
+    public static void Run(SimConfig config) => Run(config, Maps.Shipped());
+
+    /// <summary>One map's row alone — a before and an after of one change, a few minutes apart rather than ten.</summary>
+    public static void Run(SimConfig config, string map) => Run(config, [map]);
+
+    static void Run(SimConfig config, string[] maps)
     {
         Console.WriteLine($"town probe — {WarmupTicks} warm-up ticks, {WindowS:F0} s measured per window, {config.Solver.VelocityIterations} solver iterations");
         Console.WriteLine($"{"map",-10}{"walkers",9}{"cars",6}{"statics",9}{"room",9}{"stand ms",10}{"B/tick",10}{"ours B",9}{"solver B",10}{"µs/tick",10}{"gen0",7}{"ticks",10}");
@@ -43,7 +48,6 @@ internal static class TownProbe
         // (<see cref="Warmup"/>), or the first row is a measurement of the JIT.
         Warmup.TheProcess(config);
 
-        var maps = Maps.Shipped();
         var samples = new TownSample[maps.Length];
         for (var map = 0; map < maps.Length; map++)
         {

@@ -383,6 +383,9 @@ internal sealed class BuildingFigures
 
     public float DwellMinS { get; init; } = 0f;
     public float DwellMaxS { get; init; } = 10f;
+
+    /// <summary>`PER-11`'s patience at a full door, in longest dwells: well above one, so an ordinary turnover is always waited out.</summary>
+    public float PlacePatienceInDwells { get; init; } = 3f;
 }
 
 /// <summary>Street furniture: the unit every other static size is quoted against.</summary>
@@ -428,14 +431,15 @@ internal sealed class TerrainFigures
     /// Resistance to travel over a surface, <b>as a coefficient</b> — the raw term, dimensionless, against
     /// which the deceleration a wheel actually feels is derived (<see cref="SimConfig.GrassDragMps2"/> and
     /// its pair). It is spent outside the traction budget so it costs nothing a tyre would have used for
-    /// cornering: terrain slows by friction, never by a speed multiplier. Tarmac's is a feel figure rather
-    /// than a physical one — a real coastdown is ≈ 0.023 and a car that coasts the length of the town reads
-    /// as floating. Grass is deep turf, enough that a lawn is somewhere a car struggles and not so much
-    /// that it strands one there.
+    /// cornering: terrain slows by friction, never by a speed multiplier. Tarmac's is a road tyre's own
+    /// rolling resistance; what keeps a car let off from coasting the length of the town is its engine
+    /// (<see cref="CarFigures.EngineBrakingResistance"/>), because a drag on the ground is paid under power
+    /// too. Grass is deep turf, enough that a lawn is somewhere a car struggles and not so much that it
+    /// strands one there.
     /// </summary>
     public float GrassResistance { get; init; } = 0.2915f;
 
-    public float PavedResistance { get; init; } = 0.1223f;
+    public float PavedResistance { get; init; } = 0.012f;
     public float WaterResistance { get; init; } = 0.3466f;
 
     /// <summary>

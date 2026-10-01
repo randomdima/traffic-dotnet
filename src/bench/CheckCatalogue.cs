@@ -17,7 +17,7 @@ internal readonly record struct CheckEntry(string Name, string Description, Func
 /// <remarks>
 /// <b>Every entry names a probe that runs, and the unit suite says so rather than this comment</b>
 /// (<c>CatalogueTests</c>). <b>The other direction is not guarded</b>: <c>Program.RunBench</c> spells
-/// six of these names a second time so that <c>--map</c> reaches them, and a name spelled there and
+/// some of these names a second time so that <c>--map</c> reaches them, and a name spelled there and
 /// left out here is a check nothing lists and the menu cannot open.
 /// </remarks>
 internal static class CheckCatalogue

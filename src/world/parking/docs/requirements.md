@@ -86,8 +86,10 @@ wide circle makes a different manoeuvre into the same bay than a small car does.
 - **Out of a bay there is one shape to each lane of its street**: straight out of the space, one turn, and a
   little straight along the lane the way the car will then drive it — reversing out of a space it stands nose
   first in, and driving out of one it stands backed into. **A car standing nearer a lane than its own circle
-  lands past that lane's middle** by the least that lets the turn fit, and drives back onto it from there. Where
-  the car is going ranks the lanes first, and then the street each takes (`TownWorld.ShapeTheWayOut`).
+  lands past that lane's middle** by the least that lets the turn fit, and drives back onto it from there. **The
+  route is laid before the car moves**, from both lanes at once, and the lane it sets off down is the one the car
+  pulls out onto; where the car cannot be got onto that one, the route is laid again from the other before it moves
+  (`TownWorld.LeaveTheBay`). Of two it could make with no route to choose, the one taking less street.
 - **A car waits for its manoeuvre into a bay where its own turn in would begin** (`TownWorld.StopForTheBayM`):
   the line of a leg aimed at a bay stops there, on the lane the bay is worked off, and is what the car drives
   until the manoeuvre is had.
@@ -126,7 +128,8 @@ end**, and nothing turns a car round there: it stands at the end until its leg's
 (`CAR-15a`).
 
 - **It is a manoeuvre in and a manoeuvre out and nothing new** (`GEN-4f`): in off the lane the car is coming
-  down, and out onto the lane running back, whichever way the place it is going to lies.
+  down, and out onto the lane running back, whichever way the place it is going to lies — the route out of the bay
+  laid from that lane alone.
 - **The bay is held while the turn is made, and that hold is a second claim of the same kind** (`GEN-4g`). A leg
   turning keeps the place it is going to — the destination has not changed, only the way round to it — and gives
   the turning bay back the moment it is out of it. Every way a leg can end gives back both.

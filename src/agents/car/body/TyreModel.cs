@@ -75,9 +75,15 @@ internal static partial class TyreModel
         // Drive is placed by layout and divided by the load of the axle it is placed on, so a light end
         // of the car spins its wheels rather than pushing the whole of it.
         var frontLoad = loadFraction[0] + loadFraction[1];
-        var frontDriveMps2 = NoLargerThan(DriveShare(command, drivenFrontShare, frontLoad), axleDriveCeilingMps2);
-        var rearDriveMps2 = NoLargerThan(DriveShare(command, 1f - drivenFrontShare, 1f - frontLoad), axleDriveCeilingMps2);
+        var driveMps2 = command.ThrottleMps2 * command.GearSign;
+        var frontDriveMps2 = NoLargerThan(AxleShare(driveMps2, drivenFrontShare, frontLoad), axleDriveCeilingMps2);
+        var rearDriveMps2 = NoLargerThan(AxleShare(driveMps2, 1f - drivenFrontShare, 1f - frontLoad), axleDriveCeilingMps2);
         var spinAllowanceMps = SpinAllowanceMps(config, Vector2.Dot(pose.VelocityMps, forward));
+
+        // The engine holds the car back through the same wheels it drives, so it is a brake on the driven axle.
+        var engineMps2 = EngineBrakingMps2(config, car, command);
+        var frontEngineMps2 = AxleShare(engineMps2, drivenFrontShare, frontLoad);
+        var rearEngineMps2 = AxleShare(engineMps2, 1f - drivenFrontShare, 1f - frontLoad);
 
         for (var wheel = 0; wheel < Wheels; wheel++)
         {
@@ -110,6 +116,7 @@ internal static partial class TyreModel
             // it against the tyre for as long as it is on.
             if (locked) spinMps[wheel] = 0f;
             var spin = spinMps[wheel];
+            var brakeMps2 = command.BrakeMps2 + (rear ? rearEngineMps2 : frontEngineMps2);
 
             // What the patch is asked to absorb, and what that ask is worth as an impulse if it can
             // simply hold it. Two questions: pulling a light rim back into step is a slip of metres a
@@ -132,7 +139,7 @@ internal static partial class TyreModel
                 // road speed rather than the rotation, so a wheel the brake has already stopped still
                 // drags the car down instead of quietly asking for nothing.
                 var pedalMps = (rear ? rearDriveMps2 : frontDriveMps2) * dtS
-                    - MathF.Sign(alongMps) * MathF.Min(command.BrakeMps2 * dtS, MathF.Abs(alongMps));
+                    - MathF.Sign(alongMps) * MathF.Min(brakeMps2 * dtS, MathF.Abs(alongMps));
 
                 // Guard 1: whatever daylight is already open between the tread and the road, less the
                 // hair of it this model puts there itself (see the class remarks).
@@ -185,7 +192,7 @@ internal static partial class TyreModel
             {
                 spinMps[wheel] = Rim(
                     car, spin, alongMps, alongAfterMps, wantAlongNs, askedAlongNs, sliding, loadKg,
-                    (rear ? rearDriveMps2 : frontDriveMps2), command.BrakeMps2, spinAllowanceMps, dtS);
+                    (rear ? rearDriveMps2 : frontDriveMps2), brakeMps2, spinAllowanceMps, dtS);
             }
 
             into[wheel] = new WheelImpulse(tyreNs + dragNs, atM[wheel]);
@@ -362,6 +369,20 @@ internal static partial class TyreModel
     /// </summary>
     const float AlongSlipEpsilonMps = 0.01f;
 
-    static float DriveShare(in DriveCommand command, float share, float axleLoad) =>
-        axleLoad > 1e-3f ? command.ThrottleMps2 * command.GearSign * share / axleLoad : 0f;
+    /// <summary>
+    /// What one axle is asked for of a whole-car figure placed on it by layout: divided by the load it stands
+    /// on, because that is the figure each of its wheels is actually asked for.
+    /// </summary>
+    static float AxleShare(float wholeMps2, float share, float axleLoad) =>
+        axleLoad > 1e-3f ? wholeMps2 * share / axleLoad : 0f;
+
+    /// <summary>
+    /// <b>What the drivetrain holds the car back by</b> (CAR-51, <see cref="SimConfig.CarEngineBrakingMps2"/>): all of
+    /// it with the pedal up and none of it at the floor, so the pedal has no step in it where the engine lets go.
+    /// </summary>
+    /// <remarks>Nothing for a wreck, whose wheels are locked and turn no engine.</remarks>
+    public static float EngineBrakingMps2(SimConfig config, in CarBuild car, in DriveCommand command) =>
+        command.LocksEveryWheel || car.AccelerationMps2 <= 0f
+            ? 0f
+            : config.CarEngineBrakingMps2 * (1f - Math.Clamp(command.ThrottleMps2 / car.AccelerationMps2, 0f, 1f));
 }

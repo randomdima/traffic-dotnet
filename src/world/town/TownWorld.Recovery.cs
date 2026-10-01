@@ -128,12 +128,8 @@ internal sealed partial class TownWorld
         // this one was holding was let go on the tick it broke (<see cref="LoseTheEvacuator"/>).
         if (Cars.Broken[car]) return;
 
-        // The elapsed the recovery's own clocks integrate over is the driver's and not the loop's nominal
-        // interval, for the reason a rescue's is (<see cref="RunTheRescue"/>).
-        var elapsedS = Cars.SinceDecisionS[car] > 0f ? Cars.SinceDecisionS[car] : sinceLastDecisionS;
-
         var stage = _recovery.Stage[car];
-        if (stage != RecoveryStage.Waiting) _recovery.SinceS[car] += elapsedS;
+        if (stage != RecoveryStage.Waiting) _recovery.SinceS[car] += sinceLastDecisionS;
 
         switch (stage)
         {
@@ -149,7 +145,7 @@ internal sealed partial class TownWorld
 
             case RecoveryStage.Running:
             case RecoveryStage.Hitching:
-                RunToTheWreck(car, elapsedS);
+                RunToTheWreck(car, sinceLastDecisionS);
                 return;
 
             case RecoveryStage.Hauling:
@@ -157,7 +153,7 @@ internal sealed partial class TownWorld
                 return;
 
             case RecoveryStage.Unhitching:
-                UnhitchIntoTheYard(car, elapsedS);
+                UnhitchIntoTheYard(car, sinceLastDecisionS);
                 return;
 
             case RecoveryStage.GoingHome:

@@ -1,5 +1,16 @@
 # The kernel — decision log
 
+## 2026-10-01 — an index walks each chain once, on every core
+
+**`ChainIndex.Builder.Seal` was the largest serial cost of opening Odesa**: 29 indexes and 175 ms, every
+chain walked twice on one thread — once to count its cells and once to write them — with a mark array the
+size of the lattice to keep a cell to once a piece. **Each chain is walked once now, in chunks on every core**
+(`Builder.CellsOf`), a piece's cells kept once by skipping the last sample's and sorting out the rest, and
+the table is counted and filed off those lists in slot order. All 29 tables are the same bytes as before and
+the plan's digest is unmoved. Interleaved, eight opens each: the plan's ground 332 → 279 ms, the foot
+graphs 186 → 157, the open 1593 → 1507. What is left is the counting sort over the lattice itself: the merge's
+index at a metre a cell is 6.6 million cells for 27 000 pieces, and 14 ms of its 34.
+
 ## 2026-09-28 — a ring is joined again once its joints meet
 
 **A straight kerb meets the kerb across a junction a few centimetres short or long**, which is outside the

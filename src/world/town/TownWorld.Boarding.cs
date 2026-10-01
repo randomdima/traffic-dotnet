@@ -56,7 +56,7 @@ internal sealed partial class TownWorld
             {
                 DoorsFoundFull++;
                 People.Stage[person] = TripStage.WaitingForAPlace;
-                People.TimerS[person] = _config.Building.DwellMaxS * PlacePatienceInDwells;
+                People.TimerS[person] = _config.PersonPlacePatienceS;
             }
 
             return;

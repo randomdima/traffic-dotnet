@@ -4,6 +4,18 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-30 — a car leaves a bay knowing its route
+
+**The owner asked why a car moves before its route is known** (GEN-4f): select the direction, then unpark. The lane
+out was ranked by where the destination lay as the crow flies, and the route was searched only once the car stood
+on the street — so over six minutes of Odesa 188 of 830 cars that could pull out either way took the dearer lane,
+by a median 346 m of route cost, and began their leg by turning round in a bay or going round the block. **The
+route is now laid from the bay before the car moves**, one search entered from both lanes at the metre the mouth
+stands abeam of, and the manoeuvre is shaped onto the lane that route sets off down (`TownWorld.LeaveTheBay`);
+where the car cannot be got onto that one, the route is laid again from the lane it can make before it moves.
+Turns in a bay over ten minutes of Odesa went from 126 to 31 with this and the car slice's fixes to where a leg
+ends (its log, same date); with those in and this out, 54.
+
 ## 2026-09-30 — a bay is a short road of its own, and getting in and out is the car's own manoeuvre
 
 **The owner asked for car parks not to be junctions any more**: a bay laid as a short lane beside the road and
@@ -17,9 +29,8 @@ the town, in and out of each bay off each lane.
   the car's own body. Into a bay there are two shapes — nose in, with a swing away first where the car stands
   nearer the bay than its circle, and on past the bay and back in — and **the one whose swept body takes less of
   the street wins**, read off the atlas as a pass's ground is (`WhatTheShapeTakes`); the driver's habit settles
-  a tie. Out of a bay there is one shape per lane of the street, ranked by where the car is going and then by the
-  street it takes. Nose in takes less street almost everywhere: Odesa parked 558 nose in and 11 backed in over
-  300 s.
+  a tie. Out of a bay there is one shape per lane of the street, and the car takes the one its route sets off down
+  (below). Nose in takes less street almost everywhere: Odesa parked 558 nose in and 11 backed in over 300 s.
 - **Its ground is laid as a pass's** (TER-4c.6, `OverTheGround`): the body swept down the shape, asked for where
   all of it is free with the pass's spare, laid at p0, kept or withdrawn once, and given back as it is driven.
   A car that has begun a manoeuvre holds the street it swept and nothing takes it; one waiting for it holds none.

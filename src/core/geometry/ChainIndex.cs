@@ -1,4 +1,6 @@
 using System.Numerics;
+using System.Runtime.InteropServices;
+using TrafficSimulation.Core.Simulation;
 
 namespace TrafficSimulation.Core.Geometry;
 
@@ -59,7 +61,7 @@ internal sealed class ChainIndex
 
     /// <summary>
     /// <b>The finest a lattice over this index is worth laying</b>: each sample of the walk claims the cells
-    /// within half a step of it (<see cref="Builder.Bin"/>), so below the step two cells hold the same
+    /// within half a step of it (<see cref="Builder.CellsOf"/>), so below the step two cells hold the same
     /// pieces and all a finer table buys is more of them.
     /// </summary>
     /// <remarks>
@@ -267,7 +269,7 @@ internal sealed class ChainIndex
     /// <para>
     /// <b>Two lines that cross share a cell, so nothing that crosses is missed.</b> The crossing point lies
     /// in some cell of the lattice; each line has a piece through that point, and a piece is entered in
-    /// every cell its own walk passes within half a step of (<see cref="Builder.Bin"/>) — so both lines are
+    /// every cell its own walk passes within half a step of (<see cref="Builder.CellsOf"/>) — so both lines are
     /// in that cell's run. The same holds of two lines
     /// standing <paramref name="withinM"/> apart once the boxes are grown by it. What comes back is
     /// therefore a superset, and the pair that actually crosses is found by whatever solves crossings
@@ -501,7 +503,7 @@ internal sealed class ChainIndex
     /// <summary>
     /// <b>One piece's box</b>: the piece walked, grown by half a step so what falls between samples is
     /// inside it. It is what the lattice is sized to cover and what a candidate query reads its cells by —
-    /// <b>a superset of the cells the piece was written into</b> (<see cref="Builder.Bin"/>), which costs a
+    /// <b>a superset of the cells the piece was written into</b> (<see cref="Builder.CellsOf"/>), which costs a
     /// query cells and never an answer.
     /// </summary>
     /// <remarks>
@@ -585,36 +587,27 @@ internal sealed class ChainIndex
 
             var cells = window.Count;
 
-            // A counting sort, and the two passes are one method so they cannot disagree about which
-            // cells a chain reaches — a count that missed one is a run written past its end.
-            //
-            // <b>And one cell is written once per piece</b>, which a walk of the piece cannot promise on its
-            // own: a piece is sampled every metre and a cell is a road's width across, so a straight through
-            // one is fourteen samples of the same cell. The mark is which piece last claimed a cell.
-            var marked = new int[cells];
-            var claim = 0;
-            var counts = new int[cells];
-            for (var slot = 0; slot < slots; slot++)
-            {
-                Bin(slot, window, marked, ref claim, counts, null, null);
-            }
+            // <b>Each chain is walked once, on every core</b>, and what it reaches is filed afterwards a slot
+            // at a time — so the table is the one a single thread writes, whatever order the walks ran in. A
+            // counting sort, and its two passes read the one list, so they cannot disagree about which cells
+            // a chain reaches — a count that missed one is a run written past its end.
+            var cellsOf = new int[slots][];
+            InChunks.Over(slots, () => new List<int>(), (found, slot) => cellsOf[slot] = CellsOf(slot, window, found));
 
             var start = new int[cells + 1];
-            var at = 0;
-            for (var cell = 0; cell < cells; cell++)
+            foreach (var reached in cellsOf)
             {
-                start[cell] = at;
-                at += counts[cell];
+                foreach (var cell in reached) start[cell + 1]++;
             }
 
-            start[cells] = at;
+            for (var cell = 0; cell < cells; cell++) start[cell + 1] += start[cell];
 
             var cursor = new int[cells];
             Array.Copy(start, cursor, cells);
-            var entries = new int[at];
+            var entries = new int[start[cells]];
             for (var slot = 0; slot < slots; slot++)
             {
-                Bin(slot, window, marked, ref claim, null, cursor, entries);
+                foreach (var cell in cellsOf[slot]) entries[cursor[cell]++] = slot;
             }
 
             return new ChainIndex(
@@ -623,8 +616,8 @@ internal sealed class ChainIndex
         }
 
         /// <summary>
-        /// <b>One chain's cells, either counted or written: the cells its pieces actually run through</b> and
-        /// not the cells their boxes cover.
+        /// <b>One chain's cells: the cells its pieces actually run through</b>, once a piece, and not the
+        /// cells their boxes cover.
         /// </summary>
         /// <remarks>
         /// <para>
@@ -654,15 +647,22 @@ internal sealed class ChainIndex
         /// crossed line was written into it by the walk above — so reading a superset of cells over a table
         /// binned tightly finds every chain that a coarser table would have, and fewer that it would not.
         /// </para>
+        /// <para>
+        /// <b>Once a piece, which a walk cannot promise on its own</b>: a piece is sampled every metre and a
+        /// cell is a road's width across, so a straight through one is fourteen samples of the same cell. A
+        /// sample skips what the one before it claimed, and a piece that bends back into a cell it left is
+        /// sorted and its repeats dropped.
+        /// </para>
         /// </remarks>
-        void Bin(
-            int slot, GridWindow window, int[] marked, ref int claim, int[]? counts, int[]? cursor, int[]? entries)
+        int[] CellsOf(int slot, GridWindow window, List<int> found)
         {
+            found.Clear();
             var margin = new Vector2(MarginM);
             for (var index = _arcStart[slot]; index < _arcStart[slot + 1]; index++)
             {
                 var arc = _arcs[index];
-                claim++;
+                var first = found.Count;
+                var claimed = new CellRange(0, 0, -1, -1);
                 for (var atM = 0f; ; atM += SampleStepM)
                 {
                     var pointM = arc.PointAtM(MathF.Min(atM, arc.LengthM));
@@ -671,18 +671,34 @@ internal sealed class ChainIndex
                     {
                         for (var x = range.FromX; x <= range.ToX; x++)
                         {
-                            var cell = window.IndexOf(x, y);
-                            if (marked[cell] == claim) continue;
-
-                            marked[cell] = claim;
-                            if (counts is not null) counts[cell]++;
-                            else entries![cursor![cell]++] = slot;
+                            var isClaimed = x >= claimed.FromX && x <= claimed.ToX
+                                            && y >= claimed.FromY && y <= claimed.ToY;
+                            if (!isClaimed) found.Add(window.IndexOf(x, y));
                         }
                     }
 
+                    claimed = range;
                     if (atM >= arc.LengthM) break;
                 }
+
+                var kept = SortedOnce(CollectionsMarshal.AsSpan(found)[first..]);
+                found.RemoveRange(first + kept, found.Count - first - kept);
             }
+
+            return [.. found];
+        }
+
+        /// <summary>The cells sorted, each kept once at the front, and how many that is.</summary>
+        static int SortedOnce(Span<int> cells)
+        {
+            cells.Sort();
+            var kept = 0;
+            foreach (var cell in cells)
+            {
+                if (kept == 0 || cells[kept - 1] != cell) cells[kept++] = cell;
+            }
+
+            return kept;
         }
     }
 }

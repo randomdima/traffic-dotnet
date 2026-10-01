@@ -15,7 +15,9 @@ which it lays itself from where it stands and on its own circle, because the own
 lays nothing but its bays (GEN-4f). What a driver has that a walker has not is three things and they are
 named: the **line assembled over the next few lanes**, because a car at road speed must see the corners a
 walker takes one stride at a time; the **gear**, because a manoeuvre's pieces are driven in whichever one they
-were shaped for (GEN-4j); and **a light**, which holds its clock rather than spending it.
+were shaped for (GEN-4j); and **a light**, which holds its clock rather than spending it. **A leg ends where its
+route does**: in a bay, by the manoeuvre into it; at a place in the road, by the car standing on it. A driver stops
+where it decided to, and needs no bay to do it (SRV-5).
 
 **CAR-15a** `P4` **A leg that covers no ground is given up.** The patience is one clock over both agent
 kinds (`World.Routing.LegProgress`), measured against what is left of the way the body is on and never
@@ -161,6 +163,12 @@ acceleration whatever (CAR-3b), so a pedal authored past every tyre in the fleet
 happens to the car, and every metre per second it gains is the compound's. It also cannot be recovered by
 moving the compound — a friction coefficient solved backwards out of a wanted acceleration is the one thing
 this project's figures may never be.
+
+**CAR-51** `P4` **What slows a car nobody is pressing on is its engine and its tyres' own roll, and neither costs
+it a launch.** The drivetrain holds a car back through its driven wheels while the throttle is shut — a
+coefficient of its weight (`Car.EngineBrakingResistance`), fading as the pedal goes down and gone at the floor —
+and tarmac takes only a road tyre's rolling resistance (`Terrain.PavedResistance`). A drag on the ground big
+enough to keep a car let off from floating is paid under power as well, on every start.
 
 **CAR-4** `P3` Steering changes heading **only as a function of travel and steering angle** — a stationary car
 does not rotate.

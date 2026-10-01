@@ -43,8 +43,9 @@ the service list. The rest of what it is made of is `SRV-3`.
 - **AMB-4.4** `P5` It crosses the centreline to get past what stands in front of it as any car does
   (CAR-46), which spends no patience first — **and its pass is asked at its rung** (TER-4c.6), through a box
   as along a street. A queue at rest making its own movement is something it gets past, since what the queue
-  waits for is ground the call takes, **and so is traffic going slower than the call means to**, which is held
-  short of where the pass steps back in; ground another movement only plans is no refusal, the lane beside
+  waits for is ground the call takes, **and so is traffic going slower than the call means to** — by more
+  than a pedal hunting about the call's own pace (`Ambulance.SlowerToPassMps`) — which is held short of where
+  the pass steps back in; ground another movement only plans is no refusal, the lane beside
   included, and only what a holder can no longer stop short of is; and the paint of a zebra is claimed whole,
   whoever is already on it waited for short of the paint and nobody else let onto it.
 - **AMB-4.5** `P5` **It plans further than anybody else**: the road it means to use, and how far a plan may reach

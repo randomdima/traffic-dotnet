@@ -18,8 +18,7 @@ namespace TrafficSimulation.Agents.Car.Actions;
 /// two it could make, the one taking less street.
 /// </remarks>
 internal sealed class ParkingIn(
-    DrivingGround ground, CarActions actions, BayManoeuvring bays, PullingOut pullingOut, ParkingRegistry parking,
-    BayStreets bayStreets)
+    DrivingGround ground, CarActions actions, BayManoeuvring bays, ParkingRegistry parking, BayStreets bayStreets)
 {
     CarFleet Cars => ground.Cars;
 
@@ -58,14 +57,14 @@ internal sealed class ParkingIn(
 
     /// <summary>
     /// <b>The manoeuvre into a bay driven to its end</b>: the car parked — or, where the leg turns in this bay (GEN-4l),
-    /// straight back out of it, onto the lane running towards where it is going, holding the bay until it is out.
+    /// straight back out of it, onto the lane its route out of the bay sets off down, holding the bay until it is out.
     /// </summary>
     public bool Arrive<TTown>(ref TTown town, int car)
         where TTown : struct, ICarTown
     {
         var bay = Manoeuvres.Bay[car];
         Manoeuvres.Clear(car);
-        if (bay == parking.TurnOf(car) && pullingOut.ShapeTheWayOut(car, bay))
+        if (bay == parking.TurnOf(car) && town.LeaveTheBay(car, bay))
         {
             actions.Enter(car, CarAction.Unpark);
             return true;

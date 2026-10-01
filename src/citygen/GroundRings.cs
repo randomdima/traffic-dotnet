@@ -142,15 +142,41 @@ internal sealed class GroundRings
     /// products are — laid once however many askers there are.
     /// </para>
     /// </remarks>
-    public bool PavedWithin(Vector2 pointM, float reachM)
-    {
-        ChainIndex kerb;
-        lock (_indexing) kerb = _kerb ??= ChainIndex.OfPieces(ArcRings.Flat(Carriageway.Rings), _kerbLevel);
+    public bool PavedWithin(Vector2 pointM, float reachM) => PavedWithin(null, pointM, reachM);
 
+    /// <inheritdoc cref="PavedWithin(Vector2, float)"/>
+    /// <param name="scan">
+    /// This caller's own working set over the boundary's pieces (<see cref="NewKerbScan"/>), for an ask off its
+    /// own thread; none asks on the index's own.
+    /// </param>
+    public bool PavedWithin(ChainIndex.Scan? scan, Vector2 pointM, float reachM)
+    {
         // Whether anything is near at all, so one slot is all the room the answer needs.
         Span<int> near = stackalloc int[1];
         Span<float> alongM = stackalloc float[1];
-        return kerb.Near(pointM, reachM + Walk.OutwardM, near, alongM) > 0;
+        var radiusM = reachM + Walk.OutwardM;
+        return (scan is null
+            ? Kerb.Near(pointM, radiusM, near, alongM)
+            : Kerb.Near(scan, pointM, radiusM, near, alongM)) > 0;
+    }
+
+    /// <summary>A working set over the boundary's pieces, for a caller that means to ask <see cref="PavedWithin(ChainIndex.Scan?, Vector2, float)"/> off its own thread.</summary>
+    public ChainIndex.Scan NewKerbScan() => Kerb.NewScan();
+
+    /// <remarks>
+    /// <b>The gate is taken only while the index is missing.</b> Once laid it is never replaced, so every
+    /// later ask reads it without one — the building stage asks from every thread at once, a point at a time.
+    /// </remarks>
+    ChainIndex Kerb => Volatile.Read(ref _kerb) ?? LayTheKerb();
+
+    ChainIndex LayTheKerb()
+    {
+        lock (_indexing)
+        {
+            if (_kerb is null) Volatile.Write(ref _kerb, ChainIndex.OfPieces(ArcRings.Flat(Carriageway.Rings), _kerbLevel));
+
+            return _kerb;
+        }
     }
 
     RingSides? _walkSides;

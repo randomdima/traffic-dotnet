@@ -30,9 +30,6 @@ internal sealed partial class TownWorld
     /// <summary>How many buildings a draw may look at before the walker stands and draws again next time.</summary>
     const int DrawsPerTrip = 4;
 
-    /// <summary>`PER-11`'s patience, in dwells: well above one, so an ordinary turnover is always waited out.</summary>
-    const float PlacePatienceInDwells = 3f;
-
     readonly int[] _bayCandidates = new int[BaysConsideredPerLeg];
 
     /// <summary>How many bays a search for one considers, nearest the place first. A bound on the work, not a preference.</summary>
@@ -241,7 +238,7 @@ internal sealed partial class TownWorld
             if (goals[slot].Link == entry.Link) return true;
         }
 
-        return SearchTheDrivingNetwork(goalCount, _closedLinks, out var goalSlot) > 0 && goalSlot >= 0;
+        return SearchTheDrivingNetwork(1, goalCount, _closedLinks, out var goalSlot) > 0 && goalSlot >= 0;
     }
 
     /// <summary>

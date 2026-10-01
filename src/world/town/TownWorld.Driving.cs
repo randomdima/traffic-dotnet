@@ -60,8 +60,6 @@ internal sealed partial class TownWorld
             return;
         }
 
-        Cars.SinceDecisionS[car] += _config.TickSeconds;
-
         // Off a route there is no movement into a box: a manoeuvre at a bay is laid over ground the graph
         // has no turn for. Left as it was, the last junction this car approached would still be what its
         // indicator is announcing.
@@ -140,7 +138,13 @@ internal sealed partial class TownWorld
 
         progressM = CarFollower.ProgressM(build, Cars.LineOf(car), rearAxleM, Cars.ProgressM[car]);
         coveredM = MathF.Abs(progressM - Cars.ProgressM[car]);
-        if (progressM >= Cars.LaneStartsOf(car)[1] && Cars.Line[car].LaneCount > 1)
+
+        // <b>Never onto a lane the line lays none of</b>: a leg that stops at the very first metre of its last lane — a
+        // place drawn at a node, a turn-in that begins where the lane does — ends where that lane begins, and a car
+        // handed over onto it there was a line laid again at its own stop, past it by its own nose, and sent round.
+        var nextLaneStartsM = Cars.LaneStartsOf(car)[1];
+        if (Cars.Line[car].LaneCount > 1 && progressM >= nextLaneStartsM
+            && nextLaneStartsM < Cars.Line[car].LengthM - LineTolerance.RoundingM)
         {
             progressM = AdvanceLane(car, rearAxleM, progressM);
         }
@@ -378,6 +382,9 @@ internal sealed partial class TownWorld
         // A pass carries on into the next lane, measured from where that lane begins (CAR-46).
         _overtaking.ShiftTheLine(car, chain[0], shiftM);
 
+        // Where the body stands on the shifted chain, before the line is laid over it: the route is searched from
+        // there (<see cref="AlongTheEntryM"/>). The projection below is what the caller keeps.
+        Cars.ProgressM[car] = MathF.Max(0f, progressM - shiftM);
         LayLine(car, lanes - 1);
         return CarFollower.ProgressM(
             Cars.BuildOf(car), Cars.LineOf(car), rearAxleM, MathF.Max(0f, progressM - shiftM));
@@ -421,9 +428,10 @@ internal sealed partial class TownWorld
         // free to turn in yet, which is asked again every time the line is laid.
         if (TurnsBackHere(car, fromLane)) return CarFleet.NoLane;
 
-        // The lane the leg's own bay is worked off is where the road runs out: the line stops there for the
-        // manoeuvre into that bay, so it is not grown past it and the route is not asked for again.
-        if (TheBayTheLineStopsFor(car, fromLane) != CarFleet.NoBay) return CarFleet.NoLane;
+        // The lane the leg ends on is where the road runs out: the line stops there — for the manoeuvre into the
+        // leg's own bay, or at the place in the road it is going to — so it is not grown past it and the route is
+        // not asked for again.
+        if (TheLegEndsOn(car, fromLane)) return CarFleet.NoLane;
 
         if (searched) return LaneTour.NextLane(_roads, _config, fromLane, _closedLanes, ref Cars.Draw[car]);
 
@@ -433,10 +441,14 @@ internal sealed partial class TownWorld
         if (next >= 0) return next;
         if (TurnsBackHere(car, fromLane)) return CarFleet.NoLane;
 
-        return TheBayTheLineStopsFor(car, fromLane) != CarFleet.NoBay
+        return TheLegEndsOn(car, fromLane)
             ? CarFleet.NoLane
             : LaneTour.NextLane(_roads, _config, fromLane, _closedLanes, ref Cars.Draw[car]);
     }
+
+    /// <summary>Whether the line being laid stops on this lane — for the leg's bay, or at its place in the road.</summary>
+    bool TheLegEndsOn(int car, int lane) =>
+        TheBayTheLineStopsFor(car, lane) != CarFleet.NoBay || !float.IsNaN(ThePlaceTheLineStopsAtM(car, lane));
 
     /// <summary>
     /// Whether the leg comes back the other way from the end of <em>this</em> lane and has a bay to do it
@@ -551,7 +563,7 @@ internal sealed partial class TownWorld
         // A place on a lane is arrived at and not got near, so a goal the car has driven past is searched
         // for rather than counted as reached: the route round the block is what a driver who has overshot
         // the turn-in actually does.
-        var linkCount = SearchTheDrivingNetwork(goalCount, ClosedLinksFor(car), out var goalSlot);
+        var linkCount = SearchTheDrivingNetwork(1, goalCount, ClosedLinksFor(car), out var goalSlot);
         if (linkCount == 0 || goalSlot < 0) return RouteFound.Nowhere;
 
         ExpandRoute(car, fromLane, _driveSearch.Links(linkCount), _driveSearch.Goals[goalSlot]);
@@ -572,35 +584,52 @@ internal sealed partial class TownWorld
     /// a bay's turn-in, a wreck, a body in the road — reads as a place already driven past
     /// (<see cref="RoutePlanner"/>), and the leg is sent round the block to reach ground it is already
     /// rolling towards. It is the one figure that says whether a goal is ahead.
+    /// <para>
+    /// <b>Read off the car's progress, which whoever lays a line sets for the chain it hands over before laying
+    /// it</b>: the line the car holds is the old one until the new one is assembled, so its lane count says
+    /// nothing about where the body stands — read off it, every car that had just pulled out of a bay was placed at
+    /// the far end of its lane, and one that had turned in a bay to come back down that lane was told its place
+    /// was behind it and turned again.
+    /// </para>
     /// </remarks>
-    float AlongTheEntryM(int car, int fromLane)
-    {
-        if (Cars.Line[car].LaneCount == 0 || Cars.ChainOf(car)[0] != fromLane) return _roads.LaneLengthM[fromLane];
-
-        return Math.Clamp(Cars.ProgressM[car], 0f, _roads.LaneLengthM[fromLane]);
-    }
+    float AlongTheEntryM(int car, int fromLane) =>
+        Cars.ChainOf(car)[0] == fromLane
+            ? Math.Clamp(Cars.ProgressM[car], 0f, _roads.LaneLengthM[fromLane])
+            : _roads.LaneLengthM[fromLane];
 
     /// <summary>
     /// <b>The one place the driving network is searched</b>, so that what a leg spends on finding its way
     /// is counted where it is spent rather than estimated from the outside. Every entry is the car's own
-    /// (<see cref="RouteSearch.Entries"/>), because a body under way joins the network by the link it is
-    /// already committed to. <b>The closed runs are what it may not enter</b> (SRV-10), handed in by the asker:
-    /// every one of them, or none for a car carrying a call (<see cref="ClosedLinksFor"/>).
+    /// (<see cref="RouteSearch.Entries"/>): a body under way joins the network by the link it is already
+    /// committed to, and one standing in a bay by every lane it could pull out onto (<see cref="PlanTheWayOut"/>).
+    /// <b>The closed runs are what it may not enter</b> (SRV-10), handed in by the asker: every one of them, or none
+    /// for a car carrying a call (<see cref="ClosedLinksFor"/>).
     /// </summary>
-    int SearchTheDrivingNetwork(int goalCount, ReadOnlySpan<bool> closed, out int goalSlot)
+    int SearchTheDrivingNetwork(int entryCount, int goalCount, ReadOnlySpan<bool> closed, out int goalSlot)
     {
         RouteSearches++;
-        return _driveSearch.Plan(1, goalCount, _surcharges, closed, out goalSlot);
+        return _driveSearch.Plan(entryCount, goalCount, _surcharges, closed, out goalSlot);
     }
 
-    /// <summary>The lanes a search's links are driven as, laid into this car's own queue.</summary>
+    /// <summary>
+    /// The lanes a search's links are driven as, laid into this car's own queue — and <b>where that queue ends at
+    /// the place it was searched for</b>, which is where a leg aimed at a place in the road stops
+    /// (<see cref="ThePlaceTheLineStopsAtM"/>).
+    /// </summary>
     void ExpandRoute(int car, int fromLane, ReadOnlySpan<int> links, RouteGoal goal)
     {
-        Cars.RouteCount[car] = LayRouteLanes(
-            fromLane, links, goal, Cars.RouteOf(car), out var turnsBackOn, out var ranOut);
+        var route = Cars.RouteOf(car);
+        var count = LayRouteLanes(fromLane, links, goal, route, out var turnsBackOn, out var ranOut);
+        Cars.RouteCount[car] = count;
         Cars.RouteTaken[car] = 0;
         Cars.TurnsBackOn[car] = turnsBackOn;
         Cars.RouteRunsOut[car] = ranOut;
+
+        var runs = Driving.Runs;
+        var goalLane = runs.PiecesOf(goal.Link)[runs.PieceAt(goal.Link, goal.AlongM, out var goalAlongM)];
+        var endsOn = count > 0 ? route[count - 1] : fromLane;
+        Cars.RouteEndsOn[car] = !ranOut && turnsBackOn == CarFleet.NoLane && endsOn == goalLane ? goalLane : CarFleet.NoLane;
+        Cars.RouteEndsAtM[car] = goalAlongM;
     }
 
     /// <summary>
@@ -729,12 +758,18 @@ internal sealed partial class TownWorld
         // its manoeuvre into it</b> (GEN-4f, <see cref="StopForTheBayM"/>), and the manoeuvre is what the car
         // drives next once it has the ground for it (<see cref="Park"/>). It is not threaded onto the
         // end of this line: a manoeuvre is shaped from where the car is when it gets there, in whichever gear
-        // each of its pieces is driven.
-        var bay = TheBayTheLineStopsFor(car, chain[lanes - 1]);
+        // each of its pieces is driven. <b>A line whose last lane holds the place the leg is aimed at in the road
+        // stops at that place</b>, and the car stands there (<see cref="ThePlaceTheLineStopsAtM"/>).
+        var lastLane = chain[lanes - 1];
+        var bay = TheBayTheLineStopsFor(car, lastLane);
+        var placeM = bay == CarFleet.NoBay ? ThePlaceTheLineStopsAtM(car, lastLane) : float.NaN;
         Cars.StopsForBay[car] = bay;
+        Cars.StopsAtItsPlace[car] = !float.IsNaN(placeM);
         Cars.Line[car] = LineAssembler.Assemble(
             _roads, chain[..lanes], Cars.LineArcsOf(car), Cars.LaneStartsOf(car), Cars.LaneEndsOf(car),
-            bay == CarFleet.NoBay ? float.PositiveInfinity : _parkingIn.StopForTheBayM(car, bay, chain[lanes - 1]));
+            bay != CarFleet.NoBay ? _parkingIn.StopForTheBayM(car, bay, lastLane)
+            : float.IsNaN(placeM) ? float.PositiveInfinity
+            : placeM);
 
         // What a plan reads of the line it runs down (TER-4c.1, S-2): the corners folded into each arc, and which
         // joins break it — once a line, so the plan and the profile read segments rather than walk geometry.

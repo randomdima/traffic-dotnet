@@ -4,6 +4,18 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-30 — a walker walks at life's pace
+
+**The owner reported the walkers far too fast** and the cars slow beside them. `Person.PaceScale` was five: a
+walker did 6.6 m/s — a sprint, and half to three quarters of the cars' mean — while every car was driven at
+life's pace. **It is one now**, and a town watched faster is watched on the clock, which scales both. The grips
+follow the pace as they were made to, and that took the casualty band (PER-23) down to a car touching somebody at
+2 m/s — a walker meeting a car creeping at walking pace would have gone down. **`Damage.SlideToCasualtyM` is a
+dozen metres**, which keeps the band at a car meeting a standing body at 10 m/s: at real grips half a metre is a
+shove a walker stumbles back from, and a dozen is a body thrown down the road. The foot grip is a real one again
+(≈ 4.4 m/s², against 109), so a car leaning on somebody below the band shoves them — the model's stated wrongness
+(the foot model in [requirements.md](requirements.md)) is easier to see now.
+
 ## 2026-09-30 — a walker decides its pass and its straights once
 
 **The owner asked that an action decide once, commit to its geometry and wait for its ground on a clock** — the

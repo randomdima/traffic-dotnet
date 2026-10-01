@@ -154,12 +154,8 @@ internal sealed partial class TownWorld
     {
         if (Cars.Broken[car]) return;
 
-        // The elapsed the call's own clocks integrate over is the car's own since its last decision and
-        // not the loop's nominal interval, exactly as the leg's is (<see cref="DecideDriver"/>).
-        var elapsedS = Cars.SinceDecisionS[car] > 0f ? Cars.SinceDecisionS[car] : sinceLastDecisionS;
-
         var stage = _duty.Stage[car];
-        if (stage != RescueStage.Waiting) _duty.SinceS[car] += elapsedS;
+        if (stage != RescueStage.Waiting) _duty.SinceS[car] += sinceLastDecisionS;
 
         switch (stage)
         {
@@ -178,7 +174,7 @@ internal sealed partial class TownWorld
                 return;
 
             case RescueStage.Loading:
-                LoadTheCasualty(car, elapsedS);
+                LoadTheCasualty(car, sinceLastDecisionS);
                 return;
 
             case RescueStage.Carrying:

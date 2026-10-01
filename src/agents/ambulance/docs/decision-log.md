@@ -1,5 +1,15 @@
 # The ambulance — decision log
 
+## 2026-09-30 — a call passes traffic slower than it by more than a pedal's hunting
+
+**The escort on the idle ring stopped dead a lap in** (AMB-4.4). A call passed traffic going any slower than it
+meant to, and a charge following its leading escort holds exactly the escort's pace on a pedal that hunts a
+hundredth either side of it: the trailing escort read the dip as slow traffic, laid a pass, and the pass took the
+lane in front of the charge from the leading escort, which gave it up and stood. It surfaced when the cars'
+drag changed and nothing about the ring did. **A call now passes traffic slower than it by more than
+`Ambulance.SlowerToPassMps`** — half a metre a second, well clear of a pedal holding a speed and well inside any
+jam a call is held up by.
+
 ## 2026-09-30 — a call gets past slower traffic, and plans twice as far
 
 **The owner asked for a call to get to its incident as soon as it can, whatever it takes, and to claim twice as

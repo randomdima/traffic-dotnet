@@ -37,7 +37,7 @@ internal sealed partial class GroundShapes
     {
         if (paving.DrivenCount == 0) return;
 
-        var rings = paving.Rings(config);
+        var rings = _layers = paving.Rings(config);
         _carriageway = RingSides.Of(rings.Carriageway.Rings, config.ShellLevel);
         _walk = rings.WalkSides(config);
     }

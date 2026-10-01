@@ -34,6 +34,35 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     /// </summary>
     const int MostStreetWaysTaken = 16;
 
+    /// <summary>
+    /// <b>The piece each car is on, swept once a rebuild</b>: <see cref="Lay"/> and <see cref="Hold"/> read the
+    /// same stations of it off the atlas, the second after every pass is down, so the first to ask keeps each
+    /// station's stretches of carriageway here for the other (<see cref="SweepOfThePiece"/>).
+    /// </summary>
+    /// <remarks>
+    /// <b>Kept against everything the read is made of</b> — the piece, its gear, the stretch of it and the rebuild —
+    /// and swept afresh where any of it differs, so what is laid and held off a kept sweep is a fresh one's to the
+    /// bit. The rooms grow to the most a rebuild has swept and are written over from the start of every one.
+    /// </remarks>
+    readonly Sweep[] _sweepOf = new Sweep[manoeuvres.Piece.Length];
+
+    WayCover[] _sweptCovers = new WayCover[256];
+    SweptStation[] _sweptStations = new SweptStation[64];
+
+    int _sweptCoverCount;
+    int _sweptStationCount;
+
+    /// <summary>Which rebuild a kept sweep was read in; one a car was never swept in is none of them.</summary>
+    int _rebuild = 1;
+
+    /// <summary>One station of a sweep: where along the piece it stands, and the carriageway its body is over there.</summary>
+    readonly record struct SweptStation(int FirstCover, int Covers, float AtM);
+
+    /// <summary>A piece swept in one rebuild, what it was swept for, and where its stations are kept.</summary>
+    readonly record struct Sweep(
+        int Rebuild, int Piece, bool Reverse, float FromM, float ToM, int FirstStation, int Stations,
+        int FirstCover, int Covers);
+
     CarFleet Cars => ground.Cars;
 
     LaneOccupancy Occupancy => ground.Occupancy;
@@ -174,6 +203,14 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
         town.Drive(car, build, pose, line, progressM, lengthM, context, travel, alongMps, reverse);
     }
 
+    /// <summary>A new rebuild: no piece swept in the last one is kept into it (<see cref="_sweepOf"/>).</summary>
+    public void ForgetTheSweeps()
+    {
+        _rebuild++;
+        _sweptCoverCount = 0;
+        _sweptStationCount = 0;
+    }
+
     /// <summary>
     /// <b>The ground a car's manoeuvre will cover, laid as a body</b> (TER-4c.6) — once asked and every rebuild after
     /// it is begun, from where the car stands on its piece to the end of its last. <b>A manoeuvre into a bay the line
@@ -225,22 +262,16 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
         Occupancy.EndHold(held, inTheWayM, standOffM, body, on);
     }
 
-    [SkipLocalsInit]
     bool TheBodyInTheManoeuvre(int car, out float inTheWayM, out LaneClaim body, out int on)
     {
-        var piece = manoeuvres.PieceOf(car, manoeuvres.Piece[car]);
-        var reverse = Cars.LineIsReverse[car];
-        var fromM = Cars.ProgressM[car];
-        var toM = Cars.Line[car].LengthM;
-        var clearM = fromM;
-        Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
-        for (var station = 0; station < ground.StationsOfTheSweep(car, fromM, toM); station++)
+        var piece = manoeuvres.Piece[car];
+        var sweep = SweepOfThePiece(
+            car, piece, manoeuvres.PieceOf(car, piece), Cars.LineIsReverse[car], Cars.ProgressM[car], Cars.Line[car].LengthM);
+        var clearM = sweep.FromM;
+        foreach (ref readonly var station in _sweptStations.AsSpan(sweep.FirstStation, sweep.Stations))
         {
-            var count = UnderTheCarOnThePiece(car, piece, reverse, fromM, toM, station, 0f, under, out var atM);
-            for (var at = 0; at < count; at++)
+            foreach (ref readonly var swept in _sweptCovers.AsSpan(station.FirstCover, station.Covers))
             {
-                ref readonly var swept = ref under[at];
-                if (!ground.IsCarriageway(swept.Way)) continue;
                 if (!Occupancy.AheadBody(swept.Way, swept.FromM, swept.ToM, car, out body)) continue;
 
                 on = swept.Way;
@@ -248,7 +279,7 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
                 return true;
             }
 
-            clearM = atM;
+            clearM = station.AtM;
         }
 
         inTheWayM = float.PositiveInfinity;
@@ -294,6 +325,17 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
             var fromM = begun && piece == firstPiece ? Cars.ProgressM[car] : 0f;
             var toM = Spline.TotalLengthM(line);
             var reverse = shape.IsReverse(piece);
+            if (ask == GroundAsk.Lay && begun && piece == firstPiece)
+            {
+                var sweep = SweepOfThePiece(car, piece, line, reverse, fromM, toM);
+                foreach (ref readonly var swept in _sweptCovers.AsSpan(sweep.FirstCover, sweep.Covers))
+                {
+                    LayThePass(car, ground.HeldAsABody(swept));
+                }
+
+                continue;
+            }
+
             for (var station = 0; station < ground.StationsOfTheSweep(car, fromM, toM); station++)
             {
                 var count = UnderTheCarOnThePiece(car, line, reverse, fromM, toM, station, spareM, under, out _);
@@ -306,7 +348,7 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
                     switch (ask)
                     {
                         case GroundAsk.Lay:
-                            Occupancy.LayPass(held.Way, held.FromM, held.ToM, 0f, car, LaneRoster.Driving);
+                            LayThePass(car, held);
                             break;
 
                         case GroundAsk.Free when !Occupancy.IsFreeForAPass(
@@ -322,6 +364,57 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
         }
 
         return true;
+    }
+
+    void LayThePass(int car, in WayCover held) =>
+        Occupancy.LayPass(held.Way, held.FromM, held.ToM, 0f, car, LaneRoster.Driving);
+
+    /// <summary>
+    /// <b>One piece swept from <paramref name="fromM"/> to <paramref name="toM"/></b>, station by station, keeping the
+    /// stretches of carriageway under each — read off the atlas where this rebuild has not already swept exactly
+    /// this, and kept from that sweep where it has (<see cref="_sweepOf"/>).
+    /// </summary>
+    [SkipLocalsInit]
+    Sweep SweepOfThePiece(int car, int piece, ReadOnlySpan<ArcSeg> line, bool reverse, float fromM, float toM)
+    {
+        ref var kept = ref _sweepOf[car];
+        if (kept.Rebuild == _rebuild && kept.Piece == piece && kept.Reverse == reverse && kept.FromM == fromM
+            && kept.ToM == toM)
+        {
+            return kept;
+        }
+
+        var firstStation = _sweptStationCount;
+        var firstCover = _sweptCoverCount;
+        Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
+        for (var station = 0; station < ground.StationsOfTheSweep(car, fromM, toM); station++)
+        {
+            var count = UnderTheCarOnThePiece(car, line, reverse, fromM, toM, station, 0f, under, out var atM);
+            var stationFirstCover = _sweptCoverCount;
+            for (var at = 0; at < count; at++)
+            {
+                if (ground.IsCarriageway(under[at].Way)) KeepTheCover(under[at]);
+            }
+
+            KeepTheStation(new SweptStation(stationFirstCover, _sweptCoverCount - stationFirstCover, atM));
+        }
+
+        kept = new Sweep(
+            _rebuild, piece, reverse, fromM, toM, firstStation, _sweptStationCount - firstStation, firstCover,
+            _sweptCoverCount - firstCover);
+        return kept;
+    }
+
+    void KeepTheCover(in WayCover cover)
+    {
+        if (_sweptCoverCount == _sweptCovers.Length) Array.Resize(ref _sweptCovers, _sweptCovers.Length * 2);
+        _sweptCovers[_sweptCoverCount++] = cover;
+    }
+
+    void KeepTheStation(in SweptStation station)
+    {
+        if (_sweptStationCount == _sweptStations.Length) Array.Resize(ref _sweptStations, _sweptStations.Length * 2);
+        _sweptStations[_sweptStationCount++] = station;
     }
 
     /// <summary>

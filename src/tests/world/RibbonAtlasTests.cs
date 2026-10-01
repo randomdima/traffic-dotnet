@@ -267,4 +267,61 @@ public class RibbonAtlasTests
         Assert.Equal(1, count);
         Assert.Equal(0, under[0].Way);
     }
+
+    /// <summary>How many poses a recalled body is asked at.</summary>
+    const int Poses = 4000;
+
+    /// <summary>
+    /// The pose a recalled body is asked at: a shuffle of a tenth of a millimetre and a tenth of a milliradian — a
+    /// parked car's — on a drift of a millimetre a pose, a quarter of it across the lanes, and a turn. So it is
+    /// kept for runs of poses, and read afresh as the drift takes a point over an edge or a band's reach.
+    /// </summary>
+    static (Vector2 CentreM, Vector2 Forward) PoseAt(int pose)
+    {
+        var shuffle = MathF.Sin(pose * 0.7f) * 1e-4f;
+        var centreM = new Vector2(10f + (pose * 1e-3f) + shuffle, 0.3f + (pose * 2.5e-4f) - shuffle);
+        return (centreM, Heading.Unit((pose * 5e-5f) + shuffle));
+    }
+
+    /// <summary>
+    /// <b>A car kept in a recall is found over exactly what a fresh read finds</b>, at every pose of a shuffle
+    /// and a drift that carries it from inside one lane across the line and over both.
+    /// </summary>
+    [Fact]
+    public void ABoxKeptInARecallIsFoundOverWhatAFreshReadFinds()
+    {
+        var atlas = Laid(
+            (new Vector2(0f, 0f), new Vector2(LengthM, 0f)),
+            (new Vector2(LengthM, WidthM), new Vector2(0f, WidthM)));
+        var recall = new RibbonAtlas.Recall(1);
+        Span<WayCover> fresh = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
+
+        for (var pose = 0; pose < Poses; pose++)
+        {
+            var (centreM, forward) = PoseAt(pose);
+            var count = atlas.UnderBox(centreM, forward, 2f, 1f, fresh);
+
+            Assert.Equal(fresh[..count].ToArray(), atlas.UnderBox(centreM, forward, 2f, 1f, recall, 0).ToArray());
+        }
+    }
+
+    /// <summary><b>The same for a walker</b>, whose disc is narrower than a lattice step.</summary>
+    [Fact]
+    public void ADiscKeptInARecallIsFoundOverWhatAFreshReadFinds()
+    {
+        const float RadiusM = 0.3f;
+        var atlas = Laid(
+            (new Vector2(0f, 0f), new Vector2(LengthM, 0f)),
+            (new Vector2(LengthM, WidthM), new Vector2(0f, WidthM)));
+        var recall = new RibbonAtlas.Recall(1);
+        Span<WayCover> fresh = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
+
+        for (var pose = 0; pose < Poses; pose++)
+        {
+            var (centreM, _) = PoseAt(pose);
+            var count = atlas.UnderDisc(centreM, RadiusM, fresh);
+
+            Assert.Equal(fresh[..count].ToArray(), atlas.UnderDisc(centreM, RadiusM, recall, 0).ToArray());
+        }
+    }
 }

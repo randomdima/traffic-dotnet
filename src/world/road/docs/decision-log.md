@@ -4,6 +4,64 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-10-01 — a body is read off the atlas again only where its answer could have changed
+
+**Reading every body off the atlas every tick was the largest single cost of a running town**: a third of
+Odesa's CPU in its first half-minute, `RibbonAtlas.Read` under the index's rebuild. Most of the town's cars are
+parked, and a parked car is on the same ways tick after tick.
+
+**A last answer kept against the exact pose would almost never be used.** Nothing sleeps, and a parked car the
+town has touched once keeps shuffling on its tyres for as long as the town runs: after five minutes of Odesa,
+70 % of cars were slower than 0.1 m/s and 8 % stood to the bit where they had stood a tick earlier, the rest
+shuffling by around a micron and up to 0.16 mrad a tick.
+
+So **`RibbonAtlas.Recall` keeps each car's and each walker's last answer with its slack**. The slack is how
+near that read's closest depth test came to going the other way. The answer is used again when two things hold:
+
+- the most any depth can have moved since, from the centre's move, the corner's swing and either half's
+  growth, is inside the slack, with a rounding allowance;
+- the rows and columns of lattice points inside the body, asked exactly as the read asks them, are the same.
+
+The answer is made of nothing else, so a kept answer is the fresh one to the bit. A pose that is exactly the
+last one skips both questions. Every body of Odesa stood to the bit where it had stood before the change, after
+one minute and after five.
+
+Measured on Odesa with a fixed tick, µs a tick over a minute's ticks, two runs each:
+
+| | before | after |
+|---|---|---|
+| index, at 1 min | 492–500 | 399–400 |
+| index, at 5 min | 570–577 | 487–488 |
+| whole tick, at 1 min | 854–873 | 758–761 |
+| whole tick, at 5 min | 1262–1290 | 1174–1180 |
+
+Cars were kept 76 % of the time at one minute and 72 % at five. Walkers were kept 82 % of the time. In a
+window's first half-minute, `RibbonAtlas.Read` went from 0.25 to 0.01 ms a frame.
+
+## 2026-10-01 — the atlas keeps a thread's points in blocks, and files them on every thread
+
+**The atlas was the largest stage of Odesa's load, about 300 ms of 1.5 s, and most of it was not geometry.**
+Every way's points were an array of their own, built through a second list: 160 MiB of small allocations
+from every thread at once, and the workstation heap hands out room under one lock, so a third of the pass's
+CPU was waiting on it. Filing the points into their cells, and building the entries after the sort, were
+then two passes over five million entries on one thread.
+
+- **A way's points are a stretch of its thread's block** (`RibbonAtlas.Laying`), deduplicated in place, and
+  each cell's share is counted as they are found. The pass allocates 88 MiB, in blocks.
+- **A point is filed by whichever thread reaches it**, at a place taken atomically from its cell's cursor,
+  and its entry is built there. The order points land in is lost to the cell's sort, whose key — point,
+  then way — no two entries share, so the atlas is the same to the bit: every array it keeps hashed equal
+  on Odesa before and after.
+- **Each cell is sorted and its starts read on one thread**, every cell in parallel.
+- **A way too long to file is refused before anything is laid**, rather than when its first entry is filed.
+
+Measured on `--bench load`, Odesa, three runs each:
+
+| | before | after |
+|---|---|---|
+| atlas | 298–316 ms | 214–231 ms |
+| open | 1505–1542 ms | 1435–1460 ms |
+
 ## 2026-09-30 — nothing moves over a way it has not claimed
 
 **The owner asked that no action drive or walk the road without a claim on it** — any lane, the pavement's too,
@@ -281,8 +339,7 @@ every shipped map stands to the bit where it did after 3600 ticks.
 The owner asked that a lookup not work out again what the town already knows, the physics grid's cells
 above all. **Which cells a car is in is not what a lookup pays for.** They are shifts of the rows of
 points the atlas needs anyway. The physics index files 1.02 cars to each 8 m cell on Odesa, so walking it a
-cell at a time shares nothing between cars. No car's pose is ever exactly the last tick's, since nothing
-sleeps, so a last answer is never reusable as it stands.
+cell at a time shares nothing between cars.
 
 **What a lookup paid for was reading entries it then passed over.** A car's row, read from its first entry,
 held 172 entries for the 50 the car stood on, and deciding which to skip was branches. So:

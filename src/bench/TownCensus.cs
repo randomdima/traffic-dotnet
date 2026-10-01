@@ -805,12 +805,19 @@ internal static class TownCensus
     /// tightest join is well inside the junction's own cornering radius is a town whose arms were drawn at
     /// angles the standoff cannot turn through.
     /// </summary>
+    /// <remarks>
+    /// <b>Each kind of turn is spread on its own tightest arc</b>, beside how many joins bend tighter than the
+    /// nominal car's circle (CAR-11a, CAR-4a): a line tighter than the lock is one no car the town was laid for
+    /// can hold at any speed, and the near-side turn is where a junction lays them.
+    /// </remarks>
     static void Joins(RoadGraph roads, CityPlan plan, SimConfig config)
     {
         var butted = 0;
         var joinM = 0f;
         var longestM = 0f;
         var tightestM = float.PositiveInfinity;
+        var pastTheLock = 0;
+        List<float>[] byKind = [[], [], []];
 
         for (var slot = 0; slot < roads.ConnectorCount; slot++)
         {
@@ -818,10 +825,17 @@ internal static class TownCensus
 
             joinM += roads.ConnectorLengthM(slot);
             longestM = MathF.Max(longestM, roads.ConnectorLengthM(slot));
+            var joinTightestM = float.PositiveInfinity;
             foreach (var arc in roads.ConnectorArcs(slot))
             {
-                if (MathF.Abs(arc.Curvature) > 1e-6f) tightestM = MathF.Min(tightestM, 1f / MathF.Abs(arc.Curvature));
+                if (MathF.Abs(arc.Curvature) > 1e-6f) joinTightestM = MathF.Min(joinTightestM, 1f / MathF.Abs(arc.Curvature));
             }
+
+            if (!float.IsFinite(joinTightestM)) continue;
+
+            tightestM = MathF.Min(tightestM, joinTightestM);
+            byKind[(int)roads.KindOf(slot)].Add(joinTightestM);
+            if (joinTightestM < config.CarTurningRadiusM) pastTheLock++;
         }
 
         Console.WriteLine($"  joins          {roads.ConnectorCount,7}  movements over {roads.LaneCount} lanes; " +
@@ -829,6 +843,10 @@ internal static class TownCensus
                           $"mean {(roads.ConnectorCount == 0 ? 0f : joinM / roads.ConnectorCount):F2} m, longest {longestM:F2} m, " +
                           $"tightest arc {(float.IsFinite(tightestM) ? tightestM : 0f):F2} m of " +
                           $"{config.JunctionCorneringRadiusM:F2}");
+        Console.WriteLine($"  near side      {byKind[(int)LaneTurn.NearSide].Count,7}  {TownShape.Spread(byKind[(int)LaneTurn.NearSide], " m")}");
+        Console.WriteLine($"  far side       {byKind[(int)LaneTurn.FarSide].Count,7}  {TownShape.Spread(byKind[(int)LaneTurn.FarSide], " m")}");
+        Console.WriteLine($"  bent straight  {byKind[(int)LaneTurn.Straight].Count,7}  {TownShape.Spread(byKind[(int)LaneTurn.Straight], " m")}");
+        Console.WriteLine($"  past the lock  {pastTheLock,7}  joins tighter than the nominal car's {config.CarTurningRadiusM:F2} m circle");
         HandOvers(roads, plan);
     }
 

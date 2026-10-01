@@ -37,6 +37,25 @@ public class LegProgressTests
         }
     }
 
+    /// <summary>
+    /// <b>Nor is one closing on it by less than its own width a decision</b>: decisions come every tenth of a second,
+    /// so a car would have to be doing some sixty-five kilometres an hour, and a walker running, to cover its width
+    /// between two of them. Measured a decision at a time, a car driving steadily down a long lane was called stuck
+    /// and sent round the block.
+    /// </summary>
+    [Fact]
+    public void ABodyClosingSlowlyOnItsLegIsNeverStuck()
+    {
+        var progress = new LegProgress(1);
+        progress.Restart(0);
+
+        for (var remainingM = 100f; remainingM > 0f; remainingM -= ByM * 0.3f)
+        {
+            progress.Note(0, remainingM, ByM, DecisionS);
+            Assert.False(progress.IsStuck(0, PatienceS), $"a body with {remainingM:F1} m left was called stuck");
+        }
+    }
+
     [Fact]
     public void ABodyThatClosesOnNothingRunsThePatienceOut()
     {

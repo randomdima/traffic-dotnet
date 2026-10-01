@@ -556,7 +556,7 @@ internal static class TownShape
 
     static float Wrapped(float value, float by) => value - (by * MathF.Floor(value / by));
 
-    static string Spread(List<float> values, string unit = "")
+    internal static string Spread(List<float> values, string unit = "")
     {
         if (values.Count == 0) return "none";
 

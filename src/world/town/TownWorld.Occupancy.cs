@@ -70,6 +70,7 @@ internal sealed partial class TownWorld
         // The ground a pass will cover is a body's (TER-4c.6), and so is a manoeuvre's at a bay (GEN-4f): both are
         // down before anything is asked for.
         for (var car = 0; car < Cars.Count; car++) _overtaking.Lay(car, IsUnderWay(car));
+        _bays.ForgetTheSweeps();
         for (var car = 0; car < Cars.Count; car++) _bays.Lay(car);
         for (var person = 0; person < People.Count; person++) _sidestepping.Lay(person);
 

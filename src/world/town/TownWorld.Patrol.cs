@@ -65,10 +65,7 @@ internal sealed partial class TownWorld
             return;
         }
 
-        // The elapsed the beat's own clocks integrate over is the driver's and not the loop's nominal
-        // interval, for the reason a rescue's is (<see cref="RunTheRescue"/>).
-        var elapsedS = Cars.SinceDecisionS[car] > 0f ? Cars.SinceDecisionS[car] : sinceLastDecisionS;
-        _beat.SinceS[car] += elapsedS;
+        _beat.SinceS[car] += sinceLastDecisionS;
 
         switch (_beat.Stage[car])
         {
@@ -95,7 +92,7 @@ internal sealed partial class TownWorld
                 return;
 
             case PatrolStage.Closing:
-                HoldTheRoadClosed(car, elapsedS);
+                HoldTheRoadClosed(car, sinceLastDecisionS);
                 return;
 
             case PatrolStage.Reopening:

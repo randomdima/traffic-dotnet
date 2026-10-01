@@ -436,12 +436,12 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// <b>Whether this car may get past a body on one of its ways</b> (<see cref="LaneClaim.MayBePassedBy"/>): at
     /// rest, not a pass, and — unless the car is on a call — not making the car's own movement there. <b>A car on a
     /// call gets past traffic that is moving too, where it is going slower than the call means to</b>
-    /// (<see cref="CarFleet.PlannedMps"/>): what goes as fast is no hindrance, and an escort held under its charge's
-    /// pace is never one.
+    /// (<see cref="CarFleet.PlannedMps"/>) by more than <see cref="AmbulanceFigures.SlowerToPassMps"/>: what goes as
+    /// fast is no hindrance, and an escort held under its charge's pace is never one.
     /// </summary>
     bool MayGetPast(int car, in LaneClaim body, int on) =>
         body.MayBePassedBy(ground.OnwardAlongTheLine(car, on), Cars.BlueLight[car])
-        && (body.Still || body.AlongMps < Cars.PlannedMps[car]);
+        && (body.Still || body.AlongMps < Cars.PlannedMps[car] - Config.Ambulance.SlowerToPassMps);
 
     /// <summary>
     /// Whether the car could pass anything at all where it is: on the route's own line driven forwards, in a

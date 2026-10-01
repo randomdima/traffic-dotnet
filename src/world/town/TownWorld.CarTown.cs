@@ -46,6 +46,8 @@ internal sealed partial class TownWorld
 
         public void ParkIt(int car, int bay) => town.ParkIt(car, bay);
 
+        public bool LeaveTheBay(int car, int bay) => town.LeaveTheBay(car, bay);
+
         public bool TakeTheRoad(int car) => town.TakeTheRoad(car);
 
         public bool Reacquire(int car, Vector2 rearAxleM) => town.Reacquire(car, rearAxleM);

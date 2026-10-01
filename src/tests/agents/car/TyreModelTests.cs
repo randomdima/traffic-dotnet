@@ -190,21 +190,27 @@ public class TyreModelTests
     public void TheHandbrakeLocksTheRearPairAndNothingElse()
     {
         var pose = Rolling(10f);
-        var wheels = Step(pose, DriveCommand.Parked);
+        var spinMps = SpinningWith(pose);
+        var wheels = Step(pose, DriveCommand.Parked, AllOf(Paved), spinMps, out _);
 
         Span<float> loads = stackalloc float[TyreModel.Wheels];
         TyreModel.Loads(Figures, Car, pose,loads);
 
-        // A rolling front wheel spends its rolling resistance and nothing else; the locked rear pair is
-        // spending the whole ellipse against the way the car is going.
+        // A rolling front wheel spends its rolling resistance and the engine's share of holding the car back,
+        // the front being the driven pair, and nothing else, and is still turning with the road; the rear
+        // pair is not turning at all.
+        var frontLoad = loads[0] + loads[1];
+        var engineMps2 = TyreModel.EngineBrakingMps2(Figures, Car, DriveCommand.Parked);
         for (var wheel = 0; wheel < 2; wheel++)
         {
-            var dragNs = Figures.PavedDragMps2 * Figures.Car.MassKg * loads[wheel] * Figures.TickSeconds;
-            Assert.Equal(-dragNs, wheels[wheel].ImpulseNs.X, dragNs * 1e-3f);
+            var heldNs = (Figures.PavedDragMps2 + (engineMps2 / frontLoad))
+                         * Figures.Car.MassKg * loads[wheel] * Figures.TickSeconds;
+            Assert.Equal(-heldNs, wheels[wheel].ImpulseNs.X, heldNs * 1e-3f);
+            Assert.Equal(pose.VelocityMps.X, spinMps[wheel], 1);
         }
 
-        Assert.True(wheels[2].ImpulseNs.X < wheels[0].ImpulseNs.X * 5f);
-        Assert.True(wheels[3].ImpulseNs.X < wheels[1].ImpulseNs.X * 5f);
+        Assert.Equal(0f, spinMps[2]);
+        Assert.Equal(0f, spinMps[3]);
     }
 
     /// <summary>Every corner carries a quarter of the car at rest, and the four of them are the whole car whatever it is doing.</summary>
@@ -373,9 +379,12 @@ public class TyreModelTests
         }
     }
 
-    /// <summary>Rolling resistance is the only thing slowing a car that is neither braking nor cornering.</summary>
+    /// <summary>
+    /// The ground it rolls over and the engine it is in gear with are the only things slowing a car nobody is
+    /// pressing on and that is not cornering.
+    /// </summary>
     [Fact]
-    public void ACoastingCarIsSlowedByTheGroundItRollsOver()
+    public void ACoastingCarIsSlowedByTheGroundAndItsEngine()
     {
         var pose = Rolling(15f);
         var wheels = Step(pose, DriveCommand.Idle);
@@ -384,8 +393,23 @@ public class TyreModelTests
         foreach (var wheel in wheels) alongNs += wheel.ImpulseNs.X;
 
         Assert.Equal(
-            -Figures.PavedDragMps2 * Figures.Car.MassKg * Figures.TickSeconds, alongNs,
+            -(Figures.PavedDragMps2 + Figures.CarEngineBrakingMps2) * Figures.Car.MassKg * Figures.TickSeconds, alongNs,
             Figures.Car.MassKg * Figures.TickSeconds * 1e-2f);
+    }
+
+    /// <summary>
+    /// <b>The engine lets go as the pedal goes down</b>, and at the floor holds nothing back: what a launch
+    /// is paid for is the tyres, never a drag the pedal has to overcome first.
+    /// </summary>
+    [Fact]
+    public void AFlooredPedalCarriesNoEngineBraking()
+    {
+        var floored = TyreModel.EngineBrakingMps2(Figures, Car, new DriveCommand(0f, Car.AccelerationMps2, 0f, false, false));
+        var halfway = TyreModel.EngineBrakingMps2(Figures, Car, new DriveCommand(0f, Car.AccelerationMps2 * 0.5f, 0f, false, false));
+        var letOff = TyreModel.EngineBrakingMps2(Figures, Car, DriveCommand.Idle);
+
+        Assert.Equal(0f, floored);
+        Assert.InRange(halfway, float.Epsilon, letOff * 0.99f);
     }
 
     /// <summary>

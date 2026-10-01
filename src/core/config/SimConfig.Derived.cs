@@ -56,6 +56,12 @@ internal sealed partial class SimConfig
     public float WaterDragMps2 => Terrain.WaterResistance * Tyre.StandardGravityMps2;
 
     /// <summary>
+    /// What the drivetrain holds a car back by with the throttle shut, off its coefficient and a weight
+    /// (<see cref="CarFigures.EngineBrakingResistance"/>) — about 1 m/s², where tarmac's own drag is a tenth of it.
+    /// </summary>
+    public float CarEngineBrakingMps2 => Car.EngineBrakingResistance * Tyre.StandardGravityMps2;
+
+    /// <summary>
     /// <b>The widest a line has to be drawn for a car to hold this speed round it</b> — the corner formula
     /// the speed profile reads, turned round. A line laid tighter is not refused; it is driven slower,
     /// because the profile's corner term reads the arcs of every line exactly as it reads the arcs of a road.
@@ -63,12 +69,12 @@ internal sealed partial class SimConfig
     public float CarCorneringRadiusM(float atMps, float groundCoefficient) =>
         atMps * atMps / (TyreGripMps2 * groundCoefficient * Driving.GripMargin);
 
-    /// <summary>A run rather than a walk, because the town is watched at <see cref="PersonFigures.PaceScale"/> of life.</summary>
+    /// <summary>A walk, at <see cref="PersonFigures.PaceScale"/> of life's.</summary>
     public float PersonWalkSpeedMps => Person.RealWalkSpeedMps * Person.PaceScale;
 
     /// <summary>
-    /// And the pivot at the same scale, because a body moving five times a real walk turns five times a
-    /// real turn. It is what lets a walker turn nearly on the spot, and so what decides how much ground the
+    /// And the pivot at the same scale, because a body moving at a multiple of a real walk turns at that
+    /// multiple of a real turn. It is what lets a walker turn nearly on the spot, and so what decides how much ground the
     /// pavement has to give up at every corner to be a line the feet can hold
     /// (<see cref="WalkerTightestTurnM"/>).
     /// </summary>
@@ -99,21 +105,20 @@ internal sealed partial class SimConfig
     /// <summary>
     /// <b>What a contact has to carry to leave somebody down in the road</b> (PER-23): the work of sliding
     /// a body <see cref="DamageFigures.SlideToCasualtyM"/> along the ground, which is its mass times the
-    /// grip it slides on times that distance — 3.92 kJ, or a car meeting a standing body at 10 m/s.
+    /// grip it slides on times that distance — 3.76 kJ, or a car meeting a standing body at 10 m/s.
     /// </summary>
     /// <remarks>
     /// <para>
     /// <b>It is the distance in the limit of a heavy vehicle and a little under it otherwise.</b> The
     /// energy a contact is judged by is the pair's reduced mass, so a person struck by a car of seventeen
-    /// times their mass keeps about 95% of the closing speed and slides about 95% of the half metre. The
+    /// times their mass keeps about 95% of the closing speed and slides about 95% of the distance. The
     /// figure the town is authored with is the distance, and the arithmetic is honest about the mass it
     /// actually has to move.
     /// </para>
     /// <para>
-    /// <b>The band has to sit above <see cref="PersonWalkSpeedMps"/>, and it is the grip that puts
-    /// it there</b> — half again over walking pace at the shipped figures. Nothing about the closing speed
-    /// says who was carrying it (PER-23), so a band below the town's own pace is one a walker meets by
-    /// arriving at a parked car.
+    /// <b>The band has to sit above <see cref="PersonWalkSpeedMps"/></b> — several times over it at the
+    /// shipped figures. Nothing about the closing speed says who was carrying it (PER-23), so a band below
+    /// the town's own pace is one a walker meets by arriving at a parked car.
     /// </para>
     /// </remarks>
     public float PersonCasualtyKj => Person.MassKg * PersonSlidingGripMps2 * Damage.SlideToCasualtyM / 1000f;
@@ -127,6 +132,9 @@ internal sealed partial class SimConfig
     /// building line stands behind plus the strip in front of it.
     /// </summary>
     public float PersonOffNetworkHopM => PavementWidthM + Building.FrontGapM;
+
+    /// <summary>How long a walker waits at a full door before giving the place up (PER-11), 30 s at the shipped figures.</summary>
+    public float PersonPlacePatienceS => Building.DwellMaxS * Building.PlacePatienceInDwells;
 
     /// <summary>
     /// The tightest circle the feet can hold at walking pace — the speed over the turn rate, 0.28 m at the
@@ -224,7 +232,7 @@ internal sealed partial class SimConfig
     public float PersonWalkAheadM => PersonDiameterM * Person.WalkAheadInDiameters;
 
     /// <summary>
-    /// <b>How far a walker covers in one tick at its pace</b> — 0.11 m at the shipped figures. A walker has no
+    /// <b>How far a walker covers in one tick at its pace</b> — 0.022 m at the shipped figures. A walker has no
     /// acceleration of its own (PER-3), so it is also the whole of what one takes to come to rest.
     /// </summary>
     public float PersonStepM => PersonWalkSpeedMps * TickSeconds;

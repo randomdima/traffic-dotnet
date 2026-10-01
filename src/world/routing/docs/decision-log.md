@@ -4,6 +4,16 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-30 — a leg's progress is counted from its last record, not its last decision
+
+`LegProgress` moved its mark down to every small gain, so a body had to close its own width between two decisions to
+be getting anywhere at all — and decisions come every tenth of a second, which asks some sixty-five kilometres an
+hour of a car and a run of a walker. What kept it from showing was the handover restart: every clock began again at
+each lane or way, so only a long one ran it out — a car driving steadily down one was called stuck, rerouted, and
+sent round the block, and a walker down a long pavement gave its trip up. **The mark now moves only when it is
+beaten by a body's width**, so ground closed a little at a time adds up. Over ten minutes of Odesa, with the car slice's fixes of the same date in, walks given up went from 1 337 without this
+to 631 with it; before it, about a third of the cars the clock called stuck were moving.
+
 ## 2026-09-30 — a car park ends no link, and a leg turns only near a lane's end
 
 A car park stopped being a junction (GEN-53), so the street past one is one link and a bay is a place on it —

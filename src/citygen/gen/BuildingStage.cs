@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Numerics;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
@@ -79,7 +80,8 @@ internal static class BuildingStage
 
         var ranks = new Ranks(TheRanks(carParks, roads), config);
         var built = new Built();
-        TheServices(carParks, ranks, stations, sizes, config, ground, claims, built);
+        var asking = new Asking(ground);
+        TheServices(carParks, ranks, stations, sizes, config, ground, claims, built, asking);
 
         for (var at = stations.Count - 1; at > 0; at--)
         {
@@ -87,17 +89,83 @@ internal static class BuildingStage
             (stations[at], stations[other]) = (stations[other], stations[at]);
         }
 
-        foreach (var station in stations)
+        TheOrdinary(stations, brief.Buildings, sizes, ranks, config, ground, claims, built, asking, ref draw);
+        return built.Arrays(config.CityGen.BuildingCapacity);
+    }
+
+    /// <summary>
+    /// How many stations the ground is asked about at once (<see cref="TheOrdinary"/>): enough to keep every
+    /// thread busy for longer than a parallel pass takes to start, and few enough that the stations solved past
+    /// the one that fills the brief — never read — are a small share of the town's.
+    /// </summary>
+    const int Batch = 1024;
+
+    /// <summary>
+    /// <b>The ordinary buildings, stood station by station in the drawn order</b>, with what the ground says
+    /// about each station asked of a batch of them at once.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Only the claims depend on the order, so only the claims are walked in it.</b> Whether a footprint
+    /// stands on grass, clear of the paving and square on its rank is a fact about the station and the
+    /// footprint drawn for it, which no building stood before it changes; whether its ground is still unclaimed
+    /// is the one question the stations before it answer. So the ground is asked on every thread a batch at a
+    /// time and the claims are then walked in order — the same town, building for building, as asking all of it
+    /// one station at a time.
+    /// </para>
+    /// <para>
+    /// <b>The claims are asked in the parallel pass as well, and again in order</b>: a claim is never given
+    /// back (GEN-10), so a station the batch's opening claims refuse is refused at its turn and its ground need
+    /// not be solved. It is what holds the parallel pass to roughly the stations a serial walk would have
+    /// solved — on a shipped city, the claims refuse seven stations in ten. <b>Nothing claims while the pass
+    /// runs</b>: every claim is made in the walk after it, which is what lets every thread read them.
+    /// </para>
+    /// <para>
+    /// <b>Every station of a batch has its footprint drawn, the ones past the brief's last building
+    /// included</b>: station <em>n</em>'s footprint is still the stream's <em>n</em>th draw, which is all the
+    /// town reads of it.
+    /// </para>
+    /// </remarks>
+    static void TheOrdinary(
+        List<Station> stations, int wanted, BuildingSizes sizes, Ranks ranks, SimConfig config,
+        GroundShapes ground, GenClaims claims, Built built, Asking asking, ref Rng draw)
+    {
+        var footprintM = new Vector2[Math.Min(Batch, stations.Count)];
+        var plots = new Plot[footprintM.Length];
+        var open = new bool[footprintM.Length];
+
+        // One working set a thread across every batch: a scan is the size of the index it reads, and the
+        // boundary's is a hundred thousand pieces.
+        var idle = new ConcurrentBag<Asking> { asking };
+        for (var first = 0; first < stations.Count && built.Count < wanted; first += Batch)
         {
-            if (built.Count >= brief.Buildings) break;
+            var count = Math.Min(Batch, stations.Count - first);
 
             // Drawn before the ground is asked about anything, so that what the stream has spent by station
             // n is the face's own length and never what the ground answered at the stations before it.
-            var footprintM = sizes.OrdinaryM[draw.NextInt(sizes.OrdinaryM.Length)];
-            Stand(station, footprintM, BuildingUse.Ordinary, ranks, config, ground, claims, built);
-        }
+            for (var at = 0; at < count; at++) footprintM[at] = sizes.OrdinaryM[draw.NextInt(sizes.OrdinaryM.Length)];
 
-        return built.Arrays(config.CityGen.BuildingCapacity);
+            var from = first;
+            InChunks.Over(
+                count,
+                () => idle.TryTake(out var own) ? own : new Asking(ground),
+                (own, at) =>
+                {
+                    var station = stations[from + at];
+                    var plot = plots[at] = Plot.Of(station, footprintM[at], config);
+                    open[at] = claims.IsFree(plot.CentreM, plot.Axis, plot.PaddedM)
+                               && OnOpenGround(own, station, footprintM[at], plot, ranks, config, ground);
+                },
+                idle.Add);
+
+            for (var at = 0; at < count && built.Count < wanted; at++)
+            {
+                ref readonly var plot = ref plots[at];
+                if (!open[at] || !claims.IsFree(plot.CentreM, plot.Axis, plot.PaddedM)) continue;
+
+                Raise(stations[from + at], footprintM[at], BuildingUse.Ordinary, plot, config, claims, built);
+            }
+        }
     }
 
     /// <summary>
@@ -204,7 +272,7 @@ internal static class BuildingStage
     /// </summary>
     static void TheServices(
         CarParks.Laid carParks, Ranks ranks, List<Station> stations, BuildingSizes sizes,
-        SimConfig config, GroundShapes ground, GenClaims claims, Built built)
+        SimConfig config, GroundShapes ground, GenClaims claims, Built built, Asking asking)
     {
         foreach (var rank in ranks.All)
         {
@@ -212,7 +280,7 @@ internal static class BuildingStage
             if (use == BuildingUse.Ordinary) continue;
             if (OffTheRank(stations, rank, config.CityGen.LocalityM) is not { } middle) continue;
 
-            Stand(middle, sizes.Of(use), use, ranks, config, ground, claims, built);
+            Stand(middle, sizes.Of(use), use, ranks, config, ground, claims, built, asking);
         }
     }
 
@@ -283,12 +351,15 @@ internal static class BuildingStage
     /// of verge, and the building the draw wanted there goes somewhere it fits (GEN-8).
     /// </para>
     /// </remarks>
-    static bool SquareOnItsRank(Ranks ranks, Vector2 atM, float halfFrontageM, SimConfig config)
+    /// <param name="near">This caller's own list, which the ranks near the place are read into.</param>
+    static bool SquareOnItsRank(Ranks ranks, List<int> near, Vector2 atM, float halfFrontageM, SimConfig config)
     {
         var walkM = config.WalkOuterM;
         var slackM = LineTolerance.RoundingM;
-        foreach (var rank in ranks.Near(atM))
+        ranks.Near(atM, near);
+        foreach (var index in near)
         {
+            var rank = ranks.All[index];
             var along = Heading.RightOf(rank.Outward);
             var alongM = Vector2.Dot(atM - rank.TipM, along);
             var outM = Vector2.Dot(atM - rank.TipM, rank.Outward);
@@ -323,27 +394,68 @@ internal static class BuildingStage
     /// </remarks>
     static bool Stand(
         Station station, Vector2 footprintM, BuildingUse use, Ranks ranks, SimConfig config,
-        GroundShapes ground, GenClaims claims, Built built)
+        GroundShapes ground, GenClaims claims, Built built, Asking asking)
+    {
+        var plot = Plot.Of(station, footprintM, config);
+        if (!claims.IsFree(plot.CentreM, plot.Axis, plot.PaddedM)) return false;
+        if (!OnOpenGround(asking, station, footprintM, plot, ranks, config, ground)) return false;
+
+        Raise(station, footprintM, use, plot, config, claims, built);
+        return true;
+    }
+
+    /// <summary>
+    /// <b>Whether the ground lets a building stand on a plot</b> — everything <see cref="Stand"/> asks but the
+    /// claims, and so a fact about the station and its footprint alone, whatever was stood before it.
+    /// </summary>
+    static bool OnOpenGround(
+        Asking asking, Station station, Vector2 footprintM, in Plot plot, Ranks ranks, SimConfig config,
+        GroundShapes ground)
     {
         if (footprintM.X <= 0f || footprintM.Y <= 0f) return false;
-        if (!SquareOnItsRank(ranks, station.AtM, footprintM.X * 0.5f, config)) return false;
+        if (!SquareOnItsRank(ranks, asking.Ranks, station.AtM, footprintM.X * 0.5f, config)) return false;
 
-        var axis = Heading.Unit(station.HeadingRad);
-        var halfM = footprintM * 0.5f;
-        var paddedM = halfM * (1f + config.CityGen.BuildingPaddingShare);
-        var wallM = station.AtM + (station.Outward * (config.BuildingLineM - config.WalkOuterM));
-        var centreM = wallM + (station.Outward * halfM.Y);
         var stepM = config.Terrain.GroundStepM;
+        return ground.IsAll(asking.Ground, plot.CentreM, plot.Axis, plot.HalfM, stepM, Ground.Grass)
+               && !ReachesThePaving(ground, asking.Ground, plot.CentreM, plot.Axis, plot.HalfM, stepM);
+    }
 
-        if (!claims.IsFree(centreM, axis, paddedM)) return false;
-        if (!ground.IsAll(centreM, axis, halfM, stepM, Ground.Grass)) return false;
-        if (ReachesThePaving(ground, centreM, axis, halfM, stepM)) return false;
-
-        claims.Claim(centreM, axis, paddedM);
+    /// <summary>The building stood on its plot: its ground and padding claimed, and the building kept.</summary>
+    static void Raise(
+        Station station, Vector2 footprintM, BuildingUse use, in Plot plot, SimConfig config, GenClaims claims,
+        Built built)
+    {
+        claims.Claim(plot.CentreM, plot.Axis, plot.PaddedM);
         built.Add(
-            centreM, footprintM, station.HeadingRad, use,
+            plot.CentreM, footprintM, station.HeadingRad, use,
             station.AtM - (station.Outward * (config.WalkOuterM - config.BuildingWayInM)));
-        return true;
+    }
+
+    /// <summary>
+    /// Where a building of one footprint stands off one station: square to the face with its front wall on
+    /// the building line, and the padding it claims beyond that.
+    /// </summary>
+    readonly record struct Plot(Vector2 CentreM, Vector2 Axis, Vector2 HalfM, Vector2 PaddedM)
+    {
+        public static Plot Of(Station station, Vector2 footprintM, SimConfig config)
+        {
+            var halfM = footprintM * 0.5f;
+            var wallM = station.AtM + (station.Outward * (config.BuildingLineM - config.WalkOuterM));
+            return new Plot(
+                wallM + (station.Outward * halfM.Y), Heading.Unit(station.HeadingRad), halfM,
+                halfM * (1f + config.CityGen.BuildingPaddingShare));
+        }
+    }
+
+    /// <summary>
+    /// <b>One thread's working set for the ground a plot is asked about</b>: its own scan of the ground
+    /// (<see cref="GroundShapes.NewScan"/>) and its own list of the ranks near a place.
+    /// </summary>
+    sealed class Asking(GroundShapes ground)
+    {
+        public GroundShapes.Scan Ground { get; } = ground.NewScan();
+
+        public List<int> Ranks { get; } = [];
     }
 
     /// <summary>
@@ -360,8 +472,6 @@ internal static class BuildingStage
     {
         readonly PointCells _tips;
         readonly float _reachM;
-        readonly List<int> _near = [];
-        readonly List<Rank> _found = [];
 
         public Ranks(List<Rank> all, SimConfig config)
         {
@@ -383,15 +493,11 @@ internal static class BuildingStage
 
         public List<Rank> All { get; }
 
-        /// <summary>The ranks whose tip stands within reach of a place, in the list's own order.</summary>
-        public List<Rank> Near(Vector2 atM)
-        {
-            _tips.Within(atM, _reachM, _near);
-            _found.Clear();
-            foreach (var rank in _near) _found.Add(All[rank]);
-
-            return _found;
-        }
+        /// <summary>
+        /// The ranks whose tip stands within reach of a place, as their places in <see cref="All"/> and in its
+        /// order, read into the caller's own list so that two threads may ask at once.
+        /// </summary>
+        public void Near(Vector2 atM, List<int> into) => _tips.Within(atM, _reachM, into);
     }
 
     /// <summary>
@@ -399,12 +505,12 @@ internal static class BuildingStage
     /// </summary>
     /// <remarks>
     /// <b>Read off the boundary itself and not off the ground's answer</b>
-    /// (<see cref="GroundRings.PavedWithin"/>): what holds a building off a walk is the distance that walk was
+    /// (<see cref="GroundRings.PavedWithin(Vector2, float)"/>): what holds a building off a walk is the distance that walk was
     /// struck at, so the front wall clears it by half a kerbstone by construction, and this is what keeps the
     /// back of a deep building out of the street behind it.
     /// </remarks>
     static bool ReachesThePaving(
-        GroundShapes ground, Vector2 centreM, Vector2 axis, Vector2 halfM, float stepM)
+        GroundShapes ground, GroundShapes.Scan scan, Vector2 centreM, Vector2 axis, Vector2 halfM, float stepM)
     {
         var side = Heading.RightOf(axis);
         for (var alongM = -halfM.X; ; alongM += stepM)
@@ -413,7 +519,7 @@ internal static class BuildingStage
             for (var acrossM = -halfM.Y; ; acrossM += stepM)
             {
                 var atAcrossM = MathF.Min(acrossM, halfM.Y);
-                if (ground.PavingWithin(centreM + (axis * atAlongM) + (side * atAcrossM), 0f)) return true;
+                if (ground.PavingWithin(scan, centreM + (axis * atAlongM) + (side * atAcrossM), 0f)) return true;
 
                 if (atAcrossM >= halfM.Y) break;
             }

@@ -57,9 +57,9 @@ internal sealed class LegProgress(int actors)
             return;
         }
 
-        // Nearer, without being near enough to say it is getting anywhere: the mark still moves, so that
-        // what counts as progress is always measured from the best the body has ever managed.
-        _closestM[actor] = MathF.Min(_closestM[actor], remainingM);
+        // <b>Nearer by less than that leaves the mark where it is</b>, so what a body closes a little at a time adds
+        // up to a new mark. Moved to every small gain, the mark was a decision behind the body, and at a decision a
+        // tenth of a second a body had to cover its own width in one to be getting anywhere at all.
         _sinceS[actor] += sinceLastDecisionS;
     }
 

@@ -136,8 +136,10 @@ internal sealed partial class TownWorld
         || (IsAnEvacuator(car) && _recovery.Stage[car] == RecoveryStage.Patrolling);
 
     /// <summary>
-    /// <b>A place on the beat done with</b> — arrived, or the leg out of clock: a patrol has nowhere it must be, so
-    /// a road that will not let it through costs it the next street and nothing more.
+    /// <b>A place on the beat done with</b> — arrived and standing on it, the leg over some other way, or the leg out
+    /// of clock: a patrol has nowhere it must be, so a road that will not let it through costs it the next street and
+    /// nothing more.
     /// </summary>
-    bool IsDoneWithThePlace(int car, float legS) => !Cars.Driven[car] || legS >= _config.PatrolGiveUpS;
+    bool IsDoneWithThePlace(int car, float legS) =>
+        !Cars.Driven[car] || StandsAtItsPlace(car) || legS >= _config.PatrolGiveUpS;
 }

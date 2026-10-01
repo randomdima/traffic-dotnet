@@ -76,17 +76,13 @@ internal sealed partial class TownWorld
             return;
         }
 
-        // The elapsed the clock integrates over is the driver's own and not the loop's nominal interval.
-        var elapsedS = Cars.SinceDecisionS[car] > 0f ? Cars.SinceDecisionS[car] : sinceLastDecisionS;
-        Cars.SinceDecisionS[car] = 0f;
-
         if (TheLineIsSpent(car) && TakeTheNextStepOfTheLeg(car))
         {
             _driveProgress.Restart(car);
             return;
         }
 
-        WatchTheProgress(car, elapsedS);
+        WatchTheProgress(car, sinceLastDecisionS);
     }
 
     /// <summary>
@@ -115,6 +111,11 @@ internal sealed partial class TownWorld
             // A manoeuvre out of a bay that has not been had yet is not driven, whatever its line reads.
             return _manoeuvres.IsBegun(car) && TheManoeuvreIsDriven(car);
         }
+
+        // A line that ends at the place the leg is aimed at in the road has been driven: the car stands where it
+        // decided to stop, which is the step — and a car standing where it was going is not a leg getting nowhere,
+        // so no clock is run against it. What it does there is its errand's to say (<see cref="StandsAtItsPlace"/>).
+        if (Cars.StopsAtItsPlaceOf(car)) return true;
 
         // A line that stops for a bay waits there for the manoeuvre into it (<see cref="Park"/>),
         // which is not a line run out.
@@ -292,8 +293,5 @@ internal sealed partial class TownWorld
     /// ahead, within a queue's length of it"</b>, so it has to cover the whole queue and not only its front —
     /// and a body bogged on the verge beside that junction meets it too.
     /// </summary>
-    float QueueReachM(int car) => Cars.BuildOf(car).LengthM * QueueLengthInCars;
-
-    /// <summary>How long a queue at a light reaches back, in cars.</summary>
-    const float QueueLengthInCars = 20f;
+    float QueueReachM(int car) => Cars.BuildOf(car).LengthM * _config.Patience.LightQueueInCarLengths;
 }

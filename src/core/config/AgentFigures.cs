@@ -94,6 +94,23 @@ internal sealed class CarFigures
     /// <summary>The nominal figure the junctions are sized against, and nobody's actual wheelbase.</summary>
     public float WheelbaseM { get; init; } = 2.8f;
 
+    /// <summary>
+    /// <b>How hard the drivetrain holds a car back with the throttle shut</b> (CAR-51), as a coefficient of its
+    /// weight on the driven axle — engine braking, the raw term (<see cref="SimConfig.CarEngineBrakingMps2"/>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It is what stops a car let off from floating</b>, and it is spent through the driven tyres rather
+    /// than beside them: it fades as the pedal goes down and is gone at the floor, so it costs a launch
+    /// nothing, where a rolling resistance big enough to do the same job is paid on every start as well.
+    /// </para>
+    /// <para>
+    /// A figure for the car rather than the ground, and a variant's to state when one wants it; the fleet
+    /// shares this one.
+    /// </para>
+    /// </remarks>
+    public float EngineBrakingResistance { get; init; } = 0.1f;
+
     /// <summary>1 is front-wheel drive, 0 rear, ½ all four. A fleet that varies its layouts varies this.</summary>
     public float DrivenFrontShare { get; init; } = 1f;
 
@@ -514,6 +531,13 @@ internal sealed class DrivePatienceFigures
     public float BlockedWayPriceInBlockSpacings { get; init; } = 4f;
 
     public float BlockedWayLifeInBlockedClocks { get; init; } = 2f;
+
+    /// <summary>
+    /// How far back a queue at a light reaches, in the waiting car's own lengths: a light's hold that near
+    /// is the one wait that spends no patience (TLT-2a), so it has to cover the whole queue and not only its
+    /// front.
+    /// </summary>
+    public float LightQueueInCarLengths { get; init; } = 20f;
 }
 
 /// <summary>A walker: its pace, its footing, and how it keeps out of the way.</summary>
@@ -525,18 +549,17 @@ internal sealed class PersonFigures
     public float RealPivotDegPerS { get; init; } = 270f;
 
     /// <summary>
-    /// <b>How much faster than life this town is watched</b> — the one design decision in the person model,
-    /// and the figure every other pace here is a real one multiplied by
-    /// (<see cref="SimConfig.PersonWalkSpeedMps"/>, <see cref="SimConfig.PersonTurnRateDegPerS"/>).
+    /// <b>How much faster than life a walker moves</b> — the figure every other pace here is a real one
+    /// multiplied by (<see cref="SimConfig.PersonWalkSpeedMps"/>, <see cref="SimConfig.PersonTurnRateDegPerS"/>).
+    /// One: the cars are driven at life's pace, and a walker at any other is a sprinter beside them. A town
+    /// watched faster is watched on the clock (<see cref="SimFigures.SoakMaxTimeScale"/>), which scales both.
     /// </summary>
     /// <remarks>
-    /// <b>It was an unstated factor before it was a figure, and that is what it is for.</b> Distances in
-    /// this town are real and its pace is not, so every acceleration in the person model carries the
-    /// <em>square</em> of this — and a grip authored at real scale beside a pace that is not put the
-    /// casualty band below walking speed, where touching a parked car is a fatal contact. Written down, the
-    /// two are impossible to author out of step.
+    /// <b>It is kept as a figure because every acceleration in the person model carries its square</b>: a
+    /// grip authored at one pace beside a pace that is not put the casualty band below walking speed, where
+    /// touching a parked car is a fatal contact. Written down, the two are impossible to author out of step.
     /// </remarks>
-    public float PaceScale { get; init; } = 5f;
+    public float PaceScale { get; init; } = 1f;
 
     public float MassKg { get; init; } = 80f;
 
@@ -553,10 +576,9 @@ internal sealed class PersonFigures
     /// a stop on (<see cref="SimConfig.PersonSlidingGripMps2"/>).
     /// </summary>
     /// <remarks>
-    /// <b>A ratio, because both grips have to be scaled by the same thing the pace is.</b> Distances in
-    /// this town are real and its pace is five times a real one, so every acceleration in the person model
-    /// carries a factor of twenty-five that no figure states — and a sliding grip authored at real scale
-    /// beside a foot grip that is not puts the casualty band a third of the way below walking pace, where
+    /// <b>A ratio, because both grips have to be scaled by the same thing the pace is.</b> Every
+    /// acceleration in the person model carries the square of <see cref="PaceScale"/> — and a sliding grip
+    /// authored at one pace beside a foot grip at another puts the casualty band below walking pace, where
     /// touching a parked car is a fatal contact.
     /// </remarks>
     public float SlidingGripInFootGrips { get; init; } = 0.9f;
@@ -629,10 +651,11 @@ internal sealed class DamageFigures
     /// <summary>
     /// <b>How far a contact has to be able to put a body down the road for it to have knocked them
     /// over</b> (PER-23). A distance rather than an energy, because a distance is the thing that can be
-    /// looked at: half a metre is a body moved rather than a body brushed. What it costs follows from the
-    /// mass being moved and the ground it slides on (<see cref="SimConfig.PersonCasualtyKj"/>).
+    /// looked at: a dozen metres is a body thrown down the road by a car, where a metre or two is one a car
+    /// shoved and a walker stumbles back from. What it costs follows from the mass being moved and the
+    /// ground it slides on (<see cref="SimConfig.PersonCasualtyKj"/>).
     /// </summary>
-    public float SlideToCasualtyM { get; init; } = 0.5f;
+    public float SlideToCasualtyM { get; init; } = 12f;
 
     public float CarWreckKj { get; init; } = 20f;
 }
@@ -660,6 +683,13 @@ internal sealed class AmbulanceFigures
     /// it is there. Ground it can no longer stop short of is a fact about its speed and is not stretched.
     /// </summary>
     public float CallReachShare { get; init; } = 2f;
+
+    /// <summary>
+    /// <b>How much slower than a call means to go traffic has to be before the call gets past it</b> (AMB-4.4).
+    /// Less than this is a car holding the call's own pace on a pedal that hunts about it — a charge following
+    /// its leading escort is one — and a pass round it gains nothing and takes the lane ahead from whoever is in it.
+    /// </summary>
+    public float SlowerToPassMps { get; init; } = 0.5f;
 
     /// <summary>How long getting a casualty aboard takes, the ambulance standing still at its standoff meanwhile (AMB-6).</summary>
     public float LoadingS { get; init; } = 4f;

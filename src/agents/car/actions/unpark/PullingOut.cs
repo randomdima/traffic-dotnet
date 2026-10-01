@@ -1,4 +1,3 @@
-using System.Numerics;
 using System.Runtime.CompilerServices;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
@@ -54,20 +53,21 @@ internal sealed class PullingOut(
 
     /// <summary>
     /// <b>The shape out of a bay the car is standing in</b>, taken as its line: forwards where it stands backed in
-    /// and in reverse where it stands nose in (GEN-4j), onto the lane of the street running the way it is going —
-    /// and of two that run it no nearer, the one taking less street. False where it can make none, which is a
-    /// leg with nothing to drive.
+    /// and in reverse where it stands nose in (GEN-4j), onto <paramref name="lane"/> — the lane the route out of the
+    /// bay sets off down, laid before the car moves (<see cref="ICarTown.LeaveTheBay"/>) — and where it cannot
+    /// be got onto that one, or there is no route, onto whichever lane of the street it can make taking less
+    /// street. False where it can make none, which is a leg with nothing to drive.
     /// </summary>
     /// <remarks>
     /// <b>Read off the pose and never off the register</b> (GEN-4j): which way round the body stands is where it
-    /// points. Setting off into the stream running the other way is a leg that starts by driving round the block,
-    /// so where the car is going ranks the lanes first — <b>but for a car turning in this bay</b> (GEN-4l), whose
-    /// route comes back down the lane it turned for and lands on that one whichever way the place lies.
+    /// points. <b>A car turning in this bay</b> (GEN-4l) leaves onto the lane its route turned for or not at all:
+    /// out onto the other one it is back on the lane it came down, and the route that turned it sends it round to
+    /// turn here again.
     /// </remarks>
     [SkipLocalsInit]
-    public bool ShapeTheWayOut(int car, int bay)
+    public bool ShapeTheWayOut(int car, int bay, int lane)
     {
-        var turnsOnto = parking.TurnOf(car) == bay ? Cars.TurnsBackOn[car] : CarFleet.NoLane;
+        var turning = parking.TurnOf(car) == bay && lane != CarFleet.NoLane;
 
         ref readonly var build = ref Cars.BuildOf(car);
         var forward = Heading.Unit(Cars.HeadingRad[car]);
@@ -79,25 +79,28 @@ internal sealed class PullingOut(
         Span<ArcSeg> room = stackalloc ArcSeg[BayManoeuvre.MostArcs];
         var bestLane = CarFleet.NoLane;
         var bestShape = BayManoeuvre.Shape.None;
-        var bestTowardsM = float.NegativeInfinity;
+        var bestOnTheRoute = false;
         var bestM = float.PositiveInfinity;
-        foreach (var lane in bayStreets.LanesOf(bay))
+        foreach (var onto in bayStreets.LanesOf(bay))
         {
-            if (turnsOnto != CarFleet.NoLane && lane != turnsOnto) continue;
+            var onTheRoute = onto == lane;
+            if (turning && !onTheRoute) continue;
 
             // A car backing out travels up the street and ends facing down it, the way the lane runs.
-            var at = Spline.SampleAt(ground.Roads.ArcsOf(lane), bayStreets.AtLaneM(bay, lane));
+            var at = Spline.SampleAt(ground.Roads.ArcsOf(onto), bayStreets.AtLaneM(bay, onto));
             var shape = BayManoeuvre.OutOfTheBay(
                 from, reverse, at.PositionM, reverse ? at.HeadingRad + MathF.PI : at.HeadingRad,
                 build.ParkingTemplateRadiusM, build.ParkingStraightensUpM, ground.Config.LaneWidthM, room);
             if (!shape.Exists || !bays.WhatTheShapeTakes(car, room, shape, out var streetM)) continue;
 
-            var towardsM = Cars.HasDestination[car] ? Vector2.Dot(Cars.DestinationM[car] - at.PositionM, at.Direction) : 0f;
-            if (towardsM < bestTowardsM || (towardsM == bestTowardsM && streetM >= bestM)) continue;
+            if (bestShape.Exists && (bestOnTheRoute && !onTheRoute || (onTheRoute == bestOnTheRoute && streetM >= bestM)))
+            {
+                continue;
+            }
 
-            bestLane = lane;
+            bestLane = onto;
             bestShape = shape;
-            bestTowardsM = towardsM;
+            bestOnTheRoute = onTheRoute;
             bestM = streetM;
             room[..shape.ArcCount].CopyTo(Manoeuvres.RoomOf(car));
         }

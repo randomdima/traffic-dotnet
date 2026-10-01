@@ -156,11 +156,11 @@ Three measuring maps each reported differently, so whether a run was right lived
 happened to be looking. A map now carries its claims and one watch answers them (`VER-11`,
 `Bench.ScenarioWatch`): every claim is `waiting`, `kept` or `BROKEN`, and a broken one is the exit code.
 
-## 2026-08-28 — the town's clock runs five times, and every acceleration in it has to know that
+## 2026-08-28 — every acceleration in the person model carries the square of its pace scale
 
-Walking pace is scaled by five, so an acceleration here carries a factor of twenty-five that no figure
-stated — `FootGripMps2` was scaled and the sliding grip was not, which put `PER-23`'s casualty band under
-walking pace. The second grip is now a share of the first, which is the only form the scaling cannot be
+Walking pace is scaled (`Person.PaceScale`), so an acceleration here carries the square of the scale where no
+figure stated it — `FootGripMps2` was scaled and the sliding grip was not, which put `PER-23`'s casualty band
+under walking pace. The second grip is now a share of the first, which is the only form the scaling cannot be
 forgotten in.
 
 ## 2026-08-26 — nobody in this town dies, and the band that used to kill is where a body starts moving

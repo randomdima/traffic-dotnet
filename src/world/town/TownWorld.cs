@@ -224,7 +224,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // own standing cost.
         _driving = DrivingNetwork.Build(
             _roads, BayStreets.WhereALegMayTurn(_roads, _bayStreets, config.TurnAtALotWithinM), plan, config);
-        _driveSearch = new RouteSearch(_driving.Graph, mostEntries: 1, mostGoals: 2, MostRunsInARoute);
+        _driveSearch = new RouteSearch(_driving.Graph, mostEntries: BayStreets.MostLanes, mostGoals: 2, MostRunsInARoute);
         _surcharges = new LinkSurcharges(MostWaysGivenUpOn);
         _walkSurcharges = new LinkSurcharges(MostWaysGivenUpOn);
 
@@ -298,6 +298,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         drivers += served;
 
         People = new PersonFleet(walkers);
+        _groundUnderWalkers = new RibbonAtlas.Recall(walkers);
         _impulseNs = new Vector2[walkers];
         _progress = new LegProgress(walkers);
 
@@ -307,6 +308,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
         Cars = new CarFleet(drivers, Math.Max(LineAssembler.ArcsFor(_roads), BayManoeuvre.MostArcsPerPiece), _builds);
         _manoeuvres = new Manoeuvres(drivers);
+        _groundUnderCars = new RibbonAtlas.Recall(drivers);
 
         // <b>One table, sized for every shape either roster can be in</b> (TER-4c): every way a body can be
         // over, and a plan down its own line with every section its marks link it to. A driver may also
@@ -341,7 +343,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _parking = ParkingRegistry.Build(plan, _bayStreets, config, drivers);
         _bays = new BayManoeuvring(_ground, _carActions, _manoeuvres);
         _pullingOut = new PullingOut(_ground, _bays, _parking, _bayStreets);
-        _parkingIn = new ParkingIn(_ground, _carActions, _bays, _pullingOut, _parking, _bayStreets);
+        _parkingIn = new ParkingIn(_ground, _carActions, _bays, _parking, _bayStreets);
         _following = new Following(_ground, _carActions, _overtaking, _parkingIn);
         _rejoining = new Rejoining(_ground, _carActions, _following);
         _round = new ParkedRound(drivers);

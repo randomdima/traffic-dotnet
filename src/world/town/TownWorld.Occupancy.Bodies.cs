@@ -1,5 +1,4 @@
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Core.Geometry;
@@ -14,6 +13,12 @@ namespace TrafficSimulation.World.Town;
 /// </summary>
 internal sealed partial class TownWorld
 {
+    /// <summary>What the atlas last found under each car, so one standing still is not read again every tick.</summary>
+    readonly RibbonAtlas.Recall _groundUnderCars;
+
+    /// <summary>The same for each walker.</summary>
+    readonly RibbonAtlas.Recall _groundUnderWalkers;
+
     /// <summary>
     /// <b>A car where its collider stands</b>: every way the atlas finds under its box, over the stretch it
     /// covers — whatever the car is doing, whoever is driving it and whether it is broken.
@@ -35,15 +40,14 @@ internal sealed partial class TownWorld
     /// one occupant, and the truck is never held off its own trailer.
     /// </para>
     /// </remarks>
-    [SkipLocalsInit]
     void LayTheCarsBody(int car)
     {
         var occupant = LaidAs(car);
         ref readonly var build = ref Cars.BuildOf(car);
         var halfM = build.CollisionSizeM * 0.5f;
 
-        Span<WayCover> under = stackalloc WayCover[MostWaysUnderABody];
-        var count = _atlas.UnderBox(Cars.PositionM[car], Heading.Unit(Cars.HeadingRad[car]), halfM.X, halfM.Y, under);
+        var under = _atlas.UnderBox(
+            Cars.PositionM[car], Heading.Unit(Cars.HeadingRad[car]), halfM.X, halfM.Y, _groundUnderCars, car);
 
         var travelling = IsUnderWay(occupant);
         var stopMps = _config.Driving.StopSpeedMps;
@@ -52,7 +56,7 @@ internal sealed partial class TownWorld
         // <b>Blocked, it goes nowhere</b> (CAR-50): its line runs on, but it can neither get past what stands in
         // front of it nor back up for the room to, so to whoever comes up behind it is a body to get past.
         var blocked = still && Cars.Context[occupant].Blocked;
-        for (var at = 0; at < count; at++)
+        for (var at = 0; at < under.Length; at++)
         {
             ref readonly var cover = ref under[at];
             var onward = LaneOccupancy.NoWay;
@@ -85,7 +89,6 @@ internal sealed partial class TownWorld
     /// way it must never be missing from.
     /// </para>
     /// </remarks>
-    [SkipLocalsInit]
     void LayTheWalkersBody(int person)
     {
         // PHY-7: inside a container there is no body in the world and nothing in anybody's way.
@@ -101,9 +104,8 @@ internal sealed partial class TownWorld
         // nothing whatever it is sliding at.
         var still = People.Wounded[person] || People.DeclaredMps[person] == Vector2.Zero;
 
-        Span<WayCover> under = stackalloc WayCover[MostWaysUnderABody];
-        var count = _atlas.UnderDisc(People.PositionM[person], radiusM, under);
-        for (var at = 0; at < count; at++)
+        var under = _atlas.UnderDisc(People.PositionM[person], radiusM, _groundUnderWalkers, person);
+        for (var at = 0; at < under.Length; at++)
         {
             ref readonly var cover = ref under[at];
             var onItsLine = cover.Way == walking;

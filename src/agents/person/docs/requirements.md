@@ -198,7 +198,8 @@ of the arithmetic, so a body that arrives at a car is judged as a car that arriv
 **The band sits above the town's own walking pace**, and that is what makes the sentence before it
 liveable. A tolerance below the pace is one a walker meets by arriving at a parked car, and then a
 knock-down is a contact rather than an impact — nobody has to be struck for the town to fill with
-casualties. Half again over the pace is what the shipped figures give.
+casualties. A car meeting a standing body at the pace this town's traffic runs at is what the shipped
+figures give, several times the walking pace.
 
 **There is no band above it.** The energy that breaks a car does no more to a person than the energy that
 just moves them, because a person has one tolerance like every other kind of body (`PHY-3`, `PHY-4`).
@@ -231,17 +232,18 @@ back no faster than its foot friction affords (`WalkerFollower`, PER-3). Everyth
 feet, a body along it, bounding everything, there being nothing it does. A walker is off
 its feet exactly while it is a casualty (`PER-23`), which is what makes the impulse of an impact visible
 after the impact is over — a body sent down the road rather than stopped where it was hit. Neither is
-scaled by the ground under it (TER-2). **The sliding grip is what sizes the band**: half a metre of it is what
-being knocked over costs, so the two numbers are one decision.
+scaled by the ground under it (TER-2). **The sliding grip is what sizes the band**: the distance a body is
+thrown along it (`Damage.SlideToCasualtyM`) is what being knocked over costs, so the two numbers are one
+decision.
 
 > **The relation that is the requirement — the number is not:** a walker shoved at its own pace is carried
 > **inside a fifth of its own body.** Whatever the walk speed is set to, the grip is whatever makes that
 > true.
 
-> **And the second grip is a share of the first, never a figure of its own.** This town's distances are
-> real and its pace is five times a real one, so every acceleration in the model carries a factor of
-> twenty-five that no figure states. A sliding grip authored as though the pace were real is twenty-five
-> times too cheap, and the band it sizes lands underneath walking pace.
+> **And the second grip is a share of the first, never a figure of its own.** Every acceleration in the
+> model carries the square of the pace scale (`Person.PaceScale`), so a sliding grip authored at one pace
+> beside a foot grip at another is off by that square, and the band it sizes can land underneath walking
+> pace.
 
 **One thing this model gets wrong, stated rather than fixed**: a walker's feet resist a car pushing them
 at `mass × grip`, which is about half a car's drive, so a car leaning on a pedestrian *below* `PER-23`'s

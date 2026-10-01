@@ -62,10 +62,10 @@ internal static class LineAssembler
     /// out, which is what it already does with every route that runs out.
     /// </remarks>
     /// <param name="lastLaneToM">
-    /// How far along the final lane the line stops, where something past the road is going to take the
-    /// car off it — the mouth of the way into the bay this leg is aimed at is the one case. The line ends
-    /// there rather than at the lane's own end, so the car is brought to rest where that way begins and
-    /// takes it as its next line (<c>TownWorld.TakeTheNextStepOfTheLeg</c>).
+    /// How far along the final lane the line stops, where the leg ends short of the lane's own end — where the
+    /// car waits for its manoeuvre into the bay it is aimed at, or the place in the road it was sent to. The car
+    /// is brought to rest there, and either takes the manoeuvre as its next line or stands where it was going
+    /// (<c>TownWorld.TakeTheNextStepOfTheLeg</c>).
     /// </param>
     public static DrivenLine Assemble(
         RoadGraph graph, ReadOnlySpan<int> lanes, Span<ArcSeg> into, Span<float> laneStartM,
