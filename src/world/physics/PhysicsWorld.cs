@@ -444,9 +444,28 @@ internal sealed partial class PhysicsWorld
         _mostM[index] = _positionM[index] + half;
     }
 
-    void Grow()
+    /// <summary>
+    /// <b>The body table made exactly as long as the bodies it will hold</b>: called once the statics are in
+    /// and before the roster is stood, since doubled to there it would hold up to as much again as it needs.
+    /// </summary>
+    /// <remarks>
+    /// A body added past <paramref name="bodies"/> still finds room — the table doubles as before — and that
+    /// growth is an allocation, so what is fitted for is every body the town will ever add.
+    /// </remarks>
+    public void Fit(int bodies)
     {
-        var room = _positionM.Length * 2;
+        if (bodies < _count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(bodies), $"{bodies} is fewer than the {_count} bodies already held");
+        }
+
+        Resize(bodies);
+    }
+
+    void Grow() => Resize(_positionM.Length * 2);
+
+    void Resize(int room)
+    {
         Array.Resize(ref _positionM, room);
         Array.Resize(ref _rotation, room);
         Array.Resize(ref _headingRad, room);

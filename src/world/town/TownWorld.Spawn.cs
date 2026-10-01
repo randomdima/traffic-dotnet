@@ -60,6 +60,9 @@ internal sealed partial class TownWorld
             }
         }
 
+        // Every body the town will hold, its statics and one for each seat of either fleet — fitted before the
+        // statics are settled, since the grid they are settled into reads the table it was laid over.
+        _physics.Fit(_physics.StaticBodyCount + Cars.Capacity + People.Capacity);
         _physics.SettleStatics();
     }
 
