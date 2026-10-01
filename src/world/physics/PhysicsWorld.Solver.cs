@@ -143,12 +143,19 @@ internal sealed partial class PhysicsWorld
     /// a body down is being chosen and never in a tick, so it walks the static grid rather than keeping an
     /// answer anything has to maintain.
     /// </summary>
+    /// <remarks>
+    /// <b>The furniture's own shape, and never its bounds</b>: a building turned off the grid is bounded by a box
+    /// far bigger than it, and that box covers the pavement at its own door.
+    /// </remarks>
     public bool StaticInBox(Vector2 leastM, Vector2 mostM)
     {
         if (_staticIndexStale) SettleStatics();
 
         if (!_staticGrid.TryRange(leastM, mostM, out var range)) return false;
 
+        var centreM = (leastM + mostM) * 0.5f;
+        var halfM = (mostM - leastM) * 0.5f;
+        var square = Shape.Rotation(0f);
         for (var y = range.FromY; y <= range.ToY; y++)
         {
             for (var x = range.FromX; x <= range.ToX; x++)
@@ -157,6 +164,12 @@ internal sealed partial class PhysicsWorld
                 {
                     if ((_category[body] & StaticsOnlyMask) == 0) continue;
                     if (Apart(body, leastM, mostM)) continue;
+                    if (!Shape.Collide(
+                            centreM, square, halfM, 0f, _positionM[body], _rotation[body], _extentM[body],
+                            _cornerRadiusM[body], 0f, out _))
+                    {
+                        continue;
+                    }
 
                     return true;
                 }

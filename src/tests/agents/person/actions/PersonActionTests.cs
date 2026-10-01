@@ -37,7 +37,7 @@ public class PersonActionTests
         var loop = new SimLoop<TownWorld>(world, Config);
         loop.Advance(WarmUpTicks);
 
-        var (walker, lane) = PutAWalkerInTheRoad(world);
+        var (walker, lane) = PutAWalkerInTheRoad(loop);
         loop.Advance(1);
 
         Assert.Equal(PersonAction.Rejoin, world.People.Action[walker]);
@@ -86,12 +86,18 @@ public class PersonActionTests
     /// A walker out on a stretch of its route, lifted into the middle of the street lane nearest it and left walking —
     /// and that lane.
     /// </summary>
-    static (int Walker, int Lane) PutAWalkerInTheRoad(TownWorld world)
+    /// <remarks>
+    /// <b>Never one whose decision comes round on the next tick</b>: a walker deciding there lays its walk again from
+    /// where it stands, which is the other way back onto the network (PER-25), and walks it for that tick.
+    /// </remarks>
+    static (int Walker, int Lane) PutAWalkerInTheRoad(SimLoop<TownWorld> loop)
     {
+        var world = loop.World;
         var people = world.People;
         for (var walker = 0; walker < people.Count; walker++)
         {
             if (people.Action[walker] != PersonAction.Walk || people.OnWay[walker] < 0) continue;
+            if (loop.Decisions.Turn(loop.Tick, world.Roster.AgentOfPerson(walker))) continue;
             if (world.IsTheCrossing(people.OnWay[walker])) continue;
 
             var lane = world.Roads.NearestStreetLane(people.PositionM[walker], out var alongM);

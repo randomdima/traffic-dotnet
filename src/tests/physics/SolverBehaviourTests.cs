@@ -185,6 +185,18 @@ public class SolverBehaviourTests
         Assert.False(world.StaticInBox(new Vector2(68f, -2f), new Vector2(72f, 2f)));
     }
 
+    /// <summary><c>SOL-8</c>: a box turned off the grid is asked about by its shape, so ground beside it inside its bounds is clear.</summary>
+    [Fact]
+    public void TheStaticQueryReadsATurnedBoxByItsShape()
+    {
+        var world = new PhysicsWorld(Config);
+        world.AddStaticBox(Vector2.Zero, new Vector2(10f, 1f), MathF.PI / 4f);
+        world.SettleStatics();
+
+        Assert.False(world.StaticInBox(new Vector2(2.75f, -3.25f), new Vector2(3.25f, -2.75f)));
+        Assert.True(world.StaticInBox(new Vector2(2.75f, 2.75f), new Vector2(3.25f, 3.25f)));
+    }
+
     /// <summary><c>SOL-9</c>: how deep a body is into everything touching it, which is what measures PHY-1.</summary>
     [Fact]
     public void OverlapIsHowDeepTheBodyIs()
