@@ -188,6 +188,19 @@ internal sealed class ChainIndex
     }
 
     /// <summary>
+    /// <b>Chains their owner already keeps flat</b> — chain <c>c</c> the arcs from <c>arcStart[c]</c> to
+    /// <c>arcStart[c + 1]</c>, and numbered <c>c</c> — indexed over the owner's own arrays rather than a copy
+    /// of them, which for a graph's every edge is its geometry kept twice.
+    /// </summary>
+    /// <remarks>Every chain has an arc, and the arrays are never written to again by anyone.</remarks>
+    public static ChainIndex OfChains(ArcSeg[] arcs, int[] arcStart, float[] lengthM, GridLevel level)
+    {
+        var building = new Builder();
+        building.Adopt(arcs, arcStart, lengthM);
+        return building.Seal(level);
+    }
+
+    /// <summary>
     /// <b>The cells the chains were binned into</b> — a window of the level the index settled on, which is
     /// not always the one it was asked for: a set spread far enough to want more cells than any index may
     /// hold is binned a level coarser instead (<see cref="MostCells"/>), and a caller drawing or reasoning
@@ -544,30 +557,54 @@ internal sealed class ChainIndex
         Vector2 _leastM = new(float.MaxValue);
         Vector2 _mostM = new(float.MinValue);
 
+        /// <summary>An owner's own flat chains, indexed in place of the lists above (<see cref="OfChains"/>).</summary>
+        ArcSeg[]? _keptArcs;
+        int[]? _keptArcStart;
+        float[]? _keptLengthM;
+
+        public void Adopt(ArcSeg[] arcs, int[] arcStart, float[] lengthM)
+        {
+            if (_chainId.Count > 0) throw new InvalidOperationException("a builder adopts chains only while it holds none");
+
+            for (var chain = 0; chain < lengthM.Length; chain++)
+            {
+                if (arcStart[chain + 1] == arcStart[chain]) throw new ArgumentException($"chain {chain} has no arcs", nameof(arcStart));
+
+                _chainId.Add(chain);
+                Bound(arcs.AsSpan(arcStart[chain], arcStart[chain + 1] - arcStart[chain]));
+            }
+
+            (_keptArcs, _keptArcStart, _keptLengthM) = (arcs, arcStart, lengthM);
+        }
+
         /// <param name="id">What <see cref="Nearest"/> hands back for this chain — the caller's own numbering, never a slot.</param>
         public void Add(int id, ReadOnlySpan<ArcSeg> arcs, float lengthM)
         {
             if (arcs.Length == 0) return;
+            if (_keptArcs is not null) throw new InvalidOperationException("a builder that adopted chains takes no more");
 
             _chainId.Add(id);
             _lengthM.Add(lengthM);
+            foreach (var arc in arcs) _arcs.Add(arc);
+            Bound(arcs);
+            _arcStart.Add(_arcs.Count);
+        }
 
-            // The chain's own box and the set's are the same walk (<see cref="Box"/>): the index keeps the
-            // first to refuse candidates and the second to lay the lattice, and taking them apart would be
-            // two answers to where a chain stands.
+        /// <summary>
+        /// One chain's own box, and the set's grown by it: the same walk (<see cref="Box"/>), because the index
+        /// keeps the first to refuse candidates and the second to lay the lattice, and taking them apart would be
+        /// two answers to where a chain stands.
+        /// </summary>
+        void Bound(ReadOnlySpan<ArcSeg> arcs)
+        {
             var leastM = new Vector2(float.MaxValue);
             var mostM = new Vector2(float.MinValue);
-            foreach (var arc in arcs)
-            {
-                _arcs.Add(arc);
-                Box(arc, ref leastM, ref mostM);
-            }
+            foreach (var arc in arcs) Box(arc, ref leastM, ref mostM);
 
             _slotLeastM.Add(leastM);
             _slotMostM.Add(mostM);
             _leastM = Vector2.Min(_leastM, leastM);
             _mostM = Vector2.Max(_mostM, mostM);
-            _arcStart.Add(_arcs.Count);
         }
 
         public ChainIndex Seal(GridLevel level)
@@ -586,13 +623,16 @@ internal sealed class ChainIndex
             }
 
             var cells = window.Count;
+            var arcs = _keptArcs ?? [.. _arcs];
+            var arcStart = _keptArcStart ?? [.. _arcStart];
 
             // <b>Each chain is walked once, on every core</b>, and what it reaches is filed afterwards a slot
             // at a time — so the table is the one a single thread writes, whatever order the walks ran in. A
             // counting sort, and its two passes read the one list, so they cannot disagree about which cells
             // a chain reaches — a count that missed one is a run written past its end.
             var cellsOf = new int[slots][];
-            InChunks.Over(slots, () => new List<int>(), (found, slot) => cellsOf[slot] = CellsOf(slot, window, found));
+            InChunks.Over(
+                slots, () => new List<int>(), (found, slot) => cellsOf[slot] = CellsOf(arcs, arcStart, slot, window, found));
 
             var start = new int[cells + 1];
             foreach (var reached in cellsOf)
@@ -611,7 +651,7 @@ internal sealed class ChainIndex
             }
 
             return new ChainIndex(
-                [.. _arcs], [.. _arcStart], [.. _lengthM], [.. _chainId], [.. _slotLeastM], [.. _slotMostM], window,
+                arcs, arcStart, _keptLengthM ?? [.. _lengthM], [.. _chainId], [.. _slotLeastM], [.. _slotMostM], window,
                 start, entries);
         }
 
@@ -654,13 +694,13 @@ internal sealed class ChainIndex
         /// sorted and its repeats dropped.
         /// </para>
         /// </remarks>
-        int[] CellsOf(int slot, GridWindow window, List<int> found)
+        static int[] CellsOf(ArcSeg[] arcs, int[] arcStart, int slot, GridWindow window, List<int> found)
         {
             found.Clear();
             var margin = new Vector2(MarginM);
-            for (var index = _arcStart[slot]; index < _arcStart[slot + 1]; index++)
+            for (var index = arcStart[slot]; index < arcStart[slot + 1]; index++)
             {
-                var arc = _arcs[index];
+                var arc = arcs[index];
                 var first = found.Count;
                 var claimed = new CellRange(0, 0, -1, -1);
                 for (var atM = 0f; ; atM += SampleStepM)

@@ -96,10 +96,7 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
 
         // <b>Every lane, because every lane is its own line</b>: the two lanes of a pavement stand a lane
         // apart, so which of them a point is nearest is the answer the question wants rather than a tie.
-        var builder = new ChainIndex.Builder();
-        for (var edge = 0; edge < _edgeFrom.Length; edge++) builder.Add(edge, ArcsOf(edge), _edgeLengthM[edge]);
-
-        _nearest = builder.Seal(nearestLevel);
+        _nearest = ChainIndex.OfChains(_edgeArcs, _edgeArcOffsets, _edgeLengthM, nearestLevel);
     }
 
     public int NodeCount => _nodeM.Length;
