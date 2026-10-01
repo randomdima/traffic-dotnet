@@ -213,6 +213,56 @@ public class TyreModelTests
         Assert.Equal(0f, spinMps[3]);
     }
 
+    /// <summary>
+    /// <b>A car its locks hold is brought to rest whole</b>: what the rear pair puts down is the body's momentum and its
+    /// spin together, and nothing is spent at the front or left turning in a rim.
+    /// </summary>
+    [Fact]
+    public void ACarItsLocksHoldIsBroughtToRestWhole()
+    {
+        var pose = Rolling(9e-4f, -1.7e-4f, 4.1e-3f);
+        var inertiaKgM2 = Figures.Car.MassKg * 2f;
+        var atM = new Vector2[TyreModel.Wheels];
+        TyreModel.WheelPointsM(Car, pose, atM);
+        var wheels = new WheelImpulse[TyreModel.Wheels];
+        float[] spinMps = [2e-3f, -2e-3f, 0f, 0f];
+
+        Assert.True(TyreModel.HoldStill(Figures, Car, pose, inertiaKgM2, atM, AllOf(Paved), Figures.TickSeconds, wheels, spinMps));
+
+        var momentumNs = Vector2.Zero;
+        var spinNms = 0f;
+        foreach (var wheel in wheels)
+        {
+            var armM = wheel.AtM - pose.PositionM;
+            momentumNs += wheel.ImpulseNs;
+            spinNms += (armM.X * wheel.ImpulseNs.Y) - (armM.Y * wheel.ImpulseNs.X);
+        }
+
+        var wantNs = -pose.VelocityMps * pose.MassKg;
+        Assert.Equal(wantNs.X, momentumNs.X, MathF.Abs(wantNs.X) * 1e-4f);
+        Assert.Equal(wantNs.Y, momentumNs.Y, MathF.Abs(wantNs.Y) * 1e-4f);
+        Assert.Equal(-pose.YawRateRadPerS * inertiaKgM2, spinNms, MathF.Abs(pose.YawRateRadPerS * inertiaKgM2) * 1e-4f);
+        Assert.Equal(Vector2.Zero, wheels[0].ImpulseNs);
+        Assert.Equal(Vector2.Zero, wheels[1].ImpulseNs);
+        Assert.All(spinMps, spin => Assert.Equal(0f, spin));
+    }
+
+    /// <summary>And <b>a car moving faster than its rear patches can stop in a tick is not held</b>: nothing is written.</summary>
+    [Fact]
+    public void ACarItsTyresCannotStopInATickIsNotHeld()
+    {
+        var pose = Rolling(5f);
+        var atM = new Vector2[TyreModel.Wheels];
+        TyreModel.WheelPointsM(Car, pose, atM);
+        var wheels = new WheelImpulse[TyreModel.Wheels];
+        float[] spinMps = [5f, 5f, 0f, 0f];
+
+        Assert.False(TyreModel.HoldStill(
+            Figures, Car, pose, Figures.Car.MassKg * 2f, atM, AllOf(Paved), Figures.TickSeconds, wheels, spinMps));
+        Assert.All(wheels, wheel => Assert.Equal(Vector2.Zero, wheel.ImpulseNs));
+        Assert.Equal(5f, spinMps[0]);
+    }
+
     /// <summary>Every corner carries a quarter of the car at rest, and the four of them are the whole car whatever it is doing.</summary>
     [Theory]
     [InlineData(0f, 0f)]

@@ -3,6 +3,28 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-10-01 — a car its locks hold stands still, whole
+
+**A parked car never came to rest.** Its velocity, yaw rate and front rims changed sign every tick — about a
+millimetre a second and four milliradians a second either way, the body itself going nowhere — because each patch
+arrests its own corner as though the corner moved alone, and the four together overshoot the body's yaw. Never at
+rest, a parked car was never let off its tyres (`TownWorld.AtRest`): over Odesa's sixth minute only 14 % of the
+car-ticks of cars nobody drove were at rest, and each of the rest ran the tyre model and four ground lookups.
+
+**Held by its locks with nobody on the throttle, a car its rear pair can stop in a tick is stopped whole**
+(CAR-52, `TyreModel.HoldStill`): the body's momentum and spin are put down at the rear pair, nothing at the front,
+and the rims stopped. A rear patch that could not grip its share leaves the car to its patches. 97 % of those
+car-ticks are at rest now; what is left is a yaw rate rounding cannot put out, which the solver's damping does.
+
+Measured on `--bench age --map Odesa`, µs a tick, two runs each:
+
+| | before | after |
+|---|---|---|
+| cars, 1 / 3 / 5 min | 220–228 / 453–464 / 492–501 | 201–203 / 349–351 / 314 |
+| whole tick, 1 / 3 / 5 min | 742–755 / 1113–1118 / 1108–1113 | 714–731 / 990–1004 / 923–925 |
+
+`--bench stuck --map Odesa` parked 501 cars (504) over 7 touches (7), nothing wrecked.
+
 ## 2026-10-01 — a car's pass and its way back onto its line are decided on its own clock
 
 **The rest of what the car's actions decided every tick is the car's decision now** (`DecideTheAction`): drawing a

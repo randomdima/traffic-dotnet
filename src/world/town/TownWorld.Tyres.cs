@@ -53,6 +53,15 @@ internal sealed partial class TownWorld
             Cars.WheelSpinOf(car), _config.TickSeconds,
             _wheels.ImpulsesOf(car), scrub);
 
+        // Held by its locks with nobody on the throttle, a car that its tyres can hold is held still, whole.
+        if ((command.LocksEveryWheel || command.Handbrake) && command.ThrottleMps2 == 0f
+            && TyreModel.HoldStill(
+                _config, build, pose, 1f / _physics.InverseInertiaOf(Cars.Body[car]), atM, ground, _config.TickSeconds,
+                _wheels.ImpulsesOf(car), Cars.WheelSpinOf(car)))
+        {
+            scrub.Clear();
+        }
+
         // A wheel the engine is turning that has gone past what it can put down is what the throttle
         // lifts for next tick. An undriven wheel sliding is a corner, not a wheel being over-asked.
         var onThePedal = command.ThrottleMps2 > 0f;

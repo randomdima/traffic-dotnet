@@ -203,6 +203,57 @@ internal static partial class TyreModel
     }
 
     /// <summary>
+    /// <b>A car its locks hold, held still</b> (CAR-52): the impulses that bring the whole body to rest — its momentum and its
+    /// spin together — spent at the rear pair, which a handbrake locks as every lock does, with nothing at the front and
+    /// every rim stopped. False, and nothing written, where either rear patch could not grip its share.
+    /// </summary>
+    /// <remarks>
+    /// <b>Each patch in <see cref="Step"/> arrests its own corner as though the corner moved alone</b>, which is right
+    /// for a car on the move and wrong for a body standing: the four together overshoot its yaw, and a parked car rocked
+    /// about a millimetre a second either way, every tick, for as long as the town ran — never at rest, so never let
+    /// off its tyres. Static friction holds the body, not four corners of it.
+    /// </remarks>
+    /// <param name="inertiaKgM2">The body's own moment of inertia about its centre, which the corners' loads are not.</param>
+    public static bool HoldStill(
+        SimConfig config, in CarBuild car, in CarPose pose, float inertiaKgM2, ReadOnlySpan<Vector2> atM,
+        ReadOnlySpan<SurfaceUnderWheel> ground, float dtS, Span<WheelImpulse> into, Span<float> spinMps)
+    {
+        var impulseNs = -pose.VelocityMps * pose.MassKg;
+        var spinNms = -pose.YawRateRadPerS * inertiaKgM2;
+
+        // The pair shares the momentum and turns the body back with a couple along it, a track apart.
+        var rightM = atM[RearRight] - pose.PositionM;
+        var leftM = atM[RearLeft] - pose.PositionM;
+        var forward = pose.Forward;
+        var coupleNs = (spinNms - Cross((rightM + leftM) * 0.5f, impulseNs)) / Cross(rightM - leftM, forward);
+        var rightNs = (impulseNs * 0.5f) + (forward * coupleNs);
+        var leftNs = (impulseNs * 0.5f) - (forward * coupleNs);
+
+        Span<float> loadFraction = stackalloc float[Wheels];
+        Loads(config, car, pose, loadFraction);
+        if (!Grips(car, pose, ground[RearRight], loadFraction[RearRight], rightNs, dtS)
+            || !Grips(car, pose, ground[RearLeft], loadFraction[RearLeft], leftNs, dtS))
+        {
+            return false;
+        }
+
+        into[0] = new WheelImpulse(Vector2.Zero, atM[0]);
+        into[1] = new WheelImpulse(Vector2.Zero, atM[1]);
+        into[RearRight] = new WheelImpulse(rightNs, atM[RearRight]);
+        into[RearLeft] = new WheelImpulse(leftNs, atM[RearLeft]);
+        spinMps.Clear();
+        return true;
+    }
+
+    const int RearRight = 2, RearLeft = 3;
+
+    /// <summary>Whether a patch can put down this impulse in a tick without sliding: its own grip, on its own ground, at its own load.</summary>
+    static bool Grips(in CarBuild car, in CarPose pose, in SurfaceUnderWheel surface, float loadFraction, Vector2 impulseNs, float dtS) =>
+        impulseNs.Length() <= car.GripMps2 * surface.Coefficient * pose.MassKg * loadFraction * dtS;
+
+    static float Cross(Vector2 a, Vector2 b) => (a.X * b.Y) - (a.Y * b.X);
+
+    /// <summary>
     /// The rim's own equation, in the order the three act on it: the engine spins it up, the road drags
     /// it by exactly what the patch put down, and the brake takes what it can of whatever is left
     /// turning. All three are violent here, the rim being a fraction of the car's mass. The brake comes

@@ -170,6 +170,10 @@ coefficient of its weight (`Car.EngineBrakingResistance`), fading as the pedal g
 and tarmac takes only a road tyre's rolling resistance (`Terrain.PavedResistance`). A drag on the ground big
 enough to keep a car let off from floating is paid under power as well, on every start.
 
+**CAR-52** `P4` **A car its locks hold, with nobody on the throttle, stands still whole wherever its tyres can hold
+it.** Static friction holds the body — its momentum and its spin together — and not four corners of it each as
+though it moved alone; a car the rear pair cannot stop in a tick is not held, and slides as its patches say.
+
 **CAR-4** `P3` Steering changes heading **only as a function of travel and steering angle** — a stationary car
 does not rotate.
 
