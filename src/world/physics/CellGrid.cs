@@ -46,17 +46,20 @@ internal sealed class CellGrid
     GridWindow _window;
 
     /// <summary>
-    /// One cell's four numbers, side by side rather than in four arrays of their own. <b>Every pass over
+    /// One cell's three numbers, side by side rather than in three arrays of their own. <b>Every pass over
     /// the grid wants two or three of them about the same cell</b> — the count pass its stamp and its
     /// count, the prefix its count and where it starts, a query its stamp, start and count — and a cell
-    /// index is scattered by construction, so four arrays is four lines fetched for what fits in one.
+    /// index is scattered by construction, so three arrays is three lines fetched for what fits in one.
     /// </summary>
+    /// <remarks>
+    /// The filling pass writes through <see cref="Start"/> and steps it back after, rather than keeping a
+    /// cursor of its own: a fourth number a cell is a third more of the town's two largest grids.
+    /// </remarks>
     struct Cell
     {
         public int Stamp;
         public int Start;
         public int Count;
-        public int Cursor;
     }
 
     Cell[] _cell = [];
@@ -147,7 +150,6 @@ internal sealed class CellGrid
         {
             ref var cell = ref _cell[_touched[slot]];
             cell.Start = at;
-            cell.Cursor = at;
             at += cell.Count;
         }
 
@@ -161,10 +163,27 @@ internal sealed class CellGrid
             {
                 for (var x = block.FromX; x <= block.ToX; x++)
                 {
-                    _items[_cell[_window.IndexOf(x, y)].Cursor++] = body;
+                    _items[_cell[_window.IndexOf(x, y)].Start++] = body;
                 }
             }
         }
+
+        for (var slot = 0; slot < _touchedCount; slot++)
+        {
+            ref var cell = ref _cell[_touched[slot]];
+            cell.Start -= cell.Count;
+        }
+    }
+
+    /// <summary>
+    /// <b>What only a rebuild works with, let go of</b>: each body's block and the cells it touched, for a grid
+    /// that is laid once — the statics — and so would keep a working set the size of the town's every body.
+    /// A rebuild after it lays them again.
+    /// </summary>
+    public void ForgetTheRebuild()
+    {
+        _block = [];
+        _touched = [];
     }
 
     /// <summary>The block of cells one body's box covers, as the two passes of a rebuild both want it.</summary>

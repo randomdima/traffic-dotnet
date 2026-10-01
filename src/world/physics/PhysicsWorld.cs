@@ -272,6 +272,7 @@ internal sealed partial class PhysicsWorld
     public void SettleStatics()
     {
         _staticGrid.Rebuild(_static.AsSpan(0, _staticCount), _leastM, _mostM, _config.Grid.Main);
+        _staticGrid.ForgetTheRebuild();
         _staticIndexStale = false;
     }
 
