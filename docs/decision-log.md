@@ -4,6 +4,27 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-01 — a town hands back what opening it cost
+
+**Rule 2 has a cost nobody had written down: a standing town never runs a full collection**, so whatever
+the lay left behind stays committed for the whole run. Most of it is large-object arrays — the atlas's
+working sets, the mesh's grown lists — which only a full collection frees and only a compacting one returns
+to the machine. `Game.Stand` now ends with one aggressive, compacting collection, after the old town is let
+go of and before the new one's first tick. A forced collection alone was measured first and is not enough:
+it keeps what it freed committed and gives it back a little at each collection after it, of which a
+standing town has none.
+
+Measured with `qq prof --memory` on Odesa's brief at its own area (O1) and at ten times it, the people and
+districts at Odesa's density (O10), a windowed run's twenty seconds after the warmup:
+
+| | O1 before | O1 after | O10 before | O10 after |
+|---|---|---|---|---|
+| working set | 684 MiB | 375 MiB | 3 648 MiB | 1 987 MiB |
+| GC committed | 532 MB | 189 MB | 3 860 MB | 1 781 MB |
+| live heap | 191 MB | 191 MB | 1 807 MB | 1 807 MB |
+
+The open's peak is untouched, since the collection comes after it; that is the lay's own to bring down.
+
 ## 2026-09-27 — one grid under every index
 
 The owner ruled it: **one grid indexes all geometry, and no other grid is allowed**; a level finer than the
