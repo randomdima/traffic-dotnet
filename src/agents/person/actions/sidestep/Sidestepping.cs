@@ -93,16 +93,26 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     }
 
     /// <summary>
-    /// <b>This rebuild's word on a walker's pass</b>, read once its grant is: decided where the grant was ended by
-    /// somebody it may get past; while it waits, looked round on its own clock — asked for, or let go where the one it
-    /// passes has gone or it has waited its patience out; begun or withdrawn in the rebuild after it was asked for; and
-    /// over once it is back on its route past the one it passed.
+    /// <b>This rebuild's word on a walker's pass</b>, read once its grant is: begun or withdrawn in the rebuild after it
+    /// was asked for. Everything else about the pass is the walker's decision (<see cref="Decide"/>).
     /// </summary>
     public void Consider(int person)
     {
+        var pass = People.Pass[person];
+        if (People.Action[person] == PersonAction.Sidestep && pass.Any && !pass.Begun) KeepOrWithdrawTheSidestep(person, pass);
+    }
+
+    /// <summary>
+    /// <b>A walker's pass, on its own clock</b>: decided where the grant was ended by somebody it may get past; while it
+    /// waits, looked round every <see cref="PersonFigures.SidestepAskEveryS"/> — asked for, or let go where the one it
+    /// passes has gone or it has waited its patience out; and over once it is back on its route past the one it passed.
+    /// </summary>
+    /// <param name="sinceLastDecisionS">How much of the town's time this decision answers for, which its clocks run by.</param>
+    public void Decide(int person, float sinceLastDecisionS)
+    {
         if (People.Action[person] == PersonAction.Walk)
         {
-            if (Decide(person)) actions.Enter(person, PersonAction.Sidestep);
+            if (DrawThePass(person, sinceLastDecisionS)) actions.Enter(person, PersonAction.Sidestep);
             return;
         }
 
@@ -118,14 +128,10 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
             return;
         }
 
-        if (pass.Any)
-        {
-            KeepOrWithdrawTheSidestep(person, pass);
-            return;
-        }
+        if (pass.Any) return;
 
-        _waitedS[person] += ground.Config.TickSeconds;
-        if (!IsTimeToLook(person)) return;
+        _waitedS[person] += sinceLastDecisionS;
+        if (!IsTimeToLook(person, sinceLastDecisionS)) return;
 
         if (_waitedS[person] > ground.Config.Person.SidestepPatienceS || !IsStillThere(person))
         {
@@ -169,13 +175,13 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     float AStrideM(int person) => People.RadiusM[person] * 2f;
 
     /// <summary>
-    /// <b>Whether a walker waiting on its pass looks round this tick</b> — every
+    /// <b>Whether a walker waiting on its pass looks round at this decision</b> — every
     /// <see cref="PersonFigures.SidestepAskEveryS"/> from when it decided.
     /// </summary>
-    bool IsTimeToLook(int person)
+    bool IsTimeToLook(int person, float sinceLastDecisionS)
     {
         ref var inS = ref _looksInS[person];
-        inS -= ground.Config.TickSeconds;
+        inS -= sinceLastDecisionS;
         if (inS > 0f) return false;
 
         inS = ground.Config.Person.SidestepAskEveryS;
@@ -309,7 +315,7 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     /// its back is the gap it keeps past them, and straight back (<see cref="Sidestep"/>).
     /// </remarks>
     [SkipLocalsInit]
-    bool Decide(int person)
+    bool DrawThePass(int person, float sinceLastDecisionS)
     {
         var hold = ground.WalkHold[person];
         var code = People.CurrentRouteWay(person);
@@ -321,7 +327,7 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
         if (!cutBy.Found || !cutBy.MayBePassedBy(OnwardAlongTheWalk(person, cutOn))) return false;
 
         ref var inS = ref _decidesInS[person];
-        inS -= ground.Config.TickSeconds;
+        inS -= sinceLastDecisionS;
         if (inS > 0f) return false;
 
         // Refused, it is not drawn again before the walker would next look round.

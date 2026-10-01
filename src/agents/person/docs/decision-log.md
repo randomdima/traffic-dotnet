@@ -4,6 +4,18 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-10-01 — a walker's pass is decided on its own clock, not its tick
+
+**The owner set the rule that an actor's behaviour runs on nothing per tick.** A walker's pass (PER-28) was
+considered in every rebuild — drawn, waited for on a look-round clock counted in ticks, given up past its
+patience, and ended once walked — and since the rebuild runs while the town is held, its clocks ran on through a
+pause that stops every other clock a walker has.
+
+**All of that is `Sidestepping.Decide` now, on the walker's decision clock, and its clocks run by the interval a
+decision answers for.** Only keeping or withdrawing an asked pass is still the rebuild's (`Consider`), since it is
+answered in the rebuild after the ask. Nothing about the cost moved on `--bench age --map Odesa` (the pass was half
+a percent of the tick); `--bench stuck --map Odesa` walked 27 walks to their door (28) and asked no pass (2).
+
 ## 2026-09-30 — a walker walks at life's pace
 
 **The owner reported the walkers far too fast** and the cars slow beside them. `Person.PaceScale` was five: a

@@ -759,6 +759,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // and none of a trip's clocks or walks runs for them.
         if (People.Stage[agent] == TripStage.OnDuty) return;
 
+        // PER-28: getting past somebody on its way is decided, waited for and given up on here, on the walk's own clock.
+        _sidestepping.Decide(agent, sinceLastDecisionS);
+
         // A beat stood on purpose is not a leg going wrong. It is the walking side's own idle between two
         // goals, and a clock that gave a leg up while it ran would end the stand rather than the stand
         // ending itself.
