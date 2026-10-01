@@ -49,8 +49,14 @@ internal sealed class RingSides
     /// </summary>
     const int MarginCells = 1;
 
-    /// <summary>How many bits of a cell's word its corner's winding takes (<see cref="_cell"/>).</summary>
-    const int WindingBits = 8;
+    /// <summary>How many bits of a cell's word its corner's winding takes, its sign among them (<see cref="_cell"/>).</summary>
+    const int WindingBits = 6;
+
+    /// <summary>The most a corner may be wound round, either way, for its winding to fit its bits.</summary>
+    const int MostWinding = (1 << (WindingBits - 1)) - 1;
+
+    /// <summary>The most pieces the lattice may file, for where a cell's begin to fit the bits above its winding.</summary>
+    const int MostFiled = (int)((1u << (32 - WindingBits)) - 1);
 
     /// <summary>The cells of the grid the rings are filed over (SIM-8), at the level their caller chose.</summary>
     readonly GridWindow _window;
@@ -59,20 +65,22 @@ internal sealed class RingSides
     readonly double _cellM;
 
     /// <summary>
-    /// <b>One word a cell</b>: the winding round its low corner in the low byte, and where its pieces begin in
-    /// <see cref="_cellPiece"/> above it — one past the last cell carrying the total. One word and not two
-    /// arrays, because an answer is a read the lattice cannot predict and one line fetched is half of two.
+    /// <b>One word a cell</b>: the winding round its low corner in the low <see cref="WindingBits"/>, and where its
+    /// pieces begin in <see cref="_cellPiece"/> above them — one past the last cell carrying the total. One word
+    /// and not two arrays, because an answer is a read the lattice cannot predict and one line fetched is half of two.
     /// </summary>
     /// <remarks>
-    /// <b>A long and not an int</b>: twenty-four bits of filing are sixteen million, and a town thirty
-    /// kilometres across files fourteen million of its carriageway's pieces into a lattice at the shell's level.
+    /// <b>An int, and the winding is what gives the filing its room</b>: a shell and its holes wind round a point
+    /// once at most, and twenty-six bits of filing are sixty-seven million pieces, where a town thirty kilometres
+    /// across files fourteen million of its carriageway's at the shell's level. The lattice is a word a cell over
+    /// the whole town, so the word's width is the table's. A set past either bound is refused when it is laid.
     /// </remarks>
-    readonly long[] _cell;
+    readonly int[] _cell;
 
     readonly int[] _cellPiece;
     readonly Piece[] _pieces;
 
-    RingSides(GridWindow window, long[] cell, int[] cellPiece, Piece[] pieces)
+    RingSides(GridWindow window, int[] cell, int[] cellPiece, Piece[] pieces)
     {
         _window = window;
         _cellM = window.Level.CellM;
@@ -101,7 +109,7 @@ internal sealed class RingSides
             var crossed = 0;
             for (var cell = 0; cell < CellCount; cell++)
             {
-                if (_cell[cell + 1] >> WindingBits > _cell[cell] >> WindingBits) crossed++;
+                if (FirstOf(_cell[cell + 1]) > FirstOf(_cell[cell])) crossed++;
             }
 
             return crossed;
@@ -110,7 +118,7 @@ internal sealed class RingSides
 
     /// <summary>What the lattice and the pieces hold, in bytes.</summary>
     public long Bytes =>
-        (8L * _cell.Length) + (4L * _cellPiece.Length) + ((long)Unsafe.SizeOf<Piece>() * _pieces.Length);
+        (4L * _cell.Length) + (4L * _cellPiece.Length) + ((long)Unsafe.SizeOf<Piece>() * _pieces.Length);
 
     /// <summary>Whether the point stands inside the shape the rings bound.</summary>
     public bool Encloses(Vector2 pointM) => WindingAt(pointM) > 0;
@@ -136,9 +144,9 @@ internal sealed class RingSides
 
         var cell = _window.IndexOf(column, row);
         var word = _cell[cell];
-        var winding = (int)(sbyte)word;
-        var first = (int)(word >> WindingBits);
-        var last = (int)(_cell[cell + 1] >> WindingBits);
+        var winding = (word << (32 - WindingBits)) >> (32 - WindingBits);
+        var first = FirstOf(word);
+        var last = FirstOf(_cell[cell + 1]);
         if (first == last) return winding;
 
         // Up the cell's own left edge from its corner to the point's height, then across to the point: every
@@ -159,6 +167,9 @@ internal sealed class RingSides
 
     /// <summary>Where a line of the lattice stands, on either axis — the one product every corner is placed by.</summary>
     double Edge(int cell) => cell * _cellM;
+
+    /// <summary>Where a cell's pieces begin in <see cref="_cellPiece"/>, off its word.</summary>
+    static int FirstOf(int word) => (int)((uint)word >> WindingBits);
 
     /// <summary>
     /// <b>The lattice laid over a set of closed rings</b>, each ring a chain whose last piece ends where its
@@ -201,11 +212,21 @@ internal sealed class RingSides
         var cornerWinding = Corners(laid, window);
         var (cellFirst, cellPiece) = File(laid, window);
 
-        var cell = new long[cellFirst.Length];
+        if (cellPiece.Length > MostFiled)
+        {
+            throw new InvalidOperationException($"{cellPiece.Length} pieces filed is more than a cell's word can say where they begin");
+        }
+
+        var cell = new int[cellFirst.Length];
         for (var at = 0; at < cell.Length; at++)
         {
-            var winding = at < cornerWinding.Length ? cornerWinding[at] : (sbyte)0;
-            cell[at] = ((long)cellFirst[at] << WindingBits) | (byte)winding;
+            var winding = at < cornerWinding.Length ? cornerWinding[at] : 0;
+            if (Math.Abs(winding) > MostWinding)
+            {
+                throw new InvalidOperationException($"a corner wound round {winding} times is more than a cell's word can hold");
+            }
+
+            cell[at] = (cellFirst[at] << WindingBits) | (winding & ((1 << WindingBits) - 1));
         }
 
         return new RingSides(window, cell, cellPiece, laid);
