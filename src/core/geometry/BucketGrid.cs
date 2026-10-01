@@ -36,13 +36,14 @@ internal sealed class BucketGrid
     readonly GridWindow _window;
 
     /// <summary>Where a live bucket's items begin in <see cref="_items"/>, and how many it has.</summary>
-    /// <remarks>Both are meaningless where <see cref="_stamp"/> does not match <see cref="_generation"/>.</remarks>
+    /// <remarks>
+    /// Both are meaningless where <see cref="_stamp"/> does not match <see cref="_generation"/>. The scatter writes
+    /// through the start and steps it back after, rather than keeping a cursor of its own: every array here is a
+    /// word a cell of the whole town.
+    /// </remarks>
     readonly int[] _bucketStart;
 
     readonly int[] _bucketCount;
-
-    /// <summary>The fill cursor of a live bucket, which is its start again by the time the scatter ends.</summary>
-    readonly int[] _fillCursor;
 
     /// <summary>Which rebuild last wrote each bucket. What makes clearing the whole grid unnecessary.</summary>
     readonly int[] _stamp;
@@ -65,7 +66,6 @@ internal sealed class BucketGrid
         _window = GridWindow.Over(level, Vector2.Zero, Vector2.Max(worldSizeM, Vector2.Zero));
         _bucketStart = new int[_window.Count];
         _bucketCount = new int[_window.Count];
-        _fillCursor = new int[_window.Count];
         _stamp = new int[_window.Count];
     }
 
@@ -120,11 +120,11 @@ internal sealed class BucketGrid
         {
             var bucket = _touched[slot];
             _bucketStart[bucket] = at;
-            _fillCursor[bucket] = at;
             at += _bucketCount[bucket];
         }
 
-        for (var item = 0; item < count; item++) _items[_fillCursor[BucketOf(centresM[item])]++] = item;
+        for (var item = 0; item < count; item++) _items[_bucketStart[BucketOf(centresM[item])]++] = item;
+        for (var slot = 0; slot < _touchedCount; slot++) _bucketStart[_touched[slot]] -= _bucketCount[_touched[slot]];
     }
 
     /// <summary>
