@@ -2,6 +2,11 @@
 
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md).
 
+## 2026-10-03 — no pipeline builds this head
+
+The owner dropped the Android workflow: the page's is the one pipeline, a tag cuts no release, and the APK
+is built by hand. The head stays in the tree.
+
 ## 2026-09-11 — flags hide the bars, because an activity with no view has no insets controller
 
 The first package crashed on launch: `Window.InsetsController` reaches through the decor view, and an

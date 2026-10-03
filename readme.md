@@ -308,12 +308,7 @@ created at Vulkan 1.3, the manifest asks for that version as required, and the b
 **A run ends when the activity leaves the screen** and the town is laid again when it comes back. It is
 this head's one stated limit and the reason is in its [decision log](src/app/android/docs/decision-log.md).
 
-**The release is cut by a pipeline of its own** — [`.github/workflows/android.yml`](.github/workflows/android.yml),
-on a tag push or by hand. It builds an APK and an AAB, signed with the keystore in the repository's
-secrets when there is one and debug-signed when there is not. **A tag ends in a GitHub release** with
-both packages attached and the signing state in its notes; a `workflow_dispatch` leaves them as the
-run's artifacts and makes no release. `git tag v0.1.0 && git push origin v0.1.0` is the whole of cutting
-one, and `v0.1.0-rc1` — any tag with a suffix — is marked a pre-release. **Build it Release**:
+**No pipeline builds it** — it is built by hand, as above, and a tag cuts no release. **Build it Release**:
 `RunAOTCompilation` is on there and off in Debug, and the interpreter is about ten times off a 60 Hz
 loop — the same figure the browser head quotes.
 

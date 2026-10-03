@@ -67,14 +67,8 @@ with a 1.3 driver has a 64-bit userland.
 
 ## How it is checked
 
-**The APK is built by a pipeline of its own** —
-[`.github/workflows/android.yml`](../../../../.github/workflows/android.yml), on a tag push or a
-`workflow_dispatch`, sharing nothing with the page's. **A green build is the whole of what it claims**:
-that this head compiles, packs the town and packages, on a machine that is not the one it was written on.
-A dispatch ends in an APK and an AAB as the run's artifacts; a tag ends in a GitHub release with both
-attached and the notes saying which key signed them, because a package reachable only through a run
-number is not something a reader can download, and Android will not replace an install signed by one key
-with a package signed by the other.
+**No pipeline builds this head** ([decision log](decision-log.md)), so nothing outside this desk says it
+still compiles.
 
 **What a build cannot answer is answered on an emulator, and the picture is the check** — exactly as it
 is for the other two heads:
