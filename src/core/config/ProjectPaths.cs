@@ -39,6 +39,24 @@ internal static class ProjectPaths
         return briefs;
     }
 
+    /// <summary>What a traced map is authored as: a real place's roads and sea, surveyed (GEN-57).</summary>
+    public static string TracedSurveyFile(string map) => Path.Combine(Towns, "traced", map + ".json");
+
+    /// <summary>
+    /// Every survey in <c>towns/traced/</c>, by name. <b>None where the folder is not there</b>, which is the
+    /// browser head's runtime: it is handed the briefs alone (WEB-4).
+    /// </summary>
+    public static string[] TracedSurveys()
+    {
+        var folder = Path.Combine(Towns, "traced");
+        if (!Directory.Exists(folder)) return [];
+
+        var surveys = Directory.GetFiles(folder, "*.json");
+        for (var at = 0; at < surveys.Length; at++) surveys[at] = Path.GetFileNameWithoutExtension(surveys[at]);
+        Array.Sort(surveys, StringComparer.Ordinal);
+        return surveys;
+    }
+
     /// <summary>
     /// What a sheet is stored as. WebP, and lossy wherever a sheet could take it without moving an
     /// opaque pixel more than a little — the art is continuous-tone and PNG stores it at four times

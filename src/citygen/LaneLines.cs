@@ -66,20 +66,22 @@ internal sealed class LaneLines
     public const int NoLane = -1;
 
     LaneLines(
-        int junctionCount, int[] laneRoad, float[] laneWidthM, int[] laneFromJunction,
-        int[] laneToJunction, bool[] laneForward, int[] laneReverse, bool[] laneOverOneLine, float[] laneLengthM,
-        int[] laneArcOffsets, ArcSeg[] laneArcs,
+        int junctionCount, int[] laneRoad, float[] laneWidthM, byte[] laneFromKerb, int[] laneFromJunction,
+        int[] laneToJunction, bool[] laneForward, int[] laneReverse, bool[] laneOverOneLine, bool[] laneIsBay,
+        float[] laneLengthM, int[] laneArcOffsets, ArcSeg[] laneArcs,
         int[] connectorAt, int[] connectorToLane, LaneTurn[] connectorKind,
         int[] connectorArcOffsets, ArcSeg[] connectorArcs, float[] connectorLengthM)
     {
         JunctionCount = junctionCount;
         LaneRoad = laneRoad;
         LaneWidthM = laneWidthM;
+        LaneFromKerb = laneFromKerb;
         LaneFromJunction = laneFromJunction;
         LaneToJunction = laneToJunction;
         LaneForward = laneForward;
         LaneReverse = laneReverse;
         LaneOverOneLine = laneOverOneLine;
+        LaneIsBay = laneIsBay;
         LaneLengthM = laneLengthM;
         LaneArcOffsets = laneArcOffsets;
         LaneArcs = laneArcs;
@@ -112,6 +114,12 @@ internal sealed class LaneLines
     /// <summary>How wide the ground this lane is driven on is — the share of its road's width it was given.</summary>
     public float[] LaneWidthM { get; }
 
+    /// <summary>
+    /// <b>Where the lane stands among its road's lanes running its way</b>, counted in from the kerb its traffic
+    /// keeps to (TER-4d): nought is the kerb lane, and the last is beside the line the two ways meet on.
+    /// </summary>
+    public byte[] LaneFromKerb { get; }
+
     /// <summary>The plan's junction a lane sets off from.</summary>
     public int[] LaneFromJunction { get; }
 
@@ -124,7 +132,11 @@ internal sealed class LaneLines
     /// </summary>
     public bool[] LaneForward { get; }
 
-    /// <summary>The other lane of the same stretch, or <see cref="NoLane"/> where the stretch runs one way.</summary>
+    /// <summary>
+    /// <b>The lane the other way beside this one</b> — across the line the two ways of its stretch meet on — or
+    /// <see cref="NoLane"/> where the stretch runs one way or this lane does not stand on that line. On a road
+    /// of one lane each way it is the other lane of the stretch.
+    /// </summary>
     public int[] LaneReverse { get; }
 
     /// <summary>
@@ -133,6 +145,13 @@ internal sealed class LaneLines
     /// carried down, not an offset read back off the two lines.
     /// </summary>
     public bool[] LaneOverOneLine { get; }
+
+    /// <summary>
+    /// <b>Whether this lane is a car park's bay</b> (<see cref="CityPlan.RoadArrays.IsABay"/>, GEN-53): laid over one
+    /// line, and besides that joined to nothing and got into by a car's own manoeuvre. A traced road of one lane
+    /// both ways share is laid over one line too and is no bay.
+    /// </summary>
+    public bool[] LaneIsBay { get; }
 
     /// <summary>The length of the line as driven, which is its road's own length at this lane's offset.</summary>
     public float[] LaneLengthM { get; }
@@ -200,12 +219,14 @@ internal sealed class LaneLines
 
         var laneRoad = new List<int>();
         var laneWidthM = new List<float>();
+        var laneFromKerb = new List<byte>();
         var laneFromJunction = new List<int>();
         var laneToJunction = new List<int>();
         var laneForward = new List<bool>();
         var laneLengthM = new List<float>();
         var laneReverse = new List<int>();
         var laneOverOneLine = new List<bool>();
+        var laneIsBay = new List<bool>();
         var laneArcOffsets = new List<int> { 0 };
         var laneArcs = new List<ArcSeg>();
 
@@ -217,40 +238,42 @@ internal sealed class LaneLines
             var centreline = roads.SegmentsOf(road);
             if (centreline.Length == 0) continue;
 
-            // A road's own lane offset comes from the road's own declared width, because the catalogue's
-            // figure is a default and everything derived from it follows the road's (TER-4). Each direction
-            // has its share of the carriageway and a lane's line is the middle of that share, so one number
-            // is both the offset and half a lane. <b>A one-way road's share is the whole of it</b>
-            // (TER-4d): one lane, laid down the middle of a carriageway that was itself moved onto the half
-            // its traffic drives (<c>RoadStage.OntoTheDrivenHalf</c>).
-            var runsWithTheRoad = roads.Flow[road] != RoadFlow.AgainstTheRoad;
-            var runsAgainstIt = roads.Flow[road] != RoadFlow.WithTheRoad;
-            var halfLaneM = roads.LaneWidthM(road) * 0.5f;
-
-            // <b>A bay is driven both ways over one line</b> (GEN-53, GEN-4f): a car's width of ground a car
-            // stands on whichever way round it stands, so its two lanes are the line itself and not two halves
-            // of a carriageway. It is the same exception a one-way road's single lane already is.
+            // A road's own lane width comes from the road's own declared width, because the catalogue's
+            // figure is a default and everything derived from it follows the road's (TER-4). Each lane stands
+            // where its road says it does, counted in from the kerb its own traffic keeps to
+            // (<see cref="CityPlan.RoadArrays.LaneOffsetM"/>, TER-4d). <b>A bay is driven both ways over one
+            // line</b> (GEN-53, GEN-4f): a car's width of ground a car stands on whichever way round it
+            // stands, so its two lanes are the line itself and not two halves of a carriageway — and so is a
+            // traced road OSM draws as one lane both ways share (GEN-57).
+            var with = roads.LanesWithTheRoad(road);
+            var against = roads.LanesAgainstTheRoad(road);
+            var laneM = roads.LaneWidthM(road);
             var overOneLine = roads.DrivenOverOneLine(road);
-            var laneOffsetM = roads.LanesMeetOnItsLine(road) ? halfLaneM * config.RoadSideSign : 0f;
 
-            var forward = laneRoad.Count;
-            var backward = forward + (runsWithTheRoad ? 1 : 0);
+            // <b>The reverse of a lane is the lane the other way beside it</b>: the two either side of the line
+            // the two ways meet on, which is every lane of a road of one lane each way.
+            var innermostWith = laneRoad.Count + with - 1;
+            var innermostAgainst = laneRoad.Count + with + against - 1;
 
-            if (runsWithTheRoad)
+            for (var fromKerb = 0; fromKerb < with; fromKerb++)
             {
-                Spline.OffsetInto(centreline, laneOffsetM, offset);
+                Spline.OffsetInto(centreline, roads.LaneOffsetM(road, fromKerb) * config.RoadSideSign, offset);
                 AddLane(
-                    road, halfLaneM, roads.FromJunction[road], roads.ToJunction[road], true,
-                    offset.AsSpan(0, centreline.Length), runsAgainstIt ? backward : NoLane, overOneLine);
+                    road, laneM, fromKerb, roads.FromJunction[road], roads.ToJunction[road], true,
+                    offset.AsSpan(0, centreline.Length),
+                    fromKerb == with - 1 && against > 0 ? innermostAgainst : NoLane, overOneLine);
             }
 
-            if (runsAgainstIt)
+            if (against > 0) Spline.ReverseInto(centreline, scratch);
+            for (var fromKerb = 0; fromKerb < against; fromKerb++)
             {
-                Spline.ReverseInto(centreline, scratch);
-                Spline.OffsetInto(scratch.AsSpan(0, centreline.Length), laneOffsetM, offset);
+                Spline.OffsetInto(
+                    scratch.AsSpan(0, centreline.Length), roads.LaneOffsetM(road, fromKerb) * config.RoadSideSign,
+                    offset);
                 AddLane(
-                    road, halfLaneM, roads.ToJunction[road], roads.FromJunction[road], false,
-                    offset.AsSpan(0, centreline.Length), runsWithTheRoad ? forward : NoLane, overOneLine);
+                    road, laneM, fromKerb, roads.ToJunction[road], roads.FromJunction[road], false,
+                    offset.AsSpan(0, centreline.Length),
+                    fromKerb == against - 1 && with > 0 ? innermostWith : NoLane, overOneLine);
             }
         }
 
@@ -258,8 +281,8 @@ internal sealed class LaneLines
         var wholeArcs = laneArcs.ToArray();
         var (outOffsets, outLanes) = Adjacency(junctions.Count, laneFromJunction);
         var (connectorAt, connectorToLane, connectorKind) = Connectors(
-            config, roads, laneRoad, laneToJunction, laneReverse, outOffsets, outLanes, wholeOffsets,
-            wholeArcs);
+            config, roads, laneRoad, laneForward, laneFromKerb, laneToJunction, outOffsets, outLanes,
+            wholeOffsets, wholeArcs);
 
         var (connectorArcOffsets, connectorArcs, connectorLengthM) = Movements(
             config, roads, laneRoad, wholeOffsets, wholeArcs, laneLengthM, connectorAt, connectorToLane);
@@ -270,23 +293,25 @@ internal sealed class LaneLines
                 connectorLengthM);
 
         return new LaneLines(
-            junctions.Count, [.. laneRoad], [.. laneWidthM], [.. laneFromJunction],
-            [.. laneToJunction], [.. laneForward], [.. laneReverse], [.. laneOverOneLine],
+            junctions.Count, [.. laneRoad], [.. laneWidthM], [.. laneFromKerb], [.. laneFromJunction],
+            [.. laneToJunction], [.. laneForward], [.. laneReverse], [.. laneOverOneLine], [.. laneIsBay],
             [.. laneLengthM], wholeOffsets, wholeArcs,
             connectorAt, connectorToLane, connectorKind,
             connectorArcOffsets, connectorArcs, connectorLengthM);
 
         void AddLane(
-            int road, float halfLaneM, int fromJunction, int toJunction, bool forward,
+            int road, float laneM, int fromKerb, int fromJunction, int toJunction, bool forward,
             ReadOnlySpan<ArcSeg> arcs, int reverse, bool overOneLine)
         {
             laneRoad.Add(road);
-            laneWidthM.Add(halfLaneM * 2f);
+            laneWidthM.Add(laneM);
+            laneFromKerb.Add((byte)fromKerb);
             laneFromJunction.Add(fromJunction);
             laneToJunction.Add(toJunction);
             laneForward.Add(forward);
             laneReverse.Add(reverse);
             laneOverOneLine.Add(overOneLine);
+            laneIsBay.Add(roads.IsABay(road));
 
             foreach (var arc in arcs) laneArcs.Add(arc);
 
@@ -445,41 +470,81 @@ internal sealed class LaneLines
     /// </para>
     /// </remarks>
     static (int[] At, int[] ToLane, LaneTurn[] Kind) Connectors(
-        SimConfig config, CityPlan.RoadArrays roads, List<int> laneRoad, List<int> laneToJunction,
-        List<int> laneReverse, int[] outOffsets, int[] outLanes, int[] laneArcOffsets, ArcSeg[] laneArcs)
+        SimConfig config, CityPlan.RoadArrays roads, List<int> laneRoad, List<bool> laneForward,
+        List<byte> laneFromKerb, List<int> laneToJunction, int[] outOffsets, int[] outLanes, int[] laneArcOffsets,
+        ArcSeg[] laneArcs)
     {
         var laneCount = laneToJunction.Count;
         var offsets = new int[laneCount + 1];
         var toLane = new List<int>();
         var kind = new List<LaneTurn>();
         var straightRad = config.Road.TurnStraightToleranceDeg * MathF.PI / 180f;
+        var turns = new LaneTurn?[MostLanesAtANode(outOffsets)];
 
         for (var lane = 0; lane < laneCount; lane++)
         {
             var arriving = laneArcs[laneArcOffsets[lane + 1] - 1];
             var arrivingRad = arriving.HeadingAtRad(arriving.LengthM);
             var node = laneToJunction[lane];
-            foreach (var leaving in outLanes.AsSpan(outOffsets[node], outOffsets[node + 1] - outOffsets[node]))
+            var leavingLanes = outLanes.AsSpan(outOffsets[node], outOffsets[node + 1] - outOffsets[node]);
+            var offered = new LaneUse.Offered();
+            for (var slot = 0; slot < leavingLanes.Length; slot++)
             {
-                if (leaving == laneReverse[lane]) continue;
+                var leaving = leavingLanes[slot];
+                turns[slot] = null;
+                if (laneRoad[leaving] == laneRoad[lane] && laneForward[leaving] != laneForward[lane]) continue;
 
                 var starts = laneArcs[laneArcOffsets[leaving]];
                 if (MathF.PI - MathF.Abs(Spline.WrapRad(starts.HeadingRad - arrivingRad)) <= LineTolerance.RoundingM) continue;
 
                 var carriedOnRad = arrivingRad + CarriedOnRad(arriving.Curvature, (starts.StartM - arriving.EndM).Length());
                 var turnRad = Spline.WrapRad(starts.HeadingRad - carriedOnRad);
-                toLane.Add(leaving);
-                kind.Add(MathF.Abs(turnRad) <= straightRad
+                var turn = MathF.Abs(turnRad) <= straightRad
                     ? LaneTurn.Straight
                     : MathF.Sign(turnRad) == MathF.Sign(config.RoadSideSign)
                         ? LaneTurn.NearSide
-                        : LaneTurn.FarSide);
+                        : LaneTurn.FarSide;
+                turns[slot] = turn;
+                offered = offered.With(turn);
+            }
+
+            var lanesHere = LanesOfItsWay(roads, laneRoad[lane], laneForward[lane]);
+            for (var slot = 0; slot < leavingLanes.Length; slot++)
+            {
+                if (turns[slot] is not { } turn) continue;
+
+                var leaving = leavingLanes[slot];
+                if (!LaneUse.Joins(
+                        offered, turn, laneFromKerb[lane], lanesHere, laneFromKerb[leaving],
+                        LanesOfItsWay(roads, laneRoad[leaving], laneForward[leaving])))
+                {
+                    continue;
+                }
+
+                toLane.Add(leaving);
+                kind.Add(turn);
             }
 
             offsets[lane + 1] = toLane.Count;
         }
 
         return (offsets, [.. toLane], [.. kind]);
+    }
+
+    /// <summary>How many lanes a road is driven in the way one of its lanes runs.</summary>
+    static int LanesOfItsWay(CityPlan.RoadArrays roads, int road, bool forward) =>
+        forward ? roads.LanesWithTheRoad(road) : roads.LanesAgainstTheRoad(road);
+
+    /// <summary>The most lanes that set off from any one node.</summary>
+    static int MostLanesAtANode(int[] outOffsets)
+    {
+        var most = 0;
+        for (var node = 0; node + 1 < outOffsets.Length; node++)
+        {
+            most = Math.Max(most, outOffsets[node + 1] - outOffsets[node]);
+        }
+
+        return most;
     }
 
     /// <summary>

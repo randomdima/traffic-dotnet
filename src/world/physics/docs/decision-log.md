@@ -3,6 +3,36 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md) and
 [solver.md](solver.md).
 
+## 2026-10-02 — a body at rest is frozen out of the step
+
+The owner asked for it. Profiled on O10 (6 120 cars, 6 240 walkers on the ground), the step was a third of the
+CPU and the solve none of it: `FindContacts` alone was a quarter, and over half of that was owners walking
+static cells — a parked car asking every tick for the trees round it. A frozen body is no owner, so what it
+saves is the broad phase, and `SOL-37` took the exclusion row's "sleeping" off.
+
+- **Per body and not per cell.** The broad phase is walked by owner, so nothing walks cells for a cell tag to
+  skip; a moving body has to meet the frozen bodies in its cells to wake them; and a main cell holds a bay and
+  the lane beside it, so one walker past a car park would unfreeze the lot.
+- **Rest is read off the motion, never off the impulses**: a parked car's tyres correct a residue every tick, and
+  a count reset by impulses never let one freeze.
+- **The narrow phase takes a pair lower index first and the contacts are solved in pair order**, whichever end
+  of a pair the step reached first. A town frozen only at exact rest (`RestSpeedMps` 0) gave the age probe's
+  digests to the bit on Odesa and O10, which is the evidence that a frozen body is left out exactly.
+- **The shipped rest speed gave the same digests too**: a standing car's tyres hold it at exactly zero
+  (`TyreModel.HoldStill`), so nothing in either town rests between zero and the figure. The figure is there for
+  whatever does — and a town that never needs it is the same town frozen or not.
+- **Nothing frozen is walked by a step.** The awake roster is kept rather than listed — what wakes joins it at the
+  next step, what freezes leaves it at the end of this one — and the frozen bodies are filed in an index of their
+  own, laid again only once the bodies frozen since outnumber an eighth of it. The moving index the step lays is
+  the awake and those few. On O10 the solver's step went from 1.9–2.2 ms to 1.5–2.0 ms a tick with this, the
+  digests unchanged.
+- **An entry of the frozen index is true while its body stands where it was filed** (`BodyFlags.FiledFrozen`), so
+  a body woken and not yet moved is still found there, and the step that moves it lets it go.
+
+Two savings came with it and change nothing a body does: the moving index is laid once a step and not twice,
+and a body met in several cells is kept in the first one it shares with the query (`CellGrid.FirstShared`)
+rather than marked as seen in a table the size of the town.
+
 ## 2026-09-26 — rules reworded to what the code does
 
 The owner ruled the code the source of truth for this audit.

@@ -26,6 +26,20 @@ internal sealed class SolverFigures
 
     public float LinearDamping { get; init; } = 0.1f;
     public float AngularDamping { get; init; } = 1f;
+
+    /// <summary>
+    /// <b>How fast a body may be going and still be at rest</b> (SOL-37) — its centre, and the furthest point of it
+    /// its yaw swings. What it is going at when it freezes is let go of.
+    /// </summary>
+    /// <remarks>
+    /// Well under what any actor moves a body by in its first tick from standing — a push that stays under it a
+    /// tick, every tick, for the whole rest time is what it would freeze out from under. 0 freezes only a body at
+    /// exact rest, which no step can tell from one that never froze.
+    /// </remarks>
+    public float RestSpeedMps { get; init; } = 0.001f;
+
+    /// <summary>How long a body has to have been at rest before it freezes (SOL-37).</summary>
+    public float RestS { get; init; } = 0.5f;
 }
 
 /// <summary>The timeline every agent and every body shares.</summary>

@@ -252,14 +252,16 @@ internal sealed class RibbonAtlas
         var asked = new Recall.Reading(centreM, forward, halfLengthM, halfWidthM, 0f, 0);
         ref readonly var last = ref recall.Last[body];
 
+        // A frozen body is asked about at the pose it was read at, and pays the comparison and nothing else.
+        if (asked.SamePose(last)) return Recalled(box, kept: true, recall, body, asked);
+
         // No point inside the box is further from its centre than a corner is, so no depth in it moves by more
         // than the centre moved, the corner swung and either half grew.
         var reachM = MathF.Sqrt((halfLengthM * halfLengthM) + (halfWidthM * halfWidthM));
         var movedM = Vector2.Distance(centreM, last.CentreM) + (reachM * Vector2.Distance(forward, last.Forward))
                      + MathF.Abs(halfLengthM - last.HalfLengthM) + MathF.Abs(halfWidthM - last.HalfWidthM);
-        var kept = asked.SamePose(last)
-                   || (Unmoved(movedM, reachM, last.SlackM)
-                       && SamePoints(box, new Box(last.CentreM, last.Forward, last.HalfLengthM, last.HalfWidthM)));
+        var kept = Unmoved(movedM, reachM, last.SlackM)
+                   && SamePoints(box, new Box(last.CentreM, last.Forward, last.HalfLengthM, last.HalfWidthM));
 
         return Recalled(box, kept, recall, body, asked);
     }
@@ -270,9 +272,10 @@ internal sealed class RibbonAtlas
         var disc = new Disc(centreM, radiusM);
         var asked = new Recall.Reading(centreM, Vector2.Zero, radiusM, 0f, 0f, 0);
         ref readonly var last = ref recall.Last[body];
+        if (asked.SamePose(last)) return Recalled(disc, kept: true, recall, body, asked);
+
         var movedM = Vector2.Distance(centreM, last.CentreM) + MathF.Abs(radiusM - last.HalfLengthM);
-        var kept = asked.SamePose(last)
-                   || (Unmoved(movedM, radiusM, last.SlackM) && SamePoints(disc, new Disc(last.CentreM, last.HalfLengthM)));
+        var kept = Unmoved(movedM, radiusM, last.SlackM) && SamePoints(disc, new Disc(last.CentreM, last.HalfLengthM));
 
         return Recalled(disc, kept, recall, body, asked);
     }
@@ -288,9 +291,10 @@ internal sealed class RibbonAtlas
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>A standing body is almost never exactly where it stood a tick ago</b>: nothing sleeps, and a parked car
-    /// the town has once touched is shuffled by microns on its tyres for as long as the town runs. So an answer is
-    /// kept against how far the body may move — the <see cref="Reading.SlackM"/> — and not against its pose.
+    /// <b>A body is not always exactly where it stood a tick ago</b>, and one creeping or settling moves by far less
+    /// than would change what is under it. So an answer is kept against how far the body may move — the
+    /// <see cref="Reading.SlackM"/> — and not against its pose alone; a frozen body (SOL-37) is the exact pose, and
+    /// costs a comparison.
     /// </para>
     /// <para>
     /// <b>A read's answer is made of two things and nothing else</b>: which lattice points lie inside the body,
@@ -602,6 +606,17 @@ internal sealed class RibbonAtlas
     /// </param>
     public static RibbonAtlas Lay(IRibbonLines lines, GridLevel level, float touchM)
     {
+        static string Longest(ReadOnlySpan<ArcSeg> arcs)
+        {
+            var longest = arcs[0];
+            foreach (var arc in arcs)
+            {
+                if (arc.LengthM > longest.LengthM) longest = arc;
+            }
+
+            return $"{longest.LengthM:F1} m from {longest.StartM} bending {longest.Curvature:G3}";
+        }
+
         var main = level.Grid.Main;
         var shift = level.Depth - main.Depth;
         var stepM = level.CellM;
@@ -615,7 +630,9 @@ internal sealed class RibbonAtlas
             lengthM[way] = Spline.TotalLengthM(arcs);
             if (lengthM[way] * AlongPerMetre > ushort.MaxValue)
             {
-                throw new InvalidOperationException($"a way {lengthM[way]:F0} m long is longer than the atlas can file");
+                throw new InvalidOperationException(
+                    $"a way {lengthM[way]:F0} m long is longer than the atlas can file: {(lines.IsDriven(way) ? "driven" : "walked")} way {way}, " +
+                    $"{widthM} m wide, from {arcs[0].StartM} to {arcs[^1].EndM} in {arcs.Length} arcs, the longest {Longest(arcs)}");
             }
 
             foreach (var arc in arcs) Bound(arc, (widthM * 0.5f) + ReachOf(stepM), ref leastM, ref mostM);
@@ -810,26 +827,30 @@ internal sealed class RibbonAtlas
 
     /// <summary>
     /// <b>One point as it is filed</b>: its main cell, which point of that cell, and its entry's two figures
-    /// already worked out — half a <see cref="Sample"/>, which is what every point of the town costs while it
+    /// already worked out — under half a <see cref="Sample"/>, which is what every point of the town costs while it
     /// waits between being found and being filed.
     /// </summary>
     readonly record struct Filing(int Cell, byte InCell, byte Outside, ushort Along);
 
     /// <summary>
     /// One lattice point a way's ribbon covers: which cell of the points' level it is the middle of, how far
-    /// along the way, and how far inside its edges.
+    /// along the way, how far inside its edges, and whether its foot fell on the piece that read it rather than
+    /// past one of that piece's ends.
     /// </summary>
-    readonly record struct Sample(int X, int Y, float AlongM, float MarginM);
+    readonly record struct Sample(int X, int Y, float AlongM, float MarginM, bool OnItsPiece);
 
     /// <summary>
     /// <b>The lattice points one way's ribbon covers</b>, each once: every point within half the way's width
     /// and the reach of its line, whose foot on the line falls between the line's own two ends.
     /// </summary>
     /// <remarks>
-    /// A point is measured against each piece whose box it is in, and a point two pieces both reach — the
-    /// inside of a joint — keeps the reading it lies deepest inside. <b>The ends are square</b>: a foot past
-    /// the first piece's start or the last piece's end is off the ribbon, which is what keeps a lane and the
-    /// connector it hands over to from sharing the metre they meet at.
+    /// A point is measured against each piece whose box it is in. <b>A point two pieces both reach is read off the
+    /// piece its foot falls on</b>, and only a point whose foot falls on neither — outside a bend, where the two
+    /// pieces part — keeps the reading it lies deepest inside, at the joint. A piece carried on past its end is its
+    /// circle and not the next piece, and outside a bend it runs nearer the points there than the bend does: read off
+    /// it, a point metres down the next piece would be filed at the joint's metre. <b>The ends are square</b>: a foot past the first
+    /// piece's start or the last piece's end is off the ribbon, which is what keeps a lane and the connector it hands
+    /// over to from sharing the metre they meet at.
     /// <para>What it returns is a view of <paramref name="found"/>, good until that list is next used.</para>
     /// </remarks>
     static ReadOnlySpan<Sample> PointsOf(IRibbonLines lines, int way, float lengthM, GridLevel level, List<Sample> found)
@@ -848,8 +869,8 @@ internal sealed class RibbonAtlas
             var mostM = new Vector2(float.MinValue);
             Bound(arc, halfM, ref leastM, ref mostM);
 
-            // Past its own two ends a piece reaches only where the chain carries on: a joint is covered by
-            // whichever of its two pieces the point lies deepest in, and the chain's own ends are square.
+            // Past its own two ends a piece reaches only where the chain carries on — the outside of a bend, which
+            // neither piece's own stretch covers — and the chain's own ends are square.
             var behindM = index == 0 ? 0f : halfM;
             var pastM = index == arcs.Length - 1 ? 0f : halfM;
 
@@ -867,7 +888,9 @@ internal sealed class RibbonAtlas
                     // however short the piece next to them is.
                     if (startM + onArcM < 0f || startM + onArcM > lengthM) continue;
 
-                    found.Add(new Sample(column, row, startM + Math.Clamp(onArcM, 0f, arc.LengthM), halfM - offM));
+                    found.Add(new Sample(
+                        column, row, startM + Math.Clamp(onArcM, 0f, arc.LengthM), halfM - offM,
+                        onArcM >= 0f && onArcM <= arc.LengthM));
                 }
             }
 
@@ -877,6 +900,7 @@ internal sealed class RibbonAtlas
         found.Sort(static (one, other) =>
             one.Y != other.Y ? one.Y.CompareTo(other.Y)
             : one.X != other.X ? one.X.CompareTo(other.X)
+            : one.OnItsPiece != other.OnItsPiece ? other.OnItsPiece.CompareTo(one.OnItsPiece)
             : other.MarginM.CompareTo(one.MarginM));
 
         var sorted = CollectionsMarshal.AsSpan(found);

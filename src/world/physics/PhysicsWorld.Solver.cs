@@ -18,14 +18,14 @@ namespace TrafficSimulation.World.Physics;
 /// it into the body's real velocity is the classic way to get a town that shivers.
 /// </para>
 /// <para>
-/// Nothing sleeps and nothing is swept: every contact of every tick is run, and a fast body can pass
-/// through a thin one.
+/// Nothing is swept: a fast body can pass through a thin one. <b>A body at rest is frozen</b> (SOL-37) and
+/// left out of the step until something reaches it; every contact of every body the step moves is run.
 /// </para>
 /// <para>
-/// Every order in here derives from body indices. Pairs are gathered with the lower-indexed moving body
-/// as the owner and its candidates sorted, so the touching list comes out ascending by key without being
-/// sorted as a whole — which lets the begin-touch report be a linear merge against the last step's list
-/// rather than a hash table.
+/// Every order in here derives from body indices. Pairs are gathered by the owners in index order with
+/// their candidates sorted, so the touching list comes out ascending by key unless a body was woken —
+/// which lets the begin-touch report be a linear merge against the last step's list rather than a hash
+/// table.
 /// </para>
 /// </remarks>
 internal sealed partial class PhysicsWorld
@@ -33,8 +33,18 @@ internal sealed partial class PhysicsWorld
     readonly CellGrid _staticGrid = new();
     readonly CellGrid _dynamicGrid = new();
 
-    int[] _moving = [];
+    /// <summary>
+    /// <b>The awake roster</b>: every body in the world and not frozen, in index order between steps — the owners of
+    /// the next one. Inside a step the bodies it wakes are added at the end (<see cref="WakeInStep"/>).
+    /// </summary>
+    int[] _moving = new int[Room];
     int _movingCount;
+
+    /// <summary>How many owners the step began with: the sorted head of <see cref="_moving"/>, the woken after it.</summary>
+    int _ownersAtStart;
+
+    int[] _filed = new int[Room];
+    int _filedCount;
     bool _movingIndexStale = true;
     bool _staticIndexStale;
 
@@ -59,12 +69,15 @@ internal sealed partial class PhysicsWorld
     float[] _tangentImpulseNs = [];
     float[] _pushImpulseNs = [];
 
+    // One key a contact, in the contacts' own order: the pair, lower body first.
     ulong[] _touchingKey = [];
-    Vector2[] _touchingNormal = [];
     int _touchingCount;
 
     ulong[] _previousKey = [];
     int _previousCount;
+
+    ulong[] _heldKey = [];
+    int _heldCount;
 
     int[] _beganA = [];
     int[] _beganB = [];
@@ -76,25 +89,32 @@ internal sealed partial class PhysicsWorld
     /// everything ends up.
     /// </summary>
     /// <remarks>
-    /// The moving index is laid twice, and the second time is not waste. Contacts are found
-    /// against the poses the step begins at; everything that asks this world a question between now and
-    /// the next step — every headway ray, every clearance query — asks it about the poses the step
-    /// <em>leaves</em>, and an index built before the integration would answer those about where the town
-    /// used to be.
+    /// <para>
+    /// <b>The moving index is laid once a step, at the poses the step begins at</b>, which is the only index the
+    /// step reads. What the integration leaves is laid again only for a query asked before the next step
+    /// (<see cref="EnsureIndex"/>) — and a town asks none: its clearance queries are of the static grid alone, so
+    /// a step's own is the one lay it pays for, however many walkers came out of doors since the last.
+    /// </para>
+    /// <para>
+    /// The census is taken after the contacts, because the bodies they woke are integrated too.
+    /// </para>
     /// </remarks>
     public void Step(float dtS)
     {
         if (_staticIndexStale) SettleStatics();
 
-        ListMoving();
+        TakeInTheJoining();
+        LayTheFrozenIndexWhenDue();
         IndexMoving();
         FindContacts();
+        IntegratedBodyCount = _movingCount;
         Damp(dtS);
         Prepare();
         SolveVelocities(dtS);
         SolvePush(dtS);
         Integrate(dtS);
-        IndexMoving();
+        FreezeWhatHasSettled();
+        _movingIndexStale = true;
         ReportBegun();
     }
 
@@ -124,8 +144,9 @@ internal sealed partial class PhysicsWorld
         var nearest = float.MaxValue;
         var found = -1;
 
-        Sweep(_dynamicGrid, fromM, travelM, ignore.Index, ref nearest, ref found);
-        if (statics) Sweep(_staticGrid, fromM, travelM, ignore.Index, ref nearest, ref found);
+        Sweep(_dynamicGrid, BodyFlags.Enabled, fromM, travelM, ignore.Index, ref nearest, ref found);
+        Sweep(_frozenGrid, BodyFlags.Enabled | BodyFlags.FiledFrozen, fromM, travelM, ignore.Index, ref nearest, ref found);
+        if (statics) Sweep(_staticGrid, BodyFlags.Enabled, fromM, travelM, ignore.Index, ref nearest, ref found);
 
         if (found < 0)
         {
@@ -177,6 +198,18 @@ internal sealed partial class PhysicsWorld
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// <b>Whether one body's own shape reaches a disc</b> — for a place a person is put down beside the body putting
+    /// them there, whose ground is no objection and whose panels are (PHY-7a).
+    /// </summary>
+    public bool Reaches(BodyId body, Vector2 centreM, float radiusM)
+    {
+        var index = body.Index;
+        return Shape.Collide(
+            centreM, Shape.Rotation(0f), Vector2.Zero, radiusM, _positionM[index], _rotation[index], _extentM[index],
+            _cornerRadiusM[index], 0f, out _);
     }
 
     /// <summary>The damping that reaches every body, applied once a step.</summary>
@@ -368,16 +401,20 @@ internal sealed partial class PhysicsWorld
 
     /// <summary>
     /// Where the step leaves everything: the body's own motion plus the push it was given, and the push
-    /// discarded on the way out.
+    /// discarded on the way out. A body that moves stops being where the frozen index filed it.
     /// </summary>
     void Integrate(float dtS)
     {
         for (var slot = 0; slot < _movingCount; slot++)
         {
             var body = _moving[slot];
-            _positionM[body] += (_velocityMps[body] + _pushMps[body]) * dtS;
+            var travelMps = _velocityMps[body] + _pushMps[body];
+            var turnRadPerS = _yawRateRadPerS[body] + _pushYawRadPerS[body];
+            if (travelMps != Vector2.Zero || turnRadPerS != 0f) _flags[body] &= ~BodyFlags.FiledFrozen;
 
-            var headingRad = Wrap(_headingRad[body] + (_yawRateRadPerS[body] + _pushYawRadPerS[body]) * dtS);
+            _positionM[body] += travelMps * dtS;
+
+            var headingRad = Wrap(_headingRad[body] + turnRadPerS * dtS);
             _headingRad[body] = headingRad;
             _rotation[body] = Shape.Rotation(headingRad);
             Bound(body);

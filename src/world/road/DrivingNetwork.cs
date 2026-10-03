@@ -31,10 +31,11 @@ internal sealed class DrivingNetwork
     readonly int[] _linkOfLane;
     readonly int[] _slotOfLane;
 
-    DrivingNetwork(RoadGraph roads, RunNetwork runs, int[] linkOfLane, int[] slotOfLane)
+    DrivingNetwork(RoadGraph roads, RunNetwork runs, RouteCells cells, int[] linkOfLane, int[] slotOfLane)
     {
         _roads = roads;
         Runs = runs;
+        Cells = cells;
         _linkOfLane = linkOfLane;
         _slotOfLane = slotOfLane;
     }
@@ -42,6 +43,9 @@ internal sealed class DrivingNetwork
     public RunNetwork Runs { get; }
 
     public TravelGraph Graph => Runs.Graph;
+
+    /// <summary>The graph cut into the cells a search crosses before it details any of them.</summary>
+    public RouteCells Cells { get; }
 
     /// <summary>The run a lane is part of. Every lane belongs to exactly one, which is what a contraction may not lose.</summary>
     public int LinkOfLane(int lane) => _linkOfLane[lane];
@@ -127,7 +131,7 @@ internal sealed class DrivingNetwork
             }
         }
 
-        return new DrivingNetwork(roads, runs, linkOfLane, slotOfLane);
+        return new DrivingNetwork(roads, runs, RouteCells.Of(runs.Graph, config), linkOfLane, slotOfLane);
     }
 
     /// <summary>

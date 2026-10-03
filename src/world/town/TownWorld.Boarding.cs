@@ -67,7 +67,18 @@ internal sealed partial class TownWorld
         People.DestinationBuilding[person] = PersonFleet.NoBuilding;
         Contain(person);
         People.Stage[person] = TripStage.Dwelling;
-        People.TimerS[person] = People.Draw[person].NextFloat(_config.Building.DwellMinS, _config.Building.DwellMaxS);
+        People.TimerS[person] = DrawADwellS(person);
+    }
+
+    /// <summary>
+    /// <b>One stay inside</b> (PER-11): between the shortest dwell and the longest, leaning to the short end
+    /// (<see cref="Core.Config.BuildingFigures.DwellSkew"/>), drawn from the person's own stream.
+    /// </summary>
+    float DrawADwellS(int person)
+    {
+        var building = _config.Building;
+        var share = MathF.Pow(People.Draw[person].NextFloat(), building.DwellSkew);
+        return building.DwellMinS + ((building.DwellMaxS - building.DwellMinS) * share);
     }
 
     /// <summary>PHY-7a: the building places its occupant outside, and refuses while there is nowhere to put them.</summary>

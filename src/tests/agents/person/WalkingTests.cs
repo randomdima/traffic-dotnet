@@ -102,11 +102,12 @@ public class WalkingTests
             if (way == PersonFleet.NoWay) continue;
 
             var atM = world.People.OnWayM[person];
+            var occupant = world.GroundHeldAs(person, out var roster);
             var found = false;
             var count = world.Occupancy.CopyBodiesTo(way, bodies);
             for (var slot = 0; slot < count && !found; slot++)
             {
-                found = bodies[slot].Of == LaneRoster.Walking && bodies[slot].Occupant == person
+                found = bodies[slot].Of == roster && bodies[slot].Occupant == occupant
                         && bodies[slot].OnItsLine && bodies[slot].FromM <= atM && bodies[slot].ToM >= atM;
             }
 
@@ -676,6 +677,7 @@ public class WalkingTests
     /// <summary>Whether this body holds a stretch of any way of the pavement at p0, which is PER-26's first claim.</summary>
     static bool HoldsAnyPavement(TownWorld world, int person)
     {
+        var occupant = world.GroundHeldAs(person, out var roster);
         var claims = new LaneClaim[MostClaimsOnAWay];
         foreach (var way in world.Occupancy.OccupiedWays)
         {
@@ -685,7 +687,7 @@ public class WalkingTests
             for (var at = 0; at < count; at++)
             {
                 ref readonly var claim = ref claims[at];
-                if (claim.Occupant != person || claim.Of != LaneRoster.Walking) continue;
+                if (claim.Occupant != occupant || claim.Of != roster) continue;
                 if (claim.Priority == ClaimPriority.Hard) return true;
             }
         }
@@ -710,11 +712,12 @@ public class WalkingTests
         var found = new List<LaneClaim>();
         if (way == PersonFleet.NoWay) return found;
 
+        var occupant = world.GroundHeldAs(person, out var roster);
         var claims = new LaneClaim[MostClaimsOnAWay];
         var count = world.Occupancy.CopyPlannedTo(way, claims);
         for (var at = 0; at < count; at++)
         {
-            if (claims[at].Occupant == person && claims[at].Of == LaneRoster.Walking && !claims[at].Secondary) found.Add(claims[at]);
+            if (claims[at].Occupant == occupant && claims[at].Of == roster && !claims[at].Secondary) found.Add(claims[at]);
         }
 
         return found;
@@ -726,12 +729,13 @@ public class WalkingTests
         var found = new List<LaneClaim>();
         if (way == PersonFleet.NoWay) return found;
 
+        var occupant = world.GroundHeldAs(person, out var roster);
         var claims = new LaneClaim[MostClaimsOnAWay];
         var count = world.Occupancy.CopyTo(way, claims);
         for (var at = 0; at < count; at++)
         {
             ref readonly var claim = ref claims[at];
-            if (claim.Occupant != person || claim.Of != LaneRoster.Walking) continue;
+            if (claim.Occupant != occupant || claim.Of != roster) continue;
             if (claim.Priority != priority) continue;
 
             found.Add(claim);

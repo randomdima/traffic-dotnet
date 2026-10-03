@@ -101,20 +101,22 @@ that cannot is going nowhere** ([TER-4c.7](../../../world/road/docs/claims.md)).
 
 ## What a car is and does
 
-**CAR-1** `P5` A car **acts only while something is driving it and it is intact** — an errand (SRV-3), an
-order (CTL-8d), a hand at the wheel (CTL-5), or its own round or the tour of a map with no bay a car can reach
-(CAR-8). Nobody boards a car, so none of those is a driver in a seat. A car nothing is driving, or a broken one,
-is not an agent.
+**CAR-1** `P5` A car **acts only while something is driving it and it is intact** — its owner's trip
+(PER-29), an errand (SRV-3), an order (CTL-8d), a hand at the wheel (CTL-5), or its own round or the tour of a map
+with no bay a car can reach (CAR-8). **Only the first is a driver in a seat**, and what drives the car even then
+is the trip's leg and not the person in it. A car nothing is driving, or a broken one, is not an agent.
 
 **CAR-2** `P4` A car contains at most one driver.
 
-**CAR-8** `P4` **Where a car goes is whatever is driving it** — an errand's place (AMB-5, EVA-3, SRV-5, SRV-6)
-or an order's goal (CTL-8). **A car nothing else is driving runs its own round** (`TownWorld.RunTheRound`): it
-stands in its bay for a drawn while, then drives to a free bay near a place drawn within reach of it and parks
-there. Nobody boards a car (PER-11), so without the round a town's cars would stand where they were put for the
-rest of the run. **On a map with no bay a car can reach** there is no round to run, and every such car takes
-the lane it stands on and tours the lanes with no destination at all (`TownWorld.DriveTheEmptyMap`, `LaneTour`).
-Three things follow:
+**CAR-8** `P4` **Where a car goes is whatever is driving it** — its owner's door (PER-29), an errand's place
+(AMB-5, EVA-3, SRV-5, SRV-6) or an order's goal (CTL-8). **A car somebody owns stands in its bay until they
+drive it** (`TownWorld.RunTheOwnersCar`), and moves with nobody in it only to be where they can walk to it: stood
+down anywhere but a bay, it parks in the free bay nearest where it stands, and left further off its owner than a
+walk, it is called to the free bay nearest them. **A car nobody owns runs its own round**
+(`TownWorld.RunTheRound`) — the cars of a town nobody lives in: it stands in its bay for a drawn while, then
+drives to a free bay near a place drawn within reach of it and parks there. **On a map with no bay a car can
+reach** there is no round to run, and every such car takes the lane it stands on and tours the lanes with no
+destination at all (`TownWorld.DriveTheEmptyMap`, `LaneTour`). Three things follow of the round:
 
 - **A car stood down anywhere but a bay sets off for one at once** — a leg given up in the street leaves a body
   standing in a lane, which is an obstruction and not a stand.

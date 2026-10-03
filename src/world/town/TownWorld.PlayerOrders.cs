@@ -135,9 +135,9 @@ internal sealed partial class TownWorld
                 return;
 
             case PlayerOrder.ParkAndWalkThere:
-                // <b>The driving is the whole of it while nobody is in a car</b> (CTL-8b): what would carry
-                // the rest of the order is the driver walking, and no leg of a trip is driven (PER-11). It
-                // is named in the known gaps rather than quietly a second park-there.
+                // <b>The driving is the whole of it</b> (CTL-8b): an owner aboard gets out at the bay and walks
+                // on to their own trip's door (PER-29), and nobody walks the rest of the way to the order's point.
+                // It is named in the known gaps rather than quietly a second park-there.
                 if (!Cars.Driven[car]) _carOrders.Done(car);
                 return;
 

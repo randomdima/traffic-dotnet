@@ -73,11 +73,48 @@ internal sealed class WalkingGround(
     /// <summary>The hold each walker laid this rebuild, or <see cref="LaneOccupancy.NoHold"/>.</summary>
     public int[] WalkHold { get; } = new int[people.Capacity];
 
+    /// <summary>
+    /// <b>Whose ground each walker's is</b>, as the town laid its body this rebuild (<see cref="HoldTheGroundAs"/>): its
+    /// own, or that of the car it is one occupant with. Its pass is laid, kept and asked for as that same ground, so
+    /// the walker's own body is never what refuses it (PER-28).
+    /// </summary>
+    readonly int[] _heldAs = Own(people.Capacity);
+
+    readonly LaneRoster[] _heldAsRoster = Afoot(people.Capacity);
+
     static Vector2[] Unset(int count)
     {
         var places = new Vector2[count];
         Array.Fill(places, new Vector2(float.NaN));
         return places;
+    }
+
+    static int[] Own(int count)
+    {
+        var occupants = new int[count];
+        for (var person = 0; person < count; person++) occupants[person] = person;
+        return occupants;
+    }
+
+    static LaneRoster[] Afoot(int count)
+    {
+        var rosters = new LaneRoster[count];
+        Array.Fill(rosters, LaneRoster.Walking);
+        return rosters;
+    }
+
+    /// <summary>Whose ground this walker's is laid as from here on — the town's to say (<see cref="HeldAs"/>).</summary>
+    public void HoldTheGroundAs(int person, int occupant, LaneRoster roster)
+    {
+        _heldAs[person] = occupant;
+        _heldAsRoster[person] = roster;
+    }
+
+    /// <summary>Whose ground this walker's was when its body was last laid, and in which roster.</summary>
+    public int HeldAs(int person, out LaneRoster roster)
+    {
+        roster = _heldAsRoster[person];
+        return _heldAs[person];
     }
 
     /// <summary>

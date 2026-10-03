@@ -68,10 +68,15 @@ internal sealed class PersonFleet
         Array.Fill(DestinationBuilding, NoBuilding);
         TimerS = new float[capacity];
         Inside = new Contained[capacity];
+        Car = new int[capacity];
+        Array.Fill(Car, NoCar);
     }
 
     /// <summary>What a person holds when this trip has no building of its own to be at.</summary>
     public const int NoBuilding = -1;
+
+    /// <summary>What a person holds who owns no car — a crew member, or somebody with no bay near their door.</summary>
+    public const int NoCar = -1;
 
     /// <summary>What a person holds when the pavement has no way to put it on.</summary>
     public const int NoWay = -1;
@@ -211,6 +216,13 @@ internal sealed class PersonFleet
     public float[] TimerS { get; }
 
     /// <summary>
+    /// <b>The car this person owns</b> (PER-29), or <see cref="NoCar"/> — one each, never shared, set once where the
+    /// town stands them. Whether it is to hand for a trip is the town's question: it may be wrecked, under somebody
+    /// else's hand, or further away than anybody walks.
+    /// </summary>
+    public int[] Car { get; }
+
+    /// <summary>
     /// What this person is inside, or nothing (PHY-7). <b>Not drawn, not stepped, not picked and not in
     /// anybody's way</b> while it is anything — and the pose left behind is the container's, never the
     /// body's.
@@ -225,8 +237,9 @@ internal sealed class PersonFleet
 
     /// <summary>
     /// Whether the chain stops short of where the walker is going: <see cref="RouteWaysPerPerson"/> ways
-    /// were not enough for the route the search found, so the rest of it is laid again from where the body
-    /// has got to. <b>A chain that reaches its goal answers no.</b>
+    /// were not enough for the route the search found, or the search handed over only the section of it in
+    /// front of the body — so the rest of it is laid again from where the body has got to. <b>A chain that
+    /// reaches its goal answers no.</b>
     /// </summary>
     /// <remarks>
     /// The car's <see cref="Agents.Car.Body.CarFleet.RouteRunsOut"/>, at the same tier and asked by the
@@ -339,6 +352,7 @@ internal sealed class PersonFleet
         DestinationBuilding[person] = NoBuilding;
         TimerS[person] = 0f;
         Inside[person] = Contained.Nowhere;
+        Car[person] = NoCar;
         return person;
     }
 

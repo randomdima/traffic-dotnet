@@ -14,8 +14,8 @@ namespace TrafficSimulation.Tests.CityGen;
 /// <remarks>
 /// <para>
 /// <b>This is the whole of what the suite has to say about a city, and it is not part of the suite</b>
-/// (<see cref="Tier.Maps"/>). A city is a brief, a seed and whatever the generator made of them: the
-/// generator's own properties are asked over four seeds of a town the suite lays
+/// (<see cref="Tier.Maps"/>). A city is a brief, a seed and whatever the generator made of them, or a survey of
+/// a real place (GEN-57): the generator's own properties are asked over four seeds of a town the suite lays
 /// (<see cref="GeneratorTests"/>), and a build may ship any number of cities at any number of seeds without
 /// that being a change to this engine. What it is for is the moment a city is added or its brief retuned —
 /// <c>qq tests maps</c>, deliberately, before it ships.
@@ -32,8 +32,10 @@ public class ShippedCityTests
 {
     public static TheoryData<string> Cities => Towns.EveryShippedCity();
 
+    public static TheoryData<string> GeneratedCities => Towns.EveryGeneratedCity();
+
     [Theory]
-    [MemberData(nameof(Cities))]
+    [MemberData(nameof(GeneratedCities))]
     public void ACityCanBeDrivenRound(string map) => Conformance.ACityCanBeDrivenRound(map);
 
     [Theory]
@@ -46,7 +48,7 @@ public class ShippedCityTests
         Conformance.ALitJunctionIsStaggeredInsideItsOwnCycle(map);
 
     [Theory]
-    [MemberData(nameof(Cities))]
+    [MemberData(nameof(GeneratedCities))]
     public void ItIsFurnished(string map) => Conformance.ItIsFurnished(map);
 
     [Theory]

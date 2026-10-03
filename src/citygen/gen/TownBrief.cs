@@ -86,9 +86,9 @@ internal sealed class TownBrief
     public float UnregulatedJunctionShare { get; init; } = 0.2f;
 
     /// <summary>
-    /// How many cars the town stands up, if its lanes afford that many. <b>One car a lane</b>
-    /// (<see cref="SpawnStage"/>): the count used to be clamped to the bays there were, and the bound that
-    /// replaces it is how many lanes were laid long enough to stand one on.
+    /// How many cars a town nobody lives in stands up, if it has the places for that many — a bay each, or one a
+    /// lane where it cut no car park (<see cref="SpawnStage"/>). <b>A town with people in it stands none of
+    /// these</b>: every car there is somebody's own, stood by the town in a bay near their door (GEN-7, PER-29).
     /// </summary>
     public required int Cars { get; init; }
 

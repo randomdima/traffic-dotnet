@@ -6,9 +6,9 @@ using TrafficSimulation.Core.Geometry;
 namespace TrafficSimulation.World.Road;
 
 /// <summary>
-/// <b>The lines the town's lane paint runs down</b> (TER-6): one chain of arcs for each stretch of
-/// carriageway whose two ways were laid either side of it, carried on through the junctions a driver going
-/// straight past is offered no choice at.
+/// <b>The lines the town's lane paint runs down</b> (TER-6): one chain of arcs for each line two lanes of a
+/// stretch of carriageway meet along — the line its two ways meet on, and the line between each two lanes
+/// running one way — carried on through the junctions a driver going straight past is offered no choice at.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -127,7 +127,16 @@ internal sealed class CentrelineRuns
         return Math.Clamp(atM + behindM + halfBandM, 0f, lengthM);
     }
 
-    public static CentrelineRuns Lay(CityPlan plan)
+    /// <summary>
+    /// <b>Every line the town's lane paint runs down</b>: one between each pair of lanes that touch, the line
+    /// the two ways meet on among them, each carried on through a junction as far as the carriageway beyond
+    /// is laid the same — the same lanes each way, so the line stands at the same place across it.
+    /// </summary>
+    /// <remarks>
+    /// <b>A line is counted in from the kerb the run's own traffic keeps to</b>, so a run walked against one
+    /// of its roads finds its line from the other kerb of that road and the two readings are one line.
+    /// </remarks>
+    public static CentrelineRuns Lay(CityPlan plan, SimConfig config)
     {
         var roads = plan.Roads;
         var arcOffsets = new List<int> { 0 };
@@ -138,68 +147,94 @@ internal sealed class CentrelineRuns
         if (roads.Count == 0) return new CentrelineRuns([.. arcOffsets], [], [.. roadOffsets], [], []);
 
         var arms = JunctionArms.Of(plan);
-        var laid = new bool[roads.Count];
+        var firstLine = new int[roads.Count + 1];
         var longest = 0;
         for (var road = 0; road < roads.Count; road++)
         {
             longest = Math.Max(longest, roads.SegmentsOf(road).Length);
+            firstLine[road + 1] = firstLine[road] + LinesOn(roads, road);
         }
 
+        var laid = new bool[firstLine[^1]];
         var reversed = new ArcSeg[longest];
+        var offset = new ArcSeg[longest];
         for (var road = 0; road < roads.Count; road++)
         {
-            if (laid[road] || !Painted(roads, road)) continue;
-
-            // Back to the head of the run first, so the line is laid in one direction from one end of the
-            // carriageway — a run walked forward from wherever this loop happened to reach it would be two
-            // runs meeting at that road, phased against each other at the joint.
-            var head = road;
-            var headForward = true;
-            while (true)
+            for (var line = 1; line <= LinesOn(roads, road); line++)
             {
-                var back = Across(arms, roads, Arrives(roads, head, !headForward), End(head, !headForward));
-                if (back == JunctionArms.NoEnd || Road(back) == road) break;
+                if (laid[firstLine[road] + line - 1]) continue;
 
-                head = Road(back);
-                headForward = JunctionArms.AtTo(back);
-            }
-
-            var at = head;
-            var forward = headForward;
-            ends.Add(End(head, atTo: !headForward));
-            while (true)
-            {
-                laid[at] = true;
-                run.Add(at);
-
-                var line = roads.SegmentsOf(at);
-                if (!forward)
+                // Back to the head of the run first, so the line is laid in one direction from one end of the
+                // carriageway — a run walked forward from wherever this loop happened to reach it would be two
+                // runs meeting at that road, phased against each other at the joint.
+                var head = road;
+                var headForward = true;
+                while (true)
                 {
-                    Spline.ReverseInto(line, reversed);
-                    line = reversed.AsSpan(0, line.Length);
+                    var back = Across(arms, roads, head, !headForward);
+                    if (back == JunctionArms.NoEnd || Road(back) == road) break;
+
+                    head = Road(back);
+                    headForward = JunctionArms.AtTo(back);
                 }
 
-                if (arcs.Count > arcOffsets[^1]) Joined(arcs, line[0]);
-                foreach (var arc in line) arcs.Add(arc);
+                // The run is walked the way this road runs, so it counts the line as the road does.
+                var fromKerb = line;
+                var at = head;
+                var forward = headForward;
+                ends.Add(End(head, atTo: !headForward));
+                while (true)
+                {
+                    var own = forward ? fromKerb : LinesOn(roads, at) + 1 - fromKerb;
+                    laid[firstLine[at] + own - 1] = true;
+                    run.Add(at);
 
-                var on = Across(arms, roads, Arrives(roads, at, forward), End(at, forward));
-                if (on == JunctionArms.NoEnd || laid[Road(on)]) break;
+                    var arcsOf = roads.SegmentsOf(at);
+                    if (!forward)
+                    {
+                        Spline.ReverseInto(arcsOf, reversed);
+                        arcsOf = reversed.AsSpan(0, arcsOf.Length);
+                    }
 
-                at = Road(on);
-                forward = !JunctionArms.AtTo(on);
+                    Spline.OffsetInto(arcsOf, roads.LineBetweenLanesM(at, fromKerb) * config.RoadSideSign, offset);
+                    var drawn = offset.AsSpan(0, arcsOf.Length);
+
+                    if (arcs.Count > arcOffsets[^1]) Joined(arcs, drawn[0]);
+                    foreach (var arc in drawn) arcs.Add(arc);
+
+                    var on = Across(arms, roads, at, forward);
+                    if (on == JunctionArms.NoEnd) break;
+
+                    var next = Road(on);
+                    var nextForward = !JunctionArms.AtTo(on);
+                    var nextOwn = nextForward ? fromKerb : LinesOn(roads, next) + 1 - fromKerb;
+                    if (laid[firstLine[next] + nextOwn - 1]) break;
+
+                    at = next;
+                    forward = nextForward;
+                }
+
+                ends.Add(End(at, atTo: forward));
+                arcOffsets.Add(arcs.Count);
+                roadOffsets.Add(run.Count);
             }
-
-            ends.Add(End(at, atTo: forward));
-            arcOffsets.Add(arcs.Count);
-            roadOffsets.Add(run.Count);
         }
 
         return new CentrelineRuns([.. arcOffsets], [.. arcs], [.. roadOffsets], [.. run], [.. ends]);
     }
 
-    /// <summary>Whether a road has two ribbons meeting on its own line for a run to be painted down.</summary>
-    static bool Painted(CityPlan.RoadArrays roads, int road) =>
-        roads.LanesMeetOnItsLine(road) && roads.SegmentsOf(road).Length > 0;
+    /// <summary>
+    /// How many lines are painted down a road: one between each pair of its lanes that touch, and none where it
+    /// is one lane, driven both ways over one line, or not laid at all.
+    /// </summary>
+    static int LinesOn(CityPlan.RoadArrays roads, int road) =>
+        roads.SegmentsOf(road).Length == 0 ? 0 : roads.LinesBetweenLanes(road);
+
+    /// <summary>The lanes one road is driven in, ahead of a walk along it and behind, as the walk counts them.</summary>
+    static (int Ahead, int Behind) Ways(CityPlan.RoadArrays roads, int road, bool forward) =>
+        forward
+            ? (roads.LanesWithTheRoad(road), roads.LanesAgainstTheRoad(road))
+            : (roads.LanesAgainstTheRoad(road), roads.LanesWithTheRoad(road));
 
     /// <inheritdoc cref="JunctionArms.End"/>
     static int End(int road, bool atTo) => JunctionArms.End(road, atTo);
@@ -212,15 +247,22 @@ internal sealed class CentrelineRuns
         atTo ? roads.ToJunction[road] : roads.FromJunction[road];
 
     /// <summary>
-    /// The end the carriageway carries on out of a junction as, or <see cref="JunctionArms.NoEnd"/> where it
-    /// stops there: at a junction anything else meets (<see cref="JunctionArms.Across"/>), and where what
-    /// carries on has no second ribbon to part.
+    /// The end the carriageway carries on out of a junction as, walking a road toward that end, or
+    /// <see cref="JunctionArms.NoEnd"/> where it stops there: at a junction anything else meets
+    /// (<see cref="JunctionArms.Across"/>), and where what carries on is not laid the same — not the same lanes
+    /// each way at the same width, so no line of one stands where a line of the other does.
     /// </summary>
-    static int Across(JunctionArms arms, CityPlan.RoadArrays roads, int junction, int end)
+    static int Across(JunctionArms arms, CityPlan.RoadArrays roads, int road, bool forward)
     {
-        var across = arms.Across(junction, end);
+        var across = arms.Across(Arrives(roads, road, forward), End(road, forward));
+        if (across == JunctionArms.NoEnd || LinesOn(roads, Road(across)) == 0) return JunctionArms.NoEnd;
 
-        return across == JunctionArms.NoEnd || !Painted(roads, Road(across)) ? JunctionArms.NoEnd : across;
+        var next = Road(across);
+        var nextForward = !JunctionArms.AtTo(across);
+        return Ways(roads, road, forward) == Ways(roads, next, nextForward)
+               && roads.LaneWidthM(road) == roads.LaneWidthM(next)
+            ? across
+            : JunctionArms.NoEnd;
     }
 
     /// <summary>

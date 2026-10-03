@@ -164,7 +164,7 @@ internal sealed class SignalService
     /// claim on the paint (TER-5e). Lit instead, a mid-block zebra holds a street on a timer that nothing on
     /// it is waiting for.
     /// </remarks>
-    static bool AdmitsConflictingMovements(RoadGraph roads, int junction) => roads.LanesIntoJunction(junction).Length >= 3;
+    static bool AdmitsConflictingMovements(RoadGraph roads, int junction) => roads.ArmsArrivedOn(junction) >= 3;
 
     /// <summary>
     /// Which of the two axes a bearing is on: the reference's, or the other one. <b>Modulo a half turn</b>,

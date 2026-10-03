@@ -214,9 +214,7 @@ internal static class Towns
     /// vacuous on a map with no traffic, and a guard that says "nothing happened" would report that absence
     /// as a failure of the engine.
     /// </summary>
-    public static bool AnythingDrives(string map) => Array.IndexOf(Of(map).Spawns.Kind, SpawnKindCar) >= 0;
-
-    const byte SpawnKindCar = 1;
+    public static bool AnythingDrives(string map) => TownWorld.CarsOfThePlan(Of(map)) > 0;
 
     /// <summary>
     /// <b>The towns the suite's own questions are asked of</b>: the fixture every detailed check is staged
@@ -272,16 +270,32 @@ internal static class Towns
             yield return City;
             foreach (var map in Shipped)
             {
-                if (!Maps.IsGenerated(map)) yield return map;
+                if (!Maps.IsCity(map)) yield return map;
             }
         }
     }
 
     /// <summary>
-    /// <b>The shipped cities</b>: the briefs in <c>towns/</c>, laid as they ship. Nothing outside
+    /// <b>The shipped cities</b>: the briefs and the surveys in <c>towns/</c>, laid as they ship. Nothing outside
     /// <see cref="Tier.Maps"/> may ask a question of these.
     /// </summary>
     public static TheoryData<string> EveryShippedCity()
+    {
+        var maps = new TheoryData<string>();
+        foreach (var map in Shipped)
+        {
+            if (Maps.IsCity(map)) maps.Add(map);
+        }
+
+        return maps;
+    }
+
+    /// <summary>
+    /// <b>The shipped cities a generator laid</b>, which are the ones asked whether a town is furnished and
+    /// whether it can be driven round: a traced city stands nothing on its streets and keeps every dead end its
+    /// survey has (GEN-57).
+    /// </summary>
+    public static TheoryData<string> EveryGeneratedCity()
     {
         var maps = new TheoryData<string>();
         foreach (var map in Shipped)

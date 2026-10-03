@@ -12,6 +12,31 @@ internal static partial class ShellFill
         ring.Length < 4 || thriftM <= 0f ? ring.Length : Peucker(ring, thriftM, turnRad);
 
     /// <summary>
+    /// <b>An open line's corners thinned</b>, in place: both its ends kept, and every corner between them kept
+    /// only where the straight past it does not already stand for it within the budget. What comes back is
+    /// how many are left; they are at the front of the span.
+    /// </summary>
+    public static int ThinnedLine(Span<Vector2> line, float thriftM)
+    {
+        if (line.Length < 3 || thriftM <= 0f) return line.Length;
+
+        var keep = new bool[line.Length];
+        keep[0] = keep[^1] = true;
+
+        var pending = new Stack<(int From, int Onto)>();
+        pending.Push((0, line.Length - 1));
+        Split(line, keep, pending, thriftM, 0f, []);
+
+        var kept = 0;
+        for (var at = 0; at < line.Length; at++)
+        {
+            if (keep[at]) line[kept++] = line[at];
+        }
+
+        return kept;
+    }
+
+    /// <summary>
     /// <b>Douglas–Peucker over a closed ring.</b> The corner furthest from the first one splits it into two
     /// open chains, and each is kept only where some corner of it stands further than the budget off the
     /// straight between its ends — recursively, so what survives is the furthest corner of every stretch the

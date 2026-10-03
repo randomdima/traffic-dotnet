@@ -411,6 +411,7 @@ internal static class TownCensus
         Console.WriteLine($"  contracted to  {runs.LinkCount,7}  runs joined {WaysOn(runs.Graph)} ways on; " +
                           $"mean {(runs.LinkCount == 0 ? 0f : totalM / runs.LinkCount):F0} m, longest {longestM:F0} m, most lanes in one {mostPieces}");
         Console.WriteLine($"  searched at    {Searching(runs)}");
+        Console.WriteLine($"  sectioned      {Sectioned(driving.Cells, runs)}");
         Joins(roads, plan, config);
 
         var footStarted = Stopwatch.GetTimestamp();
@@ -462,6 +463,7 @@ internal static class TownCensus
                           $"mean lane {(lanes == 0 ? 0f : walkedM / lanes):F2} m wide of " +
                           $"{config.WalkingLaneWidthM:F2}");
         Console.WriteLine($"  searched at    {Searching(walkRuns)}");
+        Console.WriteLine($"  sectioned      {Sectioned(walking.Cells, walkRuns)}");
 
         Console.WriteLine($"  laid in        {walkElapsed.TotalMilliseconds,7:F0}  ms");
         OffThePavement(plan, config, pavement, crossed);
@@ -798,6 +800,79 @@ internal static class TownCensus
 
     /// <summary>Half the sample count, coprime with it, so the far end of each sampled route is nowhere near the near one.</summary>
     const int HalfTurn = 31;
+
+    /// <summary>How many sections a sampled route may take to follow before the reading calls it lost rather than long.</summary>
+    const int MostSectionsFollowed = 1024;
+
+    /// <summary>
+    /// <b>What the same routes cost sectioned</b> (<see cref="RouteSearch"/>), each followed section by section from
+    /// the end of the last to the goal, the way a body follows one: the links a plan settles, how many plans a route
+    /// takes, how many were searched over the whole graph after all, and how much dearer the route followed comes out
+    /// than the cheapest one.
+    /// </summary>
+    /// <remarks>
+    /// <b>The figure to read beside the settled count is the dearer one</b>: a section chooses its way with the next
+    /// cell in view and no further, and what that costs a route is what this measures.
+    /// </remarks>
+    static string Sectioned(RouteCells cells, RunNetwork runs)
+    {
+        if (runs.LinkCount < 2) return "no links to search over";
+
+        var cheapest = new RoutePlanner(runs.Graph);
+        var route = new int[MostLinksSampled];
+        var search = new RouteSearch(cells, mostEntries: 1, mostGoals: 1, MostLinksSampled);
+        var plans = 0;
+        var settled = 0L;
+        var overTheWhole = 0;
+        var found = 0;
+        var followed = 0;
+        var dearer = 0d;
+        var dearest = 0d;
+        for (var sample = 0; sample < RoutesSampled; sample++)
+        {
+            var from = (int)((long)sample * runs.LinkCount / RoutesSampled);
+            var to = (int)((((long)sample * HalfTurn) + (RoutesSampled / 2)) % RoutesSampled * runs.LinkCount / RoutesSampled);
+            if (from == to) continue;
+
+            var goal = new RouteGoal(to, runs.LengthM(to));
+            if (cheapest.Plan([new RouteEntry(from, 0f, runs.LengthM(from))], [goal], null, route, out var cheapestM, out _) == 0)
+            {
+                continue;
+            }
+
+            found++;
+            var entry = new RouteEntry(from, 0f, runs.LengthM(from));
+            var spentM = 0f;
+            for (var section = 0; section < MostSectionsFollowed; section++)
+            {
+                search.Entries[0] = entry;
+                search.Goals[0] = goal;
+                var count = search.Plan(1, 1, null, out _);
+                plans++;
+                settled += search.SettledLinks;
+                if (search.OverTheWholeGraph) overTheWhole++;
+                if (count == 0) break;
+
+                spentM += search.CostM;
+                if (!search.StopsShort)
+                {
+                    followed++;
+                    var over = (spentM / cheapestM) - 1d;
+                    dearer += over;
+                    dearest = Math.Max(dearest, over);
+                    break;
+                }
+
+                var last = search.Links(count)[^1];
+                entry = new RouteEntry(last, runs.LengthM(last), 0f);
+            }
+        }
+
+        return $"{cells.CellCount,7}  cells; {(plans == 0 ? 0 : settled / plans)} links settled a plan over {plans} plans, " +
+               $"{overTheWhole} of them over the whole graph; {followed} of {found} routes followed to the goal, " +
+               $"{100d * dearer / Math.Max(1, followed):F1} % dearer than the cheapest on average, " +
+               $"{100d * dearest:F1} % at the worst";
+    }
 
     /// <summary>
     /// What the joins between the town's connection points came out at. <b>The figure to read is the tightest

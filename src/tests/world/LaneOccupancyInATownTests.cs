@@ -690,6 +690,50 @@ public class LaneOccupancyInATownTests
         return 0f;
     }
 
+    /// <summary>
+    /// <b>A walker read as clear on the way it walks stands over no other way's ribbon</b> (TER-4c.2), so laying it on
+    /// that way alone, without asking the atlas, leaves it off nobody's ground. Asked of every walker of the suite's
+    /// walking town at the instant the claims are laid, every tenth of a second for a minute, against what the atlas
+    /// finds under its disc there.
+    /// </summary>
+    [Fact]
+    public void AWalkerClearOnItsWayIsOverThatWayAlone()
+    {
+        using var world = new TownWorld(Towns.Built, Config);
+        var loop = new SimLoop<TownWorld>(world, Config);
+        loop.Advance(WalkersOutTicks);
+
+        Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
+        for (var asked = 0; asked < TimesAsked; asked++)
+        {
+            loop.Advance(TicksBetweenAsks);
+            world.LayTheClaims();
+            for (var person = 0; person < world.People.Count; person++)
+            {
+                var way = world.People.OnWay[person];
+                var radiusM = world.People.RadiusM[person];
+                if (!world.IsClearOnItsWay(person, way, radiusM)) continue;
+
+                var count = world.Atlas.UnderDisc(world.People.PositionM[person], radiusM, under);
+                for (var at = 0; at < count; at++)
+                {
+                    Assert.True(
+                        under[at].Way == way,
+                        $"walker {person}, clear on way {way} at {world.People.OnWayM[person]:0.00} m, " +
+                        $"stands over way {under[at].Way} too");
+                }
+            }
+        }
+    }
+
+    /// <summary>Long enough for the town's first trips to be out on the pavement.</summary>
+    const int WalkersOutTicks = 600;
+
+    /// <summary>A tenth of a second, and a minute of them.</summary>
+    const int TicksBetweenAsks = 6;
+
+    const int TimesAsked = 600;
+
     /// <summary>Ground on a way is metres, and a plan is arithmetic on floats: a centimetre is not a finding.</summary>
     const float Tolerance = 1e-2f;
 

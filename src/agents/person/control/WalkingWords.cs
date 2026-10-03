@@ -68,6 +68,9 @@ internal static class WalkingWords
     {
         TripStage.StandingBy => "between trips",
         TripStage.WalkingToTheDoor => "to a door",
+        TripStage.WalkingToTheCar => "to their car",
+        TripStage.Driving => "driving",
+        TripStage.WalkingFromTheCar => "from their car to a door",
         TripStage.WaitingForAPlace => "waiting for a place",
         TripStage.Dwelling => "inside",
         TripStage.UnderOrders => "under orders",

@@ -3,7 +3,8 @@
 **One data structure describes a complete city** (`CityPlan`): pure data that a generator lays, a builder
 stands the world up from and a validator judges, which is what lets validation run headless and a new map be
 authored without a code change. **Nothing carries it between processes**: a town is its brief and its seed,
-so what would be written out is a second answer to where the town is. This is the most load-bearing
+or the survey of a real place it is traced from (GEN-57), so what would be written out is a second answer to
+where the town is. This is the most load-bearing
 structure in the project, and how each part of it is carried is that type's own documentation.
 
 Bay geometry is [world/parking](../../world/parking/docs/requirements.md); the ground, and what each kind
@@ -19,14 +20,15 @@ district, node, curve, cell or building, because a brief that carried geometry w
 where the town is and the one on disk is the one that goes stale. **A map laid to measure one thing is laid
 in code**, as arithmetic over the car's own figures rather than a seed; this build lays one, the idle ring
 ([the maps](#the-maps)), and the laboratories that measured something are
-[a known gap](../../../docs/index.md#known-gaps).
+[a known gap](../../../docs/index.md#known-gaps). **A real place is traced from its survey** (`TracedPlan`,
+GEN-57): what is authored is what OpenStreetMap holds for it, and nothing is drawn at all.
 
 **GEN-1** `P3` Generation is driven by the **world seed**, supplied manually or chosen randomly; the same
 world seed produces the same city.
 
-**GEN-1a** `P4` A city's streets are generated with everything else about it. A map that measures one thing is
-laid in code instead, and the two are one kind of thing from the plan onward: nothing downstream may ask
-which of them it is looking at.
+**GEN-1a** `P4` A city's streets are generated with everything else about it, or traced off the survey of a
+real place (GEN-57). A map that measures one thing is laid in code instead, and all three are one kind of thing
+from the plan onward: nothing downstream may ask which of them it is looking at.
 
 **GEN-1b** `P7` No city is built until one is picked: the game opens on a start menu listing the maps, and
 nothing a reader has not chosen is built. **What the menu is drawn over is the idle ring** (`IdlePlan`,
@@ -43,6 +45,56 @@ map instead, and the menu shuts onto it.
 - **The menu is up before any town is** on either head (`WEB-6`, `WEB-9`). A page hands the browser its
   animation callback before it lays anything: the menu stands on the few small files the boot fetched, and
   the ring behind it is generated while the reader is looking at it.
+
+**GEN-57** `P4` **A traced map is a real place laid from its survey, and nothing in it is drawn or lost.** What
+is authored is an `OsmExtract` in [towns/traced/](../../../towns/traced/), written by the scanner
+([tools/osmscan/](../../tools/osmscan/), run by `qq osm`), a tool that knows none of the engine's rules.
+**The place's boundary draws the map's rectangle and nothing else**: what the extract holds is every road way
+OpenStreetMap has in the rectangle round the roads inside the boundary, inside the boundary or not, every
+surface outlining a road (`area:highway`) and the coastline over them, **exactly as OSM holds them** — each
+node's id and its place in OSM's own units of 1e-7 degrees, each way's id, every tag and its nodes, the tags of
+every node on them that carries any, and the turn restriction and lane connectivity relations over them. **Two
+things are added, both OSM's conventions**: each road way's lanes as its tags mean them (`OsmCarriageway`),
+and the flat frame — Transverse Mercator at one metre to the metre about the middle of the boundary's roads,
+the map their extent and a margin. What the engine reads off it when the map is opened (`Survey.Of`) is the
+sea its coastline closes against the map's edge, and **a way running on past the rectangle is cut where it
+crosses it**, a crossing nearer the node inside than the shortest road the map lays being that node. **No
+seed draws anything**, and the same extract is the same town every time it is opened. **It lays every road way
+OSM gives lanes, of every class, and its sea, and nothing else** — no building, car park, prop, light or
+body. A road OSM draws as an area is a surface and has no lane.
+
+- **Nothing the survey holds is lost on the way in.** A junction stands at every place ways meet, exactly
+  there, however close the next one is; a place two roads carry on through is one road through it (GEN-51);
+  every point a way was surveyed through is on its road; a ring of ways meeting nothing but each other is
+  given a place and laid as the loop it is; and a piece of the network joined to nothing else is kept. **So
+  the generator's rules that take something out are not asked of a traced town**: one junction for places
+  within a locality (GEN-16), a corner no tighter than a class's design speed (GEN-47), and one connected
+  network (GEN-5). How far its lanes stand off OSM's own is read by `--bench fidelity`.
+- **A road is driven in OSM's lanes** (GEN-15, TER-4d): as many each way as OSM's tagging rules say, each as
+  wide as OSM tags it or assumes it, and **laid along its carriageway's middle**, which is the way itself
+  unless OSM places the way off it. **A single lane both ways share is one lane each way over one line**,
+  each the whole of its width; lanes driven both ways down the middle of lanes each way — a tidal pair, a
+  centre turning lane — are laid as lanes of one way each, so every lane still stands where OSM puts it. **Where the carriageway changes is a junction** — a lane more or
+  less, a width, a placement — of two arms where nothing else meets there (GEN-51).
+- **A road is its surveyed line**, stood a standoff off both junctions (TER-5d) — each junction's own, stood
+  out by however much wider than a street of one lane each way its widest arm is, and never past the middle
+  of the road to its nearest neighbour less `SimConfig.CityGen.TracedShortestRoadM` — with **every corner
+  rounded at half its carriageway**, or as tight as its legs leave room for, a leg shared between the corners
+  at its two ends by what each needs. **No lane of it folds back over a corner**: one its legs cannot round
+  with the innermost lane at `SimConfig.CityGen.TracedTightestLaneRadiusM` is a survey's kink, and the
+  straight past it stands for it. **A road of one lane on its line** — both ways sharing it, or one way of one
+  — has nothing beside the lane to cover its ground, so its floor is half its carriageway, where the ground's
+  inner edge comes to a point.
+- **No road is longer than a traced map lays one** (`SimConfig.CityGen.TracedRoadLongestM`): a way surveyed
+  further without meeting another is cut into even lengths at places of two arms, which are the only
+  junctions nothing meets at a traced town keeps (GEN-51).
+- **What the place has and a generated town never does is kept**: a dead end (GEN-5a), a junction of six arms,
+  two arms at a shallow angle (GEN-13), a one-way carriageway beside its twin (GEN-49) and a road passing over
+  another where the survey says nothing meets. **So a traced town is not held to being driven round**
+  (GEN-18, GEN-50): its dead ends are the place's own, and a car routed into one stands there
+  ([the known gaps](../../../docs/index.md#known-gaps)).
+- **Its shore is the sea moved onto the land as an area** and not as a line (GEN-2c): a pier narrower than
+  its shore is shore all through, and the four rings nest by construction.
 
 **GEN-2** `P6` Terrain, objects and agents are placed **plausibly**: the result must read as a small town, not
 as noise.
@@ -239,16 +291,19 @@ what a service's beat is kept to (`SRV-5`). A map not laid on a wheel is one dis
   a sector under the water.
 
 **GEN-7** `P5` Initial state: cars start **stopped in parking spaces**, and **a person starts inside the
-building the map stood them at**, dwelling out the interval an arrival dwells (PER-11). A trip ends by
-walking through a door and dwelling, so a body that begins there begins in the state every later trip
-returns it to (`PER-25`). **Which building is read off the pose the plan left the body in** — the way in it is
-standing at — so the plan carries nothing to say it. **A car is stood in a bay of the town's own car parks**,
-never a service's yard (GEN-55); **a town that cut no car park stands its cars on its lanes**, one a lane, and
-they tour (CAR-8) — the fixture, which asks for no buildings and is owed no parking.
+building the map stood them at**, part way through a dwell (PER-11). A trip ends by walking through a door and
+dwelling, so a body that begins there begins in the state every later trip returns it to (`PER-25`). **Which
+building is read off the pose the plan left the body in** — the way in it is standing at — so the plan carries
+nothing to say it. **Where people live, every car is somebody's** (PER-29): the plan stands no car of its own,
+and the town stands each person's in the free bay nearest their door. **A town nobody lives in stands the
+brief's cars in bays of its own car parks**, never a service's yard (GEN-55); **and one that cut no car park
+stands them on its lanes**, one a lane, and they tour (CAR-8) — the fixture, which asks for no buildings and is
+owed no parking.
 
-**How many of each is the brief's**, and **the bound is the town rather than the count**: a car is stood
-in a bay, or on a lane long enough to hold one, and a person at a way in, so a brief asking for more than the
-ground carries gets what fitted (GEN-8).
+**How many of each is the brief's**, and **the bound is the town rather than the count**: a person is stood at
+a way in, and a car of a town nobody lives in in a bay or on a lane long enough to hold one, so a brief asking
+for more than the ground carries gets what fitted (GEN-8). A person with no free bay within a walk of their door
+owns no car.
 
 **GEN-8** `P6` **No candidate city is ever rejected.** A violation of GEN-3…GEN-5 is a defect in the
 arrangement rather than a seed to throw away, and the gate that catches it is the suite. Where the ground
@@ -336,9 +391,10 @@ reachable** (GEN-5): a lane whose every movement is tighter than the bound keeps
 does a lane every movement onto which is, because a car that arrives has to leave and a lane nothing reaches
 is a hole in the drivable region.
 
-**GEN-15** `P4` **A lane is the width the town is laid in, and every road is laid at it.** A carriageway is as
-many lanes of the one standard width (`SimConfig.LaneWidthM`) as it has ways — two both ways and one
-one way (TER-4d) — and the walk beside it two walking lanes of theirs (`SimConfig.WalkingLaneWidthM`),
+**GEN-15** `P4` **A lane is the width the town is laid in, and every road is laid at it.** A carriageway is its
+lanes of the one standard width (`SimConfig.LaneWidthM`) side by side — one each way it is driven on a road
+the generator lays, and on a traced one as many each way as its survey says (TER-4d, GEN-57) — and the walk
+beside it two walking lanes of theirs (`SimConfig.WalkingLaneWidthM`),
 whatever the road is for and wherever it stands: in a town whose roads each chose their own width, nothing
 quoted against a lane — a line's offset, a kerb, a bar's span, the room a body has to step round another —
 means the same thing twice. A map laid to measure one thing may still lay ground of its own, because a pad

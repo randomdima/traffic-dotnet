@@ -54,7 +54,8 @@
       "WebFetch(domain:yak.koshachek.cx.ua)",
       "WebFetch(domain:auto.novyny.live)",
       "WebFetch(domain:green-way.com.ua)",
-      "WebFetch(domain:www.bussgeldkatalog.de)"
+      "WebFetch(domain:www.bussgeldkatalog.de)",
+      "WebFetch(domain:wiki.openstreetmap.org)"
     ]
   }
 }

@@ -4,6 +4,78 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-10-02 — an owner gets out beside their own car
+
+**An owner parked in a bay could not get out of it.** The place an owner is put down (PHY-7a) was asked of every
+reservation round the door, and a reservation has no across, so the car's own claim on its bay was over every place
+beside it: on Odesa 99.8 % of exits were refused, every one of those would have been granted with the car's own
+claim set aside, and the owners waiting grew all run. **The car's own ground is no objection now and its panels
+are** (`TownWorld.BesideTheCar`), which is how the walk to and from it is already held (`GroundHeldAs`).
+
+**Still open**: in the suite's built town two owners stay at the wheel for over a minute — every place within the
+exit search of their door is either reached by their own car's panels or held by somebody else, and with the panels
+not asked both get out. The door point is the bay's (GEN-4e), a person's breadth off a *nominal* car's flank, which
+a wider car reaches; not yet checked is that the places past it are on the next bay's way.
+
+## 2026-10-02 — a stay indoors is short, and mostly shorter
+
+**The owner saw parked cars with nobody near them and asked for shorter stays, spread better** (PER-11). Five minutes
+into Odesa a third of the people were indoors on a dwell drawn evenly between 30 and 240 s. **A dwell is now 10 to
+180 s, leaning to its short end** (`Building.DwellSkew`, the draw squared): a median of 53 s and a mean of 67, against
+135. The first one is a dwell and a point somewhere inside it, so the town opens part way through everybody's.
+
+Odesa five minutes in: 108 indoors against 200, 313 on foot against 247, 482 walked in through their door against
+301, and 7 trips given up. The cars hardly moved — 173 driven against 162, 522 parked — since a car waits in its bay
+for every walked trip and every stay its owner makes. **On O10 at twelve thousand people the tick is over a frame**:
+16.9 ms by the fifth minute against 13.4 at the longer dwell, the cars' phase alone 8.4 ms of it.
+
+## 2026-10-02 — a walker walks at twice life's pace
+
+**The owner set the pace twice**: at five (`Person.PaceScale`) a walker sprinted at 6.6 m/s, half to three quarters
+of the cars' mean, and at one, life's 1.32 m/s, the owner found them too slow. **It is two**, 2.64 m/s, and a town
+watched faster is still watched on the clock, which scales cars and walkers both. The grips follow the pace as they
+were made to, its square, so the foot grip is four times a real one (≈ 17 m/s²) and a car leaning on somebody below
+the casualty band shoves them a quarter as far as at one — the model's stated wrongness (the foot model in
+[requirements.md](requirements.md)) is harder to see again.
+
+**`Damage.SlideToCasualtyM` is three metres**, which keeps the casualty band (PER-23) at a car meeting a standing
+body at 10 m/s, where it was at one with a dozen metres on a grip a quarter of this. Kept at a dozen, the band went
+to 20 m/s, a speed the town's traffic hardly reaches, and nobody would have been knocked down at all.
+
+## 2026-10-01 — nobody walks further than a few blocks, and everybody owns a car
+
+**The owner asked that people not walk far: a trip past a few small blocks is driven** — a walk to their own car,
+a drive to a bay near the door, a walk from there — **and that every person own a car** (PER-29). A destination
+was drawn anywhere in the town and walked to, so on Odesa a walk was over a kilometre on average and 27 were
+walked to their door in five minutes. **The owner chose, of what was offered**:
+
+- **Owned cars only.** A town people live in stands one car per person, in the free bay nearest their door, and
+  none of the brief's own (GEN-7). The cars' empty round (CAR-8) runs only in a town nobody lives in.
+- **Near trips and a longer dwell.** With most trips driven, destinations drawn anywhere and a dwell of seconds put
+  nearly everybody at a wheel at once, crossing the town down the arterials the round had been drawn near to keep
+  off. A destination is drawn within six blocks (`PersonTripReachM`, the round's reach), walked within three
+  (`PersonWalkReachM`), and the dwell is minutes rather than seconds (the stay's own entry has its figures).
+
+**A door is walked to only where it is within a walk of the car as well as of the person**, so that the car is
+never further off than a walk wherever their walks take them, and the walk to it is bounded like any other.
+
+**The walk to a car and from it hold their ground as the car's**, as an officer's walk to the post does (SRV-11).
+The way in is beside the car in its bay (GEN-4e), on the bay lane the car's own body stands on, and a walker's plan
+is cut at the first body down its ways: held as its own, 322 of the 361 trips given up in Odesa's first try were
+owners walking to their car, 305 of them standing within five metres of its way in, granted nothing. **And the walk
+to a car ends at touching reach of the way in**, since a neighbour's body in the next bay still cuts it a stride
+short. The walk away from a
+parked car had the same trouble — 53 owners in five minutes were given up and set back on the pavement — and is a
+stage of its own (`TripStage.WalkingFromTheCar`) for the same holding. **Its pass is the car's ground too**
+(PER-28, `WalkingGround.HeldAs`): laid as the walker's own, the walker's body — laid as the car's — stood in its own
+pass, and no owner on the way to or from a car ever got past anybody.
+
+Over five minutes of Odesa: 164 walks to a door (27 before), 11 given up (27), none set back on the pavement, 184
+cars parked at the end of a drive; a whole trip completes end to end. On O10 two minutes in, the town has driven
+half as far (536 km against 1 147), given up 61 walks against 223, and its tick costs 6.2 ms of CPU against 10.2.
+**Touches went up** — 4 to 56 on O10, 7 to 47 on Odesa — and on Odesa 41 of the 47 were a walker and a car at
+under a metre a second: owners brushing parked cars in a car park, never a car striking anybody.
+
 ## 2026-10-01 — a walker's pass is decided on its own clock, not its tick
 
 **The owner set the rule that an actor's behaviour runs on nothing per tick.** A walker's pass (PER-28) was
@@ -17,18 +89,6 @@ withdrawing an asked pass, which is answered in the rebuild after the ask, and e
 walker is back on its route — past there is ground the pass never held (TER-4c.8). Nothing about the cost moved on
 `--bench age --map Odesa` (the pass was half a percent of the tick); `--bench stuck --map Odesa` walked 27 walks to
 their door (28) and asked no pass (2).
-
-## 2026-09-30 — a walker walks at life's pace
-
-**The owner reported the walkers far too fast** and the cars slow beside them. `Person.PaceScale` was five: a
-walker did 6.6 m/s — a sprint, and half to three quarters of the cars' mean — while every car was driven at
-life's pace. **It is one now**, and a town watched faster is watched on the clock, which scales both. The grips
-follow the pace as they were made to, and that took the casualty band (PER-23) down to a car touching somebody at
-2 m/s — a walker meeting a car creeping at walking pace would have gone down. **`Damage.SlideToCasualtyM` is a
-dozen metres**, which keeps the band at a car meeting a standing body at 10 m/s: at real grips half a metre is a
-shove a walker stumbles back from, and a dozen is a body thrown down the road. The foot grip is a real one again
-(≈ 4.4 m/s², against 109), so a car leaning on somebody below the band shoves them — the model's stated wrongness
-(the foot model in [requirements.md](requirements.md)) is easier to see now.
 
 ## 2026-09-30 — a walker decides its pass and its straights once
 

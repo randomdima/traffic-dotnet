@@ -43,6 +43,8 @@ internal sealed class CarFleet
         MassKg = new float[capacity];
         Variant = new byte[capacity];
         Draw = new Rng[capacity];
+        Owner = new int[capacity];
+        Array.Fill(Owner, NoOwner);
         Driven = new bool[capacity];
         Action = new CarAction[capacity];
         Broken = new bool[capacity];
@@ -151,9 +153,15 @@ internal sealed class CarFleet
     public Rng[] Draw;
 
     /// <summary>
-    /// CAR-1: a car acts only while something is driving it — an errand, an order or the tour of a map with
-    /// no bay to reach. Set by whatever sends it and cleared where it is stood down; nobody sitting in it
-    /// sets it. Without it the car is an inert dynamic object holding its handbrake.
+    /// <b>The person whose car this is</b> (PER-29), or <see cref="NoOwner"/> — the other half of
+    /// <see cref="Agents.Person.Body.PersonFleet.Car"/>, set once where the town stands both.
+    /// </summary>
+    public int[] Owner { get; }
+
+    /// <summary>
+    /// CAR-1: a car acts only while something is driving it — its owner's trip, an errand, an order or the tour
+    /// of a map with no bay to reach. Set by whatever sends it and cleared where it is stood down; nobody
+    /// sitting in it sets it. Without it the car is an inert dynamic object holding its handbrake.
     /// </summary>
     public bool[] Driven { get; }
 
@@ -402,8 +410,8 @@ internal sealed class CarFleet
 
     /// <summary>
     /// Whether the queue stops short of where the car is going: <see cref="RouteLanesPerCar"/> lanes were
-    /// not enough for the route the search found, so the rest of it will be planned again from the last
-    /// lane in hand. <b>A route that ends at its destination answers no</b>, and so does one that ends at a
+    /// not enough for the route the search found, or the search handed over only the section of it in front
+    /// of the car — so the rest of it will be planned again from the last lane in hand. <b>A route that ends at its destination answers no</b>, and so does one that ends at a
     /// frontage it turns back on (<see cref="TurnsBackOn"/>), which is a leg with a turn in a bay in front
     /// of it rather than a road.
     /// </summary>
@@ -637,6 +645,7 @@ internal sealed class CarFleet
         Variant[car] = variant;
         DrivenFrontShare[car] = build.DrivenFrontShare;
         Draw[car] = draw;
+        Owner[car] = NoOwner;
         Driven[car] = false;
         Action[car] = CarAction.Stand;
         Broken[car] = false;
@@ -704,6 +713,9 @@ internal sealed class CarFleet
 
     /// <summary>A car that is on no lane at all — parked, or shoved off the network and recovering.</summary>
     public const int NoLane = -1;
+
+    /// <summary>A car nobody owns: a service vehicle, or one of a town nobody lives in.</summary>
+    public const int NoOwner = -1;
 
     /// <summary>A line that stops for no bay.</summary>
     public const int NoBay = -1;

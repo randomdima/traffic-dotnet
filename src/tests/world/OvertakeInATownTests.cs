@@ -112,7 +112,7 @@ public class OvertakeInATownTests
             loop.Advance(1);
             if (!people.Pass[walker].Begun) continue;
 
-            held ??= TheGroundItsPassHolds(world, walker, LaneRoster.Walking);
+            held ??= TheGroundItsPassHolds(world, world.GroundHeldAs(walker, out var roster), roster);
             var count = world.Atlas.UnderDisc(people.PositionM[walker], people.RadiusM[walker], under);
             var off = OffTheGround(held, under[..count], Config.PersonStepM);
             Assert.True(off == null, $"walker {walker} on tick {tick} of its pass stood on {off}");

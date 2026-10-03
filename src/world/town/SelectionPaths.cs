@@ -45,7 +45,7 @@ internal sealed class SelectionPaths
     readonly int[] _heldCount;
     readonly Asked[] _asked;
 
-    public SelectionPaths(int slots, TravelGraph driving, TravelGraph walking, int mostLinks)
+    public SelectionPaths(int slots, RouteCells driving, RouteCells walking, int mostLinks)
     {
         Drive = new RouteSearch(driving, mostEntries: 1, mostGoals: 2, mostLinks);
         Walk = new RouteSearch(walking, mostEntries: 2, mostGoals: 2, mostLinks);

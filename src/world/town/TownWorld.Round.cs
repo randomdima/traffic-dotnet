@@ -4,12 +4,13 @@ using TrafficSimulation.Core.Geometry;
 namespace TrafficSimulation.World.Town;
 
 /// <summary>
-/// <b>The round a car nothing else drives</b> (CAR-8): a stand in a bay, a drive to a free bay near a place
+/// <b>The round a car nobody owns drives</b> (CAR-8): a stand in a bay, a drive to a free bay near a place
 /// drawn from its own stream, and a stand there. <b>The driving is the leg's</b> — parking and unparking are
 /// the bay's own ways (GEN-4f, GEN-4j) — and what is here is only why the car goes.
 /// </summary>
 /// <remarks>
-/// <b>It runs only in a town a car can park in.</b> A map with no bay a car can reach tours its cars instead
+/// <b>It runs only in a town a car can park in, and only for a car nobody owns</b> — one somebody owns is their
+/// trips' (<see cref="RunTheOwnersCar"/>). A map with no bay a car can reach tours its cars instead
 /// (<see cref="DriveTheEmptyMap"/>), which is the one thing such a map leaves them to do.
 /// </remarks>
 internal sealed partial class TownWorld

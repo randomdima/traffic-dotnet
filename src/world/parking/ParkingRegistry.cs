@@ -30,9 +30,9 @@ namespace TrafficSimulation.World.Parking;
 /// it was a scan per ask.
 /// </para>
 /// <para>
-/// <b>The way in is the bay's, not the car's</b> (GEN-4e): a walker would be aimed at the ground off the
-/// driver's door of a car standing squarely in the middle of the bay (GEN-4i), which is a point the town
-/// settled when it painted the bay. No walk is aimed at a car.
+/// <b>The way in is the bay's, not the car's</b> (GEN-4e): an owner walking to their car (PER-29) is aimed at
+/// the ground off the driver's door of a car standing squarely in the middle of the bay (GEN-4i), which is a
+/// point the town settled when it painted the bay.
 /// Worked out from where the car has actually come to rest, it moves every time something nudges the car,
 /// and a body nudged out of a bay is a walk re-planned round the lot.
 /// </para>

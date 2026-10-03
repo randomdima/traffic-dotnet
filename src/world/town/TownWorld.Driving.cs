@@ -27,13 +27,32 @@ namespace TrafficSimulation.World.Town;
 /// manoeuvre it shaped for itself, in the gear that piece was shaped for, for a car getting into a bay or out of one.
 /// </para>
 /// <para>
-/// <b>Everything here runs every tick.</b> What runs on the driver's own clock is the leg
+/// <b>Everything here runs every tick</b> — for every car but one standing parked, whose tick would write what is
+/// already there (<see cref="StandsParked"/>). What runs on the driver's own clock is the leg
 /// (<see cref="DecideDriver"/>), which is about distances of tens of metres; the claims, the looking and
 /// the profile are about a gap that had already closed.
 /// </para>
 /// </remarks>
 internal sealed partial class TownWorld
 {
+    /// <summary>
+    /// Whether this car's last tick was a parked one that left it rested — nobody driving, the parked command, every
+    /// wheel cleared and the throttle recovered — so another tick at the same pose would write what is already there.
+    /// </summary>
+    readonly bool[] _standsParked;
+
+    /// <summary>
+    /// <b>Whether this car's tick would change nothing</b>, so it is not taken at all: it rested parked last tick
+    /// (<see cref="_standsParked"/>), nothing has since handed it a driver, a hand, a hook or another command, the
+    /// solver has not moved it (SOL-37), and the fleet still has it at a dead standstill — which is all a parked
+    /// tick reads of its pose.
+    /// </summary>
+    bool StandsParked(int car) =>
+        _standsParked[car] && !Cars.Driven[car] && Cars.Action[car] != CarAction.Hand
+        && _recovery.OnTheHookOf[car] < 0 && Cars.Hold[car] == DrivingHold.None
+        && Cars.Command[car] == DriveCommand.Parked && _physics.FrozenThroughLastStep(Cars.Body[car])
+        && Cars.VelocityMps[car] == Vector2.Zero && Cars.YawRateRadPerS[car] == 0f;
+
     /// <summary>One tick of one car's body: where it is, what it can see, and what the pedals and the wheel are asked for.</summary>
     void TickCar(int car)
     {
@@ -56,7 +75,8 @@ internal sealed partial class TownWorld
 
         if (!Cars.Driven[car])
         {
-            Hold(car, pose, DrivingHold.None);
+            // Rested with its throttle recovered, the next tick of a car nobody drives does exactly this again.
+            _standsParked[car] = Hold(car, pose, DrivingHold.None) && Cars.SlipThrottle[car] == 1f;
             return;
         }
 
@@ -347,14 +367,15 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>A car that is doing nothing this tick, and the one reason it is not.</summary>
-    void Hold(int car, in CarPose pose, DrivingHold why)
+    /// <returns>Whether the car was at rest and the tyres had nothing to do.</returns>
+    bool Hold(int car, in CarPose pose, DrivingHold why)
     {
         Cars.Command[car] = why == DrivingHold.None
             ? DriveCommand.Parked
             : DriveCommand.Stopping(Cars.BuildOf(car).BrakingMps2);
         Cars.Hold[car] = why;
         Cars.Context[car] = DriveContext.Clear;
-        Tyres(car, pose);
+        return Tyres(car, pose);
     }
 
     /// <summary>
@@ -568,7 +589,7 @@ internal sealed partial class TownWorld
         var linkCount = SearchTheDrivingNetwork(1, goalCount, ClosedLinksFor(car), out var goalSlot);
         if (linkCount == 0 || goalSlot < 0) return RouteFound.Nowhere;
 
-        ExpandRoute(car, fromLane, _driveSearch.Links(linkCount), _driveSearch.Goals[goalSlot]);
+        ExpandRoute(car, fromLane, _driveSearch.Links(linkCount), _driveSearch.Goals[goalSlot], _driveSearch.StopsShort);
 
         // A route with nothing left in it is an arrival; one that stops at a frontage to turn (GEN-4l) is
         // a leg with a turn in a bay still in front of it, whether or not it has a lane left to drive first.
@@ -577,8 +598,9 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>How far into the lane the search sets off from the body has got</b>: where the car actually
-    /// stands when that lane is the one under it, and the far end of it when it is a lane further down the
-    /// line being extended, which the car is going to drive the whole of.
+    /// stands when that lane is the one under it, its start when the car stands in the join onto it, and the
+    /// far end of it when it is a lane further down the line being extended, which the car is going to drive
+    /// the whole of.
     /// </summary>
     /// <remarks>
     /// <b>A lane is the whole stretch between two junctions</b>, so the two are hundreds of metres apart on
@@ -593,11 +615,21 @@ internal sealed partial class TownWorld
     /// the far end of its lane, and one that had turned in a bay to come back down that lane was told its place
     /// was behind it and turned again.
     /// </para>
+    /// <para>
+    /// <b>A car standing in a box is handed the lane it came off and the one its join leads onto</b>
+    /// (<see cref="TheChainFrom"/>), and the search sets off down the second: entered at its far end, a place a
+    /// few metres into it reads as passed, and the car is sent round the block over the very place it is going to.
+    /// </para>
     /// </remarks>
-    float AlongTheEntryM(int car, int fromLane) =>
-        Cars.ChainOf(car)[0] == fromLane
-            ? Math.Clamp(Cars.ProgressM[car], 0f, _roads.LaneLengthM[fromLane])
+    float AlongTheEntryM(int car, int fromLane)
+    {
+        var chain = Cars.ChainOf(car);
+        if (chain[0] == fromLane) return Math.Clamp(Cars.ProgressM[car], 0f, _roads.LaneLengthM[fromLane]);
+
+        return chain[1] == fromLane && Cars.ProgressM[car] >= _roads.LaneLengthM[chain[0]]
+            ? 0f
             : _roads.LaneLengthM[fromLane];
+    }
 
     /// <summary>
     /// <b>The one place the driving network is searched</b>, so that what a leg spends on finding its way
@@ -618,10 +650,15 @@ internal sealed partial class TownWorld
     /// the place it was searched for</b>, which is where a leg aimed at a place in the road stops
     /// (<see cref="ThePlaceTheLineStopsAtM"/>).
     /// </summary>
-    void ExpandRoute(int car, int fromLane, ReadOnlySpan<int> links, RouteGoal goal)
+    /// <param name="stopsShort">
+    /// Whether the search handed over only the section in front of the car (<see cref="RouteSearch.StopsShort"/>),
+    /// which the queue carries as one that ran out — unless it stops first at a frontage it turns back on.
+    /// </param>
+    void ExpandRoute(int car, int fromLane, ReadOnlySpan<int> links, RouteGoal goal, bool stopsShort)
     {
         var route = Cars.RouteOf(car);
         var count = LayRouteLanes(fromLane, links, goal, route, out var turnsBackOn, out var ranOut);
+        ranOut |= stopsShort && turnsBackOn == CarFleet.NoLane;
         Cars.RouteCount[car] = count;
         Cars.RouteTaken[car] = 0;
         Cars.TurnsBackOn[car] = turnsBackOn;

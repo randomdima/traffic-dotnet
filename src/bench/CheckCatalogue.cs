@@ -33,7 +33,7 @@ internal static class CheckCatalogue
         new("crash", "Every damage band staged, and what each one did", Quoted(CrashProbe.Run)),
         new("soak", "A whole town asked whether anything is inside anything else", config => SoakProbe.Run(config)),
         new("stuck", "A long run of one town, and who was still standing where they stopped", Quoted(StuckProbe.Run)),
-        new("trips", "Whole trips, end to end: drawn, driven, parked, walked in", Quoted(TripProbe.Run)),
+        new("trips", "Whole trips, end to end: drawn, driven, parked, walked in", Quoted(config => TripProbe.Run(config))),
         new("rescue", "One staged casualty a town: whether an ambulance came, collected and delivered", Quoted(RescueProbe.Run)),
         new("recovery", "One staged wreck a town: whether an evacuator came, towed it home and mended it", Quoted(RecoveryProbe.Run)),
         new("exam", "The scenario map: traffic staged one scenario to a junction and driven end to end, each passed or failed", ExamProbe.Run),
@@ -45,6 +45,7 @@ internal static class CheckCatalogue
         new("outset", "A town's boundary moved off itself: what closed, and the two ends of what did not", config => BoundaryProbe.Outset("Odesa", config)),
         new("fill", "A town's driven ground cut into triangles: what the cut costs, and what it lost", Quoted(config => FillProbe.Run("Odesa", config))),
         new("shapes", "One row a map: extent, roads, how much of each bends", Quoted(TownShape.Table)),
+        new("fidelity", "How far a traced town's lanes stand off OSM's own, both ways", Quoted(config => TracedFidelity.Run("OdesaOsm", config))),
     ];
 
     /// <summary>

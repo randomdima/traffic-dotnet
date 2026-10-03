@@ -27,9 +27,9 @@ internal readonly record struct MapEntry(string Name, MapKind Kind, string Descr
 /// can be opened one way can be opened the other.
 /// </summary>
 /// <remarks>
-/// <b><see cref="Maps.Shipped"/> is the authority for which maps exist</b> — the briefs in <c>towns/</c>
-/// and the maps this build lays in code — so a map cannot exist and be unlisted. <b>A city says what it is
-/// in its own brief</b>, which a binary file could never do; this catalogue is the authority for the rest,
+/// <b><see cref="Maps.Shipped"/> is the authority for which maps exist</b> — the briefs and the surveys in
+/// <c>towns/</c> and the maps this build lays in code — so a map cannot exist and be unlisted. <b>A city says
+/// what it is in its own brief or survey</b>, which a binary file could never do; this catalogue is the authority for the rest,
 /// which is the maps laid to measure one thing. The unit suite guards the pair in both directions.
 /// </remarks>
 internal static class MapCatalogue
@@ -66,9 +66,10 @@ internal static class MapCatalogue
             if (string.Equals(entry.Name, name, StringComparison.Ordinal)) return entry;
         }
 
-        // A generated city is described by the brief it is laid from: what a town is meant to be is
-        // authored beside its seed, and a second description here would be the one that goes stale.
+        // A city is described by the brief or the survey it is laid from: what a town is meant to be is
+        // authored beside what it is laid from, and a second description here would be the one that goes stale.
         if (Maps.IsGenerated(name)) return new MapEntry(name, MapKind.Place, Maps.Brief(name).Description);
+        if (Maps.IsTraced(name)) return new MapEntry(name, MapKind.Place, Maps.Extract(name).Description);
 
         return new MapEntry(name, MapKind.Scenario, "Shipped but undescribed: add it to MapCatalogue");
     }

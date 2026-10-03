@@ -95,6 +95,7 @@ internal sealed partial class TownWorld
             _physics.Tag(body, new BodyTag(BodyKind.Person, person));
             _progress.Restart(person);
             MoveIn(person, positionM);
+            if (People.Inside[person].Any) HandThemTheirCar(person, spawn, positionM);
         }
 
         if (IdlePlan.StandsConvoys(_plan.Name)) StandTheEscort();
@@ -162,9 +163,8 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>A person the map put down at a door starts inside it</b> (GEN-7), dwelling out the interval an
-    /// arrival dwells: the town's first tick is somebody's morning and not the moment they were all put
-    /// on the pavement.
+    /// <b>A person the map put down at a door starts inside it</b> (GEN-7), part way through a dwell: the
+    /// town's first tick is somebody's morning and not the moment they were all put on the pavement.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -175,9 +175,10 @@ internal sealed partial class TownWorld
     /// leg was a leg no rule of theirs had drawn.
     /// </para>
     /// <para>
-    /// <b>The dwell is drawn per person</b>, so a street's worth of doors does not open on the same tick;
-    /// and a door with no room behind it leaves the body standing outside it, which is the state
-    /// <see cref="TripStage.StandingBy"/> already names.
+    /// <b>What is left of the dwell is drawn per person, a dwell and a point somewhere inside it</b>: the first tick
+    /// catches everybody part way through one, so a street's worth of doors does not open on the same tick and
+    /// the town does not stand empty for the shortest dwell. A door with no room behind it leaves the body
+    /// standing outside it, which is the state <see cref="TripStage.StandingBy"/> already names.
     /// </para>
     /// </remarks>
     void MoveIn(int person, Vector2 positionM)
@@ -187,7 +188,23 @@ internal sealed partial class TownWorld
 
         Contain(person);
         People.Stage[person] = TripStage.Dwelling;
-        People.TimerS[person] = People.Draw[person].NextFloat(_config.Building.DwellMinS, _config.Building.DwellMaxS);
+        People.TimerS[person] = DrawADwellS(person) * People.Draw[person].NextFloat();
+    }
+
+    /// <summary>
+    /// <b>Everybody who lives here owns a car, parked in the free bay nearest their door</b> (PER-29) — free once
+    /// the services' aprons are held (GEN-4k) and the neighbours stood before them have theirs. Nobody is handed
+    /// one further off than anybody walks (<see cref="Core.Config.SimConfig.PersonWalkReachM"/>): a person with no bay that
+    /// near owns none, and walks.
+    /// </summary>
+    void HandThemTheirCar(int person, int spawn, Vector2 doorM)
+    {
+        var bay = FreeBayNear(doorM, _config.PersonWalkReachM);
+        if (bay < 0) return;
+
+        var car = StandCarIn(bay, LookOf(Cars.Count), CarDraw(spawn));
+        Cars.Owner[car] = person;
+        People.Car[person] = car;
     }
 
     /// <summary>
@@ -286,18 +303,11 @@ internal sealed partial class TownWorld
     /// </remarks>
     void StandCar(int spawn, byte variant)
     {
-        var positionM = _plan.Spawns.PositionM[spawn];
-        var headingRad = _plan.Spawns.HeadingRad[spawn];
-
-        // The habit before the pose, because the pose a car starts standing in is what its habit would have
-        // put it in — drawn from the car's own stream, which then goes on to the fleet as it stands.
-        var draw = new Rng(_agentSeed, (ulong)(spawn + 1) << 8);
-        var backsIn = draw.NextFloat() < _config.Driving.BacksIntoBaysShare;
-
         // <b>A space that belongs to an apron is not the town's to spawn into</b> (GEN-4k), and neither is
         // one another spawn has already been put in: the car is stood in the nearest free bay instead, and
         // a car with nowhere near to stand is not stood at all rather than dropped on top of whatever has
         // the place. It is the one thing an apron costs the plan, and it costs it a car at most.
+        var positionM = _plan.Spawns.PositionM[spawn];
         var bay = BayUnder(positionM);
         if (bay >= 0 && !_parking.IsFree(bay))
         {
@@ -307,26 +317,51 @@ internal sealed partial class TownWorld
 
         if (bay >= 0)
         {
-            headingRad = BayTemplate.StandingHeadingRad(_parking.HeadingRad(bay), !backsIn);
-
-            positionM = _parking.CentreM(bay);
+            StandCarIn(bay, variant, CarDraw(spawn));
+            return;
         }
 
-        // <b>The body is this variant's own</b> (CAR-11): its footprint, its weight, its axles and what its
-        // tyres are worth. The town's geometry is still the nominal car's — the junctions, the lanes and
-        // the bays were sized against it and the road is the same road whoever turns up — but nothing a
-        // car decides for itself is taken from it any more.
+        var draw = CarDraw(spawn);
+        var backsIn = draw.NextFloat() < _config.Driving.BacksIntoBaysShare;
+        AddCar(positionM, _plan.Spawns.HeadingRad[spawn], variant, backsIn, draw);
+    }
+
+    /// <summary>
+    /// A car stood square in a bay at the pose its driver's habit parks in (GEN-4i, GEN-4j), the bay its own and
+    /// its first stand begun there (CAR-8).
+    /// </summary>
+    /// <remarks>
+    /// <b>The habit before the pose</b>, because the pose a car starts standing in is what its habit would have
+    /// put it in — drawn from the car's own stream, which then goes on to the fleet as it stands.
+    /// </remarks>
+    int StandCarIn(int bay, byte variant, Rng draw)
+    {
+        var backsIn = draw.NextFloat() < _config.Driving.BacksIntoBaysShare;
+        var headingRad = BayTemplate.StandingHeadingRad(_parking.HeadingRad(bay), !backsIn);
+        var car = AddCar(_parking.CentreM(bay), headingRad, variant, backsIn, draw);
+        _parking.Occupy(bay, car);
+        BeginTheStand(car);
+        return car;
+    }
+
+    /// <summary>
+    /// <b>The body is this variant's own</b> (CAR-11): its footprint, its weight, its axles and what its tyres
+    /// are worth. The town's geometry is still the nominal car's — the junctions, the lanes and the bays were
+    /// sized against it and the road is the same road whoever turns up — but nothing a car decides for itself is
+    /// taken from it any more.
+    /// </summary>
+    int AddCar(Vector2 positionM, float headingRad, byte variant, bool backsIn, Rng draw)
+    {
         ref readonly var build = ref _builds.Of(variant);
         var body = _physics.AddCar(
             positionM, headingRad, build.CollisionSizeM * 0.5f, build.CornerRadiusM, build.MassKg);
         var car = Cars.Add(body, positionM, headingRad, variant, backsIn, draw);
         _physics.Tag(body, new BodyTag(BodyKind.Car, car));
-
-        if (bay < 0) return;
-
-        _parking.Occupy(bay, car);
-        BeginTheStand(car);
+        return car;
     }
+
+    /// <summary>A car's own stream, keyed by the spawn it was stood for — its own, or its owner's.</summary>
+    Rng CarDraw(int spawn) => new(_agentSeed, (ulong)(spawn + 1) << 8);
 
     /// <summary>
     /// The bay a spawned car is standing in, or −1. Read off the pose rather than assumed: a car that

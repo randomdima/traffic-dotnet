@@ -6,18 +6,30 @@ namespace TrafficSimulation.CityGen;
 /// </summary>
 /// <remarks>
 /// <b>A one-way road is a narrower road and not a road with a lane painted out</b> (GEN-15): it is laid at
-/// one lane's width, its carriageway is that lane, and the lane's own line is the middle of it. Which way
-/// it runs is the road's, so nothing has to read it off the geometry — a road drawn one way and driven the
-/// other is <see cref="AgainstTheRoad"/> rather than a road redrawn backwards.
+/// its lanes' width, its carriageway is those lanes, and the road's own line is the middle of them. Which
+/// way it runs is the road's, so nothing has to read it off the geometry — a road drawn one way and driven
+/// the other is <see cref="AgainstTheRoad"/> rather than a road redrawn backwards.
 /// </remarks>
 internal enum RoadFlow : byte
 {
-    /// <summary>Two lanes, one each way, assigned by heading (TER-4a).</summary>
+    /// <summary>Lanes each way, assigned by heading (TER-4a).</summary>
     BothWays,
 
-    /// <summary>One lane, driven from the road's <c>From</c> junction towards its <c>To</c>.</summary>
+    /// <summary>Driven from the road's <c>From</c> junction towards its <c>To</c> only.</summary>
     WithTheRoad,
 
-    /// <summary>One lane, driven the other way.</summary>
+    /// <summary>Driven the other way only.</summary>
     AgainstTheRoad,
+}
+
+/// <summary>
+/// How many lanes a road is driven in each way (<see cref="CityPlan.RoadArrays.Lanes"/>): with its own
+/// direction, and against it.
+/// </summary>
+internal readonly record struct RoadLanes(byte With, byte Against)
+{
+    /// <summary>The same road read from its other end.</summary>
+    public RoadLanes Turned => new(Against, With);
+
+    public RoadFlow Flow => Against == 0 ? RoadFlow.WithTheRoad : With == 0 ? RoadFlow.AgainstTheRoad : RoadFlow.BothWays;
 }

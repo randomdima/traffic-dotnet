@@ -224,7 +224,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // own standing cost.
         _driving = DrivingNetwork.Build(
             _roads, BayStreets.WhereALegMayTurn(_roads, _bayStreets, config.TurnAtALotWithinM), plan, config);
-        _driveSearch = new RouteSearch(_driving.Graph, mostEntries: BayStreets.MostLanes, mostGoals: 2, MostRunsInARoute);
+        _driveSearch = new RouteSearch(_driving.Cells, mostEntries: BayStreets.MostLanes, mostGoals: 2, MostRunsInARoute);
         _surcharges = new LinkSurcharges(MostWaysGivenUpOn);
         _walkSurcharges = new LinkSurcharges(MostWaysGivenUpOn);
 
@@ -252,7 +252,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _walking = WalkingNetwork.Build(_foot, config);
         WalkingMs = Stopwatch.GetElapsedTime(walkingAt).TotalMilliseconds;
 
-        _walkSearch = new RouteSearch(_walking.Graph, mostEntries: 2, mostGoals: 2, MostRunsInARoute);
+        _walkSearch = new RouteSearch(_walking.Cells, mostEntries: 2, mostGoals: 2, MostRunsInARoute);
 
         // <b>And then the one table all of them are numbered in</b> (TER-4c.2, <see cref="TownWays"/>). It is
         // laid last of the networks because it is laid over them: what it takes from each is a run of
@@ -261,7 +261,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
         // The interface's own room to plan a whole route into (CTL-1a), laid with the selection it is
         // bounded by and never on the frame that wants it.
-        _paths = new SelectionPaths(_selected.Capacity, _driving.Graph, _walking.Graph, MostRunsInARoute);
+        _paths = new SelectionPaths(_selected.Capacity, _driving.Cells, _walking.Cells, MostRunsInARoute);
         _furniture = LaneFurniture.Project(_bars, _zebras, _roads);
         _crossingEdges = CrossingEdges.Of(_zebras, _walking.Foot);
         _signalHolds = SignalHolds.Of(_signals, _bars, _crossingEdges, _roads, _ways);
@@ -277,13 +277,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         CollectTheLay(plan, config);
         RefuseFurnitureOnTheRoad();
 
-        var walkers = 0;
-        var drivers = 0;
-        foreach (var kind in plan.Spawns.Kind)
-        {
-            if (kind == SpawnKindPerson) walkers++;
-            else if (kind == SpawnKindCar) drivers++;
-        }
+        var walkers = PeopleIn(plan);
+        var drivers = CarsOfThePlan(plan);
 
         // The service vehicles are laid on top of the plan's own spawns: a vehicle for every bay of every
         // hospital's, station's and depot's apron (AMB-2, SRV-2), which is why the counts have to be answerable
@@ -338,12 +333,17 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _walkingBack = new WalkingBack(_walkingGround, _personActions);
         _walkingToThePost = new WalkingToThePost(_walkingGround, _personActions);
         _wheels = new WheelScratch(drivers);
+        _standsParked = new bool[drivers];
+        _standing = new StandingCars(drivers);
         _behindTheBar = new bool[drivers];
         Marks = new DriftMarks(config.Marks.Capacity);
 
         _velocityIntoTickMps = new Vector2[walkers + drivers];
 
         _containers = new Containers(_plan.Buildings.Capacity, drivers, People.Inside);
+        _doors = BucketGrid.Build(
+            config.Grid.Main, plan.WorldSizeM, plan.Buildings.EntryPointM, new float[plan.Buildings.EntryPointM.Length]);
+        _buildingOfDoor = BuildingsOfTheDoors(plan.Buildings);
         _parking = ParkingRegistry.Build(plan, _bayStreets, config, drivers);
         _bays = new BayManoeuvring(_ground, _carActions, _manoeuvres);
         _pullingOut = new PullingOut(_ground, _bays, _parking, _bayStreets);
@@ -424,9 +424,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     public double AtlasMs { get; }
 
     /// <summary>
-    /// How many runs one search may return. A bound on the work rather than a figure behaviour reads:
-    /// the longest route any shipped town needs is a fraction of it, and a route that would not fit is
-    /// planned again from further along.
+    /// How many runs one search may return. A bound on the work rather than a figure behaviour reads: a
+    /// section is a few cells (<see cref="RouteSearch"/>) and fits many times over, and only a search asked
+    /// over the whole graph can come back longer — which is refused, and the leg given up by its own clock.
     /// </summary>
     const int MostRunsInARoute = 256;
 
@@ -440,6 +440,26 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     const byte SpawnKindPerson = 0;
 
     const byte SpawnKindCar = 1;
+
+    /// <summary>
+    /// <b>The cars a plan's own people and spawns can stand</b>: a car of the plan's for each car spawn, and one of
+    /// their own for each person, where a bay near their door is free (PER-29) — the room the fleet is laid with
+    /// before the service vehicles go on top of it, and what anything drawing the fleet lays its room for.
+    /// </summary>
+    public static int CarsOfThePlan(CityPlan plan) => PeopleIn(plan) + CountOf(plan, SpawnKindCar);
+
+    static int PeopleIn(CityPlan plan) => CountOf(plan, SpawnKindPerson);
+
+    static int CountOf(CityPlan plan, byte kind)
+    {
+        var count = 0;
+        foreach (var spawned in plan.Spawns.Kind)
+        {
+            if (spawned == kind) count++;
+        }
+
+        return count;
+    }
 
     public PersonFleet People { get; }
 
@@ -583,6 +603,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     public int IntegratedBodyCount => _physics.IntegratedBodyCount;
 
+    public int FrozenBodyCount => _physics.FrozenBodyCount;
+
 
     /// <summary>The walkers, then the cars — the flat index space the decision clock staggers.</summary>
     /// <remarks>
@@ -721,7 +743,11 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
         if (Roster.IsCar(agent))
         {
-            TickCar(Roster.CarIndex(agent));
+            var car = Roster.CarIndex(agent);
+            if (StandsParked(car)) return;
+
+            _standsParked[car] = false;
+            TickCar(car);
             return;
         }
 
@@ -789,6 +815,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             else if (Cars.Ambulance[car]) RunTheRescue(car, sinceLastDecisionS);
             else if (IsAnEvacuator(car)) RunTheRecovery(car, sinceLastDecisionS);
             else if (IsAPatrolCar(car)) RunThePatrol(car, sinceLastDecisionS);
+            else if (Cars.Owner[car] != CarFleet.NoOwner) RunTheOwnersCar(car, sinceLastDecisionS);
             else if (_townParks && !IsAServiceVehicle(car)) RunTheRound(car, sinceLastDecisionS);
 
             DecideDriver(car, sinceLastDecisionS);
@@ -811,6 +838,15 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // and none of a trip's clocks or walks runs for them.
         if (People.Stage[agent] == TripStage.OnDuty) return;
 
+        // A walk to a car is over once its owner can touch the car's way in, wherever the walk has got to (PER-29): the
+        // last of it is across a car park whose bays hold their neighbours' bodies, and an owner held off one of them a
+        // stride from their own door is not a walk going nowhere.
+        if (People.Stage[agent] == TripStage.WalkingToTheCar && HasReached(agent, _config.WayInTouchingReachM))
+        {
+            TakeTheWheel(agent);
+            return;
+        }
+
         // PER-28: getting past somebody on its way is decided, waited for and given up on here, on the walk's own clock.
         _sidestepping.Decide(agent, sinceLastDecisionS);
 
@@ -832,7 +868,10 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // the end of it</b>, which is the same laying from the same place (<see cref="ComesToTheEndOfItsChain"/>).
         if (HasLostItsLine(agent) || ComesToTheEndOfItsChain(agent))
         {
-            LayWalk(agent, reachTheGoal: People.Stage[agent] is TripStage.WalkingToTheDoor or TripStage.UnderOrders);
+            LayWalk(
+                agent,
+                reachTheGoal: People.Stage[agent] is TripStage.WalkingToTheDoor or TripStage.WalkingToTheCar
+                    or TripStage.WalkingFromTheCar or TripStage.UnderOrders);
 
             // A route that could not be laid again leaves nothing to walk (PER-25). Left walking, the body
             // would set off at its goal in a straight line over whatever lay between.

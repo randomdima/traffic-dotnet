@@ -18,15 +18,19 @@ single global constant** — lane offset, turn classification, keep-right on foo
 on all read that one.
 
 **TER-4d** `P6` **A road runs one way or both ways, and a one-way road is the narrower for it.** A carriageway
-is as many lanes as it has ways, laid at the one lane width either way (GEN-15): two lanes where traffic
-runs both ways, and **one lane down the middle of half a road** where it runs one. **That half is the half
-its traffic drives, and the road stands on it**: its own half to the driving side of the line its two
+is its lanes side by side at the one lane width (GEN-15), each way's running in from the kerb its traffic
+keeps to as far as the line the two ways meet on, and the road's own line down the middle of them all: one
+lane each way on a road the generator lays, and as many each way as its survey says on a traced one
+(GEN-57). **A generated one-way street is one lane down the middle of half a road**, and **that half is the
+half its traffic drives, and the road stands on it**: its own half to the driving side of the line its two
 intersections are joined on, which is where a carriageway of two ways carries the lane running that way — so
 a one-way street meeting one of two ways continues that road's lane and that road's kerb rather than
 stepping across them. A one-way road therefore has no reverse lane to come back down, cross round what is
-in its way, or park against; no centreline, because it divides nothing; and **a bar only on the arm traffic
-comes to the junction on**. Everything else — the crossing on it, the kerb beside it, the claims over it —
-is what it always was, read off the road's own width.
+in its way, or park against; no line between its two ways, because it divides none; and **a bar only on the
+arm traffic comes to the junction on**. **The paint goes between every two lanes that touch** (TER-6), and
+**a lane's reverse is the lane the other way across that line from it**, which on a road of more than one
+lane a way is only the innermost of each. Everything else — the crossing on it, the kerb beside it, the
+claims over it — is what it always was, read off the road's own width.
 
 **Which way a road runs is the road's own and is never read off its shape.** A road is drawn from one
 intersection to the other and may be driven either way along that (`RoadFlow`); nothing infers it from the
@@ -123,6 +127,18 @@ run of roads through nodes nothing meets at is one road before a lane is laid on
 street arrives only where the traffic it meets still has a choice (`GEN-18`). What is left holding one
 movement is a corner every other movement was refused for (`GEN-48`) or an entry to a roundabout (`GEN-19`) —
 both of them places a driver really is committed, and both reported by the census rather than papered over.
+
+**TER-5j** `P5` **A movement is made from the lanes of its arm a carriageway marked with nothing else would make
+it from** (`CityGen.LaneUse`): carrying straight on from any of them, turning to the near side from the kerb
+lane and to the far side from the lane beside the line the two ways meet on. **Where nothing carries straight
+on, the lanes are shared between the turns there are** — the kerb half to the near side, the rest to the far,
+the middle lane of an odd count to both, and all of them to a turn that is the only kind on offer — so **no
+lane arrives at a junction that offers it nothing**. The lanes a movement is made from are spread over the
+lanes of the road it takes in the same order, as many onto as many lane for lane, fewer fanning out and more
+merging, so **no two movements off one arm onto one road cross**, and no lane of the road taken is reached by
+none of them. A road of one lane each way is offered every turn its junction makes, from its one lane onto
+the one lane each takes. **A car keeps the lane it was given until the next junction**: nothing moves it
+across to a lane beside running its way ([the known gaps](../../../../docs/index.md#known-gaps)).
 
 ## Crossings
 

@@ -25,6 +25,11 @@ namespace TrafficSimulation.World.Town;
 /// bodies. It is bounded twice over: by how many units may be picked out, and by a plan being asked for
 /// again only when the far end of the queue in hand moves.
 /// </para>
+/// <para>
+/// <b>The far end is the next section and not the goal</b> where the search is sectioned
+/// (<see cref="RouteSearch"/>): what the body will plan from the end of its queue is that section, and the one
+/// after it is decided only once the body has got there.
+/// </para>
 /// </remarks>
 internal sealed partial class TownWorld
 {
@@ -167,6 +172,7 @@ internal sealed partial class TownWorld
 
         return WalkedLine.Station(
             walking, ways[..written], walking.LaneMOf(ways[0], enteredAtM),
-            StopsAtM(walking, ways[..written], goal, ranOut), _config.Network.SplineToleranceWalkedM, into, out _);
+            StopsAtM(walking, ways[..written], goal, ranOut || search.StopsShort), _config.Network.SplineToleranceWalkedM,
+            into, out _);
     }
 }

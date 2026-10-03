@@ -602,11 +602,63 @@ internal static class Spline
         var otherStraight = MathF.Abs(other.Curvature) < StraightCurvature;
 
         if (oneStraight && otherStraight) return StraightsCross(one, other, into);
+        if (MathF.Abs(one.Curvature) < FlatCurvature && MathF.Abs(other.Curvature) < FlatCurvature)
+        {
+            return FlatsCross(one, other, into);
+        }
+
         if (oneStraight) return StraightCrossesArc(one, other, into);
         if (otherStraight) return StraightCrossesArc(other, one, into);
 
         return ArcsCross(one, other, into);
     }
+
+    /// <summary>
+    /// <b>Below this a bend is a straight to the circle pair's arithmetic</b>: a radius of ten kilometres,
+    /// past which two pieces' circles cross on a radical line their two curvatures all but cancel out of.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is the curvature a straight comes back with and not a bend anything lays</b>: a ring's straight
+    /// re-struck between two ends a millimetre off its own (<c>ArcRings.Tightened</c>) curves by a few millionths,
+    /// and two of those meeting at five degrees read as circles five hundred kilometres across whose radical
+    /// line is nought — and the crossing the whole of a wedge's offset turns on was not found.
+    /// </remarks>
+    const float FlatCurvature = 1e-4f;
+
+    /// <summary>
+    /// <b>Where two all but straight pieces cross</b>: where their chords do, run on to the pieces themselves
+    /// by Newton's steps along both at once — exact to the arithmetic in a couple of them, the chords being a
+    /// sagitta off at most.
+    /// </summary>
+    static int FlatsCross(in ArcSeg one, in ArcSeg other, Span<Vector2> into)
+    {
+        var oneChord = new ArcSeg(one.StartM, Facing(one.EndM - one.StartM), one.LengthM, 0f);
+        var otherChord = new ArcSeg(other.StartM, Facing(other.EndM - other.StartM), other.LengthM, 0f);
+        if (StraightsCross(oneChord, otherChord, into) == 0) return 0;
+
+        var oneM = Vector2.Dot(into[0] - one.StartM, oneChord.StartUnit);
+        var otherM = Vector2.Dot(into[0] - other.StartM, otherChord.StartUnit);
+        for (var step = 0; step < FlatSteps; step++)
+        {
+            var oneAt = one.PointAtM(oneM);
+            var oneUnit = Heading.Unit(one.HeadingAtRad(oneM));
+            var otherUnit = Heading.Unit(other.HeadingAtRad(otherM));
+            var across = Cross(oneUnit, otherUnit);
+            if (MathF.Abs(across) < ApartToCross) return 0;
+
+            var gapM = other.PointAtM(otherM) - oneAt;
+            oneM += Cross(gapM, otherUnit) / across;
+            otherM += Cross(gapM, oneUnit) / across;
+        }
+
+        into[0] = one.PointAtM(oneM);
+        return 1;
+
+        static float Facing(Vector2 runM) => MathF.Atan2(runM.Y, runM.X);
+    }
+
+    /// <summary>How many Newton's steps two flat pieces' crossing is run on by: the first lands within the arithmetic.</summary>
+    const int FlatSteps = 3;
 
     /// <summary>The one point two straights meet at, which two parallels have none of.</summary>
     static int StraightsCross(in ArcSeg one, in ArcSeg other, Span<Vector2> into)
@@ -856,13 +908,41 @@ internal static class Spline
     /// corner and costs nothing.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Whether a cramped corner came out at a radius anything can hold is the caller's to ask; this lays
     /// what the legs have room for. At most <c>2·points − 3</c> pieces.
+    /// </para>
+    /// <para>
+    /// <b>A straight takes its leg's bearing and never the bearing between its own two ends.</b> Two corners
+    /// that each take half of the leg between them leave a straight of nothing, whose two ends are one point
+    /// read twice — and far enough from the origin that point's two readings differ by a float's own step in
+    /// any direction at all, so a heading read off them is noise and the line turns through it.
+    /// </para>
     /// </remarks>
     public static int RoundedInto(ReadOnlySpan<Vector2> pointsM, float radiusM, Span<ArcSeg> into)
     {
+        var reachM = pointsM.Length > 2 ? new float[pointsM.Length - 2] : [];
+        for (var corner = 1; corner < pointsM.Length - 1; corner++)
+        {
+            var arrivingM = Vector2.Distance(pointsM[corner - 1], pointsM[corner]);
+            var leavingM = Vector2.Distance(pointsM[corner], pointsM[corner + 1]);
+            reachM[corner - 1] = MathF.Min(radiusM * HalfTurnTan(pointsM, corner), MathF.Min(arrivingM, leavingM) * 0.5f);
+        }
+
+        return RoundedInto(pointsM, reachM, into);
+    }
+
+    /// <summary>
+    /// <b>A polyline laid as straights, with each corner rounded from its own reach</b> — how far back along
+    /// each of its two legs the round starts, which sets its radius from the turn. A caller sharing a leg
+    /// between the corners at its ends keeps the two reaches inside it; nothing here asks.
+    /// </summary>
+    /// <param name="reachM">One a corner, the first for the polyline's second point.</param>
+    public static int RoundedInto(ReadOnlySpan<Vector2> pointsM, ReadOnlySpan<float> reachM, Span<ArcSeg> into)
+    {
         var written = 0;
         var cursorM = pointsM[0];
+        var leg = Vector2.Zero;
 
         for (var corner = 1; corner < pointsM.Length - 1; corner++)
         {
@@ -877,28 +957,49 @@ internal static class Spline
             var turnRad = MathF.Atan2(Cross(arriving, leaving), Vector2.Dot(arriving, leaving));
             if (MathF.Abs(turnRad) < 1e-4f) continue;
 
-            var halfTurnTan = MathF.Tan(MathF.Abs(turnRad) * 0.5f);
-            var reachM = MathF.Min(radiusM * halfTurnTan, MathF.Min(arrivingM, leavingM) * 0.5f);
-            var cornerRadiusM = reachM / halfTurnTan;
-            var enterM = pointsM[corner] - arriving * reachM;
+            var cornerReachM = reachM[corner - 1];
+            var cornerRadiusM = cornerReachM / MathF.Tan(MathF.Abs(turnRad) * 0.5f);
+            var enterM = pointsM[corner] - arriving * cornerReachM;
 
-            written += Straight(cursorM, enterM, into[written..]);
+            written += Straight(cursorM, enterM, arriving, into[written..]);
             into[written++] = new ArcSeg(
                 enterM, MathF.Atan2(arriving.Y, arriving.X), cornerRadiusM * MathF.Abs(turnRad),
                 MathF.Sign(turnRad) / cornerRadiusM);
-            cursorM = pointsM[corner] + leaving * reachM;
+            cursorM = pointsM[corner] + leaving * cornerReachM;
+            leg = leaving;
         }
 
-        return written + Straight(cursorM, pointsM[^1], into[written..]);
+        return written + Straight(cursorM, pointsM[^1], leg, into[written..]);
     }
 
-    static int Straight(Vector2 fromM, Vector2 toM, Span<ArcSeg> into)
+    /// <summary>
+    /// The tangent of half the turn a polyline makes at one of its points, which is a corner's reach over its
+    /// radius — read the way <see cref="RoundedInto(ReadOnlySpan{Vector2}, ReadOnlySpan{float}, Span{ArcSeg})"/>
+    /// reads the turn, so a reach set from it rounds at the radius it was set for.
+    /// </summary>
+    public static float HalfTurnTan(ReadOnlySpan<Vector2> pointsM, int corner)
+    {
+        var arriving = pointsM[corner] - pointsM[corner - 1];
+        var leaving = pointsM[corner + 1] - pointsM[corner];
+        arriving /= arriving.Length();
+        leaving /= leaving.Length();
+        return MathF.Tan(MathF.Abs(MathF.Atan2(Cross(arriving, leaving), Vector2.Dot(arriving, leaving))) * 0.5f);
+    }
+
+    static int Straight(Vector2 fromM, Vector2 toM, Span<ArcSeg> into) => Straight(fromM, toM, Vector2.Zero, into);
+
+    /// <param name="along">
+    /// The bearing of the leg the straight lies on, or zero to read it off the two ends. Given, the length is
+    /// the run's along it, so a sliver the floats leave pointing back down the leg is no straight at all.
+    /// </param>
+    static int Straight(Vector2 fromM, Vector2 toM, Vector2 along, Span<ArcSeg> into)
     {
         var run = toM - fromM;
-        var lengthM = run.Length();
+        var heading = along == Vector2.Zero ? run : along;
+        var lengthM = along == Vector2.Zero ? run.Length() : Vector2.Dot(run, along);
         if (lengthM < 1e-4f) return 0;
 
-        into[0] = new ArcSeg(fromM, MathF.Atan2(run.Y, run.X), lengthM, 0f);
+        into[0] = new ArcSeg(fromM, MathF.Atan2(heading.Y, heading.X), lengthM, 0f);
         return 1;
     }
 
@@ -1163,6 +1264,13 @@ internal static class Spline
     }
 
     /// <summary>The one arc that leaves a pose and reaches a point: its curvature is the chord's, and its length is the turn it makes.</summary>
+    /// <remarks>
+    /// <b>A bend too slight to be one is the straight to the point</b>, leaving a hair off the pose's own
+    /// bearing rather than on it. Laid on the bearing instead, it misses the point by the whole of the bend it
+    /// was not given — a millimetre and a half over 180 m — and a ring tightened that way
+    /// (<see cref="ArcRings.Tightened"/>) has a joint that does not meet, so a corner struck about one side of it
+    /// stands nearer the other than the distance it was struck at.
+    /// </remarks>
     public static ArcSeg ArcThrough(Vector2 fromM, float headingRad, Vector2 toM)
     {
         var direction = Heading.Unit(headingRad);
@@ -1173,7 +1281,7 @@ internal static class Spline
         var curvature = 2f * Cross(direction, chord) / chordLengthSq;
         if (MathF.Abs(curvature) < StraightCurvature)
         {
-            return new ArcSeg(fromM, headingRad, MathF.Sqrt(chordLengthSq), 0f);
+            return new ArcSeg(fromM, MathF.Atan2(chord.Y, chord.X), MathF.Sqrt(chordLengthSq), 0f);
         }
 
         var turnRad = 2f * MathF.Atan2(Cross(direction, chord), Vector2.Dot(direction, chord));

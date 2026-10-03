@@ -21,7 +21,7 @@ library and is wrong here; adding one back is a change to this document first.
 | Shapes beyond the rounded oriented box | OBJ-2's five bodies are all of them. Neither the radius nor the coreless disc is a second shape: same axes, same separating axis, same clip |
 | Restitution | A collision here is a crash, not a break shot |
 | Continuous collision / sweeping | A stated limit rather than a divergence |
-| Islands, sleeping | Every contact of every tick is run; a saving forgone, not a behaviour |
+| Islands | Freezing is per body (SOL-37), and what a woken body leans on is asked in the step that woke it; no graph of who touches whom is kept |
 | Multi-threading | Determinism is worth more at this roster size |
 | A general-purpose API | The surface is the call sites the town actually makes |
 | Serialisation, its own debug draw, a world editor | The town is the format; the renderer draws |
@@ -42,7 +42,7 @@ answer by a test.
 **SOL-7** `P4` A nearest-hit ray cast, filtered by mask, able to exclude one named body.
 **SOL-8** `P4` Whether anything static stands inside an axis-aligned box.
 **SOL-9** `P4` How deep one body is into everything touching it, for the probe that measures PHY-1.
-**SOL-10** `P8` Counts of what it is carrying — static, dynamic, integrated, and the last step's contacts.
+**SOL-10** `P8` Counts of what it is carrying — static, dynamic, integrated, frozen, and the last step's contacts.
 
 ## What must be true of it
 
@@ -56,6 +56,19 @@ answer by a test.
 **SOL-35** `P3` The same town, seed and tick count produce the same digest, on one machine.
 **SOL-36** `P8` Whether the digest holds across machines and architectures is a claim to be tested, never
 assumed.
+
+## What it leaves out of a step
+
+**SOL-37** `P4` **A body at rest is frozen**: it owns no pairs, is neither damped nor integrated, and its motion is
+exactly zero. At rest is every point of it slower than a rest speed and no overlap left to push out, for a rest
+time; both are figures. A frozen body does not move on its own.
+**SOL-37a** `P3` **What reaches a frozen body wakes it in time to move it**: an impulse, in the step it is spent
+before, and a body the step is moving, in the step they meet — and what the woken body is about to be pushed
+into wakes in that same step. A frozen body is never one that cannot be pushed (`PHY-9`).
+**SOL-37b** `P3` **Bodies touching each other freeze together or not at all**: a body touching one the step is
+still moving stays awake, however long it has been at rest itself.
+**SOL-37c** `P4` **Freezing begins no touch and ends none**: a pair touching when they froze is the same touch
+when either wakes (`SOL-6`).
 
 ## What it costs
 

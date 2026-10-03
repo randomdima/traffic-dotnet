@@ -1,14 +1,13 @@
 namespace TrafficSimulation.Agents.Car.Control;
 
 /// <summary>
-/// <b>The round a car nothing else drives</b> (CAR-8): it stands a drawn while in a bay, then drives to a
+/// <b>The round a car nobody owns drives</b> (CAR-8): it stands a drawn while in a bay, then drives to a
 /// free bay near a place drawn from its own stream and parks there. One array per field, keyed by the car,
 /// for the reason every errand's duty is: a car's index means the same thing here as everywhere else.
 /// </summary>
 /// <remarks>
-/// <b>It is the errand of a car nobody is in</b>, and the only thing that moves one once a town has bays
-/// (CAR-1): the town's walkers walk every trip (PER-11), so without it a car park stood full before the first
-/// tick would be the whole of the traffic for the rest of the run.
+/// <b>It is the errand of a car nobody owns</b> — the cars of a town nobody lives in, which nothing else would
+/// ever move (CAR-1). A car somebody owns is driven by their trips and waits in its bay between them (PER-29).
 /// </remarks>
 internal sealed class ParkedRound(int cars)
 {

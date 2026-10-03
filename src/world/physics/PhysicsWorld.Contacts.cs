@@ -7,12 +7,19 @@ internal sealed partial class PhysicsWorld
 {
     /// <summary>
     /// Which pairs are touching now that were not touching last step: a linear merge over two sorted
-    /// lists, and no table of pairs kept anywhere. The sortedness is a consequence of how the pairs were
-    /// gathered, so the bookkeeping costs one pass and no memory beyond the two lists.
+    /// lists, and no table of pairs kept anywhere. The sortedness is a consequence of how the contacts were
+    /// put in order, so the bookkeeping costs one pass and no memory beyond the lists.
     /// </summary>
+    /// <remarks>
+    /// <b>A pair nobody owned this step is still touching</b> (SOL-37c): both its bodies were frozen through the
+    /// step, or one was and the other is the town's furniture, so neither has moved since the step that last
+    /// asked. It is held rather than asked again — and rather than dropped, which would have it begin again on
+    /// whichever step one of the two is woken, and be judged twice for one touch.
+    /// </remarks>
     void ReportBegun()
     {
         _beganCount = 0;
+        _heldCount = 0;
 
         var now = 0;
         var was = 0;
@@ -24,7 +31,7 @@ internal sealed partial class PhysicsWorld
             }
             else if (_touchingKey[now] > _previousKey[was])
             {
-                was++;
+                Hold(_previousKey[was++]);
             }
             else
             {
@@ -34,9 +41,22 @@ internal sealed partial class PhysicsWorld
         }
 
         while (now < _touchingCount) Begin(now++);
+        while (was < _previousCount) Hold(_previousKey[was++]);
 
-        (_previousKey, _touchingKey) = (_touchingKey, _previousKey);
-        _previousCount = _touchingCount;
+        // What is touching from here on — this step's pairs and the held ones, one sorted list — written over
+        // the last step's, which nothing reads again.
+        RoomForTouching(_touchingCount + _heldCount);
+        var into = 0;
+        var held = 0;
+        now = 0;
+        while (now < _touchingCount || held < _heldCount)
+        {
+            _previousKey[into++] = held == _heldCount || (now < _touchingCount && _touchingKey[now] < _heldKey[held])
+                ? _touchingKey[now++]
+                : _heldKey[held++];
+        }
+
+        _previousCount = into;
     }
 
     void Begin(int touching)
@@ -44,11 +64,27 @@ internal sealed partial class PhysicsWorld
         var key = _touchingKey[touching];
         _beganA[_beganCount] = (int)(key >> 32);
         _beganB[_beganCount] = (int)(key & 0xFFFFFFFF);
-        _beganNormal[_beganCount] = _touchingNormal[touching];
+        _beganNormal[_beganCount] = _contactNormal[touching];
         _beganCount++;
     }
 
-    void Sweep(CellGrid grid, Vector2 fromM, Vector2 travelM, int ignore, ref float nearest, ref int found)
+    /// <summary>A pair the last step had and this one did not find, kept where neither of its bodies was asked.</summary>
+    void Hold(ulong key)
+    {
+        if (OwnedThisStep((int)(key >> 32)) || OwnedThisStep((int)(key & 0xFFFFFFFF))) return;
+
+        _heldKey[_heldCount++] = key;
+    }
+
+    /// <summary>
+    /// Whether this step asked what a body touches: it was an owner, or it is out of the world, where it touches
+    /// nothing. Static and frozen bodies are neither.
+    /// </summary>
+    bool OwnedThisStep(int body) =>
+        _ownedInStep[body] == _stepStamp || (_flags[body] & BodyFlags.Enabled) == 0;
+
+    /// <summary>One grid's part of a cast, over the entries carrying <paramref name="live"/> (<see cref="Gather"/>).</summary>
+    void Sweep(CellGrid grid, BodyFlags live, Vector2 fromM, Vector2 travelM, int ignore, ref float nearest, ref int found)
     {
         var walk = grid.Walk(fromM, travelM);
         while (walk.MoveNext())
@@ -56,7 +92,7 @@ internal sealed partial class PhysicsWorld
             foreach (var body in walk.Items)
             {
                 if (body == ignore) continue;
-                if ((_flags[body] & BodyFlags.Enabled) == 0) continue;
+                if ((_flags[body] & live) != live) continue;
                 if ((_category[body] & LookingMask) == 0 || (_mask[body] & (ulong)LookingAs) == 0) continue;
                 if (!Shape.CastSegment(
                         fromM, travelM, _positionM[body], _rotation[body], _extentM[body],
@@ -97,18 +133,17 @@ internal sealed partial class PhysicsWorld
     }
 
     /// <summary>
-    /// All six lists grow together and to the same length. The two key buffers change places every step —
-    /// this step's touching list is next step's list of what was touching — so buffers of different sizes
-    /// would be resized back and forth once a tick for the rest of the run.
+    /// All six lists grow together and to the same length, <b>to hold <paramref name="pairs"/></b>: the list of
+    /// what was touching is this step's pairs and the held ones together, so it is the one that outgrows the rest.
     /// </summary>
-    void RoomForTouching()
+    void RoomForTouching(int pairs)
     {
-        if (_touchingCount < _touchingKey.Length) return;
+        if (pairs <= _touchingKey.Length) return;
 
-        var room = Math.Max(256, _touchingKey.Length * 2);
+        var room = Math.Max(Math.Max(256, pairs), _touchingKey.Length * 2);
         Array.Resize(ref _touchingKey, room);
-        Array.Resize(ref _touchingNormal, room);
         Array.Resize(ref _previousKey, room);
+        Array.Resize(ref _heldKey, room);
         Array.Resize(ref _beganA, room);
         Array.Resize(ref _beganB, room);
         Array.Resize(ref _beganNormal, room);

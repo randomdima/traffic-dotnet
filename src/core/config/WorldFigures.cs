@@ -381,8 +381,21 @@ internal sealed class BuildingFigures
     /// <summary>The one strip of ground somebody is meant to stand in.</summary>
     public float FrontGapM { get; init; } = 1f;
 
-    public float DwellMinS { get; init; } = 0f;
-    public float DwellMaxS { get; init; } = 10f;
+    /// <summary>
+    /// <b>How long somebody stays inside a building</b> (PER-11), drawn between the two at every arrival
+    /// (<see cref="DwellSkew"/>). The scale is how much of a town is indoors at once, and so how much of its traffic
+    /// is parked (PER-29): at a dwell of seconds nearly everybody is out at once, and with most trips driven, so is
+    /// nearly every car.
+    /// </summary>
+    public float DwellMinS { get; init; } = 10f;
+
+    public float DwellMaxS { get; init; } = 180f;
+
+    /// <summary>
+    /// <b>How far a dwell leans to its short end</b>: the share of the way from the shortest to the longest is a draw
+    /// raised to this power. Two: most visits are short and a few run long, a quarter of the way along at the median.
+    /// </summary>
+    public float DwellSkew { get; init; } = 2f;
 
     /// <summary>`PER-11`'s patience at a full door, in longest dwells: well above one, so an ordinary turnover is always waited out.</summary>
     public float PlacePatienceInDwells { get; init; } = 3f;
@@ -568,6 +581,32 @@ internal sealed class CityGenFigures
     /// straight after the other.
     /// </remarks>
     public float LocalityM { get; init; } = 30f;
+
+    /// <summary>
+    /// The longest road a traced map lays between two places (GEN-57): a way surveyed further than this
+    /// without meeting another is cut into roads no longer, at places of two arms.
+    /// </summary>
+    /// <remarks>
+    /// <b>A lane is a whole road</b>, and what files one is bounded: the ribbon atlas keeps a way's metres in
+    /// tenths of a ushort, 6 553.5 m, and a car's look-ahead is budgeted off the most arcs any one lane has.
+    /// A generated town never lays a road a tenth of that; a survey's ring road through open country does.
+    /// </remarks>
+    public float TracedRoadLongestM { get; init; } = 1000f;
+
+    /// <summary>
+    /// The shortest road a traced map lays between two junctions (GEN-57): a junction's disc stops this short
+    /// of the middle of the way to its nearest neighbour, so two places the survey drew close together keep the
+    /// road between them.
+    /// </summary>
+    public float TracedShortestRoadM { get; init; } = 0.5f;
+
+    /// <summary>
+    /// The tightest a traced road's innermost lane is laid round a corner (GEN-57), where the survey drew one
+    /// sharper than its carriageway can round: a hairpin drawn to a point is a turn this tight rather than a
+    /// cusp, and rather than the straight across its mouth. A road of one lane on its line is not laid tighter
+    /// than half its carriageway instead, having no lane beside it to cover its ground's fold.
+    /// </summary>
+    public float TracedTightestLaneRadiusM { get; init; } = 0.5f;
 
     /// <summary>
     /// How far one one-way street stands off the next (GEN-18), which is what scatters them evenly over a
@@ -878,4 +917,19 @@ internal sealed class NetworkFigures
     /// </summary>
     public float FootGraphNodeWeldM { get; init; } = 0.25f;
     public float SplineToleranceWalkedM { get; init; } = 0.1f;
+
+    /// <summary>
+    /// <b>How far a route cell reaches from the link at its middle</b>, along the network: what a sectioned search
+    /// cuts a network into, and so how much of it one plan floods. A few blocks of a town either way.
+    /// </summary>
+    public float RouteCellReachM { get; init; } = 200f;
+
+    /// <summary>How many cells a search details and hands over, the one the body sets off in included.</summary>
+    public int RouteSectionCells { get; init; } = 3;
+
+    /// <summary>
+    /// <b>The overlap</b>: how near the middle of the cell past a section the search reaches before it hands the
+    /// section over, so the section's last turn is chosen with the ground beyond it in view.
+    /// </summary>
+    public float RouteAimWithinM { get; init; } = 50f;
 }

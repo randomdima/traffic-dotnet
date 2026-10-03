@@ -666,11 +666,12 @@ internal sealed partial class DebugOverlay
         card.Keep(in line);
     }
 
-    /// <summary>How many bodies the two solver grids hold between them at a place, which is whether there is a cell there to ask about.</summary>
+    /// <summary>How many bodies the three solver grids hold between them at a place, which is whether there is a cell there to ask about.</summary>
     static int SolverCellAt(TownWorld world, Vector2 pointM)
     {
         var physics = world.PhysicsForInstruments;
-        return BodiesAt(physics.MovingIndex, pointM, out _, out _) + BodiesAt(physics.StaticIndex, pointM, out _, out _);
+        return BodiesAt(physics.MovingIndex, pointM, out _, out _) + BodiesAt(physics.FrozenIndex, pointM, out _, out _)
+               + BodiesAt(physics.StaticIndex, pointM, out _, out _);
     }
 
     /// <summary>How many bodies one index holds in the grid's cell over a place, and which cell that is — none off its window.</summary>
@@ -681,13 +682,15 @@ internal sealed partial class DebugOverlay
     }
 
     /// <summary>
-    /// <b>Both solver cells over a place, each in its own index's hue</b> (OBS-2x): the two stores are on one
-    /// grid at one level (SIM-8), so where both hold bodies the two boxes are one square drawn twice.
+    /// <b>Every solver cell over a place, the town's furniture in its hue and the bodies in theirs, frozen or not</b>
+    /// (OBS-2x): the stores are on one grid at one level (SIM-8), so where several hold bodies the boxes are one
+    /// square drawn again.
     /// </summary>
     static void FocusSolverCells(ref ScreenDraw draw, in Focus focus, Vector2 atM)
     {
         var physics = focus.World.PhysicsForInstruments;
         SolverCell(ref draw, physics.StaticIndex, atM, focus.LineM, Theme.SolverStaticEdge with { W = 1f });
+        SolverCell(ref draw, physics.FrozenIndex, atM, focus.LineM, Theme.SolverMovingEdge with { W = 1f });
         SolverCell(ref draw, physics.MovingIndex, atM, focus.LineM, Theme.SolverMovingEdge with { W = 1f });
     }
 
@@ -709,6 +712,7 @@ internal sealed partial class DebugOverlay
         card.Keep(in line);
 
         SolverRow(ref card, "moving", physics.MovingIndex, atM);
+        SolverRow(ref card, "frozen", physics.FrozenIndex, atM);
         SolverRow(ref card, "static", physics.StaticIndex, atM);
     }
 

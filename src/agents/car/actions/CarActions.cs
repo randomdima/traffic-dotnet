@@ -14,6 +14,14 @@ namespace TrafficSimulation.Agents.Car.Actions;
 /// </remarks>
 internal sealed class CarActions(DrivingGround ground, Manoeuvres manoeuvres)
 {
+    readonly uint[] _entries = new uint[ground.Cars.Capacity];
+
+    /// <summary>
+    /// <b>How many times this car has been handed to another action</b> — so whoever kept something it worked out
+    /// for one action can tell whether the car has been in any other since, however it came back.
+    /// </summary>
+    public uint EntriesOf(int car) => _entries[car];
+
     /// <summary>
     /// <b>A car handed over to another action</b>, and what the one it leaves owned let go: a pass is its overtake's,
     /// and a manoeuvre its bay's — kept from a manoeuvre into a bay to the one straight back out of it, where a leg
@@ -38,6 +46,7 @@ internal sealed class CarActions(DrivingGround ground, Manoeuvres manoeuvres)
         }
 
         cars.Action[car] = action;
+        _entries[car]++;
     }
 
     /// <summary>Whether an action is a car's manoeuvre at a bay, into one or out of it.</summary>

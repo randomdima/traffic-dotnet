@@ -308,7 +308,7 @@ internal static class Program
     {
         if (string.Equals(name, "all", StringComparison.Ordinal)) return Kept(CheckCatalogue.RunAll(config));
 
-        // These checks are about a particular town, so the command line's --map reaches them; three that run every
+        // These checks are about a particular town, so the command line's --map reaches them; those that run every
         // shipped town run the one it names, and the stuck probe runs it instead of its own; every other check builds
         // the world it needs.
         switch (name)
@@ -327,6 +327,9 @@ internal static class Program
             case "stuck" when map is not null:
                 StuckProbe.Run(map, config);
                 return 0;
+            case "trips" when map is not null:
+                TripProbe.Run(config, map);
+                return 0;
             case "load":
                 LoadProbe.Run(map ?? Options.FixtureMap, config);
                 return 0;
@@ -343,6 +346,9 @@ internal static class Program
                 return 0;
             case "shape":
                 TownShape.Run(map ?? Options.FixtureMap, config);
+                return 0;
+            case "fidelity":
+                TracedFidelity.Run(map ?? Options.TracedMap, config, atM);
                 return 0;
             case "joints":
                 TownShape.Joints(map ?? Options.FixtureMap, config);
@@ -542,6 +548,9 @@ internal static class Program
         /// brief that asks for no building, so it opens in a fraction of the time a city does.
         /// </summary>
         public const string FixtureMap = "Test";
+
+        /// <summary>What a check about tracing a real place is staged on when <c>--map</c> names none.</summary>
+        public const string TracedMap = "OdesaOsm";
 
         /// <summary>
         /// Where a hand-driven run leaves its frames when <c>--frames</c> names nowhere: the scratch folder,

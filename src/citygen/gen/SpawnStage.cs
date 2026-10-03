@@ -6,9 +6,15 @@ using TrafficSimulation.Core.Simulation;
 namespace TrafficSimulation.CityGen.Gen;
 
 /// <summary>
-/// <b>Where the roster stands at the first tick</b>: a car in a bay, and a person at a door (GEN-7).
+/// <b>Where the roster stands at the first tick</b>: a person at a door, and — in a town nobody lives in — a
+/// car in a bay (GEN-7).
 /// </summary>
 /// <remarks>
+/// <para>
+/// <b>A town with people in it stands no car here.</b> Every car there is somebody's own, and which bay it
+/// stands in is the bay nearest its owner's door that is still free once the services have their aprons — a
+/// question about the parking registry, which is the town's (<c>TownWorld.HandThemTheirCar</c>, PER-29).
+/// </para>
 /// <para>
 /// <b>A car is stood in the middle of a bay of one of the town's own car parks</b>, pointing into it, and
 /// the town turns it round to whichever way its driver parks (<c>TownWorld.StandCar</c>, GEN-4j). A yard is
@@ -37,9 +43,9 @@ internal static class SpawnStage
         var places = TheBays(lanes, carParks);
         if (places.Count == 0) places = TheLanes(lanes, config);
 
-        var cars = Math.Min(brief.Cars, places.Count);
         var doors = buildings.EntryPointM.Length;
         var people = Math.Min(brief.People, doors);
+        var cars = people > 0 ? 0 : Math.Min(brief.Cars, places.Count);
         var kind = new byte[cars + people];
         var positionM = new Vector2[cars + people];
         var headingRad = new float[cars + people];
@@ -81,7 +87,7 @@ internal static class SpawnStage
     /// bay-length of its lane (<see cref="SimConfig.CarParkBayDepthM"/>), and the middle of the lane otherwise.
     /// </summary>
     static float MiddleOfThePlaceM(LaneLines lanes, int lane, SimConfig config) =>
-        lanes.LaneOverOneLine[lane]
+        lanes.LaneIsBay[lane]
             ? lanes.LaneLengthM[lane] - (config.CarParkBayLengthM * 0.5f)
             : lanes.LaneLengthM[lane] * 0.5f;
 

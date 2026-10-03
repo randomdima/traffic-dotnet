@@ -114,9 +114,11 @@ internal sealed partial class TownWorld
 
         if (written == 0) return;
 
+        // A section handed over short of the goal is a chain that ran out: the rest is laid again from its end.
+        var runsOut = ranOut || _walkSearch.StopsShort;
         people.RouteCount[person] = written;
-        people.RouteRunsOut[person] = ranOut;
-        people.RouteToM[person] = StopsAtM(walking, into[..written], _walkSearch.Goals[goalSlot], ranOut);
+        people.RouteRunsOut[person] = runsOut;
+        people.RouteToM[person] = StopsAtM(walking, into[..written], _walkSearch.Goals[goalSlot], runsOut);
 
         // Seated on the first way, as far along it as the body actually stands — found over the whole of
         // that way, the entry's own metre being the fine graph's and this the lane's.
@@ -129,7 +131,6 @@ internal sealed partial class TownWorld
 
     /// <summary>What a route chain is expanded from when there is no way behind the body: a walk begins on its first way.</summary>
     const int NothingBehind = -1;
-
     /// <summary>
     /// <b>Whether this walker's chain ran out of room and its end is coming within the plan's reach</b> (PER-25,
     /// PER-27): nearer down the chain than the front of the body, the ground its plan covers past that, and what
@@ -201,8 +202,11 @@ internal sealed partial class TownWorld
         if (People.RouteRunsOut[person]) return;
 
         // A player's order is exempt from the cap on what a trip may hand somebody: that cap is a rule
-        // about the routes this town draws for itself.
-        var capM = People.Manual[person] ? float.PositiveInfinity : _config.PersonOffNetworkHopM;
+        // about the routes this town draws for itself. So is the walk to a car, whose way in is beside it
+        // in the bay (GEN-4e) — across the car park from the walk that wraps it, however deep that is.
+        var capM = People.Manual[person] || People.Stage[person] == TripStage.WalkingToTheCar
+            ? float.PositiveInfinity
+            : _config.PersonOffNetworkHopM;
         if ((People.GoalM[person] - endsAtM).Length() > capM) People.GoalM[person] = endsAtM;
     }
 

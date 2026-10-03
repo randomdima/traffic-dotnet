@@ -22,7 +22,8 @@ internal sealed partial class TownWorld
     /// road grips asymmetrically, and that asymmetry is a yaw the solver produces out of four impulses
     /// at four places rather than anything decided here.
     /// </remarks>
-    void Tyres(int car, in CarPose pose)
+    /// <returns>Whether the car was at rest and the tyres had nothing to do (<see cref="AtRest"/>).</returns>
+    bool Tyres(int car, in CarPose pose)
     {
         var command = Cars.Command[car];
         // Taken before the standstill is answered, because a car parked mid-slide still has a throttle
@@ -32,7 +33,7 @@ internal sealed partial class TownWorld
         if (AtRest(car, pose, command))
         {
             Rest(car);
-            return;
+            return true;
         }
 
         ref readonly var build = ref Cars.BuildOf(car);
@@ -74,6 +75,7 @@ internal sealed partial class TownWorld
         }
 
         Cars.DrivenSlipping[car] = slipping;
+        return false;
     }
 
     /// <summary>
@@ -84,9 +86,10 @@ internal sealed partial class TownWorld
     /// <remarks>
     /// Every figure the model would produce here is exactly zero: a patch with no velocity under it has
     /// no slip on either axis, the pedals ask for nothing, the drag opposes a motion of zero, and a rim
-    /// at rest is left where it is. A skipped calculation, not a changed one — safe only because nothing
-    /// sleeps in this solver and an impulse of nothing is never handed to it anyway
-    /// (<c>PhysicsWorld.ApplyImpulseAt</c>).
+    /// at rest is left where it is. A skipped calculation, not a changed one, since an impulse of nothing
+    /// is never handed to the solver anyway (<c>PhysicsWorld.ApplyImpulseAt</c>).
+    /// <b>It is what keeps a frozen car frozen</b> (SOL-37): the solver lets go of the last of a standing
+    /// car's motion when it freezes it, so from then on this is true, and nothing is spent to wake it.
     /// </remarks>
     bool AtRest(int car, in CarPose pose, in DriveCommand command) =>
         pose.VelocityMps == Vector2.Zero && pose.YawRateRadPerS == 0f && command.ThrottleMps2 == 0f &&

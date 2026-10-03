@@ -4,6 +4,93 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-10-02 — a walker clear on its own way is not read off the atlas
+
+**Most of what a laying of the claims costs re-derives that nothing is there.** Counted on O10 a minute in, a
+laying every 0.05 s cost 16 ms: car bodies 4.1, walker bodies 3.0, walkers' places on their ways 2.4, walkers'
+plans 2.1, cars' plans 1.5, the rest under 1.3 each. It was asked of 6 650 walkers out of doors and 3 410 cars,
+the town's 8 700 standing cars being laid again from their last answer. **Of the walkers' plans 96.5 % were
+granted whole**; what cut the rest was a light at a zebra (120 a laying), a car standing in a lane being crossed
+(70), a car's plan over a zebra (17) and another walker (10). **81 % of walker bodies were over their own way and
+nothing else.** Of the cars' plans 54 % were whole, and the rest were queues (560), lights (450) and junctions (100).
+A body costs up to a microsecond because a read of the atlas is loads through town-sized tables — 24 entries a
+read, to find one way — and not arithmetic.
+
+**So a walker clear on its way is laid on that way alone** (TER-4c.2, `TownWorld.IsClearOnItsWay`): its disc a
+touch clear of either side of the band, half the way's width clear of either end, and clear of every mark on the
+way. Every other ribbon over a band is a mark on it but for those laid edge to edge with it, and those are the
+side's and the ends'. Half a width is what the ends take: a touch there left the atlas finding the next way under
+2 900 discs a minute, at corners, where the way carrying on reaches back over the band. Checked against the atlas
+under every disc it skipped, 5.4 million in the minute from the first, it found another way under 5: four a disc 5 cm short of
+the sibling lane that the atlas reads as over it, one a corner mitre over a short footway that no mark covers —
+pavement both, and walkers the only readers.
+
+The atlas goes unread for about 4 500 of the 6 650 walkers' bodies a laying. Measured on O10 with the age probe,
+with the entry below and against the tree before both, the two run side by side so a busy machine weighed on them
+alike: the index phase a tick fell 8 % at one, three and five minutes (5 743 → 5 286, 5 132 → 4 698 and
+4 556 → 4 205 µs) and the whole tick 2 %. With a touch at the ends, alone and on an idle machine, it was 10 % and
+3 %. Over five minutes the trip probe was the town it had been: 9 756 walks arrived against 9 774, 8 388 bays
+against 8 423, 86 legs given up against 83.
+
+**Not done: a car's body worked out from its lane**, the same way: a car travelling its line, its box inside its
+lane's band with its yaw and the bend counted, laid as the box's own stretch of the lane. The ways matched the
+atlas every time, and the index fell 8 % — **and the town changed**: over five minutes 7 615 cars reached their bays
+against 8 423, 222 legs were given up against 83, and cars stood backing up for room for 33 044 car-ticks against
+12 872 and blocked with none behind them for 606 836 against 150 313. **The gap a queue keeps is partly the
+lattice's**: the atlas widens a body by half a step at each end, so read exactly every car stood half a metre
+nearer the one ahead, and too near to step out round it (CAR-50). Widened by the same half-step it was the town
+again (8 416 bays, 114 legs) and saved 3 %, the projection that replaced the read costing most of what the read
+did. How far a queue stands off is a figure (`DrivingFigures.StandOffM`) and should not ride on a resolution —
+which is for whoever next reads a car's body any other way.
+
+**Not done: a quiet walker's place carried on between layings.** A walker covers 7 cm between two layings, so one
+clear on its way with its plan granted whole skipped finding its place and its aim three layings in four, its
+place carried on by the ground it walked. It took 2 % off the index, wanted a guard so a shove or a hand putting it
+down was found again, and is state per walker for that.
+
+**Not done: the projection stopped past its window, nor a walker's pace read once a laying.** Both left every
+body where it was to the bit and neither moved the index: a way has few pieces, and what a station costs is the
+loads of its route and its way's arcs, not the loop or the trig.
+
+## 2026-10-02 — a point past a joint is read off the piece it is on
+
+**A body near the joint of two pieces of its way came out longer than it is**, by up to two metres. A piece is
+read a half-width and a reach past its ends, so the inside of a bend is covered, and a point both pieces reached
+kept the reading it lay deepest in — at the metre its foot fell on, held to the piece. **A piece carried on past its
+end is its circle, not the next piece**: outside a bend it runs nearer the points out there than the bend does, so
+those points a couple of metres down the next piece were filed at the joint's metre. A car on O10 driving from 74.2
+to 75.0 m along its lane was read from 72.95 m all the way, its body reaching back over the joint behind it.
+
+**A point is now read off the piece its foot falls on** (`RibbonAtlas.PointsOf`), and only one whose foot falls on
+neither — outside a bend, where the two part — off the deeper of them, at the joint. Over five minutes of O10 the
+town was the one it had been: 8 394 bays against 8 423, 85 legs given up against 83, cars blocked with none behind
+them for 146 508 car-ticks against 150 313.
+
+## 2026-10-02 — the claims are not skipped by cell where nothing moves
+
+**Asked whether a lane whose ground holds only frozen bodies (`SOL-37`) could be left as it was laid.** It cannot,
+because a way's claims are not made of the bodies near it. A plan is laid from its holder's nose down the line
+for as far as its grant runs, cut at the first body and settled against every other plan until none moves
+(`SettleThePlans`), and a light's hold turns on its own clock: a queue frozen at a red re-plans when it turns
+green without a body in the town having moved, and a cut far up a line moves where a plan ends on a way nowhere
+near it. A cell with no moving body in it says nothing about either, and a test that did would be a graph of
+which plans read which ways — dearer than laying them.
+
+**What a frozen body does cost the claims was measured instead.** On O10 at one, three and five minutes, laying
+every frozen car's body a second time — a no-op, the digests unchanged — added 330, 660 and 545 µs to the index
+phase a tick against 4 788, 3 963 and 4 191; inserting the same claims a second time from the recall without
+asking anything else added 30, 120 and 55. So the atlas is not the cost — a frozen body is the exact pose, and
+`RibbonAtlas.Recall` answers it with a comparison — and neither are the inserts: it is the per-car questions
+asked before them (what it is hooked to, whether it is under way, what it is built as). Some of that is a
+queued car's, whose claim reads its route and is laid again however still it stands.
+
+**So a standing car is not asked again** (`TownWorld.StandsAsLaid`): one whose action is `Stand`, unhooked, frozen
+in the same freezing, handed no other action since and at the same pose in the fleet as at the laying that last
+asked it. Its body is laid from that laying's atlas answer, and the passes after the bodies — pass, manoeuvre,
+plan, settling, backing, grant — walk only the cars that were asked, since each of them leaves a standing car as
+it found it. **Nothing survives a rebuild still**: the claims are laid again in full every time, which is what
+kept this exact (the age probe's digests unchanged on Odesa and O10) without a second kind of reservation.
+
 ## 2026-10-01 — a start stands for a run of two points, and an entry names its column
 
 **A start for every point was a fifth of a large town's memory.** The atlas kept 257 starts a cell, so that a

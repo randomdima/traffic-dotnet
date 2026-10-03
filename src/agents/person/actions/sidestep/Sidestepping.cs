@@ -84,11 +84,12 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
             return;
         }
 
+        var occupant = ground.HeldAs(person, out var roster);
         foreach (ref readonly var run in _swept.Of(person))
         {
             if (run.LastAtM < place.WalkedM - AStrideM(person)) continue;
 
-            Occupancy.LayPass(run.Way, run.FromM, run.ToM, 0f, person, LaneRoster.Walking);
+            Occupancy.LayPass(run.Way, run.FromM, run.ToM, 0f, occupant, roster);
         }
     }
 
@@ -157,10 +158,11 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
         var pass = People.Pass[person];
         if (!WhereOnItsSidestep(person, pass, out var place)) return false;
 
+        var occupant = ground.HeldAs(person, out var roster);
         foreach (ref readonly var run in _swept.Of(person))
         {
             if (run.LastAtM < place.WalkedM - AStrideM(person)
-                || !Occupancy.AheadBody(run.Way, run.FromM, run.ToM, person, out body, LaneRoster.Walking))
+                || !Occupancy.AheadBody(run.Way, run.FromM, run.ToM, occupant, out body, roster))
             {
                 continue;
             }
@@ -293,9 +295,10 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     /// </summary>
     void KeepOrWithdrawTheSidestep(int person, in Sidestep pass)
     {
+        var occupant = ground.HeldAs(person, out var roster);
         foreach (ref readonly var run in _swept.Of(person))
         {
-            if (Occupancy.KeepsItsPass(run.Way, run.FromM, run.ToM, person, LaneRoster.Walking)) continue;
+            if (Occupancy.KeepsItsPass(run.Way, run.FromM, run.ToM, occupant, roster)) continue;
 
             Withdrawn++;
             People.Pass[person] = Sidestep.None;
@@ -406,10 +409,11 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     bool IsTheSidestepFree(int person)
     {
         var passed = new ReadOnlySpan<LaneClaim>(in _passed[person]);
+        var occupant = ground.HeldAs(person, out var roster);
         foreach (ref readonly var run in _asked.Of(person))
         {
             if (!Occupancy.IsFreeForAPass(
-                    run.Way, run.FromM, run.ToM, person, LaneRoster.Walking, passed, !ground.Lines.IsTheCrossing(run.Way)))
+                    run.Way, run.FromM, run.ToM, occupant, roster, passed, !ground.Lines.IsTheCrossing(run.Way)))
             {
                 return false;
             }

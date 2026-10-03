@@ -77,7 +77,8 @@ it as itself, since a group that was given a formation would be the control laye
 goes rather than which goal it holds.
 
 **CTL-3** `P7` **Context orders.** With a person selected, right-clicking a building walks there and enters,
-and right-clicking anywhere else — a car included — walks there and stands. Nobody boards a car (`CAR-1`).
+and right-clicking anywhere else — a car included — walks there and stands. An order boards nobody: a person gets
+in only at the wheel of their own car, for a trip of their own (`PER-29`).
 **All containment checks bind unchanged** (PHY-7a).
 
 **CTL-8** `P7` **A car's four orders, and the pointer decides which.** With a car selected, one right-click is

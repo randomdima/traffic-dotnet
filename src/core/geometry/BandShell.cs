@@ -231,7 +231,7 @@ internal sealed partial class BandShell
     public (ArcSeg[][] Rings, ArcSeg[][] Loose) Outset(
         float outwardM, float roundedM, ArcOutset.Corners corners = ArcOutset.Corners.Rolled)
     {
-        var (rings, loose) = ArcOutset.Of(_chains, outwardM, roundedM, _grid, corners);
+        var (rings, loose) = ArcOutset.Of(_chains, outwardM, roundedM, _grid, corners, _originM);
         return (Shifted(rings, _originM), Shifted(loose, _originM));
     }
 

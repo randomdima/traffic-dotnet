@@ -87,6 +87,19 @@ internal sealed class LinkSurcharges
         return priceM;
     }
 
+    /// <summary>How many marks may still be live — the bound <see cref="MarkedLink"/> is asked under.</summary>
+    public int MayBeLive => _liveCount;
+
+    /// <summary>
+    /// The link one of the marks that may still be live prices up, or <see cref="TravelGraph.NoLink"/> where its
+    /// life has run out — for a search that has to know whether its ground holds one (<see cref="RouteSearch"/>).
+    /// </summary>
+    public int MarkedLink(int index)
+    {
+        var slot = _live[index];
+        return _untilS[slot] > _nowS ? _link[slot] : TravelGraph.NoLink;
+    }
+
     /// <summary>
     /// The clock the marks live against. The scan happens only on the tick a mark's life actually ends,
     /// and what it produces is the next such tick — so the ordinary tick reads one comparison.

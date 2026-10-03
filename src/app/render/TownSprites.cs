@@ -184,27 +184,14 @@ internal sealed class TownSprites
     public void Clear() => Standing = StandingSprites.Nothing;
 
     /// <summary>
-    /// How many instances the town needs at most, which is what the instance buffer is laid for. The heads
-    /// a lit junction can stand (<see cref="SignalHeads.MostFor"/>), four tyres, a tow arm and every lens
-    /// with its glow a car, and the whole ring of marks — none of which needs the town stood up to be known.
+    /// How many instances the town needs at most, which is what the instance buffer is laid for. A body a
+    /// spawn, the heads a lit junction can stand (<see cref="SignalHeads.MostFor"/>), a body, four tyres, a tow
+    /// arm and every lens with its glow a car its people own or its plan stands (<see cref="TownWorld.CarsOfThePlan"/>),
+    /// and the whole ring of marks — none of which needs the town stood up to be known.
     /// </summary>
     public static int CapacityFor(CityPlan plan, SimConfig config) =>
-        plan.Spawns.Count + (CarsIn(plan) * (TyreModel.Wheels + CarLamps.Most + 1))
+        plan.Spawns.Count + (TownWorld.CarsOfThePlan(plan) * (1 + TyreModel.Wheels + CarLamps.Most + 1))
         + StandingSprites.CapacityFor(plan) + SignalHeads.MostFor(plan) + config.Marks.Capacity;
-
-    static int CarsIn(CityPlan plan)
-    {
-        var cars = 0;
-        foreach (var kind in plan.Spawns.Kind)
-        {
-            if (kind == SpawnKindCar) cars++;
-        }
-
-        return cars;
-    }
-
-    /// <summary>The plan's own code for a car, which is the town format's and not this file's to choose.</summary>
-    const byte SpawnKindCar = 1;
 
     public int Fill(
         TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM, Span<SpriteInstance> into)

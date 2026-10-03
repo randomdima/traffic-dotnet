@@ -206,6 +206,21 @@ internal sealed class CellGrid
     /// </summary>
     public bool TryRange(Vector2 leastM, Vector2 mostM, out CellRange range) => _window.TryRange(leastM, mostM, out range);
 
+    /// <summary>
+    /// <b>Whether cell (<paramref name="x"/>, <paramref name="y"/>) of a box's <paramref name="range"/> is the first
+    /// it shares with a body met there</b> — the one cell a pair found in several is kept in, so a query needs no
+    /// mark of what it has already met.
+    /// </summary>
+    /// <remarks>
+    /// A cell is a monotone function of a coordinate, so the first cell two boxes share is the cell of the larger of
+    /// their least corners, which is the larger of their first cells; and a body met in a cell was filed from its own
+    /// first cell or before. <b>Only for a body whose box meets the range's</b> and that was filed at the box it has
+    /// now.
+    /// </remarks>
+    public bool FirstShared(in CellRange range, int x, int y, Vector2 bodyLeastM) =>
+        (x == range.FromX || _window.ClampX(_window.Level.CellOf(bodyLeastM.X)) == x)
+        && (y == range.FromY || _window.ClampY(_window.Level.CellOf(bodyLeastM.Y)) == y);
+
     /// <summary>The cells a segment crosses, in the order it crosses them. See <see cref="RayWalk"/>.</summary>
     public RayWalk Walk(Vector2 fromM, Vector2 travelM) => new(this, fromM, travelM);
 

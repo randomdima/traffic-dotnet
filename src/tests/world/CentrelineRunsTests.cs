@@ -18,15 +18,15 @@ namespace TrafficSimulation.Tests.World;
 public class CentrelineRunsTests
 {
     /// <summary>
-    /// <b>Every street with two ribbons is painted down exactly one run, and nothing else is in any</b>
-    /// (TER-6): a one-way street and a bay have a single ribbon apiece and no seam for a line to
-    /// stand in, and a road in two runs would be a street painted twice.
+    /// <b>Every street is painted down one run for each line between its lanes, and nothing else is in any</b>
+    /// (TER-6): a one-way street of one lane and a bay have a single ribbon apiece and no seam for a line to
+    /// stand in, and a road in more runs than it has lines would be a street painted twice.
     /// </summary>
     [Fact]
-    public void EveryStreetWithTwoRibbonsIsPaintedDownExactlyOneRun()
+    public void EveryStreetIsPaintedDownOneRunForEachLineBetweenItsLanes()
     {
         var plan = Towns.Of(Towns.Fixture);
-        var runs = CentrelineRuns.Lay(plan);
+        var runs = CentrelineRuns.Lay(plan, SimConfig.Shipped());
 
         var laid = new List<int>();
         for (var run = 0; run < runs.Count; run++) laid.AddRange(runs.RoadsOf(run).ToArray());
@@ -34,7 +34,7 @@ public class CentrelineRunsTests
         var wanted = new List<int>();
         for (var road = 0; road < plan.Roads.Count; road++)
         {
-            if (plan.Roads.LanesMeetOnItsLine(road)) wanted.Add(road);
+            for (var line = 0; line < plan.Roads.LinesBetweenLanes(road); line++) wanted.Add(road);
         }
 
         Assert.Equal(wanted, laid.Order().ToList());
@@ -48,7 +48,7 @@ public class CentrelineRunsTests
     [Fact]
     public void ARunIsOneUnbrokenLine()
     {
-        var runs = CentrelineRuns.Lay(Towns.Of(Towns.Fixture));
+        var runs = CentrelineRuns.Lay(Towns.Of(Towns.Fixture), SimConfig.Shipped());
 
         for (var run = 0; run < runs.Count; run++)
         {
@@ -72,7 +72,7 @@ public class CentrelineRunsTests
     public void ARunCarriesOnThroughAJunctionThatForksNothing()
     {
         var plan = Towns.Of(Towns.Fixture);
-        var runs = CentrelineRuns.Lay(plan);
+        var runs = CentrelineRuns.Lay(plan, SimConfig.Shipped());
 
         var run = new int[plan.Roads.Count];
         Array.Fill(run, -1);
@@ -94,8 +94,8 @@ public class CentrelineRunsTests
 
             if (standing.Count != 2 || standing[0] == standing[1]) continue;
 
-            var forksNothing = plan.Roads.LanesMeetOnItsLine(standing[0])
-                && plan.Roads.LanesMeetOnItsLine(standing[1]);
+            var forksNothing = plan.Roads.LinesBetweenLanes(standing[0]) == 1
+                && plan.Roads.LinesBetweenLanes(standing[1]) == 1;
             if (!forksNothing) continue;
 
             Assert.True(run[standing[0]] == run[standing[1]],
@@ -131,7 +131,7 @@ public class CentrelineRunsTests
         // crossed midway the bar and the zebra are two different places.
         var crossings = Crossings.Lay(plan, config, paving.RoadEnds(config).HeldM);
         var bars = StopBars.Lay(lanes, crossings, config);
-        var runs = CentrelineRuns.Lay(plan);
+        var runs = CentrelineRuns.Lay(plan, config);
 
         var asked = 0;
         var worstM = 0f;

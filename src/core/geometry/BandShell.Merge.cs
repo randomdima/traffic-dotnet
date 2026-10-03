@@ -383,8 +383,156 @@ internal sealed partial class BandShell
 
             foreach (var kept in keptOfLine) _kept.AddRange(kept);
 
-            return ArcRings.Of(_kept, _grid);
+            var (chains, loose) = ArcRings.Of(_kept, _grid, ArcRings.LeastLostM * Coarsest());
+            return (Unslit(chains), Uncopied(chains, loose));
         }
+
+        /// <summary>
+        /// <b>The rings left once every one narrower than two bands touching is taken out</b>
+        /// (<see cref="TouchingM"/>): a ring whose area is less than its length round times half that figure
+        /// is a slit said as a ring — a hair of grass between two bands, or a hair of band between two slits —
+        /// and the cover test has already said that much is no ground at all.
+        /// </summary>
+        /// <remarks>
+        /// <b>It is what a slit leaves where it closes on itself.</b> The cut where a slit is as wide as touching
+        /// (<see cref="Slit"/>) parts what is ground from what is not along it; two slits a hair apart leave a
+        /// lens of band between them a centimetre across, joined to nothing, and every move off the boundary is
+        /// then asked to round a shape whose two sides lie on one line.
+        /// </remarks>
+        ArcSeg[][] Unslit(ArcSeg[][] chains)
+        {
+            var kept = new List<ArcSeg[]>(chains.Length);
+            foreach (var ring in chains)
+            {
+                var (areaM2, lengthM, atM) = Measured(ring);
+                var touchingM = TouchingM
+                    * MathF.Max(LineTolerance.Coarseness(atM), LineTolerance.Coarseness(atM + _originM));
+                if (areaM2 * 2f >= lengthM * touchingM) kept.Add(ring);
+            }
+
+            return kept.Count == chains.Length ? chains : [.. kept];
+        }
+
+        /// <summary>
+        /// A ring's area, unsigned, its length round, and a place on it — the area off the ring walked as a
+        /// line through a few places on each piece, so a lens of two arcs between the same two ends has one.
+        /// </summary>
+        static (float AreaM2, float LengthM, Vector2 AtM) Measured(ArcSeg[] ring)
+        {
+            var atM = ring[0].StartM;
+            var twiceM2 = 0f;
+            var lengthM = 0f;
+            var lastM = Vector2.Zero;
+            foreach (var piece in ring)
+            {
+                lengthM += piece.LengthM;
+                for (var sample = 1; sample <= AreaSamples; sample++)
+                {
+                    var hereM = piece.PointAtM(piece.LengthM * sample / AreaSamples) - atM;
+                    twiceM2 += (lastM.X * hereM.Y) - (hereM.X * lastM.Y);
+                    lastM = hereM;
+                }
+            }
+
+            return (MathF.Abs(twiceM2) * 0.5f, lengthM, atM);
+        }
+
+        /// <summary>How many places along each piece a ring's area is read through.</summary>
+        const int AreaSamples = 8;
+
+        /// <summary>
+        /// <b>How much coarser than a millimetre the arithmetic is anywhere in the shape</b>
+        /// (<see cref="LineTolerance.Coarseness"/>): at its furthest corner, about the world's origin where the
+        /// lines were computed or about the merge's own where they are weighed, whichever is the coarser.
+        /// </summary>
+        /// <remarks>
+        /// <b>It is what the stringing may lose at one place grown by</b> (<see cref="ArcRings.LeastLostM"/>):
+        /// a slit narrower than touching is dropped down both its sides (<see cref="TouchingM"/>), and touching
+        /// grows with the coarseness, so the boundary a crossing loses to it does too. A town inside 8 192 m
+        /// loses what it always did.
+        /// </remarks>
+        float Coarsest()
+        {
+            var leastM = new Vector2(float.MaxValue);
+            var mostM = new Vector2(float.MinValue);
+            for (var piece = 0; piece < _pieces; piece++)
+            {
+                leastM = Vector2.Min(leastM, _leastM[piece]);
+                mostM = Vector2.Max(mostM, _mostM[piece]);
+            }
+
+            if (_pieces == 0) return 1f;
+
+            return MathF.Max(
+                MathF.Max(LineTolerance.Coarseness(leastM), LineTolerance.Coarseness(mostM)),
+                MathF.Max(LineTolerance.Coarseness(leastM + _originM), LineTolerance.Coarseness(mostM + _originM)));
+        }
+
+        /// <summary>
+        /// <b>The runs left once every one that is only a copy of a ring is taken out</b>: a run lying along a
+        /// closed ring the same way round, nearer it everywhere than two bands touching
+        /// (<see cref="TouchingM"/>), is that stretch of the ring said twice and not a length of boundary the
+        /// ring is missing.
+        /// </summary>
+        /// <remarks>
+        /// <b>It is the copy two bands lying the same way round leave when each is the edge by its own
+        /// reading</b> (<see cref="SameEdgeM"/>): the error between the two readings is spent on keeping both
+        /// rather than dropping both, which the stringing settles where the two copies end at the same places
+        /// (<see cref="ArcRings"/>) — and a copy cut at other places than the ring it doubles comes out as a run
+        /// with two ends standing on the ring's own line.
+        /// </remarks>
+        ArcSeg[][] Uncopied(ArcSeg[][] chains, ArcSeg[][] loose)
+        {
+            if (loose.Length == 0 || chains.Length == 0) return loose;
+
+            var pieces = ArcRings.Flat(chains);
+            var index = ChainIndex.OfPieces(pieces, _grid.Covering(ChainIndex.FinestCellM));
+            Span<int> near = stackalloc int[CopyCandidates];
+            Span<float> alongM = stackalloc float[CopyCandidates];
+            var kept = new List<ArcSeg[]>(loose.Length);
+            foreach (var run in loose)
+            {
+                var copy = true;
+                foreach (var piece in run)
+                {
+                    for (var sample = 0; sample <= CopySamples && copy; sample++)
+                    {
+                        var atM = piece.LengthM * sample / CopySamples;
+                        copy = OnARing(index, pieces, piece.PointAtM(atM), Heading.Unit(piece.HeadingAtRad(atM)), near, alongM);
+                    }
+                }
+
+                if (!copy) kept.Add(run);
+            }
+
+            return [.. kept];
+        }
+
+        /// <summary>Whether a place lies on a ring's own line, the same way round, within two bands touching.</summary>
+        bool OnARing(
+            ChainIndex index, ArcSeg[] pieces, Vector2 pointM, Vector2 along, Span<int> near, Span<float> alongM)
+        {
+            var touchingM = TouchingM
+                * MathF.Max(LineTolerance.Coarseness(pointM), LineTolerance.Coarseness(pointM + _originM));
+            var found = Math.Min(index.Near(pointM, touchingM, near, alongM), near.Length);
+            for (var at = 0; at < found; at++)
+            {
+                var ring = pieces[near[at]];
+                if (Vector2.Distance(ring.PointAtM(alongM[at]), pointM) <= touchingM
+                    && Vector2.Dot(Heading.Unit(ring.HeadingAtRad(alongM[at])), along) >= Squarely)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>How many places along each piece of a run are asked whether they lie on a ring: its ends and three between.</summary>
+        const int CopySamples = 4;
+
+        /// <summary>The most ring pieces one place is weighed against, which a bundle of copies never comes near.</summary>
+        const int CopyCandidates = 64;
 
         /// <summary>
         /// <b>One piece of one ribbon cut against every piece whose cells it reaches</b>, its own ribbon's
@@ -434,7 +582,55 @@ internal sealed partial class BandShell
 
                     Ends(cutting, ours, ribbon[mine], _ribbons[other][theirs]);
                     Ends(cutting, theirsAt, _ribbons[other][theirs], ribbon[mine]);
+
+                    Slit(cutting, ours, ribbon[mine], theirsAt, _ribbons[other][theirs], here, there);
+                    Slit(cutting, theirsAt, _ribbons[other][theirs], ours, ribbon[mine], here, there);
                 }
+            }
+        }
+
+        /// <summary>
+        /// <b>And where two boundaries face each other across a slit, both are cut where it is as wide as two
+        /// bands touching</b> (<see cref="TouchingM"/>): narrower than that the slit is inside the shape and
+        /// both sides of it go, wider it is ground no band covers and both stay — so the place it changes from
+        /// one to the other is a place the boundary turns across it, and each side has to stop there.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>It is the one change of hands that nothing crosses at.</b> Two carriageways laid a hair apart and
+        /// all but parallel — a road's two ways traced as two roads a carriageway apart — leave a wedge of
+        /// grass between them that pinches out over metres. Its two sides do meet where the bands cross, but
+        /// the last stretch before that is narrower than touching and goes; weighed whole at its own middle,
+        /// each side kept or dropped whatever stretch the wedge's narrowing fell inside, and the two sides
+        /// stopped metres apart with nothing to join them across.
+        /// </para>
+        /// <para>
+        /// <b>Only where the two are walked against each other</b>, which is what two bands with ground on
+        /// either side of one slit are: two edges lying the same way round are copies of one edge, and how near
+        /// those stand is the coincidence's question (<see cref="CoincidentM"/>).
+        /// </para>
+        /// </remarks>
+        void Slit(
+            Cutting cutting, int at, in ArcSeg mine, int facingAt, in ArcSeg facing, Span<float> here, Span<float> there)
+        {
+            var touchingM = TouchingM
+                * MathF.Max(LineTolerance.Coarseness(mine.StartM), LineTolerance.Coarseness(mine.StartM + _originM));
+            if (MathF.Abs(facing.Curvature) * touchingM >= 1f) return;
+
+            // The facing boundary moved off its own ground by that much: where this one crosses it, the slit
+            // between the two is exactly as wide as touching.
+            Span<ArcSeg> moved = stackalloc ArcSeg[1];
+            Spline.OffsetInto([facing], -touchingM, moved);
+
+            var found = Spline.CrossingsOf(mine, moved[0], here, there);
+            for (var cut = 0; cut < found; cut++)
+            {
+                var along = Heading.Unit(mine.HeadingAtRad(here[cut]));
+                var against = Heading.Unit(moved[0].HeadingAtRad(there[cut]));
+                if (Vector2.Dot(along, against) > -Squarely) continue;
+
+                Cut(cutting, at, here[cut]);
+                On(cutting, facingAt, facing, mine.PointAtM(here[cut]));
             }
         }
 

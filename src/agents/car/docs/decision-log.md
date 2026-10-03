@@ -3,6 +3,31 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-10-02 — a car standing parked is not ticked
+
+**A parked car's tick wrote what was already there.** With nobody driving it, a tick sets the parked command, the
+no-hold and the clear context, recovers a throttle already at one and clears four wheels already clear — and paid
+a stack frame, a pose and a `sincos` to do it, for every parked car sixty times a second. So a car whose last tick
+rested it parked, that nobody has since handed a driver, a hand, a hook or another command, that the solver has
+kept frozen (`SOL-37`) and that the fleet still has at a dead standstill is not ticked at all
+(`TownWorld.StandsParked`), and its four impulses of nothing are not spent either. The age probe's digests were
+unchanged on Odesa and O10; its decisions still run on its own clock.
+
+## 2026-10-01 — a car somebody owns waits for them, and the round is for a car nobody owns
+
+**Every car of a town people live in is somebody's** (PER-29, the person slice's log has why), and is driven by
+their trips: it stands in its bay between them, and moves with nobody in it only to be where its owner can walk to
+it — parking itself where it was left in the street, or called to the bay nearest an owner further off than a walk
+(CAR-8). A car on its own round would be gone when its owner came back for it, so **the round runs only for a car
+nobody owns**, which is a town nobody lives in. `SetOff`, laid for whoever gets in and never called, is what an
+owner's leg begins by.
+
+**A car stood in a box searches the lane its join leads onto from that lane's start** (`AlongTheEntryM`). Re-laid
+there it is handed the lane it came off and the onward one, and the search set off from the far end of the onward
+lane: a place a few metres into it read as passed. The owners' traffic stood a patrol in a box short of its place
+in the suite's built town (`Towns.Built`), and it was routed round the block over the place, drove through it, and
+broke `APatrolStopsOnThePlaceItWasSentTo`.
+
 ## 2026-10-01 — a car its locks hold stands still, whole
 
 **A parked car never came to rest.** Its velocity, yaw rate and front rims changed sign every tick — about a

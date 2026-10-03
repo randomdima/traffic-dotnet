@@ -771,12 +771,114 @@ internal sealed class ArcRings
         Places(out var arrivingAt, out var leavingAt);
 
         var said = new HashSet<(int From, int To)>(_kept.Count);
+        var arriving = new Dictionary<int, List<ArcSeg>>();
+        var leaving = new Dictionary<int, List<ArcSeg>>();
         var kept = 0;
         for (var at = 0; at < _kept.Count; at++)
         {
-            if (said.Add((leavingAt[at], arrivingAt[at]))) _kept[kept++] = _kept[at];
+            var stretch = _kept[at];
+            if (!said.Add((leavingAt[at], arrivingAt[at]))
+                || SaidAlready(arriving, arrivingAt[at], stretch, stretch.StartM, static said => said.StartM)
+                || SaidAlready(leaving, leavingAt[at], stretch, stretch.EndM, static said => said.EndM))
+            {
+                continue;
+            }
+
+            Filed(arriving, arrivingAt[at], stretch);
+            Filed(leaving, leavingAt[at], stretch);
+            arrivingAt[kept] = arrivingAt[at];
+            leavingAt[kept] = leavingAt[at];
+            _kept[kept++] = stretch;
+        }
+
+        _kept.RemoveRange(kept, _kept.Count - kept);
+        Unsaid(arrivingAt, leavingAt);
+    }
+
+    /// <summary>
+    /// <b>And a stretch said once each way is not said at all</b>: one running from a place to another and one
+    /// running back between the same two, lying on each other, are a seam walked there and back — no ground
+    /// on either side of it that the other does not have on its own — and both go.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is what a move off a shape leaves where two of its lines come out on one another</b>
+    /// (<see cref="ArcOutset"/>): a moved piece run on past the start of the next along one line and the chord
+    /// back across the gap the move left, both at exactly the distance, so the fold test keeps both — and every
+    /// later move rounds a spike that has no width as if it were a corner the shape turns.
+    /// </remarks>
+    void Unsaid(int[] arrivingAt, int[] leavingAt)
+    {
+        var from = new Dictionary<(int From, int To), List<int>>();
+        for (var at = 0; at < _kept.Count; at++)
+        {
+            var key = (leavingAt[at], arrivingAt[at]);
+            if (!from.TryGetValue(key, out var list)) from[key] = list = [];
+
+            list.Add(at);
+        }
+
+        var unsaid = new bool[_kept.Count];
+        var any = false;
+        for (var at = 0; at < _kept.Count; at++)
+        {
+            if (unsaid[at] || !from.TryGetValue((arrivingAt[at], leavingAt[at]), out var back)) continue;
+
+            var middleM = _kept[at].PointAtM(_kept[at].LengthM * 0.5f);
+            foreach (var other in back)
+            {
+                if (unsaid[other] || other == at) continue;
+                if (Vector2.DistanceSquared(_kept[other].PointAtM(_kept[other].LengthM * 0.5f), middleM) > WeldM * WeldM) continue;
+
+                unsaid[at] = unsaid[other] = any = true;
+                break;
+            }
+        }
+
+        if (!any) return;
+
+        var kept = 0;
+        for (var at = 0; at < _kept.Count; at++)
+        {
+            if (!unsaid[at]) _kept[kept++] = _kept[at];
         }
 
         _kept.RemoveRange(kept, _kept.Count - kept);
     }
+
+    /// <summary>
+    /// <b>Whether a stretch sharing one place with this one already runs from within a weld of its other end,
+    /// the same way</b> — one stretch of boundary said twice whose second ends were gathered into another
+    /// place. Places are gathered greedily, so two ends a weld apart from each other may each be nearer a
+    /// different third; asked of the ends themselves, they are the one end they are.
+    /// </summary>
+    static bool SaidAlready(
+        Dictionary<int, List<ArcSeg>> at, int place, in ArcSeg stretch, Vector2 otherEndM, Func<ArcSeg, Vector2> otherEndOf)
+    {
+        if (!at.TryGetValue(place, out var said)) return false;
+
+        foreach (var other in said)
+        {
+            if (Vector2.DistanceSquared(otherEndOf(other), otherEndM) <= WeldM * WeldM
+                && Vector2.Dot(other.StartUnit, stretch.StartUnit) >= SameWay)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    static void Filed(Dictionary<int, List<ArcSeg>> at, int place, in ArcSeg stretch)
+    {
+        if (!at.TryGetValue(place, out var said)) at[place] = said = [];
+
+        said.Add(stretch);
+    }
+
+    /// <summary>
+    /// How nearly two stretches between the same places have to set off the same way to be one stretch said
+    /// twice: within an eighth of a turn — two different stretches between two places a weld apart set off at
+    /// whatever bearing their own shapes give, while two copies of one set off together.
+    /// </summary>
+    const float SameWay = 0.7071068f;
 }

@@ -243,6 +243,37 @@ public class SplineTests
     }
 
     /// <summary>
+    /// <b>Two corners that all but share a leg leave no straight that turns</b>
+    /// (<see cref="Spline.RoundedInto"/>): rounded at a hair under half the leg, they leave a sliver of it
+    /// between them, and that sliver lies on the leg's own bearing — asked tens of kilometres from the
+    /// origin, where a bearing read off the sliver's own two ends is a float's step in whatever direction.
+    /// </summary>
+    [Fact]
+    public void TwoCornersAllButSharingALegJoinWithoutATurnBetweenThem()
+    {
+        const float LegM = 6f;
+        const float SliverM = 6e-4f;
+
+        Span<ArcSeg> laid = stackalloc ArcSeg[5];
+        for (var step = 0; step < 256; step++)
+        {
+            var atM = new Vector2(8192f + (step * 91.37f), 30000f - (step * 83.11f));
+            var along = Heading.Unit(0.3f + (step * 0.01f));
+            var across = Heading.RightOf(along);
+            var cornerM = atM + (along * 60f);
+            var written = Spline.RoundedInto(
+                [atM, cornerM, cornerM + (across * LegM), cornerM + (across * LegM) + (along * 60f)],
+                (LegM - SliverM) * 0.5f, laid);
+
+            for (var piece = 1; piece < written; piece++)
+            {
+                var endsOnRad = laid[piece - 1].HeadingAtRad(laid[piece - 1].LengthM);
+                Assert.InRange(MathF.Abs(Spline.WrapRad(laid[piece].HeadingRad - endsOnRad)), 0f, 1e-3f);
+            }
+        }
+    }
+
+    /// <summary>
     /// The tightest circle the corner is asked to hold, which is the walker's
     /// (<see cref="SimConfig.WalkerTightestTurnM"/>) because the walk is what lays corners at this scale.
     /// </summary>

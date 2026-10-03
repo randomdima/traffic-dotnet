@@ -2,20 +2,21 @@ using System.Collections.Concurrent;
 using System.Numerics;
 using TrafficSimulation.CityGen.Exam;
 using TrafficSimulation.CityGen.Gen;
+using TrafficSimulation.CityGen.Traced;
 using TrafficSimulation.Core.Config;
 
 namespace TrafficSimulation.CityGen;
 
 /// <summary>
 /// <b>Every map this build can open, and the one place a name becomes a town.</b> A city comes from its
-/// brief (<see cref="TownBrief"/>) and is generated when it is asked for; a map laid to measure one thing
-/// comes from the code that lays it.
+/// brief (<see cref="TownBrief"/>) and is generated when it is asked for, or from the survey of a real place
+/// (<see cref="Traced.Survey"/>) and is traced; a map laid to measure one thing comes from the code that lays it.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>One list, read by everything</b> — the start menu, the command line, every probe and every sweep — so
 /// a map that can be opened one way can be opened the other and no caller has to know which kind it is
-/// looking at. That is the whole reason this exists: the two kinds of map differ in how they are made and in
+/// looking at. That is the whole reason this exists: the kinds of map differ in how they are made and in
 /// nothing else, and a <see cref="CityPlan"/> is where the difference ends.
 /// </para>
 /// <para>
@@ -46,9 +47,9 @@ internal static class Maps
     ];
 
     /// <summary>
-    /// Every map there is to open, in name order — the briefs on disk and the laboratories laid in code.
-    /// <b>A map is a brief or it is laid in code</b>: no town is carried as a file, the fixture having been the
-    /// last of them.
+    /// Every map there is to open, in name order — the briefs and the surveys on disk and the laboratories laid
+    /// in code. <b>A map is a brief, a survey or code</b>: no town is carried as a file, the fixture having been
+    /// the last of them, and a survey carries a place's ways rather than a town laid off them (GEN-57).
     /// </summary>
     /// <remarks>
     /// <b>The idle ring is laid but not shipped.</b> Every probe and every sweep reads this list, and the
@@ -58,12 +59,23 @@ internal static class Maps
     public static string[] Shipped()
     {
         var names = new List<string>(ProjectPaths.TownBriefs()) { ExamPlan.Name };
+        names.AddRange(ProjectPaths.TracedSurveys());
         names.Sort(StringComparer.Ordinal);
         return [.. names];
     }
 
     /// <summary>Whether a map is generated from a brief rather than laid in code.</summary>
     public static bool IsGenerated(string name) => File.Exists(ProjectPaths.TownBriefFile(name));
+
+    /// <summary>Whether a map is traced off a survey of a real place (GEN-57).</summary>
+    public static bool IsTraced(string name) => File.Exists(ProjectPaths.TracedSurveyFile(name));
+
+    /// <summary>
+    /// <b>Whether a map is content rather than code</b> — a brief or a survey, either of which a build may ship
+    /// any number of without that being a change to the engine — which is what decides that only
+    /// <c>Tier.Maps</c> asks questions of it.
+    /// </summary>
+    public static bool IsCity(string name) => IsGenerated(name) || IsTraced(name);
 
     /// <summary>
     /// The brief a generated map is laid from, for whoever wants to say what the map is. <b>Read once a
@@ -79,6 +91,17 @@ internal static class Maps
     });
 
     static readonly ConcurrentDictionary<string, TownBrief> Briefs = new();
+
+    /// <summary>The OSM extract a traced map is laid from, read once a name for the same reason a brief is.</summary>
+    public static OsmExtract Extract(string name) => Extracts.GetOrAdd(name, static map =>
+    {
+        var path = ProjectPaths.TracedSurveyFile(map);
+        var extract = AssetJson.Read(path, OsmExtractJson.Default.OsmExtract);
+        extract.Check(path);
+        return extract;
+    });
+
+    static readonly ConcurrentDictionary<string, OsmExtract> Extracts = new();
 
     /// <summary>
     /// <b>The town itself, laid once for as long as it is the town being asked about.</b> A name that is
@@ -138,6 +161,7 @@ internal static class Maps
         }
 
         if (IsGenerated(name)) return TownGenerator.Lay(Brief(name), config, sizes);
+        if (IsTraced(name)) return TracedPlan.Lay(Survey.Of(Extract(name), config), config);
 
         throw new FileNotFoundException(
             $"No map called {name}: this build knows {string.Join(", ", Shipped())}.");

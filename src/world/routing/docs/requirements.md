@@ -63,6 +63,10 @@ census` prints the links a route settles on its way to an answer.
 **A link is a way on, not a lane and not a road.** How many lanes a direction carries, which one a body
 ends up on, what shape any of it is and what is standing on it are all the local tier's.
 
+**And the cells the search is sectioned by are grown over the graph, not laid over the ground** (`RouteCells`):
+a cell is every link nearer one middle link than any other, measured along the links. The search still has
+no coordinate to read.
+
 ## The search state is a link, never a place
 
 What a turn costs depends on the way the body arrived as well as the way it leaves, so **the cheapest way
@@ -76,10 +80,37 @@ which is also what lets the goal be a *place on a link*. Three consequences:
 - **What a link costs as the *last* one is not its weight**, because the route stops part-way along it.
 - **Lights never enter pathfinding** (TLT-2a): a signal wait may not mark a road blocked.
 
+The cells are the one place a search settles anything other than a link, and what they settle is which
+cells the link search may enter — never which link a route takes.
+
+## The search is sectioned
+
+**A route is found a section at a time.** The cells the trip crosses are searched first, over the cells'
+own graph; then the links of the first few of them in detail, inside a window of those cells and every cell
+one way on from them. The route is handed over as far as the first link into the cell past the section, and
+the rest is asked for again from there — exactly as a route that ran out of room always was. What one plan
+costs is then the window, whatever the length of the trip; a flood over the whole graph costs every link
+cheaper than its answer, which is half a town.
+
+- **A trip no longer than a section is searched exactly**, over the whole graph: what that costs is the short
+  reach of its own answer, and a window could miss the cheapest way round a corner of the cells it crosses.
+- **The section's last turn is chosen with the ground past it in view.** The search reaches into the core of
+  the cell after the section — the overlap — before it hands the section over, and that ground is searched
+  again by the next section rather than travelled on this one's say.
+- **A section is not the cheapest route, and how far it is from one is measured.** The cells' prices are an
+  estimate, so a route followed section by section can come out dearer than the one a whole-graph search
+  would have found; `--bench census` follows sampled routes to their goals and prints by how much.
+- **Nothing the window cannot settle is settled in it.** A window that holds a closed link or a priced-up one
+  — the two things laid since the cells were, and so the two the cells cannot see — or one the link search
+  finds no way through even a ring wider, is searched again over the whole graph. A route that exists is
+  never refused for the cells it was looked for in.
+- **The cells never refuse what the links allow.** Every turn between two cells is a way between them, so a
+  goal no run of cells reaches is refused without a link search at all.
+
 ## The search is asked once a leg, not once a junction
 
 **A leg is routed and then travelled.** The global search runs when the leg is drawn, again where the route
-in hand runs out, and again where something has invalidated it — a stretch a leg priced up after getting
+in hand runs out — out of room, or at the end of its section — and again where something has invalidated it — a stretch a leg priced up after getting
 nowhere, a destination it gave up for one nearer (CAR-15a). Between those the way ahead is *read*: the
 pieces of a link are contracted with the town and expanded into the chain of ways the body travels
 (`RouteChain`).

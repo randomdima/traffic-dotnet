@@ -65,13 +65,16 @@ internal sealed partial class TownWorld
         for (var person = 0; person < People.Count; person++) StationTheWalker(person);
 
         for (var person = 0; person < People.Count; person++) LayTheWalkersBody(person);
-        for (var car = 0; car < Cars.Count; car++) LayTheCarsBody(car);
+
+        // Every car's body, and from here on only the cars that were asked for theirs: a standing car's pass,
+        // manoeuvre, plan, backing and grant are the nothing they were at the last laying.
+        LayTheCarsBodies();
 
         // The ground a pass will cover is a body's (TER-4c.6), and so is a manoeuvre's at a bay (GEN-4f): both are
         // down before anything is asked for.
-        for (var car = 0; car < Cars.Count; car++) _overtaking.Lay(car, IsUnderWay(car));
+        foreach (var car in CarsAsked) _overtaking.Lay(car, IsUnderWay(car));
         _bays.ForgetTheSweeps();
-        for (var car = 0; car < Cars.Count; car++) _bays.Lay(car);
+        foreach (var car in CarsAsked) _bays.Lay(car);
         for (var person = 0; person < People.Count; person++) _sidestepping.Lay(person);
 
         // The lights before any plan: a light's hold is placed rather than asked for, so it has to be down before
@@ -79,7 +82,7 @@ internal sealed partial class TownWorld
         LightTheWays();
 
         Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];
-        for (var car = 0; car < Cars.Count; car++) PlanTheDrive(car, ways);
+        foreach (var car in CarsAsked) PlanTheDrive(car, ways);
 
         Span<LineWay> walk = stackalloc LineWay[WalkingGround.MostWaysAlongAWalk];
         for (var person = 0; person < People.Count; person++) PlanTheWalk(person, walk);
@@ -88,9 +91,9 @@ internal sealed partial class TownWorld
 
         // The ground a car backs up over is weaker than every plan (TER-4c.7), so it is asked once all of them are
         // settled and takes nothing any of them keeps — but what the car queued behind it could still stop short of.
-        for (var car = 0; car < Cars.Count; car++) _backingUp.Lay(car, IsUnderWay(car));
+        foreach (var car in CarsAsked) _backingUp.Lay(car, IsUnderWay(car));
 
-        for (var car = 0; car < Cars.Count; car++) _ground.ReadTheGrant(car);
+        foreach (var car in CarsAsked) _ground.ReadTheGrant(car);
         for (var person = 0; person < People.Count; person++)
         {
             _walkingGround.ReadTheGrant(person);
@@ -146,7 +149,7 @@ internal sealed partial class TownWorld
         for (var pass = 0; pass < _config.Road.MostSettlingPasses; pass++)
         {
             var laidAgain = 0;
-            for (var car = 0; car < Cars.Count; car++) laidAgain += _following.Settle(car, ways) ? 1 : 0;
+            foreach (var car in CarsAsked) laidAgain += _following.Settle(car, ways) ? 1 : 0;
             for (var person = 0; person < People.Count; person++) laidAgain += SettleTheWalk(person, walk) ? 1 : 0;
 
             PlansLaidAgain += laidAgain;

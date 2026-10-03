@@ -15,8 +15,8 @@ a space is a fact about that space, settled with the ground it was painted on, a
 driver's door of a body standing square in it. Read instead off wherever the car has actually come to rest,
 the point moves whenever anything nudges the body, and a walk already under way is re-planned round the lot
 by a shove nobody chose. A space has one such point per standing (`GEN-4j`), on opposite flanks, and which
-of them a walk aims at is the way round the car is facing. **Nothing asks for it** (`ParkingRegistry.WayInM`):
-no walk is aimed at a car, every trip being walked (PER-11).
+of them a walk aims at is the way round the car is facing. **It is where an owner walks to their car and where
+they get out of it** (`ParkingRegistry.WayInM`, PER-29).
 
 **GEN-4b** `P6` Parking is laid as **lots** — a handful of spaces each, every space square to its kerb — and
 the count is whatever satisfies the relation that matters: **every building stands within a walking

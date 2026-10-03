@@ -137,7 +137,7 @@ internal sealed class StatusPanel
     const int FrameRows = 10;
 
     const int TickRows = 10;
-    const int TownRows = 5;
+    const int TownRows = 6;
 
     /// <summary>The tick the run has reached, drawn under the title on every open panel.</summary>
     const int RunRows = 1;
@@ -461,6 +461,7 @@ internal sealed class StatusPanel
 
         Count(ref draw, ref row, text, "    walkers", world.People.Count);
         Count(ref draw, ref row, text, "    cars", world.Cars.Count);
+        Count(ref draw, ref row, text, "    frozen", world.FrozenBodyCount);
         Count(ref draw, ref row, text, "    statics", world.StaticBodyCount);
 
         var line = new TextBuffer(text);

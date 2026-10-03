@@ -105,6 +105,10 @@ turned across its own lane holds the corner of the next and not its own shadow d
   reservation has no across to tell apart — without being held off it.
 - **A walker is always on the way it walks**, over the stretch its own body takes of it — the one way it must
   never be missing from, however the lattice falls under a body narrower than it.
+- **A walker standing clear inside the band of the way it walks is on that way alone**, and is not read off the
+  lattice: clear of either side by a touch, of either end by half the way's width, and of every mark on the way
+  (TER-5c). Every other ribbon over a band is a mark on it but for those laid edge to edge with it — the way beside
+  it and the ways carrying on from its ends — and a disc that clear reaches none of them.
 
 **TER-4c.6** `P3` **Getting past something standing in the way is a pass, and a pass is laid as a body over
 all the ground it will cover** — at p0, where nothing compares it, cuts it or takes it, because a holder that

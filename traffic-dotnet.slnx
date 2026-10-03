@@ -6,5 +6,8 @@
   <Folder Name="/tools/glyphsheet/">
     <Project Path="src/tools/glyphsheet/glyph-sheet.csproj" />
   </Folder>
+  <Folder Name="/tools/osmscan/">
+    <Project Path="src/tools/osmscan/osm-scan.csproj" />
+  </Folder>
   <Project Path="traffic-dotnet.csproj" />
 </Solution>

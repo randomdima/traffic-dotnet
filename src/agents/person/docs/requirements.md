@@ -171,10 +171,13 @@ is not making its own next movement, on a stretch of pavement with a lane runnin
 
 ## The trip
 
-**PER-9** `P5` Walk around the city from building to building. Destinations are drawn from the **agent seed**.
+**PER-9** `P5` Go around the city from building to building. Destinations are drawn from the **agent seed**,
+**near where the person stands**: a place within a trip's reach of them (`SimConfig.PersonTripReachM`), and the
+building whose way in is nearest it. Drawn anywhere in the town, every trip is driven across it down the same
+few arterials.
 
-**And a walker begins the round where it ends one** — inside a building, dwelling (GEN-7). There is no
-first leg that is different from the rest: building, the place it was going, building.
+**And a person begins the round where they end one** — inside a building, dwelling (GEN-7). There is no
+first leg that is different from the rest: building, the place they were going, building.
 
 **PER-11** `P5` On arrival the person enters if the building has spare capacity and **dwells inside** before
 drawing the next destination.
@@ -182,10 +185,23 @@ drawing the next destination.
 **Arriving is not a radius.** A search will happily prove that a body within some distance of a door has
 arrived when it is on the wrong side of a wall; arrival is a fact about the leg being finished.
 
-**Every trip is walked.** No leg of one is driven, no car is chosen and no bay is claimed on anybody's
-behalf — what a car does in this town is its own (`CAR-1`), and the two rosters meet only on the ground
-they share. It is where this slice stands rather than a rule about people
-([docs/index.md](../../../../docs/index.md#known-gaps)).
+**PER-29** `P5` **Nobody walks further than a few blocks** (`SimConfig.PersonWalkReachM`), and **everybody who
+lives here owns a car of their own** — one each, never shared, parked in the free bay nearest their door when
+the town is stood up. A door within a walk of both the person and their car is walked to; any other is
+**driven** to: a walk to their car, a drive to a free bay near the door, and a walk from there.
+
+- **Within a walk of the car as well as the person**, so that wherever a person's walks take them, their car
+  is never further off than a walk — and the walk to it is a walk like any other.
+- **The car is driven by the trip and by nothing else while its owner is at the wheel** (`CAR-1`): what drives
+  it is the leg (`CAR-15`), what ends it is the bay, and the owner is let out beside the driver's door
+  (`GEN-4e`, `PHY-7a`). A leg that ends anywhere but a bay is a trip given up, and drawn again from the wheel.
+- **A walk to a car is over once its owner can touch the car's way in** — the last of it is across a car park
+  whose bays hold their neighbours' bodies — and **the ground it holds is the car's** (`PER-26`), as an officer's
+  walk to the post is (`SRV-11`): a walk held off its own car's body never reaches the door beside it. So is the
+  walk away from a parked car, and a pass round somebody on either (`PER-28`).
+- **A person with no car to hand walks, and draws only what they can walk to.** Further off than a walk — set
+  down at a hospital, left by an order — the car is called to the free bay nearest them (`CAR-8`); wrecked,
+  it is theirs again once the depot has mended it (`EVA-7`).
 
 ## Damage
 

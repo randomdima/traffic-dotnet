@@ -33,7 +33,7 @@ internal sealed partial class GroundMesh
         var halfWidthM = config.Road.PaintLineWidthM * 0.5f;
         if (dashM <= 0f || pitchM <= dashM) return;
 
-        var runs = CentrelineRuns.Lay(plan);
+        var runs = CentrelineRuns.Lay(plan, config);
         for (var run = 0; run < runs.Count; run++)
         {
             var (fromM, toM) = runs.PaintedM(run, crossings, config);

@@ -126,6 +126,12 @@ internal sealed partial class SimConfig
     /// <summary>How far from a place the bays a car may be given there are looked for: a spawn's, and a leg's retarget.</summary>
     public float PersonWalkWorthM => CityGen.BlockSpacingAlongMinM * Person.WalkWorthInBlockSpacings;
 
+    /// <summary>The furthest a trip is walked (PER-29), 285 m at the shipped figures.</summary>
+    public float PersonWalkReachM => CityGen.BlockSpacingAlongMinM * Person.WalksNoFurtherInBlockSpacings;
+
+    /// <summary>How far from a person their next destination is drawn (PER-9), 570 m at the shipped figures.</summary>
+    public float PersonTripReachM => CityGen.BlockSpacingAlongMinM * Person.TripReachInBlockSpacings;
+
     /// <summary>
     /// The one short straight hop everything off the walking network gets — a doorway, the ground beside a
     /// bay. The shortness is the whole safeguard: roughly one frontage depth, which is the pavement the
@@ -133,7 +139,7 @@ internal sealed partial class SimConfig
     /// </summary>
     public float PersonOffNetworkHopM => PavementWidthM + Building.FrontGapM;
 
-    /// <summary>How long a walker waits at a full door before giving the place up (PER-11), 30 s at the shipped figures.</summary>
+    /// <summary>How long a walker waits at a full door before giving the place up (PER-11), 9 min at the shipped figures.</summary>
     public float PersonPlacePatienceS => Building.DwellMaxS * Building.PlacePatienceInDwells;
 
     /// <summary>
@@ -232,7 +238,7 @@ internal sealed partial class SimConfig
     public float PersonWalkAheadM => PersonDiameterM * Person.WalkAheadInDiameters;
 
     /// <summary>
-    /// <b>How far a walker covers in one tick at its pace</b> — 0.022 m at the shipped figures. A walker has no
+    /// <b>How far a walker covers in one tick at its pace</b> — 0.044 m at the shipped figures. A walker has no
     /// acceleration of its own (PER-3), so it is also the whole of what one takes to come to rest.
     /// </summary>
     public float PersonStepM => PersonWalkSpeedMps * TickSeconds;
@@ -433,6 +439,14 @@ internal sealed partial class SimConfig
     public float JunctionRadiusM => CityGen.ConnectionStandoffM;
 
     /// <summary>
+    /// <b>The same for a junction whose widest arm is a carriageway this wide</b>: stood out by however much
+    /// further than a street of one lane each way that carriageway's kerb stands off its line, so a lane ends
+    /// as far beyond the widest road crossing it as it does in a town of streets.
+    /// </summary>
+    public float JunctionRadiusAcrossM(float widestCarriagewayM) =>
+        JunctionRadiusM + (MathF.Max(0f, widestCarriagewayM - RoadWidthM) * 0.5f);
+
+    /// <summary>
     /// <b>How many car parks a town of <paramref name="buildings"/> buildings cuts</b> (GEN-53): one for every
     /// <see cref="CityGenFigures.BuildingsPerCarPark"/> of them, the count being the map's and the share of it
     /// the engine's (GEN-6).
@@ -631,4 +645,7 @@ internal sealed partial class SimConfig
 
     /// <summary>How early a pair is given a manifold. See <see cref="SolverFigures.AllowedPenetrationM"/>.</summary>
     public float SolverSpeculativeM => Solver.AllowedPenetrationM * 4f;
+
+    /// <summary>How many steps in a row a body has to end at rest before it freezes (SOL-37) — never fewer than one.</summary>
+    public int SolverRestTicks => Math.Max(1, (int)MathF.Ceiling(Solver.RestS * Sim.TickRateHz));
 }

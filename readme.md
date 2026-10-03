@@ -224,6 +224,22 @@ a seed, an extent, the water, the districts and the counts — and the town is l
 opened ([citygen](src/citygen/docs/requirements.md#where-a-town-comes-from)). The same brief at the same
 seed is the same town, every time. `Test` is the fixture every detailed check is staged on.
 
+**Two of them are Odesa's brief at scale**, for what a large town costs: `O10` and `O30` at ten and thirty
+times its area with the people, cars and districts at its density. They are desktop maps: a page's runtime
+cannot hold `O30`, and every probe that runs over the shipped maps by default takes them in. A brief under
+`towns/disabled/` is listed nowhere; `BigOdesa`, ten times each way, is there because it does not lay as a
+working town.
+
+**`OdesaOsm` is the real Odesa, traced and not generated**
+([citygen](src/citygen/docs/requirements.md#where-a-town-comes-from), `GEN-57`): every road and every lane
+OpenStreetMap holds in the rectangle round the city's own roads, inside its boundary or not, and the sea line,
+at one metre to the metre over 17 × 39 km — and nothing standing on it yet. It is laid from
+`towns/traced/OdesaOsm.json`, which the scanner (`src/tools/osmscan/`, run by `qq osm`) writes off OSM with
+each way's lanes as OSM's tags mean them, and no seed draws any of it. `qq osm --refetch` asks OSM again,
+`qq osm --draw SHOT.png` draws OSM's own lanes over a shot of the map, and `--bench fidelity` says how far the
+map's lanes stand off them. What it writes is © OpenStreetMap contributors under the ODbL, and the survey
+carries that with it.
+
 ## The same town, in a browser
 
 There is a second head. `traffic-dotnet.web.csproj` compiles the same `src/` against WebGPU and a canvas
@@ -319,7 +335,7 @@ src/        every line of C#, and nothing else — the nine slices below
   tools/    workshop tools, which may depend on what the runtime may not
 assets/     the art and the .json data read at startup, mirroring the code tree
 towns/      a city's brief — the seed and the intent it is generated from, a few hundred bytes each,
-            and the whole of what a town is carried as
+            and the whole of what a town is carried as; traced/ holds a real place's survey instead
 raw_assets/ generated source art, never read by the build — converted into assets/ first
 bin/, obj/  build output — the only folders at the root the project file writes
 ```

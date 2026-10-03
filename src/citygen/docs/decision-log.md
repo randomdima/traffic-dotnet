@@ -1,5 +1,130 @@
 # CityGen — decision log
 
+## 2026-10-03 — a road's lanes are OSM's own, read by a scanner that knows no engine rule
+
+**The owner asked for the engine's lanes to be OSM's lanes, all of them**, read off the most precise thing OSM
+holds by a scanner apart from the game and with none of its rules. The port before it laid every lane at the
+engine's own width (3.6 m, a car's width and four fifths), split a single lane both ways share into two full
+lanes, read `lanes` and nothing else, laid 13 classes of OSM's 20 — 10 639 of its 21 976 lanes — and was
+measured centreline against centreline, on the classes it laid.
+
+- **The scanner is a tool of its own** (`src/tools/osmscan/`, `osm-scan`, run by `qq osm`), compiling the
+  extract's format and OSM's lane rules from the engine's own files, so what it writes is what the engine
+  reads. It asks Overpass for the roads, their tagged nodes, restriction and connectivity relations, the
+  `area:highway` surfaces (298 in Odesa) and the coastline, and **refuses an answer more than two days behind
+  OSM**: a mirror answered at once from data four months old.
+- **A way's lanes are OSM's tagging rules and nothing else** (`OsmCarriageway`): Key:lanes for the counts and
+  its assumptions where untagged — one each way on a main or residential street, one shared on any other
+  two-way way, two on a one-way motorway or trunk; `width:lanes`, else `width` shared, else 3.5 m, the width
+  OSM's own lane renderer (JOSM's lane_features) assumes, OSM stating none; the placement proposal for where
+  the way lies across them; `turn:`, `change:` and `psv:lanes` kept lane by lane. 2 369 of Odesa's 15 898 road
+  ways tag their count, 94 a width and 25 a placement. **A count more than both sides claim is lanes driven
+  both ways**: 22 primary ways tag six lanes, two each way, and give the middle pair a direction only by the
+  hour (`lanes:forward:conditional`), and read as four they lost 7 m of carriageway each.
+- **The frame is the scanner's as well**: about the middle of the boundary's roads, their extent and 60 m. So
+  `TracedEdgeMarginM` left `SimConfig`, and `Survey.Of` reads no tag of a lane.
+- **The boundary draws the rectangle and every road in the rectangle is laid**, inside the city's limits or
+  not: read off the boundary alone, 5 526 road ways of the suburbs stood inside the map's own edge as grass. A
+  way crossing the rectangle is taken whole and cut by the engine where it crosses; a crossing nearer the node
+  inside than the shortest road a traced map lays is that node, since one 18 cm past a junction left a road too
+  short for the junction to have a disc.
+- **The engine lays what it is given, every class of it**: each road at OSM's carriageway width and along its
+  middle, and a place wherever the width or placement changes as well as the count. `service` and `track`
+  are 11 279 of the 15 896 road ways — driveways, aisles, courtyard lanes — and are laid like any street; a
+  road drawn as an area is a surface, and has no lane.
+- **A single lane both ways share is one lane each way over one line**, as a bay's are: 2 024 km of OSM lane,
+  most of it service roads. So "over one line" is no longer "a bay": `CityPlan.RoadArrays.SharedLane` marks the
+  traced ones and `LaneLines.LaneIsBay` is what the bay's own readers ask — the spawn, the tour, the routes and
+  the closures.
+- **The boundary did not close over them, and two things in it changed** (TER-7b). A lane and its reverse over
+  one line were merged as two bands whose ends lie on one another facing opposite ways; at a dead end nothing
+  else covers, the merge kept half of one end and neither half of the other. They are one band now
+  (`LaneShell`). And a road of one lane on its line rounded down to the lanes' floor folded its own ground,
+  with no lane beside it to cover the fold; its floor is half its carriageway now.
+- **Measured lane against lane, every OSM lane**: `--bench fidelity` holds each against the engine's lanes and
+  connectors running the same way, whatever was laid, and names every way that is laid nowhere near, which a
+  share of the whole would hide. Of 21 414 ways, 29 976 lanes and 8 009 km, 93.3 % lies within 5 cm of an
+  engine lane: 98.6 % of the lanes of a carriageway, 97.4 % of the shared ones, and 57.1 % of the 928 km
+  crossing a junction, where OSM's lanes run straight to the node and the engine's connectors turn. 310 ways,
+  13 km, are mostly more than a metre off — every one of them laid, bent near a junction. 98.4 % of what the
+  engine lays is within 5 cm of an OSM lane.
+- **What was checked and is not laid**: in the rectangle every way of every road class is in the extract, 8 of
+  them lying wholly in its margin; footways, paths, steps, platforms, cycleways and pedestrian streets are not
+  roads, though 14 cycleways and 4 pedestrian streets carry lanes or motor access; cycle lanes on 466
+  carriageways and parking lanes on 28 are not lanes Key:lanes counts.
+- **`BigOdesa` went back to `towns/disabled/`**, the owner calling it broken: a minute of it ran past ten
+  minutes and the maps tier with it.
+
+## 2026-10-03 — the survey is OSM's own extract, and the port loses nothing of it
+
+**The owner set the goal as the OSM map as close as it can be got, everything else second, and the first
+port of it lossless.** Two things fell short of that, and both were measured before either was changed.
+
+- **The survey kept less than OSM holds.** It wrote projected metres rounded to a centimetre, no node or way
+  ids, four tags of a way's dozens, no tag of any node, no turn restriction and no island. It is now an
+  `OsmExtract`: OSM's integers of 1e-7° as Overpass prints them, every id and tag, tagged nodes, restrictions
+  and the coastline ways raw — 63 606 nodes, 15 898 road ways of every vehicle class, 62 coastline ways, 6 780
+  tagged nodes and 1 380 restrictions, 5.5 MB. Read against the old survey it is the same 4 607 laid ways with
+  the same tags, every point within 8 mm of where it stood after a frame shift of 24 m. The old extent was read
+  off the projected corners of the lat/lon box and the new one off the points.
+- **The port threw the place away to suit the generator.** Places within 30 m were one junction (GEN-16), a
+  line was thinned to 1 m, a corner was rounded at its class's design radius (GEN-47), a corner its legs
+  could not round at a car's cornering floor was cut, and every piece not joined to the largest went (GEN-5).
+  Measured centreline against centreline, 61.9 % of the surveyed length lay within 5 cm of the town's lines,
+  94.8 % within a metre, and 6.5 km nowhere near any. **None of those rules is asked of a traced town now**
+  (GEN-57): a junction at every place, every point on its road, corners rounded at half the carriageway, a
+  junction's disc shrunk so the road to a close neighbour is short rather than gone, and every piece kept.
+- **The corner floor is the lanes' and not a car's.** A traced road may not fold a lane back over a corner,
+  so the floor is the innermost lane's offset plus `TracedTightestLaneRadiusM`; how tightly a car can be
+  driven round it is the drivers' to answer later. A hairpin drawn to a point — a U-turn spur whose two
+  one-way legs run 2 to 5 m apart — is still rounded short of its tip, because no lane can turn round between
+  legs closer than that.
+- **A leg is shared between its two corners by what each needs**, not half and half: a sharp corner beside a
+  gentle one takes nearly all of the leg between them (`Spline.RoundedInto` with a reach a corner).
+- **A ring of one-way ways joined to nothing else had no place on it to be walked from** and was never laid —
+  a turnaround loop whose service-road links are not laid. One of its points is made a place.
+
+**What came out**: 98.2 % of the surveyed length within 5 cm of the town's lines and 99.7 % within a metre;
+the worst five places are those hairpins, 10 to 24 m short of their tips. 7 302 roads, 5 065 junctions and
+15 733 lanes, laid in 1.4 s and stood up in 8.7 s, with a ribbon atlas of 848 MiB. **The walk's junctions
+needed one bound to stand it up**: an outer kerb ring passes a junction twice on a street running out into a
+tree of dead ends, and a junction owned the 13 km of kerb round the tree between its two hand-overs, longer
+than the atlas can file. A stretch a junction owns now stays within its hand-overs' reach of it plus a merge
+(`CrossingWays.StretchOf`), and one that does not is counted as a connection no turn joins (WLK-14).
+
+## 2026-10-02 — a real city is traced off its survey, and nothing in it is drawn
+
+**The owner asked for Odesa as it is**: its roads and its sea line, at one to one, with nothing standing on it
+for now, no seed and no road the engine made up — and stored, not fetched (GEN-57). So a third kind of map
+joins the brief and the code: a survey in `towns/traced/`, written once by `qq osm` off OpenStreetMap and
+laid by `TracedPlan` when the map is opened.
+
+- **A survey is not a town carried as a file.** It holds OSM's ways and the sea, which are what was authored
+  about the place; no junction, arc or lane is in it, so the 2026-09-14 entry's reason — a stored town is a
+  second answer to where the town is — does not reach it. Retuning a figure relays the town off the same
+  survey.
+- **Stored rather than fetched at open**, because OSM moves under a map and Overpass is a busy public server:
+  a fetch at open would be a different town on a different day, and none at all offline. `qq osm --refetch`
+  is how it is moved deliberately, and the survey says which OSM moment it is.
+- **Topology is OSM's shared nodes and nothing else.** Two ways meet where they share a point; a bridge over
+  a street shares none and meets nothing, which is what the place is.
+- **What GEN-5a, GEN-13, GEN-18, GEN-49 and GEN-50 refuse is the city** — dead ends, shallow arms, a
+  carriageway beside its twin — so they are not asked of it. 613 dead ends carry 100 km of Odesa's 993 km, and
+  pruning them as the generator does would delete a tenth of the place.
+
+**`Spline.RoundedInto` laid a straight with a bearing of noise.** Two corners that all but share a leg leave
+a sliver of straight between them, and its bearing was read off its own two ends — at 15 km from the origin a
+float's step in any direction. The lane offset off it jumped sideways and the merge could not close round
+it: half the traced town's open runs. A straight now takes its leg's bearing, and its length along it.
+
+## 2026-10-01 — where people live, the plan stands no car
+
+**Every car of a town people live in is somebody's** (PER-29, the person slice's log). Which bay a person's car
+stands in is the free one nearest their door once the services' aprons are held, which is a question for the
+town's parking registry rather than the plan — so the spawn stage stands no car where it stands people, and the
+brief's `cars` is read only for a town nobody lives in (GEN-7). The shipped briefs keep the field: a car count is
+what a town of no people still asks for.
+
 ## 2026-09-30 — a car park is a rank of bays laid off the kerb, joined to nothing
 
 **The owner asked for car parks not to be junctions any more** (GEN-53; the parking slice's log has the

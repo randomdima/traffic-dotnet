@@ -39,6 +39,9 @@ internal sealed partial class TownWorld
 
         for (var car = 0; car < Cars.Count; car++)
         {
+            // A car standing parked rested its wheels last tick and has had no tick since: four impulses of nothing.
+            if (_standsParked[car]) continue;
+
             var body = Cars.Body[car];
             var wheels = _wheels.ImpulsesOf(car);
             for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)

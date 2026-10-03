@@ -53,11 +53,12 @@ internal sealed class WalkingNetwork
     readonly float _bothWaysWithinM;
 
     WalkingNetwork(
-        FootGraph foot, RunNetwork runs, int[] linkOfEdge, int[] slotOfEdge, float[] laneOffsetM, Lanes lanes,
-        Joins joins, float bothWaysWithinM)
+        FootGraph foot, RunNetwork runs, RouteCells cells, int[] linkOfEdge, int[] slotOfEdge, float[] laneOffsetM,
+        Lanes lanes, Joins joins, float bothWaysWithinM)
     {
         _foot = foot;
         Runs = runs;
+        Cells = cells;
         _linkOfEdge = linkOfEdge;
         _slotOfEdge = slotOfEdge;
         _laneOffsetM = laneOffsetM;
@@ -94,6 +95,9 @@ internal sealed class WalkingNetwork
     public RunNetwork Runs { get; }
 
     public TravelGraph Graph => Runs.Graph;
+
+    /// <summary>The graph cut into the cells a search crosses before it details any of them.</summary>
+    public RouteCells Cells { get; }
 
     /// <summary>The run a stretch is part of. Every stretch belongs to exactly one, which is what a contraction may not lose.</summary>
     public int LinkOfEdge(int edge) => _linkOfEdge[edge];
@@ -539,8 +543,8 @@ internal sealed class WalkingNetwork
         var joins = LayJoins(foot, offset, laneOffsetM, config);
         var lanes = Carrying(foot, offset, joins);
         return new WalkingNetwork(
-            foot, runs, linkOfEdge, slotOfEdge, laneOffsetM, lanes, OnTheLanes(foot, joins, lanes),
-            config.PavementWidthM);
+            foot, runs, RouteCells.Of(runs.Graph, config), linkOfEdge, slotOfEdge, laneOffsetM, lanes,
+            OnTheLanes(foot, joins, lanes), config.PavementWidthM);
     }
 
     /// <summary>

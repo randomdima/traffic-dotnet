@@ -485,16 +485,16 @@ internal sealed class KerbEnds
     /// traffic's hold rather than the walk's crossing.
     /// </summary>
     /// <remarks>
-    /// <b>The far edge is read off the lane's own width and not off the shape.</b> A street's carriageway is
-    /// its lanes: one either side of the line where both are driven, so the far edge is three half-lanes
-    /// across from this one, and the whole of it on a road driven one way, where the single lane is the
-    /// carriageway (TER-4d).
+    /// <b>The far edge is read off the lanes' own width and not off the shape.</b> A street's carriageway is
+    /// its lanes side by side (TER-4d) and the lane a kerb runs along is the outermost of them, so the far
+    /// edge is every other lane across from this one — three half-lanes on a street of one lane each way, and
+    /// the lane's own half on a road of one lane.
     /// </remarks>
     static KerbNodes Nodes(Reading reading, in Stand stand, bool painted = true)
     {
         var lanes = reading.Lanes;
         var halfM = lanes.LaneWidthM[stand.Lane] * 0.5f;
-        var farM = lanes.LaneReverse[stand.Lane] >= 0 ? halfM * 3f : halfM;
+        var farM = halfM * ((2 * reading.Roads.LanesOn(lanes.LaneRoad[stand.Lane])) - 1);
 
         var on = Spline.SampleAt(lanes.ArcsOf(stand.Lane), painted ? stand.AlongM : stand.KerbAlongM);
         return new KerbNodes(
@@ -748,6 +748,8 @@ internal sealed class KerbEnds
         readonly ChainIndex.Scan _scan = index.NewScan();
 
         public LaneLines Lanes => lanes;
+
+        public CityPlan.RoadArrays Roads => roads;
 
         public int At(in ArcSeg piece, float atM) =>
             LaneAlong(lanes, index, _scan, _near, _alongM, reachM, piece, atM);

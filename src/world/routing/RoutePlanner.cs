@@ -33,12 +33,11 @@ internal readonly record struct RouteGoal(int Link, float AlongM);
 /// <see cref="TravelGraph"/>'s slice log.
 /// </para>
 /// <para>
-/// <b>What a plan costs is the ground cheaper than its answer.</b> Every link cheaper than the route is
+/// <b>What a flood costs is the ground cheaper than its answer.</b> Every link cheaper than the route is
 /// settled — a disc about the entry as wide as the trip — so for a destination drawn from anywhere in the
-/// town it is about half the graph (<c>--bench census</c> samples it), a plan grows with the town's area,
-/// and a town's planning with its area times its roster. On Odesa's brief with its extent doubled each way
-/// and its counts four times over, planning is about 7 % of the tick against 2 % on Odesa, and walkers
-/// drawing and re-laying trips are nearly all of it.
+/// town it is about half the graph (<c>--bench census</c> samples it). <b>Which is why a town asks it through
+/// a window</b> (<see cref="RouteSearch"/>, <see cref="RouteWindow"/>): the few cells in front of the body, and
+/// the whole graph only where those cannot settle the answer.
 /// </para>
 /// <para>
 /// <b>The goal is tracked apart from the frontier.</b> A link runs one way, so a destination twenty
@@ -77,8 +76,20 @@ internal sealed class RoutePlanner
         _heapKeyM = new float[graph.LinkCount];
     }
 
+    /// <summary>What <c>goalSlot</c> answers where there is no route.</summary>
+    public const int NoGoal = -1;
+
+    /// <summary>What <c>goalSlot</c> answers where the route finished at its window's aim rather than at a goal.</summary>
+    public const int AtTheAim = -2;
+
     /// <summary>How many links the search settled, for whoever is measuring what a route costs to find.</summary>
     public int SettledLinks { get; private set; }
+
+    /// <summary>
+    /// What reaching the far end of a link cost the last search, from where it set off — infinity for a link it
+    /// never reached.
+    /// </summary>
+    public float ReachedM(int link) => _stamp[link] == _generation ? _costM[link] : float.PositiveInfinity;
 
     /// <summary>
     /// The cheapest route — a run of links — from any of <paramref name="entries"/> to any of
@@ -100,15 +111,28 @@ internal sealed class RoutePlanner
     /// </param>
     public int Plan(
         ReadOnlySpan<RouteEntry> entries, ReadOnlySpan<RouteGoal> goals, LinkSurcharges? surcharges,
-        ReadOnlySpan<bool> closed, Span<int> intoLinks, out float costM, out int goalSlot)
+        ReadOnlySpan<bool> closed, Span<int> intoLinks, out float costM, out int goalSlot) =>
+        Plan(entries, goals, surcharges, closed, default, intoLinks, out costM, out goalSlot);
+
+    /// <inheritdoc cref="Plan(ReadOnlySpan{RouteEntry}, ReadOnlySpan{RouteGoal}, LinkSurcharges?, ReadOnlySpan{bool}, Span{int}, out float, out int)"/>
+    /// <param name="window">
+    /// <b>The links the search may enter</b>, and the ones past its section it may finish on short of every goal
+    /// (<see cref="RouteWindow"/>); <c>default</c> is the whole graph. A route that finished there answers
+    /// <see cref="AtTheAim"/> for its goal, its last link the whole of the one it finished on.
+    /// </param>
+    public int Plan(
+        ReadOnlySpan<RouteEntry> entries, ReadOnlySpan<RouteGoal> goals, LinkSurcharges? surcharges,
+        ReadOnlySpan<bool> closed, RouteWindow window, Span<int> intoLinks, out float costM, out int goalSlot)
     {
         _generation++;
         _heapCount = 0;
         SettledLinks = 0;
         costM = float.PositiveInfinity;
-        goalSlot = -1;
+        goalSlot = NoGoal;
 
         var bestPred = TravelGraph.NoLink;
+        var aimedAt = TravelGraph.NoLink;
+        var aims = window.Aims;
 
         foreach (var entry in entries)
         {
@@ -149,6 +173,7 @@ internal sealed class RoutePlanner
             {
                 var onto = turns[turn];
                 if (!closed.IsEmpty && closed[onto]) continue;
+                if (!window.Holds(onto)) continue;
 
                 var enterM = prices[turn] + (surcharges?.PriceM(onto) ?? 0f);
 
@@ -169,6 +194,14 @@ internal sealed class RoutePlanner
                 }
 
                 var throughM = _costM[link] + enterM + _graph.WeightM(onto);
+                if (aims && throughM < costM && window.IsAim(onto))
+                {
+                    costM = throughM;
+                    bestPred = link;
+                    aimedAt = onto;
+                    goalSlot = AtTheAim;
+                }
+
                 Touch(onto);
                 if (throughM >= _costM[onto]) continue;
 
@@ -178,18 +211,18 @@ internal sealed class RoutePlanner
             }
         }
 
-        if (goalSlot < 0) return 0;
+        if (goalSlot == NoGoal) return 0;
 
         var length = 1;
         for (var back = bestPred; back != TravelGraph.NoLink; back = _cameFrom[back]) length++;
         if (length > intoLinks.Length)
         {
             costM = float.PositiveInfinity;
-            goalSlot = -1;
+            goalSlot = NoGoal;
             return 0;
         }
 
-        intoLinks[length - 1] = goals[goalSlot].Link;
+        intoLinks[length - 1] = goalSlot == AtTheAim ? aimedAt : goals[goalSlot].Link;
         var write = length - 2;
         for (var back = bestPred; back != TravelGraph.NoLink; back = _cameFrom[back]) intoLinks[write--] = back;
 

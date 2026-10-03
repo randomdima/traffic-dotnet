@@ -4,6 +4,38 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-10-01 — the search is sectioned: the cells first, then the few in front of the body
+
+On O10 — Odesa's brief at ten times the area and the roster — a whole-graph flood settled 67 174 of the
+walking network's 119 728 links per route, and the 6 000 walkers drawing their first trips together held
+the window at one frame a second for about thirty-five seconds, 84 % of the CPU in the planner. **A search
+is now sectioned** (`RouteCells`, `RouteSearch`): the cells the trip crosses first, then the links of the
+first three in detail inside a window one ring of cells wider, reaching into the core of the fourth before
+the section is handed over, and the rest asked for again where it runs out. **The owner chose it
+approximate and for both networks**: an exact overlay keeps today's routes, but a pavement grid's cell
+boundaries are wide enough that it was expected to save a few times the work rather than tens of times.
+
+Over `--bench census`'s sampled routes, each followed section by section to its goal: on O10, 810 links
+settled a plan and 7.4 plans a route, none of them a long one sent over the whole graph, the routes 1.9 % dearer
+than the cheapest on average and 13.4 % at the worst. On Odesa, 630 a plan against 5 137 a flood, 2.7 % dearer on
+average and 64 % on one route of 62 — a corridor whose cells' middles stand along one long street is priced near
+its cost, and the diagonal that clips the corners of ten cells is overpriced.
+
+- **A trip no longer than a section is searched exactly, over the whole graph.** Searched in the window of the
+  cells it crosses, it could miss the cheapest way round a corner of them: on the scenario map a car was sent
+  through a junction another way than its card stages, and the card failed. What such a flood settles is the
+  short reach of its own answer, and the figures above count it: the last plan of every followed route is one.
+
+- **Cells priced the way the links run were refused.** Priced out of one cell's core into the next, the
+  routes came out 9.9 % dearer on Odesa against 4.2 % priced middle to middle both ways round: a core's way
+  to the far side of its street is a crossing a route passing along the street never makes. Through the one
+  middle link instead, a route crossing against it was charged the loop round.
+- **The window carries a ring of the next cells.** Of the crossed cells alone it refused one plan in five,
+  sending each over the whole graph: a crossing walked one way and the crossing back are often filed in the
+  cells either side of the road. With the ring and one retry a ring wider, it is under one in a hundred.
+- **A closed or priced-up link in the window sends the plan over the whole graph**, since the cells cannot see
+  either. A car re-planning round a stretch it gave up on is nearly always standing in the window of it.
+
 ## 2026-09-30 — a leg's progress is counted from its last record, not its last decision
 
 `LegProgress` moved its mark down to every small gain, so a body had to close its own width between two decisions to

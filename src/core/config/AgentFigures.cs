@@ -551,7 +551,7 @@ internal sealed class PersonFigures
     /// <summary>
     /// <b>How much faster than life a walker moves</b> — the figure every other pace here is a real one
     /// multiplied by (<see cref="SimConfig.PersonWalkSpeedMps"/>, <see cref="SimConfig.PersonTurnRateDegPerS"/>).
-    /// One: the cars are driven at life's pace, and a walker at any other is a sprinter beside them. A town
+    /// Two: a brisk jog beside traffic driven at life's pace, where five was a sprint as fast as the cars. A town
     /// watched faster is watched on the clock (<see cref="SimFigures.SoakMaxTimeScale"/>), which scales both.
     /// </summary>
     /// <remarks>
@@ -559,7 +559,7 @@ internal sealed class PersonFigures
     /// grip authored at one pace beside a pace that is not put the casualty band below walking speed, where
     /// touching a parked car is a fatal contact. Written down, the two are impossible to author out of step.
     /// </remarks>
-    public float PaceScale { get; init; } = 1f;
+    public float PaceScale { get; init; } = 2f;
 
     public float MassKg { get; init; } = 80f;
 
@@ -607,14 +607,24 @@ internal sealed class PersonFigures
 
     /// <summary>
     /// How far a bay a car is aiming at may stand from where that leg is going, in block spacings — one
-    /// block, so a car parks on the destination's own block rather than the next one along.
+    /// block, so a car parks on the destination's own block rather than the next one along, and the walk from
+    /// a parked car to its owner's door is a frontage or two (PER-29).
     /// </summary>
-    /// <remarks>
-    /// <b>It is the walking side's figure by history and not by use.</b> No leg of a trip is driven
-    /// (PER-11), so what is left of it is the reach a bay search is bounded by — which is the one thing it
-    /// is read for.
-    /// </remarks>
     public float WalkWorthInBlockSpacings { get; init; } = 1f;
+
+    /// <summary>
+    /// <b>The furthest a trip is walked, in block spacings</b> (PER-29) — a few small blocks. A door further
+    /// than this from the person, or from their car, is driven to.
+    /// </summary>
+    public float WalksNoFurtherInBlockSpacings { get; init; } = 3f;
+
+    /// <summary>
+    /// <b>How far from where a person stands their next destination is drawn, in block spacings</b> (PER-9) — a
+    /// radius, the place drawn inside it. Most of a town's trips are local: drawn anywhere in the town, every
+    /// one of them is driven across it down the same few arterials, the way the cars' own round once was
+    /// (<see cref="DrivingFigures.RoundReachM"/>).
+    /// </summary>
+    public float TripReachInBlockSpacings { get; init; } = 6f;
 
     /// <summary>
     /// <b>How long a walker may get no nearer the end of the way it is walking before the leg is given
@@ -651,11 +661,11 @@ internal sealed class DamageFigures
     /// <summary>
     /// <b>How far a contact has to be able to put a body down the road for it to have knocked them
     /// over</b> (PER-23). A distance rather than an energy, because a distance is the thing that can be
-    /// looked at: a dozen metres is a body thrown down the road by a car, where a metre or two is one a car
-    /// shoved and a walker stumbles back from. What it costs follows from the mass being moved and the
-    /// ground it slides on (<see cref="SimConfig.PersonCasualtyKj"/>).
+    /// looked at. What it costs follows from the mass being moved and the ground it slides on
+    /// (<see cref="SimConfig.PersonCasualtyKj"/>) — a grip that carries the square of the walker's pace
+    /// (<see cref="PersonFigures.PaceScale"/>), so the same throw costs four times as much at twice the pace.
     /// </summary>
-    public float SlideToCasualtyM { get; init; } = 12f;
+    public float SlideToCasualtyM { get; init; } = 3f;
 
     public float CarWreckKj { get; init; } = 20f;
 }

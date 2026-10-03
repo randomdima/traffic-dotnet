@@ -21,6 +21,13 @@ namespace TrafficSimulation.CityGen;
 /// plain road is the outer edge of its outer lanes, and at a junction it is whatever piece of whichever band
 /// reaches past the rest. A junction has no shape of its own to merge (TER-5).
 /// </para>
+/// <para>
+/// <b>Two lanes laid over one line are one band</b> (<see cref="LaneLines.LaneOverOneLine"/>): a lane and its
+/// reverse there cover the same ground, so only the one running with its road is handed over and the other is
+/// handed over empty, keeping the numbering the index is in. Handed over twice, the two bands' ends lie on one
+/// another facing opposite ways, and where nothing else covers them — a dead end of one lane both ways share —
+/// the merge keeps half of the one end and neither half of the other, and the boundary does not close.
+/// </para>
 /// </remarks>
 internal static class LaneShell
 {
@@ -33,10 +40,12 @@ internal static class LaneShell
         var count = paving.DrivenCount;
         var lines = new ArcSeg[count][];
         var widthM = new float[count];
+        var lanes = paving.Lanes;
 
         for (var line = 0; line < count; line++)
         {
-            lines[line] = paving.ArcsOfDriven(line).ToArray();
+            var twin = line < lanes.LaneCount && lanes.LaneOverOneLine[line] && !lanes.LaneForward[line] && lanes.LaneReverse[line] >= 0;
+            lines[line] = twin ? [] : paving.ArcsOfDriven(line).ToArray();
             widthM[line] = paving.DrivenWidthM(line);
         }
 

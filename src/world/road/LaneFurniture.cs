@@ -191,7 +191,7 @@ internal sealed class LaneFurniture
         List<(int Lane, int Crossing, float AlongM)> found)
     {
         var junction = crossings.Junction[crossing];
-        if (junction < 0 || junction >= roads.JunctionCount || roads.LanesIntoJunction(junction).Length >= 3) return;
+        if (junction < 0 || junction >= roads.JunctionCount || roads.ArmsArrivedOn(junction) >= 3) return;
 
         foreach (var lane in roads.LanesIntoJunction(junction))
         {

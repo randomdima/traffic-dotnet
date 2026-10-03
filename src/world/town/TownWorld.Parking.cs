@@ -20,10 +20,10 @@ namespace TrafficSimulation.World.Town;
 internal sealed partial class TownWorld
 {
     /// <summary>
-    /// A drive leg begun for whoever has got in, aimed at the bay that leg claimed. <b>A car standing in a
-    /// bay manoeuvres out of it; one standing anywhere else takes the lane it is on and is routed from
-    /// there.</b> <b>Nothing calls it</b>: nobody boards a car (CAR-1), and every leg a car is sent on is
-    /// begun by <see cref="SendTo"/>.
+    /// A drive leg begun for whoever has got in, aimed at the bay that leg claimed — an owner at the wheel
+    /// of their own car (PER-29). <b>A car standing in a bay manoeuvres out of it; one standing anywhere else
+    /// takes the lane it is on and is routed from there.</b> Every other leg a car is sent on is begun by
+    /// <see cref="SendTo"/>.
     /// </summary>
     void SetOff(int car)
     {
@@ -136,7 +136,7 @@ internal sealed partial class TownWorld
         {
             if (_driving.LinkOfLane(lane) != links[0]) continue;
 
-            ExpandRoute(car, lane, links, _driveSearch.Goals[goalSlot]);
+            ExpandRoute(car, lane, links, _driveSearch.Goals[goalSlot], _driveSearch.StopsShort);
             return lane;
         }
 
@@ -275,7 +275,8 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// A car with nothing left to do: no line, no route, no turn, no manoeuvre, no destination and no movement,
-    /// handbrake on. <b>Nobody is let out</b>: nobody is ever in a car to let out (CAR-1).
+    /// handbrake on. <b>Nobody is let out here</b>: whoever is aboard is let out by the errand or the trip that
+    /// had them aboard, when it decides to (SRV-11, PER-29).
     /// </summary>
     void StandTheCarDown(int car)
     {

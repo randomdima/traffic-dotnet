@@ -182,11 +182,26 @@ internal sealed class CityPlan
         public required int[] ToJunction { get; init; }
         public required float[] WidthM { get; init; }
 
-        /// <summary>Which way each road is driven (TER-4d), which is also how many lanes its width is.</summary>
+        /// <summary>Which way each road is driven (TER-4d).</summary>
         public required RoadFlow[] Flow { get; init; }
 
-        /// <summary>How many lanes a road's own width carries: one where it runs one way and two where it runs both.</summary>
-        public int LanesOn(int road) => Flow[road] == RoadFlow.BothWays ? 2 : 1;
+        /// <summary>
+        /// <b>How many lanes each road is driven in each way</b> (TER-4d): a surveyed carriageway's own count.
+        /// <b>Empty where every road is one lane each way it is driven</b>, which is every town the generator
+        /// lays (GEN-15); where it is filled, a way <see cref="Flow"/> does not drive has none.
+        /// </summary>
+        public RoadLanes[] Lanes { get; init; } = [];
+
+        /// <summary>The lanes a road is driven in from its <c>From</c> junction towards its <c>To</c>.</summary>
+        public int LanesWithTheRoad(int road) =>
+            Lanes.Length > 0 ? Lanes[road].With : Flow[road] != RoadFlow.AgainstTheRoad ? 1 : 0;
+
+        /// <summary>And the other way.</summary>
+        public int LanesAgainstTheRoad(int road) =>
+            Lanes.Length > 0 ? Lanes[road].Against : Flow[road] != RoadFlow.WithTheRoad ? 1 : 0;
+
+        /// <summary>How many lanes a road's own width carries, both ways together.</summary>
+        public int LanesOn(int road) => LanesWithTheRoad(road) + LanesAgainstTheRoad(road);
 
         /// <summary>
         /// <b>Which roads are a car park's bays</b> (GEN-53), each the space itself and joined to nothing.
@@ -198,12 +213,17 @@ internal sealed class CityPlan
         public bool IsABay(int road) => Bay.Length > 0 && Bay[road];
 
         /// <summary>
+        /// <b>Which roads are one lane both ways share</b> — a traced road OSM draws as a single lane driven
+        /// both ways (GEN-57). <b>Empty where the town lays none</b>, which is every town the generator lays.
+        /// </summary>
+        public bool[] SharedLane { get; init; } = [];
+
+        /// <summary>
         /// <b>Whether a road is driven both ways over one line</b> — a car's width of ground driven in over
         /// and driven back out over (GEN-4f), so its two lanes are its own line rather than two halves of a
-        /// carriageway. <b>A bay is the only ground in this town that is</b>, which is why it is that
-        /// and not a flag of its own: two arrays that must agree are two answers.
+        /// carriageway: a bay, and a traced road of one lane both ways share (<see cref="SharedLane"/>).
         /// </summary>
-        public bool DrivenOverOneLine(int road) => IsABay(road);
+        public bool DrivenOverOneLine(int road) => IsABay(road) || (SharedLane.Length > 0 && SharedLane[road]);
 
         /// <summary>
         /// <b>How wide the ground one lane of a road is driven on is</b>: its share of the carriageway, or
@@ -214,17 +234,33 @@ internal sealed class CityPlan
             DrivenOverOneLine(road) ? WidthM[road] : WidthM[road] / LanesOn(road);
 
         /// <summary>
-        /// <b>Whether a road's two ways are laid either side of its own line</b>, so the ground each of them
-        /// is driven over meets the other's along it. A one-way street carries one lane down the middle
-        /// (TER-4d) and a bay carries two over one line
-        /// (<see cref="DrivenOverOneLine(int)"/>): neither has two ribbons to part.
+        /// <b>How far one lane's own line stands off its road's</b>, toward the side its own traffic keeps
+        /// (TER-4a), counting its lanes from the kerb on that side: the carriageway is the road's line half its
+        /// width either way, and each way's lanes run in from its own kerb to the line its traffic meets the
+        /// other's on. A road driven both ways over one line (<see cref="DrivenOverOneLine(int)"/>) lays both on it.
         /// </summary>
         /// <remarks>
-        /// <b>One question asked twice over</b>: it is the offset a lane is laid at
-        /// (<c>LaneLines.Of</c>) and the line the paint between the two goes down (TER-6), and the two would
-        /// otherwise be two readings of the same geometry that could disagree about which roads are which.
+        /// <b>It depends on the lanes counted from the kerb and on nothing else</b>, so a carriageway of three
+        /// lanes one way and two the other has the line its two ways meet on half a lane off the road's own —
+        /// and the lane and the paint beside it (<see cref="LineBetweenLanesM"/>) are one arithmetic, which
+        /// cannot disagree about where a lane is.
         /// </remarks>
-        public bool LanesMeetOnItsLine(int road) => LanesOn(road) == 2 && !DrivenOverOneLine(road);
+        public float LaneOffsetM(int road, int fromKerb) =>
+            DrivenOverOneLine(road) ? 0f : ((LanesOn(road) * 0.5f) - fromKerb - 0.5f) * LaneWidthM(road);
+
+        /// <summary>
+        /// <b>Where the paint between two lanes of a road goes</b> (TER-6): the line <paramref name="fromKerb"/>
+        /// lanes in from a kerb, off the road's own line toward the side the traffic keeping to that kerb keeps
+        /// — between the lanes <see cref="LaneOffsetM"/> stands either side of it.
+        /// </summary>
+        public float LineBetweenLanesM(int road, int fromKerb) => ((LanesOn(road) * 0.5f) - fromKerb) * LaneWidthM(road);
+
+        /// <summary>
+        /// How many lines are painted down a road: one between each pair of its lanes that touch, the line its
+        /// two ways meet on among them. <b>None on a road of one lane or one driven over one line</b>, which has
+        /// no two ribbons to part.
+        /// </summary>
+        public int LinesBetweenLanes(int road) => LanesOn(road) < 2 || DrivenOverOneLine(road) ? 0 : LanesOn(road) - 1;
 
         /// <summary>A town whose every road runs both ways, which is every map that lays no one-way street.</summary>
         public static RoadFlow[] AllBothWays(int roads) => new RoadFlow[roads];

@@ -34,7 +34,7 @@ internal readonly record struct RayHit(BodyTag Tag, Vector2 PointM, Vector2 Velo
 /// </remarks>
 internal readonly record struct Touch(BodyTag First, BodyTag Second, Vector2 Normal);
 
-/// <summary>What is true of a body that is not a number: three bits, and nothing that needs a branch to read.</summary>
+/// <summary>What is true of a body that is not a number: seven bits, and nothing that needs a branch to read.</summary>
 [Flags]
 internal enum BodyFlags : byte
 {
@@ -48,6 +48,24 @@ internal enum BodyFlags : byte
 
     /// <summary>A person is never spun: one zero in the inverse inertia, and no case anywhere else.</summary>
     RotationLocked = 1 << 2,
+
+    /// <summary>
+    /// At rest and left out of the step until something reaches it (SOL-37): never an owner in the broad phase,
+    /// never damped or integrated, and its motion exactly zero for as long as the bit is set.
+    /// </summary>
+    Frozen = 1 << 3,
+
+    /// <summary>
+    /// Filed in the frozen index, and standing exactly where it was filed: what makes its entry there the true one.
+    /// A body woken and not yet moved keeps it; the step that moves it, or a container, takes it away.
+    /// </summary>
+    FiledFrozen = 1 << 4,
+
+    /// <summary>Waiting to be taken in among the awake at the next step — so a body is waiting there once.</summary>
+    Joining = 1 << 5,
+
+    /// <summary>Frozen and filed in the moving index until the frozen one is laid again — so it is filed there once.</summary>
+    Unfiled = 1 << 6,
 }
 
 /// <summary>
@@ -84,6 +102,9 @@ internal sealed partial class PhysicsWorld
     float[] _inverseInertia = new float[Room];
     Vector2[] _extentM = new Vector2[Room];
     float[] _cornerRadiusM = new float[Room];
+
+    /// <summary>How far the furthest point of a body stands from its centre, which is what its yaw rate moves at.</summary>
+    float[] _reachM = new float[Room];
     BodyFlags[] _flags = new BodyFlags[Room];
     ulong[] _category = new ulong[Room];
     ulong[] _mask = new ulong[Room];
@@ -93,9 +114,19 @@ internal sealed partial class PhysicsWorld
     float[] _overlapM = new float[Room];
     Vector2[] _pushMps = new Vector2[Room];
     float[] _pushYawRadPerS = new float[Room];
-    long[] _seen = new long[Room];
 
-    int[] _dynamic = new int[Room];
+    /// <summary>The step a body last owned its own pairs in — what keeps a pair from being gathered from both ends.</summary>
+    int[] _ownedInStep = new int[Room];
+
+    /// <summary>How many steps in a row a body has ended at rest (SOL-37), held at the figure that freezes it.</summary>
+    int[] _restTicks = new int[Room];
+
+    /// <summary>Whether a body may freeze at the end of this step: its own rest, then its contacts' (SOL-37b).</summary>
+    bool[] _settling = new bool[Room];
+
+    /// <summary>The step a body last froze at (<see cref="FrozeAtStep"/>).</summary>
+    int[] _frozeAtStep = new int[Room];
+
     int[] _static = new int[Room];
 
     int _count;
@@ -113,10 +144,13 @@ internal sealed partial class PhysicsWorld
     public int DynamicBodyCount => _dynamicCount;
 
     /// <summary>
-    /// The bodies the last step actually integrated. Nothing sleeps here — islands and sleeping are
-    /// deliberately not provided — so this is the dynamic roster less whatever is inside something.
+    /// The bodies the last step actually integrated: the dynamic roster less whatever is inside something and
+    /// whatever was frozen through the whole of it (SOL-37).
     /// </summary>
     public int IntegratedBodyCount { get; private set; }
+
+    /// <summary>The bodies frozen now (SOL-37) — at rest, and costing a step nothing until something reaches them.</summary>
+    public int FrozenBodyCount { get; private set; }
 
     /// <summary>Contact points the last step solved, which is the census every figure this solver reports has to be quoted against.</summary>
     public int ContactPointCount { get; private set; }
@@ -130,7 +164,8 @@ internal sealed partial class PhysicsWorld
             positionM, 0f, Vector2.Zero, _config.PersonDiameterM * 0.5f, CollisionLayer.Person,
             BodyFlags.Enabled | BodyFlags.RotationLocked, _config.Person.MassKg);
 
-        _dynamic[_dynamicCount++] = body.Index;
+        _dynamicCount++;
+        Join(body.Index);
         return body;
     }
 
@@ -152,7 +187,8 @@ internal sealed partial class PhysicsWorld
             positionM, headingRad, halfSizeM - new Vector2(cornerRadiusM), cornerRadiusM,
             CollisionLayer.Car, BodyFlags.Enabled, massKg);
 
-        _dynamic[_dynamicCount++] = body.Index;
+        _dynamicCount++;
+        Join(body.Index);
         return body;
     }
 
@@ -215,10 +251,17 @@ internal sealed partial class PhysicsWorld
         // Coming back out is the other case and does mark it (Release), because a released body stands
         // somewhere new and the grid would otherwise answer about where it went in.
         //
-        // The census a rebuild would have retaken is therefore retaken here.
-        if ((_flags[index] & BodyFlags.Enabled) != 0) IntegratedBodyCount--;
+        // The census a rebuild would have retaken is therefore retaken here, and the awake roster is left to
+        // drop it at the next step rather than searched for it now.
+        if ((_flags[index] & (BodyFlags.Enabled | BodyFlags.Frozen)) == BodyFlags.Enabled)
+        {
+            IntegratedBodyCount--;
+            _awakeLeft = true;
+        }
 
-        _flags[index] &= ~BodyFlags.Enabled;
+        Wake(index);
+        _restTicks[index] = 0;
+        _flags[index] &= ~(BodyFlags.Enabled | BodyFlags.FiledFrozen);
     }
 
     /// <summary>
@@ -233,6 +276,7 @@ internal sealed partial class PhysicsWorld
         _velocityMps[index] = Vector2.Zero;
         _yawRateRadPerS[index] = 0f;
         _flags[index] |= BodyFlags.Enabled;
+        Join(index);
         _movingIndexStale = true;
     }
 
@@ -250,12 +294,17 @@ internal sealed partial class PhysicsWorld
     /// the filter is read off the body, so the entries left behind are rejected on the mask rather than
     /// found. Nothing about where this body is has changed.
     /// </para>
+    /// <para>
+    /// <b>A frozen body is woken</b>: the touches it holds were found under the old filter, and only a body
+    /// the step owns has its pairs asked again (SOL-37c).
+    /// </para>
     /// </remarks>
     public void PutOnLayer(BodyId body, CollisionLayer layer)
     {
         var index = body.Index;
         _category[index] = (ulong)layer;
         _mask[index] = MaskOf(layer);
+        Wake(index);
     }
 
     /// <summary>
@@ -337,13 +386,15 @@ internal sealed partial class PhysicsWorld
     public void Tag(BodyId body, BodyTag tag) => _tag[body.Index] = tag.Packed;
 
     /// <summary>
-    /// The one thing an agent actuates. An impulse of nothing is never applied.
+    /// The one thing an agent actuates. An impulse of nothing is never applied, and so never wakes anything
+    /// (SOL-37a) — which is what keeps a parked car frozen while its tyres declare zero every tick.
     /// </summary>
     public void ApplyCentralImpulse(BodyId body, Vector2 impulseNs)
     {
         if (impulseNs == Vector2.Zero) return;
 
         var index = body.Index;
+        Wake(index);
         _velocityMps[index] += impulseNs * _inverseMass[index];
     }
 
@@ -356,9 +407,28 @@ internal sealed partial class PhysicsWorld
         if (impulseNs == Vector2.Zero) return;
 
         var index = body.Index;
+        Wake(index);
         _velocityMps[index] += impulseNs * _inverseMass[index];
         _yawRateRadPerS[index] += _inverseInertia[index] * Shape.Cross(atM - _positionM[index], impulseNs);
     }
+
+    /// <summary>Whether a body is frozen (SOL-37): at rest, with its pose and motion exactly what they were when it froze.</summary>
+    public bool IsFrozen(BodyId body) => (_flags[body.Index] & BodyFlags.Frozen) != 0;
+
+    /// <summary>
+    /// <b>Whether this body was frozen through the whole of the last step</b>, so its pose and motion are to the bit
+    /// what they were before it. A body frozen <em>by</em> the last step was moved by it, and one inside a container
+    /// is not frozen at all.
+    /// </summary>
+    public bool FrozenThroughLastStep(BodyId body) =>
+        (_flags[body.Index] & BodyFlags.Frozen) != 0 && _ownedInStep[body.Index] != _stepStamp;
+
+    /// <summary>
+    /// <b>Which freezing a frozen body is in</b>: the step it froze at, the same for as long as it stays frozen and a
+    /// later one each time it freezes again — so whoever kept something it worked out at a frozen pose can tell that
+    /// the body has stood there since. Meaningless for a body that is not frozen (<see cref="IsFrozen"/>).
+    /// </summary>
+    public int FrozeAtStep(BodyId body) => _frozeAtStep[body.Index];
 
     /// <summary>
     /// How deep this body was into everything touching it when the last step was taken, in metres. An
@@ -409,6 +479,7 @@ internal sealed partial class PhysicsWorld
         var index = _count++;
         _extentM[index] = extentM;
         _cornerRadiusM[index] = cornerRadiusM;
+        _reachM[index] = extentM.Length() + cornerRadiusM;
         _flags[index] = flags;
         _category[index] = (ulong)layer;
         _mask[index] = MaskOf(layer);
@@ -416,6 +487,7 @@ internal sealed partial class PhysicsWorld
         _velocityMps[index] = Vector2.Zero;
         _yawRateRadPerS[index] = 0f;
         _overlapM[index] = 0f;
+        _restTicks[index] = 0;
 
         var immovable = (flags & BodyFlags.Static) != 0;
         _massKg[index] = immovable ? 0f : massKg;
@@ -477,6 +549,7 @@ internal sealed partial class PhysicsWorld
         Array.Resize(ref _inverseInertia, room);
         Array.Resize(ref _extentM, room);
         Array.Resize(ref _cornerRadiusM, room);
+        Array.Resize(ref _reachM, room);
         Array.Resize(ref _flags, room);
         Array.Resize(ref _category, room);
         Array.Resize(ref _mask, room);
@@ -486,8 +559,11 @@ internal sealed partial class PhysicsWorld
         Array.Resize(ref _overlapM, room);
         Array.Resize(ref _pushMps, room);
         Array.Resize(ref _pushYawRadPerS, room);
-        Array.Resize(ref _seen, room);
-        Array.Resize(ref _dynamic, room);
+        Array.Resize(ref _ownedInStep, room);
+        Array.Resize(ref _restTicks, room);
+        Array.Resize(ref _settling, room);
+        Array.Resize(ref _frozeAtStep, room);
         Array.Resize(ref _static, room);
+        ResizeRosters(room);
     }
 }

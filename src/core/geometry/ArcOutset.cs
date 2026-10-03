@@ -176,8 +176,14 @@ internal static class ArcOutset
     /// Whether the corners the shape turns away at may be cut, which is the whole of the difference between
     /// the two series (<see cref="Corners"/>).
     /// </param>
+    /// <param name="originM">
+    /// Where the rings were moved from to be worked here, for a caller that works a shape about its own middle
+    /// (<see cref="BandShell"/>): <b>its lines were computed where they stand in the world</b>, so the arithmetic
+    /// is as coarse as the coarser of the two places a piece stands.
+    /// </param>
     public static (ArcSeg[][] Rings, ArcSeg[][] Loose) Of(
-        ReadOnlySpan<ArcSeg[]> rings, float outwardM, float roundedM, WorldGrid grid, Corners corners)
+        ReadOnlySpan<ArcSeg[]> rings, float outwardM, float roundedM, WorldGrid grid, Corners corners,
+        Vector2 originM = default)
     {
         if (rings.Length == 0) return ([], []);
 
@@ -185,29 +191,29 @@ internal static class ArcOutset
         var movedM = MathF.Abs(outwardM);
         if (radiusM <= LineTolerance.RoundingM)
         {
-            return movedM <= LineTolerance.RoundingM ? (rings.ToArray(), []) : Struck(rings, outwardM, grid);
+            return movedM <= LineTolerance.RoundingM ? (rings.ToArray(), []) : Struck(rings, outwardM, grid, originM);
         }
 
         // Which way the series runs is the distance's, and a rounding asked for without one still runs
         // outward — the shape grows by the radius and comes back, rather than the other way about.
         var stepM = outwardM < -LineTolerance.RoundingM ? -radiusM : radiusM;
 
-        var (wide, loose) = Struck(rings, outwardM + stepM, grid);
+        var (wide, loose) = Struck(rings, outwardM + stepM, grid, originM);
         if (wide.Length == 0) return ([], loose);
 
         // Two moves where the third would be the identity (r <= d), and where the caller will not have a
         // corner cut at any radius: out by d + r and back in by r is the fill on its own.
         if (radiusM <= movedM || corners == Corners.Filled)
         {
-            var (closed, closedLoose) = Struck(wide, -stepM, grid);
+            var (closed, closedLoose) = Struck(wide, -stepM, grid, originM);
             return (closed, Both(loose, closedLoose));
         }
 
-        var (tight, tightLoose) = Struck(wide, -2f * stepM, grid);
+        var (tight, tightLoose) = Struck(wide, -2f * stepM, grid, originM);
         loose = Both(loose, tightLoose);
         if (tight.Length == 0) return ([], loose);
 
-        var (rounded, roundedLoose) = Struck(tight, stepM, grid);
+        var (rounded, roundedLoose) = Struck(tight, stepM, grid, originM);
         return (rounded, Both(loose, roundedLoose));
     }
 
@@ -219,7 +225,8 @@ internal static class ArcOutset
     /// <b>One closed shape moved off its own ground, once</b>: every ring offset whole, every corner joined,
     /// and every stretch of that kept where nothing of the shape stands nearer to it than the distance.
     /// </summary>
-    static (ArcSeg[][] Rings, ArcSeg[][] Loose) Struck(ReadOnlySpan<ArcSeg[]> rings, float outwardM, WorldGrid grid)
+    static (ArcSeg[][] Rings, ArcSeg[][] Loose) Struck(
+        ReadOnlySpan<ArcSeg[]> rings, float outwardM, WorldGrid grid, Vector2 originM)
     {
         // The pieces of a ring the stringing handed back already meet (<see cref="ArcRings.Tightened"/>);
         // this is for the caller that hands over a ring of its own, since a corner at exactly the distance
@@ -238,7 +245,7 @@ internal static class ArcOutset
         var standing = ChainIndex.OfPieces(source, level);
         var (chains, loose) = ArcRings.Of(
             Uncovered(moved, ChainIndex.OfPieces(moved, level), source, standing, MathF.Abs(outwardM), outwardM),
-            grid, Grazed(outwardM, Furthest(source)));
+            grid, Grazed(outwardM, Coarsest(source, originM)));
 
         return (chains, loose);
     }
@@ -268,16 +275,24 @@ internal static class ArcOutset
     /// thirty kilometres long the holes that left stood just past the centimetre's figure.
     /// </para>
     /// </remarks>
-    static float Grazed(float outwardM, Vector2 furthestM) =>
-        MathF.Sqrt(2f * LineTolerance.At(LineTolerance.JoinedM, furthestM) * MathF.Abs(outwardM)) + ArcRings.LeastLostM;
+    static float Grazed(float outwardM, float coarseness) =>
+        MathF.Sqrt(2f * LineTolerance.JoinedM * coarseness * MathF.Abs(outwardM)) + ArcRings.LeastLostM;
 
-    /// <summary>The corner of the pieces' box furthest from the origin, where a float is at its coarsest.</summary>
-    static Vector2 Furthest(ArcSeg[] pieces)
+    /// <summary>
+    /// How coarse a float is at the corner of the pieces' box furthest from the origin, here and where the
+    /// pieces stand in the world, whichever is the coarser (<see cref="LineTolerance.Coarseness"/>).
+    /// </summary>
+    static float Coarsest(ArcSeg[] pieces, Vector2 originM)
     {
         var furthestM = Vector2.Zero;
-        foreach (var piece in pieces) furthestM = Vector2.Max(furthestM, Vector2.Abs(piece.StartM));
+        var furthestInTheWorldM = Vector2.Zero;
+        foreach (var piece in pieces)
+        {
+            furthestM = Vector2.Max(furthestM, Vector2.Abs(piece.StartM));
+            furthestInTheWorldM = Vector2.Max(furthestInTheWorldM, Vector2.Abs(piece.StartM + originM));
+        }
 
-        return furthestM;
+        return MathF.Max(LineTolerance.Coarseness(furthestM), LineTolerance.Coarseness(furthestInTheWorldM));
     }
 
     /// <summary>
@@ -379,7 +394,7 @@ internal static class ArcOutset
 
         // <b>Outward is the walker's left</b> (<see cref="Of"/>), so a move to the right opens the corners a
         // move outward closes.
-        if (Swung(line[from], line[onto]) * -offsetM >= 0f)
+        if (Swung(line[from], line[onto], offsetM) * -offsetM >= 0f)
         {
             ref readonly var arriving = ref into[written - 1];
             into[written] = Round(
@@ -546,7 +561,7 @@ internal static class ArcOutset
         round = default;
         var turnRad = Turn(leaving, taking);
         if (MathF.Abs(turnRad) < StraightTurn) return false;
-        if (Swung(leaving, taking) * outwardM < 0f) return false;
+        if (Swung(leaving, taking, outwardM) * outwardM < 0f) return false;
 
         // <b>Outward is the walker's left</b> (<see cref="Of"/>), which is where the corner's own place
         // stands whether or not the piece that arrives at it came back with a length.
@@ -611,6 +626,13 @@ internal static class ArcOutset
                     (cutAtM[at] ??= []).Add(here[cut]);
                     (cutAtM[other] ??= []).Add(there[cut]);
                 }
+
+                // <b>And where one's end stands on the other</b>, which no crossing finds: a moved piece that
+                // runs on past the start of the next along one line, and the chord back across the gap the
+                // move left, lie on that line at exactly the distance and cross nowhere — and the stretch they
+                // both walk is a seam the stringing can only cancel where the two of them are cut alike.
+                EndOn(cutAtM, at, moved[at], moved[other]);
+                EndOn(cutAtM, other, moved[other], moved[at]);
             }
         }
 
@@ -627,6 +649,20 @@ internal static class ArcOutset
         }
 
         return kept;
+    }
+
+    /// <summary>A piece cut where either end of another stands on it, within a weld (<see cref="ArcRings.WeldM"/>).</summary>
+    static void EndOn(List<float>?[] cutAtM, int at, in ArcSeg piece, in ArcSeg other)
+    {
+        Span<ArcSeg> one = [piece];
+        foreach (var endM in (ReadOnlySpan<Vector2>)[other.StartM, other.EndM])
+        {
+            var alongM = Spline.ProjectM(one, endM, piece.LengthM * 0.5f, piece.LengthM);
+            if (alongM <= 0f || alongM >= piece.LengthM) continue;
+            if (Vector2.DistanceSquared(piece.PointAtM(alongM), endM) > ArcRings.WeldM * ArcRings.WeldM) continue;
+
+            (cutAtM[at] ??= []).Add(alongM);
+        }
     }
 
     /// <summary>
@@ -768,24 +804,42 @@ internal static class ArcOutset
     }
 
     /// <summary>
-    /// <b>Which way the ring went round a corner</b>, read off the two chords its pieces subtend rather than
-    /// off the tangents they meet at — so it is where the pieces <em>went</em> and not how they left.
+    /// <b>Which way the ring went round a corner</b>: off the tangents its two pieces meet at, and off the two
+    /// chords they subtend where those tangents are opposed — so a cusp is read by where the pieces
+    /// <em>went</em> rather than by how they left.
     /// </summary>
     /// <remarks>
-    /// <b>It is the one reading a cusp does not destroy, and a boundary is full of cusps.</b> Two arcs that
-    /// meet with their tangents exactly opposed turn a half circle whichever side the ground is on, so the
+    /// <para>
+    /// <b>The chords are the one reading a cusp does not destroy, and a boundary is full of cusps.</b> Two arcs
+    /// that meet with their tangents exactly opposed turn a half circle whichever side the ground is on, so the
     /// cross product that would say which is nought and its sign is the last bits of a float — and a corner
     /// read the wrong way round puts a half circle of offset through solid ground, which the fold test then
-    /// keeps because every point of it stands exactly the distance off the one place it turns about. <b>A
-    /// chord cannot be opposed to the tangent that leaves it by more than half the piece's own sweep</b>, so
-    /// this differs from <see cref="Turn"/> nowhere but at those cusps.
+    /// keeps because every point of it stands exactly the distance off the one place it turns about.
+    /// </para>
+    /// <para>
+    /// <b>And where the move turns a piece at the corner inside out</b> (<see cref="Inverted"/>): moved past its
+    /// own centre a piece is walked against its bend, and the tangent it left the corner on says nothing about
+    /// where its offset went.
+    /// </para>
+    /// <para>
+    /// <b>And only there</b>: the chord of a piece that sweeps a quarter turn stands an eighth of a turn off the
+    /// tangent it ends on, so at a corner turning less than that the two readings can disagree, and where the
+    /// move keeps both pieces the way they were walked it is the tangents the moved pieces leave the corner square
+    /// to — read off the chords, a quarter-turn bend meeting a straight turned right where the corner turns left,
+    /// and its round was never put in. <b>Nor at a lens</b>, two pieces between all but the same two places,
+    /// whose chords are the ones opposed.
+    /// </para>
     /// </remarks>
-    static float Swung(in ArcSeg from, in ArcSeg onto)
+    static float Swung(in ArcSeg from, in ArcSeg onto, float movedM)
     {
+        var tangentRad = Turn(from, onto);
+        var cusp = MathF.PI - MathF.Abs(tangentRad) <= LineTolerance.StraightOnRad;
+        var inverts = MathF.Max(MathF.Abs(from.Curvature), MathF.Abs(onto.Curvature)) * MathF.Abs(movedM) >= 1f;
+        if (!cusp && !inverts) return tangentRad;
+
         var leaving = from.EndM - from.StartM;
         var taking = onto.EndM - onto.StartM;
-        return MathF.Atan2(
-            (leaving.X * taking.Y) - (leaving.Y * taking.X), Vector2.Dot(leaving, taking));
+        return MathF.Atan2((leaving.X * taking.Y) - (leaving.Y * taking.X), Vector2.Dot(leaving, taking));
     }
 
     /// <summary>

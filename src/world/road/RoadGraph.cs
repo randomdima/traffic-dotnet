@@ -175,19 +175,18 @@ internal sealed class RoadGraph : ILaneEnds
 
     /// <summary>
     /// <b>Whether this lane and its reverse are one line rather than two halves of a carriageway</b>
-    /// (GEN-53): a bay is a car's width of ground a car stands on whichever way round it stands, so the ground
-    /// under it carries both directions at once. <b>The town's own answer</b>
-    /// (<see cref="LaneLines.LaneOverOneLine"/>) and not a distance measured between two lines.
+    /// (GEN-53, GEN-57): a bay is a car's width of ground a car stands on whichever way round it stands, and a
+    /// traced road may be one lane both ways share, so the ground under it carries both directions at once.
+    /// <b>The town's own answer</b> (<see cref="LaneLines.LaneOverOneLine"/>) and not a distance measured between
+    /// two lines.
     /// </summary>
     public bool[] LaneOverOneLine => _lines.LaneOverOneLine;
 
     /// <summary>
     /// <b>Whether this lane is a car park's bay</b> (GEN-53) — joined to nothing, got into and out of by a car's
-    /// own manoeuvre (GEN-4f), and never a lane a route or a tour runs down. The same fact as
-    /// <see cref="LaneOverOneLine"/>: a bay is the only ground in the town driven both ways over one line, and a
-    /// second flag would be a second answer.
+    /// own manoeuvre (GEN-4f), and never a lane a route or a tour runs down (<see cref="LaneLines.LaneIsBay"/>).
     /// </summary>
-    public bool IsABayArm(int lane) => _lines.LaneOverOneLine[lane];
+    public bool IsABayArm(int lane) => _lines.LaneIsBay[lane];
 
     /// <summary>The line the lane is driven on, in its own direction of travel, already offset to the driver's side.</summary>
     public ReadOnlySpan<ArcSeg> ArcsOf(int lane) => _lines.ArcsOf(lane);
@@ -201,6 +200,28 @@ internal sealed class RoadGraph : ILaneEnds
     public ReadOnlySpan<int> LanesIntoJunction(int junction) =>
         _junctionInLanes.AsSpan(
             _junctionInOffsets[junction], _junctionInOffsets[junction + 1] - _junctionInOffsets[junction]);
+
+    /// <summary>
+    /// <b>How many arms traffic arrives at a junction on</b> — one for each way of each road driven into it,
+    /// however many lanes it is driven in. Build-time only.
+    /// </summary>
+    public int ArmsArrivedOn(int junction)
+    {
+        var lanes = LanesIntoJunction(junction);
+        var arms = 0;
+        for (var at = 0; at < lanes.Length; at++)
+        {
+            var first = true;
+            for (var before = 0; before < at && first; before++)
+            {
+                first = LaneRoad[lanes[before]] != LaneRoad[lanes[at]] || LaneForward[lanes[before]] != LaneForward[lanes[at]];
+            }
+
+            if (first) arms++;
+        }
+
+        return arms;
+    }
 
     /// <summary>
     /// <b>The connectors a car on this lane may leave by</b>, as the run of ids they are

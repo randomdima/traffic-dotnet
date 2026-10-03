@@ -2,6 +2,7 @@ using System.Numerics;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Containment;
 using TrafficSimulation.World.Parking;
@@ -10,15 +11,15 @@ using TrafficSimulation.World.Routing;
 namespace TrafficSimulation.World.Town;
 
 /// <summary>
-/// The trip: why anybody in this town goes anywhere. <b>A door, a walk to it, and a dwell behind it</b>
+/// The trip: why anybody in this town goes anywhere. <b>A door, the way to it, and a dwell behind it</b>
 /// (PER-9, PER-11) — and nothing else.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Every trip is walked</b> (PER-11). A person draws a building, walks to its way in over the
-/// pavement's own network and dwells inside it before drawing the next one; there is no leg that is
-/// driven, no car to be chosen and no bay to be claimed on anybody's behalf. What a car does in this town
-/// is its own (`CAR-1`), and the two rosters meet only on the ground they share.
+/// <b>Nobody walks further than a few blocks</b> (PER-29). A person draws a building near where they stand,
+/// and walks to its way in over the pavement's own network where both they and their car are within a walk of
+/// it; anywhere else they walk to their car, drive it to a bay near the door (<see cref="RunTheOwnersCar"/>)
+/// and walk the rest. A person with no car to hand draws only what they can walk to.
 /// </para>
 /// <para>
 /// <b>A stage is an errand and never an action</b> (AGT-7): what a body does is a leg, and a leg that
@@ -30,6 +31,29 @@ internal sealed partial class TownWorld
     /// <summary>How many buildings a draw may look at before the walker stands and draws again next time.</summary>
     const int DrawsPerTrip = 4;
 
+    /// <summary>
+    /// <b>Every way in of every building, filed by where it stands</b> — what a destination drawn near somebody is
+    /// read off (PER-9): the way in nearest a place drawn within reach of them.
+    /// </summary>
+    readonly BucketGrid _doors;
+
+    /// <summary>Which building each way in of <see cref="_doors"/> belongs to.</summary>
+    readonly int[] _buildingOfDoor;
+
+    static int[] BuildingsOfTheDoors(CityPlan.BuildingArrays buildings)
+    {
+        var of = new int[buildings.EntryPointM.Length];
+        for (var building = 0; building < buildings.Count; building++)
+        {
+            for (var entry = buildings.EntryOffsets[building]; entry < buildings.EntryOffsets[building + 1]; entry++)
+            {
+                of[entry] = building;
+            }
+        }
+
+        return of;
+    }
+
     readonly int[] _bayCandidates = new int[BaysConsideredPerLeg];
 
     /// <summary>How many bays a search for one considers, nearest the place first. A bound on the work, not a preference.</summary>
@@ -40,6 +64,12 @@ internal sealed partial class TownWorld
 
     /// <summary>How many trips have been drawn.</summary>
     public long TripsDrawn { get; private set; }
+
+    /// <summary>And how many of those were driven, the door too far to walk to (PER-29).</summary>
+    public long TripsDriven { get; private set; }
+
+    /// <summary>How many times somebody has got in at the wheel of their own car.</summary>
+    public long CarsBoarded { get; private set; }
 
     /// <summary>How many times a car has come to rest in the bay it was aiming at.</summary>
     public long BaysParkedIn { get; private set; }
@@ -59,8 +89,8 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// A contained person: not in the town at all, so what runs for them is the trip and never the
-    /// follower. <b>A building is the only container a person is in now</b>, so the whole action set is
-    /// leaving it (PER-6).
+    /// follower. <b>Inside a building the whole action set is leaving it</b> (PER-6); at the wheel of a car it is
+    /// the car's to say when they get out (<see cref="RunTheOwnersCar"/>), and nothing runs here.
     /// </summary>
     void DecideContained(int person, float sinceLastDecisionS)
     {
@@ -87,11 +117,17 @@ internal sealed partial class TownWorld
     {
         switch (People.Stage[person])
         {
-            case TripStage.WalkingToTheDoor:
+            case TripStage.WalkingToTheDoor or TripStage.WalkingFromTheCar:
                 if (!HasReached(person, _config.WayInTouchingReachM)) break;
 
                 WalkArrivals++;
                 EnterTheBuilding(person);
+                return;
+
+            case TripStage.WalkingToTheCar:
+                if (!HasReached(person, _config.WayInTouchingReachM)) break;
+
+                TakeTheWheel(person);
                 return;
 
             case TripStage.WaitingForAPlace:
@@ -138,13 +174,21 @@ internal sealed partial class TownWorld
     bool HasReached(int person, float reachM) => (People.GoalM[person] - People.PositionM[person]).Length() <= reachM;
 
     /// <summary>
-    /// PER-9's draw: somewhere to be. <b>A building and never anything else</b> — a map with no buildings
-    /// on it has nowhere for its people to go, and they stand.
+    /// PER-9's draw: somewhere to be. <b>A building near where the person stands and never anything else</b> —
+    /// a map with no buildings on it has nowhere for its people to go, and they stand.
     /// </summary>
     /// <remarks>
-    /// Both ends are screened when the trip is chosen, with the strict question rather than the
-    /// best-effort one: a door has to be walkable-to, or this is a trip that can only end in a leg given up.
-    /// A draw that finds nowhere stands and draws again on its own clock.
+    /// <para>
+    /// <b>The place is drawn within reach and the building is the one whose way in is nearest it</b>: within a
+    /// drive (<see cref="Core.Config.SimConfig.PersonTripReachM"/>) for somebody with their car to hand, and within
+    /// a walk (PER-29) for anybody else — who calls their car to them as well, where it stands too far off to walk
+    /// to (<see cref="CallTheCar"/>).
+    /// </para>
+    /// <para>
+    /// Both ends are screened when the trip is chosen, with the strict question rather than the best-effort one:
+    /// a door has to be walkable-to, and a driven trip needs a free bay near it, or this is a trip that can only
+    /// end in a leg given up. A draw that finds nowhere stands and draws again on its own clock.
+    /// </para>
     /// </remarks>
     void DrawTrip(int person)
     {
@@ -155,17 +199,28 @@ internal sealed partial class TownWorld
 
         // <b>Standing by is not walking</b>, and the draw below may well find nowhere to go. Left true from
         // the leg that just failed, a body stood here holding no route at all — which is neither of PER-25's
-        // two walks — and every clock in the town went on treating it as a walker under way.
-        SetWalking(person, false);
-        People.ClearRoute(person);
+        // two walks — and every clock in the town went on treating it as a walker under way. Somebody at a
+        // wheel is inside, which is already neither.
+        var aboard = IsAtTheWheel(person);
+        if (!aboard)
+        {
+            SetWalking(person, false);
+            People.ClearRoute(person);
+        }
 
-        var buildings = _plan.Buildings;
-        if (buildings.Count == 0) return;
+        if (_doors.Count == 0) return;
 
-        var fromM = People.PositionM[person];
+        if (!aboard) CallTheCar(person);
+
+        var car = People.Car[person];
+        var carToHand = !aboard && HasTheCarToHand(person);
+        var fromM = aboard ? Cars.PositionM[car] : People.PositionM[person];
+        var reachM = aboard || carToHand ? _config.PersonTripReachM : _config.PersonWalkReachM;
+        ref var draw = ref People.Draw[person];
         for (var attempt = 0; attempt < DrawsPerTrip; attempt++)
         {
-            var building = People.Draw[person].NextInt(buildings.Count);
+            var placeM = fromM + (Heading.Unit(draw.NextFloat() * MathF.Tau) * (reachM * MathF.Sqrt(draw.NextFloat())));
+            var building = _buildingOfDoor[_doors.Nearest(placeM, out _)];
 
             // Preferring one with room, once the people already walking there are counted — and taking
             // one anyway on the last look, because every building being spoken for is not a reason to
@@ -176,26 +231,68 @@ internal sealed partial class TownWorld
             if ((doorM - fromM).Length() <= _config.WayInTouchingReachM) continue;
             if (!IsWalkableTo(doorM)) continue;
 
-            BeginTrip(person, building, doorM);
+            var mode = TripModes.Of(
+                fromM, doorM, aboard, carToHand, carToHand ? Cars.PositionM[car] : fromM, _config.PersonWalkReachM);
+            if (mode == TripMode.OutOfReach) continue;
+            if (mode == TripMode.Driven && FreeBayNear(doorM, _config.PersonWalkWorthM) < 0) continue;
+
+            BeginTrip(person, building, doorM, mode);
             return;
         }
     }
 
-    /// <summary>The trip drawn: the door claimed, and the walk to it laid.</summary>
-    void BeginTrip(int person, int building, Vector2 doorM)
+    /// <summary>The trip drawn: the door claimed, and the walk to it laid — or the walk to the car, or the drive.</summary>
+    void BeginTrip(int person, int building, Vector2 doorM, TripMode mode)
     {
         TripsDrawn++;
         People.DestinationBuilding[person] = building;
         _containers.Claim(building);
-        People.Stage[person] = TripStage.WalkingToTheDoor;
-        WalkTo(person, doorM);
+        if (mode == TripMode.Walked)
+        {
+            People.Stage[person] = TripStage.WalkingToTheDoor;
+            WalkTo(person, doorM);
+            return;
+        }
+
+        TripsDriven++;
+        var car = People.Car[person];
+        if (IsAtTheWheel(person))
+        {
+            People.Stage[person] = TripStage.Driving;
+            DriveToABayNear(car, doorM);
+            return;
+        }
+
+        People.Stage[person] = TripStage.WalkingToTheCar;
+        WalkTo(person, WayInOf(car));
     }
 
     /// <summary>
-    /// Where a walk to a car would be aimed: beside its door in the bay where it is parked in one, and the ground
+    /// <b>At the car, and in at the wheel</b> (PER-29): the car driven off at once for a bay near the door. A car
+    /// that has gone, been taken or been wrecked while its owner walked to it is not there to get into, and the trip
+    /// is drawn again from where they stand.
+    /// </summary>
+    void TakeTheWheel(int person)
+    {
+        var car = People.Car[person];
+        if (!IsFreeToDrive(car)
+            || (WayInOf(car) - People.GoalM[person]).Length() > _config.WayInTouchingReachM
+            || !_containers.TryBoard(car, person))
+        {
+            GiveUpTheTrip(person);
+            return;
+        }
+
+        Contain(person);
+        CarsBoarded++;
+        People.Stage[person] = TripStage.Driving;
+        DriveToABayNear(car, DoorOf(People.DestinationBuilding[person], Cars.PositionM[car]));
+    }
+
+    /// <summary>
+    /// Where a walk to a car is aimed: beside its door in the bay where it is parked in one, and the ground
     /// off the driver's door where it is not — one at a kerb, one stopped in the road (GEN-4e). Which flank
-    /// of the bay that is is the standing the car came to rest in (GEN-4j). <b>Nothing calls it</b>: no
-    /// walk is aimed at a car, every trip being walked (PER-11).
+    /// of the bay that is is the standing the car came to rest in (GEN-4j).
     /// </summary>
     Vector2 WayInOf(int car)
     {
@@ -238,7 +335,7 @@ internal sealed partial class TownWorld
             if (goals[slot].Link == entry.Link) return true;
         }
 
-        return SearchTheDrivingNetwork(1, goalCount, _closedLinks, out var goalSlot) > 0 && goalSlot >= 0;
+        return SearchTheDrivingNetwork(1, goalCount, ClosedLinksNow, out var goalSlot) > 0 && goalSlot >= 0;
     }
 
     /// <summary>

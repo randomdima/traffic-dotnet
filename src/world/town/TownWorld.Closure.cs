@@ -60,11 +60,20 @@ internal sealed partial class TownWorld
     /// <summary>And the runs a route may not enter, for whoever plans one the way a car does (CTL-1a).</summary>
     public ReadOnlySpan<bool> ClosedLinks => _closedLinks;
 
+    /// <summary>Whether any run is closed now.</summary>
+    bool _anyLinkClosed;
+
+    /// <summary>
+    /// <b>What a search may not enter</b>: every closed run — <b>or nothing where nothing is closed</b>, so a
+    /// sectioned search has no window to look over for one (<see cref="RouteSearch"/>).
+    /// </summary>
+    ReadOnlySpan<bool> ClosedLinksNow => _anyLinkClosed ? _closedLinks : default;
+
     /// <summary>
     /// <b>What a search for this car may not enter</b>: every closed run, or nothing for a car carrying a call —
     /// the scene it is going to is inside the closure (SIM-6, SRV-6).
     /// </summary>
-    ReadOnlySpan<bool> ClosedLinksFor(int car) => Cars.BlueLight[car] ? default : _closedLinks;
+    ReadOnlySpan<bool> ClosedLinksFor(int car) => Cars.BlueLight[car] ? default : ClosedLinksNow;
 
     /// <summary>
     /// <b>The town's closures laid again</b> where one began or ended: which lanes and runs are closed, and every
@@ -75,6 +84,7 @@ internal sealed partial class TownWorld
         if (!_closuresChanged) return;
 
         _closuresChanged = false;
+        _anyLinkClosed = false;
         Array.Clear(_closedLanes);
         Array.Clear(_closedLinks);
         for (var car = 0; car < Cars.Count; car++)
@@ -84,7 +94,11 @@ internal sealed partial class TownWorld
             foreach (var lane in _beat.ClosedLanesOf(car))
             {
                 _closedLanes[lane] = true;
-                if (_driving.LinkOfLane(lane) is var link and not TravelGraph.NoLink) _closedLinks[link] = true;
+                var link = _driving.LinkOfLane(lane);
+                if (link == TravelGraph.NoLink) continue;
+
+                _closedLinks[link] = true;
+                _anyLinkClosed = true;
             }
         }
 

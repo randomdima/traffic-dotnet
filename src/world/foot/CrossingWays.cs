@@ -644,8 +644,15 @@ internal sealed class CrossingWays
         /// <summary>
         /// <b>The stretch of one lane's course between the two points a junction hands over at on it</b>, walked
         /// the way the lane is — the stretch running nearer the junction, a ring having two — or null where the
-        /// two stand on different lines of the course.
+        /// two stand on different lines of the course, or where neither stretch is the junction's.
         /// </summary>
+        /// <remarks>
+        /// <b>A stretch that strays further from the junction than its hand-overs stand, by more than a merge,
+        /// is the far side of a block and not a corner.</b> One ring can pass a junction twice — the outer kerb of
+        /// a street that runs out into a tree of dead ends walks down one side of it and back up the other — and
+        /// two hand-overs on its two passes are a stride apart across the street and kilometres apart round the
+        /// tree, both ways.
+        /// </remarks>
         public Owned? StretchOf(int lane, in Meeting arriving, in Meeting leaving, Vector2 nearM)
         {
             var arcs = courses[lane].Between(
@@ -653,6 +660,17 @@ internal sealed class CrossingWays
                 new KerbLines.Station(leaving.Ring, leaving.AlongM),
                 nearM);
             if (arcs.Length == 0) return null;
+
+            var reachM = MathF.Max(Vector2.Distance(arriving.AtM, nearM), Vector2.Distance(leaving.AtM, nearM))
+                         + config.Road.FootNodeMergeM;
+            foreach (var arc in arcs)
+            {
+                if (Vector2.Distance(arc.PointAtM(arc.LengthM * 0.5f), nearM) > reachM
+                    || Vector2.Distance(arc.EndM, nearM) > reachM)
+                {
+                    return null;
+                }
+            }
 
             // Cut the way the ring is wound, from whichever end that puts first — and a lane is walked either
             // way round its ring (WLK-8).

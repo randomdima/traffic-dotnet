@@ -209,6 +209,29 @@ public class RibbonAtlasTests
     }
 
     /// <summary>
+    /// <b>A box just past a bend is on the stretch of the bend it stands over</b> (TER-4c.2), and not back to the
+    /// joint: the straight before the bend, carried on past its end, runs outside the bend and is nearer the
+    /// points out there than the bend is — and is not where they are.
+    /// </summary>
+    [Fact]
+    public void ABoxJustPastABendIsOnTheStretchItStandsOver()
+    {
+        const float StraightM = 20f;
+        const float BendRadiusM = 15f;
+        const float PastTheJointM = 3f;
+        const float HalfLengthM = 2f;
+        var bend = new ArcSeg(new Vector2(StraightM, 0f), 0f, StraightM, 1f / BendRadiusM);
+        var atlas = Laid([new ArcSeg(Vector2.Zero, 0f, StraightM, 0f), bend]);
+        Span<WayCover> under = stackalloc WayCover[8];
+
+        var count = atlas.UnderBox(
+            bend.PointAtM(PastTheJointM), Heading.Unit(bend.HeadingAtRad(PastTheJointM)), HalfLengthM, 1f, under);
+
+        Assert.Equal(1, count);
+        Assert.InRange(under[0].FromM, StraightM + PastTheJointM - HalfLengthM - atlas.StepM, StraightM + PastTheJointM);
+    }
+
+    /// <summary>
     /// <b>A box up to the edge of the next lane's ribbon is not on it</b> (TER-4c.2): the lattice files points
     /// a reach past every band, and a body is read over only the ground it and the band both hold.
     /// </summary>
