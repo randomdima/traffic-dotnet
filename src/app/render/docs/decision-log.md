@@ -3,6 +3,18 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md); how a type
 works is its own XML docs.
 
+## 2026-10-03 — the ground lives on the device, copied there once
+
+`OdesaOsm` ran at 3 fps on an RX 9070 XT, each frame 326 ms waiting on the GPU with the CPU idle. The ground's
+vertex and index buffers were mapped memory, and the first host-visible type on a discrete card is the host's
+own RAM, so every frame fetched the whole ground across PCIe: harmless for `Odesa`'s 6 MB, and 420 MB for a
+traced city's 7.57 million triangles. **The ground is now device-local, written by a staged copy**
+(`GpuBuffer.Upload`) when the renderer is made and when a layer is switched (`ShowGround`). 3 → 120 fps there,
+89 → 120 on `Odesa`, both at the display's own rate, and every pixel of a shot is the same. Asking for memory
+both device-local and mapped was 119 fps as well, but only where the whole of the card is mapped (resizable
+BAR); without it that window is 256 MB, smaller than the one city that needs it. What a frame writes stays
+mapped — a few MB, and written every frame.
+
 ## 2026-09-19 — a frame is filled into the image it will be drawn into, and the image is taken first
 
 Cars blinked as they moved. The instance buffer, the two quad buffers and the three counts were one of

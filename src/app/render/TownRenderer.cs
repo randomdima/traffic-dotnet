@@ -177,15 +177,23 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _sheetTable = vk.CreateBuffer((ulong)(SheetSlots * sizeof(SheetPlace)), BufferUsageFlags.UniformBufferBit, hostVisible: true);
         _atlas.Places.CopyTo(_sheetTable.Span<SheetPlace>());
 
+        // <b>The ground lives on the device, written by a copy</b>: every frame draws all of it, and mapped memory on
+        // a discrete card is the host's, across the bus — which a traced city's ground, hundreds of MB, cannot cross
+        // every frame.
         _mesh = mesh;
-        var vertices = mesh.Vertices;
-        var indices = mesh.Indices;
-        _indexCount = (uint)indices.Length;
-        _vertices = vk.CreateBuffer((ulong)(vertices.Length * sizeof(GroundVertex)), BufferUsageFlags.VertexBufferBit, hostVisible: true);
-        _indices = vk.CreateBuffer((ulong)(indices.Length * sizeof(uint)), BufferUsageFlags.IndexBufferBit, hostVisible: true);
+        _indexCount = (uint)mesh.Indices.Length;
+        _vertices = vk.CreateBuffer(
+            (ulong)(mesh.Vertices.Length * sizeof(GroundVertex)), BufferUsageFlags.VertexBufferBit | BufferUsageFlags.TransferDstBit,
+            hostVisible: false);
+        _indices = vk.CreateBuffer(
+            (ulong)(mesh.Indices.Length * sizeof(uint)), BufferUsageFlags.IndexBufferBit | BufferUsageFlags.TransferDstBit,
+            hostVisible: false);
         _indirect = vk.CreateBuffer((ulong)sizeof(DrawIndexedIndirectCommand), BufferUsageFlags.IndirectBufferBit, hostVisible: true);
-        _vertices.Write(vertices);
-        _indices.Write(indices);
+        _vertices.Upload<GroundVertex>(
+            mesh.Vertices.Length, into => mesh.Vertices.CopyTo(into),
+            PipelineStageFlags2.VertexAttributeInputBit, AccessFlags2.VertexAttributeReadBit);
+        _indices.Upload<uint>(
+            mesh.Indices.Length, into => mesh.Indices.CopyTo(into), PipelineStageFlags2.IndexInputBit, AccessFlags2.IndexReadBit);
 
         SpriteCapacity = Math.Max(1, spriteCapacity);
         _glyphs = GpuTexture.LoadEmbedded(vk, GlyphSheet.Resource);
@@ -282,9 +290,9 @@ internal sealed unsafe partial class TownRenderer : IDisposable
 
     /// <summary>
     /// <b>Which of the ground's own layers are drawn</b> (OBS-2v), as a bit per <see cref="GroundPart"/>.
-    /// The parts asked for are packed to the front of the index buffer the driver already owns and the
-    /// draw's count is cut to what was written, so a layer switched off costs one copy at the moment it
-    /// is switched and nothing per frame — no recording, no pipeline and no ground laid again.
+    /// The parts asked for are packed to the front of the index buffer and the draw's count is cut to what
+    /// was written, so a layer switched off costs one upload at the moment it is switched and nothing per
+    /// frame — no recording, no pipeline and no ground laid again.
     /// </summary>
     /// <remarks>
     /// <b>The copy is from the mesh and never from the buffer</b>, so a part switched back on comes back
@@ -298,17 +306,13 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _shownParts = parts;
         _vk.Api.DeviceWaitIdle(_vk.Device);
 
-        var all = _mesh.Indices;
-        var into = _indices.Span<uint>();
         var written = 0;
         for (var part = 0; part < GroundParts.Count; part++)
         {
-            if ((parts & (1u << part)) == 0) continue;
-
-            var tally = _mesh.Parts[part];
-            all.Slice(tally.FirstIndex, tally.IndexCount).CopyTo(into[written..]);
-            written += tally.IndexCount;
+            if ((parts & (1u << part)) != 0) written += _mesh.Parts[part].IndexCount;
         }
+
+        _indices.Upload<uint>(written, Packed, PipelineStageFlags2.IndexInputBit, AccessFlags2.IndexReadBit);
 
         _indexCount = (uint)written;
         _indirect.Span<DrawIndexedIndirectCommand>()[0] = new DrawIndexedIndirectCommand
@@ -316,6 +320,19 @@ internal sealed unsafe partial class TownRenderer : IDisposable
             IndexCount = _indexCount,
             InstanceCount = 1,
         };
+
+        void Packed(Span<uint> into)
+        {
+            var at = 0;
+            for (var part = 0; part < GroundParts.Count; part++)
+            {
+                if ((parts & (1u << part)) == 0) continue;
+
+                var tally = _mesh.Parts[part];
+                _mesh.Indices.Slice(tally.FirstIndex, tally.IndexCount).CopyTo(into[at..]);
+                at += tally.IndexCount;
+            }
+        }
     }
 
     public Extent2D Size => _target.Extent;

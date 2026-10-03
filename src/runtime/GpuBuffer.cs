@@ -42,5 +42,49 @@ internal sealed unsafe class GpuBuffer : IDisposable
         MemoryMarshal.Cast<T, byte>(data).CopyTo(Span<byte>());
     }
 
+    /// <summary>
+    /// <b>Elements written into a device-local buffer</b> (one made with <see cref="BufferUsageFlags.TransferDstBit"/>):
+    /// filled into a staging buffer of their size, copied across, waited for, and made visible to the stage that
+    /// reads them. A submit and a wait, so it is for what is written once or when a reader asks — never a frame.
+    /// </summary>
+    public void Upload<T>(int count, StagedFill<T> fill, PipelineStageFlags2 readAt, AccessFlags2 readBy) where T : unmanaged
+    {
+        if (count == 0) return;
+
+        var bytes = (ulong)count * (ulong)sizeof(T);
+        using var staging = _vk.CreateBuffer(bytes, BufferUsageFlags.TransferSrcBit, hostVisible: true);
+        fill(staging.Span<T>()[..count]);
+
+        var (source, target) = (staging.Handle, Handle);
+        _vk.OneShot(commands =>
+        {
+            var region = new BufferCopy { Size = bytes };
+            Vk.Count();
+            _vk.Api.CmdCopyBuffer(commands, source, target, 1, &region);
+
+            var barrier = new BufferMemoryBarrier2
+            {
+                SType = StructureType.BufferMemoryBarrier2,
+                SrcStageMask = PipelineStageFlags2.CopyBit,
+                SrcAccessMask = AccessFlags2.TransferWriteBit,
+                DstStageMask = readAt,
+                DstAccessMask = readBy,
+                Buffer = target,
+                Size = bytes,
+            };
+            var dependency = new DependencyInfo
+            {
+                SType = StructureType.DependencyInfo,
+                BufferMemoryBarrierCount = 1,
+                PBufferMemoryBarriers = &barrier,
+            };
+            Vk.Count();
+            _vk.Api.CmdPipelineBarrier2(commands, &dependency);
+        });
+    }
+
     public void Dispose() => _vk.DestroyBuffer(Handle, Memory);
 }
+
+/// <summary>The elements a staged upload writes, into memory the upload already owns.</summary>
+internal delegate void StagedFill<T>(Span<T> into) where T : unmanaged;
