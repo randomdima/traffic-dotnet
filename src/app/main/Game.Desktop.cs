@@ -1,9 +1,11 @@
+using System.Runtime;
 using TrafficSimulation.Runtime;
 
 namespace TrafficSimulation.App.Main;
 
 /// <summary>
-/// The one thing about a desktop run that is the desktop's: a window with a Vulkan surface under it.
+/// What about a desktop run is the desktop's: a window with a Vulkan surface under it, and CoreCLR's
+/// collector to hand an open back with.
 /// </summary>
 /// <remarks>
 /// This file, <c>Game.Android.cs</c> and <c>Game.Web.cs</c> are the same answer given three times, and
@@ -19,5 +21,11 @@ internal sealed partial class Game
         _vk = Runtime.Vk.Open("traffic-dotnet", validate, window.VkSurface);
         _vk.WantedPacing = pacing;
         return window;
+    }
+
+    static partial void HandBackTheOpen()
+    {
+        GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
+        GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
     }
 }

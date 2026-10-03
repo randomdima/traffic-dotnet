@@ -100,6 +100,9 @@ try
 }
 catch (Exception trouble)
 {
+    // The banner is the message; the stack goes to the console, because what reaches the browser past
+    // the rethrow is the task's wrapper and not where it was thrown.
+    Console.Error.WriteLine(trouble);
     Say(trouble.Message);
     throw;
 }

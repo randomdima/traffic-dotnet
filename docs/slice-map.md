@@ -51,7 +51,7 @@ only chooses it. `app/drive/` sits beside it on the same footing and over `app/p
 draws and asks this one for its pictures.
 
 **A folder named for a head is a second answer and never a second question.** `runtime/web/`,
-`app/render/web/` and `app/main/web/` hold the browser's half of something the desktop already has, and
+`app/render/web/`, `app/main/web/` and `app/drive/web/` hold the browser's half of something the desktop already has, and
 `runtime/android/` and `app/main/android/` hold the handset's, at the same tier and with the same name;
 the three project files pick which half is compiled ([app/web](../src/app/web/docs/requirements.md),
 [app/android](../src/app/android/docs/requirements.md)). Such a folder therefore depends on exactly what

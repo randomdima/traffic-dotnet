@@ -55,7 +55,10 @@
 
          The last two are not the machine but the codec. Texels.cs is the desktop's half of the decode
          and src/app/render/web/Texels.Web.cs is the browser's; LampAtlasBake writes a WebP, which is a
-         workshop step no page runs (WEB-3) and the one thing left that would need an encoder. -->
+         workshop step no page runs (WEB-3) and the one thing left that would need an encoder.
+
+         BotEye and DriveRun draw through the shot's stage, which is the desktop's offscreen target;
+         src/app/drive/web/BotEye.Web.cs is the eye a page names and never opens. -->
     <DesktopOnly>
       src/runtime/Vk.cs;
       src/runtime/Swapchain.cs;
@@ -72,7 +75,9 @@
       src/app/main/Program.cs;
       src/app/render/Texels.cs;
       src/agents/car/body/LampAtlasBake.cs;
-      src/app/shot/**
+      src/app/shot/**;
+      src/app/drive/BotEye.cs;
+      src/app/drive/DriveRun.cs
     </DesktopOnly>
     <DefaultItemExcludes>
       $(DefaultItemExcludes);assets/**;towns/**;raw_assets/**;docs/**;.tmp/**;

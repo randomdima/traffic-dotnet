@@ -198,6 +198,13 @@ internal sealed class TownRenderer : IDisposable
     }
 
     /// <summary>
+    /// Never asked for: a frame is read back for a drive steered from a file on a disk (DRV-7), and a page
+    /// has neither.
+    /// </summary>
+    public void Shot(string path, int widestPx = 0) =>
+        throw new PlatformNotSupportedException("A page has no disk to write a frame to.");
+
+    /// <summary>
     /// The buffers and the pictures, given back. <b>It matters here more than it looks</b>: opening a
     /// map builds the next renderer and disposes this one, and an atlas is two hundred megabytes on
     /// the device — holding two of them at once is how a page loses its adapter outright.

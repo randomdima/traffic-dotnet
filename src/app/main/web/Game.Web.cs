@@ -1,4 +1,6 @@
+using TrafficSimulation.App.Drive;
 using TrafficSimulation.App.Render;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Runtime;
 
@@ -48,6 +50,14 @@ internal sealed partial class Game
 
     /// <summary>The device belongs to the page and outlives the run, so there is nothing to give back.</summary>
     partial void Shutdown()
+    {
+    }
+
+    /// <summary>
+    /// <b>Nothing, in a page.</b> A WebAssembly memory only ever grows, so what a collection frees stays the
+    /// page's whatever it compacts — and Mono has no large-object compaction mode to ask for.
+    /// </summary>
+    static partial void HandBackTheOpen()
     {
     }
 }

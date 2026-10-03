@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Numerics;
-using System.Runtime;
 using Silk.NET.Input;
 using TrafficSimulation.App.Camera;
 using TrafficSimulation.App.Debug;
@@ -733,12 +732,12 @@ internal sealed partial class Game : IDisposable
     /// committed</b> and hands it back a little at each collection after it, of which a standing town has
     /// none. Without this the lay stays resident for the whole run, and at ten times Odesa's area it is half
     /// the working set (root <c>decision-log.md</c>).
+    /// <para>
+    /// <b>The desktop's alone</b>: the large-object heap's compaction mode is CoreCLR's, and Mono — the
+    /// browser's runtime and the handset's — throws <c>PlatformNotSupportedException</c> for it.
+    /// </para>
     /// </remarks>
-    static void HandBackTheOpen()
-    {
-        GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
-        GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
-    }
+    static partial void HandBackTheOpen();
 
     /// <summary>
     /// <b>Where a run opens looking</b> (OBS-1b): the middle of the town or the nearest road to it. What it
