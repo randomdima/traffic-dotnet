@@ -848,6 +848,11 @@ internal sealed partial class BandShell
                 {
                     // A ribbon folded through its own band, which is covered like anything else.
                     if (weighing.OffTheEdgeM[slot] < -weighing.CoincidentHereM) return true;
+                    if (!(weighing.AlongM[slot] > 0f && weighing.AlongM[slot] < _lengthM[line])
+                        && InItsOwnFold(line, weighing.AlongM[slot], pointM, weighing.CoincidentHereM))
+                    {
+                        return true;
+                    }
 
                     continue;
                 }
@@ -867,6 +872,42 @@ internal sealed partial class BandShell
                 {
                     return true;
                 }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// <b>Whether a place off one of a band's own square ends is on that band further along</b> — a band folded
+        /// back through its own end, as a hairpin with a dead end in it is.
+        /// </summary>
+        /// <remarks>
+        /// The index hands back one place on each band (<see cref="Reading"/>), the nearest, and off a square end that
+        /// is the end itself, which says the place is outside however deep in the fold it stands: a place on the end
+        /// half a lane from its middle is as near the end as the fold half a lane and a hair away. So the rest of the
+        /// line is asked — all of it more than half the band's width from that end, so the band's own ground beside the
+        /// end is never mistaken for a fold. <b>A band is the line's normals and not discs round it</b>: a place is on
+        /// it where the square from the line lands strictly inside a piece, within half the width, and the nearest end
+        /// of a piece is not that — inside a bend tighter than the band is wide, every place near the bend's centre is
+        /// within half a width of the line without the band having it.
+        /// </remarks>
+        /// <param name="endM">The end the place is off: nought or less for the line's start, its length or more for its end.</param>
+        bool InItsOwnFold(int line, float endM, Vector2 pointM, float coincidentM)
+        {
+            var halfM = _halfM[line];
+            var insideM = halfM - coincidentM;
+            var (fromM, toM) = endM > 0f ? (0f, _lengthM[line] - halfM) : (halfM, _lengthM[line]);
+            if (toM <= fromM || insideM <= 0f) return false;
+
+            var startM = 0f;
+            foreach (var piece in _along[line])
+            {
+                var alongM = Spline.NearestOnArc(piece, pointM);
+                var atM = startM + alongM;
+                startM += piece.LengthM;
+                if (alongM <= 0f || alongM >= piece.LengthM || atM < fromM || atM > toM) continue;
+
+                if (Vector2.DistanceSquared(piece.PointAtM(alongM), pointM) < insideM * insideM) return true;
             }
 
             return false;

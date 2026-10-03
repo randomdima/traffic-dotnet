@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Numerics;
+using System.Text.Json.Serialization;
 
 namespace TrafficSimulation.CityGen.Traced;
 
@@ -48,6 +49,10 @@ internal sealed class OsmLane
 
     /// <summary>Its <c>turn:lanes</c> entry — <c>left;through</c> — or null where untagged.</summary>
     public string? Turn { get; init; }
+
+    /// <summary>The arrows <see cref="Turn"/> names (<see cref="OsmTurns.ArrowsOf"/>), none where it names none.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public OsmArrows Arrows { get; init; }
 
     /// <summary>Its <c>change:lanes</c> entry — <c>not_left</c> — or null where untagged.</summary>
     public string? Change { get; init; }
@@ -224,11 +229,13 @@ internal sealed class OsmCarriageway
         var laid = new OsmLane[ways.Count];
         for (var at = 0; at < laid.Length; at++)
         {
+            var turn = Entry(tags, "turn:lanes", at, b, both, f, oneWay);
             laid[at] = new OsmLane
             {
                 Way = ways[at],
                 WidthM = widthM[at],
-                Turn = Entry(tags, "turn:lanes", at, b, both, f, oneWay),
+                Turn = turn,
+                Arrows = OsmTurns.ArrowsOf(turn),
                 Change = Entry(tags, "change:lanes", at, b, both, f, oneWay),
                 Psv = Entry(tags, "psv:lanes", at, b, both, f, oneWay) ?? Entry(tags, "bus:lanes", at, b, both, f, oneWay),
             };

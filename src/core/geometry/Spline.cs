@@ -1312,7 +1312,7 @@ internal static class Spline
     /// inside its bound stopped arriving with the other, so the accuracy on offer is not worth what it
     /// costs. It is a nearest and not a cut: nothing downstream of it is cut to the millimetre.
     /// </remarks>
-    static float NearestOnArc(in ArcSeg arc, Vector2 pointM)
+    internal static float NearestOnArc(in ArcSeg arc, Vector2 pointM)
     {
         var along = arc.StartUnit;
         if (MathF.Abs(arc.Curvature) < StraightCurvature)

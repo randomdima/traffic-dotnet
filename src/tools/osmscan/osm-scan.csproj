@@ -17,6 +17,7 @@
   <ItemGroup>
     <Compile Include="../../citygen/traced/OsmExtract.cs" Link="Shared/OsmExtract.cs" />
     <Compile Include="../../citygen/traced/OsmCarriageway.cs" Link="Shared/OsmCarriageway.cs" />
+    <Compile Include="../../citygen/traced/OsmTurns.cs" Link="Shared/OsmTurns.cs" />
     <Compile Include="../../citygen/traced/TransverseMercator.cs" Link="Shared/TransverseMercator.cs" />
   </ItemGroup>
 

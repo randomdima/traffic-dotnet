@@ -235,9 +235,9 @@ working town.
 OpenStreetMap holds in the rectangle round the city's own roads, inside its boundary or not, and the sea line,
 at one metre to the metre over 17 × 39 km — and nothing standing on it yet. It is laid from
 `towns/traced/OdesaOsm.json`, which the scanner (`src/tools/osmscan/`, run by `qq osm`) writes off OSM with
-each way's lanes as OSM's tags mean them, and no seed draws any of it. `qq osm --refetch` asks OSM again,
-`qq osm --draw SHOT.png` draws OSM's own lanes over a shot of the map, and `--bench fidelity` says how far the
-map's lanes stand off them. What it writes is © OpenStreetMap contributors under the ODbL, and the survey
+each way's lanes and where a car may turn as OSM's tags and relations mean them, and no seed draws any of it.
+`qq osm --refetch` asks OSM again, `qq osm --draw SHOT.png` draws OSM's own lanes over a shot of the map, and
+`--bench fidelity` says how far the map's lanes stand off them and how many of OSM's turns were laid. What it writes is © OpenStreetMap contributors under the ODbL, and the survey
 carries that with it.
 
 ## The same town, in a browser

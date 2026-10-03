@@ -1,5 +1,55 @@
 # CityGen — decision log
 
+## 2026-10-03 — a traced junction's turns are OSM's arrows, restrictions and lane connectivity
+
+**The owner asked for OSM's turn information to be used where lane connections are made.** The extract held
+it and nothing read it: 570 lanes with `turn:lanes` on 218 ways, 1 508 turn restrictions and 9 lane
+connectivity relations, while every junction made every turn its geometry allowed.
+
+- **The scanner reads them, as it reads lanes** (`OsmTurns`), so the engine still interprets no tag: a lane's
+  arrows, and for a car the restrictions and connectivity at a node. 1 451 restrictions and 10 lane links (off
+  4 relations) are read; of 62 relations not read, 21 are in force only at times, 18 lack a way from or onto,
+  13 turn over a way, 9 name a way not on the map and 1 a node off its ways. The extract is otherwise the same
+  bytes, from the same OSM base.
+- **A time-limited restriction is not laid**, the map keeping no clock of day, and **neither is one over a
+  way**: a U-turn across a median is two junctions, and forbidding its first turn forbids everyone else's.
+- **A way's arrows are for the junction it ends at** (Key:turn), so a road ending where its way runs on is
+  unmarked there. **A marked lane makes only what its arrows name**, among what the junction offers; a lane
+  whose arrows the junction offers none of is made from as an unmarked lane, so a mapper's mismatch leaves no
+  lane with nothing; and a turn no lane of a marked arm names is not made from it. A slight turn is its side's
+  turn where the junction makes one and straight on where it does not, since the angle a turn is classified by
+  calls a gentle fork straight.
+- **A forbidden turn is left out before the arm's lanes are shared**, so the lanes go to the turns there are.
+  A restriction is laid where a junction stands at its node and each way has one road end there.
+- **What came out**, `--bench fidelity`: 1 429 restrictions laid as 1 885 forbidden turns, the other 22 at nodes
+  where two ways merely carry on; all 10 lane links; arrows on the lanes into 216 road ends; 1 149 fewer
+  connectors. **6 lanes are left with no turn, every one OSM's own**: a living street every turn off which is
+  forbidden, a primary forbidden left, straight and back at a node, and a one-way street forbidden straight on
+  with no other way out. They are laid as OSM has them.
+
+## 2026-10-03 — a traced road leaves its junction on its survey's line, and a kink keeps the legs beside it
+
+**The owner asked for the map's road curvature to be checked against the most detailed OSM there is.** The
+extract was that: 100 ways and their 4 615 nodes, read back off the OSM API itself, stand at the same 1e-7°
+integers with the same node lists, and Overpass knew no road way or node changed since the extract's base.
+What fell short was the laying, twice.
+
+- **A road left its junction on the chord from the centre to its first point outside the disc** — GEN-46's
+  arm, which nothing reads of a traced plan. A way bending inside the disc had its whole first leg swung off
+  the survey: a 171 m driveway whose first node stood 6.3 m from its junction was laid 6 m off end to end.
+  **It now leaves where the survey crosses the disc's edge, on the survey's own heading.**
+- **A kink its legs could not round was taken out**, which swings both legs onto the straight between their
+  far ends: a street's 87 m leg ended 2.2 m off where three nodes 1.5 m apart turned it through 92°. **A kink
+  is now eased the way that stands least off the survey** — taken out, a point beside it taken out, or it and a
+  neighbour carried on along their outer legs to where those meet — read at the points one line has and the
+  other has not.
+- **The boundary then left 1.8 m open** at a hairpin ending inside its own leg out (TER-7b), which was the
+  merge's and is the kernel's log.
+- **What came out**, `--bench fidelity`: 99.7 % of the lanes of a carriageway within 5 cm of OSM's (98.6 %),
+  98.8 % of the shared ones (97.4 %), 94.5 % of all 8 009 km (93.3 %); 205 ways, 3.7 km, mostly more than a
+  metre off (310, 13 km), every one a short way the junctions' discs take most of. Of the engine's own lanes
+  99.6 % stand within 5 cm of an OSM lane (98.4 %), and no road is mostly off one (186, 13 km).
+
 ## 2026-10-03 — a road's lanes are OSM's own, read by a scanner that knows no engine rule
 
 **The owner asked for the engine's lanes to be OSM's lanes, all of them**, read off the most precise thing OSM

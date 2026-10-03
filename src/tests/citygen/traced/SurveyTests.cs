@@ -178,6 +178,7 @@ public class SurveyTests
             Ways = ways,
             Areas = [],
             Relations = [],
+            Turns = OsmTurns.None,
         };
         extract.Check("hand-laid");
         return Survey.Of(extract, SimConfig.Shipped());

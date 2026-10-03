@@ -38,6 +38,13 @@ internal sealed class Survey
     /// <summary>The sea, as closed rings flat as x, y pairs, already cut to the map's edge.</summary>
     public required float[][] Sea { get; init; }
 
+    /// <summary>
+    /// What OSM forbids a car at a node and which lanes it joins there, as the scanner read them
+    /// (<see cref="OsmTurns"/>): a way by its OSM id (<see cref="SurveyWay.OsmId"/>), and a node by its index, which
+    /// is its point's.
+    /// </summary>
+    public OsmTurns Turns { get; init; } = OsmTurns.None;
+
     public int PointCount => PointsM.Length / 2;
 
     public Vector2 PointM(int point) => new(PointsM[2 * point], PointsM[(2 * point) + 1]);
@@ -105,6 +112,7 @@ internal sealed class Survey
             PointsM = pointsM,
             Ways = [.. ways],
             Sea = flatSea,
+            Turns = extract.Turns,
         };
     }
 
@@ -223,9 +231,13 @@ internal sealed class Survey
         var shared = carriageway.Count(OsmLaneWay.Both);
         var centreOffsetM = carriageway.CentreOffsetM;
         var turned = forward == 0 && shared == 0;
+        var arrows = carriageway.Lanes.Any(lane => lane.Arrows != OsmArrows.None)
+            ? carriageway.Lanes.Select(lane => lane.Arrows).ToArray()
+            : [];
         if (turned)
         {
             Array.Reverse(points);
+            Array.Reverse(arrows);
             (forward, backward) = (backward, forward);
             centreOffsetM = -centreOffsetM;
         }
@@ -242,6 +254,7 @@ internal sealed class Survey
             LanesShared = shared,
             CarriagewayM = carriageway.WidthM,
             CentreOffsetM = centreOffsetM,
+            Arrows = arrows,
             Points = points,
         };
     }
@@ -283,6 +296,12 @@ internal sealed record SurveyWay
 
     /// <summary>How far the carriageway's middle stands off the way's points, to the right of them as they run.</summary>
     public required float CentreOffsetM { get; init; }
+
+    /// <summary>
+    /// The arrows on every lane (<see cref="OsmLane.Arrows"/>), left to right looking along the way's points — the
+    /// lanes against them first, then any driven both ways, then those with them — and empty where none has any.
+    /// </summary>
+    public OsmArrows[] Arrows { get; init; } = [];
 
     /// <summary>Indices into <see cref="Survey.PointsM"/>, in the way's own order.</summary>
     public required int[] Points { get; init; }

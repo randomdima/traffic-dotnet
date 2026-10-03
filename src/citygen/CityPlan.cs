@@ -262,6 +262,40 @@ internal sealed class CityPlan
         /// </summary>
         public int LinesBetweenLanes(int road) => LanesOn(road) < 2 || DrivenOverOneLine(road) ? 0 : LanesOn(road) - 1;
 
+        /// <summary>
+        /// <b>The turns each lane is marked for where it runs into its junction</b> (TER-5j) — a traced map's arrows
+        /// (GEN-57): a road's lanes with it from the kerb, then those against it, or nothing for a road with none
+        /// marked (<see cref="MarkedTurnsOf"/>). <b>Empty where the town marks none</b>, which is every town the
+        /// generator lays.
+        /// </summary>
+        public MarkedTurns[] MarkedTurns { get; init; } = [];
+
+        /// <summary>Count + 1 entries where <see cref="MarkedTurns"/> is filled: road <c>i</c>'s run starts at entry <c>i</c>.</summary>
+        public int[] MarkedTurnOffsets { get; init; } = [];
+
+        /// <summary>The turns a road's lanes one way are marked for, from the kerb, or none where none is marked.</summary>
+        public ReadOnlySpan<MarkedTurns> MarkedTurnsOf(int road, bool withTheRoad)
+        {
+            if (MarkedTurnOffsets.Length == 0 || MarkedTurnOffsets[road] == MarkedTurnOffsets[road + 1]) return default;
+
+            var with = LanesWithTheRoad(road);
+            return withTheRoad
+                ? MarkedTurns.AsSpan(MarkedTurnOffsets[road], with)
+                : MarkedTurns.AsSpan(MarkedTurnOffsets[road] + with, LanesAgainstTheRoad(road));
+        }
+
+        /// <summary>
+        /// <b>The turns a junction does not make</b>, from one road into another (TER-5j): a traced map's turn
+        /// restrictions (GEN-57). <b>Empty where the town forbids none</b>, which is every town the generator lays.
+        /// </summary>
+        public RoadTurn[] BannedTurns { get; init; } = [];
+
+        /// <summary>
+        /// <b>The lanes a turn joins, where the survey says which</b> (TER-5j): a traced map's lane connectivity
+        /// (GEN-57). A turn with any is made between those lanes and no others. <b>Empty where the town says none.</b>
+        /// </summary>
+        public LaneLink[] LaneLinks { get; init; } = [];
+
         /// <summary>A town whose every road runs both ways, which is every map that lays no one-way street.</summary>
         public static RoadFlow[] AllBothWays(int roads) => new RoadFlow[roads];
 

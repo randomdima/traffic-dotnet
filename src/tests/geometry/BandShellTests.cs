@@ -43,6 +43,21 @@ public class BandShellTests
         Assert.Equal(BoundaryM(drawn), BoundaryM(withEmpties), 1e-3f);
     }
 
+    /// <summary>
+    /// <b>A band folded back through its own square end leaves no run open</b>: a hairpin whose leg back ends
+    /// inside the leg out, as a dead end at the tip of a street's U-turn does. Off its own end, the nearest place
+    /// on its own line is that end, which says nothing of the leg out the end stands in.
+    /// </summary>
+    [Fact]
+    public void ABandFoldedBackThroughItsOwnEndLeavesNoRunOpen()
+    {
+        var outM = new ArcSeg(new Vector2(0f, -30f), MathF.PI * 0.5f, 30f, 0f);
+        var roundM = new ArcSeg(outM.EndM, outM.HeadingAtRad(outM.LengthM), 5f * (MathF.PI * 210f / 180f), 0.2f);
+        var backM = new ArcSeg(roundM.EndM, roundM.HeadingAtRad(roundM.LengthM), 16f, 0f);
+
+        Assert.Equal(0, Shell([[outM, roundM, backM]]).Loose.Length);
+    }
+
     static float BoundaryM(BandShell shell)
     {
         var lengthM = 0f;

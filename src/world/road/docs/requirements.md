@@ -133,7 +133,11 @@ it from** (`CityGen.LaneUse`): carrying straight on from any of them, turning to
 lane and to the far side from the lane beside the line the two ways meet on. **Where nothing carries straight
 on, the lanes are shared between the turns there are** — the kerb half to the near side, the rest to the far,
 the middle lane of an odd count to both, and all of them to a turn that is the only kind on offer — so **no
-lane arrives at a junction that offers it nothing**. The lanes a movement is made from are spread over the
+lane arrives at a junction that offers it nothing**. **A marked lane makes the turns its arrows name** that the
+junction offers, an unmarked one beside it what it would make unmarked, and a turn no lane of a marked arm
+names is not made from it. **A turn the plan forbids is not offered at all**, before the lanes are shared,
+and a turn whose lanes the plan names joins those and no others — a traced map's survey's (`GEN-57`), which
+leaves an arm nothing where OSM forbids every turn off it. The lanes a movement is made from are spread over the
 lanes of the road it takes in the same order, as many onto as many lane for lane, fewer fanning out and more
 merging, so **no two movements off one arm onto one road cross**, and no lane of the road taken is reached by
 none of them. A road of one lane each way is offered every turn its junction makes, from its one lane onto

@@ -462,6 +462,12 @@ internal sealed class LaneLines
     /// own reverse. A car gets into one and out of it by a manoeuvre of its own (GEN-4f).
     /// </para>
     /// <para>
+    /// <b>And a turn the plan forbids is not a turn the node makes</b> (<see cref="CityPlan.RoadArrays.BannedTurns"/>,
+    /// TER-5j): it is left out before the arm's lanes are shared between the turns there are, so the lanes go to
+    /// those. A turn whose lanes the plan names (<see cref="CityPlan.RoadArrays.LaneLinks"/>) joins those, and an
+    /// arm with arrows painted on it is made from as they say (<see cref="LaneUse"/>).
+    /// </para>
+    /// <para>
     /// <b>And a sharp turn is a sharp turn and not a reversal.</b> Two arms may be drawn as little as
     /// <c>ArmsApartMinDeg</c> apart and the bearings they end on are drawn either side of that
     /// (<see cref="ConnectionPoints"/>), so a movement between them turns through most of a half-circle —
@@ -480,6 +486,9 @@ internal sealed class LaneLines
         var kind = new List<LaneTurn>();
         var straightRad = config.Road.TurnStraightToleranceDeg * MathF.PI / 180f;
         var turns = new LaneTurn?[MostLanesAtANode(outOffsets)];
+        var banned = roads.BannedTurns.ToHashSet();
+        var links = roads.LaneLinks.ToHashSet();
+        var linked = roads.LaneLinks.Select(link => new RoadTurn(link.Junction, link.FromRoad, link.ToRoad)).ToHashSet();
 
         for (var lane = 0; lane < laneCount; lane++)
         {
@@ -493,6 +502,7 @@ internal sealed class LaneLines
                 var leaving = leavingLanes[slot];
                 turns[slot] = null;
                 if (laneRoad[leaving] == laneRoad[lane] && laneForward[leaving] != laneForward[lane]) continue;
+                if (banned.Contains(new RoadTurn(node, laneRoad[lane], laneRoad[leaving]))) continue;
 
                 var starts = laneArcs[laneArcOffsets[leaving]];
                 if (MathF.PI - MathF.Abs(Spline.WrapRad(starts.HeadingRad - arrivingRad)) <= LineTolerance.RoundingM) continue;
@@ -509,17 +519,19 @@ internal sealed class LaneLines
             }
 
             var lanesHere = LanesOfItsWay(roads, laneRoad[lane], laneForward[lane]);
+            var marked = roads.MarkedTurnsOf(laneRoad[lane], laneForward[lane]);
             for (var slot = 0; slot < leavingLanes.Length; slot++)
             {
                 if (turns[slot] is not { } turn) continue;
 
+                // A turn whose lanes the survey names is made between those and no others.
                 var leaving = leavingLanes[slot];
-                if (!LaneUse.Joins(
-                        offered, turn, laneFromKerb[lane], lanesHere, laneFromKerb[leaving],
-                        LanesOfItsWay(roads, laneRoad[leaving], laneForward[leaving])))
-                {
-                    continue;
-                }
+                var joins = linked.Contains(new RoadTurn(node, laneRoad[lane], laneRoad[leaving]))
+                    ? links.Contains(new LaneLink(node, laneRoad[lane], laneFromKerb[lane], laneRoad[leaving], laneFromKerb[leaving]))
+                    : LaneUse.Joins(
+                        offered, turn, marked, laneFromKerb[lane], lanesHere, laneFromKerb[leaving],
+                        LanesOfItsWay(roads, laneRoad[leaving], laneForward[leaving]));
+                if (!joins) continue;
 
                 toLane.Add(leaving);
                 kind.Add(turn);

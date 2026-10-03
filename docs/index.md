@@ -158,13 +158,15 @@ owning slice's log; this list says only what is absent now and what closes it.
   next has its disc shrunk to keep the road between them, which leaves its connectors no room to turn in.
   Its lanes are OSM's — every one, as many, as wide and where OSM's tags put them — and no car changes
   between them along a road yet, nor is a car told how to meet another on a lane both ways share.
-- **A traced city's lanes leave OSM's near its junctions** (`--bench fidelity`). Across a junction OSM's
-  lanes run straight to the node and the engine's connectors turn off its disc. A road leaves its junction on
-  the straight from the junction's centre (`GEN-46`), so a way whose first point lies inside the disc is laid
-  from the centre, metres off at that end. And a corner too tight for its lanes is the straight past it: a
-  U-turn spur OSM draws as two one-way legs meeting at a point, 2 to 5 m apart, turns back 10 to 24 m before
-  the tip, and a driveway turning hard just past a junction's disc is laid straight to it. 310 ways, 13 km of
-  8 009, are mostly more than a metre off.
+- **A traced city's lanes leave OSM's inside its junctions** (`--bench fidelity`). Across a junction OSM's
+  lanes run straight to the node and the engine's connectors turn off its disc, so 58 % of the 928 km of OSM
+  lane inside a disc is within 5 cm of an engine line. And a corner too tight for its lanes is eased off the
+  survey: a U-turn spur OSM draws as two one-way legs meeting at a point, 2 to 5 m apart, turns back 10 to 24 m
+  before the tip, and a driveway turning hard just past a junction's disc is laid straight to the next leg.
+  205 ways, 3.7 km of 8 009, are mostly more than a metre off — every one short, its discs most of it.
+- **A traced city keeps the turns OSM forbids at times, and those over a way** (`GEN-57`, `--bench fidelity`):
+  21 restrictions in force only at some hours are not laid, the map keeping no clock of day, nor 13 turns made
+  over a way — a U-turn across a median, which no one junction can forbid alone.
 - **A traced city keeps its dead ends, and a car cannot turn round in one** (`GEN-57`, `GEN-4l`): every
   driveway and courtyard lane of `OdesaOsm` ends in one, so a leg routed into one stands there until its clock
   gives it up. It is not asked whether it can be driven round, and it stands nobody yet.

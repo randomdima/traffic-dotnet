@@ -1,5 +1,18 @@
 # The kernel — decision log
 
+## 2026-10-03 — a band's own end is asked against the rest of its line
+
+**The merge asks each band once about a place, at the nearest point on its line** (`BandShell.Merge.Reading`),
+and off a square end that point is the end itself, which says the place is outside. A band folded back through
+its own end is not: `OdesaOsm` laid a service road that hairpins into a dead end inside its own leg out, and
+the end's stretch lay 0.86 m from the end and 0.863 m from the leg it stood in, so which was asked was a
+millimetre's luck and 1.8 m of boundary was left open (TER-7b). **A place off a band's own end is now asked
+against the rest of its line** (`InItsOwnFold`): only beyond half the band's width from that end, so the band's
+own ground beside the end is never read as a fold, and only where the line's square lands strictly inside a
+piece. **A distance to the nearest piece was tried first** and opened 44 runs, every one at a bend just before
+a dead end: inside a bend tighter than the band is wide, a place within half a width of the line is not on the
+band, which is the normals off the line and not discs round it.
+
 ## 2026-10-01 — the tick is the bodies, the input and the picture
 
 **The owner set it: an actor's behaviour runs on nothing per tick.** What the tick is for is the physics, the

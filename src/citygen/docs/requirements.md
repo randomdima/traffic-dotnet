@@ -76,15 +76,24 @@ body. A road OSM draws as an area is a surface and has no lane.
   each the whole of its width; lanes driven both ways down the middle of lanes each way — a tidal pair, a
   centre turning lane — are laid as lanes of one way each, so every lane still stands where OSM puts it. **Where the carriageway changes is a junction** — a lane more or
   less, a width, a placement — of two arms where nothing else meets there (GEN-51).
-- **A road is its surveyed line**, stood a standoff off both junctions (TER-5d) — each junction's own, stood
-  out by however much wider than a street of one lane each way its widest arm is, and never past the middle
-  of the road to its nearest neighbour less `SimConfig.CityGen.TracedShortestRoadM` — with **every corner
-  rounded at half its carriageway**, or as tight as its legs leave room for, a leg shared between the corners
-  at its two ends by what each needs. **No lane of it folds back over a corner**: one its legs cannot round
-  with the innermost lane at `SimConfig.CityGen.TracedTightestLaneRadiusM` is a survey's kink, and the
-  straight past it stands for it. **A road of one lane on its line** — both ways sharing it, or one way of one
-  — has nothing beside the lane to cover its ground, so its floor is half its carriageway, where the ground's
-  inner edge comes to a point.
+- **A car turns where OSM says it may** (TER-5j), as the scanner reads OSM's rules for a car (`OsmTurns`):
+  each lane is marked with its `turn:lanes` arrows at the junction its way ends at, a turn a restriction forbids
+  at a node is not made — an `only_` one forbidding every other turn off its way there — and a turn whose lanes
+  a connectivity relation names joins those. **What is not laid is named**, by the scanner and by
+  `--bench fidelity`: a restriction in force only at times, since the map keeps no clock of day; one made over
+  a way, which is a turn through two junctions no one of them can forbid alone; and one at a node no junction
+  stands at.
+- **A road is its surveyed line** between the discs of its two junctions (TER-5d), **leaving each where the
+  line crosses its edge, on the line's own heading** — each disc a standoff of its junction's own, stood out
+  by however much wider than a street of one lane each way its widest arm is, and never past the middle of the
+  road to its nearest neighbour less `SimConfig.CityGen.TracedShortestRoadM` — with **every corner rounded at
+  half its carriageway**, or as tight as its legs leave room for, a leg shared between the corners at its two
+  ends by what each needs. **No lane of it folds back over a corner**: one its legs cannot round with the
+  innermost lane at `SimConfig.CityGen.TracedTightestLaneRadiusM` is a survey's kink, eased the way that
+  stands least off the survey — taken out, a point beside it taken out, or it and a neighbour carried on along
+  their outer legs to where those meet. **A road of one lane on its line** — both ways sharing it, or one way
+  of one — has nothing beside the lane to cover its ground, so its floor is half its carriageway, where the
+  ground's inner edge comes to a point.
 - **No road is longer than a traced map lays one** (`SimConfig.CityGen.TracedRoadLongestM`): a way surveyed
   further without meeting another is cut into even lengths at places of two arms, which are the only
   junctions nothing meets at a traced town keeps (GEN-51).

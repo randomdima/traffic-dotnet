@@ -18,10 +18,11 @@ namespace TrafficSimulation.Tools.OsmScan;
 /// inside its own edge. A way crossing the rectangle's edge is taken whole; the engine cuts it there.
 /// </para>
 /// <para>
-/// Two things are added, both OSM's conventions and neither the engine's: <b>each road way's lanes</b> as its
-/// tags mean them (<see cref="OsmCarriageway.Read"/>), and <b>the frame</b> every node is read into metres by
-/// (<see cref="OsmFrame"/>) — Transverse Mercator about the middle of the city's roads, the map their extent and
-/// <see cref="MarginM"/>.
+/// Three things are added, all OSM's conventions and none the engine's: <b>each road way's lanes</b> as its
+/// tags mean them (<see cref="OsmCarriageway.Read"/>), <b>where a car may turn</b> as the restriction and
+/// connectivity relations mean it (<see cref="OsmTurns.Read"/>), and <b>the frame</b> every node is read into
+/// metres by (<see cref="OsmFrame"/>) — Transverse Mercator about the middle of the city's roads, the map their
+/// extent and <see cref="MarginM"/>.
 /// </para>
 /// <para>A node two ways place differently is refused rather than averaged.</para>
 /// </remarks>
@@ -113,6 +114,28 @@ internal static class Scan
             Lon = [.. ids.Select(id => units[id].Lon)],
         };
 
+        OsmWay[] ways = [.. roadWays.Concat(coastWays).Select(way => Way(way, index, lanes: true)).OrderBy(way => way.Id)];
+        OsmRelation[] relations =
+        [
+            .. Elements(roads, "relation").OrderBy(relation => relation.GetProperty("id").GetInt64()).Select(relation => new OsmRelation
+            {
+                Id = relation.GetProperty("id").GetInt64(),
+                Tags = Tags(relation),
+                Members =
+                [
+                    .. relation.GetProperty("members").EnumerateArray().Select(member => new OsmMember
+                    {
+                        Type = member.GetProperty("type").GetString()!,
+                        Ref = member.GetProperty("ref").GetInt64(),
+                        Role = member.GetProperty("role").GetString() ?? "",
+                    }),
+                ],
+            }),
+        ];
+
+        var unread = new List<(long Relation, string Why)>();
+        var turns = OsmTurns.Read(relations, ways.Where(way => way.Carriageway is not null).ToDictionary(way => way.Id), index, unread);
+
         var extract = new OsmExtract
         {
             Name = place.Map,
@@ -132,25 +155,10 @@ internal static class Scan
                     .Select(node => new OsmNodeTags { Node = index[node.GetProperty("id").GetInt64()], Tags = Tags(node) }),
             ],
             Frame = Framed(ownWays),
-            Ways = [.. roadWays.Concat(coastWays).Select(way => Way(way, index, lanes: true)).OrderBy(way => way.Id)],
+            Ways = ways,
             Areas = [.. areaWays.Select(way => Way(way, index, lanes: false)).OrderBy(way => way.Id)],
-            Relations =
-            [
-                .. Elements(roads, "relation").OrderBy(relation => relation.GetProperty("id").GetInt64()).Select(relation => new OsmRelation
-                {
-                    Id = relation.GetProperty("id").GetInt64(),
-                    Tags = Tags(relation),
-                    Members =
-                    [
-                        .. relation.GetProperty("members").EnumerateArray().Select(member => new OsmMember
-                        {
-                            Type = member.GetProperty("type").GetString()!,
-                            Ref = member.GetProperty("ref").GetInt64(),
-                            Role = member.GetProperty("role").GetString() ?? "",
-                        }),
-                    ],
-                }),
-            ],
+            Relations = relations,
+            Turns = turns,
         };
         extract.Check(place.Map);
 
@@ -159,7 +167,7 @@ internal static class Scan
         var json = new OsmExtractJson(new JsonSerializerOptions(OsmExtractJson.Default.Options) { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
         File.WriteAllText(into, JsonSerializer.Serialize(extract, json.OsmExtract) + "\n");
 
-        Report(extract, Path.GetRelativePath(root, into));
+        Report(extract, Path.GetRelativePath(root, into), unread);
         return 0;
     }
 
@@ -241,7 +249,7 @@ internal static class Scan
         };
     }
 
-    static void Report(OsmExtract extract, string into)
+    static void Report(OsmExtract extract, string into, List<(long Relation, string Why)> unread)
     {
         var roads = extract.Ways.Where(way => way.Carriageway is not null).ToArray();
         Console.WriteLine($"{into}  {new FileInfo(into).Length / 1024} KB  osm {extract.Source.OsmBase}  frame {extract.Frame.WidthM:F0} x {extract.Frame.HeightM:F0} m");
@@ -256,6 +264,22 @@ internal static class Scan
         Console.WriteLine($"  lanes: {lanes.Sum(carriageway => carriageway.Lanes.Length)} on {lanes.Length} ways; counts tagged on {lanes.Count(c => c.LanesFrom == OsmLanesFrom.Tagged)}, " +
                           $"widths tagged on {lanes.Count(c => c.WidthFrom != OsmWidthFrom.Assumed)}, placed off the middle on {lanes.Count(c => c.CentreOffsetM != 0f)}, " +
                           $"turns on {lanes.Count(c => c.Lanes.Any(lane => lane.Turn is not null))}, shared both ways on {lanes.Count(c => c.Lanes.Any(lane => lane.Way == OsmLaneWay.Both))}");
+
+        var turned = lanes.SelectMany(carriageway => carriageway.Lanes).Where(lane => lane.Turn is not null).ToArray();
+        var unknown = turned.SelectMany(lane => lane.Turn!.Split(';')).Where(word => OsmTurns.Arrow(word.Trim()) is null)
+            .GroupBy(word => word).OrderByDescending(group => group.Count()).Select(group => $"'{group.Key}' {group.Count()}").ToArray();
+        Console.WriteLine($"  arrows on {turned.Count(lane => lane.Arrows != OsmArrows.None)} of {turned.Length} lanes with a turn entry" +
+                          (unknown.Length > 0 ? $"; words OSM does not define: {string.Join(", ", unknown)}" : ""));
+
+        var restrictions = extract.Turns.Restrictions;
+        Console.WriteLine($"  turns: {restrictions.Length} restricted off {restrictions.Select(turn => turn.Relation).Distinct().Count()} relations " +
+                          $"({restrictions.Count(turn => !turn.Only)} forbidden, {restrictions.Count(turn => turn.Only)} the only one allowed), " +
+                          $"{extract.Turns.LaneLinks.Length} lane links off {extract.Turns.LaneLinks.Select(link => link.Relation).Distinct().Count()} relations");
+        if (unread.Count > 0)
+        {
+            Console.WriteLine($"  {unread.Count} relations not read: " + string.Join("  ", unread.GroupBy(entry => entry.Why).OrderByDescending(group => group.Count())
+                .Select(group => $"{group.Key} {group.Count()} ({string.Join(", ", group.Take(3).Select(entry => entry.Relation))}{(group.Count() > 3 ? ", …" : "")})")));
+        }
 
         var frame = extract.Frame;
         var projection = frame.Projection();

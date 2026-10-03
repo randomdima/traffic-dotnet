@@ -107,6 +107,51 @@ internal static class TracedFidelity
         // connector; a connector turning there has no OSM lane to be held against.
         Report("OSM lanes off laid lanes and connectors", osm, laid, discs, id => $"way {id}");
         Report("laid lanes off OSM", laidLanes, osm, discs, id => $"road {id}");
+        Turns(extract, survey, plan, lanes, config);
+    }
+
+    /// <summary>
+    /// <b>How much of where OSM says a car may turn was laid</b>, and whether any connector makes a turn the plan
+    /// forbids or leaves a lane OSM links for one it does not.
+    /// </summary>
+    static void Turns(OsmExtract extract, Survey survey, CityPlan plan, LaneLines lanes, SimConfig config)
+    {
+        var laid = TracedStreets.Lay(survey, config).Turns;
+        var banned = plan.Roads.BannedTurns.ToHashSet();
+        var linked = plan.Roads.LaneLinks.Select(link => new RoadTurn(link.Junction, link.FromRoad, link.ToRoad)).ToHashSet();
+        var links = plan.Roads.LaneLinks.ToHashSet();
+        var (forbidden, unlinked) = (0, 0);
+        for (var connector = 0; connector < lanes.ConnectorCount; connector++)
+        {
+            var (from, to) = (lanes.ConnectorFromLane[connector], lanes.ConnectorToLane[connector]);
+            var turn = new RoadTurn(lanes.JunctionOfConnector(connector), lanes.LaneRoad[from], lanes.LaneRoad[to]);
+            if (banned.Contains(turn)) forbidden++;
+            if (linked.Contains(turn) && !links.Contains(new LaneLink(turn.Junction, turn.FromRoad, lanes.LaneFromKerb[from], turn.ToRoad, lanes.LaneFromKerb[to]))) unlinked++;
+        }
+
+        // A lane into a junction some other road leaves, left with no turn: what OSM forbids or marks may do that.
+        var leaves = lanes.LaneRoad.Select((road, lane) => (Junction: lanes.LaneFromJunction[lane], Road: road)).ToHashSet();
+        var leaving = leaves.GroupBy(leaves => leaves.Junction).ToDictionary(group => group.Key, group => group.Count());
+        var (stranded, strandedByOsm) = (0, 0);
+        var strandedAt = new List<string>();
+        var turnedAt = banned.Select(turn => (turn.Junction, turn.FromRoad)).ToHashSet();
+        for (var lane = 0; lane < lanes.LaneCount; lane++)
+        {
+            var (junction, road) = (lanes.LaneToJunction[lane], lanes.LaneRoad[lane]);
+            var others = leaving.GetValueOrDefault(junction) - (leaves.Contains((junction, road)) ? 1 : 0);
+            if (lanes.ConnectorAt[lane + 1] > lanes.ConnectorAt[lane] || others == 0) continue;
+
+            stranded++;
+            if (turnedAt.Contains((junction, road)) || plan.Roads.MarkedTurnsOf(road, lanes.LaneForward[lane]).Length > 0) strandedByOsm++;
+            if (strandedAt.Count < 8) strandedAt.Add($"road {road} at ({plan.Junctions.CentreM[junction].X:F0}, {plan.Junctions.CentreM[junction].Y:F0})");
+        }
+
+        Console.WriteLine($"turns: {laid.Restrictions} of OSM's {extract.Turns.Restrictions.Length} restrictions laid as {laid.Bans} turns forbidden — " +
+                          $"{laid.RestrictionsAtNoJunction} at a node no junction stands at, {laid.RestrictionsUnmatched} naming a way with no one end there; " +
+                          $"{laid.Links} of {extract.Turns.LaneLinks.Length} lane links; arrows on the lanes into {laid.ArrowedEnds} road ends. " +
+                          $"Connectors making a forbidden turn {forbidden}, joining lanes a link does not {unlinked}; " +
+                          $"lanes into a junction another road leaves with no turn there {stranded}, {strandedByOsm} of them restricted or marked" +
+                          (strandedAt.Count > 0 ? ": " + string.Join(", ", strandedAt) : ""));
     }
 
     const byte Lane = 0;
@@ -170,7 +215,8 @@ internal static class TracedFidelity
         var lost = ownM.Where(entry => entry.Value.NearM < entry.Value.TotalM * 0.5).OrderByDescending(entry => entry.Value.TotalM).ToArray();
         Console.WriteLine($"  {lost.Length} of {ownM.Count} {named(0).Split(' ')[0]}s have less than half their length within {NearM:0} m, " +
                           $"{lost.Sum(entry => entry.Value.TotalM):F0} m in all" +
-                          (lost.Length > 0 ? ": " + string.Join(", ", lost.Take(8).Select(entry => $"{named(entry.Key)} {entry.Value.TotalM:F0} m")) : ""));
+                          (lost.Length > 0 ? ": " + string.Join(", ", lost.Take(8).Select(entry =>
+                              $"{named(entry.Key)} {entry.Value.TotalM:F0} m at ({worst[entry.Key].AtM.X:F0}, {worst[entry.Key].AtM.Y:F0})")) : ""));
 
         foreach (var (id, (offM, atM)) in worst.OrderByDescending(entry => entry.Value.OffM).Take(12))
         {

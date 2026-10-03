@@ -5,14 +5,14 @@ namespace TrafficSimulation.CityGen.Traced;
 /// <summary>
 /// <b>A real place exactly as OpenStreetMap holds it</b>: every road in the rectangle round the roads inside its
 /// boundary, the surfaces outlining them and the coastline over them, with every id, tag and coordinate OSM
-/// stores (GEN-57) — and each road's lanes as OSM's own tagging rules mean them (<see cref="OsmCarriageway"/>).
-/// Written by the scanner
+/// stores (GEN-57) — and each road's lanes and where a car may turn as OSM's own tagging rules mean them
+/// (<see cref="OsmCarriageway"/>, <see cref="OsmTurns"/>). Written by the scanner
 /// (src/tools/osmscan/, run by <c>qq osm</c>) into <c>towns/traced/</c>, and read into this engine's metres
 /// by <see cref="Survey.Of"/> when the map is opened.
 /// </summary>
 /// <remarks>
-/// <b>Nothing in it is this engine's.</b> The frame and the lanes are OSM's conventions applied by the scanner,
-/// so the engine interprets no tag of a lane; which classes are laid and the sea are read off it at load — and
+/// <b>Nothing in it is this engine's.</b> The frame, the lanes and the turns are OSM's conventions applied by the
+/// scanner, so the engine interprets no tag of a lane or relation; which classes are laid and the sea are read off it at load — and
 /// a node or way in it is the one OSM has, under the same id, to be looked up or fetched again by.
 /// </remarks>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
@@ -46,6 +46,9 @@ internal sealed class OsmExtract
 
     /// <summary>Every turn restriction and lane connectivity relation over the roads, members by OSM id.</summary>
     public required OsmRelation[] Relations { get; init; }
+
+    /// <summary>What those relations forbid a car and which lanes they join, read by the scanner (<see cref="OsmTurns"/>).</summary>
+    public required OsmTurns Turns { get; init; }
 
     /// <summary>Refuses an extract that cannot describe a place, at the point it is read.</summary>
     public void Check(string what)
@@ -84,6 +87,11 @@ internal sealed class OsmExtract
         foreach (var tagged in NodeTags)
         {
             if ((uint)tagged.Node >= (uint)count) throw new InvalidDataException($"{what}: tags for node {tagged.Node} of {count}.");
+        }
+
+        foreach (var via in Turns.Restrictions.Select(turn => turn.Via).Concat(Turns.LaneLinks.Select(link => link.Via)))
+        {
+            if ((uint)via >= (uint)count) throw new InvalidDataException($"{what}: a turn at node {via} of {count}.");
         }
     }
 }
