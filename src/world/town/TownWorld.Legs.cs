@@ -100,12 +100,18 @@ internal sealed partial class TownWorld
             case CarAction.Follow:
                 _following.Decide(ref town, car, sinceLastDecisionS);
 
-                // A pass drawn now is looked round for at once, as it was on the tick after it was drawn.
+                // A pass drawn now is looked round for at once, as it was on the tick after it was drawn — and so is the
+                // room to move across.
                 if (Cars.Action[car] == CarAction.Overtake) _overtaking.Decide(car, 0f);
+                if (Cars.Action[car] == CarAction.Switch) _switching.Decide(car, 0f);
                 return;
 
             case CarAction.Overtake or CarAction.BackUp:
                 _overtaking.Decide(car, sinceLastDecisionS);
+                return;
+
+            case CarAction.Switch:
+                _switching.Decide(car, sinceLastDecisionS);
                 return;
 
             case CarAction.Park:

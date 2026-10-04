@@ -20,6 +20,12 @@ internal enum CollisionLayer : ulong
     /// traffic. The ground it fetched up against is all that is left holding it.
     /// </summary>
     Downed = 1UL << 3,
+
+    /// <summary>
+    /// A car on a bridge over other roads (PHY-1a): it meets the cars on its own deck and nothing on the ground it
+    /// passes over — no car under it, no building, no prop.
+    /// </summary>
+    CarOver = 1UL << 4,
 }
 
 /// <summary>
@@ -43,7 +49,7 @@ internal enum CollisionLayer : ulong
 internal static class CollisionLayers
 {
     /// <summary>How many layers there are, which is how wide the matrix is.</summary>
-    public const int Count = 4;
+    public const int Count = 5;
 
     /// <summary>
     /// What each layer goes looking for, in layer order. This is the declaration and the masks are
@@ -59,6 +65,9 @@ internal static class CollisionLayers
         // anything: neither of the two rows above names Downed, so a casualty is in nobody's mask and
         // nothing but the ground can reach it (PHY-5b).
         CollisionLayer.Static,
+
+        // A deck's cars meet each other and nothing below them, which no row above names either (PHY-1a).
+        CollisionLayer.CarOver,
     ];
 
     static readonly CollisionLayer[] Masks = Symmetrise(Scans);

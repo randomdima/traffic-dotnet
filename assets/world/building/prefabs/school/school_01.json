@@ -1,0 +1,18 @@
+{
+  "id": "school_01",
+  "footprintM": [
+    6.0,
+    4.0
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "school",
+  "tags": [
+    "school",
+    "1 storey",
+    "flat roof",
+    "bitumen",
+    "annex"
+  ],
+  "describe": "small single-storey annex of a school \u2014 an entrance porch or a boiler house \u2014 flat bitumen roof with a vent"
+}

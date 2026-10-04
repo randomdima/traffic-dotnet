@@ -1,0 +1,17 @@
+{
+  "id": "industrial_28",
+  "footprintM": [
+    50.0,
+    43.0
+  ],
+  "cornerRadiusM": 0.8,
+  "partsM": [],
+  "look": "industrial",
+  "tags": [
+    "industrial",
+    "1-3 storeys",
+    "sawtooth roof",
+    "factory"
+  ],
+  "describe": "large factory hall or depot, sawtooth roof with skylight strips, weathered and patched"
+}

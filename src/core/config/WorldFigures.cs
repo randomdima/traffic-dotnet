@@ -609,6 +609,182 @@ internal sealed class CityGenFigures
     public float TracedTightestLaneRadiusM { get; init; } = 0.5f;
 
     /// <summary>
+    /// <b>How far a traced road's line may stand off a point its way was surveyed through</b> for the line to be laid
+    /// in the fewest corners and the roundest arcs (GEN-57, <c>TracedAlignment</c>): a point this near the straight
+    /// past it is no corner, two corners one arc passes this near are one, and a corner is rounded as wide as keeps
+    /// its stretch of the survey this near. A corner sharper than that can round at half its carriageway sags further.
+    /// </summary>
+    /// <remarks>
+    /// Well inside a lane, and inside what OSM's own nodes are placed to off imagery: a bend a mapper drew as a
+    /// polygon is laid as the bend it was, and no road moves off its lane for it.
+    /// </remarks>
+    public float TracedLineToleranceM { get; init; } = 0.5f;
+
+    /// <summary>
+    /// <b>How wide every lane of a traced road is laid</b> (GEN-57), whatever OSM tags or assumes: a street's lanes
+    /// are painted alike, and what a mapper's widths and a survey's measurements differ by lane to lane is how far the
+    /// sources disagree.
+    /// </summary>
+    /// <remarks>
+    /// OSM's own assumed lane (<c>OsmCarriageway.AssumedLaneWidthM</c>, JOSM's lane renderer), which Odesa's measured
+    /// street widths do not tell from anything between 3.2 and 3.5 m; <see cref="TracedRoadsideWidthM"/> is the
+    /// roadside that fits them best beside it (the decision log has the reading).
+    /// </remarks>
+    public float TracedLaneWidthM { get; init; } = 3.5f;
+
+    /// <summary>
+    /// <b>How wide a traced road's roadside is laid</b> (GEN-57): a strip of carriageway between the lanes and a kerb
+    /// that nobody drives — the cars parked along a street and its gutter, which imagery reads as road. A measured
+    /// width holds as many of these past its lanes as the rest of it holds to the nearest strip, one a kerb at most.
+    /// </summary>
+    /// <remarks>
+    /// Beside lanes of <see cref="TracedLaneWidthM"/>, Odesa's measured street widths fit a strip of 2.2 m and one of
+    /// 2.8 m equally — the one a street of a lane each way read 10.4 m wide with a strip at each kerb, the other with one
+    /// strip and its lanes set off its way. This is the first: a parked car's width, and a street laid as it was drawn.
+    /// </remarks>
+    public float TracedRoadsideWidthM { get; init; } = 2.2f;
+
+    /// <summary>
+    /// <b>How far on a roadside the survey stops along the way is carried</b> (GEN-57): to the next corner its kerb
+    /// turns, or to where a roadside starts again, where either stands no further along the survey than this from
+    /// the place it stopped.
+    /// </summary>
+    /// <remarks>
+    /// Two junction boxes' reach and a few metres of road between them: a stretch that short is the approach to the
+    /// corner, and a roadside ended at its start eases in across one box only to run into the next.
+    /// </remarks>
+    public float TracedRoadsideCarriedM { get; init; } = 40f;
+
+    /// <summary>
+    /// The narrowest a traced road's measured width may leave each of its lanes (GEN-57): a width that would leave its
+    /// lanes narrower is a misreading of that road — a stretch of imagery under one carriageway of a pair — and is not
+    /// taken. About the least a lane of a residential street is laid at.
+    /// </summary>
+    public float TracedNarrowestLaneM { get; init; } = 2.75f;
+
+    /// <summary>
+    /// The widest a traced road's measured width may leave each of its lanes (GEN-57): about a lane with a car parked
+    /// either side of it, which is what a street's kerb-to-kerb width holds over its lanes. A width that would leave a
+    /// lane wider read something else as the road — a square, a yard, a car park the way runs through — and is not
+    /// taken.
+    /// </summary>
+    public float TracedWidestLaneM { get; init; } = 8f;
+
+    /// <summary>
+    /// The radius a traced town lays a tree its survey maps at (GEN-57): the crown of a grown street tree, which is the
+    /// size the catalogue draws its great trees and nothing else at (GEN-6b) — OSM tags almost none with a crown of
+    /// its own.
+    /// </summary>
+    public float TracedTreeRadiusM { get; init; } = 1.4f;
+
+    /// <summary>
+    /// <b>How many of a traced town's bridges over its roads have cars stood at them</b> (GEN-57, PHY-1a): a car each way
+    /// on the bridge over the road it crosses, and one each way on that road short of it — the widest crossings first.
+    /// It is content, as a map's own cars are: a handful to look at a level by, and no traffic.
+    /// </summary>
+    public int TracedBridgesWithCars { get; init; } = 4;
+
+    /// <summary>The least a traced footprint covers and still stands a building (GEN-57): a sentry box's, and no booth smaller.</summary>
+    public float TracedFootprintSmallestM2 { get; init; } = 4f;
+
+    /// <summary>
+    /// <b>The narrowest rectangle a traced footprint is cut into</b> (GEN-57): a wall and a room, so a sliver of
+    /// outline between two wings is part of neither rather than a building of its own.
+    /// </summary>
+    public float TracedPartNarrowestM { get; init; } = 2f;
+
+    /// <summary>
+    /// How much of its own box a traced footprint fills and is that box (GEN-57): a rectangle a mapper drew a
+    /// porch or a chamfered corner on.
+    /// </summary>
+    public float TracedRectangularShare { get; init; } = 0.88f;
+
+    /// <summary>The most rectangles one traced footprint is cut into (GEN-57): the four wings of a courtyard block.</summary>
+    public int TracedPartsMost { get; init; } = 4;
+
+    /// <summary>
+    /// <b>How much of a traced footprint its rectangles cover before no more are cut</b> (GEN-57), as a share of its
+    /// area: past it, what is left is the stair towers and bays an outline is drawn round and no building of its own.
+    /// </summary>
+    public float TracedPartsCoverShare { get; init; } = 0.9f;
+
+    /// <summary>The least share of a traced footprint a further rectangle cut from it covers (GEN-57).</summary>
+    public float TracedPartSmallestShare { get; init; } = 0.08f;
+
+    /// <summary>
+    /// <b>How fine a traced footprint is read to be cut</b> (GEN-57): its longest side in this many cells, none finer
+    /// than <see cref="TracedFootprintCellLeastM"/> — a wing's corner placed to within a cell.
+    /// </summary>
+    public int TracedFootprintCells { get; init; } = 48;
+
+    public float TracedFootprintCellLeastM { get; init; } = 0.25f;
+
+    /// <summary>
+    /// <b>How far a traced building may be moved to stand on the walk</b> (GEN-57, GEN-54), measured from the wall of
+    /// it that faces the walk to the building line, either way: a front garden or a yard's depth behind it, or what a
+    /// street laid wider than surveyed takes off a house front. A building further from every walk stands nowhere.
+    /// </summary>
+    public float TracedFrontageReachM { get; init; } = 25f;
+
+    /// <summary>
+    /// <b>How far any part of a traced building's front may stand back off the building line</b> (GEN-57), where the
+    /// rest of it stands on it: the walk under a front may curve that much and no more, so nothing is stood across a
+    /// bend or a jog in the kerb.
+    /// </summary>
+    public float TracedFrontageStraightM { get; init; } = 1f;
+
+    /// <summary>
+    /// How far the walk under a traced building's front may turn off the front's own bearing (GEN-57): further, and the
+    /// front runs round a block's corner.
+    /// </summary>
+    public float TracedFrontageTurnDeg { get; init; } = 30f;
+
+    /// <summary>
+    /// <b>How tall a home whose survey says no more stands before it is a block of flats</b> (GEN-57): three storeys,
+    /// over which nobody builds a house.
+    /// </summary>
+    public float TracedFlatsHeightM { get; init; } = 9f;
+
+    /// <summary>How tall a block of flats stands before it is a tower (GEN-57): eight storeys, the panel blocks' lowest.</summary>
+    public float TracedTowerHeightM { get; init; } = 24f;
+
+    /// <summary>The most a home of no stated height covers and is a shed rather than a house (GEN-57).</summary>
+    public float TracedShedLargestM2 { get; init; } = 20f;
+
+    /// <summary>The most a home of no stated height covers and is a house rather than a block of flats (GEN-57).</summary>
+    public float TracedHouseLargestM2 { get; init; } = 300f;
+
+    /// <summary>
+    /// The least a building nothing says anything of covers and is a works rather than a home (GEN-57): a block of
+    /// flats this size is a courtyard block, and those stand in residential ground.
+    /// </summary>
+    public float TracedWorksSmallestM2 { get; init; } = 1500f;
+
+    /// <summary>
+    /// <b>How many prefabs a traced rectangle is offered, nearest first</b> (GEN-57), before it stands nothing: the
+    /// nearest that stands clear of the ground and of the buildings stood before it is the one.
+    /// </summary>
+    public int TracedPrefabsTried { get; init; } = 6;
+
+    /// <summary>
+    /// How much more a prefab larger than a traced rectangle weighs against it than one as much smaller (GEN-57): what
+    /// it stands over is a neighbour's, and what it leaves is grass.
+    /// </summary>
+    public float TracedPrefabLargerWeighs { get; init; } = 1.5f;
+
+    /// <summary>
+    /// How much a prefab rounder or squarer than a traced rectangle weighs against it (GEN-57), a whole share of
+    /// roundness against a size's ratio — so a silo wears a round prefab before a square one half again its size.
+    /// </summary>
+    public float TracedPrefabRoundWeighs { get; init; } = 1.5f;
+
+    /// <summary>
+    /// How far two traced buildings may stand into each other and still both stand (GEN-57): a party wall's
+    /// half, which two neighbours a terrace was surveyed as share.
+    /// </summary>
+    public float TracedPartyWallM { get; init; } = 0.3f;
+
+    /// <summary>
     /// How far one one-way street stands off the next (GEN-18), which is what scatters them evenly over a
     /// town rather than gathering them into a district.
     /// </summary>

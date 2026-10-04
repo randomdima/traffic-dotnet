@@ -106,6 +106,10 @@ internal sealed class Paving
     public float DrivenLengthM(int line) =>
         line < Lanes.LaneCount ? Lanes.LaneLengthM[line] : MovementLengthM(line - Lanes.LaneCount);
 
+    /// <summary>The level one driven line is on (<see cref="LaneLines.LaneLevel"/>, <see cref="LaneLines.ConnectorLevel"/>).</summary>
+    public byte DrivenLevel(int line) =>
+        line < Lanes.LaneCount ? Lanes.LaneLevel[line] : Lanes.ConnectorLevel(line - Lanes.LaneCount);
+
     ChainIndex? _drivenLines;
 
     /// <summary>
@@ -145,9 +149,10 @@ internal sealed class Paving
     BandShell? _perimeter;
 
     /// <summary>
-    /// <b>The outside of the driven ground, as the merge of the ribbons every line lays</b>
+    /// <b>The outside of the driven ground, as the merge of the ribbons every line on the ground lays</b>
     /// (<see cref="LaneShell"/>), laid on the first ask and not before: nothing the town needs to be laid
-    /// reads it, and working it out costs every ribbon cut against every ribbon near it.
+    /// reads it, and working it out costs every ribbon cut against every ribbon near it. A bridge over other
+    /// roads is not in it (<see cref="Above"/>).
     /// </summary>
     /// <remarks>
     /// <b>Kept here because it is the town's and not a reader's.</b> The merge is the same for everyone who
@@ -155,7 +160,32 @@ internal sealed class Paving
     /// </remarks>
     public BandShell Perimeter(SimConfig config)
     {
-        lock (_laying) return _perimeter ??= LaneShell.Of(this, config);
+        lock (_laying) return _perimeter ??= LaneShell.Of(this, config, CityPlan.RoadArrays.Ground);
+    }
+
+    ArcSeg[][]? _above;
+
+    /// <summary>
+    /// <b>The driven ground of the level above</b> (TER-7b, PHY-1a): the bridges over other roads merged into a shape
+    /// of their own, kerb to kerb — or none, in a town with nothing above its ground. Laid on the first ask.
+    /// </summary>
+    /// <remarks>
+    /// <b>Its corners are filled and never cut</b> (<see cref="ArcOutset.Corners.Filled"/>): the one radius the
+    /// ground is rounded at (TER-3c.10) fills a notch between two of its pieces, but a bridge's end is cut square
+    /// where it lands on the ground at a bridgehead, and a corner rounded off there is a bite out of the road.
+    /// </remarks>
+    public ArcSeg[][] Above(SimConfig config)
+    {
+        lock (_laying) return _above ??= LaidAbove(config);
+    }
+
+    ArcSeg[][] LaidAbove(SimConfig config)
+    {
+        if (!Lanes.Levelled) return [];
+
+        var (rings, loose) = LaneShell.Of(this, config, CityPlan.RoadArrays.Over)
+            .Outset(0f, config.Road.LineRoundedM, ArcOutset.Corners.Filled);
+        return loose.Length > 0 ? [.. rings, .. ArcRings.Shut(loose)] : rings;
     }
 
     KerbEnds? _kerbEnds;

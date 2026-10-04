@@ -1,0 +1,20 @@
+{
+  "id": "tower_05",
+  "sprite": "tower_05.webp",
+  "footprintM": [
+    26.0,
+    12.5
+  ],
+  "cornerRadiusM": 0.8,
+  "partsM": [],
+  "look": "tower",
+  "tags": [
+    "tower",
+    "9-12 storeys",
+    "flat roof",
+    "black bitumen",
+    "soviet",
+    "panel block"
+  ],
+  "describe": "tall Soviet panel tower block, flat roof of black bitumen, 1 lift machine rooms as raised boxes, ventilation shafts and a low parapet round the edge"
+}

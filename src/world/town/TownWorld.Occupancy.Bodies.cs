@@ -46,8 +46,9 @@ internal sealed partial class TownWorld
         ref readonly var build = ref Cars.BuildOf(car);
         var halfM = build.CollisionSizeM * 0.5f;
 
+        // On its own level's ways alone (PHY-1a): a car on a bridge stands on nothing of the road under it.
         var under = _atlas.UnderBox(
-            Cars.PositionM[car], Heading.Unit(Cars.HeadingRad[car]), halfM.X, halfM.Y, _groundUnderCars, car);
+            Cars.PositionM[car], Heading.Unit(Cars.HeadingRad[car]), halfM.X, halfM.Y, _groundUnderCars, car, Cars.Level[car]);
 
         var travelling = IsUnderWay(occupant);
         var stopMps = _config.Driving.StopSpeedMps;

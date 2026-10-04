@@ -1,0 +1,18 @@
+{
+  "id": "hospital_10",
+  "footprintM": [
+    40.5,
+    18.5
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "hospital",
+  "tags": [
+    "hospital",
+    "3-6 storeys",
+    "flat roof",
+    "grey membrane",
+    "hospital wing"
+  ],
+  "describe": "hospital or clinic wing, flat grey roof with rooftop plant, ducts and a lift room"
+}

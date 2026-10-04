@@ -80,4 +80,11 @@ internal interface ICarTown
     /// along it — true where a line was laid over it, false where there is none or it is the line the car already has.
     /// </summary>
     bool Reacquire(int car, Vector2 rearAxleM);
+
+    /// <summary>
+    /// <b>The lane beside taken, once the car has moved across onto it</b> (CAR-53): the line laid again from where the
+    /// body stands on <paramref name="lane"/>, and the car granted the ground its move across held
+    /// <paramref name="heldAheadM"/> ahead of its nose until its plan is laid down the new line.
+    /// </summary>
+    void TakeTheLaneBeside(int car, int lane, float heldAheadM);
 }

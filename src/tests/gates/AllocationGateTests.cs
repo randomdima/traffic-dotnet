@@ -158,15 +158,17 @@ public class AllocationGateTests
     /// reading of the town and moves when the town does</b>: the shared town's sixty touch nothing over five
     /// minutes, two hundred and forty touched several times until the one-way streets stopped taking the last
     /// choice away from the junctions they arrive at (GEN-18), and every lane's worth touched within half a
-    /// minute until the lights came back to hold most of its junctions (TLT-3), and within a minute until a plan
-    /// reached no further than a plan may (TER-4c.1) — the first touch is at a minute and a half now.
+    /// minute until the lights came back to hold most of its junctions (TLT-3), within a minute until a plan
+    /// reached no further than a plan may (TER-4c.1), and at a minute and a half until a car was read onto an all
+    /// but straight bend from its start rather than its centre (<c>Spline.NearestOnArc</c>) — the first touch is
+    /// at three minutes and a bit now.
     /// </remarks>
     [Fact]
     public void ATownWithTrafficInItActuallyProducesContacts()
     {
         var config = SimConfig.Shipped();
         using var world = new TownWorld(Towns.LayFresh(Towns.Brief(Towns.CitySeed, cars: CrowdedCars)), config);
-        new SimLoop<TownWorld>(world, config).Advance(7_200);
+        new SimLoop<TownWorld>(world, config).Advance(14_400);
 
         Assert.True(world.Touches > 0);
     }

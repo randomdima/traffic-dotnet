@@ -155,6 +155,12 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <summary>The line every way is travelled on, and the zebra it paints (<see cref="WayLines"/>).</summary>
     readonly WayLines _lines;
 
+    /// <summary>Whether any road of the town is driven on a level of its own — a bridge over other roads (PHY-1a).</summary>
+    readonly bool _levelled;
+
+    /// <inheritdoc cref="_levelled"/>
+    public bool Levelled => _levelled;
+
     /// <summary>
     /// <b>The zebras this town paints, laid once and read by both networks</b> (TER-6, WLK-10): the walk is
     /// cut and joined at them, the lanes they are painted across carry them as furniture, and the bands
@@ -213,6 +219,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _orderedToM = new Vector2[_selected.Capacity];
         var roadsAt = Stopwatch.GetTimestamp();
         _roads = RoadGraph.Build(plan, config);
+        _levelled = Array.Exists(plan.Roads.Level, level => level != CityPlan.RoadArrays.Ground);
         RoadsMs = Stopwatch.GetElapsedTime(roadsAt).TotalMilliseconds;
 
         // The bays' streets come before the network that prices them: the one movement a route may make that
@@ -224,7 +231,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // own standing cost.
         _driving = DrivingNetwork.Build(
             _roads, BayStreets.WhereALegMayTurn(_roads, _bayStreets, config.TurnAtALotWithinM), plan, config);
-        _driveSearch = new RouteSearch(_driving.Cells, mostEntries: BayStreets.MostLanes, mostGoals: 2, MostRunsInARoute);
+        _driveSearch = new RouteSearch(
+            _driving.Cells, mostEntries: Math.Max(BayStreets.MostLanes, _roads.MostLanesOfAWay), mostGoals: 2, MostRunsInARoute);
         _surcharges = new LinkSurcharges(MostWaysGivenUpOn);
         _walkSurcharges = new LinkSurcharges(MostWaysGivenUpOn);
 
@@ -266,17 +274,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _crossingEdges = CrossingEdges.Of(_zebras, _walking.Foot);
         _signalHolds = SignalHolds.Of(_signals, _bars, _crossingEdges, _roads, _ways);
 
-        // <b>The ground of every way at once</b> (TER-4c.4): which ribbons cover which ground, and which share
-        // it. Laid over the one numbering, so it comes after every network that numbers a way — and between two
-        // collections (CollectTheLay).
-        CollectTheLay(plan, config);
-        var atlasAt = Stopwatch.GetTimestamp();
-        _lines = new WayLines(_roads, _walking, _ways, _crossingEdges, config);
-        _atlas = RibbonAtlas.Lay(_lines, config.RibbonLevel, config.RibbonTouchM);
-        AtlasMs = Stopwatch.GetElapsedTime(atlasAt).TotalMilliseconds;
-        CollectTheLay(plan, config);
-        RefuseFurnitureOnTheRoad();
-
         var walkers = PeopleIn(plan);
         var drivers = CarsOfThePlan(plan);
 
@@ -294,6 +291,17 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // (SRV-3) — laid now, since a roster is never grown once the town stands.
         walkers += served * CrewAboard(config);
         drivers += served;
+
+        // <b>The ground of every way at once</b> (TER-4c.4): which ribbons cover which ground, and which share
+        // it. Laid over the one numbering, so it comes after every network that numbers a way, after the roster it
+        // files the walk for — and between two collections (CollectTheLay).
+        CollectTheLay(plan, config);
+        var atlasAt = Stopwatch.GetTimestamp();
+        _lines = new WayLines(_roads, _walking, _ways, _crossingEdges, config);
+        _atlas = RibbonAtlas.Lay(_lines, config.RibbonLevel, config.RibbonTouchM, anyoneWalks: walkers > 0);
+        AtlasMs = Stopwatch.GetElapsedTime(atlasAt).TotalMilliseconds;
+        CollectTheLay(plan, config);
+        RefuseFurnitureOnTheRoad();
 
         People = new PersonFleet(walkers);
         _groundUnderWalkers = new RibbonAtlas.Recall(walkers);
@@ -325,6 +333,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _claims = new TickGroups(config.Sim.ClaimsIntervalS, config.Sim.TickRateHz);
         _carActions = new CarActions(_ground, _manoeuvres);
         _overtaking = new Overtaking(_ground, _carActions);
+        _switching = new Switching(_ground, _carActions, _overtaking);
         _backingUp = new BackingUp(_ground, _carActions, _overtaking);
         _walkingGround = new WalkingGround(People, _occupancy, _atlas, _ways, _lines, _walking, config);
         _personActions = new PersonActions(People);
@@ -348,7 +357,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _bays = new BayManoeuvring(_ground, _carActions, _manoeuvres);
         _pullingOut = new PullingOut(_ground, _bays, _parking, _bayStreets);
         _parkingIn = new ParkingIn(_ground, _carActions, _bays, _parking, _bayStreets);
-        _following = new Following(_ground, _carActions, _overtaking, _parkingIn);
+        _following = new Following(_ground, _carActions, _overtaking, _switching, _parkingIn);
         _rejoining = new Rejoining(_ground, _carActions, _following);
         _round = new ParkedRound(drivers);
         for (var bay = 0; bay < _parking.BayCount && !_townParks; bay++) _townParks = _parking.CanBeReached(bay);

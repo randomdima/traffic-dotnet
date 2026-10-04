@@ -39,22 +39,28 @@ internal static class ProjectPaths
         return briefs;
     }
 
-    /// <summary>What a traced map is authored as: a real place's roads and sea, surveyed (GEN-57).</summary>
-    public static string TracedSurveyFile(string map) => Path.Combine(Towns, "traced", map + ".json");
+    /// <summary>
+    /// What a traced map is authored as: a real place's roads, sea and what else is known of it, in one file of its
+    /// own (GEN-57) — the only file of the place the engine reads. What it was imported from sits beside it, in a
+    /// folder of the map's name, and is never read when a map is opened.
+    /// </summary>
+    public static string TracedMapFile(string map) => Path.Combine(Towns, "traced", map + TracedMapKind);
+
+    const string TracedMapKind = ".map";
 
     /// <summary>
-    /// Every survey in <c>towns/traced/</c>, by name. <b>None where the folder is not there</b>, which is the
-    /// browser head's runtime: it is handed the briefs alone (WEB-4).
+    /// Every traced map in <c>towns/traced/</c>, by name. <b>None where the folder is not there</b>, which is the
+    /// browser head's runtime when it is handed the briefs alone (WEB-4).
     /// </summary>
-    public static string[] TracedSurveys()
+    public static string[] TracedMaps()
     {
         var folder = Path.Combine(Towns, "traced");
         if (!Directory.Exists(folder)) return [];
 
-        var surveys = Directory.GetFiles(folder, "*.json");
-        for (var at = 0; at < surveys.Length; at++) surveys[at] = Path.GetFileNameWithoutExtension(surveys[at]);
-        Array.Sort(surveys, StringComparer.Ordinal);
-        return surveys;
+        var maps = Directory.GetFiles(folder, "*" + TracedMapKind);
+        for (var at = 0; at < maps.Length; at++) maps[at] = Path.GetFileNameWithoutExtension(maps[at]);
+        Array.Sort(maps, StringComparer.Ordinal);
+        return maps;
     }
 
     /// <summary>

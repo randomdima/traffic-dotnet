@@ -46,7 +46,8 @@ answer by a test.
 
 ## What must be true of it
 
-**SOL-11** `P3` No gravity, and the world is a plane seen from above. The single largest simplifier.
+**SOL-11** `P3` No gravity, and the world is a plane seen from above. The single largest simplifier. A bridge
+over other roads is the same plane, its cars on a layer of their own (`PHY-1a`) — never a height.
 **SOL-12** `P3` An overlap is pushed out without the push becoming motion.
 **SOL-13** `P3` Coulomb friction, no bounce.
 **SOL-14** `P3` An impulse off the centre spins the body it hits, unless that body's rotation is locked.

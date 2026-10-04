@@ -4,6 +4,59 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-05 — an open's peak is what stands while the atlas is filed
+
+**A page keeps the most it was ever given**: a browser never shrinks a WebAssembly heap, and a 32-bit one holds 4 GB
+at most, so the open's peak is the whole of what the browser head is judged on. OdesaOsm's was 4.0 GB, and most of
+it was not the town.
+
+- **A coarser level of the grid was a finer one.** `GridLevel.Coarser` built the level above from its own cell as
+  though it were the main cell, so from two halvings down a step coarser halved the cell again. An index refused at
+  its cell cap (`ChainIndex.Seal`) walked down to the main level at the cell it started from: the driven ground's merge
+  (`BandShell.Merge`) and each of the sea's outsets laid a table of 248 million cells, a gigabyte twice over at once.
+- **The atlas's filing held what it worked in through the marks** (`RibbonAtlas.Filed`): every point's block and a
+  table of each entry's place, a gigabyte and an eighth, stood under the marks' own working set. Filed in a method of
+  its own, both are gone before the marks are laid, and a point's place rides in its entry's column until its cell is
+  sorted, so the place table is gone altogether. The atlas is the same to the bit.
+- **The world is laid before the ground** (`LaidTown.Lay`): the mesh's 171 MB stood under the atlas's peak, and laid
+  after it, it is laid in what the atlas freed.
+- **A grid of nothing covers one cell** (`BucketGrid.Over`): the doors of a town with no building were three words
+  a cell of the whole town.
+- **A traced town stands no building on its footprints**, which is citygen's ([its log](../src/citygen/docs/decision-log.md)).
+- **The atlas files the walk only where it is read**, and a piece reads only the rows it reaches, which are the roads
+  slice's ([its log](../src/world/road/docs/decision-log.md)); **a corner of the ground is twelve bytes**, which is
+  the renderer's ([its log](../src/app/render/docs/decision-log.md)).
+
+Measured on OdesaOsm with `qq prof --bench load --memory`, the live peak bisected by the heap limit
+(`DOTNET_GCHeapHardLimit`) the load still finishes under, the GC's committed heap fifteen seconds into a window, and
+the published page's own heap a minute after the map was named:
+
+| | before | after |
+|---|---|---|
+| peak resident | 4 011 MiB, the plan's | 1 964 MiB, the atlas's filing |
+| live peak | 3.0 to 3.5 GB | 1.5 to 1.75 GB |
+| open | 15.7 s, 66 CPU s | 10.9 s, 36 CPU s |
+| standing, committed | 2 046 MB | 1 304 MB |
+| the page's heap | out of memory at its 2 GB | 2 165 MiB of 4 GB |
+
+The coarsening moved the ground by five triangles of three million: the indexes it put right are coarser, and the
+merge reads its candidates off a coarser cell.
+
+**Not done: the paving's build-time indexes let go once the town stands** (`Paving.DrivenLines`, `GroundRings`' kerb
+scan, 51 MB). Let go after the peak, they give a page nothing back. **Nor the street lanes' third index**
+(`RoadGraph`'s, 20 MB), answered off the two a level each: the nearest of a bridge's lanes from anywhere in town is a
+ring grown kilometres wide. **Nor the filing a block at a time**, letting each go once filed: the entries are laid out
+while every block still stands, so the peak is the same. A filing that keeps no points at all is a second run of the
+geometry, and waits for that run to be cheaper.
+
+## 2026-10-04 — a building may be one rounded rectangle
+
+**The owner asked for a prefab building's collider to be a rounded rectangle** (`OBJ-2`): a prefab is one rounded
+rectangle, drawn and collided as that — a car slides off a corner rather than catching
+on it, and a silo is a disc. It is the solver's one shape with a radius, as a car's is (`PhysicsWorld.AddStaticBox`);
+a building drawn of several rectangles keeps them square-cornered (`OBJ-5a`), and a generated town's roofs are radius
+nought, so nothing they stand moves ([citygen's log](../src/citygen/docs/decision-log.md)).
+
 ## 2026-10-01 — a town hands back what opening it cost
 
 **Rule 2 has a cost nobody had written down: a standing town never runs a full collection**, so whatever

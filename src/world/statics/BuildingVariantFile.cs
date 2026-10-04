@@ -13,15 +13,34 @@ internal sealed class BuildingPartFile
     public required Vector2 SizeM { get; init; }
 }
 
-/// <summary>One roof as its file is written: the image, the footprint it was drawn at, and its walls.</summary>
+/// <summary>
+/// One roof as its file is written: the image, the footprint it was drawn at, and its walls — and for a prefab
+/// (GEN-57), what it is drawn as and what the picture is to show.
+/// </summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed class BuildingVariantFile
 {
     public required string Id { get; init; }
 
-    public required string Sprite { get; init; }
+    /// <summary>The picture, beside this file; none for a prefab not yet drawn, which is drawn as a plain block of its look.</summary>
+    public string? Sprite { get; init; }
 
     public required Vector2 FootprintM { get; init; }
+
+    /// <summary>
+    /// The radius its footprint's corners are rounded at (OBJ-2): a prefab is one rounded rectangle, drawn and collided
+    /// as that — up to half its short side, which is a stadium or, square, a circle. Nought for a square-cornered roof.
+    /// </summary>
+    public float CornerRadiusM { get; init; }
+
+    /// <summary>A prefab's look (<see cref="CityGen.BuildingLook"/>, lower-cased): what a traced footprint is fitted to it by.</summary>
+    public string? Look { get; init; }
+
+    /// <summary>What the picture is to show, word by word — the look, the storeys, the roof's shape and what it is laid in.</summary>
+    public string[] Tags { get; init; } = [];
+
+    /// <summary>The roof as seen from above, in a line, for whoever draws its picture.</summary>
+    public string? Describe { get; init; }
 
     /// <summary>
     /// <b>The rectangles this roof is actually built of</b> (OBJ-5a) — one for a plain block, several for

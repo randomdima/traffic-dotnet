@@ -1,5 +1,6 @@
 <!-- A workshop tool, not the runtime: it asks OpenStreetMap for one city and writes the traced map's survey,
-     and draws OSM's own lanes over a shot of it. Nothing it does runs when a map is opened. -->
+     imports and edits the map the engine reads, and draws OSM's own lanes over a shot of it. Nothing it does
+     runs when a map is opened. -->
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
@@ -12,13 +13,16 @@
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
-  <!-- The survey's format and OSM's lane rules are the engine's own files, compiled here as well, so what the
-       scanner writes is what the engine reads by construction. -->
+  <!-- The survey's and the map's formats, the import and OSM's lane rules are the engine's own files, compiled
+       here as well, so what the scanner writes is what the engine reads by construction. -->
   <ItemGroup>
     <Compile Include="../../citygen/traced/OsmExtract.cs" Link="Shared/OsmExtract.cs" />
     <Compile Include="../../citygen/traced/OsmCarriageway.cs" Link="Shared/OsmCarriageway.cs" />
     <Compile Include="../../citygen/traced/OsmTurns.cs" Link="Shared/OsmTurns.cs" />
     <Compile Include="../../citygen/traced/TransverseMercator.cs" Link="Shared/TransverseMercator.cs" />
+    <Compile Include="../../citygen/traced/TracedMap.cs" Link="Shared/TracedMap.cs" />
+    <Compile Include="../../citygen/traced/TracedMap.Stumps.cs" Link="Shared/TracedMap.Stumps.cs" />
+    <Compile Include="../../citygen/traced/TracedMapImport.cs" Link="Shared/TracedMapImport.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,0 +1,19 @@
+{
+  "id": "garages_deep_01",
+  "footprintM": [
+    2.5,
+    4.5
+  ],
+  "cornerRadiusM": 0.3,
+  "partsM": [],
+  "look": "garages",
+  "tags": [
+    "garages",
+    "1 storey",
+    "flat roof",
+    "black tar paper",
+    "lock-up",
+    "narrow front"
+  ],
+  "describe": "single lock-up garage, flat roof of black tar paper with a slight fall to the back, standing narrow end to the street with the entrance on that short front wall"
+}

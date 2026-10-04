@@ -1,0 +1,19 @@
+{
+  "id": "hospital_deep_01",
+  "footprintM": [
+    4.0,
+    8.0
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "hospital",
+  "tags": [
+    "hospital",
+    "1 storey",
+    "flat roof",
+    "grey membrane",
+    "annex",
+    "narrow front"
+  ],
+  "describe": "small single-storey annex of a clinic, flat grey roof with a vent and an air conditioner unit, standing narrow end to the street with the entrance on that short front wall"
+}

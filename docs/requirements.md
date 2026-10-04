@@ -67,7 +67,7 @@ are what they set it to:
 | Object | Shape | Kind | Contains |
 |---|---|---|---|
 | Prop | small disc — a radius with no box | static | — |
-| Building | one or more square-cornered rectangles | static | 0..capacity persons |
+| Building | one rounded rectangle, or one or more square-cornered ones | static | 0..capacity persons |
 | Person | small disc | dynamic | — |
 | Car | one rounded rectangle | dynamic | 0..1 driver |
 

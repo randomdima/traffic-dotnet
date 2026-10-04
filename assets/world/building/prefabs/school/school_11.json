@@ -1,0 +1,19 @@
+{
+  "id": "school_11",
+  "footprintM": [
+    36.0,
+    13.5
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "school",
+  "tags": [
+    "school",
+    "3-4 storeys",
+    "flat roof",
+    "bitumen",
+    "soviet",
+    "school wing"
+  ],
+  "describe": "Soviet-era school or college wing, flat bitumen roof with a parapet, roof exits and ventilation stacks"
+}

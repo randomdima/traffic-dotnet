@@ -1,0 +1,17 @@
+{
+  "id": "industrial_27",
+  "footprintM": [
+    40.0,
+    32.5
+  ],
+  "cornerRadiusM": 0.8,
+  "partsM": [],
+  "look": "industrial",
+  "tags": [
+    "industrial",
+    "1-3 storeys",
+    "barrel-vaulted corrugated roof",
+    "factory"
+  ],
+  "describe": "large factory hall or depot, barrel-vaulted corrugated roof, weathered and patched"
+}

@@ -118,6 +118,9 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
     /// </summary>
     public int Reverse(int edge) => -1;
 
+    /// <summary><b>None</b>: a pavement's two lanes are walked opposite ways (WLK-8), so neither runs beside the other the same way.</summary>
+    public int Beside(int edge, bool inward) => -1;
+
     public ReadOnlySpan<int> EdgesOut(int node) =>
         _nodeOutEdges.AsSpan(_nodeOutOffsets[node], _nodeOutOffsets[node + 1] - _nodeOutOffsets[node]);
 

@@ -1,0 +1,20 @@
+{
+  "id": "apartments_03",
+  "sprite": "apartments_03.webp",
+  "footprintM": [
+    6.5,
+    5.0
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "apartments",
+  "tags": [
+    "apartments",
+    "1-2 storeys",
+    "lean-to roof",
+    "tar paper",
+    "old town",
+    "courtyard gallery"
+  ],
+  "describe": "narrow annex or open gallery along an Odesa courtyard, lean-to roof of tar paper with a wooden stair at one end"
+}

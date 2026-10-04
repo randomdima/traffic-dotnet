@@ -5,8 +5,8 @@ using TrafficSimulation.Core.Simulation;
 namespace TrafficSimulation.World.Road;
 
 /// <summary>
-/// <b>The marks, worked out from the ribbons themselves</b> (TER-5c): for every two ways whose ribbons
-/// overlap, the stretch of each over which they do — from the first metre of one whose ground lies inside
+/// <b>The marks, worked out from the ribbons themselves</b> (TER-5c): for every two ways on one level whose
+/// ribbons overlap, the stretch of each over which they do — from the first metre of one whose ground lies inside
 /// the other's to the last. Build-time: it allocates freely, runs on as many threads as there are, and
 /// nothing it produces is written to again.
 /// </summary>
@@ -61,10 +61,15 @@ internal static class RibbonMarks
     /// </param>
     public static WayCrossings Of(IRibbonLines lines, float[] lengthM, float stepM, float touchM, GridLevel nearLevel)
     {
+        // Two ways on two levels — a bridge's lane and the road under it — share no ground however they lie in plan.
+        var levels = RibbonAtlas.LevelsOf(lines);
         var pairings = new List<Pairing>();
         new Near(PiecesOf(lines), nearLevel).EachPair(
             () => new Pairing(),
-            (pairing, one, other) => Weigh(pairing, one, other, stepM, touchM),
+            (pairing, one, other) =>
+            {
+                if (levels.Length == 0 || levels[one.Way] == levels[other.Way]) Weigh(pairing, one, other, stepM, touchM);
+            },
             pairing =>
             {
                 lock (pairings) pairings.Add(pairing);

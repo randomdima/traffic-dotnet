@@ -1,0 +1,20 @@
+{
+  "id": "house_deep_10",
+  "sprite": "house_deep_10.webp",
+  "footprintM": [
+    2.5,
+    9.5
+  ],
+  "cornerRadiusM": 0.375,
+  "partsM": [],
+  "look": "house",
+  "tags": [
+    "house",
+    "1 storey",
+    "lean-to roof",
+    "faded terracotta tiles",
+    "courtyard wing",
+    "narrow front"
+  ],
+  "describe": "long narrow single-storey wing of a courtyard house, lean-to roof of faded terracotta tiles sloping to the yard, a chimney, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+}

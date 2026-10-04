@@ -159,12 +159,10 @@ function buildPipelines(module) {
         vertex: {
             module, entryPoint: 'groundVertex',
             buffers: [{
-                arrayStride: 32,
+                arrayStride: 12,
                 attributes: [
                     { shaderLocation: 0, offset: 0, format: float2 },
-                    { shaderLocation: 1, offset: 8, format: float2 },
-                    { shaderLocation: 2, offset: 16, format: 'float32x3' },
-                    { shaderLocation: 3, offset: 28, format: 'uint32' },
+                    { shaderLocation: 1, offset: 8, format: 'uint32' },
                 ],
             }],
         },

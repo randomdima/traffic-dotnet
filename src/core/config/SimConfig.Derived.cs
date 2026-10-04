@@ -204,6 +204,21 @@ internal sealed partial class SimConfig
     public float WalkKerbOuterM => WalkOuterM + (Road.KerbWidthM * 0.5f);
 
     /// <summary>
+    /// <b>How far the ground's own carriageway runs on under a bridge past its bridgehead</b> (TER-7b): the corner
+    /// its boundary is rounded at and a kerb, so the rounded end and the kerb struck round it both stand under the
+    /// deck drawn over them and the road on the ground meets the bridge straight.
+    /// </summary>
+    public float UnderTheDeckM => Road.LineRoundedM + Road.KerbWidthM;
+
+    /// <summary>
+    /// <b>How far past the map's edge the ground of a road running off it is laid</b> (GEN-2b, TER-7b): the last
+    /// figure one boundary is read at and the corner it is rounded at, so the boundary's turn round the road's end and
+    /// every layer and kerb struck off it stand off the map, and what the map keeps of them runs straight across its
+    /// edge.
+    /// </summary>
+    public float PastTheMapEdgeM => WalkKerbOuterM + Road.LineRoundedM;
+
+    /// <summary>
     /// <b>The building line</b> (GEN-54, TER-3c.2): how far off the driven ground's boundary a front wall
     /// stands, which is the outer face of the walk's own kerbstone — so a building touches the kerb it
     /// fronts and nothing it is made of stands on the concrete.

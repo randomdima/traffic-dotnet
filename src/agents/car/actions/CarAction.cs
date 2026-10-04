@@ -15,6 +15,12 @@ internal enum CarAction : byte
     /// <summary>Getting past a body at rest over the lane beside (CAR-46): decided, then asked for whole, then driven.</summary>
     Overtake,
 
+    /// <summary>
+    /// Moving across onto the lane beside running its way (CAR-53): looked for while the car drives on down its own, then
+    /// asked for as the step and the room past it, then driven.
+    /// </summary>
+    Switch,
+
     /// <summary>Backing down its own lane for the room to step out round what it has decided to pass (CAR-50).</summary>
     BackUp,
 

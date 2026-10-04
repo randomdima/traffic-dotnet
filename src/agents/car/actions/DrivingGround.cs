@@ -138,7 +138,7 @@ internal sealed class DrivingGround(
         Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
         var count = Atlas.UnderBox(
             Cars.PositionM[car] + (travel * (frontM + (committedM * 0.5f))), travel, committedM * 0.5f,
-            build.WidthM * 0.5f, under);
+            build.WidthM * 0.5f, under, Cars.Level[car]);
         if (count == 0) return;
 
         var hold = Occupancy.BeginHold(Config.Driving.StandOffM);

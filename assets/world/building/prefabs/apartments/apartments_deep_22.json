@@ -1,0 +1,21 @@
+{
+  "id": "apartments_deep_22",
+  "sprite": "apartments_deep_22.webp",
+  "footprintM": [
+    21.5,
+    27.5
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "apartments",
+  "tags": [
+    "apartments",
+    "3-5 storeys",
+    "hipped roof",
+    "grey sheet metal",
+    "courtyard block",
+    "old town",
+    "narrow front"
+  ],
+  "describe": "deep old-town apartment block, hipped roof of grey sheet metal round a light well, dormers and chimney stacks, standing narrow end to the street with the entrance on that short front wall"
+}

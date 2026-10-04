@@ -1,0 +1,19 @@
+{
+  "id": "office_deep_03",
+  "footprintM": [
+    10.0,
+    27.5
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "office",
+  "tags": [
+    "office",
+    "4-8 storeys",
+    "flat roof",
+    "dark bitumen",
+    "office block",
+    "narrow front"
+  ],
+  "describe": "mid-rise office or public building, flat roof of dark bitumen with rooftop plant, a lift room and a parapet, standing narrow end to the street with the entrance on that short front wall"
+}

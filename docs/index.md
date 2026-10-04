@@ -100,9 +100,10 @@ owning slice's log; this list says only what is absent now and what closes it.
   chord, which the plan partly reads (`CarParks.BaysPerLotMost`). A car park is a rank of bays laid off a street
   that stays whole (`GEN-53`, `GEN-4h`), and the rules that size and space one are `GEN-53`'s and the
   locality's (`GEN-16`).
-- **A bay is a lane nothing drives onto** (`GEN-50`): it is a road of its own joined to nothing, got into and
-  out of by a car's own manoeuvre (`GEN-4f`) and never routed down (`GEN-4h`), which is what keeps it from
-  mattering, and it is the one exemption `GEN-50` is asked with.
+- **A bay and a roadside are lanes nothing drives onto** (`GEN-50`): a bay is a road of its own joined to nothing,
+  got into and out of by a car's own manoeuvre (`GEN-4f`) and never routed down (`GEN-4h`), and a traced road's
+  roadside is lane zero of its street, joined to nothing and driven by nobody (`GEN-57`). That is what keeps them
+  from mattering, and they are the two exemptions `GEN-50` is asked with.
 - **One errand is worked on foot and the rest are not.** Every service vehicle carries a crew (`SRV-3`), but
   only a police car's officer ever gets out — to stand at a closure's mouth (`SRV-11`). The other errands that
   had a body working them cover the ground another way, their crews in their seats: a casualty is taken aboard
@@ -153,11 +154,24 @@ owning slice's log; this list says only what is absent now and what closes it.
   were laid against the lane layer that was replaced and went with it; `Exam` came back laid against the new
   one, as a lattice of traffic scenarios driven end to end ([verification](verification.md#the-scenario-map)).
   The ones still gone come back the same way.
-- **A traced city is laid for the map and not yet for a car** (`GEN-57`): a corner is rounded at half its
-  carriageway rather than at a speed anything is driven at (`GEN-47`), and a junction a few metres from the
+- **A traced city is laid for the map and not yet for a car** (`GEN-57`): a corner is rounded as wide as keeps
+  its survey within a tolerance, and one sharper than that at half its carriageway, rather than at a speed
+  anything is driven at (`GEN-47`), and a junction a few metres from the
   next has its disc shrunk to keep the road between them, which leaves its connectors no room to turn in.
-  Its lanes are OSM's — every one, as many, as wide and where OSM's tags put them — and no car changes
-  between them along a road yet, nor is a car told how to meet another on a lane both ways share.
+  Its lanes are OSM's — every one, as many, as wide and where OSM's tags put them, or as wide as the road was
+  measured and as many as that holds where OSM only assumes a count — and no car changes between them along a
+  road yet, nor is a car told how to meet another on a lane both ways share.
+- **A traced city's signs, priority roads and surveyed zebras are carried and not obeyed** (`GEN-57`): its map
+  holds every junction's control, but only its lights are laid — the engine has no stop or give-way sign and
+  no priority road, so an unsignalled junction is still first come, first served. A zebra its survey maps is
+  paint filed under no road end, so no bar stands behind it and nobody is held for it; the bars and the walk's
+  crossings are still at its kerb ends' stations, painted with nothing.
+- **A traced city's buildings stand nothing** (`GEN-57`): each is its footprint drawn flat in one colour, with
+  no roof art, no door, no collider and nobody living in it.
+- **A traced city's bridges over its roads carry no walk** (`PHY-1a`, `TER-7b`). A bridge is a level of its own,
+  drawn over the road under it with its cars over that, but the walk is struck off the ground's boundary and a
+  walker is on the ground, so a walk reaching a bridgehead turns round the ground's end under the deck. A bridge
+  over a bridge is one level with it, and a tunnel is not a level.
 - **A traced city's lanes leave OSM's inside its junctions** (`--bench fidelity`). Across a junction OSM's
   lanes run straight to the node and the engine's connectors turn off its disc, so 58 % of the 928 km of OSM
   lane inside a disc is within 5 cm of an engine line. And a corner too tight for its lanes is eased off the
@@ -170,8 +184,9 @@ owning slice's log; this list says only what is absent now and what closes it.
 - **A traced city keeps its dead ends, and a car cannot turn round in one** (`GEN-57`, `GEN-4l`): every
   driveway and courtyard lane of `OdesaOsm` ends in one, so a leg routed into one stands there until its clock
   gives it up. It is not asked whether it can be driven round, and it stands nobody yet.
-- **A traced city does not reach the page.** The browser head publishes `towns/*.json` and nothing under it
-  (`WEB-4`), so the menu there lists no traced map; the desktop and the handset do.
+- **A traced city reaches the page on a desktop browser alone.** Opening OdesaOsm grows the page's heap past the
+  2 GB the runtime gives a page by default, to 2.2 GB of the 4 GB a 32-bit page can address, which a phone's browser
+  does not give a page, and stands it up on the page's one thread with the tab frozen meanwhile.
 - **A deck's pavement is not drawn.** The walk across a bridge is the driven ground's own boundary moved
   like anywhere else (`WLK-1`, `TER-3b.1`), and the ground answers walk there — but the ground stack is laid
   under the deck rather than across it, so the concrete is not drawn. What is owed is a boundary that knows

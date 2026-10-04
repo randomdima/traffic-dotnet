@@ -1,0 +1,17 @@
+{
+  "id": "greenhouse_02",
+  "footprintM": [
+    16.0,
+    13.0
+  ],
+  "cornerRadiusM": 0.3,
+  "partsM": [],
+  "look": "greenhouse",
+  "tags": [
+    "greenhouse",
+    "glass",
+    "gabled roof",
+    "polycarbonate"
+  ],
+  "describe": "long greenhouse, gabled roof of glass or polycarbonate panels on a light frame"
+}

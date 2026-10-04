@@ -59,11 +59,11 @@ internal readonly record struct GroundLayer(string Named, float OutwardM, ArcSeg
 /// bend than on the next.
 /// </para>
 /// <para>
-/// <b>The boundary itself is rounded too, and that is a cut and not a growth</b>: at no distance at all the
-/// radius is past the distance, so a corner the town turns away at is taken off rather than filled
-/// (<see cref="ArcOutset.Of"/>) — up to 0.41 of the radius at a right angle. What buys that back is the
-/// figure being under half a lane: nothing a car is driven through is narrow enough to be closed over and
-/// no ribbon of tarmac is thin enough to be swallowed.
+/// <b>The boundary itself is rounded where it turns in and never where it turns away</b>
+/// (<see cref="ArcOutset.Corners.Filled"/>): it is the outside of every lane, bay, roadside and movement, and
+/// rolled at no distance a corner it turns away at is cut — up to 0.41 of the radius at a right angle, and more
+/// at a sharper one — which leaves the end of a lane standing in the kerb. So the tarmac covers every band it
+/// is the outside of, and a corner a band's square end makes is the corner the kerb turns.
 /// </para>
 /// <para>
 /// <b>It knows nothing about what any of it is for.</b> Which surface a layer wears and how thick a line is
@@ -201,7 +201,7 @@ internal sealed class GroundRings
     {
         var roundedM = config.Road.LineRoundedM;
         var walkM = config.WalkOuterM;
-        var (inner, innerLoose) = shell.Outset(0f, roundedM);
+        var (inner, innerLoose) = shell.Outset(0f, roundedM, ArcOutset.Corners.Filled);
         var (outer, loose) = shell.Outset(walkM, roundedM);
 
         // <b>A layer is a region, so it is filled from rings shut across whatever its move left open</b>

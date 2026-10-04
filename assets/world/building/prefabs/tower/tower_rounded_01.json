@@ -1,0 +1,20 @@
+{
+  "id": "tower_rounded_01",
+  "footprintM": [
+    27.5,
+    18.0
+  ],
+  "cornerRadiusM": 4.5,
+  "partsM": [],
+  "look": "tower",
+  "tags": [
+    "tower",
+    "9-12 storeys",
+    "flat roof",
+    "light gravel ballast",
+    "soviet",
+    "panel block",
+    "rounded corners"
+  ],
+  "describe": "tall Soviet panel tower block, flat roof of light gravel ballast, 1 lift machine rooms as raised boxes, ventilation shafts and a low parapet round the edge, its corners rounded in wide curves"
+}

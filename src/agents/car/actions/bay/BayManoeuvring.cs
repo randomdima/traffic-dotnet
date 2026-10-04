@@ -544,6 +544,6 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
 
         var halfM = build.CollisionSizeM * 0.5f;
         var centreM = on.PositionM + (forward * build.CentreAheadOfAxleM);
-        return ground.Atlas.UnderBox(centreM, forward, halfM.X + spareM, halfM.Y + spareM, under);
+        return ground.Atlas.UnderBox(centreM, forward, halfM.X + spareM, halfM.Y + spareM, under, Cars.Level[car]);
     }
 }

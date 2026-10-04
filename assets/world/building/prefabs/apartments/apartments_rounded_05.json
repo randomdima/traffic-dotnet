@@ -1,0 +1,21 @@
+{
+  "id": "apartments_rounded_05",
+  "sprite": "apartments_rounded_05.webp",
+  "footprintM": [
+    21.5,
+    17.5
+  ],
+  "cornerRadiusM": 4.38,
+  "partsM": [],
+  "look": "apartments",
+  "tags": [
+    "apartments",
+    "3-5 storeys",
+    "hipped roof",
+    "dark bitumen",
+    "courtyard block",
+    "old town",
+    "rounded corners"
+  ],
+  "describe": "deep old-town apartment block, hipped roof of dark bitumen round a light well, dormers and chimney stacks, its corners rounded in wide curves"
+}

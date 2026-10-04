@@ -1,0 +1,19 @@
+{
+  "id": "house_02",
+  "sprite": "house_02.webp",
+  "footprintM": [
+    4.0,
+    2.0
+  ],
+  "cornerRadiusM": 0.3,
+  "partsM": [],
+  "look": "house",
+  "tags": [
+    "house",
+    "1 storey",
+    "lean-to roof",
+    "grey corrugated asbestos-cement slate",
+    "annex"
+  ],
+  "describe": "small single-storey annex or porch built onto a house, lean-to roof of grey corrugated asbestos-cement slate"
+}

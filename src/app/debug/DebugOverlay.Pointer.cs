@@ -456,7 +456,8 @@ internal sealed partial class DebugOverlay
         var alongM = AlongWay(world, way, atM);
 
         var line = card.Next();
-        line.Add(WayWords[(int)ways.KindOf(way)]);
+        var kind = ways.KindOf(way);
+        line.Add(kind == WayKind.Lane && world.Roads.IsARoadside(ways.RoadLaneOf(way)) ? "roadside" : WayWords[(int)kind]);
         line.Add(' ');
         line.Add(way);
         card.Keep(in line);
@@ -837,7 +838,7 @@ internal sealed partial class DebugOverlay
 
     /// <summary>What a driven line is, in the one numbering they all share (<see cref="Paving.DrivenCount"/>).</summary>
     static string KindOf(Paving paving, int line) =>
-        line < paving.Lanes.LaneCount ? "lane"
+        line < paving.Lanes.LaneCount ? paving.Lanes.IsRoadside(line) ? "roadside" : "lane"
         : line < paving.Lanes.LaneCount + paving.Lanes.ConnectorCount ? "movement" : "bay way";
 
     /// <summary>

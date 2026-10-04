@@ -292,6 +292,25 @@ public class SolverBehaviourTests
         Assert.True(world.PositionOf(walker).Y < 3.5f, "a body in the road slid through a building");
     }
 
+    /// <summary>
+    /// <c>PHY-1a</c>: a car on a bridge drives over the car standing in the road under it as though it were not there,
+    /// and leaves it where it stood.
+    /// </summary>
+    [Fact]
+    public void ACarOnABridgeDrivesOverTheCarUnderIt()
+    {
+        var world = new PhysicsWorld(Config);
+        var over = world.AddNominalCar(Vector2.Zero, 0f);
+        var under = world.AddNominalCar(new Vector2(10f, 0f), 0f);
+        world.PutOnLayer(over, CollisionLayer.CarOver);
+
+        world.ApplyCentralImpulse(over, new Vector2(Config.Car.MassKg * 8f, 0f));
+        Advance(world, 120);
+
+        Assert.True(world.PositionOf(over).X > 14f, "a car on a bridge was stopped by a car under it");
+        Assert.Equal(new Vector2(10f, 0f), world.PositionOf(under));
+    }
+
     static void Advance(PhysicsWorld world, int steps)
     {
         for (var step = 0; step < steps; step++) world.Step(StepSeconds);

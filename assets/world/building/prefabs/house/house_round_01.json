@@ -1,0 +1,21 @@
+{
+  "id": "house_round_01",
+  "sprite": "house_round_01.webp",
+  "footprintM": [
+    15.5,
+    11.5
+  ],
+  "cornerRadiusM": 5.75,
+  "partsM": [],
+  "look": "house",
+  "tags": [
+    "house",
+    "2 storeys",
+    "hipped roof",
+    "green-painted sheet metal",
+    "villa",
+    "round",
+    "stadium-shaped"
+  ],
+  "describe": "two-storey villa, hipped roof of green-painted sheet metal with a dormer and two chimneys, a balcony roof over the entrance, the whole roof stadium-shaped with a curved outer wall"
+}

@@ -83,13 +83,11 @@ internal sealed unsafe partial class TownRenderer
             InputRate = VertexInputRate.Vertex,
         };
 
-        var attributes = stackalloc VertexInputAttributeDescription[4];
+        var attributes = stackalloc VertexInputAttributeDescription[2];
         attributes[0] = new VertexInputAttributeDescription(0, 0, Format.R32G32Sfloat, 0);
-        attributes[1] = new VertexInputAttributeDescription(1, 0, Format.R32G32Sfloat, 8);
-        attributes[2] = new VertexInputAttributeDescription(2, 0, Format.R32G32B32Sfloat, 16);
-        attributes[3] = new VertexInputAttributeDescription(3, 0, Format.R32Uint, 28);
+        attributes[1] = new VertexInputAttributeDescription(1, 0, Format.R32Uint, 8);
 
-        _pipeline = BuildPipeline(_vertexShader, _fragmentShader, binding, attributes, 4, PrimitiveTopology.TriangleList, blended: false);
+        _pipeline = BuildPipeline(_vertexShader, _fragmentShader, binding, attributes, 2, PrimitiveTopology.TriangleList, blended: false);
     }
 
     /// <summary>

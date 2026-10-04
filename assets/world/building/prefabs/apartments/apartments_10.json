@@ -1,0 +1,20 @@
+{
+  "id": "apartments_10",
+  "sprite": "apartments_10.webp",
+  "footprintM": [
+    15.5,
+    5.5
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "apartments",
+  "tags": [
+    "apartments",
+    "2-4 storeys",
+    "pitched roof",
+    "grey galvanised sheet metal",
+    "old town",
+    "19th century"
+  ],
+  "describe": "19th-century Odesa tenement house, pitched roof of grey galvanised sheet metal with brick chimney stacks and roof hatches, a parapet along the street front"
+}

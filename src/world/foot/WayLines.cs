@@ -68,4 +68,16 @@ internal sealed class WayLines(
     public bool IsTheCrossing(int way) => ZebraOf(way) != RibbonMarks.NoZebra;
 
     public bool IsDriven(int way) => ways.IsDriven(way);
+
+    /// <summary>
+    /// <b>The level one of the town's ways is travelled on</b>: a lane's road's, a connector's two lanes' where they
+    /// share one (<see cref="LaneLines.ConnectorLevel"/>), and the ground for the walk, which is laid off the
+    /// ground's own boundary.
+    /// </summary>
+    public byte LevelOf(int way) => ways.KindOf(way) switch
+    {
+        WayKind.Lane => roads.LaneLevel[ways.RoadLaneOf(way)],
+        WayKind.Connector => roads.ConnectorLevel(ways.RoadConnectorOf(way)),
+        _ => CityPlan.RoadArrays.Ground,
+    };
 }

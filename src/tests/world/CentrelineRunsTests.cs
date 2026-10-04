@@ -41,6 +41,41 @@ public class CentrelineRunsTests
     }
 
     /// <summary>
+    /// <b>The line two ways meet on is unbroken down a carriageway of more than a lane each way</b> (TER-6, CAR-6.2b),
+    /// and every other line is dashed: a street walked from its kerb lays the line its two ways meet on last.
+    /// </summary>
+    [Theory]
+    [InlineData(1, 1, false)]
+    [InlineData(2, 1, true)]
+    public void TheLineTwoWaysMeetOnIsUnbrokenWhereItIsNotCrossedToPass(int forward, int backward, bool unbroken)
+    {
+        var plan = TrafficSimulation.Tests.CityGen.Traced.TracedPlanTests.AStreet(forward, backward);
+        var runs = CentrelineRuns.Lay(plan, SimConfig.Shipped());
+
+        Assert.Equal(
+            [.. Enumerable.Repeat(false, forward + backward - 2), unbroken],
+            Enumerable.Range(0, runs.Count).Select(runs.IsUnbroken));
+    }
+
+    /// <summary>
+    /// <b>A run stops at a bridgehead</b> (TER-6, TER-7b): a street carried on over a bridge is laid the same either
+    /// side of it, and still painted as one run on the ground, one on the bridge and one beyond — each level's paint
+    /// is laid with its own carriageway.
+    /// </summary>
+    [Fact]
+    public void ARunStopsAtABridgehead()
+    {
+        var plan = TrafficSimulation.Tests.CityGen.Traced.TracedPlanTests.OverAStreet();
+        var runs = CentrelineRuns.Lay(plan, SimConfig.Shipped());
+
+        for (var run = 0; run < runs.Count; run++)
+        {
+            var roads = runs.RoadsOf(run).ToArray();
+            Assert.Single(roads.Select(plan.Roads.LevelOf).Distinct());
+        }
+    }
+
+    /// <summary>
     /// <b>A run is one unbroken line</b>: every piece of it starts where the piece before it ended, the
     /// ground between two roads included. A run that merely listed the roads would leave the paint to jump
     /// the junction it carries on through, and a dash laid across that gap would be struck from nothing.

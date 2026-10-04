@@ -17,6 +17,8 @@ internal sealed partial class TownWorld
 
     readonly Overtaking _overtaking;
 
+    readonly Switching _switching;
+
     readonly BackingUp _backingUp;
 
     readonly Manoeuvres _manoeuvres;
@@ -31,6 +33,9 @@ internal sealed partial class TownWorld
 
     /// <summary>Getting past what stands in a lane (CAR-46), and its instruments.</summary>
     public Overtaking Overtaking => _overtaking;
+
+    /// <summary>Moving across onto the lane beside (CAR-53), and its instruments.</summary>
+    public Switching Switching => _switching;
 
     /// <summary>Backing up for the room to (CAR-50), and its instruments.</summary>
     public BackingUp BackingUp => _backingUp;

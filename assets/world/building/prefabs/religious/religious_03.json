@@ -1,0 +1,18 @@
+{
+  "id": "religious_03",
+  "footprintM": [
+    13.0,
+    7.5
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "religious",
+  "tags": [
+    "religious",
+    "chapel",
+    "gabled roof",
+    "green sheet metal",
+    "onion dome"
+  ],
+  "describe": "small Orthodox chapel, gabled roof of green sheet metal with one gilded onion dome and a cross"
+}

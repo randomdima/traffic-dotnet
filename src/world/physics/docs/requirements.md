@@ -10,6 +10,12 @@ actuated belongs to the agents that do it ([car](../../../agents/car/docs/requir
 
 **PHY-1** `P3` Solid bodies never overlap; contact produces a collision.
 
+**PHY-1a** `P3` **A car on a bridge over other roads is on a level of its own**, and meets the cars on its deck
+and nothing on the ground it passes over — no car, walker, building, prop or casualty. Its level is its lane's
+(`CityPlan.RoadArrays.Level`), taken before every step; a car with no lane keeps the one it had, and one on a
+tow bar takes the one pulling it. It is a layer (`CollisionLayer.CarOver`) and not a test asked of a pair, so the
+broad phase decides it as it decides the rest.
+
 **PHY-2** `P3` Static objects cannot move and cannot be damaged or destroyed; they are immovable collision
 geometry.
 
@@ -28,7 +34,7 @@ teleport, snap, clamp or nudge a body because it is somewhere illegal (SIM-1).
 What the solver presents is [solver.md](solver.md#what-it-presents); on top of it the town needs a body's
 layer changeable while it stands, and the velocities a pair carried **into** the tick they began touching in,
 which the roster keeps because the solver's own are the response. **A pair is exempt only where a layer says
-so** — a coupled tow (`EVA-5`) is not one, and `PHY-5b` is the only one there is. **Nothing is swept**
+so** — a coupled tow (`EVA-5`) is not one, and `PHY-5b` and `PHY-1a` are the only ones there are. **Nothing is swept**
 (`SOL-17`): a stated limit of the solver, not a defect of this layer.
 
 ## Damage

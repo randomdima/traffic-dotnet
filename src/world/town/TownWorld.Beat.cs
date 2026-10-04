@@ -43,7 +43,7 @@ internal sealed partial class TownWorld
         var counts = new int[districts.Count + 1];
         for (var lane = 0; lane < of.Length; lane++)
         {
-            if (_roads.IsABayArm(lane))
+            if (!_roads.IsAStreetLane(lane))
             {
                 of[lane] = ServiceBeat.NoDistrict;
                 continue;

@@ -1,0 +1,18 @@
+{
+  "id": "office_08",
+  "footprintM": [
+    24.0,
+    19.0
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "office",
+  "tags": [
+    "office",
+    "4-8 storeys",
+    "flat roof",
+    "grey membrane",
+    "office block"
+  ],
+  "describe": "mid-rise office or public building, flat roof of grey membrane with rooftop plant, a lift room and a parapet"
+}

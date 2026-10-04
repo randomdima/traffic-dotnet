@@ -1,25 +1,19 @@
 namespace TrafficSimulation.CityGen.Traced;
 
 /// <summary>
-/// <b>An extract's coastline as the sea inside the map</b>: closed rings in north-up metres off the map's
-/// south-west corner. OSM draws a coastline with the land on its left, so each run of it across the map is
-/// closed by walking the map's edge clockwise — the way that keeps the sea on the right — to the next run's
-/// entry.
+/// <b>A map's coastline as the sea inside it</b>: closed rings in north-up metres off the map's south-west corner.
+/// OSM draws a coastline with the land on its left, so each run of it across the map is closed by walking the map's
+/// edge clockwise — the way that keeps the sea on the right — to the next run's entry.
 /// </summary>
 /// <remarks>
 /// <b>An island is left out</b>: a coastline closed inside the map is land the water would have to carry as a
-/// hole, and the water has none (<see cref="CityPlan.WaterArrays"/>). It stays in the extract.
+/// hole, and the water has none (<see cref="CityPlan.WaterArrays"/>). It stays in the map.
 /// </remarks>
 internal static class Coastline
 {
-    public static List<List<Vector2D>> SeaRings(OsmExtract extract, Vector2D[] upM, double widthM, double heightM)
+    /// <param name="coast">Every coastline way, as indices into <paramref name="upM"/>.</param>
+    public static List<List<Vector2D>> SeaRings(int[][] coast, Vector2D[] upM, double widthM, double heightM)
     {
-        var coast = new List<OsmWay>();
-        foreach (var way in extract.Ways)
-        {
-            if (way.Tag("natural") == "coastline") coast.Add(way);
-        }
-
         var runs = new List<List<Vector2D>>();
         foreach (var chain in Chains(coast))
         {
@@ -70,25 +64,25 @@ internal static class Coastline
     /// Every coastline joined end to end into as long a chain of nodes as it makes, starting from the ways no
     /// other leads into, so a coast that crosses the map is one chain from where it enters to where it leaves.
     /// </summary>
-    static List<List<int>> Chains(List<OsmWay> coast)
+    static List<List<int>> Chains(int[][] coast)
     {
         var starting = new Dictionary<int, int>();
         var ending = new HashSet<int>();
-        for (var way = 0; way < coast.Count; way++)
+        for (var way = 0; way < coast.Length; way++)
         {
-            starting[coast[way].Nodes[0]] = way;
-            ending.Add(coast[way].Nodes[^1]);
+            starting[coast[way][0]] = way;
+            ending.Add(coast[way][^1]);
         }
 
         var heads = new List<int>();
-        for (var way = 0; way < coast.Count; way++)
+        for (var way = 0; way < coast.Length; way++)
         {
-            if (!ending.Contains(coast[way].Nodes[0])) heads.Add(way);
+            if (!ending.Contains(coast[way][0])) heads.Add(way);
         }
 
-        for (var way = 0; way < coast.Count; way++) heads.Add(way);
+        for (var way = 0; way < coast.Length; way++) heads.Add(way);
 
-        var used = new bool[coast.Count];
+        var used = new bool[coast.Length];
         var chains = new List<List<int>>();
         foreach (var head in heads)
         {
@@ -99,8 +93,8 @@ internal static class Coastline
             while (way >= 0 && !used[way])
             {
                 used[way] = true;
-                chain.AddRange(coast[way].Nodes.AsSpan(chain.Count == 0 ? 0 : 1));
-                way = starting.GetValueOrDefault(coast[way].Nodes[^1], -1);
+                chain.AddRange(coast[way].AsSpan(chain.Count == 0 ? 0 : 1));
+                way = starting.GetValueOrDefault(coast[way][^1], -1);
             }
 
             chains.Add(chain);

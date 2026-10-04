@@ -47,7 +47,10 @@ internal sealed partial class DebugOverlay
             ref readonly var variant = ref BuildingCatalog.Shared.Variants[roof.Variant];
             if (variant.PartsM.Length == 0)
             {
-                draw.BoxM(centreM, roof.FootprintM, roof.HeadingRad, lineM, Theme.Collision);
+                var fittedM = roof.FootprintM / variant.FootprintM;
+                draw.RoundedBoxM(
+                    centreM, roof.FootprintM, roof.HeadingRad, variant.CornerRadiusM * MathF.Min(fittedM.X, fittedM.Y), lineM,
+                    Theme.Collision);
                 continue;
             }
 
@@ -182,13 +185,14 @@ internal sealed partial class DebugOverlay
 
         // <b>Every lane of the town, whole</b> (OBS-2d), which is the same thing as every lane between its
         // two connection points: a lane ends where its movements hand over (TER-5d), so the whole of its line
-        // is ground it holds and no part of it is drawn under a join as well.
+        // is ground it holds and no part of it is drawn under a join as well. <b>A roadside is drawn bare</b>, with
+        // no way along it marked: nobody is driven down it (<see cref="RoadGraph.IsARoadside"/>).
         var roads = world.Roads;
         for (var lane = 0; lane < roads.LaneCount; lane++)
         {
             Chain(
-                ref draw, roads.ArcsOf(lane), sagM, pitch, roads.LaneOverOneLine[lane], Theme.DrivingNodes,
-                viewCentreM, viewSpanM, _marks);
+                ref draw, roads.ArcsOf(lane), sagM, roads.IsARoadside(lane) ? null : pitch, roads.LaneOverOneLine[lane],
+                Theme.DrivingNodes, viewCentreM, viewSpanM, _marks);
         }
 
         Movements(ref draw, roads, config, sagM, pitch, Theme.DrivingNodes, viewCentreM, viewSpanM, _marks);

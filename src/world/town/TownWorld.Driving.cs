@@ -88,7 +88,7 @@ internal sealed partial class TownWorld
         var town = new CarTown(this);
         switch (Cars.Action[car])
         {
-            case CarAction.Follow or CarAction.Overtake or CarAction.BackUp:
+            case CarAction.Follow or CarAction.Overtake or CarAction.Switch or CarAction.BackUp:
                 if (ReadTheLine(car, pose, out var progressM, out var alongMps, out var coveredM))
                 {
                     DriveTheRoute(car, pose, progressM, alongMps, coveredM);
@@ -125,6 +125,10 @@ internal sealed partial class TownWorld
         {
             case CarAction.Overtake:
                 _overtaking.Tick(ref town, car, pose, progressM, alongMps, coveredM);
+                return;
+
+            case CarAction.Switch:
+                _switching.Tick(ref town, car, pose, progressM, alongMps, coveredM);
                 return;
 
             case CarAction.BackUp:
@@ -172,7 +176,7 @@ internal sealed partial class TownWorld
 
         Cars.ProgressM[car] = progressM;
         Cars.AlongMps[car] = alongMps;
-        Cars.GroundCoefficient[car] = _terrain.At(pose.PositionM).Coefficient;
+        Cars.GroundCoefficient[car] = _terrain.At(pose.PositionM, Cars.Level[car]).Coefficient;
 
         // A pass is laid along the lane the car is on and nowhere else (CAR-46).
         if (_overtaking.IsOffTheLaneOfItsPass(car)) Enter(car, CarAction.Follow);
@@ -339,10 +343,10 @@ internal sealed partial class TownWorld
     /// <returns>Whether a line was laid over the lane under it.</returns>
     bool Reacquire(int car, Vector2 rearAxleM)
     {
-        if (!_terrain.At(rearAxleM).Drivable) return false;
+        if (!_terrain.At(rearAxleM, Cars.Level[car]).Drivable) return false;
 
         var forward = ForwardOf(car);
-        var under = TheCarriagewayUnder(rearAxleM, forward);
+        var under = TheCarriagewayUnder(rearAxleM, forward, Cars.Level[car]);
         if (under.Lane < 0) return false;
         if ((under.At.PositionM - rearAxleM).Length() > _config.CarOffPathM * OffLineTolerance) return false;
         if (Vector2.Dot(under.At.Direction, forward) <= 0f) return false;
@@ -364,6 +368,31 @@ internal sealed partial class TownWorld
         Cars.ProgressM[car] = under.AlongM;
         LinesReacquired++;
         return true;
+    }
+
+    /// <inheritdoc cref="ICarTown.TakeTheLaneBeside"/>
+    /// <remarks>
+    /// <b>The lanes the old chain held past the one the car left go back on the route</b>, so the new line runs on
+    /// beside them where it can (<see cref="OnBesideTheRoute"/>) and lands back on the route wherever the route
+    /// moves across — the car's own move across having been made somewhere other than where the route was searched to.
+    /// </remarks>
+    void TakeTheLaneBeside(int car, int lane, float heldAheadM)
+    {
+        ref readonly var build = ref Cars.BuildOf(car);
+        var chain = Cars.ChainOf(car);
+        Cars.PutBackOnRoute(car, chain[1..Cars.Line[car].LaneCount]);
+
+        var rearAxleM = CarFollower.RearAxleM(build, Cars.PositionM[car], ForwardOf(car));
+        var abeamM = Cars.ProgressM[car] * _roads.LaneLengthM[lane] / _roads.LaneLengthM[chain[0]];
+        var alongM = Spline.ProjectM(
+            _roads.ArcsOf(lane), rearAxleM, abeamM, build.LengthM * _config.Driving.ProjectionWindowInCarLengths);
+
+        chain[0] = lane;
+        Cars.ProgressM[car] = alongM;
+        _driveProgress.Restart(car);
+        LayLine(car, 1);
+        Cars.ProgressM[car] = CarFollower.ProgressM(build, Cars.LineOf(car), rearAxleM, alongM);
+        Cars.AuthorityM[car] = heldAheadM + Cars.CoveredSinceClaimM[car];
     }
 
     /// <summary>A car that is doing nothing this tick, and the one reason it is not.</summary>
@@ -402,8 +431,10 @@ internal sealed partial class TownWorld
         var lanes = Cars.Line[car].LaneCount;
         for (var index = 1; index < lanes; index++) chain[index - 1] = chain[index];
 
-        // A pass carries on into the next lane, measured from where that lane begins (CAR-46).
+        // A pass carries on into the next lane, measured from where that lane begins (CAR-46), and so does a step across
+        // asked for (CAR-53).
         _overtaking.ShiftTheLine(car, chain[0], shiftM);
+        _switching.ShiftTheLine(car, shiftM);
 
         // Where the body stands on the shifted chain, before the line is laid over it: the route is searched from
         // there (<see cref="AlongTheEntryM"/>). The projection below is what the caller keeps.
@@ -435,6 +466,13 @@ internal sealed partial class TownWorld
     {
         var next = Cars.PeekNextRouteLane(car);
 
+        // <b>A route that moves across here</b> (CAR-53) is carried on down the lane the car is on, beside it.
+        if (next >= 0 && _roads.ConnectorBetween(fromLane, next) == RoadGraph.NoConnector
+            && _roads.ReachesBySwitching(fromLane, next, out _))
+        {
+            return OnBesideTheRoute(car, fromLane, next);
+        }
+
         // A queued lane the road does not join to the one under the car is a route from before a recovery
         // moved this car off it. The whole of it is stale, so the whole of it goes: taken one lane at a
         // time it ends the line at every one of them, a lane a tick, until the queue drains.
@@ -460,13 +498,44 @@ internal sealed partial class TownWorld
 
         searched = true;
         PlanRoute(car, fromLane);
-        next = Cars.TakeNextRouteLane(car);
-        if (next >= 0) return next;
+        next = Cars.PeekNextRouteLane(car);
+        if (next >= 0)
+        {
+            return _roads.ConnectorBetween(fromLane, next) == RoadGraph.NoConnector
+                ? OnBesideTheRoute(car, fromLane, next)
+                : Cars.TakeNextRouteLane(car);
+        }
+
         if (TurnsBackHere(car, fromLane)) return CarFleet.NoLane;
 
         return TheLegEndsOn(car, fromLane)
             ? CarFleet.NoLane
             : LaneTour.NextLane(_roads, _config, fromLane, _closedLanes, ref Cars.Draw[car]);
+    }
+
+    /// <summary>
+    /// <b>The lane a line carries on down where its route moves across from <paramref name="fromLane"/></b> onto
+    /// <paramref name="next"/> (CAR-53) — or <see cref="CarFleet.NoLane"/> where it stops, which is where the car is
+    /// waiting to move across.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A car moves across where it can and not where the route was searched to</b>, so the line runs on down the
+    /// car's own lanes beside the route for as long as they carry on beside it, and the queued lanes they stand
+    /// beside are given up as the line passes them: whenever the car moves across, it lands on the route. <b>It stops
+    /// at the end of the first lane that no longer goes the route's way</b> — the approach to the junction the route
+    /// turns off at from a lane beside — and that is the one place the car stands to wait for the lane beside.
+    /// </para>
+    /// <para>
+    /// <b>A route that ends on the lane beside stops the line where it is</b>, since the car's place is on that lane.
+    /// </para>
+    /// </remarks>
+    int OnBesideTheRoute(int car, int fromLane, int next)
+    {
+        var onward = _roads.OnBesideTheRoute(fromLane, next, Cars.PeekRouteLaneAfterNext(car), out var passed);
+        for (var lane = 0; lane < passed; lane++) Cars.TakeNextRouteLane(car);
+
+        return onward;
     }
 
     /// <summary>Whether the line being laid stops on this lane — for the leg's bay, or at its place in the road.</summary>
@@ -580,13 +649,16 @@ internal sealed partial class TownWorld
         var goalCount = RouteGoalsFor(car, _driveSearch.Goals);
         if (goalCount == 0) return RouteFound.Nowhere;
 
-        _driveSearch.Entries[0] = driving.EntryOnLane(fromLane, AlongTheEntryM(car, fromLane));
+        var alongM = AlongTheEntryM(car, fromLane);
+        _driveSearch.Entries[0] = driving.EntryOnLane(fromLane, alongM);
         if (_driveSearch.Entries[0].Link == TravelGraph.NoLink) return RouteFound.Nowhere;
+
+        var entryCount = 1 + EntriesBeside(fromLane, alongM, _driveSearch.Entries[1..]);
 
         // A place on a lane is arrived at and not got near, so a goal the car has driven past is searched
         // for rather than counted as reached: the route round the block is what a driver who has overshot
         // the turn-in actually does.
-        var linkCount = SearchTheDrivingNetwork(1, goalCount, ClosedLinksFor(car), out var goalSlot);
+        var linkCount = SearchTheDrivingNetwork(entryCount, goalCount, ClosedLinksFor(car), out var goalSlot);
         if (linkCount == 0 || goalSlot < 0) return RouteFound.Nowhere;
 
         ExpandRoute(car, fromLane, _driveSearch.Links(linkCount), _driveSearch.Goals[goalSlot], _driveSearch.StopsShort);
@@ -594,6 +666,31 @@ internal sealed partial class TownWorld
         // A route with nothing left in it is an arrival; one that stops at a frontage to turn (GEN-4l) is
         // a leg with a turn in a bay still in front of it, whether or not it has a lane left to drive first.
         return Cars.RouteCount[car] > 0 || Cars.TurnsBackOn[car] >= 0 ? RouteFound.Route : RouteFound.Arrived;
+    }
+
+    /// <summary>
+    /// <b>The lanes beside the one a search sets off from, as entries of their own</b> (CAR-53): each where the car
+    /// stands abeam of it, at what moving across onto it costs — so a place on the lane beside is driven to by moving
+    /// across rather than round the block.
+    /// </summary>
+    /// <remarks>Lanes of one stretch are offsets of one line, so a place abeam stands as far into each by its share of the length.</remarks>
+    int EntriesBeside(int fromLane, float alongM, Span<RouteEntry> into)
+    {
+        var count = 0;
+        foreach (var inward in (ReadOnlySpan<bool>)[true, false])
+        {
+            for (var beside = _roads.LaneBeside(fromLane, inward); beside != RoadGraph.NoLane && count < into.Length;
+                 beside = _roads.LaneBeside(beside, inward))
+            {
+                var besideAlongM = alongM * _roads.LaneLengthM[beside] / _roads.LaneLengthM[fromLane];
+                var entry = Driving.EntryOnLane(beside, besideAlongM);
+                if (entry.Link == TravelGraph.NoLink) continue;
+
+                into[count++] = entry with { EnterM = DrivingNetwork.SwitchM(_roads, _config, fromLane, beside) };
+            }
+        }
+
+        return count;
     }
 
     /// <summary>
@@ -693,16 +790,33 @@ internal sealed partial class TownWorld
     {
         var driving = Driving;
 
-        // The first link is the one the car is already on, and the lanes behind it are spent. Where it is
-        // not, the network says where the movement onto it lands.
+        // The first link is the one the car is already on, and the lanes behind it are spent — or one beside it
+        // (<see cref="EntriesBeside"/>), from the lane the car moves across onto. Where it is neither, the network
+        // says where the movement onto it lands.
         var firstSlot = links.Length > 0 && driving.LinkOfLane(fromLane) == links[0]
             ? driving.SlotOfLane(fromLane) + 1
-            : -1;
+            : links.Length > 0 && TheLaneBesideOn(fromLane, links[0]) is var beside and not RoadGraph.NoLane
+                ? driving.SlotOfLane(beside)
+                : -1;
 
         var joins = new RoadJoins(_roads);
         var written = RouteChain.LayInto(ref joins, driving.Runs, links, fromLane, firstSlot, goal, into, out ranOut);
         turnsBackOn = joins.TurnsBackOn;
         return written;
+    }
+
+    /// <summary>The lane beside <paramref name="lane"/> that is a piece of <paramref name="link"/>, or <see cref="RoadGraph.NoLane"/>.</summary>
+    int TheLaneBesideOn(int lane, int link)
+    {
+        foreach (var inward in (ReadOnlySpan<bool>)[true, false])
+        {
+            for (var beside = _roads.LaneBeside(lane, inward); beside != RoadGraph.NoLane; beside = _roads.LaneBeside(beside, inward))
+            {
+                if (Driving.LinkOfLane(beside) == link) return beside;
+            }
+        }
+
+        return RoadGraph.NoLane;
     }
 
     /// <summary>
@@ -712,9 +826,11 @@ internal sealed partial class TownWorld
     /// the network the way a pavement's corner is.
     /// </summary>
     /// <remarks>
-    /// <b>The one pair the search can return that the road does not join</b> is the two sides of a car
-    /// park's frontage, where the leg comes back the way it went (GEN-4l). The chain stops at the lane the
-    /// car turns off and <see cref="TurnsBackOn"/> carries which lane that was, the rest being a bay's own
+    /// <b>A pair the search returns that no connector joins is reached by switching lanes</b> where the car moves
+    /// across onto the second or onto a lane beside that joins it (CAR-53): the queue holds both, and the line is laid
+    /// down the lane the car is on until it has moved across (<see cref="NextLaneOnRoute"/>). <b>The other pair</b> is the
+    /// two sides of a car park's frontage, where the leg comes back the way it went (GEN-4l). The chain stops at the
+    /// lane the car turns off and <see cref="TurnsBackOn"/> carries which lane that was, the rest being a bay's own
     /// ways and never a lane a line could be laid over.
     /// </remarks>
     struct RoadJoins(RoadGraph roads) : IRouteJoins
@@ -735,6 +851,7 @@ internal sealed partial class TownWorld
         public bool Reaches(int from, int onto)
         {
             if (roads.ConnectorBetween(from, onto) != RoadGraph.NoConnector) return true;
+            if (roads.ReachesBySwitching(from, onto, out _)) return true;
 
             TurnsBackOn = roads.LaneReverse[from] == onto ? onto : CarFleet.NoLane;
             return false;

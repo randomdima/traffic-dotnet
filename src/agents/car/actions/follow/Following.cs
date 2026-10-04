@@ -8,12 +8,14 @@ namespace TrafficSimulation.Agents.Car.Actions;
 
 /// <summary>
 /// <b>Follow</b> (CAR-15): the route's own lanes, driven on the ground planned down them — and handed over where the
-/// line stops for its bay and the car is near enough to shape its way in (GEN-4f), or where what ended its grant is
-/// something it has decided to get past (CAR-46). <b>Its claim is a plan down the car's own line</b> (TER-4c.1): asked
-/// for from the nose as far as the car means to be able to stop, had in part, and driven to where it was cut — the
-/// one claim the other actions on the route's line share with it (TER-4c.8).
+/// line stops for its bay and the car is near enough to shape its way in (GEN-4f), where what ended its grant is
+/// something it has decided to get past (CAR-46), or where it means to move across onto the lane beside (CAR-53).
+/// <b>Its claim is a plan down the car's own line</b> (TER-4c.1): asked for from the nose as far as the car means to be
+/// able to stop, had in part, and driven to where it was cut — the one claim the other actions on the route's line
+/// share with it (TER-4c.8).
 /// </summary>
-internal sealed class Following(DrivingGround ground, CarActions actions, Overtaking overtaking, ParkingIn parkingIn)
+internal sealed class Following(
+    DrivingGround ground, CarActions actions, Overtaking overtaking, Switching switching, ParkingIn parkingIn)
 {
     CarFleet Cars => ground.Cars;
 
@@ -37,7 +39,8 @@ internal sealed class Following(DrivingGround ground, CarActions actions, Overta
     /// <b>A car following its route, on its own clock</b>: where the line stops for its bay and the car is near enough,
     /// its manoeuvre in shaped from where it stands and asked for (GEN-4f); otherwise, where something ended its grant
     /// that it may get past and it has come to where it would begin slowing for it, its pass drawn — once — and taken
-    /// up, or backed up for (CAR-46, CAR-50).
+    /// up, or backed up for (CAR-46, CAR-50); otherwise, where it means to move across onto the lane beside, that
+    /// looked for (CAR-53).
     /// </summary>
     /// <param name="sinceLastDecisionS">How much of the town's time this decision answers for, which its clocks run by.</param>
     public void Decide<TTown>(ref TTown town, int car, float sinceLastDecisionS)
@@ -56,7 +59,10 @@ internal sealed class Following(DrivingGround ground, CarActions actions, Overta
             && overtaking.DrawThePass(car, sinceLastDecisionS, progressM, alongMps, town.ToTheSceneM(car), cutBy, cutOn))
         {
             actions.Enter(car, overtaking.BacksUp(car, progressM, alongMps) ? CarAction.BackUp : CarAction.Overtake);
+            return;
         }
+
+        if (Cars.StopsForBayOf(car) == CarFleet.NoBay && switching.Wants(car, out _)) actions.Enter(car, CarAction.Switch);
     }
 
     /// <summary>
@@ -155,7 +161,7 @@ internal sealed class Following(DrivingGround ground, CarActions actions, Overta
         Cars.CommittedToM[car] = committedToM;
         if (planToM < wantedToM) Cars.HorizonM[car] = planToM - noseM;
 
-        if (Cars.Pass[car].Begun && overtaking.TheBodyInThePass(car, out var inTheWayM, out var inTheWay, out var on))
+        if (Cars.Pass[car].Begun && TheBodyInItsPass(car, out var inTheWayM, out var inTheWay, out var on))
         {
             var held = Occupancy.BeginHold(standOffM);
             ground.PlanHold[car] = held;
@@ -179,6 +185,12 @@ internal sealed class Following(DrivingGround ground, CarActions actions, Overta
 
         LayTheDrive(car, hold, ways[..count], rungs, AnswerTheDrive(car, hold, ways[..count], rungs));
     }
+
+    /// <summary>A body standing inside what is left of the ground the car's pass or step across holds — whichever it is driving.</summary>
+    bool TheBodyInItsPass(int car, out float inTheWayM, out LaneClaim body, out int on) =>
+        Cars.Action[car] == CarAction.Switch
+            ? switching.TheBodyInTheSwitch(car, out inTheWayM, out body, out on)
+            : overtaking.TheBodyInThePass(car, out inTheWayM, out body, out on);
 
     /// <summary>
     /// <b>This car's plan answered again against what every other came to</b>, and laid again where the answer has

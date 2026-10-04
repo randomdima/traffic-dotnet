@@ -1,0 +1,19 @@
+{
+  "id": "industrial_deep_06",
+  "footprintM": [
+    6.0,
+    15.0
+  ],
+  "cornerRadiusM": 0.8,
+  "partsM": [],
+  "look": "industrial",
+  "tags": [
+    "industrial",
+    "1 storey",
+    "pitched roof",
+    "tar paper",
+    "workshop",
+    "narrow front"
+  ],
+  "describe": "small workshop or depot shed, shallow pitched roof of tar paper, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+}

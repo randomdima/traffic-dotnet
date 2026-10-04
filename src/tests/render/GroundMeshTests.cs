@@ -46,7 +46,6 @@ public class GroundMeshTests
         {
             Assert.True(float.IsFinite(vertex.PositionM.X) && float.IsFinite(vertex.PositionM.Y),
                 $"{map} lays a corner at {vertex.PositionM}");
-            Assert.True(float.IsFinite(vertex.Uv.X) && float.IsFinite(vertex.Uv.Y));
         }
     }
 
@@ -70,28 +69,6 @@ public class GroundMeshTests
         }
 
         Assert.Equal(mesh.Indices.Length, laid);
-    }
-
-    /// <summary>
-    /// Every surface's texture is anchored to the <b>world origin</b> and not to the shape being
-    /// painted, which is what makes the triangulation invisible: cut a shape into triangles
-    /// differently and the picture does not change. The texture coordinate is therefore the position
-    /// over the surface's own period, everywhere, with nothing per-shape in it.
-    /// </summary>
-    [Theory]
-    [MemberData(nameof(Maps))]
-    public void EveryTextureIsAnchoredToTheWorldOrigin(string map)
-    {
-        var config = SimConfig.Shipped();
-        var periods = GroundMesh.Periods(config);
-        var mesh = Ground(map);
-
-        foreach (var vertex in mesh.Vertices)
-        {
-            var period = vertex.Surface == Surface.Paint ? 1f : periods[(int)vertex.Surface];
-            Assert.Equal(vertex.PositionM.X / period, vertex.Uv.X, tolerance: 1e-3f);
-            Assert.Equal(vertex.PositionM.Y / period, vertex.Uv.Y, tolerance: 1e-3f);
-        }
     }
 
     /// <summary>
@@ -160,7 +137,7 @@ public class GroundMeshTests
             var vertex = mesh.Vertices[(int)mesh.Indices[index]];
             if (vertex.Surface == Surface.Tarmac)
             {
-                if (vertex.Tint == GroundMesh.Paint)
+                if (Wears(vertex, GroundMesh.Paint))
                 {
                     kerbFirst = Math.Min(kerbFirst, index);
                 }
@@ -173,12 +150,12 @@ public class GroundMeshTests
 
             if (vertex.Surface != Surface.Pavement) continue;
 
-            if (vertex.Tint == GroundMesh.Stone)
+            if (Wears(vertex, GroundMesh.Stone))
             {
                 walkKerbFirst = Math.Min(walkKerbFirst, index);
                 walkKerbLast = index;
             }
-            else if (vertex.Tint == Vector3.One)
+            else if (Wears(vertex, Vector3.One))
             {
                 walkFirst = Math.Min(walkFirst, index);
             }
@@ -523,6 +500,26 @@ public class GroundMeshTests
     /// tint nor the surface tells from it and every claim here is about the line rather than about the
     /// markings.
     /// </remarks>
+    /// <summary>
+    /// <b>A corner keeps its shade to half a filing step and its surface exactly</b> (<see cref="GroundVertex.Pack"/>):
+    /// paint, brighter than the ground, as well as an edge darker than it, on a surface and as paint.
+    /// </summary>
+    [Theory]
+    [InlineData(2.6f, 2.6f, 2.5f, (uint)Surface.Paint)]
+    [InlineData(0.58f, 0.58f, 0.62f, (uint)Surface.Water)]
+    [InlineData(1f, 1f, 1f, (uint)Surface.Grass)]
+    public void ACornerKeepsItsShadeAndItsSurface(float r, float g, float b, uint surface)
+    {
+        var vertex = new GroundVertex(Vector2.Zero, new Vector3(r, g, b), (Surface)surface);
+        var halfStep = GroundVertex.BrightestTint / 511f * 0.5f;
+
+        Assert.Equal((Surface)surface, vertex.Surface);
+        Assert.InRange(Vector3.Abs(vertex.Tint - new Vector3(r, g, b)).Length(), 0f, halfStep * MathF.Sqrt(3f));
+    }
+
+    /// <summary>Whether a corner wears a shade, as a corner files one (<see cref="GroundVertex.Pack"/>).</summary>
+    static bool Wears(GroundVertex vertex, Vector3 tint) => vertex.Shade == GroundVertex.Pack(tint, vertex.Surface);
+
     static List<Vector2[]> Tinted(GroundMesh mesh, Vector3 tint)
     {
         var vertices = mesh.Vertices;
@@ -531,7 +528,7 @@ public class GroundMeshTests
         {
             var first = (int)mesh.Indices[index];
             if (first >= mesh.FirstMarkVertex) break;
-            if (vertices[first].Tint != tint) continue;
+            if (!Wears(vertices[first], tint)) continue;
 
             triangles.Add(
             [

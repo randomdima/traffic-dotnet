@@ -152,23 +152,23 @@ internal sealed unsafe partial class TownRenderer
     void CreateFrameBuffers(int image)
     {
         _instances[image] = _vk.CreateBuffer(
-            (ulong)(SpriteCapacity * sizeof(SpriteInstance)), BufferUsageFlags.VertexBufferBit, hostVisible: true);
+            (ulong)((SpriteCapacity + AboveCapacity) * sizeof(SpriteInstance)), BufferUsageFlags.VertexBufferBit, hostVisible: true);
         _overlay[image] = _vk.CreateBuffer(
             (ulong)(OverlayCapacity * sizeof(OverlayQuad)), BufferUsageFlags.VertexBufferBit, hostVisible: true);
         _underlay[image] = _vk.CreateBuffer(
             (ulong)(UnderlayCapacity * sizeof(OverlayQuad)), BufferUsageFlags.VertexBufferBit, hostVisible: true);
 
-        _spriteIndirect[image] = Counter();
-        _overlayIndirect[image] = Counter();
-        _underlayIndirect[image] = Counter();
+        _spriteIndirect[image] = Counter(draws: 2);
+        _overlayIndirect[image] = Counter(draws: 1);
+        _underlayIndirect[image] = Counter(draws: 1);
 
         // An image whose frame has not been filled yet draws nothing of its own rather than whatever
         // the memory happened to hold.
-        GpuBuffer Counter()
+        GpuBuffer Counter(int draws)
         {
             var buffer = _vk.CreateBuffer(
-                (ulong)sizeof(DrawIndirectCommand), BufferUsageFlags.IndirectBufferBit, hostVisible: true);
-            buffer.Span<DrawIndirectCommand>()[0] = new DrawIndirectCommand { VertexCount = 4, InstanceCount = 0 };
+                (ulong)(draws * sizeof(DrawIndirectCommand)), BufferUsageFlags.IndirectBufferBit, hostVisible: true);
+            buffer.Span<DrawIndirectCommand>().Fill(new DrawIndirectCommand { VertexCount = 4, InstanceCount = 0 });
             return buffer;
         }
     }
@@ -257,6 +257,26 @@ internal sealed unsafe partial class TownRenderer
         api.CmdBindVertexBuffers(commands, 0, 1, &instanceBuffer, &offset);
         Vk.Count();
         api.CmdDrawIndirect(commands, _spriteIndirect[image].Handle, 0, 1, (uint)sizeof(DrawIndirectCommand));
+
+        // <b>The level above, over the bodies on the ground, and the bodies on it over that</b> (TER-7b, PHY-1a): the
+        // ground's second draw — its last part, past the first draw's — and the instances laid past the ground's own
+        // in the same buffer. A town with nothing above its ground draws nothing in either, and records them the same.
+        Vk.Count();
+        api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _pipeline);
+        Vk.Count();
+        api.CmdBindVertexBuffers(commands, 0, 1, &vertexBuffer, &offset);
+        Vk.Count();
+        api.CmdDrawIndexedIndirect(
+            commands, _indirect.Handle, (ulong)sizeof(DrawIndexedIndirectCommand), 1, (uint)sizeof(DrawIndexedIndirectCommand));
+
+        Vk.Count();
+        api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _spritePipeline);
+        var aboveOffset = (ulong)(SpriteCapacity * sizeof(SpriteInstance));
+        Vk.Count();
+        api.CmdBindVertexBuffers(commands, 0, 1, &instanceBuffer, &aboveOffset);
+        Vk.Count();
+        api.CmdDrawIndirect(
+            commands, _spriteIndirect[image].Handle, (ulong)sizeof(DrawIndirectCommand), 1, (uint)sizeof(DrawIndirectCommand));
 
         // The interface and everything that annotates a body, over all of it: the same pipeline the
         // ground marks used, a buffer of its own, and one more indirect draw already written down here.

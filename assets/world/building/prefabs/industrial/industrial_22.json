@@ -1,0 +1,18 @@
+{
+  "id": "industrial_22",
+  "footprintM": [
+    42.5,
+    11.5
+  ],
+  "cornerRadiusM": 0.8,
+  "partsM": [],
+  "look": "industrial",
+  "tags": [
+    "industrial",
+    "1-2 storeys",
+    "shallow pitched roof",
+    "grey corrugated metal",
+    "warehouse"
+  ],
+  "describe": "warehouse or workshop hall, shallow pitched roof of grey corrugated metal with a ridge vent along its length"
+}

@@ -38,11 +38,15 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     const int Surfaces = 5;
 
     /// <summary>
-    /// Every walker's look, <em>two</em> per car — the car and the wreck it becomes — one per roof and
-    /// one per prop look, with room over the shipped art's hundred and forty-six. It is the length of
-    /// the shader's uniform array of places, so this is the only place the number lives.
+    /// Every walker's look, <em>two</em> per car — the car and the wreck it becomes — one per roof, prefab and
+    /// prop look, with room over the shipped art's four hundred and ninety-eight. It is the length of the shader's
+    /// uniform array of places, so this is the only place the number lives.
     /// </summary>
-    const int SheetSlots = 192;
+    /// <remarks>
+    /// <b>No longer than sixteen kilobytes of places</b>, thirty-two bytes each: the uniform range every Vulkan
+    /// device is bound to offer (<c>maxUniformBufferRange</c>), so the handset's head draws what the desktop's does.
+    /// </remarks>
+    const int SheetSlots = 512;
 
     /// <summary>
     /// The one set's bindings, in the order the shaders declare them. <b>The shaders and this list are
@@ -150,7 +154,7 @@ internal sealed unsafe partial class TownRenderer : IDisposable
 
     TownRenderer(
         Vk vk, AppWindow? window, Extent2D offscreenSize, GroundMesh mesh, IReadOnlyList<string> surfaceTextures,
-        IReadOnlyList<SheetSource> sheetTextures, int spriteCapacity)
+        IReadOnlyList<SheetSource> sheetTextures, int spriteCapacity, int aboveCapacity)
     {
         _vk = vk;
         _window = window;
@@ -188,7 +192,7 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _indices = vk.CreateBuffer(
             (ulong)(mesh.Indices.Length * sizeof(uint)), BufferUsageFlags.IndexBufferBit | BufferUsageFlags.TransferDstBit,
             hostVisible: false);
-        _indirect = vk.CreateBuffer((ulong)sizeof(DrawIndexedIndirectCommand), BufferUsageFlags.IndirectBufferBit, hostVisible: true);
+        _indirect = vk.CreateBuffer((ulong)(2 * sizeof(DrawIndexedIndirectCommand)), BufferUsageFlags.IndirectBufferBit, hostVisible: true);
         _vertices.Upload<GroundVertex>(
             mesh.Vertices.Length, into => mesh.Vertices.CopyTo(into),
             PipelineStageFlags2.VertexAttributeInputBit, AccessFlags2.VertexAttributeReadBit);
@@ -196,17 +200,15 @@ internal sealed unsafe partial class TownRenderer : IDisposable
             mesh.Indices.Length, into => mesh.Indices.CopyTo(into), PipelineStageFlags2.IndexInputBit, AccessFlags2.IndexReadBit);
 
         SpriteCapacity = Math.Max(1, spriteCapacity);
+        AboveCapacity = Math.Max(0, aboveCapacity);
         _glyphs = GpuTexture.LoadEmbedded(vk, GlyphSheet.Resource);
 
         // The draw's count lives here, in memory, which is what lets the recording be final: a ground
         // layer switched off changes a number the GPU reads, and not a command buffer. The ground is
         // written once and rewritten only under a device wait, so unlike what a frame fills it is one
         // buffer rather than one per image.
-        _indirect.Span<DrawIndexedIndirectCommand>()[0] = new DrawIndexedIndirectCommand
-        {
-            IndexCount = _indexCount,
-            InstanceCount = 1,
-        };
+        var above = (uint)mesh.Parts[(int)GroundPart.Above].IndexCount;
+        Count(_indexCount - above, above);
 
         CreatePipeline();
         _target = NewTarget();
@@ -216,8 +218,8 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     /// <summary>The town in a window, which is the only target that can resize or go out of date.</summary>
     public static TownRenderer OnScreen(
         Vk vk, AppWindow window, GroundMesh mesh, IReadOnlyList<string> surfaceTextures,
-        IReadOnlyList<SheetSource> sheetTextures, int spriteCapacity) =>
-        new(vk, window, default, mesh, surfaceTextures, sheetTextures, spriteCapacity);
+        IReadOnlyList<SheetSource> sheetTextures, int spriteCapacity, int aboveCapacity) =>
+        new(vk, window, default, mesh, surfaceTextures, sheetTextures, spriteCapacity, aboveCapacity);
 
     /// <summary>
     /// The same town drawn into one image with no window under it — what a render check is made of,
@@ -225,11 +227,14 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     /// </summary>
     public static TownRenderer Offscreen(
         Vk vk, int width, int height, GroundMesh mesh, IReadOnlyList<string> surfaceTextures,
-        IReadOnlyList<SheetSource> sheetTextures, int spriteCapacity) =>
-        new(vk, null, new Extent2D((uint)width, (uint)height), mesh, surfaceTextures, sheetTextures, spriteCapacity);
+        IReadOnlyList<SheetSource> sheetTextures, int spriteCapacity, int aboveCapacity) =>
+        new(vk, null, new Extent2D((uint)width, (uint)height), mesh, surfaceTextures, sheetTextures, spriteCapacity, aboveCapacity);
 
     /// <summary>How many sprites the instance buffer was laid for.</summary>
     public int SpriteCapacity { get; }
+
+    /// <summary>And how many more past them for the bodies on the level above (<see cref="SpritesAbove"/>).</summary>
+    public int AboveCapacity { get; }
 
     /// <summary>
     /// The instance buffer as the caller writes it: mapped memory the driver already owns, so filling
@@ -238,13 +243,20 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     /// </summary>
     public Span<SpriteInstance> Sprites => _instances[(int)_image].Span<SpriteInstance>()[..SpriteCapacity];
 
-    /// <summary>How many of the instances just written are to be drawn. The only thing a frame changes about the sprite pass.</summary>
-    public void SetSpriteCount(int count) =>
-        _spriteIndirect[(int)_image].Span<DrawIndirectCommand>()[0] = new DrawIndirectCommand
-        {
-            VertexCount = 4,
-            InstanceCount = (uint)Math.Clamp(count, 0, SpriteCapacity),
-        };
+    /// <summary>
+    /// <b>And the bodies on the level above</b> (PHY-1a): the same buffer past <see cref="Sprites"/>, drawn after the
+    /// bridges over the ground and so over them, where the first run is drawn under them.
+    /// </summary>
+    public Span<SpriteInstance> SpritesAbove =>
+        _instances[(int)_image].Span<SpriteInstance>().Slice(SpriteCapacity, AboveCapacity);
+
+    /// <summary>How many of the instances just written are to be drawn, of each run. The only thing a frame changes about the sprite pass.</summary>
+    public void SetSpriteCount(int count, int above)
+    {
+        var draws = _spriteIndirect[(int)_image].Span<DrawIndirectCommand>();
+        draws[0] = new DrawIndirectCommand { VertexCount = 4, InstanceCount = (uint)Math.Clamp(count, 0, SpriteCapacity) };
+        draws[1] = new DrawIndirectCommand { VertexCount = 4, InstanceCount = (uint)Math.Clamp(above, 0, AboveCapacity) };
+    }
 
     /// <summary>
     /// The interface and the debug layers' own instance buffer, written the same way the sprites'
@@ -314,12 +326,10 @@ internal sealed unsafe partial class TownRenderer : IDisposable
 
         _indices.Upload<uint>(written, Packed, PipelineStageFlags2.IndexInputBit, AccessFlags2.IndexReadBit);
 
+        // The level above is the last part and so the last run packed: the second draw is whatever of it is shown.
         _indexCount = (uint)written;
-        _indirect.Span<DrawIndexedIndirectCommand>()[0] = new DrawIndexedIndirectCommand
-        {
-            IndexCount = _indexCount,
-            InstanceCount = 1,
-        };
+        var above = (parts & GroundParts.Bit(GroundPart.Above)) != 0 ? (uint)_mesh.Parts[(int)GroundPart.Above].IndexCount : 0u;
+        Count(_indexCount - above, above);
 
         void Packed(Span<uint> into)
         {
@@ -333,6 +343,17 @@ internal sealed unsafe partial class TownRenderer : IDisposable
                 at += tally.IndexCount;
             }
         }
+    }
+
+    /// <summary>
+    /// The ground's two draws: everything on the ground from the first index, and the level above after it
+    /// (<see cref="GroundPart.Above"/>) — the one drawn under the bodies on the ground and the other over them.
+    /// </summary>
+    void Count(uint ground, uint above)
+    {
+        var draws = _indirect.Span<DrawIndexedIndirectCommand>();
+        draws[0] = new DrawIndexedIndirectCommand { IndexCount = ground, InstanceCount = 1 };
+        draws[1] = new DrawIndexedIndirectCommand { IndexCount = above, InstanceCount = 1, FirstIndex = ground };
     }
 
     public Extent2D Size => _target.Extent;
@@ -359,7 +380,7 @@ internal sealed unsafe partial class TownRenderer : IDisposable
 
         var api = _vk.Api;
         var image = _image;
-        _cameras[image].Span<CameraView>()[0] = view;
+        _cameras[image].Span<CameraView>()[0] = view with { SurfacePeriodsM = _mesh.SurfacePeriodsM, WaterPeriodM = _mesh.WaterPeriodM };
 
         var acquired = _acquired[_acquireSlot];
         var commands = _commands[image];

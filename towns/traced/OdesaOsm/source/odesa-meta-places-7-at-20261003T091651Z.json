@@ -1,0 +1,695 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-10-03T14:13:21Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "node",
+  "id": 3184642837,
+  "lat": 46.6235783,
+  "lon": 30.8323952,
+  "tags": {
+    "amenity": "police",
+    "name": "Блокпост",
+    "name:uk": "Блокпост"
+  }
+},
+{
+  "type": "node",
+  "id": 3599484258,
+  "lat": 46.6272698,
+  "lon": 30.8347353,
+  "tags": {
+    "historic": "memorial",
+    "name": "Пам'ятник захисникам Одеси",
+    "name:en": "Monument to Defenders of Odesa",
+    "name:ru": "Памятник защитникам Одессы",
+    "name:uk": "Пам'ятник захисникам Одеси"
+  }
+},
+{
+  "type": "node",
+  "id": 4157928590,
+  "lat": 46.6235113,
+  "lon": 30.8083812,
+  "tags": {
+    "name": "Енергобудівник",
+    "name:uk": "Енергобудівник",
+    "opening_hours": "Mo-Sa 08:00-17:00",
+    "shop": "electronics"
+  }
+},
+{
+  "type": "node",
+  "id": 4601095189,
+  "lat": 46.6635817,
+  "lon": 30.8045678,
+  "tags": {
+    "name": "ОС \"Степове\"",
+    "name:ru": "ОС \"Степове\"",
+    "name:uk": "ОС \"Степове\"",
+    "office": "government",
+    "opening_hours": "Mo-Su 09:00-13:00"
+  }
+},
+{
+  "type": "node",
+  "id": 4601095190,
+  "lat": 46.6635435,
+  "lon": 30.8049971,
+  "tags": {
+    "amenity": "place_of_worship",
+    "name": "Капличка",
+    "name:ru": "Капличка",
+    "name:uk": "Капличка"
+  }
+},
+{
+  "type": "node",
+  "id": 4737859622,
+  "lat": 46.6189303,
+  "lon": 30.8199078,
+  "tags": {
+    "addr:housenumber": "9",
+    "addr:street": "Старокиевское шоссе 21 км, 9",
+    "amenity": "clinic",
+    "description": "В ближайших пару месяцев поликлиника переезжает по другому адресу (информация на 18.06.2021)",
+    "healthcare": "clinic"
+  }
+},
+{
+  "type": "node",
+  "id": 4786831856,
+  "lat": 46.6105279,
+  "lon": 30.8224979,
+  "tags": {
+    "amenity": "cafe",
+    "name": "Буфет",
+    "name:uk": "Буфет"
+  }
+},
+{
+  "type": "node",
+  "id": 5030532581,
+  "lat": 46.6201101,
+  "lon": 30.8303933,
+  "tags": {
+    "addr:street": "Олександрівка",
+    "amenity": "fuel",
+    "backup_generator": "yes",
+    "brand": "Ukrnafta",
+    "brand:en": "Ukrnafta",
+    "brand:uk": "Укрнафта",
+    "brand:wikidata": "Q2447961",
+    "compressed_air": "yes",
+    "contact:email": "hotline@ukrnafta.com",
+    "contact:facebook": "https://www.facebook.com/Ukrnafta",
+    "contact:instagram": "https://www.instagram.com/ukrnafta_azk",
+    "contact:phone:UA": "0 800 404 000",
+    "contact:tiktok": "https://www.tiktok.com/@ukrnafta_people",
+    "contact:twitter": "https://x.com/Ukrnafta_com",
+    "contact:website": "https://azs.ukrnafta.com/",
+    "contact:youtube": "https://www.youtube.com/@Ukrnafta_azk",
+    "fuel:diesel": "yes",
+    "fuel:lpg": "yes",
+    "fuel:octane_92": "yes",
+    "fuel:octane_95": "yes",
+    "name": "Укрнафта",
+    "name:en": "Ukrnafta",
+    "name:uk": "Укрнафта",
+    "name:uk-Latn": "Ukrnafta",
+    "opening_hours": "24/7",
+    "phone:UA": "0 800 404 000",
+    "ref": "8010",
+    "source": "ukrnafta.com",
+    "source:check_date": "2026-08-28",
+    "toilets": "yes"
+  }
+},
+{
+  "type": "node",
+  "id": 5044473929,
+  "lat": 46.6107853,
+  "lon": 30.8236895,
+  "tags": {
+    "name": "Севертранс",
+    "name:en": "Severtrans",
+    "name:ru": "Севертранс",
+    "name:uk": "Севертранс",
+    "office": "company"
+  }
+},
+{
+  "type": "node",
+  "id": 5413139595,
+  "lat": 46.6247470,
+  "lon": 30.8331080,
+  "tags": {
+    "addr:street": "Олександрівка",
+    "amenity": "fuel",
+    "brand": "Amic",
+    "brand:wikidata": "Q96047373",
+    "compressed_air": "yes",
+    "contact:facebook": "https://www.facebook.com/amic.energy/",
+    "contact:instagram": "https://www.instagram.com/amic.energy/",
+    "description": "Одеська обл., Лиманський район, с. Олександрівка, 23-й км Старокиївське Шосе",
+    "email": "info@amicenergy.com.ua",
+    "fuel:diesel": "yes",
+    "fuel:lpg": "yes",
+    "fuel:octane_95": "yes",
+    "name": "Amic",
+    "phone:UA": "0 800 501 110",
+    "ref": "16-27",
+    "shop": "convenience",
+    "source:check_date": "2026-09-02",
+    "toilets": "yes",
+    "vacuum_cleaner": "yes",
+    "website": "https://amicenergy.com.ua/"
+  }
+},
+{
+  "type": "node",
+  "id": 6531685661,
+  "lat": 46.6127548,
+  "lon": 30.7725716,
+  "tags": {
+    "name": "Магазин",
+    "name:uk": "Магазин",
+    "shop": "convenience"
+  }
+},
+{
+  "type": "node",
+  "id": 6635818932,
+  "lat": 46.6147126,
+  "lon": 30.7665221,
+  "tags": {
+    "historic": "memorial",
+    "name": "Пам'ятник захисникам вітчизни",
+    "name:ru": "Памятник защитникам отечества",
+    "name:uk": "Пам'ятник захисникам вітчизни"
+  }
+},
+{
+  "type": "node",
+  "id": 6705188757,
+  "lat": 46.6244496,
+  "lon": 30.7722024,
+  "tags": {
+    "name": "Гранат",
+    "name:ru": "Гранат",
+    "name:uk": "Гранат",
+    "shop": "convenience"
+  }
+},
+{
+  "type": "node",
+  "id": 6793973271,
+  "lat": 46.6128586,
+  "lon": 30.8245360,
+  "tags": {
+    "amenity": "fuel",
+    "brand": "Sun Oil",
+    "name": "Sun Oil",
+    "name:uk": "Sun Oil",
+    "website": "https://azs-svoi.com/"
+  }
+},
+{
+  "type": "node",
+  "id": 6793982726,
+  "lat": 46.6098475,
+  "lon": 30.8215725,
+  "tags": {
+    "addr:postcode": "67582",
+    "addr:street": "Старокиївське шосе",
+    "amenity": "fuel",
+    "backup_generator": "yes",
+    "brand": "Ukrnafta",
+    "brand:en": "Ukrnafta",
+    "brand:uk": "Укрнафта",
+    "brand:wikidata": "Q2447961",
+    "brand:wikipedia": "uk:Укрнафта",
+    "contact:email": "hotline@ukrnafta.com",
+    "contact:facebook": "https://www.facebook.com/Ukrnafta",
+    "contact:instagram": "https://www.instagram.com/ukrnafta_azk",
+    "contact:phone:UA": "0 800 404 000",
+    "contact:tiktok": "https://www.tiktok.com/@ukrnafta_people",
+    "contact:twitter": "https://x.com/Ukrnafta_com",
+    "contact:website": "https://azs.ukrnafta.com/",
+    "contact:youtube": "https://www.youtube.com/@Ukrnafta_azk",
+    "fuel:adblue": "yes",
+    "fuel:diesel": "yes",
+    "fuel:octane_92": "yes",
+    "fuel:octane_95": "yes",
+    "fuel:octane_98": "yes",
+    "internet_access": "wlan",
+    "name": "Укрнафта",
+    "name:en": "Ukrnafta",
+    "name:uk": "Укрнафта",
+    "name:uk-Latn": "Ukrnafta",
+    "opening_hours": "24/7",
+    "operator": "ПАТ Укрнафта",
+    "phone:UA": "0 800 404 000",
+    "ref": "15/022",
+    "source": "ukrnafta.com",
+    "source:check_date": "2026-08-28",
+    "toilets": "yes"
+  }
+},
+{
+  "type": "node",
+  "id": 6832553037,
+  "lat": 46.6284310,
+  "lon": 30.7653936,
+  "tags": {
+    "amenity": "doctors",
+    "healthcare": "doctor",
+    "name": "Амбулаторія загальної практики та сімейної медицини",
+    "name:ru": "Амбулатория общей практики и семейной медицины",
+    "name:uk": "Амбулаторія загальної практики та сімейної медицини"
+  }
+},
+{
+  "type": "node",
+  "id": 6841637345,
+  "lat": 46.6380402,
+  "lon": 30.8264466,
+  "tags": {
+    "addr:housenumber": "31",
+    "addr:street": "Комунальна вулиця",
+    "name": "Містечко",
+    "name:ru": "Местечко",
+    "name:uk": "Містечко",
+    "shop": "convenience"
+  }
+},
+{
+  "type": "node",
+  "id": 8526155458,
+  "lat": 46.6386248,
+  "lon": 30.8271295,
+  "tags": {
+    "addr:housenumber": "32",
+    "addr:street": "Комунальна вулиця",
+    "name": "Риба",
+    "name:ru": "Рыба",
+    "name:uk": "Риба",
+    "shop": "convenience"
+  }
+},
+{
+  "type": "node",
+  "id": 13718080901,
+  "lat": 46.6639112,
+  "lon": 30.7943755,
+  "tags": {
+    "name": "Всё для дома",
+    "shop": "houseware"
+  }
+},
+{
+  "type": "node",
+  "id": 13718093701,
+  "lat": 46.6639073,
+  "lon": 30.7948284,
+  "tags": {
+    "name": "Магазин Дачный",
+    "shop": "department_store"
+  }
+},
+{
+  "type": "way",
+  "id": 188016499,
+  "center": {
+    "lat": 46.6163107,
+    "lon": 30.8286667
+  },
+  "tags": {
+    "addr:street": "Старокиївська дорога",
+    "building": "yes",
+    "building:levels": "1",
+    "height": "10",
+    "name": "Нова Лінія",
+    "name:en": "Nova Liniia",
+    "name:uk": "Нова Лінія",
+    "opening_hours": "Mo-Sa 08:00-21:30; Su 09:00-21:00",
+    "shop": "supermarket",
+    "website": "http://www.novalinia.com.ua"
+  }
+},
+{
+  "type": "way",
+  "id": 188016500,
+  "center": {
+    "lat": 46.6159096,
+    "lon": 30.8275402
+  },
+  "tags": {
+    "amenity": "parking",
+    "source": "Bing"
+  }
+},
+{
+  "type": "way",
+  "id": 220031624,
+  "center": {
+    "lat": 46.6228029,
+    "lon": 30.7688104
+  },
+  "tags": {
+    "leisure": "pitch",
+    "sport": "soccer"
+  }
+},
+{
+  "type": "way",
+  "id": 220031625,
+  "center": {
+    "lat": 46.6295757,
+    "lon": 30.7662179
+  },
+  "tags": {
+    "leisure": "pitch",
+    "sport": "soccer"
+  }
+},
+{
+  "type": "way",
+  "id": 221306196,
+  "center": {
+    "lat": 46.6255520,
+    "lon": 30.7715665
+  },
+  "tags": {
+    "amenity": "townhall",
+    "building": "yes",
+    "name": "Адміністрація Красносільської сільради",
+    "name:ru": "Администрация Красносельского сельсовета",
+    "name:uk": "Адміністрація Красносільської сільради"
+  }
+},
+{
+  "type": "way",
+  "id": 221306308,
+  "center": {
+    "lat": 46.6133918,
+    "lon": 30.7695222
+  },
+  "tags": {
+    "leisure": "pitch",
+    "sport": "soccer"
+  }
+},
+{
+  "type": "way",
+  "id": 226672759,
+  "center": {
+    "lat": 46.6544681,
+    "lon": 30.8130599
+  },
+  "tags": {
+    "leisure": "garden"
+  }
+},
+{
+  "type": "way",
+  "id": 226672760,
+  "center": {
+    "lat": 46.6557478,
+    "lon": 30.8140542
+  },
+  "tags": {
+    "leisure": "garden"
+  }
+},
+{
+  "type": "way",
+  "id": 226672761,
+  "center": {
+    "lat": 46.6544152,
+    "lon": 30.8125786
+  },
+  "tags": {
+    "leisure": "garden"
+  }
+},
+{
+  "type": "way",
+  "id": 694479876,
+  "center": {
+    "lat": 46.6127685,
+    "lon": 30.7725769
+  },
+  "tags": {
+    "building": "yes",
+    "shop": "convenience"
+  }
+},
+{
+  "type": "way",
+  "id": 706194405,
+  "center": {
+    "lat": 46.6259103,
+    "lon": 30.7651928
+  },
+  "tags": {
+    "amenity": "place_of_worship",
+    "building": "church",
+    "denomination": "russian_orthodox",
+    "name": "церква Святого Апостола Луки УПЦ МП",
+    "name:ru": "церковь Святого Апостола Луки УПЦ МП",
+    "name:uk": "церква Святого Апостола Луки УПЦ МП",
+    "religion": "christian"
+  }
+},
+{
+  "type": "way",
+  "id": 706194413,
+  "center": {
+    "lat": 46.6258892,
+    "lon": 30.7643788
+  },
+  "tags": {
+    "amenity": "place_of_worship",
+    "building": "church",
+    "denomination": "russian_orthodox",
+    "name": "церква УПЦ МП",
+    "name:ru": "церква УПЦ МП",
+    "name:uk": "церква УПЦ МП",
+    "religion": "christian"
+  }
+},
+{
+  "type": "way",
+  "id": 713289103,
+  "center": {
+    "lat": 46.6262679,
+    "lon": 30.7685978
+  },
+  "tags": {
+    "building": "yes",
+    "name": "Продукти",
+    "name:uk": "Продукти",
+    "shop": "convenience"
+  }
+},
+{
+  "type": "way",
+  "id": 713289104,
+  "center": {
+    "lat": 46.6244770,
+    "lon": 30.7728391
+  },
+  "tags": {
+    "building": "yes",
+    "shop": "convenience"
+  }
+},
+{
+  "type": "way",
+  "id": 727147540,
+  "center": {
+    "lat": 46.6121406,
+    "lon": 30.8032756
+  },
+  "tags": {
+    "building": "yes",
+    "craft": "chimney_sweeper",
+    "height": "30"
+  }
+},
+{
+  "type": "way",
+  "id": 729307600,
+  "center": {
+    "lat": 46.6284007,
+    "lon": 30.7666093
+  },
+  "tags": {
+    "addr:housenumber": "1Б",
+    "addr:street": "Шкільна вулиця",
+    "amenity": "kindergarten",
+    "name": "Дитячий садок \"Калинка\"",
+    "name:ru": "Детский сад \"Калинка\"",
+    "name:uk": "Дитячий садок \"Калинка\""
+  }
+},
+{
+  "type": "way",
+  "id": 729307601,
+  "center": {
+    "lat": 46.6290743,
+    "lon": 30.7665536
+  },
+  "tags": {
+    "amenity": "school",
+    "email": "krasnosilka2016@ukr.net",
+    "name": "Красносільський ліцей",
+    "name:uk": "Красносільський ліцей",
+    "official_name": "КРАСНОСІЛЬСЬКИЙ ЛІЦЕЙ КРАСНОСІЛЬСЬКОЇ СІЛЬСЬКОЇ РАДИ ОДЕСЬКОГО РАЙОНУ ОДЕСЬКОЇ ОБЛАСТІ",
+    "phone": "+38(097)3624434"
+  }
+},
+{
+  "type": "way",
+  "id": 729307604,
+  "center": {
+    "lat": 46.6130970,
+    "lon": 30.7721052
+  },
+  "tags": {
+    "amenity": "parking"
+  }
+},
+{
+  "type": "way",
+  "id": 729307605,
+  "center": {
+    "lat": 46.6126576,
+    "lon": 30.7722539
+  },
+  "tags": {
+    "amenity": "parking"
+  }
+},
+{
+  "type": "way",
+  "id": 765530744,
+  "center": {
+    "lat": 46.6378796,
+    "lon": 30.8234570
+  },
+  "tags": {
+    "addr:housenumber": "30",
+    "addr:street": "Заводська вулиця",
+    "amenity": "place_of_worship",
+    "building": "yes",
+    "denomination": "orthodox",
+    "name": "Храм Святого Пророка Іллі",
+    "name:ru": "Храм Святого Пророка Илии",
+    "name:uk": "Храм Святого Пророка Іллі",
+    "phone": "+380 48 787 6486",
+    "religion": "christian"
+  }
+},
+{
+  "type": "way",
+  "id": 864941234,
+  "center": {
+    "lat": 46.6956479,
+    "lon": 30.7253975
+  },
+  "tags": {
+    "amenity": "school",
+    "capacity": "150",
+    "email": "kubanka2017@ukr.net",
+    "name": "Кубанська гімназія",
+    "name:uk": "Кубанська гімназія",
+    "official_name": "КУБАНСЬКА ГІМНАЗІЯ КРАСНОСІЛЬСЬКОЇ СІЛЬСЬКОЇ РАДИ ОДЕСЬКОГО РАЙОНУ ОДЕСЬКОЇ ОБЛАСТІ",
+    "old_official_name:uk": "Кубанська загальноосвітня школа І-ІІ ступенів Красносільської сільської ради Лиманського району Одеської області",
+    "old_short_name:uk": "Кубанська ЗОШ І-ІІ ступенів",
+    "phone": "+380 48 787 6745",
+    "website": "http://www.facebook.com/kubanskaschool"
+  }
+},
+{
+  "type": "way",
+  "id": 864944236,
+  "center": {
+    "lat": 46.6385971,
+    "lon": 30.8262932
+  },
+  "tags": {
+    "addr:housenumber": "35",
+    "addr:street": "Комунальна вулиця",
+    "amenity": "school",
+    "capacity": "70",
+    "email": "svitlivska.school@gmail.com",
+    "name": "Світлівська ЗОШ І ступеня",
+    "name:ru": "Общеобразовательная школа I ступени",
+    "name:uk": "Світлівська ЗОШ І ступеня",
+    "official_name": "Світлівська загальноосвітня школа І ступеня Лиманської районної ради Одеської області",
+    "official_name:uk": "Світлівська загальноосвітня школа І ступеня Лиманської районної ради Одеської області",
+    "phone": "+380 93 717 0123",
+    "short_name": "Світлівська ЗОШ І ступеня",
+    "short_name:uk": "Світлівська ЗОШ І ступеня"
+  }
+},
+{
+  "type": "way",
+  "id": 1472044301,
+  "center": {
+    "lat": 46.6538431,
+    "lon": 30.8142596
+  },
+  "tags": {
+    "access": "private",
+    "garden:type": "residential",
+    "leisure": "garden"
+  }
+},
+{
+  "type": "way",
+  "id": 1472044303,
+  "center": {
+    "lat": 46.6536442,
+    "lon": 30.8149643
+  },
+  "tags": {
+    "access": "private",
+    "garden:type": "residential",
+    "leisure": "garden"
+  }
+},
+{
+  "type": "way",
+  "id": 1478804332,
+  "center": {
+    "lat": 46.6508714,
+    "lon": 30.8233278
+  },
+  "tags": {
+    "building": "yes",
+    "craft": "beekeeper"
+  }
+},
+{
+  "type": "way",
+  "id": 1478804333,
+  "center": {
+    "lat": 46.6509175,
+    "lon": 30.8233363
+  },
+  "tags": {
+    "garden:type": "residential",
+    "leisure": "garden"
+  }
+}
+
+  ]
+}

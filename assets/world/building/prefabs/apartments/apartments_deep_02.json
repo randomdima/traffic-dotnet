@@ -1,0 +1,21 @@
+{
+  "id": "apartments_deep_02",
+  "sprite": "apartments_deep_02.webp",
+  "footprintM": [
+    5.0,
+    6.5
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "apartments",
+  "tags": [
+    "apartments",
+    "1-2 storeys",
+    "lean-to roof",
+    "grey galvanised sheet metal",
+    "old town",
+    "courtyard gallery",
+    "narrow front"
+  ],
+  "describe": "narrow annex or open gallery along an Odesa courtyard, lean-to roof of grey galvanised sheet metal with a wooden stair at one end, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+}

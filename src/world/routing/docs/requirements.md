@@ -29,6 +29,12 @@ the map, shared by every agent of its kind, laid with the town and never touched
   abeam of, and wants no node there.
 - **A car park ends no link** (GEN-4h): its bays are joined to nothing, so the street past one is the link it
   would be without it, and turning into a bay is a manoeuvre and not a choice the network offers.
+- **A lane with another beside it running its way ends its link where it arrives** (CAR-53): a car on it may
+  have moved across onto the lane beside, which is a choice whatever the place offers. **A link is left for any
+  link leaving where a lane beside its last one arrives**, priced as the turn from that lane and one move across
+  for each lane over, and a car under way enters by the lanes beside its own as well, at that move's price — so a
+  route may move across, and the car does it wherever it gets the room before the junction its own lane does not
+  go the route's way at.
 
 The price of the first rule is real and accepted: **a route can no longer turn round at a bend.** A
 two-road junction ends no link, so the way back is taken at a junction with a choice at it, or at a dead

@@ -4,6 +4,19 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-10-04 — a route may move across onto the lane beside
+
+**A car now moves across onto the lane beside** (CAR-53, the car slice's log), and since a turn is made only from the
+lane of its own number (TER-5j), a router that could not say so would send a car on the kerb lane round the block
+for every turn across the stream. **It is joins and not links**: a link is left for every link leaving where a lane
+beside its last one arrives, priced as the turn from there and a move across for each lane over
+(`LaneSwitchPriceCarLengths`), and the lanes beside a car's own are offered as entries at the same price. **The
+fine graph says which pieces run beside which** (`IFineGraph.Beside`), and a place where one arrives is a decision,
+because the move across can have been made before it whatever the place offers.
+
+**Laying a joined pair of lanes into a queue no longer means a connector joins them**: a pair may be reached by
+moving across (`RoadGraph.ReachesBySwitching`), and the driver's own line reads the queue that way.
+
 ## 2026-10-01 — the search is sectioned: the cells first, then the few in front of the body
 
 On O10 — Odesa's brief at ten times the area and the roster — a whole-graph flood settled 67 174 of the

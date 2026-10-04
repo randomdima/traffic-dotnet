@@ -1,5 +1,22 @@
 # Terrain — decision log
 
+## 2026-10-04 — a bridge over a road is a level of the ground of its own, drawn above
+
+**The owner asked for it: a bridge over roads is rendered above them, as a separate road.** `TER-7b` and
+`TER-3c.8`, both `P0`, now say a bridge over other roads is a level of its own, at the owner's word. Until now the
+deck's carriageway and the road under it were one driven shape, kerbed and paved round as a crossing, with stop bars
+standing at its corners.
+
+- **Each level's boundary is struck from its own lines** (`LaneShell`, `Paving.Perimeter`, `Paving.Above`). The
+  ground runs on under every bridgehead by its rounded corner and a kerb (`SimConfig.UnderTheDeckM`), so the end it
+  turns round, and the walk struck round that, stand under the deck drawn over them.
+- **The level above's corners are filled and never cut** (`ArcOutset.Corners.Filled`): a bridge's end is square where
+  it lands, and a corner rounded off there is a bite out of the road at every bridgehead.
+- **A wheel is asked what it stands on, on its own level** (`GroundShapes.At(…, level)`): on a bridge its carriageway
+  and deck, and past the deck's edge whatever is below.
+- **No walk crosses a bridge over a road.** The walk is struck off the ground's boundary and a walker is on the ground,
+  so a walker reaching a bridgehead turns round its end ([the known gaps](../../../../docs/index.md#known-gaps)).
+
 ## 2026-09-27 — a person is not affected by terrain at all
 
 The owner ruled it: **walkers are not affected by terrain; it matters to tyres alone.** A walker's pace and

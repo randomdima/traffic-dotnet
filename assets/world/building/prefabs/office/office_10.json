@@ -1,0 +1,18 @@
+{
+  "id": "office_10",
+  "footprintM": [
+    41.5,
+    15.5
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "office",
+  "tags": [
+    "office",
+    "4-8 storeys",
+    "flat roof",
+    "light gravel ballast",
+    "office block"
+  ],
+  "describe": "mid-rise office or public building, flat roof of light gravel ballast with rooftop plant, a lift room and a parapet"
+}

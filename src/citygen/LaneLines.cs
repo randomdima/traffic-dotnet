@@ -50,6 +50,8 @@ internal enum LaneTurn : byte
 /// (<c>RoadStage.Chain</c>, GEN-47) — so a lane is that road's own line moved to its share of the
 /// carriageway (TER-4d), it runs the whole of it, and its two ends are the connection points themselves.
 /// Nothing is cut back, nothing is folded, and there is no figure a reader has to add to a lane's metres.
+/// <b>But for lane zero</b> (<see cref="IsRoadside"/>), a road's roadside, which joins nothing and runs on into each
+/// box to the corner its kerb makes (<see cref="RoadFromM"/>).
 /// </para>
 /// <para>
 /// <b>What is left to work out here is the junction</b>: which pairs of lane ends a car may be driven
@@ -67,12 +69,17 @@ internal sealed class LaneLines
 
     LaneLines(
         int junctionCount, int[] laneRoad, float[] laneWidthM, byte[] laneFromKerb, int[] laneFromJunction,
-        int[] laneToJunction, bool[] laneForward, int[] laneReverse, bool[] laneOverOneLine, bool[] laneIsBay,
-        float[] laneLengthM, int[] laneArcOffsets, ArcSeg[] laneArcs,
+        int[] laneToJunction, bool[] laneForward, int[] laneReverse, bool[] laneOverOneLine, bool[] laneCrossesToPass,
+        bool[] laneIsBay, byte[] laneLevel, float[] laneLengthM, int[] laneArcOffsets, ArcSeg[] laneArcs, int firstRoadside,
+        float[] roadsideInTheBoxAtStartM, float[] roadsideInTheBoxAtEndM, RoadsideLanes.Taper[] tapers,
         int[] connectorAt, int[] connectorToLane, LaneTurn[] connectorKind,
         int[] connectorArcOffsets, ArcSeg[] connectorArcs, float[] connectorLengthM)
     {
         JunctionCount = junctionCount;
+        FirstRoadside = firstRoadside;
+        _roadsideInTheBoxAtStartM = roadsideInTheBoxAtStartM;
+        _roadsideInTheBoxAtEndM = roadsideInTheBoxAtEndM;
+        Tapers = tapers;
         LaneRoad = laneRoad;
         LaneWidthM = laneWidthM;
         LaneFromKerb = laneFromKerb;
@@ -81,7 +88,10 @@ internal sealed class LaneLines
         LaneForward = laneForward;
         LaneReverse = laneReverse;
         LaneOverOneLine = laneOverOneLine;
+        LaneCrossesToPass = laneCrossesToPass;
+        (LaneInward, LaneOutward) = Beside(laneRoad, laneForward, laneFromKerb, firstRoadside);
         LaneIsBay = laneIsBay;
+        LaneLevel = laneLevel;
         LaneLengthM = laneLengthM;
         LaneArcOffsets = laneArcOffsets;
         LaneArcs = laneArcs;
@@ -99,6 +109,41 @@ internal sealed class LaneLines
         {
             for (var id = connectorAt[lane]; id < connectorAt[lane + 1]; id++) ConnectorFromLane[id] = lane;
         }
+
+        _bridgeheads = Bridgeheads(junctionCount, laneFromJunction, laneToJunction, laneLevel);
+    }
+
+    /// <summary>Which junctions a lane of each level ends at, or nothing where every lane is on the ground.</summary>
+    readonly bool[] _bridgeheads;
+
+    /// <summary>
+    /// <b>Whether a junction is where the level above lands on the ground</b> — a bridgehead (PHY-1a): a lane of
+    /// each level ends at it. The level above is cut square there and the ground runs on under it
+    /// (<see cref="LaneShell"/>).
+    /// </summary>
+    public bool IsBridgehead(int junction) => _bridgeheads.Length > 0 && _bridgeheads[junction];
+
+    /// <summary>Whether any lane of the town is driven on a level of its own.</summary>
+    public bool Levelled => _bridgeheads.Length > 0;
+
+    static bool[] Bridgeheads(int junctionCount, int[] fromJunction, int[] toJunction, byte[] level)
+    {
+        if (Array.TrueForAll(level, static each => each == CityPlan.RoadArrays.Ground)) return [];
+
+        var levels = new int[junctionCount];
+        for (var lane = 0; lane < level.Length; lane++)
+        {
+            levels[fromJunction[lane]] |= 1 << level[lane];
+            levels[toJunction[lane]] |= 1 << level[lane];
+        }
+
+        var bridgeheads = new bool[junctionCount];
+        for (var junction = 0; junction < junctionCount; junction++)
+        {
+            bridgeheads[junction] = BitOperations.PopCount((uint)levels[junction]) > 1;
+        }
+
+        return bridgeheads;
     }
 
     /// <summary>How many intersections the plan named, which is every place a lane can begin or end.</summary>
@@ -116,7 +161,8 @@ internal sealed class LaneLines
 
     /// <summary>
     /// <b>Where the lane stands among its road's lanes running its way</b>, counted in from the kerb its traffic
-    /// keeps to (TER-4d): nought is the kerb lane, and the last is beside the line the two ways meet on.
+    /// keeps to (TER-4d): nought is the kerb lane, and the last is beside the line the two ways meet on. A roadside
+    /// outside the kerb lane is nought as well (<see cref="IsRoadside"/>).
     /// </summary>
     public byte[] LaneFromKerb { get; }
 
@@ -147,11 +193,103 @@ internal sealed class LaneLines
     public bool[] LaneOverOneLine { get; }
 
     /// <summary>
+    /// <b>Whether a car on this lane may cross the line its two ways meet on to get past</b> (CAR-6.2b): its road's
+    /// <see cref="CityPlan.RoadArrays.LineCrossedToPass"/>, carried down.
+    /// </summary>
+    public bool[] LaneCrossesToPass { get; }
+
+    /// <summary>
+    /// <b>The lane beside this one running its way, toward the line its two ways meet on</b> — one further in from
+    /// the kerb — or <see cref="NoLane"/> where this is the innermost of its way or a roadside.
+    /// </summary>
+    public int[] LaneInward { get; }
+
+    /// <summary>And the one toward the kerb, or <see cref="NoLane"/> for the kerb lane and a roadside.</summary>
+    public int[] LaneOutward { get; }
+
+    /// <summary>
+    /// Each lane's neighbours running its way, read off the order <see cref="Of"/> lays a road's lanes in: a way's lanes
+    /// side by side from its kerb, one index apart.
+    /// </summary>
+    static (int[] Inward, int[] Outward) Beside(int[] laneRoad, bool[] laneForward, byte[] laneFromKerb, int firstRoadside)
+    {
+        var inward = new int[laneRoad.Length];
+        var outward = new int[laneRoad.Length];
+        Array.Fill(inward, NoLane);
+        Array.Fill(outward, NoLane);
+        for (var lane = 0; lane + 1 < firstRoadside; lane++)
+        {
+            var next = lane + 1;
+            if (laneRoad[next] != laneRoad[lane] || laneForward[next] != laneForward[lane]
+                || laneFromKerb[next] != laneFromKerb[lane] + 1)
+            {
+                continue;
+            }
+
+            inward[lane] = next;
+            outward[next] = lane;
+        }
+
+        return (inward, outward);
+    }
+
+    /// <summary>
     /// <b>Whether this lane is a car park's bay</b> (<see cref="CityPlan.RoadArrays.IsABay"/>, GEN-53): laid over one
     /// line, and besides that joined to nothing and got into by a car's own manoeuvre. A traced road of one lane
     /// both ways share is laid over one line too and is no bay.
     /// </summary>
     public bool[] LaneIsBay { get; }
+
+    /// <summary>
+    /// <b>Where the roadsides begin</b> (<see cref="IsRoadside"/>): every lane from this one on is lane zero, and the
+    /// town's lanes number the same as they would if it laid none.
+    /// </summary>
+    public int FirstRoadside { get; }
+
+    /// <summary>
+    /// <b>Whether this lane is a road's roadside</b> — lane zero (<see cref="RoadsideLanes"/>,
+    /// <see cref="CityPlan.RoadArrays.RoadsideWithM"/>, GEN-57): the strip between a kerb and the lanes, laid as a
+    /// lane so that it is ground as every lane is, and joined to nothing. No movement leaves it or arrives on it, no
+    /// junction counts it among its lanes, and nobody is driven down it.
+    /// </summary>
+    /// <remarks>
+    /// <b>It does not stop at the box</b>, as every other lane does: it runs on into it to the corner its kerb makes
+    /// (<see cref="RoadFromM"/>).
+    /// </remarks>
+    public bool IsRoadside(int lane) => lane >= FirstRoadside;
+
+    readonly float[] _roadsideInTheBoxAtStartM;
+    readonly float[] _roadsideInTheBoxAtEndM;
+
+    /// <summary>
+    /// <b>Where along a lane its road's own stretch begins</b>: nought for every lane but a roadside, which runs on
+    /// into the box it starts at (<see cref="IsRoadside"/>).
+    /// </summary>
+    public float RoadFromM(int lane) => IsRoadside(lane) ? _roadsideInTheBoxAtStartM[lane - FirstRoadside] : 0f;
+
+    /// <summary>And where it ends: the lane's own end for every lane but a roadside, which runs on into the next box.</summary>
+    public float RoadToM(int lane) =>
+        LaneLengthM[lane] - (IsRoadside(lane) ? _roadsideInTheBoxAtEndM[lane - FirstRoadside] : 0f);
+
+    /// <summary>
+    /// <b>The ground a kerb is eased in over where a roadside is lost along the way</b> (<see cref="RoadsideLanes.Tapers"/>):
+    /// no lane, so nothing here numbers, joins or drives it, and the shell is merged over it as over a lane
+    /// (<see cref="LaneShell"/>).
+    /// </summary>
+    public RoadsideLanes.Taper[] Tapers { get; }
+
+    /// <summary>The level the lane is driven on, which is its road's (<see cref="CityPlan.RoadArrays.Level"/>).</summary>
+    public byte[] LaneLevel { get; }
+
+    /// <summary>
+    /// <b>The level a connector is driven on</b>: the two lanes' it joins where they share one, and the ground where
+    /// it joins a bridge to the road it lands on — a bridgehead stands on the ground, and nothing passes under it.
+    /// </summary>
+    public byte ConnectorLevel(int connector)
+    {
+        var level = LaneLevel[ConnectorFromLane[connector]];
+        return level == LaneLevel[ConnectorToLane[connector]] ? level : CityPlan.RoadArrays.Ground;
+    }
 
     /// <summary>The length of the line as driven, which is its road's own length at this lane's offset.</summary>
     public float[] LaneLengthM { get; }
@@ -226,17 +364,23 @@ internal sealed class LaneLines
         var laneLengthM = new List<float>();
         var laneReverse = new List<int>();
         var laneOverOneLine = new List<bool>();
+        var laneCrossesToPass = new List<bool>();
         var laneIsBay = new List<bool>();
+        var laneLevel = new List<byte>();
         var laneArcOffsets = new List<int> { 0 };
         var laneArcs = new List<ArcSeg>();
 
         var scratch = new ArcSeg[MaxArcsPerStretch(roads)];
         var offset = new ArcSeg[scratch.Length];
+        var firstLaneOf = new int[roads.Count];
+        Array.Fill(firstLaneOf, NoLane);
 
         for (var road = 0; road < roads.Count; road++)
         {
             var centreline = roads.SegmentsOf(road);
             if (centreline.Length == 0) continue;
+
+            firstLaneOf[road] = laneRoad.Count;
 
             // A road's own lane width comes from the road's own declared width, because the catalogue's
             // figure is a default and everything derived from it follows the road's (TER-4). Each lane stands
@@ -257,7 +401,7 @@ internal sealed class LaneLines
 
             for (var fromKerb = 0; fromKerb < with; fromKerb++)
             {
-                Spline.OffsetInto(centreline, roads.LaneOffsetM(road, fromKerb) * config.RoadSideSign, offset);
+                Spline.OffsetInto(centreline, roads.LaneOffsetM(road, fromKerb, withTheRoad: true) * config.RoadSideSign, offset);
                 AddLane(
                     road, laneM, fromKerb, roads.FromJunction[road], roads.ToJunction[road], true,
                     offset.AsSpan(0, centreline.Length),
@@ -268,7 +412,7 @@ internal sealed class LaneLines
             for (var fromKerb = 0; fromKerb < against; fromKerb++)
             {
                 Spline.OffsetInto(
-                    scratch.AsSpan(0, centreline.Length), roads.LaneOffsetM(road, fromKerb) * config.RoadSideSign,
+                    scratch.AsSpan(0, centreline.Length), roads.LaneOffsetM(road, fromKerb, withTheRoad: false) * config.RoadSideSign,
                     offset);
                 AddLane(
                     road, laneM, fromKerb, roads.ToJunction[road], roads.FromJunction[road], false,
@@ -292,11 +436,56 @@ internal sealed class LaneLines
                 config, connectorAt, connectorToLane, connectorKind, connectorArcOffsets, connectorArcs,
                 connectorLengthM);
 
+        // <b>Lane zero is laid after every lane a movement joins</b> (<see cref="IsRoadside"/>): joined to nothing, it
+        // takes no part in the junctions above, and the lanes before it number as they would without it.
+        var firstRoadside = laneRoad.Count;
+        var inTheBoxAtStartM = new List<float>();
+        var inTheBoxAtEndM = new List<float>();
+        RoadsideLanes.Taper[] tapers = [];
+        if (roads.RoadsideWithM.Length > 0)
+        {
+            var roadsides = RoadsideLanes.Of(
+                ground,
+                new RoadsideLanes.Joined(
+                    firstLaneOf, laneFromJunction, laneToJunction, laneWidthM, connectorAt, connectorToLane,
+                    connectorArcOffsets, connectorArcs),
+                config);
+            var line = new ArcSeg[roadsides.MostPieces];
+            for (var road = 0; road < roads.Count; road++)
+            {
+                if (roads.SegmentsOf(road).Length == 0) continue;
+
+                foreach (var withTheRoad in (ReadOnlySpan<bool>)[true, false])
+                {
+                    var stripM = roads.RoadsideM(road, withTheRoad);
+                    if (stripM <= 0f) continue;
+
+                    var pieces = roadsides.LineInto(road, withTheRoad, line, out var startM, out var endM);
+                    var (from, to) = withTheRoad
+                        ? (roads.FromJunction[road], roads.ToJunction[road])
+                        : (roads.ToJunction[road], roads.FromJunction[road]);
+                    AddLane(road, stripM, 0, from, to, withTheRoad, line.AsSpan(0, pieces), NoLane, false);
+                    inTheBoxAtStartM.Add(startM);
+                    inTheBoxAtEndM.Add(endM);
+                }
+            }
+
+            tapers = [.. roadsides.Tapers];
+        }
+
+        if (laneRoad.Count > firstRoadside)
+        {
+            wholeOffsets = laneArcOffsets.ToArray();
+            wholeArcs = laneArcs.ToArray();
+            var lastConnector = connectorAt[^1];
+            connectorAt = [.. connectorAt, .. Enumerable.Repeat(lastConnector, laneRoad.Count - firstRoadside)];
+        }
+
         return new LaneLines(
             junctions.Count, [.. laneRoad], [.. laneWidthM], [.. laneFromKerb], [.. laneFromJunction],
-            [.. laneToJunction], [.. laneForward], [.. laneReverse], [.. laneOverOneLine], [.. laneIsBay],
-            [.. laneLengthM], wholeOffsets, wholeArcs,
-            connectorAt, connectorToLane, connectorKind,
+            [.. laneToJunction], [.. laneForward], [.. laneReverse], [.. laneOverOneLine], [.. laneCrossesToPass], [.. laneIsBay],
+            [.. laneLevel], [.. laneLengthM], wholeOffsets, wholeArcs, firstRoadside, [.. inTheBoxAtStartM], [.. inTheBoxAtEndM],
+            tapers, connectorAt, connectorToLane, connectorKind,
             connectorArcOffsets, connectorArcs, connectorLengthM);
 
         void AddLane(
@@ -311,7 +500,9 @@ internal sealed class LaneLines
             laneForward.Add(forward);
             laneReverse.Add(reverse);
             laneOverOneLine.Add(overOneLine);
+            laneCrossesToPass.Add(roads.LineCrossedToPass(road));
             laneIsBay.Add(roads.IsABay(road));
+            laneLevel.Add(roads.LevelOf(road));
 
             foreach (var arc in arcs) laneArcs.Add(arc);
 
@@ -468,6 +659,12 @@ internal sealed class LaneLines
     /// arm with arrows painted on it is made from as they say (<see cref="LaneUse"/>).
     /// </para>
     /// <para>
+    /// <b>A lane joins the lane of its own number, unless that strands one</b> (<see cref="LaneUse"/>, GEN-50): a lane
+    /// with no movement out lane for lane, or a lane leaving the node that no movement reaches lane for lane, is
+    /// joined by the lanes' spread instead — a lane lost or gained along a street, or onto a road wider than the
+    /// turns into it.
+    /// </para>
+    /// <para>
     /// <b>And a sharp turn is a sharp turn and not a reversal.</b> Two arms may be drawn as little as
     /// <c>ArmsApartMinDeg</c> apart and the bearings they end on are drawn either side of that
     /// (<see cref="ConnectionPoints"/>), so a movement between them turns through most of a half-circle —
@@ -481,11 +678,12 @@ internal sealed class LaneLines
         ArcSeg[] laneArcs)
     {
         var laneCount = laneToJunction.Count;
-        var offsets = new int[laneCount + 1];
-        var toLane = new List<int>();
-        var kind = new List<LaneTurn>();
+        var candidates = new List<Candidate>();
+        var leftLaneForLane = new bool[laneCount];
+        var reachedLaneForLane = new bool[laneCount];
         var straightRad = config.Road.TurnStraightToleranceDeg * MathF.PI / 180f;
         var turns = new LaneTurn?[MostLanesAtANode(outOffsets)];
+        var bearsToTheKerb = new bool[turns.Length];
         var banned = roads.BannedTurns.ToHashSet();
         var links = roads.LaneLinks.ToHashSet();
         var linked = roads.LaneLinks.Select(link => new RoadTurn(link.Junction, link.FromRoad, link.ToRoad)).ToHashSet();
@@ -515,6 +713,7 @@ internal sealed class LaneLines
                         ? LaneTurn.NearSide
                         : LaneTurn.FarSide;
                 turns[slot] = turn;
+                bearsToTheKerb[slot] = turnRad * config.RoadSideSign >= 0f;
                 offered = offered.With(turn);
             }
 
@@ -524,17 +723,39 @@ internal sealed class LaneLines
             {
                 if (turns[slot] is not { } turn) continue;
 
-                // A turn whose lanes the survey names is made between those and no others.
                 var leaving = leavingLanes[slot];
-                var joins = linked.Contains(new RoadTurn(node, laneRoad[lane], laneRoad[leaving]))
+                var lanesThere = LanesOfItsWay(roads, laneRoad[leaving], laneForward[leaving]);
+
+                // A turn whose lanes the survey names is made between those and no others.
+                var named = linked.Contains(new RoadTurn(node, laneRoad[lane], laneRoad[leaving]));
+                var laneForLane = named
                     ? links.Contains(new LaneLink(node, laneRoad[lane], laneFromKerb[lane], laneRoad[leaving], laneFromKerb[leaving]))
                     : LaneUse.Joins(
-                        offered, turn, marked, laneFromKerb[lane], lanesHere, laneFromKerb[leaving],
-                        LanesOfItsWay(roads, laneRoad[leaving], laneForward[leaving]));
-                if (!joins) continue;
+                        offered, turn, marked, laneFromKerb[lane], lanesHere, laneFromKerb[leaving], lanesThere,
+                        bearsToTheKerb[slot]);
+                var shared = !named
+                    && LaneUse.Shares(offered, turn, marked, laneFromKerb[lane], lanesHere, laneFromKerb[leaving], lanesThere);
+                if (!laneForLane && !shared) continue;
 
-                toLane.Add(leaving);
-                kind.Add(turn);
+                candidates.Add(new Candidate(lane, leaving, turn, laneForLane));
+                leftLaneForLane[lane] |= laneForLane;
+                reachedLaneForLane[leaving] |= laneForLane;
+            }
+        }
+
+        var offsets = new int[laneCount + 1];
+        var toLane = new List<int>(candidates.Count);
+        var kind = new List<LaneTurn>(candidates.Count);
+        var next = 0;
+        for (var lane = 0; lane < laneCount; lane++)
+        {
+            for (; next < candidates.Count && candidates[next].Lane == lane; next++)
+            {
+                var candidate = candidates[next];
+                if (!candidate.LaneForLane && leftLaneForLane[lane] && reachedLaneForLane[candidate.Leaving]) continue;
+
+                toLane.Add(candidate.Leaving);
+                kind.Add(candidate.Kind);
             }
 
             offsets[lane + 1] = toLane.Count;
@@ -542,6 +763,12 @@ internal sealed class LaneLines
 
         return (offsets, [.. toLane], [.. kind]);
     }
+
+    /// <summary>
+    /// A movement a lane may be joined by: lane for lane (<see cref="LaneUse.Joins"/>), or only as the lanes' spread
+    /// (<see cref="LaneUse.Shares"/>), which is made where lane for lane strands one of its two lanes.
+    /// </summary>
+    readonly record struct Candidate(int Lane, int Leaving, LaneTurn Kind, bool LaneForLane);
 
     /// <summary>How many lanes a road is driven in the way one of its lanes runs.</summary>
     static int LanesOfItsWay(CityPlan.RoadArrays roads, int road, bool forward) =>

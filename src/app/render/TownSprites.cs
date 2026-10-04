@@ -128,7 +128,9 @@ internal sealed class TownSprites
         var firstBuilding = firstBeam + beams.Length;
         for (var variant = 0; variant < buildings.Count; variant++)
         {
-            sheets[firstBuilding + variant] = SheetSource.File(buildings.Variants[variant].SpritePath);
+            sheets[firstBuilding + variant] = buildings.Variants[variant].SpritePath is { } sprite
+                ? SheetSource.File(sprite)
+                : PrefabSprites.Plain(buildings.Variants[variant]);
         }
 
         for (var variant = 0; variant < props.Count; variant++)
@@ -190,11 +192,28 @@ internal sealed class TownSprites
     /// and the whole ring of marks — none of which needs the town stood up to be known.
     /// </summary>
     public static int CapacityFor(CityPlan plan, SimConfig config) =>
-        plan.Spawns.Count + (TownWorld.CarsOfThePlan(plan) * (1 + TyreModel.Wheels + CarLamps.Most + 1))
+        plan.Spawns.Count + (TownWorld.CarsOfThePlan(plan) * CarSpritesEach)
         + StandingSprites.CapacityFor(plan) + SignalHeads.MostFor(plan) + config.Marks.Capacity;
 
-    public int Fill(
-        TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM, Span<SpriteInstance> into)
+    /// <summary>
+    /// <b>And how many the bodies on the level above need</b> (PHY-1a): every car's again, since any of them may be
+    /// on a bridge — and none in a town with nothing above its ground.
+    /// </summary>
+    public static int AboveCapacityFor(CityPlan plan) =>
+        Array.Exists(plan.Roads.Level, static level => level != CityPlan.RoadArrays.Ground)
+            ? TownWorld.CarsOfThePlan(plan) * CarSpritesEach
+            : 0;
+
+    /// <summary>A body, four tyres, every lens with its glow, and a tow arm.</summary>
+    const int CarSpritesEach = 1 + TyreModel.Wheels + CarLamps.Most + 1;
+
+    /// <summary>
+    /// The town as instances, in two runs: <paramref name="into"/> everything on the ground, drawn under the
+    /// bridges over its roads, and <paramref name="above"/> the cars on those bridges, drawn over them (TER-7b).
+    /// </summary>
+    public (int Ground, int Above) Fill(
+        TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM, Span<SpriteInstance> into,
+        Span<SpriteInstance> above)
     {
         // Painter's order, and the marks are under all of it: a skid is on the road, so everything that
         // stands or drives passes over its own.
@@ -205,28 +224,38 @@ internal sealed class TownSprites
         written += PersonSprites.Fill(
             world.People, People, Aspects, FirstDownSheet, viewCentreM, viewSpanM, into[written..]);
 
+        var onTheGround = world.Levelled ? CityPlan.RoadArrays.Ground : CarSprites.EveryLevel;
+        written += FillCars(world, config, viewCentreM, viewSpanM, into[written..], onTheGround);
+
+        // The heads last of all: a signal hangs over the carriageway, so nothing driving under it passes
+        // in front of it.
+        written += SignalSprites.Fill(world, config, FirstHeadSheet, viewCentreM, viewSpanM, into[written..]);
+
+        var overThem = world.Levelled ? FillCars(world, config, viewCentreM, viewSpanM, above, CityPlan.RoadArrays.Over) : 0;
+        return (written, overThem);
+    }
+
+    /// <summary>The cars of one level, every part of each in the order it is seen from above.</summary>
+    int FillCars(
+        TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM, Span<SpriteInstance> into, int level)
+    {
         // The tyres before the bodies, so a car's own bodywork is drawn over them and what shows is the
         // rubber standing proud of the arch — which is what a wheel looks like from above.
-        written += CarSprites.FillWheels(
-            world.Cars, config, TreadSheet, TreadPitchM(config), viewCentreM, viewSpanM, into[written..]);
+        var written = CarSprites.FillWheels(
+            world.Cars, config, TreadSheet, TreadPitchM(config), viewCentreM, viewSpanM, into, level);
 
-        written += CarSprites.Fill(world.Cars, Cars, FirstCarSheet, viewCentreM, viewSpanM, into[written..]);
+        written += CarSprites.Fill(world.Cars, Cars, FirstCarSheet, viewCentreM, viewSpanM, into[written..], level);
 
         // The arm over both bodies: it stands on the truck's deck and its fork is above the nose of what it
         // is holding, so a tow drawn under either of them is an arm running through a car (EVA-5).
         written += CarSprites.FillBeams(
-            world.Cars, Cars, world.Recovery, FirstBeamSheet, viewCentreM, viewSpanM, into[written..]);
+            world.Cars, Cars, world.Recovery, FirstBeamSheet, viewCentreM, viewSpanM, into[written..], level);
 
         // The lamps over the bodies, because a lamp is a light on the bodywork: drawn under it, a brake
         // lamp is a red smudge on the road behind a car rather than anything the car is showing.
-        written += LampSprites.Fill(
+        return written + LampSprites.Fill(
             world.Cars, Cars, config, LensSheet, LampGlowSheet, world.ElapsedS, world.HandDriven, world.HandDrivenCar,
-            viewCentreM, viewSpanM, into[written..]);
-
-        // The heads last of all: a signal hangs over the carriageway, so nothing driving under it passes
-        // in front of it.
-        return written + SignalSprites.Fill(
-            world, config, FirstHeadSheet, viewCentreM, viewSpanM, into[written..]);
+            viewCentreM, viewSpanM, into[written..], level);
     }
 }
 
@@ -254,6 +283,12 @@ internal sealed class TownSprites
 /// </remarks>
 internal static class CarSprites
 {
+    /// <summary>A level no car is on, asked for as every car of every level — a town with nothing above its ground.</summary>
+    public const int EveryLevel = -1;
+
+    /// <summary>Whether a car is one of the level asked for (<see cref="CarFleet.Level"/>).</summary>
+    public static bool IsOn(CarFleet cars, int car, int level) => level == EveryLevel || cars.Level[car] == level;
+
     /// <summary>
     /// The four tyres, drawn at the very offsets the impulses act on, each turned to the angle its own
     /// rubber is working at — the front pair at their own Ackermann angles, which through a tight turn
@@ -276,7 +311,7 @@ internal static class CarSprites
     /// </remarks>
     public static int FillWheels(
         CarFleet cars, SimConfig config, int treadSheet, float pitchM, Vector2 viewCentreM, Vector2 viewSpanM,
-        Span<SpriteInstance> into)
+        Span<SpriteInstance> into, int level = EveryLevel)
     {
         var written = 0;
         var halfView = viewSpanM * 0.5f;
@@ -284,6 +319,8 @@ internal static class CarSprites
 
         for (var car = 0; car < cars.Count && written + TyreModel.Wheels <= into.Length; car++)
         {
+            if (!IsOn(cars, car, level)) continue;
+
             var centreM = cars.PositionM[car];
             ref readonly var build = ref cars.BuildOf(car);
 
@@ -327,7 +364,7 @@ internal static class CarSprites
     /// </remarks>
     public static int FillBeams(
         CarFleet cars, CarCatalog catalogue, RecoveryDuty recovery, int firstBeamSheet, Vector2 viewCentreM,
-        Vector2 viewSpanM, Span<SpriteInstance> into)
+        Vector2 viewSpanM, Span<SpriteInstance> into, int level = EveryLevel)
     {
         var written = 0;
         var halfView = viewSpanM * 0.5f;
@@ -336,7 +373,7 @@ internal static class CarSprites
         {
             // A wrecked recovery vehicle wears its own crumpled picture, arm and all, so nothing is drawn
             // over it (CAR-14a's argument said of the whole vehicle rather than of a lens).
-            if (cars.Broken[car] || catalogue.BeamOf(cars.Variant[car]) is not { } beam) continue;
+            if (!IsOn(cars, car, level) || cars.Broken[car] || catalogue.BeamOf(cars.Variant[car]) is not { } beam) continue;
 
             var towed = recovery.Towing[car];
             var arm = beam.Drawn(towed >= 0);
@@ -369,7 +406,7 @@ internal static class CarSprites
 
     public static int Fill(
         CarFleet cars, CarCatalog catalogue, int firstSheet, Vector2 viewCentreM, Vector2 viewSpanM,
-        Span<SpriteInstance> into)
+        Span<SpriteInstance> into, int level = EveryLevel)
     {
         var sheetCount = catalogue.SheetCount;
         if (sheetCount <= 0) return 0;
@@ -379,6 +416,8 @@ internal static class CarSprites
 
         for (var car = 0; car < cars.Count && written < into.Length; car++)
         {
+            if (!IsOn(cars, car, level)) continue;
+
             var centreM = cars.PositionM[car];
             ref readonly var build = ref cars.BuildOf(car);
             var halfSizeM = new Vector2(build.LengthM, build.WidthM) * 0.5f;

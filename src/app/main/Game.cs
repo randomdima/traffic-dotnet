@@ -154,7 +154,7 @@ internal sealed partial class Game : IDisposable
         // OBS-2k: what the panels need, handed to the window before the first thing is laid out against
         // it — the density is the display's until that would put the menu off the edge of the glass.
         _window.LeastUiPx = new Vector2(config.View.InterfaceLeastWidthPx, config.View.InterfaceLeastHeightPx);
-        _renderer = NewRenderer(GroundMesh.Nothing(), spriteCapacity: 1);
+        _renderer = NewRenderer(GroundMesh.Nothing(), spriteCapacity: 1, aboveCapacity: 0);
 
         _uiPx = _window.UiPx;
         _camera = new Camera2D(config, Vector2.One, _uiPx) { DevicePxPerUiPx = _window.UiScale };
@@ -169,7 +169,7 @@ internal sealed partial class Game : IDisposable
     private partial AppWindow Boot(int width, int height, bool validate, float uiScale, Pacing pacing, bool fullscreen, string? display);
 
     /// <summary>A renderer for the town about to stand, laid for the ground and the bodies it will hold.</summary>
-    private partial TownRenderer NewRenderer(GroundMesh mesh, int spriteCapacity);
+    private partial TownRenderer NewRenderer(GroundMesh mesh, int spriteCapacity, int aboveCapacity);
 
     /// <summary>
     /// An offscreen eye for a second seat (DRV-8), on the device this head draws with — or nothing at all
@@ -681,7 +681,7 @@ internal sealed partial class Game : IDisposable
 
         _renderer.Dispose();
         _sheets = _looks.Sheets;
-        _renderer = NewRenderer(laid.Ground, TownSprites.CapacityFor(laid.Plan, _config));
+        _renderer = NewRenderer(laid.Ground, TownSprites.CapacityFor(laid.Plan, _config), TownSprites.AboveCapacityFor(laid.Plan));
         _looks.ReadAspects(_renderer);
         _looks.Lay(laid.Plan, laid.World.Uses, _config);
 
@@ -840,15 +840,16 @@ internal sealed partial class Game : IDisposable
     void Draw(ref FrameParts parts)
     {
         var sprites = 0;
+        var above = 0;
         if (_looks is { } looks && _world is not null)
         {
             // The cull span and not the view span: a turned town shows a diamond, and a body just outside
             // the upright rectangle is inside the picture (OBS-1c).
-            sprites = looks.Fill(
-                _world, _config, _camera.CentreM, _camera.CullSpanM(_uiPx), _renderer.Sprites);
+            (sprites, above) = looks.Fill(
+                _world, _config, _camera.CentreM, _camera.CullSpanM(_uiPx), _renderer.Sprites, _renderer.SpritesAbove);
         }
 
-        _renderer.SetSpriteCount(sprites);
+        _renderer.SetSpriteCount(sprites, above);
         parts.Mark(ref parts.SpritesMs);
 
         _renderer.SetOverlayCount(_ui.Draw(_renderer.Overlay, _renderer.Underlay, Describe(), out var under));

@@ -9,8 +9,8 @@ namespace TrafficSimulation.CityGen;
 
 /// <summary>
 /// <b>Every map this build can open, and the one place a name becomes a town.</b> A city comes from its
-/// brief (<see cref="TownBrief"/>) and is generated when it is asked for, or from the survey of a real place
-/// (<see cref="Traced.Survey"/>) and is traced; a map laid to measure one thing comes from the code that lays it.
+/// brief (<see cref="TownBrief"/>) and is generated when it is asked for, or from the map of a real place
+/// (<see cref="TracedMap"/>) and is traced; a map laid to measure one thing comes from the code that lays it.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -47,9 +47,9 @@ internal static class Maps
     ];
 
     /// <summary>
-    /// Every map there is to open, in name order — the briefs and the surveys on disk and the laboratories laid
+    /// Every map there is to open, in name order — the briefs and the traced maps on disk and the laboratories laid
     /// in code. <b>A map is a brief, a survey or code</b>: no town is carried as a file, the fixture having been
-    /// the last of them, and a survey carries a place's ways rather than a town laid off them (GEN-57).
+    /// the last of them, and a traced map carries a place's ways rather than a town laid off them (GEN-57).
     /// </summary>
     /// <remarks>
     /// <b>The idle ring is laid but not shipped.</b> Every probe and every sweep reads this list, and the
@@ -59,7 +59,7 @@ internal static class Maps
     public static string[] Shipped()
     {
         var names = new List<string>(ProjectPaths.TownBriefs()) { ExamPlan.Name };
-        names.AddRange(ProjectPaths.TracedSurveys());
+        names.AddRange(ProjectPaths.TracedMaps());
         names.Sort(StringComparer.Ordinal);
         return [.. names];
     }
@@ -68,7 +68,7 @@ internal static class Maps
     public static bool IsGenerated(string name) => File.Exists(ProjectPaths.TownBriefFile(name));
 
     /// <summary>Whether a map is traced off a survey of a real place (GEN-57).</summary>
-    public static bool IsTraced(string name) => File.Exists(ProjectPaths.TracedSurveyFile(name));
+    public static bool IsTraced(string name) => File.Exists(ProjectPaths.TracedMapFile(name));
 
     /// <summary>
     /// <b>Whether a map is content rather than code</b> — a brief or a survey, either of which a build may ship
@@ -92,16 +92,20 @@ internal static class Maps
 
     static readonly ConcurrentDictionary<string, TownBrief> Briefs = new();
 
-    /// <summary>The OSM extract a traced map is laid from, read once a name for the same reason a brief is.</summary>
-    public static OsmExtract Extract(string name) => Extracts.GetOrAdd(name, static map =>
-    {
-        var path = ProjectPaths.TracedSurveyFile(map);
-        var extract = AssetJson.Read(path, OsmExtractJson.Default.OsmExtract);
-        extract.Check(path);
-        return extract;
-    });
+    /// <summary>
+    /// A traced map's own file (<see cref="TracedMap"/>), read whole each time it is asked for: it is milliseconds,
+    /// and a town is laid off it once (<see cref="Plan"/>), so a copy kept would only be one more city in memory.
+    /// </summary>
+    public static TracedMap Traced(string name) => TracedMap.Read(ProjectPaths.TracedMapFile(name));
 
-    static readonly ConcurrentDictionary<string, OsmExtract> Extracts = new();
+    /// <summary>
+    /// What a traced map says it is, off the head of its file (<see cref="SurveyHead"/>): the menu's question
+    /// is one line of a file whose whole is megabytes. Read once a name, as a brief is.
+    /// </summary>
+    public static string SurveyDescription(string name) =>
+        SurveyDescriptions.GetOrAdd(name, static map => SurveyHead.Description(ProjectPaths.TracedMapFile(map)));
+
+    static readonly ConcurrentDictionary<string, string> SurveyDescriptions = new();
 
     /// <summary>
     /// <b>The town itself, laid once for as long as it is the town being asked about.</b> A name that is
@@ -128,9 +132,9 @@ internal static class Maps
     /// </para>
     /// </remarks>
     /// <param name="sizes">
-    /// The footprints a generated town sizes its buildings at, read off the art by the catalogue above this
-    /// slice and handed down as data (<see cref="BuildingSizes"/>, GEN-54). A map laid in code stands what
-    /// its own code stands and never reads this.
+    /// The footprints a generated town sizes its buildings at, read off the art by the catalogue above this slice and
+    /// handed down as data (<see cref="BuildingSizes"/>, GEN-54). A map laid in code stands what its own code stands,
+    /// and a traced one its survey's footprints, and neither reads this.
     /// </param>
     public static CityPlan Plan(string name, SimConfig config, BuildingSizes sizes)
     {
@@ -161,7 +165,7 @@ internal static class Maps
         }
 
         if (IsGenerated(name)) return TownGenerator.Lay(Brief(name), config, sizes);
-        if (IsTraced(name)) return TracedPlan.Lay(Survey.Of(Extract(name), config), config);
+        if (IsTraced(name)) return TracedPlan.Lay(Survey.Of(Traced(name), config), config);
 
         throw new FileNotFoundException(
             $"No map called {name}: this build knows {string.Join(", ", Shipped())}.");

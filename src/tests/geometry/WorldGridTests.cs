@@ -65,6 +65,24 @@ public class WorldGridTests
     public void WithinIsTheCoarsestLevelNoWiderThanTheCell(float cellM, float levelM) =>
         Assert.Equal(levelM, new WorldGrid(8f).Within(cellM).CellM);
 
+    /// <summary>
+    /// <b>One level coarser is the same grid's level one halving up</b> — at every depth, and not only the
+    /// first under the main cell, which is the one a coarsening from the main cell's children reaches.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(MainCells))]
+    public void ALevelCoarserIsTheSameGridsLevelAbove(float mainCellM)
+    {
+        var grid = new WorldGrid(mainCellM);
+        for (var depth = 1; depth <= 8; depth++)
+        {
+            var coarser = grid.Level(depth).Coarser;
+            var above = grid.Level(depth - 1);
+            Assert.Equal((above.Depth, above.CellM, mainCellM), (coarser.Depth, coarser.CellM, coarser.Grid.MainCellM));
+            Assert.Equal(above.CellOf(1234.5f), coarser.CellOf(1234.5f));
+        }
+    }
+
     [Fact]
     public void AMainCellIsSplitByHalvingAlone() =>
         Assert.Throws<ArgumentOutOfRangeException>(() => new WorldGrid(8f).Split(3));

@@ -54,7 +54,7 @@ internal static class Program
         var options = Options.Parse(args, config.View);
 
         if (options.Lamps) return CutTheLamps();
-        if (options.Bench is not null) return RunBench(options.Bench, options.Map, options.AtM, config);
+        if (options.Bench is not null) return RunBench(options.Bench, options.Map, options.AtM, options.Out, config);
         if (options.Check) return RunCheck(options, config);
         if (options.Sheet is not null) return RunSheet(options, config);
 
@@ -304,7 +304,7 @@ internal static class Program
     /// <b>A name spelled here and left out there is a check nothing lists and the menu cannot open</b>,
     /// and nothing but this comment stops one: a switch is source, and the suite reads objects.
     /// </summary>
-    static int RunBench(string name, string? map, Vector2? atM, SimConfig config)
+    static int RunBench(string name, string? map, Vector2? atM, string? outPath, SimConfig config)
     {
         if (string.Equals(name, "all", StringComparison.Ordinal)) return Kept(CheckCatalogue.RunAll(config));
 
@@ -349,6 +349,9 @@ internal static class Program
                 return 0;
             case "fidelity":
                 TracedFidelity.Run(map ?? Options.TracedMap, config, atM);
+                return 0;
+            case "fit":
+                TracedFit.Run(map ?? Options.TracedMap, config, outPath, atM);
                 return 0;
             case "joints":
                 TownShape.Joints(map ?? Options.FixtureMap, config);

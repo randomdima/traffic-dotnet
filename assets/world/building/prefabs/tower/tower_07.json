@@ -1,0 +1,19 @@
+{
+  "id": "tower_07",
+  "footprintM": [
+    26.0,
+    16.0
+  ],
+  "cornerRadiusM": 0.8,
+  "partsM": [],
+  "look": "tower",
+  "tags": [
+    "tower",
+    "9-12 storeys",
+    "flat roof",
+    "grey membrane",
+    "soviet",
+    "panel block"
+  ],
+  "describe": "tall Soviet panel tower block, flat roof of grey membrane, 1 lift machine rooms as raised boxes, ventilation shafts and a low parapet round the edge"
+}

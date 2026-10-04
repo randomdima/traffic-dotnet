@@ -339,6 +339,12 @@ internal sealed class DrivingFigures
     public float PassPatienceS { get; init; } = 10f;
 
     /// <summary>
+    /// <b>How often a car meaning to move across onto the lane beside looks for the room again</b> (CAR-53) while it
+    /// drives on down its own: often enough that a gap going by is seen, since nothing waits for it.
+    /// </summary>
+    public float LaneSwitchAskEveryS { get; init; } = 0.25f;
+
+    /// <summary>
     /// <b>How often a car at rest off its line looks for the lane under it again</b> (CAR-9): what it stands on does not
     /// change while it stands, so it is not asked every tick.
     /// </summary>
@@ -495,6 +501,18 @@ internal sealed class DrivingFigures
     public float TurnPriceNearSideCarLengths { get; init; } = 0.5f;
 
     public float TurnPriceAcrossOncomingCarLengths { get; init; } = 4f;
+
+    /// <summary>
+    /// <b>What moving across onto the lane beside costs a route</b> (CAR-53), each lane over: a gap in the lane beside
+    /// waited for while the car drives on, so dearer than a turn off the kerb and cheaper than one across the stream.
+    /// </summary>
+    public float LaneSwitchPriceCarLengths { get; init; } = 1f;
+
+    /// <summary>
+    /// <b>How much slower than a car means to go the traffic in its lane has to be for it to move across round it</b>
+    /// (CAR-53), on a road of more than a lane its way: what goes nearly as fast is followed.
+    /// </summary>
+    public float SlowerToSwitchMps { get; init; } = 3f;
 
     /// <summary>
     /// <b>What coming back the other way costs</b> (GEN-4l): a whole park and a whole unpark at a car

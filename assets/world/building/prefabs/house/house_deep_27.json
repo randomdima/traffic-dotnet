@@ -1,0 +1,20 @@
+{
+  "id": "house_deep_27",
+  "sprite": "house_deep_27.webp",
+  "footprintM": [
+    6.0,
+    14.0
+  ],
+  "cornerRadiusM": 0.4,
+  "partsM": [],
+  "look": "house",
+  "tags": [
+    "house",
+    "1-2 storeys",
+    "hipped roof",
+    "brown metal tiles",
+    "detached",
+    "narrow front"
+  ],
+  "describe": "detached family house, hipped roof of brown metal tiles, a chimney and a skylight, small porch roof over the door, standing narrow end to the street with the entrance on that short front wall"
+}

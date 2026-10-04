@@ -69,9 +69,16 @@ internal sealed class BucketGrid
         _stamp = new int[_window.Count];
     }
 
+    /// <summary>
+    /// <b>A grid for a set of <paramref name="items"/>, and over no ground for a set of none</b>: a query of an empty
+    /// set reads nothing however wide its window, and a window the whole town wide is three words a cell of it.
+    /// </summary>
+    public static BucketGrid Over(GridLevel level, Vector2 worldSizeM, int items) =>
+        new(level, items == 0 ? Vector2.Zero : worldSizeM);
+
     public static BucketGrid Build(GridLevel level, Vector2 worldSizeM, Vector2[] centresM, float[] radiiM)
     {
-        var grid = new BucketGrid(level, worldSizeM);
+        var grid = Over(level, worldSizeM, centresM.Length);
         grid.Rebuild(centresM, radiiM, centresM.Length);
         return grid;
     }

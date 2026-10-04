@@ -482,14 +482,16 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
 
     /// <summary>
     /// Whether the car could pass anything at all where it is: on the route's own line driven forwards, in a
-    /// lane that has a lane running back beside it.
+    /// lane that has a lane running back beside it, across a line that is crossed to pass (CAR-6.2b) — a road of
+    /// more than a lane each way is got past on over a lane of the car's own way (CAR-53).
     /// </summary>
     bool HasALaneToPassOn(int car)
     {
         if (Cars.Line[car].LaneCount == 0 || Cars.LineIsReverse[car]) return false;
 
         var lane = Cars.LaneOf(car);
-        return lane != CarFleet.NoLane && Roads.LaneReverse[lane] >= 0 && !Roads.LaneOverOneLine[lane];
+        return lane != CarFleet.NoLane && Roads.LaneReverse[lane] >= 0 && !Roads.LaneOverOneLine[lane]
+               && Roads.LaneCrossesToPass[lane];
     }
 
     /// <summary>
@@ -1183,7 +1185,7 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
 
         var halfM = build.CollisionSizeM * 0.5f;
         var centreM = axleM + (forward * (build.CentreAheadOfAxleM + (spareM * 0.5f)));
-        return ground.Atlas.UnderBox(centreM, forward, halfM.X + (spareM * 0.5f), halfM.Y + spareM, under);
+        return ground.Atlas.UnderBox(centreM, forward, halfM.X + (spareM * 0.5f), halfM.Y + spareM, under, Cars.Level[car]);
     }
 
     /// <summary>

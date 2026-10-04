@@ -1,0 +1,19 @@
+{
+  "id": "shed_deep_02",
+  "footprintM": [
+    3.0,
+    3.5
+  ],
+  "cornerRadiusM": 0.3,
+  "partsM": [],
+  "look": "shed",
+  "tags": [
+    "shed",
+    "1 storey",
+    "lean-to roof",
+    "grey asbestos-cement slate",
+    "outbuilding",
+    "narrow front"
+  ],
+  "describe": "small yard outbuilding or shed, lean-to roof of grey asbestos-cement slate, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+}

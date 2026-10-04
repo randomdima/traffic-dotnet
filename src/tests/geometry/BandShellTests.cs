@@ -58,6 +58,21 @@ public class BandShellTests
         Assert.Equal(0, Shell([[outM, roundM, backM]]).Loose.Length);
     }
 
+    /// <summary>
+    /// <b>A band down an all but straight bend closes round its square ends</b>: a traced road's 420 m bend of 64 km
+    /// read a place on its own end two millimetres short of it about the bend's centre, so the end read as alongside the
+    /// band and was dropped as covered (<c>Spline.NearestOnArc</c>).
+    /// </summary>
+    [Fact]
+    public void ABandDownAnAllButStraightBendClosesRoundItsEnds()
+    {
+        var bend = new ArcSeg(new Vector2(5350.7046f, 1845.8264f), -2.060727f, 420.83456f, 1.553117E-05f);
+
+        var shell = Shell([[bend]]);
+
+        Assert.Equal((1, 0), (shell.Chains.Length, shell.Loose.Length));
+    }
+
     static float BoundaryM(BandShell shell)
     {
         var lengthM = 0f;

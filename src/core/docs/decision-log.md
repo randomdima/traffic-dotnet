@@ -1,5 +1,16 @@
 # The kernel — decision log
 
+## 2026-10-04 — a place is read onto an all but straight bend from its start
+
+**A traced road normalised into the roundest arcs (GEN-57) lays bends tens of kilometres round**, and read about
+the centre (`Spline.NearestOnArc`) a place on such an arc comes back millimetres off: `OdesaOsm`'s 420 m roadside
+on a bend of 64 km read its own end 2 mm short, so the band's square end read as alongside it, the merge dropped
+it as covered and 1.1 km of boundary was left open (TER-7b). **A bend flatter than the crossing arithmetic's own
+flat (`Spline.FlatCurvature`, ten kilometres) is read from its start now** — its first heading, put right by
+Newton's step (`NearestOnFlat`) — to a fifth of a millimetre over the whole of it; a rounder one is still read about
+its centre, for the reason the remark there gives. Every shipped city's boundary closes. The suite's crowded town
+first touches at three minutes rather than a minute and a half, so the contact gate runs four.
+
 ## 2026-10-03 — a band's own end is asked against the rest of its line
 
 **The merge asks each band once about a place, at the nearest point on its line** (`BandShell.Merge.Reading`),

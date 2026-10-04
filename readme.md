@@ -76,11 +76,11 @@ slider), and changes what is *drawn* rather than what the town does.
 
 **And the ground can be taken apart while the town runs.** The `Ground mesh` section (`--ui menu-ground`)
 carries a row a layer of the town's standing ground — the grass, the walk and its kerb, the water, the
-decks, the carriageway, the slabs, the town's kerb and the paint — each saying what it came to in triangles
-and in the milliseconds it took to cut. **A box unticked takes that layer out of the picture** and out of
-the wireframe over it; the switch only shortens the draw, so no figure moves. A picture wants it by name:
-`--ui hide-carriageway`, and `grass`, `walk`, `walk-kerb`, `water`, `decks`, `slabs`, `kerb` and `paint`
-for the rest. The same table is printed headless by `--bench census`.
+decks, the carriageway, the slabs, the town's kerb, the paint, and the bridges over roads, drawn over all of
+it and over the cars on the ground — each saying what it came to in triangles and in the milliseconds it took to cut.
+**A box unticked takes that layer out of the picture** and out of the wireframe over it; the switch only
+shortens the draw, so no figure moves. A picture wants it by name: `--ui hide-carriageway`, and `grass`,
+`walk`, `walk-kerb`, `water`, `decks`, `slabs`, `kerb`, `paint` and `overpasses` for the rest. The same table is printed headless by `--bench census`.
 
 **Every map says what it claims about itself and whether it is keeping it.** Every headless run prints the
 table — a row a claim, the figures behind each verdict, and a last line a script can read — and a windowed
@@ -231,14 +231,52 @@ cannot hold `O30`, and every probe that runs over the shipped maps by default ta
 working town.
 
 **`OdesaOsm` is the real Odesa, traced and not generated**
-([citygen](src/citygen/docs/requirements.md#where-a-town-comes-from), `GEN-57`): every road and every lane
-OpenStreetMap holds in the rectangle round the city's own roads, inside its boundary or not, and the sea line,
-at one metre to the metre over 17 × 39 km — and nothing standing on it yet. It is laid from
-`towns/traced/OdesaOsm.json`, which the scanner (`src/tools/osmscan/`, run by `qq osm`) writes off OSM with
-each way's lanes and where a car may turn as OSM's tags and relations mean them, and no seed draws any of it.
-`qq osm --refetch` asks OSM again, `qq osm --draw SHOT.png` draws OSM's own lanes over a shot of the map, and
-`--bench fidelity` says how far the map's lanes stand off them and how many of OSM's turns were laid. What it writes is © OpenStreetMap contributors under the ODbL, and the survey
-carries that with it.
+([citygen](src/citygen/docs/requirements.md#where-a-town-comes-from), `GEN-57`): central Odesa from the Kotovskoho
+settlement to Tairove, every road and every lane OpenStreetMap holds there and the sea line, at one metre to the
+metre over 10 × 24 km, its roads running off at the map's edge — with its buildings as rounded prefabs stood on its
+walk where their footprints are, a footprint a rounded rectangle or cut into a few, and one too far from the walk or
+on a crooked stretch of it not stood at all; nobody stands on it yet. The prefabs are `assets/world/building/prefabs/`,
+each with its look, corner radius, tags and a line of what its roof shows, drawn as plain blocks of their look's colour
+until their art is; `--bench fit` says how well they fit the city, look by look and why what did not stand did not,
+`--bench fit --at X Y` says it footprint by footprint round a place, and `--bench fit --out FILE` writes every section
+offered and the prefab it wears. **It is laid
+from `towns/traced/OdesaOsm.map` and nothing else**: one binary file of 3 MB, read in some 20 ms, holding only what
+the engine lays — each road's line, class, level and carriageway as OSM means it and its width as measured, the
+coast, the turns OSM forbids, each junction's control, every pedestrian crossing, every building's footprint,
+height and use and every tree — so a road's lanes are all one width, what it was measured
+wider than them is a roadside of parked cars' width behind a solid line, it has as many lanes as its width holds
+where OSM only assumes a count, a signalled junction has lights, a zebra stands where OSM maps a
+painted crossing and nowhere else, a bridge is a road of its own whose cars meet nothing below it, and its trees
+and roundabouts are OSM's; no seed draws any of it. **The map is the master, and an edit changes it**:
+`qq osm --import` made it once off what is beside it, `qq osm --crop S,W,N,E` cut it down to the city in place and
+`qq osm --drop-stumps` dropped the road stumps that ran into buildings and the dead ends of a single lane, and
+`qq osm --footprints` lays its footprints again off the layers, each with what it is for;
+a second import replaces it and every edit made since, and is refused unless `--force`. What was crawled is kept as
+it came and never edited: `towns/traced/OdesaOsm/source/` holds every source's answer, `towns/traced/OdesaOsm.json`
+is the survey the scanner (`src/tools/osmscan/`, run by `qq osm`) writes off OSM with each way's lanes and where a
+car may turn as OSM's tags and relations mean them, over the whole city at 17 × 39 km, and
+`towns/traced/OdesaOsm.osc` the osmChange it was imported with — Tiraspolska Square's ring, lanes and splits as the
+imagery shows them. `qq osm --refetch` asks OSM again, `qq osm --draw SHOT.png` draws OSM's own lanes over a shot of
+the map, and `--bench fidelity` says how far the map's lanes stand off them and how many of OSM's turns were laid.
+What it writes is © OpenStreetMap contributors under the ODbL, and the map carries that with it.
+
+**Everything else known about the place is beside it, and the engine reads it only as imported.** `qq osm --meta`
+writes `towns/traced/OdesaOsm/`, one JSON file a layer, off OSM as it stood at the survey's own moment,
+Microsoft's building footprints and road detections, the GEDTM30 terrain and Copernicus surface models, Osmose, the
+city's GTFS and cameras' sightings (Osmose's relay of them, and Mapillary's own given a `MAPILLARY_TOKEN`), laid as
+one: buildings, zones and which roads are a car park's aisles rather than streets, pavements and the side of the road
+each runs, each road's one width and where it came from and when it was last edited, crossings, junction control —
+OSM's, a sighting's where OSM maps nothing, else the rules — and every movement through a junction, levels and what
+passes over what, the ground's height, public transport with its timetable, places, furniture, the roads and signs
+the imagery shows that OSM lacks, and every case where the sources disagree. Its
+`coverage.md` says what each layer holds and what no source could give, `manifest.json` where each came from, when
+it stands and on what licence, and `consistency.md` whether it is one source: every reference resolved, every fact
+two layers carry the same, one OSM moment, and how far the sources agree — `qq osm --meta-check` asks again, and
+fails on a broken check; `--meta` never touches the map, which `--import --force` brings them into. `qq meta` answers questions of the layers in milliseconds — everything about an id and
+everything naming it, what stands round a place, what is called so, a layer filtered, grouped or counted — off an
+index it builds in `.tmp/meta/` and rebuilds when the layers change, and `--at` says where the place stands in the
+map's metres, for a shot's `--at`. `qq osm --meta-draw OUT.png --at LAT,LON`
+draws the layers back off the files over a square of the map.
 
 ## The same town, in a browser
 
@@ -330,7 +368,8 @@ src/        every line of C#, and nothing else — the nine slices below
   tools/    workshop tools, which may depend on what the runtime may not
 assets/     the art and the .json data read at startup, mirroring the code tree
 towns/      a city's brief — the seed and the intent it is generated from, a few hundred bytes each,
-            and the whole of what a town is carried as; traced/ holds a real place's survey instead
+            and the whole of what a town is carried as; traced/ holds a real place's map instead, and
+            beside it what the map was imported from
 raw_assets/ generated source art, never read by the build — converted into assets/ first
 bin/, obj/  build output — the only folders at the root the project file writes
 ```

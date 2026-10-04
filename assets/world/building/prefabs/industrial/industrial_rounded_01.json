@@ -1,0 +1,19 @@
+{
+  "id": "industrial_rounded_01",
+  "footprintM": [
+    24.0,
+    13.5
+  ],
+  "cornerRadiusM": 3.38,
+  "partsM": [],
+  "look": "industrial",
+  "tags": [
+    "industrial",
+    "1-2 storeys",
+    "shallow pitched roof",
+    "rusty corrugated metal",
+    "warehouse",
+    "rounded corners"
+  ],
+  "describe": "warehouse or workshop hall, shallow pitched roof of rusty corrugated metal with a ridge vent along its length, its corners rounded in wide curves"
+}

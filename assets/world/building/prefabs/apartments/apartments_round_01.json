@@ -1,0 +1,22 @@
+{
+  "id": "apartments_round_01",
+  "sprite": "apartments_round_01.webp",
+  "footprintM": [
+    21.0,
+    17.0
+  ],
+  "cornerRadiusM": 8.5,
+  "partsM": [],
+  "look": "apartments",
+  "tags": [
+    "apartments",
+    "3-5 storeys",
+    "hipped roof",
+    "rust-red painted sheet metal",
+    "courtyard block",
+    "old town",
+    "round",
+    "stadium-shaped"
+  ],
+  "describe": "deep old-town apartment block, hipped roof of rust-red painted sheet metal round a light well, dormers and chimney stacks, the whole roof stadium-shaped with a curved outer wall"
+}

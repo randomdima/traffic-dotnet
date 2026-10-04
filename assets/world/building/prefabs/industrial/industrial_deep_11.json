@@ -1,0 +1,19 @@
+{
+  "id": "industrial_deep_11",
+  "footprintM": [
+    18.5,
+    30.0
+  ],
+  "cornerRadiusM": 0.8,
+  "partsM": [],
+  "look": "industrial",
+  "tags": [
+    "industrial",
+    "1-2 storeys",
+    "shallow pitched roof",
+    "rusty corrugated metal",
+    "warehouse",
+    "narrow front"
+  ],
+  "describe": "warehouse or workshop hall, shallow pitched roof of rusty corrugated metal with a ridge vent along its length, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+}

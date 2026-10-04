@@ -1,0 +1,19 @@
+{
+  "id": "house_33",
+  "sprite": "house_33.webp",
+  "footprintM": [
+    16.0,
+    5.0
+  ],
+  "cornerRadiusM": 0.4,
+  "partsM": [],
+  "look": "house",
+  "tags": [
+    "house",
+    "1 storey",
+    "lean-to roof",
+    "brown metal tiles",
+    "courtyard wing"
+  ],
+  "describe": "long narrow single-storey wing of a courtyard house, lean-to roof of brown metal tiles sloping to the yard, a chimney"
+}

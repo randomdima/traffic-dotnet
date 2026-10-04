@@ -1,0 +1,18 @@
+{
+  "id": "tower_01",
+  "footprintM": [
+    8.5,
+    6.5
+  ],
+  "cornerRadiusM": 0.8,
+  "partsM": [],
+  "look": "tower",
+  "tags": [
+    "tower",
+    "9-16 storeys",
+    "flat roof",
+    "grey membrane",
+    "stair and lift core"
+  ],
+  "describe": "stair and lift core of a tall block, flat grey roof filled by the lift machine room and a roof exit"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "apartments_29",
+  "sprite": "apartments_29.webp",
+  "footprintM": [
+    24.5,
+    19.5
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "apartments",
+  "tags": [
+    "apartments",
+    "3-5 storeys",
+    "hipped roof",
+    "rust-red painted sheet metal",
+    "courtyard block",
+    "old town"
+  ],
+  "describe": "deep old-town apartment block, hipped roof of rust-red painted sheet metal round a light well, dormers and chimney stacks"
+}

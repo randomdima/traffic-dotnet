@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Tiraspolska Square (Тираспольська площа), put right against aerial imagery: the ring as wide as it is
+     painted and its east side shared with Preobrazhenska, two lanes north into it rather than four, Nizhynska
+     leaving it beside the tram, drawn along its gore-side edge, and Karavanskoho three lanes on into it.
+     Read by the scanner over OSM's answer (src/tools/osmscan/Corrections.cs); opens in JOSM. Not for upload:
+     read off Google's imagery, which OSM's licence does not let be traced into OSM. -->
+<osmChange version="0.6" generator="traffic-dotnet">
+  <create>
+    <node id="-30" lat="46.4803169" lon="30.7320750"/>
+    <node id="-29" lat="46.4802627" lon="30.7320698"/>
+    <node id="-28" lat="46.4802039" lon="30.7320620"/>
+    <node id="-27" lat="46.4799742" lon="30.7314964"/>
+    <node id="-25" lat="46.4793961" lon="30.7319196"/>
+    <node id="-24" lat="46.4794312" lon="30.7319096"/>
+    <node id="-23" lat="46.4794616" lon="30.7318967"/>
+    <node id="-22" lat="46.4794899" lon="30.7318815"/>
+    <node id="-21" lat="46.4795193" lon="30.7318571"/>
+    <node id="-20" lat="46.4795488" lon="30.7318261"/>
+    <node id="-18" lat="46.4796609" lon="30.7316827"/>
+    <node id="-17" lat="46.4797155" lon="30.7319915"/>
+    <node id="-16" lat="46.4796386" lon="30.7319837"/>
+    <node id="-15" lat="46.4795573" lon="30.7319746"/>
+    <node id="-13" lat="46.4799380" lon="30.7315327"/>
+    <node id="-12" lat="46.4799726" lon="30.7315434"/>
+    <node id="-11" lat="46.4800051" lon="30.7315610"/>
+    <node id="-10" lat="46.4800552" lon="30.7316079"/>
+    <node id="-9" lat="46.4800730" lon="30.7316342"/>
+    <node id="-8" lat="46.4800873" lon="30.7316631"/>
+    <node id="-7" lat="46.4800981" lon="30.7316941"/>
+    <node id="-6" lat="46.4801050" lon="30.7317264"/>
+    <node id="-5" lat="46.4801079" lon="30.7317596"/>
+    <node id="-4" lat="46.4801021" lon="30.7319266"/>
+    <node id="-3" lat="46.4800904" lon="30.7319613"/>
+    <node id="-2" lat="46.4800714" lon="30.7319838"/>
+    <node id="-1" lat="46.4800422" lon="30.7319978"/>
+  </create>
+  <modify>
+    <node id="298820859" lat="46.4797241" lon="30.7316481"/>
+    <node id="298820932" lat="46.4803621" lon="30.7320607"/>
+    <node id="317457379" lat="46.4800345" lon="30.7315848"/>
+    <node id="317457380" lat="46.4797850" lon="30.7320023"/>
+    <node id="317457382" lat="46.4797292" lon="30.7319805"/>
+    <node id="317457383" lat="46.4799914" lon="30.7320045"/>
+    <node id="1245907204" lat="46.4798755" lon="30.7314718"/>
+    <node id="1251049292" lat="46.4799570" lon="30.7314716"/>
+    <node id="1984029646" lat="46.4801075" lon="30.7318650"/>
+    <node id="1984029647" lat="46.4798958" lon="30.7320052"/>
+    <node id="1984029691" lat="46.4798131" lon="30.7320045"/>
+    <node id="1984029714" lat="46.4797700" lon="30.7315848"/>
+    <node id="1989587967" lat="46.4797073" lon="30.7316910"/>
+    <node id="1989587968" lat="46.4801365" lon="30.7319206"/>
+    <node id="1989587969" lat="46.4796982" lon="30.7317370"/>
+    <node id="1989587970" lat="46.4797447" lon="30.7316141"/>
+    <node id="1989587971" lat="46.4797057" lon="30.7319403"/>
+    <node id="3405192801" lat="46.4794035" lon="30.7319446"/>
+    <node id="4439627673" lat="46.4801406" lon="30.7324885"/>
+    <node id="4627450000" lat="46.4794422" lon="30.7319520"/>
+    <node id="4627450419" lat="46.4795729" lon="30.7317967"/>
+    <node id="4800814074" lat="46.4796967" lon="30.7318499"/>
+    <node id="4800814075" lat="46.4797480" lon="30.7319927"/>
+    <node id="4800814076" lat="46.4797975" lon="30.7320036"/>
+    <node id="4800814077" lat="46.4799023" lon="30.7315291"/>
+    <node id="4800814078" lat="46.4797542" lon="30.7319975"/>
+    <node id="4800814079" lat="46.4797743" lon="30.7320006"/>
+    <node id="4800814080" lat="46.4796995" lon="30.7319074"/>
+    <node id="4800814082" lat="46.4797177" lon="30.7319664"/>
+    <node id="4800814083" lat="46.4800034" lon="30.7320029"/>
+    <node id="4800814085" lat="46.4801383" lon="30.7320230"/>
+    <node id="4807102911" lat="46.4798665" lon="30.7315327"/>
+    <node id="4807102912" lat="46.4797994" lon="30.7315610"/>
+    <node id="4807102913" lat="46.4796953" lon="30.7316638"/>
+    <node id="4807102915" lat="46.4801338" lon="30.7319074"/>
+    <node id="4807102917" lat="46.4801451" lon="30.7319628"/>
+    <node id="5217021130" lat="46.4794894" lon="30.7319680">
+      <tag k="bus" v="yes"/>
+      <tag k="name" v="Тираспольська площа"/>
+      <tag k="name:en" v="Tyraspolska square"/>
+      <tag k="name:uk" v="Тираспольська площа"/>
+      <tag k="public_transport" v="stop_position"/>
+      <tag k="ref_name" v="Тираспольська площа, Одеса"/>
+    </node>
+    <node id="12015319963" lat="46.4798319" lon="30.7315434"/>
+    <node id="12015319964" lat="46.4799698" lon="30.7320050"/>
+    <node id="12015319965" lat="46.4798346" lon="30.7320050"/>
+    <node id="12015344074" lat="46.4796732" lon="30.7316760"/>
+    <way id="28880095">
+      <nd ref="4800814077"/>
+      <nd ref="4807102911"/>
+      <nd ref="12015319963"/>
+      <nd ref="4807102912"/>
+      <nd ref="1984029714"/>
+      <nd ref="1989587970"/>
+      <nd ref="298820859"/>
+      <nd ref="1989587967"/>
+      <nd ref="1989587969"/>
+      <nd ref="4800814074"/>
+      <nd ref="4800814080"/>
+      <nd ref="1989587971"/>
+      <nd ref="4800814082"/>
+      <nd ref="317457382"/>
+      <nd ref="4800814075"/>
+      <nd ref="4800814079"/>
+      <nd ref="317457380"/>
+      <nd ref="4800814076"/>
+      <nd ref="1984029691"/>
+      <nd ref="12015319965"/>
+      <nd ref="1984029647"/>
+      <nd ref="12015319964"/>
+      <nd ref="317457383"/>
+      <nd ref="4800814083"/>
+      <nd ref="-1"/>
+      <nd ref="-2"/>
+      <nd ref="-3"/>
+      <nd ref="-4"/>
+      <nd ref="1984029646"/>
+      <nd ref="-5"/>
+      <nd ref="-6"/>
+      <nd ref="-7"/>
+      <nd ref="-8"/>
+      <nd ref="-9"/>
+      <nd ref="-10"/>
+      <nd ref="317457379"/>
+      <nd ref="-11"/>
+      <nd ref="-12"/>
+      <nd ref="-13"/>
+      <nd ref="4800814077"/>
+      <tag k="bicycle" v="yes"/>
+      <tag k="cycleway" v="no"/>
+      <tag k="highway" v="secondary"/>
+      <tag k="junction" v="roundabout"/>
+      <tag k="lanes" v="2"/>
+      <tag k="name" v="Тираспольська площа"/>
+      <tag k="name:en" v="Tyraspolska Square"/>
+      <tag k="name:ru" v="Тираспольськая площадь"/>
+      <tag k="name:uk" v="Тираспольська площа"/>
+      <tag k="smoothness" v="intermediate"/>
+      <tag k="surface" v="sett"/>
+      <tag k="width:lanes" v="4.5|4.5"/>
+    </way>
+    <way id="758828243">
+      <nd ref="298820928"/>
+      <nd ref="3405192801"/>
+      <nd ref="4627450000"/>
+      <nd ref="5217021130"/>
+      <nd ref="-15"/>
+      <nd ref="-16"/>
+      <nd ref="-17"/>
+      <nd ref="4800814078"/>
+      <nd ref="4800814079"/>
+      <tag k="highway" v="secondary"/>
+      <tag k="lanes" v="2"/>
+      <tag k="name" v="Преображенська вулиця"/>
+      <tag k="name:en" v="Preobrazhenska Street"/>
+      <tag k="name:ru" v="Преображенская улица"/>
+      <tag k="name:uk" v="Преображенська вулиця"/>
+      <tag k="old_name" v="Советской Армии улица"/>
+      <tag k="oneway" v="yes"/>
+      <tag k="surface" v="asphalt"/>
+      <tag k="width:lanes" v="3.75|3.75"/>
+    </way>
+    <way id="56015152">
+      <nd ref="298820859"/>
+      <nd ref="4807102913"/>
+      <nd ref="12015344074"/>
+      <nd ref="-18"/>
+      <nd ref="4627450419"/>
+      <nd ref="-20"/>
+      <nd ref="-21"/>
+      <nd ref="-22"/>
+      <nd ref="-23"/>
+      <nd ref="-24"/>
+      <nd ref="-25"/>
+      <nd ref="12015344078"/>
+      <nd ref="298820928"/>
+      <tag k="bicycle" v="yes"/>
+      <tag k="cycleway" v="no"/>
+      <tag k="highway" v="secondary"/>
+      <tag k="lanes" v="2"/>
+      <tag k="name" v="Ніжинська вулиця"/>
+      <tag k="name:en" v="Nizhynska Street"/>
+      <tag k="name:pl" v="ulica Nieżyńska"/>
+      <tag k="name:ru" v="Нежинская улица"/>
+      <tag k="name:uk" v="Ніжинська вулиця"/>
+      <tag k="oneway" v="yes"/>
+      <tag k="placement" v="left_of:1"/>
+      <tag k="smoothness" v="intermediate"/>
+      <tag k="surface" v="sett"/>
+      <tag k="width:lanes" v="3.75|3.75"/>
+    </way>
+    <way id="27227976">
+      <nd ref="1746751169"/>
+      <nd ref="1245907204"/>
+      <nd ref="12015319963"/>
+      <tag k="highway" v="secondary"/>
+      <tag k="lanes" v="2"/>
+      <tag k="lit" v="yes"/>
+      <tag k="maxspeed:type" v="UA:urban"/>
+      <tag k="name" v="Ніжинська вулиця"/>
+      <tag k="name:en" v="Nizhynska Street"/>
+      <tag k="name:pl" v="ulica Nieżyńska"/>
+      <tag k="name:ru" v="Нежинская улица"/>
+      <tag k="name:uk" v="Ніжинська вулиця"/>
+      <tag k="oneway" v="yes"/>
+      <tag k="smoothness" v="intermediate"/>
+      <tag k="surface" v="sett"/>
+    </way>
+    <way id="187766771">
+      <nd ref="317457379"/>
+      <nd ref="-27"/>
+      <nd ref="1251049292"/>
+      <nd ref="1746751169"/>
+      <tag k="highway" v="secondary"/>
+      <tag k="lanes" v="2"/>
+      <tag k="lit" v="yes"/>
+      <tag k="maxspeed:type" v="UA:urban"/>
+      <tag k="name" v="Тираспольська вулиця"/>
+      <tag k="name:en" v="Tyraspolska Street"/>
+      <tag k="name:ru" v="Тираспольская улица"/>
+      <tag k="name:uk" v="Тираспольська вулиця"/>
+      <tag k="oneway" v="yes"/>
+      <tag k="smoothness" v="intermediate"/>
+      <tag k="surface" v="sett"/>
+    </way>
+    <way id="56002680">
+      <nd ref="317457383"/>
+      <nd ref="1570777158"/>
+      <nd ref="278078063"/>
+      <tag k="highway" v="secondary"/>
+      <tag k="lanes" v="2"/>
+      <tag k="name" v="Преображенська вулиця"/>
+      <tag k="name:en" v="Preobrazhenska Street"/>
+      <tag k="name:ru" v="Преображенская улица"/>
+      <tag k="name:uk" v="Преображенська вулиця"/>
+      <tag k="old_name" v="Советской Армии улица"/>
+      <tag k="oneway" v="yes"/>
+      <tag k="smoothness" v="intermediate"/>
+      <tag k="surface" v="sett"/>
+      <tag k="width:lanes" v="3.75|3.75"/>
+    </way>
+    <way id="300326813">
+      <nd ref="278078063"/>
+      <nd ref="-28"/>
+      <nd ref="-29"/>
+      <nd ref="-30"/>
+      <nd ref="298820932"/>
+      <tag k="highway" v="secondary"/>
+      <tag k="lanes" v="1"/>
+      <tag k="name" v="Преображенська вулиця"/>
+      <tag k="name:en" v="Preobrazhenska Street"/>
+      <tag k="name:ru" v="Преображенская улица"/>
+      <tag k="name:uk" v="Преображенська вулиця"/>
+      <tag k="old_name" v="Советской Армии улица"/>
+      <tag k="oneway" v="yes"/>
+      <tag k="surface" v="asphalt"/>
+      <tag k="width:lanes" v="4.5"/>
+    </way>
+    <way id="431427647">
+      <nd ref="1901714245"/>
+      <nd ref="447842238"/>
+      <nd ref="450139102"/>
+      <nd ref="287685958"/>
+      <nd ref="4625164435"/>
+      <nd ref="290891784"/>
+      <nd ref="12039492007"/>
+      <nd ref="4439627672"/>
+      <nd ref="4441087521"/>
+      <nd ref="4627450491"/>
+      <nd ref="4439627673"/>
+      <nd ref="1570777165"/>
+      <nd ref="278078063"/>
+      <tag k="cycleway:left" v="no"/>
+      <tag k="cycleway:right" v="lane"/>
+      <tag k="highway" v="secondary"/>
+      <tag k="lanes" v="3"/>
+      <tag k="name" v="вулиця Святослава Караванського"/>
+      <tag k="name:en" v="Sviatoslava Karavanskoho street"/>
+      <tag k="name:uk" v="вулиця Святослава Караванського"/>
+      <tag k="old_name" v="вулиця Жуковського"/>
+      <tag k="oneway" v="yes"/>
+      <tag k="width:lanes" v="3.75|3.75|3.75"/>
+    </way>
+    <way id="300326812">
+      <nd ref="278078063"/>
+      <nd ref="4800814085"/>
+      <nd ref="4807102917"/>
+      <nd ref="1989587968"/>
+      <nd ref="4807102915"/>
+      <nd ref="1984029646"/>
+      <tag k="highway" v="secondary"/>
+      <tag k="lanes" v="3"/>
+      <tag k="name" v="вулиця Святослава Караванського"/>
+      <tag k="name:en" v="Sviatoslava Karavanskoho street"/>
+      <tag k="name:uk" v="вулиця Святослава Караванського"/>
+      <tag k="old_name" v="вулиця Жуковського"/>
+      <tag k="oneway" v="yes"/>
+      <tag k="smoothness" v="intermediate"/>
+      <tag k="surface" v="sett"/>
+      <tag k="width:lanes" v="3.5|3.5|3.5"/>
+    </way>
+  </modify>
+</osmChange>

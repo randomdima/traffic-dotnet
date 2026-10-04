@@ -1,0 +1,19 @@
+{
+  "id": "garages_09",
+  "footprintM": [
+    17.5,
+    6.5
+  ],
+  "cornerRadiusM": 0.3,
+  "partsM": [],
+  "look": "garages",
+  "tags": [
+    "garages",
+    "1 storey",
+    "flat roof",
+    "grey slate sheets",
+    "garage row",
+    "cooperative"
+  ],
+  "describe": "row of 5 lock-up garages of a garage cooperative, flat roof of grey slate sheets parted by low brick parapets between the units, patched in places"
+}

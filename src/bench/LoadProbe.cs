@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using TrafficSimulation.App.Render;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Statics;
 using TrafficSimulation.World.Town;
 
@@ -39,13 +40,38 @@ internal static class LoadProbe
         // laying it cost and which plan it was.
         Console.WriteLine($"load — {plan.Name}, seed {plan.Seed}");
         Console.WriteLine();
-        Say("plan", planMs, $"{plan.Roads.Count} roads, {plan.Junctions.Count} junctions, {plan.Props.Count} props");
+        Say("plan", planMs,
+            $"{plan.Roads.Count} roads, {plan.Junctions.Count} junctions ({plan.Junctions.Lit.Count(lit => lit)} lit), " +
+            $"{plan.Crosswalks.Count} zebras of its own, {plan.Bridges.Count} bridges " +
+            $"({plan.Roads.Level.Count(level => level != CityPlan.RoadArrays.Ground)} on the level above), " +
+            $"{plan.Roundabouts.Count} roundabouts, " +
+            $"{plan.Props.Count} props, {plan.Footprints.Count} footprints");
         foreach (var (stage, ms) in plan.LaidMs) Say($"  {stage}", ms, string.Empty);
         Console.WriteLine($"  {"digest",-12}{Digest(plan):x16}   the plan's shapes, equal across processes and builds");
+        // The paving's rings and its merge are laid on first asking, by whichever of the town and the ground asks first,
+        // and asked here so that neither stage is charged with them.
+        var pavingAt = Stopwatch.GetTimestamp();
         var rings = plan.Paving(config).Rings(config);
+        var merged = plan.Paving(config).Perimeter(config).Loose;
+        var pavingMs = Stopwatch.GetElapsedTime(pavingAt).TotalMilliseconds;
+        Say("paving", pavingMs, "the walk's rings, and every driven band merged into the town's driven ground");
         Console.WriteLine(
-            $"  {"open",-12}{plan.Paving(config).Perimeter(config).Loose.Length,8} merged, " +
+            $"  {"open",-12}{merged.Length,8} merged, " +
             $"{rings.Carriageway.Loose.Length} carriageway, {rings.Walk.Loose.Length} walk — runs the boundary could not close");
+
+        // Where to point --at, rather than a second probe's walk of the same runs.
+        EndingAt("merged", merged);
+        EndingAt("carriageway", rings.Carriageway.Loose);
+
+        var world = new TownWorld(plan, config);
+        Say("world", world.StoodMs, $"{world.AgentCount} agents, {world.StaticBodyCount} static bodies");
+        Say("  roads", world.RoadsMs, $"{world.Roads.LaneCount} lanes");
+        Say("  foot", world.FootMs, $"{world.Foot.EdgeCount} lanes");
+        Say("  walking", world.WalkingMs, $"{world.Walking.Runs.LinkCount} runs");
+        Say("  atlas", world.AtlasMs,
+            $"{world.Atlas.PointCount} points, {world.Atlas.EntryCount} entries, {world.Atlas.Bytes / 1048576.0:F1} MiB");
+        Say("  the rest", world.StoodMs - world.RoadsMs - world.FootMs - world.WalkingMs - world.AtlasMs,
+            "fleets, the tables they are numbered in, the roster and the spawn");
 
         var groundAt = Stopwatch.GetTimestamp();
         var ground = GroundMesh.Build(plan, config);
@@ -62,24 +88,32 @@ internal static class LoadProbe
         Say("ground", groundMs, $"{triangles} triangles over {corners} corners");
         Say("  merge", ground.MergeMs, "every driven band cut against every band near it");
         Say("  boundary", ground.BoundaryMs - ground.MergeMs, "that shape moved into each layer's own rings");
-        Say("  layers", ground.LaidMs - ground.BoundaryMs, $"{GroundParts.Count} layers cut and welded");
-
-        var world = new TownWorld(plan, config);
-        Say("world", world.StoodMs, $"{world.AgentCount} agents, {world.StaticBodyCount} static bodies");
-        Say("  roads", world.RoadsMs, $"{world.Roads.LaneCount} lanes");
-        Say("  foot", world.FootMs, $"{world.Foot.EdgeCount} lanes");
-        Say("  walking", world.WalkingMs, $"{world.Walking.Runs.LinkCount} runs");
-        Say("  atlas", world.AtlasMs,
-            $"{world.Atlas.PointCount} points, {world.Atlas.EntryCount} entries, {world.Atlas.Bytes / 1048576.0:F1} MiB");
-        Say("  the rest", world.StoodMs - world.RoadsMs - world.FootMs - world.WalkingMs - world.AtlasMs,
-            "fleets, the tables they are numbered in, the roster and the spawn");
+        Say("  lines", ground.LinesMs, "each layer's line read off its rings, and thinned for its fill");
+        Say("  ends", ground.EndsMs, "the kerb ends, the bands across them and the bars behind");
+        Say("  layers", ground.LaidMs - ground.BoundaryMs - ground.LinesMs - ground.EndsMs, $"{GroundParts.Count} layers cut and welded");
+        for (var part = 0; part < GroundParts.Count; part++)
+        {
+            Say($"    {GroundParts.Words[part]}", ground.Parts[part].LaidMs, $"{ground.Parts[part].Triangles} triangles");
+        }
 
         Console.WriteLine();
-        Say("open", planMs + groundMs + world.StoodMs, "what a map picked on the menu costs");
+        Say("open", planMs + pavingMs + world.StoodMs + groundMs, "what a map picked on the menu costs");
     }
+
+    /// <summary>How many places a run the boundary could not close is named at.</summary>
+    const int Listed = 8;
 
     static void Say(string stage, double ms, string beside) =>
         Console.WriteLine($"  {stage,-12}{ms,8:F0} ms   {beside}");
+
+    /// <summary>Where the first few runs of one outline that would not close end, or nothing where every one closed.</summary>
+    static void EndingAt(string outline, ReadOnlySpan<ArcSeg[]> loose)
+    {
+        if (loose.IsEmpty) return;
+
+        var places = loose.ToArray().Take(Listed).Select(run => $"{run[^1].EndM.X:F0} {run[^1].EndM.Y:F0}");
+        Console.WriteLine($"  {"",-12}{"",8}   {outline} runs ending at {string.Join("; ", places)}");
+    }
 
     /// <summary>
     /// <b>The plan's shapes as one number that another process and another build agree on</b>, which is what

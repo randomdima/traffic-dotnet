@@ -74,7 +74,11 @@ within one distance of the kerb**, filled as the shape it is. The boundary is co
 and each of the two is it moved by a figure (`GroundRings`), so a layer has an edge that is a line rather
 than whatever a heap of overlapping pieces happened to leave. **A layer reaches the boundary and encloses
 every layer inside it**, so what the order states is the difference between two of them and no layer is
-cut to leave room for the next.
+cut to leave room for the next. **A bridge over other roads is a level of its own, and the same stack again
+over the first** (PHY-1a): the ground's boundary is struck from what is driven on the ground and the level
+above's from what is driven on it, and its decks, its carriageway, its kerb and its paint are drawn over the
+bodies on the ground and under the bodies on it. The two meet at a bridgehead, where the ground runs on under
+the deck and the level above's kerb is not struck across its end.
 
 Four consequences follow and all four are the point.
 
@@ -160,8 +164,10 @@ one figure for the whole of the ground** — the carriageway, the kerb and the p
 layers of concrete rounded at two radii disagree about the same corner, and the band between them is then
 wider on one bend than on the next.
 
-**The boundary itself is rounded at that radius too, and there it is a cut** — a corner the town turns away
-at loses up to 0.41 of the radius — which is why the radius is under half a lane.
+**The boundary itself is rounded at that radius only where it turns in, and never cut where it turns away**
+(`ArcOutset.Corners.Filled`): it is the outside of every lane, bay, roadside and movement the town lays, so the
+tarmac covers every one of them and a corner a band's square end makes is the corner its kerb turns. Rolled at
+no distance, that corner would lose up to 0.41 of the radius, and the end of a lane would stand in the kerb.
 
 **A course a walking lane is a stretch of is not a layer of the ground, and takes its own radius**
 (`Road.WalkRoundedM`, WLK-1). It is a line a body is held on rather than a thing the town is built of, so
@@ -187,8 +193,9 @@ of pieces with ends to reconcile. **A band the boundary is merged from has squar
 them, which is why no piece of it ever finishes in mid-air.
 
 **TER-3c.8** `P0` **The walk wraps the tarmac as one shape, and never a piece of it.** What the pavement is,
-is a distance off the outline of the **union** of the driven ground, so a place on it belongs to exactly one
-line by construction rather than by a tie broken between candidates. Two coincident lines are not two
+is a distance off the outline of the **union** of the driven ground on the ground — a bridge over a road being a
+level of its own (TER-7b) — so a place on it belongs to exactly one line by construction rather than by a tie
+broken between candidates. Two coincident lines are not two
 pavements — a car park whose bays' ways converge on one pose would offer six down one metre of kerb, a
 movement running edge to edge with the arm it leaves two — and a boundary computed once has none of them to
 break: it is one line because it was never several.

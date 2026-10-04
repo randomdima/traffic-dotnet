@@ -3,6 +3,16 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md) and
 [solver.md](solver.md).
 
+## 2026-10-03 — a car on a bridge is on a layer of its own
+
+**The owner asked for bridges over a traced town's roads**, their cars crossing the cars under them without a
+collision (PHY-1a). **A layer and not a level byte tested per pair**, for the reason the casualty's was
+(2026-08-28): `CarOver` scans itself and nothing else, so the closure keeps it out of every other mask and the
+broad phase's one line decides it. A car is put on it by `PutOnLayer` when its lane's level changes — a write a
+tick per car that changed, nothing for one that did not, and one branch for a town with no bridge over a road.
+One extra level and not one per OSM `layer`: a bridge over a bridge meets it, which is rarer than a byte per
+body is cheap, and is named as a gap.
+
 ## 2026-10-02 — a body at rest is frozen out of the step
 
 The owner asked for it. Profiled on O10 (6 120 cars, 6 240 walkers on the ground), the step was a third of the

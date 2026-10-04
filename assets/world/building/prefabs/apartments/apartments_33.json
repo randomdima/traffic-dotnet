@@ -1,0 +1,20 @@
+{
+  "id": "apartments_33",
+  "sprite": "apartments_33.webp",
+  "footprintM": [
+    39.0,
+    16.0
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "apartments",
+  "tags": [
+    "apartments",
+    "3-5 storeys",
+    "hipped roof",
+    "dark bitumen",
+    "courtyard block",
+    "old town"
+  ],
+  "describe": "deep old-town apartment block, hipped roof of dark bitumen round a light well, dormers and chimney stacks"
+}

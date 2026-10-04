@@ -1,0 +1,19 @@
+{
+  "id": "retail_deep_06",
+  "footprintM": [
+    12.0,
+    22.5
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "retail",
+  "tags": [
+    "retail",
+    "1-2 storeys",
+    "flat roof",
+    "light membrane",
+    "shops",
+    "narrow front"
+  ],
+  "describe": "row of shops or a small market hall, flat light roof with several HVAC units and vent hoods, standing narrow end to the street with the entrance on that short front wall"
+}

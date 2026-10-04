@@ -1,0 +1,19 @@
+{
+  "id": "retail_19",
+  "footprintM": [
+    33.5,
+    22.0
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "retail",
+  "tags": [
+    "retail",
+    "1-2 storeys",
+    "flat roof",
+    "white membrane",
+    "supermarket",
+    "mall"
+  ],
+  "describe": "supermarket or shopping centre, broad flat white roof with HVAC units, skylight strips and a loading bay at the back"
+}

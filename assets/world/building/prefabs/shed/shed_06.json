@@ -1,0 +1,18 @@
+{
+  "id": "shed_06",
+  "footprintM": [
+    5.0,
+    2.5
+  ],
+  "cornerRadiusM": 0.3,
+  "partsM": [],
+  "look": "shed",
+  "tags": [
+    "shed",
+    "1 storey",
+    "lean-to roof",
+    "grey asbestos-cement slate",
+    "outbuilding"
+  ],
+  "describe": "small yard outbuilding or shed, lean-to roof of grey asbestos-cement slate"
+}

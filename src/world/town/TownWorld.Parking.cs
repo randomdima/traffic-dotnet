@@ -171,7 +171,7 @@ internal sealed partial class TownWorld
     {
         var forward = ForwardOf(car);
         var rearAxleM = CarFollower.RearAxleM(Cars.BuildOf(car), Cars.PositionM[car], forward);
-        var under = TheCarriagewayUnder(rearAxleM, forward);
+        var under = TheCarriagewayUnder(rearAxleM, forward, Cars.Level[car]);
         if (under.Lane < 0) return false;
 
         // Where the body stands on the chain it is handed, before the line is laid over it: the route is searched
@@ -213,9 +213,10 @@ internal sealed partial class TownWorld
     /// that came to rest in a box stood there for the rest of the run.
     /// </para>
     /// </remarks>
-    StandingOn TheCarriagewayUnder(Vector2 rearAxleM, Vector2 forward)
+    /// <param name="level">The level the body is on (PHY-1a): a lane of the road under a bridge is no lane under a car on it.</param>
+    StandingOn TheCarriagewayUnder(Vector2 rearAxleM, Vector2 forward, byte level)
     {
-        var lane = _roads.NearestStreetLane(rearAxleM, out var alongM);
+        var lane = _roads.NearestStreetLane(rearAxleM, level, out var alongM);
         if (lane < 0) return StandingOn.Nowhere;
 
         if (Vector2.Dot(Spline.SampleAt(_roads.ArcsOf(lane), alongM).Direction, forward) <= 0f

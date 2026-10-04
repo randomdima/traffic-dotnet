@@ -1,0 +1,20 @@
+{
+  "id": "apartments_23",
+  "sprite": "apartments_23.webp",
+  "footprintM": [
+    30.5,
+    10.0
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "apartments",
+  "tags": [
+    "apartments",
+    "5 storeys",
+    "flat roof",
+    "patched black tar",
+    "soviet",
+    "khrushchyovka"
+  ],
+  "describe": "five-storey Soviet brick or panel block, flat roof of patched black tar, 2 stairwell exit hatches and vent stacks evenly along the ridge line, TV antennas"
+}

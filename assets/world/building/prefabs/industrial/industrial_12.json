@@ -1,0 +1,18 @@
+{
+  "id": "industrial_12",
+  "footprintM": [
+    20.0,
+    5.0
+  ],
+  "cornerRadiusM": 0.75,
+  "partsM": [],
+  "look": "industrial",
+  "tags": [
+    "industrial",
+    "1 storey",
+    "pitched roof",
+    "tar paper",
+    "workshop"
+  ],
+  "describe": "small workshop or depot shed, shallow pitched roof of tar paper"
+}

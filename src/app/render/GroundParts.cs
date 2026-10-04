@@ -12,11 +12,18 @@ internal enum GroundPart : byte
     Walk,
     WalkKerb,
     Water,
+    Buildings,
     Decks,
     Carriageway,
     Slabs,
     Kerb,
     Paint,
+
+    /// <summary>
+    /// <b>The bridges over other roads, drawn as roads of their own over the ground and its bodies</b> (TER-7b,
+    /// PHY-1a): deck, carriageway, kerb and paint. The last part, so it is the second of the ground's two draws.
+    /// </summary>
+    Above,
 }
 
 /// <summary>
@@ -37,7 +44,7 @@ internal readonly record struct GroundTally(int FirstIndex, int IndexCount, int 
 /// <summary>The parts as a set: how many there are, and what each is called where a reader is shown one.</summary>
 internal static class GroundParts
 {
-    public const int Count = (int)GroundPart.Paint + 1;
+    public const int Count = (int)GroundPart.Above + 1;
 
     /// <summary>
     /// Every part shown, which is what a run that has asked for nothing draws: the picture is the town
@@ -53,8 +60,8 @@ internal static class GroundParts
     /// </summary>
     public static readonly string[] Names =
     [
-        "Grass", "Walk", "Walk kerb", "Water and shore", "Bridge decks", "Carriageway", "Paved slabs",
-        "Town kerb", "Paint",
+        "Grass", "Walk", "Walk kerb", "Water and shore", "Buildings", "Bridge decks", "Carriageway", "Paved slabs",
+        "Town kerb", "Paint", "Bridges over roads",
     ];
 
     /// <summary>
@@ -64,8 +71,15 @@ internal static class GroundParts
     /// </summary>
     public static readonly string[] Words =
     [
-        "grass", "walk", "walk-kerb", "water", "decks", "carriageway", "slabs", "kerb", "paint",
+        "grass", "walk", "walk-kerb", "water", "buildings", "decks", "carriageway", "slabs", "kerb", "paint",
+        "overpasses",
     ];
 
     public static uint Bit(GroundPart part) => 1u << (int)part;
+
+    /// <summary>
+    /// <b>The parts drawn under the bodies on the ground</b>: every one but <see cref="GroundPart.Above"/>, which is
+    /// drawn over them and under the bodies on it.
+    /// </summary>
+    public const uint OnTheGround = All & ~(1u << (int)GroundPart.Above);
 }

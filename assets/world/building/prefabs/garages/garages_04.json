@@ -1,0 +1,18 @@
+{
+  "id": "garages_04",
+  "footprintM": [
+    6.0,
+    4.5
+  ],
+  "cornerRadiusM": 0.3,
+  "partsM": [],
+  "look": "garages",
+  "tags": [
+    "garages",
+    "1 storey",
+    "flat roof",
+    "black tar paper",
+    "lock-up pair"
+  ],
+  "describe": "pair of lock-up garages, flat roof of black tar paper parted by a low brick parapet"
+}

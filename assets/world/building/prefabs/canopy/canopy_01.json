@@ -1,0 +1,18 @@
+{
+  "id": "canopy_01",
+  "footprintM": [
+    6.5,
+    2.5
+  ],
+  "cornerRadiusM": 0.3,
+  "partsM": [],
+  "look": "canopy",
+  "tags": [
+    "canopy",
+    "open",
+    "flat roof",
+    "corrugated metal",
+    "shelter"
+  ],
+  "describe": "open roof on posts \u2014 a market shelter or carport \u2014 corrugated metal or polycarbonate sheets"
+}

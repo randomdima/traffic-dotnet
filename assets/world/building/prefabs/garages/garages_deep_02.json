@@ -1,0 +1,19 @@
+{
+  "id": "garages_deep_02",
+  "footprintM": [
+    3.5,
+    5.5
+  ],
+  "cornerRadiusM": 0.3,
+  "partsM": [],
+  "look": "garages",
+  "tags": [
+    "garages",
+    "1 storey",
+    "flat roof",
+    "rusty corrugated metal",
+    "lock-up pair",
+    "narrow front"
+  ],
+  "describe": "pair of lock-up garages, flat roof of rusty corrugated metal parted by a low brick parapet, standing narrow end to the street with the entrance on that short front wall"
+}

@@ -42,7 +42,9 @@ internal sealed partial class TownWorld
 
             if (variant.PartsM.Length == 0)
             {
-                _physics.AddStaticBox(centreM, roof.FootprintM, roof.HeadingRad);
+                var fittedM = roof.FootprintM / variant.FootprintM;
+                _physics.AddStaticBox(
+                    centreM, roof.FootprintM, roof.HeadingRad, variant.CornerRadiusM * MathF.Min(fittedM.X, fittedM.Y));
                 continue;
             }
 
@@ -323,7 +325,7 @@ internal sealed partial class TownWorld
 
         var draw = CarDraw(spawn);
         var backsIn = draw.NextFloat() < _config.Driving.BacksIntoBaysShare;
-        AddCar(positionM, _plan.Spawns.HeadingRad[spawn], variant, backsIn, draw);
+        StandOnItsLevel(AddCar(positionM, _plan.Spawns.HeadingRad[spawn], variant, backsIn, draw));
     }
 
     /// <summary>

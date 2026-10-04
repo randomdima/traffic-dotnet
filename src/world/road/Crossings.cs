@@ -8,7 +8,7 @@ namespace TrafficSimulation.World.Road;
 /// <summary>
 /// <b>The bands of carriageway a walk crosses</b> (TER-6): <b>one across every pair of points it is
 /// handed</b> (WLK-10) — in a town, a station of the kerb ends (<see cref="KerbEnds"/>) — and none anywhere
-/// else.
+/// else; or the zebras a town says it has, where it says (<see cref="Of"/>).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -127,9 +127,10 @@ internal sealed class Crossings
         {
             // A road crossed midway is asked for at both of its ends, both of them meaning the one band
             // between them: which is what leaves the traffic aware of it whichever way it drives.
+            // A town that says where its zebras are paints none at a station (CityPlan.ZebraAtEveryStation).
             var crossed = new CrossedAtAnEnd(
                 true, nodes.NearM, nodes.FarM, Midway: nodes.Cut == KerbCut.Midway,
-                Painted: nodes.Painted);
+                Painted: nodes.Painted && plan.ZebraAtEveryStation);
             if (nodes.Cut != KerbCut.AtTheFarEnd) asked[JunctionArms.End(nodes.Road, atTo: false)] = crossed;
             if (nodes.Cut != KerbCut.AtTheNearEnd) asked[JunctionArms.End(nodes.Road, atTo: true)] = crossed;
         }
@@ -196,6 +197,27 @@ internal sealed class Crossings
         return new Crossings(
             [.. centreM], [.. axis], [.. bandM], [.. spanM], [.. road], [.. end], [.. junction], [.. midway],
             atEnd);
+    }
+
+    /// <summary>
+    /// <b>The zebras a town says it has</b> (<see cref="CityPlan.Crosswalks"/>): a band each, across its road kerb to
+    /// kerb (<see cref="CityPlan.CrossingSpanM"/>) — the paint of a town whose stations carry none
+    /// (<see cref="CityPlan.ZebraAtEveryStation"/>). <b>Filed under no road end</b>: one stands where its survey maps it
+    /// rather than where a walk is cut, so no bar is laid behind it and <see cref="At"/> answers <see cref="None"/>.
+    /// </summary>
+    public static Crossings Of(CityPlan plan)
+    {
+        var crosswalks = plan.Crosswalks;
+        var spanM = new float[crosswalks.Count];
+        var end = new int[crosswalks.Count];
+        for (var crossing = 0; crossing < spanM.Length; crossing++) spanM[crossing] = plan.CrossingSpanM(crossing);
+        Array.Fill(end, None);
+
+        var atEnd = new int[plan.Roads.Count * 2];
+        Array.Fill(atEnd, None);
+        return new Crossings(
+            crosswalks.CentreM, crosswalks.Axis, crosswalks.DepthM, spanM, crosswalks.Road, end, crosswalks.Junction,
+            new bool[crosswalks.Count], atEnd);
     }
 }
 

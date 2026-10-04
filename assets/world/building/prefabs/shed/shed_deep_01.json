@@ -1,0 +1,19 @@
+{
+  "id": "shed_deep_01",
+  "footprintM": [
+    2.5,
+    3.5
+  ],
+  "cornerRadiusM": 0.3,
+  "partsM": [],
+  "look": "shed",
+  "tags": [
+    "shed",
+    "1 storey",
+    "lean-to roof",
+    "corrugated metal",
+    "outbuilding",
+    "narrow front"
+  ],
+  "describe": "small yard outbuilding or shed, lean-to roof of corrugated metal, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+}

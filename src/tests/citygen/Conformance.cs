@@ -20,7 +20,10 @@ namespace TrafficSimulation.Tests.CityGen;
 /// </remarks>
 internal static class Conformance
 {
-    /// <summary>A junction is where roads meet, so a junction no road is an arm of is not one.</summary>
+    /// <summary>
+    /// A junction is where roads meet, so a junction no road is an arm of is not one — and it stands a box round it,
+    /// but for the end of a road running off the map, which is no box (<see cref="CityPlan.JunctionArrays.RunsOffTheMap"/>).
+    /// </summary>
     public static void ItsJunctionsAreJunctions(string map)
     {
         var plan = Towns.Of(map);
@@ -34,7 +37,7 @@ internal static class Conformance
         for (var junction = 0; junction < plan.Junctions.Count; junction++)
         {
             Assert.True(arms[junction] > 0, $"{map}: junction {junction} has no road running into it");
-            Assert.True(plan.Junctions.RadiusM[junction] > 0f, $"{map}: junction {junction} has no reach");
+            Assert.True(plan.Junctions.RadiusM[junction] > 0f || plan.Junctions.RunsOff(junction), $"{map}: junction {junction} has no reach");
         }
     }
 
@@ -186,11 +189,16 @@ internal static class Conformance
             }
         }
 
+        // A building is a box on its own bearing, so what stands on the map or off it is its four corners.
         for (var building = 0; building < plan.Buildings.Count; building++)
         {
             var halfM = plan.Buildings.SizeM[building] * 0.5f;
-            AssertOnTheMap(
-                plan, plan.Buildings.CentreM[building], $"{map}: building {building}", MathF.Max(halfM.X, halfM.Y));
+            var along = Heading.Unit(plan.Buildings.HeadingRad[building]) * halfM.X;
+            var across = Heading.RightOf(Heading.Unit(plan.Buildings.HeadingRad[building])) * halfM.Y;
+            foreach (var corner in (ReadOnlySpan<Vector2>)[along + across, along - across, -along + across, -along - across])
+            {
+                AssertOnTheMap(plan, plan.Buildings.CentreM[building] + corner, $"{map}: building {building}");
+            }
         }
 
         for (var space = 0; space < plan.ParkingLots.SpaceCount; space++)
@@ -235,12 +243,12 @@ internal static class Conformance
         var plan = Towns.Of(map);
         var roads = RoadGraph.Build(plan, SimConfig.Shipped());
 
-        // <b>Except a car park's own arms</b> (GEN-53), which end where their bays begin and where nothing
-        // lays a bay yet (<see cref="Drivable.OnACarParksArm"/>).
-        var armed = Drivable.OnACarParksArm(plan, roads);
+        // <b>Except the lanes joined to nothing</b> — a car park's bays (GEN-53) and a road's roadsides (GEN-57)
+        // (<see cref="Drivable.JoinedToNothing"/>).
+        var passedOver = Drivable.JoinedToNothing(plan, roads);
 
-        Assert.Null(Drivable.Offence(roads, armed));
-        Assert.Null(Drivable.Dangling(roads, armed));
+        Assert.Null(Drivable.Offence(roads, passedOver));
+        Assert.Null(Drivable.Dangling(roads, passedOver));
     }
 
     /// <summary>

@@ -39,8 +39,8 @@ namespace TrafficSimulation.CityGen;
 /// </para>
 /// <para>
 /// <b>The rounded boundary and not the merge's own</b> (<see cref="GroundRings.Carriageway"/>): the merge
-/// hands back the corners a union of bands has, and the town does not have them — the same move run again
-/// at the kerb radius (TER-3c.10) cuts the ones it turns away at and fills the ones it turns into, and that
+/// hands back the corners a union of bands has, and the town does not have them all — the same move run again
+/// at the kerb radius (TER-3c.10) fills the ones it turns into and keeps the ones it turns away at, and that
 /// rounded line is what the tarmac stops at, what the kerbstone is bent to and what the pavement is struck
 /// off. A point taken off the merge stands at a corner nothing was laid at, and it stands further into the
 /// mouth than the kerb really runs, because the arc that rounds the corner leaves the road before the
@@ -459,6 +459,10 @@ internal sealed class KerbEnds
     /// <b>The further end is the one that sets it</b>, because the nearer one has already given up the
     /// boundary by then and a station taken off it would stand on ground the junction is driven over.
     /// </para>
+    /// <para>
+    /// <b>And never in the box</b>, which a kerb running along a roadside reaches (<see cref="LaneLines.RoadFromM"/>):
+    /// what a walk crosses and a driver is held behind is the road, and the box beyond its end is the movements'.
+    /// </para>
     /// </remarks>
     static Stand Stands(Reading reading, in Mark mark, float clearM)
     {
@@ -474,8 +478,9 @@ internal sealed class KerbEnds
         var end = Spline.SampleAt(arcs, atM);
         var side = Vector2.Dot(mark.AtM - end.PositionM, end.Right) < 0f ? -1f : 1f;
 
+        var (fromM, toM) = (lanes.RoadFromM(mark.Lane), lanes.RoadToM(mark.Lane));
         return new Stand(
-            mark.Road, mark.Lane, Math.Clamp(atM + outward, 0f, lengthM), atM, side,
+            mark.Road, mark.Lane, Math.Clamp(atM + outward, fromM, toM), Math.Clamp(atM, fromM, toM), side,
             reading.AtTheFarEnd(mark.Road, mark.Junction) ? KerbCut.AtTheFarEnd : KerbCut.AtTheNearEnd);
     }
 
@@ -485,21 +490,22 @@ internal sealed class KerbEnds
     /// traffic's hold rather than the walk's crossing.
     /// </summary>
     /// <remarks>
-    /// <b>The far edge is read off the lanes' own width and not off the shape.</b> A street's carriageway is
-    /// its lanes side by side (TER-4d) and the lane a kerb runs along is the outermost of them, so the far
-    /// edge is every other lane across from this one — three half-lanes on a street of one lane each way, and
-    /// the lane's own half on a road of one lane.
+    /// <b>The far edge is read off the carriageway's own width and not off the shape.</b> A street's carriageway
+    /// is its lanes side by side, a roadside the outermost of them where it has one (TER-4d, GEN-57), and the lane a
+    /// kerb runs along is the outermost, so the near edge is that lane's half and the far edge the rest of the
+    /// carriageway across — three half-lanes on a street of one lane each way, and the lane's own half on a road of
+    /// one lane.
     /// </remarks>
     static KerbNodes Nodes(Reading reading, in Stand stand, bool painted = true)
     {
         var lanes = reading.Lanes;
-        var halfM = lanes.LaneWidthM[stand.Lane] * 0.5f;
-        var farM = halfM * ((2 * reading.Roads.LanesOn(lanes.LaneRoad[stand.Lane])) - 1);
+        var nearM = lanes.LaneWidthM[stand.Lane] * 0.5f;
+        var farM = reading.Roads.WidthM[lanes.LaneRoad[stand.Lane]] - nearM;
 
         var on = Spline.SampleAt(lanes.ArcsOf(stand.Lane), painted ? stand.AlongM : stand.KerbAlongM);
         return new KerbNodes(
             stand.Road, stand.Cut,
-            on.PositionM + (on.Right * (halfM * stand.Side)),
+            on.PositionM + (on.Right * (nearM * stand.Side)),
             on.PositionM - (on.Right * (farM * stand.Side)),
             painted);
     }
@@ -676,7 +682,7 @@ internal sealed class KerbEnds
     /// <b>A road ends at a box and the box is on the far side of the change.</b> Where a street really stops,
     /// what takes the outline up is the mouth it opens into and what picks it up after that is the next
     /// street — so the pair around a mouth names two roads. A pair that names one road twice is the outline
-    /// going round and coming back: the rounding cutting the corner of a bend inside a road (TER-3c.10) is
+    /// going round and coming back: the rounding filling a notch along a road's own kerb (TER-3c.10) is
     /// the shape that does it, and what stands there is a kerb with a curve in it rather than a place a walk
     /// stops and is crossed. Left as ends, the two of them stand as far out along their road as the bend is
     /// from the box — tens of metres — and being the furthest they carry the paint (<see cref="Ranked"/>).
@@ -900,8 +906,10 @@ internal sealed class KerbEnds
         var bestOffM = float.MaxValue;
         for (var slot = 0; slot < found; slot++)
         {
+            // The boundary is the ground's (<see cref="Paving.Perimeter"/>), so a lane above it is the edge of none
+            // of it — the ground runs on under a bridge's first metres along that lane's own edge.
             var line = near[slot];
-            if (line >= lanes.LaneCount) continue;
+            if (line >= lanes.LaneCount || lanes.LaneLevel[line] != CityPlan.RoadArrays.Ground) continue;
 
             var on = Spline.SampleAt(lanes.ArcsOf(line), alongM[slot]);
             var offM = pointM - on.PositionM;

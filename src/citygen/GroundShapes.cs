@@ -148,7 +148,7 @@ internal sealed partial class GroundShapes
     /// <param name="scan">This caller's own working set (<see cref="NewScan"/>), for an ask off its own thread.</param>
     public Ground At(Scan scan, Vector2 pointM)
     {
-        var roads = Roads(scan.Roads, pointM);
+        var roads = Roads(scan.Roads, pointM, CityPlan.RoadArrays.Ground);
         if (roads.Crossing) return Ground.Crosswalk;
         if (roads.Bay) return Ground.Parking;
         if (_carriageway.Encloses(pointM)) return Ground.Road;
@@ -160,6 +160,26 @@ internal sealed partial class GroundShapes
 
         return Ground.Grass;
     }
+
+    /// <summary>
+    /// <b>What a body on one level stands on</b> (PHY-1a): on the ground, <see cref="At(Scan, Vector2)"/>; on the
+    /// level above, the bridge's own carriageway (<see cref="Paving.Above"/>), the paint across it and the deck
+    /// either side — and past the deck's edge, whatever is below.
+    /// </summary>
+    public Ground At(Scan scan, Vector2 pointM, byte level)
+    {
+        if (level == CityPlan.RoadArrays.Ground) return At(scan, pointM);
+
+        var roads = Roads(scan.Roads, pointM, level);
+        if (roads.Crossing) return Ground.Crosswalk;
+        if (_above.Encloses(pointM)) return Ground.Road;
+        if (roads.Deck) return Ground.Sidewalk;
+
+        return At(scan, pointM);
+    }
+
+    /// <inheritdoc cref="At(Scan, Vector2, byte)"/>
+    public Ground At(Vector2 pointM, byte level) => At(_ownScan, pointM, level);
 
     /// <summary>Whether the point is inside the town's own box, for a caller that wants to know before it asks.</summary>
     public bool Contains(Vector2 pointM) =>
@@ -261,6 +281,6 @@ internal sealed partial class GroundShapes
     /// </summary>
     bool Is(Vector2 pointM, Ground ground) => Is(_ownScan, pointM, ground);
 
-    bool Is(Scan scan, Vector2 pointM, Ground ground) => Contains(pointM) && At(scan, pointM) == ground;
+    public bool Is(Scan scan, Vector2 pointM, Ground ground) => Contains(pointM) && At(scan, pointM) == ground;
 
 }

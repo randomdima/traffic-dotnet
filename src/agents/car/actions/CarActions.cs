@@ -33,7 +33,7 @@ internal sealed class CarActions(DrivingGround ground, Manoeuvres manoeuvres)
         var was = cars.Action[car];
         if (was == action) return;
 
-        if (was == CarAction.Overtake) cars.Pass[car] = Overtake.None;
+        if (was is CarAction.Overtake or CarAction.Switch) cars.Pass[car] = Overtake.None;
         if (IsAtABay(was) && !IsAtABay(action)) manoeuvres.Clear(car);
 
         // <b>A grant is its action's claim</b>, and goes with it (TER-4c.8): the one claim two actions share is a plan
@@ -54,12 +54,13 @@ internal sealed class CarActions(DrivingGround ground, Manoeuvres manoeuvres)
 
     /// <summary>
     /// <b>Whether a car's action drives the route's own line</b> — and so plans down it (TER-4c.1): following it,
-    /// getting past something on it, backing down it for room, or coming up it to where it waits for its bay.
+    /// getting past something on it, moving across off it, backing down it for room, or coming up it to where it waits
+    /// for its bay.
     /// </summary>
     public bool DrivesTheRoute(int car) =>
         ground.Cars.Action[car] switch
         {
-            CarAction.Follow or CarAction.Overtake or CarAction.BackUp => true,
+            CarAction.Follow or CarAction.Overtake or CarAction.Switch or CarAction.BackUp => true,
             CarAction.Park => !manoeuvres.IsBegun(car),
             _ => false,
         };
@@ -71,5 +72,5 @@ internal sealed class CarActions(DrivingGround ground, Manoeuvres manoeuvres)
 
     /// <summary>Whether an action plans down the route's own line — a car getting into a bay does, up to where it waits.</summary>
     static bool PlansDownTheRoute(CarAction action) =>
-        action is CarAction.Follow or CarAction.Overtake or CarAction.BackUp or CarAction.Park;
+        action is CarAction.Follow or CarAction.Overtake or CarAction.Switch or CarAction.BackUp or CarAction.Park;
 }

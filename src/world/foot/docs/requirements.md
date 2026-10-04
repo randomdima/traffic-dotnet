@@ -31,7 +31,8 @@ it is placed off nothing else.** The lines a car is driven on lay a shape, its o
 road at once, because a boundary has the road between its two hands and the move keeps it. **Nothing here
 asks about a road**: there is no end to stand a corner on, no arm to count, no bay or ring or rank to exclude,
 and **every line the move closes is a lane a walk may run down**. A street's pavement crosses a bridge deck
-because the driven ground does (TER-3b.1), the walk goes round the mouth of a rank because the tarmac does,
+because the driven ground does (TER-3b.1) — and does not cross a bridge over a road, which is driven ground of
+its own above the ground's (TER-7b) — the walk goes round the mouth of a rank because the tarmac does,
 and a course round a block is the frontage of every street on it.
 
 **The move is the whole shape's, taken once for the town, and never a stretch of it moved on its own.** A
@@ -71,11 +72,14 @@ wider circle swings the inside edge out past it, onto the road, and a tighter on
 ## Where the walk crosses the road
 
 **WLK-10** `P4` **A town's zebras stand where its kerb ends put a station, and nowhere else**
-(`CityGen.KerbEnds`). A station is struck across each end of each street at a box where three or more roads
+(`CityGen.KerbEnds`), unless the town says where they are (below). A station is struck across each end of each street at a box where three or more roads
 meet, `Road.FootNodeClearM` out along the road past the further of the street's two kerb ends, and runs from
 the carriageway's edge on that kerb's side to its other edge; the band runs between those two points.
 **Where a walk crosses is the whole of the placement** — an end the kerb ends put no station at asks for no
-paint, which is what leaves a bay, a roundabout's ring and every end at a bend or a dead end with none.
+paint, which is what leaves a bay, a roundabout's ring and every end at a bend or a dead end with none. **A
+town that says where its zebras are** (`CityPlan.ZebraAtEveryStation`) — a traced map, whose survey maps them
+(GEN-57) — **has those and paints none at a station**: the stations are still struck, cut the walk and hold
+the traffic, painted with nothing.
 
 **The paint is the road's and the placement is not.** What a zebra *is* — a band of carriageway
 pedestrians may walk over, the width it reaches, what a bar behind it does — is

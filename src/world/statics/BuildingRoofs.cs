@@ -34,7 +34,9 @@ internal static class BuildingRoofs
 
         var (variant, swapped) = civic >= 0
             ? (civic, DoorRunsAcrossTheBuilding(plan, building, centreM))
-            : catalogue.Match(sizeM);
+            : plan.Buildings.Prefab.Length > 0
+                ? Laid(catalogue, catalogue.FirstPrefab + plan.Buildings.Prefab[building], sizeM)
+                : catalogue.Match(sizeM);
 
         var footprintM = catalogue.Variants[variant].FootprintM;
         if (civic >= 0) footprintM *= FitScale(footprintM, sizeM, swapped);
@@ -46,6 +48,18 @@ internal static class BuildingRoofs
         if (FacesAway(plan, building, centreM, headingRad)) headingRad += MathF.PI;
 
         return new BuildingRoof(variant, footprintM, headingRad);
+    }
+
+    /// <summary>
+    /// <b>A prefab the plan chose, and which way round it was laid</b> (GEN-57): the plan's box is the prefab's own
+    /// footprint, along the building's bearing or across it.
+    /// </summary>
+    static (int Variant, bool Swapped) Laid(BuildingCatalog catalogue, int variant, Vector2 sizeM)
+    {
+        var authoredM = catalogue.Variants[variant].FootprintM;
+        var straight = MathF.Abs(authoredM.X - sizeM.X) + MathF.Abs(authoredM.Y - sizeM.Y);
+        var across = MathF.Abs(authoredM.X - sizeM.Y) + MathF.Abs(authoredM.Y - sizeM.X);
+        return (variant, across < straight);
     }
 
     /// <summary>

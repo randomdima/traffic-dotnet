@@ -74,7 +74,7 @@ internal sealed class ShotStage : IDisposable
         var vk = Vk.Open("traffic-dotnet", validate);
         var renderer = TownRenderer.Offscreen(
             vk, widthPx, heightPx, ground, ProjectPaths.GroundSurfaceFiles(), looks.Sheets,
-            TownSprites.CapacityFor(plan, config));
+            TownSprites.CapacityFor(plan, config), TownSprites.AboveCapacityFor(plan));
 
         return new ShotStage(config, plan, ground, looks, vk, renderer, widthPx, heightPx);
     }
@@ -94,7 +94,7 @@ internal sealed class ShotStage : IDisposable
     {
         var renderer = TownRenderer.Offscreen(
             vk, widthPx, heightPx, ground, ProjectPaths.GroundSurfaceFiles(), looks.Sheets,
-            TownSprites.CapacityFor(plan, config));
+            TownSprites.CapacityFor(plan, config), TownSprites.AboveCapacityFor(plan));
 
         return new ShotStage(config, plan, ground, looks, vk, renderer, widthPx, heightPx, ownsDevice: false);
     }
@@ -169,8 +169,10 @@ internal sealed class ShotStage : IDisposable
 
         _looks.ReadAspects(_renderer);
         _looks.Lay(Plan, world.Uses, _config);
-        var sprites = _looks.Fill(world, _config, camera.CentreM, camera.CullSpanM(uiPx), _renderer.Sprites);
-        _renderer.SetSpriteCount(sprites);
+        var (ground, above) = _looks.Fill(
+            world, _config, camera.CentreM, camera.CullSpanM(uiPx), _renderer.Sprites, _renderer.SpritesAbove);
+        _renderer.SetSpriteCount(ground, above);
+        var sprites = ground + above;
 
         // The pointer is put outside the frame, so nothing is drawn hovered: a shot with a row lit
         // under a pointer nobody can see is a shot of a state the reader cannot account for. <b>Unless the
@@ -205,7 +207,7 @@ internal sealed class ShotStage : IDisposable
 
         return new ShotReport(
             Plan.Name, ask.Path, _widthPx, _heightPx, camera.ViewSpanM(uiPx), camera.CentreM,
-            _renderer.TriangleCount, sprites, TownSprites.CapacityFor(Plan, _config), tick, quads + under,
+            _renderer.TriangleCount, sprites, TownSprites.CapacityFor(Plan, _config) + TownSprites.AboveCapacityFor(Plan), tick, quads + under,
             crossings, Plan.Seed);
     }
 

@@ -3,6 +3,47 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md); how a type
 works is its own XML docs.
 
+## 2026-10-05 — a corner of the ground is twelve bytes
+
+**A traced city's ground is four million corners, and most of each was not its place**: a texture coordinate that
+is the place over a period, three floats of a shade that is one of a handful, and a word for one of six surfaces.
+A corner is now its place and one word (`GroundVertex`): three channels of nine bits up to
+`GroundVertex.BrightestTint`, a little over paint's, and the surface in the five above them. **The vertex stage
+divides the place by its surface's period**, so the texture is anchored to the world origin exactly as before, and
+the periods ride the camera — written by the renderer from the mesh it was laid with (`CameraView.SurfacePeriodsM`),
+so nothing that builds a camera knows them. A shade is filed to within 0.003 of itself, and a weld is keyed on the
+word.
+
+On OdesaOsm the mesh is 133 → 50 MB on the device and as much again off it, and laying it holds 1 774 → 1 655 MiB at
+most; the corners are the same 4 165 049. The visual tier passes whole and a shot of each head is the picture it was.
+
+## 2026-10-04 — a prefab with no picture is a plain block, and the sheet table holds 512
+
+The traced prefab catalogue is 355 prefabs, most with no art yet ([citygen's log](../../../citygen/docs/decision-log.md)).
+**An undrawn prefab is drawn from a sheet built for it** (`PrefabSprites`): its rounded rectangle in its look's colour
+and clear past its corners, its walls darker and its door's wall lighter, at 4 px/m — so the placement can be judged,
+look by look, before any of it is painted. The footprints under them went from tan to grey, so where a prefab parts
+from the survey reads against it. **The sheet table went from 192 places to 512** (`SheetSlots`, both shaders): 498
+sheets now, and 512 of 32 bytes is the 16 KB uniform range every Vulkan device must offer.
+
+## 2026-10-04 — a bridge over a road is drawn above it, and so are the cars on it
+
+The owner asked for bridges over roads drawn above them as roads of their own (`TER-7b`). **Two draws of the ground
+and two runs of the bodies, in one recording**: the ground's parts to the paint, the bodies on the ground, the level
+above (`GroundPart.Above` — its decks, carriageway, kerb and paint), then the bodies on it. Each pair is one buffer —
+the index buffer's last part and the instances past `SpriteCapacity` — bound at a second offset, because an indirect
+draw starting at a non-zero instance needs `drawIndirectFirstInstance`, which this project does not ask for. The
+commands are recorded once per image, so a frame still makes the five crossings it did.
+
+- **Paint goes with its carriageway**: a run of lane dashes stops at a bridgehead (`CentrelineRuns`), and each mark is
+  laid in its own level's stack.
+- **The bridge's kerb is not struck across its ends**, where it is the ground's road carried on; the ground runs on
+  under the deck there, so the deck's end meets tarmac.
+- **The page draws one run over the whole ground**, the level above included: no traced map reaches it (`WEB-4`),
+  and no other map lays a level.
+- **A skid on a bridge and a walker are on the ground's run**: a mark keeps no level, and a walker is always on the
+  ground (`PHY-1a`), so either on a deck is drawn under it.
+
 ## 2026-10-03 — the ground lives on the device, copied there once
 
 `OdesaOsm` ran at 3 fps on an RX 9070 XT, each frame 326 ms waiting on the GPU with the CPU idle. The ground's

@@ -2,15 +2,15 @@ namespace TrafficSimulation.World.Routing;
 
 /// <summary>
 /// Where a body joins the network: the link it is on, how far into that link it stands, and what is left
-/// of the link ahead of it.
+/// of the link ahead of it — and what getting onto it costs over that, where it is a link beside the body's own.
 /// </summary>
 /// <remarks>
 /// <b>The stretch already covered is spent</b> — charging for it again lets a route that turns round at
 /// the next junction look cheaper than carrying on. For a body standing still the caller offers the links
 /// nearest it with the whole of each ahead of it; for a body under way it offers the link it is already
-/// committed to.
+/// committed to, and the lanes beside it at what moving across costs (CAR-53).
 /// </remarks>
-internal readonly record struct RouteEntry(int Link, float AlongM, float RemainingM);
+internal readonly record struct RouteEntry(int Link, float AlongM, float RemainingM, float EnterM = 0f);
 
 /// <summary>
 /// A destination: <b>a place on a link</b>, which is what a destination always is. Never a junction.
@@ -137,11 +137,12 @@ internal sealed class RoutePlanner
         foreach (var entry in entries)
         {
             Touch(entry.Link);
-            if (entry.RemainingM < _costM[entry.Link])
+            var reachedM = entry.EnterM + entry.RemainingM;
+            if (reachedM < _costM[entry.Link])
             {
-                _costM[entry.Link] = entry.RemainingM;
+                _costM[entry.Link] = reachedM;
                 _cameFrom[entry.Link] = TravelGraph.NoLink;
-                Push(entry.Link, entry.RemainingM);
+                Push(entry.Link, reachedM);
             }
 
             // The goal on the link the body is already committed to, and only where it is still ahead:
@@ -150,7 +151,7 @@ internal sealed class RoutePlanner
             {
                 if (goals[slot].Link != entry.Link || goals[slot].AlongM < entry.AlongM) continue;
 
-                var directM = goals[slot].AlongM - entry.AlongM;
+                var directM = entry.EnterM + goals[slot].AlongM - entry.AlongM;
                 if (directM >= costM) continue;
 
                 costM = directM;

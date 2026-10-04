@@ -48,6 +48,7 @@ internal sealed class CarFleet
         Driven = new bool[capacity];
         Action = new CarAction[capacity];
         Broken = new bool[capacity];
+        Level = new byte[capacity];
         Ambulance = new bool[capacity];
         BlueLight = new bool[capacity];
         AtWork = new bool[capacity];
@@ -178,6 +179,13 @@ internal sealed class CarFleet
     /// block rather than rolling away.
     /// </summary>
     public bool[] Broken { get; }
+
+    /// <summary>
+    /// <b>The level the car is on</b> (PHY-1a): its lane's (<c>CityPlan.RoadArrays.Level</c>) — on a bridge over other
+    /// roads it meets nobody and claims nothing of the road below. Kept where it has no lane, so a car stopped on a
+    /// bridge stays on it.
+    /// </summary>
+    public byte[] Level { get; }
 
     /// <summary>
     /// <b>AMB-3: whether this car is an ambulance</b> — a fact about the car and never about what it is
@@ -505,6 +513,33 @@ internal sealed class CarFleet
         return RouteLanes[(car * RouteLanesPerCar) + RouteTaken[car]++];
     }
 
+    /// <summary>And the one after that, without taking either — what a route moving across onto the next goes on to (CAR-53).</summary>
+    public int PeekRouteLaneAfterNext(int car) =>
+        RouteTaken[car] + 1 >= RouteCount[car] ? NoLane : RouteLanes[(car * RouteLanesPerCar) + RouteTaken[car] + 1];
+
+    /// <summary>
+    /// <b>Lanes laid into the chain handed back to the front of the queue</b>, in the order they were — where the car
+    /// has moved across off them (CAR-53) and the line is laid again beside them. <b>What does not fit is dropped off
+    /// the far end</b>, and the queue then runs out there and is planned again from wherever the car has got to.
+    /// </summary>
+    public void PutBackOnRoute(int car, ReadOnlySpan<int> lanes)
+    {
+        var route = RouteOf(car);
+        var taken = RouteTaken[car];
+        var left = RouteCount[car] - taken;
+        var kept = Math.Min(left, route.Length - lanes.Length);
+        if (kept < left)
+        {
+            RouteRunsOut[car] = true;
+            RouteEndsOn[car] = NoLane;
+        }
+
+        route.Slice(taken, kept).CopyTo(route[lanes.Length..]);
+        lanes.CopyTo(route);
+        RouteTaken[car] = 0;
+        RouteCount[car] = lanes.Length + kept;
+    }
+
     /// <summary>
     /// The queue dropped, <b>and with it the turn at the end of it</b>: a leg comes back the other way
     /// because the route it is holding says to (GEN-4l), so a route given up takes that with it. The bay
@@ -649,6 +684,7 @@ internal sealed class CarFleet
         Driven[car] = false;
         Action[car] = CarAction.Stand;
         Broken[car] = false;
+        Level[car] = 0;
         Ambulance[car] = false;
         BlueLight[car] = false;
         AtWork[car] = false;

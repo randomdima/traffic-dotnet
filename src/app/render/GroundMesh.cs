@@ -24,12 +24,47 @@ internal enum Surface : uint
 }
 
 /// <summary>
-/// One corner of the ground. The texture coordinate is computed here, at load, from the world
-/// position alone — which is what anchors every surface's texture to the world origin rather than to
-/// the shape being painted, and what makes the triangulation invisible (TER-7's drawn half).
+/// One corner of the ground: where it stands, and its shade and surface in one word (<see cref="Pack"/>). The
+/// texture coordinate is not carried: the vertex stage reads it off the world position and the surface's period
+/// (<see cref="CameraView.SurfacePeriodsM"/>), which is what anchors every surface's texture to the world origin
+/// rather than to the shape being painted, and what makes the triangulation invisible (TER-7's drawn half).
 /// </summary>
+/// <remarks>
+/// <b>Twelve bytes and not thirty-two</b>, because a traced city's ground is four million corners: a coordinate
+/// that is a division and three floats of a shade that is one of a few are most of the mesh, on the device and off it.
+/// </remarks>
 [StructLayout(LayoutKind.Sequential)]
-internal readonly record struct GroundVertex(Vector2 PositionM, Vector2 Uv, Vector3 Tint, Surface Surface);
+internal readonly record struct GroundVertex(Vector2 PositionM, uint Shade)
+{
+    /// <summary>What a shade's every channel is filed against, a little over the brightest the ground wears (<see cref="GroundMesh.Paint"/>).</summary>
+    /// <remarks>Said again in both vertex stages, which unpack it (<c>ground.vert</c>, <c>town.wgsl</c>).</remarks>
+    public const float BrightestTint = 3f;
+
+    /// <summary>The steps a channel is filed in: nine bits each, three channels and the surface's five in a word.</summary>
+    const uint ChannelSteps = (1u << 9) - 1;
+
+    /// <summary>Where the surface stands in the word, and what <see cref="Surface.Paint"/> is filed as there.</summary>
+    const int SurfaceShift = 27;
+
+    const uint PaintFiled = 31;
+
+    public GroundVertex(Vector2 positionM, Vector3 tint, Surface surface) : this(positionM, Pack(tint, surface))
+    {
+    }
+
+    public Vector3 Tint => new(Channel(Shade), Channel(Shade >> 9), Channel(Shade >> 18));
+
+    public Surface Surface => (Shade >> SurfaceShift) == PaintFiled ? Surface.Paint : (Surface)(Shade >> SurfaceShift);
+
+    /// <summary>A shade and a surface as one word: each channel to the nearest of its steps up to <see cref="BrightestTint"/>.</summary>
+    public static uint Pack(Vector3 tint, Surface surface) =>
+        Filed(tint.X) | (Filed(tint.Y) << 9) | (Filed(tint.Z) << 18)
+        | ((surface == Surface.Paint ? PaintFiled : (uint)surface) << SurfaceShift);
+
+    static uint Filed(float channel) => (uint)MathF.Round(Math.Clamp(channel / BrightestTint, 0f, 1f) * ChannelSteps);
+
+    static float Channel(uint word) => (word & ChannelSteps) * BrightestTint / ChannelSteps;
+}
 
 /// <summary>
 /// The town's standing ground, triangulated once at load from the plan's <b>shapes</b> — the driven
@@ -45,7 +80,8 @@ internal readonly record struct GroundVertex(Vector2 PositionM, Vector2 Uv, Vect
 /// A block is a hole in both layers, read off its ring's own winding, and takes no pass of its own. <b>The two layers are one boundary read at two distances</b> (<see cref="GroundRings"/>,
 /// TER-3c.3) — the carriageway inside it and the walk out to the pavement's outer face — so the inner
 /// encloses nothing the outer does not and each is simply laid over the one before it. There is no depth
-/// buffer and nothing to sort: one indexed draw in one pass.
+/// buffer and nothing to sort: two indexed draws, <b>the second the level above</b> (<see cref="GroundPart.Above"/>)
+/// — the bridges over roads, drawn after the bodies on the ground and before the bodies on them.
 /// </para>
 /// <para>
 /// <b>It is <c>GroundShapes.At</c>'s order, forwards</b> (TER-7), and the two read the same rings: the answer
@@ -193,7 +229,7 @@ internal sealed partial class GroundMesh
     /// shape laid at a size and the same shape laid a line's width inside it do not each carry their own
     /// copy of the stations they agree on. It is laying scratch and is dropped once the ground is laid.
     /// </summary>
-    Dictionary<(int X, int Y, Surface Surface, int R, int G, int B), int> _welds = [];
+    Dictionary<(int X, int Y, uint Shade), int> _welds = [];
 
     /// <summary>
     /// Whether a corner asked for is shared with whatever already stands at it. <b>The ground is welded and
@@ -207,11 +243,20 @@ internal sealed partial class GroundMesh
 
     public ReadOnlySpan<GroundVertex> Vertices => CollectionsMarshal.AsSpan(_vertices);
 
+    /// <summary>
+    /// The period each surface's texture repeats over, grass, tarmac, pavement and deck, in metres from the figures
+    /// config carries — what the vertex stage divides a corner's place by (<see cref="CameraView.SurfacePeriodsM"/>).
+    /// </summary>
+    public Vector4 SurfacePeriodsM { get; private init; } = Vector4.One;
+
+    /// <summary>And the water's, the fifth surface, alone in its first place.</summary>
+    public Vector4 WaterPeriodM { get; private init; } = Vector4.One;
+
     public ReadOnlySpan<uint> Indices => CollectionsMarshal.AsSpan(_indices);
 
     /// <summary>
-    /// Where the marks start, as an index into <see cref="Vertices"/>: everything from here on is a
-    /// dash, a bar, a zebra's stripe or a bay stroke, four corners at a time.
+    /// Where the marks start, as an index into <see cref="Vertices"/>: everything from here to
+    /// <see cref="FirstArrowVertex"/> is a dash, a bar, a zebra's stripe or a bay stroke, four corners at a time.
     /// </summary>
     /// <remarks>
     /// <b>The kerb line is not among them</b>, though it is laid as quads of its own (<see cref="Stroke"/>)
@@ -223,7 +268,8 @@ internal sealed partial class GroundMesh
 
     /// <summary>
     /// And where the arrows start (TER-6a), which is where the mesh stops being four corners a mark: a
-    /// glyph is a ribbon and a head, so a reader walking marks in fours reads between these two.
+    /// glyph is a ribbon and a head, so a reader walking marks in fours reads between these two. The ground's
+    /// arrows end where the level above begins (<see cref="GroundPart.Above"/>).
     /// </summary>
     /// <remarks>
     /// <b>They are laid last of the paint for this reason alone.</b> A mark asked about by its four corners
@@ -269,6 +315,18 @@ internal sealed partial class GroundMesh
     public double MergeMs { get; private set; }
 
     /// <summary>
+    /// And what reading the layers' lines off their rings cost — each walked finely for its kerb and thinned for its
+    /// fill (<see cref="Line"/>, <see cref="Filled"/>) — which is laid before any part and belongs to none.
+    /// </summary>
+    public double LinesMs { get; private set; }
+
+    /// <summary>
+    /// And what placing the paint cost before a mark was laid — the kerb ends read off the boundary, the bands
+    /// across them and the bars behind those — which belongs to no part either.
+    /// </summary>
+    public double EndsMs { get; private set; }
+
+    /// <summary>
     /// No ground at all: one degenerate triangle, which is what the start menu is drawn over.
     /// </summary>
     /// <remarks>
@@ -283,7 +341,7 @@ internal sealed partial class GroundMesh
         var grass = mesh.Starting();
         for (var corner = 0; corner < 3; corner++)
         {
-            mesh._vertices.Add(new GroundVertex(Vector2.Zero, Vector2.Zero, Vector3.Zero, Surface.Grass));
+            mesh._vertices.Add(new GroundVertex(Vector2.Zero, Vector3.Zero, Surface.Grass));
             mesh._indices.Add((uint)corner);
         }
 
@@ -295,15 +353,19 @@ internal sealed partial class GroundMesh
 
     public static GroundMesh Build(CityPlan plan, SimConfig config)
     {
-        var mesh = new GroundMesh();
+        var mesh = new GroundMesh
+        {
+            SurfacePeriodsM = new Vector4(
+                config.View.GroundPeriodGrassM, config.View.GroundPeriodTarmacM, config.View.GroundPeriodPavementM,
+                config.View.GroundPeriodDeckM),
+            WaterPeriodM = new Vector4(config.View.GroundPeriodWaterM, 0f, 0f, 0f),
+        };
         var startedAt = Stopwatch.GetTimestamp();
-        var periods = Periods(config);
 
         // <b>The pavement is a step and not a shape this pass works out for itself</b> (TER-3c): the walk
         // and the lines a car is driven on are the town's own (<see cref="Paving"/>). Derived again here,
         // the picture and the answer are two readings that have to be kept in step by whoever remembers.
         var paving = plan.Paving(config);
-        var edgeM = config.Road.EdgeLineWidthM;
 
         // <b>One kerb's width and two kerbs struck at it</b>: where the carriageway hands over to the walk,
         // and where the walk hands over to the grass (TER-3c.3). It is the width the kerbstone is and not a
@@ -311,7 +373,7 @@ internal sealed partial class GroundMesh
         var kerbM = config.Road.KerbWidthM;
 
         var grass = mesh.Starting();
-        mesh.Rect(Vector2.Zero, plan.WorldSizeM, Surface.Grass, Plain, periods);
+        mesh.Rect(Vector2.Zero, plan.WorldSizeM, Surface.Grass, Plain);
         mesh.Laid(GroundPart.Grass, grass);
 
         // <b>The merge apart from the layers struck off it</b>: the two are one ask (<c>Paving.Rings</c>)
@@ -332,10 +394,16 @@ internal sealed partial class GroundMesh
         // what may be got wrong under it.
         // <b>Thinned from the line and not read again from the arcs</b>, so how far the two part is that one
         // budget rather than the sum of what each strays.
-        var walkLine = Line(rings.Walk.Rings);
-        var carriagewayLine = Line(rings.Carriageway.Rings);
+        // <b>Cut to the map before either is read</b> (GEN-2b): a road running off it carries its ground on past the
+        // edge (<see cref="LaneShell"/>), and what the map keeps is that ground cut there, with no kerb struck along
+        // the cut.
+        var linesFrom = Stopwatch.GetTimestamp();
+        var worldM = plan.WorldSizeM;
+        var walkLine = MapCut.Rings(Line(rings.Walk.Rings), worldM);
+        var carriagewayLine = MapCut.Rings(Line(rings.Carriageway.Rings), worldM);
         var walkFill = Filled(walkLine, kerbM);
         var carriagewayFill = Filled(carriagewayLine, kerbM);
+        mesh.LinesMs = Stopwatch.GetElapsedTime(linesFrom).TotalMilliseconds;
 
         // <b>The pavement and the kerb along its outer face, under the water and the decks</b> (TER-7b): a
         // walk that reaches a shore is ground the water then covers, so what lies outside the carriageway is
@@ -348,15 +416,11 @@ internal sealed partial class GroundMesh
         // the concrete it bounds, darkened</b> (<see cref="Stone"/>): the same surface as the walk, told
         // from it by the light on the stone alone.
         var walk = mesh.Starting();
-        mesh.Shell(walkFill, Surface.Pavement, Plain, periods);
+        mesh.Shell(walkFill, Surface.Pavement, Plain);
         mesh.Laid(GroundPart.Walk, walk);
 
         var walkKerb = mesh.Starting();
-        foreach (var ring in walkLine)
-        {
-            mesh.Stroke(ring, kerbM, closed: true, Surface.Pavement, Stone, periods);
-        }
-
+        mesh.Stroke(walkLine, OnTheEdge, kerbM, Surface.Pavement, Stone);
         mesh.Laid(GroundPart.WalkKerb, walkKerb);
 
         // The water and the shore it is set in, largest ring first (GEN-2c). Each fill leaves a line's width
@@ -366,37 +430,34 @@ internal sealed partial class GroundMesh
         // and each is drawn darker than that ground, so the edge reads as the shore's own shadow on it
         // rather than as a highlight laid over it.
         var water = mesh.Starting();
-        Water(mesh, plan.Water.Shore, Surface.Pavement, Shade(0.3f, 0.48f, 0.22f), periods);
-        Water(mesh, plan.Water.ShoreEdge, Surface.Pavement, Plain, periods);
-        Water(mesh, plan.Water.WaterEdge, Surface.Pavement, Shade(0.08f, 0.2f, 0.3f), periods);
-        Water(mesh, plan.Water.Outline, Surface.Water, Plain, periods);
+        Water(mesh, plan.Water.Shore, Surface.Pavement, Shade(0.3f, 0.48f, 0.22f));
+        Water(mesh, plan.Water.ShoreEdge, Surface.Pavement, Plain);
+        Water(mesh, plan.Water.WaterEdge, Surface.Pavement, Shade(0.08f, 0.2f, 0.3f));
+        Water(mesh, plan.Water.Outline, Surface.Water, Plain);
         mesh.Laid(GroundPart.Water, water);
+
+        // <b>The buildings a survey maps</b> (GEN-57), over the walk that runs up to them and the water a pier stands
+        // in, and under the carriageway, so a road through a courtyard arch shows through the building over it.
+        var buildings = mesh.Starting();
+        mesh.Footprints(plan.Footprints);
+        mesh.Laid(GroundPart.Buildings, buildings);
 
         // A deck is drawn out to its own half-width, with a rim rather than a stroke: the piece at full size
         // in the edge shade, then a line's width smaller in its own. A ribbon about a road's line has no
         // shell of its own to strike a kerb along, which is the one place a rim is what is left.
         // <b>And nothing but the deck</b> — the pavement that used to be carried across one at the width it
         // has on land was the last line beside a road struck by arithmetic of its own (TER-3c.3), so it is
-        // gone and the margin outside the carriageway is deck all the way out.
+        // gone and the margin outside the carriageway is deck all the way out. <b>The ground's decks only</b>:
+        // a bridge over other roads is drawn over them (<see cref="Above"/>).
         var decks = mesh.Starting();
-        for (var bridge = 0; bridge < plan.Bridges.Count; bridge++)
-        {
-            var road = plan.Bridges.Road[bridge];
-            if (road < 0) continue;
-
-            var span = plan.Roads.SegmentsOf(road);
-            var deckM = plan.Bridges.DeckWidthM[bridge];
-            mesh.Stroke(span, deckM, closed: false, Surface.Deck, Edge, periods);
-            mesh.Stroke(span, deckM - (edgeM * 2f), closed: false, Surface.Deck, Plain, periods);
-        }
-
+        mesh.Decks(plan, paving.Lanes, CityPlan.RoadArrays.Ground, config);
         mesh.Laid(GroundPart.Decks, decks);
 
         // <b>The carriageway at its own size</b> (TER-7b): the boundary filled as the shape it is, over the
         // walk that reaches under it, and struck after the decks because a bridge carries its carriageway
         // over its own surface and not over the land's.
         var carriageway = mesh.Starting();
-        mesh.Shell(carriagewayFill, Surface.Tarmac, Plain, periods);
+        mesh.Shell(carriagewayFill, Surface.Tarmac, Plain);
         mesh.Laid(GroundPart.Carriageway, carriageway);
 
         // <b>Between the stroke and the carriageway, the tarmac that is not a road</b>: a slab. It is where
@@ -404,7 +465,7 @@ internal sealed partial class GroundMesh
         var slabs = mesh.Starting();
         for (var slab = 0; slab < plan.PavedAreas.Count; slab++)
         {
-            mesh.Rect(plan.PavedAreas.MinM[slab], plan.PavedAreas.SizeM[slab], Surface.Tarmac, Plain, periods);
+            mesh.Rect(plan.PavedAreas.MinM[slab], plan.PavedAreas.SizeM[slab], Surface.Tarmac, Plain);
         }
 
         mesh.Laid(GroundPart.Slabs, slabs);
@@ -416,18 +477,15 @@ internal sealed partial class GroundMesh
         // <b>Drawn as the road's own edge line</b> (<see cref="Paint"/>): the carriageway's grain through the
         // shade every other white line in the town is laid in, and not the pavement's.
         var kerb = mesh.Starting();
-        foreach (var ring in carriagewayLine)
-        {
-            mesh.Stroke(ring, kerbM, closed: true, Surface.Tarmac, Paint, periods);
-        }
-
+        mesh.Stroke(carriagewayLine, OnTheEdge, kerbM, Surface.Tarmac, Paint);
         mesh.Laid(GroundPart.Kerb, kerb);
 
         // <b>Then the paint, which is the one layer above the ground rather than in it</b> (TER-7b): a mark
         // sits on the surface it belongs to, and marks are not welded — a dash is read back out of the mesh
         // as the four corners it was laid as (<see cref="FirstMarkVertex"/>).
         // <b>And the whole of it is what the lanes and the roads say</b>: the lines between two ribbons, the
-        // zebra at the end of every arm a junction forks at, and the bar behind each of them.
+        // zebra at the end of every arm a junction forks at — or where the town says its zebras are
+        // (CityPlan.ZebraAtEveryStation) — and the bar behind each station.
         mesh.FirstMarkVertex = mesh._vertices.Count;
         mesh._welding = false;
         mesh._welds = [];
@@ -439,6 +497,7 @@ internal sealed partial class GroundMesh
         // in the middle while still being held at both of its ends, so the zebra is laid off where the walk
         // crosses and the bar — with the dashes that stop short of it — off what each arm holds behind,
         // which there is the end of the road's own kerb (WLK-10a).
+        var endsFrom = Stopwatch.GetTimestamp();
         var ends = paving.RoadEnds(config);
         var crossed = Crossings.Lay(plan, config, ends.CrossedM);
         var held = Crossings.Lay(plan, config, ends.HeldM);
@@ -447,16 +506,29 @@ internal sealed partial class GroundMesh
         // that say what they are holding for (TER-6a). Laid again for the arrows, the two would be free to
         // disagree about where the bar stands.
         var bars = StopBars.Lay(paving.Lanes, held, config);
+        var arrows = LaneArrows.Lay(paving.Lanes, bars, config);
+        var runs = CentrelineRuns.Lay(plan, config);
+        var surveyed = Crossings.Of(plan);
+        mesh.EndsMs = Stopwatch.GetElapsedTime(endsFrom).TotalMilliseconds;
 
+        // <b>Each level's paint with its own carriageway</b> (TER-7b): what is painted on a bridge over a road is
+        // laid with the bridge, over the bodies on the ground, and what is painted on the road under it is not.
+        const byte ground = CityPlan.RoadArrays.Ground;
         var marks = mesh.Starting();
-        mesh.LaneDashes(plan, config, held, Paint, periods);
-        mesh.BayStrokes(plan, config, Paint, periods);
-        mesh.Zebras(crossed, config, Paint, periods);
-        mesh.Bars(bars, Paint, periods);
+        mesh.LaneDashes(runs, plan, config, held, Paint, ground);
+        mesh.RoadsideLines(plan, config, held, Paint, ground);
+        mesh.BayStrokes(plan, config, Paint);
+        mesh.Zebras(crossed, plan, config, Paint, ground);
+        mesh.Zebras(surveyed, plan, config, Paint, ground);
+        mesh.Bars(bars, paving.Lanes, Paint, ground);
 
         mesh.FirstArrowVertex = mesh._vertices.Count;
-        mesh.Arrows(paving.Lanes, bars, config, Paint, periods);
+        mesh.Arrows(paving.Lanes, arrows, config, Paint, ground);
         mesh.Laid(GroundPart.Paint, marks);
+
+        var above = mesh.Starting();
+        mesh.Above(plan, paving, config, held, bars, arrows, runs, surveyed);
+        mesh.Laid(GroundPart.Above, above);
 
         // Grown by doubling and kept for the whole run, the two lists would keep up to as much again as they hold.
         mesh._vertices.TrimExcess();
@@ -464,6 +536,8 @@ internal sealed partial class GroundMesh
 
         mesh.LaidMs = Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
         return mesh;
+
+        bool OnTheEdge(Vector2 fromM, Vector2 toM) => MapCut.AlongTheEdge(fromM, toM, worldM);
     }
 
 
@@ -481,25 +555,15 @@ internal sealed partial class GroundMesh
 
     /// <summary>Every ring of one of the water's own sets, laid as the one shape it is.</summary>
     static void Water(
-        GroundMesh mesh, CityPlan.RingArrays rings, Surface surface, Vector3 tint, float[] periods)
+        GroundMesh mesh, CityPlan.RingArrays rings, Surface surface, Vector3 tint)
     {
-        for (var ring = 0; ring < rings.Count; ring++) mesh.Polygon(rings.RingOf(ring), surface, tint, periods);
+        for (var ring = 0; ring < rings.Count; ring++) mesh.Polygon(rings.RingOf(ring), surface, tint);
     }
 
-    /// <summary>The period each surface's texture repeats over, in metres, from the figures config carries.</summary>
-    public static float[] Periods(SimConfig config) =>
-    [
-        config.View.GroundPeriodGrassM,
-        config.View.GroundPeriodTarmacM,
-        config.View.GroundPeriodPavementM,
-        config.View.GroundPeriodDeckM,
-        config.View.GroundPeriodWaterM,
-    ];
 
     /// <summary>
-    /// A multiplier and not a colour, which is why it is three floats and not four bytes: paint is
-    /// the surface <em>brighter</em>, so the factor is above one and an eight-bit tint could only
-    /// have clamped it back to the ground it was meant to stand out from.
+    /// A multiplier and not a colour: paint is the surface <em>brighter</em>, so the factor is above one, which is
+    /// why a corner files it against <see cref="GroundVertex.BrightestTint"/> and not against one.
     /// </summary>
     static Vector3 Shade(float r, float g, float b) => new(r, g, b);
 }

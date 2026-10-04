@@ -1,0 +1,21 @@
+{
+  "id": "apartments_deep_18",
+  "sprite": "apartments_deep_18.webp",
+  "footprintM": [
+    16.0,
+    20.0
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "apartments",
+  "tags": [
+    "apartments",
+    "3-5 storeys",
+    "hipped roof",
+    "dark bitumen",
+    "courtyard block",
+    "old town",
+    "narrow front"
+  ],
+  "describe": "deep old-town apartment block, hipped roof of dark bitumen round a light well, dormers and chimney stacks, standing narrow end to the street with the entrance on that short front wall"
+}

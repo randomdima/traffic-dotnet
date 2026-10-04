@@ -51,5 +51,7 @@ internal sealed partial class TownWorld
         public bool TakeTheRoad(int car) => town.TakeTheRoad(car);
 
         public bool Reacquire(int car, Vector2 rearAxleM) => town.Reacquire(car, rearAxleM);
+
+        public void TakeTheLaneBeside(int car, int lane, float heldAheadM) => town.TakeTheLaneBeside(car, lane, heldAheadM);
     }
 }

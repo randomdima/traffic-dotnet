@@ -1,0 +1,20 @@
+{
+  "id": "house_37",
+  "sprite": "house_37.webp",
+  "footprintM": [
+    16.0,
+    7.0
+  ],
+  "cornerRadiusM": 0.4,
+  "partsM": [],
+  "look": "house",
+  "tags": [
+    "house",
+    "1-2 storeys",
+    "gabled roof",
+    "red clay tiles",
+    "terraced",
+    "courtyard house"
+  ],
+  "describe": "long low courtyard house of the old suburbs, one ridge along its length, roof of red clay tiles, several chimneys spaced along the ridge"
+}

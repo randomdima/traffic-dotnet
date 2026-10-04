@@ -69,7 +69,7 @@ internal static class MapCatalogue
         // A city is described by the brief or the survey it is laid from: what a town is meant to be is
         // authored beside what it is laid from, and a second description here would be the one that goes stale.
         if (Maps.IsGenerated(name)) return new MapEntry(name, MapKind.Place, Maps.Brief(name).Description);
-        if (Maps.IsTraced(name)) return new MapEntry(name, MapKind.Place, Maps.Extract(name).Description);
+        if (Maps.IsTraced(name)) return new MapEntry(name, MapKind.Place, Maps.SurveyDescription(name));
 
         return new MapEntry(name, MapKind.Scenario, "Shipped but undescribed: add it to MapCatalogue");
     }

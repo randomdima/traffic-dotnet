@@ -1,0 +1,18 @@
+{
+  "id": "garages_02",
+  "footprintM": [
+    4.5,
+    3.0
+  ],
+  "cornerRadiusM": 0.3,
+  "partsM": [],
+  "look": "garages",
+  "tags": [
+    "garages",
+    "1 storey",
+    "flat roof",
+    "rusty corrugated metal",
+    "lock-up"
+  ],
+  "describe": "single lock-up garage, flat roof of rusty corrugated metal with a slight fall to the back"
+}

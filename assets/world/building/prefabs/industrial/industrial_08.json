@@ -1,0 +1,18 @@
+{
+  "id": "industrial_08",
+  "footprintM": [
+    7.5,
+    6.5
+  ],
+  "cornerRadiusM": 0.8,
+  "partsM": [],
+  "look": "industrial",
+  "tags": [
+    "industrial",
+    "1 storey",
+    "pitched roof",
+    "grey corrugated slate",
+    "workshop"
+  ],
+  "describe": "small workshop or depot shed, shallow pitched roof of grey corrugated slate"
+}

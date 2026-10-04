@@ -1,0 +1,21 @@
+{
+  "id": "apartments_rounded_02",
+  "sprite": "apartments_rounded_02.webp",
+  "footprintM": [
+    14.5,
+    9.0
+  ],
+  "cornerRadiusM": 2.25,
+  "partsM": [],
+  "look": "apartments",
+  "tags": [
+    "apartments",
+    "2-4 storeys",
+    "pitched roof",
+    "weathered terracotta tiles",
+    "old town",
+    "19th century",
+    "rounded corners"
+  ],
+  "describe": "19th-century Odesa tenement house, pitched roof of weathered terracotta tiles with brick chimney stacks and roof hatches, a parapet along the street front, its corners rounded in wide curves"
+}

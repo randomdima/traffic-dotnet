@@ -58,11 +58,11 @@ internal static class LaneTour
     }
 
     /// <summary>
-    /// Whether a lane may be toured onto: a lane of the carriageway, never a bay (GEN-4h), and one no
+    /// Whether a lane may be toured onto: a lane of the carriageway, never a bay (GEN-4h) or a roadside, and one no
     /// closure holds.
     /// </summary>
     static bool IsOpen(RoadGraph graph, int lane, ReadOnlySpan<bool> closed) =>
-        !graph.IsABayArm(lane) && (closed.IsEmpty || !closed[lane]);
+        graph.IsAStreetLane(lane) && (closed.IsEmpty || !closed[lane]);
 
     /// <summary>The <paramref name="nth"/> of the movements onto a lane <see cref="IsOpen"/> lets a tour onto.</summary>
     static int TheOpenDrawn(RoadGraph graph, ConnectorRun connectors, ReadOnlySpan<bool> closed, int nth)

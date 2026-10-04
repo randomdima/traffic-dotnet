@@ -27,6 +27,7 @@ internal static class DrivingWords
             CarAction.Stand => cars.Driven[car] ? "no line" : "parked",
             CarAction.Rejoin => HoldName(DrivingHold.LostLine),
             CarAction.Overtake => cars.Pass[car].Begun ? "overtaking" : "waiting to overtake",
+            CarAction.Switch => cars.Pass[car].Begun ? "changing lanes" : "looking to change lanes",
 
             // Neither past what stands in front of it nor back for the room to, which the traffic behind reads as a
             // body going nowhere (CAR-50).

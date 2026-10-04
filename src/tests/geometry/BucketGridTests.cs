@@ -121,6 +121,11 @@ public class BucketGridTests
         Assert.Equal(0, grid.Query(new Vector2(240f, 160f), 100f, stackalloc int[8]));
     }
 
+    /// <summary><b>A grid built for no items covers no more of the town than the cell at its origin.</b></summary>
+    [Fact]
+    public void AGridForNoItemsCoversOneCell() =>
+        Assert.Equal(1, BucketGrid.Build(Level(16f), new Vector2(480f, 320f), [], []).Window.Count);
+
     /// <summary>
     /// A rebuild is what the proximity index does every tick, and the brief says nothing in it may
     /// survive one. Refilling the same arrays is how that is done without allocating.

@@ -1,0 +1,20 @@
+{
+  "id": "tower_09",
+  "sprite": "tower_09.webp",
+  "footprintM": [
+    32.0,
+    14.5
+  ],
+  "cornerRadiusM": 0.8,
+  "partsM": [],
+  "look": "tower",
+  "tags": [
+    "tower",
+    "9-12 storeys",
+    "flat roof",
+    "light gravel ballast",
+    "soviet",
+    "panel block"
+  ],
+  "describe": "tall Soviet panel tower block, flat roof of light gravel ballast, 1 lift machine rooms as raised boxes, ventilation shafts and a low parapet round the edge"
+}

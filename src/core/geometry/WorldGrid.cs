@@ -127,7 +127,7 @@ internal readonly struct GridLevel
     public WorldGrid Grid => new(CellM * Across);
 
     /// <summary>The level one halving coarser — the main cell's own at the top.</summary>
-    public GridLevel Coarser => Depth == 0 ? this : new GridLevel(CellM * 2f, _perCellM * 0.5f, Depth - 1);
+    public GridLevel Coarser => Depth == 0 ? this : new GridLevel(CellM * Across, _perCellM / Across, Depth - 1);
 
     /// <summary>Which cell of this level a coordinate falls in, on either axis.</summary>
     public int CellOf(float atM) => (int)MathF.Floor(atM * _perCellM);

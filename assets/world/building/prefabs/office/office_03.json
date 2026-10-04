@@ -1,0 +1,18 @@
+{
+  "id": "office_03",
+  "footprintM": [
+    17.0,
+    12.5
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "office",
+  "tags": [
+    "office",
+    "4-8 storeys",
+    "flat roof",
+    "dark bitumen",
+    "office block"
+  ],
+  "describe": "mid-rise office or public building, flat roof of dark bitumen with rooftop plant, a lift room and a parapet"
+}

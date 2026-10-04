@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Road;
@@ -32,6 +33,9 @@ public class RibbonAtlasTests
         /// <summary>Where the walked ways begin.</summary>
         public int FirstWalked { get; init; } = int.MaxValue;
 
+        /// <summary>The level each way is on, by way; a way past the end of it is on the ground.</summary>
+        public byte[] Levels { get; init; } = [];
+
         public int WayCount => lines.Length;
 
         public ReadOnlySpan<ArcSeg> LineOf(int way, out float widthM)
@@ -43,6 +47,8 @@ public class RibbonAtlasTests
         public int ZebraOf(int way) => way < Zebras.Length ? Zebras[way] : RibbonMarks.NoZebra;
 
         public bool IsDriven(int way) => way < FirstWalked;
+
+        public byte LevelOf(int way) => way < Levels.Length ? Levels[way] : CityPlan.RoadArrays.Ground;
     }
 
     static ArcSeg[] Straight(Vector2 fromM, Vector2 toM)
@@ -52,7 +58,7 @@ public class RibbonAtlasTests
     }
 
     static RibbonAtlas Laid(params ArcSeg[][] lines) =>
-        RibbonAtlas.Lay(new Lines(lines), Config.RibbonLevel, Config.RibbonTouchM);
+        RibbonAtlas.Lay(new Lines(lines), Config.RibbonLevel, Config.RibbonTouchM, anyoneWalks: true);
 
     static RibbonAtlas Laid(params (Vector2 FromM, Vector2 ToM)[] lines) =>
         Laid([.. lines.Select(static line => Straight(line.FromM, line.ToM))]);
@@ -77,6 +83,49 @@ public class RibbonAtlasTests
             Assert.Equal((LengthM - sharedM) * 0.5f, marks[0].MineFromM, ExactM);
             Assert.Equal((LengthM + sharedM) * 0.5f, marks[0].MineToM, ExactM);
         }
+    }
+
+    /// <summary>
+    /// <b>A bridge's lane and the road under it share no ground</b> (TER-5c, PHY-1a): the same two crossing ribbons,
+    /// one of them on the level above, are marked against nothing.
+    /// </summary>
+    [Fact]
+    public void TwoWaysCrossingOnTwoLevelsAreNotMarked()
+    {
+        var lines = new Lines(
+            Straight(new Vector2(0f, 0f), new Vector2(LengthM, 0f)),
+            Straight(new Vector2(LengthM * 0.5f, -LengthM * 0.5f), new Vector2(LengthM * 0.5f, LengthM * 0.5f)))
+        {
+            Levels = [CityPlan.RoadArrays.Over, CityPlan.RoadArrays.Ground],
+        };
+        var atlas = RibbonAtlas.Lay(lines, Config.RibbonLevel, Config.RibbonTouchM, anyoneWalks: true);
+
+        Assert.Empty(atlas.Marks.Of(0).ToArray());
+        Assert.Empty(atlas.Marks.Of(1).ToArray());
+    }
+
+    /// <summary>
+    /// <b>A body is read onto the ways of its own level alone</b> (TER-4c.2, PHY-1a): a box where a bridge's lane
+    /// crosses the road under it is on the bridge's lane read on the level above, and on the road's read on the ground.
+    /// </summary>
+    [Fact]
+    public void ABoxWhereTwoLevelsCrossIsOnItsOwnLevelsWayAlone()
+    {
+        var lines = new Lines(
+            Straight(new Vector2(0f, 0f), new Vector2(LengthM, 0f)),
+            Straight(new Vector2(LengthM * 0.5f, -LengthM * 0.5f), new Vector2(LengthM * 0.5f, LengthM * 0.5f)))
+        {
+            Levels = [CityPlan.RoadArrays.Over, CityPlan.RoadArrays.Ground],
+        };
+        var atlas = RibbonAtlas.Lay(lines, Config.RibbonLevel, Config.RibbonTouchM, anyoneWalks: true);
+        Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
+        var centreM = new Vector2(LengthM * 0.5f, 0f);
+
+        var over = atlas.UnderBox(centreM, Vector2.UnitX, 2f, 1f, under, CityPlan.RoadArrays.Over);
+        Assert.Equal([0], under[..over].ToArray().Select(cover => cover.Way));
+
+        var ground = atlas.UnderBox(centreM, Vector2.UnitX, 2f, 1f, under, CityPlan.RoadArrays.Ground);
+        Assert.Equal([1], under[..ground].ToArray().Select(cover => cover.Way));
     }
 
     /// <summary>
@@ -138,6 +187,44 @@ public class RibbonAtlasTests
     }
 
     /// <summary>
+    /// A road, a zebra's walking lane across it, and a walk beside the road crossing the zebra's lane — the walk and
+    /// the paint both walked.
+    /// </summary>
+    static Lines RoadZebraAndWalk() =>
+        new(
+            Straight(new Vector2(0f, 0f), new Vector2(LengthM, 0f)),
+            Straight(new Vector2(LengthM * 0.5f, -WidthM), new Vector2(LengthM * 0.5f, WidthM * 4f)),
+            Straight(new Vector2(0f, WidthM * 3f), new Vector2(LengthM, WidthM * 3f)))
+        {
+            Zebras = [RibbonMarks.NoZebra, 0, RibbonMarks.NoZebra], FirstWalked = 1,
+        };
+
+    /// <summary>
+    /// <b>Where nobody walks, a walk is filed only where the traffic crosses it</b> (TER-4c.4): a disc on the walk beside
+    /// the road is over nothing, and one on the zebra's paint is over the paint.
+    /// </summary>
+    [Fact]
+    public void WhereNobodyWalksAWalkIsFiledOnlyOnTheTrafficsPaint()
+    {
+        var atlas = RibbonAtlas.Lay(RoadZebraAndWalk(), Config.RibbonLevel, Config.RibbonTouchM, anyoneWalks: false);
+        Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
+
+        Assert.Equal(0, atlas.UnderDisc(new Vector2(LengthM * 0.25f, WidthM * 3f), 0.5f, under));
+        var onThePaint = atlas.UnderDisc(new Vector2(LengthM * 0.5f, WidthM * 1.5f), 0.5f, under);
+        Assert.Equal([1], under[..onThePaint].ToArray().Select(cover => cover.Way));
+    }
+
+    /// <summary><b>The marks hold a walk nobody walks</b> (TER-5c): they are worked out from the ribbons, not the lattice.</summary>
+    [Fact]
+    public void WhereNobodyWalksTheWalksAreMarkedAllTheSame()
+    {
+        var walked = RibbonAtlas.Lay(RoadZebraAndWalk(), Config.RibbonLevel, Config.RibbonTouchM, anyoneWalks: true);
+        var nobody = RibbonAtlas.Lay(RoadZebraAndWalk(), Config.RibbonLevel, Config.RibbonTouchM, anyoneWalks: false);
+
+        for (var way = 0; way < 3; way++) Assert.Equal(walked.Marks.Of(way).ToArray(), nobody.Marks.Of(way).ToArray());
+    }
+
+    /// <summary>
     /// <b>A zebra is marked whole</b> (TER-5c.3): each of its two walking lanes, a band apart, against both
     /// lanes of the carriageway — all of the walking lane against the whole of what the zebra covers of each
     /// lane, from the near edge of the one to the far edge of the other.
@@ -154,7 +241,7 @@ public class RibbonAtlasTests
         {
             Zebras = [RibbonMarks.NoZebra, RibbonMarks.NoZebra, 0, 0], FirstWalked = 2,
         };
-        var marks = RibbonAtlas.Lay(lines, Config.RibbonLevel, Config.RibbonTouchM).Marks;
+        var marks = RibbonAtlas.Lay(lines, Config.RibbonLevel, Config.RibbonTouchM, anyoneWalks: true).Marks;
 
         var paintM = WidthM * 3f;
         var nearM = AtM - (WidthM * 0.5f) + Config.RibbonTouchM;

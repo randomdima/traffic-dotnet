@@ -13,6 +13,9 @@ struct Camera {
     uiPx: vec2f,
     // How far the town is turned on screen, as its cosine and its sine (OBS-1c). Upright is (1, 0).
     facing: vec2f,
+    // The period each surface's texture repeats over: grass, tarmac, pavement and deck, then the water.
+    surfacePeriodsM: vec4f,
+    waterPeriodM: vec4f,
 };
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -24,7 +27,7 @@ struct Place {
 };
 
 struct Sheets {
-    place: array<Place, 192>,
+    place: array<Place, 512>,
 };
 
 @group(0) @binding(1) var<uniform> sheets: Sheets;
@@ -67,18 +70,33 @@ struct GroundOut {
     @location(2) @interpolate(flat) surface: u32,
 };
 
+// How a shade is filed, said again from GroundVertex: three channels of nine bits up to the brightest
+// tint, and the surface in the five above them, paint filed as the last of those.
+const BRIGHTEST_TINT: f32 = 3.0;
+const CHANNEL_STEPS: u32 = 511u;
+const PAINT_FILED: u32 = 31u;
+
+/// A corner carries its place and one word of shade and surface; its texture coordinate is its place over
+/// its surface's period, which anchors every surface to the world origin.
 @vertex
 fn groundVertex(
     @location(0) positionM: vec2f,
-    @location(1) uv: vec2f,
-    @location(2) tint: vec3f,
-    @location(3) surface: u32,
+    @location(1) shade: u32,
 ) -> GroundOut {
     var result: GroundOut;
     result.position = toClip(positionM);
-    result.uv = uv;
-    result.tint = tint;
-    result.surface = surface;
+
+    let filed = shade >> 27u;
+    var period = 1.0;
+    if (filed < 4u) {
+        period = camera.surfacePeriodsM[filed];
+    } else if (filed == 4u) {
+        period = camera.waterPeriodM.x;
+    }
+
+    result.uv = positionM / period;
+    result.tint = vec3f(vec3u(shade, shade >> 9u, shade >> 18u) & vec3u(CHANNEL_STEPS)) * (BRIGHTEST_TINT / f32(CHANNEL_STEPS));
+    result.surface = select(filed, PAINT, filed == PAINT_FILED);
     return result;
 }
 

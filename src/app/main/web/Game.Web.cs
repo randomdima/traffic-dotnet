@@ -27,8 +27,8 @@ internal sealed partial class Game
     /// page open on one file instead of six, since a picture in a page is a fetch and a picture on the
     /// desktop is already on the disk.
     /// </summary>
-    private partial TownRenderer NewRenderer(GroundMesh mesh, int spriteCapacity) => TownRenderer.OnScreen(
-        mesh, _sheets.Count == 0 ? [] : ProjectPaths.GroundSurfaceFiles(), _sheets, spriteCapacity);
+    private partial TownRenderer NewRenderer(GroundMesh mesh, int spriteCapacity, int aboveCapacity) => TownRenderer.OnScreen(
+        mesh, _sheets.Count == 0 ? [] : ProjectPaths.GroundSurfaceFiles(), _sheets, spriteCapacity, aboveCapacity);
 
     private partial long Crossings() => WebGpu.Crossings;
 

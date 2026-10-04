@@ -334,7 +334,7 @@ internal sealed class ParkingRegistry
     {
         var arms = plan.CarParks.Road;
         var registry = new ParkingRegistry(
-            streets, new BucketGrid(config.Grid.Main, plan.WorldSizeM), arms.Length, cars,
+            streets, BucketGrid.Over(config.Grid.Main, plan.WorldSizeM, arms.Length), arms.Length, cars,
             config.CarParkBayLengthM, config.ParkingSpaceWidthM);
 
         for (var bay = 0; bay < arms.Length; bay++)

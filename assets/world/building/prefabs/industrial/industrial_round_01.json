@@ -1,0 +1,18 @@
+{
+  "id": "industrial_round_01",
+  "footprintM": [
+    12.0,
+    12.0
+  ],
+  "cornerRadiusM": 6.0,
+  "partsM": [],
+  "look": "industrial",
+  "tags": [
+    "industrial",
+    "round",
+    "silo",
+    "domed roof",
+    "grey steel"
+  ],
+  "describe": "circular storage tank or silo seen from above, shallow conical steel roof with a ring walkway and a hatch at the top"
+}

@@ -1,0 +1,680 @@
+{
+  "map": "OdesaOsm",
+  "survey": "towns/traced/OdesaOsm.json",
+  "surveyOsmBase": "2026-10-03T09:16:51Z",
+  "osmAsOf": "2026-10-03T09:16:51Z",
+  "written": "2026-10-03T23:48:07Z",
+  "places": "every lat, lon is in OSM's integer units of 1e-7 degrees; read into the map's metres by the survey's own frame",
+  "frame": {
+    "lat0Deg": 46.51692055,
+    "lon0Deg": 30.72082175,
+    "westM": -8685.307773746274,
+    "southM": -19709.09892383883,
+    "widthM": 17350,
+    "heightM": 39422,
+    "marginM": 60
+  },
+  "rectangleDeg": {
+    "south": 46.3365947,
+    "west": 30.6045246,
+    "north": 46.6972307,
+    "east": 30.8369853
+  },
+  "sources": [
+    {
+      "name": "osm-buildings",
+      "url": "https://overpass-api.de/api/interpreter",
+      "standsAt": "2026-10-03T09:16:51Z",
+      "licence": "© OpenStreetMap contributors, ODbL 1.0 — https://www.openstreetmap.org/copyright",
+      "kept": [
+        "odesa-meta-buildings-0-at-20261003T091651Z.json",
+        "odesa-meta-buildings-1-at-20261003T091651Z.json",
+        "odesa-meta-buildings-2-at-20261003T091651Z.json",
+        "odesa-meta-buildings-3-at-20261003T091651Z.json",
+        "odesa-meta-buildings-4-at-20261003T091651Z.json",
+        "odesa-meta-buildings-5-at-20261003T091651Z.json",
+        "odesa-meta-buildings-6-at-20261003T091651Z.json",
+        "odesa-meta-buildings-7-at-20261003T091651Z.json",
+        "odesa-meta-buildings-8-at-20261003T091651Z.json",
+        "odesa-meta-buildings-9-at-20261003T091651Z.json",
+        "odesa-meta-buildings-10-at-20261003T091651Z.json",
+        "odesa-meta-buildings-11-at-20261003T091651Z.json",
+        "odesa-meta-buildings-12-at-20261003T091651Z.json",
+        "odesa-meta-buildings-13-at-20261003T091651Z.json",
+        "odesa-meta-buildings-14-at-20261003T091651Z.json",
+        "odesa-meta-buildings-15-at-20261003T091651Z.json",
+        "odesa-meta-buildings-16-at-20261003T091651Z.json",
+        "odesa-meta-buildings-17-at-20261003T091651Z.json",
+        "odesa-meta-buildings-18-at-20261003T091651Z.json",
+        "odesa-meta-buildings-19-at-20261003T091651Z.json",
+        "odesa-meta-buildings-20-at-20261003T091651Z.json",
+        "odesa-meta-buildings-21-at-20261003T091651Z.json",
+        "odesa-meta-buildings-22-at-20261003T091651Z.json",
+        "odesa-meta-buildings-23-at-20261003T091651Z.json"
+      ]
+    },
+    {
+      "name": "osm-walk",
+      "url": "https://overpass-api.de/api/interpreter",
+      "standsAt": "2026-10-03T09:16:51Z",
+      "licence": "© OpenStreetMap contributors, ODbL 1.0 — https://www.openstreetmap.org/copyright",
+      "kept": [
+        "odesa-meta-walk-0-at-20261003T091651Z.json",
+        "odesa-meta-walk-1-at-20261003T091651Z.json",
+        "odesa-meta-walk-2-at-20261003T091651Z.json",
+        "odesa-meta-walk-3-at-20261003T091651Z.json",
+        "odesa-meta-walk-4-at-20261003T091651Z.json",
+        "odesa-meta-walk-5-at-20261003T091651Z.json",
+        "odesa-meta-walk-6-at-20261003T091651Z.json",
+        "odesa-meta-walk-7-at-20261003T091651Z.json"
+      ]
+    },
+    {
+      "name": "osm-zones",
+      "url": "https://overpass-api.de/api/interpreter",
+      "standsAt": "2026-10-03T09:16:51Z",
+      "licence": "© OpenStreetMap contributors, ODbL 1.0 — https://www.openstreetmap.org/copyright",
+      "kept": [
+        "odesa-meta-zones-0-at-20261003T091651Z.json",
+        "odesa-meta-zones-1-at-20261003T091651Z.json",
+        "odesa-meta-zones-2-at-20261003T091651Z.json",
+        "odesa-meta-zones-3-at-20261003T091651Z.json",
+        "odesa-meta-zones-4-at-20261003T091651Z.json",
+        "odesa-meta-zones-5-at-20261003T091651Z.json",
+        "odesa-meta-zones-6-at-20261003T091651Z.json",
+        "odesa-meta-zones-7-at-20261003T091651Z.json"
+      ]
+    },
+    {
+      "name": "osm-districts",
+      "url": "https://overpass-api.de/api/interpreter",
+      "standsAt": "2026-10-03T09:16:51Z",
+      "licence": "© OpenStreetMap contributors, ODbL 1.0 — https://www.openstreetmap.org/copyright",
+      "kept": [
+        "odesa-meta-districts-at-20261003T091651Z.json"
+      ]
+    },
+    {
+      "name": "osm-transit",
+      "url": "https://overpass-api.de/api/interpreter",
+      "standsAt": "2026-10-03T09:16:51Z",
+      "licence": "© OpenStreetMap contributors, ODbL 1.0 — https://www.openstreetmap.org/copyright",
+      "kept": [
+        "odesa-meta-transit-at-20261003T091651Z.json"
+      ]
+    },
+    {
+      "name": "osm-control",
+      "url": "https://overpass-api.de/api/interpreter",
+      "standsAt": "2026-10-03T09:16:51Z",
+      "licence": "© OpenStreetMap contributors, ODbL 1.0 — https://www.openstreetmap.org/copyright",
+      "kept": [
+        "odesa-meta-control-0-at-20261003T091651Z.json",
+        "odesa-meta-control-1-at-20261003T091651Z.json"
+      ]
+    },
+    {
+      "name": "osm-barriers",
+      "url": "https://overpass-api.de/api/interpreter",
+      "standsAt": "2026-10-03T09:16:51Z",
+      "licence": "© OpenStreetMap contributors, ODbL 1.0 — https://www.openstreetmap.org/copyright",
+      "kept": [
+        "odesa-meta-barriers-0-at-20261003T091651Z.json",
+        "odesa-meta-barriers-1-at-20261003T091651Z.json",
+        "odesa-meta-barriers-2-at-20261003T091651Z.json",
+        "odesa-meta-barriers-3-at-20261003T091651Z.json",
+        "odesa-meta-barriers-4-at-20261003T091651Z.json",
+        "odesa-meta-barriers-5-at-20261003T091651Z.json",
+        "odesa-meta-barriers-6-at-20261003T091651Z.json",
+        "odesa-meta-barriers-7-at-20261003T091651Z.json"
+      ]
+    },
+    {
+      "name": "osm-furniture",
+      "url": "https://overpass-api.de/api/interpreter",
+      "standsAt": "2026-10-03T09:16:51Z",
+      "licence": "© OpenStreetMap contributors, ODbL 1.0 — https://www.openstreetmap.org/copyright",
+      "kept": [
+        "odesa-meta-furniture-0-at-20261003T091651Z.json",
+        "odesa-meta-furniture-1-at-20261003T091651Z.json",
+        "odesa-meta-furniture-2-at-20261003T091651Z.json",
+        "odesa-meta-furniture-3-at-20261003T091651Z.json",
+        "odesa-meta-furniture-4-at-20261003T091651Z.json",
+        "odesa-meta-furniture-5-at-20261003T091651Z.json",
+        "odesa-meta-furniture-6-at-20261003T091651Z.json",
+        "odesa-meta-furniture-7-at-20261003T091651Z.json"
+      ]
+    },
+    {
+      "name": "osm-places",
+      "url": "https://overpass-api.de/api/interpreter",
+      "standsAt": "2026-10-03T09:16:51Z",
+      "licence": "© OpenStreetMap contributors, ODbL 1.0 — https://www.openstreetmap.org/copyright",
+      "kept": [
+        "odesa-meta-places-0-at-20261003T091651Z.json",
+        "odesa-meta-places-1-at-20261003T091651Z.json",
+        "odesa-meta-places-2-at-20261003T091651Z.json",
+        "odesa-meta-places-3-at-20261003T091651Z.json",
+        "odesa-meta-places-4-at-20261003T091651Z.json",
+        "odesa-meta-places-5-at-20261003T091651Z.json",
+        "odesa-meta-places-6-at-20261003T091651Z.json",
+        "odesa-meta-places-7-at-20261003T091651Z.json"
+      ]
+    },
+    {
+      "name": "osm-unbuilt",
+      "url": "https://overpass-api.de/api/interpreter",
+      "standsAt": "2026-10-03T09:16:51Z",
+      "licence": "© OpenStreetMap contributors, ODbL 1.0 — https://www.openstreetmap.org/copyright",
+      "kept": [
+        "odesa-meta-unbuilt-at-20261003T091651Z.json"
+      ]
+    },
+    {
+      "name": "osm-edits",
+      "url": "https://overpass-api.de/api/interpreter",
+      "standsAt": "2026-10-03T09:16:51Z",
+      "licence": "© OpenStreetMap contributors, ODbL 1.0 — https://www.openstreetmap.org/copyright",
+      "kept": [
+        "odesa-meta-edits-0-at-20261003T091651Z.json",
+        "odesa-meta-edits-1-at-20261003T091651Z.json"
+      ]
+    },
+    {
+      "name": "notes.json",
+      "url": "https://api.openstreetmap.org/api/0.6/notes.json?bbox=30.6045246,46.3365947,30.8369853,46.6972307&limit=10000&closed=0",
+      "standsAt": "as fetched 2026-10-03T12:33:03Z",
+      "licence": "© OpenStreetMap contributors, ODbL 1.0 — https://www.openstreetmap.org/copyright",
+      "kept": [
+        "odesa-meta-notes.json"
+      ]
+    },
+    {
+      "name": "ml-buildings-links.csv",
+      "url": "https://bfppub.blob.core.windows.net/%24web/2026-08-13/dataset-links.csv",
+      "standsAt": "as fetched 2026-10-03T12:33:06Z",
+      "licence": "Microsoft Global ML Building Footprints, ODbL 1.0 — https://github.com/microsoft/GlobalMLBuildingFootprints",
+      "kept": [
+        "odesa-meta-ml-buildings-links.csv"
+      ]
+    },
+    {
+      "name": "ml-buildings-Europe-120321213-0.csv.gz",
+      "url": "https://bfppub.z5.web.core.windows.net/2026-08-13/global-buildings.geojsonl/RegionName=Europe/quadkey=120321213/part-00062-110f5303-ff85-4c71-a2bf-c6070024fec8.c000.csv.gz",
+      "standsAt": "release 2026-08-13, traced off imagery of years before",
+      "licence": "Microsoft Global ML Building Footprints, ODbL 1.0 — https://github.com/microsoft/GlobalMLBuildingFootprints",
+      "kept": [
+        "odesa-meta-ml-buildings-Europe-120321213-0.csv.gz"
+      ]
+    },
+    {
+      "name": "ml-buildings-Ukraine-120321211-1.csv.gz",
+      "url": "https://bfppub.z5.web.core.windows.net/2026-08-13/global-buildings.geojsonl/RegionName=Ukraine/quadkey=120321211/part-00045-110f5303-ff85-4c71-a2bf-c6070024fec8.c000.csv.gz",
+      "standsAt": "release 2026-08-13, traced off imagery of years before",
+      "licence": "Microsoft Global ML Building Footprints, ODbL 1.0 — https://github.com/microsoft/GlobalMLBuildingFootprints",
+      "kept": [
+        "odesa-meta-ml-buildings-Ukraine-120321211-1.csv.gz"
+      ]
+    },
+    {
+      "name": "ml-buildings-Ukraine-120321213-2.csv.gz",
+      "url": "https://bfppub.z5.web.core.windows.net/2026-08-13/global-buildings.geojsonl/RegionName=Ukraine/quadkey=120321213/part-00040-110f5303-ff85-4c71-a2bf-c6070024fec8.c000.csv.gz",
+      "standsAt": "release 2026-08-13, traced off imagery of years before",
+      "licence": "Microsoft Global ML Building Footprints, ODbL 1.0 — https://github.com/microsoft/GlobalMLBuildingFootprints",
+      "kept": [
+        "odesa-meta-ml-buildings-Ukraine-120321213-2.csv.gz"
+      ]
+    },
+    {
+      "name": "ml-roads.geojsonl",
+      "url": "https://usaminedroads.z19.web.core.windows.net/drops/2025.04.28/Eastern_Europe.zip",
+      "standsAt": "release 2025-04-28, traced off imagery of years before",
+      "licence": "Microsoft Road Detections, ODbL 1.0 — https://github.com/microsoft/RoadDetections",
+      "kept": [
+        "odesa-meta-ml-roads.geojsonl"
+      ]
+    },
+    {
+      "name": "dem-Copernicus_DSM_COG_10_N46_00_E030_00_DEM.tif",
+      "url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N46_00_E030_00_DEM/Copernicus_DSM_COG_10_N46_00_E030_00_DEM.tif",
+      "standsAt": "radar acquired 2011–2015",
+      "licence": "Copernicus DEM (30 m) © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018, provided under COPERNICUS by the European Union and ESA; all rights reserved",
+      "kept": [
+        "odesa-meta-dem-Copernicus_DSM_COG_10_N46_00_E030_00_DEM.tif"
+      ]
+    },
+    {
+      "name": "dtm-gedtm30.tif",
+      "url": "https://s3.opengeohub.org/global/dtm/v1.2/gedtm_rf_m_30m_s_20060101_20151231_go_epsg.4326.3855_v1.2.tif",
+      "standsAt": "terrain of 2006–2015 inputs",
+      "licence": "GEDTM30 v1.2, OpenGeoHub Foundation, CC BY 4.0 — https://doi.org/10.5281/zenodo.14900180",
+      "kept": [
+        "odesa-meta-dtm-gedtm30.tif"
+      ]
+    },
+    {
+      "name": "osmose-8300.json",
+      "url": "https://osmose.openstreetmap.fr/api/0.3/issues.geojson?bbox=30.6045246,46.3365947,30.8369853,46.6972307&item=8300&limit=10000&full=true",
+      "standsAt": "analysed 2026-10-03T01:50:49Z",
+      "licence": "Osmose QA (osmose.openstreetmap.fr) over © OpenStreetMap contributors (ODbL); traffic signs detected by Mapillary (CC BY-SA 4.0)",
+      "kept": [
+        "odesa-meta-osmose-8300.json"
+      ]
+    },
+    {
+      "name": "osmose-2090.json",
+      "url": "https://osmose.openstreetmap.fr/api/0.3/issues.geojson?bbox=30.6045246,46.3365947,30.8369853,46.6972307&item=2090&limit=10000&full=true",
+      "standsAt": "analysed 2026-10-03T01:50:49Z",
+      "licence": "Osmose QA (osmose.openstreetmap.fr) over © OpenStreetMap contributors (ODbL); traffic signs detected by Mapillary (CC BY-SA 4.0)",
+      "kept": [
+        "odesa-meta-osmose-2090.json"
+      ]
+    },
+    {
+      "name": "osmose-1070.json",
+      "url": "https://osmose.openstreetmap.fr/api/0.3/issues.geojson?bbox=30.6045246,46.3365947,30.8369853,46.6972307&item=1070&limit=10000&full=true",
+      "standsAt": "analysed 2026-10-03T01:50:49Z",
+      "licence": "Osmose QA (osmose.openstreetmap.fr) over © OpenStreetMap contributors (ODbL); traffic signs detected by Mapillary (CC BY-SA 4.0)",
+      "kept": [
+        "odesa-meta-osmose-1070.json"
+      ]
+    },
+    {
+      "name": "osmose-0.json",
+      "url": "https://osmose.openstreetmap.fr/api/0.3/issues.geojson?bbox=30.6045246,46.3365947,30.8369853,46.6972307&item=0&limit=10000&full=true",
+      "standsAt": "analysed 2026-10-03T01:50:49Z",
+      "licence": "Osmose QA (osmose.openstreetmap.fr) over © OpenStreetMap contributors (ODbL); traffic signs detected by Mapillary (CC BY-SA 4.0)",
+      "kept": [
+        "odesa-meta-osmose-0.json"
+      ]
+    },
+    {
+      "name": "osmose-4110.json",
+      "url": "https://osmose.openstreetmap.fr/api/0.3/issues.geojson?bbox=30.6045246,46.3365947,30.8369853,46.6972307&item=4110&limit=10000&full=true",
+      "standsAt": "analysed 2026-10-03T01:50:49Z",
+      "licence": "Osmose QA (osmose.openstreetmap.fr) over © OpenStreetMap contributors (ODbL); traffic signs detected by Mapillary (CC BY-SA 4.0)",
+      "kept": [
+        "odesa-meta-osmose-4110.json"
+      ]
+    },
+    {
+      "name": "osmose-3180.json",
+      "url": "https://osmose.openstreetmap.fr/api/0.3/issues.geojson?bbox=30.6045246,46.3365947,30.8369853,46.6972307&item=3180&limit=10000&full=true",
+      "standsAt": "analysed 2026-10-03T01:50:49Z",
+      "licence": "Osmose QA (osmose.openstreetmap.fr) over © OpenStreetMap contributors (ODbL); traffic signs detected by Mapillary (CC BY-SA 4.0)",
+      "kept": [
+        "odesa-meta-osmose-3180.json"
+      ]
+    },
+    {
+      "name": "osmose-1210.json",
+      "url": "https://osmose.openstreetmap.fr/api/0.3/issues.geojson?bbox=30.6045246,46.3365947,30.8369853,46.6972307&item=1210&limit=10000&full=true",
+      "standsAt": "analysed 2026-10-03T01:50:49Z",
+      "licence": "Osmose QA (osmose.openstreetmap.fr) over © OpenStreetMap contributors (ODbL); traffic signs detected by Mapillary (CC BY-SA 4.0)",
+      "kept": [
+        "odesa-meta-osmose-1210.json"
+      ]
+    },
+    {
+      "name": "osmose-3161.json",
+      "url": "https://osmose.openstreetmap.fr/api/0.3/issues.geojson?bbox=30.6045246,46.3365947,30.8369853,46.6972307&item=3161&limit=10000&full=true",
+      "standsAt": "analysed 2026-10-03T01:50:49Z",
+      "licence": "Osmose QA (osmose.openstreetmap.fr) over © OpenStreetMap contributors (ODbL); traffic signs detected by Mapillary (CC BY-SA 4.0)",
+      "kept": [
+        "odesa-meta-osmose-3161.json"
+      ]
+    },
+    {
+      "name": "osmose-1260.json",
+      "url": "https://osmose.openstreetmap.fr/api/0.3/issues.geojson?bbox=30.6045246,46.3365947,30.8369853,46.6972307&item=1260&limit=10000&full=true",
+      "standsAt": "analysed 2026-10-03T01:50:49Z",
+      "licence": "Osmose QA (osmose.openstreetmap.fr) over © OpenStreetMap contributors (ODbL); traffic signs detected by Mapillary (CC BY-SA 4.0)",
+      "kept": [
+        "odesa-meta-osmose-1260.json"
+      ]
+    },
+    {
+      "name": "osmose-2140.json",
+      "url": "https://osmose.openstreetmap.fr/api/0.3/issues.geojson?bbox=30.6045246,46.3365947,30.8369853,46.6972307&item=2140&limit=10000&full=true",
+      "standsAt": "analysed 2026-10-03T01:50:49Z",
+      "licence": "Osmose QA (osmose.openstreetmap.fr) over © OpenStreetMap contributors (ODbL); traffic signs detected by Mapillary (CC BY-SA 4.0)",
+      "kept": [
+        "odesa-meta-osmose-2140.json"
+      ]
+    },
+    {
+      "name": "osmose-9014.json",
+      "url": "https://osmose.openstreetmap.fr/api/0.3/issues.geojson?bbox=30.6045246,46.3365947,30.8369853,46.6972307&item=9014&limit=10000&full=true",
+      "standsAt": "analysed 2026-10-03T01:50:49Z",
+      "licence": "Osmose QA (osmose.openstreetmap.fr) over © OpenStreetMap contributors (ODbL); traffic signs detected by Mapillary (CC BY-SA 4.0)",
+      "kept": [
+        "odesa-meta-osmose-9014.json"
+      ]
+    },
+    {
+      "name": "osmose-3160.json",
+      "url": "https://osmose.openstreetmap.fr/api/0.3/issues.geojson?bbox=30.6045246,46.3365947,30.8369853,46.6972307&item=3160&limit=10000&full=true",
+      "standsAt": "analysed 2026-10-03T01:50:49Z",
+      "licence": "Osmose QA (osmose.openstreetmap.fr) over © OpenStreetMap contributors (ODbL); traffic signs detected by Mapillary (CC BY-SA 4.0)",
+      "kept": [
+        "odesa-meta-osmose-3160.json"
+      ]
+    },
+    {
+      "name": "osmose-1270.json",
+      "url": "https://osmose.openstreetmap.fr/api/0.3/issues.geojson?bbox=30.6045246,46.3365947,30.8369853,46.6972307&item=1270&limit=10000&full=true",
+      "standsAt": "analysed 2026-10-03T01:50:49Z",
+      "licence": "Osmose QA (osmose.openstreetmap.fr) over © OpenStreetMap contributors (ODbL); traffic signs detected by Mapillary (CC BY-SA 4.0)",
+      "kept": [
+        "odesa-meta-osmose-1270.json"
+      ]
+    },
+    {
+      "name": "osmose-2130.json",
+      "url": "https://osmose.openstreetmap.fr/api/0.3/issues.geojson?bbox=30.6045246,46.3365947,30.8369853,46.6972307&item=2130&limit=10000&full=true",
+      "standsAt": "analysed 2026-10-03T01:50:49Z",
+      "licence": "Osmose QA (osmose.openstreetmap.fr) over © OpenStreetMap contributors (ODbL); traffic signs detected by Mapillary (CC BY-SA 4.0)",
+      "kept": [
+        "odesa-meta-osmose-2130.json"
+      ]
+    },
+    {
+      "name": "osmose-3220.json",
+      "url": "https://osmose.openstreetmap.fr/api/0.3/issues.geojson?bbox=30.6045246,46.3365947,30.8369853,46.6972307&item=3220&limit=10000&full=true",
+      "standsAt": "analysed 2026-10-03T01:50:49Z",
+      "licence": "Osmose QA (osmose.openstreetmap.fr) over © OpenStreetMap contributors (ODbL); traffic signs detected by Mapillary (CC BY-SA 4.0)",
+      "kept": [
+        "odesa-meta-osmose-3220.json"
+      ]
+    },
+    {
+      "name": "osmose-3032.json",
+      "url": "https://osmose.openstreetmap.fr/api/0.3/issues.geojson?bbox=30.6045246,46.3365947,30.8369853,46.6972307&item=3032&limit=10000&full=true",
+      "standsAt": "analysed 2026-10-03T01:50:49Z",
+      "licence": "Osmose QA (osmose.openstreetmap.fr) over © OpenStreetMap contributors (ODbL); traffic signs detected by Mapillary (CC BY-SA 4.0)",
+      "kept": [
+        "odesa-meta-osmose-3032.json"
+      ]
+    },
+    {
+      "name": "osmose-4030.json",
+      "url": "https://osmose.openstreetmap.fr/api/0.3/issues.geojson?bbox=30.6045246,46.3365947,30.8369853,46.6972307&item=4030&limit=10000&full=true",
+      "standsAt": "analysed 2026-10-03T01:50:49Z",
+      "licence": "Osmose QA (osmose.openstreetmap.fr) over © OpenStreetMap contributors (ODbL); traffic signs detected by Mapillary (CC BY-SA 4.0)",
+      "kept": [
+        "odesa-meta-osmose-4030.json"
+      ]
+    },
+    {
+      "name": "osmose-3091.json",
+      "url": "https://osmose.openstreetmap.fr/api/0.3/issues.geojson?bbox=30.6045246,46.3365947,30.8369853,46.6972307&item=3091&limit=10000&full=true",
+      "standsAt": "analysed 2026-10-03T01:50:49Z",
+      "licence": "Osmose QA (osmose.openstreetmap.fr) over © OpenStreetMap contributors (ODbL); traffic signs detected by Mapillary (CC BY-SA 4.0)",
+      "kept": [
+        "odesa-meta-osmose-3091.json"
+      ]
+    },
+    {
+      "name": "osmose-8470.json",
+      "url": "https://osmose.openstreetmap.fr/api/0.3/issues.geojson?bbox=30.6045246,46.3365947,30.8369853,46.6972307&item=8470&limit=10000&full=true",
+      "standsAt": "analysed 2026-10-03T01:50:49Z",
+      "licence": "Osmose QA (osmose.openstreetmap.fr) over © OpenStreetMap contributors (ODbL); traffic signs detected by Mapillary (CC BY-SA 4.0)",
+      "kept": [
+        "odesa-meta-osmose-8470.json"
+      ]
+    },
+    {
+      "name": "gtfs.zip",
+      "url": "https://files.mobilitydatabase.org/mdb-2946/latest.zip",
+      "standsAt": "calendar in force 20250402 … 20261231",
+      "licence": "Odesa City Council transport department GTFS, via Mobility Database (mdb-2946); licence unverified",
+      "kept": [
+        "odesa-meta-gtfs.zip"
+      ]
+    }
+  ],
+  "missing": {
+    "mapillary": "no MAPILLARY_TOKEN: Mapillary's detections need a client token"
+  },
+  "layers": [
+    {
+      "layer": "zones",
+      "file": "zones.json",
+      "about": "Every surface that is a place rather than a road — car parks, fuel, garages, industry, port, schools, markets, squares, parks, water, land use — its outline in 1e-7°, and the survey roads inside it and leading into it.",
+      "readOff": [
+        "osm-zones"
+      ],
+      "count": 10802,
+      "bytes": 5171758
+    },
+    {
+      "layer": "districts",
+      "file": "districts.json",
+      "about": "The town's administrative districts (admin_level 7-10) with their outlines, and its named places at a point each.",
+      "readOff": [
+        "osm-districts"
+      ],
+      "count": 220,
+      "bytes": 267427
+    },
+    {
+      "layer": "walk",
+      "file": "walk.json",
+      "about": "Every way OSM draws for feet: its kind, for a pavement the road it runs beside, on which side as the road is drawn and how far off, its nodes for joining the network, its line in 1e-7° and its tags.",
+      "readOff": [
+        "osm-walk"
+      ],
+      "count": 7355,
+      "bytes": 2217382
+    },
+    {
+      "layer": "buildings",
+      "file": "buildings.json",
+      "about": "Every building: OSM's outline and parts with levels, height (and where the height came from), use, address, the ways passing under it and its entrances; and every machine-traced footprint OSM does not have.",
+      "readOff": [
+        "osm-buildings",
+        "osm-control",
+        "ml-buildings"
+      ],
+      "count": 206359,
+      "bytes": 50052581
+    },
+    {
+      "layer": "crossings",
+      "file": "crossings.json",
+      "about": "Every place a road is crossed on foot or by rail: its node, the crossing way drawn across where there is one — or the camera's sighting of it where OSM maps none — its kind, the road it crosses and where along it, and the nearest junction.",
+      "readOff": [
+        "survey",
+        "osm-walk",
+        "osm-control",
+        "mapillary.jsonl"
+      ],
+      "count": 2759,
+      "bytes": 985227
+    },
+    {
+      "layer": "junctions",
+      "file": "junctions.json",
+      "about": "Every node of three road arms or more: its arms, its control, what decided it — OSM, a camera's sighting where OSM maps nothing, or the rules — and the evidence, the signals, signs and crossings it holds, and every movement through it with whether a car may make it and from which lanes.",
+      "readOff": [
+        "survey",
+        "osm-control",
+        "osmose",
+        "mapillary.jsonl"
+      ],
+      "count": 21512,
+      "bytes": 30832956
+    },
+    {
+      "layer": "levels",
+      "file": "levels.json",
+      "about": "Every road, railway and way for feet that is not on the ground: its layer and where that came from, the structure it is on, the outlined bridge holding it and the building over it.",
+      "readOff": [
+        "survey",
+        "osm-transit",
+        "osm-walk",
+        "osm-zones",
+        "osm-buildings"
+      ],
+      "count": 1998,
+      "bytes": 326785
+    },
+    {
+      "layer": "overpasses",
+      "file": "overpasses.json",
+      "about": "Every place two ways cross with no node between them: where, the two ways and their levels, which passes over, and whether OSM's tags explain it.",
+      "readOff": [
+        "survey",
+        "osm-transit",
+        "osm-walk"
+      ],
+      "count": 393,
+      "bytes": 77925
+    },
+    {
+      "layer": "routes",
+      "file": "routes.json",
+      "about": "Every public transport route, OSM's relations and the timetable's routes laid as one: its mode, ref and name, its ways and stops in order, and where the timetable runs it its service each day — trips, first and last, headway.",
+      "readOff": [
+        "osm-transit",
+        "gtfs.zip"
+      ],
+      "count": 171,
+      "bytes": 1093546
+    },
+    {
+      "layer": "stops",
+      "file": "stops.json",
+      "about": "Every stop, stop position and platform, OSM's and the timetable's laid as one: what it is, its name and modes, the road it stands beside and on which side, the routes calling there, and the timetable stops it is.",
+      "readOff": [
+        "osm-transit",
+        "gtfs.zip"
+      ],
+      "count": 2977,
+      "bytes": 1443578
+    },
+    {
+      "layer": "tracks",
+      "file": "tracks.json",
+      "about": "Every railway and tram track: its kind, the street a tram runs down where it does, its nodes and line.",
+      "readOff": [
+        "osm-transit"
+      ],
+      "count": 1561,
+      "bytes": 866050
+    },
+    {
+      "layer": "places",
+      "file": "places.json",
+      "about": "Every place a trip may be made to — shop, amenity, office, sight, sport — at one point each, with its kind, name and tags.",
+      "readOff": [
+        "osm-places"
+      ],
+      "count": 12703,
+      "bytes": 3898323
+    },
+    {
+      "layer": "furniture",
+      "file": "furniture.json",
+      "about": "What stands along the streets — trees, lamps, benches, shelters, cabinets, poles, hydrants — each with the road within reach it stands by and on which side as the road is drawn.",
+      "readOff": [
+        "osm-furniture"
+      ],
+      "count": 8744,
+      "bytes": 1698647
+    },
+    {
+      "layer": "barriers",
+      "file": "barriers.json",
+      "about": "Every barrier OSM draws as a line — wall, fence, hedge, kerb, guard rail, retaining wall — which a pedestrian or car does not pass but at a gap or gate.",
+      "readOff": [
+        "osm-barriers"
+      ],
+      "count": 5839,
+      "bytes": 1109229
+    },
+    {
+      "layer": "unbuilt",
+      "file": "unbuilt.json",
+      "about": "Roads OSM knows are under construction, proposed, disused or abandoned, which a later survey may find built or gone.",
+      "readOff": [
+        "osm-unbuilt"
+      ],
+      "count": 42,
+      "bytes": 23109
+    },
+    {
+      "layer": "detected",
+      "file": "detected.json",
+      "about": "Every stretch of road Microsoft's model traced off imagery over the map: its line, the width it read, the survey roads it was laid along, or what else of OSM's it lies on — a way for feet, a track, a taxiway, a paved lot — or that OSM has nothing there.",
+      "readOff": [
+        "ml-roads.geojsonl",
+        "survey",
+        "osm-walk",
+        "osm-transit",
+        "osm-unbuilt",
+        "osm-zones"
+      ],
+      "count": 24929,
+      "bytes": 3729639
+    },
+    {
+      "layer": "unmapped",
+      "file": "unmapped.json",
+      "about": "Every road the imagery shows that OSM has no way of any kind for: its unmapped stretches joined where they meet, its lines, length and width, and the survey roads its free ends meet.",
+      "readOff": [
+        "ml-roads.geojsonl",
+        "survey",
+        "osm-walk",
+        "osm-transit",
+        "osm-unbuilt",
+        "osm-zones"
+      ],
+      "count": 1160,
+      "bytes": 229949
+    },
+    {
+      "layer": "seen",
+      "file": "seen.json",
+      "about": "Every traffic sign, traffic light and road marking a camera saw over the map — Mapillary's own detections and those Osmose relays — what it is, where, which way it faces, when it was seen, the road and junction it stands by, what OSM maps near it for the same thing, and the junction or crossing it was laid as where OSM maps none.",
+      "readOff": [
+        "mapillary.jsonl",
+        "osmose",
+        "survey",
+        "osm-control",
+        "osm-walk"
+      ],
+      "count": 2333,
+      "bytes": 555536
+    },
+    {
+      "layer": "roads",
+      "file": "roads.json",
+      "about": "Every survey road with what the other layers know of it: its role (street, link, driveway, a zone's way), lanes and widths — as tagged, as its lanes make it, as measured off a mapped surface and as read off imagery — building frontage each side, pavements each side, street parking, zone, land use, district, level, the ground's height at each node and the grade, surface, light, speed, trams, routes, crossings and calming.",
+      "readOff": [
+        "survey",
+        "osm-zones",
+        "osm-walk",
+        "osm-buildings",
+        "osm-transit",
+        "osm-districts",
+        "ml-roads.geojsonl",
+        "dtm-gedtm30.tif"
+      ],
+      "count": 21422,
+      "bytes": 10661110
+    },
+    {
+      "layer": "quality",
+      "file": "quality.json",
+      "about": "Where the sources disagree with themselves or each other: flags raised while the layers were laid, every Osmose issue of the items read (with the tags a Mapillary-detected sign would add), and every open OSM note.",
+      "readOff": [
+        "derived",
+        "osmose",
+        "notes.json"
+      ],
+      "count": 7824,
+      "bytes": 1564815
+    }
+  ]
+}

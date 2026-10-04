@@ -59,6 +59,9 @@ internal sealed class GroundLocator
 
     public GroundSample At(Vector2 pointM) => Sample(_shapes.At(pointM));
 
+    /// <summary>The same, for a body on one level (<see cref="GroundShapes.At(GroundShapes.Scan, Vector2, byte)"/>): a car on a bridge is on its deck and not on what the deck passes over.</summary>
+    public GroundSample At(Vector2 pointM, byte level) => Sample(_shapes.At(pointM, level));
+
     /// <summary>
     /// A scan of the shapes behind this ground, for a caller that means to ask off its own thread
     /// (<see cref="GroundShapes.Scan"/>). <b>The ground itself is shared and read-only</b>; the scan is the
@@ -80,6 +83,10 @@ internal sealed class GroundLocator
     /// planners want is who is permitted here.
     /// </summary>
     public GroundEffect EffectAt(Vector2 pointM) => _catalog.EffectOf(_shapes.At(pointM));
+
+    /// <inheritdoc cref="EffectAt(Vector2)"/>
+    /// <param name="level">The level the wheel is on (<see cref="At(Vector2, byte)"/>).</param>
+    public GroundEffect EffectAt(Vector2 pointM, byte level) => _catalog.EffectOf(_shapes.At(pointM, level));
 
     /// <summary>Whether the point is inside the town's own box, for a caller that wants to know before it asks.</summary>
     public bool Contains(Vector2 pointM) => _shapes.Contains(pointM);

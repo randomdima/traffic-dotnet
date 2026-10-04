@@ -24,10 +24,15 @@ namespace TrafficSimulation.App.Main;
 /// waits on a handful of small files.
 /// </para>
 /// <para>
-/// <b>No town crosses the wire at all.</b> A city is generated from a brief of a few hundred bytes and a
+/// <b>No generated town crosses the wire.</b> A city is generated from a brief of a few hundred bytes and a
 /// map laid to be looked at is laid in code, so what a page fetches for either is its brief or nothing —
 /// and the briefs come down with the papers at boot, because the menu reads a city's own description out
 /// of one.
+/// </para>
+/// <para>
+/// <b>A traced map is its survey, and a survey is megabytes</b>, so the papers carry only its head — the
+/// bytes the menu reads (<see cref="CityGen.Traced.SurveyHead"/>), laid at the survey's own path — and the
+/// whole is unpacked over it when the map is opened (<see cref="Survey"/>).
 /// </para>
 /// </remarks>
 internal static class Data
@@ -46,8 +51,17 @@ internal static class Data
     /// <summary>What a brief is stored as, which is what tells one from anything else in the manifest.</summary>
     const string BriefKind = ".json";
 
+    /// <summary>What a survey's head is published as: the survey's own path and this, which it is laid without.</summary>
+    const string HeadKind = ".head";
+
+    /// <summary>What a whole survey is published as: an archive holding it under its own path.</summary>
+    const string SurveyKind = ".tar.gz";
+
     /// <summary>Whether the archive has been unpacked, so a second map picked is not a second fetch.</summary>
     static bool _laid;
+
+    /// <summary>Each traced map's survey archive, by map name, until it is unpacked and taken out.</summary>
+    static readonly Dictionary<string, string> Surveys = new(StringComparer.Ordinal);
 
     /// <summary>
     /// The few files the menu is drawn from — the figures and every city's brief. <b>This is the whole of
@@ -84,10 +98,14 @@ internal static class Data
             var path = line.Replace('\\', '/');
             if (!path.StartsWith(Towns + "/", StringComparison.Ordinal)) continue;
 
-            // **A brief comes down now**, and nothing else under `towns/` is a map: a brief is a few
-            // hundred bytes and the menu reads a city's description straight out of it, so a page that
-            // fetched one lazily would draw its own map list against files that are not there yet.
-            if (path.EndsWith(BriefKind, StringComparison.Ordinal)) papers.Add(path);
+            // **A brief and a survey's head come down now**: each is a few hundred bytes to a few
+            // kilobytes and the menu reads a map's description straight out of it, so a page that fetched
+            // one lazily would draw its own map list against files that are not there yet. The survey
+            // itself waits for its map to be opened.
+            if (path.EndsWith(BriefKind, StringComparison.Ordinal) || path.EndsWith(HeadKind, StringComparison.Ordinal))
+                papers.Add(path);
+            else if (path.EndsWith(SurveyKind, StringComparison.Ordinal))
+                Surveys[Path.GetFileNameWithoutExtension(Path.GetFileName(path)[..^SurveyKind.Length])] = path;
         }
 
         // The briefs in one wave, for the reason the figures went out beside the listing: they are a few
@@ -154,6 +172,29 @@ internal static class Data
     }
 
     /// <summary>
+    /// A traced map's survey, asked for as the map is opened so that it comes down beside the art rather
+    /// than after it (WEB-9). Nothing for any other map, or for a survey already unpacked.
+    /// </summary>
+    public static void ExpectSurvey(string map)
+    {
+        if (Surveys.TryGetValue(map, out var archive)) Runtime.WebGpu.Prefetch(archive);
+    }
+
+    /// <summary>
+    /// A traced map's whole survey, unpacked over the head the menu was reading — once, and before anything
+    /// lays the town (<see cref="CityGen.Maps.Traced"/>). Nothing for any other map.
+    /// </summary>
+    public static async Task Survey(string map, Action<string> say)
+    {
+        if (!Surveys.Remove(map, out var archive)) return;
+
+        say($"unpacking {map}'s survey…");
+        var listed = await Runtime.WebGpu.Unpack(archive);
+        await Lay(listed.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+            $"laying {map}'s survey…", say);
+    }
+
+    /// <summary>
     /// A batch of files into the file system. <b>What is read out here is already in the page's
     /// hands</b> — prefetched or unpacked — so nothing in this loop waits on the network.
     /// </summary>
@@ -172,8 +213,9 @@ internal static class Data
             var content = await Read(path);
             bytes += content.Length;
 
-            Directory.CreateDirectory(Path.GetDirectoryName("/" + path)!);
-            File.WriteAllBytes("/" + path, content);
+            var laid = "/" + (path.EndsWith(HeadKind, StringComparison.Ordinal) ? path[..^HeadKind.Length] : path);
+            Directory.CreateDirectory(Path.GetDirectoryName(laid)!);
+            File.WriteAllBytes(laid, content);
 
             // Often enough to watch, seldom enough to be free.
             if (at % 16 == 0 || at == batch.Count - 1) Runtime.WebGpu.Progress(at + 1, batch.Count);

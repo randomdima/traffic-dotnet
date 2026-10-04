@@ -1,0 +1,19 @@
+{
+  "id": "garages_05",
+  "footprintM": [
+    9.0,
+    4.0
+  ],
+  "cornerRadiusM": 0.3,
+  "partsM": [],
+  "look": "garages",
+  "tags": [
+    "garages",
+    "1 storey",
+    "flat roof",
+    "rusty corrugated metal",
+    "garage row",
+    "cooperative"
+  ],
+  "describe": "row of 3 lock-up garages of a garage cooperative, flat roof of rusty corrugated metal parted by low brick parapets between the units, patched in places"
+}

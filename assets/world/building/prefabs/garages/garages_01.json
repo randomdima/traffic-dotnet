@@ -1,0 +1,18 @@
+{
+  "id": "garages_01",
+  "footprintM": [
+    3.5,
+    2.0
+  ],
+  "cornerRadiusM": 0.3,
+  "partsM": [],
+  "look": "garages",
+  "tags": [
+    "garages",
+    "1 storey",
+    "flat roof",
+    "painted steel",
+    "garage box"
+  ],
+  "describe": "small steel garage box or storage locker, flat painted steel roof with a rolled edge"
+}

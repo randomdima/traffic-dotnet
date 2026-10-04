@@ -22,7 +22,7 @@ public class AssetJsonTests
         [
             .. CarCatalog.Load().Variants.SelectMany(car => new[] { car.SpritePath, car.WreckSpritePath }),
             .. PersonCatalog.Load().Variants.Select(person => person.SheetPath),
-            .. BuildingCatalog.Load().Variants.Select(building => building.SpritePath),
+            .. BuildingCatalog.Load().Variants.Select(building => building.SpritePath).OfType<string>(),
             .. PropCatalog.Load().Variants.Select(prop => prop.SpritePath),
         ];
 

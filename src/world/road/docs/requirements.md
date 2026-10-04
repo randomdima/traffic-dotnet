@@ -18,8 +18,10 @@ single global constant** — lane offset, turn classification, keep-right on foo
 on all read that one.
 
 **TER-4d** `P6` **A road runs one way or both ways, and a one-way road is the narrower for it.** A carriageway
-is its lanes side by side at the one lane width (GEN-15), each way's running in from the kerb its traffic
-keeps to as far as the line the two ways meet on, and the road's own line down the middle of them all: one
+is its lanes side by side at the one lane width (GEN-15) and, on a traced road, a roadside between them and a
+kerb, a lane joined to nothing that nobody drives (GEN-57) — each way's lanes running in from the kerb its
+traffic keeps to, past the roadside there, as far as the line the two ways meet on, and the road's own line down
+the middle of the carriageway: one
 lane each way on a road the generator lays, and as many each way as its survey says on a traced one
 (GEN-57). **A generated one-way street is one lane down the middle of half a road**, and **that half is the
 half its traffic drives, and the road stands on it**: its own half to the driving side of the line its two
@@ -137,12 +139,15 @@ lane arrives at a junction that offers it nothing**. **A marked lane makes the t
 junction offers, an unmarked one beside it what it would make unmarked, and a turn no lane of a marked arm
 names is not made from it. **A turn the plan forbids is not offered at all**, before the lanes are shared,
 and a turn whose lanes the plan names joins those and no others — a traced map's survey's (`GEN-57`), which
-leaves an arm nothing where OSM forbids every turn off it. The lanes a movement is made from are spread over the
-lanes of the road it takes in the same order, as many onto as many lane for lane, fewer fanning out and more
-merging, so **no two movements off one arm onto one road cross**, and no lane of the road taken is reached by
-none of them. A road of one lane each way is offered every turn its junction makes, from its one lane onto
-the one lane each takes. **A car keeps the lane it was given until the next junction**: nothing moves it
-across to a lane beside running its way ([the known gaps](../../../../docs/index.md#known-gaps)).
+leaves an arm nothing where OSM forbids every turn off it. **A lane making a movement joins the lane of its own
+number on the road it takes**, both numbered from the side the movement bears to — the kerb for the near side,
+the line for the far — so a turn onto a road of one lane is made from the edge lane alone, never from the second
+lane onto the first, and **no two movements off one arm onto one road cross**. Only where that strands a lane —
+one arriving with nowhere to go, or one of the road taken that nothing at the junction reaches (`GEN-50`) — are
+the lanes making it spread over the lanes it reaches in the same order, fewer fanning out and more merging. A
+road of one lane each way is offered every turn its junction makes, from its one lane onto
+the one lane each takes. **A car moves across onto a lane beside running its way along the street**
+(`CAR-53`), so the lane a turn is made from is one it can get to.
 
 ## Crossings
 
@@ -233,9 +238,10 @@ and never a glyph of its own** — there is no catalogue of shapes and no combin
   different glyph.
 
 Everything painted on the ground is **engine-drawn primitives, never art**: lane centrelines (dashed, and
-**laid between two lane ribbons that touch and nowhere else** — the line a road's two ways were laid either
-side of, `CityPlan.RoadArrays.LanesMeetOnItsLine` — so a one-way street and a bay have nothing to part
-and carry none; stopping behind the outermost paint an arm carries, TER-6), kerb lines (broken exactly
+**laid between two lane ribbons that touch and nowhere else** — so a one-way street of one lane and a bay
+have nothing to part and carry none; **unbroken where it is the line two ways meet on down a carriageway of
+more than one lane each way**, which nobody crosses to pass (`CityPlan.RoadArrays.LineCrossedToPass`,
+CAR-6.2b); stopping behind the outermost paint an arm carries, TER-6), kerb lines (broken exactly
 where the pavement's edge is, and over a car park's mouth, where the ground on the far side of the line
 is the lot's own tarmac and there is no kerb to be the edge of), pavement and deck edge lines, stop bars
 (square across *that arm's* direction, covering one lane only — the one driving at the paint — and
@@ -246,7 +252,9 @@ the junction without overlapping the bar, or midway along a street crossed once,
 ends, `WLK-10a`), lane arrows (a shaft and a branch per turn, behind the bar and on the lane's own line,
 TER-6a), bay strokes (**solid, and the line one bay shares with the next and nothing else** —
 [GEN-4m](../../parking/docs/requirements.md), which is the same relation as the lane centreline's with the
-dash the length of the run) and drift marks.
+dash the length of the run), roadside lines (**solid, down the edge a road's lanes share with its roadside**
+— [GEN-57](../../../citygen/docs/requirements.md), a lane ribbon touching ground nobody drives — stopping where
+the lane lines beside it stop and carried through no junction) and drift marks.
 
 Six rules govern all of it:
 

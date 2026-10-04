@@ -42,11 +42,14 @@ try
 
     // A map, fetched and then stood up. The art is not in the file system until this has run, which is
     // why the menu's click only writes the name down (Game.Web.cs) and this is what acts on it — the one
-    // place in a browser run where waiting for a fetch is allowed. Nothing of the town itself is on the
-    // wire: a city is generated from the brief that came down at boot and the ring is laid in code.
+    // place in a browser run where waiting for a fetch is allowed. A generated town is not on the wire —
+    // it is laid from the brief that came down at boot, and the ring is laid in code — but a traced one's
+    // survey is, and it comes down beside the art.
     async Task Open(string map, bool behindTheMenu = false)
     {
+        Data.ExpectSurvey(map);
         await Data.Art(Say);
+        await Data.Survey(map, Say);
         Say($"standing {map} up…");
         game.Start(map, behindTheMenu);
         Say(string.Empty);

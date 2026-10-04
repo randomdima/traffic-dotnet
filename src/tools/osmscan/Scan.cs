@@ -24,13 +24,21 @@ namespace TrafficSimulation.Tools.OsmScan;
 /// metres by (<see cref="OsmFrame"/>) — Transverse Mercator about the middle of the city's roads, the map their
 /// extent and <see cref="MarginM"/>.
 /// </para>
+/// <para>
+/// <b>Where OSM is wrong about the place, the survey's own corrections put it right</b> (<see cref="Corrections"/>,
+/// <c>towns/traced/&lt;Map&gt;.osc</c>): applied over OSM's answer before anything is read off it, so the lanes and
+/// turns are read off the corrected ways as off any other.
+/// </para>
 /// <para>A node two ways place differently is refused rather than averaged.</para>
 /// </remarks>
 internal static class Scan
 {
-    sealed record City(string Map, long Relation, string Description);
+    internal sealed record City(string Map, long Relation, string Description);
 
-    static readonly Dictionary<string, City> Cities = new()
+    /// <summary>A way as OSM's answer holds it, before it is read: its id, its tags and its nodes' OSM ids.</summary>
+    internal sealed record RawWay(long Id, Dictionary<string, string> Tags, long[] Nodes);
+
+    internal static readonly Dictionary<string, City> Cities = new()
     {
         ["odesa"] = new("OdesaOsm", 12888405, "Odesa's own streets and sea line, traced 1:1 off OpenStreetMap"),
     };
@@ -57,11 +65,17 @@ internal static class Scan
 
     const decimal UnitsPerDegree = 10_000_000m;
 
+    /// <summary>
+    /// <b>Where every answer a source gave for a map is kept, exactly as it came</b>: OSM's and every other source's,
+    /// never edited — the place as it stood online, which the survey, the layers and the map are all read off.
+    /// </summary>
+    public static string Source(string root, string map) => Path.Combine(root, "towns", "traced", map, "source");
+
     public static int Run(string root, string city, bool refetch)
     {
         if (!Cities.TryGetValue(city, out var place)) throw new ArgumentException($"no city '{city}': {string.Join(", ", Cities.Keys)}");
 
-        var kept = Path.Combine(root, ".tmp", "osm");
+        var kept = Source(root, place.Map);
         Directory.CreateDirectory(kept);
         var pattern = $"[\"highway\"~\"^({string.Join('|', Roads)})$\"]";
 
@@ -103,7 +117,17 @@ internal static class Scan
         var coastWays = Elements(coast, "way");
 
         var units = Placed([.. roadWays, .. coastWays, .. areaWays]);
-        var ids = units.Keys.Order().ToArray();
+        List<RawWay> roadRaw = [.. roadWays.Select(Raw)];
+        var nodeTags = Elements(roads, "node")
+            .Where(node => node.TryGetProperty("tags", out _))
+            .ToDictionary(node => node.GetProperty("id").GetInt64(), Tags);
+        var corrections = Corrections.Read(Path.Combine(root, "towns", "traced", $"{place.Map}.osc"), root);
+        corrections?.Apply(units, roadRaw, nodeTags);
+        List<RawWay> coastRaw = [.. coastWays.Select(Raw)];
+        List<RawWay> areaRaw = [.. areaWays.Select(Raw)];
+
+        var passed = roadRaw.Concat(coastRaw).Concat(areaRaw).SelectMany(way => way.Nodes).ToHashSet();
+        var ids = units.Keys.Where(passed.Contains).Order().ToArray();
         var index = new Dictionary<long, int>(ids.Length);
         for (var at = 0; at < ids.Length; at++) index[ids[at]] = at;
 
@@ -114,7 +138,7 @@ internal static class Scan
             Lon = [.. ids.Select(id => units[id].Lon)],
         };
 
-        OsmWay[] ways = [.. roadWays.Concat(coastWays).Select(way => Way(way, index, lanes: true)).OrderBy(way => way.Id)];
+        OsmWay[] ways = [.. roadRaw.Concat(coastRaw).Select(way => Way(way, index, lanes: true)).OrderBy(way => way.Id)];
         OsmRelation[] relations =
         [
             .. Elements(roads, "relation").OrderBy(relation => relation.GetProperty("id").GetInt64()).Select(relation => new OsmRelation
@@ -149,14 +173,14 @@ internal static class Scan
             Nodes = nodes,
             NodeTags =
             [
-                .. Elements(roads, "node")
-                    .Where(node => node.TryGetProperty("tags", out _) && index.ContainsKey(node.GetProperty("id").GetInt64()))
-                    .OrderBy(node => node.GetProperty("id").GetInt64())
-                    .Select(node => new OsmNodeTags { Node = index[node.GetProperty("id").GetInt64()], Tags = Tags(node) }),
+                .. nodeTags
+                    .Where(tagged => index.ContainsKey(tagged.Key))
+                    .OrderBy(tagged => tagged.Key)
+                    .Select(tagged => new OsmNodeTags { Node = index[tagged.Key], Tags = tagged.Value }),
             ],
             Frame = Framed(ownWays),
             Ways = ways,
-            Areas = [.. areaWays.Select(way => Way(way, index, lanes: false)).OrderBy(way => way.Id)],
+            Areas = [.. areaRaw.Select(way => Way(way, index, lanes: false)).OrderBy(way => way.Id)],
             Relations = relations,
             Turns = turns,
         };
@@ -167,7 +191,7 @@ internal static class Scan
         var json = new OsmExtractJson(new JsonSerializerOptions(OsmExtractJson.Default.Options) { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
         File.WriteAllText(into, JsonSerializer.Serialize(extract, json.OsmExtract) + "\n");
 
-        Report(extract, Path.GetRelativePath(root, into), unread);
+        Report(extract, Path.GetRelativePath(root, into), unread, corrections);
         return 0;
     }
 
@@ -210,17 +234,16 @@ internal static class Scan
         return at;
     }
 
-    static OsmWay Way(JsonElement way, Dictionary<long, int> index, bool lanes)
+    static RawWay Raw(JsonElement way) =>
+        new(way.GetProperty("id").GetInt64(), Tags(way), [.. way.GetProperty("nodes").EnumerateArray().Select(node => node.GetInt64())]);
+
+    static OsmWay Way(RawWay way, Dictionary<long, int> index, bool lanes) => new()
     {
-        var tags = Tags(way);
-        return new OsmWay
-        {
-            Id = way.GetProperty("id").GetInt64(),
-            Tags = tags,
-            Nodes = [.. way.GetProperty("nodes").EnumerateArray().Select(node => index[node.GetInt64()])],
-            Carriageway = lanes ? OsmCarriageway.Read(tags) : null,
-        };
-    }
+        Id = way.Id,
+        Tags = way.Tags,
+        Nodes = [.. way.Nodes.Select(node => index[node])],
+        Carriageway = lanes ? OsmCarriageway.Read(way.Tags) : null,
+    };
 
     /// <summary>
     /// The frame: projected about the middle of the city's own roads' box of degrees, the map their extent and a
@@ -249,10 +272,17 @@ internal static class Scan
         };
     }
 
-    static void Report(OsmExtract extract, string into, List<(long Relation, string Why)> unread)
+    static void Report(OsmExtract extract, string into, List<(long Relation, string Why)> unread, Corrections? corrections)
     {
         var roads = extract.Ways.Where(way => way.Carriageway is not null).ToArray();
         Console.WriteLine($"{into}  {new FileInfo(into).Length / 1024} KB  osm {extract.Source.OsmBase}  frame {extract.Frame.WidthM:F0} x {extract.Frame.HeightM:F0} m");
+        if (corrections is not null)
+        {
+            Console.WriteLine($"  corrected off {corrections.File}: {corrections.Ways.Keys.Count(id => id > 0)} ways replaced, " +
+                              $"{corrections.Ways.Keys.Count(id => id < 0)} added, {corrections.DeletedWays.Count} deleted, " +
+                              $"{corrections.Nodes.Keys.Count(id => id > 0)} nodes moved or retagged, {corrections.Nodes.Keys.Count(id => id < 0)} added");
+        }
+
         Console.WriteLine($"nodes {extract.Nodes.Id.Length}  road ways {roads.Length}  roads drawn as areas {extract.Ways.Count(way => way.Tag("area") == "yes" && way.Tags.ContainsKey("highway"))}  " +
                           $"coastline ways {extract.Ways.Count(way => way.Tag("natural") == "coastline")}  road surfaces {extract.Areas.Length}  " +
                           $"tagged nodes {extract.NodeTags.Length}  relations {extract.Relations.Length}");

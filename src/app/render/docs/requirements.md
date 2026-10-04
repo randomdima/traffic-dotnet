@@ -15,7 +15,10 @@ them is on its types. The one thing stated here is how a sheet is stored.
   the world origin so a triangulation cannot show (`GroundVertex`).
 - **The ground is a stack of layers, each a region of the town's boundary** (`TER-7b`), the two kerbs are
   strokes along their shells (`TER-3d`), and a deck is the one band (`TER-3b.1`). How a shell is cut — the
-  line for the picture and the fill for the kerb, a stroke's corners and hooks — is `GroundMesh`.
+  line for the picture and the fill for the kerb, a stroke's corners and hooks — is `GroundMesh`. **A bridge
+  over other roads is the stack again, drawn over the bodies on the ground and under the bodies on it**
+  (`TER-7b`, `PHY-1a`): the ground's last part (`GroundPart.Above`) is a second draw, and the bodies on the level
+  above a second run of instances (`TownRenderer.SpritesAbove`).
 - **Paint** is engine-drawn and governed by [world/road](../../../world/road/docs/requirements.md#markings);
   it is laid by [GroundMesh.Paint.cs](../GroundMesh.Paint.cs), above the ground from
   `GroundMesh.FirstMarkVertex` on.

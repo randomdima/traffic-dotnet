@@ -1,0 +1,20 @@
+{
+  "id": "apartments_04",
+  "sprite": "apartments_04.webp",
+  "footprintM": [
+    13.5,
+    3.0
+  ],
+  "cornerRadiusM": 0.44999999999999996,
+  "partsM": [],
+  "look": "apartments",
+  "tags": [
+    "apartments",
+    "1-2 storeys",
+    "lean-to roof",
+    "rust-red painted sheet metal",
+    "old town",
+    "courtyard gallery"
+  ],
+  "describe": "narrow annex or open gallery along an Odesa courtyard, lean-to roof of rust-red painted sheet metal with a wooden stair at one end"
+}

@@ -1,0 +1,18 @@
+{
+  "id": "tower_02",
+  "footprintM": [
+    25.0,
+    5.5
+  ],
+  "cornerRadiusM": 0.8,
+  "partsM": [],
+  "look": "tower",
+  "tags": [
+    "tower",
+    "2-9 storeys",
+    "flat roof",
+    "black bitumen",
+    "link wing"
+  ],
+  "describe": "narrow link wing between two tall blocks, flat bitumen roof with a parapet and vent stacks"
+}

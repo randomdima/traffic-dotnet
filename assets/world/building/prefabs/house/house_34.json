@@ -1,0 +1,19 @@
+{
+  "id": "house_34",
+  "sprite": "house_34.webp",
+  "footprintM": [
+    9.5,
+    8.5
+  ],
+  "cornerRadiusM": 0.4,
+  "partsM": [],
+  "look": "house",
+  "tags": [
+    "house",
+    "1-2 storeys",
+    "hipped roof",
+    "faded terracotta tiles",
+    "detached"
+  ],
+  "describe": "detached family house, hipped roof of faded terracotta tiles, a chimney and a skylight, small porch roof over the door"
+}

@@ -13,7 +13,7 @@ namespace TrafficSimulation.World.Routing;
 /// <see cref="Road.LanePlaces"/>'s answer, worked out once per network by whoever owns it and handed to
 /// <see cref="RunNetwork.Contract"/> — so a contraction cannot work it out a second way and disagree about
 /// which lane ends are one piece of the world (SIM-7). What is left for the fine graph to say is how long a
-/// piece is and which one is the same piece travelled back.
+/// piece is, which one is the same piece travelled back, and which run beside it the same way.
 /// </remarks>
 internal interface IFineGraph
 {
@@ -23,6 +23,12 @@ internal interface IFineGraph
 
     /// <summary>The same piece travelled the other way, or negative where there is none.</summary>
     int Reverse(int lane);
+
+    /// <summary>
+    /// <b>The piece beside this one travelled the same way</b>, to one side where <paramref name="inward"/> and the
+    /// other where not — got onto along the way rather than at a place (CAR-53) — or negative where there is none.
+    /// </summary>
+    int Beside(int lane, bool inward);
 }
 
 /// <summary>What one turn between two fine lanes costs, whether it falls inside a run or between two.</summary>
@@ -38,7 +44,8 @@ internal interface IEdgeTurnPricer
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>A link ends where a body can go more than one way, and nowhere else.</b>
+/// <b>A link ends where a body can go more than one way, and nowhere else</b> — which a piece with another beside
+/// it the same way always is (<see cref="IFineGraph.Beside"/>, CAR-53).
 /// A line, however it bends, ends no link: a plan cuts a street wherever it wants a junction disc, and a
 /// body arriving at one of those has exactly one way on, so no decision can be made there. Everything
 /// between two decisions is therefore one link — which is what stops the search asking a question at every
@@ -242,12 +249,29 @@ internal sealed class RunNetwork
             var leaving = new int[linkFromPlace.Count];
             for (var link = 0; link < linkFromPlace.Count; link++) leaving[cursor[linkFromPlace[link]]++] = link;
 
-            // <b>Every way on leaves the place a link arrives at</b>, so the joins are that list and nothing
-            // else: a link ends where its last piece does, and what a body may do there is take one of the
-            // links setting off from the same ground (<c>TravelGraph.Builder.Join</c>).
+            // <b>Every way on leaves the place a link arrives at</b>, so the joins are that list: a link ends where
+            // its last piece does, and what a body may do there is take one of the links setting off from the same
+            // ground (<c>TravelGraph.Builder.Join</c>) — <b>or one setting off from where a piece beside its last one
+            // arrives</b>, got onto along the way (CAR-53) and priced as the turn from there with the move across.
+            var joinedAt = new List<int>();
             for (var link = 0; link < linkToPlace.Count; link++)
             {
-                var place = linkToPlace[link];
+                joinedAt.Clear();
+                JoinAt(link, linkToPlace[link]);
+                foreach (var inward in (ReadOnlySpan<bool>)[true, false])
+                {
+                    for (var beside = fine.Beside(lastEdge[link], inward); beside >= 0; beside = fine.Beside(beside, inward))
+                    {
+                        JoinAt(link, places.Arriving(beside));
+                    }
+                }
+            }
+
+            void JoinAt(int link, int place)
+            {
+                if (joinedAt.Contains(place)) return;
+
+                joinedAt.Add(place);
                 for (var at = leavingAt[place]; at < leavingAt[place + 1]; at++) builder.Join(link, leaving[at]);
             }
         }
@@ -272,11 +296,13 @@ internal sealed class RunNetwork
     {
         var arriving = new int[places.Count];
         var comingBack = new int[places.Count];
+        var besideAnother = new bool[places.Count];
         for (var lane = 0; lane < fine.LaneCount; lane++)
         {
             var place = places.Arriving(lane);
             arriving[place]++;
             if (fine.Reverse(lane) >= 0) comingBack[place]++;
+            besideAnother[place] |= fine.Beside(lane, true) >= 0 || fine.Beside(lane, false) >= 0;
         }
 
         var decision = new bool[places.Count];
@@ -291,7 +317,9 @@ internal sealed class RunNetwork
                 ? ways == 2
                 : comingBack[place] == 0 && ways == 1;
 
-            decision[place] = !oneEach || arriving[place] != ways;
+            // <b>And where a piece arrives with another beside it</b>, a body may have moved across onto that one and
+            // be making its way on instead (CAR-53): which is a choice whatever the place itself offers.
+            decision[place] = !oneEach || arriving[place] != ways || besideAnother[place];
         }
 
         return decision;

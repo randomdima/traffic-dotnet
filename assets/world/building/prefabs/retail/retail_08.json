@@ -1,0 +1,18 @@
+{
+  "id": "retail_08",
+  "footprintM": [
+    11.0,
+    5.5
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "retail",
+  "tags": [
+    "retail",
+    "1 storey",
+    "flat roof",
+    "grey membrane",
+    "shop pavilion"
+  ],
+  "describe": "single-storey shop pavilion, flat grey roof with an air conditioner unit and a sign along the front edge"
+}

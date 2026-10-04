@@ -44,8 +44,11 @@ internal sealed class LaidTown
     public static LaidTown Lay(string map, SimConfig config)
     {
         var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
-        var ground = GroundMesh.Build(plan, config);
+
+        // The world before the ground, because laying the world's atlas is an open's peak and the mesh laid
+        // first stood under it; laid after, it is laid into what the atlas worked in.
         var world = new TownWorld(plan, config);
+        var ground = GroundMesh.Build(plan, config);
         return new LaidTown(plan, ground, world, Scenarios.For(world, config));
     }
 }

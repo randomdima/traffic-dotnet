@@ -1,0 +1,19 @@
+{
+  "id": "industrial_deep_04",
+  "footprintM": [
+    5.5,
+    6.5
+  ],
+  "cornerRadiusM": 0.8,
+  "partsM": [],
+  "look": "industrial",
+  "tags": [
+    "industrial",
+    "1 storey",
+    "pitched roof",
+    "rusty corrugated metal",
+    "workshop",
+    "narrow front"
+  ],
+  "describe": "small workshop or depot shed, shallow pitched roof of rusty corrugated metal, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+}

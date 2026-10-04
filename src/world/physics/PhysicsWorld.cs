@@ -217,12 +217,16 @@ internal sealed partial class PhysicsWorld
         return body;
     }
 
-    /// <summary>One part of a building: a static box with square corners, turned the way the plan turned it.</summary>
-    public BodyId AddStaticBox(Vector2 centreM, Vector2 sizeM, float headingRad)
+    /// <summary>
+    /// One part of a building: a static box turned the way the plan turned it, its corners rounded at
+    /// <paramref name="cornerRadiusM"/> inside the size given — square where that is nought, a disc where it is half a
+    /// square's side.
+    /// </summary>
+    public BodyId AddStaticBox(Vector2 centreM, Vector2 sizeM, float headingRad, float cornerRadiusM = 0f)
     {
         var body = Add(
-            centreM, headingRad, sizeM * 0.5f, 0f, CollisionLayer.Static,
-            BodyFlags.Enabled | BodyFlags.Static | BodyFlags.RotationLocked, massKg: 0f);
+            centreM, headingRad, Vector2.Max((sizeM * 0.5f) - new Vector2(cornerRadiusM), Vector2.Zero), cornerRadiusM,
+            CollisionLayer.Static, BodyFlags.Enabled | BodyFlags.Static | BodyFlags.RotationLocked, massKg: 0f);
 
         _static[_staticCount++] = body.Index;
         _staticIndexStale = true;

@@ -1,0 +1,19 @@
+{
+  "id": "house_22",
+  "sprite": "house_22.webp",
+  "footprintM": [
+    8.5,
+    4.5
+  ],
+  "cornerRadiusM": 0.4,
+  "partsM": [],
+  "look": "house",
+  "tags": [
+    "house",
+    "1 storey",
+    "gabled roof",
+    "faded terracotta tiles",
+    "cottage"
+  ],
+  "describe": "small single-storey cottage, gabled roof of faded terracotta tiles, one brick chimney, a lean-to porch on the street side"
+}

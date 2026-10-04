@@ -88,7 +88,8 @@ internal sealed class StopBars
         var standsM = new List<float>();
         if (thicknessM <= 0f) return new StopBars([], [], [], [], [], []);
 
-        for (var at = 0; at < lanes.LaneCount; at++)
+        // A roadside is driven by nobody, so nobody is held on it (<see cref="LaneLines.IsRoadside"/>).
+        for (var at = 0; at < lanes.FirstRoadside; at++)
         {
             // A lane runs from its road's From end to its To end or back down it, so the end it arrives on
             // is which of the two ways round it is (TER-5i).

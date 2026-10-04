@@ -33,7 +33,7 @@ struct SheetPlace {
 };
 
 layout(set = 0, binding = 1) uniform Sheets {
-    SheetPlace place[192];
+    SheetPlace place[512];
 } sheets;
 
 layout(location = 0) in vec2 inCentreM;

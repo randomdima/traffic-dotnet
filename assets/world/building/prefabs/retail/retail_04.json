@@ -1,0 +1,18 @@
+{
+  "id": "retail_04",
+  "footprintM": [
+    8.0,
+    3.0
+  ],
+  "cornerRadiusM": 0.44999999999999996,
+  "partsM": [],
+  "look": "retail",
+  "tags": [
+    "retail",
+    "1 storey",
+    "flat roof",
+    "corrugated sheet",
+    "market stalls"
+  ],
+  "describe": "row of small shop booths or market stalls under one long flat roof of corrugated sheet"
+}

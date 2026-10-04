@@ -7,13 +7,13 @@ namespace TrafficSimulation.CityGen.Traced;
 /// boundary, the surfaces outlining them and the coastline over them, with every id, tag and coordinate OSM
 /// stores (GEN-57) — and each road's lanes and where a car may turn as OSM's own tagging rules mean them
 /// (<see cref="OsmCarriageway"/>, <see cref="OsmTurns"/>). Written by the scanner
-/// (src/tools/osmscan/, run by <c>qq osm</c>) into <c>towns/traced/</c>, and read into this engine's metres
-/// by <see cref="Survey.Of"/> when the map is opened.
+/// (src/tools/osmscan/, run by <c>qq osm</c>) to <c>towns/traced/&lt;Map&gt;.json</c>, and imported into the map's own
+/// file (<see cref="TracedMapImport"/>) — <b>never read when a map is opened</b>.
 /// </summary>
 /// <remarks>
 /// <b>Nothing in it is this engine's.</b> The frame, the lanes and the turns are OSM's conventions applied by the
-/// scanner, so the engine interprets no tag of a lane or relation; which classes are laid and the sea are read off it at load — and
-/// a node or way in it is the one OSM has, under the same id, to be looked up or fetched again by.
+/// scanner, so the engine interprets no tag of a lane or relation — and a node or way in it is the one OSM has, under
+/// the same id, to be looked up or fetched again by.
 /// </remarks>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed class OsmExtract
@@ -153,7 +153,7 @@ internal sealed class OsmWay
 /// </summary>
 /// <remarks>
 /// <b>Every road in the rectangle is the place's</b>, inside its boundary or not, and a way running on past it
-/// is held whole: the map lays what stands inside <see cref="MarginM"/> of its edge and cuts a way there.
+/// is held whole: the map lays it up to its own edge and cuts it there.
 /// </remarks>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed class OsmFrame
@@ -172,15 +172,22 @@ internal sealed class OsmFrame
 
     public required double HeightM { get; init; }
 
-    /// <summary>The ground the map keeps past the rectangle its roads are cut to, on every side (GEN-2b).</summary>
+    /// <summary>
+    /// How far the map runs past the box its roads were taken in — the extent of the place's own roads, or a crop's
+    /// box — on every side: ground a road leaving the box crosses on its way to the map's edge.
+    /// </summary>
     public required double MarginM { get; init; }
 
     public TransverseMercator Projection() => new(Lat0Deg, Lon0Deg);
 
     /// <summary>Where a node stands on the map, x east and y south of its north-west corner.</summary>
-    public (double X, double Y) Place(TransverseMercator projection, OsmNodes nodes, int node)
+    public (double X, double Y) Place(TransverseMercator projection, OsmNodes nodes, int node) =>
+        Place(projection, nodes.LatDeg(node), nodes.LonDeg(node));
+
+    /// <summary>Where a place stands on the map, x east and y south of its north-west corner.</summary>
+    public (double X, double Y) Place(TransverseMercator projection, double latDeg, double lonDeg)
     {
-        var (eastM, northM) = projection.Project(nodes.LatDeg(node), nodes.LonDeg(node));
+        var (eastM, northM) = projection.Project(latDeg, lonDeg);
         return (eastM - WestM, HeightM - (northM - SouthM));
     }
 }

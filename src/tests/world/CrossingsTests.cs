@@ -1,4 +1,6 @@
 using System.Numerics;
+using TrafficSimulation.CityGen;
+using TrafficSimulation.CityGen.Traced;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Tests.CityGen;
@@ -106,6 +108,54 @@ public class CrossingsTests
                 $"a zebra reaches {crossings.SpanM[crossing]:F2} m over a {widthM:F2} m carriageway at " +
                 $"{crossings.CentreM[crossing].X:F0},{crossings.CentreM[crossing].Y:F0}");
         }
+    }
+
+    /// <summary>
+    /// <b>A town that says where its zebras are paints none at a station</b> (<c>CityPlan.ZebraAtEveryStation</c>):
+    /// a traced crossroads is still cut and held at every arm, and every band there is no depth of paint.
+    /// </summary>
+    [Fact]
+    public void ATownThatSaysWhereItsZebrasArePaintsNoneAtAStation()
+    {
+        var config = SimConfig.Shipped();
+        var plan = Crossroads([]);
+        var stations = Crossings.Lay(plan, config, plan.Paving(config).RoadEnds(config).CrossedM);
+
+        Assert.Equal(4, stations.Count);
+        Assert.All(stations.DepthM.ToArray(), depthM => Assert.Equal(0f, depthM));
+    }
+
+    /// <summary>
+    /// <b>The zebras a town says it has are a band each, across their road kerb to kerb</b>, and filed under no road
+    /// end: no bar is laid behind one.
+    /// </summary>
+    [Fact]
+    public void ATownsOwnZebraIsABandAcrossItsRoadFiledUnderNoEnd()
+    {
+        var plan = Crossroads([new SurveyCrossing(1, new Vector2(150f, 500f), SurveyCrossingKind.Zebra, true, CityPlan.NoRecord)]);
+        var crossings = Crossings.Of(plan);
+
+        Assert.Equal(1, crossings.Count);
+        Assert.Equal(plan.CrossingSpanM(0), crossings.SpanM[0]);
+        Assert.Equal(Crossings.None, crossings.At(plan.Crosswalks.Road[0], atTo: false));
+        Assert.Equal(Crossings.None, crossings.At(plan.Crosswalks.Road[0], atTo: true));
+    }
+
+    /// <summary>A traced crossroads of two residential streets through point 4, with the crossings given over it.</summary>
+    static CityPlan Crossroads(SurveyCrossing[] crossings)
+    {
+        var survey = new Survey
+        {
+            Name = "Traced", Relation = 1, WidthM = 1000f, HeightM = 1000f, PointsM = [100, 500, 900, 500, 500, 100, 500, 900, 500, 500],
+            Ways = [Street(1, 0, 4, 1), Street(2, 2, 4, 3)], Sea = [], Crossings = crossings,
+        };
+        return TracedPlan.Lay(survey, SimConfig.Shipped());
+
+        static SurveyWay Street(long id, params int[] points) => new()
+        {
+            OsmId = id, Highway = "residential", LanesForward = 1, LanesBackward = 1, LanesShared = 0,
+            CarriagewayM = 2 * OsmCarriageway.AssumedLaneWidthM, CentreOffsetM = 0f, Points = points,
+        };
     }
 
     static bool Crosses(FootConnectors connectors, int node) =>

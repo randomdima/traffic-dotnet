@@ -23,11 +23,12 @@ town as it was.
 **TER-4c.4** `P3` **Every way of the town is a ribbon, and the ribbons are laid once.** A ribbon is its way's
 line swept to **the way's own width** — a lane's, a join's, a bay's, a pavement's, the paint of a crossing —
 with square ends. There is no other width a ribbon is laid at: what travels a way is a body on it (TER-4c.2),
-and not a second, narrower ribbon inside it. The town samples every ribbon onto a lattice of points when it
-is laid, and each point knows which ways it lies under, how far along each of them it stands and how far
-outside each one's band. **That lattice is how a body is read onto ways**: which ways a collider is over is
-a look-up of the points inside it. Which ways share ground is worked out from the ribbons themselves
-(TER-5c).
+and not a second, narrower ribbon inside it. The town samples every ribbon a body can be read onto onto a
+lattice of points when it is laid — **a walked one only in a town anybody walks, or where the traffic crosses
+it**, a zebra's paint — and each point knows which ways it lies under, how far along each of them it stands
+and how far outside each one's band. **That lattice is how a body is read onto ways**: which ways a collider
+is over is a look-up of the points inside it. Which ways share ground is worked out from the ribbons
+themselves (TER-5c), every one of them.
 
 - **The lattice files a point a reach past every band**, the furthest any ground is from the point standing
   for it, **and a body is on a way only where it reaches past a point further than the point stands outside
@@ -58,6 +59,9 @@ What follows from that rather than being stated beside it:
   stream shares exactly the metres it crosses.
 - **Ribbons laid edge to edge share no ground.** The two lanes of a carriageway and a lane and the way that
   carries on from its end touch, and are not marked.
+- **Ways on two levels share no ground** however their ribbons lie in plan: a bridge's lanes and the road under
+  them (`CityPlan.RoadArrays.Level`, PHY-1a) are never marked. A connector is on the level of the two lanes it
+  joins where they share one, and on the ground at a bridgehead.
 - **Ground two networks share is marked like any other, except a zebra**, which is marked whole (TER-5c.3) —
   and a zebra is the only ground the walk and the traffic share
   ([WLK-16](../../foot/docs/requirements.md)).
@@ -83,7 +87,9 @@ what they left out. **The town's furniture stands on no driven ribbon** (TER-4c.
 **TER-4c.2** `P3` **A body is on every way whose ribbon its collider is over, at p0, over the stretch it
 covers.** It is read off the lattice at the pose the solver left it in — the collider and never the drawn
 picture, and never the square round it — so a car across the line between two lanes is on both, and one
-turned across its own lane holds the corner of the next and not its own shadow down it.
+turned across its own lane holds the corner of the next and not its own shadow down it. **Only the ways of its
+own level** (PHY-1a): a car on a bridge is on the bridge's lanes and on nothing of the road under it, and a walker
+is on the ground.
 
 - **Nothing about the write turns on what the body is doing.** Driven, parked, wrecked, under a hand or
   knocked down, a body in a way is in it; a body inside a building is in no way at all.

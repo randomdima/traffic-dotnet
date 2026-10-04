@@ -1,9 +1,9 @@
 namespace TrafficSimulation.Tools.OsmScan;
 
 /// <summary>
-/// <b>The scanner</b>: takes a city off OpenStreetMap into its traced map's survey (<see cref="Scan"/>), and
-/// draws OSM's own lanes over a shot of it to hold the engine's against (<see cref="Draw"/>). Run by
-/// <c>qq osm</c>.
+/// <b>The scanner</b>: takes a city off OpenStreetMap into its traced map's survey (<see cref="Scan"/>), imports the
+/// map the engine reads off it (<see cref="Meta.Import"/>), edits that map (<see cref="Crop"/>), and draws OSM's own
+/// lanes over a shot of it to hold the engine's against (<see cref="Draw"/>). Run by <c>qq osm</c>.
 /// </summary>
 /// <remarks>
 /// It is a tool of its own so that what OSM says is read by something that knows nothing of the engine's rules:
@@ -13,6 +13,13 @@ internal static class Program
 {
     const string Usage = """
         usage: osm-scan scan [--city odesa] [--refetch]
+               osm-scan meta [--city odesa] [--refetch] [--fetch-only] [--skip SOURCE,...]
+               osm-scan meta-check [--map OdesaOsm]
+               osm-scan import [--map OdesaOsm] [--force]
+               osm-scan crop --box S,W,N,E [--map OdesaOsm]
+               osm-scan stumps [--map OdesaOsm] [--dry]
+               osm-scan footprints [--map OdesaOsm]
+               osm-scan meta-draw OUT.png --at LAT,LON [--span 400] [--map OdesaOsm]
                osm-scan draw SHOT.png [--map OdesaOsm]
         """;
 
@@ -24,6 +31,17 @@ internal static class Program
             return args.FirstOrDefault() switch
             {
                 "scan" => Scan.Run(root, Option(args, "--city") ?? "odesa", args.Contains("--refetch")),
+                "meta" => Meta.Enrichment.Run(root, Option(args, "--city") ?? "odesa", args.Contains("--refetch"), args.Contains("--fetch-only"),
+                    (Option(args, "--skip") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries)),
+                "meta-check" => Meta.Audit.Run(root, Option(args, "--map") ?? "OdesaOsm"),
+                "import" => Meta.Import.Run(root, Option(args, "--map") ?? "OdesaOsm", args.Contains("--force")),
+                "crop" when Option(args, "--box") is { } box => Crop.Run(root, Option(args, "--map") ?? "OdesaOsm", box),
+                "stumps" => Stumps.Run(root, Option(args, "--map") ?? "OdesaOsm", args.Contains("--dry")),
+                "footprints" => Footprints.Run(root, Option(args, "--map") ?? "OdesaOsm"),
+                "meta-draw" when args.Length > 1 && Option(args, "--at") is { } at => Meta.Picture.Run(root, Option(args, "--map") ?? "OdesaOsm",
+                    double.Parse(at.Split(',')[0], System.Globalization.CultureInfo.InvariantCulture),
+                    double.Parse(at.Split(',')[1], System.Globalization.CultureInfo.InvariantCulture),
+                    double.Parse(Option(args, "--span") ?? "400", System.Globalization.CultureInfo.InvariantCulture), Path.GetFullPath(args[1])),
                 "draw" when args.Length > 1 => Draw.Run(root, Path.GetFullPath(args[1]), Option(args, "--map") ?? "OdesaOsm"),
                 _ => Refuse(Usage),
             };

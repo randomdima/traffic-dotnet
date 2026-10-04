@@ -1,0 +1,19 @@
+{
+  "id": "garages_13",
+  "footprintM": [
+    29.0,
+    11.0
+  ],
+  "cornerRadiusM": 0.3,
+  "partsM": [],
+  "look": "garages",
+  "tags": [
+    "garages",
+    "1 storey",
+    "flat roof",
+    "black tar paper",
+    "garage row",
+    "cooperative"
+  ],
+  "describe": "row of 9 lock-up garages of a garage cooperative, flat roof of black tar paper parted by low brick parapets between the units, patched in places"
+}

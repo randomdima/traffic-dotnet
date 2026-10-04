@@ -1,0 +1,2433 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-10-03T14:12:20Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "node",
+  "id": 865237157,
+  "lat": 46.5378841,
+  "lon": 30.6277491,
+  "tags": {
+    "name": "Катакомби (Музей партизанської слави)",
+    "name:de": "Katakomben (Museum des Kampfes der Partisanen im 2.WK)",
+    "name:en": "Catacombs (Museum of Partisan Glory)",
+    "name:ru": "Катакомбы (Музей партизанской славы)",
+    "name:uk": "Катакомби (Музей партизанської слави)",
+    "tourism": "museum"
+  }
+},
+{
+  "type": "node",
+  "id": 1482297023,
+  "lat": 46.5609620,
+  "lon": 30.7131590,
+  "tags": {
+    "amenity": "post_office",
+    "branch": "Склад №6",
+    "brand": "Нова Пошта",
+    "brand:en": "Nova Poshta",
+    "brand:uk": "Нова Пошта",
+    "brand:wikidata": "Q12133863",
+    "brand:wikipedia": "uk:Нова Пошта",
+    "contact:email": "info@novaposhta.ua",
+    "contact:facebook": "nova.poshta.official",
+    "contact:instagram": "https://www.instagram.com/novaposhta.official/",
+    "contact:twitter": "_novaposhta_",
+    "contact:website": "http://novaposhta.ua",
+    "contact:youtube": "https://www.youtube.com/channel/UCUgNSjGSiSdJBTjGG2IA4JA",
+    "description": "Відділення №6: с. Котовка, вул. Кооперативна, 2а (Авторинок \"Куяльник\")",
+    "name": "Нова Пошта №6",
+    "name:en": "Nova Poshta #6",
+    "name:ru": "Новая Почта №6",
+    "name:uk": "Нова Пошта №6",
+    "opening_hours": "Mo-Fr 09:00-18:00; Sa 09:00-16:00",
+    "operator": "Нова Пошта",
+    "operator:uk": "Товариство з обмеженою відповідальністю \"Нова Пошта\"",
+    "operator:wikidata": "Q12133863",
+    "operator:wikipedia": "uk:Нова Пошта",
+    "phone": "+380 48 718 2290",
+    "ref": "6",
+    "source": "novaposhta.ua",
+    "source:pkey": "40498334-e1c2-11e3-8c4a-0050568002cf"
+  }
+},
+{
+  "type": "node",
+  "id": 2190965883,
+  "lat": 46.5545671,
+  "lon": 30.6509355,
+  "tags": {
+    "addr:postcode": "65092",
+    "amenity": "post_office",
+    "designation": "65092",
+    "name": "Укрпошта",
+    "name:uk": "Укрпошта",
+    "operator": "Укрпошта",
+    "operator:en": "Ukrposhta",
+    "operator:ru": "Укрпошта",
+    "operator:uk": "Укрпошта",
+    "operator:wikidata": "Q2470783"
+  }
+},
+{
+  "type": "node",
+  "id": 2836904519,
+  "lat": 46.5377562,
+  "lon": 30.6207459,
+  "tags": {
+    "access": "yes",
+    "amenity": "toilets",
+    "opening_hours": "24/7"
+  }
+},
+{
+  "type": "node",
+  "id": 3076201218,
+  "lat": 46.5373299,
+  "lon": 30.6271708,
+  "tags": {
+    "historic": "monument",
+    "name": "Пам'ятник Партизанам",
+    "name:de": "Monument der Partisanen",
+    "name:en": "Monument to the Partisans",
+    "name:ru": "Памятник Партизанам",
+    "name:uk": "Пам'ятник Партизанам"
+  }
+},
+{
+  "type": "node",
+  "id": 3076201228,
+  "lat": 46.5374290,
+  "lon": 30.6278001,
+  "tags": {
+    "historic": "monument"
+  }
+},
+{
+  "type": "node",
+  "id": 3077695694,
+  "lat": 46.5361326,
+  "lon": 30.6262301,
+  "tags": {
+    "historic": "monument"
+  }
+},
+{
+  "type": "node",
+  "id": 3077695703,
+  "lat": 46.5363368,
+  "lon": 30.6265246,
+  "tags": {
+    "historic": "memorial"
+  }
+},
+{
+  "type": "node",
+  "id": 3077696347,
+  "lat": 46.5376838,
+  "lon": 30.6262301,
+  "tags": {
+    "entrance": "yes",
+    "name": "Вхід до Катакомб",
+    "name:de": "Zugang zu den Katakomben",
+    "name:en": "Entrance to the Catacombs",
+    "name:ru": "Вход в Катакомбы",
+    "name:uk": "Вхід до Катакомб",
+    "tourism": "museum"
+  }
+},
+{
+  "type": "node",
+  "id": 3647804125,
+  "lat": 46.5282313,
+  "lon": 30.6095586,
+  "tags": {
+    "amenity": "charging_station"
+  }
+},
+{
+  "type": "node",
+  "id": 3647804134,
+  "lat": 46.5292331,
+  "lon": 30.6091983,
+  "tags": {
+    "amenity": "parking",
+    "name": "Паркування",
+    "name:ru": "Парковка",
+    "name:uk": "Паркування",
+    "opening_hours": "24/7"
+  }
+},
+{
+  "type": "node",
+  "id": 3923566269,
+  "lat": 46.5373273,
+  "lon": 30.7195972,
+  "tags": {
+    "amenity": "post_office",
+    "branch": "№ 42",
+    "brand": "Укрпошта",
+    "brand:en": "Ukrposhta",
+    "brand:ru": "Укрпочта",
+    "brand:uk": "Укрпошта",
+    "brand:wikidata": "Q2470783",
+    "brand:wikipedia": "uk:Укрпошта",
+    "contact:facebook": "https://www.facebook.com/ukrposhta",
+    "contact:instagram": "https://www.instagram.com/ukrposhta/",
+    "contact:linkedin": "https://www.linkedin.com/company/ukrposhta",
+    "contact:telegram": "ukrposhta_chatbot",
+    "contact:twitter": "https://twitter.com/ukrposhta",
+    "contact:viber": "https://chats.viber.com/ukrposhta",
+    "contact:website": "https://www.ukrposhta.ua",
+    "contact:youtube": "https://www.youtube.com/channel/UCKRVreLLQ-gbc6vrdgF9uEA",
+    "name": "Відділення зв'язку № 42",
+    "name:en": "Post office # 42",
+    "name:ru": "Отделение связи № 42",
+    "name:uk": "Відділення зв'язку № 42",
+    "operator": "Укрпошта",
+    "operator:en": "Ukrposhta",
+    "operator:ru": "Укрпочта",
+    "operator:uk": "Укрпошта",
+    "operator:wikidata": "Q2470783",
+    "operator:wikipedia": "uk:Укрпошта",
+    "ref": "65042"
+  }
+},
+{
+  "type": "node",
+  "id": 3923582041,
+  "lat": 46.5650189,
+  "lon": 30.7117175,
+  "tags": {
+    "amenity": "post_office",
+    "brand": "Укрпошта",
+    "brand:en": "Ukrposhta",
+    "brand:ru": "Укрпочта",
+    "brand:uk": "Укрпошта",
+    "brand:wikidata": "Q2470783",
+    "brand:wikipedia": "uk:Укрпошта",
+    "building": "yes",
+    "contact:facebook": "https://www.facebook.com/ukrposhta",
+    "contact:instagram": "https://www.instagram.com/ukrposhta/",
+    "contact:linkedin": "https://www.linkedin.com/company/ukrposhta",
+    "contact:telegram": "ukrposhta_chatbot",
+    "contact:twitter": "https://twitter.com/ukrposhta",
+    "contact:viber": "https://chats.viber.com/ukrposhta",
+    "contact:website": "https://www.ukrposhta.ua",
+    "contact:youtube": "https://www.youtube.com/channel/UCKRVreLLQ-gbc6vrdgF9uEA",
+    "name": "Відділення зв'язку",
+    "name:en": "Post office",
+    "name:ru": "Отделение связи",
+    "name:uk": "Відділення зв'язку",
+    "operator": "Укрпошта",
+    "operator:en": "Ukrposhta",
+    "operator:ru": "Укрпочта",
+    "operator:uk": "Укрпошта",
+    "operator:wikidata": "Q2470783",
+    "operator:wikipedia": "uk:Укрпошта",
+    "ref": "67633"
+  }
+},
+{
+  "type": "node",
+  "id": 3923582043,
+  "lat": 46.5650469,
+  "lon": 30.7115951,
+  "tags": {
+    "amenity": "police",
+    "name": "Дільничний пункт поліції Біляївського відділу",
+    "name:ru": "Участковой пункт полиции Беляевского отдела",
+    "name:uk": "Дільничний пункт поліції Біляївського відділу"
+  }
+},
+{
+  "type": "node",
+  "id": 3923582046,
+  "lat": 46.5650755,
+  "lon": 30.7114810,
+  "tags": {
+    "amenity": "library",
+    "name": "Селищна бібліотека",
+    "name:ru": "Поселковая библиотека",
+    "name:uk": "Селищна бібліотека"
+  }
+},
+{
+  "type": "node",
+  "id": 4429226235,
+  "lat": 46.5569007,
+  "lon": 30.7194138,
+  "tags": {
+    "amenity": "fuel",
+    "brand": "Amic",
+    "brand:wikidata": "Q96047373",
+    "contact:facebook": "https://www.facebook.com/amic.energy/",
+    "contact:instagram": "https://www.instagram.com/amic.energy/",
+    "description": "Одеська обл., Біляївський район, с. Латівка, Вул.новоселів, буд. 42",
+    "email": "info@amicenergy.com.ua",
+    "fuel:diesel": "yes",
+    "fuel:octane_95": "yes",
+    "name": "Amic",
+    "phone:UA": "0 800 501 110",
+    "ref": "16-46",
+    "shop": "convenience",
+    "source:check_date": "2026-09-02",
+    "toilets": "yes",
+    "website": "https://amicenergy.com.ua/"
+  }
+},
+{
+  "type": "node",
+  "id": 4545313004,
+  "lat": 46.5285694,
+  "lon": 30.6091998,
+  "tags": {
+    "leisure": "picnic_table"
+  }
+},
+{
+  "type": "node",
+  "id": 4726069290,
+  "lat": 46.5458595,
+  "lon": 30.7129714,
+  "tags": {
+    "amenity": "fuel",
+    "fuel:cng": "yes",
+    "name": "АГНКС Метан",
+    "name:uk": "АГНКС Метан"
+  }
+},
+{
+  "type": "node",
+  "id": 4790325421,
+  "lat": 46.5445156,
+  "lon": 30.7100718,
+  "tags": {
+    "amenity": "fuel",
+    "name": "Украв",
+    "name:en": "Metan gas station",
+    "name:ru": "Метановая АЗС",
+    "name:uk": "Метанова АЗС"
+  }
+},
+{
+  "type": "node",
+  "id": 5032399421,
+  "lat": 46.5282488,
+  "lon": 30.6099749,
+  "tags": {
+    "amenity": "cafe",
+    "name": "WOG кафе",
+    "name:en": "WOG cafe",
+    "name:ru": "вог кафе",
+    "name:uk": "WOG кафе"
+  }
+},
+{
+  "type": "node",
+  "id": 5145921026,
+  "lat": 46.5417092,
+  "lon": 30.6641668,
+  "tags": {
+    "amenity": "bench"
+  }
+},
+{
+  "type": "node",
+  "id": 5169901021,
+  "lat": 46.5542581,
+  "lon": 30.6487512,
+  "tags": {
+    "addr:street": "Зелена вулиця",
+    "amenity": "cafe",
+    "cuisine": "burger;sushi;pizza;coffee_shop",
+    "internet_access": "wlan",
+    "name": "Евріка",
+    "name:uk": "Евріка",
+    "opening_hours": "Mo-Su 11:00-23:00",
+    "phone": "+380 73 793 1807",
+    "website": "https://vk.com/eurika_nati"
+  }
+},
+{
+  "type": "node",
+  "id": 5220766119,
+  "lat": 46.5282527,
+  "lon": 30.6810808,
+  "tags": {
+    "amenity": "bench"
+  }
+},
+{
+  "type": "node",
+  "id": 5220766244,
+  "lat": 46.5243672,
+  "lon": 30.6848285,
+  "tags": {
+    "historic": "memorial",
+    "memorial": "war_memorial",
+    "name": "Пам'ятник загиблим у ДСВ жителям",
+    "name:uk": "Пам'ятник загиблим у ДСВ жителям"
+  }
+},
+{
+  "type": "node",
+  "id": 5331083227,
+  "lat": 46.5200137,
+  "lon": 30.6637673,
+  "tags": {
+    "amenity": "fuel",
+    "backup_generator": "yes",
+    "brand": "UPG",
+    "brand:wikidata": "Q117706281",
+    "contact:facebook": "https://www.facebook.com/AZK.UPG",
+    "contact:instagram": "https://www.instagram.com/upg.ua/",
+    "description": "АЗС №322: Одеська обл., Одеський р-н, с. Усатове, вул. Грушевського, буд.1-Д",
+    "email": "support@upg.ua",
+    "fuel:diesel": "yes",
+    "fuel:octane_95": "yes",
+    "name": "UPG",
+    "opening_hours": "24/7",
+    "phone:UA": "0 800 500 064",
+    "ref": "322",
+    "shop": "convenience",
+    "source": "upg.ua",
+    "source:check_date": "2026-08-24",
+    "toilets": "yes",
+    "website": "https://upg.ua/"
+  }
+},
+{
+  "type": "node",
+  "id": 6018013788,
+  "lat": 46.5440521,
+  "lon": 30.6484509,
+  "tags": {
+    "addr:housenumber": "4б",
+    "addr:postcode": "67661",
+    "addr:street": "Прикордонна вулиця",
+    "amenity": "restaurant",
+    "name": "Ранчо дядечка Бо",
+    "name:en": "Uncle's ranch Bo",
+    "name:ru": "Ранчо дядюшки Бо",
+    "name:uk": "Ранчо дядечка Бо"
+  }
+},
+{
+  "type": "node",
+  "id": 6147370490,
+  "lat": 46.5478937,
+  "lon": 30.6156721,
+  "tags": {
+    "historic": "wayside_cross"
+  }
+},
+{
+  "type": "node",
+  "id": 6194166162,
+  "lat": 46.5633012,
+  "lon": 30.6393456,
+  "tags": {
+    "amenity": "parking",
+    "parking": "surface"
+  }
+},
+{
+  "type": "node",
+  "id": 6194166163,
+  "lat": 46.5601771,
+  "lon": 30.6439966,
+  "tags": {
+    "amenity": "parking",
+    "parking": "surface"
+  }
+},
+{
+  "type": "node",
+  "id": 6341737246,
+  "lat": 46.5259663,
+  "lon": 30.6225175,
+  "tags": {
+    "email": "yevgeniy@antama.com",
+    "internet_access": "wlan",
+    "name": "Мотель КлеверОк",
+    "name:en": "Motel Klever-Ok",
+    "name:uk": "Мотель КлеверОк",
+    "phone": "+380 67 480 2922",
+    "tourism": "motel",
+    "website": "http://www.klever-ok.od.ua"
+  }
+},
+{
+  "type": "node",
+  "id": 6651567652,
+  "lat": 46.5584558,
+  "lon": 30.7029563,
+  "tags": {
+    "amenity": "fuel",
+    "brand": "Sun Oil",
+    "name": "Sun Oil",
+    "name:uk": "Sun Oil"
+  }
+},
+{
+  "type": "node",
+  "id": 6708166708,
+  "lat": 46.5438373,
+  "lon": 30.6305389,
+  "tags": {
+    "historic": "memorial",
+    "name": "Пам'ятник воїнам, полеглим у Великій Вітчизняній війні",
+    "name:ru": "Памятник воинам, павшим в Великой Отечественной войне",
+    "name:uk": "Пам'ятник воїнам, полеглим у Великій Вітчизняній війні"
+  }
+},
+{
+  "type": "node",
+  "id": 6854305531,
+  "lat": 46.5577329,
+  "lon": 30.7078378,
+  "tags": {
+    "historic": "memorial",
+    "memorial": "memorial",
+    "name": "Меморіал \"Полеглим за Батьківщину\"",
+    "name:ru": "Мемориал \"Павшим за Родину\"",
+    "name:uk": "Меморіал \"Полеглим за Батьківщину\""
+  }
+},
+{
+  "type": "node",
+  "id": 6886926356,
+  "lat": 46.5596176,
+  "lon": 30.6094723,
+  "tags": {
+    "historic": "memorial",
+    "name": "Пам'ятник воїнам, загиблим у Великій Вітчизняній війні",
+    "name:ru": "Памятник воинам, погибшим в Великой Отечественной войне",
+    "name:uk": "Пам'ятник воїнам, загиблим у Великій Вітчизняній війні"
+  }
+},
+{
+  "type": "node",
+  "id": 7755794413,
+  "lat": 46.5283710,
+  "lon": 30.6097590,
+  "tags": {
+    "amenity": "charging_station",
+    "contact:email": "info@toka.energy",
+    "contact:facebook": "https://www.facebook.com/tokaua/",
+    "contact:instagram": "https://www.instagram.com/tokaua/",
+    "contact:phone": "+380 44 222 6688;+380 48 788 6866;+380 67 225 6688",
+    "contact:website": "https://toka.energy/",
+    "name": "Toka",
+    "name:uk": "Toka",
+    "opening_hours": "24/7",
+    "operator": "Перша національна мережа електрозаправних комплексів \"Тока\""
+  }
+},
+{
+  "type": "node",
+  "id": 7800509139,
+  "lat": 46.5569527,
+  "lon": 30.7095521,
+  "tags": {
+    "amenity": "fuel",
+    "fuel:lpg": "yes"
+  }
+},
+{
+  "type": "node",
+  "id": 8111789118,
+  "lat": 46.5641924,
+  "lon": 30.7116667,
+  "tags": {
+    "name": "STIHL - магазин Товари для Дому - офіційний дилер",
+    "name:uk": "STIHL - магазин Товари для Дому - офіційний дилер",
+    "opening_hours": "Mo-Su 09:00-19:00",
+    "phone": "+380 48 701 2905",
+    "shop": "general"
+  }
+},
+{
+  "type": "node",
+  "id": 8373024040,
+  "lat": 46.5603267,
+  "lon": 30.6155775,
+  "tags": {
+    "amenity": "drinking_water"
+  }
+},
+{
+  "type": "node",
+  "id": 8692975730,
+  "lat": 46.5342810,
+  "lon": 30.6426500,
+  "tags": {
+    "contact:email": "Ukraine@amacoint.com",
+    "contact:facebook": "https://www.facebook.com/amacoint",
+    "contact:linkedin": "https://www.linkedin.com/company/amako-ukraine/",
+    "contact:phone": "+380 67 414 1088;+380 67 414 1094",
+    "contact:website": "https://amacoint.com/",
+    "craft": "agricultural_engines",
+    "name": "Амако",
+    "name:uk": "Амако",
+    "opening_hours": "Mo-Fr 08:00-17:00;Sa 09:00-15:00",
+    "operator": "ТОВ \"АМАКО Україна\"",
+    "phone:UA": "0 800 302 230"
+  }
+},
+{
+  "type": "node",
+  "id": 9006467099,
+  "lat": 46.5666558,
+  "lon": 30.7132319,
+  "tags": {
+    "name": "Міні–маркет",
+    "name:uk": "Міні–маркет",
+    "shop": "convenience"
+  }
+},
+{
+  "type": "node",
+  "id": 10039080317,
+  "lat": 46.5372056,
+  "lon": 30.6246748,
+  "tags": {
+    "addr:housenumber": "5a",
+    "addr:postcode": "67661",
+    "addr:street": "Покровська вулиця",
+    "amenity": "pharmacy",
+    "healthcare": "pharmacy",
+    "name": "Аптека",
+    "name:uk": "Аптека",
+    "opening_hours": "Mo-Su 08:00-21:00"
+  }
+},
+{
+  "type": "node",
+  "id": 10064234918,
+  "lat": 46.5447691,
+  "lon": 30.6295150,
+  "tags": {
+    "amenity": "library",
+    "name": "Бібліотека с. Нерубайське",
+    "name:en": "Nerubaiis'ke village library",
+    "name:uk": "Бібліотека с. Нерубайське"
+  }
+},
+{
+  "type": "node",
+  "id": 10064235317,
+  "lat": 46.5444489,
+  "lon": 30.6294196,
+  "tags": {
+    "name": "Продукти",
+    "name:uk": "Продукти",
+    "shop": "convenience"
+  }
+},
+{
+  "type": "node",
+  "id": 10064239717,
+  "lat": 46.5444094,
+  "lon": 30.6295913,
+  "tags": {
+    "name": "Господарські товари",
+    "name:en": "Household goods store",
+    "name:uk": "Господарські товари",
+    "shop": "variety_store"
+  }
+},
+{
+  "type": "node",
+  "id": 10064239817,
+  "lat": 46.5366468,
+  "lon": 30.6266875,
+  "tags": {
+    "leisure": "playground"
+  }
+},
+{
+  "type": "node",
+  "id": 10064249217,
+  "lat": 46.5421274,
+  "lon": 30.6363253,
+  "tags": {
+    "leisure": "playground"
+  }
+},
+{
+  "type": "node",
+  "id": 10064249417,
+  "lat": 46.5388230,
+  "lon": 30.6318592,
+  "tags": {
+    "amenity": "fast_food",
+    "cuisine": "american;asian;pizza",
+    "name": "Фастфуд \"Good Food\"",
+    "name:en": "Good Food",
+    "name:uk": "Фастфуд \"Good Food\""
+  }
+},
+{
+  "type": "node",
+  "id": 10064249418,
+  "lat": 46.5388771,
+  "lon": 30.6318441,
+  "tags": {
+    "name": "Розливне пиво",
+    "name:en": "Beer",
+    "name:uk": "Розливне пиво",
+    "shop": "beverages"
+  }
+},
+{
+  "type": "node",
+  "id": 10064258717,
+  "lat": 46.5352863,
+  "lon": 30.6422459,
+  "tags": {
+    "name": "М'ясо від виробника",
+    "name:en": "Meats Store",
+    "name:uk": "М'ясо від виробника",
+    "shop": "butcher"
+  }
+},
+{
+  "type": "node",
+  "id": 10064258718,
+  "lat": 46.5360535,
+  "lon": 30.6407270,
+  "tags": {
+    "name": "Магазин цілодобовий",
+    "name:en": "24h Food Store",
+    "name:uk": "Магазин цілодобовий",
+    "shop": "convenience"
+  }
+},
+{
+  "type": "node",
+  "id": 10064258817,
+  "lat": 46.5359728,
+  "lon": 30.6410210,
+  "tags": {
+    "name": "Магазин \"Тетяна\"",
+    "name:uk": "Магазин \"Тетяна\"",
+    "shop": "convenience"
+  }
+},
+{
+  "type": "node",
+  "id": 10064307317,
+  "lat": 46.5436922,
+  "lon": 30.6309439,
+  "tags": {
+    "addr:postcode": "67661",
+    "addr:street": "площа Партизан",
+    "name": "Магазин будівельних товарів \"Мастер\"",
+    "name:en": "\"Master\" hardware store",
+    "name:uk": "Магазин будівельних товарів \"Мастер\"",
+    "shop": "variety_store",
+    "website": "https://masternerubayskoe.business.site/?utm_source=gmb&utm_medium=referral"
+  }
+},
+{
+  "type": "node",
+  "id": 10064314617,
+  "lat": 46.5451425,
+  "lon": 30.6300617,
+  "tags": {
+    "amenity": "pharmacy",
+    "healthcare": "pharmacy"
+  }
+},
+{
+  "type": "node",
+  "id": 10064326317,
+  "lat": 46.5378514,
+  "lon": 30.6239448,
+  "tags": {
+    "addr:postcode": "67661",
+    "addr:street": "провулок Шевченка",
+    "amenity": "post_office",
+    "name": "Відділення Укрпошти",
+    "name:en": "Ukrposhta",
+    "name:uk": "Відділення Укрпошти",
+    "opening_hours": "Tu-Sa 08:00-17:00",
+    "operator": "Укрпошта",
+    "operator:en": "Ukrposhta",
+    "operator:ru": "Укрпошта",
+    "operator:uk": "Укрпошта",
+    "operator:wikidata": "Q2470783"
+  }
+},
+{
+  "type": "node",
+  "id": 10064330017,
+  "lat": 46.5378024,
+  "lon": 30.6240087,
+  "tags": {
+    "addr:postcode": "67661",
+    "addr:street": "провулок Шевченка",
+    "amenity": "bank",
+    "name": "Ощадбанк",
+    "name:en": "Oschadbank",
+    "name:uk": "Ощадбанк"
+  }
+},
+{
+  "type": "node",
+  "id": 10064331417,
+  "lat": 46.5397610,
+  "lon": 30.6187653,
+  "tags": {
+    "addr:postcode": "67661",
+    "amenity": "parcel_locker",
+    "brand": "Нова Пошта",
+    "brand:wikidata": "Q12133863",
+    "name": "Нова Пошта",
+    "name:uk": "Нова Пошта",
+    "operator": "Nova Poshta"
+  }
+},
+{
+  "type": "node",
+  "id": 10881728507,
+  "lat": 46.5202730,
+  "lon": 30.6697689,
+  "tags": {
+    "amenity": "place_of_worship",
+    "name": "Семінарія «Згода»",
+    "name:ru": "Семинария «Согласие»",
+    "name:uk": "Семінарія «Згода»"
+  }
+},
+{
+  "type": "node",
+  "id": 12566145901,
+  "lat": 46.5754803,
+  "lon": 30.7190905,
+  "tags": {
+    "description": "Пять архетипов в камнях Круга Души",
+    "image": "https://soulcircle.site/user/pages/02.kd/02.ukr/odessa/6_1.jpg",
+    "name": "Круг Души",
+    "name:en": "Kruh dushy",
+    "opening_hours": "24/7",
+    "tourism": "attraction",
+    "website": "https://odessa.soulcircle.site/"
+  }
+},
+{
+  "type": "node",
+  "id": 13229729401,
+  "lat": 46.5410783,
+  "lon": 30.6408733,
+  "tags": {
+    "addr:housenumber": "25",
+    "addr:street": "вулиця Лесі Українки",
+    "tourism": "apartment"
+  }
+},
+{
+  "type": "way",
+  "id": 55896449,
+  "center": {
+    "lat": 46.5526993,
+    "lon": 30.7241697
+  },
+  "tags": {
+    "amenity": "marketplace",
+    "name": "Автобазар \"Яма\"",
+    "name:ru": "Автобазар \"Яма\"",
+    "name:uk": "Автобазар \"Яма\""
+  }
+},
+{
+  "type": "way",
+  "id": 139872870,
+  "center": {
+    "lat": 46.5446544,
+    "lon": 30.6305730
+  },
+  "tags": {
+    "addr:housenumber": "3а",
+    "addr:street": "площа Партизан",
+    "amenity": "place_of_worship",
+    "building": "church",
+    "building:levels": "1",
+    "denomination": "orthodox",
+    "name": "Вознесенська церква",
+    "name:uk": "Вознесенська церква",
+    "religion": "christian",
+    "start_date": "1816"
+  }
+},
+{
+  "type": "way",
+  "id": 208840575,
+  "center": {
+    "lat": 46.5550702,
+    "lon": 30.6519073
+  },
+  "tags": {
+    "amenity": "school",
+    "name": "Школа №2",
+    "name:en": "School 2",
+    "name:uk": "Школа №2"
+  }
+},
+{
+  "type": "way",
+  "id": 208840576,
+  "center": {
+    "lat": 46.5556818,
+    "lon": 30.6521600
+  },
+  "tags": {
+    "leisure": "pitch",
+    "sport": "soccer"
+  }
+},
+{
+  "type": "way",
+  "id": 208841807,
+  "center": {
+    "lat": 46.5381196,
+    "lon": 30.6182809
+  },
+  "tags": {
+    "leisure": "pitch",
+    "sport": "soccer"
+  }
+},
+{
+  "type": "way",
+  "id": 211154483,
+  "center": {
+    "lat": 46.5321475,
+    "lon": 30.6644347
+  },
+  "tags": {
+    "leisure": "pitch",
+    "sport": "soccer"
+  }
+},
+{
+  "type": "way",
+  "id": 215200008,
+  "center": {
+    "lat": 46.5294734,
+    "lon": 30.6493881
+  },
+  "tags": {
+    "amenity": "police",
+    "building": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 215200011,
+  "center": {
+    "lat": 46.5288800,
+    "lon": 30.6494812
+  },
+  "tags": {
+    "amenity": "community_centre",
+    "building": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 215851287,
+  "center": {
+    "lat": 46.5709368,
+    "lon": 30.6966408
+  },
+  "tags": {
+    "leisure": "track",
+    "sport": "multi"
+  }
+},
+{
+  "type": "way",
+  "id": 215851288,
+  "center": {
+    "lat": 46.5709232,
+    "lon": 30.6966507
+  },
+  "tags": {
+    "leisure": "pitch",
+    "sport": "soccer"
+  }
+},
+{
+  "type": "way",
+  "id": 220038023,
+  "center": {
+    "lat": 46.5209426,
+    "lon": 30.6054770
+  },
+  "tags": {
+    "amenity": "townhall",
+    "building": "yes",
+    "email": "pujkh_st.usatovo@i.ua",
+    "name": "ПУ ЖКХ",
+    "name:uk": "ПУ ЖКХ",
+    "official_name": "КП Виробниче управління житлово-комунального господарства ст. Усатово Нерубайської сільської ради",
+    "official_name:uk": "КП Виробниче управління житлово-комунального господарства ст. Усатово Нерубайської сільської ради",
+    "phone": "+380 48 700 2786"
+  }
+},
+{
+  "type": "way",
+  "id": 220439750,
+  "center": {
+    "lat": 46.5384460,
+    "lon": 30.6572719
+  },
+  "tags": {
+    "amenity": "car_wash",
+    "building": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 220439753,
+  "center": {
+    "lat": 46.5384611,
+    "lon": 30.6570551
+  },
+  "tags": {
+    "building": "yes",
+    "shop": "car_repair"
+  }
+},
+{
+  "type": "way",
+  "id": 227903164,
+  "center": {
+    "lat": 46.5352264,
+    "lon": 30.6517056
+  },
+  "tags": {
+    "amenity": "payment_terminal",
+    "building": "yes",
+    "name": "Улюблений",
+    "name:uk": "Улюблений",
+    "payment:cash": "yes",
+    "payment:mastercard": "yes",
+    "payment:visa": "yes",
+    "shop": "convenience"
+  }
+},
+{
+  "type": "way",
+  "id": 249517126,
+  "center": {
+    "lat": 46.5240519,
+    "lon": 30.6281896
+  },
+  "tags": {
+    "amenity": "fuel",
+    "backup_generator": "yes",
+    "brand": "Ukrnafta",
+    "brand:en": "Ukrnafta",
+    "brand:uk": "Укрнафта",
+    "brand:wikidata": "Q2447961",
+    "building": "yes",
+    "contact:email": "hotline@ukrnafta.com",
+    "contact:facebook": "https://www.facebook.com/Ukrnafta",
+    "contact:instagram": "https://www.instagram.com/ukrnafta_azk",
+    "contact:phone:UA": "0 800 404 000",
+    "contact:tiktok": "https://www.tiktok.com/@ukrnafta_people",
+    "contact:twitter": "https://x.com/Ukrnafta_com",
+    "contact:website": "https://azs.ukrnafta.com/",
+    "contact:youtube": "https://www.youtube.com/@Ukrnafta_azk",
+    "fuel:diesel": "yes",
+    "fuel:lpg": "yes",
+    "fuel:octane_92": "yes",
+    "fuel:octane_95": "yes",
+    "internet_access": "wlan",
+    "name": "Укрнафта",
+    "name:en": "Ukrnafta",
+    "name:uk": "Укрнафта",
+    "name:uk-Latn": "Ukrnafta",
+    "opening_hours": "24/7",
+    "phone:UA": "0 800 404 000",
+    "ref": "8005",
+    "source": "ukrnafta.com",
+    "source:check_date": "2026-08-28",
+    "toilets": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 252170949,
+  "center": {
+    "lat": 46.5255148,
+    "lon": 30.6058317
+  },
+  "tags": {
+    "access": "yes",
+    "amenity": "toilets",
+    "drinking_water": "no",
+    "toilets:disposal": "pitlatrine"
+  }
+},
+{
+  "type": "way",
+  "id": 278372625,
+  "center": {
+    "lat": 46.5202936,
+    "lon": 30.6058739
+  },
+  "tags": {
+    "access": "private",
+    "amenity": "parking",
+    "barrier": "fence",
+    "fence_type": "chain_link",
+    "height": "2",
+    "parking": "surface"
+  }
+},
+{
+  "type": "way",
+  "id": 279257025,
+  "center": {
+    "lat": 46.5381897,
+    "lon": 30.6192587
+  },
+  "tags": {
+    "addr:housenumber": "21",
+    "addr:street": "вулиця Педагогічна",
+    "amenity": "school",
+    "building": "yes",
+    "capacity": "1176",
+    "email": "nerubaysknvk@gmail.com",
+    "name": "Нерубайський академічний ліцей №1",
+    "name:uk": "Нерубайський академічний ліцей №1",
+    "official_name": "Нерубайський академічний ліцей №1 Нерубайської сільської ради Одеського району Одеської області",
+    "official_name:uk": "Нерубайський академічний ліцей №1 Нерубайської сільської ради Одеського району Одеської області",
+    "phone": "+380 (48)-236-30-91",
+    "short_name": "Нерубайський академічний ліцей №1",
+    "short_name:uk": "Нерубайський академічний ліцей №1",
+    "website": "https://bilnerubnvk.odessaedu.net/"
+  }
+},
+{
+  "type": "way",
+  "id": 279257050,
+  "center": {
+    "lat": 46.5377082,
+    "lon": 30.6185556
+  },
+  "tags": {
+    "leisure": "pitch",
+    "sport": "soccer"
+  }
+},
+{
+  "type": "way",
+  "id": 279466902,
+  "center": {
+    "lat": 46.5386444,
+    "lon": 30.6198045
+  },
+  "tags": {
+    "amenity": "parking"
+  }
+},
+{
+  "type": "way",
+  "id": 307474266,
+  "center": {
+    "lat": 46.5192563,
+    "lon": 30.6151012
+  },
+  "tags": {
+    "building": "yes",
+    "building:levels": "3",
+    "shop": "car"
+  }
+},
+{
+  "type": "way",
+  "id": 313181049,
+  "center": {
+    "lat": 46.5367203,
+    "lon": 30.6471152
+  },
+  "tags": {
+    "amenity": "parking"
+  }
+},
+{
+  "type": "way",
+  "id": 313181050,
+  "center": {
+    "lat": 46.5368163,
+    "lon": 30.6474713
+  },
+  "tags": {
+    "amenity": "parking"
+  }
+},
+{
+  "type": "way",
+  "id": 316791293,
+  "center": {
+    "lat": 46.5366893,
+    "lon": 30.6552226
+  },
+  "tags": {
+    "atm": "yes",
+    "building": "yes",
+    "name": "Ера",
+    "name:ru": "Эра",
+    "name:uk": "Ера",
+    "shop": "supermarket"
+  }
+},
+{
+  "type": "way",
+  "id": 316791294,
+  "center": {
+    "lat": 46.5374894,
+    "lon": 30.6543377
+  },
+  "tags": {
+    "addr:postcode": "67663",
+    "amenity": "post_office",
+    "building": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 316791295,
+  "center": {
+    "lat": 46.5364442,
+    "lon": 30.6550003
+  },
+  "tags": {
+    "building": "yes",
+    "name": "Фартуна",
+    "name:ru": "Фортуна",
+    "name:uk": "Фартуна",
+    "shop": "convenience"
+  }
+},
+{
+  "type": "way",
+  "id": 316792081,
+  "center": {
+    "lat": 46.5349822,
+    "lon": 30.6519842
+  },
+  "tags": {
+    "leisure": "playground"
+  }
+},
+{
+  "type": "way",
+  "id": 329833530,
+  "center": {
+    "lat": 46.5403404,
+    "lon": 30.6635755
+  },
+  "tags": {
+    "amenity": "sanatorium",
+    "contact:email": "hadjibey@odessa.net",
+    "contact:phone": "+380 482 30 8560",
+    "description": "ДЗ Дитячий спеціалізований (спеціальний) клінічний санаторій \"Хаджибей\" МОЗ України",
+    "leisure": "resort",
+    "name": "Дитячий санаторій \"Хаджибей\"",
+    "name:uk": "Дитячий санаторій \"Хаджибей\""
+  }
+},
+{
+  "type": "way",
+  "id": 344279262,
+  "center": {
+    "lat": 46.5362001,
+    "lon": 30.6521819
+  },
+  "tags": {
+    "building": "yes",
+    "shop": "car_repair"
+  }
+},
+{
+  "type": "way",
+  "id": 344279263,
+  "center": {
+    "lat": 46.5361326,
+    "lon": 30.6485904
+  },
+  "tags": {
+    "amenity": "car_wash",
+    "building": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 344283726,
+  "center": {
+    "lat": 46.5337527,
+    "lon": 30.6668422
+  },
+  "tags": {
+    "addr:housenumber": "126",
+    "addr:postcode": "67633",
+    "amenity": "place_of_worship",
+    "building": "church",
+    "denomination": "orthodox",
+    "name": "Храм різдва Пресвятої Богородиці УПЦ МП",
+    "name:ru": "Храм рождества Пресвятой Богородицы УПЦ МП",
+    "name:uk": "Храм різдва Пресвятої Богородиці УПЦ МП",
+    "religion": "christian",
+    "start_date": "1822"
+  }
+},
+{
+  "type": "way",
+  "id": 358610663,
+  "center": {
+    "lat": 46.5344719,
+    "lon": 30.6428316
+  },
+  "tags": {
+    "amenity": "fuel",
+    "brand": "Motto",
+    "name": "Motto",
+    "name:uk": "Motto"
+  }
+},
+{
+  "type": "way",
+  "id": 360173500,
+  "center": {
+    "lat": 46.5281308,
+    "lon": 30.6101983
+  },
+  "tags": {
+    "amenity": "fuel",
+    "backup_generator": "yes",
+    "brand": "WOG",
+    "brand:wikidata": "Q12072939",
+    "building": "roof",
+    "changing_table": "yes",
+    "compressed_air": "yes",
+    "contact:facebook": "https://www.facebook.com/azkWOG/",
+    "contact:instagram": "https://www.instagram.com/azkwog/",
+    "description": "Одеська обл., Одеський р-н, с. Нерубайське, а/д Київ-Одеса, 459км+350м",
+    "email": "office@wog.ua",
+    "fuel:adblue": "yes",
+    "fuel:diesel": "yes",
+    "fuel:lpg": "yes",
+    "fuel:octane_100": "yes",
+    "fuel:octane_95": "yes",
+    "name": "WOG",
+    "name:en": "WOG",
+    "name:uk": "WOG",
+    "opening_hours": "24/7",
+    "phone:UA": "0 800 300 525",
+    "ref:wog": "1165",
+    "self_checkout": "yes",
+    "shop": "yes",
+    "source:check_date": "2026-08-25",
+    "toilets": "yes",
+    "website": "https://wog.ua/"
+  }
+},
+{
+  "type": "way",
+  "id": 388780726,
+  "center": {
+    "lat": 46.5392846,
+    "lon": 30.7170059
+  },
+  "tags": {
+    "addr:housenumber": "42а",
+    "addr:postcode": "65042",
+    "amenity": "community_centre",
+    "building": "yes",
+    "name": "Будинок культури заводу \"Більшовик\"",
+    "name:ru": "Дом культуры завода \"Большевик\"",
+    "name:uk": "Будинок культури заводу \"Більшовик\""
+  }
+},
+{
+  "type": "way",
+  "id": 388780729,
+  "center": {
+    "lat": 46.5521185,
+    "lon": 30.7166149
+  },
+  "tags": {
+    "amenity": "school",
+    "capacity": "280",
+    "email": "odesskinvk@mail.ua",
+    "name": "Одеський НВК № 187",
+    "name:uk": "Одеський НВК № 187",
+    "official_name": "Одеський навчально-виховний комплекс № 187 \"Дошкільний навчальний заклад-загальноосвітня школа І ступеня\" Одеської міської ради Одеської області",
+    "official_name:uk": "Одеський навчально-виховний комплекс № 187 \"Дошкільний навчальний заклад-загальноосвітня школа І ступеня\" Одеської міської ради Одеської області",
+    "phone": "+380 48 720 3296;+380 48 720 3296",
+    "short_name": "Одеський НВК № 187",
+    "short_name:uk": "Одеський НВК № 187"
+  }
+},
+{
+  "type": "way",
+  "id": 388780741,
+  "center": {
+    "lat": 46.5396705,
+    "lon": 30.7129659
+  },
+  "tags": {
+    "amenity": "school",
+    "capacity": "460",
+    "email": "school41school@ukr.net",
+    "name": "Одеська ЗОШ №41",
+    "name:uk": "Одеська ЗОШ №41",
+    "official_name": "Одеська загальноосвітня школа № 41 І-ІІІ ступенів Одеської міської ради Одеської області",
+    "official_name:uk": "Одеська загальноосвітня школа № 41 І-ІІІ ступенів Одеської міської ради Одеської області",
+    "phone": "+380 48 720 3264",
+    "short_name": "Одеська ЗОШ №41",
+    "short_name:uk": "Одеська ЗОШ №41"
+  }
+},
+{
+  "type": "way",
+  "id": 389188213,
+  "center": {
+    "lat": 46.5252277,
+    "lon": 30.6844145
+  },
+  "tags": {
+    "amenity": "school",
+    "capacity": "540",
+    "email": "ozosh127@ukr.net",
+    "name": "Одеська ЗОШ № 127",
+    "name:uk": "Одеська ЗОШ № 127",
+    "official_name": "Одеська загальноосвітня школа № 127 І-ІІІ ступенів Одеської міської ради Одеської області",
+    "official_name:uk": "Одеська загальноосвітня школа № 127 І-ІІІ ступенів Одеської міської ради Одеської області",
+    "short_name": "Одеська ЗОШ № 127",
+    "short_name:uk": "Одеська ЗОШ № 127",
+    "website": "https://srvo.od.ua/school/s127/thermo.edit"
+  }
+},
+{
+  "type": "way",
+  "id": 389204441,
+  "center": {
+    "lat": 46.5650461,
+    "lon": 30.7115922
+  },
+  "tags": {
+    "addr:housenumber": "2",
+    "addr:postcode": "67633",
+    "amenity": "townhall",
+    "building": "yes",
+    "name": "Міжлиманське відділення Августівської сільської ради",
+    "name:uk": "Міжлиманське відділення Августівської сільської ради"
+  }
+},
+{
+  "type": "way",
+  "id": 389294891,
+  "center": {
+    "lat": 46.5317095,
+    "lon": 30.6644630
+  },
+  "tags": {
+    "amenity": "school",
+    "name": "Школа-гімназія ім. П. Д. Вернидуба",
+    "name:en": "Vernydub School-Gymnasium",
+    "name:ru": "Школа-гимназия им. П. Д. Вернидуба",
+    "name:uk": "Школа-гімназія ім. П. Д. Вернидуба"
+  }
+},
+{
+  "type": "way",
+  "id": 445347095,
+  "center": {
+    "lat": 46.5370289,
+    "lon": 30.6253363
+  },
+  "tags": {
+    "building": "yes",
+    "building:levels": "2",
+    "name": "Ізольда",
+    "name:uk": "Ізольда",
+    "shop": "convenience"
+  }
+},
+{
+  "type": "way",
+  "id": 521223477,
+  "center": {
+    "lat": 46.5595400,
+    "lon": 30.6089443
+  },
+  "tags": {
+    "addr:housenumber": "11в",
+    "addr:street": "Центральна вулиця",
+    "building": "yes",
+    "shop": "convenience"
+  }
+},
+{
+  "type": "way",
+  "id": 524180073,
+  "center": {
+    "lat": 46.5441324,
+    "lon": 30.6300189
+  },
+  "tags": {
+    "amenity": "parking"
+  }
+},
+{
+  "type": "way",
+  "id": 524180081,
+  "center": {
+    "lat": 46.5446286,
+    "lon": 30.6296126
+  },
+  "tags": {
+    "amenity": "parking",
+    "parking": "street_side"
+  }
+},
+{
+  "type": "way",
+  "id": 526784686,
+  "center": {
+    "lat": 46.5398718,
+    "lon": 30.6182237
+  },
+  "tags": {
+    "amenity": "pharmacy",
+    "building": "yes",
+    "dispensing": "yes",
+    "healthcare": "pharmacy"
+  }
+},
+{
+  "type": "way",
+  "id": 526784776,
+  "center": {
+    "lat": 46.5197134,
+    "lon": 30.6153945
+  },
+  "tags": {
+    "building": "yes",
+    "building:levels": "3",
+    "shop": "car"
+  }
+},
+{
+  "type": "way",
+  "id": 531046025,
+  "center": {
+    "lat": 46.5186367,
+    "lon": 30.6918519
+  },
+  "tags": {
+    "building": "yes",
+    "building:levels": "1",
+    "description": "Історична зупинка трамваю 1910-х рр.",
+    "name": "Павільон (тип VI)",
+    "name:uk": "Павільон (тип VI)",
+    "ruins": "yes",
+    "start_date": "1910s",
+    "tourism": "attraction"
+  }
+},
+{
+  "type": "way",
+  "id": 539539735,
+  "center": {
+    "lat": 46.5312634,
+    "lon": 30.6787400
+  },
+  "tags": {
+    "amenity": "shelter",
+    "bench": "yes",
+    "shelter_type": "public_transport"
+  }
+},
+{
+  "type": "way",
+  "id": 539539757,
+  "center": {
+    "lat": 46.5249781,
+    "lon": 30.6842587
+  },
+  "tags": {
+    "addr:housenumber": "34",
+    "addr:postcode": "65041",
+    "building": "school",
+    "building:levels": "2",
+    "description": "Історична будівля міського початкового училища на Малому Куяльнику",
+    "name": "Колишнє народне училище",
+    "name:uk": "Колишнє народне училище",
+    "start_date": "1890s",
+    "tourism": "attraction"
+  }
+},
+{
+  "type": "way",
+  "id": 539539761,
+  "center": {
+    "lat": 46.5247658,
+    "lon": 30.6849207
+  },
+  "tags": {
+    "building": "yes",
+    "building:levels": "1",
+    "description": "Історична зупинка трамваю 1910-х рр.",
+    "name": "Павільон (тип VI)",
+    "name:uk": "Павільон (тип VI)",
+    "ruins": "yes",
+    "start_date": "1910s",
+    "tourism": "attraction"
+  }
+},
+{
+  "type": "way",
+  "id": 539627357,
+  "center": {
+    "lat": 46.5390493,
+    "lon": 30.6762668
+  },
+  "tags": {
+    "building": "yes",
+    "building:levels": "1",
+    "description": "Історична зупинка трамваю 1910-х рр.",
+    "name": "Павільон (тип VI)",
+    "name:uk": "Павільон (тип VI)",
+    "ruins": "yes",
+    "start_date": "1910s",
+    "tourism": "attraction"
+  }
+},
+{
+  "type": "way",
+  "id": 539634647,
+  "center": {
+    "lat": 46.5412565,
+    "lon": 30.6715633
+  },
+  "tags": {
+    "amenity": "shelter",
+    "building": "retail",
+    "shelter_type": "public_transport"
+  }
+},
+{
+  "type": "way",
+  "id": 552121066,
+  "center": {
+    "lat": 46.5212210,
+    "lon": 30.6644920
+  },
+  "tags": {
+    "amenity": "pharmacy",
+    "building": "yes",
+    "healthcare": "pharmacy"
+  }
+},
+{
+  "type": "way",
+  "id": 552121068,
+  "center": {
+    "lat": 46.5213591,
+    "lon": 30.6647056
+  },
+  "tags": {
+    "building": "yes",
+    "shop": "convenience"
+  }
+},
+{
+  "type": "way",
+  "id": 627140004,
+  "center": {
+    "lat": 46.5402526,
+    "lon": 30.7124358
+  },
+  "tags": {
+    "leisure": "pitch",
+    "sport": "gymnastics"
+  }
+},
+{
+  "type": "way",
+  "id": 628073305,
+  "center": {
+    "lat": 46.5209432,
+    "lon": 30.6063032
+  },
+  "tags": {
+    "building": "yes",
+    "shop": "doityourself"
+  }
+},
+{
+  "type": "way",
+  "id": 707023234,
+  "center": {
+    "lat": 46.5352465,
+    "lon": 30.6451601
+  },
+  "tags": {
+    "amenity": "fuel",
+    "building": "roof",
+    "layer": "1",
+    "name": "АЗС Акорд",
+    "name:ru": "АЗС Акорд",
+    "name:uk": "АЗС Акорд",
+    "operator": "Аккорд"
+  }
+},
+{
+  "type": "way",
+  "id": 707230173,
+  "center": {
+    "lat": 46.5218667,
+    "lon": 30.6522541
+  },
+  "tags": {
+    "leisure": "swimming_pool"
+  }
+},
+{
+  "type": "way",
+  "id": 707866608,
+  "center": {
+    "lat": 46.5217725,
+    "lon": 30.6646668
+  },
+  "tags": {
+    "leisure": "park"
+  }
+},
+{
+  "type": "way",
+  "id": 735308787,
+  "center": {
+    "lat": 46.5672358,
+    "lon": 30.6045417
+  },
+  "tags": {
+    "addr:housenumber": "37",
+    "addr:street": "Центральна вулиця",
+    "amenity": "school",
+    "name": "Загальноосвітня школа I-III ступенів",
+    "name:ru": "Общеобразовательная школа I-III ступеней",
+    "name:uk": "Загальноосвітня школа I-III ступенів"
+  }
+},
+{
+  "type": "way",
+  "id": 743275042,
+  "center": {
+    "lat": 46.5253818,
+    "lon": 30.6853584
+  },
+  "tags": {
+    "leisure": "pitch",
+    "sport": "soccer"
+  }
+},
+{
+  "type": "way",
+  "id": 757974060,
+  "center": {
+    "lat": 46.5233070,
+    "lon": 30.6752500
+  },
+  "tags": {
+    "access": "yes",
+    "leisure": "pitch",
+    "lit": "no",
+    "name": "Стадіон \"Шкодогорський\"",
+    "name:uk": "Стадіон \"Шкодогорський\"",
+    "sport": "soccer",
+    "surface": "grass"
+  }
+},
+{
+  "type": "way",
+  "id": 757974061,
+  "center": {
+    "lat": 46.5230837,
+    "lon": 30.6781682
+  },
+  "tags": {
+    "amenity": "bar",
+    "building": "yes",
+    "name": "Бар \"У Леоніда\"",
+    "name:uk": "Бар \"У Леоніда\""
+  }
+},
+{
+  "type": "way",
+  "id": 767368285,
+  "center": {
+    "lat": 46.5572766,
+    "lon": 30.7076633
+  },
+  "tags": {
+    "amenity": "fuel",
+    "brand": "БРСМ-Нафта",
+    "brand:wikidata": "Q56356523",
+    "brand:wikipedia": "uk:БРСМ-Нафта",
+    "contact:email": "info@brsm-nafta.ua",
+    "contact:facebook": "https://www.facebook.com/BRSM.NAFTA",
+    "contact:instagram": "https://www.instagram.com/brsmnafta",
+    "contact:website": "https://brsm-nafta.com/",
+    "description": "Одеська обл., с. Латівка, вул. Дорожна, 8",
+    "fuel:adblue": "yes",
+    "fuel:diesel": "yes",
+    "fuel:lpg": "yes",
+    "fuel:octane_92": "yes",
+    "fuel:octane_95": "yes",
+    "fuel:octane_98": "yes",
+    "name": "БРСМ-Нафта",
+    "name:uk": "БРСМ-Нафта",
+    "phone:UA": "0 800 303 404",
+    "ref:brsm": "23219",
+    "source": "brsm-nafta.com",
+    "source:check_date": "2026-09-07",
+    "website": "https://brsm-nafta.com/"
+  }
+},
+{
+  "type": "way",
+  "id": 770653899,
+  "center": {
+    "lat": 46.5365556,
+    "lon": 30.6475969
+  },
+  "tags": {
+    "brand": "Vianor",
+    "brand:wikidata": "Q10714920",
+    "brand:wikipedia": "sv:Vianor",
+    "building": "yes",
+    "name": "Vianor",
+    "name:uk": "Vianor",
+    "shop": "tyres"
+  }
+},
+{
+  "type": "way",
+  "id": 770653927,
+  "center": {
+    "lat": 46.5394077,
+    "lon": 30.6452289
+  },
+  "tags": {
+    "amenity": "parking",
+    "name": "TIR стоянка",
+    "name:uk": "TIR стоянка",
+    "parking": "surface"
+  }
+},
+{
+  "type": "way",
+  "id": 836869620,
+  "center": {
+    "lat": 46.5741663,
+    "lon": 30.6986092
+  },
+  "tags": {
+    "leisure": "pitch",
+    "sport": "futsal",
+    "surface": "grass"
+  }
+},
+{
+  "type": "way",
+  "id": 866253695,
+  "center": {
+    "lat": 46.5734483,
+    "lon": 30.6982427
+  },
+  "tags": {
+    "amenity": "school",
+    "email": "meglim-best@ukr.net",
+    "name": "Міжлиманська ЗОШ",
+    "name:uk": "Міжлиманська ЗОШ",
+    "official_name": "Міжлиманська загальноосвітня школа І-ІІІ ступенів Біляївського району Одеської області",
+    "official_name:uk": "Міжлиманська загальноосвітня школа І-ІІІ ступенів Біляївського району Одеської області",
+    "short_name": "Міжлиманська ЗОШ",
+    "short_name:uk": "Міжлиманська ЗОШ"
+  }
+},
+{
+  "type": "way",
+  "id": 901329577,
+  "center": {
+    "lat": 46.5623851,
+    "lon": 30.6176954
+  },
+  "tags": {
+    "access": "private",
+    "leisure": "pitch",
+    "sport": "tennis;basketball"
+  }
+},
+{
+  "type": "way",
+  "id": 901329582,
+  "center": {
+    "lat": 46.5622499,
+    "lon": 30.6172999
+  },
+  "tags": {
+    "leisure": "playground"
+  }
+},
+{
+  "type": "way",
+  "id": 901338124,
+  "center": {
+    "lat": 46.5427248,
+    "lon": 30.6301283
+  },
+  "tags": {
+    "leisure": "pitch",
+    "sport": "soccer"
+  }
+},
+{
+  "type": "way",
+  "id": 903720330,
+  "center": {
+    "lat": 46.5621067,
+    "lon": 30.6169961
+  },
+  "tags": {
+    "leisure": "garden"
+  }
+},
+{
+  "type": "way",
+  "id": 905814396,
+  "center": {
+    "lat": 46.5437345,
+    "lon": 30.6304458
+  },
+  "tags": {
+    "leisure": "park"
+  }
+},
+{
+  "type": "way",
+  "id": 913127669,
+  "center": {
+    "lat": 46.5387895,
+    "lon": 30.6288934
+  },
+  "tags": {
+    "building": "yes",
+    "building:levels": "2",
+    "name": "Мрія",
+    "name:en": "Mriya",
+    "name:uk": "Мрія",
+    "shop": "supermarket"
+  }
+},
+{
+  "type": "way",
+  "id": 913127671,
+  "center": {
+    "lat": 46.5386751,
+    "lon": 30.6288803
+  },
+  "tags": {
+    "amenity": "parking"
+  }
+},
+{
+  "type": "way",
+  "id": 913127672,
+  "center": {
+    "lat": 46.5392216,
+    "lon": 30.6184216
+  },
+  "tags": {
+    "building": "yes",
+    "name": "Атлант",
+    "name:uk": "Атлант",
+    "shop": "supermarket"
+  }
+},
+{
+  "type": "way",
+  "id": 913295962,
+  "center": {
+    "lat": 46.5410736,
+    "lon": 30.6215708
+  },
+  "tags": {
+    "amenity": "post_office",
+    "brand": "Нова Пошта",
+    "brand:en": "Nova Poshta",
+    "brand:uk": "Нова Пошта",
+    "brand:wikidata": "Q12133863",
+    "brand:wikipedia": "uk:Нова Пошта",
+    "building": "yes",
+    "contact:email": "info@novaposhta.ua",
+    "contact:facebook": "nova.poshta.official",
+    "contact:instagram": "https://www.instagram.com/novaposhta.official/",
+    "contact:twitter": "_novaposhta_",
+    "contact:website": "http://novaposhta.ua",
+    "contact:youtube": "https://www.youtube.com/channel/UCUgNSjGSiSdJBTjGG2IA4JA",
+    "name": "Нова Пошта",
+    "name:ru": "Новая Почта №1",
+    "name:uk": "Нова Пошта",
+    "operator": "Нова Пошта",
+    "operator:uk": "Товариство з обмеженою відповідальністю \"Нова Пошта\"",
+    "operator:wikidata": "Q12133863"
+  }
+},
+{
+  "type": "way",
+  "id": 913295963,
+  "center": {
+    "lat": 46.5411644,
+    "lon": 30.6213914
+  },
+  "tags": {
+    "amenity": "parking"
+  }
+},
+{
+  "type": "way",
+  "id": 913295969,
+  "center": {
+    "lat": 46.5400693,
+    "lon": 30.6188139
+  },
+  "tags": {
+    "building": "yes",
+    "shop": "hardware"
+  }
+},
+{
+  "type": "way",
+  "id": 913295973,
+  "center": {
+    "lat": 46.5397407,
+    "lon": 30.6188801
+  },
+  "tags": {
+    "building": "yes",
+    "name": "Точка",
+    "name:uk": "Точка",
+    "shop": "supermarket"
+  }
+},
+{
+  "type": "way",
+  "id": 916580606,
+  "center": {
+    "lat": 46.5475841,
+    "lon": 30.6157269
+  },
+  "tags": {
+    "building": "yes",
+    "shop": "convenience"
+  }
+},
+{
+  "type": "way",
+  "id": 916580607,
+  "center": {
+    "lat": 46.5476631,
+    "lon": 30.6156917
+  },
+  "tags": {
+    "amenity": "cafe",
+    "building": "yes",
+    "name": "Зустрич",
+    "name:uk": "Зустрич"
+  }
+},
+{
+  "type": "way",
+  "id": 916595523,
+  "center": {
+    "lat": 46.5354820,
+    "lon": 30.6418086
+  },
+  "tags": {
+    "building": "yes",
+    "shop": "tyres"
+  }
+},
+{
+  "type": "way",
+  "id": 925865930,
+  "center": {
+    "lat": 46.5197930,
+    "lon": 30.6894078
+  },
+  "tags": {
+    "addr:housenumber": "143",
+    "addr:street": "Хаджибейська дорога",
+    "description": "Цвинтар Сотниківської Січі - старовинне козацьке кладовище",
+    "description:ru": "Кладбище Сотниковской сечи — старинное казацкое кладбище",
+    "drnpu:criteria": "I",
+    "heritage": "2",
+    "heritage:operator": "drnpu",
+    "heritage:website": "https://mkip.gov.ua/content/derzhavniy-reestr-neruhomih-pamyatok-ukraini.html",
+    "landuse": "cemetery",
+    "name": "Сотниківська Січ",
+    "name:ru": "Сотниковская сечь",
+    "name:uk": "Сотниківська Січ",
+    "start_date": "1775",
+    "tourism": "attraction",
+    "wikipedia": "uk:Куяльницький цвинтар"
+  }
+},
+{
+  "type": "way",
+  "id": 944142488,
+  "center": {
+    "lat": 46.5311528,
+    "lon": 30.6056823
+  },
+  "tags": {
+    "amenity": "parking"
+  }
+},
+{
+  "type": "way",
+  "id": 944142489,
+  "center": {
+    "lat": 46.5297868,
+    "lon": 30.6068822
+  },
+  "tags": {
+    "amenity": "parking"
+  }
+},
+{
+  "type": "way",
+  "id": 944142490,
+  "center": {
+    "lat": 46.5273535,
+    "lon": 30.6090931
+  },
+  "tags": {
+    "amenity": "parking"
+  }
+},
+{
+  "type": "way",
+  "id": 1005802083,
+  "center": {
+    "lat": 46.5295787,
+    "lon": 30.6440648
+  },
+  "tags": {
+    "leisure": "pitch",
+    "sport": "soccer"
+  }
+},
+{
+  "type": "way",
+  "id": 1005802084,
+  "center": {
+    "lat": 46.5289577,
+    "lon": 30.6442802
+  },
+  "tags": {
+    "leisure": "pitch"
+  }
+},
+{
+  "type": "way",
+  "id": 1005802085,
+  "center": {
+    "lat": 46.5301991,
+    "lon": 30.6438458
+  },
+  "tags": {
+    "leisure": "pitch",
+    "sport": "tennis"
+  }
+},
+{
+  "type": "way",
+  "id": 1005802087,
+  "center": {
+    "lat": 46.5296824,
+    "lon": 30.6440616
+  },
+  "tags": {
+    "leisure": "track",
+    "sport": "running"
+  }
+},
+{
+  "type": "way",
+  "id": 1005802088,
+  "center": {
+    "lat": 46.5289820,
+    "lon": 30.6442377
+  },
+  "tags": {
+    "leisure": "track",
+    "sport": "running"
+  }
+},
+{
+  "type": "way",
+  "id": 1013754212,
+  "center": {
+    "lat": 46.5514407,
+    "lon": 30.6300263
+  },
+  "tags": {
+    "building": "retail",
+    "name": "Точка",
+    "name:uk": "Точка",
+    "shop": "convenience"
+  }
+},
+{
+  "type": "way",
+  "id": 1013779946,
+  "center": {
+    "lat": 46.5545111,
+    "lon": 30.6486696
+  },
+  "tags": {
+    "building": "yes",
+    "name": "Універсам НАТІ",
+    "name:uk": "Універсам НАТІ",
+    "shop": "convenience"
+  }
+},
+{
+  "type": "way",
+  "id": 1013793261,
+  "center": {
+    "lat": 46.5575556,
+    "lon": 30.7149867
+  },
+  "tags": {
+    "leisure": "pitch",
+    "sport": "soccer"
+  }
+},
+{
+  "type": "way",
+  "id": 1026936294,
+  "center": {
+    "lat": 46.5305210,
+    "lon": 30.6168801
+  },
+  "tags": {
+    "leisure": "pitch",
+    "sport": "tennis"
+  }
+},
+{
+  "type": "way",
+  "id": 1026936295,
+  "center": {
+    "lat": 46.5305621,
+    "lon": 30.6170449
+  },
+  "tags": {
+    "leisure": "pitch",
+    "sport": "tennis"
+  }
+},
+{
+  "type": "way",
+  "id": 1026936296,
+  "center": {
+    "lat": 46.5306046,
+    "lon": 30.6172128
+  },
+  "tags": {
+    "leisure": "pitch",
+    "sport": "tennis"
+  }
+},
+{
+  "type": "way",
+  "id": 1026936297,
+  "center": {
+    "lat": 46.5306496,
+    "lon": 30.6173753
+  },
+  "tags": {
+    "leisure": "pitch",
+    "sport": "tennis"
+  }
+},
+{
+  "type": "way",
+  "id": 1026936298,
+  "center": {
+    "lat": 46.5305831,
+    "lon": 30.6171328
+  },
+  "tags": {
+    "leisure": "pitch"
+  }
+},
+{
+  "type": "way",
+  "id": 1071737602,
+  "center": {
+    "lat": 46.5217410,
+    "lon": 30.6440003
+  },
+  "tags": {
+    "leisure": "garden"
+  }
+},
+{
+  "type": "way",
+  "id": 1071737604,
+  "center": {
+    "lat": 46.5193806,
+    "lon": 30.6525294
+  },
+  "tags": {
+    "leisure": "garden"
+  }
+},
+{
+  "type": "way",
+  "id": 1098335179,
+  "center": {
+    "lat": 46.6040472,
+    "lon": 30.6625778
+  },
+  "tags": {
+    "building": "yes",
+    "name": "Магазин Продукты",
+    "shop": "convenience"
+  }
+},
+{
+  "type": "way",
+  "id": 1212963526,
+  "center": {
+    "lat": 46.5405005,
+    "lon": 30.6638557
+  },
+  "tags": {
+    "leisure": "park",
+    "name": "Хаджибейський парк",
+    "name:uk": "Хаджибейський парк"
+  }
+},
+{
+  "type": "way",
+  "id": 1263588951,
+  "center": {
+    "lat": 46.5596963,
+    "lon": 30.6309689
+  },
+  "tags": {
+    "building": "retail",
+    "name": "Домашній",
+    "name:uk": "Домашній",
+    "shop": "convenience"
+  }
+},
+{
+  "type": "way",
+  "id": 1263588962,
+  "center": {
+    "lat": 46.5568743,
+    "lon": 30.6355005
+  },
+  "tags": {
+    "building": "retail",
+    "shop": "convenience"
+  }
+},
+{
+  "type": "way",
+  "id": 1263675872,
+  "center": {
+    "lat": 46.5575334,
+    "lon": 30.6447665
+  },
+  "tags": {
+    "amenity": "post_office",
+    "building": "yes",
+    "name": "Нова Пошта",
+    "name:uk": "Нова Пошта",
+    "operator": "Нова Пошта",
+    "operator:wikidata": "Q12133863"
+  }
+},
+{
+  "type": "way",
+  "id": 1264151588,
+  "center": {
+    "lat": 46.5385608,
+    "lon": 30.6324071
+  },
+  "tags": {
+    "building": "yes",
+    "shop": "convenience"
+  }
+},
+{
+  "type": "way",
+  "id": 1264151589,
+  "center": {
+    "lat": 46.5393221,
+    "lon": 30.6183111
+  },
+  "tags": {
+    "amenity": "parking"
+  }
+},
+{
+  "type": "way",
+  "id": 1472337653,
+  "center": {
+    "lat": 46.5345080,
+    "lon": 30.6443171
+  },
+  "tags": {
+    "building": "yes",
+    "shop": "supermarket"
+  }
+},
+{
+  "type": "relation",
+  "id": 8720980,
+  "center": {
+    "lat": 46.5216248,
+    "lon": 30.6063549
+  },
+  "tags": {
+    "access": "private",
+    "amenity": "parking",
+    "type": "multipolygon"
+  }
+}
+
+  ]
+}

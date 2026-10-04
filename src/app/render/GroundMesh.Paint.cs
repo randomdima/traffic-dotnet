@@ -11,7 +11,8 @@ internal sealed partial class GroundMesh
 {
     /// <summary>
     /// <b>The dashed line between two ribbons that touch</b> (TER-6), laid down every carriageway the town
-    /// has one on (<see cref="CentrelineRuns"/>).
+    /// has one on (<see cref="CentrelineRuns"/>) — unbroken where the run says so
+    /// (<see cref="CentrelineRuns.IsUnbroken"/>).
     /// </summary>
     /// <remarks>
     /// <para>
@@ -26,18 +27,63 @@ internal sealed partial class GroundMesh
     /// only at one, so its two ends are the only places its line meets other paint.
     /// </para>
     /// </remarks>
-    void LaneDashes(CityPlan plan, SimConfig config, Crossings crossings, Vector3 tint, float[] periods)
+    /// <param name="level">The level whose runs are laid: a run never crosses from one to the other (<see cref="CentrelineRuns"/>).</param>
+    void LaneDashes(
+        CentrelineRuns runs, CityPlan plan, SimConfig config, Crossings crossings, Vector3 tint, byte level)
     {
         var dashM = config.Road.LaneDashLengthM;
         var pitchM = dashM + config.Road.LaneDashGapM;
         var halfWidthM = config.Road.PaintLineWidthM * 0.5f;
         if (dashM <= 0f || pitchM <= dashM) return;
 
-        var runs = CentrelineRuns.Lay(plan, config);
         for (var run = 0; run < runs.Count; run++)
         {
+            if (plan.Roads.LevelOf(runs.RoadsOf(run)[0]) != level) continue;
+
             var (fromM, toM) = runs.PaintedM(run, crossings, config);
-            DashRun(runs.Of(run), fromM, toM, dashM, pitchM, halfWidthM, tint, periods);
+            if (runs.IsUnbroken(run))
+            {
+                if (toM > fromM) DashRun(runs.Of(run), fromM, toM, toM - fromM, toM - fromM, halfWidthM, tint);
+            }
+            else
+            {
+                DashRun(runs.Of(run), fromM, toM, dashM, pitchM, halfWidthM, tint);
+            }
+        }
+    }
+
+    /// <summary>
+    /// <b>The solid line between a road's lanes and its roadside</b> (TER-6, GEN-57): down the lanes' own edge at
+    /// each kerb the road carries a roadside at (<see cref="CityPlan.RoadArrays.RoadsideLineM"/>), from one end of the
+    /// road to the other less the paint at either end, as a lane line stops (<see cref="CentrelineRuns.PaintedM(ReadOnlySpan{ArcSeg}, int, int, Crossings, SimConfig)"/>).
+    /// </summary>
+    /// <remarks>
+    /// <b>Solid, and a road's own</b>: it parts what is driven from what is not, so it is not carried through a
+    /// junction the way a lane line is — the turns out of the kerb lane sweep over the box past it.
+    /// </remarks>
+    /// <param name="level">The level whose lines are laid: a roadside is its road's.</param>
+    void RoadsideLines(CityPlan plan, SimConfig config, Crossings crossings, Vector3 tint, byte level)
+    {
+        var roads = plan.Roads;
+        var halfWidthM = config.Road.PaintLineWidthM * 0.5f;
+        if (roads.RoadsideWithM.Length == 0 || halfWidthM <= 0f) return;
+
+        for (var road = 0; road < roads.Count; road++)
+        {
+            var line = roads.SegmentsOf(road);
+            if (line.Length == 0 || roads.LevelOf(road) != level) continue;
+
+            var edge = new ArcSeg[line.Length];
+            foreach (var withTheRoad in (ReadOnlySpan<bool>)[true, false])
+            {
+                if (roads.RoadsideM(road, withTheRoad) <= 0f) continue;
+
+                var sideSign = withTheRoad ? config.RoadSideSign : -config.RoadSideSign;
+                Spline.OffsetInto(line, roads.RoadsideLineM(road, withTheRoad) * sideSign, edge);
+                var (fromM, toM) = CentrelineRuns.PaintedM(
+                    edge, JunctionArms.End(road, atTo: false), JunctionArms.End(road, atTo: true), crossings, config);
+                if (toM > fromM) DashRun(edge, fromM, toM, toM - fromM, toM - fromM, halfWidthM, tint);
+            }
         }
     }
 
@@ -46,7 +92,8 @@ internal sealed partial class GroundMesh
     /// repeated across the carriageway, <b>centred on the span</b> so a zebra never begins with half a
     /// stripe.
     /// </summary>
-    void Zebras(Crossings crossings, SimConfig config, Vector3 tint, float[] periods)
+    /// <param name="level">The level whose crossings are laid: a crossing is its road's.</param>
+    void Zebras(Crossings crossings, CityPlan plan, SimConfig config, Vector3 tint, byte level)
     {
         var stripeM = config.Road.ZebraStripeWidthM;
         var pitchM = config.Road.ZebraStripePitchM;
@@ -54,6 +101,9 @@ internal sealed partial class GroundMesh
 
         for (var crossing = 0; crossing < crossings.Count; crossing++)
         {
+            var road = crossings.Road[crossing];
+            if ((road >= 0 ? plan.Roads.LevelOf(road) : CityPlan.RoadArrays.Ground) != level) continue;
+
             var spanM = crossings.SpanM[crossing];
             var depthM = crossings.DepthM[crossing];
             if (spanM <= 0f || depthM <= 0f) continue;
@@ -74,7 +124,7 @@ internal sealed partial class GroundMesh
             {
                 OrientedRect(
                     crossings.CentreM[crossing] + (across * (firstM + (stripe * pitchM))), along, halfM,
-                    Surface.Tarmac, tint, periods);
+                    Surface.Tarmac, tint);
             }
         }
     }
@@ -89,14 +139,16 @@ internal sealed partial class GroundMesh
     /// one: what a lane's width of paint bows off the curve it is laid on is a bend's sag over a couple of
     /// metres, which is less than the bar is thick at the tightest radius a town is laid to.
     /// </remarks>
-    void Bars(StopBars bars, Vector3 tint, float[] periods)
+    /// <param name="level">The level whose bars are laid: a bar is its lane's.</param>
+    void Bars(StopBars bars, LaneLines lanes, Vector3 tint, byte level)
     {
         for (var bar = 0; bar < bars.Count; bar++)
         {
+            if (lanes.LaneLevel[bars.Lane[bar]] != level) continue;
+
             OrientedRect(
                 bars.CentreM[bar], bars.Approach[bar],
-                new Vector2(bars.ThicknessM[bar] * 0.5f, bars.SpanM[bar] * 0.5f), Surface.Tarmac, tint,
-                periods);
+                new Vector2(bars.ThicknessM[bar] * 0.5f, bars.SpanM[bar] * 0.5f), Surface.Tarmac, tint);
         }
     }
 
@@ -111,9 +163,9 @@ internal sealed partial class GroundMesh
     /// same colour drawn twice — but a stem laid three times is three times the triangles, on every approach
     /// of every junction in the town.
     /// </remarks>
-    void Arrows(LaneLines lanes, StopBars bars, SimConfig config, Vector3 tint, float[] periods)
+    /// <param name="level">The level whose arrows are laid: an arrow is its lane's.</param>
+    void Arrows(LaneLines lanes, LaneArrows arrows, SimConfig config, Vector3 tint, byte level)
     {
-        var arrows = LaneArrows.Lay(lanes, bars, config);
         var halfWidthM = config.Road.LaneArrowShaftWidthM * 0.5f;
         var headM = config.Road.LaneArrowHeadLengthM;
         var halfHeadM = config.Road.LaneArrowHeadWidthM * 0.5f;
@@ -121,15 +173,17 @@ internal sealed partial class GroundMesh
 
         for (var arrow = 0; arrow < arrows.Count; arrow++)
         {
+            if (lanes.LaneLevel[arrows.Lane[arrow]] != level) continue;
+
             CurvedMark(
                 lanes.ArcsOf(arrows.Lane[arrow]), arrows.FromM[arrow], arrows.ForkM[arrow], halfWidthM,
-                Surface.Tarmac, tint, periods);
+                Surface.Tarmac, tint);
 
             for (var branch = arrows.BranchAt[arrow]; branch < arrows.BranchAt[arrow + 1]; branch++)
             {
                 var arc = arrows.Branch.Slice(branch, 1);
-                CurvedMark(arc, 0f, arc[0].LengthM, halfWidthM, Surface.Tarmac, tint, periods);
-                Head(arc[0], headM, halfHeadM, tint, periods);
+                CurvedMark(arc, 0f, arc[0].LengthM, halfWidthM, Surface.Tarmac, tint);
+                Head(arc[0], headM, halfHeadM, tint);
             }
         }
     }
@@ -138,15 +192,15 @@ internal sealed partial class GroundMesh
     /// One head: the triangle standing on the end of its branch, square across the way that branch arrives
     /// and reaching a head's length further along it.
     /// </summary>
-    void Head(in ArcSeg branch, float lengthM, float halfM, Vector3 tint, float[] periods)
+    void Head(in ArcSeg branch, float lengthM, float halfM, Vector3 tint)
     {
         var atM = branch.EndM;
         var along = Heading.Unit(branch.HeadingAtRad(branch.LengthM));
         var across = Heading.RightOf(along);
         Triangle(
-            Vertex(atM - (across * halfM), Surface.Tarmac, tint, periods),
-            Vertex(atM + (along * lengthM), Surface.Tarmac, tint, periods),
-            Vertex(atM + (across * halfM), Surface.Tarmac, tint, periods));
+            Vertex(atM - (across * halfM), Surface.Tarmac, tint),
+            Vertex(atM + (along * lengthM), Surface.Tarmac, tint),
+            Vertex(atM + (across * halfM), Surface.Tarmac, tint));
     }
 
     /// <summary>
@@ -167,7 +221,7 @@ internal sealed partial class GroundMesh
     /// when the spaces land, the line a pair of them shares is this same line over a shorter run.
     /// </para>
     /// </remarks>
-    void BayStrokes(CityPlan plan, SimConfig config, Vector3 tint, float[] periods)
+    void BayStrokes(CityPlan plan, SimConfig config, Vector3 tint)
     {
         var strokeM = config.Road.PaintLineWidthM;
         var parks = plan.CarParks;
@@ -193,7 +247,7 @@ internal sealed partial class GroundMesh
                     var line = seam.AsSpan(0, pieces);
                     var lengthM = Spline.TotalLengthM(line);
                     var fromM = MathF.Max(0f, lengthM - config.CarParkBayLengthM);
-                    DashRun(line, fromM, lengthM, lengthM - fromM, lengthM - fromM, strokeM * 0.5f, tint, periods);
+                    DashRun(line, fromM, lengthM, lengthM - fromM, lengthM - fromM, strokeM * 0.5f, tint);
                 }
             }
         }
@@ -244,7 +298,7 @@ internal sealed partial class GroundMesh
     /// </remarks>
     void DashRun(
         ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float dashM, float pitchM, float halfWidthM,
-        Vector3 tint, float[] periods)
+        Vector3 tint)
     {
         var runM = toM - fromM;
         if (runM < dashM) return;
@@ -261,7 +315,7 @@ internal sealed partial class GroundMesh
         for (var dash = 0; dash < dashes; dash++)
         {
             var atM = startM + (dash * pitchM);
-            CurvedMark(arcs, atM, atM + dashM, halfWidthM, Surface.Tarmac, tint, periods);
+            CurvedMark(arcs, atM, atM + dashM, halfWidthM, Surface.Tarmac, tint);
         }
     }
 }

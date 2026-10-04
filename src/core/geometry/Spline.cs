@@ -1311,6 +1311,12 @@ internal static class Spline
     /// both ways, the merge closed <em>more</em> of its boundary with this form and a rescue that arrived
     /// inside its bound stopped arriving with the other, so the accuracy on offer is not worth what it
     /// costs. It is a nearest and not a cut: nothing downstream of it is cut to the millimetre.
+    /// <para>
+    /// <b>Except on a bend flatter than <see cref="FlatCurvature"/></b>, whose centre stands tens of kilometres
+    /// off: read about it, a place on the arc's own end came back two millimetres short of it on a traced
+    /// road's 64 km bend, so a band's square end there read as alongside the band and the merge dropped it as
+    /// covered. Such a bend is read from its start instead (<see cref="NearestOnFlat"/>).
+    /// </para>
     /// </remarks>
     internal static float NearestOnArc(in ArcSeg arc, Vector2 pointM)
     {
@@ -1319,6 +1325,8 @@ internal static class Spline
         {
             return Math.Clamp(Vector2.Dot(pointM - arc.StartM, along), 0f, arc.LengthM);
         }
+
+        if (MathF.Abs(arc.Curvature) < FlatCurvature) return NearestOnFlat(arc, pointM);
 
         var radius = 1f / arc.Curvature;
         var centreM = arc.StartM + radius * Heading.RightOf(along);
@@ -1334,5 +1342,28 @@ internal static class Spline
         if (alongM < 0f) alongM = alongM + MathF.Tau / MathF.Abs(arc.Curvature) <= arc.LengthM ? alongM + MathF.Tau / MathF.Abs(arc.Curvature) : 0f;
 
         return Math.Clamp(alongM, 0f, arc.LengthM);
+    }
+
+    /// <summary>
+    /// <b>How far along an all but straight arc the point nearest a place stands</b>, read from the arc's start: along
+    /// its first heading, then put right by Newton's step against the heading where that lands, clamped to the arc's
+    /// own ends. Nothing is measured from the centre, which on such an arc is further off than a float holds a
+    /// millimetre.
+    /// </summary>
+    /// <remarks>
+    /// The first reading is short by the bend's own κ²s³⁄6 — a tenth of a metre over 400 m at the bend read this way
+    /// that is nearest round — and each step leaves what was left squared times the curvature.
+    /// </remarks>
+    static float NearestOnFlat(in ArcSeg arc, Vector2 pointM)
+    {
+        var offM = pointM - arc.StartM;
+        var alongM = Math.Clamp(Vector2.Dot(offM, arc.StartUnit), 0f, arc.LengthM);
+        for (var step = 0; step < FlatSteps; step++)
+        {
+            var heading = Heading.Unit(arc.HeadingAtRad(alongM));
+            alongM = Math.Clamp(alongM + Vector2.Dot(offM - arc.FromStartM(alongM), heading), 0f, arc.LengthM);
+        }
+
+        return alongM;
     }
 }

@@ -1,0 +1,18 @@
+{
+  "id": "shed_03",
+  "footprintM": [
+    3.0,
+    3.0
+  ],
+  "cornerRadiusM": 0.3,
+  "partsM": [],
+  "look": "shed",
+  "tags": [
+    "shed",
+    "1 storey",
+    "lean-to roof",
+    "tar paper",
+    "outbuilding"
+  ],
+  "describe": "small yard outbuilding or shed, lean-to roof of tar paper"
+}

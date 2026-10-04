@@ -25,6 +25,12 @@ internal sealed partial class GroundShapes
     RingSides _walk = RingSides.None;
 
     /// <summary>
+    /// <b>And the level above</b> (<see cref="Paving.Above"/>): a bridge over other roads, kerb to kerb, asked only
+    /// for a body on it (<see cref="At(Scan, System.Numerics.Vector2, byte)"/>).
+    /// </summary>
+    RingSides _above = RingSides.None;
+
+    /// <summary>
     /// The two layers struck off the town's boundary, laid over the lattice that answers which side of them a
     /// point stands on. <b>A town with no driven line has no boundary</b> — the water, asked about before a
     /// road is laid — and nothing is struck for it.
@@ -40,6 +46,9 @@ internal sealed partial class GroundShapes
         var rings = _layers = paving.Rings(config);
         _carriageway = RingSides.Of(rings.Carriageway.Rings, config.ShellLevel);
         _walk = rings.WalkSides(config);
+
+        var above = paving.Above(config);
+        if (above.Length > 0) _above = RingSides.Of(above, config.ShellLevel);
     }
 
     /// <summary>The lattice the carriageway is answered off, for a census of what it costs.</summary>

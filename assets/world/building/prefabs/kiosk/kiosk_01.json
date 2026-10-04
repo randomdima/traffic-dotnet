@@ -1,0 +1,18 @@
+{
+  "id": "kiosk_01",
+  "footprintM": [
+    3.0,
+    2.0
+  ],
+  "cornerRadiusM": 0.3,
+  "partsM": [],
+  "look": "kiosk",
+  "tags": [
+    "kiosk",
+    "1 storey",
+    "flat roof",
+    "white sheet metal",
+    "street kiosk"
+  ],
+  "describe": "street kiosk, flat white sheet-metal roof with a signboard along the front edge and a small air conditioner"
+}

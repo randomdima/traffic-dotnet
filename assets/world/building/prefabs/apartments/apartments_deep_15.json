@@ -1,0 +1,21 @@
+{
+  "id": "apartments_deep_15",
+  "sprite": "apartments_deep_15.webp",
+  "footprintM": [
+    6.5,
+    34.5
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "apartments",
+  "tags": [
+    "apartments",
+    "5 storeys",
+    "flat roof",
+    "light grey membrane with gravel",
+    "soviet",
+    "khrushchyovka",
+    "narrow front"
+  ],
+  "describe": "five-storey Soviet brick or panel block, flat roof of light grey membrane with gravel, 2 stairwell exit hatches and vent stacks evenly along the ridge line, TV antennas, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+}

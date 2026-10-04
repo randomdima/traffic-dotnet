@@ -71,9 +71,23 @@ internal sealed class CityPlan
 
     public required CrosswalkArrays Crosswalks { get; init; }
 
+    /// <summary>
+    /// <b>Whether a zebra is painted at every station the town's kerb ends cut</b> (TER-6, WLK-10), or the town
+    /// says where its zebras are (<see cref="Crosswalks"/>) and a station is a place the walk is cut and the
+    /// traffic held at, painted with nothing. A traced map's are where its survey maps them (GEN-57).
+    /// </summary>
+    public bool ZebraAtEveryStation { get; init; } = true;
+
     public required ParkingLotArrays ParkingLots { get; init; }
 
     public required BuildingArrays Buildings { get; init; }
+
+    /// <summary>
+    /// <b>The buildings a survey maps, as their footprints</b> (GEN-57): drawn flat under the prefabs they are worn as
+    /// (<see cref="Buildings"/>), the survey's own outline, and standing nothing themselves. <b>Empty where the town
+    /// lays none</b>, which is every town but a traced one.
+    /// </summary>
+    public FootprintArrays Footprints { get; init; } = FootprintArrays.None;
 
     public required PropArrays Props { get; init; }
 
@@ -159,7 +173,17 @@ internal sealed class CityPlan
         public required float[] RadiusM { get; init; }
         public required bool[] Lit { get; init; }
         public required float[] PhaseOffsetS { get; init; }
+
+        /// <summary>
+        /// <b>Whether its one road runs on off the map here</b> (GEN-2b): a road's end on the map's edge, with no box
+        /// round it — its lanes run up to it, and the ground is laid on past the edge and cut there
+        /// (<see cref="LaneShell"/>). Empty in a town none of whose roads leaves the map.
+        /// </summary>
+        public bool[] RunsOffTheMap { get; init; } = [];
+
         public int Count => CentreM.Length;
+
+        public bool RunsOff(int junction) => (uint)junction < (uint)RunsOffTheMap.Length && RunsOffTheMap[junction];
     }
 
     internal sealed class JunctionCornerArrays
@@ -226,34 +250,65 @@ internal sealed class CityPlan
         public bool DrivenOverOneLine(int road) => IsABay(road) || (SharedLane.Length > 0 && SharedLane[road]);
 
         /// <summary>
-        /// <b>How wide the ground one lane of a road is driven on is</b>: its share of the carriageway, or
-        /// the whole of it where the road's two ways share one line
-        /// (<see cref="DrivenOverOneLine(int)"/>).
+        /// <b>The roadside each road carries inside its kerbs</b> (GEN-57): a strip of carriageway between the kerb
+        /// the traffic with the road keeps to and its lanes, and between the other kerb and the lanes against it —
+        /// laid as a lane joined to nothing (<see cref="LaneLines.IsRoadside"/>), painted off from the lanes, and
+        /// driven by nobody. <b>Empty where no road has one</b>, which is every town the generator lays.
+        /// </summary>
+        public float[] RoadsideWithM { get; init; } = [];
+
+        /// <inheritdoc cref="RoadsideWithM"/>
+        public float[] RoadsideAgainstM { get; init; } = [];
+
+        /// <summary>
+        /// How wide the roadside is between a road's lanes and the kerb the traffic one way keeps to — with the
+        /// road where <paramref name="withTheRoad"/>, else against it.
+        /// </summary>
+        public float RoadsideM(int road, bool withTheRoad) =>
+            RoadsideWithM.Length == 0 ? 0f : withTheRoad ? RoadsideWithM[road] : RoadsideAgainstM[road];
+
+        /// <summary>How wide a road's lanes are side by side: its carriageway less the roadside either side.</summary>
+        public float LanesWidthM(int road) => WidthM[road] - RoadsideM(road, true) - RoadsideM(road, false);
+
+        /// <summary>
+        /// <b>How wide the ground one lane of a road is driven on is</b>: its share of the lanes' width, or the
+        /// whole of it where the road's two ways share one line (<see cref="DrivenOverOneLine(int)"/>).
         /// </summary>
         public float LaneWidthM(int road) =>
-            DrivenOverOneLine(road) ? WidthM[road] : WidthM[road] / LanesOn(road);
+            DrivenOverOneLine(road) ? LanesWidthM(road) : LanesWidthM(road) / LanesOn(road);
 
         /// <summary>
         /// <b>How far one lane's own line stands off its road's</b>, toward the side its own traffic keeps
         /// (TER-4a), counting its lanes from the kerb on that side: the carriageway is the road's line half its
-        /// width either way, and each way's lanes run in from its own kerb to the line its traffic meets the
-        /// other's on. A road driven both ways over one line (<see cref="DrivenOverOneLine(int)"/>) lays both on it.
+        /// width either way, and each way's lanes run in from its own kerb, past the roadside there, to the line
+        /// its traffic meets the other's on. A road driven both ways over one line
+        /// (<see cref="DrivenOverOneLine(int)"/>) lays both on the middle of its lanes' width.
         /// </summary>
         /// <remarks>
-        /// <b>It depends on the lanes counted from the kerb and on nothing else</b>, so a carriageway of three
-        /// lanes one way and two the other has the line its two ways meet on half a lane off the road's own —
-        /// and the lane and the paint beside it (<see cref="LineBetweenLanesM"/>) are one arithmetic, which
-        /// cannot disagree about where a lane is.
+        /// <b>It depends on the lanes counted from the kerb and the roadside at that kerb and on nothing else</b>,
+        /// so a carriageway of three lanes one way and two the other has the line its two ways meet on half a lane
+        /// off the road's own — and the lane and the paint beside it (<see cref="LineBetweenLanesM"/>) are one
+        /// arithmetic, which cannot disagree about where a lane is.
         /// </remarks>
-        public float LaneOffsetM(int road, int fromKerb) =>
-            DrivenOverOneLine(road) ? 0f : ((LanesOn(road) * 0.5f) - fromKerb - 0.5f) * LaneWidthM(road);
+        /// <param name="withTheRoad">Whether the lane runs with the road, which is which kerb it counts from.</param>
+        public float LaneOffsetM(int road, int fromKerb, bool withTheRoad) =>
+            RoadsideLineM(road, withTheRoad) - ((fromKerb + 0.5f) * LaneWidthM(road));
 
         /// <summary>
         /// <b>Where the paint between two lanes of a road goes</b> (TER-6): the line <paramref name="fromKerb"/>
         /// lanes in from a kerb, off the road's own line toward the side the traffic keeping to that kerb keeps
         /// — between the lanes <see cref="LaneOffsetM"/> stands either side of it.
         /// </summary>
-        public float LineBetweenLanesM(int road, int fromKerb) => ((LanesOn(road) * 0.5f) - fromKerb) * LaneWidthM(road);
+        /// <param name="withTheRoad">Whether the kerb is the one the traffic with the road keeps to.</param>
+        public float LineBetweenLanesM(int road, int fromKerb, bool withTheRoad) =>
+            RoadsideLineM(road, withTheRoad) - (fromKerb * LaneWidthM(road));
+
+        /// <summary>
+        /// <b>Where a road's lanes end and the roadside at one kerb begins</b>: off the road's own line toward the
+        /// side the traffic keeping to that kerb keeps, which is the kerb itself where there is no roadside.
+        /// </summary>
+        /// <param name="withTheRoad">Whether the kerb is the one the traffic with the road keeps to.</param>
+        public float RoadsideLineM(int road, bool withTheRoad) => (WidthM[road] * 0.5f) - RoadsideM(road, withTheRoad);
 
         /// <summary>
         /// How many lines are painted down a road: one between each pair of its lanes that touch, the line its
@@ -261,6 +316,14 @@ internal sealed class CityPlan
         /// no two ribbons to part.
         /// </summary>
         public int LinesBetweenLanes(int road) => LanesOn(road) < 2 || DrivenOverOneLine(road) ? 0 : LanesOn(road) - 1;
+
+        /// <summary>
+        /// <b>Whether the line a road's two ways meet on is crossed to get past what stands in a lane</b> (CAR-6.2b):
+        /// on a carriageway of one lane each way only. One carrying more is painted unbroken there (TER-6), and a car
+        /// on it gets past over a lane of its own way instead.
+        /// </summary>
+        public bool LineCrossedToPass(int road) =>
+            LanesWithTheRoad(road) == 1 && LanesAgainstTheRoad(road) == 1 && !DrivenOverOneLine(road);
 
         /// <summary>
         /// <b>The turns each lane is marked for where it runs into its junction</b> (TER-5j) — a traced map's arrows
@@ -348,6 +411,23 @@ internal sealed class CityPlan
 
         /// <inheritdoc cref="LaidStraight"/>
         public bool IsLaidStraight(int road) => LaidStraight.Length > 0 && LaidStraight[road];
+
+        /// <summary>
+        /// <b>The level each road is driven on</b> (GEN-57, PHY-1a): <see cref="Ground"/>, or
+        /// <see cref="Over"/> for a bridge that carries it over other roads — whose cars, ground and claims never
+        /// meet those of the roads it passes over. <b>Empty where every road is on the ground</b>, which is every
+        /// town the generator lays: its bridges span water and nothing passes under them.
+        /// </summary>
+        public byte[] Level { get; init; } = [];
+
+        /// <inheritdoc cref="Level"/>
+        public byte LevelOf(int road) => Level.Length > 0 ? Level[road] : Ground;
+
+        /// <summary>The level a road on the ground is driven on, which is every road but a bridge over others.</summary>
+        public const byte Ground = 0;
+
+        /// <summary>The level a bridge over other roads is driven on.</summary>
+        public const byte Over = 1;
 
         public int Count => WidthM.Length;
 
@@ -519,7 +599,40 @@ internal sealed class CityPlan
         public required int[] EntryOffsets { get; init; }
 
         public required Vector2[] EntryPointM { get; init; }
+
+        /// <summary>
+        /// <b>The prefab each building wears where the plan chose it</b> (GEN-57): its place among the prefabs the plan
+        /// was handed (<see cref="BuildingSizes.PrefabM"/>), its <see cref="SizeM"/> that prefab laid along or across
+        /// its bearing. Empty where none was chosen, and the catalogue matches a roof to each building's size.
+        /// </summary>
+        public int[] Prefab { get; init; } = [];
+
         public int Count => CentreM.Length;
+    }
+
+    /// <summary>
+    /// Footprints as their rings, flat with offsets beside them as every run in this structure is: each its outline
+    /// first and then any courtyard cut out of it.
+    /// </summary>
+    internal sealed class FootprintArrays
+    {
+        public static FootprintArrays None => new() { RingOffsets = [0], Rings = RingArrays.None, Traced = [], HeightM = [], Use = [] };
+
+        /// <summary>Count + 1 entries, over <see cref="Rings"/>: footprint i's are <c>RingOffsets[i]..RingOffsets[i + 1]</c>.</summary>
+        public required int[] RingOffsets { get; init; }
+
+        /// <summary>Every ring, none closed on its first point, in either hand.</summary>
+        public required RingArrays Rings { get; init; }
+
+        /// <summary>Whether it was traced off imagery by a machine rather than mapped, which it is drawn a shade apart for.</summary>
+        public required bool[] Traced { get; init; }
+
+        /// <summary>How tall it stands, or nought where nothing says — which its roof is drawn the lighter for.</summary>
+        public required float[] HeightM { get; init; }
+
+        public required Traced.FootprintUse[] Use { get; init; }
+
+        public int Count => Traced.Length;
     }
 
     internal sealed class PropArrays

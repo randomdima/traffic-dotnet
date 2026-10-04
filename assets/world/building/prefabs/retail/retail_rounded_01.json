@@ -1,0 +1,19 @@
+{
+  "id": "retail_rounded_01",
+  "footprintM": [
+    21.0,
+    13.0
+  ],
+  "cornerRadiusM": 3.25,
+  "partsM": [],
+  "look": "retail",
+  "tags": [
+    "retail",
+    "1-2 storeys",
+    "flat roof",
+    "light membrane",
+    "shops",
+    "rounded corners"
+  ],
+  "describe": "row of shops or a small market hall, flat light roof with several HVAC units and vent hoods, its corners rounded in wide curves"
+}

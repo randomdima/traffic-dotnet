@@ -42,7 +42,7 @@ internal sealed partial class TownWorld
         TyreModel.WheelPointsM(build, pose, atM);
         for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
         {
-            var effect = _terrain.EffectAt(atM[wheel]);
+            var effect = _terrain.EffectAt(atM[wheel], Cars.Level[car]);
             ground[wheel] = new SurfaceUnderWheel(
                 effect.Coefficient, effect.DragMps2, _config.Marks.PowerM2S3 * effect.MarkFactor, effect.Ploughs);
         }

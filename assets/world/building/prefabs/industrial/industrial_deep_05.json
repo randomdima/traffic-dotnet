@@ -1,0 +1,19 @@
+{
+  "id": "industrial_deep_05",
+  "footprintM": [
+    6.0,
+    9.0
+  ],
+  "cornerRadiusM": 0.8,
+  "partsM": [],
+  "look": "industrial",
+  "tags": [
+    "industrial",
+    "1 storey",
+    "pitched roof",
+    "grey corrugated slate",
+    "workshop",
+    "narrow front"
+  ],
+  "describe": "small workshop or depot shed, shallow pitched roof of grey corrugated slate, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+}

@@ -1,0 +1,19 @@
+{
+  "id": "school_deep_01",
+  "footprintM": [
+    4.5,
+    6.5
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "school",
+  "tags": [
+    "school",
+    "1 storey",
+    "flat roof",
+    "bitumen",
+    "annex",
+    "narrow front"
+  ],
+  "describe": "small single-storey annex of a school \u2014 an entrance porch or a boiler house \u2014 flat bitumen roof with a vent, standing narrow end to the street with the entrance on that short front wall"
+}

@@ -9,8 +9,9 @@ The driver and the body it drives: what a car *is*, what the driver does with it
 one search of the network (`world/routing/`), it is held on each in turn, and the leg is laid again from
 wherever the body has got to when a chain runs out — **which is the walker's own tick** (PER-25) and the
 same code at the tier where the two are the same thing. **A driver lays no geometry but at a bay**: every
-line it drives is the town's lanes and the joins between them — on a pass, the lane it is on aimed across
-into the lane beside (CAR-46), which is the town's too — **except its manoeuvre into a bay and out of one**,
+line it drives is the town's lanes and the joins between them — on a pass or a move across, the lane it is on
+aimed across into the lane beside (CAR-46, CAR-53), which is the town's too — **except its manoeuvre into a bay and
+out of one**,
 which it lays itself from where it stands and on its own circle, because the owner asked for a car park that
 lays nothing but its bays (GEN-4f). What a driver has that a walker has not is three things and they are
 named: the **line assembled over the next few lanes**, because a car at road speed must see the corners a
@@ -26,7 +27,8 @@ last reroute the place is given up for another near where the car got to; past t
 the car is stood down where it stands. **There is no other exit**, and it is finite because the clock is.
 
 **CAR-15b** `P4` **A car does one thing at a time, and the thing is named** (`CarAction`): following its route,
-getting past something (CAR-46), backing up for the room to (CAR-50), getting into a bay or out of one (GEN-4f),
+getting past something (CAR-46), moving across onto the lane beside (CAR-53), backing up for the room to (CAR-50),
+getting into a bay or out of one (GEN-4f),
 getting back onto its line (CAR-9) — or standing, under a hand (CTL-5) or on a bar (EVA-5). **An action is entered
 and left in one place**, and what it leaves — a pass, a manoeuvre — goes with it; every claim a car lays and every
 command it gives is its action's, and nothing works out what a car is doing from its line, its pass or its
@@ -36,7 +38,8 @@ the speed is a second fact beside it (`DrivingHold`), read off the profile and n
 **CAR-46** `P5` **A car gets past what stands in its lane over the lane beside it**, as a pass
 ([TER-4c.6](../../../world/road/docs/claims.md)): asked for where its grant was ended by a body at rest that
 is not making its own next movement — or, on a call, by any body at rest or traffic going slower than it means
-to (AMB-4.4) — anywhere on its line, while the lane it is on has a lane running back beside it.
+to (AMB-4.4) — anywhere on its line, while the lane it is on has a lane running back beside it across a line that
+is crossed to pass (CAR-6.2b). On a road of more than a lane each way it moves across instead (CAR-53).
 
 - **Along its own line, through a box as along a street**: the pass is the car's line moved across and back,
   and it is had wherever its ground is carriageway nobody holds — a node nothing turns at, cutting a street
@@ -98,6 +101,34 @@ that cannot is going nowhere** ([TER-4c.7](../../../world/road/docs/claims.md)).
 - **How far it backs up is the pass's, decided once**, and the room behind it is a grant like the one in front,
   read off the reservations: asked for every rebuild while it rolls back, and on the pass's clock while it is
   refused.
+
+**CAR-53** `P5` **A car moves across onto the lane beside it running its way** — on a street of more than one lane
+its way, along the street and never in a box — as a pass's step out with no step back
+([TER-4c.6](../../../world/road/docs/claims.md)), for one of three things, asked in this order:
+
+- **Its route**: a route may move across, at the price of a turn and one move across for each lane over
+  ([routing](../../../world/routing/docs/requirements.md#where-a-link-ends)), and a turn is made only from the lane
+  of its own number (TER-5j). **The car moves across wherever it gets the room**, and until then its line runs on
+  down its own lane beside the route, for as long as its lanes go the route's way.
+- **To get past what holds it up**, where the line its two ways meet on is not crossed to pass (CAR-6.2b): a body
+  at rest not making its own movement, or traffic going slower than it means to by more than
+  `SimConfig.Driving.SlowerToSwitchMps` — **over the lane toward the line and never the kerb's**.
+- **Back toward the kerb**, where nothing holds it up and the lanes there carry its line on as far as it runs: **a car
+  keeps to the kerb lane** unless its route or getting past something has it in another.
+
+Each only where the lanes beside carry the car's line on until they rejoin it or it ends, so the line laid down the
+lane beside lands back on the route. **The car does not stop to move across**:
+
+- **Looked for while it drives on**, every `SimConfig.Driving.LaneSwitchAskEveryS`: a step across drawn from where the car
+  then is, for the pace it is doing, the shortest it can drive at that pace (CAR-46's step), landing inside the lane
+  it begins on.
+- **Asked for as a short stretch of the lane beside** — the step and the room to stop in past it at the step's
+  pace — swept as the car's body, held at p0 once laid, and kept or withdrawn once before the car moves: traffic
+  coming up the lane beside, whose plan reaches over that stretch, is let by first.
+- **Stood for only where its lane stops going the route's way**: there the line ends, and the car stands short of
+  its end by a step from rest, waiting for the room.
+- **Over once it is on the lane beside**, whose line it is then handed; the lanes it was driving down go back on its
+  route, and the line runs on beside them until it is back on the route.
 
 ## What a car is and does
 
@@ -259,7 +290,8 @@ defined recovery (CAR-9) rather than a correction applied to the body.
 leave to legal ground.
 
 **CAR-6.2b** `P5` The centreline may be crossed into the oncoming lane **only to pass a stationary obstacle**
-(CAR-46).
+(CAR-46), **and only on a road of one lane each way**: one carrying more has it painted unbroken (TER-6), and a
+car on it gets past over a lane of its own way.
 
 **CAR-6.3** `P5` Do not cross a red car light.
 
@@ -458,7 +490,9 @@ back — never before the step out is done, so a step out running straight into 
 straight to the other. **The pass outranks the junction**: from the decision until the car is back in its
 own lane, the turn at a junction beyond it is not announced. A pass the road itself refuses — a line that
 ends before there is room to come back onto it, a zebra off a call, a bend, a place the car was sent to — is no
-decision and says nothing; room held by something that will move on is waited for, and is.
+decision and says nothing; room held by something that will move on is waited for, and is. **A car meaning to move
+across onto the lane beside** (CAR-53) says so the same way: toward it from when it means to, through its step,
+and nothing once it is on it.
 
 Where the numbers are: `SimConfig.Lamps` — how much of the line is read for a turn and how far that
 stretch must bend, how long before the step back a pass says it, the rates the flashing ones flash at, and

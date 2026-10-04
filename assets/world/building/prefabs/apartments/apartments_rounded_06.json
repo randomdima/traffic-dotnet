@@ -1,0 +1,21 @@
+{
+  "id": "apartments_rounded_06",
+  "sprite": "apartments_rounded_06.webp",
+  "footprintM": [
+    34.5,
+    18.0
+  ],
+  "cornerRadiusM": 4.5,
+  "partsM": [],
+  "look": "apartments",
+  "tags": [
+    "apartments",
+    "3-5 storeys",
+    "hipped roof",
+    "grey sheet metal",
+    "courtyard block",
+    "old town",
+    "rounded corners"
+  ],
+  "describe": "deep old-town apartment block, hipped roof of grey sheet metal round a light well, dormers and chimney stacks, its corners rounded in wide curves"
+}

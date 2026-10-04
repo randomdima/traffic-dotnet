@@ -58,7 +58,7 @@ internal static class LampSprites
     public static int Fill(
         CarFleet cars, CarCatalog catalogue, SimConfig config, int lensSheet, int glowSheet, float elapsedS,
         ReadOnlySpan<Selection> handDriven, int alsoDrivenCar, Vector2 viewCentreM, Vector2 viewSpanM,
-        Span<SpriteInstance> into)
+        Span<SpriteInstance> into, int level = CarSprites.EveryLevel)
     {
         var written = 0;
         var halfView = viewSpanM * 0.5f;
@@ -72,7 +72,7 @@ internal static class LampSprites
         {
             // A wreck's art is its own crumpled picture, which the lenses of the car it was are not
             // measured against — and a wreck shows nothing anyway (CAR-14.5).
-            if (cars.Broken[car]) continue;
+            if (cars.Broken[car] || !CarSprites.IsOn(cars, car, level)) continue;
 
             var variant = cars.Variant[car] % rows;
             var lenses = catalogue.LensesOf(variant);

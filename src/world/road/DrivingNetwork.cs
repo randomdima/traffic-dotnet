@@ -146,6 +146,8 @@ internal sealed class DrivingNetwork
         public float LengthM(int lane) => roads.LaneLengthM[lane];
 
         public int Reverse(int lane) => roads.LaneReverse[lane];
+
+        public int Beside(int lane, bool inward) => roads.LaneBeside(lane, inward);
     }
 
     /// <summary>
@@ -171,21 +173,38 @@ internal sealed class DrivingNetwork
     {
         public float PriceM(int fromEdge, int toEdge) => roads.IsABayArm(fromEdge) || roads.IsABayArm(toEdge)
             ? float.PositiveInfinity
-            : roads.TurnBetween(fromEdge, toEdge) switch
-            {
-                LaneTurn.NearSide => config.Driving.NominalCarLengthM * config.Driving.TurnPriceNearSideCarLengths,
-                LaneTurn.FarSide => config.Driving.NominalCarLengthM * config.Driving.TurnPriceAcrossOncomingCarLengths,
-                LaneTurn.Straight => 0f,
-                _ => TurnsAtTheLotM(fromEdge, toEdge),
-            };
+            : roads.TurnBetween(fromEdge, toEdge) is { } turn ? TurnM(turn) : NotJoinedM(fromEdge, toEdge);
+
+        float TurnM(LaneTurn turn) => turn switch
+        {
+            LaneTurn.NearSide => config.Driving.NominalCarLengthM * config.Driving.TurnPriceNearSideCarLengths,
+            LaneTurn.FarSide => config.Driving.NominalCarLengthM * config.Driving.TurnPriceAcrossOncomingCarLengths,
+            _ => 0f,
+        };
 
         /// <summary>
-        /// What the pair costs where the road has no turn between them: the park and the unpark where they
-        /// are the two sides of a stretch a bay is worked off both ways, and out of reach everywhere else.
+        /// What the pair costs where the road has no turn between them: <b>the turn off a lane beside, with the move
+        /// across onto it</b> (CAR-53); the park and the unpark where they are the two sides of a stretch a bay is worked
+        /// off both ways; and out of reach everywhere else.
         /// </summary>
-        float TurnsAtTheLotM(int fromEdge, int toEdge) =>
-            roads.LaneReverse[fromEdge] == toEdge && turnsAtALot[fromEdge]
+        float NotJoinedM(int fromEdge, int toEdge)
+        {
+            if (roads.ReachesBySwitching(fromEdge, toEdge, out var beside) && beside != toEdge)
+            {
+                return TurnM(roads.TurnBetween(beside, toEdge)!.Value) + SwitchM(roads, config, fromEdge, beside);
+            }
+
+            return roads.LaneReverse[fromEdge] == toEdge && turnsAtALot[fromEdge]
                 ? config.Driving.NominalCarLengthM * config.Driving.TurnPriceComingBackCarLengths
                 : float.PositiveInfinity;
+        }
     }
+
+    /// <summary>
+    /// <b>What moving across from one lane onto another of its stretch costs a route</b> (CAR-53): the price of a switch,
+    /// once for each lane over.
+    /// </summary>
+    public static float SwitchM(RoadGraph roads, SimConfig config, int fromLane, int besideLane) =>
+        Math.Abs(roads.LanesOver(fromLane, besideLane)) * config.Driving.NominalCarLengthM
+        * config.Driving.LaneSwitchPriceCarLengths;
 }

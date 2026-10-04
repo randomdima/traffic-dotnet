@@ -1,0 +1,18 @@
+{
+  "id": "greenhouse_deep_01",
+  "footprintM": [
+    11.0,
+    15.5
+  ],
+  "cornerRadiusM": 0.3,
+  "partsM": [],
+  "look": "greenhouse",
+  "tags": [
+    "greenhouse",
+    "glass",
+    "gabled roof",
+    "polycarbonate",
+    "narrow front"
+  ],
+  "describe": "long greenhouse, gabled roof of glass or polycarbonate panels on a light frame, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+}

@@ -85,7 +85,7 @@ public class KerbEndsInATownTests
     /// <b>A road ends twice at a box and not four times</b>: it has a kerb either side of it, so what the
     /// boundary can hand over at one box is each of those two once. <b>A kerb that gives the outline up and
     /// takes it straight back has not ended</b> — what the outline went round is something standing inside
-    /// the road, a bend of its own cut by the rounding (TER-3c.10) being the shape that does it — and
+    /// the road, a notch along its own kerb filled by the rounding (TER-3c.10) being the shape that does it — and
     /// counting those two places as ends stands a pair of them out where the bend is, which is as far from
     /// the box as the bend is and is where the paint then goes (<see cref="KerbEnds.Further"/>).
     /// </summary>

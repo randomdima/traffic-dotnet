@@ -1,0 +1,19 @@
+{
+  "id": "retail_deep_02",
+  "footprintM": [
+    4.0,
+    6.0
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "retail",
+  "tags": [
+    "retail",
+    "1 storey",
+    "flat roof",
+    "grey membrane",
+    "shop pavilion",
+    "narrow front"
+  ],
+  "describe": "single-storey shop pavilion, flat grey roof with an air conditioner unit and a sign along the front edge, standing narrow end to the street with the entrance on that short front wall"
+}

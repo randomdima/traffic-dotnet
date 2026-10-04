@@ -1,0 +1,20 @@
+{
+  "id": "house_rounded_02",
+  "sprite": "house_rounded_02.webp",
+  "footprintM": [
+    11.5,
+    5.5
+  ],
+  "cornerRadiusM": 1.38,
+  "partsM": [],
+  "look": "house",
+  "tags": [
+    "house",
+    "1-2 storeys",
+    "hipped roof",
+    "dark grey bitumen shingles",
+    "detached",
+    "rounded corners"
+  ],
+  "describe": "detached family house, hipped roof of dark grey bitumen shingles, a chimney and a skylight, small porch roof over the door, its corners rounded in wide curves"
+}

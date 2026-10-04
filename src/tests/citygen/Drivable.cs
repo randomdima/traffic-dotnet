@@ -19,22 +19,24 @@ namespace TrafficSimulation.Tests.CityGen;
 internal static class Drivable
 {
     /// <summary>
-    /// <b>The lanes of a car park's bays</b> (GEN-53) — <b>the one thing in this build no lane is driven onto
-    /// or off</b>. A bay is a road of its own joined to nothing, got into and out of by a car's own manoeuvre
-    /// (GEN-4f), so the questions below are asked of the rest of the town — and a bay's own nodes, which only
-    /// its lanes reach, are no place the town is driven to. It is the whole of what GEN-50 is excused for.
+    /// <b>The lanes joined to nothing</b> — <b>the two things in this build no lane is driven onto or off</b>. A car
+    /// park's bay (GEN-53) is a road of its own, got into and out of by a car's own manoeuvre (GEN-4f), and a road's
+    /// roadside (<see cref="RoadGraph.IsARoadside"/>, GEN-57) is ground of its carriageway that nobody drives down, so
+    /// the questions below are asked of the rest of the town — and a bay's own nodes, which only its lanes reach, are
+    /// no place the town is driven to. They are the whole of what GEN-50 is excused for.
     /// </summary>
-    public static bool[] OnACarParksArm(CityPlan plan, RoadGraph roads)
+    public static bool[] JoinedToNothing(CityPlan plan, RoadGraph roads)
     {
-        var onAnArm = new bool[roads.LaneCount];
-        if (plan.CarParks.Count == 0) return onAnArm;
-
         var arm = new bool[plan.Roads.Count];
         foreach (var road in plan.CarParks.Road) arm[road] = true;
 
-        for (var lane = 0; lane < roads.LaneCount; lane++) onAnArm[lane] = arm[roads.LaneRoad[lane]];
+        var joinedToNothing = new bool[roads.LaneCount];
+        for (var lane = 0; lane < roads.LaneCount; lane++)
+        {
+            joinedToNothing[lane] = arm[roads.LaneRoad[lane]] || roads.IsARoadside(lane);
+        }
 
-        return onAnArm;
+        return joinedToNothing;
     }
 
     /// <summary>What is wrong, or <c>null</c> where every junction can be driven to from every lane.</summary>

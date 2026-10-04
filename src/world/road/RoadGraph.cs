@@ -56,8 +56,11 @@ internal sealed class RoadGraph : ILaneEnds
     /// <summary>The lanes over a grid, which is the whole of what <see cref="NearestLane"/> is.</summary>
     readonly ChainIndex _nearest;
 
-    /// <summary>And the carriageway's alone, which is <see cref="NearestStreetLane"/>.</summary>
+    /// <summary>And the carriageway's alone, which is <see cref="NearestStreetLane(Vector2, out float)"/>.</summary>
     readonly ChainIndex _nearestStreet;
+
+    /// <summary>And the carriageway's a level at a time, or nothing in a town on one level (<see cref="NearestStreetLane(Vector2, byte, out float)"/>).</summary>
+    readonly ChainIndex[] _nearestStreetOn;
 
     RoadGraph(
         LaneLines lines, int[] junctionOutOffsets, int[] junctionOutLanes, int[] junctionInOffsets,
@@ -73,14 +76,19 @@ internal sealed class RoadGraph : ILaneEnds
 
         var builder = new ChainIndex.Builder();
         var streets = new ChainIndex.Builder();
+        var onTheirLevels = lines.Levelled ? new[] { new ChainIndex.Builder(), new ChainIndex.Builder() } : [];
         for (var lane = 0; lane < lines.LaneCount; lane++)
         {
             builder.Add(lane, ArcsOf(lane), lines.LaneLengthM[lane]);
-            if (!IsABayArm(lane)) streets.Add(lane, ArcsOf(lane), lines.LaneLengthM[lane]);
+            if (!IsAStreetLane(lane)) continue;
+
+            streets.Add(lane, ArcsOf(lane), lines.LaneLengthM[lane]);
+            if (onTheirLevels.Length > 0) onTheirLevels[lines.LaneLevel[lane]].Add(lane, ArcsOf(lane), lines.LaneLengthM[lane]);
         }
 
         _nearest = builder.Seal(nearestLevel);
         _nearestStreet = streets.Seal(nearestLevel);
+        _nearestStreetOn = Array.ConvertAll(onTheirLevels, level => level.Seal(nearestLevel));
 
         for (var place = 0; place < Places.Count; place++)
         {
@@ -89,7 +97,18 @@ internal sealed class RoadGraph : ILaneEnds
 
             MostConnectorsAtAPlace = Math.Max(MostConnectorsAtAPlace, connectors);
         }
+
+        MostLanesOfAWay = 1;
+        for (var lane = 0; lane < lines.LaneCount; lane++)
+        {
+            if (lines.LaneOutward[lane] == NoLane) continue;
+
+            MostLanesOfAWay = Math.Max(MostLanesOfAWay, lines.LaneFromKerb[lane] + 1);
+        }
     }
+
+    /// <summary>The most lanes any one road is driven in one way — how many a car can stand beside on one stretch.</summary>
+    public int MostLanesOfAWay { get; }
 
     /// <summary>
     /// <b>Where the carriageway's lanes meet</b>, worked out from the connectors (<see cref="LanePlaces"/>).
@@ -165,6 +184,12 @@ internal sealed class RoadGraph : ILaneEnds
     /// <summary>The length of the line as <em>driven</em>: an offset arc is shorter inside a bend than the centreline it was taken from.</summary>
     public float[] LaneLengthM => _lines.LaneLengthM;
 
+    /// <inheritdoc cref="LaneLines.LaneLevel"/>
+    public byte[] LaneLevel => _lines.LaneLevel;
+
+    /// <inheritdoc cref="LaneLines.ConnectorLevel"/>
+    public byte ConnectorLevel(int connector) => _lines.ConnectorLevel(connector);
+
     /// <summary>
     /// The other lane of the same stretch — the one a car that has turned in a bay comes back down
     /// (GEN-4l), and the one no turn at either end of it ever leads to (TER-5f). <b><see cref="NoLane"/> on
@@ -182,11 +207,131 @@ internal sealed class RoadGraph : ILaneEnds
     /// </summary>
     public bool[] LaneOverOneLine => _lines.LaneOverOneLine;
 
+    /// <inheritdoc cref="LaneLines.LaneCrossesToPass"/>
+    public bool[] LaneCrossesToPass => _lines.LaneCrossesToPass;
+
+    /// <summary>
+    /// Where the lane stands among its road's lanes running its way, counted in from the kerb (<see cref="LaneLines.LaneFromKerb"/>).
+    /// </summary>
+    public byte[] LaneFromKerb => _lines.LaneFromKerb;
+
+    /// <summary>
+    /// <b>The lane beside this one running its way</b> (CAR-53) — toward the line its two ways meet on where
+    /// <paramref name="inward"/>, toward the kerb where not — or <see cref="NoLane"/> where there is none.
+    /// </summary>
+    public int LaneBeside(int lane, bool inward) => inward ? _lines.LaneInward[lane] : _lines.LaneOutward[lane];
+
+    /// <summary>
+    /// <b>Whether two lanes are one stretch of one road driven the same way</b> — side by side, however many lanes
+    /// apart, so a car on one gets onto the other by switching lanes (CAR-53). A lane is not beside itself.
+    /// </summary>
+    public bool AreSideBySide(int lane, int other) =>
+        lane != other && LaneRoad[lane] == LaneRoad[other] && LaneForward[lane] == LaneForward[other]
+        && IsAStreetLane(lane) && IsAStreetLane(other);
+
+    /// <summary>
+    /// <b>Whether a car on one lane reaches another by switching lanes and no more</b> (CAR-53): onto it where the two
+    /// are side by side, or onto a lane beside this one that a connector joins to it.
+    /// </summary>
+    /// <param name="besideAt">The lane beside <paramref name="from"/> the connector leaves, or <paramref name="onto"/> itself.</param>
+    public bool ReachesBySwitching(int from, int onto, out int besideAt)
+    {
+        besideAt = NoLane;
+        if (!IsAStreetLane(from) || !IsAStreetLane(onto)) return false;
+        if (AreSideBySide(from, onto))
+        {
+            besideAt = onto;
+            return true;
+        }
+
+        foreach (var inward in (ReadOnlySpan<bool>)[true, false])
+        {
+            for (var beside = LaneBeside(from, inward); beside != NoLane; beside = LaneBeside(beside, inward))
+            {
+                if (ConnectorBetween(beside, onto) == NoConnector) continue;
+
+                besideAt = beside;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// <b>How many lanes over one lane stands from another of its stretch</b>, toward the line where positive — the
+    /// switches a car makes from the first to reach the second.
+    /// </summary>
+    public int LanesOver(int from, int beside) => LaneFromKerb[beside] - LaneFromKerb[from];
+
+    /// <summary>
+    /// <b>The lane a line ending on <paramref name="last"/> carries on down beside a route that moves across onto
+    /// <paramref name="next"/> and goes on to <paramref name="after"/></b> (CAR-53) — or <see cref="NoLane"/> where it
+    /// stops there, which is where the car has to have moved across by.
+    /// </summary>
+    /// <remarks>
+    /// A route running down the lane beside <paramref name="last"/> is carried on from what it takes after that: the
+    /// lane itself where <paramref name="last"/> joins it, and a lane beside it otherwise. One turning off a lane beside
+    /// is carried on down a lane beside the one it turns onto. Either way the line keeps to its own lanes for as long as
+    /// they go the route's way.
+    /// </remarks>
+    /// <param name="passed">How many of the route's lanes the lane returned passes, <paramref name="next"/> first.</param>
+    public int OnBesideTheRoute(int last, int next, int after, out int passed)
+    {
+        passed = 0;
+        if (!AreSideBySide(last, next)) return TheLaneOnBeside(last, next);
+
+        if (after == NoLane) return NoLane;
+
+        if (ConnectorBetween(last, after) != NoConnector)
+        {
+            passed = 2;
+            return after;
+        }
+
+        var beside = TheLaneOnBeside(last, after);
+        if (beside != NoLane) passed = 1;
+
+        return beside;
+    }
+
+    /// <summary>
+    /// The lane <paramref name="from"/> joins that runs beside <paramref name="route"/> — the nearest to it where it joins
+    /// several — or <see cref="NoLane"/> where it joins none.
+    /// </summary>
+    public int TheLaneOnBeside(int from, int route)
+    {
+        var found = NoLane;
+        var nearest = int.MaxValue;
+        foreach (var onward in LanesFrom(from))
+        {
+            if (!AreSideBySide(onward, route)) continue;
+
+            var lanesOver = Math.Abs(LanesOver(onward, route));
+            if (lanesOver >= nearest) continue;
+
+            nearest = lanesOver;
+            found = onward;
+        }
+
+        return found;
+    }
+
     /// <summary>
     /// <b>Whether this lane is a car park's bay</b> (GEN-53) — joined to nothing, got into and out of by a car's
     /// own manoeuvre (GEN-4f), and never a lane a route or a tour runs down (<see cref="LaneLines.LaneIsBay"/>).
     /// </summary>
     public bool IsABayArm(int lane) => _lines.LaneIsBay[lane];
+
+    /// <summary>
+    /// <b>Whether this lane is a road's roadside</b> — lane zero (<see cref="LaneLines.IsRoadside"/>, GEN-57): ground of
+    /// the carriageway joined to nothing, never among a junction's lanes (<see cref="LanesIntoJunction"/>), and never a
+    /// lane a car is stood on, routed down or toured onto.
+    /// </summary>
+    public bool IsARoadside(int lane) => _lines.IsRoadside(lane);
+
+    /// <summary>Whether this lane is one the traffic is driven down: neither a bay (<see cref="IsABayArm"/>) nor a roadside (<see cref="IsARoadside"/>).</summary>
+    public bool IsAStreetLane(int lane) => !IsABayArm(lane) && !IsARoadside(lane);
 
     /// <summary>The line the lane is driven on, in its own direction of travel, already offset to the driver's side.</summary>
     public ReadOnlySpan<ArcSeg> ArcsOf(int lane) => _lines.ArcsOf(lane);
@@ -349,10 +494,19 @@ internal sealed class RoadGraph : ILaneEnds
     public int NearestLane(Vector2 pointM, out float progressM) => _nearest.Nearest(pointM, out progressM);
 
     /// <summary>
-    /// <b>And the nearest lane of the carriageway</b>, bays left out (<see cref="IsABayArm"/>) —
+    /// <b>And the nearest lane of the carriageway</b>, bays and roadsides left out (<see cref="IsAStreetLane"/>) —
     /// what a car takes when it takes the lane under it, and where a place asked of the road is looked for.
     /// </summary>
     public int NearestStreetLane(Vector2 pointM, out float progressM) => _nearestStreet.Nearest(pointM, out progressM);
+
+    /// <summary>
+    /// <b>And the nearest of one level's</b> (PHY-1a): a car on a bridge takes a lane of the bridge however near the
+    /// road under it runs, and a car on the ground one of the ground's however near a deck passes over it.
+    /// </summary>
+    public int NearestStreetLane(Vector2 pointM, byte level, out float progressM) =>
+        _nearestStreetOn.Length > 0
+            ? _nearestStreetOn[level].Nearest(pointM, out progressM)
+            : _nearestStreet.Nearest(pointM, out progressM);
 
     /// <summary>
     /// <b>Every lane that could pass within <paramref name="radiusM"/> of a point</b>, and possibly some that
@@ -384,10 +538,17 @@ internal sealed class RoadGraph : ILaneEnds
     /// stood up against. Nothing here draws a line, so a graph and the ground under it cannot disagree about
     /// where the traffic runs.
     /// </summary>
+    /// <remarks>
+    /// <b>A junction's lanes are the ones a movement may join</b>, so a roadside's two ends at the boxes it runs into
+    /// are none of them (<see cref="IsARoadside"/>).
+    /// </remarks>
     public static RoadGraph Build(LaneLines lines, SimConfig config)
     {
-        var (junctionOutOffsets, junctionOutLanes) = LaneLines.Adjacency(lines.JunctionCount, lines.LaneFromJunction);
-        var (junctionInOffsets, junctionInLanes) = LaneLines.Adjacency(lines.JunctionCount, lines.LaneToJunction);
+        var joined = lines.FirstRoadside;
+        var (junctionOutOffsets, junctionOutLanes) =
+            LaneLines.Adjacency(lines.JunctionCount, new ArraySegment<int>(lines.LaneFromJunction, 0, joined));
+        var (junctionInOffsets, junctionInLanes) =
+            LaneLines.Adjacency(lines.JunctionCount, new ArraySegment<int>(lines.LaneToJunction, 0, joined));
         var places = LanePlaces.Of(new Ends(lines));
 
         return new RoadGraph(

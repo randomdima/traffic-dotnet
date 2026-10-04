@@ -3,6 +3,30 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-10-04 — a car moves across onto the lane beside, and keeps to the kerb
+
+**The owner asked for a lane switch that works like an overtake** (CAR-53): only a small stretch of the lane beside
+is reserved, the car does not stop to look for it, and it stands only where its lane stops going its way near a
+junction. Cars keep to the kerb lane unless getting past something or switching lanes. On a road of more than two
+lanes, a car may not get past into the oncoming lane. **The owner chose** that a car switches to get past slower
+traffic as well as something at rest, and only over the lane toward the line.
+
+- **The step is a pass's step out with no step back** (`Overtake`, `BackM` at infinity), so the step, the drive down it,
+  the sweep and the p0 claim are the pass's own. **What differs is the decision**: a pass is decided once where the car
+  would begin slowing, and committed to; a switch is drawn again at every look from where the car then is
+  (`LaneSwitchAskEveryS`), because the car is still driving. The room swept past the step is a stop at the step's pace,
+  which is what the car is granted on the lane beside until its plan is laid down it.
+- **Where to move across is the car's and not the route's.** The router only says that a route moves across. The line
+  runs on down the car's own lanes beside the route for as long as they go its way (`RoadGraph.OnBesideTheRoute`), and
+  the car moves across wherever it gets the room. A route searched to the last place before the turn and one searched
+  to the first come out the same. The line stops, and the car stands, only where its lane leaves the route.
+- **Keeping to the kerb is the car's too, and not a price on the router**: a price per metre on an inner lane would only
+  move where the route says to move across, which the car does not read. So the car moves back toward the kerb
+  wherever the lanes there carry its line on and its route goes on from them. **It does not move back while what is in
+  front of it holds it up**, since that would be getting past on the kerb side.
+- **What it costs**: every node on a street of several lanes now ends a link, since a car arriving there may be on
+  either lane. The traced city's graph is that much larger.
+
 ## 2026-10-02 — a car standing parked is not ticked
 
 **A parked car's tick wrote what was already there.** With nobody driving it, a tick sets the parked command, the

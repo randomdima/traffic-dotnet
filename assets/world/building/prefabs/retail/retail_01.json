@@ -1,0 +1,18 @@
+{
+  "id": "retail_01",
+  "footprintM": [
+    3.0,
+    2.0
+  ],
+  "cornerRadiusM": 0.3,
+  "partsM": [],
+  "look": "retail",
+  "tags": [
+    "retail",
+    "1 storey",
+    "flat roof",
+    "painted sheet metal",
+    "street booth"
+  ],
+  "describe": "small street booth or stall, flat painted sheet-metal roof with a sign along the front edge"
+}

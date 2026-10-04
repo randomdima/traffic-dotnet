@@ -13,16 +13,20 @@ internal readonly record struct BuildingPart(Vector2 AtM, Vector2 SizeM);
 /// downwards — which is the one fact about a building's picture the town has to know: everything else a
 /// building does is its plan's box, its plan's ways in, and <see cref="PartsM"/>.
 /// </remarks>
+/// <param name="SpritePath">The picture; null for a prefab not yet drawn, which is drawn as a plain block of its look.</param>
 /// <param name="PartsM">
 /// <b>What this roof is collided as</b> (OBJ-5a), measured off the picture in the picture's own axes and
 /// scaled with it. Empty for a roof that is the whole of its footprint.
 /// </param>
+/// <param name="CornerRadiusM">The radius the footprint's corners are rounded at, which it is drawn and collided with (OBJ-2).</param>
+/// <param name="Look">What a prefab is drawn as (GEN-57); null for a roof that is not a prefab.</param>
 internal readonly record struct BuildingVariant(
-    string Id, string SpritePath, Vector2 FootprintM, BuildingPart[] PartsM);
+    string Id, string? SpritePath, Vector2 FootprintM, BuildingPart[] PartsM, float CornerRadiusM, BuildingLook? Look);
 
 /// <summary>
-/// The roofs a building can wear, read from <c>assets/…/Catalog.json</c>, and the civic ones beside them
-/// from <c>Civic.json</c>.
+/// The roofs a building can wear, read from <c>assets/…/Catalog.json</c>, the civic ones beside them
+/// from <c>Civic.json</c>, and the prefabs a traced town's footprints are fitted from (GEN-57) from
+/// <c>assets/world/building/prefabs/Prefabs.json</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -31,27 +35,29 @@ internal readonly record struct BuildingVariant(
 /// building off this same catalogue, so "nearest" is all but exact on a shipped map.
 /// </para>
 /// <para>
-/// <b>Two lists and one array</b>, on the terms <see cref="Car.Body.CarCatalog"/> keeps its fleet and its
+/// <b>Three lists and one array</b>, on the terms <see cref="Car.Body.CarCatalog"/> keeps its fleet and its
 /// service vehicles on. A civic roof names the use its building was drawn for (AMB-1a, SRV-1a) and is
 /// found by id (<see cref="Hospital"/>, <see cref="PoliceStation"/>, <see cref="RepairShop"/>);
 /// <see cref="Match"/> cannot reach it,
 /// because a roof lettered HOSPITAL over somebody's front door is a building the town says is a hospital
-/// and is not one.
+/// and is not one. <b>A prefab is chosen by the plan and never matched</b>: which one a footprint wears is
+/// its shape's and its look's, settled where the footprint is cut (<c>TracedBuildings</c>).
 /// </para>
 /// </remarks>
 internal sealed class BuildingCatalog
 {
-    BuildingCatalog(BuildingVariant[] variants, int ordinary)
+    BuildingCatalog(BuildingVariant[] variants, int ordinary, int civic)
     {
         Variants = variants;
         Ordinary = ordinary;
+        FirstPrefab = ordinary + civic;
         Hospital = IndexOf("hospital");
         PoliceStation = IndexOf("police_station");
         RepairShop = IndexOf("repair_shop");
 
         int IndexOf(string id)
         {
-            for (var entry = ordinary; entry < variants.Length; entry++)
+            for (var entry = ordinary; entry < FirstPrefab; entry++)
             {
                 if (variants[entry].Id == id) return entry;
             }
@@ -60,11 +66,14 @@ internal sealed class BuildingCatalog
         }
     }
 
-    /// <summary>The ordinary roofs first, then the civic ones — one array, because a sheet slot is a sheet slot.</summary>
+    /// <summary>The ordinary roofs first, then the civic ones, then the prefabs — one array, because a sheet slot is a sheet slot.</summary>
     public BuildingVariant[] Variants { get; }
 
     /// <summary>How many of them <see cref="Match"/> draws from, which is the ordinary roofs and not everything here.</summary>
     public int Ordinary { get; }
+
+    /// <summary>Where the prefabs start, which is where a plan's prefab number is counted from (<see cref="CityPlan.BuildingArrays.Prefab"/>).</summary>
+    public int FirstPrefab { get; }
 
     /// <summary>And how many there are altogether, which is what the sheet list is laid for.</summary>
     public int Count => Variants.Length;
@@ -94,12 +103,15 @@ internal sealed class BuildingCatalog
     {
         var ordinary = AssetJson.Catalog(VariantList("Catalog.json"));
         var civic = AssetJson.Catalog(VariantList("Civic.json"));
+        var prefabs = AssetJson.Catalog(Path.Combine(ProjectPaths.Assets, "world", "building", "prefabs", "Prefabs.json"));
 
-        var variants = new BuildingVariant[ordinary.Length + civic.Length];
-        for (var entry = 0; entry < ordinary.Length; entry++) variants[entry] = ReadVariant(ordinary[entry]);
-        for (var entry = 0; entry < civic.Length; entry++) variants[ordinary.Length + entry] = ReadVariant(civic[entry]);
+        BuildingVariant[] variants = [.. ordinary.Select(ReadVariant), .. civic.Select(ReadVariant), .. prefabs.Select(ReadVariant)];
+        for (var prefab = ordinary.Length + civic.Length; prefab < variants.Length; prefab++)
+        {
+            if (variants[prefab].Look is null) throw new InvalidDataException($"Prefabs.json names {variants[prefab].Id}, which says no look.");
+        }
 
-        return new BuildingCatalog(variants, ordinary.Length);
+        return new BuildingCatalog(variants, ordinary.Length, civic.Length);
     }
 
     /// <summary>
@@ -145,7 +157,17 @@ internal sealed class BuildingCatalog
             byUseM[use] = roof >= 0 ? Variants[roof].FootprintM : Vector2.Zero;
         }
 
-        return new BuildingSizes(ordinaryM, byUseM);
+        var prefabM = new Vector2[Count - FirstPrefab];
+        var prefabCornerM = new float[prefabM.Length];
+        var prefabLook = new BuildingLook[prefabM.Length];
+        for (var prefab = 0; prefab < prefabM.Length; prefab++)
+        {
+            prefabM[prefab] = Variants[FirstPrefab + prefab].FootprintM;
+            prefabCornerM[prefab] = Variants[FirstPrefab + prefab].CornerRadiusM;
+            prefabLook[prefab] = Variants[FirstPrefab + prefab].Look!.Value;
+        }
+
+        return new BuildingSizes(ordinaryM, byUseM, prefabM, prefabCornerM, prefabLook);
     }
 
     public (int Variant, bool Swapped) Match(Vector2 sizeM)
@@ -181,6 +203,8 @@ internal sealed class BuildingCatalog
         }
 
         return new BuildingVariant(
-            variant.Id, AssetJson.Beside(path, variant.Sprite), variant.FootprintM, parts);
+            variant.Id, variant.Sprite is { } sprite ? AssetJson.Beside(path, sprite) : null, variant.FootprintM, parts,
+            Math.Clamp(variant.CornerRadiusM, 0f, MathF.Min(variant.FootprintM.X, variant.FootprintM.Y) * 0.5f),
+            variant.Look is { } look ? Enum.Parse<BuildingLook>(look, ignoreCase: true) : null);
     }
 }

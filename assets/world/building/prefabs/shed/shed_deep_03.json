@@ -1,0 +1,19 @@
+{
+  "id": "shed_deep_03",
+  "footprintM": [
+    2.5,
+    4.5
+  ],
+  "cornerRadiusM": 0.3,
+  "partsM": [],
+  "look": "shed",
+  "tags": [
+    "shed",
+    "1 storey",
+    "lean-to roof",
+    "tar paper",
+    "outbuilding",
+    "narrow front"
+  ],
+  "describe": "small yard outbuilding or shed, lean-to roof of tar paper, standing narrow end to the street with the entrance on that short front wall, its ridge running from the street to the back"
+}

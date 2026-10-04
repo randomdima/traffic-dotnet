@@ -1,0 +1,18 @@
+{
+  "id": "industrial_13",
+  "footprintM": [
+    15.5,
+    7.5
+  ],
+  "cornerRadiusM": 0.8,
+  "partsM": [],
+  "look": "industrial",
+  "tags": [
+    "industrial",
+    "1 storey",
+    "pitched roof",
+    "rusty corrugated metal",
+    "workshop"
+  ],
+  "describe": "small workshop or depot shed, shallow pitched roof of rusty corrugated metal"
+}

@@ -4,6 +4,73 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-10-05 — the atlas files the walk only where it is read, and a piece reads only the rows it reaches
+
+**Half of a traced city's atlas was walk nobody stood on.** OdesaOsm stands nobody on foot and files 5 200 km of
+pavement two metres wide; the walk is read only under walkers and the claims they hold, so it was 56 million entries
+read by nothing. **A walked way is now filed only in a town that stands anybody on foot, or where the traffic crosses
+it** — a zebra's paint (`RibbonAtlas.Lay`, TER-4c.4). The marks are worked out from the ribbons and hold every way
+either way. The roster is counted before the atlas is laid, since it is the plan's and the figures' alone. The
+suite's own city stands nobody on foot either, and its town tier is the town it was.
+
+**And a piece measured every point of its box** (`RibbonAtlas.PointsOf`): a piece running corner to corner of its
+box covers a small part of it, and every point was a projection. Each row is now read only along the runs a piece's
+band can reach (`RunsAcross`) — one across a straight's rectangle, up to two across an arc's ring, grown by a lattice
+step and an arc's by a share of its radius, so rounding can only widen them. A way already in order skips its sort.
+**The atlas is the same to the bit**: hashed whole on the suite's city and on OdesaOsm, runs against the whole box,
+and with the walk filed against the atlas before this and the entry below it.
+
+Measured on OdesaOsm with `qq prof --bench load`:
+
+| | before | after |
+|---|---|---|
+| atlas | 88.2 M points, 123.9 M entries, 1 093 MiB | 46.5 M points, 67.5 M entries, 625 MiB |
+| laying it | 2.4 s | 1.1 s |
+| finding its points | 22.7 CPU s | 5.1 CPU s |
+
+**Not done: the points filed in a second pass rather than kept for it.** The blocks a lay keeps its points in stand
+under the entries they are filed into, 540 MB at once on OdesaOsm and the open's peak; filed off a second run of the
+geometry they are gone, for 5 CPU seconds more — every one of them a second on a page's one thread.
+
+## 2026-10-04 — the line two ways meet on is unbroken where the road has more than two lanes
+
+**The owner asked for it, with the rule it paints**: overtaking into the oncoming lane is not allowed on a road of
+more than two lanes, and the line there is drawn solid. **One relation answers both**
+(`CityPlan.RoadArrays.LineCrossedToPass`): only a carriageway of one lane each way is crossed to pass (CAR-6.2b).
+Its lanes carry the answer to the car (`LaneLines.LaneCrossesToPass`), and its centreline run carries it to the paint
+(`CentrelineRuns.IsUnbroken`). A run carries on only where the lanes each way are the same, so it is dashed or solid
+all its length, and it is painted as a dash the length of the run, as a roadside line is. A car on such a road gets
+past over a lane of its own way (CAR-53).
+
+## 2026-10-04 — a lane turns onto the lane of its own number
+
+**The owner asked for it** (TER-5j): a movement joins each lane making it to the lane of the same number on the
+road taken, so a turn onto a road of one lane is made from the edge lane alone and never from the second lane
+onto the first. It replaces spreading the lanes over the road taken, which merged every lane of a three-lane
+street into a one-lane road forking off it at under `TurnStraightToleranceDeg` — straight on, so made from every
+lane, the inner two cutting across the kerb lane to reach it.
+
+- **Numbered from the side the movement bears to**: the kerb for the near side, the line for the far, so a turn
+  to the far side is the inner lane's onto the inner lane. Straight on is numbered from the side its few degrees
+  bear to, so a fork bearing off the far side is taken from the line and crosses nothing either.
+- **The spread stays where lane for lane strands a lane** (GEN-50): a lane lost at a node has no lane of its
+  number to go to and merges, and a lane gained is reached by none of its number and is fanned onto. Without it
+  every change of lane count at a node would be a dead end or a lane nothing drives onto. Stranded is asked of
+  the whole node, so a lane of the road taken that another arm reaches lane for lane gets no fan.
+- **What it costs**: a car can no longer pick its lane of the road taken at the turn. It lands on the lane of its
+  number and moves across after where its route needs another (CAR-53).
+
+## 2026-10-03 — a way has a level, and two levels share no ground
+
+**A bridge over a traced town's roads must claim none of them** (the owner, with PHY-1a). Two places held the
+ground of a deck and the road under it together, and both now ask a way's level (`IRibbonLines.LevelOf`, a
+lane's road's, a connector's two lanes' where they share one, the walk's the ground): **the marks** pair no two
+ways on two levels (TER-5c), so no plan over the deck places a secondary claim below it; and **the lattice**
+reads a body onto its own level's ways alone (TER-4c.2), so a car on the deck stands on nothing under it — the
+level part of a recall's key, so a car changing level is read again. A town with no bridge over a road carries
+no level table and its reads ask nothing more. Every car-side read passes the car's level; every walker's is
+the ground.
+
 ## 2026-10-02 — a walker clear on its own way is not read off the atlas
 
 **Most of what a laying of the claims costs re-derives that nothing is there.** Counted on O10 a minute in, a

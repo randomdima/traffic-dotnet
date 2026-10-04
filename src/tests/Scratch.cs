@@ -18,6 +18,13 @@ internal static class Scratch
         return path;
     }
 
+    public static string Write(string name, ReadOnlySpan<byte> contents)
+    {
+        var path = Path.Combine(Directory, name);
+        File.WriteAllBytes(path, contents);
+        return path;
+    }
+
     static string CreateDirectory()
     {
         var path = Path.Combine(ProjectPaths.Root, ".tmp", "dotnet-tests");

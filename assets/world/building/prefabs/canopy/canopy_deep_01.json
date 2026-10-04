@@ -1,0 +1,19 @@
+{
+  "id": "canopy_deep_01",
+  "footprintM": [
+    4.0,
+    7.0
+  ],
+  "cornerRadiusM": 0.3,
+  "partsM": [],
+  "look": "canopy",
+  "tags": [
+    "canopy",
+    "open",
+    "flat roof",
+    "corrugated metal",
+    "shelter",
+    "narrow front"
+  ],
+  "describe": "open roof on posts \u2014 a market shelter or carport \u2014 corrugated metal or polycarbonate sheets, standing narrow end to the street with the entrance on that short front wall"
+}

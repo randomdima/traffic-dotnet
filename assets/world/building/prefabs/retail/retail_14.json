@@ -1,0 +1,18 @@
+{
+  "id": "retail_14",
+  "footprintM": [
+    33.0,
+    6.0
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "retail",
+  "tags": [
+    "retail",
+    "1-2 storeys",
+    "flat roof",
+    "light membrane",
+    "shops"
+  ],
+  "describe": "row of shops or a small market hall, flat light roof with several HVAC units and vent hoods"
+}

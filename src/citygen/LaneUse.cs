@@ -36,10 +36,16 @@ internal readonly record struct LaneLink(int Junction, int FromRoad, int FromKer
 /// out of every lane that arrives at it. <b>No lane arrives at a junction that offers it nothing.</b>
 /// </para>
 /// <para>
-/// <b>The lanes a movement is made from are spread over the lanes it reaches in the same order</b>, each
-/// arriving lane taking the share of them that stands where it does: as many onto as many lane for lane,
-/// fewer onto more each fanning out over its share, more onto fewer merging into theirs. So no two movements off
-/// one arm onto one road cross each other, and no lane of the road taken is reached by none of them.
+/// <b>A lane making a movement joins the lane of its own number on the road taken</b> (<see cref="Joins"/>), both
+/// numbered from the side the movement bears to — the kerb for the near side, the line for the far. So a turn onto
+/// a road of one lane is made from the edge lane alone, never from the second lane onto the first, and no two
+/// movements off one arm onto one road cross each other.
+/// </para>
+/// <para>
+/// <b>Where that strands a lane, the lanes are spread instead</b> (<see cref="Shares"/>): the lanes making a
+/// movement over the lanes it reaches in the same order, fewer onto more each fanning out over its share, more onto
+/// fewer merging into theirs. Which lane is stranded — one arriving with nowhere to go, or one of the road taken
+/// that nothing at the junction reaches — is a question of the whole node, and the caller's (<c>LaneLines</c>).
 /// </para>
 /// <para>
 /// <b>One lane each way is today's town and comes out exactly as it was</b>: every lane is the kerb lane and
@@ -47,8 +53,8 @@ internal readonly record struct LaneLink(int Junction, int FromRoad, int FromKer
 /// </para>
 /// <para>
 /// <b>A painted arm is made from as it is painted</b> (a traced map's, GEN-57): a lane with arrows makes what they
-/// name, and the lanes making a turn are spread over the lanes it reaches as any others are. What a node does not
-/// make at all — a restriction's turn, a turn whose lanes OSM names — is the caller's (<c>LaneLines</c>).
+/// name, and is joined onward as any other. What a node does not make at all — a restriction's turn, a turn whose
+/// lanes OSM names — is the caller's (<c>LaneLines</c>).
 /// </para>
 /// </remarks>
 internal static class LaneUse
@@ -65,31 +71,30 @@ internal static class LaneUse
     }
 
     /// <summary>
-    /// Whether the lane <paramref name="fromKerb"/> in from the kerb of an arm of <paramref name="lanes"/> is
-    /// joined by a turn of this kind to the lane <paramref name="ontoFromKerb"/> in from the kerb of a road
-    /// taking it in <paramref name="ontoLanes"/>.
-    /// </summary>
-    public static bool Joins(Offered offered, LaneTurn turn, int fromKerb, int lanes, int ontoFromKerb, int ontoLanes)
-    {
-        var (first, last) = MadeFrom(offered, turn, lanes);
-        return fromKerb >= first && fromKerb <= last && Spread(fromKerb - first, last - first + 1, ontoFromKerb, ontoLanes);
-    }
-
-    /// <summary>
-    /// <b>The same, off an arm with arrows painted on it</b> (<see cref="MarkedTurns"/>, from the kerb, or none). A lane
-    /// with arrows makes the turns they name that the node offers; a lane with none — or none the node offers — makes
-    /// what a lane of an unmarked arm would. <b>A turn no lane of the arm makes is not made from it.</b>
+    /// Whether the lane <paramref name="fromKerb"/> in from the kerb of an arm of <paramref name="lanes"/>, painted
+    /// with <paramref name="arrows"/> (from the kerb, or none), is joined by a turn of this kind to the lane
+    /// <paramref name="ontoFromKerb"/> in from the kerb of a road taking it in <paramref name="ontoLanes"/>: lane for
+    /// lane, both numbered from the kerb where the movement <paramref name="bearsToTheKerb"/> and from the line where
+    /// it bears away from it.
     /// </summary>
     public static bool Joins(
+        Offered offered, LaneTurn turn, ReadOnlySpan<MarkedTurns> arrows, int fromKerb, int lanes, int ontoFromKerb,
+        int ontoLanes, bool bearsToTheKerb) =>
+        Makes(offered, turn, arrows, fromKerb, lanes)
+        && FromItsSide(fromKerb, lanes, bearsToTheKerb) == FromItsSide(ontoFromKerb, ontoLanes, bearsToTheKerb);
+
+    /// <summary>
+    /// <b>The same, spread</b>: whether the lane reaches its own share of the road's lanes, the lanes making the turn
+    /// taken in the same order — what joins a lane that lane for lane (<see cref="Joins"/>) would strand.
+    /// </summary>
+    public static bool Shares(
         Offered offered, LaneTurn turn, ReadOnlySpan<MarkedTurns> arrows, int fromKerb, int lanes, int ontoFromKerb, int ontoLanes)
     {
-        if (arrows.Length != lanes) return Joins(offered, turn, fromKerb, lanes, ontoFromKerb, ontoLanes);
-
         var at = -1;
         var of = 0;
         for (var lane = 0; lane < lanes; lane++)
         {
-            if (!Makes(offered, turn, arrows[lane], lane, lanes)) continue;
+            if (!Makes(offered, turn, arrows, lane, lanes)) continue;
 
             if (lane == fromKerb) at = of;
             of++;
@@ -97,6 +102,9 @@ internal static class LaneUse
 
         return at >= 0 && Spread(at, of, ontoFromKerb, ontoLanes);
     }
+
+    static int FromItsSide(int fromKerb, int lanes, bool countedFromTheKerb) =>
+        countedFromTheKerb ? fromKerb : lanes - 1 - fromKerb;
 
     /// <summary>
     /// Whether the <paramref name="at"/>th of the <paramref name="of"/> lanes a movement is made from, counted from
@@ -109,9 +117,14 @@ internal static class LaneUse
         return ontoFromKerb >= lowest && ontoFromKerb <= highest;
     }
 
-    static bool Makes(Offered offered, LaneTurn turn, MarkedTurns arrows, int lane, int lanes)
+    /// <summary>
+    /// <b>Whether a lane makes a turn of this kind</b>: the turns its arrows name that the node offers, or — with none,
+    /// none the node offers, or an arm painted for some other count of lanes — what a lane of an unmarked arm would.
+    /// A turn no lane of the arm makes is not made from it.
+    /// </summary>
+    static bool Makes(Offered offered, LaneTurn turn, ReadOnlySpan<MarkedTurns> arrows, int lane, int lanes)
     {
-        var admitted = Admitted(arrows, offered);
+        var admitted = arrows.Length == lanes ? Admitted(arrows[lane], offered) : MarkedTurns.None;
         if (admitted != MarkedTurns.None) return (admitted & Arrow(turn)) != 0;
 
         var (first, last) = MadeFrom(offered, turn, lanes);

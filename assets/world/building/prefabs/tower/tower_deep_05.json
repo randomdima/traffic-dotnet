@@ -1,0 +1,21 @@
+{
+  "id": "tower_deep_05",
+  "sprite": "tower_deep_05.webp",
+  "footprintM": [
+    11.5,
+    32.0
+  ],
+  "cornerRadiusM": 0.8,
+  "partsM": [],
+  "look": "tower",
+  "tags": [
+    "tower",
+    "9-12 storeys",
+    "flat roof",
+    "black bitumen",
+    "soviet",
+    "panel block",
+    "narrow front"
+  ],
+  "describe": "tall Soviet panel tower block, flat roof of black bitumen, 1 lift machine rooms as raised boxes, ventilation shafts and a low parapet round the edge, standing narrow end to the street with the entrance on that short front wall"
+}

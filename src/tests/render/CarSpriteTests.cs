@@ -61,6 +61,29 @@ public class CarSpriteTests
         Assert.Equal((uint)(FirstSheet + catalogue.SheetCount + 1), drawn[1].Sheet);
     }
 
+    /// <summary>
+    /// <b>A car is drawn in the run of its own level and in no other</b> (TER-7b, PHY-1a): the ground's run is drawn
+    /// under the bridges over its roads and the level above's over them, so a car in both would be a car seen
+    /// through a deck.
+    /// </summary>
+    [Fact]
+    public void ACarIsDrawnInTheRunOfItsOwnLevelAlone()
+    {
+        var catalogue = CarCatalog.Load();
+        var fleet = FleetOf(2);
+        fleet.Level[1] = TrafficSimulation.CityGen.CityPlan.RoadArrays.Over;
+        var viewCentreM = new Vector2(fleet.Count * 5f, 0f);
+        var into = new SpriteInstance[fleet.Count];
+
+        var ground = CarSprites.Fill(
+            fleet, catalogue, 0, viewCentreM, new Vector2(1_000f, 1_000f), into, TrafficSimulation.CityGen.CityPlan.RoadArrays.Ground);
+        Assert.Equal([fleet.PositionM[0]], into[..ground].Select(sprite => sprite.CentreM));
+
+        var above = CarSprites.Fill(
+            fleet, catalogue, 0, viewCentreM, new Vector2(1_000f, 1_000f), into, TrafficSimulation.CityGen.CityPlan.RoadArrays.Over);
+        Assert.Equal([fleet.PositionM[1]], into[..above].Select(sprite => sprite.CentreM));
+    }
+
     /// <summary>PHY-5 keeps the body, so the quad does not move: only the art's own box differs, by whatever the variant carries.</summary>
     [Fact]
     public void AWreckStandsWhereTheCarStoodAtTheWreckArtsOwnSize()

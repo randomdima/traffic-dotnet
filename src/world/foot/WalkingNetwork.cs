@@ -53,10 +53,11 @@ internal sealed class WalkingNetwork
     readonly float _bothWaysWithinM;
 
     WalkingNetwork(
-        FootGraph foot, RunNetwork runs, RouteCells cells, int[] linkOfEdge, int[] slotOfEdge, float[] laneOffsetM,
-        Lanes lanes, Joins joins, float bothWaysWithinM)
+        FootGraph foot, LanePlaces places, RunNetwork runs, RouteCells cells, int[] linkOfEdge, int[] slotOfEdge,
+        float[] laneOffsetM, Lanes lanes, Joins joins, float bothWaysWithinM)
     {
         _foot = foot;
+        Places = places;
         Runs = runs;
         Cells = cells;
         _linkOfEdge = linkOfEdge;
@@ -65,8 +66,6 @@ internal sealed class WalkingNetwork
         _lanes = lanes;
         _joins = joins;
         _bothWaysWithinM = bothWaysWithinM;
-
-        Places = LanePlaces.Of(foot);
 
         for (var place = 0; place < Places.Count; place++)
         {
@@ -523,7 +522,8 @@ internal sealed class WalkingNetwork
 
     public static WalkingNetwork Build(FootGraph foot, SimConfig config)
     {
-        var runs = RunNetwork.Contract(foot, default(Pricer), LanePlaces.Of(foot));
+        var places = LanePlaces.Of(foot);
+        var runs = RunNetwork.Contract(foot, default(Pricer), places);
 
         var linkOfEdge = new int[foot.EdgeCount];
         var slotOfEdge = new int[foot.EdgeCount];
@@ -543,7 +543,7 @@ internal sealed class WalkingNetwork
         var joins = LayJoins(foot, offset, laneOffsetM, config);
         var lanes = Carrying(foot, offset, joins);
         return new WalkingNetwork(
-            foot, runs, RouteCells.Of(runs.Graph, config), linkOfEdge, slotOfEdge, laneOffsetM, lanes,
+            foot, places, runs, RouteCells.Of(runs.Graph, config), linkOfEdge, slotOfEdge, laneOffsetM, lanes,
             OnTheLanes(foot, joins, lanes), config.PavementWidthM);
     }
 

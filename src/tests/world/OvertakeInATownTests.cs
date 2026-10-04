@@ -767,7 +767,7 @@ public class OvertakeInATownTests
     }
 
     /// <summary>A car broken where it is put down: nothing drives it, and it holds its ground as a body (TER-4c.2).</summary>
-    static void PutDown(TownWorld world, int car, Vector2 atM, float headingRad)
+    internal static void PutDown(TownWorld world, int car, Vector2 atM, float headingRad)
     {
         world.Cars.Driven[car] = false;
         world.Cars.Broken[car] = true;

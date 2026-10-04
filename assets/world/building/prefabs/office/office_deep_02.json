@@ -1,0 +1,19 @@
+{
+  "id": "office_deep_02",
+  "footprintM": [
+    12.0,
+    16.0
+  ],
+  "cornerRadiusM": 0.6,
+  "partsM": [],
+  "look": "office",
+  "tags": [
+    "office",
+    "4-8 storeys",
+    "flat roof",
+    "grey membrane",
+    "office block",
+    "narrow front"
+  ],
+  "describe": "mid-rise office or public building, flat roof of grey membrane with rooftop plant, a lift room and a parapet, standing narrow end to the street with the entrance on that short front wall"
+}

@@ -35,11 +35,14 @@ internal static class Draw
 
         var extract = JsonSerializer.Deserialize(File.ReadAllBytes(Path.Combine(root, "towns", "traced", $"{map}.json")), OsmExtractJson.Default.OsmExtract)
                       ?? throw new InvalidDataException($"{map}: no extract");
-        var projection = extract.Frame.Projection();
+
+        // The shot is in the map's frame, which a crop moves off the extract's.
+        var frame = TracedMap.Read(Path.Combine(root, "towns", "traced", $"{map}.map")).Frame;
+        var projection = frame.Projection();
         var placedM = new Vector2[extract.Nodes.Id.Length];
         for (var node = 0; node < placedM.Length; node++)
         {
-            var (x, y) = extract.Frame.Place(projection, extract.Nodes, node);
+            var (x, y) = frame.Place(projection, extract.Nodes, node);
             placedM[node] = new Vector2((float)x, (float)y);
         }
 

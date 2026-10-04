@@ -1,5 +1,495 @@
 # CityGen — decision log
 
+## 2026-10-05 — a traced town stands no building on its footprints
+
+**The owner dropped the prefabs a traced town's footprints were worn as**, for the memory a browser page has: its
+footprints are its buildings, drawn flat in their survey's outline as they already were (`GroundMesh.Footprints`), and
+nothing stands on them — no roof, no body and no door. Nothing in a traced town asks for a building: it stands nobody,
+so no trip ends at one.
+
+On OdesaOsm that is the fitting's 7 CPU-seconds, a tenth of an open's work and all of it on one thread in a page; the
+second `GroundShapes` and the kerb scan the plan laid for the fitting and nothing else; and 64 078 of the town's 65 125
+static bodies. **What it costs is the collider**: a car that leaves the road crosses a drawn building rather than
+striking it.
+
+**The fitter is kept, and no plan runs it** (`TracedBuildings`, `--bench fit`, the prefab catalogue and its art): its
+tests fit their footprints directly, so it is the fitter it was if a traced town ever stands buildings again.
+
+## 2026-10-04 — the fitter wears a traced footprint as rounded prefabs on its walk
+
+**The owner asked for a traced map's buildings to be prefabs**: a collider of a rounded rectangle or a few rectangles,
+art that fits a rectangle rather than a random outline, a complex footprint worn as two or three simple buildings, and
+every building standing on the walk as a generated town's do — **moved onto it where it does not reach it, and not
+stood at all where it cannot be placed cleanly**. Steps, as the owner set them: a catalogue of a few hundred prefabs
+tagged with what each should look like, placed without art; the art drawn off the descriptions once the placement is
+accepted.
+
+- **The catalogue is read off the city** (`assets/world/building/prefabs/`, 355 prefabs in 14 looks). Every section
+  OdesaOsm offers the walk was read as a look and a roundness, and each look's sections clustered in log size at a
+  budget weighed by how many there are: 40 houses, 34 blocks of flats, 28 works down to 2 greenhouses, square-cornered,
+  and 19 more where the city has enough of them to be worth one — rounded houses and flats, round silos. **Every
+  prefab is one rounded rectangle** (`cornerRadiusM`): a square-cornered one at its eaves, 0.3 to 0.8 m by look, a
+  rounded one at half its half short side, a round one at the whole of it. Each names its look, tags (storeys, roof
+  shape and material) and a line of what its roof shows from above.
+- **A prefab is laid as it was drawn, door to the walk, and the deep plots have prefabs of their own.** The first
+  catalogue drew every prefab wide side first with its door on it, and the fitter laid one either way round; with the
+  first art in, 57 % of the town's buildings stood turned a quarter, their porches facing along the street. A prefab is
+  now never turned, and 118 deep ones — door on the narrow end, clustered from the 56 % of sections narrower at the
+  street than deep — were added after the wide ones, so the prefabs already drawn kept their sizes and places. 498 of
+  the sheet table's 512 places are taken.
+- **The art is generated a sheet of 25 at a time** over a template of their outlines on magenta, and cut back into
+  sprites at the resolution it was drawn at, never past the art grid — about 15 to 30 px/m. A generator draws a house
+  near-square whatever its outline, so a roof is stretched to its footprint, by up to 92 % on the first sheet.
+- **A footprint's use is a fact the map carries** (`TracedMap` version 3, `FootprintUse`): its tags, else the land use
+  it stands in — a garage cooperative's ground, a market, industry, a school's grounds — since more than half the
+  city is machine-traced and tagged with nothing. `OdesaOsm.map` had them laid in place (`qq osm --footprints`) rather
+  than imported again, so the crop and the dropped stumps stand; one footprint on the frame's edge fell outside it
+  by rounding, 91 838 of 91 839.
+- **A building away from the walk is moved onto it, and one that cannot be is not stood.** The first placement left
+  the yards' sheds and the back wings of courtyard blocks where they were surveyed, which the owner read as buildings
+  connected to no road. Now each rectangle is moved through its wall facing the nearest walk, up to 25 m, the least
+  moved first; 31 965 of 106 505 rectangles are further than that from any walk. A walk sampled under the whole front
+  seats it — a front laid on the tangent dipped centimetres into the walk on every gentle curve, and the kerb's half
+  width is all the room there is. **The paths the owner floated for a building too far to move are not laid**: a walk
+  off the pavement's ring is a change to `TER-3c.8` and `TER-7b`, which are the owner's.
+- **Fitted at 11 to 25 % a side at the median** (`--bench fit`): 85 608 sections offered, 63 743 stood — 19 151 into
+  frontage a nearer one took, 815 on a crooked walk, 177 on no clear ground. Laying them is about 3 s of the plan.
+- **A traced sea is indexed** (`GroundShapes.EdgeCells`): the shore was one ring of thousands of points whose box is
+  most of the city, walked whole for every point the ground was asked about, which made the fitting a minute.
+
+## 2026-10-04 — a traced map holds no tram track
+
+**The owner dropped tram tracks from the traced map: nothing will use them.** The map no longer carries them
+(`TracedMap` version 2), so a traced town paints no rails. The enrichment still lays OSM's tracks in its own layer
+(`towns/traced/<Map>/tracks.json`), where its checks read them and `--import` does not. `OdesaOsm.map` was rewritten
+in place rather than imported again, so the crop and the dropped stumps stand; it is 11 KB smaller.
+
+## 2026-10-04 — a roadside lost along the way stops with its road, and the kerb tapers in across the box
+
+**The owner asked for a roadside close to a corner to be carried to it, for one lost along the way to stop at its white
+line, and for the kerb to make a smooth transition where it does.** A roadside whose road ran on into one without
+carried on into the box beside the lane's movement to its middle, about 10 m past its line on `OdesaOsm` — 421 of the
+490 lost at a place of two arms — and ended square there, and the kerb, the lanes' own outline, turned round that end.
+Filling the notch that left is all a rounding can do: the end that sticks out is a corner of the lane, and taking it off
+cuts the lane (the entry below).
+
+- **Lost along the way, it stops with its road** (`RoadsideLanes.RunInto`): where the next arm round carries no
+  roadside on the kerb facing it, at a box of two arms or one the kerb runs straight on through.
+- **The kerb tapers in over a band of its own** (`LaneLines.Tapers`, `LaneShell`): ground and no lane, the strip's
+  width, from the strip's end on its own heading to the far end of the lane's movement on that lane's line — a biarc,
+  so the kerb leaves the strip's edge and meets the next road's kerb tangent to both, the taper's end wholly inside
+  the next lane. The box is the transition: 16 m at the median on `OdesaOsm`, 4.4 m at the shortest and 33 m at the
+  longest. None where the box is too short to turn in at the ground's radius; 17 joints keep the step, hairpins most
+  of them.
+- **Close short of a corner it is carried to it** (`TracedStreets.CarriedOn`): a roadside the survey stops at a place
+  of two arms, where its kerb next turns a corner — the next arm round on its side off the straight — or a roadside
+  starts again within `TracedRoadsideCarriedM` (40 m) along the survey. Every road between is laid as though measured
+  wide enough to hold it, as `Survey` lays any roadside, so its lanes stand off its middle as the strip sets them and a
+  road that differed only by the strip is joined into the one before it, the place between gone. Laid outside its lanes
+  where they stood instead, it kept that place, and a walk was stood across it a few metres short of the corner's own.
+- **What came out on `OdesaOsm`**: 382 roadsides lost at a place of two arms (490) and 887 tapers; 8 786 roadsides
+  beside 29 522 lanes (8 757 beside 29 632), the roads joined through taking their places with them. The boundary
+  leaves no merged run open (0), 14 carriageway runs (14) and 3 walks (3); 3.21 M triangles (3.24 M).
+
+## 2026-10-04 — the kerb is the outside of the lanes, filled where it turns in and never cut
+
+**The owner found the kerb running through a roadside's end and asked for the boundary to follow the lanes** — the
+lanes, bays and roadsides it is laid from on load, and the walk and the rest struck off it. It was laid from them; what
+it did after was round itself at the kerb radius on both hands (`GroundRings`, TER-3c.10), so every corner the
+tarmac turned away at was cut — 0.58 m into a square lane end at a right angle, more at a sharper corner. Before
+roadsides were lanes that was the end of a lane at a dead end; with them it is the end of every roadside a box does
+not carry on.
+
+- **Filled and never cut** (`ArcOutset.Corners.Filled`), as the level above already was: a corner turning in is
+  rounded at the one radius and a corner turning away is the corner the bands make, so the tarmac covers every lane.
+  A concrete spike is the walk's corner and the carriageway's notch, which is filled still.
+- **What came out on `OdesaOsm`**: no merged run open (0), 14 carriageway runs (12), 3 walks (3); 3.24 M triangles
+  (3.26 M).
+
+## 2026-10-04 — a roadside is lane zero, and runs on into the box
+
+**The owner asked for the roadside to be a real lane, as a bay is one — joined to nothing, but no bay one car holds —
+running up to the junction and sized as the strip is.** Laid as a band of the merge that stopped at the junction's
+disc, the strip left the box only its movements' ground, which stands a roadside in from the kerb: the kerb stepped
+in by 2.2 m across every box, a notch along the straight side of a tee and a knob of pavement at every corner.
+
+- **A lane of its own road** (`LaneLines.IsRoadside`, `RoadsideLanes`): on the strip's middle at the strip's width,
+  pointing the way traffic keeping to that kerb would, numbered after every lane a movement joins so no other lane's
+  number moves. No movement leaves or reaches it and no junction counts it among its lanes, so no bar, signal or
+  arrow is laid for it, and no car is stood, routed, toured or sent on a beat down it (`RoadGraph.IsAStreetLane`).
+  `GEN-50` passes over it as it passes over a bay. It is no bay: the parking slice holds nothing of it.
+- **It runs on into the box to the corner its kerb makes with the next arm round**, straight, the way its road
+  points there — none where that corner stands out along the road, the two carriageways overlapping that far — so
+  a corner is square and rounded as all the ground is (1.4 m), and a turn out of the kerb lane sweeps over it.
+- **Where the kerb runs straight on it runs beside the movement the lane beside it makes**, to that movement's own
+  joint nearest its middle, where the roadside across meets it. Laid straight there, two roadsides beside movements
+  bending by a degree left the merge two runs open on `OdesaOsm`: edges a centimetre apart for ten metres, which the
+  merge at a city's coarseness reads as neither one edge nor two. Halved at the middle and not at the joint, a hair
+  of the movement left a piece a hair long, which no band closes round; one bending tighter than the ground's
+  rounding once moved out to the strip runs straight instead.
+- **A walk's station never stands in the box** (`KerbEnds`): a kerb running along a roadside reaches into it, and
+  what a walk crosses and a driver is held behind is the road.
+- **What came out on `OdesaOsm`**: 8 757 roadsides beside 29 632 lanes. The boundary leaves no merged run open (0),
+  12 carriageway runs (25) and 3 walks (3); 3.26 M triangles (3.81 M). OSM's lanes stand as far off the engine's as
+  before, the roadsides being no lanes of OSM's.
+
+## 2026-10-04 — a traced map drops its dead ends of a single lane
+
+**The owner asked for the dead ends of a single lane dropped, and the stumps the building rule left with them.** An edit
+to the map, as the stumps into buildings are (`qq osm --drop-stumps`, `Stump.SingleLane`): a stump every road of which
+OSM gives one lane — a driveway, a yard's lane, a track — goes whole back to the first place three ways meet, and again
+while dropping one leaves another, so a tree of them goes to its trunk. A stump of more than one lane stays.
+
+- **What it came to on `OdesaOsm`**: 3 295 stumps, 260.5 km — 3 279 of a single lane and 16 into buildings that dropping
+  those uncovered — the longest two 1.5 km tracks off the map's west edge. 11 382 road ways became 8 520, 1 233
+  restrictions 1 133 and 1 562 crossings 1 517; the town lays 13 817 roads where it laid 19 350, and 620 dead ends where
+  it laid 3 633. 378 stumps of more than one lane stay, 41.6 km.
+
+## 2026-10-04 — a traced road's lanes are one width, and what it was measured wider is roadside
+
+**The owner asked for every real lane laid at one width, the width measured past them laid as a roadside with no
+connections behind a solid white line, and the roadside's width worked out.** A measured width was shared evenly
+between a road's lanes: a street of a lane each way read 12.3 m off imagery was two lanes of 6.15 m, its parked
+cars driven over. The difference lane to lane was the sources disagreeing; the difference street to street was
+mostly parking.
+
+- **The lane is OSM's, 3.5 m, the owner's choice** (`TracedLaneWidthM`) over the closest fit. Over 1 869 km of
+  streets measured off imagery, a surface or a tag, lanes of one width and a roadside at none, one or both kerbs — as
+  many as the rest holds to the nearest strip — explain the widths to 0.92 m at the mean at 3.25 m lanes and 2.5 m
+  strips, about the imagery's own 0.8 m step; every lane from 3.2 to 3.5 m fits within 4 % of that, and lanes alone
+  at 3.5 m leave 3.7 m.
+- **The roadside is 2.2 m** (`TracedRoadsideWidthM`): beside 3.5 m lanes, 2.2 m and 2.8 m fit equally (0.956 and
+  0.953 m) and 2.5 m worst between them. The 1+1 streets read 8.8 and 10.4 m; at 2.2 m those are one strip and two,
+  at 2.8 m one and one, the lanes of a 10.4 m street set 1.4 m off its way. 2.2 m is a parked car's width and keeps
+  1 008 km of streets symmetric about their way, against 548. At 2.8 m OSM's lanes stood within a metre of the
+  engine's for 75.1 % of their length, at 2.2 m 83.0 %.
+- **A single roadside stands beside the kerb the traffic along the way keeps to** (the owner's: one side only where
+  the width does not hold two). On a two-way way that is the way's own direction, which nothing else in the survey
+  says. None on a bridge or round a roundabout.
+- **The roadside before more lanes**: where OSM assumes the count, the width now holds as many lanes as it has past a
+  roadside at each kerb — 75 ways take a count off their width, against 190.
+- **No roadside's middle may fold round a corner** any more than a lane's may.
+- **What came out on `OdesaOsm`**: OSM's lanes stand within 5 cm of the engine's for 60.9 % of their length (42.2 %),
+  within 0.5 m for 80.4 % (66.9 %) and within 2 m for 98.6 % (97.3 %), the engine's lanes off OSM's 1.6 m at the 99th
+  percentile (3.8 m); within a metre fell to 83.0 % (85.0 %), a single roadside setting a street's lanes off its way
+  by half a strip. The boundary leaves 34 carriageway runs open (79), 1 merged (3) and 4 walks (10). 4.7 M triangles
+  (4.0 M). 16 more of OSM's restrictions stand at a node no junction does, two ways of one width now running through
+  it as one road.
+- **Where a roadside starts or stops is a junction of two arms**, as any change of carriageway is, and its kerb steps
+  out by the strip there.
+
+## 2026-10-04 — a traced road is laid in the fewest corners and the roundest arcs that keep its survey
+
+**The owner asked for `OdesaOsm`'s roads to be curved where OSM draws a bend as a polygon, with the points that
+add nothing dropped and the pieces on one line merged, a minor divergence from the map allowed.** Every surveyed
+point was a corner rounded at half its carriageway: 74 754 arcs, 98.8 % of 1 464 km laid straight, the bends'
+radii 1.7 m at the median and 18.6 m at most — a facet at every node.
+
+- **Normalised as the engine lays it, and not as an edit to the map** (`TracedAlignment`, GEN-57): the map keeps
+  every node OSM has, so the tolerance (`TracedLineToleranceM`, 0.5 m) is retuned with no import, and the map holds
+  no arc to edit into.
+- **Douglas–Peucker first, then corners merged pairwise while one arc fits**, the closest fit first: two
+  neighbouring corners turning one way are one, standing where their outer legs meet. Each corner is rounded as wide
+  as keeps its stretch of the survey within the tolerance, and no tighter than before. Kinks are eased first, on the
+  line as surveyed; a normalised line one of whose corners its lanes would fold over is laid as surveyed (none on
+  `OdesaOsm`).
+- **Two things fell short on the way, both read off `--bench fidelity`.** A merged corner stands off the road, so a
+  neighbour taking more of the leg between them tightened its arc out toward that corner, metres off: each corner
+  now keeps the tightest radius that holds its survey, and a leg goes to those first. And an arc read only at the
+  surveyed points passed every one and bulged up to 61 m between two of them, where a short outer leg sent the
+  tangents' meeting a kilometre off: the arc is now read against the surveyed line as well.
+- **What came out**: 40 291 arcs; 17.1 % of the length curved, radii 28.7 m at the median. OSM's lanes stand off
+  the engine's at 0.15 m at the median (0.01 m), 66.9 % within 0.5 m (67.0 %), 85.0 % within 1 m (85.4 %) and
+  99.7 % within 5 m (99.7 %); the shared single lanes 74.9 % within 5 cm (96.7 %) and 97.5 % within 0.5 m (97.9 %).
+  750 ways are mostly more than a metre off (748). The streets are laid in 240 ms (108 ms); the boundary leaves
+  79 carriageway runs open (97).
+
+## 2026-10-04 — a traced map drops the road stumps that run into buildings
+
+**The owner asked for the road stumps entering buildings dropped**: the engine lays nothing a road may run into or
+under — a footprint stands nothing — and a dead end into a building is a way into parking the engine does not lay.
+
+- **An edit to the map, and no rule of the engine's** (`TracedMap.Stumps`, `TracedMap.Without`, `qq osm --drop-stumps`):
+  the engine still lays every road the map holds (GEN-57), and the map no longer holds these.
+- **A stump is a dead end walked back to the first place three ways meet**, on through any place two ways only run on
+  into each other, so a lane mapped as two ways goes whole. A road's last point past the frame is where it runs off
+  the map and no dead end.
+- **It runs into a building where its dead end stands inside a footprint, or 5 m or more of it does** — an arch into a
+  courtyard; less is a road drawn beside a wall, which the survey's roads and footprints stand a few metres into at
+  worst. Dropped again while dropping one leaves another; a road through a building between two streets is no stump
+  and stays.
+- **What it came to on `OdesaOsm`**: 1 512 of 4 878 stumps, 69.6 km — 1 395 of them up to 100 m long, 34 over 200 m,
+  the longest a 905 m service road through the port's sheds. 14 195 roads became 11 382; the control and crossings
+  standing on them went with them.
+
+## 2026-10-04 — a road the map cuts runs off it
+
+**The owner asked for the roads a crop cuts to run on to the map's edge, lanes and all, with the perimeter cut short
+by the edge.** A traced road was cut on the rectangle 60 m inside the map, its margin, and ended in a dead end the kerb
+turned round; where a dual carriageway's two ways were cut side by side, the merge left a notch that held the whole
+outer boundary open.
+
+- **Cut on the map's own edge** (`Survey.Inside`), and where only that road reaches the place, its junction runs off
+  the map (`CityPlan.JunctionArrays.RunsOffTheMap`) and stands nothing off, so the lanes run up to the edge. It has no
+  box, no station and no turn, as any dead end has none.
+- **Its ground is laid on past the edge and cut there**, GEN-2b's rule for whatever is drawn through past the edge:
+  each lane carried straight on until its whole width has left the map and `SimConfig.PastTheMapEdgeM` beyond
+  (`LaneShell`, as the ground runs on under a deck), so the boundary turns round off the map; the picture cuts every
+  layer at the map (`MapCut`) and strikes no kerb along the cut. The plan carries nothing past the edge.
+- **What it came to on `OdesaOsm`**: 14 195 roads, the merge leaving 6 runs open, 7.5 km in all, against 7 and
+  420 km with the cut ends turned on the map — the outer ring closes, and what is left open is the merge's own.
+- **Not cut**: the walk lines struck off the boundary run on round the ends off the map. Nobody walks a traced map yet.
+
+## 2026-10-04 — a traced map is its own binary file, imported once and edited in place
+
+**The owner asked for the traced map to load from a compact binary file of its own, holding only what the engine
+needs, with what was crawled kept as it came and every edit made to that file — and for it to be cut down to central
+Odesa.** The engine read the scanner's 11 MB JSON extract, every tag, node tag, relation and road surface in it, and a
+6 MB pack beside it, each checked against the other.
+
+- **One file, the map** (`TracedMap`, `towns/traced/OdesaOsm.map`): each road's line, class, level, carriageway as OSM
+  means it and width as measured, the coast, the turns, controls, crossings, footprints and trees; places
+  in whole millimetres and a footprint's in centimetres, each a step from the one before, counts and ids as varints.
+  **Facts and no rule**: `Survey.Of` still applies the rules, so retuning one needs no import. The whole city was
+  6.0 MB against 17 MB, imported in 1.7 s, and lays the turns, lane links and arrows `--bench fidelity` read off the
+  old files (1 439 of 1 451 restrictions, 10 of 10 links, 221 road ends).
+- **The map is the master** (the owner's choice, over patches compiled into it): `qq osm --import` makes it once off
+  the survey and the layers, and an edit changes it in place. A second import replaces it and every edit made since,
+  so it is refused unless forced; the `.osc` is how the survey was imported, not where the map is edited.
+- **What was crawled is kept as it came, in `towns/traced/OdesaOsm/source/`** (the owner's choice), where
+  `.tmp/osm/` could be wiped at any time; the scanner keeps and reads every source's answer there.
+- **Cut down to central Odesa** (`qq osm --crop 46.388,30.694,46.604,30.826`): the owner's rectangle round the centre,
+  the Kotovskoho settlement, Moldavanka and Tairove, widened south and west until Tairove's main street (Nebesnoi
+  Sotni) lies whole inside it and east to Kotovskoho's last buildings. 10.3 × 24.1 km and 91 839 footprints in
+  3.0 MB, read in 18 ms and surveyed in 32 ms; a whole-map shot is laid and drawn in 20 s, where the whole city took
+  116 s to open. A crop keeps the frame's projection and moves every place by whole metres, and a road past its edge
+  keeps one point beyond the frame, which is all the engine reads of it.
+
+## 2026-10-04 — a traced map puts right what OSM has wrong, in an osmChange beside its survey
+
+**The owner held Tiraspolska Square's lanes against aerial imagery and found them wrong, and said the fault is
+OSM's data rather than the engine's.** OSM draws the square's ring 7 m wide inside a ring painted 9 to 10 m wide,
+Preobrazhenska north into it in four lanes where two are driven beside the tram and the kerbside parking, the
+ring's east side as two ways 4 m apart where it is one carriageway the street drives along, and Karavanskoho with
+no lane count, its line 3 m off its street's middle. The engine laid exactly that, as GEN-57 has it.
+
+- **What OSM has wrong is put right beside the survey, in OSM's own edit format** (`towns/traced/OdesaOsm.osc`,
+  `Corrections`). The scanner applies it over OSM's answer before it reads any lane or turn, so a re-scan keeps
+  it, and no engine rule changes. An osmChange opens in JOSM over OSM to be looked at; it is not for uploading,
+  since it was read off Google's imagery, which OSM's licence does not let be traced into OSM. A correction of a
+  node or way OSM no longer holds is refused at the scan, so a fix made upstream is noticed and not laid over.
+- **How it was read**: the imagery registered onto OSM's own low buildings with the island pinned — 16.85 px/m at
+  0.95°, where OSM's tram loop round the ring lies on the ring's painted outer edge — and the paint read off it in
+  metres. The ring is two lanes of 4.5 m between its painted inner line and outer edge, its east side straight
+  where Preobrazhenska drives along it, joined 16 m south of the island's middle and left 8 m north of it. North
+  into it are two lanes of 3.75 m. Nizhynska leaves it at its south-south-west beside the tram and meets
+  Preobrazhenska where OSM divides it, a few metres short of the painted gore's tip. Karavanskoho is three lanes of
+  3.75 m on its street's middle and on into the ring, and Preobrazhenska north of the lights is one lane.
+- **Where a two-way road divides into two one-way ones at a shallow angle, one of them is drawn along its edge**
+  (`placement=left_of:1`): both centred on the dividing node, their lanes overlap for metres past it, and the
+  junction there, kept small by a driveway 9 m on, cannot part them, so lanes into one cross lanes out of the other.
+  Nizhynska's line is its gore-side edge, half a metre inside the tram there, so its lanes lie beside
+  Preobrazhenska's southbound ones and clear of its northbound ones.
+- **A node OSM shares with a way the survey does not hold stays on that way's line**: a tram track's or a
+  footway's crossing is placed where its way crosses the corrected road, and the enrichment takes every node the
+  survey holds from the survey (`Town.Surveyed`), so a track keeps its shape and meets the road at the node they
+  share. Where OSM keeps a road's line just beside a tram up its lanes, the correction does too: it lays no new
+  crossing of a road and a track without a node (`overpasses`), and the meta-check passes.
+- **What is still not as painted**: a gore painted on the tarmac is laid as a kerbed island, since the engine lays
+  ground only under a road, and no parking lane is laid.
+
+## 2026-10-03 — a traced town lays its trees, roundabouts and roof heights
+
+**The owner asked for the rest of the metadata applied.** What is laid is what the plan already had a place for,
+or what is drawn within a layer the ground already has; what would be a new layer of the ground waits on the
+owner, TER-7b fixing the stack (`P0`).
+
+- **Trees are props** at the one size only trees are drawn at (GEN-6b). **A tree's crown is its collider**, so one
+  within a lattice step of driven ground is not laid — the world refuses furniture on a driven ribbon (TER-4c.4):
+  of 1 892 trees OSM maps, 1 161 stand and 731 do not, most of them in a street's planted verge narrower than a
+  crown. Benches, bins and bollards are not laid: a prop is a placement and its look is the catalogue's draw, so a
+  bollard would be drawn as a traffic cone as often as a bollard.
+- **Roundabouts are the circulating ways**, a ring a component of them at their junctions — membership, as a
+  generated one is. Circulating is part of a traced carriageway, so a ring is never one road with a way off it.
+- **A roof is lighter the taller its building**, a quarter lighter at ten storeys and above — within the
+  footprints' own layer, whatever the owner decides of where that layer stands.
+- **What waits on TER-7b**: zones (parks, industry, squares, car parks) as ground, an unpaved road's surface, and
+  OSM's own pavements — each a layer of its own, or a carriageway that is no longer one shape.
+
+## 2026-10-03 — a traced bridge is its own road, on the level above
+
+**The owner asked for bridges, their cars crossing the cars below without a collision or a claim.**
+
+- **A bridge is a road of its own** (GEN-14a): a bridge way's ends are places of two arms, because a level is part
+  of a carriageway and a carriageway that changes is a place (GEN-51). So a level is a road's
+  (`CityPlan.RoadArrays.Level`) and a lane's, and never a stretch of one; the deck runs the whole road at its
+  carriageway and a walk either side (TER-3b).
+- **Every OSM bridge is the level above**, whatever its `layer`: what is under it is the ground's, and a bridge
+  over water alone has nothing below to keep apart from. A generated town lays no level: its bridges span water.
+
+## 2026-10-04 — a traced bridge is drawn above the road it crosses, and cars stand at a few
+
+**The owner asked for bridges over roads rendered above as a separate road, and a few cars near them.** The ground is
+now a level at a time (TER-7b, at the owner's word — [terrain](../../world/terrain/docs/decision-log.md)), so a
+bridge's deck is no longer one carriageway with the road under it.
+
+- **Cars stand at the four widest crossings** (`TracedBridgeCars`, `CityGen.TracedBridgesWithCars`): one each way on
+  the bridge over the road it crosses and one each way on that road a deck and a car short of it, ranked by the
+  narrower of the two roads. A car is a car of the map's own: nothing parks in a traced town, so it is driven off by
+  the rule a map with nowhere to park on drives its own (CAR-8). On `OdesaOsm` three of the four are the two
+  carriageways of one trunk over another, so the cars stand at three places.
+
+## 2026-10-03 — a traced town is laid with what else is known of its place
+
+**The owner asked for the known data applied to the map** — roads more precise and turns correct, the
+generated zebras dropped and the known ones placed, lane counts estimated from width where OSM gives none, the
+buildings' polygons without texture — off processed data that loads quickly (GEN-57).
+
+- **A road is as wide as it was measured**: 5 149 of 21 413 ways — 4 803 off imagery, 309 off a mapped surface,
+  37 by tag. **Imagery is not taken under a service road, a track or a link**, where it reads 8.2 m at the median
+  for driveways, and **a width is taken only where its lanes come out between 2.75 and 8 m**. The upper bound
+  came from measuring: mapped surfaces up to 67 m lay under single-lane service roads — a square, a car park —
+  and the widest lane is the reach every kerb end is searched over, so the ground took 24 s longer to lay.
+- **Where OSM assumes the count, the width says it**: as many lanes each way as the width holds at OSM's assumed
+  3.5 m, between OSM's assumption and the most a way of its class is tagged with on the map (residential 3,
+  tertiary 4, primary 6). 353 ways take it. A way with any lane entry tagged keeps OSM's count.
+- **Lights where the pack reads signals**: 500 junctions lit of 802 controls; a cluster — a dual carriageway's
+  crossing — shares one clock, started at a place read off its node so no seed draws it. Signs, a priority road
+  and a roundabout's control are carried and not laid: the engine has no sign.
+- **The zebras are the survey's**: no station is painted on a traced town (`CityPlan.ZebraAtEveryStation`, WLK-10)
+  though every station still cuts the walk and holds the traffic, and 1 341 zebras stand where OSM maps a painted
+  crossing — painted where its tags say, or untagged with lights for its walkers — across the road its way runs
+  along. They are paint only: filed under no road end, they hold nobody.
+- **The buildings are their footprints**, 205 659 of them — OSM's with their courtyards, and the machine-traced
+  ones OSM lacks a shade greyer — 695 000 triangles laid in 0.1 s, flat, under the carriageway so a road through
+  an arch shows. They stand nothing.
+- **The turns were already OSM's, and are**: `--bench fidelity` lays 1 439 of 1 451 restrictions (the other 12
+  are at nodes no junction stands at), all 10 lane links and the arrows into 221 road ends, and no connector makes
+  a turn the plan forbids. What changed is the lanes a turn is made from (TER-5j), now as many as the road holds.
+- **What it cost**: the open is 116 s against 111 s, nearly all of it standing the world up — more lanes, more
+  walk. **The merge leaves 118 carriageway runs open against 27** (merged 2 against 0): where a street read 11 to
+  20 m wide meets a narrower one or a driveway a few metres on, its kerb notches at the corner — a defect of the
+  merge the even widths never showed, and the merge's to close. Against OSM's own lanes, 15.6 % of carriageway
+  lanes now stand within 5 cm of an engine lane, where an earlier entry read 99.7 %: a lane as wide as its road
+  was measured is not where OSM's assumed 3.5 m puts it.
+
+## 2026-10-03 — where sources describe one thing, one record answers and names its source; and the layers are queried off an index
+
+**The owner asked for the new sources merged, and for tooling to query the result fast.**
+
+- **A road has one width**, `widthM`, and says where it came from (`widthFrom`): its tag, the mapper's word; its
+  mapped surface, OSM's own outline; the surface read off imagery along over half of it and under it alone; else
+  what its lanes make it. The evidence stays beside it. Imagery is below OSM's surface because it is older and reads
+  parked cars as road; above the lanes because a lane count is OSM's default as often as its word. 2 063 km of
+  street takes the imagery's, 548 km its lanes', 57 km a surface's and 4 km a tag's.
+- **A camera's sighting is a control or a crossing where OSM maps none, and only there.** A light, a stop or a
+  give-way sign is given to its junction as OSM's own nodes are — the one ahead of the traffic it faces, where its
+  facing is known — and decides the junction's control only where OSM maps no signal, sign, roundabout or priority
+  road (`controlFrom`: `osm`, `seen`, `rules`); a zebra or a pedestrians' light is a crossing where OSM maps none
+  within 15 m. OSM is the survey's own moment and a sighting is a picture of an older one, so OSM decides first.
+  Osmose's relay of Mapillary's signs (item 8300) is a sighting too, read once where Mapillary's own stands: it
+  signals 14 junctions OSM leaves to the rules. It relays only what OSM lacks, so it is never weighed against OSM.
+- **Roads OSM lacks are their own layer, `unmapped`**: the unmapped stretches joined where their ends meet, 1 160
+  roads and 193 km, 992 long enough to flag, 737 meeting a survey road. They are never laid in `roads`, which is the
+  survey's.
+- **`qq meta` asks the layers questions off an SQLite index** in `.tmp/meta/`, built in seconds on first use and
+  again whenever the layers are written: every item by layer and id, its place in an integer R-tree, its names
+  folded, and every id it names — so everything naming a road is one lookup. A question answers in tens of
+  milliseconds against seconds to read the files. It is derived and rebuilt, so it lives in `.tmp/`, not beside the
+  layers.
+
+## 2026-10-03 — a traced road's detail is read off every open source that reaches it, each beside OSM's and never over it
+
+**The owner asked for the enrichment to take what other online sources hold, road detail first.**
+
+- **A road's width as imagery shows it** (Microsoft's Road Detections, ODbL): the region's 1.4 GB zip is inflated
+  once as it streams in and its Ukrainian rows over the map kept (`MlRoads`). A stretch is laid on the survey road
+  running along it within half its width and 5 m, and on any other carriageway under its surface, so each way of a
+  dual carriageway says it was read across two. **The width is the paved surface kerb to kerb, kept beside the
+  lanes and never in their place**; a street read 8 m wider or 3 m narrower than its lanes make it is flagged — most
+  are one-way central streets tagged one lane that read 14 m. **A stretch beside no OSM way is flagged, never laid
+  as a road**: the survey says what the roads are, and the imagery is older than it.
+- **A road's height is the ground's** (GEDTM30, CC BY 4.0), the surface model kept as a reading against it. The
+  terrain is one 430 GB global file of which the map needs one block, read by range and kept as a GeoTIFF of its
+  own. Its metadata says a scale of 0.1 its samples do not carry: they read in metres, the surface standing 1.0 m
+  over them at road nodes at the median and none of them more than 5 m under.
+- **Each road says its OSM version and the day it was last edited**, asked as of the survey's moment by `convert`,
+  so who edited it is never asked for; and Osmose's lane, near-junction, access, tag-conflict, number and cycling
+  items join the quality layer.
+- **What Mapillary's cameras saw is laid when a client token is given** (`MAPILLARY_TOKEN`, sent as a header and
+  kept nowhere): every sign, light and marking on its road and junction, with whether OSM maps the same near it.
+- **Not taken**: FABDEM, whose licence forbids commercial use, for GEDTM30, which does not; GlobalBuildingAtlas's
+  heights, non-commercial too, until the owner says the map never ships for money; Overture, which in Ukraine is
+  OSM and these same footprints; Panoramax, 15 pictures over the map. The city's own registers, live transit and
+  located accidents are not published.
+- **What came out**: all twenty-two checks hold. 79 % of street length has a width read off imagery, against 426
+  roads measured off a mapped surface before; where both exist the imagery reads 1.09 of the surface at the median.
+  193 km of road on the imagery has no OSM way beside it. Half the street length was last edited within 2.9 years;
+  22 % not for over five.
+
+## 2026-10-03 — a traced map's enrichment is one source: one OSM moment, its sources laid as one, and a check that says so
+
+**The owner asked whether the enriched data holds together and its sources agree, to reference it as one source.**
+
+- **`qq osm --meta-check` asks it** (`Audit`), off the files as a reader reads them, and `--meta` runs it last:
+  every id one layer gives for another resolves and every fact two layers carry is the same in each
+  (`Integrity`), every OSM layer stands at the survey's moment (`Snapshot`) — a broken one fails the run — and,
+  as readings, how far the sources describing the same things agree (`Agreement`). It writes `consistency.md`.
+- **Its first run found the enrichment's own defects**: the city's GTFS prints 779 stops, 439 trips and 33 161
+  calls twice and lists 2 routes under two agencies, and each was laid twice; a lot derived round loose aisles
+  left them among the roads of the zone it took them from (161); a likely pavement side dropped the share of it a
+  drawn pavement runs (209); a way drawn through its own junction twice gave two arms one name (107); and **the
+  OSM layers stood three hours after the survey**, 10 nodes moved and 2 retagged between.
+- **Every OSM family is asked as of the survey's moment** (`[date:…]`), its answer kept under that moment, so a
+  node the survey and a layer both hold is one node. Osmose and the timetable stand at their own moments, which the
+  manifest names; Osmose's elements are read against the layers' tags and none has been edited between.
+- **Where two sources describe one thing, one record holds both and says which it takes.** The timetable is laid
+  onto OSM's stops and routes — OSM the map, the timetable the service — and what OSM lacks is laid beside them, so
+  the separate timetable layers are gone. A crossing is read off its node and its way together, and its junction
+  takes that reading. A footprint OSM lacks is moved onto OSM's frame by its neighbours' median shift, measured
+  1.4 m east and 0.6 m south over the town and 0.4–3.8 m east by district. Every disagreement left — a crossing's
+  node and way, a pavement tag and the pavement drawn, a width tag and the surface, a height and its levels, an
+  address and the streets drawn, a timetable stop or route OSM lacks — is a flag in the quality layer.
+- **A footprint OSM lacks that stands a third or more on an OSM building or a street's carriageway is not laid**:
+  OSM says what is there, and the model traced part of the building or the street's edge. A service road or track
+  through one is a driveway into a yard or garage block, as it is through an OSM building.
+- **What came out**: all twenty checks hold, over 309 000 items and 350 000 references. Of 189 348 footprints, 2 640
+  more stand on an OSM building once moved, 671 overlap one and 2 121 lie on a street, and 143 719 are laid; a
+  neighbours' shift leaves a footprint 1.9 m off its OSM building at the median, against 2.7 m as traced. Of 1 685
+  timetable stops served, 1 263 lie on OSM stops 7.8 m off at the median and 422 are laid of their own; of 134
+  timetable directions, 61 lie on OSM relations and 73 are laid of their own. The timetable's lines run 0.7 m off
+  OSM's roads and 1.4 m off its tram track at the median. 2 of 152 crossings tagged on node and way still disagree.
+
+## 2026-10-03 — a traced map has everything else known of its place beside its survey
+
+**The owner asked for Odesa's data to be enriched off every source there is — lanes and turns, road size, zebras,
+buildings, pavements, junction control, levels, car parks as zones — as data, with the game left as it is.**
+
+- **It is written beside the survey and not into it**: `qq osm --meta` (`src/tools/osmscan/meta/`) writes
+  `towns/traced/OdesaOsm/`, a JSON file a layer with a `manifest.json` and a `coverage.md`. The survey's format is
+  unchanged and the folder holds no survey, so nothing lists or publishes it.
+  Every place is OSM's 1e-7°, every road the survey's way by id, so a layer outlives a re-read frame.
+- **Sources**: OSM through Overpass in ten families, a heavy one a tile at a time so a refusal costs a tile — the
+  main server turned away two asks in three while busy, small or large, and the second mirror stopped answering, so
+  the enrichment asks the main one alone and patiently; Microsoft's machine-traced footprints (no heights in Ukraine);
+  the Copernicus DEM at 30 m; Osmose, whose item 8300 carries the signs Mapillary's cameras saw that OSM lacks; the city's
+  GTFS through the Mobility Database (licence unverified); open OSM notes. **Out of reach**: Mapillary itself (a
+  token), and every geodata service of the city council (portal down, site behind a browser check, cadastre closed).
+- **An Overpass answer reporting a runtime error is refused** like a stale one, for the survey as well: a query
+  out of time or memory answers 200 with whatever it had.
+- **Read is kept apart from inferred, and each says which.** A junction's control is what is mapped at it or
+  before it — a signal walked to the junction ahead of the traffic it faces, a cluster of near junctions one — and
+  an unsigned one is read by ПДР 10.2 and 16.11–16.12; a movement's lanes are its arrows where painted, else ПДР
+  10.4. A pavement is tagged, drawn apart (matched to a road and side by where it runs), or `likely` where a
+  street's buildings leave room for one. A road is a zone's way where it is a car park aisle or a service road
+  mostly inside a lot, fuel station, garage block or other place, and aisles no lot holds are given their hull.
+- **What came out**: 21 511 junctions — 486 signalled, 161 signed, 126 on a roundabout, the rest unsigned, 50 of
+  those with a signal sighted near them — and 197 736 movements, 1 761 forbidden and 23 forbidden at times; 1 782
+  pedestrian crossings, 860 painted; 3 079 roads (481 km) a zone's ways, beside 1 121 mapped lots and 108 derived;
+  61 895 OSM buildings and 143 719 footprints OSM lacks, mostly private houses at the edges; 1 998 ways off the
+  ground, 1 368 of them roads through a courtyard arch. **Pavements are the thin layer**: of 5 344 km of street
+  sides OSM says 252 km, frontage makes 2 107 km likely, and 2 985 km stay unknown.
+
 ## 2026-10-03 — a traced junction's turns are OSM's arrows, restrictions and lane connectivity
 
 **The owner asked for OSM's turn information to be used where lane connections are made.** The extract held
@@ -122,8 +612,8 @@ port of it lossless.** Two things fell short of that, and both were measured bef
   could not round at a car's cornering floor was cut, and every piece not joined to the largest went (GEN-5).
   Measured centreline against centreline, 61.9 % of the surveyed length lay within 5 cm of the town's lines,
   94.8 % within a metre, and 6.5 km nowhere near any. **None of those rules is asked of a traced town now**
-  (GEN-57): a junction at every place, every point on its road, corners rounded at half the carriageway, a
-  junction's disc shrunk so the road to a close neighbour is short rather than gone, and every piece kept.
+  (GEN-57): a junction at every place, a junction's disc shrunk so the road to a close neighbour is short
+  rather than gone, and every piece kept.
 - **The corner floor is the lanes' and not a car's.** A traced road may not fold a lane back over a corner,
   so the floor is the innermost lane's offset plus `TracedTightestLaneRadiusM`; how tightly a car can be
   driven round it is the drivers' to answer later. A hairpin drawn to a point — a U-turn spur whose two
@@ -472,12 +962,6 @@ junction wedge. No kerbstone bends to a point. **So the rounding is struck with 
 TER-3c.10) **at one radius for the whole town** (`RoadFigures.LineRoundedM`), because two layers rounded
 differently are two answers about one corner and the concrete between them changes width along the bend;
 the walking courses take it too, a lane being the middle of its pavement.
-
-**The boundary is rounded too, which is a cut** — 0.41 of the radius off a right-angled corner the town turns
-away at, and no construction avoids it. **What holds it is the figure being under half a lane**: a feature
-narrower than twice the radius does not survive the roll, and at 1.4 m that is 2.8 m against a 3.6 m lane,
-so no mouth a car is driven through is closed over. Past half a lane it starts eating the town, as the
-probe's sweep shows.
 
 **What it cost on Odesa**: every metre of 205.58 km of pavement lane still stands on its own course, the
 turns refused for want of a line fell 538 → 535, and **the lanes that cross themselves rose 4 → 13 of

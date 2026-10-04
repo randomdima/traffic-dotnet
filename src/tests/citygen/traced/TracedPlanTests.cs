@@ -3,6 +3,7 @@ using TrafficSimulation.CityGen;
 using TrafficSimulation.CityGen.Traced;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Road;
 using Xunit;
 
 namespace TrafficSimulation.Tests.CityGen.Traced;
@@ -10,7 +11,7 @@ namespace TrafficSimulation.Tests.CityGen.Traced;
 /// <summary>
 /// <b>A survey is laid as the place it surveyed, and nothing of it is lost</b> (GEN-57): a junction where ways
 /// share a point and nowhere else however close two stand, one road through a place traffic merely carries on
-/// through, every surveyed point on its road, every piece kept, no road longer than a traced map lays one, and
+/// through, every surveyed point within a tolerance of its road, every piece kept, no road longer than a traced map lays one, and
 /// no lane folded back over a corner — each asked of a few ways laid by hand rather than of a city.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
@@ -90,13 +91,14 @@ public class TracedPlanTests
     }
 
     /// <summary>
-    /// <b>No point a way was surveyed through is thinned away</b>: a jog of half a metre is a jog in the road,
-    /// which passes every surveyed point to within its corners' own sag.
+    /// <b>Every point a way was surveyed through stands within the tolerance of its road</b>
+    /// (<see cref="CityGenFigures.TracedLineToleranceM"/>): a jog of twice that is a jog in the road.
     /// </summary>
     [Fact]
-    public void EveryPointAWayWasSurveyedThroughIsOnItsRoad()
+    public void EveryPointAWayWasSurveyedThroughStandsWithinTheToleranceOfItsRoad()
     {
-        float[] pointsM = [100, 500, 300, 500, 310, 500.5f, 500, 500.5f];
+        var jogM = 2f * Config.CityGen.TracedLineToleranceM;
+        float[] pointsM = [100, 500, 300, 500, 310, 500 + jogM, 500, 500 + jogM];
         var plan = Laid(pointsM, Way(0, 1, 2, 3));
 
         var line = plan.Roads.SegmentsOf(0);
@@ -105,8 +107,32 @@ public class TracedPlanTests
         {
             var pointM = new Vector2(pointsM[2 * at], pointsM[(2 * at) + 1]);
             var onM = Spline.ProjectM(line, pointM, lengthM * 0.5f, lengthM);
-            Assert.InRange(Vector2.Distance(Spline.SampleAt(line, onM).PositionM, pointM), 0f, SagM);
+            Assert.InRange(Vector2.Distance(Spline.SampleAt(line, onM).PositionM, pointM), 0f, Config.CityGen.TracedLineToleranceM);
         }
+    }
+
+    /// <summary>
+    /// <b>A bend a mapper drew as a polygon is laid as one arc</b>, turning through the whole of it — give or take
+    /// the angle the tolerance tilts the straights either side through: a node every 6° round a quarter turn of
+    /// 60 m between a straight of 300 m and one of 340 m.
+    /// </summary>
+    [Fact]
+    public void ABendDrawnAsAPolygonIsLaidAsOneArc()
+    {
+        const float radiusM = 60f;
+        var pointsM = new List<float> { 100, 500 };
+        for (var deg = 0; deg <= 90; deg += 6)
+        {
+            var (sin, cos) = MathF.SinCos(deg * MathF.PI / 180f);
+            pointsM.AddRange([400f + (radiusM * sin), 500f + radiusM - (radiusM * cos)]);
+        }
+
+        pointsM.AddRange([400f + radiusM, 900f]);
+        var plan = Laid([.. pointsM], Way([.. Enumerable.Range(0, pointsM.Count / 2)]));
+
+        var arc = Assert.Single(plan.Roads.SegmentsOf(0).ToArray(), arc => arc.Curvature != 0f);
+        var tiltRad = MathF.Atan(Config.CityGen.TracedLineToleranceM / 300f) + MathF.Atan(Config.CityGen.TracedLineToleranceM / 340f);
+        Assert.Equal(MathF.PI * 0.5f, MathF.Abs(arc.Curvature) * arc.LengthM, tiltRad);
     }
 
     /// <summary>
@@ -206,7 +232,7 @@ public class TracedPlanTests
         var plan = Laid([100, 500, 900, 500], Shared(0, 1));
 
         Assert.True(plan.Roads.DrivenOverOneLine(0));
-        Assert.Equal((LaneM, 0f), (plan.Roads.LaneWidthM(0), plan.Roads.LaneOffsetM(0, 0)));
+        Assert.Equal((LaneM, 0f), (plan.Roads.LaneWidthM(0), plan.Roads.LaneOffsetM(0, 0, withTheRoad: true)));
     }
 
     /// <summary>
@@ -224,6 +250,309 @@ public class TracedPlanTests
 
         Assert.Equal((3, 3), (plan.Roads.LanesWithTheRoad(0), plan.Roads.LanesAgainstTheRoad(0)));
         Assert.Equal(LaneM, plan.Roads.LaneWidthM(0));
+    }
+
+    /// <summary>
+    /// <b>A roadside is lane zero</b> (<see cref="LaneLines.IsRoadside"/>): a street of a lane each way and a roadside at
+    /// each kerb lays its two lanes side by side about its line, and outside each a lane as wide as the strip on the
+    /// strip's own middle.
+    /// </summary>
+    [Fact]
+    public void ARoadsideIsALaneBetweenTheKerbLaneAndTheKerb()
+    {
+        var lanes = Laid([100, 500, 900, 500], Edged(0, 1)).Paving(Config).Lanes;
+
+        var laid = new List<(float AcrossM, float WidthM, bool Roadside)>();
+        for (var lane = 0; lane < lanes.LaneCount; lane++)
+        {
+            laid.Add((Spline.SampleAt(lanes.ArcsOf(lane), 100f).PositionM.Y - 500f, lanes.LaneWidthM[lane], lanes.IsRoadside(lane)));
+        }
+
+        laid.Sort();
+        (float, float, bool)[] expected =
+        [
+            (-LaneM - (RoadsideM * 0.5f), RoadsideM, true), (-LaneM * 0.5f, LaneM, false),
+            (LaneM * 0.5f, LaneM, false), (LaneM + (RoadsideM * 0.5f), RoadsideM, true),
+        ];
+        Assert.Equal(expected.Length, laid.Count);
+        for (var at = 0; at < expected.Length; at++)
+        {
+            Assert.Equal(expected[at].Item1, laid[at].AcrossM, 1e-3f);
+            Assert.Equal((expected[at].Item2, expected[at].Item3), (laid[at].WidthM, laid[at].Roadside));
+        }
+    }
+
+    /// <summary>
+    /// <b>A roadside joins nothing</b>: at a crossroads of two streets with roadsides, no movement leaves one or arrives
+    /// on one, and the junction counts none of them among its lanes.
+    /// </summary>
+    [Fact]
+    public void ARoadsideJoinsNothing()
+    {
+        var plan = Laid([100, 500, 900, 500, 500, 100, 500, 900, 500, 500], Edged(0, 4, 1), Edged(2, 4, 3));
+        var lanes = plan.Paving(Config).Lanes;
+        var roads = RoadGraph.Build(plan, Config);
+
+        var joined = new List<int>();
+        for (var connector = 0; connector < lanes.ConnectorCount; connector++)
+        {
+            joined.Add(lanes.ConnectorFromLane[connector]);
+            joined.Add(lanes.ConnectorToLane[connector]);
+        }
+
+        for (var junction = 0; junction < roads.JunctionCount; junction++)
+        {
+            joined.AddRange(roads.LanesIntoJunction(junction));
+            joined.AddRange(roads.LanesOutOfJunction(junction));
+        }
+
+        Assert.Equal(8, lanes.LaneCount - lanes.FirstRoadside);
+        Assert.DoesNotContain(joined, lanes.IsRoadside);
+    }
+
+    /// <summary>
+    /// <b>A roadside runs on into the box to the corner its kerb makes</b> (<see cref="RoadsideLanes"/>): at a
+    /// crossroads of two streets alike, each roadside ends where its kerb meets the kerb of the street across, half
+    /// that street's carriageway from the middle of the box.
+    /// </summary>
+    [Fact]
+    public void ARoadsideRunsOnIntoTheBoxToTheCornerItsKerbMakes()
+    {
+        var plan = Laid([100, 500, 900, 500, 500, 100, 500, 900, 500, 500], Edged(0, 4, 1), Edged(2, 4, 3));
+        var lanes = plan.Paving(Config).Lanes;
+        var middleM = new Vector2(500f, 500f);
+
+        var reachedM = new List<float>();
+        for (var lane = lanes.FirstRoadside; lane < lanes.LaneCount; lane++)
+        {
+            var arcs = lanes.ArcsOf(lane);
+            var start = Spline.SampleAt(arcs, 0f);
+            var end = Spline.SampleAt(arcs, lanes.LaneLengthM[lane]);
+            var inTheBox = Vector2.Distance(start.PositionM, middleM) < Vector2.Distance(end.PositionM, middleM) ? start : end;
+            reachedM.Add(MathF.Abs(Vector2.Dot(inTheBox.PositionM - middleM, inTheBox.Direction)));
+        }
+
+        Assert.Equal(8, reachedM.Count);
+        Assert.All(reachedM, reachM => Assert.Equal(LaneM + RoadsideM, reachM, 1e-3f));
+    }
+
+    /// <summary>
+    /// <b>The roadsides along the straight side of a tee meet in the middle of the box</b>: no arm leaves between them, so
+    /// the kerb runs straight on past the mouth across the way.
+    /// </summary>
+    [Fact]
+    public void TheRoadsidesAlongTheStraightSideOfATeeMeetInTheMiddleOfTheBox()
+    {
+        var plan = Laid([100, 500, 900, 500, 500, 100, 500, 500], Edged(0, 3, 1), Way(2, 3));
+        var lanes = plan.Paving(Config).Lanes;
+
+        var metM = new List<float>();
+        for (var lane = lanes.FirstRoadside; lane < lanes.LaneCount; lane++)
+        {
+            var arcs = lanes.ArcsOf(lane);
+            var start = arcs[0].StartM;
+            var end = arcs[^1].EndM;
+            if (start.Y < 500f) continue;
+
+            metM.Add(MathF.Abs(start.X - 500f) < MathF.Abs(end.X - 500f) ? start.X : end.X);
+        }
+
+        Assert.Equal(2, metM.Count);
+        Assert.All(metM, atM => Assert.Equal(500f, atM, 1e-3f));
+    }
+
+    /// <summary>
+    /// <b>Where the kerb runs straight on, a roadside runs on beside the movement the lane beside it makes</b>
+    /// (<see cref="RoadsideLanes"/>): across a tee whose street bends by a degree through it, the two roadsides along
+    /// the straight side stand in the box the lane's half and the strip's half off that movement, as along their
+    /// roads they stand off the lane.
+    /// </summary>
+    [Fact]
+    public void WhereTheKerbRunsStraightOnARoadsideRunsBesideTheMovementOfTheLaneBesideIt()
+    {
+        var bentM = new Vector2(500f, 500f) + (Heading.Unit(MathF.PI / 180f) * 400f);
+        var lanes = Laid([100, 500, 500, 500, bentM.X, bentM.Y, 500, 100], Edged(0, 1), Edged(1, 2), Way(3, 1)).Paving(Config).Lanes;
+
+        var offM = new List<float>();
+        for (var lane = lanes.FirstRoadside; lane < lanes.LaneCount; lane++)
+        {
+            foreach (var (fromM, toM) in (ReadOnlySpan<(float, float)>)[(0f, lanes.RoadFromM(lane)), (lanes.RoadToM(lane), lanes.LaneLengthM[lane])])
+            {
+                var inTheBoxM = Spline.SampleAt(lanes.ArcsOf(lane), (fromM + toM) * 0.5f).PositionM;
+                if (toM <= fromM || inTheBoxM.Y < 500f) continue;
+
+                var nearestM = float.MaxValue;
+                for (var connector = 0; connector < lanes.ConnectorCount; connector++)
+                {
+                    var movement = lanes.ArcsOfConnector(connector);
+                    var lengthM = lanes.ConnectorLengthM[connector];
+                    var alongM = Spline.ProjectM(movement, inTheBoxM, lengthM * 0.5f, lengthM);
+                    nearestM = MathF.Min(nearestM, Vector2.Distance(Spline.SampleAt(movement, alongM).PositionM, inTheBoxM));
+                }
+
+                offM.Add(nearestM);
+            }
+        }
+
+        Assert.Equal(2, offM.Count);
+        Assert.All(offM, eachM => Assert.Equal((LaneM + RoadsideM) * 0.5f, eachM, 1e-3f));
+    }
+
+    /// <summary>
+    /// <b>The kerb turns round the square end of every lane</b> (<see cref="GroundRings"/>): where a street with a
+    /// roadside at each kerb dead-ends, every corner of every lane's end stands on the kerb — the tarmac is the outside
+    /// of the lanes, and no rounding takes a corner of one off into the pavement.
+    /// </summary>
+    [Fact]
+    public void TheKerbTurnsRoundTheSquareEndOfEveryLane()
+    {
+        var paving = Laid([100, 500, 900, 500], Edged(0, 1)).Paving(Config);
+        var rings = paving.Rings(Config).Carriageway.Rings;
+        var lanes = paving.Lanes;
+
+        var offM = new List<float>();
+        for (var lane = 0; lane < lanes.LaneCount; lane++)
+        {
+            foreach (var atM in (ReadOnlySpan<float>)[0f, lanes.LaneLengthM[lane]])
+            {
+                var end = Spline.SampleAt(lanes.ArcsOf(lane), atM);
+                var halfM = lanes.LaneWidthM[lane] * 0.5f;
+                offM.Add(OffTheRingsM(rings, end.PositionM + (end.Right * halfM)));
+                offM.Add(OffTheRingsM(rings, end.PositionM - (end.Right * halfM)));
+            }
+        }
+
+        Assert.Equal(16, offM.Count);
+        Assert.All(offM, eachM => Assert.InRange(eachM, 0f, ArcRings.WeldM));
+    }
+
+    /// <summary>
+    /// <b>A roadside lost along the way stops where its road does</b> (<see cref="RoadsideLanes"/>): a street with a
+    /// roadside at each kerb running on into one with none ends both at its own line's end, which is where the line
+    /// beside each is painted to, and neither runs on into the box.
+    /// </summary>
+    [Fact]
+    public void ARoadsideLostAlongTheWayStopsWhereItsRoadDoes()
+    {
+        var plan = Laid([100, 500, 500, 500, 900, 500], Edged(0, 1), Way(1, 2));
+        var lanes = plan.Paving(Config).Lanes;
+
+        var pastM = new List<float>();
+        for (var lane = lanes.FirstRoadside; lane < lanes.LaneCount; lane++)
+        {
+            var line = plan.Roads.SegmentsOf(lanes.LaneRoad[lane]);
+            var arcs = lanes.ArcsOf(lane);
+            pastM.Add(MathF.Max(arcs[0].StartM.X, arcs[^1].EndM.X) - MathF.Max(line[0].StartM.X, line[^1].EndM.X));
+        }
+
+        Assert.Equal(2, pastM.Count);
+        Assert.All(pastM, eachM => Assert.Equal(0f, eachM, 1e-3f));
+    }
+
+    /// <summary>
+    /// <b>Where a roadside is lost along the way the kerb turns no corner</b> (<see cref="LaneLines.Tapers"/>): across the
+    /// box between a street with a roadside at each kerb and one with none, the carriageway's outline runs on from one
+    /// piece to the next on the heading the last left it, and is eased in over the strip rather than stepped round its
+    /// square end.
+    /// </summary>
+    [Fact]
+    public void WhereARoadsideIsLostAlongTheWayTheKerbTurnsNoCorner()
+    {
+        var rings = Laid([100, 500, 500, 500, 900, 500], Edged(0, 1), Way(1, 2)).Paving(Config).Rings(Config).Carriageway.Rings;
+
+        var sharpestRad = 0f;
+        foreach (var ring in rings)
+        {
+            for (var piece = 0; piece < ring.Length; piece++)
+            {
+                var before = ring[piece];
+                var after = ring[(piece + 1) % ring.Length];
+
+                // The street's two dead ends turn their corners, and stand far off the box.
+                if (MathF.Abs(before.EndM.X - 500f) > 100f) continue;
+
+                var turnRad = Spline.WrapRad(after.HeadingRad - before.HeadingAtRad(before.LengthM));
+                sharpestRad = MathF.Max(sharpestRad, MathF.Abs(turnRad));
+            }
+        }
+
+        Assert.InRange(sharpestRad, 0f, LineTolerance.StraightOnRad);
+    }
+
+    /// <summary>
+    /// <b>A roadside lost close short of a corner is carried on to it</b> (<see cref="CityGenFigures.TracedRoadsideCarriedM"/>):
+    /// a street with a roadside at each kerb that loses both 20 m short of a tee carries on to it the one whose kerb turns
+    /// the corner there, and not the one whose kerb runs straight on past the mouth.
+    /// </summary>
+    [Fact]
+    public void ARoadsideLostCloseShortOfACornerIsCarriedOnToIt()
+    {
+        var plan = Laid([100, 500, 400, 500, 420, 500, 900, 500, 420, 100], Edged(0, 1), Way(1, 2, 3), Way(4, 2));
+
+        Assert.Equal(new[] { true }, AcrossTheStretch(plan, 410f).Select(acrossM => acrossM < 500f));
+    }
+
+    /// <summary>
+    /// <b>And one lost further short of it is not</b>: the same street losing its roadsides further short of the tee
+    /// than the figure carries one, ends both where it loses them.
+    /// </summary>
+    [Fact]
+    public void ARoadsideLostFurtherShortOfACornerThanItIsCarriedIsNot()
+    {
+        var lostAtM = 420f - Config.CityGen.TracedRoadsideCarriedM - 10f;
+        var plan = Laid([100, 500, lostAtM, 500, 420, 500, 900, 500, 420, 100], Edged(0, 1), Way(1, 2, 3), Way(4, 2));
+
+        Assert.Empty(AcrossTheStretch(plan, (lostAtM + 420f) * 0.5f));
+    }
+
+    /// <summary>Where across a street running east along y = 500 each roadside of the road standing at one place along it stands.</summary>
+    static List<float> AcrossTheStretch(CityPlan plan, float alongM)
+    {
+        var lanes = plan.Paving(Config).Lanes;
+        var across = new List<float>();
+        for (var lane = lanes.FirstRoadside; lane < lanes.LaneCount; lane++)
+        {
+            var line = plan.Roads.SegmentsOf(lanes.LaneRoad[lane]);
+            var (westM, eastM) = (MathF.Min(line[0].StartM.X, line[^1].EndM.X), MathF.Max(line[0].StartM.X, line[^1].EndM.X));
+            if (alongM < westM || alongM > eastM) continue;
+
+            var arcs = lanes.ArcsOf(lane);
+            var lengthM = lanes.LaneLengthM[lane];
+            across.Add(Spline.SampleAt(arcs, Spline.ProjectM(arcs, new Vector2(alongM, 500f), lengthM * 0.5f, lengthM)).PositionM.Y);
+        }
+
+        return across;
+    }
+
+    /// <summary>How far a place stands off the nearest piece of any of these rings.</summary>
+    static float OffTheRingsM(ArcSeg[][] rings, Vector2 pointM)
+    {
+        var nearestM = float.MaxValue;
+        foreach (var ring in rings)
+        {
+            foreach (var piece in ring)
+            {
+                ReadOnlySpan<ArcSeg> one = [piece];
+                var alongM = Spline.ProjectM(one, pointM, piece.LengthM * 0.5f, piece.LengthM);
+                nearestM = MathF.Min(nearestM, Vector2.Distance(Spline.SampleAt(one, alongM).PositionM, pointM));
+            }
+        }
+
+        return nearestM;
+    }
+
+    /// <summary>
+    /// <b>A walk crossing a street with a roadside crosses it kerb to kerb</b> (<see cref="KerbEnds"/>): at a crossroads
+    /// of two such streets, every station's two nodes stand the whole carriageway apart, the roadsides and all.
+    /// </summary>
+    [Fact]
+    public void AStationAcrossAStreetWithARoadsideReachesKerbToKerb()
+    {
+        var plan = Laid([100, 500, 900, 500, 500, 100, 500, 900, 500, 500], Edged(0, 4, 1), Edged(2, 4, 3));
+
+        var crossed = plan.Paving(Config).RoadEnds(Config).CrossedM.ToArray();
+        Assert.Equal(4, crossed.Length);
+        foreach (var nodes in crossed) Assert.Equal((2 * LaneM) + (2 * RoadsideM), Vector2.Distance(nodes.NearM, nodes.FarM), 1e-3f);
     }
 
     /// <summary><b>A road is laid as wide as OSM's lanes are</b>, every lane at its own width.</summary>
@@ -336,12 +665,213 @@ public class TracedPlanTests
             Carried(2, 0, LaneM, 0f, 0, 1) with { OsmId = WestWay }, Carried(2, 0, LaneM, 0f, 1, 2) with { OsmId = EastWay },
             Way(1, 3) with { OsmId = NorthWay });
 
-        var lanes = plan.Paving(Config).Lanes;
-        var (west, east) = (RoadEndingAt(plan, West), RoadEndingAt(plan, East));
-        var joined = Enumerable.Range(0, lanes.ConnectorCount)
-            .Where(connector => lanes.LaneRoad[lanes.ConnectorFromLane[connector]] == west && lanes.LaneRoad[lanes.ConnectorToLane[connector]] == east)
-            .Select(connector => (lanes.LaneFromKerb[lanes.ConnectorFromLane[connector]], lanes.LaneFromKerb[lanes.ConnectorToLane[connector]]));
-        Assert.Equal([((byte)0, (byte)1)], joined);
+        Assert.Equal([(0, 1)], Joined(plan, RoadEndingAt(plan, West), RoadEndingAt(plan, East)));
+    }
+
+    /// <summary>
+    /// <b>A lane joins the lane of its own number on the road it takes</b> (TER-5j): of three lanes running on past a
+    /// road of one forking off to the near side, too slightly to be a turn, the kerb lane alone takes it — the second
+    /// and third do not merge into its one lane.
+    /// </summary>
+    [Fact]
+    public void ARoadOfOneLaneForkingOffIsTakenFromTheKerbLaneAlone()
+    {
+        var plan = Laid(Fork, OsmTurns.None, Carried(3, 0, LaneM, 0f, 0, 1), Carried(3, 0, LaneM, 0f, 1, 2), OneWay(1, 3));
+
+        Assert.Equal([(0, 0)], Joined(plan, RoadEndingAt(plan, ForkEast), RoadEndingAt(plan, ForkBranch)));
+    }
+
+    /// <summary>
+    /// <b>A turn to the far side is numbered from the line</b> (TER-5j): two lanes each way turning onto two, the lane
+    /// beside the line joins the lane beside the line and not the kerb lane too.
+    /// </summary>
+    [Fact]
+    public void ATurnToTheFarSideJoinsTheLaneBesideTheLine()
+    {
+        var plan = Laid(Tee, Carried(2, 2, LaneM, 0f, 0, 1), Carried(2, 2, LaneM, 0f, 1, 2), Carried(2, 2, LaneM, 0f, 1, 3));
+
+        Assert.Equal([(1, 1)], Joined(plan, RoadEndingAt(plan, West), RoadEndingAt(plan, North)));
+    }
+
+    /// <summary>
+    /// <b>A junction the survey reads as signalled carries lights, and no other does</b> (GEN-57): of a street's two
+    /// side turnings, the one whose point the pack signals is lit.
+    /// </summary>
+    [Fact]
+    public void AJunctionTheSurveySignalsIsLit()
+    {
+        var plan = Laid(Ladder, Controlled((1, new PointControl(SurveyControl.Signals, 0)), (2, new PointControl(SurveyControl.Signs, 0))), [],
+            Way(0, 1, 2, 3), Way(1, 4), Way(2, 5));
+
+        var lit = Enumerable.Range(0, plan.Junctions.Count).Where(junction => plan.Junctions.Lit[junction]).Select(junction => plan.Junctions.CentreM[junction]);
+        Assert.Equal([new Vector2(400f, 500f)], lit);
+    }
+
+    /// <summary>
+    /// <b>Junctions controlled as one share a clock</b>: a street's two signalled turnings the survey reads as one set
+    /// of lights start their cycle at the same place.
+    /// </summary>
+    [Fact]
+    public void JunctionsControlledAsOneShareAClock()
+    {
+        var plan = Laid(Ladder, Controlled((1, new PointControl(SurveyControl.Signals, 77)), (2, new PointControl(SurveyControl.Signals, 77))), [],
+            Way(0, 1, 2, 3), Way(1, 4), Way(2, 5));
+
+        var offsetS = Enumerable.Range(0, plan.Junctions.Count).Where(junction => plan.Junctions.Lit[junction])
+            .Select(junction => plan.Junctions.PhaseOffsetS[junction]).Distinct();
+        Assert.Single(offsetS);
+    }
+
+    /// <summary>
+    /// <b>A painted crossing is laid across the road its way runs along, nearest where OSM puts it</b>: one mapped 3 m
+    /// off a street's line, 200 m along it, is a zebra on the street's line there, its stripes laid along the street.
+    /// </summary>
+    [Fact]
+    public void APaintedCrossingIsLaidOnItsWaysRoadNearestWhereOsmPutsIt()
+    {
+        var plan = Laid([100, 500, 900, 500], [], [new SurveyCrossing(WestWay, new Vector2(300f, 503f), SurveyCrossingKind.Zebra, true, CityPlan.NoRecord)],
+            Way(0, 1) with { OsmId = WestWay });
+
+        var crossing = Assert.Single(plan.Crosswalks.CentreM);
+        Assert.Equal(new Vector2(300f, 500f), crossing, new VectorWithin(SagM));
+        Assert.Equal(1f, MathF.Abs(plan.Crosswalks.Axis[0].X), 1e-4f);
+    }
+
+    /// <summary><b>A crossing that is not painted is not laid</b>, and the town paints no other.</summary>
+    [Fact]
+    public void ACrossingThatIsNotPaintedIsNotLaid()
+    {
+        var plan = Laid([100, 500, 900, 500], [], [new SurveyCrossing(WestWay, new Vector2(300f, 500f), SurveyCrossingKind.Unmarked, false, CityPlan.NoRecord)],
+            Way(0, 1) with { OsmId = WestWay });
+
+        Assert.Empty(plan.Crosswalks.CentreM);
+    }
+
+    /// <summary>
+    /// <b>A bridge is a road of its own on the level above</b> (GEN-57, GEN-14a): a street carried over another on a
+    /// bridge way is three roads — its two approaches on the ground and the bridge between its bridgeheads — and the
+    /// bridge alone is driven above, with a deck its whole length.
+    /// </summary>
+    [Fact]
+    public void ABridgeIsARoadOfItsOwnOnTheLevelAbove()
+    {
+        var plan = OverAStreet();
+
+        var over = Enumerable.Range(0, plan.Roads.Count).Where(road => plan.Roads.LevelOf(road) == CityPlan.RoadArrays.Over).ToArray();
+        var bridge = Assert.Single(over);
+        Assert.Equal(4, plan.Roads.Count);
+        Assert.Equal([bridge], plan.Bridges.Road);
+        Assert.Equal(Spline.TotalLengthM(plan.Roads.SegmentsOf(bridge)), plan.Bridges.ToM[0] - plan.Bridges.FromM[0], 1e-3f);
+    }
+
+    /// <summary>
+    /// <b>A tree is laid where the survey maps it, and none on the road</b> (GEN-57, TER-4c.4): of two trees mapped by a
+    /// street, the one on its kerbside verge stands as a tree and the one on its carriageway is not laid.
+    /// </summary>
+    [Fact]
+    public void ATreeIsLaidWhereTheSurveyMapsItAndNoneOnTheRoad()
+    {
+        var plan = TracedPlan.Lay(
+            Surveyed([100, 500, 900, 500], OsmTurns.None, [], [], [new Vector2(500f, 510f), new Vector2(500f, 501f)], Way(0, 1)), Config);
+
+        Assert.Equal([new Vector2(500f, 510f)], plan.Props.CentreM);
+        Assert.Equal([(byte)PropKind.WildNature], plan.Props.Kind);
+    }
+
+    /// <summary>
+    /// <b>A road running off the map ends on its edge, at a junction that runs off and stands nothing off</b> (GEN-2b,
+    /// GEN-57): a street from inside the map to the place on its east edge the survey left it at.
+    /// </summary>
+    [Fact]
+    public void ARoadRunningOffTheMapEndsOnItsEdge()
+    {
+        var plan = TracedPlan.Lay(RunningOff(), Config);
+
+        var edge =Array.FindIndex(plan.Junctions.CentreM, centreM => centreM == EdgeM);
+        var line = plan.Roads.SegmentsOf(0);
+        Assert.True(plan.Junctions.RunsOff(edge));
+        Assert.Equal(0f, plan.Junctions.RadiusM[edge]);
+        Assert.Equal(0f, MathF.Min(Vector2.Distance(line[0].StartM, EdgeM), Vector2.Distance(line[^1].EndM, EdgeM)), 1e-3f);
+    }
+
+    /// <summary>
+    /// <b>The ground of a road running off the map turns round past its edge</b> (GEN-2b): the driven ground's boundary
+    /// reaches <see cref="SimConfig.PastTheMapEdgeM"/> past the east edge the street runs square off.
+    /// </summary>
+    [Fact]
+    public void TheGroundOfARoadRunningOffTheMapTurnsRoundPastItsEdge()
+    {
+        var plan = TracedPlan.Lay(RunningOff(), Config);
+
+        var furthestM = float.MinValue;
+        foreach (var ring in plan.Paving(Config).Perimeter(Config).Chains)
+        {
+            foreach (var piece in ring) furthestM = MathF.Max(furthestM, MathF.Max(piece.StartM.X, piece.EndM.X));
+        }
+
+        Assert.Equal(EdgeM.X + Config.PastTheMapEdgeM, furthestM, ArcRings.WeldM);
+    }
+
+    /// <summary>Where the street <see cref="RunningOff"/> lays leaves the map: on its east edge.</summary>
+    static readonly Vector2 EdgeM = new(500f, 300f);
+
+    /// <summary>A street from inside a map of 500 by 600 m to its east edge, which the survey says it leaves the map at.</summary>
+    static Survey RunningOff() => new()
+    {
+        Name = "Traced", Relation = 1, WidthM = EdgeM.X, HeightM = 600f, PointsM = [100f, EdgeM.Y, EdgeM.X, EdgeM.Y],
+        Ways = [Way(0, 1)], LeavesTheMap = [false, true], Sea = [],
+    };
+
+    /// <summary>
+    /// <b>No tree's crown leaves the map</b> (GEN-57): of two trees mapped well clear of the street, the one a metre in
+    /// from the map's east edge is not laid.
+    /// </summary>
+    [Fact]
+    public void NoTreesCrownLeavesTheMap()
+    {
+        var plan = TracedPlan.Lay(
+            Surveyed([100, 500, 900, 500], OsmTurns.None, [], [], [new Vector2(500f, 300f), new Vector2(999f, 300f)], Way(0, 1)), Config);
+
+        Assert.Equal([new Vector2(500f, 300f)], plan.Props.CentreM);
+    }
+
+    /// <summary>
+    /// <b>A ring of roundabout ways is one roundabout of those roads</b> (GEN-19): a square ring with a street into
+    /// each of two corners circulates on its four sides and on nothing else.
+    /// </summary>
+    [Fact]
+    public void ARingOfRoundaboutWaysIsOneRoundabout()
+    {
+        var plan = Laid(
+            [400, 400, 600, 400, 600, 600, 400, 600, 100, 400, 900, 600],
+            OneWay(0, 1, 2) with { Roundabout = true }, OneWay(2, 3, 0) with { Roundabout = true }, Way(4, 0), Way(2, 5));
+
+        var ring = Assert.Single(Enumerable.Range(0, plan.Roundabouts.Count));
+        var circulating = plan.Roundabouts.RoadsOf(ring).ToArray();
+        Assert.All(circulating, road => Assert.Equal(1, plan.Roads.LanesOn(road)));
+        Assert.Equal(plan.Roads.Count - 2, circulating.Length);
+    }
+
+    /// <summary>
+    /// A street from point 0 to point 3 with two turnings north off it, at point 1 to point 4 and at point 2 to
+    /// point 5.
+    /// </summary>
+    static readonly float[] Ladder = [100, 500, 400, 500, 600, 500, 900, 500, 400, 100, 600, 100];
+
+    /// <summary>The controls of a survey's points, every point not named unsigned.</summary>
+    static PointControl[] Controlled(params (int Point, PointControl Control)[] controls)
+    {
+        var all = new PointControl[16];
+        foreach (var (point, control) in controls) all[point] = control;
+        return all;
+    }
+
+    /// <summary>Two places within a tolerance.</summary>
+    sealed class VectorWithin(float toleranceM) : IEqualityComparer<Vector2>
+    {
+        public bool Equals(Vector2 one, Vector2 other) => Vector2.Distance(one, other) <= toleranceM;
+
+        public int GetHashCode(Vector2 obj) => 0;
     }
 
     /// <summary>
@@ -361,6 +891,16 @@ public class TracedPlanTests
     const long EastWay = 2;
 
     const long NorthWay = 3;
+
+    /// <summary>
+    /// A road of three points running east to west through point 1, from point 0 to point 2, and a branch leaving it at
+    /// point 1 for point 3, 30° off to the near side — inside <see cref="RoadFigures.TurnStraightToleranceDeg"/>.
+    /// </summary>
+    static readonly float[] Fork = [900, 500, 500, 500, 100, 500, 100, 269];
+
+    static readonly Vector2 ForkEast = new(900f, 500f);
+
+    static readonly Vector2 ForkBranch = new(100f, 269f);
 
     static OsmTurns Turns(OsmTurnRestriction restriction) => new() { Restrictions = [restriction], LaneLinks = [] };
 
@@ -384,17 +924,67 @@ public class TracedPlanTests
         return reached;
     }
 
-    /// <summary>
-    /// How far a corner of half a metre's jog rounded at half a street's carriageway stands off the point it
-    /// rounds: its sag, a millimetre or two, read with room.
-    /// </summary>
+    /// <summary>Every pair of lanes a movement joins from one road onto another, each counted from its kerb.</summary>
+    static (int FromKerb, int ToKerb)[] Joined(CityPlan plan, int fromRoad, int toRoad)
+    {
+        var lanes = plan.Paving(Config).Lanes;
+        return [.. Enumerable.Range(0, lanes.ConnectorCount)
+            .Where(connector => lanes.LaneRoad[lanes.ConnectorFromLane[connector]] == fromRoad
+                && lanes.LaneRoad[lanes.ConnectorToLane[connector]] == toRoad)
+            .Select(connector => ((int)lanes.LaneFromKerb[lanes.ConnectorFromLane[connector]], (int)lanes.LaneFromKerb[lanes.ConnectorToLane[connector]]))];
+    }
+
+    /// <summary>How near a place laid on a straight road is read as the place asked for: a float's rounding, with room.</summary>
     const float SagM = 0.01f;
 
     /// <summary>A survey of the ways given over the points given, on a map reaching a little past the furthest of them.</summary>
     static CityPlan Laid(float[] pointsM, params SurveyWay[] ways) => Laid(pointsM, OsmTurns.None, ways);
 
+    /// <summary>
+    /// <b>A street carried over another on a bridge</b>: west to east along y = 500, on a bridge way from x = 400 to
+    /// x = 600, over a street running north to south along x = 500 — one lane each way on both.
+    /// </summary>
+    internal static CityPlan OverAStreet() => Laid(
+        [100, 500, 400, 500, 600, 500, 900, 500, 500, 100, 500, 900], Way(0, 1), Way(1, 2) with { Bridge = true }, Way(2, 3), Way(4, 5));
+
+    /// <summary>
+    /// <b>A street of two lanes east into a tee</b>, west to east along y = 500 from x = 100, through the tee at x = 900
+    /// and on east two lanes to x = 1300 and one lane to x = 1700 — its arm to the north, a lane each way, turned onto
+    /// from the inner lane alone — and a bridge carried over it at x = 300, so the town stands a car on its kerb lane
+    /// short of the bridge (<see cref="TracedBridgeCars"/>). <paramref name="againstWest"/> lanes run back west along its
+    /// western half.
+    /// </summary>
+    internal static CityPlan TwoLanesIntoATee(int againstWest = 0) => Laid(
+        [100, 500, 900, 500, 1300, 500, 900, 100, 300, 100, 300, 300, 300, 700, 300, 900, 1700, 500],
+        Carried(2, againstWest, LaneM, 0f, 0, 1), Carried(2, 0, LaneM, 0f, 1, 2), OneWay(2, 8), Way(1, 3), Way(4, 5),
+        Way(5, 6) with { Bridge = true }, Way(6, 7));
+
+    /// <summary>Where the north arm of <see cref="TwoLanesIntoATee"/> ends.</summary>
+    internal static readonly Vector2 TeeNorthM = new(900f, 100f);
+
+    /// <summary>Where the street of <see cref="TwoLanesIntoATee"/> runs on in one lane, east of the tee.</summary>
+    internal static readonly Vector2 TeeOneLaneM = new(1300f, 500f);
+
+    /// <summary>A street of these lanes each way, west to east, joined to nothing.</summary>
+    internal static CityPlan AStreet(int forward, int backward) =>
+        Laid([100, 500, 900, 500], Carried(forward, backward, LaneM, 0f, 0, 1));
+
+    /// <summary>Where the bridge of <see cref="OverAStreet"/> crosses the street under it.</summary>
+    internal static readonly Vector2 OverAStreetCrossingM = new(500f, 500f);
+
     /// <summary>The same, with where OSM says a car may turn over them.</summary>
-    static CityPlan Laid(float[] pointsM, OsmTurns turns, params SurveyWay[] ways)
+    static CityPlan Laid(float[] pointsM, OsmTurns turns, params SurveyWay[] ways) => Laid(pointsM, turns, [], [], ways);
+
+    /// <summary>The same, with the controls and crossings a survey's pack lays over them.</summary>
+    static CityPlan Laid(float[] pointsM, PointControl[] controls, SurveyCrossing[] crossings, params SurveyWay[] ways) =>
+        Laid(pointsM, OsmTurns.None, controls, crossings, ways);
+
+    static CityPlan Laid(float[] pointsM, OsmTurns turns, PointControl[] controls, SurveyCrossing[] crossings, params SurveyWay[] ways) =>
+        TracedPlan.Lay(Surveyed(pointsM, turns, controls, crossings, [], ways), Config);
+
+    /// <summary>The survey those are, with the trees given mapped over it.</summary>
+    static Survey Surveyed(
+        float[] pointsM, OsmTurns turns, PointControl[] controls, SurveyCrossing[] crossings, Vector2[] treeM, params SurveyWay[] ways)
     {
         var furthestM = Vector2.Zero;
         for (var point = 0; point < pointsM.Length; point += 2)
@@ -402,13 +992,11 @@ public class TracedPlanTests
             furthestM = Vector2.Max(furthestM, new Vector2(pointsM[point], pointsM[point + 1]));
         }
 
-        var survey = new Survey
+        return new Survey
         {
             Name = "Traced", Relation = 1, WidthM = furthestM.X + 100f, HeightM = furthestM.Y + 100f, PointsM = pointsM, Ways = ways, Sea = [],
-            Turns = turns,
+            Turns = turns, Controls = controls, Crossings = crossings, TreeM = treeM,
         };
-
-        return TracedPlan.Lay(survey, Config);
     }
 
     const float LaneM = OsmCarriageway.AssumedLaneWidthM;
@@ -422,6 +1010,14 @@ public class TracedPlanTests
         Highway = "service", LanesForward = 0, LanesBackward = 0, LanesShared = 1, CarriagewayM = LaneM,
         CentreOffsetM = 0f, Points = points,
     };
+
+    /// <summary>A residential way of a lane each way and a roadside at each kerb.</summary>
+    static SurveyWay Edged(params int[] points) => Carried(1, 1, LaneM, 0f, points) with
+    {
+        CarriagewayM = (2 * LaneM) + (2 * RoadsideM), RoadsideAlongM = RoadsideM, RoadsideAgainstM = RoadsideM,
+    };
+
+    static readonly float RoadsideM = Config.CityGen.TracedRoadsideWidthM;
 
     /// <summary>A residential way of these lanes, each this wide, its carriageway's middle this far right of it.</summary>
     static SurveyWay Carried(int forward, int backward, float laneM, float centreOffsetM, params int[] points) => new()
