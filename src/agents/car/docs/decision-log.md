@@ -3,6 +3,16 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-10-05 — a toured car leaves a lane that ends by moving across
+
+**A lane lost at a node now joins nothing** (TER-5j, roads' log), and a car going nowhere in particular was driven
+onto one by its tour and stood at the end: the step across was asked only toward a route's next lane, and a toured
+car has none. On OdesaOsm, whose cars all tour, `--bench stuck` gave up 8 legs and asked no step across in 300 s.
+**Its line now stops at the lane's end, and the car moves across toward the nearest lane beside that carries on**
+(`Switching.TheLaneEnds`) — the route's own rule with the lane beside standing in for the route. A car with a
+destination is left to its route, whose leg may end on that lane. After it: 2 legs given up, 1 of them a car that
+stood at the same place before the change.
+
 ## 2026-10-04 — a car moves across onto the lane beside, and keeps to the kerb
 
 **The owner asked for a lane switch that works like an overtake** (CAR-53): only a small stretch of the lane beside

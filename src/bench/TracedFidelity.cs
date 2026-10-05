@@ -73,11 +73,14 @@ internal static class TracedFidelity
             for (var lane = 0; lane < carriageway.Lanes.Length; lane++)
             {
                 OsmCarriageway.OffsetInto(lineM, carriageway.LaneOffsetM(lane), laneM);
-                var kind = carriageway.Lanes[lane].Way == OsmLaneWay.Both ? Shared : Lane;
-                if (carriageway.Lanes[lane].Way != OsmLaneWay.Backward) osm.AddLine(laneM, way.OsmId, kind);
+                if (carriageway.Lanes[lane].Way == OsmLaneWay.Both)
+                {
+                    osm.AddLine(laneM, way.OsmId, Shared);
+                    continue;
+                }
 
-                Array.Reverse(laneM);
-                if (carriageway.Lanes[lane].Way != OsmLaneWay.Forward) osm.AddLine(laneM, way.OsmId, kind);
+                if (carriageway.Lanes[lane].Way == OsmLaneWay.Backward) Array.Reverse(laneM);
+                osm.AddLine(laneM, way.OsmId, Lane);
             }
         }
 
@@ -116,16 +119,21 @@ internal static class TracedFidelity
         // connector; a connector turning there has no OSM lane to be held against.
         Report("OSM lanes off laid lanes and connectors", osm, laid, discs, id => $"way {id}");
         Report("laid lanes off OSM", laidLanes, osm, discs, id => $"road {id}");
-        Turns(traced.Turns, survey, plan, lanes, config);
+
+        var streets = TracedStreets.Lay(survey, config);
+        Console.WriteLine($"shared: {streets.Shared.Directed} roads of one lane both ways share run one way; taken out " +
+                          $"{streets.Shared.Spurs} spurs and {streets.Shared.Stranded} roads of pieces of nothing else");
+        Console.WriteLine($"gathered: {streets.Gathered.Junctions} junctions into {streets.Gathered.Into}, {streets.Gathered.Roads} roads " +
+                          $"between them gone, {streets.Gathered.Unmade} movements across them none of those roads made forbidden");
+        Turns(traced.Turns, streets.Turns, plan, lanes);
     }
 
     /// <summary>
     /// <b>How much of where OSM says a car may turn was laid</b>, and whether any connector makes a turn the plan
     /// forbids or leaves a lane OSM links for one it does not.
     /// </summary>
-    static void Turns(OsmTurns osm, Survey survey, CityPlan plan, LaneLines lanes, SimConfig config)
+    static void Turns(OsmTurns osm, TracedStreets.TurnsLaid laid, CityPlan plan, LaneLines lanes)
     {
-        var laid = TracedStreets.Lay(survey, config).Turns;
         var banned = plan.Roads.BannedTurns.ToHashSet();
         var linked = plan.Roads.LaneLinks.Select(link => new RoadTurn(link.Junction, link.FromRoad, link.ToRoad)).ToHashSet();
         var links = plan.Roads.LaneLinks.ToHashSet();
@@ -141,7 +149,7 @@ internal static class TracedFidelity
         // A lane into a junction some other road leaves, left with no turn: what OSM forbids or marks may do that.
         var leaves = lanes.LaneRoad.Take(lanes.FirstRoadside).Select((road, lane) => (Junction: lanes.LaneFromJunction[lane], Road: road)).ToHashSet();
         var leaving = leaves.GroupBy(leaves => leaves.Junction).ToDictionary(group => group.Key, group => group.Count());
-        var (stranded, strandedByOsm) = (0, 0);
+        var (stranded, strandedByOsm, ended) = (0, 0, 0);
         var strandedAt = new List<string>();
         var turnedAt = banned.Select(turn => (turn.Junction, turn.FromRoad)).ToHashSet();
         for (var lane = 0; lane < lanes.FirstRoadside; lane++)
@@ -150,11 +158,32 @@ internal static class TracedFidelity
             var others = leaving.GetValueOrDefault(junction) - (leaves.Contains((junction, road)) ? 1 : 0);
             if (lanes.ConnectorAt[lane + 1] > lanes.ConnectorAt[lane] || others == 0) continue;
 
+            // A lane lost at the node is left by moving across (TER-5j), and is no lane stranded.
+            if (BesideOneThat(lanes, lane, beside => lanes.ConnectorAt[beside + 1] > lanes.ConnectorAt[beside]))
+            {
+                ended++;
+                continue;
+            }
+
             stranded++;
             if (turnedAt.Contains((junction, road)) || plan.Roads.MarkedTurnsOf(road, lanes.LaneForward[lane]).Length > 0) strandedByOsm++;
-            if (strandedAt.Count < 8) strandedAt.Add($"road {road} at ({plan.Junctions.CentreM[junction].X:F0}, {plan.Junctions.CentreM[junction].Y:F0})");
+            if (strandedAt.Count < 8)
+            {
+                strandedAt.Add($"road {road} at ({plan.Junctions.CentreM[junction].X:F0}, {plan.Junctions.CentreM[junction].Y:F0}) " +
+                               $"forbidden {banned.Count(turn => turn.Junction == junction && turn.FromRoad == road)} of {others}");
+            }
         }
 
+        var reached = new bool[lanes.LaneCount];
+        foreach (var onto in lanes.ConnectorToLane) reached[onto] = true;
+        var movedOnto = 0;
+        for (var lane = 0; lane < lanes.FirstRoadside; lane++)
+        {
+            if (!reached[lane] && !lanes.LaneIsBay[lane] && BesideOneThat(lanes, lane, beside => reached[beside])) movedOnto++;
+        }
+
+        Console.WriteLine($"lanes: {lanes.ConnectorCount} connectors; {ended} lanes end at a node beside one that carries on, " +
+                          $"{movedOnto} are reached only by moving across (TER-5j)");
         Console.WriteLine($"turns: {laid.Restrictions} of OSM's {osm.Restrictions.Length} restrictions laid as {laid.Bans} turns forbidden — " +
                           $"{laid.RestrictionsAtNoJunction} at a node no junction stands at, {laid.RestrictionsUnmatched} naming a way with no one end there; " +
                           $"{laid.Links} of {osm.LaneLinks.Length} lane links; arrows on the lanes into {laid.ArrowedEnds} road ends. " +
@@ -163,9 +192,26 @@ internal static class TracedFidelity
                           (strandedAt.Count > 0 ? ": " + string.Join(", ", strandedAt) : ""));
     }
 
+    /// <summary>Whether any lane beside this one running its way (CAR-53) is one that <paramref name="holds"/>.</summary>
+    static bool BesideOneThat(LaneLines lanes, int lane, Func<int, bool> holds)
+    {
+        foreach (var toward in (ReadOnlySpan<int[]>)[lanes.LaneInward, lanes.LaneOutward])
+        {
+            for (var beside = toward[lane]; beside != LaneLines.NoLane; beside = toward[beside])
+            {
+                if (holds(beside)) return true;
+            }
+        }
+
+        return false;
+    }
+
     const byte Lane = 0;
 
-    /// <summary>A single lane two-way traffic shares, which the engine lays as one lane each way.</summary>
+    /// <summary>
+    /// A lane OSM has driven both ways, which the engine lays as a lane of one way or not at all: read as drawn, and
+    /// held against a line running either way.
+    /// </summary>
     const byte Shared = 1;
 
     static readonly string[] Parts = ["lanes", "shared single lanes", "inside junctions"];
@@ -190,7 +236,7 @@ internal static class TracedFidelity
             for (var step = 0; step <= steps; step++)
             {
                 var atM = Vector2.Lerp(a, b, (float)step / steps);
-                var offM = onto.NearestM(atM, from.Heading[line]);
+                var offM = onto.NearestM(atM, from.Heading[line], eitherWay: from.Kind[line] == Shared);
                 var weightM = (step == 0 || step == steps ? 0.5 : 1.0) * lengthM / steps;
                 var part = 1 + (discs.Inside(atM) ? 2 : from.Kind[line]);
                 foreach (var counted in (ReadOnlySpan<int>)[0, part])
@@ -361,17 +407,17 @@ internal static class TracedFidelity
         }
 
         /// <summary>
-        /// The distance to the nearest line running the same way, or <see cref="SearchM"/> where none is that
-        /// near. The cells round a place's own reach a cell off it every way, so a line found nearer than that is
-        /// the nearest.
+        /// The distance to the nearest line running the same way — or either way, asked so or where the line is
+        /// <see cref="Shared"/> — or <see cref="SearchM"/> where none is that near. The cells round a place's own
+        /// reach a cell off it every way, so a line found nearer than that is the nearest.
         /// </summary>
-        public float NearestM(Vector2 atM, Vector2 heading)
+        public float NearestM(Vector2 atM, Vector2 heading, bool eitherWay)
         {
-            var nearestM = Within(atM, heading, CellM, SearchM);
-            return nearestM <= CellM ? nearestM : Within(atM, heading, SearchM, nearestM);
+            var nearestM = Within(atM, heading, eitherWay, CellM, SearchM);
+            return nearestM <= CellM ? nearestM : Within(atM, heading, eitherWay, SearchM, nearestM);
         }
 
-        float Within(Vector2 atM, Vector2 heading, float reachM, float nearestM)
+        float Within(Vector2 atM, Vector2 heading, bool eitherWay, float reachM, float nearestM)
         {
             var (least, most) = (Cell(atM - new Vector2(reachM)), Cell(atM + new Vector2(reachM)));
             for (var x = least.X; x <= most.X; x++)
@@ -382,7 +428,9 @@ internal static class TracedFidelity
 
                     foreach (var line in filed)
                     {
-                        if (Vector2.Dot(Heading[line], heading) >= SameWayCos) nearestM = MathF.Min(nearestM, OffM(atM, A[line], B[line]));
+                        var cos = Vector2.Dot(Heading[line], heading);
+                        if (eitherWay || Kind[line] == Shared) cos = MathF.Abs(cos);
+                        if (cos >= SameWayCos) nearestM = MathF.Min(nearestM, OffM(atM, A[line], B[line]));
                     }
                 }
             }

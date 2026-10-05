@@ -176,7 +176,7 @@ internal sealed partial class TownWorld
 
         Cars.ProgressM[car] = progressM;
         Cars.AlongMps[car] = alongMps;
-        Cars.GroundCoefficient[car] = _terrain.At(pose.PositionM, Cars.Level[car]).Coefficient;
+        Cars.GroundCoefficient[car] = _terrain.At(pose.PositionM, Cars.LevelOf(car)).Coefficient;
 
         // A pass is laid along the lane the car is on and nowhere else (CAR-46).
         if (_overtaking.IsOffTheLaneOfItsPass(car)) Enter(car, CarAction.Follow);
@@ -343,10 +343,10 @@ internal sealed partial class TownWorld
     /// <returns>Whether a line was laid over the lane under it.</returns>
     bool Reacquire(int car, Vector2 rearAxleM)
     {
-        if (!_terrain.At(rearAxleM, Cars.Level[car]).Drivable) return false;
+        if (!_terrain.At(rearAxleM, Cars.LevelOf(car)).Drivable) return false;
 
         var forward = ForwardOf(car);
-        var under = TheCarriagewayUnder(rearAxleM, forward, Cars.Level[car]);
+        var under = TheCarriagewayUnder(rearAxleM, forward, Cars.LevelOf(car));
         if (under.Lane < 0) return false;
         if ((under.At.PositionM - rearAxleM).Length() > _config.CarOffPathM * OffLineTolerance) return false;
         if (Vector2.Dot(under.At.Direction, forward) <= 0f) return false;

@@ -156,11 +156,12 @@ internal sealed unsafe partial class TownRenderer
         _overlay[image] = _vk.CreateBuffer(
             (ulong)(OverlayCapacity * sizeof(OverlayQuad)), BufferUsageFlags.VertexBufferBit, hostVisible: true);
         _underlay[image] = _vk.CreateBuffer(
-            (ulong)(UnderlayCapacity * sizeof(OverlayQuad)), BufferUsageFlags.VertexBufferBit, hostVisible: true);
+            (ulong)((UnderlayCapacity + UnderlayAboveCapacity) * sizeof(OverlayQuad)), BufferUsageFlags.VertexBufferBit,
+            hostVisible: true);
 
         _spriteIndirect[image] = Counter(draws: 2);
         _overlayIndirect[image] = Counter(draws: 1);
-        _underlayIndirect[image] = Counter(draws: 1);
+        _underlayIndirect[image] = Counter(draws: 2);
 
         // An image whose frame has not been filled yet draws nothing of its own rather than whatever
         // the memory happened to hold.
@@ -258,9 +259,10 @@ internal sealed unsafe partial class TownRenderer
         Vk.Count();
         api.CmdDrawIndirect(commands, _spriteIndirect[image].Handle, 0, 1, (uint)sizeof(DrawIndirectCommand));
 
-        // <b>The level above, over the bodies on the ground, and the bodies on it over that</b> (TER-7b, PHY-1a): the
-        // ground's second draw — its last part, past the first draw's — and the instances laid past the ground's own
-        // in the same buffer. A town with nothing above its ground draws nothing in either, and records them the same.
+        // <b>The level above, over the bodies on the ground, its marks over it, and the bodies on it over those</b>
+        // (TER-7b, PHY-1a): the ground's second draw — its last part, past the first draw's — then the marks and the
+        // instances laid past the ground's own in their buffers. A town with nothing above its ground draws nothing in
+        // any of the three, and records them the same.
         Vk.Count();
         api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _pipeline);
         Vk.Count();
@@ -268,6 +270,15 @@ internal sealed unsafe partial class TownRenderer
         Vk.Count();
         api.CmdDrawIndexedIndirect(
             commands, _indirect.Handle, (ulong)sizeof(DrawIndexedIndirectCommand), 1, (uint)sizeof(DrawIndexedIndirectCommand));
+
+        Vk.Count();
+        api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _overlayPipeline);
+        var underlayAboveOffset = (ulong)(UnderlayCapacity * sizeof(OverlayQuad));
+        Vk.Count();
+        api.CmdBindVertexBuffers(commands, 0, 1, &underlayBuffer, &underlayAboveOffset);
+        Vk.Count();
+        api.CmdDrawIndirect(
+            commands, _underlayIndirect[image].Handle, (ulong)sizeof(DrawIndirectCommand), 1, (uint)sizeof(DrawIndirectCommand));
 
         Vk.Count();
         api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _spritePipeline);

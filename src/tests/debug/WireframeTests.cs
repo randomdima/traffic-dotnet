@@ -31,6 +31,8 @@ public class WireframeTests
 
     static readonly OverlayQuad[] Under = new OverlayQuad[TownRenderer.UnderlayCapacity];
 
+    static readonly OverlayQuad[] UnderAbove = new OverlayQuad[TownRenderer.UnderlayAboveCapacity];
+
     /// <summary>
     /// The fixture's ground, cut once for the class: nothing here writes to a mesh, and cutting the same
     /// town three times is three copies of it in the heap for one reading apiece.
@@ -50,11 +52,12 @@ public class WireframeTests
 
         var draw = new ScreenDraw(Over);
         var ground = new ScreenDraw(Under);
+        var groundAbove = new ScreenDraw(UnderAbove);
 
         // No pointer and no pick: what is counted is the layer's own quads, and a reading taken under a
         // pointer nobody is holding would be quads this test cannot account for (OBS-2t).
         overlay.Draw(
-            ref draw, ref ground, world, Mesh, Config, switches, new DebugPick(), -Vector2.One, -Vector2.One,
+            ref draw, ref ground, ref groundAbove, world, Mesh, Config, switches, new DebugPick(), -Vector2.One, -Vector2.One,
             UiPx, world.Plan.WorldSizeM * 0.5f, UiPx / pixelsPerMetre, pixelsPerMetre);
 
         return ground.Written;

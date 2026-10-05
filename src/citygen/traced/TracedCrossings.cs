@@ -38,12 +38,6 @@ internal static class TracedCrossings
             }
         }
 
-        var junctionAt = new Dictionary<int, int>();
-        for (var junction = 0; junction < laid.JunctionPoint.Length; junction++)
-        {
-            if (laid.JunctionPoint[junction] != CityPlan.NoRecord) junctionAt[laid.JunctionPoint[junction]] = junction;
-        }
-
         var centreM = new List<Vector2>();
         var axis = new List<Vector2>();
         var onRoad = new List<int>();
@@ -75,8 +69,8 @@ internal static class TracedCrossings
             centreM.Add(at.PositionM);
             axis.Add(at.Direction);
             onRoad.Add(road);
-            ofJunction.Add(junctionAt.TryGetValue(crossing.Junction, out var junction)
-                           && (roads.FromJunction[road] == junction || roads.ToJunction[road] == junction)
+            var junction = (uint)crossing.Junction < (uint)laid.JunctionOf.Length ? laid.JunctionOf[crossing.Junction] : CityPlan.NoRecord;
+            ofJunction.Add(junction != CityPlan.NoRecord && (roads.FromJunction[road] == junction || roads.ToJunction[road] == junction)
                 ? junction
                 : CityPlan.NoRecord);
         }

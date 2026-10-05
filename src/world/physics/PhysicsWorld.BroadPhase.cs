@@ -133,6 +133,7 @@ internal sealed partial class PhysicsWorld
                     if (_ownedInStep[other] == _stepStamp) continue;
                     if ((_flags[other] & live) != live) continue;
                     if ((_category[body] & _mask[other]) == 0 || (_category[other] & _mask[body]) == 0) continue;
+                    if ((_channels[body] & _channels[other]) == 0) continue;
 
                     if (_candidateCount == _candidate.Length) Array.Resize(ref _candidate, Math.Max(64, _candidate.Length * 2));
 

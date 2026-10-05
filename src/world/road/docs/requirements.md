@@ -141,11 +141,13 @@ names is not made from it. **A turn the plan forbids is not offered at all**, be
 and a turn whose lanes the plan names joins those and no others — a traced map's survey's (`GEN-57`), which
 leaves an arm nothing where OSM forbids every turn off it. **A lane making a movement joins the lane of its own
 number on the road it takes**, both numbered from the side the movement bears to — the kerb for the near side,
-the line for the far — so a turn onto a road of one lane is made from the edge lane alone, never from the second
-lane onto the first, and **no two movements off one arm onto one road cross**. Only where that strands a lane —
-one arriving with nowhere to go, or one of the road taken that nothing at the junction reaches (`GEN-50`) — are
-the lanes making it spread over the lanes it reaches in the same order, fewer fanning out and more merging. A
-road of one lane each way is offered every turn its junction makes, from its one lane onto
+the line for the far, and the kerb for straight on except at a fork, where each branch is numbered from the side
+it bears to — so a turn onto a road of one lane is made from the edge lane alone, never from the second
+lane onto the first, and **no two movements off one arm onto one road cross**. **A lane with no lane of its
+number there joins nothing**: of more lanes onto fewer the ones over end at the node, and of fewer onto more the
+ones over are reached by none — but onto a road of one lane more, whose last lane the last lane in joins as well as
+its own. Nothing is merged or fanned at a node; a car gets off a lane that ends and onto one nothing reaches by
+moving across (`GEN-50`). A road of one lane each way is offered every turn its junction makes, from its one lane onto
 the one lane each takes. **A car moves across onto a lane beside running its way along the street**
 (`CAR-53`), so the lane a turn is made from is one it can get to.
 

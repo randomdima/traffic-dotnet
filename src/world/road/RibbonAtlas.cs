@@ -32,10 +32,11 @@ internal interface IRibbonLines
     bool IsDriven(int way);
 
     /// <summary>
-    /// <b>The level a way is travelled on</b> (<see cref="CityGen.CityPlan.RoadArrays.Level"/>): two ways on two levels
-    /// share no ground however their ribbons lie in plan, and a body is read onto the ways of its own level alone.
+    /// <b>The collision channels a way is on</b> (<see cref="CityGen.CityPlan.RoadArrays.ChannelOf"/>): two ways on no
+    /// channel in common share no ground however their ribbons lie in plan, and a body is read onto the ways on a
+    /// channel of its own alone.
     /// </summary>
-    byte LevelOf(int way);
+    byte ChannelsOf(int way);
 }
 
 /// <summary>
@@ -168,14 +169,14 @@ internal sealed class RibbonAtlas
     readonly Entry[] _entries;
     readonly float[] _lengthM;
 
-    /// <summary>Every way's level, or empty where every way is on the ground (<see cref="LevelsOf"/>).</summary>
-    readonly byte[] _wayLevel;
+    /// <summary>Every way's channels, or empty where every way is on the ground's alone (<see cref="ChannelsOf(IRibbonLines)"/>).</summary>
+    readonly byte[] _wayChannels;
 
     RibbonAtlas(
         GridLevel level, GridWindow cells, int[] cellSlot, int[] slotFirst, ushort[] pointStart, Entry[] entries,
-        float[] lengthM, byte[] wayLevel, WayCrossings marks, int points, int mostWaysAtAPoint)
+        float[] lengthM, byte[] wayChannels, WayCrossings marks, int points, int mostWaysAtAPoint)
     {
-        _wayLevel = wayLevel;
+        _wayChannels = wayChannels;
         _level = level;
         _shift = level.Depth - cells.Level.Depth;
         _mask = (1 << _shift) - 1;
@@ -241,34 +242,37 @@ internal sealed class RibbonAtlas
     /// further past it than it stands outside the way's band; the stretch is the least and most metre among
     /// them, widened by half a lattice step at each end and held to the way.
     /// </summary>
-    /// <param name="level">
-    /// The level the body is on (<see cref="IRibbonLines.LevelOf"/>): only the ways on it are found, so a car on a
-    /// bridge stands on the bridge's lanes and not on those of the road passing under it.
+    /// <param name="channels">
+    /// The channels the body is on (<see cref="IRibbonLines.ChannelsOf"/>): only the ways on one of them are found, so
+    /// a car on a bridge stands on the bridge's lanes and not on those of the road passing under it.
     /// </param>
     /// <returns>How many ways were written; a way past the room given is dropped and counted.</returns>
     public int UnderBox(
-        Vector2 centreM, Vector2 forward, float halfLengthM, float halfWidthM, Span<WayCover> into, byte level = Ground) =>
-        Widened(into, Read(new Box(centreM, forward, halfLengthM, halfWidthM), level, into, out _));
+        Vector2 centreM, Vector2 forward, float halfLengthM, float halfWidthM, Span<WayCover> into, byte channels = Ground) =>
+        Widened(into, Read(new Box(centreM, forward, halfLengthM, halfWidthM), channels, into, out _));
 
     /// <summary>The same for a disc — a walker's collider.</summary>
-    public int UnderDisc(Vector2 centreM, float radiusM, Span<WayCover> into, byte level = Ground) =>
-        Widened(into, Read(new Disc(centreM, radiusM), level, into, out _));
+    public int UnderDisc(Vector2 centreM, float radiusM, Span<WayCover> into, byte channels = Ground) =>
+        Widened(into, Read(new Disc(centreM, radiusM), channels, into, out _));
 
-    /// <summary>The level of every way of a town with no bridge over its roads, and of the walk (<see cref="IRibbonLines.LevelOf"/>).</summary>
-    const byte Ground = CityGen.CityPlan.RoadArrays.Ground;
+    /// <summary>The channel of every way of a town with no bridge over its roads, and of the walk (<see cref="IRibbonLines.ChannelsOf"/>).</summary>
+    const byte Ground = CityGen.CityPlan.RoadArrays.GroundChannel;
+
+    /// <summary>The collision channels a way is on (<see cref="IRibbonLines.ChannelsOf"/>).</summary>
+    public byte ChannelsOf(int way) => _wayChannels.Length > 0 ? _wayChannels[way] : Ground;
 
     /// <summary>
     /// <see cref="UnderBox(Vector2, Vector2, float, float, Span{WayCover}, byte)"/> <b>for one body of a roster</b>,
     /// kept in <paramref name="recall"/>: its last answer where no verdict that answer was made of can have changed
-    /// since, and a fresh read where one can — the same to the bit either way. A body that has changed level is
+    /// since, and a fresh read where one can — the same to the bit either way. A body that has changed channels is
     /// read again.
     /// </summary>
     /// <returns>The ways, good until this body is next asked for.</returns>
     public ReadOnlySpan<WayCover> UnderBox(
-        Vector2 centreM, Vector2 forward, float halfLengthM, float halfWidthM, Recall recall, int body, byte level = Ground)
+        Vector2 centreM, Vector2 forward, float halfLengthM, float halfWidthM, Recall recall, int body, byte channels = Ground)
     {
         var box = new Box(centreM, forward, halfLengthM, halfWidthM);
-        var asked = new Recall.Reading(centreM, forward, halfLengthM, halfWidthM, level, 0f, 0);
+        var asked = new Recall.Reading(centreM, forward, halfLengthM, halfWidthM, channels, 0f, 0);
         ref readonly var last = ref recall.Last[body];
 
         // A frozen body is asked about at the pose it was read at, and pays the comparison and nothing else.
@@ -279,22 +283,22 @@ internal sealed class RibbonAtlas
         var reachM = MathF.Sqrt((halfLengthM * halfLengthM) + (halfWidthM * halfWidthM));
         var movedM = Vector2.Distance(centreM, last.CentreM) + (reachM * Vector2.Distance(forward, last.Forward))
                      + MathF.Abs(halfLengthM - last.HalfLengthM) + MathF.Abs(halfWidthM - last.HalfWidthM);
-        var kept = level == last.Level && Unmoved(movedM, reachM, last.SlackM)
+        var kept = channels == last.Channels && Unmoved(movedM, reachM, last.SlackM)
                    && SamePoints(box, new Box(last.CentreM, last.Forward, last.HalfLengthM, last.HalfWidthM));
 
         return Recalled(box, kept, recall, body, asked);
     }
 
     /// <summary>The same for a disc — a walker's collider, whose radius is kept as its half length.</summary>
-    public ReadOnlySpan<WayCover> UnderDisc(Vector2 centreM, float radiusM, Recall recall, int body, byte level = Ground)
+    public ReadOnlySpan<WayCover> UnderDisc(Vector2 centreM, float radiusM, Recall recall, int body, byte channels = Ground)
     {
         var disc = new Disc(centreM, radiusM);
-        var asked = new Recall.Reading(centreM, Vector2.Zero, radiusM, 0f, level, 0f, 0);
+        var asked = new Recall.Reading(centreM, Vector2.Zero, radiusM, 0f, channels, 0f, 0);
         ref readonly var last = ref recall.Last[body];
         if (asked.SamePose(last)) return Recalled(disc, kept: true, recall, body, asked);
 
         var movedM = Vector2.Distance(centreM, last.CentreM) + MathF.Abs(radiusM - last.HalfLengthM);
-        var kept = level == last.Level && Unmoved(movedM, radiusM, last.SlackM)
+        var kept = channels == last.Channels && Unmoved(movedM, radiusM, last.SlackM)
                    && SamePoints(disc, new Disc(last.CentreM, last.HalfLengthM));
 
         return Recalled(disc, kept, recall, body, asked);
@@ -337,19 +341,19 @@ internal sealed class RibbonAtlas
         }
 
         /// <summary>
-        /// One body's last reading: the pose and the level it was read at, the least any depth test it took stood
+        /// One body's last reading: the pose and the channels it was read at, the least any depth test it took stood
         /// from the other verdict, and how many ways it found.
         /// </summary>
         internal readonly record struct Reading(
-            Vector2 CentreM, Vector2 Forward, float HalfLengthM, float HalfWidthM, byte Level, float SlackM, int Count)
+            Vector2 CentreM, Vector2 Forward, float HalfLengthM, float HalfWidthM, byte Channels, float SlackM, int Count)
         {
             /// <summary>A body never read: it stands nowhere and has no slack, so it is always read.</summary>
             public static readonly Reading Never = new(new Vector2(float.NaN), Vector2.Zero, 0f, 0f, 0, 0f, 0);
 
-            /// <summary>Whether this is the other's pose and level exactly — a read of the same thing, so the same answer.</summary>
+            /// <summary>Whether this is the other's pose and channels exactly — a read of the same thing, so the same answer.</summary>
             public bool SamePose(in Reading other) =>
                 CentreM == other.CentreM && Forward == other.Forward
-                && HalfLengthM == other.HalfLengthM && HalfWidthM == other.HalfWidthM && Level == other.Level;
+                && HalfLengthM == other.HalfLengthM && HalfWidthM == other.HalfWidthM && Channels == other.Channels;
         }
 
         internal readonly Reading[] Last;
@@ -373,7 +377,7 @@ internal sealed class RibbonAtlas
         ref var last = ref recall.Last[index];
         if (kept) return covers[..last.Count];
 
-        var count = Widened(covers, Read(body, asked.Level, covers, out var slackM));
+        var count = Widened(covers, Read(body, asked.Channels, covers, out var slackM));
         last = asked with { SlackM = slackM, Count = count };
         return covers[..count];
     }
@@ -513,11 +517,11 @@ internal sealed class RibbonAtlas
     /// further past it than it stands outside that way's band — so ground the body and the band both hold lies
     /// between them, and a body whose edge only meets the band's is not on it.
     /// </summary>
-    /// <param name="level">The body's level: a way on another is passed over as though not there.</param>
+    /// <param name="channels">The body's channels: a way on none of them is passed over as though not there.</param>
     /// <param name="slackM">The least any of those depths stood from its way's outside, either side of it.</param>
-    int Read<TBody>(in TBody body, byte level, Span<WayCover> into, out float slackM) where TBody : struct, IBody
+    int Read<TBody>(in TBody body, byte channels, Span<WayCover> into, out float slackM) where TBody : struct, IBody
     {
-        var levels = _wayLevel;
+        var wayChannels = _wayChannels;
         var found = MemoryMarshal.Cast<WayCover, Found>(into);
         var firstRow = _level.FirstMiddleFrom(body.LeastY);
         var lastRow = _level.LastMiddleTo(body.MostY);
@@ -553,7 +557,7 @@ internal sealed class RibbonAtlas
                 {
                     ref readonly var entry = ref _entries[at];
                     if ((uint)(entry.Column - firstColumn) > columns) continue;
-                    if (levels.Length > 0 && levels[entry.Way] != level) continue;
+                    if (wayChannels.Length > 0 && (wayChannels[entry.Way] & channels) == 0) continue;
 
                     if (entry.Outside != 0)
                     {
@@ -679,7 +683,7 @@ internal sealed class RibbonAtlas
         var marks = RibbonMarks.Of(lines, lengthM, stepM, touchM, main);
 
         return new RibbonAtlas(
-            level, cells, filed.CellSlot, filed.SlotFirst, filed.PointStart, filed.Entries, lengthM, LevelsOf(lines), marks,
+            level, cells, filed.CellSlot, filed.SlotFirst, filed.PointStart, filed.Entries, lengthM, ChannelsOf(lines), marks,
             filed.Points, filed.MostAtAPoint);
     }
 
@@ -795,20 +799,21 @@ internal sealed class RibbonAtlas
     }
 
     /// <summary>
-    /// Every way's level (<see cref="IRibbonLines.LevelOf"/>), or <b>none at all where every way is on the ground</b> —
-    /// every town but one with a bridge over its roads — so a read there asks nothing it does not have to.
+    /// Every way's channels (<see cref="IRibbonLines.ChannelsOf"/>), or <b>none at all where every way is on the
+    /// ground's alone</b> — every town but one with a bridge over its roads — so a read there asks nothing it does not
+    /// have to.
     /// </summary>
-    public static byte[] LevelsOf(IRibbonLines lines)
+    public static byte[] ChannelsOf(IRibbonLines lines)
     {
-        var levels = new byte[lines.WayCount];
+        var channels = new byte[lines.WayCount];
         var any = false;
-        for (var way = 0; way < levels.Length; way++)
+        for (var way = 0; way < channels.Length; way++)
         {
-            levels[way] = lines.LevelOf(way);
-            any |= levels[way] != CityGen.CityPlan.RoadArrays.Ground;
+            channels[way] = lines.ChannelsOf(way);
+            any |= channels[way] != Ground;
         }
 
-        return any ? levels : [];
+        return any ? channels : [];
     }
 
     /// <summary>A metre along a way as the atlas files it; a way longer than the field holds is refused when laid.</summary>

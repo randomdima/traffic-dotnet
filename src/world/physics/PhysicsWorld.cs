@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 
 namespace TrafficSimulation.World.Physics;
@@ -108,6 +109,9 @@ internal sealed partial class PhysicsWorld
     BodyFlags[] _flags = new BodyFlags[Room];
     ulong[] _category = new ulong[Room];
     ulong[] _mask = new ulong[Room];
+
+    /// <summary>The collision channels each body is on (<see cref="PutOnChannels"/>).</summary>
+    byte[] _channels = new byte[Room];
     int[] _tag = new int[Room];
     Vector2[] _leastM = new Vector2[Room];
     Vector2[] _mostM = new Vector2[Room];
@@ -312,6 +316,21 @@ internal sealed partial class PhysicsWorld
     }
 
     /// <summary>
+    /// <b>A body put on other collision channels</b> (PHY-1a): two bodies meet only where their channels share a bit,
+    /// on top of what their layers say. Every body is put on the ground's when it is added.
+    /// </summary>
+    /// <remarks>
+    /// Woken, and no index marked stale, for <see cref="PutOnLayer"/>'s reasons: it is a filter changed and not a
+    /// place.
+    /// </remarks>
+    public void PutOnChannels(BodyId body, byte channels)
+    {
+        var index = body.Index;
+        _channels[index] = channels;
+        Wake(index);
+    }
+
+    /// <summary>
     /// Lay the grid over the town's furniture, once all of it is standing. Call it after the last static
     /// body and never in a tick: the grid is built once and read for the rest of the run by every ray,
     /// every clearance query and every dynamic body's broad phase.
@@ -465,6 +484,9 @@ internal sealed partial class PhysicsWorld
     /// </remarks>
     const CollisionLayer LookingAs = CollisionLayer.Car;
 
+    /// <summary>The channels a ray looks on: the ground's, which is where everything that casts one stands.</summary>
+    const byte LookingOn = CityPlan.RoadArrays.GroundChannel;
+
     static readonly ulong LookingMask = MaskOf(LookingAs);
 
     static readonly ulong StaticsOnlyMask = (ulong)CollisionLayer.Static;
@@ -487,6 +509,7 @@ internal sealed partial class PhysicsWorld
         _flags[index] = flags;
         _category[index] = (ulong)layer;
         _mask[index] = MaskOf(layer);
+        _channels[index] = CityPlan.RoadArrays.GroundChannel;
         _tag[index] = BodyTag.None.Packed;
         _velocityMps[index] = Vector2.Zero;
         _yawRateRadPerS[index] = 0f;
@@ -557,6 +580,7 @@ internal sealed partial class PhysicsWorld
         Array.Resize(ref _flags, room);
         Array.Resize(ref _category, room);
         Array.Resize(ref _mask, room);
+        Array.Resize(ref _channels, room);
         Array.Resize(ref _tag, room);
         Array.Resize(ref _leastM, room);
         Array.Resize(ref _mostM, room);

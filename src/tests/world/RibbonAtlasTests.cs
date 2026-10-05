@@ -33,8 +33,8 @@ public class RibbonAtlasTests
         /// <summary>Where the walked ways begin.</summary>
         public int FirstWalked { get; init; } = int.MaxValue;
 
-        /// <summary>The level each way is on, by way; a way past the end of it is on the ground.</summary>
-        public byte[] Levels { get; init; } = [];
+        /// <summary>The channels each way is on, by way; a way past the end of it is on the ground's.</summary>
+        public byte[] Channels { get; init; } = [];
 
         public int WayCount => lines.Length;
 
@@ -48,8 +48,15 @@ public class RibbonAtlasTests
 
         public bool IsDriven(int way) => way < FirstWalked;
 
-        public byte LevelOf(int way) => way < Levels.Length ? Levels[way] : CityPlan.RoadArrays.Ground;
+        public byte ChannelsOf(int way) => way < Channels.Length ? Channels[way] : Ground;
     }
+
+    const byte Ground = CityPlan.RoadArrays.GroundChannel;
+
+    static readonly byte Over = CityPlan.RoadArrays.ChannelOf(CityPlan.RoadArrays.Over);
+
+    /// <summary>A bridgehead's: the bridge's channel and the ground's.</summary>
+    static readonly byte Both = (byte)(Ground | Over);
 
     static ArcSeg[] Straight(Vector2 fromM, Vector2 toM)
     {
@@ -87,45 +94,62 @@ public class RibbonAtlasTests
 
     /// <summary>
     /// <b>A bridge's lane and the road under it share no ground</b> (TER-5c, PHY-1a): the same two crossing ribbons,
-    /// one of them on the level above, are marked against nothing.
+    /// one of them on the bridge's channel, are marked against nothing.
     /// </summary>
     [Fact]
-    public void TwoWaysCrossingOnTwoLevelsAreNotMarked()
+    public void TwoWaysCrossingOnTwoChannelsAreNotMarked()
     {
-        var lines = new Lines(
-            Straight(new Vector2(0f, 0f), new Vector2(LengthM, 0f)),
-            Straight(new Vector2(LengthM * 0.5f, -LengthM * 0.5f), new Vector2(LengthM * 0.5f, LengthM * 0.5f)))
-        {
-            Levels = [CityPlan.RoadArrays.Over, CityPlan.RoadArrays.Ground],
-        };
-        var atlas = RibbonAtlas.Lay(lines, Config.RibbonLevel, Config.RibbonTouchM, anyoneWalks: true);
+        var atlas = Crossing(Over, Ground);
 
         Assert.Empty(atlas.Marks.Of(0).ToArray());
         Assert.Empty(atlas.Marks.Of(1).ToArray());
     }
 
     /// <summary>
-    /// <b>A body is read onto the ways of its own level alone</b> (TER-4c.2, PHY-1a): a box where a bridge's lane
-    /// crosses the road under it is on the bridge's lane read on the level above, and on the road's read on the ground.
+    /// <b>A body is read onto the ways of its own channels alone</b> (TER-4c.2, PHY-1a): a box where a bridge's lane
+    /// crosses the road under it is on the bridge's lane read on the bridge's channel, and on the road's read on the
+    /// ground's.
     /// </summary>
     [Fact]
-    public void ABoxWhereTwoLevelsCrossIsOnItsOwnLevelsWayAlone()
+    public void ABoxWhereTwoChannelsCrossIsOnItsOwnChannelsWayAlone()
+    {
+        var atlas = Crossing(Over, Ground);
+
+        Assert.Equal([0], WaysUnderTheCrossing(atlas, Over));
+        Assert.Equal([1], WaysUnderTheCrossing(atlas, Ground));
+    }
+
+    /// <summary>
+    /// <b>A way on two channels is found from either</b> (TER-4c.2, PHY-1a): where a bridgehead's way crosses a road
+    /// on the ground, a box read on the bridge's channel is on the bridgehead's way alone, and one read on the ground's
+    /// is on both.
+    /// </summary>
+    [Fact]
+    public void AWayOnTwoChannelsIsFoundFromEither()
+    {
+        var atlas = Crossing(Both, Ground);
+
+        Assert.Equal([0], WaysUnderTheCrossing(atlas, Over));
+        Assert.Equal([0, 1], WaysUnderTheCrossing(atlas, Ground));
+    }
+
+    /// <summary>Two ways crossing square at their middles, on these channels.</summary>
+    static RibbonAtlas Crossing(byte first, byte second)
     {
         var lines = new Lines(
             Straight(new Vector2(0f, 0f), new Vector2(LengthM, 0f)),
             Straight(new Vector2(LengthM * 0.5f, -LengthM * 0.5f), new Vector2(LengthM * 0.5f, LengthM * 0.5f)))
         {
-            Levels = [CityPlan.RoadArrays.Over, CityPlan.RoadArrays.Ground],
+            Channels = [first, second],
         };
-        var atlas = RibbonAtlas.Lay(lines, Config.RibbonLevel, Config.RibbonTouchM, anyoneWalks: true);
+        return RibbonAtlas.Lay(lines, Config.RibbonLevel, Config.RibbonTouchM, anyoneWalks: true);
+    }
+
+    static int[] WaysUnderTheCrossing(RibbonAtlas atlas, byte channels)
+    {
         Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
-        var centreM = new Vector2(LengthM * 0.5f, 0f);
-
-        var over = atlas.UnderBox(centreM, Vector2.UnitX, 2f, 1f, under, CityPlan.RoadArrays.Over);
-        Assert.Equal([0], under[..over].ToArray().Select(cover => cover.Way));
-
-        var ground = atlas.UnderBox(centreM, Vector2.UnitX, 2f, 1f, under, CityPlan.RoadArrays.Ground);
-        Assert.Equal([1], under[..ground].ToArray().Select(cover => cover.Way));
+        var count = atlas.UnderBox(new Vector2(LengthM * 0.5f, 0f), Vector2.UnitX, 2f, 1f, under, channels);
+        return [.. under[..count].ToArray().Select(cover => cover.Way).Order()];
     }
 
     /// <summary>

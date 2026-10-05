@@ -462,6 +462,14 @@ internal sealed partial class SimConfig
         JunctionRadiusM + (MathF.Max(0f, widestCarriagewayM - RoadWidthM) * 0.5f);
 
     /// <summary>
+    /// <b>How far a traced road whose carriageway is this wide may stand off its survey</b> for its pieces to be merged
+    /// into fewer (GEN-57): <see cref="CityGenFigures.TracedLineToleranceM"/>, and
+    /// <see cref="CityGenFigures.TracedLineToleranceShare"/> of the width further.
+    /// </summary>
+    public float TracedLineToleranceAcrossM(float carriagewayM) =>
+        CityGen.TracedLineToleranceM + (CityGen.TracedLineToleranceShare * carriagewayM);
+
+    /// <summary>
     /// <b>How many car parks a town of <paramref name="buildings"/> buildings cuts</b> (GEN-53): one for every
     /// <see cref="CityGenFigures.BuildingsPerCarPark"/> of them, the count being the map's and the share of it
     /// the engine's (GEN-6).

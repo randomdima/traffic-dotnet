@@ -356,6 +356,9 @@ internal static class Program
             case "joints":
                 TownShape.Joints(map ?? Options.FixtureMap, config);
                 return 0;
+            case "close":
+                TownShape.Close(map ?? Options.TracedMap, config);
+                return 0;
         }
 
         if (CheckCatalogue.TryFind(name, out var check)) return Kept(check.Run(config));

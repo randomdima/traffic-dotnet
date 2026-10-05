@@ -52,7 +52,6 @@ internal sealed partial class TownWorld
         }
 
         HaulOnTheBars(dtS);
-        PutOnTheirLevels();
 
         // The solver's step, kept apart from the impulse and read-back loops around it: two different
         // measurements (TickParts).
@@ -182,7 +181,7 @@ internal sealed partial class TownWorld
         TowBar.AxleM(build, pose, down, atM);
         for (var wheel = 0; wheel < TowBar.Wheels; wheel++)
         {
-            var effect = _terrain.EffectAt(atM[wheel], Cars.Level[car]);
+            var effect = _terrain.EffectAt(atM[wheel], Cars.LevelOf(car));
             ground[down + wheel] = new SurfaceUnderWheel(
                 effect.Coefficient, effect.DragMps2, _config.Marks.PowerM2S3 * effect.MarkFactor, effect.Ploughs);
         }
@@ -202,40 +201,17 @@ internal sealed partial class TownWorld
         }
     }
 
-    /// <summary>
-    /// <b>Every car on the level of the lane it is on</b> (PHY-1a): one that has driven onto a bridge over other roads
-    /// meets nothing below it from this step on, and one that has driven off it meets the ground's traffic again. A
-    /// car with no lane keeps the level it had, and one on a tow bar takes the one pulling it. A town with no bridge
-    /// over its roads pays one branch for the whole of it.
-    /// </summary>
-    /// <remarks>
-    /// <b>A level changes at a lane's start</b>, which on a bridge is past its bridgehead: the junction a bridge lands
-    /// at stands on the ground, and nothing passes under it.
-    /// </remarks>
-    void PutOnTheirLevels()
+    void PutOnChannels(int car, byte channels)
     {
-        if (!_levelled) return;
-
-        for (var car = 0; car < Cars.Count; car++)
-        {
-            var lane = Cars.LaneOf(car);
-            var level = lane != CarFleet.NoLane ? _roads.LaneLevel[lane]
-                : _recovery.OnTheHookOf[car] is var hauler and >= 0 ? Cars.Level[hauler]
-                : Cars.Level[car];
-            if (level != Cars.Level[car]) PutOnLevel(car, level);
-        }
-    }
-
-    void PutOnLevel(int car, byte level)
-    {
-        Cars.Level[car] = level;
-        _physics.PutOnLayer(Cars.Body[car], level == CityPlan.RoadArrays.Ground ? CollisionLayer.Car : CollisionLayer.CarOver);
+        Cars.Channels[car] = channels;
+        _physics.PutOnChannels(Cars.Body[car], channels);
     }
 
     /// <summary>
-    /// <b>A car stood where the plan put it, on the level of the lane it stands along</b> (PHY-1a): on a bridge it is
-    /// on the bridge from its first step and not on whatever the bridge passes over until it takes a lane. Of the
-    /// nearest lane on each level, the one within its own width of the car that runs most nearly the car's way.
+    /// <b>A car stood where the plan put it, on the channel of the lane it stands along</b> (PHY-1a): on a bridge it is
+    /// on the bridge's from its first step, before its body has been read over the ways it stands on — and over a
+    /// crossing those are both levels'. Of the nearest lane on each level, the one within its own width of the car that
+    /// runs most nearly the car's way.
     /// </summary>
     void StandOnItsLevel(int car)
     {
@@ -260,7 +236,8 @@ internal sealed partial class TownWorld
             alignedBest = aligned;
         }
 
-        if (level != Cars.Level[car]) PutOnLevel(car, level);
+        var channels = CityPlan.RoadArrays.ChannelOf(level);
+        if (channels != Cars.Channels[car]) PutOnChannels(car, channels);
     }
 
     /// <summary>

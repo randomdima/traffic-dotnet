@@ -4,6 +4,34 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-10-05 — a lane lost at a node ends there, and a lane gained is moved onto
+
+**The owner asked for it, reviewing OdesaOsm's connections** (TER-5j): N lanes onto M join lane for lane and
+nothing more. Of more onto fewer the lanes over end at the node; of fewer onto more the lanes over are reached by
+none, except onto a road of one lane more, whose last lane the last lane in joins as well as its own. It replaces
+the spread a node drew wherever lane for lane stranded a lane: every lane lost merged across the ones kept, and
+every lane gained was fanned onto. On OdesaOsm (`--bench fidelity`) 142 lanes now end at a node beside one that
+carries on and 104 are reached only by moving across; the connectors went from 53 056 to 54 383, the rise being
+the one-lane-more rule, which holds for a turn as for straight on — a turn from an arm of one lane onto a road of
+two joins both its lanes.
+
+- **A car moves across before the lane ends** (CAR-53): the router already prices a turn from the lane beside, so a
+  lane that ends is left by moving across and one nothing reaches is entered from beside; a toured car does the
+  same (the car slice's log). A car that has not found the room stops at the end, which `--bench stuck` reports.
+- **Straight on is numbered from the kerb where nothing forks.** Read off its few degrees of bend, a carriageway
+  OSM widens across a box — one lane, three for 32 m, one again — was entered by its edge lane at the line and left
+  by its kerb lane, two lanes over in 32 m, and a car stood in it for the rest of the run. Numbered from the kerb,
+  one lane runs through. At a fork the side it bears to still decides, so the branches cross nothing.
+- **What no step across can leave**: OSM's way pieces of a metre or none inside a box carry lanes that end with no
+  room beside them to move across in. A car drawn onto one stands until it is recovered; `--bench stuck` on
+  OdesaOsm showed one, held 131 s.
+- **GEN-50 counts moving across** as driving onto and off a lane, so a lane that ends beside one that carries on
+  does not dangle.
+- **The ground the spread covered is still paved** (`LaneUse.Eases`, `LaneLines.Tapers`): a box has no shape of its
+  own and is the union of its movements, so dropping the merge left a kerbed island where the lane stopped and, on
+  OdesaOsm, a boundary that did not close. The spread's lines are laid as tapers — paved, run beside by a roadside,
+  never driven — so the ground is what it was.
+
 ## 2026-10-05 — the atlas files the walk only where it is read, and a piece reads only the rows it reaches
 
 **Half of a traced city's atlas was walk nobody stood on.** OdesaOsm stands nobody on foot and files 5 200 km of
@@ -51,25 +79,24 @@ street into a one-lane road forking off it at under `TurnStraightToleranceDeg` �
 lane, the inner two cutting across the kerb lane to reach it.
 
 - **Numbered from the side the movement bears to**: the kerb for the near side, the line for the far, so a turn
-  to the far side is the inner lane's onto the inner lane. Straight on is numbered from the side its few degrees
-  bear to, so a fork bearing off the far side is taken from the line and crosses nothing either.
-- **The spread stays where lane for lane strands a lane** (GEN-50): a lane lost at a node has no lane of its
-  number to go to and merges, and a lane gained is reached by none of its number and is fanned onto. Without it
-  every change of lane count at a node would be a dead end or a lane nothing drives onto. Stranded is asked of
-  the whole node, so a lane of the road taken that another arm reaches lane for lane gets no fan.
+  to the far side is the inner lane's onto the inner lane. Straight on is numbered from the kerb, and only at a
+  fork — two roads taken straight on off one arm — from the side its few degrees bear to, so the branch bearing
+  off the far side is taken from the line and crosses nothing either.
 - **What it costs**: a car can no longer pick its lane of the road taken at the turn. It lands on the lane of its
   number and moves across after where its route needs another (CAR-53).
 
-## 2026-10-03 — a way has a level, and two levels share no ground
+## 2026-10-05 — a way has collision channels, and two on none in common share no ground
 
 **A bridge over a traced town's roads must claim none of them** (the owner, with PHY-1a). Two places held the
-ground of a deck and the road under it together, and both now ask a way's level (`IRibbonLines.LevelOf`, a
-lane's road's, a connector's two lanes' where they share one, the walk's the ground): **the marks** pair no two
-ways on two levels (TER-5c), so no plan over the deck places a secondary claim below it; and **the lattice**
-reads a body onto its own level's ways alone (TER-4c.2), so a car on the deck stands on nothing under it — the
-level part of a recall's key, so a car changing level is read again. A town with no bridge over a road carries
-no level table and its reads ask nothing more. Every car-side read passes the car's level; every walker's is
-the ground.
+ground of a deck and the road under it together, and both ask a way's channels (`IRibbonLines.ChannelsOf`, a
+lane's road's level, a connector's two lanes' both, the walk's the ground's): **the marks** pair no two ways on
+no channel in common (TER-5c), so no plan over the deck places a secondary claim below it; and **the lattice**
+reads a body onto the ways on its own channels alone (TER-4c.2), so a car on the deck stands on nothing under
+it — the channels part of a recall's key, so a car changing them is read again. **The channels and not a level**
+because a car's collisions are what those ways are on (physics, 2026-10-05): a bridgehead's connector is on
+both, so a car crossing one claims and meets the ground's ways there and the bridge's alike, where a level put
+it on one. A town with no bridge over a road carries no channel table and its reads ask nothing more. Every
+car-side read passes the car's channels; every walker's is the ground's.
 
 ## 2026-10-02 — a walker clear on its own way is not read off the atlas
 

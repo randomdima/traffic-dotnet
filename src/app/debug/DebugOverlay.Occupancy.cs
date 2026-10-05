@@ -153,7 +153,8 @@ internal sealed partial class DebugOverlay
     /// </para>
     /// </remarks>
     static void ClaimIndex(
-        ref ScreenDraw draw, TownWorld world, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
+        ref ScreenDraw ground, ref ScreenDraw above, TownWorld world, Vector2 viewCentreM, Vector2 viewSpanM,
+        float pixelsPerMetre)
     {
         var index = world.Occupancy;
         var sagM = PathMarks.SagPx / pixelsPerMetre;
@@ -164,6 +165,7 @@ internal sealed partial class DebugOverlay
             var arcs = world.LineOfWay(way, out var widthM);
             if (arcs.Length == 0) continue;
 
+            ref var draw = ref IsAbove(world, way) ? ref above : ref ground;
             var count = index.CopyTo(way, slots);
             for (var slot = 0; slot < count; slot++)
             {

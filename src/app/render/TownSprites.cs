@@ -286,8 +286,8 @@ internal static class CarSprites
     /// <summary>A level no car is on, asked for as every car of every level — a town with nothing above its ground.</summary>
     public const int EveryLevel = -1;
 
-    /// <summary>Whether a car is one of the level asked for (<see cref="CarFleet.Level"/>).</summary>
-    public static bool IsOn(CarFleet cars, int car, int level) => level == EveryLevel || cars.Level[car] == level;
+    /// <summary>Whether a car is one of the level asked for (<see cref="CarFleet.LevelOf"/>).</summary>
+    public static bool IsOn(CarFleet cars, int car, int level) => level == EveryLevel || cars.LevelOf(car) == level;
 
     /// <summary>
     /// The four tyres, drawn at the very offsets the impulses act on, each turned to the angle its own

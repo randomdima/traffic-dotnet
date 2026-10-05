@@ -86,7 +86,7 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
     /// <b>Whether a car following its route means to move across, and which way</b> (CAR-53), in this order:
     /// <list type="number">
     /// <item><b>Where its line stops because its lanes no longer go the route's way</b> — toward the lane the route goes
-    /// on from.</item>
+    /// on from — <b>or because its lane ends</b> under a toured car, toward the nearest lane beside that carries on.</item>
     /// <item><b>To get past what holds it up</b>, on a road whose line is not crossed to pass (CAR-6.2b): a body at rest
     /// that is not making its own movement, or traffic going slower than the car means to by more than
     /// <see cref="DrivingFigures.SlowerToSwitchMps"/> — over the lane toward the line, and never the kerb's.</item>
@@ -254,7 +254,8 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
     /// <summary>
     /// <b>Whether the car's line stops where its route moves across</b>: the next lane the route queues is joined to the
     /// line's last by no connector but reached by moving across onto it or onto a lane beside that joins it, and the line
-    /// cannot carry on beside the route from there — and which way.
+    /// cannot carry on beside the route from there — and which way. <b>Or where its lane ends</b> under a car going
+    /// nowhere in particular (<see cref="TheLaneEnds"/>).
     /// </summary>
     /// <remarks>
     /// <b>A line still running on beside the route is not stopped</b>, however far it is from the lanes the route was
@@ -265,7 +266,9 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
         inward = false;
         var last = Cars.ChainOf(car)[Cars.Line[car].LaneCount - 1];
         var next = Cars.PeekNextRouteLane(car);
-        if (next == CarFleet.NoLane || Roads.ConnectorBetween(last, next) != RoadGraph.NoConnector
+        if (next == CarFleet.NoLane) return !Cars.HasDestination[car] && TheLaneEnds(last, out inward);
+
+        if (Roads.ConnectorBetween(last, next) != RoadGraph.NoConnector
             || !Roads.ReachesBySwitching(last, next, out var beside)
             || Roads.OnBesideTheRoute(last, next, Cars.PeekRouteLaneAfterNext(car), out _) != RoadGraph.NoLane)
         {
@@ -274,6 +277,37 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
 
         inward = Roads.LanesOver(last, beside) > 0;
         return true;
+    }
+
+    /// <summary>
+    /// <b>Whether a lane is lost at the node it runs into</b> (TER-5j): joined to nothing there, beside a lane running its
+    /// way that is — and which way the nearest of those stands. A toured line stops on it (<see cref="LaneTour"/>), and the
+    /// car leaves it by moving across, as a route moving across there would have it.
+    /// </summary>
+    bool TheLaneEnds(int lane, out bool inward)
+    {
+        inward = false;
+        if (Roads.LanesFrom(lane).Length > 0) return false;
+
+        var nearest = int.MaxValue;
+        foreach (var side in (ReadOnlySpan<bool>)[true, false])
+        {
+            for (var beside = Roads.LaneBeside(lane, side); beside != RoadGraph.NoLane; beside = Roads.LaneBeside(beside, side))
+            {
+                if (Roads.LanesFrom(beside).Length == 0) continue;
+
+                var over = Math.Abs(Roads.LanesOver(lane, beside));
+                if (over < nearest)
+                {
+                    nearest = over;
+                    inward = side;
+                }
+
+                break;
+            }
+        }
+
+        return nearest != int.MaxValue;
     }
 
     /// <summary>
@@ -532,7 +566,7 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
 
         var halfM = build.CollisionSizeM * 0.5f;
         var centreM = axleM + (forward * (build.CentreAheadOfAxleM + (spareM * 0.5f)));
-        return ground.Atlas.UnderBox(centreM, forward, halfM.X + (spareM * 0.5f), halfM.Y + spareM, under, Cars.Level[car]);
+        return ground.Atlas.UnderBox(centreM, forward, halfM.X + (spareM * 0.5f), halfM.Y + spareM, under, Cars.Channels[car]);
     }
 
     /// <summary>

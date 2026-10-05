@@ -88,20 +88,35 @@ surface and has no lane.
   answer, and layers laid off another survey than the one imported are refused.
 
 - **Nothing the survey holds is lost on the way in.** A junction stands at every place ways meet, exactly
-  there, however close the next one is; a place two roads carry on through is one road through it (GEN-51);
-  every point a way was surveyed through stands within `SimConfig.CityGen.TracedLineToleranceM` of its road,
-  or a corner's sag at the tightest it is rounded at; a ring of ways meeting nothing but each other is
-  given a place and laid as the loop it is; and a piece of the network joined to nothing else is kept. **So
+  there — or amid the places it was gathered from, below; a place two roads carry on through is one road through it (GEN-51);
+  every point a way was surveyed through stands within its road's tolerance (`SimConfig.TracedLineToleranceAcrossM`)
+  of it, or a corner's sag at the tightest it is rounded at; a ring of ways meeting nothing but each other is
+  given a place and laid as the loop it is; and a piece of the network joined to nothing else is kept — but
+  for the lanes both ways share that no way of running them leaves drivable, below. **So
   the generator's rules that take something out are not asked of a traced town**: one junction for places
-  within a locality (GEN-16), a corner no tighter than a class's design speed (GEN-47), and one connected
-  network (GEN-5). How far its lanes stand off OSM's own is read by `--bench fidelity`.
+  within a locality (GEN-16) — a traced town gathers only those a short road joins, below — a corner no tighter
+  than a class's design speed (GEN-47), and one connected network (GEN-5). How far its lanes stand off OSM's own
+  is read by `--bench fidelity`.
+- **Junctions a short road joins are one junction** (`TracedStreets.Gathered`): two places of three arms or more a
+  road runs between, through nothing but places of two arms, shorter than `SimConfig.CityGen.TracedJunctionsMergedM`
+  — a dual carriageway's crossing, a side street meeting the far carriageway through the gap in the median, a
+  crossing OSM draws as two tees a few metres apart — are one junction amid them, and so is every junction gathered
+  with either while each stays that near every other. The road between them is gone and its ground is the box's.
+  **Each road leaves the disc of the place it was surveyed to**, so the box is no bigger than the two were, and
+  **the box makes only the movements the roads it gathered made**: a turn off one road onto another is forbidden
+  where they gave no way between the two, through every one-way road and every restriction at their places —
+  which is where a restriction naming the road that went is laid. A junction is lit where any place it was
+  gathered from is signalled. Not gathered: a junction on a bridge or round a roundabout, a pair a road between
+  them would leave running out and back to one junction, and a gathering left with fewer than two roads into it.
 - **A road is driven in OSM's lanes** (GEN-15, TER-4d): as many each way as OSM's tagging rules say, **every
   one `SimConfig.CityGen.TracedLaneWidthM` wide** whatever OSM tags or assumes, and **its carriageway laid along
-  its middle**, which is the way itself unless OSM places the way off it. **A single lane both ways share is
-  one lane each way over one line**, each the whole of its width; lanes driven both ways down the middle of
-  lanes each way — a tidal pair, a centre turning lane — are laid as lanes of one way each, so every lane still
-  stands where OSM puts it. **Where the carriageway changes is a junction** — a lane more or less, a roadside, a
-  placement — of two arms where nothing else meets there (GEN-51).
+  its middle**, which is the way itself unless OSM places the way off it. **No lane is driven both ways.** A
+  single lane both ways share is one lane run whichever way still lets every junction reach every junction it
+  reached before, and **is taken out where no way does** — a spur, a dead end however it runs — **as is a piece
+  of the network left holding nothing but such lanes**, so none of them dangles (GEN-50). Lanes driven both ways
+  down the middle of lanes each way — a tidal pair, a centre turning lane — are laid as lanes of one way each, so
+  every lane still stands where OSM puts it. **Where the carriageway changes is a junction** — a lane more or
+  less, a roadside, a placement — of two arms where nothing else meets there (GEN-51).
 - **What a road was measured wider than its lanes is roadside** (`Survey.Of`): its `width` tag, the surface OSM
   outlines it with, or the paved width read off imagery under a street — never under a service road, a track or
   a link, where a yard's paving or a slip road's merge reads as theirs, and not where OSM gives widths lane by
@@ -113,6 +128,17 @@ surface and has no lane.
   width says it**: as many lanes each way as it holds past a roadside at each kerb, never fewer than OSM assumes
   and never more than any way of its class on the map is tagged with; a way with a lane's turn, change or bus
   entry tagged keeps OSM's count.
+- **A street's carriageway is held even along it** (`TracedStreets.Evened`) — a street being its roads run on into
+  each other through every place of two arms, and straight on through every junction where nothing else meeting it
+  is a street, only a yard's way or a track. **A stretch whose lanes change and change back** within
+  `SimConfig.CityGen.TracedLanesHeldM` is laid in the lanes either side of it. **A street losing lanes** within
+  `SimConfig.CityGen.TracedLanesHeldShortOfJunctionM` of a junction it ends at keeps the lanes it had up to it, the
+  lanes the junction joins nothing to ending there; one gaining lanes into it is as OSM has it. Its roadsides are held
+  even along each stretch of it driven the same ways: **a single roadside stands beside the kerb the stretch holds
+  more of its roadside along**; a stretch of roadside shorter than `SimConfig.CityGen.TracedRoadsideShortestM` along a
+  longer one is not laid, and **the rest is carried on along the whole of it**, every road it is carried along laid
+  as though measured wide enough to hold it — except one whose kerb or walk that would stand on another road's
+  carriageway. The buildings stand back with the walk.
 - **A roadside is lane zero** (`CityPlan.RoadArrays.RoadsideWithM`, `LaneLines.IsRoadside`, TER-4d): a lane of its
   road between the kerb lane and the kerb, as wide as the strip, parted from the lanes by a solid line and joined to
   nothing — no movement leaves or reaches it, no junction counts it among its lanes, and nothing is routed, stood or
@@ -123,9 +149,6 @@ surface and has no lane.
   next arm round carrying none on the kerb facing it, at a box of two arms or one the kerb runs straight on through —
   **it stops where its road does**, the end of the line beside it, and the kerb is eased in across the box over a band
   of its own, from the strip's end to the far end of the movement the lane beside it makes (`LaneLines.Tapers`).
-  **One the survey stops at a place of two arms is carried on** to the next corner its kerb turns, or to where one
-  starts again, where that stands within `SimConfig.CityGen.TracedRoadsideCarriedM` along the survey — every road
-  between laid as though measured wide enough to hold it.
 - **Its junctions carry lights where its map reads them signalled** (TLT-3 still asks each for its arms), the
   junctions controlled as one — a dual carriageway's crossing — on one clock, each set starting where the node
   it is named by says, so no seed draws it. A sign, a priority road or a roundabout's control is carried and
@@ -189,13 +212,22 @@ surface and has no lane.
   line** — both ways sharing it, or one way of one — has nothing beside the lane to cover its ground, so its
   floor is half its carriageway, where the ground's inner edge comes to a point.
 - **A road's line is normalised to the fewest corners and the roundest arcs that keep its survey**
-  (`TracedAlignment`), the line and the survey standing within `SimConfig.CityGen.TracedLineToleranceM` of each
+  (`TracedAlignment`), the line and the survey standing within `SimConfig.CityGen.TracedCornerToleranceM` of each
   other both ways: a point that near the straight past it is no corner; two neighbouring corners turning one way
   that one arc rounds that near are one, standing where their outer legs meet — so a bend a mapper drew as a
   polygon is one arc; and **every corner is rounded as wide as keeps its stretch of the survey that near**, never
   tighter than half its carriageway, or as tight as its legs leave room for, a leg shared so each corner keeps
   the tightest radius that holds its survey. A line normalised into a corner its lanes would fold over is laid
   as surveyed instead.
+- **And it is laid in the fewest pieces that keep its survey within its tolerance** — `SimConfig.CityGen.TracedLineToleranceM`,
+  and `SimConfig.CityGen.TracedLineToleranceShare` of its carriageway's width further, so the wider the road the
+  looser (`TracedPieces`): a run of its pieces that one arc, two, one corner between straights, or two bends and the
+  straight tangent to both join from the pose it starts on to the pose it ends on is laid as those, and of as many
+  pieces the fewest bent — none
+  tighter than its corners may round, none off the map, and none further off the survey than the pieces it
+  replaces where those already stood past the tolerance. **Every junction lays the movements it does with every
+  road unmerged**, which lane joining which as the same turn: a road's end keeps where it stands, and keeps its pose,
+  or the piece it ends in, where its junction's movements need them (`TracedStreets`).
 - **A road the map cuts runs off it** (`CityPlan.JunctionArrays.RunsOffTheMap`, GEN-2b): where only that road reaches
   the place a way left the map, its junction stands nothing off, so its lanes run up to the map's edge, and its ground
   is laid on past the edge by `SimConfig.PastTheMapEdgeM` and cut by it — the boundary turns round its end off the
@@ -746,7 +778,8 @@ deck cannot move (GEN-14a). **Nothing is laid and taken back**: all of that is a
 opened out, and a node that fails any of it stays the junction it was (GEN-8, GEN-10).
 
 **GEN-50** `P3` **No lane dangles**: every lane the town lays is one a car can be driven onto and one it can be
-driven off again. It is a local fact and not a connected one — a movement leaving a node needs some road
+driven off again — by a movement at its ends, or by moving across from or onto a lane beside it running its way
+(`CAR-53`), which is how a lane lost or gained at a node is driven (TER-5j). It is a local fact and not a connected one — a movement leaving a node needs some road
 other than its own arriving there, and a movement arriving needs some other road leaving — so a node a car
 can reach and not leave is a dead end whatever its arms come to, and the layout takes it away with the ones
 that carry a single arm (GEN-5a). **Where a road of two ways meets a road of one**, the way back out of that

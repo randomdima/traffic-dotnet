@@ -235,8 +235,7 @@ internal sealed class LaneLines
 
     /// <summary>
     /// <b>Whether this lane is a car park's bay</b> (<see cref="CityPlan.RoadArrays.IsABay"/>, GEN-53): laid over one
-    /// line, and besides that joined to nothing and got into by a car's own manoeuvre. A traced road of one lane
-    /// both ways share is laid over one line too and is no bay.
+    /// line, and besides that joined to nothing and got into by a car's own manoeuvre.
     /// </summary>
     public bool[] LaneIsBay { get; }
 
@@ -272,7 +271,8 @@ internal sealed class LaneLines
         LaneLengthM[lane] - (IsRoadside(lane) ? _roadsideInTheBoxAtEndM[lane - FirstRoadside] : 0f);
 
     /// <summary>
-    /// <b>The ground a kerb is eased in over where a roadside is lost along the way</b> (<see cref="RoadsideLanes.Tapers"/>):
+    /// <b>The ground a kerb is eased in over where a roadside is lost along the way</b> (<see cref="RoadsideLanes.Tapers"/>),
+    /// <b>or a lane at a node</b> — over the line the lanes' spread would have joined it by (<see cref="LaneUse.Eases"/>):
     /// no lane, so nothing here numbers, joins or drives it, and the shell is merged over it as over a lane
     /// (<see cref="LaneShell"/>).
     /// </summary>
@@ -290,6 +290,14 @@ internal sealed class LaneLines
         var level = LaneLevel[ConnectorFromLane[connector]];
         return level == LaneLevel[ConnectorToLane[connector]] ? level : CityPlan.RoadArrays.Ground;
     }
+
+    /// <summary>
+    /// <b>The collision channels a connector is on</b> (PHY-1a): both of the lanes' it joins, so one from a bridge onto
+    /// the road it lands on is on the bridge's and the ground's at once — the bridgehead is where the two meet.
+    /// </summary>
+    public byte ConnectorChannels(int connector) => (byte)(
+        CityPlan.RoadArrays.ChannelOf(LaneLevel[ConnectorFromLane[connector]])
+        | CityPlan.RoadArrays.ChannelOf(LaneLevel[ConnectorToLane[connector]]));
 
     /// <summary>The length of the line as driven, which is its road's own length at this lane's offset.</summary>
     public float[] LaneLengthM { get; }
@@ -387,8 +395,7 @@ internal sealed class LaneLines
             // where its road says it does, counted in from the kerb its own traffic keeps to
             // (<see cref="CityPlan.RoadArrays.LaneOffsetM"/>, TER-4d). <b>A bay is driven both ways over one
             // line</b> (GEN-53, GEN-4f): a car's width of ground a car stands on whichever way round it
-            // stands, so its two lanes are the line itself and not two halves of a carriageway — and so is a
-            // traced road OSM draws as one lane both ways share (GEN-57).
+            // stands, so its two lanes are the line itself and not two halves of a carriageway.
             var with = roads.LanesWithTheRoad(road);
             var against = roads.LanesAgainstTheRoad(road);
             var laneM = roads.LaneWidthM(road);
@@ -424,12 +431,14 @@ internal sealed class LaneLines
         var wholeOffsets = laneArcOffsets.ToArray();
         var wholeArcs = laneArcs.ToArray();
         var (outOffsets, outLanes) = Adjacency(junctions.Count, laneFromJunction);
-        var (connectorAt, connectorToLane, connectorKind) = Connectors(
+        var (connectorAt, connectorToLane, connectorKind, easedAt, easedToLane) = Connectors(
             config, roads, laneRoad, laneForward, laneFromKerb, laneToJunction, outOffsets, outLanes,
             wholeOffsets, wholeArcs);
 
         var (connectorArcOffsets, connectorArcs, connectorLengthM) = Movements(
             config, roads, laneRoad, wholeOffsets, wholeArcs, laneLengthM, connectorAt, connectorToLane);
+        var (easedArcOffsets, easedArcs, _) = Movements(
+            config, roads, laneRoad, wholeOffsets, wholeArcs, laneLengthM, easedAt, easedToLane);
 
         (connectorAt, connectorToLane, connectorKind, connectorArcOffsets, connectorArcs, connectorLengthM) =
             WhatTheJunctionOffers(
@@ -441,14 +450,15 @@ internal sealed class LaneLines
         var firstRoadside = laneRoad.Count;
         var inTheBoxAtStartM = new List<float>();
         var inTheBoxAtEndM = new List<float>();
-        RoadsideLanes.Taper[] tapers = [];
+        var eased = new RoadsideLanes.Runs(easedAt, easedToLane, easedArcOffsets, easedArcs);
+        var tapers = Eased(eased, laneWidthM, laneLevel);
         if (roads.RoadsideWithM.Length > 0)
         {
             var roadsides = RoadsideLanes.Of(
                 ground,
                 new RoadsideLanes.Joined(
-                    firstLaneOf, laneFromJunction, laneToJunction, laneWidthM, connectorAt, connectorToLane,
-                    connectorArcOffsets, connectorArcs),
+                    firstLaneOf, laneFromJunction, laneToJunction, laneWidthM,
+                    new RoadsideLanes.Runs(connectorAt, connectorToLane, connectorArcOffsets, connectorArcs), eased),
                 config);
             var line = new ArcSeg[roadsides.MostPieces];
             for (var road = 0; road < roads.Count; road++)
@@ -470,7 +480,7 @@ internal sealed class LaneLines
                 }
             }
 
-            tapers = [.. roadsides.Tapers];
+            tapers = [.. tapers, .. roadsides.Tapers];
         }
 
         if (laneRoad.Count > firstRoadside)
@@ -659,10 +669,12 @@ internal sealed class LaneLines
     /// arm with arrows painted on it is made from as they say (<see cref="LaneUse"/>).
     /// </para>
     /// <para>
-    /// <b>A lane joins the lane of its own number, unless that strands one</b> (<see cref="LaneUse"/>, GEN-50): a lane
-    /// with no movement out lane for lane, or a lane leaving the node that no movement reaches lane for lane, is
-    /// joined by the lanes' spread instead — a lane lost or gained along a street, or onto a road wider than the
-    /// turns into it.
+    /// <b>A lane joins the lane of its own number, and one with none there joins nothing</b> (<see cref="LaneUse"/>,
+    /// GEN-50): a lane lost along a street ends at the node, and a lane gained is reached by no movement but onto a
+    /// road of one lane more. Both are driven by moving across (CAR-53), never by a merge or a fan the node draws.
+    /// The ground such a merge or fan would have covered is returned beside the table, eased and never driven
+    /// (<see cref="LaneUse.Eases"/>, <see cref="Tapers"/>): without it the box keeps a kerbed hole where the lane
+    /// stops.
     /// </para>
     /// <para>
     /// <b>And a sharp turn is a sharp turn and not a reversal.</b> Two arms may be drawn as little as
@@ -672,15 +684,18 @@ internal sealed class LaneLines
     /// leave out. What is left out on the angle is only a pair that genuinely face each other.
     /// </para>
     /// </remarks>
-    static (int[] At, int[] ToLane, LaneTurn[] Kind) Connectors(
+    static (int[] At, int[] ToLane, LaneTurn[] Kind, int[] EasedAt, int[] EasedToLane) Connectors(
         SimConfig config, CityPlan.RoadArrays roads, List<int> laneRoad, List<bool> laneForward,
         List<byte> laneFromKerb, List<int> laneToJunction, int[] outOffsets, int[] outLanes, int[] laneArcOffsets,
         ArcSeg[] laneArcs)
     {
         var laneCount = laneToJunction.Count;
-        var candidates = new List<Candidate>();
-        var leftLaneForLane = new bool[laneCount];
-        var reachedLaneForLane = new bool[laneCount];
+        var offsets = new int[laneCount + 1];
+        var toLane = new List<int>();
+        var kind = new List<LaneTurn>();
+        var spread = new List<(int Lane, int Leaving)>();
+        var joinedOut = new bool[laneCount];
+        var joinedIn = new bool[laneCount];
         var straightRad = config.Road.TurnStraightToleranceDeg * MathF.PI / 180f;
         var turns = new LaneTurn?[MostLanesAtANode(outOffsets)];
         var bearsToTheKerb = new bool[turns.Length];
@@ -695,6 +710,8 @@ internal sealed class LaneLines
             var node = laneToJunction[lane];
             var leavingLanes = outLanes.AsSpan(outOffsets[node], outOffsets[node + 1] - outOffsets[node]);
             var offered = new LaneUse.Offered();
+            int? straightOnto = null;
+            var forks = false;
             for (var slot = 0; slot < leavingLanes.Length; slot++)
             {
                 var leaving = leavingLanes[slot];
@@ -715,6 +732,21 @@ internal sealed class LaneLines
                 turns[slot] = turn;
                 bearsToTheKerb[slot] = turnRad * config.RoadSideSign >= 0f;
                 offered = offered.With(turn);
+                if (turn != LaneTurn.Straight) continue;
+
+                forks |= straightOnto is { } onto && onto != laneRoad[leaving];
+                straightOnto = laneRoad[leaving];
+            }
+
+            // Straight on is numbered from the kerb, and from the side it bears to only where the arm forks, so the
+            // two branches cross nothing: the few degrees a lone carriageway bends through a node say nothing, and
+            // read as a side they enter and leave a short widening by opposite edges (TER-5j).
+            if (!forks)
+            {
+                for (var slot = 0; slot < leavingLanes.Length; slot++)
+                {
+                    if (turns[slot] == LaneTurn.Straight) bearsToTheKerb[slot] = true;
+                }
             }
 
             var lanesHere = LanesOfItsWay(roads, laneRoad[lane], laneForward[lane]);
@@ -728,47 +760,63 @@ internal sealed class LaneLines
 
                 // A turn whose lanes the survey names is made between those and no others.
                 var named = linked.Contains(new RoadTurn(node, laneRoad[lane], laneRoad[leaving]));
-                var laneForLane = named
+                var joins = named
                     ? links.Contains(new LaneLink(node, laneRoad[lane], laneFromKerb[lane], laneRoad[leaving], laneFromKerb[leaving]))
                     : LaneUse.Joins(
                         offered, turn, marked, laneFromKerb[lane], lanesHere, laneFromKerb[leaving], lanesThere,
                         bearsToTheKerb[slot]);
-                var shared = !named
-                    && LaneUse.Shares(offered, turn, marked, laneFromKerb[lane], lanesHere, laneFromKerb[leaving], lanesThere);
-                if (!laneForLane && !shared) continue;
-
-                candidates.Add(new Candidate(lane, leaving, turn, laneForLane));
-                leftLaneForLane[lane] |= laneForLane;
-                reachedLaneForLane[leaving] |= laneForLane;
-            }
-        }
-
-        var offsets = new int[laneCount + 1];
-        var toLane = new List<int>(candidates.Count);
-        var kind = new List<LaneTurn>(candidates.Count);
-        var next = 0;
-        for (var lane = 0; lane < laneCount; lane++)
-        {
-            for (; next < candidates.Count && candidates[next].Lane == lane; next++)
-            {
-                var candidate = candidates[next];
-                if (!candidate.LaneForLane && leftLaneForLane[lane] && reachedLaneForLane[candidate.Leaving]) continue;
-
-                toLane.Add(candidate.Leaving);
-                kind.Add(candidate.Kind);
+                if (joins)
+                {
+                    toLane.Add(leaving);
+                    kind.Add(turn);
+                    joinedOut[lane] = true;
+                    joinedIn[leaving] = true;
+                }
+                else if (!named && LaneUse.Eases(offered, turn, marked, laneFromKerb[lane], lanesHere, laneFromKerb[leaving], lanesThere))
+                {
+                    spread.Add((lane, leaving));
+                }
             }
 
             offsets[lane + 1] = toLane.Count;
         }
 
-        return (offsets, [.. toLane], [.. kind]);
+        // Eased only where one of the two is left ending or unreached, which is a question of the whole node.
+        var easedAt = new int[laneCount + 1];
+        var easedToLane = new List<int>();
+        var next = 0;
+        for (var lane = 0; lane < laneCount; lane++)
+        {
+            for (; next < spread.Count && spread[next].Lane == lane; next++)
+            {
+                if (!joinedOut[lane] || !joinedIn[spread[next].Leaving]) easedToLane.Add(spread[next].Leaving);
+            }
+
+            easedAt[lane + 1] = easedToLane.Count;
+        }
+
+        return (offsets, [.. toLane], [.. kind], easedAt, [.. easedToLane]);
     }
 
     /// <summary>
-    /// A movement a lane may be joined by: lane for lane (<see cref="LaneUse.Joins"/>), or only as the lanes' spread
-    /// (<see cref="LaneUse.Shares"/>), which is made where lane for lane strands one of its two lanes.
+    /// The eased lines as the bands they pave (<see cref="Tapers"/>): each as wide as the narrower of its two lanes and on
+    /// the level a connector between them would be (<see cref="ConnectorLevel"/>).
     /// </summary>
-    readonly record struct Candidate(int Lane, int Leaving, LaneTurn Kind, bool LaneForLane);
+    static RoadsideLanes.Taper[] Eased(RoadsideLanes.Runs eased, List<float> laneWidthM, List<byte> laneLevel)
+    {
+        var tapers = new RoadsideLanes.Taper[eased.ToLane.Length];
+        for (var lane = 0; lane + 1 < eased.At.Length; lane++)
+        {
+            for (var line = eased.At[lane]; line < eased.At[lane + 1]; line++)
+            {
+                var onto = eased.ToLane[line];
+                var level = laneLevel[lane] == laneLevel[onto] ? laneLevel[lane] : CityPlan.RoadArrays.Ground;
+                tapers[line] = new RoadsideLanes.Taper(eased.ArcsOf(line).ToArray(), MathF.Min(laneWidthM[lane], laneWidthM[onto]), level);
+            }
+        }
+
+        return tapers;
+    }
 
     /// <summary>How many lanes a road is driven in the way one of its lanes runs.</summary>
     static int LanesOfItsWay(CityPlan.RoadArrays roads, int road, bool forward) =>

@@ -4,6 +4,7 @@ using TrafficSimulation.App.Render;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Statics;
 using TrafficSimulation.World.Town;
 
@@ -62,6 +63,7 @@ internal static class LoadProbe
         // Where to point --at, rather than a second probe's walk of the same runs.
         EndingAt("merged", merged);
         EndingAt("carriageway", rings.Carriageway.Loose);
+        EndingAt("walk", rings.Walk.Loose);
 
         var world = new TownWorld(plan, config);
         Say("world", world.StoodMs, $"{world.AgentCount} agents, {world.StaticBodyCount} static bodies");
@@ -69,7 +71,8 @@ internal static class LoadProbe
         Say("  foot", world.FootMs, $"{world.Foot.EdgeCount} lanes");
         Say("  walking", world.WalkingMs, $"{world.Walking.Runs.LinkCount} runs");
         Say("  atlas", world.AtlasMs,
-            $"{world.Atlas.PointCount} points, {world.Atlas.EntryCount} entries, {world.Atlas.Bytes / 1048576.0:F1} MiB");
+            $"{world.Atlas.PointCount} points, {world.Atlas.EntryCount} entries, {world.Atlas.Bytes / 1048576.0:F1} MiB, " +
+            $"at most {world.Atlas.MostWaysAtAPoint} ways at a point of {RibbonAtlas.MostWaysUnderABody} under a body");
         Say("  the rest", world.StoodMs - world.RoadsMs - world.FootMs - world.WalkingMs - world.AtlasMs,
             "fleets, the tables they are numbered in, the roster and the spawn");
 

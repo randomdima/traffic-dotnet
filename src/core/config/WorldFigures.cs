@@ -609,16 +609,40 @@ internal sealed class CityGenFigures
     public float TracedTightestLaneRadiusM { get; init; } = 0.5f;
 
     /// <summary>
-    /// <b>How far a traced road's line may stand off a point its way was surveyed through</b> for the line to be laid
-    /// in the fewest corners and the roundest arcs (GEN-57, <c>TracedAlignment</c>): a point this near the straight
-    /// past it is no corner, two corners one arc passes this near are one, and a corner is rounded as wide as keeps
-    /// its stretch of the survey this near. A corner sharper than that can round at half its carriageway sags further.
+    /// <b>How far a traced road's corners may stand off a point its way was surveyed through</b> for the line to be
+    /// laid in the fewest corners and the roundest arcs (GEN-57, <c>TracedAlignment</c>): a point this near the
+    /// straight past it is no corner, two corners one arc passes this near are one, and a corner is rounded as wide as
+    /// keeps its stretch of the survey this near. A corner sharper than that can round at half its carriageway sags
+    /// further.
     /// </summary>
     /// <remarks>
-    /// Well inside a lane, and inside what OSM's own nodes are placed to off imagery: a bend a mapper drew as a
-    /// polygon is laid as the bend it was, and no road moves off its lane for it.
+    /// <b>The line its corners make is the one its junctions' movements are held to</b> (<c>TracedStreets</c>), so it
+    /// stands nearer the survey than the line laid in the end may: a bend a mapper drew as a polygon is laid as the
+    /// bend it was.
     /// </remarks>
-    public float TracedLineToleranceM { get; init; } = 0.5f;
+    public float TracedCornerToleranceM { get; init; } = 0.5f;
+
+    /// <summary>
+    /// <b>How far a traced road's line may stand off a point its way was surveyed through</b> for runs of its pieces to
+    /// be merged into fewer (GEN-57, <c>TracedPieces</c>), and <see cref="TracedLineToleranceShare"/> of its
+    /// carriageway's width further: a run one arc, two, or two and a straight keep that near is laid as those.
+    /// </summary>
+    /// <remarks>
+    /// Inside a lane, and inside what OSM's own nodes are placed to off imagery — and twice
+    /// <see cref="TracedCornerToleranceM"/>, which leaves a merge as much room as the corners took.
+    /// </remarks>
+    public float TracedLineToleranceM { get; init; } = 1f;
+
+    /// <summary>
+    /// <b>How much further a traced road's line may stand off its survey for each metre of its carriageway's
+    /// width</b>, past <see cref="TracedLineToleranceM"/> (GEN-57): a road standing a share of its own width off the
+    /// way surveyed down its middle covers as much of it whatever its width, so a wide one is merged the more loosely.
+    /// </summary>
+    /// <remarks>
+    /// An eighth: a street of one lane, 3.5 m, stands within 1.4 m of its survey, and one of a lane each way between two
+    /// roadsides, 11.4 m, within 2.4 m.
+    /// </remarks>
+    public float TracedLineToleranceShare { get; init; } = 0.125f;
 
     /// <summary>
     /// <b>How wide every lane of a traced road is laid</b> (GEN-57), whatever OSM tags or assumes: a street's lanes
@@ -645,15 +669,47 @@ internal sealed class CityGenFigures
     public float TracedRoadsideWidthM { get; init; } = 2.2f;
 
     /// <summary>
-    /// <b>How far on a roadside the survey stops along the way is carried</b> (GEN-57): to the next corner its kerb
-    /// turns, or to where a roadside starts again, where either stands no further along the survey than this from
-    /// the place it stopped.
+    /// <b>The longest stretch of a traced street laid in the lanes either side of it</b> (GEN-57): where its lanes change
+    /// and change back, alike either side, within this along the street, the stretch is laid in theirs.
     /// </summary>
     /// <remarks>
-    /// Two junction boxes' reach and a few metres of road between them: a stretch that short is the approach to the
-    /// corner, and a roadside ended at its start eases in across one box only to run into the next.
+    /// A block: a width read off imagery holds a lane each way and a roadside at each kerb as well as it holds two lanes
+    /// each way, and nothing but a yard's way meets a street that narrows for less than a block and widens again.
     /// </remarks>
-    public float TracedRoadsideCarriedM { get; init; } = 40f;
+    public float TracedLanesHeldM { get; init; } = 150f;
+
+    /// <summary>
+    /// <b>How far short of a junction a traced street that loses lanes into it keeps them</b> (GEN-57): a street losing
+    /// lanes no further than this from it runs into it in the lanes it had.
+    /// </summary>
+    /// <remarks>
+    /// A junction's approach: a lane the street has no room for at the junction ends unjoined there, rather than a few
+    /// car lengths short of it.
+    /// </remarks>
+    public float TracedLanesHeldShortOfJunctionM { get; init; } = 30f;
+
+    /// <summary>
+    /// <b>The shortest roadside a traced street is laid with</b> (GEN-57): one shorter along its street is not laid,
+    /// and one as long runs on along the whole of it wherever its kerb and walk stay off another road's carriageway.
+    /// </summary>
+    /// <remarks>
+    /// A few parked cars: a roadside is read off a width measured way by way, and a street holding one along one way
+    /// and none along the next was measured so, not built so.
+    /// </remarks>
+    public float TracedRoadsideShortestM { get; init; } = 30f;
+
+    /// <summary>
+    /// <b>How near two traced junctions a road joins stand for them to be laid as one</b> (GEN-57): two places of three
+    /// arms or more this near each other, centre to centre, are one junction, and the road between them is its ground.
+    /// </summary>
+    /// <remarks>
+    /// A dual carriageway's crossing, a side street meeting its far carriageway through the gap in the median, two side
+    /// streets a few metres apart across a street: a car crosses each as one movement. Further apart they are two side
+    /// streets a building apart and two forks, each a junction of its own with a few cars' queue and a zebra between,
+    /// and as one they make a box twice as long crossed by connectors fanned the whole of it (the decision log has the
+    /// reading at 30 m).
+    /// </remarks>
+    public float TracedJunctionsMergedM { get; init; } = 20f;
 
     /// <summary>
     /// The narrowest a traced road's measured width may leave each of its lanes (GEN-57): a width that would leave its

@@ -112,10 +112,11 @@ internal sealed partial class DebugOverlay
         Relaid = true;
 
         var into = new ScreenDraw(_town);
+        var above = new ScreenDraw(_townAbove);
 
         // <b>The ground first and the ruling over it</b>, both of them under every line: neither wash is
         // the thing being looked at, and what either is read against is whatever line lands on top of it.
-        if (switches.Ribbons) Ribbons(ref into, world, config, _drawnCentreM, _drawnSpanM, pixelsPerMetre);
+        if (switches.Ribbons) Ribbons(ref into, ref above, world, config, _drawnCentreM, _drawnSpanM, pixelsPerMetre);
 
         // A cell wash over a lane says which cell the lane is in; a lane over a cell wash says the same
         // thing and leaves the lane the thing being looked at, which is the one of the two that moves.
@@ -125,7 +126,7 @@ internal sealed partial class DebugOverlay
         // added, so it belongs in the cache beside the geometry it is an index of. Its moving half cannot.
         if (switches.SolverGrid) SolverStatics(ref into, world, _drawnCentreM, _drawnSpanM, pixelsPerMetre);
 
-        if (switches.Nodes) Nodes(ref into, world, config, _drawnCentreM, _drawnSpanM, pixelsPerMetre);
+        if (switches.Nodes) Nodes(ref into, ref above, world, config, _drawnCentreM, _drawnSpanM, pixelsPerMetre);
 
         // Over the graphs where both are on, which is the reading it exists for: what the layer says is
         // which of the lines under it the town's outline actually runs along.
@@ -149,6 +150,7 @@ internal sealed partial class DebugOverlay
         }
 
         _townQuads = into.Written;
+        _townAboveQuads = above.Written;
     }
 
     /// <summary>
@@ -169,10 +171,14 @@ internal sealed partial class DebugOverlay
     /// through the box. Without them the layer says a car crosses a junction by teleporting between two
     /// lane ends.
     /// </para>
+    /// <para>
+    /// <b>A bridge's lanes and its joins are drawn into <paramref name="above"/></b> (<see cref="IsAbove"/>), over its
+    /// deck; everything else here is on the ground.
+    /// </para>
     /// </remarks>
     void Nodes(
-        ref ScreenDraw draw, TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM,
-        float pixelsPerMetre)
+        ref ScreenDraw draw, ref ScreenDraw above, TownWorld world, SimConfig config, Vector2 viewCentreM,
+        Vector2 viewSpanM, float pixelsPerMetre)
     {
         var pitch = PathMarks.MarkPitchAt(config.Grid, pixelsPerMetre);
         var sagM = PathMarks.SagPx / pixelsPerMetre;
@@ -190,12 +196,13 @@ internal sealed partial class DebugOverlay
         var roads = world.Roads;
         for (var lane = 0; lane < roads.LaneCount; lane++)
         {
+            ref var into = ref roads.LaneLevel[lane] != CityGen.CityPlan.RoadArrays.Ground ? ref above : ref draw;
             Chain(
-                ref draw, roads.ArcsOf(lane), sagM, roads.IsARoadside(lane) ? null : pitch, roads.LaneOverOneLine[lane],
+                ref into, roads.ArcsOf(lane), sagM, roads.IsARoadside(lane) ? null : pitch, roads.LaneOverOneLine[lane],
                 Theme.DrivingNodes, viewCentreM, viewSpanM, _marks);
         }
 
-        Movements(ref draw, roads, config, sagM, pitch, Theme.DrivingNodes, viewCentreM, viewSpanM, _marks);
+        Movements(ref draw, ref above, roads, config, sagM, pitch, Theme.DrivingNodes, viewCentreM, viewSpanM, _marks);
         BayApproaches(ref draw, world, sagM, pitch, Theme.DrivingNodes, viewCentreM, viewSpanM, _marks);
 
         // And on the walking side, every lane of the town's pavement as the graph holds it (WLK-1), which is
@@ -355,8 +362,8 @@ internal sealed partial class DebugOverlay
     /// </para>
     /// </remarks>
     static void Movements(
-        ref ScreenDraw draw, RoadGraph roads, SimConfig config, float sagM, GridLevel? pitch, Vector4 colour,
-        Vector2 viewCentreM, Vector2 viewSpanM, MarkClaims claims)
+        ref ScreenDraw draw, ref ScreenDraw above, RoadGraph roads, SimConfig config, float sagM, GridLevel? pitch,
+        Vector4 colour, Vector2 viewCentreM, Vector2 viewSpanM, MarkClaims claims)
     {
         for (var lane = 0; lane < roads.LaneCount; lane++)
         {
@@ -365,8 +372,9 @@ internal sealed partial class DebugOverlay
 
             foreach (var connector in roads.ConnectorsFrom(lane))
             {
+                ref var into = ref roads.ConnectorLevel(connector) != CityGen.CityPlan.RoadArrays.Ground ? ref above : ref draw;
                 Link(
-                    ref draw, roads.ConnectorArcs(connector), sagM, pitch, bothWays: false, colour,
+                    ref into, roads.ConnectorArcs(connector), sagM, pitch, bothWays: false, colour,
                     viewCentreM, viewSpanM, claims);
             }
         }

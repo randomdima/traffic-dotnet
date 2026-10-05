@@ -89,6 +89,13 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     /// </remarks>
     public const int UnderlayCapacity = OverlayCapacity;
 
+    /// <summary>
+    /// <b>And how many on the level above</b> (TER-7b, PHY-1a): the same buffer past <see cref="UnderlayCapacity"/>,
+    /// drawn over the bridges and under the bodies on them, as <see cref="SpritesAbove"/> is. A quarter, because the
+    /// level above is a town's few bridges and not its streets.
+    /// </summary>
+    public const int UnderlayAboveCapacity = UnderlayCapacity / 4;
+
     readonly Vk _vk;
     readonly AppWindow? _window;
     readonly Extent2D _offscreenSize;
@@ -278,13 +285,24 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     /// <summary>The same buffer's worth of quads drawn <em>under</em> the bodies — the town's own ground marks.</summary>
     public Span<OverlayQuad> Underlay => _underlay[(int)_image].Span<OverlayQuad>()[..UnderlayCapacity];
 
-    /// <summary>And how many of those are to be drawn, on the same terms.</summary>
-    public void SetUnderlayCount(int count) =>
-        _underlayIndirect[(int)_image].Span<DrawIndirectCommand>()[0] = new DrawIndirectCommand
+    /// <summary>
+    /// <b>And the marks on the level above</b> (<see cref="UnderlayAboveCapacity"/>): past <see cref="Underlay"/>,
+    /// drawn after the bridges over the ground, where the first run is drawn under them.
+    /// </summary>
+    public Span<OverlayQuad> UnderlayAbove =>
+        _underlay[(int)_image].Span<OverlayQuad>().Slice(UnderlayCapacity, UnderlayAboveCapacity);
+
+    /// <summary>And how many of each run are to be drawn, on the same terms.</summary>
+    public void SetUnderlayCount(int count, int above)
+    {
+        var draws = _underlayIndirect[(int)_image].Span<DrawIndirectCommand>();
+        draws[0] = new DrawIndirectCommand { VertexCount = 4, InstanceCount = (uint)Math.Clamp(count, 0, UnderlayCapacity) };
+        draws[1] = new DrawIndirectCommand
         {
             VertexCount = 4,
-            InstanceCount = (uint)Math.Clamp(count, 0, UnderlayCapacity),
+            InstanceCount = (uint)Math.Clamp(above, 0, UnderlayAboveCapacity),
         };
+    }
 
     /// <summary>
     /// The size of one frame of a sheet cut into a grid, as width over height — what a sprite's quad is

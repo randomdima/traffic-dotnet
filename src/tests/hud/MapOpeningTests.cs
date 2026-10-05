@@ -98,7 +98,7 @@ public class MapOpeningTests
 
         var into = new OverlayQuad[4096];
         var under = new OverlayQuad[256];
-        var written = ui.Draw(into, under, Frame(Window), out var underWritten);
+        var written = ui.Draw(into, under, [], Frame(Window), out var underWritten, out _);
 
         Assert.Equal(0, underWritten);
         Assert.True(written > 0, "the card was the only thing to draw and nothing was drawn");
@@ -133,7 +133,7 @@ public class MapOpeningTests
 
         var into = new OverlayQuad[1024];
         var under = new OverlayQuad[16];
-        ui.Draw(into, under, Frame(narrow), out _);
+        ui.Draw(into, under, [], Frame(narrow), out _, out _);
 
         Assert.True(
             ui.Opening.Box.SizePx.X <= narrow.X - (Theme.MarginPx * 2f),

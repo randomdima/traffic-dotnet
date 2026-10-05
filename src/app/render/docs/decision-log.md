@@ -28,12 +28,16 @@ sheets now, and 512 of 32 bytes is the 16 KB uniform range every Vulkan device m
 
 ## 2026-10-04 — a bridge over a road is drawn above it, and so are the cars on it
 
-The owner asked for bridges over roads drawn above them as roads of their own (`TER-7b`). **Two draws of the ground
-and two runs of the bodies, in one recording**: the ground's parts to the paint, the bodies on the ground, the level
-above (`GroundPart.Above` — its decks, carriageway, kerb and paint), then the bodies on it. Each pair is one buffer —
-the index buffer's last part and the instances past `SpriteCapacity` — bound at a second offset, because an indirect
-draw starting at a non-zero instance needs `drawIndirectFirstInstance`, which this project does not ask for. The
-commands are recorded once per image, so a frame still makes the five crossings it did.
+The owner asked for bridges over roads drawn above them as roads of their own (`TER-7b`). **Two draws of the ground,
+of its marks and of the bodies, in one recording**: the ground's parts to the paint, the ground's marks, the bodies on
+the ground, the level above (`GroundPart.Above` — its decks, carriageway, kerb and paint), its marks, then the bodies
+on it. Each pair is one buffer — the index buffer's last part, the underlay past `UnderlayCapacity` and the instances
+past `SpriteCapacity` — bound at a second offset, because an indirect draw starting at a non-zero instance needs
+`drawIndirectFirstInstance`, which this project does not ask for. The commands are recorded once per image, so a
+frame still makes the five crossings it did.
+
+- **A mark goes with the way it is about** (2026-10-05, the owner): a bridge's lanes, joins, ribbons and claims drawn
+  in the ground's one run were under its own deck. A join at a bridgehead is on the ground, as its tarmac is.
 
 - **Paint goes with its carriageway**: a run of lane dashes stops at a bridgehead (`CentrelineRuns`), and each mark is
   laid in its own level's stack.

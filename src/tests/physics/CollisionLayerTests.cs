@@ -36,20 +36,6 @@ public class CollisionLayerTests
         Assert.False(CollisionLayers.Interact(CollisionLayer.Downed, CollisionLayer.Downed));
     }
 
-    /// <summary>
-    /// PHY-1a: a car on a bridge over other roads meets the cars on its own deck and nothing on the ground below —
-    /// no car, no walker, no building and no casualty.
-    /// </summary>
-    [Fact]
-    public void ACarOnABridgeMeetsItsOwnDeckAndNothingBelow()
-    {
-        Assert.True(CollisionLayers.Interact(CollisionLayer.CarOver, CollisionLayer.CarOver));
-        Assert.False(CollisionLayers.Interact(CollisionLayer.CarOver, CollisionLayer.Car));
-        Assert.False(CollisionLayers.Interact(CollisionLayer.CarOver, CollisionLayer.Person));
-        Assert.False(CollisionLayers.Interact(CollisionLayer.CarOver, CollisionLayer.Static));
-        Assert.False(CollisionLayers.Interact(CollisionLayer.CarOver, CollisionLayer.Downed));
-    }
-
     [Fact]
     public void EveryPairOfLayersAgreesInBothDirections()
     {

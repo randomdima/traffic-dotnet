@@ -30,13 +30,16 @@ public class InspectorTests
 
     static readonly OverlayQuad[] Under = new OverlayQuad[TownRenderer.UnderlayCapacity];
 
+    static readonly OverlayQuad[] UnderAbove = new OverlayQuad[TownRenderer.UnderlayAboveCapacity];
+
     /// <summary>One frame of the overlay framed on a place, with the pointer standing on it.</summary>
     static void Frame(DebugOverlay overlay, TownWorld world, DebugSwitches switches, DebugPick pick, Vector2 atM)
     {
         var draw = new ScreenDraw(Over);
         var ground = new ScreenDraw(Under);
+        var groundAbove = new ScreenDraw(UnderAbove);
         overlay.Draw(
-            ref draw, ref ground, world, mesh: null, Config, switches, pick, atM, UiPx * 0.5f, UiPx, atM,
+            ref draw, ref ground, ref groundAbove, world, mesh: null, Config, switches, pick, atM, UiPx * 0.5f, UiPx, atM,
             UiPx / PixelsPerMetre, PixelsPerMetre);
     }
 

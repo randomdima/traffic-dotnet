@@ -231,17 +231,11 @@ internal sealed class CityPlan
         public bool IsABay(int road) => Bay.Length > 0 && Bay[road];
 
         /// <summary>
-        /// <b>Which roads are one lane both ways share</b> — a traced road OSM draws as a single lane driven
-        /// both ways (GEN-57). <b>Empty where the town lays none</b>, which is every town the generator lays.
-        /// </summary>
-        public bool[] SharedLane { get; init; } = [];
-
-        /// <summary>
         /// <b>Whether a road is driven both ways over one line</b> — a car's width of ground driven in over
         /// and driven back out over (GEN-4f), so its two lanes are its own line rather than two halves of a
-        /// carriageway: a bay, and a traced road of one lane both ways share (<see cref="SharedLane"/>).
+        /// carriageway: a bay, and nothing else.
         /// </summary>
-        public bool DrivenOverOneLine(int road) => IsABay(road) || (SharedLane.Length > 0 && SharedLane[road]);
+        public bool DrivenOverOneLine(int road) => IsABay(road);
 
         /// <summary>
         /// <b>The roadside each road carries inside its kerbs</b> (GEN-57): a strip of carriageway between the kerb
@@ -422,6 +416,15 @@ internal sealed class CityPlan
 
         /// <summary>The level a bridge over other roads is driven on.</summary>
         public const byte Over = 1;
+
+        /// <summary>
+        /// <b>The collision channel a level is</b> (PHY-1a): a bit of its own, so what stands on several levels at once —
+        /// a bridgehead, a car on it — carries each of theirs.
+        /// </summary>
+        public static byte ChannelOf(byte level) => (byte)(1 << level);
+
+        /// <summary>The ground's channel (<see cref="ChannelOf"/>), which everything but a bridge over other roads is on.</summary>
+        public const byte GroundChannel = 1 << Ground;
 
         public int Count => WidthM.Length;
 

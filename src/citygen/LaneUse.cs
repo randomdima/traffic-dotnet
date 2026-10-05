@@ -42,10 +42,10 @@ internal readonly record struct LaneLink(int Junction, int FromRoad, int FromKer
 /// movements off one arm onto one road cross each other.
 /// </para>
 /// <para>
-/// <b>Where that strands a lane, the lanes are spread instead</b> (<see cref="Shares"/>): the lanes making a
-/// movement over the lanes it reaches in the same order, fewer onto more each fanning out over its share, more onto
-/// fewer merging into theirs. Which lane is stranded — one arriving with nowhere to go, or one of the road taken
-/// that nothing at the junction reaches — is a question of the whole node, and the caller's (<c>LaneLines</c>).
+/// <b>A lane with no lane of its number there joins nothing</b> (GEN-50): of more lanes onto fewer the ones over end,
+/// and of fewer onto more the ones over are reached by none — but onto a road of one lane more, whose last lane the
+/// last lane in joins as well as its own. A car gets off the one and onto the other by moving across (CAR-53). <b>The
+/// ground between them is still paved</b> (<see cref="Eases"/>), over the line the lanes' spread would have joined them by.
 /// </para>
 /// <para>
 /// <b>One lane each way is today's town and comes out exactly as it was</b>: every lane is the kerb lane and
@@ -75,19 +75,26 @@ internal static class LaneUse
     /// with <paramref name="arrows"/> (from the kerb, or none), is joined by a turn of this kind to the lane
     /// <paramref name="ontoFromKerb"/> in from the kerb of a road taking it in <paramref name="ontoLanes"/>: lane for
     /// lane, both numbered from the kerb where the movement <paramref name="bearsToTheKerb"/> and from the line where
-    /// it bears away from it.
+    /// it bears away from it, and the last lane onto the last as well where the road taken has one lane more.
     /// </summary>
     public static bool Joins(
         Offered offered, LaneTurn turn, ReadOnlySpan<MarkedTurns> arrows, int fromKerb, int lanes, int ontoFromKerb,
-        int ontoLanes, bool bearsToTheKerb) =>
-        Makes(offered, turn, arrows, fromKerb, lanes)
-        && FromItsSide(fromKerb, lanes, bearsToTheKerb) == FromItsSide(ontoFromKerb, ontoLanes, bearsToTheKerb);
+        int ontoLanes, bool bearsToTheKerb)
+    {
+        if (!Makes(offered, turn, arrows, fromKerb, lanes)) return false;
+
+        var from = FromItsSide(fromKerb, lanes, bearsToTheKerb);
+        var onto = FromItsSide(ontoFromKerb, ontoLanes, bearsToTheKerb);
+        return onto == from || (ontoLanes == lanes + 1 && from == lanes - 1 && onto == lanes);
+    }
 
     /// <summary>
-    /// <b>The same, spread</b>: whether the lane reaches its own share of the road's lanes, the lanes making the turn
-    /// taken in the same order — what joins a lane that lane for lane (<see cref="Joins"/>) would strand.
+    /// <b>Whether the ground between two lanes is paved though no car is joined over it</b> (<see cref="LaneLines.Tapers"/>):
+    /// the lanes making the turn spread over the lanes it reaches in the same order, fewer onto more each fanning out
+    /// over its share, more onto fewer merging into theirs. Asked only where lane for lane (<see cref="Joins"/>) leaves
+    /// one of the two ending or unreached — which is the caller's (<c>LaneLines</c>).
     /// </summary>
-    public static bool Shares(
+    public static bool Eases(
         Offered offered, LaneTurn turn, ReadOnlySpan<MarkedTurns> arrows, int fromKerb, int lanes, int ontoFromKerb, int ontoLanes)
     {
         var at = -1;

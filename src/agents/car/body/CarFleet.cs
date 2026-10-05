@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Actions;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Physics;
@@ -48,7 +49,7 @@ internal sealed class CarFleet
         Driven = new bool[capacity];
         Action = new CarAction[capacity];
         Broken = new bool[capacity];
-        Level = new byte[capacity];
+        Channels = new byte[capacity];
         Ambulance = new bool[capacity];
         BlueLight = new bool[capacity];
         AtWork = new bool[capacity];
@@ -181,11 +182,17 @@ internal sealed class CarFleet
     public bool[] Broken { get; }
 
     /// <summary>
-    /// <b>The level the car is on</b> (PHY-1a): its lane's (<c>CityPlan.RoadArrays.Level</c>) — on a bridge over other
-    /// roads it meets nobody and claims nothing of the road below. Kept where it has no lane, so a car stopped on a
-    /// bridge stays on it.
+    /// <b>The collision channels the car is on</b> (PHY-1a): every channel of the ways its collider stood over when its
+    /// body was last laid — on a bridge over other roads the bridge's alone, so it meets nobody and claims nothing of the
+    /// road below, and at a bridgehead the bridge's and the ground's. Kept where it stood over none.
     /// </summary>
-    public byte[] Level { get; }
+    public byte[] Channels { get; }
+
+    /// <summary>
+    /// <b>The level the car is drawn at and stands on</b>: the highest of its channels' (<see cref="Channels"/>), so a
+    /// car at a bridgehead is on the deck where there is deck and on the ground past its end.
+    /// </summary>
+    public byte LevelOf(int car) => (byte)BitOperations.Log2(Channels[car]);
 
     /// <summary>
     /// <b>AMB-3: whether this car is an ambulance</b> — a fact about the car and never about what it is
@@ -684,7 +691,7 @@ internal sealed class CarFleet
         Driven[car] = false;
         Action[car] = CarAction.Stand;
         Broken[car] = false;
-        Level[car] = 0;
+        Channels[car] = CityPlan.RoadArrays.GroundChannel;
         Ambulance[car] = false;
         BlueLight[car] = false;
         AtWork[car] = false;

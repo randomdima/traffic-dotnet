@@ -16,7 +16,7 @@ namespace TrafficSimulation.Tests.CityGen.Traced;
 [Trait(Priority.Key, Priority.P4)]
 public class TracedAlignmentTests
 {
-    static readonly float ToleranceM = SimConfig.Shipped().CityGen.TracedLineToleranceM;
+    static readonly float ToleranceM = SimConfig.Shipped().CityGen.TracedCornerToleranceM;
 
     /// <summary>Half a street's carriageway of one lane each way, the least a traced street's corner is rounded at.</summary>
     const float LeastM = 3.5f;
@@ -113,27 +113,9 @@ public class TracedAlignmentTests
         Assert.InRange(reachM[0] + reachM[1], 0f, Vector2.Distance(pointsM[1], pointsM[2]));
     }
 
-    /// <summary>
-    /// A bend of <see cref="BendRadiusM"/> drawn as a mapper draws one, a node every <see cref="NodeStepDeg"/>, from
-    /// a place on a heading, turning to the right as positive — the place and the bend's last node included.
-    /// </summary>
-    static Vector2[] Bend(Vector2 fromM, float headingDeg, float turnDeg)
-    {
-        var heading = Heading.Unit(headingDeg * MathF.PI / 180f);
-        var toCentre = MathF.Sign(turnDeg) * new Vector2(-heading.Y, heading.X);
-        var centreM = fromM + (toCentre * BendRadiusM);
-        var nodes = (int)MathF.Round(MathF.Abs(turnDeg) / NodeStepDeg);
-        var bendM = new Vector2[nodes + 1];
-        for (var node = 0; node <= nodes; node++)
-        {
-            var turnedRad = turnDeg * node / nodes * MathF.PI / 180f;
-            var (sin, cos) = MathF.SinCos(turnedRad);
-            var outward = -toCentre;
-            bendM[node] = centreM + (BendRadiusM * new Vector2((outward.X * cos) - (outward.Y * sin), (outward.X * sin) + (outward.Y * cos)));
-        }
-
-        return bendM;
-    }
+    /// <summary>A bend of <see cref="BendRadiusM"/>, a node every <see cref="NodeStepDeg"/> (<see cref="SurveyedLines.Bend"/>).</summary>
+    static Vector2[] Bend(Vector2 fromM, float headingDeg, float turnDeg) =>
+        SurveyedLines.Bend(fromM, headingDeg, turnDeg, BendRadiusM, NodeStepDeg);
 
     /// <summary>A straight east, a bend 45° right, a bend 45° left straight after it, and a straight on east.</summary>
     static Vector2[] SBend()
@@ -143,52 +125,10 @@ public class TracedAlignmentTests
         return [new(100f, 500f), .. rightM, .. leftM[1..], leftM[^1] + new Vector2(100f, 0f)];
     }
 
-    /// <summary>A surveyed line normalised and rounded as a traced road's is, at one least radius.</summary>
-    static ArcSeg[] Laid(Vector2[] surveyedM, float leastM)
-    {
-        var (pointsM, tightestM, widestM) = TracedAlignment.Of(surveyedM, leastM, ToleranceM);
-        var arcs = new ArcSeg[(2 * pointsM.Length) - 3];
-        var count = Spline.RoundedInto(pointsM, TracedAlignment.Reaches(pointsM, tightestM, widestM), arcs);
-        return arcs[..count];
-    }
+    static ArcSeg[] Laid(Vector2[] surveyedM, float leastM) => SurveyedLines.Laid(surveyedM, leastM, ToleranceM);
 
-    /// <summary>
-    /// How far a line and the surveyed line it was laid from stand apart: every surveyed point off the line, and the
-    /// line, read every <see cref="SampleStepM"/>, off the surveyed line.
-    /// </summary>
-    static float FurthestApartM(ReadOnlySpan<ArcSeg> line, ReadOnlySpan<Vector2> surveyedM)
-    {
-        var lengthM = Spline.TotalLengthM(line);
-        var furthestM = 0f;
-        foreach (var pointM in surveyedM)
-        {
-            var onM = Spline.ProjectM(line, pointM, lengthM * 0.5f, lengthM);
-            furthestM = MathF.Max(furthestM, Vector2.Distance(Spline.SampleAt(line, onM).PositionM, pointM));
-        }
-
-        for (var alongM = 0f; alongM <= lengthM; alongM += SampleStepM)
-        {
-            var atM = Spline.SampleAt(line, alongM).PositionM;
-            var offM = float.PositiveInfinity;
-            for (var point = 1; point < surveyedM.Length; point++)
-            {
-                offM = MathF.Min(offM, SegmentOffM(atM, surveyedM[point - 1], surveyedM[point]));
-            }
-
-            furthestM = MathF.Max(furthestM, offM);
-        }
-
-        return furthestM;
-    }
-
-    const float SampleStepM = 0.25f;
-
-    static float SegmentOffM(Vector2 pointM, Vector2 fromM, Vector2 toM)
-    {
-        var runM = toM - fromM;
-        var along = Math.Clamp(Vector2.Dot(pointM - fromM, runM) / runM.LengthSquared(), 0f, 1f);
-        return Vector2.Distance(pointM, fromM + (runM * along));
-    }
+    static float FurthestApartM(ReadOnlySpan<ArcSeg> line, ReadOnlySpan<Vector2> surveyedM) =>
+        SurveyedLines.FurthestApartM(line, surveyedM);
 
     sealed class VectorWithin(float toleranceM) : IEqualityComparer<Vector2>
     {

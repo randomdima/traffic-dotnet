@@ -17,7 +17,7 @@ namespace TrafficSimulation.CityGen.Traced;
 /// </para>
 /// <para>
 /// <b>Stood and nothing more</b>, as every car a map puts down is (GEN-7): what drives them is the rule a map with
-/// nowhere to park on drives its own (CAR-8), and the level each is on is its lane's from its first step (PHY-1a).
+/// nowhere to park on drives its own (CAR-8), and each is on its lane's channel from its first step (PHY-1a).
 /// </para>
 /// </remarks>
 internal static class TracedBridgeCars

@@ -336,7 +336,7 @@ internal sealed partial class TownWorld
         var atM = Cars.PositionM[car] - (ForwardOf(car) * behindM);
         if (!IsFreeToSetDown(wreck, car, atM, Cars.HeadingRad[car])) return false;
 
-        SetTheWreckDown(wreck, atM, Cars.HeadingRad[car]);
+        SetTheWreckDown(wreck, car, atM, Cars.HeadingRad[car]);
         return true;
     }
 
@@ -349,7 +349,7 @@ internal sealed partial class TownWorld
     {
         var halfM = Cars.BuildOf(car).CollisionSizeM * 0.5f;
         Span<WayCover> under = stackalloc WayCover[MostWaysUnderABody];
-        var count = _atlas.UnderBox(atM, Heading.Unit(headingRad), halfM.X, halfM.Y, under, Cars.Level[by]);
+        var count = _atlas.UnderBox(atM, Heading.Unit(headingRad), halfM.X, halfM.Y, under, Cars.Channels[by]);
         for (var at = 0; at < count; at++)
         {
             ref readonly var cover = ref under[at];
@@ -478,7 +478,7 @@ internal sealed partial class TownWorld
         var headingRad = BayTemplate.StandingHeadingRad(_parking.HeadingRad(slot), noseIn: true);
         if (!IsFreeToSetDown(wreck, car, _parking.CentreM(slot), headingRad)) return;
 
-        SetTheWreckDown(wreck, _parking.CentreM(slot), headingRad);
+        SetTheWreckDown(wreck, car, _parking.CentreM(slot), headingRad);
         _parking.Occupy(slot, wreck);
 
         LetGoOfIt(car, wreck);
@@ -883,8 +883,14 @@ internal sealed partial class TownWorld
     /// slice's own operation rather than a second one (PHY-7a): the solver is handed the pose before the body
     /// is back in the world, so nothing sees it cross the ground between.
     /// </summary>
-    void SetTheWreckDown(int wreck, Vector2 atM, float headingRad)
+    /// <remarks>
+    /// <b>On the channels of the truck putting it there</b> (PHY-1a), which is what its ground was asked on
+    /// (<see cref="IsFreeToSetDown"/>): a body is read on the channels it has, so one carried off a bridge and put down
+    /// on the ground with the bridge's would never find the ground again.
+    /// </remarks>
+    void SetTheWreckDown(int wreck, int by, Vector2 atM, float headingRad)
     {
+        PutOnChannels(wreck, Cars.Channels[by]);
         _physics.Release(Cars.Body[wreck], atM, headingRad);
         Cars.PositionM[wreck] = atM;
         Cars.HeadingRad[wreck] = headingRad;

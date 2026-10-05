@@ -171,7 +171,7 @@ internal sealed partial class TownWorld
     {
         var forward = ForwardOf(car);
         var rearAxleM = CarFollower.RearAxleM(Cars.BuildOf(car), Cars.PositionM[car], forward);
-        var under = TheCarriagewayUnder(rearAxleM, forward, Cars.Level[car]);
+        var under = TheCarriagewayUnder(rearAxleM, forward, Cars.LevelOf(car));
         if (under.Lane < 0) return false;
 
         // Where the body stands on the chain it is handed, before the line is laid over it: the route is searched

@@ -1,5 +1,149 @@
 # CityGen — decision log
 
+## 2026-10-05 — junctions a short road joins are one junction
+
+**The owner asked for two junctions on one road nearer than 30 m, and the very short roads between them, to be one
+junction, with whatever its movements then need**, then asked whether 30 m was too much and offered 20 m. A traced
+town stood a junction at every place ways meet however close (GEN-57): `OdesaOsm` had 1 788 roads under 30 m between
+two junctions of three arms or more — 1 046 one way, 650 two-way, 92 round a roundabout — chaining into groups of up
+to 17 junctions.
+
+- **Gathered where a road between two runs shorter than `TracedJunctionsMergedM`, through nothing but places of two
+  arms** (`TracedStreets.Gathered`), and with them every junction joined so while each stays that near every other,
+  so a chain of them is never one box. Not on a bridge or a roundabout, not where a longer road between two would run
+  out and back to one junction, and not leaving fewer than two roads in.
+- **Each road keeps its own place's disc**, and the gathered junction stands amid them with a radius reaching the
+  furthest of them: one disc about the middle stood a side street's stop line 14 m back where the stagger was 28 m.
+  Nothing reads a traced junction's centre for its movements (`LaneLines` draws them lane end to lane end), and the
+  two that measure from it (`KerbEnds.OutM`, `RoadsideLanes.RunInto`) ask only which way is out.
+- **A movement is made only where the roads gathered made a way for it**, searched through their one-way roads and the
+  restrictions at their places; the rest are `RoadTurn` bans. A box drawing every movement between its arms would
+  turn a side street across a median gap mapped one way, and onto a gap a restriction keeps it off. A restriction
+  naming a road that went is laid by that search rather than counted unmatched.
+- **20 m and not 30 m.** At 30 m 2 288 junctions became 1 051 and 1 270 roads went, but past 20 m the pairs are mostly
+  two junctions in the street: side streets a building apart, two forks of one road, a zebra between them. As one,
+  each made a box twice as long fanned across by connectors and lost its zebra, and one more boundary run stayed open.
+  Under 20 m they are what one junction is: a median gap, a crossing drawn as two tees, a stagger of a few metres.
+- **What came out on `OdesaOsm` at 20 m**: 1 468 junctions gathered into 705 and 776 roads gone; 11 361 roads (12 137)
+  and 7 323 junctions (8 086), 371 lit (420). 482 movements forbidden that the gathered roads never made; restrictions
+  laid 978 of 1 133 as before, 4 unmatched as before; arrows on 190 road ends (199). Lanes left with no turn out
+  9 (5) — dead ends the box now has another road out of, which before had none. 1 135 zebras (1 153), the rest on roads
+  that went; 1 023 trees (1 047), kept off the wider reach of a gathered box; 61 640 buildings (61 643). OSM's lanes
+  within 1 m of the engine's 69.9 % (70.0 %). At most 16 ways at a point of the atlas (16). The boundary leaves
+  15 carriageway runs open (14) and 4 walk (2) — the new at (636, 18916), (4231, 17141), (2325, 11844) and
+  (2767, 8573), with nothing to see in a shot of them. 162 roads under 20 m between junctions of three arms are left,
+  54 of them round roundabouts.
+
+## 2026-10-05 — a street keeps its lanes and its roadsides along it
+
+**The owner found `OdesaOsm`'s roads changing their lane count and back, and their roadsides coming and going and
+changing sides, and asked for a street to keep them**: a lane count that changes and changes back with no real
+junction between held to the one either side, lanes lost up to 30 m short of a junction kept up to it — gained ones
+being fine — and a roadside dropped where it runs under 30 m, carried along the road where it hits nothing, the
+buildings moving with it, and kept to one side. A way's lanes and roadsides are read off a width measured way by way
+(`Survey`): the same width read a lane each way between two roadsides along one way and two lanes each way along the
+next, and a single roadside stands beside whichever kerb its way happened to be drawn along.
+
+- **A street is its roads run on through every place of two arms, and straight on through every junction where nothing
+  else meeting it is a street** (`TracedStreets.Streets`) — a service way or a track joining is no junction of streets,
+  a link is. Through places of two arms alone, `OdesaOsm` has 444 joints, 91 changing the lane count; through service
+  junctions as well, 2 178 joints, 112 changing the lane count and 413 the roadside.
+- **A stretch whose lanes change and change back is laid in the lanes either side** within `TracedLanesHeldM`, 150 m,
+  a block (`HeldThrough`): the longest such stretch found is 140 m, two lanes each way read as one each way between two
+  roadsides off one width. A stretch of a two-way street run one way and back is no lane count and is left as OSM has
+  it, as are lanes gained between a slip road's two ends.
+- **A street losing lanes within `TracedLanesHeldShortOfJunctionM`, 30 m, of the junction it ends at keeps them up to
+  it** (`HeldShortOf`), the junction joining nothing to the lanes it has no turn for. One gaining them is a flare.
+- **Its roadsides on one side, none under `TracedRoadsideShortestM` (30 m), and the rest carried along all of it**
+  (`Roadsides`), each road laid as though measured wide enough to hold them, so a road differing from the next only
+  by them is joined into it and the place between goes. **What may not be hit is another road**: a road widened onto
+  another's carriageway, kerb or walk, is not widened. Buildings are seated on the walk wherever it stands
+  (`TracedBuildings`), and a guard against their footprints refused seven carryings in ten, Odesa's fronts standing on
+  the building line. **And only along a stretch driven the same ways**: carried across a two-way street's change to one
+  way, a lane each way between two roadsides took both onto a slip of one lane, 3.5 m wide to 7.9 m, and left the
+  walk two islands in the carriageway at forks.
+- **It replaces carrying a roadside to a corner within 40 m of where it stopped** (`CarriedOn`, 2026-10-04): every such
+  roadside stands on a street it is now carried along, and `TracedRoadsideCarriedM` is gone.
+- **What came out on `OdesaOsm`**: 12 137 roads (12 286) and 8 086 junctions (8 235), 149 places of two arms nothing
+  met at gone. Along the streets so drawn, lanes lost within 30 m of a junction 0 (8); single roadsides changing side
+  0 (8); stretches of roadside under 30 m 9 (24), and the roadside changing at 118 joints (413), most where a street
+  changes the ways it is driven; 1 021 km of kerb with a roadside (988 km), the guard keeping 5.4 km off other roads.
+  61 643 buildings stood (61 652). OSM's lanes stand within 1 m of the engine's at 70.0 % (70.6 %), 0.17 m at the
+  median (0.15 m). The streets are laid in 690 ms (643 ms). The boundary leaves 14 carriageway runs open (11) — the
+  three new at (1561, 21121), (3062, 16766) and (4691, 14454), beside roads laid wider, with nothing to see in a shot
+  of them — and 2 walk (2).
+
+## 2026-10-05 — a traced road is laid in the fewest pieces that keep its survey
+
+**The owner asked for `OdesaOsm`'s roads to be laid in fewer pieces — bends of one curvature, rings near a circle and
+lines near straight each one piece — a minor divergence from the map allowed, and no road and no junction lost; and
+then for more, held as precisely as each road's size asks.** Normalised to its corners (2026-10-04), every corner was
+still a straight, an arc and a straight, its arc symmetric about it: 27 757 pieces on 12 286 roads, 15 471 past one a
+road, a ring's sector a stub, an arc and a stub.
+
+- **A pass over the laid line, not a second normalisation** (`TracedPieces`, GEN-57): a run of a road's pieces that
+  one arc, a biarc, one corner between straights, or two bends and the straight tangent to both join between the
+  poses at its ends within the road's tolerance of the survey both ways is laid as those, the fewest over every way
+  of cutting the line into runs and of as many the fewest bent, merged again while that lays fewer — a fourth and
+  fifth time lay none fewer. The bends are the run's own first and last, a step tighter or wider; the corner passes as
+  far inside where its two lines meet as the run did, a step tighter or wider, which takes in a stub left before a
+  bend and a bend drawn as two corners: 113 pieces and 260 bends fewer. None is tighter than the road's corners may
+  round, none leaves the map — a biarc on a road along its edge bowed 13 cm past it — and a run over a corner that
+  already sagged past the tolerance may sag as far and no further: road 11289's hairpin, whose corner at its least
+  radius cut 8 m off the survey's tip, is laid 19 m longer, reaching it.
+- **Two tolerances, the corners' 0.5 m and the merge's 1 m and an eighth of the road's width**
+  (`TracedCornerToleranceM`, `TracedLineToleranceM`, `TracedLineToleranceShare`). The corners' line is the one the
+  junctions are held to below; raised with the merge, it moves the roads' ends with it, and from 0.75 m the merged
+  boundary leaves one run open at junction 2110 (2743, 21537), a crossing `BandShell.Merge` does not find. **The
+  merge's grows with the road**: a road off its survey by a share of its own width covers as much of it whatever its
+  width. Roads under 5 m wide hold 7 197 of the 9 614 pieces past one a road at 1 m flat, nearly all real corners —
+  an L-shaped street is three pieces at any tolerance short of losing the L — so a share alone, over a floor of 1 m,
+  takes little: 21 268 pieces at a fifth, 21 078 at a quarter. A metre and an eighth of the width — 1.4 m on a street
+  of one lane, 2.4 m on one of a lane each way between roadsides — lays 20 273; a metre and a quarter and 0.15 of
+  the width, 19 664, with OSM's lanes within a metre at 69.5 %.
+- **Every junction lays the movements it did, asked of the movements** (`TracedStreets.MergedAsFarAsKept`). Merged
+  with its ends' headings free, a road's end turned up to 44° and its junctions laid 14 turns between two roads
+  fewer and 13 others more, 9 lanes left with no way in and 2 with none out; merged with its ends on their poses,
+  3 lanes still lost their way in, roads 830 and 984 reshaped at their mouths — a junction labels a turn off the
+  bend a lane arrives in as well as its pose (`LaneLines`). So the town is laid merged, each junction's movements
+  are compared with those it lays unmerged, and every road end at one that differs keeps a step more — its pose,
+  then its piece, then the road is not merged — until none differs: three steps on `OdesaOsm`, and 725 pieces
+  more than laying every end free. Stepping only the roads a differing movement joins, every end at the junction
+  where that does not settle it, saved 95 of them, and is not done.
+- **Roads joined through a junction of two arms were weighed as well, and none is left to join**: of `OdesaOsm`'s
+  462, 199 change their lane count there, 98 a roadside, 75 their width by 2 m or more, and the rest are bridgeheads,
+  ring nodes and loops.
+- **What came out**: 20 273 pieces (27 757), 7 987 past one a road (15 471); 6 934 arcs, 304 of them turning under
+  3° (658). Every junction where it stood, every road between the same two junctions, every lane, and every one of the
+  36 575 movements as it was, turn for turn; 405 roads meet a junction more than 10° off the heading they did, at most
+  55°, where it lays the same movements. OSM's lanes stand off the engine's at 0.15 m at the median (0.06 m), 62.4 %
+  within 0.5 m (68.9 %), 70.6 % within 1 m (72.2 %) and 93.4 % within 2 m (94.0 %). The streets are laid in 650 ms
+  (263 ms) and the ground is 2 474 628 triangles (2 442 419); the boundary leaves 11 carriageway runs open (12) and
+  2 walk (1).
+
+## 2026-10-05 — a lane both ways share runs one way, or is taken out
+
+**The owner asked for no lane to be driven both ways**: a single lane both ways share was laid as a lane each way over
+one line, and no car is told how to meet another on one. Each road of one is run one way, and taken out where no way
+of running it leaves the town drivable (`TracedStreets.OneWayShared`).
+
+- **Which way is the one that keeps what could be reached**, asked of the junctions a strongly connected piece at a
+  time: a shared road on a cycle of its piece can always be run one way or the other with the piece still strongly
+  connected, and one on no cycle — a bridge — never can (Boesch and Tindell, 1980). So the bridges go, and each road
+  left runs with itself where its far end reaches its near end without it, else against; both are searched at once
+  and the nearer way round answers. A road run one way so dangles nowhere (GEN-50).
+- **A bridge is taken out rather than run one way**: either way it is a dead end on one side, a pocket a car can
+  enter and not leave, or one it can leave and never enter. **And a piece left holding nothing but shared lanes goes
+  too** — a courtyard's loop whose one way in was the bridge, or one OSM left apart — which GEN-57's piece joined to
+  nothing else, kept, now excepts.
+- **What it came to on `OdesaOsm`**: 4 338 roads run one way, 446 bridges and 801 roads of shared-only pieces taken
+  out. 36 575 connectors where there were 54 376; the boundary's open carriageway runs 12 where they were 14, and the
+  walk's 1 where it was 3. 70 roads stand off the main network where 169 did: a 122-road piece of nothing but shared
+  lanes went, and the bridges cut off two or three small pieces of streets. `--bench stuck` gave up 1 leg where it
+  gave up 2. `--bench fidelity` holds an OSM lane driven both ways against an engine line running either way, and
+  prints the tally; 76.9 % of the 575 km of shared lane stands within 5 m of an engine line, the rest taken out.
+- **`CityPlan.RoadArrays.SharedLane` went**: nothing laid is over one line but a bay again.
+
 ## 2026-10-05 — a traced town carries its buildings and not its footprints
 
 **The owner asked for OSM's buildings to leave the running town**: what stands in it is the buildings fitted onto the
@@ -74,12 +218,6 @@ cuts the lane (the entry below).
   the next lane. The box is the transition: 16 m at the median on `OdesaOsm`, 4.4 m at the shortest and 33 m at the
   longest. None where the box is too short to turn in at the ground's radius; 17 joints keep the step, hairpins most
   of them.
-- **Close short of a corner it is carried to it** (`TracedStreets.CarriedOn`): a roadside the survey stops at a place
-  of two arms, where its kerb next turns a corner — the next arm round on its side off the straight — or a roadside
-  starts again within `TracedRoadsideCarriedM` (40 m) along the survey. Every road between is laid as though measured
-  wide enough to hold it, as `Survey` lays any roadside, so its lanes stand off its middle as the strip sets them and a
-  road that differed only by the strip is joined into the one before it, the place between gone. Laid outside its lanes
-  where they stood instead, it kept that place, and a walk was stood across it a few metres short of the corner's own.
 - **What came out on `OdesaOsm`**: 382 roadsides lost at a place of two arms (490) and 887 tapers; 8 786 roadsides
   beside 29 522 lanes (8 757 beside 29 632), the roads joined through taking their places with them. The boundary
   leaves no merged run open (0), 14 carriageway runs (14) and 3 walks (3); 3.21 M triangles (3.24 M).
@@ -179,7 +317,7 @@ point was a corner rounded at half its carriageway: 74 754 arcs, 98.8 % of 1 464
 radii 1.7 m at the median and 18.6 m at most — a facet at every node.
 
 - **Normalised as the engine lays it, and not as an edit to the map** (`TracedAlignment`, GEN-57): the map keeps
-  every node OSM has, so the tolerance (`TracedLineToleranceM`, 0.5 m) is retuned with no import, and the map holds
+  every node OSM has, so the tolerance (`TracedCornerToleranceM`, 0.5 m) is retuned with no import, and the map holds
   no arc to edit into.
 - **Douglas–Peucker first, then corners merged pairwise while one arc fits**, the closest fit first: two
   neighbouring corners turning one way are one, standing where their outer legs meet. Each corner is rounded as wide
@@ -565,11 +703,8 @@ measured centreline against centreline, on the classes it laid.
   middle, and a place wherever the width or placement changes as well as the count. `service` and `track`
   are 11 279 of the 15 896 road ways — driveways, aisles, courtyard lanes — and are laid like any street; a
   road drawn as an area is a surface, and has no lane.
-- **A single lane both ways share is one lane each way over one line**, as a bay's are: 2 024 km of OSM lane,
-  most of it service roads. So "over one line" is no longer "a bay": `CityPlan.RoadArrays.SharedLane` marks the
-  traced ones and `LaneLines.LaneIsBay` is what the bay's own readers ask — the spawn, the tour, the routes and
-  the closures.
-- **The boundary did not close over them, and two things in it changed** (TER-7b). A lane and its reverse over
+- **The boundary did not close over a lane laid each way over one line, and two things in it changed** (TER-7b).
+  A lane and its reverse over
   one line were merged as two bands whose ends lie on one another facing opposite ways; at a dead end nothing
   else covers, the merge kept half of one end and neither half of the other. They are one band now
   (`LaneShell`). And a road of one lane on its line rounded down to the lanes' floor folded its own ground,

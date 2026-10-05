@@ -39,6 +39,11 @@ internal sealed partial class TownWorld
     /// <b>A car on a bar is laid under the vehicle pulling it</b> (EVA-5): the pair is one movement, so it is
     /// one occupant, and the truck is never held off its own trailer.
     /// </para>
+    /// <para>
+    /// <b>And it is put on the channels of the ways it stands over</b> (PHY-1a), every one of them: read on its own
+    /// channels alone, so a car on a bridge never finds the road under it, and a car crossing a bridgehead finds the
+    /// ways of both levels there and is on both until it is clear of one. Over none it keeps what it had.
+    /// </para>
     /// </remarks>
     void LayTheCarsBody(int car)
     {
@@ -46,9 +51,8 @@ internal sealed partial class TownWorld
         ref readonly var build = ref Cars.BuildOf(car);
         var halfM = build.CollisionSizeM * 0.5f;
 
-        // On its own level's ways alone (PHY-1a): a car on a bridge stands on nothing of the road under it.
         var under = _atlas.UnderBox(
-            Cars.PositionM[car], Heading.Unit(Cars.HeadingRad[car]), halfM.X, halfM.Y, _groundUnderCars, car, Cars.Level[car]);
+            Cars.PositionM[car], Heading.Unit(Cars.HeadingRad[car]), halfM.X, halfM.Y, _groundUnderCars, car, Cars.Channels[car]);
 
         var travelling = IsUnderWay(occupant);
         var stopMps = _config.Driving.StopSpeedMps;
@@ -57,9 +61,11 @@ internal sealed partial class TownWorld
         // <b>Blocked, it goes nowhere</b> (CAR-50): its line runs on, but it can neither get past what stands in
         // front of it nor back up for the room to, so to whoever comes up behind it is a body to get past.
         var blocked = still && Cars.Context[occupant].Blocked;
+        byte channels = 0;
         for (var at = 0; at < under.Length; at++)
         {
             ref readonly var cover = ref under[at];
+            channels |= _atlas.ChannelsOf(cover.Way);
             var onward = LaneOccupancy.NoWay;
             var onItsLine = travelling && _ground.IsOnItsLine(occupant, cover.Way, out onward);
             if (blocked) onward = LaneOccupancy.NoWay;
@@ -67,6 +73,8 @@ internal sealed partial class TownWorld
                 cover.Way, cover.FromM, cover.ToM, onItsLine ? Cars.AlongMps[occupant] : 0f, occupant,
                 LaneRoster.Driving, onItsLine, onward, still);
         }
+
+        if (channels != 0 && channels != Cars.Channels[car]) PutOnChannels(car, channels);
     }
 
     /// <summary>

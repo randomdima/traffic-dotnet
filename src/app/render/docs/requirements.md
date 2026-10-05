@@ -17,8 +17,9 @@ them is on its types. The one thing stated here is how a sheet is stored.
   strokes along their shells (`TER-3d`), and a deck is the one band (`TER-3b.1`). How a shell is cut — the
   line for the picture and the fill for the kerb, a stroke's corners and hooks — is `GroundMesh`. **A bridge
   over other roads is the stack again, drawn over the bodies on the ground and under the bodies on it**
-  (`TER-7b`, `PHY-1a`): the ground's last part (`GroundPart.Above`) is a second draw, and the bodies on the level
-  above a second run of instances (`TownRenderer.SpritesAbove`).
+  (`TER-7b`, `PHY-1a`): the ground's last part (`GroundPart.Above`) is a second draw, the ground marks of the level
+  above — its lanes, joins and claims — a second run of underlay (`TownRenderer.UnderlayAbove`), and the bodies on
+  it a second run of instances (`TownRenderer.SpritesAbove`).
 - **Paint** is engine-drawn and governed by [world/road](../../../world/road/docs/requirements.md#markings);
   it is laid by [GroundMesh.Paint.cs](../GroundMesh.Paint.cs), above the ground from
   `GroundMesh.FirstMarkVertex` on.

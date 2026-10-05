@@ -71,7 +71,7 @@ public class CarSpriteTests
     {
         var catalogue = CarCatalog.Load();
         var fleet = FleetOf(2);
-        fleet.Level[1] = TrafficSimulation.CityGen.CityPlan.RoadArrays.Over;
+        fleet.Channels[1] = TrafficSimulation.CityGen.CityPlan.RoadArrays.ChannelOf(TrafficSimulation.CityGen.CityPlan.RoadArrays.Over);
         var viewCentreM = new Vector2(fleet.Count * 5f, 0f);
         var into = new SpriteInstance[fleet.Count];
 

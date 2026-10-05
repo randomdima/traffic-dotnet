@@ -94,6 +94,7 @@ internal sealed partial class PhysicsWorld
                 if (body == ignore) continue;
                 if ((_flags[body] & live) != live) continue;
                 if ((_category[body] & LookingMask) == 0 || (_mask[body] & (ulong)LookingAs) == 0) continue;
+                if ((_channels[body] & LookingOn) == 0) continue;
                 if (!Shape.CastSegment(
                         fromM, travelM, _positionM[body], _rotation[body], _extentM[body],
                         _cornerRadiusM[body], out var met))

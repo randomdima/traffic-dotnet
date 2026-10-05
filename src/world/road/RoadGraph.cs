@@ -187,6 +187,9 @@ internal sealed class RoadGraph : ILaneEnds
     /// <inheritdoc cref="LaneLines.LaneLevel"/>
     public byte[] LaneLevel => _lines.LaneLevel;
 
+    /// <inheritdoc cref="LaneLines.ConnectorChannels"/>
+    public byte ConnectorChannels(int connector) => _lines.ConnectorChannels(connector);
+
     /// <inheritdoc cref="LaneLines.ConnectorLevel"/>
     public byte ConnectorLevel(int connector) => _lines.ConnectorLevel(connector);
 
@@ -200,9 +203,8 @@ internal sealed class RoadGraph : ILaneEnds
 
     /// <summary>
     /// <b>Whether this lane and its reverse are one line rather than two halves of a carriageway</b>
-    /// (GEN-53, GEN-57): a bay is a car's width of ground a car stands on whichever way round it stands, and a
-    /// traced road may be one lane both ways share, so the ground under it carries both directions at once.
-    /// <b>The town's own answer</b> (<see cref="LaneLines.LaneOverOneLine"/>) and not a distance measured between
+    /// (GEN-53): a bay is a car's width of ground a car stands on whichever way round it stands, so the ground under
+    /// it carries both directions at once. <b>The town's own answer</b> (<see cref="LaneLines.LaneOverOneLine"/>) and not a distance measured between
     /// two lines.
     /// </summary>
     public bool[] LaneOverOneLine => _lines.LaneOverOneLine;

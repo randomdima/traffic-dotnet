@@ -10,11 +10,14 @@ actuated belongs to the agents that do it ([car](../../../agents/car/docs/requir
 
 **PHY-1** `P3` Solid bodies never overlap; contact produces a collision.
 
-**PHY-1a** `P3` **A car on a bridge over other roads is on a level of its own**, and meets the cars on its deck
-and nothing on the ground it passes over — no car, walker, building, prop or casualty. Its level is its lane's
-(`CityPlan.RoadArrays.Level`), taken before every step; a car with no lane keeps the one it had, and one on a
-tow bar takes the one pulling it. It is a layer (`CollisionLayer.CarOver`) and not a test asked of a pair, so the
-broad phase decides it as it decides the rest.
+**PHY-1a** `P3` **Two bodies meet only where their collision channels meet.** A channel is a level of the town
+(`CityPlan.RoadArrays.ChannelOf`), and every way is on its own: a lane on its road's, a connector on both of the
+lanes' it joins — so a bridgehead is on the bridge's and the ground's — and the walk on the ground's. **A car is
+on every channel of the ways its collider stands over** when its body is laid (TER-4c.2), read on its own
+channels alone, and keeps what it had where it stands over none; everything else is on the ground's. So a car
+on a bridge over other roads meets the cars on its deck and nothing on the ground it passes over — no car,
+walker, building, prop or casualty — and one at a bridgehead meets both. The channels are a mask on the body
+beside its layer (`PhysicsWorld.PutOnChannels`), so the broad phase decides them as it decides the rest.
 
 **PHY-2** `P3` Static objects cannot move and cannot be damaged or destroyed; they are immovable collision
 geometry.
@@ -32,9 +35,10 @@ teleport, snap, clamp or nudge a body because it is somewhere illegal (SIM-1).
 ## What the layer must provide
 
 What the solver presents is [solver.md](solver.md#what-it-presents); on top of it the town needs a body's
-layer changeable while it stands, and the velocities a pair carried **into** the tick they began touching in,
-which the roster keeps because the solver's own are the response. **A pair is exempt only where a layer says
-so** — a coupled tow (`EVA-5`) is not one, and `PHY-5b` and `PHY-1a` are the only ones there are. **Nothing is swept**
+layer and channels changeable while it stands, and the velocities a pair carried **into** the tick they began
+touching in, which the roster keeps because the solver's own are the response. **A pair is exempt only where a
+layer or a channel says so** — a coupled tow (`EVA-5`) is not one, and `PHY-5b` and `PHY-1a` are the only ones
+there are. **Nothing is swept**
 (`SOL-17`): a stated limit of the solver, not a defect of this layer.
 
 ## Damage

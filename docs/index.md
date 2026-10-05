@@ -160,7 +160,7 @@ owning slice's log; this list says only what is absent now and what closes it.
   next has its disc shrunk to keep the road between them, which leaves its connectors no room to turn in.
   Its lanes are OSM's — every one, as many, as wide and where OSM's tags put them, or as wide as the road was
   measured and as many as that holds where OSM only assumes a count — and no car changes between them along a
-  road yet, nor is a car told how to meet another on a lane both ways share.
+  road yet.
 - **A traced city's signs, priority roads and surveyed zebras are carried and not obeyed** (`GEN-57`): its map
   holds every junction's control, but only its lights are laid — the engine has no stop or give-way sign and
   no priority road, so an unsignalled junction is still first come, first served. A zebra its survey maps is
@@ -181,9 +181,10 @@ owning slice's log; this list says only what is absent now and what closes it.
 - **A traced city keeps the turns OSM forbids at times, and those over a way** (`GEN-57`, `--bench fidelity`):
   21 restrictions in force only at some hours are not laid, the map keeping no clock of day, nor 13 turns made
   over a way — a U-turn across a median, which no one junction can forbid alone.
-- **A traced city keeps its dead ends, and a car cannot turn round in one** (`GEN-57`, `GEN-4l`): every
-  driveway and courtyard lane of `OdesaOsm` ends in one, so a leg routed into one stands there until its clock
-  gives it up. It is not asked whether it can be driven round, and it stands nobody yet.
+- **A traced city keeps its streets' dead ends, and a car cannot turn round in one** (`GEN-57`, `GEN-4l`): a
+  street of lanes each way that OSM ends nowhere ends so in the town — a lane both ways share never does, being
+  run one way or taken out — so a leg routed into one stands there until its clock gives it up. It is not asked
+  whether it can be driven round, and it stands nobody yet.
 - **A traced city reaches the page on a desktop browser alone.** Opening OdesaOsm grows the page's heap past the
   2 GB the runtime gives a page by default, to 2.4 GB of the 4 GB a 32-bit page can address, which a phone's browser
   does not give a page, and stands it up on the page's one thread with the tab frozen meanwhile.

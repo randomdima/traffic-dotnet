@@ -31,10 +31,14 @@ internal sealed partial class DebugOverlay
     /// ribbons both cover comes out deeper — which is the reading at a junction, where what the boundary
     /// runs along is whichever band reaches past the rest.
     /// </para>
+    /// <para>
+    /// <b>A line on the level above is drawn into <paramref name="above"/></b> (<see cref="Paving.DrivenLevel"/>), over
+    /// the deck it is the ribbon of.
+    /// </para>
     /// </remarks>
     static void Ribbons(
-        ref ScreenDraw draw, TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM,
-        float pixelsPerMetre)
+        ref ScreenDraw draw, ref ScreenDraw above, TownWorld world, SimConfig config, Vector2 viewCentreM,
+        Vector2 viewSpanM, float pixelsPerMetre)
     {
         var sagM = PathMarks.SagPx / pixelsPerMetre;
         var paving = world.Plan.Paving(config);
@@ -49,7 +53,8 @@ internal sealed partial class DebugOverlay
             var tailM = arcs[^1].EndM;
             if (!OnScreen((headM + tailM) * 0.5f, viewCentreM, viewSpanM, lengthM * 0.5f)) continue;
 
-            PathMarks.Banded(ref draw, arcs, 0f, lengthM, sagM, paving.DrivenWidthM(line), Theme.Ribbon);
+            ref var into = ref paving.DrivenLevel(line) != CityPlan.RoadArrays.Ground ? ref above : ref draw;
+            PathMarks.Banded(ref into, arcs, 0f, lengthM, sagM, paving.DrivenWidthM(line), Theme.Ribbon);
         }
     }
 }

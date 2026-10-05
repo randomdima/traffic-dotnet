@@ -1185,7 +1185,7 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
 
         var halfM = build.CollisionSizeM * 0.5f;
         var centreM = axleM + (forward * (build.CentreAheadOfAxleM + (spareM * 0.5f)));
-        return ground.Atlas.UnderBox(centreM, forward, halfM.X + (spareM * 0.5f), halfM.Y + spareM, under, Cars.Level[car]);
+        return ground.Atlas.UnderBox(centreM, forward, halfM.X + (spareM * 0.5f), halfM.Y + spareM, under, Cars.Channels[car]);
     }
 
     /// <summary>

@@ -64,12 +64,22 @@ internal sealed partial class DebugOverlay
     /// </summary>
     const int StretchesDrawn = 2;
 
+    /// <summary>The same share of the room on the level above (<see cref="TownRenderer.UnderlayAboveCapacity"/>).</summary>
+    const int TownAboveQuadCapacity = TownRenderer.UnderlayAboveCapacity * 3 / 4;
+
     readonly OverlayQuad[] _town = new OverlayQuad[TownQuadCapacity];
+
+    /// <summary>
+    /// <b>The graphs of the level above, cached beside the ground's</b> (TER-7b, PHY-1a): a bridge's lanes drawn with
+    /// the ground's would be drawn under its own deck.
+    /// </summary>
+    readonly OverlayQuad[] _townAbove = new OverlayQuad[TownAboveQuadCapacity];
 
     /// <summary>Which stones the town layer's marks took, kept beside its quads and re-laid with them.</summary>
     readonly MarkClaims _marks = new();
 
     int _townQuads;
+    int _townAboveQuads;
     int _drawnGeneration = -1;
     float _drawnPixelsPerMetre = -1f;
     Vector2 _drawnCentreM;
@@ -81,6 +91,7 @@ internal sealed partial class DebugOverlay
     public void TownChanged()
     {
         _townQuads = 0;
+        _townAboveQuads = 0;
         _drawnGeneration = -1;
     }
 
@@ -94,6 +105,10 @@ internal sealed partial class DebugOverlay
     /// anybody standing on it. A claim is a stretch of road and a network is the road itself, so a
     /// car has to read over both; drawn with the rest, the wash tints every sprite it covers.
     /// </param>
+    /// <param name="groundAbove">
+    /// <b>And what is drawn under the bodies on the level above</b> (TER-7b, PHY-1a): the same marks, about a bridge's
+    /// own ways, drawn over its deck rather than under it.
+    /// </param>
     /// <param name="mesh">
     /// The ground the renderer was handed, for the one layer that draws how the town is <em>made</em>
     /// rather than what it is doing (OBS-2o). Null where nothing has been laid yet.
@@ -104,8 +119,8 @@ internal sealed partial class DebugOverlay
     /// the first is what the readings are asked about and the second is where they are written.
     /// </param>
     public void Draw(
-        ref ScreenDraw draw, ref ScreenDraw ground, TownWorld world, GroundMesh? mesh, SimConfig config,
-        DebugSwitches switches, DebugPick pick, Vector2 pointerM, Vector2 pointerPx, Vector2 uiPx,
+        ref ScreenDraw draw, ref ScreenDraw ground, ref ScreenDraw groundAbove, TownWorld world, GroundMesh? mesh,
+        SimConfig config, DebugSwitches switches, DebugPick pick, Vector2 pointerM, Vector2 pointerPx, Vector2 uiPx,
         Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
     {
         Relaid = false;
@@ -114,6 +129,7 @@ internal sealed partial class DebugOverlay
         {
             RelayIfStale(world, mesh, config, switches, viewCentreM, viewSpanM, pixelsPerMetre);
             ground.Take(_town.AsSpan(0, _townQuads));
+            groundAbove.Take(_townAbove.AsSpan(0, _townAboveQuads));
         }
 
         // <b>Laid every frame and never into the cache above it.</b> The graphs the cache holds do not move
@@ -134,7 +150,7 @@ internal sealed partial class DebugOverlay
             // The bays first, because a bay is ground several stretches of way lie across and the stretches
             // are the finer reading of the two.
             TakenBays(ref ground, world, config, viewCentreM, viewSpanM);
-            ClaimIndex(ref ground, world, viewCentreM, viewSpanM, pixelsPerMetre);
+            ClaimIndex(ref ground, ref groundAbove, world, viewCentreM, viewSpanM, pixelsPerMetre);
         }
 
         if (switches.WalkerLines) WalkerLines(ref draw, world, config, viewCentreM, viewSpanM, pixelsPerMetre);
@@ -151,6 +167,17 @@ internal sealed partial class DebugOverlay
         // under the layer it picks out of is a line somebody has to look for.
         Pointer(ref draw, world, config, switches, pick, pointerM, pointerPx, uiPx, pixelsPerMetre);
     }
+
+    /// <summary>
+    /// <b>Whether a way is drawn on the level above</b> (TER-7b, PHY-1a): a lane of a bridge over other roads, or a join
+    /// between two of them — where the ground's own tarmac for it is drawn (<see cref="CityGen.Paving.DrivenLevel"/>).
+    /// </summary>
+    static bool IsAbove(TownWorld world, int way) => world.Ways.KindOf(way) switch
+    {
+        WayKind.Lane => world.Roads.LaneLevel[world.Ways.RoadLaneOf(way)] != CityGen.CityPlan.RoadArrays.Ground,
+        WayKind.Connector => world.Roads.ConnectorLevel(world.Ways.RoadConnectorOf(way)) != CityGen.CityPlan.RoadArrays.Ground,
+        _ => false,
+    };
 
     /// <summary>OBS-2b's cull, coarsely: whether a place is inside the view once the body standing there has been allowed its own reach.</summary>
     static bool OnScreen(Vector2 pointM, Vector2 viewCentreM, Vector2 viewSpanM, float reachM)

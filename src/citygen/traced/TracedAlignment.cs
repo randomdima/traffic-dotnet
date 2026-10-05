@@ -6,7 +6,7 @@ namespace TrafficSimulation.CityGen.Traced;
 
 /// <summary>
 /// <b>A traced road's line normalised</b> (GEN-57): the fewest corners and the roundest arcs that keep every point
-/// its way was surveyed through within <see cref="CityGenFigures.TracedLineToleranceM"/> — a point that near the
+/// its way was surveyed through within <see cref="CityGenFigures.TracedCornerToleranceM"/> — a point that near the
 /// straight past it is no corner, two corners turning one way that one arc passes that near are one corner, and
 /// every corner is rounded as wide as keeps its stretch of the survey that near.
 /// </summary>

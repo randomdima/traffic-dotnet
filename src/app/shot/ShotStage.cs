@@ -180,7 +180,8 @@ internal sealed class ShotStage : IDisposable
         // at, and a picture of it has to be askable for without a window.
         var pointerPx = ask.PointerM is { } pointerM ? camera.ScreenAt(pointerM, uiPx) : -Vector2.One;
         var under = 0;
-        var quads = bare ? 0 : ui.Draw(_renderer.Overlay, _renderer.Underlay, new InterfaceFrame
+        var underAbove = 0;
+        var quads = bare ? 0 : ui.Draw(_renderer.Overlay, _renderer.Underlay, _renderer.UnderlayAbove, new InterfaceFrame
         {
             World = world,
             Ground = Ground,
@@ -192,10 +193,10 @@ internal sealed class ShotStage : IDisposable
             Tick = tick,
             Frame = frame,
             Scenario = scenario,
-        }, out under);
+        }, out under, out underAbove);
 
         _renderer.SetOverlayCount(quads);
-        _renderer.SetUnderlayCount(under);
+        _renderer.SetUnderlayCount(under, underAbove);
 
         var (centreM, clipPerM, facing) = camera.ForShader(uiPx);
         var crossingsBefore = Vk.Crossings;

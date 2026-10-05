@@ -109,7 +109,9 @@ its way, along the street and never in a box — as a pass's step out with no st
 - **Its route**: a route may move across, at the price of a turn and one move across for each lane over
   ([routing](../../../world/routing/docs/requirements.md#where-a-link-ends)), and a turn is made only from the lane
   of its own number (TER-5j). **The car moves across wherever it gets the room**, and until then its line runs on
-  down its own lane beside the route, for as long as its lanes go the route's way.
+  down its own lane beside the route, for as long as its lanes go the route's way. **A lane lost at a node is left
+  the same way** by a car going nowhere in particular: its toured line stops at the lane's end, and the car moves
+  across toward the nearest lane beside that carries on.
 - **To get past what holds it up**, where the line its two ways meet on is not crossed to pass (CAR-6.2b): a body
   at rest not making its own movement, or traffic going slower than it means to by more than
   `SimConfig.Driving.SlowerToSwitchMps` — **over the lane toward the line and never the kerb's**.

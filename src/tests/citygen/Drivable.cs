@@ -12,9 +12,10 @@ namespace TrafficSimulation.Tests.CityGen;
 /// </summary>
 /// <remarks>
 /// Asked of the lane graph a town is actually driven on, so it answers for the turns the drawn shapes left
-/// room for and not for the chords the generator settled its one-way streets against. <b>A node no lane
-/// arrives at is not a place the town drives to</b> and is passed over: two junctions whose discs overlap
-/// leave the stretch between them with no lane on it at all.
+/// room for and not for the chords the generator settled its one-way streets against. <b>A car moves across
+/// onto the lane beside</b> (CAR-53), so a lane lost or gained at a node is driven through the one beside it
+/// (TER-5j). <b>A node no lane arrives at is not a place the town drives to</b> and is passed over: two
+/// junctions whose discs overlap leave the stretch between them with no lane on it at all.
 /// </remarks>
 internal static class Drivable
 {
@@ -47,6 +48,11 @@ internal static class Drivable
         for (var lane = 0; lane < roads.LaneCount; lane++)
         {
             foreach (var onto in roads.LanesFrom(lane)) into[onto].Add(lane);
+            foreach (var inward in (ReadOnlySpan<bool>)[true, false])
+            {
+                var beside = roads.LaneBeside(lane, inward);
+                if (beside != RoadGraph.NoLane) into[beside].Add(lane);
+            }
         }
 
         var reaches = new int[roads.LaneCount];
@@ -111,7 +117,8 @@ internal static class Drivable
     }
 
     /// <summary>
-    /// What dangles, or <c>null</c> where every lane is both driven onto and driven off (GEN-50).
+    /// What dangles, or <c>null</c> where every lane is both driven onto and driven off (GEN-50) — by a movement,
+    /// or across from a lane beside it that is.
     /// </summary>
     public static string? Dangling(RoadGraph roads, bool[]? passedOver = null)
     {
@@ -124,14 +131,33 @@ internal static class Drivable
         for (var lane = 0; lane < roads.LaneCount; lane++)
         {
             if (passedOver?[lane] == true) continue;
-            if (into[lane] > 0 && roads.LanesFrom(lane).Length > 0) continue;
 
-            var what = into[lane] == 0 ? "is driven onto by nothing" : "is driven off onto nothing";
+            var drivenOnto = AnyBeside(roads, lane, beside => into[beside] > 0);
+            var drivenOff = AnyBeside(roads, lane, beside => roads.LanesFrom(beside).Length > 0);
+            if (drivenOnto && drivenOff) continue;
+
+            var what = drivenOnto ? "is driven off onto nothing" : "is driven onto by nothing";
             return $"lane {lane} of road {roads.LaneRoad[lane]} {what}: from {roads.StartOf(lane).PositionM} "
                    + $"to {roads.EndOf(lane).PositionM}";
         }
 
         return null;
+    }
+
+    /// <summary>Whether this lane, or any lane beside it running its way, is one that <paramref name="holds"/>.</summary>
+    static bool AnyBeside(RoadGraph roads, int lane, Func<int, bool> holds)
+    {
+        if (holds(lane)) return true;
+
+        foreach (var inward in (ReadOnlySpan<bool>)[true, false])
+        {
+            for (var beside = roads.LaneBeside(lane, inward); beside != RoadGraph.NoLane; beside = roads.LaneBeside(beside, inward))
+            {
+                if (holds(beside)) return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Where a junction stands, for a message: the end of any one of the lanes that arrive at it.</summary>

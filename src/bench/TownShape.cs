@@ -236,6 +236,76 @@ internal static class TownShape
         foreach (var row in rows) Console.WriteLine(row);
     }
 
+    /// <summary>
+    /// <b>Every road between two junctions of three arms or more standing nearer than a traced map lays two</b>
+    /// (<see cref="CityGenFigures.TracedJunctionsMergedM"/>): how many, how far apart, what kind of road joins them, and
+    /// how many such pairs chain into one group.
+    /// </summary>
+    public static void Close(string map, SimConfig config)
+    {
+        const int ClosestListed = 40;
+
+        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+        var arms = plan.Ground.ArmsPerJunction();
+        var onARing = OnARing(plan);
+        var withinM = config.CityGen.TracedJunctionsMergedM;
+
+        var group = new int[plan.Junctions.Count];
+        for (var junction = 0; junction < group.Length; junction++) group[junction] = junction;
+
+        var apartM = new List<float>();
+        var kinds = new Dictionary<string, int>(StringComparer.Ordinal);
+        var rows = new List<(float ApartM, string Row)>();
+        for (var road = 0; road < plan.Roads.Count; road++)
+        {
+            var (from, to) = (plan.Roads.FromJunction[road], plan.Roads.ToJunction[road]);
+            if (from == to || arms[from] < 3 || arms[to] < 3) continue;
+
+            var fromM = plan.Junctions.CentreM[from];
+            var toM = plan.Junctions.CentreM[to];
+            var apart = Vector2.Distance(fromM, toM);
+            if (apart >= withinM) continue;
+
+            var kind = onARing[from] || onARing[to] ? "ring"
+                : plan.Roads.LevelOf(road) != CityPlan.RoadArrays.Ground ? "bridge"
+                : plan.Roads.Flow[road] == RoadFlow.BothWays ? "two-way" : "one-way";
+            kinds[kind] = kinds.GetValueOrDefault(kind) + 1;
+            apartM.Add(apart);
+            rows.Add((apart, $"  {road,6}{(fromM.X + toM.X) * 0.5f,9:F0}{(fromM.Y + toM.Y) * 0.5f,9:F0}{apart,8:F1}   {kind,-8}" +
+                             $"{arms[from]}+{arms[to]} arms"));
+            group[Root(from)] = Root(to);
+        }
+
+        var members = new Dictionary<int, int>();
+        for (var junction = 0; junction < group.Length; junction++) members[Root(junction)] = members.GetValueOrDefault(Root(junction)) + 1;
+
+        var sizes = new SortedDictionary<int, int>();
+        foreach (var count in members.Values)
+        {
+            if (count > 1) sizes[count] = sizes.GetValueOrDefault(count) + 1;
+        }
+
+        Console.WriteLine($"{plan.Name}  {apartM.Count} roads join junctions of three arms or more nearer than {withinM:F0} m, " +
+                          $"of {plan.Roads.Count} roads");
+        Console.WriteLine("  apart            " + Spread(apartM, " m"));
+        Console.WriteLine("  kind             " + string.Join("  ", kinds.OrderBy(kind => kind.Key, StringComparer.Ordinal).Select(kind => $"{kind.Key}: {kind.Value}")));
+        Console.WriteLine("  junctions a group " + string.Join("  ", sizes.Select(size => $"{size.Key}: {size.Value}")));
+        if (rows.Count == 0) return;
+
+        // A sample across the whole spread, nearest first, which is what a reader frames pictures from.
+        Console.WriteLine();
+        Console.WriteLine($"  {"road",6}{"x",9}{"y",9}{"apart",8}   kind");
+        rows.Sort((one, other) => one.ApartM.CompareTo(other.ApartM));
+        var every = Math.Max(1, rows.Count / ClosestListed);
+        for (var row = 0; row < rows.Count; row += every) Console.WriteLine(rows[row].Row);
+
+        int Root(int junction)
+        {
+            while (group[junction] != junction) junction = group[junction] = group[group[junction]];
+            return junction;
+        }
+    }
+
     /// <summary>What kept one two-armed junction, and the two junctions the run through it would join.</summary>
     static string Why(
         CityPlan plan, bool[] onARing, bool[] onABridge, int junction, int one, int other,

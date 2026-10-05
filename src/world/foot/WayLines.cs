@@ -70,14 +70,14 @@ internal sealed class WayLines(
     public bool IsDriven(int way) => ways.IsDriven(way);
 
     /// <summary>
-    /// <b>The level one of the town's ways is travelled on</b>: a lane's road's, a connector's two lanes' where they
-    /// share one (<see cref="LaneLines.ConnectorLevel"/>), and the ground for the walk, which is laid off the
-    /// ground's own boundary.
+    /// <b>The collision channels one of the town's ways is on</b>: a lane's road's level, a connector's two lanes'
+    /// (<see cref="LaneLines.ConnectorChannels"/>), and the ground for the walk, which is laid off the ground's own
+    /// boundary.
     /// </summary>
-    public byte LevelOf(int way) => ways.KindOf(way) switch
+    public byte ChannelsOf(int way) => ways.KindOf(way) switch
     {
-        WayKind.Lane => roads.LaneLevel[ways.RoadLaneOf(way)],
-        WayKind.Connector => roads.ConnectorLevel(ways.RoadConnectorOf(way)),
-        _ => CityPlan.RoadArrays.Ground,
+        WayKind.Lane => CityPlan.RoadArrays.ChannelOf(roads.LaneLevel[ways.RoadLaneOf(way)]),
+        WayKind.Connector => roads.ConnectorChannels(ways.RoadConnectorOf(way)),
+        _ => CityPlan.RoadArrays.GroundChannel,
     };
 }

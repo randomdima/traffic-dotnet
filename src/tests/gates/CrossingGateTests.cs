@@ -100,6 +100,7 @@ public class CrossingGateTests
 
         var quads = new OverlayQuad[TownRenderer.OverlayCapacity];
         var ground = new OverlayQuad[TownRenderer.UnderlayCapacity];
+        var groundAbove = new OverlayQuad[TownRenderer.UnderlayAboveCapacity];
         var frame = new InterfaceFrame
         {
             World = world,
@@ -113,10 +114,10 @@ public class CrossingGateTests
 
         // Once through first, so that anything laid lazily — the town's own graphs, which the nodes
         // switch asks for — is already laid when the count is taken.
-        ui.Draw(quads, ground, frame, out _);
+        ui.Draw(quads, ground, groundAbove, frame, out _, out _);
 
         var before = Vk.Crossings;
-        var written = ui.Draw(quads, ground, frame, out var underneath);
+        var written = ui.Draw(quads, ground, groundAbove, frame, out var underneath, out _);
 
         Assert.Equal(before, Vk.Crossings);
         Assert.True(written > 0, "every layer is on and the interface drew nothing");

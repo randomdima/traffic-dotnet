@@ -3,15 +3,26 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md) and
 [solver.md](solver.md).
 
-## 2026-10-03 — a car on a bridge is on a layer of its own
+## 2026-10-05 — a body is on the channels of the ways under it
 
-**The owner asked for bridges over a traced town's roads**, their cars crossing the cars under them without a
-collision (PHY-1a). **A layer and not a level byte tested per pair**, for the reason the casualty's was
-(2026-08-28): `CarOver` scans itself and nothing else, so the closure keeps it out of every other mask and the
-broad phase's one line decides it. A car is put on it by `PutOnLayer` when its lane's level changes — a write a
-tick per car that changed, nothing for one that did not, and one branch for a town with no bridge over a road.
-One extra level and not one per OSM `layer`: a bridge over a bridge meets it, which is rarer than a byte per
-body is cheap, and is named as a gap.
+**The owner asked for it simpler**: a channel mask on every way, a body on the ones it stands over, and a pair
+meeting where the masks share a bit — so a car on a bridge misses the car under it and one at a bridgehead meets
+both (PHY-1a). It replaced a layer of its own for a car on a bridge, entered at the start of a bridge's lane and
+left at the start of the next one, which had a car on the junction a bridge lands at on one level while its body
+was on both.
+
+- **A mask beside the layer and not more layers.** A layer is what a body is and a channel is where it is; the
+  product of the two in one mask would be a bit per kind per level, and the broad phase pays one more `&` instead.
+- **Read off the laying and never worked out again**: the ways under a car's collider are already read for its
+  claims (TER-4c.2), so its channels are what those ways are on, taken as they are laid. The claims and the
+  collisions are one reading of the ground.
+- **Read on its own channels**, which is what keeps a car on a bridge off the road under it, and **kept over
+  none**. So a body only changes level through a way on both, and one put down somewhere new is put on the
+  channels of whatever put it there — a wreck set down takes its truck's.
+- **A connector is on both its lanes' channels**, and a bridgehead is where they meet. Every one on Odesa's survey
+  is 2.5 m long or more, so a car's box is always over one on its way off a bridge.
+- One channel per level and two levels: a bridge over a bridge is on the one above's, which is rarer than a
+  third channel is cheap, and is named as a gap.
 
 ## 2026-10-02 — a body at rest is frozen out of the step
 

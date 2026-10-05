@@ -421,12 +421,21 @@ internal sealed class Interface(TrimFigures trims)
     /// Where the town's own ground marks go — a buffer of its own because it is drawn <em>before</em> the
     /// bodies. Everything else is written into <paramref name="into"/> and drawn after them.
     /// </param>
+    /// <param name="underAbove">
+    /// And the ground marks on the level above (TER-7b, PHY-1a), drawn over the bridges where
+    /// <paramref name="under"/> is drawn under them.
+    /// </param>
     /// <param name="underWritten">How many ground marks were written, which is that draw's own count.</param>
-    public int Draw(Span<OverlayQuad> into, Span<OverlayQuad> under, in InterfaceFrame frame, out int underWritten)
+    /// <param name="aboveWritten">And how many on the level above.</param>
+    public int Draw(
+        Span<OverlayQuad> into, Span<OverlayQuad> under, Span<OverlayQuad> underAbove, in InterfaceFrame frame,
+        out int underWritten, out int aboveWritten)
     {
         var draw = new ScreenDraw(into);
         var ground = new ScreenDraw(under);
+        var groundAbove = new ScreenDraw(underAbove);
         underWritten = 0;
+        aboveWritten = 0;
 
         // OBS-2n: while a map is opening, the card is the whole of the interface. The town behind it is the
         // one being left, and a read-out, a legend and a map list over it are furniture about a run that is
@@ -456,11 +465,12 @@ internal sealed class Interface(TrimFigures trims)
                 : frame.PointerPx;
 
             Overlay.Draw(
-                ref draw, ref ground, world, frame.Ground, frame.Config, Switches, Pick,
+                ref draw, ref ground, ref groundAbove, world, frame.Ground, frame.Config, Switches, Pick,
                 frame.Camera.WorldAt(pointerPx, frame.UiPx), pointerPx, frame.UiPx, frame.Camera.CentreM,
                 frame.Camera.CullSpanM(frame.UiPx), frame.Camera.PixelsPerMetre);
 
             underWritten = ground.Written;
+            aboveWritten = groundAbove.Written;
 
             // Over the bodies and under every panel: the mark stands where the unit is, so it belongs with
             // the town rather than with the furniture (CTL-1). Its path goes down first, so the brackets and

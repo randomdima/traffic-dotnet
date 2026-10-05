@@ -24,13 +24,15 @@ namespace TrafficSimulation.CityGen;
 /// own to merge (TER-5). <b>The one band that is no lane is a taper</b> (<see cref="LaneLines.Tapers"/>): where a road
 /// loses its roadside, the outline would turn round the strip's square end, and a rounding cannot take a corner that
 /// sticks out off without cutting the lane it is the corner of — so the ground eased in over is handed over as a band.
+/// So is the ground a lane lost or gained at a node is eased over, which no movement crosses (TER-5j): without it the
+/// box keeps a kerbed hole where the lane stops.
 /// </para>
 /// <para>
 /// <b>Two lanes laid over one line are one band</b> (<see cref="LaneLines.LaneOverOneLine"/>): a lane and its
 /// reverse there cover the same ground, so only the one running with its road is handed over and the other is
 /// handed over empty, keeping the numbering the index is in. Handed over twice, the two bands' ends lie on one
-/// another facing opposite ways, and where nothing else covers them — a dead end of one lane both ways share —
-/// the merge keeps half of the one end and neither half of the other, and the boundary does not close.
+/// another facing opposite ways, and where nothing else covers them the merge keeps half of the one end and neither
+/// half of the other, and the boundary does not close.
 /// </para>
 /// <para>
 /// <b>A line on another level is handed over empty</b>, for the same reason: a bridge over a road shares no
@@ -58,8 +60,8 @@ internal static class LaneShell
     /// <summary>
     /// <b>Every band the driven ground on one level is merged from</b>, a line and its width each: the town's driven
     /// lines under their own numbers — those on another level or laid over a twin's line empty — and after them the
-    /// stubs under the decks and past the map's edge, and the tapers a kerb eases in over where a roadside is lost
-    /// (<see cref="LaneLines.Tapers"/>).
+    /// stubs under the decks and past the map's edge, and the tapers a kerb eases in over where a roadside or a lane is
+    /// lost (<see cref="LaneLines.Tapers"/>).
     /// </summary>
     internal static (ArcSeg[][] Lines, float[] WidthM) Bands(Paving paving, SimConfig config, byte level)
     {

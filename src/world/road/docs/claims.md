@@ -59,9 +59,9 @@ What follows from that rather than being stated beside it:
   stream shares exactly the metres it crosses.
 - **Ribbons laid edge to edge share no ground.** The two lanes of a carriageway and a lane and the way that
   carries on from its end touch, and are not marked.
-- **Ways on two levels share no ground** however their ribbons lie in plan: a bridge's lanes and the road under
-  them (`CityPlan.RoadArrays.Level`, PHY-1a) are never marked. A connector is on the level of the two lanes it
-  joins where they share one, and on the ground at a bridgehead.
+- **Ways on no channel in common share no ground** however their ribbons lie in plan: a bridge's lanes and the
+  road under them (`CityPlan.RoadArrays.ChannelOf`, PHY-1a) are never marked. A connector is on both of the
+  channels of the lanes it joins, so at a bridgehead it is marked against the ways of either level.
 - **Ground two networks share is marked like any other, except a zebra**, which is marked whole (TER-5c.3) —
   and a zebra is the only ground the walk and the traffic share
   ([WLK-16](../../foot/docs/requirements.md)).
@@ -87,9 +87,9 @@ what they left out. **The town's furniture stands on no driven ribbon** (TER-4c.
 **TER-4c.2** `P3` **A body is on every way whose ribbon its collider is over, at p0, over the stretch it
 covers.** It is read off the lattice at the pose the solver left it in — the collider and never the drawn
 picture, and never the square round it — so a car across the line between two lanes is on both, and one
-turned across its own lane holds the corner of the next and not its own shadow down it. **Only the ways of its
-own level** (PHY-1a): a car on a bridge is on the bridge's lanes and on nothing of the road under it, and a walker
-is on the ground.
+turned across its own lane holds the corner of the next and not its own shadow down it. **Only the ways on its
+own channels** (PHY-1a): a car on a bridge is on the bridge's lanes and on nothing of the road under it, one at a
+bridgehead on the ways of both levels there, and a walker on the ground's.
 
 - **Nothing about the write turns on what the body is doing.** Driven, parked, wrecked, under a hand or
   knocked down, a body in a way is in it; a body inside a building is in no way at all.

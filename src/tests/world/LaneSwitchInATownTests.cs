@@ -133,7 +133,7 @@ public class LaneSwitchInATownTests
         for (var car = 0; car < world.Cars.Count; car++)
         {
             var atM = world.Cars.PositionM[car];
-            if (world.Cars.Level[car] == CityPlan.RoadArrays.Ground && MathF.Abs(atM.Y - TracedPlanTests.TeeOneLaneM.Y) < OnTheStreetM
+            if (world.Cars.LevelOf(car) == CityPlan.RoadArrays.Ground && MathF.Abs(atM.Y - TracedPlanTests.TeeOneLaneM.Y) < OnTheStreetM
                 && MathF.Cos(world.Cars.HeadingRad[car]) > 0f == eastward)
             {
                 return car;

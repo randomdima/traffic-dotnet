@@ -54,6 +54,9 @@ internal sealed class TownRenderer : IDisposable
 
     public const int UnderlayCapacity = OverlayCapacity;
 
+    /// <summary>And how many marks past them on the level above, for the page's one run (<see cref="UnderlayAbove"/>).</summary>
+    public const int UnderlayAboveCapacity = UnderlayCapacity / 4;
+
     readonly SheetAtlas _atlas;
     readonly byte[] _camera = new byte[CameraBytes];
     readonly byte[] _sprites;
@@ -70,6 +73,7 @@ internal sealed class TownRenderer : IDisposable
     int _aboveCount;
     int _overlayCount;
     int _underlayCount;
+    int _underlayAboveCount;
 
     TownRenderer(
         GroundMesh mesh, IReadOnlyList<string> surfaceTextures, IReadOnlyList<SheetSource> sheetTextures,
@@ -82,7 +86,7 @@ internal sealed class TownRenderer : IDisposable
         AboveCapacity = Math.Max(0, aboveCapacity);
         _sprites = new byte[(SpriteCapacity + AboveCapacity) * Marshal.SizeOf<SpriteInstance>()];
         _overlay = new byte[OverlayCapacity * Marshal.SizeOf<OverlayQuad>()];
-        _underlay = new byte[UnderlayCapacity * Marshal.SizeOf<OverlayQuad>()];
+        _underlay = new byte[(UnderlayCapacity + UnderlayAboveCapacity) * Marshal.SizeOf<OverlayQuad>()];
 
         _mesh = mesh;
         _indexCount = mesh.Indices.Length;
@@ -132,7 +136,11 @@ internal sealed class TownRenderer : IDisposable
 
     public Span<OverlayQuad> Overlay => MemoryMarshal.Cast<byte, OverlayQuad>(_overlay.AsSpan());
 
-    public Span<OverlayQuad> Underlay => MemoryMarshal.Cast<byte, OverlayQuad>(_underlay.AsSpan());
+    public Span<OverlayQuad> Underlay => MemoryMarshal.Cast<byte, OverlayQuad>(_underlay.AsSpan())[..UnderlayCapacity];
+
+    /// <summary>And the marks on the level above, past them — drawn in the one run with them, as the bodies are.</summary>
+    public Span<OverlayQuad> UnderlayAbove =>
+        MemoryMarshal.Cast<byte, OverlayQuad>(_underlay.AsSpan()).Slice(UnderlayCapacity, UnderlayAboveCapacity);
 
     /// <summary>How many triangles of the town's standing ground are being drawn.</summary>
     public int TriangleCount => _indexCount / 3;
@@ -180,7 +188,11 @@ internal sealed class TownRenderer : IDisposable
 
     public void SetOverlayCount(int count) => _overlayCount = Math.Clamp(count, 0, OverlayCapacity);
 
-    public void SetUnderlayCount(int count) => _underlayCount = Math.Clamp(count, 0, UnderlayCapacity);
+    public void SetUnderlayCount(int count, int above)
+    {
+        _underlayCount = Math.Clamp(count, 0, UnderlayCapacity);
+        _underlayAboveCount = Math.Clamp(above, 0, UnderlayAboveCapacity);
+    }
 
     /// <summary>
     /// The size of one frame of a sheet cut into a grid, as width over height. <b>The grid is the
@@ -200,14 +212,19 @@ internal sealed class TownRenderer : IDisposable
         _sprites.AsSpan(SpriteCapacity * size, _aboveCount * size).CopyTo(_sprites.AsSpan(_spriteCount * size));
         var drawn = _spriteCount + _aboveCount;
 
+        // And the marks above after the ground's, the same way.
+        var quad = Marshal.SizeOf<OverlayQuad>();
+        _underlay.AsSpan(UnderlayCapacity * quad, _underlayAboveCount * quad).CopyTo(_underlay.AsSpan(_underlayCount * quad));
+        var marks = _underlayCount + _underlayAboveCount;
+
         var camera = view with { SurfacePeriodsM = _mesh.SurfacePeriodsM, WaterPeriodM = _mesh.WaterPeriodM };
         MemoryMarshal.Write(_camera, in camera);
         WebGpu.Frame(
             _camera,
             _sprites.AsSpan(0, drawn * size),
-            _overlay.AsSpan(0, _overlayCount * Marshal.SizeOf<OverlayQuad>()),
-            _underlay.AsSpan(0, _underlayCount * Marshal.SizeOf<OverlayQuad>()),
-            drawn, _overlayCount, _underlayCount);
+            _overlay.AsSpan(0, _overlayCount * quad),
+            _underlay.AsSpan(0, marks * quad),
+            drawn, _overlayCount, marks);
     }
 
     /// <summary>

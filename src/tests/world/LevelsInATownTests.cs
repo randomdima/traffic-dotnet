@@ -23,7 +23,7 @@ public class LevelsInATownTests
         using var world = new TownWorld(plan, SimConfig.Shipped());
 
         var onTheBridge = Enumerable.Range(0, world.Cars.Count)
-            .ToLookup(car => MathF.Abs(world.Cars.PositionM[car].X - crossingM.X) < 1e-3f, car => world.Cars.Level[car]);
+            .ToLookup(car => MathF.Abs(world.Cars.PositionM[car].X - crossingM.X) < 1e-3f, car => world.Cars.LevelOf(car));
         Assert.Equal([CityPlan.RoadArrays.Over, CityPlan.RoadArrays.Over], onTheBridge[true]);
         Assert.Equal([CityPlan.RoadArrays.Ground, CityPlan.RoadArrays.Ground], onTheBridge[false]);
     }

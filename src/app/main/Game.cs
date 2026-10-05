@@ -852,8 +852,9 @@ internal sealed partial class Game : IDisposable
         _renderer.SetSpriteCount(sprites, above);
         parts.Mark(ref parts.SpritesMs);
 
-        _renderer.SetOverlayCount(_ui.Draw(_renderer.Overlay, _renderer.Underlay, Describe(), out var under));
-        _renderer.SetUnderlayCount(under);
+        _renderer.SetOverlayCount(
+            _ui.Draw(_renderer.Overlay, _renderer.Underlay, _renderer.UnderlayAbove, Describe(), out var under, out var underAbove));
+        _renderer.SetUnderlayCount(under, underAbove);
         parts.Mark(ref parts.InterfaceMs);
 
         // OBS-2v: which layers of the ground are drawn, asked every frame and answered by the renderer

@@ -37,21 +37,32 @@ internal sealed class RoadsideLanes
 
     /// <summary>
     /// <b>The lanes a town's movements join, as far as a roadside is laid beside them</b>: where each road's lanes
-    /// begin, the boxes each lane runs between and how wide it is, and the movements out of each — laid before any
+    /// begin, the boxes each lane runs between and how wide it is, and the lines out of each — the movements driven,
+    /// and the ones only paved where a lane is lost or gained (<see cref="LaneLines.Tapers"/>) — laid before any
     /// roadside is (<see cref="LaneLines.FirstRoadside"/>).
     /// </summary>
     public readonly record struct Joined(
-        int[] FirstLaneOf, List<int> LaneFromJunction, List<int> LaneToJunction, List<float> LaneWidthM,
-        int[] ConnectorAt, int[] ConnectorToLane, int[] ConnectorArcOffsets, ArcSeg[] ConnectorArcs)
+        int[] FirstLaneOf, List<int> LaneFromJunction, List<int> LaneToJunction, List<float> LaneWidthM, Runs Driven,
+        Runs Eased)
     {
-        /// <summary>The movement from one lane onto another, and whether there is one.</summary>
+        /// <summary>The line from one lane onto another, driven or eased, and whether there is one.</summary>
+        public bool Between(int from, int to, out ReadOnlySpan<ArcSeg> arcs) =>
+            Driven.Between(from, to, out arcs) || Eased.Between(from, to, out arcs);
+    }
+
+    /// <summary>Lines between lanes, flat: those out of lane i are At[i]..At[i + 1], each its run of arcs.</summary>
+    public readonly record struct Runs(int[] At, int[] ToLane, int[] ArcOffsets, ArcSeg[] Arcs)
+    {
+        public ReadOnlySpan<ArcSeg> ArcsOf(int line) => Arcs.AsSpan(ArcOffsets[line], ArcOffsets[line + 1] - ArcOffsets[line]);
+
+        /// <summary>The line from one lane onto another, and whether there is one.</summary>
         public bool Between(int from, int to, out ReadOnlySpan<ArcSeg> arcs)
         {
-            for (var connector = ConnectorAt[from]; connector < ConnectorAt[from + 1]; connector++)
+            for (var line = At[from]; line < At[from + 1]; line++)
             {
-                if (ConnectorToLane[connector] != to) continue;
+                if (ToLane[line] != to) continue;
 
-                arcs = ConnectorArcs.AsSpan(ConnectorArcOffsets[connector], ConnectorArcOffsets[connector + 1] - ConnectorArcOffsets[connector]);
+                arcs = ArcsOf(line);
                 return true;
             }
 
@@ -202,8 +213,9 @@ internal sealed class RoadsideLanes
     /// <b>None where the roadside is lost along the way</b>: the next arm round carries none on the kerb facing it, and
     /// the box is one the kerb runs straight on through or one of two arms. The roadside stops where its road does,
     /// which is where the line beside it is painted to, and the kerb is eased in across the box instead
-    /// (<see cref="Tapered"/>). A roadside lost close short of a corner was carried on to it with the plan
-    /// (<see cref="CityGenFigures.TracedRoadsideCarriedM"/>).
+    /// (<see cref="Tapered"/>). A traced roadside was carried on along its street with the plan, so one lost along the way
+    /// is lost where its street meets another, or where it would have laid its walk over another road
+    /// (<see cref="CityGenFigures.TracedRoadsideShortestM"/>).
     /// </para>
     /// <para>
     /// <b>Only an arm on its own level is the next one round</b> (PHY-1a): a bridge leaving a box over the road has no

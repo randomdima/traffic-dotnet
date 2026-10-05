@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.World.Physics;
 using Xunit;
@@ -299,16 +300,43 @@ public class SolverBehaviourTests
     [Fact]
     public void ACarOnABridgeDrivesOverTheCarUnderIt()
     {
-        var world = new PhysicsWorld(Config);
-        var over = world.AddNominalCar(Vector2.Zero, 0f);
-        var under = world.AddNominalCar(new Vector2(10f, 0f), 0f);
-        world.PutOnLayer(over, CollisionLayer.CarOver);
-
-        world.ApplyCentralImpulse(over, new Vector2(Config.Car.MassKg * 8f, 0f));
-        Advance(world, 120);
+        var (over, under) = ACarDrivenAtOneStanding(OverChannel, GroundChannel, out var world);
 
         Assert.True(world.PositionOf(over).X > 14f, "a car on a bridge was stopped by a car under it");
         Assert.Equal(new Vector2(10f, 0f), world.PositionOf(under));
+    }
+
+    /// <summary>
+    /// <c>PHY-1a</c>: a car at a bridgehead, on the bridge's channel and the ground's, runs into a car standing on
+    /// either.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ACarAtABridgeheadRunsIntoACarOnEitherLevel(bool standingOnTheBridge)
+    {
+        var (_, standing) = ACarDrivenAtOneStanding(
+            (byte)(GroundChannel | OverChannel), standingOnTheBridge ? OverChannel : GroundChannel, out var world);
+
+        Assert.NotEqual(new Vector2(10f, 0f), world.PositionOf(standing));
+    }
+
+    const byte GroundChannel = CityPlan.RoadArrays.GroundChannel;
+
+    static readonly byte OverChannel = CityPlan.RoadArrays.ChannelOf(CityPlan.RoadArrays.Over);
+
+    /// <summary>A car driven at eight metres a second at one standing ten metres ahead of it, on these channels, for two seconds.</summary>
+    static (BodyId Driven, BodyId Standing) ACarDrivenAtOneStanding(byte driven, byte standing, out PhysicsWorld world)
+    {
+        world = new PhysicsWorld(Config);
+        var mover = world.AddNominalCar(Vector2.Zero, 0f);
+        var stood = world.AddNominalCar(new Vector2(10f, 0f), 0f);
+        world.PutOnChannels(mover, driven);
+        world.PutOnChannels(stood, standing);
+
+        world.ApplyCentralImpulse(mover, new Vector2(Config.Car.MassKg * 8f, 0f));
+        Advance(world, 120);
+        return (mover, stood);
     }
 
     static void Advance(PhysicsWorld world, int steps)
