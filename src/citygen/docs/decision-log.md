@@ -1,5 +1,13 @@
 # CityGen — decision log
 
+## 2026-10-05 — a traced town carries its buildings and not its footprints
+
+**The owner asked for OSM's buildings to leave the running town**: what stands in it is the buildings fitted onto the
+walk, and the footprints they were fitted off — OSM's and the machine-traced ones — are a source and not a part of the
+town. They stay in the map and its sources for what is laid off them before a town is opened, and the plan reads them
+to fit the buildings and keeps none of them (`TracedPlan`); nothing draws them, so the ground's layer of them is gone.
+On OdesaOsm the ground is 2 759 670 triangles of 3 099 150.
+
 ## 2026-10-04 — a traced town's buildings are rounded prefabs stood on its walk
 
 **The owner asked for a traced map's buildings to be prefabs**: a collider of a rounded rectangle or a few rectangles,

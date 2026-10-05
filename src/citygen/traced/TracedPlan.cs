@@ -87,8 +87,8 @@ internal static class TracedPlan
             Crosswalks = crosswalks,
             ZebraAtEveryStation = false,
             ParkingLots = lots,
+            // The footprints are what the buildings were fitted off and not part of the town: it carries the buildings.
             Buildings = buildings,
-            Footprints = survey.Footprints,
             Props = trees,
             Spawns = cars,
             Water = water,

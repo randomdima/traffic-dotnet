@@ -82,12 +82,6 @@ internal sealed class CityPlan
 
     public required BuildingArrays Buildings { get; init; }
 
-    /// <summary>
-    /// <b>The buildings a survey maps, as their footprints</b> (GEN-57): drawn flat under the prefabs they are worn as
-    /// (<see cref="Buildings"/>), the survey's own outline, and standing nothing themselves. <b>Empty where the town
-    /// lays none</b>, which is every town but a traced one.
-    /// </summary>
-    public FootprintArrays Footprints { get; init; } = FootprintArrays.None;
 
     public required PropArrays Props { get; init; }
 

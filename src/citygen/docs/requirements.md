@@ -155,8 +155,9 @@ surface and has no lane.
 - **The least moved stand first**, so what the survey already put on the walk claims its frontage before anything
   moved onto it, and each takes the nearest of its prefabs that stands clear of those stood before it by more than
   `SimConfig.CityGen.TracedPartyWallM`, or nothing — so neighbours a terrace was surveyed as share a wall, and no
-  walkable padding is kept between them (GEN-3 is a generated town's). The footprints are still drawn flat under them
-  in grey, the survey's own outline.
+  walkable padding is kept between them (GEN-3 is a generated town's). **The footprints are what its buildings are
+  fitted off and nothing more**: the town carries the buildings stood on them and no outline of its own, and the map
+  keeps them, with the survey's sources, for what is laid off them before a town is opened.
 - **Its trees are where OSM maps them** (`TracedTrees`, GEN-6b): each a prop of the open country's kind at
   `SimConfig.CityGen.TracedTreeRadiusM`, the size only a tree is drawn at, and **none whose crown comes within a
   lattice step of driven ground** (TER-4c.4) — a road's carriageway, or a junction's disc and its widest arm — nor

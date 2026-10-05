@@ -12,7 +12,6 @@ internal enum GroundPart : byte
     Walk,
     WalkKerb,
     Water,
-    Buildings,
     Decks,
     Carriageway,
     Slabs,
@@ -60,7 +59,7 @@ internal static class GroundParts
     /// </summary>
     public static readonly string[] Names =
     [
-        "Grass", "Walk", "Walk kerb", "Water and shore", "Buildings", "Bridge decks", "Carriageway", "Paved slabs",
+        "Grass", "Walk", "Walk kerb", "Water and shore", "Bridge decks", "Carriageway", "Paved slabs",
         "Town kerb", "Paint", "Bridges over roads",
     ];
 
@@ -71,7 +70,7 @@ internal static class GroundParts
     /// </summary>
     public static readonly string[] Words =
     [
-        "grass", "walk", "walk-kerb", "water", "buildings", "decks", "carriageway", "slabs", "kerb", "paint",
+        "grass", "walk", "walk-kerb", "water", "decks", "carriageway", "slabs", "kerb", "paint",
         "overpasses",
     ];
 

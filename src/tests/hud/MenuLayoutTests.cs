@@ -278,7 +278,9 @@ public class MenuLayoutTests
     [Fact]
     public void TheScenariosAreBehindAGroupThatStartsShut()
     {
-        var menu = Laid(Window);
+        // A window tall enough that every place and both headers are on it: what does not fit scrolls, and
+        // which rows fit is the catalogue's and not the groups'.
+        var menu = Laid(new Vector2(Window.X, Window.Y * 2f));
 
         Assert.True(menu.IsGroupOpen(Menu.MainMaps));
         Assert.False(menu.IsGroupOpen(Menu.Scenarios));

@@ -23,12 +23,14 @@ internal static class TracedFit
     /// <param name="atM">A place to say, footprint by footprint within twice a move's reach of it, what became of each section.</param>
     public static void Run(string map, SimConfig config, string? outPath, Vector2? atM = null)
     {
+        // The survey's footprints and not the plan's: a town carries the buildings fitted off them and not the footprints.
         var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+        var footprints = Survey.Of(Maps.Traced(map), config).Footprints;
         var fitting = TracedBuildings.Fit(
-            plan.Footprints, plan.Paving(config), new GroundShapes(plan.Paving(config), config), BuildingCatalog.Roofs, config);
+            footprints, plan.Paving(config), new GroundShapes(plan.Paving(config), config), BuildingCatalog.Roofs, config);
         var buildings = fitting.Buildings;
         var offered = fitting.Offered;
-        if (atM is { } placeM) Around(plan, fitting, placeM, config.CityGen.TracedFrontageReachM * 2f);
+        if (atM is { } placeM) Around(footprints, fitting, placeM, config.CityGen.TracedFrontageReachM * 2f);
 
         Console.WriteLine(
             $"{map}: {fitting.Footprints} footprints cut into {fitting.Parts} rectangles, {fitting.TooFar} of them further " +
@@ -85,9 +87,8 @@ internal static class TracedFit
     }
 
     /// <summary>Every footprint whose outline starts within reach of a place: where it stands, how big, and each of its sections' fate.</summary>
-    static void Around(CityPlan plan, TracedBuildings.Fitting fitting, Vector2 atM, float reachM)
+    static void Around(CityPlan.FootprintArrays footprints, TracedBuildings.Fitting fitting, Vector2 atM, float reachM)
     {
-        var footprints = plan.Footprints;
         for (var footprint = 0; footprint < footprints.Count; footprint++)
         {
             var outline = footprints.Rings.RingOf(footprints.RingOffsets[footprint]);

@@ -436,12 +436,6 @@ internal sealed partial class GroundMesh
         Water(mesh, plan.Water.Outline, Surface.Water, Plain);
         mesh.Laid(GroundPart.Water, water);
 
-        // <b>The buildings a survey maps</b> (GEN-57), over the walk that runs up to them and the water a pier stands
-        // in, and under the carriageway, so a road through a courtyard arch shows through the building over it.
-        var buildings = mesh.Starting();
-        mesh.Footprints(plan.Footprints);
-        mesh.Laid(GroundPart.Buildings, buildings);
-
         // A deck is drawn out to its own half-width, with a rim rather than a stroke: the piece at full size
         // in the edge shade, then a line's width smaller in its own. A ribbon about a road's line has no
         // shell of its own to strike a kerb along, which is the one place a rim is what is left.
