@@ -19,7 +19,7 @@ most; the corners are the same 4 165 049. The visual tier passes whole and a sho
 
 ## 2026-10-04 — a prefab with no picture is a plain block, and the sheet table holds 512
 
-The traced prefab catalogue is 355 prefabs, most with no art yet ([citygen's log](../../../citygen/docs/decision-log.md)).
+A traced town's buildings are 355 prefabs, most with no art yet ([citygen's log](../../../citygen/docs/decision-log.md)).
 **An undrawn prefab is drawn from a sheet built for it** (`PrefabSprites`): its rounded rectangle in its look's colour
 and clear past its corners, its walls darker and its door's wall lighter, at 4 px/m — so the placement can be judged,
 look by look, before any of it is painted. The footprints under them went from tan to grey, so where a prefab parts

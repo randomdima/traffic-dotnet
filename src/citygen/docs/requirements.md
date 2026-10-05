@@ -134,10 +134,29 @@ surface and has no lane.
   crossing painted where its tags say so, or where they say nothing and it has lights for its walkers, laid
   across the road its way runs along at the place nearest where OSM puts it. Its kerb ends still cut the walk
   and hold the traffic at every station, painted with nothing (`CityPlan.ZebraAtEveryStation`).
-- **Its buildings are its footprints, and nothing is stood on them** (`CityPlan.Footprints`): OSM's and the
-  machine-traced ones OSM lacks, each drawn flat in the survey's own outline less its courtyards, its roof shaded by
-  its height (`GroundMesh.Footprints`). A traced town has no building of its own — no roof, no body and no door — so
-  no trip ends at one, and a body crossing a footprint meets nothing.
+- **Its buildings are prefabs stood on its walk where its footprints are** (`TracedBuildings`), OSM's and the
+  machine-traced ones OSM lacks: each footprint, less its courtyards, is one rounded rectangle where it fills one —
+  a silo a circle, a pavilion a stadium — or else cut into at most `SimConfig.CityGen.TracedPartsMost` rectangles on
+  its own bearing (`FootprintParts`). **Each wears the prefab of its look nearest its size and roundness**, a larger one
+  and a rounder or squarer one weighing against it (`SimConfig.CityGen.TracedPrefabLargerWeighs`,
+  `TracedPrefabRoundWeighs`), **laid only as it was drawn** — its door's wall along the walk, never turned a quarter
+  onto a side street it does not face; a plot narrower at the street than it is deep wears a prefab drawn narrow end
+  to the street. **Its look is read off its use** — its own tags, else the land use it stands in
+  (`FootprintUse`) — and, for a home they say no more of, off its height or else its ground (`TracedBuildings.LookOf`).
+- **Every building fronts the walk, as a generated town's does** (GEN-54): a rectangle is moved through the wall of
+  it that faces the walk's outer face nearest it, turned square to the face there, its front on the building line and
+  its way in on the walk's outer lane. **A building is stood cleanly or not at all** (GEN-8): not where its front is
+  further than `SimConfig.CityGen.TracedFrontageReachM` from the line; not where the walk under its front would leave
+  any of it further back than `SimConfig.CityGen.TracedFrontageStraightM` or turns more than
+  `SimConfig.CityGen.TracedFrontageTurnDeg` off its bearing — a bend, a jog, a block's corner; not where any of it
+  stands off grass or on any paving (GEN-2b, GEN-2c). A rectangle longer than its look's longest prefab is cut into
+  equal sections, side by side along the walk and one behind another back from it, each standing only where the one
+  in front of it did.
+- **The least moved stand first**, so what the survey already put on the walk claims its frontage before anything
+  moved onto it, and each takes the nearest of its prefabs that stands clear of those stood before it by more than
+  `SimConfig.CityGen.TracedPartyWallM`, or nothing — so neighbours a terrace was surveyed as share a wall, and no
+  walkable padding is kept between them (GEN-3 is a generated town's). The footprints are still drawn flat under them
+  in grey, the survey's own outline.
 - **Its trees are where OSM maps them** (`TracedTrees`, GEN-6b): each a prop of the open country's kind at
   `SimConfig.CityGen.TracedTreeRadiusM`, the size only a tree is drawn at, and **none whose crown comes within a
   lattice step of driven ground** (TER-4c.4) — a road's carriageway, or a junction's disc and its widest arm — nor

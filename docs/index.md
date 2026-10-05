@@ -185,7 +185,7 @@ owning slice's log; this list says only what is absent now and what closes it.
   driveway and courtyard lane of `OdesaOsm` ends in one, so a leg routed into one stands there until its clock
   gives it up. It is not asked whether it can be driven round, and it stands nobody yet.
 - **A traced city reaches the page on a desktop browser alone.** Opening OdesaOsm grows the page's heap past the
-  2 GB the runtime gives a page by default, to 2.2 GB of the 4 GB a 32-bit page can address, which a phone's browser
+  2 GB the runtime gives a page by default, to 2.4 GB of the 4 GB a 32-bit page can address, which a phone's browser
   does not give a page, and stands it up on the page's one thread with the tab frozen meanwhile.
 - **A deck's pavement is not drawn.** The walk across a bridge is the driven ground's own boundary moved
   like anywhere else (`WLK-1`, `TER-3b.1`), and the ground answers walk there — but the ground stack is laid

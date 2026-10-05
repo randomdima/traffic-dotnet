@@ -772,7 +772,8 @@ public class TracedPlanTests
     public void ATreeIsLaidWhereTheSurveyMapsItAndNoneOnTheRoad()
     {
         var plan = TracedPlan.Lay(
-            Surveyed([100, 500, 900, 500], OsmTurns.None, [], [], [new Vector2(500f, 510f), new Vector2(500f, 501f)], Way(0, 1)), Config);
+            Surveyed([100, 500, 900, 500], OsmTurns.None, [], [], [new Vector2(500f, 510f), new Vector2(500f, 501f)], Way(0, 1)), Config,
+            BuildingSizes.None);
 
         Assert.Equal([new Vector2(500f, 510f)], plan.Props.CentreM);
         Assert.Equal([(byte)PropKind.WildNature], plan.Props.Kind);
@@ -785,7 +786,7 @@ public class TracedPlanTests
     [Fact]
     public void ARoadRunningOffTheMapEndsOnItsEdge()
     {
-        var plan = TracedPlan.Lay(RunningOff(), Config);
+        var plan = TracedPlan.Lay(RunningOff(), Config, BuildingSizes.None);
 
         var edge =Array.FindIndex(plan.Junctions.CentreM, centreM => centreM == EdgeM);
         var line = plan.Roads.SegmentsOf(0);
@@ -801,7 +802,7 @@ public class TracedPlanTests
     [Fact]
     public void TheGroundOfARoadRunningOffTheMapTurnsRoundPastItsEdge()
     {
-        var plan = TracedPlan.Lay(RunningOff(), Config);
+        var plan = TracedPlan.Lay(RunningOff(), Config, BuildingSizes.None);
 
         var furthestM = float.MinValue;
         foreach (var ring in plan.Paving(Config).Perimeter(Config).Chains)
@@ -830,7 +831,8 @@ public class TracedPlanTests
     public void NoTreesCrownLeavesTheMap()
     {
         var plan = TracedPlan.Lay(
-            Surveyed([100, 500, 900, 500], OsmTurns.None, [], [], [new Vector2(500f, 300f), new Vector2(999f, 300f)], Way(0, 1)), Config);
+            Surveyed([100, 500, 900, 500], OsmTurns.None, [], [], [new Vector2(500f, 300f), new Vector2(999f, 300f)], Way(0, 1)), Config,
+            BuildingSizes.None);
 
         Assert.Equal([new Vector2(500f, 300f)], plan.Props.CentreM);
     }
@@ -980,7 +982,7 @@ public class TracedPlanTests
         Laid(pointsM, OsmTurns.None, controls, crossings, ways);
 
     static CityPlan Laid(float[] pointsM, OsmTurns turns, PointControl[] controls, SurveyCrossing[] crossings, params SurveyWay[] ways) =>
-        TracedPlan.Lay(Surveyed(pointsM, turns, controls, crossings, [], ways), Config);
+        TracedPlan.Lay(Surveyed(pointsM, turns, controls, crossings, [], ways), Config, BuildingSizes.None);
 
     /// <summary>The survey those are, with the trees given mapped over it.</summary>
     static Survey Surveyed(

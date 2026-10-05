@@ -1,21 +1,6 @@
 # CityGen — decision log
 
-## 2026-10-05 — a traced town stands no building on its footprints
-
-**The owner dropped the prefabs a traced town's footprints were worn as**, for the memory a browser page has: its
-footprints are its buildings, drawn flat in their survey's outline as they already were (`GroundMesh.Footprints`), and
-nothing stands on them — no roof, no body and no door. Nothing in a traced town asks for a building: it stands nobody,
-so no trip ends at one.
-
-On OdesaOsm that is the fitting's 7 CPU-seconds, a tenth of an open's work and all of it on one thread in a page; the
-second `GroundShapes` and the kerb scan the plan laid for the fitting and nothing else; and 64 078 of the town's 65 125
-static bodies. **What it costs is the collider**: a car that leaves the road crosses a drawn building rather than
-striking it.
-
-**The fitter is kept, and no plan runs it** (`TracedBuildings`, `--bench fit`, the prefab catalogue and its art): its
-tests fit their footprints directly, so it is the fitter it was if a traced town ever stands buildings again.
-
-## 2026-10-04 — the fitter wears a traced footprint as rounded prefabs on its walk
+## 2026-10-04 — a traced town's buildings are rounded prefabs stood on its walk
 
 **The owner asked for a traced map's buildings to be prefabs**: a collider of a rounded rectangle or a few rectangles,
 art that fits a rectangle rather than a random outline, a complex footprint worn as two or three simple buildings, and

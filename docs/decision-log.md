@@ -20,9 +20,8 @@ it was not the town.
   sorted, so the place table is gone altogether. The atlas is the same to the bit.
 - **The world is laid before the ground** (`LaidTown.Lay`): the mesh's 171 MB stood under the atlas's peak, and laid
   after it, it is laid in what the atlas freed.
-- **A grid of nothing covers one cell** (`BucketGrid.Over`): the doors of a town with no building were three words
+- **A grid of nothing covers one cell** (`BucketGrid.Over`): a car park's bays in a town with none were three words
   a cell of the whole town.
-- **A traced town stands no building on its footprints**, which is citygen's ([its log](../src/citygen/docs/decision-log.md)).
 - **The atlas files the walk only where it is read**, and a piece reads only the rows it reaches, which are the roads
   slice's ([its log](../src/world/road/docs/decision-log.md)); **a corner of the ground is twelve bytes**, which is
   the renderer's ([its log](../src/app/render/docs/decision-log.md)).
@@ -33,11 +32,11 @@ the published page's own heap a minute after the map was named:
 
 | | before | after |
 |---|---|---|
-| peak resident | 4 011 MiB, the plan's | 1 964 MiB, the atlas's filing |
-| live peak | 3.0 to 3.5 GB | 1.5 to 1.75 GB |
-| open | 15.7 s, 66 CPU s | 10.9 s, 36 CPU s |
-| standing, committed | 2 046 MB | 1 304 MB |
-| the page's heap | out of memory at its 2 GB | 2 165 MiB of 4 GB |
+| peak resident | 4 011 MiB, the plan's | 1 998 MiB, the atlas's filing |
+| live peak | 3.0 to 3.5 GB | under 1.75 GB |
+| open | 15.7 s, 66 CPU s | 11.8 s, 43 CPU s |
+| standing, committed | 2 046 MB | 1 419 MB |
+| the page's heap | out of memory at its 2 GB | 2 387 MiB of 4 GB |
 
 The coarsening moved the ground by five triangles of three million: the indexes it put right are coarser, and the
 merge reads its candidates off a coarser cell.
@@ -51,8 +50,8 @@ geometry, and waits for that run to be cheaper.
 
 ## 2026-10-04 — a building may be one rounded rectangle
 
-**The owner asked for a prefab building's collider to be a rounded rectangle** (`OBJ-2`): a prefab is one rounded
-rectangle, drawn and collided as that — a car slides off a corner rather than catching
+**The owner asked for a prefab building's collider to be a rounded rectangle** (`OBJ-2`): a traced town's buildings
+are prefabs, each one rounded rectangle, drawn and collided as that — a car slides off a corner rather than catching
 on it, and a silo is a disc. It is the solver's one shape with a radius, as a car's is (`PhysicsWorld.AddStaticBox`);
 a building drawn of several rectangles keeps them square-cornered (`OBJ-5a`), and a generated town's roofs are radius
 nought, so nothing they stand moves ([citygen's log](../src/citygen/docs/decision-log.md)).

@@ -8,8 +8,8 @@ namespace TrafficSimulation.CityGen.Traced;
 /// <b>A real place, laid from its survey</b> (GEN-57): the roads OSM holds for it as the town's roads, its sea
 /// as the town's water, at one metre to the metre — and, where its map says, each road as wide as it was
 /// measured, lights where it is signalled, zebras where they are painted, its bridges, roundabouts, trees, and its
-/// buildings as the footprints it surveyed. No car park, no building stood on them, and nobody standing in it but a
-/// few cars at its bridges over its roads (<see cref="TracedBridgeCars"/>).
+/// buildings as the prefabs their footprints are worn as (<see cref="TracedBuildings"/>). No car park and nobody
+/// standing in it but a few cars at its bridges over its roads (<see cref="TracedBridgeCars"/>).
 /// </summary>
 /// <remarks>
 /// <b>Content and not code</b>, the same as a brief: a traced map is a file in <c>towns/traced/</c> that a build
@@ -18,7 +18,11 @@ namespace TrafficSimulation.CityGen.Traced;
 /// </remarks>
 internal static class TracedPlan
 {
-    public static CityPlan Lay(Survey survey, SimConfig config)
+    /// <param name="sizes">
+    /// The prefabs its footprints are fitted from, handed down from the catalogue that read them
+    /// (<see cref="BuildingSizes"/>). A town handed none stands each rectangle of a footprint as itself.
+    /// </param>
+    public static CityPlan Lay(Survey survey, SimConfig config, BuildingSizes sizes)
     {
         var clock = Stopwatch.StartNew();
         var streets = TracedStreets.Lay(survey, config);
@@ -40,7 +44,8 @@ internal static class TracedPlan
         var cars = TracedBridgeCars.Lay(streets.Roads, config);
         var carsMs = clock.Elapsed.TotalMilliseconds;
 
-        // The pavement is laid here and handed over rather than laid again when the town is opened.
+        // <b>The buildings stand against the walk the finished town is laid with</b> (GEN-54), so the pavement is laid
+        // here and handed over rather than laid again when the town is opened.
         clock.Restart();
         var corners = new CityPlan.JunctionCornerArrays { CornerM = [], ArcCentreM = [], RadiusM = [], TangentAM = [], TangentBM = [] };
         var lots = new CityPlan.ParkingLotArrays
@@ -54,6 +59,16 @@ internal static class TracedPlan
                 water),
             config);
         var pavingMs = clock.Elapsed.TotalMilliseconds;
+
+        // The walk's outer face and the ground answered off it, which the town draws and stands on once opened.
+        clock.Restart();
+        paving.Rings(config).NewKerbScan();
+        var ground = new GroundShapes(paving, config);
+        var groundMs = clock.Elapsed.TotalMilliseconds;
+
+        clock.Restart();
+        var buildings = TracedBuildings.Lay(survey.Footprints, paving, ground, sizes, config);
+        var buildingsMs = clock.Elapsed.TotalMilliseconds;
 
         return new CityPlan
         {
@@ -72,7 +87,7 @@ internal static class TracedPlan
             Crosswalks = crosswalks,
             ZebraAtEveryStation = false,
             ParkingLots = lots,
-            Buildings = CityPlan.BuildingArrays.None,
+            Buildings = buildings,
             Footprints = survey.Footprints,
             Props = trees,
             Spawns = cars,
@@ -81,7 +96,7 @@ internal static class TracedPlan
             LaidMs =
             [
                 ("streets", streetsMs), ("crossings", crossingsMs), ("trees", treesMs), ("sea", seaMs), ("cars", carsMs),
-                ("paving", pavingMs),
+                ("paving", pavingMs), ("ground", groundMs), ("buildings", buildingsMs),
             ],
         };
     }

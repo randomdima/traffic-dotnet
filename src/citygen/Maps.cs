@@ -132,9 +132,9 @@ internal static class Maps
     /// </para>
     /// </remarks>
     /// <param name="sizes">
-    /// The footprints a generated town sizes its buildings at, read off the art by the catalogue above this slice and
-    /// handed down as data (<see cref="BuildingSizes"/>, GEN-54). A map laid in code stands what its own code stands,
-    /// and a traced one its survey's footprints, and neither reads this.
+    /// The footprints a generated town sizes its buildings at and a traced one fits its footprints from, read off
+    /// the art by the catalogue above this slice and handed down as data (<see cref="BuildingSizes"/>, GEN-54,
+    /// GEN-57). A map laid in code stands what its own code stands and never reads this.
     /// </param>
     public static CityPlan Plan(string name, SimConfig config, BuildingSizes sizes)
     {
@@ -165,7 +165,7 @@ internal static class Maps
         }
 
         if (IsGenerated(name)) return TownGenerator.Lay(Brief(name), config, sizes);
-        if (IsTraced(name)) return TracedPlan.Lay(Survey.Of(Traced(name), config), config);
+        if (IsTraced(name)) return TracedPlan.Lay(Survey.Of(Traced(name), config), config, sizes);
 
         throw new FileNotFoundException(
             $"No map called {name}: this build knows {string.Join(", ", Shipped())}.");

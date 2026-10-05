@@ -7,11 +7,10 @@ using Xunit;
 namespace TrafficSimulation.Tests.CityGen.Traced;
 
 /// <summary>
-/// <b>A traced town stands no building of its own, its footprints being its buildings</b> (GEN-57) — and the fitter
-/// that would wear them as prefabs on the walk (GEN-54, <see cref="TracedBuildings"/>), which no plan runs: two houses
-/// surveyed at different setbacks from one street stand on one line, square to it, their ways in on the walk; a shed in
-/// a yard is moved onto the walk and one beyond reach stands nowhere; a footprint wears the prefab of its look nearest
-/// its size and roundness; and what a footprint is drawn as is read off its use and height.
+/// <b>A traced town's footprints are worn as prefabs on the walk</b> (GEN-57, GEN-54, <see cref="TracedBuildings"/>):
+/// two houses surveyed at different setbacks from one street stand on one line, square to it, their ways in on the
+/// walk; a shed in a yard is moved onto the walk and one beyond reach stands nowhere; a footprint wears the prefab of
+/// its look nearest its size and roundness; and what a footprint is drawn as is read off its use and height.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
 [Trait(Priority.Key, Priority.P6)]
@@ -21,16 +20,6 @@ public class TracedBuildingsTests
 
     /// <summary>Where the street runs, east to west along this line.</summary>
     const float StreetY = 500f;
-
-    /// <summary><b>A traced plan stands no building on its footprints</b>, and keeps every footprint it surveyed.</summary>
-    [Fact]
-    public void ATracedPlanStandsNoBuildingOnItsFootprints()
-    {
-        var faceY = StreetY - Config.CityGen.TracedLaneWidthM - Config.WalkOuterM;
-        var plan = TracedPlan.Lay(Surveyed(Box(300f, faceY - 2f, 12f, 8f), Box(400f, faceY - 5f, 12f, 8f)), Config);
-
-        Assert.Equal((0, 2), (plan.Buildings.Count, plan.Footprints.Count));
-    }
 
     /// <summary>
     /// <b>Two houses a few metres apart in setback stand on one line, square to the street</b>: each one's front
@@ -143,17 +132,9 @@ public class TracedBuildingsTests
     static Vector2[] Box(float x, float southY, float widthM, float depthM) =>
         [new(x - (widthM * 0.5f), southY - depthM), new(x + (widthM * 0.5f), southY - depthM), new(x + (widthM * 0.5f), southY), new(x - (widthM * 0.5f), southY)];
 
-    /// <summary>
-    /// The footprints on those outlines worn as the prefabs <paramref name="sizes"/> offers — fitted here, since a traced
-    /// plan stands none.
-    /// </summary>
-    static CityPlan.BuildingArrays Fitted(BuildingSizes sizes, params Vector2[][] outlines)
-    {
-        var survey = Surveyed(outlines);
-        var paving = TracedPlan.Lay(survey, Config).Paving(Config);
-        paving.Rings(Config).NewKerbScan();
-        return TracedBuildings.Lay(survey.Footprints, paving, new GroundShapes(paving, Config), sizes, Config);
-    }
+    /// <summary>The buildings a traced plan stands on those outlines, worn as the prefabs <paramref name="sizes"/> offers.</summary>
+    static CityPlan.BuildingArrays Fitted(BuildingSizes sizes, params Vector2[][] outlines) =>
+        TracedPlan.Lay(Surveyed(outlines), Config, sizes).Buildings;
 
     /// <summary>A street of a lane each way from 100 to 900 m along <see cref="StreetY"/>, and homes of no stated height on these outlines.</summary>
     static Survey Surveyed(params Vector2[][] outlines)
