@@ -1,0 +1,60 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// A run of walkers each taking its own tick, one thread a walker, off the body, the aim and the flags the host read for
+// it — the follower asked on its own, which is how its answer is held to the host's.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint walkerCount;
+    float dtS;
+    float walkSpeedMps;
+    float turnRateDegPerS;
+    float footGripMps2;
+    float slidingGripMps2;
+} figures;
+
+#define WALKER_FIGURES figures
+
+#include "agents/person/control/kernels/walker.glsl"
+
+// A walker as its tick reads it; flags are walking | wounded << 1 | inside << 2 | paused << 3.
+struct WalkerRow
+{
+    vec2 positionM;
+    vec2 velocityMps;
+    vec2 declaredMps;
+    vec2 aimM;
+    float headingRad;
+    float massKg;
+    uint flags;
+    float pad;
+};
+
+// What the tick wrote, and whether it wrote it.
+struct WalkerOutcome
+{
+    vec2 desiredMps;
+    vec2 impulseNs;
+    float headingRad;
+    uint writes;
+    vec2 pad;
+};
+
+layout(std430, binding = 0) readonly buffer Walkers { WalkerRow walkers[]; };
+layout(std430, binding = 1) writeonly buffer Outcomes { WalkerOutcome outcomes[]; };
+
+void main()
+{
+    uint walker = gl_GlobalInvocationID.x;
+    if (walker >= figures.walkerCount) return;
+
+    WalkerRow row = walkers[walker];
+    WalkerStep step;
+    bool writes = walkerTick(
+        row.headingRad, row.positionM, row.velocityMps, row.declaredMps, row.aimM, (row.flags & 1u) != 0u,
+        (row.flags & 2u) != 0u, (row.flags & 4u) != 0u, (row.flags & 8u) != 0u, row.massKg, figures.dtS, step);
+    outcomes[walker] = WalkerOutcome(step.desiredMps, step.impulseNs, step.headingRad, writes ? 1u : 0u, vec2(0.0));
+}

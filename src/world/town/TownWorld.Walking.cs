@@ -60,12 +60,7 @@ internal sealed partial class TownWorld
             return;
         }
 
-        var positionM = People.PositionM[agent];
-        var step = WalkerFollower.Step(
-            _config, People.HeadingRad[agent], positionM, People.VelocityMps[agent], People.DeclaredMps[agent],
-            positionM, moving: false, People.IsOnItsFeet(agent), People.MassKg[agent], _config.TickSeconds);
-        People.DeclaredMps[agent] = step.DesiredMps;
-        _impulseNs[agent] = step.ImpulseNs;
+        TickTheWalker(agent, paused: true);
     }
 
     /// <summary>

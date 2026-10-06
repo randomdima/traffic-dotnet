@@ -2,6 +2,18 @@
 
 Why the rules in [requirements.md](requirements.md) read as they do.
 
+## 2026-10-06 — a light's colour is asked on the device, off the service's own tables
+
+**The tick moves to the device** (root log). `control/kernels/signal.glsl` is `SignalCycle`, `SignalService`'s two
+lookups and a stretch's choice between them (`SignalHolds.ColourOf`, which `Lay` now asks), read off the service's
+own tables (`SignalService.Table`). One thread a stretch, since a stretch is what a hold is laid for. Held over every
+approach and crossing of the suite's fixture town, lit and unlit, at moments over four cycles and a float either side
+of every edge, and with no cycle at all: every colour the host's. Nothing in a light is a transcendental, so nothing
+is forgiven.
+
+**The hold a colour lays is still the host's**: it runs to the first body travelling the way, which is the claims'
+to say, and comes with them.
+
 ## 2026-09-28 — a light holds ground, and a town lights most of what it can
 
 **The owner asked for the lights back, as a reservation.** Four fifths of the junctions that can carry

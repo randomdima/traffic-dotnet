@@ -798,38 +798,33 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             return;
         }
 
-        // PHY-7: inside a container there is no body in the world to move, and the only actions are the
-        // container's own — which are the trip's and are taken on the decision clock.
-        if (People.Inside[agent].Any)
+        // CTL-6's seam, read every tick: the goal is substituted and nothing under it is, so what follows cannot
+        // tell this walker from any other. Only a body in the world and on its feet takes a hand (PHY-7, PER-18).
+        if (!People.Inside[agent].Any && People.Acts(agent) && _hands.Held && _selected.Holds(SelectionKind.Person, agent))
         {
-            _impulseNs[agent] = Vector2.Zero;
-            People.DeclaredMps[agent] = Vector2.Zero;
+            HandWalk(agent);
+        }
+
+        TickTheWalker(agent, paused: false);
+    }
+
+    /// <summary>
+    /// <b>A walker's own tick, written back</b> (<see cref="WalkerFollower.Tick"/>): at the aim settled when the grant was
+    /// read (<see cref="AimTheWalker"/>), and nothing written for a casualty, whose slide is <see cref="Settle"/>'s.
+    /// </summary>
+    void TickTheWalker(int person, bool paused)
+    {
+        if (!WalkerFollower.Tick(
+                _config, People.HeadingRad[person], People.PositionM[person], People.VelocityMps[person],
+                People.DeclaredMps[person], People.DestinationM[person], People.Walking[person], People.Wounded[person],
+                People.Inside[person].Any, paused, People.MassKg[person], _config.TickSeconds, out var step))
+        {
             return;
         }
 
-        // PER-18: a casualty declares nothing. What still acts on it is the ground it is lying on, and
-        // that is <see cref="Settle"/>'s — asked of the body rather than of the walker it was.
-        if (People.Wounded[agent]) return;
-
-        var positionM = People.PositionM[agent];
-
-        // CTL-6's seam, read every tick: the goal is substituted and nothing under it is, so what
-        // follows cannot tell this walker from any other.
-        if (_hands.Held && _selected.Holds(SelectionKind.Person, agent)) HandWalk(agent);
-
-        // <b>The aim is a point along the way in front of it and nothing else</b> (PER-25), and no further
-        // than the walker was granted: a walker walks the way it was handed, on that way's own line, and
-        // what it walks into is the solver's. Where that point is was settled once the grant was read this
-        // tick (<see cref="AimTheWalker"/>).
-        var aimM = People.DestinationM[agent];
-
-        var step = WalkerFollower.Step(
-            _config, People.HeadingRad[agent], positionM, People.VelocityMps[agent], People.DeclaredMps[agent], aimM,
-            People.Walking[agent], People.IsOnItsFeet(agent), People.MassKg[agent], _config.TickSeconds);
-
-        People.HeadingRad[agent] = step.HeadingRad;
-        People.DeclaredMps[agent] = step.DesiredMps;
-        _impulseNs[agent] = step.ImpulseNs;
+        People.HeadingRad[person] = step.HeadingRad;
+        People.DeclaredMps[person] = step.DesiredMps;
+        _impulseNs[person] = step.ImpulseNs;
     }
 
 

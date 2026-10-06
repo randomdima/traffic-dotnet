@@ -5,6 +5,23 @@ using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.Agents.TrafficLight.Control;
 
+/// <inheritdoc cref="SignalService.Table"/>
+/// <param name="LaneAxis">Which axis each lane arrives on, or <see cref="SignalService.NoAxis"/> where its junction is unlit.</param>
+/// <param name="LaneJunction">Which junction each lane arrives at — read only for a lane with an axis.</param>
+/// <param name="OffsetS">Each junction's own offset into the cycle (TLT-3).</param>
+/// <param name="CrossingAxis">The axis of the arm each crossing is painted across, or <see cref="SignalService.NoAxis"/> where it is unlit.</param>
+/// <param name="CrossingJunction">Which junction each crossing is at — read only for a lit one.</param>
+internal readonly ref struct SignalTable(
+    ReadOnlySpan<int> LaneAxis, ReadOnlySpan<int> LaneJunction, ReadOnlySpan<float> OffsetS, ReadOnlySpan<int> CrossingAxis,
+    ReadOnlySpan<int> CrossingJunction)
+{
+    public ReadOnlySpan<int> LaneAxis { get; } = LaneAxis;
+    public ReadOnlySpan<int> LaneJunction { get; } = LaneJunction;
+    public ReadOnlySpan<float> OffsetS { get; } = OffsetS;
+    public ReadOnlySpan<int> CrossingAxis { get; } = CrossingAxis;
+    public ReadOnlySpan<int> CrossingJunction { get; } = CrossingJunction;
+}
+
 /// <summary>
 /// <b>The one town-wide lookup</b>: what colour an approach is showing, and what colour a crossing is. <b>No
 /// agent asks it</b> (TLT-2): what a colour does to the traffic is the hold a light lays for it
@@ -93,6 +110,12 @@ internal sealed class SignalService
 
         return SignalCycle.ForCrossing(_config, _crossingAxis[crossing], _offsetS[_crossingJunction[crossing]], timeS);
     }
+
+    /// <summary>
+    /// <b>Everything <see cref="ForApproach"/> and <see cref="ForCrossing"/> read, as data</b> — for a device that asks
+    /// the same cycle of its own copy, through the same lookups.
+    /// </summary>
+    public SignalTable Table => new(_laneAxis, _laneJunction, _offsetS, _crossingAxis, _crossingJunction);
 
     /// <param name="zebras">
     /// <b>The town's own crossings</b> (<see cref="Crossings"/>, TER-6), which a crossing index here is an

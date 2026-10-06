@@ -4,6 +4,20 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-10-06 — a walker's tick is asked on the device, of the host's own function
+
+**The tick moves to the device** (root log). What the tick does with a walker is now one function,
+`WalkerFollower.Tick` — the paused stance, nothing for a body inside something, nothing written for a casualty, and the
+step at the aim — moved out of `TownWorld.TickAgent` and `Paused` unchanged, and `control/kernels/walker.glsl` is it
+line for line. Held over 2 400 walkers of every case it branches on: the declaration and the impulse to the bit, and
+the heading to the bit except where a walker takes the bearing, which is the device's own arctangent.
+
+- **`Wrap` is the host's remainder for an angle under two and a half turns** either way; past that τ·n is no longer a
+  float. A heading less a bearing is under one.
+- **Still the host's:** the aim, written on the claims' clock by the action off the grant (`WalkingItsRoute`), by the
+  hand (CTL-6) and by events; `Walking`, `Wounded` and `Inside`; the pause; and a casualty's slide (`Settle`), which is
+  the same step asked at its own place off its feet.
+
 ## 2026-10-02 — an owner gets out beside their own car
 
 **An owner parked in a bay could not get out of it.** The place an owner is put down (PHY-7a) was asked of every

@@ -112,14 +112,19 @@ internal sealed class SignalHolds
     {
         for (var stretch = 0; stretch < _way.Length; stretch++)
         {
-            var colour = _forCars[stretch]
-                ? signals.ForApproach(_subject[stretch], timeS)
-                : signals.ForCrossing(_subject[stretch], timeS);
-            if (colour == SignalColour.Green) continue;
+            if (ColourOf(signals, _subject[stretch], _forCars[stretch], timeS) == SignalColour.Green) continue;
 
             HoldTheStretch(occupancy, stretch, _way[stretch], _fromM[stretch], _toM[stretch]);
         }
     }
+
+    /// <summary>
+    /// What a stretch's light is showing it: its approach's colour, or its crossing's. <b>Held on anything but green</b>
+    /// (<see cref="Lay"/>).
+    /// </summary>
+    /// <param name="subject">The lane the stretch is an approach of, or the crossing whose paint it is.</param>
+    public static SignalColour ColourOf(SignalService signals, int subject, bool forCars, float timeS) =>
+        forCars ? signals.ForApproach(subject, timeS) : signals.ForCrossing(subject, timeS);
 
     /// <summary>
     /// <b>One stretch held</b>, from <paramref name="fromM"/> to the first body travelling the way in front of it
