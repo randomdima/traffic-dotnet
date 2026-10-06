@@ -1,0 +1,60 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// A run of cars' tyres for one tick, one thread a car, off their builds, poses, commands and the ground under their
+// wheels — the tyre model asked on its own, which is how the device's answer is held to the host's.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint carCount;
+    float dtS;
+    float standardGravityMps2;
+    float wheelSpinFadeMps;
+    float wheelSpinAllowanceMps;
+    float markSlipMps;
+    float markCorneringSlipMps;
+    float ploughCrawlMps;
+    float engineBrakingMps2;
+} figures;
+
+#define TYRE_FIGURES figures
+#include "agents/car/body/kernels/tyre.glsl"
+
+layout(std430, binding = 0) readonly buffer Builds { TyreBuild builds[]; };
+layout(std430, binding = 1) readonly buffer BuildOf { uint buildOf[]; };
+layout(std430, binding = 2) readonly buffer Poses { TyrePose poses[]; };
+layout(std430, binding = 3) readonly buffer Commands { TyreCommand commands[]; };
+layout(std430, binding = 4) readonly buffer Ceilings { float ceilings[]; };
+layout(std430, binding = 5) readonly buffer Surfaces { TyreSurface surfaces[]; };
+layout(std430, binding = 6) buffer Spins { vec4 spins[]; };
+layout(std430, binding = 7) writeonly buffer Impulses { vec4 impulses[]; };
+layout(std430, binding = 8) writeonly buffer Scrubs { TyreScrub scrubs[]; };
+
+void main()
+{
+    uint car = gl_GlobalInvocationID.x;
+    if (car >= figures.carCount) return;
+
+    TyreBuild build = builds[buildOf[car]];
+    TyrePose pose = poses[car];
+    vec2 atM[4];
+    tyreWheelPointsM(build, pose, atM);
+
+    TyreSurface ground[4];
+    for (int wheel = 0; wheel < TyreWheels; wheel++) ground[wheel] = surfaces[car * 4u + uint(wheel)];
+
+    vec4 spin = spins[car];
+    float spinMps[4] = float[4](spin.x, spin.y, spin.z, spin.w);
+    vec4 spent[4];
+    TyreScrub scrub[4];
+    tyreStep(build, pose, commands[car], ceilings[car], atM, ground, spinMps, figures.dtS, spent, scrub);
+
+    spins[car] = vec4(spinMps[0], spinMps[1], spinMps[2], spinMps[3]);
+    for (int wheel = 0; wheel < TyreWheels; wheel++)
+    {
+        impulses[car * 4u + uint(wheel)] = spent[wheel];
+        scrubs[car * 4u + uint(wheel)] = scrub[wheel];
+    }
+}
