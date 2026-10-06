@@ -1,0 +1,86 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every car's claim of one rebuild laid as rows, one thread a car, each car's pieces at its own stretch of the output
+// (plan.glsl) — the plans asked on their own, which is how they are held to the host's.
+
+layout(local_size_x = 64) in;
+
+// DrivingGround.MostWaysAlongALine; app/devicetick/DevicePlans refuses a host whose figure is another.
+#define PLAN_MOST_WAYS 23u
+
+layout(push_constant) uniform Figures
+{
+    uint carCount;
+    uint arcsPerCar;
+    uint mostLanes;
+    uint mostPieces;
+    uint firstConnector;
+    float reactionS;
+    float standOffM;
+    float stopSpeedMps;
+    float plannedRunS;
+    float planMostM;
+    float planMostJoins;
+    float callReachShare;
+    float brakingMargin;
+    float slowerToPassMps;
+} figures;
+
+#define PLAN_FIGURES figures
+#define SPLINE_ARCS lineArcs
+#define LINE_ENTRIES entries
+#define LANE_CHAIN chain
+#define LANE_START starts
+#define LANE_END ends
+#define JOIN_BREAKS breaks
+#define CONNECTOR_AT connectorAt
+#define CONNECTOR_TO connectorTo
+#define CONNECTOR_RUNG connectorRung
+#define LANE_LENGTH laneLength
+#define MARK_AT markAt
+#define MARKS marks
+#define PLAN_PIECES pieces
+
+#include "core/geometry/kernels/arc.glsl"
+#include "agents/car/body/kernels/car_build.glsl"
+#include "agents/car/control/kernels/car_line.glsl"
+#include "world/road/kernels/claims_rows.glsl"
+#include "agents/car/actions/follow/kernels/plan_rows.glsl"
+#include "core/geometry/kernels/rounded.glsl"
+
+layout(std430, binding = 0) readonly buffer Builds { CarBuildRow builds[]; };
+layout(std430, binding = 1) readonly buffer Cars { uvec4 carRows[]; };
+layout(std430, binding = 2) readonly buffer CarFigures { vec4 carFigures[]; };
+layout(std430, binding = 3) readonly buffer Lines { CarLineRow lines[]; };
+layout(std430, binding = 4) readonly buffer LineArcs { Arc lineArcs[]; };
+layout(std430, binding = 5) readonly buffer Entries { float entries[]; };
+layout(std430, binding = 6) readonly buffer Chain { int chain[]; };
+layout(std430, binding = 7) readonly buffer Starts { float starts[]; };
+layout(std430, binding = 8) readonly buffer Ends { float ends[]; };
+layout(std430, binding = 9) readonly buffer Breaks { uint breaks[]; };
+layout(std430, binding = 10) readonly buffer ConnectorAt { uint connectorAt[]; };
+layout(std430, binding = 11) readonly buffer ConnectorTo { int connectorTo[]; };
+layout(std430, binding = 12) readonly buffer ConnectorRung { uint connectorRung[]; };
+layout(std430, binding = 13) readonly buffer LaneLength { float laneLength[]; };
+layout(std430, binding = 14) readonly buffer MarkAt { uint markAt[]; };
+layout(std430, binding = 15) readonly buffer Marks { CrossedSection marks[]; };
+layout(std430, binding = 16) writeonly buffer Pieces { ClaimRow pieces[]; };
+
+#include "agents/car/actions/follow/kernels/plan.glsl"
+
+layout(std430, binding = 17) writeonly buffer Out { PlanOutRow results[]; };
+
+void main()
+{
+    uint car = gl_GlobalInvocationID.x;
+    if (car >= figures.carCount) return;
+
+    // A car's row: its build, its flags, the hold its plan was numbered; its figures: progress, along, planned, ground
+    // coefficient — and the grant margin and room in the second half.
+    uvec4 row = carRows[car];
+    vec4 moving = carFigures[car * 2u];
+    vec4 kept = carFigures[car * 2u + 1u];
+    PlanCarRow plan = PlanCarRow(moving.x, moving.y, moving.z, moving.w, kept.x, kept.y, row.y, row.x);
+    results[car] = planTheCar(car, plan, builds[row.x], lines[car], int(row.z));
+}

@@ -26,6 +26,7 @@ layout(push_constant) uniform Figures
 
 #include "core/geometry/kernels/arc.glsl"
 #include "agents/car/body/kernels/car_build.glsl"
+#include "agents/car/control/kernels/car_line.glsl"
 
 // Where the body is and which way it points: the two fields of the tyres' pose this reads.
 struct PoseRow

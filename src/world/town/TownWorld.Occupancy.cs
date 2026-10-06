@@ -84,6 +84,7 @@ internal sealed partial class TownWorld
 
         // What a hand or a truck cannot stop short of is laid where it stands before any plan (<see cref="AnswerThePlans"/>),
         // and every plan after them laid whole.
+        BeforeThePlansAreLaid?.Invoke(this);
         Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];
         foreach (var car in CarsAsked)
         {

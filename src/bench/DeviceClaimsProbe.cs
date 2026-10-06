@@ -32,6 +32,17 @@ internal static class DeviceClaimsProbe
         var claims = world.Occupancy;
         using var onDevice = new DeviceClaims(vk, claims.WayCount, claims.Capacity, claims.HoldCapacity, config.Road.MostSettlingPasses);
 
+        using var plans = new DevicePlans(vk, config, world);
+        var planMs = new List<double>();
+        var plansDiffer = 0;
+        var carsPlanned = 0;
+        world.BeforeThePlansAreLaid = town =>
+        {
+            plans.Lay(town);
+            plans.Plan(town.Cars.Count);
+            planMs.Add(plans.LaidMs);
+        };
+
         var hostMs = new List<double>();
         var deviceMs = new List<double>();
         var layMs = new List<double>();
@@ -41,6 +52,16 @@ internal static class DeviceClaimsProbe
         var host = new Stopwatch();
         world.BeforeThePlansAreAnswered = town =>
         {
+            var results = plans.Results;
+            for (var car = 0; car < town.Cars.Count; car++)
+            {
+                if (town.Cars.Pass[car].Begun || !town.Occupancy.IsAnswered(town.PlanHoldOf(car))) continue;
+
+                carsPlanned++;
+                var (first, end) = town.Occupancy.PiecesOf(town.PlanHoldOf(car));
+                if (results[car].ClaimToM != town.Cars.ClaimToM[car] || results[car].Pieces != end - first) plansDiffer++;
+            }
+
             var laying = Stopwatch.StartNew();
             onDevice.Lay(town.Occupancy);
             layMs.Add(laying.Elapsed.TotalMilliseconds);
@@ -66,6 +87,7 @@ internal static class DeviceClaimsProbe
 
         var until = loop.Tick + MeasuredTicks;
         while (loop.Tick < until) loop.Advance();
+        world.BeforeThePlansAreLaid = null;
         world.BeforeThePlansAreAnswered = null;
         world.AfterThePlansAreAnswered = null;
 
@@ -76,6 +98,7 @@ internal static class DeviceClaimsProbe
         Console.WriteLine($"  of which laying the lists  median {Median(listMs),8:F3} ms");
         Console.WriteLine($"  writing the rows to send (shadow only) median {Median(layMs),8:F3} ms");
         Console.WriteLine($"  {differ} of {answered} plans answered differently");
+        Console.WriteLine($"  cars' plans laid on the device median {Median(planMs),8:F3} ms; {plansDiffer} of {carsPlanned} reached or laid differently");
     }
 
     static double Median(List<double> values)

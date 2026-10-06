@@ -3,6 +3,21 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-10-07 — a car's plan is laid on the device
+
+**The claims rebuild moves to the device with the tick** (root log), and every car planning down its line lays its
+plan there: `actions/follow/kernels/plan.glsl` is `ClearTheClaim`, `Following.Plan`, `WaysAlong`, `LevelTheRungs`,
+`AskOn` and the marks' secondary claims line for line, one car a thread, over the line in the fleet's own layout and
+the road's connectors, rungs and marks laid once (`app/devicetick/DevicePlans`). The town hands the cars over just
+before their claims are cleared (`TownWorld.BeforeThePlansAreLaid`).
+
+- **Every quotient is the host's float** (`rounded.glsl`): with RADV's own division 8 443 of OdesaOsm's 990 767 plans
+  ended a last bit elsewhere; with it, none.
+- **A car on a pass is still the host's**: its plan begins past the pass, and a body inside the pass is a hold of its own.
+- Held to the town over 400 fixture rebuilds (`DevicePlansTests`): where each claim begins, reaches, is committed to and
+  is held short, and every piece and secondary claim in order, bit for bit. On OdesaOsm (`--bench deviceclaims`) the
+  plans are laid in 0.24 ms.
+
 ## 2026-10-06 — a car's whole tyre pass is one function, and the device runs it
 
 **The tick moves to the device** (root log), and the tyres with the ground under them are most of a car's tick on

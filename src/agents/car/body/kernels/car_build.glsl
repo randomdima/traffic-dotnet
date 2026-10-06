@@ -25,6 +25,9 @@ struct CarBuildRow
     float massKg;
     float sightM;
     float wheelWidthM;
+    float lengthM;
+    float noseAheadOfAxleM;
+    float tailBehindAxleM;
 };
 
 // What it may be braking at at all on this ground: the pedal's cap, or what the patch puts down (CarBuild).

@@ -3,17 +3,8 @@
 //
 // A car's line lives in the fleet's own layout, one room a car: SPLINE_ARCS and LINE_ENTRIES hold LINE_FIGURES.arcsPerCar
 // to a car, and LANE_CHAIN, LANE_START, LANE_END, LANE_FIRST_ARC and JOIN_BREAKS hold LINE_FIGURES.mostLanes. The
-// including kernel declares them writable, includes arc.glsl, car_build.glsl and arc_chain.glsl first, and supplies
-// LINE_FIGURES' fields arcsPerCar, mostLanes and roundingM.
-
-// How much of a car's line there is (DrivenLine), and whether it ends where the leg does.
-struct CarLineRow
-{
-    uint arcCount;
-    uint laneCount;
-    float lengthM;
-    uint finalApproach;
-};
+// including kernel declares them writable, includes arc.glsl, car_build.glsl, car_line.glsl and arc_chain.glsl first,
+// and supplies LINE_FIGURES' fields arcsPerCar, mostLanes and roundingM.
 
 // Where a tick found the car on its line (LineAdvance): shiftM is how far the metres moved back, or nought.
 struct LineAdvance
