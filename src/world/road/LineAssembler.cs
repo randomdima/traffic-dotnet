@@ -67,9 +67,13 @@ internal static class LineAssembler
     /// is brought to rest there, and either takes the manoeuvre as its next line or stands where it was going
     /// (<c>TownWorld.TakeTheNextStepOfTheLeg</c>).
     /// </param>
+    /// <param name="laneFirstArc">
+    /// Where given, the arc each lane's own arcs begin at — what a line shifted on past its first lane drops the arcs
+    /// in front of (<c>CarFleet.ShiftTheLine</c>).
+    /// </param>
     public static DrivenLine Assemble(
         RoadGraph graph, ReadOnlySpan<int> lanes, Span<ArcSeg> into, Span<float> laneStartM,
-        Span<float> laneEndM, float lastLaneToM = float.PositiveInfinity)
+        Span<float> laneEndM, float lastLaneToM = float.PositiveInfinity, Span<int> laneFirstArc = default)
     {
         var written = 0;
         var lengthM = 0f;
@@ -94,6 +98,7 @@ internal static class LineAssembler
             if (index == lanes.Length - 1) toM = MathF.Min(toM, MathF.Max(0f, lastLaneToM));
 
             laneStartM[index] = lengthM;
+            if (!laneFirstArc.IsEmpty) laneFirstArc[index] = written;
             var laid = Spline.SubChainInto(graph.ArcsOf(lane), 0f, toM, into[written..]);
             for (var arc = 0; arc < laid; arc++) lengthM += into[written + arc].LengthM;
             written += laid;

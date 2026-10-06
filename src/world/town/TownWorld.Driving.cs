@@ -42,9 +42,10 @@ internal sealed partial class TownWorld
     readonly bool[] _standsParked;
 
     /// <summary>
-    /// <b>Whether a tick ran out of route queue while growing this car's line</b>, so its next decision lays the rest
-    /// (<see cref="LayTheRestOfTheLine"/>). The tick grows a line only off the lanes already queued
-    /// (<see cref="NextQueuedLane"/>); a search, a bay claimed to turn in and a lane of the tour are decisions.
+    /// <b>Whether a tick found this car's line short of its sight</b>, or ran out of route queue laying one, so its next
+    /// decision lays the rest (<see cref="LayTheRestOfTheLine"/>). A tick lays no lane of its own reading: crossing into
+    /// the next lane only shifts the line on (<see cref="AdvanceLane"/>), and a search, a bay claimed to turn in and a
+    /// lane of the tour are decisions.
     /// </summary>
     readonly bool[] _asksTheRoute;
 
@@ -149,9 +150,9 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>The route's line under the car, read</b>: where along it the body is, the lanes it has passed shifted off the
-    /// chain and the chain grown to its sight. False where the car is off it past what it may be (CAR-10a), which
-    /// hands it to <see cref="Rejoining"/>, stopping.
+    /// <b>The route's line under the car, read</b> (<see cref="LineReader"/>): where along it the body is and the lane
+    /// it has passed shifted off it. False where the car is off it past what it may be (CAR-10a), which hands it to
+    /// <see cref="Rejoining"/>, stopping.
     /// </summary>
     bool ReadTheLine(int car, in CarPose pose, out float progressM, out float alongMps, out float coveredM)
     {
@@ -167,19 +168,11 @@ internal sealed partial class TownWorld
             return false;
         }
 
-        progressM = CarFollower.ProgressM(build, Cars.LineOf(car), rearAxleM, Cars.ProgressM[car]);
-        coveredM = MathF.Abs(progressM - Cars.ProgressM[car]);
+        var advance = LineReader.Advance(Cars, car, rearAxleM);
+        progressM = advance.ProgressM;
+        coveredM = advance.CoveredM;
         Cars.CoveredSinceClaimM[car] += coveredM;
-
-        // <b>Never onto a lane the line lays none of</b>: a leg that stops at the very first metre of its last lane — a
-        // place drawn at a node, a turn-in that begins where the lane does — ends where that lane begins, and a car
-        // handed over onto it there was a line laid again at its own stop, past it by its own nose, and sent round.
-        var nextLaneStartsM = Cars.LaneStartsOf(car)[1];
-        if (Cars.Line[car].LaneCount > 1 && progressM >= nextLaneStartsM
-            && nextLaneStartsM < Cars.Line[car].LengthM - LineTolerance.RoundingM)
-        {
-            progressM = AdvanceLane(car, rearAxleM, progressM);
-        }
+        if (advance.Shifted) AdvanceLane(car, advance.ShiftM);
 
         Cars.ProgressM[car] = progressM;
         Cars.AlongMps[car] = alongMps;
@@ -202,14 +195,11 @@ internal sealed partial class TownWorld
 
         // A line laid a sight distance ahead runs out mid-lane on a town whose runs are kilometres long,
         // and a car that brakes for the end of its own knowledge reads as timidity. The chain is grown
-        // from its far end, so nothing already laid moves and the car's progress is untouched.
-        if (Cars.Line[car].LengthM - progressM < SightM(car)
-            && Cars.Line[car].LaneCount < LineAssembler.MostLanes
-            && !IsOnTheFinalApproach(car)
-            && _roads.LanesFrom(Cars.ChainOf(car)[Cars.Line[car].LaneCount - 1]).Length > 0)
-        {
-            LayLine(car, Cars.Line[car].LaneCount, progressM, fromTheQueue: true);
-        }
+        // from its far end on the car's next decision, so nothing already laid moves and the car's progress is
+        // untouched; the sight distance is a stop from the car's top speed, so what it covers before then is road
+        // it still sees the end of in time.
+        var lastLane = Cars.ChainOf(car)[Cars.Line[car].LaneCount - 1];
+        if (LineReader.RunsShort(Cars, car, progressM, _roads.LanesFrom(lastLane).Length > 0)) _asksTheRoute[car] = true;
 
         return true;
     }
@@ -357,40 +347,22 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// The car has reached the second lane of its chain: the chain shifts down by one and the line is re-laid over
-    /// what is left of it, grown off the route's queue (<see cref="NextQueuedLane"/>).
+    /// The car has passed into the second lane of its chain and its line has been shifted on past the first
+    /// (<see cref="LineReader.Advance"/>): what else was measured along the old line follows it. Nothing is laid; a line
+    /// left short of the car's sight is grown on its decision (<see cref="LayTheRestOfTheLine"/>).
     /// </summary>
-    float AdvanceLane(int car, Vector2 rearAxleM, float progressM)
+    void AdvanceLane(int car, float shiftM)
     {
-        var chain = Cars.ChainOf(car);
-
         // <b>Taking the next lane is progress</b>, and the clock that decides a leg is getting nowhere is
         // measured against what is left of the lane the car is on (<see cref="RemainingOnTheDriveM"/>).
         // Left standing, that clock would run up over a whole lane and call a car that had just been
         // handed a fresh one stuck — which is the walker's own lesson said of a driver (PER-25).
         _driveProgress.Restart(car);
 
-        // Where the new line's origin sits on the old one, taken before the old one is overwritten: the
-        // projection is a search in a window around where the car last was, and seeding it with a progress
-        // measured from the wrong origin hands the car a place a hundred metres up the road.
-        //
-        // <b>Both lines start at a lane's own nought</b> (TER-5i), so the new line's origin is where the old
-        // one had the second lane of its chain begin.
-        var shiftM = Cars.LaneStartsOf(car)[1];
-        var lanes = Cars.Line[car].LaneCount;
-        for (var index = 1; index < lanes; index++) chain[index - 1] = chain[index];
-
         // A pass carries on into the next lane, measured from where that lane begins (CAR-46), and so does a step across
         // asked for (CAR-53).
-        _overtaking.ShiftTheLine(car, chain[0], shiftM);
+        _overtaking.ShiftTheLine(car, Cars.ChainOf(car)[0], shiftM);
         _switching.ShiftTheLine(car, shiftM);
-
-        // Where the body stands on the shifted chain, before the line is laid over it: the route is searched from
-        // there (<see cref="AlongTheEntryM"/>). The projection below is what the caller keeps.
-        Cars.ProgressM[car] = MathF.Max(0f, progressM - shiftM);
-        LayLine(car, lanes - 1, keptLanes: lanes - 1, fromTheQueue: true);
-        return CarFollower.ProgressM(
-            Cars.BuildOf(car), Cars.LineOf(car), rearAxleM, MathF.Max(0f, progressM - shiftM));
     }
 
     /// <summary>
@@ -869,20 +841,16 @@ internal sealed partial class TownWorld
     /// How much of the chain already in hand is behind the car, so that what is drawn is a sight distance
     /// <em>ahead of the body</em> rather than ahead of the line's own origin.
     /// </param>
-    /// <param name="keptLanes">
-    /// How many of the chain's slots are lanes of the line the car had, which its grant was read down — all of them
-    /// unless the chain was shifted on before this (<see cref="AdvanceLane"/>).
-    /// </param>
     /// <param name="fromTheQueue">
     /// Laid on a tick, so grown only off the route's queue (<see cref="NextQueuedLane"/>). Otherwise the route is asked
     /// whole, which answers whatever a tick left for the decision.
     /// </param>
-    void LayLine(int car, int from, float spentM = 0f, int keptLanes = -1, bool fromTheQueue = false)
+    void LayLine(int car, int from, float spentM = 0f, bool fromTheQueue = false)
     {
         if (!fromTheQueue) _asksTheRoute[car] = false;
 
         var chain = Cars.ChainOf(car);
-        var wasLanes = keptLanes < 0 ? Cars.Line[car].LaneCount : keptLanes;
+        var wasLanes = Cars.Line[car].LaneCount;
         Span<int> was = stackalloc int[LineAssembler.MostLanes];
         chain[..wasLanes].CopyTo(was);
         var lanes = from;
@@ -930,7 +898,8 @@ internal sealed partial class TownWorld
             _roads, chain[..lanes], Cars.LineArcsOf(car), Cars.LaneStartsOf(car), Cars.LaneEndsOf(car),
             bay != CarFleet.NoBay ? _parkingIn.StopForTheBayM(car, bay, lastLane)
             : float.IsNaN(placeM) ? float.PositiveInfinity
-            : placeM);
+            : placeM,
+            Cars.LaneFirstArcsOf(car));
 
         // What a plan reads of the line it runs down (TER-4c.1, S-2): the corners folded into each arc, and which
         // joins break it — once a line, so the plan and the profile read segments rather than walk geometry.

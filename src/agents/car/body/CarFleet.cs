@@ -56,6 +56,7 @@ internal sealed class CarFleet
         LaneChain = new int[capacity * LineAssembler.MostLanes];
         LaneStartM = new float[capacity * LineAssembler.MostLanes];
         LaneEndM = new float[capacity * LineAssembler.MostLanes];
+        LaneFirstArc = new int[capacity * LineAssembler.MostLanes];
         JoinBreaks = new bool[capacity * LineAssembler.MostLanes];
         ProgressM = new float[capacity];
         AlongMps = new float[capacity];
@@ -631,6 +632,48 @@ internal sealed class CarFleet
 
     public Span<float> LaneEndsOf(int car) => LaneEndM.AsSpan(car * LineAssembler.MostLanes, LineAssembler.MostLanes);
 
+    /// <summary>The arc each lane of the chain's own arcs begin at, laid with the line (<see cref="LineAssembler.Assemble"/>).</summary>
+    public Span<int> LaneFirstArcsOf(int car) => LaneFirstArc.AsSpan(car * LineAssembler.MostLanes, LineAssembler.MostLanes);
+
+    /// <summary>
+    /// <b>The line shifted on past its first lane</b>: that lane and the join out of it dropped, every other lane's arcs,
+    /// entry figures, join and the stop it ends at kept exactly as laid, and its metres measured from the second lane's
+    /// own start (TER-5i).
+    /// </summary>
+    /// <remarks>
+    /// <b>Nothing is laid</b>: no lane is added and nothing is asked of the road or the route, so a tick shifts a line
+    /// without deciding anything and one car's shift reads nothing of another's. The entry figures carry over because
+    /// each holds the corners past its own arc and none before it (<see cref="CornerLimits.Lay"/>). Growing the line
+    /// again is the decision's.
+    /// </remarks>
+    /// <returns>Where the second lane began on the line as it was: how far every metre of it moved back.</returns>
+    public float ShiftTheLine(int car)
+    {
+        var line = Line[car];
+        var lanes = line.LaneCount;
+        var chain = ChainOf(car);
+        var startM = LaneStartsOf(car);
+        var endM = LaneEndsOf(car);
+        var firstArc = LaneFirstArcsOf(car);
+        var breaks = JoinBreaksOf(car);
+        var shiftM = startM[1];
+        var shiftArcs = firstArc[1];
+
+        LineArcsOf(car)[shiftArcs..line.ArcCount].CopyTo(LineArcsOf(car));
+        LineEntriesOf(car)[shiftArcs..line.ArcCount].CopyTo(LineEntriesOf(car));
+        for (var slot = 0; slot + 1 < lanes; slot++)
+        {
+            chain[slot] = chain[slot + 1];
+            startM[slot] = startM[slot + 1] - shiftM;
+            endM[slot] = endM[slot + 1] - shiftM;
+            firstArc[slot] = firstArc[slot + 1] - shiftArcs;
+            breaks[slot] = breaks[slot + 1];
+        }
+
+        Line[car] = new DrivenLine(line.ArcCount - shiftArcs, lanes - 1, line.LengthM - shiftM);
+        return shiftM;
+    }
+
     /// <summary>
     /// <b>Whether the join after each lane of the chain breaks the line</b> (<see cref="RoadGraph.BreaksTheLine"/>),
     /// laid with the line — what says how many lanes ahead a plan may reach (TER-4c.1).
@@ -767,6 +810,8 @@ internal sealed class CarFleet
     ArcSeg[] LineArcs { get; }
 
     float[] LineEntryM { get; }
+
+    int[] LaneFirstArc { get; }
 
     bool[] JoinBreaks { get; }
 }

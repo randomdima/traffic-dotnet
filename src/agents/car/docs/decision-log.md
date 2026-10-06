@@ -3,18 +3,25 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
-## 2026-10-06 — a tick grows a line off the route's queue, and the decision asks the route
+## 2026-10-06 — a tick shifts a line on and lays nothing; the decision grows it
 
 **The tick moves to the device** (root log), and a tick there runs every car at once, so it can decide nothing
 that another car reads or that draws on the car's own stream. Crossing into the next lane used to lay the line
 whole on the tick, and a whole laying can search the network, claim a bay to turn in (GEN-4l), draw a lane of the
 tour and price a stretch up.
 
-- **The tick lays what the queue already holds** (`NextQueuedLane`): the route's next lane, or the lane beside it
-  where the route moves across (CAR-53). That is pure, per car, and is what a laying did on almost every junction.
-- **What the queue cannot give is the next decision's** (`LayTheRestOfTheLine`), laid from where the body stands
-  and asking the route whole. The line in hand still reaches the sight distance when the tick stops growing it, so
-  the wait is at most one decision interval of the lane past it.
+- **Crossing into the next lane shifts the line on** (`CarFleet.ShiftTheLine`, read by `LineReader.Advance`): the
+  passed lane and its join are dropped and everything else is kept as laid, its stop included, so nothing is asked of
+  the road or the route. It is a move of the car's own arrays, the same on the host and the device; the device holds
+  it to the host bit for bit, and a unit test holds it to the line laid over the rest of the chain.
+- **Growing the line is the next decision's** (`LayTheRestOfTheLine`): a tick that finds the line short of the car's
+  sight (`LineReader.RunsShort`) flags it, and the decision grows it from where the body stands, asking the route
+  whole. The sight distance is a stop from the car's top speed, so the decision interval the line waits is road the
+  car still sees the end of in time. A line laid queue-only on the tick, and then a re-lay on every lane crossed, came
+  first and went: the queue's own reading of where the leg stops (a bay's turn-in, a place in the road) is a
+  manoeuvre's shape, which no tick can afford, and the shift needs none of it.
+- **Taking the lane beside on a step across still lays off the queue on the tick** (`TakeTheLaneBeside`), until the
+  step itself is ported.
 - **A manoeuvre out of a bay is asked for on the decision clock** (`PullingOut.Decide`), as one into a bay already
   was. Its keep-or-withdraw stays on the tick. **An ask is numbered per car** (`BayManoeuvring._askedAs`), since a
   town-wide count stamped on it is a write every other ask reads.
