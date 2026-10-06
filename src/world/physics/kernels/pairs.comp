@@ -1,0 +1,127 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every pair worth a manifold, gathered by its owner (PhysicsWorld.FindContacts / Gather). One thread an owner: the
+// cells its box covers in the moving grid and in the furniture's, each body met kept once — in the first cell the two
+// share (CellGrid.FirstShared) — where the boxes meet, the filters let them and the channels meet (PHY-1a).
+//
+// A pair of moving bodies is the lower one's: the CPU's owners run in index order and skip whatever already owned,
+// and every moving body here is an owner. The furniture owns nothing and is always second.
+//
+// Mode 0 counts each owner's candidates; mode 1 writes them at the run the scan of those counts gave it, ordered by
+// the other body's index — so the whole list reads by (owner, other), the order the CPU solves its contacts in.
+
+layout(local_size_x = 64) in;
+
+#include "step.glsl"
+
+layout(std430, binding = 0) readonly buffer Owners { int owners[]; };
+layout(std430, binding = 1) readonly buffer Bounds { vec4 bounds[]; };
+layout(std430, binding = 2) readonly buffer Filter { uvec4 filter_[]; };
+layout(std430, binding = 3) readonly buffer MovingCounts { uint movingCounts[]; };
+layout(std430, binding = 4) readonly buffer MovingStarts { uint movingStarts[]; };
+layout(std430, binding = 5) readonly buffer MovingItems { int movingItems[]; };
+layout(std430, binding = 6) readonly buffer StaticCounts { uint staticCounts[]; };
+layout(std430, binding = 7) readonly buffer StaticStarts { uint staticStarts[]; };
+layout(std430, binding = 8) readonly buffer StaticItems { int staticItems[]; };
+layout(std430, binding = 9) buffer CandidateCounts { uint candidateCounts[]; };
+layout(std430, binding = 10) readonly buffer CandidateStarts { uint candidateStarts[]; };
+layout(std430, binding = 11) buffer Candidates { uvec2 candidates[]; };
+layout(std430, binding = 12) buffer Totals { uint totals[]; };
+
+bool apart(vec4 a, vec4 b) { return a.z < b.x || a.x > b.z || a.w < b.y || a.y > b.w; }
+
+bool meets(uvec4 owner, uvec4 other)
+{
+    return (other.x & enabledBit) != 0u
+        && (owner.y & other.z) != 0u && (other.y & owner.z) != 0u
+        && (owner.w & other.w) != 0u;
+}
+
+uint found;
+uint writeFrom;
+
+void keep(int owner, int other)
+{
+    if (mode == 1u)
+    {
+        uint at = writeFrom + found;
+        if (at < capacity) candidates[at] = uvec2(uint(owner), uint(other));
+    }
+
+    found++;
+}
+
+void main()
+{
+    uint slot = gl_GlobalInvocationID.x;
+    if (slot >= rosterCount) return;
+
+    int owner = owners[slot];
+    vec4 box = bounds[owner];
+    uvec4 ownerFilter = filter_[owner];
+    int fromX = cellX(box.x);
+    int fromY = cellY(box.y);
+    int toX = cellX(box.z);
+    int toY = cellY(box.w);
+    found = 0u;
+    writeFrom = mode == 1u ? candidateStarts[slot] : 0u;
+
+    for (int y = fromY; y <= toY; y++)
+    {
+        for (int x = fromX; x <= toX; x++)
+        {
+            uint cell = cellIndex(x, y);
+            uint start = movingStarts[cell];
+            uint end = start + movingCounts[cell];
+            for (uint item = start; item < end; item++)
+            {
+                int other = movingItems[item];
+                if (other <= owner) continue;
+
+                vec4 otherBox = bounds[other];
+                if (apart(otherBox, box)) continue;
+                if ((x != fromX && cellX(otherBox.x) != x) || (y != fromY && cellY(otherBox.y) != y)) continue;
+                if (!meets(ownerFilter, filter_[other])) continue;
+
+                keep(owner, other);
+            }
+
+            start = staticStarts[cell];
+            end = start + staticCounts[cell];
+            for (uint item = start; item < end; item++)
+            {
+                int other = staticItems[item];
+                vec4 otherBox = bounds[other];
+                if (apart(otherBox, box)) continue;
+                if ((x != fromX && cellX(otherBox.x) != x) || (y != fromY && cellY(otherBox.y) != y)) continue;
+                if (!meets(ownerFilter, filter_[other])) continue;
+
+                keep(owner, other);
+            }
+        }
+    }
+
+    if (mode == 0u)
+    {
+        candidateCounts[slot] = found;
+        return;
+    }
+
+    // The owner's own run put in the other body's order: a handful, so an insertion sort (PhysicsWorld.Order).
+    uint count = min(found, writeFrom < capacity ? capacity - writeFrom : 0u);
+    for (uint at = 1u; at < count; at++)
+    {
+        uvec2 pair = candidates[writeFrom + at];
+        uint into = at;
+        while (into > 0u && candidates[writeFrom + into - 1u].y > pair.y)
+        {
+            candidates[writeFrom + into] = candidates[writeFrom + into - 1u];
+            into--;
+        }
+
+        candidates[writeFrom + into] = pair;
+    }
+
+    if (writeFrom + found > capacity) atomicMax(totals[OverflowAt], writeFrom + found);
+}

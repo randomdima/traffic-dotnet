@@ -1,0 +1,46 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The candidates that met, packed into the step's contacts in the candidates' own order — the scan of the met flags
+// says where each goes — and each body's overlap with what it touches kept (PhysicsWorld.OverlapOf, SOL-9): the
+// deepest point, the furniture's left alone. The overlap is a float kept as its bits, which for a depth that is
+// never negative order the same, so the maximum does not depend on which contact got there first.
+
+layout(local_size_x = 64) in;
+
+#include "step.glsl"
+
+layout(std430, binding = 0) readonly buffer Candidates { uvec2 candidates[]; };
+layout(std430, binding = 1) readonly buffer Met { uint met[]; };
+layout(std430, binding = 2) readonly buffer Starts { uint starts[]; };
+layout(std430, binding = 3) readonly buffer ManifoldA { vec4 manifoldA[]; };
+layout(std430, binding = 4) readonly buffer ManifoldB { vec4 manifoldB[]; };
+layout(std430, binding = 5) writeonly buffer Contact { uvec4 contact[]; };
+layout(std430, binding = 6) writeonly buffer ContactNormal { vec4 contactNormal[]; };
+layout(std430, binding = 7) writeonly buffer ContactPoints { vec4 contactPoints[]; };
+layout(std430, binding = 8) buffer Overlap { uint overlap[]; };
+layout(std430, binding = 9) readonly buffer Filter { uvec4 filter_[]; };
+layout(std430, binding = 10) readonly buffer Totals { uint totals[]; };
+
+void main()
+{
+    uint at = gl_GlobalInvocationID.x;
+    if (at >= min(totals[CandidateTotalAt], capacity)) return;
+
+    uint points = met[at];
+    if (points == 0u) return;
+
+    uint into = starts[at];
+    uvec2 pair = candidates[at];
+    vec4 normalAndDepth = manifoldA[at];
+    contact[into] = uvec4(pair, points, 0u);
+    contactNormal[into] = normalAndDepth;
+    contactPoints[into] = manifoldB[at];
+
+    float deepestM = -normalAndDepth.z;
+    if (points > 1u) deepestM = max(deepestM, -normalAndDepth.w);
+    if (deepestM <= 0.0) return;
+
+    atomicMax(overlap[pair.x], floatBitsToUint(deepestM));
+    if ((filter_[pair.y].x & staticBit) == 0u) atomicMax(overlap[pair.y], floatBitsToUint(deepestM));
+}

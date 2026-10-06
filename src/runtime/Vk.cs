@@ -48,6 +48,17 @@ internal sealed unsafe partial class Vk : IDisposable
 
     public uint DeviceApiVersion { get; }
 
+    /// <summary>What one tick of the device's timestamp counter is, in nanoseconds.</summary>
+    public float TimestampPeriodNs
+    {
+        get
+        {
+            Count();
+            _api.GetPhysicalDeviceProperties(Physical, out var properties);
+            return properties.Limits.TimestampPeriod;
+        }
+    }
+
     public string DeviceApiVersionText =>
         $"{DeviceApiVersion >> 22}.{(DeviceApiVersion >> 12) & 0x3FF}.{DeviceApiVersion & 0xFFF}";
 
@@ -334,6 +345,37 @@ internal sealed unsafe partial class Vk : IDisposable
         Count();
         _api.CmdPipelineBarrier2(commands, &dependency);
     }
+
+    /// <summary>One buffer's first <paramref name="bytes"/> copied into another's, recorded.</summary>
+    public void Copy(CommandBuffer commands, GpuBuffer from, GpuBuffer to, ulong bytes)
+    {
+        if (bytes == 0) return;
+
+        var region = new BufferCopy { Size = bytes };
+        Count();
+        _api.CmdCopyBuffer(commands, from.Handle, to.Handle, 1, &region);
+    }
+
+    /// <summary>A whole buffer filled with one 32-bit word, recorded.</summary>
+    public void Fill(CommandBuffer commands, GpuBuffer buffer, uint word)
+    {
+        Count();
+        _api.CmdFillBuffer(commands, buffer.Handle, 0, Silk.NET.Vulkan.Vk.WholeSize, word);
+    }
+
+    /// <summary>A copy's or a fill's writes made visible to the kernels after it.</summary>
+    public void AfterTransfer(CommandBuffer commands) =>
+        Barrier(
+            commands, PipelineStageFlags2.AllTransferBit, AccessFlags2.TransferWriteBit,
+            PipelineStageFlags2.ComputeShaderBit | PipelineStageFlags2.DrawIndirectBit | PipelineStageFlags2.AllTransferBit,
+            AccessFlags2.ShaderStorageReadBit | AccessFlags2.ShaderStorageWriteBit | AccessFlags2.IndirectCommandReadBit
+            | AccessFlags2.TransferReadBit | AccessFlags2.TransferWriteBit);
+
+    /// <summary>The kernels' writes made visible to a copy after them.</summary>
+    public void BeforeTransfer(CommandBuffer commands) =>
+        Barrier(
+            commands, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageWriteBit,
+            PipelineStageFlags2.AllTransferBit, AccessFlags2.TransferReadBit | AccessFlags2.TransferWriteBit);
 
     /// <summary>One kernel's writes made visible to the next kernel's reads and writes.</summary>
     public void BetweenKernels(CommandBuffer commands) =>

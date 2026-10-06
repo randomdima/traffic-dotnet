@@ -129,6 +129,12 @@ internal readonly struct GridLevel
     /// <summary>The level one halving coarser — the main cell's own at the top.</summary>
     public GridLevel Coarser => Depth == 0 ? this : new GridLevel(CellM * Across, _perCellM / Across, Depth - 1);
 
+    /// <summary>
+    /// The cells to a metre that <see cref="CellOf(float)"/> multiplies by — the figure itself and not
+    /// <c>1 / CellM</c>, which is not always the same float, for a kernel that has to find the same cell.
+    /// </summary>
+    public float PerCellM => _perCellM;
+
     /// <summary>Which cell of this level a coordinate falls in, on either axis.</summary>
     public int CellOf(float atM) => (int)MathF.Floor(atM * _perCellM);
 

@@ -1,0 +1,22 @@
+#version 460
+
+// The second half of a scan longer than one block: every element after the first block given the scanned total of
+// the blocks before its own.
+
+layout(local_size_x = 256) in;
+
+layout(push_constant) uniform Scan
+{
+    uint count;
+};
+
+layout(std430, binding = 0) buffer Data { uint data[]; };
+layout(std430, binding = 1) readonly buffer Sums { uint sums[]; };
+
+void main()
+{
+    uint at = gl_GlobalInvocationID.x;
+    if (at >= count || at < 2048) return;
+
+    data[at] += sums[at / 2048];
+}

@@ -1,8 +1,9 @@
 #version 460
+#extension GL_GOOGLE_include_directive : require
 
 // The solver's last stage on the device: every moving body taken to where its own motion and the push it was given
-// leave it, the push discarded, its rotation and bounds read again (PhysicsWorld.Integrate). One thread a body of the
-// moving roster; nothing here reads another body, so the order bodies are taken in changes nothing.
+// leave it, its rotation and bounds read again (PhysicsWorld.Integrate). One thread a body of the moving roster;
+// nothing here reads another body, so the order bodies are taken in changes nothing.
 //
 // Every figure the CPU's step also makes is `precise`: left alone, the compiler fuses a*b+c into one fma, which rounds
 // once where the CPU rounds twice, and a bound lands a float away from the host's. sin and cos are the device's own
@@ -10,26 +11,16 @@
 
 layout(local_size_x = 64) in;
 
-layout(push_constant) uniform Step
-{
-    float dtS;
-    uint movingCount;
-    uint filedFrozenBit;
-};
+#include "step.glsl"
 
-layout(std430, binding = 0) readonly buffer Moving { int moving[]; };
-layout(std430, binding = 1) buffer Position { vec2 positionM[]; };
+layout(std430, binding = 0) readonly buffer Owners { int owners[]; };
+layout(std430, binding = 1) buffer Pose { vec4 pose[]; };
 layout(std430, binding = 2) buffer HeadingB { float headingRad[]; };
-layout(std430, binding = 3) buffer Rotation { vec2 rotation[]; };
-layout(std430, binding = 4) readonly buffer Velocity { vec2 velocityMps[]; };
-layout(std430, binding = 5) readonly buffer YawRate { float yawRateRadPerS[]; };
-layout(std430, binding = 6) readonly buffer PushB { vec2 pushMps[]; };
-layout(std430, binding = 7) readonly buffer PushYaw { float pushYawRadPerS[]; };
-layout(std430, binding = 8) readonly buffer Extent { vec2 extentM[]; };
-layout(std430, binding = 9) readonly buffer Radius { float cornerRadiusM[]; };
-layout(std430, binding = 10) buffer Least { vec2 leastM[]; };
-layout(std430, binding = 11) buffer Most { vec2 mostM[]; };
-layout(std430, binding = 12) buffer Flags { uint flags[]; };
+layout(std430, binding = 3) readonly buffer Motion { vec4 motion[]; };
+layout(std430, binding = 4) readonly buffer PushB { vec4 push_[]; };
+layout(std430, binding = 5) readonly buffer ShapeB { vec4 shape[]; };
+layout(std430, binding = 6) writeonly buffer Bounds { vec4 bounds[]; };
+layout(std430, binding = 7) buffer Filter { uvec4 filter_[]; };
 
 const float Pi = 3.14159265358979;
 const float Turn = 2.0 * Pi;
@@ -45,28 +36,26 @@ float wrapped(float rad)
 void main()
 {
     uint slot = gl_GlobalInvocationID.x;
-    if (slot >= movingCount) return;
+    if (slot >= rosterCount) return;
 
-    int body = moving[slot];
-    vec2 travelMps = velocityMps[body] + pushMps[body];
-    float turnRadPerS = yawRateRadPerS[body] + pushYawRadPerS[body];
-    if (travelMps != vec2(0.0) || turnRadPerS != 0.0) flags[body] &= ~filedFrozenBit;
+    int body = owners[slot];
+    vec4 m = motion[body];
+    vec4 p = push_[body];
+    precise vec2 travelMps = m.xy + p.xy;
+    precise float turnRadPerS = m.z + p.z;
+    if (travelMps != vec2(0.0) || turnRadPerS != 0.0) filter_[body].x &= ~filedFrozenBit;
 
-    // precise: unfused, as the CPU's own arithmetic is, so a body lands on the same float either side.
-    precise vec2 position = positionM[body] + travelMps * dtS;
-    positionM[body] = position;
-
+    precise vec2 position = pose[body].xy + travelMps * dtS;
     precise float turned = headingRad[body] + turnRadPerS * dtS;
     float heading = wrapped(turned);
     headingRad[body] = heading;
     vec2 unit = vec2(cos(heading), sin(heading));
-    rotation[body] = unit;
+    pose[body] = vec4(position, unit);
 
     // Shape.HalfBoundsM: the box's reach along each world axis at this rotation, and its corner radius past that.
-    vec2 extent = extentM[body];
+    vec4 s = shape[body];
     float c = abs(unit.x);
-    float s = abs(unit.y);
-    precise vec2 half_ = vec2(extent.x * c + extent.y * s, extent.x * s + extent.y * c) + vec2(cornerRadiusM[body]);
-    leastM[body] = position - half_;
-    mostM[body] = position + half_;
+    float n = abs(unit.y);
+    precise vec2 half_ = vec2(s.x * c + s.y * n, s.x * n + s.y * c) + vec2(s.z);
+    bounds[body] = vec4(position - half_, position + half_);
 }

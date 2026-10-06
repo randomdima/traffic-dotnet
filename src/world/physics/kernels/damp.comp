@@ -1,0 +1,21 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The damping that reaches every moving body, once a step (PhysicsWorld.Damp).
+
+layout(local_size_x = 64) in;
+
+#include "step.glsl"
+
+layout(std430, binding = 0) readonly buffer Owners { int owners[]; };
+layout(std430, binding = 1) buffer Motion { vec4 motion[]; };
+
+void main()
+{
+    uint slot = gl_GlobalInvocationID.x;
+    if (slot >= rosterCount) return;
+
+    int body = owners[slot];
+    vec4 m = motion[body];
+    motion[body] = vec4(m.xy * linearKeep, m.z * angularKeep, m.w);
+}

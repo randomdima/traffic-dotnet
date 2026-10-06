@@ -3,6 +3,28 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md) and
 [solver.md](solver.md).
 
+## 2026-10-06 — the step on the device
+
+**The tick moves to the device** (root log), and the solver's step is its first piece: `kernels/` holds it pass for
+pass, and `app/devicetick/DeviceSolver` lays the table and records it. It runs in shadow for now — handed the CPU's
+table before each CPU step — and `--bench devicestep` compares the two.
+
+- **The grids are counted, scanned and filled**, over one window for the town; an owner sorts its own candidates, so
+  the order a cell was filled in is never read. **A moving pair is the lower body's**, as on the CPU, so the contacts
+  come out by (owner, other) with no global sort — and they are the CPU's to the pair and the order (`DeviceSolverTests`).
+- **The contacts are solved in colours**: no two of one colour share a moving body, so a colour runs at once, and the
+  colours run in turn inside one workgroup. **A contact's rank in the colouring is a bijection of its number**, not the
+  number: numbered by their bodies, a queue's contacts are a chain the lowest-number rule colours one a round.
+- **The answer is the CPU's but for the order.** Run in contact order on one thread the device lands a crowded yard
+  within a tenth of a millimetre of the CPU; in colours it is a Gauss–Seidel of its own and lands near.
+- **Nothing freezes on the device** (SOL-37): every enabled moving body owns its pairs. What freezing saved was the
+  CPU's broad phase, and the pairs only frozen bodies add are solved to nothing.
+- **`precise` on everything the CPU also computes**, or a fused multiply-add moves the last bit.
+
+On OdesaOsm (14 250 moving bodies, 401 057 pieces of furniture, a dozen contacts a step) the CPU's step was 2.58 ms a
+tick and the device's 0.39 ms, of which the moving grid was 0.17 — the town's window is 3.9 million cells, filled and
+scanned whole. The contacts agreed pair for pair, and where only frozen bodies met the device found three more.
+
 ## 2026-10-05 — a body is on the channels of the ways under it
 
 **The owner asked for it simpler**: a channel mask on every way, a body on the ones it stands over, and a pair

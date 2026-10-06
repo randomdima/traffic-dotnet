@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
+using TrafficSimulation.App.DeviceTick;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.Tests.Runtime;
 using TrafficSimulation.World.Physics;
@@ -16,10 +17,7 @@ namespace TrafficSimulation.Tests.Physics;
 public class IntegrateKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
 {
     const float DtS = 1f / 60f;
-    const uint FiledFrozen = 1u << 4;
-
-    [StructLayout(LayoutKind.Sequential)]
-    readonly record struct Step(float DtS, uint MovingCount, uint FiledFrozenBit);
+    const uint FiledFrozen = (uint)BodyFlags.FiledFrozen;
 
     sealed class Table(Lavapipe device, int bodies) : IDisposable
     {
@@ -35,23 +33,40 @@ public class IntegrateKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
 
         GpuBuffer[] _buffers = [];
 
+        public GpuBuffer Pose => _buffers[1];
+
+        public GpuBuffer Heading => _buffers[2];
+
+        public GpuBuffer Bounds => _buffers[6];
+
+        public GpuBuffer Filter => _buffers[7];
+
         public GpuBuffer[] Upload(ReadOnlySpan<int> moving)
         {
+            var pose = new Vector4[bodies];
+            var motion = new Vector4[bodies];
+            var push = new Vector4[bodies];
+            var shape = new Vector4[bodies];
+            var filter = new UInt4[bodies];
+            for (var body = 0; body < bodies; body++)
+            {
+                pose[body] = new Vector4(PositionM[body], MathF.Cos(HeadingRad[body]), MathF.Sin(HeadingRad[body]));
+                motion[body] = new Vector4(VelocityMps[body], YawRateRadPerS[body], 0f);
+                push[body] = new Vector4(PushMps[body], PushYawRadPerS[body], 0f);
+                shape[body] = new Vector4(ExtentM[body], CornerRadiusM[body], 0f);
+                filter[body] = new UInt4(Flags[body], 0, 0, 0);
+            }
+
             _buffers =
             [
                 device.Holding(moving),
-                device.Holding<Vector2>(PositionM),
+                device.Holding<Vector4>(pose),
                 device.Holding<float>(HeadingRad),
-                device.Sized<Vector2>(bodies),
-                device.Holding<Vector2>(VelocityMps),
-                device.Holding<float>(YawRateRadPerS),
-                device.Holding<Vector2>(PushMps),
-                device.Holding<float>(PushYawRadPerS),
-                device.Holding<Vector2>(ExtentM),
-                device.Holding<float>(CornerRadiusM),
-                device.Sized<Vector2>(bodies),
-                device.Sized<Vector2>(bodies),
-                device.Holding<uint>(Flags),
+                device.Holding<Vector4>(motion),
+                device.Holding<Vector4>(push),
+                device.Holding<Vector4>(shape),
+                device.Sized<Vector4>(bodies),
+                device.Holding<UInt4>(filter),
             ];
             return _buffers;
         }
@@ -64,13 +79,16 @@ public class IntegrateKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
 
     static void Run(Lavapipe device, GpuBuffer[] buffers, int movingCount)
     {
-        using var kernel = new ComputeKernel(device.Vk, "integrate.comp", buffers.Length, 12);
+        using var kernel = new ComputeKernel(device.Vk, "integrate.comp", buffers.Length, (uint)Marshal.SizeOf<DeviceSolver.StepPush>());
         var set = kernel.Bind(buffers);
         using var batch = new ComputeBatch(device.Vk);
         var commands = batch.Begin();
-        kernel.Dispatch(commands, set, (uint)((movingCount + 63) / 64), new Step(DtS, (uint)movingCount, FiledFrozen));
+        var push = new DeviceSolver.StepPush { DtS = DtS, RosterCount = (uint)movingCount, FiledFrozenBit = FiledFrozen };
+        kernel.Dispatch(commands, set, (uint)((movingCount + 63) / 64), push);
         batch.SubmitAndWait();
     }
+
+    static Vector2 PositionOf(Table table, int body) => new(table.Pose.Span<Vector4>()[body].X, table.Pose.Span<Vector4>()[body].Y);
 
     /// <summary>
     /// A body is moved by its own motion and the push together, to the same float the CPU's step lands it on — the
@@ -83,12 +101,10 @@ public class IntegrateKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         table.PositionM[0] = new Vector2(1234.567f, -89.25f);
         table.VelocityMps[0] = new Vector2(13.7f, -2.1f);
         table.PushMps[0] = new Vector2(0.031f, 0.007f);
-        var buffers = table.Upload([0]);
-
-        Run(device, buffers, 1);
+        Run(device, table.Upload([0]), 1);
 
         var expected = table.PositionM[0] + (table.VelocityMps[0] + table.PushMps[0]) * DtS;
-        Assert.Equal(expected, buffers[1].Span<Vector2>()[0]);
+        Assert.Equal(expected, PositionOf(table, 0));
     }
 
     /// <summary>A heading turned past half a turn comes back in the half-open turn the engine reads, rotation and all.</summary>
@@ -98,16 +114,14 @@ public class IntegrateKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         using var table = new Table(device, 1);
         table.HeadingRad[0] = MathF.PI - 0.01f;
         table.YawRateRadPerS[0] = 3f;
-        var buffers = table.Upload([0]);
+        Run(device, table.Upload([0]), 1);
 
-        Run(device, buffers, 1);
-
-        var heading = buffers[2].Span<float>()[0];
+        var heading = table.Heading.Span<float>()[0];
         Assert.InRange(heading, -MathF.PI, MathF.PI);
         Assert.Equal(MathF.PI - 0.01f + 3f * DtS - 2f * MathF.PI, heading, 5);
-        var rotation = buffers[3].Span<Vector2>()[0];
-        Assert.Equal(MathF.Cos(heading), rotation.X, 5);
-        Assert.Equal(MathF.Sin(heading), rotation.Y, 5);
+        var pose = table.Pose.Span<Vector4>()[0];
+        Assert.Equal(MathF.Cos(heading), pose.Z, 5);
+        Assert.Equal(MathF.Sin(heading), pose.W, 5);
     }
 
     /// <summary>The bounds are the rounded box's reach at its new rotation, about where it now stands.</summary>
@@ -119,14 +133,14 @@ public class IntegrateKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         table.ExtentM[0] = new Vector2(2.2f, 0.9f);
         table.CornerRadiusM[0] = 0.15f;
         table.VelocityMps[0] = new Vector2(5f, 0f);
-        var buffers = table.Upload([0]);
+        Run(device, table.Upload([0]), 1);
 
-        Run(device, buffers, 1);
-
-        var position = buffers[1].Span<Vector2>()[0];
-        var half = Shape.HalfBoundsM(buffers[3].Span<Vector2>()[0], table.ExtentM[0], table.CornerRadiusM[0]);
-        Assert.Equal(position - half, buffers[10].Span<Vector2>()[0]);
-        Assert.Equal(position + half, buffers[11].Span<Vector2>()[0]);
+        var pose = table.Pose.Span<Vector4>()[0];
+        var position = new Vector2(pose.X, pose.Y);
+        var half = Shape.HalfBoundsM(new Vector2(pose.Z, pose.W), table.ExtentM[0], table.CornerRadiusM[0]);
+        var bounds = table.Bounds.Span<Vector4>()[0];
+        Assert.Equal(position - half, new Vector2(bounds.X, bounds.Y));
+        Assert.Equal(position + half, new Vector2(bounds.Z, bounds.W));
     }
 
     /// <summary>
@@ -145,14 +159,12 @@ public class IntegrateKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
 
         table.VelocityMps[0] = new Vector2(1f, 0f);
         table.VelocityMps[2] = new Vector2(1f, 0f);
-        var buffers = table.Upload([0, 1]);
+        Run(device, table.Upload([0, 1]), 2);
 
-        Run(device, buffers, 2);
-
-        var flags = buffers[12].Span<uint>();
-        Assert.Equal(0u, flags[0] & FiledFrozen);
-        Assert.Equal(FiledFrozen, flags[1] & FiledFrozen);
-        Assert.Equal(FiledFrozen, flags[2] & FiledFrozen);
-        Assert.Equal(new Vector2(20f, 0f), buffers[1].Span<Vector2>()[2]);
+        var filter = table.Filter.Span<UInt4>();
+        Assert.Equal(0u, filter[0].X & FiledFrozen);
+        Assert.Equal(FiledFrozen, filter[1].X & FiledFrozen);
+        Assert.Equal(FiledFrozen, filter[2].X & FiledFrozen);
+        Assert.Equal(new Vector2(20f, 0f), PositionOf(table, 2));
     }
 }

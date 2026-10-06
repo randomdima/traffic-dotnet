@@ -1,0 +1,38 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// A grid's second pass: every roster body filed in every cell its box covers, at the run the scan gave that cell.
+// The order within a cell is whichever thread got there first — nothing reads it in that order, since each owner
+// sorts the candidates it gathers (pairs.comp).
+
+layout(local_size_x = 64) in;
+
+#include "step.glsl"
+
+layout(std430, binding = 0) readonly buffer Roster { int roster[]; };
+layout(std430, binding = 1) readonly buffer Bounds { vec4 bounds[]; };
+layout(std430, binding = 2) readonly buffer Starts { uint starts[]; };
+layout(std430, binding = 3) buffer Cursor { uint cursor[]; };
+layout(std430, binding = 4) writeonly buffer Items { int items[]; };
+
+void main()
+{
+    uint slot = gl_GlobalInvocationID.x;
+    if (slot >= rosterCount) return;
+
+    int body = roster[slot];
+    vec4 box = bounds[body];
+    int fromX = cellX(box.x);
+    int fromY = cellY(box.y);
+    int toX = cellX(box.z);
+    int toY = cellY(box.w);
+    for (int y = fromY; y <= toY; y++)
+    {
+        for (int x = fromX; x <= toX; x++)
+        {
+            uint cell = cellIndex(x, y);
+            uint at = starts[cell] + atomicAdd(cursor[cell], 1u);
+            if (at < capacity) items[at] = body;
+        }
+    }
+}

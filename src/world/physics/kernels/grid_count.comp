@@ -1,0 +1,29 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// A grid's first pass (CellGrid.Rebuild): every cell a roster body's box covers counted once for it. The counts are
+// scanned into where each cell's run starts, and grid_fill files the bodies there.
+
+layout(local_size_x = 64) in;
+
+#include "step.glsl"
+
+layout(std430, binding = 0) readonly buffer Roster { int roster[]; };
+layout(std430, binding = 1) readonly buffer Bounds { vec4 bounds[]; };
+layout(std430, binding = 2) buffer Counts { uint counts[]; };
+
+void main()
+{
+    uint slot = gl_GlobalInvocationID.x;
+    if (slot >= rosterCount) return;
+
+    vec4 box = bounds[roster[slot]];
+    int fromX = cellX(box.x);
+    int fromY = cellY(box.y);
+    int toX = cellX(box.z);
+    int toY = cellY(box.w);
+    for (int y = fromY; y <= toY; y++)
+    {
+        for (int x = fromX; x <= toX; x++) atomicAdd(counts[cellIndex(x, y)], 1u);
+    }
+}

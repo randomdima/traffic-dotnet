@@ -1,0 +1,280 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The contact solve (PhysicsWorld.SolveVelocities, SolvePush): no bounce, Coulomb friction and the speculative term,
+// then the overlap pushed out on an accumulator the integration spends and throws away.
+//
+// The CPU runs the contacts one after another, each seeing every impulse before it — Gauss–Seidel. Here they are
+// first coloured so that no two contacts of one colour share a moving body; a colour is then run all at once with the
+// same answer as running it in any order, and the colours run one after another. Each pass is still Gauss–Seidel,
+// in an order of its own, so a step lands near the CPU's and not on it.
+//
+// The colouring is deterministic: a round gives its colour to every uncoloured contact whose rank is the lowest of the
+// uncoloured ones at both of its moving bodies, so every round colours at least one and the result does not depend on
+// which thread ran first. The rank is the contact's number put through a bijection and not the number itself: the
+// contacts are numbered by their bodies and the bodies roughly by where they stand, so ranked by number a queue's
+// contacts are a chain coloured one a round. Whatever is left after MostColours rounds is run by one thread, in
+// contact order.
+//
+// One workgroup does the whole of it, so a colour waits for the last with a workgroup barrier rather than a queue's.
+
+layout(local_size_x = 1024) in;
+
+#include "step.glsl"
+#include "shape.glsl"
+
+const uint MostColours = 48u;
+const uint Uncoloured = 0xFFFFFFFFu;
+const uint Nobody = 0xFFFFFFFFu;
+
+layout(std430, binding = 0) coherent buffer Contact { uvec4 contact[]; };
+layout(std430, binding = 1) readonly buffer ContactNormal { vec4 contactNormal[]; };
+layout(std430, binding = 2) readonly buffer Arms { vec4 arms[]; };
+layout(std430, binding = 3) readonly buffer PointMass { vec2 pointMass[]; };
+layout(std430, binding = 4) coherent buffer Impulses { vec4 impulses[]; };
+layout(std430, binding = 5) coherent buffer Motion { vec4 motion[]; };
+layout(std430, binding = 6) coherent buffer PushB { vec4 push_[]; };
+layout(std430, binding = 7) readonly buffer Mass { vec2 mass[]; };
+layout(std430, binding = 8) readonly buffer Filter { uvec4 filter_[]; };
+layout(std430, binding = 9) coherent buffer Lowest { uint lowest[]; };
+layout(std430, binding = 10) coherent buffer Order { uint order[]; };
+layout(std430, binding = 11) readonly buffer Owners { int owners[]; };
+layout(std430, binding = 12) buffer Totals { uint totals[]; };
+
+shared uint remaining;
+shared uint colours;
+shared uint colourCount[MostColours + 1u];
+shared uint colourStart[MostColours + 2u];
+
+bool moves(uint body) { return (filter_[body].x & staticBit) == 0u; }
+
+// A contact's rank in the colouring: a bijection of its number (lowbias32), so two contacts never rank alike.
+uint rank(uint at)
+{
+    uint x = at;
+    x ^= x >> 16;
+    x *= 0x7feb352du;
+    x ^= x >> 15;
+    x *= 0x846ca68bu;
+    x ^= x >> 16;
+    return x;
+}
+
+void sync()
+{
+    memoryBarrierBuffer();
+    memoryBarrierShared();
+    barrier();
+}
+
+vec2 crossYaw(float yaw, vec2 arm) { precise vec2 r = vec2(-yaw * arm.y, yaw * arm.x); return r; }
+
+// How fast B's surface closes on A's at the point, from motion (velocity) or from the push accumulator.
+vec2 closing(vec4 a, vec4 b, vec2 armA, vec2 armB)
+{
+    precise vec2 r = b.xy + crossYaw(b.z, armB) - a.xy - crossYaw(a.z, armA);
+    return r;
+}
+
+void spend(uint first, uint second, vec2 armA, vec2 armB, vec2 impulseNs, bool onPush)
+{
+    vec2 massA = mass[first];
+    vec2 massB = mass[second];
+    vec4 a = onPush ? push_[first] : motion[first];
+    precise vec2 aVelocity = a.xy - impulseNs * massA.x;
+    precise float aYaw = a.z - massA.y * shapeCross(armA, impulseNs);
+    if (onPush) push_[first] = vec4(aVelocity, aYaw, a.w); else motion[first] = vec4(aVelocity, aYaw, a.w);
+
+    if (!moves(second)) return;
+
+    vec4 b = onPush ? push_[second] : motion[second];
+    precise vec2 bVelocity = b.xy + impulseNs * massB.x;
+    precise float bYaw = b.z + massB.y * shapeCross(armB, impulseNs);
+    if (onPush) push_[second] = vec4(bVelocity, bYaw, b.w); else motion[second] = vec4(bVelocity, bYaw, b.w);
+}
+
+void solveVelocity(uint at)
+{
+    uvec4 c = contact[at];
+    vec4 normalAndDepth = contactNormal[at];
+    vec2 normal = normalAndDepth.xy;
+    vec2 tangent = shapeLeftPerpendicular(normal);
+    for (uint point = 0u; point < c.z; point++)
+    {
+        uint slot = at * 2u + point;
+        vec4 arm = arms[slot];
+        vec2 masses = pointMass[slot];
+        vec4 impulse = impulses[slot];
+
+        float separationM = point == 0u ? normalAndDepth.z : normalAndDepth.w;
+        precise float speculative = separationM > 0.0 ? separationM * inverseStep : 0.0;
+        float along = shapeDot(closing(motion[c.x], motion[c.y], arm.xy, arm.zw), normal);
+        precise float wanted = -masses.x * (along + speculative);
+        precise float total = max(impulse.x + wanted, 0.0);
+        precise float normalSpend = total - impulse.x;
+        impulse.x = total;
+        spend(c.x, c.y, arm.xy, arm.zw, normal * normalSpend, false);
+
+        float across = shapeDot(closing(motion[c.x], motion[c.y], arm.xy, arm.zw), tangent);
+        precise float slide = -masses.y * across;
+        precise float most = friction * impulse.x;
+        precise float held = clamp(impulse.y + slide, -most, most);
+        precise float tangentSpend = held - impulse.y;
+        impulse.y = held;
+        spend(c.x, c.y, arm.xy, arm.zw, tangent * tangentSpend, false);
+
+        impulses[slot] = impulse;
+    }
+}
+
+void solvePush(uint at)
+{
+    uvec4 c = contact[at];
+    vec4 normalAndDepth = contactNormal[at];
+    vec2 normal = normalAndDepth.xy;
+    for (uint point = 0u; point < c.z; point++)
+    {
+        float separationM = point == 0u ? normalAndDepth.z : normalAndDepth.w;
+        precise float depthM = -(separationM + allowedPenetrationM);
+        if (depthM <= 0.0) continue;
+
+        uint slot = at * 2u + point;
+        vec4 arm = arms[slot];
+        vec4 impulse = impulses[slot];
+        precise float wantedMps = min(depthM * contactBias, maxPushOutMps);
+        float along = shapeDot(closing(push_[c.x], push_[c.y], arm.xy, arm.zw), normal);
+        precise float wanted = pointMass[slot].x * (wantedMps - along);
+        precise float total = max(impulse.z + wanted, 0.0);
+        precise float pushSpend = total - impulse.z;
+        impulse.z = total;
+        impulses[slot] = impulse;
+        spend(c.x, c.y, arm.xy, arm.zw, normal * pushSpend, true);
+    }
+}
+
+void main()
+{
+    uint thread = gl_LocalInvocationID.x;
+    uint contacts = min(totals[ContactTotalAt], capacity);
+
+    for (uint at = thread; at < contacts; at += 1024u) contact[at].w = Uncoloured;
+    if (thread == 0u) colours = 0u;
+    sync();
+
+    // Mode 2 colours nothing, so every contact is run by one thread in contact order — the CPU's own order, for an
+    // answer that differs from the CPU's only by the device's arithmetic.
+    for (uint colouring = 0u; colouring < (mode == 2u ? 0u : MostColours); colouring++)
+    {
+        if (thread == 0u) remaining = 0u;
+        for (uint at = thread; at < contacts; at += 1024u)
+        {
+            uvec4 c = contact[at];
+            if (c.w != Uncoloured) continue;
+
+            atomicMin(lowest[c.x], rank(at));
+            if (moves(c.y)) atomicMin(lowest[c.y], rank(at));
+        }
+
+        sync();
+        for (uint at = thread; at < contacts; at += 1024u)
+        {
+            uvec4 c = contact[at];
+            if (c.w != Uncoloured) continue;
+
+            uint mine = rank(at);
+            if (lowest[c.x] == mine && (!moves(c.y) || lowest[c.y] == mine)) contact[at].w = colouring;
+            else atomicAdd(remaining, 1u);
+        }
+
+        sync();
+        for (uint at = thread; at < contacts; at += 1024u)
+        {
+            uvec4 c = contact[at];
+            if (c.w != Uncoloured && c.w != colouring) continue;
+
+            lowest[c.x] = Nobody;
+            if (moves(c.y)) lowest[c.y] = Nobody;
+        }
+
+        if (thread == 0u) colours = colouring + 1u;
+        sync();
+
+        // Read by every thread before the next round's first one clears it, or threads would leave on different rounds.
+        bool done = remaining == 0u;
+        sync();
+        if (done) break;
+    }
+
+    // The contacts of each colour listed together; the leftovers last, in contact order, for one thread to run.
+    for (uint colour = thread; colour <= MostColours; colour += 1024u) colourCount[colour] = 0u;
+    sync();
+    for (uint at = thread; at < contacts; at += 1024u)
+    {
+        uint colour = min(contact[at].w, MostColours);
+        if (colour < MostColours) atomicAdd(colourCount[colour], 1u);
+    }
+
+    sync();
+    if (thread == 0u)
+    {
+        uint running = 0u;
+        for (uint colour = 0u; colour < MostColours; colour++)
+        {
+            colourStart[colour] = running;
+            running += colourCount[colour];
+            colourCount[colour] = 0u;
+        }
+
+        colourStart[MostColours] = running;
+        for (uint at = 0u; at < contacts; at++)
+        {
+            if (contact[at].w == Uncoloured) order[running++] = at;
+        }
+
+        colourStart[MostColours + 1u] = running;
+        totals[ColoursAt] = colours;
+        totals[LeftOverAt] = colourStart[MostColours + 1u] - colourStart[MostColours];
+    }
+
+    sync();
+    for (uint at = thread; at < contacts; at += 1024u)
+    {
+        uint colour = contact[at].w;
+        if (colour < MostColours) order[colourStart[colour] + atomicAdd(colourCount[colour], 1u)] = at;
+    }
+
+    sync();
+    for (uint pass = 0u; pass < velocityIterations; pass++)
+    {
+        for (uint colour = 0u; colour < colours; colour++)
+        {
+            for (uint at = colourStart[colour] + thread; at < colourStart[colour + 1u]; at += 1024u) solveVelocity(order[at]);
+            sync();
+        }
+
+        if (thread == 0u)
+        {
+            for (uint at = colourStart[MostColours]; at < colourStart[MostColours + 1u]; at++) solveVelocity(order[at]);
+        }
+
+        sync();
+    }
+
+    for (uint slot = thread; slot < rosterCount; slot += 1024u) push_[owners[slot]] = vec4(0.0);
+    sync();
+    for (uint pass = 0u; pass < positionIterations; pass++)
+    {
+        for (uint colour = 0u; colour < colours; colour++)
+        {
+            for (uint at = colourStart[colour] + thread; at < colourStart[colour + 1u]; at += 1024u) solvePush(order[at]);
+            sync();
+        }
+
+        if (thread == 0u)
+        {
+            for (uint at = colourStart[MostColours]; at < colourStart[MostColours + 1u]; at++) solvePush(order[at]);
+        }
+
+        sync();
+    }
+}

@@ -23,7 +23,7 @@ other only in the one direction the tier's own row gives.
 | **Composition** | `world/town/` | Everything before it. **This is the seam, and it is the only thing allowed to be** |
 | **Machine** | `runtime/` — the window, the device, the swapchain, `runtime/web/` — the canvas and WebGPU, and `runtime/android/` — the glass and the surface made of it | core. **Not the shell, not an agent, not a town** |
 | **Chrome** | `app/screen/` — the quad, the glyphs, the theme, the text buffer | Nothing. It is the vocabulary a frame's overlay is written in |
-| **Shell** | `app/` — main, camera, render, hud, debug, playercontrol, shot, drive, web, android | Everything |
+| **Shell** | `app/` — main, camera, render, hud, debug, playercontrol, shot, drive, web, android, devicetick | Everything |
 | **Workshop** | `tests/`, `bench/`, `tools/` | Everything. They may depend on what the runtime may not |
 
 Inside `world/`, the settled direction is terrain ← road ← foot, both networks → routing, parking →
@@ -49,6 +49,11 @@ weight whichever of them drew it. `app/shot/` sits under
 only chooses it. `app/drive/` sits beside it on the same footing and over `app/playercontrol/`,
 `app/hud/` and `app/shot/`: a script at the wheel holds the hand that slice owns, prints the rows that one
 draws and asks this one for its pictures.
+
+**The tick's kernels live in the slice whose rules they are**, in its own `kernels/` — the solver's in
+`world/physics/kernels/` — and **`app/devicetick/` is where they meet the device**: it lays a slice's arrays into
+buffers and records its kernels in the tick's order. The slice hands over its data (`PhysicsWorld.Table`) and never
+learns that a device exists, which is what keeps the World tier off the Machine one.
 
 **A folder named for a head is a second answer and never a second question.** `runtime/web/`,
 `app/render/web/`, `app/main/web/` and `app/drive/web/` hold the browser's half of something the desktop already has, and

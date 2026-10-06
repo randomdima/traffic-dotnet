@@ -1,0 +1,39 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every candidate's manifold (PhysicsWorld.Narrow), one thread a pair: the owner first and the other second, which
+// is lower index first and the furniture second. What met is flagged for the compaction that follows, so the
+// contacts keep the candidates' order.
+
+layout(local_size_x = 64) in;
+
+#include "step.glsl"
+#include "shape.glsl"
+
+layout(std430, binding = 0) readonly buffer Candidates { uvec2 candidates[]; };
+layout(std430, binding = 1) readonly buffer Pose { vec4 pose[]; };
+layout(std430, binding = 2) readonly buffer ShapeB { vec4 shape[]; };
+layout(std430, binding = 3) writeonly buffer Met { uint met[]; };
+layout(std430, binding = 4) writeonly buffer Flags { uint flagged[]; };
+layout(std430, binding = 5) writeonly buffer ManifoldA { vec4 manifoldA[]; };
+layout(std430, binding = 6) writeonly buffer ManifoldB { vec4 manifoldB[]; };
+layout(std430, binding = 7) readonly buffer Totals { uint totals[]; };
+
+void main()
+{
+    uint at = gl_GlobalInvocationID.x;
+    if (at >= min(totals[CandidateTotalAt], capacity)) return;
+
+    uvec2 pair = candidates[at];
+    vec4 a = pose[pair.x];
+    vec4 b = pose[pair.y];
+    vec4 shapeA = shape[pair.x];
+    vec4 shapeB = shape[pair.y];
+
+    Manifold m;
+    bool touching = shapeCollide(a.xy, a.zw, shapeA.xy, shapeA.z, b.xy, b.zw, shapeB.xy, shapeB.z, speculativeM, m);
+    met[at] = touching ? uint(m.pointCount) : 0u;
+    flagged[at] = touching ? 1u : 0u;
+    manifoldA[at] = vec4(m.normal, m.separation0, m.separation1);
+    manifoldB[at] = vec4(m.point0, m.point1);
+}

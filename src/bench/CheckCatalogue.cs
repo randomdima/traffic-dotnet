@@ -40,6 +40,7 @@ internal static class CheckCatalogue
         new("census", "What is in a town: bodies, buildings, props, lit junctions", Quoted(config => TownCensus.Run("Odesa", config))),
         new("load", "What opening a map costs, stage by stage", Quoted(config => LoadProbe.Run("Odesa", config))),
         new("sprites", "What filling a frame's sprites costs, part by part, from a street to the whole town", Quoted(config => SpriteProbe.Run("Odesa", config))),
+        new("devicestep", "The solver's step on the device beside the CPU's: its time stage by stage, and how the two answers agree", Quoted(config => DeviceStepProbe.Run("Odesa", config))),
         new("shape", "What shape a town came out: how its roads bend, where its junctions stand", Quoted(config => TownShape.Run("Odesa", config))),
         new("joints", "Every junction only two roads meet at, and which structure kept it", Quoted(config => TownShape.Joints("Odesa", config))),
         new("parks", "Every car park a town laid off a street: where it stands and its bays", Quoted(config => TownShape.Parks("Odesa", config))),

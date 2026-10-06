@@ -13,6 +13,12 @@ namespace TrafficSimulation.World.Town;
 /// <summary>Phases 4 and 5: every body stepped with the impulses phase 3 wrote down, then the contacts arbitrated — the one place damage is decided.</summary>
 internal sealed partial class TownWorld
 {
+    /// <summary>
+    /// <b>For the instruments</b>: handed the solver with every impulse of the tick applied and its step not yet taken —
+    /// the question a second solver is asked beside it. Nothing that decides anything sets it.
+    /// </summary>
+    public Action<PhysicsWorld>? BeforeTheSolverSteps { get; set; }
+
     public void StepBodies(float dtS)
     {
         // Phase 3 ends here, whichever kind of agent it ended on: a town with no car left to decide
@@ -52,6 +58,8 @@ internal sealed partial class TownWorld
         }
 
         HaulOnTheBars(dtS);
+
+        BeforeTheSolverSteps?.Invoke(_physics);
 
         // The solver's step, kept apart from the impulse and read-back loops around it: two different
         // measurements (TickParts).

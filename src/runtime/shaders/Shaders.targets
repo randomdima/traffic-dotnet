@@ -11,10 +11,13 @@
   <ItemGroup>
     <ShaderSource Include="$(MSBuildThisFileDirectory)*.vert;$(MSBuildThisFileDirectory)*.frag;$(MSBuildThisFileDirectory)*.comp" />
     <ShaderSource Include="$(MSBuildThisFileDirectory)../../**/kernels/*.comp" />
+    <ShaderInclude Include="$(MSBuildThisFileDirectory)../../**/kernels/*.glsl" />
   </ItemGroup>
 
+  <!-- A kernel #includes the .glsl beside it, so an include changed is every shader compiled again: the inputs are
+       no longer one per output, and MSBuild then takes the whole target or none of it. -->
   <Target Name="CompileShaders" BeforeTargets="AssignTargetPaths"
-          Inputs="@(ShaderSource)" Outputs="@(ShaderSource->'$(IntermediateOutputPath)Shaders/%(Filename)%(Extension).spv')">
+          Inputs="@(ShaderSource);@(ShaderInclude)" Outputs="@(ShaderSource->'$(IntermediateOutputPath)Shaders/%(Filename)%(Extension).spv')">
     <MakeDir Directories="$(IntermediateOutputPath)Shaders" />
     <Exec Command="glslc --target-env=vulkan1.3 -O &quot;%(ShaderSource.FullPath)&quot; -o &quot;$(IntermediateOutputPath)Shaders/%(ShaderSource.Filename)%(ShaderSource.Extension).spv&quot;" />
   </Target>

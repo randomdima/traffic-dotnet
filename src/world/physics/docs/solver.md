@@ -22,7 +22,7 @@ library and is wrong here; adding one back is a change to this document first.
 | Restitution | A collision here is a crash, not a break shot |
 | Continuous collision / sweeping | A stated limit rather than a divergence |
 | Islands | Freezing is per body (SOL-37), and what a woken body leans on is asked in the step that woke it; no graph of who touches whom is kept |
-| Multi-threading | Determinism is worth more at this roster size |
+| Multi-threading on the CPU | Determinism is worth more at this roster size. The step on the device (`kernels/`) runs a colour of contacts at once, and is deterministic on one device because the colouring is |
 | A general-purpose API | The surface is the call sites the town actually makes |
 | Serialisation, its own debug draw, a world editor | The town is the format; the renderer draws |
 
