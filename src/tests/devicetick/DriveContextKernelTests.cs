@@ -56,8 +56,7 @@ public class DriveContextKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
     /// </summary>
     /// <remarks>
     /// Ten seconds of the suite's city have 36 000 such contexts, inside boxes, behind lights and short of claimed ones —
-    /// but no car waiting to pass and none sent to a place: those two are read off the same rows and asked of OdesaOsm by
-    /// the claims bench.
+    /// but no car waiting to pass and none sent to a place, so those two branches are not asked here.
     /// </remarks>
     [Fact]
     public void EveryFollowingCarIsToldWhatTheTownToldIt()
