@@ -1,0 +1,63 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The ways a run of bodies stands over, one thread a body: a car's box or a walker's disc, on its channels — the atlas
+// asked on its own, which is how the device's answer is held to the host's.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Ask
+{
+    uint bodyCount;
+    int cellsFromX;
+    int cellsFromY;
+    int cellsWidth;
+    int cellsHeight;
+    float perCellM;
+    float cellM;
+    int shift;
+    int mask;
+    int startShift;
+    int rowStartsShift;
+    int startsPerCell;
+    float metresPerOutside;
+    float alongPerMetre;
+    uint hasChannels;
+} ask;
+
+#define ATLAS_FIGURES ask
+#define ATLAS_BINDING 3
+#include "core/geometry/kernels/rounded.glsl"
+#include "world/road/kernels/atlas.glsl"
+
+// One body asked (DeviceAtlas.BodyRow): a disc's radius is its half length, and its forward is unread.
+struct AtlasAsked
+{
+    vec2 centreM;
+    vec2 forward;
+    float halfLengthM;
+    float halfWidthM;
+    uint channels;
+    uint disc;
+};
+
+layout(std430, binding = 0) readonly buffer Bodies { AtlasAsked bodies[]; };
+layout(std430, binding = 1) writeonly buffer Counts { uvec2 counts[]; };
+layout(std430, binding = 2) writeonly buffer Covers { AtlasCover covers[]; };
+
+void main()
+{
+    uint body = gl_GlobalInvocationID.x;
+    if (body >= ask.bodyCount) return;
+
+    AtlasAsked asked = bodies[body];
+    AtlasCover found[AtlasMostWaysUnderABody];
+    uint dropped = 0u;
+    int count = asked.disc != 0u
+        ? atlasUnderDisc(asked.centreM, asked.halfLengthM, asked.channels, found, dropped)
+        : atlasUnderBox(asked.centreM, asked.forward, asked.halfLengthM, asked.halfWidthM, asked.channels, found, dropped);
+
+    counts[body] = uvec2(uint(count), dropped);
+    uint first = body * uint(AtlasMostWaysUnderABody);
+    for (int at = 0; at < count; at++) covers[first + uint(at)] = found[at];
+}

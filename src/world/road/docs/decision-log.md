@@ -4,6 +4,33 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-10-07 — which ways a body stands over is read on the device off the atlas's own tables
+
+**The tick moves to the device** (root log), and every claims rebuild lays every car's box and every walker's disc
+onto the ways under it (TER-4c.2) — about 3 ms of OdesaOsm's tick. `kernels/atlas.glsl` is `RibbonAtlas.Read`, `Grow`
+and `Widened` line for line, over the very tables the host reads (`RibbonAtlas.Table`, laid by
+`app/devicetick/DeviceAtlas`), so the answer is the host's and never a second filing of the ribbons.
+
+- **A box is handed its forward unit vector**, the host's, so no corner is the device's own trigonometry and the whole
+  read is compared exactly.
+- **A quotient and a root are put right in doubles** (`core/geometry/kernels/rounded.glsl`): RADV divides by a
+  reciprocal, and with the device's own `/` and `sqrt` 5 822 of OdesaOsm's 13 242 bodies came out over other
+  stretches or other ways — mostly a stretch's tenths turned into metres a last bit apart.
+- **The device keeps no recall.** A read there is 0.06 µs a body, and the recall's answer is the fresh read's (below),
+  so it would save a little of the cheap half for 0.6 KB a body.
+
+**The recall gives what a fresh read gives.** Its answer is kept only where the body takes in the same lattice points
+(`SamePoints`, asked exactly as `Read` asks it) on the same channels, so the same entries are tested in the same order;
+and only where no depth test can have turned, since no depth moves by more than the body moved (`Unmoved`), less a
+rounding share hundreds of times what a float's arithmetic over the body's reach can put between two readings. The same
+entries passing gives the same ways, order and stretches. Over 120 ticks of OdesaOsm, 1 621 252 asks of a recall, 23 %
+of them answered without a read, came out as a fresh read every time.
+
+Held to the host over 2 400 boxes and 2 400 discs on the fixture town and 2 400 bodies on a deck over a street, every
+channel (`AtlasKernelTests`): the same ways, order, stretches and drops to the bit. On OdesaOsm after 600 ticks
+(`--bench deviceatlas`, RX 9070 XT), 10 013 cars and 3 229 walkers with a body took 5.3–6.1 ms on the host, uncached, and
+0.73–0.80 ms on the device over two runs, and no body differs.
+
 ## 2026-10-06 — every plan is answered at once
 
 **The tick moves to the device** (root log), where every holder is a thread and none can be laid before another.
@@ -15,9 +42,8 @@ was answered against did, until the settling caught up.
 - **Every plan is laid whole and answered at once** (`LaneOccupancy.Propose`, `ShowTheAnswers`, TER-4c.3): each
   pass every hold is answered against what every other came to the pass before; a plan's own reach is cut where a
   claim beats it, and its secondary claims where a main claim over them beats them, so of two claims that meet
-  exactly one gives the ground up. The first pass is read against the bodies and the holds laid where they stand
-  alone, which no answer can be shorter than, so the passes close in from both sides on the layer where every
-  answer is what it was answered against.
+  exactly one gives the ground up. The first pass is read against the bodies alone, which no answer can be shorter
+  than, so the passes close in from both sides on the layer where every answer is what it was answered against.
 - **Disjoint wherever the passes stop**: a pass read against a layer at least as long as its own is cut wherever
   anything beats it, so the bound (`MostSettlingPasses`) stops on such a pass and a ring left moving is counted
   (`Unsettled`) and still disjoint — the gate (`ClaimGateTests`) holds either way.

@@ -78,7 +78,7 @@ internal interface IRibbonLines
 /// every one the car stands on, and passing over them is a fifth of the lookup.
 /// </para>
 /// </remarks>
-internal sealed class RibbonAtlas
+internal sealed partial class RibbonAtlas
 {
     /// <summary>How finely a metre along a way is kept: a tenth, well inside half a lattice step.</summary>
     const float AlongPerMetre = 10f;
@@ -106,7 +106,7 @@ internal sealed class RibbonAtlas
     /// points rather than one (<see cref="PointsAStartShift"/>): a read takes the runs the body reaches and passes
     /// over the columns outside it.
     /// </remarks>
-    readonly record struct Entry(byte Outside, byte Column, ushort Along, int Way);
+    internal readonly record struct Entry(byte Outside, byte Column, ushort Along, int Way);
 
     /// <summary>
     /// <b>How many points of a row one start stands for</b>, as a shift: two, 1 m at the ribbon's level. A start a

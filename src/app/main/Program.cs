@@ -347,6 +347,9 @@ internal static class Program
             case "devicetyres":
                 DeviceTyresProbe.Run(map ?? Options.FixtureMap, config);
                 return 0;
+            case "deviceatlas":
+                DeviceAtlasProbe.Run(map ?? Options.FixtureMap, config);
+                return 0;
             case "outset":
                 return Kept(BoundaryProbe.Outset(map ?? Options.FixtureMap, config, atM));
             case "fill":
