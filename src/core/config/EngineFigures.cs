@@ -186,11 +186,12 @@ internal sealed class ViewFigures
     public int SceneryMostDrawn { get; init; } = 65536;
 
     /// <summary>
-    /// The narrowest a steered tyre is drawn, in interface pixels across; narrower, the front pair is left out
-    /// of the frame. <b>It is where most of a town's tyres are</b>: the framings that hold the most cars are
-    /// the ones a tyre is under a pixel at, and the rear pair is painted into the car either way.
+    /// The narrowest a part drawn over a car — a steered tyre, a lamp's glow — is drawn, in interface pixels
+    /// across; narrower, it is left out of the frame. <b>It is where most of a town's parts are</b>: the
+    /// framings that hold the most cars are the ones such a part is under a pixel at, and the car's own
+    /// picture carries its rear tyres and its dull lenses either way.
     /// </summary>
-    public float SteeredTyreLeastPx { get; init; } = 1.5f;
+    public float CarPartLeastPx { get; init; } = 1.5f;
 
     /// <summary>
     /// How many units one selection may hold (CTL-1b). A bound and not a preference: the set is one

@@ -2,6 +2,7 @@ using System.Numerics;
 using TrafficSimulation.Agents.TrafficLight.Control;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.Agents.TrafficLight.Body;
@@ -46,11 +47,20 @@ internal readonly record struct SignalHead(Vector2 CentreM, float HeadingRad, bo
 /// </remarks>
 internal sealed class SignalHeads
 {
-    SignalHeads(SignalHead[] heads) => Heads = heads;
+    SignalHeads(SignalHead[] heads, GridLevel level)
+    {
+        Heads = heads;
+        var centresM = new Vector2[heads.Length];
+        for (var head = 0; head < heads.Length; head++) centresM[head] = heads[head].CentreM;
+        ByRow = RowFile.Of(centresM, level);
+    }
 
-    public static SignalHeads Nothing { get; } = new([]);
+    public static SignalHeads Nothing { get; } = new([], new WorldGrid(1f).Main);
 
     public SignalHead[] Heads { get; }
+
+    /// <summary>The heads filed by the row of the grid they stand in, for a picture of part of the town.</summary>
+    public RowFile ByRow { get; }
 
     public int Count => Heads.Length;
 
@@ -133,6 +143,6 @@ internal sealed class SignalHeads
             }
         }
 
-        return new SignalHeads([.. heads]);
+        return new SignalHeads([.. heads], config.Grid.Main);
     }
 }

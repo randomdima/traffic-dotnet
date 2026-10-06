@@ -73,10 +73,11 @@ internal static partial class WebGpu
     }
 
     /// <summary>The bind group and the recording, made again when a map is opened and never while a frame is drawn.</summary>
-    public static void Rebuild(int indexCount)
+    /// <param name="overOffset">Where the sprites drawn over the buildings start in their buffer, in bytes.</param>
+    public static void Rebuild(int indexCount, int overOffset)
     {
         Count();
-        RebuildJs(indexCount);
+        RebuildJs(indexCount, overOffset);
     }
 
     /// <summary>Everything the device holds for a town being taken down, and the recording that read it.</summary>
@@ -86,13 +87,18 @@ internal static partial class WebGpu
         ReleaseJs();
     }
 
-    /// <summary>The whole frame: the memory the simulation just wrote, and the counts that say how much of it to read.</summary>
+    /// <summary>
+    /// The whole frame: the memory the simulation just wrote, and the counts that say how much of it to read — the
+    /// sprites under the buildings, the stretch of the buildings laid once, and the sprites over them.
+    /// </summary>
     public static void Frame(
-        Span<byte> camera, Span<byte> sprites, Span<byte> overlay, Span<byte> underlay,
-        int spriteCount, int overlayCount, int underlayCount)
+        Span<byte> camera, Span<byte> under, Span<byte> over, Span<byte> overlay, Span<byte> underlay,
+        int underCount, int standingFirst, int standingCount, int overCount, int overlayCount, int underlayCount)
     {
         Count();
-        FrameJs(camera, sprites, overlay, underlay, spriteCount, overlayCount, underlayCount);
+        FrameJs(
+            camera, under, over, overlay, underlay, underCount, standingFirst, standingCount, overCount, overlayCount,
+            underlayCount);
     }
 
     /// <summary>What the page has seen since the last frame asked, into the run's own memory.</summary>
@@ -284,7 +290,7 @@ internal static partial class WebGpu
         int width, int height, int layers, int layer, int level, int levels);
 
     [JSImport("town.rebuild", "town.js")]
-    static partial void RebuildJs(int indexCount);
+    static partial void RebuildJs(int indexCount, int overOffset);
 
     [JSImport("town.release", "town.js")]
     static partial void ReleaseJs();
@@ -292,10 +298,11 @@ internal static partial class WebGpu
     [JSImport("town.frame", "town.js")]
     static partial void FrameJs(
         [JSMarshalAs<JSType.MemoryView>] Span<byte> camera,
-        [JSMarshalAs<JSType.MemoryView>] Span<byte> sprites,
+        [JSMarshalAs<JSType.MemoryView>] Span<byte> under,
+        [JSMarshalAs<JSType.MemoryView>] Span<byte> over,
         [JSMarshalAs<JSType.MemoryView>] Span<byte> overlay,
         [JSMarshalAs<JSType.MemoryView>] Span<byte> underlay,
-        int spriteCount, int overlayCount, int underlayCount);
+        int underCount, int standingFirst, int standingCount, int overCount, int overlayCount, int underlayCount);
 
     [JSImport("town.pump", "town.js")]
     static partial void PumpJs(

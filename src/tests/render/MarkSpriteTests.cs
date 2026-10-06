@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.App.Render;
+using TrafficSimulation.Core.Config;
 using TrafficSimulation.World.Terrain;
 using Xunit;
 
@@ -17,7 +18,8 @@ public class MarkSpriteTests
     const int Rubber = 3;
     const int Soil = 4;
 
-    static DriftMarks Marks(int capacity = 8) => new(capacity);
+    /// <summary>A ring over a town a kilometre square.</summary>
+    static DriftMarks Marks(int capacity = 8) => new(capacity, SimConfig.Shipped().Grid.Main, 0f, 1_000f);
 
     static SpriteInstance[] Drawn(DriftMarks marks, Vector2 viewCentreM, float viewSpanM = 1_000f)
     {
@@ -109,6 +111,24 @@ public class MarkSpriteTests
         var drawn = Drawn(marks, new Vector2(4f, 0f));
         Assert.Equal(2, drawn.Length);
         Assert.Equal([4.5f, 3.5f], [drawn[0].CentreM.X, drawn[1].CentreM.X]);
+    }
+
+    /// <summary>
+    /// <b>A view of a street reads the street's rows</b>, and a mark the ring has given up is gone from its row too:
+    /// drawn while it is held, and not once two younger marks laid rows away have overwritten it.
+    /// </summary>
+    [Fact]
+    public void AMarkTheRingGaveUpIsGoneFromItsRow()
+    {
+        var marks = Marks(capacity: 2);
+        marks.Mark(Vector2.Zero, new Vector2(1f, 0f), 0.22f, 1f, false);
+        Assert.Single(Drawn(marks, Vector2.Zero, viewSpanM: 20f));
+
+        marks.Mark(new Vector2(0f, 500f), new Vector2(1f, 500f), 0.22f, 1f, false);
+        marks.Mark(new Vector2(0f, 501f), new Vector2(1f, 501f), 0.22f, 1f, false);
+
+        Assert.Empty(Drawn(marks, Vector2.Zero, viewSpanM: 20f));
+        Assert.Equal(2, Drawn(marks, new Vector2(0.5f, 500.5f), viewSpanM: 20f).Length);
     }
 
     /// <summary>A mark off the screen is not written into the buffer, the same cull every body gets.</summary>

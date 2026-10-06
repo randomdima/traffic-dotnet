@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using TrafficSimulation.World.Terrain;
 
 namespace TrafficSimulation.App.Render;
@@ -61,31 +62,63 @@ internal static class MarkSprites
     /// <summary>Resolution of the brush across the width of a mark. Small: it is a gradient read through a linear sampler, not a picture.</summary>
     const int BrushSamples = 32;
 
+    /// <remarks>
+    /// <b>The rows the view reaches and not the ring</b> (<see cref="DriftMarks"/>), unless the view reaches more than
+    /// half of them, where the ring read straight through is the cheaper walk. A row's own margin covers any mark's
+    /// reach. The order is a row's oldest first, which over one ground is the order they were laid; two marks of one
+    /// colour laid over each other come out the same either way round.
+    /// </remarks>
     public static int Fill(
         DriftMarks marks, int rubberSheet, int soilSheet, Vector2 viewCentreM, Vector2 viewSpanM,
         Span<SpriteInstance> into)
     {
         var written = 0;
         var halfView = viewSpanM * 0.5f;
+        var (fromRow, toRow) = marks.Rows(viewCentreM.Y - halfView.Y - marks.RowM, viewCentreM.Y + halfView.Y + marks.RowM);
 
-        foreach (var mark in marks.Laid)
+        if ((toRow - fromRow + 1) * 2 > marks.RowCount)
         {
-            if (written >= into.Length) break;
+            foreach (ref readonly var mark in marks.Laid)
+            {
+                if (written >= into.Length) break;
+                if (InView(mark, viewCentreM, halfView)) into[written++] = Drawn(mark, rubberSheet, soilSheet);
+            }
 
-            var reachM = mark.LengthM * 0.5f;
-            var offset = mark.CentreM - viewCentreM;
-            if (MathF.Abs(offset.X) > halfView.X + reachM || MathF.Abs(offset.Y) > halfView.Y + reachM) continue;
+            return written;
+        }
 
-            var bleed = mark.Ploughed ? SoilBleed : RubberBleed;
-            var colour = mark.Ploughed ? Soil : Vector3.Zero;
-            var alpha = mark.Intensity * (mark.Ploughed ? SoilAlpha : RubberAlpha);
+        for (var row = fromRow; row <= toRow; row++)
+        {
+            for (var slot = marks.OldestIn(row); slot >= 0; slot = marks.YoungerThan(slot))
+            {
+                if (written >= into.Length) return written;
 
-            into[written++] = new SpriteInstance(
-                mark.CentreM, new Vector2(mark.LengthM, mark.WidthM * bleed) * 0.5f, Vector2.Zero, Vector2.One,
-                new Vector4(colour, alpha), (uint)(mark.Ploughed ? soilSheet : rubberSheet), mark.HeadingRad);
+                ref readonly var mark = ref marks.At(slot);
+                if (InView(mark, viewCentreM, halfView)) into[written++] = Drawn(mark, rubberSheet, soilSheet);
+            }
         }
 
         return written;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static bool InView(in DriftMark mark, Vector2 viewCentreM, Vector2 halfView)
+    {
+        var reachM = mark.LengthM * 0.5f;
+        var offset = mark.CentreM - viewCentreM;
+        return MathF.Abs(offset.X) <= halfView.X + reachM && MathF.Abs(offset.Y) <= halfView.Y + reachM;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static SpriteInstance Drawn(in DriftMark mark, int rubberSheet, int soilSheet)
+    {
+        var bleed = mark.Ploughed ? SoilBleed : RubberBleed;
+        var colour = mark.Ploughed ? Soil : Vector3.Zero;
+        var alpha = mark.Intensity * (mark.Ploughed ? SoilAlpha : RubberAlpha);
+
+        return new SpriteInstance(
+            mark.CentreM, new Vector2(mark.LengthM, mark.WidthM * bleed) * 0.5f, Vector2.Zero, Vector2.One,
+            new Vector4(colour, alpha), (uint)(mark.Ploughed ? soilSheet : rubberSheet), mark.HeadingRad);
     }
 
     /// <summary>

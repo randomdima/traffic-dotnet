@@ -55,10 +55,12 @@ internal static class LampSprites
     /// The one car a second driver has the wheel of, or −1 (CTL-5d). It wears the beacon for the same
     /// reason the selection does: a hand is a hand, whoever it belongs to.
     /// </param>
+    /// <param name="leastGlowM">The narrowest glow this frame draws; a lamp whose glow is narrower is left out, lens and all.</param>
+    /// <param name="drawn">The cars a frame may show, in the order drawn (<see cref="CarSprites"/>).</param>
     public static int Fill(
-        CarFleet cars, CarCatalog catalogue, SimConfig config, int lensSheet, int glowSheet, float elapsedS,
-        ReadOnlySpan<Selection> handDriven, int alsoDrivenCar, Vector2 viewCentreM, Vector2 viewSpanM,
-        Span<SpriteInstance> into, int level = CarSprites.EveryLevel)
+        CarFleet cars, ReadOnlySpan<int> drawn, CarCatalog catalogue, SimConfig config, int lensSheet, int glowSheet,
+        float elapsedS, ReadOnlySpan<Selection> handDriven, int alsoDrivenCar, Vector2 viewCentreM, Vector2 viewSpanM,
+        Span<SpriteInstance> into, int level = CarSprites.EveryLevel, float leastGlowM = 0f)
     {
         var written = 0;
         var halfView = viewSpanM * 0.5f;
@@ -68,8 +70,10 @@ internal static class LampSprites
         var cellSize = LampAtlas.CellSize(rows);
         Span<ShownLamp> shown = stackalloc ShownLamp[CarLamps.MostLenses];
 
-        for (var car = 0; car < cars.Count && written + CarLamps.Most <= into.Length; car++)
+        foreach (var car in drawn)
         {
+            if (written + CarLamps.Most > into.Length) break;
+
             // A wreck's art is its own crumpled picture, which the lenses of the car it was are not
             // measured against — and a wreck shows nothing anyway (CAR-14.5).
             if (cars.Broken[car] || !CarSprites.IsOn(cars, car, level)) continue;
@@ -99,9 +103,7 @@ internal static class LampSprites
             var right = new Vector2(-forward.Y, forward.X);
 
             // The glow under the lens rather than over it: a lamp is a lit lens with light around it,
-            // and a fade laid on top of the lens washes the lens out. It is sized off the lens the art
-            // draws and not off the cell that carries it, with the floor that keeps a lamp of a few
-            // texels visible from the height a street is watched from.
+            // and a fade laid on top of the lens washes the lens out.
             for (var lamp = 0; lamp < count; lamp++)
             {
                 // A dull lens is the car's own picture and is already drawn (CAR-14a). Nothing is owed
@@ -109,10 +111,12 @@ internal static class LampSprites
                 if (!shown[lamp].Lit) continue;
 
                 var lens = shown[lamp].Lens;
-                var lensM = MathF.Max(MathF.Max(lens.SizeM.X, lens.SizeM.Y), lamps.LeastGlowM);
+                var glowM = GlowM(lens, config);
+                if (glowM < leastGlowM) continue;
+
                 into[written++] = new SpriteInstance(
                     centreM + (forward * lens.AtBodyM.X) + (right * lens.AtBodyM.Y),
-                    new Vector2(lensM * 0.5f * lamps.GlowSpread), Vector2.Zero, Vector2.One,
+                    new Vector2(glowM * 0.5f), Vector2.Zero, Vector2.One,
                     LampAtlas.ColourOf(shown[lamp].Colour) with { W = lamps.GlowStrength },
                     (uint)glowSheet, headingRad);
             }
@@ -122,7 +126,7 @@ internal static class LampSprites
             // lamps a hand's width apart came out one washed and one crisp.
             for (var lamp = 0; lamp < count; lamp++)
             {
-                if (!shown[lamp].Lit) continue;
+                if (!shown[lamp].Lit || GlowM(shown[lamp].Lens, config) < leastGlowM) continue;
 
                 // The cell carries the lamp's colour and its shading both, so the lens is drawn
                 // untinted: what a lit lamp looks like is the car's own art and not a tint over it.
@@ -137,6 +141,13 @@ internal static class LampSprites
 
         return written;
     }
+
+    /// <summary>
+    /// How wide a lit lens's glow is drawn: sized off the lens the art draws and not off the cell that carries
+    /// it, with the floor that keeps a lamp of a few texels visible from the height a street is watched from.
+    /// </summary>
+    public static float GlowM(in CarLens lens, SimConfig config) =>
+        MathF.Max(MathF.Max(lens.SizeM.X, lens.SizeM.Y), config.Lamps.LeastGlowM) * config.Lamps.GlowSpread;
 
     /// <summary>
     /// The light around a lit one: white, opaque across its core and fading out to nothing at its rim.

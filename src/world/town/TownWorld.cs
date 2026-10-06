@@ -345,7 +345,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _standsParked = new bool[drivers];
         _standing = new StandingCars(drivers);
         _behindTheBar = new bool[drivers];
-        Marks = new DriftMarks(config.Marks.Capacity);
+        Marks = new DriftMarks(config.Marks.Capacity, config.Grid.Main, 0f, plan.WorldSizeM.Y);
 
         _velocityIntoTickMps = new Vector2[walkers + drivers];
 
@@ -479,6 +479,42 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     /// <summary>The solver itself, for an instrument that measures it or draws it. Nothing in the town reaches it this way.</summary>
     internal PhysicsWorld PhysicsForInstruments => _physics;
+
+    /// <summary>
+    /// <b>The cars whose bodies meet a box, in index order and each once</b> — what a picture of the box draws, read
+    /// off the solver's own grids (<see cref="PhysicsWorld.InBox"/>), so a frame of a street pays for the street and
+    /// not for the town. A box spanning more cells than the town has cars is answered as the whole fleet, which is
+    /// the cheaper walk there.
+    /// </summary>
+    /// <param name="into">At least the fleet's <see cref="CarFleet.Capacity"/> long.</param>
+    /// <returns>The part of <paramref name="into"/> written.</returns>
+    public ReadOnlySpan<int> CarsIn(Vector2 leastM, Vector2 mostM, Span<int> into) =>
+        InBox(BodyKind.Car, Cars.Count, leastM, mostM, into);
+
+    /// <summary>And the people, on the same terms. Nobody inside a building or a car is among them: their bodies are put away (PHY-7).</summary>
+    /// <param name="into">At least the roster's <see cref="PersonFleet.Capacity"/> long.</param>
+    public ReadOnlySpan<int> PeopleIn(Vector2 leastM, Vector2 mostM, Span<int> into) =>
+        InBox(BodyKind.Person, People.Count, leastM, mostM, into);
+
+    ReadOnlySpan<int> InBox(BodyKind kind, int roster, Vector2 leastM, Vector2 mostM, Span<int> into)
+    {
+        var found = _physics.InBox(leastM, mostM, kind, roster, into);
+        if (found < 0)
+        {
+            for (var unit = 0; unit < roster; unit++) into[unit] = unit;
+            return into[..roster];
+        }
+
+        var units = into[..found];
+        units.Sort();
+        var kept = 0;
+        for (var at = 0; at < units.Length; at++)
+        {
+            if (kept == 0 || units[at] != units[kept - 1]) units[kept++] = units[at];
+        }
+
+        return units[..kept];
+    }
 
     public RoadGraph Roads => _roads;
 

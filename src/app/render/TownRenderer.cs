@@ -107,6 +107,12 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     readonly GpuBuffer _indices;
     readonly GpuBuffer _indirect;
 
+    /// <summary>
+    /// <b>The buildings and props, on the device and laid once</b> (<see cref="LayStanding"/>): they never move, so a
+    /// frame writes only which stretch of them to draw, and they are one copy rather than one a swapchain image.
+    /// </summary>
+    readonly GpuBuffer _standing;
+
     /// <summary>The ground it was laid for, kept so a part switched off can be packed out of the draw and back into it (<see cref="ShowGround"/>).</summary>
     readonly GroundMesh _mesh;
 
@@ -159,11 +165,17 @@ internal sealed unsafe partial class TownRenderer : IDisposable
 
     TownRenderer(
         Vk vk, AppWindow? window, Extent2D offscreenSize, GroundMesh mesh, IReadOnlyList<string> surfaceTextures,
-        IReadOnlyList<SheetSource> sheetTextures, int spriteCapacity, int aboveCapacity)
+        IReadOnlyList<SheetSource> sheetTextures, SpriteRoom room)
     {
         _vk = vk;
         _window = window;
         _offscreenSize = offscreenSize;
+        // A slot a run at the least: the level above is bound at its own offset, and an offset at the buffer's end
+        // is out of it even with nothing drawn there (VUID-vkCmdBindVertexBuffers-pOffsets-00626).
+        Room = room with { Under = Math.Max(1, room.Under), Over = Math.Max(1, room.Over), Above = Math.Max(1, room.Above) };
+        _standing = vk.CreateBuffer(
+            (ulong)(Math.Max(1, room.Standing) * sizeof(SpriteInstance)),
+            BufferUsageFlags.VertexBufferBit | BufferUsageFlags.TransferDstBit, hostVisible: false);
 
         _textures = new GpuTexture[surfaceTextures.Count];
         for (var texture = 0; texture < _textures.Length; texture++) _textures[texture] = GpuTexture.Load(vk, surfaceTextures[texture]);
@@ -197,8 +209,6 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _indices.Upload<uint>(
             mesh.Indices.Length, into => mesh.Indices.CopyTo(into), PipelineStageFlags2.IndexInputBit, AccessFlags2.IndexReadBit);
 
-        SpriteCapacity = Math.Max(1, spriteCapacity);
-        AboveCapacity = Math.Max(0, aboveCapacity);
         _glyphs = GpuTexture.LoadEmbedded(vk, GlyphSheet.Resource);
 
         // The draw's count lives here, in memory, which is what lets the recording be final: a ground
@@ -216,8 +226,8 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     /// <summary>The town in a window, which is the only target that can resize or go out of date.</summary>
     public static TownRenderer OnScreen(
         Vk vk, AppWindow window, GroundMesh mesh, IReadOnlyList<string> surfaceTextures,
-        IReadOnlyList<SheetSource> sheetTextures, int spriteCapacity, int aboveCapacity) =>
-        new(vk, window, default, mesh, surfaceTextures, sheetTextures, spriteCapacity, aboveCapacity);
+        IReadOnlyList<SheetSource> sheetTextures, SpriteRoom room) =>
+        new(vk, window, default, mesh, surfaceTextures, sheetTextures, room);
 
     /// <summary>
     /// The same town drawn into one image with no window under it — what a render check is made of,
@@ -225,35 +235,54 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     /// </summary>
     public static TownRenderer Offscreen(
         Vk vk, int width, int height, GroundMesh mesh, IReadOnlyList<string> surfaceTextures,
-        IReadOnlyList<SheetSource> sheetTextures, int spriteCapacity, int aboveCapacity) =>
-        new(vk, null, new Extent2D((uint)width, (uint)height), mesh, surfaceTextures, sheetTextures, spriteCapacity, aboveCapacity);
+        IReadOnlyList<SheetSource> sheetTextures, SpriteRoom room) =>
+        new(vk, null, new Extent2D((uint)width, (uint)height), mesh, surfaceTextures, sheetTextures, room);
 
-    /// <summary>How many sprites the instance buffer was laid for.</summary>
-    public int SpriteCapacity { get; }
-
-    /// <summary>And how many more past them for the bodies on the level above (<see cref="SpritesAbove"/>).</summary>
-    public int AboveCapacity { get; }
+    /// <summary>How many instances each run of the sprite pass was laid for.</summary>
+    public SpriteRoom Room { get; }
 
     /// <summary>
-    /// The instance buffer as the caller writes it: mapped memory the driver already owns, so filling
-    /// it is a write and not an upload. <b>The one belonging to the image the next frame draws into</b>,
+    /// The instance buffer as the caller writes it, run by run: mapped memory the driver already owns, so
+    /// filling it is a write and not an upload. <b>The one belonging to the image the next frame draws into</b>,
     /// which is the image already taken and waited for — see <see cref="_instances"/>.
     /// </summary>
-    public Span<SpriteInstance> Sprites => _instances[(int)_image].Span<SpriteInstance>()[..SpriteCapacity];
+    public Span<SpriteInstance> SpritesUnder => _instances[(int)_image].Span<SpriteInstance>()[..Room.Under];
+
+    public Span<SpriteInstance> SpritesOver => _instances[(int)_image].Span<SpriteInstance>().Slice(Room.Under, Room.Over);
 
     /// <summary>
-    /// <b>And the bodies on the level above</b> (PHY-1a): the same buffer past <see cref="Sprites"/>, drawn after the
-    /// bridges over the ground and so over them, where the first run is drawn under them.
+    /// <b>And the bodies on the level above</b> (PHY-1a): the same buffer past the others, drawn after the bridges
+    /// over the ground and so over them, where the first runs are drawn under them.
     /// </summary>
     public Span<SpriteInstance> SpritesAbove =>
-        _instances[(int)_image].Span<SpriteInstance>().Slice(SpriteCapacity, AboveCapacity);
+        _instances[(int)_image].Span<SpriteInstance>().Slice(Room.Under + Room.Over, Room.Above);
 
-    /// <summary>How many of the instances just written are to be drawn, of each run. The only thing a frame changes about the sprite pass.</summary>
-    public void SetSpriteCount(int count, int above)
+    /// <summary>
+    /// The town's buildings and props handed to the device, once, in the order <see cref="StandingSprites"/> files
+    /// them: what <see cref="SpriteCounts.StandingFirst"/> counts from. Called before the first frame of a town is
+    /// drawn, and so under no frame still reading the buffer.
+    /// </summary>
+    public void LayStanding(ReadOnlyMemory<SpriteInstance> standing)
+    {
+        var count = Math.Min(standing.Length, Math.Max(1, Room.Standing));
+        _standing.Upload<SpriteInstance>(
+            count, into => standing.Span[..count].CopyTo(into),
+            PipelineStageFlags2.VertexAttributeInputBit, AccessFlags2.VertexAttributeReadBit);
+    }
+
+    /// <summary>How much of each run is to be drawn. The only thing a frame changes about the sprite pass.</summary>
+    public void SetSpriteCount(in SpriteCounts counts)
     {
         var draws = _spriteIndirect[(int)_image].Span<DrawIndirectCommand>();
-        draws[0] = new DrawIndirectCommand { VertexCount = 4, InstanceCount = (uint)Math.Clamp(count, 0, SpriteCapacity) };
-        draws[1] = new DrawIndirectCommand { VertexCount = 4, InstanceCount = (uint)Math.Clamp(above, 0, AboveCapacity) };
+        draws[0] = new DrawIndirectCommand { VertexCount = 4, InstanceCount = (uint)Math.Clamp(counts.Under, 0, Room.Under) };
+        draws[1] = new DrawIndirectCommand
+        {
+            VertexCount = 4,
+            InstanceCount = (uint)Math.Clamp(counts.StandingCount, 0, Room.Standing),
+            FirstInstance = (uint)Math.Clamp(counts.StandingFirst, 0, Room.Standing),
+        };
+        draws[2] = new DrawIndirectCommand { VertexCount = 4, InstanceCount = (uint)Math.Clamp(counts.Over, 0, Room.Over) };
+        draws[3] = new DrawIndirectCommand { VertexCount = 4, InstanceCount = (uint)Math.Clamp(counts.Above, 0, Room.Above) };
     }
 
     /// <summary>
@@ -295,16 +324,8 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         };
     }
 
-    /// <summary>
-    /// The size of one frame of a sheet cut into a grid, as width over height — what a sprite's quad is
-    /// shaped by. <b>The grid is the caller's</b>: what a sheet is cut into is a fact about the thing it
-    /// draws, and this layer knows only how big the image is.
-    /// </summary>
-    public float SheetFrameAspect(int sheet, int columns, int rows) =>
-        (_atlas.Places[sheet].WidthPx / columns) / (_atlas.Places[sheet].HeightPx / rows);
-
-    /// <summary>The whole image's width over its height, for the sheets that are one picture rather than a grid — a roof, a prop look.</summary>
-    public float SheetAspect(int sheet) => _atlas.Places[sheet].WidthPx / _atlas.Places[sheet].HeightPx;
+    /// <summary>Where every sheet was packed, which is what a sprite's quad is shaped by (<see cref="TownSprites.ReadAspects"/>).</summary>
+    public SheetAtlas Atlas => _atlas;
 
     /// <summary>How many triangles of the town's standing ground are being drawn.</summary>
     public int TriangleCount => (int)(_indexCount / 3);
@@ -590,6 +611,7 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _glyphs.Dispose();
         _sheetTable.Dispose();
         _sheetPages.Dispose();
+        _standing.Dispose();
         foreach (var texture in _textures) texture.Dispose();
     }
 

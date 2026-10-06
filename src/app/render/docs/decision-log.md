@@ -3,6 +3,32 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md); how a type
 works is its own XML docs.
 
+## 2026-10-06 — a frame asks the grid what it can see, and the buildings are laid once
+
+The owner asked that a frame do as little as it can, and pointed at the grid: the town already knows what stands in
+each cell. Measured on `O10` (12 107 cars, 12 240 walkers) by `--bench sprites`, the fill was 231 µs at a street —
+to draw about a hundred and fifty instances — and 2.5 ms over the whole town, every frame, because every fill walked
+its whole roster and the buildings were copied, 693 265 of them, into each frame's buffer. Now:
+
+- **Who may be in the frame is asked of the solver's own grids** (`TownWorld.CarsIn`, `PeopleIn`), sorted, so the
+  order drawn is the roster's as before. A box wider than the roster is cells is answered as the roster.
+- **The marks and the signal heads are filed by row** (`DriftMarks`, `RowFile`): a row and not a cell, two words a
+  row however wide the town. A view over half the rows reads the ring straight through.
+- **The buildings and props are on the device once**, and a frame writes which stretch of them — whole rows, one
+  indirect draw with a first instance (`drawIndirectFirstInstance` is asked for now; a page without
+  `indirect-first-instance` draws from the first of them). The sprites are three runs: under, the laid stretch, over.
+- **A lamp's glow under `CarPartLeastPx` is left out**, as a steered tyre is, and a pass whose widest is under it is
+  not walked.
+
+| `O10`, µs a fill | street, 70 m | district, 300 m | quarter, 1.5 km | whole town |
+|---|---|---|---|---|
+| before | 232 | 231 | 520 | 2 488 |
+| after | 2.6 | 21 | 128 | 299 |
+
+A frame in flight writes 21 MB of instances where it wrote 58; the 37 MB of buildings is one copy on the device.
+Nothing allocates. **Fusing a car's four passes into one was weighed and not done**: over a frame's own short list
+the four cost half a microsecond together.
+
 ## 2026-10-06 — a rear tyre is painted under its car, and no tyre rolls
 
 A tyre was its own quad of a scrolling tread: four instances a car every frame, a fifth texture binding and a
@@ -12,7 +38,7 @@ steers, is a black box painted under the bodywork when the atlas page is filled*
 into a margin the sheet is padded by, since the rubber stands past the art (CAR-12); the quad grows by that
 margin. The front pair stays a quad each, plain rubber off a one-texel sheet, because the steering is worth
 seeing — both at the rack's angle rather than their own Ackermann ones, and **none at all once a tyre is under
-`SteeredTyreLeastPx`**, which is every framing that holds many cars. A car is three instances close up and one
+`CarPartLeastPx`**, which is every framing that holds many cars. A car is three instances close up and one
 from a district out, where it was five; 12 baked steering angles was weighed and refused — the variants' tyres
 differ, a quad's turn is already free in the vertex stage, and twelve sheets a look does not fit the sheet table.
 
@@ -69,9 +95,8 @@ The owner asked for bridges over roads drawn above them as roads of their own (`
 of its marks and of the bodies, in one recording**: the ground's parts to the paint, the ground's marks, the bodies on
 the ground, the level above (`GroundPart.Above` — its decks, carriageway, kerb and paint), its marks, then the bodies
 on it. Each pair is one buffer — the index buffer's last part, the underlay past `UnderlayCapacity` and the instances
-past `SpriteCapacity` — bound at a second offset, because an indirect draw starting at a non-zero instance needs
-`drawIndirectFirstInstance`, which this project does not ask for. The commands are recorded once per image, so a
-frame still makes the five crossings it did.
+past the ground's runs — bound at a second offset. The commands are recorded once per image, so a frame still makes
+the five crossings it did.
 
 - **A mark goes with the way it is about** (2026-10-05, the owner): a bridge's lanes, joins, ribbons and claims drawn
   in the ground's one run were under its own deck. A join at a bridgehead is on the ground, as its tarmac is.

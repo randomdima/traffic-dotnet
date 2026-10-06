@@ -43,24 +43,35 @@ internal static class SignalSprites
         var walkHalfM = new Vector2(config.Signals.WalkHeadWidthM, config.Signals.WalkHeadLengthM) * 0.5f;
         var reachM = MathF.Max(carHalfM.Length(), walkHalfM.Length());
 
+        // Only the rows the view reaches (SignalHeads.ByRow), each culled across.
+        var byRow = world.Heads.ByRow;
+        var leastYM = viewCentreM.Y - halfView.Y - reachM;
+        var mostYM = viewCentreM.Y + halfView.Y + reachM;
+        if (!byRow.TryRows(leastYM, mostYM, out var fromRow, out var toRow)) return 0;
+
         var written = 0;
-        for (var head = 0; head < heads.Length && written < into.Length; head++)
+        for (var row = fromRow; row <= toRow; row++)
         {
-            var centreM = heads[head].CentreM;
-            var offset = centreM - viewCentreM;
-            if (MathF.Abs(offset.X) > halfView.X + reachM || MathF.Abs(offset.Y) > halfView.Y + reachM) continue;
+            foreach (var head in byRow.Row(row))
+            {
+                if (written >= into.Length) return written;
 
-            var forCars = heads[head].ForCars;
-            var colour = forCars
-                ? world.Signals.ForApproach(heads[head].Subject, timeS)
-                : world.Signals.ForCrossing(heads[head].Subject, timeS);
+                var centreM = heads[head].CentreM;
+                var offset = centreM - viewCentreM;
+                if (MathF.Abs(offset.X) > halfView.X + reachM || MathF.Abs(offset.Y) > halfView.Y + reachM) continue;
 
-            var frames = forCars ? CarFrames : WalkFrames;
-            var column = forCars ? CarColumn(colour) : WalkColumn(colour);
-            into[written++] = new SpriteInstance(
-                centreM, forCars ? carHalfM : walkHalfM, new Vector2(column / (float)frames, 0f),
-                new Vector2(1f / frames, 1f), PersonSprites.Plain, (uint)(firstSheet + (forCars ? 0 : 1)),
-                heads[head].HeadingRad);
+                var forCars = heads[head].ForCars;
+                var colour = forCars
+                    ? world.Signals.ForApproach(heads[head].Subject, timeS)
+                    : world.Signals.ForCrossing(heads[head].Subject, timeS);
+
+                var frames = forCars ? CarFrames : WalkFrames;
+                var column = forCars ? CarColumn(colour) : WalkColumn(colour);
+                into[written++] = new SpriteInstance(
+                    centreM, forCars ? carHalfM : walkHalfM, new Vector2(column / (float)frames, 0f),
+                    new Vector2(1f / frames, 1f), PersonSprites.Plain, (uint)(firstSheet + (forCars ? 0 : 1)),
+                    heads[head].HeadingRad);
+            }
         }
 
         return written;

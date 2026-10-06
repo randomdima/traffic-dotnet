@@ -150,14 +150,14 @@ internal sealed unsafe partial class TownRenderer
     void CreateFrameBuffers(int image)
     {
         _instances[image] = _vk.CreateBuffer(
-            (ulong)((SpriteCapacity + AboveCapacity) * sizeof(SpriteInstance)), BufferUsageFlags.VertexBufferBit, hostVisible: true);
+            (ulong)(Room.Written * sizeof(SpriteInstance)), BufferUsageFlags.VertexBufferBit, hostVisible: true);
         _overlay[image] = _vk.CreateBuffer(
             (ulong)(OverlayCapacity * sizeof(OverlayQuad)), BufferUsageFlags.VertexBufferBit, hostVisible: true);
         _underlay[image] = _vk.CreateBuffer(
             (ulong)((UnderlayCapacity + UnderlayAboveCapacity) * sizeof(OverlayQuad)), BufferUsageFlags.VertexBufferBit,
             hostVisible: true);
 
-        _spriteIndirect[image] = Counter(draws: 2);
+        _spriteIndirect[image] = Counter(draws: 4);
         _overlayIndirect[image] = Counter(draws: 1);
         _underlayIndirect[image] = Counter(draws: 2);
 
@@ -248,7 +248,9 @@ internal sealed unsafe partial class TownRenderer
 
         // The bodies, over the ground: the same set, a different pipeline, and an instance buffer
         // whose contents and count both live in memory the CPU writes. A town that gains five hundred
-        // walkers changes a number here and nothing about this recording.
+        // walkers changes a number here and nothing about this recording. Three runs in painter's order —
+        // what lies under, the buildings and props laid on the device once (where the frame writes only
+        // which stretch), and what moves over them.
         Vk.Count();
         api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _spritePipeline);
         var instanceBuffer = _instances[image].Handle;
@@ -256,6 +258,20 @@ internal sealed unsafe partial class TownRenderer
         api.CmdBindVertexBuffers(commands, 0, 1, &instanceBuffer, &offset);
         Vk.Count();
         api.CmdDrawIndirect(commands, _spriteIndirect[image].Handle, 0, 1, (uint)sizeof(DrawIndirectCommand));
+
+        var standingBuffer = _standing.Handle;
+        Vk.Count();
+        api.CmdBindVertexBuffers(commands, 0, 1, &standingBuffer, &offset);
+        Vk.Count();
+        api.CmdDrawIndirect(
+            commands, _spriteIndirect[image].Handle, (ulong)sizeof(DrawIndirectCommand), 1, (uint)sizeof(DrawIndirectCommand));
+
+        var overOffset = (ulong)(Room.Under * sizeof(SpriteInstance));
+        Vk.Count();
+        api.CmdBindVertexBuffers(commands, 0, 1, &instanceBuffer, &overOffset);
+        Vk.Count();
+        api.CmdDrawIndirect(
+            commands, _spriteIndirect[image].Handle, (ulong)(2 * sizeof(DrawIndirectCommand)), 1, (uint)sizeof(DrawIndirectCommand));
 
         // <b>The level above, over the bodies on the ground, its marks over it, and the bodies on it over those</b>
         // (TER-7b, PHY-1a): the ground's second draw — its last part, past the first draw's — then the marks and the
@@ -280,12 +296,12 @@ internal sealed unsafe partial class TownRenderer
 
         Vk.Count();
         api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _spritePipeline);
-        var aboveOffset = (ulong)(SpriteCapacity * sizeof(SpriteInstance));
+        var aboveOffset = (ulong)((Room.Under + Room.Over) * sizeof(SpriteInstance));
         Vk.Count();
         api.CmdBindVertexBuffers(commands, 0, 1, &instanceBuffer, &aboveOffset);
         Vk.Count();
         api.CmdDrawIndirect(
-            commands, _spriteIndirect[image].Handle, (ulong)sizeof(DrawIndirectCommand), 1, (uint)sizeof(DrawIndirectCommand));
+            commands, _spriteIndirect[image].Handle, (ulong)(3 * sizeof(DrawIndirectCommand)), 1, (uint)sizeof(DrawIndirectCommand));
 
         // The interface and everything that annotates a body, over all of it: the same pipeline the
         // ground marks used, a buffer of its own, and one more indirect draw already written down here.

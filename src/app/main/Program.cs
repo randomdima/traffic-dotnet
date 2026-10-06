@@ -158,8 +158,8 @@ internal static class Program
 
         Console.WriteLine($"{shot.Map}: {shot.Path} written at {shot.WidthPx}x{shot.HeightPx}, " +
                           $"{shot.SpanM.X:F0} m across at {shot.CentreM.X:F0},{shot.CentreM.Y:F0} — " +
-                          $"{shot.Triangles} triangles, {shot.Sprites} of {shot.SpriteCapacity} bodies on " +
-                          $"screen at tick {shot.Tick}, {shot.InterfaceQuads} interface quads, no window");
+                          $"{shot.Triangles} triangles, {shot.Sprites} of {shot.SpriteCapacity} bodies drawn " +
+                          $"at tick {shot.Tick}, {shot.InterfaceQuads} interface quads, no window");
         if (shot.Crossings > 0)
             Console.WriteLine($"{"",-9}the offscreen frame is {shot.Crossings} crossings, against a window's five");
 
@@ -332,6 +332,9 @@ internal static class Program
                 return 0;
             case "load":
                 LoadProbe.Run(map ?? Options.FixtureMap, config);
+                return 0;
+            case "sprites":
+                SpriteProbe.Run(map ?? Options.FixtureMap, config);
                 return 0;
             case "outset":
                 return Kept(BoundaryProbe.Outset(map ?? Options.FixtureMap, config, atM));

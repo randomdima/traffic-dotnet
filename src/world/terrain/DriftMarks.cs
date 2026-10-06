@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.World.Terrain;
 
@@ -28,21 +29,62 @@ internal readonly record struct DriftMark(Vector2 CentreM, float LengthM, float 
 /// which is the only sense in which a permanent mark has a limit. It is laid once and never grows, so
 /// a town driven for an hour costs exactly what one driven for a minute costs.
 /// </para>
+/// <para>
+/// <b>Every mark is also filed by the row of the grid its centre is in</b> (SIM-8), oldest first, so a
+/// picture of a street reads the street's rows and not the ring. Oldest first is what keeps the filing
+/// free: the place the ring overwrites next holds the oldest mark of all, which is the first of its row.
+/// A row and not a cell, because a row costs two words however wide the town is.
+/// </para>
 /// </remarks>
 internal sealed class DriftMarks
 {
     /// <summary>Shorter than this and there is no mark to speak of.</summary>
     const float MinLengthM = 1e-3f;
 
+    const int None = -1;
+
     readonly DriftMark[] _marks;
+    readonly GridLevel _level;
+    readonly int _fromRow;
+    readonly int[] _rowOf;
+    readonly int[] _youngerInRow;
+    readonly int[] _oldestInRow;
+    readonly int[] _youngestInRow;
     int _next;
 
-    public DriftMarks(int capacity) => _marks = new DriftMark[Math.Max(1, capacity)];
+    /// <param name="leastYM">The town's own extent across its rows; a mark past it is filed in the nearest.</param>
+    public DriftMarks(int capacity, GridLevel level, float leastYM, float mostYM)
+    {
+        _marks = new DriftMark[Math.Max(1, capacity)];
+        _rowOf = new int[_marks.Length];
+        _youngerInRow = new int[_marks.Length];
+        _level = level;
+        _fromRow = level.CellOf(leastYM);
+        _oldestInRow = new int[Math.Max(1, level.CellOf(mostYM) - _fromRow + 1)];
+        _youngestInRow = new int[_oldestInRow.Length];
+        Clear();
+    }
 
     /// <summary>How many of the ring's places have been written — the whole of it once it has wrapped.</summary>
     public int Count { get; private set; }
 
     public ReadOnlySpan<DriftMark> Laid => _marks.AsSpan(0, Count);
+
+    public int RowCount => _oldestInRow.Length;
+
+    /// <summary>How tall a row is, which is longer than any mark: a stretch is laid every <c>Marks.SpacingM</c> of a wheel's travel.</summary>
+    public float RowM => _level.CellM;
+
+    /// <summary>The rows a band of the map from <paramref name="leastYM"/> to <paramref name="mostYM"/> reaches, the town's edge rows standing for what is past them.</summary>
+    public (int From, int To) Rows(float leastYM, float mostYM) => (RowOf(leastYM), RowOf(mostYM));
+
+    /// <summary>The oldest mark's place in a row, or −1 where it holds none.</summary>
+    public int OldestIn(int row) => _oldestInRow[row];
+
+    /// <summary>The next younger mark's place in the same row, or −1 past the youngest.</summary>
+    public int YoungerThan(int slot) => _youngerInRow[slot];
+
+    public ref readonly DriftMark At(int slot) => ref _marks[slot];
 
     /// <summary>Lay one stretch, from where the wheel was when the stretch began to where it is now.</summary>
     public void Mark(Vector2 fromM, Vector2 toM, float widthM, float intensity, bool ploughed)
@@ -51,9 +93,12 @@ internal sealed class DriftMarks
         var lengthM = spanM.Length();
         if (lengthM < MinLengthM || intensity <= 0f || widthM <= 0f) return;
 
+        if (Count == _marks.Length) Unfile(_next);
+
+        var centreM = Vector2.Lerp(fromM, toM, 0.5f);
         _marks[_next] = new DriftMark(
-            Vector2.Lerp(fromM, toM, 0.5f), lengthM, widthM, MathF.Atan2(spanM.Y, spanM.X),
-            Math.Clamp(intensity, 0f, 1f), ploughed);
+            centreM, lengthM, widthM, MathF.Atan2(spanM.Y, spanM.X), Math.Clamp(intensity, 0f, 1f), ploughed);
+        File(_next, RowOf(centreM.Y));
 
         _next = (_next + 1) % _marks.Length;
         Count = Math.Min(Count + 1, _marks.Length);
@@ -64,5 +109,27 @@ internal sealed class DriftMarks
     {
         _next = 0;
         Count = 0;
+        Array.Fill(_oldestInRow, None);
+        Array.Fill(_youngestInRow, None);
+    }
+
+    int RowOf(float yM) => Math.Clamp(_level.CellOf(yM) - _fromRow, 0, _oldestInRow.Length - 1);
+
+    void File(int slot, int row)
+    {
+        _rowOf[slot] = row;
+        _youngerInRow[slot] = None;
+        if (_youngestInRow[row] == None) _oldestInRow[row] = slot;
+        else _youngerInRow[_youngestInRow[row]] = slot;
+
+        _youngestInRow[row] = slot;
+    }
+
+    /// <summary>The ring's oldest mark taken off its row, of which it is the oldest too.</summary>
+    void Unfile(int slot)
+    {
+        var row = _rowOf[slot];
+        _oldestInRow[row] = _youngerInRow[slot];
+        if (_youngestInRow[row] == slot) _youngestInRow[row] = None;
     }
 }

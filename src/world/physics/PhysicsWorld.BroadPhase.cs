@@ -63,6 +63,64 @@ internal sealed partial class PhysicsWorld
     public CellGrid FrozenIndex => _frozenGrid;
 
     /// <summary>
+    /// <b>Every enabled body of one roster whose bounds meet a box</b>, by its index on that roster, read off the moving
+    /// and the frozen index as they stand — what a picture of the box draws, and nothing that decides anything.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The bounds are this moment's and the filing a tick old</b>, so the box is widened by a cell before the grids
+    /// are asked: no body crosses one in a tick. A frozen entry is taken whether or not its body is still
+    /// <see cref="BodyFlags.FiledFrozen"/>, because one woken in the last step is in no moving index yet. A body made
+    /// or let out of a container since the last step is in neither, and is answered from the next.
+    /// </para>
+    /// <para>
+    /// <b>A body may be written more than once</b> — once a cell its filing touches, in both grids — and in no
+    /// particular order; the caller sorts and drops the repeats, which a picture wants done anyway. Keeping it in the
+    /// first cell it shares (<see cref="CellGrid.FirstShared"/>) would judge that cell by bounds a tick newer than the
+    /// filing, and a car whose corner had just crossed into a cell it is not filed in yet would be kept in none.
+    /// </para>
+    /// </remarks>
+    /// <returns>
+    /// How many were written, or −1 where the box spans more than <paramref name="mostCells"/> cells of either grid —
+    /// which is cheaper walked as the roster — or where <paramref name="into"/> filled.
+    /// </returns>
+    public int InBox(Vector2 leastM, Vector2 mostM, BodyKind kind, int mostCells, Span<int> into)
+    {
+        var written = InBox(_dynamicGrid, leastM, mostM, kind, mostCells, into);
+        if (written < 0) return -1;
+
+        var frozen = InBox(_frozenGrid, leastM, mostM, kind, mostCells, into[written..]);
+        return frozen < 0 ? -1 : written + frozen;
+    }
+
+    int InBox(CellGrid grid, Vector2 leastM, Vector2 mostM, BodyKind kind, int mostCells, Span<int> into)
+    {
+        var cellM = new Vector2(_config.Grid.Main.CellM);
+        if (!grid.TryRange(leastM - cellM, mostM + cellM, out var range)) return 0;
+        if ((long)(range.ToX - range.FromX + 1) * (range.ToY - range.FromY + 1) > mostCells) return -1;
+
+        var written = 0;
+        for (var y = range.FromY; y <= range.ToY; y++)
+        {
+            for (var x = range.FromX; x <= range.ToX; x++)
+            {
+                foreach (var body in grid.Items(x, y))
+                {
+                    if ((_flags[body] & BodyFlags.Enabled) == 0 || Apart(body, leastM, mostM)) continue;
+
+                    var tag = BodyTag.Unpack(_tag[body]);
+                    if (tag.Kind != kind) continue;
+                    if (written == into.Length) return -1;
+
+                    into[written++] = tag.Index;
+                }
+            }
+        }
+
+        return written;
+    }
+
+    /// <summary>
     /// Every pair worth a manifold, and the manifold. The owners are the outer loop and neither the static
     /// population nor the frozen one is ever walked: a body asks the two grids what is near it, and ninety-five
     /// thousand props and every parked car are in the answer without being in the price.

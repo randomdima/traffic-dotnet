@@ -21,8 +21,8 @@ namespace TrafficSimulation.App.Render;
 /// <b>Why a cell grid rather than the roster order.</b> Emitting the town's statics is otherwise the one
 /// place a frame's cost is O(the size of the town) whatever is on screen — which is not a crossing, so
 /// rule 1 does not forbid it, but it is exactly the shape rule 1 exists to keep out of the frame. The
-/// cells are laid row-major, so the cells in view on one row are contiguous and the copy is a
-/// <c>Span.CopyTo</c>.
+/// cells are laid row-major, so the rows in view are one stretch of what the device was handed once, and
+/// a frame writes where it starts and how long it is (<see cref="Range"/>).
 /// </para>
 /// <para>
 /// <b>A building is drawn at the roof's own authored footprint and a prop at the size the plan laid
@@ -36,11 +36,13 @@ namespace TrafficSimulation.App.Render;
 internal sealed class StandingSprites
 {
     readonly SpriteInstance[] _instances;
-    readonly int[] _cellOffsets;
+
+    /// <summary>Where each row of <see cref="_window"/> starts in <see cref="_instances"/>, and one past the last.</summary>
+    readonly int[] _rowStarts;
 
     /// <summary>
     /// <b>The cull grid is the town's own</b> (SIM-8): every instance filed by its centre in a cell of the
-    /// main level over the whole town, row by row, so the cells a view touches are one copy a row.
+    /// main level over the whole town, row by row, so the rows a view touches are one stretch.
     /// </summary>
     readonly GridWindow _window;
 
@@ -50,10 +52,10 @@ internal sealed class StandingSprites
     /// </summary>
     readonly float _reachM;
 
-    StandingSprites(SpriteInstance[] instances, int[] cellOffsets, GridWindow window, float reachM)
+    StandingSprites(SpriteInstance[] instances, int[] rowStarts, GridWindow window, float reachM)
     {
         _instances = instances;
-        _cellOffsets = cellOffsets;
+        _rowStarts = rowStarts;
         _window = window;
         _reachM = reachM;
     }
@@ -62,6 +64,9 @@ internal sealed class StandingSprites
         new([], [0], GridWindow.Of(new WorldGrid(1f).Main, 0, 0, 0, 0), 0f);
 
     public int Count => _instances.Length;
+
+    /// <summary>Every instance, in the order the grid files them: what the device is handed once (<see cref="TownRenderer.LayStanding"/>).</summary>
+    public ReadOnlyMemory<SpriteInstance> Instances => _instances;
 
     /// <summary>How many instances a town's standing geometry needs, which is what the buffer is laid for.</summary>
     public static int CapacityFor(CityPlan plan) => plan.Buildings.Count + plan.Props.Count;
@@ -101,7 +106,11 @@ internal sealed class StandingSprites
         var sorted = new SpriteInstance[total];
         for (var instance = 0; instance < total; instance++) sorted[next[cellOf[instance]]++] = instances[instance];
 
-        return new StandingSprites(sorted, offsets, window, reachM);
+        var rowStarts = new int[window.Height + 1];
+        for (var row = 0; row < window.Height; row++) rowStarts[row] = offsets[window.IndexOf(window.FromX, window.FromY + row)];
+        rowStarts[window.Height] = total;
+
+        return new StandingSprites(sorted, rowStarts, window, reachM);
     }
 
     /// <summary>One instance filed under the cell its centre is in, and how far it reaches taken into the widest.</summary>
@@ -115,32 +124,22 @@ internal sealed class StandingSprites
         return written + 1;
     }
 
-    /// <summary>Copies every standing instance whose cell the view touches, and answers how many.</summary>
-    public int Fill(Vector2 viewCentreM, Vector2 viewSpanM, Span<SpriteInstance> into)
+    /// <summary>
+    /// <b>The stretch of <see cref="Instances"/> a view can see</b>: whole rows, from the first the view reaches to
+    /// the last, which are one stretch because the instances are laid row after row. What stands past the view's
+    /// sides in those rows is drawn and clipped, which costs the device less than choosing it would cost here.
+    /// </summary>
+    public (int First, int Count) Range(Vector2 viewCentreM, Vector2 viewSpanM)
     {
-        if (_instances.Length == 0) return 0;
+        if (_instances.Length == 0) return (0, 0);
 
-        // A cell is emitted whole, so the margin only has to cover a body standing outside its own cell,
-        // which is as far as the widest instance reaches from its centre.
+        // A row is drawn whole, so the margin only has to cover a body standing outside its own row, which is
+        // as far as the widest instance reaches from its centre.
         var half = (viewSpanM * 0.5f) + new Vector2(_reachM);
         _window.TryRange(viewCentreM - half, viewCentreM + half, out var inView);
 
-        var written = 0;
-        for (var row = inView.FromY; row <= inView.ToY; row++)
-        {
-            var start = _cellOffsets[_window.IndexOf(inView.FromX, row)];
-            var end = _cellOffsets[_window.IndexOf(inView.ToX, row) + 1];
-            var run = end - start;
-            if (run <= 0) continue;
-
-            if (written + run > into.Length) run = into.Length - written;
-            if (run <= 0) break;
-
-            _instances.AsSpan(start, run).CopyTo(into[written..]);
-            written += run;
-        }
-
-        return written;
+        var first = _rowStarts[inView.FromY - _window.FromY];
+        return (first, _rowStarts[inView.ToY - _window.FromY + 1] - first);
     }
 
     /// <summary>

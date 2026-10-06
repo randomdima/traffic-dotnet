@@ -402,10 +402,13 @@ internal sealed unsafe partial class Vk : IDisposable
             RuntimeDescriptorArray = true,
         };
 
+        // An indirect draw that starts part way into its buffer: the stretch of a town's buildings and props a
+        // frame can see is a first instance the CPU writes, and the recording never changes.
         var features = new PhysicalDeviceFeatures2
         {
             SType = StructureType.PhysicalDeviceFeatures2,
             PNext = &twelve,
+            Features = new PhysicalDeviceFeatures { DrawIndirectFirstInstance = true },
         };
 
         var extensionsPtr = withSwapchain ? SilkMarshal.StringArrayToPtr(new[] { KhrSwapchain.ExtensionName }) : 0;

@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Person.Body;
+using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.App.Render;
 
@@ -37,16 +38,19 @@ internal static class PersonSprites
     /// than the buffer is truncated rather than grown: the buffer is laid at the town's own capacity,
     /// so a truncation is a bug in the laying and not a case to handle at sixty hertz.
     /// </summary>
+    /// <param name="drawn">The people a frame may show, in the order drawn (<see cref="TownWorld.PeopleIn"/>); each is culled to the view again.</param>
     public static int Fill(
-        PersonFleet people, PersonCatalog catalog, ReadOnlySpan<float> frameAspects, int firstDownSheet,
-        Vector2 viewCentreM, Vector2 viewSpanM, Span<SpriteInstance> into)
+        PersonFleet people, ReadOnlySpan<int> drawn, PersonCatalog catalog, ReadOnlySpan<float> frameAspects,
+        int firstDownSheet, Vector2 viewCentreM, Vector2 viewSpanM, Span<SpriteInstance> into)
     {
         var written = 0;
         var halfView = viewSpanM * 0.5f;
         var cell = new Vector2(1f / PersonCatalog.WalkColumns, 1f / PersonCatalog.FacingRows);
 
-        for (var person = 0; person < people.Count && written < into.Length; person++)
+        foreach (var person in drawn)
         {
+            if (written >= into.Length) break;
+
             // PHY-7: somebody inside a building or a car is not rendered. Only the container is.
             if (people.Inside[person].Any) continue;
 

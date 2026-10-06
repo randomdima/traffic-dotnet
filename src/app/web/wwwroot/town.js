@@ -19,13 +19,14 @@
 
 import * as opening from './loading.js'
 
-const SLOT = { ground: 0, indices: 1, sprites: 2, overlay: 3, underlay: 4, camera: 5, table: 6 };
+const SLOT = { ground: 0, indices: 1, sprites: 2, overlay: 3, underlay: 4, camera: 5, table: 6, standing: 7 };
 const TEXTURE = { pages: 0, glyphs: 1, surfaces: 2 };
 
 // Draws in painter's order, at their offsets in the indirect buffer. The ground is indexed and so is
-// five words; the other three are four.
-const DRAW = { ground: 0, underlay: 32, sprites: 48, overlay: 64 };
-const INDIRECT_BYTES = 80;
+// five words; the others are four. The sprites are three runs: what lies under the buildings, the
+// buildings and props laid once (a stretch of them a frame), and what moves over them.
+const DRAW = { ground: 0, underlay: 32, under: 48, standing: 64, over: 80, overlay: 96 };
+const INDIRECT_BYTES = 112;
 
 // The keys the town reads, in the order src/runtime/web/AppWindow.Web.cs names them. The two lists are
 // one list, and a key added to either without the other is a key that does nothing.
@@ -73,6 +74,11 @@ const state = {
     keys: new Uint8Array(BUTTONS + 8),
     axes: new Float64Array(AXIS_COUNT),
     indexCount: 0,
+    // Where the sprites over the buildings start in their buffer, in bytes.
+    overOffset: 0,
+    // Whether an indirect draw may start part way into its buffer; without it the buildings' stretch is drawn
+    // from the first of them, which is more than the frame sees and never less.
+    firstInstance: false,
 };
 
 /// The adapter, asked for once and answered to everybody who asks.
@@ -99,7 +105,10 @@ async function start(wgsl) {
     const found = await adapter();
     if (!found) return 'No WebGPU adapter: the browser has the API but no device it will hand out.';
 
-    state.device = await found.requestDevice();
+    state.firstInstance = found.features.has('indirect-first-instance');
+    state.device = await found.requestDevice({
+        requiredFeatures: state.firstInstance ? ['indirect-first-instance'] : [],
+    });
     state.device.addEventListener('uncapturederror', e => console.error('WebGPU:', e.error.message));
     state.device.lost.then(info => console.error('WebGPU device lost:', info.message));
 
@@ -262,8 +271,9 @@ function texture(slot, view, width, height, layers, layer, level, levels) {
 
 /// The bind group and the recording, made again whenever what they are made of changes — a map opened,
 /// a canvas resized — and never while a frame is being drawn.
-function rebuild(indexCount) {
+function rebuild(indexCount, overOffset) {
     state.indexCount = indexCount;
+    state.overOffset = overOffset;
     if (!state.indirect) {
         state.indirect = state.device.createBuffer({
             size: INDIRECT_BYTES,
@@ -301,7 +311,11 @@ function rebuild(indexCount) {
 
     pass.setPipeline(state.pipelines.sprite);
     pass.setVertexBuffer(0, state.buffers[SLOT.sprites]);
-    pass.drawIndirect(state.indirect, DRAW.sprites);
+    pass.drawIndirect(state.indirect, DRAW.under);
+    pass.setVertexBuffer(0, state.buffers[SLOT.standing]);
+    pass.drawIndirect(state.indirect, DRAW.standing);
+    pass.setVertexBuffer(0, state.buffers[SLOT.sprites], overOffset);
+    pass.drawIndirect(state.indirect, DRAW.over);
 
     // The interface and everything that annotates a body, over all of it.
     pass.setPipeline(state.pipelines.overlay);
@@ -322,7 +336,9 @@ function release() {
 }
 
 /// The whole frame: the memory the simulation just wrote, then the recording that reads it.
-function frame(camera, sprites, overlay, underlay, spriteCount, overlayCount, underlayCount) {
+function frame(
+    camera, under, over, overlay, underlay, underCount, standingFirst, standingCount, overCount, overlayCount,
+    underlayCount) {
     if (!state.bundle) return;
 
     const queue = state.device.queue;
@@ -331,14 +347,20 @@ function frame(camera, sprites, overlay, underlay, spriteCount, overlayCount, un
     counts[1] = 1;
     counts[DRAW.underlay / 4] = 4;
     counts[DRAW.underlay / 4 + 1] = underlayCount;
-    counts[DRAW.sprites / 4] = 4;
-    counts[DRAW.sprites / 4 + 1] = spriteCount;
+    counts[DRAW.under / 4] = 4;
+    counts[DRAW.under / 4 + 1] = underCount;
+    counts[DRAW.standing / 4] = 4;
+    counts[DRAW.standing / 4 + 1] = state.firstInstance ? standingCount : standingFirst + standingCount;
+    counts[DRAW.standing / 4 + 3] = state.firstInstance ? standingFirst : 0;
+    counts[DRAW.over / 4] = 4;
+    counts[DRAW.over / 4 + 1] = overCount;
     counts[DRAW.overlay / 4] = 4;
     counts[DRAW.overlay / 4 + 1] = overlayCount;
     queue.writeBuffer(state.indirect, 0, counts);
 
     queue.writeBuffer(state.buffers[SLOT.camera], 0, bytes(camera));
-    if (spriteCount > 0) queue.writeBuffer(state.buffers[SLOT.sprites], 0, bytes(sprites));
+    if (underCount > 0) queue.writeBuffer(state.buffers[SLOT.sprites], 0, bytes(under));
+    if (overCount > 0) queue.writeBuffer(state.buffers[SLOT.sprites], state.overOffset, bytes(over));
     if (overlayCount > 0) queue.writeBuffer(state.buffers[SLOT.overlay], 0, bytes(overlay));
     if (underlayCount > 0) queue.writeBuffer(state.buffers[SLOT.underlay], 0, bytes(underlay));
 

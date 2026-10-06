@@ -32,6 +32,9 @@ public class CarSpriteTests
         return fleet;
     }
 
+    /// <summary>Every car of the fleet, in index order, as a frame that shows the whole town hands them over.</summary>
+    internal static int[] Every(CarFleet fleet) => Enumerable.Range(0, fleet.Count).ToArray();
+
     /// <summary>Every car sheet drawn at its art's own box, as though no tyre stood past it.</summary>
     static Vector2[] Unscaled(CarCatalog catalogue) => Enumerable.Repeat(Vector2.One, catalogue.SheetCount * 2).ToArray();
 
@@ -39,7 +42,7 @@ public class CarSpriteTests
     {
         var into = new SpriteInstance[fleet.Count];
         var written = CarSprites.Fill(
-            fleet, catalogue, firstSheet, scales ?? Unscaled(catalogue), new Vector2(fleet.Count * 5f, 0f),
+            fleet, Every(fleet), catalogue, firstSheet, scales ?? Unscaled(catalogue), new Vector2(fleet.Count * 5f, 0f),
             new Vector2(1_000f, 1_000f), into);
 
         Assert.Equal(fleet.Count, written);
@@ -81,12 +84,12 @@ public class CarSpriteTests
         var into = new SpriteInstance[fleet.Count];
 
         var ground = CarSprites.Fill(
-            fleet, catalogue, 0, Unscaled(catalogue), viewCentreM, new Vector2(1_000f, 1_000f), into,
+            fleet, Every(fleet), catalogue, 0, Unscaled(catalogue), viewCentreM, new Vector2(1_000f, 1_000f), into,
             TrafficSimulation.CityGen.CityPlan.RoadArrays.Ground);
         Assert.Equal([fleet.PositionM[0]], into[..ground].Select(sprite => sprite.CentreM));
 
         var above = CarSprites.Fill(
-            fleet, catalogue, 0, Unscaled(catalogue), viewCentreM, new Vector2(1_000f, 1_000f), into,
+            fleet, Every(fleet), catalogue, 0, Unscaled(catalogue), viewCentreM, new Vector2(1_000f, 1_000f), into,
             TrafficSimulation.CityGen.CityPlan.RoadArrays.Over);
         Assert.Equal([fleet.PositionM[1]], into[..above].Select(sprite => sprite.CentreM));
     }
@@ -373,7 +376,7 @@ public class CarSpriteTests
     {
         var into = new SpriteInstance[fleet.Count];
         var written = CarSprites.FillBeams(
-            fleet, catalogue, recovery, firstBeamSheet: 7, new Vector2(0f, 0f), new Vector2(1_000f, 1_000f), into);
+            fleet, Every(fleet), catalogue, recovery, firstBeamSheet: 7, new Vector2(0f, 0f), new Vector2(1_000f, 1_000f), into);
 
         return into[..written];
     }
@@ -384,7 +387,7 @@ public class CarSpriteTests
 
     static int FillFrontTyres(CarFleet fleet, float leastWidthM, Span<SpriteInstance> into) =>
         CarSprites.FillFrontTyres(
-            fleet, rubberSheet: 9, leastWidthM, new Vector2(fleet.Count * 5f, 0f), new Vector2(1_000f, 1_000f), into);
+            fleet, Every(fleet), rubberSheet: 9, leastWidthM, new Vector2(fleet.Count * 5f, 0f), new Vector2(1_000f, 1_000f), into);
 
     static SpriteInstance[] FrontTyres(CarFleet fleet)
     {

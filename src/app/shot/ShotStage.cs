@@ -73,8 +73,7 @@ internal sealed class ShotStage : IDisposable
         var looks = TownSprites.Load(config);
         var vk = Vk.Open("traffic-dotnet", validate);
         var renderer = TownRenderer.Offscreen(
-            vk, widthPx, heightPx, ground, ProjectPaths.GroundSurfaceFiles(), looks.Sheets,
-            TownSprites.CapacityFor(plan, config), TownSprites.AboveCapacityFor(plan));
+            vk, widthPx, heightPx, ground, ProjectPaths.GroundSurfaceFiles(), looks.Sheets, TownSprites.RoomFor(plan, config));
 
         return new ShotStage(config, plan, ground, looks, vk, renderer, widthPx, heightPx);
     }
@@ -93,8 +92,7 @@ internal sealed class ShotStage : IDisposable
         Vk vk, CityPlan plan, GroundMesh ground, TownSprites looks, SimConfig config, int widthPx, int heightPx)
     {
         var renderer = TownRenderer.Offscreen(
-            vk, widthPx, heightPx, ground, ProjectPaths.GroundSurfaceFiles(), looks.Sheets,
-            TownSprites.CapacityFor(plan, config), TownSprites.AboveCapacityFor(plan));
+            vk, widthPx, heightPx, ground, ProjectPaths.GroundSurfaceFiles(), looks.Sheets, TownSprites.RoomFor(plan, config));
 
         return new ShotStage(config, plan, ground, looks, vk, renderer, widthPx, heightPx, ownsDevice: false);
     }
@@ -167,13 +165,14 @@ internal sealed class ShotStage : IDisposable
         // moving the picture off what was framed (OBS-1c).
         camera.Turn(float.DegreesToRadians(ask.TurnDeg), uiPx * 0.5f, uiPx);
 
-        _looks.ReadAspects(_renderer);
+        _looks.ReadAspects(_renderer.Atlas);
         _looks.Lay(Plan, world.Uses, _config);
-        var (ground, above) = _looks.Fill(
-            world, _config, camera.CentreM, camera.CullSpanM(uiPx), camera.PixelsPerMetre, _renderer.Sprites,
-            _renderer.SpritesAbove);
-        _renderer.SetSpriteCount(ground, above);
-        var sprites = ground + above;
+        _renderer.LayStanding(_looks.Standing.Instances);
+        var counts = _looks.Fill(
+            world, _config, camera.CentreM, camera.CullSpanM(uiPx), camera.PixelsPerMetre, _renderer.SpritesUnder,
+            _renderer.SpritesOver, _renderer.SpritesAbove);
+        _renderer.SetSpriteCount(counts);
+        var sprites = counts.Drawn;
 
         // The pointer is put outside the frame, so nothing is drawn hovered: a shot with a row lit
         // under a pointer nobody can see is a shot of a state the reader cannot account for. <b>Unless the
@@ -209,7 +208,7 @@ internal sealed class ShotStage : IDisposable
 
         return new ShotReport(
             Plan.Name, ask.Path, _widthPx, _heightPx, camera.ViewSpanM(uiPx), camera.CentreM,
-            _renderer.TriangleCount, sprites, TownSprites.CapacityFor(Plan, _config) + TownSprites.AboveCapacityFor(Plan), tick, quads + under,
+            _renderer.TriangleCount, sprites, _renderer.Room.Written + _renderer.Room.Standing, tick, quads + under,
             crossings, Plan.Seed);
     }
 

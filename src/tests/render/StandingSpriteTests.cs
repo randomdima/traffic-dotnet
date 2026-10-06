@@ -38,11 +38,10 @@ public class StandingSpriteTests
 
     static SpriteInstance[] Everything(CityPlan plan, StandingSprites standing)
     {
-        var into = new SpriteInstance[StandingSprites.CapacityFor(plan)];
-        var written = standing.Fill(plan.WorldSizeM * 0.5f, plan.WorldSizeM * 2f, into);
+        var (first, count) = standing.Range(plan.WorldSizeM * 0.5f, plan.WorldSizeM * 2f);
 
-        Assert.Equal(into.Length, written);
-        return into;
+        Assert.Equal((0, StandingSprites.CapacityFor(plan)), (first, count));
+        return standing.Instances.ToArray();
     }
 
     /// <summary>
@@ -88,15 +87,14 @@ public class StandingSpriteTests
         var plan = Towns.Of(map);
         var standing = Lay(plan);
 
-        var into = new SpriteInstance[StandingSprites.CapacityFor(plan)];
         var spanM = new Vector2(70f, 40f);
 
         for (var step = 0; step < 24; step++)
         {
             var centreM = plan.WorldSizeM * new Vector2((step % 6) / 5f, (step / 6) / 3f);
-            var written = standing.Fill(centreM, spanM, into);
+            var (first, count) = standing.Range(centreM, spanM);
             var drawn = new HashSet<Vector2>();
-            for (var instance = 0; instance < written; instance++) drawn.Add(into[instance].CentreM);
+            foreach (var instance in standing.Instances.Span.Slice(first, count)) drawn.Add(instance.CentreM);
 
             for (var prop = 0; prop < plan.Props.Count; prop++)
             {

@@ -39,6 +39,7 @@ internal static class CheckCatalogue
         new("exam", "The scenario map: traffic staged one scenario to a junction and driven end to end, each passed or failed", ExamProbe.Run),
         new("census", "What is in a town: bodies, buildings, props, lit junctions", Quoted(config => TownCensus.Run("Odesa", config))),
         new("load", "What opening a map costs, stage by stage", Quoted(config => LoadProbe.Run("Odesa", config))),
+        new("sprites", "What filling a frame's sprites costs, part by part, from a street to the whole town", Quoted(config => SpriteProbe.Run("Odesa", config))),
         new("shape", "What shape a town came out: how its roads bend, where its junctions stand", Quoted(config => TownShape.Run("Odesa", config))),
         new("joints", "Every junction only two roads meet at, and which structure kept it", Quoted(config => TownShape.Joints("Odesa", config))),
         new("parks", "Every car park a town laid off a street: where it stands and its bays", Quoted(config => TownShape.Parks("Odesa", config))),
