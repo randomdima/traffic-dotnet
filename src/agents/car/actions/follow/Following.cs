@@ -92,9 +92,9 @@ internal sealed class Following(
     /// between itself and the way out.
     /// </para>
     /// <para>
-    /// <b>It is answered before it is laid</b> (<see cref="LaneOccupancy.Reach"/>): how far each piece can
-    /// be had is read first, and only then is anything taken — so ground is never taken off another plan for
-    /// a hold that then does not use it.
+    /// <b>It is laid whole and answered with every other plan</b> (<see cref="LaneOccupancy.Propose"/>,
+    /// <see cref="Answer"/>): what it keeps is what every pass of the answers leaves it, so ground is never taken off
+    /// another plan for a hold that then does not use it.
     /// </para>
     /// <para>
     /// <b>A car on a pass plans past it</b> (TER-4c.6, <see cref="Overtaking.PlannedFromM"/>): the pass is already its
@@ -178,81 +178,34 @@ internal sealed class Following(
 
         var hold = Occupancy.BeginHold(standOffM);
         ground.PlanHold[car] = hold;
+        Occupancy.Terms(hold, TermsOf(car));
 
         var count = ground.WaysAlong(car, planFromM, planToM, ways);
         Span<ClaimPriority> rungs = stackalloc ClaimPriority[count];
         LevelTheRungs(car, ways[..count], rungs);
 
-        LayTheDrive(car, hold, ways[..count], rungs, AnswerTheDrive(car, hold, ways[..count], rungs));
+        for (var index = 0; index < count; index++)
+        {
+            ref readonly var way = ref ways[index];
+            Occupancy.Propose(AskOn(car, hold, way, rungs[index]), way.Way, way.ToM, way.FromM);
+        }
+
+        Occupancy.EndHold(hold, float.PositiveInfinity, 0f, LaneClaim.Nothing);
     }
+
+    /// <summary>
+    /// <b>What this car reads of whatever refuses its plan</b> (<see cref="Overtaking.KeptOffM"/>): the room to step out
+    /// round what it may get past, and — on a call — how much slower than it means to go traffic has to be for it to.
+    /// </summary>
+    HolderTerms TermsOf(int car) => new(
+        overtaking.KeptOffWhatItMayPassM(car), Cars.BlueLight[car],
+        Cars.BlueLight[car] ? Cars.PlannedMps[car] - Config.Ambulance.SlowerToPassMps : float.NegativeInfinity);
 
     /// <summary>A body standing inside what is left of the ground the car's pass or step across holds — whichever it is driving.</summary>
     bool TheBodyInItsPass(int car, out float inTheWayM, out LaneClaim body, out int on) =>
         Cars.Action[car] == CarAction.Switch
             ? switching.TheBodyInTheSwitch(car, out inTheWayM, out body, out on)
             : overtaking.TheBodyInThePass(car, out inTheWayM, out body, out on);
-
-    /// <summary>
-    /// <b>This car's plan answered again against what every other came to</b>, and laid again where the answer has
-    /// moved — true where it did.
-    /// </summary>
-    public bool Settle(int car, Span<LineWay> ways)
-    {
-        // <b>Only a plan down the route's line is</b> (CAR-15b): a manoeuvre's hold answered again as one handed a car
-        // waiting for its ground the whole of a piece it has no ways along, and it drove it.
-        var hold = ground.PlanHold[car];
-        if (hold == LaneOccupancy.NoHold || !actions.DrivesTheRoute(car)) return false;
-
-        var endsAtM = Occupancy.HoldEndsAtM(hold, out _, out var cutBy);
-        if (float.IsPositiveInfinity(endsAtM) || (cutBy.Found && cutBy.HasBody)) return false;
-
-        var count = ground.WaysAlong(car, overtaking.PlannedFromM(car), Cars.ClaimToM[car], ways);
-        Span<ClaimPriority> rungs = stackalloc ClaimPriority[count];
-        LevelTheRungs(car, ways[..count], rungs);
-
-        var answer = AnswerTheDrive(car, hold, ways[..count], rungs);
-        if (answer.CutLineM == endsAtM) return false;
-
-        Occupancy.ReopenHold(hold);
-        LayTheDrive(car, hold, ways[..count], rungs, answer);
-        return true;
-    }
-
-    /// <summary>
-    /// <b>How far this car's plan can be had</b>, read against the reservations as they stand and never
-    /// written: cut where the first of its ways refuses it, and short of that by what it keeps off what refused
-    /// it (<see cref="Overtaking.KeptOffM"/>).
-    /// </summary>
-    PlanAnswer AnswerTheDrive(int car, int hold, ReadOnlySpan<LineWay> ways, ReadOnlySpan<ClaimPriority> rungs)
-    {
-        for (var index = 0; index < ways.Length; index++)
-        {
-            ref readonly var way = ref ways[index];
-            var reachM = Occupancy.Reach(AskOn(car, hold, way, rungs[index]), way.Way, way.ToM, way.FromM, out var cutBy);
-            if (reachM >= way.ToM) continue;
-
-            return new PlanAnswer(
-                OnTheLineM(way, reachM), overtaking.KeptOffM(car, cutBy, way.Way), cutBy, way.Way, index, reachM);
-        }
-
-        return PlanAnswer.Whole;
-    }
-
-    /// <summary><b>A car's plan laid</b> over what its answer left, and finished with what it came to.</summary>
-    void LayTheDrive(
-        int car, int hold, ReadOnlySpan<LineWay> ways, ReadOnlySpan<ClaimPriority> rungs, in PlanAnswer answer)
-    {
-        for (var index = 0; index < ways.Length; index++)
-        {
-            ref readonly var way = ref ways[index];
-            if (way.LineFromM >= answer.CutLineM) break;
-
-            Occupancy.Take(AskOn(car, hold, way, rungs[index]), way.Way, LaidToM(answer, index, way));
-            if (index == answer.CutAt) break;
-        }
-
-        Occupancy.EndHold(hold, answer.CutLineM, answer.MarginM, answer.CutBy, answer.CutOn);
-    }
 
     /// <summary>
     /// <b>Where a car means to be able to stop</b> (TER-4c.1): as far as it gets in the planned run

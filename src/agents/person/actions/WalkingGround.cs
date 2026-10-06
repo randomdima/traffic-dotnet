@@ -489,8 +489,8 @@ internal sealed class WalkingGround(
 
     /// <summary>
     /// <b>A walker's claim laid</b> (PER-26, TER-4c.8) over the ways its action walks, as one hold held at a walker's
-    /// rung (<see cref="ClaimPriority.Afoot"/>, PER-27) — answered before it is laid, as a driver's plan is, so nothing
-    /// is taken off another plan for a walk that then stops short of it.
+    /// rung (<see cref="ClaimPriority.Afoot"/>, PER-27) — laid whole and answered with every other plan, as a driver's
+    /// is (<see cref="Answer"/>), so nothing is taken off another plan for a walk that then stops short of it.
     /// </summary>
     /// <remarks>
     /// <b>A hold with nothing to lay is still laid</b>: a walk whose ground lies on no way — a lawn, a yard, what is
@@ -502,8 +502,22 @@ internal sealed class WalkingGround(
     {
         var hold = Occupancy.BeginHold(Config.PersonStandstillGapM);
         WalkHold[person] = hold;
-        LayTheWalk(person, occupant, roster, hold, walk, AnswerTheWalk(person, occupant, roster, hold, walk));
+        foreach (ref readonly var way in walk)
+        {
+            Occupancy.Propose(WalkAsk(person, occupant, roster, hold, way), way.Way, way.ToM, LevelWithM(way, occupant, roster));
+        }
+
+        Occupancy.EndHold(hold, float.PositiveInfinity, 0f, LaneClaim.Nothing);
     }
+
+    /// <summary>
+    /// <b>How far along a way of its walk the walker's own body already reaches</b>, which its claim there is answered
+    /// past: <b>a body its own is level with cuts nothing</b> (TER-4c.1) — it is beside the walker or behind it. A
+    /// straight walk crosses a way along the width of the walker's own body as well as ahead of it, so what it is level
+    /// with there is read off where that body lies on the way, and not off where the straight comes onto it.
+    /// </summary>
+    float LevelWithM(in LineWay way, int occupant, LaneRoster roster) =>
+        MathF.Max(way.FromM, Occupancy.BodyReachesToM(way.Way, occupant, roster));
 
     /// <summary>
     /// <b>A walker held where it stands by a body inside the ground its pass covers</b> (TER-4c.6): the ground up to
@@ -514,73 +528,6 @@ internal sealed class WalkingGround(
         var held = Occupancy.BeginHold(Config.PersonStandstillGapM);
         WalkHold[person] = held;
         Occupancy.EndHold(held, People.RadiusM[person], Config.PersonStandstillGapM, body, on);
-    }
-
-    /// <summary>
-    /// <b>Whether this walker's claim may move when answered again</b>: laid, and cut short by another plan rather
-    /// than by a body — and where it ends now.
-    /// </summary>
-    public bool MayMove(int person, out float endsAtM)
-    {
-        endsAtM = float.PositiveInfinity;
-        var hold = WalkHold[person];
-        if (hold == LaneOccupancy.NoHold) return false;
-
-        endsAtM = Occupancy.HoldEndsAtM(hold, out _, out var cutBy);
-        return !float.IsPositiveInfinity(endsAtM) && !(cutBy.Found && cutBy.HasBody);
-    }
-
-    /// <summary>
-    /// <b>This walker's claim answered again against what every other came to</b>, and laid again where the answer
-    /// has moved off <paramref name="endsAtM"/> (<see cref="MayMove"/>) — true where it did.
-    /// </summary>
-    public bool Settle(int person, float endsAtM, int occupant, LaneRoster roster, ReadOnlySpan<LineWay> walk)
-    {
-        var hold = WalkHold[person];
-        var answer = AnswerTheWalk(person, occupant, roster, hold, walk);
-        if (answer.CutLineM == endsAtM) return false;
-
-        Occupancy.ReopenHold(hold);
-        LayTheWalk(person, occupant, roster, hold, walk, answer);
-        return true;
-    }
-
-    /// <summary><b>How far this walker's plan can be had</b>, read and never written.</summary>
-    /// <remarks>
-    /// <b>A body its own is level with cuts nothing</b> (TER-4c.1): it is beside the walker or behind it. A straight
-    /// walk crosses a way along the width of the walker's own body as well as ahead of it, so what it is level with
-    /// there is read off where that body lies on the way, and not off where the straight comes onto it.
-    /// </remarks>
-    PlanAnswer AnswerTheWalk(int person, int occupant, LaneRoster roster, int hold, ReadOnlySpan<LineWay> walk)
-    {
-        for (var index = 0; index < walk.Length; index++)
-        {
-            ref readonly var way = ref walk[index];
-            var levelWithM = MathF.Max(way.FromM, Occupancy.BodyReachesToM(way.Way, occupant, roster));
-            var reachM = Occupancy.Reach(
-                WalkAsk(person, occupant, roster, hold, way), way.Way, way.ToM, levelWithM, out var cutBy);
-            if (reachM >= way.ToM) continue;
-
-            return new PlanAnswer(OnTheLineM(way, reachM), Config.PersonStandstillGapM, cutBy, way.Way, index, reachM);
-        }
-
-        return PlanAnswer.Whole;
-    }
-
-    /// <summary><b>A walker's plan laid</b> over what its answer left, and finished with what it came to.</summary>
-    void LayTheWalk(
-        int person, int occupant, LaneRoster roster, int hold, ReadOnlySpan<LineWay> walk, in PlanAnswer answer)
-    {
-        for (var index = 0; index < walk.Length; index++)
-        {
-            ref readonly var way = ref walk[index];
-            if (way.LineFromM >= answer.CutLineM) break;
-
-            Occupancy.Take(WalkAsk(person, occupant, roster, hold, way), way.Way, LaidToM(answer, index, way));
-            if (index == answer.CutAt) break;
-        }
-
-        Occupancy.EndHold(hold, answer.CutLineM, answer.MarginM, answer.CutBy, answer.CutOn);
     }
 
     /// <summary>One piece of a walker's plan as the terms it is asked on.</summary>

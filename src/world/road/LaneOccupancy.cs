@@ -264,7 +264,6 @@ internal sealed partial class LaneOccupancy
     int _slotCount;
     int _touchedCount;
     int _holdCount;
-    int _cuts;
 
     /// <param name="ways">Every way in the town, in one numbering.</param>
     /// <param name="mostSlots">
@@ -301,6 +300,13 @@ internal sealed partial class LaneOccupancy
         _holdStandingMarginM = new float[mostHolds];
         _holdCutBy = new LaneClaim[mostHolds];
         _holdCutOn = new int[mostHolds];
+        _shownToLineM = new float[mostHolds];
+        _answered = new bool[mostHolds];
+        _holdTerms = new HolderTerms[mostHolds];
+        _laidAnswer = new PlanAnswer[mostHolds];
+        _answer = new PlanAnswer[mostHolds];
+        _slotStandsToM = new float[mostSlots];
+        _wayMovedAt = new int[ways.Count];
     }
 
     /// <summary>The numbering these reservations are laid in.</summary>
@@ -318,12 +324,6 @@ internal sealed partial class LaneOccupancy
 
     /// <summary>How many holds the last rebuild laid.</summary>
     public int HoldCount => _holdCount;
-
-    /// <summary>
-    /// <b>How many times one hold has been cut by another's taking</b> since the rebuild began — none, and every
-    /// hold still ends where it was answered.
-    /// </summary>
-    public int Cuts => _cuts;
 
     /// <summary>
     /// <b>How many reservations have been dropped for want of room</b> since the town was laid — a body or a
@@ -353,7 +353,6 @@ internal sealed partial class LaneOccupancy
         _touchedCount = 0;
         _slotCount = 0;
         _holdCount = 0;
-        _cuts = 0;
     }
 
     /// <summary>
@@ -450,6 +449,9 @@ internal sealed partial class LaneOccupancy
         _holdStandingMarginM[hold] = standingMarginM;
         _holdCutBy[hold] = LaneClaim.Nothing;
         _holdCutOn[hold] = NoSlot;
+        _shownToLineM[hold] = float.PositiveInfinity;
+        _answered[hold] = false;
+        _holdTerms[hold] = new HolderTerms(standingMarginM, false, float.NegativeInfinity);
         return hold;
     }
 
@@ -490,15 +492,17 @@ internal sealed partial class LaneOccupancy
             break;
         }
 
+        if (_plansHidden) return limitM;
+
         for (var at = _planned[way]; at != NoSlot; at = _next[at])
         {
             ref readonly var other = ref _slots[at];
             var atM = MathF.Max(fromM, other.FromM);
             if (atM >= limitM) break;
-            if (other.ToM <= fromM || Owns(ask, other)) continue;
+            if (!Shows(other, out var otherToM) || otherToM <= fromM || Owns(ask, other)) continue;
 
-            var overToM = MathF.Min(toM, other.ToM);
-            if (Beats(
+            var overToM = MathF.Min(toM, otherToM);
+            if (!HeldAgainst(ask, other) && Beats(
                     ask, atM, StandsOn(way, ask.Occupant, ask.Of, atM, overToM), other,
                     StandsOn(way, other.Occupant, other.Of, atM, overToM)))
             {
@@ -532,7 +536,16 @@ internal sealed partial class LaneOccupancy
 
         var main = ask.Laid(toM);
         TakeFrom(way, fromM, toM, ask, main);
+        PlaceTheMarks(ask, way, fromM, toM);
+        Append(_planned, way, main);
+    }
 
+    /// <summary>
+    /// Every mark over <c>[fromM, toM)</c> of a main claim's way, placing the whole of its section of the other way as
+    /// a secondary claim of the same hold (TER-5c.1).
+    /// </summary>
+    void PlaceTheMarks(in PlannedAsk ask, int way, float fromM, float toM)
+    {
         foreach (ref readonly var mark in _marks.Of(way))
         {
             if (mark.MineFromM >= toM) break;
@@ -547,8 +560,6 @@ internal sealed partial class LaneOccupancy
                     CommittedToM: ask.CannotStopShortOf(atM) ? float.PositiveInfinity : float.NegativeInfinity,
                     Secondary: true));
         }
-
-        Append(_planned, way, main);
     }
 
     /// <summary>
@@ -565,7 +576,10 @@ internal sealed partial class LaneOccupancy
     /// </remarks>
     public void Place(in PlannedAsk ask, int way, float toM)
     {
-        if (toM <= ask.FromM || ask.Hold == NoHold) return;
+        if (ask.Hold == NoHold) return;
+
+        _answered[ask.Hold] = true;
+        if (toM <= ask.FromM) return;
 
         Append(_planned, way, ask.Laid(toM) with { Secondary = true });
     }
@@ -585,32 +599,6 @@ internal sealed partial class LaneOccupancy
         _holdCutMarginM[hold] = cutMarginM;
         _holdCutBy[hold] = cutBy;
         _holdCutOn[hold] = cutOn;
-    }
-
-    /// <summary>
-    /// <b>A hold taken up to be laid again</b>: every main and secondary claim of it comes off the ways, and what it was answered is forgotten — laid again with <see cref="Reach"/>,
-    /// <see cref="Take"/> and <see cref="EndHold"/> as though begun.
-    /// </summary>
-    /// <remarks>
-    /// <b>An answer read before it was taken up still stands after</b>: a hold's own ground is never held
-    /// against it, so its pieces change nothing <see cref="Reach"/> says. <b>Its pieces are laid in new
-    /// slots</b>, and the ones it held are spent until the next rebuild.
-    /// </remarks>
-    public void ReopenHold(int hold)
-    {
-        if (hold == NoHold) return;
-
-        for (var at = _holdFirst[hold]; at < _holdEnd[hold]; at++)
-        {
-            if (!_gone[at]) Unlink(at);
-        }
-
-        _holdFirst[hold] = _slotCount;
-        _holdEnd[hold] = _slotCount;
-        _holdCutLineM[hold] = float.PositiveInfinity;
-        _holdCutMarginM[hold] = 0f;
-        _holdCutBy[hold] = LaneClaim.Nothing;
-        _holdCutOn[hold] = NoSlot;
     }
 
     /// <summary>Which way a hold was cut on, for an instrument saying what held somebody — or −1.</summary>
@@ -743,7 +731,6 @@ internal sealed partial class LaneOccupancy
     /// </summary>
     void CutHold(int hold, float lineM, in LaneClaim cutBy, int cutOn)
     {
-        _cuts++;
         for (var at = _holdFirst[hold]; at < _holdEnd[hold]; at++)
         {
             if (_gone[at]) continue;

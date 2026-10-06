@@ -634,53 +634,6 @@ public class LaneOccupancyTests
         Assert.Equal(50f, index.Reach(Ask(hold, 1, ClaimPriority.Firm, 0f), a, 50f, 0f, out _));
     }
 
-    /// <summary>
-    /// <b>A hold reopened holds nothing and was answered nothing</b>: its main and secondary claims come off
-    /// the ways, and what cut it is forgotten, until it is laid again.
-    /// </summary>
-    [Fact]
-    public void AReopenedHoldHoldsNothingUntilItIsLaidAgain()
-    {
-        var (a, b, _) = ThreeWays();
-        var index = Index(Marks((a, (20f, 24f), b, (30f, 35f))));
-
-        index.Begin();
-        index.LayBody(a, 40f, 44f, 0f, 9, LaneRoster.Driving, onItsLine: true);
-        var hold = index.BeginHold(0f);
-        var reachM = index.Reach(Ask(hold, 1, ClaimPriority.Firm, 0f), a, 50f, 0f, out var cutBy);
-        index.Take(Ask(hold, 1, ClaimPriority.Firm, 0f), a, reachM);
-        index.EndHold(hold, reachM, 0f, cutBy);
-
-        index.ReopenHold(hold);
-
-        Span<LaneClaim> planned = stackalloc LaneClaim[4];
-        Assert.Equal((0, 0), (index.CopyPlannedTo(a, planned), index.CopyPlannedTo(b, planned)));
-        Assert.Equal(float.PositiveInfinity, EndsAtM(index, hold));
-    }
-
-    /// <summary>
-    /// <b>A hold laid again is cut like any other</b>: a stronger hold takes its ground from the pieces it was
-    /// laid again with, not from the ones it gave up.
-    /// </summary>
-    [Fact]
-    public void AHoldLaidAgainIsCutByAStrongerOneLikeAnyOther()
-    {
-        var (way, _, _) = ThreeWays();
-        var index = Index();
-
-        index.Begin();
-        var weaker = index.BeginHold(0f);
-        index.Take(Ask(weaker, 1, ClaimPriority.FirmAcross, 0f), way, 20f);
-        index.EndHold(weaker, 20f, 0f, LaneClaim.Nothing);
-
-        index.ReopenHold(weaker);
-        index.Take(Ask(weaker, 1, ClaimPriority.FirmAcross, 0f), way, 40f);
-        index.EndHold(weaker, float.PositiveInfinity, 0f, LaneClaim.Nothing);
-
-        Plan(index, way, 50f, hold => Ask(hold, 2, ClaimPriority.FirmStraight, 25f));
-        Assert.Equal(25f, index.PlannedToM(way, 0f, occupant: 1, LaneRoster.Driving));
-    }
-
     /// <summary><b>Nothing survives a rebuild</b>, which is the guarantee that makes the index need no release path.</summary>
     [Fact]
     public void ARebuildLeavesNothingOfTheTickBeforeIt()

@@ -4,6 +4,33 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-10-06 — every plan is answered at once
+
+**The tick moves to the device** (root log), where every holder is a thread and none can be laid before another.
+Plans were laid one at a time in roster order, each answered against what was down so far and taking what it beat
+(`Take`), then settled: every plan another had cut was answered again and laid again until none moved. Which plan
+kept a piece of ground did not turn on the order — the comparison is total and symmetric (TER-5e) — but what each
+was answered against did, until the settling caught up.
+
+- **Every plan is laid whole and answered at once** (`LaneOccupancy.Propose`, `ShowTheAnswers`, TER-4c.3): each
+  pass every hold is answered against what every other came to the pass before; a plan's own reach is cut where a
+  claim beats it, and its secondary claims where a main claim over them beats them, so of two claims that meet
+  exactly one gives the ground up. The first pass is read against the bodies and the holds laid where they stand
+  alone, which no answer can be shorter than, so the passes close in from both sides on the layer where every
+  answer is what it was answered against.
+- **Disjoint wherever the passes stop**: a pass read against a layer at least as long as its own is cut wherever
+  anything beats it, so the bound (`MostSettlingPasses`) stops on such a pass and a ring left moving is counted
+  (`Unsettled`) and still disjoint — the gate (`ClaimGateTests`) holds either way.
+- **What a hand or a truck cannot stop short of is laid before the plans and taken by none of them**: it is nobody's
+  plan, answered once against the bodies. A committed plan beat it by arriving first before; now it waits.
+- **The answer is the claims' own** (`LaneOccupancy.AnswerThePlans`): a plan's reach is read off its own pieces, and
+  what its holder keeps off what cut it off terms it gave with the plan (`HolderTerms`), so a pass asks nothing of a car
+  or a walker and the device runs the same arithmetic. Only a hold on a way something moved on is answered again.
+- The suite's unit, town and gate tiers passed unchanged, and the exam failed the same three cards as before (44, 79,
+  85). **On the host it costs about a millisecond a tick** on OdesaOsm (`--bench town`: claims 7.9 ms against 6.9),
+  the plans laid whole and every one answered twice where one answer and a settle did before; the device is where it
+  runs.
+
 ## 2026-10-05 — a lane lost at a node ends there, and a lane gained is moved onto
 
 **The owner asked for it, reviewing OdesaOsm's connections** (TER-5j): N lanes onto M join lane for lane and
@@ -162,8 +189,8 @@ them for 146 508 car-ticks against 150 313.
 
 **Asked whether a lane whose ground holds only frozen bodies (`SOL-37`) could be left as it was laid.** It cannot,
 because a way's claims are not made of the bodies near it. A plan is laid from its holder's nose down the line
-for as far as its grant runs, cut at the first body and settled against every other plan until none moves
-(`SettleThePlans`), and a light's hold turns on its own clock: a queue frozen at a red re-plans when it turns
+for as far as its grant runs, cut at the first body and answered against every other plan until none moves
+(`AnswerThePlans`), and a light's hold turns on its own clock: a queue frozen at a red re-plans when it turns
 green without a body in the town having moved, and a cut far up a line moves where a plan ends on a way nowhere
 near it. A cell with no moving body in it says nothing about either, and a test that did would be a graph of
 which plans read which ways — dearer than laying them.

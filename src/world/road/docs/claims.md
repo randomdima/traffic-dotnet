@@ -176,9 +176,10 @@ this rule's.
 ## Plans
 
 **TER-4c.1** `P3` **Ground is asked for, answered, and then laid.** A holder asks for the stretch of its own
-line it means to use, from its front forward, a way at a time; **the answer is read before anything is
-laid**, so no ground is taken off another plan for a hold that then does not use it. What comes back is
-that stretch cut at the first of two things, both read off the way asked about and off no other:
+line it means to use, from its front forward, a way at a time; **every plan is answered at once, against what
+every other came to** (TER-4c.3), and what is laid is the answer, so no ground is taken off another plan for a
+hold that then does not use it. What comes back is that stretch cut at the first of two things, both read off
+the way asked about and off no other:
 
 - **the first body in front of it** — a plan is never laid over somebody standing there, or over ground
   somebody's pass will cover (TER-4c.6), and a body beside or behind the holder cuts nothing;
@@ -280,10 +281,12 @@ metre and neither reaches into the other. **Two secondary claims are the one exc
 are not in this at all** (TER-4c.2), and neither is a holder's own ground against itself.
 
 **Which of two keeps a metre does not turn on which was laid first**: the comparison is total and symmetric
-(TER-5e). **What a cut frees goes back inside the tick**: once every plan is down, each one another plan ended
-is answered again against what the rest came to, and laid again, whole, where the answer has moved. So a plan
-ends where something that beats it still stands, and waiting at a kerb binds whichever holder was laid first. A ring of holders each taking from the next never settles, and is left disjoint at a bound on the
-work.
+(TER-5e), and **every plan is answered at once** — laid whole as it was asked for, then answered pass after pass
+against what every other came to the pass before, until no answer moves. So a plan ends where something that
+beats it still stands, what a cut frees goes back inside the tick, and waiting at a kerb binds every holder alike.
+A ring of holders each taking from the next never settles; the passes are bounded, and stop on one answered
+against a longer layer than its own, which is disjoint. **What a hand or a truck cannot stop short of is laid
+before the plans and taken by none of them** (TER-4c.8): it is nobody's plan.
 
 ## Right of way
 

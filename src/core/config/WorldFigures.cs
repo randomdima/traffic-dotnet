@@ -48,8 +48,9 @@ internal sealed class RoadFigures
 
     /// <summary>
     /// <b>How many times a tick's plans are answered again against what the others came to</b> before the
-    /// layer is left as it stands (TER-4c.3). A bound on the work: a layer still moving at it is disjoint but
-    /// not where its answers say, and counted (<c>TownWorld.Unsettled</c>).
+    /// layer is left as it stands (TER-4c.3) — the first answer past it read against a longer layer than its own. A
+    /// bound on the work: a layer still moving at it is disjoint but not where its answers say, and counted
+    /// (<c>TownWorld.Unsettled</c>).
     /// </summary>
     public int MostSettlingPasses { get; init; } = 4;
 

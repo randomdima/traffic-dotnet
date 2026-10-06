@@ -90,19 +90,6 @@ internal sealed partial class TownWorld
         _walkingGround.Claim(person, occupant, roster, ways);
     }
 
-    /// <summary>
-    /// <b>This walker's claim answered again against what every other came to</b>, and laid again where the
-    /// answer has moved (<see cref="SettleThePlans"/>) — true where it did.
-    /// </summary>
-    bool SettleTheWalk(int person, Span<LineWay> walk)
-    {
-        if (!_walkingGround.MayMove(person, out var endsAtM)) return false;
-
-        var ways = WaysOfTheWalk(person, walk);
-        var occupant = GroundHeldAs(person, out var roster);
-        return _walkingGround.Settle(person, endsAtM, occupant, roster, ways);
-    }
-
     /// <summary>The ground a walker's action walks, nearest first, as that action has it.</summary>
     Span<LineWay> WaysOfTheWalk(int person, Span<LineWay> into) => People.Action[person] switch
     {

@@ -82,13 +82,23 @@ internal sealed partial class TownWorld
         // the plans it refuses are answered (TLT-1).
         LightTheWays();
 
+        // What a hand or a truck cannot stop short of is laid where it stands before any plan (<see cref="AnswerThePlans"/>),
+        // and every plan after them laid whole.
         Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];
-        foreach (var car in CarsAsked) PlanTheDrive(car, ways);
+        foreach (var car in CarsAsked)
+        {
+            if (!PlansDownItsLine(car)) PlanTheDrive(car, ways);
+        }
+
+        foreach (var car in CarsAsked)
+        {
+            if (PlansDownItsLine(car)) PlanTheDrive(car, ways);
+        }
 
         Span<LineWay> walk = stackalloc LineWay[WalkingGround.MostWaysAlongAWalk];
         for (var person = 0; person < People.Count; person++) PlanTheWalk(person, walk);
 
-        SettleThePlans(ways, walk);
+        AnswerThePlans();
 
         // The ground a car backs up over is weaker than every plan (TER-4c.7), so it is asked once all of them are
         // settled and takes nothing any of them keeps — but what the car queued behind it could still stop short of.
@@ -104,61 +114,48 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>How many rebuilds ran out of settling passes with a plan still moving</b> since the town was laid
-    /// (<see cref="SettleThePlans"/>) — a layer left disjoint but not where its answers say.
+    /// <b>How many rebuilds ran out of passes with a plan still moving</b> since the town was laid
+    /// (<see cref="AnswerThePlans"/>) — a layer left disjoint but not where its answers say.
     /// </summary>
     public long Unsettled { get; private set; }
 
-    /// <summary>How many plans have been taken up and laid again by the settling since the town was laid.</summary>
+    /// <summary>How many times a plan's answer has moved from one pass to the next, past the first, since the town was laid.</summary>
     public long PlansLaidAgain { get; private set; }
 
     /// <summary>
-    /// <b>Every plan answered again against the finished layer, until none moves</b> — so a plan ends where
-    /// something that beats it still stands, and not where something stood when it was laid.
+    /// <b>Every plan answered at once, against what every other came to the pass before, until none moves</b>
+    /// (<see cref="LaneOccupancy.ShowTheAnswers"/>) — so a plan ends where something that beats it still stands, and
+    /// which of two plans keeps a piece of ground never turns on which was laid first.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>A cut frees ground, and whoever was refused that ground was answered before it was freed.</b> A car
-    /// refused by a plan that a walker laid after both then cut back, or a plan refused on a later way by a
-    /// piece its own taking removed on an earlier one: laid once, each stayed short of ground nobody held —
-    /// every tick for as long as the town stood that way, since the holders are laid in the same order every
-    /// tick.
-    /// </para>
-    /// <para>
-    /// <b>And a plan cut after it was laid is held to the rules of one refused while it was laid</b>: a car
-    /// refused anywhere between a zebra and the room clear of it waits short of the paint, whichever of the two
-    /// holders was laid first (TER-5c.3).
-    /// </para>
-    /// <para>
-    /// <b>Only a plan another plan ended is asked.</b> One that had all it asked for or that a body stopped has
-    /// nothing to gain, since no body moves inside a tick. A light's hold and a closure are placed and never
-    /// asked, so there is nothing of theirs to answer again.
+    /// <b>A plan refused anywhere is held to the rules of one refused</b>: a car refused anywhere between a zebra and
+    /// the room clear of it waits short of the paint, whoever else wanted it (TER-5c.3).
     /// </para>
     /// <para>
     /// <b>The passes are bounded</b> (<see cref="RoadFigures.MostSettlingPasses"/>), and a ring is why. The
-    /// comparison is total at one metre but not transitive along a line: one hold cut back frees ground a
-    /// second takes, which cuts a third, which frees the ground the first was cut back from. Such a ring never
-    /// settles, so a layer still moving at the bound is left as it stands — disjoint as ever, and
-    /// counted. <b>It is an instrument's to report and not a gate's</b>: whether a town has rings is a fact
-    /// about its junctions. Nearly everything moves in the first pass.
+    /// comparison is total at one metre but not transitive along a line: one hold cut back frees ground a second
+    /// takes, which cuts a third, which frees the ground the first was cut back from. Such a ring never settles, so
+    /// the answers stop on a pass read against a longer layer than their own, which is disjoint, and the rebuild is
+    /// counted. <b>It is an instrument's to report and not a gate's</b>: whether a town has rings is a fact about its
+    /// junctions.
     /// </para>
     /// </remarks>
-    void SettleThePlans(Span<LineWay> ways, Span<LineWay> walk)
+    void AnswerThePlans()
     {
-        if (_occupancy.Cuts == 0) return;
+        BeforeThePlansAreAnswered?.Invoke(this);
+        PlansLaidAgain += _occupancy.AnswerThePlans(_config.Road.MostSettlingPasses, out var settled);
+        if (!settled) Unsettled++;
 
-        for (var pass = 0; pass < _config.Road.MostSettlingPasses; pass++)
-        {
-            var laidAgain = 0;
-            foreach (var car in CarsAsked) laidAgain += _following.Settle(car, ways) ? 1 : 0;
-            for (var person = 0; person < People.Count; person++) laidAgain += SettleTheWalk(person, walk) ? 1 : 0;
-
-            PlansLaidAgain += laidAgain;
-            if (laidAgain == 0) return;
-        }
-
-        Unsettled++;
+        AfterThePlansAreAnswered?.Invoke(this);
     }
+
+    /// <summary>
+    /// Whether this car's claim is a plan down its own line, answered with every other plan — and not what a hand, a
+    /// truck or a manoeuvre holds where the car stands.
+    /// </summary>
+    bool PlansDownItsLine(int car) =>
+        Cars.Action[car] is not (CarAction.Hand or CarAction.Towed) && !IsManoeuvring(car) && IsUnderWay(car);
 
     /// <summary>
     /// Whether this car is a driver on a route rather than a shape on the road — what decides whether it

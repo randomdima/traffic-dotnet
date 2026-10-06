@@ -1189,30 +1189,16 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     }
 
     /// <summary>
-    /// <b>How far short of what cut it a car comes to rest</b> (S-2a): its stand-off, whatever that was — and behind
-    /// a body going nowhere (<see cref="LaneClaim.GoesNowhere"/>) that it could get past, no nearer than it needs to
-    /// step out round it from a standstill, with the pass's spare (CAR-46).
+    /// <b>How far short of something it may get past a car comes to rest</b> (S-2a, CAR-46): no nearer than it needs to
+    /// step out round it from a standstill, with the pass's spare, where it has a lane to pass on — and its stand-off
+    /// where it has none. What it may get past is the claims' to say (<see cref="LaneOccupancy"/>'s <c>KeptOffM</c>).
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>A queue is waited behind at the stand-off whatever its next movement</b>, so a line of cars at a light
-    /// closes up behind one turning off. The room is kept only for what the car may come to pass — <b>and a car on a
-    /// call keeps it behind anything at rest it may pass</b>, a queue included (<see cref="MayGetPast"/>).
-    /// </para>
-    /// <para>
-    /// <b>Read on a straight</b>: where the line bends under the step, the step is longer and the car asks from
-    /// where it stands, which the ground then answers.
-    /// </para>
+    /// <b>Read on a straight</b>: where the line bends under the step, the step is longer and the car asks from where it
+    /// stands, which the ground then answers.
     /// </remarks>
-    /// <param name="cutOn">The way <paramref name="cutBy"/> was met on.</param>
-    public float KeptOffM(int car, in LaneClaim cutBy, int cutOn)
-    {
-        var standOffM = Config.Driving.StandOffM;
-        var roomFor = Cars.BlueLight[car] ? MayGetPast(car, cutBy, cutOn) : cutBy.GoesNowhere;
-        if (!roomFor || !HasALaneToPassOn(car)) return standOffM;
-
-        return MathF.Max(standOffM, RoomToStepOutM(car));
-    }
+    public float KeptOffWhatItMayPassM(int car) =>
+        HasALaneToPassOn(car) ? MathF.Max(Config.Driving.StandOffM, RoomToStepOutM(car)) : Config.Driving.StandOffM;
 
     /// <summary>
     /// <b>How far short of what it passes a car's nose stands to step out round it from rest</b>, on the lane it is on:
