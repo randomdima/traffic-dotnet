@@ -50,6 +50,13 @@ public static class Tier
     public const string Perf = "Perf";
 
     /// <summary>
+    /// <b>The tick's kernels, run on a device</b>: a body table or a town laid into storage buffers, dispatched, and
+    /// read back. Asked of lavapipe — the CPU's own Vulkan — so it needs no GPU, no window and no desktop, and answers
+    /// the same on every machine.
+    /// </summary>
+    public const string Device = "Device";
+
+    /// <summary>
     /// <b>The shipped cities, asked for by name and never run as part of the suite.</b> What is asserted
     /// here is asserted of a map somebody authored — a brief, a seed and whatever the generator made of
     /// them — rather than of this engine.

@@ -48,6 +48,7 @@ class in no tier's filter is never run again and nothing says so.
 | `Unit` | engine-free arithmetic, and the fixture map where a question needs a place | Release | yes |
 | `Town` | a question asked of a town that is stood up — read, laid out over, or ticked | Release | yes |
 | `Perf` | the five gates below: what is measured over a whole town | Release, and Debug for one class | yes |
+| `Device` | the tick's kernels: staged buffers dispatched on lavapipe, the CPU's own Vulkan, and read back | Release | yes |
 | `Maps` | the shipped cities, asked for by name | Release | **no** |
 | `Exam` | the scenario map, one case a card | Release | **no** |
 | `E2E` | the visual tier, tier 4 above | Debug | **no** |

@@ -156,6 +156,7 @@ the `Tier` trait every test class carries ([tests/Tier.cs](src/tests/Tier.cs)); 
 | `qq tests` | 4 s | **every edit, no exceptions** |
 | `qq tests --changed` | what it picks | **any edit worth more than the unit tier** — it reads the tree and names the tiers those paths can have moved |
 | `qq tests unit town` | 55 s | a change to behaviour, before saying it works |
+| `qq tests device` | 3 s | touching a kernel or `runtime/` — the kernels on lavapipe, no GPU needed |
 | `qq tests all` | 1 m 25 s | touching the tick, the solver, a submit path — or before a commit |
 | `qq tests maps` | 25 s | **adding or retuning a shipped city** — never otherwise, and never as part of `all` |
 | `qq tests exam` | 10 s | **changing a right of way, a light or a crossing** — the scenario map card by card; every card passes, and it is never part of `all` |

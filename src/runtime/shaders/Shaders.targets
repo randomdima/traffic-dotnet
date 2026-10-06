@@ -4,9 +4,13 @@
        embedded so the shipped assembly has no shader files to find at run time.
 
        **One copy, imported by every head that draws with Vulkan** — the desktop's and the handset's.
-       The browser's takes WGSL and has nothing for glslc to do. -->
+       The browser's takes WGSL and has nothing for glslc to do.
+
+       **A tick's kernels live in the slice whose rules they are**, in its own kernels/ folder, and are
+       embedded by file name — so two slices never name a kernel alike. -->
   <ItemGroup>
     <ShaderSource Include="$(MSBuildThisFileDirectory)*.vert;$(MSBuildThisFileDirectory)*.frag;$(MSBuildThisFileDirectory)*.comp" />
+    <ShaderSource Include="$(MSBuildThisFileDirectory)../../**/kernels/*.comp" />
   </ItemGroup>
 
   <Target Name="CompileShaders" BeforeTargets="AssignTargetPaths"

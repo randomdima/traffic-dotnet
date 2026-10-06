@@ -61,7 +61,7 @@ internal sealed unsafe partial class Vk : IDisposable
 
     public Queue Queue { get; private set; }
 
-    /// <summary>One family for graphics and present both, which every desktop driver offers.</summary>
+    /// <summary>One family for graphics, compute and present, which every desktop driver offers.</summary>
     public uint QueueFamily { get; private set; }
 
     public KhrSurface SurfaceApi => _surfaceApi ?? throw new InvalidOperationException("Opened without a window, so there is no surface.");
@@ -91,7 +91,11 @@ internal sealed unsafe partial class Vk : IDisposable
     /// </summary>
     /// <param name="validation">The Khronos validation layer. Workshop only — it costs most of the
     /// frame rate, so a measured run never has it on.</param>
-    public static Vk Open(string appName, bool validation, IVkSurface? windowSurface = null)
+    /// <param name="deviceNamed">
+    /// Only a device whose name holds this, whatever else is installed — how the suite asks for lavapipe, the CPU's
+    /// own Vulkan, so a kernel is answered headless and the same on every machine.
+    /// </param>
+    public static Vk Open(string appName, bool validation, IVkSurface? windowSurface = null, string? deviceNamed = null)
     {
         var api = Silk.NET.Vulkan.Vk.GetApi();
 
@@ -148,12 +152,14 @@ internal sealed unsafe partial class Vk : IDisposable
                 surface = windowSurface.Create<AllocationCallbacks>(instance.ToHandle(), null).ToSurface();
             }
 
-            var (physical, name, apiVersion, family) = PickPhysicalDevice(api, instance, surfaceApi, surface);
+            var (physical, name, apiVersion, family) = PickPhysicalDevice(api, instance, surfaceApi, surface, deviceNamed);
             if (physical.Handle == 0)
             {
                 Count();
                 api.DestroyInstance(instance, null);
-                throw new InvalidOperationException("No Vulkan physical device: the loader answered, no driver did.");
+                throw new InvalidOperationException(deviceNamed is null
+                    ? "No Vulkan physical device: the loader answered, no driver did."
+                    : $"No Vulkan physical device named like '{deviceNamed}'.");
             }
 
             var vk = new Vk(api, instance, physical, name, apiVersion) { QueueFamily = family, _surfaceApi = surfaceApi, _surface = surface };
@@ -199,7 +205,11 @@ internal sealed unsafe partial class Vk : IDisposable
         _api.Dispose();
     }
     /// <summary>A buffer and the memory under it. Host-visible memory is mapped once and never unmapped.</summary>
-    public GpuBuffer CreateBuffer(ulong sizeBytes, BufferUsageFlags usage, bool hostVisible)
+    public GpuBuffer CreateBuffer(ulong sizeBytes, BufferUsageFlags usage, bool hostVisible) =>
+        CreateBuffer(sizeBytes, usage, hostVisible ? HostAccess.Writes : HostAccess.None);
+
+    /// <inheritdoc cref="CreateBuffer(ulong, BufferUsageFlags, bool)"/>
+    public GpuBuffer CreateBuffer(ulong sizeBytes, BufferUsageFlags usage, HostAccess host)
     {
         var info = new BufferCreateInfo
         {
@@ -215,14 +225,21 @@ internal sealed unsafe partial class Vk : IDisposable
         Count();
         _api.GetBufferMemoryRequirements(_device, buffer, out var requirements);
 
-        var wanted = hostVisible
-            ? MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit
-            : MemoryPropertyFlags.DeviceLocalBit;
+        const MemoryPropertyFlags Mapped = MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit;
+
+        // Read back, uncached memory is a bus read per word; cached is a copy the CPU reads at its own speed.
+        var type = host switch
+        {
+            HostAccess.None => MemoryTypeIndex(requirements.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit),
+            HostAccess.Writes => MemoryTypeIndex(requirements.MemoryTypeBits, Mapped),
+            _ => TryMemoryTypeIndex(requirements.MemoryTypeBits, Mapped | MemoryPropertyFlags.HostCachedBit)
+                 ?? MemoryTypeIndex(requirements.MemoryTypeBits, Mapped),
+        };
         var allocation = new MemoryAllocateInfo
         {
             SType = StructureType.MemoryAllocateInfo,
             AllocationSize = requirements.Size,
-            MemoryTypeIndex = MemoryTypeIndex(requirements.MemoryTypeBits, wanted),
+            MemoryTypeIndex = type,
         };
 
         Count();
@@ -232,7 +249,7 @@ internal sealed unsafe partial class Vk : IDisposable
         Check(_api.BindBufferMemory(_device, buffer, memory, 0), "vkBindBufferMemory");
 
         void* mapped = null;
-        if (hostVisible)
+        if (host != HostAccess.None)
         {
             Count();
             Check(_api.MapMemory(_device, memory, 0, requirements.Size, 0, &mapped), "vkMapMemory");
@@ -293,6 +310,38 @@ internal sealed unsafe partial class Vk : IDisposable
         _api.FreeCommandBuffers(_device, Pool(), 1, &commands);
     }
 
+    /// <summary>
+    /// <b>Everything written before it, visible to what reads after it</b>: one global memory barrier, which is all a
+    /// queue of kernels over whole buffers needs between one pass and the next.
+    /// </summary>
+    public void Barrier(
+        CommandBuffer commands, PipelineStageFlags2 writtenAt, AccessFlags2 writtenBy, PipelineStageFlags2 readAt, AccessFlags2 readBy)
+    {
+        var barrier = new MemoryBarrier2
+        {
+            SType = StructureType.MemoryBarrier2,
+            SrcStageMask = writtenAt,
+            SrcAccessMask = writtenBy,
+            DstStageMask = readAt,
+            DstAccessMask = readBy,
+        };
+        var dependency = new DependencyInfo
+        {
+            SType = StructureType.DependencyInfo,
+            MemoryBarrierCount = 1,
+            PMemoryBarriers = &barrier,
+        };
+        Count();
+        _api.CmdPipelineBarrier2(commands, &dependency);
+    }
+
+    /// <summary>One kernel's writes made visible to the next kernel's reads and writes.</summary>
+    public void BetweenKernels(CommandBuffer commands) =>
+        Barrier(
+            commands, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageWriteBit,
+            PipelineStageFlags2.ComputeShaderBit | PipelineStageFlags2.DrawIndirectBit,
+            AccessFlags2.ShaderStorageReadBit | AccessFlags2.ShaderStorageWriteBit | AccessFlags2.IndirectCommandReadBit);
+
     public CommandBuffer[] AllocateCommandBuffers(int count)
     {
         var allocate = new CommandBufferAllocateInfo
@@ -336,7 +385,11 @@ internal sealed unsafe partial class Vk : IDisposable
         }
     }
 
-    public uint MemoryTypeIndex(uint allowed, MemoryPropertyFlags wanted)
+    public uint MemoryTypeIndex(uint allowed, MemoryPropertyFlags wanted) =>
+        TryMemoryTypeIndex(allowed, wanted)
+        ?? throw new InvalidOperationException($"No memory type is both usable by this resource and {wanted}.");
+
+    uint? TryMemoryTypeIndex(uint allowed, MemoryPropertyFlags wanted)
     {
         Count();
         _api.GetPhysicalDeviceMemoryProperties(Physical, out var properties);
@@ -346,7 +399,7 @@ internal sealed unsafe partial class Vk : IDisposable
             if (usable && (properties.MemoryTypes[type].PropertyFlags & wanted) == wanted) return (uint)type;
         }
 
-        throw new InvalidOperationException($"No memory type is both usable by this resource and {wanted}.");
+        return null;
     }
 
     public CommandPool Pool()
@@ -443,7 +496,7 @@ internal sealed unsafe partial class Vk : IDisposable
     }
 
     static (PhysicalDevice Device, string Name, uint ApiVersion, uint QueueFamily) PickPhysicalDevice(
-        Silk.NET.Vulkan.Vk api, Instance instance, KhrSurface? surfaceApi, SurfaceKHR surface)
+        Silk.NET.Vulkan.Vk api, Instance instance, KhrSurface? surfaceApi, SurfaceKHR surface, string? named)
     {
         uint count = 0;
         Count();
@@ -471,11 +524,14 @@ internal sealed unsafe partial class Vk : IDisposable
             PhysicalDeviceProperties props;
             Count();
             api.GetPhysicalDeviceProperties(device, &props);
+            var name = Marshal.PtrToStringUTF8((nint)props.DeviceName) ?? "unnamed";
+            if (named is not null && !name.Contains(named, StringComparison.OrdinalIgnoreCase)) continue;
+
             var isDiscrete = props.DeviceType == PhysicalDeviceType.DiscreteGpu;
             if (best.Handle != 0 && !(isDiscrete && !bestIsDiscrete)) continue;
 
             best = device;
-            bestName = Marshal.PtrToStringUTF8((nint)props.DeviceName) ?? "unnamed";
+            bestName = name;
             bestApi = props.ApiVersion;
             bestFamily = family.Value;
             bestIsDiscrete = isDiscrete;
@@ -484,9 +540,13 @@ internal sealed unsafe partial class Vk : IDisposable
         return (best, bestName, bestApi, bestFamily);
     }
 
-    /// <summary>One family that can draw and, where there is a surface, present to it.</summary>
+    /// <summary>
+    /// One family that can draw, run the tick's kernels and, where there is a surface, present to it — so the tick
+    /// rides the frame's one submit on the frame's one queue.
+    /// </summary>
     static uint? PickQueueFamily(Silk.NET.Vulkan.Vk api, PhysicalDevice device, KhrSurface? surfaceApi, SurfaceKHR surface)
     {
+        const QueueFlags Wanted = QueueFlags.GraphicsBit | QueueFlags.ComputeBit;
         uint count = 0;
         Count();
         api.GetPhysicalDeviceQueueFamilyProperties(device, ref count, null);
@@ -499,7 +559,7 @@ internal sealed unsafe partial class Vk : IDisposable
 
         for (var family = 0u; family < count; family++)
         {
-            if ((families[family].QueueFlags & QueueFlags.GraphicsBit) == 0) continue;
+            if ((families[family].QueueFlags & Wanted) != Wanted) continue;
             if (surfaceApi is null) return family;
 
             Count();

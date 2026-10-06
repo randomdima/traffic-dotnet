@@ -18,10 +18,17 @@ this is the layer that gets it there.
 - **A re-recording renderer is the failure mode**, not a slower version of the same thing. It is what the
   gate in `src/tests/gates/CrossingGateTests.cs` exists to catch.
 
+**The tick's kernels cross nothing of their own** (root log, 2026-10-06). A windowed tick is recorded into the
+frame's command buffer and goes with its one submit; a run with no frame steps a batch of ticks as one submit
+and one wait (`ComputeBatch`), so its count is per batch and never per tick or per body. A kernel's buffers are
+bound in a set written once (`ComputeKernel.Bind`), and which of two swapped buffers is current is a word a
+kernel reads, never a set rebound.
+
 ## What is embedded and what is found
 
 Shaders are compiled to SPIR-V **by the build** and embedded, so a missing compiler fails the build
-rather than the run and the shipped assembly has no shader files to find. The typeface is embedded for
+rather than the run and the shipped assembly has no shader files to find. **A kernel lives in the slice whose
+rules it is**, in that slice's `kernels/`, and is embedded by its file name. The typeface is embedded for
 the same reason, and is cut by a workshop tool and committed — **a tool's output, never a build step**.
 
 Everything else the run needs — the art and the `.json` figures — is found by walking up from wherever

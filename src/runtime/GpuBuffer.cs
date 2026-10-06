@@ -88,3 +88,16 @@ internal sealed unsafe class GpuBuffer : IDisposable
 
 /// <summary>The elements a staged upload writes, into memory the upload already owns.</summary>
 internal delegate void StagedFill<T>(Span<T> into) where T : unmanaged;
+
+/// <summary>What the CPU does with a buffer's memory, which decides the memory it is made of.</summary>
+internal enum HostAccess
+{
+    /// <summary>Nothing: device-local, and reached only by a copy or a kernel.</summary>
+    None,
+
+    /// <summary>Writes it, mapped and coherent — what a frame's instances and a tick's commands are written into.</summary>
+    Writes,
+
+    /// <summary>Reads it back, mapped and cached where the device has such memory — what an event ring is read out of.</summary>
+    Reads,
+}
