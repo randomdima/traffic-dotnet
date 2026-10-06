@@ -58,6 +58,7 @@ internal sealed partial class TownWorld
     /// </remarks>
     void RebuildLaneOccupancy()
     {
+        BeforeTheClaimsAreLaid?.Invoke(this);
         _occupancy.Begin();
 
         // Where every walker stands on its walk, before anything is laid: its body and its plan both begin

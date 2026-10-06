@@ -3,6 +3,7 @@ using TrafficSimulation.App.DeviceTick;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
+using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Statics;
 using TrafficSimulation.World.Town;
 using Vk = TrafficSimulation.Runtime.Vk;
@@ -32,12 +33,26 @@ internal static class DeviceClaimsProbe
         var claims = world.Occupancy;
         using var onDevice = new DeviceClaims(vk, claims.WayCount, claims.Capacity, claims.HoldCapacity, config.Road.MostSettlingPasses);
 
+        using var bodies = new DeviceBodies(vk, config, world);
+        var bodiesMs = new List<double>();
+        var bodiesDiffer = 0;
+        var bodiesLaid = 0;
+        world.BeforeTheClaimsAreLaid = town =>
+        {
+            bodies.Lay(town);
+            bodies.LayTheBodies(town.Cars.Count);
+            bodiesMs.Add(bodies.LaidMs);
+        };
+
         using var plans = new DevicePlans(vk, config, world);
         var planMs = new List<double>();
         var plansDiffer = 0;
         var carsPlanned = 0;
         world.BeforeThePlansAreLaid = town =>
         {
+            (var laid, var differ) = CompareTheBodies(town, bodies);
+            bodiesLaid += laid;
+            bodiesDiffer += differ;
             plans.Lay(town);
             plans.Plan(town.Cars.Count);
             planMs.Add(plans.LaidMs);
@@ -87,6 +102,7 @@ internal static class DeviceClaimsProbe
 
         var until = loop.Tick + MeasuredTicks;
         while (loop.Tick < until) loop.Advance();
+        world.BeforeTheClaimsAreLaid = null;
         world.BeforeThePlansAreLaid = null;
         world.BeforeThePlansAreAnswered = null;
         world.AfterThePlansAreAnswered = null;
@@ -99,6 +115,41 @@ internal static class DeviceClaimsProbe
         Console.WriteLine($"  writing the rows to send (shadow only) median {Median(layMs),8:F3} ms");
         Console.WriteLine($"  {differ} of {answered} plans answered differently");
         Console.WriteLine($"  cars' plans laid on the device median {Median(planMs),8:F3} ms; {plansDiffer} of {carsPlanned} reached or laid differently");
+        Console.WriteLine($"  cars' bodies laid on the device median {Median(bodiesMs),8:F3} ms; {bodiesDiffer} of {bodiesLaid} ways' car bodies laid differently");
+    }
+
+    /// <summary>
+    /// Way by way, the car bodies the device laid against the town's — how many ways carry any, and on how many the two
+    /// differ. A towed car's body grown into its truck's, or an officer's into its car's, differs by design here.
+    /// </summary>
+    static (int Ways, int Differ) CompareTheBodies(TownWorld town, DeviceBodies bodies)
+    {
+        var onDevice = new Dictionary<int, List<(int, float, float)>>();
+        for (var car = 0; car < town.Cars.Count; car++)
+        {
+            foreach (var row in bodies.RowsOf(car)) Listed(onDevice, (int)row.Way).Add((row.Occupant, row.FromM, row.ToM));
+        }
+
+        var claims = town.Occupancy;
+        var laid = new Dictionary<int, List<(int, float, float)>>();
+        for (var slot = 0; slot < claims.SlotCount; slot++)
+        {
+            ref readonly var claim = ref claims.Slots[slot];
+            if (!claim.HasBody || claim.Of != LaneRoster.Driving || claim.Passing || claims.SlotsGone[slot]) continue;
+
+            Listed(laid, claims.SlotWays[slot]).Add((claim.Occupant, claim.FromM, claim.ToM));
+        }
+
+        var differ = 0;
+        foreach (var (way, rows) in laid)
+        {
+            if (!rows.Order().SequenceEqual((onDevice.GetValueOrDefault(way) ?? []).Order())) differ++;
+        }
+
+        return (laid.Count, differ);
+
+        static List<(int, float, float)> Listed(Dictionary<int, List<(int, float, float)>> into, int way) =>
+            into.TryGetValue(way, out var rows) ? rows : into[way] = [];
     }
 
     static double Median(List<double> values)

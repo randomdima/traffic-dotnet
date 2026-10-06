@@ -1,0 +1,68 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every car's body laid onto the ways under it, one thread a car, each car's rows at its own stretch of the output
+// (car_bodies.glsl) — the laying asked on its own, which is how it is held to the host's.
+
+layout(local_size_x = 64) in;
+
+// The atlas's figures (DeviceAtlas.AskPush, bodyCount the cars), then the laying's own.
+layout(push_constant) uniform Figures
+{
+    uint bodyCount;
+    int cellsFromX;
+    int cellsFromY;
+    int cellsWidth;
+    int cellsHeight;
+    float perCellM;
+    float cellM;
+    int shift;
+    int mask;
+    int startShift;
+    int rowStartsShift;
+    int startsPerCell;
+    float metresPerOutside;
+    float alongPerMetre;
+    uint hasChannels;
+    uint firstConnector;
+    uint mostLanes;
+    uint groundChannel;
+} figures;
+
+#define ATLAS_FIGURES figures
+#define BODY_FIGURES figures
+#define ATLAS_BINDING 7
+#define LANE_CHAIN chain
+#define CAR_LINES lines
+#define CONNECTOR_AT connectorAt
+#define CONNECTOR_TO connectorTo
+
+#include "core/geometry/kernels/rounded.glsl"
+#include "world/road/kernels/atlas.glsl"
+#include "world/road/kernels/claims_rows.glsl"
+#include "agents/car/control/kernels/car_line.glsl"
+
+layout(std430, binding = 1) readonly buffer Lines { CarLineRow lines[]; };
+layout(std430, binding = 2) readonly buffer Chain { int chain[]; };
+layout(std430, binding = 3) readonly buffer ConnectorAt { uint connectorAt[]; };
+layout(std430, binding = 4) readonly buffer ConnectorTo { int connectorTo[]; };
+layout(std430, binding = 5) writeonly buffer Rows { ClaimRow rows[]; };
+layout(std430, binding = 6) writeonly buffer Counts { uvec4 counts[]; };
+
+#include "world/town/kernels/car_bodies.glsl"
+
+layout(std430, binding = 0) readonly buffer Cars { CarBodyRow cars[]; };
+
+void main()
+{
+    uint car = gl_GlobalInvocationID.x;
+    if (car >= figures.bodyCount) return;
+
+    ClaimRow laid[AtlasMostWaysUnderABody];
+    uint channels;
+    uint dropped;
+    int count = bodyLayTheCar(cars[car], laid, channels, dropped);
+    counts[car] = uvec4(uint(count), channels, dropped, 0u);
+    uint first = car * uint(AtlasMostWaysUnderABody);
+    for (int at = 0; at < count; at++) rows[first + uint(at)] = laid[at];
+}
