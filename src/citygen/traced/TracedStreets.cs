@@ -86,6 +86,13 @@ internal static partial class TracedStreets
         public float RoadsideM(bool withTheRoad) => withTheRoad ? RoadsideWithM : RoadsideAgainstM;
 
         /// <summary>
+        /// How far one lane stands off the road's line, toward the side its own traffic keeps, counted from its kerb —
+        /// as the plan lays it (<see cref="CityPlan.RoadArrays.LaneOffsetM"/>).
+        /// </summary>
+        public float LaneOffsetM(int fromKerb, bool withTheRoad) =>
+            (WidthM * 0.5f) - RoadsideM(withTheRoad) - ((fromKerb + 0.5f) * LanesWidthM / (Lanes.With + Lanes.Against));
+
+        /// <summary>
         /// The same carriageway as though it had been measured that much wider at one kerb, which it holds as a roadside
         /// there (<see cref="Survey"/>): its middle where it was, so its lanes stand off it as a roadside sets them.
         /// </summary>
@@ -145,17 +152,17 @@ internal static partial class TracedStreets
         Evened(roads, centreM, config);
         JoinedThrough(roads, centreM.Count);
         roads = CutShort(roads, centreM, config.CityGen.TracedRoadLongestM);
-        var gathered = Gathered(survey, roads, centreM, junctionOf, config.CityGen.TracedJunctionsMergedM);
+        var gathered = Gathered(survey, roads, centreM, junctionOf, config);
 
         var runsOff = RunsOff(survey, roads, pointOf, centreM.Count);
-        var standoffM = Standoffs(roads, centreM, runsOff, config);
+        var standoffM = Standoffs(roads, centreM, runsOff, gathered.Into, config);
         var merging = new Merging[roads.Count];
         var roadOf = new List<int>(roads.Count);
         for (var road = 0; road < roads.Count; road++)
         {
             if (roads[road].Gone) continue;
 
-            var line = Line(roads[road], centreM, standoffM, new Vector2(survey.WidthM, survey.HeightM), config);
+            var line = Line(roads[road], centreM, standoffM.FromM[road], standoffM.ToM[road], new Vector2(survey.WidthM, survey.HeightM), config);
             if (line is null)
             {
                 roads[road].Gone = true;
@@ -239,14 +246,21 @@ internal static partial class TracedStreets
     }
 
     /// <summary>
-    /// <b>How far off each junction's centre its lanes end</b> (TER-5d): the town's own standoff, stood out by
-    /// however much wider than a street of one lane each way its widest arm is (<see cref="SimConfig.JunctionRadiusAcrossM"/>)
-    /// — and never past the middle of the way to its nearest neighbour, less the shortest road a traced map lays
-    /// (<see cref="CityGenFigures.TracedShortestRoadM"/>), so a road the survey drew between two places close
-    /// together is a short road and never lost. <b>None where a road runs off the map</b>, so its lanes run up to the
-    /// map's edge.
+    /// <b>How far off its junction's centre each road's lanes end, at each of its two ends</b> (TER-5d): the town's own
+    /// standoff, stood out by however much wider than a street of one lane each way the junction's widest arm is
+    /// (<see cref="SimConfig.JunctionRadiusAcrossM"/>) — <b>and a road's own end never past the middle of the way to the
+    /// junction at its other end</b>, less the shortest road a traced map lays (<see cref="CityGenFigures.TracedShortestRoadM"/>),
+    /// so a road the survey drew between two places close together is a short road and never lost. <b>None where a road
+    /// runs off the map</b>, so its lanes run up to the map's edge.
     /// </summary>
-    static float[] Standoffs(List<Road> roads, List<Vector2> centreM, bool[] runsOff, SimConfig config)
+    /// <remarks>
+    /// <b>A short road squeezes its own ends and not its junctions' other arms</b>, which end no more than
+    /// <see cref="CityGenFigures.TracedArmEndsApartM"/> further back than the shortest end there. Squeezed with it, a
+    /// crossing a way runs a few metres past before it changes has every arm run into its middle, and every turn across
+    /// it winds round to come back to where its two lanes' lines cross.
+    /// </remarks>
+    /// <param name="into">The junction each is laid as (<see cref="Gathered"/>), which is where its roads turn onto each other.</param>
+    static (float[] FromM, float[] ToM) Standoffs(List<Road> roads, List<Vector2> centreM, bool[] runsOff, int[] into, SimConfig config)
     {
         var widestM = new float[centreM.Count];
         foreach (var road in roads)
@@ -258,22 +272,144 @@ internal static partial class TracedStreets
             widestM[road.To] = MathF.Max(widestM[road.To], widthM);
         }
 
-        var standoffM = new float[centreM.Count];
-        for (var junction = 0; junction < standoffM.Length; junction++)
+        var askedM = new float[centreM.Count];
+        for (var junction = 0; junction < askedM.Length; junction++)
         {
-            standoffM[junction] = runsOff[junction] ? 0f : config.JunctionRadiusAcrossM(widestM[junction]);
+            askedM[junction] = runsOff[junction] ? 0f : config.JunctionRadiusAcrossM(widestM[junction]);
         }
 
-        foreach (var road in roads)
+        var roomM = new float[roads.Count];
+        var shortestM = (float[])askedM.Clone();
+        for (var road = 0; road < roads.Count; road++)
         {
-            if (road.Gone) continue;
+            if (roads[road].Gone) continue;
 
-            var roomM = MathF.Max(0f, (Vector2.Distance(centreM[road.From], centreM[road.To]) - config.CityGen.TracedShortestRoadM) * 0.5f);
-            standoffM[road.From] = MathF.Min(standoffM[road.From], roomM);
-            standoffM[road.To] = MathF.Min(standoffM[road.To], roomM);
+            var (from, to) = (roads[road].From, roads[road].To);
+            roomM[road] = MathF.Max(0f, (Vector2.Distance(centreM[from], centreM[to]) - config.CityGen.TracedShortestRoadM) * 0.5f);
+            shortestM[from] = MathF.Min(shortestM[from], roomM[road]);
+            shortestM[to] = MathF.Min(shortestM[to], roomM[road]);
         }
 
-        return standoffM;
+        var fromM = new float[roads.Count];
+        var toM = new float[roads.Count];
+        for (var road = 0; road < roads.Count; road++)
+        {
+            if (roads[road].Gone) continue;
+
+            fromM[road] = EndM(roads[road].From, roomM[road]);
+            toM[road] = EndM(roads[road].To, roomM[road]);
+        }
+
+        RoomToTurn(roads, centreM, into, fromM, toM, roomM, config);
+        return (fromM, toM);
+
+        float EndM(int junction, float roomM) =>
+            MathF.Min(MathF.Min(askedM[junction], roomM), shortestM[junction] + config.CityGen.TracedArmEndsApartM);
+    }
+
+    /// <summary>
+    /// <b>Each road's end stood back as far as the turns off and onto it need to begin</b> (TER-5d.2): a turn is made on
+    /// <see cref="SimConfig.JunctionTurnRoomM"/> at the corner its two lanes' lines make, so the lane in has to end that
+    /// circle's tangent short of the corner and the lane out begin as far past it — the near side's from the kerb lane
+    /// onto the kerb lane and the far side's from the lane beside the line onto the lane beside the line, which are the
+    /// two whose corner comes nearest each end. An end standing nearer is moved back, but never past its road's
+    /// <paramref name="roomM"/>, so the road between two junctions is still laid.
+    /// </summary>
+    /// <remarks>
+    /// <b>Moved back rather than swung out</b>: a turn with too little room to its corner reaches its circle by first
+    /// swinging the other way, over the lanes beside it, and started sooner it needs no swing. Where two lanes' lines
+    /// cross does not depend on where either lane ends, so how far an end moves is the tangent less what it has. Straight
+    /// on asks nothing of it, nor does a turn within the straight-on tolerance of turning back, which has no corner.
+    /// </remarks>
+    static void RoomToTurn(
+        List<Road> roads, List<Vector2> centreM, int[] into, float[] fromM, float[] toM, float[] roomM, SimConfig config)
+    {
+        var ends = new Dictionary<int, List<ArmEnd>>();
+        for (var road = 0; road < roads.Count; road++)
+        {
+            if (roads[road].Gone) continue;
+
+            foreach (var atTo in (ReadOnlySpan<bool>)[false, true])
+            {
+                if (ArmEnd.Of(roads[road], road, atTo, atTo ? toM[road] : fromM[road], centreM) is not { } end) continue;
+
+                var laidAs = into[atTo ? roads[road].To : roads[road].From];
+                if (!ends.TryGetValue(laidAs, out var list)) ends[laidAs] = list = [];
+                list.Add(end);
+            }
+        }
+
+        var straightRad = config.Road.TurnStraightToleranceDeg * MathF.PI / 180f;
+        var neededFromM = (float[])fromM.Clone();
+        var neededToM = (float[])toM.Clone();
+        foreach (var arms in ends.Values)
+        {
+            foreach (var arriving in arms)
+            {
+                foreach (var leaving in arms)
+                {
+                    if (arriving.Road == leaving.Road || arriving.Lanes(arriving: true) == 0 || leaving.Lanes(arriving: false) == 0) continue;
+
+                    var inRad = MathF.Atan2(-arriving.OutM.Y, -arriving.OutM.X);
+                    var outRad = MathF.Atan2(leaving.OutM.Y, leaving.OutM.X);
+                    var turnRad = Spline.WrapRad(outRad - inRad);
+                    if (MathF.Abs(turnRad) <= straightRad || MathF.Abs(turnRad) >= MathF.PI - straightRad) continue;
+
+                    var nearSide = MathF.Sign(turnRad) == MathF.Sign(config.RoadSideSign);
+                    var inM = arriving.LaneEndM(arriving: true, nearSide, config.RoadSideSign);
+                    var outM = leaving.LaneEndM(arriving: false, nearSide, config.RoadSideSign);
+                    if (!Spline.ToTheCorner(inM, inRad, outM, outRad, out _, out var beforeM, out var afterM)) continue;
+
+                    var tangentM = config.JunctionTurnRoomM * MathF.Tan(MathF.Abs(turnRad) * 0.5f);
+                    Needs(arriving, arriving.StandoffM + tangentM - beforeM);
+                    Needs(leaving, leaving.StandoffM + tangentM - afterM);
+                }
+            }
+        }
+
+        for (var road = 0; road < roads.Count; road++)
+        {
+            fromM[road] = MathF.Max(fromM[road], MathF.Min(neededFromM[road], roomM[road]));
+            toM[road] = MathF.Max(toM[road], MathF.Min(neededToM[road], roomM[road]));
+        }
+
+        void Needs(ArmEnd end, float standoffM)
+        {
+            var needed = end.AtTo ? neededToM : neededFromM;
+            needed[end.Road] = MathF.Max(needed[end.Road], standoffM);
+        }
+    }
+
+    /// <summary>
+    /// One road's end at a junction, read where its line leaves the disc it stands off: which way the road runs out from
+    /// there, and the place its line stands.
+    /// </summary>
+    readonly record struct ArmEnd(int Road, bool AtTo, float StandoffM, Vector2 LineM, Vector2 OutM, Carriage Carriage)
+    {
+        /// <summary>How many of its lanes arrive at the junction, or leave it.</summary>
+        public int Lanes(bool arriving) => arriving == AtTo ? Carriage.Lanes.With : Carriage.Lanes.Against;
+
+        /// <summary>
+        /// Where the lane a turn to one side is made from ends, or the lane it is made onto begins: the kerb lane for the
+        /// near side and the lane beside the line for the far.
+        /// </summary>
+        public Vector2 LaneEndM(bool arriving, bool nearSide, float roadSideSign)
+        {
+            var headingM = arriving ? -OutM : OutM;
+            var fromKerb = nearSide ? 0 : Lanes(arriving) - 1;
+            return LineM + (Heading.RightOf(headingM) * roadSideSign * Carriage.LaneOffsetM(fromKerb, withTheRoad: arriving == AtTo));
+        }
+
+        /// <summary>The end, or none where the road never leaves its junction's disc.</summary>
+        public static ArmEnd? Of(Road road, int index, bool atTo, float standoffM, List<Vector2> centreM)
+        {
+            var (leg, atM) = Leaving(road.PointsM, centreM[atTo ? road.To : road.From], standoffM, forward: !atTo);
+            if (leg < 0) return null;
+
+            var runM = Vector2.Normalize(road.PointsM[leg + 1] - road.PointsM[leg]);
+            var outM = atTo ? -runM : runM;
+            return new ArmEnd(index, atTo, standoffM, atM + (Heading.RightOf(runM) * road.Carriage.CentreOffsetM), outM, road.Carriage);
+        }
     }
 
     /// <summary>
@@ -633,8 +769,8 @@ internal static partial class TracedStreets
     }
 
     /// <summary>
-    /// <b>One road's line</b>: the survey's own line from where it leaves its junction's disc — the junction's
-    /// own standoff about its centre (<see cref="Standoffs"/>, TER-5d) — to where it enters the other's,
+    /// <b>One road's line</b>: the survey's own line from where it leaves its junction's disc — its own end's
+    /// standoff about the junction's centre (<see cref="Standoffs"/>, TER-5d) — to where it enters the other's,
     /// normalised (<see cref="TracedAlignment"/>) and moved across to its carriageway's middle where OSM places the
     /// way off it, with every corner rounded only as tight as its own carriageway allows — and that line merged into
     /// the fewest pieces that keep it each way it may be (<see cref="TracedPieces"/>), the wider the road the more
@@ -657,11 +793,11 @@ internal static partial class TracedStreets
     /// </para>
     /// </remarks>
     /// <returns>The line and the ways it may be merged, or nothing where the road has no line.</returns>
-    static Merging? Line(Road road, List<Vector2> centreM, float[] standoffM, Vector2 mapM, SimConfig config)
+    static Merging? Line(Road road, List<Vector2> centreM, float fromStandoffM, float toStandoffM, Vector2 mapM, SimConfig config)
     {
         var pointsM = road.PointsM;
-        var (leavesOn, startM) = Leaving(pointsM, centreM[road.From], standoffM[road.From], forward: true);
-        var (entersOn, endM) = Leaving(pointsM, centreM[road.To], standoffM[road.To], forward: false);
+        var (leavesOn, startM) = Leaving(pointsM, centreM[road.From], fromStandoffM, forward: true);
+        var (entersOn, endM) = Leaving(pointsM, centreM[road.To], toStandoffM, forward: false);
         if (leavesOn < 0 || entersOn < leavesOn) return null;
 
         var through = new List<Vector2>(entersOn - leavesOn);
@@ -880,7 +1016,7 @@ internal static partial class TracedStreets
     /// <param name="gathered">What <see cref="Gathered"/> made of the junctions standing close together.</param>
     static Laid Arrays(
         Survey survey, int[] junctionOf, SimConfig config, List<Road> roads, ArcSeg[][] lines, Vector2[][] through,
-        List<Vector2> centreM, float[] standoffM, bool[] runsOff, SharedLaid shared,
+        List<Vector2> centreM, (float[] FromM, float[] ToM) standoffM, bool[] runsOff, SharedLaid shared,
         (int[] Into, List<Unmade> Unmade, HashSet<OsmTurnRestriction> Absorbed, GatheredLaid Tally) gathered)
     {
         var keepsRight = config.Road.TrafficKeepsRight;
@@ -978,25 +1114,20 @@ internal static partial class TracedStreets
     }
 
     /// <summary>
-    /// How far each junction's box reaches from where it stands: its own disc, or for one gathered from several
-    /// (<see cref="Gathered"/>) the furthest any of their discs a road leaves reaches.
+    /// How far each junction's box reaches from where it stands: the furthest any road's lanes end off it — off the
+    /// place each was surveyed to, for one gathered from several (<see cref="Gathered"/>).
     /// </summary>
-    static float[] Boxes(List<Road> roads, int[] into, List<Vector2> centreM, float[] standoffM)
+    static float[] Boxes(List<Road> roads, int[] into, List<Vector2> centreM, (float[] FromM, float[] ToM) standoffM)
     {
-        var boxM = (float[])standoffM.Clone();
-        for (var junction = 0; junction < into.Length; junction++)
+        var boxM = new float[centreM.Count];
+        for (var road = 0; road < roads.Count; road++)
         {
-            if (into[junction] != junction) boxM[into[junction]] = 0f;
-        }
+            if (roads[road].Gone) continue;
 
-        foreach (var road in roads)
-        {
-            if (road.Gone) continue;
-
-            foreach (var junction in (ReadOnlySpan<int>)[road.From, road.To])
+            foreach (var (junction, endM) in (ReadOnlySpan<(int, float)>)[(roads[road].From, standoffM.FromM[road]), (roads[road].To, standoffM.ToM[road])])
             {
                 var laidAs = into[junction];
-                if (laidAs != junction) boxM[laidAs] = MathF.Max(boxM[laidAs], Vector2.Distance(centreM[junction], centreM[laidAs]) + standoffM[junction]);
+                boxM[laidAs] = MathF.Max(boxM[laidAs], Vector2.Distance(centreM[junction], centreM[laidAs]) + endM);
             }
         }
 

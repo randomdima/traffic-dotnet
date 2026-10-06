@@ -46,7 +46,7 @@ internal static class LoadProbe
             $"{plan.Crosswalks.Count} zebras of its own, {plan.Bridges.Count} bridges " +
             $"({plan.Roads.Level.Count(level => level != CityPlan.RoadArrays.Ground)} on the level above), " +
             $"{plan.Roundabouts.Count} roundabouts, " +
-            $"{plan.Props.Count} props, {plan.Buildings.Count} buildings");
+            $"{plan.Props.Count} props and {plan.Scenery.Count} of scenery, {plan.Buildings.Count} buildings");
         foreach (var (stage, ms) in plan.LaidMs) Say($"  {stage}", ms, string.Empty);
         Console.WriteLine($"  {"digest",-12}{Digest(plan):x16}   the plan's shapes, equal across processes and builds");
         // The paving's rings and its merge are laid on first asking, by whichever of the town and the ground asks first,
@@ -136,6 +136,7 @@ internal static class LoadProbe
         Fold(ref hash, plan.Buildings.CentreM);
         Fold(ref hash, plan.Buildings.HeadingRad);
         Fold(ref hash, plan.Props.CentreM);
+        Fold(ref hash, plan.Scenery.CentreM);
         Fold(ref hash, plan.Spawns.PositionM);
         return hash;
     }

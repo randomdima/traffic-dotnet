@@ -20,7 +20,7 @@
 import * as opening from './loading.js'
 
 const SLOT = { ground: 0, indices: 1, sprites: 2, overlay: 3, underlay: 4, camera: 5, table: 6 };
-const TEXTURE = { pages: 0, glyphs: 1, tread: 2, surfaces: 3 };
+const TEXTURE = { pages: 0, glyphs: 1, surfaces: 2 };
 
 // Draws in painter's order, at their offsets in the indirect buffer. The ground is indexed and so is
 // five words; the other three are four.
@@ -137,12 +137,12 @@ function buildLayout() {
         { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { viewDimension: '2d-array' } },
     ];
 
-    for (let binding = 3; binding <= 9; binding++) {
+    for (let binding = 3; binding <= 8; binding++) {
         entries.push({ binding, visibility: GPUShaderStage.FRAGMENT, texture: {} });
     }
 
+    entries.push({ binding: 9, visibility: GPUShaderStage.FRAGMENT, sampler: {} });
     entries.push({ binding: 10, visibility: GPUShaderStage.FRAGMENT, sampler: {} });
-    entries.push({ binding: 11, visibility: GPUShaderStage.FRAGMENT, sampler: {} });
     state.layout = state.device.createBindGroupLayout({ entries, label: 'town' });
 }
 
@@ -276,15 +276,14 @@ function rebuild(indexCount) {
         { binding: 1, resource: { buffer: state.buffers[SLOT.table] } },
         { binding: 2, resource: state.textures[TEXTURE.pages].createView({ dimension: '2d-array' }) },
         { binding: 3, resource: state.textures[TEXTURE.glyphs].createView() },
-        { binding: 4, resource: state.textures[TEXTURE.tread].createView() },
     ];
 
     for (let surface = 0; surface < 5; surface++) {
-        entries.push({ binding: 5 + surface, resource: state.textures[TEXTURE.surfaces + surface].createView() });
+        entries.push({ binding: 4 + surface, resource: state.textures[TEXTURE.surfaces + surface].createView() });
     }
 
-    entries.push({ binding: 10, resource: state.samplers.clamped });
-    entries.push({ binding: 11, resource: state.samplers.repeated });
+    entries.push({ binding: 9, resource: state.samplers.clamped });
+    entries.push({ binding: 10, resource: state.samplers.repeated });
     const group = state.device.createBindGroup({ layout: state.layout, entries });
 
     const pass = state.device.createRenderBundleEncoder({ colorFormats: [state.format] });

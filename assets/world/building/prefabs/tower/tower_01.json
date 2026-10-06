@@ -1,5 +1,6 @@
 {
   "id": "tower_01",
+  "sprite": "tower_01.webp",
   "footprintM": [
     8.5,
     6.5

@@ -24,7 +24,7 @@ namespace TrafficSimulation.CityGen;
 /// the roadside's edge on the heading it ran on and meets the next road's kerb on that one's.
 /// </para>
 /// <para>
-/// <b>Where the kerb runs straight on it runs beside the movement the lane beside it does</b>, and not straight: a
+/// <b>Where the kerb or the lane beside it runs straight on, it runs beside the movement that lane makes</b>, and not straight: a
 /// straight piece laid beside a movement that bends by a degree runs a hair off that movement's edge for metres,
 /// two edges a merge at a town's own scale cannot tell into one or two (<see cref="BandShell"/>). Laid off the
 /// movement, its edge is the movement's own, as along its road it is the lane's.
@@ -77,8 +77,8 @@ internal sealed class RoadsideLanes
     /// </summary>
     public readonly record struct Taper(ArcSeg[] Line, float WidthM, byte Level);
 
-    /// <summary>The most pieces a movement is drawn in (<see cref="LaneLines"/>): a biarc and the joint between its halves.</summary>
-    const int MovementPieces = 3;
+    /// <summary>The most pieces a movement is drawn in (<see cref="LaneLines"/>).</summary>
+    const int MovementPieces = Spline.MostMovementArcs;
 
     readonly CityPlan.RoadArrays _roads;
     readonly CityPlan.JunctionArrays _junctions;
@@ -204,9 +204,10 @@ internal sealed class RoadsideLanes
     /// <summary>
     /// <b>How one roadside runs on into the box at one end of its road</b>, as the pieces it takes there, run the lane's
     /// own way: on beside the movement the lane beside it makes where the kerb runs straight on to the next arm round
-    /// (<see cref="AlongTheMovement"/>), and otherwise straight on, the way the road points where it meets the box, to
-    /// where its kerb meets that arm's (<see cref="KerbsMeetM"/>) — none where that corner stands out along the road
-    /// already, the two carriageways overlapping that far.
+    /// (<see cref="AlongTheMovement"/>), and otherwise on to where its kerb meets that arm's (<see cref="KerbsMeetM"/>):
+    /// beside the movement the lane beside it makes straight across the box where it makes one
+    /// (<see cref="BesideTheWayAcross"/>), and straight on, the way the road points where it meets the box, where not —
+    /// none where that corner stands out along the road already, the two carriageways overlapping that far.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -277,6 +278,9 @@ internal sealed class RoadsideLanes
         var reachM = endM - KerbsMeetM(arm, arms[next], nextRad, side, middleM);
         if (reachM <= 0f) return 0;
 
+        var across = BesideTheWayAcross(road, withTheRoad, junction, arms, own, arriving, atM, reachM, stripM, into);
+        if (across > 0) return across;
+
         var way = Heading.Unit(headingRad);
         into[0] = new ArcSeg(arriving ? atM : atM - (way * reachM), headingRad, reachM, 0f);
         return 1;
@@ -304,8 +308,65 @@ internal sealed class RoadsideLanes
             ? Spline.SubChainInto(movement, 0f, halfM, _half)
             : Spline.SubChainInto(movement, halfM, lengthM, _half);
 
-        // Out to the strip's middle, on whichever hand of the movement the strip stands where it meets this road.
-        var meets = Spline.SampleAt(movement, leavesMine ? 0f : lengthM);
+        return OffTheMovement(movement, leavesMine, mine, arriving, atM, stripM, pieces, into);
+    }
+
+    /// <summary>
+    /// <b>The roadside run as far into the box as its kerb reaches, beside the movement the lane beside it makes onto the
+    /// arm straight across</b> — or −1 where that lane is joined to no arm straight across, and the reach is run straight.
+    /// </summary>
+    /// <remarks>
+    /// <b>The kerb turns to the next arm round, but the lane beside it carries straight on.</b> Laid along the road's own
+    /// line, the reach runs beside a movement that bends by a degree to meet an arm a degree off straight, and the slit
+    /// between the two widens over the box to a hand's breadth: wider than two bands touching and narrower than the weld
+    /// a merge strings its rings at (<see cref="BandShell"/>), so a turn crossing it left the town's outline open.
+    /// </remarks>
+    int BesideTheWayAcross(
+        int road, bool withTheRoad, int junction, ReadOnlySpan<ArmEnd> arms, int own, bool arriving, Vector2 atM,
+        float reachM, float stripM, Span<ArcSeg> into)
+    {
+        var mine = Beside(road, withTheRoad);
+        if (mine < 0) return -1;
+
+        var leavesMine = _joined.LaneToJunction[mine] == junction;
+        var straightAcross = -MathF.Cos(_straightRad);
+        for (var other = 0; other < arms.Length; other++)
+        {
+            if (other == own || arms[other].Level != arms[own].Level) continue;
+            if (Vector2.Dot(arms[own].Out, arms[other].Out) > straightAcross) continue;
+
+            var first = _joined.FirstLaneOf[arms[other].Road];
+            var lanes = _roads.LanesWithTheRoad(arms[other].Road) + _roads.LanesAgainstTheRoad(arms[other].Road);
+            for (var lane = first; first >= 0 && lane < first + lanes; lane++)
+            {
+                var (from, to) = leavesMine ? (mine, lane) : (lane, mine);
+                if (_joined.LaneToJunction[from] != junction || _joined.LaneFromJunction[to] != junction) continue;
+                if (!_joined.Between(from, to, out var movement) || movement.IsEmpty) continue;
+
+                var lengthM = Spline.TotalLengthM(movement);
+                var runM = ShortOfAJointM(movement, MathF.Min(reachM, lengthM), leavesMine);
+                var pieces = leavesMine
+                    ? Spline.SubChainInto(movement, 0f, runM, _half)
+                    : Spline.SubChainInto(movement, lengthM - runM, lengthM, _half);
+
+                return OffTheMovement(movement, leavesMine, mine, arriving, atM, stripM, pieces, into);
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// <b>A stretch of a movement moved out to the strip's middle</b> (<see cref="_half"/>, <paramref name="pieces"/> of
+    /// it) and run the lane's own way, on whichever hand of the movement the strip stands where it meets this road — or
+    /// −1 where it bends tighter than a kerb is laid.
+    /// </summary>
+    /// <param name="leavesMine">Whether the movement leaves the lane beside the roadside rather than arriving on it.</param>
+    int OffTheMovement(
+        ReadOnlySpan<ArcSeg> movement, bool leavesMine, int mine, bool arriving, Vector2 atM, float stripM, int pieces,
+        Span<ArcSeg> into)
+    {
+        var meets = Spline.SampleAt(movement, leavesMine ? 0f : Spline.TotalLengthM(movement));
         var outM = (_joined.LaneWidthM[mine] + stripM) * 0.5f;
         Spline.OffsetInto(_half.AsSpan(0, pieces), Vector2.Dot(atM - meets.PositionM, meets.Right) < 0f ? -outM : outM, _beside);
 
@@ -324,6 +385,25 @@ internal sealed class RoadsideLanes
         else Spline.ReverseInto(_beside.AsSpan(0, pieces), into);
 
         return pieces;
+    }
+
+    /// <summary>
+    /// <b>How far along a movement a stretch of it from one end is taken</b>: as far as asked, or back to the joint
+    /// behind where that lands within a weld past it (<see cref="ArcRings.WeldM"/>) — the same piece a few centimetres
+    /// long that a stretch cut near a joint is left with (<see cref="Halfway"/>).
+    /// </summary>
+    /// <param name="fromStart">Whether the stretch is taken from the movement's start rather than back from its end.</param>
+    static float ShortOfAJointM(ReadOnlySpan<ArcSeg> movement, float runM, bool fromStart)
+    {
+        var jointM = 0f;
+        for (var piece = 0; piece + 1 < movement.Length; piece++)
+        {
+            jointM += movement[fromStart ? piece : movement.Length - 1 - piece].LengthM;
+            if (jointM >= runM) break;
+            if (runM - jointM < ArcRings.WeldM) return jointM;
+        }
+
+        return runM;
     }
 
     /// <summary>

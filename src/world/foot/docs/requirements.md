@@ -77,9 +77,9 @@ meet, `Road.FootNodeClearM` out along the road past the further of the street's 
 the carriageway's edge on that kerb's side to its other edge; the band runs between those two points.
 **Where a walk crosses is the whole of the placement** — an end the kerb ends put no station at asks for no
 paint, which is what leaves a bay, a roundabout's ring and every end at a bend or a dead end with none. **A
-town that says where its zebras are** (`CityPlan.ZebraAtEveryStation`) — a traced map, whose survey maps them
-(GEN-57) — **has those and paints none at a station**: the stations are still struck, cut the walk and hold
-the traffic, painted with nothing.
+town that says where its zebras are** (`CityPlan.ZebraAtEveryStation`) — which no shipped map does, a traced one
+painting its stations as a generated one does (GEN-57) — **has those and paints none at a station**: the
+stations are still struck, cut the walk and hold the traffic, painted with nothing.
 
 **The paint is the road's and the placement is not.** What a zebra *is* — a band of carriageway
 pedestrians may walk over, the width it reaches, what a bar behind it does — is

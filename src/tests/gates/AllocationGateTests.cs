@@ -77,6 +77,38 @@ public class AllocationGateTests
     }
 
     /// <summary>
+    /// <b>A frame's scenery is made into instances in the buffer it is handed and nowhere else</b>
+    /// (<see cref="App.Render.ScenerySprites"/>): a view inside the budget and one thinned to it, panned across the
+    /// town, without a byte of the heap.
+    /// </summary>
+    [Fact]
+    public void FillingAFramesSceneryAllocatesNothing()
+    {
+        var scenery = Render.ScenerySpriteTests.Lattice(100);
+        var sprites = Render.ScenerySpriteTests.Lay(scenery, mostDrawn: 1_000);
+        var into = new App.Render.SpriteInstance[1_000];
+        var drawn = Pan();
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        drawn += Pan();
+
+        Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());
+        Assert.True(drawn > 0);
+
+        int Pan()
+        {
+            var sum = 0;
+            for (var step = 0; step < 100; step++)
+            {
+                sum += sprites.Fill(new Vector2(step * 10f, 500f), new Vector2(200f), into);
+                sum += sprites.Fill(new Vector2(step * 10f, 500f), new Vector2(2_000f), into);
+            }
+
+            return sum;
+        }
+    }
+
+    /// <summary>
     /// The rule, asked of the thing it is actually about: a standing town, on every map this engine
     /// ships. <b>Zero, and not nearly zero</b> — the phases this engine wrote touch no allocator at
     /// all, on five walkers and on five hundred and twenty.
@@ -159,16 +191,17 @@ public class AllocationGateTests
     /// minutes, two hundred and forty touched several times until the one-way streets stopped taking the last
     /// choice away from the junctions they arrive at (GEN-18), and every lane's worth touched within half a
     /// minute until the lights came back to hold most of its junctions (TLT-3), within a minute until a plan
-    /// reached no further than a plan may (TER-4c.1), and at a minute and a half until a car was read onto an all
-    /// but straight bend from its start rather than its centre (<c>Spline.NearestOnArc</c>) — the first touch is
-    /// at three minutes and a bit now.
+    /// reached no further than a plan may (TER-4c.1), at a minute and a half until a car was read onto an all
+    /// but straight bend from its start rather than its centre (<c>Spline.NearestOnArc</c>), and at three minutes
+    /// and a bit until two cars turning across each other's way turned in front of each other (TER-5d.2) — the
+    /// first touch is between the fourth minute and the fifth now.
     /// </remarks>
     [Fact]
     public void ATownWithTrafficInItActuallyProducesContacts()
     {
         var config = SimConfig.Shipped();
         using var world = new TownWorld(Towns.LayFresh(Towns.Brief(Towns.CitySeed, cars: CrowdedCars)), config);
-        new SimLoop<TownWorld>(world, config).Advance(14_400);
+        new SimLoop<TownWorld>(world, config).Advance(21_600);
 
         Assert.True(world.Touches > 0);
     }

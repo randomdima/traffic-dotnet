@@ -7,9 +7,10 @@ internal static partial class TracedStreets
 {
     /// <summary>
     /// <b>What gathering junctions came to</b> (<see cref="Gathered"/>): how many junctions were gathered into how many,
-    /// how many roads between them went, and how many movements through one none of those roads made.
+    /// how many of those were places of two arms inside another's disc, how many roads between them went, and how many
+    /// movements through one none of those roads made.
     /// </summary>
-    internal readonly record struct GatheredLaid(int Junctions, int Into, int Roads, int Unmade);
+    internal readonly record struct GatheredLaid(int Junctions, int Into, int Places, int Roads, int Unmade);
 
     /// <summary>A movement off one road onto another through a gathered junction that the roads it was gathered over made no way for.</summary>
     readonly record struct Unmade(int Junction, Road From, Road To);
@@ -34,6 +35,13 @@ internal static partial class TracedStreets
     /// as is the one standing amid them.
     /// </para>
     /// <para>
+    /// <b>So is a place of two arms standing inside a junction's own disc</b> (<see cref="SimConfig.JunctionRadiusAcrossM"/>),
+    /// reached through nothing but such places: a way OSM changes a few metres past the node it crosses at, or a flared mouth
+    /// tagged with lanes of its own. Kept apart, the road between is too short for either disc, its lanes end as near the
+    /// middle as it squeezes them (<see cref="Standoffs"/>), and every turn onto its far lanes begins past where their lines
+    /// cross.
+    /// </para>
+    /// <para>
     /// <b>What the roads between them made is what the box makes</b>: a movement off one road onto another is made
     /// across it only where the roads it gathered drove a way from the one to the other, through every turn OSM forbids
     /// at the places they meet — a gap in a median a one-way link runs across one way, a link a restriction keeps a
@@ -50,8 +58,9 @@ internal static partial class TracedStreets
     /// gathered none of their roads made, and the restrictions naming a road that went, which those already keep.
     /// </returns>
     static (int[] Into, List<Unmade> Unmade, HashSet<OsmTurnRestriction> Absorbed, GatheredLaid Tally) Gathered(
-        Survey survey, List<Road> roads, List<Vector2> centreM, int[] junctionOf, float withinM)
+        Survey survey, List<Road> roads, List<Vector2> centreM, int[] junctionOf, SimConfig config)
     {
+        var withinM = config.CityGen.TracedJunctionsMergedM;
         var junctions = centreM.Count;
         var at = RoadEndsAt(roads, junctions);
         var gatherable = new bool[junctions];
@@ -75,6 +84,15 @@ internal static partial class TracedStreets
         links.Sort((one, other) => one.LengthM.CompareTo(other.LengthM));
         var group = new Groups(at, centreM, withinM);
         foreach (var link in links) group.Joined(link);
+
+        var places = 0;
+        for (var junction = 0; junction < junctions; junction++)
+        {
+            if (at[junction].Count < 3 || !gatherable[junction]) continue;
+
+            var discM = config.JunctionRadiusAcrossM(at[junction].Max(end => end.Road.Carriage.WidthM));
+            foreach (var end in at[junction]) places += group.Spurred(junction, PlacesInside(at, gatherable, junction, end, discM));
+        }
 
         var into = new List<int>(junctions);
         for (var junction = 0; junction < junctions; junction++) into.Add(junction);
@@ -147,7 +165,27 @@ internal static partial class TracedStreets
         }
 
         roads.RemoveAll(road => road.Gone);
-        return ([.. into], unmade, absorbed, new GatheredLaid(gathered, into.Count - junctions, dropped, unmade.Count));
+        return ([.. into], unmade, absorbed, new GatheredLaid(gathered, into.Count - junctions, places, dropped, unmade.Count));
+    }
+
+    /// <summary>
+    /// The places of two arms run through from one junction along one of its roads while the way there stays shorter than
+    /// <paramref name="discM"/> — none past a bridge, a roundabout or a dead end, or once the way comes back to where it set off.
+    /// </summary>
+    static List<int> PlacesInside(List<(Road Road, bool AtTo)>[] at, bool[] gatherable, int from, (Road Road, bool AtTo) end, float discM)
+    {
+        var inside = new List<int>();
+        var lengthM = 0f;
+        var (road, atTo) = end;
+        while (true)
+        {
+            lengthM += LengthOf(road);
+            var reached = atTo ? road.From : road.To;
+            if (lengthM >= discM || reached == from || !gatherable[reached] || at[reached].Count != 2) return inside;
+
+            inside.Add(reached);
+            (road, atTo) = at[reached][0].Road == road ? at[reached][1] : at[reached][0];
+        }
     }
 
     /// <summary>Whether any of a road's lanes run into the junction at one of its ends.</summary>
@@ -222,6 +260,26 @@ internal static partial class TracedStreets
                 _under[between] = one;
                 Members(one).Add(between);
             }
+        }
+
+        /// <summary>
+        /// The places of two arms inside a junction's disc gathered with it, in order out from it, as far as the first one
+        /// already gathered with another — and how many were.
+        /// </summary>
+        public int Spurred(int junction, List<int> places)
+        {
+            var under = Under(junction);
+            var spurred = 0;
+            foreach (var place in places)
+            {
+                if (Under(place) != place || _members.ContainsKey(place)) break;
+
+                _under[place] = under;
+                Members(under).Add(place);
+                spurred++;
+            }
+
+            return spurred;
         }
 
         /// <summary>Every gathering of two junctions or more, its members, in the order of the junction each is under.</summary>

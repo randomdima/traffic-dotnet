@@ -13,16 +13,17 @@ namespace TrafficSimulation.CityGen.Gen;
 /// walkable padding around it, and every later placement asks this before it stands anything — so a
 /// building never lands on a building, a car park never overlaps one, and a prop is never inside either.
 /// Nothing is ever placed and taken back. <b>The cells are the town's grid's</b> (SIM-8), at the level the
-/// brief's own cell fits within, from the world's origin to its far edge.
+/// brief's own cell fits within, from the world's origin to its far edge. <b>A bit a cell</b>, because a traced city's
+/// cells are tens of millions; a claim is written on one thread and read on any.
 /// </remarks>
-internal readonly struct GenClaims(bool[] taken, GridWindow window)
+internal readonly struct GenClaims(ulong[] taken, GridWindow window)
 {
     public static GenClaims Over(WorldGrid grid, Vector2 worldSizeM, float cellSizeM)
     {
         var level = grid.Within(cellSizeM);
         var window = GridWindow.Of(
             level, 0, 0, Math.Max(1, level.CellsAcross(worldSizeM.X)), Math.Max(1, level.CellsAcross(worldSizeM.Y)));
-        return new GenClaims(new bool[window.Count], window);
+        return new GenClaims(new ulong[(window.Count + 63) / 64], window);
     }
 
     /// <summary>Whether every cell under a rectangle on a bearing is still free, the edge of the world counting as taken.</summary>
@@ -35,7 +36,7 @@ internal readonly struct GenClaims(bool[] taken, GridWindow window)
             for (var acrossM = -halfExtentM.Y; acrossM <= halfExtentM.Y; acrossM += stepM)
             {
                 var cell = CellAt(centreM + (axis * alongM) + (side * acrossM));
-                if (cell < 0 || taken[cell]) return false;
+                if (cell < 0 || IsTaken(cell)) return false;
             }
         }
 
@@ -51,7 +52,7 @@ internal readonly struct GenClaims(bool[] taken, GridWindow window)
             for (var acrossM = -halfExtentM.Y; acrossM <= halfExtentM.Y; acrossM += stepM)
             {
                 var cell = CellAt(centreM + (axis * alongM) + (side * acrossM));
-                if (cell >= 0) taken[cell] = true;
+                if (cell >= 0) taken[cell >> 6] |= 1UL << cell;
             }
         }
     }
@@ -70,12 +71,14 @@ internal readonly struct GenClaims(bool[] taken, GridWindow window)
             {
                 var cell = CellAt(
                     centreM + new Vector2(alongM, MathF.Min(-acrossM + (over * stepM), acrossM)));
-                if (cell < 0 || taken[cell]) return false;
+                if (cell < 0 || IsTaken(cell)) return false;
             }
         }
 
         return true;
     }
+
+    bool IsTaken(int cell) => (taken[cell >> 6] & (1UL << cell)) != 0;
 
     int CellAt(Vector2 pointM)
     {

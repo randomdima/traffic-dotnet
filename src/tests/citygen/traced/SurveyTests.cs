@@ -312,9 +312,7 @@ public class SurveyTests
             From = [.. widths.Select(width => width.From)],
         },
         Controls = PlaceFacts.None.Controls,
-        Crossings = PlaceFacts.None.Crossings,
         Footprints = TracedMap.FootprintArrays.None,
-        TreeM = [],
     };
 
     /// <summary>A way of a class tagged with so many lanes, which is what a measured width may make of an untagged one.</summary>

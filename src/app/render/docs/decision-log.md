@@ -3,6 +3,43 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md); how a type
 works is its own XML docs.
 
+## 2026-10-06 — a rear tyre is painted under its car, and no tyre rolls
+
+A tyre was its own quad of a scrolling tread: four instances a car every frame, a fifth texture binding and a
+branch in every sprite fragment for the one sheet that tiled, and a phase per wheel rolled every tick — for a
+detail a few pixels across at any framing past a street. **No tyre rolls now, and the rear pair, which never
+steers, is a black box painted under the bodywork when the atlas page is filled** ([CarSheets](../CarSheets.cs)),
+into a margin the sheet is padded by, since the rubber stands past the art (CAR-12); the quad grows by that
+margin. The front pair stays a quad each, plain rubber off a one-texel sheet, because the steering is worth
+seeing — both at the rack's angle rather than their own Ackermann ones, and **none at all once a tyre is under
+`SteeredTyreLeastPx`**, which is every framing that holds many cars. A car is three instances close up and one
+from a district out, where it was five; 12 baked steering angles was weighed and refused — the variants' tyres
+differ, a quad's turn is already free in the vertex stage, and twelve sheets a look does not fit the sheet table.
+
+**Painted at load and not into the shipped files**, because the track and the tyre are the variant's own figures
+and the silhouette CAR-12 is measured off is the bodywork alone: a tyre baked into the picture is a second copy of
+`trackM` that a moved track leaves behind, and a flank the next measurement reads as panels.
+
+## 2026-10-06 — scenery is twelve bytes, and a frame draws a budget of it
+
+**A traced city's scenery is 1 774 263 props on `OdesaOsm`** (`CityPlan.Scenery`), drawn and standing nothing. Kept
+as the standing instances are, it would be 99 MB of instances and a frame buffer as large again for every frame in
+flight, since the buffer is laid for everything that can be drawn at once (`TownSprites.CapacityFor`). So
+`ScenerySprites` keeps it apart:
+
+- **Twelve bytes a piece** — its place, its look and its girth as a half — made into an instance only when it is in
+  view: 21 MB.
+- **Filed by row and found by column**: the index is where each row of the town's main cells starts, 12 KB, and a
+  row's cells in view are a binary search away, where a cell's offsets were 15.5 MB.
+- **At most `SceneryMostDrawn` a frame, 65 536**, and past it every n-th piece by its own index, n a power of two —
+  an even thinning that only moves as the zoom crosses a doubling, so a pan does not shimmer. Open ground holds that
+  many in a view a couple of kilometres wide, where a tree is a pixel or two. The buffer grows by the budget, 3.7 MB,
+  whatever the size of the town.
+- **Under everything that stands**, after the marks: nothing comes near it but its own neighbours.
+
+Laying the index takes 65 ms. A frame's fill is 0.03 ms at a street, 0.04 ms over a district (21 077 drawn) and
+0.09 ms over the city, thinned to 34 591. Both heads draw it, the page through the same fill.
+
 ## 2026-10-05 — a corner of the ground is twelve bytes
 
 **A traced city's ground is four million corners, and most of each was not its place**: a texture coordinate that
@@ -239,7 +276,7 @@ Descriptor indexing is a Vulkan extension neither WebGPU nor WebGL2 has, so a br
 second answer to "which picture"; and on the desktop a wave spanning quads from different sheets is a
 divergent index the driver scalarises. [SheetAtlas](../SheetAtlas.cs) packs the sheets into one array
 texture, where a layer is a coordinate. The five ground surfaces stay out, being different sizes and
-wrap-seamless, and so does the tread, whose coordinates run outside the unit square.
+wrap-seamless.
 
 ## 2026-08-26 — a casualty is art, not a tint
 

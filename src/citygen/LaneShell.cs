@@ -51,10 +51,16 @@ internal static class LaneShell
     /// before (<see cref="Paving.Perimeter"/>, <see cref="Paving.Above"/>): nothing the town needs to be laid
     /// reads it.
     /// </summary>
+    /// <remarks>
+    /// <b>No ring narrower than a kerb on the whole is kept</b> (<see cref="BandShell.WithoutRingsNarrowerThan"/>): turns
+    /// drawn tight at their corners leave hairs of ground between three of them that no band covers, which a kerb could
+    /// not be laid round and the town drives over as it would the tarmac either side.
+    /// </remarks>
     public static BandShell Of(Paving paving, SimConfig config, byte level)
     {
         var (lines, widthM) = Bands(paving, config, level);
-        return BandShell.Of(lines, widthM, lines.Length == paving.DrivenCount ? paving.DrivenLines(config) : Indexed(lines, config));
+        return BandShell.Of(lines, widthM, lines.Length == paving.DrivenCount ? paving.DrivenLines(config) : Indexed(lines, config))
+            .WithoutRingsNarrowerThan(config.Road.KerbWidthM);
     }
 
     /// <summary>

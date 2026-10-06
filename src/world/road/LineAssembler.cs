@@ -45,7 +45,7 @@ internal static class LineAssembler
         var most = 0;
         for (var lane = 0; lane < graph.LaneCount; lane++) most = Math.Max(most, graph.ArcsOf(lane).Length);
 
-        return (most + 2) * MostLanes + (MostLanes - 1) * 2;
+        return (most + 2) * MostLanes + (MostLanes - 1) * Spline.MostMovementArcs;
     }
 
     /// <summary>

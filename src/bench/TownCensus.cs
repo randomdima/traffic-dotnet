@@ -172,6 +172,7 @@ internal static class TownCensus
                           $"capacity {capacity}, {plan.Buildings.EntryPointM.Length} ways in");
         Console.WriteLine($"  props          {plan.Props.Count,7}  {propsByKind[0]} wild, {propsByKind[1]} planted, " +
                           $"{propsByKind[2]} furniture; {turned} turned onto the kerb they stand along");
+        Console.WriteLine($"  scenery        {plan.Scenery.Count,7}  wild, drawn and standing nothing");
         Console.WriteLine($"  water          {plan.Water.Outline.Count,7}  outlines, {plan.Water.Outline.PointM.Length} points; " +
                           $"{plan.Water.Shore.Count} shores of {plan.Water.Shore.PointM.Length}");
         Console.WriteLine();

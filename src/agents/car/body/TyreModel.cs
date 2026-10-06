@@ -35,6 +35,9 @@ internal static partial class TyreModel
     /// <summary>Front right, front left, rear right, rear left — <c>+y</c> in the body's frame being the driver's side.</summary>
     public const int Wheels = 4;
 
+    /// <summary>The ones the rack turns: the front pair, first of the four.</summary>
+    public const int SteeredWheels = 2;
+
     /// <summary>
     /// The whole of one car's tyres for one tick: an impulse and a place to spend it per wheel, what
     /// each wheel did to the ground under it, and the four rims wound on.

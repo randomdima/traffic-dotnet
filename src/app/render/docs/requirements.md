@@ -26,6 +26,9 @@ them is on its types. The one thing stated here is how a sheet is stored.
 - **A body is drawn from a sheet indexed by what the simulation already knows** — a facing row and a walk
   column, a lit lamp, a variant, and a sheet of its own for a state it cannot come back from (`PER-18`):
   `SpriteInstance`, `PersonSprites`, `SignalSprites`, `TownSprites`.
+- **Scenery is drawn and stands nothing** (`GEN-6b`, `CityPlan.Scenery`): under everything that stands, and at most
+  `ViewFigures.SceneryMostDrawn` of it a frame — a view holding more draws an even share, the same share as it pans
+  (`ScenerySprites`).
 - **What reads the picture back** is [app/debug](../../debug/docs/requirements.md)'s wireframe and ground
   page (`OBS-2o`, `OBS-2v`); a picture with no window under it is [app/shot](../../shot/docs/requirements.md)'s
   (`SHT-1`).

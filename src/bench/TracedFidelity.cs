@@ -123,7 +123,8 @@ internal static class TracedFidelity
         var streets = TracedStreets.Lay(survey, config);
         Console.WriteLine($"shared: {streets.Shared.Directed} roads of one lane both ways share run one way; taken out " +
                           $"{streets.Shared.Spurs} spurs and {streets.Shared.Stranded} roads of pieces of nothing else");
-        Console.WriteLine($"gathered: {streets.Gathered.Junctions} junctions into {streets.Gathered.Into}, {streets.Gathered.Roads} roads " +
+        Console.WriteLine($"gathered: {streets.Gathered.Junctions} junctions into {streets.Gathered.Into}, {streets.Gathered.Places} of them " +
+                          $"places of two arms inside another's disc, {streets.Gathered.Roads} roads " +
                           $"between them gone, {streets.Gathered.Unmade} movements across them none of those roads made forbidden");
         Turns(traced.Turns, streets.Turns, plan, lanes);
     }

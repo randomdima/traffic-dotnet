@@ -111,14 +111,29 @@ public class CrossingsTests
     }
 
     /// <summary>
+    /// <b>A traced town paints a zebra at every station</b> (GEN-57, <c>CityPlan.ZebraAtEveryStation</c>), as a
+    /// generated one does: a traced crossroads is cut and held at every arm, and every band there is a zebra's depth.
+    /// </summary>
+    [Fact]
+    public void ATracedTownPaintsAZebraAtEveryStation()
+    {
+        var config = SimConfig.Shipped();
+        var plan = Crossroads();
+        var stations = Crossings.Lay(plan, config, plan.Paving(config).RoadEnds(config).CrossedM);
+
+        Assert.Equal(4, stations.Count);
+        Assert.All(stations.DepthM.ToArray(), depthM => Assert.Equal(config.Road.CrossingDepthM, depthM));
+    }
+
+    /// <summary>
     /// <b>A town that says where its zebras are paints none at a station</b> (<c>CityPlan.ZebraAtEveryStation</c>):
-    /// a traced crossroads is still cut and held at every arm, and every band there is no depth of paint.
+    /// the crossroads is still cut and held at every arm, and every band there is no depth of paint.
     /// </summary>
     [Fact]
     public void ATownThatSaysWhereItsZebrasArePaintsNoneAtAStation()
     {
         var config = SimConfig.Shipped();
-        var plan = Crossroads([]);
+        var plan = SayingWhereItsZebrasAre();
         var stations = Crossings.Lay(plan, config, plan.Paving(config).RoadEnds(config).CrossedM);
 
         Assert.Equal(4, stations.Count);
@@ -132,7 +147,7 @@ public class CrossingsTests
     [Fact]
     public void ATownsOwnZebraIsABandAcrossItsRoadFiledUnderNoEnd()
     {
-        var plan = Crossroads([new SurveyCrossing(1, new Vector2(150f, 500f), SurveyCrossingKind.Zebra, true, CityPlan.NoRecord)]);
+        var plan = SayingWhereItsZebrasAre();
         var crossings = Crossings.Of(plan);
 
         Assert.Equal(1, crossings.Count);
@@ -141,13 +156,34 @@ public class CrossingsTests
         Assert.Equal(Crossings.None, crossings.At(plan.Crosswalks.Road[0], atTo: true));
     }
 
-    /// <summary>A traced crossroads of two residential streets through point 4, with the crossings given over it.</summary>
-    static CityPlan Crossroads(SurveyCrossing[] crossings)
+    /// <summary>The crossroads, saying its one zebra is across the middle of its first road and painting none at a station.</summary>
+    static CityPlan SayingWhereItsZebrasAre()
+    {
+        var plan = Crossroads();
+        var line = plan.Roads.SegmentsOf(0);
+        var middle = Spline.SampleAt(line, Spline.TotalLengthM(line) * 0.5f);
+        return new CityPlan
+        {
+            Seed = plan.Seed, Name = plan.Name, WorldSizeM = plan.WorldSizeM, PavementWidthM = plan.PavementWidthM,
+            Junctions = plan.Junctions, JunctionCorners = plan.JunctionCorners, Roads = plan.Roads, Bridges = plan.Bridges,
+            Roundabouts = plan.Roundabouts, PavedAreas = plan.PavedAreas,
+            Crosswalks = new CityPlan.CrosswalkArrays
+            {
+                CentreM = [middle.PositionM], Axis = [middle.Direction], DepthM = [SimConfig.Shipped().Road.CrossingDepthM], Road = [0],
+                Junction = [CityPlan.NoRecord],
+            },
+            ZebraAtEveryStation = false,
+            ParkingLots = plan.ParkingLots, Buildings = plan.Buildings, Props = plan.Props, Spawns = plan.Spawns, Water = plan.Water,
+        };
+    }
+
+    /// <summary>A traced crossroads of two residential streets through point 4.</summary>
+    static CityPlan Crossroads()
     {
         var survey = new Survey
         {
             Name = "Traced", Relation = 1, WidthM = 1000f, HeightM = 1000f, PointsM = [100, 500, 900, 500, 500, 100, 500, 900, 500, 500],
-            Ways = [Street(1, 0, 4, 1), Street(2, 2, 4, 3)], Sea = [], Crossings = crossings,
+            Ways = [Street(1, 0, 4, 1), Street(2, 2, 4, 3)], Sea = [],
         };
         return TracedPlan.Lay(survey, SimConfig.Shipped(), BuildingSizes.None);
 

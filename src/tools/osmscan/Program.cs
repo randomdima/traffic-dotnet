@@ -19,6 +19,7 @@ internal static class Program
                osm-scan crop --box S,W,N,E [--map OdesaOsm]
                osm-scan stumps [--map OdesaOsm] [--dry]
                osm-scan footprints [--map OdesaOsm]
+               osm-scan population [--people N] [--cars N] [--map OdesaOsm]
                osm-scan meta-draw OUT.png --at LAT,LON [--span 400] [--map OdesaOsm]
                osm-scan draw SHOT.png [--map OdesaOsm]
         """;
@@ -38,6 +39,7 @@ internal static class Program
                 "crop" when Option(args, "--box") is { } box => Crop.Run(root, Option(args, "--map") ?? "OdesaOsm", box),
                 "stumps" => Stumps.Run(root, Option(args, "--map") ?? "OdesaOsm", args.Contains("--dry")),
                 "footprints" => Footprints.Run(root, Option(args, "--map") ?? "OdesaOsm"),
+                "population" => Population.Run(root, Option(args, "--map") ?? "OdesaOsm", Count(args, "--people"), Count(args, "--cars")),
                 "meta-draw" when args.Length > 1 && Option(args, "--at") is { } at => Meta.Picture.Run(root, Option(args, "--map") ?? "OdesaOsm",
                     double.Parse(at.Split(',')[0], System.Globalization.CultureInfo.InvariantCulture),
                     double.Parse(at.Split(',')[1], System.Globalization.CultureInfo.InvariantCulture),
@@ -46,7 +48,7 @@ internal static class Program
                 _ => Refuse(Usage),
             };
         }
-        catch (Exception failure) when (failure is InvalidOperationException or InvalidDataException or ArgumentException or IOException)
+        catch (Exception failure) when (failure is InvalidOperationException or InvalidDataException or ArgumentException or IOException or FormatException)
         {
             return Refuse(failure.Message);
         }
@@ -63,6 +65,9 @@ internal static class Program
         var at = Array.IndexOf(args, name);
         return at >= 0 && at + 1 < args.Length ? args[at + 1] : null;
     }
+
+    static int? Count(string[] args, string name) =>
+        Option(args, name) is { } count ? int.Parse(count, System.Globalization.CultureInfo.InvariantCulture) : null;
 
     /// <summary>The project's root: the nearest directory up from here holding the engine's project.</summary>
     static string Root()

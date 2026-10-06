@@ -110,6 +110,20 @@ joins**, and that is one figure the whole town reads — the tarmac's own shape,
 the picture. Its two ends are on lanes that need not be the same width and a band has only one, so the
 narrower is the only choice that never claims ground outside the arm it leaves or the arm it arrives on.
 
+**TER-5d.2** `P5` **A movement is drawn the way a driver takes it: on along the lane it leaves for as long as it
+can, across as late and as short as its circle allows, and on along the lane it joins** (`Spline.MovementInto`) — so
+the stretch it spends across other lanes' ground is the least its two ends ask for, and no stretch of it runs
+diagonally on a line of its own. **A turn is turned at the corner its two lanes' lines make**, on
+`SimConfig.JunctionTurnRoomM` or the widest circle the room either side holds; **a lane carried on to an arm offset
+across** runs on along its own line and shifts late, on two opposite turns of that circle; **a U-turn** is driven on
+and turned across. **Only lanes carried on as one line keep the biarc between their ends** — through a place their
+road only bends at, or less than half a lane across — so lanes side by side, and the paint between them, stay side
+by side. **No turn is swung out of onto the lanes beside it**, however tight: a turn with too little room is given
+room by its lanes ending sooner (a traced map's), and what still winds, a lane ending past where the line of the lane
+it turns onto crosses its own, is the standoff's to mend and not the line's. **Two turns across each other's way off arms facing each other are made in front of each other** — a turn
+to the far side and the one opposite, or two U-turns — each turned at once off its lane and last onto the next,
+where turned round their corners their ground would overlap. `--bench connectors` names every one left.
+
 **TER-5f** `P5` **No box admits a movement that reverses the direction of travel.** A pair of lanes that would
 face each other across an intersection is not joined at all: no turn is classified between them, no line is
 drawn, no ground is measured against it and no route may be handed one. The arithmetic is why — the line
@@ -141,12 +155,15 @@ names is not made from it. **A turn the plan forbids is not offered at all**, be
 and a turn whose lanes the plan names joins those and no others — a traced map's survey's (`GEN-57`), which
 leaves an arm nothing where OSM forbids every turn off it. **A lane making a movement joins the lane of its own
 number on the road it takes**, both numbered from the side the movement bears to — the kerb for the near side,
-the line for the far, and the kerb for straight on except at a fork, where each branch is numbered from the side
-it bears to — so a turn onto a road of one lane is made from the edge lane alone, never from the second
-lane onto the first, and **no two movements off one arm onto one road cross**. **A lane with no lane of its
-number there joins nothing**: of more lanes onto fewer the ones over end at the node, and of fewer onto more the
-ones over are reached by none — but onto a road of one lane more, whose last lane the last lane in joins as well as
-its own. Nothing is merged or fanned at a node; a car gets off a lane that ends and onto one nothing reaches by
+the line for the far, and the kerb for straight on — so a turn onto a road of one lane is made from the edge lane
+alone, never from the second lane onto the first, and **no two movements off one arm onto one road cross**. **A
+fork shares its lanes as two turns would**: the branch whose lanes set off nearer the kerb takes the kerb half,
+numbered from the kerb, and the other the rest, numbered from the line, so no lane carried onto one branch crosses
+the next one carried onto the other — and the ground between the branches is paved as it was when every lane
+was carried onto both. **A U-turn is made from the lane beside the line onto the lane beside the line**, and from
+no other. **A lane joins one lane, and one with no lane of its number there joins nothing**: of
+more lanes onto fewer the ones over end at the node, and of fewer onto more the ones over are reached by none.
+Nothing is merged or fanned at a node; a car gets off a lane that ends and onto one nothing reaches by
 moving across (`GEN-50`). A road of one lane each way is offered every turn its junction makes, from its one lane onto
 the one lane each takes. **A car moves across onto a lane beside running its way along the street**
 (`CAR-53`), so the lane a turn is made from is one it can get to.

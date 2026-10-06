@@ -102,13 +102,6 @@ internal static class ProjectPaths
     }
 
     /// <summary>
-    /// One pitch of tread, shared by every car: a wheel is this laid several times along its own roll.
-    /// There is no second tyre for a driven wheel — the drivetrain shows in behaviour, not in rubber.
-    /// </summary>
-    public static string TreadFile() =>
-        Path.Combine(Assets, "agents", "car", "variants", "common", "tire_tread" + Sheet);
-
-    /// <summary>
     /// Every lit lamp in the town, in one sheet: a row a variant, two columns a lens, each cell that
     /// variant's own bodywork cut out and driven emissive (CAR-14a). Cut by <c>--lamps</c> and committed
     /// beside the sprites it came from; an unlit lamp is not here, because it is the sprite itself.

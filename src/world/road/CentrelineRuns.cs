@@ -217,7 +217,7 @@ internal sealed class CentrelineRuns
                     Spline.OffsetInto(arcsOf, roads.LineBetweenLanesM(at, fromKerb, withTheRoad: forward) * config.RoadSideSign, offset);
                     var drawn = offset.AsSpan(0, arcsOf.Length);
 
-                    if (arcs.Count > arcOffsets[^1]) Joined(arcs, drawn[0]);
+                    if (arcs.Count > arcOffsets[^1]) Joined(arcs, drawn[0], roads.LaneWidthM(at), config);
                     foreach (var arc in drawn) arcs.Add(arc);
 
                     var on = Across(arms, roads, at, forward);
@@ -289,11 +289,12 @@ internal sealed class CentrelineRuns
     }
 
     /// <summary>
-    /// The junction's own ground, crossed: the biarc between the two poses the roads either side of it hand
-    /// over at, which is what every movement over that ground is drawn on and, at a cut junction, the road's
-    /// own arc carried through (GEN-52).
+    /// The junction's own ground, crossed: the line between the two poses the roads either side of it hand over at,
+    /// drawn as every movement over that ground is (<see cref="Spline.MovementInto"/>, TER-5d.2) — so the lanes either
+    /// side of the paint stand the same distance off it all the way — and, at a cut junction, the road's own arc carried
+    /// through (GEN-52).
     /// </summary>
-    static void Joined(List<ArcSeg> into, in ArcSeg onto)
+    static void Joined(List<ArcSeg> into, in ArcSeg onto, float laneWidthM, SimConfig config)
     {
         var last = into[^1];
         if (Vector2.DistanceSquared(last.EndM, onto.StartM) <= LineTolerance.RoundingM * LineTolerance.RoundingM)
@@ -301,9 +302,10 @@ internal sealed class CentrelineRuns
             return;
         }
 
-        Span<ArcSeg> across = stackalloc ArcSeg[2];
-        var pieces = Spline.BiarcInto(
-            last.EndM, last.HeadingAtRad(last.LengthM), onto.StartM, onto.HeadingRad, across);
+        Span<ArcSeg> across = stackalloc ArcSeg[Spline.MostMovementArcs];
+        var pieces = Spline.MovementInto(
+            last.EndM, last.HeadingAtRad(last.LengthM), onto.StartM, onto.HeadingRad, config.JunctionTurnRoomM,
+            config.Road.TurnStraightToleranceDeg * MathF.PI / 180f, laneWidthM * 0.5f, carriedThrough: true, across);
         for (var piece = 0; piece < pieces; piece++) into.Add(across[piece]);
     }
 }

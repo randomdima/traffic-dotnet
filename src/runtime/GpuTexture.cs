@@ -149,16 +149,6 @@ internal sealed unsafe class GpuTexture : IDisposable
         return Upload(vk, decoded, repeats, mipped);
     }
 
-    /// <summary>
-    /// An image this engine builds rather than reads — the mark brushes, which are a gradient a few
-    /// texels tall and not a picture. Rows of RGBA bytes, top row first.
-    /// </summary>
-    public static GpuTexture FromPixels(Vk vk, ReadOnlySpan<byte> rgba, int width, int height, bool repeats = false, bool mipped = false)
-    {
-        using var decoded = SixLabors.ImageSharp.Image.LoadPixelData<SixLabors.ImageSharp.PixelFormats.Rgba32>(rgba, width, height);
-        return Upload(vk, decoded, repeats, mipped);
-    }
-
     static GpuTexture Upload(Vk vk, Decoded decoded, bool repeats, bool mipped)
     {
         var width = decoded.Width;

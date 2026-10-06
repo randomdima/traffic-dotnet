@@ -18,7 +18,8 @@ internal sealed partial class TownWorld
     /// <summary>
     /// The town's immovable geometry: every prop a static circle, every building the static boxes its
     /// roof is built of. A city's ninety-odd thousand props are real collision geometry — a walker that
-    /// could walk through a tree is a walker the ground is not actually holding.
+    /// could walk through a tree is a walker the ground is not actually holding. <b>Its scenery is not</b>
+    /// (<see cref="CityPlan.Scenery"/>): drawn, and standing nothing, on ground no walker or car is laid across.
     /// </summary>
     /// <remarks>
     /// <b>OBJ-5a — a building is collided as the rectangles its picture is drawn of and not as the box

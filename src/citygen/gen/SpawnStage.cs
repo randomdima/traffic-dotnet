@@ -30,10 +30,10 @@ namespace TrafficSimulation.CityGen.Gen;
 /// </remarks>
 internal static class SpawnStage
 {
-    const byte Car = 1;
+    public const byte Car = 1;
 
     /// <summary>Which is also the value an unwritten slot holds, so a person is the kind a spawn is by default.</summary>
-    const byte Person = 0;
+    public const byte Person = 0;
 
     public static CityPlan.SpawnArrays Lay(
         TownBrief brief, Paving paving, CarParks.Laid carParks, CityPlan.BuildingArrays buildings,
@@ -68,14 +68,10 @@ internal static class SpawnStage
         // walking out of one doorway onto one another.
         foreach (var slot in Spread(doors, people, ref draw))
         {
-            var doorM = buildings.EntryPointM[slot];
-            var building = BuildingOfEntry(buildings, slot);
-
+            var (doorM, facingRad) = AtTheDoor(buildings, slot);
             kind[taken] = Person;
             positionM[taken] = doorM;
-            // Facing out of the door it is standing at, which is the way a body that has just come
-            // through one is pointing.
-            headingRad[taken] = Bearing(doorM - buildings.CentreM[building]);
+            headingRad[taken] = facingRad;
             taken++;
         }
 
@@ -83,10 +79,20 @@ internal static class SpawnStage
     }
 
     /// <summary>
+    /// <b>A person stood at one way in</b>: at the door, facing out of it — the way a body that has just come through
+    /// one is pointing.
+    /// </summary>
+    public static (Vector2 DoorM, float FacingRad) AtTheDoor(CityPlan.BuildingArrays buildings, int entry)
+    {
+        var doorM = buildings.EntryPointM[entry];
+        return (doorM, Bearing(doorM - buildings.CentreM[BuildingOfEntry(buildings, entry)]));
+    }
+
+    /// <summary>
     /// <b>Where along a place's lane a car is stood</b>: the middle of the space for a bay, which is the deepest
     /// bay-length of its lane (<see cref="SimConfig.CarParkBayDepthM"/>), and the middle of the lane otherwise.
     /// </summary>
-    static float MiddleOfThePlaceM(LaneLines lanes, int lane, SimConfig config) =>
+    public static float MiddleOfThePlaceM(LaneLines lanes, int lane, SimConfig config) =>
         lanes.LaneIsBay[lane]
             ? lanes.LaneLengthM[lane] - (config.CarParkBayLengthM * 0.5f)
             : lanes.LaneLengthM[lane] * 0.5f;
@@ -122,9 +128,9 @@ internal static class SpawnStage
     /// both ends — a body over a lane's own end is in the box beyond it before the town has ticked once —
     /// and with a movement off the end, or the car is a body with nowhere to go.
     /// </summary>
-    static List<int> TheLanes(LaneLines lanes, SimConfig config)
+    public static List<int> TheLanes(LaneLines lanes, SimConfig config)
     {
-        var roomM = config.Car.LengthM + (config.Car.WidthM * 2f);
+        var roomM = RoomM(config);
         var standable = new List<int>();
         for (var lane = 0; lane < lanes.LaneCount; lane++)
         {
@@ -137,15 +143,24 @@ internal static class SpawnStage
         return standable;
     }
 
-    /// <summary>Which building a way in belongs to, walked from the offsets that index them.</summary>
+    /// <summary>The room a car is stood in clear of a lane's ends: its length and a width either side.</summary>
+    public static float RoomM(SimConfig config) => config.Car.LengthM + (config.Car.WidthM * 2f);
+
+    /// <summary>
+    /// Which building a way in belongs to: the first whose offsets run past it, searched for — a city's worth of
+    /// people stood one a door would otherwise walk every building for each of them.
+    /// </summary>
     static int BuildingOfEntry(CityPlan.BuildingArrays buildings, int entry)
     {
-        for (var building = 0; building < buildings.Count; building++)
+        var (low, high) = (0, buildings.Count - 1);
+        while (low < high)
         {
-            if (entry < buildings.EntryOffsets[building + 1]) return building;
+            var middle = (low + high) >>> 1;
+            if (entry < buildings.EntryOffsets[middle + 1]) high = middle;
+            else low = middle + 1;
         }
 
-        return buildings.Count - 1;
+        return low;
     }
 
     static float Bearing(Vector2 outwardM) =>
@@ -155,12 +170,15 @@ internal static class SpawnStage
     /// Which of the lanes are stood on: every <c>n</c>th one from a drawn start, so the traffic is spread
     /// over the town rather than filling whichever corner of it was laid first.
     /// </summary>
-    static IEnumerable<int> Spread(int have, int want, ref Rng draw)
+    static IEnumerable<int> Spread(int have, int want, ref Rng draw) =>
+        have <= 0 || want <= 0 ? [] : Spread(have, want, draw.NextInt(have));
+
+    /// <summary>The same from a start given, for a town that lays its roster by rule rather than drawing it.</summary>
+    public static int[] Spread(int have, int want, int from)
     {
         if (have <= 0 || want <= 0) return [];
 
         var step = MathF.Max(1f, have / (float)want);
-        var from = draw.NextInt(have);
         var taken = new int[want];
         for (var at = 0; at < want; at++) taken[at] = (from + (int)(at * step)) % have;
         return taken;

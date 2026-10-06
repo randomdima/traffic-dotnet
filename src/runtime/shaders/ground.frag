@@ -5,11 +5,11 @@
 // five surfaces are different sizes, wrap-seamless and mipped, so an array texture would force them
 // all to one size and resample the ground the town stands on. Five bindings cost a branch that is
 // uniform over every triangle and divergent only where two surfaces meet inside a wave.
-layout(set = 0, binding = 5) uniform sampler2D grass;
-layout(set = 0, binding = 6) uniform sampler2D tarmac;
-layout(set = 0, binding = 7) uniform sampler2D pavement;
-layout(set = 0, binding = 8) uniform sampler2D deck;
-layout(set = 0, binding = 9) uniform sampler2D water;
+layout(set = 0, binding = 4) uniform sampler2D grass;
+layout(set = 0, binding = 5) uniform sampler2D tarmac;
+layout(set = 0, binding = 6) uniform sampler2D pavement;
+layout(set = 0, binding = 7) uniform sampler2D deck;
+layout(set = 0, binding = 8) uniform sampler2D water;
 
 layout(location = 0) in vec2 inUv;
 layout(location = 1) in vec3 inTint;

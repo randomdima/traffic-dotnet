@@ -35,20 +35,6 @@ internal enum SurveyControl : byte
     PriorityRoad,
 }
 
-/// <summary>A pedestrian crossing's kind, as its tags say.</summary>
-internal enum SurveyCrossingKind : byte
-{
-    /// <summary>Marked on the road, which in Ukraine is a zebra (marking 1.14.1).</summary>
-    Zebra,
-
-    /// <summary>Controlled by lights for the walkers.</summary>
-    Signals,
-    Unmarked,
-
-    /// <summary>A crossing whose kind is not tagged.</summary>
-    Unknown,
-}
-
 /// <summary>
 /// <b>What a building is for</b>, as OSM's tags on it say — its <c>building</c> value, else its <c>amenity</c> or
 /// <c>shop</c> — and, where they say nothing, as the land use it stands in does.
@@ -96,10 +82,22 @@ internal enum FootprintUse : byte
 }
 
 /// <summary>
+/// <b>Who a traced town stands when it is opened</b> (GEN-7): how many people at its doors and how many cars on its
+/// lanes — what a brief's people and cars are to a town it generates. A town stands as many of each as it has room for
+/// (<see cref="TracedSpawns"/>, GEN-8).
+/// </summary>
+internal readonly record struct TracedPopulation(int People, int Cars)
+{
+    /// <summary>Nobody: what a map imported, or written before it could say, stands.</summary>
+    public static TracedPopulation None => default;
+}
+
+/// <summary>
 /// <b>A traced map's own file, and the whole of what the engine reads of a real place</b> (GEN-57,
 /// <c>towns/traced/&lt;Map&gt;.map</c>): every road way's line and its carriageway as OSM means it, the coastline,
-/// the turns OSM forbids, and what else is known of the place — each junction's control, every pedestrian
-/// crossing, every building's footprint and every tree — in the map's own metres.
+/// the turns OSM forbids, and what else is known of the place — each junction's control and every building's
+/// footprint — in the map's own metres, and who the town stands (<see cref="Population"/>). <b>No zebra and no
+/// tree</b>: a town paints and plants its own (<see cref="TracedPlan"/>).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -129,20 +127,20 @@ internal sealed partial record TracedMap
     const uint Magic = 0x50414D54;
 
     /// <summary>Bumped whenever what is written changes, so a file of the old shape is refused rather than misread.</summary>
-    public const ushort Version = 3;
+    public const ushort Version = 5;
+
+    /// <summary>An older shape still read: no population after the footprints, so the town it lays stands nobody.</summary>
+    const ushort Unpeopled = 4;
 
     /// <summary>
-    /// The one older shape still read: no footprint carries its use, which reads as <see cref="FootprintUse.Unknown"/>
-    /// until <c>qq osm --footprints</c> lays them again off the layers.
+    /// The oldest shape still read: no population, and OSM's pedestrian crossings before the footprints and its trees
+    /// after them, which are skipped and gone once the map is next written.
     /// </summary>
-    const ushort Useless = 2;
+    const ushort Surveyed = 3;
 
     const double StepsPerM = 1000.0;
 
     const double FootprintStepsPerM = 100.0;
-
-    /// <summary>A crossing's junction where it is struck mid-block.</summary>
-    public const int NoJunction = -1;
 
     public required string Name { get; init; }
 
@@ -177,12 +175,13 @@ internal sealed partial record TracedMap
     /// <summary>Each controlled junction, by its point; a junction the rules decide is not here.</summary>
     public required ControlArrays Controls { get; init; }
 
-    public required CrossingArrays Crossings { get; init; }
-
     public required FootprintArrays Footprints { get; init; }
 
-    /// <summary>Every tree OSM maps a point for (<c>natural=tree</c>).</summary>
-    public required Vector2[] TreeM { get; init; }
+    /// <summary>
+    /// <b>Who the town stands</b>: content and not the place, so no source says it — an edit sets it
+    /// (<c>qq osm --people N --cars N</c>), and an import lays nobody.
+    /// </summary>
+    public TracedPopulation Population { get; init; } = TracedPopulation.None;
 
     internal sealed class ControlArrays
     {
@@ -199,26 +198,6 @@ internal sealed partial record TracedMap
         public int Count => Point.Length;
 
         public static ControlArrays None => new() { Point = [], Control = [], Cluster = [] };
-    }
-
-    internal sealed class CrossingArrays
-    {
-        /// <summary>The road way it crosses, by its OSM id.</summary>
-        public required long[] Way { get; init; }
-
-        public required Vector2[] AtM { get; init; }
-
-        public required SurveyCrossingKind[] Kind { get; init; }
-
-        /// <summary>Whether its tags say it is painted on the road, or null where they say nothing of it.</summary>
-        public required bool?[] Painted { get; init; }
-
-        /// <summary>The point of the junction whose arm it is on, or <see cref="NoJunction"/> where it is struck mid-block.</summary>
-        public required int[] Junction { get; init; }
-
-        public int Count => Way.Length;
-
-        public static CrossingArrays None => new() { Way = [], AtM = [], Kind = [], Painted = [], Junction = [] };
     }
 
     /// <summary>
@@ -275,13 +254,14 @@ internal sealed partial record TracedMap
             Within(line, "a coastline");
         }
 
+        if (Population.People < 0 || Population.Cars < 0)
+        {
+            throw new InvalidDataException($"{what}: a population of {Population.People} people and {Population.Cars} cars.");
+        }
+
         foreach (var turn in Turns.Restrictions) Within([turn.Via], $"restriction {turn.Relation}");
         foreach (var link in Turns.LaneLinks) Within([link.Via], $"lane link {link.Relation}");
         Within(Controls.Point, "a control");
-        foreach (var junction in Crossings.Junction)
-        {
-            if (junction != NoJunction) Within([junction], "a crossing");
-        }
 
         void Within(ReadOnlySpan<int> indices, string which)
         {
@@ -301,7 +281,7 @@ internal sealed partial record TracedMap
         {
             var bytes = new Bytes(file);
             if (bytes.UInt32() != Magic) throw new InvalidDataException($"{what}: not a traced map.");
-            if (bytes.UInt16() is var version && version != Version && version != Useless)
+            if (bytes.UInt16() is var version && version is not (Version or Unpeopled or Surveyed))
             {
                 throw new InvalidDataException($"{what}: a map of version {version}, and this build reads {Version}.");
             }
@@ -327,7 +307,7 @@ internal sealed partial record TracedMap
         try
         {
             var bytes = new Bytes(head);
-            if (bytes.UInt32() != Magic || bytes.UInt16() is not (Version or Useless)) throw new InvalidDataException($"{what}: not a traced map of version {Version}.");
+            if (bytes.UInt32() != Magic || bytes.UInt16() is not (Version or Unpeopled or Surveyed)) throw new InvalidDataException($"{what}: not a traced map of version {Version}.");
 
             return (bytes.String(), bytes.String());
         }
@@ -370,15 +350,18 @@ internal sealed partial record TracedMap
         var coast = new int[bytes.Count()][];
         for (var line = 0; line < coast.Length; line++) coast[line] = ReadIndices(ref bytes, ref last);
 
+        var turns = ReadTurns(ref bytes);
+        var controls = ReadControls(ref bytes);
+        if (version == Surveyed) SkipCrossings(ref bytes);
+        var footprints = ReadFootprints(ref bytes);
+        if (version == Surveyed) SkipPlaces(ref bytes);
+        var population = version == Version ? new TracedPopulation(bytes.Count(), bytes.Count()) : TracedPopulation.None;
+
         return new TracedMap
         {
             Name = name, Description = description, Licence = licence, OsmBase = osmBase, Relation = relation, Frame = frame,
-            PointM = pointM, Roads = roads, Coast = coast,
-            Turns = ReadTurns(ref bytes),
-            Controls = ReadControls(ref bytes),
-            Crossings = ReadCrossings(ref bytes),
-            Footprints = ReadFootprints(ref bytes, version != Useless),
-            TreeM = ReadPlaces(ref bytes),
+            PointM = pointM, Roads = roads, Coast = coast, Turns = turns, Controls = controls, Footprints = footprints,
+            Population = population,
         };
     }
 
@@ -458,24 +441,21 @@ internal sealed partial record TracedMap
         return new ControlArrays { Point = point, Control = control, Cluster = cluster };
     }
 
-    static CrossingArrays ReadCrossings(ref Bytes bytes)
+    /// <summary>Past a <see cref="Surveyed"/> map's crossings: each its way, its place, its kind, whether it is painted and its junction.</summary>
+    static void SkipCrossings(ref Bytes bytes)
     {
-        var count = bytes.Count();
-        var (way, atM, kind, painted, junction) = (new long[count], new Vector2[count], new SurveyCrossingKind[count], new bool?[count], new int[count]);
         var (x, y) = (0, 0);
-        for (var at = 0; at < count; at++)
+        for (var count = bytes.Count(); count > 0; count--)
         {
-            way[at] = bytes.Signed64();
-            atM[at] = Place(ref bytes, ref x, ref y, StepsPerM);
-            kind[at] = (SurveyCrossingKind)bytes.Byte();
-            painted[at] = bytes.Byte() switch { 0 => false, 1 => true, _ => null };
-            junction[at] = bytes.Count() - 1;
+            bytes.Signed64();
+            Place(ref bytes, ref x, ref y, StepsPerM);
+            bytes.Byte();
+            bytes.Byte();
+            bytes.Count();
         }
-
-        return new CrossingArrays { Way = way, AtM = atM, Kind = kind, Painted = painted, Junction = junction };
     }
 
-    static FootprintArrays ReadFootprints(ref Bytes bytes, bool withUses)
+    static FootprintArrays ReadFootprints(ref Bytes bytes)
     {
         var (count, rings, points) = (bytes.Count(), bytes.Count(), bytes.Count());
         var ringOffsets = new int[count + 1];
@@ -489,7 +469,7 @@ internal sealed partial record TracedMap
         {
             traced[footprint] = bytes.Byte() != 0;
             heightM[footprint] = bytes.Count() / (float)FootprintStepsPerM;
-            if (withUses) use[footprint] = (FootprintUse)bytes.Byte();
+            use[footprint] = (FootprintUse)bytes.Byte();
             var itsRings = bytes.Count();
             for (var one = 0; one < itsRings; one++)
             {
@@ -507,12 +487,11 @@ internal sealed partial record TracedMap
         return new FootprintArrays { RingOffsets = ringOffsets, PointOffsets = pointOffsets, PointM = pointM, Traced = traced, HeightM = heightM, Use = use };
     }
 
-    static Vector2[] ReadPlaces(ref Bytes bytes)
+    /// <summary>Past a <see cref="Surveyed"/> map's trees, each a place.</summary>
+    static void SkipPlaces(ref Bytes bytes)
     {
-        var placeM = new Vector2[bytes.Count()];
         var (x, y) = (0, 0);
-        for (var at = 0; at < placeM.Length; at++) placeM[at] = Place(ref bytes, ref x, ref y, StepsPerM);
-        return placeM;
+        for (var count = bytes.Count(); count > 0; count--) Place(ref bytes, ref x, ref y, StepsPerM);
     }
 
     static Vector2 Place(ref Bytes bytes, ref int x, ref int y, double stepsPerM)
@@ -579,9 +558,9 @@ internal sealed partial record TracedMap
 
         WriteTurns(writer, Turns);
         WriteControls(writer, Controls);
-        WriteCrossings(writer, Crossings);
         WriteFootprints(writer, Footprints);
-        WritePlaces(writer, TreeM);
+        writer.Write7BitEncodedInt(Population.People);
+        writer.Write7BitEncodedInt(Population.Cars);
     }
 
     static void WriteRoad(BinaryWriter writer, TracedRoad road, int highway, ref int last)
@@ -656,20 +635,6 @@ internal sealed partial record TracedMap
         }
     }
 
-    static void WriteCrossings(BinaryWriter writer, CrossingArrays crossings)
-    {
-        writer.Write7BitEncodedInt(crossings.Count);
-        var (x, y) = (0, 0);
-        for (var at = 0; at < crossings.Count; at++)
-        {
-            WriteSigned(writer, crossings.Way[at]);
-            WritePlace(writer, crossings.AtM[at].X, crossings.AtM[at].Y, ref x, ref y, StepsPerM);
-            writer.Write((byte)crossings.Kind[at]);
-            writer.Write((byte)(crossings.Painted[at] switch { false => 0, true => 1, null => 2 }));
-            writer.Write7BitEncodedInt(crossings.Junction[at] + 1);
-        }
-    }
-
     static void WriteFootprints(BinaryWriter writer, FootprintArrays footprints)
     {
         writer.Write7BitEncodedInt(footprints.Count);
@@ -690,13 +655,6 @@ internal sealed partial record TracedMap
                 foreach (var pointM in points) WritePlace(writer, pointM.X, pointM.Y, ref x, ref y, FootprintStepsPerM);
             }
         }
-    }
-
-    static void WritePlaces(BinaryWriter writer, Vector2[] placeM)
-    {
-        writer.Write7BitEncodedInt(placeM.Length);
-        var (x, y) = (0, 0);
-        foreach (var atM in placeM) WritePlace(writer, atM.X, atM.Y, ref x, ref y, StepsPerM);
     }
 
     static void WritePlace(BinaryWriter writer, double xM, double yM, ref int x, ref int y, double stepsPerM)
@@ -727,8 +685,8 @@ internal sealed partial record TracedMap
     /// between where they leave it and enter it again.
     /// </para>
     /// <para>
-    /// A footprint is kept where it stands wholly inside the frame; a tree or a crossing where it stands inside it; a
-    /// control or a turn where its point is still a road's.
+    /// A footprint is kept where it stands wholly inside the frame; a control or a turn where its point is still a
+    /// road's.
     /// </para>
     /// </remarks>
     public TracedMap Cropped(int leftM, int topM, int widthM, int heightM)
@@ -767,8 +725,6 @@ internal sealed partial record TracedMap
             .Select(link => new OsmLaneLink { Relation = link.Relation, From = link.From, Via = renumbered[link.Via], To = link.To, FromLane = link.FromLane, ToLane = link.ToLane });
 
         var controls = Enumerable.Range(0, Controls.Count).Where(at => renumbered[Controls.Point[at]] >= 0).ToArray();
-        var crossings = Enumerable.Range(0, Crossings.Count).Where(at => whole.Holds(Moved(Crossings.AtM[at]))).ToArray();
-        var trees = TreeM.Select(Moved).Where(whole.Holds).ToArray();
 
         return new TracedMap
         {
@@ -783,16 +739,8 @@ internal sealed partial record TracedMap
                 Control = [.. controls.Select(at => Controls.Control[at])],
                 Cluster = [.. controls.Select(at => Controls.Cluster[at])],
             },
-            Crossings = new CrossingArrays
-            {
-                Way = [.. crossings.Select(at => Crossings.Way[at])],
-                AtM = [.. crossings.Select(at => Flat(Moved(Crossings.AtM[at])))],
-                Kind = [.. crossings.Select(at => Crossings.Kind[at])],
-                Painted = [.. crossings.Select(at => Crossings.Painted[at])],
-                Junction = [.. crossings.Select(at => Crossings.Junction[at] == NoJunction ? NoJunction : renumbered[Crossings.Junction[at]])],
-            },
             Footprints = CroppedFootprints(),
-            TreeM = [.. trees.Select(Flat)],
+            Population = Population,
         };
 
         Vector2D Moved(Vector2 atM) => new(atM.X - offsetM.X, atM.Y - offsetM.Y);

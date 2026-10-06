@@ -190,14 +190,12 @@ internal sealed partial class TownWorld
             build, pose, atM, ground.Slice(down, TowBar.Wheels), _config.Evacuator.OnTheTrailerAxleShare,
             _config.TickSeconds, impulses.Slice(down, TowBar.Wheels));
 
-        // The tread turns with the road under it, because these two wheels are rolling: a towed car whose
-        // tyres stood still would be a car being skidded along on locked wheels, which is the picture of
-        // the thing this model exists to stop being.
+        // These two wheels are rolling, so they turn with the road under them: left standing still, they
+        // are handed back to the tyre model as locked wheels on a moving car.
         var alongMps = Vector2.Dot(pose.VelocityMps, pose.Forward);
         for (var wheel = 0; wheel < TowBar.Wheels; wheel++)
         {
             Cars.WheelSpinMps[(car * TyreModel.Wheels) + down + wheel] = alongMps;
-            RollTread(car, down + wheel);
         }
     }
 

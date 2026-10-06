@@ -4,7 +4,7 @@ namespace TrafficSimulation.CityGen.Traced;
 
 /// <summary>
 /// <b>What else is known of a surveyed place, by OSM's own ids</b>: each road's width as measured, each junction's
-/// control, every pedestrian crossing, every building's footprint and every tree, as the scanner reads them off the enrichment's layers into the extract's frame — imported with the extract
+/// control and every building's footprint, as the scanner reads them off the enrichment's layers into the extract's frame — imported with the extract
 /// (<see cref="TracedMapImport.Of"/>). Facts and no rule: what a traced town takes of them is <see cref="Survey.Of"/>'s.
 /// </summary>
 internal sealed class PlaceFacts
@@ -15,20 +15,14 @@ internal sealed class PlaceFacts
     /// <summary>Each junction's control, by its node's OSM id; a junction the rules decide is not here.</summary>
     public required ControlArrays Controls { get; init; }
 
-    public required CrossingArrays Crossings { get; init; }
-
     public required TracedMap.FootprintArrays Footprints { get; init; }
-
-    public required Vector2[] TreeM { get; init; }
 
     /// <summary>Nothing known but OSM's ways and sea.</summary>
     public static PlaceFacts None => new()
     {
         Widths = new WidthArrays { Way = [], WidthM = [], From = [] },
         Controls = new ControlArrays { Node = [], Control = [], Cluster = [] },
-        Crossings = new CrossingArrays { Way = [], AtM = [], Kind = [], Painted = [], Junction = [] },
         Footprints = TracedMap.FootprintArrays.None,
-        TreeM = [],
     };
 
     internal sealed class WidthArrays
@@ -48,22 +42,6 @@ internal sealed class PlaceFacts
         public required long[] Cluster { get; init; }
 
         public int Count => Node.Length;
-    }
-
-    internal sealed class CrossingArrays
-    {
-        /// <summary>The road way it crosses, by its OSM id.</summary>
-        public required long[] Way { get; init; }
-        public required Vector2[] AtM { get; init; }
-        public required SurveyCrossingKind[] Kind { get; init; }
-
-        /// <summary>Whether its tags say it is painted on the road, or null where they say nothing of it.</summary>
-        public required bool?[] Painted { get; init; }
-
-        /// <summary>The junction whose arm it is on, by its node's OSM id, or nought where it is struck mid-block.</summary>
-        public required long[] Junction { get; init; }
-
-        public int Count => Way.Length;
     }
 }
 
@@ -143,16 +121,7 @@ internal static class TracedMapImport
                 Control = [.. controls.Select(at => facts.Controls.Control[at])],
                 Cluster = [.. controls.Select(at => facts.Controls.Cluster[at])],
             },
-            Crossings = new TracedMap.CrossingArrays
-            {
-                Way = facts.Crossings.Way,
-                AtM = facts.Crossings.AtM,
-                Kind = facts.Crossings.Kind,
-                Painted = facts.Crossings.Painted,
-                Junction = [.. facts.Crossings.Junction.Select(node => PointOf(node) is var point and >= 0 ? point : TracedMap.NoJunction)],
-            },
             Footprints = facts.Footprints,
-            TreeM = facts.TreeM,
         };
 
         int[] Placed(int[] wayNodes)

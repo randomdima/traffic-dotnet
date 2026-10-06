@@ -677,7 +677,7 @@ internal sealed partial class Game : IDisposable
     void Stand(LaidTown laid, bool behindTheMenu = false)
     {
         _map = laid.Plan.Name;
-        _looks ??= TownSprites.Load();
+        _looks ??= TownSprites.Load(_config);
 
         _renderer.Dispose();
         _sheets = _looks.Sheets;
@@ -846,7 +846,8 @@ internal sealed partial class Game : IDisposable
             // The cull span and not the view span: a turned town shows a diamond, and a body just outside
             // the upright rectangle is inside the picture (OBS-1c).
             (sprites, above) = looks.Fill(
-                _world, _config, _camera.CentreM, _camera.CullSpanM(_uiPx), _renderer.Sprites, _renderer.SpritesAbove);
+                _world, _config, _camera.CentreM, _camera.CullSpanM(_uiPx), _camera.PixelsPerMetre, _renderer.Sprites,
+                _renderer.SpritesAbove);
         }
 
         _renderer.SetSpriteCount(sprites, above);

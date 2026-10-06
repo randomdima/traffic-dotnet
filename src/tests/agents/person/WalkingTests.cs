@@ -123,7 +123,10 @@ public class WalkingTests
     /// <remarks>
     /// <b>How far it reaches is not asked</b>, because it is data and asserting it would be the arithmetic
     /// written out twice (VER-12). <b>And a plan cut to nothing is the ordinary answer</b> — stronger ground
-    /// in front takes it (TER-5e) — so what is asked is where the ones that survive begin.
+    /// in front takes it (TER-5e) — so what is asked is where the ones that survive begin. <b>Nor is a walker
+    /// hopping off the end of its route asked</b>: what it plans is the straight to its goal (PER-25), which
+    /// crosses the way it stands on at whatever angle the goal is at, so its metres of that way lie either side
+    /// of the walker's own and every one of them is still ground in front of it.
     /// </remarks>
     [Fact]
     public void WhatAWalkerPlansBeginsInFrontOfIt()
@@ -133,6 +136,8 @@ public class WalkingTests
         var planned = 0;
         foreach (var person in afoot)
         {
+            if (world.People.OnTheLastWay(person) && world.People.OnWayM[person] >= world.People.RouteToM[person] - Config.PersonStepM) continue;
+
             var way = world.People.OnWay[person];
             var alongM = world.People.OnWayM[person];
 

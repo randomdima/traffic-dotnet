@@ -23,7 +23,8 @@ struct Camera {
 // Where each sheet was packed, as SheetAtlas laid it. Two vec4s a sheet, which is the C# struct.
 struct Place {
     originScale: vec4f,
-    layerTilesSize: vec4f,
+    // The layer, then the sheet's own size, which only the CPU reads.
+    layerSize: vec4f,
 };
 
 struct Sheets {
@@ -34,14 +35,13 @@ struct Sheets {
 
 @group(0) @binding(2) var pages: texture_2d_array<f32>;
 @group(0) @binding(3) var glyphs: texture_2d<f32>;
-@group(0) @binding(4) var tread: texture_2d<f32>;
-@group(0) @binding(5) var grass: texture_2d<f32>;
-@group(0) @binding(6) var tarmac: texture_2d<f32>;
-@group(0) @binding(7) var pavement: texture_2d<f32>;
-@group(0) @binding(8) var deck: texture_2d<f32>;
-@group(0) @binding(9) var water: texture_2d<f32>;
-@group(0) @binding(10) var clamped: sampler;
-@group(0) @binding(11) var repeated: sampler;
+@group(0) @binding(4) var grass: texture_2d<f32>;
+@group(0) @binding(5) var tarmac: texture_2d<f32>;
+@group(0) @binding(6) var pavement: texture_2d<f32>;
+@group(0) @binding(7) var deck: texture_2d<f32>;
+@group(0) @binding(8) var water: texture_2d<f32>;
+@group(0) @binding(9) var clamped: sampler;
+@group(0) @binding(10) var repeated: sampler;
 
 /// The town's own metres to clip. The negation is the whole of what makes a y-up API draw a y-down
 /// world the same way the y-down one does.
@@ -136,8 +136,6 @@ struct SpriteOut {
     @builtin(position) position: vec4f,
     @location(0) uv: vec3f,
     @location(1) tint: vec4f,
-    @location(2) @interpolate(flat) tiles: f32,
-    @location(3) tileUv: vec2f,
 };
 
 @vertex
@@ -163,28 +161,15 @@ fn spriteVertex(
 
     var result: SpriteOut;
     result.position = toClip(centreM + along * fromCentreM.x + across * fromCentreM.y);
-    result.uv = vec3f(place.originScale.xy + uv * place.originScale.zw, place.layerTilesSize.x);
-    // The sheet's own coordinate, kept for the one sheet that tiles: the tread's runs outside the
-    // unit square by however many pitches the wheel lays, which is what an atlas cannot hold.
-    result.tileUv = uv;
-    result.tiles = place.layerTilesSize.y;
+    result.uv = vec3f(place.originScale.xy + uv * place.originScale.zw, place.layerSize.x);
     result.tint = tint;
     return result;
 }
 
 @fragment
 fn spriteFragment(frag: SpriteOut) -> @location(0) vec4f {
-    // The tile's own gradients, taken above the branch for the reason the ground's are. The pages
-    // carry no mip chain at all, so the atlas is sampled at the top level and needs none.
-    let ddx = dpdx(frag.tileUv);
-    let ddy = dpdy(frag.tileUv);
-
-    var texel: vec4f;
-    if (frag.tiles > 0.5) {
-        texel = textureSampleGrad(tread, repeated, frag.tileUv, ddx, ddy);
-    } else {
-        texel = textureSampleLevel(pages, clamped, frag.uv.xy, i32(frag.uv.z), 0.0);
-    }
+    // The pages carry no mip chain, so the atlas is sampled at the top level.
+    let texel = textureSampleLevel(pages, clamped, frag.uv.xy, i32(frag.uv.z), 0.0);
 
     // The art is keyed, so most of every cell is nothing at all; discarding it keeps the blend from
     // laying a rectangle of near-zero alpha over whatever the sprite is standing on.

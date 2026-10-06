@@ -588,19 +588,4 @@ public class TyreModelTests
         var drainedM = TyreModel.ScrubTravelM(Figures, Figures.Marks.OnsetM, slideSpeedMps: 0f, Figures.TickSeconds);
         Assert.True(drainedM < Figures.Marks.OnsetM);
     }
-
-    /// <summary>The tread is wrapped into the picture's own pitch, so the pattern repeats seamlessly whichever way it runs.</summary>
-    [Theory]
-    [InlineData(0f)]
-    [InlineData(30f)]
-    [InlineData(-30f)]
-    public void TheTreadScrollsWithinOnePitch(float spinMps)
-    {
-        var phaseM = 0f;
-        for (var tick = 0; tick < 50; tick++)
-        {
-            phaseM = TyreModel.TreadPhaseM(phaseM, spinMps, Figures.Tyre.TreadPitchM, Figures.TickSeconds);
-            Assert.InRange(phaseM, 0f, Figures.Tyre.TreadPitchM);
-        }
-    }
 }

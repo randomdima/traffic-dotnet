@@ -8,8 +8,9 @@ namespace TrafficSimulation.Tools.OsmScan.Meta;
 /// <summary>
 /// <b>A traced map imported off its survey and the layers the engine lays it with</b> (<see cref="TracedMap"/>,
 /// <see cref="TracedMapImport"/>): the extract's roads, coast and turns, and each road's measured width, each
-/// junction's control, every pedestrian crossing, every building's footprint and height and every tree, in the
-/// survey's own frame — written to <c>towns/traced/&lt;Map&gt;.map</c>, the only file of the place the engine reads. Run by <c>qq osm --import</c>.
+/// junction's control and every building's footprint and height, in the survey's own frame — written to
+/// <c>towns/traced/&lt;Map&gt;.map</c>, the only file of the place the engine reads. Run by <c>qq osm --import</c>.
+/// The crossings and the trees the layers hold are not imported: a town paints and plants its own.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -19,8 +20,8 @@ namespace TrafficSimulation.Tools.OsmScan.Meta;
 /// </para>
 /// <para>
 /// <b>What is imported is what the layers say</b>, each record's one answer: a road's <c>widthM</c> where it was
-/// measured rather than made of its lanes, a junction's control where it is not left to the rules, a crossing's
-/// kind and whether its tags say it is painted, a footprint OSM's or the machine-traced one OSM lacks. No rule of the
+/// measured rather than made of its lanes, a junction's control where it is not left to the rules, a footprint OSM's
+/// or the machine-traced one OSM lacks. No rule of the
 /// engine's is applied here. Layers laid off another survey than the extract's are refused.
 /// </para>
 /// <para>
@@ -60,9 +61,7 @@ internal static class Import
         {
             Widths = Widths(Layer<RoadRecord>(folder, "roads")),
             Controls = Controls(Layer<JunctionRecord>(folder, "junctions")),
-            Crossings = Crossings(Layer<CrossingRecord>(folder, "crossings"), plane),
             Footprints = Footprints(folder, plane, _ => true),
-            TreeM = Trees(Layer<PointRecord>(folder, "furniture"), plane),
         };
 
         var traced = TracedMapImport.Of(survey, facts);
@@ -120,40 +119,6 @@ internal static class Import
 
         return new PlaceFacts.ControlArrays { Node = [.. node], Control = [.. control], Cluster = [.. cluster] };
     }
-
-    static PlaceFacts.CrossingArrays Crossings(List<CrossingRecord> crossings, Plane plane)
-    {
-        var (way, atM, kind, painted) = (new List<long>(), new List<Vector2>(), new List<SurveyCrossingKind>(), new List<bool?>());
-        var junction = new List<long>();
-        foreach (var crossing in crossings)
-        {
-            if (crossing.Type != "pedestrian") continue;
-
-            SurveyCrossingKind? read = crossing.Kind switch
-            {
-                "zebra" or "marked" => SurveyCrossingKind.Zebra,
-                "signals" => SurveyCrossingKind.Signals,
-                "unmarked" or "informal" => SurveyCrossingKind.Unmarked,
-                "unknown" => SurveyCrossingKind.Unknown,
-                _ => null,
-            };
-            if (read is not { } crossed) continue;
-
-            way.Add(crossing.Road);
-            atM.Add(Placed(plane, crossing.At[0], crossing.At[1]));
-            kind.Add(crossed);
-            painted.Add(crossing.Painted);
-            junction.Add(crossing.AtJunction ? crossing.Junction ?? 0 : 0);
-        }
-
-        return new PlaceFacts.CrossingArrays
-        {
-            Way = [.. way], AtM = [.. atM], Kind = [.. kind], Painted = [.. painted], Junction = [.. junction],
-        };
-    }
-
-    static Vector2[] Trees(List<PointRecord> furniture, Plane plane) =>
-        [.. furniture.Where(point => point.Kind == "natural=tree" && point.At is { Length: 2 }).Select(point => Placed(plane, point.At![0], point.At[1]))];
 
     /// <summary>Every building's footprints and what each is for (<see cref="FootprintUses"/>), off the layers in <paramref name="folder"/>.</summary>
     /// <param name="keeps">Whether an outline is kept, read off its own places on the map.</param>

@@ -58,8 +58,7 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     const int SheetTableBinding = 1;
     const int SheetPagesBinding = 2;
     const int GlyphBinding = 3;
-    const int TileBinding = 4;
-    const int FirstSurfaceBinding = 5;
+    const int FirstSurfaceBinding = 4;
     const int Bindings = FirstSurfaceBinding + Surfaces;
 
     /// <summary>
@@ -102,7 +101,6 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     readonly GpuTexture[] _textures;
     readonly SheetAtlas _atlas;
     readonly GpuTexture _sheetPages;
-    readonly GpuTexture? _tile;
     readonly GpuBuffer _sheetTable;
     readonly GpuTexture _glyphs;
     readonly GpuBuffer _vertices;
@@ -173,17 +171,10 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         if (sheetTextures.Count > SheetSlots) throw new InvalidOperationException(
             $"{sheetTextures.Count} sheets, and the sprite shader's table holds {SheetSlots}.");
 
-        // Every sheet onto the layers of one array texture, and the one that tiles onto a binding of
-        // its own. What a sheet was is then a row of the table the vertex shader reads.
+        // Every sheet onto the layers of one array texture. What a sheet was is then a row of the table
+        // the vertex shader reads.
         _atlas = SheetAtlas.Pack(sheetTextures);
         _sheetPages = GpuTexture.Layered(vk, SheetAtlas.PagePx, SheetAtlas.PagePx, _atlas.Pages, _atlas.FillPage);
-        if (_atlas.TileSheet >= 0)
-        {
-            var tile = sheetTextures[_atlas.TileSheet];
-            _tile = tile.Path is { } path
-                ? GpuTexture.Load(vk, path, tile.Repeats, tile.Mipped)
-                : GpuTexture.FromPixels(vk, tile.Rgba!, tile.WidthPx, tile.HeightPx, tile.Repeats, tile.Mipped);
-        }
 
         _sheetTable = vk.CreateBuffer((ulong)(SheetSlots * sizeof(SheetPlace)), BufferUsageFlags.UniformBufferBit, hostVisible: true);
         _atlas.Places.CopyTo(_sheetTable.Span<SheetPlace>());
@@ -599,7 +590,6 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _glyphs.Dispose();
         _sheetTable.Dispose();
         _sheetPages.Dispose();
-        _tile?.Dispose();
         foreach (var texture in _textures) texture.Dispose();
     }
 

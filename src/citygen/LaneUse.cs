@@ -33,7 +33,9 @@ internal readonly record struct LaneLink(int Junction, int FromRoad, int FromKer
 /// <b>Where nothing carries straight on, the lanes are shared out between the turns there are</b>: the kerb
 /// half to the near side and the other half to the far, the middle lane of an odd count to both, and the
 /// whole of them to a turn that is the only kind on offer — so a bend, or a fork into two roads, is driven
-/// out of every lane that arrives at it. <b>No lane arrives at a junction that offers it nothing.</b>
+/// out of every lane that arrives at it. <b>No lane arrives at a junction that offers it nothing.</b> <b>Nor
+/// does a fork carrying straight on into two</b>: its branch nearer the kerb takes the kerb half and the other the
+/// rest, as two turns would — each lane carried onto both would cross the next one carried onto the other.
 /// </para>
 /// <para>
 /// <b>A lane making a movement joins the lane of its own number on the road taken</b> (<see cref="Joins"/>), both
@@ -42,10 +44,10 @@ internal readonly record struct LaneLink(int Junction, int FromRoad, int FromKer
 /// movements off one arm onto one road cross each other.
 /// </para>
 /// <para>
-/// <b>A lane with no lane of its number there joins nothing</b> (GEN-50): of more lanes onto fewer the ones over end,
-/// and of fewer onto more the ones over are reached by none — but onto a road of one lane more, whose last lane the
-/// last lane in joins as well as its own. A car gets off the one and onto the other by moving across (CAR-53). <b>The
-/// ground between them is still paved</b> (<see cref="Eases"/>), over the line the lanes' spread would have joined them by.
+/// <b>A lane joins one lane, and a lane with no lane of its number there joins nothing</b> (GEN-50): of more lanes onto
+/// fewer the ones over end, and of fewer onto more the ones over are reached by none. A car gets off the one and onto the
+/// other by moving across (CAR-53). <b>The ground between them is still paved</b> (<see cref="Eases"/>), over the line
+/// the lanes' spread would have joined them by.
 /// </para>
 /// <para>
 /// <b>One lane each way is today's town and comes out exactly as it was</b>: every lane is the kerb lane and
@@ -59,8 +61,11 @@ internal readonly record struct LaneLink(int Junction, int FromRoad, int FromKer
 /// </remarks>
 internal static class LaneUse
 {
-    /// <summary>The kinds of turn a node offers the lanes of one arm, before any is given to a lane.</summary>
-    public readonly record struct Offered(bool Straight, bool NearSide, bool FarSide)
+    /// <summary>
+    /// The kinds of turn a node offers the lanes of one arm, before any is given to a lane — and whether straight on
+    /// <see cref="Forks"/> into more than one road.
+    /// </summary>
+    public readonly record struct Offered(bool Straight, bool NearSide, bool FarSide, bool Forks = false)
     {
         public Offered With(LaneTurn turn) => turn switch
         {
@@ -75,18 +80,13 @@ internal static class LaneUse
     /// with <paramref name="arrows"/> (from the kerb, or none), is joined by a turn of this kind to the lane
     /// <paramref name="ontoFromKerb"/> in from the kerb of a road taking it in <paramref name="ontoLanes"/>: lane for
     /// lane, both numbered from the kerb where the movement <paramref name="bearsToTheKerb"/> and from the line where
-    /// it bears away from it, and the last lane onto the last as well where the road taken has one lane more.
+    /// it bears away from it.
     /// </summary>
     public static bool Joins(
         Offered offered, LaneTurn turn, ReadOnlySpan<MarkedTurns> arrows, int fromKerb, int lanes, int ontoFromKerb,
-        int ontoLanes, bool bearsToTheKerb)
-    {
-        if (!Makes(offered, turn, arrows, fromKerb, lanes)) return false;
-
-        var from = FromItsSide(fromKerb, lanes, bearsToTheKerb);
-        var onto = FromItsSide(ontoFromKerb, ontoLanes, bearsToTheKerb);
-        return onto == from || (ontoLanes == lanes + 1 && from == lanes - 1 && onto == lanes);
-    }
+        int ontoLanes, bool bearsToTheKerb) =>
+        Makes(offered, turn, arrows, fromKerb, lanes, bearsToTheKerb)
+        && FromItsSide(ontoFromKerb, ontoLanes, bearsToTheKerb) == FromItsSide(fromKerb, lanes, bearsToTheKerb);
 
     /// <summary>
     /// <b>Whether the ground between two lanes is paved though no car is joined over it</b> (<see cref="LaneLines.Tapers"/>):
@@ -95,13 +95,14 @@ internal static class LaneUse
     /// one of the two ending or unreached — which is the caller's (<c>LaneLines</c>).
     /// </summary>
     public static bool Eases(
-        Offered offered, LaneTurn turn, ReadOnlySpan<MarkedTurns> arrows, int fromKerb, int lanes, int ontoFromKerb, int ontoLanes)
+        Offered offered, LaneTurn turn, ReadOnlySpan<MarkedTurns> arrows, int fromKerb, int lanes, int ontoFromKerb, int ontoLanes,
+        bool bearsToTheKerb)
     {
         var at = -1;
         var of = 0;
         for (var lane = 0; lane < lanes; lane++)
         {
-            if (!Makes(offered, turn, arrows, lane, lanes)) continue;
+            if (!Makes(offered, turn, arrows, lane, lanes, bearsToTheKerb)) continue;
 
             if (lane == fromKerb) at = of;
             of++;
@@ -129,12 +130,12 @@ internal static class LaneUse
     /// none the node offers, or an arm painted for some other count of lanes — what a lane of an unmarked arm would.
     /// A turn no lane of the arm makes is not made from it.
     /// </summary>
-    static bool Makes(Offered offered, LaneTurn turn, ReadOnlySpan<MarkedTurns> arrows, int lane, int lanes)
+    static bool Makes(Offered offered, LaneTurn turn, ReadOnlySpan<MarkedTurns> arrows, int lane, int lanes, bool bearsToTheKerb)
     {
         var admitted = arrows.Length == lanes ? Admitted(arrows[lane], offered) : MarkedTurns.None;
         if (admitted != MarkedTurns.None) return (admitted & Arrow(turn)) != 0;
 
-        var (first, last) = MadeFrom(offered, turn, lanes);
+        var (first, last) = MadeFrom(offered, turn, lanes, bearsToTheKerb);
         return lane >= first && lane <= last;
     }
 
@@ -160,9 +161,15 @@ internal static class LaneUse
         _ => MarkedTurns.FarSide,
     };
 
-    /// <summary>The lanes of an arm a turn of this kind is made from, counted in from the kerb, first and last.</summary>
-    public static (int First, int Last) MadeFrom(Offered offered, LaneTurn turn, int lanes) => turn switch
+    /// <summary>
+    /// The lanes of an arm a turn of this kind is made from, counted in from the kerb, first and last — where straight on
+    /// forks, the half on the side the branch <paramref name="bearsToTheKerb"/> or from, as a near-side and far-side turn
+    /// share them.
+    /// </summary>
+    static (int First, int Last) MadeFrom(Offered offered, LaneTurn turn, int lanes, bool bearsToTheKerb) => turn switch
     {
+        LaneTurn.Straight when offered.Forks && bearsToTheKerb => (0, ((lanes + 1) / 2) - 1),
+        LaneTurn.Straight when offered.Forks => (lanes / 2, lanes - 1),
         LaneTurn.Straight => (0, lanes - 1),
         LaneTurn.NearSide when offered.Straight => (0, 0),
         LaneTurn.NearSide when offered.FarSide => (0, ((lanes + 1) / 2) - 1),

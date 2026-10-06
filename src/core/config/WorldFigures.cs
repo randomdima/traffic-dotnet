@@ -601,6 +601,18 @@ internal sealed class CityGenFigures
     public float TracedShortestRoadM { get; init; } = 0.5f;
 
     /// <summary>
+    /// <b>How much further off its junction's centre an arm's lanes may end than the shortest road there lets that
+    /// road's own end</b> (GEN-57): a road too short for both its junctions' discs squeezes its own two ends, and every
+    /// other arm there ends where its junction asks, but no more than this further back.
+    /// </summary>
+    /// <remarks>
+    /// Squeezed to the short road's end, every arm's lanes run into the middle of the crossing, past where the lanes they
+    /// turn onto cross their line, and a movement between them has to wind round to come back to that corner. Stood
+    /// back without bound, the short road's lanes would reach far into a box whose other arms end well short of them.
+    /// </remarks>
+    public float TracedArmEndsApartM { get; init; } = 5f;
+
+    /// <summary>
     /// The tightest a traced road's innermost lane is laid round a corner (GEN-57), where the survey drew one
     /// sharper than its carriageway can round: a hairpin drawn to a point is a turn this tight rather than a
     /// cusp, and rather than the straight across its mouth. A road of one lane on its line is not laid tighter
@@ -727,11 +739,11 @@ internal sealed class CityGenFigures
     public float TracedWidestLaneM { get; init; } = 8f;
 
     /// <summary>
-    /// The radius a traced town lays a tree its survey maps at (GEN-57): the crown of a grown street tree, which is the
-    /// size the catalogue draws its great trees and nothing else at (GEN-6b) — OSM tags almost none with a crown of
-    /// its own.
+    /// The cell a traced town's buildings are claimed at before its props are laid (GEN-6b): a brief's is a metre, and
+    /// a traced map is a city across, whose claims at a metre would be a byte to every square metre of it. A prop is
+    /// held up to a cell further off a building than a metre would hold it.
     /// </summary>
-    public float TracedTreeRadiusM { get; init; } = 1.4f;
+    public float TracedClaimCellM { get; init; } = 2f;
 
     /// <summary>
     /// <b>How many of a traced town's bridges over its roads have cars stood at them</b> (GEN-57, PHY-1a): a car each way

@@ -7,7 +7,7 @@ namespace TrafficSimulation.Tests.CityGen.Traced;
 
 /// <summary>
 /// <b>A traced map's file reads back what was written, and is cut down in place</b> (GEN-57, <see cref="TracedMap"/>):
-/// every road, lane, turn, control, crossing and tree as written, every place to the millimetre and every
+/// every road, lane, turn and control as written, every place to the millimetre and every
 /// footprint's point to the centimetre; a file cut short refused; and a crop keeping what stands in its frame, a road
 /// running on past it as far as the engine reads it.
 /// </summary>
@@ -15,7 +15,7 @@ namespace TrafficSimulation.Tests.CityGen.Traced;
 [Trait(Priority.Key, Priority.P4)]
 public class TracedMapTests
 {
-    /// <summary><b>What is written is read back</b>, every road, lane, turn, control, crossing and tree as it was given.</summary>
+    /// <summary><b>What is written is read back</b>, every road, lane, turn, control, footprint and the population as it was given.</summary>
     [Fact]
     public void AMapReadsBackWhatWasWritten()
     {
@@ -36,17 +36,21 @@ public class TracedMapTests
         Assert.Equal(written.Controls.Point, read.Controls.Point);
         Assert.Equal(written.Controls.Control, read.Controls.Control);
         Assert.Equal(written.Controls.Cluster, read.Controls.Cluster);
-        Assert.Equal(written.Crossings.Way, read.Crossings.Way);
-        Assert.Equal(written.Crossings.AtM, read.Crossings.AtM);
-        Assert.Equal(written.Crossings.Kind, read.Crossings.Kind);
-        Assert.Equal(written.Crossings.Painted, read.Crossings.Painted);
-        Assert.Equal(written.Crossings.Junction, read.Crossings.Junction);
         Assert.Equal(written.Footprints.RingOffsets, read.Footprints.RingOffsets);
         Assert.Equal(written.Footprints.PointOffsets, read.Footprints.PointOffsets);
         Assert.Equal(written.Footprints.Traced, read.Footprints.Traced);
         Assert.Equal(written.Footprints.HeightM, read.Footprints.HeightM);
         Assert.Equal(written.Footprints.Use, read.Footprints.Use);
-        Assert.Equal(written.TreeM, read.TreeM);
+        Assert.Equal(written.Population, read.Population);
+    }
+
+    /// <summary><b>A crop keeps who the town stands</b>: the population is the map's, and no frame cuts it.</summary>
+    [Fact]
+    public void ACropKeepsThePopulation()
+    {
+        var cropped = Everything().Cropped(0, 0, 500, 400);
+
+        Assert.Equal(Everything().Population, cropped.Population);
     }
 
     /// <summary>
@@ -142,8 +146,8 @@ public class TracedMapTests
     }
 
     /// <summary>
-    /// <b>A crop keeps a footprint wholly inside its frame, and a tree, a crossing, a control or a turn only where it
-    /// still stands on it</b>: one footprint astride the edge, one tree, crossing, control and turn outside are gone.
+    /// <b>A crop keeps a footprint wholly inside its frame, and a control or a turn only where it still stands on
+    /// it</b>: one footprint astride the edge, one control and one turn outside are gone.
     /// </summary>
     [Fact]
     public void ACropKeepsWhatStandsInItsFrame()
@@ -160,27 +164,19 @@ public class TracedMapTests
                 LaneLinks = [],
             },
             Controls = new TracedMap.ControlArrays { Point = [1, 2], Control = [SurveyControl.Signals, SurveyControl.Signs], Cluster = [0, 0] },
-            Crossings = new TracedMap.CrossingArrays
-            {
-                Way = [1, 2], AtM = [new(400, 400), new(920, 700)], Kind = [SurveyCrossingKind.Zebra, SurveyCrossingKind.Zebra],
-                Painted = [true, true], Junction = [1, 3],
-            },
             Footprints = new TracedMap.FootprintArrays
             {
                 RingOffsets = [0, 1, 2], PointOffsets = [0, 3, 6],
                 PointM = [new(300, 300), new(320, 300), new(320, 320), new(690, 300), new(710, 300), new(710, 320)],
                 Traced = [false, true], HeightM = [9f, 12f], Use = [FootprintUse.Apartments, FootprintUse.Unknown],
             },
-            TreeM = [new(250, 250), new(150, 250)],
         };
 
         var cropped = map.Cropped(200, 200, 500, 400);
 
         Assert.Equal([1L], cropped.Turns.Restrictions.Select(turn => turn.Relation));
         Assert.Equal([SurveyControl.Signals], cropped.Controls.Control);
-        Assert.Equal([1L], cropped.Crossings.Way);
         Assert.Equal([new Vector2(100, 100), new Vector2(120, 100), new Vector2(120, 120)], cropped.Footprints.PointM);
-        Assert.Equal([new Vector2(50, 50)], cropped.TreeM);
     }
 
     /// <summary>
@@ -210,7 +206,7 @@ public class TracedMapTests
 
     /// <summary>
     /// <b>Dropping a stump drops its roads and what stood on them</b>: the lane's two ways go, the street stays whole, and
-    /// the control and crossing on the lane go with it.
+    /// the control on the lane goes with it.
     /// </summary>
     [Fact]
     public void DroppingAStumpDropsWhatStoodOnIt()
@@ -221,21 +217,16 @@ public class TracedMapTests
 
         Assert.Equal([1L], dropped.Roads.Select(road => road.OsmId));
         Assert.Empty(dropped.Controls.Point);
-        Assert.Empty(dropped.Crossings.Way);
     }
 
     /// <summary>
     /// A street from (100, 300) to (500, 300) through a junction at (300, 300), and a lane off it south in two ways to a
-    /// dead end at (300, 500) inside a building — a control on its bend and a crossing over its second way.
+    /// dead end at (300, 500) inside a building — a control on its bend.
     /// </summary>
     static TracedMap Driveway() =>
         Map([new(100, 300), new(300, 300), new(500, 300), new(300, 400), new(300, 500)], Road(1, 0, 1, 2), Road(2, 1, 3), Road(3, 3, 4)) with
         {
             Controls = new TracedMap.ControlArrays { Point = [3], Control = [SurveyControl.Signs], Cluster = [0] },
-            Crossings = new TracedMap.CrossingArrays
-            {
-                Way = [3], AtM = [new(300, 450)], Kind = [SurveyCrossingKind.Zebra], Painted = [true], Junction = [TracedMap.NoJunction],
-            },
             Footprints = new TracedMap.FootprintArrays
             {
                 RingOffsets = [0, 1], PointOffsets = [0, 4], PointM = [new(280, 480), new(320, 480), new(320, 520), new(280, 520)],
@@ -271,9 +262,7 @@ public class TracedMapTests
         Coast = [],
         Turns = OsmTurns.None,
         Controls = TracedMap.ControlArrays.None,
-        Crossings = TracedMap.CrossingArrays.None,
         Footprints = TracedMap.FootprintArrays.None,
-        TreeM = [],
     };
 
     static TracedRoad Road(long id, params int[] points) => new()
@@ -312,17 +301,12 @@ public class TracedMapTests
                 LaneLinks = [new OsmLaneLink { Relation = 15417414, From = 25481554, Via = 0, To = -7, FromLane = 2, ToLane = 1 }],
             },
             Controls = new TracedMap.ControlArrays { Point = [1], Control = [SurveyControl.Signals], Cluster = [10980417] },
-            Crossings = new TracedMap.CrossingArrays
-            {
-                Way = [-7, 25481554], AtM = [new(1.5f, 2.5f), new(100.25f, 7f)], Kind = [SurveyCrossingKind.Zebra, SurveyCrossingKind.Signals],
-                Painted = [true, null], Junction = [1, TracedMap.NoJunction],
-            },
             Footprints = new TracedMap.FootprintArrays
             {
                 RingOffsets = [0, 2], PointOffsets = [0, 4, 7],
                 PointM = [new(100, 100), new(140, 100), new(140, 140), new(100, 140), new(110, 110), new(120, 110), new(120, 120)],
                 Traced = [true], HeightM = [12.5f], Use = [FootprintUse.Garages],
             },
-            TreeM = [new(40.5f, 60.25f)],
+            Population = new TracedPopulation(People: 300, Cars: 129),
         };
 }

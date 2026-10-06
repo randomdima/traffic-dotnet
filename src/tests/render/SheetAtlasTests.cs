@@ -1,22 +1,20 @@
 using System.Numerics;
 using TrafficSimulation.App.Render;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Runtime;
 using Xunit;
 
 namespace TrafficSimulation.Tests.Render;
 
 /// <summary>
 /// The packing, checked without a device: where a sheet landed, that no two landed on top of one
-/// another, and that the one sheet which tiles was kept out of the pages altogether.
+/// another, and what an underlay paints under the art.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
 [Trait(Priority.Key, Priority.P5)]
 public class SheetAtlasTests
 {
     static SheetSource Sized(int width, int height) => SheetSource.Generated(new byte[width * height * 4], width, height);
-
-    /// <summary>The town's one tiling sheet, by the file it ships as: the packer measures what it is handed.</summary>
-    static SheetSource Tread() => SheetSource.File(ProjectPaths.TreadFile(), repeats: true, mipped: true);
 
     [Fact]
     public void EverySheetLandsInsideAPage()
@@ -60,27 +58,49 @@ public class SheetAtlasTests
         }
     }
 
+    /// <summary>The uniform block lays a place at two <c>vec4</c>s (std140), whatever the struct's own fields add up to.</summary>
     [Fact]
-    public void TheSheetThatTilesIsKeptOutOfThePages()
+    public void APlaceIsTwoVec4sWide()
     {
-        var sheets = new List<SheetSource> { Sized(64, 64), Tread(), Sized(64, 64) };
-
-        var atlas = SheetAtlas.Pack(sheets);
-
-        Assert.Equal(1, atlas.TileSheet);
-        Assert.Equal(1f, atlas.Places[1].Tiles);
-        Assert.Equal(Vector2.One, atlas.Places[1].ScaleUv);
-        Assert.Equal(0f, atlas.Places[0].Tiles);
-        Assert.Equal(0f, atlas.Places[2].Tiles);
+        Assert.Equal(32, System.Runtime.CompilerServices.Unsafe.SizeOf<SheetPlace>());
     }
 
-    /// <summary>The sprite shader has one tile sampler, so a town with two tiling sheets is a build error and not a wrong picture.</summary>
+    /// <summary>
+    /// <b>An underlay shows where the art is clear and nowhere it is opaque</b>, and the art keeps its
+    /// own texels at the centre of the margin the sheet was padded by.
+    /// </summary>
     [Fact]
-    public void ASecondTilingSheetIsRefused()
+    public void AnUnderlayShowsOnlyWhereTheArtIsClear()
     {
-        var sheets = new List<SheetSource> { Tread(), Tread() };
+        // Four by two of art: an opaque white left half, a clear right half.
+        var art = new byte[4 * 2 * 4];
+        for (var row = 0; row < 2; row++)
+        {
+            for (var column = 0; column < 2; column++) art.AsSpan(((row * 4) + column) * 4, 4).Fill(byte.MaxValue);
+        }
 
-        Assert.Throws<InvalidOperationException>(() => SheetAtlas.Pack(sheets));
+        var red = new Texel(255, 0, 0, 255);
+        var underlay = new SheetUnderlay(1, 1, [new TexelBox(Vector2.Zero, new Vector2(6f, 4f))], red);
+        var source = SheetSource.Generated(art, 4, 2) with { Underlay = underlay };
+
+        var sheet = SheetAtlas.Decode(source);
+
+        Assert.Equal((6, 4), SheetAtlas.Measure(source));
+        Assert.Equal(new Texel(255, 255, 255, 255), sheet[(1 * 6) + 1]);
+        Assert.Equal(red, sheet[(1 * 6) + 4]);
+        Assert.Equal(red, sheet[0]);
+    }
+
+    /// <summary>A box edge between texels covers the texel it cuts by the share it covers, so a painted edge is no harder than the art's.</summary>
+    [Fact]
+    public void ABoxCoversATexelItCutsByItsShare()
+    {
+        var underlay = new SheetUnderlay(0, 0, [new TexelBox(new Vector2(0.5f, 0f), new Vector2(2f, 1f))], new Texel(0, 0, 0, 255));
+
+        var sheet = underlay.Under(new Texel[2], 2, 1);
+
+        Assert.Equal(128, sheet[0].A);
+        Assert.Equal(255, sheet[1].A);
     }
 
     /// <summary>A sheet is measured by the packer, so the aspects the town shapes its quads by come out of the same table.</summary>
@@ -101,7 +121,7 @@ public class SheetAtlasTests
     [Fact]
     public void TheShippedArtPacksIntoAHandfulOfPages()
     {
-        var atlas = SheetAtlas.Pack(TownSprites.Load().Sheets);
+        var atlas = SheetAtlas.Pack(TownSprites.Load(SimConfig.Shipped()).Sheets);
 
         Assert.InRange(atlas.Pages, 1, 4);
     }

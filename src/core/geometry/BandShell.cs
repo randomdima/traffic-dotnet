@@ -206,6 +206,22 @@ internal sealed partial class BandShell
     }
 
     /// <summary>
+    /// <b>The same shape without the rings narrower on the whole than <paramref name="meanWidthM"/></b> — twice the ground
+    /// one encloses over its length round: a sliver of ground or a hole in it too thin to be either, which the caller
+    /// says the width of.
+    /// </summary>
+    public BandShell WithoutRingsNarrowerThan(float meanWidthM)
+    {
+        var kept = new List<ArcSeg[]>(_chains.Length);
+        foreach (var ring in _chains)
+        {
+            if (Math.Abs(Spline.EnclosedM2(ring)) * 2.0 >= Spline.TotalLengthM(ring) * meanWidthM) kept.Add(ring);
+        }
+
+        return kept.Count == _chains.Length ? this : new BandShell([.. kept], _loose, _originM, _grid);
+    }
+
+    /// <summary>
     /// <b>The merged shape moved off itself</b> (<see cref="ArcOutset"/>), at one distance and one corner
     /// radius. What goes in is <see cref="Chains"/> and never <see cref="Loose"/>: an outset is a fact
     /// about a closed shape, and a run with two ends has no outside.

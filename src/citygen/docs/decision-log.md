@@ -1,5 +1,147 @@
 # CityGen — decision log
 
+## 2026-10-06 — a traced town stands the people and cars its map asks for
+
+**The owner asked for 10 000 people and 10 000 cars on `OdesaOsm`.** A traced map now says who its town stands
+(`TracedMap.Population`, version 5; versions 4 and 3 are still read and stand nobody). The population is set in place
+by `qq osm --people N --cars N` and laid by `TracedSpawns`, one person a door and one car a lane, as many as fit.
+Like everything a traced town lays of its own, this goes by rule, not by draw (GEN-57): every nth door and every nth
+standable lane from the first. No lane is used whose middle stands within a car's room of a car at a bridge. GEN-7
+and GEN-57 are restated.
+
+- **Its cars belong to nobody.** A traced town cuts no car park, so nobody living in it is handed a car (PER-29).
+  Under GEN-7's "where people live, every car is somebody's" such a town could stand no car at all. Instead, the
+  map's cars stand on its lanes beside its people and tour (CAR-8), as the cars of any town with no car park do.
+- **`SpawnStage` searches for the building a way in belongs to** instead of walking every building for each person
+  (10 000 people over 61 689 buildings). Its spread now takes a start: a generated town draws the start as before, a
+  traced one starts at the first. A generated town's plan is unchanged.
+- **What it costs**, measured on `OdesaOsm` with `qq prof`:
+  - **Agents:** 20 013 stand (13 of them at the bridges).
+  - **Atlas:** now that anybody walks, the atlas files the walk. Points go from 44.4 M to 81.9 M, entries from
+    57.6 M to 115.8 M, and size from 546 to 1 023 MiB.
+  - **Opening:** 17.2 s becomes 19.8 s, and the peak resident set 2.47 GiB becomes 3.39 GiB.
+  - **Running:** the GC heap is 5.08 GB against 1.56. 2.16 GB of it is the claim table, sized for every agent's
+    worst case at once and more than 99% untouched. So the page, which commits whatever is reserved, cannot hold the
+    town. A window runs at 5 fps.
+  - **Tests:** `qq tests maps` takes 3 m 35 s.
+  - **Car slots:** every person still reserves a car slot (`TownWorld.CarsOfThePlan`) though none can be handed one
+    here, so the fleet's room is 20 000 for 10 013 cars.
+
+## 2026-10-06 — a traced town paints its own zebras and lays its own props
+
+**The owner asked for the zebras and the trees taken off `OdesaOsm`'s stored map and laid when it is opened.** The
+map, now version 4, holds no crossing and no tree; version 3, which held OSM's, is still read with both skipped, and
+`OdesaOsm.map` was written again by an edit that changed nothing else (2 949 KB to 2 919 KB, byte for byte the same
+but for the two sections). GEN-57 is restated to match: no seed draws anything *of the place*, and its zebras and
+props are the town's own.
+
+- **A zebra at every station the kerb ends cut**, as a generated town paints (`CityPlan.ZebraAtEveryStation`), in
+  place of OSM's painted crossings laid nearest where OSM put them. Those were paint filed under no road end — no
+  bar behind one and nobody held for it — while the stations, where the walk was cut and the traffic held, were
+  painted with nothing; and `CrossingWays` lays no way across a band of no depth, so a traced town's walkers crossed
+  no street at all. Now the paint, the bar and the walk's crossing are one place: 19 082 zebras on `OdesaOsm`
+  (1 135 surveyed), its walk 467 023 lanes (148 080) and 321 704 runs (7 672).
+- **Props as the generator's two passes lay them** (`TracedProps`, `PropStage.LayApart`), drawn off the relation, in
+  place of the 1 015 of OSM's trees that stood. The buildings are claimed first, at `TracedClaimCellM`, 2 m: at a
+  brief's metre the claims are a bit to every square metre of 248 km². What is kept of `TracedTrees` is the
+  stand-off from driven ground for the verge's props — none within a lattice step of a carriageway or of a
+  junction's reach, which the world refuses (TER-4c.4); the census counts none of the 202 066 on a driven ribbon.
+- **What the second pass lays is scenery, drawn and standing no body** (`CityPlan.Scenery`). As bodies both passes
+  stood 1 966 156 props on `OdesaOsm`, 1 812 851 of them wild across its yards, parks and waste ground — a
+  generated town's density, 7.9 thousand a km² against the `Odesa` brief's 9.8, over a map 36 times its area — and
+  doubled what opening it cost. The owner first kept the verge alone, then asked for the open ground back as render
+  items with their colliders off. The 1 774 263 of scenery stand no static body (263 755 with or without them) and
+  the world never reads them: nothing drives or walks within the wild pass's stand-off. How they are drawn is
+  app/render's (`ScenerySprites`).
+- **Both passes ask the ground and the claims on every thread** (`PropStage.Candidates`). The draws and the scatter
+  stay in the sweep's order, so every town is the one the sweep alone laid — generated `Odesa`'s and `O30`'s plan
+  digests are unchanged — and the props stage on `O30` went from 2.5 s to 1.1 s, `OdesaOsm`'s two passes from
+  1.4 s to 0.6 s. The claims are a bit a cell, 8 MB on `OdesaOsm` where a byte a cell was 62 MB.
+- **What it costs**, in Release through `--bench load`: opening `OdesaOsm` went from 11.1 s to 14.9 s and its peak
+  resident set from 1.78 GB to about 2.45 GB, runs varying by 80 MB. Most of it is the walk crossing at every
+  station — the foot graph 1.8 s to 4.6 s, the atlas 0.9 s to 1.7 s. The scenery is tens of megabytes of it: with
+  the scenery dropped before the plan, the same build peaks 60 MB lower on average. The page was not measured; it
+  held 2.4 GB of its 4 GB before.
+- **`CityPlan.Crosswalks` with `ZebraAtEveryStation` off is now laid by no map.** It is kept as the plan's way of
+  saying where a town's zebras are, and `CrossingsTests` asks it of a plan made by hand.
+
+## 2026-10-06 — movements drawn the way a driver takes them
+
+**The owner asked for the junction connectors to be reviewed**: some crossed half the road before turning, some
+spiralled; lane connections should make sense and turn naturally. Then: maybe road ends are too far in and should
+end sooner — but moved no more than 5 m. `--bench connectors` (`qq town --connectors`) reads every movement for
+winding, heading back on itself, starting past the corner its two lanes' lines make, crossing another off the same
+arm, and holes in the box. On `OdesaOsm` 135 junctions had a movement looping or starting past its corner. Five
+causes, each mended where it lives:
+
+- **One short road squeezed every arm of its junction** (`TracedStreets.Standoffs`). A way OSM splits 2 m past a
+  crossing stood the crossing's disc at 0.9 m, every lane ran into the middle, and every turn spiralled back to its
+  corner. **Now a short road squeezes its own two ends only**; the other arms end where the junction asks, but no more
+  than `TracedArmEndsApartM` — the owner's 5 m — further back than the squeezed end. Unbounded, the short road's lanes
+  would poke deep into a box whose other arms end far short of them.
+- **A place of two arms inside a junction's own disc is gathered into it** (`TracedStreets.Gathered`): a 12 m flared
+  mouth OSM tags 3+3 lanes, a one-way's last 2 m past the crossing. 8 on `OdesaOsm`.
+- **The equal-tangent biarc winds where the poses ask for a corner or a jog, and drives diagonally where it does
+  not** (`Spline.MovementInto`): a turn whose lanes stand unevenly off the corner swings the other way first — the
+  half road crossed before turning; a straight on to a staggered arm doubles back between two arcs of 110°; and every
+  other turn cuts across the box on a line of its own. The owner, on a third look: **a movement follows its lane as
+  long as it can and then turns**, so its stretch across other lanes' ribbons is the least — not a right angle, but
+  nothing diagonal for no reason; **and a lane that has to shift across does the same**, with no offset of its own. So
+  a turn is now its first lane's line, one arc at the corner and the second lane's line; a lane carried on to an arm
+  offset across runs on along its own line and shifts late, on two opposite arcs of the turn circle; a U-turn is
+  driven on and turned across on a half circle. **The biarc stands for lanes carried on as one line** — within the
+  straight-on tolerance through a place of two roads, or less than half a lane across — because shifted late, two
+  neighbours a hair apart came out a lane apart at the paint between them; and because a corner a degree round, read
+  as a corner, hangs its turn on the 14 cm before the lane's end, which a float 18 km from the origin cannot hold — it
+  came out arriving 0.8° off its lane and opened the boundary.
+- **No turn swings out, and one with too little room is started sooner** (the owner, on a second look: a turn should
+  not touch the lanes beside it; where the radius is not enough, start the turn sooner, and the pavement follows).
+  Turned at its corner without room, 141 road-to-road turns fell under the design-speed floor and a corner hugged
+  inside half a lane folded its ribbon and opened the boundary, so the swing was kept for those for a day; now
+  **each road end stands back as far as its turns need** (`TracedStreets.RoomToTurn`): the near side's kerb lane onto
+  the kerb lane and the far side's inner lane onto the inner lane, given `JunctionTurnRoomM` at the corner their
+  lines make, within the road's own room. That circle is the wider of the junction's design-speed floor and the
+  car's own lock, 3.9 m: a line tighter than the car can hold is ridden wide over the lane beside it all the same.
+  A corner with less room either side than that circle is turned on the widest the room holds.
+- **Two turns across each other's way off arms facing each other are made in front of each other** (owner):
+  `LaneLines.OnTheirOwnSides` redraws a far-side turn and the one opposite, or two U-turns, whose ground overlaps,
+  each turned at once off its lane on that circle and last onto the next (`Spline.TurnedAtOnceInto`), and keeps the
+  redraw only where it leaves them further apart. Not crossing was asked for and is not enough: round their corners
+  two opposite turns at a plain crossing do not cross but pass two metres apart, centre to centre, on lanes three and
+  a half wide. Facing means within the straight-on tolerance of head on; arms a third of a turn apart have turns
+  that meet in any junction.
+- **A U-turn is made from the inner lane onto the inner lane** (owner), and no other lane is given it: it is no kind
+  an arm shares its lanes between. **And one lane joins one lane** (owner): the last lane in no longer joins the extra
+  lane of a road one lane wider as well as its own (TER-5j, the road slice's log).
+- **`Spline.BiarcInto` lost its root to cancellation** for poses a degree apart: −b + √D of two near-equal floats came
+  out metres wrong, a kink a few centimetres long at one lane's movement and none at its neighbour's. Taken the way up
+  that subtracts nothing, it is the same root. The generated `Odesa`'s movements moved 2 mm in all.
+- **A fork carried every lane onto both branches**, so a lane onto one crossed the next onto the other; and its two
+  branches, read each against carrying on alone, were both numbered from the kerb when both bent the same way
+  (`LaneLines.Connectors`, `LaneUse`). Now the branch whose lanes set off nearer the kerb takes the kerb half and the
+  other the rest, as two turns share them, and the ground between them is eased as it was paved before.
+- **A roadside reaching into a box runs beside the movement straight across it** (`RoadsideLanes.BesideTheWayAcross`).
+  Where the kerb turns to the next arm round but the lane beside it carries straight on, the roadside ran on along its
+  road's line beside a movement bending a degree to an arm a degree off straight, and the slit between the two widened
+  to 13 cm over 11 m: wider than two bands touching and narrower than the merge's 10 cm weld, so a far-side turn
+  started sooner across it left the boundary open at (3673, 23077). Laid off the movement, its edge is the movement's
+  own, as where the kerb runs straight on. A roadside laid beside a movement also took no more than three of its
+  pieces, where a movement is now drawn in up to five.
+
+**What came out on `OdesaOsm`**, against the tree before: junctions with a movement looping or starting past its corner
+135 → 37; turns swinging out first 243 → 41; turns starting past their corner 61 → 17; straight-ons looping 81 → 6;
+pairs off one arm crossing 114 → 47; road-to-road turns 30 925 → 31 053. Straight-ons winding and swinging are now
+mostly late shifts, read as `--bench connectors` reads any line spending more heading than its ends ask. Opposite
+turns whose ground overlaps 868 far side and 56 U-turns, 117 crossing, as their corners draw them → 56 and 28, 34
+crossing; the generated `Odesa`'s 90 → 40. Lanes reached only by moving across 94 → 352, a fork's other lanes and a
+lane gained; lanes left with no turn out 9 → 10, a one-way OSM points away from the crossing it now shares a box with.
+The boundary closes as before, carriageway runs left open 15 → 9, walk 4 → 4; 61 643 buildings → 61 689 and 1 021
+props → 1 015, under boxes stood further back. **Left as they are**: turns still starting past their corner, at
+squeezes between junctions nothing gathers and service roads that curl through a box; opposite turns whose lanes end
+too near the middle for any line to keep them a lane apart; two boxes gathered round a kerbed island, crossed by their
+movements; and uncovered patches inside boxes 2 188 → 1 765, 3 693 → 7 985 m², the corners turns now leave square
+between them.
+
 ## 2026-10-05 — junctions a short road joins are one junction
 
 **The owner asked for two junctions on one road nearer than 30 m, and the very short roads between them, to be one
@@ -429,17 +571,12 @@ no lane count, its line 3 m off its street's middle. The engine laid exactly tha
 - **What is still not as painted**: a gore painted on the tarmac is laid as a kerbed island, since the engine lays
   ground only under a road, and no parking lane is laid.
 
-## 2026-10-03 — a traced town lays its trees, roundabouts and roof heights
+## 2026-10-03 — a traced town lays its roundabouts and roof heights
 
 **The owner asked for the rest of the metadata applied.** What is laid is what the plan already had a place for,
 or what is drawn within a layer the ground already has; what would be a new layer of the ground waits on the
 owner, TER-7b fixing the stack (`P0`).
 
-- **Trees are props** at the one size only trees are drawn at (GEN-6b). **A tree's crown is its collider**, so one
-  within a lattice step of driven ground is not laid — the world refuses furniture on a driven ribbon (TER-4c.4):
-  of 1 892 trees OSM maps, 1 161 stand and 731 do not, most of them in a street's planted verge narrower than a
-  crown. Benches, bins and bollards are not laid: a prop is a placement and its look is the catalogue's draw, so a
-  bollard would be drawn as a traffic cone as often as a bollard.
 - **Roundabouts are the circulating ways**, a ring a component of them at their junctions — membership, as a
   generated one is. Circulating is part of a traced carriageway, so a ring is never one road with a way off it.
 - **A roof is lighter the taller its building**, a quarter lighter at ten storeys and above — within the

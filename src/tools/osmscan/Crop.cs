@@ -43,6 +43,5 @@ internal static class Crop
         Console.WriteLine(
             $"  {traced.Name}: {traced.Frame.WidthM:F0} x {traced.Frame.HeightM:F0} m, {traced.Roads.Length} roads over {traced.PointM.Length} points, "
             + $"{traced.Coast.Length} coast ways, {traced.Turns.Restrictions.Length} restrictions, {traced.Controls.Count} controls, "
-            + $"{traced.Crossings.Count} crossings, {traced.Footprints.Count} footprints of {traced.Footprints.PointM.Length} points, "
-            + $"{traced.TreeM.Length} trees — {new FileInfo(path).Length / 1024} KB");
+            + $"{traced.Footprints.Count} footprints of {traced.Footprints.PointM.Length} points — {new FileInfo(path).Length / 1024} KB");
 }

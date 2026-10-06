@@ -436,9 +436,9 @@ internal sealed class LaneLines
             wholeOffsets, wholeArcs);
 
         var (connectorArcOffsets, connectorArcs, connectorLengthM) = Movements(
-            config, roads, laneRoad, wholeOffsets, wholeArcs, laneLengthM, connectorAt, connectorToLane);
-        var (easedArcOffsets, easedArcs, _) = Movements(
-            config, roads, laneRoad, wholeOffsets, wholeArcs, laneLengthM, easedAt, easedToLane);
+            config, wholeOffsets, wholeArcs, laneLengthM, laneWidthM, connectorAt, connectorToLane,
+            (laneFromJunction, laneToJunction, laneRoad, connectorKind));
+        var (easedArcOffsets, easedArcs, _) = Movements(config, wholeOffsets, wholeArcs, laneLengthM, laneWidthM, easedAt, easedToLane);
 
         (connectorAt, connectorToLane, connectorKind, connectorArcOffsets, connectorArcs, connectorLengthM) =
             WhatTheJunctionOffers(
@@ -670,11 +670,16 @@ internal sealed class LaneLines
     /// </para>
     /// <para>
     /// <b>A lane joins the lane of its own number, and one with none there joins nothing</b> (<see cref="LaneUse"/>,
-    /// GEN-50): a lane lost along a street ends at the node, and a lane gained is reached by no movement but onto a
-    /// road of one lane more. Both are driven by moving across (CAR-53), never by a merge or a fan the node draws.
+    /// GEN-50): a lane lost along a street ends at the node, and a lane gained is reached by no movement. Both are
+    /// driven by moving across (CAR-53), never by a merge or a fan the node draws.
     /// The ground such a merge or fan would have covered is returned beside the table, eased and never driven
     /// (<see cref="LaneUse.Eases"/>, <see cref="Tapers"/>): without it the box keeps a kerbed hole where the lane
     /// stops.
+    /// </para>
+    /// <para>
+    /// <b>A U-turn is made from the lane beside the line onto the lane beside the line and from no other</b> (TER-5j): a
+    /// turn within the straight-on tolerance of turning back. It is no kind the arm shares its lanes between, so the lane
+    /// beside the line makes it as well as whatever else its share gives it.
     /// </para>
     /// <para>
     /// <b>And a sharp turn is a sharp turn and not a reversal.</b> Two arms may be drawn as little as
@@ -693,12 +698,14 @@ internal sealed class LaneLines
         var offsets = new int[laneCount + 1];
         var toLane = new List<int>();
         var kind = new List<LaneTurn>();
-        var spread = new List<(int Lane, int Leaving)>();
+        var spread = new List<(int Lane, int Leaving, bool Forked)>();
         var joinedOut = new bool[laneCount];
         var joinedIn = new bool[laneCount];
         var straightRad = config.Road.TurnStraightToleranceDeg * MathF.PI / 180f;
         var turns = new LaneTurn?[MostLanesAtANode(outOffsets)];
         var bearsToTheKerb = new bool[turns.Length];
+        var kerbwardM = new float[turns.Length];
+        var uTurns = new bool[turns.Length];
         var banned = roads.BannedTurns.ToHashSet();
         var links = roads.LaneLinks.ToHashSet();
         var linked = roads.LaneLinks.Select(link => new RoadTurn(link.Junction, link.FromRoad, link.ToRoad)).ToHashSet();
@@ -731,6 +738,10 @@ internal sealed class LaneLines
                         : LaneTurn.FarSide;
                 turns[slot] = turn;
                 bearsToTheKerb[slot] = turnRad * config.RoadSideSign >= 0f;
+                kerbwardM[slot] = Spline.Cross(Heading.Unit(arrivingRad), starts.StartM - arriving.EndM) * config.RoadSideSign;
+                uTurns[slot] = MathF.Abs(turnRad) >= MathF.PI - straightRad;
+                if (uTurns[slot]) continue;
+
                 offered = offered.With(turn);
                 if (turn != LaneTurn.Straight) continue;
 
@@ -738,10 +749,15 @@ internal sealed class LaneLines
                 straightOnto = laneRoad[leaving];
             }
 
-            // Straight on is numbered from the kerb, and from the side it bears to only where the arm forks, so the
-            // two branches cross nothing: the few degrees a lone carriageway bends through a node say nothing, and
+            // Straight on is numbered from the kerb, and only where the arm forks from the side each branch stands, so
+            // the two branches cross nothing: the few degrees a lone carriageway bends through a node say nothing, and
             // read as a side they enter and leave a short widening by opposite edges (TER-5j).
-            if (!forks)
+            if (forks)
+            {
+                SidesOfAFork(leavingLanes, laneRoad, turns, kerbwardM, bearsToTheKerb);
+                offered = offered with { Forks = true };
+            }
+            else
             {
                 for (var slot = 0; slot < leavingLanes.Length; slot++)
                 {
@@ -762,26 +778,39 @@ internal sealed class LaneLines
                 var named = linked.Contains(new RoadTurn(node, laneRoad[lane], laneRoad[leaving]));
                 var joins = named
                     ? links.Contains(new LaneLink(node, laneRoad[lane], laneFromKerb[lane], laneRoad[leaving], laneFromKerb[leaving]))
-                    : LaneUse.Joins(
-                        offered, turn, marked, laneFromKerb[lane], lanesHere, laneFromKerb[leaving], lanesThere,
-                        bearsToTheKerb[slot]);
+                    : uTurns[slot]
+                        ? laneFromKerb[lane] == lanesHere - 1 && laneFromKerb[leaving] == lanesThere - 1
+                        : LaneUse.Joins(
+                            offered, turn, marked, laneFromKerb[lane], lanesHere, laneFromKerb[leaving], lanesThere,
+                            bearsToTheKerb[slot]);
                 if (joins)
                 {
                     toLane.Add(leaving);
                     kind.Add(turn);
                     joinedOut[lane] = true;
                     joinedIn[leaving] = true;
+                    continue;
                 }
-                else if (!named && LaneUse.Eases(offered, turn, marked, laneFromKerb[lane], lanesHere, laneFromKerb[leaving], lanesThere))
+
+                if (named || uTurns[slot]) continue;
+
+                if (offered.Forks && turn == LaneTurn.Straight
+                         && LaneUse.Joins(offered with { Forks = false }, turn, marked, laneFromKerb[lane], lanesHere, laneFromKerb[leaving], lanesThere, bearsToTheKerb[slot]))
                 {
-                    spread.Add((lane, leaving));
+                    // The ground between a fork's branches is the arm's own until they part, and what paved it was
+                    // every lane carried onto both.
+                    spread.Add((lane, leaving, true));
+                }
+                else if (LaneUse.Eases(offered, turn, marked, laneFromKerb[lane], lanesHere, laneFromKerb[leaving], lanesThere, bearsToTheKerb[slot]))
+                {
+                    spread.Add((lane, leaving, false));
                 }
             }
 
             offsets[lane + 1] = toLane.Count;
         }
 
-        // Eased only where one of the two is left ending or unreached, which is a question of the whole node.
+        // Eased only where one of the two is left ending or unreached, which is a question of the whole node — or across a fork.
         var easedAt = new int[laneCount + 1];
         var easedToLane = new List<int>();
         var next = 0;
@@ -789,7 +818,7 @@ internal sealed class LaneLines
         {
             for (; next < spread.Count && spread[next].Lane == lane; next++)
             {
-                if (!joinedOut[lane] || !joinedIn[spread[next].Leaving]) easedToLane.Add(spread[next].Leaving);
+                if (spread[next].Forked || !joinedOut[lane] || !joinedIn[spread[next].Leaving]) easedToLane.Add(spread[next].Leaving);
             }
 
             easedAt[lane + 1] = easedToLane.Count;
@@ -816,6 +845,36 @@ internal sealed class LaneLines
         }
 
         return tapers;
+    }
+
+    /// <summary>
+    /// <b>Of the branches an arm forks into, the one standing furthest toward the kerb is numbered from the kerb and the
+    /// one furthest toward the line from the line</b> (<see cref="LaneUse.Joins"/>), read by where their lanes set off
+    /// beside the arm's: two branches bending the same way, each read against carrying on alone, would both be numbered
+    /// from one side, and the lane joined to the further of them would cut across the one joined to the nearer.
+    /// </summary>
+    static void SidesOfAFork(
+        ReadOnlySpan<int> leavingLanes, List<int> laneRoad, LaneTurn?[] turns, float[] kerbwardM, bool[] bearsToTheKerb)
+    {
+        var (kerbmost, linemost) = (-1, -1);
+        for (var slot = 0; slot < leavingLanes.Length; slot++)
+        {
+            if (turns[slot] != LaneTurn.Straight) continue;
+
+            if (kerbmost < 0 || kerbwardM[slot] > kerbwardM[kerbmost]) kerbmost = slot;
+            if (linemost < 0 || kerbwardM[slot] < kerbwardM[linemost]) linemost = slot;
+        }
+
+        if (laneRoad[leavingLanes[kerbmost]] == laneRoad[leavingLanes[linemost]]) return;
+
+        for (var slot = 0; slot < leavingLanes.Length; slot++)
+        {
+            if (turns[slot] != LaneTurn.Straight) continue;
+
+            var road = laneRoad[leavingLanes[slot]];
+            if (road == laneRoad[leavingLanes[kerbmost]]) bearsToTheKerb[slot] = true;
+            else if (road == laneRoad[leavingLanes[linemost]]) bearsToTheKerb[slot] = false;
+        }
     }
 
     /// <summary>How many lanes a road is driven in the way one of its lanes runs.</summary>
@@ -872,17 +931,27 @@ internal sealed class LaneLines
     /// halves the same radius, and the joint between them is a point in the line nothing turns at
     /// (<see cref="Spline.JoinedInto"/>). Most of a town's movements are that pair.
     /// </para>
+    /// <para>
+    /// <b>And one that winds is drawn as the corner or jog its two poses ask for</b> (TER-5d.2,
+    /// <see cref="Spline.MovementInto"/>), never swung out of.
+    /// </para>
+    /// <para>
+    /// <b>Turns across the way opposite are made on their own sides</b> (TER-5d.2, <see cref="OnTheirOwnSides"/>), where
+    /// <paramref name="movements"/> says which those are — the movements, and not the eased lines laid off the same table.
+    /// </para>
     /// </remarks>
     static (int[] ArcOffsets, ArcSeg[] Arcs, float[] LengthM) Movements(
-        SimConfig config, CityPlan.RoadArrays roads, List<int> laneRoad, int[] laneArcOffsets,
-        ArcSeg[] laneArcs, List<float> laneLengthM, int[] connectorAt, int[] connectorToLane)
+        SimConfig config, int[] laneArcOffsets, ArcSeg[] laneArcs, List<float> laneLengthM, List<float> laneWidthM,
+        int[] connectorAt, int[] connectorToLane,
+        (List<int> LaneFromJunction, List<int> LaneToJunction, List<int> LaneRoad, LaneTurn[] Kind)? movements = null)
     {
         var connectorCount = connectorToLane.Length;
-        var arcOffsets = new int[connectorCount + 1];
-        var arcs = new List<ArcSeg>();
-        var lengthM = new float[connectorCount];
-        var drawn = new ArcSeg[3];
-        var joined = new ArcSeg[3];
+        var lines = new ArcSeg[connectorCount][];
+        var poses = new (SplineSample From, SplineSample To)[connectorCount];
+        var drawn = new ArcSeg[Spline.MostMovementArcs];
+        var joined = new ArcSeg[Spline.MostMovementArcs];
+        var straightRad = config.Road.TurnStraightToleranceDeg * MathF.PI / 180f;
+        var bendsOnly = movements is { } table ? BendsOnly(table.LaneFromJunction, table.LaneToJunction, table.LaneRoad) : [];
 
         for (var lane = 0; lane < laneLengthM.Count; lane++)
         {
@@ -891,26 +960,279 @@ internal sealed class LaneLines
                 var onto = connectorToLane[connector];
                 var from = Spline.SampleAt(ArcsOf(lane), laneLengthM[lane]);
                 var to = Spline.SampleAt(ArcsOf(onto), 0f);
+                var carriedOnM = MathF.Min(laneWidthM[lane], laneWidthM[onto]) * 0.5f;
+                var carriedThrough = movements is { } at && bendsOnly.Contains(at.LaneToJunction[lane]);
                 var laid = TheSameEnd(from.PositionM, to.PositionM)
                     ? 0
-                    : Spline.BiarcInto(from.PositionM, from.HeadingRad, to.PositionM, to.HeadingRad, drawn);
+                    : Spline.MovementInto(
+                        from.PositionM, from.HeadingRad, to.PositionM, to.HeadingRad, config.JunctionTurnRoomM, straightRad, carriedOnM,
+                        carriedThrough, drawn);
 
-                laid = Spline.JoinedInto(drawn.AsSpan(0, laid), LineTolerance.RoundingM, joined);
-                for (var arc = 0; arc < laid; arc++)
-                {
-                    arcs.Add(joined[arc]);
-                    lengthM[connector] += joined[arc].LengthM;
-                }
-
-                arcOffsets[connector + 1] = arcs.Count;
+                // Joined where it carries on, and left in its pieces where joining rubs a few centimetres of turn out into
+                // the straight beside it, or a few centimetres of straight into the turn — a kink either way.
+                var kept = Spline.JoinedInto(drawn.AsSpan(0, laid), LineTolerance.RoundingM, joined);
+                lines[connector] = laid == 0 || Smooth(joined.AsSpan(0, kept), to.HeadingRad) ? joined[..kept] : drawn[..laid];
+                poses[connector] = (from, to);
             }
+        }
+
+        if (movements is { } across)
+        {
+            SideBySide(config, connectorAt, connectorToLane, across.LaneToJunction, across.LaneRoad, bendsOnly, poses, lines);
+            OnTheirOwnSides(config, connectorAt, connectorToLane, across.LaneToJunction, laneWidthM, across.Kind, poses, lines);
+        }
+
+        var arcOffsets = new int[connectorCount + 1];
+        var arcs = new List<ArcSeg>();
+        var lengthM = new float[connectorCount];
+        for (var connector = 0; connector < connectorCount; connector++)
+        {
+            arcs.AddRange(lines[connector]);
+            lengthM[connector] = Spline.TotalLengthM(lines[connector]);
+            arcOffsets[connector + 1] = arcs.Count;
         }
 
         return (arcOffsets, [.. arcs], lengthM);
 
         ReadOnlySpan<ArcSeg> ArcsOf(int lane) =>
             laneArcs.AsSpan(laneArcOffsets[lane], laneArcOffsets[lane + 1] - laneArcOffsets[lane]);
+
+        static bool Smooth(ReadOnlySpan<ArcSeg> line, float arrivesRad)
+        {
+            for (var arc = 1; arc < line.Length; arc++)
+            {
+                if (Kinked(line[arc - 1].HeadingAtRad(line[arc - 1].LengthM), line[arc].HeadingRad)) return false;
+            }
+
+            return !Kinked(line[^1].HeadingAtRad(line[^1].LengthM), arrivesRad);
+
+            static bool Kinked(float outRad, float onRad) => MathF.Abs(Spline.WrapRad(onRad - outRad)) > LineTolerance.StraightOnRad * 0.1f;
+        }
     }
+
+    /// <summary>
+    /// The junctions only one road meets itself at — two roads in all, of which every movement is the road carried on
+    /// through a bend (<see cref="Spline.MovementInto"/>).
+    /// </summary>
+    static HashSet<int> BendsOnly(List<int> laneFromJunction, List<int> laneToJunction, List<int> laneRoad)
+    {
+        var roadsAt = new Dictionary<int, HashSet<int>>();
+        for (var lane = 0; lane < laneRoad.Count; lane++)
+        {
+            foreach (var junction in (ReadOnlySpan<int>)[laneFromJunction[lane], laneToJunction[lane]])
+            {
+                if (!roadsAt.TryGetValue(junction, out var roads)) roadsAt[junction] = roads = [];
+                roads.Add(laneRoad[lane]);
+            }
+        }
+
+        return [.. roadsAt.Where(at => at.Value.Count <= 2).Select(at => at.Key)];
+    }
+
+    /// <summary>
+    /// <b>Turns made side by side keep the lanes' own spacing through the turn</b> (TER-5d.2): every movement at a junction
+    /// off one road onto another, turned at its corner, is turned about one centre — the innermost one's turn circle's
+    /// (<see cref="SimConfig.JunctionTurnRoomM"/>) — each on the circle as far off it as its own lane stands. Each on the
+    /// turn circle at its own corner, two lanes turning together would close up through the turn and part again.
+    /// </summary>
+    static void SideBySide(
+        SimConfig config, int[] connectorAt, int[] connectorToLane, List<int> laneToJunction, List<int> laneRoad,
+        HashSet<int> bendsOnly, (SplineSample From, SplineSample To)[] poses, ArcSeg[][] lines)
+    {
+        var together = new Dictionary<(int Junction, int From, int To), List<int>>();
+        for (var lane = 0; lane + 1 < connectorAt.Length; lane++)
+        {
+            var junction = laneToJunction[lane];
+            if (bendsOnly.Contains(junction)) continue;
+
+            for (var connector = connectorAt[lane]; connector < connectorAt[lane + 1]; connector++)
+            {
+                if (CentreOf(lines[connector]) is null) continue;
+
+                var key = (junction, laneRoad[lane], laneRoad[connectorToLane[connector]]);
+                if (!together.TryGetValue(key, out var list)) together[key] = list = [];
+                list.Add(connector);
+            }
+        }
+
+        Span<ArcSeg> drawn = stackalloc ArcSeg[3];
+        foreach (var turns in together.Values)
+        {
+            if (turns.Count < 2) continue;
+
+            // The innermost turn's centre, which every other lane stands further off than its own turn circle.
+            var (centreM, furthestInM) = (Vector2.Zero, float.NegativeInfinity);
+            foreach (var turn in turns)
+            {
+                var candidateM = CentreOf(lines[turn])!.Value;
+                var nearestM = float.PositiveInfinity;
+                foreach (var other in turns) nearestM = MathF.Min(nearestM, OffItsLaneM(other, candidateM));
+                if (nearestM > furthestInM) (centreM, furthestInM) = (candidateM, nearestM);
+            }
+
+            foreach (var turn in turns)
+            {
+                var (from, to) = poses[turn];
+                var laid = Spline.TurnedAtTheCornerInto(from.PositionM, from.HeadingRad, to.PositionM, to.HeadingRad, OffItsLaneM(turn, centreM), drawn);
+                if (laid > 0) lines[turn] = drawn[..laid].ToArray();
+            }
+        }
+
+        float OffItsLaneM(int turn, Vector2 centreM) =>
+            MathF.Abs(Spline.Cross(Heading.Unit(poses[turn].From.HeadingRad), centreM - poses[turn].From.PositionM));
+
+        // The centre of a turn drawn on one circle between two straights, or none for any other line.
+        static Vector2? CentreOf(ArcSeg[] line)
+        {
+            Vector2? centreM = null;
+            foreach (var arc in line)
+            {
+                if (arc.Curvature == 0f) continue;
+                if (centreM is not null) return null;
+
+                centreM = arc.StartM + (Heading.RightOf(Heading.Unit(arc.HeadingRad)) / arc.Curvature);
+            }
+
+            return centreM;
+        }
+    }
+
+    /// <summary>
+    /// <b>Two turns across each other's way off arms facing each other are each made on their own side of the box</b>
+    /// (TER-5d.2): a turn to the far side and the one off the arm opposite — within the straight-on tolerance of head
+    /// on — or two U-turns, whose ground overlaps — lines nearer than half their two widths — are both turned sooner,
+    /// in front of each other: on along their lanes as far as still leaves them a lane apart, then turned off on
+    /// <see cref="SimConfig.JunctionTurnRoomM"/>, across, and onto the lane out as far short of its own corner
+    /// (<see cref="Spline.TurnedAtOnceInto"/>). Turned at once off the lane's very end is the nearest the inside of each
+    /// turn there is; where even that leaves them no further apart than they were, the lane ends leave no room for
+    /// anything else and both keep the lines they had, and where it leaves them nearer than a lane apart, the furthest
+    /// apart of those tried.
+    /// </summary>
+    static void OnTheirOwnSides(
+        SimConfig config, int[] connectorAt, int[] connectorToLane, List<int> laneToJunction, List<float> laneWidthM,
+        LaneTurn[] kind, (SplineSample From, SplineSample To)[] poses, ArcSeg[][] lines)
+    {
+        var uTurnRad = MathF.PI - (config.Road.TurnStraightToleranceDeg * MathF.PI / 180f);
+        var across = new Dictionary<int, List<int>>();
+        var widthM = new float[lines.Length];
+        for (var lane = 0; lane + 1 < connectorAt.Length; lane++)
+        {
+            for (var connector = connectorAt[lane]; connector < connectorAt[lane + 1]; connector++)
+            {
+                if (lines[connector].Length == 0) continue;
+                if (kind[connector] != LaneTurn.FarSide && Spline.AskedRad(lines[connector]) < uTurnRad) continue;
+
+                widthM[connector] = MathF.Min(laneWidthM[lane], laneWidthM[connectorToLane[connector]]);
+                if (!across.TryGetValue(laneToJunction[lane], out var list)) across[laneToJunction[lane]] = list = [];
+                list.Add(connector);
+            }
+        }
+
+        var radiusM = config.JunctionTurnRoomM;
+        foreach (var turns in across.Values)
+        {
+            for (var one = 0; one < turns.Count; one++)
+            {
+                for (var other = one + 1; other < turns.Count; other++)
+                {
+                    var (a, b) = (turns[one], turns[other]);
+                    if (MathF.Abs(Spline.WrapRad(poses[a].From.HeadingRad - poses[b].From.HeadingRad)) < uTurnRad) continue;
+
+                    var clearM = (widthM[a] + widthM[b]) * 0.5f;
+                    var (bestA, bestB, bestM) = (lines[a], lines[b], Apart(lines[a], lines[b]));
+                    if (bestM >= clearM) continue;
+
+                    // The latest turn that leaves them a lane apart, tried from turning at the corner back to turning at once.
+                    for (var step = SoonerSteps; step >= 0; step--)
+                    {
+                        if (Sooner(a, (float)step / SoonerSteps) is not { } lineA || Sooner(b, (float)step / SoonerSteps) is not { } lineB) continue;
+
+                        var apartM = Apart(lineA, lineB);
+                        if (apartM <= bestM) continue;
+
+                        (bestA, bestB, bestM) = (lineA, lineB, apartM);
+                        if (apartM >= clearM) break;
+                    }
+
+                    (lines[a], lines[b]) = (bestA, bestB);
+                }
+            }
+        }
+
+        // A turn on along its lane this share of the way it could go before turning at its corner, turned off there on
+        // the circle and onto the lane out as far short of the corner: nought of it turned at once, all of it at the corner.
+        ArcSeg[]? Sooner(int connector, float share)
+        {
+            var (from, to) = poses[connector];
+            var (leaveM, joinM) = (0f, 0f);
+            if (Spline.ToTheCorner(from.PositionM, from.HeadingRad, to.PositionM, to.HeadingRad, out var turnRad, out var beforeM, out var afterM)
+                && beforeM > 0f && afterM > 0f)
+            {
+                var tangentM = radiusM * MathF.Tan(MathF.Abs(turnRad) * 0.5f);
+                (leaveM, joinM) = (MathF.Max(0f, beforeM - tangentM) * share, MathF.Max(0f, afterM - tangentM) * share);
+
+                // A run onto the lane out too short to be told from more of the turn before it is turned into instead.
+                if (joinM < Spline.CarriedOnByM(radiusM, to.PositionM)) joinM = 0f;
+            }
+
+            var leavesM = from.PositionM + (Heading.Unit(from.HeadingRad) * leaveM);
+            var joinsM = to.PositionM - (Heading.Unit(to.HeadingRad) * joinM);
+            Span<ArcSeg> turned = stackalloc ArcSeg[3];
+            var laid = Spline.TurnedAtOnceInto(leavesM, from.HeadingRad, joinsM, to.HeadingRad, radiusM, TurnsTo(lines[connector]), turned);
+            if (laid == 0) return null;
+
+            var line = new List<ArcSeg>(laid + 2);
+            if (leaveM > LineTolerance.RoundingM) line.Add(new ArcSeg(from.PositionM, from.HeadingRad, leaveM, 0f));
+            line.AddRange(turned[..laid]);
+            if (joinM > LineTolerance.RoundingM) line.Add(new ArcSeg(joinsM, to.HeadingRad, joinM, 0f));
+            return [.. line];
+        }
+
+        // The way a line turns on the whole, which for a U-turn is the way it was drawn round and not the shorter way back.
+        static float TurnsTo(ReadOnlySpan<ArcSeg> line)
+        {
+            var turnedRad = 0f;
+            foreach (var arc in line) turnedRad += arc.LengthM * arc.Curvature;
+            return MathF.Sign(turnedRad);
+        }
+
+        // How near two lines come, nought where they cross.
+        static float Apart(ArcSeg[] one, ArcSeg[] other)
+        {
+            Span<SplineCrossing> found = stackalloc SplineCrossing[2];
+            if (Spline.CrossingsM(one, other, 0f, 0f, found) > 0) return 0f;
+
+            var nearestM = float.PositiveInfinity;
+            foreach (var oneArc in one)
+            {
+                for (var alongOneM = 0f; alongOneM <= oneArc.LengthM; alongOneM += StrideM)
+                {
+                    var atM = oneArc.PointAtM(alongOneM);
+                    foreach (var otherArc in other)
+                    {
+                        for (var alongOtherM = 0f; alongOtherM <= otherArc.LengthM; alongOtherM += StrideM)
+                        {
+                            nearestM = MathF.Min(nearestM, Vector2.Distance(atM, otherArc.PointAtM(alongOtherM)));
+                        }
+                    }
+                }
+            }
+
+            return nearestM;
+        }
+    }
+
+    /// <summary>
+    /// The stride two turns' lines are walked at when reading how near they come (<see cref="OnTheirOwnSides"/>): the
+    /// nearest is then read within half of it, an eighth of a metre against lanes metres wide.
+    /// </summary>
+    const float StrideM = 0.25f;
+
+    /// <summary>
+    /// How many places between turning at the corner and turning at once a turn made in front of the one opposite is
+    /// tried at (<see cref="OnTheirOwnSides"/>), the latest first: each an eighth of the lane it could have run on.
+    /// </summary>
+    const int SoonerSteps = 8;
 
     /// <summary>Whether a lane ends where the next one starts, within <see cref="SameEndM"/>.</summary>
     static bool TheSameEnd(Vector2 fromM, Vector2 toM) =>

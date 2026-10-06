@@ -44,8 +44,7 @@ internal sealed class TownRenderer : IDisposable
 
     const int PagesTexture = 0;
     const int GlyphTexture = 1;
-    const int TileTexture = 2;
-    const int FirstSurfaceTexture = 3;
+    const int FirstSurfaceTexture = 2;
 
     /// <summary>A uniform block is a multiple of sixteen bytes wide, and the camera is four pairs of floats and two fours.</summary>
     const int CameraBytes = 64;
@@ -97,8 +96,8 @@ internal sealed class TownRenderer : IDisposable
         WebGpu.Reserve(UnderlayStream, _underlay.Length, WebGpu.Vertex);
         WebGpu.Reserve(CameraStream, CameraBytes, WebGpu.Uniform);
 
-        // Every sheet onto the layers of one array texture, and the one that tiles onto a texture of
-        // its own. The table is laid to the shader's full length, so a slot nothing uses is zero.
+        // Every sheet onto the layers of one array texture. The table is laid to the shader's full
+        // length, so a slot nothing uses is zero.
         _atlas = SheetAtlas.Pack(sheetTextures);
         var table = new SheetPlace[SheetSlots];
         _atlas.Places.CopyTo(table, 0);
@@ -106,7 +105,6 @@ internal sealed class TownRenderer : IDisposable
 
         Pages();
         Glyphs();
-        Tile(sheetTextures);
         Ground(surfaceTextures);
 
         WebGpu.Rebuild(_indexCount);
@@ -304,30 +302,6 @@ internal sealed class TownRenderer : IDisposable
             Picture(FirstSurfaceTexture + surface, surfaceTextures[Math.Min(surface, surfaceTextures.Count - 1)],
                 mipped: true);
         }
-    }
-
-    /// <summary>
-    /// The one sheet the atlas could not hold, and a stand-in where the town has none: a binding the
-    /// shader declares must be filled whether or not anything samples it.
-    /// </summary>
-    void Tile(IReadOnlyList<SheetSource> sheets)
-    {
-        if (_atlas.TileSheet < 0)
-        {
-            Upload(TileTexture, new Texel[1], 1, 1, mipped: false);
-            return;
-        }
-
-        var tile = sheets[_atlas.TileSheet];
-        if (tile.Path is { } path)
-        {
-            Picture(TileTexture, path, tile.Mipped);
-            return;
-        }
-
-        Upload(
-            TileTexture, MemoryMarshal.Cast<byte, Texel>(tile.Rgba!).ToArray(),
-            tile.WidthPx, tile.HeightPx, tile.Mipped);
     }
 
     /// <summary>

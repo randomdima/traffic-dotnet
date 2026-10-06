@@ -181,23 +181,6 @@ internal sealed class TyreFigures
     public float ShowsPastTheBodyworkShare { get; init; } = 0.4f;
 
     /// <summary>
-    /// One pitch of tread, which is the period the drawn tread is wrapped into. <b>It is the shipped
-    /// picture's own period</b> — the sheet is one pitch laid across the full width of the tyre, so its
-    /// aspect carries this figure and a test holds the two to each other. Wrapped into anything else the
-    /// pattern snaps back part of a block several times a revolution.
-    /// </summary>
-    public float TreadPitchM { get; init; } = 0.0928f;
-
-    /// <summary>
-    /// How fast the tread pattern scrolls against how fast the wheel is turning, and which way. <b>A
-    /// display figure and nothing else.</b> It has to be well under one because the pattern is far finer
-    /// than a frame can sample: at town speeds a tyre passes most of a block per frame, which is past
-    /// Nyquist, and the eye matches a block advancing 0.9 of a pitch to the next one and sees it crawl
-    /// backwards.
-    /// </summary>
-    public float TreadScrollFactor { get; init; } = -0.225f;
-
-    /// <summary>
     /// The nominal wheel's rotating inertia as the straight-line mass it behaves like (J/r²). It sets how
     /// violently a wheel spins up or locks — against a corner carrying ≈ 350 kg, an engine asking for
     /// more than the patch can transmit lights the tyre up over a fraction of a second. <b>A variant may

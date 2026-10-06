@@ -74,7 +74,7 @@ internal sealed class CityPlan
     /// <summary>
     /// <b>Whether a zebra is painted at every station the town's kerb ends cut</b> (TER-6, WLK-10), or the town
     /// says where its zebras are (<see cref="Crosswalks"/>) and a station is a place the walk is cut and the
-    /// traffic held at, painted with nothing. A traced map's are where its survey maps them (GEN-57).
+    /// traffic held at, painted with nothing.
     /// </summary>
     public bool ZebraAtEveryStation { get; init; } = true;
 
@@ -84,6 +84,12 @@ internal sealed class CityPlan
 
 
     public required PropArrays Props { get; init; }
+
+    /// <summary>
+    /// <b>What is drawn and stands nothing</b> (<see cref="SceneryArrays"/>): empty in every town but a traced one,
+    /// whose open ground is a city of it.
+    /// </summary>
+    public SceneryArrays Scenery { get; init; } = SceneryArrays.None;
 
     public required SpawnArrays Spawns { get; init; }
 
@@ -647,6 +653,20 @@ internal sealed class CityPlan
 
         public required byte[] Kind { get; init; }
         public int Count => CentreM.Length;
+    }
+
+    /// <summary>
+    /// <b>Props that are drawn and nothing else</b> (GEN-6b): what grows on the open ground beyond the verges, with no
+    /// body, no collider and no claim on any way. Each is of the open country's kind (<see cref="PropKind.WildNature"/>)
+    /// and stands upright, so its place and its girth are the whole of it.
+    /// </summary>
+    internal sealed class SceneryArrays
+    {
+        public required Vector2[] CentreM { get; init; }
+        public required float[] RadiusM { get; init; }
+        public int Count => CentreM.Length;
+
+        public static SceneryArrays None { get; } = new() { CentreM = [], RadiusM = [] };
     }
 
     /// <summary>Where the roster stands at the first tick.</summary>

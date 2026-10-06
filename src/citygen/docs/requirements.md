@@ -21,7 +21,8 @@ where the town is and the one on disk is the one that goes stale. **A map laid t
 in code**, as arithmetic over the car's own figures rather than a seed; this build lays one, the idle ring
 ([the maps](#the-maps)), and the laboratories that measured something are
 [a known gap](../../../docs/index.md#known-gaps). **A real place is traced from its survey** (`TracedPlan`,
-GEN-57): what is authored is what OpenStreetMap holds for it, and nothing is drawn at all.
+GEN-57): what is authored is what OpenStreetMap holds for it, and nothing of the place is drawn — only the zebras
+and props every town lays are the town's own.
 
 **GEN-1** `P3` Generation is driven by the **world seed**, supplied manually or chosen randomly; the same
 world seed produces the same city.
@@ -46,7 +47,7 @@ map instead, and the menu shuts onto it.
   animation callback before it lays anything: the menu stands on the few small files the boot fetched, and
   the ring behind it is generated while the reader is looking at it.
 
-**GEN-57** `P4` **A traced map is a real place laid from its survey, and nothing in it is drawn or lost.** What
+**GEN-57** `P4` **A traced map is a real place laid from its survey, and nothing of the place is drawn or lost.** What
 is authored is the map's own file (`TracedMap`, `towns/traced/<Map>.map`), **the one file of the place the engine
 reads**, imported off the survey and what else is known of the place by the scanner
 ([tools/osmscan/](../../tools/osmscan/), run by `qq osm`), a tool that knows none of the engine's rules. The survey is
@@ -62,15 +63,16 @@ and the flat frame — Transverse Mercator at one metre to the metre about the m
 the map their extent and a margin. What the engine reads off the map when it is opened (`Survey.Of`) is the
 sea its coastline closes against the map's edge, and **a way running on past the map is cut where it crosses
 the map's own edge**, a crossing nearer the node inside than the shortest road the map lays being that node. **No
-seed draws anything**, and the same map is the same town every time it is opened. **It lays every road way
-OSM gives lanes, of every class, its sea, and what else its map says of the place, and nothing else** — no car
-park, and nothing that moves but a few cars stood by rule at its bridges over its roads. A road OSM draws as an area is a
-surface and has no lane.
+seed draws anything of the place**, and the same map is the same town every time it is opened. **It lays every
+road way OSM gives lanes, of every class, its sea, and what else its map says of the place, and nothing else but
+what every town lays of its own** — its zebras and its props, which its map holds none of — and no car
+park. **What moves is a few cars stood by rule at its bridges over its roads, and the people and cars its map asks
+for** (`TracedMap.Population`, GEN-7), stood by rule as well. A road OSM draws as an area is a surface and has no lane.
 
 - **The map holds what the engine lays and nothing else** (`TracedMapImport`, `qq osm --import`): each road way's
   line, class, level and carriageway as OSM means it, and its width as measured; the coast; the turns; each
-  junction's control, every pedestrian crossing, every building's footprint, height and use, and every tree — in the map's own
-  frame, so opening it reads arrays rather than parsing them. No tag, node id
+  junction's control and every building's footprint, height and use — in the map's own frame, so opening it reads
+  arrays rather than parsing them. **No crossing and no tree**: the town paints and plants its own. No tag, node id
   or road surface is carried into it. **Facts and no rule**: what a traced town takes of them is what follows.
 - **The map is the master, and what it was imported from is kept as it came.** An edit is made to the map in
   place — `qq osm --crop` cuts it down to a box of degrees and its margin, its roads running off at the new edge,
@@ -106,7 +108,10 @@ surface and has no lane.
   **the box makes only the movements the roads it gathered made**: a turn off one road onto another is forbidden
   where they gave no way between the two, through every one-way road and every restriction at their places —
   which is where a restriction naming the road that went is laid. A junction is lit where any place it was
-  gathered from is signalled. Not gathered: a junction on a bridge or round a roundabout, a pair a road between
+  gathered from is signalled. **So is a place of two arms inside a junction's own disc**, reached through nothing
+  but such places — a way OSM changes a few metres past the node it crosses at, a flared mouth tagged with lanes
+  of its own: kept apart, the road between is too short for either disc and every turn onto its far lanes begins
+  past where their lines cross. Not gathered: a junction on a bridge or round a roundabout, a pair a road between
   them would leave running out and back to one junction, and a gathering left with fewer than two roads into it.
 - **A road is driven in OSM's lanes** (GEN-15, TER-4d): as many each way as OSM's tagging rules say, **every
   one `SimConfig.CityGen.TracedLaneWidthM` wide** whatever OSM tags or assumes, and **its carriageway laid along
@@ -144,8 +149,9 @@ surface and has no lane.
   nothing — no movement leaves or reaches it, no junction counts it among its lanes, and nothing is routed, stood or
   turned onto it. **It runs on into the box** (`RoadsideLanes`): to where its kerb meets the kerb of the next arm
   round, or — where the kerb runs straight on — beside the movement the lane beside it makes, to that movement's
-  middle, where the roadside across meets it. So the kerb turns the box's corner and runs straight past a mouth
-  across the way, and **a turn out of the kerb lane sweeps over it**. **Where its road loses it along the way** — the
+  middle, where the roadside across meets it. **Where the lane beside it runs straight across the box, the roadside
+  runs beside that movement and not along its road's line**, as far as the kerb reaches. So the kerb turns the box's
+  corner and runs straight past a mouth across the way, and **a turn out of the kerb lane sweeps over it**. **Where its road loses it along the way** — the
   next arm round carrying none on the kerb facing it, at a box of two arms or one the kerb runs straight on through —
   **it stops where its road does**, the end of the line beside it, and the kerb is eased in across the box over a band
   of its own, from the strip's end to the far end of the movement the lane beside it makes (`LaneLines.Tapers`).
@@ -153,10 +159,9 @@ surface and has no lane.
   junctions controlled as one — a dual carriageway's crossing — on one clock, each set starting where the node
   it is named by says, so no seed draws it. A sign, a priority road or a roundabout's control is carried and
   not laid: the engine has no sign to lay ([the known gaps](../../../docs/index.md#known-gaps)).
-- **Its zebras are where its map holds a painted crossing, and nowhere else** (`TracedCrossings`, TER-6): a
-  crossing painted where its tags say so, or where they say nothing and it has lights for its walkers, laid
-  across the road its way runs along at the place nearest where OSM puts it. Its kerb ends still cut the walk
-  and hold the traffic at every station, painted with nothing (`CityPlan.ZebraAtEveryStation`).
+- **Its zebras are painted at every station its kerb ends cut, as a generated town's are** (TER-6, WLK-10,
+  `CityPlan.ZebraAtEveryStation`): where the walk is crossed and the traffic held, and nowhere else. Its map holds
+  no crossing.
 - **Its buildings are prefabs stood on its walk where its footprints are** (`TracedBuildings`), OSM's and the
   machine-traced ones OSM lacks: each footprint, less its courtyards, is one rounded rectangle where it fills one —
   a silo a circle, a pavilion a stadium — or else cut into at most `SimConfig.CityGen.TracedPartsMost` rectangles on
@@ -181,10 +186,12 @@ surface and has no lane.
   walkable padding is kept between them (GEN-3 is a generated town's). **The footprints are what its buildings are
   fitted off and nothing more**: the town carries the buildings stood on them and no outline of its own, and the map
   keeps them, with the survey's sources, for what is laid off them before a town is opened.
-- **Its trees are where OSM maps them** (`TracedTrees`, GEN-6b): each a prop of the open country's kind at
-  `SimConfig.CityGen.TracedTreeRadiusM`, the size only a tree is drawn at, and **none whose crown comes within a
-  lattice step of driven ground** (TER-4c.4) — a road's carriageway, or a junction's disc and its widest arm — nor
-  any whose crown leaves the map.
+- **Its props are laid as a generated town's two passes lay them** (`TracedProps`, GEN-6b), drawn off the map's own
+  number, its buildings claimed before them at `SimConfig.CityGen.TracedClaimCellM`. **What the first lays along its
+  verges are props**, and none stands whose crown comes within a lattice step of driven ground (TER-4c.4): a road's
+  carriageway, or a junction's disc and its widest arm, which a traced junction's movements can reach past its
+  tarmac. **What the second lays on the open ground beyond is scenery** (`CityPlan.Scenery`) — a whole city's yards,
+  parks and waste ground, drawn and standing no body. Its map holds no tree.
 - **Its roundabouts are the ways OSM tags as circulating** (GEN-19), a ring of those that meet at their
   junctions, so its kerb ends stand no station on one and its walk does not run round one.
 - **A bridge is a road of its own on the level above** (GEN-14a, PHY-1a): a way OSM carries on a bridge is cut
@@ -204,8 +211,15 @@ surface and has no lane.
   stands at.
 - **A road is its surveyed line** between the discs of its two junctions (TER-5d), **leaving each where the
   line crosses its edge, on the line's own heading** — each disc a standoff of its junction's own, stood out
-  by however much wider than a street of one lane each way its widest arm is, and never past the middle of the
-  road to its nearest neighbour less `SimConfig.CityGen.TracedShortestRoadM`. **No lane of it folds back over a
+  by however much wider than a street of one lane each way its widest arm is, and **a road's own end** never past
+  the middle of the way to the junction at its other end less `SimConfig.CityGen.TracedShortestRoadM`. **A short
+  road squeezes its own two ends and not its junctions' other arms**, which end where their junction asks but no
+  more than `SimConfig.CityGen.TracedArmEndsApartM` further back than the shortest end there: squeezed with it,
+  every arm runs into the middle of the crossing and every turn across it winds round to come back to its corner.
+  **And a road's end stands back as far as the turns off and onto it need to begin**, within the same room: each
+  turn is given `SimConfig.JunctionTurnRoomM` at the corner its lanes' lines make, so it starts sooner rather than
+  swinging out over the lanes beside it (TER-5d.2).
+  **No lane of it folds back over a
   corner**: one its legs cannot round with the innermost lane at `SimConfig.CityGen.TracedTightestLaneRadiusM`
   is a survey's kink, eased the way that stands least off the survey — taken out, a point beside it taken out,
   or it and a neighbour carried on along their outer legs to where those meet. **A road of one lane on its
@@ -328,7 +342,8 @@ margin on top would only hold the verge back from the street it is a verge of.
 **GEN-6b** `P6` **A prop's kind is a placement and not a picture, and the pass that laid it is what decides
 which.** A stump and a planter are different kinds because they stand in different places, not because they
 look unalike. **The props are laid in two passes**, and everything they need — the roads, the pavement, the
-bays and the buildings — was laid before either of them runs.
+bays and the buildings — was laid before either of them runs. **On a traced town what the second lays is scenery**
+(GEN-57, `CityPlan.Scenery`): drawn, and standing no body.
 
 - **First the walk's outer face is walked**, because a verge is a line and not an area. A candidate stands
   out in the **verge** — the band of grass between `SimConfig.CityGen.PropVergeNearM` and `PropVergeFarM`
@@ -445,12 +460,13 @@ nothing to say it. **Where people live, every car is somebody's** (PER-29): the 
 and the town stands each person's in the free bay nearest their door. **A town nobody lives in stands the
 brief's cars in bays of its own car parks**, never a service's yard (GEN-55); **and one that cut no car park
 stands them on its lanes**, one a lane, and they tour (CAR-8) — the fixture, which asks for no buildings and is
-owed no parking.
+owed no parking. **A traced town cuts no car park** (GEN-57), so nobody living in it is handed a car, and it stands
+its map's cars on its lanes beside its people in the same way.
 
-**How many of each is the brief's**, and **the bound is the town rather than the count**: a person is stood at
-a way in, and a car of a town nobody lives in in a bay or on a lane long enough to hold one, so a brief asking
-for more than the ground carries gets what fitted (GEN-8). A person with no free bay within a walk of their door
-owns no car.
+**How many of each is the brief's, or a traced map's own** (`TracedMap.Population`), and **the bound is the town
+rather than the count**: a person is stood at a way in, and a car the plan stands in a bay or on a lane long enough
+to hold one, so a brief asking for more than the ground carries gets what fitted (GEN-8). A person with no free bay
+within a walk of their door owns no car.
 
 **GEN-8** `P6` **No candidate city is ever rejected.** A violation of GEN-3…GEN-5 is a defect in the
 arrangement rather than a seed to throw away, and the gate that catches it is the suite. Where the ground

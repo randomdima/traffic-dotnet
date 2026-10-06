@@ -1045,7 +1045,12 @@ internal static class Spline
             var discriminant = b * b - 4f * a * c;
             if (discriminant < 0f) return One(fromM, fromHeadingRad, toM, into);
 
-            tangentM = (-b + MathF.Sqrt(discriminant)) / (2f * a);
+            // The same root either way up, taken the way that subtracts nothing alike: for two poses a few degrees
+            // apart a is a hair and the root's square is b's own, and −b plus it is a difference of two near-equal
+            // floats that came out metres wrong — a connector between two lanes carrying on with a kink a few
+            // centimetres long at its start, and its neighbour, a lane over, without one.
+            var rootM = MathF.Sqrt(discriminant);
+            tangentM = b > 0f ? -2f * c / (b + rootM) : (-b + rootM) / (2f * a);
         }
 
         if (tangentM <= 0f) return One(fromM, fromHeadingRad, toM, into);
@@ -1201,6 +1206,294 @@ internal static class Spline
 
         return lengthM <= (HalfATurnOfItsChord * (toM - fromM).Length()) + LineTolerance.JoinedM ? laid : 0;
     }
+
+    /// <summary>
+    /// <b>The line a car is driven on from one pose to another across a junction</b>: <b>on along the lane it leaves for as
+    /// long as it can, turned or shifted across as late and as short as the circle it is given allows, and on along the
+    /// lane it joins</b> — so the stretch it spends across other lanes' ground is the least the two ask for, and no stretch
+    /// of it runs on a line of its own between theirs.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A turn at a corner</b> — two poses further round than <paramref name="straightRad"/> whose lines cross ahead of
+    /// the first and behind the second, no further off either than the two stand apart — is the first line, one arc of
+    /// <paramref name="turnRadiusM"/> at the corner, and the second line (<see cref="StraightArcStraightInto"/>); with too
+    /// little room before or after the corner for that circle, the widest one the room holds.
+    /// </para>
+    /// <para>
+    /// <b>A shift</b> — two poses within <paramref name="straightRad"/> of straight on whose lines do not cross between
+    /// them, the second ahead and at least <paramref name="carriedOnM"/> across — runs on along the first line as far as it
+    /// can and crosses onto the second on two arcs of the circle
+    /// turning opposite ways, each no more than a quarter turn, with the straight their inner tangent leaves between
+    /// (<see cref="ShiftedLateInto"/>): a lane carried on to one offset across a box, and the far arm of a staggered
+    /// crossing, turned off and back. Where the box is too short for that circle, the biarc.
+    /// </para>
+    /// <para>
+    /// <b>A U-turn</b> — two poses within <paramref name="straightRad"/> of facing opposite ways, the second across on the
+    /// side the turn goes — runs on to the further of the two and turns across on half a circle as wide as the gap.
+    /// </para>
+    /// <para>
+    /// <b>Anything else keeps the biarc</b> (<see cref="BiarcInto"/>). A lane carried on through a bend does — within
+    /// <paramref name="straightRad"/> of straight on, or <paramref name="carriedThrough"/> a place its road only bends
+    /// at — and one carried on less than <paramref name="carriedOnM"/> across: lanes side by side are carried on side by
+    /// side, and the paint between them with them. So does a hairpin, two poses the first of which already stands past where their
+    /// lines cross, which has no line a driver takes but round, and what mends that is the lane ending sooner. <b>Nothing
+    /// is swung out of onto the lanes beside</b>, however tight.
+    /// </para>
+    /// </remarks>
+    /// <param name="turnRadiusM">The circle a turn or a shift is made on.</param>
+    /// <param name="straightRad">
+    /// How near straight on two poses are for the line between them to be a bend carried on, and how near facing opposite
+    /// ways for it to be a U-turn.
+    /// </param>
+    /// <param name="carriedOnM">
+    /// How far across a lane may shift and still be carried on rather than shifted: less than that, the biarc, which is
+    /// what keeps the lines either side of a painted line across a box the same distance apart all the way.
+    /// </param>
+    /// <param name="carriedThrough">
+    /// Whether the two lanes are one road carried on through a place it only bends at, nothing turning off it: then a bend
+    /// however sharp is the biarc, as the lanes beside it and the paint between them are.
+    /// </param>
+    /// <returns>How many arcs were written, at most <see cref="MostMovementArcs"/>; nought where the poses are one point.</returns>
+    public static int MovementInto(
+        Vector2 fromM, float fromHeadingRad, Vector2 toM, float toHeadingRad, float turnRadiusM, float straightRad,
+        float carriedOnM, bool carriedThrough, Span<ArcSeg> into)
+    {
+        if (Vector2.DistanceSquared(fromM, toM) < LineTolerance.RoundingM * LineTolerance.RoundingM) return 0;
+
+        var from = Heading.Unit(fromHeadingRad);
+        var to = Heading.Unit(toHeadingRad);
+        var askedRad = MathF.Abs(WrapRad(toHeadingRad - fromHeadingRad));
+        var cornerAhead = ToTheCorner(fromM, fromHeadingRad, toM, toHeadingRad, out var turnRad, out var beforeM, out var afterM)
+            && beforeM >= LineTolerance.RoundingM && afterM >= LineTolerance.RoundingM
+            && MathF.Max(beforeM, afterM) <= Vector2.Distance(fromM, toM);
+        if (cornerAhead && (carriedThrough || askedRad <= straightRad)) return BiarcInto(fromM, fromHeadingRad, toM, toHeadingRad, into);
+
+        if (cornerAhead)
+        {
+            var cornered = TurnedAtTheCornerInto(fromM, fromHeadingRad, toM, toHeadingRad, turnRadiusM, into);
+            return cornered > 0 ? cornered : BiarcInto(fromM, fromHeadingRad, toM, toHeadingRad, into);
+        }
+
+        var aheadM = Vector2.Dot(toM - fromM, from);
+        var behindM = Vector2.Dot(toM - fromM, to);
+        var acrossM = Cross(from, toM - fromM);
+        if ((askedRad <= straightRad || carriedThrough) && aheadM > 0f && behindM > 0f && MathF.Abs(acrossM) >= carriedOnM
+            && ShiftedLateInto(fromM, fromHeadingRad, toM, toHeadingRad, turnRadiusM, into) is var shifted and > 0)
+        {
+            return shifted;
+        }
+
+        if (askedRad >= MathF.PI - straightRad && MathF.Abs(acrossM) >= LineTolerance.RoundingM
+            && (askedRad >= MathF.PI - LineTolerance.StraightOnRad || MathF.Sign(acrossM) == MathF.Sign(turnRad)))
+        {
+            // Each pose driven on as far as the other stands past it, and half the gap further, which leaves the two corners
+            // the gap between the lines apart: a half circle across it — and no run on after it too short to be told from
+            // more of the half circle.
+            var halfM = MathF.Abs(acrossM) * 0.5f;
+            var backM = MathF.Max(behindM, 0f) < CarriedOnByM(halfM, toM) ? 0f : MathF.Max(behindM, 0f);
+            return TwoCornersInto(fromM, fromM + (from * (MathF.Max(aheadM, 0f) + halfM)), toM - (to * (backM + halfM)), toM, halfM, into);
+        }
+
+        return BiarcInto(fromM, fromHeadingRad, toM, toHeadingRad, into);
+    }
+
+    /// <summary>
+    /// <b>A turn at the corner two poses' lines make</b>: straight along the first, one arc of <paramref name="radiusM"/>
+    /// — or the widest the room either side of the corner holds, where that is less — and straight along the second
+    /// (<see cref="StraightArcStraightInto"/>).
+    /// </summary>
+    /// <remarks>
+    /// <b>No straight after the arc too short to be told from more of it</b> (<see cref="CarriedOnByM"/>): one is turned
+    /// into instead, on a circle that much wider; where the corner is so even that its other side is then left as short,
+    /// nought. <b>The straight after the arc is laid back off the second pose</b>, on that pose's own line.
+    /// </remarks>
+    /// <returns>How many pieces were written, at most three; nought where the poses make no such corner.</returns>
+    public static int TurnedAtTheCornerInto(
+        Vector2 fromM, float fromHeadingRad, Vector2 toM, float toHeadingRad, float radiusM, Span<ArcSeg> into)
+    {
+        if (!ToTheCorner(fromM, fromHeadingRad, toM, toHeadingRad, out var turnRad, out _, out var afterM)) return 0;
+
+        var widestM = WidestTurnM(fromM, fromHeadingRad, toM, toHeadingRad);
+        radiusM = MathF.Min(radiusM, widestM);
+        var halfTan = MathF.Abs(MathF.Tan(turnRad * 0.5f));
+        var leftM = afterM - (radiusM * halfTan);
+        if (leftM > LineTolerance.RoundingM && leftM < CarriedOnByM(radiusM, toM))
+        {
+            radiusM = MathF.Min(widestM, afterM / halfTan);
+            leftM = afterM - (radiusM * halfTan);
+        }
+
+        if (leftM > LineTolerance.RoundingM && leftM < CarriedOnByM(radiusM, toM)) return 0;
+
+        // The run onto the second pose laid back off the pose itself, so it lies on the lane's own line to the float and
+        // its band's edge on the edge of whatever runs beside that lane — laid on from the arc's end, it stands the
+        // arc's rounding off it, a few millimetres at a city's far edge, and two edges that near are neither one edge
+        // nor two.
+        var laid = StraightArcStraightInto(fromM, fromHeadingRad, toM, toHeadingRad, radiusM, into);
+        if (laid > 1 && into[laid - 1].Curvature == 0f)
+        {
+            var runM = into[laid - 1].LengthM;
+            into[laid - 1] = new ArcSeg(toM - (Heading.Unit(toHeadingRad) * runM), toHeadingRad, runM, 0f);
+        }
+
+        return laid;
+    }
+
+    /// <summary>
+    /// <b>The line from one pose to another nearly the same way, shifted across as late as it can be</b>
+    /// (<see cref="MovementInto"/>): on along the first pose's line as far as two arcs of <paramref name="radiusM"/>
+    /// turning opposite ways — off it toward the second line and back onto it — still reach the second pose, each no
+    /// more than a quarter turn, with the straight between them their inner tangent.
+    /// </summary>
+    /// <returns>How many pieces were written, at most four; nought where even from the first pose itself no such shift fits.</returns>
+    public static int ShiftedLateInto(Vector2 fromM, float fromHeadingRad, Vector2 toM, float toHeadingRad, float radiusM, Span<ArcSeg> into)
+    {
+        var from = Heading.Unit(fromHeadingRad);
+        var acrossM = Cross(from, toM - fromM);
+
+        // Shifted less than a join's width, the two arcs would turn by less than a joined line keeps.
+        if (MathF.Abs(acrossM) < LineTolerance.JoinedM) return 0;
+
+        var firstSign = MathF.Sign(acrossM);
+        Span<ArcSeg> shift = stackalloc ArcSeg[3];
+        if (OppositeTurnsInto(fromM, fromHeadingRad, toM, toHeadingRad, radiusM, firstSign, shift) == 0) return 0;
+
+        // As far on as the shift still fits: it fits from the first pose and not from abreast of the second, and it fits
+        // from every place between short of where it stops fitting.
+        var (fitsM, failsM) = (0f, Vector2.Dot(toM - fromM, from));
+        while (failsM - fitsM > LineTolerance.RoundingM)
+        {
+            var midM = (fitsM + failsM) * 0.5f;
+            if (OppositeTurnsInto(fromM + (from * midM), fromHeadingRad, toM, toHeadingRad, radiusM, firstSign, shift) > 0) fitsM = midM;
+            else failsM = midM;
+        }
+
+        var laid = 0;
+        if (fitsM > LineTolerance.RoundingM) into[laid++] = new ArcSeg(fromM, fromHeadingRad, fitsM, 0f);
+
+        var turned = OppositeTurnsInto(fromM + (from * fitsM), fromHeadingRad, toM, toHeadingRad, radiusM, firstSign, shift);
+        shift[..turned].CopyTo(into[laid..]);
+        return laid + turned;
+    }
+
+    /// <summary>
+    /// Two arcs of <paramref name="radiusM"/> turning opposite ways — the first the way <paramref name="firstSign"/> says,
+    /// positive to the right — and the straight their inner tangent leaves between them, from one pose to another; or
+    /// nought where the two circles overlap or either arc would turn more than a quarter turn.
+    /// </summary>
+    static int OppositeTurnsInto(Vector2 fromM, float fromHeadingRad, Vector2 toM, float toHeadingRad, float radiusM, float firstSign, Span<ArcSeg> into)
+    {
+        var firstM = fromM + (Heading.RightOf(Heading.Unit(fromHeadingRad)) * (radiusM * firstSign));
+        var secondM = toM - (Heading.RightOf(Heading.Unit(toHeadingRad)) * (radiusM * firstSign));
+        var acrossM = secondM - firstM;
+        var apartM = acrossM.Length();
+        if (apartM < 2f * radiusM) return 0;
+
+        var offRad = MathF.Asin(MathF.Min(1f, 2f * radiusM / apartM));
+        var straightRad = MathF.Atan2(acrossM.Y, acrossM.X) + (firstSign * offRad);
+        var firstRad = WrapRad(straightRad - fromHeadingRad) * firstSign;
+        var secondRad = WrapRad(toHeadingRad - straightRad) * -firstSign;
+        // A turn the other way by less than a rounding along the circle is no turn; by more, it is a kink in the line.
+        var roundingRad = LineTolerance.RoundingM / radiusM;
+        if (firstRad < -roundingRad || secondRad < -roundingRad || firstRad > QuarterTurnRad || secondRad > QuarterTurnRad) return 0;
+
+        var straight = Heading.Unit(straightRad);
+        var leaveM = firstM - (Heading.RightOf(straight) * (radiusM * firstSign));
+        var straightM = apartM * MathF.Cos(offRad);
+        if (straightM > LineTolerance.RoundingM && straightM < CarriedOnByM(radiusM, leaveM)) return 0;
+
+        var laid = 0;
+        if (firstRad * radiusM > LineTolerance.RoundingM) into[laid++] = new ArcSeg(fromM, fromHeadingRad, firstRad * radiusM, firstSign / radiusM);
+        if (straightM > LineTolerance.RoundingM) into[laid++] = new ArcSeg(leaveM, straightRad, straightM, 0f);
+        if (secondRad * radiusM > LineTolerance.RoundingM)
+        {
+            into[laid++] = new ArcSeg(leaveM + (straight * straightM), straightRad, secondRad * radiusM, -firstSign / radiusM);
+        }
+
+        return laid;
+    }
+
+    /// <summary>
+    /// The line from one point through two corners to another, each corner rounded as wide as half the legs either side of
+    /// it allow, and no wider than <paramref name="reachM"/>.
+    /// </summary>
+    static int TwoCornersInto(Vector2 fromM, Vector2 firstM, Vector2 secondM, Vector2 toM, float reachM, Span<ArcSeg> into)
+    {
+        Span<Vector2> cornersM = [fromM, firstM, secondM, toM];
+        var acrossM = Vector2.Distance(firstM, secondM) * 0.5f;
+        Span<float> reachesM =
+        [
+            MathF.Min(reachM, MathF.Min(Vector2.Distance(fromM, firstM), acrossM)),
+            MathF.Min(reachM, MathF.Min(acrossM, Vector2.Distance(secondM, toM))),
+        ];
+        return RoundedInto(cornersM, reachesM, into);
+    }
+
+    /// <summary>
+    /// <b>The line from one pose to another turned at once and turned last</b>: a circle of <paramref name="radiusM"/>
+    /// off the first pose, the straight tangent to it and to the same circle off the second, and that circle into the
+    /// second — both turning the one way <paramref name="sideSign"/> says, positive to the right. It keeps nearer the
+    /// inside of the turn than any other line holding that circle, which is what a turn across another made at the same
+    /// time needs.
+    /// </summary>
+    /// <returns>How many pieces were written, at most three; nought where it would turn further than once round to the second pose.</returns>
+    public static int TurnedAtOnceInto(
+        Vector2 fromM, float fromHeadingRad, Vector2 toM, float toHeadingRad, float radiusM, float sideSign, Span<ArcSeg> into)
+    {
+        var firstM = fromM + (Heading.RightOf(Heading.Unit(fromHeadingRad)) * (radiusM * sideSign));
+        var secondM = toM + (Heading.RightOf(Heading.Unit(toHeadingRad)) * (radiusM * sideSign));
+        var acrossM = secondM - firstM;
+        var straightM = acrossM.Length();
+        var straightRad = straightM > LineTolerance.RoundingM ? MathF.Atan2(acrossM.Y, acrossM.X) : toHeadingRad;
+        var roundingRad = LineTolerance.RoundingM / radiusM;
+        var firstRad = Round(sideSign * (straightRad - fromHeadingRad), roundingRad);
+        var secondRad = Round(sideSign * (toHeadingRad - straightRad), roundingRad);
+        if (firstRad + secondRad > Round(sideSign * (toHeadingRad - fromHeadingRad), roundingRad) + LineTolerance.StraightOnRad) return 0;
+        if (firstRad * radiusM > LineTolerance.RoundingM && straightM > LineTolerance.RoundingM && straightM < CarriedOnByM(radiusM, fromM)) return 0;
+
+        var laid = 0;
+        if (firstRad * radiusM > LineTolerance.RoundingM) into[laid++] = new ArcSeg(fromM, fromHeadingRad, firstRad * radiusM, sideSign / radiusM);
+
+        var leaveM = firstM - (Heading.RightOf(Heading.Unit(straightRad)) * (radiusM * sideSign));
+        if (straightM > LineTolerance.RoundingM) into[laid++] = new ArcSeg(leaveM, straightRad, straightM, 0f);
+        if (secondRad * radiusM > LineTolerance.RoundingM)
+        {
+            into[laid++] = new ArcSeg(leaveM + (Heading.Unit(straightRad) * straightM), straightRad, secondRad * radiusM, sideSign / radiusM);
+        }
+
+        return laid;
+
+        // A turn one way, from nought up to once round; one the other way by more than a rounding along the circle is
+        // most of a turn round, and not a kink in the line.
+        static float Round(float turnRad, float roundingRad)
+        {
+            var rad = turnRad % (2f * MathF.PI);
+            return rad < -roundingRad ? rad + (2f * MathF.PI) : MathF.Max(rad, 0f);
+        }
+    }
+
+    /// <summary>
+    /// <b>The longest straight an arc of this radius carries on into</b> (<see cref="CarriesOn"/>): one so short the arc
+    /// laid on over it stays within a rounding of its end, so a joined line takes it for more of the arc, and a turn drawn
+    /// with one after its arc turns further than it was asked by the length of it.
+    /// </summary>
+    public static float CarriedOnByM(float radiusM, Vector2 atM) =>
+        MathF.Sqrt(2f * LineTolerance.At(LineTolerance.RoundingM, atM) * radiusM);
+
+    /// <summary>The tightest circle anywhere in a chain, and none on a straight.</summary>
+    static float TightestM(ReadOnlySpan<ArcSeg> arcs)
+    {
+        var bend = 0f;
+        foreach (var arc in arcs) bend = MathF.Max(bend, MathF.Abs(arc.Curvature));
+
+        return bend <= StraightCurvature ? float.PositiveInfinity : 1f / bend;
+    }
+
+    /// <summary>The most arcs <see cref="MovementInto"/> writes: a jog's straight, arc, straight, arc and straight.</summary>
+    public const int MostMovementArcs = 5;
+
+    const float QuarterTurnRad = MathF.PI * 0.5f;
 
     /// <summary>
     /// <b>The most heading one corner spends</b> (<see cref="CorneredInto"/>): half a turn, which is the most

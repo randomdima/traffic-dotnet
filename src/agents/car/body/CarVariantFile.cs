@@ -188,8 +188,6 @@ internal sealed class CarVariantFile
     /// <remarks>
     /// A tyre belongs to the car it is bolted to and not to the town: a van's is not a coupé's, and the
     /// fleet running one size was the nominal car's figure standing where every body's own should be.
-    /// <b>The tread pattern is not sized from here</b> — that is one picture the whole fleet shares, and
-    /// its pitch is a fact about the sheet (<see cref="TyreFigures.TreadPitchM"/>).
     /// </remarks>
     public Vector2? WheelM { get; init; }
 

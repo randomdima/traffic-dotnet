@@ -69,7 +69,7 @@ retired number, which the owning slice's log records.
 | `SIM-3`, `SIM-4`, `SIM-8`, `AGT-6` | Units, the two seeds, the one grid, where randomness comes from | [core](../src/core/docs/requirements.md) |
 | `GEN-1…3`, `GEN-5…19`, `GEN-46…57` | The brief and the maps, a city traced off its survey, laying a town, buildings and their uses, lane width, water and bridges, one-way streets, roundabouts, junctions as connection points and movements, no dangling lane, car parks laid off a street, where a building stands, which are services and the district each serves | [citygen](../src/citygen/docs/requirements.md) |
 | `TER-1…3d`, `TER-7…7b`, `PHY-8` | The ground, the pavement and its kerb, water and decks, and the stack of layers the mesh is | [world/terrain](../src/world/terrain/docs/requirements.md) |
-| `TER-4`, `TER-4a`, `TER-4b`, `TER-4d`, `TER-5…5b`, `TER-5d`, `TER-5d.1`, `TER-5f`, `TER-5i`, `TER-6`, `TER-6a` | Roads, junctions, crossings, paint and the arrow a lane carries | [world/road](../src/world/road/docs/requirements.md) |
+| `TER-4`, `TER-4a`, `TER-4b`, `TER-4d`, `TER-5…5b`, `TER-5d`, `TER-5d.1`, `TER-5d.2`, `TER-5f`, `TER-5i`, `TER-6`, `TER-6a` | Roads, junctions, crossings, paint and the arrow a lane carries | [world/road](../src/world/road/docs/requirements.md) |
 | `TER-4c…4c.7`, `TER-5c…5c.3`, `TER-5e`, `TER-5g`, `TER-5g.1` | The ribbon atlas and its marks, a zebra held whole, where the bodies are, the ground a pass covers, where they mean to be, the ground a car backs up over, right of way and the ladder | [world/road/claims](../src/world/road/docs/claims.md) |
 | `WLK-1`, `WLK-1a…3`, `WLK-8…16` | The pavement's lanes, the zebras and the junction a crossing is, the joints a walk carries on at, the walk kept off the road, and the node network held in code | [world/foot](../src/world/foot/docs/requirements.md) |
 | `PHY-1…6`, `PHY-9` | Collision, damage energy, what a body is left in and what a wreck does to its driver | [world/physics](../src/world/physics/docs/requirements.md) |
@@ -161,11 +161,9 @@ owning slice's log; this list says only what is absent now and what closes it.
   Its lanes are OSM's — every one, as many, as wide and where OSM's tags put them, or as wide as the road was
   measured and as many as that holds where OSM only assumes a count — and no car changes between them along a
   road yet.
-- **A traced city's signs, priority roads and surveyed zebras are carried and not obeyed** (`GEN-57`): its map
-  holds every junction's control, but only its lights are laid — the engine has no stop or give-way sign and
-  no priority road, so an unsignalled junction is still first come, first served. A zebra its survey maps is
-  paint filed under no road end, so no bar stands behind it and nobody is held for it; the bars and the walk's
-  crossings are still at its kerb ends' stations, painted with nothing.
+- **A traced city's signs and priority roads are carried and not obeyed** (`GEN-57`): its map holds every
+  junction's control, but only its lights are laid — the engine has no stop or give-way sign and no priority
+  road, so an unsignalled junction is still first come, first served.
 - **A traced city's buildings stand nothing** (`GEN-57`): each is its footprint drawn flat in one colour, with
   no roof art, no door, no collider and nobody living in it.
 - **A traced city's bridges over its roads carry no walk** (`PHY-1a`, `TER-7b`). A bridge is a level of its own,

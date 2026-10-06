@@ -10,13 +10,13 @@ namespace TrafficSimulation.App.Render;
 /// this struct is the layout of the uniform block and there is no second description of it.
 /// </summary>
 /// <remarks>
-/// <c>Tiles</c> is one for the sheet that repeats and zero for every other, which is how the fragment
-/// stage knows to reach for the tile sampler instead of the atlas. <c>WidthPx</c> and <c>HeightPx</c>
-/// are the sheet's own size and not the page's, which is what the aspects are measured from.
+/// <c>WidthPx</c> and <c>HeightPx</c> are the sheet's own size and not the page's, which is what the
+/// aspects are measured from; the shader reads only the layer of that second <c>vec4</c>, and its last
+/// float is std140's padding.
 /// </remarks>
-[StructLayout(LayoutKind.Sequential)]
+[StructLayout(LayoutKind.Sequential, Size = 32)]
 internal readonly record struct SheetPlace(
-    Vector2 OriginUv, Vector2 ScaleUv, float Layer, float Tiles, float WidthPx, float HeightPx);
+    Vector2 OriginUv, Vector2 ScaleUv, float Layer, float WidthPx, float HeightPx);
 
 /// <summary>
 /// Every sprite sheet the town draws with, packed into the layers of one array texture: a sheet is
@@ -29,13 +29,6 @@ internal readonly record struct SheetPlace(
 /// WebGPU nor WebGL2 has, and on the desktop it can cost a scalarisation loop wherever a wave spans
 /// quads drawn from different sheets — which is every frame, since the bodies are one instanced draw
 /// over mixed looks. An array <em>layer</em> is a coordinate and costs neither.
-/// </para>
-/// <para>
-/// <b>Every sheet is packed but one.</b> The tread is a tile: its quad lays several pitches over
-/// itself and scrolls, so its coordinates run outside the unit square and it wants a repeating,
-/// mipped sampler of its own (<see cref="SheetSource"/>). A page repeats nothing and carries no mip
-/// chain, so a sheet that says it repeats is kept out and drawn through that one extra binding. <b>The
-/// town may have one such sheet</b>: a second would need a second binding, and the shader says so.
 /// </para>
 /// <para>
 /// <b>The gutter is what makes clamping still true.</b> Every packed sheet is laid with a one-texel
@@ -77,9 +70,6 @@ internal sealed class SheetAtlas
     /// <summary>One entry per sheet, in the order the sheets were handed over, ready to be written into the uniform block.</summary>
     public SheetPlace[] Places { get; }
 
-    /// <summary>The sheet that repeats, or -1 where the town draws nothing that tiles.</summary>
-    public int TileSheet { get; private init; } = -1;
-
     public static SheetAtlas Pack(IReadOnlyList<SheetSource> sources)
     {
         var count = sources.Count;
@@ -87,16 +77,6 @@ internal sealed class SheetAtlas
         var places = new SheetPlace[count];
         var sizes = new (int Width, int Height)[count];
         for (var sheet = 0; sheet < count; sheet++) sizes[sheet] = Measure(sources[sheet]);
-
-        var tile = -1;
-        for (var sheet = 0; sheet < count; sheet++)
-        {
-            if (!sources[sheet].Repeats) continue;
-            if (tile >= 0) throw new InvalidOperationException(
-                $"Sheets {tile} and {sheet} both tile, and the sprite shader has one tile sampler.");
-
-            tile = sheet;
-        }
 
         // Tallest first, and every open page tried before another is started: the art is a hundred and
         // seventy pictures of thirty different shapes, and a pack that fills only the newest page
@@ -110,8 +90,6 @@ internal sealed class SheetAtlas
         var pages = new List<Skyline>();
         foreach (var sheet in order)
         {
-            if (sheet == tile) continue;
-
             var (width, height) = sizes[sheet];
             var boxWidth = width + (GutterPx * 2);
             var boxHeight = height + (GutterPx * 2);
@@ -139,15 +117,13 @@ internal sealed class SheetAtlas
         {
             var (width, height) = sizes[sheet];
             var rect = rects[sheet];
-            places[sheet] = sheet == tile
-                ? new SheetPlace(Vector2.Zero, Vector2.One, 0f, 1f, width, height)
-                : new SheetPlace(
-                    new Vector2(rect.X / (float)PagePx, rect.Y / (float)PagePx),
-                    new Vector2(width / (float)PagePx, height / (float)PagePx),
-                    rect.Page, 0f, width, height);
+            places[sheet] = new SheetPlace(
+                new Vector2(rect.X / (float)PagePx, rect.Y / (float)PagePx),
+                new Vector2(width / (float)PagePx, height / (float)PagePx),
+                rect.Page, width, height);
         }
 
-        return new SheetAtlas(sources, rects, places, Math.Max(1, pages.Count)) { TileSheet = tile };
+        return new SheetAtlas(sources, rects, places, Math.Max(1, pages.Count));
     }
 
     /// <summary>
@@ -159,29 +135,33 @@ internal sealed class SheetAtlas
         into.Clear();
         for (var sheet = 0; sheet < _sources.Count; sheet++)
         {
-            if (sheet == TileSheet || _rects[sheet].Page != page) continue;
+            if (_rects[sheet].Page != page) continue;
 
             var rect = _rects[sheet];
-            var pixels = Decode(_sources[sheet], rect.Width, rect.Height);
+            var pixels = Decode(_sources[sheet]);
             Blit(pixels, rect, into);
         }
     }
 
-    /// <summary>The sheet's own texels, for a caller that wants the picture rather than the page.</summary>
-    public static Texel[] Decode(SheetSource source, int width, int height)
+    /// <summary>The sheet's own texels at the size <see cref="Measure"/> gives it, for a caller that wants the picture rather than the page.</summary>
+    public static Texel[] Decode(SheetSource source)
     {
-        var pixels = new Texel[width * height];
-        if (source.Rgba is { } raw)
-        {
-            MemoryMarshal.Cast<byte, Texel>(raw).CopyTo(pixels);
-            return pixels;
-        }
+        var (artWidth, artHeight) = ArtSize(source);
+        var pixels = new Texel[artWidth * artHeight];
+        if (source.Rgba is { } raw) MemoryMarshal.Cast<byte, Texel>(raw).CopyTo(pixels);
+        else Texels.Decode(source.Path!, pixels);
 
-        Texels.Decode(source.Path!, pixels);
-        return pixels;
+        return source.Underlay is { } underlay ? underlay.Under(pixels, artWidth, artHeight) : pixels;
     }
 
-    static (int Width, int Height) Measure(SheetSource source) =>
+    /// <summary>What a sheet takes on a page: its art's size, grown by any underlay's margin.</summary>
+    public static (int Width, int Height) Measure(SheetSource source)
+    {
+        var (width, height) = ArtSize(source);
+        return source.Underlay is { } underlay ? underlay.Padded(width, height) : (width, height);
+    }
+
+    static (int Width, int Height) ArtSize(SheetSource source) =>
         source.Path is { } path ? ImageHeader.Measure(path) : (source.WidthPx, source.HeightPx);
 
     /// <summary>The sheet into its rectangle, and its own edge into the gutter around it.</summary>

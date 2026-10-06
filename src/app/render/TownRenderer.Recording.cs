@@ -70,13 +70,11 @@ internal sealed unsafe partial class TownRenderer
         _acquired = new Semaphore[images];
         _image = 0;
 
-        // The pictures, in binding order: the atlas, the glyphs, the tile and the five surfaces. A town
-        // with no tiling sheet binds the ground in that slot, which nothing then samples.
+        // The pictures, in binding order: the atlas, the glyphs and the five surfaces.
         const int firstPicture = SheetPagesBinding;
         var pictures = stackalloc DescriptorImageInfo[Bindings - firstPicture];
         pictures[SheetPagesBinding - firstPicture] = Picture(_sheetPages);
         pictures[GlyphBinding - firstPicture] = Picture(_glyphs);
-        pictures[TileBinding - firstPicture] = Picture(_tile ?? _textures[0]);
         for (var surface = 0; surface < Surfaces; surface++)
         {
             pictures[FirstSurfaceBinding - firstPicture + surface] =

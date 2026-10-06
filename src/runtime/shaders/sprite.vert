@@ -29,7 +29,8 @@ vec4 toClip(vec2 atM) {
 // than in the fragment stage costs four lookups a quad instead of one a pixel.
 struct SheetPlace {
     vec4 originScale;
-    vec4 layerTilesSize;
+    // The layer, then the sheet's own size, which only the CPU reads.
+    vec4 layerSize;
 };
 
 layout(set = 0, binding = 1) uniform Sheets {
@@ -46,8 +47,6 @@ layout(location = 6) in float inHeadingRad;
 
 layout(location = 0) out vec3 outUv;
 layout(location = 1) out vec4 outTint;
-layout(location = 2) flat out float outTiles;
-layout(location = 3) out vec2 outTileUv;
 
 void main() {
     // A triangle strip's four corners, in the order the strip wants them.
@@ -64,10 +63,6 @@ void main() {
 
     SheetPlace place = sheets.place[inSheet];
     vec2 uv = inUvMin + corner * inUvSize;
-    outUv = vec3(place.originScale.xy + uv * place.originScale.zw, place.layerTilesSize.x);
-    // The sheet's own coordinate, kept for the one sheet that tiles: the tread's runs outside the
-    // unit square by however many pitches the wheel lays, which is what an atlas cannot hold.
-    outTileUv = uv;
-    outTiles = place.layerTilesSize.y;
+    outUv = vec3(place.originScale.xy + uv * place.originScale.zw, place.layerSize.x);
     outTint = inTint;
 }

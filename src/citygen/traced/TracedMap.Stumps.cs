@@ -115,8 +115,7 @@ internal sealed partial record TracedMap
 
     /// <summary>
     /// <b>This map without the stumps given</b>: each road cut back as the stump takes it, a road left with fewer than
-    /// two points gone, and whatever then stands on no road's point — a control, a turn, a crossing's junction — gone with
-    /// it, as a crossing over a road that is gone is.
+    /// two points gone, and whatever then stands on no road's point — a control, a turn — gone with it.
     /// </summary>
     public TracedMap Without(IEnumerable<Stump> stumps)
     {
@@ -146,7 +145,6 @@ internal sealed partial record TracedMap
         var coast = Coast.Select(Renumbered).ToArray();
         var ways = roads.Select(road => road.OsmId).ToHashSet();
         var controls = Enumerable.Range(0, Controls.Count).Where(at => renumbered[Controls.Point[at]] >= 0).ToArray();
-        var crossings = Enumerable.Range(0, Crossings.Count).Where(at => ways.Contains(Crossings.Way[at])).ToArray();
         return this with
         {
             PointM = [.. kept],
@@ -173,14 +171,6 @@ internal sealed partial record TracedMap
                 Point = [.. controls.Select(at => renumbered[Controls.Point[at]])],
                 Control = [.. controls.Select(at => Controls.Control[at])],
                 Cluster = [.. controls.Select(at => Controls.Cluster[at])],
-            },
-            Crossings = new CrossingArrays
-            {
-                Way = [.. crossings.Select(at => Crossings.Way[at])],
-                AtM = [.. crossings.Select(at => Crossings.AtM[at])],
-                Kind = [.. crossings.Select(at => Crossings.Kind[at])],
-                Painted = [.. crossings.Select(at => Crossings.Painted[at])],
-                Junction = [.. crossings.Select(at => Crossings.Junction[at] == NoJunction ? NoJunction : renumbered[Crossings.Junction[at]])],
             },
         };
 

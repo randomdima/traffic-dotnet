@@ -178,6 +178,21 @@ internal sealed class ViewFigures
     public float CameraMaxSpriteMagnification { get; init; } = 6f;
 
     /// <summary>
+    /// The most of a town's scenery one frame draws (<c>ScenerySprites</c>); a view holding more draws an even share
+    /// of it. <b>It is where a tree is a pixel or two across</b> — open ground holding this many is a view a couple of
+    /// kilometres wide — so what the thinning takes was barely drawn, and the instance buffer is laid for this many
+    /// whatever the size of the town.
+    /// </summary>
+    public int SceneryMostDrawn { get; init; } = 65536;
+
+    /// <summary>
+    /// The narrowest a steered tyre is drawn, in interface pixels across; narrower, the front pair is left out
+    /// of the frame. <b>It is where most of a town's tyres are</b>: the framings that hold the most cars are
+    /// the ones a tyre is under a pixel at, and the rear pair is painted into the car either way.
+    /// </summary>
+    public float SteeredTyreLeastPx { get; init; } = 1.5f;
+
+    /// <summary>
     /// How many units one selection may hold (CTL-1b). A bound and not a preference: the set is one
     /// array laid with the town, and a box drawn round a district has to stop somewhere.
     /// </summary>

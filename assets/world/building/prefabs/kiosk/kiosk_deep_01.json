@@ -1,5 +1,6 @@
 {
   "id": "kiosk_deep_01",
+  "sprite": "kiosk_deep_01.webp",
   "footprintM": [
     2.5,
     3.0

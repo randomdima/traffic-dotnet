@@ -3,7 +3,7 @@ using TrafficSimulation.Core.Config;
 
 namespace TrafficSimulation.Agents.Car.Body;
 
-/// <summary>What a patch leaves behind: how strongly a scrub writes on the ground, and where the drawn tread has got to.</summary>
+/// <summary>What a patch leaves behind: how strongly a scrub writes on the ground.</summary>
 internal static partial class TyreModel
 {
     /// <summary>
@@ -51,26 +51,6 @@ internal static partial class TyreModel
         var intensity = MarkIntensity(slidePowerM2S3 + scrub.PloughPowerM2S3, surface.MarkThresholdM2S3);
 
         return scrub.Ploughing ? MathF.Max(intensity, config.Marks.PloughFloor) : intensity;
-    }
-
-    /// <summary>
-    /// Where one tyre's tread pattern has scrolled to, given where it was and how fast <em>that</em>
-    /// wheel's tread is running over the ground. Wrapped into one pitch, so the pattern repeats
-    /// seamlessly.
-    /// </summary>
-    /// <remarks>
-    /// Per wheel, because the four do not turn at the same rate and the tread is the only thing on
-    /// screen that says so: an undriven wheel stands still while a driven one lights up, the pair on
-    /// the inside of a turn cover less ground than the pair on the outside, and a wheel that has
-    /// dropped onto grass locks or spins on its own. Scrolling all four from the car's speed throws
-    /// every one of those away and the wheels read as painted on.
-    /// </remarks>
-    public static float TreadPhaseM(float carriedM, float spinMps, float pitchM, float dtS)
-    {
-        if (pitchM <= 0f) return carriedM;
-
-        var phaseM = (carriedM - (spinMps * dtS)) % pitchM;
-        return phaseM < 0f ? phaseM + pitchM : phaseM;
     }
 
     /// <summary>

@@ -70,7 +70,7 @@ internal sealed class ShotStage : IDisposable
     public static ShotStage For(CityPlan plan, SimConfig config, int widthPx, int heightPx, bool validate)
     {
         var ground = GroundMesh.Build(plan, config);
-        var looks = TownSprites.Load();
+        var looks = TownSprites.Load(config);
         var vk = Vk.Open("traffic-dotnet", validate);
         var renderer = TownRenderer.Offscreen(
             vk, widthPx, heightPx, ground, ProjectPaths.GroundSurfaceFiles(), looks.Sheets,
@@ -170,7 +170,8 @@ internal sealed class ShotStage : IDisposable
         _looks.ReadAspects(_renderer);
         _looks.Lay(Plan, world.Uses, _config);
         var (ground, above) = _looks.Fill(
-            world, _config, camera.CentreM, camera.CullSpanM(uiPx), _renderer.Sprites, _renderer.SpritesAbove);
+            world, _config, camera.CentreM, camera.CullSpanM(uiPx), camera.PixelsPerMetre, _renderer.Sprites,
+            _renderer.SpritesAbove);
         _renderer.SetSpriteCount(ground, above);
         var sprites = ground + above;
 

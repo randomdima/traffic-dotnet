@@ -446,6 +446,13 @@ internal sealed partial class SimConfig
         CarCorneringRadiusM(CityGen.JunctionDesignSpeedMps, Terrain.PavedCoefficient);
 
     /// <summary>
+    /// <b>The circle a turn through a junction is given room for</b>: the wider of the junction's cornering radius
+    /// and the car's own tightest turn (<see cref="CarTurningRadiusM"/>). A line tighter than the car can hold is
+    /// ridden wide of it, over the lane beside.
+    /// </summary>
+    public float JunctionTurnRoomM => MathF.Max(JunctionCorneringRadiusM, CarTurningRadiusM);
+
+    /// <summary>
     /// <b>How much ground a junction takes</b>: the standoff its arms' lanes end at
     /// (<see cref="CityGenFigures.ConnectionStandoffM"/>). The disc follows the standoff and the arms follow
     /// the disc — stated the other way round, a standoff read off a disc sized by the arms that end at the

@@ -32,7 +32,7 @@ internal sealed unsafe partial class TownRenderer
 
         // One set for the whole frame: all three pipelines read the same camera and every picture the
         // town is drawn with is bound here once, so nothing is bound twice in a recording. Two
-        // uniform blocks the vertex stage reads, then the atlas, the glyphs, the tile and the five
+        // uniform blocks the vertex stage reads, then the atlas, the glyphs and the five
         // surfaces — and not one of them is an array a shader indexes at run time.
         var bindings = stackalloc DescriptorSetLayoutBinding[Bindings];
         for (var binding = 0; binding < Bindings; binding++)

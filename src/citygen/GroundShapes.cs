@@ -195,7 +195,12 @@ internal sealed partial class GroundShapes
     /// inside it: a girth whose rim falls between two steps is a rim nothing asked about, which is a bench
     /// hanging over the kerb it was cleared of.
     /// </remarks>
-    public bool IsAll(Vector2 centreM, float radiusM, float stepM, Ground ground)
+    public bool IsAll(Vector2 centreM, float radiusM, float stepM, Ground ground) =>
+        IsAll(_ownScan, centreM, radiusM, stepM, ground);
+
+    /// <inheritdoc cref="IsAll(Vector2, float, float, Ground)"/>
+    /// <param name="scan">This caller's own working set (<see cref="NewScan"/>), for an ask off its own thread.</param>
+    public bool IsAll(Scan scan, Vector2 centreM, float radiusM, float stepM, Ground ground)
     {
         for (var acrossM = -radiusM; ; acrossM += stepM)
         {
@@ -204,7 +209,7 @@ internal sealed partial class GroundShapes
             for (var alongM = -reachM; ; alongM += stepM)
             {
                 var atAlongM = MathF.Min(alongM, reachM);
-                if (!Is(centreM + new Vector2(atAlongM, atAcrossM), ground)) return false;
+                if (!Is(scan, centreM + new Vector2(atAlongM, atAcrossM), ground)) return false;
                 if (atAlongM >= reachM) break;
             }
 
@@ -279,8 +284,6 @@ internal sealed partial class GroundShapes
     /// nothing, so off the town is not grass — even though <see cref="At"/> answers grass out there, which
     /// is what a body pushed off the map needs.
     /// </summary>
-    bool Is(Vector2 pointM, Ground ground) => Is(_ownScan, pointM, ground);
-
     public bool Is(Scan scan, Vector2 pointM, Ground ground) => Contains(pointM) && At(scan, pointM) == ground;
 
 }

@@ -359,6 +359,9 @@ internal static class Program
             case "close":
                 TownShape.Close(map ?? Options.TracedMap, config);
                 return 0;
+            case "connectors":
+                ConnectorShape.Run(map ?? Options.TracedMap, config);
+                return 0;
         }
 
         if (CheckCatalogue.TryFind(name, out var check)) return Kept(check.Run(config));

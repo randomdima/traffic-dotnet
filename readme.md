@@ -242,12 +242,14 @@ until their art is; `--bench fit` says how well they fit the city, look by look 
 offered and the prefab it wears. **It is laid
 from `towns/traced/OdesaOsm.map` and nothing else**: one binary file of 3 MB, read in some 20 ms, holding only what
 the engine lays — each road's line, class, level and carriageway as OSM means it and its width as measured, the
-coast, the turns OSM forbids, each junction's control, every pedestrian crossing, every building's footprint,
-height and use and every tree — so a road's lanes are all one width, what it was measured
+coast, the turns OSM forbids, each junction's control and every building's footprint, height and use — so a
+road's lanes are all one width, what it was measured
 wider than them is a roadside of parked cars' width behind a solid line, it has as many lanes as its width holds
-where OSM only assumes a count, a signalled junction has lights, a zebra stands where OSM maps a
-painted crossing and nowhere else, a bridge is a road of its own whose cars meet nothing below it, and its trees
-and roundabouts are OSM's; no seed draws any of it. **The map is the master, and an edit changes it**:
+where OSM only assumes a count, a signalled junction has lights, a bridge is a road of its own whose cars meet
+nothing below it, and its roundabouts are OSM's; no seed draws any of it. Its zebras and props are the town's own,
+as a generated town's are: a zebra at every station its kerb ends cut, furniture, planting and trees along its
+verges, and wild growth over its open ground as scenery that is drawn and stands no body — all drawn off the map's
+own number. **The map is the master, and an edit changes it**:
 `qq osm --import` made it once off what is beside it, `qq osm --crop S,W,N,E` cut it down to the city in place and
 `qq osm --drop-stumps` dropped the road stumps that ran into buildings and the dead ends of a single lane, and
 `qq osm --footprints` lays its footprints again off the layers, each with what it is for;

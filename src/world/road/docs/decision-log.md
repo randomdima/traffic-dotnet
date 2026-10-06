@@ -8,12 +8,10 @@ a type works is its own XML docs.
 
 **The owner asked for it, reviewing OdesaOsm's connections** (TER-5j): N lanes onto M join lane for lane and
 nothing more. Of more onto fewer the lanes over end at the node; of fewer onto more the lanes over are reached by
-none, except onto a road of one lane more, whose last lane the last lane in joins as well as its own. It replaces
-the spread a node drew wherever lane for lane stranded a lane: every lane lost merged across the ones kept, and
-every lane gained was fanned onto. On OdesaOsm (`--bench fidelity`) 142 lanes now end at a node beside one that
-carries on and 104 are reached only by moving across; the connectors went from 53 056 to 54 383, the rise being
-the one-lane-more rule, which holds for a turn as for straight on — a turn from an arm of one lane onto a road of
-two joins both its lanes.
+none. It replaces the spread a node drew wherever lane for lane stranded a lane: every lane lost merged across the
+ones kept, and every lane gained was fanned onto. **One lane joins one lane** (2026-10-06): the last lane in joined
+the extra lane of a road one lane wider as well as its own, until the owner asked for every connection to be one
+lane onto one.
 
 - **A car moves across before the lane ends** (CAR-53): the router already prices a turn from the lane beside, so a
   lane that ends is left by moving across and one nothing reaches is entered from beside; a toured car does the

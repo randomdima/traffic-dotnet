@@ -20,8 +20,8 @@ namespace TrafficSimulation.CityGen.Traced;
 /// one of the places a road leaves the map (<see cref="LeavesTheMap"/>).
 /// </para>
 /// <para>
-/// <b>It carries what else is known of the place</b>: the control at each junction's point, the pedestrian crossings,
-/// the buildings' footprints and the trees, each in this frame already.
+/// <b>It carries what else is known of the place</b>: the control at each junction's point and the buildings'
+/// footprints, each in this frame already.
 /// </para>
 /// </remarks>
 internal sealed class Survey
@@ -68,14 +68,11 @@ internal sealed class Survey
     /// </summary>
     public PointControl[] Controls { get; init; } = [];
 
-    /// <summary>Every pedestrian crossing the map holds over its roads (<see cref="TracedMap.Crossings"/>).</summary>
-    public SurveyCrossing[] Crossings { get; init; } = [];
-
     /// <summary>Every building's footprint the map holds (<see cref="TracedMap.Footprints"/>).</summary>
     public CityPlan.FootprintArrays Footprints { get; init; } = CityPlan.FootprintArrays.None;
 
-    /// <summary>Every tree the map holds (<see cref="TracedMap.TreeM"/>).</summary>
-    public Vector2[] TreeM { get; init; } = [];
+    /// <summary>Who the town stands (<see cref="TracedMap.Population"/>).</summary>
+    public TracedPopulation Population { get; init; } = TracedPopulation.None;
 
     public int PointCount => PointsM.Length / 2;
 
@@ -83,10 +80,6 @@ internal sealed class Survey
 
     public SurveyControl ControlAt(int point) => (uint)point < (uint)Controls.Length ? Controls[point].Control : SurveyControl.Unsigned;
 
-    /// <remarks>
-    /// A crossing is <b>painted where its tags say, and where they say nothing, if it has lights for its walkers</b>,
-    /// which in Ukraine are marked as a rule.
-    /// </remarks>
     public static Survey Of(TracedMap map, SimConfig config)
     {
         var mostTagged = MostTagged(map.Roads);
@@ -138,16 +131,6 @@ internal sealed class Survey
         var controls = new PointControl[placedM.Count];
         for (var at = 0; at < map.Controls.Count; at++) controls[map.Controls.Point[at]] = new PointControl(map.Controls.Control[at], map.Controls.Cluster[at]);
 
-        var crossings = new SurveyCrossing[map.Crossings.Count];
-        for (var at = 0; at < crossings.Length; at++)
-        {
-            var kind = map.Crossings.Kind[at];
-            var junction = map.Crossings.Junction[at];
-            crossings[at] = new SurveyCrossing(
-                map.Crossings.Way[at], map.Crossings.AtM[at], kind, map.Crossings.Painted[at] ?? kind == SurveyCrossingKind.Signals,
-                junction == TracedMap.NoJunction ? CityPlan.NoRecord : junction);
-        }
-
         var footprints = map.Footprints;
         return new Survey
         {
@@ -161,7 +144,6 @@ internal sealed class Survey
             Sea = flatSea,
             Turns = map.Turns,
             Controls = controls,
-            Crossings = crossings,
             Footprints = new CityPlan.FootprintArrays
             {
                 RingOffsets = footprints.RingOffsets,
@@ -170,7 +152,7 @@ internal sealed class Survey
                 HeightM = footprints.HeightM,
                 Use = footprints.Use,
             },
-            TreeM = map.TreeM,
+            Population = map.Population,
         };
     }
 
@@ -429,13 +411,6 @@ internal sealed class Survey
 
 /// <summary>What controls the junction at one point, and the junctions it is controlled with as one (<see cref="TracedMap.Controls"/>).</summary>
 internal readonly record struct PointControl(SurveyControl Control, long Cluster);
-
-/// <summary>
-/// One pedestrian crossing a survey maps (<see cref="TracedMap.Crossings"/>): the road way it crosses by its OSM id,
-/// where it stands, its kind, whether it is painted, and the point of the junction whose arm it is on, or
-/// <see cref="CityPlan.NoRecord"/> where it is struck mid-block.
-/// </summary>
-internal readonly record struct SurveyCrossing(long Way, Vector2 AtM, SurveyCrossingKind Kind, bool Painted, int Junction);
 
 /// <summary>
 /// One road way as this engine reads it, or the run of one inside the map: its lanes as OSM means them

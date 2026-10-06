@@ -51,7 +51,8 @@ internal static class TownGenerator
     const ulong TerrainStream = 0x7465_7272_6169_6E00;
     const ulong DistrictStream = 0x6469_7374_7269_6374;
     const ulong ShapeStream = 0x7368_6170_6573_0000;
-    const ulong PropStream = 0x7072_6F70_7300_0000;
+    /// <summary>The props' stream, which a traced town draws its own off as well (<c>TracedProps</c>).</summary>
+    internal const ulong PropStream = 0x7072_6F70_7300_0000;
     const ulong SpawnStream = 0x7370_6177_6E73_0000;
     const ulong CarParkStream = 0x6361_7270_6172_6B00;
     const ulong BuildingStream = 0x6275_696C_6469_6E67;
@@ -168,7 +169,7 @@ internal static class TownGenerator
         Took("buildings");
 
         var prop = new Rng(brief.Seed, PropStream);
-        var props = PropStage.Lay(brief, paving, streets, claims, config, ref prop);
+        var props = PropStage.Lay(worldSizeM, paving, streets, claims, config, ref prop);
         Took("props");
 
         var spawn = new Rng(brief.Seed, SpawnStream);

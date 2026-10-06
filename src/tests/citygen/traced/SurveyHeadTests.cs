@@ -29,9 +29,7 @@ public class SurveyHeadTests
             Coast = [],
             Turns = OsmTurns.None,
             Controls = TracedMap.ControlArrays.None,
-            Crossings = TracedMap.CrossingArrays.None,
             Footprints = TracedMap.FootprintArrays.None,
-            TreeM = [],
         };
 
         using var written = new MemoryStream();

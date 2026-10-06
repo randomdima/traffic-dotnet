@@ -148,6 +148,24 @@ public class SplineTests
     }
 
     /// <summary>
+    /// <b>A biarc between poses a degree apart arrives on the second</b>, as far from the origin as a city reaches:
+    /// the root its tangent is solved for, taken as −b plus a square root all but b itself, came out metres wrong in a
+    /// float, and the line arrived on its point turned by the whole of the angle it was asked for.
+    /// </summary>
+    [Fact]
+    public void ABiarcBetweenPosesADegreeApartArrivesOnTheSecond()
+    {
+        var fromM = new Vector2(1667.9031f, 18099.797f);
+        var toM = new Vector2(1677.9019f, 18083.793f);
+        const float ToRad = -1.0124636f;
+        Span<ArcSeg> join = stackalloc ArcSeg[2];
+
+        var laid = join[..Spline.BiarcInto(fromM, -0.998788f, toM, ToRad, join)];
+
+        Assert.Equal(0f, Spline.WrapRad(laid[^1].HeadingAtRad(laid[^1].LengthM) - ToRad), 1e-3f);
+    }
+
+    /// <summary>
     /// Two poses facing opposite ways a lane apart get the one arc through both of them — <b>a circle no
     /// car can hold</b>. At the shipped lane spacing it comes out at 1.5 m of radius against a car's own
     /// tightest 3.9 m, which is the arithmetic behind there being no movement through a box that reverses

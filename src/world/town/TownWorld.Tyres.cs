@@ -70,7 +70,6 @@ internal sealed partial class TownWorld
         for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
         {
             slipping |= scrub[wheel].Sliding && onThePedal && IsDriven(drivenFrontShare, wheel);
-            RollTread(car, wheel);
             LayMark(car, wheel, atM[wheel], ground[wheel], scrub[wheel]);
         }
 
@@ -153,29 +152,6 @@ internal sealed partial class TownWorld
     /// <summary>Whether the engine is turning this wheel at all, which is what makes a slide worth lifting for.</summary>
     static bool IsDriven(float drivenFrontShare, int wheel) =>
         wheel < 2 ? drivenFrontShare > 0f : drivenFrontShare < 1f;
-
-    /// <summary>
-    /// Scroll one tyre's tread by the distance <em>that wheel</em> turned through this tick — its own
-    /// rotation and never the car's speed, so a car on its handbrake slides with its tread standing
-    /// still and a wheel spinning under a standing car scrolls at the speed the engine is turning it.
-    /// </summary>
-    void RollTread(int car, int wheel)
-    {
-        var at = (car * TyreModel.Wheels) + wheel;
-        var scrollMps = Cars.WheelSpinMps[at] * _config.Tyre.TreadScrollFactor;
-        if (MathF.Abs(scrollMps * _config.TickSeconds) < TreadStillM) return;
-
-        Cars.TreadPhaseM[at] = TyreModel.TreadPhaseM(
-            Cars.TreadPhaseM[at], scrollMps, _config.Tyre.TreadPitchM, _config.TickSeconds);
-    }
-
-    /// <summary>
-    /// Below this much scroll in a tick a tread is standing still as far as the drawing is concerned:
-    /// about a thousandth of the pattern's own pitch, which no pixel on any screen can hold apart.
-    /// It is worth a branch because a town's parked cars are <em>all</em> of them, four wheels
-    /// each, and the phase is drawing state that nothing in the simulation reads.
-    /// </summary>
-    const float TreadStillM = 1e-4f;
 
     /// <summary>
     /// One wheel's mark for this tick. Nothing is laid until the wheel has travelled a whole segment's

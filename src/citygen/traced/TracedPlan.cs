@@ -7,9 +7,12 @@ namespace TrafficSimulation.CityGen.Traced;
 /// <summary>
 /// <b>A real place, laid from its survey</b> (GEN-57): the roads OSM holds for it as the town's roads, its sea
 /// as the town's water, at one metre to the metre — and, where its map says, each road as wide as it was
-/// measured, lights where it is signalled, zebras where they are painted, its bridges, roundabouts, trees, and its
-/// buildings as the prefabs their footprints are worn as (<see cref="TracedBuildings"/>). No car park and nobody
-/// standing in it but a few cars at its bridges over its roads (<see cref="TracedBridgeCars"/>).
+/// measured, lights where it is signalled, its bridges, roundabouts, and its buildings as the prefabs their
+/// footprints are worn as (<see cref="TracedBuildings"/>). <b>Its zebras and props are the town's own</b>: a zebra at
+/// every station its kerb ends cut, as a generated town paints, and its props as a generated town lays them — those
+/// beyond its verges as scenery, drawn and standing nothing (<see cref="TracedProps"/>). No car park; a few cars at its
+/// bridges over its roads (<see cref="TracedBridgeCars"/>), and the people and cars its map asks for, one a door and
+/// one a lane (<see cref="TracedSpawns"/>).
 /// </summary>
 /// <remarks>
 /// <b>Content and not code</b>, the same as a brief: a traced map is a file in <c>towns/traced/</c> that a build
@@ -29,14 +32,6 @@ internal static class TracedPlan
         var streetsMs = clock.Elapsed.TotalMilliseconds;
 
         clock.Restart();
-        var crosswalks = TracedCrossings.Lay(survey, streets, config);
-        var crossingsMs = clock.Elapsed.TotalMilliseconds;
-
-        clock.Restart();
-        var trees = TracedTrees.Lay(survey, streets.Roads, streets.Junctions, config);
-        var treesMs = clock.Elapsed.TotalMilliseconds;
-
-        clock.Restart();
         var water = TracedSea.Lay(survey, config);
         var seaMs = clock.Elapsed.TotalMilliseconds;
 
@@ -52,6 +47,7 @@ internal static class TracedPlan
         {
             CentreM = [], Axis = [], HalfExtentM = [], SpaceOffsets = [0], SpacePositionM = [], SpaceHeadingRad = [],
         };
+        var crosswalks = new CityPlan.CrosswalkArrays { CentreM = [], Axis = [], DepthM = [], Road = [], Junction = [] };
         var paving = Paving.Lay(
             new GroundPieces(
                 (ulong)survey.Relation, new Vector2(survey.WidthM, survey.HeightM), config.PavementWidthM, streets.Roads,
@@ -70,10 +66,20 @@ internal static class TracedPlan
         var buildings = TracedBuildings.Lay(survey.Footprints, paving, ground, sizes, config);
         var buildingsMs = clock.Elapsed.TotalMilliseconds;
 
+        // <b>The props stand on what is left beside what is built</b> (GEN-6b), so they are laid last.
+        clock.Restart();
+        var (props, scenery) = TracedProps.Lay(survey, streets.Roads, streets.Junctions, paving, ground, buildings, config);
+        var propsMs = clock.Elapsed.TotalMilliseconds;
+
+        // <b>The roster stands at the doors and on the lanes</b>, so it is laid once both are.
+        clock.Restart();
+        var spawns = TracedSpawns.Lay(survey.Population, cars, paving.Lanes, buildings, config);
+        var rosterMs = clock.Elapsed.TotalMilliseconds;
+
         return new CityPlan
         {
             // The relation the survey was taken inside is the map's own number, and a seed is what a plan
-            // keys every draw made off it on; a traced town draws nothing of its own.
+            // keys every draw made off it on: a traced town draws its props and nothing else.
             Seed = (ulong)survey.Relation,
             Name = survey.Name,
             WorldSizeM = new Vector2(survey.WidthM, survey.HeightM),
@@ -85,18 +91,18 @@ internal static class TracedPlan
             Roundabouts = streets.Roundabouts,
             PavedAreas = CityPlan.PavedAreaArrays.None,
             Crosswalks = crosswalks,
-            ZebraAtEveryStation = false,
             ParkingLots = lots,
             // The footprints are what the buildings were fitted off and not part of the town: it carries the buildings.
             Buildings = buildings,
-            Props = trees,
-            Spawns = cars,
+            Props = props,
+            Scenery = scenery,
+            Spawns = spawns,
             Water = water,
             PavingLaidWithIt = paving,
             LaidMs =
             [
-                ("streets", streetsMs), ("crossings", crossingsMs), ("trees", treesMs), ("sea", seaMs), ("cars", carsMs),
-                ("paving", pavingMs), ("ground", groundMs), ("buildings", buildingsMs),
+                ("streets", streetsMs), ("sea", seaMs), ("cars", carsMs), ("paving", pavingMs), ("ground", groundMs),
+                ("buildings", buildingsMs), ("props", propsMs), ("roster", rosterMs),
             ],
         };
     }

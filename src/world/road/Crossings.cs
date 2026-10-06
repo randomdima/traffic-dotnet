@@ -202,7 +202,7 @@ internal sealed class Crossings
     /// <summary>
     /// <b>The zebras a town says it has</b> (<see cref="CityPlan.Crosswalks"/>): a band each, across its road kerb to
     /// kerb (<see cref="CityPlan.CrossingSpanM"/>) — the paint of a town whose stations carry none
-    /// (<see cref="CityPlan.ZebraAtEveryStation"/>). <b>Filed under no road end</b>: one stands where its survey maps it
+    /// (<see cref="CityPlan.ZebraAtEveryStation"/>). <b>Filed under no road end</b>: one stands where the town puts it
     /// rather than where a walk is cut, so no bar is laid behind it and <see cref="At"/> answers <see cref="None"/>.
     /// </summary>
     public static Crossings Of(CityPlan plan)

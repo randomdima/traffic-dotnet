@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
@@ -31,22 +33,54 @@ namespace TrafficSimulation.CityGen.Gen;
 internal static class PropStage
 {
     public static CityPlan.PropArrays Lay(
-        TownBrief brief, Paving paving, GroundShapes ground, GenClaims claims, SimConfig config,
+        Vector2 acrossM, Paving paving, GroundShapes ground, GenClaims claims, SimConfig config,
         ref Rng draw)
     {
-        var acrossM = new Vector2(brief.WidthM, brief.HeightM);
-        var widestM = MathF.Max(config.CityGen.PropDiameterMaxM, config.CityGen.PropWildDiameterMaxM);
-        var scatter = PropScatter.Over(config.Grid, acrossM, widestM, config.CityGen.PropApartM);
-
+        var scatter = Scatter(acrossM, config);
         AlongTheKerbs(paving.Rings(config), ground, claims, config, scatter, ref draw);
         OverWhatIsLeft(acrossM, ground, claims, config, scatter, ref draw);
+        return Arrays(scatter);
+    }
 
-        return new CityPlan.PropArrays
+    /// <summary>
+    /// <b>The same two passes, kept apart</b>: what a town puts along its kerbs as props, and what grows beyond them as
+    /// scenery that stands nothing — a traced town's (<c>TracedProps</c>), whose ground beyond the kerbs is a whole
+    /// city's yards, parks and waste ground, millions of props too many to stand as bodies.
+    /// </summary>
+    public static (CityPlan.PropArrays AlongTheKerbs, CityPlan.SceneryArrays Beyond) LayApart(
+        Vector2 acrossM, Paving paving, GroundShapes ground, GenClaims claims, SimConfig config,
+        ref Rng draw)
+    {
+        var scatter = Scatter(acrossM, config);
+        AlongTheKerbs(paving.Rings(config), ground, claims, config, scatter, ref draw);
+        var kerbside = scatter.CentreM.Count;
+        OverWhatIsLeft(acrossM, ground, claims, config, scatter, ref draw);
+
+        var beyond = scatter.CentreM.Count - kerbside;
+        return (
+            Arrays(scatter, kerbside),
+            new CityPlan.SceneryArrays
+            {
+                CentreM = CollectionsMarshal.AsSpan(scatter.CentreM).Slice(kerbside, beyond).ToArray(),
+                RadiusM = CollectionsMarshal.AsSpan(scatter.RadiusM).Slice(kerbside, beyond).ToArray(),
+            });
+    }
+
+    static PropScatter Scatter(Vector2 acrossM, SimConfig config) =>
+        PropScatter.Over(
+            config.Grid, acrossM, MathF.Max(config.CityGen.PropDiameterMaxM, config.CityGen.PropWildDiameterMaxM),
+            config.CityGen.PropApartM);
+
+    /// <summary>The first <paramref name="count"/> props laid, or every one.</summary>
+    static CityPlan.PropArrays Arrays(PropScatter scatter, int count = int.MaxValue)
+    {
+        count = Math.Min(count, scatter.CentreM.Count);
+        return new()
         {
-            CentreM = [.. scatter.CentreM],
-            RadiusM = [.. scatter.RadiusM],
-            BearingRad = [.. scatter.BearingRad],
-            Kind = [.. scatter.Kind],
+            CentreM = CollectionsMarshal.AsSpan(scatter.CentreM)[..count].ToArray(),
+            RadiusM = CollectionsMarshal.AsSpan(scatter.RadiusM)[..count].ToArray(),
+            BearingRad = CollectionsMarshal.AsSpan(scatter.BearingRad)[..count].ToArray(),
+            Kind = CollectionsMarshal.AsSpan(scatter.Kind)[..count].ToArray(),
         };
     }
 
@@ -81,6 +115,9 @@ internal static class PropStage
         var bandM = config.CityGen.PropVergeFarM - nearM;
         var pitchM = config.CityGen.PropVergePitchM;
 
+        // The one point before the girth, because a disc is walked from its rim and most of a verge is somebody's
+        // tarmac: reading the ground round a place that has already failed buys nothing.
+        var candidates = new Candidates(ground, claims, scatter, config.Terrain.GroundStepM, centreAsked: false);
         foreach (var face in rings.WalkEdge)
         {
             var lengthM = Spline.TotalLengthM(face);
@@ -98,17 +135,11 @@ internal static class PropStage
                 var outM = reachM + nearM + (draw.NextFloat() * bandM);
 
                 var on = Spline.SampleFrom(face, stationM, ref cursor);
-                var atM = on.PositionM - (on.Right * outM);
-
-                // The one point before the girth, because a disc is walked from its rim and most of a verge
-                // is somebody's tarmac: reading the ground round a place that has already failed buys
-                // nothing.
-                if (ground.At(atM) != Ground.Grass) continue;
-                if (!Stands(atM, reachM, config.Terrain.GroundStepM, ground, claims, scatter)) continue;
-
-                scatter.Add(atM, reachM, on.HeadingRad, kind);
+                candidates.Add(on.PositionM - (on.Right * outM), reachM, on.HeadingRad, kind);
             }
         }
+
+        candidates.Flush();
     }
 
     /// <summary>
@@ -126,6 +157,7 @@ internal static class PropStage
         var columns = (int)(acrossM.X / spacingM);
         var rows = (int)(acrossM.Y / spacingM);
 
+        var candidates = new Candidates(ground, claims, scatter, config.Terrain.GroundStepM, centreAsked: true);
         for (var row = 0; row < rows; row++)
         {
             for (var column = 0; column < columns; column++)
@@ -135,44 +167,93 @@ internal static class PropStage
                     (row + draw.NextFloat()) * spacingM);
 
                 // The cell the candidate stands on is the cheapest corner of the tests below, and most of a
-                // town is not grass: reading the ground around one that has already failed buys nothing.
+                // town is not grass: reading the ground around one that has already failed buys nothing. Asked
+                // in the sweep, because whether the candidate is drawn a girth hangs on it.
                 if (ground.At(atM) != Ground.Grass) continue;
 
                 if (ground.PavingWithin(atM, standOffM)) continue;
 
                 var reachM = draw.NextFloat(
                     config.CityGen.PropDiameterMinM, config.CityGen.PropWildDiameterMaxM) * 0.5f;
-                if (!Stands(atM, reachM, config.Terrain.GroundStepM, ground, claims, scatter)) continue;
-
-                scatter.Add(atM, reachM, 0f, PropKind.WildNature);
+                candidates.Add(atM, reachM, 0f, PropKind.WildNature);
             }
         }
+
+        candidates.Flush();
     }
 
-    /// <summary>Whether a prop of this girth stands here at all.</summary>
+    /// <summary>
+    /// <b>A pass's candidates, a block at a time</b>: drawn in the pass's own order, every one's ground and claims
+    /// asked on every thread at once, and each laid against the props before it in the order it was drawn.
+    /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Its whole girth on grass</b> (GEN-6a). Grass is what is left over — every shape laid before this
-    /// answers for its own ground, and everything standing on grass claimed it — and the same test is what
-    /// keeps a prop on the map (GEN-2b): off the town is not grass.
-    /// </para>
-    /// <para>
-    /// <b>And no collar</b> (GEN-6a): the girth is cleared against the ground's answer, which is the walk
-    /// down every street, and a collar over that would only hold the verge back from the street it is a
-    /// verge of. The answer is the drawn walk itself — the rings it is filled from (<c>GroundShapes.At</c>) — so
-    /// a girth cleared of it is clear of what is drawn, at a corner as much as down a street.
-    /// </para>
-    /// <para>
-    /// <b>And clear of the props already laid</b> (GEN-6c). The ground cannot see them: a prop is no shape
-    /// of the town's and claims nothing, because the only thing that ever has to know where one stands is
-    /// the next candidate along.
-    /// </para>
+    /// <b>The town laid is the one the sweep alone lays.</b> What makes one candidate's fate hang on another's is the
+    /// stream and the scatter, and both stay in order; what the ground and the claims answer of a candidate hangs on
+    /// nothing a pass lays, so it is the same answer asked on any thread (<see cref="GroundShapes.Scan"/>).
     /// </remarks>
-    static bool Stands(
-        Vector2 atM, float reachM, float stepM, GroundShapes ground, GenClaims claims, PropScatter scatter) =>
-        ground.IsAll(atM, reachM, stepM, Ground.Grass)
-        && claims.IsFree(atM, reachM)
-        && !scatter.Reaches(atM, reachM);
+    sealed class Candidates(GroundShapes ground, GenClaims claims, PropScatter scatter, float stepM, bool centreAsked)
+    {
+        /// <summary>How many are drawn before they are asked about: a working set a few megabytes whatever the town.</summary>
+        const int Block = 1 << 16;
+
+        readonly Vector2[] _atM = new Vector2[Block];
+        readonly float[] _reachM = new float[Block];
+        readonly float[] _bearingRad = new float[Block];
+        readonly PropKind[] _kind = new PropKind[Block];
+        readonly bool[] _stands = new bool[Block];
+
+        /// <summary>The threads' working sets, kept from one block to the next rather than laid again for each.</summary>
+        readonly ConcurrentBag<GroundShapes.Scan> _scans = [];
+
+        int _count;
+
+        public void Add(Vector2 atM, float reachM, float bearingRad, PropKind kind)
+        {
+            (_atM[_count], _reachM[_count], _bearingRad[_count], _kind[_count]) = (atM, reachM, bearingRad, kind);
+            if (++_count == Block) Flush();
+        }
+
+        public void Flush()
+        {
+            InChunks.Over(
+                _count,
+                () => _scans.TryTake(out var scan) ? scan : ground.NewScan(),
+                (scan, at) => _stands[at] = Stands(scan, _atM[at], _reachM[at]),
+                _scans.Add);
+            for (var at = 0; at < _count; at++)
+            {
+                if (!_stands[at] || scatter.Reaches(_atM[at], _reachM[at])) continue;
+
+                scatter.Add(_atM[at], _reachM[at], _bearingRad[at], _kind[at]);
+            }
+
+            _count = 0;
+        }
+
+        /// <summary>Whether a prop of this girth stands here at all, the props already laid aside.</summary>
+        /// <remarks>
+        /// <para>
+        /// <b>Its whole girth on grass</b> (GEN-6a). Grass is what is left over — every shape laid before this
+        /// answers for its own ground, and everything standing on grass claimed it — and the same test is what
+        /// keeps a prop on the map (GEN-2b): off the town is not grass.
+        /// </para>
+        /// <para>
+        /// <b>And no collar</b> (GEN-6a): the girth is cleared against the ground's answer, which is the walk
+        /// down every street, and a collar over that would only hold the verge back from the street it is a
+        /// verge of. The answer is the drawn walk itself — the rings it is filled from (<c>GroundShapes.At</c>) — so
+        /// a girth cleared of it is clear of what is drawn, at a corner as much as down a street.
+        /// </para>
+        /// <para>
+        /// <b>And clear of the props already laid</b> (GEN-6c), asked in <see cref="Flush"/>. The ground cannot see
+        /// them: a prop is no shape of the town's and claims nothing, because the only thing that ever has to know
+        /// where one stands is the next candidate along.
+        /// </para>
+        /// </remarks>
+        bool Stands(GroundShapes.Scan scan, Vector2 atM, float reachM) =>
+            (centreAsked || ground.At(scan, atM) == Ground.Grass)
+            && ground.IsAll(scan, atM, reachM, stepM, Ground.Grass)
+            && claims.IsFree(atM, reachM);
+    }
 
     /// <summary>
     /// What a prop on a verge is (GEN-6b): a share of the street's furniture, and planting for the rest.

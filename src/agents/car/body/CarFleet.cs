@@ -111,7 +111,6 @@ internal sealed class CarFleet
         BackRoomM = new float[capacity];
         Array.Fill(BackRoomM, float.NaN);
         WheelSpinMps = new float[capacity * TyreModel.Wheels];
-        TreadPhaseM = new float[capacity * TyreModel.Wheels];
         ScrubTravelM = new float[capacity * TyreModel.Wheels];
         MarkFromM = new Vector2[capacity * TyreModel.Wheels];
         MarkIntensity = new float[capacity * TyreModel.Wheels];
@@ -569,9 +568,6 @@ internal sealed class CarFleet
     /// </summary>
     public float[] WheelSpinMps { get; }
 
-    /// <summary>How far each tyre's pattern has scrolled, wrapped into one pitch. Drawing only — nothing in the model reads it.</summary>
-    public float[] TreadPhaseM { get; }
-
     /// <summary>How far each tyre has dragged in the slide it is in, capped at the onset distance.</summary>
     public float[] ScrubTravelM { get; }
 
@@ -737,7 +733,6 @@ internal sealed class CarFleet
         for (var wheel = car * TyreModel.Wheels; wheel < (car + 1) * TyreModel.Wheels; wheel++)
         {
             WheelSpinMps[wheel] = 0f;
-            TreadPhaseM[wheel] = 0f;
             ScrubTravelM[wheel] = 0f;
             MarkFromM[wheel] = positionM;
             MarkIntensity[wheel] = 0f;
