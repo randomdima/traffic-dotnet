@@ -111,6 +111,9 @@ internal readonly struct GroundCatalog
     /// <summary>All three at once, which is what a wheel asks for and the only caller on a hot path.</summary>
     public GroundEffect EffectOf(Ground ground) => _effects[(int)ground];
 
+    /// <summary>Every kind's effect, indexed by <see cref="Ground"/>: the table itself, for a reader that lays it elsewhere (the device's).</summary>
+    public ReadOnlySpan<GroundEffect> Table => _effects;
+
     /// <summary>
     /// Whether a wheel rolling over this ground displaces it. On soft ground the rolling resistance
     /// leaves a rut; on a hard surface that same resistance is hysteresis inside the rubber and marks

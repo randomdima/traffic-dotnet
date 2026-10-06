@@ -1,6 +1,7 @@
 // TyreModel on the device: one car's four patches for one tick — an impulse and a place to spend it per wheel, what
 // each did to the ground, and the four rims wound on (TyreModel.Step, Loads, Ackermann, WheelPointsM, Rim, Scrub,
-// RollingDrag). Line for line with the host, `precise` where it rounds twice. tan, atan, sin and cos are the device's.
+// RollingDrag, HoldStill). Line for line with the host, `precise` where it rounds twice. tan, atan, sin and cos are the
+// device's.
 //
 // The including kernel supplies the tyre figures as TYRE_FIGURES' fields: standardGravityMps2, wheelSpinFadeMps,
 // wheelSpinAllowanceMps, markSlipMps, markCorneringSlipMps, ploughCrawlMps, engineBrakingMps2 — and includes
@@ -231,6 +232,47 @@ vec2 tyreRollingDrag(vec2 velocityMps, vec2 wheelForward, float alongMps, float 
     precise float held = min(dragMps2 * loadKg * dtS, speedMps * loadKg);
     precise vec2 drag = -velocityMps / speedMps * held;
     return drag;
+}
+
+// Whether a patch can put down this impulse in a tick without sliding (TyreModel.Grips).
+bool tyreGrips(CarBuildRow car, TyrePose pose, TyreSurface surface, float loadFraction, vec2 impulseNs, float dtS)
+{
+    precise float most = car.gripMps2 * surface.coefficient * pose.massKg * loadFraction * dtS;
+    return tyreLength(impulseNs) <= most;
+}
+
+// A car its locks hold, held still (TyreModel.HoldStill, CAR-52): the body's momentum and spin brought to rest at the
+// rear pair, nothing at the front, every rim stopped. False, and nothing written, where either rear patch cannot grip.
+bool tyreHoldStill(
+    CarBuildRow car, TyrePose pose, float inertiaKgM2, vec2 atM[4], TyreSurface ground[4], float dtS, inout vec4 impulses[4],
+    inout float spinMps[4])
+{
+    precise vec2 impulseNs = -pose.velocityMps * pose.massKg;
+    precise float spinNms = -pose.yawRateRadPerS * inertiaKgM2;
+
+    precise vec2 rightM = atM[TyreRearRight] - pose.positionM;
+    precise vec2 leftM = atM[TyreRearLeft] - pose.positionM;
+    vec2 forward = pose.forward;
+    precise vec2 middleM = (rightM + leftM) * 0.5;
+    precise vec2 acrossM = rightM - leftM;
+    precise float coupleNs = (spinNms - tyreCross(middleM, impulseNs)) / tyreCross(acrossM, forward);
+    precise vec2 rightNs = (impulseNs * 0.5) + (forward * coupleNs);
+    precise vec2 leftNs = (impulseNs * 0.5) - (forward * coupleNs);
+
+    float loadFraction[4];
+    tyreLoads(car, pose, loadFraction);
+    if (!tyreGrips(car, pose, ground[TyreRearRight], loadFraction[TyreRearRight], rightNs, dtS)
+        || !tyreGrips(car, pose, ground[TyreRearLeft], loadFraction[TyreRearLeft], leftNs, dtS))
+    {
+        return false;
+    }
+
+    impulses[0] = vec4(0.0, 0.0, atM[0]);
+    impulses[1] = vec4(0.0, 0.0, atM[1]);
+    impulses[TyreRearRight] = vec4(rightNs, atM[TyreRearRight]);
+    impulses[TyreRearLeft] = vec4(leftNs, atM[TyreRearLeft]);
+    for (int wheel = 0; wheel < TyreWheels; wheel++) spinMps[wheel] = 0.0;
+    return true;
 }
 
 // One car's tyres for one tick (TyreModel.Step): impulses[wheel] = (impulse.xy, at.xy), scrub per wheel, spin wound on.

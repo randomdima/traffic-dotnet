@@ -594,25 +594,11 @@ internal sealed class CarFleet
 
     public Span<float> WheelSpinOf(int car) => WheelSpinMps.AsSpan(car * TyreModel.Wheels, TyreModel.Wheels);
 
-    /// <summary>
-    /// Whether all four of this car's wheels are at a standstill and carrying nothing over: not
-    /// turning, not part-way through a mark, and with no scrub banked toward one.
-    /// </summary>
-    /// <remarks>
-    /// It is the second half of the question a caller asks before skipping the tyres altogether — the
-    /// first half being that the body itself is not moving — and it exists because the four wheels of a
-    /// standing car are <em>state</em>, and a wheel still holding some of it is a wheel with something
-    /// left to do.
-    /// </remarks>
-    public bool WheelsAtRest(int car)
-    {
-        for (var wheel = car * TyreModel.Wheels; wheel < (car + 1) * TyreModel.Wheels; wheel++)
-        {
-            if (WheelSpinMps[wheel] != 0f || Marking[wheel] || ScrubTravelM[wheel] > 0f) return false;
-        }
-
-        return true;
-    }
+    /// <summary>What this car's tyres carry from one tick to the next, over this fleet's own arrays.</summary>
+    public TyreCarry TyresOf(int car) => new(
+        WheelSpinOf(car), ScrubTravelM.AsSpan(car * TyreModel.Wheels, TyreModel.Wheels),
+        Marking.AsSpan(car * TyreModel.Wheels, TyreModel.Wheels), MarkFromM.AsSpan(car * TyreModel.Wheels, TyreModel.Wheels),
+        MarkIntensity.AsSpan(car * TyreModel.Wheels, TyreModel.Wheels), ref SlipThrottle[car], ref DrivenSlipping[car]);
 
     public Span<ArcSeg> LineArcsOf(int car) => LineArcs.AsSpan(car * _arcsPerCar, _arcsPerCar);
 

@@ -3,6 +3,26 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-10-06 — a car's whole tyre pass is one function, and the device runs it
+
+**The tick moves to the device** (root log), and the tyres with the ground under them are most of a car's tick on
+OdesaOsm. What `TownWorld.Tyres` did around the tyre model — the throttle's back-off and the ceiling, the standstill
+skip, the ground under each wheel, the hold of a car its locks keep still, the slide lifted for, the marks — is now
+`TyrePass.Step` over the state a car carries (`TyreCarry`). The town calls it, and the device is held to it:
+`body/kernels/tyre_pass.glsl`, with `HoldStill` beside `tyreStep` in `tyre.glsl`, the marks' arithmetic in
+`tyre_marks.glsl`, and the kinds of ground as a table (`GroundCatalog.Table`, `world/terrain/kernels/ground_effect.glsl`)
+looked up on what `groundAt` answers.
+
+- **A mark laid is a record in a ring**, carrying its car and wheel (`app/devicetick/DeviceTyres`). The host files them
+  in (car, wheel) order, which is the order the town lays them in when it steps its cars in order.
+- **Moving it moved nothing**: `--bench age` on Odesa gives the same digests to the bit at 60, 180 and 300 s.
+
+Held to the host over 2 000 cars of every variant on the fixture town's ground (`TyrePassKernelTests`): the ground, the
+standstill, the throttle, the hold, the slide and the marks to the bit, and a turned front wheel within the device's
+trigonometry. On OdesaOsm's 10 013 cars (`--bench devicetyres`, RX 9070 XT), the pass took 4.90 ms on the host and
+0.66 ms in the kernel, plus 3.94 ms to send the rows and read them back, which a resident town does not pay. One car
+differs: a standing car the solver left a denormal velocity, which RADV flushes to none and so finds at rest.
+
 ## 2026-10-06 — a tick shifts a line on and lays nothing; the decision grows it
 
 **The tick moves to the device** (root log), and a tick there runs every car at once, so it can decide nothing

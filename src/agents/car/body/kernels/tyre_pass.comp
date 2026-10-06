@@ -1,0 +1,161 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// A run of cars' whole tyre pass for one tick, one thread a car (TyrePass.Step), off their builds, poses, commands and
+// the state they carry, with the ground under every wheel asked of the town's own tables — and every mark laid
+// appended to a ring as a record carrying its car and wheel, for the host to file in (car, wheel) order.
+
+layout(local_size_x = 64) in;
+
+struct TyrePassFigures
+{
+    float dtS;
+    float standardGravityMps2;
+    float wheelSpinFadeMps;
+    float wheelSpinAllowanceMps;
+    float markSlipMps;
+    float markCorneringSlipMps;
+    float ploughCrawlMps;
+    float engineBrakingMps2;
+    float slipBackOffS;
+    float slipRecoverS;
+    float minSlipThrottleFraction;
+    float tractionThrottleFraction;
+    float nominalGripMps2;
+    float markPowerM2S3;
+    float markOnsetM;
+    float markPloughFloor;
+    float markSpacingM;
+};
+
+// The ground's ask (DeviceGround.AskPush, its count the cars'), then the pass's figures.
+layout(push_constant) uniform Pass
+{
+    uint carCount;
+    int roadFromX;
+    int roadFromY;
+    int roadWidth;
+    int roadHeight;
+    float roadPerCellM;
+    float farthestReachM;
+    uint slabCount;
+    uint waterFrom;
+    uint waterTo;
+    uint shoreFrom;
+    uint shoreTo;
+    TyrePassFigures figures;
+};
+
+#define TYRE_FIGURES figures
+#define SPLINE_ARCS groundArcs
+#define RING_CELLS groundLatticeCells
+#define RING_FILING groundLatticeFiling
+#define RING_PIECES groundLatticePieces
+#define GROUND_EFFECT_BINDING 11
+#define GROUND_BINDING 12
+
+#include "core/geometry/kernels/arc.glsl"
+#include "core/geometry/kernels/ringsides.glsl"
+#include "citygen/kernels/ground_tables.glsl"
+#include "core/geometry/kernels/arc_chain.glsl"
+#include "core/geometry/kernels/ring_winding.glsl"
+#include "citygen/kernels/ground.glsl"
+#include "world/terrain/kernels/ground_effect.glsl"
+#include "agents/car/body/kernels/car_build.glsl"
+#include "agents/car/body/kernels/tyre.glsl"
+#include "agents/car/body/kernels/tyre_marks.glsl"
+#include "agents/car/body/kernels/tyre_pass.glsl"
+
+// One car's own figures and flags (DeviceTyres.CarRow): hand 1, driven wheels slipping 2, at rest 4 (written), the
+// level in bits 8–15.
+struct TyreCarRow
+{
+    float groundCoefficient;
+    float inertiaKgM2;
+    float slipThrottle;
+    uint flags;
+};
+
+// One wheel's carried state (DeviceTyres.WheelRow).
+struct TyreWheelRow
+{
+    vec2 markFromM;
+    float spinMps;
+    float scrubTravelM;
+    float markIntensity;
+    uint marking;
+};
+
+// One mark laid (DeviceTyres.MarkRow): car × 4 + wheel says whose.
+struct TyreMarkRow
+{
+    vec2 fromM;
+    vec2 toM;
+    float widthM;
+    float intensity;
+    uint carWheel;
+    uint ploughed;
+};
+
+layout(std430, binding = 0) readonly buffer Builds { CarBuildRow builds[]; };
+layout(std430, binding = 1) readonly buffer BuildOf { uint buildOf[]; };
+layout(std430, binding = 2) readonly buffer Poses { TyrePose poses[]; };
+layout(std430, binding = 3) readonly buffer Commands { TyreCommand commands[]; };
+layout(std430, binding = 4) buffer CarRows { TyreCarRow carRows[]; };
+layout(std430, binding = 5) buffer WheelRows { TyreWheelRow wheelRows[]; };
+layout(std430, binding = 6) writeonly buffer SurfaceRows { TyreSurface surfaceRows[]; };
+layout(std430, binding = 7) writeonly buffer ImpulseRows { vec4 impulseRows[]; };
+layout(std430, binding = 8) writeonly buffer ScrubRows { TyreScrub scrubRows[]; };
+layout(std430, binding = 9) buffer MarkCount { uint markCount; };
+layout(std430, binding = 10) writeonly buffer MarkRows { TyreMarkRow markRows[]; };
+
+void main()
+{
+    uint car = gl_GlobalInvocationID.x;
+    if (car >= carCount) return;
+
+    CarBuildRow build = builds[buildOf[car]];
+    TyreCarRow row = carRows[car];
+    TyreCarry carry;
+    for (int wheel = 0; wheel < TyreWheels; wheel++)
+    {
+        TyreWheelRow held = wheelRows[car * 4u + uint(wheel)];
+        carry.spinMps[wheel] = held.spinMps;
+        carry.scrubTravelM[wheel] = held.scrubTravelM;
+        carry.markFromM[wheel] = held.markFromM;
+        carry.markIntensity[wheel] = held.markIntensity;
+        carry.marking[wheel] = held.marking != 0u;
+    }
+
+    carry.slipThrottle = row.slipThrottle;
+    carry.drivenSlipping = (row.flags & 2u) != 0u;
+
+    TyreSurface ground[4];
+    vec4 spent[4];
+    TyreScrub scrub[4];
+    TyreMark laidMarks[4];
+    uint laid;
+    bool atRest = tyrePass(
+        build, poses[car], commands[car], (row.flags & 1u) != 0u, row.groundCoefficient, row.inertiaKgM2, (row.flags >> 8) & 0xffu,
+        figures.dtS, carry, ground, spent, scrub, laidMarks, laid);
+
+    carRows[car].slipThrottle = carry.slipThrottle;
+    carRows[car].flags = (row.flags & ~6u) | (carry.drivenSlipping ? 2u : 0u) | (atRest ? 4u : 0u);
+    for (int wheel = 0; wheel < TyreWheels; wheel++)
+    {
+        uint at = car * 4u + uint(wheel);
+        wheelRows[at] = TyreWheelRow(
+            carry.markFromM[wheel], carry.spinMps[wheel], carry.scrubTravelM[wheel], carry.markIntensity[wheel],
+            carry.marking[wheel] ? 1u : 0u);
+        surfaceRows[at] = ground[wheel];
+        impulseRows[at] = spent[wheel];
+        scrubRows[at] = scrub[wheel];
+        if ((laid & (1u << uint(wheel))) == 0u) continue;
+
+        uint slot = atomicAdd(markCount, 1u);
+        if (slot >= uint(markRows.length())) continue;
+
+        TyreMark mark = laidMarks[wheel];
+        markRows[slot] = TyreMarkRow(mark.fromM, mark.toM, build.wheelWidthM, mark.intensity, at, mark.ploughed ? 1u : 0u);
+    }
+}

@@ -32,6 +32,13 @@ internal readonly record struct CarPose(
 internal readonly record struct WheelImpulse(Vector2 ImpulseNs, Vector2 AtM);
 
 /// <summary>
+/// One stretch of mark a wheel laid this tick (<see cref="TyrePass"/>): from where it was begun to where the wheel
+/// stands, at the wheel's width and how dark it was, and whether the ground was ploughed rather than scored.
+/// </summary>
+/// <param name="Wheel">Which of the car's four laid it, which is the order a car's marks are filed in.</param>
+internal readonly record struct TyreMark(Vector2 FromM, Vector2 ToM, float WidthM, float Intensity, bool Ploughed, int Wheel);
+
+/// <summary>
 /// What the ground under one patch does to it: grip, drag and the mark threshold, the last already in
 /// the units the scrub is measured in.
 /// </summary>

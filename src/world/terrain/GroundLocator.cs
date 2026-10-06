@@ -88,6 +88,9 @@ internal sealed class GroundLocator
     /// <param name="level">The level the wheel is on (<see cref="At(Vector2, byte)"/>).</param>
     public GroundEffect EffectAt(Vector2 pointM, byte level) => _catalog.EffectOf(_shapes.At(pointM, level));
 
+    /// <summary>What each kind of ground does to a body on it, as the figures stand now (<see cref="GroundCatalog.Table"/>).</summary>
+    public ReadOnlySpan<GroundEffect> EffectTable => _catalog.Table;
+
     /// <summary>Whether the point is inside the town's own box, for a caller that wants to know before it asks.</summary>
     public bool Contains(Vector2 pointM) => _shapes.Contains(pointM);
 }

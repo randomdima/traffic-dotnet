@@ -344,6 +344,9 @@ internal static class Program
             case "deviceground":
                 DeviceGroundProbe.Run(map ?? Options.FixtureMap, config);
                 return 0;
+            case "devicetyres":
+                DeviceTyresProbe.Run(map ?? Options.FixtureMap, config);
+                return 0;
             case "outset":
                 return Kept(BoundaryProbe.Outset(map ?? Options.FixtureMap, config, atM));
             case "fill":
