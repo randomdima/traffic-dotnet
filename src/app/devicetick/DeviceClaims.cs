@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Runtime.InteropServices;
 using Silk.NET.Vulkan;
 using TrafficSimulation.Runtime;
@@ -82,8 +83,10 @@ internal sealed class DeviceClaims : IDisposable
     readonly GpuBuffer _blockSums, _totals;
     readonly GpuBuffer _rowsIn, _holdsIn, _shownIn;
     readonly GpuBuffer _rowsOut, _answersOut, _movedOut, _orderOut, _bodyRunsOut, _plannedRunsOut;
-    readonly ComputeKernel _count, _file, _sort, _answer, _show, _cut;
-    readonly DescriptorSet _countSet, _fileSet, _sortSet, _answerSet, _showSet, _cutSet;
+    readonly ComputeKernel _count, _file, _sort, _answer, _show, _cut, _grant;
+    readonly DescriptorSet _countSet, _fileSet, _sortSet, _answerSet, _showSet, _cutSet, _grantSet;
+    readonly GpuBuffer _holders, _grants;
+    int _carCount;
     readonly ScanKernels _scans;
     readonly PrefixScan _scan;
     readonly ComputeBatch _batch;
@@ -93,7 +96,8 @@ internal sealed class DeviceClaims : IDisposable
     int _holdCount;
 
     /// <param name="mostPasses">The host's own bound (<see cref="Core.Config.RoadFigures.MostSettlingPasses"/>).</param>
-    public DeviceClaims(Vk vk, int ways, int slots, int holds, int mostPasses)
+    /// <param name="cars">How many cars' grants an answering reads back (<see cref="Holders"/>).</param>
+    public DeviceClaims(Vk vk, int ways, int slots, int holds, int mostPasses, int cars)
     {
         if (2 * ways > ScanKernels.MostCounts) throw new ArgumentOutOfRangeException(nameof(ways), ways, "more ways than one scan covers");
 
@@ -144,6 +148,12 @@ internal sealed class DeviceClaims : IDisposable
         _showSet = _show.Bind(answers);
         _cutSet = _cut.Bind(answers);
 
+        _holders = Own(vk.CreateBuffer(Bytes<Vector2>(cars), BufferUsageFlags.StorageBufferBit, HostAccess.Writes));
+        _grants = Own(vk.CreateBuffer(Bytes<Vector4>(cars), BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
+        GpuBuffer[] grants = [.. answers, _holders, _grants];
+        _grant = new ComputeKernel(vk, "claims_grant.comp", grants.Length, answersPush);
+        _grantSet = _grant.Bind(grants);
+
         _scans = new ScanKernels(vk);
         _scan = new PrefixScan(vk, _scans, _starts, _blockSums, _totals, 0);
         _batch = new ComputeBatch(vk);
@@ -161,6 +171,22 @@ internal sealed class DeviceClaims : IDisposable
 
     /// <summary>How many holds moved in each pass of the last answering.</summary>
     public ReadOnlySpan<uint> Moved => _movedOut.Span<uint>();
+
+    /// <summary>
+    /// <b>Each car's hold this rebuild and where its claim began</b>, written by the caller before
+    /// <see cref="Answer"/>: the hold's bits (minus one for none) and the metre, one pair a car.
+    /// </summary>
+    public Span<Vector2> Holders(int cars)
+    {
+        _carCount = cars;
+        return _holders.Span<Vector2>()[..cars];
+    }
+
+    /// <summary>
+    /// What each car with a hold answered with the plans got off it (<c>DrivingGround.ReadTheGrant</c>): its authority,
+    /// the margin it keeps, and what cut it (a <c>HeadwayKind</c>).
+    /// </summary>
+    public ReadOnlySpan<Vector4> Grants => _grants.Span<Vector4>()[.._carCount];
 
     /// <summary>One way's bodies, or its planned pieces, as the last answering laid them before it answered — rows, nearest first.</summary>
     public ReadOnlySpan<uint> ListOf(int way, bool bodies)
@@ -253,6 +279,8 @@ internal sealed class DeviceClaims : IDisposable
 
         _timer.Stamp(commands, (int)Stage.Answered);
         _cut.Dispatch(commands, _cutSet, holds, new ClaimsPush((uint)_holdCount, 0u, 0u, 0u));
+        vk.BetweenKernels(commands);
+        _grant.Dispatch(commands, _grantSet, Groups(_carCount), new ClaimsPush((uint)_holdCount, 0u, 0u, (uint)_carCount));
         vk.BeforeTransfer(commands);
         _timer.Stamp(commands, (int)Stage.Cut);
 
@@ -292,7 +320,7 @@ internal sealed class DeviceClaims : IDisposable
         _timer.Dispose();
         _batch.Dispose();
         _scans.Dispose();
-        foreach (var kernel in (ReadOnlySpan<ComputeKernel>)[_count, _file, _sort, _answer, _show, _cut]) kernel.Dispose();
+        foreach (var kernel in (ReadOnlySpan<ComputeKernel>)[_count, _file, _sort, _answer, _show, _cut, _grant]) kernel.Dispose();
         foreach (var buffer in _owned) buffer.Dispose();
     }
 }

@@ -1,3 +1,4 @@
+using System.Numerics;
 using TrafficSimulation.App.DeviceTick;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
@@ -10,8 +11,8 @@ using Xunit;
 namespace TrafficSimulation.Tests.DeviceTick;
 
 /// <summary>
-/// <b>The plans answered on the device, asked the town's own question</b>: every claims rebuild of the fixture town
-/// handed to both as the town laid it, and the device's answers and cuts held to the town's.
+/// <b>The plans answered on the device, asked the town's own question</b>: every claims rebuild of the suite's city
+/// handed to both as the town laid it, and the device's lists, answers, cuts and grants held to the town's.
 /// </summary>
 [Trait(Tier.Key, Tier.Device)]
 [Trait(Priority.Key, Priority.P3)]
@@ -19,21 +20,26 @@ public class DeviceClaimsTests(Lavapipe device) : IClassFixture<Lavapipe>
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
-    /// <summary>Twenty seconds of the fixture town: queues, junctions, crossings and lights all busy at once.</summary>
+    /// <summary>
+    /// Twenty seconds of the suite's city: queues, junctions, crossings and lights all busy at once — the fixture town's
+    /// dozen cars never queue, so no grant there is ever cut by a body.
+    /// </summary>
     const int Ticks = 1_200;
 
     /// <summary>
     /// <b>Every way's lists are laid as the town laid them, every hold ends where the town's does, kept off what cut it
-    /// by as much, cut on the same way by the same claim</b>, and every reservation is left as long as the town left it —
-    /// bit for bit, since the lists and the answers are comparisons and sums, and every rebuild of the run is asked.
+    /// by as much, cut on the same way by the same claim, every reservation is left as long as the town left it, and
+    /// every car's grant is read as the town read it</b> — bit for bit, since the lists and the answers are comparisons
+    /// and sums, and every rebuild of the run is asked.
     /// </summary>
     [Fact]
     public void ThePlansAreAnsweredAsTheTownAnswersThem()
     {
-        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
+        using var world = new TownWorld(Towns.Of(Towns.City), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         var claims = world.Occupancy;
-        using var onDevice = new DeviceClaims(device.Vk, claims.WayCount, claims.Capacity, claims.HoldCapacity, Config.Road.MostSettlingPasses);
+        using var onDevice = new DeviceClaims(
+            device.Vk, claims.WayCount, claims.Capacity, claims.HoldCapacity, Config.Road.MostSettlingPasses, world.Cars.Capacity);
 
         var differ = new List<string>();
         var rebuilds = 0;
@@ -44,12 +50,21 @@ public class DeviceClaimsTests(Lavapipe device) : IClassFixture<Lavapipe>
             {
                 case ClaimsStage.PlansLaid:
                     onDevice.Lay(town.Occupancy);
+                    var holders = onDevice.Holders(town.Cars.Count);
+                    for (var car = 0; car < town.Cars.Count; car++)
+                    {
+                        holders[car] = new Vector2(BitConverter.Int32BitsToSingle(town.PlanHoldOf(car)), town.Cars.ClaimFromM[car]);
+                    }
+
                     onDevice.Answer();
                     CompareTheLists(town.Occupancy, onDevice, rebuilds + 1, listed, differ);
                     break;
                 case ClaimsStage.PlansAnswered:
                     rebuilds++;
                     Compare(town.Occupancy, onDevice, rebuilds, differ);
+                    break;
+                case ClaimsStage.GrantsRead:
+                    CompareTheGrants(town, onDevice, rebuilds, differ);
                     break;
             }
         };
@@ -83,6 +98,31 @@ public class DeviceClaimsTests(Lavapipe device) : IClassFixture<Lavapipe>
             if (gone[slot] != rows[slot].IsGone || (!gone[slot] && slots[slot].ToM != rows[slot].ToM))
             {
                 differ.Add($"rebuild {rebuild} slot {slot}: town {slots[slot].ToM} gone {gone[slot]}; device {rows[slot].ToM} gone {rows[slot].IsGone}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Every car's grant as the device read it off its plan's answer, against the town's — but a plan the backing laid
+    /// after the answers cut, which the device does not lay yet.
+    /// </summary>
+    static void CompareTheGrants(TownWorld town, DeviceClaims onDevice, int rebuild, List<string> differ)
+    {
+        var claims = town.Occupancy;
+        var grants = onDevice.Grants;
+        for (var car = 0; car < town.Cars.Count; car++)
+        {
+            var hold = town.PlanHoldOf(car);
+            if (!claims.IsAnswered(hold)) continue;
+
+            claims.HoldEndsAtM(hold, out _, out var cutBy);
+            if (cutBy.Found && cutBy.Priority == ClaimPriority.Backing) continue;
+
+            var grant = grants[car];
+            var cars = town.Cars;
+            if (grant.X != cars.AuthorityM[car] || grant.Y != cars.GrantMarginM[car] || (uint)grant.Z != (uint)cars.GrantCutBy[car])
+            {
+                differ.Add($"rebuild {rebuild} car {car}: town {cars.AuthorityM[car]} kept {cars.GrantMarginM[car]} by {cars.GrantCutBy[car]}; device {grant}");
             }
         }
     }

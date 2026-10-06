@@ -31,7 +31,8 @@ internal static class DeviceClaimsProbe
 
         using var vk = Vk.Open("traffic-dotnet", validation: false);
         var claims = world.Occupancy;
-        using var onDevice = new DeviceClaims(vk, claims.WayCount, claims.Capacity, claims.HoldCapacity, config.Road.MostSettlingPasses);
+        using var onDevice = new DeviceClaims(
+            vk, claims.WayCount, claims.Capacity, claims.HoldCapacity, config.Road.MostSettlingPasses, world.Cars.Capacity);
 
         using var bodies = new DeviceBodies(vk, config, world);
         var bodiesMs = new List<double>();

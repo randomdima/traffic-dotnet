@@ -235,6 +235,43 @@ ClaimAnswer claimsAnswer(uint hold)
     return taken.cutLineM < main.cutLineM ? taken : main;
 }
 
+// HeadwayKind, by number.
+const uint HeadwayNothing = 0u;
+const uint HeadwayQueue = 1u;
+const uint HeadwayObstruction = 2u;
+const uint HeadwayClaimed = 3u;
+const uint HeadwayLight = 4u;
+const uint HeadwayWalker = 5u;
+const uint HeadwayPassing = 6u;
+
+// LaneRoster's walkers and lights.
+const uint RosterWalking = 1u;
+const uint RosterSignal = 2u;
+
+// What a claim that ended a grant is to the driver it ended (DrivingGround.KindOf).
+uint claimsKindOf(uint row)
+{
+    if (row == NoRow) return HeadwayNothing;
+
+    ClaimRow claim = CLAIM_ROWS[row];
+    if (!claimHasBody(claim)) return claimRoster(claim) == RosterSignal ? HeadwayLight : HeadwayClaimed;
+    if (claimPassing(claim)) return HeadwayPassing;
+    if (claimRoster(claim) == RosterWalking) return HeadwayWalker;
+    return (claim.flags & ClaimOnItsLine) != 0u ? HeadwayQueue : HeadwayObstruction;
+}
+
+// What a car got off its plan (DrivingGround.ReadTheGrant): how far past its nose the plan survived less what it keeps off
+// what cut it — infinity where nothing did — the margin, and what cut it. A hold nothing cut leaves the margin and the
+// cutter as the claim's clearing left them.
+vec4 claimsReadTheGrant(ClaimAnswer answer, float claimFromM, float clearedMarginM, uint clearedKind)
+{
+    if (isinf(answer.cutLineM) && answer.cutLineM > 0.0) return vec4(answer.cutLineM, clearedMarginM, float(clearedKind), 0.0);
+
+    precise float authorityM = answer.cutLineM - answer.marginM - claimFromM;
+    uint kind = answer.cutBy == NoRow ? HeadwayClaimed : claimsKindOf(answer.cutBy);
+    return vec4(authorityM, answer.marginM, float(kind), 0.0);
+}
+
 // A hold cut where its answer says: every piece at or past the metre taken out, and the main claim running over it
 // ending there — on the way it was refused on, at the very metre it was refused at (LaneOccupancy.CutTo).
 void claimsCutTo(uint hold, ClaimAnswer answer)
