@@ -1,0 +1,62 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every stretch the lights hold asked at one moment, one thread a stretch, over a claims layer's bodies (signal_holds.glsl)
+// — the lights' holds laid on their own, which is how they are held to the host's. A held stretch's hold is the one the
+// host numbered it, which a caller hands in.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint stretchCount;
+    uint laneCount;
+    uint crossingCount;
+    float cycleS;
+    float amberTailS;
+    float timeS;
+} figures;
+
+layout(std430, binding = 0) readonly buffer LaneAxis { int laneAxis[]; };
+layout(std430, binding = 1) readonly buffer LaneJunction { int laneJunction[]; };
+layout(std430, binding = 2) readonly buffer Offsets { float offsetS[]; };
+layout(std430, binding = 3) readonly buffer CrossingAxis { int crossingAxis[]; };
+layout(std430, binding = 4) readonly buffer CrossingJunction { int crossingJunction[]; };
+
+#define SIGNAL_FIGURES figures
+#define SIGNAL_LANE_AXIS laneAxis
+#define SIGNAL_LANE_JUNCTION laneJunction
+#define SIGNAL_OFFSETS offsetS
+#define SIGNAL_CROSSING_AXIS crossingAxis
+#define SIGNAL_CROSSING_JUNCTION crossingJunction
+#define CLAIM_ROWS rows
+#define BODY_RUNS bodyRuns
+#define BODY_ORDER bodyOrder
+
+#include "agents/trafficlight/control/kernels/signal.glsl"
+#include "world/road/kernels/claims_rows.glsl"
+
+layout(std430, binding = 5) readonly buffer Rows { ClaimRow rows[]; };
+layout(std430, binding = 6) readonly buffer BodyRuns { uvec2 bodyRuns[]; };
+layout(std430, binding = 7) readonly buffer BodyOrder { uint bodyOrder[]; };
+
+#include "agents/trafficlight/control/kernels/signal_holds.glsl"
+
+layout(std430, binding = 8) readonly buffer Stretches { StretchHoldRow stretches[]; };
+layout(std430, binding = 9) readonly buffer HoldOf { int holdOf[]; };
+layout(std430, binding = 10) writeonly buffer Held { vec4 held[]; };
+layout(std430, binding = 11) writeonly buffer Pieces { ClaimRow pieces[]; };
+
+void main()
+{
+    uint stretch = gl_GlobalInvocationID.x;
+    if (stretch >= figures.stretchCount) return;
+
+    ClaimRow piece;
+    bool placed;
+    float cut;
+    uint cutBy;
+    bool holds = signalHoldTheStretch(stretch, stretches[stretch], figures.timeS, holdOf[stretch], piece, placed, cut, cutBy);
+    held[stretch] = vec4(holds ? 1.0 : 0.0, placed ? 1.0 : 0.0, cut, uintBitsToFloat(cutBy));
+    pieces[stretch] = piece;
+}

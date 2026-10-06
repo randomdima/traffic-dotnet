@@ -40,6 +40,17 @@ namespace TrafficSimulation.Agents.TrafficLight.Control;
 /// </remarks>
 internal sealed class SignalHolds
 {
+    /// <summary>The stretches the lights hold, row for row (<see cref="Table"/>).</summary>
+    internal readonly ref struct SignalHoldsTable(
+        ReadOnlySpan<int> way, ReadOnlySpan<float> fromM, ReadOnlySpan<float> toM, ReadOnlySpan<int> subject, ReadOnlySpan<bool> forCars)
+    {
+        public ReadOnlySpan<int> Way { get; } = way;
+        public ReadOnlySpan<float> FromM { get; } = fromM;
+        public ReadOnlySpan<float> ToM { get; } = toM;
+        public ReadOnlySpan<int> Subject { get; } = subject;
+        public ReadOnlySpan<bool> ForCars { get; } = forCars;
+    }
+
     readonly int[] _way;
     readonly float[] _fromM;
     readonly float[] _toM;
@@ -60,6 +71,9 @@ internal sealed class SignalHolds
     /// sized with room for: one hold and one piece a stretch.
     /// </summary>
     public int Count => _way.Length;
+
+    /// <summary>The stretches as data, for a device holding them beside the host: the way, from the bar to its end, and what shows it its colour.</summary>
+    public SignalHoldsTable Table => new(_way, _fromM, _toM, _subject, _forCars);
 
     /// <param name="bars">The town's own bars (<see cref="StopBars"/>): an approach is held from the near edge of its own.</param>
     /// <param name="paint">Which ways of the pavement are the paint of which crossing.</param>

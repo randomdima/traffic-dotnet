@@ -1,3 +1,5 @@
+using TrafficSimulation.Agents.TrafficLight.Control;
+
 namespace TrafficSimulation.World.Town;
 
 /// <summary>What a car's body is laid as (<see cref="TownWorld.LayingOf"/>).</summary>
@@ -55,4 +57,7 @@ internal sealed partial class TownWorld
 
     /// <summary>For the instruments: the hold this car's claim laid this rebuild, or none.</summary>
     public int PlanHoldOf(int car) => _ground.PlanHold[car];
+
+    /// <summary>For the instruments: the stretches the lights hold (<see cref="LightTheWays"/>).</summary>
+    public SignalHolds SignalHolds => _signalHolds;
 }

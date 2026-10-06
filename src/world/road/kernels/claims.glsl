@@ -244,10 +244,6 @@ const uint HeadwayLight = 4u;
 const uint HeadwayWalker = 5u;
 const uint HeadwayPassing = 6u;
 
-// LaneRoster's walkers and lights.
-const uint RosterWalking = 1u;
-const uint RosterSignal = 2u;
-
 // What a claim that ended a grant is to the driver it ended (DrivingGround.KindOf).
 uint claimsKindOf(uint row)
 {

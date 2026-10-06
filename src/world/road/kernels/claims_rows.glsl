@@ -4,8 +4,10 @@
 // ClaimPriority's rungs that are named here.
 const uint RungHard = 0u;
 
-// LaneRoster.Driving, and LaneOccupancy's NoWay.
+// LaneRoster, by number, and LaneOccupancy's NoWay.
 const uint RosterDriving = 0u;
+const uint RosterWalking = 1u;
+const uint RosterSignal = 2u;
 const int OnwardNoWay = -1;
 
 // HoldRow.flags.
