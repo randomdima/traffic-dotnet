@@ -74,6 +74,16 @@ internal struct TickParts
     public void Reset() => this = default;
 }
 
+/// <summary>Where phase 3 has got to, as the loop hands the world to a watcher (<see cref="SimLoop{TWorld}.WatchingTheAgents"/>).</summary>
+internal enum AgentsStage
+{
+    /// <summary>No agent has ticked yet this tick.</summary>
+    Due,
+
+    /// <summary>Every agent has ticked, and no decision is taken yet.</summary>
+    Ticked,
+}
+
 /// <summary>
 /// One fixed 60 Hz tick in five phases over a stable roster. Agents think in the physics tick, so
 /// behaviour and physics share one timeline.
@@ -114,6 +124,13 @@ internal sealed class SimLoop<TWorld> where TWorld : ISimWorld
     public PhaseTimes Phases;
 
     public bool Timed { get; set; }
+
+    /// <summary>
+    /// <b>For the instruments</b>: handed the world as phase 3 begins, before any agent ticks, and again once every agent
+    /// has and no decision is taken yet — what a device ticking every agent at once is held to. Nothing that decides
+    /// anything sets it.
+    /// </summary>
+    public Action<TWorld, AgentsStage>? WatchingTheAgents { get; set; }
 
     public void Advance()
     {
@@ -161,11 +178,13 @@ internal sealed class SimLoop<TWorld> where TWorld : ISimWorld
     void Decide()
     {
         var agents = _world.AgentCount;
+        WatchingTheAgents?.Invoke(_world, AgentsStage.Due);
         for (var agent = 0; agent < agents; agent++)
         {
             if (!_world.IsTerminal(agent)) _world.TickAgent(agent);
         }
 
+        WatchingTheAgents?.Invoke(_world, AgentsStage.Ticked);
         for (var agent = 0; agent < agents; agent++)
         {
             if (_world.IsTerminal(agent)) continue;

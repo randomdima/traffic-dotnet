@@ -576,14 +576,22 @@ internal sealed partial class TownWorld
     /// body ten metres away across a kerb is not ten metres along the road; what a stop point has to be is
     /// a distance the profile can brake against, which is a place on the line the car is holding.
     /// </remarks>
-    float ToTheSceneM(int car)
+    float ToTheSceneM(int car) =>
+        TheSceneOf(car, out var placeM, out var reachM) ? ToThePlaceOnTheLineM(car, placeM, reachM) : float.PositiveInfinity;
+
+    /// <summary>
+    /// <b>Where this car was sent to stop</b>, and how near the place it has to stand to work there — or none, for every
+    /// car that is not on its way to one (<see cref="ToTheSceneM"/>).
+    /// </summary>
+    bool TheSceneOf(int car, out Vector2 placeM, out float reachM)
     {
         // <b>And asked of a hand's order first of all</b> (CTL-8a, CTL-8c). A car sent to a place on the
         // road is stopped at it exactly as a rescue is stopped at its casualty, and one sent
         // after another car is stopped a gap short of it — one term of the profile, three errands and a hand.
-        if (TheOrderStopsAt(car, out var orderedM))
+        if (TheOrderStopsAt(car, out placeM))
         {
-            return ToThePlaceOnTheLineM(car, orderedM, _config.OrderedPlaceReachM);
+            reachM = _config.OrderedPlaceReachM;
+            return true;
         }
 
         // <b>The place has to outlast the arrival</b>, as the recovery's does: a stop point that went away
@@ -594,24 +602,19 @@ internal sealed partial class TownWorld
         if (Cars.Ambulance[car] && IsAtOrOnItsWayToAScene(car))
         {
             var casualty = _duty.Casualty[car];
-            return casualty < 0 || People.Inside[casualty].Any || !Cars.HasDestination[car]
-                ? float.PositiveInfinity
-                : ToThePlaceOnTheLineM(car, Cars.DestinationM[car], _config.AmbulanceSceneReachM);
+            placeM = Cars.DestinationM[car];
+            reachM = _config.AmbulanceSceneReachM;
+            return casualty >= 0 && !People.Inside[casualty].Any && Cars.HasDestination[car];
         }
 
         // <b>And asked of a police car on its way to close a lane</b> (SRV-9): it stops at its stand in that lane's
         // entrance, and only in that lane.
-        if (TheClosureStopsAt(car, out var standM, out var standReachM))
-        {
-            return ToThePlaceOnTheLineM(car, standM, standReachM);
-        }
+        if (TheClosureStopsAt(car, out placeM, out reachM)) return true;
 
         // <b>The same question asked of a wreck</b> (EVA-3, EVA-6). A recovery stops beside what it has come
         // for and again beside where it is putting it, and one term of the profile stops it every time — what differs
         // is the place and how near the truck has to stand to work.
-        return TheRecoveryStopsAt(car, out var placeM, out var reachM)
-            ? ToThePlaceOnTheLineM(car, placeM, reachM)
-            : float.PositiveInfinity;
+        return TheRecoveryStopsAt(car, out placeM, out reachM);
     }
 
     /// <summary>

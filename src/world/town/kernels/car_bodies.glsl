@@ -3,13 +3,9 @@
 // travelling that way, how fast, where its line goes next, and whether it is at rest — as body rows in the claims'
 // layout (claims_rows.glsl), in the order the atlas found them.
 //
-// The including kernel includes rounded.glsl, atlas.glsl, claims_rows.glsl, car_line.glsl and road_joins.glsl, declares
-// LANE_CHAIN (int[], BODY_FIGURES.mostLanes a car) and CAR_LINES (CarLineRow[]), and supplies BODY_FIGURES.firstConnector, mostLanes and groundChannel — what every way is on where the atlas
-// keeps no channels (RibbonAtlas.ChannelsOf).
-
-// LaneOccupancy.NoWay and RunsOn.
-const int BodyNoWay = -1;
-const int BodyRunsOn = -2;
+// The including kernel includes rounded.glsl, atlas.glsl, claims_rows.glsl, car_line.glsl, road_joins.glsl and
+// line_onward.glsl, declares CAR_LINES (CarLineRow[]), and supplies BODY_FIGURES.groundChannel — what every way is on
+// where the atlas keeps no channels (RibbonAtlas.ChannelsOf).
 
 // What the laying reads of one car (CarFleet): its box and channels, and of the car it is laid as (TownWorld.LaidAs) —
 // itself, or the truck it hangs from — how fast it goes along its line and what the town says of it this rebuild.
@@ -35,34 +31,6 @@ const uint BodyRunsOnPastItself = 2u;
 const uint BodyStill = 4u;
 const uint BodyBlocked = 8u;
 
-// Whether one of the town's ways is one a car's own line runs over, and which way the line takes after it
-// (DrivingGround.IsOnItsLine).
-bool bodyIsOnItsLine(int car, bool runsOnPastItself, uint way, out int onward)
-{
-    onward = BodyNoWay;
-    uint lanes = CAR_LINES[car].laneCount;
-    uint slots = uint(car) * BODY_FIGURES.mostLanes;
-    for (uint index = 0u; index < lanes; index++)
-    {
-        int lane = LANE_CHAIN[slots + index];
-        int join = index + 1u == lanes ? -1 : roadConnectorBetween(lane, LANE_CHAIN[slots + index + 1u]);
-        int joinWay = join < 0 ? BodyNoWay : int(BODY_FIGURES.firstConnector) + join;
-        if (uint(lane) == way)
-        {
-            onward = joinWay != BodyNoWay ? joinWay : runsOnPastItself ? BodyRunsOn : BodyNoWay;
-            return true;
-        }
-
-        if (joinWay != BodyNoWay && uint(joinWay) == way)
-        {
-            onward = LANE_CHAIN[slots + index + 1u];
-            return true;
-        }
-    }
-
-    return false;
-}
-
 // One car's body on every way the atlas finds under its box (TownWorld.LayTheCarsBody), into rows[]; how many, and the
 // channels of the ways it stands over (its own where it stands over none).
 int bodyLayTheCar(CarBodyRow car, out ClaimRow rows[AtlasMostWaysUnderABody], out uint channels, out uint dropped)
@@ -80,9 +48,10 @@ int bodyLayTheCar(CarBodyRow car, out ClaimRow rows[AtlasMostWaysUnderABody], ou
     {
         uint way = uint(found[at].way);
         channels |= ATLAS_FIGURES.hasChannels != 0u ? atlasChannelsOf(int(way)) : BODY_FIGURES.groundChannel;
-        int onward = BodyNoWay;
-        bool onItsLine = travelling && bodyIsOnItsLine(car.occupant, (car.flags & BodyRunsOnPastItself) != 0u, way, onward);
-        if (blocked) onward = BodyNoWay;
+        int onward = LineNoWay;
+        bool onItsLine = travelling && lineIsOnItsLine(
+            uint(car.occupant), CAR_LINES[car.occupant].laneCount, (car.flags & BodyRunsOnPastItself) != 0u, way, onward);
+        if (blocked) onward = LineNoWay;
 
         rows[at] = ClaimRow(
             found[at].fromM, found[at].toM, onItsLine ? car.alongMps : 0.0, 0.0, 0.0, -atlasInfinity(), found[at].fromM,

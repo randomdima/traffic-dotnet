@@ -31,6 +31,7 @@ layout(push_constant) uniform Figures
 
 #define ATLAS_FIGURES figures
 #define BODY_FIGURES figures
+#define LINE_ONWARD_FIGURES figures
 #define ATLAS_BINDING 7
 #define LANE_CHAIN chain
 #define CAR_LINES lines
@@ -50,6 +51,7 @@ layout(std430, binding = 5) writeonly buffer Rows { ClaimRow rows[]; };
 layout(std430, binding = 6) writeonly buffer Counts { uvec4 counts[]; };
 
 #include "world/road/kernels/road_joins.glsl"
+#include "agents/car/control/kernels/line_onward.glsl"
 #include "world/town/kernels/car_bodies.glsl"
 
 layout(std430, binding = 0) readonly buffer Cars { CarBodyRow cars[]; };
