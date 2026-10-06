@@ -17,11 +17,14 @@ Everything else is detail on one idea: **the town's behaviour is emergent, so th
 and the failures have to be recoverable.** A build that reaches the same picture by any other route has
 built something that looks like this and is not it.
 
-And it is written with **no engine under it**: C# on .NET 10, managed from the decision loop to the bytes
-the GPU reads, with the unmanaged boundary at the graphics driver and the window and nowhere else. No
-Godot, no MonoGame, no Unity, no retained renderer, no ECS framework — nothing that wants to own the
-loop, the window, the update order or the object model. The physics is not a package either:
-[world/physics/](../src/world/physics/) is this project's own broad phase, narrow phase and contact solver.
+And it is written with **no engine under it**: C# on .NET 10 for the decision loop and everything that is
+not the tick, and **the tick itself as this project's own compute kernels, resident on the device**. The
+town's state lives in VRAM; a tick reads one copy of it and writes the other; the CPU sends commands in and
+reads events out, and both are sparse — nothing is uploaded or read back by the roster. The unmanaged
+boundary is at the graphics driver and the window and nowhere else. No Godot, no MonoGame, no Unity, no
+retained renderer, no ECS framework — nothing that wants to own the loop, the window, the update order or
+the object model. The physics is not a package either: [world/physics/](../src/world/physics/) is this
+project's own broad phase, narrow phase and contact solver.
 
 ## The quality bar
 

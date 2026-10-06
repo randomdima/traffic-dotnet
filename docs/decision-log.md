@@ -4,6 +4,23 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-06 — the tick moves onto the device
+
+**The owner decided it: everything that can move to the GPU moves, and its state stays there.** OdesaOsm cannot
+run in real time on the CPU tick — 23.5 ms against a 16.7 ms budget at 10 013 cars and 10 000 walkers
+(`--bench town`): the claims 6.8, the cars' own tick 12.8, the solver 3.3.
+
+- **Every per-tick reader and writer of a body moves with it**, not the solver alone: the solver is a seventh of
+  the tick, and a solver on the device under a car tick on the CPU is a round trip every tick.
+- **A tick reads one copy and writes the other**, and the copies swap. Reading only the old copy is what gives
+  every agent the same instant, which the proximity index gives now.
+- **The CPU keeps the decision clock**, the errands and routing, the instruments and the load. A decision taken
+  on tick T's snapshot lands at a fixed tick T + L, never when the readback happens to arrive, so the digest
+  does not depend on frame pacing.
+- **The tick still crosses nothing** (rule 1): its dispatches ride the frame's one submit.
+
+What each slice gives up for it is that slice's own log, as each one lands.
+
 ## 2026-10-05 — an open's peak is what stands while the atlas is filed
 
 **A page keeps the most it was ever given**: a browser never shrinks a WebAssembly heap, and a 32-bit one holds 4 GB
