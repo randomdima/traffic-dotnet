@@ -789,7 +789,7 @@ internal sealed partial class LaneOccupancy
         _gone[slot] = false;
 
         var after = NoSlot;
-        for (var at = heads[way]; at != NoSlot && _slots[at].FromM < claim.FromM; at = _next[at]) after = at;
+        for (var at = heads[way]; at != NoSlot && Precedes(_slots[at], at, claim, slot); at = _next[at]) after = at;
 
         var before = after == NoSlot ? heads[way] : _next[after];
         _prev[slot] = after;
@@ -798,6 +798,14 @@ internal sealed partial class LaneOccupancy
         if (after == NoSlot) heads[way] = slot;
         else _next[after] = slot;
     }
+
+    /// <summary>
+    /// <b>Whether one reservation stands before another in a way's list</b>: nearest first, and of two from one metre
+    /// the one laid first — by slot and never by when it was linked, so a body grown in place keeps its place, and a
+    /// list is what a stable sort of the slots by their near edge makes of them, which is how a device lays it.
+    /// </summary>
+    static bool Precedes(in LaneClaim one, int oneSlot, in LaneClaim other, int otherSlot) =>
+        one.FromM != other.FromM ? one.FromM < other.FromM : oneSlot < otherSlot;
 
     void Unlink(int slot)
     {

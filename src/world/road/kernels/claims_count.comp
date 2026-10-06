@@ -1,0 +1,23 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every row still on a way counted onto its way's list, one thread a row (claims_lists.glsl).
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint rowCount;
+    uint wayCount;
+} figures;
+
+#include "world/road/kernels/claims_rows.glsl"
+#include "world/road/kernels/claims_lists.glsl"
+
+void main()
+{
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= figures.rowCount || claimGone(rows[row])) return;
+
+    atomicAdd(counts[claimsListAt(rows[row])], 1u);
+}

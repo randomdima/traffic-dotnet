@@ -17,6 +17,11 @@ at the bound — since a pass after the answers stop moving answers them the sam
   the cut took 0.91 ms on the device against 3.11 ms on the host, and none of 1 518 570 answers differed.
 - **Only what a rebuild laid crosses**: the claims are sized for the town's worst case (35 M reservations on OdesaOsm),
   and copying all of that every rebuild lost the device.
+- **Of two reservations from one metre, the one laid first stands first** (`LaneOccupancy.Precedes`), where the last
+  one linked used to: a list is then what a stable sort of the slots by near edge makes of them, which the device does
+  for itself (`claims_lists.glsl` — counted, scanned, filed and each way's handful sorted by one thread; the longest
+  list on OdesaOsm is 15). Which of two equal claims is met first decides only what a cut is said to be cut by. Every
+  tier passed unchanged. On OdesaOsm the device lays the lists in 0.18 ms, and lists, passes and cut take 1.11 ms.
 
 ## 2026-10-07 — which ways a body stands over is read on the device off the atlas's own tables
 

@@ -23,9 +23,9 @@ public class DeviceClaimsTests(Lavapipe device) : IClassFixture<Lavapipe>
     const int Ticks = 1_200;
 
     /// <summary>
-    /// <b>Every hold ends where the town's does, kept off what cut it by as much, cut on the same way by the same
-    /// claim</b>, and every reservation is left as long as the town left it — bit for bit, since the answers are
-    /// comparisons and sums, and every rebuild of the run is asked.
+    /// <b>Every way's lists are laid as the town laid them, every hold ends where the town's does, kept off what cut it
+    /// by as much, cut on the same way by the same claim</b>, and every reservation is left as long as the town left it —
+    /// bit for bit, since the lists and the answers are comparisons and sums, and every rebuild of the run is asked.
     /// </summary>
     [Fact]
     public void ThePlansAreAnsweredAsTheTownAnswersThem()
@@ -37,10 +37,12 @@ public class DeviceClaimsTests(Lavapipe device) : IClassFixture<Lavapipe>
 
         var differ = new List<string>();
         var rebuilds = 0;
+        var listed = new int[claims.Capacity];
         world.BeforeThePlansAreAnswered = town =>
         {
             onDevice.Lay(town.Occupancy);
             onDevice.Answer();
+            CompareTheLists(town.Occupancy, onDevice, rebuilds + 1, listed, differ);
         };
         world.AfterThePlansAreAnswered = town =>
         {
@@ -77,6 +79,25 @@ public class DeviceClaimsTests(Lavapipe device) : IClassFixture<Lavapipe>
             if (gone[slot] != rows[slot].IsGone || (!gone[slot] && slots[slot].ToM != rows[slot].ToM))
             {
                 differ.Add($"rebuild {rebuild} slot {slot}: town {slots[slot].ToM} gone {gone[slot]}; device {rows[slot].ToM} gone {rows[slot].IsGone}");
+            }
+        }
+    }
+
+    /// <summary>Every way's two lists as the device laid them from the rows, against the town's as it laid them.</summary>
+    static void CompareTheLists(LaneOccupancy claims, DeviceClaims onDevice, int rebuild, int[] listed, List<string> differ)
+    {
+        for (var way = 0; way < claims.WayCount; way++)
+        {
+            foreach (var bodies in (ReadOnlySpan<bool>)[true, false])
+            {
+                var count = claims.ListOf(way, bodies, listed);
+                var laid = onDevice.ListOf(way, bodies);
+                var same = laid.Length == count;
+                for (var at = 0; same && at < count; at++) same = laid[at] == (uint)listed[at];
+                if (!same)
+                {
+                    differ.Add($"rebuild {rebuild} way {way} {(bodies ? "bodies" : "planned")}: town [{string.Join(",", listed[..count])}] device [{string.Join(",", laid.ToArray())}]");
+                }
             }
         }
     }

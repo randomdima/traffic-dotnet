@@ -12,13 +12,6 @@ float claimsInfinity() { return uintBitsToFloat(0x7F800000u); }
 
 ClaimAnswer claimsWhole() { return ClaimAnswer(claimsInfinity(), 0.0, NoRow, -1, claimsInfinity(), 0.0, 0.0, 0.0); }
 
-uint claimRung(ClaimRow claim) { return claim.flags & ClaimRungBits; }
-uint claimRoster(ClaimRow claim) { return (claim.flags >> ClaimRosterShift) & 3u; }
-bool claimHasBody(ClaimRow claim) { return claimRung(claim) == RungHard; }
-bool claimSecondary(ClaimRow claim) { return (claim.flags & ClaimSecondary) != 0u; }
-bool claimPassing(ClaimRow claim) { return (claim.flags & ClaimPassing) != 0u; }
-bool claimGone(ClaimRow claim) { return (claim.flags & ClaimGone) != 0u; }
-
 // Whether a reservation is the asker's own (LaneOccupancy.Owns).
 bool claimsOwns(ClaimRow ask, ClaimRow claim)
 {

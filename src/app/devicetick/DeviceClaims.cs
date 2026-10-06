@@ -8,14 +8,21 @@ namespace TrafficSimulation.App.DeviceTick;
 
 /// <summary>
 /// <b>The plans answered on the device</b> (<c>world/road/kernels/claims.glsl</c>), beside the host's: the reservations
-/// the town laid sent across as rows, every hold answered pass after pass as the host answers them
-/// (<see cref="LaneOccupancy.AnswerThePlans"/>), and cut where its last answer says — read back to be held to the
-/// host's. One submit and one wait.
+/// the town laid sent across as rows, every way's two lists laid from them, every hold answered pass after pass as the
+/// host answers them (<see cref="LaneOccupancy.AnswerThePlans"/>), and cut where its last answer says — read back to be
+/// held to the host's. One submit and one wait.
 /// </summary>
 /// <remarks>
+/// <para>
+/// <b>The lists are the device's own</b> (<c>claims_lists.glsl</c>): the rows counted onto their ways, the counts
+/// scanned, every row filed into its way's run and each run sorted as the host keeps it — nearest first, laid first
+/// first — so only the rows and the holds cross.
+/// </para>
+/// <para>
 /// <b>The device runs every pass the host could</b>: the first, and then on to the first odd pass at the bound. A pass
 /// after the answers have stopped moving answers them all the same again, so the passes the host never needed change
 /// nothing, and no count is read back between them.
+/// </para>
 /// </remarks>
 internal sealed class DeviceClaims : IDisposable
 {
@@ -53,10 +60,14 @@ internal sealed class DeviceClaims : IDisposable
     [StructLayout(LayoutKind.Sequential)]
     readonly record struct ClaimsPush(uint HoldCount, uint PlansHidden, uint Pass, uint Pad);
 
+    [StructLayout(LayoutKind.Sequential)]
+    readonly record struct ListsPush(uint RowCount, uint WayCount);
+
     /// <summary>The stamps an answering is timed between.</summary>
     internal enum Stage
     {
         Began,
+        Listed,
         Answered,
         Cut,
     }
@@ -65,58 +76,76 @@ internal sealed class DeviceClaims : IDisposable
     const uint OnACall = 2u;
 
     readonly Vk _vk;
+    readonly int _ways;
     readonly List<GpuBuffer> _owned = [];
-    readonly GpuBuffer _rows, _bodyRuns, _plannedRuns, _bodyOrder, _plannedOrder, _holds, _shown, _answers, _moved;
-    readonly GpuBuffer _rowsIn, _bodyRunsIn, _plannedRunsIn, _bodyOrderIn, _plannedOrderIn, _holdsIn, _shownIn;
-    readonly GpuBuffer _rowsOut, _answersOut, _movedOut;
-    readonly ComputeKernel _answer, _show, _cut;
-    readonly DescriptorSet _answerSet, _showSet, _cutSet;
+    readonly GpuBuffer _rows, _counts, _starts, _cursor, _order, _bodyRuns, _plannedRuns, _holds, _shown, _answers, _moved;
+    readonly GpuBuffer _blockSums, _totals;
+    readonly GpuBuffer _rowsIn, _holdsIn, _shownIn;
+    readonly GpuBuffer _rowsOut, _answersOut, _movedOut, _orderOut, _bodyRunsOut, _plannedRunsOut;
+    readonly ComputeKernel _count, _file, _sort, _answer, _show, _cut;
+    readonly DescriptorSet _countSet, _fileSet, _sortSet, _answerSet, _showSet, _cutSet;
+    readonly ScanKernels _scans;
+    readonly PrefixScan _scan;
     readonly ComputeBatch _batch;
     readonly GpuTimer _timer;
-    readonly int[] _listed;
     readonly int _passes;
     int _rowCount;
     int _holdCount;
-    int _bodiesListed;
-    int _plannedListed;
 
     /// <param name="mostPasses">The host's own bound (<see cref="Core.Config.RoadFigures.MostSettlingPasses"/>).</param>
     public DeviceClaims(Vk vk, int ways, int slots, int holds, int mostPasses)
     {
+        if (2 * ways > ScanKernels.MostCounts) throw new ArgumentOutOfRangeException(nameof(ways), ways, "more ways than one scan covers");
+
         _vk = vk;
+        _ways = ways;
         _passes = (mostPasses % 2 == 1 ? mostPasses : mostPasses + 1) + 1;
-        _listed = new int[slots];
 
         _rows = Device<ClaimRow>(slots);
+        _counts = Device<uint>(2 * ways);
+        _starts = Device<uint>(2 * ways);
+        _cursor = Device<uint>(2 * ways);
+        _order = Device<uint>(slots);
         _bodyRuns = Device<UInt2>(ways);
         _plannedRuns = Device<UInt2>(ways);
-        _bodyOrder = Device<uint>(slots);
-        _plannedOrder = Device<uint>(slots);
         _holds = Device<HoldRow>(holds);
         _shown = Device<float>(holds);
         _answers = Device<ClaimAnswer>(holds);
         _moved = Device<uint>(_passes);
+        _blockSums = Device<uint>(ScanKernels.Block);
+        _totals = Device<uint>(1);
 
         _rowsIn = Staging<ClaimRow>(slots);
-        _bodyRunsIn = Staging<UInt2>(ways);
-        _plannedRunsIn = Staging<UInt2>(ways);
-        _bodyOrderIn = Staging<uint>(slots);
-        _plannedOrderIn = Staging<uint>(slots);
         _holdsIn = Staging<HoldRow>(holds);
         _shownIn = Staging<float>(holds);
 
         _rowsOut = Readback<ClaimRow>(slots);
         _answersOut = Readback<ClaimAnswer>(holds);
         _movedOut = Readback<uint>(_passes);
+        _orderOut = Readback<uint>(slots);
+        _bodyRunsOut = Readback<UInt2>(ways);
+        _plannedRunsOut = Readback<UInt2>(ways);
 
-        GpuBuffer[] set = [_rows, _bodyRuns, _plannedRuns, _bodyOrder, _plannedOrder, _holds, _shown, _answers, _moved];
-        var pushBytes = (uint)Marshal.SizeOf<ClaimsPush>();
-        _answer = new ComputeKernel(vk, "claims_answer.comp", set.Length, pushBytes);
-        _show = new ComputeKernel(vk, "claims_show.comp", set.Length, pushBytes);
-        _cut = new ComputeKernel(vk, "claims_cut.comp", set.Length, pushBytes);
-        _answerSet = _answer.Bind(set);
-        _showSet = _show.Bind(set);
-        _cutSet = _cut.Bind(set);
+        GpuBuffer[] lists = [_rows, _counts, _cursor, _order, _bodyRuns, _plannedRuns, _starts];
+        var listsPush = (uint)Marshal.SizeOf<ListsPush>();
+        _count = new ComputeKernel(vk, "claims_count.comp", lists.Length, listsPush);
+        _file = new ComputeKernel(vk, "claims_file.comp", lists.Length, listsPush);
+        _sort = new ComputeKernel(vk, "claims_sort.comp", lists.Length, listsPush);
+        _countSet = _count.Bind(lists);
+        _fileSet = _file.Bind(lists);
+        _sortSet = _sort.Bind(lists);
+
+        GpuBuffer[] answers = [_rows, _bodyRuns, _plannedRuns, _order, _order, _holds, _shown, _answers, _moved];
+        var answersPush = (uint)Marshal.SizeOf<ClaimsPush>();
+        _answer = new ComputeKernel(vk, "claims_answer.comp", answers.Length, answersPush);
+        _show = new ComputeKernel(vk, "claims_show.comp", answers.Length, answersPush);
+        _cut = new ComputeKernel(vk, "claims_cut.comp", answers.Length, answersPush);
+        _answerSet = _answer.Bind(answers);
+        _showSet = _show.Bind(answers);
+        _cutSet = _cut.Bind(answers);
+
+        _scans = new ScanKernels(vk);
+        _scan = new PrefixScan(vk, _scans, _starts, _blockSums, _totals, 0);
         _batch = new ComputeBatch(vk);
         _timer = new GpuTimer(vk, Enum.GetValues<Stage>().Length);
     }
@@ -133,15 +162,24 @@ internal sealed class DeviceClaims : IDisposable
     /// <summary>How many holds moved in each pass of the last answering.</summary>
     public ReadOnlySpan<uint> Moved => _movedOut.Span<uint>();
 
+    /// <summary>One way's bodies, or its planned pieces, as the last answering laid them before it answered — rows, nearest first.</summary>
+    public ReadOnlySpan<uint> ListOf(int way, bool bodies)
+    {
+        var run = (bodies ? _bodyRunsOut : _plannedRunsOut).Span<UInt2>()[way];
+        return _orderOut.Span<uint>().Slice((int)run.X, (int)run.Y);
+    }
+
     /// <summary>The device's time between two stages of the last answering, in milliseconds.</summary>
     public double BetweenMs(Stage from, Stage to) => _timer.BetweenMs((int)from, (int)to);
 
     /// <summary>
     /// <b>The reservations as the host laid them</b>, every plan whole and none answered yet, written into what the device
-    /// is sent: every slot a row, every way's two lists in their order, every hold with its holder's terms.
+    /// is sent: every slot a row, every hold with its holder's terms.
     /// </summary>
     public void Lay(LaneOccupancy claims)
     {
+        if (claims.WayCount != _ways) throw new InvalidOperationException("The claims are over another town's ways.");
+
         var slots = claims.Slots;
         var slotWays = claims.SlotWays;
         var gone = claims.SlotsGone;
@@ -155,9 +193,6 @@ internal sealed class DeviceClaims : IDisposable
         }
 
         _rowCount = slots.Length;
-        _bodiesListed = LayTheLists(claims, bodies: true, _bodyRunsIn.Span<UInt2>(), _bodyOrderIn.Span<uint>());
-        _plannedListed = LayTheLists(claims, bodies: false, _plannedRunsIn.Span<UInt2>(), _plannedOrderIn.Span<uint>());
-
         var holds = _holdsIn.Span<HoldRow>();
         var shown = _shownIn.Span<float>();
         _holdCount = claims.HoldCount;
@@ -174,59 +209,64 @@ internal sealed class DeviceClaims : IDisposable
         }
     }
 
-    /// <returns>How many entries the lists hold between them.</returns>
-    int LayTheLists(LaneOccupancy claims, bool bodies, Span<UInt2> runs, Span<uint> order)
-    {
-        var next = 0;
-        for (var way = 0; way < claims.WayCount; way++)
-        {
-            var count = claims.ListOf(way, bodies, _listed);
-            runs[way] = new UInt2((uint)next, (uint)count);
-            for (var at = 0; at < count; at++) order[next + at] = (uint)_listed[at];
-            next += count;
-        }
-
-        return next;
-    }
-
-    /// <summary><b>Every pass answered and the holds cut</b>, and the rows, the answers and what moved read back.</summary>
+    /// <summary>
+    /// <b>The lists laid, every pass answered and the holds cut</b>, and the rows, the lists, the answers and what moved
+    /// read back.
+    /// </summary>
     public void Answer()
     {
         var vk = _vk;
         var commands = _batch.Begin();
         _timer.Reset(commands);
         vk.Copy(commands, _rowsIn, _rows, Bytes<ClaimRow>(_rowCount));
-        vk.Copy(commands, _bodyRunsIn, _bodyRuns, _bodyRunsIn.SizeBytes);
-        vk.Copy(commands, _plannedRunsIn, _plannedRuns, _plannedRunsIn.SizeBytes);
-        vk.Copy(commands, _bodyOrderIn, _bodyOrder, Bytes<uint>(_bodiesListed));
-        vk.Copy(commands, _plannedOrderIn, _plannedOrder, Bytes<uint>(_plannedListed));
         vk.Copy(commands, _holdsIn, _holds, Bytes<HoldRow>(_holdCount));
         vk.Copy(commands, _shownIn, _shown, Bytes<float>(_holdCount));
+        vk.Fill(commands, _counts, 0);
         vk.Fill(commands, _moved, 0);
         vk.AfterTransfer(commands);
         _timer.Stamp(commands, (int)Stage.Began);
 
-        var groups = (uint)Math.Max(1, (_holdCount + 63) / 64);
+        var lists = new ListsPush((uint)_rowCount, (uint)_ways);
+        _count.Dispatch(commands, _countSet, Groups(_rowCount), lists);
+        vk.BeforeTransfer(commands);
+        vk.Copy(commands, _counts, _starts, _counts.SizeBytes);
+        vk.AfterTransfer(commands);
+        _scan.Record(commands, 2 * _ways);
+        vk.BeforeTransfer(commands);
+        vk.Copy(commands, _starts, _cursor, _starts.SizeBytes);
+        vk.AfterTransfer(commands);
+        _file.Dispatch(commands, _fileSet, Groups(_rowCount), lists);
+        vk.BetweenKernels(commands);
+        _sort.Dispatch(commands, _sortSet, Groups(_ways), lists);
+        vk.BetweenKernels(commands);
+        _timer.Stamp(commands, (int)Stage.Listed);
+
+        var holds = Groups(_holdCount);
         for (var pass = 0; pass < _passes; pass++)
         {
             var push = new ClaimsPush((uint)_holdCount, pass == 0 ? 1u : 0u, (uint)pass, 0u);
-            _answer.Dispatch(commands, _answerSet, groups, push);
+            _answer.Dispatch(commands, _answerSet, holds, push);
             vk.BetweenKernels(commands);
-            _show.Dispatch(commands, _showSet, groups, push);
+            _show.Dispatch(commands, _showSet, holds, push);
             vk.BetweenKernels(commands);
         }
 
         _timer.Stamp(commands, (int)Stage.Answered);
-        _cut.Dispatch(commands, _cutSet, groups, new ClaimsPush((uint)_holdCount, 0u, 0u, 0u));
+        _cut.Dispatch(commands, _cutSet, holds, new ClaimsPush((uint)_holdCount, 0u, 0u, 0u));
         vk.BeforeTransfer(commands);
         _timer.Stamp(commands, (int)Stage.Cut);
 
         vk.Copy(commands, _rows, _rowsOut, Bytes<ClaimRow>(_rowCount));
         vk.Copy(commands, _answers, _answersOut, Bytes<ClaimAnswer>(_holdCount));
         vk.Copy(commands, _moved, _movedOut, _moved.SizeBytes);
+        vk.Copy(commands, _order, _orderOut, Bytes<uint>(_rowCount));
+        vk.Copy(commands, _bodyRuns, _bodyRunsOut, _bodyRuns.SizeBytes);
+        vk.Copy(commands, _plannedRuns, _plannedRunsOut, _plannedRuns.SizeBytes);
         _batch.SubmitAndWait();
         _timer.Read();
     }
+
+    static uint Groups(int count) => (uint)Math.Max(1, (count + 63) / 64);
 
     GpuBuffer Device<T>(int count) where T : unmanaged => Own(
         _vk.CreateBuffer(
@@ -251,9 +291,8 @@ internal sealed class DeviceClaims : IDisposable
     {
         _timer.Dispose();
         _batch.Dispose();
-        _answer.Dispose();
-        _show.Dispose();
-        _cut.Dispose();
+        _scans.Dispose();
+        foreach (var kernel in (ReadOnlySpan<ComputeKernel>)[_count, _file, _sort, _answer, _show, _cut]) kernel.Dispose();
         foreach (var buffer in _owned) buffer.Dispose();
     }
 }

@@ -1,0 +1,28 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every way's two runs sorted as the host's lists stand and handed out as runs, one thread a way (claims_lists.glsl).
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint rowCount;
+    uint wayCount;
+} figures;
+
+#include "world/road/kernels/claims_rows.glsl"
+#include "world/road/kernels/claims_lists.glsl"
+
+void main()
+{
+    uint way = gl_GlobalInvocationID.x;
+    if (way >= figures.wayCount) return;
+
+    uvec2 bodies = uvec2(starts[way], counts[way]);
+    uvec2 planned = uvec2(starts[figures.wayCount + way], counts[figures.wayCount + way]);
+    claimsSortRun(bodies.x, bodies.y);
+    claimsSortRun(planned.x, planned.y);
+    bodyRuns[way] = bodies;
+    plannedRuns[way] = planned;
+}

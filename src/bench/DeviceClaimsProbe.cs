@@ -35,6 +35,7 @@ internal static class DeviceClaimsProbe
         var hostMs = new List<double>();
         var deviceMs = new List<double>();
         var layMs = new List<double>();
+        var listMs = new List<double>();
         var differ = 0;
         var answered = 0;
         var host = new Stopwatch();
@@ -45,6 +46,7 @@ internal static class DeviceClaimsProbe
             layMs.Add(laying.Elapsed.TotalMilliseconds);
             onDevice.Answer();
             deviceMs.Add(onDevice.BetweenMs(DeviceClaims.Stage.Began, DeviceClaims.Stage.Cut));
+            listMs.Add(onDevice.BetweenMs(DeviceClaims.Stage.Began, DeviceClaims.Stage.Listed));
             host.Restart();
         };
         world.AfterThePlansAreAnswered = town =>
@@ -70,8 +72,9 @@ internal static class DeviceClaimsProbe
         Console.WriteLine($"device claims probe — {map} on {vk.DeviceName}, {world.Cars.Count} cars and {world.People.Count} walkers after {WarmupTicks} ticks");
         Console.WriteLine($"{hostMs.Count} rebuilds, {answered / Math.Max(1, hostMs.Count)} plans each, {onDevice.Passes} passes on the device:");
         Console.WriteLine($"  host answers and cuts   median {Median(hostMs),8:F3} ms   most {hostMs.Max(),8:F3} ms");
-        Console.WriteLine($"  device answers and cuts median {Median(deviceMs),8:F3} ms   most {deviceMs.Max(),8:F3} ms");
-        Console.WriteLine($"  laying the rows (shadow only) median {Median(layMs),8:F3} ms");
+        Console.WriteLine($"  device lists, answers and cuts median {Median(deviceMs),8:F3} ms   most {deviceMs.Max(),8:F3} ms");
+        Console.WriteLine($"  of which laying the lists  median {Median(listMs),8:F3} ms");
+        Console.WriteLine($"  writing the rows to send (shadow only) median {Median(layMs),8:F3} ms");
         Console.WriteLine($"  {differ} of {answered} plans answered differently");
     }
 
