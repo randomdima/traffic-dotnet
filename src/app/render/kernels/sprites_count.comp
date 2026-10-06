@@ -1,0 +1,55 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The emit's first pass: how many instances each part of each unit draws this frame, one thread a unit — a walker, a
+// car (its four parts, in whichever run its level is drawn in) or a signal head — into the slot the scan turns into
+// where they start. A car's lit lenses are kept for the second pass, which would otherwise read its line again.
+
+layout(local_size_x = 64) in;
+
+#include "app/render/kernels/sprites_buffers.glsl"
+
+void countCar(uint car)
+{
+    uint run = car < frame.carCount ? spritesRunOf(cars[car]) : RunNone;
+    uint counts[CarParts] = uint[](0u, 0u, 0u, 0u);
+    uvec2 shown = uvec2(0u);
+    if (run != RunNone)
+    {
+        SpriteOut first;
+        SpriteOut second;
+        counts[PartTyres] = spritesTyres(car, first, second);
+        counts[PartBody] = spritesBody(car, first) ? 1u : 0u;
+        counts[PartBeam] = spritesBeam(car, first) ? 1u : 0u;
+        shown = spritesLamps(car);
+        counts[PartLamps] = 2u * uint(bitCount(shown.x));
+    }
+
+    lampsShown[car] = shown;
+    for (uint part = 0u; part < CarParts; part++)
+    {
+        starts[spritesCarSlot(RunOver, part, car)] = run == RunOver ? counts[part] : 0u;
+        if (figures.levelled != 0u) starts[spritesCarSlot(RunAbove, part, car)] = run == RunAbove ? counts[part] : 0u;
+    }
+}
+
+void main()
+{
+    uint unit = gl_GlobalInvocationID.x;
+    SpriteOut sprite;
+    if (unit < figures.personCapacity)
+    {
+        starts[unit] = unit < frame.personCount && spritesPerson(unit, sprite) ? 1u : 0u;
+        return;
+    }
+
+    unit -= figures.personCapacity;
+    if (unit < figures.carCapacity)
+    {
+        countCar(unit);
+        return;
+    }
+
+    unit -= figures.carCapacity;
+    if (unit < figures.headCount) starts[spritesHeadsFrom() + unit] = spritesHead(unit, sprite) ? 1u : 0u;
+}

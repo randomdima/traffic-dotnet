@@ -3,6 +3,40 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md); how a type
 works is its own XML docs.
 
+## 2026-10-07 — the moving sprites are emitted on the device, beside the fill
+
+**The tick moves to the device** (root log), and once it has, where the cars, the walkers and the lights stand is only
+there, so what a frame draws of them has to be written there. `TownSprites.FillMoving` is the host's half — the walkers,
+every car part by part, the heads, and the cars on the level above, as `Fill` lays them past the marks and the scenery —
+and `kernels/sprites_count.comp` and `sprites_write.comp` over `sprites.glsl` are the device's, run in shadow by
+`app/devicetick/DeviceSprites`. A car's lamps are `agents/car/body/kernels/lamps.glsl` and a walker's cell
+`agents/person/body/kernels/look.glsl`, each its own slice's.
+
+- **Count, scan, write.** A count a part of a unit, laid in the order the instances are drawn — the walkers', each car
+  part's a run apiece, the heads', the car parts again for the level above — then a prefix scan, then a pass that lays
+  each part where it starts and writes the two draws' counts. Fixed slots a car, compacted, was weighed and not done:
+  it leaves the parts interleaved car by car where the host lays them part by part, and the compaction is a scan anyway.
+- **Every unit is asked, and none through a grid.** The host asks the solver's grids who may be near (`CarsIn`,
+  `PeopleIn`) and culls each part against its own reach; the device asks every unit the per-part question, a thread a
+  unit. What the grid answers holds everything the culls keep, so the instances are the same.
+- **The view, the clock and the live rosters are a block in a buffer, not push constants**: the frame that will carry
+  the emit is recorded once (`CameraView`).
+- **What only a type held is data now**: the heads in the order their rows file them (`RowFile.Filed`), a head's cell
+  (`SignalSprites.CellOf`), a look's build with no car wearing it (`CarFleet.BuildOfVariant`); and `FillCars` takes
+  the fleets rather than the town, so a staged fleet is drawn by the code a town is.
+
+Held to the host by `DeviceSpritesTests`: the fixture town running, five framings a second for twenty seconds; 2 000
+staged walkers of every look standing, walking, down and inside; 2 000 staged cars of every look with every lamp input,
+wrecked, towing by either end, under a hand, on three levels, at three scales. Every field is the host's to the bit but
+a tow arm's bearing, the device's arctangent; a walker's facing and stride and the arm's direction are rounded.glsl's
+quotients and root. On OdesaOsm (`--bench devicesprites`, RX 9070 XT; 10 013 cars, 10 000 walkers, 2 714 heads) the
+emit took 25–29 µs at every framing, 14 of them the scan, where the fill took 0.7 µs at a street and 137 µs over the
+whole town; no instance differed. **A head's colour is `signal.glsl`'s, whose quotients are the device's own**: on RADV
+a head at a cycle's edge could turn a frame early, and none did there.
+
+**Not yet:** the marks, which are a ring on the host (`DriftMarks`); and the frame's own draws, which still read the
+fill's instances.
+
 ## 2026-10-06 — a frame asks the grid what it can see, and the buildings are laid once
 
 The owner asked that a frame do as little as it can, and pointed at the grid: the town already knows what stands in

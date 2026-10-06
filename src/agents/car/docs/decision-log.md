@@ -9,7 +9,7 @@ are here: a superseded one is deleted, not annotated.
 plan there: `actions/follow/kernels/plan.glsl` is `ClearTheClaim`, `Following.Plan`, `WaysAlong`, `LevelTheRungs`,
 `AskOn` and the marks' secondary claims line for line, one car a thread, over the line in the fleet's own layout and
 the road's connectors, rungs and marks laid once (`app/devicetick/DevicePlans`). The town hands the cars over just
-before their claims are cleared (`TownWorld.BeforeThePlansAreLaid`).
+before their claims are cleared (`TownWorld.WatchingTheClaims` at `ClaimsStage.PlansDue`).
 
 - **Every quotient is the host's float** (`rounded.glsl`): with RADV's own division 8 443 of OdesaOsm's 990 767 plans
   ended a last bit elsewhere; with it, none.
@@ -17,6 +17,13 @@ before their claims are cleared (`TownWorld.BeforeThePlansAreLaid`).
 - Held to the town over 400 fixture rebuilds (`DevicePlansTests`): where each claim begins, reaches, is committed to and
   is held short, and every piece and secondary claim in order, bit for bit. On OdesaOsm (`--bench deviceclaims`) the
   plans are laid in 0.24 ms.
+
+## 2026-10-07 — a car's lamps are asked on the device
+
+`CarLamps.Showing`, `Shown` and `TurnAheadRad` are `body/kernels/lamps.glsl` line for line, for the frame's emit
+(`app/render` log). A lamp takes no transcendental and no quotient, so every lens is the host's to the bit — held over
+2 000 staged cars of every look and every input a lamp answers (`DeviceSpritesTests`). The line is read only as far as
+`TurnAheadM` past the car, so the shadow sends no more of it.
 
 ## 2026-10-06 — a car's whole tyre pass is one function, and the device runs it
 

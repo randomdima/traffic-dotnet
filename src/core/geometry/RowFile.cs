@@ -27,6 +27,9 @@ internal sealed class RowFile
 
     public int RowCount => _rowStarts.Length - 1;
 
+    /// <summary>Every item once, row after row — the order a reader walking every row meets them in.</summary>
+    public ReadOnlySpan<int> Filed => _items;
+
     /// <summary>The items of <paramref name="pointsM"/>, by their index in it, filed by the row each point is in.</summary>
     public static RowFile Of(ReadOnlySpan<Vector2> pointsM, GridLevel level)
     {

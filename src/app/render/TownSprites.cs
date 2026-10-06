@@ -265,8 +265,6 @@ internal sealed class TownSprites
         TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre,
         Span<SpriteInstance> under, Span<SpriteInstance> over, Span<SpriteInstance> above)
     {
-        var leastPartM = config.View.CarPartLeastPx / pixelsPerMetre;
-
         // Painter's order, and the marks are under all of it: a skid is on the road, so everything that
         // stands or drives passes over its own.
         var underCount = MarkSprites.Fill(world.Marks, RubberBrushSheet, SoilBrushSheet, viewCentreM, viewSpanM, under);
@@ -274,6 +272,21 @@ internal sealed class TownSprites
         // The scenery under everything that stands: nothing of the town's comes near it but its own neighbours.
         underCount += Scenery.Fill(viewCentreM, viewSpanM, under[underCount..]);
         var (standingFirst, standingCount) = Standing.Range(viewCentreM, viewSpanM);
+
+        var (overCount, aboveCount) = FillMoving(world, config, viewCentreM, viewSpanM, pixelsPerMetre, over, above);
+        return new SpriteCounts(underCount, standingFirst, standingCount, overCount, aboveCount);
+    }
+
+    /// <summary>
+    /// <b>What moves</b>, the two runs <see cref="Fill"/> writes every frame past the marks and the scenery: the walkers,
+    /// the cars and the signal heads over the ground, and the cars on the level above. It is what the device emits in
+    /// its place (<c>app/render/kernels/sprites.glsl</c>), and is held to.
+    /// </summary>
+    public (int Over, int Above) FillMoving(
+        TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre,
+        Span<SpriteInstance> over, Span<SpriteInstance> above)
+    {
+        var leastPartM = config.View.CarPartLeastPx / pixelsPerMetre;
 
         // Who may be in the frame, off the solver's grids rather than out of the whole town (TownWorld.CarsIn).
         if (_peopleInView.Length < world.People.Capacity) _peopleInView = new int[world.People.Capacity];
@@ -286,46 +299,53 @@ internal sealed class TownSprites
             world.People, people, People, Aspects, FirstDownSheet, viewCentreM, viewSpanM, over);
 
         var onTheGround = world.Levelled ? CityPlan.RoadArrays.Ground : CarSprites.EveryLevel;
-        overCount += FillCars(world, cars, config, viewCentreM, viewSpanM, leastPartM, over[overCount..], onTheGround);
+        overCount += FillCars(
+            world.Cars, world.Recovery, cars, config, world.ElapsedS, world.HandDriven, world.HandDrivenCar, viewCentreM,
+            viewSpanM, leastPartM, over[overCount..], onTheGround);
 
         // The heads last of all: a signal hangs over the carriageway, so nothing driving under it passes
         // in front of it.
         overCount += SignalSprites.Fill(world, config, FirstHeadSheet, viewCentreM, viewSpanM, over[overCount..]);
 
         var aboveCount = world.Levelled
-            ? FillCars(world, cars, config, viewCentreM, viewSpanM, leastPartM, above, CityPlan.RoadArrays.Over)
+            ? FillCars(
+                world.Cars, world.Recovery, cars, config, world.ElapsedS, world.HandDriven, world.HandDrivenCar, viewCentreM,
+                viewSpanM, leastPartM, above, CityPlan.RoadArrays.Over)
             : 0;
-        return new SpriteCounts(underCount, standingFirst, standingCount, overCount, aboveCount);
+        return (overCount, aboveCount);
     }
 
     /// <summary>The cars of one level, every part of each in the order it is seen from above.</summary>
-    /// <param name="cars">The cars the frame may show (<see cref="TownWorld.CarsIn"/>).</param>
+    /// <param name="drawn">The cars the frame may show (<see cref="TownWorld.CarsIn"/>).</param>
+    /// <param name="handDriven">The units the player has the wheel of (<see cref="TownWorld.HandDriven"/>).</param>
+    /// <param name="alsoDrivenCar">The car a second hand names, or −1 (<see cref="TownWorld.HandDrivenCar"/>).</param>
     /// <param name="leastPartM">The narrowest tyre or glow this frame draws; a pass whose widest is narrower is not walked at all.</param>
-    int FillCars(
-        TownWorld world, ReadOnlySpan<int> cars, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM,
-        float leastPartM, Span<SpriteInstance> into, int level)
+    public int FillCars(
+        CarFleet cars, RecoveryDuty recovery, ReadOnlySpan<int> drawn, SimConfig config, float elapsedS,
+        ReadOnlySpan<Selection> handDriven, int alsoDrivenCar, Vector2 viewCentreM, Vector2 viewSpanM, float leastPartM,
+        Span<SpriteInstance> into, int level)
     {
         // The steered tyres before the bodies, so a car's own bodywork is drawn over them and what shows is
         // the rubber standing proud of the arch — which is what a wheel looks like from above.
         var written = WidestTyreM < leastPartM
             ? 0
-            : CarSprites.FillFrontTyres(world.Cars, cars, RubberSheet, leastPartM, viewCentreM, viewSpanM, into, level);
+            : CarSprites.FillFrontTyres(cars, drawn, RubberSheet, leastPartM, viewCentreM, viewSpanM, into, level);
 
         written += CarSprites.Fill(
-            world.Cars, cars, Cars, FirstCarSheet, CarSheetScales, viewCentreM, viewSpanM, into[written..], level);
+            cars, drawn, Cars, FirstCarSheet, CarSheetScales, viewCentreM, viewSpanM, into[written..], level);
 
         // The arm over both bodies: it stands on the truck's deck and its fork is above the nose of what it
         // is holding, so a tow drawn under either of them is an arm running through a car (EVA-5).
         written += CarSprites.FillBeams(
-            world.Cars, cars, Cars, world.Recovery, FirstBeamSheet, viewCentreM, viewSpanM, into[written..], level);
+            cars, drawn, Cars, recovery, FirstBeamSheet, viewCentreM, viewSpanM, into[written..], level);
 
         // The lamps over the bodies, because a lamp is a light on the bodywork: drawn under it, a brake
         // lamp is a red smudge on the road behind a car rather than anything the car is showing.
         if (WidestGlowM < leastPartM) return written;
 
         return written + LampSprites.Fill(
-            world.Cars, cars, Cars, config, LensSheet, LampGlowSheet, world.ElapsedS, world.HandDriven,
-            world.HandDrivenCar, viewCentreM, viewSpanM, into[written..], level, leastPartM);
+            cars, drawn, Cars, config, LensSheet, LampGlowSheet, elapsedS, handDriven, alsoDrivenCar, viewCentreM,
+            viewSpanM, into[written..], level, leastPartM);
     }
 }
 

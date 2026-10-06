@@ -1,0 +1,104 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The emit's second pass: every part of every unit laid where the scan of the first pass's counts says it starts, one
+// thread a unit as the first pass ran — the over run from the first instance and the run above from roomOver — and the
+// two draws told how many each run holds. A run fuller than its room is cut at it, as the host's buffer cuts it.
+
+layout(local_size_x = 64) in;
+
+#include "app/render/kernels/sprites_buffers.glsl"
+
+uint overTotal;
+
+uint countAt(uint slot)
+{
+    uint next = slot + 1u < spritesSlotCount() ? starts[slot + 1u] : totals[TotalAt];
+    return next - starts[slot];
+}
+
+void put(uint run, uint at, SpriteOut sprite)
+{
+    if (run == RunOver)
+    {
+        if (at < figures.roomOver) instances[at] = sprite;
+        return;
+    }
+
+    uint above = at - overTotal;
+    if (above < figures.roomAbove) instances[figures.roomOver + above] = sprite;
+}
+
+void writeCar(uint car)
+{
+    if (car >= frame.carCount) return;
+
+    CarRow row = cars[car];
+    uint run = spritesRunOf(row);
+    if (run == RunNone) return;
+
+    SpriteOut first;
+    SpriteOut second;
+    uint slot = spritesCarSlot(run, PartTyres, car);
+    if (countAt(slot) != 0u && spritesTyres(car, first, second) == 2u)
+    {
+        put(run, starts[slot], first);
+        put(run, starts[slot] + 1u, second);
+    }
+
+    slot = spritesCarSlot(run, PartBody, car);
+    if (countAt(slot) != 0u && spritesBody(car, first)) put(run, starts[slot], first);
+
+    slot = spritesCarSlot(run, PartBeam, car);
+    if (countAt(slot) != 0u && spritesBeam(car, first)) put(run, starts[slot], first);
+
+    // Every glow on the car before any of its lenses (LampSprites.Fill).
+    slot = spritesCarSlot(run, PartLamps, car);
+    uvec2 shown = lampsShown[car];
+    uint drawn = uint(bitCount(shown.x));
+    if (drawn == 0u) return;
+
+    uint variant = row.variant % figures.carSheets;
+    uint glowAt = starts[slot];
+    uint lensAt = glowAt + drawn;
+    for (uint lens = 0u; lens < figures.mostLenses; lens++)
+    {
+        if ((shown.x & (1u << lens)) == 0u) continue;
+
+        LensRow at = lenses[variant * figures.mostLenses + lens];
+        uint colour = (shown.y >> (3u * lens)) & 7u;
+        put(run, glowAt++, spritesGlow(row, at, colour));
+        put(run, lensAt++, spritesLens(row, at, colour));
+    }
+}
+
+void main()
+{
+    uint unit = gl_GlobalInvocationID.x;
+    uint total = totals[TotalAt];
+    uint aboveFrom = spritesAboveFrom();
+    overTotal = figures.levelled != 0u && aboveFrom < spritesSlotCount() ? starts[aboveFrom] : total;
+    if (unit == 0u)
+    {
+        draws[0] = SpriteDraw(SpriteQuadCorners, min(overTotal, figures.roomOver), 0u, 0u);
+        draws[1] = SpriteDraw(SpriteQuadCorners, min(total - overTotal, figures.roomAbove), 0u, 0u);
+    }
+
+    SpriteOut sprite;
+    if (unit < figures.personCapacity)
+    {
+        if (countAt(unit) != 0u && spritesPerson(unit, sprite)) put(RunOver, starts[unit], sprite);
+        return;
+    }
+
+    unit -= figures.personCapacity;
+    if (unit < figures.carCapacity)
+    {
+        writeCar(unit);
+        return;
+    }
+
+    unit -= figures.carCapacity;
+    uint slot = spritesHeadsFrom() + unit;
+    if (unit < figures.headCount && countAt(slot) != 0u && spritesHead(unit, sprite)) put(RunOver, starts[slot], sprite);
+}

@@ -686,6 +686,9 @@ internal sealed class CarFleet
     /// </summary>
     public ref readonly CarBuild BuildOf(int car) => ref _builds.Of(Variant[car]);
 
+    /// <summary>And the car a look is, whether or not any of this fleet wears it — for a table laid once a look.</summary>
+    public ref readonly CarBuild BuildOfVariant(int variant) => ref _builds.Of(variant);
+
     /// <param name="variant">
     /// Which look this car wears, and with it <b>which car it is</b>: the build it is driven by is this
     /// variant's (<see cref="BuildOf"/>), so its weight, its axles and what its tyres are worth all come

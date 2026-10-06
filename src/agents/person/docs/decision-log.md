@@ -4,6 +4,12 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-10-07 — a walker's cell is picked on the device
+
+`PersonCatalog.FacingRow` and `WalkColumn` are `body/kernels/look.glsl`, for the frame's emit (`app/render` log). Both
+quotients are `rounded.glsl`'s, so a heading on the edge between two facings picks the host's row on any device — held
+over 2 000 staged walkers of every look, a tenth of them headed exactly on an edge (`DeviceSpritesTests`).
+
 ## 2026-10-06 — a walker's tick is asked on the device, of the host's own function
 
 **The tick moves to the device** (root log). What the tick does with a walker is now one function,
