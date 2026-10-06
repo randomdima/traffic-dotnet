@@ -4,23 +4,38 @@ namespace TrafficSimulation.World.Town;
 /// <param name="Occupant">The car it is held under: itself, or the truck it hangs from (EVA-5).</param>
 internal readonly record struct CarLaying(int Occupant, bool Travelling, bool RunsOnPastItself, bool Blocked);
 
+/// <summary>Where a claims rebuild has got to, as the town hands it to a watcher (<see cref="TownWorld.WatchingTheClaims"/>).</summary>
+internal enum ClaimsStage
+{
+    /// <summary>Begun, with nothing laid.</summary>
+    Begun,
+
+    /// <summary>Every body, pass and light laid, and no car's claim yet cleared and laid again.</summary>
+    PlansDue,
+
+    /// <summary>Every plan laid whole, and none answered.</summary>
+    PlansLaid,
+
+    /// <summary>Every plan answered and cut where its answer says.</summary>
+    PlansAnswered,
+
+    /// <summary>Every car's and walker's grant read back off what its plan came to: the rebuild done.</summary>
+    GrantsRead,
+}
+
 /// <summary>
-/// <b>The claims handed to the instruments</b> — for a device laying and answering the plans beside the town
-/// (<c>app/devicetick/DevicePlans</c>, <c>DeviceClaims</c>). Nothing that decides anything reads them.
+/// <b>The claims handed to the instruments</b> — for a device laying and answering them beside the town
+/// (<c>app/devicetick</c>). Nothing that decides anything reads them.
 /// </summary>
 internal sealed partial class TownWorld
 {
     /// <summary>
-    /// <b>For the instruments</b>: handed the town as a claims rebuild begins, before anything is laid
+    /// <b>For the instruments</b>: handed the town at every stage of every claims rebuild
     /// (<see cref="RebuildLaneOccupancy"/>). Nothing that decides anything sets it.
     /// </summary>
-    public Action<TownWorld>? BeforeTheClaimsAreLaid { get; set; }
+    public Action<TownWorld, ClaimsStage>? WatchingTheClaims { get; set; }
 
-    /// <summary>
-    /// <b>For the instruments</b>: handed the town once every body, pass and light is laid and before any car's claim is
-    /// cleared and laid again (<see cref="RebuildLaneOccupancy"/>). Nothing that decides anything sets it.
-    /// </summary>
-    public Action<TownWorld>? BeforeThePlansAreLaid { get; set; }
+    void Watch(ClaimsStage stage) => WatchingTheClaims?.Invoke(this, stage);
 
     /// <summary>
     /// For the instruments: <b>what a car's body is laid as</b> (<see cref="LayTheCarsBody"/>) — the car it is held under,
@@ -31,15 +46,6 @@ internal sealed partial class TownWorld
         var occupant = LaidAs(car);
         return new CarLaying(occupant, IsUnderWay(occupant), _ground.RunsOnPastItself(occupant), Cars.Context[occupant].Blocked);
     }
-
-    /// <summary>
-    /// <b>For the instruments</b>: handed the town with every plan laid whole and none answered yet, and again once the
-    /// answers are laid (<see cref="AnswerThePlans"/>). Nothing that decides anything sets either.
-    /// </summary>
-    public Action<TownWorld>? BeforeThePlansAreAnswered { get; set; }
-
-    /// <inheritdoc cref="BeforeThePlansAreAnswered"/>
-    public Action<TownWorld>? AfterThePlansAreAnswered { get; set; }
 
     /// <summary>For the instruments: whether this car's claim this rebuild is a plan down its own line (<see cref="PlansDownItsLine"/>).</summary>
     public bool PlansItsLine(int car) => PlansDownItsLine(car);

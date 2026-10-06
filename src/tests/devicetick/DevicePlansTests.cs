@@ -37,19 +37,24 @@ public class DevicePlansTests(Lavapipe device) : IClassFixture<Lavapipe>
         var differ = new List<string>();
         var rebuilds = 0;
         var planned = 0;
-        world.BeforeThePlansAreLaid = town =>
+        world.WatchingTheClaims = (town, stage) =>
         {
-            onDevice.Lay(town);
-            onDevice.Plan(town.Cars.Count);
-        };
-        world.BeforeThePlansAreAnswered = town =>
-        {
-            rebuilds++;
-            for (var car = 0; car < town.Cars.Count; car++)
+            switch (stage)
             {
-                if (town.Cars.Pass[car].Begun) continue;
+                case ClaimsStage.PlansDue:
+                    onDevice.Lay(town);
+                    onDevice.Plan(town.Cars.Count);
+                    break;
+                case ClaimsStage.PlansLaid:
+                    rebuilds++;
+                    for (var car = 0; car < town.Cars.Count; car++)
+                    {
+                        if (town.Cars.Pass[car].Begun) continue;
 
-                planned += Compare(town, onDevice, car, rebuilds, differ) ? 1 : 0;
+                        planned += Compare(town, onDevice, car, rebuilds, differ) ? 1 : 0;
+                    }
+
+                    break;
             }
         };
 

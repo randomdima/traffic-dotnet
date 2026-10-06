@@ -38,16 +38,20 @@ public class DeviceClaimsTests(Lavapipe device) : IClassFixture<Lavapipe>
         var differ = new List<string>();
         var rebuilds = 0;
         var listed = new int[claims.Capacity];
-        world.BeforeThePlansAreAnswered = town =>
+        world.WatchingTheClaims = (town, stage) =>
         {
-            onDevice.Lay(town.Occupancy);
-            onDevice.Answer();
-            CompareTheLists(town.Occupancy, onDevice, rebuilds + 1, listed, differ);
-        };
-        world.AfterThePlansAreAnswered = town =>
-        {
-            rebuilds++;
-            Compare(town.Occupancy, onDevice, rebuilds, differ);
+            switch (stage)
+            {
+                case ClaimsStage.PlansLaid:
+                    onDevice.Lay(town.Occupancy);
+                    onDevice.Answer();
+                    CompareTheLists(town.Occupancy, onDevice, rebuilds + 1, listed, differ);
+                    break;
+                case ClaimsStage.PlansAnswered:
+                    rebuilds++;
+                    Compare(town.Occupancy, onDevice, rebuilds, differ);
+                    break;
+            }
         };
 
         for (var tick = 0; tick < Ticks; tick++) loop.Advance();

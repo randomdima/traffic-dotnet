@@ -58,7 +58,7 @@ internal sealed partial class TownWorld
     /// </remarks>
     void RebuildLaneOccupancy()
     {
-        BeforeTheClaimsAreLaid?.Invoke(this);
+        Watch(ClaimsStage.Begun);
         _occupancy.Begin();
 
         // Where every walker stands on its walk, before anything is laid: its body and its plan both begin
@@ -85,7 +85,7 @@ internal sealed partial class TownWorld
 
         // What a hand or a truck cannot stop short of is laid where it stands before any plan (<see cref="AnswerThePlans"/>),
         // and every plan after them laid whole.
-        BeforeThePlansAreLaid?.Invoke(this);
+        Watch(ClaimsStage.PlansDue);
         Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];
         foreach (var car in CarsAsked)
         {
@@ -113,6 +113,8 @@ internal sealed partial class TownWorld
             _sidestepping.Consider(person);
             AimTheWalker(person);
         }
+
+        Watch(ClaimsStage.GrantsRead);
     }
 
     /// <summary>
@@ -145,11 +147,11 @@ internal sealed partial class TownWorld
     /// </remarks>
     void AnswerThePlans()
     {
-        BeforeThePlansAreAnswered?.Invoke(this);
+        Watch(ClaimsStage.PlansLaid);
         PlansLaidAgain += _occupancy.AnswerThePlans(_config.Road.MostSettlingPasses, out var settled);
         if (!settled) Unsettled++;
 
-        AfterThePlansAreAnswered?.Invoke(this);
+        Watch(ClaimsStage.PlansAnswered);
     }
 
     /// <summary>

@@ -38,53 +38,66 @@ public class DeviceBodiesTests(Lavapipe device) : IClassFixture<Lavapipe>
         var differ = new List<string>();
         var rebuilds = 0;
         var bodies = 0;
-        world.BeforeTheClaimsAreLaid = town =>
+        world.WatchingTheClaims = (town, stage) =>
         {
-            onDevice.Lay(town);
-            onDevice.LayTheBodies(town.Cars.Count);
-        };
-        world.BeforeThePlansAreLaid = town =>
-        {
-            rebuilds++;
-            var claims = town.Occupancy;
-            var onTheWays = new Dictionary<int, List<DeviceClaims.ClaimRow>>();
-            for (var car = 0; car < town.Cars.Count; car++)
+            switch (stage)
             {
-                foreach (var row in onDevice.RowsOf(car)) Listed(onTheWays, (int)row.Way).Add(row);
-                if (onDevice.ChannelsOf(car) != town.Cars.Channels[car])
-                {
-                    differ.Add($"rebuild {rebuilds} car {car}: town on channels {town.Cars.Channels[car]}, device {onDevice.ChannelsOf(car)}");
-                }
-            }
-
-            var laid = new Dictionary<int, List<DeviceClaims.ClaimRow>>();
-            for (var slot = 0; slot < claims.SlotCount; slot++)
-            {
-                ref readonly var claim = ref claims.Slots[slot];
-                if (!claim.HasBody || claim.Of != LaneRoster.Driving || claim.Passing || claims.SlotsGone[slot]) continue;
-
-                Listed(laid, claims.SlotWays[slot]).Add(DeviceClaims.ClaimRow.Of(claim, claims.SlotWays[slot], false, claim.FromM));
-            }
-
-            foreach (var (way, town_) in laid)
-            {
-                bodies += town_.Count;
-                var device_ = onTheWays.GetValueOrDefault(way) ?? [];
-                if (!town_.OrderBy(Key).SequenceEqual(device_.OrderBy(Key)))
-                {
-                    differ.Add($"rebuild {rebuilds} way {way}: town [{string.Join(", ", town_)}] device [{string.Join(", ", device_)}]");
-                }
-            }
-
-            foreach (var (way, device_) in onTheWays)
-            {
-                if (!laid.ContainsKey(way)) differ.Add($"rebuild {rebuilds} way {way}: town none, device [{string.Join(", ", device_)}]");
+                case ClaimsStage.Begun:
+                    onDevice.Lay(town);
+                    onDevice.LayTheBodies(town.Cars.Count);
+                    break;
+                case ClaimsStage.PlansDue:
+                    rebuilds++;
+                    bodies += Compare(town, onDevice, rebuilds, differ);
+                    break;
             }
         };
 
         for (var tick = 0; tick < Ticks; tick++) loop.Advance();
 
         Assert.True(differ.Count == 0, $"{differ.Count} differences over {rebuilds} rebuilds, {bodies} bodies: {string.Join("; ", differ.Take(6))}");
+    }
+
+    /// <returns>How many car bodies the town laid.</returns>
+    static int Compare(TownWorld town, DeviceBodies onDevice, int rebuild, List<string> differ)
+    {
+        var claims = town.Occupancy;
+        var onTheWays = new Dictionary<int, List<DeviceClaims.ClaimRow>>();
+        for (var car = 0; car < town.Cars.Count; car++)
+        {
+            foreach (var row in onDevice.RowsOf(car)) Listed(onTheWays, (int)row.Way).Add(row);
+            if (onDevice.ChannelsOf(car) != town.Cars.Channels[car])
+            {
+                differ.Add($"rebuild {rebuild} car {car}: town on channels {town.Cars.Channels[car]}, device {onDevice.ChannelsOf(car)}");
+            }
+        }
+
+        var laid = new Dictionary<int, List<DeviceClaims.ClaimRow>>();
+        for (var slot = 0; slot < claims.SlotCount; slot++)
+        {
+            ref readonly var claim = ref claims.Slots[slot];
+            if (!claim.HasBody || claim.Of != LaneRoster.Driving || claim.Passing || claims.SlotsGone[slot]) continue;
+
+            Listed(laid, claims.SlotWays[slot]).Add(DeviceClaims.ClaimRow.Of(claim, claims.SlotWays[slot], false, claim.FromM));
+        }
+
+        var bodies = 0;
+        foreach (var (way, byTheTown) in laid)
+        {
+            bodies += byTheTown.Count;
+            var byTheDevice = onTheWays.GetValueOrDefault(way) ?? [];
+            if (!byTheTown.OrderBy(Key).SequenceEqual(byTheDevice.OrderBy(Key)))
+            {
+                differ.Add($"rebuild {rebuild} way {way}: town [{string.Join(", ", byTheTown)}] device [{string.Join(", ", byTheDevice)}]");
+            }
+        }
+
+        foreach (var (way, byTheDevice) in onTheWays)
+        {
+            if (!laid.ContainsKey(way)) differ.Add($"rebuild {rebuild} way {way}: town none, device [{string.Join(", ", byTheDevice)}]");
+        }
+
+        return bodies;
     }
 
     static List<DeviceClaims.ClaimRow> Listed(Dictionary<int, List<DeviceClaims.ClaimRow>> onTheWays, int way) =>

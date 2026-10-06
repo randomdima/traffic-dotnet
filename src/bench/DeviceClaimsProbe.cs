@@ -37,26 +37,11 @@ internal static class DeviceClaimsProbe
         var bodiesMs = new List<double>();
         var bodiesDiffer = 0;
         var bodiesLaid = 0;
-        world.BeforeTheClaimsAreLaid = town =>
-        {
-            bodies.Lay(town);
-            bodies.LayTheBodies(town.Cars.Count);
-            bodiesMs.Add(bodies.LaidMs);
-        };
 
         using var plans = new DevicePlans(vk, config, world);
         var planMs = new List<double>();
         var plansDiffer = 0;
         var carsPlanned = 0;
-        world.BeforeThePlansAreLaid = town =>
-        {
-            (var laid, var differ) = CompareTheBodies(town, bodies);
-            bodiesLaid += laid;
-            bodiesDiffer += differ;
-            plans.Lay(town);
-            plans.Plan(town.Cars.Count);
-            planMs.Add(plans.LaidMs);
-        };
 
         var hostMs = new List<double>();
         var deviceMs = new List<double>();
@@ -65,47 +50,65 @@ internal static class DeviceClaimsProbe
         var differ = 0;
         var answered = 0;
         var host = new Stopwatch();
-        world.BeforeThePlansAreAnswered = town =>
+        world.WatchingTheClaims = (town, stage) =>
         {
-            var results = plans.Results;
-            for (var car = 0; car < town.Cars.Count; car++)
+            switch (stage)
             {
-                if (town.Cars.Pass[car].Begun || !town.Occupancy.IsAnswered(town.PlanHoldOf(car))) continue;
+                case ClaimsStage.Begun:
+                    bodies.Lay(town);
+                    bodies.LayTheBodies(town.Cars.Count);
+                    bodiesMs.Add(bodies.LaidMs);
+                    break;
 
-                carsPlanned++;
-                var (first, end) = town.Occupancy.PiecesOf(town.PlanHoldOf(car));
-                if (results[car].ClaimToM != town.Cars.ClaimToM[car] || results[car].Pieces != end - first) plansDiffer++;
-            }
+                case ClaimsStage.PlansDue:
+                    var (waysLaid, waysDiffer) = CompareTheBodies(town, bodies);
+                    bodiesLaid += waysLaid;
+                    bodiesDiffer += waysDiffer;
+                    plans.Lay(town);
+                    plans.Plan(town.Cars.Count);
+                    planMs.Add(plans.LaidMs);
+                    break;
 
-            var laying = Stopwatch.StartNew();
-            onDevice.Lay(town.Occupancy);
-            layMs.Add(laying.Elapsed.TotalMilliseconds);
-            onDevice.Answer();
-            deviceMs.Add(onDevice.BetweenMs(DeviceClaims.Stage.Began, DeviceClaims.Stage.Cut));
-            listMs.Add(onDevice.BetweenMs(DeviceClaims.Stage.Began, DeviceClaims.Stage.Listed));
-            host.Restart();
-        };
-        world.AfterThePlansAreAnswered = town =>
-        {
-            hostMs.Add(host.Elapsed.TotalMilliseconds);
-            var occupancy = town.Occupancy;
-            var answers = onDevice.Answers;
-            for (var hold = 0; hold < occupancy.HoldCount; hold++)
-            {
-                if (!occupancy.IsAnswered(hold)) continue;
+                case ClaimsStage.PlansLaid:
+                    var results = plans.Results;
+                    for (var car = 0; car < town.Cars.Count; car++)
+                    {
+                        if (town.Cars.Pass[car].Begun || !town.Occupancy.IsAnswered(town.PlanHoldOf(car))) continue;
 
-                answered++;
-                var endsAtM = occupancy.HoldEndsAtM(hold, out var marginM, out _);
-                if (endsAtM != answers[hold].CutLineM || marginM != answers[hold].MarginM) differ++;
+                        carsPlanned++;
+                        var (first, end) = town.Occupancy.PiecesOf(town.PlanHoldOf(car));
+                        if (results[car].ClaimToM != town.Cars.ClaimToM[car] || results[car].Pieces != end - first) plansDiffer++;
+                    }
+
+                    var laying = Stopwatch.StartNew();
+                    onDevice.Lay(town.Occupancy);
+                    layMs.Add(laying.Elapsed.TotalMilliseconds);
+                    onDevice.Answer();
+                    deviceMs.Add(onDevice.BetweenMs(DeviceClaims.Stage.Began, DeviceClaims.Stage.Cut));
+                    listMs.Add(onDevice.BetweenMs(DeviceClaims.Stage.Began, DeviceClaims.Stage.Listed));
+                    host.Restart();
+                    break;
+
+                case ClaimsStage.PlansAnswered:
+                    hostMs.Add(host.Elapsed.TotalMilliseconds);
+                    var occupancy = town.Occupancy;
+                    var answers = onDevice.Answers;
+                    for (var hold = 0; hold < occupancy.HoldCount; hold++)
+                    {
+                        if (!occupancy.IsAnswered(hold)) continue;
+
+                        answered++;
+                        var endsAtM = occupancy.HoldEndsAtM(hold, out var marginM, out _);
+                        if (endsAtM != answers[hold].CutLineM || marginM != answers[hold].MarginM) differ++;
+                    }
+
+                    break;
             }
         };
 
         var until = loop.Tick + MeasuredTicks;
         while (loop.Tick < until) loop.Advance();
-        world.BeforeTheClaimsAreLaid = null;
-        world.BeforeThePlansAreLaid = null;
-        world.BeforeThePlansAreAnswered = null;
-        world.AfterThePlansAreAnswered = null;
+        world.WatchingTheClaims = null;
 
         Console.WriteLine($"device claims probe — {map} on {vk.DeviceName}, {world.Cars.Count} cars and {world.People.Count} walkers after {WarmupTicks} ticks");
         Console.WriteLine($"{hostMs.Count} rebuilds, {answered / Math.Max(1, hostMs.Count)} plans each, {onDevice.Passes} passes on the device:");
