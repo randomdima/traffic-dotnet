@@ -184,7 +184,7 @@ internal static partial class TracedStreets
     /// <b>Whether a way is of no street's class</b> — a yard's, a car park's, a track — whose meeting a street is no
     /// junction of streets. A link is a street's own way on and off, and is not.
     /// </summary>
-    static bool Minor(string highway) => Rank(highway) == 0 && !highway.EndsWith("_link", StringComparison.Ordinal);
+    static bool Minor(string highway) => TracedRoad.Rank(highway) == 0 && !highway.EndsWith("_link", StringComparison.Ordinal);
 
     /// <summary>
     /// The arm of a junction whose way out is nearest straight ahead from the way in along another, no further off it
@@ -287,7 +287,7 @@ internal static partial class TracedStreets
     /// <see cref="CityGenFigures.TracedRoadsideShortestM"/> along a longer one taken off, and the rest carried on along
     /// every road of it that leaves clear of every other road
     /// (<see cref="KeepsClear"/>) — every road it is carried along laid as though measured wide enough to hold it, as
-    /// <see cref="Survey"/> lays any roadside. The buildings stand back with its walk (<see cref="TracedBuildings"/>).
+    /// <see cref="Survey"/> lays any roadside. The buildings stand back with its walk (<see cref="Zones.ZoneBuildings"/>).
     /// </summary>
     static void Roadsides(List<Along> street, List<Vector2> centreM, Carriageways carriageways, SimConfig config)
     {

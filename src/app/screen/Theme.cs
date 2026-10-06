@@ -221,6 +221,32 @@ internal static class Theme
     public static readonly Vector4 GeometryGridCell = new(0.35f, 0.65f, 0.95f, 0.40f);
 
     /// <summary>
+    /// <b>The hue a zone of each kind is washed in</b> (OBS-2z), by the kind's number: the whole map's own clear, what
+    /// is built warm — the denser the redder — and what is open and green the greens and the sand. <b>A palette by
+    /// number</b>, the kinds being the plan's and not this slice's to name.
+    /// </summary>
+    static readonly Vector3[] ZoneHues =
+    [
+        new(0f, 0f, 0f), new(0f, 0f, 0f),
+        new(0.86f, 0.22f, 0.2f), new(0.95f, 0.5f, 0.25f), new(0.8f, 0.2f, 0.55f), new(0.98f, 0.8f, 0.35f),
+        new(0.3f, 0.45f, 0.95f), new(0.55f, 0.4f, 0.75f), new(0.25f, 0.75f, 0.85f), new(0.6f, 0.55f, 0.5f),
+        new(0.45f, 0.45f, 0.5f), new(0.4f, 0.8f, 0.35f), new(0.15f, 0.5f, 0.2f), new(0.75f, 0.85f, 0.45f),
+        new(0.85f, 0.8f, 0.65f),
+    ];
+
+    /// <summary>A built kind's number, an open one's and a green one's, for the layer's key (<c>Residential</c>, <c>Parking</c>, <c>Park</c>).</summary>
+    public const int ZoneBuilt = 3, ZoneOpen = 10, ZoneGreen = 11;
+
+    /// <summary>How opaque a zone's wash is, and its outline: a tint the town reads through, and a line that holds over it.</summary>
+    const float ZoneWashAlpha = 0.3f, ZoneEdgeAlpha = 0.8f;
+
+    /// <summary>The wash of a zone of a kind, clear for the whole map's own ground.</summary>
+    public static Vector4 ZoneWash(int kind) => kind < 2 || kind >= ZoneHues.Length ? Vector4.Zero : new Vector4(ZoneHues[kind], ZoneWashAlpha);
+
+    /// <summary>And its outline.</summary>
+    public static Vector4 ZoneEdge(int kind) => kind >= ZoneHues.Length ? Vector4.Zero : new Vector4(ZoneHues[kind], kind < 2 ? 0f : ZoneEdgeAlpha);
+
+    /// <summary>
     /// A cell of the solver's static grid — the town's furniture as its broad phase bins it (OBS-2x).
     /// <b>A hue of its own and not the geometry grid's</b>: both lattices can be on at once, they are laid
     /// from different corners, and a reader looking at two offset rulings in one colour cannot say which

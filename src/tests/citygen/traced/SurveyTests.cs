@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.CityGen.Map;
 using TrafficSimulation.CityGen.Traced;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
@@ -176,7 +177,6 @@ public class SurveyTests
         Assert.Equal((2, 2, 0), (way.LanesForward, way.LanesBackward, way.LanesShared));
         Assert.Equal((RoadsideM, RoadsideM), (way.RoadsideAlongM, way.RoadsideAgainstM));
         Assert.Equal(readM, way.CarriagewayM, LineTolerance.RoundingM);
-        Assert.True(way.LanesFromWidth);
     }
 
     /// <summary>
@@ -261,16 +261,15 @@ public class SurveyTests
     }
 
     /// <summary>
-    /// <b>Imagery is not taken under a service road</b>, whose yard's paving reads as its width: it stays OSM's one lane
-    /// both ways share.
+    /// <b>Imagery is not taken under a service road</b>, whose yard's paving reads as its width: the map holds no width
+    /// for it, and a street's is held.
     /// </summary>
     [Fact]
     public void ImageryUnderAServiceRoadIsNotTaken()
     {
-        var way = Read(Measured((1, 9f, MeasuredFrom.Imagery)), Way(1, ("highway", "service"))).Ways[0];
+        var map = Imported(Measured((1, 9f, MeasuredFrom.Imagery), (2, 9f, MeasuredFrom.Imagery)), Way(1, ("highway", "service")), Way(2, ("highway", "residential")));
 
-        Assert.Null(way.WidthFrom);
-        Assert.Equal(LaneM, way.CarriagewayM);
+        Assert.Equal([null, 9f], map.Roads.Select(road => road.WidthM));
     }
 
     /// <summary>
@@ -311,8 +310,6 @@ public class SurveyTests
             Way = [.. widths.Select(width => width.Way)], WidthM = [.. widths.Select(width => width.WidthM)],
             From = [.. widths.Select(width => width.From)],
         },
-        Controls = PlaceFacts.None.Controls,
-        Footprints = TracedMap.FootprintArrays.None,
     };
 
     /// <summary>A way of a class tagged with so many lanes, which is what a measured width may make of an untagged one.</summary>
@@ -320,11 +317,14 @@ public class SurveyTests
 
     static Survey Read(params OsmWay[] ways) => Read(PlaceFacts.None, ways);
 
+    /// <summary>The same, read.</summary>
+    static Survey Read(PlaceFacts facts, params OsmWay[] ways) => Survey.Of(Imported(facts, ways), SimConfig.Shipped());
+
     /// <summary>
     /// The ways given over the seven nodes, in a frame about the street's south-west end reaching
-    /// <see cref="MarginM"/> past the street on every side, imported with the facts given and read.
+    /// <see cref="MarginM"/> past the street on every side, imported with the facts given.
     /// </summary>
-    static Survey Read(PlaceFacts facts, params OsmWay[] ways)
+    static TownMap Imported(PlaceFacts facts, params OsmWay[] ways)
     {
         var nodes = new OsmNodes
         {
@@ -352,7 +352,7 @@ public class SurveyTests
             Turns = OsmTurns.None,
         };
         extract.Check("hand-laid");
-        return Survey.Of(TracedMapImport.Of(extract, facts), SimConfig.Shipped());
+        return TracedMapImport.Of(extract, facts);
     }
 
     static OsmWay Way(long id, params (string Key, string Value)[] tags)

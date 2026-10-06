@@ -2,9 +2,8 @@
 
 **One data structure describes a complete city** (`CityPlan`): pure data that a generator lays, a builder
 stands the world up from and a validator judges, which is what lets validation run headless and a new map be
-authored without a code change. **Nothing carries it between processes**: a town is its brief and its seed,
-or the survey of a real place it is traced from (GEN-57), so what would be written out is a second answer to
-where the town is. This is the most load-bearing
+authored without a code change. **Nothing carries it between processes**: a town is its map and the seed it
+holds (GEN-58), so what would be written out is a second answer to where the town is. This is the most load-bearing
 structure in the project, and how each part of it is carried is that type's own documentation.
 
 Bay geometry is [world/parking](../../world/parking/docs/requirements.md); the ground, and what each kind
@@ -13,23 +12,21 @@ of it permits, is [world/terrain](../../world/terrain/docs/requirements.md); roa
 
 ## Where a town comes from
 
-**A city is generated from a brief when it is opened** (`TownGenerator`). What is authored is a
-`TownBrief` in [towns/](../../../towns/) — a seed, an extent, the water it stands on, how many districts and
-how strictly they are laid out, and how many of everything — and **nothing derived is ever stored**: no
-district, node, curve, cell or building, because a brief that carried geometry would be a second answer to
-where the town is and the one on disk is the one that goes stale. **A map laid to measure one thing is laid
-in code**, as arithmetic over the car's own figures rather than a seed; this build lays one, the idle ring
-([the maps](#the-maps)), and the laboratories that measured something are
-[a known gap](../../../docs/index.md#known-gaps). **A real place is traced from its survey** (`TracedPlan`,
-GEN-57): what is authored is what OpenStreetMap holds for it, and nothing of the place is drawn — only the zebras
-and props every town lays are the town's own.
+**Every town is laid off its map's own file when it is opened** (`TownPlan`, GEN-58): what the map fixes stands as
+it is, and its zones lay the rest. **A map is authored**, and edited in place after: off a `TownBrief` in
+[towns/briefs/](../../../towns/briefs/) — a seed, an extent, the water it stands on, how many districts and how
+strictly they are laid out, and how many of everything — whose water and wheel are drawn once and written into the map
+(`TownAuthor`, `--author`); or off the survey of a real place by the scanner (GEN-57), its roads and coast as
+OpenStreetMap holds them and its zones measured off the place's own buildings. **A map laid to measure one thing is
+laid in code**, as arithmetic over the car's own figures rather than a seed; this build lays two, the idle ring and the
+scenario map ([the maps](#the-maps)).
 
 **GEN-1** `P3` Generation is driven by the **world seed**, supplied manually or chosen randomly; the same
 world seed produces the same city.
 
-**GEN-1a** `P4` A city's streets are generated with everything else about it, or traced off the survey of a
-real place (GEN-57). A map that measures one thing is laid in code instead, and all three are one kind of thing
-from the plan onward: nothing downstream may ask which of them it is looking at.
+**GEN-1a** `P4` A city's streets are its map's own (GEN-57) or laid by its zones (GEN-58). A map that measures one
+thing is laid in code instead, and all of them are one kind of thing from the plan onward: nothing downstream may ask
+which of them it is looking at.
 
 **GEN-1b** `P7` No city is built until one is picked: the game opens on a start menu listing the maps, and
 nothing a reader has not chosen is built. **What the menu is drawn over is the idle ring** (`IdlePlan`,
@@ -47,8 +44,38 @@ map instead, and the menu shuts onto it.
   animation callback before it lays anything: the menu stands on the few small files the boot fetched, and
   the ring behind it is generated while the reader is looking at it.
 
-**GEN-57** `P4` **A traced map is a real place laid from its survey, and nothing of the place is drawn or lost.** What
-is authored is the map's own file (`TracedMap`, `towns/traced/<Map>.map`), **the one file of the place the engine
+**GEN-58** `P4` **Every town is laid off its map's own file, and the map says what is fixed and what is zoned.** A map
+(`TownMap`, `towns/<Map>.map`) holds what is fixed of a town — its water (a coastline closed against the map's edge, a
+water standing whole, or the course a river or a sea is drawn along), its roads where it has its own (GEN-57), and any
+building, prop or car park set down by hand — and **what it is zoned for: a tree of zones**, the first the whole map
+and every other inside its parent, each an outline, a kind (`ZoneKind`) and the settings it says of itself
+(`ZoneParam`). **Everything not fixed is laid by the zones, off the map's own seed** (`TownPlan`): a wheel's streets
+where the whole map is one (`WheelStreets`), the buildings along the walk and behind it (`ZoneBuildings`), what grows
+on the open ground (`TownProps`), and who stands in the town as the whole map counts them (GEN-7).
+
+- **What is fixed is respected.** A building set down stands before any a zone lays, which then stand clear of it; a
+  prop set down stands where it is set; and a zone lays no road where the map has its own — a map holding roads and
+  zoned as a wheel is refused.
+- **A place is the deepest zone holding it**, the smaller of two as deep, the whole map where none does
+  (`ZoneTree`), and **the ground a zone holds is its outline's less the zones inside it**. **A zone is laid by its own
+  settings, else its kind's** (`SimConfig.Zones`), and a zone that says any look says its whole mix. **A zone is a part
+  of the town built alike** — it has no name, and none stands past the map's edge.
+- **What a zone builds is as much of its street frontage as it says, as far back, as turned and as varied as it
+  says** — each building a prefab of a look drawn at the zone's shares, leaning to the zone's own footprint — **and
+  as much of the ground behind it as it says**, square to its bearing where it gives one. A town that plans fewer
+  buildings than its zones stand (`ZoneParam.Buildings`) thins them evenly, the frontage before the ground behind.
+- **No precision is given up for a file.** A line's places are millimetres; a wheel's own figures and a course's
+  places are a float's own bytes, so a brief's map lays the very streets its brief always laid; a zone's outline is
+  whole metres and a setting is held to its own step, so a map in memory is the map it reads back as.
+- **A map is authored, and edited in place after**: authoring it again replaces it and every edit made to it since.
+  A brief is read by nothing that opens a map.
+- **How near a traced town's zones build it to the place is read by `--bench zones`** (`ZoneFidelity`), against the
+  place's own buildings the scanner writes beside its layers (`footprints.bin`): kind of zone by kind, and square by
+  square. It gates nothing.
+
+**GEN-57** `P4` **A traced map is a real place laid from its survey: its streets as surveyed, nothing of them drawn or
+lost, and the rest of the town laid off them by its zones as any town's is (GEN-58).** What
+is authored is the map's own file (`TownMap`, `towns/<Map>.map`), **the one file of the place the engine
 reads**, imported off the survey and what else is known of the place by the scanner
 ([tools/osmscan/](../../tools/osmscan/), run by `qq osm`), a tool that knows none of the engine's rules. The survey is
 an `OsmExtract` in [towns/traced/](../../../towns/traced/), written by the scanner off OSM.
@@ -63,31 +90,34 @@ and the flat frame — Transverse Mercator at one metre to the metre about the m
 the map their extent and a margin. What the engine reads off the map when it is opened (`Survey.Of`) is the
 sea its coastline closes against the map's edge, and **a way running on past the map is cut where it crosses
 the map's own edge**, a crossing nearer the node inside than the shortest road the map lays being that node. **No
-seed draws anything of the place**, and the same map is the same town every time it is opened. **It lays every
-road way OSM gives lanes, of every class, its sea, and what else its map says of the place, and nothing else but
-what every town lays of its own** — its zebras and its props, which its map holds none of — and no car
-park. **What moves is a few cars stood by rule at its bridges over its roads, and the people and cars its map asks
-for** (`TracedMap.Population`, GEN-7), stood by rule as well. A road OSM draws as an area is a surface and has no lane.
+seed draws anything of its streets**, and its seed is its OSM boundary relation, so the same map is the same town
+every time it is opened. **It lays every road way OSM gives lanes, of every class, its sea, and what its zones lay,
+and nothing else but what every town lays of its own** — its connections, lights and zebras, which its map holds
+none of — and no car park. **What moves is a few cars stood by rule at its bridges over its roads, and the people and
+cars its whole map's zone asks for** (GEN-7). A road OSM draws as an area is a surface and has no lane.
 
-- **The map holds what the engine lays and nothing else** (`TracedMapImport`, `qq osm --import`): each road way's
-  line, class, level and carriageway as OSM means it, and its width as measured; the coast; the turns; each
-  junction's control and every building's footprint, height and use — in the map's own frame, so opening it reads
-  arrays rather than parsing them. **No crossing and no tree**: the town paints and plants its own. No tag, node id
-  or road surface is carried into it. **Facts and no rule**: what a traced town takes of them is what follows.
+- **The map holds as little as lays the place** (`TracedMapImport`, `qq osm --import`): each road way's line, class
+  and level, OSM's lane counts each way and whether tagged or assumed, where its carriageway stands off it, and its
+  width as measured; the coast; and what the place is zoned for (GEN-58) — its land uses as patches of one kind each,
+  nested as they stand in each other, each its kind and what its buildings measure — in the map's own
+  frame, so opening it reads arrays rather than parsing them. **No lane width, arrow, turn, control, crossing, tree or
+  footprint**: the town lays its own. No tag, node id or road surface is carried into it. **Facts and no rule**: what a
+  traced town takes of them is what follows.
 - **The map is the master, and what it was imported from is kept as it came.** An edit is made to the map in
   place — `qq osm --crop` cuts it down to a box of degrees and its margin, its roads running off at the new edge,
-  `qq osm --drop-stumps` drops every road stump that runs into or through a building or is a single lane, and
-  `qq osm --footprints` lays its footprints again off the layers, a crop's frame kept — and never to
-  what was crawled: every source's answer stays in `towns/traced/<Map>/source/` exactly as it came, and the
-  survey and the enrichment's layers beside it. An import over a map that is there replaces it and every edit
-  made since, so it is refused unless forced.
+  `qq osm --drop-stumps` drops every road stump that runs into or through a building of the layers or is a single
+  lane, `qq osm --zones` lays its zones again off the layers, a crop's frame and who it stands kept, and
+  `qq osm --upgrade` rewrites a map of the previous version as this one — and never to what was crawled: every source's
+  answer stays in `towns/traced/<Map>/source/` exactly as it came, and the survey and the enrichment's layers beside
+  it. An import over a map that is there replaces it and every edit made since, so it is refused unless forced.
 - **What OSM had wrong about the place when it was imported is put right in the survey** (`Corrections`,
   `towns/traced/<Map>.osc`): an osmChange the scanner applies over OSM's answer before anything is read off it, so
   a road it corrects is read for its lanes and turns as any other. A node it moves that a tram track or a footway
   shares stays on that way's line, and the enrichment places every node the survey holds where the survey does. A
   correction of a node or way OSM no longer holds is refused at the scan.
-- **What else is known of the place is imported off the enrichment's layers** (`PlaceFacts`), each record's one
-  answer, and layers laid off another survey than the one imported are refused.
+- **What else is known of the place is imported off the enrichment's layers** — each road's measured width
+  (`PlaceFacts`) and the zones (`ZoneHints`) — each record's one answer, and layers laid off another survey than the
+  one imported are refused.
 
 - **Nothing the survey holds is lost on the way in.** A junction stands at every place ways meet, exactly
   there — or amid the places it was gathered from, below; a place two roads carry on through is one road through it (GEN-51);
@@ -97,8 +127,8 @@ for** (`TracedMap.Population`, GEN-7), stood by rule as well. A road OSM draws a
   for the lanes both ways share that no way of running them leaves drivable, below. **So
   the generator's rules that take something out are not asked of a traced town**: one junction for places
   within a locality (GEN-16) — a traced town gathers only those a short road joins, below — a corner no tighter
-  than a class's design speed (GEN-47), and one connected network (GEN-5). How far its lanes stand off OSM's own
-  is read by `--bench fidelity`.
+  than a class's design speed (GEN-47), and one connected network (GEN-5). How far its lanes stand off its map's
+  own is read by `--bench fidelity`.
 - **Junctions a short road joins are one junction** (`TracedStreets.Gathered`): two places of three arms or more a
   road runs between, through nothing but places of two arms, shorter than `SimConfig.CityGen.TracedJunctionsMergedM`
   — a dual carriageway's crossing, a side street meeting the far carriageway through the gap in the median, a
@@ -106,9 +136,8 @@ for** (`TracedMap.Population`, GEN-7), stood by rule as well. A road OSM draws a
   with either while each stays that near every other. The road between them is gone and its ground is the box's.
   **Each road leaves the disc of the place it was surveyed to**, so the box is no bigger than the two were, and
   **the box makes only the movements the roads it gathered made**: a turn off one road onto another is forbidden
-  where they gave no way between the two, through every one-way road and every restriction at their places —
-  which is where a restriction naming the road that went is laid. A junction is lit where any place it was
-  gathered from is signalled. **So is a place of two arms inside a junction's own disc**, reached through nothing
+  where they gave no way between the two, through every one-way road at their places. **So is a place of two arms
+  inside a junction's own disc**, reached through nothing
   but such places — a way OSM changes a few metres past the node it crosses at, a flared mouth tagged with lanes
   of its own: kept apart, the road between is too short for either disc and every turn onto its far lanes begins
   past where their lines cross. Not gathered: a junction on a bridge or round a roundabout, a pair a road between
@@ -122,10 +151,11 @@ for** (`TracedMap.Population`, GEN-7), stood by rule as well. A road OSM draws a
   down the middle of lanes each way — a tidal pair, a centre turning lane — are laid as lanes of one way each, so
   every lane still stands where OSM puts it. **Where the carriageway changes is a junction** — a lane more or
   less, a roadside, a placement — of two arms where nothing else meets there (GEN-51).
-- **What a road was measured wider than its lanes is roadside** (`Survey.Of`): its `width` tag, the surface OSM
-  outlines it with, or the paved width read off imagery under a street — never under a service road, a track or
-  a link, where a yard's paving or a slip road's merge reads as theirs, and not where OSM gives widths lane by
-  lane or places the way off the middle, or the width would leave a lane narrower than
+- **What a road was measured wider than its lanes is roadside** (`TracedMapImport.Road`, `Survey.Of`): its `width`
+  tag, the surface OSM outlines it with, or the paved width read off imagery under a street — never under a service
+  road, a track or a link, where a yard's paving or a slip road's merge reads as theirs, and not where OSM gives
+  widths lane by lane or places the way off the middle, which the import holds no width for — or where the width
+  would leave a lane narrower than
   `SimConfig.CityGen.TracedNarrowestLaneM` or wider than `SimConfig.CityGen.TracedWidestLaneM` — a square, a
   yard or a car park read as the road. The rest past its lanes is **strips of `SimConfig.CityGen.TracedRoadsideWidthM`,
   as many as it holds to the nearest strip and one a kerb at most, a single one beside the kerb the traffic
@@ -155,43 +185,32 @@ for** (`TracedMap.Population`, GEN-7), stood by rule as well. A road OSM draws a
   next arm round carrying none on the kerb facing it, at a box of two arms or one the kerb runs straight on through —
   **it stops where its road does**, the end of the line beside it, and the kerb is eased in across the box over a band
   of its own, from the strip's end to the far end of the movement the lane beside it makes (`LaneLines.Tapers`).
-- **Its junctions carry lights where its map reads them signalled** (TLT-3 still asks each for its arms), the
-  junctions controlled as one — a dual carriageway's crossing — on one clock, each set starting where the node
-  it is named by says, so no seed draws it. A sign, a priority road or a roundabout's control is carried and
-  not laid: the engine has no sign to lay ([the known gaps](../../../docs/index.md#known-gaps)).
+- **Its junctions carry lights where main roads meet** (`TracedStreets.Lights`; TLT-3 still asks each for its arms):
+  a junction of three arms or more that are roads of `SimConfig.CityGen.TracedLitRankLeast`'s class or above — a main
+  road's crossing of another, or its tee into one, and never a side street's off one — none on a roundabout's ring
+  and none where a road runs off the map, each starting its cycle at a place read off where it stands, so no seed
+  draws it. Its map holds no control, so no sign is laid: the engine has none to lay
+  ([the known gaps](../../../docs/index.md#known-gaps)).
 - **Its zebras are painted at every station its kerb ends cut, as a generated town's are** (TER-6, WLK-10,
   `CityPlan.ZebraAtEveryStation`): where the walk is crossed and the traffic held, and nowhere else. Its map holds
   no crossing.
-- **Its buildings are prefabs stood on its walk where its footprints are** (`TracedBuildings`), OSM's and the
-  machine-traced ones OSM lacks: each footprint, less its courtyards, is one rounded rectangle where it fills one —
-  a silo a circle, a pavilion a stadium — or else cut into at most `SimConfig.CityGen.TracedPartsMost` rectangles on
-  its own bearing (`FootprintParts`). **Each wears the prefab of its look nearest its size and roundness**, a larger one
-  and a rounder or squarer one weighing against it (`SimConfig.CityGen.TracedPrefabLargerWeighs`,
-  `TracedPrefabRoundWeighs`), **laid only as it was drawn** — its door's wall along the walk, never turned a quarter
-  onto a side street it does not face; a plot narrower at the street than it is deep wears a prefab drawn narrow end
-  to the street. **Its look is read off its use** — its own tags, else the land use it stands in
-  (`FootprintUse`) — and, for a home they say no more of, off its height or else its ground (`TracedBuildings.LookOf`).
-- **Every building fronts the walk, as a generated town's does** (GEN-54): a rectangle is moved through the wall of
-  it that faces the walk's outer face nearest it, turned square to the face there, its front on the building line and
-  its way in on the walk's outer lane. **A building is stood cleanly or not at all** (GEN-8): not where its front is
-  further than `SimConfig.CityGen.TracedFrontageReachM` from the line; not where the walk under its front would leave
-  any of it further back than `SimConfig.CityGen.TracedFrontageStraightM` or turns more than
-  `SimConfig.CityGen.TracedFrontageTurnDeg` off its bearing — a bend, a jog, a block's corner; not where any of it
-  stands off grass or on any paving (GEN-2b, GEN-2c). A rectangle longer than its look's longest prefab is cut into
-  equal sections, side by side along the walk and one behind another back from it, each standing only where the one
-  in front of it did.
-- **The least moved stand first**, so what the survey already put on the walk claims its frontage before anything
-  moved onto it, and each takes the nearest of its prefabs that stands clear of those stood before it by more than
-  `SimConfig.CityGen.TracedPartyWallM`, or nothing — so neighbours a terrace was surveyed as share a wall, and no
-  walkable padding is kept between them (GEN-3 is a generated town's). **The footprints are what its buildings are
-  fitted off and nothing more**: the town carries the buildings stood on them and no outline of its own, and the map
-  keeps them, with the survey's sources, for what is laid off them before a town is opened.
-- **Its props are laid as a generated town's two passes lay them** (`TracedProps`, GEN-6b), drawn off the map's own
-  number, its buildings claimed before them at `SimConfig.CityGen.TracedClaimCellM`. **What the first lays along its
-  verges are props**, and none stands whose crown comes within a lattice step of driven ground (TER-4c.4): a road's
-  carriageway, or a junction's disc and its widest arm, which a traced junction's movements can reach past its
-  tarmac. **What the second lays on the open ground beyond is scenery** (`CityPlan.Scenery`) — a whole city's yards,
-  parks and waste ground, drawn and standing no body. Its map holds no tree.
+- **Its buildings and props are its zones'** (GEN-58), and **its zones are measured off the place** (`ZoneHints`): each
+  land use a kind by what it is — a residential one by what is built in it, towers an estate, houses a suburb, a
+  terrace of flats built to the walk an old town — **laid on 25 m squares over the map's frame and made plain**: a
+  square swayed by its neighbours, a patch under half a hectare the kind round it, and every patch of one kind one
+  zone, its outline thinned, inside the patch round it and never with a hole. **A zone need not match OSM's outlines**,
+  only say what is built where. Each says the settings its buildings measure, OSM's and the machine-traced ones OSM
+  lacks, each read as its own tags, else the land use it stands in. **Its frontage is probed
+  along the map's own streets**, from each carriageway's edge out to the first building: the share of probes that met
+  one, how far off the edge and how widely spread, how turned off square, how alike neighbours are, what they are
+  drawn as and the ground they cover on average; **and the ground behind it**, what of the zone the buildings no probe
+  met cover, their size and the bearing they share. A zone met too few times says nothing and is laid as its kind; the
+  whole map's zone is measured off what no land use holds. **The footprints stay the survey's**: the map holds no outline
+  of a building, and the scanner writes them beside the layers only for `--bench zones` to weigh the town against.
+- **Its props' second pass lays scenery** (`CityPlan.Scenery`, GEN-6b) — a whole city's yards, parks and waste ground,
+  drawn and standing no body, as thickly as each zone grows — and none of its verge props stands whose crown comes
+  within a lattice step of driven ground (TER-4c.4): a road's carriageway, or a junction's disc and its widest arm,
+  which a traced junction's movements can reach past its tarmac. Its map holds no tree.
 - **Its roundabouts are the ways OSM tags as circulating** (GEN-19), a ring of those that meet at their
   junctions, so its kerb ends stand no station on one and its walk does not run round one.
 - **A bridge is a road of its own on the level above** (GEN-14a, PHY-1a): a way OSM carries on a bridge is cut
@@ -202,13 +221,9 @@ for** (`TracedMap.Population`, GEN-7), stood by rule as well. A road OSM draws a
   bridge were not there.
 - **A few cars stand at its bridges over its roads** (`TracedBridgeCars`): at the widest crossings, one each way on
   the bridge and one each way on the road under it, short of the deck — the only bodies a traced map stands.
-- **A car turns where OSM says it may** (TER-5j), as the scanner reads OSM's rules for a car (`OsmTurns`):
-  each lane is marked with its `turn:lanes` arrows at the junction its way ends at, a turn a restriction forbids
-  at a node is not made — an `only_` one forbidding every other turn off its way there — and a turn whose lanes
-  a connectivity relation names joins those. **What is not laid is named**, by the scanner and by
-  `--bench fidelity`: a restriction in force only at times, since the map keeps no clock of day; one made over
-  a way, which is a turn through two junctions no one of them can forbid alone; and one at a node no junction
-  stands at.
+- **A car turns where the town's own rules say** (TER-5j): every movement across a junction is laid off its lanes as
+  any town's is. The map holds no arrow, turn restriction or lane connectivity — the extract keeps OSM's
+  (`OsmTurns`) — and the only turns forbidden are the movements a gathered junction's roads never made.
 - **A road is its surveyed line** between the discs of its two junctions (TER-5d), **leaving each where the
   line crosses its edge, on the line's own heading** — each disc a standoff of its junction's own, stood out
   by however much wider than a street of one lane each way its widest arm is, and **a road's own end** never past
@@ -289,8 +304,9 @@ one drawn (TER-7), so the tolerance is how far both stand off the wave. The coun
 own curvature and never kept true by eye: a wild meander is drawn through more points and a straight coast
 through few.
 
-**GEN-3** `P6` Spacing must leave the city walkable: every building is surrounded by walkable padding, and no
-pocket is too narrow for a pedestrian to pass.
+**GEN-3** `P6` Spacing must leave the city walkable: no two buildings share more than a party wall
+(`SimConfig.CityGen.ZonePartyWallM`) — a terrace's neighbours share one, and a service keeps the padding it claimed —
+and no pocket is too narrow for a pedestrian to pass.
 
 **GEN-54** `P6` **A building stands against the pavement's outer face, and its door opens onto the walk.**
 The face is the driven ground's own boundary moved by the figure the pavement is struck at (`TER-7b`,
@@ -305,12 +321,14 @@ four are fronted on the same terms.
 - **The way in is on the line the walk beside it runs down** (`SimConfig.BuildingWayInM`, `GEN-2a`,
   `GEN-5`): the walking lane furthest from the carriageway, which is the one that passes the door. Clear of
   both kerbs, and on ground a body is actually held on rather than merely walkable.
-- **It is square to the face there** and so to the street it fronts (`GEN-2a`), and **sized by the roof it
-  will wear** (`CityGen.BuildingSizes`), so the picture drawn on it is the size the plan authored rather
-  than the nearest thing to it.
-- **Every place the face affords one is cut before any of them is filled, and they are filled in a drawn
-  order.** Filled ring by ring instead, a town whose brief asks for fewer buildings than its frontage
-  affords is built solid along whichever rings came first and empty everywhere else.
+- **It is square to the face there** and so to the street it fronts (`GEN-2a`) — turned off it no further than its
+  zone's skew, and stood back off the building line as far as its zone's front says (GEN-58) — and **it is the prefab
+  it will wear** (`CityGen.BuildingSizes`), so the picture drawn on it is the size the plan stood rather than the
+  nearest thing to it. A building behind the frontage is square to its zone's bearing, or to the nearest street, and
+  its way in is on that street's walk.
+- **What the zones stand is thinned evenly to what a town plans** (`ZoneParam.Buildings`), never cut off at the last
+  rings walked: thinned ring by ring instead, a town that plans fewer buildings than its frontage affords is built
+  solid along whichever rings came first and empty everywhere else.
 - **It runs after every stage that lays driven ground and before the props** (`GEN-10`, `GEN-6b`): a
   building is cleared against the ground the finished map answers with, and a verge crowded by buildings
   carries fewer props.
@@ -456,17 +474,17 @@ what a service's beat is kept to (`SRV-5`). A map not laid on a wheel is one dis
 building the map stood them at**, part way through a dwell (PER-11). A trip ends by walking through a door and
 dwelling, so a body that begins there begins in the state every later trip returns it to (`PER-25`). **Which
 building is read off the pose the plan left the body in** — the way in it is standing at — so the plan carries
-nothing to say it. **Where people live, every car is somebody's** (PER-29): the plan stands no car of its own,
-and the town stands each person's in the free bay nearest their door. **A town nobody lives in stands the
-brief's cars in bays of its own car parks**, never a service's yard (GEN-55); **and one that cut no car park
-stands them on its lanes**, one a lane, and they tour (CAR-8) — the fixture, which asks for no buildings and is
-owed no parking. **A traced town cuts no car park** (GEN-57), so nobody living in it is handed a car, and it stands
-its map's cars on its lanes beside its people in the same way.
+nothing to say it. **Where people live and the town cut car parks, every car is somebody's** (PER-29): the plan
+stands no car of its own, and the town stands each person's in the free bay nearest their door. **A town nobody lives
+in stands the map's cars in bays of its own car parks**, never a service's yard (GEN-55); **and one that cut no car
+park stands them on its lanes**, one a lane, and they tour (CAR-8) — the fixture, which asks for no buildings and is
+owed no parking, and a town whose roads are its map's own (GEN-57), which cuts none and stands its map's cars on its
+lanes beside its people, none on a bridge's cars.
 
-**How many of each is the brief's, or a traced map's own** (`TracedMap.Population`), and **the bound is the town
-rather than the count**: a person is stood at a way in, and a car the plan stands in a bay or on a lane long enough
-to hold one, so a brief asking for more than the ground carries gets what fitted (GEN-8). A person with no free bay
-within a walk of their door owns no car.
+**How many of each is the map's own** (`ZoneParam.People`, `ZoneParam.Cars`, said by its whole map's zone), and **the
+bound is the town rather than the count**: a person is stood at a way in, and a car the plan stands in a bay or on a
+lane long enough to hold one, spread over the town from a drawn start, so a map asking for more than the ground carries
+gets what fitted (GEN-8). A person with no free bay within a walk of their door owns no car.
 
 **GEN-8** `P6` **No candidate city is ever rejected.** A violation of GEN-3…GEN-5 is a defect in the
 arrangement rather than a seed to throw away, and the gate that catches it is the suite. Where the ground
@@ -909,12 +927,12 @@ a run of `--map Exam` and by the exam tier alike.
   doing what its own rules say.
 
 **The fixture map is not optional.** It is what every detailed check is staged on: small enough to build
-in a fraction of the time, and laid from a brief (`towns/Test.json`) that asks for water, three districts
-and a dozen cars and for no building — so it carries no car park, no crossing and no walker, and none of
-the ground a bay or a zebra is answered as. Detailed questions asked of whatever the big city happens to contain are a
-different question every time somebody edits the city. **It is a brief rather than a file**, which costs it
-the one thing a fixture is for — a town that stays put when the generator moves — and that cost is named in
-[the known gaps](../../../docs/index.md#known-gaps).
+in a fraction of the time, and its map (`towns/Test.map`) authored off a brief (`towns/briefs/Test.json`) that asks
+for water, three districts and a dozen cars and for no building — so it carries no car park, no crossing and no
+walker, and none of the ground a bay or a zebra is answered as. Detailed questions asked of whatever the big city
+happens to contain are a different question every time somebody edits the city. **Its water and its wheel are its
+file's, and its streets its wheel's** (GEN-58), which costs it half of the one thing a fixture is for — a town that
+stays put when the generator moves — and that cost is named in [the known gaps](../../../docs/index.md#known-gaps).
 
 **Ask a whole city the shallow questions only** — it validates, its junctions are junctions, no lit
 junction shows two conflicting greens, nothing is laid on its water. Detailed geometry is asked of named

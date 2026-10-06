@@ -1,20 +1,119 @@
 # CityGen — decision log
 
+## 2026-10-06 — every town is laid off its map's file, and its zones lay what the map does not fix
+
+**The owner asked for every map to be one binary file**: what defines the place fixed in it (water, roads, and any
+building, car park or prop set down), and the rest left to zones — polygons nested in each other, each with a kind and
+the settings its builders read — laid at runtime off the map's seed, OdesaOsm no special case and nothing of its
+precision lost; with a measure of how close OdesaOsm's zones build it to the place, and a debug layer of the zones.
+GEN-58 is new; GEN-1a, GEN-3, GEN-7, GEN-54, GEN-57, OBS-2c, OBS-2t, OBS-2z, WEB-4, DRV-6, OBS-2n and TLT-3 are
+restated.
+
+- **One file and one loader.** `TracedMap` became `TownMap` (version 7, `towns/<Map>.map`), and `TownPlan` lays every
+  map: the static water and roads, a wheel's streets where the whole map is one (`WheelStreets`, the old generator's
+  road stages), and the buildings (`ZoneBuildings`), props (`TownProps`) and roster (`SpawnStage`) of every town,
+  whatever authored it. `TownGenerator`, `TracedPlan`, `TracedSpawns` and `TracedZones` went.
+- **The laboratories stay code.** The idle ring and the scenario map are laid in code and are not towns; a map file
+  with everything fixed and nothing zoned is what the owner said a map should never be.
+- **A brief is a recipe, authored once** (`TownAuthor`, `--author`). The briefs moved to `towns/briefs/`; their maps
+  are 2–4 KB. **What is fixed is the water and the wheel**: the water as the course it is drawn along and its two
+  banks' offsets, its four rings drawn off it at load exactly as `TerrainStage` drew them, and the wheel as its hub,
+  orbital, spokes and each district's lattice. **Those are written as a float's own four bytes**, since a millimetre
+  off moved enough nodes off the water to change the fixture: with them exact, `Test` lays 36 roads, 28 junctions and
+  9 lights and `Odesa` 2 616, 4 852 and 118, the counts the brief laid before, and every fixture-placed test passes
+  unchanged. The street layout stays wheel-based — membership is still the wheel's sectors — so a district's outline
+  is what its buildings and props are laid by and not its streets.
+- **A map's roads are its own or its zones', never both.** Mixing a survey's roads with a district's lattice would need
+  the two street builders to share one layout; refused for now and named in the known gaps.
+- **Every town's buildings are its zones'.** A wheel's districts are zoned by where they stand and how strictly they
+  are laid — inside the orbital an old town or a residential quarter, outside an estate of towers or a suburb — and
+  built of prefabs, so a generated town wears prefabs where it wore the ordinary roofs (`BuildingSizes.OrdinaryM`
+  went). A brief's planned count thins what the zones stand evenly; the services still stand first on their yards.
+  **GEN-3 is restated**: a terrace's neighbours share a party wall, which the zone builder always allowed and a
+  generated town now builds too.
+- **Settings resolve as own, else kind's** (`ZoneTree`, `SimConfig.Zones`). Inheriting down every ancestor was tried
+  first and let a park inside a measured district build houses.
+- **A zone is a part of the town built alike, not a place OSM names.** The owner asked for zones with no name, none
+  past the map's edge, and plain outlines that need not match OSM's — having seen a park inside a park saying the same
+  and parks touching that could be one. The first cut kept every land use and every administrative district or place
+  as a zone of its own: 6 762, nested by where a point inside each stands, a district's settings falling back to the
+  zone round it, and the city's hromada a thousand square kilometres. **Now the land uses are laid on 25 m squares
+  over the frame** (`ZoneHints`), each square the kind of the smallest land use holding its middle; a square most of
+  whose neighbours are another kind is that kind, a patch under half a hectare is the kind it borders most, and every
+  patch of one kind is one zone, its outline traced round its squares and thinned to 20 m, nested in the patch whose
+  outline holds it rather than cut out of it — so no zone has a hole, and **the ground a zone holds is its outline's
+  less the zones inside it**, which is what the ground behind is built to. 1 171 zones; names and the district kind
+  went from the file. Ground no land use holds is the whole map's, measured as a zone's is.
+- **Kinds and settings are measured off the place**: a residential land use made an old town, a residential quarter,
+  an estate of towers or a suburb by its front row before it is laid on the squares. **Frontage is probed from each
+  carriageway's edge out to the first building**, so a zone's front distance, its spread, its skew and its front row's
+  looks come from one walk. **The footprint is the mean and not the median**: with the median, laid buildings covered
+  a third of the ground real ones did, because a few large blocks are most of a quarter's ground.
+- **A crop cuts the zones to the new frame** (`TownMap.Cropped`) rather than keeping each whole where its box meets
+  it.
+- **The ground behind the frontage is built to a target** (`ZoneBuildings.Behind`): places drawn over the zone and
+  offered until the zone's measured share is covered, at most `ZoneBehindOffered` for each building the share wants.
+  One place a square per share built a third of the share, the walk's band, the paving and the frontage refusing most
+  of them; a lattice over the zone's whole box built it but cost 1.3 s on OdesaOsm, its districts being a city wide.
+- **How close it is** (`--bench zones`, `ZoneFidelity`, against the place's own 92 113 buildings the scanner writes
+  beside the layers): built ground per 100 m square **off by 12.6 % of a square with frontage only, 9.5 % now**, and
+  **correlated 0.29 → 0.45**. Kind by kind — the smaller over the larger of count, cover and built frontage, and the
+  looks' likeness — weighed by the ground the place's buildings cover, which a city's sea and fields cannot swamp, the
+  fit is **86.9 %**, against 83.4 % with every land use and district a zone of its own: plain zones lost nothing a
+  square measures. Cover is still two-thirds to nine-tenths of the place's, an old town's least (32 % against 39 %),
+  with about twice the place's buildings in a residential quarter: the prefabs run smaller than its blocks.
+- **Props are every town's two passes** (`PropStage.LayApart`), the wild pass as thick as each zone grows. A wheel
+  town's open-ground props are now scenery too: `Odesa`'s static bodies 72 684 → 12 414.
+- **What it measured** (`--bench load`, Release, two runs on one machine): OdesaOsm's network is the one it was —
+  11 353 roads, 7 315 junctions, 388 lit, the boundary's open runs the same. Its map 506 → 400 KB (gzipped
+  410 → 308 KB), its zones read in 13 ms; its plan 5.7 → 6.6 s, the buildings stage 0.37 → 1.0 s for 117 851
+  buildings (against 74 670 and the place's 92 113), the props 0.65 → 0.9 s; opening 17.9 → 19.3 s, static bodies
+  262 k → 401 k, the peak resident set 3.50 GB as before. `Odesa` opens in 1.33 s as before and `Test` in 0.44 s
+  against 0.45. The web build ships every map as a 4 KB head and an archive, and the Android pack is 6.3 MB as before.
+
+## 2026-10-06 — a traced map holds its streets, lane counts and zones, and the town lays the rest
+
+**The owner asked for a traced map to store as little as lays the place**: road geometry and lane counts, every
+connection and everything else built when the town is opened, and its buildings generated off zoning and district
+hints. `TracedMap` is version 6, and `qq osm --upgrade` rewrote `OdesaOsm.map` from version 5 with every edit kept.
+GEN-57 and TER-5j are restated.
+
+- **What a road keeps**: its line, class and level, OSM's lane counts and whether they are tagged, assumed or
+  marked, its carriageway's offset as a share of its width, and its measured width where it is one to lay the road by.
+  **The lane rule stays `Survey.Of`'s** (a width's roadsides, an assumed count from a width), so retuning it relays
+  the town off the same file. Applying it at the import instead would have dragged `SimConfig` into the scanner, which
+  compiles the map's files without the engine.
+- **What goes**: each lane's width and arrows, the tunnel flag nothing read, OSM's turn restrictions and lane links
+  (1 133 and 10), junction controls (679), and the 91 838 footprints (2.56 MB, 86 % of the file). Versions 3 to 5 are
+  no longer read. The plan still carries marked turns, forbidden turns and named lanes; only a gathered junction
+  fills any of them now.
+- **Lights by rule**: a junction of three arms or more of tertiary class or above (`TracedLitRankLeast`). That lights
+  388 junctions against OSM's 371 signals; secondary would light 193. Which junctions are lit was not compared
+  against OSM's.
+- **The footprint cutter goes** (`FootprintParts`) and its figures; the buildings are the zones' (the entry above).
+- **A road's places stay millimetres.** Rounded to centimetres, two runs of OdesaOsm's merged boundary no longer close
+  (`ItsBoundaryCloses`). At millimetres the boundary's open runs are the ones it had before, place for place.
+- **What it measured** (`--bench load`, two runs each on one machine):
+  - **File**: 2 989 370 → 506 323 bytes; gzipped, which is what a page downloads, 2 345 251 → 410 085. Points 207 KB as
+    before, roads 194 → 127 KB, zones 171 KB new, footprints 2.56 MB gone.
+  - **Opening**: reading and surveying ~44 → 35 ms; the buildings stage 638 → 372 ms; the plan 5.92 → 5.69 s; opening
+    18.1 → 17.9 s; peak resident set 3.50 GB both.
+  - **Where an open goes**: the town and not the file — world 11.0 s (walk graph 4.7, atlas 2.5), ground 2.7 s,
+    streets 1.6 s.
+- **The Android pack took `towns/**` whole**, the layers and sources with it; it now takes the briefs and the maps,
+  133 MB → 6.3 MB gzipped.
+
 ## 2026-10-06 — a traced town stands the people and cars its map asks for
 
-**The owner asked for 10 000 people and 10 000 cars on `OdesaOsm`.** A traced map now says who its town stands
-(`TracedMap.Population`, version 5; versions 4 and 3 are still read and stand nobody). The population is set in place
-by `qq osm --people N --cars N` and laid by `TracedSpawns`, one person a door and one car a lane, as many as fit.
-Like everything a traced town lays of its own, this goes by rule, not by draw (GEN-57): every nth door and every nth
-standable lane from the first. No lane is used whose middle stands within a car's room of a car at a bridge. GEN-7
-and GEN-57 are restated.
+**The owner asked for 10 000 people and 10 000 cars on `OdesaOsm`.** A traced map now says who its town stands, set
+in place by `qq osm --people N --cars N`: one person a door and one car a lane, as many as fit. No lane is used whose
+middle stands within a car's room of a car at a bridge. GEN-7 and GEN-57 are restated.
 
 - **Its cars belong to nobody.** A traced town cuts no car park, so nobody living in it is handed a car (PER-29).
   Under GEN-7's "where people live, every car is somebody's" such a town could stand no car at all. Instead, the
   map's cars stand on its lanes beside its people and tour (CAR-8), as the cars of any town with no car park do.
 - **`SpawnStage` searches for the building a way in belongs to** instead of walking every building for each person
-  (10 000 people over 61 689 buildings). Its spread now takes a start: a generated town draws the start as before, a
-  traced one starts at the first. A generated town's plan is unchanged.
+  (10 000 people over 61 689 buildings).
 - **What it costs**, measured on `OdesaOsm` with `qq prof`:
   - **Agents:** 20 013 stand (13 of them at the bridges).
   - **Atlas:** now that anybody walks, the atlas files the walk. Points go from 44.4 M to 81.9 M, entries from

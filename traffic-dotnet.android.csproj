@@ -118,9 +118,12 @@
 
        A plain tar, gzipped, because the format is somebody else's and System.Formats.Tar is already in
        the runtime. Sorted, so the same tree packs to the same bytes and a rebuild that changed nothing
-       leaves the asset — and therefore the APK — byte for byte what it was. -->
+       leaves the asset — and therefore the APK — byte for byte what it was.
+
+       **Of towns/, what ProjectPaths reads and nothing else**: every map's file. What a map was authored from
+       (towns/briefs/, towns/traced/) is the authoring tools', and a traced map's hundreds of megabytes. -->
   <ItemGroup>
-    <TownFiles Include="assets/**;towns/**" />
+    <TownFiles Include="assets/**;towns/*.map" />
     <AndroidAsset Include="$(BaseIntermediateOutputPath)$(Configuration)/town.tar.gz" Link="Assets\town.tar.gz" />
   </ItemGroup>
 
@@ -128,7 +131,7 @@
           Inputs="@(TownFiles)" Outputs="$(BaseIntermediateOutputPath)$(Configuration)/town.tar.gz">
     <MakeDir Directories="$(BaseIntermediateOutputPath)$(Configuration)" />
     <Exec WorkingDirectory="$(MSBuildProjectDirectory)"
-          Command="tar --sort=name --owner=0 --group=0 --numeric-owner --mtime=@0 -cf - assets towns | gzip -9 &gt; '$(BaseIntermediateOutputPath)$(Configuration)/town.tar.gz'" />
+          Command="tar --sort=name --owner=0 --group=0 --numeric-owner --mtime=@0 -cf - assets towns/*.map | gzip -9 &gt; '$(BaseIntermediateOutputPath)$(Configuration)/town.tar.gz'" />
   </Target>
 
   <!-- The other half of the Sdk= attribute this file does without. It stays last, so the SDK's own

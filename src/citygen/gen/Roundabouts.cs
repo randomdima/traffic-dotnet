@@ -24,7 +24,7 @@ namespace TrafficSimulation.CityGen.Gen;
 /// </para>
 /// <para>
 /// <b>It runs on the layout the deletions left</b>, after the stranded pieces, the dead ends and the runs
-/// joined into one road (<see cref="TownGenerator"/>), because a ring is laid against the town there actually is
+/// joined into one road (<see cref="WheelStreets"/>), because a ring is laid against the town there actually is
 /// — and before the one-way scatter, which then finds every ring node already spoken for.
 /// </para>
 /// <para>

@@ -212,33 +212,6 @@ public class TracedPlanTests
     }
 
     /// <summary>
-    /// <b>A restriction onto a road a junction was gathered over still holds</b>: a side street forbidden the gap in the
-    /// median is not turned across it onto the far carriageway.
-    /// </summary>
-    [Fact]
-    public void ARestrictionOntoARoadGatheredIntoAJunctionStillHolds()
-    {
-        var keptOff = new OsmTurnRestriction { Relation = 1, From = SideStreetWay, Via = 1, To = MedianGapWay, Only = false };
-        var plan = Laid(AcrossAMedian, Turns(keptOff), SideStreet, MedianGap, OneWay(0, 1, 2), OneWay(5, 4, 3));
-
-        Assert.DoesNotContain(RoadEndingAt(plan, MedianFarWestM), Reached(plan, RoadEndingAt(plan, SideStreetM)));
-    }
-
-    /// <summary>
-    /// <b>A junction gathered from a signalled place is lit</b>: lights on the far carriageway at the gap in a dual
-    /// carriageway's median light the one junction it and the near one are.
-    /// </summary>
-    [Fact]
-    public void AJunctionGatheredFromASignalledPlaceIsLit()
-    {
-        var plan = Laid(AcrossAMedian, Controlled((4, new PointControl(SurveyControl.Signals, 0))),
-            SideStreet, MedianGap, OneWay(0, 1, 2), OneWay(5, 4, 3));
-
-        var lit = Enumerable.Range(0, plan.Junctions.Count).Where(junction => plan.Junctions.Lit[junction]).Select(junction => plan.Junctions.CentreM[junction]);
-        Assert.Equal([new Vector2(500f, 500f - (MedianM * 0.5f))], lit);
-    }
-
-    /// <summary>
     /// <b>Two one-way carriageways joined only to each other are laid</b>: a ring with no place on it to be
     /// walked from is given one, and is laid as the loop it is.
     /// </summary>
@@ -935,70 +908,6 @@ public class TracedPlanTests
     }
 
     /// <summary>
-    /// <b>A turn a restriction forbids is not made</b>: at a junction of three arms, no lane of the way it is made
-    /// from joins a lane of the way it is made onto.
-    /// </summary>
-    [Fact]
-    public void ATurnARestrictionForbidsIsNotMade()
-    {
-        var plan = Laid(Tee, Turns(Restricted(only: false, onto: NorthWay)), Way(0, 1) with { OsmId = WestWay },
-            Way(1, 2) with { OsmId = EastWay }, Way(1, 3) with { OsmId = NorthWay });
-
-        Assert.DoesNotContain(RoadEndingAt(plan, North), Reached(plan, RoadEndingAt(plan, West)));
-    }
-
-    /// <summary><b>An only_ restriction leaves its turn the one made</b> off its way at its junction.</summary>
-    [Fact]
-    public void AnOnlyRestrictionLeavesItsTurnTheOneMade()
-    {
-        var plan = Laid(Tee, Turns(Restricted(only: true, onto: EastWay)), Way(0, 1) with { OsmId = WestWay },
-            Way(1, 2) with { OsmId = EastWay }, Way(1, 3) with { OsmId = NorthWay });
-
-        Assert.Equal([RoadEndingAt(plan, East)], Reached(plan, RoadEndingAt(plan, West)));
-    }
-
-    /// <summary>
-    /// <b>A lane marked for one turn makes that one</b>: of two lanes into a junction marked left and through, the
-    /// lane marked left does not carry straight on, which an unmarked inner lane would.
-    /// </summary>
-    [Fact]
-    public void ALaneMarkedForOneTurnMakesThatOne()
-    {
-        var plan = Laid(Tee, OsmTurns.None, Carried(2, 0, LaneM, 0f, 0, 1) with { OsmId = WestWay, Arrows = [OsmArrows.Left, OsmArrows.Through] },
-            Way(1, 2) with { OsmId = EastWay }, Way(1, 3) with { OsmId = NorthWay });
-
-        Assert.Equal([RoadEndingAt(plan, North)], Reached(plan, RoadEndingAt(plan, West), fromKerb: 1));
-    }
-
-    /// <summary>
-    /// <b>A way's arrows are for the junction it ends at</b>: one running on through a junction is driven out of
-    /// there as unmarked lanes are, its lane marked left carrying straight on as an inner lane does.
-    /// </summary>
-    [Fact]
-    public void AWaysArrowsAreForTheJunctionItEndsAt()
-    {
-        var plan = Laid(Tee, OsmTurns.None, Carried(2, 0, LaneM, 0f, 0, 1, 2) with { Arrows = [OsmArrows.Left, OsmArrows.Through] },
-            Way(1, 3));
-
-        Assert.Contains(RoadEndingAt(plan, East), Reached(plan, RoadEndingAt(plan, West), fromKerb: 1));
-    }
-
-    /// <summary>
-    /// <b>A turn whose lanes OSM names joins those and no others</b>: two lanes onto two, the right one in joined to
-    /// the left one out, where lane for lane would join each to its own.
-    /// </summary>
-    [Fact]
-    public void ATurnWhoseLanesOsmNamesJoinsThoseAndNoOthers()
-    {
-        var link = new OsmLaneLink { Relation = 1, From = WestWay, Via = 1, To = EastWay, FromLane = 2, ToLane = 1 };
-        var plan = Laid(Tee, new OsmTurns { Restrictions = [], LaneLinks = [link] },
-            Carried(2, 0, LaneM, 0f, 0, 1) with { OsmId = WestWay }, Carried(2, 0, LaneM, 0f, 1, 2) with { OsmId = EastWay },
-            Way(1, 3) with { OsmId = NorthWay });
-
-        Assert.Equal([(0, 1)], Joined(plan, RoadEndingAt(plan, West), RoadEndingAt(plan, East)));
-    }
-
-    /// <summary>
     /// <b>A lane joins the lane of its own number on the road it takes</b> (TER-5j): of three lanes running on past a
     /// road of one forking off to the near side, too slightly to be a turn, the kerb lane alone takes it — the second
     /// and third do not merge into its one lane.
@@ -1006,7 +915,7 @@ public class TracedPlanTests
     [Fact]
     public void ARoadOfOneLaneForkingOffIsTakenFromTheKerbLaneAlone()
     {
-        var plan = Laid(Fork, OsmTurns.None, Carried(3, 0, LaneM, 0f, 0, 1), Carried(3, 0, LaneM, 0f, 1, 2), OneWay(1, 3));
+        var plan = Laid(Fork, Carried(3, 0, LaneM, 0f, 0, 1), Carried(3, 0, LaneM, 0f, 1, 2), OneWay(1, 3));
 
         Assert.Equal([(0, 0)], Joined(plan, RoadEndingAt(plan, ForkEast), RoadEndingAt(plan, ForkBranch)));
     }
@@ -1019,7 +928,7 @@ public class TracedPlanTests
     [Fact]
     public void AForkSharesItsLanesBetweenItsBranches()
     {
-        var plan = Laid(Fork, OsmTurns.None, Carried(2, 0, LaneM, 0f, 0, 1), Carried(2, 0, LaneM, 0f, 1, 2), Carried(2, 0, LaneM, 0f, 1, 3));
+        var plan = Laid(Fork, Carried(2, 0, LaneM, 0f, 0, 1), Carried(2, 0, LaneM, 0f, 1, 2), Carried(2, 0, LaneM, 0f, 1, 3));
         var arriving = RoadEndingAt(plan, ForkEast);
 
         Assert.Equal([(0, 0)], Joined(plan, arriving, RoadEndingAt(plan, ForkBranch)));
@@ -1095,32 +1004,16 @@ public class TracedPlanTests
     }
 
     /// <summary>
-    /// <b>A junction the survey reads as signalled carries lights, and no other does</b> (GEN-57): of a street's two
-    /// side turnings, the one whose point the pack signals is lit.
+    /// <b>A junction of three main arms carries lights, and a side street off a main road does not</b> (GEN-57): of a
+    /// primary street's two turnings, the primary one is lit and the residential one is not.
     /// </summary>
     [Fact]
-    public void AJunctionTheSurveySignalsIsLit()
+    public void AJunctionOfThreeMainArmsIsLit()
     {
-        var plan = Laid(Ladder, Controlled((1, new PointControl(SurveyControl.Signals, 0)), (2, new PointControl(SurveyControl.Signs, 0))),
-            Way(0, 1, 2, 3), Way(1, 4), Way(2, 5));
+        var plan = Laid(Ladder, Way(0, 1, 2, 3) with { Highway = "primary" }, Way(1, 4) with { Highway = "primary" }, Way(2, 5));
 
         var lit = Enumerable.Range(0, plan.Junctions.Count).Where(junction => plan.Junctions.Lit[junction]).Select(junction => plan.Junctions.CentreM[junction]);
         Assert.Equal([new Vector2(400f, 500f)], lit);
-    }
-
-    /// <summary>
-    /// <b>Junctions controlled as one share a clock</b>: a street's two signalled turnings the survey reads as one set
-    /// of lights start their cycle at the same place.
-    /// </summary>
-    [Fact]
-    public void JunctionsControlledAsOneShareAClock()
-    {
-        var plan = Laid(Ladder, Controlled((1, new PointControl(SurveyControl.Signals, 77)), (2, new PointControl(SurveyControl.Signals, 77))),
-            Way(0, 1, 2, 3), Way(1, 4), Way(2, 5));
-
-        var offsetS = Enumerable.Range(0, plan.Junctions.Count).Where(junction => plan.Junctions.Lit[junction])
-            .Select(junction => plan.Junctions.PhaseOffsetS[junction]).Distinct();
-        Assert.Single(offsetS);
     }
 
     /// <summary>
@@ -1147,7 +1040,7 @@ public class TracedPlanTests
     [Fact]
     public void ARoadRunningOffTheMapEndsOnItsEdge()
     {
-        var plan = TracedPlan.Lay(RunningOff(), Config, BuildingSizes.None);
+        var plan = TownPlan.Lay(RunningOff(), Config, BuildingSizes.None);
 
         var edge =Array.FindIndex(plan.Junctions.CentreM, centreM => centreM == EdgeM);
         var line = plan.Roads.SegmentsOf(0);
@@ -1163,7 +1056,7 @@ public class TracedPlanTests
     [Fact]
     public void TheGroundOfARoadRunningOffTheMapTurnsRoundPastItsEdge()
     {
-        var plan = TracedPlan.Lay(RunningOff(), Config, BuildingSizes.None);
+        var plan = TownPlan.Lay(RunningOff(), Config, BuildingSizes.None);
 
         var furthestM = float.MinValue;
         foreach (var ring in plan.Paving(Config).Perimeter(Config).Chains)
@@ -1180,7 +1073,7 @@ public class TracedPlanTests
     /// <summary>A street from inside a map of 500 by 600 m to its east edge, which the survey says it leaves the map at.</summary>
     static Survey RunningOff() => new()
     {
-        Name = "Traced", Relation = 1, WidthM = EdgeM.X, HeightM = 600f, PointsM = [100f, EdgeM.Y, EdgeM.X, EdgeM.Y],
+        Name = "Traced", Seed = 1, WidthM = EdgeM.X, HeightM = 600f, PointsM = [100f, EdgeM.Y, EdgeM.X, EdgeM.Y],
         Ways = [Way(0, 1)], LeavesTheMap = [false, true], Sea = [],
     };
 
@@ -1207,14 +1100,6 @@ public class TracedPlanTests
     /// </summary>
     static readonly float[] Ladder = [100, 500, 400, 500, 600, 500, 900, 500, 400, 100, 600, 100];
 
-    /// <summary>The controls of a survey's points, every point not named unsigned.</summary>
-    static PointControl[] Controlled(params (int Point, PointControl Control)[] controls)
-    {
-        var all = new PointControl[16];
-        foreach (var (point, control) in controls) all[point] = control;
-        return all;
-    }
-
     /// <summary>Two places within a tolerance.</summary>
     sealed class VectorWithin(float toleranceM) : IEqualityComparer<Vector2>
     {
@@ -1234,12 +1119,6 @@ public class TracedPlanTests
     static readonly Vector2 East = new(900f, 500f);
 
     static readonly Vector2 North = new(500f, 100f);
-
-    const long WestWay = 1;
-
-    const long EastWay = 2;
-
-    const long NorthWay = 3;
 
     /// <summary>
     /// A road of three points running east to west through point 1, from point 0 to point 2, and a branch leaving it at
@@ -1286,18 +1165,9 @@ public class TracedPlanTests
 
     static readonly Vector2 SideStreetM = new(500f, 900f);
 
-    const long SideStreetWay = 4;
+    static SurveyWay SideStreet => Way(6, 1);
 
-    const long MedianGapWay = 5;
-
-    static SurveyWay SideStreet => Way(6, 1) with { OsmId = SideStreetWay };
-
-    static SurveyWay MedianGap => Way(1, 4) with { OsmId = MedianGapWay };
-
-    static OsmTurns Turns(OsmTurnRestriction restriction) => new() { Restrictions = [restriction], LaneLinks = [] };
-
-    static OsmTurnRestriction Restricted(bool only, long onto) =>
-        new() { Relation = 1, From = WestWay, Via = 1, To = onto, Only = only };
+    static SurveyWay MedianGap => Way(1, 4);
 
     /// <summary>Every road a lane of one road is joined onto — or one lane of it, counted from the kerb.</summary>
     static HashSet<int> Reached(CityPlan plan, int fromRoad, int? fromKerb = null)
@@ -1330,7 +1200,7 @@ public class TracedPlanTests
     const float SagM = 0.01f;
 
     /// <summary>A survey of the ways given over the points given, on a map reaching a little past the furthest of them.</summary>
-    static CityPlan Laid(float[] pointsM, params SurveyWay[] ways) => Laid(pointsM, OsmTurns.None, ways);
+    static CityPlan Laid(float[] pointsM, params SurveyWay[] ways) => TownPlan.Lay(Surveyed(pointsM, ways), Config, BuildingSizes.None);
 
     /// <summary>
     /// <b>A street carried over another on a bridge</b>: west to east along y = 500, on a bridge way from x = 400 to
@@ -1364,18 +1234,8 @@ public class TracedPlanTests
     /// <summary>Where the bridge of <see cref="OverAStreet"/> crosses the street under it.</summary>
     internal static readonly Vector2 OverAStreetCrossingM = new(500f, 500f);
 
-    /// <summary>The same, with where OSM says a car may turn over them.</summary>
-    static CityPlan Laid(float[] pointsM, OsmTurns turns, params SurveyWay[] ways) => Laid(pointsM, turns, [], ways);
-
-    /// <summary>The same, with the controls a survey's pack lays over them.</summary>
-    static CityPlan Laid(float[] pointsM, PointControl[] controls, params SurveyWay[] ways) =>
-        Laid(pointsM, OsmTurns.None, controls, ways);
-
-    static CityPlan Laid(float[] pointsM, OsmTurns turns, PointControl[] controls, params SurveyWay[] ways) =>
-        TracedPlan.Lay(Surveyed(pointsM, turns, controls, ways), Config, BuildingSizes.None);
-
     /// <summary>The survey those are.</summary>
-    static Survey Surveyed(float[] pointsM, OsmTurns turns, PointControl[] controls, params SurveyWay[] ways)
+    static Survey Surveyed(float[] pointsM, params SurveyWay[] ways)
     {
         var furthestM = Vector2.Zero;
         for (var point = 0; point < pointsM.Length; point += 2)
@@ -1385,8 +1245,7 @@ public class TracedPlanTests
 
         return new Survey
         {
-            Name = "Traced", Relation = 1, WidthM = furthestM.X + 100f, HeightM = furthestM.Y + 100f, PointsM = pointsM, Ways = ways, Sea = [],
-            Turns = turns, Controls = controls,
+            Name = "Traced", Seed = 1, WidthM = furthestM.X + 100f, HeightM = furthestM.Y + 100f, PointsM = pointsM, Ways = ways, Sea = [],
         };
     }
 

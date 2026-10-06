@@ -132,6 +132,9 @@ internal sealed partial class DebugOverlay
             groundAbove.Take(_townAbove.AsSpan(0, _townAboveQuads));
         }
 
+        // <b>Under every other mark</b> (OBS-2z): a zone is the broadest thing drawn, a tint the rest is read over.
+        if (switches.Zones) Zones(ref ground, world, config, viewCentreM, viewSpanM, pixelsPerMetre);
+
         // <b>Laid every frame and never into the cache above it.</b> The graphs the cache holds do not move
         // once the town is laid; both networks' claims are re-laid from the bodies every tick, so a block
         // copied out of a stale buffer would be a claim the town gave up several frames ago.

@@ -32,29 +32,26 @@ namespace TrafficSimulation.CityGen.Gen;
 /// </remarks>
 internal static class PropStage
 {
-    public static CityPlan.PropArrays Lay(
-        Vector2 acrossM, Paving paving, GroundShapes ground, GenClaims claims, SimConfig config,
-        ref Rng draw)
-    {
-        var scatter = Scatter(acrossM, config);
-        AlongTheKerbs(paving.Rings(config), ground, claims, config, scatter, ref draw);
-        OverWhatIsLeft(acrossM, ground, claims, config, scatter, ref draw);
-        return Arrays(scatter);
-    }
-
     /// <summary>
-    /// <b>The same two passes, kept apart</b>: what a town puts along its kerbs as props, and what grows beyond them as
-    /// scenery that stands nothing — a traced town's (<c>TracedProps</c>), whose ground beyond the kerbs is a whole
-    /// city's yards, parks and waste ground, millions of props too many to stand as bodies.
+    /// <b>The two passes, kept apart</b>: what the map sets down and what a town puts along its kerbs as props, and what
+    /// grows beyond them as scenery that stands nothing — a city's yards, parks and waste ground being millions of props
+    /// too many to stand as bodies.
     /// </summary>
+    /// <param name="setDown">The props the map sets down, laid before either pass and so kept clear of by both.</param>
+    /// <param name="growth">How thickly what grows wild covers the open ground at a place, as a share of the most it holds.</param>
     public static (CityPlan.PropArrays AlongTheKerbs, CityPlan.SceneryArrays Beyond) LayApart(
-        Vector2 acrossM, Paving paving, GroundShapes ground, GenClaims claims, SimConfig config,
-        ref Rng draw)
+        Vector2 acrossM, Paving paving, GroundShapes ground, GenClaims claims, Map.TownMap.PropArrays setDown,
+        Func<Vector2, float> growth, SimConfig config, ref Rng draw)
     {
         var scatter = Scatter(acrossM, config);
+        for (var prop = 0; prop < setDown.Count; prop++)
+        {
+            scatter.Add(setDown.CentreM[prop], WidestM(setDown.Kind[prop], config) * 0.5f, setDown.BearingRad[prop], setDown.Kind[prop]);
+        }
+
         AlongTheKerbs(paving.Rings(config), ground, claims, config, scatter, ref draw);
         var kerbside = scatter.CentreM.Count;
-        OverWhatIsLeft(acrossM, ground, claims, config, scatter, ref draw);
+        OverWhatIsLeft(acrossM, ground, claims, growth, config, scatter, ref draw);
 
         var beyond = scatter.CentreM.Count - kerbside;
         return (
@@ -146,11 +143,12 @@ internal static class PropStage
     /// <b>The last pass: what grows where the town is not</b> (GEN-6b). A stratified sweep — one candidate
     /// per cell of a coarse lattice, jittered inside it — so the cost is the ground rather than the count,
     /// and every candidate standing within a stand-off of a walk or a car park is left to the first pass.
-    /// <b>Nothing here is laid on a bearing</b>: what the wild set holds has no front to turn.
+    /// <b>As thickly as the zone it stands in grows</b> (GEN-58): a candidate on open ground is kept at its zone's
+    /// share. <b>Nothing here is laid on a bearing</b>: what the wild set holds has no front to turn.
     /// </summary>
     static void OverWhatIsLeft(
-        Vector2 acrossM, GroundShapes ground, GenClaims claims, SimConfig config, PropScatter scatter,
-        ref Rng draw)
+        Vector2 acrossM, GroundShapes ground, GenClaims claims, Func<Vector2, float> growth, SimConfig config,
+        PropScatter scatter, ref Rng draw)
     {
         var spacingM = config.CityGen.PropSpacingM;
         var standOffM = config.CityGen.PropWildStandOffM;
@@ -172,6 +170,7 @@ internal static class PropStage
                 if (ground.At(atM) != Ground.Grass) continue;
 
                 if (ground.PavingWithin(atM, standOffM)) continue;
+                if (draw.NextFloat() >= growth(atM)) continue;
 
                 var reachM = draw.NextFloat(
                     config.CityGen.PropDiameterMinM, config.CityGen.PropWildDiameterMaxM) * 0.5f;

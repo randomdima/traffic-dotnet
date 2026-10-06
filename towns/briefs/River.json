@@ -1,0 +1,21 @@
+{
+  "name": "River",
+  "description": "A river city: bridges across it, a street down each bank, an orbital through every way out",
+  "seed": 1,
+  "widthM": 3000,
+  "heightM": 2280,
+
+  "water": "River",
+  "waterBearingDeg": 100,
+  "waterShare": 0.045,
+  "waterMeander": 0.8,
+
+  "districts": 8,
+  "gridDistrictShare": 0.4,
+  "bearingSpreadDeg": 20,
+  "ringShare": 0.3,
+  "unregulatedJunctionShare": 0.2,
+  "cars": 480,
+  "buildings": 2200,
+  "people": 550
+}

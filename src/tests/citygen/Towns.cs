@@ -4,6 +4,8 @@ using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.App.Hud;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.CityGen.Gen;
+using TrafficSimulation.CityGen.Map;
+using TrafficSimulation.CityGen.Zones;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Town;
@@ -134,7 +136,7 @@ internal static class Towns
 
     static readonly ConcurrentDictionary<(ulong Seed, WaterKind Water), CityPlan> Laid = new();
 
-    /// <summary>The shipped set: the briefs, and the maps this build lays in code.</summary>
+    /// <summary>The shipped set: the map files, and the maps this build lays in code.</summary>
     public static IEnumerable<string> Shipped => Maps.Shipped();
 
     static readonly SimConfig Figures = SimConfig.Shipped();
@@ -155,7 +157,7 @@ internal static class Towns
     /// <summary>A copy of a town nobody else holds — for the one test that writes into a plan.</summary>
     public static CityPlan Fresh(string map) =>
         map == City
-            ? TownGenerator.Lay(Brief(CitySeed), Figures, BuildingCatalog.Roofs)
+            ? LayFresh(Brief(CitySeed))
             : Maps.Plan(map, Figures, BuildingCatalog.Roofs);
 
     /// <summary>
@@ -173,9 +175,12 @@ internal static class Towns
     public static CityPlan LayFresh(ulong seed, WaterKind water = WaterKind.River) =>
         LayFresh(Brief(seed, water));
 
-    /// <inheritdoc cref="LayFresh(ulong, WaterKind)"/>
+    /// <summary>
+    /// The same, off a brief: authored into its map and the map laid, which is the one way a town is laid
+    /// (<see cref="TownAuthor"/>, <see cref="TownPlan"/>).
+    /// </summary>
     public static CityPlan LayFresh(TownBrief brief) =>
-        TownGenerator.Lay(brief, Figures, BuildingCatalog.Roofs);
+        TownPlan.Lay(TownAuthor.Of(brief, Figures), Figures, BuildingCatalog.Roofs);
 
     /// <summary>
     /// <b>The suite's own city with buildings standing on it</b> (GEN-54), laid once — the one brief that
@@ -276,7 +281,7 @@ internal static class Towns
     }
 
     /// <summary>
-    /// <b>The shipped cities</b>: the briefs and the surveys in <c>towns/</c>, laid as they ship. Nothing outside
+    /// <b>The shipped cities</b>: the map files in <c>towns/</c>, laid as they ship. Nothing outside
     /// <see cref="Tier.Maps"/> may ask a question of these.
     /// </summary>
     public static TheoryData<string> EveryShippedCity()
@@ -291,16 +296,16 @@ internal static class Towns
     }
 
     /// <summary>
-    /// <b>The shipped cities a generator laid</b>, which are the ones asked whether a town is furnished and
-    /// whether it can be driven round: a traced city stands nothing on its streets and keeps every dead end its
-    /// survey has (GEN-57).
+    /// <b>The shipped cities whose streets a wheel laid</b>, which are the ones asked whether a town is furnished and
+    /// whether it can be driven round: a city whose roads are its map's own keeps every dead end its survey has
+    /// (GEN-57).
     /// </summary>
     public static TheoryData<string> EveryGeneratedCity()
     {
         var maps = new TheoryData<string>();
         foreach (var map in Shipped)
         {
-            if (Maps.IsGenerated(map)) maps.Add(map);
+            if (Maps.IsCity(map) && Maps.Read(map).Zones.Kind[TownMap.ZoneArrays.Root] == ZoneKind.Wheel) maps.Add(map);
         }
 
         return maps;

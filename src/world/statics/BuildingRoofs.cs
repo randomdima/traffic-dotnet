@@ -34,7 +34,7 @@ internal static class BuildingRoofs
 
         var (variant, swapped) = civic >= 0
             ? (civic, DoorRunsAcrossTheBuilding(plan, building, centreM))
-            : plan.Buildings.Prefab.Length > 0
+            : plan.Buildings.Prefab.Length > 0 && plan.Buildings.Prefab[building] >= 0
                 ? Laid(catalogue, catalogue.FirstPrefab + plan.Buildings.Prefab[building], sizeM)
                 : catalogue.Match(sizeM);
 

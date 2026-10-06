@@ -152,8 +152,9 @@ the middle lane of an odd count to both, and all of them to a turn that is the o
 lane arrives at a junction that offers it nothing**. **A marked lane makes the turns its arrows name** that the
 junction offers, an unmarked one beside it what it would make unmarked, and a turn no lane of a marked arm
 names is not made from it. **A turn the plan forbids is not offered at all**, before the lanes are shared,
-and a turn whose lanes the plan names joins those and no others — a traced map's survey's (`GEN-57`), which
-leaves an arm nothing where OSM forbids every turn off it. **A lane making a movement joins the lane of its own
+and a turn whose lanes the plan names joins those and no others — what a plan carries of either, which a traced
+town's are only the movements its gathered junctions' roads never made (`GEN-57`), and which can leave an arm
+nothing. **A lane making a movement joins the lane of its own
 number on the road it takes**, both numbered from the side the movement bears to — the kerb for the near side,
 the line for the far, and the kerb for straight on — so a turn onto a road of one lane is made from the edge lane
 alone, never from the second lane onto the first, and **no two movements off one arm onto one road cross**. **A

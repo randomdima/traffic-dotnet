@@ -17,7 +17,7 @@ other only in the one direction the tier's own row gives.
 | Tier | Slices | May know about |
 |---|---|---|
 | **Kernel** | `core/` — config, geometry, simulation | Nothing else in the project. **Not a town** |
-| **Plan** | `citygen/` — the plan, its ground vocabulary, the lines a car is driven on, the generator that lays it from a brief, and the tracing that lays it from a real place's survey | core |
+| **Plan** | `citygen/` — the plan, its ground vocabulary, the lines a car is driven on, the map file a town is laid off and the zones that lay it, the wheel that lays a brief's streets, and the tracing that lays a real place's | core |
 | **World** | `world/` — terrain, road, foot, routing, physics, containment, statics, parking | core, citygen, and each other in one direction |
 | **Agents** | `agents/` — car, person, ambulance, service, evacuator, trafficlight | core, citygen, world |
 | **Composition** | `world/town/` | Everything before it. **This is the seam, and it is the only thing allowed to be** |

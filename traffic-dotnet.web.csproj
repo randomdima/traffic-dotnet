@@ -152,22 +152,17 @@
        incompressible and the catalogues are not. The browser inflates it with `DecompressionStream`,
        which is the one decompressor a page has that its .NET runtime does not (WEB-4).
 
-       **A city is its brief and not its town.** A generated map is a few hundred bytes of JSON and a
-       laboratory is laid in code, so what crosses the wire for either is nothing at all: the briefs come
-       down with the papers at boot, small enough to be free and needed at once because the menu reads a
-       city's description out of its own brief.
-
-       **A traced map is its own file, which is megabytes**, so it is two files: the map in an archive of
-       its own, fetched when the map is opened, and its head — the first bytes, which hold the name and
-       the description the menu reads (CityGen.Traced.SurveyHead) — fetched at boot with the briefs. What
-       the map was imported from (towns/traced/<Map>/ and the extract beside it) never crosses the wire.
+       **A town is its map and not its town**, and a laboratory is laid in code, so what crosses the wire is
+       a map's file or nothing at all. A map is a few kilobytes to hundreds of them, so it is two files: the
+       map in an archive of its own, fetched when the map is opened, and its head — the first bytes, which
+       hold the name and the description the menu reads (CityGen.Map.MapHead) — fetched at boot. What a map
+       was authored from (towns/briefs/, towns/traced/) never crosses the wire.
 
        The manifest is the map list and nothing else: what the browser may ask for, against the file it
        would be fetched from. The archive carries its own index, so the art needs no line here. -->
   <ItemGroup>
     <TownArt Include="assets/**" />
-    <TownBrief Include="towns/*.json" />
-    <TracedSurvey Include="towns/traced/*.map" />
+    <TownMap Include="towns/*.map" />
 
     <!-- The figures, loose beside the archive as well as inside it. They are the one thing a page reads
          before it has any reason to want the art, so a run that only ever shows the menu fetches this
@@ -183,40 +178,35 @@
   <Target Name="NameTheArtPack">
     <PropertyGroup>
       <ArtPack>$(IntermediateOutputPath)assets.tar.gz</ArtPack>
-      <SurveyPacks>$(IntermediateOutputPath)towns/traced/</SurveyPacks>
+      <MapPacks>$(IntermediateOutputPath)towns/</MapPacks>
     </PropertyGroup>
   </Target>
 
-  <!-- A brief is copied as it lies: gzipping five hundred bytes buys nothing and would put a second
-       decompressor in the page's way (Main.Data).
-
-       **Both folders are cleared before they are filled**, for the reason the archive's was: a map that
+  <!-- **Both folders are cleared before they are filled**, for the reason the archive's was: a map that
        stops being shipped leaves its last copy behind otherwise, and a published folder is the thing that
        gets deployed — so it would go on being served, unlisted and never asked for, for ever. -->
   <Target Name="ListTheTownData" AfterTargets="Build"
-          DependsOnTargets="NameTheArtPack;PackTheArt;PackTheSurveys;ForgetTheOldLinks">
+          DependsOnTargets="NameTheArtPack;PackTheArt;PackTheMaps;ForgetTheOldLinks">
     <WriteLinesToFile File="$(OutDir)wwwroot/manifest.txt" Overwrite="true" WriteOnlyWhenDifferent="true"
-                      Lines="@(TownBrief->'%(Identity)');@(TracedSurvey->'%(Identity).head');@(TracedSurvey->'%(Identity).tar.gz')" />
+                      Lines="@(TownMap->'%(Identity).head');@(TownMap->'%(Identity).tar.gz')" />
     <RemoveDir Directories="$(OutDir)wwwroot/assets;$(OutDir)wwwroot/towns" />
     <Copy SourceFiles="$(ArtPack)" DestinationFolder="$(OutDir)wwwroot" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(TownPapers)" DestinationFolder="$(OutDir)wwwroot/assets/shared/config/%(RecursiveDir)"
           SkipUnchangedFiles="true" />
-    <Copy SourceFiles="@(TownBrief)" DestinationFolder="$(OutDir)wwwroot/towns" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="@(TracedSurvey->'$(SurveyPacks)%(Filename)%(Extension).head');@(TracedSurvey->'$(SurveyPacks)%(Filename)%(Extension).tar.gz')"
-          DestinationFolder="$(OutDir)wwwroot/towns/traced" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(TownMap->'$(MapPacks)%(Filename)%(Extension).head');@(TownMap->'$(MapPacks)%(Filename)%(Extension).tar.gz')"
+          DestinationFolder="$(OutDir)wwwroot/towns" SkipUnchangedFiles="true" />
   </Target>
 
   <Target Name="PublishTheTownData" AfterTargets="Publish"
-          DependsOnTargets="NameTheArtPack;PackTheArt;PackTheSurveys;ForgetTheOldLinks">
+          DependsOnTargets="NameTheArtPack;PackTheArt;PackTheMaps;ForgetTheOldLinks">
     <WriteLinesToFile File="$(PublishDir)wwwroot/manifest.txt" Overwrite="true" WriteOnlyWhenDifferent="true"
-                      Lines="@(TownBrief->'%(Identity)');@(TracedSurvey->'%(Identity).head');@(TracedSurvey->'%(Identity).tar.gz')" />
+                      Lines="@(TownMap->'%(Identity).head');@(TownMap->'%(Identity).tar.gz')" />
     <RemoveDir Directories="$(PublishDir)wwwroot/assets;$(PublishDir)wwwroot/towns" />
     <Copy SourceFiles="$(ArtPack)" DestinationFolder="$(PublishDir)wwwroot" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(TownPapers)" DestinationFolder="$(PublishDir)wwwroot/assets/shared/config/%(RecursiveDir)"
           SkipUnchangedFiles="true" />
-    <Copy SourceFiles="@(TownBrief)" DestinationFolder="$(PublishDir)wwwroot/towns" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="@(TracedSurvey->'$(SurveyPacks)%(Filename)%(Extension).head');@(TracedSurvey->'$(SurveyPacks)%(Filename)%(Extension).tar.gz')"
-          DestinationFolder="$(PublishDir)wwwroot/towns/traced" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(TownMap->'$(MapPacks)%(Filename)%(Extension).head');@(TownMap->'$(MapPacks)%(Filename)%(Extension).tar.gz')"
+          DestinationFolder="$(PublishDir)wwwroot/towns" SkipUnchangedFiles="true" />
   </Target>
 
   <!-- Sorted, so that the same tree packs to the same bytes and a publish that changed nothing does not
@@ -227,14 +217,14 @@
           Command="tar --sort=name --owner=0 --group=0 --numeric-owner --mtime=@0 -cf - assets | gzip -9 &gt; '$(ArtPack)'" />
   </Target>
 
-  <!-- A traced map as one archive holding it under its own path, which is what WebGpu.Unpack reads and
-       lays where the readers look; and its head, the first 4096 bytes, which is SurveyHead.Bytes — what
-       the menu reads of a map on every head, so the page's is the same bytes by construction. -->
-  <Target Name="PackTheSurveys" DependsOnTargets="NameTheArtPack" Inputs="@(TracedSurvey)"
-          Outputs="@(TracedSurvey->'$(SurveyPacks)%(Filename)%(Extension).tar.gz')">
-    <MakeDir Directories="$(SurveyPacks)" />
+  <!-- A map as one archive holding it under its own path, which is what WebGpu.Unpack reads and lays
+       where the readers look; and its head, the first 4096 bytes, which is MapHead.Bytes — what the menu
+       reads of a map on every head, so the page's is the same bytes by construction. -->
+  <Target Name="PackTheMaps" DependsOnTargets="NameTheArtPack" Inputs="@(TownMap)"
+          Outputs="@(TownMap->'$(MapPacks)%(Filename)%(Extension).tar.gz')">
+    <MakeDir Directories="$(MapPacks)" />
     <Exec WorkingDirectory="$(MSBuildProjectDirectory)"
-          Command="tar --owner=0 --group=0 --numeric-owner --mtime=@0 -cf - '%(TracedSurvey.Identity)' | gzip -9 &gt; '$(SurveyPacks)%(TracedSurvey.Filename)%(TracedSurvey.Extension).tar.gz' &amp;&amp; head -c 4096 '%(TracedSurvey.Identity)' &gt; '$(SurveyPacks)%(TracedSurvey.Filename)%(TracedSurvey.Extension).head'" />
+          Command="tar --owner=0 --group=0 --numeric-owner --mtime=@0 -cf - '%(TownMap.Identity)' | gzip -9 &gt; '$(MapPacks)%(TownMap.Filename)%(TownMap.Extension).tar.gz' &amp;&amp; head -c 4096 '%(TownMap.Identity)' &gt; '$(MapPacks)%(TownMap.Filename)%(TownMap.Extension).head'" />
   </Target>
 
   <!-- **Never a copy into a link.** Earlier builds of this project linked wwwroot/assets and

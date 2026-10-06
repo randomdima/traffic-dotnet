@@ -1,4 +1,6 @@
 using System.Numerics;
+using TrafficSimulation.CityGen.Map;
+using TrafficSimulation.CityGen.Zones;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
@@ -126,6 +128,45 @@ internal sealed class Districts
             : draw.NextFloat(0f, MathF.Tau / spokes);
 
         return new Districts(districts, new DistrictWheel(hubM, ringRadiusM, firstSpokeRad, spokes));
+    }
+
+    /// <summary>
+    /// <b>A wheel's districts as its map holds them</b> (GEN-58): the wheel off the whole map's own settings, and each
+    /// district off the zone that says which sector it is (<see cref="ZoneParam.Sector"/>) — numbered as
+    /// <see cref="DistrictWheel"/> numbers them.
+    /// </summary>
+    public static Districts Of(TownMap.ZoneArrays zones)
+    {
+        const int root = TownMap.ZoneArrays.Root;
+        var wheel = new DistrictWheel(
+            new Vector2(Said(root, ZoneParam.HubXM), Said(root, ZoneParam.HubYM)), Said(root, ZoneParam.RingRadiusM),
+            Said(root, ZoneParam.FirstSpokeRad), (int)Said(root, ZoneParam.Spokes));
+        if (wheel.Spokes is < SpokesFewest or > SpokesMost) throw new InvalidDataException($"a wheel of {wheel.Spokes} spokes.");
+
+        var districts = new District?[wheel.Count];
+        for (var zone = root + 1; zone < zones.Count; zone++)
+        {
+            if (zones.Own(zone, ZoneParam.Sector) is not { } said) continue;
+
+            var (sector, inside) = ((int)said, Said(zone, ZoneParam.Inside) > 0f);
+            var district = inside || !wheel.HasRing ? sector : wheel.Spokes + sector;
+            if (sector < 0 || sector >= wheel.Spokes || districts[district] is not null) throw new InvalidDataException($"zone {zone} is sector {sector} of a wheel of {wheel.Spokes}, or a second zone for it.");
+
+            districts[district] = new District(
+                sector, inside, Said(zone, ZoneParam.BearingRad), Said(zone, ZoneParam.BlockAlongM), Said(zone, ZoneParam.BlockAcrossM),
+                Said(zone, ZoneParam.Strict) > 0f, Said(zone, ZoneParam.StraightShare));
+        }
+
+        var laid = new District[districts.Length];
+        for (var district = 0; district < laid.Length; district++)
+        {
+            laid[district] = districts[district] ?? throw new InvalidDataException($"district {district} of the wheel has no zone.");
+        }
+
+        return new Districts(laid, wheel);
+
+        float Said(int zone, ZoneParam param) =>
+            zones.Own(zone, param) ?? throw new InvalidDataException($"zone {zone} of a wheel says nothing of its {param}.");
     }
 
     /// <summary>

@@ -17,22 +17,20 @@ namespace TrafficSimulation.App.Main;
 /// </para>
 /// <para>
 /// <b>What the menu needs, and then what a town needs.</b> <see cref="Boot"/> fetches the papers — the
-/// map listing, the figures and every city's brief — and that is the whole of what stands between a page
+/// map listing, the figures and every map's head — and that is the whole of what stands between a page
 /// opening and a menu on it. <see cref="Art"/> fetches the catalogues and the sheets, and it is called
 /// for the first town opened, after the first frame, because a menu draws glyphs and quads and not one
 /// sprite. It is the difference between a page whose menu waits on one archive and a page whose menu
 /// waits on a handful of small files.
 /// </para>
 /// <para>
-/// <b>No generated town crosses the wire.</b> A city is generated from a brief of a few hundred bytes and a
-/// map laid to be looked at is laid in code, so what a page fetches for either is its brief or nothing —
-/// and the briefs come down with the papers at boot, because the menu reads a city's own description out
-/// of one.
+/// <b>No town crosses the wire, only its map</b>: a town is laid off its map when it is opened, and a map laid to be
+/// looked at is laid in code, so what a page fetches is a map's file or nothing.
 /// </para>
 /// <para>
-/// <b>A traced map is its survey, and a survey is megabytes</b>, so the papers carry only its head — the
-/// bytes the menu reads (<see cref="CityGen.Traced.SurveyHead"/>), laid at the survey's own path — and the
-/// whole is unpacked over it when the map is opened (<see cref="Survey"/>).
+/// <b>A map is a few kilobytes to hundreds of them</b>, so the papers carry only its head — the bytes the menu reads
+/// (<see cref="CityGen.Map.MapHead"/>), laid at the map's own path — and the whole is unpacked over it when the map is
+/// opened (<see cref="Map"/>).
 /// </para>
 /// </remarks>
 internal static class Data
@@ -48,23 +46,20 @@ internal static class Data
 
     const string Assets = "assets";
 
-    /// <summary>What a brief is stored as, which is what tells one from anything else in the manifest.</summary>
-    const string BriefKind = ".json";
-
-    /// <summary>What a survey's head is published as: the survey's own path and this, which it is laid without.</summary>
+    /// <summary>What a map's head is published as: the map's own path and this, which it is laid without.</summary>
     const string HeadKind = ".head";
 
-    /// <summary>What a whole survey is published as: an archive holding it under its own path.</summary>
-    const string SurveyKind = ".tar.gz";
+    /// <summary>What a whole map is published as: an archive holding it under its own path.</summary>
+    const string MapKind = ".tar.gz";
 
     /// <summary>Whether the archive has been unpacked, so a second map picked is not a second fetch.</summary>
     static bool _laid;
 
-    /// <summary>Each traced map's survey archive, by map name, until it is unpacked and taken out.</summary>
-    static readonly Dictionary<string, string> Surveys = new(StringComparer.Ordinal);
+    /// <summary>Each map's archive, by map name, until it is unpacked and taken out.</summary>
+    static readonly Dictionary<string, string> Archives = new(StringComparer.Ordinal);
 
     /// <summary>
-    /// The few files the menu is drawn from — the figures and every city's brief. <b>This is the whole of
+    /// The few files the menu is drawn from — the figures and every map's head. <b>This is the whole of
     /// what stands between a page opening and a menu on it</b>: a handful of small files, so the wait is
     /// one round trip and not three hundred. Everything else is <see cref="Art"/>'s.
     /// </summary>
@@ -78,8 +73,8 @@ internal static class Data
         // Asked for by name and not read off a listing: what the menu draws is a fact about this code
         // and not about what the build happened to ship. **The figures are the only one of them named
         // here** — the typeface ships inside the assembly and the menu's renderer takes stand-ins for
-        // the ground it does not draw (Render.TownRenderer.Ground) — and the briefs join them below,
-        // where the listing says which cities there are.
+        // the ground it does not draw (Render.TownRenderer.Ground) — and the maps' heads join them below,
+        // where the listing says which maps there are.
         var papers = new List<string> { Page(Core.Config.ProjectPaths.SharedFiguresFile) };
 
         // **Both in one wave.** The listing and the figures do not need each other, and a page that
@@ -98,18 +93,17 @@ internal static class Data
             var path = line.Replace('\\', '/');
             if (!path.StartsWith(Towns + "/", StringComparison.Ordinal)) continue;
 
-            // **A brief and a survey's head come down now**: each is a few hundred bytes to a few
-            // kilobytes and the menu reads a map's description straight out of it, so a page that fetched
-            // one lazily would draw its own map list against files that are not there yet. The survey
-            // itself waits for its map to be opened.
-            if (path.EndsWith(BriefKind, StringComparison.Ordinal) || path.EndsWith(HeadKind, StringComparison.Ordinal))
+            // **A map's head comes down now**: it is a few kilobytes and the menu reads a map's description
+            // straight out of it, so a page that fetched one lazily would draw its own map list against files
+            // that are not there yet. The map itself waits to be opened.
+            if (path.EndsWith(HeadKind, StringComparison.Ordinal))
                 papers.Add(path);
-            else if (path.EndsWith(SurveyKind, StringComparison.Ordinal))
-                Surveys[Path.GetFileNameWithoutExtension(Path.GetFileName(path)[..^SurveyKind.Length])] = path;
+            else if (path.EndsWith(MapKind, StringComparison.Ordinal))
+                Archives[Path.GetFileNameWithoutExtension(Path.GetFileName(path)[..^MapKind.Length])] = path;
         }
 
-        // The briefs in one wave, for the reason the figures went out beside the listing: they are a few
-        // hundred bytes apiece and asked for one after the next they are one round trip each.
+        // The heads in one wave, for the reason the figures went out beside the listing: they are a few
+        // kilobytes apiece and asked for one after the next they are one round trip each.
         if (papers.Count > 1) Runtime.WebGpu.Prefetch(string.Join('\n', papers.GetRange(1, papers.Count - 1)));
 
         const string saying = "reading what the menu draws…";
@@ -172,26 +166,26 @@ internal static class Data
     }
 
     /// <summary>
-    /// A traced map's survey, asked for as the map is opened so that it comes down beside the art rather
-    /// than after it (WEB-9). Nothing for any other map, or for a survey already unpacked.
+    /// A map's file, asked for as the map is opened so that it comes down beside the art rather than after it
+    /// (WEB-9). Nothing for a map laid in code, or for one already unpacked.
     /// </summary>
-    public static void ExpectSurvey(string map)
+    public static void ExpectMap(string map)
     {
-        if (Surveys.TryGetValue(map, out var archive)) Runtime.WebGpu.Prefetch(archive);
+        if (Archives.TryGetValue(map, out var archive)) Runtime.WebGpu.Prefetch(archive);
     }
 
     /// <summary>
-    /// A traced map's whole survey, unpacked over the head the menu was reading — once, and before anything
-    /// lays the town (<see cref="CityGen.Maps.Traced"/>). Nothing for any other map.
+    /// A map's whole file, unpacked over the head the menu was reading — once, and before anything lays the town
+    /// (<see cref="CityGen.Maps.Plan"/>). Nothing for a map laid in code.
     /// </summary>
-    public static async Task Survey(string map, Action<string> say)
+    public static async Task Map(string map, Action<string> say)
     {
-        if (!Surveys.Remove(map, out var archive)) return;
+        if (!Archives.Remove(map, out var archive)) return;
 
-        say($"unpacking {map}'s survey…");
+        say($"unpacking {map}'s map…");
         var listed = await Runtime.WebGpu.Unpack(archive);
         await Lay(listed.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
-            $"laying {map}'s survey…", say);
+            $"laying {map}'s map…", say);
     }
 
     /// <summary>

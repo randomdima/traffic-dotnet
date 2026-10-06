@@ -739,11 +739,11 @@ internal sealed class CityGenFigures
     public float TracedWidestLaneM { get; init; } = 8f;
 
     /// <summary>
-    /// The cell a traced town's buildings are claimed at before its props are laid (GEN-6b): a brief's is a metre, and
-    /// a traced map is a city across, whose claims at a metre would be a byte to every square metre of it. A prop is
-    /// held up to a cell further off a building than a metre would hold it.
+    /// The cell a town's buildings and their padding are claimed at while it is laid (GEN-3, GEN-6b): a city across is
+    /// tens of millions of these, a bit each. A prop is held up to a cell further off a building than a metre would
+    /// hold it.
     /// </summary>
-    public float TracedClaimCellM { get; init; } = 2f;
+    public float ClaimCellM { get; init; } = 2f;
 
     /// <summary>
     /// <b>How many of a traced town's bridges over its roads have cars stood at them</b> (GEN-57, PHY-1a): a car each way
@@ -752,105 +752,80 @@ internal sealed class CityGenFigures
     /// </summary>
     public int TracedBridgesWithCars { get; init; } = 4;
 
-    /// <summary>The least a traced footprint covers and still stands a building (GEN-57): a sentry box's, and no booth smaller.</summary>
-    public float TracedFootprintSmallestM2 { get; init; } = 4f;
+    /// <summary>
+    /// <b>How far behind the building line a town's zones are asked what is built there</b> (GEN-58): a front room's
+    /// depth, so a zone's edge drawn along the kerb or a few metres short of it still speaks for the frontage.
+    /// </summary>
+    public float ZoneDepthM { get; init; } = 5f;
 
     /// <summary>
-    /// <b>The narrowest rectangle a traced footprint is cut into</b> (GEN-57): a wall and a room, so a sliver of
-    /// outline between two wings is part of neither rather than a building of its own.
+    /// <b>The least class of road a traced junction's arms are main roads at</b> (GEN-57), on
+    /// <c>TracedRoad.Rank</c>'s scale: a junction of three main arms or more carries lights. Tertiary — a crossing of
+    /// two through streets carries lights, and a residential street's off one does not.
     /// </summary>
-    public float TracedPartNarrowestM { get; init; } = 2f;
+    public int TracedLitRankLeast { get; init; } = 3;
 
     /// <summary>
-    /// How much of its own box a traced footprint fills and is that box (GEN-57): a rectangle a mapper drew a
-    /// porch or a chamfered corner on.
+    /// <b>How far the walk may stand from where a building's front is asked to be seated</b> (GEN-58, GEN-54): further,
+    /// and the place is no walk's.
     /// </summary>
-    public float TracedRectangularShare { get; init; } = 0.88f;
-
-    /// <summary>The most rectangles one traced footprint is cut into (GEN-57): the four wings of a courtyard block.</summary>
-    public int TracedPartsMost { get; init; } = 4;
+    public float ZoneFrontageReachM { get; init; } = 25f;
 
     /// <summary>
-    /// <b>How much of a traced footprint its rectangles cover before no more are cut</b> (GEN-57), as a share of its
-    /// area: past it, what is left is the stair towers and bays an outline is drawn round and no building of its own.
+    /// <b>How far any part of a building's front may stand back off the building line</b> (GEN-58), where the rest of it
+    /// stands on it: the walk under a front may curve that much and no more, so nothing is stood across a bend or a jog
+    /// in the kerb.
     /// </summary>
-    public float TracedPartsCoverShare { get; init; } = 0.9f;
-
-    /// <summary>The least share of a traced footprint a further rectangle cut from it covers (GEN-57).</summary>
-    public float TracedPartSmallestShare { get; init; } = 0.08f;
+    public float ZoneFrontageStraightM { get; init; } = 1f;
 
     /// <summary>
-    /// <b>How fine a traced footprint is read to be cut</b> (GEN-57): its longest side in this many cells, none finer
-    /// than <see cref="TracedFootprintCellLeastM"/> — a wing's corner placed to within a cell.
+    /// How far the walk under a building's front may turn off the front's own bearing (GEN-58): further, and the front
+    /// runs round a block's corner.
     /// </summary>
-    public int TracedFootprintCells { get; init; } = 48;
-
-    public float TracedFootprintCellLeastM { get; init; } = 0.25f;
+    public float ZoneFrontageTurnDeg { get; init; } = 30f;
 
     /// <summary>
-    /// <b>How far a traced building may be moved to stand on the walk</b> (GEN-57, GEN-54), measured from the wall of
-    /// it that faces the walk to the building line, either way: a front garden or a yard's depth behind it, or what a
-    /// street laid wider than surveyed takes off a house front. A building further from every walk stands nowhere.
+    /// <b>How many of a look's prefabs a place on a town's walk is tried with</b> (GEN-58), from the one drawn on, before
+    /// it stands nothing: the first that seats on the walk and stands clear of the ground and of the buildings stood
+    /// before it is the one.
     /// </summary>
-    public float TracedFrontageReachM { get; init; } = 25f;
+    public int ZonePrefabsTried { get; init; } = 6;
 
     /// <summary>
-    /// <b>How far any part of a traced building's front may stand back off the building line</b> (GEN-57), where the
-    /// rest of it stands on it: the walk under a front may curve that much and no more, so nothing is stood across a
-    /// bend or a jog in the kerb.
+    /// How far two buildings a zone stands may stand into each other and still both stand (GEN-58): a party wall's half,
+    /// which two neighbours of a terrace share.
     /// </summary>
-    public float TracedFrontageStraightM { get; init; } = 1f;
+    public float ZonePartyWallM { get; init; } = 0.3f;
 
     /// <summary>
-    /// How far the walk under a traced building's front may turn off the front's own bearing (GEN-57): further, and the
-    /// front runs round a block's corner.
+    /// <b>How widely a zone's buildings' footprints spread about its typical one</b> (GEN-58), as a factor: a prefab
+    /// that many times bigger or smaller than the zone's footprint is drawn about three-fifths as often as one its size.
     /// </summary>
-    public float TracedFrontageTurnDeg { get; init; } = 30f;
+    public float ZoneFootprintSpread { get; init; } = 2f;
 
     /// <summary>
-    /// <b>How tall a home whose survey says no more stands before it is a block of flats</b> (GEN-57): three storeys,
-    /// over which nobody builds a house.
+    /// How far behind the walk's outer face a building behind the frontage keeps (GEN-58): past a front row's depth, so
+    /// the ground behind the frontage is built over where the frontage builder has not reached.
     /// </summary>
-    public float TracedFlatsHeightM { get; init; } = 9f;
-
-    /// <summary>How tall a block of flats stands before it is a tower (GEN-57): eight storeys, the panel blocks' lowest.</summary>
-    public float TracedTowerHeightM { get; init; } = 24f;
-
-    /// <summary>The most a home of no stated height covers and is a shed rather than a house (GEN-57).</summary>
-    public float TracedShedLargestM2 { get; init; } = 20f;
-
-    /// <summary>The most a home of no stated height covers and is a house rather than a block of flats (GEN-57).</summary>
-    public float TracedHouseLargestM2 { get; init; } = 300f;
+    public float ZoneBehindClearM { get; init; } = 15f;
 
     /// <summary>
-    /// The least a building nothing says anything of covers and is a works rather than a home (GEN-57): a block of
-    /// flats this size is a courtyard block, and those stand in residential ground.
+    /// How far a building behind the frontage may stand from the walk its way in opens onto (GEN-58): further, and it is
+    /// not built — a door nobody walks to is no building of the town's.
     /// </summary>
-    public float TracedWorksSmallestM2 { get; init; } = 1500f;
+    public float ZoneBehindReachM { get; init; } = 150f;
 
     /// <summary>
-    /// <b>How many prefabs a traced rectangle is offered, nearest first</b> (GEN-57), before it stands nothing: the
-    /// nearest that stands clear of the ground and of the buildings stood before it is the one.
+    /// The least share of its ground a zone builds behind its frontage before it is built at all (GEN-58): less is a shed
+    /// or two in a city's district, not worth the places asked.
     /// </summary>
-    public int TracedPrefabsTried { get; init; } = 6;
+    public float ZoneBehindLeast { get; init; } = 0.005f;
 
     /// <summary>
-    /// How much more a prefab larger than a traced rectangle weighs against it than one as much smaller (GEN-57): what
-    /// it stands over is a neighbour's, and what it leaves is grass.
+    /// How many places a zone's ground behind its frontage is offered for each building its share wants (GEN-58): enough
+    /// that the walk's band, the paving and the frontage refusing most of them still leave the share built.
     /// </summary>
-    public float TracedPrefabLargerWeighs { get; init; } = 1.5f;
-
-    /// <summary>
-    /// How much a prefab rounder or squarer than a traced rectangle weighs against it (GEN-57), a whole share of
-    /// roundness against a size's ratio — so a silo wears a round prefab before a square one half again its size.
-    /// </summary>
-    public float TracedPrefabRoundWeighs { get; init; } = 1.5f;
-
-    /// <summary>
-    /// How far two traced buildings may stand into each other and still both stand (GEN-57): a party wall's
-    /// half, which two neighbours a terrace was surveyed as share.
-    /// </summary>
-    public float TracedPartyWallM { get; init; } = 0.3f;
+    public float ZoneBehindOffered { get; init; } = 25f;
 
     /// <summary>
     /// How far one one-way street stands off the next (GEN-18), which is what scatters them evenly over a

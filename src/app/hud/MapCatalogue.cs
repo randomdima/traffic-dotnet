@@ -11,10 +11,9 @@ internal enum MapKind
     Place,
 
     /// <summary>
-    /// A town laid to put one behaviour under a microscope; no map this build ships is one, the fixture
-    /// being a brief like a city's. Still an ordinary map in every way that matters — the ordinary game,
-    /// camera and agents — and behind its own submenu so that a menu of two cities does not read as a menu
-    /// of two cities and a laboratory.
+    /// A town laid in code to put one behaviour under a microscope — the scenario map — the fixture being a map file
+    /// like a city's. Still an ordinary map in every way that matters — the ordinary game, camera and agents — and
+    /// behind its own submenu so that a menu of two cities does not read as a menu of two cities and a laboratory.
     /// </summary>
     Scenario,
 }
@@ -27,16 +26,16 @@ internal readonly record struct MapEntry(string Name, MapKind Kind, string Descr
 /// can be opened one way can be opened the other.
 /// </summary>
 /// <remarks>
-/// <b><see cref="Maps.Shipped"/> is the authority for which maps exist</b> — the briefs and the surveys in
-/// <c>towns/</c> and the maps this build lays in code — so a map cannot exist and be unlisted. <b>A city says
-/// what it is in its own brief or survey</b>, which a binary file could never do; this catalogue is the authority for the rest,
-/// which is the maps laid to measure one thing. The unit suite guards the pair in both directions.
+/// <b><see cref="Maps.Shipped"/> is the authority for which maps exist</b> — the map files in <c>towns/</c> and the maps
+/// this build lays in code — so a map cannot exist and be unlisted. <b>A town says what it is in its own map's head</b>;
+/// this catalogue is the authority for the rest, which is the maps laid to measure one thing. The unit suite guards the
+/// pair in both directions.
 /// </remarks>
 internal static class MapCatalogue
 {
     /// <summary>
     /// Every map this engine knows what to say about that does not say it for itself: <b>the maps laid in
-    /// code</b>, a brief carrying its own description. The idle ring takes no row, being the frame the start
+    /// code</b>, a map file carrying its own description. The idle ring takes no row, being the frame the start
     /// menu stands over (GEN-1b) rather than a map anybody picks.
     /// </summary>
     static readonly MapEntry[] Known =
@@ -66,10 +65,9 @@ internal static class MapCatalogue
             if (string.Equals(entry.Name, name, StringComparison.Ordinal)) return entry;
         }
 
-        // A city is described by the brief or the survey it is laid from: what a town is meant to be is
-        // authored beside what it is laid from, and a second description here would be the one that goes stale.
-        if (Maps.IsGenerated(name)) return new MapEntry(name, MapKind.Place, Maps.Brief(name).Description);
-        if (Maps.IsTraced(name)) return new MapEntry(name, MapKind.Place, Maps.SurveyDescription(name));
+        // A town is described by its own map: what a town is meant to be is authored with what it is laid from,
+        // and a second description here would be the one that goes stale.
+        if (Maps.IsCity(name)) return new MapEntry(name, MapKind.Place, Maps.Description(name));
 
         return new MapEntry(name, MapKind.Scenario, "Shipped but undescribed: add it to MapCatalogue");
     }

@@ -41,7 +41,7 @@ internal readonly record struct BuildingVariant(
 /// <see cref="Match"/> cannot reach it,
 /// because a roof lettered HOSPITAL over somebody's front door is a building the town says is a hospital
 /// and is not one. <b>A prefab is chosen by the plan and never matched</b>: which one a footprint wears is
-/// its shape's and its look's, settled where the footprint is cut (<c>TracedBuildings</c>).
+/// its zone's look and size, settled where the building is stood (<c>ZoneBuildings</c>).
 /// </para>
 /// </remarks>
 internal sealed class BuildingCatalog
@@ -147,9 +147,6 @@ internal sealed class BuildingCatalog
     /// </summary>
     public BuildingSizes Footprints()
     {
-        var ordinaryM = new Vector2[Ordinary];
-        for (var variant = 0; variant < Ordinary; variant++) ordinaryM[variant] = Variants[variant].FootprintM;
-
         var byUseM = new Vector2[BuildingSizes.Uses];
         for (var use = 0; use < byUseM.Length; use++)
         {
@@ -167,7 +164,7 @@ internal sealed class BuildingCatalog
             prefabLook[prefab] = Variants[FirstPrefab + prefab].Look!.Value;
         }
 
-        return new BuildingSizes(ordinaryM, byUseM, prefabM, prefabCornerM, prefabLook);
+        return new BuildingSizes(byUseM, prefabM, prefabCornerM, prefabLook);
     }
 
     public (int Variant, bool Swapped) Match(Vector2 sizeM)

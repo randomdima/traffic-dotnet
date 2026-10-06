@@ -99,6 +99,12 @@ internal sealed class CityPlan
     public DistrictWheel Districts { get; init; } = DistrictWheel.Whole;
 
     /// <summary>
+    /// <b>What its map zoned it for</b> (GEN-58, <see cref="Map.TownMap.Zones"/>), carried for whoever asks what a place
+    /// was laid as — the zones layer and the probes. Empty for a map laid in code, which has no file to zone.
+    /// </summary>
+    public Map.TownMap.ZoneArrays Zones { get; init; } = Map.TownMap.ZoneArrays.None;
+
+    /// <summary>
     /// The shapes the ground is cut from, as the one bundle every reading of the town's surface takes
     /// (<see cref="GroundShapes"/>).
     /// </summary>
@@ -115,7 +121,7 @@ internal sealed class CityPlan
     /// </summary>
     /// <remarks>
     /// <b>It is the same shapes or it is a defect</b>: what is handed over was laid off the pieces this plan
-    /// carries, which is why nothing after the roads may add driven ground (<c>TownGenerator</c>).
+    /// carries, which is why nothing after the roads may add driven ground (<c>TownPlan</c>).
     /// </remarks>
     public Paving? PavingLaidWithIt { get; init; }
 
@@ -604,38 +610,14 @@ internal sealed class CityPlan
         public required Vector2[] EntryPointM { get; init; }
 
         /// <summary>
-        /// <b>The prefab each building wears where the plan chose it</b> (GEN-57): its place among the prefabs the plan
+        /// <b>The prefab each building wears where the plan chose it</b> (GEN-58): its place among the prefabs the plan
         /// was handed (<see cref="BuildingSizes.PrefabM"/>), its <see cref="SizeM"/> that prefab laid along or across
-        /// its bearing. Empty where none was chosen, and the catalogue matches a roof to each building's size.
+        /// its bearing. −1 for a service, which wears its use's roof; empty where none was chosen, and the catalogue
+        /// matches a roof to each building's size.
         /// </summary>
         public int[] Prefab { get; init; } = [];
 
         public int Count => CentreM.Length;
-    }
-
-    /// <summary>
-    /// Footprints as their rings, flat with offsets beside them as every run in this structure is: each its outline
-    /// first and then any courtyard cut out of it.
-    /// </summary>
-    internal sealed class FootprintArrays
-    {
-        public static FootprintArrays None => new() { RingOffsets = [0], Rings = RingArrays.None, Traced = [], HeightM = [], Use = [] };
-
-        /// <summary>Count + 1 entries, over <see cref="Rings"/>: footprint i's are <c>RingOffsets[i]..RingOffsets[i + 1]</c>.</summary>
-        public required int[] RingOffsets { get; init; }
-
-        /// <summary>Every ring, none closed on its first point, in either hand.</summary>
-        public required RingArrays Rings { get; init; }
-
-        /// <summary>Whether it was traced off imagery by a machine rather than mapped, which it is drawn a shade apart for.</summary>
-        public required bool[] Traced { get; init; }
-
-        /// <summary>How tall it stands, or nought where nothing says — which its roof is drawn the lighter for.</summary>
-        public required float[] HeightM { get; init; }
-
-        public required Traced.FootprintUse[] Use { get; init; }
-
-        public int Count => Traced.Length;
     }
 
     internal sealed class PropArrays
@@ -678,6 +660,8 @@ internal sealed class CityPlan
         public required Vector2[] PositionM { get; init; }
         public required float[] HeadingRad { get; init; }
         public int Count => Kind.Length;
+
+        public static SpawnArrays None => new() { Kind = [], PositionM = [], HeadingRad = [] };
     }
 
     /// <summary>Closed rings, carried flat with an offsets array beside them as every run in this structure is.</summary>

@@ -7,10 +7,11 @@ using TrafficSimulation.Core.Geometry;
 namespace TrafficSimulation.Bench;
 
 /// <summary>
-/// <b>How far a traced town's lanes stand off OSM's own</b> (GEN-57), read both ways: every metre of every lane
-/// OSM's tags place on a laid way (<see cref="OsmCarriageway"/>) against the nearest lane the engine drives the
-/// same way, and every metre the engine lays against the nearest OSM lane. The engine's lines are its lanes and
-/// the connectors across its junctions, which is where OSM's lanes run on to the node the ways meet at.
+/// <b>How far a traced town's lanes stand off its map's own</b> (GEN-57), read both ways: every metre of every lane
+/// the map counts on a laid way — each <see cref="CityGenFigures.TracedLaneWidthM"/> wide about the way's line, as
+/// far off it as OSM places the carriageway — against the nearest lane the engine drives the same way, and every metre
+/// the engine lays against the nearest of the map's. The engine's lines are its lanes and the connectors across its
+/// junctions, which is where the map's lanes run on to the node the ways meet at.
 /// </summary>
 /// <remarks>
 /// <b>Quoted and gating nothing</b>: it is the reading a change to how a survey is laid is weighed by, and the
@@ -45,13 +46,13 @@ internal static class TracedFidelity
     /// </param>
     public static void Run(string map, SimConfig config, Vector2? atM = null)
     {
-        if (!Maps.IsTraced(map))
+        var traced = Maps.IsCity(map) ? Maps.Read(map) : null;
+        if (traced is null || traced.Roads.Length == 0)
         {
-            Console.WriteLine($"{map} is not traced: nothing to hold it against.");
+            Console.WriteLine($"{map} holds no road of its own: nothing to hold it against.");
             return;
         }
 
-        var traced = Maps.Traced(map);
         var survey = Survey.Of(traced, config);
         var plan = Maps.Plan(map, config, BuildingSizes.None);
         var ways = traced.Roads.ToDictionary(road => road.OsmId);
@@ -61,25 +62,30 @@ internal static class TracedFidelity
             return;
         }
 
-        // Each way as far as the map lays it, in the order OSM draws it, which is the order its lanes are told in.
+        // Each way as far as the map lays it, its lanes left to right along its points: those against them on the side
+        // traffic does not keep to, then any driven both ways, then those with them — between its roadsides, the one
+        // along it at the kerb its traffic keeps to.
         var osm = new Lines();
+        var widthM = config.CityGen.TracedLaneWidthM;
+        var keepsRight = config.Road.TrafficKeepsRight;
         foreach (var way in survey.Ways)
         {
-            var carriageway = ways[way.OsmId].Carriageway;
             var lineM = way.Points.Select(survey.PointM).ToArray();
-            if (way.Turned) Array.Reverse(lineM);
-
             var laneM = new Vector2[lineM.Length];
-            for (var lane = 0; lane < carriageway.Lanes.Length; lane++)
+            var (against, both, with) = (way.LanesBackward, way.LanesShared, way.LanesForward);
+            var counted = against + both + with;
+            var middleM = way.CentreOffsetM + ((way.RoadsideAgainstM - way.RoadsideAlongM) * (keepsRight ? 0.5f : -0.5f));
+            for (var lane = 0; lane < counted; lane++)
             {
-                OsmCarriageway.OffsetInto(lineM, carriageway.LaneOffsetM(lane), laneM);
-                if (carriageway.Lanes[lane].Way == OsmLaneWay.Both)
+                var fromLeft = keepsRight ? lane : counted - 1 - lane;
+                OsmCarriageway.OffsetInto(lineM, middleM + ((fromLeft + 0.5f - (counted * 0.5f)) * widthM), laneM);
+                if (lane >= against && lane < against + both)
                 {
                     osm.AddLine(laneM, way.OsmId, Shared);
                     continue;
                 }
 
-                if (carriageway.Lanes[lane].Way == OsmLaneWay.Backward) Array.Reverse(laneM);
+                if (lane < against) Array.Reverse(laneM);
                 osm.AddLine(laneM, way.OsmId, Lane);
             }
         }
@@ -103,22 +109,17 @@ internal static class TracedFidelity
         }
 
         var laidWays = survey.Ways.Select(way => way.OsmId).Distinct().ToArray();
-        Console.WriteLine($"{map}: OSM {laidWays.Sum(id => ways[id].Carriageway.Lanes.Length)} lanes on {laidWays.Length} ways, " +
+        Console.WriteLine($"{map}: the map's {laidWays.Sum(id => ways[id].Lanes)} lanes on {laidWays.Length} ways, " +
                           $"{osm.LengthM / 1000f:F1} km driven inside the map; " +
                           $"laid {lanes.FirstRoadside} lanes on {plan.Roads.Count} roads, {laidLanes.LengthM / 1000f:F1} km, " +
                           $"{lanes.LaneCount - lanes.FirstRoadside} roadsides beside them, " +
                           $"and {lanes.ConnectorCount} connectors, {(laid.LengthM - laidLanes.LengthM) / 1000f:F1} km");
+        Console.WriteLine($"measured: {laidWays.Count(id => ways[id].WidthM is not null)} of {laidWays.Length} ways as wide as measured");
 
-        // Where the pack's measured widths moved a way off OSM's own lanes, which every reading below then shows.
-        var measured = survey.Ways.Where(way => way.WidthFrom is not null).DistinctBy(way => way.OsmId).ToArray();
-        Console.WriteLine($"measured: {measured.Length} of {laidWays.Length} ways as wide as measured — " +
-                          string.Join(", ", measured.GroupBy(way => way.WidthFrom).Select(by => $"{by.Count()} by {by.Key!.Value.ToString().ToLowerInvariant()}")) +
-                          $" — and {measured.Count(way => way.LanesFromWidth)} given the lanes that width holds where OSM assumes a count");
-
-        // OSM's lanes run on to the node the ways meet at, which is across a junction the engine drives on a
-        // connector; a connector turning there has no OSM lane to be held against.
-        Report("OSM lanes off laid lanes and connectors", osm, laid, discs, id => $"way {id}");
-        Report("laid lanes off OSM", laidLanes, osm, discs, id => $"road {id}");
+        // The map's lanes run on to the node the ways meet at, which is across a junction the engine drives on a
+        // connector; a connector turning there has no lane of the map's to be held against.
+        Report("the map's lanes off laid lanes and connectors", osm, laid, discs, id => $"way {id}");
+        Report("laid lanes off the map's", laidLanes, osm, discs, id => $"road {id}");
 
         var streets = TracedStreets.Lay(survey, config);
         Console.WriteLine($"shared: {streets.Shared.Directed} roads of one lane both ways share run one way; taken out " +
@@ -126,31 +127,27 @@ internal static class TracedFidelity
         Console.WriteLine($"gathered: {streets.Gathered.Junctions} junctions into {streets.Gathered.Into}, {streets.Gathered.Places} of them " +
                           $"places of two arms inside another's disc, {streets.Gathered.Roads} roads " +
                           $"between them gone, {streets.Gathered.Unmade} movements across them none of those roads made forbidden");
-        Turns(traced.Turns, streets.Turns, plan, lanes);
+        Turns(plan, lanes);
     }
 
     /// <summary>
-    /// <b>How much of where OSM says a car may turn was laid</b>, and whether any connector makes a turn the plan
-    /// forbids or leaves a lane OSM links for one it does not.
+    /// <b>Whether any connector makes a turn the plan forbids</b> — the movements across a gathered junction none of its
+    /// roads made — and which lanes into a junction another road leaves are left with no turn there.
     /// </summary>
-    static void Turns(OsmTurns osm, TracedStreets.TurnsLaid laid, CityPlan plan, LaneLines lanes)
+    static void Turns(CityPlan plan, LaneLines lanes)
     {
         var banned = plan.Roads.BannedTurns.ToHashSet();
-        var linked = plan.Roads.LaneLinks.Select(link => new RoadTurn(link.Junction, link.FromRoad, link.ToRoad)).ToHashSet();
-        var links = plan.Roads.LaneLinks.ToHashSet();
-        var (forbidden, unlinked) = (0, 0);
+        var forbidden = 0;
         for (var connector = 0; connector < lanes.ConnectorCount; connector++)
         {
             var (from, to) = (lanes.ConnectorFromLane[connector], lanes.ConnectorToLane[connector]);
-            var turn = new RoadTurn(lanes.JunctionOfConnector(connector), lanes.LaneRoad[from], lanes.LaneRoad[to]);
-            if (banned.Contains(turn)) forbidden++;
-            if (linked.Contains(turn) && !links.Contains(new LaneLink(turn.Junction, turn.FromRoad, lanes.LaneFromKerb[from], turn.ToRoad, lanes.LaneFromKerb[to]))) unlinked++;
+            if (banned.Contains(new RoadTurn(lanes.JunctionOfConnector(connector), lanes.LaneRoad[from], lanes.LaneRoad[to]))) forbidden++;
         }
 
-        // A lane into a junction some other road leaves, left with no turn: what OSM forbids or marks may do that.
+        // A lane into a junction some other road leaves, left with no turn: what a gathered junction forbids may do that.
         var leaves = lanes.LaneRoad.Take(lanes.FirstRoadside).Select((road, lane) => (Junction: lanes.LaneFromJunction[lane], Road: road)).ToHashSet();
         var leaving = leaves.GroupBy(leaves => leaves.Junction).ToDictionary(group => group.Key, group => group.Count());
-        var (stranded, strandedByOsm, ended) = (0, 0, 0);
+        var (stranded, strandedByBans, ended) = (0, 0, 0);
         var strandedAt = new List<string>();
         var turnedAt = banned.Select(turn => (turn.Junction, turn.FromRoad)).ToHashSet();
         for (var lane = 0; lane < lanes.FirstRoadside; lane++)
@@ -167,7 +164,7 @@ internal static class TracedFidelity
             }
 
             stranded++;
-            if (turnedAt.Contains((junction, road)) || plan.Roads.MarkedTurnsOf(road, lanes.LaneForward[lane]).Length > 0) strandedByOsm++;
+            if (turnedAt.Contains((junction, road))) strandedByBans++;
             if (strandedAt.Count < 8)
             {
                 strandedAt.Add($"road {road} at ({plan.Junctions.CentreM[junction].X:F0}, {plan.Junctions.CentreM[junction].Y:F0}) " +
@@ -185,11 +182,8 @@ internal static class TracedFidelity
 
         Console.WriteLine($"lanes: {lanes.ConnectorCount} connectors; {ended} lanes end at a node beside one that carries on, " +
                           $"{movedOnto} are reached only by moving across (TER-5j)");
-        Console.WriteLine($"turns: {laid.Restrictions} of OSM's {osm.Restrictions.Length} restrictions laid as {laid.Bans} turns forbidden — " +
-                          $"{laid.RestrictionsAtNoJunction} at a node no junction stands at, {laid.RestrictionsUnmatched} naming a way with no one end there; " +
-                          $"{laid.Links} of {osm.LaneLinks.Length} lane links; arrows on the lanes into {laid.ArrowedEnds} road ends. " +
-                          $"Connectors making a forbidden turn {forbidden}, joining lanes a link does not {unlinked}; " +
-                          $"lanes into a junction another road leaves with no turn there {stranded}, {strandedByOsm} of them restricted or marked" +
+        Console.WriteLine($"turns: {banned.Count} forbidden across gathered junctions; connectors making a forbidden turn {forbidden}; " +
+                          $"lanes into a junction another road leaves with no turn there {stranded}, {strandedByBans} of them off a road a turn is forbidden from" +
                           (strandedAt.Count > 0 ? ": " + string.Join(", ", strandedAt) : ""));
     }
 
@@ -289,9 +283,9 @@ internal static class TracedFidelity
             var points = way.Points;
             if (!Array.Exists(points, point => Vector2.Distance(survey.PointM(point), placeM) <= SearchM)) continue;
 
-            var carriageway = ways[way.OsmId].Carriageway;
+            var road = ways[way.OsmId];
             Console.WriteLine($"way {way.OsmId} {way.Highway} lanes {way.LanesForward}+{way.LanesBackward}+{way.LanesShared} " +
-                              $"{carriageway.WidthM:F2} m ({carriageway.WidthFrom}) off {carriageway.CentreOffsetM:F2}: " +
+                              $"{(road.WidthM is { } widthM ? $"{widthM:F2} m" : "unmeasured")} off {way.CentreOffsetM:F2}: " +
                               string.Join(" ", points.Select(point => $"{point}({survey.PointM(point).X:F1},{survey.PointM(point).Y:F1})")));
         }
 

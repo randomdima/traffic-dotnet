@@ -14,7 +14,7 @@ namespace TrafficSimulation.CityGen.Gen;
 /// over what is entering by the ranking alone (GEN-19).
 /// </para>
 /// <para>
-/// <b>How many is the brief's</b> (<see cref="TownBrief.UnregulatedJunctionShare"/>), and exactly that many are
+/// <b>How many is the map's</b> (<see cref="Zones.ZoneParam.UnregulatedShare"/>), and exactly that many are
 /// lit rather than each junction tossed for, so a small town reads as the share it asked for too. <b>Which
 /// ones is weighted by the movements each admits</b> — every arm to every other — so a crossroads is lit more
 /// often than a tee without any tee being out of the draw. It is a weighted draw without replacement
@@ -31,7 +31,7 @@ internal static class LitJunctions
     /// <param name="PhaseOffsetS">Where in its cycle each lit junction's clock starts; nought where unlit.</param>
     internal readonly record struct Drawn(bool[] Lit, float[] PhaseOffsetS);
 
-    public static Drawn Draw(TownLayout layout, TownBrief brief, SimConfig config, ref Rng draw)
+    public static Drawn Draw(TownLayout layout, float unregulatedShare, SimConfig config, ref Rng draw)
     {
         var count = layout.NodeM.Count;
         var lit = new bool[count];
@@ -54,7 +54,7 @@ internal static class LitJunctions
         var order = candidates.ToArray();
         Array.Sort(keys.ToArray(), order);
 
-        var lighting = (int)MathF.Round(order.Length * (1f - brief.UnregulatedJunctionShare));
+        var lighting = (int)MathF.Round(order.Length * (1f - unregulatedShare));
         for (var at = order.Length - lighting; at < order.Length; at++) lit[order[at]] = true;
 
         for (var junction = 0; junction < count; junction++)

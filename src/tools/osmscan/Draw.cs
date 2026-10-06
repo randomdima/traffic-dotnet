@@ -37,7 +37,7 @@ internal static class Draw
                       ?? throw new InvalidDataException($"{map}: no extract");
 
         // The shot is in the map's frame, which a crop moves off the extract's.
-        var frame = TracedMap.Read(Path.Combine(root, "towns", "traced", $"{map}.map")).Frame;
+        var frame = CityGen.Map.TownMap.Read(Scan.MapFile(root, map)).Frame;
         var projection = frame.Projection();
         var placedM = new Vector2[extract.Nodes.Id.Length];
         for (var node = 0; node < placedM.Length; node++)

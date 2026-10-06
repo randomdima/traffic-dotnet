@@ -131,6 +131,12 @@ internal sealed class DebugSwitches
     public bool Ruler;
 
     /// <summary>
+    /// <b>What the map is zoned for</b> (OBS-2z): every zone of its map washed by its kind and outlined, and the one under
+    /// the pointer told — not cached, the wash being as fine as the view.
+    /// </summary>
+    public bool Zones;
+
+    /// <summary>
     /// <b>The shape the reader strikes off that boundary for themselves</b> (OBS-2w,
     /// <see cref="ShellProbe"/>), at a distance a slider beside it turns. It is a layer of its own and not
     /// part of <see cref="Perimeter"/>: that one draws the town's own layers and this draws one the town
@@ -206,6 +212,7 @@ internal sealed class DebugSwitches
                 case DebugLayer.Grid: return ref Grid;
                 case DebugLayer.Shell: return ref Shell.Drawn;
                 case DebugLayer.Wireframe: return ref Wireframe;
+                case DebugLayer.Zones: return ref Zones;
                 default: return ref Ruler;
             }
         }

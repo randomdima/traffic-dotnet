@@ -22,6 +22,7 @@ internal enum DebugLayer : byte
     Shell,
     Wireframe,
     Ruler,
+    Zones,
 }
 
 /// <summary>One colour a layer draws in and the word for what it means, as the menu's key beside that layer's row.</summary>
@@ -106,6 +107,9 @@ internal static class DebugLayers
         new(DebugLayer.Ruler, "Ruler", "ruler",
             "A click lays a tape between two places, a right click drops them",
             [new("tape", Theme.RulerTape)]),
+        new(DebugLayer.Zones, "Zones", "zones",
+            "What the map is zoned for: each zone washed by its kind and outlined, and what it is laid by under the pointer",
+            [new("built", Theme.ZoneWash(Theme.ZoneBuilt)), new("open", Theme.ZoneWash(Theme.ZoneOpen)), new("green", Theme.ZoneWash(Theme.ZoneGreen))]),
     ];
 
     /// <summary>
@@ -122,6 +126,7 @@ internal static class DebugLayers
         new("Road shape", "road",
             [DebugLayer.Perimeter, DebugLayer.Ribbons, DebugLayer.Grid, DebugLayer.Shell], SectionFigures.Shell),
         new("Ground mesh", "ground", [DebugLayer.Wireframe], SectionFigures.Ground),
+        new("Map", "map", [DebugLayer.Zones], SectionFigures.None),
         new("Tools", "tools", [DebugLayer.Ruler], SectionFigures.None),
     ];
 

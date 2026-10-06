@@ -80,10 +80,10 @@ own ([Towns](../src/tests/citygen/Towns.cs)): `Towns.Fixture`, the small town ev
 staged on, and `Towns.City`, a whole town laid from a brief in that same file at a seed of its own — water,
 bridges, districts, an orbital and traffic, at a fraction of what a shipped city costs to tick.
 
-**Both of them are generated, and that is a loss the build is carrying.** The fixture was a file, which is
-what a fixture is for: it may not move when the generator does. It is `towns/Test.json` now, so the two
-towns differ only in size and seed, and the distinction this section rests on is thinner than it was —
-[the known gaps](index.md#known-gaps) names it.
+**Both of them have their streets generated, and that is a loss the build is carrying.** A fixture is a file
+because it may not move when the generator does. `towns/Test.map` fixes the fixture's water and wheel but not its
+streets, which its wheel lays when it is opened (GEN-58), so the two towns differ only in size and seed, and the
+distinction this section rests on is thinner than it was — [the known gaps](index.md#known-gaps) names it.
 
 **Three things between them leave nothing for a city to say.** What the generator owes whatever seed it is
 given is `GeneratorTests`', over four unrelated seeds and both kinds of water. What a map laid to measure
@@ -94,7 +94,7 @@ function of the content rather than of the code — green or red depending on wh
 **`qq tests maps` is the whole of what is asked of them, and it is asked deliberately**: the shallow bar
 every town is held to, that the city can be driven round, that it declares the services this build would
 place, and that a minute of it leaves nobody stuck inside anybody. It is the run for the moment a city is
-added or its brief retuned, not for an edit to the engine. **The bar itself is one machine**
+added or its map retuned, not for an edit to the engine. **The bar itself is one machine**
 ([Conformance](../src/tests/citygen/Conformance.cs)), read by the town tier for the maps this build lays
 and by this tier for the cities somebody ships, so the two cannot disagree about what a town owes.
 

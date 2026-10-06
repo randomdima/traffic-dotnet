@@ -1,16 +1,14 @@
 using System.Collections.Concurrent;
-using System.Numerics;
 using TrafficSimulation.CityGen.Exam;
-using TrafficSimulation.CityGen.Gen;
-using TrafficSimulation.CityGen.Traced;
+using TrafficSimulation.CityGen.Map;
 using TrafficSimulation.Core.Config;
 
 namespace TrafficSimulation.CityGen;
 
 /// <summary>
-/// <b>Every map this build can open, and the one place a name becomes a town.</b> A city comes from its
-/// brief (<see cref="TownBrief"/>) and is generated when it is asked for, or from the map of a real place
-/// (<see cref="TracedMap"/>) and is traced; a map laid to measure one thing comes from the code that lays it.
+/// <b>Every map this build can open, and the one place a name becomes a town.</b> A town comes from its map's own file
+/// (<see cref="TownMap"/>, GEN-58) and is laid off it when it is asked for (<see cref="TownPlan"/>); a map laid to measure
+/// one thing comes from the code that lays it.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -28,11 +26,10 @@ namespace TrafficSimulation.CityGen;
 internal static class Maps
 {
     /// <summary>
-    /// The map every detailed check is staged on: a small town from a brief of its own — water, districts
-    /// and a dozen cars, and no building, so no car park, crossing or walker (the known gaps in
-    /// <c>docs/index.md</c>). <b>Named here because this is where a name becomes a town</b> —
-    /// the suite, the warm-up and the command line's own default all mean this one map, and three
-    /// spellings of it is two chances to mean a different one.
+    /// The map every detailed check is staged on: a small town of its own — water, districts and a dozen cars, and no
+    /// building, so no car park, crossing or walker (the known gaps in <c>docs/index.md</c>). <b>Named here because this
+    /// is where a name becomes a town</b> — the suite, the warm-up and the command line's own default all mean this one
+    /// map, and three spellings of it is two chances to mean a different one.
     /// </summary>
     public const string Fixture = "Test";
 
@@ -47,9 +44,8 @@ internal static class Maps
     ];
 
     /// <summary>
-    /// Every map there is to open, in name order — the briefs and the traced maps on disk and the laboratories laid
-    /// in code. <b>A map is a brief, a survey or code</b>: no town is carried as a file, the fixture having been
-    /// the last of them, and a traced map carries a place's ways rather than a town laid off them (GEN-57).
+    /// Every map there is to open, in name order — the map files in <c>towns/</c> and the laboratories laid in code.
+    /// <b>A map is a file or code</b> (GEN-58): every town is its map's file, whatever authored it.
     /// </summary>
     /// <remarks>
     /// <b>The idle ring is laid but not shipped.</b> Every probe and every sweep reads this list, and the
@@ -58,58 +54,35 @@ internal static class Maps
     /// </remarks>
     public static string[] Shipped()
     {
-        var names = new List<string>(ProjectPaths.TownBriefs()) { ExamPlan.Name };
-        names.AddRange(ProjectPaths.TracedMaps());
+        var names = new List<string>(ProjectPaths.MapFiles()) { ExamPlan.Name };
         names.Sort(StringComparer.Ordinal);
         return [.. names];
     }
 
-    /// <summary>Whether a map is generated from a brief rather than laid in code.</summary>
-    public static bool IsGenerated(string name) => File.Exists(ProjectPaths.TownBriefFile(name));
-
-    /// <summary>Whether a map is traced off a survey of a real place (GEN-57).</summary>
-    public static bool IsTraced(string name) => File.Exists(ProjectPaths.TracedMapFile(name));
+    /// <summary>
+    /// <b>Whether a map is content rather than code</b> — a file, which a build may ship any number of without that being
+    /// a change to the engine — which is what decides that only <c>Tier.Maps</c> asks questions of it.
+    /// </summary>
+    public static bool IsCity(string name) => File.Exists(ProjectPaths.MapFile(name));
 
     /// <summary>
-    /// <b>Whether a map is content rather than code</b> — a brief or a survey, either of which a build may ship
-    /// any number of without that being a change to the engine — which is what decides that only
-    /// <c>Tier.Maps</c> asks questions of it.
+    /// A map's own file (<see cref="TownMap"/>), read whole each time it is asked for: it is milliseconds, and a town is
+    /// laid off it once (<see cref="Plan"/>), so a copy kept would only be one more city in memory.
     /// </summary>
-    public static bool IsCity(string name) => IsGenerated(name) || IsTraced(name);
+    public static TownMap Read(string name) => TownMap.Read(ProjectPaths.MapFile(name));
 
     /// <summary>
-    /// The brief a generated map is laid from, for whoever wants to say what the map is. <b>Read once a
-    /// name</b>: the menu asks every map what it is every time it draws a row, and a brief is the same file
-    /// however often it is read.
+    /// What a map says it is, off the head of its file (<see cref="MapHead"/>): the menu's question is one line of a
+    /// file whose whole is hundreds of kilobytes for a city. Read once a name.
     /// </summary>
-    public static TownBrief Brief(string name) => Briefs.GetOrAdd(name, static map =>
-    {
-        var path = ProjectPaths.TownBriefFile(map);
-        var brief = AssetJson.Read(path, TownBriefJson.Default.TownBrief);
-        brief.Check(path);
-        return brief;
-    });
+    public static string Description(string name) =>
+        Descriptions.GetOrAdd(name, static map => MapHead.Description(ProjectPaths.MapFile(map)));
 
-    static readonly ConcurrentDictionary<string, TownBrief> Briefs = new();
-
-    /// <summary>
-    /// A traced map's own file (<see cref="TracedMap"/>), read whole each time it is asked for: it is milliseconds,
-    /// and a town is laid off it once (<see cref="Plan"/>), so a copy kept would only be one more city in memory.
-    /// </summary>
-    public static TracedMap Traced(string name) => TracedMap.Read(ProjectPaths.TracedMapFile(name));
-
-    /// <summary>
-    /// What a traced map says it is, off the head of its file (<see cref="SurveyHead"/>): the menu's question
-    /// is one line of a file whose whole is megabytes. Read once a name, as a brief is.
-    /// </summary>
-    public static string SurveyDescription(string name) =>
-        SurveyDescriptions.GetOrAdd(name, static map => SurveyHead.Description(ProjectPaths.TracedMapFile(map)));
-
-    static readonly ConcurrentDictionary<string, string> SurveyDescriptions = new();
+    static readonly ConcurrentDictionary<string, string> Descriptions = new();
 
     /// <summary>
     /// <b>The town itself, laid once for as long as it is the town being asked about.</b> A name that is
-    /// neither a brief nor a laid map is a failure here rather than an empty town somewhere downstream —
+    /// neither a map file nor a laid map is a failure here rather than an empty town somewhere downstream —
     /// the list above is the whole of what exists.
     /// </summary>
     /// <remarks>
@@ -132,9 +105,9 @@ internal static class Maps
     /// </para>
     /// </remarks>
     /// <param name="sizes">
-    /// The footprints a generated town sizes its buildings at and a traced one fits its footprints from, read off
-    /// the art by the catalogue above this slice and handed down as data (<see cref="BuildingSizes"/>, GEN-54,
-    /// GEN-57). A map laid in code stands what its own code stands and never reads this.
+    /// The prefabs a town stands its buildings as and the roofs its services wear, read off the art by the catalogue
+    /// above this slice and handed down as data (<see cref="BuildingSizes"/>, GEN-54, GEN-58). A map laid in code stands
+    /// what its own code stands and never reads this.
     /// </param>
     public static CityPlan Plan(string name, SimConfig config, BuildingSizes sizes)
     {
@@ -164,8 +137,7 @@ internal static class Maps
             if (string.Equals(laid, name, StringComparison.Ordinal)) return lay(config);
         }
 
-        if (IsGenerated(name)) return TownGenerator.Lay(Brief(name), config, sizes);
-        if (IsTraced(name)) return TracedPlan.Lay(Survey.Of(Traced(name), config), config, sizes);
+        if (IsCity(name)) return TownPlan.Read(ProjectPaths.MapFile(name), config, sizes);
 
         throw new FileNotFoundException(
             $"No map called {name}: this build knows {string.Join(", ", Shipped())}.");

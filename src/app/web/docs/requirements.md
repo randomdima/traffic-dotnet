@@ -54,7 +54,7 @@ as it does beside a binary). **There is no second asset story**: no provider thr
 sites, and no path that means one thing here and another there.
 
 **Nothing is *waited on* before the menu but what the menu draws**: the map list, the figures and every
-city's brief ([`Data.Boot`](../../main/web/Data.cs)). Everything else — the catalogues, every variant file
+map's head ([`Data.Boot`](../../main/web/Data.cs)). Everything else — the catalogues, every variant file
 and every sheet — is fetched for the first town opened, after the first frame: the idle ring behind the
 menu, or the map the query string named. [`Game`](../../main/Game.cs) reads its
 catalogues at the first `Open` and not in its constructor, and the renderer the menu draws through is laid
@@ -62,9 +62,10 @@ for no sheets and takes stand-ins for the ground it does not draw
 ([`TownRenderer.Ground`](../../render/web/TownRenderer.Web.cs)): on the desktop those pictures are on the
 disk, and in a page every one of them is a round trip.
 
-**No town crosses the wire at all.** A city is generated from a brief of a few hundred bytes and the ring
-is laid in code, so what a page fetches for a map is its brief or nothing — and the briefs come down at
-boot, because the menu reads a city's description out of one.
+**No town crosses the wire, only its map** (GEN-58): a town is laid off its map's file when it is opened and the
+ring is laid in code, so what a page fetches for a map is its file or nothing. **A map is two files**: its head, the
+first bytes, which hold the description the menu reads — down at boot — and the whole map in an archive, fetched beside
+the art when it is opened ([`Data.Map`](../../main/web/Data.cs)).
 
 **No town is opened before the first frame, the one a page opens on included.** The animation callback is
 handed to the browser as soon as the engine is running, so what a reader has within a round trip is the
@@ -91,7 +92,7 @@ fetch and nothing else**. Each is a different pairing:
 |---|---|---|
 | the map list ([`main.js`](../wwwroot/main.js)) | the runtime is downloading | the menu is drawn from it, so it is wanted as early as it can be had |
 | the art, where a map was named ([`main.js`](../wwwroot/main.js)) | the runtime is downloading | both are about three megabytes and neither needs the other |
-| the map list and the figures, then the briefs ([`Data.Boot`](../../main/web/Data.cs)) | each other | small files asked for one after the next are a round trip apiece |
+| the map list and the figures, then the maps' heads ([`Data.Boot`](../../main/web/Data.cs)) | each other | small files asked for one after the next are a round trip apiece |
 | the art, where none was named ([`Data.ExpectArt`](../../main/web/Data.cs)) | the menu is already up | nothing is waiting on the wire once a page is being looked at |
 
 **The menu waits for nothing, and that includes a fetch nobody is awaiting.** A run that named no map is
@@ -111,7 +112,7 @@ runtime is told to the browser rather than discovered by it** — the `modulepre
 **WEB-6** `P7` **A page is the size of its town, and the town is the size of what it draws.** What a browser
 fetches before the first frame is **under six megabytes** for the fixture map and never over eight for
 the heaviest: the .NET runtime ahead-of-time compiled and served brotli, 2.8 MB of art, 40 KB of page,
-and the briefs. **What it fetches before the menu is a few small files**, which is the figure that
+and the maps' heads. **What it fetches before the menu is a few small files**, which is the figure that
 decides how long a page looks broken for — the rest arrives beside the engine, in one archive rather than
 three hundred fetches. **What it fetches after that first frame is not counted here**: a figure about what
 a page waits on is not a figure about what a page has spent. **How a sheet is stored is
@@ -141,8 +142,8 @@ cannot carry and the one every change to the boot is judged on.
 **WEB-7** `P4` **What `dotnet publish` writes is the whole of what gets deployed.** The target is a stateless
 static host: the folder is handed over and nothing of ours runs beside it. So **every file in it is a
 real file** — no symlink into a working copy, which is a page that only serves on the machine it was
-built on — and everything the page will ask for is prepared by the build: the art packed, the briefs
-copied, the manifest written from the same item lists. `dotnet build` lays the identical tree beside
+built on — and everything the page will ask for is prepared by the build: the art packed, the maps
+packed and their heads cut, the manifest written from the same item lists. `dotnet build` lays the identical tree beside
 the binary, so what is served in development is what is deployed.
 
 **Brotli is the host's half of this and cannot be the build's.** The publish writes a `.br` beside each

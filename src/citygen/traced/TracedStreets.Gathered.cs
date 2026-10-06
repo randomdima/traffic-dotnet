@@ -43,9 +43,8 @@ internal static partial class TracedStreets
     /// </para>
     /// <para>
     /// <b>What the roads between them made is what the box makes</b>: a movement off one road onto another is made
-    /// across it only where the roads it gathered drove a way from the one to the other, through every turn OSM forbids
-    /// at the places they meet — a gap in a median a one-way link runs across one way, a link a restriction keeps a
-    /// street off.
+    /// across it only where the roads it gathered drove a way from the one to the other — a gap in a median a one-way
+    /// link runs across one way.
     /// </para>
     /// <para>
     /// <b>Not gathered</b>: a junction on a bridge or on a roundabout, whose ring is its own; two whose gathering would
@@ -54,11 +53,10 @@ internal static partial class TracedStreets
     /// </para>
     /// </remarks>
     /// <returns>
-    /// The junction each junction is laid as — itself, or the one it was gathered into — the movements across those
-    /// gathered none of their roads made, and the restrictions naming a road that went, which those already keep.
+    /// The junction each junction is laid as — itself, or the one it was gathered into — and the movements across those
+    /// gathered none of their roads made.
     /// </returns>
-    static (int[] Into, List<Unmade> Unmade, HashSet<OsmTurnRestriction> Absorbed, GatheredLaid Tally) Gathered(
-        Survey survey, List<Road> roads, List<Vector2> centreM, int[] junctionOf, SimConfig config)
+    static (int[] Into, List<Unmade> Unmade, GatheredLaid Tally) Gathered(List<Road> roads, List<Vector2> centreM, SimConfig config)
     {
         var withinM = config.CityGen.TracedJunctionsMergedM;
         var junctions = centreM.Count;
@@ -97,9 +95,7 @@ internal static partial class TracedStreets
         var into = new List<int>(junctions);
         for (var junction = 0; junction < junctions; junction++) into.Add(junction);
 
-        var restricted = RestrictedAt(survey, junctionOf);
         var unmade = new List<Unmade>();
-        var absorbed = new HashSet<OsmTurnRestriction>();
         var (gathered, dropped) = (0, 0);
         foreach (var members in group.Gatherings())
         {
@@ -130,22 +126,11 @@ internal static partial class TracedStreets
             into.Add(junction);
             gathered += members.Count;
 
-            foreach (var member in members)
-            {
-                if (!restricted.TryGetValue(member, out var turns)) continue;
-
-                foreach (var turn in turns)
-                {
-                    var (from, to) = (EndOf(survey, at[member], turn.From), EndOf(survey, at[member], turn.To));
-                    if (from >= 0 && to >= 0 && (group.Inside(at[member][from].Road) || group.Inside(at[member][to].Road))) absorbed.Add(turn);
-                }
-            }
-
             foreach (var (arriving, atTo) in outer)
             {
                 if (!Arrives(arriving, atTo)) continue;
 
-                var reached = Reached(survey, at, restricted, group, (arriving, atTo));
+                var reached = Reached(at, group, (arriving, atTo));
                 foreach (var (leaving, leavingAtTo) in outer)
                 {
                     if (leaving != arriving && Leaves(leaving, leavingAtTo) && !reached.Contains(leaving)) unmade.Add(new Unmade(junction, arriving, leaving));
@@ -165,7 +150,7 @@ internal static partial class TracedStreets
         }
 
         roads.RemoveAll(road => road.Gone);
-        return ([.. into], unmade, absorbed, new GatheredLaid(gathered, into.Count - junctions, places, dropped, unmade.Count));
+        return ([.. into], unmade, new GatheredLaid(gathered, into.Count - junctions, places, dropped, unmade.Count));
     }
 
     /// <summary>
@@ -346,29 +331,11 @@ internal static partial class TracedStreets
         }
     }
 
-    /// <summary>The restrictions made at each junction's place, by the junction.</summary>
-    static Dictionary<int, List<OsmTurnRestriction>> RestrictedAt(Survey survey, int[] junctionOf)
-    {
-        var at = new Dictionary<int, List<OsmTurnRestriction>>();
-        foreach (var turn in survey.Turns.Restrictions)
-        {
-            if ((uint)turn.Via >= (uint)junctionOf.Length || junctionOf[turn.Via] == CityPlan.NoRecord) continue;
-
-            if (!at.TryGetValue(junctionOf[turn.Via], out var here)) at[junctionOf[turn.Via]] = here = [];
-            here.Add(turn);
-        }
-
-        return at;
-    }
-
     /// <summary>
     /// <b>Every road out of a gathering that traffic arriving on one road can reach</b> along the roads inside it, each
-    /// turn at each of its places made only where the road it turns onto sets off from there and no restriction made
-    /// there forbids it.
+    /// turn at each of its places made only where the road it turns onto sets off from there.
     /// </summary>
-    static HashSet<Road> Reached(
-        Survey survey, List<(Road Road, bool AtTo)>[] at, Dictionary<int, List<OsmTurnRestriction>> restricted, Groups group,
-        (Road Road, bool AtTo) arriving)
+    static HashSet<Road> Reached(List<(Road Road, bool AtTo)>[] at, Groups group, (Road Road, bool AtTo) arriving)
     {
         var reached = new HashSet<Road>();
         var seen = new HashSet<(Road Road, bool AtTo)> { arriving };
@@ -381,7 +348,6 @@ internal static partial class TracedStreets
             foreach (var leaving in here)
             {
                 if (leaving.Road == arrival.Road || !Leaves(leaving.Road, leaving.AtTo)) continue;
-                if (restricted.TryGetValue(junction, out var turns) && Forbidden(survey, here, turns, arrival.Road, leaving.Road)) continue;
 
                 if (!group.Inside(leaving.Road))
                 {
@@ -395,38 +361,5 @@ internal static partial class TracedStreets
         }
 
         return reached;
-    }
-
-    /// <summary>Whether a restriction made at a junction forbids the turn off one of its roads onto another.</summary>
-    static bool Forbidden(Survey survey, List<(Road Road, bool AtTo)> ends, List<OsmTurnRestriction> turns, Road from, Road onto)
-    {
-        foreach (var turn in turns)
-        {
-            var off = EndOf(survey, ends, turn.From);
-            var to = EndOf(survey, ends, turn.To);
-            if (off < 0 || to < 0 || ends[off].Road != from) continue;
-            if (turn.Only ? onto != ends[to].Road : onto == ends[to].Road) return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// The one road end at a junction its way arrives on or leaves by, as its index among the junction's ends, or −1
-    /// where there is none or two.
-    /// </summary>
-    static int EndOf(Survey survey, List<(Road Road, bool AtTo)> ends, long way)
-    {
-        var found = -1;
-        for (var end = 0; end < ends.Count; end++)
-        {
-            var arrival = ends[end].AtTo ? ends[end].Road.AtTo : ends[end].Road.AtFrom;
-            if (arrival.Way < 0 || survey.Ways[arrival.Way].OsmId != way) continue;
-            if (found >= 0) return -1;
-
-            found = end;
-        }
-
-        return found;
     }
 }

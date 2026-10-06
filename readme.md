@@ -219,47 +219,52 @@ is [citygen](src/citygen/docs/requirements.md#the-maps)**; what follows is only 
 **No laboratory map ships** — the ones there were went with the lane layer they were laid against
 ([known gaps](docs/index.md#known-gaps)).
 
-**Every other map is generated.** `towns/Odesa.json`, `towns/River.json` and `towns/Test.json` are briefs —
-a seed, an extent, the water, the districts and the counts — and the town is laid from one when the map is
-opened ([citygen](src/citygen/docs/requirements.md#where-a-town-comes-from)). The same brief at the same
-seed is the same town, every time. `Test` is the fixture every detailed check is staged on.
+**Every other map is its own file, `towns/<Map>.map`, and a town is laid off it when it is opened**
+([citygen](src/citygen/docs/requirements.md#where-a-town-comes-from), `GEN-58`): what the map fixes — its water, its
+roads where it has its own, anything set down by hand — and a tree of zones, each an outline, a kind (an old town, an
+estate of towers, a suburb, a works, a park, a wood…) and the settings its builders read: how much of the street
+frontage is built and how far back, how turned and how varied, what is built and at what size, how much of the ground
+behind, how thickly it grows. Everything else is laid off the map's own seed. `--ui zones` washes the town by its
+zones and tells the one under the pointer. **`Odesa`, `River`, `Test`, `O10` and `O30` are authored off briefs**
+(`towns/briefs/<Map>.json`: a seed, an extent, the water, the districts and the counts) by
+`dotnet run -- --author <Map>|all`, which draws their water and their wheel once and writes them into the map — a
+few kilobytes, whose streets the wheel lays when it is opened exactly as the brief always laid them. Authoring again
+replaces the map. `Test` is the fixture every detailed check is staged on.
 
 **Two of them are Odesa's brief at scale**, for what a large town costs: `O10` and `O30` at ten and thirty
 times its area with the people, cars and districts at its density. They are desktop maps: a page's runtime
 cannot hold `O30`, and every probe that runs over the shipped maps by default takes them in. A brief under
-`towns/disabled/` is listed nowhere; `BigOdesa`, ten times each way, is there because it does not lay as a
-working town.
+`towns/briefs/disabled/` is authored into no map; `BigOdesa`, ten times each way, is there because it does not lay as
+a working town.
 
 **`OdesaOsm` is the real Odesa, traced and not generated**
 ([citygen](src/citygen/docs/requirements.md#where-a-town-comes-from), `GEN-57`): central Odesa from the Kotovskoho
 settlement to Tairove, every road and every lane OpenStreetMap holds there and the sea line, at one metre to the
-metre over 10 × 24 km, its roads running off at the map's edge — with its buildings as rounded prefabs stood on its
-walk where their footprints are, a footprint a rounded rectangle or cut into a few, and one too far from the walk or
-on a crooked stretch of it not stood at all; nobody stands on it yet. The prefabs are `assets/world/building/prefabs/`,
-each with its look, corner radius, tags and a line of what its roof shows, drawn as plain blocks of their look's colour
-until their art is; `--bench fit` says how well they fit the city, look by look and why what did not stand did not,
-`--bench fit --at X Y` says it footprint by footprint round a place, and `--bench fit --out FILE` writes every section
-offered and the prefab it wears. **It is laid
-from `towns/traced/OdesaOsm.map` and nothing else**: one binary file of 3 MB, read in some 20 ms, holding only what
-the engine lays — each road's line, class, level and carriageway as OSM means it and its width as measured, the
-coast, the turns OSM forbids, each junction's control and every building's footprint, height and use — so a
-road's lanes are all one width, what it was measured
-wider than them is a roadside of parked cars' width behind a solid line, it has as many lanes as its width holds
-where OSM only assumes a count, a signalled junction has lights, a bridge is a road of its own whose cars meet
-nothing below it, and its roundabouts are OSM's; no seed draws any of it. Its zebras and props are the town's own,
-as a generated town's are: a zebra at every station its kerb ends cut, furniture, planting and trees along its
-verges, and wild growth over its open ground as scenery that is drawn and stands no body — all drawn off the map's
-own number. **The map is the master, and an edit changes it**:
+metre over 10 × 24 km, its roads running off at the map's edge — with its buildings and props laid by its zones:
+6,762 of them off OSM's land uses and districts, nested as they stand, each a kind and what the place's own buildings
+measure there. The prefabs are `assets/world/building/prefabs/`, each with its look, corner radius, tags and a line of
+what its roof shows, drawn as plain blocks of their look's colour until their art is; `--bench fit` says how the walk
+was built, look by look, and `--bench zones` how close the zones build the town to the place's own buildings, kind by
+kind and square by square. **It is laid from `towns/OdesaOsm.map` and nothing else**: one binary file of 0.55 MB,
+read and surveyed in some 40 ms, holding only what lays the place — each road's line, class, level, OSM's lane counts
+and its width as measured, the coast, and its zones — so a road's lanes are all one width, what it was measured wider than them is a roadside
+of parked cars' width behind a solid line, it has as many lanes as its width holds where OSM only assumes a count, a
+junction where main roads meet has lights, a bridge is a road of its own whose cars meet nothing below it, and its
+roundabouts are OSM's. Its connections, lights, zebras, props and buildings are the town's own, as every town's
+are: every movement off the lanes by the town's rules, a zebra at every station its kerb ends cut, furniture,
+planting and trees along its verges, and wild growth over its open ground as thickly as its zones grow, as scenery
+that is drawn and stands no body — all drawn off the map's own seed. **The map is the master, and an edit changes it**:
 `qq osm --import` made it once off what is beside it, `qq osm --crop S,W,N,E` cut it down to the city in place and
-`qq osm --drop-stumps` dropped the road stumps that ran into buildings and the dead ends of a single lane, and
-`qq osm --footprints` lays its footprints again off the layers, each with what it is for;
+`qq osm --drop-stumps` dropped the road stumps that ran into buildings and the dead ends of a single lane,
+`qq osm --zones` lays its zones again off the layers and writes the place's buildings beside them for
+`--bench zones`, and `qq osm --upgrade` rewrites a map of the previous version;
 a second import replaces it and every edit made since, and is refused unless `--force`. What was crawled is kept as
 it came and never edited: `towns/traced/OdesaOsm/source/` holds every source's answer, `towns/traced/OdesaOsm.json`
 is the survey the scanner (`src/tools/osmscan/`, run by `qq osm`) writes off OSM with each way's lanes and where a
 car may turn as OSM's tags and relations mean them, over the whole city at 17 × 39 km, and
 `towns/traced/OdesaOsm.osc` the osmChange it was imported with — Tiraspolska Square's ring, lanes and splits as the
 imagery shows them. `qq osm --refetch` asks OSM again, `qq osm --draw SHOT.png` draws OSM's own lanes over a shot of
-the map, and `--bench fidelity` says how far the map's lanes stand off them and how many of OSM's turns were laid.
+the map, and `--bench fidelity` says how far the town's lanes stand off the map's.
 What it writes is © OpenStreetMap contributors under the ODbL, and the map carries that with it.
 
 **Everything else known about the place is beside it, and the engine reads it only as imported.** `qq osm --meta`
@@ -317,7 +322,7 @@ that can exit.
 
 **The page draws its first frame before it has the art, and lays a town after it.** A frame cannot wait
 on a fetch, so the menu's click writes a name down and the boot's own loop — the one place a browser run
-may wait — awaits the art and stands the town up from its brief
+may wait — awaits the art and the map's file and stands the town up off it
 ([decision log](src/app/web/docs/decision-log.md)).
 
 ## The same town, in a hand
@@ -357,8 +362,8 @@ loop — the same figure the browser head quotes.
 ```
 src/        every line of C#, and nothing else — the nine slices below
   core/     the kernel: config, geometry, simulation — and nothing that knows about a town
-  citygen/  the city plan as pure data: its structure, its cell vocabulary, and gen/ — the generator
-            that lays one from a brief
+  citygen/  the city plan as pure data: its structure, its cell vocabulary, map/ — the file a town is
+            laid off — zones/ — what lays it — gen/ — a brief's wheel — and traced/ — a real place's roads
   world/    terrain, road, foot, routing, physics, containment, statics, parking, town
   agents/   car, person, ambulance, service, evacuator, trafficlight — body / control, and the errands
             the legs of a trip are run for
@@ -369,9 +374,8 @@ src/        every line of C#, and nothing else — the nine slices below
   tests/    the unit suite, laid out folder for folder as the tree it tests
   tools/    workshop tools, which may depend on what the runtime may not
 assets/     the art and the .json data read at startup, mirroring the code tree
-towns/      a city's brief — the seed and the intent it is generated from, a few hundred bytes each,
-            and the whole of what a town is carried as; traced/ holds a real place's map instead, and
-            beside it what the map was imported from
+towns/      every map's file, <Map>.map — the whole of what a town is carried as; briefs/ holds what a
+            brief's map is authored from, and traced/ what a real place's map was imported from
 raw_assets/ generated source art, never read by the build — converted into assets/ first
 bin/, obj/  build output — the only folders at the root the project file writes
 ```

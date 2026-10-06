@@ -46,8 +46,9 @@ internal static class CheckCatalogue
         new("outset", "A town's boundary moved off itself: what closed, and the two ends of what did not", config => BoundaryProbe.Outset("Odesa", config)),
         new("fill", "A town's driven ground cut into triangles: what the cut costs, and what it lost", Quoted(config => FillProbe.Run("Odesa", config))),
         new("shapes", "One row a map: extent, roads, how much of each bends", Quoted(TownShape.Table)),
-        new("fidelity", "How far a traced town's lanes stand off OSM's own, both ways", Quoted(config => TracedFidelity.Run("OdesaOsm", config))),
-        new("fit", "How a traced town's footprints were cut and worn as prefabs, look by look", Quoted(config => TracedFit.Run("OdesaOsm", config, null))),
+        new("fidelity", "How far a traced town's lanes stand off its map's own, both ways", Quoted(config => TracedFidelity.Run("OdesaOsm", config))),
+        new("fit", "How a town's walk was built as its zones say, look by look", Quoted(config => TracedFit.Run("OdesaOsm", config, null))),
+        new("zones", "How close a traced town's zones build it to the place's own buildings, kind by kind and square by square", Quoted(config => ZoneFidelity.Run("OdesaOsm", config, null))),
     ];
 
     /// <summary>

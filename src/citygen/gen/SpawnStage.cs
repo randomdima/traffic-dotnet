@@ -6,26 +6,26 @@ using TrafficSimulation.Core.Simulation;
 namespace TrafficSimulation.CityGen.Gen;
 
 /// <summary>
-/// <b>Where the roster stands at the first tick</b>: a person at a door, and — in a town nobody lives in — a
-/// car in a bay (GEN-7).
+/// <b>Where the roster stands at the first tick</b>: a person at a door, and — where nobody has a bay of their own —
+/// a car in a bay or on a lane (GEN-7), beside the cars already stood on the town's bridges.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>A town with people in it stands no car here.</b> Every car there is somebody's own, and which bay it
-/// stands in is the bay nearest its owner's door that is still free once the services have their aprons — a
+/// <b>A town with people in it and car parks stands no car here.</b> Every car there is somebody's own, and which
+/// bay it stands in is the bay nearest its owner's door that is still free once the services have their aprons — a
 /// question about the parking registry, which is the town's (<c>TownWorld.HandThemTheirCar</c>, PER-29).
 /// </para>
 /// <para>
 /// <b>A car is stood in the middle of a bay of one of the town's own car parks</b>, pointing into it, and
 /// the town turns it round to whichever way its driver parks (<c>TownWorld.StandCar</c>, GEN-4j). A yard is
-/// a service's (GEN-55) and nobody else's, so none is stood in one. <b>How many is what the brief asks, up
+/// a service's (GEN-55) and nobody else's, so none is stood in one. <b>How many is what the map asks, up
 /// to the bays there are</b> — spread over the town rather than filling whichever car park was cut first.
 /// </para>
 /// <para>
-/// <b>A town that cut no car park stands its cars on its lanes</b>, one a lane — the fixture, which asks for
-/// no buildings and so is owed no parking (GEN-8). Otherwise the town would not move at all, and a picture
-/// of a perfect road fabric with no traffic on it passes every static test while making every dynamic
-/// reading vacuous at once. Such a car tours (CAR-8).
+/// <b>A town that cut no car park stands its cars on its lanes</b>, one a lane and none within a car's room of a
+/// bridge's — the fixture, which asks for no buildings and so is owed no parking, and a city whose roads are its own
+/// (GEN-8). Otherwise the town would not move at all, and a picture of a perfect road fabric with no traffic on it
+/// passes every static test while making every dynamic reading vacuous at once. Such a car tours (CAR-8).
 /// </para>
 /// </remarks>
 internal static class SpawnStage
@@ -35,22 +35,30 @@ internal static class SpawnStage
     /// <summary>Which is also the value an unwritten slot holds, so a person is the kind a spawn is by default.</summary>
     public const byte Person = 0;
 
+    /// <param name="wantPeople">How many people the map asks for (<see cref="Zones.ZoneParam.People"/>).</param>
+    /// <param name="wantCars">How many cars it asks for where nobody has a bay of their own (<see cref="Zones.ZoneParam.Cars"/>).</param>
+    /// <param name="bridgeCars">The cars already stood on its bridges over its roads, which no car is stood on top of.</param>
     public static CityPlan.SpawnArrays Lay(
-        TownBrief brief, Paving paving, CarParks.Laid carParks, CityPlan.BuildingArrays buildings,
-        SimConfig config, ref Rng draw)
+        int wantPeople, int wantCars, CityPlan.SpawnArrays bridgeCars, Paving paving, CarParks.Laid carParks,
+        CityPlan.BuildingArrays buildings, SimConfig config, ref Rng draw)
     {
         var lanes = paving.Lanes;
         var places = TheBays(lanes, carParks);
-        if (places.Count == 0) places = TheLanes(lanes, config);
+        var bays = places.Count > 0;
+        if (!bays) places = Clear(TheLanes(lanes, config), bridgeCars, lanes, config);
 
         var doors = buildings.EntryPointM.Length;
-        var people = Math.Min(brief.People, doors);
-        var cars = people > 0 ? 0 : Math.Min(brief.Cars, places.Count);
-        var kind = new byte[cars + people];
-        var positionM = new Vector2[cars + people];
-        var headingRad = new float[cars + people];
+        var people = Math.Min(wantPeople, doors);
+        var cars = people > 0 && bays ? 0 : Math.Min(wantCars, places.Count);
+        var count = bridgeCars.Count + cars + people;
+        var kind = new byte[count];
+        var positionM = new Vector2[count];
+        var headingRad = new float[count];
+        bridgeCars.Kind.CopyTo(kind, 0);
+        bridgeCars.PositionM.CopyTo(positionM, 0);
+        bridgeCars.HeadingRad.CopyTo(headingRad, 0);
 
-        var taken = 0;
+        var taken = bridgeCars.Count;
         foreach (var place in Spread(places.Count, cars, ref draw))
         {
             var on = places[place];
@@ -147,6 +155,27 @@ internal static class SpawnStage
     public static float RoomM(SimConfig config) => config.Car.LengthM + (config.Car.WidthM * 2f);
 
     /// <summary>
+    /// The lanes whose middle no bridge's car stands within a car's room of (<see cref="RoomM"/>), so no car is stood on
+    /// top of another.
+    /// </summary>
+    static List<int> Clear(List<int> lanes, CityPlan.SpawnArrays bridgeCars, LaneLines lines, SimConfig config)
+    {
+        if (bridgeCars.Count == 0) return lanes;
+
+        var roomM = RoomM(config);
+        return lanes.FindAll(lane =>
+        {
+            var middleM = Spline.SampleAt(lines.ArcsOf(lane), MiddleOfThePlaceM(lines, lane, config)).PositionM;
+            foreach (var carM in bridgeCars.PositionM)
+            {
+                if (Vector2.Distance(carM, middleM) < roomM) return false;
+            }
+
+            return true;
+        });
+    }
+
+    /// <summary>
     /// Which building a way in belongs to: the first whose offsets run past it, searched for — a city's worth of
     /// people stood one a door would otherwise walk every building for each of them.
     /// </summary>
@@ -170,14 +199,11 @@ internal static class SpawnStage
     /// Which of the lanes are stood on: every <c>n</c>th one from a drawn start, so the traffic is spread
     /// over the town rather than filling whichever corner of it was laid first.
     /// </summary>
-    static IEnumerable<int> Spread(int have, int want, ref Rng draw) =>
-        have <= 0 || want <= 0 ? [] : Spread(have, want, draw.NextInt(have));
-
-    /// <summary>The same from a start given, for a town that lays its roster by rule rather than drawing it.</summary>
-    public static int[] Spread(int have, int want, int from)
+    static int[] Spread(int have, int want, ref Rng draw)
     {
         if (have <= 0 || want <= 0) return [];
 
+        var from = draw.NextInt(have);
         var step = MathF.Max(1f, have / (float)want);
         var taken = new int[want];
         for (var at = 0; at < want; at++) taken[at] = (from + (int)(at * step)) % have;

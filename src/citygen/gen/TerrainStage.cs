@@ -45,7 +45,10 @@ internal static class TerrainStage
     /// The middle of the river, or the shore of the sea — the line the water runs along, which is what a
     /// crossing wants to stand square to (GEN-14b).
     /// </param>
-    internal readonly record struct Water(WaterKind Kind, CityPlan.WaterArrays Rings, Vector2[] CentreM)
+    /// <param name="Sideways">The way across that line its banks stand off it along, the same the whole way.</param>
+    /// <param name="NearM">How far the near bank stands off the line, along <paramref name="Sideways"/>.</param>
+    /// <param name="FarM">And the far bank — a sea's past the map's edge.</param>
+    internal readonly record struct Water(WaterKind Kind, CityPlan.WaterArrays Rings, Vector2[] CentreM, Vector2 Sideways, float NearM, float FarM)
     {
         public bool Any => Rings.Outline.Count > 0;
 
@@ -84,7 +87,7 @@ internal static class TerrainStage
 
     public static Water Lay(TownBrief brief, SimConfig config, ref Rng draw)
     {
-        if (brief.Water == WaterKind.None) return new Water(brief.Water, CityPlan.WaterArrays.None, []);
+        if (brief.Water == WaterKind.None) return new Water(brief.Water, CityPlan.WaterArrays.None, [], Vector2.Zero, 0f, 0f);
 
         var extentM = new Vector2(brief.WidthM, brief.HeightM);
         var shortSideM = MathF.Min(extentM.X, extentM.Y);
@@ -116,6 +119,17 @@ internal static class TerrainStage
         var coast = brief.Water == WaterKind.Coast;
         var nearM = coast ? 0f : widthM * 0.5f;
         var farM = coast ? seaM : -widthM * 0.5f;
+        return new Water(brief.Water, Rings(middleM, across, nearM, farM, extentM, config), middleM, across, nearM, farM);
+    }
+
+    /// <summary>
+    /// <b>The four rings a water drawn along a course is drawn from</b>: its two banks at their own offsets across the
+    /// course, and the shore and its lines each laid landward of them (GEN-2c) — a map's own course read back
+    /// (<see cref="Map.TownMap.Courses"/>) drawn as the brief that authored it drew it.
+    /// </summary>
+    public static CityPlan.WaterArrays Rings(
+        ReadOnlySpan<Vector2> middleM, Vector2 across, float nearM, float farM, Vector2 extentM, SimConfig config)
+    {
         var shoreM = config.CityGen.ShoreWidthM;
         var lineM = config.CityGen.ShoreEdgeWidthM;
 
@@ -132,16 +146,13 @@ internal static class TerrainStage
         // Cut to the map own edges (GEN-2b): the rings are what the water and its shore are drawn from and
         // what says a point is wet, so a bank drawn past the town would be ground nobody could stand on
         // outside it.
-        return new Water(
-            brief.Water,
-            new CityPlan.WaterArrays
-            {
-                Outline = OneRing(outlineM, extentM),
-                Shore = OneRing(bankM, extentM),
-                ShoreEdge = OneRing(bankLineM, extentM),
-                WaterEdge = OneRing(waterLineM, extentM),
-            },
-            middleM);
+        return new CityPlan.WaterArrays
+        {
+            Outline = OneRing(outlineM, extentM),
+            Shore = OneRing(bankM, extentM),
+            ShoreEdge = OneRing(bankLineM, extentM),
+            WaterEdge = OneRing(waterLineM, extentM),
+        };
     }
 
     /// <summary>One ring, cut to the map (GEN-2b), as the arrays a plan carries a set of them in.</summary>

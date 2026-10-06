@@ -18,7 +18,7 @@ the gear opens on the places alone: a menu of cities should not read as a menu o
 and a mis-click on the row under a city should not lose somebody's game. **The start menu opens on both**
 (`GEN-1b`): nothing is running behind it, and reading the whole catalogue is what somebody is at it for.
 
-**OBS-2n** `P7` **A map picked says so until it is standing.** Opening one is a plan laid from its brief, a
+**OBS-2n** `P7` **A map picked says so until it is standing.** Opening one is a plan laid off its map, a
 ground laid and a fleet stood up — and in a page a fetch before any of that — so the click is answered by a card in the
 middle of the window naming the map, from the press until the town it names is running.
 

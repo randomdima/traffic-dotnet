@@ -21,12 +21,11 @@ namespace TrafficSimulation.CityGen.Gen;
 /// chord by less than the edges this walks, which is why the arc is not sampled here.
 /// </para>
 /// </remarks>
+/// <param name="bridgeable">Whether the water is a river, which a road may span, rather than a sea or a lake (GEN-14b).</param>
 internal sealed class WaterRules(
-    GroundShapes ground, float stepM, TerrainStage.Water water, float longestDeckM, float abutmentM,
+    GroundShapes ground, float stepM, bool bridgeable, float longestDeckM, float abutmentM,
     float halfWidthM)
 {
-    public TerrainStage.Water Water => water;
-
     /// <summary>How far back from the bank a bridgehead stands: the ground its own junction takes.</summary>
     public float AbutmentM => abutmentM;
 
@@ -57,7 +56,7 @@ internal sealed class WaterRules(
     /// longer than the deck a town builds (GEN-14a).
     /// </summary>
     public bool Spans(Vector2 fromM, Vector2 toM) =>
-        water.Bridgeable && (toM - fromM).Length() <= longestDeckM;
+        bridgeable && (toM - fromM).Length() <= longestDeckM;
 
     /// <summary>
     /// Whether a road of this class may be laid between two nodes at all. <b>Dry ground takes anything but a

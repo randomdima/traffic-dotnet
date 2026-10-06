@@ -329,10 +329,10 @@ internal static class TownCensus
 
     /// <summary>
     /// <b>How many buildings the map planned</b> (GEN-54), so what is printed beside it is what the frontage
-    /// could carry of them (GEN-8). <b>A map laid in code has no brief and plans none.</b>
+    /// could carry of them (GEN-8). <b>A map that says no count — one laid in code, a city whose zones say what is
+    /// built — plans none.</b>
     /// </summary>
-    static int BuildingsAskedFor(CityPlan plan) =>
-        Maps.IsGenerated(plan.Name) ? Maps.Brief(plan.Name).Buildings : 0;
+    static int BuildingsAskedFor(CityPlan plan) => plan.Zones.Planned;
 
     static int JunctionsWith(CityPlan plan, int arms)
     {

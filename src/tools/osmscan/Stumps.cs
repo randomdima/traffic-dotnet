@@ -1,10 +1,12 @@
-using TrafficSimulation.CityGen.Traced;
+using TrafficSimulation.CityGen.Map;
+using TrafficSimulation.Tools.OsmScan.Meta;
 
 namespace TrafficSimulation.Tools.OsmScan;
 
 /// <summary>
 /// <b>A traced map without the road stumps that run into buildings or are a single lane, in place</b>
-/// (<see cref="TracedMap.Stumps"/>, <see cref="TracedMap.Without"/>): a stump whose dead end stands inside a footprint,
+/// (<see cref="TownMap.Stumps"/>, <see cref="TownMap.Without"/>): a stump whose dead end stands inside a footprint
+/// of the buildings layer,
 /// or that runs through one — under an arch into a courtyard — is dropped, and so is one every road of which is a
 /// single lane — a driveway, a yard's lane — and again while dropping one leaves another. The engine lays nothing a road
 /// may run into or under, and parks nobody: what such a road leads to is parking the engine does not lay.
@@ -24,11 +26,13 @@ internal static class Stumps
 
     public static int Run(string root, string map, bool dry)
     {
-        var path = Path.Combine(root, "towns", "traced", $"{map}.map");
-        var traced = TracedMap.Read(path);
+        var path = Scan.MapFile(root, map);
+        var traced = TownMap.Read(path);
         Crop.Describe(traced, path);
 
-        var all = traced.Stumps();
+        var folder = Zoning.Laid(root, map, traced);
+        var buildings = Import.Footprints(folder, new Plane(traced.Frame), _ => true);
+        var all = traced.Stumps(buildings);
         var touching = all.Where(stump => stump.InsideM > 0f).ToList();
         Console.WriteLine(
             $"  {all.Count} stumps, {all.Sum(stump => stump.LengthM) / 1000f:F1} km; {all.Count(stump => stump.EndsInside)} end inside a building, "
@@ -38,7 +42,7 @@ internal static class Stumps
         var dropped = new List<Stump>();
         while (true)
         {
-            var going = traced.Stumps().Where(Dropped).ToList();
+            var going = traced.Stumps(buildings).Where(Dropped).ToList();
             if (going.Count == 0) break;
 
             dropped.AddRange(going);

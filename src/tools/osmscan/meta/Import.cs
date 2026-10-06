@@ -1,16 +1,18 @@
 using System.Diagnostics;
 using System.Numerics;
 using System.Text.Json;
+using TrafficSimulation.CityGen;
+using TrafficSimulation.CityGen.Map;
 using TrafficSimulation.CityGen.Traced;
 
 namespace TrafficSimulation.Tools.OsmScan.Meta;
 
 /// <summary>
-/// <b>A traced map imported off its survey and the layers the engine lays it with</b> (<see cref="TracedMap"/>,
-/// <see cref="TracedMapImport"/>): the extract's roads, coast and turns, and each road's measured width, each
-/// junction's control and every building's footprint and height, in the survey's own frame — written to
-/// <c>towns/traced/&lt;Map&gt;.map</c>, the only file of the place the engine reads. Run by <c>qq osm --import</c>.
-/// The crossings and the trees the layers hold are not imported: a town paints and plants its own.
+/// <b>A traced map imported off its survey and the layers the engine lays it with</b> (<see cref="TownMap"/>,
+/// <see cref="TracedMapImport"/>): the extract's roads and coast, each road's measured width, and what the place is
+/// zoned for (<see cref="ZoneHints"/>), in the survey's own frame — written to <c>towns/&lt;Map&gt;.map</c>, the only
+/// file of the place the engine reads. Run by <c>qq osm --import</c>. No turn, control, crossing, tree or footprint the
+/// layers hold is imported: a town lays its own.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -20,14 +22,14 @@ namespace TrafficSimulation.Tools.OsmScan.Meta;
 /// </para>
 /// <para>
 /// <b>What is imported is what the layers say</b>, each record's one answer: a road's <c>widthM</c> where it was
-/// measured rather than made of its lanes, a junction's control where it is not left to the rules, a footprint OSM's
-/// or the machine-traced one OSM lacks. No rule of the
+/// measured rather than made of its lanes, and a zone's land use with the look its buildings stand in. No rule of the
 /// engine's is applied here. Layers laid off another survey than the extract's are refused.
 /// </para>
 /// <para>
-/// <b>A footprint is one outline and the courtyards inside it</b>: a building of several outer rings is a footprint
-/// each, every inner ring given to the outer one it stands in. A <c>building:part</c> is not imported — it stands on
-/// its building's footprint — and a ring closed on its first point is written without the repeat.
+/// <b>A footprint is one outline and the courtyards inside it</b> (<see cref="Footprints"/>, read for the zones and the
+/// stumps and never imported): a building of several outer rings is a footprint each, every inner ring given to the
+/// outer one it stands in. A <c>building:part</c> is not read — it stands on its building's footprint — and a ring
+/// closed on its first point is read without the repeat.
 /// </para>
 /// </remarks>
 internal static class Import
@@ -35,7 +37,7 @@ internal static class Import
     public static int Run(string root, string map, bool force)
     {
         var clock = Stopwatch.StartNew();
-        var into = Path.Combine(root, "towns", "traced", $"{map}.map");
+        var into = Scan.MapFile(root, map);
         if (File.Exists(into) && !force)
         {
             throw new InvalidOperationException(
@@ -56,15 +58,8 @@ internal static class Import
             }
         }
 
-        var plane = new Plane(survey.Frame);
-        var facts = new PlaceFacts
-        {
-            Widths = Widths(Layer<RoadRecord>(folder, "roads")),
-            Controls = Controls(Layer<JunctionRecord>(folder, "junctions")),
-            Footprints = Footprints(folder, plane, _ => true),
-        };
-
-        var traced = TracedMapImport.Of(survey, facts);
+        var traced = TracedMapImport.Of(survey, new PlaceFacts { Widths = Widths(Layer<RoadRecord>(folder, "roads")) });
+        traced = Zoning.Zoned(root, map, traced);
         traced.Write(into);
         Console.WriteLine($"{Path.GetRelativePath(root, into)} imported off {Path.GetRelativePath(root, surveyAt)} and {Path.GetRelativePath(root, folder)}/ in {clock.Elapsed.TotalSeconds:F1} s");
         Crop.Describe(traced, into);
@@ -96,43 +91,19 @@ internal static class Import
         return new PlaceFacts.WidthArrays { Way = [.. way], WidthM = [.. widthM], From = [.. from] };
     }
 
-    static PlaceFacts.ControlArrays Controls(List<JunctionRecord> junctions)
-    {
-        var (node, control, cluster) = (new List<long>(), new List<SurveyControl>(), new List<long>());
-        foreach (var junction in junctions)
-        {
-            SurveyControl? read = junction.Control switch
-            {
-                "signals" => SurveyControl.Signals,
-                "blinking" => SurveyControl.Blinking,
-                "roundabout" => SurveyControl.Roundabout,
-                "signs" => SurveyControl.Signs,
-                "priority_road" => SurveyControl.PriorityRoad,
-                _ => null,
-            };
-            if (read is not { } controlled) continue;
-
-            node.Add(junction.Node);
-            control.Add(controlled);
-            cluster.Add(junction.Cluster ?? 0);
-        }
-
-        return new PlaceFacts.ControlArrays { Node = [.. node], Control = [.. control], Cluster = [.. cluster] };
-    }
-
     /// <summary>Every building's footprints and what each is for (<see cref="FootprintUses"/>), off the layers in <paramref name="folder"/>.</summary>
     /// <param name="keeps">Whether an outline is kept, read off its own places on the map.</param>
-    public static TracedMap.FootprintArrays Footprints(string folder, Plane plane, Func<Vector2[], bool> keeps) =>
+    public static SurveyFootprints Footprints(string folder, Plane plane, Func<Vector2[], bool> keeps) =>
         Footprints(Layer<BuildingRecord>(folder, "buildings"), new FootprintUses(Layer<ZoneRecord>(folder, "zones"), plane), plane, keeps);
 
-    static TracedMap.FootprintArrays Footprints(List<BuildingRecord> buildings, FootprintUses uses, Plane plane, Func<Vector2[], bool> keeps)
+    static SurveyFootprints Footprints(List<BuildingRecord> buildings, FootprintUses uses, Plane plane, Func<Vector2[], bool> keeps)
     {
         var ringOffsets = new List<int> { 0 };
         var pointOffsets = new List<int> { 0 };
         var pointM = new List<Vector2>();
-        var traced = new List<bool>();
         var heightM = new List<float>();
         var use = new List<FootprintUse>();
+        var look = new List<BuildingLook>();
         foreach (var building in buildings)
         {
             if (building.Part == true) continue;
@@ -150,16 +121,17 @@ internal static class Import
                 }
 
                 ringOffsets.Add(pointOffsets.Count - 1);
-                traced.Add(building.Source == "ml");
+                var outline = outer.Select(atM => new Pt(atM.X, atM.Y)).ToArray();
                 heightM.Add((float)(building.HeightM ?? 0));
-                use.Add(uses.Of(building, Shape.Centroid([.. outer.Select(atM => new Pt(atM.X, atM.Y))])));
+                use.Add(uses.Of(building, Shape.Centroid(outline)));
+                look.Add(FootprintUses.LookOf(use[^1], heightM[^1], (float)Math.Abs(Shape.SignedArea(outline))));
             }
         }
 
-        return new TracedMap.FootprintArrays
+        return new SurveyFootprints
         {
-            RingOffsets = [.. ringOffsets], PointOffsets = [.. pointOffsets], PointM = [.. pointM], Traced = [.. traced],
-            HeightM = [.. heightM], Use = [.. use],
+            RingOffsets = [.. ringOffsets], PointOffsets = [.. pointOffsets], PointM = [.. pointM], HeightM = [.. heightM], Use = [.. use],
+            Look = [.. look],
         };
 
         void Add(Vector2[] ring)

@@ -50,10 +50,9 @@ internal static class Lattice
     /// ground the arterial needs and the town would give way to its own lattice (GEN-49).
     /// </remarks>
     public static List<(int From, int To, bool Straight)> Place(
-        TownLayout layout, Districts districts, Arterials arterials, TownBrief brief, GroundShapes ground,
+        TownLayout layout, Districts districts, Arterials arterials, ulong seed, Vector2 extentM, GroundShapes ground,
         SimConfig config, float marginM)
     {
-        var extentM = new Vector2(brief.WidthM, brief.HeightM);
         var clearanceM = CorridorM(config);
         var weldM = config.RoadWidthM;
 
@@ -61,7 +60,7 @@ internal static class Lattice
         for (var district = 0; district < districts.Count; district++)
         {
             PlaceOne(
-                layout, districts, district, arterials, ground, extentM, marginM, clearanceM, weldM, brief.Seed,
+                layout, districts, district, arterials, ground, extentM, marginM, clearanceM, weldM, seed,
                 streets);
         }
 

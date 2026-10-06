@@ -77,11 +77,10 @@ internal sealed class Arterials
     }
 
     public static Arterials Lay(
-        TownLayout layout, Districts districts, TownBrief brief, WaterRules water, float shortestRoadM,
+        TownLayout layout, Districts districts, Vector2 extentM, WaterRules water, float shortestRoadM,
         float marginM)
     {
         var arterials = new Arterials(districts);
-        var extentM = new Vector2(brief.WidthM, brief.HeightM);
         var hub = layout.AddNode(districts.HubM);
         var heads = new List<float>();
 

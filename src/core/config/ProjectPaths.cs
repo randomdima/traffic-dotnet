@@ -27,41 +27,31 @@ internal static class ProjectPaths
     /// <summary>The tunable figures, read once at startup and injected from the composition root.</summary>
     public static string SharedFiguresFile => Path.Combine(Assets, "shared", "config", "SimConfig.json");
 
-    /// <summary>What a city is authored as: a seed and the intent, from which the town itself is generated.</summary>
-    public static string TownBriefFile(string map) => Path.Combine(Towns, map + ".json");
-
-    /// <summary>Every brief in <c>towns/</c>, by name — the cities this build can lay.</summary>
-    public static string[] TownBriefs()
-    {
-        var briefs = Directory.GetFiles(Towns, "*.json");
-        for (var at = 0; at < briefs.Length; at++) briefs[at] = Path.GetFileNameWithoutExtension(briefs[at]);
-        Array.Sort(briefs, StringComparer.Ordinal);
-        return briefs;
-    }
-
     /// <summary>
-    /// What a traced map is authored as: a real place's roads, sea and what else is known of it, in one file of its
-    /// own (GEN-57) — the only file of the place the engine reads. What it was imported from sits beside it, in a
-    /// folder of the map's name, and is never read when a map is opened.
+    /// <b>What a map is</b> (GEN-58): one file of its own, the only file of the town the engine reads. What it was
+    /// authored from — a brief, a survey — sits elsewhere and is never read when a map is opened.
     /// </summary>
-    public static string TracedMapFile(string map) => Path.Combine(Towns, "traced", map + TracedMapKind);
+    public static string MapFile(string map) => Path.Combine(Towns, map + MapKind);
 
-    const string TracedMapKind = ".map";
+    const string MapKind = ".map";
 
-    /// <summary>
-    /// Every traced map in <c>towns/traced/</c>, by name. <b>None where the folder is not there</b>, which is the
-    /// browser head's runtime when it is handed the briefs alone (WEB-4).
-    /// </summary>
-    public static string[] TracedMaps()
+    /// <summary>Every map in <c>towns/</c>, by name — the towns this build can open.</summary>
+    public static string[] MapFiles()
     {
-        var folder = Path.Combine(Towns, "traced");
-        if (!Directory.Exists(folder)) return [];
-
-        var maps = Directory.GetFiles(folder, "*" + TracedMapKind);
+        var maps = Directory.GetFiles(Towns, "*" + MapKind);
         for (var at = 0; at < maps.Length; at++) maps[at] = Path.GetFileNameWithoutExtension(maps[at]);
         Array.Sort(maps, StringComparer.Ordinal);
         return maps;
     }
+
+    /// <summary>A brief a map is authored from (<c>--author</c>): a seed and the intent, never read when a map is opened.</summary>
+    public static string BriefFile(string map) => Path.Combine(Towns, "briefs", map + ".json");
+
+    /// <summary>
+    /// Where a traced map's survey and layers sit: what it was imported from, read by the scanner and by a probe that
+    /// weighs the town against the place, and never when a map is opened.
+    /// </summary>
+    public static string SurveyFolder(string map) => Path.Combine(Towns, "traced", map);
 
     /// <summary>
     /// What a sheet is stored as. WebP, and lossy wherever a sheet could take it without moving an

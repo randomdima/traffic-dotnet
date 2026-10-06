@@ -41,6 +41,7 @@ internal sealed partial class SimConfig
     public TerrainFigures Terrain { get; init; } = new();
     public MarkFigures Marks { get; init; } = new();
     public CityGenFigures CityGen { get; init; } = new();
+    public ZoneFigures Zones { get; init; } = new();
     public NetworkFigures Network { get; init; } = new();
     public SolverFigures Solver { get; init; } = new();
     public SimFigures Sim { get; init; } = new();

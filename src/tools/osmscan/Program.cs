@@ -18,7 +18,8 @@ internal static class Program
                osm-scan import [--map OdesaOsm] [--force]
                osm-scan crop --box S,W,N,E [--map OdesaOsm]
                osm-scan stumps [--map OdesaOsm] [--dry]
-               osm-scan footprints [--map OdesaOsm]
+               osm-scan zones [--map OdesaOsm]
+               osm-scan upgrade [--map OdesaOsm]
                osm-scan population [--people N] [--cars N] [--map OdesaOsm]
                osm-scan meta-draw OUT.png --at LAT,LON [--span 400] [--map OdesaOsm]
                osm-scan draw SHOT.png [--map OdesaOsm]
@@ -38,7 +39,8 @@ internal static class Program
                 "import" => Meta.Import.Run(root, Option(args, "--map") ?? "OdesaOsm", args.Contains("--force")),
                 "crop" when Option(args, "--box") is { } box => Crop.Run(root, Option(args, "--map") ?? "OdesaOsm", box),
                 "stumps" => Stumps.Run(root, Option(args, "--map") ?? "OdesaOsm", args.Contains("--dry")),
-                "footprints" => Footprints.Run(root, Option(args, "--map") ?? "OdesaOsm"),
+                "zones" => Zoning.Run(root, Option(args, "--map") ?? "OdesaOsm"),
+                "upgrade" => Upgrade.Run(root, Option(args, "--map") ?? "OdesaOsm"),
                 "population" => Population.Run(root, Option(args, "--map") ?? "OdesaOsm", Count(args, "--people"), Count(args, "--cars")),
                 "meta-draw" when args.Length > 1 && Option(args, "--at") is { } at => Meta.Picture.Run(root, Option(args, "--map") ?? "OdesaOsm",
                     double.Parse(at.Split(',')[0], System.Globalization.CultureInfo.InvariantCulture),

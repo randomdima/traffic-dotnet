@@ -182,10 +182,10 @@ public class CrossingsTests
     {
         var survey = new Survey
         {
-            Name = "Traced", Relation = 1, WidthM = 1000f, HeightM = 1000f, PointsM = [100, 500, 900, 500, 500, 100, 500, 900, 500, 500],
+            Name = "Traced", Seed = 1, WidthM = 1000f, HeightM = 1000f, PointsM = [100, 500, 900, 500, 500, 100, 500, 900, 500, 500],
             Ways = [Street(1, 0, 4, 1), Street(2, 2, 4, 3)], Sea = [],
         };
-        return TracedPlan.Lay(survey, SimConfig.Shipped(), BuildingSizes.None);
+        return TownPlan.Lay(survey, SimConfig.Shipped(), BuildingSizes.None);
 
         static SurveyWay Street(long id, params int[] points) => new()
         {

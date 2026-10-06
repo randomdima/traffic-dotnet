@@ -110,8 +110,8 @@ is there so that **two people can drive one town at once**.
 - **Every other word is refused** — picking units out, orders, the lever and the reset all reach the
   reader's own selection. A step outside a driver's own vocabulary is said and dropped (`DRV-7`).
 
-**DRV-6** `P8` **The same script over the same map is the same run.** A town is laid from its brief at its
-own seed and the script is the whole of what is done to it, so a drive is replayed rather than resumed:
+**DRV-6** `P8` **The same script over the same map is the same run.** A town is laid off its map at the
+map's own seed and the script is the whole of what is done to it, so a drive is replayed rather than resumed:
 appending a step and playing the script again is how a hand steers over several sittings without a process
 left standing between them. It is the exception `CTL-6` names — a hand forks the timeline, and a written
 hand forks it the same way every time.

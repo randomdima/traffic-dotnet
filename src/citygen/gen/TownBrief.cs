@@ -16,16 +16,18 @@ internal enum WaterKind
 }
 
 /// <summary>
-/// <b>A town as it is authored: a seed and the intent, never the geometry.</b> Everything a reader would
-/// call the map — its water, its districts, its streets and the traffic on them — is derived from this by
-/// <see cref="TownGenerator"/>, so a brief is kilobytes and a town is whatever the seed makes of them.
+/// <b>What a town's map is authored from: a seed and the intent, never the geometry</b>
+/// (<c>towns/briefs/&lt;Map&gt;.json</c>). Its water and its wheel are drawn off it once and written into the map
+/// (<see cref="TownAuthor"/>, <c>--author</c>), and its streets and the rest of the town are laid off that map when it is
+/// opened — so a brief is kilobytes, and its map a few more.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Nothing derived may be written here.</b> No district polygon, no node, no curve, no cell: the moment
-/// a brief carries geometry there are two answers to where the town is, and the one on disk is the one that
-/// goes stale. What a brief may carry is what a person would say about a place — how big it is, what water
-/// it stands on, how many districts and how strictly they are laid out, and how many of everything.
+/// <b>Nothing derived may be written here.</b> No district polygon, no node, no curve, no cell: those are the map's,
+/// and a brief that carried them would be a second answer to where the town is. What a brief may carry is what a
+/// person would say about a place — how big it is, what water it stands on, how many districts and how strictly they
+/// are laid out, and how many of everything. <b>It is read by nothing that opens a map</b>: authoring it again
+/// replaces its map, and every edit made to that map since.
 /// </para>
 /// <para>
 /// <b>Counts are the map's and figures are the engine's</b> (GEN-6): how many people live here is a fact
@@ -48,9 +50,6 @@ internal sealed class TownBrief
     public required float WidthM { get; init; }
 
     public required float HeightM { get; init; }
-
-    /// <summary>How coarse the terrain classification is. A metre, as every shipped map has been.</summary>
-    public float CellSizeM { get; init; } = 1f;
 
     public WaterKind Water { get; init; } = WaterKind.None;
 
@@ -116,7 +115,6 @@ internal sealed class TownBrief
     {
         Positive(WidthM, nameof(WidthM), what);
         Positive(HeightM, nameof(HeightM), what);
-        Positive(CellSizeM, nameof(CellSizeM), what);
         Share(GridDistrictShare, nameof(GridDistrictShare), what);
         Share(UnregulatedJunctionShare, nameof(UnregulatedJunctionShare), what);
         Share(WaterShare, nameof(WaterShare), what);

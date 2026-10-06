@@ -20,7 +20,7 @@ what it costs to gather is not paid while its body is shut
 ([app/hud](../../hud/docs/requirements.md#the-status-panel)).
 
 **OBS-2c** `P8` **Each thing a debug session can be opened for has a switch of its own, and no switch turns on
-anything a second one owns.** Thirteen of them, and **the ground's own layers are not among them** (OBS-2v):
+anything a second one owns.** Fourteen of them, and **the ground's own layers are not among them** (OBS-2v):
 those take the town apart rather than drawing anything over it, and they start on. **A layer covers one kind
 of body entirely** — its geometry and its
 manoeuvre alike — because the question is about the body, not about the kind of mark; and **what belongs
@@ -133,7 +133,7 @@ bay ways taken as the ribbons of ground they cover (OBS-2p), each drawn whole at
 
 **OBS-2t** `P8` **Where a layer draws everything at once, the pointer asks it about one thing, and a click
 pins it.** The one thing is found in the layers that are on, and **drawn over is found first** — a body,
-then a stretch of boundary, then a way, then a ribbon, then a cell — so a thin thing is never hidden behind a
+then a stretch of boundary, then a way, then a ribbon, then a cell, then a zone — so a thin thing is never hidden behind a
 broad one that covers it. It is drawn picked out, and what it is, is written on a card beside the pointer:
 
 - **a body** — its outline and its own two pieces of route at the picked weight (OBS-2h), and what it is
@@ -144,13 +144,21 @@ broad one that covers it. It is drawn picked out, and what it is, is written on 
 - **a stretch of boundary** (OBS-2p) — that stretch alone with a dot at each end, and the outline it is a
   stretch of; every outline the layer draws is searched and the nearest of all of them wins;
 - **a cell** of the geometry grid (OBS-2r) — its square and every line the index holds in it — or of the
-  solver's (OBS-2x), both grids' cells over the place and what each holds.
+  solver's (OBS-2x), both grids' cells over the place and what each holds;
+- **a zone** (OBS-2z) — its outline, and its kind, the zones it stands in, the ground it holds, and every setting it
+  is laid by as the builders read it.
 
 **The words are on the card and nowhere on the town**: a layer is lines until somebody points. **A click on
 the town pins what is under it** — its card docked under the corner buttons, and it stays picked out — and
 **a click on nothing a layer draws lets it go**. The click still selects the unit under it: **no layer takes
 the mouse**, since a reading the reader asked for is not a mode they have to leave before they can pick a
 car. A pin is dropped when every layer that could find it is off.
+
+**OBS-2z** `P8` **What the map is zoned for is a layer** (GEN-58): the ground in view washed in the hue of the kind of
+zone each place stands in — the deepest holding it, as the builders ask — the whole map's own ground left clear, and
+every zone in view outlined in its kind's hue over the wash. **The wash is as fine as the view and not as the town**,
+a fixed number of squares across it, so it is laid every frame and never cached; what a zone says of itself is on the
+card (OBS-2t) and nowhere on the town. A map laid in code has no zones and the layer draws nothing on it.
 
 **OBS-2r** `P8` **The grid the town's geometry is asked over is a layer**: the cells of the index a
 question about which line is where is narrowed with ([`ChainIndex`](../../../core/geometry/ChainIndex.cs)),

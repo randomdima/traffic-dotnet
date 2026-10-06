@@ -39,9 +39,10 @@ internal static class RoadStage
         CityPlan.BridgeArrays Bridges,
         CityPlan.RoundaboutArrays Roundabouts);
 
+    /// <param name="unregulatedShare">How many of the junctions that could be lit are not (<see cref="LitJunctions"/>).</param>
     /// <param name="signals">The stream which junctions are lit is drawn on (<see cref="LitJunctions"/>).</param>
     public static Laid Lay(
-        TownLayout layout, TownBrief brief, SimConfig config, CarParks.Laid carParks, ref Rng signals)
+        TownLayout layout, float unregulatedShare, SimConfig config, CarParks.Laid carParks, ref Rng signals)
     {
         // One lane's width for every road there is, arterial or street, and as many lanes as it is driven
         // ways (GEN-15, TER-4d). <b>Except a bay</b>, which is one lane wide however it is stood in (GEN-53).
@@ -72,7 +73,7 @@ internal static class RoadStage
         // road was cut to make it, so the bays are the whole of what the plan marks cut.
         return new Laid(
             Roads(layout, chains, widthM, bay, bay),
-            Junctions(centreM, config, LitJunctions.Draw(layout, brief, config, ref signals)),
+            Junctions(centreM, config, LitJunctions.Draw(layout, unregulatedShare, config, ref signals)),
 
             // <b>A junction turns no kerb corner and strikes no crossing.</b> A fillet is kerb geometry and the
             // kerb is not laid here any more; the zebras and the bars are the town's, laid off its kerb ends

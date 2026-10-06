@@ -71,6 +71,9 @@ internal static class Scan
     /// </summary>
     public static string Source(string root, string map) => Path.Combine(root, "towns", "traced", map, "source");
 
+    /// <summary>The map the engine reads (<see cref="TownMap"/>): every map's file is <c>towns/&lt;Map&gt;.map</c>, a traced one's too.</summary>
+    public static string MapFile(string root, string map) => Path.Combine(root, "towns", $"{map}.map");
+
     public static int Run(string root, string city, bool refetch)
     {
         if (!Cities.TryGetValue(city, out var place)) throw new ArgumentException($"no city '{city}': {string.Join(", ", Cities.Keys)}");

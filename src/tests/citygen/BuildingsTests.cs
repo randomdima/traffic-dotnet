@@ -91,9 +91,8 @@ public class BuildingsTests
     }
 
     /// <summary>
-    /// <b>No two buildings stand in each other</b> (GEN-3). Each claims its own padding as it is stood, so
-    /// what the footprints owe each other is the whole of that padding — asked here as the weaker fact the
-    /// claim grid can be held to exactly: that no two of the rectangles share any ground at all.
+    /// <b>No two buildings stand in each other further than a party wall</b> (GEN-3): a terrace's neighbours share one,
+    /// each standing into the other by a party wall's half (<see cref="CityGenFigures.ZonePartyWallM"/>) and no more.
     /// </summary>
     [Fact]
     public void NoTwoBuildingsStandInEachOther()
@@ -265,8 +264,8 @@ public class BuildingsTests
     }
 
     /// <summary>
-    /// Whether two buildings' footprints share any ground: the separating axis test, over the four
-    /// directions two rectangles' own sides give.
+    /// Whether two buildings' footprints share any ground past a party wall's half each: the separating axis test, over
+    /// the four directions two rectangles' own sides give.
     /// </summary>
     static bool Overlap(CityPlan plan, int one, int other)
     {
@@ -281,12 +280,12 @@ public class BuildingsTests
             MathF.Abs(Vector2.Dot(apartM, onto)) >= Spread(plan, one, onto) + Spread(plan, other, onto);
     }
 
-    /// <summary>How far a building's own rectangle reaches along a direction, which is its own extent projected onto it.</summary>
+    /// <summary>How far a building's own rectangle less a party wall's half reaches along a direction, which is that extent projected onto it.</summary>
     static float Spread(CityPlan plan, int building, Vector2 onto)
     {
         var axis = Heading.Unit(plan.Buildings.HeadingRad[building]);
         var side = Heading.RightOf(axis);
-        var halfM = plan.Buildings.SizeM[building] * 0.5f;
+        var halfM = (plan.Buildings.SizeM[building] * 0.5f) - new Vector2(Config.CityGen.ZonePartyWallM);
         return (MathF.Abs(Vector2.Dot(axis, onto)) * halfM.X) + (MathF.Abs(Vector2.Dot(side, onto)) * halfM.Y);
     }
 

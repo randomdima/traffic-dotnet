@@ -13,6 +13,7 @@ internal enum DebugThing : byte
     Line,
     SolverCell,
     GeometryCell,
+    Zone,
 }
 
 /// <summary>

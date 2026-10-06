@@ -118,7 +118,7 @@ internal static partial class TracedStreets
     {
         var lanes = LaneLines.Of(
             new GroundPieces(
-                (ulong)survey.Relation, new Vector2(survey.WidthM, survey.HeightM), config.PavementWidthM, laid.Roads,
+                survey.Seed, new Vector2(survey.WidthM, survey.HeightM), config.PavementWidthM, laid.Roads,
                 laid.Bridges, laid.Junctions, NoCorners, laid.Roundabouts, NoLots, CityPlan.PavedAreaArrays.None, NoCrosswalks,
                 CityPlan.WaterArrays.None),
             config);

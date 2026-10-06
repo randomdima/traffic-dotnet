@@ -20,9 +20,18 @@
     <Compile Include="../../citygen/traced/OsmCarriageway.cs" Link="Shared/OsmCarriageway.cs" />
     <Compile Include="../../citygen/traced/OsmTurns.cs" Link="Shared/OsmTurns.cs" />
     <Compile Include="../../citygen/traced/TransverseMercator.cs" Link="Shared/TransverseMercator.cs" />
-    <Compile Include="../../citygen/traced/TracedMap.cs" Link="Shared/TracedMap.cs" />
-    <Compile Include="../../citygen/traced/TracedMap.Stumps.cs" Link="Shared/TracedMap.Stumps.cs" />
+    <Compile Include="../../citygen/BuildingLook.cs" Link="Shared/BuildingLook.cs" />
+    <Compile Include="../../citygen/PropKind.cs" Link="Shared/PropKind.cs" />
+    <Compile Include="../../citygen/traced/SurveyFootprints.cs" Link="Shared/SurveyFootprints.cs" />
+    <Compile Include="../../citygen/traced/TracedRoad.cs" Link="Shared/TracedRoad.cs" />
     <Compile Include="../../citygen/traced/TracedMapImport.cs" Link="Shared/TracedMapImport.cs" />
+    <Compile Include="../../citygen/map/TownMap.cs" Link="Shared/TownMap.cs" />
+    <Compile Include="../../citygen/map/TownMap.Bytes.cs" Link="Shared/TownMap.Bytes.cs" />
+    <Compile Include="../../citygen/map/TownMap.Cropped.cs" Link="Shared/TownMap.Cropped.cs" />
+    <Compile Include="../../citygen/map/TownMap.Stumps.cs" Link="Shared/TownMap.Stumps.cs" />
+    <Compile Include="../../citygen/map/TownMap.Zones.cs" Link="Shared/TownMap.Zones.cs" />
+    <Compile Include="../../citygen/zones/ZoneKind.cs" Link="Shared/ZoneKind.cs" />
+    <Compile Include="../../citygen/zones/ZoneParam.cs" Link="Shared/ZoneParam.cs" />
   </ItemGroup>
 
   <ItemGroup>

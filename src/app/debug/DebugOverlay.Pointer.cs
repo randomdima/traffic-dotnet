@@ -148,7 +148,7 @@ internal sealed partial class DebugOverlay
 
     /// <summary>
     /// <b>The one thing the layers that are on draw at a place</b>, or nothing: a body first, then a stretch of
-    /// boundary, then a way and what holds it, then a ribbon, then a cell.
+    /// boundary, then a way and what holds it, then a ribbon, then a cell, then the zone the place stands in.
     /// </summary>
     /// <remarks>
     /// <b>The order is what is drawn over what.</b> A body stands on the lines, a boundary is a hairline at the
@@ -203,6 +203,11 @@ internal sealed partial class DebugOverlay
             return new DebugTarget(DebugThing.GeometryCell, atX, atY, pointM);
         }
 
+        if (switches.Zones && ZonesOf(world, config) is { } zones)
+        {
+            return new DebugTarget(DebugThing.Zone, zones.At(pointM), AtM: pointM);
+        }
+
         return DebugTarget.None;
     }
 
@@ -222,6 +227,7 @@ internal sealed partial class DebugOverlay
         DebugThing.Way => switches.Claims || switches.Nodes,
         DebugThing.Line => switches.Ribbons,
         DebugThing.SolverCell => switches.SolverGrid,
+        DebugThing.Zone => switches.Zones,
         _ => switches.Grid,
     };
 
@@ -236,6 +242,7 @@ internal sealed partial class DebugOverlay
             case DebugThing.Line: FocusRibbon(ref draw, focus, target.Index, pinned); break;
             case DebugThing.SolverCell: FocusSolverCells(ref draw, focus, target.AtM); break;
             case DebugThing.GeometryCell: FocusGeometryCell(ref draw, focus, target.AtM); break;
+            case DebugThing.Zone: FocusZone(ref draw, focus, target.Index); break;
         }
     }
 
@@ -250,6 +257,7 @@ internal sealed partial class DebugOverlay
             case DebugThing.Line: DescribeRibbon(ref card, focus, target.Index, pinned); break;
             case DebugThing.SolverCell: DescribeSolverCells(ref card, focus.World, target.AtM); break;
             case DebugThing.GeometryCell: DescribeGeometryCell(ref card, focus, target.AtM); break;
+            case DebugThing.Zone: DescribeZone(ref card, focus, target.Index); break;
         }
     }
 

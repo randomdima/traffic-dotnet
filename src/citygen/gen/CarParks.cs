@@ -50,7 +50,7 @@ namespace TrafficSimulation.CityGen.Gen;
 /// them first is what puts the services as far apart as the town's roads allow.
 /// </para>
 /// <para>
-/// <b>It is the last stage of the layout</b> (<see cref="TownGenerator"/>): a bay's arms are read off its own
+/// <b>It is the last stage of the layout</b> (<see cref="WheelStreets"/>): a bay's arms are read off its own
 /// line, so nothing may be offered to the layout after one.
 /// </para>
 /// </remarks>
@@ -85,11 +85,11 @@ internal static class CarParks
     /// </param>
     /// <param name="sizes">The service buildings' footprints, which say how far across its rank a yard's building reaches.</param>
     public static Laid Lay(
-        TownLayout layout, TownBrief brief, SimConfig config, DistrictWheel districts, BuildingSizes sizes,
+        TownLayout layout, int buildings, SimConfig config, DistrictWheel districts, BuildingSizes sizes,
         ref Rng draw)
     {
-        var services = TheServicesWanted(brief, districts);
-        var wanted = services.Count + config.CarParksFor(brief.Buildings);
+        var services = TheServicesWanted(buildings, districts);
+        var wanted = services.Count + config.CarParksFor(buildings);
         if (wanted <= 0) return Laid.None;
 
         var townM = districts.HubM;
@@ -475,10 +475,10 @@ internal static class CarParks
     /// its people's, and a district's services are not a share of it.
     /// </para>
     /// </remarks>
-    static List<(BuildingUse Use, int District)> TheServicesWanted(TownBrief brief, DistrictWheel districts)
+    static List<(BuildingUse Use, int District)> TheServicesWanted(int buildings, DistrictWheel districts)
     {
         var wanted = new List<(BuildingUse, int)>();
-        var each = ServiceBuildings.OfEachUse(brief.Buildings, districts);
+        var each = ServiceBuildings.OfEachUse(buildings, districts);
         foreach (var use in ServiceBuildings.Uses)
         {
             for (var district = 0; district < each; district++) wanted.Add((use, district));

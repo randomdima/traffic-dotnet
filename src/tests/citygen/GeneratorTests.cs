@@ -1149,22 +1149,20 @@ public class GeneratorTests
     {
         var plan = Lay(Brief(seed));
         var edges = PavedEdge.Of(plan, Config);
-        var swept = 0;
 
-        for (var prop = 0; prop < plan.Props.Count; prop++)
+        // What the sweep lays is scenery (GEN-6b), standing no body.
+        Assert.True(plan.Scenery.Count > 0, "a town whose props are all on a verge asks this of nothing");
+        for (var piece = 0; piece < plan.Scenery.Count; piece++)
         {
-            if (edges.InAVerge(plan.Props.CentreM[prop], plan.Props.RadiusM[prop], Config)) continue;
-
-            swept++;
-            AllGrassWithin(plan, prop, plan.Props.RadiusM[prop] + Config.PavementCornerReachM, edges);
+            AllGrassWithin(plan, plan.Scenery.CentreM[piece], plan.Scenery.RadiusM[piece], plan.Scenery.RadiusM[piece] + Config.PavementCornerReachM, edges);
         }
-
-        Assert.True(swept > 0, "a town whose props are all on a verge asks this of nothing");
     }
 
-    static void AllGrassWithin(CityPlan plan, int prop, float standM, PavedEdge edges)
+    static void AllGrassWithin(CityPlan plan, int prop, float standM, PavedEdge edges) =>
+        AllGrassWithin(plan, plan.Props.CentreM[prop], plan.Props.RadiusM[prop], standM, edges);
+
+    static void AllGrassWithin(CityPlan plan, Vector2 atM, float radiusM, float standM, PavedEdge edges)
     {
-        var atM = plan.Props.CentreM[prop];
         for (var downM = -standM; downM <= standM; downM += Config.Terrain.GroundStepM)
         {
             for (var overM = -standM; overM <= standM; overM += Config.Terrain.GroundStepM)
@@ -1175,9 +1173,8 @@ public class GeneratorTests
                 var onM = atM + offsetM;
                 Assert.True(
                     GroundAt(plan, onM) == Ground.Grass,
-                    $"prop {prop} at {atM.X:F1},{atM.Y:F1} reaches {GroundAt(plan, onM)} at " +
-                    $"{onM.X:F1},{onM.Y:F1} within {standM:F2} m — r {plan.Props.RadiusM[prop]:F2}, " +
-                    $"{(PropKind)plan.Props.Kind[prop]}, nearest face {edges.NearestM(atM):F2} m");
+                    $"a prop at {atM.X:F1},{atM.Y:F1} reaches {GroundAt(plan, onM)} at " +
+                    $"{onM.X:F1},{onM.Y:F1} within {standM:F2} m — r {radiusM:F2}, nearest face {edges.NearestM(atM):F2} m");
             }
         }
     }

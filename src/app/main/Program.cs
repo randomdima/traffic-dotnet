@@ -19,6 +19,7 @@ using TrafficSimulation.App.Shot;
 using TrafficSimulation.Bench;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.CityGen;
+using TrafficSimulation.CityGen.Gen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Statics;
@@ -54,6 +55,7 @@ internal static class Program
         var options = Options.Parse(args, config.View);
 
         if (options.Lamps) return CutTheLamps();
+        if (options.Author is not null) return Author(options.Author, config);
         if (options.Bench is not null) return RunBench(options.Bench, options.Map, options.AtM, options.Out, config);
         if (options.Check) return RunCheck(options, config);
         if (options.Sheet is not null) return RunSheet(options, config);
@@ -354,7 +356,10 @@ internal static class Program
                 TracedFidelity.Run(map ?? Options.TracedMap, config, atM);
                 return 0;
             case "fit":
-                TracedFit.Run(map ?? Options.TracedMap, config, outPath, atM);
+                TracedFit.Run(map ?? Options.TracedMap, config, outPath);
+                return 0;
+            case "zones":
+                ZoneFidelity.Run(map ?? Options.TracedMap, config, outPath);
                 return 0;
             case "joints":
                 TownShape.Joints(map ?? Options.FixtureMap, config);
@@ -539,6 +544,28 @@ internal static class Program
                           $"{SolverProbe.MeasuredSteps} steps after {SolverProbe.WarmupSteps} warm-up ticks");
     }
 
+    /// <summary>
+    /// <b>A brief authored into its map</b> (GEN-58, <c>--author NAME|all</c>): <c>towns/briefs/NAME.json</c> read, its
+    /// water and wheel drawn (<see cref="TownAuthor"/>) and written over <c>towns/NAME.map</c> — every edit made to that
+    /// map since lost, as a traced map's is to a second import.
+    /// </summary>
+    static int Author(string name, SimConfig config)
+    {
+        var briefs = name == "all"
+            ? Directory.GetFiles(Path.GetDirectoryName(ProjectPaths.BriefFile(name))!, "*.json").Select(Path.GetFileNameWithoutExtension).ToArray()
+            : [name];
+        foreach (var brief in briefs)
+        {
+            var path = ProjectPaths.BriefFile(brief!);
+            var read = AssetJson.Read(path, TownBriefJson.Default.TownBrief);
+            var into = ProjectPaths.MapFile(read.Name);
+            TownAuthor.Of(read, config).Write(into);
+            Console.WriteLine($"{path} -> {into}  {new FileInfo(into).Length / 1024.0:F1} KB");
+        }
+
+        return 0;
+    }
+
     static void ReportVulkan(bool validate)
     {
         using var vk = Vk.Open("traffic-dotnet", validate);
@@ -553,7 +580,7 @@ internal static class Program
         string? Sheet, bool Caption, string? Title, string? Note, bool Lamps,
         bool Windowed, string? Display, string? Drive, string? Frames, string? Out, bool Live, int FrameWidth,
         string? Bot, int BotCar, string? BotFrames, string? BotOut, int BotEyeWidth, float BotViewM,
-        bool BotWaits)
+        bool BotWaits, string? Author)
     {
         /// <summary>
         /// What every check that is not about a particular town is staged on: a small town laid from a
@@ -621,7 +648,7 @@ internal static class Program
                 Note: null, Lamps: false, Windowed: false, Display: null, Drive: null, Frames: null, Out: null,
                 Live: false, FrameWidth: 0,
                 Bot: null, BotCar: -1, BotFrames: null, BotOut: null, BotEyeWidth: 0, BotViewM: 0f,
-                BotWaits: false);
+                BotWaits: false, Author: null);
             for (var i = 0; i < args.Length; i++)
             {
                 switch (args[i])
@@ -777,6 +804,10 @@ internal static class Program
                     case "--caption":
                         options = options with { Caption = true };
                         break;
+                    case "--author" when i + 1 < args.Length:
+                        options = options with { Author = args[i + 1] };
+                        i++;
+                        break;
                     case "--title" when i + 1 < args.Length:
                         options = options with { Title = args[i + 1], Caption = true };
                         i++;
@@ -793,7 +824,7 @@ internal static class Program
                                                     "--size W H, --ui-scale N, --present fifo|mailbox|immediate, " +
                                                     "--windowed, --display NAME|N, --seconds N, --validate, --check, " +
                                                     "--bench NAME|all, --lamps, --drive FILE|-, --live, " +
-                                                    "--frames DIR, --frame-width PX, --out FILE.md.");
+                                                    "--frames DIR, --frame-width PX, --out FILE.md, --author BRIEF|all.");
                 }
             }
 

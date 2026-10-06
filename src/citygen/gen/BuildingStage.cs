@@ -1,28 +1,19 @@
-using System.Collections.Concurrent;
 using System.Numerics;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
-using TrafficSimulation.Core.Simulation;
 
 namespace TrafficSimulation.CityGen.Gen;
 
 /// <summary>
-/// <b>What stands along the streets</b> (GEN-54): a building against the pavement's outer face, its front
-/// wall on the walk's own kerb and its way in on the concrete behind it.
+/// <b>What a wheel's car parks stand</b> (GEN-55): the services first, each in the middle of its own yard, and the rule
+/// every other building is stood by beside a rank of bays.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The face is walked, because frontage is a line and not an area</b> (<see cref="GroundRings.WalkEdge"/>,
-/// TER-7b). It is the whole town's outer kerb in one set of closed rings — round every block, round the
-/// outside of the town, round the mouth of every rank — so nothing here knows what a road, a junction, a
-/// roundabout or a car park is, and a building fronts all of them on the same terms. A sweep of the ground
-/// asking each square whether it happened to be near a street would have to know all of it.
-/// </para>
-/// <para>
-/// <b>It runs after every stage that lays driven ground and before the props</b> (GEN-10, GEN-6b): the
-/// boundary is settled when this starts, so a building is cleared against the ground the finished map
-/// answers with rather than against one a later stage would move; and the scatter takes what is left, which
-/// is why a verge crowded with buildings carries fewer props.
+/// <b>The services are stood first and each in the middle of its own car park</b> (GEN-55). A hospital, a
+/// police station and a depot are buildings the generator cut a yard for (<see cref="CarParks"/>), and each
+/// stands square across the far end of that yard's rank. What puts them across the town from each other is
+/// where their car parks were cut, so there is no second spread here.
 /// </para>
 /// <para>
 /// <b>A building stands square to the face and touches its kerb</b> (GEN-2a, TER-3c.2): the wall is at
@@ -33,24 +24,12 @@ namespace TrafficSimulation.CityGen.Gen;
 /// <para>
 /// <b>Where that face wraps a rank of bays it is the car park's, and only the flat of it is built on</b>
 /// (<see cref="SquareOnItsRank"/>, GEN-55): the whole of a building's frontage stands on the line the bays
-/// end on, never on the rounding round the corner of the rank and never down its side.
+/// end on, never on the rounding round the corner of the rank and never down its side — which every building the
+/// zones stand is asked as well (<see cref="Yards.Allows"/>).
 /// </para>
 /// <para>
-/// <b>The services are stood first and each in the middle of its own car park</b> (GEN-55). A hospital, a
-/// police station and a depot are buildings the generator cut a yard for (<see cref="CarParks"/>), and each
-/// stands square across the far end of that yard's rank. What puts them across the town from each other is
-/// where their car parks were cut, so there is no second spread here.
-/// </para>
-/// <para>
-/// <b>Every station in the town is cut before any of them is filled, and they are filled in a drawn
-/// order.</b> Filled face by face instead, a town whose brief asks for fewer buildings than its frontage
-/// affords is built solid along whichever rings came first and empty everywhere else — the count runs out
-/// before the walk reaches the rest of the map.
-/// </para>
-/// <para>
-/// <b>Nothing is placed and taken back</b> (GEN-10, GEN-8). A candidate that does not stand is not a
-/// building, the station is not tried again from another angle, and a brief asking for more than the ground
-/// affords gets what fitted.
+/// <b>Nothing is placed and taken back</b> (GEN-10, GEN-8). A use whose yard the face does not reach stands no
+/// building, and the station is not tried again from another angle.
 /// </para>
 /// </remarks>
 internal static class BuildingStage
@@ -63,109 +42,54 @@ internal static class BuildingStage
     /// middle of the line its bays end on, the way they point, how far that line reaches either side of the
     /// middle, and how far back towards the street the rank runs.
     /// </summary>
-    readonly record struct Rank(int Park, Vector2 TipM, Vector2 Outward, float HalfAcrossM, float DeepM);
+    internal readonly record struct Rank(int Park, Vector2 TipM, Vector2 Outward, float HalfAcrossM, float DeepM);
 
     /// <summary>The two sides of the road a car park was cut into, as its bays are recorded (GEN-53).</summary>
     static readonly bool[] Sides = [true, false];
 
-    public static CityPlan.BuildingArrays Lay(
-        TownBrief brief, CarParks.Laid carParks, CityPlan.RoadArrays roads,
-        Paving paving, GroundShapes ground, GenClaims claims, BuildingSizes sizes, SimConfig config,
-        ref Rng draw)
+    /// <summary>
+    /// <b>The services a town's yards were cut for, and what its ranks of bays allow the buildings round them</b>: one
+    /// building a yard, and a rule every other building is asked against (<see cref="Allows"/>).
+    /// </summary>
+    internal sealed class Yards
     {
-        if (brief.Buildings <= 0 || sizes.OrdinaryM.Length == 0) return CityPlan.BuildingArrays.None;
+        readonly Ranks _ranks;
+        readonly SimConfig _config;
 
-        var stations = AlongTheFace(paving.Rings(config), config);
-        if (stations.Count == 0) return CityPlan.BuildingArrays.None;
-
-        var ranks = new Ranks(TheRanks(carParks, roads), config);
-        var built = new Built();
-        var asking = new Asking(ground);
-        TheServices(carParks, ranks, stations, sizes, config, ground, claims, built, asking);
-
-        for (var at = stations.Count - 1; at > 0; at--)
+        public Yards(CityPlan.BuildingArrays services, Ranks ranks, SimConfig config)
         {
-            var other = draw.NextInt(at + 1);
-            (stations[at], stations[other]) = (stations[other], stations[at]);
+            Services = services;
+            _ranks = ranks;
+            _config = config;
         }
 
-        TheOrdinary(stations, brief.Buildings, sizes, ranks, config, ground, claims, built, asking, ref draw);
-        return built.Arrays(config.CityGen.BuildingCapacity);
+        /// <summary>One building of each service whose yard the face reaches, each its use (GEN-55).</summary>
+        public CityPlan.BuildingArrays Services { get; }
+
+        /// <summary>
+        /// <b>Whether a building of a frontage may stand off a place on the face</b> (<see cref="SquareOnItsRank"/>): off
+        /// a rank's own stretch of the face only on the flat of it, and anywhere else.
+        /// </summary>
+        /// <param name="near">The caller's own list, which the ranks near the place are read into.</param>
+        public bool Allows(Vector2 atM, float halfFrontageM, List<int> near) =>
+            _ranks.All.Count == 0 || SquareOnItsRank(_ranks, near, atM, halfFrontageM, _config);
+
+        public static Yards None(SimConfig config) => new(CityPlan.BuildingArrays.None, new Ranks([], config), config);
     }
 
-    /// <summary>
-    /// How many stations the ground is asked about at once (<see cref="TheOrdinary"/>): enough to keep every
-    /// thread busy for longer than a parallel pass takes to start, and few enough that the stations solved past
-    /// the one that fills the brief — never read — are a small share of the town's.
-    /// </summary>
-    const int Batch = 1024;
-
-    /// <summary>
-    /// <b>The ordinary buildings, stood station by station in the drawn order</b>, with what the ground says
-    /// about each station asked of a batch of them at once.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Only the claims depend on the order, so only the claims are walked in it.</b> Whether a footprint
-    /// stands on grass, clear of the paving and square on its rank is a fact about the station and the
-    /// footprint drawn for it, which no building stood before it changes; whether its ground is still unclaimed
-    /// is the one question the stations before it answer. So the ground is asked on every thread a batch at a
-    /// time and the claims are then walked in order — the same town, building for building, as asking all of it
-    /// one station at a time.
-    /// </para>
-    /// <para>
-    /// <b>The claims are asked in the parallel pass as well, and again in order</b>: a claim is never given
-    /// back (GEN-10), so a station the batch's opening claims refuse is refused at its turn and its ground need
-    /// not be solved. It is what holds the parallel pass to roughly the stations a serial walk would have
-    /// solved — on a shipped city, the claims refuse seven stations in ten. <b>Nothing claims while the pass
-    /// runs</b>: every claim is made in the walk after it, which is what lets every thread read them.
-    /// </para>
-    /// <para>
-    /// <b>Every station of a batch has its footprint drawn, the ones past the brief's last building
-    /// included</b>: station <em>n</em>'s footprint is still the stream's <em>n</em>th draw, which is all the
-    /// town reads of it.
-    /// </para>
-    /// </remarks>
-    static void TheOrdinary(
-        List<Station> stations, int wanted, BuildingSizes sizes, Ranks ranks, SimConfig config,
-        GroundShapes ground, GenClaims claims, Built built, Asking asking, ref Rng draw)
+    /// <param name="worldSizeM">How far the claims a service's padding is held by reach.</param>
+    public static Yards Lay(
+        CarParks.Laid carParks, CityPlan.RoadArrays roads, Paving paving, GroundShapes ground, Vector2 worldSizeM,
+        BuildingSizes sizes, SimConfig config)
     {
-        var footprintM = new Vector2[Math.Min(Batch, stations.Count)];
-        var plots = new Plot[footprintM.Length];
-        var open = new bool[footprintM.Length];
+        var ranks = new Ranks(TheRanks(carParks, roads), config);
+        if (ranks.All.Count == 0) return new Yards(CityPlan.BuildingArrays.None, ranks, config);
 
-        // One working set a thread across every batch: a scan is the size of the index it reads, and the
-        // boundary's is a hundred thousand pieces.
-        var idle = new ConcurrentBag<Asking> { asking };
-        for (var first = 0; first < stations.Count && built.Count < wanted; first += Batch)
-        {
-            var count = Math.Min(Batch, stations.Count - first);
-
-            // Drawn before the ground is asked about anything, so that what the stream has spent by station
-            // n is the face's own length and never what the ground answered at the stations before it.
-            for (var at = 0; at < count; at++) footprintM[at] = sizes.OrdinaryM[draw.NextInt(sizes.OrdinaryM.Length)];
-
-            var from = first;
-            InChunks.Over(
-                count,
-                () => idle.TryTake(out var own) ? own : new Asking(ground),
-                (own, at) =>
-                {
-                    var station = stations[from + at];
-                    var plot = plots[at] = Plot.Of(station, footprintM[at], config);
-                    open[at] = claims.IsFree(plot.CentreM, plot.Axis, plot.PaddedM)
-                               && OnOpenGround(own, station, footprintM[at], plot, ranks, config, ground);
-                },
-                idle.Add);
-
-            for (var at = 0; at < count && built.Count < wanted; at++)
-            {
-                ref readonly var plot = ref plots[at];
-                if (!open[at] || !claims.IsFree(plot.CentreM, plot.Axis, plot.PaddedM)) continue;
-
-                Raise(stations[from + at], footprintM[at], BuildingUse.Ordinary, plot, config, claims, built);
-            }
-        }
+        var stations = AlongTheFace(paving.Rings(config), config);
+        var claims = GenClaims.Over(config.Grid, worldSizeM, config.CityGen.ClaimCellM);
+        var built = new Built();
+        TheServices(carParks, ranks, stations, sizes, config, ground, claims, built, new Asking(ground));
+        return new Yards(built.Arrays(config.CityGen.BuildingCapacity), ranks, config);
     }
 
     /// <summary>
@@ -468,7 +392,7 @@ internal static class BuildingStage
     /// the first that does is the first a scan of the list would have met. Asked of every rank, the stage
     /// was the town's stations times its car parks.
     /// </remarks>
-    sealed class Ranks
+    internal sealed class Ranks
     {
         readonly PointCells _tips;
         readonly float _reachM;

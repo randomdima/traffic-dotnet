@@ -36,7 +36,7 @@ namespace TrafficSimulation.CityGen.Gen;
 /// </para>
 /// <para>
 /// <b>It runs on the layout the deletions left</b>, after the stranded pieces and the dead ends
-/// and before the roundabouts (<see cref="TownGenerator"/>): a ring is opened out of a junction, so what is
+/// and before the roundabouts (<see cref="WheelStreets"/>): a ring is opened out of a junction, so what is
 /// offered one has to be a junction already. Nothing here deletes a road — every run comes back as the one
 /// road it was — and the nodes it empties are dropped by the prune it ends on, the way
 /// <see cref="TownLayout.RingOut"/>'s husks are.

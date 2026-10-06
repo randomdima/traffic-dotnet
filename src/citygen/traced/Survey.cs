@@ -1,35 +1,31 @@
 using System.Numerics;
+using TrafficSimulation.CityGen.Map;
+using TrafficSimulation.CityGen.Zones;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.CityGen.Traced;
 
 /// <summary>
-/// <b>A real place read into this engine's terms</b> (GEN-57): every road way of a <see cref="TracedMap"/>, each as its
-/// points, its <c>highway</c> value and its lanes as the rules make them of OSM's, and the sea its coastline closes
-/// against the map's edge — in the map's own frame (<see cref="OsmFrame"/>). Axes are the engine's: x east and y
-/// south, from the map's north-west corner.
+/// <b>A map read into this engine's terms</b> (GEN-58): every road of a <see cref="TownMap"/>, each as its points, its
+/// <c>highway</c> value and its lanes (GEN-57), its water — the sea its coastline closes against the map's edge and every
+/// water it holds whole — what is set down on it, and what it is zoned for, in the map's own frame
+/// (<see cref="OsmFrame"/>). Axes are the engine's: x east and y south, from the map's north-west corner.
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>No tag of a lane is read here</b>: a road's lanes are its carriageway as the map holds it
-/// (<see cref="OsmCarriageway"/>), taken as they are — as wide as the place was measured, and as many as that width
-/// holds where OSM only assumes a count (<see cref="Read"/>). What is decided here is that a way whose every lane runs
-/// against it is turned round, so <see cref="SurveyWay.Oneway"/> always means the way its points run, and that a way
-/// running on past the map is cut where it crosses the map's own edge, each run inside a way of its own and each cut
-/// one of the places a road leaves the map (<see cref="LeavesTheMap"/>).
-/// </para>
-/// <para>
-/// <b>It carries what else is known of the place</b>: the control at each junction's point and the buildings'
-/// footprints, each in this frame already.
-/// </para>
+/// <b>A road's lanes are the map's counts</b>, each <see cref="CityGenFigures.TracedLaneWidthM"/> wide — as many as its
+/// measured width holds where OSM only assumes a count, and the roadside that width holds beside them (<see cref="Read"/>).
+/// What is decided here too is that a way whose every lane runs against it is turned round, so
+/// <see cref="SurveyWay.Oneway"/> always means the way its points run, and that a way running on past the map is cut
+/// where it crosses the map's own edge, each run inside a way of its own and each cut one of the places a road leaves
+/// the map (<see cref="LeavesTheMap"/>).
 /// </remarks>
 internal sealed class Survey
 {
     public required string Name { get; init; }
 
-    /// <summary>The OSM boundary relation whose roads drew the map, which is the map's own number.</summary>
-    public required long Relation { get; init; }
+    /// <summary>What every draw laying the town is keyed on (<see cref="TownMap.Seed"/>).</summary>
+    public required ulong Seed { get; init; }
 
     public required float WidthM { get; init; }
 
@@ -52,35 +48,42 @@ internal sealed class Survey
 
     public bool Leaves(int point) => (uint)point < (uint)LeavesTheMap.Length && LeavesTheMap[point];
 
-    /// <summary>The sea, as closed rings flat as x, y pairs, already cut to the map's edge.</summary>
+    /// <summary>
+    /// The water, as closed rings flat as x, y pairs: the sea already cut to the map's edge, then every water the map
+    /// holds whole.
+    /// </summary>
     public required float[][] Sea { get; init; }
 
-    /// <summary>
-    /// What OSM forbids a car at a node and which lanes it joins there, as the scanner read them
-    /// (<see cref="OsmTurns"/>): a way by its OSM id (<see cref="SurveyWay.OsmId"/>), and a node by its index, which
-    /// is its point's.
-    /// </summary>
-    public OsmTurns Turns { get; init; } = OsmTurns.None;
+    /// <summary>The waters the map draws along a course (<see cref="TownMap.Courses"/>), drawn as their banks stand off them.</summary>
+    public TownMap.CourseArrays Courses { get; init; } = TownMap.CourseArrays.None;
+
+    /// <summary>Whether any of the water is a river, which a road laid by a zone may span (GEN-14b).</summary>
+    public bool Bridgeable { get; init; }
 
     /// <summary>
-    /// <b>What controls the junction at each point</b>, by the point's index, as the map has it
-    /// (<see cref="TracedMap.Controls"/>) — <see cref="SurveyControl.Unsigned"/> where nothing does, or past the end.
+    /// What the map is zoned for (<see cref="TownMap.Zones"/>), which everything not fixed is laid by — none for a survey laid
+    /// by hand, which is laid as the whole map and nothing else (<see cref="ZonesOrWhole"/>).
     /// </summary>
-    public PointControl[] Controls { get; init; } = [];
+    public TownMap.ZoneArrays Zones { get; init; } = TownMap.ZoneArrays.None;
 
-    /// <summary>Every building's footprint the map holds (<see cref="TracedMap.Footprints"/>).</summary>
-    public CityPlan.FootprintArrays Footprints { get; init; } = CityPlan.FootprintArrays.None;
+    /// <summary>Its zones, or the whole map alone where it holds none.</summary>
+    public TownMap.ZoneArrays ZonesOrWhole =>
+        Zones.Count > 0 ? Zones : TownMap.ZoneArrays.Whole(new Vector2(WidthM, HeightM), ZoneKind.Town, []);
 
-    /// <summary>Who the town stands (<see cref="TracedMap.Population"/>).</summary>
-    public TracedPopulation Population { get; init; } = TracedPopulation.None;
+    /// <summary>The buildings the map sets down (<see cref="TownMap.Buildings"/>).</summary>
+    public TownMap.StoodArrays Buildings { get; init; } = TownMap.StoodArrays.None;
+
+    /// <summary>The props the map sets down (<see cref="TownMap.Props"/>).</summary>
+    public TownMap.PropArrays Props { get; init; } = TownMap.PropArrays.None;
+
+    /// <summary>The car parks the map sets down (<see cref="TownMap.Lots"/>).</summary>
+    public TownMap.LotArrays Lots { get; init; } = TownMap.LotArrays.None;
 
     public int PointCount => PointsM.Length / 2;
 
     public Vector2 PointM(int point) => new(PointsM[2 * point], PointsM[(2 * point) + 1]);
 
-    public SurveyControl ControlAt(int point) => (uint)point < (uint)Controls.Length ? Controls[point].Control : SurveyControl.Unsigned;
-
-    public static Survey Of(TracedMap map, SimConfig config)
+    public static Survey Of(TownMap map, SimConfig config)
     {
         var mostTagged = MostTagged(map.Roads);
 
@@ -117,8 +120,8 @@ internal sealed class Survey
         for (var point = 0; point < points; point++) upM[point] = new Vector2D(map.PointM[point].X, heightM - map.PointM[point].Y);
 
         var sea = Coastline.SeaRings(map.Coast, upM, widthM, heightM);
-        var flatSea = new float[sea.Count][];
-        for (var ring = 0; ring < flatSea.Length; ring++)
+        var flatSea = new float[sea.Count + map.Waters.Count][];
+        for (var ring = 0; ring < sea.Count; ring++)
         {
             flatSea[ring] = new float[2 * sea[ring].Count];
             for (var point = 0; point < sea[ring].Count; point++)
@@ -128,51 +131,30 @@ internal sealed class Survey
             }
         }
 
-        var controls = new PointControl[placedM.Count];
-        for (var at = 0; at < map.Controls.Count; at++) controls[map.Controls.Point[at]] = new PointControl(map.Controls.Control[at], map.Controls.Cluster[at]);
+        for (var water = 0; water < map.Waters.Count; water++)
+        {
+            var outline = map.Waters.OutlineOf(water);
+            var flat = flatSea[sea.Count + water] = new float[2 * outline.Length];
+            for (var point = 0; point < outline.Length; point++) (flat[2 * point], flat[(2 * point) + 1]) = (outline[point].X, outline[point].Y);
+        }
 
-        var footprints = map.Footprints;
         return new Survey
         {
             Name = map.Name,
-            Relation = map.Relation,
+            Seed = map.Seed,
             WidthM = (float)widthM,
             HeightM = (float)heightM,
             PointsM = pointsM,
             Ways = [.. ways],
             LeavesTheMap = leavesTheMap,
             Sea = flatSea,
-            Turns = map.Turns,
-            Controls = controls,
-            Footprints = new CityPlan.FootprintArrays
-            {
-                RingOffsets = footprints.RingOffsets,
-                Rings = new CityPlan.RingArrays { Offsets = footprints.PointOffsets, PointM = footprints.PointM },
-                Traced = footprints.Traced,
-                HeightM = footprints.HeightM,
-                Use = footprints.Use,
-            },
-            Population = map.Population,
+            Courses = map.Courses,
+            Bridgeable = Array.IndexOf(map.Waters.Kind, TownMap.WaterBody.River) >= 0 || Array.IndexOf(map.Courses.Kind, TownMap.WaterBody.River) >= 0,
+            Zones = map.Zones,
+            Buildings = map.Buildings,
+            Props = map.Props,
+            Lots = map.Lots,
         };
-    }
-
-    /// <summary>
-    /// The most lanes one way any way of each class is tagged with on the map: what a width read off the ground may
-    /// make of an untagged way of that class at most (<see cref="Read"/>).
-    /// </summary>
-    static Dictionary<string, int> MostTagged(TracedRoad[] roads)
-    {
-        var most = new Dictionary<string, int>(StringComparer.Ordinal);
-        foreach (var road in roads)
-        {
-            var carriageway = road.Carriageway;
-            if (carriageway.LanesFrom != OsmLanesFrom.Tagged) continue;
-
-            var oneWay = Math.Max(carriageway.Count(OsmLaneWay.Forward), carriageway.Count(OsmLaneWay.Backward));
-            most[road.Highway] = Math.Max(most.GetValueOrDefault(road.Highway), oneWay);
-        }
-
-        return most;
     }
 
     /// <summary>The rectangle a traced map lays its roads in, in the engine's own axes.</summary>
@@ -303,11 +285,8 @@ internal sealed class Survey
     /// <b>What a measured width holds past its lanes is roadside</b> — the parked cars and the gutters imagery reads
     /// as road — in strips of <see cref="CityGenFigures.TracedRoadsideWidthM"/>, as many as the rest holds to the
     /// nearest strip and no more than one a kerb, <b>a single one beside the kerb the traffic along the way keeps
-    /// to</b>. None is laid on a bridge or round a roundabout, which nothing parks on. A width is taken where it was
-    /// measured on the way itself — its tag, or the surface OSM outlines it with — or read off imagery under a
-    /// street, and where OSM gives no width lane by lane nor places the way off the middle. Imagery is not taken under
-    /// a service road, a track or a link: a yard's paving or a slip road's merge reads as their width. <b>A width that
-    /// would leave a lane narrower than <see cref="CityGenFigures.TracedNarrowestLaneM"/> or wider than
+    /// to</b>. None is laid on a bridge or round a roundabout, which nothing parks on. <b>A width that would leave a lane
+    /// narrower than <see cref="CityGenFigures.TracedNarrowestLaneM"/> or wider than
     /// <see cref="CityGenFigures.TracedWidestLaneM"/> is not taken</b> — it read half a pair of carriageways, or a
     /// square or a yard the way runs through — and the lanes are laid with no roadside.
     /// </para>
@@ -320,42 +299,31 @@ internal sealed class Survey
     /// </remarks>
     static SurveyWay Read(TracedRoad road, Dictionary<string, int> mostTagged, SimConfig config)
     {
-        var carriageway = road.Carriageway;
-        var highway = road.Highway;
         var points = (int[])road.Points.Clone();
-        var forward = carriageway.Count(OsmLaneWay.Forward);
-        var backward = carriageway.Count(OsmLaneWay.Backward);
-        var shared = carriageway.Count(OsmLaneWay.Both);
+        var (forward, backward, shared) = (road.LanesForward, road.LanesBackward, road.LanesShared);
         var laneM = config.CityGen.TracedLaneWidthM;
         var roadsideM = config.CityGen.TracedRoadsideWidthM;
         var edged = !road.Bridge && !road.Roundabout;
         var roadsides = 0;
-        MeasuredFrom? widthFrom = null;
-        var lanesFromWidth = false;
-        if (road.Measured is { } read && Measurable(carriageway, highway, read.From))
+        if (road.WidthM is { } widthM)
         {
-            var (f, b, s) = carriageway.LanesFrom == OsmLanesFrom.Assumed && !road.Marked
-                ? Held(forward, backward, shared, read.WidthM - (edged ? 2f * roadsideM : 0f), laneM, mostTagged.GetValueOrDefault(highway))
+            var (f, b, s) = !road.LanesTagged && !road.Marked
+                ? Held(forward, backward, shared, widthM - (edged ? 2f * roadsideM : 0f), laneM, mostTagged.GetValueOrDefault(road.Highway))
                 : (forward, backward, shared);
-            var shareM = read.WidthM / (f + b + s);
+            var shareM = widthM / (f + b + s);
             if (shareM >= config.CityGen.TracedNarrowestLaneM && shareM <= config.CityGen.TracedWidestLaneM)
             {
-                lanesFromWidth = (f, b, s) != (forward, backward, shared);
-                (forward, backward, shared, widthFrom) = (f, b, s, read.From);
-                if (edged) roadsides = Math.Clamp((int)MathF.Round((read.WidthM - ((f + b + s) * laneM)) / roadsideM), 0, 2);
+                (forward, backward, shared) = (f, b, s);
+                if (edged) roadsides = Math.Clamp((int)MathF.Round((widthM - ((f + b + s) * laneM)) / roadsideM), 0, 2);
             }
         }
 
         var lanesM = (forward + backward + shared) * laneM;
-        var centreOffsetM = carriageway.WidthM > 0f ? carriageway.CentreOffsetM * lanesM / carriageway.WidthM : 0f;
+        var centreOffsetM = road.CentreOffsetShare * lanesM;
         var turned = forward == 0 && shared == 0;
-        var arrows = carriageway.Lanes.Any(lane => lane.Arrows != OsmArrows.None)
-            ? carriageway.Lanes.Select(lane => lane.Arrows).ToArray()
-            : [];
         if (turned)
         {
             Array.Reverse(points);
-            Array.Reverse(arrows);
             (forward, backward) = (backward, forward);
             centreOffsetM = -centreOffsetM;
         }
@@ -368,9 +336,8 @@ internal sealed class Survey
         {
             Turned = turned,
             OsmId = road.OsmId,
-            Highway = highway,
+            Highway = road.Highway,
             Bridge = road.Bridge,
-            Tunnel = road.Tunnel,
             Roundabout = road.Roundabout,
             LanesForward = forward,
             LanesBackward = backward,
@@ -378,18 +345,25 @@ internal sealed class Survey
             CarriagewayM = lanesM + alongM + againstM,
             RoadsideAlongM = alongM,
             RoadsideAgainstM = againstM,
-            WidthFrom = widthFrom,
-            LanesFromWidth = lanesFromWidth,
             CentreOffsetM = centreOffsetM,
-            Arrows = arrows,
             Points = points,
         };
     }
 
-    /// <summary>Whether a width measured so is taken for this carriageway (<see cref="Read"/>).</summary>
-    static bool Measurable(OsmCarriageway carriageway, string highway, MeasuredFrom from) =>
-        carriageway.WidthFrom != OsmWidthFrom.Lanes && carriageway.CentreOffsetM == 0f
-        && (from != MeasuredFrom.Imagery || TracedStreets.Rank(highway) > 0);
+    /// <summary>
+    /// The most lanes one way any way of each class is tagged with on the map: what a width read off the ground may
+    /// make of an untagged way of that class at most (<see cref="Read"/>).
+    /// </summary>
+    static Dictionary<string, int> MostTagged(TracedRoad[] roads)
+    {
+        var most = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var road in roads)
+        {
+            if (road.LanesTagged) most[road.Highway] = Math.Max(most.GetValueOrDefault(road.Highway), Math.Max(road.LanesForward, road.LanesBackward));
+        }
+
+        return most;
+    }
 
     /// <summary>
     /// The lanes a width holds, as (along the way, against it, both ways) — each way it is driven given as many lanes
@@ -409,12 +383,9 @@ internal sealed class Survey
     }
 }
 
-/// <summary>What controls the junction at one point, and the junctions it is controlled with as one (<see cref="TracedMap.Controls"/>).</summary>
-internal readonly record struct PointControl(SurveyControl Control, long Cluster);
-
 /// <summary>
-/// One road way as this engine reads it, or the run of one inside the map: its lanes as OSM means them
-/// (<see cref="OsmCarriageway"/>), turned where every lane runs against the way OSM draws it.
+/// One road way as this engine reads it, or the run of one inside the map: its lanes as the map counts them
+/// (<see cref="TracedRoad"/>), turned where every lane runs against the way OSM draws it.
 /// </summary>
 internal sealed record SurveyWay
 {
@@ -431,8 +402,6 @@ internal sealed record SurveyWay
     public bool Oneway => LanesBackward == 0 && LanesShared == 0;
 
     public bool Bridge { get; init; }
-
-    public bool Tunnel { get; init; }
 
     /// <summary>Whether it is a roundabout's circulating carriageway, or a piece of one.</summary>
     public bool Roundabout { get; init; }
@@ -461,20 +430,8 @@ internal sealed record SurveyWay
     /// <summary>And between the lanes and the other kerb.</summary>
     public float RoadsideAgainstM { get; init; }
 
-    /// <summary>Where the carriageway was measured, or null where it is OSM's lanes alone.</summary>
-    public MeasuredFrom? WidthFrom { get; init; }
-
-    /// <summary>Whether its lanes are as many as its measured width holds rather than as OSM assumes.</summary>
-    public bool LanesFromWidth { get; init; }
-
     /// <summary>How far the carriageway's middle stands off the way's points, to the right of them as they run.</summary>
     public required float CentreOffsetM { get; init; }
-
-    /// <summary>
-    /// The arrows on every lane (<see cref="OsmLane.Arrows"/>), left to right looking along the way's points — the
-    /// lanes against them first, then any driven both ways, then those with them — and empty where none has any.
-    /// </summary>
-    public OsmArrows[] Arrows { get; init; } = [];
 
     /// <summary>Indices into <see cref="Survey.PointsM"/>, in the way's own order.</summary>
     public required int[] Points { get; init; }

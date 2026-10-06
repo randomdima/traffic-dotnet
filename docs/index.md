@@ -67,7 +67,7 @@ retired number, which the owning slice's log records.
 | `AGT-5`, `AGT-7` | The terminal state; every leg bounded | [requirements.md](requirements.md#agents) |
 | `VER-1…12` | What must be demonstrated | [verification.md](verification.md) |
 | `SIM-3`, `SIM-4`, `SIM-8`, `AGT-6` | Units, the two seeds, the one grid, where randomness comes from | [core](../src/core/docs/requirements.md) |
-| `GEN-1…3`, `GEN-5…19`, `GEN-46…57` | The brief and the maps, a city traced off its survey, laying a town, buildings and their uses, lane width, water and bridges, one-way streets, roundabouts, junctions as connection points and movements, no dangling lane, car parks laid off a street, where a building stands, which are services and the district each serves | [citygen](../src/citygen/docs/requirements.md) |
+| `GEN-1…3`, `GEN-5…19`, `GEN-46…58` | A map's file and its zones, the maps, a city traced off its survey, laying a town, buildings and their uses, lane width, water and bridges, one-way streets, roundabouts, junctions as connection points and movements, no dangling lane, car parks laid off a street, where a building stands, which are services and the district each serves | [citygen](../src/citygen/docs/requirements.md) |
 | `TER-1…3d`, `TER-7…7b`, `PHY-8` | The ground, the pavement and its kerb, water and decks, and the stack of layers the mesh is | [world/terrain](../src/world/terrain/docs/requirements.md) |
 | `TER-4`, `TER-4a`, `TER-4b`, `TER-4d`, `TER-5…5b`, `TER-5d`, `TER-5d.1`, `TER-5d.2`, `TER-5f`, `TER-5i`, `TER-6`, `TER-6a` | Roads, junctions, crossings, paint and the arrow a lane carries | [world/road](../src/world/road/docs/requirements.md) |
 | `TER-4c…4c.7`, `TER-5c…5c.3`, `TER-5e`, `TER-5g`, `TER-5g.1` | The ribbon atlas and its marks, a zebra held whole, where the bodies are, the ground a pass covers, where they mean to be, the ground a car backs up over, right of way and the ladder | [world/road/claims](../src/world/road/docs/claims.md) |
@@ -145,11 +145,15 @@ owning slice's log; this list says only what is absent now and what closes it.
   and some are walked round, a walker in the middle of the paint sent to the far pavement walks back to the
   near one and round, and only a walk from one edge of the paint to the other is the zebra every time —
   which is how the exam stages its pedestrians.
-- **The fixture is generated, and stands nobody.** `towns/Test.json` is a brief like a city's, so the map
-  every detailed check is staged on moves when the generator does, which is the one thing a fixture exists
-  not to do ([verification.md](verification.md)). It asks for no buildings, so it carries no walker
-  (`GEN-7`), no car park and no crossing — the shipped cities carry theirs (`--bench census`). It closes
-  when the fixture can carry buildings without the car parks counted off them (`GEN-53`).
+- **The fixture's streets are generated, and it stands nobody.** `towns/Test.map` fixes its water and its wheel
+  (`GEN-58`), but its streets are laid off the wheel when it is opened, so the map every detailed check is staged on
+  moves when the street generator does, which is the one thing a fixture exists not to do
+  ([verification.md](verification.md)). It asks for no buildings, so it carries no walker (`GEN-7`), no car park and
+  no crossing — the shipped cities carry theirs (`--bench census`). It closes when the fixture can carry buildings
+  without the car parks counted off them (`GEN-53`).
+- **A map's roads are its own or its zones', never both** (`GEN-58`): a map whose roads are fixed lays no street of
+  a zone's, and a wheel lays every street of its own, so a map cannot fix its main roads and leave its side streets to
+  a district. A district's streets are laid by the wheel round it, and only a wheel's sectors lay any.
 - **One laboratory map ships, and it is the scenario map.** `Track` ×3, `Footway`, `Skidpad` and `Zebras`
   were laid against the lane layer that was replaced and went with it; `Exam` came back laid against the new
   one, as a lattice of traffic scenarios driven end to end ([verification](verification.md#the-scenario-map)).
@@ -158,27 +162,29 @@ owning slice's log; this list says only what is absent now and what closes it.
   its survey within a tolerance, and one sharper than that at half its carriageway, rather than at a speed
   anything is driven at (`GEN-47`), and a junction a few metres from the
   next has its disc shrunk to keep the road between them, which leaves its connectors no room to turn in.
-  Its lanes are OSM's — every one, as many, as wide and where OSM's tags put them, or as wide as the road was
-  measured and as many as that holds where OSM only assumes a count — and no car changes between them along a
-  road yet.
-- **A traced city's signs and priority roads are carried and not obeyed** (`GEN-57`): its map holds every
-  junction's control, but only its lights are laid — the engine has no stop or give-way sign and no priority
-  road, so an unsignalled junction is still first come, first served.
-- **A traced city's buildings stand nothing** (`GEN-57`): each is its footprint drawn flat in one colour, with
-  no roof art, no door, no collider and nobody living in it.
+  Its lanes are as many as OSM counts, or as many as the road's measured width holds where OSM only assumes a
+  count — and no car changes between them along a road yet.
+- **A traced city's junctions are controlled by rule and not as signed** (`GEN-57`): its map holds no control, so
+  its lights stand where main roads meet rather than where OSM maps them, and the engine has no stop or give-way
+  sign and no priority road, so an unlit junction is first come, first served.
+- **A traced city's turns are the town's own and not OSM's** (`GEN-57`, `TER-5j`): its map holds no lane arrow,
+  turn restriction or lane connectivity, so a turn OSM forbids is made where the lanes would make it, and a lane is
+  marked as an unmarked one is. The plan still carries marked and forbidden turns and named lanes, and nothing but a
+  gathered junction fills them.
+- **A traced city's buildings are its zones' and not its footprints** (`GEN-57`, `GEN-58`): each zone builds its
+  measured frontage, front, skew, looks and the ground behind it, but a building's place is drawn and not surveyed,
+  a building behind the frontage looks as the zone's front row does, and the prefabs are smaller than an old town's
+  courtyard blocks — so its zones cover about two-thirds to nine-tenths of the ground the place's buildings do, and
+  its squares of a hundred metres correlate with the place's at about 0.46 (`--bench zones`).
 - **A traced city's bridges over its roads carry no walk** (`PHY-1a`, `TER-7b`). A bridge is a level of its own,
   drawn over the road under it with its cars over that, but the walk is struck off the ground's boundary and a
   walker is on the ground, so a walk reaching a bridgehead turns round the ground's end under the deck. A bridge
   over a bridge is one level with it, and a tunnel is not a level.
-- **A traced city's lanes leave OSM's inside its junctions** (`--bench fidelity`). Across a junction OSM's
-  lanes run straight to the node and the engine's connectors turn off its disc, so 58 % of the 928 km of OSM
-  lane inside a disc is within 5 cm of an engine line. And a corner too tight for its lanes is eased off the
-  survey: a U-turn spur OSM draws as two one-way legs meeting at a point, 2 to 5 m apart, turns back 10 to 24 m
-  before the tip, and a driveway turning hard just past a junction's disc is laid straight to the next leg.
-  205 ways, 3.7 km of 8 009, are mostly more than a metre off — every one short, its discs most of it.
-- **A traced city keeps the turns OSM forbids at times, and those over a way** (`GEN-57`, `--bench fidelity`):
-  21 restrictions in force only at some hours are not laid, the map keeping no clock of day, nor 13 turns made
-  over a way — a U-turn across a median, which no one junction can forbid alone.
+- **A traced city's lanes leave its map's inside its junctions** (`--bench fidelity`). Across a junction the map's
+  lanes run straight to the node and the engine's connectors turn off its disc. And a corner too tight for its lanes
+  is eased off the survey: a U-turn spur OSM draws as two one-way legs meeting at a point, 2 to 5 m apart, turns
+  back 10 to 24 m before the tip, and a driveway turning hard just past a junction's disc is laid straight to the
+  next leg.
 - **A traced city keeps its streets' dead ends, and a car cannot turn round in one** (`GEN-57`, `GEN-4l`): a
   street of lanes each way that OSM ends nowhere ends so in the town — a lane both ways share never does, being
   run one way or taken out — so a leg routed into one stands there until its clock gives it up. It is not asked
