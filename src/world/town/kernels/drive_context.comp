@@ -1,0 +1,100 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every car's drive context for one tick, one thread a car, over its line and the claims as they were cut
+// (drive_context.glsl) — the context set on its own, which is how it is held to the host's.
+
+layout(local_size_x = 64) in;
+
+// DrivingGround.MostWaysAlongALine.
+#define LINE_MOST_WAYS 23u
+
+layout(push_constant) uniform Figures
+{
+    uint carCount;
+    uint arcsPerCar;
+    uint mostLanes;
+    uint firstConnector;
+    float slowerToPassMps;
+    float queueInCarLengths;
+} figures;
+
+#define CONTEXT_FIGURES figures
+#define LINE_WAYS_FIGURES figures
+#define LINE_ONWARD_FIGURES figures
+#define SPLINE_ARCS lineArcs
+#define LANE_CHAIN chain
+#define LANE_START starts
+#define LANE_END ends
+#define LANE_LENGTH laneLength
+#define CONNECTOR_AT connectorAt
+#define CONNECTOR_TO connectorTo
+#define CONNECTOR_RUNG connectorRung
+#define CONNECTOR_LENGTH connectorLength
+#define LANE_PASSABLE lanePassable
+#define CLAIM_ROWS rows
+#define PLANNED_RUNS plannedRuns
+#define PLANNED_ORDER plannedOrder
+
+#include "core/geometry/kernels/arc.glsl"
+#include "agents/car/body/kernels/car_build.glsl"
+#include "agents/car/control/kernels/car_line.glsl"
+#include "world/road/kernels/claims_rows.glsl"
+
+layout(std430, binding = 0) readonly buffer Builds { CarBuildRow builds[]; };
+layout(std430, binding = 1) readonly buffer BuildOf { uint buildOf[]; };
+layout(std430, binding = 2) readonly buffer Lines { CarLineRow lines[]; };
+layout(std430, binding = 3) readonly buffer LineArcs { Arc lineArcs[]; };
+layout(std430, binding = 4) readonly buffer Chain { int chain[]; };
+layout(std430, binding = 5) readonly buffer Starts { float starts[]; };
+layout(std430, binding = 6) readonly buffer Ends { float ends[]; };
+layout(std430, binding = 7) readonly buffer LaneLength { float laneLength[]; };
+layout(std430, binding = 8) readonly buffer ConnectorAt { uint connectorAt[]; };
+layout(std430, binding = 9) readonly buffer ConnectorTo { int connectorTo[]; };
+layout(std430, binding = 10) readonly buffer ConnectorRung { uint connectorRung[]; };
+layout(std430, binding = 11) readonly buffer ConnectorLength { float connectorLength[]; };
+layout(std430, binding = 12) readonly buffer LanePassable { uint lanePassable[]; };
+layout(std430, binding = 13) readonly buffer Rows { ClaimRow rows[]; };
+layout(std430, binding = 14) readonly buffer PlannedRuns { uvec2 plannedRuns[]; };
+layout(std430, binding = 15) readonly buffer PlannedOrder { uint plannedOrder[]; };
+
+#include "core/geometry/kernels/arc_chain.glsl"
+#include "world/road/kernels/road_joins.glsl"
+#include "agents/car/control/kernels/line_onward.glsl"
+#include "agents/car/control/kernels/line_ways.glsl"
+
+// follower.glsl's context row, without the driver it is for.
+struct DriveContextRow
+{
+    float groundCoefficient;
+    float authorityM;
+    uint grantCutBy;
+    float placeStopM;
+    float marginM;
+    uint waitsToPass;
+    float horizonM;
+    float passAsideM;
+    float backUpM;
+    uint blocked;
+    float waitAtM;
+    float pad;
+};
+
+#include "world/town/kernels/drive_context.glsl"
+
+layout(std430, binding = 16) readonly buffer Cars { ContextCarRow cars[]; };
+layout(std430, binding = 17) readonly buffer Cutters { ClaimRow cutters[]; };
+layout(std430, binding = 18) writeonly buffer Contexts { DriveContextRow contexts[]; };
+layout(std430, binding = 19) writeonly buffer Boxes { BoxAheadRow boxes[]; };
+
+void main()
+{
+    uint car = gl_GlobalInvocationID.x;
+    if (car >= figures.carCount) return;
+
+    CarBuildRow build = builds[buildOf[car]];
+    CarLineRow line = lines[car];
+    ContextCarRow row = cars[car];
+    boxes[car] = contextReadTheBoxAhead(car, build, line, row);
+    contexts[car] = contextSetTheContext(car, build, line, row, cutters[car]);
+}

@@ -60,4 +60,7 @@ internal sealed partial class TownWorld
 
     /// <summary>For the instruments: the stretches the lights hold (<see cref="LightTheWays"/>).</summary>
     public SignalHolds SignalHolds => _signalHolds;
+
+    /// <summary>For the instruments: where this car was sent to stop and how near it has to stand (<see cref="TheSceneOf"/>).</summary>
+    public bool SceneOf(int car, out System.Numerics.Vector2 placeM, out float reachM) => TheSceneOf(car, out placeM, out reachM);
 }
