@@ -54,7 +54,10 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     /// </remarks>
     readonly SweptGround _pieces = new(manoeuvres.Piece.Length * BayManoeuvre.MostPieces, MostRunsOfAPiece);
 
-    /// <summary>Which ask each car's manoeuvre is now — its number in <see cref="Asked"/>, none before its first.</summary>
+    /// <summary>
+    /// Which ask each car's manoeuvre is now, counted per car so that an ask writes nothing another car reads — none
+    /// before its first.
+    /// </summary>
     readonly long[] _askedAs = new long[manoeuvres.Piece.Length];
 
     /// <summary>And which ask its pieces were swept for, so a sweep is read only for the manoeuvre it was made of.</summary>
@@ -118,7 +121,7 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
 
         manoeuvres.Stage[car] = ManoeuvreStage.Asked;
         Asked++;
-        _askedAs[car] = Asked;
+        _askedAs[car]++;
     }
 
     /// <summary>

@@ -10,6 +10,7 @@ public class SimLoopTests
 {
     static SimConfig Clocked(float intervalS) => new() { Sim = new SimFigures { AgentDecisionIntervalS = intervalS } };
 
+    /// <summary>Phase 3 is every agent's tick and then every decision, never one agent's both before the next's tick.</summary>
     [Fact]
     public void TheFivePhasesRunInTheOrderTheBriefFixes()
     {
@@ -21,8 +22,8 @@ public class SimLoopTests
                 (Phase.Input, -1),
                 (Phase.Index, -1),
                 (Phase.TickAgent, 0),
-                (Phase.Decide, 0),
                 (Phase.TickAgent, 1),
+                (Phase.Decide, 0),
                 (Phase.Decide, 1),
                 (Phase.Step, -1),
                 (Phase.Contacts, -1),

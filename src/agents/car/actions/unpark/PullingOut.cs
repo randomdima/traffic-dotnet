@@ -23,19 +23,27 @@ internal sealed class PullingOut(
     Manoeuvres Manoeuvres => bays.Manoeuvres;
 
     /// <summary>
-    /// <b>This tick of a car getting out of a bay</b>: its manoeuvre asked for, or kept or withdrawn in the tick after it
-    /// was laid, until it is begun — and the piece it is on driven, which a car without its ground is held still on.
+    /// <b>This tick of a car getting out of a bay</b>: its manoeuvre kept or withdrawn in the tick after it was laid,
+    /// until it is begun — and the piece it is on driven, which a car without its ground is held still on. Asking for
+    /// it is the car's decision (<see cref="Decide"/>).
     /// </summary>
     public void Tick<TTown>(ref TTown town, int car, in CarPose pose)
         where TTown : struct, ICarTown
     {
-        if (!Manoeuvres.IsBegun(car))
-        {
-            if (Manoeuvres.Stage[car] == ManoeuvreStage.Asked) bays.KeepOrWithdraw(car);
-            else bays.Ask(car);
-        }
+        if (!Manoeuvres.IsBegun(car) && Manoeuvres.Stage[car] == ManoeuvreStage.Asked) bays.KeepOrWithdraw(car);
 
         bays.DriveThePiece(ref town, car, pose);
+    }
+
+    /// <summary>
+    /// <b>A car waiting in its bay to get out, on its own clock</b>: its manoeuvre asked for where it is not already,
+    /// which sweeps the whole of its ground (<see cref="BayManoeuvring.Ask"/>).
+    /// </summary>
+    public void Decide(int car)
+    {
+        if (Manoeuvres.IsBegun(car) || Manoeuvres.Stage[car] == ManoeuvreStage.Asked) return;
+
+        bays.Ask(car);
     }
 
     /// <summary>

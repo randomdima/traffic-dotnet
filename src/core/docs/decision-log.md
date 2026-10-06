@@ -1,5 +1,13 @@
 # The kernel — decision log
 
+## 2026-10-06 — phase 3 is every agent's tick, then every decision
+
+`SimLoop` ran one agent's tick and its decision before the next agent's tick, so a decision read a roster ticked up
+to itself and no further. **On the device 3a runs for every agent at once** (root log), so the loop runs it that way
+already: all the ticks, then the decisions due. What a car's tick used to decide moved onto its decision first (the
+car's log), the exam and OdesaOsm's claims came out as before, and the timing stamps a crossing between walkers and
+cars on each pass (`TownWorld.AccountFor`).
+
 ## 2026-10-04 — a place is read onto an all but straight bend from its start
 
 **A traced road normalised into the roundest arcs (GEN-57) lays bends tens of kilometres round**, and read about

@@ -42,6 +42,13 @@ internal sealed partial class TownWorld
     readonly bool[] _standsParked;
 
     /// <summary>
+    /// <b>Whether a tick ran out of route queue while growing this car's line</b>, so its next decision lays the rest
+    /// (<see cref="LayTheRestOfTheLine"/>). The tick grows a line only off the lanes already queued
+    /// (<see cref="NextQueuedLane"/>); a search, a bay claimed to turn in and a lane of the tour are decisions.
+    /// </summary>
+    readonly bool[] _asksTheRoute;
+
+    /// <summary>
     /// <b>Whether this car's tick would change nothing</b>, so it is not taken at all: it rested parked last tick
     /// (<see cref="_standsParked"/>), nothing has since handed it a driver, a hand, a hook or another command, the
     /// solver has not moved it (SOL-37), and the fleet still has it at a dead standstill — which is all a parked
@@ -201,7 +208,7 @@ internal sealed partial class TownWorld
             && !IsOnTheFinalApproach(car)
             && _roads.LanesFrom(Cars.ChainOf(car)[Cars.Line[car].LaneCount - 1]).Length > 0)
         {
-            LayLine(car, Cars.Line[car].LaneCount, progressM);
+            LayLine(car, Cars.Line[car].LaneCount, progressM, fromTheQueue: true);
         }
 
         return true;
@@ -390,7 +397,7 @@ internal sealed partial class TownWorld
         chain[0] = lane;
         Cars.ProgressM[car] = alongM;
         _driveProgress.Restart(car);
-        LayLine(car, 1);
+        LayLine(car, 1, fromTheQueue: true);
         Cars.ProgressM[car] = CarFollower.ProgressM(build, Cars.LineOf(car), rearAxleM, alongM);
         Cars.AuthorityM[car] = heldAheadM + Cars.CoveredSinceClaimM[car];
     }
@@ -408,8 +415,8 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// The car has reached the second lane of its chain: the chain shifts down by one, a new lane is drawn
-    /// onto the end of it, and the line is re-laid.
+    /// The car has reached the second lane of its chain: the chain shifts down by one and the line is re-laid over
+    /// what is left of it, grown off the route's queue (<see cref="NextQueuedLane"/>).
     /// </summary>
     float AdvanceLane(int car, Vector2 rearAxleM, float progressM)
     {
@@ -439,7 +446,7 @@ internal sealed partial class TownWorld
         // Where the body stands on the shifted chain, before the line is laid over it: the route is searched from
         // there (<see cref="AlongTheEntryM"/>). The projection below is what the caller keeps.
         Cars.ProgressM[car] = MathF.Max(0f, progressM - shiftM);
-        LayLine(car, lanes - 1, keptLanes: lanes - 1);
+        LayLine(car, lanes - 1, keptLanes: lanes - 1, fromTheQueue: true);
         return CarFollower.ProgressM(
             Cars.BuildOf(car), Cars.LineOf(car), rearAxleM, MathF.Max(0f, progressM - shiftM));
     }
@@ -511,6 +518,47 @@ internal sealed partial class TownWorld
         return TheLegEndsOn(car, fromLane)
             ? CarFleet.NoLane
             : LaneTour.NextLane(_roads, _config, fromLane, _closedLanes, ref Cars.Draw[car]);
+    }
+
+    /// <summary>
+    /// <b>The next lane a tick may lay without deciding anything</b>: <see cref="NextLaneOnRoute"/>'s answer where the
+    /// route's queue gives it, and otherwise none, with the car flagged for its next decision
+    /// (<see cref="_asksTheRoute"/>).
+    /// </summary>
+    /// <remarks>
+    /// What the queue cannot give is a search, a bay claimed to turn in or a lane of the tour, and each of those
+    /// writes something other cars read or draws on the car's own stream. A tick has to be one every car can take at
+    /// once, so those wait for the decision clock. The line in hand still reaches the car's sight distance, so the
+    /// wait costs only the lane past it.
+    /// </remarks>
+    int NextQueuedLane(int car, int fromLane)
+    {
+        var next = Cars.PeekNextRouteLane(car);
+        if (next >= 0 && _roads.ConnectorBetween(fromLane, next) != RoadGraph.NoConnector) return Cars.TakeNextRouteLane(car);
+
+        if (next >= 0 && _roads.ReachesBySwitching(fromLane, next, out _)) return OnBesideTheRoute(car, fromLane, next);
+
+        _asksTheRoute[car] = true;
+        return CarFleet.NoLane;
+    }
+
+    /// <summary>
+    /// <b>The rest of a line the tick could not lay</b> (<see cref="_asksTheRoute"/>), laid on the car's decision: grown
+    /// from where the body is, the route asked at its end as any laying asks it. Only a car driving the route's own
+    /// line is grown — one that has since begun a manoeuvre is on a piece of it, and the flag is let go.
+    /// </summary>
+    void LayTheRestOfTheLine(int car)
+    {
+        if (!_asksTheRoute[car]) return;
+
+        _asksTheRoute[car] = false;
+        if (Cars.Line[car].LaneCount == 0 || IsManoeuvring(car)) return;
+        if (Cars.Action[car] is not (CarAction.Follow or CarAction.Overtake or CarAction.Switch or CarAction.BackUp or CarAction.Park))
+        {
+            return;
+        }
+
+        LayLine(car, Cars.Line[car].LaneCount, Cars.ProgressM[car]);
     }
 
     /// <summary>
@@ -883,8 +931,14 @@ internal sealed partial class TownWorld
     /// How many of the chain's slots are lanes of the line the car had, which its grant was read down — all of them
     /// unless the chain was shifted on before this (<see cref="AdvanceLane"/>).
     /// </param>
-    void LayLine(int car, int from, float spentM = 0f, int keptLanes = -1)
+    /// <param name="fromTheQueue">
+    /// Laid on a tick, so grown only off the route's queue (<see cref="NextQueuedLane"/>). Otherwise the route is asked
+    /// whole, which answers whatever a tick left for the decision.
+    /// </param>
+    void LayLine(int car, int from, float spentM = 0f, int keptLanes = -1, bool fromTheQueue = false)
     {
+        if (!fromTheQueue) _asksTheRoute[car] = false;
+
         var chain = Cars.ChainOf(car);
         var wasLanes = keptLanes < 0 ? Cars.Line[car].LaneCount : keptLanes;
         Span<int> was = stackalloc int[LineAssembler.MostLanes];
@@ -905,7 +959,9 @@ internal sealed partial class TownWorld
         // spare rather than line to waste.
         while (lanes < LineAssembler.MostLanes)
         {
-            var next = NextLaneOnRoute(car, chain[lanes - 1], ref searched);
+            var next = fromTheQueue
+                ? NextQueuedLane(car, chain[lanes - 1])
+                : NextLaneOnRoute(car, chain[lanes - 1], ref searched);
             if (next < 0) break;
 
             chain[lanes++] = next;

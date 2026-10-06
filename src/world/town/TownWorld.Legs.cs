@@ -72,10 +72,12 @@ internal sealed partial class TownWorld
         // car for this to have opinions about, and the clock is the leg's rather than the body's.
         if (!Cars.Driven[car] || Cars.Broken[car] || Cars.Action[car] == CarAction.Hand)
         {
+            _asksTheRoute[car] = false;
             _driveProgress.Restart(car);
             return;
         }
 
+        LayTheRestOfTheLine(car);
         DecideTheAction(car, sinceLastDecisionS);
 
         if (TheLineIsSpent(car) && TakeTheNextStepOfTheLeg(car))
@@ -116,6 +118,10 @@ internal sealed partial class TownWorld
 
             case CarAction.Park:
                 _parkingIn.Decide(car);
+                return;
+
+            case CarAction.Unpark:
+                _pullingOut.Decide(car);
                 return;
 
             case CarAction.Rejoin:

@@ -343,6 +343,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _walkingToThePost = new WalkingToThePost(_walkingGround, _personActions);
         _wheels = new WheelScratch(drivers);
         _standsParked = new bool[drivers];
+        _asksTheRoute = new bool[drivers];
         _standing = new StandingCars(drivers);
         _behindTheBar = new bool[drivers];
         Marks = new DriftMarks(config.Marks.Capacity, config.Grid.Main, 0f, plan.WorldSizeM.Y);
@@ -688,7 +689,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <summary>Which kind of agent phase 3 spent its time on, and how much of phase 4 was the solver's step.</summary>
     public TickParts Sub;
 
-    /// <summary>Whether the agent loop has reached the cars, so that the crossing is stamped once rather than per agent.</summary>
+    /// <summary>Whether the agent pass under way has reached the cars, so that each crossing is stamped once rather than per agent.</summary>
     bool _decidingCars;
 
     /// <summary>
@@ -736,9 +737,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     }
 
     /// <summary>
-    /// One timestamp a tick, not one an agent: the roster is walkers then cars, so the only instant
-    /// worth marking is the one the loop crosses between them. Timing each of five hundred agents would
-    /// cost several percent of the tick this is measuring.
+    /// Three timestamps a tick, not one an agent: the roster is walkers then cars and phase 3 walks it twice — the
+    /// ticks, then the decisions — so the only instants worth marking are where a pass crosses from one kind to the
+    /// other. Timing each of five hundred agents would cost several percent of the tick this is measuring.
     /// </summary>
     /// <remarks>
     /// Read off the agent that actually ran rather than off the roster's boundary, because a terminal
@@ -747,10 +748,11 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// </remarks>
     void AccountFor(int agent)
     {
-        if (!Timed || _decidingCars || !Roster.IsCar(agent)) return;
+        if (!Timed || _decidingCars == Roster.IsCar(agent)) return;
 
-        Sub.Mark(ref Sub.WalkerTicks);
-        _decidingCars = true;
+        if (_decidingCars) Sub.Mark(ref Sub.CarTicks);
+        else Sub.Mark(ref Sub.WalkerTicks);
+        _decidingCars = !_decidingCars;
     }
 
     /// <summary>

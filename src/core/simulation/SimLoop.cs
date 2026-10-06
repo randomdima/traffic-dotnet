@@ -151,14 +151,25 @@ internal sealed class SimLoop<TWorld> where TWorld : ISimWorld
         Tick++;
     }
 
+    /// <summary>
+    /// Phase 3 as two passes: <b>every agent's tick, then every decision due</b>.
+    /// </summary>
+    /// <remarks>
+    /// A decision reads what the whole of 3a left, never a roster ticked up to itself. That is the order a tick
+    /// on the device has, where 3a runs for every agent at once and the decisions read what it wrote.
+    /// </remarks>
     void Decide()
     {
         var agents = _world.AgentCount;
         for (var agent = 0; agent < agents; agent++)
         {
+            if (!_world.IsTerminal(agent)) _world.TickAgent(agent);
+        }
+
+        for (var agent = 0; agent < agents; agent++)
+        {
             if (_world.IsTerminal(agent)) continue;
 
-            _world.TickAgent(agent);
             if (Decisions.Turn(Tick, agent) || _world.DecidesEveryTick(agent))
             {
                 _world.DecideAgent(agent, Decisions.IntervalS);
