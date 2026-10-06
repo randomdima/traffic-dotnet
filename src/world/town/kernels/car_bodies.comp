@@ -49,6 +49,7 @@ layout(std430, binding = 4) readonly buffer ConnectorTo { int connectorTo[]; };
 layout(std430, binding = 5) writeonly buffer Rows { ClaimRow rows[]; };
 layout(std430, binding = 6) writeonly buffer Counts { uvec4 counts[]; };
 
+#include "world/road/kernels/road_joins.glsl"
 #include "world/town/kernels/car_bodies.glsl"
 
 layout(std430, binding = 0) readonly buffer Cars { CarBodyRow cars[]; };

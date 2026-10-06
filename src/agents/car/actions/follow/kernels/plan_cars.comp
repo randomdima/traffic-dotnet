@@ -7,7 +7,7 @@
 layout(local_size_x = 64) in;
 
 // DrivingGround.MostWaysAlongALine; app/devicetick/DevicePlans refuses a host whose figure is another.
-#define PLAN_MOST_WAYS 23u
+#define LINE_MOST_WAYS 23u
 
 layout(push_constant) uniform Figures
 {
@@ -28,6 +28,7 @@ layout(push_constant) uniform Figures
 } figures;
 
 #define PLAN_FIGURES figures
+#define LINE_WAYS_FIGURES figures
 #define SPLINE_ARCS lineArcs
 #define LINE_ENTRIES entries
 #define LANE_CHAIN chain
@@ -67,6 +68,8 @@ layout(std430, binding = 14) readonly buffer MarkAt { uint markAt[]; };
 layout(std430, binding = 15) readonly buffer Marks { CrossedSection marks[]; };
 layout(std430, binding = 16) writeonly buffer Pieces { ClaimRow pieces[]; };
 
+#include "world/road/kernels/road_joins.glsl"
+#include "agents/car/control/kernels/line_ways.glsl"
 #include "agents/car/actions/follow/kernels/plan.glsl"
 
 layout(std430, binding = 17) writeonly buffer Out { PlanOutRow results[]; };

@@ -3,9 +3,8 @@
 // travelling that way, how fast, where its line goes next, and whether it is at rest — as body rows in the claims'
 // layout (claims_rows.glsl), in the order the atlas found them.
 //
-// The including kernel includes rounded.glsl, atlas.glsl, claims_rows.glsl and car_line.glsl, declares LANE_CHAIN
-// (int[], LINE_FIGURES.mostLanes a car), CAR_LINES (CarLineRow[]), CONNECTOR_AT and CONNECTOR_TO as plan.glsl reads
-// them, and supplies BODY_FIGURES.firstConnector, mostLanes and groundChannel — what every way is on where the atlas
+// The including kernel includes rounded.glsl, atlas.glsl, claims_rows.glsl, car_line.glsl and road_joins.glsl, declares
+// LANE_CHAIN (int[], BODY_FIGURES.mostLanes a car) and CAR_LINES (CarLineRow[]), and supplies BODY_FIGURES.firstConnector, mostLanes and groundChannel — what every way is on where the atlas
 // keeps no channels (RibbonAtlas.ChannelsOf).
 
 // LaneOccupancy.NoWay and RunsOn.
@@ -36,17 +35,6 @@ const uint BodyRunsOnPastItself = 2u;
 const uint BodyStill = 4u;
 const uint BodyBlocked = 8u;
 
-// The connector joining a pair of lanes, or -1 (RoadGraph.ConnectorBetween).
-int bodyConnectorBetween(int fromLane, int toLane)
-{
-    for (uint connector = CONNECTOR_AT[fromLane]; connector < CONNECTOR_AT[fromLane + 1]; connector++)
-    {
-        if (CONNECTOR_TO[connector] == toLane) return int(connector);
-    }
-
-    return -1;
-}
-
 // Whether one of the town's ways is one a car's own line runs over, and which way the line takes after it
 // (DrivingGround.IsOnItsLine).
 bool bodyIsOnItsLine(int car, bool runsOnPastItself, uint way, out int onward)
@@ -57,7 +45,7 @@ bool bodyIsOnItsLine(int car, bool runsOnPastItself, uint way, out int onward)
     for (uint index = 0u; index < lanes; index++)
     {
         int lane = LANE_CHAIN[slots + index];
-        int join = index + 1u == lanes ? -1 : bodyConnectorBetween(lane, LANE_CHAIN[slots + index + 1u]);
+        int join = index + 1u == lanes ? -1 : roadConnectorBetween(lane, LANE_CHAIN[slots + index + 1u]);
         int joinWay = join < 0 ? BodyNoWay : int(BODY_FIGURES.firstConnector) + join;
         if (uint(lane) == way)
         {

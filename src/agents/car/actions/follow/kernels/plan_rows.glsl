@@ -45,12 +45,3 @@ struct PlanOutRow
     uint laidAHold;
     uint pad;
 };
-
-// A stretch of a way under a line (LineWay).
-struct LineWayRow
-{
-    uint way;
-    float fromM;
-    float toM;
-    float lineFromM;
-};

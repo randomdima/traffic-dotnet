@@ -6,13 +6,11 @@
 // Every quotient is the host's float (rounded.glsl): a last bit off moves where a plan ends, and with it who keeps the
 // ground there.
 //
-// The including kernel includes arc.glsl, car_build.glsl, car_line.glsl, claims_rows.glsl, plan_rows.glsl and
-// rounded.glsl and the
-// line's own layout (line.glsl's buffers: SPLINE_ARCS, LINE_ENTRIES, LANE_CHAIN, LANE_START, LANE_END, JOIN_BREAKS),
-// declares CONNECTOR_AT (uint[] a lane, and one past the last: where its connectors' run starts), CONNECTOR_TO (int[] a
-// connector: the lane it arrives on), CONNECTOR_RUNG (uint[] a connector: its ClaimPriority), LANE_LENGTH (float[] a
-// lane), MARK_AT (uint[] a way, and one past the last), MARKS (CrossedSection[]) and PLAN_PIECES (ClaimRow[]), defines
-// PLAN_MOST_WAYS (DrivingGround.MostWaysAlongALine), and supplies PLAN_FIGURES with the fields below's names.
+// The including kernel includes arc.glsl, car_build.glsl, car_line.glsl, claims_rows.glsl, plan_rows.glsl,
+// rounded.glsl and line_ways.glsl (with the buffers it reads: the line's own layout and the road's connectors), declares
+// SPLINE_ARCS, LINE_ENTRIES and JOIN_BREAKS of the line, CONNECTOR_RUNG (uint[] a connector: its ClaimPriority), MARK_AT
+// (uint[] a way, and one past the last), MARKS (CrossedSection[]) and PLAN_PIECES (ClaimRow[]), and supplies
+// PLAN_FIGURES with the fields below's names.
 //
 // A car on a pass is not planned here yet: its plan begins past the pass and a body inside the pass is its own hold.
 
@@ -105,62 +103,6 @@ bool planTheNextBox(uint car, uint laneCount, float noseM, out float mouthM, out
     mouthM = 0.0;
     endsAtM = 0.0;
     return false;
-}
-
-// The connector joining a pair of lanes, or -1 (RoadGraph.ConnectorBetween).
-int planConnectorBetween(int fromLane, int toLane)
-{
-    for (uint connector = CONNECTOR_AT[fromLane]; connector < CONNECTOR_AT[fromLane + 1]; connector++)
-    {
-        if (CONNECTOR_TO[connector] == toLane) return int(connector);
-    }
-
-    return -1;
-}
-
-// Two stretches' overlap (LineWays.Overlaps).
-bool planOverlaps(float fromM, float toM, float leastM, float mostM, out float fromOut, out float toOut)
-{
-    fromOut = max(fromM, leastM);
-    toOut = min(toM, mostM);
-    return toOut > fromOut;
-}
-
-// The town's ways under a stretch of one car's line, nearest first (DrivingGround.WaysAlong), into ways[]; how many.
-uint planWaysAlong(uint car, uint laneCount, float fromLineM, float toLineM, out LineWayRow ways[PLAN_MOST_WAYS])
-{
-    uint slots = car * PLAN_FIGURES.mostLanes;
-    uint written = 0u;
-    for (uint index = 0u; index < laneCount && written < PLAN_MOST_WAYS; index++)
-    {
-        int lane = LANE_CHAIN[slots + index];
-        int leavingOn = index + 1u < laneCount ? planConnectorBetween(lane, LANE_CHAIN[slots + index + 1u]) : -1;
-        float startsM = LANE_START[slots + index];
-        precise float lastEndsM = startsM + LANE_LENGTH[lane];
-        float endsM = index + 1u < laneCount ? LANE_END[slots + index] : lastEndsM;
-
-        float fromM;
-        float toM;
-        if (planOverlaps(fromLineM, toLineM, startsM, endsM, fromM, toM))
-        {
-            precise float wayFromM = fromM - startsM;
-            precise float wayToM = toM - startsM;
-            ways[written++] = LineWayRow(uint(lane), wayFromM, wayToM, fromM);
-        }
-
-        float laneEndsM = LANE_END[slots + index];
-        if (leavingOn < 0 || laneEndsM >= toLineM) break;
-
-        float nextStartsM = LANE_START[slots + index + 1u];
-        if (written < PLAN_MOST_WAYS && nextStartsM > laneEndsM && planOverlaps(fromLineM, toLineM, laneEndsM, nextStartsM, fromM, toM))
-        {
-            precise float wayFromM = fromM - laneEndsM;
-            precise float wayToM = toM - laneEndsM;
-            ways[written++] = LineWayRow(PLAN_FIGURES.firstConnector + uint(leavingOn), wayFromM, wayToM, fromM);
-        }
-    }
-
-    return written;
 }
 
 // One piece of a plan as the terms it is asked on (Following.AskOn), as the row it lays (PlannedAsk.Laid): its holder's
@@ -262,10 +204,10 @@ PlanOutRow planTheCar(uint car, PlanCarRow row, CarBuildRow build, CarLineRow li
     if (planToM <= planFromM) return result;
 
     result.laidAHold = 1u;
-    LineWayRow ways[PLAN_MOST_WAYS];
-    uint count = planWaysAlong(car, line.laneCount, planFromM, planToM, ways);
+    LineWayRow ways[LINE_MOST_WAYS];
+    uint count = lineWaysAlong(car, line.laneCount, planFromM, planToM, ways);
 
-    uint rungs[PLAN_MOST_WAYS];
+    uint rungs[LINE_MOST_WAYS];
     uint next = RungFirm;
     for (int index = int(count) - 1; index >= 0; index--)
     {
