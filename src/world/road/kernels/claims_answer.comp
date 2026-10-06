@@ -1,0 +1,26 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// One pass of the plans' answers: every hold answered with the plans read against the others as shown the pass
+// before, one thread a hold (LaneOccupancy.ShowTheAnswers' first half).
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint holdCount;
+    uint plansHidden;
+    uint pass;
+    uint pad;
+} figures;
+
+#include "world/road/kernels/claims_rows.glsl"
+#include "world/road/kernels/claims_buffers.glsl"
+
+void main()
+{
+    uint hold = gl_GlobalInvocationID.x;
+    if (hold >= figures.holdCount || !claimsAnswered(int(hold))) return;
+
+    answers[hold] = claimsAnswer(hold);
+}

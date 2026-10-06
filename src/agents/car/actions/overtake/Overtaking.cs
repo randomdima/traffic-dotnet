@@ -109,7 +109,7 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     readonly bool[] _laidSinceAsked = new bool[ground.Cars.Capacity];
 
     /// <summary>
-    /// The room each car keeps to step out from rest (<see cref="KeptOffM"/>), and the lane and ground it was drawn for —
+    /// The room each car keeps to step out from rest (<see cref="KeptOffWhatItMayPassM"/>), and the lane and ground it was drawn for —
     /// the only things it reads that change.
     /// </summary>
     readonly float[] _roomM = new float[ground.Cars.Capacity];

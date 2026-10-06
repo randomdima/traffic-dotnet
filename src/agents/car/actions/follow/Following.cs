@@ -93,7 +93,7 @@ internal sealed class Following(
     /// </para>
     /// <para>
     /// <b>It is laid whole and answered with every other plan</b> (<see cref="LaneOccupancy.Propose"/>,
-    /// <see cref="Answer"/>): what it keeps is what every pass of the answers leaves it, so ground is never taken off
+    /// <see cref="LaneOccupancy.AnswerThePlans"/>): what it keeps is what every pass of the answers leaves it, so ground is never taken off
     /// another plan for a hold that then does not use it.
     /// </para>
     /// <para>
@@ -194,7 +194,7 @@ internal sealed class Following(
     }
 
     /// <summary>
-    /// <b>What this car reads of whatever refuses its plan</b> (<see cref="Overtaking.KeptOffM"/>): the room to step out
+    /// <b>What this car reads of whatever refuses its plan</b> (<see cref="HolderTerms"/>): the room to step out
     /// round what it may get past, and — on a call — how much slower than it means to go traffic has to be for it to.
     /// </summary>
     HolderTerms TermsOf(int car) => new(

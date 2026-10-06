@@ -4,6 +4,20 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-10-07 — the plans are answered on the device, held to the host's
+
+**Every plan answered at once** (below) is the device's own arithmetic: `kernels/claims.glsl` is `AnswerThePlans`'
+reach, secondary cut, margin and cut line for line, over the claims as rows (`claims_rows.glsl`, laid by
+`app/devicetick/DeviceClaims`), each way's two lists as runs in the host's order, one thread a hold, one dispatch a
+pass to answer and one to show. **The device runs every pass the host could** — the first and on to the first odd one
+at the bound — since a pass after the answers stop moving answers them the same again.
+
+- **Held to the host bit for bit** (`DeviceClaimsTests`): 400 rebuilds of the fixture town, every hold's end, margin,
+  cut way and cutter and every reservation's extent. On OdesaOsm (`--bench deviceclaims`, RX 9070 XT) the passes and
+  the cut took 0.91 ms on the device against 3.11 ms on the host, and none of 1 518 570 answers differed.
+- **Only what a rebuild laid crosses**: the claims are sized for the town's worst case (35 M reservations on OdesaOsm),
+  and copying all of that every rebuild lost the device.
+
 ## 2026-10-07 — which ways a body stands over is read on the device off the atlas's own tables
 
 **The tick moves to the device** (root log), and every claims rebuild lays every car's box and every walker's disc

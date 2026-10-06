@@ -200,10 +200,9 @@ internal readonly record struct PlannedAsk(
 /// </para>
 /// <para>
 /// <b>No two holds share a metre</b> (TER-4c.3), and the comparison is total and symmetric, so which of two
-/// holds keeps a piece of ground does not turn on which was laid first. <b>What a cut frees is handed back by
-/// the holder that was refused it</b>: a hold answered against ground a later cut took away is taken up and
-/// laid again, whole, over a new answer (<see cref="ReopenHold"/>) — which is the holder's to ask for, since
-/// only it knows what it was asking.
+/// holds keeps a piece of ground does not turn on which was laid first. <b>What a cut frees goes back inside the
+/// rebuild</b>: every plan is laid whole and answered pass after pass against what the others came to
+/// (<see cref="AnswerThePlans"/>).
 /// </para>
 /// <para>
 /// <b>Nothing here computes any geometry.</b> Which ways a body is on comes from the atlas, where a secondary

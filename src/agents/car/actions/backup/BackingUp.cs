@@ -16,7 +16,7 @@ namespace TrafficSimulation.Agents.Car.Actions;
 /// <remarks>
 /// <para>
 /// <b>Why a car is ever too near</b>: it keeps room to step out only behind a body already going nowhere when it
-/// comes up (<see cref="Overtaking.KeptOffM"/>). Anything else it may get past — a queue making another movement, a
+/// comes up (<see cref="Overtaking.KeptOffWhatItMayPassM"/>). Anything else it may get past — a queue making another movement, a
 /// car backing out of a bay, the head of a queue then stood down — is waited behind at the stand-off, nearer than any
 /// step out from rest clears. A reservation has no across in it (TER-4c), so the whole of the body has to be off its
 /// own lane before it comes level with what it passes, however little of the lane that takes up.

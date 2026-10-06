@@ -52,9 +52,9 @@ internal sealed partial class TownWorld
     /// <remarks>
     /// <b>Every body first and every plan after all of them</b> (TER-4c.2): a plan is cut at the first body in
     /// front of it, so what it is laid against is the whole of the town's bodies rather than whichever were
-    /// written first. Plans are settled against each other as they are laid, by a comparison that does not
-    /// depend on the order (<see cref="LaneOccupancy.Beats"/>), settled again once all of them are down
-    /// (<see cref="SettleThePlans"/>), and what each came to is read after that.
+    /// written first. Plans are laid whole and answered against each other all at once, by a comparison that does
+    /// not depend on the order (<see cref="LaneOccupancy.Beats"/>, <see cref="AnswerThePlans"/>), and what each came
+    /// to is read after that.
     /// </remarks>
     void RebuildLaneOccupancy()
     {

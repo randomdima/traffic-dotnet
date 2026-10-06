@@ -1,0 +1,30 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// One pass of the plans' answers shown: every hold answered with the plans shown to where it was answered, and the
+// holds that moved counted for the pass (LaneOccupancy.ShowTheAnswers' second half).
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint holdCount;
+    uint plansHidden;
+    uint pass;
+    uint pad;
+} figures;
+
+#include "world/road/kernels/claims_rows.glsl"
+#include "world/road/kernels/claims_buffers.glsl"
+
+void main()
+{
+    uint hold = gl_GlobalInvocationID.x;
+    if (hold >= figures.holdCount || !claimsAnswered(int(hold))) return;
+
+    float cutLineM = answers[hold].cutLineM;
+    if (cutLineM == shown[hold]) return;
+
+    shown[hold] = cutLineM;
+    atomicAdd(moved[figures.pass], 1u);
+}

@@ -1,0 +1,26 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The passes ended: every hold answered with the plans cut where its last answer says, one thread a hold
+// (LaneOccupancy.EndTheAnswers). A hold's pieces are its own rows, so no two threads write one.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint holdCount;
+    uint plansHidden;
+    uint pass;
+    uint pad;
+} figures;
+
+#include "world/road/kernels/claims_rows.glsl"
+#include "world/road/kernels/claims_buffers.glsl"
+
+void main()
+{
+    uint hold = gl_GlobalInvocationID.x;
+    if (hold >= figures.holdCount || !claimsAnswered(int(hold))) return;
+
+    claimsCutTo(hold, answers[hold]);
+}

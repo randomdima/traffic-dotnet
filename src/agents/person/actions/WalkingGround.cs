@@ -490,7 +490,8 @@ internal sealed class WalkingGround(
     /// <summary>
     /// <b>A walker's claim laid</b> (PER-26, TER-4c.8) over the ways its action walks, as one hold held at a walker's
     /// rung (<see cref="ClaimPriority.Afoot"/>, PER-27) — laid whole and answered with every other plan, as a driver's
-    /// is (<see cref="Answer"/>), so nothing is taken off another plan for a walk that then stops short of it.
+    /// is (<see cref="LaneOccupancy.AnswerThePlans"/>), so nothing is taken off another plan for a walk that then stops
+    /// short of it.
     /// </summary>
     /// <remarks>
     /// <b>A hold with nothing to lay is still laid</b>: a walk whose ground lies on no way — a lawn, a yard, what is

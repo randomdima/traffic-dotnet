@@ -44,6 +44,7 @@ internal static class CheckCatalogue
         new("devicestep","The solver's step on the device beside the CPU's: its time stage by stage, and how the two answers agree", Quoted(config => DeviceStepProbe.Run("Odesa", config))),
         new("devicetyres", "A running town's whole tyre pass on the device and on the host: time, and one answer", Quoted(config => DeviceTyresProbe.Run("Odesa", config))),
         new("deviceatlas", "Which ways a running town's bodies stand over, on the device and on the host: time, and one answer", Quoted(config => DeviceAtlasProbe.Run("Odesa", config))),
+        new("deviceclaims", "A running town's plans answered on the device beside the host's, rebuild by rebuild: time, and one answer", Quoted(config => DeviceClaimsProbe.Run("Odesa", config))),
         new("shape", "What shape a town came out: how its roads bend, where its junctions stand", Quoted(config => TownShape.Run("Odesa", config))),
         new("joints", "Every junction only two roads meet at, and which structure kept it", Quoted(config => TownShape.Joints("Odesa", config))),
         new("parks", "Every car park a town laid off a street: where it stands and its bays", Quoted(config => TownShape.Parks("Odesa", config))),
