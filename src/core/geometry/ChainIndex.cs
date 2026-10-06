@@ -209,6 +209,31 @@ internal sealed class ChainIndex
     public GridWindow Window => _window;
 
     /// <summary>
+    /// <b>The index as data</b>, for a device that walks it itself: every slot's arcs (slot <c>s</c> the arcs from
+    /// <c>ArcStart[s]</c> to <c>ArcStart[s + 1]</c>), its length, the id it answers by and its box, and the cells —
+    /// cell <c>c</c>'s slots the entries from <c>CellStart[c]</c> to <c>CellStart[c + 1]</c>.
+    /// </summary>
+    public ChainTable Table => new(_arcs, _arcStart, _lengthM, _chainId, _slotLeastM, _slotMostM, _cellStart, _entrySlot);
+
+    /// <summary>
+    /// An index's arrays (<see cref="Table"/>). A slot is not its id: ids are the caller's own numbers, and a chain
+    /// is answered by its id.
+    /// </summary>
+    internal readonly ref struct ChainTable(
+        ReadOnlySpan<ArcSeg> arcs, ReadOnlySpan<int> arcStart, ReadOnlySpan<float> lengthM, ReadOnlySpan<int> chainId,
+        ReadOnlySpan<Vector2> slotLeastM, ReadOnlySpan<Vector2> slotMostM, ReadOnlySpan<int> cellStart, ReadOnlySpan<int> entrySlot)
+    {
+        public ReadOnlySpan<ArcSeg> Arcs { get; } = arcs;
+        public ReadOnlySpan<int> ArcStart { get; } = arcStart;
+        public ReadOnlySpan<float> LengthM { get; } = lengthM;
+        public ReadOnlySpan<int> ChainId { get; } = chainId;
+        public ReadOnlySpan<Vector2> SlotLeastM { get; } = slotLeastM;
+        public ReadOnlySpan<Vector2> SlotMostM { get; } = slotMostM;
+        public ReadOnlySpan<int> CellStart { get; } = cellStart;
+        public ReadOnlySpan<int> EntrySlot { get; } = entrySlot;
+    }
+
+    /// <summary>
     /// <b>How many chains have a piece in one cell</b>, numbered on the grid, each counted once however many
     /// of its pieces are in there — which is what a picture of the grid is a picture of (OBS-2r). Nought
     /// outside the window.

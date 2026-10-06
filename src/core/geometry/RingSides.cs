@@ -101,6 +101,15 @@ internal sealed class RingSides
     /// <summary>How many cells the lattice has.</summary>
     public int CellCount => _window.Count;
 
+    /// <summary>
+    /// <b>The lattice as data</b>, for a device that answers <see cref="WindingAt"/> off its own copy: a word a cell
+    /// and one past the last (<see cref="_cell"/>), the filing, and the pieces.
+    /// </summary>
+    public (int[] Cell, int[] CellPiece, Piece[] Pieces) Table => (_cell, _cellPiece, _pieces);
+
+    /// <summary>How many bits of a cell's word its corner's winding takes, for a device unpacking one.</summary>
+    public const int WindingBitCount = WindingBits;
+
     /// <summary>How many of them a ring passes through, which is where an answer costs more than a lookup.</summary>
     public int CrossedCellCount
     {
@@ -378,7 +387,7 @@ internal sealed class RingSides
     /// along, which it never crosses.
     /// </para>
     /// </remarks>
-    readonly record struct Piece(
+    internal readonly record struct Piece(
         Vector2 FromM, Vector2 ToM, Vector2 RadialM, Vector2 Slope, sbyte SideX, sbyte SideY, bool Bends)
     {
         public static Piece Straight(Vector2 fromM, Vector2 toM)

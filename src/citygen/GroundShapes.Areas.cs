@@ -251,6 +251,10 @@ internal sealed partial class GroundShapes
             return inside;
         }
 
+        /// <summary>The filing as data, for a device that asks <see cref="Inside"/> off its own copy.</summary>
+        public (Vector2 LeastM, float CellM, int Columns, int Rows, int[] Start, int[] Edges, bool[] EmptyInside) Table =>
+            (_leastM, _cellM, _columns, _rows, _start, _edges, _emptyInside);
+
         public bool Near(ReadOnlySpan<Vector2> ringM, Vector2 pointM, float reachM)
         {
             var (least, most) = (Cell(pointM - new Vector2(reachM)), Cell(pointM + new Vector2(reachM)));

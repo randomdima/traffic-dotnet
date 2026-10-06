@@ -19,7 +19,7 @@
   <Target Name="CompileShaders" BeforeTargets="AssignTargetPaths"
           Inputs="@(ShaderSource);@(ShaderInclude)" Outputs="@(ShaderSource->'$(IntermediateOutputPath)Shaders/%(Filename)%(Extension).spv')">
     <MakeDir Directories="$(IntermediateOutputPath)Shaders" />
-    <Exec Command="glslc --target-env=vulkan1.3 -O &quot;%(ShaderSource.FullPath)&quot; -o &quot;$(IntermediateOutputPath)Shaders/%(ShaderSource.Filename)%(ShaderSource.Extension).spv&quot;" />
+    <Exec Command="glslc --target-env=vulkan1.3 -O -I &quot;$(MSBuildThisFileDirectory)../..&quot; &quot;%(ShaderSource.FullPath)&quot; -o &quot;$(IntermediateOutputPath)Shaders/%(ShaderSource.Filename)%(ShaderSource.Extension).spv&quot;" />
   </Target>
 
   <!-- Two traps paid for once, both of which fail silently — the assembly builds, ships no shaders

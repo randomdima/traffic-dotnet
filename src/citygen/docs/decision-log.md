@@ -1,5 +1,24 @@
 # CityGen — decision log
 
+## 2026-10-06 — the ground is asked on the device off the host's own tables
+
+**The tick moves to the device** (root log), and asking what is underfoot is two-fifths of a car's tick on OdesaOsm:
+four tyres and a line, every car, every tick. `kernels/ground.glsl` is `GroundShapes.At` line for line, over the very
+tables the host answers off (`GroundShapes.Table`, laid by `app/devicetick/DeviceGround`) — so it is the one geometry
+asked twice and never a second geometry (TER-7). A raster of the ground was the cheaper kernel and is what TER-7
+refuses.
+
+- **In doubles where the host is** (`RingSides`): a corner is a cell number times the cell, and a crossing on a bend
+  kilometres round is a difference of squares a float cancels. A device without doubles in its kernels cannot ask
+  the ground, which is the handset's open question.
+- **A road met in two cells is weighed twice**, since what is kept is three flags; the host's stamp is a set the size
+  of the index a query would need one of a thread.
+- **The road index's slots carry the roads' own segments**, so a road is sampled off its slot and needs no table of
+  its own.
+
+Held to the host at 60 000 points of two towns, both levels, and on OdesaOsm at its 10 013 cars' 50 065 wheels and
+centres (`--bench deviceground`): no answer differs, and the device took 0.67 ms where the host took 3.12.
+
 ## 2026-10-06 — every town is laid off its map's file, and its zones lay what the map does not fix
 
 **The owner asked for every map to be one binary file**: what defines the place fixed in it (water, roads, and any
