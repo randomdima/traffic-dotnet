@@ -172,6 +172,12 @@ internal enum DrivingHold : byte
 internal readonly record struct DriveDecision(DriveCommand Command, DrivingHold Hold, float TargetMps);
 
 /// <summary>
+/// <b>A tick of a car driving a line</b> (<see cref="CarFollower.DriveTheLine"/>): the command, the term that set its
+/// speed, the speed the road alone would have allowed — the ceiling on its next claim — and whether the margin was spent.
+/// </summary>
+internal readonly record struct LineDrive(DriveCommand Command, DrivingHold Hold, float PlannedMps, bool Hazard);
+
+/// <summary>
 /// The feedback controller that drives a line: <b>the wheel is pure pursuit and the pedals are a speed
 /// profile</b>, and its whole output is the one command a hand could have given (the control
 /// loop).
@@ -247,6 +253,76 @@ internal static class CarFollower
 
         return new DriveDecision(
             Pedals(config, car, steerRad, targetMps, alongMps, context.GroundCoefficient, dtS), hold, targetMps);
+    }
+
+    /// <summary>
+    /// S-1, S-2 and S-5: <b>the wheel is pure pursuit and the pedals are the speed profile</b> — one tick of a car on its
+    /// line, from the wheel and the pedal it was left at to the command it is given. Nothing here decides what the car
+    /// is doing, only how what it is doing is delivered by the tyres.
+    /// </summary>
+    /// <param name="travel">The way the car is driving down the line: its forward, or its back for a piece in reverse.</param>
+    /// <param name="alongMps">How fast it goes that way.</param>
+    /// <param name="last">The command it was left at, whose wheel the rack winds on from and whose pedal travels.</param>
+    /// <param name="laneless">A line with no lanes, which is a manoeuvre's piece and driven at manoeuvring pace (GEN-4f).</param>
+    /// <param name="blueLight">On a call (AMB-4): a pace of its own, under every constraint the profile takes.</param>
+    /// <param name="paceMps">A pace somebody put on this car, folded in with the profile's own terms.</param>
+    public static LineDrive DriveTheLine(
+        SimConfig config, in CarBuild build, in CarPose pose, ReadOnlySpan<ArcSeg> line, ReadOnlySpan<float> entryM,
+        float progressM, float lengthM, in DriveContext context, Vector2 travel, float alongMps, bool reverse,
+        in DriveCommand last, in Overtake pass, bool laneless, bool blueLight, float paceMps)
+    {
+        var rearAxleM = RearAxleM(build, pose.PositionM, pose.Forward);
+        var lookaheadM = LookaheadM(build, MathF.Abs(alongMps), config.Driving.LookaheadS);
+
+        // Pure pursuit asks, or the pass the car is on (CAR-46); the rack answers (CAR-3a). The wheel as it stands is
+        // carried into the frame of the gear this tick drives in, since a reverse command is the same wheel with its
+        // sign turned round on the way out — whichever gear it was left in, so a change of gear is no jump of the rack.
+        var wasRad = reverse ? -last.SteerRad : last.SteerRad;
+        var wantedRad = pass.Begun
+            ? SteerThePass(build, line, pass, progressM, rearAxleM, travel, lookaheadM)
+            : Steer(build, line, progressM, rearAxleM, travel, lookaheadM);
+        var steerRad = build.WheelWoundTo(wasRad, wantedRad, config.TickSeconds);
+
+        // Where the foot already was, so the pedal travels rather than snapping — and the profile plans from
+        // there. It is along the direction being driven on both sides of the gear, because the reverse command
+        // negates the wheel and nothing else.
+        var lastMps2 = PedalMps2(last);
+        var targetMps = TargetSpeedMps(
+            config, build, line, entryM, progressM, lengthM, steerRad, alongMps, lookaheadM, context, out var hold,
+            out var plannedMps, pass, lastMps2);
+
+        // <b>A manoeuvre at a bay is driven at manoeuvring pace</b> whichever gear its piece is in, and the reverse cap
+        // is that pace — deliberately off the forward cap's scale, because this is its only use.
+        var capMps = reverse || laneless ? build.ReverseMaxMps : float.PositiveInfinity;
+
+        // AMB-4: <b>a blue light buys the road and never the tyres.</b> A car on a call keeps every constraint the
+        // profile already takes and plans above what holds every other car at a light — the light's hold on the road
+        // (TLT-1) — so without a pace of its own it reaches the gear's cap on the first straight it meets and arrives
+        // as a second casualty.
+        if (blueLight) capMps = MathF.Min(capMps, config.Ambulance.CallPaceMps);
+
+        // And a pace somebody put on this car, which is neither the road's nor the build's: an escort held under the
+        // pace of what it is escorting keeps station by being caught rather than by being told to
+        // (<c>IdlePlan.EscortPaceShare</c>). Folded in with the profile's own terms, so a corner, a queue and a stop
+        // line all still outrank it.
+        capMps = MathF.Min(capMps, paceMps);
+        targetMps = MathF.Min(targetMps, capMps);
+
+        var pedals = Pedals(config, build, steerRad, targetMps, alongMps, context.GroundCoefficient, config.TickSeconds, lastMps2);
+        var command = reverse ? pedals with { SteerRad = -pedals.SteerRad, Reverse = true } : pedals;
+
+        // <b>The margin the profile kept back, spent</b>: the profile plans every stop against usable grip (S-2), and
+        // this is the tick where that margin is no longer enough. Asked of the profile's own answer rather than instead
+        // of it — what it overrides is the pedal — and every tick, because a hazard inside braking distance is not
+        // something to discover at the end of a decision interval. Braking and never swerving: verifying a lane is
+        // clear takes time this does not have.
+        var hazard = IsAHazard(config, build, alongMps, context);
+        if (hazard) command = command with { ThrottleMps2 = 0f, BrakeMps2 = build.BrakingMps2, Handbrake = false };
+
+        // The ceiling on the next claim: the profile's own answer with the grant left out, so a car held at a standstill
+        // by the queue in front is not held to a standstill's worth of road — and under the same caps, so the ground a
+        // car holds is the ground at the pace it will drive.
+        return new LineDrive(command, hold, MathF.Min(plannedMps, capMps), hazard);
     }
 
     /// <summary>

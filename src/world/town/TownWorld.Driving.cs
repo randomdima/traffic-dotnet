@@ -257,81 +257,23 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// S-1, S-2 and S-5: <b>the wheel is pure pursuit and the pedals are the speed profile</b>. Nothing
-    /// here decides what the car is doing — only how what it is doing is delivered by the tyres.
+    /// S-1, S-2 and S-5: <b>the wheel is pure pursuit and the pedals are the speed profile</b>
+    /// (<see cref="CarFollower.DriveTheLine"/>), and what they ask for delivered by the tyres.
     /// </summary>
     void Drive(
         int car, in CarBuild build, in CarPose pose, ReadOnlySpan<ArcSeg> line, float progressM, float lengthM,
         in DriveContext context, Vector2 travel, float alongMps, bool reverse)
     {
-        var rearAxleM = CarFollower.RearAxleM(build, pose.PositionM, pose.Forward);
-        var lookaheadM = CarFollower.LookaheadM(build, MathF.Abs(alongMps), _config.Driving.LookaheadS);
+        var drive = CarFollower.DriveTheLine(
+            _config, build, pose, line, Cars.EntriesOf(car), progressM, lengthM, context, travel, alongMps, reverse,
+            Cars.Command[car], Cars.Pass[car], Cars.Line[car].LaneCount == 0, Cars.BlueLight[car], Cars.PaceMps[car]);
 
-        // Pure pursuit asks, or the pass the car is on (CAR-46); the rack answers (CAR-3a). The wheel as it stands is
-        // carried into the frame of the gear this tick drives in, since a reverse command is the same wheel with its
-        // sign turned round on the way out — whichever gear it was left in, so a change of gear is no jump of the rack.
-        var wasRad = reverse ? -Cars.Command[car].SteerRad : Cars.Command[car].SteerRad;
-        var wantedRad = Cars.Pass[car].Begun
-            ? CarFollower.SteerThePass(build, line, Cars.Pass[car], progressM, rearAxleM, travel, lookaheadM)
-            : CarFollower.Steer(build, line, progressM, rearAxleM, travel, lookaheadM);
-        var steerRad = build.WheelWoundTo(wasRad, wantedRad, _config.TickSeconds);
-
-        // Where the foot already was, so the pedal travels rather than snapping — and the profile plans from
-        // there. It is along the direction being driven on both sides of the gear, because the reverse command
-        // negates the wheel and nothing else.
-        var lastMps2 = CarFollower.PedalMps2(Cars.Command[car]);
-        var targetMps = CarFollower.TargetSpeedMps(
-            _config, build, line, Cars.EntriesOf(car), progressM, lengthM, steerRad, alongMps, lookaheadM, context,
-            out var hold, out var plannedMps, Cars.Pass[car], lastMps2);
-
-        // <b>A manoeuvre at a bay is driven at manoeuvring pace</b> whichever gear its piece is in, and the
-        // reverse cap is that pace — deliberately off the forward cap's scale, because this is its only
-        // use. A line with no lanes is the whole of the test: a manoeuvre's pieces are the only such lines
-        // (GEN-4f).
-        var capMps = reverse || Cars.Line[car].LaneCount == 0 ? build.ReverseMaxMps : float.PositiveInfinity;
-
-        // AMB-4: <b>a blue light buys the road and never the tyres.</b> A car on a call keeps every
-        // constraint the profile already takes and plans above what holds every other car at a light — the
-        // light's hold on the road (TLT-1) — so without a pace of its own it reaches the gear's cap on the
-        // first straight it meets and arrives as a second casualty.
-        if (Cars.BlueLight[car]) capMps = MathF.Min(capMps, _config.Ambulance.CallPaceMps);
-
-        // And a pace somebody put on this car, which is neither the road's nor the build's: an escort held
-        // under the pace of what it is escorting keeps station by being caught rather than by being told to
-        // (<c>IdlePlan.EscortPaceShare</c>). It is folded in with the profile's own terms and not instead of
-        // them, so a corner, a queue and a stop line all still outrank it.
-        capMps = MathF.Min(capMps, Cars.PaceMps[car]);
-        targetMps = MathF.Min(targetMps, capMps);
-
-        // The ceiling on the next claim. It is the profile's own answer with the grant left out, so a
-        // car held at a standstill by the queue in front is not held to a standstill's worth of road — and
-        // under the same caps, so the ground a car holds is the ground at the pace it will drive.
-        Cars.PlannedMps[car] = MathF.Min(plannedMps, capMps);
-
-        var pedals = CarFollower.Pedals(
-            _config, build, steerRad, targetMps, alongMps, context.GroundCoefficient, _config.TickSeconds, lastMps2);
-        var command = reverse ? Reversed(pedals) : pedals;
-
-        // <b>The margin the profile kept back, spent</b>: the profile plans every stop against usable grip
-        // (S-2), and this is the tick where that margin is no longer enough. It is asked of
-        // the profile's own answer rather than instead of it — what it overrides is the pedal and nothing
-        // else — and it is asked on every tick, because a hazard inside braking distance is not something
-        // to discover at the end of a decision interval. Braking and never swerving: verifying a lane is
-        // clear takes time this does not have.
-        if (CarFollower.IsAHazard(_config, build, alongMps, context))
-        {
-            command = command with { ThrottleMps2 = 0f, BrakeMps2 = build.BrakingMps2, Handbrake = false };
-            HardBrakings++;
-        }
-
-        Cars.Command[car] = command;
-        Cars.Hold[car] = hold;
+        Cars.PlannedMps[car] = drive.PlannedMps;
+        if (drive.Hazard) HardBrakings++;
+        Cars.Command[car] = drive.Command;
+        Cars.Hold[car] = drive.Hold;
         Tyres(car, pose);
     }
-
-    /// <summary>The same command, driven backwards: the gear, and the wheel turned against the direction the axle travels.</summary>
-    DriveCommand Reversed(DriveCommand command) =>
-        command with { SteerRad = -command.SteerRad, Reverse = true };
 
     /// <summary>
     /// <b>A stopped car that has lost its line takes the lane it is actually standing on</b> and starts

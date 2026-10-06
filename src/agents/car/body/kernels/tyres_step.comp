@@ -20,9 +20,10 @@ layout(push_constant) uniform Figures
 } figures;
 
 #define TYRE_FIGURES figures
+#include "agents/car/body/kernels/car_build.glsl"
 #include "agents/car/body/kernels/tyre.glsl"
 
-layout(std430, binding = 0) readonly buffer Builds { TyreBuild builds[]; };
+layout(std430, binding = 0) readonly buffer Builds { CarBuildRow builds[]; };
 layout(std430, binding = 1) readonly buffer BuildOf { uint buildOf[]; };
 layout(std430, binding = 2) readonly buffer Poses { TyrePose poses[]; };
 layout(std430, binding = 3) readonly buffer Commands { TyreCommand commands[]; };
@@ -37,7 +38,7 @@ void main()
     uint car = gl_GlobalInvocationID.x;
     if (car >= figures.carCount) return;
 
-    TyreBuild build = builds[buildOf[car]];
+    CarBuildRow build = builds[buildOf[car]];
     TyrePose pose = poses[car];
     vec2 atM[4];
     tyreWheelPointsM(build, pose, atM);

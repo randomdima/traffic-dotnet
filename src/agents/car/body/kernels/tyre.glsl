@@ -3,30 +3,14 @@
 // RollingDrag). Line for line with the host, `precise` where it rounds twice. tan, atan, sin and cos are the device's.
 //
 // The including kernel supplies the tyre figures as TYRE_FIGURES' fields: standardGravityMps2, wheelSpinFadeMps,
-// wheelSpinAllowanceMps, markSlipMps, markCorneringSlipMps, ploughCrawlMps, engineBrakingMps2.
+// wheelSpinAllowanceMps, markSlipMps, markCorneringSlipMps, ploughCrawlMps, engineBrakingMps2 — and includes
+// car_build.glsl first.
 
 const int TyreWheels = 4;
 const int TyreRearRight = 2;
 const int TyreRearLeft = 3;
 const float TyreWorkingSlipTangent = 0.3;
 const float TyreAlongSlipEpsilonMps = 0.01;
-
-// What of a variant the tyres read (CarBuild).
-struct TyreBuild
-{
-    float wheelbaseM;
-    float centreAheadOfAxleM;
-    float halfTrackM;
-    float cgHeightM;
-    float frontWeightShare;
-    float gripMps2;
-    float wheelRotatingMassKg;
-    float accelerationMps2;
-    float drivenFrontShare;
-    float pad0;
-    float pad1;
-    float pad2;
-};
 
 // The body at the start of the tick (CarPose); forward is the body's own rotation, the one way the car points.
 struct TyrePose
@@ -76,13 +60,13 @@ float tyreDot(vec2 a, vec2 b) { precise float d = a.x * b.x + a.y * b.y; return 
 float tyreCross(vec2 a, vec2 b) { precise float c = (a.x * b.y) - (a.y * b.x); return c; }
 float tyreLength(vec2 v) { precise float squared = v.x * v.x + v.y * v.y; return sqrt(squared); }
 
-vec2 tyreWheelAtM(TyreBuild car, int wheel)
+vec2 tyreWheelAtM(CarBuildRow car, int wheel)
 {
     precise float front = car.wheelbaseM - car.centreAheadOfAxleM;
     return vec2(wheel < 2 ? front : -car.centreAheadOfAxleM, wheel % 2 == 0 ? car.halfTrackM : -car.halfTrackM);
 }
 
-void tyreWheelPointsM(TyreBuild car, TyrePose pose, out vec2 atM[4])
+void tyreWheelPointsM(CarBuildRow car, TyrePose pose, out vec2 atM[4])
 {
     vec2 forward = pose.forward;
     vec2 right = vec2(-forward.y, forward.x);
@@ -94,7 +78,7 @@ void tyreWheelPointsM(TyreBuild car, TyrePose pose, out vec2 atM[4])
     }
 }
 
-void tyreLoads(TyreBuild car, TyrePose pose, out float into[4])
+void tyreLoads(CarBuildRow car, TyrePose pose, out float into[4])
 {
     float weight = TYRE_FIGURES.standardGravityMps2;
     precise float alongShare = pose.accelerationMps2.x * car.cgHeightM / (car.wheelbaseM * weight);
@@ -111,7 +95,7 @@ void tyreLoads(TyreBuild car, TyrePose pose, out float into[4])
     into[3] = l3;
 }
 
-void tyreAckermann(TyreBuild car, float steerRad, out float into[4])
+void tyreAckermann(CarBuildRow car, float steerRad, out float into[4])
 {
     into[2] = 0.0;
     into[3] = 0.0;
@@ -133,7 +117,7 @@ void tyreAckermann(TyreBuild car, float steerRad, out float into[4])
 
 float tyreNoLargerThan(float value, float most) { return sign(value) * min(abs(value), abs(most)); }
 
-float tyreSyncMassKg(TyreBuild car, float loadKg)
+float tyreSyncMassKg(CarBuildRow car, float loadKg)
 {
     if (loadKg <= 0.0) return 0.0;
 
@@ -155,7 +139,7 @@ float tyreSpinAllowanceMps(float alongMps)
     return faded;
 }
 
-float tyreEngineBrakingMps2(TyreBuild car, TyreCommand command)
+float tyreEngineBrakingMps2(CarBuildRow car, TyreCommand command)
 {
     if (tyreLocksEveryWheel(command) || car.accelerationMps2 <= 0.0) return 0.0;
 
@@ -174,7 +158,7 @@ float tyreDriveLeftMps2(float gripMps2, float acrossMps2)
 }
 
 float tyreRim(
-    TyreBuild car, float spinMps, float alongMps, float alongAfterMps, float wantAlongNs, float askedAlongNs, bool sliding,
+    CarBuildRow car, float spinMps, float alongMps, float alongAfterMps, float wantAlongNs, float askedAlongNs, bool sliding,
     float loadKg, float driveMps2, float brakeMps2, float spinAllowanceMps, float dtS)
 {
     float rotatingKg = car.wheelRotatingMassKg;
@@ -251,7 +235,7 @@ vec2 tyreRollingDrag(vec2 velocityMps, vec2 wheelForward, float alongMps, float 
 
 // One car's tyres for one tick (TyreModel.Step): impulses[wheel] = (impulse.xy, at.xy), scrub per wheel, spin wound on.
 void tyreStep(
-    TyreBuild car, TyrePose pose, TyreCommand command, float axleDriveCeilingMps2, vec2 atM[4], TyreSurface ground[4],
+    CarBuildRow car, TyrePose pose, TyreCommand command, float axleDriveCeilingMps2, vec2 atM[4], TyreSurface ground[4],
     inout float spinMps[4], float dtS, out vec4 impulses[4], out TyreScrub scrub[4])
 {
     vec2 forward = pose.forward;

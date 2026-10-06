@@ -1,6 +1,7 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
 using TrafficSimulation.Agents.Car.Body;
+using TrafficSimulation.App.DeviceTick;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.Tests.Runtime;
@@ -17,16 +18,6 @@ namespace TrafficSimulation.Tests.Agents.Car;
 public class TyreKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
 {
     static readonly SimConfig Config = SimConfig.Shipped();
-
-    [StructLayout(LayoutKind.Sequential)]
-    readonly record struct BuildRow(
-        float WheelbaseM, float CentreAheadOfAxleM, float HalfTrackM, float CgHeightM, float FrontWeightShare, float GripMps2,
-        float WheelRotatingMassKg, float AccelerationMps2, float DrivenFrontShare, float Pad0, float Pad1, float Pad2)
-    {
-        public static BuildRow Of(in CarBuild car) => new(
-            car.WheelbaseM, car.CentreAheadOfAxleM, car.HalfTrackM, car.CgHeightM, car.FrontWeightShare, car.GripMps2,
-            car.WheelRotatingMassKg, car.AccelerationMps2, car.DrivenFrontShare, 0f, 0f, 0f);
-    }
 
     [StructLayout(LayoutKind.Sequential)]
     readonly record struct PoseRow(
@@ -98,7 +89,7 @@ public class TyreKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         var cars = Cars(2000, 3, builds);
         var dtS = Config.TickSeconds;
 
-        using var buildBuffer = device.Holding<BuildRow>(builds.Select(build => BuildRow.Of(build)).ToArray());
+        using var buildBuffer = device.Holding<CarBuildRow>(builds.Select(build => CarBuildRow.Of(build)).ToArray());
         using var buildOf = device.Holding<uint>(cars.Select(car => (uint)car.BuildAt).ToArray());
         using var poses = device.Holding<PoseRow>(cars.Select(car => new PoseRow(
             car.Pose.PositionM, car.Pose.VelocityMps, car.Pose.Forward, car.Pose.AccelerationMps2, car.Pose.HeadingRad,
