@@ -4,6 +4,19 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-10-07 — a walker's tick runs on the device, and its impulse is the device's to spend
+
+**Every walker's tick and every casualty's slide are one kernel over a walker table the device keeps**
+(`world/town/kernels/walkers_tick.comp`, `app/devicetick/DeviceWalkerTick`): `WalkerFollower.Tick`, then the town's
+`Settle` for a casualty on the ground, its impulse left where the bodies' phase spends it at the body's centre and its
+position, velocity and distance walked read back after the step (`bodies_walkers.comp`, `bodies_walkers_mirror.comp`).
+**A walker whose tick writes nothing keeps last tick's impulse**, as the town's array does. Boarding and stepping off
+are decisions, and land between the tick and the step.
+
+Held to the town over ten seconds of the suite's city with people on it (`DeviceWalkerTickTests`); a kernel that never
+left its impulse failed 3 746 of 122 400. On OdesaOsm the tick takes 0.003 ms for 10 000 walkers, chained with the cars'
+in one submit (`--bench devicetick`), and every walker stands where the town's step leaves it at the 99th percentile.
+
 ## 2026-10-07 — a walker's side of the claims is asked on the device, stage by stage
 
 **What a rebuild does with a walker moves to the device** (root log), in four kernels over one row a walker

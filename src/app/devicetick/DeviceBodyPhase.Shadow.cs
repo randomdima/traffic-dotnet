@@ -30,8 +30,9 @@ internal sealed partial class DeviceBodyPhase
     /// <summary>
     /// <b>The town as its bodies' phase finds it</b>, laid to go with the next <see cref="Step"/>, handed over where the
     /// tick's impulses are written and none is spent (<see cref="TownWorld.BeforeTheImpulses"/>): the solver's table, every
-    /// car's body and whether it rested parked, its pose going in, every walker's impulse and every tow bar's — and the
-    /// wheels: every car's where <paramref name="everyWheel"/>, otherwise only those the tyre pass does not step.
+    /// car's body and whether it rested parked, its pose going in, every walker's impulse (but where the walkers are the
+    /// device's own, <see cref="TakeTheWalkers"/>) and every tow bar's — and the wheels: every car's where
+    /// <paramref name="everyWheel"/>, otherwise only those the tyre pass does not step.
     /// </summary>
     public void Lay(TownWorld town, float dtS, bool everyWheel)
     {
@@ -50,7 +51,7 @@ internal sealed partial class DeviceBodyPhase
         _tyres.Table.Poses.Mark(0, cars.Count);
 
         var people = town.People;
-        for (var person = 0; person < people.Count; person++)
+        for (var person = 0; _walkers == null && person < people.Count; person++)
         {
             var impulseNs = town.WalkerImpulseNs(person);
             if (people.Inside[person].Any || impulseNs == Vector2.Zero) continue;

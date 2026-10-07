@@ -1,0 +1,57 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The town's walkers for one tick, one thread a walker (TownWorld.TickTheWalker, then Settle's casualties): each
+// walker's own tick — stand, turn, or walk at its aim — and a casualty's slide by its sliding grip, which overwrites
+// what its tick left as the town's Settle does. The heading and declared pace go back into the walker's row and the
+// impulse into the table the bodies' phase spends; a walker whose tick writes nothing keeps last tick's impulse, as the
+// town's array does.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint walkerCount;
+    float dtS;
+    float walkSpeedMps;
+    float turnRateDegPerS;
+    float footGripMps2;
+    float slidingGripMps2;
+} figures;
+
+#define WALKER_FIGURES figures
+
+#include "agents/person/control/kernels/walker.glsl"
+#include "world/town/kernels/walker_table.glsl"
+
+layout(std430, binding = 0) buffer Walkers { WalkerTableRow walkers[]; };
+layout(std430, binding = 1) buffer Impulses { vec2 impulses[]; };
+
+void main()
+{
+    uint walker = gl_GlobalInvocationID.x;
+    if (walker >= figures.walkerCount) return;
+
+    WalkerTableRow row = walkers[walker];
+    bool wounded = (row.flags & WalkerWounded) != 0u;
+    bool inside = (row.flags & WalkerInside) != 0u;
+    WalkerStep step;
+    if (walkerTick(
+            row.headingRad, row.positionM, row.velocityMps, row.declaredMps, row.aimM, (row.flags & WalkerWalking) != 0u, wounded,
+            inside, (row.flags & WalkerPaused) != 0u, row.massKg, figures.dtS, step))
+    {
+        row.headingRad = step.headingRad;
+        row.declaredMps = step.desiredMps;
+        impulses[walker] = step.impulseNs;
+    }
+
+    if (wounded && !inside)
+    {
+        WalkerStep slide = walkerStep(
+            row.headingRad, row.positionM, row.velocityMps, row.declaredMps, row.positionM, false, false, row.massKg, figures.dtS);
+        row.declaredMps = slide.desiredMps;
+        impulses[walker] = slide.impulseNs;
+    }
+
+    walkers[walker] = row;
+}

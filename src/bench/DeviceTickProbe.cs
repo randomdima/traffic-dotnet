@@ -51,7 +51,8 @@ internal static class DeviceTickProbe
             vk, config, tyres, ground, world.Roads, cars.LineArcsOf(0).Length, world.Ways.OfRoadConnector(0), answered.Cut);
         using var solver = new DeviceSolver(vk, config, world.PhysicsForInstruments.Table);
         using var bodies = new DeviceBodyPhase(vk, config, solver, tyres, world.People.Capacity + (2 * cars.Capacity));
-        using var tick = new DeviceTick(vk, carTick, bodies);
+        using var walkerTick = new DeviceWalkerTick(vk, config, world.People.Capacity);
+        using var tick = new DeviceTick(vk, carTick, bodies, walkerTick);
 
         // The device's claims are the ones its tick reads, so nothing is asked of it until it has answered a rebuild.
         var rebuilt = false;
@@ -73,6 +74,12 @@ internal static class DeviceTickProbe
         var bodiesMs = new List<double>();
         var hostMs = new List<double>();
         var apartM = new List<double>();
+        var walkersApartM = new List<double>();
+        var walkerMs = new List<double>();
+        var walkers = 0;
+        var walkersAsked = 0;
+        var walkersDiffer = 0;
+        string? firstWalker = null;
         var asked = 0;
         var host = new Stopwatch();
         loop.WatchingTheAgents = (town, stage) =>
@@ -94,11 +101,20 @@ internal static class DeviceTickProbe
                     apartM.Add(Vector2.Distance(poses[car].PositionM, town.Cars.PositionM[car]));
                 }
 
+                var walked = walkerTick.WalkersAfter;
+                for (var person = 0; person < walkers; person++)
+                {
+                    if (town.People.Inside[person].Any) continue;
+
+                    walkersApartM.Add(Vector2.Distance(walked[person].PositionM, town.People.PositionM[person]));
+                }
+
                 hostMs.Add(host.Elapsed.TotalMilliseconds);
                 stepped = false;
             }
 
             count = carTick.Prepare(town, taken, resident: true);
+            walkers = walkerTick.Lay(town);
             prepared = true;
             host.Restart();
         };
@@ -108,11 +124,21 @@ internal static class DeviceTickProbe
 
             host.Stop();
             bodies.Lay(town, config.TickSeconds, everyWheel: false);
-            tick.Step(count, town.Cars.Count, config.TickSeconds, readBack: true);
+            tick.Step(count, town.Cars.Count, walkers, config.TickSeconds, readBack: true);
             carTick.SettleTheDevice(taken.AsSpan(0, count));
             kernelsMs.Add(tick.KernelsMs);
             carMs.Add(carTick.TickMs + carTick.TyresMs);
+            walkerMs.Add(walkerTick.TickMs);
             bodiesMs.Add(bodies.KernelsMs);
+            for (var person = 0; person < walkers; person++)
+            {
+                walkersAsked++;
+                var why = walkerTick.Disagreement(town, person);
+                if (why == null) continue;
+
+                walkersDiffer++;
+                firstWalker ??= $"tick {loop.Tick}: {why}";
+            }
             prepared = false;
             stepped = true;
             host.Start();
@@ -125,15 +151,22 @@ internal static class DeviceTickProbe
         world.BeforeTheImpulses = null;
 
         apartM.Sort();
+        walkersApartM.Sort();
         Console.WriteLine($"device tick probe — {map} on {vk.DeviceName}, {cars.Count} cars and {world.People.Count} walkers after {WarmupTicks} ticks");
-        Console.WriteLine($"{kernelsMs.Count} ticks, the cars' side chained in one submit:");
+        Console.WriteLine($"{kernelsMs.Count} ticks, the agents' side chained in one submit:");
         Console.WriteLine($"  host, the agents' ticks and decisions and the bodies' phase  median {Median(hostMs),8:F3} ms");
         Console.WriteLine($"  device, every kernel     median {Median(kernelsMs),8:F3} ms   most {kernelsMs.Max(),8:F3} ms");
         Console.WriteLine($"    the car tick and tyres median {Median(carMs),8:F3} ms");
+        Console.WriteLine($"    the walkers' tick      median {Median(walkerMs),8:F3} ms");
         Console.WriteLine($"    the bodies' phase      median {Median(bodiesMs),8:F3} ms");
         Console.WriteLine(
             $"  where the device left {asked} car-ticks from where the town's step did: median {Percentile(apartM, 0.5) * 1000d:F3} mm, " +
             $"99th {Percentile(apartM, 0.99) * 1000d:F3} mm, most {(apartM.Count > 0 ? apartM[^1] : 0d) * 1000d:F3} mm");
+        Console.WriteLine(
+            $"  and {walkersApartM.Count} walker-ticks: median {Percentile(walkersApartM, 0.5) * 1000d:F3} mm, " +
+            $"99th {Percentile(walkersApartM, 0.99) * 1000d:F3} mm, most {(walkersApartM.Count > 0 ? walkersApartM[^1] : 0d) * 1000d:F3} mm");
+        Console.WriteLine($"  {walkersDiffer} of {walkersAsked} walker-ticks ticked differently; {walkerTick.Boarded} boarded or stepped off between the tick and the step");
+        if (firstWalker != null) Console.WriteLine($"    the first: {firstWalker}");
     }
 
     static double Median(List<double> values)

@@ -65,6 +65,9 @@ internal sealed partial class DeviceBodyPhase : IDisposable
     readonly GpuBuffer _appliedOut;
     readonly ComputeKernel _wheels, _laidKernel, _mirror;
     readonly DescriptorSet _wheelsSet, _laidSet, _mirrorSet;
+    DeviceWalkerTick? _walkers;
+    ComputeKernel? _walkerKernel, _walkerMirror;
+    DescriptorSet _walkerSet, _walkerMirrorSet;
     readonly ComputeBatch _batch;
     readonly GpuTimer _timer;
     int _wheelRunCount;
@@ -110,6 +113,21 @@ internal sealed partial class DeviceBodyPhase : IDisposable
 
     /// <summary>The solver the phase steps.</summary>
     public DeviceSolver Solver => _solver;
+
+    /// <summary>
+    /// <b>The walkers' impulses taken off the device's own walker tick</b> from here on, rather than laid by the host, and
+    /// every walker read back into its table after the step (<c>bodies_walkers.comp</c>, <c>bodies_walkers_mirror.comp</c>).
+    /// </summary>
+    public void TakeTheWalkers(DeviceWalkerTick walkers)
+    {
+        var bodies = _solver.Bodies;
+        var pushBytes = (uint)Marshal.SizeOf<PhasePush>();
+        _walkers = walkers;
+        _walkerKernel = new ComputeKernel(_vk, "bodies_walkers.comp", 5, pushBytes);
+        _walkerSet = _walkerKernel.Bind([walkers.BodyTable, walkers.Table, walkers.ImpulseTable, bodies.Motion, bodies.Mass]);
+        _walkerMirror = new ComputeKernel(_vk, "bodies_walkers_mirror.comp", 4, pushBytes);
+        _walkerMirrorSet = _walkerMirror.Bind([walkers.BodyTable, walkers.Table, bodies.Pose, bodies.Motion]);
+    }
 
     /// <summary>The device's own time for the last step's kernels — the impulses, the solver's step and the read-back — in milliseconds.</summary>
     public double KernelsMs => ApplyMs + StepMs + MirrorMs;
@@ -227,6 +245,11 @@ internal sealed partial class DeviceBodyPhase : IDisposable
         _timer.Stamp(commands, (int)Stage.Sent);
 
         _wheels.Dispatch(commands, _wheelsSet, Groups(cars), push);
+        if (_walkers != null)
+        {
+            _walkerKernel!.Dispatch(commands, _walkerSet, Groups(_walkers.Count), push with { Count = (uint)_walkers.Count });
+        }
+
         vk.BetweenKernels(commands);
         _laidKernel.Dispatch(commands, _laidSet, Groups(_laidCount), push with { Count = (uint)_laidCount });
         _laidCount = 0;
@@ -243,6 +266,11 @@ internal sealed partial class DeviceBodyPhase : IDisposable
         _timer.Stamp(commands, (int)Stage.Stepped);
 
         _mirror.Dispatch(commands, _mirrorSet, Groups(cars), push);
+        if (_walkers != null)
+        {
+            _walkerMirror!.Dispatch(commands, _walkerMirrorSet, Groups(_walkers.Count), push with { Count = (uint)_walkers.Count });
+        }
+
         vk.BeforeTransfer(commands);
         _timer.Stamp(commands, (int)Stage.Mirrored);
 
@@ -274,6 +302,8 @@ internal sealed partial class DeviceBodyPhase : IDisposable
         _mirror.Dispose();
         _laidKernel.Dispose();
         _wheels.Dispose();
+        _walkerKernel?.Dispose();
+        _walkerMirror?.Dispose();
         _carBodies.Dispose();
         _laid.Dispose();
         _wheelsIn.Dispose();

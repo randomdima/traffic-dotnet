@@ -1,0 +1,27 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every walker's impulse spent at its body's centre, one thread a walker (TownWorld.StepBodies' walkers): the one the
+// device's own walker tick left (walkers_tick.comp), and none for a walker inside something, which has no body in the
+// world. A walker is one body and no wheel or bar is laid on it, so no two threads write one body.
+
+layout(local_size_x = 64) in;
+
+#include "bodies_phase.glsl"
+#include "world/physics/kernels/impulse.glsl"
+#include "world/town/kernels/walker_table.glsl"
+
+layout(std430, binding = 0) readonly buffer WalkerBodies { int walkerBodies[]; };
+layout(std430, binding = 1) readonly buffer Walkers { WalkerTableRow walkers[]; };
+layout(std430, binding = 2) readonly buffer Impulses { vec2 impulses[]; };
+layout(std430, binding = 3) buffer Motion { vec4 motion[]; };
+layout(std430, binding = 4) readonly buffer Mass { vec2 mass[]; };
+
+void main()
+{
+    uint walker = gl_GlobalInvocationID.x;
+    if (walker >= count || (walkers[walker].flags & WalkerInside) != 0u) return;
+
+    int body = walkerBodies[walker];
+    motion[body] = impulsedCentrally(motion[body], mass[body].x, impulses[walker]);
+}
