@@ -144,6 +144,9 @@ internal sealed partial class PhysicsWorld
 
     public int StaticBodyCount => _staticCount;
 
+    /// <summary>How many bodies the table has room for before it grows (<see cref="Fit"/>).</summary>
+    public int RoomForBodies => _positionM.Length;
+
     /// <summary>Every body with a mass, whether or not it is in the world this instant: a contained walker is still one of these.</summary>
     public int DynamicBodyCount => _dynamicCount;
 
@@ -270,6 +273,7 @@ internal sealed partial class PhysicsWorld
         Wake(index);
         _restTicks[index] = 0;
         _flags[index] &= ~(BodyFlags.Enabled | BodyFlags.FiledFrozen);
+        Changed(index);
     }
 
     /// <summary>
@@ -286,6 +290,7 @@ internal sealed partial class PhysicsWorld
         _flags[index] |= BodyFlags.Enabled;
         Join(index);
         _movingIndexStale = true;
+        Changed(index);
     }
 
     /// <summary>
@@ -313,6 +318,7 @@ internal sealed partial class PhysicsWorld
         _category[index] = (ulong)layer;
         _mask[index] = MaskOf(layer);
         Wake(index);
+        Changed(index);
     }
 
     /// <summary>
@@ -328,6 +334,7 @@ internal sealed partial class PhysicsWorld
         var index = body.Index;
         _channels[index] = channels;
         Wake(index);
+        Changed(index);
     }
 
     /// <summary>
@@ -373,6 +380,7 @@ internal sealed partial class PhysicsWorld
         _inverseInertia[index] = (_flags[index] & BodyFlags.RotationLocked) != 0
             ? 0f
             : 1f / (massKg * Shape.InertiaPerKg(_extentM[index], _cornerRadiusM[index]));
+        Changed(index);
     }
 
     /// <summary>
@@ -419,6 +427,7 @@ internal sealed partial class PhysicsWorld
         var index = body.Index;
         Wake(index);
         _velocityMps[index] += impulseNs * _inverseMass[index];
+        Changed(index);
     }
 
     /// <summary>
@@ -433,6 +442,7 @@ internal sealed partial class PhysicsWorld
         Wake(index);
         _velocityMps[index] += impulseNs * _inverseMass[index];
         _yawRateRadPerS[index] += _inverseInertia[index] * Shape.Cross(atM - _positionM[index], impulseNs);
+        Changed(index);
     }
 
     /// <summary>Whether a body is frozen (SOL-37): at rest, with its pose and motion exactly what they were when it froze.</summary>
@@ -525,6 +535,7 @@ internal sealed partial class PhysicsWorld
 
         Place(index, positionM, headingRad);
         _movingIndexStale = true;
+        Changed(index);
         return new BodyId(index + 1);
     }
 
@@ -592,6 +603,8 @@ internal sealed partial class PhysicsWorld
         Array.Resize(ref _settling, room);
         Array.Resize(ref _frozeAtStep, room);
         Array.Resize(ref _static, room);
+        Array.Resize(ref _changed, room);
+        Array.Resize(ref _changedList, room);
         ResizeRosters(room);
     }
 }

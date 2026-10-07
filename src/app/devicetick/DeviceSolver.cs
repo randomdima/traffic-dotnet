@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Silk.NET.Vulkan;
 using TrafficSimulation.Core.Config;
@@ -16,9 +17,15 @@ namespace TrafficSimulation.App.DeviceTick;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Run in shadow for now</b>: every step is handed the CPU's table as it stands before the CPU's own step, so the
-/// two are asked the same question and can be compared. What crosses is the moving rows, never the furniture's, and
-/// one submit a step. Once the town's tick is on the device the table is laid once and never sent again.
+/// <b>Run in shadow</b> (<see cref="Lay"/>): every step is handed the CPU's table as it stands before the CPU's own
+/// step, so the two are asked the same question and can be compared. What crosses is the moving rows, never the
+/// furniture's, and one submit a step.
+/// </para>
+/// <para>
+/// <b>Or in the town's place</b> (<see cref="LayWhole"/>, <see cref="LayRows"/>): the table laid once, and after that
+/// only the rows the town changed, each written by a kernel (<c>kernels/laid_bodies.comp</c>) — and every moving body
+/// an owner whether or not it is in the world, which the kernels pass over, so a body going into a container changes
+/// no roster. What the step found is handed back as many contacts as it found (<see cref="RecordContactsTaken"/>).
 /// </para>
 /// <para>
 /// <b>A step is also recorded into another's submit</b> (<see cref="Lay"/>, <see cref="Send"/>, <see cref="Record"/>),
@@ -65,6 +72,11 @@ internal sealed class DeviceSolver : IDisposable
         public uint Pad0;
         public uint Pad1;
     }
+
+    /// <summary>One body's row as the host lays it (<c>LaidBody</c>, <c>kernels/laid_bodies.comp</c>): every field the step reads.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal readonly record struct LaidBodyRow(
+        Vector4 Pose, Vector4 Motion, Vector4 Shape, Vector4 Bounds, UInt4 Filter, Vector2 Mass, float HeadingRad, int Body);
 
     /// <summary>Where the step keeps its running totals (<c>kernels/step.glsl</c>).</summary>
     internal static class Totals
@@ -177,6 +189,8 @@ internal sealed class DeviceSolver : IDisposable
     readonly ComputeKernel _prepare;
     readonly ComputeKernel _solve;
     readonly ComputeKernel _integrate;
+    readonly ComputeKernel _laidBodies;
+    readonly ComputeKernel _contactsTaken;
 
     readonly DescriptorSet _movingCountSet;
     readonly DescriptorSet _movingFillSet;
@@ -188,6 +202,13 @@ internal sealed class DeviceSolver : IDisposable
     readonly DescriptorSet _prepareSet;
     readonly DescriptorSet _solveSet;
     readonly DescriptorSet _integrateSet;
+    readonly DescriptorSet _laidBodiesSet;
+    readonly DescriptorSet _contactsTakenSet;
+
+    /// <summary>The rows the town changed, as the host lays them and the laid-rows kernel reads them, straight from mapped memory.</summary>
+    readonly GpuBuffer _laidRows;
+
+    int _laidRowCount;
 
     readonly PrefixScan _movingScan;
     readonly PrefixScan _candidateScan;
@@ -199,22 +220,29 @@ internal sealed class DeviceSolver : IDisposable
     /// <summary>Each field's staging buffer and the device's, in one list so a step walks it without an iterator.</summary>
     readonly (GpuBuffer From, GpuBuffer To)[] _uploads;
 
-    /// <summary>Whether rows were laid since the last send.</summary>
-    bool _laid;
+    /// <summary>Whether the moving rows were laid whole since the last send.</summary>
+    bool _wholeLaid;
+
+    /// <summary>Whether the roster of owners was laid since the last send.</summary>
+    bool _ownersLaid;
 
     /// <param name="candidatesPerOwner">How many candidates a step may hold per moving body before it is full.</param>
-    public DeviceSolver(Vk vk, SimConfig config, BodyTable table, int candidatesPerOwner = 48)
+    /// <param name="room">
+    /// How many bodies the table may come to hold (<see cref="PhysicsWorld.RoomForBodies"/>), every one past what it holds
+    /// now a moving body — or none, for a table laid as it stands.
+    /// </param>
+    public DeviceSolver(Vk vk, SimConfig config, BodyTable table, int candidatesPerOwner = 48, int room = 0)
     {
         _vk = vk;
         _config = config;
-        _bodies = table.Count;
+        _bodies = Math.Max(table.Count, room);
         _scans = new ScanKernels(vk);
         var level = config.Grid.Main;
 
         var moving = new List<int>();
         for (var body = 0; body < _bodies; body++)
         {
-            if ((table.Flags[body] & BodyFlags.Static) == 0) moving.Add(body);
+            if (body >= table.Count || (table.Flags[body] & BodyFlags.Static) == 0) moving.Add(body);
         }
 
         _moving = [.. moving];
@@ -283,6 +311,8 @@ internal sealed class DeviceSolver : IDisposable
         _contactOut = Readback<UInt4>(CandidateCapacity);
         _contactNormalOut = Readback<Vector4>(CandidateCapacity);
         _contactPointsOut = Readback<Vector4>(CandidateCapacity);
+        _laidRows = Own(_vk.CreateBuffer(
+            Bytes<LaidBodyRow>(_moving.Length), BufferUsageFlags.StorageBufferBit, HostAccess.Writes));
 
         _gridCount = Kernel("grid_count.comp", 3, sets: 2);
         _gridFill = Kernel("grid_fill.comp", 5, sets: 2);
@@ -294,6 +324,8 @@ internal sealed class DeviceSolver : IDisposable
         _prepare = Kernel("prepare.comp", 9);
         _solve = Kernel("solve.comp", 13);
         _integrate = Kernel("integrate.comp", 8);
+        _laidBodies = Kernel("laid_bodies.comp", 8);
+        _contactsTaken = Kernel("contacts_taken.comp", 7);
 
         _movingCountSet = _gridCount.Bind([_owners, _bounds, _movingCounts]);
         _movingFillSet = _gridFill.Bind([_owners, _bounds, _movingStarts, _movingCursor, _movingItemsBuffer]);
@@ -319,6 +351,9 @@ internal sealed class DeviceSolver : IDisposable
             _totals,
         ]);
         _integrateSet = _integrate.Bind([_owners, _pose, _heading, _motion, _push, _shape, _bounds, _filter]);
+        _laidBodiesSet = _laidBodies.Bind([_laidRows, _pose, _heading, _motion, _mass, _shape, _bounds, _filter]);
+        _contactsTakenSet = _contactsTaken.Bind(
+            [_contact, _contactNormal, _contactPoints, _totals, _contactOut, _contactNormalOut, _contactPointsOut]);
 
         _movingScan = new PrefixScan(vk, _scans, _movingStarts, _blockSums, _totals, Totals.MovingCellsAt);
         _candidateScan = new PrefixScan(vk, _scans, _candidateStarts, _blockSums, _totals, Totals.CandidatesAt);
@@ -328,9 +363,10 @@ internal sealed class DeviceSolver : IDisposable
         _batch = new ComputeBatch(vk);
         _timer = new GpuTimer(vk, Enum.GetValues<Stage>().Length);
 
-        // The whole table once, the furniture's rows for good, and the furniture filed.
+        // The whole table once, the furniture's rows for good, and the furniture filed. A row to come is out of the world.
         _uploads = Uploads();
-        WriteRows(table, 0, _bodies);
+        WriteRows(table, 0, table.Count);
+        ClearRows(table.Count, _bodies - table.Count);
         table.Statics.CopyTo(StagingFor(table.Statics.Length, out var staticsIn));
         var commands = _batch.Begin();
         foreach (var (from, to) in _uploads) vk.Copy(commands, from, to, from.SizeBytes);
@@ -366,7 +402,10 @@ internal sealed class DeviceSolver : IDisposable
     /// <summary>How many bodies the table holds, the furniture's among them.</summary>
     public int BodyCount => _bodies;
 
-    /// <summary>The moving bodies that owned pairs in the last step.</summary>
+    /// <summary>
+    /// The roster of owners the last lay sent: the moving bodies in the world, in shadow (<see cref="Lay"/>); every
+    /// moving body the table holds, in the town's place (<see cref="LayWhole"/>).
+    /// </summary>
     public int Owners { get; private set; }
 
     public int Candidates => (int)Math.Min(TotalsRead[Totals.CandidatesAt], (uint)CandidateCapacity);
@@ -406,10 +445,11 @@ internal sealed class DeviceSolver : IDisposable
 
     /// <summary>
     /// <b>The body table as the device keeps it from one step to the next</b>, for kernels recorded around a step
-    /// (<see cref="Record"/>): position and rotation, heading, velocity and yaw rate, and the two inverses
-    /// (<c>kernels/step.glsl</c>'s layout).
+    /// (<see cref="Record"/>): position and rotation, heading, velocity and yaw rate, the two inverses, and the filter
+    /// whose flags say whether a body is in the world (<c>kernels/step.glsl</c>'s layout).
     /// </summary>
-    public (GpuBuffer Pose, GpuBuffer Heading, GpuBuffer Motion, GpuBuffer Mass) Bodies => (_pose, _heading, _motion, _mass);
+    public (GpuBuffer Pose, GpuBuffer Heading, GpuBuffer Motion, GpuBuffer Mass, GpuBuffer Filter) Bodies =>
+        (_pose, _heading, _motion, _mass, _filter);
 
     /// <summary>
     /// <b>One step of the table the CPU is about to step</b>: its moving rows sent, the step run, and — where asked — the
@@ -433,33 +473,101 @@ internal sealed class DeviceSolver : IDisposable
     /// </summary>
     public void Lay(BodyTable table)
     {
-        if (table.Count != _bodies) throw new InvalidOperationException("The body table changed size after it was laid on the device.");
-
-        WriteRows(table, _firstMoving, _movingRows);
+        WriteTheMovingRows(table);
         var owners = _ownersIn.Span<int>();
         var count = 0;
         foreach (var body in _moving)
         {
-            if ((table.Flags[body] & BodyFlags.Enabled) != 0) owners[count++] = body;
+            if (body < table.Count && (table.Flags[body] & BodyFlags.Enabled) != 0) owners[count++] = body;
         }
 
         Owners = count;
-        _laid = true;
+        _ownersLaid = true;
+    }
+
+    /// <summary>
+    /// <b>The table laid whole for the town's place</b>, to go with the next <see cref="Send"/>: every moving row as it
+    /// stands, and every moving body it holds an owner — in the world or not, which the kernels pass over.
+    /// </summary>
+    public void LayWhole(BodyTable table)
+    {
+        WriteTheMovingRows(table);
+        _laidRowCount = 0;
+        LayEveryOwner(table.Count, always: true);
+    }
+
+    /// <summary>
+    /// <b>Only these rows laid</b>, as the table holds them, each written into the device's table by the laid-rows kernel
+    /// (<see cref="RecordLaidRows"/>) — and the owners laid again where the table has grown since. A body is named once.
+    /// </summary>
+    public void LayRows(BodyTable table, ReadOnlySpan<int> bodies)
+    {
+        if (table.Count > _bodies) throw new InvalidOperationException($"The device's table holds {_bodies} bodies, not {table.Count}.");
+
+        var rows = _laidRows.Span<LaidBodyRow>();
+        foreach (var body in bodies)
+        {
+            rows[_laidRowCount++] = new LaidBodyRow(
+                new Vector4(table.PositionM[body], table.Rotation[body].X, table.Rotation[body].Y),
+                new Vector4(table.VelocityMps[body], table.YawRateRadPerS[body], 0f),
+                new Vector4(table.ExtentM[body], table.CornerRadiusM[body], 0f),
+                new Vector4(table.LeastM[body], table.MostM[body].X, table.MostM[body].Y),
+                FilterOf(table, body),
+                new Vector2(table.InverseMass[body], table.InverseInertia[body]),
+                table.HeadingRad[body],
+                body);
+        }
+
+        LayEveryOwner(table.Count, always: false);
+    }
+
+    /// <summary>
+    /// Every moving body the table holds an owner — laid <paramref name="always"/>, or otherwise only where the table has
+    /// grown past the owners the last lay sent, which were every moving body it held then.
+    /// </summary>
+    void LayEveryOwner(int bodies, bool always)
+    {
+        var count = always ? 0 : Owners;
+        while (count < _moving.Length && _moving[count] < bodies) count++;
+        if (count == Owners && !always) return;
+
+        _moving.AsSpan(0, count).CopyTo(_ownersIn.Span<int>());
+        Owners = count;
+        _ownersLaid = true;
     }
 
     /// <summary>What was laid since the last send copied across, recorded; nothing if nothing was. The caller barriers after.</summary>
     public void Send(CommandBuffer commands)
     {
-        SentBytes = 0;
-        if (!_laid) return;
+        SentBytes = (ulong)(_laidRowCount * Unsafe.SizeOf<LaidBodyRow>());
+        if (_wholeLaid)
+        {
+            foreach (var (from, to) in _uploads) SentBytes += CopyRows(commands, from, to);
+            _wholeLaid = false;
+        }
 
-        foreach (var (from, to) in _uploads) SentBytes += CopyRows(commands, from, to);
+        if (!_ownersLaid) return;
+
         _vk.Copy(commands, _ownersIn, _owners, (ulong)(Owners * sizeof(int)));
         SentBytes += (ulong)(Owners * sizeof(int));
-        _laid = false;
+        _ownersLaid = false;
     }
 
-    /// <summary>How many bytes the last <see cref="Send"/> took in.</summary>
+    /// <summary>
+    /// <b>The rows laid one by one written into the table</b>, recorded after <see cref="Send"/>'s copies are made
+    /// visible (<see cref="Vk.AfterTransfer"/>); whether anything was, so the caller barriers before the kernels that
+    /// read the table.
+    /// </summary>
+    public bool RecordLaidRows(CommandBuffer commands)
+    {
+        if (_laidRowCount == 0) return false;
+
+        _laidBodies.Dispatch(commands, _laidBodiesSet, Groups(_laidRowCount), Push(0f) with { RosterCount = (uint)_laidRowCount });
+        _laidRowCount = 0;
+        return true;
+    }
+
+    /// <summary>How many bytes the last <see cref="Send"/> took in, the rows the laid-rows kernel reads among them.</summary>
     public ulong SentBytes { get; private set; }
 
     /// <summary>
@@ -542,6 +650,15 @@ internal sealed class DeviceSolver : IDisposable
         vk.Copy(commands, _contactPoints, _contactPointsOut, _contactPoints.SizeBytes);
     }
 
+    /// <summary>
+    /// <b>The last step's contacts handed back, as many as it found</b> (<c>kernels/contacts_taken.comp</c>), into
+    /// <see cref="Contacts"/>, <see cref="ContactNormals"/> and <see cref="ContactPoints"/> — which count them by the
+    /// totals <see cref="RecordReadBack"/> hands back. Recorded after the step, which barriers before it.
+    /// </summary>
+    public void RecordContactsTaken(CommandBuffer commands) =>
+        _contactsTaken.DispatchIndirect(
+            commands, _contactsTakenSet, _totals, Totals.ContactGroupsAt * sizeof(uint), Push(0f) with { Capacity = (uint)CandidateCapacity });
+
     /// <summary>The step's stamps read, once the submit it was recorded into is waited for.</summary>
     public void ReadTimes() => _timer.Read();
 
@@ -572,6 +689,15 @@ internal sealed class DeviceSolver : IDisposable
         };
     }
 
+    /// <summary>Every moving row the table holds written to go with the next send, the rows to come as they were left.</summary>
+    void WriteTheMovingRows(BodyTable table)
+    {
+        if (table.Count > _bodies) throw new InvalidOperationException($"The device's table holds {_bodies} bodies, not {table.Count}.");
+
+        WriteRows(table, _firstMoving, Math.Clamp(table.Count - _firstMoving, 0, _movingRows));
+        _wholeLaid = true;
+    }
+
     /// <summary>Rows <paramref name="from"/> onwards of the CPU's table, written into what the device is sent.</summary>
     void WriteRows(BodyTable table, int from, int rows)
     {
@@ -590,10 +716,25 @@ internal sealed class DeviceSolver : IDisposable
             mass[body] = new Vector2(table.InverseMass[body], table.InverseInertia[body]);
             shape[body] = new Vector4(table.ExtentM[body], table.CornerRadiusM[body], 0f);
             bounds[body] = new Vector4(table.LeastM[body], table.MostM[body].X, table.MostM[body].Y);
-            filter[body] = new UInt4(
-                (uint)table.Flags[body], LowWord(table.Category[body]), LowWord(table.Mask[body]), table.Channels[body]);
+            filter[body] = FilterOf(table, body);
         }
     }
+
+    /// <summary>Rows no body holds yet, written as nothing: out of the world, and on no layer.</summary>
+    void ClearRows(int from, int rows)
+    {
+        _poseIn.Span<Vector4>().Slice(from, rows).Clear();
+        _headingIn.Span<float>().Slice(from, rows).Clear();
+        _motionIn.Span<Vector4>().Slice(from, rows).Clear();
+        _massIn.Span<Vector2>().Slice(from, rows).Clear();
+        _shapeIn.Span<Vector4>().Slice(from, rows).Clear();
+        _boundsIn.Span<Vector4>().Slice(from, rows).Clear();
+        _filterIn.Span<UInt4>().Slice(from, rows).Clear();
+    }
+
+    /// <summary>A body's flags, category, mask and channels, as the kernels read its filter.</summary>
+    static UInt4 FilterOf(in BodyTable table, int body) =>
+        new((uint)table.Flags[body], LowWord(table.Category[body]), LowWord(table.Mask[body]), table.Channels[body]);
 
     /// <summary>A layer mask in the one word the kernels read it in: every layer this town has is in its low bits.</summary>
     static uint LowWord(ulong mask) =>
@@ -635,8 +776,9 @@ internal sealed class DeviceSolver : IDisposable
     GpuBuffer Staging<T>(int count) where T : unmanaged =>
         Own(_vk.CreateBuffer(Bytes<T>(count), BufferUsageFlags.TransferSrcBit, HostAccess.Writes));
 
+    /// <summary>Memory the host reads back, written by a copy or — a kernel handing back only what it found — by a kernel.</summary>
     GpuBuffer Readback<T>(int count) where T : unmanaged =>
-        Own(_vk.CreateBuffer(Bytes<T>(count), BufferUsageFlags.TransferDstBit, HostAccess.Reads));
+        Own(_vk.CreateBuffer(Bytes<T>(count), BufferUsageFlags.TransferDstBit | BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
 
     /// <summary>A staging buffer for <paramref name="count"/> ints, handed back as the span to write them into.</summary>
     Span<int> StagingFor(int count, out GpuBuffer staging)
@@ -693,16 +835,25 @@ internal sealed class DeviceSolver : IDisposable
 
     /// <summary>
     /// The most cells the moving bodies' boxes can cover however they turn: a box no wider than its own diagonal and
-    /// radius twice over, set down anywhere on the grid.
+    /// radius twice over, set down anywhere on the grid — and a body still to come as much as the most any covers.
     /// </summary>
+    /// <param name="bodies">In index order, so every body still to come is after every body the table holds.</param>
     static int MostCells(GridLevel level, BodyTable table, ReadOnlySpan<int> bodies)
     {
         var cells = 0;
+        var most = 0;
         foreach (var body in bodies)
         {
+            if (body >= table.Count)
+            {
+                cells += most;
+                continue;
+            }
+
             var reachM = table.ExtentM[body].Length() + table.CornerRadiusM[body];
             var across = (int)MathF.Ceiling(2f * reachM * level.PerCellM) + 1;
             cells += across * across;
+            most = Math.Max(most, across * across);
         }
 
         return cells;

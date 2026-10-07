@@ -1,0 +1,313 @@
+using System.Diagnostics;
+using System.Numerics;
+using System.Runtime.CompilerServices;
+using TrafficSimulation.Agents.Car.Body;
+using TrafficSimulation.Core.Config;
+using TrafficSimulation.Runtime;
+using TrafficSimulation.World.Physics;
+using TrafficSimulation.World.Town;
+using Vk = TrafficSimulation.Runtime.Vk;
+
+namespace TrafficSimulation.App.DeviceTick;
+
+/// <summary>
+/// <b>Phase 4 on the device, in the town's place</b> (<see cref="ITownDevice.StepBodies"/>): what the town changed in
+/// its bodies sent, the tick's impulses spent — the tyre pass's and the walker tick's where they ran, the town's own
+/// where they did not, and the tow bars — every body stepped, and what the step left handed back into the town's
+/// fleets and its solver's table before anything reads them, with the pairs that began touching for phase 5. One
+/// submit and one wait (<see cref="DeviceBodyPhase"/>, <see cref="DeviceSolver"/>).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Sent</b>: the first step after the device is set, or after the town has stepped itself, lays the table whole and
+/// every car's pose; after that only the rows the town changed (<see cref="PhysicsWorld.Changes"/>) and the poses of the
+/// cars whose bodies those are, which body each car and walker is where that changed, and the wheels and pulls the town
+/// still makes. <b>Handed back</b>: every car as the step read it off its body, every walker in the world off its own,
+/// and as many contacts as the step found — written into the fleets as the town's own phase writes them, and into the
+/// solver's table, which goes on freezing what has settled and reports what began touching
+/// (<see cref="PhysicsWorld.EndTheStepTaken"/>).
+/// </para>
+/// <para>
+/// <b>Set as the town's device on its own, it takes no agent</b> and ticks nothing: the town ticks every agent and the
+/// device steps the bodies, which is how its half is held to the town's.
+/// </para>
+/// </remarks>
+internal sealed class DeviceTownBodies : ITownDevice, IDisposable
+{
+    readonly DeviceTyres _tyres;
+    readonly DeviceSolver _solver;
+    readonly DeviceBodyPhase _phase;
+    readonly ComputeBatch _batch;
+    readonly bool _walkersTicked;
+
+    /// <summary>How many steps the town's table had been through when the device last stepped it, or none yet.</summary>
+    int _stepsTaken = -1;
+
+    /// <summary>How many bodies the table held when it was last laid whole.</summary>
+    int _bodiesLaid;
+
+    /// <param name="tyres">The tyre pass whose table holds the cars' poses and the wheels it stepped; its capacity is the fleet's.</param>
+    /// <param name="walkers">
+    /// The walkers' tick whose impulses every walker's are, recorded in an earlier submit — or none, and every walker's
+    /// impulse is the town's own.
+    /// </param>
+    public DeviceTownBodies(Vk vk, SimConfig config, TownWorld town, DeviceTyres tyres, DeviceWalkerTick? walkers = null)
+    {
+        _tyres = tyres;
+        var physics = town.PhysicsForTheDevice;
+        physics.KeepTheChanges();
+        _solver = new DeviceSolver(vk, config, physics.Table, room: physics.RoomForBodies);
+        _phase = new DeviceBodyPhase(
+            vk, config, _solver, tyres, town.People.Capacity + (2 * town.Cars.Capacity), town.People.Capacity);
+        if (walkers != null) _phase.TakeTheWalkers(walkers);
+
+        _walkersTicked = walkers != null;
+        _batch = new ComputeBatch(vk);
+    }
+
+    /// <summary>The solver's step on the device, for whoever asks it to solve in contact order or reads its counts.</summary>
+    public DeviceSolver Solver => _solver;
+
+    /// <summary>The phase's kernels, for whoever reads their times.</summary>
+    public DeviceBodyPhase Phase => _phase;
+
+    /// <summary>The host's time laying the last step's rows, in milliseconds.</summary>
+    public double LayMs { get; private set; }
+
+    /// <summary>The host's time from the last step's submit to its answer, in milliseconds.</summary>
+    public double WaitMs { get; private set; }
+
+    /// <summary>The host's time writing the last step's answer into the fleets and the table, in milliseconds.</summary>
+    public double HandBackMs { get; private set; }
+
+    /// <summary>
+    /// Of <see cref="HandBackMs"/>, the table's step begun: its awake roster taken in and its owners marked
+    /// (<see cref="PhysicsWorld.BeginTheStepTaken"/>), in milliseconds. Its indexes are laid when a picture first asks.
+    /// </summary>
+    public double RosterMs { get; private set; }
+
+    /// <summary>
+    /// Of <see cref="HandBackMs"/>, the table's own working out: what the step woke, its freezing and what began touching
+    /// (<see cref="PhysicsWorld.EndTheStepTaken"/>), in milliseconds.
+    /// </summary>
+    public double SettlingMs { get; private set; }
+
+    /// <summary>How many bytes the last step handed back: the totals and the cars, every walker in the world, and the contacts.</summary>
+    public ulong ReadBytes { get; private set; }
+
+    /// <summary>Whether the last step laid the table whole.</summary>
+    public bool LaidWhole { get; private set; }
+
+    public bool Takes(int agent) => false;
+
+    public void TickTheRest(TownWorld town)
+    {
+    }
+
+    public void StepBodies(TownWorld town, float dtS) => StepBodies(town, dtS, default);
+
+    /// <summary>
+    /// <b>One step of the town's bodies</b>, as <see cref="ITownDevice.StepBodies"/>.
+    /// </summary>
+    /// <param name="tyresStepped">
+    /// The cars whose wheels the device's tyre pass left in its table this tick, ascending; every other car's are the
+    /// town's own, and are laid from it — as is a car on somebody's arm, whose wheels are the trailer's.
+    /// </param>
+    public void StepBodies(TownWorld town, float dtS, ReadOnlySpan<int> tyresStepped)
+    {
+        var began = Stopwatch.GetTimestamp();
+        Lay(town, dtS, tyresStepped);
+        var laid = Stopwatch.GetTimestamp();
+
+        var commands = _batch.Begin();
+        _phase.Record(
+            commands, town.Cars.Count, town.People.Count, dtS,
+            DeviceBodyPhase.Reads.Poses | DeviceBodyPhase.Reads.Walkers | DeviceBodyPhase.Reads.Contacts);
+        _batch.SubmitAndWait();
+        _phase.ReadTimes();
+        var waited = Stopwatch.GetTimestamp();
+
+        HandBack(town);
+        LayMs = Stopwatch.GetElapsedTime(began, laid).TotalMilliseconds;
+        WaitMs = Stopwatch.GetElapsedTime(laid, waited).TotalMilliseconds;
+        HandBackMs = Stopwatch.GetElapsedTime(waited).TotalMilliseconds;
+    }
+
+    /// <summary>
+    /// What the town changed since the last step, and what it makes this tick: the table's rows, which body each car
+    /// and walker is, the cars' poses where their bodies were placed or reweighed, and the impulses the device does not
+    /// make itself.
+    /// </summary>
+    void Lay(TownWorld town, float dtS, ReadOnlySpan<int> tyresStepped)
+    {
+        var physics = town.PhysicsForTheDevice;
+        var table = physics.Table;
+        var cars = town.Cars;
+        LaidWhole = physics.StepsTaken != _stepsTaken || table.Count != _bodiesLaid;
+        if (LaidWhole)
+        {
+            _solver.LayWhole(table);
+            _bodiesLaid = table.Count;
+            for (var car = 0; car < cars.Count; car++) _tyres.Poses[car] = PoseOf(cars, car);
+            _tyres.Table.Poses.Mark(0, cars.Count);
+        }
+        else
+        {
+            _solver.LayRows(table, physics.Changes);
+            LayThePlacedCars(town, physics);
+        }
+
+        physics.ForgetTheChanges();
+
+        var stepped = 0;
+        for (var car = 0; car < cars.Count; car++)
+        {
+            _phase.LayCar(car, cars.Body[car].Index, town.RestsParked(car));
+            while (stepped < tyresStepped.Length && tyresStepped[stepped] < car) stepped++;
+
+            var tyres = stepped < tyresStepped.Length && tyresStepped[stepped] == car;
+            if (!tyres || town.OnTheHook(car)) _phase.LayWheels(car, town.WheelImpulsesOf(car));
+        }
+
+        var people = town.People;
+        for (var person = 0; person < people.Count; person++)
+        {
+            _phase.LayWalker(person, people.Body[person].Index);
+            if (_walkersTicked || people.Inside[person].Any) continue;
+
+            var impulseNs = town.WalkerImpulseNs(person);
+            if (impulseNs != Vector2.Zero) _phase.LayCentralImpulse(people.Body[person].Index, impulseNs);
+        }
+
+        if (!town.AnyOnTheBar) return;
+
+        for (var car = 0; car < cars.Count; car++)
+        {
+            if (!town.TheBarPulls(car, dtS, out var bar)) continue;
+
+            _phase.LayImpulse(bar.Towed.Index, bar.PullNs, bar.EyeM);
+            _phase.LayImpulse(bar.Tractor.Index, -bar.PullNs, bar.HookM);
+        }
+    }
+
+    /// <summary>The pose of every car whose body the town changed — put down, reweighed — laid again from the fleet, which the town wrote with it.</summary>
+    void LayThePlacedCars(TownWorld town, PhysicsWorld physics)
+    {
+        var cars = town.Cars;
+        foreach (var body in physics.Changes)
+        {
+            var tag = physics.TagOf(new BodyId(body + 1));
+            if (tag.Kind != BodyKind.Car || tag.Index < 0 || tag.Index >= cars.Count) continue;
+
+            _tyres.Poses[tag.Index] = PoseOf(cars, tag.Index);
+            _tyres.Table.Poses.Mark(tag.Index);
+        }
+    }
+
+    static DeviceTyres.PoseRow PoseOf(CarFleet cars, int car) => DeviceTyres.PoseRow.Of(new CarPose(
+        cars.PositionM[car], cars.HeadingRad[car], cars.VelocityMps[car], cars.YawRateRadPerS[car], cars.MassKg[car],
+        cars.AccelerationMps2[car]));
+
+    /// <summary>
+    /// <b>What the step left, handed back</b>: every car into the fleet as the town's own phase writes it, every walker
+    /// in the world with how far that step took it, every body into the solver's table, and the contacts in the step's
+    /// order — after which the table freezes what has settled and says what began touching.
+    /// </summary>
+    void HandBack(TownWorld town)
+    {
+        var physics = town.PhysicsForTheDevice;
+        var began = Stopwatch.GetTimestamp();
+        physics.BeginTheStepTaken();
+        RosterMs = Stopwatch.GetElapsedTime(began).TotalMilliseconds;
+
+        var cars = town.Cars;
+        var poses = _phase.PosesAfter;
+        for (var car = 0; car < cars.Count; car++)
+        {
+            ref readonly var row = ref poses[car];
+            cars.PositionM[car] = row.PositionM;
+            cars.HeadingRad[car] = row.HeadingRad;
+            cars.VelocityMps[car] = row.VelocityMps;
+            cars.YawRateRadPerS[car] = row.YawRateRadPerS;
+            cars.AccelerationMps2[car] = row.AccelerationMps2;
+            physics.Moved(cars.Body[car], row.PositionM, row.Forward, row.HeadingRad, row.VelocityMps, row.YawRateRadPerS);
+        }
+
+        var people = town.People;
+        var walked = _phase.WalkersAfter;
+        var walkers = 0;
+        for (var person = 0; person < people.Count; person++)
+        {
+            if (people.Inside[person].Any) continue;
+
+            var row = walked[person];
+            var nowM = new Vector2(row.X, row.Y);
+            var velocityMps = new Vector2(row.Z, row.W);
+            var wasM = people.PositionM[person];
+            people.PositionM[person] = nowM;
+            people.VelocityMps[person] = velocityMps;
+            people.DistanceWalkedM[person] += (nowM - wasM).Length();
+            physics.Moved(people.Body[person], nowM, velocityMps);
+            walkers++;
+        }
+
+        var contacts = _solver.Contacts;
+        var normals = _solver.ContactNormals;
+        var points = _solver.ContactPoints;
+        for (var contact = 0; contact < contacts.Length; contact++)
+        {
+            var pair = contacts[contact];
+            var normal = normals[contact];
+            var at = points[contact];
+            var manifold = new Manifold
+            {
+                Normal = new Vector2(normal.X, normal.Y),
+                Separation0 = normal.Z,
+                Separation1 = normal.W,
+                Point0 = new Vector2(at.X, at.Y),
+                Point1 = new Vector2(at.Z, at.W),
+                PointCount = (int)pair.Z,
+            };
+            physics.Touched((int)pair.X, (int)pair.Y, manifold);
+        }
+
+        var ending = Stopwatch.GetTimestamp();
+        physics.EndTheStepTaken();
+        SettlingMs = Stopwatch.GetElapsedTime(ending).TotalMilliseconds;
+        _stepsTaken = physics.StepsTaken;
+        TheFrozenStill(town, physics);
+        ReadBytes = _phase.ReadBytes + (ulong)(walkers * Unsafe.SizeOf<Vector4>())
+                    + (ulong)(contacts.Length * (Unsafe.SizeOf<UInt4>() + (2 * Unsafe.SizeOf<Vector4>())));
+    }
+
+    /// <summary>
+    /// <b>What froze in the step stands still in the fleets as in the table</b>: the town's own phase reads its fleets
+    /// off the table after the freezing, so a body frozen at the end of a step is at exactly no motion there. The rows
+    /// changed since the step was laid are exactly those it froze, and are sent with the next.
+    /// </summary>
+    static void TheFrozenStill(TownWorld town, PhysicsWorld physics)
+    {
+        foreach (var index in physics.Changes)
+        {
+            var body = new BodyId(index + 1);
+            var tag = physics.TagOf(body);
+            switch (tag.Kind)
+            {
+                case BodyKind.Car:
+                    town.Cars.VelocityMps[tag.Index] = physics.VelocityOf(body);
+                    town.Cars.YawRateRadPerS[tag.Index] = physics.YawRateOf(body);
+                    break;
+                case BodyKind.Person:
+                    town.People.VelocityMps[tag.Index] = physics.VelocityOf(body);
+                    break;
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        _batch.Dispose();
+        _phase.Dispose();
+        _solver.Dispose();
+    }
+}

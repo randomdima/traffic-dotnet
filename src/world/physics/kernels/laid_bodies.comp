@@ -1,0 +1,48 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The rows the town changed since the last step, written into the table as the host laid them (DeviceSolver.LayRows):
+// one thread a row, each naming its body, read straight out of the memory the host wrote them into. No body is laid
+// twice in one step, so no two threads write one body.
+
+layout(local_size_x = 64) in;
+
+#include "step.glsl"
+
+// One body's row as the host lays it (DeviceSolver.LaidBodyRow): every field the step reads.
+struct LaidBody
+{
+    vec4 pose;
+    vec4 motion;
+    vec4 shape;
+    vec4 bounds;
+    uvec4 filter_;
+    vec2 mass;
+    float headingRad;
+    int body;
+};
+
+layout(std430, binding = 0) readonly buffer Laid { LaidBody laid[]; };
+layout(std430, binding = 1) writeonly buffer Pose { vec4 pose[]; };
+layout(std430, binding = 2) writeonly buffer HeadingB { float headingRad[]; };
+layout(std430, binding = 3) writeonly buffer Motion { vec4 motion[]; };
+layout(std430, binding = 4) writeonly buffer Mass { vec2 mass[]; };
+layout(std430, binding = 5) writeonly buffer ShapeB { vec4 shape[]; };
+layout(std430, binding = 6) writeonly buffer Bounds { vec4 bounds[]; };
+layout(std430, binding = 7) writeonly buffer Filter { uvec4 filter_[]; };
+
+void main()
+{
+    uint at = gl_GlobalInvocationID.x;
+    if (at >= rosterCount) return;
+
+    LaidBody row = laid[at];
+    int body = row.body;
+    pose[body] = row.pose;
+    headingRad[body] = row.headingRad;
+    motion[body] = row.motion;
+    mass[body] = row.mass;
+    shape[body] = row.shape;
+    bounds[body] = row.bounds;
+    filter_[body] = row.filter_;
+}

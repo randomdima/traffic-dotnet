@@ -46,11 +46,15 @@ void main()
     precise float turnRadPerS = m.z + p.z;
     if (travelMps != vec2(0.0) || turnRadPerS != 0.0) filter_[body].x &= ~filedFrozenBit;
 
-    precise vec2 position = pose[body].xy + travelMps * dtS;
+    vec4 was = pose[body];
+    precise vec2 position = was.xy + travelMps * dtS;
     precise float turned = headingRad[body] + turnRadPerS * dtS;
     float heading = wrapped(turned);
+
+    // A body whose heading the step left alone keeps the direction it was laid with: the host's, to the bit, rather
+    // than this device's sin and cos of the same angle — so a body that does not move is left exactly as it stood.
+    vec2 unit = heading == headingRad[body] ? was.zw : trigUnit(heading);
     headingRad[body] = heading;
-    vec2 unit = trigUnit(heading);
     pose[body] = vec4(position, unit);
 
     // Shape.HalfBoundsM: the box's reach along each world axis at this rotation, and its corner radius past that.

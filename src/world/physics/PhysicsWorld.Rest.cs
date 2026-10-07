@@ -289,6 +289,7 @@ internal sealed partial class PhysicsWorld
             _flags[body] |= BodyFlags.Frozen;
             _frozeAtStep[body] = _stepStamp;
             FrozenBodyCount++;
+            Changed(body);
 
             // Standing where the frozen index filed it, it is already there; anywhere else it waits for it.
             if ((_flags[body] & (BodyFlags.FiledFrozen | BodyFlags.Unfiled)) == 0)

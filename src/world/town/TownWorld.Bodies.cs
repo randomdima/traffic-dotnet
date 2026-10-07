@@ -43,6 +43,19 @@ internal sealed partial class TownWorld
     /// </summary>
     public static float LoadSettledShare(SimConfig config, float dtS) => 1f - MathF.Exp(-dtS / config.Tyre.LoadSettleS);
 
+    /// <summary>
+    /// <b>The solver's table, for a device stepping it in the town's place</b> (<see cref="ITownDevice.StepBodies"/>): it
+    /// is written from the device's step, so every query of it reads as after the town's own.
+    /// </summary>
+    internal PhysicsWorld PhysicsForTheDevice => _physics;
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// <b>Where a device is set, the step is the device's</b> (<see cref="ITownDevice.StepBodies"/>): the town still
+    /// settles what slides with nothing driving it and keeps the motion into the tick, and the device spends the
+    /// impulses, steps every body and hands the fleets, the table and the touches back. Nothing is handed to
+    /// <see cref="BeforeTheSolverSteps"/> then — the town's table never holds the tick's impulses.
+    /// </remarks>
     public void StepBodies(float dtS)
     {
         // Phase 3 ends here, whichever kind of agent it ended on: a town with no car left to decide
@@ -58,6 +71,14 @@ internal sealed partial class TownWorld
         for (var car = 0; car < Cars.Count; car++) _velocityIntoTickMps[Roster.AgentOfCar(car)] = Cars.VelocityMps[car];
 
         BeforeTheImpulses?.Invoke(this);
+
+        if (Device != null)
+        {
+            if (Timed) Sub.Begin();
+            Device.StepBodies(this, dtS);
+            if (Timed) Sub.Mark(ref Sub.SolverTicks);
+            return;
+        }
 
         for (var person = 0; person < People.Count; person++)
         {
@@ -156,12 +177,15 @@ internal sealed partial class TownWorld
     /// every tick, so a walker run over mid-stride whose last declaration stayed there would be shoved
     /// along by it for the whole rescue. The aim is the body's own position, which is what keeps a
     /// casualty from turning to face where it had been going.
+    /// <para>
+    /// A casualty a device ticks is slid by the device's own tick (<see cref="ITownDevice.Takes"/>), and not here again.
+    /// </para>
     /// </remarks>
     void Settle(float dtS)
     {
         for (var person = 0; person < People.Count; person++)
         {
-            if (!People.Wounded[person] || People.Inside[person].Any) continue;
+            if (!People.Wounded[person] || People.Inside[person].Any || Device?.Takes(person) == true) continue;
 
             var positionM = People.PositionM[person];
             var step = WalkerFollower.Step(

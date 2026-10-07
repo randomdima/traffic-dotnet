@@ -103,9 +103,8 @@ internal sealed partial class PhysicsWorld
     {
         if (_staticIndexStale) SettleStatics();
 
-        TakeInTheJoining();
-        LayTheFrozenIndexWhenDue();
-        IndexMoving();
+        _indexedWhenAsked = false;
+        LayTheIndexes();
         FindContacts();
         IntegratedBodyCount = _movingCount;
         Damp(dtS);

@@ -11,6 +11,12 @@ layout(push_constant) uniform Phase
 
     // What a car's lagged acceleration closes on its new reading by in one step (TownWorld.LoadSettledShare).
     float loadSettledShare;
+
+    // The bit of a body's flags that says it is in the world (BodyFlags.Enabled).
+    uint enabledBit;
+    uint pad0;
+    uint pad1;
+    uint pad2;
 };
 
 // Which body a car is, and whether it rested parked on its last tick (DeviceBodyPhase.CarBodyRow).

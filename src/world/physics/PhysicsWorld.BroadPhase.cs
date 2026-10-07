@@ -37,10 +37,16 @@ internal sealed partial class PhysicsWorld
         if (_staticIndexStale) SettleStatics();
         if (!_movingIndexStale) return;
 
+        LayTheIndexes();
+        IntegratedBodyCount = _movingCount;
+    }
+
+    /// <summary>The awake roster taken in and the moving and frozen indexes laid over it, as a step begins by.</summary>
+    void LayTheIndexes()
+    {
         TakeInTheJoining();
         LayTheFrozenIndexWhenDue();
         IndexMoving();
-        IntegratedBodyCount = _movingCount;
     }
 
     /// <summary>
@@ -79,6 +85,11 @@ internal sealed partial class PhysicsWorld
     /// first cell it shares (<see cref="CellGrid.FirstShared"/>) would judge that cell by bounds a tick newer than the
     /// filing, and a car whose corner had just crossed into a cell it is not filed in yet would be kept in none.
     /// </para>
+    /// <para>
+    /// <b>After a step taken elsewhere the indexes are laid here</b>, the first time a picture asks (<see cref="BeginTheStepTaken"/>):
+    /// nothing in such a step reads them, so they are laid once a frame rather than once a tick — at the poses the step
+    /// left, and with the census left alone.
+    /// </para>
     /// </remarks>
     /// <returns>
     /// How many were written, or −1 where the box spans more than <paramref name="mostCells"/> cells of either grid —
@@ -86,6 +97,8 @@ internal sealed partial class PhysicsWorld
     /// </returns>
     public int InBox(Vector2 leastM, Vector2 mostM, BodyKind kind, int mostCells, Span<int> into)
     {
+        if (_indexedWhenAsked && _movingIndexStale) LayTheIndexes();
+
         var written = InBox(_dynamicGrid, leastM, mostM, kind, mostCells, into);
         if (written < 0) return -1;
 
@@ -140,13 +153,7 @@ internal sealed partial class PhysicsWorld
     /// </remarks>
     void FindContacts()
     {
-        _contactCount = 0;
-        _touchingCount = 0;
-        ContactPointCount = 0;
-        _stepStamp++;
-        _ownersAtStart = _movingCount;
-
-        for (var slot = 0; slot < _movingCount; slot++) _overlapM[_moving[slot]] = 0f;
+        BeginTheContacts();
 
         for (var slot = 0; slot < _movingCount; slot++)
         {
@@ -162,6 +169,18 @@ internal sealed partial class PhysicsWorld
         }
 
         OrderContacts();
+    }
+
+    /// <summary>A step's contacts begun: none yet, a new stamp, and the awake roster's overlaps cleared for the step to find again.</summary>
+    void BeginTheContacts()
+    {
+        _contactCount = 0;
+        _touchingCount = 0;
+        ContactPointCount = 0;
+        _stepStamp++;
+        _ownersAtStart = _movingCount;
+
+        for (var slot = 0; slot < _movingCount; slot++) _overlapM[_moving[slot]] = 0f;
     }
 
     /// <summary>
@@ -248,6 +267,12 @@ internal sealed partial class PhysicsWorld
 
         RoomForContact();
         var contact = _contactCount++;
+        WriteContact(contact, first, second, manifold);
+        Touching(contact);
+    }
+
+    void WriteContact(int contact, int first, int second, in Manifold manifold)
+    {
         _contactA[contact] = first;
         _contactB[contact] = second;
         _contactNormal[contact] = manifold.Normal;
@@ -256,14 +281,25 @@ internal sealed partial class PhysicsWorld
         _separationM[contact * 2] = manifold.Separation0;
         _pointM[contact * 2 + 1] = manifold.Point1;
         _separationM[contact * 2 + 1] = manifold.Separation1;
-        ContactPointCount += manifold.PointCount;
+    }
 
-        var deepestM = -manifold.Separation0;
-        if (manifold.PointCount > 1) deepestM = MathF.Max(deepestM, -manifold.Separation1);
+    /// <summary>
+    /// A contact written in at its place in the step's list, counted, its depth kept as each body's overlap (the
+    /// furniture's left alone), and its pair on the touching list at the same place.
+    /// </summary>
+    void Touching(int contact)
+    {
+        var first = _contactA[contact];
+        var second = _contactB[contact];
+        var points = _contactPoints[contact];
+        ContactPointCount += points;
+
+        var deepestM = -_separationM[contact * 2];
+        if (points > 1) deepestM = MathF.Max(deepestM, -_separationM[contact * 2 + 1]);
         if (deepestM > 0f)
         {
             _overlapM[first] = MathF.Max(_overlapM[first], deepestM);
-            if (!otherStatic) _overlapM[second] = MathF.Max(_overlapM[second], deepestM);
+            if ((_flags[second] & BodyFlags.Static) == 0) _overlapM[second] = MathF.Max(_overlapM[second], deepestM);
         }
 
         RoomForTouching(_touchingCount + 1);
@@ -318,6 +354,12 @@ internal sealed partial class PhysicsWorld
     void MoveContact(int from, int to)
     {
         _touchingKey[to] = _touchingKey[from];
+        CopyContact(from, to);
+    }
+
+    /// <summary>A contact's own rows copied to another place in the list, its touching key left where it was.</summary>
+    void CopyContact(int from, int to)
+    {
         _contactA[to] = _contactA[from];
         _contactB[to] = _contactB[from];
         _contactNormal[to] = _contactNormal[from];

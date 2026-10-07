@@ -10,6 +10,9 @@
 //
 // Mode 0 counts each owner's candidates; mode 1 writes them at the run the scan of those counts gave it, ordered by
 // the other body's index — so the whole list reads by (owner, other), the order the CPU solves its contacts in.
+//
+// An owner out of the world owns nothing: the roster may name every moving body whether or not it is in the world, so
+// that a body going into a container changes no roster (DeviceSolver.LayEveryOwner).
 
 layout(local_size_x = 64) in;
 
@@ -60,6 +63,12 @@ void main()
     int owner = owners[slot];
     vec4 box = bounds[owner];
     uvec4 ownerFilter = filter_[owner];
+    if ((ownerFilter.x & enabledBit) == 0u)
+    {
+        if (mode == 0u) candidateCounts[slot] = 0u;
+        return;
+    }
+
     int fromX = cellX(box.x);
     int fromY = cellY(box.y);
     int toX = cellX(box.z);

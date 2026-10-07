@@ -3,6 +3,47 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md) and
 [solver.md](solver.md).
 
+## 2026-10-07 — the bodies' phase in the town's place
+
+**With a device set on the town, phase 4 is the device's**: `TownWorld.StepBodies` hands it to `ITownDevice.StepBodies`,
+which `app/devicetick/DeviceTownBodies` implements in one submit and one wait, and the town no longer steps its
+`PhysicsWorld`. The town keeps the casualties' slide (but a casualty the device ticks), the motion into the tick that
+phase 5 judges, and its timing marks; phase 5 reads `BeganTouchingThisStep` as before.
+
+- **Only what the town changed is sent.** The table remembers the rows the town changes (`PhysicsWorld.Changes`): a
+  body added, put in or out of a container, moved to another layer or channel, reweighed, pushed, or frozen. They go as
+  one dense run the device reads straight from mapped memory and writes with a kernel (`kernels/laid_bodies.comp`). The
+  first step, and any after the town has stepped itself, lays the moving rows whole. **Every moving body is an owner**,
+  and `pairs.comp` passes over one out of the world, so a walker boarding sends one row and no roster.
+- **Freezing stays the table's** (`SOL-37`). The device freezes nothing. A body frozen on the host is sent at exactly
+  no motion, and `integrate.comp` now leaves a body whose heading the step did not change with the direction it was
+  laid with, so it stands on the device to the bit. From what comes back the table works out the owners its own step
+  would have had: the awake roster, every frozen body the device moved, and every frozen body touching one of those, and
+  so on (`SOL-37a`). Then rest, freezing and held touches are its own code (`SOL-37b`, `SOL-37c`). The device asks every
+  pair, so a contact neither of whose bodies the table would have owned is dropped.
+- **Handed back**: every car's row off its body (one copy), every walker in the world off its own (a kernel writing
+  host memory, only for bodies in the world), and the contacts, as many as were found (`kernels/contacts_taken.comp`).
+  What began touching is the table's own merge over those (`SOL-6`). A body that froze has its motion stilled in the
+  fleets too, as the host's phase reads them after the freeze.
+- **The indexes are laid when a picture or a ray first asks**, not every step: nothing in a device's step reads them.
+  That was 0.74 ms of the 0.9 the hand-back cost on OdesaOsm.
+- **What the host compares against the bytes it sent is kept in managed memory.** Reading mapped rows back to see what
+  changed cost 3 ms a tick on OdesaOsm.
+- **Held to the host tick for tick** (`DeviceTownBodiesTests`, both solving in contact order): a touring city's cars for
+  a second, and a car park shoved into itself — walkers, cars, every pair that began touching, every body's freezing
+  and what broke and who was hurt — for three seconds, all within the solver's own agreement and the discrete outcomes
+  exact. What parts the two towns is the device's sine and cosine on a body it turned, which a car's controller carries
+  to millimetres within seconds. So the half minute after is asked only that no body stays inside another (`PHY-1`) and
+  nobody is hurt whom the host left whole. The steady state allocates nothing.
+
+On OdesaOsm (10 013 cars, 10 000 walkers, 431 070 bodies; RX 9070 XT), the device stepping the bodies alone, with every
+wheel and walker impulse the town's and so sent: the town's own phase 4 took a median of 2.48 ms a tick (solver 2.39
+mean), and handed to the device 1.92. Laying took 0.08 ms on the host and writing back 0.19. Submit to answer was 1.62,
+of which the device spent 0.45 taking in 771 KiB (626 KiB of it the town's wheels, which a device running its own tyre
+pass does not send), 0.34 on the kernels and 0.32 handing back 543 KiB. About 0.6 is the device waking from the
+tick's idle: an empty submit is 0.03 ms back to back and 0.61 after a sixtieth of a second's sleep. The host's own
+figure moved between 2.5 and 3.3 ms from run to run on this machine. The first step, laid whole, was 18 ms and 4 MiB.
+
 ## 2026-10-07 — the bodies' phase on the device
 
 **The phase between the tyres and the next tick's car tick moves to the device**, in shadow beside

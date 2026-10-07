@@ -1,0 +1,28 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The step's contacts handed back in its order, one thread a contact, into the memory the host reads them from
+// (DeviceSolver.RecordContactsTaken): the pair, its points and colour, the normal and both separations, and both
+// points — as many as the step found and no more, so what crosses is the contacts and not the room kept for them.
+
+layout(local_size_x = 64) in;
+
+#include "step.glsl"
+
+layout(std430, binding = 0) readonly buffer Contact { uvec4 contact[]; };
+layout(std430, binding = 1) readonly buffer ContactNormal { vec4 contactNormal[]; };
+layout(std430, binding = 2) readonly buffer ContactPoints { vec4 contactPoints[]; };
+layout(std430, binding = 3) readonly buffer Totals { uint totals[]; };
+layout(std430, binding = 4) writeonly buffer ContactOut { uvec4 contactOut[]; };
+layout(std430, binding = 5) writeonly buffer ContactNormalOut { vec4 contactNormalOut[]; };
+layout(std430, binding = 6) writeonly buffer ContactPointsOut { vec4 contactPointsOut[]; };
+
+void main()
+{
+    uint at = gl_GlobalInvocationID.x;
+    if (at >= min(totals[ContactTotalAt], capacity)) return;
+
+    contactOut[at] = contact[at];
+    contactNormalOut[at] = contactNormal[at];
+    contactPointsOut[at] = contactPoints[at];
+}
