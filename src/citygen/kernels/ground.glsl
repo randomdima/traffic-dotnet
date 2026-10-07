@@ -36,7 +36,7 @@ void groundWeigh(uint slot, int road, float atM, vec2 pointM, uint level, inout 
     vec2 onM;
     float headingRad;
     splineSample(uint(s.arcStart), uint(s.arcEnd), atM, onM, headingRad);
-    vec2 direction = vec2(cos(headingRad), sin(headingRad));
+    vec2 direction = trigUnit(headingRad);
     vec2 right = vec2(-direction.y, direction.x);
     precise vec2 offsetM = pointM - onM;
 
