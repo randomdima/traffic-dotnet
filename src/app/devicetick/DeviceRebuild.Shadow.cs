@@ -150,7 +150,9 @@ internal sealed partial class DeviceRebuild
             case ClaimsStage.GrantsRead:
                 _rowsToRead = claims.SlotCount;
                 _holdsToRead = claims.HoldCount;
-                Record();
+                if (Chained) Pending = true;
+                else Record();
+
                 break;
         }
     }

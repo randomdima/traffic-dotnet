@@ -38,10 +38,13 @@ internal sealed partial class DeviceCarTick : IDisposable
         public const uint Lost = 32u, AsksTheRoute = 64u, Shifted = 128u, Hazard = 256u, SteppedOut = 512u;
     }
 
-    /// <summary>What the host tells a car's tick (<c>CarToldRow</c>).</summary>
+    /// <summary>
+    /// What the host tells a car's tick (<c>CarToldRow</c>): <see cref="HasAHold"/> and <see cref="Cut"/> are the claims',
+    /// told apart in a word of their own (<see cref="DeviceRebuild.Told"/>, or the shadow's).
+    /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct ToldRow(
-        uint Flags, float PaceMps, float AllowanceM, float PassAsideM, float FromRestM, float Pad0, float Pad1, float Pad2)
+        uint Flags, float PaceMps, float AllowanceM, float PassAsideM, float FromRestM, float PlaceReachM, Vector2 PlaceM)
     {
         public const uint OnACall = 1u, LineIsReverse = 2u, HasAPlace = 4u, HasAHold = 8u, Cut = 16u, Switching = 32u;
         public const uint WaitsShortOfTheEnd = 64u;
@@ -126,6 +129,7 @@ internal sealed partial class DeviceCarTick : IDisposable
     readonly ResidentRows<uint> _breaks;
     readonly ResidentRows<uint> _taken;
     readonly ResidentRows<PassRow> _passes;
+    readonly ResidentRows<uint> _holdBits;
     readonly ComputeKernel _groundKernel, _tickKernel;
     readonly DescriptorSet _groundSet, _tickSet;
     readonly ComputeBatch _batch;
@@ -136,10 +140,16 @@ internal sealed partial class DeviceCarTick : IDisposable
     /// <param name="arcsPerCar">The room each car's line has (<see cref="Agents.Car.Body.CarFleet.LineArcsOf"/>).</param>
     /// <param name="firstConnector">The way the town numbers its first connector (<c>TownWays.OfRoadConnector</c>).</param>
     /// <param name="claims">The claims as the last rebuild cut them: every slot's row, and each way's planned pieces in order.</param>
+    /// <param name="granted">
+    /// Each car's grant, what cut it and its hold bits as the device's own rebuild writes them (<see cref="DeviceRebuild"/>),
+    /// bound in place of the tables the host would lay — or none, and the host lays them.
+    /// </param>
     public DeviceCarTick(
         Vk vk, SimConfig config, DeviceTyres tyres, DeviceGround ground, RoadGraph roads, int arcsPerCar, int firstConnector,
-        (GpuBuffer Rows, GpuBuffer PlannedRuns, GpuBuffer PlannedOrder) claims)
+        (GpuBuffer Rows, GpuBuffer PlannedRuns, GpuBuffer PlannedOrder) claims,
+        (GpuBuffer Grants, GpuBuffer Cutters, GpuBuffer HoldBits)? granted = null)
     {
+        GrantedOnTheDevice = granted.HasValue;
         _vk = vk;
         _config = config;
         _tyres = tyres;
@@ -184,6 +194,7 @@ internal sealed partial class DeviceCarTick : IDisposable
         _breaks = new ResidentRows<uint>(vk, capacity, lanes);
         _taken = new ResidentRows<uint>(vk, capacity, 1);
         _passes = new ResidentRows<PassRow>(vk, capacity, 1, readsBack: true);
+        _holdBits = new ResidentRows<uint>(vk, capacity, 1);
 
         var table = tyres.Table;
         GpuBuffer[] onTheGround = [table.Poses.Device, table.Cars.Device, _lines.Device, _taken.Device, tyres.Effects, .. ground.Tables];
@@ -195,8 +206,9 @@ internal sealed partial class DeviceCarTick : IDisposable
             table.Builds, table.BuildOf.Device, table.Poses.Device, table.Commands.Device, table.Cars.Device, _arcs.Device,
             _entries.Device, _chain.Device, _starts.Device, _ends.Device, _firstArcs.Device, _breaks.Device, _lines.Device,
             Laid(roads.LaneLengthM), Laid(connectorAt), Laid(connectorTo), Laid(connectorRung), Laid(connectorLength),
-            Laid(lanePassable), claims.Rows, claims.PlannedRuns, claims.PlannedOrder, _cutters.Device, _grants.Device,
-            _told.Device, _ticks.Device, _contexts.Device, _boxes.Device, _taken.Device, _passes.Device,
+            Laid(lanePassable), claims.Rows, claims.PlannedRuns, claims.PlannedOrder, granted?.Cutters ?? _cutters.Device,
+            granted?.Grants ?? _grants.Device, _told.Device, _ticks.Device, _contexts.Device, _boxes.Device, _taken.Device,
+            _passes.Device, granted?.HoldBits ?? _holdBits.Device,
         ];
         _tickKernel = new ComputeKernel(vk, "car_tick.comp", ticked.Length, (uint)Marshal.SizeOf<Figures>());
         _tickSet = _tickKernel.Bind(ticked);
@@ -208,6 +220,9 @@ internal sealed partial class DeviceCarTick : IDisposable
 
     /// <summary>The most cars the table holds: the tyre pass's.</summary>
     public int Capacity => _tyres.Capacity;
+
+    /// <summary>Whether each car's grant, cutter and hold bits are the device's own rebuild's rather than laid by the host.</summary>
+    public bool GrantedOnTheDevice { get; }
 
     /// <summary>The tyre pass the tick hands its commands to, whose table holds each car's pose, command and wheels.</summary>
     public DeviceTyres Tyres => _tyres;
@@ -282,7 +297,7 @@ internal sealed partial class DeviceCarTick : IDisposable
                     + table.Wheels.MarkedBytes + _ticks.MarkedBytes + _told.MarkedBytes + _grants.MarkedBytes + _cutters.MarkedBytes
                     + _boxes.MarkedBytes + _lines.MarkedBytes + _arcs.MarkedBytes + _entries.MarkedBytes + _chain.MarkedBytes
                     + _starts.MarkedBytes + _ends.MarkedBytes + _firstArcs.MarkedBytes + _breaks.MarkedBytes + _taken.MarkedBytes
-                    + _passes.MarkedBytes;
+                    + _passes.MarkedBytes + _holdBits.MarkedBytes;
         LinesSentBytes = _arcs.MarkedBytes + _entries.MarkedBytes;
         _tyres.SendMarked(commands);
         _ticks.Send(commands);
@@ -300,6 +315,7 @@ internal sealed partial class DeviceCarTick : IDisposable
         _breaks.Send(commands);
         _taken.Send(commands);
         _passes.Send(commands);
+        _holdBits.Send(commands);
         vk.AfterTransfer(commands);
         _timer.Stamp(commands, (int)Stage.Sent);
 
@@ -353,7 +369,7 @@ internal sealed partial class DeviceCarTick : IDisposable
         _groundKernel.Dispose();
         foreach (var table in (ReadOnlySpan<IDisposable>)[
                      _ticks, _told, _grants, _cutters, _boxes, _contexts, _lines, _arcs, _entries, _chain, _starts, _ends, _firstArcs,
-                     _breaks, _taken, _passes])
+                     _breaks, _taken, _passes, _holdBits])
         {
             table.Dispose();
         }

@@ -109,12 +109,15 @@ layout(std430, binding = 26) writeonly buffer Contexts { DriveContextRow context
 layout(std430, binding = 27) buffer Boxes { BoxAheadRow boxes[]; };
 layout(std430, binding = 28) readonly buffer Taken { uint taken[]; };
 layout(std430, binding = 29) buffer Passes { OvertakeRow passes[]; };
+layout(std430, binding = 30) readonly buffer HoldBits { uint holdBits[]; };
 
 void main()
 {
     if (gl_GlobalInvocationID.x >= figures.carCount) return;
 
     uint car = taken[gl_GlobalInvocationID.x];
+    CarToldRow toldRow = told[car];
+    toldRow.flags |= holdBits[car] & (ContextHasAHold | ContextCut);
     CarTickRow tick = ticks[car];
     CarLineRow line = lines[car];
     TyreCommand command = commands[car];
@@ -122,7 +125,7 @@ void main()
     OvertakeRow pass = passes[car];
     DriveContextRow context;
     carTick(
-        car, builds[buildOf[car]], poses[car], carRows[car].groundCoefficient, told[car], grants[car], cutters[car], tick, line,
+        car, builds[buildOf[car]], poses[car], carRows[car].groundCoefficient, toldRow, grants[car], cutters[car], tick, line,
         command, context, box, pass);
 
     ticks[car] = tick;

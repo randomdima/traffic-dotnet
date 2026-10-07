@@ -18,9 +18,10 @@ struct CarTickRow
     uint flags;
 };
 
-// What the host tells a car's tick, its decisions' and its claims' (CarFleet.PaceMps, TownWorld.OffTheLineAllowanceM;
-// Switching.AsideM, WaitsShortOfTheEnd): flags in the bits ContextCarRow's flags have, and above them whether the car is
-// moving across (CAR-53) and whether its line stops where its route moves across.
+// What the host tells a car's tick, its decisions' (CarFleet.PaceMps, TownWorld.OffTheLineAllowanceM, SceneOf;
+// Switching.AsideM, WaitsShortOfTheEnd): flags in the bits ContextCarRow's flags have — but HasAHold and Cut, which are
+// the claims' and come from the rebuild beside — and above them whether the car is moving across (CAR-53) and whether
+// its line stops where its route moves across; and the place it was sent to and how near it has to stand.
 struct CarToldRow
 {
     uint flags;
@@ -28,9 +29,8 @@ struct CarToldRow
     float allowanceM;
     float passAsideM;
     float fromRestM;
-    float pad0;
-    float pad1;
-    float pad2;
+    float placeReachM;
+    vec2 placeM;
 };
 
 const uint ToldSwitching = 32u;
@@ -42,8 +42,8 @@ const uint TickShifted = 128u;
 const uint TickHazard = 256u;
 const uint TickSteppedOut = 512u;
 
-// What the last claims rebuild granted a car and what cut it, and the place it was sent to (CarFleet.AuthorityM,
-// HorizonM, ClaimFromM, CommittedToM, GrantMarginM, GrantCutBy; LaneOccupancy.HoldCutOn; TownWorld.SceneOf).
+// What the last claims rebuild granted a car and what cut it (CarFleet.AuthorityM, HorizonM, ClaimFromM, CommittedToM,
+// GrantMarginM, GrantCutBy; LaneOccupancy.HoldCutOn). The place fields are unread: the place is told (CarToldRow).
 struct CarGrantRow
 {
     float authorityM;
@@ -142,8 +142,8 @@ void carTick(
 
     ContextCarRow row = ContextCarRow(
         tick.progressM, tick.coveredSinceClaimM, grant.authorityM, grant.horizonM, grant.claimFromM, grant.committedToM,
-        grant.grantMarginM, groundCoefficient, tick.plannedMps, grant.grantCutBy, told.flags, grant.cutOn, grant.placeM,
-        grant.placeReachM, 0.0, pose.positionM, 0.0, 0.0);
+        grant.grantMarginM, groundCoefficient, tick.plannedMps, grant.grantCutBy, told.flags, grant.cutOn, told.placeM,
+        told.placeReachM, 0.0, pose.positionM, 0.0, 0.0);
     box = contextReadTheBoxAhead(car, build, line, row);
     context = contextSetTheContext(car, build, line, row, cutBy);
     if ((told.flags & ToldSwitching) != 0u)

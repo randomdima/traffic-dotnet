@@ -347,8 +347,33 @@ internal sealed partial class DeviceRebuild : IDisposable
     /// </summary>
     void Record()
     {
-        var vk = _vk;
         var commands = _batch.Begin();
+        Record(commands, readBack: true);
+        _batch.SubmitAndWait();
+        ReadTimes();
+    }
+
+    /// <summary>
+    /// <b>Whether a rebuild is laid and waits to be recorded into a tick's submit</b> (<see cref="Chained"/>): every stage of
+    /// the town's own rebuild has been watched, and nothing of it has run on the device yet.
+    /// </summary>
+    public bool Pending { get; private set; }
+
+    /// <summary>
+    /// Whether a rebuild is recorded into the tick's own submit (<see cref="Record(CommandBuffer, bool)"/>) rather than
+    /// submitted by itself once the town's grants are read.
+    /// </summary>
+    public bool Chained { get; set; }
+
+    /// <summary>
+    /// <b>One rebuild recorded into a caller's submit</b>: what the producers and the host's units were laid sent across, then
+    /// every kernel of the chain, then — where <paramref name="readBack"/> — the claims, the grants and the walkers read back.
+    /// Its writes are left for the caller to barrier before whatever reads them.
+    /// </summary>
+    public void Record(CommandBuffer commands, bool readBack)
+    {
+        var vk = _vk;
+        Pending = false;
         _timer.Reset(commands);
         _timer.Stamp(commands, (int)Stage.Began);
 
@@ -396,6 +421,13 @@ internal sealed partial class DeviceRebuild : IDisposable
         _walkers.Record(commands, DeviceWalkers.Piece.Read);
         _timer.Stamp(commands, (int)Stage.Granted);
 
+        // Every stamp is written, read back or not: a stamp never written is one its read waits on for good.
+        if (!readBack)
+        {
+            _timer.Stamp(commands, (int)Stage.Read);
+            return;
+        }
+
         vk.BeforeTransfer(commands);
         _claims.RecordRead(commands, _rowsToRead, _holdsToRead);
         vk.Copy(commands, _grants, _grantsOut, Bytes<DeviceCarTick.GrantRow>(_carCount));
@@ -403,7 +435,11 @@ internal sealed partial class DeviceRebuild : IDisposable
         vk.Copy(commands, _told, _toldOut, Bytes<uint>(_carCount));
         _walkers.RecordRead(commands, DeviceWalkers.Piece.Read);
         _timer.Stamp(commands, (int)Stage.Read);
-        _batch.SubmitAndWait();
+    }
+
+    /// <summary>The device's stamps of the last rebuild taken in, once its submit has been waited for.</summary>
+    public void ReadTimes()
+    {
         _timer.Read();
         Rebuilds++;
     }

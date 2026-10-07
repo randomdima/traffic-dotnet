@@ -37,10 +37,8 @@ internal static class DeviceTickProbe
         while (loop.Tick < WarmupTicks) loop.Advance();
 
         var cars = world.Cars;
-        var claims = world.Occupancy;
         using var vk = Vk.Open("traffic-dotnet", validation: false);
-        using var answered = new DeviceClaims(
-            vk, claims.WayCount, claims.Capacity, claims.HoldCapacity, config.Road.MostSettlingPasses, cars.Capacity);
+        using var rebuild = new DeviceRebuild(vk, config, world);
         var shapes = new GroundShapes(plan.Paving(config), config);
         using var ground = new DeviceGround(vk, shapes.Table);
         var builds = new CarBuild[CarCatalog.Shared.SheetCount];
@@ -48,21 +46,19 @@ internal static class DeviceTickProbe
 
         using var tyres = new DeviceTyres(vk, config, ground, world.Terrain.EffectTable, builds, cars.Capacity);
         using var carTick = new DeviceCarTick(
-            vk, config, tyres, ground, world.Roads, cars.LineArcsOf(0).Length, world.Ways.OfRoadConnector(0), answered.Cut);
+            vk, config, tyres, ground, world.Roads, cars.LineArcsOf(0).Length, world.Ways.OfRoadConnector(0), rebuild.Claims,
+            (rebuild.Grants, rebuild.Cutters, rebuild.Told));
         using var solver = new DeviceSolver(vk, config, world.PhysicsForInstruments.Table);
         using var bodies = new DeviceBodyPhase(vk, config, solver, tyres, world.People.Capacity + (2 * cars.Capacity));
         using var walkerTick = new DeviceWalkerTick(vk, config, world.People.Capacity);
-        using var tick = new DeviceTick(vk, carTick, bodies, walkerTick);
+        using var tick = new DeviceTick(vk, carTick, bodies, walkerTick, rebuild);
 
-        // The device's claims are the ones its tick reads, so nothing is asked of it until it has answered a rebuild.
+        // The device's claims are the ones its tick reads, so nothing is asked of it until a rebuild of its own is laid.
         var rebuilt = false;
         world.WatchingTheClaims = (town, stage) =>
         {
-            if (stage != ClaimsStage.PlansLaid) return;
-
-            answered.Lay(town.Occupancy);
-            answered.Answer();
-            rebuilt = true;
+            rebuild.Watch(town, stage);
+            if (stage == ClaimsStage.GrantsRead) rebuilt = true;
         };
 
         var taken = new int[cars.Capacity];
@@ -71,6 +67,7 @@ internal static class DeviceTickProbe
         var stepped = false;
         var kernelsMs = new List<double>();
         var carMs = new List<double>();
+        var rebuildMs = new List<double>();
         var bodiesMs = new List<double>();
         var hostMs = new List<double>();
         var apartM = new List<double>();
@@ -127,6 +124,7 @@ internal static class DeviceTickProbe
             tick.Step(count, town.Cars.Count, walkers, config.TickSeconds, readBack: true);
             carTick.SettleTheDevice(taken.AsSpan(0, count));
             kernelsMs.Add(tick.KernelsMs);
+            if (tick.Rebuilt) rebuildMs.Add(tick.RebuildMs);
             carMs.Add(carTick.TickMs + carTick.TyresMs);
             walkerMs.Add(walkerTick.TickMs);
             bodiesMs.Add(bodies.KernelsMs);
@@ -156,6 +154,7 @@ internal static class DeviceTickProbe
         Console.WriteLine($"{kernelsMs.Count} ticks, the agents' side chained in one submit:");
         Console.WriteLine($"  host, the agents' ticks and decisions and the bodies' phase  median {Median(hostMs),8:F3} ms");
         Console.WriteLine($"  device, every kernel     median {Median(kernelsMs),8:F3} ms   most {kernelsMs.Max(),8:F3} ms");
+        Console.WriteLine($"    the claims rebuild     median {Median(rebuildMs),8:F3} ms   on {rebuildMs.Count} of the ticks");
         Console.WriteLine($"    the car tick and tyres median {Median(carMs),8:F3} ms");
         Console.WriteLine($"    the walkers' tick      median {Median(walkerMs),8:F3} ms");
         Console.WriteLine($"    the bodies' phase      median {Median(bodiesMs),8:F3} ms");

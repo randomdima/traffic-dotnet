@@ -232,7 +232,32 @@ internal sealed partial class DeviceCarTick
         _levelSent[car] = cars.LevelOf(car);
     }
 
+    /// <summary>
+    /// What a car's decisions tell its tick, and — where the device's own rebuild does not write them
+    /// (<see cref="GrantedOnTheDevice"/>) — what the town's claims granted it, what cut it and its hold bits.
+    /// </summary>
     void LayWhatItIsTold(TownWorld town, int car)
+    {
+        var cars = town.Cars;
+        if (!GrantedOnTheDevice) LayWhatItWasGranted(town, car);
+
+        var hasAPlace = town.SceneOf(car, out var placeM, out var reachM);
+        var told = (cars.BlueLight[car] ? ToldRow.OnACall : 0u) | (cars.LineIsReverse[car] ? ToldRow.LineIsReverse : 0u)
+                   | (hasAPlace ? ToldRow.HasAPlace : 0u);
+        var asideM = 0f;
+        var fromRestM = 0f;
+        if (cars.Action[car] == CarAction.Switch)
+        {
+            told |= ToldRow.Switching;
+            asideM = town.Switching.AsideM(car);
+            if (town.Switching.WaitsShortOfTheEnd(car, out fromRestM)) told |= ToldRow.WaitsShortOfTheEnd;
+        }
+
+        _told.Rows(car)[0] = new ToldRow(told, cars.PaceMps[car], town.OffTheLineAllowanceM(car), asideM, fromRestM, reachM, placeM);
+        _told.Mark(car);
+    }
+
+    void LayWhatItWasGranted(TownWorld town, int car)
     {
         var cars = town.Cars;
         var claims = town.Occupancy;
@@ -245,28 +270,14 @@ internal sealed partial class DeviceCarTick
             cutOn = claims.HoldCutOn(hold);
         }
 
-        var hasAPlace = town.SceneOf(car, out var placeM, out var reachM);
         _grants.Rows(car)[0] = new GrantRow(
             cars.AuthorityM[car], cars.HorizonM[car], cars.ClaimFromM[car], cars.CommittedToM[car], cars.GrantMarginM[car],
-            (uint)cars.GrantCutBy[car], cutOn, reachM, placeM);
+            (uint)cars.GrantCutBy[car], cutOn, 0f, Vector2.Zero);
         _cutters.Rows(car)[0] = cut.Found ? DeviceClaims.ClaimRow.Of(cut, cutOn, false, cut.FromM) : default;
-
-        var told = (cars.BlueLight[car] ? ToldRow.OnACall : 0u) | (cars.LineIsReverse[car] ? ToldRow.LineIsReverse : 0u)
-                   | (hasAPlace ? ToldRow.HasAPlace : 0u) | (hold != LaneOccupancy.NoHold ? ToldRow.HasAHold : 0u)
-                   | (cut.Found ? ToldRow.Cut : 0u);
-        var asideM = 0f;
-        var fromRestM = 0f;
-        if (cars.Action[car] == CarAction.Switch)
-        {
-            told |= ToldRow.Switching;
-            asideM = town.Switching.AsideM(car);
-            if (town.Switching.WaitsShortOfTheEnd(car, out fromRestM)) told |= ToldRow.WaitsShortOfTheEnd;
-        }
-
-        _told.Rows(car)[0] = new ToldRow(told, cars.PaceMps[car], town.OffTheLineAllowanceM(car), asideM, fromRestM, 0f, 0f, 0f);
+        _holdBits.Rows(car)[0] = (hold != LaneOccupancy.NoHold ? ToldRow.HasAHold : 0u) | (cut.Found ? ToldRow.Cut : 0u);
         _grants.Mark(car);
         _cutters.Mark(car);
-        _told.Mark(car);
+        _holdBits.Mark(car);
     }
 
     void LayThePass(CarFleet cars, int car)
