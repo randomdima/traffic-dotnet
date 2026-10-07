@@ -170,6 +170,12 @@ internal sealed partial class DeviceRebuild
     /// <summary>The host's time writing what came back into the town, in milliseconds.</summary>
     public double MirroredMs { get; private set; }
 
+    /// <summary>
+    /// Of what the last rebuild in the town sent, in bytes: the cars' bodies, their plans' rows, the walkers as stationed and
+    /// changed since, the cars' lines, each asked car's claim, and the rows, holds and asks the town laid itself.
+    /// </summary>
+    public (ulong Bodies, ulong Plans, ulong Walkers, ulong Lines, ulong CarClaims, ulong TownsOwn) SentParts { get; private set; }
+
     /// <summary>How many bytes the last rebuild in the town sent, and how many it read back.</summary>
     public (ulong Sent, ulong Read) Crossed { get; private set; }
 
@@ -283,10 +289,11 @@ internal sealed partial class DeviceRebuild
         _unitsSent = _hostUnitCount;
         _rowEditsSent = _rowEditCount;
         _holdEditsSent = _holdEditCount;
-        var sent = _bodies.SentBytes + _plans.SentBytes + _walkers.ResidentSentBytes + _carTick!.LinesMarkedBytes
-                   + Sent<ClaimRow>.BytesOf(_hostRowCount) + Sent<uint>.BytesOf(_hostRowCount) + Sent<HoldRow>.BytesOf(_hostHoldCount)
-                   + Sent<uint>.BytesOf(_hostHoldCount) + Sent<HostUnit>.BytesOf(_hostUnitCount) + Sent<RowEdit>.BytesOf(_rowEditCount)
-                   + Sent<HoldEdit>.BytesOf(_holdEditCount) + _carClaims.MarkedBytes + Sent<BodyAskRow>.BytesOf(_askCount);
+        var townsOwn = Sent<ClaimRow>.BytesOf(_hostRowCount) + Sent<uint>.BytesOf(_hostRowCount) + Sent<HoldRow>.BytesOf(_hostHoldCount)
+                       + Sent<uint>.BytesOf(_hostHoldCount) + Sent<HostUnit>.BytesOf(_hostUnitCount) + Sent<RowEdit>.BytesOf(_rowEditCount)
+                       + Sent<HoldEdit>.BytesOf(_holdEditCount) + Sent<BodyAskRow>.BytesOf(_askCount);
+        SentParts = (_bodies.SentBytes, _plans.SentBytes, _walkers.ResidentSentBytes, _carTick!.LinesMarkedBytes, _carClaims.MarkedBytes, townsOwn);
+        var sent = SentParts.Bodies + SentParts.Plans + SentParts.Walkers + SentParts.Lines + SentParts.CarClaims + townsOwn;
         _bodies.RecordSend(commands);
         _plans.RecordSend(commands);
         _walkers.RecordTheResidentSend(commands);
