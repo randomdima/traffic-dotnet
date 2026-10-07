@@ -32,6 +32,20 @@
       "stopAtEntry": false
     },
     {
+      // The entry above with every town it stands ticked on the GPU in step (--device-tick, DeviceTown):
+      // cars, walkers, bodies and the claims on the device, and the host left the decisions.
+      "name": "Release (GPU)",
+      "type": "coreclr",
+      "request": "launch",
+      "noDebug": true,
+      "preLaunchTask": "build release",
+      "program": "${workspaceFolder}/bin/Release/net10.0/traffic-dotnet",
+      "args": ["--display", "HDMI-1", "--device-tick"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    },
+    {
       // The browser head, on this machine. The task publishes the page ahead-of-time compiled and
       // serves it on 8730; this opens a Chromium of its own at it, and the page's console arrives in
       // the Debug Console.
