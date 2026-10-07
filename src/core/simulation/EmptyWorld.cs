@@ -23,6 +23,10 @@ internal struct EmptyWorld(int agentCount) : ISimWorld
 
     public void TickAgent(int agent) => AgentTicks++;
 
+    public readonly void AgentsTicked()
+    {
+    }
+
     public void DecideAgent(int agent, float sinceLastDecisionS) => Decisions++;
 
     public readonly void StepBodies(float dtS) { }

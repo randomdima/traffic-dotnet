@@ -39,6 +39,10 @@ internal sealed class RecordingWorld(int agentCount) : ISimWorld
 
     public void TickAgent(int agent) => Log.Add((Phase.TickAgent, agent));
 
+    public void AgentsTicked()
+    {
+    }
+
     public void DecideAgent(int agent, float sinceLastDecisionS) => Log.Add((Phase.Decide, agent));
 
     public void StepBodies(float dtS) => Log.Add((Phase.Step, -1));

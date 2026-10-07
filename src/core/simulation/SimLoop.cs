@@ -189,6 +189,7 @@ internal sealed class SimLoop<TWorld> where TWorld : ISimWorld
             if (!_world.IsTerminal(agent)) _world.TickAgent(agent);
         }
 
+        _world.AgentsTicked();
         WatchingTheAgents?.Invoke(_world, AgentsStage.Ticked);
         for (var agent = 0; agent < agents; agent++)
         {

@@ -1,0 +1,36 @@
+#version 460
+
+// Runs of words copied from one buffer into another, one workgroup a run and a word a thread — what a copy of many small
+// runs is on a device whose own copy pays per run and moves at its command processor's pace (runtime/ResidentRows).
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Copy
+{
+    uint runCount;
+} copy;
+
+// A run: where it starts in each buffer and how long it is, all in 32-bit words.
+struct Run
+{
+    uint from;
+    uint to;
+    uint words;
+    uint pad;
+};
+
+layout(std430, binding = 0) readonly buffer From { uint fromWords[]; };
+layout(std430, binding = 1) writeonly buffer To { uint toWords[]; };
+layout(std430, binding = 2) readonly buffer Runs { Run runs[]; };
+
+void main()
+{
+    uint at = gl_WorkGroupID.x;
+    if (at >= copy.runCount) return;
+
+    Run run = runs[at];
+    for (uint word = gl_LocalInvocationID.x; word < run.words; word += gl_WorkGroupSize.x)
+    {
+        toWords[run.to + word] = fromWords[run.from + word];
+    }
+}

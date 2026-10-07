@@ -790,9 +790,18 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             ? WheelIsHeldOver(Roster.CarIndex(agent))
             : _hands.Held && _selected.Holds(SelectionKind.Person, agent));
 
+    /// <summary>
+    /// <b>Where the town's tick runs other than in its own loops</b> (<see cref="ITownDevice"/>), or none: the agents it takes
+    /// are not ticked here, and what they left is handed back before any decision reads it.
+    /// </summary>
+    public ITownDevice? Device { get; set; }
+
+    public void AgentsTicked() => Device?.TickTheRest(this);
+
     public void TickAgent(int agent)
     {
         AccountFor(agent, deciding: false);
+        if (Device?.Takes(agent) == true) return;
 
         if (HoldAgents && !Handed(agent))
         {

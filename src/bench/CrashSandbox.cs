@@ -96,6 +96,10 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
     {
     }
 
+    public void AgentsTicked()
+    {
+    }
+
     public void DecideAgent(int agent, float sinceLastDecisionS)
     {
     }
