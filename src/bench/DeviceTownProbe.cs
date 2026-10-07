@@ -101,6 +101,7 @@ internal static class DeviceTownProbe
         var rebuilds = 0;
         var (claimsLaidMs, claimsWaitMs, claimsMirrorMs, claimsSentMs, claimsKernelsMs, claimsReadMs) = (0d, 0d, 0d, 0d, 0d, 0d);
         var claimsStationedMs = 0d;
+        var (claimsBodiesMs, claimsPlansMs) = (0d, 0d);
         var (claimsSentMb, claimsReadMb) = (0d, 0d);
         var sentParts = new double[6];
         var (laidRows, laidBodies, laidHolds) = (0L, 0L, 0L);
@@ -130,6 +131,8 @@ internal static class DeviceTownProbe
                 claimsMirrorMs += rebuild.MirroredMs;
                 claimsSentMs += rebuild.BetweenMs(DeviceRebuild.Stage.Began, DeviceRebuild.Stage.Sent);
                 claimsKernelsMs += rebuild.BetweenMs(DeviceRebuild.Stage.Sent, DeviceRebuild.Stage.Answered);
+                claimsBodiesMs += rebuild.BetweenMs(DeviceRebuild.Stage.Sent, DeviceRebuild.Stage.BodiesLaid);
+                claimsPlansMs += rebuild.BetweenMs(DeviceRebuild.Stage.BodiesLaid, DeviceRebuild.Stage.PlansLaid);
                 claimsReadMs += rebuild.BetweenMs(DeviceRebuild.Stage.Answered, DeviceRebuild.Stage.Read);
                 claimsSentMb += rebuild.Crossed.Sent / 1e6;
                 var parts = rebuild.SentParts;
@@ -192,7 +195,9 @@ internal static class DeviceTownProbe
                 $"{claimsWaitMs / each:F2}, writing back {claimsMirrorMs / each:F2}");
             Console.WriteLine(
                 $"  of the wait, the device's own: sending {claimsSentMs / each:F2} ({claimsSentMb / each:F2} MB), the kernels through the answers " +
-                $"{claimsKernelsMs / each:F2}, reading back {claimsReadMs / each:F2} ({claimsReadMb / each:F2} MB) — {laidRows / each} rows, " +
+                $"{claimsKernelsMs / each:F2} (the bodies {claimsBodiesMs / each:F2}, the plans {claimsPlansMs / each:F2}, the answers " +
+                $"{(claimsKernelsMs - claimsBodiesMs - claimsPlansMs) / each:F2}), reading back {claimsReadMs / each:F2} " +
+                $"({claimsReadMb / each:F2} MB) — {laidRows / each} rows, " +
                 $"{laidBodies / each} of them bodies and passes, and {laidHolds / each} holds a rebuild; {device.Claims.Rebuild.ReadPast} " +
                 $"laid past what their submit read back, {device.Claims.Rebuild.OnOtherChannelsAtABay} cars at a bay put on other " +
                 $"channels and {device.Claims.Rebuild.BackedUp} rebuilds with a car backing up since the device was set; the town laid " +
