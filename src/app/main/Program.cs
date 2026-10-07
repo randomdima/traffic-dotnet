@@ -362,6 +362,9 @@ internal static class Program
             case "devicecartick":
                 DeviceCarTickProbe.Run(map ?? Options.FixtureMap, config);
                 return 0;
+            case "devicebodies":
+                DeviceBodiesProbe.Run(map ?? Options.FixtureMap, config);
+                return 0;
             case "outset":
                 return Kept(BoundaryProbe.Outset(map ?? Options.FixtureMap, config, atM));
             case "fill":

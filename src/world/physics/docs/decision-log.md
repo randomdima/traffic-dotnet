@@ -3,6 +3,35 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md) and
 [solver.md](solver.md).
 
+## 2026-10-07 — the bodies' phase on the device
+
+**The phase between the tyres and the next tick's car tick moves to the device**, in shadow beside
+`TownWorld.StepBodies`: `app/devicetick/DeviceBodyPhase` records three kernels round the solver's step in one submit
+(`world/town/kernels/bodies_*.comp`, over `kernels/impulse.glsl`), and `--bench devicebodies` compares the two.
+
+- **The wheels are spent off the tyre pass's own table** (`DeviceTyres.ImpulseTable`), one thread a car in wheel
+  order; then what the host lays, one row a body; then the step; then every car is read back off its body into the
+  tyre pass's poses, which is what the next car tick reads. The lagged acceleration is read off the same impulse table.
+- **`DeviceSolver` is split into lay, send and record**, so another submit can carry its step between kernels that
+  use its table. `Step` is the three in its own submit, as before.
+- **Still laid by the host**: which body each car is and whether it rested parked, sent only where it changed; every
+  walker's central impulse and both ends of a tow bar; and the two trailer wheels of a car on a tow, written over the
+  tyre pass's rows. The walkers' read-back and the velocities kept for the arbiter stay on the host.
+- **The impulses are the host's to the bit** (`DeviceBodyPhaseTests`, City's driven cars and Built's walkers and
+  parked cars): the same products and sums in the same order. The exception is the edge of rest. A kernel flushes
+  subnormal terms, and four wheel turns below the least normal float, summed on the host to cancel a 1e-38 yaw, are
+  dropped one by one on the device. So that edge is held within the flushed terms of nought.
+- **`Vector2.Lerp` is fused on the host** (.NET 10), so the acceleration's lag is an `fma` on the device.
+- **The read-back is the town's within the solver's own agreement** when both solve in contact order. The direction a
+  body points is the integration's built-in sin and cos (Vulkan's bound, 2⁻¹¹), not `trig.glsl`'s; moving it is the
+  step's own change and was not made here.
+
+On OdesaOsm (10 013 cars, 10 000 walkers; RX 9070 XT, the device in colours) the host's phase was 3.28 ms a tick, of
+which the solver's step was 3.02, and the device's kernels 0.41: impulses 0.008, step 0.394, read-back 0.005. The
+shadow's sends were apart: 3 MiB a tick, 1.76 ms on the device and 2.35 ms laying it on the host, and 0.27 ms handing
+it back. Over 4.2 million bodies no impulse differed. Over 100 130 car-ticks no position differed; the most any
+velocity differed was 1.3e-7 m/s, heading 1.2e-7 rad, direction 2.8e-7 and acceleration 1.1e-6 m/s².
+
 ## 2026-10-06 — the step on the device
 
 **The tick moves to the device** (root log), and the solver's step is its first piece: `kernels/` holds it pass for

@@ -5,6 +5,7 @@ using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.World.Physics;
+using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 
@@ -19,6 +20,29 @@ internal sealed partial class TownWorld
     /// </summary>
     public Action<PhysicsWorld>? BeforeTheSolverSteps { get; set; }
 
+    /// <summary>
+    /// <b>For the instruments</b>: handed the town once every impulse of the tick is written and none is yet spent — the
+    /// bodies as the step will find them, and what the phase is about to apply (<see cref="WheelImpulsesOf"/>,
+    /// <see cref="WalkerImpulseNs"/>, <see cref="RestsParked"/>, <see cref="TheBarPulls"/>). Nothing that decides anything
+    /// sets it.
+    /// </summary>
+    public Action<TownWorld>? BeforeTheImpulses { get; set; }
+
+    /// <summary>For the instruments: the impulse this walker declared this tick, spent at its centre unless it is inside something.</summary>
+    public Vector2 WalkerImpulseNs(int person) => _impulseNs[person];
+
+    /// <summary>For the instruments: whether this car rested parked on its last tick, so the bodies' phase spends nothing of its wheels.</summary>
+    public bool RestsParked(int car) => _standsParked[car];
+
+    /// <summary>Whether any car in the town is on a tow bar this tick.</summary>
+    public bool AnyOnTheBar => _onTheBar > 0;
+
+    /// <summary>
+    /// What a car's lagged acceleration closes on its new reading by in one step of <paramref name="dtS"/>: the same on
+    /// every car in the town, and an exponential, which is not a thing to take once a car.
+    /// </summary>
+    public static float LoadSettledShare(SimConfig config, float dtS) => 1f - MathF.Exp(-dtS / config.Tyre.LoadSettleS);
+
     public void StepBodies(float dtS)
     {
         // Phase 3 ends here, whichever kind of agent it ended on: a town with no car left to decide
@@ -32,6 +56,8 @@ internal sealed partial class TownWorld
         // bodies hold the solver's response to it and no longer the cause.
         for (var person = 0; person < People.Count; person++) _velocityIntoTickMps[person] = People.VelocityMps[person];
         for (var car = 0; car < Cars.Count; car++) _velocityIntoTickMps[Roster.AgentOfCar(car)] = Cars.VelocityMps[car];
+
+        BeforeTheImpulses?.Invoke(this);
 
         for (var person = 0; person < People.Count; person++)
         {
@@ -63,9 +89,7 @@ internal sealed partial class TownWorld
         _physics.Step(dtS);
         if (Timed) Sub.Mark(ref Sub.SolverTicks);
 
-        // The same on every car in the town and it does not move inside a tick — and it is an exponential,
-        // which is not a thing to take once a car.
-        var settled = 1f - MathF.Exp(-dtS / _config.Tyre.LoadSettleS);
+        var settled = LoadSettledShare(_config, dtS);
         for (var car = 0; car < Cars.Count; car++)
         {
             Cars.PositionM[car] = _physics.PositionOf(Cars.Body[car]);
@@ -260,23 +284,40 @@ internal sealed partial class TownWorld
 
         for (var car = 0; car < Cars.Count; car++)
         {
-            var towed = _recovery.Towing[car];
-            if (towed < 0) continue;
+            if (!TheBarPulls(car, dtS, out var bar)) continue;
 
-            var tractor = PoseOf(car);
-            var trailer = PoseOf(towed);
-            var hookM = TowBar.HookM(Cars.BuildOf(car), tractor);
-            var eyeM = TowBar.EyeM(
-                Cars.BuildOf(towed), trailer, Cars.BuildOf(car).TowReachM, _recovery.HeldByTheTail[towed]);
-
-            var pullNs = TowBar.PullNs(
-                TheEndOfTheBar(Cars.Body[car], tractor, hookM), TheEndOfTheBar(Cars.Body[towed], trailer, eyeM),
-                _config.Evacuator.HitchSettleS, _config.EvacuatorHitchMostMps2, _config.Evacuator.HitchSideShare,
-                trailer.MassKg, dtS);
-
-            _physics.ApplyImpulseAt(Cars.Body[towed], pullNs, eyeM);
-            _physics.ApplyImpulseAt(Cars.Body[car], -pullNs, hookM);
+            _physics.ApplyImpulseAt(bar.Towed, bar.PullNs, bar.EyeM);
+            _physics.ApplyImpulseAt(bar.Tractor, -bar.PullNs, bar.HookM);
         }
+    }
+
+    /// <summary>
+    /// <b>What the bar a tractor tows on spends this tick</b> (EVA-5): the pull at the towed car's eye, and the same
+    /// pull backwards at the tractor's hook — or false where this car tows nothing. Read off the fleet's poses, so it
+    /// is the same answer before the tick's impulses are spent as after.
+    /// </summary>
+    public bool TheBarPulls(int car, float dtS, out BarPull bar)
+    {
+        var towed = _recovery.Towing[car];
+        if (towed < 0)
+        {
+            bar = default;
+            return false;
+        }
+
+        var tractor = PoseOf(car);
+        var trailer = PoseOf(towed);
+        var hookM = TowBar.HookM(Cars.BuildOf(car), tractor);
+        var eyeM = TowBar.EyeM(
+            Cars.BuildOf(towed), trailer, Cars.BuildOf(car).TowReachM, _recovery.HeldByTheTail[towed]);
+
+        var pullNs = TowBar.PullNs(
+            TheEndOfTheBar(Cars.Body[car], tractor, hookM), TheEndOfTheBar(Cars.Body[towed], trailer, eyeM),
+            _config.Evacuator.HitchSettleS, _config.EvacuatorHitchMostMps2, _config.Evacuator.HitchSideShare,
+            trailer.MassKg, dtS);
+
+        bar = new BarPull(Cars.Body[towed], pullNs, eyeM, Cars.Body[car], hookM);
+        return true;
     }
 
     /// <summary>
@@ -372,3 +413,6 @@ internal sealed partial class TownWorld
         ThrowTheDriverClear(car);
     }
 }
+
+/// <summary>One tow bar's tick (<see cref="TownWorld.TheBarPulls"/>): <see cref="PullNs"/> at the towed car's eye, and its opposite at the tractor's hook.</summary>
+internal readonly record struct BarPull(BodyId Towed, Vector2 PullNs, Vector2 EyeM, BodyId Tractor, Vector2 HookM);

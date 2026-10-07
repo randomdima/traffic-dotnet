@@ -1,0 +1,47 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every car read back off its body after the step, one thread a car (TownWorld.StepBodies' loop after the step), into
+// the car table the next tick's car tick reads (DeviceTyres' poses): where the body is, how it points, turns and moves,
+// and the acceleration it settles onto its springs with — lagged toward what its patches spent this tick, read off the
+// same impulse table the wheels were spent from. Its mass is the row's own.
+
+layout(local_size_x = 64) in;
+
+#include "bodies_phase.glsl"
+#include "agents/car/body/kernels/tyre_rows.glsl"
+
+layout(std430, binding = 0) readonly buffer CarBodies { CarBodyRow carBodies[]; };
+layout(std430, binding = 1) readonly buffer ImpulseRows { vec4 impulseRows[]; };
+layout(std430, binding = 2) readonly buffer Pose { vec4 pose[]; };
+layout(std430, binding = 3) readonly buffer HeadingB { float headingRad[]; };
+layout(std430, binding = 4) readonly buffer Motion { vec4 motion[]; };
+layout(std430, binding = 5) buffer Poses { TyrePose poses[]; };
+
+void main()
+{
+    uint car = gl_GlobalInvocationID.x;
+    if (car >= count) return;
+
+    int body = carBodies[car].body;
+    TyrePose was = poses[car];
+    vec4 placed = pose[body];
+    vec4 moving = motion[body];
+
+    vec2 spentNs = vec2(0.0);
+    for (uint wheel = 0u; wheel < wheelsACar; wheel++) spentNs += impulseRows[car * wheelsACar + wheel].xy;
+
+    precise float perMps2 = was.massKg * dtS;
+    precise vec2 heldMps2 = spentNs / perMps2;
+    vec2 forward = placed.zw;
+    precise float alongMps2 = heldMps2.x * forward.x + heldMps2.y * forward.y;
+    precise float acrossMps2 = heldMps2.x * -forward.y + heldMps2.y * forward.x;
+
+    // Vector2.Lerp, which the host fuses: a·(1 − t) + b·t, rounded once at the sum.
+    precise float keep = 1.0 - loadSettledShare;
+    precise vec2 towardMps2 = vec2(alongMps2, acrossMps2) * loadSettledShare;
+    precise vec2 accelerationMps2 = fma(was.accelerationMps2, vec2(keep), towardMps2);
+
+    poses[car] = TyrePose(
+        placed.xy, moving.xy, forward, accelerationMps2, headingRad[body], moving.z, was.massKg, was.pad);
+}

@@ -21,6 +21,11 @@ namespace TrafficSimulation.App.DeviceTick;
 /// one submit a step. Once the town's tick is on the device the table is laid once and never sent again.
 /// </para>
 /// <para>
+/// <b>A step is also recorded into another's submit</b> (<see cref="Lay"/>, <see cref="Send"/>, <see cref="Record"/>),
+/// between kernels that read and write the same table (<see cref="Bodies"/>) — the bodies' phase
+/// (<see cref="DeviceBodyPhase"/>), which spends the tick's impulses on it first and reads the cars off it after.
+/// </para>
+/// <para>
 /// <b>Nothing freezes here</b> (SOL-37): every enabled moving body owns its pairs every step. On the CPU freezing
 /// saves the broad phase and changes no answer, since a standing car is held at exactly nothing.
 /// </para>
@@ -194,6 +199,9 @@ internal sealed class DeviceSolver : IDisposable
     /// <summary>Each field's staging buffer and the device's, in one list so a step walks it without an iterator.</summary>
     readonly (GpuBuffer From, GpuBuffer To)[] _uploads;
 
+    /// <summary>Whether rows were laid since the last send.</summary>
+    bool _laid;
+
     /// <param name="candidatesPerOwner">How many candidates a step may hold per moving body before it is full.</param>
     public DeviceSolver(Vk vk, SimConfig config, BodyTable table, int candidatesPerOwner = 48)
     {
@@ -355,6 +363,9 @@ internal sealed class DeviceSolver : IDisposable
     /// <summary>The cells the grids are filed over.</summary>
     public GridWindow Window => _window;
 
+    /// <summary>How many bodies the table holds, the furniture's among them.</summary>
+    public int BodyCount => _bodies;
+
     /// <summary>The moving bodies that owned pairs in the last step.</summary>
     public int Owners { get; private set; }
 
@@ -394,10 +405,33 @@ internal sealed class DeviceSolver : IDisposable
     public ReadOnlySpan<Vector4> ContactPoints => _contactPointsOut.Span<Vector4>()[..ContactCount];
 
     /// <summary>
+    /// <b>The body table as the device keeps it from one step to the next</b>, for kernels recorded around a step
+    /// (<see cref="Record"/>): position and rotation, heading, velocity and yaw rate, and the two inverses
+    /// (<c>kernels/step.glsl</c>'s layout).
+    /// </summary>
+    public (GpuBuffer Pose, GpuBuffer Heading, GpuBuffer Motion, GpuBuffer Mass) Bodies => (_pose, _heading, _motion, _mass);
+
+    /// <summary>
     /// <b>One step of the table the CPU is about to step</b>: its moving rows sent, the step run, and — where asked — the
     /// answer and the contacts read back. One submit and one wait.
     /// </summary>
     public void Step(BodyTable table, float dtS, bool readBack)
+    {
+        Lay(table);
+        var commands = _batch.Begin();
+        Send(commands);
+        Record(commands, dtS);
+        _vk.BeforeTransfer(commands);
+        RecordReadBack(commands, readBack);
+        _batch.SubmitAndWait();
+        ReadTimes();
+    }
+
+    /// <summary>
+    /// The CPU's table as it stands — its moving rows and which of them own pairs — written to go with the next
+    /// <see cref="Send"/>. Unlaid, a step runs on what the device's last step left.
+    /// </summary>
+    public void Lay(BodyTable table)
     {
         if (table.Count != _bodies) throw new InvalidOperationException("The body table changed size after it was laid on the device.");
 
@@ -410,13 +444,35 @@ internal sealed class DeviceSolver : IDisposable
         }
 
         Owners = count;
+        _laid = true;
+    }
+
+    /// <summary>What was laid since the last send copied across, recorded; nothing if nothing was. The caller barriers after.</summary>
+    public void Send(CommandBuffer commands)
+    {
+        SentBytes = 0;
+        if (!_laid) return;
+
+        foreach (var (from, to) in _uploads) SentBytes += CopyRows(commands, from, to);
+        _vk.Copy(commands, _ownersIn, _owners, (ulong)(Owners * sizeof(int)));
+        SentBytes += (ulong)(Owners * sizeof(int));
+        _laid = false;
+    }
+
+    /// <summary>How many bytes the last <see cref="Send"/> took in.</summary>
+    public ulong SentBytes { get; private set; }
+
+    /// <summary>
+    /// <b>The step recorded</b> over the table as the device holds it, timed stage by stage (<see cref="BetweenMs"/>, read
+    /// once the submit is waited for by <see cref="ReadTimes"/>). What came before it is made visible to it here; the
+    /// caller barriers what reads its answer.
+    /// </summary>
+    public void Record(CommandBuffer commands, float dtS)
+    {
+        var count = Owners;
         var push = Push(dtS) with { RosterCount = (uint)count, Capacity = (uint)CandidateCapacity };
         var vk = _vk;
-        var commands = _batch.Begin();
         _timer.Reset(commands);
-
-        foreach (var (from, to) in _uploads) CopyRows(commands, from, to);
-        vk.Copy(commands, _ownersIn, _owners, (ulong)(count * sizeof(int)));
         vk.Fill(commands, _movingCounts, 0);
         vk.Fill(commands, _movingCursor, 0);
         vk.Fill(commands, _overlap, 0);
@@ -464,24 +520,30 @@ internal sealed class DeviceSolver : IDisposable
         _timer.Stamp(commands, (int)Stage.Solved);
 
         _integrate.Dispatch(commands, _integrateSet, Groups(count), push);
-        vk.BeforeTransfer(commands);
         _timer.Stamp(commands, (int)Stage.Integrated);
-
-        vk.Copy(commands, _totals, _totalsOut, _totals.SizeBytes);
-        if (readBack)
-        {
-            CopyRows(commands, _pose, _poseOut);
-            CopyRows(commands, _heading, _headingOut);
-            CopyRows(commands, _motion, _motionOut);
-            CopyRows(commands, _overlap, _overlapOut);
-            vk.Copy(commands, _contact, _contactOut, _contact.SizeBytes);
-            vk.Copy(commands, _contactNormal, _contactNormalOut, _contactNormal.SizeBytes);
-            vk.Copy(commands, _contactPoints, _contactPointsOut, _contactPoints.SizeBytes);
-        }
-
-        _batch.SubmitAndWait();
-        _timer.Read();
     }
+
+    /// <summary>
+    /// The last step's totals recorded to be handed back, and — where <paramref name="everything"/> — the poses, the
+    /// motion and the contacts; read once the submit is waited for. The caller barriers before it.
+    /// </summary>
+    public void RecordReadBack(CommandBuffer commands, bool everything)
+    {
+        var vk = _vk;
+        vk.Copy(commands, _totals, _totalsOut, _totals.SizeBytes);
+        if (!everything) return;
+
+        CopyRows(commands, _pose, _poseOut);
+        CopyRows(commands, _heading, _headingOut);
+        CopyRows(commands, _motion, _motionOut);
+        CopyRows(commands, _overlap, _overlapOut);
+        vk.Copy(commands, _contact, _contactOut, _contact.SizeBytes);
+        vk.Copy(commands, _contactNormal, _contactNormalOut, _contactNormal.SizeBytes);
+        vk.Copy(commands, _contactPoints, _contactPointsOut, _contactPoints.SizeBytes);
+    }
+
+    /// <summary>The step's stamps read, once the submit it was recorded into is waited for.</summary>
+    public void ReadTimes() => _timer.Read();
 
     StepPush Push(float dtS)
     {
@@ -543,15 +605,16 @@ internal sealed class DeviceSolver : IDisposable
         (_boundsIn, _bounds), (_filterIn, _filter),
     ];
 
-    /// <summary>The moving rows of one field copied across, which is every row the step can have changed.</summary>
-    unsafe void CopyRows(CommandBuffer commands, GpuBuffer from, GpuBuffer to)
+    /// <summary>The moving rows of one field copied across, which is every row the step can have changed; how many bytes they are.</summary>
+    unsafe ulong CopyRows(CommandBuffer commands, GpuBuffer from, GpuBuffer to)
     {
         var stride = from.SizeBytes / (ulong)_bodies;
         var region = new BufferCopy((ulong)_firstMoving * stride, (ulong)_firstMoving * stride, (ulong)_movingRows * stride);
-        if (region.Size == 0) return;
+        if (region.Size == 0) return 0;
 
         Vk.Count();
         _vk.Api.CmdCopyBuffer(commands, from.Handle, to.Handle, 1, &region);
+        return region.Size;
     }
 
     static uint Groups(int count) => (uint)Math.Max(1, (count + 63) / 64);

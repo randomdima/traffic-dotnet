@@ -187,6 +187,12 @@ internal sealed class DeviceTyres : IDisposable
     /// <summary>What each kind of ground does to a wheel, as the pass binds it (<c>GROUND_EFFECT_BINDING</c>).</summary>
     public GpuBuffer Effects { get; }
 
+    /// <summary>
+    /// Each wheel's impulse and where it is spent, as the pass leaves it on the device — four a car in the tyre model's
+    /// order, (impulse, at) — for the bodies' phase that spends them (<see cref="DeviceBodyPhase"/>).
+    /// </summary>
+    public GpuBuffer ImpulseTable => _impulses.Device;
+
     /// <summary>Which of the builds each car is, written before a <see cref="Step"/>.</summary>
     public Span<uint> BuildOf => _buildOf.All;
 

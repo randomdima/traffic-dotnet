@@ -1,0 +1,29 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// What the host lays rather than the device yet produces — each walker's central impulse, each tow bar's two ends — spent
+// after every wheel, one thread a row (TownWorld.StepBodies). The host lays a body at most once a tick, so no two threads
+// write one body.
+
+layout(local_size_x = 64) in;
+
+#include "bodies_phase.glsl"
+#include "world/physics/kernels/impulse.glsl"
+
+layout(std430, binding = 0) readonly buffer Laid { LaidImpulseRow laid[]; };
+layout(std430, binding = 1) readonly buffer Pose { vec4 pose[]; };
+layout(std430, binding = 2) buffer Motion { vec4 motion[]; };
+layout(std430, binding = 3) readonly buffer Mass { vec2 mass[]; };
+
+void main()
+{
+    uint at = gl_GlobalInvocationID.x;
+    if (at >= count) return;
+
+    LaidImpulseRow row = laid[at];
+    int body = row.body;
+    vec4 moving = motion[body];
+    motion[body] = row.central != 0u
+        ? impulsedCentrally(moving, mass[body].x, row.impulseNs)
+        : impulsedAt(moving, pose[body].xy, mass[body], row.impulseNs, row.atM);
+}
