@@ -2,6 +2,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using Silk.NET.Vulkan;
 using TrafficSimulation.Agents.Car.Actions;
+using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Runtime;
@@ -34,14 +35,29 @@ internal sealed partial class DeviceCarTick : IDisposable
     internal readonly record struct TickRow(
         float ProgressM, float CoveredSinceClaimM, float AlongMps, float OffLineM, float PlannedMps, uint Hold, uint Flags)
     {
-        public const uint Lost = 32u, AsksTheRoute = 64u, Shifted = 128u, Hazard = 256u;
+        public const uint Lost = 32u, AsksTheRoute = 64u, Shifted = 128u, Hazard = 256u, SteppedOut = 512u;
     }
 
     /// <summary>What the host tells a car's tick (<c>CarToldRow</c>).</summary>
     [StructLayout(LayoutKind.Sequential)]
-    internal readonly record struct ToldRow(uint Flags, float PaceMps, float AllowanceM, float Pad)
+    internal readonly record struct ToldRow(
+        uint Flags, float PaceMps, float AllowanceM, float PassAsideM, float FromRestM, float Pad0, float Pad1, float Pad2)
     {
-        public const uint OnACall = 1u, LineIsReverse = 2u, HasAPlace = 4u, HasAHold = 8u, Cut = 16u;
+        public const uint OnACall = 1u, LineIsReverse = 2u, HasAPlace = 4u, HasAHold = 8u, Cut = 16u, Switching = 32u;
+        public const uint WaitsShortOfTheEnd = 64u;
+    }
+
+    /// <summary>The step a car is on (<c>OvertakeRow</c>): <see cref="Overtake"/> field for field.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal readonly record struct PassRow(
+        int Lane, float OutM, float OutStepM, float BackM, float BackStepM, float AsideM, float OutMps, float BackMps, float ClearsM,
+        uint Begun, float Pad0, float Pad1)
+    {
+        public static PassRow Of(in Overtake pass) => new(
+            pass.Lane, pass.OutM, pass.OutStepM, pass.BackM, pass.BackStepM, pass.AsideM, pass.OutMps, pass.BackMps, pass.ClearsM,
+            pass.Begun ? 1u : 0u, 0f, 0f);
+
+        public Overtake ToOvertake() => new(Lane, OutM, OutStepM, BackM, BackStepM, AsideM, OutMps, BackMps, ClearsM, Begun != 0u);
     }
 
     /// <summary>What the last claims rebuild granted a car and what cut it, and the place it was sent to (<c>CarGrantRow</c>).</summary>
@@ -73,7 +89,8 @@ internal sealed partial class DeviceCarTick : IDisposable
         uint CarCount, uint ArcsPerCar, uint MostLanes, uint FirstConnector, float RoundingM, float SlowerToPassMps,
         float QueueInCarLengths, float DtS, float LookaheadS, float GripMargin, float BrakingMargin, float StopSpeedMps,
         float WaitingToPassBrakingShare, float ReactionS, float CallPaceMps, float StandardGravityMps2, float WheelSpinFadeMps,
-        float WheelSpinAllowanceMps, float MarkSlipMps, float MarkCorneringSlipMps, float PloughCrawlMps, float EngineBrakingMps2)
+        float WheelSpinAllowanceMps, float MarkSlipMps, float MarkCorneringSlipMps, float PloughCrawlMps, float EngineBrakingMps2,
+        float PassSpareM)
     {
         public static Figures Of(SimConfig config, int arcsPerCar, int firstConnector) => new(
             0u, (uint)arcsPerCar, (uint)LineAssembler.MostLanes, (uint)firstConnector, LineTolerance.RoundingM,
@@ -81,7 +98,7 @@ internal sealed partial class DeviceCarTick : IDisposable
             config.Driving.GripMargin, config.Driving.BrakingMargin, config.Driving.StopSpeedMps,
             config.Driving.WaitingToPassBrakingShare, config.CarReactionS, config.Ambulance.CallPaceMps,
             config.Tyre.StandardGravityMps2, config.Tyre.WheelSpinFadeMps, config.Tyre.WheelSpinAllowanceMps, config.Marks.SlipMps,
-            config.Marks.CorneringSlipMps, config.Marks.PloughCrawlMps, config.CarEngineBrakingMps2);
+            config.Marks.CorneringSlipMps, config.Marks.PloughCrawlMps, config.CarEngineBrakingMps2, config.Driving.PassSpareM);
     }
 
     /// <summary>The stamps a tick is timed between.</summary>
@@ -108,6 +125,7 @@ internal sealed partial class DeviceCarTick : IDisposable
     readonly ResidentRows<uint> _firstArcs;
     readonly ResidentRows<uint> _breaks;
     readonly ResidentRows<uint> _taken;
+    readonly ResidentRows<PassRow> _passes;
     readonly ComputeKernel _groundKernel, _tickKernel;
     readonly DescriptorSet _groundSet, _tickSet;
     readonly ComputeBatch _batch;
@@ -165,6 +183,7 @@ internal sealed partial class DeviceCarTick : IDisposable
         _firstArcs = new ResidentRows<uint>(vk, capacity, lanes);
         _breaks = new ResidentRows<uint>(vk, capacity, lanes);
         _taken = new ResidentRows<uint>(vk, capacity, 1);
+        _passes = new ResidentRows<PassRow>(vk, capacity, 1, readsBack: true);
 
         var table = tyres.Table;
         GpuBuffer[] onTheGround = [table.Poses.Device, table.Cars.Device, _lines.Device, _taken.Device, tyres.Effects, .. ground.Tables];
@@ -177,7 +196,7 @@ internal sealed partial class DeviceCarTick : IDisposable
             _entries.Device, _chain.Device, _starts.Device, _ends.Device, _firstArcs.Device, _breaks.Device, _lines.Device,
             Laid(roads.LaneLengthM), Laid(connectorAt), Laid(connectorTo), Laid(connectorRung), Laid(connectorLength),
             Laid(lanePassable), claims.Rows, claims.PlannedRuns, claims.PlannedOrder, _cutters.Device, _grants.Device,
-            _told.Device, _ticks.Device, _contexts.Device, _boxes.Device, _taken.Device,
+            _told.Device, _ticks.Device, _contexts.Device, _boxes.Device, _taken.Device, _passes.Device,
         ];
         _tickKernel = new ComputeKernel(vk, "car_tick.comp", ticked.Length, (uint)Marshal.SizeOf<Figures>());
         _tickSet = _tickKernel.Bind(ticked);
@@ -206,6 +225,9 @@ internal sealed partial class DeviceCarTick : IDisposable
     public ReadOnlySpan<ContextRow> ContextsAfter => _contexts.AllRead[.._cars];
 
     public ReadOnlySpan<BoxRow> BoxesAfter => _boxes.AllRead[.._cars];
+
+    /// <summary>The step each car is on as the last tick left it, shifted on with its line.</summary>
+    public ReadOnlySpan<PassRow> PassesAfter => _passes.AllRead[.._cars];
 
     public ReadOnlySpan<DeviceTyres.CommandRow> CommandsAfter => _tyres.CommandsAfter;
 
@@ -259,7 +281,8 @@ internal sealed partial class DeviceCarTick : IDisposable
         SentBytes = table.BuildOf.MarkedBytes + table.Poses.MarkedBytes + table.Commands.MarkedBytes + table.Cars.MarkedBytes
                     + table.Wheels.MarkedBytes + _ticks.MarkedBytes + _told.MarkedBytes + _grants.MarkedBytes + _cutters.MarkedBytes
                     + _boxes.MarkedBytes + _lines.MarkedBytes + _arcs.MarkedBytes + _entries.MarkedBytes + _chain.MarkedBytes
-                    + _starts.MarkedBytes + _ends.MarkedBytes + _firstArcs.MarkedBytes + _breaks.MarkedBytes + _taken.MarkedBytes;
+                    + _starts.MarkedBytes + _ends.MarkedBytes + _firstArcs.MarkedBytes + _breaks.MarkedBytes + _taken.MarkedBytes
+                    + _passes.MarkedBytes;
         LinesSentBytes = _arcs.MarkedBytes + _entries.MarkedBytes;
         _tyres.SendMarked(commands);
         _ticks.Send(commands);
@@ -276,6 +299,7 @@ internal sealed partial class DeviceCarTick : IDisposable
         _firstArcs.Send(commands);
         _breaks.Send(commands);
         _taken.Send(commands);
+        _passes.Send(commands);
         vk.AfterTransfer(commands);
         _timer.Stamp(commands, (int)Stage.Sent);
 
@@ -303,6 +327,7 @@ internal sealed partial class DeviceCarTick : IDisposable
         _ends.Read(commands, cars);
         _contexts.Read(commands, cars);
         _boxes.Read(commands, cars);
+        _passes.Read(commands, cars);
         _timer.Stamp(commands, (int)Stage.Read);
     }
 
@@ -328,7 +353,7 @@ internal sealed partial class DeviceCarTick : IDisposable
         _groundKernel.Dispose();
         foreach (var table in (ReadOnlySpan<IDisposable>)[
                      _ticks, _told, _grants, _cutters, _boxes, _contexts, _lines, _arcs, _entries, _chain, _starts, _ends, _firstArcs,
-                     _breaks, _taken])
+                     _breaks, _taken, _passes])
         {
             table.Dispose();
         }

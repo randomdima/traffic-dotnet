@@ -34,9 +34,11 @@ layout(push_constant) uniform Figures
     float markCorneringSlipMps;
     float ploughCrawlMps;
     float engineBrakingMps2;
+    float passSpareM;
 } figures;
 
 #define TYRE_FIGURES figures
+#define CAR_TICK_FIGURES figures
 #define FOLLOWER_FIGURES figures
 #define LINE_FIGURES figures
 #define CONTEXT_FIGURES figures
@@ -106,6 +108,7 @@ layout(std430, binding = 25) buffer Ticks { CarTickRow ticks[]; };
 layout(std430, binding = 26) writeonly buffer Contexts { DriveContextRow contexts[]; };
 layout(std430, binding = 27) buffer Boxes { BoxAheadRow boxes[]; };
 layout(std430, binding = 28) readonly buffer Taken { uint taken[]; };
+layout(std430, binding = 29) buffer Passes { OvertakeRow passes[]; };
 
 void main()
 {
@@ -116,14 +119,16 @@ void main()
     CarLineRow line = lines[car];
     TyreCommand command = commands[car];
     BoxAheadRow box = boxes[car];
+    OvertakeRow pass = passes[car];
     DriveContextRow context;
     carTick(
         car, builds[buildOf[car]], poses[car], carRows[car].groundCoefficient, told[car], grants[car], cutters[car], tick, line,
-        command, context, box);
+        command, context, box, pass);
 
     ticks[car] = tick;
     lines[car] = line;
     commands[car] = command;
     contexts[car] = context;
     boxes[car] = box;
+    passes[car] = pass;
 }

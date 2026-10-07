@@ -38,6 +38,12 @@ internal sealed partial class DeviceCarTick
     /// <summary>Whether the town had already asked to grow each car's line before this tick.</summary>
     bool[] _askedBefore = [];
 
+    /// <summary>The step each car is on going into this tick, as the device holds it.</summary>
+    Overtake[] _passHeld = [];
+
+    /// <summary>What each car was doing when this tick began.</summary>
+    CarAction[] _actionDue = [];
+
     /// <summary>Each car's command and tyres going into this tick, as the device holds them.</summary>
     DeviceTyres.CommandRow[] _commandBefore = [];
     DeviceTyres.CarRow[] _carBefore = [];
@@ -52,15 +58,17 @@ internal sealed partial class DeviceCarTick
         _coveredAt = new float[capacity];
         _levelSent = new byte[capacity];
         _askedBefore = new bool[capacity];
+        _passHeld = new Overtake[capacity];
+        _actionDue = new CarAction[capacity];
         _commandBefore = new DeviceTyres.CommandRow[capacity];
         _carBefore = new DeviceTyres.CarRow[capacity];
         _wheelsBefore = new DeviceTyres.WheelRow[capacity * TyreModel.Wheels];
     }
 
     /// <summary>
-    /// <b>Whether the device ticks this car</b>: driven, following its route's line on no pass or waiting to rejoin it,
-    /// and on nobody's arm — the tick <c>car_tick.glsl</c> is. Asked before the town's own tick, of the state that tick
-    /// reads.
+    /// <b>Whether the device ticks this car</b>: driven, following its route's line on no pass, waiting to rejoin it, or
+    /// moving across onto the lane beside, and on nobody's arm — the tick <c>car_tick.glsl</c> is. Asked before the town's
+    /// own tick, of the state that tick reads.
     /// </summary>
     /// <remarks>
     /// <b>A rejoining car's tick is a following car's</b> (<c>Rejoining.Tick</c>): its line read, held where it is still
@@ -69,9 +77,19 @@ internal sealed partial class DeviceCarTick
     public static bool Takes(TownWorld town, int car)
     {
         var cars = town.Cars;
-        return cars.Driven[car] && cars.Action[car] is CarAction.Follow or CarAction.Rejoin && !cars.Pass[car].Any
-               && !town.OnTheHook(car);
+        var action = cars.Action[car];
+        return cars.Driven[car] && !town.OnTheHook(car)
+               && (action is CarAction.Follow or CarAction.Rejoin && !cars.Pass[car].Any || action == CarAction.Switch);
     }
+
+    /// <summary>
+    /// How many switching cars' steps the town's claims kept in the tick the device was asked of, and which the device —
+    /// not yet answering a step itself — drove as still asked for (<see cref="Disagreement"/>).
+    /// </summary>
+    public int StepsKeptByTheTown { get; private set; }
+
+    /// <summary>And how many stepped out onto the lane beside, which the town lays and the device drives on along the step.</summary>
+    public int SteppedOut { get; private set; }
 
     /// <summary>
     /// <b>The town as its next tick reads it, told to the device</b>: every car's pose, and what each car the device takes
@@ -104,7 +122,9 @@ internal sealed partial class DeviceCarTick
 
             list[count] = (uint)car;
             taken[count++] = car;
+            _actionDue[car] = cars.Action[car];
             LayWhatItIsTold(town, car);
+            if (!resident || !_held[car] || cars.Pass[car] != _passHeld[car]) LayThePass(cars, car);
             if (!resident || !_held[car])
             {
                 LayTheTyres(town, car);
@@ -141,6 +161,10 @@ internal sealed partial class DeviceCarTick
     /// The town's half of <see cref="Settle"/>: its lines, readings and levels as its tick left them — taken before its
     /// decisions, so that what those change is what <see cref="Prepare"/> sends next.
     /// </summary>
+    /// <remarks>
+    /// <b>A car whose action the town's tick changed is laid whole next tick</b>: what the change did — the lane beside a
+    /// switch stepped out onto, a line lost or rejoined — is the host's, and the device's tick made none of it.
+    /// </remarks>
     public void SettleTheTown(TownWorld town)
     {
         var cars = town.Cars;
@@ -149,6 +173,7 @@ internal sealed partial class DeviceCarTick
             _lineLaidAt[car] = cars.LineLaid[car];
             _progressAt[car] = cars.ProgressM[car];
             _coveredAt[car] = cars.CoveredSinceClaimM[car];
+            if (_held[car] && cars.Action[car] != _actionDue[car]) _held[car] = false;
         }
     }
 
@@ -157,6 +182,7 @@ internal sealed partial class DeviceCarTick
     {
         foreach (var car in taken)
         {
+            _passHeld[car] = PassesAfter[car].ToOvertake();
             _commandBefore[car] = CommandsAfter[car];
             _carBefore[car] = _tyres.CarsAfter[car];
             _tyres.WheelsAfter.Slice(car * TyreModel.Wheels, TyreModel.Wheels).CopyTo(_wheelsBefore.AsSpan(car * TyreModel.Wheels));
@@ -228,10 +254,26 @@ internal sealed partial class DeviceCarTick
         var told = (cars.BlueLight[car] ? ToldRow.OnACall : 0u) | (cars.LineIsReverse[car] ? ToldRow.LineIsReverse : 0u)
                    | (hasAPlace ? ToldRow.HasAPlace : 0u) | (hold != LaneOccupancy.NoHold ? ToldRow.HasAHold : 0u)
                    | (cut.Found ? ToldRow.Cut : 0u);
-        _told.Rows(car)[0] = new ToldRow(told, cars.PaceMps[car], town.OffTheLineAllowanceM(car), 0f);
+        var asideM = 0f;
+        var fromRestM = 0f;
+        if (cars.Action[car] == CarAction.Switch)
+        {
+            told |= ToldRow.Switching;
+            asideM = town.Switching.AsideM(car);
+            if (town.Switching.WaitsShortOfTheEnd(car, out fromRestM)) told |= ToldRow.WaitsShortOfTheEnd;
+        }
+
+        _told.Rows(car)[0] = new ToldRow(told, cars.PaceMps[car], town.OffTheLineAllowanceM(car), asideM, fromRestM, 0f, 0f, 0f);
         _grants.Mark(car);
         _cutters.Mark(car);
         _told.Mark(car);
+    }
+
+    void LayThePass(CarFleet cars, int car)
+    {
+        _passes.Rows(car)[0] = PassRow.Of(cars.Pass[car]);
+        _passes.Mark(car);
+        _passHeld[car] = cars.Pass[car];
     }
 
     void LayTheReading(CarFleet cars, int car)
@@ -313,6 +355,32 @@ internal sealed partial class DeviceCarTick
         var lost = (tick.Flags & TickRow.Lost) != 0;
         if (lost != (cars.Action[car] == CarAction.Rejoin)) return $"lost: town {cars.Action[car]}, device {lost}";
 
+        // A switch stepped out onto the lane beside is the town's to lay a line down, and the device drives on along the
+        // step until it is told; a step the town's claims kept this tick the device does not yet answer itself.
+        var steppedOut = (tick.Flags & TickRow.SteppedOut) != 0;
+        var handedOver = _actionDue[car] == CarAction.Switch && cars.Action[car] == CarAction.Follow;
+        if (steppedOut || handedOver)
+        {
+            if (steppedOut != handedOver) return $"stepped out: town {handedOver}, device {steppedOut}";
+
+            SteppedOut++;
+            return null;
+        }
+
+        var pass = PassesAfter[car];
+        if (cars.Pass[car].Begun && pass.Begun == 0u)
+        {
+            StepsKeptByTheTown++;
+            return null;
+        }
+
+        if (cars.Pass[car].Any && pass.Lane != Overtake.NoLane
+            && (pass.Lane != cars.Pass[car].Lane || pass.OutM != cars.Pass[car].OutM || pass.BackM != cars.Pass[car].BackM
+                || pass.ClearsM != cars.Pass[car].ClearsM))
+        {
+            return $"pass: town {cars.Pass[car]}, device {pass.ToOvertake()}";
+        }
+
         var shifted = (tick.Flags & TickRow.Shifted) != 0;
         if (shifted != (cars.LineLaid[car] != _lineLaidDue[car]))
         {
@@ -353,7 +421,7 @@ internal sealed partial class DeviceCarTick
                    && (uint)host.GrantCutBy == context.GrantCutBy && Near(host.PlaceStopM, context.PlaceStopM)
                    && host.MarginM == context.MarginM && host.WaitsToPass == (context.WaitsToPass != 0u)
                    && Near(host.HorizonM, context.HorizonM) && host.PassAsideM == context.PassAsideM && host.BackUpM == context.BackUpM
-                   && host.Blocked == (context.Blocked != 0u) && host.WaitAtM == context.WaitAtM;
+                   && host.Blocked == (context.Blocked != 0u) && Near(host.WaitAtM, context.WaitAtM);
         if (!same) return $"told: town {host}, device {context}";
 
         return Near(cars.ToTheBoxM[car], box.ToTheBoxM) && Near(cars.LightAheadM[car], box.LightAheadM) && BoxFlagsOf(cars, car) == box.Flags
@@ -385,8 +453,8 @@ internal sealed partial class DeviceCarTick
         var pose = PoseOf(car);
         var drive = CarFollower.DriveTheLine(
             _config, cars.BuildOf(car), pose, cars.LineOf(car), cars.EntriesOf(car), tick.ProgressM, cars.Line[car].LengthM, context,
-            pose.Forward, tick.AlongMps, reverse: false, CommandOf(_commandBefore[car]), cars.Pass[car], laneless: false,
-            cars.BlueLight[car], cars.PaceMps[car]);
+            pose.Forward, tick.AlongMps, reverse: false, CommandOf(_commandBefore[car]), PassesAfter[car].ToOvertake(),
+            laneless: false, cars.BlueLight[car], cars.PaceMps[car]);
 
         var host = DeviceTyres.CommandRow.Of(drive.Command);
         var command = CommandsAfter[car];

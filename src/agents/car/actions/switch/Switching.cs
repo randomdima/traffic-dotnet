@@ -82,6 +82,19 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
     /// <summary>And driven, the car on the lane beside.</summary>
     public long Made { get; private set; }
 
+    /// <summary>For the instruments: how far across the lane this car means to move onto stood at its last decision.</summary>
+    public float AsideM(int car) => _asideM[car];
+
+    /// <summary>
+    /// For the instruments: whether this car's line stops where its route moves across, so that it stands short of the
+    /// line's end by its step from rest and the pass's spare (<see cref="WaitAtM"/>) — and that step.
+    /// </summary>
+    public bool WaitsShortOfTheEnd(int car, out float fromRestM)
+    {
+        fromRestM = _fromRestM[car];
+        return TheLineStopsToMoveAcross(car, out _);
+    }
+
     /// <summary>
     /// <b>Whether a car following its route means to move across, and which way</b> (CAR-53), in this order:
     /// <list type="number">

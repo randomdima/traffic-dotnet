@@ -18,20 +18,29 @@ struct CarTickRow
     uint flags;
 };
 
-// What the host tells a car's tick, its decisions' and its claims' (CarFleet.PaceMps, TownWorld.OffTheLineAllowanceM):
-// flags in the bits ContextCarRow's flags have.
+// What the host tells a car's tick, its decisions' and its claims' (CarFleet.PaceMps, TownWorld.OffTheLineAllowanceM;
+// Switching.AsideM, WaitsShortOfTheEnd): flags in the bits ContextCarRow's flags have, and above them whether the car is
+// moving across (CAR-53) and whether its line stops where its route moves across.
 struct CarToldRow
 {
     uint flags;
     float paceMps;
     float allowanceM;
-    float pad;
+    float passAsideM;
+    float fromRestM;
+    float pad0;
+    float pad1;
+    float pad2;
 };
+
+const uint ToldSwitching = 32u;
+const uint ToldWaitsShortOfTheEnd = 64u;
 
 const uint TickLost = 32u;
 const uint TickAsksTheRoute = 64u;
 const uint TickShifted = 128u;
 const uint TickHazard = 256u;
+const uint TickSteppedOut = 512u;
 
 // What the last claims rebuild granted a car and what cut it, and the place it was sent to (CarFleet.AuthorityM,
 // HorizonM, ClaimFromM, CommittedToM, GrantMarginM, GrantCutBy; LaneOccupancy.HoldCutOn; TownWorld.SceneOf).
@@ -64,11 +73,38 @@ void carTickLose(CarBuildRow build, inout CarTickRow tick, out TyreCommand comma
     box = BoxAheadRow(contextInfinity(), contextInfinity(), box.flags & BoxCommitted, 0u);
 }
 
-// One tick of a following car: command holds the last tick's on the way in and this one's on the way out, and box the
-// junction ahead as the last tick left it and as this one reads it.
+// The pass measured from the start of the next lane of the chain, which begins shiftM along the line it was measured on
+// (Overtake.From).
+OvertakeRow carTickPassFrom(OvertakeRow pass, int lane, float shiftM)
+{
+    precise float outM = pass.outM - shiftM;
+    precise float backM = pass.backM - shiftM;
+    precise float clearsM = pass.clearsM - shiftM;
+    pass.lane = lane;
+    pass.outM = outM;
+    pass.backM = backM;
+    pass.clearsM = clearsM;
+    return pass;
+}
+
+// Where a car moving across for its route stands short of its line's end, or infinity (Switching.WaitAtM).
+float carTickWaitAtM(CarToldRow told, CarLineRow line, float progressM)
+{
+    if ((told.flags & ToldWaitsShortOfTheEnd) == 0u) return contextInfinity();
+
+    precise float toM = line.lengthM - told.fromRestM - CAR_TICK_FIGURES.passSpareM - progressM;
+    return toM >= 0.0 ? toM : contextInfinity();
+}
+
+// One tick of a car following its line, waiting to rejoin it, or moving across onto the lane beside (Following.Tick,
+// Rejoining.Tick, Switching.Tick): command holds the last tick's on the way in and this one's on the way out, box the
+// junction ahead as the last tick left it and as this one reads it, and pass the step the car is on, shifted on with
+// its line. A switch's step kept or withdrawn is the claims' to answer, and the lane beside it steps out onto the
+// host's to lay (TickSteppedOut); the device drives on along the step meanwhile.
 void carTick(
     uint car, CarBuildRow build, TyrePose pose, float groundCoefficient, CarToldRow told, CarGrantRow grant, ClaimRow cutBy,
-    inout CarTickRow tick, inout CarLineRow line, inout TyreCommand command, out DriveContextRow context, inout BoxAheadRow box)
+    inout CarTickRow tick, inout CarLineRow line, inout TyreCommand command, out DriveContextRow context, inout BoxAheadRow box,
+    inout OvertakeRow pass)
 {
     tick.flags = 0u;
     context = carTickToldNothing();
@@ -84,11 +120,16 @@ void carTick(
     LineAdvance advance = lineAdvance(car, build, rearAxleM, tick.progressM, line);
     // A lone sum has no product to contract into, and `precise` here sends glslang tracing every write to tick and line.
     tick.coveredSinceClaimM += advance.coveredM;
-    if (line.laneCount < lanesWere) tick.flags |= TickShifted;
+    if (line.laneCount < lanesWere)
+    {
+        tick.flags |= TickShifted;
+        if (pass.lane != -1) pass = carTickPassFrom(pass, LANE_CHAIN[car * LINE_FIGURES.mostLanes], advance.shiftM);
+    }
 
     tick.progressM = advance.progressM;
     tick.alongMps = alongMps;
-    tick.offLineM = lineOffM(car, line, rearAxleM, advance.progressM, 0.0);
+    float asideM = overtakeBegun(pass) ? overtakeAsideAtM(pass, advance.progressM) : 0.0;
+    tick.offLineM = lineOffM(car, line, rearAxleM, advance.progressM, asideM);
     if (tick.offLineM > told.allowanceM)
     {
         carTickLose(build, tick, command, box);
@@ -105,6 +146,16 @@ void carTick(
         grant.placeReachM, 0.0, pose.positionM, 0.0, 0.0);
     box = contextReadTheBoxAhead(car, build, line, row);
     context = contextSetTheContext(car, build, line, row, cutBy);
+    if ((told.flags & ToldSwitching) != 0u)
+    {
+        context.waitsToPass = 0u;
+        if (overtakeBegun(pass) && tick.progressM >= overtakeSteppedOutM(pass)) tick.flags |= TickSteppedOut;
+        if (!overtakeBegun(pass))
+        {
+            context.passAsideM = told.passAsideM;
+            context.waitAtM = carTickWaitAtM(told, line, tick.progressM);
+        }
+    }
 
     uint first = car * LINE_FIGURES.arcsPerCar;
     uint hold;
@@ -112,7 +163,7 @@ void carTick(
     bool hazard;
     command = followDriveTheLine(
         build, pose, first, first + line.arcCount, first, tick.progressM, line.lengthM, context, pose.forward, alongMps, false,
-        command, overtakeNone(), false, (told.flags & ContextOnACall) != 0u, told.paceMps, hold, plannedMps, hazard);
+        command, pass, false, (told.flags & ContextOnACall) != 0u, told.paceMps, hold, plannedMps, hazard);
     tick.hold = hold;
     tick.plannedMps = plannedMps;
     if (hazard) tick.flags |= TickHazard;

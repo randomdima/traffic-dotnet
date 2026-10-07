@@ -27,6 +27,10 @@ pass, which reads the command the tick left in the tyres' own table (`tyre_rows.
 - **A car that loses its line stops on the device and says so** (a flag); the action it enters is the host's, and so is
   the grant that action's change drops. **A car waiting to rejoin its line is ticked the same way** (`Rejoining.Tick`
   is a following car's tick): held while still off it, followed once back on, the Follow it enters again the host's.
+- **A car moving across onto the lane beside is ticked on the device too** (CAR-53): told the aside it decided and
+  where a line stopping for its route makes it wait, its step shifted on with its line and driven once begun. **Whether
+  a step asked for is kept is the claims' to answer**, and the lane beside it steps out onto is the host's to lay a line
+  down (a flag); until then the device drives on along the step, whose aside holds it on that lane.
 - **The shadow holds each stage to the host's own function asked of what the stage before handed it**: the reading to
   the town's, the drive to `CarFollower.DriveTheLine` on the device's reading, the tyres to `TyrePass.Step` on the
   device's command. Held to the town's answer, a tenth of a millimetre on the line is a hundredth of a m/s² on a pedal
