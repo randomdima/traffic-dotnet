@@ -65,7 +65,11 @@ internal sealed partial class TownWorld
         // from it.
         for (var person = 0; person < People.Count; person++) StationTheWalker(person);
 
-        for (var person = 0; person < People.Count; person++) LayTheWalkersBody(person);
+        Watch(ClaimsStage.Stationed);
+        Span<BodyPiece> body = stackalloc BodyPiece[WalkingGround.MostPiecesOfABody];
+        for (var person = 0; person < People.Count; person++) LayTheWalkersBody(person, body);
+
+        Watch(ClaimsStage.WalkersLaid);
 
         // Every car's body, and from here on only the cars that were asked for theirs: a standing car's pass,
         // manoeuvre, plan, backing and grant are the nothing they were at the last laying.
@@ -97,6 +101,7 @@ internal sealed partial class TownWorld
             if (PlansDownItsLine(car)) PlanTheDrive(car, ways);
         }
 
+        Watch(ClaimsStage.WalksDue);
         Span<LineWay> walk = stackalloc LineWay[WalkingGround.MostWaysAlongAWalk];
         for (var person = 0; person < People.Count; person++) PlanTheWalk(person, walk);
 
@@ -107,6 +112,7 @@ internal sealed partial class TownWorld
         foreach (var car in CarsAsked) _backingUp.Lay(car, IsUnderWay(car));
 
         foreach (var car in CarsAsked) _ground.ReadTheGrant(car);
+        Watch(ClaimsStage.WalkersDue);
         for (var person = 0; person < People.Count; person++)
         {
             _walkingGround.ReadTheGrant(person);

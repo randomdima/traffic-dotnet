@@ -4,6 +4,28 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-10-07 — a walker's side of the claims is asked on the device, stage by stage
+
+**What a rebuild does with a walker moves to the device** (root log), in four kernels over one row a walker
+(`world/town/kernels/walkers*.comp`, `app/devicetick/DeviceWalkers`): stationed on its walk (`StationTheWalker`), its
+body and its pass laid (`LayTheWalkersBody`, `Sidestepping.Lay`), its walk planned and proposed (`PlanTheWalk`), and its
+grant read, its pass considered and its aim set. `actions/kernels/walking_ground.glsl` and `walker_actions.glsl` are
+`WalkingGround`, `WalkingItsRoute`, `WalkingBack`, `WalkingToThePost` and `Sidestepping` line for line. To be asked one
+function, the body's cover moved out of `TownWorld` into `WalkingGround.BodyCover` and a pass's ground into
+`Sidestepping.GroundStillToCover`, unchanged.
+
+**Each stage is asked of the town as the town has it at that stage** (`TownWorld.WatchingTheClaims`), and held to what
+the town made of it (`DeviceWalkersTests`, on `Towns.Built` — the suite's city with people on it — staged so that some
+walkers sidestep, walk back and go to a post): over 163 200 walker-rebuilds, 19 207 walks and 340 passes, every
+discrete outcome exactly, every row of a claim to the bit, and a place on a bent way or a pace along a heading to
+`trig.glsl`. Three stations within a millimetre of a threshold are left out of the comparison and counted.
+
+- **A walker's hold is numbered by the walker** on the device; the holds are numbered on the host, and the rows a hold
+  lays are compared without it.
+- **Still the host's:** `Sidestepping.Decide`, on the walker's own clock; the answer each hold came to, which a read is
+  handed off the host's claims (`DeviceClaims` answers them apart); and the rows the claims' body lists are laid from
+  each stage.
+
 ## 2026-10-07 — a walker's cell is picked on the device
 
 `PersonCatalog.FacingRow` and `WalkColumn` are `body/kernels/look.glsl`, for the frame's emit (`app/render` log). Both

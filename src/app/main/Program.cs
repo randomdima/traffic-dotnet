@@ -353,6 +353,9 @@ internal static class Program
             case "deviceclaims":
                 DeviceClaimsProbe.Run(map ?? Options.FixtureMap, config);
                 return 0;
+            case "devicewalkers":
+                DeviceWalkersProbe.Run(map ?? Options.FixtureMap, config);
+                return 0;
             case "devicesprites":
                 DeviceSpritesProbe.Run(map ?? Options.FixtureMap, config);
                 return 0;

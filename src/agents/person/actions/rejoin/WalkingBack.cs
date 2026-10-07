@@ -41,6 +41,9 @@ internal sealed class WalkingBack(WalkingGround ground, PersonActions actions)
     /// <summary>Aimed down the straight back, no further than it was granted.</summary>
     public void Aim(int person) => ground.AimAlongTheStraight(person, _backToM[person]);
 
+    /// <summary>Where each walker last decided to walk back to — read, for a device walking the same walkers.</summary>
+    public ReadOnlySpan<Vector2> BackToM => _backToM;
+
     /// <summary>
     /// <b>Where a walker off the ground of its way walks back onto it</b>: the nearest of it, abeam of where the body
     /// stands — the shortest way back, over as little of anybody else's ground as there is.

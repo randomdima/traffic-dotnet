@@ -712,7 +712,7 @@ public class LaneOccupancyInATownTests
             {
                 var way = world.People.OnWay[person];
                 var radiusM = world.People.RadiusM[person];
-                if (!world.IsClearOnItsWay(person, way, radiusM)) continue;
+                if (!world.WalkingGround.IsClearOnItsWay(person, way, radiusM)) continue;
 
                 var count = world.Atlas.UnderDisc(world.People.PositionM[person], radiusM, under);
                 for (var at = 0; at < count; at++)

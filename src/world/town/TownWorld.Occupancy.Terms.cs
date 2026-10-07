@@ -12,14 +12,26 @@ internal enum ClaimsStage
     /// <summary>Begun, with nothing laid.</summary>
     Begun,
 
+    /// <summary>Every walker stationed on its walk, and nothing laid.</summary>
+    Stationed,
+
+    /// <summary>Every walker's body laid, and no car's.</summary>
+    WalkersLaid,
+
     /// <summary>Every body, pass and light laid, and no car's claim yet cleared and laid again.</summary>
     PlansDue,
+
+    /// <summary>Every car's plan laid whole, and no walker's.</summary>
+    WalksDue,
 
     /// <summary>Every plan laid whole, and none answered.</summary>
     PlansLaid,
 
     /// <summary>Every plan answered and cut where its answer says.</summary>
     PlansAnswered,
+
+    /// <summary>Every car's grant read, and no walker's.</summary>
+    WalkersDue,
 
     /// <summary>Every car's and walker's grant read back off what its plan came to: the rebuild done.</summary>
     GrantsRead,

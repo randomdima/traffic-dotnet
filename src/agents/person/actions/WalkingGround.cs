@@ -61,7 +61,7 @@ internal sealed class WalkingGround(
     /// How many runs one walker's straight is kept in (<see cref="SweptGround"/>). A bound on the table and not a
     /// figure behaviour reads: a straight is a hop off a route, a walk back onto one, or an officer's across a street.
     /// </summary>
-    const int MostRunsOfAStraight = 128;
+    public const int MostRunsOfAStraight = 128;
 
     /// <summary>The straight each walker walking straight at a place committed to, and the ground under it swept once.</summary>
     readonly SweptGround _straight = new(people.Capacity, MostRunsOfAStraight);
@@ -487,6 +487,93 @@ internal sealed class WalkingGround(
             : toM;
     }
 
+    /// <summary>How many pieces one walker's body may be laid in: every way the atlas finds under it, and its own.</summary>
+    public const int MostPiecesOfABody = RibbonAtlas.MostWaysUnderABody + 1;
+
+    /// <summary>
+    /// <b>The ground a walker's body stands on</b> (TER-4c.2), as the stretches the town lays for it in the order it lays
+    /// them: every way the atlas finds under its disc — and the way it is walking, over the stretch its own body takes of
+    /// it. Whose ground it is is the town's to say.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A body in a lane holds the lane</b>, on the paint or off it, walking, knocked down or under a hand:
+    /// which ground it stands on is a fact about the ground (TER-4c.2).
+    /// </para>
+    /// <para>
+    /// <b>Its own way is read off its place on it</b> (<see cref="PersonFleet.OnWayM"/>), because a body is
+    /// narrower than the lattice is fine and could fall between its points — and the way it walks is the one
+    /// way it must never be missing from. <b>A body clear on that way is read off nothing else</b>
+    /// (<see cref="IsClearOnItsWay"/>): no other ribbon is under it, so the atlas has nothing to add.
+    /// </para>
+    /// </remarks>
+    /// <param name="recall">What the atlas last found under each walker (<see cref="RibbonAtlas.Recall"/>).</param>
+    /// <param name="into">Room for <see cref="MostPiecesOfABody"/>.</param>
+    /// <returns>How many were written.</returns>
+    public int BodyCover(int person, RibbonAtlas.Recall recall, Span<BodyPiece> into)
+    {
+        var radiusM = People.RadiusM[person];
+        var walking = People.OnWay[person];
+        var alongMps = AlongItsWalkMps(person);
+        var onward = walking == PersonFleet.NoWay ? LaneOccupancy.NoWay : WayOf(People.PeekNextRouteWay(person));
+
+        // A walker has no acceleration (PER-3): it is walking or it has declared nothing, and a casualty declares
+        // nothing whatever it is sliding at.
+        var still = People.Wounded[person] || People.DeclaredMps[person] == Vector2.Zero;
+
+        var under = IsClearOnItsWay(person, walking, radiusM)
+            ? default
+            : Atlas.UnderDisc(People.PositionM[person], radiusM, recall, person);
+        var written = 0;
+        foreach (ref readonly var cover in under)
+        {
+            var onItsLine = cover.Way == walking;
+            into[written++] = new BodyPiece(
+                cover.Way, cover.FromM, cover.ToM, onItsLine ? alongMps : 0f, onItsLine,
+                onItsLine ? onward : LaneOccupancy.NoWay, still);
+        }
+
+        if (walking == PersonFleet.NoWay) return written;
+
+        var atM = People.OnWayM[person];
+        into[written++] = new BodyPiece(
+            walking, MathF.Max(0f, atM - radiusM), MathF.Min(Ways.LengthM(walking), atM + radiusM), alongMps, OnItsLine: true,
+            onward, still);
+        return written;
+    }
+
+    /// <summary>
+    /// <b>Whether a walker's disc stands inside the band of the way it walks and over no other way's ribbon</b>
+    /// (TER-4c.2): clear of either side by a touch, of either end by half the way's width, and of every mark on the
+    /// way.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every other ribbon over a way's band is a mark on it</b> (TER-5c) but for those laid edge to edge with it,
+    /// which share nothing worn and are never marked: the way beside it, which a disc a touch clear of the side
+    /// cannot reach, and the ways carrying on from its ends, which at a corner reach back over the band by up to
+    /// about half its width.
+    /// </remarks>
+    public bool IsClearOnItsWay(int person, int way, float radiusM)
+    {
+        if (way == PersonFleet.NoWay) return false;
+
+        var touchM = Config.RibbonTouchM;
+        Lines.LineOf(way, out var widthM);
+        if (People.OffWayM[person] + radiusM > (widthM * 0.5f) - touchM) return false;
+
+        var fromM = People.OnWayM[person] - radiusM - touchM;
+        var toM = People.OnWayM[person] + radiusM + touchM;
+        var endsM = widthM * 0.5f;
+        if (fromM - endsM < 0f || toM + endsM > Ways.LengthM(way)) return false;
+
+        foreach (ref readonly var mark in Atlas.Marks.Of(way))
+        {
+            if (mark.MineFromM < toM && mark.MineToM > fromM) return false;
+        }
+
+        return true;
+    }
+
     /// <summary>
     /// <b>A walker's claim laid</b> (PER-26, TER-4c.8) over the ways its action walks, as one hold held at a walker's
     /// rung (<see cref="ClaimPriority.Afoot"/>, PER-27) — laid whole and answered with every other plan, as a driver's
@@ -575,4 +662,20 @@ internal sealed class WalkingGround(
         var cutOn = People.GrantM[person] <= 0f ? Occupancy.HoldCutOn(hold) : PersonFleet.NoWay;
         return cutOn >= 0 && Lines.IsTheCrossing(cutOn) ? Lines.ZebraOf(cutOn) : PersonFleet.NoCrossing;
     }
+
+    /// <summary>Where the straight this walker last committed to was walked from (<see cref="CommitTheStraight"/>).</summary>
+    public Vector2 StraightFromM(int person) => _straightFromM[person];
+
+    /// <summary>And where to — not a number where it never committed to one.</summary>
+    public Vector2 StraightToM(int person) => _straightToM[person];
+
+    /// <summary>And the ground under it, swept once, as the runs its plan is read off.</summary>
+    public ReadOnlySpan<SweptRun> StraightOf(int person) => _straight.Of(person);
 }
+
+/// <summary>
+/// One stretch of one way a walker's body stands on (<see cref="WalkingGround.BodyCover"/>), as the town lays it
+/// (<see cref="LaneOccupancy.LayBody"/>): how fast it is going down the way, whether it is travelling it, where it goes
+/// next from it, and whether it is at rest.
+/// </summary>
+internal readonly record struct BodyPiece(int Way, float FromM, float ToM, float AlongMps, bool OnItsLine, int Onward, bool Still);

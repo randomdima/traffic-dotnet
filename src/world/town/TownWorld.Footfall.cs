@@ -86,6 +86,7 @@ internal sealed partial class TownWorld
         }
 
         var ways = WaysOfTheWalk(person, walk);
+        WhenAWalkIsPlanned?.Invoke(this, person, ways);
         var occupant = GroundHeldAs(person, out var roster);
         _walkingGround.Claim(person, occupant, roster, ways);
     }

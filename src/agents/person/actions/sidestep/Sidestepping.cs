@@ -32,7 +32,7 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     /// How many runs one walker's pass is kept in (<see cref="SweptGround"/>). A bound on the table and not a figure
     /// behaviour reads: a pass is a step across, a few strides and a step back.
     /// </summary>
-    const int MostRunsOfAPass = 32;
+    public const int MostRunsOfAPass = 32;
 
     /// <summary>The pass each walker decided on, committed to while it waits for it and walks it.</summary>
     readonly Sidestep[] _decided = new Sidestep[ground.People.Capacity];
@@ -74,23 +74,42 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     /// <b>The ground this walker's pass will cover, laid as a body</b> (TER-4c.6): the pavement it was swept over
     /// (<see cref="IsPavement"/>), given back a stride behind the walker as it goes.
     /// </summary>
+    [SkipLocalsInit]
     public void Lay(int person)
     {
-        var pass = People.Pass[person];
-        if (People.Action[person] != PersonAction.Sidestep || !pass.Any) return;
-        if (!WhereOnItsSidestep(person, pass, out var place))
+        Span<SweptRun> left = stackalloc SweptRun[MostRunsOfAPass];
+        var count = GroundStillToCover(person, left);
+        if (count < 0)
         {
             actions.Enter(person, PersonAction.Walk);
             return;
         }
 
         var occupant = ground.HeldAs(person, out var roster);
+        foreach (ref readonly var run in left[..count]) Occupancy.LayPass(run.Way, run.FromM, run.ToM, 0f, occupant, roster);
+    }
+
+    /// <summary>
+    /// <b>What is left of the ground a walker's pass covers</b> (<see cref="Lay"/>): the runs it was swept in that the
+    /// walker has not yet walked a stride past.
+    /// </summary>
+    /// <param name="into">Room for <see cref="MostRunsOfAPass"/>.</param>
+    /// <returns>How many: none for a walker on no pass, and −1 for one no longer on the sidestep it decided.</returns>
+    public int GroundStillToCover(int person, Span<SweptRun> into)
+    {
+        var pass = People.Pass[person];
+        if (People.Action[person] != PersonAction.Sidestep || !pass.Any) return 0;
+        if (!WhereOnItsSidestep(person, pass, out var place)) return -1;
+
+        var written = 0;
         foreach (ref readonly var run in _swept.Of(person))
         {
             if (run.LastAtM < place.WalkedM - AStrideM(person)) continue;
 
-            Occupancy.LayPass(run.Way, run.FromM, run.ToM, 0f, occupant, roster);
+            into[written++] = run;
         }
+
+        return written;
     }
 
     /// <summary>
@@ -173,6 +192,9 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
 
         return false;
     }
+
+    /// <summary>The pavement a walker's decided pass sweeps, as the runs it is laid, kept and looked for a body in.</summary>
+    public ReadOnlySpan<SweptRun> SweptOf(int person) => _swept.Of(person);
 
     /// <summary>A stride of the walker's own: what it has walked past a run by before that run is given back.</summary>
     float AStrideM(int person) => People.RadiusM[person] * 2f;

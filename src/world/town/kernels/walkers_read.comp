@@ -1,0 +1,19 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every walker's grant read off what its hold came to, its pass considered and its aim set, one thread a walker
+// (walkers.glsl).
+
+layout(local_size_x = 64) in;
+
+#include "world/town/kernels/walkers_buffers.glsl"
+
+void main()
+{
+    uint walker = gl_GlobalInvocationID.x;
+    if (walker >= figures.walkerCount) return;
+
+    WalkerRow row = walkers[walker];
+    walkersReadTheAnswer(row, walker, answers[walker]);
+    walkers[walker] = row;
+}

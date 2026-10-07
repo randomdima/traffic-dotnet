@@ -1,0 +1,24 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every walker's body laid, and the ground its pass covers, one thread a walker, each at its own room of the covers
+// (walkers.glsl): the body's rows first, then the pass's.
+
+layout(local_size_x = 64) in;
+
+#include "world/town/kernels/walkers_buffers.glsl"
+
+void main()
+{
+    uint walker = gl_GlobalInvocationID.x;
+    if (walker >= figures.walkerCount) return;
+
+    WalkerRow row = walkers[walker];
+    uint into = walker * figures.coverRoom;
+    uint bodies = walkersLayTheBody(row, walker, into);
+    uint roster;
+    int occupant = walkersHeldAs(row, roster);
+    uint passes = walkerLayTheSidestep(row, walker, occupant, roster, into + bodies);
+    walkers[walker] = row;
+    counts[walker] = uvec4(bodies, passes, 0u, 0u);
+}
