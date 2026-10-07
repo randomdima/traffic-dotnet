@@ -12,8 +12,10 @@ namespace TrafficSimulation.Bench;
 
 /// <summary>
 /// <b>A town ticked with the device in step against the same town ticked by the host alone</b> (<see cref="DeviceTown"/>):
-/// two of one map warmed alike, then each run for the same ticks with the phases timed — what each phase cost a tick, and
-/// what the town did meanwhile: how fast its cars went, how many lost their lines, braked hard or began touching.
+/// three of one map warmed alike — the host's, the device's with the bodies stepped in the agents' submit, and the device's
+/// with them stepped after the decisions (<see cref="DeviceTown.StepsWithTheTick"/>) — then each run for the same ticks
+/// with the phases timed: what each phase cost a tick, and what the town did meanwhile — how fast its cars went, how many
+/// lost their lines, braked hard or began touching.
 /// </summary>
 /// <remarks>
 /// <b>The two towns part after the first tick the device takes</b>, by a float's noise that the town's own chaos grows,
@@ -34,11 +36,15 @@ internal static class DeviceTownProbe
         var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
         using var vk = Vk.Open("traffic-dotnet", validation: false);
         var host = Measure(plan, config, null);
+        Console.WriteLine("the device, the bodies stepped after the decisions:");
+        var after = Measure(plan, config, vk, stepsWithTheTick: false);
+        Console.WriteLine("the device, the bodies stepped with the agents' tick:");
         var device = Measure(plan, config, vk);
 
+        ReadOnlySpan<(string, Window)> runs = [("host", host), ("device", device), ("after", after)];
         Console.WriteLine($"device town probe — {map} on {vk.DeviceName}, {WarmupTicks} ticks warmed, {MeasuredTicks} measured; ms a tick");
         Console.WriteLine($"{"",-8}{"tick",8}{"wall",8}{"claims",8}{"agents",8}{"decide",8}{"bodies",8}{"contacts",10}{"device",8}");
-        foreach (var (name, run) in (ReadOnlySpan<(string, Window)>)[("host", host), ("device", device)])
+        foreach (var (name, run) in runs)
         {
             Console.WriteLine(
                 $"{name,-8}{run.TickMs,8:F2}{run.WallMs,8:F2}{run.ClaimsMs,8:F2}{run.AgentsMs,8:F2}{run.DecisionsMs,8:F2}{run.BodiesMs,8:F2}" +
@@ -46,7 +52,7 @@ internal static class DeviceTownProbe
         }
 
         Console.WriteLine($"what each town did over the {MeasuredTicks} ticks:");
-        foreach (var (name, run) in (ReadOnlySpan<(string, Window)>)[("host", host), ("device", device)])
+        foreach (var (name, run) in runs)
         {
             Console.WriteLine(
                 $"  {name,-8} cars driven at {run.MeanMps:F2} m/s on average, {run.Rejoining} off their lines, {run.HardBrakings} hard brakings, " +
@@ -54,13 +60,13 @@ internal static class DeviceTownProbe
         }
     }
 
-    static Window Measure(CityPlan plan, SimConfig config, Vk? vk)
+    static Window Measure(CityPlan plan, SimConfig config, Vk? vk, bool stepsWithTheTick = true)
     {
         using var world = new TownWorld(plan, config);
         var loop = new SimLoop<TownWorld>(world, config);
         while (loop.Tick < WarmupTicks) loop.Advance();
 
-        using var device = vk is null ? null : new DeviceTown(vk, config, world);
+        using var device = vk is null ? null : new DeviceTown(vk, config, world) { StepsWithTheTick = stepsWithTheTick };
         world.Device = device;
         var brakings = world.HardBrakings;
         var touches = world.Touches;

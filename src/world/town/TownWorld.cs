@@ -809,7 +809,13 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// </summary>
     public ITownClaims? ClaimsDevice { get; set; }
 
-    public void AgentsTicked() => Device?.TickTheRest(this);
+    public void AgentsTicked()
+    {
+        if (Device is not { } device) return;
+
+        if (device.StepsWithTheTick) ReadyTheStep(_config.TickSeconds);
+        device.TickTheRest(this);
+    }
 
     public void TickAgent(int agent)
     {

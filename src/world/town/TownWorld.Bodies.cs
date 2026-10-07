@@ -63,16 +63,10 @@ internal sealed partial class TownWorld
         // for never crossed into the cars at all.
         if (Timed) Sub.Mark(ref SpentSoFar());
 
-        Settle(dtS);
+        // Stepped already, with the agents' tick (AgentsTicked).
+        if (Device is { StepsWithTheTick: true }) return;
 
-        // The motion every decision this tick was taken against, kept because it is also the motion
-        // phase 5's arithmetic is about: a contact is reported after the step, by which time the
-        // bodies hold the solver's response to it and no longer the cause.
-        for (var person = 0; person < People.Count; person++) _velocityIntoTickMps[person] = People.VelocityMps[person];
-        for (var car = 0; car < Cars.Count; car++) _velocityIntoTickMps[Roster.AgentOfCar(car)] = Cars.VelocityMps[car];
-
-        BeforeTheImpulses?.Invoke(this);
-
+        ReadyTheStep(dtS);
         if (Device != null)
         {
             if (Timed) Sub.Begin();
@@ -152,6 +146,24 @@ internal sealed partial class TownWorld
             People.VelocityMps[person] = _physics.VelocityOf(People.Body[person]);
             People.DistanceWalkedM[person] += (now - was).Length();
         }
+    }
+
+    /// <summary>
+    /// <b>What the town does before any step</b>: what slides with nothing driving it settled (<see cref="Settle"/>), the
+    /// motion into the tick kept for phase 5, and the instruments handed the bodies as the step will find them — at the
+    /// start of phase 4, or at the end of phase 3a where the device steps the bodies with the agents' tick
+    /// (<see cref="ITownDevice.StepsWithTheTick"/>).
+    /// </summary>
+    void ReadyTheStep(float dtS)
+    {
+        Settle(dtS);
+
+        // The motion the step begins from, kept because it is the motion phase 5's arithmetic is about: a contact is
+        // reported after the step, by which time the bodies hold the solver's response to it and no longer the cause.
+        for (var person = 0; person < People.Count; person++) _velocityIntoTickMps[person] = People.VelocityMps[person];
+        for (var car = 0; car < Cars.Count; car++) _velocityIntoTickMps[Roster.AgentOfCar(car)] = Cars.VelocityMps[car];
+
+        BeforeTheImpulses?.Invoke(this);
     }
 
     /// <summary>

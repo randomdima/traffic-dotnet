@@ -54,6 +54,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     readonly DeviceTownClaims _townClaims;
     readonly ComputeBatch _batch;
     readonly GpuTimer _timer;
+    readonly float _dtS;
     readonly int[] _taken;
     readonly bool[] _takenNow;
 
@@ -93,6 +94,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _townClaims = new DeviceTownClaims(vk, config, town, _claims, _cars);
         _batch = new ComputeBatch(vk);
         _timer = new GpuTimer(vk, 3);
+        _dtS = config.TickSeconds;
         _taken = new int[cars.Capacity];
         _takenNow = new bool[cars.Capacity];
         _chosen = new bool[cars.Capacity];
@@ -217,20 +219,39 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// <summary>The host's time writing what the last tick left back into the town, in milliseconds.</summary>
     public double TakeBackMs { get; private set; }
 
+    /// <summary>
+    /// <b>Whether the bodies are stepped in the agents' own submit</b> (<see cref="ITownDevice.StepsWithTheTick"/>): one
+    /// submit a tick rather than two, the decisions reading the town the step left and what one does to a body stepped
+    /// a tick later. Off, the bodies are phase 4's own submit, after the decisions.
+    /// </summary>
+    public bool StepsWithTheTick { get; init; } = true;
+
     public void TickTheRest(TownWorld town)
     {
-        if (town.HoldAgents) return;
+        if (town.HoldAgents)
+        {
+            // Nothing is ticked here, and the bodies step on the town's own impulses.
+            if (!StepsWithTheTick) return;
+
+            _bodies.StepBodies(town, _dtS, default, walkersTicked: false);
+            _swept = false;
+            return;
+        }
 
         var began = Stopwatch.GetTimestamp();
         var laidHere = _townClaims.Pending;
         var laidByTheTown = _townClaims.TakeLaidByTheTown() | (town.ClaimsLaidThisTick && !laidHere);
         if (laidByTheTown) _claims.LayAsCut(town.Occupancy);
         var chosen = _chosen.AsSpan(0, town.Cars.Count);
-        var posesInTheTable = _bodies.PosesLeftInTheTable(town);
-        if (posesInTheTable) _bodies.LayThePosesTheTownChanged(town);
+        var stepping = StepsWithTheTick;
+
+        // Stepped in this submit, the step lays every pose the town changed itself, before the tick's rows are sent.
+        var posesInTheTable = stepping || _bodies.PosesLeftInTheTable(town);
+        if (posesInTheTable && !stepping) _bodies.LayThePosesTheTownChanged(town);
         _count = _cars.Prepare(town, _taken, resident: true, laidByTheTown, chosen, posesInTheTable);
         chosen.Clear();
         _walkerCount = _walkers.Lay(town);
+        if (stepping) _bodies.LayTheStep(town, _dtS, _taken.AsSpan(0, _count), walkersTicked: true);
         var prepared = Stopwatch.GetTimestamp();
 
         var commands = _batch.Begin();
@@ -244,6 +265,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _cars.RecordRead(commands);
         _walkers.Record(commands, _walkerCount);
         _walkers.RecordRead(commands);
+        if (stepping) _bodies.RecordTheStep(commands, town, _dtS);
         _timer.Stamp(commands, 2);
         _batch.SubmitAndWait();
         _timer.Read();
@@ -253,7 +275,13 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
         TakeBackTheCars(town);
         TakeBackTheWalkers(town);
-        _ticked = true;
+        if (stepping)
+        {
+            _bodies.TakeTheStepBack(town);
+            _swept = false;
+        }
+
+        _ticked = !stepping;
         PrepareMs = Stopwatch.GetElapsedTime(began, prepared).TotalMilliseconds;
         WaitMs = Stopwatch.GetElapsedTime(prepared, waited).TotalMilliseconds;
         TakeBackMs = Stopwatch.GetElapsedTime(waited).TotalMilliseconds;
@@ -376,7 +404,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         var impulses = _walkers.ImpulsesAfter;
         for (var person = 0; person < _walkerCount; person++)
         {
-            if (town.WalksUnderAHand(person) || (people.Wounded[person] && !people.Inside[person].Any)) continue;
+            if (DeviceTownBodies.TheTownsImpulse(town, person)) continue;
 
             people.HeadingRad[person] = rows[person].HeadingRad;
             people.DeclaredMps[person] = rows[person].DeclaredMps;

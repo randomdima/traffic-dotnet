@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using Silk.NET.Vulkan;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Runtime;
@@ -104,7 +105,41 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
     {
     }
 
+    public bool StepsWithTheTick => false;
+
     public void StepBodies(TownWorld town, float dtS) => StepBodies(town, dtS, default, walkersTicked: false);
+
+    /// <summary>
+    /// <b>One step laid for a submit the agents' tick is recorded into first</b> (<see cref="RecordTheStep"/>): as
+    /// <see cref="StepBodies(TownWorld, float, ReadOnlySpan{int}, bool, ReadOnlySpan{int})"/> lays it, but for the walkers'
+    /// impulses, which that tick has not handed back yet — a walker's is its row there but where the town's own is the
+    /// one that stands: a casualty's slide, a walker under a hand.
+    /// </summary>
+    public void LayTheStep(TownWorld town, float dtS, ReadOnlySpan<int> tyresStepped, bool walkersTicked)
+    {
+        var began = Stopwatch.GetTimestamp();
+        Lay(town, dtS, tyresStepped, walkersTicked, tickedInThisSubmit: true);
+        LayMs = Stopwatch.GetElapsedTime(began).TotalMilliseconds;
+    }
+
+    /// <summary>
+    /// The step <see cref="LayTheStep"/> laid, recorded after the agents' tick in the caller's submit — whose tyre pass and
+    /// walkers' tick the caller has barriered against a copy (<see cref="Vk.BeforeTransfer"/>).
+    /// </summary>
+    public void RecordTheStep(CommandBuffer commands, TownWorld town, float dtS) =>
+        _phase.Record(
+            commands, town.Cars.Count, town.People.Count, dtS,
+            DeviceBodyPhase.Reads.Poses | DeviceBodyPhase.Reads.Walkers | DeviceBodyPhase.Reads.Contacts);
+
+    /// <summary>What the recorded step left, handed back once the caller's submit has been waited for.</summary>
+    public void TakeTheStepBack(TownWorld town)
+    {
+        var began = Stopwatch.GetTimestamp();
+        _phase.ReadTimes();
+        HandBack(town);
+        WaitMs = 0;
+        HandBackMs = Stopwatch.GetElapsedTime(began).TotalMilliseconds;
+    }
 
     /// <summary>
     /// <b>One step of the town's bodies</b>, as <see cref="ITownDevice.StepBodies"/>.
@@ -126,7 +161,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         TownWorld town, float dtS, ReadOnlySpan<int> tyresStepped, bool walkersTicked, ReadOnlySpan<int> handedOver = default)
     {
         var began = Stopwatch.GetTimestamp();
-        Lay(town, dtS, tyresStepped, walkersTicked);
+        Lay(town, dtS, tyresStepped, walkersTicked, tickedInThisSubmit: false);
         var laid = Stopwatch.GetTimestamp();
 
         var commands = _batch.Begin();
@@ -149,7 +184,11 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
     /// and walker is, the cars' poses where their bodies were placed or reweighed, and the impulses the device does not
     /// make itself.
     /// </summary>
-    void Lay(TownWorld town, float dtS, ReadOnlySpan<int> tyresStepped, bool walkersTicked)
+    /// <param name="tickedInThisSubmit">
+    /// Whether the walkers' tick runs in the step's own submit, so its impulses are not handed back yet and the town's own
+    /// are laid exactly where they stand — rather than wherever they differ from what the tick handed back.
+    /// </param>
+    void Lay(TownWorld town, float dtS, ReadOnlySpan<int> tyresStepped, bool walkersTicked, bool tickedInThisSubmit)
     {
         var physics = town.PhysicsForTheDevice;
         var table = physics.Table;
@@ -188,7 +227,10 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
             var impulseNs = town.WalkerImpulseNs(person);
             if (_walkerTick != null)
             {
-                if (person >= ticked.Length || ticked[person] != impulseNs) _phase.LayWalkerImpulse(person, impulseNs);
+                var townsOwn = tickedInThisSubmit
+                    ? !walkersTicked || TheTownsImpulse(town, person)
+                    : person >= ticked.Length || ticked[person] != impulseNs;
+                if (townsOwn) _phase.LayWalkerImpulse(person, impulseNs);
                 continue;
             }
 
@@ -205,6 +247,13 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
             _phase.LayImpulse(bar.Tractor.Index, -bar.PullNs, bar.HookM);
         }
     }
+
+    /// <summary>
+    /// Whether a walker's impulse is the town's own whatever the walkers' tick made of it: a casualty's, which the town's
+    /// own phase slides (<c>TownWorld.Settle</c>), and one under a hand, which the town ticks itself.
+    /// </summary>
+    internal static bool TheTownsImpulse(TownWorld town, int person) =>
+        town.WalksUnderAHand(person) || (town.People.Wounded[person] && !town.People.Inside[person].Any);
 
     /// <summary>How many cars the last step here left their poses in the tyre pass's table for.</summary>
     int _posesLeftFor;

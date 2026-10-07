@@ -15,15 +15,24 @@ internal interface ITownDevice
 
     /// <summary>
     /// <b>The end of phase 3a</b>: the town has ticked every agent the device does not take. The device ticks the rest and
-    /// hands back what they left — and what a tick of theirs asks of the town (a line lost, a lane stepped onto).
+    /// hands back what they left — and what a tick of theirs asks of the town (a line lost, a lane stepped onto) — and,
+    /// where it <see cref="StepsWithTheTick"/>, steps every body after them in the same submit.
     /// </summary>
     void TickTheRest(TownWorld town);
 
     /// <summary>
     /// <b>Phase 4</b>: every body stepped on the device and handed back as the step left it — the cars, the walkers, the
-    /// solver's moving bodies, and the pairs that began touching for phase 5 to judge.
+    /// solver's moving bodies, and the pairs that began touching for phase 5 to judge. Never asked of a device that
+    /// <see cref="StepsWithTheTick"/>.
     /// </summary>
     void StepBodies(TownWorld town, float dtS);
+
+    /// <summary>
+    /// <b>Whether the bodies are stepped with the agents' tick</b>, in <see cref="TickTheRest"/>, rather than after the
+    /// decisions: the town readies the step before handing the tick over (<c>TownWorld.ReadyTheStep</c>), the decisions
+    /// read the town the step left, and what a decision does to a body is stepped a tick later.
+    /// </summary>
+    bool StepsWithTheTick { get; }
 }
 
 /// <summary>

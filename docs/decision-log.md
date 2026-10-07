@@ -4,6 +4,21 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-07 — a decision's effect on a body is stepped a tick later, and the claims it reads may be a laying old
+
+**The owner ruled both, for a town whose tick the device runs.**
+
+- **The bodies are stepped in the agents' own submit** (`DeviceTown.StepsWithTheTick`, `ITownDevice`): the town readies
+  the step at the end of phase 3a rather than the start of phase 4 (`TownWorld.ReadyTheStep` — a casualty's slide, a
+  wreck's wheels, the motion into the tick), the decisions read the town the step left, and what a decision does to a
+  body — boarding, a car parked or put down, a coupling — is stepped a tick later. One submit a tick instead of two.
+- **It bought no time on the link it was measured on**: OdesaOsm (`--bench devicetown`, both orders of the two runs)
+  reads 9.10 against 9.39 ms a tick in one order and 9.42 against 8.98 in the other, the town's counts equal to the car.
+  A round trip there costs about a tenth of a millisecond besides its bytes, and the bytes are what a submit waits on.
+  The rest of a tick at a tick's lag is overlap — host work beside the device's — which this is the first step towards.
+- **A decision may read a claims layer one laying old**: the rebuild's own steps take what they need of each agent
+  from the device, and the whole layer may come back later than the laying that made it.
+
 ## 2026-10-06 — the tick moves onto the device
 
 **The owner decided it: everything that can move to the GPU moves, and its state stays there.** OdesaOsm cannot
