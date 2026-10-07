@@ -206,6 +206,24 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         }
     }
 
+    /// <summary>How many cars the last step here left their poses in the tyre pass's table for.</summary>
+    int _posesLeftFor;
+
+    /// <summary>
+    /// <b>Whether the last step left every car's pose in the tyre pass's table</b> (<c>bodies_mirror.comp</c>) and the town
+    /// has stepped none since: until the next step, a car's pose there is then the fleet's but where the town changed its
+    /// body since (<see cref="LayThePosesTheTownChanged"/>) — and its forward is the body's own rather than the fleet's
+    /// heading turned back into one.
+    /// </summary>
+    public bool PosesLeftInTheTable(TownWorld town) =>
+        _stepsTaken == town.PhysicsForTheDevice.StepsTaken && town.Cars.Count <= _posesLeftFor;
+
+    /// <summary>
+    /// The pose of every car whose body the town changed since the last step — frozen as the step ended, put down,
+    /// reweighed — laid from the fleet into the tyre pass's table, for whatever reads it before the next step.
+    /// </summary>
+    public void LayThePosesTheTownChanged(TownWorld town) => LayThePlacedCars(town, town.PhysicsForTheDevice);
+
     /// <summary>The pose of every car whose body the town changed — put down, reweighed — laid again from the fleet, which the town wrote with it.</summary>
     void LayThePlacedCars(TownWorld town, PhysicsWorld physics)
     {
@@ -291,6 +309,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         physics.EndTheStepTaken();
         SettlingMs = Stopwatch.GetElapsedTime(ending).TotalMilliseconds;
         _stepsTaken = physics.StepsTaken;
+        _posesLeftFor = cars.Count;
         TheFrozenStill(town, physics);
         ReadBytes = _phase.ReadBytes + (ulong)(walkers * Unsafe.SizeOf<Vector4>())
                     + (ulong)(contacts.Length * (Unsafe.SizeOf<UInt4>() + (2 * Unsafe.SizeOf<Vector4>())));

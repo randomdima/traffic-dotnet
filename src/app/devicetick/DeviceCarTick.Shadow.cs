@@ -117,14 +117,22 @@ internal sealed partial class DeviceCarTick
     /// Which cars the town left to the device as its own tick reached each (<see cref="ITownDevice.Takes"/>) — asked again
     /// here, a car whose own tick moved it into one the device takes would be ticked twice. Empty, each car is asked here.
     /// </param>
+    /// <param name="posesInTheTable">
+    /// Whether the tyre pass's table already holds every car's pose as the tick is to read it — left by the bodies' step on
+    /// the device, and the ones the town changed since laid (<see cref="DeviceTownBodies.PosesLeftInTheTable"/>) — so none
+    /// is laid here.
+    /// </param>
     /// <returns>How many cars the device takes.</returns>
-    public int Prepare(TownWorld town, Span<int> taken, bool resident, bool claimsLaid = true, ReadOnlySpan<bool> chosen = default)
+    public int Prepare(
+        TownWorld town, Span<int> taken, bool resident, bool claimsLaid = true, ReadOnlySpan<bool> chosen = default,
+        bool posesInTheTable = false)
     {
         var cars = town.Cars;
         var count = 0;
         for (var car = 0; car < cars.Count; car++)
         {
-            LayThePose(town, car);
+            _tyres.Table.BuildOf.Lay(car, (uint)cars.Variant[car]);
+            if (!posesInTheTable) LayThePose(town, car);
             _askedBefore[car] = town.AsksTheRoute(car);
             _lineLaidDue[car] = cars.LineLaid[car];
             if (chosen.IsEmpty ? !Takes(town, car) : !chosen[car])
@@ -165,7 +173,7 @@ internal sealed partial class DeviceCarTick
             _held[car] = true;
         }
 
-        _tyres.Table.Poses.Mark(0, cars.Count);
+        if (!posesInTheTable) _tyres.Table.Poses.Mark(0, cars.Count);
         return count;
     }
 
@@ -223,7 +231,6 @@ internal sealed partial class DeviceCarTick
     void LayThePose(TownWorld town, int car)
     {
         var cars = town.Cars;
-        _tyres.Table.BuildOf.Lay(car, (uint)cars.Variant[car]);
         _tyres.Poses[car] = DeviceTyres.PoseRow.Of(new CarPose(
             cars.PositionM[car], cars.HeadingRad[car], cars.VelocityMps[car], cars.YawRateRadPerS[car], cars.MassKg[car],
             cars.AccelerationMps2[car]));

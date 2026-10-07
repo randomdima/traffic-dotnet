@@ -26,7 +26,9 @@ namespace TrafficSimulation.App.DeviceTick;
 /// </para>
 /// <para>
 /// <b>The bodies are the device's</b> (<see cref="DeviceTownBodies"/>): stepped off the impulses the tick left on the
-/// device, the town's own written over them for what the town ticked itself.
+/// device, the town's own written over them for what the town ticked itself. The poses the step leaves in the tyre pass's
+/// table are what the next tick reads, the forward a body's own; the town lays only those of the cars whose bodies it
+/// changed since (<see cref="DeviceTownBodies.PosesLeftInTheTable"/>).
 /// </para>
 /// <para>
 /// <b>What the town's tick of a car it keeps does to its tyres stays the town's</b>: the device runs every car's tyres,
@@ -224,7 +226,9 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         var laidByTheTown = _townClaims.TakeLaidByTheTown() | (town.ClaimsLaidThisTick && !laidHere);
         if (laidByTheTown) _claims.LayAsCut(town.Occupancy);
         var chosen = _chosen.AsSpan(0, town.Cars.Count);
-        _count = _cars.Prepare(town, _taken, resident: true, laidByTheTown, chosen);
+        var posesInTheTable = _bodies.PosesLeftInTheTable(town);
+        if (posesInTheTable) _bodies.LayThePosesTheTownChanged(town);
+        _count = _cars.Prepare(town, _taken, resident: true, laidByTheTown, chosen, posesInTheTable);
         chosen.Clear();
         _walkerCount = _walkers.Lay(town);
         var prepared = Stopwatch.GetTimestamp();

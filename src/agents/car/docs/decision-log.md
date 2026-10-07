@@ -40,6 +40,13 @@ and the town drives as it does alone (`--bench devicetown`: the same mean speed 
   scrub are scratch the pass that wrote them spends. The marks are written into memory the host reads, so a tick's few
   cross the bus rather than a ring with room for every wheel. **The bus is what a tick waits on**: the link this was
   measured on carries 1.8 GB/s, and a tick's car rows in and out are most of the submit.
+- **A car's wheels stay on the device while it ticks there** (`DeviceTyres.KeptOnTheDevice`): the impulses are spent
+  where the pass left them, and the wheels' carried state goes back to the town only as the car leaves the device's tick,
+  since only the town's own tyre pass reads it. OdesaOsm hands back a car every hundred ticks or so.
+- **The tick reads the poses the bodies' step left**, the town laying only the cars whose bodies it changed since
+  (`DeviceTownBodies.PosesLeftInTheTable`): so a car's forward is its body's own rather than its heading turned back into
+  one by the host's sine. The two part in the last bit; the town drives the same (`--bench devicetown`: 1 115 hard
+  brakings against 1 117, every other count equal), and the car rows sent a tick went 576 → 107 KiB.
 - **The claims are laid on the device too** (`DeviceTownClaims`, `world/road/docs/decision-log.md`), and a car's grant
   is read where the device's rebuild writes it — into the car tick's own tables, which the town lays a grant into only
   where it changed one since. **The bodies are stepped on the device** (`DeviceTownBodies`,
