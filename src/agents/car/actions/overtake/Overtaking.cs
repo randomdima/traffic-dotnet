@@ -1101,19 +1101,29 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// for the other. <b>A car already over the paint drives on off it</b>, and is held by a body in its way alone.
     /// </para>
     /// </remarks>
+    public bool TheBodyInThePass(int car, out float inTheWayM, out LaneClaim body, out int on) =>
+        Occupancy.FirstBodyIn(_asks.AsSpan(0, AsksOfThePass(car, _asks)), car, out inTheWayM, out body, out on);
+
+    /// <summary>
+    /// <b>Where <see cref="TheBodyInThePass"/> looks, in the order it looks</b>: the approach on the car's own lane, then
+    /// each run of the pass not yet driven past — and, where a run crosses a zebra's paint the car is not already on,
+    /// that paint's walking lanes for somebody on foot.
+    /// </summary>
+    /// <remarks>
+    /// <b>Which paint the car is already on is read off the runs alone</b>: a run is only reached with nothing found in
+    /// any before it, so where the car stands over the paint is the same whatever stands on the ground.
+    /// </remarks>
+    /// <param name="into">Room for <see cref="MostAsksOfAPass"/> of the town's marks.</param>
     [SkipLocalsInit]
-    public bool TheBodyInThePass(int car, out float inTheWayM, out LaneClaim body, out int on)
+    public int AsksOfThePass(int car, Span<BodyAsk> into)
     {
         ref readonly var build = ref Cars.BuildOf(car);
         var progressM = Cars.ProgressM[car];
+        var written = 0;
         Span<LineWay> approach = stackalloc LineWay[DrivingGround.MostWaysAlongALine];
         foreach (ref readonly var way in TheApproach(car, Cars.Pass[car], progressM, approach))
         {
-            if (!Occupancy.AheadBody(way.Way, way.FromM, way.ToM, car, out body)) continue;
-
-            on = way.Way;
-            inTheWayM = OnTheLineM(way, MathF.Max(way.FromM, body.FromM));
-            return true;
+            into[written++] = new BodyAsk(way.Way, way.FromM, way.ToM, OnFoot: false, way.LineFromM, FromTheBody: true);
         }
 
         // The paint the car stands over at its first station, and on unbroken from there, is paint it is already on.
@@ -1123,31 +1133,32 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
         {
             if (run.LastAtM < progressM) continue;
 
-            on = run.Way;
-            var inTheWay = Occupancy.AheadBody(run.Way, run.FromM, run.ToM, car, out body);
-            if (!inTheWay && ground.CrossesAZebra(run.Way, run.FromM, run.ToM))
-            {
-                if (onThePaint && run.FirstAtM <= onThePaintToM + build.FlankM)
-                {
-                    onThePaintToM = MathF.Max(onThePaintToM, run.LastAtM);
-                    continue;
-                }
+            var inTheWayM = MathF.Max(progressM, run.FirstAtM - build.FlankM) + build.NoseAheadOfAxleM;
+            into[written++] = new BodyAsk(run.Way, run.FromM, run.ToM, OnFoot: false, inTheWayM, FromTheBody: false);
+            if (!ground.CrossesAZebra(run.Way, run.FromM, run.ToM)) continue;
 
-                onThePaint = false;
-                inTheWay = ground.SomebodyOnThePaint(run.Cover, out body, out on);
+            if (onThePaint && run.FirstAtM <= onThePaintToM + build.FlankM)
+            {
+                onThePaintToM = MathF.Max(onThePaintToM, run.LastAtM);
+                continue;
             }
 
-            if (!inTheWay) continue;
-
-            inTheWayM = MathF.Max(progressM, run.FirstAtM - build.FlankM) + build.NoseAheadOfAxleM;
-            return true;
+            onThePaint = false;
+            written += ground.AsksOfThePaint(run.Cover, inTheWayM, into[written..]);
         }
 
-        inTheWayM = float.PositiveInfinity;
-        body = LaneClaim.Nothing;
-        on = LaneOccupancy.NoHold;
-        return false;
+        return written;
     }
+
+    /// <summary>
+    /// How many stretches one pass is looked over for a body (<see cref="AsksOfThePass"/>): its approach, and every run
+    /// with the paint of every mark the busiest way carries.
+    /// </summary>
+    public static int MostAsksOfAPass(WayCrossings marks) =>
+        DrivingGround.MostWaysAlongALine + (MostRunsOfAPass * (1 + marks.MostCrossedByOne));
+
+    /// <summary>Room for one pass's <see cref="AsksOfThePass"/>.</summary>
+    readonly BodyAsk[] _asks = new BodyAsk[MostAsksOfAPass(ground.Occupancy.Marks)];
 
     /// <summary>
     /// <b>What a car's pass is asked and kept on over one stretch of a way it sweeps</b> (<see cref="PassTerms"/>):

@@ -51,6 +51,17 @@ void main()
         if (unit < plansFirstCar()) return;
 
         uint car = unit - plansFirstCar();
+        if (plansHeldInItsPass(car))
+        {
+            // Begun and ended short of the body (Following.Plan): no pieces, laid where it stands, kept off the body by the
+            // stand-off on its holder's own terms (LaneOccupancy.BeginHold, EndHold).
+            uvec4 found = askAnswers[car];
+            plansFileTheHold(holdAt, HoldRow(
+                rowAt, rowAt, figures.standOffM, 0u, figures.standOffM, -rebuildInfinity(), uintBitsToFloat(found[AskInTheWayM]),
+                figures.standOffM, found[AskBody], int(found[AskOn]), 0.0, 0.0));
+            return;
+        }
+
         if ((carClaims[car].flags & CarPlansOnTheDevice) == 0u) return;
 
         PlanOutRow plan = planResults[car];

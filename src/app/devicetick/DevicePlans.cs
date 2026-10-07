@@ -18,7 +18,8 @@ namespace TrafficSimulation.App.DeviceTick;
 /// on the device for a rebuild to number (<see cref="Record"/>).
 /// </summary>
 /// <remarks>
-/// <b>The road and the marks are laid once</b>; a car's line crosses only as far as it is laid. A car on a pass is the
+/// <b>The road and the marks are laid once</b>; a car's line crosses only as far as it is laid — or not at all, where the
+/// lines the car tick keeps on the device are read in place (<see cref="DeviceCarTick.Lines"/>). A car on a pass is the
 /// host's still: its plan begins past the pass.
 /// </remarks>
 internal sealed class DevicePlans : IDisposable
@@ -55,7 +56,11 @@ internal sealed class DevicePlans : IDisposable
     readonly int _mostPieces;
     readonly uint _firstConnector;
     readonly List<GpuBuffer> _owned = [];
-    readonly GpuBuffer _carRows, _carFigures, _lines, _arcs, _entries, _chain, _starts, _ends, _breaks;
+    readonly GpuBuffer _carRows, _carFigures;
+
+    /// <summary>The lines as each laying sends them — none where the car tick's are read in place.</summary>
+    readonly GpuBuffer? _lines, _arcs, _entries, _chain, _starts, _ends, _breaks;
+
     readonly GpuBuffer _pieces, _results, _piecesOut, _resultsOut;
     int _carCount;
 
@@ -68,7 +73,11 @@ internal sealed class DevicePlans : IDisposable
     readonly ComputeBatch _batch;
     readonly GpuTimer _timer;
 
-    public DevicePlans(Vk vk, SimConfig config, TownWorld world)
+    /// <param name="lines">
+    /// Every car's line as the car tick keeps it on the device, read in place (<see cref="DeviceCarTick.Lines"/>) — or none,
+    /// and each laying sends every car's line.
+    /// </param>
+    public DevicePlans(Vk vk, SimConfig config, TownWorld world, DeviceCarTick.LineTables? lines = null)
     {
         if (DrivingGround.MostWaysAlongALine != MostWaysInTheKernel)
         {
@@ -122,26 +131,37 @@ internal sealed class DevicePlans : IDisposable
 
         _carRows = Mapped<UInt4>(_cars);
         _carFigures = Mapped<Vector4>(_cars * 2);
-        _lines = Mapped<CarLineRow>(_cars);
-        _arcs = Mapped<DeviceGround.ArcRow>(_cars * _arcsPerCar);
-        _entries = Mapped<float>(_cars * _arcsPerCar);
-        _chain = Mapped<int>(_cars * LineAssembler.MostLanes);
-        _starts = Mapped<float>(_cars * LineAssembler.MostLanes);
-        _ends = Mapped<float>(_cars * LineAssembler.MostLanes);
-        _breaks = Mapped<uint>(_cars * LineAssembler.MostLanes);
+        if (lines is null)
+        {
+            _lines = Mapped<CarLineRow>(_cars);
+            _arcs = Mapped<DeviceGround.ArcRow>(_cars * _arcsPerCar);
+            _entries = Mapped<float>(_cars * _arcsPerCar);
+            _chain = Mapped<int>(_cars * LineAssembler.MostLanes);
+            _starts = Mapped<float>(_cars * LineAssembler.MostLanes);
+            _ends = Mapped<float>(_cars * LineAssembler.MostLanes);
+            _breaks = Mapped<uint>(_cars * LineAssembler.MostLanes);
+            _sent = [_carRows, _carFigures, _lines, _arcs, _entries, _chain, _starts, _ends, _breaks];
+        }
+        else
+        {
+            _sent = [_carRows, _carFigures];
+        }
+
         _pieces = Device<DeviceClaims.ClaimRow>(_cars * _mostPieces);
         _results = Device<PlanOutRow>(_cars);
         _piecesOut = Read<DeviceClaims.ClaimRow>(_cars * _mostPieces);
         _resultsOut = Read<PlanOutRow>(_cars);
-        _sent = [_carRows, _carFigures, _lines, _arcs, _entries, _chain, _starts, _ends, _breaks];
         _resident = new GpuBuffer[_sent.Length];
         for (var at = 0; at < _sent.Length; at++) _resident[at] = Resident(_sent[at].SizeBytes);
 
+        GpuBuffer[] carLines = lines is { } kept
+            ? [kept.Lines, kept.Arcs, kept.Entries, kept.Chain, kept.Starts, kept.Ends, kept.Breaks]
+            : _resident[2..];
         GpuBuffer[] set =
         [
-            Resident(Laid<CarBuildRow>(builds)), .. _resident, Resident(Laid<uint>(connectorAt)), Resident(Laid<int>(connectorTo)),
-            Resident(Laid<uint>(connectorRung)), Resident(Laid<float>(roads.LaneLengthM)), Resident(Laid<uint>(markAt)),
-            Resident(Laid<SectionRow>(CollectionsMarshal.AsSpan(sections))), _pieces, _results,
+            Resident(Laid<CarBuildRow>(builds)), _resident[0], _resident[1], .. carLines, Resident(Laid<uint>(connectorAt)),
+            Resident(Laid<int>(connectorTo)), Resident(Laid<uint>(connectorRung)), Resident(Laid<float>(roads.LaneLengthM)),
+            Resident(Laid<uint>(markAt)), Resident(Laid<SectionRow>(CollectionsMarshal.AsSpan(sections))), _pieces, _results,
         ];
         _plan = new ComputeKernel(vk, "plan_cars.comp", set.Length, (uint)Marshal.SizeOf<PlanPush>());
         _set = _plan.Bind(set);
@@ -182,23 +202,28 @@ internal sealed class DevicePlans : IDisposable
         var cars = world.Cars;
         var rows = _carRows.Span<UInt4>();
         var figures = _carFigures.Span<Vector4>();
-        var lines = _lines.Span<CarLineRow>();
-        var arcs = _arcs.Span<DeviceGround.ArcRow>();
-        var entries = _entries.Span<float>();
-        var chain = _chain.Span<int>();
-        var starts = _starts.Span<float>();
-        var ends = _ends.Span<float>();
-        var breaks = _breaks.Span<uint>();
-        var lanes = LineAssembler.MostLanes;
         _carCount = cars.Count;
         for (var car = 0; car < cars.Count; car++)
         {
-            var proposes = world.PlansItsLine(car) && !cars.Pass[car].Begun;
+            var proposes = Proposing(world, car);
             var flags = (proposes ? Proposes : 0u) | (cars.BlueLight[car] ? OnACall : 0u) | (cars.LineIsReverse[car] ? LineIsReverse : 0u);
             rows[car] = new UInt4(cars.Variant[car], flags, 0u, 0u);
             figures[car * 2] = new Vector4(cars.ProgressM[car], cars.AlongMps[car], cars.PlannedMps[car], cars.GroundCoefficient[car]);
             figures[car * 2 + 1] = new Vector4(cars.GrantMarginM[car], proposes ? world.KeptOffWhatItMayPassM(car) : 0f, 0f, 0f);
+        }
 
+        if (_lines is null) return;
+
+        var lines = _lines.Span<CarLineRow>();
+        var arcs = _arcs!.Span<DeviceGround.ArcRow>();
+        var entries = _entries!.Span<float>();
+        var chain = _chain!.Span<int>();
+        var starts = _starts!.Span<float>();
+        var ends = _ends!.Span<float>();
+        var breaks = _breaks!.Span<uint>();
+        var lanes = LineAssembler.MostLanes;
+        for (var car = 0; car < cars.Count; car++)
+        {
             var line = cars.Line[car];
             lines[car] = new CarLineRow((uint)line.ArcCount, (uint)line.LaneCount, line.LengthM, 0u);
             var laid = cars.LineOf(car);
@@ -213,6 +238,9 @@ internal sealed class DevicePlans : IDisposable
             }
         }
     }
+
+    /// <summary>Whether a car's claim is the plan down its line the device lays: planning down it, and on no pass begun.</summary>
+    public static bool Proposing(TownWorld world, int car) => world.PlansItsLine(car) && !world.Cars.Pass[car].Begun;
 
     /// <summary>Every car's claim laid, and what it came to read back. One submit and one wait.</summary>
     public void Plan(int carCount)
@@ -243,7 +271,7 @@ internal sealed class DevicePlans : IDisposable
             SentBytes += bytes;
         }
 
-        LinesSentBytes = (_arcs.SizeBytes + _entries.SizeBytes) / (ulong)Math.Max(1, _cars) * (ulong)_carCount;
+        LinesSentBytes = _arcs is null ? 0ul : (_arcs.SizeBytes + _entries!.SizeBytes) / (ulong)Math.Max(1, _cars) * (ulong)_carCount;
     }
 
     /// <summary>How many bytes the last send copied, and how many of them were the cars' lines — every arc of each car's room.</summary>

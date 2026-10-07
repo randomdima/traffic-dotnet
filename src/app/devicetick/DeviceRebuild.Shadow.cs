@@ -165,24 +165,39 @@ internal sealed partial class DeviceRebuild
     void LayTheCarsClaims(TownWorld town)
     {
         var cars = town.Cars;
-        var rows = _carClaims.Rows;
+        var rows = _carClaims;
         for (var car = 0; car < _carCount; car++)
         {
             if (!_askedNow[car])
             {
-                rows[car] = new CarClaimRow(0u, -1, -1, 0, 0f, 0f, 0f, 0f, 0f, 0u);
+                rows.Lay(car, new CarClaimRow(0u, -1, -1, 0, 0f, 0f, 0f, 0f, 0f, 0u));
                 continue;
             }
 
             if (_plansItsLine[car] && !_onAPass[car])
             {
-                rows[car] = new CarClaimRow(CarClaimRow.Asked | CarClaimRow.PlansOnTheDevice, -1, -1, 0, 0f, 0f, 0f, 0f, 0f, 0u);
+                rows.Lay(car, new CarClaimRow(CarClaimRow.Asked | CarClaimRow.PlansOnTheDevice, -1, -1, 0, 0f, 0f, 0f, 0f, 0f, 0u));
                 continue;
             }
 
             var hold = town.PlanHoldOf(car);
             var hostUnit = -1;
             var (holdUnit, holdOffset) = (-1, 0);
+            var (askFirst, askCount) = (0, 0);
+            if (_plansItsLine[car] && _carTick != null)
+            {
+                // Planned as though its pass were clear: whether a body stands in it is the device's to ask.
+                askFirst = _askCount;
+                askCount = town.BodyAsksOfItsPass(car, _scratchAsks);
+                var asks = _asks.Rows;
+                if (_askCount + askCount > asks.Length)
+                {
+                    throw new InvalidOperationException($"The cars on a pass asked past the {asks.Length} stretches the rebuild has room for.");
+                }
+
+                for (var at = 0; at < askCount; at++) asks[_askCount++] = BodyAskRow.Of(_scratchAsks[at]);
+            }
+
             if (_plansItsLine[car])
             {
                 hostUnit = _hostUnitCount++;
@@ -200,9 +215,9 @@ internal sealed partial class DeviceRebuild
                 (holdUnit, holdOffset) = (_stretches, hold - _plansDueHolds);
             }
 
-            rows[car] = new CarClaimRow(
+            rows.Lay(car, new CarClaimRow(
                 CarClaimRow.Asked, hostUnit, holdUnit, holdOffset, cars.AuthorityM[car], cars.HorizonM[car], cars.ClaimFromM[car],
-                cars.CommittedToM[car], cars.GrantMarginM[car], (uint)cars.GrantCutBy[car]);
+                cars.CommittedToM[car], cars.GrantMarginM[car], (uint)cars.GrantCutBy[car], askFirst, (uint)askCount));
         }
     }
 

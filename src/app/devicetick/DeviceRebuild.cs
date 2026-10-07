@@ -65,13 +65,25 @@ internal sealed partial class DeviceRebuild : IDisposable
     }
 
     /// <summary>What the host tells the rebuild of one car (<c>rebuild_rows.glsl</c>'s <c>CarClaimRow</c>).</summary>
+    /// <param name="AskFirst">Where the run of <see cref="BodyAskRow"/>s a car on a pass looks for a body inside it begins.</param>
     [StructLayout(LayoutKind.Sequential)]
     internal record struct CarClaimRow(
         uint Flags, int HostUnit, int HoldUnit, int HoldOffset, float AuthorityM, float HorizonM, float ClaimFromM, float CommittedToM,
-        float GrantMarginM, uint GrantCutBy, float Pad0 = 0f, float Pad1 = 0f)
+        float GrantMarginM, uint GrantCutBy, int AskFirst = 0, uint AskCount = 0u)
     {
         public const uint Asked = 1u;
         public const uint PlansOnTheDevice = 2u;
+    }
+
+    /// <summary>One stretch a car on a pass looks for a body in (<c>rebuild_rows.glsl</c>'s <c>BodyAskRow</c>, <see cref="BodyAsk"/>).</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal readonly record struct BodyAskRow(int Way, float FromM, float ToM, uint Flags, float InTheWayM, uint Pad = 0u)
+    {
+        public const uint OnFoot = 1u;
+        public const uint FromTheBody = 2u;
+
+        public static BodyAskRow Of(in BodyAsk ask) => new(
+            ask.Way, ask.FromM, ask.ToM, (ask.OnFoot ? OnFoot : 0u) | (ask.FromTheBody ? FromTheBody : 0u), ask.InTheWayM);
     }
 
     /// <summary>A row the host cut after it was laid (<c>rebuild_rows.glsl</c>'s <c>RowEdit</c>).</summary>
@@ -107,6 +119,9 @@ internal sealed partial class DeviceRebuild : IDisposable
 
     [StructLayout(LayoutKind.Sequential)]
     readonly record struct RangePush(uint RowFirst, uint RowCount, uint HoldFirst, uint HoldCount);
+
+    [StructLayout(LayoutKind.Sequential)]
+    readonly record struct HostPush(RangePush Range, uint FirstCarUnit, uint CarCount);
 
     [StructLayout(LayoutKind.Sequential)]
     readonly record struct UnitsPush(uint Count, uint FirstUnit);
@@ -157,36 +172,55 @@ internal sealed partial class DeviceRebuild : IDisposable
     readonly Sent<uint> _hostRowUnit, _hostHoldUnit;
     readonly Sent<RowEdit> _rowEdits;
     readonly Sent<HoldEdit> _holdEdits;
-    readonly Sent<CarClaimRow> _carClaims;
+
+    /// <summary>What the host tells the rebuild of each car, kept on the device and sent only where it changed.</summary>
+    readonly ResidentRows<CarClaimRow> _carClaims;
+
+    ulong _carClaimsSent;
 
     /// <summary>Every car's grant, cutter and told bits as the town had them, sent once before the first rebuild.</summary>
     readonly GpuBuffer _primedGrants, _primedCutters, _primedTold;
 
+    /// <summary>
+    /// The runs of stretches each car on a pass looks for a body inside it in, sent (<see cref="BodyAskRow"/>), and what
+    /// each found, a car a row (<c>rebuild_asks.comp</c>).
+    /// </summary>
+    readonly Sent<BodyAskRow> _asks;
+
+    readonly GpuBuffer _askAnswers;
+
     readonly ScanKernels _scans;
     readonly PrefixScan _scanCandidates, _scanWays, _scanBodies, _scanRows, _scanHolds;
     readonly Bound _bodiesCount, _bodiesGather, _bodiesFile, _bodiesSort, _bodiesMark, _bodiesTally, _bodiesLay;
-    readonly Bound _tally, _count, _file, _host, _edits, _capture, _grant, _walkerAnswers, _signals;
+    readonly Bound _tally, _count, _file, _host, _edits, _capture, _grant, _walkerAnswers, _signals, _asked;
     readonly ComputeBatch _batch;
     readonly GpuTimer _timer;
 
-    public DeviceRebuild(Vk vk, SimConfig config, TownWorld world)
+    /// <summary>
+    /// A rebuild held to the town's beside it (<see cref="Watch"/>) — or, given the claims and the car tick of a device
+    /// that lays the claims in the town's place, the rebuild that lays them (<see cref="InTheTown"/>): numbered into those
+    /// claims, the plans reading the car tick's own lines and every grant written into its own tables.
+    /// </summary>
+    public DeviceRebuild(Vk vk, SimConfig config, TownWorld world, DeviceClaims? claims = null, DeviceCarTick? cars = null)
     {
         _vk = vk;
         _config = config;
-        var claims = world.Occupancy;
+        var occupancy = world.Occupancy;
         _cars = world.Cars.Capacity;
         _walkersRoom = world.People.Capacity;
-        _ways = claims.WayCount;
-        _holdRoom = claims.HoldCapacity;
+        _ways = occupancy.WayCount;
+        _holdRoom = occupancy.HoldCapacity;
         var lights = world.SignalHolds.Table;
         _stretches = lights.Way.Length;
         _units = _stretches + 1 + _cars + _walkersRoom;
+        _carTick = cars;
+        _ownsTheClaims = claims is null;
 
-        _claims = new DeviceClaims(vk, _ways, claims.Capacity, _holdRoom, config.Road.MostSettlingPasses, _cars, sentFromTheHost: false);
+        _claims = claims ?? new DeviceClaims(vk, _ways, occupancy.Capacity, _holdRoom, config.Road.MostSettlingPasses, _cars, sentFromTheHost: false);
         var tables = _claims.OnTheDevice;
         _bodies = new DeviceBodies(vk, config, world);
-        _plans = new DevicePlans(vk, config, world);
-        _walkers = new DeviceWalkers(vk, config, world, tables);
+        _plans = new DevicePlans(vk, config, world, cars?.Lines);
+        _walkers = new DeviceWalkers(vk, config, world, tables, resident: cars != null);
         _candidates = Math.Max(1, (_walkersRoom * _walkers.CoverRoom) + (_cars * DeviceBodies.Room));
 
         _unitCandidates = Device<uint>(_walkersRoom + _cars);
@@ -205,9 +239,7 @@ internal sealed partial class DeviceRebuild : IDisposable
         _held = Device<System.Numerics.Vector4>(_stretches);
         _stretchPieces = Device<ClaimRow>(_stretches);
 
-        _grants = Device<DeviceCarTick.GrantRow>(_cars);
-        _cutters = Device<ClaimRow>(_cars);
-        _told = Device<uint>(_cars);
+        (_grants, _cutters, _told) = cars?.GrantTables ?? (Device<DeviceCarTick.GrantRow>(_cars), Device<ClaimRow>(_cars), Device<uint>(_cars));
         _grantsOut = Readback<DeviceCarTick.GrantRow>(_cars);
         _cuttersOut = Readback<ClaimRow>(_cars);
         _toldOut = Readback<uint>(_cars);
@@ -220,10 +252,12 @@ internal sealed partial class DeviceRebuild : IDisposable
         _hostHoldUnit = new Sent<uint>(this, _holdRoom);
         _rowEdits = new Sent<RowEdit>(this, hostRoom);
         _holdEdits = new Sent<HoldEdit>(this, 2 * _holdRoom);
-        _carClaims = new Sent<CarClaimRow>(this, _cars);
+        _carClaims = new ResidentRows<CarClaimRow>(vk, _cars, 1, hostOnly: true);
         _primedGrants = Staging<DeviceCarTick.GrantRow>(_cars);
         _primedCutters = Staging<ClaimRow>(_cars);
         _primedTold = Staging<uint>(_cars);
+        _asks = new Sent<BodyAskRow>(this, AskRoom(world));
+        _askAnswers = Device<UInt4>(_cars);
 
         _scans = new ScanKernels(vk);
         _scanCandidates = new PrefixScan(vk, _scans, _unitCandidates, _blockSums, _sums, (uint)Sum.Candidates);
@@ -248,25 +282,30 @@ internal sealed partial class DeviceRebuild : IDisposable
         _bodiesLay = Bound.Of<BodiesPush>(vk, "rebuild_bodies_lay.comp", bodies);
         _tally = Bound.Of<TallyPush>(vk, "rebuild_tally.comp", [_sums, tables.Tally]);
 
+        _asked = Bound.Of<UnitsPush>(
+            vk, "rebuild_asks.comp", [_carClaims.Device, _asks.Device, tables.Rows, tables.BodyRuns, tables.Order, _askAnswers]);
+
         var (planCars, planFigures, planPieces, planResults) = _plans.OnTheDevice;
         GpuBuffer[] plans =
         [
             _held, _stretchPieces, _hostUnits.Device, _carClaims.Device, planCars, planFigures, planResults, planPieces, walkerCounts,
             walkerHolds, walkerProposed, _unitRows, _unitHolds, tables.Rows, tables.Holds, tables.Answers, tables.Shown, tables.Tally,
+            _askAnswers,
         ];
         _count = Bound.Of<PlansPush>(vk, "rebuild_count.comp", plans);
         _file = Bound.Of<PlansPush>(vk, "rebuild_file.comp", plans);
-        _host = Bound.Of<RangePush>(
+        _host = Bound.Of<HostPush>(
             vk, "rebuild_host.comp",
             [
                 _hostRows.Device, _hostHolds.Device, _hostUnits.Device, _hostRowUnit.Device, _hostHoldUnit.Device, _unitRows, _unitHolds,
-                tables.Rows, tables.Holds, tables.Answers, tables.Shown, tables.Tally,
+                tables.Rows, tables.Holds, tables.Answers, tables.Shown, tables.Tally, _carClaims.Device, _askAnswers,
             ]);
         _edits = Bound.Of<RangePush>(
             vk, "rebuild_edits.comp", [_rowEdits.Device, _holdEdits.Device, tables.Rows, tables.Holds, tables.Answers, _holdCutters]);
         _capture = Bound.Of<NoPush>(vk, "rebuild_cutters.comp", [tables.Rows, tables.Answers, _holdCutters, tables.Tally]);
         _grant = Bound.Of<UnitsPush>(
-            vk, "rebuild_grant.comp", [_carClaims.Device, planResults, _unitHolds, tables.Answers, _holdCutters, _grants, _cutters, _told]);
+            vk, "rebuild_grant.comp",
+            [_carClaims.Device, planResults, _unitHolds, tables.Answers, _holdCutters, _grants, _cutters, _told, _askAnswers]);
         _walkerAnswers = Bound.Of<UnitsPush>(vk, "rebuild_walkers.comp", [walkerCounts, _unitHolds, tables.Answers, _walkers.AnswersRead]);
 
         var signals = world.Signals.Table;
@@ -290,6 +329,7 @@ internal sealed partial class DeviceRebuild : IDisposable
         _batch = new ComputeBatch(vk);
         _timer = new GpuTimer(vk, Enum.GetValues<Stage>().Length);
         ShadowOf();
+        if (cars != null) InTheTownOf(world);
     }
 
     /// <summary>How many rebuilds have been recorded and submitted.</summary>
@@ -337,7 +377,7 @@ internal sealed partial class DeviceRebuild : IDisposable
     public (ulong All, ulong Lines) SentBytes => (
         _bodies.SentBytes + _plans.SentBytes + (4 * _walkers.SentBytesAStage) + Bytes<ClaimRow>(_hostRowCount) + Bytes<uint>(_hostRowCount)
         + Bytes<HoldRow>(_hostHoldCount) + Bytes<uint>(_hostHoldCount) + Bytes<HostUnit>(_hostUnitCount) + Bytes<RowEdit>(_rowEditCount)
-        + Bytes<HoldEdit>(_holdEditCount) + Bytes<CarClaimRow>(_carCount),
+        + Bytes<HoldEdit>(_holdEditCount) + _carClaimsSent,
         _plans.LinesSentBytes);
 
     /// <summary>
@@ -390,7 +430,8 @@ internal sealed partial class DeviceRebuild : IDisposable
         _hostUnits.Send(commands, _hostUnitCount);
         _rowEdits.Send(commands, _rowEditCount);
         _holdEdits.Send(commands, _holdEditCount);
-        _carClaims.Send(commands, _carCount);
+        _carClaimsSent = _carClaims.MarkedBytes;
+        _carClaims.Send(commands);
         if (_priming)
         {
             vk.Copy(commands, _primedGrants, _grants, Bytes<DeviceCarTick.GrantRow>(_carCount));
@@ -453,7 +494,8 @@ internal sealed partial class DeviceRebuild : IDisposable
     {
         var vk = _vk;
         var tally = _claims.OnTheDevice.Tally;
-        _walkers.Record(commands, DeviceWalkers.Piece.Station);
+        if (_carTick is null) _walkers.Record(commands, DeviceWalkers.Piece.Station);
+
         _walkers.Record(commands, DeviceWalkers.Piece.Body);
         _bodies.Record(commands);
 
@@ -485,6 +527,8 @@ internal sealed partial class DeviceRebuild : IDisposable
         RecordTheHostUnits(commands, _passes);
         vk.BetweenKernels(commands);
         _claims.RecordLists(commands);
+        _asked.Dispatch(commands, _carCount, new UnitsPush((uint)_carCount, 0u));
+        vk.BetweenKernels(commands);
     }
 
     /// <summary>
@@ -535,7 +579,7 @@ internal sealed partial class DeviceRebuild : IDisposable
 
     /// <summary>A run of the host's table filed, recorded — a dispatch of one empty group where it is empty, so a recording never changes shape.</summary>
     void RecordTheHostUnits(CommandBuffer commands, in HostRange range) =>
-        _host.Dispatch(commands, range.RowCount + range.HoldCount, range.Push);
+        _host.Dispatch(commands, range.RowCount + range.HoldCount, new HostPush(range.Push, (uint)(_stretches + 1), (uint)_carCount));
 
     void RecordTheEdits(CommandBuffer commands, in HostRange range)
     {
@@ -629,10 +673,19 @@ internal sealed partial class DeviceRebuild : IDisposable
         public Span<T> Rows => Staging.Span<T>();
 
         /// <summary>The first <paramref name="count"/> rows copied across, recorded; nothing where there are none.</summary>
-        public void Send(CommandBuffer commands, int count)
+        public void Send(CommandBuffer commands, int count) => Send(commands, 0, count);
+
+        /// <summary><paramref name="count"/> rows from <paramref name="first"/> copied across, recorded; nothing where there are none.</summary>
+        public unsafe void Send(CommandBuffer commands, int first, int count)
         {
-            if (count > 0) _owner._vk.Copy(commands, Staging, Device, Bytes<T>(count));
+            if (count <= 0) return;
+
+            var at = (ulong)(first * sizeof(T));
+            _owner._vk.Copy(commands, Staging, Device, [new BufferCopy(at, at, (ulong)(count * sizeof(T)))]);
         }
+
+        /// <summary>How many bytes <paramref name="count"/> rows are.</summary>
+        public static unsafe ulong BytesOf(int count) => (ulong)(count * sizeof(T));
     }
 
     public void Dispose()
@@ -642,15 +695,18 @@ internal sealed partial class DeviceRebuild : IDisposable
         _scans.Dispose();
         foreach (var bound in (ReadOnlySpan<Bound>)[
                      _bodiesCount, _bodiesGather, _bodiesFile, _bodiesSort, _bodiesMark, _bodiesTally, _bodiesLay, _tally, _count, _file,
-                     _host, _edits, _capture, _grant, _walkerAnswers, _signals])
+                     _host, _edits, _capture, _grant, _walkerAnswers, _signals, _asked])
         {
             bound.Kernel.Dispose();
         }
 
+        _holdsOutKernel.Kernel?.Dispose();
+        _agentsOutKernel.Kernel?.Dispose();
         foreach (var buffer in _owned) buffer.Dispose();
+        _carClaims.Dispose();
         _walkers.Dispose();
         _plans.Dispose();
         _bodies.Dispose();
-        _claims.Dispose();
+        if (_ownsTheClaims) _claims.Dispose();
     }
 }

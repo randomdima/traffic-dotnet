@@ -378,6 +378,9 @@ internal static class Program
             case "devicetown":
                 DeviceTownProbe.Run(map ?? Options.FixtureMap, config);
                 return 0;
+            case "devicemirror":
+                DeviceMirrorProbe.Run(map ?? Options.FixtureMap, config);
+                return 0;
             case "devicebodies":
                 DeviceBodiesProbe.Run(map ?? Options.FixtureMap, config);
                 return 0;

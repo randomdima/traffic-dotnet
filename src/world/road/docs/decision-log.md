@@ -4,6 +4,47 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-10-07 — the claims are laid on the device in the town's place, and mirrored back
+
+**A town whose device lays the claims (`ITownClaims`, `app/devicetick/DeviceTownClaims`) runs its rebuild stage for stage
+but lays only what it alone lays**: it stations its walkers, names the cars it asks, lays the passes, the claims laid
+where they stand and a car on a pass's plan past it; the device lays every body, light, plan and walk and answers and
+cuts every plan in one submit (`DeviceRebuild.InTheTown`), and the claims are written back into the town's own
+reservations (`LaneOccupancy.MirrorTheSlot` and the rest) — every slot, hold, answer and list, every car's plan and hold,
+every walker's hold, the channels under each car — before the town lays the backing and reads every grant with its own
+code. A town with no such device lays its own exactly as before.
+
+- **A car on a pass is planned as though its pass were clear, and the device asks whether a body stands in it**
+  (`rebuild_asks.comp`, `LaneOccupancy.FirstBodyIn`): the town's own question, as data — `TheBodyInThePass` and
+  `TheBodyInTheSwitch` now ask it the same way — so where one does, the plan the town laid is never filed and the car's
+  claim is the hold short of the body. It is the one thing the town lays that reads the bodies, and on OdesaOsm there are
+  some twenty such cars every rebuild.
+- **The backing reads the answers, so it is laid by the town on the claims written back** — exactly as its own rebuild
+  lays it — and filed on the device with the grants at the head of the tick's own submit (`DeviceRebuild.RecordTheRest`):
+  the rebuild adds one submit and one wait, and only one.
+- **The town lays the rebuild itself** where only its own laying answers what is laid — what a hand or a truck cannot stop
+  short of, which is answered against the bodies and takes a light's stretch, and what stands in a manoeuvre begun at a
+  bay — and while its agents are held; each counted (`DeviceTownClaims.Rebuilds`) and sent as cut.
+- **What is written back is exact**: a walker's pace along its way is the host's, sent with its row, where the device's own
+  trigonometry put it a last bit off; a kept car's body, laid on the device, is read off the atlas again before the town
+  lays it from its recall (`StandingCars.Recalled`). Held over three towns run twice in step, once with the device laying
+  the claims (`DeviceTownClaimsTests`): 1 800 ticks, every slot, hold, list, car, walker and device grant to the bit, and
+  every car and walker where the other town has it. On OdesaOsm (`--bench devicemirror`) 100 rebuilds held so — 7.65 M
+  slots, 1.52 M holds, a million cars' claims and a million walkers' walks — and 300 ticks' poses, none apart. **What may
+  not be mirrored is counted** (`DeviceRebuild.OnOtherChannelsAtABay`, `StraightsTheTownWouldNotCommit`): a car at a bay
+  the device puts on other channels after its manoeuvre was swept on the old ones, and a straight the device commits a
+  walker to that the town would not. Neither happened there.
+- **What crosses is the host's to bound**: the rows and holds are read back as far as the last rebuild laid and a margin,
+  and anything past that in a second submit, counted (none on OdesaOsm); a hold comes back packed with how far the claim
+  that cut it reached, the rest of that claim being its row. The lines are the car tick's own on the device, and the walkers,
+  what each car is told and the cars' lines are sent only where they changed.
+
+On OdesaOsm (`--bench devicetown`, RX 9070 XT, 78 000 rows, 24 000 of them bodies, and 15 600 holds a rebuild) a claims
+rebuild costs the town 13.3 ms against 20.6 laid by itself: gathering 3.1 (its walkers stationed among it), sending 3.2 MB
+in 2.3, the kernels 2.2, reading 5.1 MB back in 3.7, writing it into the town 1.4. The claims phase is 4.8 ms a tick
+against 6.9, the device tick 12.6–12.8 ms against 15.9, and the town drives as it did to the last braking and touch.
+**The bus is what is left**: 8 MB a rebuild over a link of 1.4 GB/s.
+
 ## 2026-10-07 — a whole claims rebuild is chained on the device, in one submit
 
 **Every producer of a rebuild had a kernel held to the host on its own** — bodies, plans, walkers, lights, the answers —

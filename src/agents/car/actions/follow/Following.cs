@@ -161,7 +161,7 @@ internal sealed class Following(
         Cars.CommittedToM[car] = committedToM;
         if (planToM < wantedToM) Cars.HorizonM[car] = planToM - noseM;
 
-        if (Cars.Pass[car].Begun && TheBodyInItsPass(car, out var inTheWayM, out var inTheWay, out var on))
+        if (Cars.Pass[car].Begun && !AsksTheBodiesLater && TheBodyInItsPass(car, out var inTheWayM, out var inTheWay, out var on))
         {
             var held = Occupancy.BeginHold(standOffM);
             ground.PlanHold[car] = held;
@@ -206,6 +206,21 @@ internal sealed class Following(
         Cars.Action[car] == CarAction.Switch
             ? switching.TheBodyInTheSwitch(car, out inTheWayM, out body, out on)
             : overtaking.TheBodyInThePass(car, out inTheWayM, out body, out on);
+
+    /// <summary>
+    /// <b>Whether a car on a pass plans as though its pass were clear</b>, the body inside it asked of the reservations
+    /// later by whoever lays the bodies (<see cref="AsksOfItsPass"/>) — for a laying whose bodies are not down when the
+    /// plans are laid. Everything else of the plan is laid as ever.
+    /// </summary>
+    public bool AsksTheBodiesLater { get; set; }
+
+    /// <summary>
+    /// <b>Where a car on a pass looks for a body inside it</b>, in order (<see cref="LaneOccupancy.FirstBodyIn"/>): what its
+    /// plan comes to is a hold at the first one found, kept off it by the stand-off, and otherwise the plan it laid.
+    /// </summary>
+    /// <param name="into">Room for <see cref="Overtaking.MostAsksOfAPass"/> of the town's marks.</param>
+    public int AsksOfItsPass(int car, Span<BodyAsk> into) =>
+        Cars.Action[car] == CarAction.Switch ? switching.AsksOfTheSwitch(car, into) : overtaking.AsksOfThePass(car, into);
 
     /// <summary>
     /// <b>Where a car means to be able to stop</b> (TER-4c.1): as far as it gets in the planned run

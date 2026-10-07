@@ -1,0 +1,57 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// What a rebuild handed back to the town says of each car and each walker, packed one row each, one thread an agent: a
+// car's plan (Following.Plan's claimToM, committedToM, horizonM), whether it laid a hold, whether a body stands inside its
+// pass, and the channels its body is on; and whether a walker's walk laid a hold and committed it to a straight.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint carCount;
+    uint walkerCount;
+} figures;
+
+#include "agents/car/actions/follow/kernels/plan_rows.glsl"
+
+// app/devicetick/DeviceRebuild.CarOut, field for field.
+struct CarOut
+{
+    float claimToM;
+    float committedToM;
+    float horizonM;
+    uint bits;
+};
+
+const uint CarLaidAHold = 1u;
+const uint CarHeldInItsPass = 2u;
+const uint CarChannelsShift = 8u;
+
+const uint WalkerLaidAHold = 1u;
+const uint WalkerCommittedAStraight = 2u;
+
+layout(std430, binding = 0) readonly buffer PlanResults { PlanOutRow planResults[]; };
+layout(std430, binding = 1) readonly buffer AskAnswers { uvec4 askAnswers[]; };
+layout(std430, binding = 2) readonly buffer CarCounts { uvec4 carCounts[]; };
+layout(std430, binding = 3) writeonly buffer CarsOut { CarOut carsOut[]; };
+layout(std430, binding = 4) readonly buffer WalkerCounts { uvec4 walkerCounts[]; };
+layout(std430, binding = 5) writeonly buffer WalkersOut { uint walkersOut[]; };
+
+void main()
+{
+    uint agent = gl_GlobalInvocationID.x;
+    if (agent < figures.carCount)
+    {
+        PlanOutRow plan = planResults[agent];
+        uint bits = (plan.laidAHold != 0u ? CarLaidAHold : 0u) | (askAnswers[agent].x != 0u ? CarHeldInItsPass : 0u)
+                    | (carCounts[agent].y << CarChannelsShift);
+        carsOut[agent] = CarOut(plan.claimToM, plan.committedToM, plan.horizonM, bits);
+    }
+
+    if (agent < figures.walkerCount)
+    {
+        uvec4 walk = walkerCounts[agent];
+        walkersOut[agent] = (walk.x != 0u ? WalkerLaidAHold : 0u) | (walk.y != 0u ? WalkerCommittedAStraight : 0u);
+    }
+}

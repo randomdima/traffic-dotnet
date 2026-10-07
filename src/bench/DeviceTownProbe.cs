@@ -80,11 +80,35 @@ internal static class DeviceTownProbe
         var bodiesBackMs = 0d;
         var bodiesKernelsMs = 0d;
         var taken = 0L;
+        var rebuilds = 0;
+        var (claimsLaidMs, claimsWaitMs, claimsMirrorMs, claimsSentMs, claimsKernelsMs, claimsReadMs) = (0d, 0d, 0d, 0d, 0d, 0d);
+        var claimsStationedMs = 0d;
+        var (claimsSentMb, claimsReadMb) = (0d, 0d);
+        var (laidRows, laidBodies, laidHolds) = (0L, 0L, 0L);
+        var rebuilt = device?.Claims.Rebuild.Rebuilds ?? 0L;
         var started = Stopwatch.GetTimestamp();
         for (var tick = 0; tick < MeasuredTicks; tick++)
         {
             loop.Advance();
             if (device is null) continue;
+
+            var rebuild = device.Claims.Rebuild;
+            if (rebuild.Rebuilds != rebuilt)
+            {
+                rebuilt = rebuild.Rebuilds;
+                rebuilds++;
+                claimsLaidMs += rebuild.LaidMs;
+                claimsStationedMs += rebuild.StationedMs;
+                claimsWaitMs += rebuild.WaitedMs;
+                claimsMirrorMs += rebuild.MirroredMs;
+                claimsSentMs += rebuild.BetweenMs(DeviceRebuild.Stage.Began, DeviceRebuild.Stage.Sent);
+                claimsKernelsMs += rebuild.BetweenMs(DeviceRebuild.Stage.Sent, DeviceRebuild.Stage.Answered);
+                claimsReadMs += rebuild.BetweenMs(DeviceRebuild.Stage.Answered, DeviceRebuild.Stage.Read);
+                claimsSentMb += rebuild.Crossed.Sent / 1e6;
+                claimsReadMb += rebuild.Crossed.Read / 1e6;
+                var (rows, bodies, holds) = rebuild.Counted;
+                (laidRows, laidBodies, laidHolds) = (laidRows + rows, laidBodies + bodies, laidHolds + holds);
+            }
 
             deviceMs += device.KernelsMs;
             taken += device.CarsTaken;
@@ -113,6 +137,19 @@ internal static class DeviceTownProbe
             Console.WriteLine(
                 $"  the bodies' phase, ms a tick: laying {bodiesLayMs / MeasuredTicks:F2}, submitting and waiting {bodiesWaitMs / MeasuredTicks:F2} " +
                 $"(the device's kernels {bodiesKernelsMs / MeasuredTicks:F2}), writing what came back {bodiesBackMs / MeasuredTicks:F2}");
+            var (here, byTheTown, onlyTheTown, tooMany) = device.Claims.Rebuilds;
+            var each = Math.Max(1, rebuilds);
+            Console.WriteLine(
+                $"  the claims, ms a rebuild laid on the device ({rebuilds} measured; {here} laid there and {byTheTown} by the town since it was " +
+                $"set, {onlyTheTown} of them for what only the town answers and {tooMany} for too many cars on a pass): the town laying its own " +
+                $"and gathering {claimsLaidMs / each:F2} (stationing its walkers {claimsStationedMs / each:F2} of it), submitting and waiting " +
+                $"{claimsWaitMs / each:F2}, writing back {claimsMirrorMs / each:F2}");
+            Console.WriteLine(
+                $"  of the wait, the device's own: sending {claimsSentMs / each:F2} ({claimsSentMb / each:F2} MB), the kernels through the answers " +
+                $"{claimsKernelsMs / each:F2}, reading back {claimsReadMs / each:F2} ({claimsReadMb / each:F2} MB) — {laidRows / each} rows, " +
+                $"{laidBodies / each} of them bodies and passes, and {laidHolds / each} holds a rebuild; {device.Claims.Rebuild.ReadPast} " +
+                $"laid past what their submit read back and {device.Claims.Rebuild.OnOtherChannelsAtABay} cars at a bay put on other " +
+                "channels since the device was set");
         }
 
         var wallMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds / MeasuredTicks;

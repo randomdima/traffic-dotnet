@@ -4,7 +4,8 @@
 // What the host still lays itself filed among the device's own, one thread a row or a hold of one numbering's run of the
 // host's table: each unit's rows and holds at the slots and holds the device numbered for it, its rows' holds and its
 // holds' rows counted from the unit's first rather than the host's (rebuild_rows.glsl's HostUnit) — a hold's own cut
-// is the host's, read where it lies.
+// is the host's, read where it lies. A car on a pass the host planned past as though it were clear, but with a body
+// inside it, lays none of it: its claim is the hold short of the body (rebuild_file.comp).
 
 layout(local_size_x = 64) in;
 
@@ -14,6 +15,8 @@ layout(push_constant) uniform Figures
     uint rowCount;
     uint holdFirst;
     uint holdCount;
+    uint firstCarUnit;
+    uint carCount;
 } figures;
 
 #include "world/road/kernels/claims_rows.glsl"
@@ -32,6 +35,17 @@ layout(std430, binding = 8) writeonly buffer Holds { HoldRow holds[]; };
 layout(std430, binding = 9) writeonly buffer Answers { ClaimAnswer answers[]; };
 layout(std430, binding = 10) writeonly buffer Shown { float shown[]; };
 layout(std430, binding = 11) readonly buffer Tally { uint tally[]; };
+layout(std430, binding = 12) readonly buffer CarClaims { CarClaimRow carClaims[]; };
+layout(std430, binding = 13) readonly buffer AskAnswers { uvec4 askAnswers[]; };
+
+// Whether a unit is a car's plan past its pass, with a body inside the pass.
+bool hostHeldInItsPass(HostUnit unit)
+{
+    if (unit.numbering != HostPlans || unit.unit < figures.firstCarUnit || unit.unit >= figures.firstCarUnit + figures.carCount) return false;
+
+    uint car = unit.unit - figures.firstCarUnit;
+    return carClaims[car].askCount > 0u && askAnswers[car][AskFound] != 0u;
+}
 
 // Where a unit's first row and first hold are filed: after the bodies for the passes, at its own unit among the plans,
 // and after every plan for the backing.
@@ -49,6 +63,8 @@ void main()
     {
         uint row = figures.rowFirst + at;
         HostUnit unit = hostUnits[hostRowUnit[row]];
+        if (hostHeldInItsPass(unit)) return;
+
         uvec2 filedAt = hostFiledAt(unit);
         ClaimRow laid = hostRows[row];
         if (laid.hold >= 0) laid.hold = int(filedAt.y) + (laid.hold - unit.hostHoldFirst);
@@ -60,6 +76,8 @@ void main()
 
     uint hold = figures.holdFirst + (at - figures.rowCount);
     HostUnit unit = hostUnits[hostHoldUnit[hold]];
+    if (hostHeldInItsPass(unit)) return;
+
     uvec2 filedAt = hostFiledAt(unit);
     HoldRow held = hostHolds[hold];
     held.firstRow = filedAt.x + uint(int(held.firstRow) - unit.hostSlotFirst);

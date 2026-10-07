@@ -52,6 +52,7 @@ internal static class CheckCatalogue
         new("devicephase", "A running town's phase 4 handed to the device in step, against the town's own: sends, kernels, hand-back and write-back apart", Quoted(config => DevicePhaseProbe.Run("Odesa", config))),
         new("devicetick", "A running town's agents and bodies ticked on the device in one submit, beside the town's own tick: time, and how far apart", Quoted(config => DeviceTickProbe.Run("Odesa", config))),
         new("devicetown", "A town ticked with the device in step beside the same town ticked by the host alone: each phase's time, and what each town did", Quoted(config => DeviceTownProbe.Run("Odesa", config))),
+        new("devicemirror", "A town's claims laid on the device and mirrored back, beside the same town laying its own in step: where any slot, hold, car, walker or pose first parts", Quoted(config => DeviceMirrorProbe.Run("Odesa", config))),
         new("devicecopy", "What a copy costs the device each way, whole and cut into many runs", Quoted(DeviceCopyProbe.Run)),
         new("devicesprites", "A running town's moving sprites emitted on the device beside the host's fill, framing by framing: time, and one answer", Quoted(config => DeviceSpritesProbe.Run("Odesa", config))),
         new("shape", "What shape a town came out: how its roads bend, where its junctions stand", Quoted(config => TownShape.Run("Odesa", config))),

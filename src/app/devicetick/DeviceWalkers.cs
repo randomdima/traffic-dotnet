@@ -29,6 +29,12 @@ namespace TrafficSimulation.App.DeviceTick;
 /// that is timed apart from the walkers, and a walker's hold is numbered by the walker. <b>Chained</b>, it reads the
 /// device's own claims (<see cref="DeviceClaims.OnTheDevice"/>), as numbered and listed by the rebuild.
 /// </para>
+/// <para>
+/// <b>Resident, for a rebuild run in the town's place</b>, only the bodies and the walks are run: the walkers are sent
+/// once stationed (<see cref="LayTheStationed"/>), the walks read them as sent but for the rows the town changed since
+/// (<see cref="LayWhatChanged"/>), and each walker's route, straight and pass's ground are kept on the device and sent
+/// only where they changed.
+/// </para>
 /// </remarks>
 internal sealed class DeviceWalkers : IDisposable
 {
@@ -83,7 +89,7 @@ internal sealed class DeviceWalkers : IDisposable
         public uint Action;
         public uint Stage;
         public int Hold;
-        public uint Pad;
+        public float AlongMps;
 
         public const uint Walking = 1u;
         public const uint Wounded = 2u;
@@ -177,6 +183,29 @@ internal sealed class DeviceWalkers : IDisposable
 
     readonly Sent[] _in, _on;
     readonly GpuBuffer _answers, _covers, _wayRows, _proposed, _holds, _outCounts;
+
+    /// <summary>Resident: each walker's route, straight and pass's ground as the device keeps them.</summary>
+    readonly ResidentRows<int>? _routes;
+
+    readonly ResidentRows<SweptRun>? _straights, _passes;
+
+    /// <summary>
+    /// Resident: every walker as stationed, kept on the device and sent only where it changed — written by no kernel, so
+    /// each rebuild's bodies and walks are copied fresh from it.
+    /// </summary>
+    readonly ResidentRows<WalkerRow>? _stationed;
+
+    /// <summary>Resident: the rows the town changed between stationing the walkers and their walks, staged.</summary>
+    readonly GpuBuffer? _changedIn;
+
+    /// <summary>Resident: where each changed row lands in the walks' own copy.</summary>
+    readonly BufferCopy[] _changes = [];
+
+    int _changeCount, _changedRows;
+
+    /// <summary>Resident: whether a walker's straight is sent whatever was laid last, the device having committed one of its own.</summary>
+    readonly bool[] _straightAgain = [];
+
     readonly GpuBuffer _walkersOut, _straightsOut, _coversOut, _waysOut, _proposedOut, _holdsOut, _countsOut;
 
     /// <summary>The claims a stage run on its own lays from the town's rows; none where the walkers are chained.</summary>
@@ -198,7 +227,8 @@ internal sealed class DeviceWalkers : IDisposable
     /// The device's own claims a chained rebuild numbers and lists (<see cref="DeviceClaims.OnTheDevice"/>), which the stages
     /// that ask the claims read — or none, for stages run on their own over the town's rows.
     /// </param>
-    public DeviceWalkers(Vk vk, SimConfig config, TownWorld world, DeviceClaims.Tables? claims = null)
+    /// <param name="resident">Whether the walkers are kept for a rebuild run in the town's place, chained.</param>
+    public DeviceWalkers(Vk vk, SimConfig config, TownWorld world, DeviceClaims.Tables? claims = null, bool resident = false)
     {
         if (WalkingGround.MostWaysAlongAWalk != MostWaysInTheKernel || RibbonAtlas.MostWaysUnderABody != MostWaysUnderABodyInTheKernel)
         {
@@ -287,16 +317,36 @@ internal sealed class DeviceWalkers : IDisposable
             HasChannels = atlas.HasChannels,
         };
 
-        _in = new Sent[Pieces];
         _on = new Sent[Pieces];
-        for (var piece = 0; piece < Pieces; piece++)
+        if (resident)
         {
-            _in[piece] = new Sent(
-                Staging<WalkerRow>(_walkers), Staging<int>(_walkers * PersonFleet.RouteWaysPerPerson),
-                Staging<SweptRun>(_walkers * WalkingGround.MostRunsOfAStraight), Staging<SweptRun>(_walkers * Sidestepping.MostRunsOfAPass));
-            _on[piece] = new Sent(
-                Device<WalkerRow>(_walkers), Device<int>(_walkers * PersonFleet.RouteWaysPerPerson),
-                Device<SweptRun>(_walkers * WalkingGround.MostRunsOfAStraight), Device<SweptRun>(_walkers * Sidestepping.MostRunsOfAPass));
+            _in = [];
+            _routes = new ResidentRows<int>(vk, _walkers, PersonFleet.RouteWaysPerPerson, hostOnly: true);
+            _straights = new ResidentRows<SweptRun>(vk, _walkers, WalkingGround.MostRunsOfAStraight, hostOnly: true);
+            _passes = new ResidentRows<SweptRun>(vk, _walkers, Sidestepping.MostRunsOfAPass, hostOnly: true);
+            _stationed = new ResidentRows<WalkerRow>(vk, _walkers, 1, hostOnly: true);
+            _changedIn = Staging<WalkerRow>(_walkers);
+            _changes = new BufferCopy[Math.Max(1, _walkers)];
+            _straightAgain = new bool[_walkers];
+            var bodies = Device<WalkerRow>(_walkers);
+            var walks = Device<WalkerRow>(_walkers);
+            for (var piece = 0; piece < Pieces; piece++)
+            {
+                _on[piece] = new Sent(piece == (int)Piece.Body ? bodies : walks, _routes.Device, _straights.Device, _passes.Device);
+            }
+        }
+        else
+        {
+            _in = new Sent[Pieces];
+            for (var piece = 0; piece < Pieces; piece++)
+            {
+                _in[piece] = new Sent(
+                    Staging<WalkerRow>(_walkers), Staging<int>(_walkers * PersonFleet.RouteWaysPerPerson),
+                    Staging<SweptRun>(_walkers * WalkingGround.MostRunsOfAStraight), Staging<SweptRun>(_walkers * Sidestepping.MostRunsOfAPass));
+                _on[piece] = new Sent(
+                    Device<WalkerRow>(_walkers), Device<int>(_walkers * PersonFleet.RouteWaysPerPerson),
+                    Device<SweptRun>(_walkers * WalkingGround.MostRunsOfAStraight), Device<SweptRun>(_walkers * Sidestepping.MostRunsOfAPass));
+            }
         }
 
         _answers = Device<DeviceClaims.ClaimAnswer>(_walkers);
@@ -442,17 +492,8 @@ internal sealed class DeviceWalkers : IDisposable
     public void Lay(TownWorld world, Piece piece)
     {
         var people = world.People;
-        var ground = world.WalkingGround;
-        var backTo = world.WalkingBack.BackToM;
-        var swept = world.Sidestepping;
         _walkerCount = people.Count;
-
-        Array.Fill(_dutyCar, PersonFleet.NoCar);
-        var officers = world.OfficerOfEachCar;
-        for (var car = officers.Length - 1; car >= 0; car--)
-        {
-            if (officers[car] >= 0 && officers[car] < _walkers) _dutyCar[officers[car]] = car;
-        }
+        NameTheOfficers(world);
 
         var sent = _in[(int)piece];
         var rows = sent.Walkers.Span<WalkerRow>();
@@ -461,54 +502,164 @@ internal sealed class DeviceWalkers : IDisposable
         var passes = sent.Passes.Span<SweptRun>();
         for (var person = 0; person < people.Count; person++)
         {
-            var heldAs = ground.HeldAs(person, out var roster);
-            var straightTo = ground.StraightToM(person);
-            var straight = ground.StraightOf(person);
-            var pass = people.Pass[person];
-            var passGround = swept.SweptOf(person);
-            rows[person] = new WalkerRow
-            {
-                PositionM = people.PositionM[person],
-                VelocityMps = people.VelocityMps[person],
-                DeclaredMps = people.DeclaredMps[person],
-                DestinationM = people.DestinationM[person],
-                GoalM = people.GoalM[person],
-                BackToM = backTo[person],
-                StraightFromM = ground.StraightFromM(person),
-                StraightToM = straightTo,
-                HeadingRad = people.HeadingRad[person],
-                RadiusM = people.RadiusM[person],
-                OnWayM = people.OnWayM[person],
-                OffWayM = people.OffWayM[person],
-                RouteToM = people.RouteToM[person],
-                GrantM = people.GrantM[person],
-                PassFromM = pass.FromM,
-                PassClearM = pass.ClearM,
-                PassAsideM = pass.AsideM,
-                PassSlot = pass.Slot,
-                RouteCount = people.RouteCount[person],
-                RouteTaken = people.RouteTaken[person],
-                OnWay = people.OnWay[person],
-                OnCrossing = people.OnCrossing[person],
-                Car = people.Car[person],
-                DutyCar = _dutyCar[person],
-                HeldAs = heldAs,
-                StraightRuns = (uint)straight.Length,
-                PassRuns = (uint)passGround.Length,
-                Flags = (people.Walking[person] ? WalkerRow.Walking : 0u) | (people.Wounded[person] ? WalkerRow.Wounded : 0u)
-                        | (people.Inside[person].Any ? WalkerRow.Inside : 0u) | (people.RouteRunsOut[person] ? WalkerRow.RunsOut : 0u)
-                        | (pass.Begun ? WalkerRow.PassBegun : 0u) | (roster == LaneRoster.Driving ? WalkerRow.HeldAsDriving : 0u)
-                        | (float.IsNaN(straightTo.X) ? 0u : WalkerRow.OnAStraight),
-                Action = (uint)people.Action[person],
-                Stage = (uint)people.Stage[person],
-                Hold = world.WalkHold(person),
-            };
-
+            rows[person] = RowOf(world, person);
             people.RouteOf(person)[..people.RouteCount[person]].CopyTo(routes.Slice(person * PersonFleet.RouteWaysPerPerson));
-            straight.CopyTo(straights.Slice(person * WalkingGround.MostRunsOfAStraight));
-            passGround.CopyTo(passes.Slice(person * Sidestepping.MostRunsOfAPass));
+            world.WalkingGround.StraightOf(person).CopyTo(straights.Slice(person * WalkingGround.MostRunsOfAStraight));
+            world.Sidestepping.SweptOf(person).CopyTo(passes.Slice(person * Sidestepping.MostRunsOfAPass));
         }
     }
+
+    /// <summary>
+    /// <b>Resident: the walkers as the town has them once stationed</b> (<see cref="ClaimsStage.Stationed"/>), written into
+    /// what the bodies and the walks are sent: every walker's row, route, straight and pass's ground where it differs from
+    /// what the device keeps.
+    /// </summary>
+    public void LayTheStationed(TownWorld world)
+    {
+        var people = world.People;
+        _walkerCount = people.Count;
+        _changeCount = 0;
+        _changedRows = 0;
+        NameTheOfficers(world);
+
+        for (var person = 0; person < people.Count; person++)
+        {
+            _stationed!.Lay(person, RowOf(world, person));
+            _routes!.LayRows(person, people.RouteOf(person)[..people.RouteCount[person]]);
+            _straights!.LayRows(person, world.WalkingGround.StraightOf(person), _straightAgain[person]);
+            _straightAgain[person] = false;
+            _passes!.LayRows(person, world.Sidestepping.SweptOf(person));
+        }
+    }
+
+    /// <summary>
+    /// <b>Resident: the walkers as the town has them once their passes are laid</b> (<see cref="ClaimsStage.WalksDue"/>):
+    /// every row that changed since they were stationed — a pass given up, whose ground a walker's is laid as — written over
+    /// the walks' own copy.
+    /// </summary>
+    public void LayWhatChanged(TownWorld world)
+    {
+        var rows = Kept(_changedIn).Span<WalkerRow>();
+        var bytes = (ulong)Marshal.SizeOf<WalkerRow>();
+        for (var person = 0; person < _walkerCount; person++)
+        {
+            var row = RowOf(world, person);
+            if (MemoryMarshal.AsBytes(new ReadOnlySpan<WalkerRow>(in row))
+                .SequenceEqual(MemoryMarshal.AsBytes(new ReadOnlySpan<WalkerRow>(in _stationed!.LaidRow(person)))))
+            {
+                continue;
+            }
+
+            rows[person] = row;
+            _changedRows++;
+            var at = (ulong)person * bytes;
+            if (_changeCount > 0 && _changes[_changeCount - 1].DstOffset + _changes[_changeCount - 1].Size == at)
+            {
+                _changes[_changeCount - 1].Size += bytes;
+                continue;
+            }
+
+            _changes[_changeCount++] = new BufferCopy(at, at, bytes);
+        }
+    }
+
+    /// <summary>
+    /// Resident: what was laid sent — the rows as stationed that changed, then all of them copied on the device to the
+    /// bodies' own and the walks', the rows changed since over the walks', and the routes, straights and passes' ground
+    /// that changed. The caller barriers.
+    /// </summary>
+    public void RecordTheResidentSend(CommandBuffer commands)
+    {
+        var vk = _vk;
+        _stationed!.Send(commands);
+        _routes!.Send(commands);
+        _straights!.Send(commands);
+        _passes!.Send(commands);
+        vk.AfterTransfer(commands);
+        var bytes = Bytes<WalkerRow>(_walkerCount);
+        vk.Copy(commands, _stationed.Device, _on[(int)Piece.Body].Walkers, bytes);
+        vk.Copy(commands, _stationed.Device, _on[(int)Piece.Plan].Walkers, bytes);
+        if (_changeCount == 0) return;
+
+        vk.AfterTransfer(commands);
+        vk.Copy(commands, Kept(_changedIn), _on[(int)Piece.Plan].Walkers, _changes.AsSpan(0, _changeCount));
+    }
+
+    /// <summary>
+    /// How many bytes the resident send laid so far will copy across: the rows as stationed that changed, the rows changed
+    /// since, and the routes, straights and passes' ground that changed.
+    /// </summary>
+    public ulong ResidentSentBytes =>
+        _stationed!.MarkedBytes + ((ulong)_changedRows * (ulong)Marshal.SizeOf<WalkerRow>()) + _routes!.MarkedBytes
+        + _straights!.MarkedBytes + _passes!.MarkedBytes;
+
+    /// <summary>
+    /// Resident: a walker the last walks committed to a straight of the device's own (<c>walkers_plan.comp</c>'s count), whose
+    /// straight is sent next time whatever was laid last.
+    /// </summary>
+    public void SendTheStraightAgain(int walker) => _straightAgain[walker] = true;
+
+    /// <summary>Which car, if any, each walker is the officer of (<see cref="WalkerRow.DutyCar"/>): the lowest numbered.</summary>
+    void NameTheOfficers(TownWorld world)
+    {
+        Array.Fill(_dutyCar, PersonFleet.NoCar);
+        var officers = world.OfficerOfEachCar;
+        for (var car = officers.Length - 1; car >= 0; car--)
+        {
+            if (officers[car] >= 0 && officers[car] < _walkers) _dutyCar[officers[car]] = car;
+        }
+    }
+
+    /// <summary>One walker as the town has it now, as the kernels read it.</summary>
+    WalkerRow RowOf(TownWorld world, int person)
+    {
+        var people = world.People;
+        var ground = world.WalkingGround;
+        var heldAs = ground.HeldAs(person, out var roster);
+        var straightTo = ground.StraightToM(person);
+        var pass = people.Pass[person];
+        return new WalkerRow
+        {
+            PositionM = people.PositionM[person],
+            VelocityMps = people.VelocityMps[person],
+            DeclaredMps = people.DeclaredMps[person],
+            DestinationM = people.DestinationM[person],
+            GoalM = people.GoalM[person],
+            BackToM = world.WalkingBack.BackToM[person],
+            StraightFromM = ground.StraightFromM(person),
+            StraightToM = straightTo,
+            HeadingRad = people.HeadingRad[person],
+            RadiusM = people.RadiusM[person],
+            OnWayM = people.OnWayM[person],
+            OffWayM = people.OffWayM[person],
+            RouteToM = people.RouteToM[person],
+            GrantM = people.GrantM[person],
+            PassFromM = pass.FromM,
+            PassClearM = pass.ClearM,
+            PassAsideM = pass.AsideM,
+            PassSlot = pass.Slot,
+            RouteCount = people.RouteCount[person],
+            RouteTaken = people.RouteTaken[person],
+            OnWay = people.OnWay[person],
+            OnCrossing = people.OnCrossing[person],
+            Car = people.Car[person],
+            DutyCar = _dutyCar[person],
+            HeldAs = heldAs,
+            StraightRuns = (uint)ground.StraightOf(person).Length,
+            PassRuns = (uint)world.Sidestepping.SweptOf(person).Length,
+            Flags = (people.Walking[person] ? WalkerRow.Walking : 0u) | (people.Wounded[person] ? WalkerRow.Wounded : 0u)
+                    | (people.Inside[person].Any ? WalkerRow.Inside : 0u) | (people.RouteRunsOut[person] ? WalkerRow.RunsOut : 0u)
+                    | (pass.Begun ? WalkerRow.PassBegun : 0u) | (roster == LaneRoster.Driving ? WalkerRow.HeldAsDriving : 0u)
+                    | (float.IsNaN(straightTo.X) ? 0u : WalkerRow.OnAStraight),
+            Action = (uint)people.Action[person],
+            Stage = (uint)people.Stage[person],
+            Hold = world.WalkHold(person),
+            AlongMps = ground.AlongItsWalkMps(person),
+        };
+    }
+
+    static GpuBuffer Kept(GpuBuffer? buffer) =>
+        buffer ?? throw new InvalidOperationException("These walkers are sent stage by stage, and keep nothing resident.");
 
     /// <summary>
     /// <b>The reservations as the town has them now</b>, written into what a stage run on its own is sent: every slot a
@@ -685,6 +836,10 @@ internal sealed class DeviceWalkers : IDisposable
         _sort?.Dispose();
         foreach (var kernel in _kernels) kernel.Dispose();
         foreach (var buffer in _owned) buffer.Dispose();
+        _stationed?.Dispose();
+        _routes?.Dispose();
+        _straights?.Dispose();
+        _passes?.Dispose();
         _atlas.Dispose();
     }
 }

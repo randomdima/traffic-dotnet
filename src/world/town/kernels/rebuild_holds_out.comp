@@ -1,0 +1,46 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every hold as the host's reservations keep it once the plans are answered (LaneOccupancy's holds), one thread a hold, for
+// a rebuild handed back to the town: its slots, stand-off, flags and holder's terms, what it came to, and how far the
+// claim that cut it reached when it did — the rest of that claim being its row, which only a cut moves the end of.
+
+layout(local_size_x = 64) in;
+
+#include "world/road/kernels/claims_rows.glsl"
+#include "world/road/kernels/claims_tally.glsl"
+
+// app/devicetick/DeviceRebuild.HoldOut, field for field.
+struct HoldOut
+{
+    uint firstRow;
+    uint endRow;
+    float standingMarginM;
+    uint flags;
+    float keptOffWhatItMayPassM;
+    float passesBelowMps;
+    float cutLineM;
+    float marginM;
+    uint cutBy;
+    int cutOn;
+    float cutterToM;
+    uint pad;
+};
+
+layout(std430, binding = 0) readonly buffer Holds { HoldRow holds[]; };
+layout(std430, binding = 1) readonly buffer Answers { ClaimAnswer answers[]; };
+layout(std430, binding = 2) readonly buffer Cutters { ClaimRow cutters[]; };
+layout(std430, binding = 3) writeonly buffer HoldsOut { HoldOut holdsOut[]; };
+layout(std430, binding = 4) readonly buffer Tally { uint tally[]; };
+
+void main()
+{
+    uint hold = gl_GlobalInvocationID.x;
+    if (hold >= tally[TallyHolds]) return;
+
+    HoldRow held = holds[hold];
+    ClaimAnswer answer = answers[hold];
+    holdsOut[hold] = HoldOut(
+        held.firstRow, held.endRow, held.standingMarginM, held.flags, held.keptOffWhatItMayPassM, held.passesBelowMps, answer.cutLineM,
+        answer.marginM, answer.cutBy, answer.cutOn, cutters[hold].toM, 0u);
+}

@@ -43,6 +43,13 @@ layout(std430, binding = 15) writeonly buffer Answers { ClaimAnswer answers[]; }
 layout(std430, binding = 16) writeonly buffer Shown { float shown[]; };
 layout(std430, binding = 17) readonly buffer Tally { uint tally[]; };
 
+// What each car on a pass found inside it (rebuild_asks.comp).
+layout(std430, binding = 18) readonly buffer AskAnswers { uvec4 askAnswers[]; };
+
+// Whether a car on a pass has a body inside it, so its claim is the hold short of that and not the plan the host laid
+// past its pass (Following.Plan).
+bool plansHeldInItsPass(uint car) { return carClaims[car].askCount > 0u && askAnswers[car][AskFound] != 0u; }
+
 uint plansUnitCount() { return figures.stretchCount + 1u + figures.carCount + figures.walkerCount; }
 
 uint plansFirstCar() { return figures.stretchCount + 1u; }
@@ -69,6 +76,7 @@ uvec2 plansCountOf(uint unit)
         uint car = unit - plansFirstCar();
         CarClaimRow claim = carClaims[car];
         if ((claim.flags & CarPlansOnTheDevice) != 0u) return uvec2(planResults[car].pieces, planResults[car].laidAHold);
+        if (plansHeldInItsPass(car)) return uvec2(0u, 1u);
         if (claim.hostUnit < 0) return uvec2(0u);
 
         HostUnit laid = hostUnits[claim.hostUnit];

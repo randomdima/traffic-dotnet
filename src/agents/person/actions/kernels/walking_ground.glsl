@@ -96,8 +96,9 @@ int walkerWayOf(int code)
     return code == WalkerRouteNoWay || code == WalkNoLane ? WalkerNone : walkTownWay(code);
 }
 
-// How fast the walker is going the way it faces (WalkingGround.AlongItsWalkMps).
-float walkerAlongItsWalkMps(WalkerRow row) { return walkerDot(row.velocityMps, walkerUnit(row.headingRad)); }
+// How fast the walker is going the way it faces (WalkingGround.AlongItsWalkMps): the host's own, sent with the row, since a
+// heading's unit from the device's trigonometry puts the pace on every row and plan a last bit elsewhere.
+float walkerAlongItsWalkMps(WalkerRow row) { return row.alongMps; }
 
 // WalkingGround.HasWalkedOut.
 bool walkerHasWalkedOut(WalkerRow row, float endM)

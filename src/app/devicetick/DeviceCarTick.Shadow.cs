@@ -281,6 +281,26 @@ internal sealed partial class DeviceCarTick
 
     void LayWhatItWasGranted(TownWorld town, int car)
     {
+        _grants.Lay(car, GrantOf(town, car, out var cutter, out var bits));
+        _cutters.Lay(car, cutter);
+        _holdBits.Lay(car, bits);
+    }
+
+    /// <summary>
+    /// <b>What a claims rebuild on the device wrote of a car's grant</b> (<c>rebuild_grant.comp</c>), taken as what the
+    /// table holds: the town's own reading of the same claims, which is the device's to the bit
+    /// (<see cref="ResidentRows{T}.Assume"/>) — so a grant laid after it is sent only where the town changed it.
+    /// </summary>
+    public void AssumeTheGrantOf(TownWorld town, int car)
+    {
+        _grants.Assume(car, GrantOf(town, car, out var cutter, out var bits));
+        _cutters.Assume(car, cutter);
+        _holdBits.Assume(car, bits);
+    }
+
+    /// <summary>A car's grant, what cut it and its hold bits as the town's claims have them.</summary>
+    static GrantRow GrantOf(TownWorld town, int car, out DeviceClaims.ClaimRow cutter, out uint bits)
+    {
         var cars = town.Cars;
         var claims = town.Occupancy;
         var hold = town.PlanHoldOf(car);
@@ -292,11 +312,11 @@ internal sealed partial class DeviceCarTick
             cutOn = claims.HoldCutOn(hold);
         }
 
-        _grants.Lay(car, new GrantRow(
+        cutter = cut.Found ? DeviceClaims.ClaimRow.Of(cut, cutOn, false, cut.FromM) : default;
+        bits = (hold != LaneOccupancy.NoHold ? ToldRow.HasAHold : 0u) | (cut.Found ? ToldRow.Cut : 0u);
+        return new GrantRow(
             cars.AuthorityM[car], cars.HorizonM[car], cars.ClaimFromM[car], cars.CommittedToM[car], cars.GrantMarginM[car],
-            (uint)cars.GrantCutBy[car], cutOn, 0f, Vector2.Zero));
-        _cutters.Lay(car, cut.Found ? DeviceClaims.ClaimRow.Of(cut, cutOn, false, cut.FromM) : default);
-        _holdBits.Lay(car, (hold != LaneOccupancy.NoHold ? ToldRow.HasAHold : 0u) | (cut.Found ? ToldRow.Cut : 0u));
+            (uint)cars.GrantCutBy[car], cutOn, 0f, Vector2.Zero);
     }
 
     void LayThePass(CarFleet cars, int car)

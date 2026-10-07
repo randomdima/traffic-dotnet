@@ -1,6 +1,25 @@
 namespace TrafficSimulation.World.Road;
 
 /// <summary>
+/// <b>One stretch of one way asked for a body standing in it</b> (<see cref="LaneOccupancy.FirstBodyIn"/>): any body but
+/// the asker's own — or, <paramref name="OnFoot"/>, somebody on foot — and where on the asker's line it then stops.
+/// </summary>
+/// <remarks>
+/// <b>Asked as data</b>, so the same question is put to the town's reservations and to a device's
+/// (<c>app/devicetick/DeviceRebuild</c>) without a second copy of whose ground runs where.
+/// </remarks>
+/// <param name="OnFoot">
+/// Asked of somebody on foot alone (<see cref="LaneOccupancy.AheadBodyOf"/>), a body beginning at
+/// <paramref name="ToM"/> left out; otherwise of anybody but the asker (<see cref="LaneOccupancy.AheadBody"/>), one
+/// beginning there taken.
+/// </param>
+/// <param name="InTheWayM">
+/// Where on the asker's line it stops short of a body found here — or, <paramref name="FromTheBody"/>, where
+/// <paramref name="FromM"/> falls on that line, carried on to the body's near edge (<see cref="LineWays.OnTheLineM"/>).
+/// </param>
+internal readonly record struct BodyAsk(int Way, float FromM, float ToM, bool OnFoot, float InTheWayM, bool FromTheBody);
+
+/// <summary>
 /// <b>The questions the reservations are asked</b>: what body is in front on one way, and everything on one
 /// way for whoever draws or measures it — every one of them a walk of one way's own lists, and none of them a
 /// decision (SIM-7). <b>A reader only ever reads the way it is on</b> (TER-4c.5): whatever holds ground that
@@ -78,6 +97,32 @@ internal sealed partial class LaneOccupancy
         }
 
         found = LaneClaim.Nothing;
+        return false;
+    }
+
+    /// <summary>
+    /// <b>The first of a run of stretches with a body standing in it</b>, asked in order (<see cref="BodyAsk"/>): the
+    /// body, the way it stands on, and where on the asker's line that stops it — or false where none of them has one.
+    /// </summary>
+    public bool FirstBodyIn(ReadOnlySpan<BodyAsk> asks, int excluding, out float inTheWayM, out LaneClaim body, out int on)
+    {
+        foreach (ref readonly var ask in asks)
+        {
+            var found = ask.OnFoot
+                ? AheadBodyOf(LaneRoster.Walking, ask.Way, ask.FromM, ask.ToM, out body)
+                : AheadBody(ask.Way, ask.FromM, ask.ToM, excluding, out body);
+            if (!found) continue;
+
+            on = ask.Way;
+            inTheWayM = ask.FromTheBody
+                ? LineWays.OnTheLineM(new LineWay(ask.Way, ask.FromM, ask.ToM, ask.InTheWayM), MathF.Max(ask.FromM, body.FromM))
+                : ask.InTheWayM;
+            return true;
+        }
+
+        inTheWayM = float.PositiveInfinity;
+        body = LaneClaim.Nothing;
+        on = NoHold;
         return false;
     }
 

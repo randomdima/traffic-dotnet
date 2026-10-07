@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Actions;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Town;
@@ -36,6 +37,14 @@ internal sealed partial class TownWorld
         public readonly int[] Asked = new int[cars];
 
         public int AskedCount;
+
+        /// <summary>
+        /// Whether what the atlas found under a kept car is in its recall — false where a device laid the body it was
+        /// kept at (<see cref="AskTheCars"/>), and the channels it was read on then.
+        /// </summary>
+        public readonly bool[] Recalled = new bool[cars];
+
+        public readonly byte[] ReadOn = new byte[cars];
     }
 
     /// <summary>
@@ -66,14 +75,46 @@ internal sealed partial class TownWorld
         {
             if (StandsAsLaid(car))
             {
+                if (!_standing.Recalled[car]) ReadTheStandingBodyAgain(car);
+
                 LayTheStandingBody(car);
                 continue;
             }
 
+            var channels = Cars.Channels[car];
             LayTheCarsBody(car);
-            KeepIfStanding(car);
+            KeepIfStanding(car, recalled: true, channels);
             _standing.Asked[_standing.AskedCount++] = car;
         }
+    }
+
+    /// <summary>
+    /// <b>The cars a laying whose bodies a device lays asks</b> (<see cref="ITownClaims"/>): the same list
+    /// <see cref="LayTheCarsBodies"/> makes, and the same cars kept — the atlas read for none of them, so none is recalled.
+    /// </summary>
+    void AskTheCars()
+    {
+        _standing.AskedCount = 0;
+        for (var car = 0; car < Cars.Count; car++)
+        {
+            if (StandsAsLaid(car)) continue;
+
+            KeepIfStanding(car, recalled: false, Cars.Channels[car]);
+            _standing.Asked[_standing.AskedCount++] = car;
+        }
+    }
+
+    /// <summary>
+    /// A kept car whose body a device laid read off the atlas now, at the pose and on the channels it was kept at — what
+    /// the atlas would have recalled had the town read it then.
+    /// </summary>
+    void ReadTheStandingBodyAgain(int car)
+    {
+        var halfM = Cars.BuildOf(car).CollisionSizeM * 0.5f;
+        _atlas.UnderBox(
+            _standing.PositionM[car], Heading.Unit(_standing.HeadingRad[car]), halfM.X, halfM.Y, _groundUnderCars, car,
+            _standing.ReadOn[car]);
+        _standing.Recalled[car] = true;
     }
 
     /// <summary>The cars this laying asked, which are the only ones whose drive, pass, manoeuvre and grant can be anything but what they were.</summary>
@@ -94,7 +135,8 @@ internal sealed partial class TownWorld
         }
     }
 
-    void KeepIfStanding(int car)
+    /// <param name="readOn">The channels its body was read on.</param>
+    void KeepIfStanding(int car, bool recalled, byte readOn)
     {
         var body = Cars.Body[car];
         var standing = Cars.Action[car] == CarAction.Stand && _recovery.OnTheHookOf[car] < 0 && _physics.IsFrozen(body);
@@ -105,5 +147,7 @@ internal sealed partial class TownWorld
         _standing.Entries[car] = _carActions.EntriesOf(car);
         _standing.PositionM[car] = Cars.PositionM[car];
         _standing.HeadingRad[car] = Cars.HeadingRad[car];
+        _standing.Recalled[car] = recalled;
+        _standing.ReadOn[car] = readOn;
     }
 }

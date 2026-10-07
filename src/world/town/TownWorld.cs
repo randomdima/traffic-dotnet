@@ -730,7 +730,11 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         MendTheYards(_config.TickSeconds);
 
         ClaimsLaidThisTick = _claims.Turn(_ticks++, 0);
-        if (ClaimsLaidThisTick) RebuildLaneOccupancy();
+        if (ClaimsLaidThisTick)
+        {
+            if ((ClaimsDevice ?? Device as ITownClaims) is { } device && device.LaysTheClaims(this)) RebuildLaneOccupancyOn(device);
+            else RebuildLaneOccupancy();
+        }
 
         // Phase 3 begins on the walkers' ticks, which is the end of the roster the loop walks first.
         if (!Timed) return;
@@ -795,6 +799,13 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// are not ticked here, and what they left is handed back before any decision reads it.
     /// </summary>
     public ITownDevice? Device { get; set; }
+
+    /// <summary>
+    /// <b>Where the claims are laid other than in the town's own rebuild</b> (<see cref="ITownClaims"/>): this, or else the
+    /// device the town's tick runs on where that one lays them — or neither, and the town lays its own. Set apart only by
+    /// an instrument holding a device's claims to a town that ticks itself.
+    /// </summary>
+    public ITownClaims? ClaimsDevice { get; set; }
 
     public void AgentsTicked() => Device?.TickTheRest(this);
 

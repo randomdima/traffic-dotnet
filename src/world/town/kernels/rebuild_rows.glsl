@@ -31,7 +31,9 @@ struct HostUnit
 // What the host tells the rebuild of one car (DeviceRebuild.CarClaimRow): whether it was asked this laying and whether
 // its claim is the plan the device lays (CarAsked, CarPlansOnTheDevice); where else its claim is laid — a host unit, the
 // plans' unit its grant's hold is in and that hold's place there — and, for a claim the host laid, what the car was left
-// granted before its grant is read (CarFleet.AuthorityM, HorizonM, ClaimFromM, CommittedToM, GrantMarginM, GrantCutBy).
+// granted before its grant is read (CarFleet.AuthorityM, HorizonM, ClaimFromM, CommittedToM, GrantMarginM, GrantCutBy);
+// and, for a car on a pass whose plan the host laid as though its pass were clear, the run of BodyAskRows that looks for
+// a body inside it (Following.AsksOfItsPass).
 struct CarClaimRow
 {
     uint flags;
@@ -44,12 +46,35 @@ struct CarClaimRow
     float committedToM;
     float grantMarginM;
     uint grantCutBy;
-    float pad0;
-    float pad1;
+    int askFirst;
+    uint askCount;
 };
 
 const uint CarAsked = 1u;
 const uint CarPlansOnTheDevice = 2u;
+
+// One stretch of one way asked for a body standing in it (BodyAsk): somebody on foot alone, a body beginning at its end
+// left out (AskOnFoot) — otherwise anybody but the asker, one beginning there taken — and where on the asker's line it
+// stops: inTheWayM, or (AskFromTheBody) the line metre fromM falls at carried on to the body's near edge.
+struct BodyAskRow
+{
+    int way;
+    float fromM;
+    float toM;
+    uint flags;
+    float inTheWayM;
+    uint pad;
+};
+
+const uint AskOnFoot = 1u;
+const uint AskFromTheBody = 2u;
+
+// What a car on a pass found (rebuild_asks.comp): whether a body stands inside it, where its nose stops short of it
+// (float bits), the body's row, and the way it stands on.
+const uint AskFound = 0u;
+const uint AskInTheWayM = 1u;
+const uint AskBody = 2u;
+const uint AskOn = 3u;
 
 // A row the host cut after it was laid (LaneOccupancy.TakeFrom, CutHold): where it now ends, and whether it is gone.
 struct RowEdit

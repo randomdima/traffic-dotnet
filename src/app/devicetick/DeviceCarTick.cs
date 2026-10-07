@@ -2,6 +2,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using Silk.NET.Vulkan;
 using TrafficSimulation.Agents.Car.Actions;
+using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
@@ -220,6 +221,53 @@ internal sealed partial class DeviceCarTick : IDisposable
 
     /// <summary>The most cars the table holds: the tyre pass's.</summary>
     public int Capacity => _tyres.Capacity;
+
+    /// <summary>Every car's line as the table keeps it (<c>CarLineRow</c>, its arcs and entries, and its lanes' chain, starts, ends and breaks).</summary>
+    internal readonly record struct LineTables(
+        GpuBuffer Lines, GpuBuffer Arcs, GpuBuffer Entries, GpuBuffer Chain, GpuBuffer Starts, GpuBuffer Ends, GpuBuffer Breaks);
+
+    /// <summary>
+    /// <b>Every car's line as the table keeps it</b>, for a kernel that reads lines in place (<see cref="DevicePlans"/>):
+    /// current for a car only once <see cref="LayTheLineOf"/> has been asked of it and sent.
+    /// </summary>
+    public LineTables Lines => new(_lines.Device, _arcs.Device, _entries.Device, _chain.Device, _starts.Device, _ends.Device, _breaks.Device);
+
+    /// <summary>
+    /// <b>Each car's grant, what cut it and its hold bits as the tick reads them</b> — the tables the host lays where it
+    /// changed them, which a claims rebuild on the device writes for every car it asks (<see cref="AssumeTheGrantOf"/>).
+    /// </summary>
+    public (GpuBuffer Grants, GpuBuffer Cutters, GpuBuffer HoldBits) GrantTables => (_grants.Device, _cutters.Device, _holdBits.Device);
+
+    /// <summary>
+    /// <b>A car's line made current in the table</b>, for a kernel that reads lines in place (<see cref="Lines"/>): laid
+    /// whole where the table's copy may not be the town's — a car the last tick did not take, or whose line the town has
+    /// changed since — and sent by <see cref="RecordTheLinesSent"/>.
+    /// </summary>
+    public void LayTheLineOf(CarFleet cars, int car)
+    {
+        if (_held[car] && cars.LineLaid[car] == _lineLaidAt[car]) return;
+
+        LayTheLine(cars, car);
+        _lineLaidAt[car] = cars.LineLaid[car];
+    }
+
+    /// <summary>How many bytes of lines <see cref="RecordTheLinesSent"/> will copy.</summary>
+    public ulong LinesMarkedBytes =>
+        _lines.MarkedBytes + _arcs.MarkedBytes + _entries.MarkedBytes + _chain.MarkedBytes + _starts.MarkedBytes + _ends.MarkedBytes
+        + _firstArcs.MarkedBytes + _breaks.MarkedBytes;
+
+    /// <summary>The lines <see cref="LayTheLineOf"/> laid, copied across, recorded; the caller barriers.</summary>
+    public void RecordTheLinesSent(CommandBuffer commands)
+    {
+        _lines.Send(commands);
+        _arcs.Send(commands);
+        _entries.Send(commands);
+        _chain.Send(commands);
+        _starts.Send(commands);
+        _ends.Send(commands);
+        _firstArcs.Send(commands);
+        _breaks.Send(commands);
+    }
 
     /// <summary>Whether each car's grant, cutter and hold bits are the device's own rebuild's rather than laid by the host.</summary>
     public bool GrantedOnTheDevice { get; }

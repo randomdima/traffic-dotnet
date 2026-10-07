@@ -40,7 +40,7 @@ const uint WalkerOnAStraight = 64u;
 // One walker as the walkers' side of a rebuild reads and writes it: the fleet's fields (PersonFleet), the pass it is on
 // (Sidestep) and how many runs its ground was swept in, where it decided to walk back to (WalkingBack), the straight it
 // committed to (WalkingGround), the car whose officer it is (PatrolDuty), whose ground its body is laid as
-// (WalkingGround.HeldAs) and the hold its plan laid.
+// (WalkingGround.HeldAs), the hold its plan laid, and how fast it is going the way it faces (WalkingGround.AlongItsWalkMps).
 struct WalkerRow
 {
     vec2 positionM;
@@ -74,7 +74,7 @@ struct WalkerRow
     uint action;
     uint stage;
     int hold;
-    uint pad;
+    float alongMps;
 };
 
 // One of the town's ways under a stretch of a walk (LineWay).

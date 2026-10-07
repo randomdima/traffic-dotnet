@@ -75,15 +75,7 @@ internal sealed partial class TownWorld
         // manoeuvre, plan, backing and grant are the nothing they were at the last laying.
         LayTheCarsBodies();
         Watch(ClaimsStage.CarsLaid);
-
-        // The ground a pass will cover is a body's (TER-4c.6), and so is a manoeuvre's at a bay (GEN-4f): both are
-        // down before anything is asked for.
-        foreach (var car in CarsAsked) _overtaking.Lay(car, IsUnderWay(car));
-        foreach (var car in CarsAsked) _switching.Lay(car, IsUnderWay(car));
-        _bays.ForgetTheSweeps();
-        foreach (var car in CarsAsked) _bays.Lay(car);
-        for (var person = 0; person < People.Count; person++) _sidestepping.Lay(person);
-
+        LayThePasses();
         Watch(ClaimsStage.PassesLaid);
 
         // The lights before any plan: a light's hold is placed rather than asked for, so it has to be down before
@@ -117,14 +109,32 @@ internal sealed partial class TownWorld
 
         foreach (var car in CarsAsked) _ground.ReadTheGrant(car);
         Watch(ClaimsStage.WalkersDue);
+        ReadTheWalkersGrants();
+        Watch(ClaimsStage.GrantsRead);
+    }
+
+    /// <summary>
+    /// <b>The ground a pass will cover is a body's</b> (TER-4c.6), and so is a manoeuvre's at a bay (GEN-4f): both are
+    /// down before anything is asked for.
+    /// </summary>
+    void LayThePasses()
+    {
+        foreach (var car in CarsAsked) _overtaking.Lay(car, IsUnderWay(car));
+        foreach (var car in CarsAsked) _switching.Lay(car, IsUnderWay(car));
+        _bays.ForgetTheSweeps();
+        foreach (var car in CarsAsked) _bays.Lay(car);
+        for (var person = 0; person < People.Count; person++) _sidestepping.Lay(person);
+    }
+
+    /// <summary>Every walker's grant read off what its walk came to, its pass's word taken, and its aim set on it.</summary>
+    void ReadTheWalkersGrants()
+    {
         for (var person = 0; person < People.Count; person++)
         {
             _walkingGround.ReadTheGrant(person);
             _sidestepping.Consider(person);
             AimTheWalker(person);
         }
-
-        Watch(ClaimsStage.GrantsRead);
     }
 
     /// <summary>

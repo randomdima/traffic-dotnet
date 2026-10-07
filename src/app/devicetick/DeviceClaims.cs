@@ -42,6 +42,14 @@ internal sealed class DeviceClaims : IDisposable
 
         public bool IsGone => (Flags & Gone) != 0;
 
+        /// <summary>Whether the row is a body (<see cref="LaneClaim.HasBody"/>): what list of its way it is in.</summary>
+        public bool HasBody => (ClaimPriority)(Flags & 0xFu) == ClaimPriority.Hard;
+
+        /// <summary>The reservation the row is, as the host holds it: <see cref="Of"/> read the other way, field for field.</summary>
+        public LaneClaim Claim => new(
+            FromM, ToM, AlongMps, Occupant, (ClaimPriority)(Flags & 0xFu), (LaneRoster)((Flags >> 4) & 3u), (Flags & (1u << 6)) != 0, Hold,
+            LineFromM, AheadM, CommittedToM, (Flags & (1u << 7)) != 0, Onward, (Flags & (1u << 8)) != 0, (Flags & (1u << 9)) != 0);
+
         public static ClaimRow Of(in LaneClaim claim, int way, bool gone, float standsToM) => new(
             claim.FromM, claim.ToM, claim.AlongMps, claim.LineFromM, claim.AheadM, claim.CommittedToM, standsToM, claim.Occupant,
             claim.Hold, claim.Onward, (uint)way,
@@ -218,6 +226,58 @@ internal sealed class DeviceClaims : IDisposable
         _scan = new PrefixScan(vk, _scans, _starts, _blockSums, _totals, 0);
         _batch = new ComputeBatch(vk);
         _timer = new GpuTimer(vk, Enum.GetValues<Stage>().Length);
+    }
+
+    /// <summary>
+    /// <b>The claims as a rebuild numbered on the device left them, read back as far as the host's bound</b>: the first
+    /// <paramref name="rows"/> rows and their order and <paramref name="holds"/> holds and answers, what moved each pass and
+    /// the tally — recorded after a transfer barrier. The counts are taken in once the submit is waited for
+    /// (<see cref="TakeTheCounts"/>), and whatever the tally counts past a bound read after it (<see cref="RecordReadPast"/>).
+    /// </summary>
+    public void RecordReadBounded(CommandBuffer commands, int rows, int holds)
+    {
+        var vk = _vk;
+        CopyPast<ClaimRow>(commands, _rows, _rowsOut, 0, rows);
+        CopyPast<uint>(commands, _order, _orderOut, 0, rows);
+        CopyPast<HoldRow>(commands, _holds, _holdsOut, 0, holds);
+        CopyPast<ClaimAnswer>(commands, _answers, _answersOut, 0, holds);
+        vk.Copy(commands, _moved, _movedOut, _moved.SizeBytes);
+        vk.Copy(commands, _tally, _tallyOut, _tally.SizeBytes);
+    }
+
+    /// <summary>
+    /// The rows and holds a bounded read left out — from <paramref name="rowsRead"/> and <paramref name="holdsRead"/> to the
+    /// tally's counts — read after it.
+    /// </summary>
+    public void RecordReadPast(CommandBuffer commands, int rowsRead, int holdsRead)
+    {
+        var (rows, holds) = ((int)TallyRead[Tally.Rows], (int)TallyRead[Tally.Holds]);
+        CopyPast<ClaimRow>(commands, _rows, _rowsOut, rowsRead, rows);
+        CopyPast<uint>(commands, _order, _orderOut, rowsRead, rows);
+        CopyPast<HoldRow>(commands, _holds, _holdsOut, holdsRead, holds);
+        CopyPast<ClaimAnswer>(commands, _answers, _answersOut, holdsRead, holds);
+    }
+
+    /// <summary>Elements <paramref name="from"/> to <paramref name="to"/> of one buffer copied into another, recorded; nothing where there are none.</summary>
+    public unsafe void CopyPast<T>(CommandBuffer commands, GpuBuffer source, GpuBuffer into, int from, int to) where T : unmanaged
+    {
+        if (to <= from) return;
+
+        var at = (ulong)(from * sizeof(T));
+        _vk.Copy(commands, source, into, [new BufferCopy(at, at, (ulong)((to - from) * sizeof(T)))]);
+    }
+
+    /// <summary>
+    /// <b>Every way's two lists as the last counted read handed them back</b>, one row a place: grouped bodies first, then
+    /// planned pieces, each group a way's and in its way's order — so a way's list is a run of it, found off its rows.
+    /// </summary>
+    public ReadOnlySpan<uint> Order => _orderOut.Span<uint>()[.._rowCount];
+
+    /// <summary>How many rows and holds a counted read handed back, taken off the tally it read.</summary>
+    public void TakeTheCounts()
+    {
+        _rowCount = (int)TallyRead[Tally.Rows];
+        _holdCount = (int)TallyRead[Tally.Holds];
     }
 
     /// <summary>How many passes an answering runs.</summary>

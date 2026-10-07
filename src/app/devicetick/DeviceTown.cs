@@ -17,16 +17,23 @@ namespace TrafficSimulation.App.DeviceTick;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The claims are still the town's</b>: answered as today, and sent as cut after each rebuild for the car tick to read
-/// (<see cref="DeviceClaims.LayAsCut"/>). <b>The bodies are the device's</b> (<see cref="DeviceTownBodies"/>): stepped
-/// off the impulses the tick left on the device, the town's own written over them for what the town ticked itself.
+/// <b>The claims are laid here too</b> (<see cref="DeviceRebuild.InTheTown"/>): the town lays only what it alone lays, the
+/// device every body, light, plan, walk and answer in one submit, and the claims are written back into the town before
+/// it lays the backing and reads every grant; the backing and the cars' grants are recorded at the head of the tick's own
+/// submit, into the tables the car tick reads. <b>Where the town has to lay them itself</b> — a hand or a truck holding
+/// what it cannot stop short of, a manoeuvre begun at a bay, a tick held, more cars on a pass than there is room to ask
+/// for — they are sent as cut (<see cref="DeviceClaims.LayAsCut"/>), as each was before, and counted.
+/// </para>
+/// <para>
+/// <b>The bodies are the device's</b> (<see cref="DeviceTownBodies"/>): stepped off the impulses the tick left on the
+/// device, the town's own written over them for what the town ticked itself.
 /// </para>
 /// <para>
 /// <b>What the town's tick of a car it keeps does to its tyres stays the town's</b>: the device runs every car's tyres,
 /// and for a car the town ticked itself the town's own answer stands and the device's is left unread.
 /// </para>
 /// </remarks>
-internal sealed class DeviceTown : ITownDevice, IDisposable
+internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 {
     readonly Vk _vk;
     readonly TownWorld _town;
@@ -36,6 +43,7 @@ internal sealed class DeviceTown : ITownDevice, IDisposable
     readonly DeviceCarTick _cars;
     readonly DeviceWalkerTick _walkers;
     readonly DeviceTownBodies _bodies;
+    readonly DeviceTownClaims _townClaims;
     readonly ComputeBatch _batch;
     readonly GpuTimer _timer;
     readonly int[] _taken;
@@ -68,6 +76,7 @@ internal sealed class DeviceTown : ITownDevice, IDisposable
         };
         _walkers = new DeviceWalkerTick(vk, config, town.People.Capacity);
         _bodies = new DeviceTownBodies(vk, config, town, _tyres, _walkers);
+        _townClaims = new DeviceTownClaims(vk, config, town, _claims, _cars);
         _batch = new ComputeBatch(vk);
         _timer = new GpuTimer(vk, 3);
         _taken = new int[cars.Capacity];
@@ -120,10 +129,11 @@ internal sealed class DeviceTown : ITownDevice, IDisposable
         if (town.HoldAgents) return;
 
         var began = Stopwatch.GetTimestamp();
-        var claimsLaid = town.ClaimsLaidThisTick;
-        if (claimsLaid) _claims.LayAsCut(town.Occupancy);
+        var laidHere = _townClaims.Pending;
+        var laidByTheTown = _townClaims.TakeLaidByTheTown() | (town.ClaimsLaidThisTick && !laidHere);
+        if (laidByTheTown) _claims.LayAsCut(town.Occupancy);
         var chosen = _chosen.AsSpan(0, town.Cars.Count);
-        _count = _cars.Prepare(town, _taken, resident: true, claimsLaid, chosen);
+        _count = _cars.Prepare(town, _taken, resident: true, laidByTheTown, chosen);
         chosen.Clear();
         _walkerCount = _walkers.Lay(town);
         var prepared = Stopwatch.GetTimestamp();
@@ -131,7 +141,8 @@ internal sealed class DeviceTown : ITownDevice, IDisposable
         var commands = _batch.Begin();
         _timer.Reset(commands);
         _timer.Stamp(commands, 0);
-        if (claimsLaid) _claims.RecordAsCut(commands);
+        if (laidHere) _townClaims.RecordTheRest(commands);
+        if (laidByTheTown) _claims.RecordAsCut(commands);
         _timer.Stamp(commands, 1);
         _cars.Record(commands, _count, town.Cars.Count);
         SentBytes = _cars.SentBytes;
@@ -152,6 +163,13 @@ internal sealed class DeviceTown : ITownDevice, IDisposable
         WaitMs = Stopwatch.GetElapsedTime(prepared, waited).TotalMilliseconds;
         TakeBackMs = Stopwatch.GetElapsedTime(waited).TotalMilliseconds;
     }
+
+    /// <summary>The claims laid here, for whoever reads how many and what each cost.</summary>
+    public DeviceTownClaims Claims => _townClaims;
+
+    public bool LaysTheClaims(TownWorld town) => _townClaims.LaysTheClaims(town);
+
+    public void ClaimsAt(TownWorld town, ClaimsStage stage) => _townClaims.ClaimsAt(town, stage);
 
     /// <summary>
     /// <b>Every body stepped on the device</b> (<see cref="DeviceTownBodies"/>): the wheels the tyre pass left for the cars
@@ -286,6 +304,7 @@ internal sealed class DeviceTown : ITownDevice, IDisposable
     {
         _timer.Dispose();
         _batch.Dispose();
+        _townClaims.Dispose();
         _bodies.Dispose();
         _walkers.Dispose();
         _cars.Dispose();

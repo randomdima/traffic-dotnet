@@ -93,14 +93,21 @@ internal sealed partial class TownWorld
         // PHY-7: inside a container there is no body in the world and nothing in anybody's way.
         if (People.Inside[person].Any) return;
 
-        var occupant = GroundHeldAs(person, out var roster);
-        _walkingGround.HoldTheGroundAs(person, occupant, roster);
+        var occupant = HoldTheWalkersGround(person, out var roster);
         var count = _walkingGround.BodyCover(person, _groundUnderWalkers, body);
         foreach (ref readonly var piece in body[..count])
         {
             _occupancy.LayBody(
                 piece.Way, piece.FromM, piece.ToM, piece.AlongMps, occupant, roster, piece.OnItsLine, piece.Onward, piece.Still);
         }
+    }
+
+    /// <summary>Whose ground a walker's body is laid as this rebuild (<see cref="GroundHeldAs"/>), held to from here on.</summary>
+    int HoldTheWalkersGround(int person, out LaneRoster roster)
+    {
+        var occupant = GroundHeldAs(person, out roster);
+        _walkingGround.HoldTheGroundAs(person, occupant, roster);
+        return occupant;
     }
 
     /// <summary>

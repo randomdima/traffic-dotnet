@@ -307,24 +307,23 @@ internal sealed class DrivingGround(
     }
 
     /// <summary>
-    /// <b>Somebody on foot on the paint of a zebra a stretch of one way lies under</b> — anywhere on any of its
-    /// walking lanes, kerb to kerb — and the walking lane they are on.
+    /// <b>Where somebody on foot on the paint of a zebra a stretch of one way lies under is looked for</b> — anywhere on
+    /// any of its walking lanes, kerb to kerb, in the order the marks lie — each stopping the asker at
+    /// <paramref name="inTheWayM"/> (<see cref="LaneOccupancy.FirstBodyIn"/>).
     /// </summary>
-    public bool SomebodyOnThePaint(in WayCover swept, out LaneClaim body, out int on)
+    /// <returns>How many were written: one a mark of a zebra over the stretch.</returns>
+    public int AsksOfThePaint(in WayCover swept, float inTheWayM, Span<BodyAsk> into)
     {
+        var written = 0;
         foreach (ref readonly var mark in Occupancy.Marks.Of(swept.Way))
         {
             if (mark.MineFromM >= swept.ToM) break;
             if (mark.MineToM <= swept.FromM || Lines.ZebraOf(mark.OnWay) == RibbonMarks.NoZebra) continue;
-            if (!Occupancy.AheadBodyOf(LaneRoster.Walking, mark.OnWay, mark.FromM, mark.ToM, out body)) continue;
 
-            on = mark.OnWay;
-            return true;
+            into[written++] = new BodyAsk(mark.OnWay, mark.FromM, mark.ToM, OnFoot: true, inTheWayM, FromTheBody: false);
         }
 
-        body = LaneClaim.Nothing;
-        on = LaneOccupancy.NoHold;
-        return false;
+        return written;
     }
 
     /// <summary>

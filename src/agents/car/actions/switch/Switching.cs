@@ -255,24 +255,32 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
     /// <b>Where the nose of a car on its step has to stop short of a body standing inside what is left of it</b> — the
     /// one thing that ends a step's ground short of its end, since nothing planned can be laid over it (TER-4c.1).
     /// </summary>
-    public bool TheBodyInTheSwitch(int car, out float inTheWayM, out LaneClaim body, out int on)
+    public bool TheBodyInTheSwitch(int car, out float inTheWayM, out LaneClaim body, out int on) =>
+        Occupancy.FirstBodyIn(_asks.AsSpan(0, AsksOfTheSwitch(car, _asks)), car, out inTheWayM, out body, out on);
+
+    /// <summary>Where <see cref="TheBodyInTheSwitch"/> looks, in the order it looks: each run of the step not yet driven past.</summary>
+    /// <param name="into">Room for <see cref="MostAsksOfASwitch"/>.</param>
+    public int AsksOfTheSwitch(int car, Span<BodyAsk> into)
     {
         ref readonly var build = ref Cars.BuildOf(car);
         var progressM = Cars.ProgressM[car];
+        var written = 0;
         foreach (ref readonly var run in _swept.Of(car))
         {
-            if (run.LastAtM < progressM || !Occupancy.AheadBody(run.Way, run.FromM, run.ToM, car, out body)) continue;
+            if (run.LastAtM < progressM) continue;
 
-            on = run.Way;
-            inTheWayM = MathF.Max(progressM, run.FirstAtM - build.FlankM) + build.NoseAheadOfAxleM;
-            return true;
+            var inTheWayM = MathF.Max(progressM, run.FirstAtM - build.FlankM) + build.NoseAheadOfAxleM;
+            into[written++] = new BodyAsk(run.Way, run.FromM, run.ToM, OnFoot: false, inTheWayM, FromTheBody: false);
         }
 
-        inTheWayM = float.PositiveInfinity;
-        body = LaneClaim.Nothing;
-        on = LaneOccupancy.NoHold;
-        return false;
+        return written;
     }
+
+    /// <summary>How many stretches one step is looked over for a body (<see cref="AsksOfTheSwitch"/>): every run of it.</summary>
+    public const int MostAsksOfASwitch = MostRunsOfASwitch;
+
+    /// <summary>Room for one step's <see cref="AsksOfTheSwitch"/>.</summary>
+    readonly BodyAsk[] _asks = new BodyAsk[MostAsksOfASwitch];
 
     /// <summary>
     /// <b>Whether the car's line stops where its route moves across</b>: the next lane the route queues is joined to the

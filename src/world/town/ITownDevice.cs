@@ -25,3 +25,27 @@ internal interface ITownDevice
     /// </summary>
     void StepBodies(TownWorld town, float dtS);
 }
+
+/// <summary>
+/// <b>The town's claims rebuild laid on a device in step</b> (<see cref="TownWorld.ClaimsDevice"/>): the town lays only what
+/// it alone lays, the device every body, light, plan and walk and every answer, and the claims are written back before
+/// the town lays the backing and reads a single grant — so every reader reads what the town's own rebuild would have laid.
+/// </summary>
+/// <remarks>
+/// Declared here and implemented above (<c>app/devicetick</c>), as <see cref="ITownDevice"/> is.
+/// </remarks>
+internal interface ITownClaims
+{
+    /// <summary>
+    /// <b>Whether the device lays this rebuild's claims</b> — asked once the claims clock comes round, before anything is
+    /// laid. Where it does not, the town lays them itself.
+    /// </summary>
+    bool LaysTheClaims(TownWorld town);
+
+    /// <summary>
+    /// <b>A claims rebuild the device lays</b>, handed the town at every stage as the town lays what only it lays
+    /// (<see cref="ClaimsStage"/>): at <see cref="ClaimsStage.PlansLaid"/> the device lays every body, light, plan and walk,
+    /// answers every plan and writes the claims back into the town, which then lays the backing and reads every grant.
+    /// </summary>
+    void ClaimsAt(TownWorld town, ClaimsStage stage);
+}

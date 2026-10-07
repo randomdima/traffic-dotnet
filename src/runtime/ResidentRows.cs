@@ -17,7 +17,8 @@ namespace TrafficSimulation.Runtime;
 /// <b>Rows only the host writes</b> (<c>hostOnly</c>) are laid with <see cref="Lay"/>, which marks a row only where it
 /// differs from the last laid, and a run is carried over a gap of unmarked rows shorter than <see cref="BridgedGapBytes"/>:
 /// those rows' mapped copy is what the device holds, so sending them again changes nothing and saves a region. A table laid
-/// with <see cref="Lay"/> is written through it alone.
+/// with <see cref="Lay"/> is written through it alone — <b>or a kernel writes rows of it and the host is told what it
+/// wrote</b> (<see cref="Assume"/>), which keeps the mapped copy what the device holds.
 /// </para>
 /// </remarks>
 internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
@@ -86,6 +87,33 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
         laid = row;
         Rows(item)[0] = row;
         Mark(item);
+    }
+
+    /// <summary>
+    /// The first of one item's rows written and marked, unless they are bit for bit those last laid there — or
+    /// <paramref name="again"/>, where what the device holds may be other than what was laid.
+    /// </summary>
+    public void LayRows(int item, ReadOnlySpan<T> rows, bool again = false)
+    {
+        var laid = _laid!.AsSpan(item * RowsPerItem, rows.Length);
+        if (!again && MemoryMarshal.AsBytes(rows).SequenceEqual(MemoryMarshal.AsBytes(laid))) return;
+
+        rows.CopyTo(laid);
+        rows.CopyTo(Rows(item));
+        MarkRows(item, rows.Length);
+    }
+
+    /// <summary>One item's single row as last laid (<see cref="Lay"/>) — read off the host's own copy, never the mapped one.</summary>
+    public ref readonly T LaidRow(int item) => ref _laid![item * RowsPerItem];
+
+    /// <summary>
+    /// <b>One item's single row taken as what the device now holds</b>, written there by a kernel rather than sent: the
+    /// next <see cref="Lay"/> is read against it, and a gap a run is carried over sends it unchanged.
+    /// </summary>
+    public void Assume(int item, in T row)
+    {
+        _laid![item * RowsPerItem] = row;
+        Rows(item)[0] = row;
     }
 
     /// <summary>A run of items to be sent, joined to the last run where it begins at that run's end.</summary>
