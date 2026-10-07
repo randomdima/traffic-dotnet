@@ -56,10 +56,7 @@ internal sealed partial class DeviceWalkerTick : IDisposable
         Capacity = capacity;
         _walkers = new ResidentRows<WalkerRow>(vk, capacity, 1, readsBack: true);
         _impulses = new ResidentRows<Vector2>(vk, capacity, 1, readsBack: true);
-        _bodies = new ResidentRows<int>(vk, capacity, 1);
-
-        // No walker is body -1, so every walker's first lay differs from what was "sent" and is.
-        _bodies.All.Fill(-1);
+        _bodies = new ResidentRows<int>(vk, capacity, 1, hostOnly: true);
         _kernel = new ComputeKernel(vk, "walkers_tick.comp", 2, (uint)Marshal.SizeOf<Figures>());
         _set = _kernel.Bind([_walkers.Device, _impulses.Device]);
         _timer = new GpuTimer(vk, 2);

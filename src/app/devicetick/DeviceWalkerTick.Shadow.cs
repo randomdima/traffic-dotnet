@@ -28,12 +28,7 @@ internal sealed partial class DeviceWalkerTick
                 people.PositionM[person], people.VelocityMps[person], people.DeclaredMps[person], people.DestinationM[person],
                 people.HeadingRad[person], people.MassKg[person], flags, people.DistanceWalkedM[person]);
             impulses[person] = town.WalkerImpulseNs(person);
-
-            ref var body = ref _bodies.Rows(person)[0];
-            if (body == people.Body[person].Index) continue;
-
-            body = people.Body[person].Index;
-            _bodies.Mark(person);
+            _bodies.Lay(person, people.Body[person].Index);
         }
 
         _walkers.Mark(0, people.Count);
