@@ -29,7 +29,8 @@ internal static class DeviceTownProbe
     readonly record struct Window(
         double TickMs, double ClaimsMs, double AgentsMs, double DecisionsMs, double BodiesMs, double ContactsMs, double WallMs,
         double DeviceKernelsMs, int CarsTaken, double MeanMps, int Rejoining, long HardBrakings, long Touches,
-        (long Asked, long Made, long Withdrawn) Switches, (long Asked, long Made, long Withdrawn) Passes);
+        (long Asked, long Made, long Withdrawn) Switches, (long Asked, long Made, long Withdrawn) Passes,
+        (long Asked, long Made, long Withdrawn) Sidesteps);
 
     public static void Run(string map, SimConfig config)
     {
@@ -59,7 +60,8 @@ internal static class DeviceTownProbe
                 $"  {name,-8} cars driven at {run.MeanMps:F2} m/s on average, {run.Rejoining} off their lines, {run.HardBrakings} hard brakings, " +
                 $"{run.Touches} pairs began touching{(run.CarsTaken > 0 ? $"; {run.CarsTaken} cars a tick on the device" : "")}; " +
                 $"lane switches asked/made/withdrawn {run.Switches.Asked}/{run.Switches.Made}/{run.Switches.Withdrawn}, passes " +
-                $"{run.Passes.Asked}/{run.Passes.Made}/{run.Passes.Withdrawn}");
+                $"{run.Passes.Asked}/{run.Passes.Made}/{run.Passes.Withdrawn}, walkers' sidesteps {run.Sidesteps.Asked}/" +
+                $"{run.Sidesteps.Made}/{run.Sidesteps.Withdrawn}");
         }
     }
 
@@ -73,9 +75,12 @@ internal static class DeviceTownProbe
         world.Device = device;
         var brakings = world.HardBrakings;
         var touches = world.Touches;
-        var (switching, overtaking) = (world.Switching, world.Overtaking);
+        var (switching, overtaking, sidestepping) = (world.Switching, world.Overtaking, world.Sidestepping);
         var switches = (switching.Asked, switching.Made, switching.Withdrawn);
         var passes = (overtaking.Asked, overtaking.Made, overtaking.Withdrawn);
+        var sidesteps = (sidestepping.Asked, sidestepping.Made, sidestepping.Withdrawn);
+        var (keptPatched, keptChanged) = (0L, 0L);
+        var keptReadPast = device?.Claims.Rebuild.Walkers.KeptReadPast ?? 0L;
         loop.Phases.Reset();
         world.Sub.Reset();
         loop.Timed = world.Timed = true;
@@ -137,6 +142,7 @@ internal static class DeviceTownProbe
                 // The last landing's, which was the rebuild before this one's.
                 (landingWaitedMs, landedMs) = (landingWaitedMs + rebuild.LandingWaitedMs, landedMs + rebuild.LandedMs);
                 (laidRows, laidBodies, laidHolds) = (laidRows + rows, laidBodies + bodies, laidHolds + holds);
+                (keptPatched, keptChanged) = (keptPatched + rebuild.Walkers.KeptPatched, keptChanged + rebuild.Walkers.KeptChanged);
                 var (townMs, hereMs) = device.Claims.StageMs;
                 for (var stage = 0; stage < stages.Length; stage++)
                 {
@@ -198,6 +204,14 @@ internal static class DeviceTownProbe
             Console.WriteLine(
                 $"  the layer written back a tick later for {device.Claims.Rebuild.LayersSentBack - sentBack} of them, inside the next tick's submit: " +
                 $"waiting for it {landingWaitedMs / each:F2} and writing it into the town {landedMs / each:F2} ms a rebuild");
+            var walkers = device.Claims.Rebuild.Walkers;
+            if (walkers.Keeps)
+            {
+                Console.WriteLine(
+                    $"  the walkers kept on the device: {keptPatched / each} a rebuild written over as the town changed them, " +
+                    $"{keptChanged / each} changed by the rebuild and handed back, {walkers.KeptReadPast - keptReadPast} rebuilds " +
+                    "read past what their submit read back");
+            }
             Console.Write("  the host's rebuild stage by stage, ms a rebuild, the town's laying before each + the device's at it:");
             for (var stage = 0; stage < stages.Length; stage++)
             {
@@ -232,6 +246,7 @@ internal static class DeviceTownProbe
             phases.MillisecondsPer(phases.BodyTicks), phases.MillisecondsPer(phases.ContactTicks), wallMs, deviceMs / MeasuredTicks,
             (int)(taken / MeasuredTicks), mps / Math.Max(1, driven), rejoining, world.HardBrakings - brakings, world.Touches - touches,
             (switching.Asked - switches.Asked, switching.Made - switches.Made, switching.Withdrawn - switches.Withdrawn),
-            (overtaking.Asked - passes.Asked, overtaking.Made - passes.Made, overtaking.Withdrawn - passes.Withdrawn));
+            (overtaking.Asked - passes.Asked, overtaking.Made - passes.Made, overtaking.Withdrawn - passes.Withdrawn),
+            (sidestepping.Asked - sidesteps.Asked, sidestepping.Made - sidesteps.Made, sidestepping.Withdrawn - sidesteps.Withdrawn));
     }
 }

@@ -243,6 +243,7 @@ void walkerKeepOrWithdrawTheSidestep(inout WalkerRow row, uint walker, int occup
         SweptRun run = PASS_RUNS[first + at];
         if (claimsKeepsItsPass(uint(run.way), run.fromM, run.toM, occupant, roster)) continue;
 
+        row.events |= WalkerWithdrewItsPass;
         walkerDropThePass(row);
         return;
     }
@@ -261,6 +262,7 @@ void walkerConsiderTheSidestep(inout WalkerRow row, uint walker, int occupant, u
         SidestepPlace place;
         if (!walkerWhereOnItsSidestep(row, walker, place) || place.leg != LegOver) return;
 
+        row.events |= WalkerMadeItsPass;
         walkerEnter(row, ActionWalk);
         return;
     }

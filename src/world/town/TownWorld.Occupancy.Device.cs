@@ -1,6 +1,8 @@
+using System.Numerics;
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Person.Actions;
+using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Town;
@@ -22,6 +24,10 @@ namespace TrafficSimulation.World.Town;
 /// stands inside it is asked of the device's bodies, and where one does its plan is the hold short of it.
 /// </para>
 /// <para>
+/// <b>A device that keeps the walkers</b> (<see cref="ITownClaims.KeepsTheWalkers"/>) stations them, lays their passes and
+/// reads their grants itself, and the town takes up what it made of each (<see cref="KeptOnTheDevice"/>).
+/// </para>
+/// <para>
 /// <b>The instruments' watch is not handed this rebuild</b> (<see cref="WatchingTheClaims"/>): what it reads of each stage
 /// is the town's own laying, and the bodies, lights, plans and walks are not laid here.
 /// </para>
@@ -32,10 +38,11 @@ internal sealed partial class TownWorld
     {
         device.ClaimsAt(this, ClaimsStage.Begun);
         LayIntoTheLaying();
-        for (var person = 0; person < People.Count; person++) StationTheWalker(person);
+        var walkers = !device.KeepsTheWalkers;
+        for (var person = 0; walkers && person < People.Count; person++) StationTheWalker(person);
 
         device.ClaimsAt(this, ClaimsStage.Stationed);
-        for (var person = 0; person < People.Count; person++)
+        for (var person = 0; walkers && person < People.Count; person++)
         {
             if (!People.Inside[person].Any) HoldTheWalkersGround(person, out _);
         }
@@ -43,7 +50,7 @@ internal sealed partial class TownWorld
         device.ClaimsAt(this, ClaimsStage.WalkersLaid);
         AskTheCars();
         device.ClaimsAt(this, ClaimsStage.CarsLaid);
-        LayThePasses();
+        LayThePasses(walkers);
         device.ClaimsAt(this, ClaimsStage.PassesLaid);
         device.ClaimsAt(this, ClaimsStage.PlansDue);
         Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];
@@ -76,7 +83,12 @@ internal sealed partial class TownWorld
         }
 
         device.ClaimsAt(this, ClaimsStage.WalkersDue);
-        ReadTheWalkersGrants(granted, landsLater);
+
+        // A device that keeps the walkers read their grants where it read the cars'; where it read none, the town reads
+        // them off the walkers the device left.
+        if (walkers) ReadTheWalkersGrants(granted);
+        else if (!granted) ReadTheWalkersGrants();
+
         device.ClaimsAt(this, ClaimsStage.GrantsRead);
     }
 
@@ -128,13 +140,11 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>A rebuild a device laid, landed</b> once its answers are written into the layer every reader reads: every agent's
-    /// numbers taken up as laid for it, but where the town has changed one since, and every walker's pass word that waited
-    /// for it given.
+    /// numbers taken up as laid for it, but where the town has changed one since.
     /// </summary>
     public void LandTheLaying()
     {
         foreach (var bound in _withTheLayer!) bound.Adopt();
-        _sidestepping.KeepOrWithdrawTheDue();
     }
 
     void LayOn(LaneOccupancy occupancy)
@@ -233,6 +243,35 @@ internal sealed partial class TownWorld
     /// <summary>Each walker's hold as a device read what it came to, this rebuild (<see cref="WalkerGrantedOnTheDevice"/>).</summary>
     (bool LaidAHold, float EndsAtM, float MarginM, int CutOn)[] _walkGrantedOnTheDevice = [];
 
+    /// <summary>
+    /// <b>What a device that keeps the walkers made of one this rebuild</b> (<see cref="ITownClaims.KeepsTheWalkers"/>), taken
+    /// up as the town's own: stationed on its walk (<see cref="StationTheWalker"/>) — a way taken being progress — its body
+    /// laid as whoever's ground it is, its pass laid or let go, and, where the device read the grants, what it was granted,
+    /// its pass's word and where it aims.
+    /// </summary>
+    public void KeptOnTheDevice(int person, in KeptWalker kept)
+    {
+        var people = People;
+        if (kept.RouteTaken != people.RouteTaken[person])
+        {
+            people.RouteTaken[person] = kept.RouteTaken;
+            _progress.Restart(person);
+        }
+
+        people.DestinationM[person] = kept.DestinationM;
+        people.OnWayM[person] = kept.OnWayM;
+        people.OffWayM[person] = kept.OffWayM;
+        people.OnWay[person] = kept.OnWay;
+        people.GrantM[person] = kept.GrantM;
+        people.OnCrossing[person] = kept.OnCrossing;
+        people.Pass[person] = kept.Pass;
+        people.Walking[person] = kept.Walking;
+        people.Action[person] = kept.Action;
+        _walkingBack.WalksBackTo(person, kept.BackToM);
+        _walkingGround.HoldTheGroundAs(person, kept.HeldAs, kept.HeldAsRoster);
+        _sidestepping.CountTheWord(kept.MadeItsPass, kept.WithdrewItsPass);
+    }
+
     /// <summary>How a device's answering of the plans went (<see cref="AnswerThePlans"/>): answers moved past the first pass, and whether they settled.</summary>
     public void AnsweredOnTheDevice(int laidAgain, bool settled)
     {
@@ -240,3 +279,13 @@ internal sealed partial class TownWorld
         if (!settled) Unsettled++;
     }
 }
+
+/// <summary>
+/// What a device that keeps the walkers made of one in a rebuild (<see cref="TownWorld.KeptOnTheDevice"/>): where it aims,
+/// where it walks back to, where on its way it stands and how far off it, what it was granted, its pass, how far down its
+/// route it has come, the way it is afoot on and the zebra it is on or held off, whose ground its body was laid as, whether
+/// it walks and what it is doing — and whether its pass was made or withdrawn.
+/// </summary>
+internal readonly record struct KeptWalker(
+    Vector2 DestinationM, Vector2 BackToM, float OnWayM, float OffWayM, float GrantM, Sidestep Pass, int RouteTaken, int OnWay,
+    int OnCrossing, int HeldAs, LaneRoster HeldAsRoster, bool Walking, PersonAction Action, bool MadeItsPass, bool WithdrewItsPass);

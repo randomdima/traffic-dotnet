@@ -37,6 +37,18 @@ internal sealed partial class DeviceRebuild
     /// <summary>The car tick whose lines the plans read and whose grant tables the grants are written into — none for the shadow.</summary>
     readonly DeviceCarTick? _carTick;
 
+    /// <summary>The walker tick whose table the walkers are read in from, where the rebuild keeps them (<see cref="DeviceWalkers.Keeps"/>).</summary>
+    readonly DeviceWalkerTick? _walkerTick;
+
+    /// <summary>Kept walkers: where each walker's passes are filed among the rest, scanned, and the kernel that counts and files them.</summary>
+    GpuBuffer _walkerPassStarts = null!;
+
+    PrefixScan _scanWalkerPasses = null!;
+    Bound _walkerPasses;
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    readonly record struct WalkerPassesPush(uint WalkerCount, uint CoverRoom, uint HostPassRows, uint Counting);
+
     readonly bool _ownsTheClaims;
 
     /// <summary>What a rebuild in the town hands back besides the claims.</summary>
@@ -140,7 +152,30 @@ internal sealed partial class DeviceRebuild
             _vk, "rebuild_agents_out.comp",
             [_plans.OnTheDevice.Results, _askAnswers, _bodies.OnTheDevice.Counts, _carsOut, walkerCounts, _walkersOut, _unitHolds, tables.Answers]);
         _scratchAsks = new BodyAsk[Overtaking.MostAsksOfAPass(world.Atlas.Marks)];
+        if (!_walkers.Keeps) return;
+
+        var (walkerCovers, _, _, _) = _walkers.OnTheDevice;
+        _walkerPassStarts = Device<uint>(_walkersRoom);
+        _scanWalkerPasses = new PrefixScan(_vk, _scans, _walkerPassStarts, _blockSums, _sums, (uint)Sum.WalkerPasses);
+        _walkerPasses = Bound.Of<WalkerPassesPush>(
+            _vk, "rebuild_walker_passes.comp", [walkerCounts, walkerCovers, _walkerPassStarts, tables.Rows, tables.Tally]);
     }
+
+    /// <summary>Kept walkers: how many passes each walker's body laid counted and scanned into where each is filed, recorded.</summary>
+    void RecordTheWalkersPassesCounted(CommandBuffer commands)
+    {
+        _walkerPasses.Dispatch(commands, _walkerCount, new WalkerPassesPush((uint)_walkerCount, (uint)_walkers.CoverRoom, 0u, 1u));
+        _vk.BetweenKernels(commands);
+        _scanWalkerPasses.Record(commands, _walkerCount);
+    }
+
+    /// <summary>
+    /// Kept walkers: every walker's passes filed after the host's (<c>rebuild_walker_passes.comp</c>), where the town files its
+    /// own sidesteps after the cars' passes — recorded; the caller barriers.
+    /// </summary>
+    void RecordTheWalkersPassesFiled(CommandBuffer commands) =>
+        _walkerPasses.Dispatch(
+            commands, _walkerCount, new WalkerPassesPush((uint)_walkerCount, (uint)_walkers.CoverRoom, (uint)_passes.RowCount, 0u));
 
     /// <summary>How many asks there is room for: <see cref="MostCarsOnAPass"/> cars' worth.</summary>
     static int AskRoom(TownWorld world) => Math.Min(world.Cars.Capacity, MostCarsOnAPass) * Overtaking.MostAsksOfAPass(world.Atlas.Marks);
@@ -212,7 +247,8 @@ internal sealed partial class DeviceRebuild
 
             case ClaimsStage.Stationed:
                 StationedMs = Stopwatch.GetElapsedTime(_laidFrom).TotalMilliseconds;
-                _walkers.LayTheStationed(town);
+                if (_walkers.Keeps) _walkers.LayTheKept(town, _walkerTick!);
+                else _walkers.LayTheStationed(town);
                 break;
 
             case ClaimsStage.CarsLaid:
@@ -238,7 +274,7 @@ internal sealed partial class DeviceRebuild
                 break;
 
             case ClaimsStage.WalksDue:
-                _walkers.LayWhatChanged(town);
+                if (!_walkers.Keeps) _walkers.LayWhatChanged(town);
                 LayTheCarsClaims(town);
                 _planned = new HostRange(_passes.RowCount, _hostRowCount - _passes.RowCount, 0, _hostHoldCount);
                 break;
@@ -296,7 +332,9 @@ internal sealed partial class DeviceRebuild
         var sent = SentParts.Bodies + SentParts.Plans + SentParts.Walkers + SentParts.Lines + SentParts.CarClaims + townsOwn;
         _bodies.RecordSend(commands);
         _plans.RecordSend(commands);
-        _walkers.RecordTheResidentSend(commands);
+        var keeps = _walkers.Keeps;
+        if (keeps) _walkers.RecordTheKeptSend(commands);
+        else _walkers.RecordTheResidentSend(commands);
         _carTick.RecordTheLinesSent(commands);
         _hostRows.Send(commands, _hostRowCount);
         _hostRowUnit.Send(commands, _hostRowCount);
@@ -328,6 +366,19 @@ internal sealed partial class DeviceRebuild
         GrantedWithTheAnswers = !AnyCarBacksUp(town);
         LandsLater = GrantedWithTheAnswers && !MirrorsAtOnce;
         if (GrantedWithTheAnswers) _grant.Dispatch(commands, _carCount, new UnitsPush((uint)_carCount, (uint)(_stretches + 1)));
+        if (keeps)
+        {
+            // Read with the cars' grants or not at all: where a car backs up, the town reads every walker's after it.
+            if (GrantedWithTheAnswers)
+            {
+                _walkerAnswers.Dispatch(commands, _walkerCount, new UnitsPush((uint)_walkerCount, (uint)(_stretches + 1 + _carCount)));
+                vk.BetweenKernels(commands);
+                _walkers.Record(commands, DeviceWalkers.Piece.Read);
+            }
+
+            _walkers.RecordTheKeptOut(commands);
+        }
+
         vk.BeforeTransfer(commands);
         if (LandsLater)
         {
@@ -341,7 +392,9 @@ internal sealed partial class DeviceRebuild
 
         vk.Copy(commands, _unitHolds, _unitHoldsOut, Bytes<uint>(_units));
         vk.Copy(commands, _carsOut, _carsRead, Bytes<CarOut>(_carCount));
-        vk.Copy(commands, _walkersOut, _walkersRead, Bytes<WalkOut>(_walkerCount));
+        if (keeps) _walkers.RecordReadTheKept(commands);
+        else vk.Copy(commands, _walkersOut, _walkersRead, Bytes<WalkOut>(_walkerCount));
+        var walkersRead = keeps ? _walkers.KeptReadBytes : Bytes<WalkOut>(_walkerCount);
         if (GrantedWithTheAnswers) vk.Copy(commands, _grants, _grantsOut, Bytes<DeviceCarTick.GrantRow>(_carCount));
         _timer.Stamp(commands, (int)Stage.Granted);
         _timer.Stamp(commands, (int)Stage.Read);
@@ -364,7 +417,7 @@ internal sealed partial class DeviceRebuild
         var rows = _claims.Rows.Length;
         var holds = _claims.Holds.Length;
         var layer = Bytes<ClaimRow>(rows) + Bytes<uint>(rows) + Bytes<HoldOut>(holds);
-        Crossed = (sent, (LandsLater ? 0ul : layer) + Bytes<uint>(_units) + Bytes<CarOut>(_carCount) + Bytes<WalkOut>(_walkerCount)
+        Crossed = (sent, (LandsLater ? 0ul : layer) + Bytes<uint>(_units) + Bytes<CarOut>(_carCount) + walkersRead
                          + (GrantedWithTheAnswers ? Bytes<DeviceCarTick.GrantRow>(_carCount) : 0ul));
         LaidMs = Stopwatch.GetElapsedTime(_laidFrom, laid).TotalMilliseconds;
         WaitedMs = Stopwatch.GetElapsedTime(laid, waited).TotalMilliseconds;
@@ -437,7 +490,8 @@ internal sealed partial class DeviceRebuild
 
     /// <summary>
     /// <b>What the device laid and answered of each agent written into the town</b>: the hold each car's claim and each
-    /// walker's walk laid, what each car's plan came to, the channels found under each car, and how the answers went.
+    /// walker's walk laid, what each car's plan came to, the channels found under each car, and how the answers went — and,
+    /// where the device keeps the walkers, everything its stages made of each it changed.
     /// </summary>
     void MirrorTheAgents(TownWorld town)
     {
@@ -467,14 +521,21 @@ internal sealed partial class DeviceRebuild
             }
         }
 
-        var walks = _walkersRead.Span<WalkOut>();
         var firstWalker = firstCar + _carCount;
-        for (var person = 0; person < _walkerCount; person++)
+        if (_walkers.Keeps)
         {
-            var hold = (walks[person].Bits & WalkOut.LaidAHold) != 0 ? (int)unitHolds[firstWalker + person] : LaneOccupancy.NoHold;
-            var committed = (walks[person].Bits & WalkOut.CommittedAStraight) != 0;
-            if (committed) _walkers.SendTheStraightAgain(person);
-            if (!town.WalkedOnTheDevice(person, hold, committed)) StraightsTheTownWouldNotCommit++;
+            _walkers.TakeTheKept(town, unitHolds, firstWalker);
+        }
+        else
+        {
+            var walks = _walkersRead.Span<WalkOut>();
+            for (var person = 0; person < _walkerCount; person++)
+            {
+                var hold = (walks[person].Bits & WalkOut.LaidAHold) != 0 ? (int)unitHolds[firstWalker + person] : LaneOccupancy.NoHold;
+                var committed = (walks[person].Bits & WalkOut.CommittedAStraight) != 0;
+                if (committed) _walkers.SendTheStraightAgain(person);
+                if (!town.WalkedOnTheDevice(person, hold, committed)) StraightsTheTownWouldNotCommit++;
+            }
         }
 
         var cars = town.Cars;
@@ -558,7 +619,22 @@ internal sealed partial class DeviceRebuild
     /// Whether every rebuild in the town writes its layer back with its own stages — for whoever holds that layer to the
     /// town's own on the tick it was laid. On by default; a device ticking the town in step turns it off.
     /// </summary>
-    public bool MirrorsAtOnce { get; set; } = true;
+    /// <remarks>
+    /// <b>Only where the device keeps the walkers</b> (<see cref="DeviceWalkers.Keeps"/>), whose passes' word is given off
+    /// the device's own answers: a town giving it would read the layer the readers read, a laying old.
+    /// </remarks>
+    public bool MirrorsAtOnce
+    {
+        get => _mirrorsAtOnce;
+        set
+        {
+            if (!value && !_walkers.Keeps) throw new InvalidOperationException("A layer written back later needs the walkers kept on the device.");
+
+            _mirrorsAtOnce = value;
+        }
+    }
+
+    bool _mirrorsAtOnce = true;
 
     enum Landing
     {

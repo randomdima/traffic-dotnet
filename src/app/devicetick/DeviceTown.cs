@@ -20,7 +20,8 @@ namespace TrafficSimulation.App.DeviceTick;
 /// <b>The claims are laid here too</b> (<see cref="DeviceRebuild.InTheTown"/>): the town lays only what it alone lays, the
 /// device every body, light, plan, walk and answer in one submit, and the claims are written back into the town before
 /// it lays the backing and reads every grant; the backing and the cars' grants are recorded at the head of the tick's own
-/// submit, into the tables the car tick reads. <b>Where the town has to lay them itself</b> — a hand or a truck holding
+/// submit, into the tables the car tick reads. The walkers' side of them is the device's own, read in off the walker tick's
+/// table (<see cref="DeviceWalkers.Keeps"/>). <b>Where the town has to lay them itself</b> — a hand or a truck holding
 /// what it cannot stop short of, a manoeuvre begun at a bay, a tick held, more cars on a pass than there is room to ask
 /// for — they are sent as cut (<see cref="DeviceClaims.LayAsCut"/>), as each was before, and counted.
 /// </para>
@@ -91,7 +92,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         };
         _walkers = new DeviceWalkerTick(vk, config, town.People.Capacity, resident: true);
         _bodies = new DeviceTownBodies(vk, config, town, _tyres, _walkers);
-        _townClaims = new DeviceTownClaims(vk, config, town, _claims, _cars);
+        _townClaims = new DeviceTownClaims(vk, config, town, _claims, _cars, _walkers);
         _townClaims.Rebuild.MirrorsAtOnce = false;
         _batch = new ComputeBatch(vk);
         _timer = new GpuTimer(vk, 3);
@@ -313,6 +314,8 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     public void ClaimsAt(TownWorld town, ClaimsStage stage) => _townClaims.ClaimsAt(town, stage);
 
     public bool ReadTheGrants => _townClaims.ReadTheGrants;
+
+    public bool KeepsTheWalkers => _townClaims.KeepsTheWalkers;
 
     public bool LandsLater => _townClaims.LandsLater;
 

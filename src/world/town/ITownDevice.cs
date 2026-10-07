@@ -67,6 +67,14 @@ internal interface ITownClaims
     bool ReadTheGrants { get; }
 
     /// <summary>
+    /// <b>Whether the device keeps every walker's side of the claims as its own</b>: stations each, lays its body and its
+    /// pass, plans its walk and — where it <see cref="ReadTheGrants"/> — reads its grant, its pass's word and its aim, and
+    /// writes back what it made of each by <see cref="ClaimsStage.PlansLaid"/> (<see cref="TownWorld.KeptOnTheDevice"/>). The
+    /// town then stations no walker, lays no walker's pass, and reads only the grants the device did not.
+    /// </summary>
+    bool KeepsTheWalkers { get; }
+
+    /// <summary>
     /// <b>Whether the rebuild under way writes its answers into the layer every reader reads later</b> than its own stages —
     /// asked once <see cref="ClaimsStage.PlansLaid"/> is done: the readers go on reading the last laying's layer, with the
     /// numbers each agent was laid with for it, until the device lands this one (<see cref="TownWorld.LandTheLaying"/>).

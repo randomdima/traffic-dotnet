@@ -200,6 +200,19 @@ internal sealed partial class DeviceWalkerTick : IDisposable
     }
 
     /// <summary>
+    /// Resident: whether the device's table is known to hold this walker's body as the town has it — where it stands, how it
+    /// moves, the pace it declared and the way it faces — for whoever reads them off the table in the town's place.
+    /// </summary>
+    public bool HoldsTheBodyOf(Agents.Person.Body.PersonFleet people, int person)
+    {
+        if (!Resident || !_isKnown[person]) return false;
+
+        ref readonly var known = ref _known[person];
+        return known.PositionM == people.PositionM[person] && known.VelocityMps == people.VelocityMps[person]
+               && known.DeclaredMps == people.DeclaredMps[person] && known.HeadingRad.Equals(people.HeadingRad[person]);
+    }
+
+    /// <summary>
     /// <b>One tick of the first <paramref name="walkers"/> walkers recorded into a caller's submit</b>: what was marked
     /// sent — or, resident, every walker staged written over the table — and the kernel run, leaving its writes for the caller
     /// to barrier before whatever reads them.

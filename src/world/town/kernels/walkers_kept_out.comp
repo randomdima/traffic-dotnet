@@ -1,0 +1,71 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// What a rebuild's stages made of the walkers a device keeps, handed back (app/devicetick/DeviceWalkers.WalkerOut), one
+// thread a walker: a row out for every walker whose row they changed from what it was read in as (walkers_kept_gather.comp,
+// walkers_kept_patch.comp) — everything the stages write but the straight, which stays the device's — counted, in no
+// order.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint walkerCount;
+} figures;
+
+#include "agents/person/actions/kernels/walker_rows.glsl"
+
+// DeviceWalkers.WalkerOut, field for field.
+struct WalkerOut
+{
+    vec2 destinationM;
+    vec2 backToM;
+    float onWayM;
+    float offWayM;
+    float grantM;
+    float passFromM;
+    float passClearM;
+    float passAsideM;
+    int passSlot;
+    int routeTaken;
+    int onWay;
+    int onCrossing;
+    int heldAs;
+    uint flags;
+    uint action;
+    int hold;
+    uint events;
+    uint walker;
+};
+
+layout(std430, binding = 0) readonly buffer Kept { WalkerRow kept[]; };
+layout(std430, binding = 1) readonly buffer Before { WalkerRow before[]; };
+layout(std430, binding = 2) writeonly buffer Out { WalkerOut rowsOut[]; };
+layout(std430, binding = 3) buffer OutCount { uint outCount; };
+
+// Bit for bit, so a place that is not a number is the same as itself.
+bool keptSame(vec2 one, vec2 other) { return all(equal(floatBitsToUint(one), floatBitsToUint(other))); }
+
+bool keptSame(float one, float other) { return floatBitsToUint(one) == floatBitsToUint(other); }
+
+void main()
+{
+    uint walker = gl_GlobalInvocationID.x;
+    if (walker >= figures.walkerCount) return;
+
+    WalkerRow now = kept[walker];
+    WalkerRow was = before[walker];
+    if (keptSame(now.destinationM, was.destinationM) && keptSame(now.backToM, was.backToM) && keptSame(now.onWayM, was.onWayM)
+        && keptSame(now.offWayM, was.offWayM) && keptSame(now.grantM, was.grantM) && keptSame(now.passFromM, was.passFromM)
+        && keptSame(now.passClearM, was.passClearM) && keptSame(now.passAsideM, was.passAsideM) && now.passSlot == was.passSlot
+        && now.routeTaken == was.routeTaken && now.onWay == was.onWay && now.onCrossing == was.onCrossing && now.heldAs == was.heldAs
+        && now.flags == was.flags && now.action == was.action && now.hold == was.hold && now.events == 0u)
+    {
+        return;
+    }
+
+    uint at = atomicAdd(outCount, 1u);
+    rowsOut[at] = WalkerOut(
+        now.destinationM, now.backToM, now.onWayM, now.offWayM, now.grantM, now.passFromM, now.passClearM, now.passAsideM,
+        now.passSlot, now.routeTaken, now.onWay, now.onCrossing, now.heldAs, now.flags, now.action, now.hold, now.events, walker);
+}

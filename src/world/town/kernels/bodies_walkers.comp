@@ -22,7 +22,7 @@ layout(std430, binding = 5) readonly buffer Filter { uvec4 filter_[]; };
 void main()
 {
     uint walker = gl_GlobalInvocationID.x;
-    if (walker >= count || (walkers[walker].flags & WalkerInside) != 0u) return;
+    if (walker >= count || (walkers[walker].flags & WalkerTableInside) != 0u) return;
 
     int body = walkerBodies[walker];
     if ((filter_[body].x & enabledBit) == 0u) return;

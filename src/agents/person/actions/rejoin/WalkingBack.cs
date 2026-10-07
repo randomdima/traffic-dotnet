@@ -44,6 +44,9 @@ internal sealed class WalkingBack(WalkingGround ground, PersonActions actions)
     /// <summary>Where each walker last decided to walk back to — read, for a device walking the same walkers.</summary>
     public ReadOnlySpan<Vector2> BackToM => _backToM;
 
+    /// <summary>Where a walker walks back to, as it was decided wherever that was (<see cref="Consider"/>, or a device's).</summary>
+    public void WalksBackTo(int person, Vector2 backToM) => _backToM[person] = backToM;
+
     /// <summary>
     /// <b>Where a walker off the ground of its way walks back onto it</b>: the nearest of it, abeam of where the body
     /// stands — the shortest way back, over as little of anybody else's ground as there is.

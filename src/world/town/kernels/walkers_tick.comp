@@ -45,12 +45,12 @@ void main()
     if (walker >= figures.walkerCount) return;
 
     WalkerTableRow row = walkers[walker];
-    bool wounded = (row.flags & WalkerWounded) != 0u;
-    bool inside = (row.flags & WalkerInside) != 0u;
+    bool wounded = (row.flags & WalkerTableWounded) != 0u;
+    bool inside = (row.flags & WalkerTableInside) != 0u;
     WalkerStep step;
     if (walkerTick(
-            row.headingRad, row.positionM, row.velocityMps, row.declaredMps, row.aimM, (row.flags & WalkerWalking) != 0u, wounded,
-            inside, (row.flags & WalkerPaused) != 0u, row.massKg, figures.dtS, step))
+            row.headingRad, row.positionM, row.velocityMps, row.declaredMps, row.aimM, (row.flags & WalkerTableWalking) != 0u, wounded,
+            inside, (row.flags & WalkerTablePaused) != 0u, row.massKg, figures.dtS, step))
     {
         row.headingRad = step.headingRad;
         row.declaredMps = step.desiredMps;

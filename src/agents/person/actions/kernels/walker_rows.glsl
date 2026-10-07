@@ -37,10 +37,16 @@ const uint WalkerHeldAsDriving = 32u;
 // rather than as a place that is not one: a device may assume no float it compares is a NaN.
 const uint WalkerOnAStraight = 64u;
 
+// WalkerRow.events: what a rebuild did to a walker that its row does not say — its pass made, or withdrawn
+// (Sidestepping.Made, Withdrawn) — for whoever counts them. A row the host lays carries none.
+const uint WalkerMadeItsPass = 1u;
+const uint WalkerWithdrewItsPass = 2u;
+
 // One walker as the walkers' side of a rebuild reads and writes it: the fleet's fields (PersonFleet), the pass it is on
 // (Sidestep) and how many runs its ground was swept in, where it decided to walk back to (WalkingBack), the straight it
 // committed to (WalkingGround), the car whose officer it is (PatrolDuty), whose ground its body is laid as
-// (WalkingGround.HeldAs), the hold its plan laid, and how fast it is going the way it faces (WalkingGround.AlongItsWalkMps).
+// (WalkingGround.HeldAs), the hold its plan laid, how fast it is going the way it faces (WalkingGround.AlongItsWalkMps),
+// and what the rebuild did to it.
 struct WalkerRow
 {
     vec2 positionM;
@@ -73,7 +79,7 @@ struct WalkerRow
     uint stage;
     int hold;
     float alongMps;
-    uint pad;
+    uint events;
 };
 
 // One of the town's ways under a stretch of a walk (LineWay).

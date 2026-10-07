@@ -24,6 +24,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   failed once in a full unit run (3.4 KB and a few KB over) and pass alone every time: both read an allocation counter
   across the whole process while the tier runs classes side by side. Counting on the test's own thread, or running them
   apart, closes it.
+- **`RouteSearchTests.SectionedPlanningAllocatesNothing`** (unit) failed once in a run of the changed tiers, 4 296 B on
+  the test's own thread over 500 searches, and passed alone and in the two full unit runs after. The counter is the
+  thread's, so it is not the side-by-side classes; something on that thread allocated once — a JIT's rejit is the guess,
+  unconfirmed.
 - **`AllocationGateTests.ThisEnginesOwnPhasesAllocateNothingOverAWholeTown(Test)`** failed once in four full perf runs,
   at 6.8 B a tick. It passes alone and in three reruns of the tier, and a per-agent trace of phases 1–3 found no
   allocation. A `P0` gate that flickers is either a real allocation on a rare path or a measurement that counts
@@ -42,7 +46,7 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   its grant, over 600 ticks of the built town): what it keeps on the device and hands back only where it changed — a
   car's wheels (`DeviceTyres.KeptOnTheDevice`), the poses the step left, the walker table (`DeviceWalkerTick.Resident`) —
   is held to handing everything back only by `--bench devicetown`'s counts coming out the same. A test holding the two
-  equal tick by tick closes it.
+  equal tick by tick closes it, as `TheTownHoldsEveryWalkerAsTheDeviceLeftIt` does for the walkers the claims keep.
 - **Not measured since they landed**: the walker as one wheel, the car no longer asked its ground, and the
   consolidation after them (`WheelGrounds`, `DeviceGround` gone, the walker's pavement read). The figures in the road
   and terrain logs predate all three; the soak after them kept all twelve of OdesaOsm's claims.
@@ -88,8 +92,15 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **A walker's place on its sidestep is found up to five times a rebuild** (`Sidestepping.Lay`,
   `TheBodyInTheSidestep`, `Consider`, `Aim`, `WalkPlannedFromM`; the same five in `walker_actions.glsl`), each a
   `WalkedSince` and an `OnTheWalkAt`, with nothing moving in between.
-- **The device lays sidestep rows nobody reads** inside the rebuild (`walkers_body.comp`; the rebuild takes passes
-  from the host's unit), and `walkers_plan.comp`'s `ways[]` are read only by the shadow.
+- **The device lays sidestep rows nobody reads** in a rebuild that leaves the walkers to the town (`walkers_body.comp`;
+  the claims-only device takes passes from the host's unit), and `walkers_plan.comp`'s `ways[]` are read only by the
+  shadow.
+- **A rebuild that keeps the walkers still writes every walker's `WalkOut`** (`rebuild_agents_out.comp`), which it never
+  reads back.
+- **A kept walker's aim makes a round trip**: the rebuild's read sets it on the device, the town takes it up
+  (`TownWorld.KeptOnTheDevice`), and the next tick writes it back over the walker tick's table
+  (`DeviceWalkerTick.LayWhatChanged` — most of its 1 268 walkers a tick on OdesaOsm). The read could write the tick's
+  `aimM` and the town's known row with it.
 - **A walker's own way is laid as a second piece** (`WalkingGround.BodyCover`, `walkerBodyCover`) when the point read
   already found it; `LayBody` merges the two.
 - **A paused casualty's slide is stepped twice** (`WalkerFollower`'s paused branch, then `TownWorld.Settle`; the same in
@@ -107,6 +118,9 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **Two tests of "on its line"**: `Reacquire` takes a lane within `CarOffPathM × OffLineTolerance`, `ReadTheLine` keeps
   a line within `OffTheLineAllowanceM`, which is wider for a tow — so a tow can be refused a lane its line check
   would keep it on. One threshold closes it; it moves tows.
+- **Two straights for one walker** while the device keeps the walkers: the device's walks commit them and the town's
+  (`WalkingGround.StraightOf`) are left as they were, so a rebuild the town lays itself walks the town's, and a walker new
+  to the device is sent the town's. Nothing else reads them; reading the device's back where it commits one closes it.
 - **`IsUnderWay` checks `OffLineM` against the allowance again** after `ReadTheLine` has already sent any car past it
   into `Rejoin` (SIM-7). Confirm the order of decide, tick and `Switching.SteppedOut` on both host and device before
   dropping it.

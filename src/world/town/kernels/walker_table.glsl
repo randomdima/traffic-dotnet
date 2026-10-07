@@ -18,9 +18,9 @@ struct WalkerTableRow
 };
 
 // WalkerTableRow.flags: what the host tells the walker's tick.
-const uint WalkerWalking = 1u;
-const uint WalkerWounded = 2u;
-const uint WalkerInside = 4u;
-const uint WalkerPaused = 8u;
+const uint WalkerTableWalking = 1u;
+const uint WalkerTableWounded = 2u;
+const uint WalkerTableInside = 4u;
+const uint WalkerTablePaused = 8u;
 
 #endif

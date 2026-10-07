@@ -118,13 +118,8 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     /// there, since past there is ground the pass never held (TER-4c.8). Everything else about the pass is the walker's
     /// decision (<see cref="Decide"/>).
     /// </summary>
-    /// <param name="keepLater">
-    /// Whether a pass laid this rebuild is kept or withdrawn only once the layer it was laid into is the one every reader
-    /// reads (<see cref="KeepOrWithdrawTheDue"/>) — where the claims are answered elsewhere and written back later.
-    /// </param>
-    public void Consider(int person, bool keepLater = false)
+    public void Consider(int person)
     {
-        _keepDue[person] = false;
         if (People.Action[person] != PersonAction.Sidestep) return;
 
         var pass = People.Pass[person];
@@ -137,30 +132,15 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
             return;
         }
 
-        if (!pass.Any) return;
-
-        if (keepLater) _keepDue[person] = true;
-        else KeepOrWithdrawTheSidestep(person, pass);
+        if (pass.Any) KeepOrWithdrawTheSidestep(person, pass);
     }
 
-    /// <summary>
-    /// <b>Every pass whose word was put off</b> (<see cref="Consider"/>), kept or withdrawn now the layer it was laid into is
-    /// the one every reader reads — where the walker is still asking for that same pass.
-    /// </summary>
-    public void KeepOrWithdrawTheDue()
+    /// <summary>A pass's word as it was given wherever that was (<see cref="Consider"/>'s, or a device's), counted: made, or withdrawn.</summary>
+    public void CountTheWord(bool made, bool withdrawn)
     {
-        for (var person = 0; person < People.Count; person++)
-        {
-            if (!_keepDue[person]) continue;
-
-            _keepDue[person] = false;
-            var pass = People.Pass[person];
-            if (People.Action[person] == PersonAction.Sidestep && pass.Any && !pass.Begun) KeepOrWithdrawTheSidestep(person, pass);
-        }
+        if (made) Made++;
+        if (withdrawn) Withdrawn++;
     }
-
-    /// <summary>Which walkers' passes laid this rebuild wait for their word until its layer is the readers' (<see cref="Consider"/>).</summary>
-    readonly bool[] _keepDue = new bool[ground.People.Capacity];
 
     /// <summary>
     /// <b>A walker's pass, on its own clock</b>: decided where the grant was ended by somebody it may get past; and while

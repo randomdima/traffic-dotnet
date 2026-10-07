@@ -342,6 +342,8 @@ public sealed class ClaimsLaidOnTheDevice : IDisposable
         /// <summary>The town reads every grant off its own claims, so each the device read is held to it.</summary>
         public bool ReadTheGrants => false;
 
+        public bool KeepsTheWalkers => Claims.KeepsTheWalkers;
+
         public bool LandsLater => Claims.LandsLater;
 
         public void LandTheLastLaying(TownWorld town) => Claims.LandTheLastLaying(town);
@@ -422,13 +424,16 @@ public class DeviceTownClaimsAllocationTests(Lavapipe device) : IClassFixture<La
     /// <summary>Two hundred rebuilds counted.</summary>
     const int CountedTicks = 600;
 
-    [Fact]
-    public void LayingTheClaimsOnTheDeviceAllocatesNothing()
+    /// <param name="keepsTheWalkers">Whether the device keeps the walkers' side as its own (<see cref="DeviceWalkers.Keeps"/>).</param>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void LayingTheClaimsOnTheDeviceAllocatesNothing(bool keepsTheWalkers)
     {
         using var town = new TownWorld(Towns.Built, Config);
         var loop = new SimLoop<TownWorld>(town, Config);
         loop.Advance(WalkersOutTicks);
-        using var rig = new ClaimsRig(device.Vk, town);
+        using var rig = new ClaimsRig(device.Vk, town, keepsTheWalkers);
         var counted = new Counted(rig.Claims);
         town.ClaimsDevice = counted;
         loop.Advance(SettleTicks);
@@ -455,6 +460,8 @@ public class DeviceTownClaimsAllocationTests(Lavapipe device) : IClassFixture<La
 
         public bool ReadTheGrants => claims.ReadTheGrants;
 
+        public bool KeepsTheWalkers => claims.KeepsTheWalkers;
+
         public bool LandsLater => claims.LandsLater;
 
         public void LandTheLastLaying(TownWorld town) => claims.LandTheLastLaying(town);
@@ -474,7 +481,8 @@ public class DeviceTownClaimsAllocationTests(Lavapipe device) : IClassFixture<La
 
 /// <summary>
 /// <b>A town's claims laid on the device and nothing else</b> (<see cref="DeviceTownClaims"/>): the claims and the car tick
-/// they are laid into — which never ticks — on their own.
+/// they are laid into — which never ticks — on their own, and, where it keeps the walkers, a walker tick that never ticks
+/// either, so every walker is sent whole.
 /// </summary>
 internal sealed class ClaimsRig : IDisposable
 {
@@ -482,8 +490,9 @@ internal sealed class ClaimsRig : IDisposable
 
     readonly DeviceTyres _tyres;
     readonly DeviceClaims _claims;
+    readonly DeviceWalkerTick? _walkers;
 
-    public ClaimsRig(Vk vk, TownWorld town)
+    public ClaimsRig(Vk vk, TownWorld town, bool keepsTheWalkers = false)
     {
         var cars = town.Cars;
         var occupancy = town.Occupancy;
@@ -493,7 +502,8 @@ internal sealed class ClaimsRig : IDisposable
         _tyres = new DeviceTyres(vk, Config, town.WheelGrounds, builds, cars.Capacity);
         _claims = new DeviceClaims(vk, occupancy.WayCount, occupancy.Capacity, occupancy.HoldCapacity, Config.Road.MostSettlingPasses, cars.Capacity);
         Cars = new DeviceCarTick(vk, Config, _tyres, town.Roads, cars.LineArcsOf(0).Length, town.Ways.OfRoadConnector(0), _claims.Cut);
-        Claims = new DeviceTownClaims(vk, Config, town, _claims, Cars);
+        _walkers = keepsTheWalkers ? new DeviceWalkerTick(vk, Config, town.People.Capacity, resident: true) : null;
+        Claims = new DeviceTownClaims(vk, Config, town, _claims, Cars, _walkers);
     }
 
     public DeviceCarTick Cars { get; }
@@ -503,6 +513,7 @@ internal sealed class ClaimsRig : IDisposable
     public void Dispose()
     {
         Claims.Dispose();
+        _walkers?.Dispose();
         Cars.Dispose();
         _claims.Dispose();
         _tyres.Dispose();

@@ -115,7 +115,7 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
         var laid = _laid!.AsSpan(item * RowsPerItem, rows.Length);
         if (!again && !_forgotten![item] && MemoryMarshal.AsBytes(rows).SequenceEqual(MemoryMarshal.AsBytes(laid))) return;
 
-        _forgotten[item] = false;
+        _forgotten![item] = false;
         rows.CopyTo(laid);
         rows.CopyTo(Rows(item));
         MarkRows(item, rows.Length);

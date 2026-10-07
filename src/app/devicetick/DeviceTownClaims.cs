@@ -29,10 +29,14 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
 
     /// <param name="claims">The claims the rebuild numbers into and the car tick reads as cut.</param>
     /// <param name="cars">The car tick whose lines the plans read and whose grant tables the grants are written into.</param>
-    public DeviceTownClaims(Vk vk, SimConfig config, TownWorld town, DeviceClaims claims, DeviceCarTick cars)
+    /// <param name="walkers">
+    /// The walker tick whose table the walkers are read in from, where the device keeps the walkers as its own
+    /// (<see cref="KeepsTheWalkers"/>) — or none, and the town stations them and reads their grants.
+    /// </param>
+    public DeviceTownClaims(Vk vk, SimConfig config, TownWorld town, DeviceClaims claims, DeviceCarTick cars, DeviceWalkerTick? walkers = null)
     {
         _cars = cars;
-        Rebuild = new DeviceRebuild(vk, config, town, claims, cars);
+        Rebuild = new DeviceRebuild(vk, config, town, claims, cars, walkers);
     }
 
     /// <summary>The rebuild laid here, for whoever reads its times and what it crossed.</summary>
@@ -85,6 +89,8 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
 
     public bool ReadTheGrants => Rebuild.GrantedWithTheAnswers;
 
+    public bool KeepsTheWalkers => Rebuild.Walkers.Keeps;
+
     public bool LandsLater => Rebuild.LandsLater;
 
     public void LandTheLastLaying(TownWorld town) => Rebuild.Land(town);
@@ -98,6 +104,9 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
             ref readonly var row = ref read[car];
             town.GrantedOnTheDevice(car, row.AuthorityM, row.GrantMarginM, (HeadwayKind)row.GrantCutBy);
         }
+
+        // Kept walkers' grants were taken up with everything else the device made of them.
+        if (KeepsTheWalkers) return;
 
         var walks = Rebuild.WalksRead;
         for (var person = 0; person < walks.Length; person++)

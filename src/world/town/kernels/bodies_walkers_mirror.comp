@@ -21,7 +21,7 @@ void main()
     if (walker >= count) return;
 
     WalkerTableRow row = walkers[walker];
-    if ((row.flags & WalkerInside) != 0u) return;
+    if ((row.flags & WalkerTableInside) != 0u) return;
 
     int body = walkerBodies[walker];
     vec2 nowM = pose[body].xy;

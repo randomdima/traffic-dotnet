@@ -35,8 +35,12 @@ namespace TrafficSimulation.App.DeviceTick;
 /// (<see cref="LayWhatChanged"/>), and each walker's route, straight and pass's ground are kept on the device and sent
 /// only where they changed.
 /// </para>
+/// <para>
+/// <b>Kept, for a town whose walkers the device ticks as well</b>, every stage is run, over a table that is the device's
+/// own (<see cref="Keeps"/>, <c>DeviceWalkers.Kept.cs</c>).
+/// </para>
 /// </remarks>
-internal sealed class DeviceWalkers : IDisposable
+internal sealed partial class DeviceWalkers : IDisposable
 {
     /// <summary>The stages a rebuild's walkers are run in, and the kernel of each.</summary>
     internal enum Piece
@@ -88,7 +92,7 @@ internal sealed class DeviceWalkers : IDisposable
         public uint Stage;
         public int Hold;
         public float AlongMps;
-        public uint Pad;
+        public uint Events;
 
         public const uint Walking = 1u;
         public const uint Wounded = 2u;
@@ -97,6 +101,9 @@ internal sealed class DeviceWalkers : IDisposable
         public const uint PassBegun = 16u;
         public const uint HeldAsDriving = 32u;
         public const uint OnAStraight = 64u;
+
+        /// <summary><see cref="Events"/>: what the rebuild did to the walker that its row does not say.</summary>
+        public const uint MadeItsPass = 1u, WithdrewItsPass = 2u;
 
         public readonly bool Is(uint flag) => (Flags & flag) != 0;
     }
@@ -226,8 +233,15 @@ internal sealed class DeviceWalkers : IDisposable
     /// that ask the claims read — or none, for stages run on their own over the town's rows.
     /// </param>
     /// <param name="resident">Whether the walkers are kept for a rebuild run in the town's place, chained.</param>
-    public DeviceWalkers(Vk vk, SimConfig config, TownWorld world, DeviceClaims.Tables? claims = null, bool resident = false)
+    /// <param name="keptFrom">
+    /// Resident, the walker tick's own table (<see cref="DeviceWalkerTick.Table"/>) where the device keeps every walker's
+    /// side of the claims as its own (<see cref="Keeps"/>), each read in where the bodies' step left it — or none.
+    /// </param>
+    public DeviceWalkers(
+        Vk vk, SimConfig config, TownWorld world, DeviceClaims.Tables? claims = null, bool resident = false, GpuBuffer? keptFrom = null)
     {
+        if (keptFrom != null && !resident) throw new ArgumentException("Only walkers kept resident are kept as the device's own.", nameof(keptFrom));
+
         if (WalkingGround.MostWaysAlongAWalk != MostWaysInTheKernel || RibbonAtlas.MostWaysUnderABody != MostWaysUnderABodyInTheKernel)
         {
             throw new InvalidOperationException("The walkers' kernels are built for another bound on a walk's ways or a body's.");
@@ -318,15 +332,27 @@ internal sealed class DeviceWalkers : IDisposable
         if (resident)
         {
             _in = [];
+            var keeps = keptFrom != null;
             _routes = new ResidentRows<int>(vk, _walkers, PersonFleet.RouteWaysPerPerson, hostOnly: true);
-            _straights = new ResidentRows<SweptRun>(vk, _walkers, WalkingGround.MostRunsOfAStraight, hostOnly: true);
+
+            // Kept, the device's walks commit the straights, and a run bridged over would write the host's over one.
+            _straights = new ResidentRows<SweptRun>(vk, _walkers, WalkingGround.MostRunsOfAStraight, hostOnly: true, bridges: !keeps);
             _passes = new ResidentRows<SweptRun>(vk, _walkers, Sidestepping.MostRunsOfAPass, hostOnly: true);
-            _stationed = new ResidentRows<WalkerRow>(vk, _walkers, 1, hostOnly: true);
-            _changedIn = Staging<WalkerRow>(_walkers);
-            _changes = new BufferCopy[Math.Max(1, _walkers)];
-            _straightAgain = new bool[_walkers];
-            var bodies = Device<WalkerRow>(_walkers);
-            var walks = Device<WalkerRow>(_walkers);
+            GpuBuffer bodies, walks;
+            if (keeps)
+            {
+                bodies = walks = Device<WalkerRow>(_walkers);
+            }
+            else
+            {
+                _stationed = new ResidentRows<WalkerRow>(vk, _walkers, 1, hostOnly: true);
+                _changedIn = Staging<WalkerRow>(_walkers);
+                _changes = new BufferCopy[Math.Max(1, _walkers)];
+                _straightAgain = new bool[_walkers];
+                bodies = Device<WalkerRow>(_walkers);
+                walks = Device<WalkerRow>(_walkers);
+            }
+
             for (var piece = 0; piece < Pieces; piece++)
             {
                 _on[piece] = new Sent(piece == (int)Piece.Body ? bodies : walks, _routes.Device, _straights.Device, _passes.Device);
@@ -416,6 +442,7 @@ internal sealed class DeviceWalkers : IDisposable
 
         _batch = new ComputeBatch(vk);
         _timer = new GpuTimer(vk, Enum.GetValues<Stamp>().Length);
+        if (keptFrom != null) KeepThem(keptFrom);
 
         var commands = _batch.Begin();
         foreach (var (from, to) in _once) vk.Copy(commands, from, to, from.SizeBytes);
@@ -584,11 +611,12 @@ internal sealed class DeviceWalkers : IDisposable
 
     /// <summary>
     /// How many bytes the resident send laid so far will copy across: the rows as stationed that changed, the rows changed
-    /// since, and the routes, straights and passes' ground that changed.
+    /// since, and the routes, straights and passes' ground that changed — or, kept, what the town changed.
     /// </summary>
     public ulong ResidentSentBytes =>
-        _stationed!.MarkedBytes + ((ulong)_changedRows * (ulong)Marshal.SizeOf<WalkerRow>()) + _routes!.MarkedBytes
-        + _straights!.MarkedBytes + _passes!.MarkedBytes;
+        Keeps ? KeptSentBytes
+        : _stationed!.MarkedBytes + ((ulong)_changedRows * (ulong)Marshal.SizeOf<WalkerRow>()) + _routes!.MarkedBytes
+          + _straights!.MarkedBytes + _passes!.MarkedBytes;
 
     /// <summary>
     /// Resident: a walker the last walks committed to a straight of the device's own (<c>walkers_plan.comp</c>'s count), whose
@@ -829,6 +857,9 @@ internal sealed class DeviceWalkers : IDisposable
         _count?.Dispose();
         _file?.Dispose();
         _sort?.Dispose();
+        _keptGather?.Dispose();
+        _keptPatch?.Dispose();
+        _keptOut?.Dispose();
         foreach (var kernel in _kernels) kernel.Dispose();
         foreach (var buffer in _owned) buffer.Dispose();
         _stationed?.Dispose();

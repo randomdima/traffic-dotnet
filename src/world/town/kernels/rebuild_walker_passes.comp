@@ -1,0 +1,43 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The ground every walker's pass covers, as the device's own walkers laid it (walkers_body.comp's passes, after each
+// body's rows in its room), filed among the passes where the host files its own sidesteps (TownWorld.LayThePasses): after
+// every pass the host still lays — the cars' — walker by walker, one thread a walker. Counted first (`counting`), each
+// walker's count into a scan's room, and filed once the scan numbers them.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint walkerCount;
+    uint coverRoom;
+    uint hostPassRows;
+    uint counting;
+} figures;
+
+#include "world/road/kernels/claims_rows.glsl"
+#include "world/road/kernels/claims_tally.glsl"
+
+layout(std430, binding = 0) readonly buffer WalkerCounts { uvec4 walkerCounts[]; };
+layout(std430, binding = 1) readonly buffer WalkerCovers { ClaimRow walkerCovers[]; };
+layout(std430, binding = 2) buffer PassStarts { uint passStarts[]; };
+layout(std430, binding = 3) writeonly buffer Rows { ClaimRow rows[]; };
+layout(std430, binding = 4) readonly buffer Tally { uint tally[]; };
+
+void main()
+{
+    uint walker = gl_GlobalInvocationID.x;
+    if (walker >= figures.walkerCount) return;
+
+    uvec4 counts = walkerCounts[walker];
+    if (figures.counting != 0u)
+    {
+        passStarts[walker] = counts.y;
+        return;
+    }
+
+    uint from = walker * figures.coverRoom + counts.x;
+    uint slot = tally[TallyBodies] + figures.hostPassRows + passStarts[walker];
+    for (uint at = 0u; at < counts.y; at++) rows[slot + at] = walkerCovers[from + at];
+}

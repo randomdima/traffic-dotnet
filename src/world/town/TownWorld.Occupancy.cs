@@ -117,19 +117,19 @@ internal sealed partial class TownWorld
     /// <b>The ground a pass will cover is a body's</b> (TER-4c.6), and so is a manoeuvre's at a bay (GEN-4f): both are
     /// down before anything is asked for.
     /// </summary>
-    void LayThePasses()
+    /// <param name="walkers">Whether the walkers' passes are laid here too, rather than by a device that keeps the walkers.</param>
+    void LayThePasses(bool walkers = true)
     {
         foreach (var car in CarsAsked) _overtaking.Lay(car, IsUnderWay(car));
         foreach (var car in CarsAsked) _switching.Lay(car, IsUnderWay(car));
         _bays.ForgetTheSweeps();
         foreach (var car in CarsAsked) _bays.Lay(car);
-        for (var person = 0; person < People.Count; person++) _sidestepping.Lay(person);
+        for (var person = 0; walkers && person < People.Count; person++) _sidestepping.Lay(person);
     }
 
     /// <summary>Every walker's grant read off what its walk came to, its pass's word taken, and its aim set on it.</summary>
     /// <param name="granted">Whether a device read every walker's grant already (<see cref="ITownClaims.ReadTheGrants"/>).</param>
-    /// <param name="keepLater">Whether a pass's word waits for its layer to land (<see cref="Sidestepping.Consider"/>).</param>
-    void ReadTheWalkersGrants(bool granted = false, bool keepLater = false)
+    void ReadTheWalkersGrants(bool granted = false)
     {
         for (var person = 0; person < People.Count; person++)
         {
@@ -143,7 +143,7 @@ internal sealed partial class TownWorld
                 _walkingGround.ReadTheGrant(person);
             }
 
-            _sidestepping.Consider(person, keepLater);
+            _sidestepping.Consider(person);
             AimTheWalker(person);
         }
     }

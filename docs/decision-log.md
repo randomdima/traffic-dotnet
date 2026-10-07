@@ -4,6 +4,29 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-08 — the walkers' side of the claims is the device's, and so are its numbers
+
+**Under the owner's 2026-10-06 decision, for a town whose walkers the device ticks** (`DeviceWalkers.Keeps`).
+
+- **The device keeps a walker table of its own for the claims**, and every rebuild runs each stage over it in turn:
+  every walker stationed, its body and its pass laid, its walk planned and — with the cars' grants — its grant read, its
+  pass's word given and its aim set. Each walker is read in where the bodies' step left it; the town sends only the
+  walkers it changed since, and takes back only those the rebuild changed (`TownWorld.KeptOnTheDevice`), with its own
+  code for what follows from them — a way taken restarts the give-up clock, a pass made or withdrawn is counted.
+- **Its numbers are the device's**: a walker's place on its way is the device's projection, and how fast it goes the
+  way it faces is the device's trigonometry's, where the town stationed it to the bit before (`--bench devicewalkers`:
+  2 of 2 M stations apart, 7.5 % not to the bit). What is still held to the bit is the claims-only device
+  (`--bench devicemirror`), which leaves the walkers to the town.
+- **A sidestep's word is given in the rebuild, off its own answers**, so it no longer waits for the layer to land; and
+  a layer only lands later where the device keeps the walkers (`DeviceRebuild.MirrorsAtOnce`).
+- **Where a car backs up, the town reads the walkers' grants itself**, after the backing, off what the device made of
+  them — as it reads the cars'.
+- **The walkers' passes are filed where the town files its own**, after the cars' (`rebuild_walker_passes.comp`).
+- OdesaOsm (`--bench devicetown`): 7.61 → 7.08 ms a tick, the claims 2.86 → 2.30. A rebuild sends 1.10 MB against
+  2.52 and reads 1.71 against 1.48; the town's own share of it is 1.22 ms against 2.20. 541 of 10 000 walkers are
+  written over a rebuild and 4 182 handed back. The town drives the same to the car: 1 147 hard brakings, 97 of 102
+  lane switches, 77 cars off their lines, 26 touches.
+
 ## 2026-10-07 — a decision's effect on a body is stepped a tick later, and the claims it reads may be a laying old
 
 **The owner ruled both, for a town whose tick the device runs.**
@@ -25,7 +48,7 @@ rather than annotated. Rules are [requirements.md](requirements.md); how a thing
     host's time between submits, and written into the readers' layer while the next tick's submit runs. Until then every
     reader reads the last laying's layer, with the hold numbers, held-as and asks it was laid with (`LayerBound`); the town
     lays its own few rows into a laying of its own meanwhile. **What is decided on the layer waits for it**: a pass's,
-    step's or manoeuvre's keep-or-withdraw, and a sidestep's, a tick or two later than before.
+    step's or manoeuvre's keep-or-withdraw, a tick or two later than before.
   - **A rebuild with a car backing up lands at once**, the backing being laid off the answered layer (15 % of OdesaOsm's).
   - OdesaOsm (`--bench devicetown`): 8.81 → 7.78 ms a tick, the claims 4.30 → 2.96; a rebuild reads back 1.5 MB against
     5.5. The town drives the same — 1 147 hard brakings against 1 127 (the host's own: 1 147), 97 of 102 lane switches

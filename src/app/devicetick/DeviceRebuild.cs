@@ -110,7 +110,7 @@ internal sealed partial class DeviceRebuild : IDisposable
     readonly record struct BodiesPush(uint WalkerCount, uint CarCount, uint WayCount, uint CoverRoom, uint CarRoom);
 
     [StructLayout(LayoutKind.Sequential)]
-    readonly record struct TallyPush(uint Step, uint HostRows, uint HostHolds, uint Pad = 0u);
+    readonly record struct TallyPush(uint Step, uint HostRows, uint HostHolds, uint WalkerPasses);
 
     [StructLayout(LayoutKind.Sequential)]
     readonly record struct PlansPush(
@@ -147,6 +147,7 @@ internal sealed partial class DeviceRebuild : IDisposable
         PlannedRows,
         PlannedHolds,
         Ways,
+        WalkerPasses,
         Count,
     }
 
@@ -200,8 +201,15 @@ internal sealed partial class DeviceRebuild : IDisposable
     /// that lays the claims in the town's place, the rebuild that lays them (<see cref="InTheTown"/>): numbered into those
     /// claims, the plans reading the car tick's own lines and every grant written into its own tables.
     /// </summary>
-    public DeviceRebuild(Vk vk, SimConfig config, TownWorld world, DeviceClaims? claims = null, DeviceCarTick? cars = null)
+    /// <param name="walkers">
+    /// The walker tick of a device that ticks the walkers too, whose table a rebuild in the town reads them in from and keeps
+    /// them as its own (<see cref="DeviceWalkers.Keeps"/>) — or none.
+    /// </param>
+    public DeviceRebuild(
+        Vk vk, SimConfig config, TownWorld world, DeviceClaims? claims = null, DeviceCarTick? cars = null, DeviceWalkerTick? walkers = null)
     {
+        if (walkers != null && cars == null) throw new ArgumentException("Only a rebuild laid in the town keeps the walkers.", nameof(walkers));
+
         _vk = vk;
         _config = config;
         var occupancy = world.Occupancy;
@@ -219,7 +227,8 @@ internal sealed partial class DeviceRebuild : IDisposable
         var tables = _claims.OnTheDevice;
         _bodies = new DeviceBodies(vk, config, world, cars?.Lines);
         _plans = new DevicePlans(vk, config, world, cars?.Lines);
-        _walkers = new DeviceWalkers(vk, config, world, tables, resident: cars != null);
+        _walkers = new DeviceWalkers(vk, config, world, tables, resident: cars != null, keptFrom: walkers?.Table);
+        _walkerTick = walkers;
         _candidates = Math.Max(1, (_walkersRoom * _walkers.CoverRoom) + (_cars * DeviceBodies.Room));
 
         _unitCandidates = Device<uint>(_walkersRoom + _cars);
@@ -487,15 +496,19 @@ internal sealed partial class DeviceRebuild : IDisposable
     /// <summary>
     /// <b>Every body laid and numbered</b>: the walkers stationed and their bodies laid, every car's body laid, every piece
     /// gathered in the host's order and grown into its holder's body on its way or numbered a body of its own, the
-    /// host's passes filed after them, and every way's lists laid from them for what reads the bodies next.
+    /// host's passes filed after them — and the kept walkers' after those — and every way's lists laid from them for what
+    /// reads the bodies next.
     /// </summary>
     void RecordTheBodies(CommandBuffer commands)
     {
         var vk = _vk;
         var tally = _claims.OnTheDevice.Tally;
-        if (_carTick is null) _walkers.Record(commands, DeviceWalkers.Piece.Station);
+        var keeps = _walkers.Keeps;
+        if (keeps) _walkers.RecordTheKeptIn(commands);
+        if (_carTick is null || keeps) _walkers.Record(commands, DeviceWalkers.Piece.Station);
 
         _walkers.Record(commands, DeviceWalkers.Piece.Body);
+        if (keeps) RecordTheWalkersPassesCounted(commands);
         _bodies.Record(commands);
 
         var units = _walkerCount + _carCount;
@@ -524,6 +537,7 @@ internal sealed partial class DeviceRebuild : IDisposable
         RecordTheTally(commands, Step.Bodies, _passes.RowCount, 0);
         _bodiesLay.Dispatch(commands, units, push);
         RecordTheHostUnits(commands, _passes);
+        if (keeps) RecordTheWalkersPassesFiled(commands);
         vk.BetweenKernels(commands);
         _claims.RecordLists(commands);
         _asked.Dispatch(commands, _carCount, new UnitsPush((uint)_carCount, 0u));
@@ -572,7 +586,7 @@ internal sealed partial class DeviceRebuild : IDisposable
 
     void RecordTheTally(CommandBuffer commands, Step step, int hostRows, int hostHolds)
     {
-        _tally.Dispatch(commands, 1, new TallyPush((uint)step, (uint)hostRows, (uint)hostHolds));
+        _tally.Dispatch(commands, 1, new TallyPush((uint)step, (uint)hostRows, (uint)hostHolds, _walkers.Keeps ? 1u : 0u));
         _vk.BetweenKernels(commands);
     }
 
@@ -701,6 +715,7 @@ internal sealed partial class DeviceRebuild : IDisposable
 
         _holdsOutKernel.Kernel?.Dispose();
         _agentsOutKernel.Kernel?.Dispose();
+        _walkerPasses.Kernel?.Dispose();
         foreach (var buffer in _owned) buffer.Dispose();
         _carClaims.Dispose();
         _walkers.Dispose();

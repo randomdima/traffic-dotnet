@@ -11,16 +11,18 @@ layout(push_constant) uniform Figures
     uint step;
     uint hostRows;
     uint hostHolds;
-    uint pad;
+    uint walkerPasses;
 } figures;
 
 #include "world/road/kernels/claims_tally.glsl"
 
-// What the scans left: the bodies' candidates, their bodies, and the plans' rows and holds.
+// What the scans left: the bodies' candidates, their bodies, the plans' rows and holds, and — where the device lays the
+// walkers' passes itself (`walkerPasses`, rebuild_walker_passes.comp) — their rows.
 const uint SumCandidates = 0u;
 const uint SumBodies = 1u;
 const uint SumPlannedRows = 2u;
 const uint SumPlannedHolds = 3u;
+const uint SumWalkerPasses = 5u;
 
 // The steps, in the order a rebuild takes them: its bodies' pieces gathered; its bodies numbered, and the passes the host
 // laid after them; every plan numbered; and the backing the host laid after the answers.
@@ -51,7 +53,7 @@ void main()
     if (figures.step == StepBodies)
     {
         tally[TallyBodies] = sums[SumBodies];
-        tally[TallyPassesEnd] = sums[SumBodies] + figures.hostRows;
+        tally[TallyPassesEnd] = sums[SumBodies] + figures.hostRows + (figures.walkerPasses != 0u ? sums[SumWalkerPasses] : 0u);
         tally[TallyRows] = tally[TallyPassesEnd];
         tally[TallyHolds] = 0u;
     }
