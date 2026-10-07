@@ -609,10 +609,16 @@ internal sealed partial class DeviceRebuild
     /// <summary>
     /// <b>Whether the rebuild just laid in the town writes its layer back later</b> than its own stages (owner, root decision
     /// log 2026-10-07): only its counts and what it says of each agent come back with it, and the layer — every row, list
-    /// and hold — is copied back after the tick's own submit, in the host's time between submits
-    /// (<see cref="SendTheLayerBack"/>), and written into the readers' layer when it is next waited for (<see cref="Land"/>).
-    /// Never where a car backs up, whose ground the town lays off the answered layer, nor where the layer is mirrored at once.
+    /// and hold — is copied back in two halves, each behind a tick's own submit in the host's time before the next
+    /// (<see cref="SendTheLayerBack"/>), and written into the readers' layer on the second tick after, while that tick's
+    /// submit runs (<see cref="LandWhatWasSent"/>) — or before any rebuild that comes sooner (<see cref="Land"/>). Never where
+    /// a car backs up, whose ground the town lays off the answered layer, nor where the layer is mirrored at once.
     /// </summary>
+    /// <remarks>
+    /// <b>Two halves on two ticks</b> (root decision log, 2026-10-08): a layer is a few MB, and copied whole it took longer
+    /// than the host's time between two submits, so the next submit, queued behind it on the one queue, waited for the
+    /// rest. A rebuild comes every few ticks, so what the readers read is still never more than one rebuild old.
+    /// </remarks>
     public bool LandsLater { get; private set; }
 
     /// <summary>
@@ -636,31 +642,52 @@ internal sealed partial class DeviceRebuild
 
     bool _mirrorsAtOnce = true;
 
+    /// <summary>Where a layer that lands later is: laid, its first half copying back, or all of it sent back.</summary>
     enum Landing
     {
         None,
         Due,
+        Halfway,
         Sent,
     }
 
     Landing _landing;
 
+    /// <summary>How many of the rows the first half of a layer sent back copies.</summary>
+    int _firstHalfRows;
+
     /// <summary>
-    /// <b>The layer of a rebuild that lands later copied back</b>, submitted and left running: the rows and their order and
-    /// every hold as the town keeps it, as many as the rebuild counted — nothing else on the device writes them before the
-    /// next rebuild. Nothing where no layer waits.
+    /// <b>The next half of the layer of a rebuild that lands later copied back</b>, submitted and left running: the first
+    /// as many rows as make half its bytes, then the rest, their order and every hold as the town keeps it — the first half
+    /// waited for before the second is sent, which it has been by then. Nothing else on the device writes them before the
+    /// next rebuild. Nothing where no layer waits to be sent.
     /// </summary>
     public void SendTheLayerBack()
     {
-        if (_landing != Landing.Due) return;
+        if (_landing is not (Landing.Due or Landing.Halfway)) return;
+
+        var (rows, holds) = (_claims.Rows.Length, _claims.Holds.Length);
+        if (_landing == Landing.Halfway) _batch.Wait();
 
         var commands = _batch.Begin();
         _vk.BeforeTransfer(commands);
-        _claims.RecordReadTheRows(commands);
-        _claims.CopyPast<HoldOut>(commands, _holdsOut, _holdsRead, 0, _claims.Holds.Length);
+        if (_landing == Landing.Due)
+        {
+            var bytes = (Bytes<ClaimRow>(rows) + Bytes<uint>(rows) + Bytes<HoldOut>(holds)) / 2;
+            _firstHalfRows = Math.Min(rows, (int)(bytes / Bytes<ClaimRow>(1)));
+            _claims.RecordReadTheRows(commands, 0, _firstHalfRows);
+            _landing = Landing.Halfway;
+            LayersSentBack++;
+        }
+        else
+        {
+            _claims.RecordReadTheRows(commands, _firstHalfRows, rows);
+            _claims.RecordReadTheOrder(commands);
+            _claims.CopyPast<HoldOut>(commands, _holdsOut, _holdsRead, 0, holds);
+            _landing = Landing.Sent;
+        }
+
         _batch.Submit();
-        _landing = Landing.Sent;
-        LayersSentBack++;
     }
 
     /// <summary>
@@ -672,7 +699,7 @@ internal sealed partial class DeviceRebuild
     {
         if (_landing == Landing.None) return;
 
-        SendTheLayerBack();
+        while (_landing != Landing.Sent) SendTheLayerBack();
         var waited = Stopwatch.GetTimestamp();
         _batch.Wait();
         var landed = Stopwatch.GetTimestamp();
@@ -683,7 +710,7 @@ internal sealed partial class DeviceRebuild
         LandedMs = Stopwatch.GetElapsedTime(landed).TotalMilliseconds;
     }
 
-    /// <summary>A layer copied back on an earlier tick written into the town (<see cref="Land"/>); nothing for one not yet sent.</summary>
+    /// <summary>A layer sent back whole on earlier ticks written into the town (<see cref="Land"/>); nothing for one still being sent.</summary>
     public void LandWhatWasSent(TownWorld town)
     {
         if (_landing == Landing.Sent) Land(town);

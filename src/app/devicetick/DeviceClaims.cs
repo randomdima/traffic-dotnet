@@ -255,12 +255,15 @@ internal sealed class DeviceClaims : IDisposable
         _vk.Copy(commands, _tally, _tallyOut, _tally.SizeBytes);
     }
 
-    /// <summary>Every row the counted tally numbers and their order, read back, recorded after a transfer barrier.</summary>
-    public void RecordReadTheRows(CommandBuffer commands)
-    {
-        CopyPast<ClaimRow>(commands, _rows, _rowsOut, 0, _rowCount);
-        CopyPast<uint>(commands, _order, _orderOut, 0, _rowCount);
-    }
+    /// <summary>
+    /// The rows from <paramref name="from"/> up to <paramref name="to"/> of those the counted tally numbers, read back,
+    /// recorded after a transfer barrier — none past the count.
+    /// </summary>
+    public void RecordReadTheRows(CommandBuffer commands, int from, int to) =>
+        CopyPast<ClaimRow>(commands, _rows, _rowsOut, from, Math.Min(to, _rowCount));
+
+    /// <summary>The order of every row the counted tally numbers, read back, recorded after a transfer barrier.</summary>
+    public void RecordReadTheOrder(CommandBuffer commands) => CopyPast<uint>(commands, _order, _orderOut, 0, _rowCount);
 
     /// <summary>
     /// The rows and holds a bounded read left out — from <paramref name="rowsRead"/> and <paramref name="holdsRead"/> to the

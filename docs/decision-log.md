@@ -4,6 +4,18 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-08 — a layer lands on the second tick after its rebuild, copied back in halves
+
+**Within the owner's 2026-10-07 ruling that a decision may read a layer one laying old.** Copied whole behind the
+rebuild's tick, a layer (4.7 MB on OdesaOsm) outlasted the host's time before the next submit, and that submit — behind
+it on the device's one queue — waited 1.45 ms a rebuild for the rest. Now half is copied behind each of two ticks'
+submits and the layer lands on the second (`DeviceRebuild.SendTheLayerBack`). A rebuild comes every third tick, so the
+readers read the newest layer one tick in three rather than two, and never one two rebuilds old.
+
+- OdesaOsm (`--bench devicetown`): 7.08 → 6.64 ms a tick, the agents' share 4.10 → 3.65. What is decided on the layer
+  waits a tick longer: 96 lane switches asked against 102 (95 made against 97; the host's own makes 96), and 1 152 hard
+  brakings against 1 147; the speed, the cars off their lines and the touches equal.
+
 ## 2026-10-08 — the walkers' side of the claims is the device's, and so are its numbers
 
 **Under the owner's 2026-10-06 decision, for a town whose walkers the device ticks** (`DeviceWalkers.Keeps`).
@@ -44,8 +56,8 @@ rather than annotated. Rules are [requirements.md](requirements.md); how a thing
   - **What the tail reads comes back with the answers**: every asked car's grant (`rebuild_grant.comp` in the rebuild's
     own submit) and every walker's (`rebuild_agents_out.comp`), so nothing in a rebuild without a car backing up reads a
     grant off the layer.
-  - **The layer lands on the next tick** (`DeviceRebuild.LandsLater`): copied back behind that tick's submit, in the
-    host's time between submits, and written into the readers' layer while the next tick's submit runs. Until then every
+  - **The layer lands on a later tick** (`DeviceRebuild.LandsLater`): copied back behind a tick's submit, in the host's
+    time between submits, and written into the readers' layer while a later tick's submit runs. Until then every
     reader reads the last laying's layer, with the hold numbers, held-as and asks it was laid with (`LayerBound`); the town
     lays its own few rows into a laying of its own meanwhile. **What is decided on the layer waits for it**: a pass's,
     step's or manoeuvre's keep-or-withdraw, a tick or two later than before.
