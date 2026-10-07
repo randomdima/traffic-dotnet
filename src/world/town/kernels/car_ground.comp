@@ -1,0 +1,54 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// A run of cars' ground for one tick, one thread a car (TownWorld.ReadTheLine's GroundLocator.At): what the surface
+// under each car's centre is worth, written into the tyres' table where its tick and the tyre pass read it. A car with
+// no line keeps what it had, since its tick loses the line before reading anything under it.
+
+layout(local_size_x = 64) in;
+
+// The ground's ask (DeviceGround.AskPush), its count the cars'.
+layout(push_constant) uniform Ask
+{
+    uint carCount;
+    int roadFromX;
+    int roadFromY;
+    int roadWidth;
+    int roadHeight;
+    float roadPerCellM;
+    float farthestReachM;
+    uint slabCount;
+    uint waterFrom;
+    uint waterTo;
+    uint shoreFrom;
+    uint shoreTo;
+};
+
+#define SPLINE_ARCS groundArcs
+#define RING_CELLS groundLatticeCells
+#define RING_FILING groundLatticeFiling
+#define RING_PIECES groundLatticePieces
+#define GROUND_EFFECT_BINDING 3
+#define GROUND_BINDING 4
+
+#include "core/geometry/kernels/arc.glsl"
+#include "core/geometry/kernels/ringsides.glsl"
+#include "citygen/kernels/ground_tables.glsl"
+#include "core/geometry/kernels/arc_chain.glsl"
+#include "core/geometry/kernels/ring_winding.glsl"
+#include "citygen/kernels/ground.glsl"
+#include "world/terrain/kernels/ground_effect.glsl"
+#include "agents/car/body/kernels/tyre_rows.glsl"
+#include "agents/car/control/kernels/car_line.glsl"
+
+layout(std430, binding = 0) readonly buffer Poses { TyrePose poses[]; };
+layout(std430, binding = 1) buffer CarRows { TyreCarRow carRows[]; };
+layout(std430, binding = 2) readonly buffer Lines { CarLineRow lines[]; };
+
+void main()
+{
+    uint car = gl_GlobalInvocationID.x;
+    if (car >= carCount || lines[car].laneCount == 0u) return;
+
+    carRows[car].groundCoefficient = groundEffectAt(poses[car].positionM, tyreLevelOf(carRows[car])).coefficient;
+}

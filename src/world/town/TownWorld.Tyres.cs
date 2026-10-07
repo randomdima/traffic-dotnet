@@ -30,4 +30,7 @@ internal sealed partial class TownWorld
 
         return atRest;
     }
+
+    /// <summary>For the instruments: the impulse each of this car's wheels spends this tick, as its tyres left it.</summary>
+    public ReadOnlySpan<WheelImpulse> WheelImpulsesOf(int car) => _wheels.ImpulsesOf(car);
 }

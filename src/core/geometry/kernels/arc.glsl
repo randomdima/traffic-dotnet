@@ -1,10 +1,13 @@
 // ArcSeg on the device: one piece of a chain, where it puts a point a distance along it and which of its points is
 // nearest a place. Each function follows its C# counterpart line for line (ArcSeg.FromStartM, Spline.NearestOnArc,
-// NearestOnFlat), `precise` wherever the host's arithmetic would round twice. sin, cos and atan are the device's own.
+// NearestOnFlat), `precise` wherever the host's arithmetic would round twice. Its trigonometry is trig.glsl's, since a
+// gentle arc multiplies an arctangent's error by its radius and a long chord a sine's by its length.
 //
 // A piece is two words of four: (start.xy, the unit vector of its first heading) and (heading, length, curvature, 0).
 // The unit vector is the host's, laid with the piece, so a straight is answered to the host's float. A chain of them
 // is arc_chain.glsl's.
+
+#include "core/geometry/kernels/trig.glsl"
 
 struct Arc
 {
@@ -28,7 +31,7 @@ float arcSinc(float x)
 {
     if (abs(x) >= ArcSeriesLimitRad)
     {
-        precise float s = sin(x) / x;
+        precise float s = trigSin(x) / x;
         return s;
     }
 
@@ -48,7 +51,7 @@ vec2 arcFromStart(Arc arc, float distanceM)
 
     precise float chordM = distanceM * arcSinc(halfTurnRad);
     precise float heading = arcHeadingRad(arc) + halfTurnRad;
-    precise vec2 r = chordM * vec2(cos(heading), sin(heading));
+    precise vec2 r = chordM * trigUnit(heading);
     return r;
 }
 
@@ -77,7 +80,7 @@ float arcNearestOnFlat(Arc arc, vec2 pointM)
     for (int step = 0; step < ArcFlatSteps; step++)
     {
         float h = arcHeadingAt(arc, alongM);
-        vec2 heading = vec2(cos(h), sin(h));
+        vec2 heading = trigUnit(h);
         precise vec2 left = offM - arcFromStart(arc, alongM);
         precise float moved = alongM + arcDot(left, heading);
         alongM = clamp(moved, 0.0, arcLengthM(arc));
@@ -101,7 +104,7 @@ float arcNearest(Arc arc, vec2 pointM)
     if (arcDot(toPoint, toPoint) < 1e-10) return 0.0;
 
     precise float crossed = fromCentre.x * toPoint.y - fromCentre.y * toPoint.x;
-    float turnRad = atan(crossed, arcDot(fromCentre, toPoint));
+    float turnRad = trigAtan2(crossed, arcDot(fromCentre, toPoint));
     precise float alongM = turnRad / curvature;
     if (alongM < 0.0)
     {

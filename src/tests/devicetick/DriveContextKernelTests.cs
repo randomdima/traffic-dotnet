@@ -128,7 +128,7 @@ public class DriveContextKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
                 return;
             }
 
-            LayTheClaims(town.Occupancy, rows.Span<DeviceClaims.ClaimRow>(), plannedRuns.Span<UInt2>(), plannedOrder.Span<uint>(), listed);
+            HostClaims.Lay(town.Occupancy, rows.Span<DeviceClaims.ClaimRow>(), plannedRuns.Span<UInt2>(), plannedOrder.Span<uint>(), listed);
             for (var car = 0; car < cars.Count; car++)
             {
                 buildOf.Span<uint>()[car] = cars.Variant[car];
@@ -191,24 +191,6 @@ public class DriveContextKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
                    && host.HorizonM == context.HorizonM && cars.ToTheBoxM[car] == box.ToTheBoxM
                    && cars.LightAheadM[car] == box.LightAheadM && boxFlags == box.Flags;
         if (!same) differ.Add($"tick {tick} car {car}: town {host} box {cars.ToTheBoxM[car]} light {cars.LightAheadM[car]} flags {boxFlags}; device {context} {box}");
-    }
-
-    /// <summary>The claims as the town cut them: every slot a row, and every way's planned pieces as it keeps them.</summary>
-    static void LayTheClaims(LaneOccupancy claims, Span<DeviceClaims.ClaimRow> rows, Span<UInt2> runs, Span<uint> order, int[] listed)
-    {
-        for (var slot = 0; slot < claims.SlotCount; slot++)
-        {
-            rows[slot] = DeviceClaims.ClaimRow.Of(claims.Slots[slot], claims.SlotWays[slot], claims.SlotsGone[slot], claims.Slots[slot].FromM);
-        }
-
-        var next = 0;
-        for (var way = 0; way < claims.WayCount; way++)
-        {
-            var count = claims.ListOf(way, bodies: false, listed);
-            runs[way] = new UInt2((uint)next, (uint)count);
-            for (var at = 0; at < count; at++) order[next + at] = (uint)listed[at];
-            next += count;
-        }
     }
 
     /// <summary>

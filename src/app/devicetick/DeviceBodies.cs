@@ -102,7 +102,7 @@ internal sealed class DeviceBodies : IDisposable
     public byte ChannelsOf(int car) => (byte)_counts.Span<UInt4>()[car].Y;
 
     /// <summary>
-    /// <b>The cars as they stand when a rebuild begins</b> (<see cref="TownWorld.BeforeTheClaimsAreLaid"/>), written into
+    /// <b>The cars as they stand when a rebuild begins</b> (<see cref="ClaimsStage.Begun"/>), written into
     /// what the device reads: each box, on the host's own forward unit vector, and what it is laid as.
     /// </summary>
     public void Lay(TownWorld world)

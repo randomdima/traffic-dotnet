@@ -1,39 +1,18 @@
 // TyreModel on the device: one car's four patches for one tick — an impulse and a place to spend it per wheel, what
 // each did to the ground, and the four rims wound on (TyreModel.Step, Loads, Ackermann, WheelPointsM, Rim, Scrub,
-// RollingDrag, HoldStill). Line for line with the host, `precise` where it rounds twice. tan, atan, sin and cos are the
-// device's.
+// RollingDrag, HoldStill). Line for line with the host, `precise` where it rounds twice; its trigonometry is trig.glsl's.
 //
 // The including kernel supplies the tyre figures as TYRE_FIGURES' fields: standardGravityMps2, wheelSpinFadeMps,
 // wheelSpinAllowanceMps, markSlipMps, markCorneringSlipMps, ploughCrawlMps, engineBrakingMps2 — and includes
-// car_build.glsl first.
+// car_build.glsl and tyre_rows.glsl first.
+
+#include "core/geometry/kernels/trig.glsl"
 
 const int TyreWheels = 4;
 const int TyreRearRight = 2;
 const int TyreRearLeft = 3;
 const float TyreWorkingSlipTangent = 0.3;
 const float TyreAlongSlipEpsilonMps = 0.01;
-
-// The body at the start of the tick (CarPose); forward is the body's own rotation, the one way the car points.
-struct TyrePose
-{
-    vec2 positionM;
-    vec2 velocityMps;
-    vec2 forward;
-    vec2 accelerationMps2;
-    float headingRad;
-    float yawRateRadPerS;
-    float massKg;
-    float pad;
-};
-
-// The pedals and the wheel (DriveCommand): a brake of +inf locks every wheel.
-struct TyreCommand
-{
-    float steerRad;
-    float throttleMps2;
-    float brakeMps2;
-    uint handbrakeAndReverse;
-};
 
 // The ground under one patch (SurfaceUnderWheel).
 struct TyreSurface
@@ -107,10 +86,10 @@ void tyreAckermann(CarBuildRow car, float steerRad, out float into[4])
         return;
     }
 
-    precise float radiusM = abs(car.wheelbaseM / tan(steerRad));
-    float innerRad = atan(car.wheelbaseM / max(0.01, radiusM - car.halfTrackM));
+    precise float radiusM = abs(car.wheelbaseM / trigTan(steerRad));
+    float innerRad = trigAtan(car.wheelbaseM / max(0.01, radiusM - car.halfTrackM));
     precise float outerRadius = radiusM + car.halfTrackM;
-    float outerRad = atan(car.wheelbaseM / outerRadius);
+    float outerRad = trigAtan(car.wheelbaseM / outerRadius);
     float s = sign(steerRad);
     into[0] = s * (s > 0.0 ? innerRad : outerRad);
     into[1] = s * (s > 0.0 ? outerRad : innerRad);
@@ -309,7 +288,7 @@ void tyreStep(
         if (steerRad[wheel] != 0.0)
         {
             precise float turned = pose.headingRad + steerRad[wheel];
-            wheelForward = vec2(cos(turned), sin(turned));
+            wheelForward = trigUnit(turned);
         }
 
         vec2 wheelRight = vec2(-wheelForward.y, wheelForward.x);

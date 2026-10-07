@@ -3,6 +3,27 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-10-07 — a following car's whole tick runs on the device
+
+**`TownWorld.TickCar` for a car following its route's line on no pass is three kernels over one table** in one submit
+(`app/devicetick/DeviceCarTick`): the ground under it (`world/town/kernels/car_ground.comp`), its line read, what it is
+told and the line driven (`car_tick.glsl` over `line.glsl`, `drive_context.glsl` and `follower.glsl`), then the tyre
+pass, which reads the command the tick left in the tyres' own table (`tyre_rows.glsl` is that table's rows).
+
+- **A car that loses its line stops on the device and says so** (a flag); the action it enters is the host's, and so is
+  the grant that action's change drops.
+- **The shadow holds each stage to the host's own function asked of what the stage before handed it**: the reading to
+  the town's, the drive to `CarFollower.DriveTheLine` on the device's reading, the tyres to `TyrePass.Step` on the
+  device's command. Held to the town's answer, a tenth of a millimetre on the line is a hundredth of a m/s² on a pedal
+  that closes a speed in one tick, and a ten-thousandth of a radian of steer a hundredth of a wheel's impulse.
+- **A wheel on its friction circle answers either way** — grip or slide, a tenth of the impulse apart, decided by a
+  wheel's direction a ten-millionth of a radian off — and is counted rather than held. So is a denormal: a kernel's float
+  flushes them, and a body decaying to rest through them is at rest on the device a score of ticks before the host.
+
+Held to the town over ten seconds of the suite's city, 36 000 car-ticks (`DeviceCarTickTests`). On OdesaOsm
+(`--bench devicecartick`, RX 9070 XT, 9 757 following cars a tick) the ground and the drive take 0.31 ms and the tyres
+0.82 ms. 21 of 2.93 million car-ticks differ, each a pedal or a threshold the float noise of a 10 km coordinate decides.
+
 ## 2026-10-07 — a car's plan is laid on the device
 
 **The claims rebuild moves to the device with the tick** (root log), and every car planning down its line lays its

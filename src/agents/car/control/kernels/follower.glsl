@@ -1,7 +1,8 @@
 // CarFollower on the device: one tick of a car driving its line — the wheel by pure pursuit, the speed as the least of
 // everything that limits it, one pedal or the other, and the margin spent where the held section cannot be stopped
 // in (CarFollower.DriveTheLine, Steer, TargetSpeedMps, Pedals, IsAHazard). Line for line with the host, `precise`
-// where it rounds twice; tan and atan are the device's.
+// where it rounds twice; its trigonometry is trig.glsl's (through arc.glsl), since the pedal closes a speed in one tick
+// and so multiplies whatever the wheel's bend is off by.
 //
 // A pass the car is on (CAR-46) is not driven here yet: a car with one begun is the host's.
 //
@@ -35,6 +36,7 @@ const uint HoldClaimed = 4u;
 const uint HoldWaiting = 5u;
 const uint HoldReach = 6u;
 const uint HoldPlace = 7u;
+const uint HoldLostLine = 8u;
 
 // HeadwayKind.Light, by number.
 const uint HeadwayLight = 4u;
@@ -66,7 +68,7 @@ float followPursuitBend(vec2 rearAxleM, vec2 forward, vec2 leadM)
 float followSteerFor(CarBuildRow car, float curvature)
 {
     precise float turned = curvature * car.wheelbaseM;
-    return clamp(atan(turned), -car.maxSteerRad, car.maxSteerRad);
+    return clamp(trigAtan(turned), -car.maxSteerRad, car.maxSteerRad);
 }
 
 float followSteer(CarBuildRow car, uint first, uint end, float progressM, vec2 rearAxleM, vec2 forward, float lookaheadM)
@@ -163,7 +165,7 @@ float followTargetSpeedMps(
 
     plannedMps = max(0.0, targetMps);
 
-    precise float wheelBend = tan(steerRad) / car.wheelbaseM;
+    precise float wheelBend = trigTan(steerRad) / car.wheelbaseM;
     followBind(targetMps, followCornerMps(wheelBend, lateralMps2), HoldWheel, hold);
     precise float toTheHorizonM = context.horizonM - leadM;
     followBind(targetMps, followApproachMps(0.0, toTheHorizonM, brakingMps2), HoldReach, hold);
@@ -186,7 +188,7 @@ float followTargetSpeedMps(
 
 float followBrakeCeilingMps2(CarBuildRow car, float steerRad, float alongMps, float groundCoefficient)
 {
-    precise float acrossMps2 = alongMps * alongMps * abs(tan(steerRad)) / car.wheelbaseM;
+    precise float acrossMps2 = alongMps * alongMps * abs(trigTan(steerRad)) / car.wheelbaseM;
     precise float patchMps2 = car.gripMps2 * groundCoefficient;
     float leftMps2 = tyreDriveLeftMps2(patchMps2, acrossMps2);
     precise float ceiling = min(car.brakingMps2, leftMps2) * FOLLOWER_FIGURES.brakingMargin;

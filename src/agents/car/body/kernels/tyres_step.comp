@@ -21,6 +21,7 @@ layout(push_constant) uniform Figures
 
 #define TYRE_FIGURES figures
 #include "agents/car/body/kernels/car_build.glsl"
+#include "agents/car/body/kernels/tyre_rows.glsl"
 #include "agents/car/body/kernels/tyre.glsl"
 
 layout(std430, binding = 0) readonly buffer Builds { CarBuildRow builds[]; };

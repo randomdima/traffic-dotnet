@@ -1,0 +1,126 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// A run of following cars' ticks, one thread a car (car_tick.glsl), over the tyres' table, each car's line in the
+// fleet's own layout and the claims as they were cut: the command each leaves where the tyre pass reads it.
+
+layout(local_size_x = 64) in;
+
+// DrivingGround.MostWaysAlongALine.
+#define LINE_MOST_WAYS 23u
+
+layout(push_constant) uniform Figures
+{
+    uint carCount;
+    uint arcsPerCar;
+    uint mostLanes;
+    uint firstConnector;
+    float roundingM;
+    float slowerToPassMps;
+    float queueInCarLengths;
+    float dtS;
+    float lookaheadS;
+    float gripMargin;
+    float brakingMargin;
+    float stopSpeedMps;
+    float waitingToPassBrakingShare;
+    float reactionS;
+    float callPaceMps;
+    float standardGravityMps2;
+    float wheelSpinFadeMps;
+    float wheelSpinAllowanceMps;
+    float markSlipMps;
+    float markCorneringSlipMps;
+    float ploughCrawlMps;
+    float engineBrakingMps2;
+} figures;
+
+#define TYRE_FIGURES figures
+#define FOLLOWER_FIGURES figures
+#define LINE_FIGURES figures
+#define CONTEXT_FIGURES figures
+#define LINE_WAYS_FIGURES figures
+#define LINE_ONWARD_FIGURES figures
+#define SPLINE_ARCS lineArcs
+#define LINE_ENTRIES entries
+#define FOLLOWER_ENTRIES entries
+#define LANE_CHAIN chain
+#define LANE_START starts
+#define LANE_END ends
+#define LANE_FIRST_ARC firstArcs
+#define JOIN_BREAKS breaks
+#define LANE_LENGTH laneLength
+#define CONNECTOR_AT connectorAt
+#define CONNECTOR_TO connectorTo
+#define CONNECTOR_RUNG connectorRung
+#define CONNECTOR_LENGTH connectorLength
+#define LANE_PASSABLE lanePassable
+#define CLAIM_ROWS rows
+#define PLANNED_RUNS plannedRuns
+#define PLANNED_ORDER plannedOrder
+
+#include "core/geometry/kernels/arc.glsl"
+#include "agents/car/body/kernels/car_build.glsl"
+#include "agents/car/body/kernels/tyre_rows.glsl"
+#include "agents/car/body/kernels/tyre.glsl"
+#include "agents/car/control/kernels/car_line.glsl"
+#include "world/road/kernels/claims_rows.glsl"
+
+layout(std430, binding = 0) readonly buffer Builds { CarBuildRow builds[]; };
+layout(std430, binding = 1) readonly buffer BuildOf { uint buildOf[]; };
+layout(std430, binding = 2) readonly buffer Poses { TyrePose poses[]; };
+layout(std430, binding = 3) buffer Commands { TyreCommand commands[]; };
+layout(std430, binding = 4) readonly buffer CarRows { TyreCarRow carRows[]; };
+layout(std430, binding = 5) buffer LineArcs { Arc lineArcs[]; };
+layout(std430, binding = 6) buffer Entries { float entries[]; };
+layout(std430, binding = 7) buffer Chain { int chain[]; };
+layout(std430, binding = 8) buffer Starts { float starts[]; };
+layout(std430, binding = 9) buffer Ends { float ends[]; };
+layout(std430, binding = 10) buffer FirstArcs { uint firstArcs[]; };
+layout(std430, binding = 11) buffer Breaks { uint breaks[]; };
+layout(std430, binding = 12) buffer Lines { CarLineRow lines[]; };
+layout(std430, binding = 13) readonly buffer LaneLength { float laneLength[]; };
+layout(std430, binding = 14) readonly buffer ConnectorAt { uint connectorAt[]; };
+layout(std430, binding = 15) readonly buffer ConnectorTo { int connectorTo[]; };
+layout(std430, binding = 16) readonly buffer ConnectorRung { uint connectorRung[]; };
+layout(std430, binding = 17) readonly buffer ConnectorLength { float connectorLength[]; };
+layout(std430, binding = 18) readonly buffer LanePassable { uint lanePassable[]; };
+layout(std430, binding = 19) readonly buffer Rows { ClaimRow rows[]; };
+layout(std430, binding = 20) readonly buffer PlannedRuns { uvec2 plannedRuns[]; };
+layout(std430, binding = 21) readonly buffer PlannedOrder { uint plannedOrder[]; };
+
+#include "core/geometry/kernels/arc_chain.glsl"
+#include "world/road/kernels/road_joins.glsl"
+#include "agents/car/control/kernels/line_onward.glsl"
+#include "agents/car/control/kernels/line_ways.glsl"
+#include "agents/car/control/kernels/line.glsl"
+#include "agents/car/control/kernels/follower.glsl"
+#include "world/town/kernels/drive_context.glsl"
+#include "world/town/kernels/car_tick.glsl"
+
+layout(std430, binding = 22) readonly buffer Cutters { ClaimRow cutters[]; };
+layout(std430, binding = 23) readonly buffer Grants { CarGrantRow grants[]; };
+layout(std430, binding = 24) buffer Ticks { CarTickRow ticks[]; };
+layout(std430, binding = 25) writeonly buffer Contexts { DriveContextRow contexts[]; };
+layout(std430, binding = 26) buffer Boxes { BoxAheadRow boxes[]; };
+
+void main()
+{
+    uint car = gl_GlobalInvocationID.x;
+    if (car >= figures.carCount) return;
+
+    CarTickRow tick = ticks[car];
+    CarLineRow line = lines[car];
+    TyreCommand command = commands[car];
+    BoxAheadRow box = boxes[car];
+    DriveContextRow context;
+    carTick(
+        car, builds[buildOf[car]], poses[car], carRows[car].groundCoefficient, grants[car], cutters[car], tick, line, command,
+        context, box);
+
+    ticks[car] = tick;
+    lines[car] = line;
+    commands[car] = command;
+    contexts[car] = context;
+    boxes[car] = box;
+}

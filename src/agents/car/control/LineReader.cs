@@ -56,6 +56,10 @@ internal static class LineReader
     public static bool RunsShort(CarFleet cars, int car, float progressM, bool roadRunsOn) =>
         cars.Line[car].LengthM - progressM < cars.BuildOf(car).SightM
         && cars.Line[car].LaneCount < LineAssembler.MostLanes
-        && cars.StopsForBayOf(car) == CarFleet.NoBay && !cars.StopsAtItsPlaceOf(car)
+        && !EndsWhereTheLegDoes(cars, car)
         && roadRunsOn;
+
+    /// <summary>Whether the line ends where the leg does — at the bay it stops for, or the place it was sent to.</summary>
+    public static bool EndsWhereTheLegDoes(CarFleet cars, int car) =>
+        cars.StopsForBayOf(car) != CarFleet.NoBay || cars.StopsAtItsPlaceOf(car);
 }

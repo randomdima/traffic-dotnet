@@ -160,7 +160,7 @@ internal sealed class DevicePlans : IDisposable
     public double LaidMs => _timer.BetweenMs(0, 1);
 
     /// <summary>
-    /// <b>The cars as they stand before their claims are laid</b> (<see cref="TownWorld.BeforeThePlansAreLaid"/>), written
+    /// <b>The cars as they stand before their claims are laid</b> (<see cref="ClaimsStage.PlansDue"/>), written
     /// into what the device reads: each car's figures, whether it plans down its line, and its line as far as it is laid.
     /// </summary>
     public void Lay(TownWorld world)

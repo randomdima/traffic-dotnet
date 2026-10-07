@@ -490,9 +490,12 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
         if (Cars.Line[car].LaneCount == 0 || Cars.LineIsReverse[car]) return false;
 
         var lane = Cars.LaneOf(car);
-        return lane != CarFleet.NoLane && Roads.LaneReverse[lane] >= 0 && !Roads.LaneOverOneLine[lane]
-               && Roads.LaneCrossesToPass[lane];
+        return lane != CarFleet.NoLane && IsALaneToPassFrom(Roads, lane);
     }
+
+    /// <summary>Whether a car on this lane has a lane running back beside it, across a line that is crossed to pass.</summary>
+    public static bool IsALaneToPassFrom(RoadGraph roads, int lane) =>
+        roads.LaneReverse[lane] >= 0 && !roads.LaneOverOneLine[lane] && roads.LaneCrossesToPass[lane];
 
     /// <summary>
     /// <b>A pass laid in this rebuild, kept or withdrawn</b> before the car moves over: kept where nothing but the

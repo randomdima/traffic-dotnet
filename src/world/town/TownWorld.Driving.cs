@@ -49,6 +49,12 @@ internal sealed partial class TownWorld
     /// </summary>
     readonly bool[] _asksTheRoute;
 
+    /// <summary>For the instruments: whether a tick has left this car's next decision to lay the rest of its line (<see cref="_asksTheRoute"/>).</summary>
+    public bool AsksTheRoute(int car) => _asksTheRoute[car];
+
+    /// <summary>For the instruments: whether this car is on somebody's arm, so its tick is the trailer's wheels (EVA-5).</summary>
+    public bool OnTheHook(int car) => _recovery.OnTheHookOf[car] >= 0;
+
     /// <summary>
     /// <b>Whether this car's tick would change nothing</b>, so it is not taken at all: it rested parked last tick
     /// (<see cref="_standsParked"/>), nothing has since handed it a driver, a hand, a hook or another command, the

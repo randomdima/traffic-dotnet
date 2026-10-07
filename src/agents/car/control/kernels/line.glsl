@@ -80,7 +80,8 @@ float lineOffM(uint car, CarLineRow line, vec2 rearAxleM, float progressM, float
     vec2 onM;
     float headingRad;
     splineSample(first, first + line.arcCount, progressM, onM, headingRad);
-    vec2 right = vec2(-sin(headingRad), cos(headingRad));
+    vec2 along = trigUnit(headingRad);
+    vec2 right = vec2(-along.y, along.x);
     precise vec2 off = onM + right * asideM - rearAxleM;
     precise float offSq = off.x * off.x + off.y * off.y;
     return sqrt(offSq);

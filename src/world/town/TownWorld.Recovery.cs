@@ -101,7 +101,7 @@ internal sealed partial class TownWorld
     /// allowance is what says a body has stopped driving its line, so it is a fact about the body, and this
     /// is the one body in the town that is two.
     /// </remarks>
-    float OffTheLineAllowanceM(int car) =>
+    public float OffTheLineAllowanceM(int car) =>
         _config.CarOffPathM * OffLineTolerance
         * (_recovery.Towing[car] >= 0 ? _config.Evacuator.TowedLineAllowance : 1f);
 

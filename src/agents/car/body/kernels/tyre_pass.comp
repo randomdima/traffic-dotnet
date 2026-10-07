@@ -62,29 +62,10 @@ layout(push_constant) uniform Pass
 #include "citygen/kernels/ground.glsl"
 #include "world/terrain/kernels/ground_effect.glsl"
 #include "agents/car/body/kernels/car_build.glsl"
+#include "agents/car/body/kernels/tyre_rows.glsl"
 #include "agents/car/body/kernels/tyre.glsl"
 #include "agents/car/body/kernels/tyre_marks.glsl"
 #include "agents/car/body/kernels/tyre_pass.glsl"
-
-// One car's own figures and flags (DeviceTyres.CarRow): hand 1, driven wheels slipping 2, at rest 4 (written), the
-// level in bits 8–15.
-struct TyreCarRow
-{
-    float groundCoefficient;
-    float inertiaKgM2;
-    float slipThrottle;
-    uint flags;
-};
-
-// One wheel's carried state (DeviceTyres.WheelRow).
-struct TyreWheelRow
-{
-    vec2 markFromM;
-    float spinMps;
-    float scrubTravelM;
-    float markIntensity;
-    uint marking;
-};
 
 // One mark laid (DeviceTyres.MarkRow): car × 4 + wheel says whose.
 struct TyreMarkRow
@@ -136,7 +117,7 @@ void main()
     TyreMark laidMarks[4];
     uint laid;
     bool atRest = tyrePass(
-        build, poses[car], commands[car], (row.flags & 1u) != 0u, row.groundCoefficient, row.inertiaKgM2, (row.flags >> 8) & 0xffu,
+        build, poses[car], commands[car], (row.flags & 1u) != 0u, row.groundCoefficient, row.inertiaKgM2, tyreLevelOf(row),
         figures.dtS, carry, ground, spent, scrub, laidMarks, laid);
 
     carRows[car].slipThrottle = carry.slipThrottle;

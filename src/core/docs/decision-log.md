@@ -1,5 +1,18 @@
 # The kernel — decision log
 
+## 2026-10-07 — a kernel's trigonometry is its own, not the driver's
+
+**Vulkan lets a driver's atan stand 4096 floats off and bounds sin and cos only absolutely**, and RADV's stand about a
+part in a hundred thousand off. An arc is read about a centre a radius away and sampled along a chord, so the error comes
+back multiplied: on OdesaOsm's bends of 8.6 km a car stood a centimetre from where the host read it on its line, and its
+lead point half a millimetre off at the end of a 500 m chord, which the pedal — closing a speed in one tick — turned
+into a hundredth of a m/s². **The arcs, the line, the driver and the tyres take theirs from `geometry/kernels/trig.glsl`**:
+Cephes' minimax polynomials for atan and for sin and cos over one shared Cody–Waite reduction, within a float or two of
+`MathF` on every driver alike, and `precise` so none fuses them. Of 2.93 million car-ticks the device ran beside the town
+(`--bench devicecartick`, RX 9070 XT), 702 answered differently with the driver's own and 21 with these; the tick costs
+0.13 ms more. Android's drivers bound their trigonometry no tighter than Vulkan does, which is the other half of why the
+kernels carry their own.
+
 ## 2026-10-06 — phase 3 is every agent's tick, then every decision
 
 `SimLoop` ran one agent's tick and its decision before the next agent's tick, so a decision read a roster ticked up

@@ -64,7 +64,10 @@ internal sealed class DeviceTyres : IDisposable
 
     /// <summary>What one patch did to its ground (<c>TyreScrub</c>): <see cref="Flags"/> is ploughing 1, sliding 2.</summary>
     [StructLayout(LayoutKind.Sequential)]
-    internal readonly record struct ScrubRow(float SlidePowerM2S3, float PloughPowerM2S3, float SlideSpeedMps, uint Flags);
+    internal readonly record struct ScrubRow(float SlidePowerM2S3, float PloughPowerM2S3, float SlideSpeedMps, uint Flags)
+    {
+        public const uint Ploughing = 1u, Sliding = 2u;
+    }
 
     /// <summary>One mark laid (<c>TyreMarkRow</c>): <see cref="CarWheel"/> is the car times four plus the wheel.</summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -176,6 +179,8 @@ internal sealed class DeviceTyres : IDisposable
             (impulses, _impulsesOut, WheelsACar * Marshal.SizeOf<Vector4>()), (scrubs, _scrubsOut, WheelsACar * Marshal.SizeOf<ScrubRow>()),
         ];
 
+        Table = (buildBuffer, buildOf, poses, commands, cars);
+        Effects = effectBuffer;
         GpuBuffer[] bound =
         [
             buildBuffer, buildOf, poses, commands, cars, wheelRows, surfaces, impulses, scrubs, _markCount, _marks, effectBuffer,
@@ -189,6 +194,15 @@ internal sealed class DeviceTyres : IDisposable
 
     /// <summary>The most cars a pass is asked of.</summary>
     public int Capacity { get; }
+
+    /// <summary>
+    /// The device's own tables the pass binds that a kernel run before it in the same submit reads or writes
+    /// (<see cref="DeviceCarTick"/>): the builds, which each car is, its pose, its command and its own row.
+    /// </summary>
+    public (GpuBuffer Builds, GpuBuffer BuildOf, GpuBuffer Poses, GpuBuffer Commands, GpuBuffer Cars) Table { get; }
+
+    /// <summary>What each kind of ground does to a wheel, as the pass binds it (<c>GROUND_EFFECT_BINDING</c>).</summary>
+    public GpuBuffer Effects { get; }
 
     /// <summary>Which of the builds each car is, written before a <see cref="Step"/>.</summary>
     public Span<uint> BuildOf => _buildOfIn.Span<uint>()[..Capacity];
@@ -243,29 +257,46 @@ internal sealed class DeviceTyres : IDisposable
     /// </summary>
     public void Step(int cars)
     {
-        if (cars > Capacity) throw new ArgumentOutOfRangeException(nameof(cars), $"The pass holds {Capacity} cars, not {cars}.");
-
-        _cars = cars;
-        var vk = _vk;
         var commands = _batch.Begin();
         _timer.Reset(commands);
         _timer.Stamp(commands, 0);
-        foreach (var (from, to, stride) in _sent) vk.Copy(commands, from, to, (ulong)(cars * stride));
-        vk.Fill(commands, _markCount, 0);
-        vk.AfterTransfer(commands);
+        Send(commands, cars);
+        _vk.AfterTransfer(commands);
         _timer.Stamp(commands, 1);
 
-        var push = new PassPush { Ground = _ground.PushFor(cars), Figures = _figures };
-        _kernel.Dispatch(commands, _set, (uint)Math.Max(1, (cars + 63) / 64), push);
-        vk.BeforeTransfer(commands);
+        Run(commands, cars);
+        _vk.BeforeTransfer(commands);
         _timer.Stamp(commands, 2);
 
-        foreach (var (from, to, stride) in _read) vk.Copy(commands, from, to, (ulong)(cars * stride));
-        vk.Copy(commands, _markCount, _markCountOut, sizeof(uint));
-        vk.Copy(commands, _marks, _marksOut, _marks.SizeBytes);
+        Read(commands);
         _timer.Stamp(commands, 3);
         _batch.SubmitAndWait();
         _timer.Read();
+    }
+
+    /// <summary>The rows written for the first <paramref name="cars"/> cars taken in and the ring emptied, recorded; the caller barriers after.</summary>
+    public void Send(CommandBuffer commands, int cars)
+    {
+        if (cars > Capacity) throw new ArgumentOutOfRangeException(nameof(cars), $"The pass holds {Capacity} cars, not {cars}.");
+
+        foreach (var (from, to, stride) in _sent) _vk.Copy(commands, from, to, (ulong)(cars * stride));
+        _vk.Fill(commands, _markCount, 0);
+    }
+
+    /// <summary>The pass over the first <paramref name="cars"/> cars of the table, recorded; the caller barriers after.</summary>
+    public void Run(CommandBuffer commands, int cars)
+    {
+        _cars = cars;
+        var push = new PassPush { Ground = _ground.PushFor(cars), Figures = _figures };
+        _kernel.Dispatch(commands, _set, (uint)Math.Max(1, (cars + 63) / 64), push);
+    }
+
+    /// <summary>What the last <see cref="Run"/> wrote, recorded to be handed back where <see cref="CarsAfter"/> and the rest read it.</summary>
+    public void Read(CommandBuffer commands)
+    {
+        foreach (var (from, to, stride) in _read) _vk.Copy(commands, from, to, (ulong)(_cars * stride));
+        _vk.Copy(commands, _markCount, _markCountOut, sizeof(uint));
+        _vk.Copy(commands, _marks, _marksOut, _marks.SizeBytes);
     }
 
     GpuBuffer Device<T>(int count) where T : unmanaged => Own(

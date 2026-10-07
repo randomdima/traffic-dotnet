@@ -163,6 +163,12 @@ internal sealed class DeviceClaims : IDisposable
     /// <summary>How many passes an answering runs.</summary>
     public int Passes => _passes;
 
+    /// <summary>
+    /// The claims as the last answering cut them, on the device, for a kernel that reads them after their cut
+    /// (<see cref="DeviceCarTick"/>): every slot's row, each way's planned run, and the order the runs index.
+    /// </summary>
+    public (GpuBuffer Rows, GpuBuffer PlannedRuns, GpuBuffer PlannedOrder) Cut => (_rows, _plannedRuns, _order);
+
     /// <summary>Every reservation as the last answering left it — its cut taken.</summary>
     public ReadOnlySpan<ClaimRow> Rows => _rowsOut.Span<ClaimRow>()[.._rowCount];
 
