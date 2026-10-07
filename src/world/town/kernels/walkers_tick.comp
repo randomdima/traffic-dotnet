@@ -27,6 +27,18 @@ layout(push_constant) uniform Figures
 layout(std430, binding = 0) buffer Walkers { WalkerTableRow walkers[]; };
 layout(std430, binding = 1) buffer Impulses { vec2 impulses[]; };
 
+// What the town reads of a walker's tick (DeviceWalkerTick.TickOut): the pace it declared, the impulse it leaves — its
+// own, or the one it keeps — and the way it faces.
+struct WalkerTickOut
+{
+    vec2 declaredMps;
+    vec2 impulseNs;
+    float headingRad;
+    float pad;
+};
+
+layout(std430, binding = 2) writeonly buffer TickOut { WalkerTickOut tickOut[]; };
+
 void main()
 {
     uint walker = gl_GlobalInvocationID.x;
@@ -54,4 +66,5 @@ void main()
     }
 
     walkers[walker] = row;
+    tickOut[walker] = WalkerTickOut(row.declaredMps, impulses[walker], row.headingRad, 0.0);
 }

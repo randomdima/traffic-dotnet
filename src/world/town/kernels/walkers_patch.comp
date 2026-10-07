@@ -1,0 +1,38 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The walkers the town changed since the device last wrote them, written whole over the table the device keeps
+// (app/devicetick/DeviceWalkerTick's patches), one thread a patch: the row and the impulse its tick keeps where it
+// writes none.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint patchCount;
+} figures;
+
+#include "world/town/kernels/walker_table.glsl"
+
+// DeviceWalkerTick.Patch, field for field.
+struct WalkerPatch
+{
+    WalkerTableRow row;
+    vec2 impulseNs;
+    uint walker;
+    uint pad;
+};
+
+layout(std430, binding = 0) readonly buffer Patches { WalkerPatch patches[]; };
+layout(std430, binding = 1) writeonly buffer Walkers { WalkerTableRow walkers[]; };
+layout(std430, binding = 2) writeonly buffer Impulses { vec2 impulses[]; };
+
+void main()
+{
+    uint at = gl_GlobalInvocationID.x;
+    if (at >= figures.patchCount) return;
+
+    WalkerPatch written = patches[at];
+    walkers[written.walker] = written.row;
+    impulses[written.walker] = written.impulseNs;
+}

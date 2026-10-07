@@ -53,6 +53,9 @@ internal sealed partial class DeviceRebuild
     /// <summary>How many rows the host laid itself and sent in the last rebuild.</summary>
     public int HostRowsSent => _hostRowCount;
 
+    /// <summary>And how many holds.</summary>
+    public int HostHoldsSent => _hostHoldCount;
+
     /// <summary>
     /// How many rows and holds the host's own laying cut, and sent as cut, in the last rebuild: before the answers — what
     /// a hand or a tow takes of a light — and after them, what the backing takes.

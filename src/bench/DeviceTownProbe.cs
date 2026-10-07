@@ -87,6 +87,7 @@ internal static class DeviceTownProbe
         var copiesMs = 0d;
         var claimsMs = 0d;
         var sentBytes = 0d;
+        var walkersPatched = 0L;
         var bodiesLayMs = 0d;
         var bodiesWaitMs = 0d;
         var bodiesBackMs = 0d;
@@ -100,6 +101,7 @@ internal static class DeviceTownProbe
         var stages = Enum.GetValues<ClaimsStage>();
         var stageTownMs = new double[stages.Length];
         var stageHereMs = new double[stages.Length];
+        var (mostHostRows, mostHostHolds) = (0, 0);
         var rebuilt = device?.Claims.Rebuild.Rebuilds ?? 0L;
         var (handedInTheStep, handedAlone) = device?.HandedOver ?? default;
         var handOverSubmits = device?.HandOverSubmits ?? 0L;
@@ -124,6 +126,7 @@ internal static class DeviceTownProbe
                 claimsSentMb += rebuild.Crossed.Sent / 1e6;
                 claimsReadMb += rebuild.Crossed.Read / 1e6;
                 var (rows, bodies, holds) = rebuild.Counted;
+                (mostHostRows, mostHostHolds) = (Math.Max(mostHostRows, rebuild.HostRowsSent), Math.Max(mostHostHolds, rebuild.HostHoldsSent));
                 (laidRows, laidBodies, laidHolds) = (laidRows + rows, laidBodies + bodies, laidHolds + holds);
                 var (townMs, hereMs) = device.Claims.StageMs;
                 for (var stage = 0; stage < stages.Length; stage++)
@@ -142,6 +145,7 @@ internal static class DeviceTownProbe
             copiesMs += device.CopiesMs;
             claimsMs += device.ClaimsMs;
             sentBytes += device.SentBytes;
+            walkersPatched += device.WalkersPatched;
             bodiesLayMs += device.Bodies.LayMs;
             bodiesWaitMs += device.Bodies.WaitMs;
             bodiesBackMs += device.Bodies.HandBackMs;
@@ -156,7 +160,8 @@ internal static class DeviceTownProbe
             Console.WriteLine(
                 $"  of the wait, the device's own: the submit {submitMs / MeasuredTicks:F2}, of it the town's claims taken in " +
                 $"{claimsMs / MeasuredTicks:F2} and the car rows in and out {copiesMs / MeasuredTicks:F2}; " +
-                $"{sentBytes / MeasuredTicks / 1024:F0} KiB of car rows sent a tick");
+                $"{sentBytes / MeasuredTicks / 1024:F0} KiB of car rows sent a tick, {walkersPatched / (double)MeasuredTicks:F0} walkers written " +
+                "whole a tick");
             Console.WriteLine(
                 $"  the bodies' phase, ms a tick: laying {bodiesLayMs / MeasuredTicks:F2}, submitting and waiting {bodiesWaitMs / MeasuredTicks:F2} " +
                 $"(the device's kernels {bodiesKernelsMs / MeasuredTicks:F2}), writing what came back {bodiesBackMs / MeasuredTicks:F2}");
@@ -175,7 +180,8 @@ internal static class DeviceTownProbe
                 $"{claimsKernelsMs / each:F2}, reading back {claimsReadMs / each:F2} ({claimsReadMb / each:F2} MB) — {laidRows / each} rows, " +
                 $"{laidBodies / each} of them bodies and passes, and {laidHolds / each} holds a rebuild; {device.Claims.Rebuild.ReadPast} " +
                 $"laid past what their submit read back, {device.Claims.Rebuild.OnOtherChannelsAtABay} cars at a bay put on other " +
-                $"channels and {device.Claims.Rebuild.BackedUp} rebuilds with a car backing up since the device was set");
+                $"channels and {device.Claims.Rebuild.BackedUp} rebuilds with a car backing up since the device was set; the town laid " +
+                $"at most {mostHostRows} rows and {mostHostHolds} holds of a rebuild itself");
             Console.Write("  the host's rebuild stage by stage, ms a rebuild, the town's laying before each + the device's at it:");
             for (var stage = 0; stage < stages.Length; stage++)
             {

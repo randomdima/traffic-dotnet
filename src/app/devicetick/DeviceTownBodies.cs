@@ -220,7 +220,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         }
 
         var people = town.People;
-        var ticked = walkersTicked && _walkerTick != null ? _walkerTick.ImpulsesAfter : default;
+        var ticked = walkersTicked && _walkerTick != null ? _walkerTick.Count : 0;
         for (var person = 0; person < people.Count; person++)
         {
             _phase.LayWalker(person, people.Body[person].Index);
@@ -229,7 +229,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
             {
                 var townsOwn = tickedInThisSubmit
                     ? !walkersTicked || TheTownsImpulse(town, person)
-                    : person >= ticked.Length || ticked[person] != impulseNs;
+                    : person >= ticked || _walkerTick.ImpulseAfter(person) != impulseNs;
                 if (townsOwn) _phase.LayWalkerImpulse(person, impulseNs);
                 continue;
             }

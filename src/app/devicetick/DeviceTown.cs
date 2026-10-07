@@ -89,7 +89,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         {
             Shadowed = false,
         };
-        _walkers = new DeviceWalkerTick(vk, config, town.People.Capacity);
+        _walkers = new DeviceWalkerTick(vk, config, town.People.Capacity, resident: true);
         _bodies = new DeviceTownBodies(vk, config, town, _tyres, _walkers);
         _townClaims = new DeviceTownClaims(vk, config, town, _claims, _cars);
         _batch = new ComputeBatch(vk);
@@ -121,6 +121,9 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
     /// <summary>How many bytes of car rows the last tick sent.</summary>
     public ulong SentBytes { get; private set; }
+
+    /// <summary>How many walkers the last tick wrote whole over the device's table, the town holding them otherwise.</summary>
+    public int WalkersPatched => _walkers.Patched;
 
     /// <summary>How many cars' wheels went back to the host in the bodies' submit, and how many in a submit of their own.</summary>
     public (long InTheStep, long Alone) HandedOver { get; private set; }
@@ -238,6 +241,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
             if (!StepsWithTheTick) return;
 
             _bodies.StepBodies(town, _dtS, default, walkersTicked: false);
+            KnowTheStep();
             _swept = false;
             return;
         }
@@ -254,7 +258,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         if (posesInTheTable && !stepping) _bodies.LayThePosesTheTownChanged(town);
         _count = _cars.Prepare(town, _taken, resident: true, laidByTheTown, chosen, posesInTheTable);
         chosen.Clear();
-        _walkerCount = _walkers.Lay(town);
+        _walkerCount = _walkers.LayWhatChanged(town);
         if (stepping) _bodies.LayTheStep(town, _dtS, _taken.AsSpan(0, _count), walkersTicked: true);
         var prepared = Stopwatch.GetTimestamp();
 
@@ -282,6 +286,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         if (stepping)
         {
             _bodies.TakeTheStepBack(town);
+            KnowTheStep();
             _swept = false;
         }
 
@@ -309,6 +314,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     {
         var leaving = Leaving(town, everyKept: false);
         _bodies.StepBodies(town, dtS, _ticked ? _taken.AsSpan(0, _count) : default, walkersTicked: _ticked, leaving);
+        KnowTheStep();
         TakeTheWheelsBack(town.Cars, leaving);
         HandedOver = (HandedOver.InTheStep + leaving.Length, HandedOver.Alone);
         _ticked = false;
@@ -406,17 +412,22 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     void TakeBackTheWalkers(TownWorld town)
     {
         var people = town.People;
-        var rows = _walkers.WalkersAfter;
-        var impulses = _walkers.ImpulsesAfter;
+        var ticks = _walkers.TicksAfter;
         for (var person = 0; person < _walkerCount; person++)
         {
             if (DeviceTownBodies.TheTownsImpulse(town, person)) continue;
 
-            people.HeadingRad[person] = rows[person].HeadingRad;
-            people.DeclaredMps[person] = rows[person].DeclaredMps;
-            town.WalkerImpulseFor(person) = impulses[person];
+            ref readonly var tick = ref ticks[person];
+            people.HeadingRad[person] = tick.HeadingRad;
+            people.DeclaredMps[person] = tick.DeclaredMps;
+            town.WalkerImpulseFor(person) = tick.ImpulseNs;
         }
+
+        _walkers.KnowTheTick();
     }
+
+    /// <summary>Where the bodies' step just handed back left every walker, taken as what the device's walker table holds.</summary>
+    void KnowTheStep() => _walkers.KnowTheStep(_bodies.Phase.WalkersAfter);
 
     /// <remarks>Every wheel the device keeps is handed back first: the town may go on ticking its cars itself.</remarks>
     public void Dispose()
