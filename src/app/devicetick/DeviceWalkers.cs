@@ -15,17 +15,19 @@ namespace TrafficSimulation.App.DeviceTick;
 /// <b>The walkers' side of a claims rebuild on the device</b> (<c>world/town/kernels/walkers.glsl</c>), beside the
 /// host's: the walkers as the town has them at one stage of a rebuild sent across, that stage's kernel run over them one
 /// walker a thread — stationed on their walks, their bodies laid, their walks planned and claimed, or their grants read
-/// and their aims set — and what it came to read back to be held to the town's. One submit and one wait a stage.
+/// and their aims set — and what it came to read back to be held to the town's.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The pavement, its lines, the marks and the atlas are laid once.</b> A stage that asks the claims — whose body is
-/// where, whether a pass keeps its ground — lays every way's body list from the town's own rows first, as the claims'
-/// lists are laid (<c>claims_lists.glsl</c>), and that is timed apart from the walkers.
+/// <b>The pavement, its lines, the marks and the atlas are laid once.</b> Each stage has its own walkers on the device,
+/// sent as the town has them at that stage (<see cref="Lay"/>), so every stage of one rebuild can be recorded into one
+/// submit (<see cref="DeviceRebuild"/>) or each run on its own (<see cref="Run"/>).
 /// </para>
 /// <para>
-/// <b>A walker's hold is numbered by the walker</b>, since the holds are not numbered on the device yet; what a hold's
-/// rows say of anything else is the host's.
+/// <b>Run on its own, a stage that asks the claims</b> — whose body is where, whether a pass keeps its ground — lays
+/// every way's body list from the town's own rows first, as the claims' lists are laid (<c>claims_lists.glsl</c>), and
+/// that is timed apart from the walkers, and a walker's hold is numbered by the walker. <b>Chained</b>, it reads the
+/// device's own claims (<see cref="DeviceClaims.OnTheDevice"/>), as numbered and listed by the rebuild.
 /// </para>
 /// </remarks>
 internal sealed class DeviceWalkers : IDisposable
@@ -139,7 +141,7 @@ internal sealed class DeviceWalkers : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    readonly record struct ListsPush(uint RowCount, uint WayCount);
+    readonly record struct ListsPush(uint WayCount, uint Pad);
 
     /// <summary><c>walker_rows.glsl</c>'s own bound on the ways under one walk (<see cref="WalkingGround.MostWaysAlongAWalk"/>).</summary>
     const int MostWaysInTheKernel = 5;
@@ -147,7 +149,7 @@ internal sealed class DeviceWalkers : IDisposable
     /// <summary>A way's room in the kernels' atlas reads (<c>atlas.glsl</c>'s <c>AtlasMostWaysUnderABody</c>).</summary>
     const int MostWaysUnderABodyInTheKernel = 48;
 
-    /// <summary>The stamps a stage is timed between: the walkers' kernel, and the lists laid before it where it reads the claims.</summary>
+    /// <summary>The stamps a stage run on its own is timed between: the walkers' kernel, and the lists laid before it where it reads the claims.</summary>
     enum Stamp
     {
         Began,
@@ -155,10 +157,17 @@ internal sealed class DeviceWalkers : IDisposable
         Ran,
     }
 
+    /// <summary>What one stage is sent and runs over: the walkers, their routes, their straights' and passes' ground.</summary>
+    sealed class Sent(GpuBuffer walkers, GpuBuffer routes, GpuBuffer straights, GpuBuffer passes)
+    {
+        public readonly GpuBuffer Walkers = walkers, Routes = routes, Straights = straights, Passes = passes;
+    }
+
+    static readonly int Pieces = Enum.GetValues<Piece>().Length;
+
     readonly Vk _vk;
     readonly int _walkers;
     readonly int _ways;
-    readonly int _slots;
     readonly int _coverRoom;
     readonly int _proposedRoom;
     readonly int[] _dutyCar;
@@ -166,16 +175,18 @@ internal sealed class DeviceWalkers : IDisposable
     readonly DeviceAtlas _atlas;
     Figures _figures;
 
-    readonly GpuBuffer _walkersIn, _routesIn, _straightsIn, _passesIn, _rowsIn, _answersIn;
-    readonly GpuBuffer _walkerRows, _routes, _straights, _passes, _rows, _answers;
-    readonly GpuBuffer _counts, _starts, _cursor, _order, _bodyRuns, _plannedRuns, _blockSums, _totals;
-    readonly GpuBuffer _covers, _wayRows, _proposed, _holds, _outCounts;
+    readonly Sent[] _in, _on;
+    readonly GpuBuffer _answers, _covers, _wayRows, _proposed, _holds, _outCounts;
     readonly GpuBuffer _walkersOut, _straightsOut, _coversOut, _waysOut, _proposedOut, _holdsOut, _countsOut;
+
+    /// <summary>The claims a stage run on its own lays from the town's rows; none where the walkers are chained.</summary>
+    readonly GpuBuffer? _rowsIn, _answersIn, _rows, _counts, _starts, _cursor, _order, _bodyRuns, _plannedRuns, _blockSums, _totals, _tally;
+
     readonly List<(GpuBuffer From, GpuBuffer To)> _once = [];
-    readonly ComputeKernel _count, _file, _sort;
+    readonly ComputeKernel? _count, _file, _sort;
     readonly DescriptorSet _countSet, _fileSet, _sortSet;
-    readonly ScanKernels _scans;
-    readonly PrefixScan _scan;
+    readonly ScanKernels? _scans;
+    readonly PrefixScan? _scan;
     readonly ComputeKernel[] _kernels;
     readonly DescriptorSet[] _sets;
     readonly ComputeBatch _batch;
@@ -183,7 +194,11 @@ internal sealed class DeviceWalkers : IDisposable
     int _walkerCount;
     int _rowCount;
 
-    public DeviceWalkers(Vk vk, SimConfig config, TownWorld world)
+    /// <param name="claims">
+    /// The device's own claims a chained rebuild numbers and lists (<see cref="DeviceClaims.OnTheDevice"/>), which the stages
+    /// that ask the claims read — or none, for stages run on their own over the town's rows.
+    /// </param>
+    public DeviceWalkers(Vk vk, SimConfig config, TownWorld world, DeviceClaims.Tables? claims = null)
     {
         if (WalkingGround.MostWaysAlongAWalk != MostWaysInTheKernel || RibbonAtlas.MostWaysUnderABody != MostWaysUnderABodyInTheKernel)
         {
@@ -197,7 +212,7 @@ internal sealed class DeviceWalkers : IDisposable
         var marks = world.Atlas.Marks;
         _walkers = people.Capacity;
         _ways = ways.Count;
-        _slots = world.Occupancy.Capacity;
+        var slots = world.Occupancy.Capacity;
         _coverRoom = WalkingGround.MostPiecesOfABody + Sidestepping.MostRunsOfAPass;
         _proposedRoom = MostWaysInTheKernel * (1 + marks.MostCrossedByOne);
         _dutyCar = new int[_walkers];
@@ -272,29 +287,19 @@ internal sealed class DeviceWalkers : IDisposable
             HasChannels = atlas.HasChannels,
         };
 
-        _walkersIn = Staging<WalkerRow>(_walkers);
-        _routesIn = Staging<int>(_walkers * PersonFleet.RouteWaysPerPerson);
-        _straightsIn = Staging<SweptRun>(_walkers * WalkingGround.MostRunsOfAStraight);
-        _passesIn = Staging<SweptRun>(_walkers * Sidestepping.MostRunsOfAPass);
-        _rowsIn = Staging<DeviceClaims.ClaimRow>(_slots);
-        _answersIn = Staging<DeviceClaims.ClaimAnswer>(_walkers);
+        _in = new Sent[Pieces];
+        _on = new Sent[Pieces];
+        for (var piece = 0; piece < Pieces; piece++)
+        {
+            _in[piece] = new Sent(
+                Staging<WalkerRow>(_walkers), Staging<int>(_walkers * PersonFleet.RouteWaysPerPerson),
+                Staging<SweptRun>(_walkers * WalkingGround.MostRunsOfAStraight), Staging<SweptRun>(_walkers * Sidestepping.MostRunsOfAPass));
+            _on[piece] = new Sent(
+                Device<WalkerRow>(_walkers), Device<int>(_walkers * PersonFleet.RouteWaysPerPerson),
+                Device<SweptRun>(_walkers * WalkingGround.MostRunsOfAStraight), Device<SweptRun>(_walkers * Sidestepping.MostRunsOfAPass));
+        }
 
-        _walkerRows = Device<WalkerRow>(_walkers);
-        _routes = Device<int>(_walkers * PersonFleet.RouteWaysPerPerson);
-        _straights = Device<SweptRun>(_walkers * WalkingGround.MostRunsOfAStraight);
-        _passes = Device<SweptRun>(_walkers * Sidestepping.MostRunsOfAPass);
-        _rows = Device<DeviceClaims.ClaimRow>(_slots);
         _answers = Device<DeviceClaims.ClaimAnswer>(_walkers);
-
-        _counts = Device<uint>(2 * _ways);
-        _starts = Device<uint>(2 * _ways);
-        _cursor = Device<uint>(2 * _ways);
-        _order = Device<uint>(_slots);
-        _bodyRuns = Device<UInt2>(_ways);
-        _plannedRuns = Device<UInt2>(_ways);
-        _blockSums = Device<uint>(ScanKernels.Block);
-        _totals = Device<uint>(1);
-
         _covers = Device<DeviceClaims.ClaimRow>(_walkers * _coverRoom);
         _wayRows = Device<LineWay>(_walkers * MostWaysInTheKernel);
         _proposed = Device<DeviceClaims.ClaimRow>(_walkers * _proposedRoom);
@@ -309,30 +314,55 @@ internal sealed class DeviceWalkers : IDisposable
         _holdsOut = Readback<DeviceClaims.HoldRow>(_walkers);
         _countsOut = Readback<UInt4>(_walkers);
 
-        GpuBuffer[] lists = [_rows, _counts, _cursor, _order, _bodyRuns, _plannedRuns, _starts];
-        var listsPush = (uint)Marshal.SizeOf<ListsPush>();
-        _count = new ComputeKernel(vk, "claims_count.comp", lists.Length, listsPush);
-        _file = new ComputeKernel(vk, "claims_file.comp", lists.Length, listsPush);
-        _sort = new ComputeKernel(vk, "claims_sort.comp", lists.Length, listsPush);
-        _countSet = _count.Bind(lists);
-        _fileSet = _file.Bind(lists);
-        _sortSet = _sort.Bind(lists);
-        _scans = new ScanKernels(vk);
-        _scan = new PrefixScan(vk, _scans, _starts, _blockSums, _totals, 0);
+        GpuBuffer claimRows, bodyRuns, order;
+        if (claims is { } chained)
+        {
+            (claimRows, bodyRuns, order) = (chained.Rows, chained.BodyRuns, chained.Order);
+        }
+        else
+        {
+            _rowsIn = Staging<DeviceClaims.ClaimRow>(slots);
+            _answersIn = Staging<DeviceClaims.ClaimAnswer>(_walkers);
+            _rows = Device<DeviceClaims.ClaimRow>(slots);
+            _counts = Device<uint>(2 * _ways);
+            _starts = Device<uint>(2 * _ways);
+            _cursor = Device<uint>(2 * _ways);
+            _order = Device<uint>(slots);
+            _bodyRuns = Device<UInt2>(_ways);
+            _plannedRuns = Device<UInt2>(_ways);
+            _blockSums = Device<uint>(ScanKernels.Block);
+            _totals = Device<uint>(1);
+            _tally = Own(vk.CreateBuffer(Bytes<uint>(DeviceClaims.Tally.Words), BufferUsageFlags.StorageBufferBit, HostAccess.Writes));
 
-        GpuBuffer[] set =
-        [
-            _walkerRows, _routes, _straights, _passes, Resident(Laid<WalkWayRow>(walkWays)),
-            Resident(Laid<DeviceGround.ArcRow>(CollectionsMarshal.AsSpan(arcs))), Resident(Laid<uint>(markAt)),
-            Resident(Laid<MarkRow>(CollectionsMarshal.AsSpan(sections))), _rows, _bodyRuns, _order, _answers, _covers, _wayRows,
-            _proposed, _holds, _outCounts, .. _atlas.Tables,
-        ];
+            GpuBuffer[] lists = [_rows, _counts, _cursor, _order, _bodyRuns, _plannedRuns, _starts, _tally];
+            var listsPush = (uint)Marshal.SizeOf<ListsPush>();
+            _count = new ComputeKernel(vk, "claims_count.comp", lists.Length, listsPush);
+            _file = new ComputeKernel(vk, "claims_file.comp", lists.Length, listsPush);
+            _sort = new ComputeKernel(vk, "claims_sort.comp", lists.Length, listsPush);
+            _countSet = _count.Bind(lists);
+            _fileSet = _file.Bind(lists);
+            _sortSet = _sort.Bind(lists);
+            _scans = new ScanKernels(vk);
+            _scan = new PrefixScan(vk, _scans, _starts, _blockSums, _totals, 0);
+            (claimRows, bodyRuns, order) = (_rows, _bodyRuns, _order);
+        }
+
+        var walkWaysOnDevice = Resident(Laid<WalkWayRow>(walkWays));
+        var arcsOnDevice = Resident(Laid<DeviceGround.ArcRow>(CollectionsMarshal.AsSpan(arcs)));
+        var markAtOnDevice = Resident(Laid<uint>(markAt));
+        var marksOnDevice = Resident(Laid<MarkRow>(CollectionsMarshal.AsSpan(sections)));
         var pushBytes = (uint)Marshal.SizeOf<Figures>();
         string[] shaders = ["walkers_station.comp", "walkers_body.comp", "walkers_plan.comp", "walkers_read.comp"];
-        _kernels = new ComputeKernel[shaders.Length];
-        _sets = new DescriptorSet[shaders.Length];
-        for (var piece = 0; piece < shaders.Length; piece++)
+        _kernels = new ComputeKernel[Pieces];
+        _sets = new DescriptorSet[Pieces];
+        for (var piece = 0; piece < Pieces; piece++)
         {
+            var on = _on[piece];
+            GpuBuffer[] set =
+            [
+                on.Walkers, on.Routes, on.Straights, on.Passes, walkWaysOnDevice, arcsOnDevice, markAtOnDevice, marksOnDevice, claimRows,
+                bodyRuns, order, _answers, _covers, _wayRows, _proposed, _holds, _outCounts, .. _atlas.Tables,
+            ];
             _kernels[piece] = new ComputeKernel(vk, shaders[piece], set.Length, pushBytes);
             _sets[piece] = _kernels[piece].Bind(set);
         }
@@ -345,7 +375,26 @@ internal sealed class DeviceWalkers : IDisposable
         _batch.SubmitAndWait();
     }
 
-    /// <summary>Every walker as the last stage left it.</summary>
+    /// <summary>How many walkers the stages have room for.</summary>
+    public int Capacity => _walkers;
+
+    /// <summary>The room each walker's body and pass rows have in <see cref="Covers"/>.</summary>
+    public int CoverRoom => _coverRoom;
+
+    /// <summary>The room each walker's plan rows have in <see cref="Proposed"/>.</summary>
+    public int ProposedRoom => _proposedRoom;
+
+    /// <summary>
+    /// On the device, as the last stage recorded left them: each walker's body rows then its pass's
+    /// (<see cref="CoverRoom"/> a walker), its plan's rows (<see cref="ProposedRoom"/> a walker) and its hold, and how many
+    /// of each (bodies and passes from <see cref="Piece.Body"/>; a hold laid, ways and plan rows from <see cref="Piece.Plan"/>).
+    /// </summary>
+    public (GpuBuffer Covers, GpuBuffer Proposed, GpuBuffer Holds, GpuBuffer Counts) OnTheDevice => (_covers, _proposed, _holds, _outCounts);
+
+    /// <summary>What each walker's hold came to, a walker a row, as <see cref="Piece.Read"/> reads it — the chain's to write.</summary>
+    public GpuBuffer AnswersRead => _answers;
+
+    /// <summary>Every walker as the last stage read back left it.</summary>
     public ReadOnlySpan<WalkerRow> Walkers => _walkersOut.Span<WalkerRow>()[.._walkerCount];
 
     /// <summary>One walker's body as the last <see cref="Piece.Body"/> laid it, as rows in the order the town lays them.</summary>
@@ -380,17 +429,17 @@ internal sealed class DeviceWalkers : IDisposable
 
     ReadOnlySpan<UInt4> Counts => _countsOut.Span<UInt4>();
 
-    /// <summary>The device's time over the last stage's walkers' kernel, in milliseconds.</summary>
+    /// <summary>The device's time over the last stage's walkers' kernel run on its own, in milliseconds.</summary>
     public double RanMs => _timer.BetweenMs((int)Stamp.Listed, (int)Stamp.Ran);
 
     /// <summary>And over the claims' lists it laid first, nought where it read no claims.</summary>
     public double ListedMs => _timer.BetweenMs((int)Stamp.Began, (int)Stamp.Listed);
 
     /// <summary>
-    /// <b>The walkers as the town has them now</b>, written into what the device is sent: every walker's row, its route,
-    /// the straight it committed to and its pass's ground.
+    /// <b>The walkers as the town has them now</b>, written into what <paramref name="piece"/> is sent: every walker's row,
+    /// its route, the straight it committed to and its pass's ground.
     /// </summary>
-    public void Lay(TownWorld world)
+    public void Lay(TownWorld world, Piece piece)
     {
         var people = world.People;
         var ground = world.WalkingGround;
@@ -405,10 +454,11 @@ internal sealed class DeviceWalkers : IDisposable
             if (officers[car] >= 0 && officers[car] < _walkers) _dutyCar[officers[car]] = car;
         }
 
-        var rows = _walkersIn.Span<WalkerRow>();
-        var routes = _routesIn.Span<int>();
-        var straights = _straightsIn.Span<SweptRun>();
-        var passes = _passesIn.Span<SweptRun>();
+        var sent = _in[(int)piece];
+        var rows = sent.Walkers.Span<WalkerRow>();
+        var routes = sent.Routes.Span<int>();
+        var straights = sent.Straights.Span<SweptRun>();
+        var passes = sent.Passes.Span<SweptRun>();
         for (var person = 0; person < people.Count; person++)
         {
             var heldAs = ground.HeldAs(person, out var roster);
@@ -461,36 +511,28 @@ internal sealed class DeviceWalkers : IDisposable
     }
 
     /// <summary>
-    /// <b>The reservations as the town has them now</b>, written into what the device is sent: every slot a row, a main
-    /// claim of a plan with how far its holder's body reaches along its way (<see cref="DeviceClaims.Lay"/>'s rows).
+    /// <b>The reservations as the town has them now</b>, written into what a stage run on its own is sent: every slot a
+    /// row, a main claim of a plan with how far its holder's body reaches along its way (<see cref="DeviceClaims.Lay"/>'s rows).
     /// </summary>
     public void LayTheClaims(LaneOccupancy claims)
     {
         if (claims.WayCount != _ways) throw new InvalidOperationException("The claims are over another town's ways.");
 
-        var slots = claims.Slots;
-        var slotWays = claims.SlotWays;
-        var gone = claims.SlotsGone;
-        var standsToM = claims.SlotStandsToM;
-        var rows = _rowsIn.Span<DeviceClaims.ClaimRow>();
-        for (var slot = 0; slot < slots.Length; slot++)
-        {
-            ref readonly var claim = ref slots[slot];
-            var proposed = !claim.HasBody && !claim.Secondary && claims.IsAnswered(claim.Hold);
-            rows[slot] = DeviceClaims.ClaimRow.Of(claim, slotWays[slot], gone[slot], proposed ? standsToM[slot] : claim.FromM);
-        }
+        var rows = OwnClaims(_rowsIn).Span<DeviceClaims.ClaimRow>();
+        for (var slot = 0; slot < claims.SlotCount; slot++) rows[slot] = DeviceClaims.ClaimRow.OfSlot(claims, slot);
 
-        _rowCount = slots.Length;
+        _rowCount = claims.SlotCount;
+        OwnClaims(_tally).Span<uint>()[DeviceClaims.Tally.Rows] = (uint)_rowCount;
     }
 
     /// <summary>
     /// <b>What every walker's hold came to</b> (<see cref="LaneOccupancy.HoldEndsAtM"/>, <see cref="LaneOccupancy.HoldCutOn"/>),
-    /// a walker a row, written into what the device is sent.
+    /// a walker a row, written into what a stage run on its own is sent.
     /// </summary>
     public void LayTheAnswers(TownWorld world)
     {
         var claims = world.Occupancy;
-        var answers = _answersIn.Span<DeviceClaims.ClaimAnswer>();
+        var answers = OwnClaims(_answersIn).Span<DeviceClaims.ClaimAnswer>();
         for (var person = 0; person < world.People.Count; person++)
         {
             var hold = world.WalkHold(person);
@@ -501,8 +543,8 @@ internal sealed class DeviceWalkers : IDisposable
     }
 
     /// <summary>
-    /// <b>One stage run</b>: what was laid sent across, the claims' body lists laid where the stage reads them, the
-    /// stage's kernel run over every walker, and what it came to read back.
+    /// <b>One stage run on its own</b>: what was laid for it sent across, the claims' body lists laid where the stage reads
+    /// them, the stage's kernel run over every walker, and what it came to read back. One submit and one wait.
     /// </summary>
     public void Run(Piece piece)
     {
@@ -510,15 +552,12 @@ internal sealed class DeviceWalkers : IDisposable
         var readsTheClaims = piece is Piece.Plan or Piece.Read;
         var commands = _batch.Begin();
         _timer.Reset(commands);
-        vk.Copy(commands, _walkersIn, _walkerRows, Bytes<WalkerRow>(_walkerCount));
-        vk.Copy(commands, _routesIn, _routes, Bytes<int>(_walkerCount * PersonFleet.RouteWaysPerPerson));
-        vk.Copy(commands, _straightsIn, _straights, Bytes<SweptRun>(_walkerCount * WalkingGround.MostRunsOfAStraight));
-        vk.Copy(commands, _passesIn, _passes, Bytes<SweptRun>(_walkerCount * Sidestepping.MostRunsOfAPass));
-        if (piece == Piece.Read) vk.Copy(commands, _answersIn, _answers, Bytes<DeviceClaims.ClaimAnswer>(_walkerCount));
+        RecordSend(commands, piece);
+        if (piece == Piece.Read) vk.Copy(commands, OwnClaims(_answersIn), _answers, Bytes<DeviceClaims.ClaimAnswer>(_walkerCount));
         if (readsTheClaims)
         {
-            vk.Copy(commands, _rowsIn, _rows, Bytes<DeviceClaims.ClaimRow>(_rowCount));
-            vk.Fill(commands, _counts, 0);
+            vk.Copy(commands, OwnClaims(_rowsIn), OwnClaims(_rows), Bytes<DeviceClaims.ClaimRow>(_rowCount));
+            vk.Fill(commands, OwnClaims(_counts), 0);
         }
 
         vk.AfterTransfer(commands);
@@ -526,12 +565,43 @@ internal sealed class DeviceWalkers : IDisposable
         if (readsTheClaims) LayTheLists(commands);
 
         _timer.Stamp(commands, (int)Stamp.Listed);
-        var figures = _figures with { WalkerCount = (uint)_walkerCount };
-        _kernels[(int)piece].Dispatch(commands, _sets[(int)piece], Groups(_walkerCount), figures);
+        Record(commands, piece);
         vk.BeforeTransfer(commands);
         _timer.Stamp(commands, (int)Stamp.Ran);
+        RecordRead(commands, piece);
+        _batch.SubmitAndWait();
+        _timer.Read();
+    }
 
-        vk.Copy(commands, _walkerRows, _walkersOut, Bytes<WalkerRow>(_walkerCount));
+    /// <summary>What was laid for <paramref name="piece"/> copied to its walkers on the device, recorded; the caller barriers.</summary>
+    public void RecordSend(CommandBuffer commands, Piece piece)
+    {
+        var vk = _vk;
+        var (from, to) = (_in[(int)piece], _on[(int)piece]);
+        vk.Copy(commands, from.Walkers, to.Walkers, Bytes<WalkerRow>(_walkerCount));
+        vk.Copy(commands, from.Routes, to.Routes, Bytes<int>(_walkerCount * PersonFleet.RouteWaysPerPerson));
+        vk.Copy(commands, from.Straights, to.Straights, Bytes<SweptRun>(_walkerCount * WalkingGround.MostRunsOfAStraight));
+        vk.Copy(commands, from.Passes, to.Passes, Bytes<SweptRun>(_walkerCount * Sidestepping.MostRunsOfAPass));
+    }
+
+    /// <summary>How many bytes one stage's send copies (<see cref="RecordSend"/>).</summary>
+    public ulong SentBytesAStage =>
+        Bytes<WalkerRow>(_walkerCount) + Bytes<int>(_walkerCount * PersonFleet.RouteWaysPerPerson)
+        + Bytes<SweptRun>(_walkerCount * WalkingGround.MostRunsOfAStraight) + Bytes<SweptRun>(_walkerCount * Sidestepping.MostRunsOfAPass);
+
+    /// <summary><paramref name="piece"/>'s kernel over every walker its walkers were laid for, recorded and made visible to the next kernel.</summary>
+    public void Record(CommandBuffer commands, Piece piece)
+    {
+        var figures = _figures with { WalkerCount = (uint)_walkerCount };
+        _kernels[(int)piece].Dispatch(commands, _sets[(int)piece], Groups(_walkerCount), figures);
+        _vk.BetweenKernels(commands);
+    }
+
+    /// <summary>What <paramref name="piece"/> left copied back, recorded after a transfer barrier.</summary>
+    public void RecordRead(CommandBuffer commands, Piece piece)
+    {
+        var vk = _vk;
+        vk.Copy(commands, _on[(int)piece].Walkers, _walkersOut, Bytes<WalkerRow>(_walkerCount));
         vk.Copy(commands, _outCounts, _countsOut, Bytes<UInt4>(_walkerCount));
         switch (piece)
         {
@@ -539,35 +609,35 @@ internal sealed class DeviceWalkers : IDisposable
                 vk.Copy(commands, _covers, _coversOut, Bytes<DeviceClaims.ClaimRow>(_walkerCount * _coverRoom));
                 break;
             case Piece.Plan:
-                vk.Copy(commands, _straights, _straightsOut, Bytes<SweptRun>(_walkerCount * WalkingGround.MostRunsOfAStraight));
+                vk.Copy(commands, _on[(int)piece].Straights, _straightsOut, Bytes<SweptRun>(_walkerCount * WalkingGround.MostRunsOfAStraight));
                 vk.Copy(commands, _wayRows, _waysOut, Bytes<LineWay>(_walkerCount * MostWaysInTheKernel));
                 vk.Copy(commands, _proposed, _proposedOut, Bytes<DeviceClaims.ClaimRow>(_walkerCount * _proposedRoom));
                 vk.Copy(commands, _holds, _holdsOut, Bytes<DeviceClaims.HoldRow>(_walkerCount));
                 break;
         }
-
-        _batch.SubmitAndWait();
-        _timer.Read();
     }
 
     /// <summary>Every way's body list laid from the rows, as the claims lay theirs (<c>claims_lists.glsl</c>).</summary>
     void LayTheLists(CommandBuffer commands)
     {
         var vk = _vk;
-        var lists = new ListsPush((uint)_rowCount, (uint)_ways);
-        _count.Dispatch(commands, _countSet, Groups(_rowCount), lists);
+        var lists = new ListsPush((uint)_ways, 0u);
+        _count!.Dispatch(commands, _countSet, Groups(_rowCount), lists);
         vk.BeforeTransfer(commands);
-        vk.Copy(commands, _counts, _starts, _counts.SizeBytes);
+        vk.Copy(commands, OwnClaims(_counts), OwnClaims(_starts), OwnClaims(_counts).SizeBytes);
         vk.AfterTransfer(commands);
-        _scan.Record(commands, 2 * _ways);
+        _scan!.Record(commands, 2 * _ways);
         vk.BeforeTransfer(commands);
-        vk.Copy(commands, _starts, _cursor, _starts.SizeBytes);
+        vk.Copy(commands, OwnClaims(_starts), OwnClaims(_cursor), OwnClaims(_starts).SizeBytes);
         vk.AfterTransfer(commands);
-        _file.Dispatch(commands, _fileSet, Groups(_rowCount), lists);
+        _file!.Dispatch(commands, _fileSet, Groups(_rowCount), lists);
         vk.BetweenKernels(commands);
-        _sort.Dispatch(commands, _sortSet, Groups(_ways), lists);
+        _sort!.Dispatch(commands, _sortSet, Groups(_ways), lists);
         vk.BetweenKernels(commands);
     }
+
+    static GpuBuffer OwnClaims(GpuBuffer? buffer) =>
+        buffer ?? throw new InvalidOperationException("These walkers read the device's own claims, and lay none of the town's.");
 
     static uint Groups(int count) => (uint)Math.Max(1, (count + 63) / 64);
 
@@ -609,8 +679,10 @@ internal sealed class DeviceWalkers : IDisposable
     {
         _timer.Dispose();
         _batch.Dispose();
-        _scans.Dispose();
-        foreach (var kernel in (ReadOnlySpan<ComputeKernel>)[_count, _file, _sort]) kernel.Dispose();
+        _scans?.Dispose();
+        _count?.Dispose();
+        _file?.Dispose();
+        _sort?.Dispose();
         foreach (var kernel in _kernels) kernel.Dispose();
         foreach (var buffer in _owned) buffer.Dispose();
         _atlas.Dispose();

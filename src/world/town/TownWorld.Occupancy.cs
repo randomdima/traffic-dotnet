@@ -74,6 +74,7 @@ internal sealed partial class TownWorld
         // Every car's body, and from here on only the cars that were asked for theirs: a standing car's pass,
         // manoeuvre, plan, backing and grant are the nothing they were at the last laying.
         LayTheCarsBodies();
+        Watch(ClaimsStage.CarsLaid);
 
         // The ground a pass will cover is a body's (TER-4c.6), and so is a manoeuvre's at a bay (GEN-4f): both are
         // down before anything is asked for.
@@ -82,6 +83,8 @@ internal sealed partial class TownWorld
         _bays.ForgetTheSweeps();
         foreach (var car in CarsAsked) _bays.Lay(car);
         for (var person = 0; person < People.Count; person++) _sidestepping.Lay(person);
+
+        Watch(ClaimsStage.PassesLaid);
 
         // The lights before any plan: a light's hold is placed rather than asked for, so it has to be down before
         // the plans it refuses are answered (TLT-1).
@@ -96,6 +99,7 @@ internal sealed partial class TownWorld
             if (!PlansDownItsLine(car)) PlanTheDrive(car, ways);
         }
 
+        Watch(ClaimsStage.DrivesDue);
         foreach (var car in CarsAsked)
         {
             if (PlansDownItsLine(car)) PlanTheDrive(car, ways);

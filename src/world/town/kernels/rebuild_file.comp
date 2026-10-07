@@ -1,0 +1,93 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every unit of the plans the device laid filed at the rows and holds its scans number, one thread a unit
+// (rebuild_plans.glsl): a light's hold and its piece (SignalHolds.HoldTheStretch), a car's plan (Following.Plan), a
+// walker's walk (WalkingGround.Claim, HoldShortOf) — each hold with the terms its holder gave it, and each row named it.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint stretchCount;
+    uint carCount;
+    uint walkerCount;
+    uint mostPieces;
+    uint proposedRoom;
+    uint standingUnit;
+    float standOffM;
+    uint pad;
+} figures;
+
+#include "world/town/kernels/rebuild_plans.glsl"
+
+void main()
+{
+    uint unit = gl_GlobalInvocationID.x;
+    if (unit >= plansUnitCount()) return;
+
+    uint rowAt = tally[TallyPassesEnd] + unitRows[unit];
+    uint holdAt = unitHolds[unit];
+    if (unit < figures.stretchCount)
+    {
+        vec4 stretch = held[unit];
+        if (stretch.x == 0.0) return;
+
+        // A light's hold is placed, so answered, keeps nothing off what cuts it and is laid to end where its stretch was
+        // cut — on no way (LaneOccupancy.Place, EndHold).
+        uint placed = stretch.y != 0.0 ? 1u : 0u;
+        plansFileTheHold(holdAt, HoldRow(
+            rowAt, rowAt + placed, 0.0, HoldAnswered, 0.0, -rebuildInfinity(), stretch.z, 0.0, floatBitsToUint(stretch.w), -1, 0.0, 0.0));
+        if (placed == 0u) return;
+
+        ClaimRow piece = stretchPieces[unit];
+        piece.hold = int(holdAt);
+        rows[rowAt] = piece;
+        return;
+    }
+
+    if (unit < plansFirstWalker())
+    {
+        if (unit < plansFirstCar()) return;
+
+        uint car = unit - plansFirstCar();
+        if ((carClaims[car].flags & CarPlansOnTheDevice) == 0u) return;
+
+        PlanOutRow plan = planResults[car];
+        if (plan.laidAHold == 0u) return;
+
+        // Its terms are its own (Following.TermsOf): on a call, the room to step out round what it may pass, and how slow
+        // traffic must be for a call to pass it; laid whole, to end nowhere short — and answered with the plans where it
+        // proposed down any way at all.
+        bool onACall = (planCars[car].y & PlanCarOnACall) != 0u;
+        uint answered = plan.ways > 0u ? HoldAnswered : 0u;
+        plansFileTheHold(holdAt, HoldRow(
+            rowAt, rowAt + plan.pieces, figures.standOffM, answered | (onACall ? HoldOnACall : 0u), planFigures[car * 2u + 1u].y,
+            plan.passesBelowMps, rebuildInfinity(), 0.0, NoRow, -1, 0.0, 0.0));
+        uint first = car * figures.mostPieces;
+        for (uint piece = 0u; piece < plan.pieces; piece++)
+        {
+            ClaimRow laid = planPieces[first + piece];
+            laid.hold = int(holdAt);
+            rows[rowAt + piece] = laid;
+        }
+
+        return;
+    }
+
+    uint walker = unit - plansFirstWalker();
+    uvec4 walk = walkerCounts[walker];
+    if (walk.x == 0u) return;
+
+    HoldRow hold = walkerHolds[walker];
+    uint first = hold.firstRow;
+    hold.endRow = rowAt + (hold.endRow - first);
+    hold.firstRow = rowAt;
+    plansFileTheHold(holdAt, hold);
+    for (uint piece = 0u; piece < walk.w; piece++)
+    {
+        ClaimRow laid = walkerProposed[first + piece];
+        laid.hold = int(holdAt);
+        rows[rowAt + piece] = laid;
+    }
+}

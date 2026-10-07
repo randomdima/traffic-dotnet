@@ -1,0 +1,73 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The claims' tally moved on by one step of a rebuild numbered on the device (claims_tally.glsl), one thread: the
+// scans' totals read into the counts every later kernel stops at, and the groups each is dispatched with.
+
+layout(local_size_x = 1) in;
+
+layout(push_constant) uniform Figures
+{
+    uint step;
+    uint hostRows;
+    uint hostHolds;
+    uint pad;
+} figures;
+
+#include "world/road/kernels/claims_tally.glsl"
+
+// What the scans left: the bodies' candidates, their bodies, and the plans' rows and holds.
+const uint SumCandidates = 0u;
+const uint SumBodies = 1u;
+const uint SumPlannedRows = 2u;
+const uint SumPlannedHolds = 3u;
+
+// The steps, in the order a rebuild takes them: its bodies' pieces gathered; its bodies numbered, and the passes the host
+// laid after them; every plan numbered; and the backing the host laid after the answers.
+const uint StepCandidates = 0u;
+const uint StepBodies = 1u;
+const uint StepPlans = 2u;
+const uint StepBacking = 3u;
+
+layout(std430, binding = 0) readonly buffer Sums { uint sums[]; };
+layout(std430, binding = 1) buffer Tally { uint tally[]; };
+
+void tallyGroups(uint at, uint count)
+{
+    tally[at] = max(1u, (count + 63u) / 64u);
+    tally[at + 1u] = 1u;
+    tally[at + 2u] = 1u;
+}
+
+void main()
+{
+    if (figures.step == StepCandidates)
+    {
+        tally[TallyCandidates] = sums[SumCandidates];
+        tallyGroups(TallyCandidatesGroups, sums[SumCandidates]);
+        return;
+    }
+
+    if (figures.step == StepBodies)
+    {
+        tally[TallyBodies] = sums[SumBodies];
+        tally[TallyPassesEnd] = sums[SumBodies] + figures.hostRows;
+        tally[TallyRows] = tally[TallyPassesEnd];
+        tally[TallyHolds] = 0u;
+    }
+    else if (figures.step == StepPlans)
+    {
+        tally[TallyPlannedRows] = tally[TallyPassesEnd] + sums[SumPlannedRows];
+        tally[TallyPlannedHolds] = sums[SumPlannedHolds];
+        tally[TallyRows] = tally[TallyPlannedRows];
+        tally[TallyHolds] = tally[TallyPlannedHolds];
+    }
+    else
+    {
+        tally[TallyRows] = tally[TallyPlannedRows] + figures.hostRows;
+        tally[TallyHolds] = tally[TallyPlannedHolds] + figures.hostHolds;
+    }
+
+    tallyGroups(TallyRowsGroups, tally[TallyRows]);
+    tallyGroups(TallyHoldsGroups, tally[TallyHolds]);
+}

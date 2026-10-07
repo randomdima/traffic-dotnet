@@ -206,6 +206,7 @@ PlanOutRow planTheCar(uint car, PlanCarRow row, CarBuildRow build, CarLineRow li
     result.laidAHold = 1u;
     LineWayRow ways[LINE_MOST_WAYS];
     uint count = lineWaysAlong(car, line.laneCount, planFromM, planToM, ways);
+    result.ways = count;
 
     uint rungs[LINE_MOST_WAYS];
     uint next = RungFirm;

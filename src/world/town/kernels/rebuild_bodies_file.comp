@@ -1,0 +1,29 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every candidate the host lays filed under its way, one thread a candidate, in whatever order the threads come — each
+// way's run is sorted after (rebuild_bodies_sort.comp).
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint walkerCount;
+    uint carCount;
+    uint wayCount;
+    uint coverRoom;
+    uint carRoom;
+} figures;
+
+#include "world/town/kernels/rebuild_bodies.glsl"
+
+void main()
+{
+    uint candidate = gl_GlobalInvocationID.x;
+    if (candidate >= tally[TallyCandidates]) return;
+
+    ClaimRow laid = bodiesCandidate(candidateRefs[candidate]);
+    if (bodiesRefused(laid)) return;
+
+    candidateOrder[atomicAdd(wayCursor[laid.way], 1u)] = candidate;
+}

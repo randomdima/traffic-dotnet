@@ -1,0 +1,26 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// How many pieces each unit's body laid, one thread a unit, for the scan that says where each unit's candidates start
+// (rebuild_bodies.glsl).
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint walkerCount;
+    uint carCount;
+    uint wayCount;
+    uint coverRoom;
+    uint carRoom;
+} figures;
+
+#include "world/town/kernels/rebuild_bodies.glsl"
+
+void main()
+{
+    uint unit = gl_GlobalInvocationID.x;
+    if (unit >= bodiesUnitCount()) return;
+
+    unitCandidates[unit] = bodiesPiecesOf(unit);
+}

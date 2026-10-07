@@ -72,7 +72,7 @@ internal static class DeviceWalkersProbe
             switch (stage)
             {
                 case ClaimsStage.Begun:
-                    onDevice.Lay(town);
+                    onDevice.Lay(town, Piece.Station);
                     onDevice.Run(Piece.Station);
                     station.DeviceMs.Add(onDevice.RanMs);
                     station.Host.Restart();
@@ -81,7 +81,7 @@ internal static class DeviceWalkersProbe
                 case ClaimsStage.Stationed:
                     station.HostMs.Add(station.Host.Elapsed.TotalMilliseconds);
                     CompareTheStations(town, onDevice, station);
-                    onDevice.Lay(town);
+                    onDevice.Lay(town, Piece.Body);
                     onDevice.Run(Piece.Body);
                     bodies.DeviceMs.Add(onDevice.RanMs);
                     CompareTheBodies(town, onDevice, bodies, recall, cover);
@@ -93,7 +93,7 @@ internal static class DeviceWalkersProbe
                     break;
 
                 case ClaimsStage.WalksDue:
-                    onDevice.Lay(town);
+                    onDevice.Lay(town, Piece.Plan);
                     onDevice.LayTheClaims(town.Occupancy);
                     onDevice.Run(Piece.Plan);
                     walks.DeviceMs.Add(onDevice.RanMs);
@@ -107,7 +107,7 @@ internal static class DeviceWalkersProbe
                     break;
 
                 case ClaimsStage.WalkersDue:
-                    onDevice.Lay(town);
+                    onDevice.Lay(town, Piece.Read);
                     onDevice.LayTheClaims(town.Occupancy);
                     onDevice.LayTheAnswers(town);
                     onDevice.Run(Piece.Read);

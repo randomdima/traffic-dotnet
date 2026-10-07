@@ -13,8 +13,8 @@ namespace TrafficSimulation.App.DeviceTick;
 /// <summary>
 /// <b>Every car's body laid onto the ways under it on the device</b> (<c>world/town/kernels/car_bodies.glsl</c>), beside
 /// the host's: the cars as they stand when a rebuild begins sent across, each car's box read through the atlas
-/// (<see cref="DeviceAtlas"/>) and its rows laid, one car a thread — read back to be held to the host's. One submit and
-/// one wait.
+/// (<see cref="DeviceAtlas"/>) and its rows laid, one car a thread — read back to be held to the host's
+/// (<see cref="LayTheBodies"/>), or left on the device for a rebuild to number (<see cref="Record"/>).
 /// </summary>
 internal sealed class DeviceBodies : IDisposable
 {
@@ -43,11 +43,12 @@ internal sealed class DeviceBodies : IDisposable
     readonly uint _firstConnector;
     readonly DeviceAtlas _atlas;
     readonly List<GpuBuffer> _owned = [];
-    readonly GpuBuffer _bodies, _lines, _chain, _rows, _counts;
+    readonly GpuBuffer _bodiesIn, _linesIn, _chainIn, _bodies, _lines, _chain, _rows, _counts, _rowsOut, _countsOut;
     readonly ComputeKernel _lay;
     readonly DescriptorSet _set;
     readonly ComputeBatch _batch;
     readonly GpuTimer _timer;
+    int _carCount;
 
     public DeviceBodies(Vk vk, SimConfig config, TownWorld world)
     {
@@ -74,14 +75,19 @@ internal sealed class DeviceBodies : IDisposable
 
         for (var connector = 0; connector < roads.ConnectorCount; connector++) connectorTo[connector] = roads.ConnectorTo(connector);
 
-        _bodies = Mapped<BodyRow>(_cars, HostAccess.Writes);
-        _lines = Mapped<CarLineRow>(_cars, HostAccess.Writes);
-        _chain = Mapped<int>(_cars * LineAssembler.MostLanes, HostAccess.Writes);
-        _rows = Mapped<DeviceClaims.ClaimRow>(_cars * MostWaysInTheKernel, HostAccess.Reads);
-        _counts = Mapped<UInt4>(_cars, HostAccess.Reads);
-        var connectorAtBuffer = Mapped<uint>(connectorAt.Length, HostAccess.Writes);
+        _bodiesIn = Staging<BodyRow>(_cars);
+        _linesIn = Staging<CarLineRow>(_cars);
+        _chainIn = Staging<int>(_cars * LineAssembler.MostLanes);
+        _bodies = Device<BodyRow>(_cars);
+        _lines = Device<CarLineRow>(_cars);
+        _chain = Device<int>(_cars * LineAssembler.MostLanes);
+        _rows = Device<DeviceClaims.ClaimRow>(_cars * MostWaysInTheKernel);
+        _counts = Device<UInt4>(_cars);
+        _rowsOut = Readback<DeviceClaims.ClaimRow>(_cars * MostWaysInTheKernel);
+        _countsOut = Readback<UInt4>(_cars);
+        var connectorAtBuffer = Own(vk.CreateBuffer(Bytes<uint>(connectorAt.Length), BufferUsageFlags.StorageBufferBit, HostAccess.Writes));
         connectorAtBuffer.Write<uint>(connectorAt);
-        var connectorToBuffer = Mapped<int>(connectorTo.Length, HostAccess.Writes);
+        var connectorToBuffer = Own(vk.CreateBuffer(Bytes<int>(connectorTo.Length), BufferUsageFlags.StorageBufferBit, HostAccess.Writes));
         connectorToBuffer.Write<int>(connectorTo);
 
         GpuBuffer[] set = [_bodies, _lines, _chain, connectorAtBuffer, connectorToBuffer, _rows, _counts, .. _atlas.Tables];
@@ -91,28 +97,38 @@ internal sealed class DeviceBodies : IDisposable
         _timer = new GpuTimer(vk, 2);
     }
 
-    /// <summary>The device's time over the last laying, in milliseconds.</summary>
+    /// <summary>The room each car's rows have in <see cref="OnTheDevice"/>.</summary>
+    public static int Room => MostWaysInTheKernel;
+
+    /// <summary>
+    /// On the device, as the last laying left them: each car's rows at <see cref="Room"/> a car, in the order the atlas
+    /// found its ways, and how many there are and the channels it is on (<c>uvec4</c> a car).
+    /// </summary>
+    public (GpuBuffer Rows, GpuBuffer Counts) OnTheDevice => (_rows, _counts);
+
+    /// <summary>The device's time over the last laying run on its own, in milliseconds.</summary>
     public double LaidMs => _timer.BetweenMs(0, 1);
 
-    /// <summary>One car's rows as the last laying laid them, in the order the atlas found its ways.</summary>
+    /// <summary>One car's rows as the last laying read back laid them, in the order the atlas found its ways.</summary>
     public ReadOnlySpan<DeviceClaims.ClaimRow> RowsOf(int car) =>
-        _rows.Span<DeviceClaims.ClaimRow>().Slice(car * MostWaysInTheKernel, (int)_counts.Span<UInt4>()[car].X);
+        _rowsOut.Span<DeviceClaims.ClaimRow>().Slice(car * MostWaysInTheKernel, (int)_countsOut.Span<UInt4>()[car].X);
 
     /// <summary>The channels a car is on once its body is laid: those of the ways under it, or its own over none.</summary>
-    public byte ChannelsOf(int car) => (byte)_counts.Span<UInt4>()[car].Y;
+    public byte ChannelsOf(int car) => (byte)_countsOut.Span<UInt4>()[car].Y;
 
     /// <summary>
     /// <b>The cars as they stand when a rebuild begins</b> (<see cref="ClaimsStage.Begun"/>), written into
-    /// what the device reads: each box, on the host's own forward unit vector, and what it is laid as.
+    /// what the device is sent: each box, on the host's own forward unit vector, and what it is laid as.
     /// </summary>
     public void Lay(TownWorld world)
     {
         var cars = world.Cars;
-        var bodies = _bodies.Span<BodyRow>();
-        var lines = _lines.Span<CarLineRow>();
-        var chain = _chain.Span<int>();
+        var bodies = _bodiesIn.Span<BodyRow>();
+        var lines = _linesIn.Span<CarLineRow>();
+        var chain = _chainIn.Span<int>();
         var lanes = LineAssembler.MostLanes;
         var stopMps = _config.Driving.StopSpeedMps;
+        _carCount = cars.Count;
         for (var car = 0; car < cars.Count; car++)
         {
             var laying = world.LayingOf(car);
@@ -130,22 +146,56 @@ internal sealed class DeviceBodies : IDisposable
         }
     }
 
-    /// <summary>Every car's body laid, and what each came to read back.</summary>
+    /// <summary>Every car's body laid, and what each came to read back. One submit and one wait.</summary>
     public void LayTheBodies(int carCount)
     {
+        _carCount = carCount;
         var commands = _batch.Begin();
         _timer.Reset(commands);
+        RecordSend(commands);
+        _vk.AfterTransfer(commands);
         _timer.Stamp(commands, 0);
-        _lay.Dispatch(
-            commands, _set, (uint)Math.Max(1, (carCount + 63) / 64),
-            new BodiesPush(_atlas.PushFor(carCount), _firstConnector, (uint)LineAssembler.MostLanes, CityGen.CityPlan.RoadArrays.GroundChannel));
+        Record(commands);
         _timer.Stamp(commands, 1);
+        _vk.BeforeTransfer(commands);
+        _vk.Copy(commands, _rows, _rowsOut, Bytes<DeviceClaims.ClaimRow>(_carCount * MostWaysInTheKernel));
+        _vk.Copy(commands, _counts, _countsOut, Bytes<UInt4>(_carCount));
         _batch.SubmitAndWait();
         _timer.Read();
     }
 
-    GpuBuffer Mapped<T>(int count, HostAccess access) where T : unmanaged => Own(
-        _vk.CreateBuffer((ulong)(Math.Max(1, count) * Marshal.SizeOf<T>()), BufferUsageFlags.StorageBufferBit, access));
+    /// <summary>What was laid copied to the device, recorded; the caller barriers.</summary>
+    public void RecordSend(CommandBuffer commands)
+    {
+        _vk.Copy(commands, _bodiesIn, _bodies, Bytes<BodyRow>(_carCount));
+        _vk.Copy(commands, _linesIn, _lines, Bytes<CarLineRow>(_carCount));
+        _vk.Copy(commands, _chainIn, _chain, Bytes<int>(_carCount * LineAssembler.MostLanes));
+    }
+
+    /// <summary>How many bytes <see cref="RecordSend"/> copies.</summary>
+    public ulong SentBytes => Bytes<BodyRow>(_carCount) + Bytes<CarLineRow>(_carCount) + Bytes<int>(_carCount * LineAssembler.MostLanes);
+
+    /// <summary>Every car laid for laid onto the ways under it, recorded and made visible to the next kernel.</summary>
+    public void Record(CommandBuffer commands)
+    {
+        _lay.Dispatch(
+            commands, _set, (uint)Math.Max(1, (_carCount + 63) / 64),
+            new BodiesPush(_atlas.PushFor(_carCount), _firstConnector, (uint)LineAssembler.MostLanes, CityGen.CityPlan.RoadArrays.GroundChannel));
+        _vk.BetweenKernels(commands);
+    }
+
+    GpuBuffer Device<T>(int count) where T : unmanaged => Own(
+        _vk.CreateBuffer(
+            Bytes<T>(count), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferSrcBit | BufferUsageFlags.TransferDstBit,
+            HostAccess.None));
+
+    GpuBuffer Staging<T>(int count) where T : unmanaged =>
+        Own(_vk.CreateBuffer(Bytes<T>(count), BufferUsageFlags.TransferSrcBit, HostAccess.Writes));
+
+    GpuBuffer Readback<T>(int count) where T : unmanaged =>
+        Own(_vk.CreateBuffer(Bytes<T>(count), BufferUsageFlags.TransferDstBit, HostAccess.Reads));
+
+    static unsafe ulong Bytes<T>(int count) where T : unmanaged => (ulong)(Math.Max(1, count) * sizeof(T));
 
     GpuBuffer Own(GpuBuffer buffer)
     {

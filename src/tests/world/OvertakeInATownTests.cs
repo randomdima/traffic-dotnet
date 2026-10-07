@@ -549,7 +549,7 @@ public class OvertakeInATownTests
     /// then put down again a stand-off in front of its nose — nearer than it could step out round it from.
     /// </summary>
     /// <returns>The car, the lane, where along it the wreck ends, and the one in the lane beside.</returns>
-    static (int Driver, int Lane, float ClearsM, int Beside) StandTooNearAWreck(TownWorld world, SimLoop<TownWorld> loop)
+    internal static (int Driver, int Lane, float ClearsM, int Beside) StandTooNearAWreck(TownWorld world, SimLoop<TownWorld> loop)
     {
         var (driver, lane, _, wreck, beside) = StageAWreckAhead(world, alsoInTheLaneBeside: true);
         var cars = world.Cars;
@@ -789,7 +789,7 @@ public class OvertakeInATownTests
     const int StandsForTicks = 60;
 
     /// <summary>Somewhere no way of any town reaches, to take a wreck out of the road.</summary>
-    static readonly Vector2 FarOffTheTownM = new(-10_000f, -10_000f);
+    internal static readonly Vector2 FarOffTheTownM = new(-10_000f, -10_000f);
 
     /// <summary>How far in front of the car's nose the wreck is put down: a town speed's stop and more.</summary>
     const float WreckAheadM = 45f;

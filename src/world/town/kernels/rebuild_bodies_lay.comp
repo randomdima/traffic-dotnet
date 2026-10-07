@@ -1,0 +1,49 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every unit's bodies of their own laid at the slots its scan numbers, each grown over every later piece of its holder's
+// on its way in the order the host lays them, one thread a unit (rebuild_bodies.glsl, LaneOccupancy.LayBody).
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint walkerCount;
+    uint carCount;
+    uint wayCount;
+    uint coverRoom;
+    uint carRoom;
+} figures;
+
+#include "world/town/kernels/rebuild_bodies.glsl"
+
+void main()
+{
+    uint unit = gl_GlobalInvocationID.x;
+    if (unit >= bodiesUnitCount()) return;
+
+    uint first = unitCandidates[unit];
+    uint pieces = bodiesPiecesOf(unit);
+    uint slot = unitBodies[unit];
+    for (uint piece = 0u; piece < pieces; piece++)
+    {
+        uint candidate = first + piece;
+        if (firsts[candidate] == 0u) continue;
+
+        ClaimRow body = bodiesCandidate(candidateRefs[candidate]);
+        uint start = wayStarts[body.way];
+        for (uint at = start; at < start + wayCounts[body.way]; at++)
+        {
+            uint later = candidateOrder[at];
+            if (later <= candidate) continue;
+
+            ClaimRow laid = bodiesCandidate(candidateRefs[later]);
+            if (bodiesSameHolder(body, laid)) body = bodiesGrown(body, laid);
+        }
+
+        body.standsToM = body.fromM;
+        body.flags &= ~ClaimGone;
+        rows[slot] = body;
+        slot++;
+    }
+}

@@ -4,6 +4,44 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-10-07 — a whole claims rebuild is chained on the device, in one submit
+
+**Every producer of a rebuild had a kernel held to the host on its own** — bodies, plans, walkers, lights, the answers —
+and the answers were still sent every row and hold the host laid, numbered as the host numbered them.
+`app/devicetick/DeviceRebuild` records them all into one submit, and what each lays is numbered on the device into
+`DeviceClaims`' own rows and holds **exactly as `TownWorld.RebuildLaneOccupancy` numbers its slots and holds**, then
+listed, answered and cut there; every car's grant is read where the car's tick reads it (`CarGrantRow` but the place, the
+cutter's row, `CarToldRow`'s `HasAHold` and `Cut`), and every walker's answer where `walkers_read.comp` reads it.
+
+- **The numbering is the host's laying order, counted, scanned and filed** (`world/town/kernels/rebuild_*.comp`): every
+  walker's body then every car's, the passes, every light's stretch, the claims laid where they stand, every car's claim,
+  every walker's walk, and the backing after the answers. **A piece is grown into its holder's body already on the way
+  exactly where `LaneOccupancy.LayBody` grows it** — the pieces filed under their ways and each way's run sorted into
+  laying order — which is a walker's own way read twice, an owner walking to its car laid as the car, and a tow under its
+  truck: 767 pieces a rebuild on OdesaOsm.
+- **No count crosses.** Every kernel over the rows or the holds stops at, and is dispatched indirectly by, the claims'
+  tally (`claims_tally.glsl`), which the claims' own kernels now read in place of a pushed count; the scans write it.
+- **What only the host lays is sent as host-laid units, each filed at its own place in that order**: the passes of
+  overtakes, switches, bays and sidesteps; a hand's, a tow's and a manoeuvre's hold; a car on a pass's plan past it; the
+  backing. **And what each one's own `Take` cut of what was already down** — a hand's committed ground taking a light's
+  stretch before the answers, a backing taking the plan of the car queued behind after them — as edits to the rows and
+  holds the device laid. The backing is filed after the lists are laid, so the cut lists a tick reads lack it; the tick
+  asks them only for lights.
+- **A car's plan begun over no ways is a hold never answered**, since `Propose` is never called — 35 holds a rebuild on
+  OdesaOsm, which the plan kernel did not say. `plan_rows.glsl`'s `PlanOutRow` carries the ways it proposed down.
+- **Each producer is still sent the town as it stands at its own stage**: the chain runs from what they lay, and what
+  one stage of an agent's own state differs by never reaches the claims.
+
+Held to the town (`DeviceRebuildTests`): 400 rebuilds of the walked town, 132 cars and 204 walkers, a car backing up
+behind a wreck into the plan of the car behind and a hand driving another over a red light's bar — 309 045 slots, 142 949
+holds and answers, 52 800 cars' grants, cutters and told bits and 81 600 walkers' readings, every one exact but a pace
+along a heading and where a walker aims, to the device's trigonometry; 2 855 pieces grown, 177 rows and holds of backing,
+130 of the host's cuts. On OdesaOsm (`--bench devicerebuild`, RX 9070 XT, 10 013 cars and 10 000 walkers, 100 rebuilds of a
+median 76 673 slots) the town's whole rebuild took 19.0 ms and the chained kernels 2.85 ms — bodies 1.42, lights, plans and
+walks 0.38, answers and cut 0.95, backing and grants 0.03 — and none of 7.65 M slots, 1.52 M holds and answers, 1.00 M grants
+or 1.00 M walkers' readings differed. **Sending the producers the town's state is the shadow's**: 272 MB and 150 ms a
+rebuild, 124 MB of it every car's line again.
+
 ## 2026-10-07 — the plans are answered on the device, held to the host's
 
 **Every plan answered at once** (below) is the device's own arithmetic: `kernels/claims.glsl` is `AnswerThePlans`'

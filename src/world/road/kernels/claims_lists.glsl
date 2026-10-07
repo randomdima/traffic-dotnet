@@ -2,7 +2,7 @@
 // into where each way's run starts (bodies first, every way's, then planned pieces), every row filed into its way's run,
 // and each run sorted nearest first and, from one metre, laid first first (LaneOccupancy.Precedes) — which is what the
 // host's lists are, whatever order the rows were filed in. The including kernel has included claims_rows.glsl and
-// declared its push block as `figures` (rowCount, wayCount) first.
+// claims_tally.glsl and declared its push block as `figures` (wayCount) first; how many rows there are is the tally's.
 
 layout(std430, binding = 0) readonly buffer Rows { ClaimRow rows[]; };
 layout(std430, binding = 1) buffer Counts { uint counts[]; };
@@ -11,6 +11,7 @@ layout(std430, binding = 3) buffer Order { uint order[]; };
 layout(std430, binding = 4) writeonly buffer BodyRuns { uvec2 bodyRuns[]; };
 layout(std430, binding = 5) writeonly buffer PlannedRuns { uvec2 plannedRuns[]; };
 layout(std430, binding = 6) readonly buffer Starts { uint starts[]; };
+layout(std430, binding = 7) readonly buffer Tally { uint tally[]; };
 
 // Which of the two lists a row is filed in, as where its way's count stands: bodies first, planned pieces after.
 uint claimsListAt(ClaimRow row)

@@ -18,8 +18,20 @@ internal enum ClaimsStage
     /// <summary>Every walker's body laid, and no car's.</summary>
     WalkersLaid,
 
+    /// <summary>Every body laid, and no pass.</summary>
+    CarsLaid,
+
+    /// <summary>Every pass laid — an overtake's, a switch's, a manoeuvre's and a sidestep's — and no light.</summary>
+    PassesLaid,
+
     /// <summary>Every body, pass and light laid, and no car's claim yet cleared and laid again.</summary>
     PlansDue,
+
+    /// <summary>
+    /// Every claim of a car that plans nothing down its line laid where it stands — a hand's, a truck's, a manoeuvre's —
+    /// and no plan down a line.
+    /// </summary>
+    DrivesDue,
 
     /// <summary>Every car's plan laid whole, and no walker's.</summary>
     WalksDue,
@@ -63,6 +75,12 @@ internal sealed partial class TownWorld
 
     /// <summary>For the instruments: whether this car's claim this rebuild is a plan down its own line (<see cref="PlansDownItsLine"/>).</summary>
     public bool PlansItsLine(int car) => PlansDownItsLine(car);
+
+    /// <summary>
+    /// For the instruments: <b>the cars this laying asked</b>, in index order — the only ones whose claim was cleared and
+    /// laid again and whose grant was read; every other stands as it was laid last (<see cref="LayTheCarsBodies"/>).
+    /// </summary>
+    public ReadOnlySpan<int> CarsAskedThisLaying => CarsAsked;
 
     /// <summary>For the instruments: the room this car keeps short of something it may get past (<c>Overtaking.KeptOffWhatItMayPassM</c>).</summary>
     public float KeptOffWhatItMayPassM(int car) => _overtaking.KeptOffWhatItMayPassM(car);

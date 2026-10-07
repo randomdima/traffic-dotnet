@@ -1,0 +1,31 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// What each walker's hold came to, handed to the walkers' read (walkers_read.comp), one thread a walker: its hold's
+// answer as the device numbered and answered it, or what no hold comes to (LaneOccupancy.HoldEndsAtM, HoldCutOn).
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint walkerCount;
+    uint firstWalkerUnit;
+} figures;
+
+#include "world/road/kernels/claims_rows.glsl"
+#include "world/town/kernels/rebuild_rows.glsl"
+
+layout(std430, binding = 0) readonly buffer WalkerCounts { uvec4 walkerCounts[]; };
+layout(std430, binding = 1) readonly buffer UnitHolds { uint unitHolds[]; };
+layout(std430, binding = 2) readonly buffer Answers { ClaimAnswer answers[]; };
+layout(std430, binding = 3) writeonly buffer WalkerAnswers { ClaimAnswer walkerAnswers[]; };
+
+void main()
+{
+    uint walker = gl_GlobalInvocationID.x;
+    if (walker >= figures.walkerCount) return;
+
+    walkerAnswers[walker] = walkerCounts[walker].x != 0u
+        ? answers[unitHolds[figures.firstWalkerUnit + walker]]
+        : ClaimAnswer(rebuildInfinity(), 0.0, NoRow, -1, rebuildInfinity(), 0.0, 0.0, 0.0);
+}

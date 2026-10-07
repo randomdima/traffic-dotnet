@@ -46,6 +46,7 @@ internal static class CheckCatalogue
         new("deviceatlas", "Which ways a running town's bodies stand over, on the device and on the host: time, and one answer", Quoted(config => DeviceAtlasProbe.Run("Odesa", config))),
         new("deviceclaims", "A running town's plans answered on the device beside the host's, rebuild by rebuild: time, and one answer", Quoted(config => DeviceClaimsProbe.Run("Odesa", config))),
         new("devicewalkers", "A running town's walkers stationed, laid, planned and aimed on the device beside the host's, rebuild by rebuild: time, and one answer", Quoted(config => DeviceWalkersProbe.Run("Odesa", config))),
+        new("devicerebuild", "A running town's whole claims rebuild chained on the device in one submit beside the host's: time, and one answer", Quoted(config => DeviceRebuildProbe.Run("Odesa", config))),
         new("devicecartick", "A running town's following cars ticked on the device beside the town's own tick: time, and one answer", Quoted(config => DeviceCarTickProbe.Run("Odesa", config))),
         new("devicebodies", "A running town's bodies stepped on the device beside the town's own phase, impulses to read-back: time, and one answer", Quoted(config => DeviceBodiesProbe.Run("Odesa", config))),
         new("devicetick", "A running town's cars ticked, tyred and stepped on the device in one submit, beside the town's own tick: time, and how far apart", Quoted(config => DeviceTickProbe.Run("Odesa", config))),

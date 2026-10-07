@@ -1,0 +1,31 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// How many rows and holds each unit of the plans lays, one thread a unit, for the scans that number them
+// (rebuild_plans.glsl).
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint stretchCount;
+    uint carCount;
+    uint walkerCount;
+    uint mostPieces;
+    uint proposedRoom;
+    uint standingUnit;
+    float standOffM;
+    uint pad;
+} figures;
+
+#include "world/town/kernels/rebuild_plans.glsl"
+
+void main()
+{
+    uint unit = gl_GlobalInvocationID.x;
+    if (unit >= plansUnitCount()) return;
+
+    uvec2 laid = plansCountOf(unit);
+    unitRows[unit] = laid.x;
+    unitHolds[unit] = laid.y;
+}

@@ -1,6 +1,7 @@
 // The one binding layout every pass of the claims runs over (claims_answer, claims_show, claims_cut), so one set serves
-// them all, and claims.glsl over it. The including kernel has included claims_rows.glsl and declared its push block as
-// `figures` (ClaimsPush in app/devicetick/DeviceClaims) first.
+// them all, and claims.glsl over it. The including kernel has included claims_rows.glsl and claims_tally.glsl and
+// declared its push block as `figures` (ClaimsPush in app/devicetick/DeviceClaims) first; how many holds there are is
+// the tally's.
 
 layout(std430, binding = 0) buffer Rows { ClaimRow rows[]; };
 layout(std430, binding = 1) readonly buffer BodyRuns { uvec2 bodyRuns[]; };
@@ -11,6 +12,7 @@ layout(std430, binding = 5) readonly buffer Holds { HoldRow holds[]; };
 layout(std430, binding = 6) buffer Shown { float shown[]; };
 layout(std430, binding = 7) buffer Answers { ClaimAnswer answers[]; };
 layout(std430, binding = 8) buffer Moved { uint moved[]; };
+layout(std430, binding = 9) readonly buffer Tally { uint tally[]; };
 
 #define CLAIMS_FIGURES figures
 #define CLAIM_ROWS rows

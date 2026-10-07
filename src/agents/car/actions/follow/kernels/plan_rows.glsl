@@ -32,8 +32,9 @@ const uint PlanCarProposes = 1u;
 const uint PlanCarOnACall = 2u;
 const uint PlanCarLineIsReverse = 4u;
 
-// What a car's claim came to (CarFleet.ClaimFromM, ClaimToM, CommittedToM, HorizonM; HolderTerms.PassesBelowMps), and
-// how many pieces it laid.
+// What a car's claim came to (CarFleet.ClaimFromM, ClaimToM, CommittedToM, HorizonM; HolderTerms.PassesBelowMps), how
+// many pieces it laid, and how many ways it proposed down — a hold begun over none is never answered with the plans
+// (LaneOccupancy.Propose).
 struct PlanOutRow
 {
     float claimFromM;
@@ -43,5 +44,5 @@ struct PlanOutRow
     float passesBelowMps;
     uint pieces;
     uint laidAHold;
-    uint pad;
+    uint ways;
 };

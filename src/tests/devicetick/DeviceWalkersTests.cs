@@ -166,19 +166,19 @@ public sealed class WalkersOnTheDevice : IDisposable
             switch (stage)
             {
                 case ClaimsStage.Begun:
-                    onDevice.Lay(town);
+                    onDevice.Lay(town, Piece.Station);
                     onDevice.Run(Piece.Station);
                     break;
                 case ClaimsStage.Stationed:
                     aside += CompareTheStations(town, onDevice);
-                    onDevice.Lay(town);
+                    onDevice.Lay(town, Piece.Body);
                     onDevice.Run(Piece.Body);
                     CompareTheBodies(town, onDevice, recall, body);
                     CompareThePasses(town, onDevice, left);
                     break;
                 case ClaimsStage.WalksDue:
                     Array.Clear(planned);
-                    onDevice.Lay(town);
+                    onDevice.Lay(town, Piece.Plan);
                     onDevice.LayTheClaims(town.Occupancy);
                     onDevice.Run(Piece.Plan);
                     break;
@@ -186,7 +186,7 @@ public sealed class WalkersOnTheDevice : IDisposable
                     straights += CompareThePlans(town, onDevice, planned);
                     break;
                 case ClaimsStage.WalkersDue:
-                    onDevice.Lay(town);
+                    onDevice.Lay(town, Piece.Read);
                     onDevice.LayTheClaims(town.Occupancy);
                     onDevice.LayTheAnswers(town);
                     onDevice.Run(Piece.Read);

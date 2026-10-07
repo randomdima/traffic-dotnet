@@ -1,0 +1,53 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// What the host's own laying cut of what was already laid, written where the device laid it, one thread an edit
+// (rebuild_rows.glsl's RowEdit, HoldEdit; LaneOccupancy.TakeFrom, CutHold): a row ending sooner or gone, and a hold's cut
+// — as it was laid, before the answers, or as its answer and what cut it, after them.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint rowFirst;
+    uint rowCount;
+    uint holdFirst;
+    uint holdCount;
+} figures;
+
+#include "world/road/kernels/claims_rows.glsl"
+#include "world/town/kernels/rebuild_rows.glsl"
+
+layout(std430, binding = 0) readonly buffer RowEdits { RowEdit rowEdits[]; };
+layout(std430, binding = 1) readonly buffer HoldEdits { HoldEdit holdEdits[]; };
+layout(std430, binding = 2) buffer Rows { ClaimRow rows[]; };
+layout(std430, binding = 3) buffer Holds { HoldRow holds[]; };
+layout(std430, binding = 4) writeonly buffer Answers { ClaimAnswer answers[]; };
+layout(std430, binding = 5) writeonly buffer Cutters { ClaimRow cutters[]; };
+
+void main()
+{
+    uint at = gl_GlobalInvocationID.x;
+    if (at < figures.rowCount)
+    {
+        RowEdit edit = rowEdits[figures.rowFirst + at];
+        rows[edit.slot].toM = edit.toM;
+        rows[edit.slot].flags = edit.gone != 0u ? rows[edit.slot].flags | ClaimGone : rows[edit.slot].flags & ~ClaimGone;
+        return;
+    }
+
+    if (at >= figures.rowCount + figures.holdCount) return;
+
+    HoldEdit edit = holdEdits[figures.holdFirst + (at - figures.rowCount)];
+    answers[edit.hold] = edit.answer;
+    if (edit.laid == 0u)
+    {
+        cutters[edit.hold] = edit.cutter;
+        return;
+    }
+
+    holds[edit.hold].laidCutLineM = edit.answer.cutLineM;
+    holds[edit.hold].laidMarginM = edit.answer.marginM;
+    holds[edit.hold].laidCutBy = edit.answer.cutBy;
+    holds[edit.hold].laidCutOn = edit.answer.cutOn;
+}

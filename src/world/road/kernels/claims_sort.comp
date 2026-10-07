@@ -7,11 +7,12 @@ layout(local_size_x = 64) in;
 
 layout(push_constant) uniform Figures
 {
-    uint rowCount;
     uint wayCount;
+    uint pad;
 } figures;
 
 #include "world/road/kernels/claims_rows.glsl"
+#include "world/road/kernels/claims_tally.glsl"
 #include "world/road/kernels/claims_lists.glsl"
 
 void main()

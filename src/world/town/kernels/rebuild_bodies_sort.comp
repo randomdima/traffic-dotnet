@@ -1,0 +1,39 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every way's candidates sorted into the order the host laid them, one thread a way — a way's run is a handful, so an
+// insertion sort (rebuild_bodies.glsl).
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint walkerCount;
+    uint carCount;
+    uint wayCount;
+    uint coverRoom;
+    uint carRoom;
+} figures;
+
+#include "world/town/kernels/rebuild_bodies.glsl"
+
+void main()
+{
+    uint way = gl_GlobalInvocationID.x;
+    if (way >= figures.wayCount) return;
+
+    uint start = wayStarts[way];
+    uint end = start + wayCounts[way];
+    for (uint at = start + 1u; at < end; at++)
+    {
+        uint candidate = candidateOrder[at];
+        uint into = at;
+        while (into > start && candidate < candidateOrder[into - 1u])
+        {
+            candidateOrder[into] = candidateOrder[into - 1u];
+            into--;
+        }
+
+        candidateOrder[into] = candidate;
+    }
+}

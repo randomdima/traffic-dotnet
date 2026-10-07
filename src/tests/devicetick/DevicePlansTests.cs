@@ -78,9 +78,9 @@ public class DevicePlansTests(Lavapipe device) : IClassFixture<Lavapipe>
         var claims = town.Occupancy;
         var hold = town.PlanHoldOf(car);
         var laid = claims.IsAnswered(hold);
-        if (laid != (result.LaidAHold != 0u))
+        if (laid != (result.Ways > 0u))
         {
-            differ.Add($"rebuild {rebuild} car {car}: town laid a plan {laid}, device {result.LaidAHold}");
+            differ.Add($"rebuild {rebuild} car {car}: town laid a plan {laid}, device over {result.Ways} ways");
             return false;
         }
 

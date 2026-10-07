@@ -1,0 +1,98 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every car this laying asked reads its grant off what its hold came to (TownWorld.RebuildLaneOccupancy's
+// DrivingGround.ReadTheGrant), one thread a car, written where its tick reads it (car_tick.glsl's CarGrantRow, its
+// cutter, and its told row's HasAHold and Cut): the claim it laid — the device's plan, or what the host left it — then
+// its authority, margin and what cut it, the way its hold was cut on, and the row that cut it. A car not asked is left as
+// its last laying left it, and the place it was sent to is never written here.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint carCount;
+    uint firstCarUnit;
+} figures;
+
+#include "world/road/kernels/claims_rows.glsl"
+#include "world/road/kernels/claims_grant.glsl"
+#include "agents/car/actions/follow/kernels/plan_rows.glsl"
+#include "world/town/kernels/rebuild_rows.glsl"
+
+layout(std430, binding = 0) readonly buffer CarClaims { CarClaimRow carClaims[]; };
+layout(std430, binding = 1) readonly buffer PlanResults { PlanOutRow planResults[]; };
+layout(std430, binding = 2) readonly buffer UnitHolds { uint unitHolds[]; };
+layout(std430, binding = 3) readonly buffer Answers { ClaimAnswer answers[]; };
+layout(std430, binding = 4) readonly buffer HoldCutters { ClaimRow holdCutters[]; };
+layout(std430, binding = 5) buffer Grants { CarGrant grants[]; };
+layout(std430, binding = 6) writeonly buffer Cutters { ClaimRow cutters[]; };
+layout(std430, binding = 7) writeonly buffer Told { uint told[]; };
+
+void main()
+{
+    uint car = gl_GlobalInvocationID.x;
+    if (car >= figures.carCount) return;
+
+    CarClaimRow claim = carClaims[car];
+    if ((claim.flags & CarAsked) == 0u) return;
+
+    // Cleared and laid (DrivingGround.ClearTheClaim, Following.Plan): nothing granted, nothing kept off, nothing cut it.
+    float authorityM = 0.0;
+    float horizonM = claim.horizonM;
+    float claimFromM = claim.claimFromM;
+    float committedToM = claim.committedToM;
+    float marginM = 0.0;
+    uint cutBy = HeadwayNothing;
+    int hold = -1;
+    if ((claim.flags & CarPlansOnTheDevice) != 0u)
+    {
+        PlanOutRow plan = planResults[car];
+        horizonM = plan.horizonM;
+        claimFromM = plan.claimFromM;
+        committedToM = plan.committedToM;
+        if (plan.laidAHold != 0u) hold = int(unitHolds[figures.firstCarUnit + car]);
+    }
+    else
+    {
+        authorityM = claim.authorityM;
+        marginM = claim.grantMarginM;
+        cutBy = claim.grantCutBy;
+        if (claim.holdUnit >= 0) hold = int(unitHolds[uint(claim.holdUnit)]) + claim.holdOffset;
+    }
+
+    int cutOn = -1;
+    uint bits = 0u;
+    ClaimRow cutter = ClaimRow(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0u, 0u);
+    if (hold >= 0)
+    {
+        ClaimAnswer answer = answers[hold];
+        ClaimRow met = holdCutters[hold];
+        vec4 granted = claimsGrantOf(answer, met, claimFromM, marginM, cutBy);
+        authorityM = granted.x;
+        marginM = granted.y;
+        cutBy = uint(granted.z);
+        cutOn = answer.cutOn;
+        bits = ToldHasAHold;
+        if (answer.cutBy != NoRow)
+        {
+            // As the town hands its tick what cut it (DeviceCarTick's cutter): on the way it was cut on, standing from
+            // its own near edge.
+            bits |= ToldCut;
+            cutter = met;
+            cutter.way = uint(cutOn);
+            cutter.standsToM = cutter.fromM;
+            cutter.flags &= ~ClaimGone;
+        }
+    }
+
+    grants[car].authorityM = authorityM;
+    grants[car].horizonM = horizonM;
+    grants[car].claimFromM = claimFromM;
+    grants[car].committedToM = committedToM;
+    grants[car].grantMarginM = marginM;
+    grants[car].grantCutBy = cutBy;
+    grants[car].cutOn = cutOn;
+    cutters[car] = cutter;
+    told[car] = bits;
+}
