@@ -193,12 +193,23 @@ internal sealed partial class DeviceBodyPhase : IDisposable
     /// </summary>
     public void Step(int cars, float dtS, bool readBack)
     {
+        var commands = _batch.Begin();
+        Record(commands, cars, dtS, readBack);
+        _batch.SubmitAndWait();
+        ReadTimes();
+    }
+
+    /// <summary>
+    /// <b>One step recorded into a caller's submit</b>, as <see cref="Step"/> runs it — the caller having made whatever
+    /// wrote the tyre pass's impulses and poses visible to a copy first (<see cref="Vk.BeforeTransfer"/>).
+    /// </summary>
+    public void Record(CommandBuffer commands, int cars, float dtS, bool readBack)
+    {
         if (cars > _tyres.Capacity) throw new ArgumentOutOfRangeException(nameof(cars), $"The phase holds {_tyres.Capacity} cars, not {cars}.");
 
         _cars = cars;
         var push = new PhasePush((uint)cars, WheelsACar, dtS, TownWorld.LoadSettledShare(_config, dtS));
         var vk = _vk;
-        var commands = _batch.Begin();
         _timer.Reset(commands);
         _timer.Stamp(commands, (int)Stage.Began);
 
@@ -238,7 +249,11 @@ internal sealed partial class DeviceBodyPhase : IDisposable
         _solver.RecordReadBack(commands, everything: false);
         if (readBack) vk.Copy(commands, poses.Device, _posesOut, (ulong)(cars * Unsafe.SizeOf<DeviceTyres.PoseRow>()));
         _timer.Stamp(commands, (int)Stage.Read);
-        _batch.SubmitAndWait();
+    }
+
+    /// <summary>The device's stamps of the last step taken in, the solver's with them, once its submit has been waited for.</summary>
+    public void ReadTimes()
+    {
         _timer.Read();
         _solver.ReadTimes();
     }

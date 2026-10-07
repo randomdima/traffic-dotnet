@@ -234,11 +234,24 @@ internal sealed partial class DeviceCarTick : IDisposable
     /// </summary>
     public void Step(int taken, int cars)
     {
+        var commands = _batch.Begin();
+        Record(commands, taken, cars);
+        RecordRead(commands);
+        _batch.SubmitAndWait();
+        ReadTimes();
+    }
+
+    /// <summary>
+    /// <b>One tick recorded into a caller's submit</b>: what was marked sent, the ground and the drive for the first
+    /// <paramref name="taken"/> cars of the list, and the tyres for the fleet's first <paramref name="cars"/> — leaving
+    /// the tyre pass's writes for the caller to barrier before whatever reads them.
+    /// </summary>
+    public void Record(CommandBuffer commands, int taken, int cars)
+    {
         if (cars > Capacity) throw new ArgumentOutOfRangeException(nameof(cars), $"The tick holds {Capacity} cars, not {cars}.");
 
         _cars = cars;
         var vk = _vk;
-        var commands = _batch.Begin();
         _timer.Reset(commands);
         _timer.Stamp(commands, (int)Stage.Began);
         _taken.Mark(0, taken);
@@ -274,9 +287,14 @@ internal sealed partial class DeviceCarTick : IDisposable
         _timer.Stamp(commands, (int)Stage.Ticked);
 
         _tyres.Run(commands, cars);
-        vk.BeforeTransfer(commands);
         _timer.Stamp(commands, (int)Stage.Tyred);
+    }
 
+    /// <summary>What the last <see cref="Record"/> left, recorded to be handed back where <see cref="TicksAfter"/> and the rest read it.</summary>
+    public void RecordRead(CommandBuffer commands)
+    {
+        var cars = _cars;
+        _vk.BeforeTransfer(commands);
         _tyres.Read(commands);
         _ticks.Read(commands, cars);
         _lines.Read(commands, cars);
@@ -286,9 +304,10 @@ internal sealed partial class DeviceCarTick : IDisposable
         _contexts.Read(commands, cars);
         _boxes.Read(commands, cars);
         _timer.Stamp(commands, (int)Stage.Read);
-        _batch.SubmitAndWait();
-        _timer.Read();
     }
+
+    /// <summary>The device's stamps of the last tick taken in, once its submit has been waited for.</summary>
+    public void ReadTimes() => _timer.Read();
 
     /// <summary>A device-local buffer holding these rows, sent once.</summary>
     GpuBuffer Laid<T>(T[] rows) where T : unmanaged

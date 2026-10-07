@@ -133,6 +133,16 @@ internal sealed partial class DeviceCarTick
     /// </summary>
     public void Settle(TownWorld town, ReadOnlySpan<int> taken)
     {
+        SettleTheTown(town);
+        SettleTheDevice(taken);
+    }
+
+    /// <summary>
+    /// The town's half of <see cref="Settle"/>: its lines, readings and levels as its tick left them — taken before its
+    /// decisions, so that what those change is what <see cref="Prepare"/> sends next.
+    /// </summary>
+    public void SettleTheTown(TownWorld town)
+    {
         var cars = town.Cars;
         for (var car = 0; car < cars.Count; car++)
         {
@@ -140,7 +150,11 @@ internal sealed partial class DeviceCarTick
             _progressAt[car] = cars.ProgressM[car];
             _coveredAt[car] = cars.CoveredSinceClaimM[car];
         }
+    }
 
+    /// <summary>The device's half of <see cref="Settle"/>: its command and tyres for every car it took, as its tick left them.</summary>
+    public void SettleTheDevice(ReadOnlySpan<int> taken)
+    {
         foreach (var car in taken)
         {
             _commandBefore[car] = CommandsAfter[car];
