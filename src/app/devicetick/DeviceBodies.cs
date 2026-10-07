@@ -17,6 +17,10 @@ namespace TrafficSimulation.App.DeviceTick;
 /// (<see cref="DeviceAtlas"/>) and its rows laid, one car a thread — read back to be held to the host's
 /// (<see cref="LayTheBodies"/>), or left on the device for a rebuild to number (<see cref="Record"/>).
 /// </summary>
+/// <remarks>
+/// <b>Given the car tick's own lines</b>, a body reads its occupant's line where the tick keeps it and none is sent here: the
+/// caller makes every car's line current there before the laying runs (<see cref="DeviceCarTick.LayTheLineOf"/>).
+/// </remarks>
 internal sealed class DeviceBodies : IDisposable
 {
     /// <summary><c>atlas.glsl</c>'s own room under one body (<see cref="RibbonAtlas.MostWaysUnderABody"/>).</summary>
@@ -49,14 +53,19 @@ internal sealed class DeviceBodies : IDisposable
     readonly uint _firstConnector;
     readonly DeviceAtlas _atlas;
     readonly List<GpuBuffer> _owned = [];
-    readonly GpuBuffer _bodiesIn, _linesIn, _chainIn, _bodies, _lines, _chain, _rows, _counts, _rowsOut, _countsOut;
+    readonly GpuBuffer _bodiesIn, _bodies, _lines, _chain, _rows, _counts, _rowsOut, _countsOut;
+
+    /// <summary>Each car's line and chain as this sends them — none where the car tick's own are read.</summary>
+    readonly GpuBuffer? _linesIn, _chainIn;
+
     readonly ComputeKernel _lay;
     readonly DescriptorSet _set;
     readonly ComputeBatch _batch;
     readonly GpuTimer _timer;
     int _carCount;
 
-    public DeviceBodies(Vk vk, SimConfig config, TownWorld world)
+    /// <param name="lines">The car tick's lines, read in place of lines sent here — or none, and every car's is sent.</param>
+    public DeviceBodies(Vk vk, SimConfig config, TownWorld world, DeviceCarTick.LineTables? lines = null)
     {
         if (RibbonAtlas.MostWaysUnderABody != MostWaysInTheKernel)
         {
@@ -82,11 +91,19 @@ internal sealed class DeviceBodies : IDisposable
         for (var connector = 0; connector < roads.ConnectorCount; connector++) connectorTo[connector] = roads.ConnectorTo(connector);
 
         _bodiesIn = Staging<BodyRow>(_cars);
-        _linesIn = Staging<CarLineRow>(_cars);
-        _chainIn = Staging<int>(_cars * LineAssembler.MostLanes);
         _bodies = Device<BodyRow>(_cars);
-        _lines = Device<CarLineRow>(_cars);
-        _chain = Device<int>(_cars * LineAssembler.MostLanes);
+        if (lines is { } kept)
+        {
+            (_lines, _chain) = (kept.Lines, kept.Chain);
+        }
+        else
+        {
+            _linesIn = Staging<CarLineRow>(_cars);
+            _chainIn = Staging<int>(_cars * LineAssembler.MostLanes);
+            _lines = Device<CarLineRow>(_cars);
+            _chain = Device<int>(_cars * LineAssembler.MostLanes);
+        }
+
         _rows = Device<DeviceClaims.ClaimRow>(_cars * MostWaysInTheKernel);
         _counts = Device<UInt4>(_cars);
         _rowsOut = Readback<DeviceClaims.ClaimRow>(_cars * MostWaysInTheKernel);
@@ -134,9 +151,6 @@ internal sealed class DeviceBodies : IDisposable
     {
         var cars = world.Cars;
         var bodies = _bodiesIn.Span<BodyRow>();
-        var lines = _linesIn.Span<CarLineRow>();
-        var chain = _chainIn.Span<int>();
-        var lanes = LineAssembler.MostLanes;
         var stopMps = _config.Driving.StopSpeedMps;
         _carCount = cars.Count;
         for (var car = 0; car < cars.Count; car++)
@@ -150,7 +164,15 @@ internal sealed class DeviceBodies : IDisposable
                 cars.PositionM[car], Heading.Unit(cars.HeadingRad[car]), TyreModel.WheelAtM(build, 0).X,
                 TyreModel.WheelAtM(build, 2).X, build.HalfTrackM, cars.Channels[car], laying.Occupant, cars.AlongMps[laying.Occupant],
                 flags);
+        }
 
+        if (_linesIn is null) return;
+
+        var lines = _linesIn.Span<CarLineRow>();
+        var chain = _chainIn!.Span<int>();
+        var lanes = LineAssembler.MostLanes;
+        for (var car = 0; car < cars.Count; car++)
+        {
             var line = cars.Line[car];
             lines[car] = new CarLineRow((uint)line.ArcCount, (uint)line.LaneCount, line.LengthM, 0u);
             for (var slot = 0; slot < line.LaneCount; slot++) chain[(car * lanes) + slot] = cars.ChainOf(car)[slot];
@@ -179,12 +201,15 @@ internal sealed class DeviceBodies : IDisposable
     public void RecordSend(CommandBuffer commands)
     {
         _vk.Copy(commands, _bodiesIn, _bodies, Bytes<BodyRow>(_carCount));
+        if (_linesIn is null) return;
+
         _vk.Copy(commands, _linesIn, _lines, Bytes<CarLineRow>(_carCount));
-        _vk.Copy(commands, _chainIn, _chain, Bytes<int>(_carCount * LineAssembler.MostLanes));
+        _vk.Copy(commands, _chainIn!, _chain, Bytes<int>(_carCount * LineAssembler.MostLanes));
     }
 
     /// <summary>How many bytes <see cref="RecordSend"/> copies.</summary>
-    public ulong SentBytes => Bytes<BodyRow>(_carCount) + Bytes<CarLineRow>(_carCount) + Bytes<int>(_carCount * LineAssembler.MostLanes);
+    public ulong SentBytes =>
+        Bytes<BodyRow>(_carCount) + (_linesIn is null ? 0ul : Bytes<CarLineRow>(_carCount) + Bytes<int>(_carCount * LineAssembler.MostLanes));
 
     /// <summary>Every car laid for laid onto the ways under it, recorded and made visible to the next kernel.</summary>
     public void Record(CommandBuffer commands)

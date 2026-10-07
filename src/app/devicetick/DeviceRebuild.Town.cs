@@ -191,6 +191,10 @@ internal sealed partial class DeviceRebuild
                 _hostRowCount = _hostHoldCount = _rowEditCount = _holdEditCount = _askCount = 0;
                 _hostUnitCount = (int)StandingUnit + 1;
                 _bodies.Lay(town);
+
+                // Every body reads its occupant's line and every plan its own car's, where the car tick keeps them; no
+                // stage of a laying lays a line, so one made current here serves both.
+                for (var car = 0; car < _carCount; car++) _carTick!.LayTheLineOf(town.Cars, car);
                 break;
 
             case ClaimsStage.Stationed:
@@ -210,11 +214,6 @@ internal sealed partial class DeviceRebuild
 
             case ClaimsStage.PlansDue:
                 _plans.Lay(town);
-                foreach (var car in town.CarsAskedThisLaying)
-                {
-                    if (DevicePlans.Proposing(town, car)) _carTick!.LayTheLineOf(town.Cars, car);
-                }
-
                 _timeS = town.ElapsedS;
                 _plansDueSlots = claims.SlotCount;
                 _plansDueHolds = claims.HoldCount;

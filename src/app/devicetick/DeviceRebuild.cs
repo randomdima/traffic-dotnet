@@ -217,7 +217,7 @@ internal sealed partial class DeviceRebuild : IDisposable
 
         _claims = claims ?? new DeviceClaims(vk, _ways, occupancy.Capacity, _holdRoom, config.Road.MostSettlingPasses, _cars, sentFromTheHost: false);
         var tables = _claims.OnTheDevice;
-        _bodies = new DeviceBodies(vk, config, world);
+        _bodies = new DeviceBodies(vk, config, world, cars?.Lines);
         _plans = new DevicePlans(vk, config, world, cars?.Lines);
         _walkers = new DeviceWalkers(vk, config, world, tables, resident: cars != null);
         _candidates = Math.Max(1, (_walkersRoom * _walkers.CoverRoom) + (_cars * DeviceBodies.Room));

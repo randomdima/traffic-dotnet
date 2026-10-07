@@ -54,8 +54,9 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   `WaysAlong`, in `line_onward.glsl` and `line_ways.glsl`, and every tick in `drive_context.glsl` and
   `TownWorld.Signals` — though it is found when the line is laid. A join a slot beside `CarFleet.JoinBreaksOf`
   closes it.
-- **`DeviceBodies` sends every car's line row and chain each laying**, keeping its own connector tables, while
-  `car_bodies.glsl` reads only `laneCount`; `CarLineRow.arcCount`, `lengthM` and `finalApproach` are unread there.
+- **`DeviceBodies` keeps its own connector tables** (`connectorAt`, `connectorTo`), laid once beside the car tick's
+  same two; and laid apart from a town's device (`DeviceClaimsProbe`, `DeviceBodiesTests`) it still sends every car's
+  line row and chain a laying.
 - **The wheel mask makes a round trip**: the device's laying writes it (`car_bodies.comp`), the host mirrors it, and
   the shadow sends the whole car row back (`DeviceCarTick.Shadow`). The laying could write the tyre row's bits 8–11
   itself.

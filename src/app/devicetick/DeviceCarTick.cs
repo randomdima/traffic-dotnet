@@ -221,7 +221,8 @@ internal sealed partial class DeviceCarTick : IDisposable
         GpuBuffer Lines, GpuBuffer Arcs, GpuBuffer Entries, GpuBuffer Chain, GpuBuffer Starts, GpuBuffer Ends, GpuBuffer Breaks);
 
     /// <summary>
-    /// <b>Every car's line as the table keeps it</b>, for a kernel that reads lines in place (<see cref="DevicePlans"/>):
+    /// <b>Every car's line as the table keeps it</b>, for a kernel that reads lines in place (<see cref="DevicePlans"/>,
+    /// <see cref="DeviceBodies"/>):
     /// current for a car only once <see cref="LayTheLineOf"/> has been asked of it and sent.
     /// </summary>
     public LineTables Lines => new(_lines.Device, _arcs.Device, _entries.Device, _chain.Device, _starts.Device, _ends.Device, _breaks.Device);
