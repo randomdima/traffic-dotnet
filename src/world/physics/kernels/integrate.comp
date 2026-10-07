@@ -6,12 +6,13 @@
 // nothing here reads another body, so the order bodies are taken in changes nothing.
 //
 // Every figure the CPU's step also makes is `precise`: left alone, the compiler fuses a*b+c into one fma, which rounds
-// once where the CPU rounds twice, and a bound lands a float away from the host's. sin and cos are the device's own
-// and are not the host's to the bit.
+// once where the CPU rounds twice, and a bound lands a float away from the host's. sin and cos are trig.glsl's, within a
+// float or two of the host's on every driver.
 
 layout(local_size_x = 64) in;
 
 #include "step.glsl"
+#include "core/geometry/kernels/trig.glsl"
 
 layout(std430, binding = 0) readonly buffer Owners { int owners[]; };
 layout(std430, binding = 1) buffer Pose { vec4 pose[]; };
@@ -49,7 +50,7 @@ void main()
     precise float turned = headingRad[body] + turnRadPerS * dtS;
     float heading = wrapped(turned);
     headingRad[body] = heading;
-    vec2 unit = vec2(cos(heading), sin(heading));
+    vec2 unit = trigUnit(heading);
     pose[body] = vec4(position, unit);
 
     // Shape.HalfBoundsM: the box's reach along each world axis at this rotation, and its corner radius past that.

@@ -1,8 +1,10 @@
 // WalkerFollower on the device: one tick of one walker — stand, turn on the spot, or walk straight at the aim, and the
 // impulse that costs at the grip it has (WalkerFollower.Tick, Step, TurnToward, Wrap, AtMost). Line for line with the
-// host, `precise` throughout; the bearing is the device's own atan, and nothing else is.
+// host, `precise` throughout; the bearing is trig.glsl's arctangent, and nothing else is trigonometry.
 //
 // The including kernel supplies WALKER_FIGURES' fields: walkSpeedMps, turnRateDegPerS, footGripMps2, slidingGripMps2.
+
+#include "core/geometry/kernels/trig.glsl"
 
 // MathF.PI and the Tau Wrap reduces by, as the host's floats.
 const float WalkerPi = 3.14159274;
@@ -72,7 +74,7 @@ WalkerStep walkerStep(
     if (distanceSquared > 1e-8)
     {
         float paceMps = WALKER_FIGURES.walkSpeedMps;
-        float bearingRad = atan(toAim.y, toAim.x);
+        float bearingRad = trigAtan2(toAim.y, toAim.x);
         precise float mostRad = WALKER_FIGURES.turnRateDegPerS * WalkerPi / 180.0 * dtS;
         precise float hopM = paceMps * dtS;
 

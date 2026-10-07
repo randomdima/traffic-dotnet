@@ -1,8 +1,8 @@
 // The frame's moving sprites on the device (TownSprites.FillMoving): the walkers, then every part of every car on the
 // ground — the steered tyres, the bodies, the tow arms, the lamps — then the signal heads, and the cars on the level
 // above after them, part by part again. Line for line with PersonSprites.Fill, CarSprites.FillFrontTyres, Fill and
-// FillBeams, LampSprites.Fill and SignalSprites.Fill, `precise` wherever the host rounds; the arm's bearing is the
-// device's own arctangent, and every quotient and root a verdict hangs on is rounded.glsl's.
+// FillBeams, LampSprites.Fill and SignalSprites.Fill, `precise` wherever the host rounds; the arm's bearing is
+// trig.glsl's arctangent, and every quotient and root a verdict hangs on is rounded.glsl's.
 //
 // One count a part of a unit, laid in the order the instances are drawn: the walkers', then each part of the
 // cars a run apiece, then the heads', then the four car parts again for the level above. A count pass writes them, a
@@ -11,6 +11,8 @@
 // host's own, per part, and the rosters are walked in index order as TownWorld.CarsIn hands them over.
 //
 // sprites_buffers.glsl declares everything read here.
+
+#include "core/geometry/kernels/trig.glsl"
 
 // PersonSprites.Plain: the tint everything but a mark and a glow is drawn with.
 const vec4 SpritePlain = vec4(1.0);
@@ -187,7 +189,7 @@ bool spritesBeam(uint car, out SpriteOut sprite)
     precise vec2 centreM = hingeM - backM;
     sprite = spritesPlain(
         centreM, towing ? look.extendedHalfM : look.collapsedHalfM, towing ? look.extendedSheet : look.collapsedSheet,
-        atan(pointing.y, pointing.x));
+        trigAtan2(pointing.y, pointing.x));
     return true;
 }
 
