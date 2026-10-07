@@ -3,6 +3,15 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-10-07 — a pass is driven on the device
+
+**The driver on the device drives a pass it has begun** (CAR-46): `control/kernels/overtake.glsl` is `Overtake` line
+for line — how far across the axle is aimed, how steeply, how that turns, the pose and the bend — and `follower.glsl`
+steers it as `SteerThePass` does and holds each step to the pace it was drawn for. It is what Overtake and Switch drive
+once they are on the lane beside, which on OdesaOsm is two hundred cars a tick. Held over 2 000 staged cars on begun
+passes, from short of the step out to past the step back (`FollowerKernelTests`); a device that steered them as if on
+no pass failed 326 of them.
+
 ## 2026-10-07 — a following car's whole tick runs on the device
 
 **`TownWorld.TickCar` for a car following its route's line on no pass is three kernels over one table** in one submit

@@ -112,7 +112,7 @@ void carTick(
     bool hazard;
     command = followDriveTheLine(
         build, pose, first, first + line.arcCount, first, tick.progressM, line.lengthM, context, pose.forward, alongMps, false,
-        command, false, (told.flags & ContextOnACall) != 0u, told.paceMps, hold, plannedMps, hazard);
+        command, overtakeNone(), false, (told.flags & ContextOnACall) != 0u, told.paceMps, hold, plannedMps, hazard);
     tick.hold = hold;
     tick.plannedMps = plannedMps;
     if (hazard) tick.flags |= TickHazard;

@@ -57,3 +57,27 @@ void splineSample(uint first, uint end, float distanceM, out vec2 positionM, out
         return;
     }
 }
+
+// The same sample with the bend of the arc it falls on (SplineSample.Curvature), nought on an empty chain.
+void splineSampleBent(uint first, uint end, float distanceM, out vec2 positionM, out float headingRad, out float curvature)
+{
+    positionM = vec2(0.0);
+    headingRad = 0.0;
+    curvature = 0.0;
+    float remainingM = max(0.0, distanceM);
+    for (uint at = first; at < end; at++)
+    {
+        Arc arc = SPLINE_ARCS[at];
+        if (remainingM > arcLengthM(arc) && at < end - 1u)
+        {
+            remainingM -= arcLengthM(arc);
+            continue;
+        }
+
+        float alongM = min(remainingM, arcLengthM(arc));
+        positionM = arcPointAt(arc, alongM);
+        headingRad = arcHeadingAt(arc, alongM);
+        curvature = arcCurvature(arc);
+        return;
+    }
+}

@@ -54,11 +54,23 @@ public class FollowerKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         float WaitingToPassBrakingShare, float ReactionS, float CallPaceMps, float StandardGravityMps2, float WheelSpinFadeMps,
         float WheelSpinAllowanceMps, float MarkSlipMps, float MarkCorneringSlipMps, float PloughCrawlMps, float EngineBrakingMps2);
 
+    /// <summary>A pass (<c>OvertakeRow</c>), field for field.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    readonly record struct PassRow(
+        int Lane, float OutM, float OutStepM, float BackM, float BackStepM, float AsideM, float OutMps, float BackMps, float ClearsM,
+        uint Begun, float Pad0, float Pad1)
+    {
+        public static PassRow Of(in Overtake pass) => new(
+            pass.Lane, pass.OutM, pass.OutStepM, pass.BackM, pass.BackStepM, pass.AsideM, pass.OutMps, pass.BackMps, pass.ClearsM,
+            pass.Begun ? 1u : 0u, 0f, 0f);
+    }
+
     sealed record Car(
         CarBuild Build, int BuildAt, CarPose Pose, ArcSeg[] Line, float[] Entries, float LengthM, float ProgressM, DriveContext Context,
-        Vector2 Travel, float AlongMps, bool Reverse, DriveCommand Last, bool Laneless, bool BlueLight, float PaceMps);
+        Vector2 Travel, float AlongMps, bool Reverse, DriveCommand Last, bool Laneless, bool BlueLight, float PaceMps, Overtake Pass);
 
-    static Car[] Cars(int count, int seed, CarBuild[] builds)
+    /// <param name="onPasses">Whether every car is on a pass it has begun, somewhere from short of its step out to past its step back.</param>
+    static Car[] Cars(int count, int seed, CarBuild[] builds, bool onPasses = false)
     {
         var graph = RoadGraph.Build(Towns.Of(Towns.Fixture), Config);
         var random = new Random(seed);
@@ -102,11 +114,22 @@ public class FollowerKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
             var context = new DriveContext(
                 Between(0.3f, 1f), Sometimes(Between(-2f, 120f), 2), (HeadwayKind)random.Next(7), Sometimes(Between(0f, 150f), 6),
                 Between(0f, 2f), random.Next(8) == 0, Sometimes(Between(0f, 200f), 3), 0f, 0f, false, Sometimes(Between(0f, 60f), 8));
-            var reverse = random.Next(10) == 0;
+            var reverse = !onPasses && random.Next(10) == 0;
             var last = new DriveCommand(Between(-0.4f, 0.4f), random.Next(2) == 0 ? Between(0f, 3f) : 0f, random.Next(3) == 0 ? Between(0f, 6f) : 0f, random.Next(5) == 0, reverse);
+            var pass = Overtake.None;
+            if (onPasses)
+            {
+                var outM = progressM + Between(-30f, 20f);
+                var outStepM = Between(8f, 40f);
+                var backM = outM + outStepM + Between(0f, 40f);
+                pass = new Overtake(
+                    chain[0], outM, outStepM, backM, Between(8f, 40f), (random.Next(2) == 0 ? -1f : 1f) * Between(2.5f, 3.5f),
+                    Between(4f, 20f), Between(4f, 20f), backM, Begun: true);
+            }
+
             cars.Add(new Car(
                 build, buildAt, pose, laid, entries, line.LengthM, progressM, context, reverse ? -forward : forward, alongMps, reverse, last,
-                random.Next(12) == 0, random.Next(10) == 0, Sometimes(Between(2f, 15f), 10)));
+                !onPasses && random.Next(12) == 0, random.Next(10) == 0, Sometimes(Between(2f, 15f), 10), pass));
         }
 
         return [.. cars];
@@ -119,9 +142,32 @@ public class FollowerKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
     [Fact]
     public void TheLinesAreDrivenAsTheHostDrivesThem()
     {
-        CarBuild[] builds = [CarBuild.Nominal(Config, Config.Car.DrivenFrontShare), .. CarCatalog.Shared.Variants.Select(look => CarBuild.Of(Config, look))];
-        var cars = Cars(2000, 5, builds);
+        var cars = Cars(2000, 5, Builds);
+        var differ = Differences(cars);
 
+        Assert.True(differ.Count == 0, $"{differ.Count} of {cars.Length} drive differently: {string.Join("; ", differ.Take(5))}");
+    }
+
+    /// <summary>
+    /// <b>Two thousand cars on passes they have begun are driven down them as the host drives them</b> (CAR-46): short of
+    /// the step out, on it, alongside what they pass and on the step back — the wheel turned for the pass's own bend and
+    /// corrected by pursuit, and each step held to the pace it was drawn for.
+    /// </summary>
+    [Fact]
+    public void ThePassesAreDrivenAsTheHostDrivesThem()
+    {
+        var cars = Cars(2000, 11, Builds, onPasses: true);
+        var differ = Differences(cars);
+
+        Assert.True(differ.Count == 0, $"{differ.Count} of {cars.Length} drive differently: {string.Join("; ", differ.Take(5))}");
+    }
+
+    static readonly CarBuild[] Builds =
+        [CarBuild.Nominal(Config, Config.Car.DrivenFrontShare), .. CarCatalog.Shared.Variants.Select(look => CarBuild.Of(Config, look))];
+
+    List<string> Differences(Car[] cars)
+    {
+        var builds = Builds;
         var arcs = new List<DeviceGround.ArcRow>();
         var entries = new List<float>();
         var lines = new List<UInt4>();
@@ -147,8 +193,10 @@ public class FollowerKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         using var lasts = device.Holding<CommandRow>(cars.Select(car => CommandRow.Of(car.Last)).ToArray());
         using var commands = device.Sized<CommandRow>(cars.Length);
         using var outcomes = device.Sized<Vector4>(cars.Length);
+        using var passes = device.Holding<PassRow>(cars.Select(car => PassRow.Of(car.Pass)).ToArray());
 
-        GpuBuffer[] buffers = [buildBuffer, buildOf, poses, lineArcs, entryBuffer, lineBuffer, lineFigures, travels, contexts, lasts, commands, outcomes];
+        GpuBuffer[] buffers =
+            [buildBuffer, buildOf, poses, lineArcs, entryBuffer, lineBuffer, lineFigures, travels, contexts, lasts, commands, outcomes, passes];
         using var kernel = new ComputeKernel(device.Vk, "drive_line.comp", buffers.Length, (uint)Marshal.SizeOf<Figures>());
         var set = kernel.Bind(buffers);
         using var batch = new ComputeBatch(device.Vk);
@@ -166,7 +214,7 @@ public class FollowerKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
             var car = cars[at];
             var host = CarFollower.DriveTheLine(
                 Config, car.Build, car.Pose, car.Line, car.Entries, car.ProgressM, car.LengthM, car.Context, car.Travel, car.AlongMps,
-                car.Reverse, car.Last, default, car.Laneless, car.BlueLight, car.PaceMps);
+                car.Reverse, car.Last, car.Pass, car.Laneless, car.BlueLight, car.PaceMps);
             var command = commands.Span<CommandRow>()[at];
             var outcome = outcomes.Span<Vector4>()[at];
             if (!Near(host.Command.SteerRad, command.SteerRad) || !Near(host.Command.ThrottleMps2, command.ThrottleMps2)
@@ -177,7 +225,7 @@ public class FollowerKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
             }
         }
 
-        Assert.True(differ.Count == 0, $"{differ.Count} of {cars.Length} drive differently: {string.Join("; ", differ.Take(5))}");
+        return differ;
     }
 
     /// <summary>

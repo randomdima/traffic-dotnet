@@ -1,14 +1,14 @@
 // CarFollower on the device: one tick of a car driving its line — the wheel by pure pursuit, the speed as the least of
 // everything that limits it, one pedal or the other, and the margin spent where the held section cannot be stopped
-// in (CarFollower.DriveTheLine, Steer, TargetSpeedMps, Pedals, IsAHazard). Line for line with the host, `precise`
-// where it rounds twice; its trigonometry is trig.glsl's (through arc.glsl), since the pedal closes a speed in one tick
-// and so multiplies whatever the wheel's bend is off by.
-//
-// A pass the car is on (CAR-46) is not driven here yet: a car with one begun is the host's.
+// in (CarFollower.DriveTheLine, Steer, SteerThePass, TargetSpeedMps, Pedals, IsAHazard), on its line or on the pass
+// it has begun (CAR-46). Line for line with the host, `precise` where it rounds twice; its trigonometry is trig.glsl's
+// (through arc.glsl), since the pedal closes a speed in one tick and so multiplies whatever the wheel's bend is off by.
 //
 // The including kernel includes arc.glsl, car_build.glsl, tyre.glsl and arc_chain.glsl (its SPLINE_ARCS the lines)
 // first, and supplies FOLLOWER_FIGURES' fields: lookaheadS, gripMargin, brakingMargin, stopSpeedMps,
 // waitingToPassBrakingShare, reactionS, callPaceMps, dtS.
+
+#include "agents/car/control/kernels/overtake.glsl"
 
 // What the driver has been told about the world this tick (DriveContext).
 struct DriveContextRow
@@ -80,6 +80,23 @@ float followSteer(CarBuildRow car, uint first, uint end, float progressM, vec2 r
     return followSteerFor(car, followPursuitBend(rearAxleM, forward, leadM));
 }
 
+// The wheel on a pass (CarFollower.SteerThePass): turned for how the pass bends where the car is, and corrected by what
+// pure pursuit asks beyond that.
+float followSteerThePass(
+    CarBuildRow car, uint first, uint end, OvertakeRow pass, float progressM, vec2 rearAxleM, vec2 forward, float lookaheadM)
+{
+    vec2 drawnM;
+    vec2 drawnForward;
+    overtakePoseAtM(pass, first, end, progressM, drawnM, drawnForward);
+    vec2 leadM;
+    vec2 leadForward;
+    precise float aheadM = progressM + lookaheadM;
+    overtakePoseAtM(pass, first, end, aheadM, leadM, leadForward);
+    precise float curvature = overtakeBendAtM(pass, first, end, progressM) + followPursuitBend(rearAxleM, forward, leadM)
+                              - followPursuitBend(drawnM, drawnForward, leadM);
+    return followSteerFor(car, curvature);
+}
+
 float followLeadS(CarBuildRow car, float brakingMps2, float throttleMps2)
 {
     float onMps2 = max(0.0, throttleMps2);
@@ -127,7 +144,7 @@ void followBind(inout float targetMps, float limitMps, uint limit, inout uint ho
 // (CarFollower.TargetSpeedMps). entryAt is where the line's first arc's entry figure stands in FOLLOWER_ENTRIES.
 float followTargetSpeedMps(
     CarBuildRow car, uint first, uint end, uint entryAt, float progressM, float lineLengthM, float steerRad, float alongMps,
-    float lookaheadM, DriveContextRow context, float lastMps2, out uint hold, out float plannedMps)
+    float lookaheadM, DriveContextRow context, OvertakeRow pass, float lastMps2, out uint hold, out float plannedMps)
 {
     hold = HoldNone;
     float lateralMps2 = followCorneringMps2(car, context.groundCoefficient);
@@ -156,6 +173,24 @@ float followTargetSpeedMps(
         }
 
         startM = endM;
+    }
+
+    if (overtakeBegun(pass))
+    {
+        float stepMps;
+        if (progressM < pass.outM)
+        {
+            precise float toTheStepM = pass.outM - progressM - leadM;
+            stepMps = followApproachMps(pass.outMps, toTheStepM, brakingMps2);
+        }
+        else
+        {
+            stepMps = overtakeMostMpsAtM(pass, progressM);
+        }
+
+        followBind(targetMps, stepMps, HoldCorner, hold);
+        precise float toTheStepBackM = pass.backM - progressM - leadM;
+        followBind(targetMps, followApproachMps(pass.backMps, toTheStepBackM, brakingMps2), HoldCorner, hold);
     }
 
     precise float toTheEndM = lineLengthM - progressM - leadM;
@@ -230,22 +265,24 @@ float followPedalMps2(TyreCommand command)
     return leaning;
 }
 
-// One tick of a car on its line (CarFollower.DriveTheLine), for a car on no pass.
+// One tick of a car on its line, or on the pass it has begun (CarFollower.DriveTheLine).
 TyreCommand followDriveTheLine(
     CarBuildRow car, TyrePose pose, uint first, uint end, uint entryAt, float progressM, float lengthM, DriveContextRow context,
-    vec2 travel, float alongMps, bool reverse, TyreCommand last, bool laneless, bool blueLight, float paceMps,
+    vec2 travel, float alongMps, bool reverse, TyreCommand last, OvertakeRow pass, bool laneless, bool blueLight, float paceMps,
     out uint hold, out float plannedMps, out bool hazard)
 {
     vec2 rearAxleM = followRearAxleM(car, pose.positionM, pose.forward);
     float lookaheadM = followLookaheadM(car, abs(alongMps));
 
     float wasRad = reverse ? -last.steerRad : last.steerRad;
-    float wantedRad = followSteer(car, first, end, progressM, rearAxleM, travel, lookaheadM);
+    float wantedRad = overtakeBegun(pass)
+        ? followSteerThePass(car, first, end, pass, progressM, rearAxleM, travel, lookaheadM)
+        : followSteer(car, first, end, progressM, rearAxleM, travel, lookaheadM);
     float steerRad = buildWheelWoundTo(car, wasRad, wantedRad, FOLLOWER_FIGURES.dtS);
 
     float lastMps2 = followPedalMps2(last);
     float targetMps = followTargetSpeedMps(
-        car, first, end, entryAt, progressM, lengthM, steerRad, alongMps, lookaheadM, context, lastMps2, hold, plannedMps);
+        car, first, end, entryAt, progressM, lengthM, steerRad, alongMps, lookaheadM, context, pass, lastMps2, hold, plannedMps);
 
     float capMps = reverse || laneless ? car.reverseMaxMps : followInfinity();
     if (blueLight) capMps = min(capMps, FOLLOWER_FIGURES.callPaceMps);

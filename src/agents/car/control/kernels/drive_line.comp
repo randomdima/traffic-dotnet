@@ -2,7 +2,8 @@
 #extension GL_GOOGLE_include_directive : require
 
 // A run of cars each driving its own line for one tick, one thread a car, off the line, the context the host built
-// for it and the command it was left at — the driver asked on its own, which is how its answer is held to the host's.
+// for it, the command it was left at and the pass it is on — the driver asked on its own, which is how its answer is
+// held to the host's.
 
 layout(local_size_x = 64) in;
 
@@ -52,6 +53,7 @@ layout(std430, binding = 8) readonly buffer Contexts { DriveContextRow contexts[
 layout(std430, binding = 9) readonly buffer Lasts { TyreCommand lasts[]; };
 layout(std430, binding = 10) writeonly buffer Commands { TyreCommand commands[]; };
 layout(std430, binding = 11) writeonly buffer Outcomes { vec4 outcomes[]; };
+layout(std430, binding = 12) readonly buffer Passes { OvertakeRow passes[]; };
 
 void main()
 {
@@ -65,6 +67,7 @@ void main()
     bool hazard;
     commands[car] = followDriveTheLine(
         builds[buildOf[car]], poses[car], line.x, line.y, line.x, figuresOf.x, figuresOf.y, contexts[car], travels[car], figuresOf.z,
-        (line.z & 1u) != 0u, lasts[car], (line.z & 2u) != 0u, (line.z & 4u) != 0u, figuresOf.w, hold, plannedMps, hazard);
+        (line.z & 1u) != 0u, lasts[car], passes[car], (line.z & 2u) != 0u, (line.z & 4u) != 0u, figuresOf.w, hold, plannedMps,
+        hazard);
     outcomes[car] = vec4(float(hold), plannedMps, hazard ? 1.0 : 0.0, 0.0);
 }

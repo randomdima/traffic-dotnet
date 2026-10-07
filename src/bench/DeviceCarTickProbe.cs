@@ -69,6 +69,7 @@ internal static class DeviceCarTickProbe
         var asked = 0;
         var kinds = new SortedDictionary<string, int>(StringComparer.Ordinal);
         var examples = new Dictionary<string, string>(StringComparer.Ordinal);
+        var left = new SortedDictionary<string, int>(StringComparer.Ordinal);
         var host = new Stopwatch();
         loop.WatchingTheAgents = (town, stage) =>
         {
@@ -92,6 +93,14 @@ internal static class DeviceCarTickProbe
             }
 
             hostMs.Add(host.Elapsed.TotalMilliseconds);
+            for (var car = 0; car < town.Cars.Count; car++)
+            {
+                if (DeviceCarTick.Takes(town, car)) continue;
+
+                var what = !town.Cars.Driven[car] ? "nobody driving" : town.Cars.Pass[car].Any ? $"{town.Cars.Action[car]} on a pass" : $"{town.Cars.Action[car]}";
+                left[what] = left.GetValueOrDefault(what) + 1;
+            }
+
             foreach (var car in taken.AsSpan(0, count))
             {
                 asked++;
@@ -123,6 +132,7 @@ internal static class DeviceCarTickProbe
         Console.WriteLine($"  finding and writing what changed (shadow only) median {Median(layMs),8:F3} ms");
         Console.WriteLine($"  {differ} of {asked} car-ticks differ; {tick.SlideOnsets} wheels at a slide's onset");
         foreach (var (kind, many) in kinds) Console.WriteLine($"    {kind}, {many}: the first {examples[kind]}");
+        Console.WriteLine($"  the cars the device does not take, a tick on average: {string.Join(", ", left.Select(what => $"{what.Key} {what.Value / (double)Math.Max(1, hostMs.Count):F1}"))}");
     }
 
     static double Median(List<double> values)
