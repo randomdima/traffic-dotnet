@@ -75,6 +75,10 @@ internal static class DeviceTownProbe
         var copiesMs = 0d;
         var claimsMs = 0d;
         var sentBytes = 0d;
+        var bodiesLayMs = 0d;
+        var bodiesWaitMs = 0d;
+        var bodiesBackMs = 0d;
+        var bodiesKernelsMs = 0d;
         var taken = 0L;
         var started = Stopwatch.GetTimestamp();
         for (var tick = 0; tick < MeasuredTicks; tick++)
@@ -91,6 +95,10 @@ internal static class DeviceTownProbe
             copiesMs += device.CopiesMs;
             claimsMs += device.ClaimsMs;
             sentBytes += device.SentBytes;
+            bodiesLayMs += device.Bodies.LayMs;
+            bodiesWaitMs += device.Bodies.WaitMs;
+            bodiesBackMs += device.Bodies.HandBackMs;
+            bodiesKernelsMs += device.Bodies.Phase.KernelsMs;
         }
 
         if (device != null)
@@ -102,6 +110,9 @@ internal static class DeviceTownProbe
                 $"  of the wait, the device's own: the submit {submitMs / MeasuredTicks:F2}, of it the town's claims taken in " +
                 $"{claimsMs / MeasuredTicks:F2} and the car rows in and out {copiesMs / MeasuredTicks:F2}; " +
                 $"{sentBytes / MeasuredTicks / 1024:F0} KiB of car rows sent a tick");
+            Console.WriteLine(
+                $"  the bodies' phase, ms a tick: laying {bodiesLayMs / MeasuredTicks:F2}, submitting and waiting {bodiesWaitMs / MeasuredTicks:F2} " +
+                $"(the device's kernels {bodiesKernelsMs / MeasuredTicks:F2}), writing what came back {bodiesBackMs / MeasuredTicks:F2}");
         }
 
         var wallMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds / MeasuredTicks;

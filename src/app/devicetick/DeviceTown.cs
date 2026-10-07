@@ -18,8 +18,8 @@ namespace TrafficSimulation.App.DeviceTick;
 /// <remarks>
 /// <para>
 /// <b>The claims are still the town's</b>: answered as today, and sent as cut after each rebuild for the car tick to read
-/// (<see cref="DeviceClaims.LayAsCut"/>). <b>So are the bodies</b>, until the device's own bodies' phase takes them: the
-/// town steps them off the impulses written back here.
+/// (<see cref="DeviceClaims.LayAsCut"/>). <b>The bodies are the device's</b> (<see cref="DeviceTownBodies"/>): stepped
+/// off the impulses the tick left on the device, the town's own written over them for what the town ticked itself.
 /// </para>
 /// <para>
 /// <b>What the town's tick of a car it keeps does to its tyres stays the town's</b>: the device runs every car's tyres,
@@ -35,6 +35,7 @@ internal sealed class DeviceTown : ITownDevice, IDisposable
     readonly DeviceClaims _claims;
     readonly DeviceCarTick _cars;
     readonly DeviceWalkerTick _walkers;
+    readonly DeviceTownBodies _bodies;
     readonly ComputeBatch _batch;
     readonly GpuTimer _timer;
     readonly int[] _taken;
@@ -44,6 +45,9 @@ internal sealed class DeviceTown : ITownDevice, IDisposable
     readonly bool[] _chosen;
     int _count;
     int _walkerCount;
+
+    /// <summary>Whether this tick's agents were ticked here, so the bodies' phase spends what their tick left.</summary>
+    bool _ticked;
 
     public DeviceTown(Vk vk, SimConfig config, TownWorld town)
     {
@@ -63,6 +67,7 @@ internal sealed class DeviceTown : ITownDevice, IDisposable
             Shadowed = false,
         };
         _walkers = new DeviceWalkerTick(vk, config, town.People.Capacity);
+        _bodies = new DeviceTownBodies(vk, config, town, _tyres, _walkers);
         _batch = new ComputeBatch(vk);
         _timer = new GpuTimer(vk, 3);
         _taken = new int[cars.Capacity];
@@ -73,8 +78,11 @@ internal sealed class DeviceTown : ITownDevice, IDisposable
     /// <summary>How many cars the device ticked last tick.</summary>
     public int CarsTaken => _count;
 
-    /// <summary>The device's own time for the last tick's kernels, in milliseconds.</summary>
-    public double KernelsMs => _cars.TickMs + _cars.TyresMs + _walkers.TickMs;
+    /// <summary>The device's own time for the last tick's kernels, the bodies' phase's among them, in milliseconds.</summary>
+    public double KernelsMs => _cars.TickMs + _cars.TyresMs + _walkers.TickMs + _bodies.Phase.KernelsMs;
+
+    /// <summary>The bodies' phase, for whoever reads its times.</summary>
+    public DeviceTownBodies Bodies => _bodies;
 
     /// <summary>The device's time taking the last tick's car rows in and handing them back, in milliseconds.</summary>
     public double CopiesMs => _cars.SentMs + _cars.ReadMs;
@@ -139,14 +147,21 @@ internal sealed class DeviceTown : ITownDevice, IDisposable
 
         TakeBackTheCars(town);
         TakeBackTheWalkers(town);
+        _ticked = true;
         PrepareMs = Stopwatch.GetElapsedTime(began, prepared).TotalMilliseconds;
         WaitMs = Stopwatch.GetElapsedTime(prepared, waited).TotalMilliseconds;
         TakeBackMs = Stopwatch.GetElapsedTime(waited).TotalMilliseconds;
     }
 
-    /// <summary>The bodies stay the town's own for now: it steps them off the impulses written back here.</summary>
+    /// <summary>
+    /// <b>Every body stepped on the device</b> (<see cref="DeviceTownBodies"/>): the wheels the tyre pass left for the cars
+    /// ticked here and the impulses the walkers' tick left, where this tick's agents were ticked here — what the town
+    /// ticked itself, and every agent of a tick held, laid from the town.
+    /// </summary>
     public void StepBodies(TownWorld town, float dtS)
     {
+        _bodies.StepBodies(town, dtS, _ticked ? _taken.AsSpan(0, _count) : default, walkersTicked: _ticked);
+        _ticked = false;
     }
 
     /// <summary>
@@ -249,7 +264,8 @@ internal sealed class DeviceTown : ITownDevice, IDisposable
 
     /// <summary>
     /// <b>Every walker the device ticked, written back</b>: the way it faces, the pace it declared and the impulse it left —
-    /// but a casualty's, whose slide the town's own bodies' phase takes until the device takes the bodies.
+    /// but a casualty's, whose slide is the town's own bodies' phase's (<c>TownWorld.Settle</c>), written over the tick's
+    /// row before the bodies are stepped.
     /// </summary>
     void TakeBackTheWalkers(TownWorld town)
     {
@@ -270,6 +286,7 @@ internal sealed class DeviceTown : ITownDevice, IDisposable
     {
         _timer.Dispose();
         _batch.Dispose();
+        _bodies.Dispose();
         _walkers.Dispose();
         _cars.Dispose();
         _claims.Dispose();

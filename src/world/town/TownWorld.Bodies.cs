@@ -52,9 +52,10 @@ internal sealed partial class TownWorld
     /// <inheritdoc/>
     /// <remarks>
     /// <b>Where a device is set, the step is the device's</b> (<see cref="ITownDevice.StepBodies"/>): the town still
-    /// settles what slides with nothing driving it and keeps the motion into the tick, and the device spends the
-    /// impulses, steps every body and hands the fleets, the table and the touches back. Nothing is handed to
-    /// <see cref="BeforeTheSolverSteps"/> then — the town's table never holds the tick's impulses.
+    /// settles what slides with nothing driving it — a casualty's slide and a wreck's wheels are the town's whoever ticks
+    /// the rest — and keeps the motion into the tick, and the device spends the impulses, steps every body and hands the
+    /// fleets, the table and the touches back. Nothing is handed to <see cref="BeforeTheSolverSteps"/> then — the town's
+    /// table never holds the tick's impulses.
     /// </remarks>
     public void StepBodies(float dtS)
     {
@@ -177,15 +178,12 @@ internal sealed partial class TownWorld
     /// every tick, so a walker run over mid-stride whose last declaration stayed there would be shoved
     /// along by it for the whole rescue. The aim is the body's own position, which is what keeps a
     /// casualty from turning to face where it had been going.
-    /// <para>
-    /// A casualty a device ticks is slid by the device's own tick (<see cref="ITownDevice.Takes"/>), and not here again.
-    /// </para>
     /// </remarks>
     void Settle(float dtS)
     {
         for (var person = 0; person < People.Count; person++)
         {
-            if (!People.Wounded[person] || People.Inside[person].Any || Device?.Takes(person) == true) continue;
+            if (!People.Wounded[person] || People.Inside[person].Any) continue;
 
             var positionM = People.PositionM[person];
             var step = WalkerFollower.Step(

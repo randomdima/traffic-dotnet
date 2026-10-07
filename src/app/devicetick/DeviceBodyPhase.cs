@@ -84,7 +84,6 @@ internal sealed partial class DeviceBodyPhase : IDisposable
     readonly DeviceSolver _solver;
     readonly DeviceTyres _tyres;
     readonly ResidentRows<CarBodyRow> _carBodies;
-    readonly CarBodyRow[] _carBodiesSent;
     readonly ResidentRows<LaidImpulseRow> _laid;
     readonly GpuBuffer _wheelsIn;
     readonly BufferCopy[] _wheelRuns;
@@ -95,8 +94,10 @@ internal sealed partial class DeviceBodyPhase : IDisposable
     DeviceWalkerTick? _walkers;
     ComputeKernel? _walkerKernel, _walkerMirror;
     DescriptorSet _walkerSet, _walkerMirrorSet;
+    GpuBuffer? _walkerImpulsesIn;
+    BufferCopy[] _walkerImpulseRuns = [];
+    int _walkerImpulseRunCount;
     readonly ResidentRows<int>? _walkerBodies;
-    readonly int[]? _walkerBodiesSent;
     readonly GpuBuffer? _walkersOut;
     readonly ComputeKernel? _walkersRead;
     readonly DescriptorSet _walkersReadSet;
@@ -119,12 +120,8 @@ internal sealed partial class DeviceBodyPhase : IDisposable
         _tyres = tyres;
         var capacity = tyres.Capacity;
 
-        // No car is body -1, so every car's first lay differs from what was "sent" and is. What was sent is kept in
-        // managed memory to compare against: the mapped rows are for writing, and reading one back stalls on the bus.
-        _carBodies = new ResidentRows<CarBodyRow>(vk, capacity, 1);
-        _carBodiesSent = new CarBodyRow[capacity];
-        _carBodiesSent.AsSpan().Fill(new CarBodyRow(-1, 0u));
-        _laid = new ResidentRows<LaidImpulseRow>(vk, mostLaid, 1);
+        _carBodies = new ResidentRows<CarBodyRow>(vk, capacity, 1, hostOnly: true);
+        _laid =new ResidentRows<LaidImpulseRow>(vk, mostLaid, 1);
         _wheelsIn = vk.CreateBuffer(
             (ulong)(Math.Max(1, capacity * WheelsACar) * Unsafe.SizeOf<Vector4>()), BufferUsageFlags.TransferSrcBit, HostAccess.Writes);
         _wheelRuns = new BufferCopy[Math.Max(1, capacity)];
@@ -144,10 +141,7 @@ internal sealed partial class DeviceBodyPhase : IDisposable
             [_carBodies.Device, tyres.ImpulseTable, bodies.Pose, bodies.Heading, bodies.Motion, tyres.Table.Poses.Device]);
         if (walkers > 0)
         {
-            // No walker is body -1, so every walker's first lay differs from what was "sent" and is.
-            _walkerBodies = new ResidentRows<int>(vk, walkers, 1);
-            _walkerBodiesSent = new int[walkers];
-            _walkerBodiesSent.AsSpan().Fill(-1);
+            _walkerBodies = new ResidentRows<int>(vk, walkers, 1, hostOnly: true);
             _walkersOut = vk.CreateBuffer(
                 (ulong)(walkers * Unsafe.SizeOf<Vector4>()), BufferUsageFlags.StorageBufferBit, HostAccess.Reads);
             _walkersRead = new ComputeKernel(vk, "bodies_walkers_read.comp", 5, pushBytes);
@@ -170,6 +164,9 @@ internal sealed partial class DeviceBodyPhase : IDisposable
         var bodies = _solver.Bodies;
         var pushBytes = (uint)Marshal.SizeOf<PhasePush>();
         _walkers = walkers;
+        _walkerImpulsesIn = _vk.CreateBuffer(
+            (ulong)(Math.Max(1, walkers.Capacity) * Unsafe.SizeOf<Vector2>()), BufferUsageFlags.TransferSrcBit, HostAccess.Writes);
+        _walkerImpulseRuns = new BufferCopy[Math.Max(1, walkers.Capacity)];
         _walkerKernel = new ComputeKernel(_vk, "bodies_walkers.comp", 6, pushBytes);
         _walkerSet = _walkerKernel.Bind([walkers.BodyTable, walkers.Table, walkers.ImpulseTable, bodies.Motion, bodies.Mass, bodies.Filter]);
         _walkerMirror = new ComputeKernel(_vk, "bodies_walkers_mirror.comp", 4, pushBytes);
@@ -213,14 +210,28 @@ internal sealed partial class DeviceBodyPhase : IDisposable
     public ulong ReadBytes { get; private set; }
 
     /// <summary>Which body a walker is, marked to be sent only where it differs from what was sent last (<see cref="Reads.Walkers"/>).</summary>
-    public void LayWalker(int walker, int body)
-    {
-        ref var sent = ref _walkerBodiesSent![walker];
-        if (sent == body) return;
+    public void LayWalker(int walker, int body) => _walkerBodies!.Lay(walker, body);
 
-        sent = body;
-        _walkerBodies!.Rows(walker)[0] = body;
-        _walkerBodies.Mark(walker);
+    /// <summary>
+    /// A walker's impulse as the town made it, written over the walker tick's own row for this tick — for a walker the
+    /// tick did not answer for (<see cref="TakeTheWalkers"/>). A walker is laid at most once a step.
+    /// </summary>
+    public void LayWalkerImpulse(int walker, Vector2 impulseNs)
+    {
+        _walkerImpulsesIn!.Span<Vector2>()[walker] = impulseNs;
+        var bytes = (ulong)Unsafe.SizeOf<Vector2>();
+        var offset = (ulong)walker * bytes;
+        if (_walkerImpulseRunCount > 0)
+        {
+            ref var last = ref _walkerImpulseRuns[_walkerImpulseRunCount - 1];
+            if (last.DstOffset + last.Size == offset)
+            {
+                last.Size += bytes;
+                return;
+            }
+        }
+
+        _walkerImpulseRuns[_walkerImpulseRunCount++] = new BufferCopy(offset, offset, bytes);
     }
 
     /// <summary>
@@ -235,13 +246,7 @@ internal sealed partial class DeviceBodyPhase : IDisposable
     /// </summary>
     public void LayCar(int car, int body, bool restsParked)
     {
-        var row = new CarBodyRow(body, restsParked ? CarBodyRow.RestsParked : 0u);
-        ref var sent = ref _carBodiesSent[car];
-        if (sent == row) return;
-
-        sent = row;
-        _carBodies.Rows(car)[0] = row;
-        _carBodies.Mark(car);
+        _carBodies.Lay(car, new CarBodyRow(body, restsParked ? CarBodyRow.RestsParked : 0u));
     }
 
     /// <summary>
@@ -319,6 +324,12 @@ internal sealed partial class DeviceBodyPhase : IDisposable
         _walkerBodies?.Send(commands);
         vk.Copy(commands, _wheelsIn, _tyres.ImpulseTable, _wheelRuns.AsSpan(0, _wheelRunCount));
         _wheelRunCount = 0;
+        if (_walkers != null)
+        {
+            foreach (ref readonly var run in _walkerImpulseRuns.AsSpan(0, _walkerImpulseRunCount)) SentBytes += run.Size;
+            vk.Copy(commands, _walkerImpulsesIn!, _walkers.ImpulseTable, _walkerImpulseRuns.AsSpan(0, _walkerImpulseRunCount));
+            _walkerImpulseRunCount = 0;
+        }
         _solver.Send(commands);
         SentBytes += _solver.SentBytes;
         vk.AfterTransfer(commands);
@@ -407,6 +418,7 @@ internal sealed partial class DeviceBodyPhase : IDisposable
         _walkerMirror?.Dispose();
         _walkersRead?.Dispose();
         _walkerBodies?.Dispose();
+        _walkerImpulsesIn?.Dispose();
         _walkersOut?.Dispose();
         _carBodies.Dispose();
         _laid.Dispose();

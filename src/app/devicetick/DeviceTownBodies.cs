@@ -38,7 +38,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
     readonly DeviceSolver _solver;
     readonly DeviceBodyPhase _phase;
     readonly ComputeBatch _batch;
-    readonly bool _walkersTicked;
+    readonly DeviceWalkerTick? _walkerTick;
 
     /// <summary>How many steps the town's table had been through when the device last stepped it, or none yet.</summary>
     int _stepsTaken = -1;
@@ -48,8 +48,8 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
 
     /// <param name="tyres">The tyre pass whose table holds the cars' poses and the wheels it stepped; its capacity is the fleet's.</param>
     /// <param name="walkers">
-    /// The walkers' tick whose impulses every walker's are, recorded in an earlier submit — or none, and every walker's
-    /// impulse is the town's own.
+    /// The walkers' tick, recorded in an earlier submit, whose impulses the walkers spend where it ticked them — or none,
+    /// and every walker's impulse is the town's own.
     /// </param>
     public DeviceTownBodies(Vk vk, SimConfig config, TownWorld town, DeviceTyres tyres, DeviceWalkerTick? walkers = null)
     {
@@ -61,7 +61,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
             vk, config, _solver, tyres, town.People.Capacity + (2 * town.Cars.Capacity), town.People.Capacity);
         if (walkers != null) _phase.TakeTheWalkers(walkers);
 
-        _walkersTicked = walkers != null;
+        _walkerTick = walkers;
         _batch = new ComputeBatch(vk);
     }
 
@@ -104,7 +104,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
     {
     }
 
-    public void StepBodies(TownWorld town, float dtS) => StepBodies(town, dtS, default);
+    public void StepBodies(TownWorld town, float dtS) => StepBodies(town, dtS, default, walkersTicked: false);
 
     /// <summary>
     /// <b>One step of the town's bodies</b>, as <see cref="ITownDevice.StepBodies"/>.
@@ -113,10 +113,15 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
     /// The cars whose wheels the device's tyre pass left in its table this tick, ascending; every other car's are the
     /// town's own, and are laid from it — as is a car on somebody's arm, whose wheels are the trailer's.
     /// </param>
-    public void StepBodies(TownWorld town, float dtS, ReadOnlySpan<int> tyresStepped)
+    /// <param name="walkersTicked">
+    /// Whether the walkers' tick ran this tick and handed its impulses back (<see cref="DeviceWalkerTick.ImpulsesAfter"/>).
+    /// A walker's impulse is its row there but where the town's own differs — a casualty's slide, a walker under a hand —
+    /// which is written over it; where the tick did not run, every walker's is the town's.
+    /// </param>
+    public void StepBodies(TownWorld town, float dtS, ReadOnlySpan<int> tyresStepped, bool walkersTicked)
     {
         var began = Stopwatch.GetTimestamp();
-        Lay(town, dtS, tyresStepped);
+        Lay(town, dtS, tyresStepped, walkersTicked);
         var laid = Stopwatch.GetTimestamp();
 
         var commands = _batch.Begin();
@@ -138,7 +143,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
     /// and walker is, the cars' poses where their bodies were placed or reweighed, and the impulses the device does not
     /// make itself.
     /// </summary>
-    void Lay(TownWorld town, float dtS, ReadOnlySpan<int> tyresStepped)
+    void Lay(TownWorld town, float dtS, ReadOnlySpan<int> tyresStepped, bool walkersTicked)
     {
         var physics = town.PhysicsForTheDevice;
         var table = physics.Table;
@@ -170,13 +175,18 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         }
 
         var people = town.People;
+        var ticked = walkersTicked && _walkerTick != null ? _walkerTick.ImpulsesAfter : default;
         for (var person = 0; person < people.Count; person++)
         {
             _phase.LayWalker(person, people.Body[person].Index);
-            if (_walkersTicked || people.Inside[person].Any) continue;
-
             var impulseNs = town.WalkerImpulseNs(person);
-            if (impulseNs != Vector2.Zero) _phase.LayCentralImpulse(people.Body[person].Index, impulseNs);
+            if (_walkerTick != null)
+            {
+                if (person >= ticked.Length || ticked[person] != impulseNs) _phase.LayWalkerImpulse(person, impulseNs);
+                continue;
+            }
+
+            if (!people.Inside[person].Any && impulseNs != Vector2.Zero) _phase.LayCentralImpulse(people.Body[person].Index, impulseNs);
         }
 
         if (!town.AnyOnTheBar) return;

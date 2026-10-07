@@ -7,8 +7,15 @@ Why this slice reads as it does. The rules themselves are [requirements.md](requ
 
 **With a device set on the town, phase 4 is the device's**: `TownWorld.StepBodies` hands it to `ITownDevice.StepBodies`,
 which `app/devicetick/DeviceTownBodies` implements in one submit and one wait, and the town no longer steps its
-`PhysicsWorld`. The town keeps the casualties' slide (but a casualty the device ticks), the motion into the tick that
-phase 5 judges, and its timing marks; phase 5 reads `BeganTouchingThisStep` as before.
+`PhysicsWorld`. The town keeps what slides with nothing driving it (a casualty, a wreck's wheels, a towed car's trailer
+pair), the motion into the tick that phase 5 judges, and its timing marks; phase 5 reads `BeganTouchingThisStep` as
+before. `DeviceTown`, the town's device, steps its bodies this way.
+
+- **The impulses spent are the tick's where the device ticked, the town's everywhere else.** The wheels are the tyre
+  pass's for the cars the device ticked and the town's own for the rest, written over the pass's rows. A walker's
+  impulse is the walkers' tick's row, but where the town's own differs from what the tick handed back — a casualty's
+  slide, a walker under a hand — it is written over that row. A tick held runs nothing on the device, and then every
+  impulse is the town's.
 
 - **Only what the town changed is sent.** The table remembers the rows the town changes (`PhysicsWorld.Changes`): a
   body added, put in or out of a container, moved to another layer or channel, reweighed, pushed, or frozen. They go as
@@ -27,14 +34,16 @@ phase 5 judges, and its timing marks; phase 5 reads `BeganTouchingThisStep` as b
   fleets too, as the host's phase reads them after the freeze.
 - **The indexes are laid when a picture or a ray first asks**, not every step: nothing in a device's step reads them.
   That was 0.74 ms of the 0.9 the hand-back cost on OdesaOsm.
-- **What the host compares against the bytes it sent is kept in managed memory.** Reading mapped rows back to see what
-  changed cost 3 ms a tick on OdesaOsm.
+- **Which body each car and walker is is laid through `ResidentRows.Lay`**, which keeps what it laid host-side. Reading
+  the mapped rows back to see what changed cost 3 ms a tick on OdesaOsm.
 - **Held to the host tick for tick** (`DeviceTownBodiesTests`, both solving in contact order): a touring city's cars for
   a second, and a car park shoved into itself — walkers, cars, every pair that began touching, every body's freezing
   and what broke and who was hurt — for three seconds, all within the solver's own agreement and the discrete outcomes
   exact. What parts the two towns is the device's sine and cosine on a body it turned, which a car's controller carries
   to millimetres within seconds. So the half minute after is asked only that no body stays inside another (`PHY-1`) and
-  nobody is hurt whom the host left whole. The steady state allocates nothing.
+  nobody is hurt whom the host left whole. The steady state allocates nothing. With `DeviceTown` ticking the cars and
+  walkers too, the shoved car park came out as the host's in a one-off run: 6 wrecks, 10 hurt, 33 pairs began touching,
+  111 bodies frozen at the end, casualties at rest; no test holds that, since the cars' own tick parts the two towns.
 
 On OdesaOsm (10 013 cars, 10 000 walkers, 431 070 bodies; RX 9070 XT), the device stepping the bodies alone, with every
 wheel and walker impulse the town's and so sent: the town's own phase 4 took a median of 2.48 ms a tick (solver 2.39
@@ -43,6 +52,12 @@ of which the device spent 0.45 taking in 771 KiB (626 KiB of it the town's wheel
 pass does not send), 0.34 on the kernels and 0.32 handing back 543 KiB. About 0.6 is the device waking from the
 tick's idle: an empty submit is 0.03 ms back to back and 0.61 after a sixtieth of a second's sleep. The host's own
 figure moved between 2.5 and 3.3 ms from run to run on this machine. The first step, laid whole, was 18 ms and 4 MiB.
+
+With `DeviceTown` (`--bench devicetown`, OdesaOsm, Release, this machine under another run's load) the bodies' column
+went from 3.12 ms a tick to 1.72–1.81, against 3.35–3.67 on the host alone, and the device's whole tick from 19.3 to
+16.6–17.0 (host alone 25.7–27.3). The phase lays 0.08 ms, waits 1.4–1.5 of which the kernels are 0.40, and writes back
+0.20. The town drove the same: 12.85 m/s against the host's 12.86, 79 cars off their lines each, 695 hard brakings
+against 714 (691 before the bodies moved), 16 pairs began touching against 15 (16 before).
 
 ## 2026-10-07 — the bodies' phase on the device
 
