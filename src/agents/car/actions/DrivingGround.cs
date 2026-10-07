@@ -29,7 +29,8 @@ internal sealed class DrivingGround(
 
     public CarFleet Cars { get; } = cars;
 
-    public LaneOccupancy Occupancy { get; } = occupancy;
+    /// <summary>What is laid on the ways: the layer every reader reads, or a laying of the town's own while one lasts.</summary>
+    public LaneOccupancy Occupancy { get; internal set; } = occupancy;
 
     public RibbonAtlas Atlas { get; } = atlas;
 

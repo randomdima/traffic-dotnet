@@ -241,24 +241,27 @@ internal sealed partial class LaneOccupancy
     /// <summary>The first planned piece on each way, or <see cref="NoSlot"/>, ascending by near edge.</summary>
     readonly int[] _planned;
 
-    readonly int[] _next;
-    readonly int[] _prev;
-    readonly LaneClaim[] _slots;
-    readonly int[] _slotWay;
+    int[] _next;
+    int[] _prev;
+    LaneClaim[] _slots;
+    int[] _slotWay;
 
     /// <summary>Whether a slot has been taken out of its way's list since it was laid.</summary>
-    readonly bool[] _gone;
+    bool[] _gone;
 
     readonly int[] _touched;
     readonly bool[] _laidOn;
 
-    readonly int[] _holdFirst;
-    readonly int[] _holdEnd;
-    readonly float[] _holdCutLineM;
-    readonly float[] _holdCutMarginM;
-    readonly float[] _holdStandingMarginM;
-    readonly LaneClaim[] _holdCutBy;
-    readonly int[] _holdCutOn;
+    int[] _holdFirst;
+    int[] _holdEnd;
+    float[] _holdCutLineM;
+    float[] _holdCutMarginM;
+    float[] _holdStandingMarginM;
+    LaneClaim[] _holdCutBy;
+    int[] _holdCutOn;
+
+    /// <summary>Whether a slot or hold past the room is made room for rather than dropped (<see cref="Dropped"/>).</summary>
+    readonly bool _grows;
 
     int _slotCount;
     int _touchedCount;
@@ -275,10 +278,15 @@ internal sealed partial class LaneOccupancy
     /// <b>Which ways share ground</b> (<see cref="RibbonAtlas.Marks"/>); <see cref="WayCrossings.None"/> for a
     /// fixture whose ways touch nothing.
     /// </param>
-    public LaneOccupancy(TownWays ways, int mostSlots, int mostHolds, WayCrossings marks)
+    /// <param name="grows">
+    /// Whether the room is a beginning rather than a bound: twice as much made where a laying needs more, so a table that
+    /// holds a few of what the town lays settles into its size and drops nothing.
+    /// </param>
+    public LaneOccupancy(TownWays ways, int mostSlots, int mostHolds, WayCrossings marks, bool grows = false)
     {
         _ways = ways;
         _marks = marks;
+        _grows = grows;
 
         _bodies = new int[ways.Count];
         _planned = new int[ways.Count];
@@ -436,8 +444,13 @@ internal sealed partial class LaneOccupancy
     {
         if (_holdCount == _holdFirst.Length)
         {
-            Dropped++;
-            return NoHold;
+            if (!_grows)
+            {
+                Dropped++;
+                return NoHold;
+            }
+
+            GrowTheHolds();
         }
 
         var hold = _holdCount++;
@@ -759,6 +772,36 @@ internal sealed partial class LaneOccupancy
         _holdCutOn[hold] = cutOn;
     }
 
+    /// <summary>Twice the room for slots, in a table that grows rather than drop one.</summary>
+    void GrowTheSlots()
+    {
+        var room = 2 * _slots.Length;
+        Array.Resize(ref _next, room);
+        Array.Resize(ref _prev, room);
+        Array.Resize(ref _slots, room);
+        Array.Resize(ref _slotWay, room);
+        Array.Resize(ref _gone, room);
+        Array.Resize(ref _slotStandsToM, room);
+    }
+
+    /// <summary>Twice the room for holds, in a table that grows rather than drop one.</summary>
+    void GrowTheHolds()
+    {
+        var room = 2 * _holdFirst.Length;
+        Array.Resize(ref _holdFirst, room);
+        Array.Resize(ref _holdEnd, room);
+        Array.Resize(ref _holdCutLineM, room);
+        Array.Resize(ref _holdCutMarginM, room);
+        Array.Resize(ref _holdStandingMarginM, room);
+        Array.Resize(ref _holdCutBy, room);
+        Array.Resize(ref _holdCutOn, room);
+        Array.Resize(ref _shownToLineM, room);
+        Array.Resize(ref _answered, room);
+        Array.Resize(ref _holdTerms, room);
+        Array.Resize(ref _laidAnswer, room);
+        Array.Resize(ref _answer, room);
+    }
+
     /// <summary>Whether a reservation is the asker's own, which is never held against it.</summary>
     static bool Owns(in PlannedAsk ask, in LaneClaim claim) =>
         claim.Occupant == ask.Occupant && claim.Of == ask.Of;
@@ -768,8 +811,13 @@ internal sealed partial class LaneOccupancy
     {
         if (_slotCount == _slots.Length)
         {
-            Dropped++;
-            return;
+            if (!_grows)
+            {
+                Dropped++;
+                return;
+            }
+
+            GrowTheSlots();
         }
 
         var slot = _slotCount++;

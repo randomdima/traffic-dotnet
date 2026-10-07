@@ -377,7 +377,7 @@ internal sealed partial class DeviceRebuild
     /// </summary>
     void MirrorInto(TownWorld town)
     {
-        var occupancy = town.Occupancy;
+        var occupancy = town.ReadersOccupancy;
         var rows = _claims.Rows;
         var holds = _holdsRead.Span<HoldOut>()[.._claims.Holds.Length];
         occupancy.BeginTheMirror(rows.Length, holds.Length);

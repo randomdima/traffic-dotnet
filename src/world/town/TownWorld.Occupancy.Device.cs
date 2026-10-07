@@ -31,7 +31,7 @@ internal sealed partial class TownWorld
     void RebuildLaneOccupancyOn(ITownClaims device)
     {
         device.ClaimsAt(this, ClaimsStage.Begun);
-        _occupancy.Begin();
+        LayIntoTheLaying();
         for (var person = 0; person < People.Count; person++) StationTheWalker(person);
 
         device.ClaimsAt(this, ClaimsStage.Stationed);
@@ -65,6 +65,7 @@ internal sealed partial class TownWorld
         _following.AsksTheBodiesLater = false;
         device.ClaimsAt(this, ClaimsStage.WalksDue);
         device.ClaimsAt(this, ClaimsStage.PlansLaid);
+        LayIntoTheLayer();
         device.ClaimsAt(this, ClaimsStage.PlansAnswered);
         foreach (var car in CarsAsked) _backingUp.Lay(car, IsUnderWay(car));
         var granted = device.ReadTheGrants;
@@ -76,6 +77,32 @@ internal sealed partial class TownWorld
         device.ClaimsAt(this, ClaimsStage.WalkersDue);
         ReadTheWalkersGrants(granted);
         device.ClaimsAt(this, ClaimsStage.GrantsRead);
+    }
+
+    /// <summary>
+    /// <b>What the town lays itself in a rebuild a device lays goes into a laying of its own</b>, begun empty: the few rows
+    /// only the town lays, numbered from nothing as the device reads them, while the layer every reader reads is left as it
+    /// stands until the device's answers are written back into it.
+    /// </summary>
+    void LayIntoTheLaying()
+    {
+        // A table that grows: a laying holds a few dozen rows, and settles into what the town's busiest needs.
+        _laying ??= new LaneOccupancy(_ways, LayingRoom, LayingRoom / 16, _atlas.Marks, grows: true);
+        _laying.Begin();
+        LayOn(_laying);
+    }
+
+    /// <summary>The room a laying of the town's own begins with.</summary>
+    const int LayingRoom = 1024;
+
+    /// <summary>Back onto the layer every reader reads, once the device's answers are written into it.</summary>
+    void LayIntoTheLayer() => LayOn(_layer);
+
+    void LayOn(LaneOccupancy occupancy)
+    {
+        _occupancy = occupancy;
+        _ground.Occupancy = occupancy;
+        _walkingGround.Occupancy = occupancy;
     }
 
     /// <summary>

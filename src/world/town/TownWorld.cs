@@ -68,7 +68,17 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <see cref="RebuildLaneOccupancy"/>. One set of claims over one set of ways: a car that has mounted a
     /// kerb and the walker beside it are two stretches of one footway and not two records in two tables.
     /// </summary>
-    readonly LaneOccupancy _occupancy;
+    /// <remarks>
+    /// <b>The layer every reader reads</b> (<see cref="_layer"/>) but while a rebuild a device lays has the town laying its
+    /// own few rows, which go into a laying of their own (<see cref="LayIntoTheLaying"/>).
+    /// </remarks>
+    LaneOccupancy _occupancy;
+
+    /// <summary>The layer every reader reads, which a device's rebuild is written back into.</summary>
+    readonly LaneOccupancy _layer;
+
+    /// <summary>What the town lays itself in a rebuild a device lays, made the first time one is.</summary>
+    LaneOccupancy? _laying;
     readonly SignalService _signals;
     readonly SignalHeads _heads;
 
@@ -328,6 +338,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             + _signalHolds.Count,
             (drivers * 2) + walkers + _signalHolds.Count,
             _atlas.Marks);
+        _layer = _occupancy;
         _ground = new DrivingGround(Cars, _occupancy, _atlas, _ways, _roads, _lines, config);
         _carHold = _ground.PlanHold;
         _claims = new TickGroups(config.Sim.ClaimsIntervalS, config.Sim.TickRateHz);
@@ -529,6 +540,12 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// footway under it.
     /// </summary>
     public LaneOccupancy Occupancy => _occupancy;
+
+    /// <summary>
+    /// <b>The layer every reader reads</b> — <see cref="Occupancy"/> but while the town lays its own rows in a rebuild a
+    /// device lays (<see cref="LayIntoTheLaying"/>): what that device's rebuild is written back into.
+    /// </summary>
+    public LaneOccupancy ReadersOccupancy => _layer;
 
     /// <summary>Every way in the town and what kind of ground each is, for whoever holds a way number.</summary>
     public TownWays Ways => _ways;

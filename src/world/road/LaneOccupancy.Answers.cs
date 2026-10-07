@@ -46,22 +46,22 @@ internal sealed partial class LaneOccupancy
     /// How far along its holder's line each hold is shown to the others while the plans are answered — everything
     /// short of the metre, the main claim running over it ending there — and the whole of it at any other time.
     /// </summary>
-    readonly float[] _shownToLineM;
+    float[] _shownToLineM;
 
     /// <summary>Whether a hold is answered with the plans (<see cref="Propose"/>, <see cref="Place"/>) rather than laid where it stands.</summary>
-    readonly bool[] _answered;
+    bool[] _answered;
 
     /// <summary>What each hold's holder reads of whatever refuses it (<see cref="Terms"/>).</summary>
-    readonly HolderTerms[] _holdTerms;
+    HolderTerms[] _holdTerms;
 
     /// <summary>For each main claim proposed, how far along its way its holder's own body already reaches — what its answer is read past.</summary>
-    readonly float[] _slotStandsToM;
+    float[] _slotStandsToM;
 
     /// <summary>What a placed hold was laid to end at — its answer, since nothing of its own is asked.</summary>
-    readonly PlanAnswer[] _laidAnswer;
+    PlanAnswer[] _laidAnswer;
 
     /// <summary>What each hold came to on the last pass.</summary>
-    readonly PlanAnswer[] _answer;
+    PlanAnswer[] _answer;
 
     /// <summary>Whether the plans are being answered, which is when a hold laid where it stands is taken by none of them.</summary>
     bool _answering;
