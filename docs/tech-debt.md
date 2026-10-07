@@ -38,12 +38,11 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **Nobody holds what no wheel stands on**: across a lane's end a car on two ways leaves its wheelbase less two
   metres and two half steps unclaimed; a car straddling a zebra narrower than its wheelbase, or nosing over a junction
   its front wheels have not reached, is no body there. The gap per car model is not measured.
-- **The device in step has no test of its own** (`DeviceTown`): only `--bench devicetown` and a windowed `--device-tick`
-  run drive it, so what it keeps on the device and hands back only where it changed — a car's wheels
-  (`DeviceTyres.KeptOnTheDevice`), the poses the step left, the walker table (`DeviceWalkerTick.Resident`) — and the claims
-  layer it writes back a tick late (`DeviceRebuild.LandsLater`, `LayerBound`) are held by the probe's counts, not by a
-  gate. A device-tier test of a fixture town ticked with the device, keeping the town's own claims over a run and held
-  equal tick by tick to one that hands everything back at once, closes it.
+- **The device in step is gated only on the town's claims** (`DeviceTownGateTests`: nothing inside anything, nothing past
+  its grant, over 600 ticks of the built town): what it keeps on the device and hands back only where it changed — a
+  car's wheels (`DeviceTyres.KeptOnTheDevice`), the poses the step left, the walker table (`DeviceWalkerTick.Resident`) —
+  is held to handing everything back only by `--bench devicetown`'s counts coming out the same. A test holding the two
+  equal tick by tick closes it.
 - **Not measured since they landed**: the walker as one wheel, the car no longer asked its ground, and the
   consolidation after them (`WheelGrounds`, `DeviceGround` gone, the walker's pavement read). The figures in the road
   and terrain logs predate all three; the soak after them kept all twelve of OdesaOsm's claims.
