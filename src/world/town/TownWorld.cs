@@ -692,6 +692,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <summary>Whether the agent pass under way has reached the cars, so that each crossing is stamped once rather than per agent.</summary>
     bool _decidingCars;
 
+    /// <summary>And whether it is the decisions' pass rather than the ticks'.</summary>
+    bool _inTheDecisions;
+
     /// <summary>
     /// <b>When the claims are laid: every <see cref="SimFigures.ClaimsIntervalS"/>, and not every tick</b> — between two
     /// layings each agent holds to the grant it was given, walked in by the ground it has covered since
@@ -729,31 +732,40 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         ClaimsLaidThisTick = _claims.Turn(_ticks++, 0);
         if (ClaimsLaidThisTick) RebuildLaneOccupancy();
 
-        // Phase 3 begins on the walkers, which is the end of the roster the loop walks first.
+        // Phase 3 begins on the walkers' ticks, which is the end of the roster the loop walks first.
         if (!Timed) return;
 
         _decidingCars = false;
+        _inTheDecisions = false;
         Sub.Begin();
     }
 
     /// <summary>
-    /// Three timestamps a tick, not one an agent: the roster is walkers then cars and phase 3 walks it twice — the
+    /// Five timestamps a tick, not one an agent: the roster is walkers then cars and phase 3 walks it twice — the
     /// ticks, then the decisions — so the only instants worth marking are where a pass crosses from one kind to the
-    /// other. Timing each of five hundred agents would cost several percent of the tick this is measuring.
+    /// other, or from the ticks to the decisions. Timing each of five hundred agents would cost several percent of the
+    /// tick this is measuring.
     /// </summary>
     /// <remarks>
     /// Read off the agent that actually ran rather than off the roster's boundary, because a terminal
     /// agent is never handed here: a wrecked car at the head of the fleet would otherwise leave the
     /// crossing unmarked and put every car's time on the walkers.
     /// </remarks>
-    void AccountFor(int agent)
+    void AccountFor(int agent, bool deciding)
     {
-        if (!Timed || _decidingCars == Roster.IsCar(agent)) return;
+        var car = Roster.IsCar(agent);
+        if (!Timed || (_decidingCars == car && _inTheDecisions == deciding)) return;
 
-        if (_decidingCars) Sub.Mark(ref Sub.CarTicks);
-        else Sub.Mark(ref Sub.WalkerTicks);
-        _decidingCars = !_decidingCars;
+        Sub.Mark(ref SpentSoFar());
+        _decidingCars = car;
+        _inTheDecisions = deciding;
     }
+
+    /// <summary>Where the stretch of phase 3 since the last mark goes: whose, and whether ticks or decisions.</summary>
+    ref long SpentSoFar() =>
+        ref _inTheDecisions
+            ? ref _decidingCars ? ref Sub.CarDecisionTicks : ref Sub.WalkerDecisionTicks
+            : ref _decidingCars ? ref Sub.CarTicks : ref Sub.WalkerTicks;
 
     /// <summary>
     /// <c>Pause</c>: <b>the decide loop is skipped and every car is told its controller is paused,
@@ -780,7 +792,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     public void TickAgent(int agent)
     {
-        AccountFor(agent);
+        AccountFor(agent, deciding: false);
 
         if (HoldAgents && !Handed(agent))
         {
@@ -830,7 +842,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     public void DecideAgent(int agent, float sinceLastDecisionS)
     {
-        AccountFor(agent);
+        AccountFor(agent, deciding: true);
 
         // Held: no decision, and — the load-bearing half — no clock running up either, so nothing is
         // stuck by having stood still while the town was paused.

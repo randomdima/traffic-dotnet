@@ -88,8 +88,8 @@ internal static class TownProbe
         Console.WriteLine();
         Console.WriteLine("the tick ranked by phase — µs per tick, on a second window with the timing on: not " +
                           "comparable with the µs/tick above, which is a different window of a moving town");
-        Console.WriteLine($"{"map",-10}{"tick",8}{"input",8}{"index",8}{"agents",8}{"walkers",9}{"cars",8}{"bodies",8}" +
-                          $"{"solver",8}{"own",8}{"contacts",10}{"other",8}");
+        Console.WriteLine($"{"map",-10}{"tick",8}{"input",8}{"index",8}{"agents",8}{"walkers",9}{"cars",8}{"decide w",10}" +
+                          $"{"decide c",10}{"bodies",8}{"solver",8}{"own",8}{"contacts",10}{"other",8}");
 
         for (var map = 0; map < maps.Length; map++)
         {
@@ -100,6 +100,7 @@ internal static class TownProbe
                 $"{maps[map],-10}{Micro(phases, phases.WholeTicks),8:F1}{Micro(phases, phases.InputTicks),8:F1}" +
                 $"{Micro(phases, phases.IndexTicks),8:F1}{Micro(phases, phases.AgentTicks),8:F1}" +
                 $"{Micro(phases, sub.WalkerTicks),9:F1}{Micro(phases, sub.CarTicks),8:F1}" +
+                $"{Micro(phases, sub.WalkerDecisionTicks),10:F1}{Micro(phases, sub.CarDecisionTicks),10:F1}" +
                 $"{Micro(phases, phases.BodyTicks),8:F1}{Micro(phases, sub.SolverTicks),8:F1}" +
                 $"{Micro(phases, phases.BodyTicks - sub.SolverTicks),8:F1}{Micro(phases, phases.ContactTicks),10:F1}" +
                 $"{Micro(phases, phases.OtherTicks),8:F1}");

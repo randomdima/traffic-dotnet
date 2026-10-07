@@ -23,11 +23,7 @@ internal sealed partial class TownWorld
     {
         // Phase 3 ends here, whichever kind of agent it ended on: a town with no car left to decide
         // for never crossed into the cars at all.
-        if (Timed)
-        {
-            if (_decidingCars) Sub.Mark(ref Sub.CarTicks);
-            else Sub.Mark(ref Sub.WalkerTicks);
-        }
+        if (Timed) Sub.Mark(ref SpentSoFar());
 
         Settle(dtS);
 

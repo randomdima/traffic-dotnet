@@ -59,6 +59,11 @@ internal struct TickParts
 
     public long WalkerTicks;
     public long CarTicks;
+
+    /// <summary>Phase 3's second pass, kept apart from its ticks: the decisions due, which stay the host's on a device tick.</summary>
+    public long WalkerDecisionTicks;
+
+    public long CarDecisionTicks;
     public long SolverTicks;
 
     /// <summary>Where the next <see cref="Mark"/> measures from.</summary>

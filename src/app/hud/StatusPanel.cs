@@ -429,8 +429,8 @@ internal sealed class StatusPanel
         Row(ref draw, ref row, text, "    input", phases.MillisecondsPer(phases.InputTicks), "ms");
         Row(ref draw, ref row, text, "    index", phases.MillisecondsPer(phases.IndexTicks), "ms");
         Row(ref draw, ref row, text, "    agents", phases.MillisecondsPer(phases.AgentTicks), "ms");
-        Row(ref draw, ref row, text, "      walkers", phases.MillisecondsPer(sub.WalkerTicks), "ms");
-        Row(ref draw, ref row, text, "      cars", phases.MillisecondsPer(sub.CarTicks), "ms");
+        Row(ref draw, ref row, text, "      walkers", phases.MillisecondsPer(sub.WalkerTicks + sub.WalkerDecisionTicks), "ms");
+        Row(ref draw, ref row, text, "      cars", phases.MillisecondsPer(sub.CarTicks + sub.CarDecisionTicks), "ms");
         Row(ref draw, ref row, text, "    bodies", phases.MillisecondsPer(phases.BodyTicks), "ms");
         Row(ref draw, ref row, text, "      solver", phases.MillisecondsPer(sub.SolverTicks), "ms");
         Row(ref draw, ref row, text, "      own", phases.MillisecondsPer(phases.BodyTicks - sub.SolverTicks), "ms");

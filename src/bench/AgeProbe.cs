@@ -61,7 +61,8 @@ internal static class AgeProbe
             var sub = world.Sub;
             Console.WriteLine(
                 $"{fromS,8:F0}{Micro(phases, phases.WholeTicks),8:F1}{Micro(phases, phases.IndexTicks),8:F1}" +
-                $"{Micro(phases, phases.AgentTicks),8:F1}{Micro(phases, sub.WalkerTicks),9:F1}{Micro(phases, sub.CarTicks),8:F1}" +
+                $"{Micro(phases, phases.AgentTicks),8:F1}{Micro(phases, sub.WalkerTicks + sub.WalkerDecisionTicks),9:F1}" +
+                $"{Micro(phases, sub.CarTicks + sub.CarDecisionTicks),8:F1}" +
                 $"{Micro(phases, phases.BodyTicks),8:F1}{Micro(phases, sub.SolverTicks),8:F1}{Micro(phases, phases.ContactTicks),10:F1}" +
                 $"{world.IntegratedBodyCount,8}{world.FrozenBodyCount,8}{Stopwatch.GetElapsedTime(started).TotalSeconds,8:F1}  {Digest(world):x16}");
         }
