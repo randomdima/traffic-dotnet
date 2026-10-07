@@ -179,9 +179,9 @@ internal sealed partial class DeviceCarTick : IDisposable
         }
 
         _ticks = new ResidentRows<TickRow>(vk, capacity, 1, readsBack: true);
-        _told = new ResidentRows<ToldRow>(vk, capacity, 1);
-        _grants = new ResidentRows<GrantRow>(vk, capacity, 1);
-        _cutters = new ResidentRows<DeviceClaims.ClaimRow>(vk, capacity, 1);
+        _told = new ResidentRows<ToldRow>(vk, capacity, 1, hostOnly: true);
+        _grants = new ResidentRows<GrantRow>(vk, capacity, 1, hostOnly: true);
+        _cutters = new ResidentRows<DeviceClaims.ClaimRow>(vk, capacity, 1, hostOnly: true);
         _boxes = new ResidentRows<BoxRow>(vk, capacity, 1, readsBack: true);
         _contexts = new ResidentRows<ContextRow>(vk, capacity, 1, readsBack: true);
         _lines = new ResidentRows<LineRow>(vk, capacity, 1, readsBack: true);
@@ -192,9 +192,9 @@ internal sealed partial class DeviceCarTick : IDisposable
         _ends = new ResidentRows<float>(vk, capacity, lanes, readsBack: true);
         _firstArcs = new ResidentRows<uint>(vk, capacity, lanes);
         _breaks = new ResidentRows<uint>(vk, capacity, lanes);
-        _taken = new ResidentRows<uint>(vk, capacity, 1);
+        _taken = new ResidentRows<uint>(vk, capacity, 1, hostOnly: true);
         _passes = new ResidentRows<PassRow>(vk, capacity, 1, readsBack: true);
-        _holdBits = new ResidentRows<uint>(vk, capacity, 1);
+        _holdBits = new ResidentRows<uint>(vk, capacity, 1, hostOnly: true);
 
         var table = tyres.Table;
         GpuBuffer[] onTheGround = [table.Poses.Device, table.Cars.Device, _lines.Device, _taken.Device, tyres.Effects, .. ground.Tables];
@@ -226,6 +226,21 @@ internal sealed partial class DeviceCarTick : IDisposable
 
     /// <summary>The tyre pass the tick hands its commands to, whose table holds each car's pose, command and wheels.</summary>
     public DeviceTyres Tyres => _tyres;
+
+    /// <summary>
+    /// Whether <see cref="RecordRead"/> hands back what only the shadow compares: the lines, their chains and
+    /// lanes' ends, each car's pass, and the ground and scrub under its wheels.
+    /// </summary>
+    /// <remarks>
+    /// <b>A town whose tick the device runs reads none of them</b>: the town shifts its own line as the device did
+    /// (<c>TownWorld.ShiftedOnTheDevice</c>), and the ground and scrub are scratch the tick that wrote them spends. Over a
+    /// bus of a few GB/s they are most of what a tick would otherwise hand back.
+    /// </remarks>
+    public bool Shadowed
+    {
+        get => _tyres.ReadsGroundAndScrub;
+        set => _tyres.ReadsGroundAndScrub = value;
+    }
 
     public ReadOnlySpan<TickRow> TicksAfter => _ticks.AllRead[.._cars];
 
@@ -291,7 +306,6 @@ internal sealed partial class DeviceCarTick : IDisposable
         var vk = _vk;
         _timer.Reset(commands);
         _timer.Stamp(commands, (int)Stage.Began);
-        _taken.Mark(0, taken);
         var table = _tyres.Table;
         SentBytes = table.BuildOf.MarkedBytes + table.Poses.MarkedBytes + table.Commands.MarkedBytes + table.Cars.MarkedBytes
                     + table.Wheels.MarkedBytes + _ticks.MarkedBytes + _told.MarkedBytes + _grants.MarkedBytes + _cutters.MarkedBytes
@@ -337,13 +351,17 @@ internal sealed partial class DeviceCarTick : IDisposable
         _vk.BeforeTransfer(commands);
         _tyres.Read(commands);
         _ticks.Read(commands, cars);
-        _lines.Read(commands, cars);
-        _chain.Read(commands, cars);
-        _starts.Read(commands, cars);
-        _ends.Read(commands, cars);
         _contexts.Read(commands, cars);
         _boxes.Read(commands, cars);
-        _passes.Read(commands, cars);
+        if (Shadowed)
+        {
+            _lines.Read(commands, cars);
+            _chain.Read(commands, cars);
+            _starts.Read(commands, cars);
+            _ends.Read(commands, cars);
+            _passes.Read(commands, cars);
+        }
+
         _timer.Stamp(commands, (int)Stage.Read);
     }
 

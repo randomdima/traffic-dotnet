@@ -50,6 +50,7 @@ internal static class CheckCatalogue
         new("devicecartick", "A running town's following cars ticked on the device beside the town's own tick: time, and one answer", Quoted(config => DeviceCarTickProbe.Run("Odesa", config))),
         new("devicebodies", "A running town's bodies stepped on the device beside the town's own phase, impulses to read-back: time, and one answer", Quoted(config => DeviceBodiesProbe.Run("Odesa", config))),
         new("devicetick", "A running town's agents and bodies ticked on the device in one submit, beside the town's own tick: time, and how far apart", Quoted(config => DeviceTickProbe.Run("Odesa", config))),
+        new("devicetown", "A town ticked with the device in step beside the same town ticked by the host alone: each phase's time, and what each town did", Quoted(config => DeviceTownProbe.Run("Odesa", config))),
         new("devicecopy", "What a copy costs the device each way, whole and cut into many runs", Quoted(DeviceCopyProbe.Run)),
         new("devicesprites", "A running town's moving sprites emitted on the device beside the host's fill, framing by framing: time, and one answer", Quoted(config => DeviceSpritesProbe.Run("Odesa", config))),
         new("shape", "What shape a town came out: how its roads bend, where its junctions stand", Quoted(config => TownShape.Run("Odesa", config))),

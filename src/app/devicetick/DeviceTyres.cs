@@ -119,8 +119,14 @@ internal sealed class DeviceTyres : IDisposable
     readonly ResidentRows<SurfaceRow> _surfaces;
     readonly ResidentRows<Vector4> _impulses;
     readonly ResidentRows<ScrubRow> _scrubs;
-    readonly GpuBuffer _markCountOut, _marksOut;
-    readonly GpuBuffer _markCount, _marks;
+    readonly GpuBuffer _markCountOut;
+    readonly GpuBuffer _markCount;
+
+    /// <summary>
+    /// The ring of marks, written by the kernel straight into memory the host reads: a tick lays tens of the fleet's
+    /// thousands of wheels, and a copy of the whole ring would move every one of them across the bus.
+    /// </summary>
+    readonly GpuBuffer _marks;
     int _cars;
 
     /// <param name="effects">What each kind of ground does to a wheel, indexed by kind (<see cref="GroundLocator.EffectTable"/>).</param>
@@ -147,7 +153,7 @@ internal sealed class DeviceTyres : IDisposable
         var wheels = capacity * WheelsACar;
         var buildBuffer = Laid<CarBuildRow>(buildRows);
         var effectBuffer = Laid<GroundEffectRow>(effectRows);
-        _buildOf = new ResidentRows<uint>(vk, capacity, 1);
+        _buildOf = new ResidentRows<uint>(vk, capacity, 1, hostOnly: true);
         _poses = new ResidentRows<PoseRow>(vk, capacity, 1);
         _commands = new ResidentRows<CommandRow>(vk, capacity, 1, readsBack: true);
         _carRows = new ResidentRows<CarRow>(vk, capacity, 1, readsBack: true);
@@ -156,9 +162,8 @@ internal sealed class DeviceTyres : IDisposable
         _impulses = new ResidentRows<Vector4>(vk, capacity, WheelsACar, readsBack: true);
         _scrubs = new ResidentRows<ScrubRow>(vk, capacity, WheelsACar, readsBack: true);
         _markCount = Device<uint>(1);
-        _marks = Device<MarkRow>(wheels);
+        _marks = Own(_vk.CreateBuffer(Bytes<MarkRow>(wheels), BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
         _markCountOut = Readback<uint>(1);
-        _marksOut = Readback<MarkRow>(wheels);
 
         Table = (buildBuffer, _buildOf, _poses, _commands, _carRows, _wheels);
         Effects = effectBuffer;
@@ -186,6 +191,12 @@ internal sealed class DeviceTyres : IDisposable
 
     /// <summary>What each kind of ground does to a wheel, as the pass binds it (<c>GROUND_EFFECT_BINDING</c>).</summary>
     public GpuBuffer Effects { get; }
+
+    /// <summary>
+    /// Whether <see cref="Read"/> hands back the ground under each wheel and what each did to it — scratch to a town whose
+    /// tick the device runs, and the shadow's to compare.
+    /// </summary>
+    public bool ReadsGroundAndScrub { get; set; } = true;
 
     /// <summary>
     /// Each wheel's impulse and where it is spent, as the pass leaves it on the device — four a car in the tyre model's
@@ -238,7 +249,7 @@ internal sealed class DeviceTyres : IDisposable
     /// </summary>
     public ReadOnlySpan<MarkRow> MarksLaid()
     {
-        var laid = _marksOut.Span<MarkRow>()[..Math.Min(MarkCount, Capacity * WheelsACar)];
+        var laid = _marks.Span<MarkRow>()[..Math.Min(MarkCount, Capacity * WheelsACar)];
         laid.Sort(static (a, b) => a.CarWheel.CompareTo(b.CarWheel));
         return laid;
     }
@@ -304,11 +315,14 @@ internal sealed class DeviceTyres : IDisposable
         _commands.Read(commands, _cars);
         _carRows.Read(commands, _cars);
         _wheels.Read(commands, _cars);
-        _surfaces.Read(commands, _cars);
         _impulses.Read(commands, _cars);
-        _scrubs.Read(commands, _cars);
+        if (ReadsGroundAndScrub)
+        {
+            _surfaces.Read(commands, _cars);
+            _scrubs.Read(commands, _cars);
+        }
+
         _vk.Copy(commands, _markCount, _markCountOut, sizeof(uint));
-        _vk.Copy(commands, _marks, _marksOut, _marks.SizeBytes);
     }
 
     GpuBuffer Device<T>(int count) where T : unmanaged => Own(

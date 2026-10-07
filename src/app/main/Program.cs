@@ -368,6 +368,9 @@ internal static class Program
             case "devicetick":
                 DeviceTickProbe.Run(map ?? Options.FixtureMap, config);
                 return 0;
+            case "devicetown":
+                DeviceTownProbe.Run(map ?? Options.FixtureMap, config);
+                return 0;
             case "devicebodies":
                 DeviceBodiesProbe.Run(map ?? Options.FixtureMap, config);
                 return 0;

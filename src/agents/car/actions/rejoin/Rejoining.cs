@@ -43,6 +43,16 @@ internal sealed class Rejoining(DrivingGround ground, CarActions actions, Follow
     public void LoseTheLine<TTown>(ref TTown town, int car, in CarPose pose)
         where TTown : struct, ICarTown
     {
+        Lose(car);
+        town.Hold(car, pose, DrivingHold.LostLine);
+    }
+
+    /// <summary>
+    /// <b>What losing its line does to a car but stop it</b> (<see cref="LoseTheLine"/>): into Rejoin, and the junction it
+    /// was coming to forgotten — for a car whose tick stopped it elsewhere (a device's).
+    /// </summary>
+    public void Lose(int car)
+    {
         if (Cars.Action[car] != CarAction.Rejoin) _looksInS[car] = 0f;
 
         actions.Enter(car, CarAction.Rejoin);
@@ -51,7 +61,6 @@ internal sealed class Rejoining(DrivingGround ground, CarActions actions, Follow
         Cars.ToTheBoxM[car] = float.PositiveInfinity;
         Cars.TurningAtTheBox[car] = false;
         Cars.BoxIsOurs[car] = false;
-        town.Hold(car, pose, DrivingHold.LostLine);
     }
 
     /// <summary>

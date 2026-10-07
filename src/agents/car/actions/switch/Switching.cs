@@ -184,11 +184,7 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
         {
             if (progressM >= pass.SteppedOutM)
             {
-                // Handed back to following first, which lets the step's ground go, and then granted what of it lies ahead.
-                var heldAheadM = _roomToM[car] - progressM - ground.LeadingEdgeAheadOfTheAxleM(car);
-                actions.Enter(car, CarAction.Follow);
-                town.TakeTheLaneBeside(car, Roads.LaneBeside(pass.Lane, _inward[car]), heldAheadM);
-                Made++;
+                SteppedOut(ref town, car, progressM);
                 town.DriveOnTheLine(car, pose, Cars.ProgressM[car], alongMps, 0f);
                 return;
             }
@@ -200,6 +196,20 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
         if (pass.Any && _laidSinceAsked[car]) KeepOrWithdraw(car, pass, progressM);
 
         town.DriveOnTheLine(car, pose, progressM, alongMps, coveredM, passAsideM: _asideM[car], waitAtM: WaitAtM(car, progressM));
+    }
+
+    /// <summary>
+    /// <b>A car that has stepped out onto the lane beside</b>: handed back to following first, which lets the step's ground
+    /// go, and then granted what of it lies ahead, on a line laid down the lane beside (<see cref="ICarTown.TakeTheLaneBeside"/>).
+    /// </summary>
+    public void SteppedOut<TTown>(ref TTown town, int car, float progressM)
+        where TTown : struct, ICarTown
+    {
+        var pass = Cars.Pass[car];
+        var heldAheadM = _roomToM[car] - progressM - ground.LeadingEdgeAheadOfTheAxleM(car);
+        actions.Enter(car, CarAction.Follow);
+        town.TakeTheLaneBeside(car, Roads.LaneBeside(pass.Lane, _inward[car]), heldAheadM);
+        Made++;
     }
 
     /// <summary>

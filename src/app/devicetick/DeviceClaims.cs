@@ -313,6 +313,39 @@ internal sealed class DeviceClaims : IDisposable
     }
 
     /// <summary>
+    /// <b>The reservations as the town's own answering cut them</b>, every slot a row as it stands — for a kernel that reads
+    /// the claims after their cut (<see cref="DeviceCarTick"/>) where the town answered them itself. Sent and listed by
+    /// <see cref="RecordAsCut"/>.
+    /// </summary>
+    public void LayAsCut(LaneOccupancy claims)
+    {
+        if (_rowsIn is null || _tallyIn is null) throw new InvalidOperationException("These claims are laid on the device and have no room for the host's.");
+
+        var rows = _rowsIn.Span<ClaimRow>();
+        for (var slot = 0; slot < claims.SlotCount; slot++)
+        {
+            rows[slot] = ClaimRow.Of(claims.Slots[slot], claims.SlotWays[slot], claims.SlotsGone[slot], claims.Slots[slot].FromM);
+        }
+
+        _rowCount = claims.SlotCount;
+        _holdCount = 0;
+        var tally = _tallyIn.Span<uint>();
+        tally.Clear();
+        tally[Tally.Rows] = (uint)_rowCount;
+        GroupsAt(tally, Tally.RowsGroups, Groups(_rowCount));
+        GroupsAt(tally, Tally.HoldsGroups, 0u);
+    }
+
+    /// <summary>The rows <see cref="LayAsCut"/> laid sent and every way's lists laid over them, recorded into a caller's submit.</summary>
+    public void RecordAsCut(CommandBuffer commands)
+    {
+        _vk.Copy(commands, _rowsIn!, _rows, Bytes<ClaimRow>(_rowCount));
+        _vk.Copy(commands, _tallyIn!, _tally, Bytes<uint>(Tally.Words));
+        _vk.AfterTransfer(commands);
+        RecordLists(commands);
+    }
+
+    /// <summary>
     /// <b>The lists laid, every pass answered and the holds cut</b>, and the rows, the lists, the answers and what moved
     /// read back. One submit and one wait.
     /// </summary>

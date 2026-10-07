@@ -122,7 +122,7 @@ internal static class DeviceTickProbe
             host.Stop();
             bodies.Lay(town, config.TickSeconds, everyWheel: false);
             tick.Step(count, town.Cars.Count, walkers, config.TickSeconds, readBack: true);
-            carTick.SettleTheDevice(taken.AsSpan(0, count));
+            carTick.SettleTheDevice(town.Cars, taken.AsSpan(0, count));
             kernelsMs.Add(tick.KernelsMs);
             if (tick.Rebuilt) rebuildMs.Add(tick.RebuildMs);
             carMs.Add(carTick.TickMs + carTick.TyresMs);

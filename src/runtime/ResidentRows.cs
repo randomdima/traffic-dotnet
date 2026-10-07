@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Silk.NET.Vulkan;
 
 namespace TrafficSimulation.Runtime;
@@ -8,19 +9,35 @@ namespace TrafficSimulation.Runtime;
 /// those — as one copy, however many there are, so a submit crosses once a table whatever the town's size.
 /// </summary>
 /// <remarks>
+/// <para>
 /// <b>An item is marked at most once between sends</b>: marks are kept as runs, an item marked where the last run ends
 /// extending it, so a dense pass is one run and the list of them — laid for every item at construction — never grows.
+/// </para>
+/// <para>
+/// <b>Rows only the host writes</b> (<c>hostOnly</c>) are laid with <see cref="Lay"/>, which marks a row only where it
+/// differs from the last laid, and a run is carried over a gap of unmarked rows shorter than <see cref="BridgedGapBytes"/>:
+/// those rows' mapped copy is what the device holds, so sending them again changes nothing and saves a region. A table laid
+/// with <see cref="Lay"/> is written through it alone.
+/// </para>
 /// </remarks>
 internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
 {
+    /// <summary>
+    /// The gap a run is carried over rather than a second begun: a region costs a copy about what this many bytes do
+    /// (<c>--bench devicecopy</c>: 0.85 µs a region against 1.8 GB/s on a PCIe link of 5 GT/s × 4).
+    /// </summary>
+    const ulong BridgedGapBytes = 1536;
+
     readonly Vk _vk;
     readonly GpuBuffer _staging;
     readonly GpuBuffer? _readback;
     readonly BufferCopy[] _runs;
+    readonly T[]? _laid;
     int _runCount;
 
     /// <param name="readsBack">Whether the rows are ever handed back to the host (<see cref="Read"/>).</param>
-    public ResidentRows(Vk vk, int items, int rowsPerItem, bool readsBack = false)
+    /// <param name="hostOnly">Whether only the host writes the rows, and lays them with <see cref="Lay"/>.</param>
+    public ResidentRows(Vk vk, int items, int rowsPerItem, bool readsBack = false, bool hostOnly = false)
     {
         _vk = vk;
         Items = items;
@@ -31,6 +48,12 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
         _staging = vk.CreateBuffer(bytes, BufferUsageFlags.TransferSrcBit, HostAccess.Writes);
         if (readsBack) _readback = vk.CreateBuffer(bytes, BufferUsageFlags.TransferDstBit, HostAccess.Reads);
         _runs = new BufferCopy[Math.Max(1, items)];
+        if (!hostOnly) return;
+
+        // The device, the mapped copy and the last laid all begin as zeros, so a row laid as zeros needs no sending.
+        _laid = new T[items * rowsPerItem];
+        All.Clear();
+        Device.Upload<T>(items * rowsPerItem, static into => into.Clear(), PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit);
     }
 
     public int Items { get; }
@@ -54,6 +77,17 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
 
     public void Mark(int item) => Mark(item, 1);
 
+    /// <summary>One item's single row written and marked, unless it is bit for bit the row last laid there.</summary>
+    public void Lay(int item, in T row)
+    {
+        ref var laid = ref _laid![item * RowsPerItem];
+        if (MemoryMarshal.AsBytes(new ReadOnlySpan<T>(in row)).SequenceEqual(MemoryMarshal.AsBytes(new ReadOnlySpan<T>(in laid)))) return;
+
+        laid = row;
+        Rows(item)[0] = row;
+        Mark(item);
+    }
+
     /// <summary>A run of items to be sent, joined to the last run where it begins at that run's end.</summary>
     public void Mark(int first, int count) =>
         MarkBytes((ulong)first * (ulong)(RowsPerItem * sizeof(T)), (ulong)count * (ulong)(RowsPerItem * sizeof(T)));
@@ -70,10 +104,16 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
         if (size == 0) return;
 
         MarkedBytes += size;
-        if (_runCount > 0 && _runs[_runCount - 1].DstOffset + _runs[_runCount - 1].Size == offset)
+        if (_runCount > 0)
         {
-            _runs[_runCount - 1].Size += size;
-            return;
+            ref var last = ref _runs[_runCount - 1];
+            var end = last.DstOffset + last.Size;
+            if (offset == end || (_laid != null && offset > end && offset - end <= BridgedGapBytes))
+            {
+                MarkedBytes += offset - end;
+                last.Size = offset + size - last.DstOffset;
+                return;
+            }
         }
 
         if (_runCount == _runs.Length) throw new InvalidOperationException("An item was marked twice between sends.");

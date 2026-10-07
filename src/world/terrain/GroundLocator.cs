@@ -91,6 +91,9 @@ internal sealed class GroundLocator
     /// <summary>What each kind of ground does to a body on it, as the figures stand now (<see cref="GroundCatalog.Table"/>).</summary>
     public ReadOnlySpan<GroundEffect> EffectTable => _catalog.Table;
 
+    /// <summary>The shapes' own tables, as a device laying the ground once reads them (<c>DeviceGround</c>).</summary>
+    public GroundTable ShapeTable => _shapes.Table;
+
     /// <summary>Whether the point is inside the town's own box, for a caller that wants to know before it asks.</summary>
     public bool Contains(Vector2 pointM) => _shapes.Contains(pointM);
 }

@@ -3,6 +3,27 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-10-07 — the device takes the town's tick in step
+
+**A town with a device set (`TownWorld.Device`, `app/devicetick/DeviceTown`) ticks every car and walker the device
+takes there, inside the town's own tick**: the loop skips them, and once every agent the town keeps has ticked the
+device runs the rest in one submit and hands back what each tick left, before any decision reads it. Nothing is
+pipelined — the town a decision reads is the tick it just ran. On OdesaOsm 10 002 of 10 013 cars a tick are the device's,
+and the town drives as it does alone (`--bench devicetown`: the same mean speed and the same cars off their lines).
+
+- **What a car's tick asks of the town is taken with the town's own code** — a line shifted on, lost, rejoined, a step
+  out onto the lane beside (`TownWorld.ShiftedOnTheDevice` and the rest, `Rejoining.Lose`, `Switching.SteppedOut`) —
+  after its state is written back, so a consequence reads the tick that caused it.
+- **Which cars the device ticks is answered once, as the town's tick reaches each** (`ITownDevice.Takes`), and the
+  submit ticks exactly those. Asked again after the loop, a car whose own tick moved it into Follow would be ticked twice.
+- **Only what the town reads comes back.** The line, its chain, the pass, and the ground and scrub under each wheel are
+  the shadow's to compare (`DeviceCarTick.Shadowed`): the town shifts its own line as the device did, and the ground and
+  scrub are scratch the pass that wrote them spends. The marks are written into memory the host reads, so a tick's few
+  cross the bus rather than a ring with room for every wheel. **The bus is what a tick waits on**: the link this was
+  measured on carries 1.8 GB/s, and a tick's car rows in and out are most of the submit.
+- **The claims and the bodies stay the town's** for now: the claims are sent as cut after each rebuild
+  (`DeviceClaims.LayAsCut`), and the town steps the bodies off the impulses handed back.
+
 ## 2026-10-07 — a pass is driven on the device
 
 **The driver on the device drives a pass it has begun** (CAR-46): `control/kernels/overtake.glsl` is `Overtake` line

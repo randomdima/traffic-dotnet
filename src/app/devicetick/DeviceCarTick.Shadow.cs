@@ -32,6 +32,11 @@ internal sealed partial class DeviceCarTick
     /// <summary>Where the town had each car on its line, and how far since its claim, when the two ticks last left it.</summary>
     float[] _progressAt = [], _coveredAt = [];
 
+    /// <summary>What the town had each car granted and doing when the two ticks last left it.</summary>
+    float[] _authorityAt = [];
+
+    CarAction[] _actionAt = [];
+
     /// <summary>Which level each car's tyre row was last sent on.</summary>
     byte[] _levelSent = [];
 
@@ -56,6 +61,8 @@ internal sealed partial class DeviceCarTick
         _lineLaidDue = new uint[capacity];
         _progressAt = new float[capacity];
         _coveredAt = new float[capacity];
+        _authorityAt = new float[capacity];
+        _actionAt = new CarAction[capacity];
         _levelSent = new byte[capacity];
         _askedBefore = new bool[capacity];
         _passHeld = new Overtake[capacity];
@@ -102,28 +109,39 @@ internal sealed partial class DeviceCarTick
     /// Whether a car the device took last tick keeps what that tick left; otherwise every car it takes is laid whole every
     /// tick, so each tick is asked of exactly the state the town's reads.
     /// </param>
+    /// <param name="claimsLaid">
+    /// Whether the town's claims were laid since the last tick, so that every car's grant is sent; otherwise only a car whose
+    /// grant the town set since — an action entered, a lane stepped onto — has it sent.
+    /// </param>
+    /// <param name="chosen">
+    /// Which cars the town left to the device as its own tick reached each (<see cref="ITownDevice.Takes"/>) — asked again
+    /// here, a car whose own tick moved it into one the device takes would be ticked twice. Empty, each car is asked here.
+    /// </param>
     /// <returns>How many cars the device takes.</returns>
-    public int Prepare(TownWorld town, Span<int> taken, bool resident)
+    public int Prepare(TownWorld town, Span<int> taken, bool resident, bool claimsLaid = true, ReadOnlySpan<bool> chosen = default)
     {
         var cars = town.Cars;
-        var list = _taken.All;
         var count = 0;
         for (var car = 0; car < cars.Count; car++)
         {
             LayThePose(town, car);
             _askedBefore[car] = town.AsksTheRoute(car);
             _lineLaidDue[car] = cars.LineLaid[car];
-            if (!Takes(town, car))
+            if (chosen.IsEmpty ? !Takes(town, car) : !chosen[car])
             {
                 LayTheTyres(town, car);
                 _held[car] = false;
                 continue;
             }
 
-            list[count] = (uint)car;
+            // A car whose action the town changed since the device last left it is the town's again, and laid whole.
+            if (_held[car] && cars.Action[car] != _actionAt[car]) _held[car] = false;
+
+            _taken.Lay(count, (uint)car);
             taken[count++] = car;
             _actionDue[car] = cars.Action[car];
-            LayWhatItIsTold(town, car);
+            var granted = !resident || !_held[car] || claimsLaid || cars.AuthorityM[car] != _authorityAt[car];
+            LayWhatItIsTold(town, car, granted);
             if (!resident || !_held[car] || cars.Pass[car] != _passHeld[car]) LayThePass(cars, car);
             if (!resident || !_held[car])
             {
@@ -143,7 +161,6 @@ internal sealed partial class DeviceCarTick
         }
 
         _tyres.Table.Poses.Mark(0, cars.Count);
-        _tyres.Table.BuildOf.Mark(0, cars.Count);
         return count;
     }
 
@@ -154,7 +171,7 @@ internal sealed partial class DeviceCarTick
     public void Settle(TownWorld town, ReadOnlySpan<int> taken)
     {
         SettleTheTown(town);
-        SettleTheDevice(taken);
+        SettleTheDevice(town.Cars, taken);
     }
 
     /// <summary>
@@ -173,16 +190,22 @@ internal sealed partial class DeviceCarTick
             _lineLaidAt[car] = cars.LineLaid[car];
             _progressAt[car] = cars.ProgressM[car];
             _coveredAt[car] = cars.CoveredSinceClaimM[car];
+            _authorityAt[car] = cars.AuthorityM[car];
+            _actionAt[car] = cars.Action[car];
             if (_held[car] && cars.Action[car] != _actionDue[car]) _held[car] = false;
         }
     }
 
     /// <summary>The device's half of <see cref="Settle"/>: its command and tyres for every car it took, as its tick left them.</summary>
-    public void SettleTheDevice(ReadOnlySpan<int> taken)
+    /// <remarks>
+    /// <b>Unshadowed, the pass held is the town's</b> once the device's shift is written back
+    /// (<see cref="Shadowed"/>): the device's own is not read, and the two are one function of one line.
+    /// </remarks>
+    public void SettleTheDevice(CarFleet cars, ReadOnlySpan<int> taken)
     {
         foreach (var car in taken)
         {
-            _passHeld[car] = PassesAfter[car].ToOvertake();
+            _passHeld[car] = Shadowed ? PassesAfter[car].ToOvertake() : cars.Pass[car];
             _commandBefore[car] = CommandsAfter[car];
             _carBefore[car] = _tyres.CarsAfter[car];
             _tyres.WheelsAfter.Slice(car * TyreModel.Wheels, TyreModel.Wheels).CopyTo(_wheelsBefore.AsSpan(car * TyreModel.Wheels));
@@ -192,7 +215,7 @@ internal sealed partial class DeviceCarTick
     void LayThePose(TownWorld town, int car)
     {
         var cars = town.Cars;
-        _tyres.BuildOf[car] = cars.Variant[car];
+        _tyres.Table.BuildOf.Lay(car, (uint)cars.Variant[car]);
         _tyres.Poses[car] = DeviceTyres.PoseRow.Of(new CarPose(
             cars.PositionM[car], cars.HeadingRad[car], cars.VelocityMps[car], cars.YawRateRadPerS[car], cars.MassKg[car],
             cars.AccelerationMps2[car]));
@@ -236,10 +259,10 @@ internal sealed partial class DeviceCarTick
     /// What a car's decisions tell its tick, and — where the device's own rebuild does not write them
     /// (<see cref="GrantedOnTheDevice"/>) — what the town's claims granted it, what cut it and its hold bits.
     /// </summary>
-    void LayWhatItIsTold(TownWorld town, int car)
+    void LayWhatItIsTold(TownWorld town, int car, bool granted)
     {
         var cars = town.Cars;
-        if (!GrantedOnTheDevice) LayWhatItWasGranted(town, car);
+        if (granted && !GrantedOnTheDevice) LayWhatItWasGranted(town, car);
 
         var hasAPlace = town.SceneOf(car, out var placeM, out var reachM);
         var told = (cars.BlueLight[car] ? ToldRow.OnACall : 0u) | (cars.LineIsReverse[car] ? ToldRow.LineIsReverse : 0u)
@@ -253,8 +276,7 @@ internal sealed partial class DeviceCarTick
             if (town.Switching.WaitsShortOfTheEnd(car, out fromRestM)) told |= ToldRow.WaitsShortOfTheEnd;
         }
 
-        _told.Rows(car)[0] = new ToldRow(told, cars.PaceMps[car], town.OffTheLineAllowanceM(car), asideM, fromRestM, reachM, placeM);
-        _told.Mark(car);
+        _told.Lay(car, new ToldRow(told, cars.PaceMps[car], town.OffTheLineAllowanceM(car), asideM, fromRestM, reachM, placeM));
     }
 
     void LayWhatItWasGranted(TownWorld town, int car)
@@ -270,14 +292,11 @@ internal sealed partial class DeviceCarTick
             cutOn = claims.HoldCutOn(hold);
         }
 
-        _grants.Rows(car)[0] = new GrantRow(
+        _grants.Lay(car, new GrantRow(
             cars.AuthorityM[car], cars.HorizonM[car], cars.ClaimFromM[car], cars.CommittedToM[car], cars.GrantMarginM[car],
-            (uint)cars.GrantCutBy[car], cutOn, 0f, Vector2.Zero);
-        _cutters.Rows(car)[0] = cut.Found ? DeviceClaims.ClaimRow.Of(cut, cutOn, false, cut.FromM) : default;
-        _holdBits.Rows(car)[0] = (hold != LaneOccupancy.NoHold ? ToldRow.HasAHold : 0u) | (cut.Found ? ToldRow.Cut : 0u);
-        _grants.Mark(car);
-        _cutters.Mark(car);
-        _holdBits.Mark(car);
+            (uint)cars.GrantCutBy[car], cutOn, 0f, Vector2.Zero));
+        _cutters.Lay(car, cut.Found ? DeviceClaims.ClaimRow.Of(cut, cutOn, false, cut.FromM) : default);
+        _holdBits.Lay(car, (hold != LaneOccupancy.NoHold ? ToldRow.HasAHold : 0u) | (cut.Found ? ToldRow.Cut : 0u));
     }
 
     void LayThePass(CarFleet cars, int car)
