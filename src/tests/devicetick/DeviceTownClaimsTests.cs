@@ -339,6 +339,9 @@ public sealed class ClaimsLaidOnTheDevice : IDisposable
 
         public bool LaysTheClaims(TownWorld town) => Claims.LaysTheClaims(town);
 
+        /// <summary>The town reads every grant off its own claims, so each the device read is held to it.</summary>
+        public bool GrantedTheCars => false;
+
         public void ClaimsAt(TownWorld town, ClaimsStage stage)
         {
             Claims.ClaimsAt(town, stage);
@@ -445,6 +448,8 @@ public class DeviceTownClaimsAllocationTests(Lavapipe device) : IClassFixture<La
         long _before;
 
         public bool LaysTheClaims(TownWorld town) => claims.LaysTheClaims(town);
+
+        public bool GrantedTheCars => claims.GrantedTheCars;
 
         public void ClaimsAt(TownWorld town, ClaimsStage stage)
         {

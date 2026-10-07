@@ -28,7 +28,8 @@ internal static class DeviceTownProbe
 
     readonly record struct Window(
         double TickMs, double ClaimsMs, double AgentsMs, double DecisionsMs, double BodiesMs, double ContactsMs, double WallMs,
-        double DeviceKernelsMs, int CarsTaken, double MeanMps, int Rejoining, long HardBrakings, long Touches);
+        double DeviceKernelsMs, int CarsTaken, double MeanMps, int Rejoining, long HardBrakings, long Touches,
+        (long Asked, long Made, long Withdrawn) Switches, (long Asked, long Made, long Withdrawn) Passes);
 
     public static void Run(string map, SimConfig config)
     {
@@ -56,7 +57,9 @@ internal static class DeviceTownProbe
         {
             Console.WriteLine(
                 $"  {name,-8} cars driven at {run.MeanMps:F2} m/s on average, {run.Rejoining} off their lines, {run.HardBrakings} hard brakings, " +
-                $"{run.Touches} pairs began touching{(run.CarsTaken > 0 ? $"; {run.CarsTaken} cars a tick on the device" : "")}");
+                $"{run.Touches} pairs began touching{(run.CarsTaken > 0 ? $"; {run.CarsTaken} cars a tick on the device" : "")}; " +
+                $"lane switches asked/made/withdrawn {run.Switches.Asked}/{run.Switches.Made}/{run.Switches.Withdrawn}, passes " +
+                $"{run.Passes.Asked}/{run.Passes.Made}/{run.Passes.Withdrawn}");
         }
     }
 
@@ -70,6 +73,9 @@ internal static class DeviceTownProbe
         world.Device = device;
         var brakings = world.HardBrakings;
         var touches = world.Touches;
+        var (switching, overtaking) = (world.Switching, world.Overtaking);
+        var switches = (switching.Asked, switching.Made, switching.Withdrawn);
+        var passes = (overtaking.Asked, overtaking.Made, overtaking.Withdrawn);
         loop.Phases.Reset();
         world.Sub.Reset();
         loop.Timed = world.Timed = true;
@@ -91,6 +97,9 @@ internal static class DeviceTownProbe
         var claimsStationedMs = 0d;
         var (claimsSentMb, claimsReadMb) = (0d, 0d);
         var (laidRows, laidBodies, laidHolds) = (0L, 0L, 0L);
+        var stages = Enum.GetValues<ClaimsStage>();
+        var stageTownMs = new double[stages.Length];
+        var stageHereMs = new double[stages.Length];
         var rebuilt = device?.Claims.Rebuild.Rebuilds ?? 0L;
         var (handedInTheStep, handedAlone) = device?.HandedOver ?? default;
         var handOverSubmits = device?.HandOverSubmits ?? 0L;
@@ -116,6 +125,12 @@ internal static class DeviceTownProbe
                 claimsReadMb += rebuild.Crossed.Read / 1e6;
                 var (rows, bodies, holds) = rebuild.Counted;
                 (laidRows, laidBodies, laidHolds) = (laidRows + rows, laidBodies + bodies, laidHolds + holds);
+                var (townMs, hereMs) = device.Claims.StageMs;
+                for (var stage = 0; stage < stages.Length; stage++)
+                {
+                    stageTownMs[stage] += townMs[stage];
+                    stageHereMs[stage] += hereMs[stage];
+                }
             }
 
             deviceMs += device.KernelsMs;
@@ -159,8 +174,15 @@ internal static class DeviceTownProbe
                 $"  of the wait, the device's own: sending {claimsSentMs / each:F2} ({claimsSentMb / each:F2} MB), the kernels through the answers " +
                 $"{claimsKernelsMs / each:F2}, reading back {claimsReadMs / each:F2} ({claimsReadMb / each:F2} MB) — {laidRows / each} rows, " +
                 $"{laidBodies / each} of them bodies and passes, and {laidHolds / each} holds a rebuild; {device.Claims.Rebuild.ReadPast} " +
-                $"laid past what their submit read back and {device.Claims.Rebuild.OnOtherChannelsAtABay} cars at a bay put on other " +
-                "channels since the device was set");
+                $"laid past what their submit read back, {device.Claims.Rebuild.OnOtherChannelsAtABay} cars at a bay put on other " +
+                $"channels and {device.Claims.Rebuild.BackedUp} rebuilds with a car backing up since the device was set");
+            Console.Write("  the host's rebuild stage by stage, ms a rebuild, the town's laying before each + the device's at it:");
+            for (var stage = 0; stage < stages.Length; stage++)
+            {
+                Console.Write($" {stages[stage]} {stageTownMs[stage] / each:F2}+{stageHereMs[stage] / each:F2}");
+            }
+
+            Console.WriteLine();
         }
 
         var wallMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds / MeasuredTicks;
@@ -186,6 +208,8 @@ internal static class DeviceTownProbe
             phases.MillisecondsPer(phases.WholeTicks), phases.MillisecondsPer(phases.IndexTicks),
             phases.MillisecondsPer(sub.WalkerTicks + sub.CarTicks), phases.MillisecondsPer(sub.WalkerDecisionTicks + sub.CarDecisionTicks),
             phases.MillisecondsPer(phases.BodyTicks), phases.MillisecondsPer(phases.ContactTicks), wallMs, deviceMs / MeasuredTicks,
-            (int)(taken / MeasuredTicks), mps / Math.Max(1, driven), rejoining, world.HardBrakings - brakings, world.Touches - touches);
+            (int)(taken / MeasuredTicks), mps / Math.Max(1, driven), rejoining, world.HardBrakings - brakings, world.Touches - touches,
+            (switching.Asked - switches.Asked, switching.Made - switches.Made, switching.Withdrawn - switches.Withdrawn),
+            (overtaking.Asked - passes.Asked, overtaking.Made - passes.Made, overtaking.Withdrawn - passes.Withdrawn));
     }
 }

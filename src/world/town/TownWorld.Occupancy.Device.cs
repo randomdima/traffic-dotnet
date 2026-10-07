@@ -1,4 +1,5 @@
 using TrafficSimulation.Agents.Car.Actions;
+using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.World.Road;
 
@@ -66,7 +67,11 @@ internal sealed partial class TownWorld
         device.ClaimsAt(this, ClaimsStage.PlansLaid);
         device.ClaimsAt(this, ClaimsStage.PlansAnswered);
         foreach (var car in CarsAsked) _backingUp.Lay(car, IsUnderWay(car));
-        foreach (var car in CarsAsked) _ground.ReadTheGrant(car);
+        if (!device.GrantedTheCars)
+        {
+            foreach (var car in CarsAsked) _ground.ReadTheGrant(car);
+        }
+
         device.ClaimsAt(this, ClaimsStage.WalkersDue);
         ReadTheWalkersGrants();
         device.ClaimsAt(this, ClaimsStage.GrantsRead);
@@ -137,6 +142,17 @@ internal sealed partial class TownWorld
     {
         if (channels != Cars.Channels[car]) PutOnChannels(car, channels);
         Cars.WheelsOnAWay[car] = wheelsOnAWay;
+    }
+
+    /// <summary>
+    /// A car's grant as a device read it off what its hold came to (<see cref="DrivingGround.ReadTheGrant"/>, done there):
+    /// how far past its claim's start it may go, what it keeps off what cut it, and what that was.
+    /// </summary>
+    public void GrantedOnTheDevice(int car, float authorityM, float marginM, HeadwayKind cutBy)
+    {
+        Cars.AuthorityM[car] = authorityM;
+        Cars.GrantMarginM[car] = marginM;
+        Cars.GrantCutBy[car] = cutBy;
     }
 
     /// <summary>How a device's answering of the plans went (<see cref="AnswerThePlans"/>): answers moved past the first pass, and whether they settled.</summary>

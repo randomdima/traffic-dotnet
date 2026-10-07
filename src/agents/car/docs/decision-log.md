@@ -35,6 +35,10 @@ and the town drives as it does alone (`--bench devicetown`: the same mean speed 
   after its state is written back, so a consequence reads the tick that caused it.
 - **Which cars the device ticks is answered once, as the town's tick reaches each** (`ITownDevice.Takes`), and the
   submit ticks exactly those. Asked again after the loop, a car whose own tick moved it into Follow would be ticked twice.
+- **A switching car's step is kept or withdrawn by the town as the device takes the car**
+  (`Switching.KeepOrWithdrawTheStep`), at where the last tick left it on its line rather than where this one reads it:
+  the device drives a step and never answers one. Left to the car's own tick, which the device's replaces, no step was
+  ever begun on the device — 23 of 92 made over 600 ticks of OdesaOsm against the host's 96 of 102, now 99 of 105.
 - **Only what the town reads comes back.** The line, its chain, the pass, and the ground and scrub under each wheel are
   the shadow's to compare (`DeviceCarTick.Shadowed`): the town shifts its own line as the device did, and the ground and
   scrub are scratch the pass that wrote them spends. The marks are written into memory the host reads, so a tick's few

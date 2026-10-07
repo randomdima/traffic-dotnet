@@ -180,7 +180,7 @@ internal sealed partial class DeviceCarTick : IDisposable
         _ticks = new ResidentRows<TickRow>(vk, capacity, 1, readsBack: true);
         _told = new ResidentRows<ToldRow>(vk, capacity, 1, hostOnly: true);
         _grants = new ResidentRows<GrantRow>(vk, capacity, 1, hostOnly: true);
-        _cutters = new ResidentRows<DeviceClaims.ClaimRow>(vk, capacity, 1, hostOnly: true);
+        _cutters = new ResidentRows<DeviceClaims.ClaimRow>(vk, capacity, 1, hostOnly: true, bridges: false);
         _boxes = new ResidentRows<BoxRow>(vk, capacity, 1, readsBack: true);
         _contexts = new ResidentRows<ContextRow>(vk, capacity, 1, readsBack: true);
         _lines = new ResidentRows<LineRow>(vk, capacity, 1, readsBack: true);
@@ -193,7 +193,7 @@ internal sealed partial class DeviceCarTick : IDisposable
         _breaks = new ResidentRows<uint>(vk, capacity, lanes);
         _taken = new ResidentRows<uint>(vk, capacity, 1, hostOnly: true);
         _passes = new ResidentRows<PassRow>(vk, capacity, 1, readsBack: true);
-        _holdBits = new ResidentRows<uint>(vk, capacity, 1, hostOnly: true);
+        _holdBits = new ResidentRows<uint>(vk, capacity, 1, hostOnly: true, bridges: false);
 
         var table = tyres.Table;
         GpuBuffer[] ticked =

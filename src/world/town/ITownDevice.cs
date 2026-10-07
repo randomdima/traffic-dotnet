@@ -57,4 +57,11 @@ internal interface ITownClaims
     /// answers every plan and writes the claims back into the town, which then lays the backing and reads every grant.
     /// </summary>
     void ClaimsAt(TownWorld town, ClaimsStage stage);
+
+    /// <summary>
+    /// <b>Whether the rebuild under way read every asked car's grant on the device</b>, with the answers, and wrote it into
+    /// the town by <see cref="ClaimsStage.PlansAnswered"/> (<see cref="TownWorld.GrantedOnTheDevice"/>) — so the town
+    /// reads none off the claims.
+    /// </summary>
+    bool GrantedTheCars { get; }
 }

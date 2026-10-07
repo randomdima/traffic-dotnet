@@ -556,6 +556,16 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
     }
 
     /// <summary>
+    /// <b>A step laid since it was asked for, kept or withdrawn, for a car whose tick runs elsewhere</b> (a device's): what
+    /// the car's own <see cref="Tick{TTown}"/> answers before it drives, at where the last tick left it on its line.
+    /// </summary>
+    public void KeepOrWithdrawTheStep(int car)
+    {
+        var pass = Cars.Pass[car];
+        if (pass.Any && !pass.Begun && _laidSinceAsked[car]) KeepOrWithdraw(car, pass, Cars.ProgressM[car]);
+    }
+
+    /// <summary>
     /// <b>A step laid in this rebuild, kept or withdrawn</b> before the car moves across: kept where nothing but the car
     /// itself is on its ground, the one exception a pass asked for on the same tick by a holder numbered after it
     /// (<see cref="LaneOccupancy.KeepsItsPass"/>) — and only while the car can still come up to where it begins.

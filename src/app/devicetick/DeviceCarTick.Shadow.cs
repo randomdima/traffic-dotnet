@@ -67,6 +67,8 @@ internal sealed partial class DeviceCarTick
         _askedBefore = new bool[capacity];
         _passHeld = new Overtake[capacity];
         _actionDue = new CarAction[capacity];
+        _cutOn = new int[capacity];
+        _cutterOnTheDevice = new bool[capacity];
         _commandBefore = new DeviceTyres.CommandRow[capacity];
         _carBefore = new DeviceTyres.CarRow[capacity];
         _wheelsBefore = new DeviceTyres.WheelRow[capacity * TyreModel.Wheels];
@@ -154,7 +156,7 @@ internal sealed partial class DeviceCarTick
             taken[count++] = car;
             _actionDue[car] = cars.Action[car];
             var granted = !resident || !_held[car] || claimsLaid || cars.AuthorityM[car] != _authorityAt[car];
-            LayWhatItIsTold(town, car, granted);
+            LayWhatItIsTold(town, car, granted, claimsLaid);
             if (!resident || !_held[car] || cars.Pass[car] != _passHeld[car]) LayThePass(cars, car);
             if (!resident || !_held[car])
             {
@@ -280,10 +282,10 @@ internal sealed partial class DeviceCarTick
     /// What a car's decisions tell its tick, and — where the device's own rebuild does not write them
     /// (<see cref="GrantedOnTheDevice"/>) — what the town's claims granted it, what cut it and its hold bits.
     /// </summary>
-    void LayWhatItIsTold(TownWorld town, int car, bool granted)
+    void LayWhatItIsTold(TownWorld town, int car, bool granted, bool claimsLaid)
     {
         var cars = town.Cars;
-        if (granted && !GrantedOnTheDevice) LayWhatItWasGranted(town, car);
+        if (granted && !GrantedOnTheDevice) LayWhatItWasGranted(town, car, claimsLaid);
 
         var hasAPlace = town.SceneOf(car, out var placeM, out var reachM);
         var told = (cars.BlueLight[car] ? ToldRow.OnACall : 0u) | (cars.LineIsReverse[car] ? ToldRow.LineIsReverse : 0u)
@@ -300,11 +302,31 @@ internal sealed partial class DeviceCarTick
         _told.Lay(car, new ToldRow(told, cars.PaceMps[car], town.OffTheLineAllowanceM(car), asideM, fromRestM, reachM, placeM));
     }
 
-    void LayWhatItWasGranted(TownWorld town, int car)
+    /// <summary>
+    /// <b>What the town's claims granted a car</b>, laid where the town changed it: read off the town's claims whole —
+    /// grant, cutter and hold bits — where the town laid them itself or the table holds no cutter of this car's yet;
+    /// otherwise only the grant, from the town's own figures and the way the last laying cut its hold on, the cutter and
+    /// bits being what that laying left on the device (<see cref="TakeTheGrantOf"/>).
+    /// </summary>
+    void LayWhatItWasGranted(TownWorld town, int car, bool claimsLaid)
     {
-        _grants.Lay(car, GrantOf(town, car, out var cutter, out var bits));
-        _cutters.Lay(car, cutter);
-        _holdBits.Lay(car, bits);
+        if (claimsLaid || !_cutterOnTheDevice[car])
+        {
+            var row = GrantOf(town, car, out var cutter, out var bits);
+            _grants.Lay(car, row);
+            _cutters.Lay(car, cutter);
+            _holdBits.Lay(car, bits);
+            _cutOn[car] = row.CutOn;
+            _cutterOnTheDevice[car] = true;
+            return;
+        }
+
+        var cars = town.Cars;
+        _grants.Lay(
+            car,
+            new GrantRow(
+                cars.AuthorityM[car], cars.HorizonM[car], cars.ClaimFromM[car], cars.CommittedToM[car], cars.GrantMarginM[car],
+                (uint)cars.GrantCutBy[car], _cutOn[car], 0f, Vector2.Zero));
     }
 
     /// <summary>
@@ -314,10 +336,33 @@ internal sealed partial class DeviceCarTick
     /// </summary>
     public void AssumeTheGrantOf(TownWorld town, int car)
     {
-        _grants.Assume(car, GrantOf(town, car, out var cutter, out var bits));
+        var row = GrantOf(town, car, out var cutter, out var bits);
+        _grants.Assume(car, row);
         _cutters.Assume(car, cutter);
         _holdBits.Assume(car, bits);
+        _cutOn[car] = row.CutOn;
+        _cutterOnTheDevice[car] = true;
     }
+
+    /// <summary>
+    /// <b>What a claims rebuild on the device wrote of a car's grant, as it read back</b>: the grant row taken as the
+    /// table's, and the cutter and hold bits it wrote left to the device unknown — sent whole again only where the town
+    /// lays the claims itself.
+    /// </summary>
+    public void TakeTheGrantOf(int car, in GrantRow written)
+    {
+        _grants.Assume(car, written);
+        _cutters.Forget(car);
+        _holdBits.Forget(car);
+        _cutOn[car] = written.CutOn;
+        _cutterOnTheDevice[car] = true;
+    }
+
+    /// <summary>The way each car's hold was cut on, as the last laying of the claims left it.</summary>
+    int[] _cutOn = [];
+
+    /// <summary>Whether the table holds a cutter and hold bits for each car, laid by the town or by a rebuild on the device.</summary>
+    bool[] _cutterOnTheDevice = [];
 
     /// <summary>A car's grant, what cut it and its hold bits as the town's claims have them.</summary>
     static GrantRow GrantOf(TownWorld town, int car, out DeviceClaims.ClaimRow cutter, out uint bits)

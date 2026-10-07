@@ -138,6 +138,10 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
         var car = town.Roster.CarIndex(agent);
         var takes = _chosen[car] = DeviceCarTick.Takes(town, car);
+
+        // The step a switching car asked for is answered by the car's own tick before it drives, which the device's is not.
+        if (takes && town.Cars.Action[car] == CarAction.Switch) town.Switching.KeepOrWithdrawTheStep(car);
+
         if (!takes && _tyres.KeptOnTheDevice[car])
         {
             // It left during the agents' pass, after the sweep before it.
@@ -293,6 +297,8 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     public bool LaysTheClaims(TownWorld town) => _townClaims.LaysTheClaims(town);
 
     public void ClaimsAt(TownWorld town, ClaimsStage stage) => _townClaims.ClaimsAt(town, stage);
+
+    public bool GrantedTheCars => _townClaims.GrantedTheCars;
 
     /// <summary>
     /// <b>Every body stepped on the device</b> (<see cref="DeviceTownBodies"/>): the wheels the tyre pass left for the cars

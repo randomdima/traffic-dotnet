@@ -114,6 +114,9 @@ internal sealed partial class DeviceRebuild
     /// <summary>Whether a backing was asked of a car this laying, so what it cut of the answers is looked for.</summary>
     bool _backsUp;
 
+    /// <summary>How many rebuilds in the town asked a car backing up for its ground, which the town lays after the answers.</summary>
+    public long BackedUp { get; private set; }
+
     void InTheTownOf(TownWorld world)
     {
         _priming = false;
@@ -239,7 +242,11 @@ internal sealed partial class DeviceRebuild
                 _answeredHolds = claims.HoldCount;
                 _backsUp = false;
                 foreach (var car in town.CarsAskedThisLaying) _backsUp |= town.Cars.Action[car] == CarAction.BackUp;
-                if (_backsUp) KeepWhatWasLaid(claims, 0, _answeredSlots, _answeredHolds);
+                if (_backsUp)
+                {
+                    KeepWhatWasLaid(claims, 0, _answeredSlots, _answeredHolds);
+                    BackedUp++;
+                }
                 break;
 
             case ClaimsStage.WalkersDue:
@@ -306,12 +313,15 @@ internal sealed partial class DeviceRebuild
 
         _holdsOutKernel.DispatchIndirect(commands, _claims.OnTheDevice.Tally, Tally.HoldsGroups, default(NoPush));
         _agentsOutKernel.Dispatch(commands, Math.Max(_carCount, _walkerCount), new AgentsPush((uint)_carCount, (uint)_walkerCount));
+        GrantedWithTheAnswers = !AnyCarBacksUp(town);
+        if (GrantedWithTheAnswers) _grant.Dispatch(commands, _carCount, new UnitsPush((uint)_carCount, (uint)(_stretches + 1)));
         vk.BeforeTransfer(commands);
         _claims.RecordReadBounded(commands, _rowsBound, 0);
         _claims.CopyPast<HoldOut>(commands, _holdsOut, _holdsRead, 0, _holdsBound);
         vk.Copy(commands, _unitHolds, _unitHoldsOut, Bytes<uint>(_units));
         vk.Copy(commands, _carsOut, _carsRead, Bytes<CarOut>(_carCount));
         vk.Copy(commands, _walkersOut, _walkersRead, Bytes<uint>(_walkerCount));
+        if (GrantedWithTheAnswers) vk.Copy(commands, _grants, _grantsOut, Bytes<DeviceCarTick.GrantRow>(_carCount));
         _timer.Stamp(commands, (int)Stage.Granted);
         _timer.Stamp(commands, (int)Stage.Read);
         _batch.SubmitAndWait();
@@ -324,7 +334,7 @@ internal sealed partial class DeviceRebuild
         var rows = _claims.Rows.Length;
         var holds = _claims.Holds.Length;
         Crossed = (sent, Bytes<ClaimRow>(rows) + Bytes<uint>(rows) + Bytes<HoldOut>(holds) + Bytes<uint>(_units) + Bytes<CarOut>(_carCount)
-                         + Bytes<uint>(_walkerCount));
+                         + Bytes<uint>(_walkerCount) + (GrantedWithTheAnswers ? Bytes<DeviceCarTick.GrantRow>(_carCount) : 0ul));
         LaidMs = Stopwatch.GetElapsedTime(_laidFrom, laid).TotalMilliseconds;
         WaitedMs = Stopwatch.GetElapsedTime(laid, waited).TotalMilliseconds;
         MirroredMs = Stopwatch.GetElapsedTime(waited).TotalMilliseconds;
@@ -483,8 +493,26 @@ internal sealed partial class DeviceRebuild
         _holdEdits.Send(commands, _holdEditsSent, _holdEditCount - _holdEditsSent);
         vk.AfterTransfer(commands);
         RecordTheBacking(commands);
-        _grant.Dispatch(commands, _carCount, new UnitsPush((uint)_carCount, (uint)(_stretches + 1)));
+        if (!GrantedWithTheAnswers) _grant.Dispatch(commands, _carCount, new UnitsPush((uint)_carCount, (uint)(_stretches + 1)));
         vk.BetweenKernels(commands);
         vk.BeforeTransfer(commands);
+    }
+
+    /// <summary>
+    /// <b>Whether the last rebuild in the town read every asked car's grant with the answers</b>, in its own submit, and
+    /// handed them back (<see cref="GrantsRead"/>) — so the town's tail reads no grant off the claims. Not where a car
+    /// backs up: the town lays the backing after the answers, and it may take a plan queued behind it.
+    /// </summary>
+    public bool GrantedWithTheAnswers { get; private set; }
+
+    /// <summary>Whether any car this laying asked is backing up, whose ground the town lays after the answers.</summary>
+    static bool AnyCarBacksUp(TownWorld town)
+    {
+        foreach (var car in town.CarsAskedThisLaying)
+        {
+            if (town.Cars.Action[car] == CarAction.BackUp) return true;
+        }
+
+        return false;
     }
 }

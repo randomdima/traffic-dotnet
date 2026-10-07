@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using Silk.NET.Vulkan;
+using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.World.Town;
 using Vk = TrafficSimulation.Runtime.Vk;
@@ -70,11 +72,57 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
 
     public void ClaimsAt(TownWorld town, ClaimsStage stage)
     {
-        Rebuild.InTheTown(town, stage);
-        if (stage != ClaimsStage.GrantsRead) return;
+        var arrived = Stopwatch.GetTimestamp();
+        if (stage != ClaimsStage.Begun) _townMs[(int)stage] = Stopwatch.GetElapsedTime(_left, arrived).TotalMilliseconds;
 
-        foreach (var car in town.CarsAskedThisLaying) _cars.AssumeTheGrantOf(town, car);
+        Rebuild.InTheTown(town, stage);
+        if (stage == ClaimsStage.PlansAnswered && GrantedTheCars) GrantTheCars(town);
+        if (stage == ClaimsStage.GrantsRead) TakeTheGrants(town);
+
+        _left = Stopwatch.GetTimestamp();
+        _hereMs[(int)stage] = Stopwatch.GetElapsedTime(arrived, _left).TotalMilliseconds;
     }
+
+    public bool GrantedTheCars => Rebuild.GrantedWithTheAnswers;
+
+    /// <summary>Every asked car's grant as the rebuild read it with the answers, written into the town.</summary>
+    void GrantTheCars(TownWorld town)
+    {
+        var read = Rebuild.GrantsRead;
+        foreach (var car in town.CarsAskedThisLaying)
+        {
+            ref readonly var row = ref read[car];
+            town.GrantedOnTheDevice(car, row.AuthorityM, row.GrantMarginM, (HeadwayKind)row.GrantCutBy);
+        }
+    }
+
+    /// <summary>
+    /// Every asked car's grant as the car tick's tables now hold it: as the rebuild read it with the answers and handed it
+    /// back (<see cref="DeviceCarTick.TakeTheGrantOf"/>), or — where the town laid a backing after them — as the town's own
+    /// reading of the claims (<see cref="DeviceCarTick.AssumeTheGrantOf"/>).
+    /// </summary>
+    void TakeTheGrants(TownWorld town)
+    {
+        if (!GrantedTheCars)
+        {
+            foreach (var car in town.CarsAskedThisLaying) _cars.AssumeTheGrantOf(town, car);
+            return;
+        }
+
+        var read = Rebuild.GrantsRead;
+        foreach (var car in town.CarsAskedThisLaying) _cars.TakeTheGrantOf(car, read[car]);
+    }
+
+    long _left;
+    readonly double[] _townMs = new double[Enum.GetValues<ClaimsStage>().Length];
+    readonly double[] _hereMs = new double[Enum.GetValues<ClaimsStage>().Length];
+
+    /// <summary>
+    /// The host's time over the last rebuild laid here, stage by stage, in milliseconds: the town's own laying from the
+    /// stage before up to each, and the work done here at each — the submit and the write-back at
+    /// <see cref="ClaimsStage.PlansLaid"/> among it.
+    /// </summary>
+    public (double[] Town, double[] Here) StageMs => (_townMs, _hereMs);
 
     /// <summary>Whether a rebuild laid here waits for its backing and grants to be recorded (<see cref="RecordTheRest"/>).</summary>
     public bool Pending => Rebuild.Pending;
