@@ -67,13 +67,14 @@ internal sealed partial class TownWorld
         device.ClaimsAt(this, ClaimsStage.PlansLaid);
         device.ClaimsAt(this, ClaimsStage.PlansAnswered);
         foreach (var car in CarsAsked) _backingUp.Lay(car, IsUnderWay(car));
-        if (!device.GrantedTheCars)
+        var granted = device.ReadTheGrants;
+        if (!granted)
         {
             foreach (var car in CarsAsked) _ground.ReadTheGrant(car);
         }
 
         device.ClaimsAt(this, ClaimsStage.WalkersDue);
-        ReadTheWalkersGrants();
+        ReadTheWalkersGrants(granted);
         device.ClaimsAt(this, ClaimsStage.GrantsRead);
     }
 
@@ -154,6 +155,17 @@ internal sealed partial class TownWorld
         Cars.GrantMarginM[car] = marginM;
         Cars.GrantCutBy[car] = cutBy;
     }
+
+    /// <summary>
+    /// A walker's hold as a device read what it came to (<see cref="WalkingGround.ReadTheGrant"/>'s reading, done there):
+    /// whether it laid one, where that ended, what it keeps off what cut it, and the way it was cut on — granted to the
+    /// walker where the town would read it (<see cref="ReadTheWalkersGrants"/>).
+    /// </summary>
+    public void WalkerGrantedOnTheDevice(int person, bool laidAHold, float endsAtM, float marginM, int cutOn) =>
+        _walkGrantedOnTheDevice[person] = (laidAHold, endsAtM, marginM, cutOn);
+
+    /// <summary>Each walker's hold as a device read what it came to, this rebuild (<see cref="WalkerGrantedOnTheDevice"/>).</summary>
+    (bool LaidAHold, float EndsAtM, float MarginM, int CutOn)[] _walkGrantedOnTheDevice = [];
 
     /// <summary>How a device's answering of the plans went (<see cref="AnswerThePlans"/>): answers moved past the first pass, and whether they settled.</summary>
     public void AnsweredOnTheDevice(int laidAgain, bool settled)

@@ -76,23 +76,31 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
         if (stage != ClaimsStage.Begun) _townMs[(int)stage] = Stopwatch.GetElapsedTime(_left, arrived).TotalMilliseconds;
 
         Rebuild.InTheTown(town, stage);
-        if (stage == ClaimsStage.PlansAnswered && GrantedTheCars) GrantTheCars(town);
+        if (stage == ClaimsStage.PlansAnswered && ReadTheGrants) Grant(town);
         if (stage == ClaimsStage.GrantsRead) TakeTheGrants(town);
 
         _left = Stopwatch.GetTimestamp();
         _hereMs[(int)stage] = Stopwatch.GetElapsedTime(arrived, _left).TotalMilliseconds;
     }
 
-    public bool GrantedTheCars => Rebuild.GrantedWithTheAnswers;
+    public bool ReadTheGrants => Rebuild.GrantedWithTheAnswers;
 
-    /// <summary>Every asked car's grant as the rebuild read it with the answers, written into the town.</summary>
-    void GrantTheCars(TownWorld town)
+    /// <summary>Every asked car's grant and every walker's as the rebuild read them with the answers, written into the town.</summary>
+    void Grant(TownWorld town)
     {
         var read = Rebuild.GrantsRead;
         foreach (var car in town.CarsAskedThisLaying)
         {
             ref readonly var row = ref read[car];
             town.GrantedOnTheDevice(car, row.AuthorityM, row.GrantMarginM, (HeadwayKind)row.GrantCutBy);
+        }
+
+        var walks = Rebuild.WalksRead;
+        for (var person = 0; person < walks.Length; person++)
+        {
+            ref readonly var walk = ref walks[person];
+            town.WalkerGrantedOnTheDevice(
+                person, (walk.Bits & DeviceRebuild.WalkOut.LaidAHold) != 0, walk.EndsAtM, walk.MarginM, walk.CutOn);
         }
     }
 
@@ -103,7 +111,7 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
     /// </summary>
     void TakeTheGrants(TownWorld town)
     {
-        if (!GrantedTheCars)
+        if (!ReadTheGrants)
         {
             foreach (var car in town.CarsAskedThisLaying) _cars.AssumeTheGrantOf(town, car);
             return;

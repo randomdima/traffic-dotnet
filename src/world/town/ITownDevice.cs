@@ -59,9 +59,10 @@ internal interface ITownClaims
     void ClaimsAt(TownWorld town, ClaimsStage stage);
 
     /// <summary>
-    /// <b>Whether the rebuild under way read every asked car's grant on the device</b>, with the answers, and wrote it into
-    /// the town by <see cref="ClaimsStage.PlansAnswered"/> (<see cref="TownWorld.GrantedOnTheDevice"/>) — so the town
-    /// reads none off the claims.
+    /// <b>Whether the rebuild under way read every asked car's grant and every walker's on the device</b>, with the
+    /// answers, and wrote them into the town by <see cref="ClaimsStage.PlansAnswered"/>
+    /// (<see cref="TownWorld.GrantedOnTheDevice"/>, <see cref="TownWorld.WalkerGrantedOnTheDevice"/>) — so the town reads
+    /// none off the claims.
     /// </summary>
-    bool GrantedTheCars { get; }
+    bool ReadTheGrants { get; }
 }

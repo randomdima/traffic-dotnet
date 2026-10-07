@@ -599,10 +599,19 @@ internal sealed class WalkingGround(
     {
         var hold = WalkHold[person];
         var endsAtM = Occupancy.HoldEndsAtM(hold, out var marginM, out _);
-        People.GrantM[person] = hold == LaneOccupancy.NoHold ? 0f
+        Grant(person, hold != LaneOccupancy.NoHold, endsAtM, marginM, Occupancy.HoldCutOn(hold));
+    }
+
+    /// <summary>
+    /// <b>What the walker got, as its hold came to</b> wherever that was read (<see cref="ReadTheGrant"/>, or a device's):
+    /// whether its walk laid a hold, where the hold ended, what it keeps off what cut it, and the way it was cut on.
+    /// </summary>
+    public void Grant(int person, bool laidAHold, float endsAtM, float marginM, int cutOn)
+    {
+        People.GrantM[person] = !laidAHold ? 0f
             : float.IsPositiveInfinity(endsAtM) ? float.PositiveInfinity
             : endsAtM - marginM - People.RadiusM[person];
-        People.OnCrossing[person] = TheZebraOf(person, hold);
+        People.OnCrossing[person] = TheZebraOf(person, cutOn);
     }
 
     /// <summary>Whether this walker stands where a light's hold refused its plan — the wait that spends no clock (TLT-2a).</summary>
@@ -619,14 +628,14 @@ internal sealed class WalkingGround(
     /// was refused on while it stands — read off its own route and hold, so what it is said to be doing is
     /// what the reservations did to it.
     /// </summary>
-    int TheZebraOf(int person, int hold)
+    int TheZebraOf(int person, int holdCutOn)
     {
         if (People.Inside[person].Any) return PersonFleet.NoCrossing;
 
         var on = WayOf(People.CurrentRouteWay(person));
         if (on != PersonFleet.NoWay && Lines.IsTheCrossing(on)) return Lines.ZebraOf(on);
 
-        var cutOn = People.GrantM[person] <= 0f ? Occupancy.HoldCutOn(hold) : PersonFleet.NoWay;
+        var cutOn = People.GrantM[person] <= 0f ? holdCutOn : PersonFleet.NoWay;
         return cutOn >= 0 && Lines.IsTheCrossing(cutOn) ? Lines.ZebraOf(cutOn) : PersonFleet.NoCrossing;
     }
 

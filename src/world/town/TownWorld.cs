@@ -306,6 +306,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
         People = new PersonFleet(walkers);
         _impulseNs = new Vector2[walkers];
+        _walkGrantedOnTheDevice = new (bool, float, float, int)[walkers];
         _progress = new LegProgress(walkers);
 
         // <b>A town stands the fleet</b> (CAR-11a). The maps that stood one look apiece were laid to compare

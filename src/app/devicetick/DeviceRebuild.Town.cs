@@ -55,14 +55,18 @@ internal sealed partial class DeviceRebuild
         public const int ChannelsShift = 8, WheelsShift = 16;
     }
 
-    /// <summary><c>rebuild_agents_out.comp</c>'s walker bits.</summary>
-    internal static class WalkOut
+    /// <summary>
+    /// What a rebuild says of one walker (<c>rebuild_agents_out.comp</c>'s <c>WalkOut</c>): bits, and what its hold came to —
+    /// where it ended, what it keeps off what cut it and the way it was cut on (infinity, nothing and none with no hold).
+    /// </summary>
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    internal readonly record struct WalkOut(uint Bits, float EndsAtM, float MarginM, int CutOn)
     {
         public const uint LaidAHold = 1u, CommittedAStraight = 2u;
     }
 
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
-    readonly record struct AgentsPush(uint CarCount, uint WalkerCount);
+    readonly record struct AgentsPush(uint CarCount, uint WalkerCount, uint FirstWalkerUnit);
 
     /// <summary>Every hold as the town keeps it once answered (<c>rebuild_holds_out.comp</c>), on the device and read back.</summary>
     GpuBuffer _holdsOut = null!, _holdsRead = null!;
@@ -129,12 +133,12 @@ internal sealed partial class DeviceRebuild
         _unitHoldsOut = Readback<uint>(_units);
         _carsOut = Device<CarOut>(_cars);
         _carsRead = Readback<CarOut>(_cars);
-        _walkersOut = Device<uint>(_walkersRoom);
-        _walkersRead = Readback<uint>(_walkersRoom);
+        _walkersOut = Device<WalkOut>(_walkersRoom);
+        _walkersRead = Readback<WalkOut>(_walkersRoom);
         var walkerCounts = _walkers.OnTheDevice.Counts;
         _agentsOutKernel = Bound.Of<AgentsPush>(
             _vk, "rebuild_agents_out.comp",
-            [_plans.OnTheDevice.Results, _askAnswers, _bodies.OnTheDevice.Counts, _carsOut, walkerCounts, _walkersOut]);
+            [_plans.OnTheDevice.Results, _askAnswers, _bodies.OnTheDevice.Counts, _carsOut, walkerCounts, _walkersOut, _unitHolds, tables.Answers]);
         _scratchAsks = new BodyAsk[Overtaking.MostAsksOfAPass(world.Atlas.Marks)];
     }
 
@@ -312,7 +316,8 @@ internal sealed partial class DeviceRebuild
         _timer.Stamp(commands, (int)Stage.Answered);
 
         _holdsOutKernel.DispatchIndirect(commands, _claims.OnTheDevice.Tally, Tally.HoldsGroups, default(NoPush));
-        _agentsOutKernel.Dispatch(commands, Math.Max(_carCount, _walkerCount), new AgentsPush((uint)_carCount, (uint)_walkerCount));
+        _agentsOutKernel.Dispatch(
+            commands, Math.Max(_carCount, _walkerCount), new AgentsPush((uint)_carCount, (uint)_walkerCount, (uint)(_stretches + 1 + _carCount)));
         GrantedWithTheAnswers = !AnyCarBacksUp(town);
         if (GrantedWithTheAnswers) _grant.Dispatch(commands, _carCount, new UnitsPush((uint)_carCount, (uint)(_stretches + 1)));
         vk.BeforeTransfer(commands);
@@ -320,7 +325,7 @@ internal sealed partial class DeviceRebuild
         _claims.CopyPast<HoldOut>(commands, _holdsOut, _holdsRead, 0, _holdsBound);
         vk.Copy(commands, _unitHolds, _unitHoldsOut, Bytes<uint>(_units));
         vk.Copy(commands, _carsOut, _carsRead, Bytes<CarOut>(_carCount));
-        vk.Copy(commands, _walkersOut, _walkersRead, Bytes<uint>(_walkerCount));
+        vk.Copy(commands, _walkersOut, _walkersRead, Bytes<WalkOut>(_walkerCount));
         if (GrantedWithTheAnswers) vk.Copy(commands, _grants, _grantsOut, Bytes<DeviceCarTick.GrantRow>(_carCount));
         _timer.Stamp(commands, (int)Stage.Granted);
         _timer.Stamp(commands, (int)Stage.Read);
@@ -334,7 +339,7 @@ internal sealed partial class DeviceRebuild
         var rows = _claims.Rows.Length;
         var holds = _claims.Holds.Length;
         Crossed = (sent, Bytes<ClaimRow>(rows) + Bytes<uint>(rows) + Bytes<HoldOut>(holds) + Bytes<uint>(_units) + Bytes<CarOut>(_carCount)
-                         + Bytes<uint>(_walkerCount) + (GrantedWithTheAnswers ? Bytes<DeviceCarTick.GrantRow>(_carCount) : 0ul));
+                         + Bytes<WalkOut>(_walkerCount) + (GrantedWithTheAnswers ? Bytes<DeviceCarTick.GrantRow>(_carCount) : 0ul));
         LaidMs = Stopwatch.GetElapsedTime(_laidFrom, laid).TotalMilliseconds;
         WaitedMs = Stopwatch.GetElapsedTime(laid, waited).TotalMilliseconds;
         MirroredMs = Stopwatch.GetElapsedTime(waited).TotalMilliseconds;
@@ -430,12 +435,12 @@ internal sealed partial class DeviceRebuild
             }
         }
 
-        var walks = _walkersRead.Span<uint>();
+        var walks = _walkersRead.Span<WalkOut>();
         var firstWalker = firstCar + _carCount;
         for (var person = 0; person < _walkerCount; person++)
         {
-            var hold = (walks[person] & WalkOut.LaidAHold) != 0 ? (int)unitHolds[firstWalker + person] : LaneOccupancy.NoHold;
-            var committed = (walks[person] & WalkOut.CommittedAStraight) != 0;
+            var hold = (walks[person].Bits & WalkOut.LaidAHold) != 0 ? (int)unitHolds[firstWalker + person] : LaneOccupancy.NoHold;
+            var committed = (walks[person].Bits & WalkOut.CommittedAStraight) != 0;
             if (committed) _walkers.SendTheStraightAgain(person);
             if (!town.WalkedOnTheDevice(person, hold, committed)) StraightsTheTownWouldNotCommit++;
         }
@@ -497,6 +502,9 @@ internal sealed partial class DeviceRebuild
         vk.BetweenKernels(commands);
         vk.BeforeTransfer(commands);
     }
+
+    /// <summary>What the last rebuild in the town said of every walker, as its own submit read it back.</summary>
+    public ReadOnlySpan<WalkOut> WalksRead => _walkersRead.Span<WalkOut>()[.._walkerCount];
 
     /// <summary>
     /// <b>Whether the last rebuild in the town read every asked car's grant with the answers</b>, in its own submit, and

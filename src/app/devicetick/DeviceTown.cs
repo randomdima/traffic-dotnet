@@ -298,7 +298,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
     public void ClaimsAt(TownWorld town, ClaimsStage stage) => _townClaims.ClaimsAt(town, stage);
 
-    public bool GrantedTheCars => _townClaims.GrantedTheCars;
+    public bool ReadTheGrants => _townClaims.ReadTheGrants;
 
     /// <summary>
     /// <b>Every body stepped on the device</b> (<see cref="DeviceTownBodies"/>): the wheels the tyre pass left for the cars

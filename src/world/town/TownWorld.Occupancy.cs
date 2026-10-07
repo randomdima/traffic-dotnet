@@ -127,11 +127,21 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>Every walker's grant read off what its walk came to, its pass's word taken, and its aim set on it.</summary>
-    void ReadTheWalkersGrants()
+    /// <param name="granted">Whether a device read every walker's grant already (<see cref="ITownClaims.ReadTheGrants"/>).</param>
+    void ReadTheWalkersGrants(bool granted = false)
     {
         for (var person = 0; person < People.Count; person++)
         {
-            _walkingGround.ReadTheGrant(person);
+            if (granted)
+            {
+                var (laid, endsAtM, marginM, cutOn) = _walkGrantedOnTheDevice[person];
+                _walkingGround.Grant(person, laid, endsAtM, marginM, cutOn);
+            }
+            else
+            {
+                _walkingGround.ReadTheGrant(person);
+            }
+
             _sidestepping.Consider(person);
             AimTheWalker(person);
         }

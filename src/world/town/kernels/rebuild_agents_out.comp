@@ -4,7 +4,7 @@
 // What a rebuild handed back to the town says of each car and each walker, packed one row each, one thread an agent: a
 // car's plan (Following.Plan's claimToM, committedToM, horizonM), whether it laid a hold, whether a body stands inside its
 // pass, the channels its body is on and which of its wheels stand on a way; and whether a walker's walk laid a hold and
-// committed it to a straight.
+// committed it to a straight, and what that hold came to (WalkingGround.ReadTheGrant's reading of it).
 
 layout(local_size_x = 64) in;
 
@@ -12,8 +12,10 @@ layout(push_constant) uniform Figures
 {
     uint carCount;
     uint walkerCount;
+    uint firstWalkerUnit;
 } figures;
 
+#include "world/road/kernels/claims_rows.glsl"
 #include "agents/car/actions/follow/kernels/plan_rows.glsl"
 
 // app/devicetick/DeviceRebuild.CarOut, field for field.
@@ -23,6 +25,16 @@ struct CarOut
     float committedToM;
     float horizonM;
     uint bits;
+};
+
+// app/devicetick/DeviceRebuild.WalkOut, field for field: where the walker's hold ended, what it keeps off what cut it, and
+// the way it was cut on — infinity, nothing and none where it laid no hold.
+struct WalkOut
+{
+    uint bits;
+    float endsAtM;
+    float marginM;
+    int cutOn;
 };
 
 const uint CarLaidAHold = 1u;
@@ -38,7 +50,9 @@ layout(std430, binding = 1) readonly buffer AskAnswers { uvec4 askAnswers[]; };
 layout(std430, binding = 2) readonly buffer CarCounts { uvec4 carCounts[]; };
 layout(std430, binding = 3) writeonly buffer CarsOut { CarOut carsOut[]; };
 layout(std430, binding = 4) readonly buffer WalkerCounts { uvec4 walkerCounts[]; };
-layout(std430, binding = 5) writeonly buffer WalkersOut { uint walkersOut[]; };
+layout(std430, binding = 5) writeonly buffer WalkersOut { WalkOut walkersOut[]; };
+layout(std430, binding = 6) readonly buffer UnitHolds { uint unitHolds[]; };
+layout(std430, binding = 7) readonly buffer Answers { ClaimAnswer answers[]; };
 
 void main()
 {
@@ -54,6 +68,16 @@ void main()
     if (agent < figures.walkerCount)
     {
         uvec4 walk = walkerCounts[agent];
-        walkersOut[agent] = (walk.x != 0u ? WalkerLaidAHold : 0u) | (walk.y != 0u ? WalkerCommittedAStraight : 0u);
+        WalkOut out_ = WalkOut(walk.y != 0u ? WalkerCommittedAStraight : 0u, uintBitsToFloat(0x7f800000u), 0.0, -1);
+        if (walk.x != 0u)
+        {
+            ClaimAnswer answer = answers[unitHolds[figures.firstWalkerUnit + agent]];
+            out_.bits |= WalkerLaidAHold;
+            out_.endsAtM = answer.cutLineM;
+            out_.marginM = answer.marginM;
+            out_.cutOn = answer.cutOn;
+        }
+
+        walkersOut[agent] = out_;
     }
 }
