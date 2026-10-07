@@ -21,8 +21,8 @@ and the town drives as it does alone (`--bench devicetown`: the same mean speed 
   scrub are scratch the pass that wrote them spends. The marks are written into memory the host reads, so a tick's few
   cross the bus rather than a ring with room for every wheel. **The bus is what a tick waits on**: the link this was
   measured on carries 1.8 GB/s, and a tick's car rows in and out are most of the submit.
-- **The claims and the bodies stay the town's** for now: the claims are sent as cut after each rebuild
-  (`DeviceClaims.LayAsCut`), and the town steps the bodies off the impulses handed back.
+- **The claims stay the town's** for now, sent as cut after each rebuild (`DeviceClaims.LayAsCut`). **The bodies are
+  stepped on the device** (`DeviceTownBodies`, `world/physics/docs/decision-log.md`) off the impulses the tick left there.
 
 ## 2026-10-07 — a pass is driven on the device
 
