@@ -86,6 +86,8 @@ internal static class DeviceTownProbe
         var (claimsSentMb, claimsReadMb) = (0d, 0d);
         var (laidRows, laidBodies, laidHolds) = (0L, 0L, 0L);
         var rebuilt = device?.Claims.Rebuild.Rebuilds ?? 0L;
+        var (handedInTheStep, handedAlone) = device?.HandedOver ?? default;
+        var handOverSubmits = device?.HandOverSubmits ?? 0L;
         var started = Stopwatch.GetTimestamp();
         for (var tick = 0; tick < MeasuredTicks; tick++)
         {
@@ -137,6 +139,9 @@ internal static class DeviceTownProbe
             Console.WriteLine(
                 $"  the bodies' phase, ms a tick: laying {bodiesLayMs / MeasuredTicks:F2}, submitting and waiting {bodiesWaitMs / MeasuredTicks:F2} " +
                 $"(the device's kernels {bodiesKernelsMs / MeasuredTicks:F2}), writing what came back {bodiesBackMs / MeasuredTicks:F2}");
+            Console.WriteLine(
+                $"  wheels handed back to the town as their cars left the device: {device.HandedOver.InTheStep - handedInTheStep} in the bodies' " +
+                $"submit, {device.HandedOver.Alone - handedAlone} in {device.HandOverSubmits - handOverSubmits} submits of their own");
             var (here, byTheTown, onlyTheTown, tooMany) = device.Claims.Rebuilds;
             var each = Math.Max(1, rebuilds);
             Console.WriteLine(

@@ -111,14 +111,19 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
     /// </summary>
     /// <param name="tyresStepped">
     /// The cars whose wheels the device's tyre pass left in its table this tick, ascending; every other car's are the
-    /// town's own, and are laid from it — as is a car on somebody's arm, whose wheels are the trailer's.
+    /// town's own, and are laid from it. A car a decision put on somebody's arm since is one of them: the tick spent its
+    /// own wheels, and the trailer's are the town's from the next.
     /// </param>
     /// <param name="walkersTicked">
     /// Whether the walkers' tick ran this tick and handed its impulses back (<see cref="DeviceWalkerTick.ImpulsesAfter"/>).
     /// A walker's impulse is its row there but where the town's own differs — a casualty's slide, a walker under a hand —
     /// which is written over it; where the tick did not run, every walker's is the town's.
     /// </param>
-    public void StepBodies(TownWorld town, float dtS, ReadOnlySpan<int> tyresStepped, bool walkersTicked)
+    /// <param name="handedOver">
+    /// The cars whose wheels ride the step's submit back to the host (<see cref="DeviceTyres.RecordHandOver"/>).
+    /// </param>
+    public void StepBodies(
+        TownWorld town, float dtS, ReadOnlySpan<int> tyresStepped, bool walkersTicked, ReadOnlySpan<int> handedOver = default)
     {
         var began = Stopwatch.GetTimestamp();
         Lay(town, dtS, tyresStepped, walkersTicked);
@@ -128,6 +133,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         _phase.Record(
             commands, town.Cars.Count, town.People.Count, dtS,
             DeviceBodyPhase.Reads.Poses | DeviceBodyPhase.Reads.Walkers | DeviceBodyPhase.Reads.Contacts);
+        if (!handedOver.IsEmpty) _tyres.RecordHandOver(commands, handedOver);
         _batch.SubmitAndWait();
         _phase.ReadTimes();
         var waited = Stopwatch.GetTimestamp();
@@ -171,7 +177,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
             while (stepped < tyresStepped.Length && tyresStepped[stepped] < car) stepped++;
 
             var tyres = stepped < tyresStepped.Length && tyresStepped[stepped] == car;
-            if (!tyres || town.OnTheHook(car)) _phase.LayWheels(car, town.WheelImpulsesOf(car));
+            if (!tyres) _phase.LayWheels(car, town.WheelImpulsesOf(car));
         }
 
         var people = town.People;

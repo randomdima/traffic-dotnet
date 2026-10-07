@@ -34,6 +34,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **Nobody holds what no wheel stands on**: across a lane's end a car on two ways leaves its wheelbase less two
   metres and two half steps unclaimed; a car straddling a zebra narrower than its wheelbase, or nosing over a junction
   its front wheels have not reached, is no body there. The gap per car model is not measured.
+- **The device in step has no test of its own** (`DeviceTown`): only `--bench devicetown` and a windowed `--device-tick`
+  run drive it, so the wheels it keeps and hands back as a car leaves (`DeviceTyres.KeptOnTheDevice`) are held by the
+  probe's counts coming out the same to the car, not by a gate. A device-tier test of a fixture town ticked with the
+  device, once reading every wheel back and once keeping them, held equal tick by tick, closes it.
 - **Not measured since they landed**: the walker as one wheel, the car no longer asked its ground, and the
   consolidation after them (`WheelGrounds`, `DeviceGround` gone, the walker's pavement read). The figures in the road
   and terrain logs predate all three; the soak after them kept all twelve of OdesaOsm's claims.

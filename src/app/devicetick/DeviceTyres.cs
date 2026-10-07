@@ -115,6 +115,7 @@ internal sealed class DeviceTyres : IDisposable
     readonly ResidentRows<ScrubRow> _scrubs;
     readonly GpuBuffer _markCountOut;
     readonly GpuBuffer _markCount;
+    readonly BufferCopy[] _handOverRuns;
 
     /// <summary>
     /// The ring of marks, written by the kernel straight into memory the host reads: a tick lays tens of the fleet's
@@ -148,6 +149,8 @@ internal sealed class DeviceTyres : IDisposable
         _markCount = Device<uint>(1);
         _marks = Own(_vk.CreateBuffer(Bytes<MarkRow>(wheels), BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
         _markCountOut = Readback<uint>(1);
+        _handOverRuns = new BufferCopy[capacity];
+        KeptOnTheDevice = new bool[capacity];
 
         Table = (buildBuffer, _buildOf, _poses, _commands, _carRows, _wheels);
         GpuBuffer[] bound =
@@ -177,6 +180,26 @@ internal sealed class DeviceTyres : IDisposable
     /// runs, and the shadow's to compare.
     /// </summary>
     public bool ReadsScrub { get; set; } = true;
+
+    /// <summary>
+    /// Whether <see cref="Read"/> hands back every car's wheels and impulses. <b>A town whose tick the device runs keeps
+    /// them there</b>: the bodies' phase spends the impulses where the pass left them, and a car's wheels go back to the
+    /// host only once the car leaves the device's tick (<see cref="RecordHandOver"/>, <see cref="KeptOnTheDevice"/>).
+    /// </summary>
+    public bool ReadsEveryWheel { get; set; } = true;
+
+    /// <summary>
+    /// <b>Which cars' wheels the device holds newer than the host's copy</b>: those a pass ran for while
+    /// <see cref="ReadsEveryWheel"/> is off, until they are handed back. Kept by whoever reads the pass; a car marked here
+    /// is never laid from the host's copy.
+    /// </summary>
+    public bool[] KeptOnTheDevice { get; }
+
+    /// <summary>
+    /// <b>Those cars' wheels copied back</b> where <see cref="WheelsAfter"/> reads them, recorded — the wheels as the last
+    /// pass left them, which nothing on the device writes until the next. The caller barriers before it.
+    /// </summary>
+    public void RecordHandOver(CommandBuffer commands, ReadOnlySpan<int> cars) => _wheels.ReadItems(commands, cars, _handOverRuns);
 
     /// <summary>
     /// Each wheel's impulse and where it is spent, as the pass leaves it on the device — four a car in the tyre model's
@@ -291,8 +314,12 @@ internal sealed class DeviceTyres : IDisposable
     {
         _commands.Read(commands, _cars);
         _carRows.Read(commands, _cars);
-        _wheels.Read(commands, _cars);
-        _impulses.Read(commands, _cars);
+        if (ReadsEveryWheel)
+        {
+            _wheels.Read(commands, _cars);
+            _impulses.Read(commands, _cars);
+        }
+
         if (ReadsScrub) _scrubs.Read(commands, _cars);
 
         _vk.Copy(commands, _markCount, _markCountOut, sizeof(uint));

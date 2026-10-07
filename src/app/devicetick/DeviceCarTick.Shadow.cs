@@ -129,6 +129,11 @@ internal sealed partial class DeviceCarTick
             _lineLaidDue[car] = cars.LineLaid[car];
             if (chosen.IsEmpty ? !Takes(town, car) : !chosen[car])
             {
+                if (_tyres.KeptOnTheDevice[car])
+                {
+                    throw new InvalidOperationException($"Car {car} left the device's tick with its wheels never handed back.");
+                }
+
                 LayTheTyres(town, car);
                 _held[car] = false;
                 continue;
@@ -145,7 +150,7 @@ internal sealed partial class DeviceCarTick
             if (!resident || !_held[car] || cars.Pass[car] != _passHeld[car]) LayThePass(cars, car);
             if (!resident || !_held[car])
             {
-                LayTheTyres(town, car);
+                LayTheTyres(town, car, wheels: !_tyres.KeptOnTheDevice[car]);
                 LayTheLine(cars, car);
                 LayTheReading(cars, car);
                 LayTheBox(cars, car);
@@ -208,7 +213,10 @@ internal sealed partial class DeviceCarTick
             _passHeld[car] = Shadowed ? PassesAfter[car].ToOvertake() : cars.Pass[car];
             _commandBefore[car] = CommandsAfter[car];
             _carBefore[car] = _tyres.CarsAfter[car];
-            _tyres.WheelsAfter.Slice(car * TyreModel.Wheels, TyreModel.Wheels).CopyTo(_wheelsBefore.AsSpan(car * TyreModel.Wheels));
+            if (_tyres.ReadsEveryWheel)
+            {
+                _tyres.WheelsAfter.Slice(car * TyreModel.Wheels, TyreModel.Wheels).CopyTo(_wheelsBefore.AsSpan(car * TyreModel.Wheels));
+            }
         }
     }
 
@@ -221,7 +229,8 @@ internal sealed partial class DeviceCarTick
             cars.AccelerationMps2[car]));
     }
 
-    void LayTheTyres(TownWorld town, int car)
+    /// <param name="wheels">Whether the host's copy of its wheels is laid — never where the device holds them newer.</param>
+    void LayTheTyres(TownWorld town, int car, bool wheels = true)
     {
         var cars = town.Cars;
         var table = _tyres.Table;
@@ -230,7 +239,12 @@ internal sealed partial class DeviceCarTick
         table.Commands.Mark(car);
         _commandBefore[car] = command;
         LayTheCarRow(town, car);
+        if (wheels) LayTheWheels(cars, car);
+    }
 
+    void LayTheWheels(CarFleet cars, int car)
+    {
+        var table = _tyres.Table;
         var wheels = table.Wheels.Rows(car);
         for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
         {

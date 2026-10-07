@@ -161,6 +161,29 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
     public void Read(CommandBuffer commands, int items) =>
         _vk.Copy(commands, Device, _readback!, (ulong)(items * RowsPerItem * sizeof(T)));
 
+    /// <summary>
+    /// Only these items copied back, each where <see cref="RowsRead"/> reads it, recorded as one copy — an item next to the
+    /// last joined to its run. The items are distinct; <paramref name="runs"/> is the caller's room for the runs.
+    /// </summary>
+    public void ReadItems(CommandBuffer commands, ReadOnlySpan<int> items, Span<BufferCopy> runs)
+    {
+        var itemBytes = (ulong)(RowsPerItem * sizeof(T));
+        var count = 0;
+        foreach (var item in items)
+        {
+            var offset = (ulong)item * itemBytes;
+            if (count > 0 && runs[count - 1].SrcOffset + runs[count - 1].Size == offset)
+            {
+                runs[count - 1].Size += itemBytes;
+                continue;
+            }
+
+            runs[count++] = new BufferCopy(offset, offset, itemBytes);
+        }
+
+        _vk.Copy(commands, Device, _readback!, runs[..count]);
+    }
+
     public void Dispose()
     {
         Device.Dispose();
