@@ -222,6 +222,12 @@ internal sealed partial class Game : IDisposable
     partial void Shutdown();
 
     /// <summary>
+    /// The town about to stand handed the device's tick, where this run asked for it, and the last town's let go of —
+    /// or nothing, on a head whose town is always ticked by the host. A null town lets the last go of alone.
+    /// </summary>
+    partial void TickOnTheDevice(TownWorld? world);
+
+    /// <summary>
     /// The map that was still being opened when the run ended, given up before anything it was being
     /// opened for is torn down. Nothing, on a head that opens a map without leaving the frame.
     /// </summary>
@@ -686,6 +692,7 @@ internal sealed partial class Game : IDisposable
         _looks.Lay(laid.Plan, laid.World.Uses, _config);
         _renderer.LayStanding(_looks.Standing.Instances);
 
+        TickOnTheDevice(laid.World);
         _world?.Dispose();
         _world = laid.World;
         _ground = laid.Ground;
@@ -910,6 +917,7 @@ internal sealed partial class Game : IDisposable
     {
         ForgetWhatWasBeingOpened();
         _bot?.Dispose();
+        TickOnTheDevice(null);
         _world?.Dispose();
         _renderer.Dispose();
         Shutdown();

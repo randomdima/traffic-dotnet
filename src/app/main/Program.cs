@@ -54,6 +54,10 @@ internal static class Program
         var config = SimConfig.Load();
         var options = Options.Parse(args, config.View);
 
+        // A probe, a picture and a scripted drive each stand their own town; the device's tick is a window's.
+        if (options.DeviceTick && (options.Bench ?? options.Shot ?? options.Sheet) is not null)
+            throw new ArgumentException("--device-tick ticks a windowed run's town on the device: --bench devicetown is the probe of it.");
+
         if (options.Lamps) return CutTheLamps();
         if (options.Author is not null) return Author(options.Author, config);
         if (options.Bench is not null) return RunBench(options.Bench, options.Map, options.AtM, options.Out, config);
@@ -91,7 +95,10 @@ internal static class Program
         // no city until one is picked. Naming one on the command line is that choice made earlier.
         using var game = new Game(
             config, options.Width, options.Height, options.Validate, options.UiScale, PresentMode(options.Present),
-            fullscreen: !options.Windowed, options.Display);
+            fullscreen: !options.Windowed, options.Display)
+        {
+            TicksOnTheDevice = options.DeviceTick,
+        };
 
         // --ui reaches the windowed run as it reaches a shot: a measured run of a town nobody is
         // sitting in front of is exactly the run that wants the read-out switched on from the start.
@@ -616,7 +623,7 @@ internal static class Program
         string? Sheet, bool Caption, string? Title, string? Note, bool Lamps,
         bool Windowed, string? Display, string? Drive, string? Frames, string? Out, bool Live, int FrameWidth,
         string? Bot, int BotCar, string? BotFrames, string? BotOut, int BotEyeWidth, float BotViewM,
-        bool BotWaits, string? Author)
+        bool BotWaits, string? Author, bool DeviceTick)
     {
         /// <summary>
         /// What every check that is not about a particular town is staged on: a small town laid from a
@@ -653,7 +660,8 @@ internal static class Program
         /// <c>--windowed</c> opens in a window instead of fullscreen, for a run to be looked at beside
         /// something else; <c>--display</c> names the screen to open on, by the desktop's own name for
         /// it or by its index, since a desktop nobody can ask which screen is in front of the person
-        /// leaves the choice a guess; and <c>--check</c> is the dependency read-out.
+        /// leaves the choice a guess; <c>--device-tick</c> ticks a windowed run's agents on the device in step
+        /// (<see cref="App.DeviceTick.DeviceTown"/>); and <c>--check</c> is the dependency read-out.
         /// </summary>
         /// <remarks>
         /// <b>The driving words are their own set too</b> (<see cref="DriveAsk"/>): <c>--drive FILE|-</c>
@@ -684,7 +692,7 @@ internal static class Program
                 Note: null, Lamps: false, Windowed: false, Display: null, Drive: null, Frames: null, Out: null,
                 Live: false, FrameWidth: 0,
                 Bot: null, BotCar: -1, BotFrames: null, BotOut: null, BotEyeWidth: 0, BotViewM: 0f,
-                BotWaits: false, Author: null);
+                BotWaits: false, Author: null, DeviceTick: false);
             for (var i = 0; i < args.Length; i++)
             {
                 switch (args[i])
@@ -701,6 +709,9 @@ internal static class Program
                         break;
                     case "--windowed":
                         options = options with { Windowed = true };
+                        break;
+                    case "--device-tick":
+                        options = options with { DeviceTick = true };
                         break;
                     case "--display" when i + 1 < args.Length:
                         options = options with { Display = args[i + 1] };
@@ -858,7 +869,7 @@ internal static class Program
                                                     "--at X Y, --shot PATH, --sheet FILE.json|-, --caption, " +
                                                     "--title TEXT, --note TEXT, --ui LAYERS, --rule X1 Y1 X2 Y2, " +
                                                     "--size W H, --ui-scale N, --present fifo|mailbox|immediate, " +
-                                                    "--windowed, --display NAME|N, --seconds N, --validate, --check, " +
+                                                    "--windowed, --display NAME|N, --device-tick, --seconds N, --validate, --check, " +
                                                     "--bench NAME|all, --lamps, --drive FILE|-, --live, " +
                                                     "--frames DIR, --frame-width PX, --out FILE.md, --author BRIEF|all.");
                 }

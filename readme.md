@@ -49,7 +49,8 @@ Without `--map` the game opens on its start menu with the idle ring running behi
 until a map is picked — the same start in Debug and in Release, and on either head. A windowed
 run opens fullscreen on the display the pointer is on and `F11` toggles it; `--display NAME|N` names
 that display instead, by the desktop's own name for it, and `--windowed` opens in a window, for a run
-to be looked at beside something else. Other
+to be looked at beside something else. `--device-tick` has the desktop's town tick its cars and walkers on
+the GPU, in step with the rest of its tick (`src/app/devicetick/DeviceTown.cs`). Other
 entries: `--check` prints the dependency read-out, `--shot` takes a picture with no window at all,
 `--ui` opens the panels and the debug layers, and `--bench <name>` runs one of the probes in `src/bench/`
 (`census`, `load`, `sprites`, `shape`, `joints`, `parks`, `shapes`, `outset`, `fill`, `drive`, `trips`, `rescue`,
