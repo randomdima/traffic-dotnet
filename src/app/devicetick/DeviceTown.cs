@@ -338,9 +338,10 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     }
 
     /// <summary>
-    /// <b>Every car the device ticked, written back</b>: where it found itself on its line, what it was told, the junction
-    /// ahead, its command and its tyres, and the marks they laid — the device's state remembered as the shadow's baseline —
-    /// and then what its tick asks of the town, taken with the town's own code.
+    /// <b>Every car the device ticked, written back</b>: where it found itself on its line, what it was told — of it only
+    /// what the town reads (<see cref="DeviceCarTick.BriefRow"/>), the rest of its context left as the town last set it — the
+    /// junction ahead, its command and its tyres, and the marks they laid — the device's state remembered as the shadow's
+    /// baseline — and then what its tick asks of the town, taken with the town's own code.
     /// </summary>
     void TakeBackTheCars(TownWorld town)
     {
@@ -397,18 +398,18 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
             command.SteerRad, command.ThrottleMps2, command.BrakeMps2, (command.HandbrakeAndReverse & 1u) != 0,
             (command.HandbrakeAndReverse & 2u) != 0);
 
-        var told = _cars.ContextsAfter[car];
-        cars.Context[car] = new DriveContext(
-            told.AuthorityM, (HeadwayKind)told.GrantCutBy, told.PlaceStopM, told.MarginM, told.WaitsToPass != 0u, told.HorizonM,
-            told.PassAsideM, told.BackUpM, told.Blocked != 0u, told.WaitAtM);
+        var brief = _cars.BriefsAfter[car];
+        cars.Context[car] = cars.Context[car] with
+        {
+            AuthorityM = brief.AuthorityM, PassAsideM = brief.PassAsideM, Blocked = (brief.Flags & DeviceCarTick.BriefRow.Blocked) != 0,
+        };
 
-        var box = _cars.BoxesAfter[car];
-        cars.ToTheBoxM[car] = box.ToTheBoxM;
-        cars.LightAheadM[car] = box.LightAheadM;
-        cars.BoxIsOurs[car] = (box.Flags & DeviceCarTick.BoxRow.Claimed) != 0;
-        cars.TurningAtTheBox[car] = (box.Flags & DeviceCarTick.BoxRow.Turning) != 0;
-        cars.InsideTheBox[car] = (box.Flags & DeviceCarTick.BoxRow.Inside) != 0;
-        cars.CommittedToTheBox[car] = (box.Flags & DeviceCarTick.BoxRow.Committed) != 0;
+        cars.ToTheBoxM[car] = brief.ToTheBoxM;
+        cars.LightAheadM[car] = brief.LightAheadM;
+        cars.BoxIsOurs[car] = (brief.Flags & DeviceCarTick.BoxRow.Claimed) != 0;
+        cars.TurningAtTheBox[car] = (brief.Flags & DeviceCarTick.BoxRow.Turning) != 0;
+        cars.InsideTheBox[car] = (brief.Flags & DeviceCarTick.BoxRow.Inside) != 0;
+        cars.CommittedToTheBox[car] = (brief.Flags & DeviceCarTick.BoxRow.Committed) != 0;
     }
 
     /// <summary>A car's own tyre row written back; its wheels are kept on the device until it leaves (<see cref="TakeTheWheelsBack"/>).</summary>

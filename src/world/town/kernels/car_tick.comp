@@ -110,6 +110,23 @@ layout(std430, binding = 27) readonly buffer Taken { uint taken[]; };
 layout(std430, binding = 28) buffer Passes { OvertakeRow passes[]; };
 layout(std430, binding = 29) readonly buffer HoldBits { uint holdBits[]; };
 
+// What the town reads of a car's tick besides its tick row (app/devicetick/DeviceCarTick.BriefRow, field for field): of
+// the context only how far it was granted, how far aside its pass steps and whether it is blocked — the junction ahead
+// whole — so the rest of the context need not come back.
+struct CarBriefRow
+{
+    float authorityM;
+    float passAsideM;
+    float toTheBoxM;
+    float lightAheadM;
+    uint flags;
+};
+
+// CarBriefRow.flags: BoxAheadRow's, and the context's own.
+const uint BriefBlocked = 16u;
+
+layout(std430, binding = 30) writeonly buffer Briefs { CarBriefRow briefs[]; };
+
 void main()
 {
     if (gl_GlobalInvocationID.x >= figures.carCount) return;
@@ -132,4 +149,6 @@ void main()
     contexts[car] = context;
     boxes[car] = box;
     passes[car] = pass;
+    briefs[car] = CarBriefRow(
+        context.authorityM, context.passAsideM, box.toTheBoxM, box.lightAheadM, box.flags | (context.blocked != 0u ? BriefBlocked : 0u));
 }

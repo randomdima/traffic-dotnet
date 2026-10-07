@@ -118,6 +118,9 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **Two tests of "on its line"**: `Reacquire` takes a lane within `CarOffPathM × OffLineTolerance`, `ReadTheLine` keeps
   a line within `OffTheLineAllowanceM`, which is wider for a tow — so a tow can be refused a lane its line check
   would keep it on. One threshold closes it; it moves tows.
+- **A car the device ticks holds only part of its context**: `CarFleet.Context`'s `AuthorityM`, `PassAsideM` and
+  `Blocked` are the device's (`DeviceCarTick.BriefRow`), and the rest is what the town last set. Nothing on the host reads
+  the rest today; one that did would read a stale figure, which only the shadow (`DeviceCarTick.Shadowed`) would show.
 - **Two straights for one walker** while the device keeps the walkers: the device's walks commit them and the town's
   (`WalkingGround.StraightOf`) are left as they were, so a rebuild the town lays itself walks the town's, and a walker new
   to the device is sent the town's. Nothing else reads them; reading the device's back where it commits one closes it.

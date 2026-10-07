@@ -87,6 +87,17 @@ internal sealed partial class DeviceCarTick : IDisposable
         public const uint Claimed = 1u, Turning = 2u, Inside = 4u, Committed = 8u;
     }
 
+    /// <summary>
+    /// What the town reads of a car's tick besides its <see cref="TickRow"/> (<c>CarBriefRow</c>): of the context only how
+    /// far it was granted, how far aside its pass steps and whether it is blocked, and the junction ahead whole — its
+    /// <see cref="BoxRow"/> flags with <see cref="Blocked"/>.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal readonly record struct BriefRow(float AuthorityM, float PassAsideM, float ToTheBoxM, float LightAheadM, uint Flags)
+    {
+        public const uint Blocked = 16u;
+    }
+
     /// <summary>The tick's figures, field for field with <c>car_tick.comp</c>'s, each the host's own.</summary>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct Figures(
@@ -130,6 +141,7 @@ internal sealed partial class DeviceCarTick : IDisposable
     readonly ResidentRows<uint> _taken;
     readonly ResidentRows<PassRow> _passes;
     readonly ResidentRows<uint> _holdBits;
+    readonly ResidentRows<BriefRow> _briefs;
     readonly ComputeKernel _tickKernel;
     readonly DescriptorSet _tickSet;
     readonly ComputeBatch _batch;
@@ -194,6 +206,7 @@ internal sealed partial class DeviceCarTick : IDisposable
         _taken = new ResidentRows<uint>(vk, capacity, 1, hostOnly: true);
         _passes = new ResidentRows<PassRow>(vk, capacity, 1, readsBack: true);
         _holdBits = new ResidentRows<uint>(vk, capacity, 1, hostOnly: true, bridges: false);
+        _briefs = new ResidentRows<BriefRow>(vk, capacity, 1, readsBack: true);
 
         var table = tyres.Table;
         GpuBuffer[] ticked =
@@ -203,7 +216,7 @@ internal sealed partial class DeviceCarTick : IDisposable
             Laid(roads.LaneLengthM), Laid(connectorAt), Laid(connectorTo), Laid(connectorRung), Laid(connectorLength),
             Laid(lanePassable), claims.Rows, claims.PlannedRuns, claims.PlannedOrder, granted?.Cutters ?? _cutters.Device,
             granted?.Grants ?? _grants.Device, _told.Device, _ticks.Device, _contexts.Device, _boxes.Device, _taken.Device,
-            _passes.Device, granted?.HoldBits ?? _holdBits.Device,
+            _passes.Device, granted?.HoldBits ?? _holdBits.Device, _briefs.Device,
         ];
         _tickKernel = new ComputeKernel(vk, "car_tick.comp", ticked.Length, (uint)Marshal.SizeOf<Figures>());
         _tickSet = _tickKernel.Bind(ticked);
@@ -272,12 +285,14 @@ internal sealed partial class DeviceCarTick : IDisposable
 
     /// <summary>
     /// Whether <see cref="RecordRead"/> hands back what only the shadow compares: the lines, their chains and
-    /// lanes' ends, each car's pass, and the scrub under its wheels.
+    /// lanes' ends, each car's pass, the scrub under its wheels, and every context and junction ahead whole — or, not
+    /// shadowed, each car's <see cref="BriefRow"/> in place of the last two.
     /// </summary>
     /// <remarks>
     /// <b>A town whose tick the device runs reads none of them</b>: the town shifts its own line as the device did
-    /// (<c>TownWorld.ShiftedOnTheDevice</c>), and the scrub is scratch the tick that wrote it spends. Over a
-    /// bus of a few GB/s they are most of what a tick would otherwise hand back.
+    /// (<c>TownWorld.ShiftedOnTheDevice</c>), the scrub is scratch the tick that wrote it spends, and of a context the
+    /// town reads only how far a car was granted, how far aside its pass steps and whether it is blocked. Over a bus of
+    /// a few GB/s they are most of what a tick would otherwise hand back.
     /// </remarks>
     public bool Shadowed
     {
@@ -295,9 +310,14 @@ internal sealed partial class DeviceCarTick : IDisposable
 
     public ReadOnlySpan<float> EndsAfter(int car) => _ends.RowsRead(car);
 
+    /// <summary>Every car's context as the last tick told it — shadowed only (<see cref="Shadowed"/>).</summary>
     public ReadOnlySpan<ContextRow> ContextsAfter => _contexts.AllRead[.._cars];
 
+    /// <summary>The junction ahead of every car as the last tick read it — shadowed only.</summary>
     public ReadOnlySpan<BoxRow> BoxesAfter => _boxes.AllRead[.._cars];
+
+    /// <summary>What the town reads of every car's context and junction ahead, as the last tick left them — not shadowed.</summary>
+    public ReadOnlySpan<BriefRow> BriefsAfter => _briefs.AllRead[.._cars];
 
     /// <summary>The step each car is on as the last tick left it, shifted on with its line.</summary>
     public ReadOnlySpan<PassRow> PassesAfter => _passes.AllRead[.._cars];
@@ -392,10 +412,14 @@ internal sealed partial class DeviceCarTick : IDisposable
         _vk.BeforeTransfer(commands);
         _tyres.Read(commands);
         _ticks.Read(commands, cars);
-        _contexts.Read(commands, cars);
-        _boxes.Read(commands, cars);
-        if (Shadowed)
+        if (!Shadowed)
         {
+            _briefs.Read(commands, cars);
+        }
+        else
+        {
+            _contexts.Read(commands, cars);
+            _boxes.Read(commands, cars);
             _lines.Read(commands, cars);
             _chain.Read(commands, cars);
             _starts.Read(commands, cars);
@@ -427,7 +451,7 @@ internal sealed partial class DeviceCarTick : IDisposable
         _tickKernel.Dispose();
         foreach (var table in (ReadOnlySpan<IDisposable>)[
                      _ticks, _told, _grants, _cutters, _boxes, _contexts, _lines, _arcs, _entries, _chain, _starts, _ends, _firstArcs,
-                     _breaks, _taken, _passes, _holdBits])
+                     _breaks, _taken, _passes, _holdBits, _briefs])
         {
             table.Dispose();
         }
