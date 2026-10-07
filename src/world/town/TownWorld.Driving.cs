@@ -900,12 +900,12 @@ internal sealed partial class TownWorld
         var placeM = bay == CarFleet.NoBay ? ThePlaceTheLineStopsAtM(car, lastLane) : float.NaN;
         Cars.StopsForBay[car] = bay;
         Cars.StopsAtItsPlace[car] = !float.IsNaN(placeM);
-        Cars.Line[car] = LineAssembler.Assemble(
+        Cars.SetLine(car, LineAssembler.Assemble(
             _roads, chain[..lanes], Cars.LineArcsOf(car), Cars.LaneStartsOf(car), Cars.LaneEndsOf(car),
             bay != CarFleet.NoBay ? _parkingIn.StopForTheBayM(car, bay, lastLane)
             : float.IsNaN(placeM) ? float.PositiveInfinity
             : placeM,
-            Cars.LaneFirstArcsOf(car));
+            Cars.LaneFirstArcsOf(car)));
 
         // What a plan reads of the line it runs down (TER-4c.1, S-2): the corners folded into each arc, and which
         // joins break it — once a line, so the plan and the profile read segments rather than walk geometry.

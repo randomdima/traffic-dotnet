@@ -722,7 +722,7 @@ internal sealed partial class TownWorld
         _parking.Vacate(caught);
         GiveUpTheBay(caught);
         Cars.Hold[caught] = DrivingHold.None;
-        Cars.Line[caught] = default;
+        Cars.SetLine(caught, default);
         Cars.Reroutes[caught] = 0;
         _driveProgress.Restart(caught);
         Cars.Command[caught] = Cars.Broken[caught] ? DriveCommand.Locked : DriveCommand.Idle;

@@ -170,7 +170,7 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
         var arcs = manoeuvres.PieceOf(car, piece);
         arcs.CopyTo(Cars.LineArcsOf(car));
         CornerLimits.Lay(arcs, Cars.LineEntriesOf(car), Config);
-        Cars.Line[car] = new DrivenLine(arcs.Length, 0, Spline.TotalLengthM(arcs));
+        Cars.SetLine(car, new DrivenLine(arcs.Length, 0, Spline.TotalLengthM(arcs)));
         Cars.LineIsReverse[car] = manoeuvres.Shape[car].IsReverse(piece);
         manoeuvres.Piece[car] = piece;
 

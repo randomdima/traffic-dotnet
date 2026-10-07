@@ -37,7 +37,7 @@ public class CarLampTests
         fleet.Driven[0] = true;
         fleet.Command[0] = DriveCommand.Idle;
         fleet.LineArcsOf(0)[0] = new ArcSeg(Vector2.Zero, 0f, lengthM, curvature);
-        fleet.Line[0] = new DrivenLine(1, 1, lengthM);
+        fleet.SetLine(0, new DrivenLine(1, 1, lengthM));
         fleet.ToTheBoxM[0] = JunctionAheadM;
         fleet.TurningAtTheBox[0] = true;
         return fleet;
@@ -171,7 +171,7 @@ public class CarLampTests
 
         fleet.LineArcsOf(0)[0] = new ArcSeg(Vector2.Zero, 0f, 40f, 0.05f);
         fleet.LineArcsOf(0)[1] = new ArcSeg(new Vector2(30f, 20f), 2f, 160f, 0f);
-        fleet.Line[0] = new DrivenLine(2, 1, 200f);
+        fleet.SetLine(0, new DrivenLine(2, 1, 200f));
         fleet.ProgressM[0] = 40f;
 
         Assert.Equal(CarLampSet.None, Showing(fleet));
@@ -196,7 +196,7 @@ public class CarLampTests
     {
         var fleet = Rolling();
         fleet.LineArcsOf(0)[0] = new ArcSeg(Vector2.Zero, 0f, 20f, -MathF.PI / 20f);
-        fleet.Line[0] = new DrivenLine(1, 1, 20f);
+        fleet.SetLine(0, new DrivenLine(1, 1, 20f));
 
         Assert.Equal(CarLampSet.TurnLeft, Showing(fleet));
     }

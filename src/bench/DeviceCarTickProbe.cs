@@ -58,13 +58,15 @@ internal static class DeviceCarTickProbe
         var count = 0;
         var tickMs = new List<double>();
         var tyresMs = new List<double>();
-        var copiesMs = new List<double>();
+        var sentMs = new List<double>();
+        var sentKb = new List<double>();
+        var linesKb = new List<double>();
+        var readMs = new List<double>();
         var layMs = new List<double>();
         var hostMs = new List<double>();
         var takenCounts = new List<int>();
         var differ = 0;
         var asked = 0;
-        string? first = null;
         var kinds = new SortedDictionary<string, int>(StringComparer.Ordinal);
         var examples = new Dictionary<string, string>(StringComparer.Ordinal);
         var host = new Stopwatch();
@@ -75,38 +77,34 @@ internal static class DeviceCarTickProbe
             if (stage == AgentsStage.Due)
             {
                 var laying = Stopwatch.StartNew();
-                count = 0;
-                for (var car = 0; car < town.Cars.Count; car++)
-                {
-                    if (!DeviceCarTick.Takes(town, car)) continue;
-
-                    tick.Lay(count, town, car, town.Cars.Variant[car]);
-                    taken[count++] = car;
-                }
-
+                count = tick.Prepare(town, taken, resident: true);
                 layMs.Add(laying.Elapsed.TotalMilliseconds);
-                tick.Step(count);
+                tick.Step(count, town.Cars.Count);
                 tickMs.Add(tick.TickMs);
                 tyresMs.Add(tick.TyresMs);
-                copiesMs.Add(tick.CopiesMs);
+                sentMs.Add(tick.SentMs);
+                sentKb.Add(tick.SentBytes / 1024d);
+                linesKb.Add(tick.LinesSentBytes / 1024d);
+                readMs.Add(tick.ReadMs);
                 takenCounts.Add(count);
                 host.Restart();
                 return;
             }
 
             hostMs.Add(host.Elapsed.TotalMilliseconds);
-            for (var slot = 0; slot < count; slot++)
+            foreach (var car in taken.AsSpan(0, count))
             {
                 asked++;
-                var why = tick.Disagreement(slot, town, taken[slot]);
+                var why = tick.Disagreement(town, car);
                 if (why == null) continue;
 
                 differ++;
-                first ??= $"tick {loop.Tick} car {taken[slot]}: {why}";
                 var kind = why[..why.IndexOf(':')];
                 kinds[kind] = kinds.GetValueOrDefault(kind) + 1;
-                examples.TryAdd(kind, $"tick {loop.Tick} car {taken[slot]}: {why}");
+                examples.TryAdd(kind, $"tick {loop.Tick} car {car}: {why}");
             }
+
+            tick.Settle(town, taken.AsSpan(0, count));
         };
 
         var until = loop.Tick + MeasuredTicks;
@@ -119,8 +117,10 @@ internal static class DeviceCarTickProbe
         Console.WriteLine($"  host, every agent's tick   median {Median(hostMs),8:F3} ms   most {hostMs.Max(),8:F3} ms");
         Console.WriteLine($"  device ground and drive    median {Median(tickMs),8:F3} ms   most {tickMs.Max(),8:F3} ms");
         Console.WriteLine($"  device tyres               median {Median(tyresMs),8:F3} ms   most {tyresMs.Max(),8:F3} ms");
-        Console.WriteLine($"  taking the rows in and handing them back (shadow only) median {Median(copiesMs),8:F3} ms");
-        Console.WriteLine($"  writing the rows to send (shadow only) median {Median(layMs),8:F3} ms");
+        Console.WriteLine($"  taking in what the town changed  median {Median(sentMs),8:F3} ms   most {sentMs.Max(),8:F3} ms");
+        Console.WriteLine($"    of it, median {Median(sentKb),8:F0} KiB a tick, lines {Median(linesKb):F0} KiB; most {sentKb.Max():F0} KiB");
+        Console.WriteLine($"  handing every row back (shadow only) median {Median(readMs),8:F3} ms");
+        Console.WriteLine($"  finding and writing what changed (shadow only) median {Median(layMs),8:F3} ms");
         Console.WriteLine($"  {differ} of {asked} car-ticks differ; {tick.SlideOnsets} wheels at a slide's onset");
         foreach (var (kind, many) in kinds) Console.WriteLine($"    {kind}, {many}: the first {examples[kind]}");
     }

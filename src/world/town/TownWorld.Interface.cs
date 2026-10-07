@@ -457,7 +457,7 @@ internal sealed partial class TownWorld
                 Cars.BuildOf(car), Cars.LineOf(car), rearAxleM, Cars.ProgressM[car]);
             if (CarFollower.OffLineM(Cars.LineOf(car), rearAxleM, progressM) > _config.CarOffPathM * OffLineTolerance)
             {
-                Cars.Line[car] = default;
+                Cars.SetLine(car, default);
             }
             else
             {

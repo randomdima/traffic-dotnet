@@ -7,7 +7,10 @@ using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.App.DeviceTick;
 
-/// <summary>The tick in shadow: a town's car laid into a slot as its own tick will read it, and held to what that tick did.</summary>
+/// <summary>
+/// The tick in shadow: what of the town the device has to be told before its tick, and what its tick did that the town's
+/// did not.
+/// </summary>
 internal sealed partial class DeviceCarTick
 {
     readonly float[] _spinMps = new float[TyreModel.Wheels];
@@ -20,6 +23,40 @@ internal sealed partial class DeviceCarTick
     readonly TyreScrub[] _scrub = new TyreScrub[TyreModel.Wheels];
     readonly TyreMark[] _marks = new TyreMark[TyreModel.Wheels];
 
+    /// <summary>Whether the device ticked each car last tick, so that what its rows hold is what its own tick left.</summary>
+    bool[] _held = [];
+
+    /// <summary>How many lines the town had laid each car when the two ticks last left it, and when this one began.</summary>
+    uint[] _lineLaidAt = [], _lineLaidDue = [];
+
+    /// <summary>Where the town had each car on its line, and how far since its claim, when the two ticks last left it.</summary>
+    float[] _progressAt = [], _coveredAt = [];
+
+    /// <summary>Which level each car's tyre row was last sent on.</summary>
+    byte[] _levelSent = [];
+
+    /// <summary>Whether the town had already asked to grow each car's line before this tick.</summary>
+    bool[] _askedBefore = [];
+
+    /// <summary>Each car's command and tyres going into this tick, as the device holds them.</summary>
+    DeviceTyres.CommandRow[] _commandBefore = [];
+    DeviceTyres.CarRow[] _carBefore = [];
+    DeviceTyres.WheelRow[] _wheelsBefore = [];
+
+    void ShadowOf(int capacity)
+    {
+        _held = new bool[capacity];
+        _lineLaidAt = new uint[capacity];
+        _lineLaidDue = new uint[capacity];
+        _progressAt = new float[capacity];
+        _coveredAt = new float[capacity];
+        _levelSent = new byte[capacity];
+        _askedBefore = new bool[capacity];
+        _commandBefore = new DeviceTyres.CommandRow[capacity];
+        _carBefore = new DeviceTyres.CarRow[capacity];
+        _wheelsBefore = new DeviceTyres.WheelRow[capacity * TyreModel.Wheels];
+    }
+
     /// <summary>
     /// <b>Whether the device ticks this car</b>: driven, following its route's line on no pass, and on nobody's arm — the
     /// tick <c>car_tick.glsl</c> is. Asked before the town's own tick, of the state that tick reads.
@@ -31,16 +68,127 @@ internal sealed partial class DeviceCarTick
     }
 
     /// <summary>
-    /// One car laid into a slot as the town holds it before its tick: its pose, last command and tyres, its line, what
-    /// the last rebuild granted it and cut it with, and the junction ahead as its last tick read it.
+    /// <b>The town as its next tick reads it, told to the device</b>: every car's pose, and what each car the device takes
+    /// is told and was granted. A car it did not take last tick is laid whole; one it did keeps what the device's own tick
+    /// left, but for what the town changed since — a line laid, a reading set, a level crossed. A car it does not take is
+    /// the town's, and its tyres run on the town's own state.
     /// </summary>
-    /// <param name="buildOf">Which of the tyre pass's builds the car is.</param>
-    public void Lay(int slot, TownWorld town, int car, uint buildOf)
+    /// <param name="taken">Filled with the cars the device takes, in the order the list sends them.</param>
+    /// <param name="resident">
+    /// Whether a car the device took last tick keeps what that tick left; otherwise every car it takes is laid whole every
+    /// tick, so each tick is asked of exactly the state the town's reads.
+    /// </param>
+    /// <returns>How many cars the device takes.</returns>
+    public int Prepare(TownWorld town, Span<int> taken, bool resident)
     {
         var cars = town.Cars;
-        LayTheTyres(slot, town, car, buildOf);
-        LayTheLine(slot, cars, car);
+        var list = _taken.All;
+        var count = 0;
+        for (var car = 0; car < cars.Count; car++)
+        {
+            LayThePose(town, car);
+            _askedBefore[car] = town.AsksTheRoute(car);
+            _lineLaidDue[car] = cars.LineLaid[car];
+            if (!Takes(town, car))
+            {
+                LayTheTyres(town, car);
+                _held[car] = false;
+                continue;
+            }
 
+            list[count] = (uint)car;
+            taken[count++] = car;
+            LayWhatItIsTold(town, car);
+            if (!resident || !_held[car])
+            {
+                LayTheTyres(town, car);
+                LayTheLine(cars, car);
+                LayTheReading(cars, car);
+                LayTheBox(cars, car);
+            }
+            else
+            {
+                if (cars.LineLaid[car] != _lineLaidAt[car]) LayTheLine(cars, car);
+                if (cars.ProgressM[car] != _progressAt[car] || cars.CoveredSinceClaimM[car] != _coveredAt[car]) LayTheReading(cars, car);
+                if (cars.LevelOf(car) != _levelSent[car]) LayTheCarRow(town, car);
+            }
+
+            _held[car] = true;
+        }
+
+        _tyres.Table.Poses.Mark(0, cars.Count);
+        _tyres.Table.BuildOf.Mark(0, cars.Count);
+        return count;
+    }
+
+    /// <summary>
+    /// What both ticks left, remembered for the next: the town's lines, readings and levels, and the device's command and
+    /// tyres for every car it took.
+    /// </summary>
+    public void Settle(TownWorld town, ReadOnlySpan<int> taken)
+    {
+        var cars = town.Cars;
+        for (var car = 0; car < cars.Count; car++)
+        {
+            _lineLaidAt[car] = cars.LineLaid[car];
+            _progressAt[car] = cars.ProgressM[car];
+            _coveredAt[car] = cars.CoveredSinceClaimM[car];
+        }
+
+        foreach (var car in taken)
+        {
+            _commandBefore[car] = CommandsAfter[car];
+            _carBefore[car] = _tyres.CarsAfter[car];
+            _tyres.WheelsAfter.Slice(car * TyreModel.Wheels, TyreModel.Wheels).CopyTo(_wheelsBefore.AsSpan(car * TyreModel.Wheels));
+        }
+    }
+
+    void LayThePose(TownWorld town, int car)
+    {
+        var cars = town.Cars;
+        _tyres.BuildOf[car] = cars.Variant[car];
+        _tyres.Poses[car] = DeviceTyres.PoseRow.Of(new CarPose(
+            cars.PositionM[car], cars.HeadingRad[car], cars.VelocityMps[car], cars.YawRateRadPerS[car], cars.MassKg[car],
+            cars.AccelerationMps2[car]));
+    }
+
+    void LayTheTyres(TownWorld town, int car)
+    {
+        var cars = town.Cars;
+        var table = _tyres.Table;
+        var command = DeviceTyres.CommandRow.Of(cars.Command[car]);
+        table.Commands.Rows(car)[0] = command;
+        table.Commands.Mark(car);
+        _commandBefore[car] = command;
+        LayTheCarRow(town, car);
+
+        var wheels = table.Wheels.Rows(car);
+        for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
+        {
+            var at = (car * TyreModel.Wheels) + wheel;
+            wheels[wheel] = new DeviceTyres.WheelRow(
+                cars.MarkFromM[at], cars.WheelSpinMps[at], cars.ScrubTravelM[at], cars.MarkIntensity[at], cars.Marking[at] ? 1u : 0u);
+        }
+
+        wheels.CopyTo(_wheelsBefore.AsSpan(car * TyreModel.Wheels));
+        table.Wheels.Mark(car);
+    }
+
+    void LayTheCarRow(TownWorld town, int car)
+    {
+        var cars = town.Cars;
+        var row = new DeviceTyres.CarRow(
+            cars.GroundCoefficient[car], 1f / town.PhysicsForInstruments.InverseInertiaOf(cars.Body[car]), cars.SlipThrottle[car],
+            DeviceTyres.CarRow.FlagsOf(cars.Action[car] == CarAction.Hand, cars.DrivenSlipping[car], cars.LevelOf(car)));
+        _tyres.Table.Cars.Rows(car)[0] = row;
+        _tyres.Table.Cars.Mark(car);
+        _carBefore[car] = row;
+        _levelSent[car] = cars.LevelOf(car);
+    }
+
+    void LayWhatItIsTold(TownWorld town, int car)
+    {
+        var cars = town.Cars;
         var claims = town.Occupancy;
         var hold = town.PlanHoldOf(car);
         var cut = LaneClaim.Nothing;
@@ -52,60 +200,53 @@ internal sealed partial class DeviceCarTick
         }
 
         var hasAPlace = town.SceneOf(car, out var placeM, out var reachM);
-        Grants[slot] = new GrantRow(
+        _grants.Rows(car)[0] = new GrantRow(
             cars.AuthorityM[car], cars.HorizonM[car], cars.ClaimFromM[car], cars.CommittedToM[car], cars.GrantMarginM[car],
             (uint)cars.GrantCutBy[car], cutOn, reachM, placeM);
-        Cutters[slot] = cut.Found ? DeviceClaims.ClaimRow.Of(cut, cutOn, false, cut.FromM) : default;
+        _cutters.Rows(car)[0] = cut.Found ? DeviceClaims.ClaimRow.Of(cut, cutOn, false, cut.FromM) : default;
 
-        var told = (cars.BlueLight[car] ? TickRow.OnACall : 0u) | (cars.LineIsReverse[car] ? TickRow.LineIsReverse : 0u)
-                   | (hasAPlace ? TickRow.HasAPlace : 0u) | (hold != LaneOccupancy.NoHold ? TickRow.HasAHold : 0u)
-                   | (cut.Found ? TickRow.Cut : 0u);
-        Ticks[slot] = new TickRow(
-            cars.ProgressM[car], cars.CoveredSinceClaimM[car], cars.AlongMps[car], cars.OffLineM[car], cars.PlannedMps[car],
-            cars.PaceMps[car], town.OffTheLineAllowanceM(car), (uint)cars.Hold[car], told);
-        Boxes[slot] = new BoxRow(cars.ToTheBoxM[car], cars.LightAheadM[car], BoxFlagsOf(cars, car), 0u);
-        _askedBefore[slot] = town.AsksTheRoute(car);
+        var told = (cars.BlueLight[car] ? ToldRow.OnACall : 0u) | (cars.LineIsReverse[car] ? ToldRow.LineIsReverse : 0u)
+                   | (hasAPlace ? ToldRow.HasAPlace : 0u) | (hold != LaneOccupancy.NoHold ? ToldRow.HasAHold : 0u)
+                   | (cut.Found ? ToldRow.Cut : 0u);
+        _told.Rows(car)[0] = new ToldRow(told, cars.PaceMps[car], town.OffTheLineAllowanceM(car), 0f);
+        _grants.Mark(car);
+        _cutters.Mark(car);
+        _told.Mark(car);
     }
 
-    void LayTheTyres(int slot, TownWorld town, int car, uint buildOf)
+    void LayTheReading(CarFleet cars, int car)
     {
-        var cars = town.Cars;
-        var tyres = _tyres;
-        tyres.BuildOf[slot] = buildOf;
-        tyres.Poses[slot] = DeviceTyres.PoseRow.Of(new CarPose(
-            cars.PositionM[car], cars.HeadingRad[car], cars.VelocityMps[car], cars.YawRateRadPerS[car], cars.MassKg[car],
-            cars.AccelerationMps2[car]));
-        tyres.Commands[slot] = DeviceTyres.CommandRow.Of(cars.Command[car]);
-        tyres.Cars[slot] = new DeviceTyres.CarRow(
-            cars.GroundCoefficient[car], 1f / town.PhysicsForInstruments.InverseInertiaOf(cars.Body[car]), cars.SlipThrottle[car],
-            DeviceTyres.CarRow.FlagsOf(false, cars.DrivenSlipping[car], cars.LevelOf(car)));
-        for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
-        {
-            var at = (car * TyreModel.Wheels) + wheel;
-            tyres.Wheels[(slot * TyreModel.Wheels) + wheel] = new DeviceTyres.WheelRow(
-                cars.MarkFromM[at], cars.WheelSpinMps[at], cars.ScrubTravelM[at], cars.MarkIntensity[at], cars.Marking[at] ? 1u : 0u);
-        }
+        _ticks.Rows(car)[0] = new TickRow(
+            cars.ProgressM[car], cars.CoveredSinceClaimM[car], cars.AlongMps[car], cars.OffLineM[car], cars.PlannedMps[car],
+            (uint)cars.Hold[car], 0u);
+        _ticks.Mark(car);
     }
 
-    void LayTheLine(int slot, CarFleet cars, int car)
+    void LayTheBox(CarFleet cars, int car)
+    {
+        _boxes.Rows(car)[0] = new BoxRow(cars.ToTheBoxM[car], cars.LightAheadM[car], BoxFlagsOf(cars, car), 0u);
+        _boxes.Mark(car);
+    }
+
+    void LayTheLine(CarFleet cars, int car)
     {
         var line = cars.Line[car];
-        Lines[slot] = LineOf(cars, car);
+        _lines.Rows(car)[0] = LineOf(cars, car);
         var arcs = cars.LineOf(car);
         var entries = cars.EntriesOf(car);
-        var arcRows = LineArcsOf(slot);
-        var entryRows = EntriesOf(slot);
+        var arcRows = _arcs.Rows(car);
+        var entryRows = _entries.Rows(car);
         for (var arc = 0; arc < line.ArcCount; arc++)
         {
             arcRows[arc] = DeviceGround.ArcRow.Of(arcs[arc]);
             entryRows[arc] = entries[arc];
         }
 
-        var chain = ChainOf(slot);
-        var starts = StartsOf(slot);
-        var ends = EndsOf(slot);
-        var firstArcs = FirstArcsOf(slot);
-        var breaks = BreaksOf(slot);
+        var chain = _chain.Rows(car);
+        var starts = _starts.Rows(car);
+        var ends = _ends.Rows(car);
+        var firstArcs = _firstArcs.Rows(car);
+        var breaks = _breaks.Rows(car);
         for (var lane = 0; lane < line.LaneCount; lane++)
         {
             chain[lane] = cars.ChainOf(car)[lane];
@@ -114,19 +255,15 @@ internal sealed partial class DeviceCarTick
             firstArcs[lane] = (uint)cars.LaneFirstArcsOf(car)[lane];
             breaks[lane] = cars.JoinBreaksOf(car)[lane] ? 1u : 0u;
         }
-    }
 
-    static string ArcUnder(CarFleet cars, int car, float progressM)
-    {
-        var startM = 0f;
-        var line = cars.LineOf(car);
-        for (var arc = 0; arc < line.Length; arc++)
-        {
-            if (progressM <= startM + line[arc].LengthM) return $"arc {arc} of {line.Length} from {startM}: {line[arc]}";
-            startM += line[arc].LengthM;
-        }
-
-        return $"past the {line.Length} arcs, {startM}";
+        _lines.Mark(car);
+        _arcs.MarkRows(car, line.ArcCount);
+        _entries.MarkRows(car, line.ArcCount);
+        _chain.MarkRows(car, line.LaneCount);
+        _starts.MarkRows(car, line.LaneCount);
+        _ends.MarkRows(car, line.LaneCount);
+        _firstArcs.MarkRows(car, line.LaneCount);
+        _breaks.MarkRows(car, line.LaneCount);
     }
 
     static LineRow LineOf(CarFleet cars, int car) => new(
@@ -138,10 +275,10 @@ internal sealed partial class DeviceCarTick
         | (cars.InsideTheBox[car] ? BoxRow.Inside : 0u) | (cars.CommittedToTheBox[car] ? BoxRow.Committed : 0u);
 
     /// <summary>
-    /// <b>What the device's tick of a slot did that the town's tick of its car did not</b>, after both: whether it lost
-    /// its line, where it is on its line and the line itself, what it was told and the junction ahead, then its drive and
-    /// its tyres — or null where they agree. Every figure is held within <see cref="Near"/>, since a point on a bend is
-    /// found by the device's own sine; every outcome is held exactly.
+    /// <b>What the device's tick of a car did that the town's tick of it did not</b>, after both: whether it lost its line,
+    /// where it is on its line and the line itself, what it was told and the junction ahead, then its drive and its tyres —
+    /// or null where they agree. Every figure is held within <see cref="Near"/>, since a point on a bend is found by the
+    /// device's own sine; every outcome is held exactly.
     /// </summary>
     /// <remarks>
     /// <b>The drive and the tyres are held to the host's own functions asked of what the device handed them</b>
@@ -149,18 +286,17 @@ internal sealed partial class DeviceCarTick
     /// a tenth of a millimetre from where the town does, and a pedal asked to close a speed in one tick is that tenth
     /// over a stop and a tick — so held to the town, a car braking to a stop is a hundredth of a m/s² off.
     /// </remarks>
-    public string? Disagreement(int slot, TownWorld town, int car)
+    public string? Disagreement(TownWorld town, int car)
     {
         var cars = town.Cars;
-        var tick = TicksAfter[slot];
+        var tick = TicksAfter[car];
         var lost = (tick.Flags & TickRow.Lost) != 0;
         if (lost != (cars.Action[car] == CarAction.Rejoin)) return $"lost: town {cars.Action[car]}, device {lost}";
 
         var shifted = (tick.Flags & TickRow.Shifted) != 0;
-        if (shifted != (cars.Line[car].LaneCount < Lines[slot].LaneCount))
+        if (shifted != (cars.LineLaid[car] != _lineLaidDue[car]))
         {
-            return $"lane end: town at {cars.ProgressM[car]} of {cars.Line[car].LaneCount} lanes, device shifted {shifted} " +
-                   $"covering {tick.CoveredSinceClaimM - Ticks[slot].CoveredSinceClaimM} from {Ticks[slot].ProgressM}; next lane from {StartsOf(slot)[1]}";
+            return $"lane end: town at {cars.ProgressM[car]} of {cars.Line[car].LaneCount} lanes, device shifted {shifted} to {tick.ProgressM}";
         }
 
         // A car that lost its line has left the action its grant was laid for, and the town's Enter dropped the grant; the
@@ -169,25 +305,25 @@ internal sealed partial class DeviceCarTick
             || !Near(cars.AlongMps[car], tick.AlongMps) || !Near(cars.OffLineM[car], tick.OffLineM))
         {
             return $"reading: town progress {cars.ProgressM[car]} covered {cars.CoveredSinceClaimM[car]} along {cars.AlongMps[car]} " +
-                   $"off {cars.OffLineM[car]}; device {tick}; {ArcUnder(cars, car, tick.ProgressM)} {ArcUnder(cars, car, cars.ProgressM[car])}";
+                   $"off {cars.OffLineM[car]}; device {tick}";
         }
 
         var asks = (tick.Flags & TickRow.AsksTheRoute) != 0;
-        if (asks ? !town.AsksTheRoute(car) : town.AsksTheRoute(car) && !_askedBefore[slot]) return $"asks the route: device {asks}";
+        if (asks ? !town.AsksTheRoute(car) : town.AsksTheRoute(car) && !_askedBefore[car]) return $"asks the route: device {asks}";
 
-        if (LinesAfter[slot] != LineOf(cars, car)) return $"line: town {LineOf(cars, car)}, device {LinesAfter[slot]}";
+        if (LinesAfter[car] != LineOf(cars, car)) return $"line: town {LineOf(cars, car)}, device {LinesAfter[car]}";
         for (var lane = 0; lane < cars.Line[car].LaneCount; lane++)
         {
-            if (ChainAfter(slot)[lane] != cars.ChainOf(car)[lane] || StartsAfter(slot)[lane] != cars.LaneStartsOf(car)[lane]
-                || EndsAfter(slot)[lane] != cars.LaneEndsOf(car)[lane])
+            if (ChainAfter(car)[lane] != cars.ChainOf(car)[lane] || StartsAfter(car)[lane] != cars.LaneStartsOf(car)[lane]
+                || EndsAfter(car)[lane] != cars.LaneEndsOf(car)[lane])
             {
                 return $"lane {lane} of the line";
             }
         }
 
-        return Told(cars, car, ContextsAfter[slot], BoxesAfter[slot])
-               ?? (lost ? Stopped(cars, car, slot) : Driven(cars, car, slot))
-               ?? Delivered(town, car, slot, CommandsAfter[slot]);
+        return Told(cars, car, ContextsAfter[car], BoxesAfter[car])
+               ?? (lost ? Stopped(cars, car) : Driven(cars, car))
+               ?? Delivered(town, car, CommandsAfter[car]);
     }
 
     static string? Told(CarFleet cars, int car, in ContextRow context, in BoxRow box)
@@ -206,33 +342,34 @@ internal sealed partial class DeviceCarTick
     }
 
     /// <summary>A car that lost its line stops as the town stopped it, to the bit.</summary>
-    string? Stopped(CarFleet cars, int car, int slot)
+    string? Stopped(CarFleet cars, int car)
     {
-        var tick = TicksAfter[slot];
-        return tick.Hold == (uint)cars.Hold[car] && CommandsAfter[slot] == DeviceTyres.CommandRow.Of(cars.Command[car])
+        var tick = TicksAfter[car];
+        return tick.Hold == (uint)cars.Hold[car] && CommandsAfter[car] == DeviceTyres.CommandRow.Of(cars.Command[car])
             ? null
-            : $"stopped: town {cars.Hold[car]} {cars.Command[car]}, device {(DrivingHold)tick.Hold} {CommandsAfter[slot]}";
+            : $"stopped: town {cars.Hold[car]} {cars.Command[car]}, device {(DrivingHold)tick.Hold} {CommandsAfter[car]}";
     }
 
     /// <summary>
     /// <b>The device's drive held to <see cref="CarFollower.DriveTheLine"/> asked of the device's own reading</b>: where
-    /// it found the car on its line and what it told it, over the line the town's tick left, from the command it was left at.
+    /// it found the car on its line and what it told it, over the line the town's tick left, from the command the device
+    /// held going in.
     /// </summary>
-    string? Driven(CarFleet cars, int car, int slot)
+    string? Driven(CarFleet cars, int car)
     {
-        var tick = TicksAfter[slot];
-        var told = ContextsAfter[slot];
+        var tick = TicksAfter[car];
+        var told = ContextsAfter[car];
         var context = new DriveContext(
             told.GroundCoefficient, told.AuthorityM, (HeadwayKind)told.GrantCutBy, told.PlaceStopM, told.MarginM, told.WaitsToPass != 0u,
             told.HorizonM, told.PassAsideM, told.BackUpM, told.Blocked != 0u, told.WaitAtM);
-        var pose = PoseOf(slot);
+        var pose = PoseOf(car);
         var drive = CarFollower.DriveTheLine(
             _config, cars.BuildOf(car), pose, cars.LineOf(car), cars.EntriesOf(car), tick.ProgressM, cars.Line[car].LengthM, context,
-            pose.Forward, tick.AlongMps, reverse: false, CommandOf(_tyres.Commands[slot]), cars.Pass[car], laneless: false,
+            pose.Forward, tick.AlongMps, reverse: false, CommandOf(_commandBefore[car]), cars.Pass[car], laneless: false,
             cars.BlueLight[car], cars.PaceMps[car]);
 
         var host = DeviceTyres.CommandRow.Of(drive.Command);
-        var command = CommandsAfter[slot];
+        var command = CommandsAfter[car];
         var same = Near(host.SteerRad, command.SteerRad) && Near(host.ThrottleMps2, command.ThrottleMps2)
                    && Near(host.BrakeMps2, command.BrakeMps2) && host.HandbrakeAndReverse == command.HandbrakeAndReverse
                    && (uint)drive.Hold == tick.Hold && Near(drive.PlannedMps, tick.PlannedMps)
@@ -240,9 +377,9 @@ internal sealed partial class DeviceCarTick
         return same ? null : $"drive: host {drive}, device {command} {(DrivingHold)tick.Hold} planned {tick.PlannedMps}";
     }
 
-    CarPose PoseOf(int slot)
+    CarPose PoseOf(int car)
     {
-        var pose = _tyres.Poses[slot];
+        var pose = _tyres.Poses[car];
         return new CarPose(pose.PositionM, pose.HeadingRad, pose.VelocityMps, pose.YawRateRadPerS, pose.MassKg, pose.AccelerationMps2);
     }
 
@@ -256,9 +393,9 @@ internal sealed partial class DeviceCarTick
     public int SlideOnsets { get; private set; }
 
     /// <summary>
-    /// <b>The device's tyre pass held to the host's asked of the device's own command</b>, off the state the town's tick
-    /// read. The town's own tyres were asked the town's command, and a steer a part in ten thousand off — a point on its
-    /// line found by the device's own sine — is a wheel's sideways impulse a part in a hundred off.
+    /// <b>The device's tyre pass held to the host's asked of the device's own command</b>, off the tyres the device held
+    /// going in. The town's own tyres were asked the town's command, and a steer a part in ten thousand off — a point on
+    /// its line found by the device's own sine — is a wheel's sideways impulse a part in a hundred off.
     /// </summary>
     /// <remarks>
     /// <b>A wheel on its friction circle answers either way</b>: the device's own tangent turns one front wheel a
@@ -266,16 +403,16 @@ internal sealed partial class DeviceCarTick
     /// a wheel is counted (<see cref="SlideOnsets"/>) and not held, and neither is whether the car's driven wheels slipped,
     /// which it can decide.
     /// </remarks>
-    string? Delivered(TownWorld town, int car, int slot, in DeviceTyres.CommandRow onDevice)
+    string? Delivered(TownWorld town, int car, in DeviceTyres.CommandRow onDevice)
     {
         var cars = town.Cars;
-        var four = slot * TyreModel.Wheels;
-        var laid = _tyres.Cars[slot];
+        var four = car * TyreModel.Wheels;
+        var laid = _carBefore[car];
         var slipThrottle = laid.SlipThrottle;
         var slipping = (laid.Flags & DeviceTyres.CarRow.DrivenSlipping) != 0;
         for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
         {
-            var carried = _tyres.Wheels[four + wheel];
+            var carried = _wheelsBefore[four + wheel];
             _spinMps[wheel] = Flushed(carried.SpinMps);
             _scrubTravelM[wheel] = Flushed(carried.ScrubTravelM);
             _marking[wheel] = carried.Marking != 0;
@@ -283,10 +420,10 @@ internal sealed partial class DeviceCarTick
             _markIntensity[wheel] = carried.MarkIntensity;
         }
 
-        var after = _tyres.CarsAfter[slot];
+        var after = _tyres.CarsAfter[car];
         if (after.GroundCoefficient != cars.GroundCoefficient[car]) return $"ground: town {cars.GroundCoefficient[car]}, device {after}";
 
-        var pose = PoseOf(slot);
+        var pose = PoseOf(car);
         var atRest = TyrePass.Step(
             _config, town.Terrain, cars.BuildOf(car),
             pose with

@@ -283,7 +283,7 @@ internal sealed partial class TownWorld
     {
         Cars.Reroutes[car] = 0;
         _driveProgress.Restart(car);
-        Cars.Line[car] = default;
+        Cars.SetLine(car, default);
         Cars.ClearRoute(car);
         GiveUpTheTurn(car);
         Enter(car, CarAction.Stand);

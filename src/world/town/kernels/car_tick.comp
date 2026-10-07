@@ -1,8 +1,9 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
 
-// A run of following cars' ticks, one thread a car (car_tick.glsl), over the tyres' table, each car's line in the
-// fleet's own layout and the claims as they were cut: the command each leaves where the tyre pass reads it.
+// The following cars' ticks, one thread a car named in the list taken (car_tick.glsl), over the tyres' table and each
+// car's line in the fleet's own layout — every table indexed by the car — and the claims as they were cut: the command
+// each leaves where the tyre pass reads it.
 
 layout(local_size_x = 64) in;
 
@@ -100,23 +101,25 @@ layout(std430, binding = 21) readonly buffer PlannedOrder { uint plannedOrder[];
 
 layout(std430, binding = 22) readonly buffer Cutters { ClaimRow cutters[]; };
 layout(std430, binding = 23) readonly buffer Grants { CarGrantRow grants[]; };
-layout(std430, binding = 24) buffer Ticks { CarTickRow ticks[]; };
-layout(std430, binding = 25) writeonly buffer Contexts { DriveContextRow contexts[]; };
-layout(std430, binding = 26) buffer Boxes { BoxAheadRow boxes[]; };
+layout(std430, binding = 24) readonly buffer Told { CarToldRow told[]; };
+layout(std430, binding = 25) buffer Ticks { CarTickRow ticks[]; };
+layout(std430, binding = 26) writeonly buffer Contexts { DriveContextRow contexts[]; };
+layout(std430, binding = 27) buffer Boxes { BoxAheadRow boxes[]; };
+layout(std430, binding = 28) readonly buffer Taken { uint taken[]; };
 
 void main()
 {
-    uint car = gl_GlobalInvocationID.x;
-    if (car >= figures.carCount) return;
+    if (gl_GlobalInvocationID.x >= figures.carCount) return;
 
+    uint car = taken[gl_GlobalInvocationID.x];
     CarTickRow tick = ticks[car];
     CarLineRow line = lines[car];
     TyreCommand command = commands[car];
     BoxAheadRow box = boxes[car];
     DriveContextRow context;
     carTick(
-        car, builds[buildOf[car]], poses[car], carRows[car].groundCoefficient, grants[car], cutters[car], tick, line, command,
-        context, box);
+        car, builds[buildOf[car]], poses[car], carRows[car].groundCoefficient, told[car], grants[car], cutters[car], tick, line,
+        command, context, box);
 
     ticks[car] = tick;
     lines[car] = line;

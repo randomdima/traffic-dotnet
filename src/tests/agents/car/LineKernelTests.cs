@@ -157,7 +157,7 @@ public class LineKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
                 graph, lanes[..count], cars.LineArcsOf(car), cars.LaneStartsOf(car), cars.LaneEndsOf(car),
                 random.Next(4) == 0 ? Between(0f, graph.LaneLengthM[lanes[count - 1]]) : float.PositiveInfinity,
                 cars.LaneFirstArcsOf(car));
-            cars.Line[car] = line;
+            cars.SetLine(car, line);
             lanes[..line.LaneCount].CopyTo(cars.ChainOf(car));
             CornerLimits.Lay(cars.LineOf(car), cars.LineEntriesOf(car), Config);
             for (var slot = 0; slot + 1 < line.LaneCount; slot++)
@@ -175,7 +175,7 @@ public class LineKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
             var nearItsSight = MathF.Abs(line.LengthM - atM - build.SightM) < 0.2f;
             if (line.ArcCount == 0 || nearANextLane || nearItsSight)
             {
-                cars.Line[car] = default;
+                cars.SetLine(car, default);
                 continue;
             }
 

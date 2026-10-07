@@ -260,7 +260,7 @@ public class DeviceSpritesTests(Lavapipe device) : IClassFixture<Lavapipe>
                 lengthM += arcs[arc].LengthM;
             }
 
-            cars.Line[car] = new DrivenLine(laid, 1, lengthM);
+            cars.SetLine(car, new DrivenLine(laid, 1, lengthM));
         }
 
         for (var car = 0; car < count; car++)

@@ -31,6 +31,8 @@ internal sealed class CarFleet
 
     readonly CarBuilds _builds;
 
+    readonly DrivenLine[] _line;
+
     public CarFleet(int capacity, int arcsPerCar, CarBuilds builds)
     {
         _arcsPerCar = arcsPerCar;
@@ -66,7 +68,8 @@ internal sealed class CarFleet
         TurningAtTheBox = new bool[capacity];
         BoxIsOurs = new bool[capacity];
         CommittedToTheBox = new bool[capacity];
-        Line = new DrivenLine[capacity];
+        _line = new DrivenLine[capacity];
+        LineLaid = new uint[capacity];
         LineArcs = new ArcSeg[capacity * arcsPerCar];
         LineEntryM = new float[capacity * arcsPerCar];
         StopsForBay = new int[capacity];
@@ -275,7 +278,21 @@ internal sealed class CarFleet
     /// </summary>
     public bool[] CommittedToTheBox { get; }
 
-    public DrivenLine[] Line { get; }
+    /// <summary>How much of each car's line there is, its arrays aside; laid by <see cref="SetLine"/>.</summary>
+    public ReadOnlySpan<DrivenLine> Line => _line;
+
+    /// <summary>
+    /// <b>How many times each car's line has been laid or changed</b> (<see cref="SetLine"/>): a copy of the lines kept
+    /// elsewhere — the device's — reads a change it did not make itself off this rather than off the line's contents.
+    /// </summary>
+    public uint[] LineLaid { get; }
+
+    /// <summary>This car's line, its arrays already written, taken as laid and counted in <see cref="LineLaid"/>.</summary>
+    public void SetLine(int car, DrivenLine line)
+    {
+        _line[car] = line;
+        LineLaid[car]++;
+    }
 
     /// <summary>
     /// <b>The bay this car's line stops short of</b> — the one the leg parks in off the last lane of the line,
@@ -656,7 +673,7 @@ internal sealed class CarFleet
             breaks[slot] = breaks[slot + 1];
         }
 
-        Line[car] = new DrivenLine(line.ArcCount - shiftArcs, lanes - 1, line.LengthM - shiftM);
+        SetLine(car, new DrivenLine(line.ArcCount - shiftArcs, lanes - 1, line.LengthM - shiftM));
         return shiftM;
     }
 
@@ -730,7 +747,7 @@ internal sealed class CarFleet
         TurningAtTheBox[car] = false;
         BoxIsOurs[car] = false;
         CommittedToTheBox[car] = false;
-        Line[car] = default;
+        SetLine(car, default);
         StopsForBay[car] = NoBay;
         StopsAtItsPlace[car] = false;
         TurnsBackOn[car] = NoLane;

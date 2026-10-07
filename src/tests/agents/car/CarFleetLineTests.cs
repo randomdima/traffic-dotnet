@@ -77,7 +77,7 @@ public class CarFleetLineTests
     {
         var line = LineAssembler.Assemble(
             graph, lanes, cars.LineArcsOf(car), cars.LaneStartsOf(car), cars.LaneEndsOf(car), stopM, cars.LaneFirstArcsOf(car));
-        cars.Line[car] = line;
+        cars.SetLine(car, line);
         lanes[..line.LaneCount].CopyTo(cars.ChainOf(car));
         CornerLimits.Lay(cars.LineOf(car), cars.LineEntriesOf(car), Config);
         for (var slot = 0; slot + 1 < line.LaneCount; slot++)

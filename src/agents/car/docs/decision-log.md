@@ -10,6 +10,11 @@ are here: a superseded one is deleted, not annotated.
 told and the line driven (`car_tick.glsl` over `line.glsl`, `drive_context.glsl` and `follower.glsl`), then the tyre
 pass, which reads the command the tick left in the tyres' own table (`tyre_rows.glsl` is that table's rows).
 
+- **The table is the device's, indexed by the fleet's own car, and kept from tick to tick** (`runtime/ResidentRows`):
+  the tick runs over a list of the cars it takes, and a car's line, reading, command, tyres and junction ahead are what its
+  last tick left. The host sends what changed outside the tick and only that — as one copy a table, however many cars.
+  **A line is laid through `CarFleet.SetLine`, which counts it** (`LineLaid`), so a copy of the lines elsewhere reads a
+  change it did not make itself off the count rather than off the arcs.
 - **A car that loses its line stops on the device and says so** (a flag); the action it enters is the host's, and so is
   the grant that action's change drops.
 - **The shadow holds each stage to the host's own function asked of what the stage before handed it**: the reading to
@@ -20,9 +25,10 @@ pass, which reads the command the tick left in the tyres' own table (`tyre_rows.
   wheel's direction a ten-millionth of a radian off — and is counted rather than held. So is a denormal: a kernel's float
   flushes them, and a body decaying to rest through them is at rest on the device a score of ticks before the host.
 
-Held to the town over ten seconds of the suite's city, 36 000 car-ticks (`DeviceCarTickTests`). On OdesaOsm
-(`--bench devicecartick`, RX 9070 XT, 9 757 following cars a tick) the ground and the drive take 0.31 ms and the tyres
-0.82 ms. 21 of 2.93 million car-ticks differ, each a pedal or a threshold the float noise of a 10 km coordinate decides.
+Held to the town over ten seconds of the suite's city, 36 000 car-ticks, laid whole every tick and kept by the device
+(`DeviceCarTickTests`). On OdesaOsm (`--bench devicecartick`, RX 9070 XT, 9 757 following cars a tick, kept) the ground
+and the drive take 0.30 ms and the tyres 0.92 ms; the lines decisions laid come to 6 KiB a tick. 21 of 2.93 million
+car-ticks differ, each a pedal or a threshold the float noise of a 10 km coordinate decides.
 
 ## 2026-10-07 — a car's plan is laid on the device
 

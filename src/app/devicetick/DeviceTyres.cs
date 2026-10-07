@@ -111,10 +111,15 @@ internal sealed class DeviceTyres : IDisposable
     readonly DescriptorSet _set;
     readonly ComputeBatch _batch;
     readonly GpuTimer _timer;
-    readonly (GpuBuffer From, GpuBuffer To, int Stride)[] _sent;
-    readonly (GpuBuffer From, GpuBuffer To, int Stride)[] _read;
-    readonly GpuBuffer _buildOfIn, _posesIn, _commandsIn, _carsIn, _wheelsIn;
-    readonly GpuBuffer _carsOut, _wheelsOut, _surfacesOut, _impulsesOut, _scrubsOut, _markCountOut, _marksOut;
+    readonly ResidentRows<uint> _buildOf;
+    readonly ResidentRows<PoseRow> _poses;
+    readonly ResidentRows<CommandRow> _commands;
+    readonly ResidentRows<CarRow> _carRows;
+    readonly ResidentRows<WheelRow> _wheels;
+    readonly ResidentRows<SurfaceRow> _surfaces;
+    readonly ResidentRows<Vector4> _impulses;
+    readonly ResidentRows<ScrubRow> _scrubs;
+    readonly GpuBuffer _markCountOut, _marksOut;
     readonly GpuBuffer _markCount, _marks;
     int _cars;
 
@@ -142,49 +147,25 @@ internal sealed class DeviceTyres : IDisposable
         var wheels = capacity * WheelsACar;
         var buildBuffer = Laid<CarBuildRow>(buildRows);
         var effectBuffer = Laid<GroundEffectRow>(effectRows);
-        var buildOf = Device<uint>(capacity);
-        var poses = Device<PoseRow>(capacity);
-        var commands = Device<CommandRow>(capacity);
-        var cars = Device<CarRow>(capacity);
-        var wheelRows = Device<WheelRow>(wheels);
-        var surfaces = Device<SurfaceRow>(wheels);
-        var impulses = Device<Vector4>(wheels);
-        var scrubs = Device<ScrubRow>(wheels);
+        _buildOf = new ResidentRows<uint>(vk, capacity, 1);
+        _poses = new ResidentRows<PoseRow>(vk, capacity, 1);
+        _commands = new ResidentRows<CommandRow>(vk, capacity, 1, readsBack: true);
+        _carRows = new ResidentRows<CarRow>(vk, capacity, 1, readsBack: true);
+        _wheels = new ResidentRows<WheelRow>(vk, capacity, WheelsACar, readsBack: true);
+        _surfaces = new ResidentRows<SurfaceRow>(vk, capacity, WheelsACar, readsBack: true);
+        _impulses = new ResidentRows<Vector4>(vk, capacity, WheelsACar, readsBack: true);
+        _scrubs = new ResidentRows<ScrubRow>(vk, capacity, WheelsACar, readsBack: true);
         _markCount = Device<uint>(1);
         _marks = Device<MarkRow>(wheels);
-
-        _buildOfIn = Staging<uint>(capacity);
-        _posesIn = Staging<PoseRow>(capacity);
-        _commandsIn = Staging<CommandRow>(capacity);
-        _carsIn = Staging<CarRow>(capacity);
-        _wheelsIn = Staging<WheelRow>(wheels);
-        _carsOut = Readback<CarRow>(capacity);
-        _wheelsOut = Readback<WheelRow>(wheels);
-        _surfacesOut = Readback<SurfaceRow>(wheels);
-        _impulsesOut = Readback<Vector4>(wheels);
-        _scrubsOut = Readback<ScrubRow>(wheels);
         _markCountOut = Readback<uint>(1);
         _marksOut = Readback<MarkRow>(wheels);
 
-        _sent =
-        [
-            (_buildOfIn, buildOf, sizeof(uint)), (_posesIn, poses, Marshal.SizeOf<PoseRow>()),
-            (_commandsIn, commands, Marshal.SizeOf<CommandRow>()), (_carsIn, cars, Marshal.SizeOf<CarRow>()),
-            (_wheelsIn, wheelRows, WheelsACar * Marshal.SizeOf<WheelRow>()),
-        ];
-        _read =
-        [
-            (cars, _carsOut, Marshal.SizeOf<CarRow>()), (wheelRows, _wheelsOut, WheelsACar * Marshal.SizeOf<WheelRow>()),
-            (surfaces, _surfacesOut, WheelsACar * Marshal.SizeOf<SurfaceRow>()),
-            (impulses, _impulsesOut, WheelsACar * Marshal.SizeOf<Vector4>()), (scrubs, _scrubsOut, WheelsACar * Marshal.SizeOf<ScrubRow>()),
-        ];
-
-        Table = (buildBuffer, buildOf, poses, commands, cars);
+        Table = (buildBuffer, _buildOf, _poses, _commands, _carRows, _wheels);
         Effects = effectBuffer;
         GpuBuffer[] bound =
         [
-            buildBuffer, buildOf, poses, commands, cars, wheelRows, surfaces, impulses, scrubs, _markCount, _marks, effectBuffer,
-            .. ground.Tables,
+            buildBuffer, _buildOf.Device, _poses.Device, _commands.Device, _carRows.Device, _wheels.Device, _surfaces.Device,
+            _impulses.Device, _scrubs.Device, _markCount, _marks, effectBuffer, .. ground.Tables,
         ];
         _kernel = new ComputeKernel(vk, "tyre_pass.comp", bound.Length, (uint)Marshal.SizeOf<PassPush>());
         _set = _kernel.Bind(bound);
@@ -196,40 +177,45 @@ internal sealed class DeviceTyres : IDisposable
     public int Capacity { get; }
 
     /// <summary>
-    /// The device's own tables the pass binds that a kernel run before it in the same submit reads or writes
-    /// (<see cref="DeviceCarTick"/>): the builds, which each car is, its pose, its command and its own row.
+    /// <b>The car table the pass reads and writes, kept on the device from one pass to the next</b> — the builds, which
+    /// each car is, its pose, its command, its own row and its wheels — for a caller that marks only the cars it changed
+    /// and runs kernels before the pass in the same submit (<see cref="DeviceCarTick"/>).
     /// </summary>
-    public (GpuBuffer Builds, GpuBuffer BuildOf, GpuBuffer Poses, GpuBuffer Commands, GpuBuffer Cars) Table { get; }
+    public (GpuBuffer Builds, ResidentRows<uint> BuildOf, ResidentRows<PoseRow> Poses, ResidentRows<CommandRow> Commands,
+        ResidentRows<CarRow> Cars, ResidentRows<WheelRow> Wheels) Table { get; }
 
     /// <summary>What each kind of ground does to a wheel, as the pass binds it (<c>GROUND_EFFECT_BINDING</c>).</summary>
     public GpuBuffer Effects { get; }
 
     /// <summary>Which of the builds each car is, written before a <see cref="Step"/>.</summary>
-    public Span<uint> BuildOf => _buildOfIn.Span<uint>()[..Capacity];
+    public Span<uint> BuildOf => _buildOf.All;
 
-    public Span<PoseRow> Poses => _posesIn.Span<PoseRow>()[..Capacity];
+    public Span<PoseRow> Poses => _poses.All;
 
-    public Span<CommandRow> Commands => _commandsIn.Span<CommandRow>()[..Capacity];
+    public Span<CommandRow> Commands => _commands.All;
 
     /// <summary>Each car's own figures and the throttle it carries, as the pass reads them.</summary>
-    public Span<CarRow> Cars => _carsIn.Span<CarRow>()[..Capacity];
+    public Span<CarRow> Cars => _carRows.All;
 
     /// <summary>Each wheel's carried state, four to a car in the tyre model's order.</summary>
-    public Span<WheelRow> Wheels => _wheelsIn.Span<WheelRow>()[..(Capacity * WheelsACar)];
+    public Span<WheelRow> Wheels => _wheels.All;
+
+    /// <summary>The commands as the last read left them.</summary>
+    public ReadOnlySpan<CommandRow> CommandsAfter => _commands.AllRead[.._cars];
 
     /// <summary>The cars as the last pass left them: the throttle wound on, and whether each was slipping or at rest.</summary>
-    public ReadOnlySpan<CarRow> CarsAfter => _carsOut.Span<CarRow>()[.._cars];
+    public ReadOnlySpan<CarRow> CarsAfter => _carRows.AllRead[.._cars];
 
     /// <summary>The wheels as the last pass left them: rims wound on, and the mark state.</summary>
-    public ReadOnlySpan<WheelRow> WheelsAfter => _wheelsOut.Span<WheelRow>()[..(_cars * WheelsACar)];
+    public ReadOnlySpan<WheelRow> WheelsAfter => _wheels.AllRead[..(_cars * WheelsACar)];
 
     /// <summary>The ground under each wheel, nought under a car at rest.</summary>
-    public ReadOnlySpan<SurfaceRow> Ground => _surfacesOut.Span<SurfaceRow>()[..(_cars * WheelsACar)];
+    public ReadOnlySpan<SurfaceRow> Ground => _surfaces.AllRead[..(_cars * WheelsACar)];
 
     /// <summary>Each wheel's impulse and where it is spent: (impulse, at).</summary>
-    public ReadOnlySpan<Vector4> Impulses => _impulsesOut.Span<Vector4>()[..(_cars * WheelsACar)];
+    public ReadOnlySpan<Vector4> Impulses => _impulses.AllRead[..(_cars * WheelsACar)];
 
-    public ReadOnlySpan<ScrubRow> Scrub => _scrubsOut.Span<ScrubRow>()[..(_cars * WheelsACar)];
+    public ReadOnlySpan<ScrubRow> Scrub => _scrubs.AllRead[..(_cars * WheelsACar)];
 
     /// <summary>How many marks the last pass laid, which may be more than the ring held (<see cref="Capacity"/> × 4).</summary>
     public int MarkCount => (int)_markCountOut.Span<uint>()[0];
@@ -279,7 +265,22 @@ internal sealed class DeviceTyres : IDisposable
     {
         if (cars > Capacity) throw new ArgumentOutOfRangeException(nameof(cars), $"The pass holds {Capacity} cars, not {cars}.");
 
-        foreach (var (from, to, stride) in _sent) _vk.Copy(commands, from, to, (ulong)(cars * stride));
+        _buildOf.Mark(0, cars);
+        _poses.Mark(0, cars);
+        _commands.Mark(0, cars);
+        _carRows.Mark(0, cars);
+        _wheels.Mark(0, cars);
+        SendMarked(commands);
+    }
+
+    /// <summary>Only the rows marked in <see cref="Table"/> taken in and the ring emptied, recorded; the caller barriers after.</summary>
+    public void SendMarked(CommandBuffer commands)
+    {
+        _buildOf.Send(commands);
+        _poses.Send(commands);
+        _commands.Send(commands);
+        _carRows.Send(commands);
+        _wheels.Send(commands);
         _vk.Fill(commands, _markCount, 0);
     }
 
@@ -294,7 +295,12 @@ internal sealed class DeviceTyres : IDisposable
     /// <summary>What the last <see cref="Run"/> wrote, recorded to be handed back where <see cref="CarsAfter"/> and the rest read it.</summary>
     public void Read(CommandBuffer commands)
     {
-        foreach (var (from, to, stride) in _read) _vk.Copy(commands, from, to, (ulong)(_cars * stride));
+        _commands.Read(commands, _cars);
+        _carRows.Read(commands, _cars);
+        _wheels.Read(commands, _cars);
+        _surfaces.Read(commands, _cars);
+        _impulses.Read(commands, _cars);
+        _scrubs.Read(commands, _cars);
         _vk.Copy(commands, _markCount, _markCountOut, sizeof(uint));
         _vk.Copy(commands, _marks, _marksOut, _marks.SizeBytes);
     }
@@ -303,9 +309,6 @@ internal sealed class DeviceTyres : IDisposable
         _vk.CreateBuffer(
             Bytes<T>(count), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferSrcBit | BufferUsageFlags.TransferDstBit,
             HostAccess.None));
-
-    GpuBuffer Staging<T>(int count) where T : unmanaged =>
-        Own(_vk.CreateBuffer(Bytes<T>(count), BufferUsageFlags.TransferSrcBit, HostAccess.Writes));
 
     GpuBuffer Readback<T>(int count) where T : unmanaged =>
         Own(_vk.CreateBuffer(Bytes<T>(count), BufferUsageFlags.TransferDstBit, HostAccess.Reads));
@@ -332,6 +335,14 @@ internal sealed class DeviceTyres : IDisposable
         _timer.Dispose();
         _batch.Dispose();
         _kernel.Dispose();
+        _buildOf.Dispose();
+        _poses.Dispose();
+        _commands.Dispose();
+        _carRows.Dispose();
+        _wheels.Dispose();
+        _surfaces.Dispose();
+        _impulses.Dispose();
+        _scrubs.Dispose();
         foreach (var buffer in _owned) buffer.Dispose();
     }
 }

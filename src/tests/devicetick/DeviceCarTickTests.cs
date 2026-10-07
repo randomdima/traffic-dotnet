@@ -6,7 +6,6 @@ using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.Tests.CityGen;
 using TrafficSimulation.Tests.Runtime;
-using TrafficSimulation.World.Terrain;
 using TrafficSimulation.World.Town;
 using Xunit;
 
@@ -14,9 +13,12 @@ namespace TrafficSimulation.Tests.DeviceTick;
 
 /// <summary>
 /// <b>A following car's whole tick on the device</b> (<see cref="DeviceCarTick"/>), asked the town's own question: every
-/// tick of the suite's city, each car the device takes laid as the town's tick will read it, and what the two ticks did
-/// held to each other.
+/// tick of the suite's city, each car the device takes handed over, and what the two ticks did held to each other.
 /// </summary>
+/// <remarks>
+/// Ten seconds of the suite's city have 36 000 such ticks, and no line among them runs short onto a lane nothing
+/// leaves, so the road running out under a line is not asked here.
+/// </remarks>
 [Trait(Tier.Key, Tier.Device)]
 [Trait(Priority.Key, Priority.P3)]
 public class DeviceCarTickTests(Lavapipe device) : IClassFixture<Lavapipe>
@@ -27,16 +29,32 @@ public class DeviceCarTickTests(Lavapipe device) : IClassFixture<Lavapipe>
     const int Ticks = 600;
 
     /// <summary>
-    /// <b>Every following car's tick on the device does what the town's tick of it did</b> — its line read and shifted
-    /// on, whether it lost the line or asked for more of it, what it was told and the junction ahead, its command, and the
-    /// tyres that delivered it.
+    /// <b>Every following car's tick on the device does what the town's tick of it did</b>, laid whole as the town's tick
+    /// reads it — its line read and shifted on, whether it lost the line or asked for more of it, what it was told and the
+    /// junction ahead, its command, and the tyres that delivered it.
     /// </summary>
-    /// <remarks>
-    /// Ten seconds of the suite's city have 36 000 such ticks, and no line among them runs short onto a lane nothing
-    /// leaves, so the road running out under a line is not asked here.
-    /// </remarks>
     [Fact]
     public void EveryFollowingCarTicksAsTheTownTicksIt()
+    {
+        var (differ, asked) = Shadow(resident: false);
+
+        Assert.True(differ.Count == 0, $"{differ.Count} of {asked} ticks differ: {string.Join("; ", differ.Take(6))}");
+    }
+
+    /// <summary>
+    /// <b>A car the device keeps ticks as the town ticks it</b>: told only what the town changed outside the tick — every
+    /// pose, what it is told and was granted, a line a decision laid, a reading a rebuild set — and otherwise driving on
+    /// what its own last tick left.
+    /// </summary>
+    [Fact]
+    public void ACarTheDeviceKeepsTicksAsTheTownTicksIt()
+    {
+        var (differ, asked) = Shadow(resident: true);
+
+        Assert.True(differ.Count == 0, $"{differ.Count} of {asked} ticks differ: {string.Join("; ", differ.Take(6))}");
+    }
+
+    (List<string> Differ, int Asked) Shadow(bool resident)
     {
         var plan = Towns.Of(Towns.City);
         using var world = new TownWorld(plan, Config);
@@ -65,33 +83,31 @@ public class DeviceCarTickTests(Lavapipe device) : IClassFixture<Lavapipe>
             if (stage == AgentsStage.Due)
             {
                 HostClaims.Lay(town.Occupancy, rows.Span<DeviceClaims.ClaimRow>(), plannedRuns.Span<UInt2>(), plannedOrder.Span<uint>(), listed);
-                count = 0;
-                for (var car = 0; car < cars.Count; car++)
+                count = tick.Prepare(town, taken, resident);
+
+                // Every road of the city is the same ground, so a coefficient left as the last tick's is the one read
+                // afresh; nothing but a reading can answer a car on its line here.
+                foreach (var car in taken.AsSpan(0, count))
                 {
-                    if (!DeviceCarTick.Takes(town, car)) continue;
-
-                    tick.Lay(count, town, car, cars.Variant[car]);
-
-                    // Every road of the city is the same ground, so a coefficient left as the last tick's is the one
-                    // read afresh; nothing but a reading can answer a car on its line here.
-                    if (cars.Line[car].LaneCount > 0) tyres.Cars[count] = tyres.Cars[count] with { GroundCoefficient = float.NaN };
-                    taken[count++] = car;
+                    if (cars.Line[car].LaneCount > 0) tyres.Cars[car] = tyres.Cars[car] with { GroundCoefficient = float.NaN };
                 }
 
-                tick.Step(count);
+                tick.Step(count, cars.Count);
                 return;
             }
 
-            for (var slot = 0; slot < count; slot++)
+            foreach (var car in taken.AsSpan(0, count))
             {
                 asked++;
-                var why = tick.Disagreement(slot, town, taken[slot]);
-                if (why != null) differ.Add($"tick {loop.Tick} car {taken[slot]}: {why}");
+                var why = tick.Disagreement(town, car);
+                if (why != null) differ.Add($"tick {loop.Tick} car {car}: {why}");
             }
+
+            tick.Settle(town, taken.AsSpan(0, count));
         };
 
         for (var at = 0; at < Ticks; at++) loop.Advance();
 
-        Assert.True(differ.Count == 0, $"{differ.Count} of {asked} ticks differ: {string.Join("; ", differ.Take(6))}");
+        return (differ, asked);
     }
 }

@@ -38,7 +38,7 @@ public class LampSpriteTests
         fleet.Command[0] = new DriveCommand(0f, 0f, 4f, false, false);
         fleet.BlueLight[0] = true;
         fleet.LineArcsOf(0)[0] = new ArcSeg(Vector2.Zero, 0f, 100f, 0.05f);
-        fleet.Line[0] = new DrivenLine(1, 1, 100f);
+        fleet.SetLine(0, new DrivenLine(1, 1, 100f));
 
         // The turn the bend is for, since an indicator answers a junction and not a curve (CAR-14.1).
         fleet.ToTheBoxM[0] = 30f;

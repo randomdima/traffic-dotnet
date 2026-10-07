@@ -357,7 +357,7 @@ internal sealed partial class TownWorld
         if (Cars.Action[car] != CarAction.Towed) Enter(car, CarAction.Stand);
         Cars.Command[car] = DriveCommand.LockedAt(Cars.Command[car].SteerRad);
         Cars.Hold[car] = DrivingHold.None;
-        Cars.Line[car] = default;
+        Cars.SetLine(car, default);
         Cars.Reroutes[car] = 0;
         _driveProgress.Restart(car);
 

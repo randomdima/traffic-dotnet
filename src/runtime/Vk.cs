@@ -359,6 +359,15 @@ internal sealed unsafe partial class Vk : IDisposable
         _api.CmdCopyBuffer(commands, from.Handle, to.Handle, 1, &region);
     }
 
+    /// <summary>Runs of one buffer copied each to its own place in another, recorded as one copy however many there are.</summary>
+    public void Copy(CommandBuffer commands, GpuBuffer from, GpuBuffer to, ReadOnlySpan<BufferCopy> runs)
+    {
+        if (runs.IsEmpty) return;
+
+        Count();
+        fixed (BufferCopy* first = runs) _api.CmdCopyBuffer(commands, from.Handle, to.Handle, (uint)runs.Length, first);
+    }
+
     /// <summary>A whole buffer filled with one 32-bit word, recorded.</summary>
     public void Fill(CommandBuffer commands, GpuBuffer buffer, uint word)
     {

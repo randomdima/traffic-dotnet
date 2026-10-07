@@ -1,5 +1,5 @@
-using System.Runtime.InteropServices;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using Silk.NET.Vulkan;
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Core.Config;
@@ -16,21 +16,32 @@ namespace TrafficSimulation.App.DeviceTick;
 /// (<see cref="DeviceTyres"/>) — three kernels over one table, in one submit.
 /// </summary>
 /// <remarks>
-/// <b>Run in shadow</b>: every tick is handed the host's own state for the cars it ticks, one to a slot
-/// (<see cref="Lay"/>), so <c>TownWorld.TickCar</c> and the kernels are asked one question. What a slot is sent from and
-/// read back into is mapped memory beside the device's own; <see cref="TickMs"/> and <see cref="TyresMs"/> are the
-/// kernels alone.
+/// <para>
+/// <b>The table is the device's, indexed by the fleet's own car</b>, and kept from one tick to the next
+/// (<see cref="ResidentRows{T}"/>): a car's line, where it is on it, its command, its tyres and the junction ahead are
+/// what its last tick left. The host sends what it changed — every car's pose, what each taken car is told and was
+/// granted, and a line, a reading or a whole car where something other than the tick changed it — and only that.
+/// </para>
+/// <para>
+/// <b>Run in shadow</b> (<see cref="Prepare"/>, <see cref="Disagreement"/>): the town still ticks every car, and the
+/// device's tick of the cars it takes is held to it. <see cref="TickMs"/> and <see cref="TyresMs"/> are the kernels alone.
+/// </para>
 /// </remarks>
 internal sealed partial class DeviceCarTick : IDisposable
 {
-    /// <summary>What a car's tick carries from one tick to the next and reports (<c>CarTickRow</c>).</summary>
+    /// <summary>What a car's tick carries from one tick to the next and reports, the device's own (<c>CarTickRow</c>).</summary>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct TickRow(
-        float ProgressM, float CoveredSinceClaimM, float AlongMps, float OffLineM, float PlannedMps, float PaceMps, float AllowanceM,
-        uint Hold, uint Flags)
+        float ProgressM, float CoveredSinceClaimM, float AlongMps, float OffLineM, float PlannedMps, uint Hold, uint Flags)
+    {
+        public const uint Lost = 32u, AsksTheRoute = 64u, Shifted = 128u, Hazard = 256u;
+    }
+
+    /// <summary>What the host tells a car's tick (<c>CarToldRow</c>).</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal readonly record struct ToldRow(uint Flags, float PaceMps, float AllowanceM, float Pad)
     {
         public const uint OnACall = 1u, LineIsReverse = 2u, HasAPlace = 4u, HasAHold = 8u, Cut = 16u;
-        public const uint Lost = 32u, AsksTheRoute = 64u, Shifted = 128u, Hazard = 256u;
     }
 
     /// <summary>What the last claims rebuild granted a car and what cut it, and the place it was sent to (<c>CarGrantRow</c>).</summary>
@@ -81,24 +92,29 @@ internal sealed partial class DeviceCarTick : IDisposable
     readonly DeviceTyres _tyres;
     readonly DeviceGround _ground;
     readonly Figures _figures;
-    readonly int _arcsPerCar;
-    readonly int _mostLanes;
-    readonly List<GpuBuffer> _owned = [];
+    readonly List<GpuBuffer> _laid = [];
+    readonly ResidentRows<TickRow> _ticks;
+    readonly ResidentRows<ToldRow> _told;
+    readonly ResidentRows<GrantRow> _grants;
+    readonly ResidentRows<DeviceClaims.ClaimRow> _cutters;
+    readonly ResidentRows<BoxRow> _boxes;
+    readonly ResidentRows<ContextRow> _contexts;
+    readonly ResidentRows<LineRow> _lines;
+    readonly ResidentRows<DeviceGround.ArcRow> _arcs;
+    readonly ResidentRows<float> _entries;
+    readonly ResidentRows<int> _chain;
+    readonly ResidentRows<float> _starts;
+    readonly ResidentRows<float> _ends;
+    readonly ResidentRows<uint> _firstArcs;
+    readonly ResidentRows<uint> _breaks;
+    readonly ResidentRows<uint> _taken;
     readonly ComputeKernel _groundKernel, _tickKernel;
     readonly DescriptorSet _groundSet, _tickSet;
     readonly ComputeBatch _batch;
     readonly GpuTimer _timer;
-    readonly (GpuBuffer From, GpuBuffer To, int Stride)[] _sent;
-    readonly (GpuBuffer From, GpuBuffer To, int Stride)[] _read;
-    readonly GpuBuffer _ticksIn, _grantsIn, _cuttersIn, _boxesIn, _linesIn, _arcsIn, _entriesIn, _chainIn, _startsIn, _endsIn;
-    readonly GpuBuffer _firstArcsIn, _breaksIn;
-    readonly GpuBuffer _ticksOut, _linesOut, _chainOut, _startsOut, _endsOut, _contextsOut, _boxesOut, _commandsOut;
-
-    /// <summary>Whether the town's car in each slot had already asked for its line to be grown before the tick (<see cref="Lay"/>).</summary>
-    readonly bool[] _askedBefore;
     int _cars;
 
-    /// <param name="tyres">The tyre pass whose table the tick writes the commands into, and whose cars it ticks.</param>
+    /// <param name="tyres">The tyre pass whose table the tick writes the commands into; its capacity is the fleet's.</param>
     /// <param name="arcsPerCar">The room each car's line has (<see cref="Agents.Car.Body.CarFleet.LineArcsOf"/>).</param>
     /// <param name="firstConnector">The way the town numbers its first connector (<c>TownWays.OfRoadConnector</c>).</param>
     /// <param name="claims">The claims as the last rebuild cut them: every slot's row, and each way's planned pieces in order.</param>
@@ -110,13 +126,9 @@ internal sealed partial class DeviceCarTick : IDisposable
         _config = config;
         _tyres = tyres;
         _ground = ground;
-        _arcsPerCar = arcsPerCar;
-        _mostLanes = LineAssembler.MostLanes;
         _figures = Figures.Of(config, arcsPerCar, firstConnector);
         var capacity = tyres.Capacity;
-        var arcs = capacity * arcsPerCar;
-        var lanes = capacity * _mostLanes;
-        _askedBefore = new bool[capacity];
+        var lanes = LineAssembler.MostLanes;
 
         var connectorAt = new uint[roads.LaneCount + 1];
         var lanePassable = new uint[roads.LaneCount];
@@ -138,125 +150,64 @@ internal sealed partial class DeviceCarTick : IDisposable
             connectorLength[connector] = roads.ConnectorLengthM(connector);
         }
 
-        var lineArcs = Device<DeviceGround.ArcRow>(arcs);
-        var entries = Device<float>(arcs);
-        var chain = Device<int>(lanes);
-        var starts = Device<float>(lanes);
-        var ends = Device<float>(lanes);
-        var firstArcs = Device<uint>(lanes);
-        var breaks = Device<uint>(lanes);
-        var lines = Device<LineRow>(capacity);
-        var cutters = Device<DeviceClaims.ClaimRow>(capacity);
-        var grants = Device<GrantRow>(capacity);
-        var ticks = Device<TickRow>(capacity);
-        var contexts = Device<ContextRow>(capacity);
-        var boxes = Device<BoxRow>(capacity);
-
-        _ticksIn = Staging<TickRow>(capacity);
-        _grantsIn = Staging<GrantRow>(capacity);
-        _cuttersIn = Staging<DeviceClaims.ClaimRow>(capacity);
-        _boxesIn = Staging<BoxRow>(capacity);
-        _linesIn = Staging<LineRow>(capacity);
-        _arcsIn = Staging<DeviceGround.ArcRow>(arcs);
-        _entriesIn = Staging<float>(arcs);
-        _chainIn = Staging<int>(lanes);
-        _startsIn = Staging<float>(lanes);
-        _endsIn = Staging<float>(lanes);
-        _firstArcsIn = Staging<uint>(lanes);
-        _breaksIn = Staging<uint>(lanes);
-
-        _ticksOut = Readback<TickRow>(capacity);
-        _linesOut = Readback<LineRow>(capacity);
-        _chainOut = Readback<int>(lanes);
-        _startsOut = Readback<float>(lanes);
-        _endsOut = Readback<float>(lanes);
-        _contextsOut = Readback<ContextRow>(capacity);
-        _boxesOut = Readback<BoxRow>(capacity);
-        _commandsOut = Readback<DeviceTyres.CommandRow>(capacity);
-
-        _sent =
-        [
-            (_ticksIn, ticks, Marshal.SizeOf<TickRow>()), (_grantsIn, grants, Marshal.SizeOf<GrantRow>()),
-            (_cuttersIn, cutters, Marshal.SizeOf<DeviceClaims.ClaimRow>()), (_boxesIn, boxes, Marshal.SizeOf<BoxRow>()),
-            (_linesIn, lines, Marshal.SizeOf<LineRow>()), (_arcsIn, lineArcs, arcsPerCar * Marshal.SizeOf<DeviceGround.ArcRow>()),
-            (_entriesIn, entries, arcsPerCar * sizeof(float)), (_chainIn, chain, _mostLanes * sizeof(int)),
-            (_startsIn, starts, _mostLanes * sizeof(float)), (_endsIn, ends, _mostLanes * sizeof(float)),
-            (_firstArcsIn, firstArcs, _mostLanes * sizeof(uint)), (_breaksIn, breaks, _mostLanes * sizeof(uint)),
-        ];
-        _read =
-        [
-            (ticks, _ticksOut, Marshal.SizeOf<TickRow>()), (lines, _linesOut, Marshal.SizeOf<LineRow>()),
-            (chain, _chainOut, _mostLanes * sizeof(int)), (starts, _startsOut, _mostLanes * sizeof(float)),
-            (ends, _endsOut, _mostLanes * sizeof(float)), (contexts, _contextsOut, Marshal.SizeOf<ContextRow>()),
-            (boxes, _boxesOut, Marshal.SizeOf<BoxRow>()), (tyres.Table.Commands, _commandsOut, Marshal.SizeOf<DeviceTyres.CommandRow>()),
-        ];
+        _ticks = new ResidentRows<TickRow>(vk, capacity, 1, readsBack: true);
+        _told = new ResidentRows<ToldRow>(vk, capacity, 1);
+        _grants = new ResidentRows<GrantRow>(vk, capacity, 1);
+        _cutters = new ResidentRows<DeviceClaims.ClaimRow>(vk, capacity, 1);
+        _boxes = new ResidentRows<BoxRow>(vk, capacity, 1, readsBack: true);
+        _contexts = new ResidentRows<ContextRow>(vk, capacity, 1, readsBack: true);
+        _lines = new ResidentRows<LineRow>(vk, capacity, 1, readsBack: true);
+        _arcs = new ResidentRows<DeviceGround.ArcRow>(vk, capacity, arcsPerCar);
+        _entries = new ResidentRows<float>(vk, capacity, arcsPerCar);
+        _chain = new ResidentRows<int>(vk, capacity, lanes, readsBack: true);
+        _starts = new ResidentRows<float>(vk, capacity, lanes, readsBack: true);
+        _ends = new ResidentRows<float>(vk, capacity, lanes, readsBack: true);
+        _firstArcs = new ResidentRows<uint>(vk, capacity, lanes);
+        _breaks = new ResidentRows<uint>(vk, capacity, lanes);
+        _taken = new ResidentRows<uint>(vk, capacity, 1);
 
         var table = tyres.Table;
-        GpuBuffer[] onTheGround = [table.Poses, table.Cars, lines, tyres.Effects, .. ground.Tables];
+        GpuBuffer[] onTheGround = [table.Poses.Device, table.Cars.Device, _lines.Device, _taken.Device, tyres.Effects, .. ground.Tables];
         _groundKernel = new ComputeKernel(vk, "car_ground.comp", onTheGround.Length, (uint)Marshal.SizeOf<DeviceGround.AskPush>());
         _groundSet = _groundKernel.Bind(onTheGround);
 
         GpuBuffer[] ticked =
         [
-            table.Builds, table.BuildOf, table.Poses, table.Commands, table.Cars, lineArcs, entries, chain, starts, ends, firstArcs,
-            breaks, lines, Laid(roads.LaneLengthM), Laid(connectorAt), Laid(connectorTo), Laid(connectorRung), Laid(connectorLength),
-            Laid(lanePassable), claims.Rows, claims.PlannedRuns, claims.PlannedOrder, cutters, grants, ticks, contexts, boxes,
+            table.Builds, table.BuildOf.Device, table.Poses.Device, table.Commands.Device, table.Cars.Device, _arcs.Device,
+            _entries.Device, _chain.Device, _starts.Device, _ends.Device, _firstArcs.Device, _breaks.Device, _lines.Device,
+            Laid(roads.LaneLengthM), Laid(connectorAt), Laid(connectorTo), Laid(connectorRung), Laid(connectorLength),
+            Laid(lanePassable), claims.Rows, claims.PlannedRuns, claims.PlannedOrder, _cutters.Device, _grants.Device,
+            _told.Device, _ticks.Device, _contexts.Device, _boxes.Device, _taken.Device,
         ];
         _tickKernel = new ComputeKernel(vk, "car_tick.comp", ticked.Length, (uint)Marshal.SizeOf<Figures>());
         _tickSet = _tickKernel.Bind(ticked);
 
         _batch = new ComputeBatch(vk);
         _timer = new GpuTimer(vk, Enum.GetValues<Stage>().Length);
+        ShadowOf(capacity);
     }
 
-    /// <summary>The most cars a tick is asked of: the tyre pass's.</summary>
+    /// <summary>The most cars the table holds: the tyre pass's.</summary>
     public int Capacity => _tyres.Capacity;
 
-    /// <summary>The tyre pass the tick hands its commands to, whose rows a slot's pose, command and wheels are written into.</summary>
+    /// <summary>The tyre pass the tick hands its commands to, whose table holds each car's pose, command and wheels.</summary>
     public DeviceTyres Tyres => _tyres;
 
-    public Span<TickRow> Ticks => _ticksIn.Span<TickRow>()[..Capacity];
+    public ReadOnlySpan<TickRow> TicksAfter => _ticks.AllRead[.._cars];
 
-    public Span<GrantRow> Grants => _grantsIn.Span<GrantRow>()[..Capacity];
+    public ReadOnlySpan<LineRow> LinesAfter => _lines.AllRead[.._cars];
 
-    /// <summary>What cut each car's hold, where its tick row says something did.</summary>
-    public Span<DeviceClaims.ClaimRow> Cutters => _cuttersIn.Span<DeviceClaims.ClaimRow>()[..Capacity];
+    public ReadOnlySpan<int> ChainAfter(int car) => _chain.RowsRead(car);
 
-    /// <summary>The junction ahead as the last tick left it, whose commitment a car that loses its line keeps.</summary>
-    public Span<BoxRow> Boxes => _boxesIn.Span<BoxRow>()[..Capacity];
+    public ReadOnlySpan<float> StartsAfter(int car) => _starts.RowsRead(car);
 
-    public Span<LineRow> Lines => _linesIn.Span<LineRow>()[..Capacity];
+    public ReadOnlySpan<float> EndsAfter(int car) => _ends.RowsRead(car);
 
-    /// <summary>One slot's line arcs, <see cref="_arcsPerCar"/> to a slot.</summary>
-    public Span<DeviceGround.ArcRow> LineArcsOf(int slot) => _arcsIn.Span<DeviceGround.ArcRow>().Slice(slot * _arcsPerCar, _arcsPerCar);
+    public ReadOnlySpan<ContextRow> ContextsAfter => _contexts.AllRead[.._cars];
 
-    public Span<float> EntriesOf(int slot) => _entriesIn.Span<float>().Slice(slot * _arcsPerCar, _arcsPerCar);
+    public ReadOnlySpan<BoxRow> BoxesAfter => _boxes.AllRead[.._cars];
 
-    public Span<int> ChainOf(int slot) => _chainIn.Span<int>().Slice(slot * _mostLanes, _mostLanes);
-
-    public Span<float> StartsOf(int slot) => _startsIn.Span<float>().Slice(slot * _mostLanes, _mostLanes);
-
-    public Span<float> EndsOf(int slot) => _endsIn.Span<float>().Slice(slot * _mostLanes, _mostLanes);
-
-    public Span<uint> FirstArcsOf(int slot) => _firstArcsIn.Span<uint>().Slice(slot * _mostLanes, _mostLanes);
-
-    public Span<uint> BreaksOf(int slot) => _breaksIn.Span<uint>().Slice(slot * _mostLanes, _mostLanes);
-
-    public ReadOnlySpan<TickRow> TicksAfter => _ticksOut.Span<TickRow>()[.._cars];
-
-    public ReadOnlySpan<LineRow> LinesAfter => _linesOut.Span<LineRow>()[.._cars];
-
-    public ReadOnlySpan<int> ChainAfter(int slot) => _chainOut.Span<int>().Slice(slot * _mostLanes, _mostLanes);
-
-    public ReadOnlySpan<float> StartsAfter(int slot) => _startsOut.Span<float>().Slice(slot * _mostLanes, _mostLanes);
-
-    public ReadOnlySpan<float> EndsAfter(int slot) => _endsOut.Span<float>().Slice(slot * _mostLanes, _mostLanes);
-
-    public ReadOnlySpan<ContextRow> ContextsAfter => _contextsOut.Span<ContextRow>()[.._cars];
-
-    public ReadOnlySpan<BoxRow> BoxesAfter => _boxesOut.Span<BoxRow>()[.._cars];
-
-    public ReadOnlySpan<DeviceTyres.CommandRow> CommandsAfter => _commandsOut.Span<DeviceTyres.CommandRow>()[.._cars];
+    public ReadOnlySpan<DeviceTyres.CommandRow> CommandsAfter => _tyres.CommandsAfter;
 
     /// <summary>The device's own time for the last tick's ground and drive, in milliseconds, with nothing sent or read in it.</summary>
     public double TickMs => _timer.BetweenMs((int)Stage.Sent, (int)Stage.Ticked);
@@ -264,31 +215,61 @@ internal sealed partial class DeviceCarTick : IDisposable
     /// <summary>The device's own time for the last tick's tyre pass, in milliseconds.</summary>
     public double TyresMs => _timer.BetweenMs((int)Stage.Ticked, (int)Stage.Tyred);
 
-    /// <summary>The device's time spent taking the last tick's rows in and handing its answers back, in milliseconds.</summary>
-    public double CopiesMs => _timer.BetweenMs((int)Stage.Began, (int)Stage.Sent) + _timer.BetweenMs((int)Stage.Tyred, (int)Stage.Read);
+    /// <summary>The device's time taking the last tick's rows in, in milliseconds.</summary>
+    public double SentMs => _timer.BetweenMs((int)Stage.Began, (int)Stage.Sent);
+
+    /// <summary>The device's time handing the last tick's answers back, in milliseconds — the shadow's alone.</summary>
+    public double ReadMs => _timer.BetweenMs((int)Stage.Tyred, (int)Stage.Read);
+
+    /// <summary>How many bytes the last tick took in, every table's.</summary>
+    public ulong SentBytes { get; private set; }
+
+    /// <summary>How many of them were lines' arcs and their entry figures.</summary>
+    public ulong LinesSentBytes { get; private set; }
 
     /// <summary>
-    /// One tick of the first <paramref name="cars"/> slots of what was written: sent, the ground, the drive and the tyres
-    /// run, read back and waited for. One submit and one wait, whatever the count.
+    /// <b>One tick</b>: what was marked sent, the ground and the drive run for the first <paramref name="taken"/> cars of
+    /// the list, the tyres for the fleet's first <paramref name="cars"/>, and what they left read back and waited for.
+    /// One submit and one wait, and a copy a table, whatever the count.
     /// </summary>
-    public void Step(int cars)
+    public void Step(int taken, int cars)
     {
         if (cars > Capacity) throw new ArgumentOutOfRangeException(nameof(cars), $"The tick holds {Capacity} cars, not {cars}.");
 
         _cars = cars;
         var vk = _vk;
-        var groups = (uint)Math.Max(1, (cars + 63) / 64);
         var commands = _batch.Begin();
         _timer.Reset(commands);
         _timer.Stamp(commands, (int)Stage.Began);
-        _tyres.Send(commands, cars);
-        foreach (var (from, to, stride) in _sent) vk.Copy(commands, from, to, (ulong)(cars * stride));
+        _taken.Mark(0, taken);
+        var table = _tyres.Table;
+        SentBytes = table.BuildOf.MarkedBytes + table.Poses.MarkedBytes + table.Commands.MarkedBytes + table.Cars.MarkedBytes
+                    + table.Wheels.MarkedBytes + _ticks.MarkedBytes + _told.MarkedBytes + _grants.MarkedBytes + _cutters.MarkedBytes
+                    + _boxes.MarkedBytes + _lines.MarkedBytes + _arcs.MarkedBytes + _entries.MarkedBytes + _chain.MarkedBytes
+                    + _starts.MarkedBytes + _ends.MarkedBytes + _firstArcs.MarkedBytes + _breaks.MarkedBytes + _taken.MarkedBytes;
+        LinesSentBytes = _arcs.MarkedBytes + _entries.MarkedBytes;
+        _tyres.SendMarked(commands);
+        _ticks.Send(commands);
+        _told.Send(commands);
+        _grants.Send(commands);
+        _cutters.Send(commands);
+        _boxes.Send(commands);
+        _lines.Send(commands);
+        _arcs.Send(commands);
+        _entries.Send(commands);
+        _chain.Send(commands);
+        _starts.Send(commands);
+        _ends.Send(commands);
+        _firstArcs.Send(commands);
+        _breaks.Send(commands);
+        _taken.Send(commands);
         vk.AfterTransfer(commands);
         _timer.Stamp(commands, (int)Stage.Sent);
 
-        _groundKernel.Dispatch(commands, _groundSet, groups, _ground.PushFor(cars));
+        var groups = (uint)Math.Max(1, (taken + 63) / 64);
+        _groundKernel.Dispatch(commands, _groundSet, groups, _ground.PushFor(taken));
         vk.BetweenKernels(commands);
-        _tickKernel.Dispatch(commands, _tickSet, groups, _figures with { CarCount = (uint)cars });
+        _tickKernel.Dispatch(commands, _tickSet, groups, _figures with { CarCount = (uint)taken });
         vk.BetweenKernels(commands);
         _timer.Stamp(commands, (int)Stage.Ticked);
 
@@ -297,37 +278,26 @@ internal sealed partial class DeviceCarTick : IDisposable
         _timer.Stamp(commands, (int)Stage.Tyred);
 
         _tyres.Read(commands);
-        foreach (var (from, to, stride) in _read) vk.Copy(commands, from, to, (ulong)(cars * stride));
+        _ticks.Read(commands, cars);
+        _lines.Read(commands, cars);
+        _chain.Read(commands, cars);
+        _starts.Read(commands, cars);
+        _ends.Read(commands, cars);
+        _contexts.Read(commands, cars);
+        _boxes.Read(commands, cars);
         _timer.Stamp(commands, (int)Stage.Read);
         _batch.SubmitAndWait();
         _timer.Read();
     }
 
-    GpuBuffer Device<T>(int count) where T : unmanaged => Own(
-        _vk.CreateBuffer(
-            Bytes<T>(count), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferSrcBit | BufferUsageFlags.TransferDstBit,
-            HostAccess.None));
-
-    GpuBuffer Staging<T>(int count) where T : unmanaged =>
-        Own(_vk.CreateBuffer(Bytes<T>(count), BufferUsageFlags.TransferSrcBit, HostAccess.Writes));
-
-    GpuBuffer Readback<T>(int count) where T : unmanaged =>
-        Own(_vk.CreateBuffer(Bytes<T>(count), BufferUsageFlags.TransferDstBit, HostAccess.Reads));
-
     /// <summary>A device-local buffer holding these rows, sent once.</summary>
     GpuBuffer Laid<T>(T[] rows) where T : unmanaged
     {
-        var buffer = Own(_vk.CreateBuffer(
-            Bytes<T>(rows.Length), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferDstBit, HostAccess.None));
+        var buffer = _vk.CreateBuffer(
+            (ulong)(Math.Max(1, rows.Length) * Marshal.SizeOf<T>()), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferDstBit,
+            HostAccess.None);
+        _laid.Add(buffer);
         buffer.Upload<T>(rows.Length, into => rows.CopyTo(into), PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit);
-        return buffer;
-    }
-
-    static unsafe ulong Bytes<T>(int count) where T : unmanaged => (ulong)(Math.Max(1, count) * sizeof(T));
-
-    GpuBuffer Own(GpuBuffer buffer)
-    {
-        _owned.Add(buffer);
         return buffer;
     }
 
@@ -337,6 +307,13 @@ internal sealed partial class DeviceCarTick : IDisposable
         _batch.Dispose();
         _tickKernel.Dispose();
         _groundKernel.Dispose();
-        foreach (var buffer in _owned) buffer.Dispose();
+        foreach (var table in (ReadOnlySpan<IDisposable>)[
+                     _ticks, _told, _grants, _cutters, _boxes, _contexts, _lines, _arcs, _entries, _chain, _starts, _ends, _firstArcs,
+                     _breaks, _taken])
+        {
+            table.Dispose();
+        }
+
+        foreach (var buffer in _laid) buffer.Dispose();
     }
 }
