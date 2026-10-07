@@ -58,13 +58,19 @@ internal sealed partial class DeviceCarTick
     }
 
     /// <summary>
-    /// <b>Whether the device ticks this car</b>: driven, following its route's line on no pass, and on nobody's arm — the
-    /// tick <c>car_tick.glsl</c> is. Asked before the town's own tick, of the state that tick reads.
+    /// <b>Whether the device ticks this car</b>: driven, following its route's line on no pass or waiting to rejoin it,
+    /// and on nobody's arm — the tick <c>car_tick.glsl</c> is. Asked before the town's own tick, of the state that tick
+    /// reads.
     /// </summary>
+    /// <remarks>
+    /// <b>A rejoining car's tick is a following car's</b> (<c>Rejoining.Tick</c>): its line read, held where it is still
+    /// off it, and followed where it is back on — the action it enters then being the host's to change.
+    /// </remarks>
     public static bool Takes(TownWorld town, int car)
     {
         var cars = town.Cars;
-        return cars.Driven[car] && cars.Action[car] == CarAction.Follow && !cars.Pass[car].Any && !town.OnTheHook(car);
+        return cars.Driven[car] && cars.Action[car] is CarAction.Follow or CarAction.Rejoin && !cars.Pass[car].Any
+               && !town.OnTheHook(car);
     }
 
     /// <summary>

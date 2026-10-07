@@ -25,7 +25,8 @@ pass, which reads the command the tick left in the tyres' own table (`tyre_rows.
   **A line is laid through `CarFleet.SetLine`, which counts it** (`LineLaid`), so a copy of the lines elsewhere reads a
   change it did not make itself off the count rather than off the arcs.
 - **A car that loses its line stops on the device and says so** (a flag); the action it enters is the host's, and so is
-  the grant that action's change drops.
+  the grant that action's change drops. **A car waiting to rejoin its line is ticked the same way** (`Rejoining.Tick`
+  is a following car's tick): held while still off it, followed once back on, the Follow it enters again the host's.
 - **The shadow holds each stage to the host's own function asked of what the stage before handed it**: the reading to
   the town's, the drive to `CarFollower.DriveTheLine` on the device's reading, the tyres to `TyrePass.Step` on the
   device's command. Held to the town's answer, a tenth of a millimetre on the line is a hundredth of a m/s² on a pedal
