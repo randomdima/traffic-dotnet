@@ -20,6 +20,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   - 85 (leaving a roundabout gives way on the zebra): driver 0 is on the zebra for 78.8 s with walker 0 in its half.
 - **Exam card 109** (a car on a call gets past a queue at a red) fails since the wheel claims: the car on the call
   reaches the box at 25.0 s, after the queue's head at 17.8 s.
+- **`InspectorTests.AnInspectedFrameAllocatesNothing` and `UnitPanelTests.DrawingThePanelAllocatesNothing`** (unit) each
+  failed once in a full unit run (3.4 KB and a few KB over) and pass alone every time: both read an allocation counter
+  across the whole process while the tier runs classes side by side. Counting on the test's own thread, or running them
+  apart, closes it.
 - **`AllocationGateTests.ThisEnginesOwnPhasesAllocateNothingOverAWholeTown(Test)`** failed once in four full perf runs,
   at 6.8 B a tick. It passes alone and in three reruns of the tier, and a per-agent trace of phases 1–3 found no
   allocation. A `P0` gate that flickers is either a real allocation on a rare path or a measurement that counts
@@ -35,9 +39,11 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   metres and two half steps unclaimed; a car straddling a zebra narrower than its wheelbase, or nosing over a junction
   its front wheels have not reached, is no body there. The gap per car model is not measured.
 - **The device in step has no test of its own** (`DeviceTown`): only `--bench devicetown` and a windowed `--device-tick`
-  run drive it, so the wheels it keeps and hands back as a car leaves (`DeviceTyres.KeptOnTheDevice`) are held by the
-  probe's counts coming out the same to the car, not by a gate. A device-tier test of a fixture town ticked with the
-  device, once reading every wheel back and once keeping them, held equal tick by tick, closes it.
+  run drive it, so what it keeps on the device and hands back only where it changed — a car's wheels
+  (`DeviceTyres.KeptOnTheDevice`), the poses the step left, the walker table (`DeviceWalkerTick.Resident`) — and the claims
+  layer it writes back a tick late (`DeviceRebuild.LandsLater`, `LayerBound`) are held by the probe's counts, not by a
+  gate. A device-tier test of a fixture town ticked with the device, keeping the town's own claims over a run and held
+  equal tick by tick to one that hands everything back at once, closes it.
 - **Not measured since they landed**: the walker as one wheel, the car no longer asked its ground, and the
   consolidation after them (`WheelGrounds`, `DeviceGround` gone, the walker's pavement read). The figures in the road
   and terrain logs predate all three; the soak after them kept all twelve of OdesaOsm's claims.

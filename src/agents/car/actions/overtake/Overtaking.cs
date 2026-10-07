@@ -103,10 +103,18 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     readonly bool[] _looks = new bool[ground.Cars.Capacity];
 
     /// <summary>
-    /// Whether the claims have been laid since a car asked for its pass — which is when the ask is answered, kept or
-    /// withdrawn, and not before: the claims are laid once a decision interval.
+    /// How many passes each car has asked for, and the ask the claims were last laid for — answered, kept or withdrawn,
+    /// once the two agree and not before: the claims are laid once a decision interval.
     /// </summary>
-    readonly bool[] _laidSinceAsked = new bool[ground.Cars.Capacity];
+    readonly long[] _askedAs = new long[ground.Cars.Capacity];
+
+    /// <inheritdoc cref="_askedAs"/>
+    readonly long[] _laidFor = new long[ground.Cars.Capacity];
+
+    /// <summary>Which of each car's asks the claims every reader reads were laid for: kept with the layer they belong to.</summary>
+    internal long[] LaidFor => _laidFor;
+
+    bool LaidSinceAsked(int car) => _askedAs[car] != 0 && _laidFor[car] == _askedAs[car];
 
     /// <summary>
     /// The room each car keeps to step out from rest (<see cref="KeptOffWhatItMayPassM"/>), and the lane it was drawn for —
@@ -159,7 +167,7 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
         }
 
         // Asked for and laid since: kept, or withdrawn and asked for again when the car next looks.
-        if (pass.Any && _laidSinceAsked[car]) KeepOrWithdrawThePass(car, pass, progressM);
+        if (pass.Any && LaidSinceAsked(car)) KeepOrWithdrawThePass(car, pass, progressM);
 
         WaitAtTheStep(ref town, car, pose, progressM, alongMps, coveredM);
     }
@@ -273,7 +281,7 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
 
         Cars.Pass[car] = _shapes[at];
         _asking[car] = shape;
-        _laidSinceAsked[car] = false;
+        _askedAs[car]++;
         Asked++;
     }
 
@@ -419,7 +427,7 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
             LayThePaintItCrosses(car, run.Cover);
         }
 
-        _laidSinceAsked[car] = true;
+        _laidFor[car] = _askedAs[car];
     }
 
     /// <summary>

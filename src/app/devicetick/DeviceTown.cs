@@ -92,6 +92,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _walkers = new DeviceWalkerTick(vk, config, town.People.Capacity, resident: true);
         _bodies = new DeviceTownBodies(vk, config, town, _tyres, _walkers);
         _townClaims = new DeviceTownClaims(vk, config, town, _claims, _cars);
+        _townClaims.Rebuild.MirrorsAtOnce = false;
         _batch = new ComputeBatch(vk);
         _timer = new GpuTimer(vk, 3);
         _dtS = config.TickSeconds;
@@ -242,6 +243,8 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
             _bodies.StepBodies(town, _dtS, default, walkersTicked: false);
             KnowTheStep();
+            _townClaims.Rebuild.LandWhatWasSent(town);
+            _townClaims.Rebuild.SendTheLayerBack();
             _swept = false;
             return;
         }
@@ -275,7 +278,13 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _walkers.RecordRead(commands);
         if (stepping) _bodies.RecordTheStep(commands, town, _dtS);
         _timer.Stamp(commands, 2);
-        _batch.SubmitAndWait();
+        _batch.Submit();
+
+        // While the tick runs: a layer the last rebuild sent back is written into the town, and this tick's own rebuild's
+        // layer is sent back behind it, to be copied in the host's time before the next tick's submit.
+        _townClaims.Rebuild.LandWhatWasSent(town);
+        _townClaims.Rebuild.SendTheLayerBack();
+        _batch.Wait();
         _timer.Read();
         _cars.ReadTimes();
         _walkers.ReadTimes();
@@ -304,6 +313,10 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     public void ClaimsAt(TownWorld town, ClaimsStage stage) => _townClaims.ClaimsAt(town, stage);
 
     public bool ReadTheGrants => _townClaims.ReadTheGrants;
+
+    public bool LandsLater => _townClaims.LandsLater;
+
+    public void LandTheLastLaying(TownWorld town) => _townClaims.LandTheLastLaying(town);
 
     /// <summary>
     /// <b>Every body stepped on the device</b> (<see cref="DeviceTownBodies"/>): the wheels the tyre pass left for the cars
@@ -432,6 +445,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// <remarks>Every wheel the device keeps is handed back first: the town may go on ticking its cars itself.</remarks>
     public void Dispose()
     {
+        _townClaims.LandTheLastLaying(_town);
         HandBackAlone(_town, Leaving(_town, everyKept: true));
         _timer.Dispose();
         _batch.Dispose();

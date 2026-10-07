@@ -18,6 +18,18 @@ rather than annotated. Rules are [requirements.md](requirements.md); how a thing
   The rest of a tick at a tick's lag is overlap — host work beside the device's — which this is the first step towards.
 - **A decision may read a claims layer one laying old**: the rebuild's own steps take what they need of each agent
   from the device, and the whole layer may come back later than the laying that made it.
+  - **What the tail reads comes back with the answers**: every asked car's grant (`rebuild_grant.comp` in the rebuild's
+    own submit) and every walker's (`rebuild_agents_out.comp`), so nothing in a rebuild without a car backing up reads a
+    grant off the layer.
+  - **The layer lands on the next tick** (`DeviceRebuild.LandsLater`): copied back behind that tick's submit, in the
+    host's time between submits, and written into the readers' layer while the next tick's submit runs. Until then every
+    reader reads the last laying's layer, with the hold numbers, held-as and asks it was laid with (`LayerBound`); the town
+    lays its own few rows into a laying of its own meanwhile. **What is decided on the layer waits for it**: a pass's,
+    step's or manoeuvre's keep-or-withdraw, and a sidestep's, a tick or two later than before.
+  - **A rebuild with a car backing up lands at once**, the backing being laid off the answered layer (15 % of OdesaOsm's).
+  - OdesaOsm (`--bench devicetown`): 8.81 → 7.78 ms a tick, the claims 4.30 → 2.96; a rebuild reads back 1.5 MB against
+    5.5. The town drives the same — 1 147 hard brakings against 1 127 (the host's own: 1 147), 97 of 102 lane switches
+    made against 99 of 105, the speed, the cars off their lines and the touches equal.
 
 ## 2026-10-06 — the tick moves onto the device
 

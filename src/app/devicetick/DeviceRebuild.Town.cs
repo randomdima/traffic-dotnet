@@ -319,10 +319,19 @@ internal sealed partial class DeviceRebuild
         _agentsOutKernel.Dispatch(
             commands, Math.Max(_carCount, _walkerCount), new AgentsPush((uint)_carCount, (uint)_walkerCount, (uint)(_stretches + 1 + _carCount)));
         GrantedWithTheAnswers = !AnyCarBacksUp(town);
+        LandsLater = GrantedWithTheAnswers && !MirrorsAtOnce;
         if (GrantedWithTheAnswers) _grant.Dispatch(commands, _carCount, new UnitsPush((uint)_carCount, (uint)(_stretches + 1)));
         vk.BeforeTransfer(commands);
-        _claims.RecordReadBounded(commands, _rowsBound, 0);
-        _claims.CopyPast<HoldOut>(commands, _holdsOut, _holdsRead, 0, _holdsBound);
+        if (LandsLater)
+        {
+            _claims.RecordReadTheCounts(commands);
+        }
+        else
+        {
+            _claims.RecordReadBounded(commands, _rowsBound, 0);
+            _claims.CopyPast<HoldOut>(commands, _holdsOut, _holdsRead, 0, _holdsBound);
+        }
+
         vk.Copy(commands, _unitHolds, _unitHoldsOut, Bytes<uint>(_units));
         vk.Copy(commands, _carsOut, _carsRead, Bytes<CarOut>(_carCount));
         vk.Copy(commands, _walkersOut, _walkersRead, Bytes<WalkOut>(_walkerCount));
@@ -334,12 +343,22 @@ internal sealed partial class DeviceRebuild
         var waited = Stopwatch.GetTimestamp();
 
         _claims.TakeTheCounts();
-        ReadWhatWasLaidPast();
-        MirrorInto(town);
+        if (LandsLater)
+        {
+            _landing = Landing.Due;
+        }
+        else
+        {
+            ReadWhatWasLaidPast();
+            MirrorTheLayer(town);
+        }
+
+        MirrorTheAgents(town);
         var rows = _claims.Rows.Length;
         var holds = _claims.Holds.Length;
-        Crossed = (sent, Bytes<ClaimRow>(rows) + Bytes<uint>(rows) + Bytes<HoldOut>(holds) + Bytes<uint>(_units) + Bytes<CarOut>(_carCount)
-                         + Bytes<WalkOut>(_walkerCount) + (GrantedWithTheAnswers ? Bytes<DeviceCarTick.GrantRow>(_carCount) : 0ul));
+        var layer = Bytes<ClaimRow>(rows) + Bytes<uint>(rows) + Bytes<HoldOut>(holds);
+        Crossed = (sent, (LandsLater ? 0ul : layer) + Bytes<uint>(_units) + Bytes<CarOut>(_carCount) + Bytes<WalkOut>(_walkerCount)
+                         + (GrantedWithTheAnswers ? Bytes<DeviceCarTick.GrantRow>(_carCount) : 0ul));
         LaidMs = Stopwatch.GetElapsedTime(_laidFrom, laid).TotalMilliseconds;
         WaitedMs = Stopwatch.GetElapsedTime(laid, waited).TotalMilliseconds;
         MirroredMs = Stopwatch.GetElapsedTime(waited).TotalMilliseconds;
@@ -371,11 +390,10 @@ internal sealed partial class DeviceRebuild
          Math.Min(_holdRoom, holds + (holds / ReadPastShare) + ReadPastSlack));
 
     /// <summary>
-    /// <b>What the device laid and answered written into the town</b>, as the town's own laying would have left it: every
-    /// slot, hold and list (<see cref="LaneOccupancy.MirrorTheSlot"/>), the hold each car's claim and each walker's walk
-    /// laid, what each car's plan came to, the channels found under each car, and how the answers went.
+    /// <b>What the device laid and answered written into the layer every reader reads</b>, as the town's own laying would
+    /// have left it: every slot, hold and list (<see cref="LaneOccupancy.MirrorTheSlot"/>).
     /// </summary>
-    void MirrorInto(TownWorld town)
+    void MirrorTheLayer(TownWorld town)
     {
         var occupancy = town.ReadersOccupancy;
         var rows = _claims.Rows;
@@ -408,7 +426,14 @@ internal sealed partial class DeviceRebuild
             occupancy.MirrorTheList((int)head.Way, head.HasBody, order[first..at]);
             first = at;
         }
+    }
 
+    /// <summary>
+    /// <b>What the device laid and answered of each agent written into the town</b>: the hold each car's claim and each
+    /// walker's walk laid, what each car's plan came to, the channels found under each car, and how the answers went.
+    /// </summary>
+    void MirrorTheAgents(TownWorld town)
+    {
         var unitHolds = _unitHoldsOut.Span<uint>();
         var carsOut = _carsRead.Span<CarOut>();
         var firstCar = _stretches + 1;
@@ -512,6 +537,83 @@ internal sealed partial class DeviceRebuild
     /// backs up: the town lays the backing after the answers, and it may take a plan queued behind it.
     /// </summary>
     public bool GrantedWithTheAnswers { get; private set; }
+
+    /// <summary>
+    /// <b>Whether the rebuild just laid in the town writes its layer back later</b> than its own stages (owner, root decision
+    /// log 2026-10-07): only its counts and what it says of each agent come back with it, and the layer — every row, list
+    /// and hold — is copied back after the tick's own submit, in the host's time between submits
+    /// (<see cref="SendTheLayerBack"/>), and written into the readers' layer when it is next waited for (<see cref="Land"/>).
+    /// Never where a car backs up, whose ground the town lays off the answered layer, nor where the layer is mirrored at once.
+    /// </summary>
+    public bool LandsLater { get; private set; }
+
+    /// <summary>
+    /// Whether every rebuild in the town writes its layer back with its own stages — for whoever holds that layer to the
+    /// town's own on the tick it was laid. On by default; a device ticking the town in step turns it off.
+    /// </summary>
+    public bool MirrorsAtOnce { get; set; } = true;
+
+    enum Landing
+    {
+        None,
+        Due,
+        Sent,
+    }
+
+    Landing _landing;
+
+    /// <summary>
+    /// <b>The layer of a rebuild that lands later copied back</b>, submitted and left running: the rows and their order and
+    /// every hold as the town keeps it, as many as the rebuild counted — nothing else on the device writes them before the
+    /// next rebuild. Nothing where no layer waits.
+    /// </summary>
+    public void SendTheLayerBack()
+    {
+        if (_landing != Landing.Due) return;
+
+        var commands = _batch.Begin();
+        _vk.BeforeTransfer(commands);
+        _claims.RecordReadTheRows(commands);
+        _claims.CopyPast<HoldOut>(commands, _holdsOut, _holdsRead, 0, _claims.Holds.Length);
+        _batch.Submit();
+        _landing = Landing.Sent;
+        LayersSentBack++;
+    }
+
+    /// <summary>
+    /// <b>A rebuild that landed later written into the town</b>: its layer copied back (or now, if it was not yet sent) and
+    /// waited for, written into the layer every reader reads, and the town's own numbers for it taken up
+    /// (<see cref="TownWorld.LandTheLaying"/>). Nothing where no layer waits.
+    /// </summary>
+    public void Land(TownWorld town)
+    {
+        if (_landing == Landing.None) return;
+
+        SendTheLayerBack();
+        var waited = Stopwatch.GetTimestamp();
+        _batch.Wait();
+        var landed = Stopwatch.GetTimestamp();
+        MirrorTheLayer(town);
+        town.LandTheLaying();
+        _landing = Landing.None;
+        LandingWaitedMs = Stopwatch.GetElapsedTime(waited, landed).TotalMilliseconds;
+        LandedMs = Stopwatch.GetElapsedTime(landed).TotalMilliseconds;
+    }
+
+    /// <summary>A layer copied back on an earlier tick written into the town (<see cref="Land"/>); nothing for one not yet sent.</summary>
+    public void LandWhatWasSent(TownWorld town)
+    {
+        if (_landing == Landing.Sent) Land(town);
+    }
+
+    /// <summary>How many layers were copied back after their rebuild's own submit.</summary>
+    public long LayersSentBack { get; private set; }
+
+    /// <summary>The host's time waiting for the last layer copied back, and writing it into the town, in milliseconds.</summary>
+    public double LandingWaitedMs { get; private set; }
+
+    /// <inheritdoc cref="LandingWaitedMs"/>
+    public double LandedMs { get; private set; }
 
     /// <summary>Whether any car this laying asked is backing up, whose ground the town lays after the answers.</summary>
     static bool AnyCarBacksUp(TownWorld town)

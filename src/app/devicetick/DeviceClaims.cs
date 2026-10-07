@@ -246,6 +246,23 @@ internal sealed class DeviceClaims : IDisposable
     }
 
     /// <summary>
+    /// <b>Only what the rebuild's own tail reads</b>: what moved each pass and the tally, recorded after a transfer barrier —
+    /// the rows and their order read later, as many as the tally counts (<see cref="RecordReadTheRows"/>).
+    /// </summary>
+    public void RecordReadTheCounts(CommandBuffer commands)
+    {
+        _vk.Copy(commands, _moved, _movedOut, _moved.SizeBytes);
+        _vk.Copy(commands, _tally, _tallyOut, _tally.SizeBytes);
+    }
+
+    /// <summary>Every row the counted tally numbers and their order, read back, recorded after a transfer barrier.</summary>
+    public void RecordReadTheRows(CommandBuffer commands)
+    {
+        CopyPast<ClaimRow>(commands, _rows, _rowsOut, 0, _rowCount);
+        CopyPast<uint>(commands, _order, _orderOut, 0, _rowCount);
+    }
+
+    /// <summary>
     /// The rows and holds a bounded read left out — from <paramref name="rowsRead"/> and <paramref name="holdsRead"/> to the
     /// tally's counts — read after it.
     /// </summary>

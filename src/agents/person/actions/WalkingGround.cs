@@ -83,6 +83,9 @@ internal sealed class WalkingGround(
 
     readonly LaneRoster[] _heldAsRoster = Afoot(people.Capacity);
 
+    /// <summary>Whose ground each walker's body was laid as, and in which roster: kept with the layer it was laid into.</summary>
+    internal (int[] Occupant, LaneRoster[] Roster) HeldAsTables => (_heldAs, _heldAsRoster);
+
     static Vector2[] Unset(int count)
     {
         var places = new Vector2[count];

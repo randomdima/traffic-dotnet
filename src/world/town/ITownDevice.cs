@@ -65,4 +65,14 @@ internal interface ITownClaims
     /// none off the claims.
     /// </summary>
     bool ReadTheGrants { get; }
+
+    /// <summary>
+    /// <b>Whether the rebuild under way writes its answers into the layer every reader reads later</b> than its own stages —
+    /// asked once <see cref="ClaimsStage.PlansLaid"/> is done: the readers go on reading the last laying's layer, with the
+    /// numbers each agent was laid with for it, until the device lands this one (<see cref="TownWorld.LandTheLaying"/>).
+    /// </summary>
+    bool LandsLater { get; }
+
+    /// <summary>The last rebuild's answers written into the layer every reader reads now, if they wait to be; nothing otherwise.</summary>
+    void LandTheLastLaying(TownWorld town);
 }

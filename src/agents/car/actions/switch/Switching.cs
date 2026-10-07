@@ -62,8 +62,16 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
     /// <summary>How long until a car meaning to move across looks for the room again (<see cref="DrivingFigures.LaneSwitchAskEveryS"/>).</summary>
     readonly float[] _looksInS = new float[ground.Cars.Capacity];
 
-    /// <summary>Whether the claims have been laid since a car asked for its step — when the ask is answered.</summary>
-    readonly bool[] _laidSinceAsked = new bool[ground.Cars.Capacity];
+    /// <summary>How many steps each car has asked for, and the ask the claims were last laid for — answered once the two agree.</summary>
+    readonly long[] _askedAs = new long[ground.Cars.Capacity];
+
+    /// <inheritdoc cref="_askedAs"/>
+    readonly long[] _laidFor = new long[ground.Cars.Capacity];
+
+    /// <summary>Which of each car's asks the claims every reader reads were laid for: kept with the layer they belong to.</summary>
+    internal long[] LaidFor => _laidFor;
+
+    bool LaidSinceAsked(int car) => _askedAs[car] != 0 && _laidFor[car] == _askedAs[car];
 
     CarFleet Cars => ground.Cars;
 
@@ -166,7 +174,7 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
             && IsUnheld(car))
         {
             Cars.Pass[car] = shape;
-            _laidSinceAsked[car] = false;
+            _askedAs[car]++;
             Asked++;
         }
     }
@@ -193,7 +201,7 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
             return;
         }
 
-        if (pass.Any && _laidSinceAsked[car]) KeepOrWithdraw(car, pass, progressM);
+        if (pass.Any && LaidSinceAsked(car)) KeepOrWithdraw(car, pass, progressM);
 
         town.DriveOnTheLine(car, pose, progressM, alongMps, coveredM, passAsideM: _asideM[car], waitAtM: WaitAtM(car, progressM));
     }
@@ -238,7 +246,7 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
             Occupancy.LayPass(held.Way, held.FromM, held.ToM, 0f, car, LaneRoster.Driving);
         }
 
-        _laidSinceAsked[car] = true;
+        _laidFor[car] = _askedAs[car];
     }
 
     /// <summary>The step measured again from the next lane of the chain, which begins <paramref name="shiftM"/> along the line.</summary>
@@ -562,7 +570,7 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
     public void KeepOrWithdrawTheStep(int car)
     {
         var pass = Cars.Pass[car];
-        if (pass.Any && !pass.Begun && _laidSinceAsked[car]) KeepOrWithdraw(car, pass, Cars.ProgressM[car]);
+        if (pass.Any && !pass.Begun && LaidSinceAsked(car)) KeepOrWithdraw(car, pass, Cars.ProgressM[car]);
     }
 
     /// <summary>

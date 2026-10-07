@@ -752,7 +752,11 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         ClaimsLaidThisTick = _claims.Turn(_ticks++, 0);
         if (ClaimsLaidThisTick)
         {
-            if ((ClaimsDevice ?? Device as ITownClaims) is { } device && device.LaysTheClaims(this)) RebuildLaneOccupancyOn(device);
+            var device = ClaimsDevice ?? Device as ITownClaims;
+
+            // A laying the device answered and has not yet written back is written back before the next is begun.
+            device?.LandTheLastLaying(this);
+            if (device != null && device.LaysTheClaims(this)) RebuildLaneOccupancyOn(device);
             else RebuildLaneOccupancy();
         }
 

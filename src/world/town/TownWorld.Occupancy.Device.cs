@@ -65,7 +65,8 @@ internal sealed partial class TownWorld
         _following.AsksTheBodiesLater = false;
         device.ClaimsAt(this, ClaimsStage.WalksDue);
         device.ClaimsAt(this, ClaimsStage.PlansLaid);
-        LayIntoTheLayer();
+        var landsLater = device.LandsLater;
+        LayIntoTheLayer(landsLater);
         device.ClaimsAt(this, ClaimsStage.PlansAnswered);
         foreach (var car in CarsAsked) _backingUp.Lay(car, IsUnderWay(car));
         var granted = device.ReadTheGrants;
@@ -75,7 +76,7 @@ internal sealed partial class TownWorld
         }
 
         device.ClaimsAt(this, ClaimsStage.WalkersDue);
-        ReadTheWalkersGrants(granted);
+        ReadTheWalkersGrants(granted, landsLater);
         device.ClaimsAt(this, ClaimsStage.GrantsRead);
     }
 
@@ -88,6 +89,14 @@ internal sealed partial class TownWorld
     {
         // A table that grows: a laying holds a few dozen rows, and settles into what the town's busiest needs.
         _laying ??= new LaneOccupancy(_ways, LayingRoom, LayingRoom / 16, _atlas.Marks, grows: true);
+        _withTheLayer ??=
+        [
+            new LayerBound<int>(_ground.PlanHold), new LayerBound<int>(_walkingGround.WalkHold),
+            new LayerBound<int>(_walkingGround.HeldAsTables.Occupant), new LayerBound<LaneRoster>(_walkingGround.HeldAsTables.Roster),
+            new LayerBound<long>(_overtaking.LaidFor), new LayerBound<long>(_switching.LaidFor), new LayerBound<long>(_bays.LaidFor),
+        ];
+
+        foreach (var bound in _withTheLayer) bound.Save();
         _laying.Begin();
         LayOn(_laying);
     }
@@ -95,8 +104,38 @@ internal sealed partial class TownWorld
     /// <summary>The room a laying of the town's own begins with.</summary>
     const int LayingRoom = 1024;
 
-    /// <summary>Back onto the layer every reader reads, once the device's answers are written into it.</summary>
-    void LayIntoTheLayer() => LayOn(_layer);
+    /// <summary>
+    /// What the town keeps of each agent that means something only with the layer it was laid with
+    /// (<see cref="LayerBound{T}"/>): the hold numbers, whose ground a walker's body was laid as, which ask a pass's ground
+    /// was laid for.
+    /// </summary>
+    ILayerBound[]? _withTheLayer;
+
+    /// <summary>
+    /// <b>Back onto the layer every reader reads</b> once the device has answered — written back into it already, or, where
+    /// it <paramref name="landsLater"/>, left as it stands with every agent's numbers as they were laid for it, the laying's
+    /// own put aside until its layer lands (<see cref="LandTheLaying"/>).
+    /// </summary>
+    void LayIntoTheLayer(bool landsLater)
+    {
+        if (landsLater)
+        {
+            foreach (var bound in _withTheLayer!) bound.Park();
+        }
+
+        LayOn(_layer);
+    }
+
+    /// <summary>
+    /// <b>A rebuild a device laid, landed</b> once its answers are written into the layer every reader reads: every agent's
+    /// numbers taken up as laid for it, but where the town has changed one since, and every walker's pass word that waited
+    /// for it given.
+    /// </summary>
+    public void LandTheLaying()
+    {
+        foreach (var bound in _withTheLayer!) bound.Adopt();
+        _sidestepping.KeepOrWithdrawTheDue();
+    }
 
     void LayOn(LaneOccupancy occupancy)
     {

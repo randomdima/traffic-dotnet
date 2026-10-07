@@ -128,7 +128,8 @@ internal sealed partial class TownWorld
 
     /// <summary>Every walker's grant read off what its walk came to, its pass's word taken, and its aim set on it.</summary>
     /// <param name="granted">Whether a device read every walker's grant already (<see cref="ITownClaims.ReadTheGrants"/>).</param>
-    void ReadTheWalkersGrants(bool granted = false)
+    /// <param name="keepLater">Whether a pass's word waits for its layer to land (<see cref="Sidestepping.Consider"/>).</param>
+    void ReadTheWalkersGrants(bool granted = false, bool keepLater = false)
     {
         for (var person = 0; person < People.Count; person++)
         {
@@ -142,7 +143,7 @@ internal sealed partial class TownWorld
                 _walkingGround.ReadTheGrant(person);
             }
 
-            _sidestepping.Consider(person);
+            _sidestepping.Consider(person, keepLater);
             AimTheWalker(person);
         }
     }

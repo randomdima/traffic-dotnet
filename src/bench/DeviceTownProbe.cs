@@ -102,6 +102,8 @@ internal static class DeviceTownProbe
         var stageTownMs = new double[stages.Length];
         var stageHereMs = new double[stages.Length];
         var (mostHostRows, mostHostHolds) = (0, 0);
+        var (landingWaitedMs, landedMs) = (0d, 0d);
+        var sentBack = device?.Claims.Rebuild.LayersSentBack ?? 0L;
         var rebuilt = device?.Claims.Rebuild.Rebuilds ?? 0L;
         var (handedInTheStep, handedAlone) = device?.HandedOver ?? default;
         var handOverSubmits = device?.HandOverSubmits ?? 0L;
@@ -127,6 +129,9 @@ internal static class DeviceTownProbe
                 claimsReadMb += rebuild.Crossed.Read / 1e6;
                 var (rows, bodies, holds) = rebuild.Counted;
                 (mostHostRows, mostHostHolds) = (Math.Max(mostHostRows, rebuild.HostRowsSent), Math.Max(mostHostHolds, rebuild.HostHoldsSent));
+
+                // The last landing's, which was the rebuild before this one's.
+                (landingWaitedMs, landedMs) = (landingWaitedMs + rebuild.LandingWaitedMs, landedMs + rebuild.LandedMs);
                 (laidRows, laidBodies, laidHolds) = (laidRows + rows, laidBodies + bodies, laidHolds + holds);
                 var (townMs, hereMs) = device.Claims.StageMs;
                 for (var stage = 0; stage < stages.Length; stage++)
@@ -182,6 +187,9 @@ internal static class DeviceTownProbe
                 $"laid past what their submit read back, {device.Claims.Rebuild.OnOtherChannelsAtABay} cars at a bay put on other " +
                 $"channels and {device.Claims.Rebuild.BackedUp} rebuilds with a car backing up since the device was set; the town laid " +
                 $"at most {mostHostRows} rows and {mostHostHolds} holds of a rebuild itself");
+            Console.WriteLine(
+                $"  the layer written back a tick later for {device.Claims.Rebuild.LayersSentBack - sentBack} of them, inside the next tick's submit: " +
+                $"waiting for it {landingWaitedMs / each:F2} and writing it into the town {landedMs / each:F2} ms a rebuild");
             Console.Write("  the host's rebuild stage by stage, ms a rebuild, the town's laying before each + the device's at it:");
             for (var stage = 0; stage < stages.Length; stage++)
             {

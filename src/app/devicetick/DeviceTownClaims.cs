@@ -85,6 +85,10 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
 
     public bool ReadTheGrants => Rebuild.GrantedWithTheAnswers;
 
+    public bool LandsLater => Rebuild.LandsLater;
+
+    public void LandTheLastLaying(TownWorld town) => Rebuild.Land(town);
+
     /// <summary>Every asked car's grant and every walker's as the rebuild read them with the answers, written into the town.</summary>
     void Grant(TownWorld town)
     {

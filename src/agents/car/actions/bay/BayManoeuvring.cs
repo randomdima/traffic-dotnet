@@ -69,6 +69,9 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     /// </summary>
     readonly long[] _laidFor = new long[manoeuvres.Piece.Length];
 
+    /// <summary>Which of each car's asks the claims every reader reads were laid for: kept with the layer they belong to.</summary>
+    internal long[] LaidFor => _laidFor;
+
     /// <summary>
     /// <b>The station each car stands at on the piece it drives, read once a rebuild</b>: <see cref="Lay"/> and
     /// <see cref="Hold"/> both begin from it, the second after every pass is down, so the first to ask keeps its
