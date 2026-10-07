@@ -13,7 +13,6 @@
 // What the driver has been told about the world this tick (DriveContext).
 struct DriveContextRow
 {
-    float groundCoefficient;
     float authorityM;
     uint grantCutBy;
     float placeStopM;
@@ -24,7 +23,8 @@ struct DriveContextRow
     float backUpM;
     uint blocked;
     float waitAtM;
-    float pad;
+    float pad0;
+    float pad1;
 };
 
 // DrivingHold, by number.
@@ -106,15 +106,15 @@ float followLeadS(CarBuildRow car, float brakingMps2, float throttleMps2)
     return leadS;
 }
 
-float followBrakingMps2(CarBuildRow car, float groundCoefficient)
+float followBrakingMps2(CarBuildRow car)
 {
-    precise float braking = buildUtmostBrakingMps2(car, groundCoefficient) * FOLLOWER_FIGURES.brakingMargin;
+    precise float braking = buildUtmostBrakingMps2(car) * FOLLOWER_FIGURES.brakingMargin;
     return braking;
 }
 
-float followCorneringMps2(CarBuildRow car, float groundCoefficient)
+float followCorneringMps2(CarBuildRow car)
 {
-    precise float cornering = car.gripMps2 * groundCoefficient * FOLLOWER_FIGURES.gripMargin;
+    precise float cornering = car.gripMps2 * FOLLOWER_FIGURES.gripMargin;
     return cornering;
 }
 
@@ -147,12 +147,12 @@ float followTargetSpeedMps(
     float lookaheadM, DriveContextRow context, OvertakeRow pass, float lastMps2, out uint hold, out float plannedMps)
 {
     hold = HoldNone;
-    float lateralMps2 = followCorneringMps2(car, context.groundCoefficient);
-    float brakingMps2 = followBrakingMps2(car, context.groundCoefficient);
+    float lateralMps2 = followCorneringMps2(car);
+    float brakingMps2 = followBrakingMps2(car);
     precise float leadM = abs(alongMps) * followLeadS(car, brakingMps2, lastMps2);
 
     float targetMps = car.maxSpeedMps;
-    float gripMps2 = buildUtmostBrakingMps2(car, context.groundCoefficient);
+    float gripMps2 = buildUtmostBrakingMps2(car);
     precise float reachedM = progressM + leadM + lookaheadM;
     float startM = 0.0;
     for (uint arc = first; arc < end; arc++)
@@ -221,17 +221,16 @@ float followTargetSpeedMps(
     return max(0.0, targetMps);
 }
 
-float followBrakeCeilingMps2(CarBuildRow car, float steerRad, float alongMps, float groundCoefficient)
+float followBrakeCeilingMps2(CarBuildRow car, float steerRad, float alongMps)
 {
     precise float acrossMps2 = alongMps * alongMps * abs(trigTan(steerRad)) / car.wheelbaseM;
-    precise float patchMps2 = car.gripMps2 * groundCoefficient;
-    float leftMps2 = tyreDriveLeftMps2(patchMps2, acrossMps2);
+    float leftMps2 = tyreDriveLeftMps2(car.gripMps2, acrossMps2);
     precise float ceiling = min(car.brakingMps2, leftMps2) * FOLLOWER_FIGURES.brakingMargin;
     return ceiling;
 }
 
 // One pedal or the other, never both, the foot travelling at the car's own rate (CarFollower.Pedals).
-TyreCommand followPedals(CarBuildRow car, float steerRad, float targetMps, float alongMps, float groundCoefficient, float lastMps2)
+TyreCommand followPedals(CarBuildRow car, float steerRad, float targetMps, float alongMps, float lastMps2)
 {
     if (targetMps <= FOLLOWER_FIGURES.stopSpeedMps && abs(alongMps) <= FOLLOWER_FIGURES.stopSpeedMps)
     {
@@ -245,7 +244,7 @@ TyreCommand followPedals(CarBuildRow car, float steerRad, float targetMps, float
     float wantedMps2 = clamp(asked, least, most);
     return wantedMps2 >= 0.0
         ? TyreCommand(steerRad, min(wantedMps2, car.accelerationMps2), 0.0, 0u)
-        : TyreCommand(steerRad, 0.0, min(-wantedMps2, followBrakeCeilingMps2(car, steerRad, alongMps, groundCoefficient)), 0u);
+        : TyreCommand(steerRad, 0.0, min(-wantedMps2, followBrakeCeilingMps2(car, steerRad, alongMps)), 0u);
 }
 
 bool followIsAHazard(CarBuildRow car, float alongMps, DriveContextRow context)
@@ -256,7 +255,7 @@ bool followIsAHazard(CarBuildRow car, float alongMps, DriveContextRow context)
     if (heldM <= 0.0) return true;
 
     precise float needs = alongMps * alongMps / (2.0 * heldM);
-    return needs > buildUtmostBrakingMps2(car, context.groundCoefficient);
+    return needs > buildUtmostBrakingMps2(car);
 }
 
 float followPedalMps2(TyreCommand command)
@@ -289,7 +288,7 @@ TyreCommand followDriveTheLine(
     capMps = min(capMps, paceMps);
     targetMps = min(targetMps, capMps);
 
-    TyreCommand command = followPedals(car, steerRad, targetMps, alongMps, context.groundCoefficient, lastMps2);
+    TyreCommand command = followPedals(car, steerRad, targetMps, alongMps, lastMps2);
     if (reverse)
     {
         command.steerRad = -command.steerRad;

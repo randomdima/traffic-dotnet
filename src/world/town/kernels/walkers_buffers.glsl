@@ -18,7 +18,6 @@ layout(push_constant) uniform Figures
     float standstillGapM;
     float walkAheadM;
     float offLaneM;
-    float touchM;
     int cellsFromX;
     int cellsFromY;
     int cellsWidth;

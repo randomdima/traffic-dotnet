@@ -97,10 +97,10 @@ ground it is standing on, and the ground in front of it down its walk. Both are 
 tick, and **the plan is answered exactly as a driver's is** — cut at the first body in front of it, weighed
 against every other plan's main or secondary claim it meets on its own ways, and granted what comes back.
 
-**The body is TER-4c.2 said of somebody on foot**, and it is nothing new: a body is on every way its
-collider stands over whatever kind of body it is — the pavement's two lanes, the mitres of a corner it is
-standing across, the lane it is standing in, the joins of a junction it is under and the ways of a bay — and
-always on the way it is walking, over the stretch its own body takes of it. **Nothing takes it**, because its
+**The body is TER-4c.2 said of somebody on foot**, and it is nothing new: a walker stands as a single wheel at
+its centre, on every way whose band holds the lattice point nearest it whatever kind of way it is — a lane of the
+pavement, a mitre of a corner, the lane it is standing in, a join of a junction, a bay — held its own radius either
+side, and always on the way it is walking, over the stretch its own body takes of it. **Nothing takes it**, because its
 holder is already there.
 
 **The plan runs from the front of the body down the ways of its walk**, for as far as it would take to come

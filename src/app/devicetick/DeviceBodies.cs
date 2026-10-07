@@ -1,6 +1,7 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
 using Silk.NET.Vulkan;
+using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Runtime;
@@ -12,7 +13,7 @@ namespace TrafficSimulation.App.DeviceTick;
 
 /// <summary>
 /// <b>Every car's body laid onto the ways under it on the device</b> (<c>world/town/kernels/car_bodies.glsl</c>), beside
-/// the host's: the cars as they stand when a rebuild begins sent across, each car's box read through the atlas
+/// the host's: the cars as they stand when a rebuild begins sent across, each car's wheels read through the atlas
 /// (<see cref="DeviceAtlas"/>) and its rows laid, one car a thread — read back to be held to the host's
 /// (<see cref="LayTheBodies"/>), or left on the device for a rebuild to number (<see cref="Record"/>).
 /// </summary>
@@ -21,16 +22,21 @@ internal sealed class DeviceBodies : IDisposable
     /// <summary><c>atlas.glsl</c>'s own room under one body (<see cref="RibbonAtlas.MostWaysUnderABody"/>).</summary>
     const int MostWaysInTheKernel = 48;
 
+    /// <summary>
+    /// One car as its body is read (<c>CarBodyRow</c>): its centre on the host's own forward unit vector, so no wheel is
+    /// the device's own trigonometry, and where its axles and track put its wheels (<see cref="TyreModel.WheelAtM"/>).
+    /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     readonly record struct BodyRow(
-        Vector2 CentreM, Vector2 Forward, float HalfLengthM, float HalfWidthM, uint Channels, int Occupant, float AlongMps,
-        uint Flags, float Pad0 = 0f, float Pad1 = 0f);
+        Vector2 CentreM, Vector2 Forward, float FrontAxleM, float RearAxleM, float HalfTrackM, uint Channels, int Occupant,
+        float AlongMps, uint Flags, uint Pad = 0u);
 
     [StructLayout(LayoutKind.Sequential)]
     readonly record struct CarLineRow(uint ArcCount, uint LaneCount, float LengthM, uint FinalApproach);
 
     [StructLayout(LayoutKind.Sequential)]
-    readonly record struct BodiesPush(DeviceAtlas.AskPush Ask, uint FirstConnector, uint MostLanes, uint GroundChannel);
+    readonly record struct BodiesPush(
+        DeviceAtlas.AskPush Ask, uint FirstConnector, uint MostLanes, uint GroundChannel, float AroundAWheelM);
 
     const uint Travelling = 1u;
     const uint RunsOnPastItself = 2u;
@@ -102,7 +108,8 @@ internal sealed class DeviceBodies : IDisposable
 
     /// <summary>
     /// On the device, as the last laying left them: each car's rows at <see cref="Room"/> a car, in the order the atlas
-    /// found its ways, and how many there are and the channels it is on (<c>uvec4</c> a car).
+    /// found its ways, and how many there are, the channels it is on, how many ways were dropped and which of its wheels
+    /// stand on one (<c>uvec4</c> a car).
     /// </summary>
     public (GpuBuffer Rows, GpuBuffer Counts) OnTheDevice => (_rows, _counts);
 
@@ -116,9 +123,12 @@ internal sealed class DeviceBodies : IDisposable
     /// <summary>The channels a car is on once its body is laid: those of the ways under it, or its own over none.</summary>
     public byte ChannelsOf(int car) => (byte)_countsOut.Span<UInt4>()[car].Y;
 
+    /// <summary>Which of a car's wheels stand on a way once its body is laid (<see cref="CarFleet.WheelsOnAWay"/>).</summary>
+    public byte WheelsOnAWayOf(int car) => (byte)_countsOut.Span<UInt4>()[car].W;
+
     /// <summary>
     /// <b>The cars as they stand when a rebuild begins</b> (<see cref="ClaimsStage.Begun"/>), written into
-    /// what the device is sent: each box, on the host's own forward unit vector, and what it is laid as.
+    /// what the device is sent: each car's wheels under it, on the host's own forward unit vector, and what it is laid as.
     /// </summary>
     public void Lay(TownWorld world)
     {
@@ -132,13 +142,14 @@ internal sealed class DeviceBodies : IDisposable
         for (var car = 0; car < cars.Count; car++)
         {
             var laying = world.LayingOf(car);
-            var halfM = cars.BuildOf(car).CollisionSizeM * 0.5f;
+            ref readonly var build = ref cars.BuildOf(car);
             var still = cars.VelocityMps[car].LengthSquared() <= stopMps * stopMps;
             var flags = (laying.Travelling ? Travelling : 0u) | (laying.RunsOnPastItself ? RunsOnPastItself : 0u)
                         | (still ? Still : 0u) | (laying.Blocked ? Blocked : 0u);
             bodies[car] = new BodyRow(
-                cars.PositionM[car], Heading.Unit(cars.HeadingRad[car]), halfM.X, halfM.Y, cars.Channels[car], laying.Occupant,
-                cars.AlongMps[laying.Occupant], flags);
+                cars.PositionM[car], Heading.Unit(cars.HeadingRad[car]), TyreModel.WheelAtM(build, 0).X,
+                TyreModel.WheelAtM(build, 2).X, build.HalfTrackM, cars.Channels[car], laying.Occupant, cars.AlongMps[laying.Occupant],
+                flags);
 
             var line = cars.Line[car];
             lines[car] = new CarLineRow((uint)line.ArcCount, (uint)line.LaneCount, line.LengthM, 0u);
@@ -180,7 +191,9 @@ internal sealed class DeviceBodies : IDisposable
     {
         _lay.Dispatch(
             commands, _set, (uint)Math.Max(1, (_carCount + 63) / 64),
-            new BodiesPush(_atlas.PushFor(_carCount), _firstConnector, (uint)LineAssembler.MostLanes, CityGen.CityPlan.RoadArrays.GroundChannel));
+            new BodiesPush(
+                _atlas.PushFor(_carCount), _firstConnector, (uint)LineAssembler.MostLanes, CityGen.CityPlan.RoadArrays.GroundChannel,
+                _config.Road.HeldAroundAWheelM));
         _vk.BetweenKernels(commands);
     }
 

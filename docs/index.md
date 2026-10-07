@@ -14,6 +14,7 @@ what the project is made of and how to run it is [../readme.md](../readme.md).
 | [verification.md](verification.md) | The four tiers, the five gates, the fixtures, `VER-1…12` |
 | [slice-map.md](slice-map.md) | The slices, which way a dependency may point, how that is checked, and where the code does not comply |
 | [decision-log.md](decision-log.md) | Why the cross-cutting rules read as they do |
+| [tech-debt.md](tech-debt.md) | What is known wrong, slow, redundant or unmeasured in what is built, and what closes each |
 
 ## The slices
 

@@ -133,6 +133,88 @@ public class RibbonAtlasTests
         Assert.Equal([0, 1], WaysUnderTheCrossing(atlas, Ground));
     }
 
+    /// <summary>
+    /// <b>A wheel is on the ways of its own channels alone</b> (TER-7b, PHY-1a): on a deck whose lanes are all the
+    /// bridge's, a wheel read on the bridge's channel stands on a way, and one read on the ground's — a car under the
+    /// deck — stands on none.
+    /// </summary>
+    [Fact]
+    public void AWheelIsOnTheWaysOfItsOwnChannelsAlone()
+    {
+        var atlas = Crossing(Over, Over);
+        var wheelM = new Vector2(LengthM * 0.5f, 0f);
+
+        Assert.True(OnAWay(atlas, wheelM, Over));
+        Assert.False(OnAWay(atlas, wheelM, Ground));
+    }
+
+    /// <summary>
+    /// <b>A wheel on a lane stands on a way, and a wheel off it on none</b> (TER-7b): what it stands on is whether the
+    /// lattice point nearest it lies inside a band, so either side of the band's edge by the lattice's reach decides it.
+    /// </summary>
+    [Fact]
+    public void AWheelOnALaneIsOnAWayAndAWheelOffItOnNone()
+    {
+        var atlas = Laid((new Vector2(0f, 0f), new Vector2(LengthM, 0f)));
+        var edgeM = WidthM * 0.5f;
+        var reachM = RibbonAtlas.ReachOf(atlas.StepM) + ClearM;
+
+        Assert.True(OnAWay(atlas, new Vector2(20f, edgeM - reachM)));
+        Assert.False(OnAWay(atlas, new Vector2(20f, edgeM + reachM)));
+    }
+
+    /// <summary>
+    /// <b>A car is on the lane its wheels stand on over the stretch its wheels hold</b> (TER-4c.2): from its hindmost
+    /// wheel less what is held either side of a wheel to its foremost wheel and as much again, to within a lattice step —
+    /// and every wheel on a way.
+    /// </summary>
+    [Fact]
+    public void ACarIsOnItsWheelsLaneOverTheStretchItsWheelsHold()
+    {
+        const float FrontM = 21.3f, RearM = 18.7f, HalfTrackM = 0.8f, AroundM = 0.9f;
+        var atlas = Laid(
+            (new Vector2(0f, 0f), new Vector2(LengthM, 0f)),
+            (new Vector2(LengthM, WidthM), new Vector2(0f, WidthM)));
+        Span<WayCover> under = stackalloc WayCover[8];
+        Vector2[] wheelsM = [new(FrontM, HalfTrackM), new(FrontM, -HalfTrackM), new(RearM, HalfTrackM), new(RearM, -HalfTrackM)];
+
+        var count = atlas.UnderWheels(wheelsM, AroundM, under, out var onAWay);
+
+        Assert.Equal(0b1111, onAWay);
+        Assert.Equal(1, count);
+        Assert.Equal(0, under[0].Way);
+        Assert.InRange(under[0].FromM, RearM - AroundM - atlas.StepM, RearM - AroundM);
+        Assert.InRange(under[0].ToM, FrontM + AroundM, FrontM + AroundM + atlas.StepM);
+    }
+
+    /// <summary>
+    /// <b>A car with no wheel on a way is on none</b> (TER-4c.2), however near its body is to one: on the grass beside a
+    /// lane it holds nothing of it, and every wheel grips as on grass (TER-7b).
+    /// </summary>
+    [Fact]
+    public void ACarWithNoWheelOnAWayIsOnNone()
+    {
+        const float FrontM = 21.3f, RearM = 18.7f, TrackM = 1.6f, AroundM = 0.9f;
+        var atlas = Laid((new Vector2(0f, 0f), new Vector2(LengthM, 0f)));
+        Span<WayCover> under = stackalloc WayCover[8];
+        var nearM = (WidthM * 0.5f) + RibbonAtlas.ReachOf(atlas.StepM) + ClearM;
+        Vector2[] wheelsM = [new(FrontM, nearM), new(FrontM, nearM + TrackM), new(RearM, nearM), new(RearM, nearM + TrackM)];
+
+        Assert.Equal(0, atlas.UnderWheels(wheelsM, AroundM, under, out var onAWay));
+        Assert.Equal(0, onAWay);
+    }
+
+    /// <summary>How much clearer than a distance a wheel is stood, so no rounding stands it back on the edge.</summary>
+    const float ClearM = 0.01f;
+
+    /// <summary>Whether one wheel stands on a way, read as a car's four are (<see cref="RibbonAtlas.UnderWheels"/>).</summary>
+    static bool OnAWay(RibbonAtlas atlas, Vector2 wheelM, byte channels = Ground)
+    {
+        Span<WayCover> under = stackalloc WayCover[8];
+        atlas.UnderWheels([wheelM], 0f, under, out var onAWay, channels);
+        return onAWay != 0;
+    }
+
     /// <summary>Two ways crossing square at their middles, on these channels.</summary>
     static RibbonAtlas Crossing(byte first, byte second)
     {
@@ -402,60 +484,25 @@ public class RibbonAtlasTests
         Assert.Equal(0, under[0].Way);
     }
 
-    /// <summary>How many poses a recalled body is asked at.</summary>
-    const int Poses = 4000;
-
     /// <summary>
-    /// The pose a recalled body is asked at: a shuffle of a tenth of a millimetre and a tenth of a milliradian — a
-    /// parked car's — on a drift of a millimetre a pose, a quarter of it across the lanes, and a turn. So it is
-    /// kept for runs of poses, and read afresh as the drift takes a point over an edge or a band's reach.
-    /// </summary>
-    static (Vector2 CentreM, Vector2 Forward) PoseAt(int pose)
-    {
-        var shuffle = MathF.Sin(pose * 0.7f) * 1e-4f;
-        var centreM = new Vector2(10f + (pose * 1e-3f) + shuffle, 0.3f + (pose * 2.5e-4f) - shuffle);
-        return (centreM, Heading.Unit((pose * 5e-5f) + shuffle));
-    }
-
-    /// <summary>
-    /// <b>A car kept in a recall is found over exactly what a fresh read finds</b>, at every pose of a shuffle
-    /// and a drift that carries it from inside one lane across the line and over both.
+    /// <b>A walker stands as a single wheel at its centre</b> (TER-4c.2): on the lane under it alone, held its radius
+    /// either side of where it stands along it, to within a lattice step — however near the other lane its body reaches.
     /// </summary>
     [Fact]
-    public void ABoxKeptInARecallIsFoundOverWhatAFreshReadFinds()
+    public void AWalkerIsOnTheLaneUnderItsCentreOverItsRadiusEitherSide()
     {
+        const float AlongM = 20f, RadiusM = 0.5f;
         var atlas = Laid(
             (new Vector2(0f, 0f), new Vector2(LengthM, 0f)),
             (new Vector2(LengthM, WidthM), new Vector2(0f, WidthM)));
-        var recall = new RibbonAtlas.Recall(1);
-        Span<WayCover> fresh = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
+        Span<WayCover> under = stackalloc WayCover[8];
+        var centreM = new Vector2(AlongM, (WidthM * 0.5f) - RibbonAtlas.ReachOf(atlas.StepM) - ClearM);
 
-        for (var pose = 0; pose < Poses; pose++)
-        {
-            var (centreM, forward) = PoseAt(pose);
-            var count = atlas.UnderBox(centreM, forward, 2f, 1f, fresh);
+        var count = atlas.UnderAWheel(centreM, RadiusM, under);
 
-            Assert.Equal(fresh[..count].ToArray(), atlas.UnderBox(centreM, forward, 2f, 1f, recall, 0).ToArray());
-        }
-    }
-
-    /// <summary><b>The same for a walker</b>, whose disc is narrower than a lattice step.</summary>
-    [Fact]
-    public void ADiscKeptInARecallIsFoundOverWhatAFreshReadFinds()
-    {
-        const float RadiusM = 0.3f;
-        var atlas = Laid(
-            (new Vector2(0f, 0f), new Vector2(LengthM, 0f)),
-            (new Vector2(LengthM, WidthM), new Vector2(0f, WidthM)));
-        var recall = new RibbonAtlas.Recall(1);
-        Span<WayCover> fresh = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
-
-        for (var pose = 0; pose < Poses; pose++)
-        {
-            var (centreM, _) = PoseAt(pose);
-            var count = atlas.UnderDisc(centreM, RadiusM, fresh);
-
-            Assert.Equal(fresh[..count].ToArray(), atlas.UnderDisc(centreM, RadiusM, recall, 0).ToArray());
-        }
+        Assert.Equal(1, count);
+        Assert.Equal(0, under[0].Way);
+        Assert.InRange(under[0].FromM, AlongM - RadiusM - atlas.StepM, AlongM - RadiusM);
+        Assert.InRange(under[0].ToM, AlongM + RadiusM, AlongM + RadiusM + atlas.StepM);
     }
 }

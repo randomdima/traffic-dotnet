@@ -1,33 +1,30 @@
+using System.Numerics;
+using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
-using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.Core.Config;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Town;
 
 /// <summary>
-/// <b>The physical layer</b> (TER-4c.2): every body with a collider, on every way whose ribbon that collider
-/// stands over, at p0 — read off the atlas at the pose the solver left it in, and nothing worked out about
-/// the ground on the way.
+/// <b>The physical layer</b> (TER-4c.2): every body on the ways it stands on, at p0 — a car on the ways under its
+/// wheels, a walker on those under its centre, a single wheel — read off the atlas at the pose the solver left it in,
+/// and nothing worked out about the ground on the way.
 /// </summary>
 internal sealed partial class TownWorld
 {
-    /// <summary>What the atlas last found under each car, so one standing still is not read again every tick.</summary>
-    readonly RibbonAtlas.Recall _groundUnderCars;
-
-    /// <summary>The same for each walker.</summary>
-    readonly RibbonAtlas.Recall _groundUnderWalkers;
-
     /// <summary>
-    /// <b>A car where its collider stands</b>: every way the atlas finds under its box, over the stretch it
-    /// covers — whatever the car is doing, whoever is driving it and whether it is broken.
+    /// <b>A car where its wheels stand</b>: every way the atlas finds under any of its four, over the stretch its wheels
+    /// hold of it — whatever the car is doing, whoever is driving it and whether it is broken. A car with no wheel on a way
+    /// is on the grass, and on no way at all.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Its own box and never the square round it</b> (<see cref="RibbonAtlas.UnderBox"/>): a car on a
-    /// street at an angle to the lattice is on the lanes its shape is over, and a square round it would be
-    /// on the lane coming the other way.
+    /// <b>Its wheels and never its box</b> (<see cref="RibbonAtlas.UnderWheels"/>), read once a laying: which of them
+    /// stand on a way is what its tyres grip on until the next (<see cref="CarFleet.WheelsOnAWay"/>, TER-7b), and each
+    /// way's stretch is where its wheels on it stand, widened by <see cref="RoadFigures.HeldAroundAWheelM"/>.
     /// </para>
     /// <para>
     /// <b>Where it is travelling a way of its own line it says so</b> (<see cref="LaneClaim.OnItsLine"/>),
@@ -48,11 +45,8 @@ internal sealed partial class TownWorld
     void LayTheCarsBody(int car)
     {
         var occupant = LaidAs(car);
-        ref readonly var build = ref Cars.BuildOf(car);
-        var halfM = build.CollisionSizeM * 0.5f;
-
-        var under = _atlas.UnderBox(
-            Cars.PositionM[car], Heading.Unit(Cars.HeadingRad[car]), halfM.X, halfM.Y, _groundUnderCars, car, Cars.Channels[car]);
+        Span<WayCover> covers = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
+        var under = WaysUnderTheWheels(car, Cars.Channels[car], covers);
 
         var travelling = IsUnderWay(occupant);
         var stopMps = _config.Driving.StopSpeedMps;
@@ -78,23 +72,36 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
+    /// The ways under a car's four wheels where the fleet has it, read on these channels (<see cref="RibbonAtlas.UnderWheels"/>),
+    /// and which of its wheels stand on one kept for its tyres.
+    /// </summary>
+    ReadOnlySpan<WayCover> WaysUnderTheWheels(int car, byte channels, Span<WayCover> into)
+    {
+        Span<Vector2> wheelsM = stackalloc Vector2[TyreModel.Wheels];
+        TyreModel.WheelPointsM(Cars.BuildOf(car), PoseOf(car), wheelsM);
+        var count = _atlas.UnderWheels(wheelsM, _config.Road.HeldAroundAWheelM, into, out Cars.WheelsOnAWay[car], channels);
+        return into[..count];
+    }
+
+    /// <summary>
     /// Which of the town's cars this body's ground is held under — <b>itself, or the vehicle pulling it</b>
     /// (EVA-5).
     /// </summary>
     int LaidAs(int car) => _recovery.OnTheHookOf[car] is var hauler and >= 0 ? hauler : car;
 
     /// <summary>
-    /// <b>A person where its collider stands</b> (TER-4c.2): the ground its body covers (<see cref="WalkingGround.BodyCover"/>),
+    /// <b>A person where its centre stands</b> (TER-4c.2): the ground its body covers (<see cref="WalkingGround.BodyCover"/>),
     /// laid under whoever the town holds that ground as (<see cref="GroundHeldAs"/>).
     /// </summary>
     /// <param name="body">Room for one body's pieces (<see cref="WalkingGround.MostPiecesOfABody"/>), written over.</param>
     void LayTheWalkersBody(int person, Span<BodyPiece> body)
     {
+        var occupant = HoldTheWalkersGround(person, out var roster);
+
         // PHY-7: inside a container there is no body in the world and nothing in anybody's way.
         if (People.Inside[person].Any) return;
 
-        var occupant = HoldTheWalkersGround(person, out var roster);
-        var count = _walkingGround.BodyCover(person, _groundUnderWalkers, body);
+        var count = _walkingGround.BodyCover(person, body);
         foreach (ref readonly var piece in body[..count])
         {
             _occupancy.LayBody(

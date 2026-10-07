@@ -129,10 +129,14 @@ internal sealed partial class TownWorld
         static bool Same(System.Numerics.Vector2 one, System.Numerics.Vector2 other) => one.X.Equals(other.X) && one.Y.Equals(other.Y);
     }
 
-    /// <summary>The channels a device found a car's body over (<see cref="LayTheCarsBody"/>), put on where they differ.</summary>
-    public void OnTheChannelsOfItsBody(int car, byte channels)
+    /// <summary>
+    /// What a device read under a car's wheels when it laid its body (<see cref="LayTheCarsBody"/>): the channels of the
+    /// ways they stand on, put on where they differ, and which of them stand on one, kept for its tyres.
+    /// </summary>
+    public void OnTheGroundOfItsBody(int car, byte channels, byte wheelsOnAWay)
     {
         if (channels != Cars.Channels[car]) PutOnChannels(car, channels);
+        Cars.WheelsOnAWay[car] = wheelsOnAWay;
     }
 
     /// <summary>How a device's answering of the plans went (<see cref="AnswerThePlans"/>): answers moved past the first pass, and whether they settled.</summary>

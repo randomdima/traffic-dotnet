@@ -73,24 +73,23 @@ layout(std430, binding = 0) readonly buffer Builds { CarBuildRow builds[]; };
 layout(std430, binding = 1) readonly buffer BuildOf { uint buildOf[]; };
 layout(std430, binding = 2) readonly buffer Poses { TyrePose poses[]; };
 layout(std430, binding = 3) buffer Commands { TyreCommand commands[]; };
-layout(std430, binding = 4) readonly buffer CarRows { TyreCarRow carRows[]; };
-layout(std430, binding = 5) buffer LineArcs { Arc lineArcs[]; };
-layout(std430, binding = 6) buffer Entries { float entries[]; };
-layout(std430, binding = 7) buffer Chain { int chain[]; };
-layout(std430, binding = 8) buffer Starts { float starts[]; };
-layout(std430, binding = 9) buffer Ends { float ends[]; };
-layout(std430, binding = 10) buffer FirstArcs { uint firstArcs[]; };
-layout(std430, binding = 11) buffer Breaks { uint breaks[]; };
-layout(std430, binding = 12) buffer Lines { CarLineRow lines[]; };
-layout(std430, binding = 13) readonly buffer LaneLength { float laneLength[]; };
-layout(std430, binding = 14) readonly buffer ConnectorAt { uint connectorAt[]; };
-layout(std430, binding = 15) readonly buffer ConnectorTo { int connectorTo[]; };
-layout(std430, binding = 16) readonly buffer ConnectorRung { uint connectorRung[]; };
-layout(std430, binding = 17) readonly buffer ConnectorLength { float connectorLength[]; };
-layout(std430, binding = 18) readonly buffer LanePassable { uint lanePassable[]; };
-layout(std430, binding = 19) readonly buffer Rows { ClaimRow rows[]; };
-layout(std430, binding = 20) readonly buffer PlannedRuns { uvec2 plannedRuns[]; };
-layout(std430, binding = 21) readonly buffer PlannedOrder { uint plannedOrder[]; };
+layout(std430, binding = 4) buffer LineArcs { Arc lineArcs[]; };
+layout(std430, binding = 5) buffer Entries { float entries[]; };
+layout(std430, binding = 6) buffer Chain { int chain[]; };
+layout(std430, binding = 7) buffer Starts { float starts[]; };
+layout(std430, binding = 8) buffer Ends { float ends[]; };
+layout(std430, binding = 9) buffer FirstArcs { uint firstArcs[]; };
+layout(std430, binding = 10) buffer Breaks { uint breaks[]; };
+layout(std430, binding = 11) buffer Lines { CarLineRow lines[]; };
+layout(std430, binding = 12) readonly buffer LaneLength { float laneLength[]; };
+layout(std430, binding = 13) readonly buffer ConnectorAt { uint connectorAt[]; };
+layout(std430, binding = 14) readonly buffer ConnectorTo { int connectorTo[]; };
+layout(std430, binding = 15) readonly buffer ConnectorRung { uint connectorRung[]; };
+layout(std430, binding = 16) readonly buffer ConnectorLength { float connectorLength[]; };
+layout(std430, binding = 17) readonly buffer LanePassable { uint lanePassable[]; };
+layout(std430, binding = 18) readonly buffer Rows { ClaimRow rows[]; };
+layout(std430, binding = 19) readonly buffer PlannedRuns { uvec2 plannedRuns[]; };
+layout(std430, binding = 20) readonly buffer PlannedOrder { uint plannedOrder[]; };
 
 #include "core/geometry/kernels/arc_chain.glsl"
 #include "world/road/kernels/road_joins.glsl"
@@ -101,15 +100,15 @@ layout(std430, binding = 21) readonly buffer PlannedOrder { uint plannedOrder[];
 #include "world/town/kernels/drive_context.glsl"
 #include "world/town/kernels/car_tick.glsl"
 
-layout(std430, binding = 22) readonly buffer Cutters { ClaimRow cutters[]; };
-layout(std430, binding = 23) readonly buffer Grants { CarGrantRow grants[]; };
-layout(std430, binding = 24) readonly buffer Told { CarToldRow told[]; };
-layout(std430, binding = 25) buffer Ticks { CarTickRow ticks[]; };
-layout(std430, binding = 26) writeonly buffer Contexts { DriveContextRow contexts[]; };
-layout(std430, binding = 27) buffer Boxes { BoxAheadRow boxes[]; };
-layout(std430, binding = 28) readonly buffer Taken { uint taken[]; };
-layout(std430, binding = 29) buffer Passes { OvertakeRow passes[]; };
-layout(std430, binding = 30) readonly buffer HoldBits { uint holdBits[]; };
+layout(std430, binding = 21) readonly buffer Cutters { ClaimRow cutters[]; };
+layout(std430, binding = 22) readonly buffer Grants { CarGrantRow grants[]; };
+layout(std430, binding = 23) readonly buffer Told { CarToldRow told[]; };
+layout(std430, binding = 24) buffer Ticks { CarTickRow ticks[]; };
+layout(std430, binding = 25) writeonly buffer Contexts { DriveContextRow contexts[]; };
+layout(std430, binding = 26) buffer Boxes { BoxAheadRow boxes[]; };
+layout(std430, binding = 27) readonly buffer Taken { uint taken[]; };
+layout(std430, binding = 28) buffer Passes { OvertakeRow passes[]; };
+layout(std430, binding = 29) readonly buffer HoldBits { uint holdBits[]; };
 
 void main()
 {
@@ -125,8 +124,7 @@ void main()
     OvertakeRow pass = passes[car];
     DriveContextRow context;
     carTick(
-        car, builds[buildOf[car]], poses[car], carRows[car].groundCoefficient, toldRow, grants[car], cutters[car], tick, line,
-        command, context, box, pass);
+        car, builds[buildOf[car]], poses[car], toldRow, grants[car], cutters[car], tick, line, command, context, box, pass);
 
     ticks[car] = tick;
     lines[car] = line;

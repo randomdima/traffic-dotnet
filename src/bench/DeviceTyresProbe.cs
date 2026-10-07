@@ -9,7 +9,6 @@ using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Physics;
 using TrafficSimulation.World.Statics;
-using TrafficSimulation.World.Terrain;
 using TrafficSimulation.World.Town;
 using Vk = TrafficSimulation.Runtime.Vk;
 
@@ -91,7 +90,7 @@ internal static class DeviceTyresProbe
         {
             host.TakeFrom(fleet, count);
             var took = Stopwatch.StartNew();
-            HostPass(config, world.Terrain, world.PhysicsForInstruments, fleet, poses, host);
+            HostPass(config, world.WheelGrounds, world.PhysicsForInstruments, fleet, poses, host);
             hostMs = Math.Min(hostMs, took.Elapsed.TotalMilliseconds);
         }
 
@@ -111,9 +110,7 @@ internal static class DeviceTyresProbe
         }
 
         using var vk = Vk.Open("traffic-dotnet", validation: false);
-        var shapes = new GroundShapes(plan.Paving(config), config);
-        using var ground = new DeviceGround(vk, shapes.Table);
-        using var tyres = new DeviceTyres(vk, config, ground, world.Terrain.EffectTable, builds.ToArray(), count);
+        using var tyres = new DeviceTyres(vk, config, world.WheelGrounds, builds.ToArray(), count);
         var physics = world.PhysicsForInstruments;
         for (var car = 0; car < count; car++)
         {
@@ -121,8 +118,8 @@ internal static class DeviceTyresProbe
             tyres.Poses[car] = DeviceTyres.PoseRow.Of(poses[car]);
             tyres.Commands[car] = DeviceTyres.CommandRow.Of(fleet.Command[car]);
             tyres.Cars[car] = new DeviceTyres.CarRow(
-                fleet.GroundCoefficient[car], 1f / physics.InverseInertiaOf(fleet.Body[car]), fleet.SlipThrottle[car],
-                DeviceTyres.CarRow.FlagsOf(fleet.Action[car] == CarAction.Hand, fleet.DrivenSlipping[car], fleet.LevelOf(car)));
+                1f / physics.InverseInertiaOf(fleet.Body[car]), fleet.SlipThrottle[car],
+                DeviceTyres.CarRow.FlagsOf(fleet.Action[car] == CarAction.Hand, fleet.DrivenSlipping[car], fleet.WheelsOnAWay[car]));
             for (var wheel = car * TyreModel.Wheels; wheel < (car + 1) * TyreModel.Wheels; wheel++)
             {
                 tyres.Wheels[wheel] = new DeviceTyres.WheelRow(
@@ -169,12 +166,12 @@ internal static class DeviceTyresProbe
             Console.WriteLine(
                 $"    wheel {wheel - (car * TyreModel.Wheels)}: host {host.Impulses[wheel]} spin {host.SpinMps[wheel]} {host.Scrub[wheel]} " +
                 $"{host.Ground[wheel]} travel {host.ScrubTravelM[wheel]} marking {host.Marking[wheel]} from {host.MarkFromM[wheel]} " +
-                $"{host.MarkIntensity[wheel]}; device {spent} {tyres.WheelsAfter[wheel]} {tyres.Scrub[wheel]} {tyres.Ground[wheel]}");
+                $"{host.MarkIntensity[wheel]}; device {spent} {tyres.WheelsAfter[wheel]} {tyres.Scrub[wheel]}");
         }
     }
 
     /// <summary>Every car's pass as the tick asks it, in roster order, with the marks each lays kept in that order.</summary>
-    static void HostPass(SimConfig config, GroundLocator terrain, PhysicsWorld physics, CarFleet fleet, CarPose[] poses, Carried host)
+    static void HostPass(SimConfig config, in WheelGrounds grounds, PhysicsWorld physics, CarFleet fleet, CarPose[] poses, Carried host)
     {
         Span<TyreMark> marks = stackalloc TyreMark[TyreModel.Wheels];
         host.LaidCount = 0;
@@ -182,8 +179,8 @@ internal static class DeviceTyresProbe
         {
             var four = car * TyreModel.Wheels;
             host.AtRest[car] = TyrePass.Step(
-                config, terrain, fleet.BuildOf(car), poses[car], fleet.Command[car], fleet.Action[car] == CarAction.Hand,
-                fleet.GroundCoefficient[car], 1f / physics.InverseInertiaOf(fleet.Body[car]), fleet.LevelOf(car), host.Of(car),
+                config, grounds, fleet.BuildOf(car), poses[car], fleet.Command[car], fleet.Action[car] == CarAction.Hand,
+                1f / physics.InverseInertiaOf(fleet.Body[car]), fleet.WheelsOnAWay[car], host.Of(car),
                 host.Ground.AsSpan(four, TyreModel.Wheels), host.Impulses.AsSpan(four, TyreModel.Wheels),
                 host.Scrub.AsSpan(four, TyreModel.Wheels), marks, out var laid);
             for (var mark = 0; mark < laid; mark++) host.Laid[host.LaidCount++] = (car, marks[mark]);
@@ -213,8 +210,7 @@ internal static class DeviceTyresProbe
                 var scrub = tyres.Scrub[wheel];
                 var hostScrub = host.Scrub[wheel];
                 outcomes &= host.Marking[wheel] == (carried.Marking != 0)
-                    && ((hostScrub.Ploughing ? 1u : 0u) | (hostScrub.Sliding ? 2u : 0u)) == scrub.Flags
-                    && (host.AtRest[car] || DeviceTyres.SurfaceRow.Of(host.Ground[wheel]) == tyres.Ground[wheel]);
+                    && ((hostScrub.Ploughing ? 1u : 0u) | (hostScrub.Sliding ? 2u : 0u)) == scrub.Flags;
                 ReadOnlySpan<(float Host, float Device)> figures =
                 [
                     (host.SpinMps[wheel], carried.SpinMps), (host.ScrubTravelM[wheel], carried.ScrubTravelM),

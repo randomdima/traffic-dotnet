@@ -362,7 +362,6 @@ internal sealed class TwoTowns : IDisposable
 
     readonly SimLoop<TownWorld> _hostLoop;
     readonly SimLoop<TownWorld> _deviceLoop;
-    readonly DeviceGround _ground;
     readonly DeviceTyres _tyres;
     readonly DeviceTownBodies _bodies;
 
@@ -375,10 +374,8 @@ internal sealed class TwoTowns : IDisposable
         _deviceLoop = new SimLoop<TownWorld>(OnDevice, Config);
 
         var cars = OnDevice.Cars;
-        var shapes = new GroundShapes(plan.Paving(Config), Config);
-        _ground = new DeviceGround(device.Vk, shapes.Table);
         var builds = Enumerable.Range(0, CarCatalog.Shared.SheetCount).Select(variant => cars.BuildOfVariant(variant)).ToArray();
-        _tyres = new DeviceTyres(device.Vk, Config, _ground, OnDevice.Terrain.EffectTable, builds, cars.Capacity);
+        _tyres = new DeviceTyres(device.Vk, Config, OnDevice.WheelGrounds, builds, cars.Capacity);
         _bodies = new DeviceTownBodies(device.Vk, Config, OnDevice, _tyres);
         _bodies.Solver.SolveInContactOrder = true;
         if (handedAtOnce) HandOver();
@@ -507,7 +504,6 @@ internal sealed class TwoTowns : IDisposable
     {
         _bodies.Dispose();
         _tyres.Dispose();
-        _ground.Dispose();
         Host.Dispose();
         OnDevice.Dispose();
     }

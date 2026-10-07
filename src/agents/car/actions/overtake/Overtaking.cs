@@ -109,14 +109,12 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     readonly bool[] _laidSinceAsked = new bool[ground.Cars.Capacity];
 
     /// <summary>
-    /// The room each car keeps to step out from rest (<see cref="KeptOffWhatItMayPassM"/>), and the lane and ground it was drawn for —
-    /// the only things it reads that change.
+    /// The room each car keeps to step out from rest (<see cref="KeptOffWhatItMayPassM"/>), and the lane it was drawn for —
+    /// the only thing it reads that changes.
     /// </summary>
     readonly float[] _roomM = new float[ground.Cars.Capacity];
 
-    readonly int[] _roomLane = new int[ground.Cars.Capacity];
-
-    readonly float[] _roomSurface = Unset(ground.Cars.Capacity);
+    readonly int[] _roomLane = Unset(ground.Cars.Capacity);
 
     CarFleet Cars => ground.Cars;
 
@@ -291,7 +289,7 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
         var speedMps = MathF.Max(0f, alongMps);
         if (speedMps <= shape.OutMps) return true;
 
-        var brakingMps2 = CarFollower.BrakingMps2(Config, Cars.BuildOf(car), Cars.GroundCoefficient[car]);
+        var brakingMps2 = CarFollower.BrakingMps2(Config, Cars.BuildOf(car));
         var slowsOverM = (speedMps * Config.CarReactionS)
                          + (((speedMps * speedMps) - (shape.OutMps * shape.OutMps)) / (2f * brakingMps2));
         return slowsOverM <= toM;
@@ -541,7 +539,7 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     {
         ref readonly var build = ref Cars.BuildOf(car);
         var speedMps = MathF.Max(0f, alongMps);
-        var brakingMps2 = CarFollower.BrakingMps2(Config, build, Cars.GroundCoefficient[car]);
+        var brakingMps2 = CarFollower.BrakingMps2(Config, build);
         var slowsFromM = DrivingGround.StoppingM(speedMps, brakingMps2 * Config.Driving.WaitingToPassBrakingShare)
                          + (speedMps * CarFollower.LeadS(Config, build, brakingMps2)) + Config.Driving.PassSpareM;
         return toTheStopM <= slowsFromM;
@@ -656,7 +654,7 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
         var clearsM = noseM;
         if (!Passes(car, ways[..count], cutOn, cutBy, passed, passedOn, ref passedCount, ref clearsM)) return false;
 
-        var corneringMps2 = CarFollower.CorneringMps2(Config, build, Cars.GroundCoefficient[car]);
+        var corneringMps2 = CarFollower.CorneringMps2(Config, build);
         var bandM = Roads.LaneWidthM[lane] * 0.5f;
         var lineBend = 0f;
         while (true)
@@ -1217,33 +1215,31 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// <summary>
     /// <b>How far short of what it passes a car's nose stands to step out round it from rest</b>, on the lane it is on:
     /// the lead of the shortest step it can drive from a standstill, and the pass's spare — or nothing where no step
-    /// takes it off the lane. Drawn once a lane and a ground, which are all it reads that change.
+    /// takes it off the lane. Drawn once a lane, which is all it reads that changes.
     /// </summary>
     float RoomToStepOutM(int car)
     {
         var lane = Cars.LaneOf(car);
-        var surface = Cars.GroundCoefficient[car];
-        if (_roomLane[car] == lane && _roomSurface[car] == surface) return _roomM[car];
+        if (_roomLane[car] == lane) return _roomM[car];
 
         ref readonly var build = ref Cars.BuildOf(car);
         var asideM = (Roads.LaneWidthM[lane] + Roads.LaneWidthM[Roads.LaneReverse[lane]]) * 0.5f;
-        var corneringMps2 = CarFollower.CorneringMps2(Config, build, surface);
+        var corneringMps2 = CarFollower.CorneringMps2(Config, build);
         var leadM = CarFollower.ShapeAPass(build, 0f, asideM, corneringMps2, 0f, out var stepM, out _)
             ? StepOutLeadM(build, asideM, stepM, Roads.LaneWidthM[lane] * 0.5f)
             : float.PositiveInfinity;
 
         _roomLane[car] = lane;
-        _roomSurface[car] = surface;
         return _roomM[car] = float.IsPositiveInfinity(leadM)
             ? float.NegativeInfinity
             : leadM + Config.Driving.PassSpareM - build.NoseAheadOfAxleM;
     }
 
-    static float[] Unset(int count)
+    static int[] Unset(int count)
     {
-        var figures = new float[count];
-        Array.Fill(figures, float.NaN);
-        return figures;
+        var lanes = new int[count];
+        Array.Fill(lanes, CarFleet.NoLane);
+        return lanes;
     }
 
     /// <summary>How far across its line this car is aimed at one metre of it: its pass's, once begun, and none otherwise.</summary>

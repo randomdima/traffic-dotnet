@@ -19,8 +19,8 @@ internal sealed partial class TownWorld
     {
         Span<TyreMark> marks = stackalloc TyreMark[TyreModel.Wheels];
         var atRest = TyrePass.Step(
-            _config, _terrain, Cars.BuildOf(car), pose, Cars.Command[car], Cars.Action[car] == CarAction.Hand,
-            Cars.GroundCoefficient[car], 1f / _physics.InverseInertiaOf(Cars.Body[car]), Cars.LevelOf(car), Cars.TyresOf(car),
+            _config, WheelGrounds, Cars.BuildOf(car), pose, Cars.Command[car], Cars.Action[car] == CarAction.Hand,
+            1f / _physics.InverseInertiaOf(Cars.Body[car]), Cars.WheelsOnAWay[car], Cars.TyresOf(car),
             _wheels.GroundUnder(car), _wheels.ImpulsesOf(car), _wheels.ScrubOf(car), marks, out var laid);
 
         foreach (ref readonly var mark in marks[..laid])

@@ -348,9 +348,6 @@ internal static class Program
             case "devicestep":
                 DeviceStepProbe.Run(map ?? Options.FixtureMap, config);
                 return 0;
-            case "deviceground":
-                DeviceGroundProbe.Run(map ?? Options.FixtureMap, config);
-                return 0;
             case "devicetyres":
                 DeviceTyresProbe.Run(map ?? Options.FixtureMap, config);
                 return 0;

@@ -10,7 +10,7 @@ namespace TrafficSimulation.App.DeviceTick;
 /// <summary>
 /// <b>The atlas on the device</b>: <see cref="RibbonAtlas"/>' own tables laid into storage buffers once
 /// (<c>world/road/kernels/atlas.glsl</c>), and which ways a body stands over answered off them — what every claims
-/// rebuild asks of every car's box and every walker's disc (TER-4c.2). Laid at load and never written again.
+/// rebuild asks of every car's wheels and every walker's disc (TER-4c.2). Laid at load and never written again.
 /// </summary>
 /// <remarks>
 /// <b>It needs doubles on the device</b> (<see cref="Vk.HasFloat64"/>): a box's edge and a disc's are a quotient and a
@@ -45,6 +45,11 @@ internal sealed class DeviceAtlas : IDisposable
     /// <summary>What one body was found over: how many ways, and how many were dropped for want of room.</summary>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct CountRow(uint Count, uint Dropped);
+
+    /// <summary>One car's four wheels asked (<c>atlas_wheels.comp</c>), in the tyre model's order, and how far its body is held either side of each.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal readonly record struct WheelsRow(
+        Vector2 Wheel0M, Vector2 Wheel1M, Vector2 Wheel2M, Vector2 Wheel3M, float AroundAWheelM, uint Channels);
 
     /// <summary>The ask's push constants (<c>atlas_under.comp</c>): every figure the read takes that is a number.</summary>
     [StructLayout(LayoutKind.Sequential)]

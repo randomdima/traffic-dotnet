@@ -178,9 +178,12 @@ internal readonly record struct CarBuild
 
     public float TailBehindAxleM => HalfLengthM - CentreAheadOfAxleM;
 
-    /// <summary>What it may be braking at at all on this ground: the pedal's cap, or what the patch puts down.</summary>
-    public float UtmostBrakingMps2(float groundCoefficient) =>
-        MathF.Min(BrakingMps2, GripMps2 * groundCoefficient);
+    /// <summary>What it may be braking at at all: the pedal's cap, or what its own patch puts down.</summary>
+    /// <remarks>
+    /// <b>Its own rubber and no ground</b>: what a wheel stands on is its tyre's alone (TER-7b), and no figure the car
+    /// plans by turns on it.
+    /// </remarks>
+    public float UtmostBrakingMps2 => MathF.Min(BrakingMps2, GripMps2);
 
     /// <summary>
     /// Where the wheel is after a tick of winding it from <paramref name="fromRad"/> towards
@@ -197,8 +200,7 @@ internal readonly record struct CarBuild
     }
 
     /// <summary>The widest a line has to be drawn for <em>this</em> car to hold this speed round it.</summary>
-    public float CorneringRadiusM(float atMps, float groundCoefficient, float gripMargin) =>
-        atMps * atMps / (GripMps2 * groundCoefficient * gripMargin);
+    public float CorneringRadiusM(float atMps, float gripMargin) => atMps * atMps / (GripMps2 * gripMargin);
 
     /// <summary>
     /// One variant as the car it is: its own dimensions and mass, and the nominal figures scaled by what

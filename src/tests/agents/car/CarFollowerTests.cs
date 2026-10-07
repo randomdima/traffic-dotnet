@@ -24,9 +24,6 @@ public class CarFollowerTests
 
     static readonly ArcSeg[] Straight = [new ArcSeg(Vector2.Zero, 0f, 400f, 0f)];
 
-    /// <summary>The ground every question here is asked on unless it says otherwise.</summary>
-    const float OnTarmac = 1f;
-
     static CarPose At(float alongM, float alongMps) =>
         new(new Vector2(alongM + Car.CentreAheadOfAxleM, 0f), 0f, new Vector2(alongMps, 0f), 0f,
             Figures.Car.MassKg, Vector2.Zero);
@@ -140,7 +137,7 @@ public class CarFollowerTests
     [InlineData(25f)]
     public void AGrantOfItsLeadAndItsStopHoldsTheSpeedItIsDoing(float alongMps)
     {
-        var brakingMps2 = CarFollower.BrakingMps2(Figures, Car, 1f);
+        var brakingMps2 = CarFollower.BrakingMps2(Figures, Car);
         var neededM = (alongMps * CarFollower.LeadS(Figures, Car, brakingMps2))
                       + (alongMps * alongMps / (2f * brakingMps2));
 
@@ -182,7 +179,7 @@ public class CarFollowerTests
     public void AGrantCutShortUnderTheCarIsAHazardAndOneItCanStopInIsNot()
     {
         const float AlongMps = 15f;
-        var utmostM = AlongMps * AlongMps / (2f * Car.UtmostBrakingMps2(1f));
+        var utmostM = AlongMps * AlongMps / (2f * Car.UtmostBrakingMps2);
 
         Assert.True(CarFollower.IsAHazard(Figures, Car, AlongMps, DriveContext.Clear with { AuthorityM = utmostM * 0.9f }));
         Assert.False(CarFollower.IsAHazard(Figures, Car, AlongMps, DriveContext.Clear with { AuthorityM = utmostM * 1.1f }));
@@ -220,23 +217,11 @@ public class CarFollowerTests
         Assert.Equal(openPlannedMps, heldPlannedMps);
     }
 
-    /// <summary>Ground worth less is planned against as ground worth less, in the corner and in the stop alike.</summary>
-    [Fact]
-    public void SoftGroundIsPlannedForRatherThanDiscovered()
-    {
-        ReadOnlySpan<ArcSeg> bend = [new ArcSeg(Vector2.Zero, 0f, 40f, 1f / 20f)];
-
-        var onTarmac = Target(bend, 1f, 5f, DriveContext.Clear, out _);
-        var onGrass = Target(bend, 1f, 5f, DriveContext.Clear with { GroundCoefficient = 0.8f }, out _);
-
-        Assert.Equal(MathF.Sqrt(0.8f), onGrass / onTarmac, 1e-2f);
-    }
-
     /// <summary>Below the stop speed and with nowhere to go, a car holds itself with the handbrake rather than the pedal.</summary>
     [Fact]
     public void AStoppedCarHoldsItselfOnTheHandbrake()
     {
-        var command = CarFollower.Pedals(Figures, Car, 0f, 0f, 0f, OnTarmac, Figures.TickSeconds);
+        var command = CarFollower.Pedals(Figures, Car, 0f, 0f, 0f,Figures.TickSeconds);
 
         Assert.True(command.Handbrake);
         Assert.Equal(0f, command.ThrottleMps2);
@@ -249,7 +234,7 @@ public class CarFollowerTests
     [InlineData(30f, 0f, -30f)]
     public void OnePedalOrTheOtherAndNeverBoth(float alongMps, float targetMps, float lastMps2)
     {
-        var command = CarFollower.Pedals(Figures, Car, 0.1f, targetMps, alongMps, OnTarmac, Figures.TickSeconds, lastMps2);
+        var command = CarFollower.Pedals(Figures, Car, 0.1f, targetMps, alongMps,Figures.TickSeconds, lastMps2);
 
         Assert.True(command.ThrottleMps2 == 0f || command.BrakeMps2 == 0f);
         Assert.InRange(command.ThrottleMps2, 0f, Figures.CarAccelerationMps2);
@@ -265,14 +250,14 @@ public class CarFollowerTests
     public void ACarBrakingInABendKeepsTheBend()
     {
         const float radiusM = 40f;
-        var alongMps = MathF.Sqrt(CarFollower.CorneringMps2(Figures, Car, OnTarmac) * radiusM);
+        var alongMps = MathF.Sqrt(CarFollower.CorneringMps2(Figures, Car) * radiusM);
         var steerRad = MathF.Atan(Car.WheelbaseM / radiusM);
 
         var command = CarFollower.Pedals(
-            Figures, Car, steerRad, 0f, alongMps, OnTarmac, Figures.TickSeconds, -Figures.CarBrakingMps2);
+            Figures, Car, steerRad, 0f, alongMps,Figures.TickSeconds, -Figures.CarBrakingMps2);
 
         var acrossMps2 = alongMps * alongMps / radiusM;
-        var gripMps2 = Car.GripMps2 * OnTarmac;
+        var gripMps2 = Car.GripMps2;
         Assert.True(command.BrakeMps2 > 0f);
         Assert.True(
             (command.BrakeMps2 * command.BrakeMps2) + (acrossMps2 * acrossMps2) < gripMps2 * gripMps2,
@@ -286,9 +271,9 @@ public class CarFollowerTests
     [Fact]
     public void OnAStraightItBrakesAtWhatEveryStopIsPlannedAgainst()
     {
-        var command = CarFollower.Pedals(Figures, Car, 0f, 0f, 20f, OnTarmac, Figures.TickSeconds, -Figures.CarBrakingMps2);
+        var command = CarFollower.Pedals(Figures, Car, 0f, 0f, 20f,Figures.TickSeconds, -Figures.CarBrakingMps2);
 
-        Assert.Equal(CarFollower.BrakingMps2(Figures, Car, OnTarmac), command.BrakeMps2, 1e-4f);
+        Assert.Equal(CarFollower.BrakingMps2(Figures, Car), command.BrakeMps2, 1e-4f);
     }
 
     /// <summary>
@@ -303,13 +288,13 @@ public class CarFollowerTests
 
         // Flat out, then asked for a standstill: what arrives this tick is one tick of pedal travel.
         var first = CarFollower.Pedals(
-            Figures, Car, 0f, 0f, 30f, OnTarmac, Figures.TickSeconds, Figures.CarAccelerationMps2);
+            Figures, Car, 0f, 0f, 30f,Figures.TickSeconds, Figures.CarAccelerationMps2);
 
         Assert.Equal(Figures.CarAccelerationMps2 - travelMps2, CarFollower.PedalMps2(first), 1e-3f);
 
         // And the tick after that, from where it got to — so the whole travel is a pedal-travel long.
         var second = CarFollower.Pedals(
-            Figures, Car, 0f, 0f, 30f, OnTarmac, Figures.TickSeconds, CarFollower.PedalMps2(first));
+            Figures, Car, 0f, 0f, 30f,Figures.TickSeconds, CarFollower.PedalMps2(first));
 
         Assert.Equal(Figures.CarAccelerationMps2 - (2f * travelMps2), CarFollower.PedalMps2(second), 1e-3f);
     }

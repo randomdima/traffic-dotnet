@@ -39,13 +39,12 @@ public class FollowerKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
 
     [StructLayout(LayoutKind.Sequential)]
     readonly record struct ContextRow(
-        float GroundCoefficient, float AuthorityM, uint GrantCutBy, float PlaceStopM, float MarginM, uint WaitsToPass,
-        float HorizonM, float PassAsideM, float BackUpM, uint Blocked, float WaitAtM, float Pad)
+        float AuthorityM, uint GrantCutBy, float PlaceStopM, float MarginM, uint WaitsToPass, float HorizonM, float PassAsideM,
+        float BackUpM, uint Blocked, float WaitAtM, float Pad0, float Pad1)
     {
         public static ContextRow Of(in DriveContext context) => new(
-            context.GroundCoefficient, context.AuthorityM, (uint)context.GrantCutBy, context.PlaceStopM, context.MarginM,
-            context.WaitsToPass ? 1u : 0u, context.HorizonM, context.PassAsideM, context.BackUpM, context.Blocked ? 1u : 0u,
-            context.WaitAtM, 0f);
+            context.AuthorityM, (uint)context.GrantCutBy, context.PlaceStopM, context.MarginM, context.WaitsToPass ? 1u : 0u,
+            context.HorizonM, context.PassAsideM, context.BackUpM, context.Blocked ? 1u : 0u, context.WaitAtM, 0f, 0f);
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -112,7 +111,7 @@ public class FollowerKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
                 rearAxleM + (forward * build.CentreAheadOfAxleM), heading, forward * alongMps, Between(-0.3f, 0.3f), build.MassKg,
                 Vector2.Zero);
             var context = new DriveContext(
-                Between(0.3f, 1f), Sometimes(Between(-2f, 120f), 2), (HeadwayKind)random.Next(7), Sometimes(Between(0f, 150f), 6),
+                Sometimes(Between(-2f, 120f), 2), (HeadwayKind)random.Next(7), Sometimes(Between(0f, 150f), 6),
                 Between(0f, 2f), random.Next(8) == 0, Sometimes(Between(0f, 200f), 3), 0f, 0f, false, Sometimes(Between(0f, 60f), 8));
             var reverse = !onPasses && random.Next(10) == 0;
             var last = new DriveCommand(Between(-0.4f, 0.4f), random.Next(2) == 0 ? Between(0f, 3f) : 0f, random.Next(3) == 0 ? Between(0f, 6f) : 0f, random.Next(5) == 0, reverse);
@@ -168,13 +167,13 @@ public class FollowerKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
     List<string> Differences(Car[] cars)
     {
         var builds = Builds;
-        var arcs = new List<DeviceGround.ArcRow>();
+        var arcs = new List<ArcRow>();
         var entries = new List<float>();
         var lines = new List<UInt4>();
         foreach (var car in cars)
         {
             var first = (uint)arcs.Count;
-            arcs.AddRange(car.Line.Select(arc => DeviceGround.ArcRow.Of(arc)));
+            arcs.AddRange(car.Line.Select(arc => ArcRow.Of(arc)));
             entries.AddRange(car.Entries);
             lines.Add(new UInt4(first, (uint)arcs.Count, (car.Reverse ? 1u : 0u) | (car.Laneless ? 2u : 0u) | (car.BlueLight ? 4u : 0u), 0u));
         }
@@ -184,7 +183,7 @@ public class FollowerKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         using var poses = device.Holding<PoseRow>(cars.Select(car => new PoseRow(
             car.Pose.PositionM, car.Pose.VelocityMps, car.Pose.Forward, car.Pose.AccelerationMps2, car.Pose.HeadingRad,
             car.Pose.YawRateRadPerS, car.Pose.MassKg, 0f)).ToArray());
-        using var lineArcs = device.Holding<DeviceGround.ArcRow>(CollectionsMarshal.AsSpan(arcs));
+        using var lineArcs = device.Holding<ArcRow>(CollectionsMarshal.AsSpan(arcs));
         using var entryBuffer = device.Holding<float>(CollectionsMarshal.AsSpan(entries));
         using var lineBuffer = device.Holding<UInt4>(CollectionsMarshal.AsSpan(lines));
         using var lineFigures = device.Holding<Vector4>(cars.Select(car => new Vector4(car.ProgressM, car.LengthM, car.AlongMps, car.PaceMps)).ToArray());

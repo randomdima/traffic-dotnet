@@ -532,8 +532,8 @@ public class WalkingTests
 
     /// <summary>
     /// A stretch of paint whose first metres are kerb rather than carriageway, with nothing of the driving
-    /// roster on it or on a lane beneath it — so that what a walker is told about it is the case's own
-    /// doing — and the pavement a walk arrives at it from.
+    /// roster on it or on a lane beneath it and no light holding it — so that what a walker is told about it is the
+    /// case's own doing — and the pavement a walk arrives at it from.
     /// </summary>
     static bool AQuietCrossing(TownWorld world, out int edge, out int from)
     {
@@ -543,7 +543,7 @@ public class WalkingTests
 
             var way = world.Ways.OfFootway(edge);
             var under = LanesUnder(world, way);
-            if (under.Count == 0 || !IsQuiet(world, way)) continue;
+            if (under.Count == 0 || !IsQuiet(world, way) || IsHeldByALight(world, way)) continue;
 
             var quiet = true;
             foreach (var lane in under) quiet &= IsQuiet(world, lane.OnWay);
@@ -584,6 +584,19 @@ public class WalkingTests
         }
 
         return true;
+    }
+
+    /// <summary>Whether a light holds any of this way (TLT-1) — a red the walker would be answered at, whoever stood where.</summary>
+    static bool IsHeldByALight(TownWorld world, int way)
+    {
+        var claims = new LaneClaim[MostClaimsOnAWay];
+        var count = world.Occupancy.CopyTo(way, claims);
+        for (var at = 0; at < count; at++)
+        {
+            if (claims[at].Of == LaneRoster.Signal) return true;
+        }
+
+        return false;
     }
 
     /// <summary>The pavement a walk reaches this stretch of paint from, or <see cref="PersonFleet.NoWay"/>.</summary>

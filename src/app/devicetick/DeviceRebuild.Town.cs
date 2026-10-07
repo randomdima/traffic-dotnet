@@ -52,7 +52,7 @@ internal sealed partial class DeviceRebuild
     internal readonly record struct CarOut(float ClaimToM, float CommittedToM, float HorizonM, uint Bits)
     {
         public const uint LaidAHold = 1u, HeldInItsPass = 2u;
-        public const int ChannelsShift = 8;
+        public const int ChannelsShift = 8, WheelsShift = 16;
     }
 
     /// <summary><c>rebuild_agents_out.comp</c>'s walker bits.</summary>
@@ -437,7 +437,7 @@ internal sealed partial class DeviceRebuild
             var channels = (byte)(carsOut[car].Bits >> CarOut.ChannelsShift);
             if (channels != cars.Channels[car] && CarActions.IsAtABay(cars.Action[car])) OnOtherChannelsAtABay++;
 
-            town.OnTheChannelsOfItsBody(car, channels);
+            town.OnTheGroundOfItsBody(car, channels, (byte)(carsOut[car].Bits >> CarOut.WheelsShift));
         }
 
         town.AnsweredOnTheDevice(LaidAgain(_claims.Moved, _config.Road.MostSettlingPasses, out var settled), settled);

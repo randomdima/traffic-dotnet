@@ -27,6 +27,7 @@ layout(push_constant) uniform Figures
     uint firstConnector;
     uint mostLanes;
     uint groundChannel;
+    float aroundAWheelM;
 } figures;
 
 #define ATLAS_FIGURES figures
@@ -64,8 +65,9 @@ void main()
     ClaimRow laid[AtlasMostWaysUnderABody];
     uint channels;
     uint dropped;
-    int count = bodyLayTheCar(cars[car], laid, channels, dropped);
-    counts[car] = uvec4(uint(count), channels, dropped, 0u);
+    uint wheelsOnAWay;
+    int count = bodyLayTheCar(cars[car], laid, channels, dropped, wheelsOnAWay);
+    counts[car] = uvec4(uint(count), channels, dropped, wheelsOnAWay);
     uint first = car * uint(AtlasMostWaysUnderABody);
     for (int at = 0; at < count; at++) rows[first + uint(at)] = laid[at];
 }

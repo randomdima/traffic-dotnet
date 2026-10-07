@@ -217,12 +217,11 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
         Cars.ProgressM[car] = progressM;
         Cars.AlongMps[car] = alongMps;
         Cars.OffLineM[car] = CarFollower.OffLineM(line, rearAxleM, progressM);
-        Cars.GroundCoefficient[car] = town.GroundCoefficientAt(pose.PositionM);
         Cars.CommittedToTheBox[car] = false;
 
         var context = new DriveContext(
-            Cars.GroundCoefficient[car], Cars.GrantLeftM(car), Cars.GrantCutBy[car],
-            MarginM: Cars.GrantMarginM[car], HorizonM: Cars.HorizonM[car] - Cars.CoveredSinceClaimM[car]);
+            Cars.GrantLeftM(car), Cars.GrantCutBy[car], MarginM: Cars.GrantMarginM[car],
+            HorizonM: Cars.HorizonM[car] - Cars.CoveredSinceClaimM[car]);
 
         Cars.Context[car] = context;
         town.Drive(car, build, pose, line, progressM, lengthM, context, travel, alongMps, reverse);

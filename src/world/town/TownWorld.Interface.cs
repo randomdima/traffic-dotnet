@@ -294,6 +294,7 @@ internal sealed partial class TownWorld
     {
         _builds.Resolve(_config);
         _terrain.FiguresChanged(_config);
+        WheelGrounds = WheelGrounds.Of(_config, _terrain);
 
         for (var car = 0; car < Cars.Count; car++)
         {
@@ -448,7 +449,6 @@ internal sealed partial class TownWorld
     {
         var forward = pose.Forward;
         var alongMps = Vector2.Dot(pose.VelocityMps, forward);
-        Cars.GroundCoefficient[car] = _terrain.At(pose.PositionM, Cars.LevelOf(car)).Coefficient;
 
         if (Cars.Line[car].ArcCount > 0)
         {

@@ -63,6 +63,11 @@ public class OvertakeInATownTests
     /// body stands on nothing but what its pass held the tick it began — to within the spare it was asked for with,
     /// which is as far as a car driving it is let stray.
     /// </summary>
+    /// <remarks>
+    /// And to within a lattice step: the body and the sweep are each read off the lattice points inside them, so the end
+    /// of either is the last point it takes in, and a body a hair from the sweep's last station can take in the next
+    /// point down the way where the station did not (TER-4c.4).
+    /// </remarks>
     [Fact]
     public void ACarOnAPassStandsOnlyOnTheGroundItsPassHeldWhenItBegan()
     {
@@ -84,8 +89,8 @@ public class OvertakeInATownTests
             var halfM = cars.BuildOf(driver).CollisionSizeM * 0.5f;
             var count = world.Atlas.UnderBox(
                 cars.PositionM[driver], Heading.Unit(cars.HeadingRad[driver]), halfM.X, halfM.Y, under);
-            var off = OffTheGround(held, under[..count], Config.Driving.PassSpareM);
-            Assert.True(off == null, $"car {driver} on tick {tick} of its pass stood on {off}");
+            var off = OffTheGround(held, under[..count], Config.Driving.PassSpareM + Config.RibbonLatticeStepM);
+            Assert.True(off == null, $"car {driver} on tick {tick} of its pass stood on {off}; its pass held {string.Join(", ", held)}");
         }
 
         Assert.True(held != null, $"car {driver} never began a pass; it was held by {cars.GrantCutBy[driver]}");

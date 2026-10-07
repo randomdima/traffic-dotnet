@@ -4,6 +4,56 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-10-07 — a body is on the ways its wheels stand on, and a walker is one wheel
+
+**The owner ruled it: one reading of the ground a laying, and no collider read against the ribbons for a body.**
+Once each time the claims are laid a car's four wheels are each read at the lattice point nearest them
+(`RibbonAtlas.UnderWheels`); the car is on every way any of them stands on, over the least and most of where its
+wheels on that way stand, held a metre either side (`Road.HeldAroundAWheelM`, the owner's figure), and which of them
+stand on a way is what its tyres grip on until the next laying (terrain log). A car with no wheel on a way is on the
+grass and holds nothing. **A walker is a single wheel at its centre** (`RibbonAtlas.UnderAWheel`), held its radius
+either side, and on the way it walks at its place on it; whether it stands on the pavement at all, which decides
+whether a walk back onto its way is an action of its own, is read at that same point (`WalkingBack`). Four point look-ups for a car and one for a walker replaced
+a read of every lattice point inside the collider, and the recall that kept a walker's last read, and the walk that skipped it for a walker
+clear on its own way, went with it. A pass, a switch, a bay, a walker's straight and a car set down still sweep a
+collider: those ask what a manoeuvre will cross, not where a body stands.
+
+**A wheel is read at the lattice point nearest it**, so a wheel within the reach (0.35 m) of a band can read the
+point across the paint. Asked to prove instead — a way kept only where one of the four points round the wheel lies in
+its band and none bounds the wheel outside it — the town braked harder (1 663 hard brakings against 1 093): the atlas
+files how far outside a band a point stands and nothing of how far inside, so nothing proves a wheel inside one.
+
+**What no wheel stands on is held by nobody.** A car with its axles on two ways holds each round its own wheels, so
+across a lane's end its middle — the wheelbase less two metres and two half steps — is held on neither; one whose
+wheels straddle a zebra narrower than its wheelbase, or whose nose is over a junction its front wheels have not
+reached, is no body there. A walker 0.1 m short of a kerb is not on the zebra, so a light holding the paint holds it
+there, where its disc reaching over the paint had made it a body on the crossing the light gave way to.
+
+**Measured on OdesaOsm** (10 013 cars, 10 000 walkers, `--bench devicetown` two runs each, the three builds
+interleaved): before; the cars and their tyres on their wheels alone; and with the walker as one wheel, the car no
+longer asked its ground, and what that left redundant gone (terrain and car logs).
+
+| | before | cars' wheels | all of it |
+|---|---|---|---|
+| a car's body read, host | 0.406 µs | 0.130 µs | 0.130 µs |
+| claims, host, ms a tick | 6.94, 6.95 | 5.57, 5.58 | 5.82, 5.86 |
+| whole tick, host, ms | 23.60, 23.76 | 18.66, 18.58 | 15.57, 16.14 |
+| whole tick, device, ms | 12.12, 12.08 | 11.48, 11.50 | 11.11, 11.12 |
+| device kernels, ms a tick | 1.29 | 0.64 | 0.46 |
+| whole tick, host, µs (`--bench town`) | 24 403 | 20 047 | 17 150 |
+| hard brakings in 600 ticks | 714 | 1 135 | 1 147 |
+| hard brakings (`--bench drive`) | 2 100 | 3 382 | 3 419 |
+| pairs began touching in 600 ticks | 15 | 21 | 26 |
+
+**The claims rose a quarter of a millisecond with the walkers** (5.58 → 5.84): in the build before, two walkers'
+reads in three were answered from the last reading (`--bench deviceatlas`), and every one is read fresh now. What the
+town gained after the cars' wheels is the car's tick no longer asking its ground (car log).
+
+**The braking is the bodies' and not the tyres'**: with the tyres on the ribbons and the bodies still read off the
+collider the town braked hard 714 times, as before. A car is put on a lane its collider does not reach and the traffic
+on it brakes for it. Exam card 109 (a car on a call gets past a queue at a red) fails since: the car on the call
+reaches the box after the queue's head.
+
 ## 2026-10-07 — the claims are laid on the device in the town's place, and mirrored back
 
 **A town whose device lays the claims (`ITownClaims`, `app/devicetick/DeviceTownClaims`) runs its rebuild stage for stage
@@ -26,8 +76,7 @@ code. A town with no such device lays its own exactly as before.
   short of, which is answered against the bodies and takes a light's stretch, and what stands in a manoeuvre begun at a
   bay — and while its agents are held; each counted (`DeviceTownClaims.Rebuilds`) and sent as cut.
 - **What is written back is exact**: a walker's pace along its way is the host's, sent with its row, where the device's own
-  trigonometry put it a last bit off; a kept car's body, laid on the device, is read off the atlas again before the town
-  lays it from its recall (`StandingCars.Recalled`). Held over three towns run twice in step, once with the device laying
+  trigonometry put it a last bit off. Held over three towns run twice in step, once with the device laying
   the claims (`DeviceTownClaimsTests`): 1 800 ticks, every slot, hold, list, car, walker and device grant to the bit, and
   every car and walker where the other town has it. On OdesaOsm (`--bench devicemirror`) 100 rebuilds held so — 7.65 M
   slots, 1.52 M holds, a million cars' claims and a million walkers' walks — and 300 ticks' poses, none apart. **What may
@@ -104,25 +153,16 @@ at the bound — since a pass after the answers stop moving answers them the sam
 
 ## 2026-10-07 — which ways a body stands over is read on the device off the atlas's own tables
 
-**The tick moves to the device** (root log), and every claims rebuild lays every car's box and every walker's disc
-onto the ways under it (TER-4c.2) — about 3 ms of OdesaOsm's tick. `kernels/atlas.glsl` is `RibbonAtlas.Read`, `Grow`
-and `Widened` line for line, over the very tables the host reads (`RibbonAtlas.Table`, laid by
-`app/devicetick/DeviceAtlas`), so the answer is the host's and never a second filing of the ribbons.
+**The tick moves to the device** (root log), and every claims rebuild lays every body onto the ways under it
+(TER-4c.2). `kernels/atlas.glsl` is `RibbonAtlas.Read`, `Grow` and `Widened` line for line, over the very tables the
+host reads (`RibbonAtlas.Table`, laid by `app/devicetick/DeviceAtlas`), so the answer is the host's and never a second
+filing of the ribbons.
 
 - **A box is handed its forward unit vector**, the host's, so no corner is the device's own trigonometry and the whole
   read is compared exactly.
 - **A quotient and a root are put right in doubles** (`core/geometry/kernels/rounded.glsl`): RADV divides by a
   reciprocal, and with the device's own `/` and `sqrt` 5 822 of OdesaOsm's 13 242 bodies came out over other
   stretches or other ways — mostly a stretch's tenths turned into metres a last bit apart.
-- **The device keeps no recall.** A read there is 0.06 µs a body, and the recall's answer is the fresh read's (below),
-  so it would save a little of the cheap half for 0.6 KB a body.
-
-**The recall gives what a fresh read gives.** Its answer is kept only where the body takes in the same lattice points
-(`SamePoints`, asked exactly as `Read` asks it) on the same channels, so the same entries are tested in the same order;
-and only where no depth test can have turned, since no depth moves by more than the body moved (`Unmoved`), less a
-rounding share hundreds of times what a float's arithmetic over the body's reach can put between two readings. The same
-entries passing gives the same ways, order and stretches. Over 120 ticks of OdesaOsm, 1 621 252 asks of a recall, 23 %
-of them answered without a read, came out as a fresh read every time.
 
 Held to the host over 2 400 boxes and 2 400 discs on the fixture town and 2 400 bodies on a deck over a street, every
 channel (`AtlasKernelTests`): the same ways, order, stretches and drops to the bit. On OdesaOsm after 600 ticks
@@ -241,13 +281,13 @@ ground of a deck and the road under it together, and both ask a way's channels (
 lane's road's level, a connector's two lanes' both, the walk's the ground's): **the marks** pair no two ways on
 no channel in common (TER-5c), so no plan over the deck places a secondary claim below it; and **the lattice**
 reads a body onto the ways on its own channels alone (TER-4c.2), so a car on the deck stands on nothing under
-it — the channels part of a recall's key, so a car changing them is read again. **The channels and not a level**
+it. **The channels and not a level**
 because a car's collisions are what those ways are on (physics, 2026-10-05): a bridgehead's connector is on
 both, so a car crossing one claims and meets the ground's ways there and the bridge's alike, where a level put
 it on one. A town with no bridge over a road carries no channel table and its reads ask nothing more. Every
 car-side read passes the car's channels; every walker's is the ground's.
 
-## 2026-10-02 — a walker clear on its own way is not read off the atlas
+## 2026-10-02 — what a laying of the claims costs
 
 **Most of what a laying of the claims costs re-derives that nothing is there.** Counted on O10 a minute in, a
 laying every 0.05 s cost 16 ms: car bodies 4.1, walker bodies 3.0, walkers' places on their ways 2.4, walkers'
@@ -256,24 +296,6 @@ the town's 8 700 standing cars being laid again from their last answer. **Of the
 granted whole**; what cut the rest was a light at a zebra (120 a laying), a car standing in a lane being crossed
 (70), a car's plan over a zebra (17) and another walker (10). **81 % of walker bodies were over their own way and
 nothing else.** Of the cars' plans 54 % were whole, and the rest were queues (560), lights (450) and junctions (100).
-A body costs up to a microsecond because a read of the atlas is loads through town-sized tables — 24 entries a
-read, to find one way — and not arithmetic.
-
-**So a walker clear on its way is laid on that way alone** (TER-4c.2, `TownWorld.IsClearOnItsWay`): its disc a
-touch clear of either side of the band, half the way's width clear of either end, and clear of every mark on the
-way. Every other ribbon over a band is a mark on it but for those laid edge to edge with it, and those are the
-side's and the ends'. Half a width is what the ends take: a touch there left the atlas finding the next way under
-2 900 discs a minute, at corners, where the way carrying on reaches back over the band. Checked against the atlas
-under every disc it skipped, 5.4 million in the minute from the first, it found another way under 5: four a disc 5 cm short of
-the sibling lane that the atlas reads as over it, one a corner mitre over a short footway that no mark covers —
-pavement both, and walkers the only readers.
-
-The atlas goes unread for about 4 500 of the 6 650 walkers' bodies a laying. Measured on O10 with the age probe,
-with the entry below and against the tree before both, the two run side by side so a busy machine weighed on them
-alike: the index phase a tick fell 8 % at one, three and five minutes (5 743 → 5 286, 5 132 → 4 698 and
-4 556 → 4 205 µs) and the whole tick 2 %. With a touch at the ends, alone and on an idle machine, it was 10 % and
-3 %. Over five minutes the trip probe was the town it had been: 9 756 walks arrived against 9 774, 8 388 bays
-against 8 423, 86 legs given up against 83.
 
 **Not done: a car's body worked out from its lane**, the same way: a car travelling its line, its box inside its
 lane's band with its yaw and the bend counted, laid as the box's own stretch of the lane. The ways matched the
@@ -321,10 +343,9 @@ which plans read which ways — dearer than laying them.
 
 **What a frozen body does cost the claims was measured instead.** On O10 at one, three and five minutes, laying
 every frozen car's body a second time — a no-op, the digests unchanged — added 330, 660 and 545 µs to the index
-phase a tick against 4 788, 3 963 and 4 191; inserting the same claims a second time from the recall without
-asking anything else added 30, 120 and 55. So the atlas is not the cost — a frozen body is the exact pose, and
-`RibbonAtlas.Recall` answers it with a comparison — and neither are the inserts: it is the per-car questions
-asked before them (what it is hooked to, whether it is under way, what it is built as). Some of that is a
+phase a tick against 4 788, 3 963 and 4 191; inserting the same claims a second time from the last answer without
+asking anything else added 30, 120 and 55. So neither the atlas nor the inserts are the cost: it is the per-car
+questions asked before them (what it is hooked to, whether it is under way, what it is built as). Some of that is a
 queued car's, whose claim reads its route and is laid again however still it stands.
 
 **So a standing car is not asked again** (`TownWorld.StandsAsLaid`): one whose action is `Stand`, unhooked, frozen
@@ -414,40 +435,6 @@ Measured on `--bench age --map Odesa`, µs a tick, two runs each:
 `--bench stuck --map Odesa` (300 s): 534 bays (501), 16 legs rerouted (101), 4 places given up (13), 2 cars standing
 still at the end (26), 7 touches (7), nothing wrecked; 129 car-ticks spent the braking margin (100). `--bench soak
 --map Odesa` kept every claim, the deepest past a grant 2.9–4.3 m as before.
-
-## 2026-10-01 — a body is read off the atlas again only where its answer could have changed
-
-**Reading every body off the atlas every tick was the largest single cost of a running town**: a third of
-Odesa's CPU in its first half-minute, `RibbonAtlas.Read` under the index's rebuild. Most of the town's cars are
-parked, and a parked car is on the same ways tick after tick.
-
-**A last answer kept against the exact pose would almost never be used.** Nothing sleeps, and a parked car the
-town has touched once keeps shuffling on its tyres for as long as the town runs: after five minutes of Odesa,
-70 % of cars were slower than 0.1 m/s and 8 % stood to the bit where they had stood a tick earlier, the rest
-shuffling by around a micron and up to 0.16 mrad a tick.
-
-So **`RibbonAtlas.Recall` keeps each car's and each walker's last answer with its slack**. The slack is how
-near that read's closest depth test came to going the other way. The answer is used again when two things hold:
-
-- the most any depth can have moved since, from the centre's move, the corner's swing and either half's
-  growth, is inside the slack, with a rounding allowance;
-- the rows and columns of lattice points inside the body, asked exactly as the read asks them, are the same.
-
-The answer is made of nothing else, so a kept answer is the fresh one to the bit. A pose that is exactly the
-last one skips both questions. Every body of Odesa stood to the bit where it had stood before the change, after
-one minute and after five.
-
-Measured on Odesa with a fixed tick, µs a tick over a minute's ticks, two runs each:
-
-| | before | after |
-|---|---|---|
-| index, at 1 min | 492–500 | 399–400 |
-| index, at 5 min | 570–577 | 487–488 |
-| whole tick, at 1 min | 854–873 | 758–761 |
-| whole tick, at 5 min | 1262–1290 | 1174–1180 |
-
-Cars were kept 76 % of the time at one minute and 72 % at five. Walkers were kept 82 % of the time. In a
-window's first half-minute, `RibbonAtlas.Read` went from 0.25 to 0.01 ms a frame.
 
 ## 2026-10-01 — the atlas keeps a thread's points in blocks, and files them on every thread
 
@@ -903,8 +890,8 @@ giving way to a left turn from its right, which the ladder does not state.
 
 ## 2026-09-26 — two layers over a ribbon atlas: where the bodies are, and where they mean to be
 
-The owner set the reservations three rules. **A body reserves, at p0, every ribbon its collider overlaps,
-and two such reservations may overlap**, being a record of real things. **A plan is settled against its own
+The owner set the reservations three rules. **A body reserves, at p0, every ribbon it stands on, and two such
+reservations may overlap**, being a record of real things. **A plan is settled against its own
 way and, through marks laid when the town is, against every ribbon it shares ground with** — the existing
 comparison deciding whether it takes the other's ground or cuts itself to the free space — **with no geometry
 at runtime**. **And those are the only two ways ordinary agents meet.** Everything in
@@ -913,13 +900,13 @@ at runtime**. **And those are the only two ways ordinary agents meet.** Everythi
 **The atlas is laid once** (TER-4c.4, `RibbonAtlas`): every way's ribbon sampled onto a lattice a quarter
 of a car apart, each point knowing which ways it lies under and how far along each. It replaced a per-body
 walk of the nearest lanes with a band test every tick, a crossing table measured from centrelines for joins
-alone, a zebra's bands projected while the town ran, and the furniture's claims: which ways a collider is over
-is now a look-up of the points inside it. **Joins that diverge from one lane or merge into one are marked**,
+alone, a zebra's bands projected while the town ran, and the furniture's claims: which ways a body is on is now
+a look-up of lattice points. **Joins that diverge from one lane or merge into one are marked**,
 their ribbons sharing their first or last metres: that ground is one piece of the world and two bodies cannot
 both be on it.
 
 **Ground a car can no longer stop short of became the first term of the comparison, not a p0 claim** — p0
-is the collider and nothing else. The ladder was redrawn round it (TER-5g): body, committed, call, closure,
+is the body and nothing else. The ladder was redrawn round it (TER-5g): body, committed, call, closure,
 light, somebody on foot, then the three movements. **The stated band, `Reserved` and `Rejected` went**: a plan is one hold
 from the nose, answered before it is laid, so there is no weaker band to tell apart from it.
 

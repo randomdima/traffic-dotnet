@@ -90,13 +90,6 @@ internal sealed partial class RibbonAtlas
     const float StraightCurvature = 1e-6f;
 
     /// <summary>
-    /// What two readings of one point's depth in a body may differ by in rounding alone, as a share of how far the
-    /// body reaches from its centre — some hundreds of times what single-precision arithmetic over that reach can
-    /// put between them.
-    /// </summary>
-    const float RoundingShare = 1f / 4096f;
-
-    /// <summary>
     /// <b>One way over one point</b>: how far outside the way's band the point stands in
     /// <see cref="OutsidePerReach"/>ths of the reach and rounded up — nothing for a point on the band — the point's
     /// column in its cell, the metre along the way in tenths, and the way. Which row it is over is where it is kept.
@@ -237,8 +230,8 @@ internal sealed partial class RibbonAtlas
         + ((long)Unsafe.SizeOf<Entry>() * _entries.Length);
 
     /// <summary>
-    /// <b>Every way a box stands over, and the stretch of each</b> — the collider of a car, at the pose the
-    /// solver left it in. Lattice points inside the box are looked up, each counted where the box reaches
+    /// <b>Every way a box stands over, and the stretch of each</b> — the collider of a car, where a pass, a switch or
+    /// a bay stands it. Lattice points inside the box are looked up, each counted where the box reaches
     /// further past it than it stands outside the way's band; the stretch is the least and most metre among
     /// them, widened by half a lattice step at each end and held to the way.
     /// </summary>
@@ -249,11 +242,75 @@ internal sealed partial class RibbonAtlas
     /// <returns>How many ways were written; a way past the room given is dropped and counted.</returns>
     public int UnderBox(
         Vector2 centreM, Vector2 forward, float halfLengthM, float halfWidthM, Span<WayCover> into, byte channels = Ground) =>
-        Widened(into, Read(new Box(centreM, forward, halfLengthM, halfWidthM), channels, into, out _));
+        Widened(into, Read(new Box(centreM, forward, halfLengthM, halfWidthM), channels, into));
 
     /// <summary>The same for a disc — a walker's collider.</summary>
     public int UnderDisc(Vector2 centreM, float radiusM, Span<WayCover> into, byte channels = Ground) =>
-        Widened(into, Read(new Disc(centreM, radiusM), channels, into, out _));
+        Widened(into, Read(new Disc(centreM, radiusM), channels, into));
+
+    /// <summary>
+    /// <b>Which of a car's wheels stand on a way, and every way they stand on with the stretch its body holds of it</b>
+    /// (TER-7b, TER-4c.2): a wheel is on every way on one of <paramref name="channels"/> whose band holds the lattice point
+    /// nearest it, and on none is on the grass. Each way's stretch is the least and most metre its wheels stand at,
+    /// widened by half a lattice step and by <paramref name="aroundAWheelM"/>, and held to the way; the ways are in wheel
+    /// order.
+    /// </summary>
+    /// <param name="aroundAWheelM">How far the body is held either side of each wheel (<c>RoadFigures.HeldAroundAWheelM</c>).</param>
+    /// <param name="onAWay">A bit a wheel, in the order <paramref name="wheelsM"/> has them, set for each on a way.</param>
+    /// <returns>How many ways were written — none for a car with no wheel on a way; a way past the room given is dropped and counted.</returns>
+    public int UnderWheels(
+        ReadOnlySpan<Vector2> wheelsM, float aroundAWheelM, Span<WayCover> into, out byte onAWay, byte channels = Ground)
+    {
+        var found = MemoryMarshal.Cast<WayCover, Found>(into);
+        var written = 0;
+        onAWay = 0;
+        for (var wheel = 0; wheel < wheelsM.Length; wheel++)
+        {
+            var entries = EntriesOfThePointNearest(wheelsM[wheel], out var column);
+            foreach (ref readonly var entry in entries)
+            {
+                if (!OnTheWay(entry, column, channels)) continue;
+
+                written = Grow(found, written, entry.Way, entry.Along);
+                onAWay |= (byte)(1 << wheel);
+            }
+        }
+
+        return Widened(into, written, aroundAWheelM);
+    }
+
+    /// <summary>
+    /// <b>The same for one wheel alone</b> — a walker, which stands as a single wheel at its centre (TER-4c.2), held
+    /// <paramref name="aroundM"/> either side.
+    /// </summary>
+    public int UnderAWheel(Vector2 wheelM, float aroundM, Span<WayCover> into, byte channels = Ground) =>
+        UnderWheels(new ReadOnlySpan<Vector2>(in wheelM), aroundM, into, out _, channels);
+
+    /// <summary>Whether an entry of a point at this column of its cell is a way on one of the channels whose band holds the point.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    bool OnTheWay(in Entry entry, int column, byte channels) =>
+        entry.Column == column && entry.Outside == 0 && (_wayChannels.Length == 0 || (_wayChannels[entry.Way] & channels) != 0);
+
+    /// <summary>
+    /// The entries of the run of points holding the lattice point nearest <paramref name="pointM"/>, and that point's
+    /// column in its cell — every entry of the run whose column is another's is passed over. Empty where no ribbon
+    /// covers the point's cell.
+    /// </summary>
+    ReadOnlySpan<Entry> EntriesOfThePointNearest(Vector2 pointM, out int column)
+    {
+        var (pointColumn, pointRow) = _level.CellOf(pointM);
+        column = pointColumn & _mask;
+        var cellColumn = pointColumn >> _shift;
+        var cellRow = pointRow >> _shift;
+        if (!_cells.Holds(cellColumn, cellRow)) return default;
+
+        var slot = _cellSlot[_cells.IndexOf(cellColumn, cellRow)];
+        if (slot < 0) return default;
+
+        var start = (slot * _startsPerCell) + ((pointRow & _mask) << _rowStartsShift) + (column >> _startShift);
+        int from = _pointStart[start], to = _pointStart[start + 1];
+        return _entries.AsSpan(_slotFirst[slot] + from, to - from);
+    }
 
     /// <summary>The channel of every way of a town with no bridge over its roads, and of the walk (<see cref="IRibbonLines.ChannelsOf"/>).</summary>
     const byte Ground = CityGen.CityPlan.RoadArrays.GroundChannel;
@@ -261,153 +318,10 @@ internal sealed partial class RibbonAtlas
     /// <summary>The collision channels a way is on (<see cref="IRibbonLines.ChannelsOf"/>).</summary>
     public byte ChannelsOf(int way) => _wayChannels.Length > 0 ? _wayChannels[way] : Ground;
 
-    /// <summary>
-    /// <see cref="UnderBox(Vector2, Vector2, float, float, Span{WayCover}, byte)"/> <b>for one body of a roster</b>,
-    /// kept in <paramref name="recall"/>: its last answer where no verdict that answer was made of can have changed
-    /// since, and a fresh read where one can — the same to the bit either way. A body that has changed channels is
-    /// read again.
-    /// </summary>
-    /// <returns>The ways, good until this body is next asked for.</returns>
-    public ReadOnlySpan<WayCover> UnderBox(
-        Vector2 centreM, Vector2 forward, float halfLengthM, float halfWidthM, Recall recall, int body, byte channels = Ground)
-    {
-        var box = new Box(centreM, forward, halfLengthM, halfWidthM);
-        var asked = new Recall.Reading(centreM, forward, halfLengthM, halfWidthM, channels, 0f, 0);
-        ref readonly var last = ref recall.Last[body];
-
-        // A frozen body is asked about at the pose it was read at, and pays the comparison and nothing else.
-        if (asked.SamePose(last)) return Recalled(box, kept: true, recall, body, asked);
-
-        // No point inside the box is further from its centre than a corner is, so no depth in it moves by more
-        // than the centre moved, the corner swung and either half grew.
-        var reachM = MathF.Sqrt((halfLengthM * halfLengthM) + (halfWidthM * halfWidthM));
-        var movedM = Vector2.Distance(centreM, last.CentreM) + (reachM * Vector2.Distance(forward, last.Forward))
-                     + MathF.Abs(halfLengthM - last.HalfLengthM) + MathF.Abs(halfWidthM - last.HalfWidthM);
-        var kept = channels == last.Channels && Unmoved(movedM, reachM, last.SlackM)
-                   && SamePoints(box, new Box(last.CentreM, last.Forward, last.HalfLengthM, last.HalfWidthM));
-
-        return Recalled(box, kept, recall, body, asked);
-    }
-
-    /// <summary>The same for a disc — a walker's collider, whose radius is kept as its half length.</summary>
-    public ReadOnlySpan<WayCover> UnderDisc(Vector2 centreM, float radiusM, Recall recall, int body, byte channels = Ground)
-    {
-        var disc = new Disc(centreM, radiusM);
-        var asked = new Recall.Reading(centreM, Vector2.Zero, radiusM, 0f, channels, 0f, 0);
-        ref readonly var last = ref recall.Last[body];
-        if (asked.SamePose(last)) return Recalled(disc, kept: true, recall, body, asked);
-
-        var movedM = Vector2.Distance(centreM, last.CentreM) + MathF.Abs(radiusM - last.HalfLengthM);
-        var kept = channels == last.Channels && Unmoved(movedM, radiusM, last.SlackM)
-                   && SamePoints(disc, new Disc(last.CentreM, last.HalfLengthM));
-
-        return Recalled(disc, kept, recall, body, asked);
-    }
-
     /// <summary>How many ways have been dropped for want of room since the town was laid — a gate's figure.</summary>
     public long Dropped => _dropped;
 
     long _dropped;
-
-    /// <summary>
-    /// <b>What the atlas last found under each body of one roster</b>, the pose it found it at, and how near that
-    /// reading came to another answer — so a body that has not moved far enough to change one is not read again.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>A body is not always exactly where it stood a tick ago</b>, and one creeping or settling moves by far less
-    /// than would change what is under it. So an answer is kept against how far the body may move — the
-    /// <see cref="Reading.SlackM"/> — and not against its pose alone; a frozen body (SOL-37) is the exact pose, and
-    /// costs a comparison.
-    /// </para>
-    /// <para>
-    /// <b>A read's answer is made of two things and nothing else</b>: which lattice points lie inside the body,
-    /// and which of their ways the body reaches further past than the point stands outside them. The first is
-    /// asked again exactly (<see cref="SamePoints"/>); the second cannot have turned while no depth has moved by
-    /// the slack. A body at exactly the pose it was read at is neither: the same read, so the same answer.
-    /// </para>
-    /// <para>
-    /// Laid once for a roster's capacity, a body's room is <see cref="MostWaysUnderABody"/>, and a body over more
-    /// ways than that is dropped and counted once for the reading rather than once a tick.
-    /// </para>
-    /// </remarks>
-    public sealed class Recall
-    {
-        public Recall(int bodies)
-        {
-            Last = new Reading[bodies];
-            Array.Fill(Last, Reading.Never);
-            _covers = new WayCover[bodies * MostWaysUnderABody];
-        }
-
-        /// <summary>
-        /// One body's last reading: the pose and the channels it was read at, the least any depth test it took stood
-        /// from the other verdict, and how many ways it found.
-        /// </summary>
-        internal readonly record struct Reading(
-            Vector2 CentreM, Vector2 Forward, float HalfLengthM, float HalfWidthM, byte Channels, float SlackM, int Count)
-        {
-            /// <summary>A body never read: it stands nowhere and has no slack, so it is always read.</summary>
-            public static readonly Reading Never = new(new Vector2(float.NaN), Vector2.Zero, 0f, 0f, 0, 0f, 0);
-
-            /// <summary>Whether this is the other's pose and channels exactly — a read of the same thing, so the same answer.</summary>
-            public bool SamePose(in Reading other) =>
-                CentreM == other.CentreM && Forward == other.Forward
-                && HalfLengthM == other.HalfLengthM && HalfWidthM == other.HalfWidthM && Channels == other.Channels;
-        }
-
-        internal readonly Reading[] Last;
-
-        readonly WayCover[] _covers;
-
-        internal Span<WayCover> CoversOf(int body) => _covers.AsSpan(body * MostWaysUnderABody, MostWaysUnderABody);
-    }
-
-    /// <summary>
-    /// Whether a body whose every depth has moved by at most <paramref name="movedM"/> is still on the side of
-    /// every depth test its last reading took, less what the two readings' rounding may differ by.
-    /// </summary>
-    static bool Unmoved(float movedM, float reachM, float slackM) => movedM + (reachM * RoundingShare) < slackM;
-
-    /// <summary>A body's last answer where <paramref name="kept"/>, and a fresh read, kept for next time, where not.</summary>
-    ReadOnlySpan<WayCover> Recalled<TBody>(scoped in TBody body, bool kept, Recall recall, int index, Recall.Reading asked)
-        where TBody : struct, IBody
-    {
-        var covers = recall.CoversOf(index);
-        ref var last = ref recall.Last[index];
-        if (kept) return covers[..last.Count];
-
-        var count = Widened(covers, Read(body, asked.Channels, covers, out var slackM));
-        last = asked with { SlackM = slackM, Count = count };
-        return covers[..count];
-    }
-
-    /// <summary>
-    /// Whether two bodies take in the same lattice points — the same rows, and the same columns of each — asked
-    /// exactly as <see cref="Read"/> asks it.
-    /// </summary>
-    bool SamePoints<TBody>(in TBody one, in TBody other) where TBody : struct, IBody
-    {
-        var firstRow = _level.FirstMiddleFrom(one.LeastY);
-        var lastRow = _level.LastMiddleTo(one.MostY);
-        if (firstRow != _level.FirstMiddleFrom(other.LeastY) || lastRow != _level.LastMiddleTo(other.MostY)) return false;
-
-        for (var row = firstRow; row <= lastRow; row++)
-        {
-            var y = _level.MiddleM(row);
-            var crosses = one.Across(y, out var fromX, out var toX);
-            if (crosses != other.Across(y, out var otherFromX, out var otherToX)) return false;
-            if (!crosses) continue;
-
-            if (_level.FirstMiddleFrom(fromX) != _level.FirstMiddleFrom(otherFromX)
-                || _level.LastMiddleTo(toX) != _level.LastMiddleTo(otherToX))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
 
     /// <summary>A body's collider, as how far inside it a point lies and where a row of points crosses it.</summary>
     interface IBody
@@ -518,15 +432,13 @@ internal sealed partial class RibbonAtlas
     /// between them, and a body whose edge only meets the band's is not on it.
     /// </summary>
     /// <param name="channels">The body's channels: a way on none of them is passed over as though not there.</param>
-    /// <param name="slackM">The least any of those depths stood from its way's outside, either side of it.</param>
-    int Read<TBody>(in TBody body, byte channels, Span<WayCover> into, out float slackM) where TBody : struct, IBody
+    int Read<TBody>(in TBody body, byte channels, Span<WayCover> into) where TBody : struct, IBody
     {
         var wayChannels = _wayChannels;
         var found = MemoryMarshal.Cast<WayCover, Found>(into);
         var firstRow = _level.FirstMiddleFrom(body.LeastY);
         var lastRow = _level.LastMiddleTo(body.MostY);
 
-        var slack = float.PositiveInfinity;
         var written = 0;
         for (var row = firstRow; row <= lastRow; row++)
         {
@@ -562,9 +474,7 @@ internal sealed partial class RibbonAtlas
                     if (entry.Outside != 0)
                     {
                         var depthM = body.DepthM(new Vector2(_level.MiddleM(cellFirstColumn + entry.Column), y));
-                        var outsideM = entry.Outside * _metresPerOutside;
-                        slack = MathF.Min(slack, MathF.Abs(depthM - outsideM));
-                        if (depthM <= outsideM) continue;
+                        if (depthM <= entry.Outside * _metresPerOutside) continue;
                     }
 
                     written = Grow(found, written, entry.Way, entry.Along);
@@ -572,7 +482,6 @@ internal sealed partial class RibbonAtlas
             }
         }
 
-        slackM = slack;
         return written;
     }
 
@@ -600,20 +509,21 @@ internal sealed partial class RibbonAtlas
 
     /// <summary>
     /// A point stands for the half step either side of it along the way, so the stretch a body covers is
-    /// widened by that much — and held to the way's own two ends. The tenths it was gathered in become metres
-    /// here, once a way.
+    /// widened by that much and by <paramref name="pastM"/> — and held to the way's own two ends. The tenths it was
+    /// gathered in become metres here, once a way.
     /// </summary>
-    int Widened(Span<WayCover> into, int written)
+    /// <param name="pastM">How far the body reaches past the points it was read at: nothing for a collider read whole.</param>
+    int Widened(Span<WayCover> into, int written, float pastM = 0f)
     {
         var found = MemoryMarshal.Cast<WayCover, Found>(into);
-        var halfM = _level.CellM * 0.5f;
+        var reachM = (_level.CellM * 0.5f) + pastM;
         for (var slot = 0; slot < written; slot++)
         {
             var one = found[slot];
             into[slot] = new WayCover(
                 one.Way,
-                MathF.Max(0f, (one.FromTenths / AlongPerMetre) - halfM),
-                MathF.Min(_lengthM[one.Way], (one.ToTenths / AlongPerMetre) + halfM));
+                MathF.Max(0f, (one.FromTenths / AlongPerMetre) - reachM),
+                MathF.Min(_lengthM[one.Way], (one.ToTenths / AlongPerMetre) + reachM));
         }
 
         return written;

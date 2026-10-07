@@ -65,6 +65,7 @@ A change that costs either of them is not a trade to be weighed in passing — i
 | Changing a number | `SimConfig` in [core/](src/core/), never a literal at the call site |
 | Deciding how a change gets checked | [docs/verification.md](docs/verification.md) — four tiers, cheapest that can answer it, and one that is not in the suite |
 | Asking "why is it like this?" | the nearest `decision-log.md` — never the code, which carries no history |
+| Finding an issue you are not fixing now, or fixing one | [docs/tech-debt.md](docs/tech-debt.md) — written in, or deleted from, in the same change |
 | Understanding how one type works | that type's XML docs. There is no second description of it anywhere |
 | Opening a file you have not read | `qq outline <file>` first — the members and their line ranges, so the read is a range |
 | Resolving a rule the code cites | `qq req TER-5c` — what it says, whose it is, which document owns it, and everything citing it |
@@ -114,6 +115,14 @@ read off the documents rather than kept beside them.
 instruments report it instead — `--bench drive` says which term bound every car-tick, `--bench stuck`
 which legs were given up and what held each. Any absence big enough to be structural is named in
 [docs/index.md](docs/index.md#known-gaps).
+
+**Debt in what is built is the exception, and it is written down the moment it is known.** Every issue found
+and not fixed in the same piece of work goes into [docs/tech-debt.md](docs/tech-debt.md) before the work is
+reported: a failing test, pre-existing or new; a regression a measurement showed; a figure not taken since a
+change; redundant or duplicated work left in place; an inconsistency between two answers to one question; a
+dead figure or member; a cleanup deferred; a question waiting on the owner, marked _owner_. Each entry says
+where it is, what it costs and what closes it — and **one fixed is deleted in the same change**, not struck
+through. A report that names an issue the file does not hold is not finished.
 
 ## Verification
 

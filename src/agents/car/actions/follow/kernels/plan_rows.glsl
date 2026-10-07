@@ -21,7 +21,6 @@ struct PlanCarRow
     float progressM;
     float alongMps;
     float plannedMps;
-    float groundCoefficient;
     float grantMarginM;
     float keptOffWhatItMayPassM;
     uint flags;

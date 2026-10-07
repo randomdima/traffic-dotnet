@@ -12,10 +12,8 @@ layout(push_constant) uniform Figures
     uint carCount;
     uint walkerCount;
     uint mostPieces;
-    uint proposedRoom;
     uint standingUnit;
     float standOffM;
-    uint pad;
 } figures;
 
 #include "world/town/kernels/rebuild_plans.glsl"

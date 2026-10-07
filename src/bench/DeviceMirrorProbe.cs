@@ -40,15 +40,14 @@ internal static class DeviceMirrorProbe
         using var vk = Vk.Open("traffic-dotnet", validation: false);
         var cars = mirrored.Cars;
         var occupancy = mirrored.Occupancy;
-        using var ground = new DeviceGround(vk, mirrored.Terrain.ShapeTable);
         var builds = new CarBuild[CarCatalog.Shared.SheetCount];
         for (var variant = 0; variant < builds.Length; variant++) builds[variant] = cars.BuildOfVariant(variant);
 
-        using var tyres = new DeviceTyres(vk, config, ground, mirrored.Terrain.EffectTable, builds, cars.Capacity);
+        using var tyres = new DeviceTyres(vk, config, mirrored.WheelGrounds, builds, cars.Capacity);
         using var claims = new DeviceClaims(
             vk, occupancy.WayCount, occupancy.Capacity, occupancy.HoldCapacity, config.Road.MostSettlingPasses, cars.Capacity);
         using var carTick = new DeviceCarTick(
-            vk, config, tyres, ground, mirrored.Roads, cars.LineArcsOf(0).Length, mirrored.Ways.OfRoadConnector(0), claims.Cut);
+            vk, config, tyres, mirrored.Roads, cars.LineArcsOf(0).Length, mirrored.Ways.OfRoadConnector(0), claims.Cut);
         using var onDevice = new DeviceTownClaims(vk, config, mirrored, claims, carTick);
         mirrored.ClaimsDevice = onDevice;
 

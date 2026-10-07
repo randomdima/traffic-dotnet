@@ -231,9 +231,7 @@ internal sealed partial class TownWorld
         TowBar.AxleM(build, pose, down, atM);
         for (var wheel = 0; wheel < TowBar.Wheels; wheel++)
         {
-            var effect = _terrain.EffectAt(atM[wheel], Cars.LevelOf(car));
-            ground[down + wheel] = new SurfaceUnderWheel(
-                effect.Coefficient, effect.DragMps2, _config.Marks.PowerM2S3 * effect.MarkFactor, effect.Ploughs);
+            ground[down + wheel] = WheelGrounds.Under(Cars.WheelsOnAWay[car], down + wheel);
         }
 
         TowBar.Step(

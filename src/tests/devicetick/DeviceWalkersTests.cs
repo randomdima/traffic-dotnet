@@ -154,7 +154,6 @@ public sealed class WalkersOnTheDevice : IDisposable
 
         using var onDevice = new DeviceWalkers(_device.Vk, Config, world);
         var body = new BodyPiece[WalkingGround.MostPiecesOfABody];
-        var recall = new RibbonAtlas.Recall(world.People.Capacity);
         var left = new SweptRun[Sidestepping.MostRunsOfAPass];
         var planned = new bool[world.People.Count];
         var aside = 0;
@@ -173,7 +172,7 @@ public sealed class WalkersOnTheDevice : IDisposable
                     aside += CompareTheStations(town, onDevice);
                     onDevice.Lay(town, Piece.Body);
                     onDevice.Run(Piece.Body);
-                    CompareTheBodies(town, onDevice, recall, body);
+                    CompareTheBodies(town, onDevice, body);
                     CompareThePasses(town, onDevice, left);
                     break;
                 case ClaimsStage.WalksDue:
@@ -239,7 +238,7 @@ public sealed class WalkersOnTheDevice : IDisposable
         return aside;
     }
 
-    void CompareTheBodies(TownWorld town, DeviceWalkers onDevice, RibbonAtlas.Recall recall, BodyPiece[] into)
+    void CompareTheBodies(TownWorld town, DeviceWalkers onDevice, BodyPiece[] into)
     {
         for (var person = 0; person < town.People.Count; person++)
         {
@@ -253,7 +252,7 @@ public sealed class WalkersOnTheDevice : IDisposable
 
             var occupant = town.GroundHeldAs(person, out var roster);
             var row = onDevice.Walkers[person];
-            var count = town.WalkingGround.BodyCover(person, recall, into);
+            var count = town.WalkingGround.BodyCover(person, into);
             var same = row.HeldAs == occupant && row.Is(WalkerRow.HeldAsDriving) == (roster == LaneRoster.Driving) && laid.Length == count;
             for (var at = 0; same && at < count; at++)
             {

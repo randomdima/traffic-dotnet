@@ -150,8 +150,7 @@ internal sealed class BotHands(TownWorld world, SimConfig config, int car, strin
     public string Handbook(int eyeWidthPx, int eyeHeightPx)
     {
         ref readonly var build = ref world.Cars.BuildOf(car);
-        var paved = config.Terrain.PavedCoefficient;
-        var brakingMps2 = build.UtmostBrakingMps2(paved);
+        var brakingMps2 = build.UtmostBrakingMps2;
         var streetMps = config.CityGen.StreetDesignSpeedMps;
         var junctionMps = config.CityGen.JunctionDesignSpeedMps;
         var pxPerM = MathF.Min(eyeWidthPx, eyeHeightPx) / ViewM;
@@ -168,7 +167,7 @@ internal sealed class BotHands(TownWorld world, SimConfig config, int car, strin
             a pedal          takes {build.AccelerationMps2 / build.PedalRateMps3:F2} s to travel from nothing to the floor, so a burst shorter than that never gets all of what it asked for
             the wheel        locks at {float.RadiansToDegrees(build.MaxSteerRad):F0} degrees and takes {build.MaxSteerRad / build.SteerRateRadPerS:F2} s to wind that far
             tightest turn    {build.TurningRadiusM:F1} m of radius at full lock, and only while the car is rolling
-            grip             {build.GripMps2:F1} m/s2 — at {streetMps * 3.6f:F0} km/h the tightest corner it holds is {build.CorneringRadiusM(streetMps, paved, config.Driving.GripMargin):F0} m of radius, at {junctionMps * 3.6f:F0} km/h it is {build.CorneringRadiusM(junctionMps, paved, config.Driving.GripMargin):F1} m
+            grip             {build.GripMps2:F1} m/s2 — at {streetMps * 3.6f:F0} km/h the tightest corner it holds is {build.CorneringRadiusM(streetMps, config.Driving.GripMargin):F0} m of radius, at {junctionMps * 3.6f:F0} km/h it is {build.CorneringRadiusM(junctionMps, config.Driving.GripMargin):F1} m
 
             ## How it is driven
             A pedal and the wheel are held where a step put them until the next step moves them, and let go

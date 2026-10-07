@@ -1,0 +1,58 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The ways a run of cars' four wheels stand on, one thread a car, and whether each wheel stands on one — the atlas asked
+// on its own, which is how the device's answer is held to the host's.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Ask
+{
+    uint bodyCount;
+    int cellsFromX;
+    int cellsFromY;
+    int cellsWidth;
+    int cellsHeight;
+    float perCellM;
+    float cellM;
+    int shift;
+    int mask;
+    int startShift;
+    int rowStartsShift;
+    int startsPerCell;
+    float metresPerOutside;
+    float alongPerMetre;
+    uint hasChannels;
+} ask;
+
+#define ATLAS_FIGURES ask
+#define ATLAS_BINDING 3
+#include "core/geometry/kernels/rounded.glsl"
+#include "world/road/kernels/atlas.glsl"
+
+// One car's wheels asked (DeviceAtlas.WheelsRow).
+struct AtlasWheels
+{
+    vec2 wheelsM[4];
+    float aroundAWheelM;
+    uint channels;
+};
+
+layout(std430, binding = 0) readonly buffer Cars { AtlasWheels cars[]; };
+layout(std430, binding = 1) writeonly buffer Counts { uvec4 counts[]; };
+layout(std430, binding = 2) writeonly buffer Covers { AtlasCover covers[]; };
+
+void main()
+{
+    uint car = gl_GlobalInvocationID.x;
+    if (car >= ask.bodyCount) return;
+
+    AtlasWheels asked = cars[car];
+    AtlasCover found[AtlasMostWaysUnderABody];
+    uint dropped = 0u;
+    uint onAWay;
+    int count = atlasUnderWheels(asked.wheelsM, asked.aroundAWheelM, asked.channels, found, dropped, onAWay);
+    counts[car] = uvec4(uint(count), dropped, onAWay, 0u);
+    uint first = car * uint(AtlasMostWaysUnderABody);
+    for (int at = 0; at < count; at++) covers[first + uint(at)] = found[at];
+}

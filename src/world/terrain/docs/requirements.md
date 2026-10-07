@@ -11,10 +11,11 @@ Roads, junctions and what is painted on them are [world/road](../../road/docs/re
 
 **TER-1** `P3` The city is fully covered by terrain: no empty space and no holes.
 
-**TER-2** `P3` Every terrain type declares which agents may traverse it under soft rules and its effect on
-a wheel (grip, drag, mark threshold). **The effect applies to every wheel on it whether or not the car is
-permitted there** — legality is a soft-rule matter only. **A person is not affected by terrain at all**: its
-pace, its grip and where it may be set down are its own on every surface.
+**TER-2** `P3` Every terrain type declares which agents may traverse it under soft rules and what it is worth
+to a body on it (grip, drag, mark threshold). **A wheel takes the carriageway's where it stands on a way and the
+grass's anywhere else** (TER-7b), whether or not the car is permitted there — legality is a soft-rule matter
+only. **A person is not affected by terrain at all**: its pace, its grip and where it may be set down are its own
+on every surface.
 
 **TER-2a** `P4` Rules address terrain by **set** — drivable, walkable, preferred, permitted-to-nobody — and
 never by type name. A rule written against `Sidewalk` breaks the day the town gains a boardwalk; one
@@ -56,6 +57,10 @@ running at 40° is a kerb running at 40°.
 as its own record, or it is ground that is drawn from nothing and answered for by nothing — and the two
 readers of that record, the picture and the query, take it off the one array.
 
+**A wheel is the one asker that reads no shape** (TER-7b): it is answered off the ribbons, to within the atlas's
+lattice and as of its car's last laying, so a wheel on paving no ribbon covers — a pocket inside the kerb, a car
+park's apron, the pavement of a town nobody walks — grips as on grass, and so does a wheel in the water.
+
 **A raster is scratch and never an answer.** The generator keeps one of what its statics have taken
 (`GenClaims`); it agrees with the shapes only to within a cell, it is never shipped, and no rule about a
 finished town may be argued from it. What the ground is while a town is being laid is asked of the shapes
@@ -85,8 +90,11 @@ Four consequences follow and all four are the point.
 - **The picture and the answer are one line.** What the ground is at a point is which side it stands of
   each layer's own rings — the very rings the drawing fills (TER-7) — so a distance added to one is added to
   the other, and the question of whether the two agree cannot be asked. This is the whole of what the rule
-  buys. **No lane is read for it**: a lane is where a driver means to go and is the actors' alone, and what a
-  wheel stands on is the shell's.
+  buys. **A wheel asks no ring**: what it stands on is whether it is on a way of the town — the carriageway's
+  surface on any ribbon the atlas holds under it and the grass's anywhere else (TER-4c.4) — which is the very
+  question that puts its car's body on those ways (TER-4c.2), so a car's grip and its reservations are one
+  reading of where its wheels are, **taken once a laying** (TER-49): a wheel grips on what it stood on when its
+  car's body was last laid.
 - **A kerb is a line and is struck along a shell of its own, at its own width** (TER-3d). It belongs to no
   layer: a kerb is where one ground hands over to another, and a stroke laid about the shell that parts them
   is that line said once, at the width a kerbstone is, wherever the shell runs. There are two of

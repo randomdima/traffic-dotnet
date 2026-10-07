@@ -210,6 +210,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _plan = plan;
         _agentSeed = agentSeed ?? plan.Seed;
         _terrain = new GroundLocator(plan, config);
+        WheelGrounds = WheelGrounds.Of(config, _terrain);
         _physics = new PhysicsWorld(config);
 
         // The selection and the orders it can give are laid with the town: what the interface holds is
@@ -304,7 +305,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         RefuseFurnitureOnTheRoad();
 
         People = new PersonFleet(walkers);
-        _groundUnderWalkers = new RibbonAtlas.Recall(walkers);
         _impulseNs = new Vector2[walkers];
         _progress = new LegProgress(walkers);
 
@@ -314,7 +314,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
         Cars = new CarFleet(drivers, Math.Max(LineAssembler.ArcsFor(_roads), BayManoeuvre.MostArcsPerPiece), _builds);
         _manoeuvres = new Manoeuvres(drivers);
-        _groundUnderCars = new RibbonAtlas.Recall(drivers);
 
         // <b>One table, sized for every shape either roster can be in</b> (TER-4c): every way a body can be
         // over, and a plan down its own line with every section its marks link it to. A driver may also
@@ -609,6 +608,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     public long WalksGivenUp { get; private set; }
 
     public GroundLocator Terrain => _terrain;
+
+    /// <summary>What a wheel on a way and off one stands on, for the figures as they stand (TER-7b).</summary>
+    public WheelGrounds WheelGrounds { get; private set; }
 
     public CityPlan Plan => _plan;
 

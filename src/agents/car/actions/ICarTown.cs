@@ -54,12 +54,6 @@ internal interface ICarTown
     /// </summary>
     float ToTheSceneM(int car);
 
-    /// <summary>How far off its line a car may be before the road calls the line lost (CAR-10a).</summary>
-    float OffTheLineAllowanceM(int car);
-
-    /// <summary>The ground a car is on, as a coefficient of friction.</summary>
-    float GroundCoefficientAt(Vector2 pointM);
-
     /// <summary>The car in its bay and its leg over: the place its own until something drives it away, and the car stood down in it.</summary>
     void ParkIt(int car, int bay);
 

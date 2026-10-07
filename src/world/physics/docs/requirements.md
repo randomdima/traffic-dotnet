@@ -13,7 +13,7 @@ actuated belongs to the agents that do it ([car](../../../agents/car/docs/requir
 **PHY-1a** `P3` **Two bodies meet only where their collision channels meet.** A channel is a level of the town
 (`CityPlan.RoadArrays.ChannelOf`), and every way is on its own: a lane on its road's, a connector on both of the
 lanes' it joins — so a bridgehead is on the bridge's and the ground's — and the walk on the ground's. **A car is
-on every channel of the ways its collider stands over** when its body is laid (TER-4c.2), read on its own
+on every channel of the ways its wheels stand on** when its body is laid (TER-4c.2), read on its own
 channels alone, and keeps what it had where it stands over none; everything else is on the ground's. So a car
 on a bridge over other roads meets the cars on its deck and nothing on the ground it passes over — no car,
 walker, building, prop or casualty — and one at a bridgehead meets both. The channels are a mask on the body

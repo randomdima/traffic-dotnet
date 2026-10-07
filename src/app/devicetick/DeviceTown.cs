@@ -37,7 +37,6 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 {
     readonly Vk _vk;
     readonly TownWorld _town;
-    readonly DeviceGround _ground;
     readonly DeviceTyres _tyres;
     readonly DeviceClaims _claims;
     readonly DeviceCarTick _cars;
@@ -63,14 +62,13 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _town = town;
         var cars = town.Cars;
         var claims = town.Occupancy;
-        _ground = new DeviceGround(vk, town.Terrain.ShapeTable);
         var builds = new CarBuild[CarCatalog.Shared.SheetCount];
         for (var variant = 0; variant < builds.Length; variant++) builds[variant] = cars.BuildOfVariant(variant);
 
-        _tyres = new DeviceTyres(vk, config, _ground, town.Terrain.EffectTable, builds, cars.Capacity);
+        _tyres = new DeviceTyres(vk, config, town.WheelGrounds, builds, cars.Capacity);
         _claims = new DeviceClaims(vk, claims.WayCount, claims.Capacity, claims.HoldCapacity, config.Road.MostSettlingPasses, cars.Capacity);
         _cars = new DeviceCarTick(
-            vk, config, _tyres, _ground, town.Roads, cars.LineArcsOf(0).Length, town.Ways.OfRoadConnector(0), _claims.Cut)
+            vk, config, _tyres, town.Roads, cars.LineArcsOf(0).Length, town.Ways.OfRoadConnector(0), _claims.Cut)
         {
             Shadowed = false,
         };
@@ -244,8 +242,8 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
         var told = _cars.ContextsAfter[car];
         cars.Context[car] = new DriveContext(
-            told.GroundCoefficient, told.AuthorityM, (HeadwayKind)told.GrantCutBy, told.PlaceStopM, told.MarginM, told.WaitsToPass != 0u,
-            told.HorizonM, told.PassAsideM, told.BackUpM, told.Blocked != 0u, told.WaitAtM);
+            told.AuthorityM, (HeadwayKind)told.GrantCutBy, told.PlaceStopM, told.MarginM, told.WaitsToPass != 0u, told.HorizonM,
+            told.PassAsideM, told.BackUpM, told.Blocked != 0u, told.WaitAtM);
 
         var box = _cars.BoxesAfter[car];
         cars.ToTheBoxM[car] = box.ToTheBoxM;
@@ -260,7 +258,6 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     {
         var cars = town.Cars;
         var row = _tyres.CarsAfter[car];
-        cars.GroundCoefficient[car] = row.GroundCoefficient;
         cars.SlipThrottle[car] = row.SlipThrottle;
         cars.DrivenSlipping[car] = (row.Flags & DeviceTyres.CarRow.DrivenSlipping) != 0;
 
@@ -310,6 +307,5 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _cars.Dispose();
         _claims.Dispose();
         _tyres.Dispose();
-        _ground.Dispose();
     }
 }

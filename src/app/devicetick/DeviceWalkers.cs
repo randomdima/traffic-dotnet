@@ -59,14 +59,12 @@ internal sealed class DeviceWalkers : IDisposable
     internal struct WalkerRow
     {
         public Vector2 PositionM;
-        public Vector2 VelocityMps;
         public Vector2 DeclaredMps;
         public Vector2 DestinationM;
         public Vector2 GoalM;
         public Vector2 BackToM;
         public Vector2 StraightFromM;
         public Vector2 StraightToM;
-        public float HeadingRad;
         public float RadiusM;
         public float OnWayM;
         public float OffWayM;
@@ -90,6 +88,7 @@ internal sealed class DeviceWalkers : IDisposable
         public uint Stage;
         public int Hold;
         public float AlongMps;
+        public uint Pad;
 
         public const uint Walking = 1u;
         public const uint Wounded = 2u;
@@ -129,7 +128,6 @@ internal sealed class DeviceWalkers : IDisposable
         public float StandstillGapM;
         public float WalkAheadM;
         public float OffLaneM;
-        public float TouchM;
         public int CellsFromX;
         public int CellsFromY;
         public int CellsWidth;
@@ -251,13 +249,13 @@ internal sealed class DeviceWalkers : IDisposable
         var lanes = walking.Foot.EdgeCount;
         if (ways.FirstMitreWay - ways.FirstFootwayWay != lanes) throw new InvalidOperationException("The pavement's lanes are not the town's footways.");
 
-        var arcs = new List<DeviceGround.ArcRow>();
+        var arcs = new List<ArcRow>();
         var walkWays = new WalkWayRow[Math.Max(1, lanes + walking.TurnCount)];
         var lines = world.WalkingGround.Lines;
         for (var edge = 0; edge < lanes; edge++)
         {
             var first = (uint)arcs.Count;
-            foreach (var arc in walking.LaneOf(edge)) arcs.Add(DeviceGround.ArcRow.Of(arc));
+            foreach (var arc in walking.LaneOf(edge)) arcs.Add(ArcRow.Of(arc));
             walkWays[edge] = new WalkWayRow(
                 first, (uint)arcs.Count, walking.LaneLengthM(edge), walking.LaneWidthM(edge), 0f, 0f, lines.ZebraOf(ways.OfFootway(edge)));
         }
@@ -265,7 +263,7 @@ internal sealed class DeviceWalkers : IDisposable
         for (var slot = 0; slot < walking.TurnCount; slot++)
         {
             var first = (uint)arcs.Count;
-            foreach (var arc in walking.JoinArcs(slot)) arcs.Add(DeviceGround.ArcRow.Of(arc));
+            foreach (var arc in walking.JoinArcs(slot)) arcs.Add(ArcRow.Of(arc));
             walkWays[lanes + slot] = new WalkWayRow(
                 first, (uint)arcs.Count, walking.JoinLengthM(slot), walking.LaneWidthM(walking.TurnToEdge(slot)), walking.JoinFromM(slot),
                 walking.JoinToM(slot), RibbonMarks.NoZebra);
@@ -300,7 +298,6 @@ internal sealed class DeviceWalkers : IDisposable
             StandstillGapM = config.PersonStandstillGapM,
             WalkAheadM = config.PersonWalkAheadM,
             OffLaneM = config.WalkerOffLaneM,
-            TouchM = config.RibbonTouchM,
             CellsFromX = atlas.CellsFromX,
             CellsFromY = atlas.CellsFromY,
             CellsWidth = atlas.CellsWidth,
@@ -398,7 +395,7 @@ internal sealed class DeviceWalkers : IDisposable
         }
 
         var walkWaysOnDevice = Resident(Laid<WalkWayRow>(walkWays));
-        var arcsOnDevice = Resident(Laid<DeviceGround.ArcRow>(CollectionsMarshal.AsSpan(arcs)));
+        var arcsOnDevice = Resident(Laid<ArcRow>(CollectionsMarshal.AsSpan(arcs)));
         var markAtOnDevice = Resident(Laid<uint>(markAt));
         var marksOnDevice = Resident(Laid<MarkRow>(CollectionsMarshal.AsSpan(sections)));
         var pushBytes = (uint)Marshal.SizeOf<Figures>();
@@ -621,14 +618,12 @@ internal sealed class DeviceWalkers : IDisposable
         return new WalkerRow
         {
             PositionM = people.PositionM[person],
-            VelocityMps = people.VelocityMps[person],
             DeclaredMps = people.DeclaredMps[person],
             DestinationM = people.DestinationM[person],
             GoalM = people.GoalM[person],
             BackToM = world.WalkingBack.BackToM[person],
             StraightFromM = ground.StraightFromM(person),
             StraightToM = straightTo,
-            HeadingRad = people.HeadingRad[person],
             RadiusM = people.RadiusM[person],
             OnWayM = people.OnWayM[person],
             OffWayM = people.OffWayM[person],

@@ -37,8 +37,8 @@ internal sealed partial class DeviceCarTick
 
     CarAction[] _actionAt = [];
 
-    /// <summary>Which level each car's tyre row was last sent on.</summary>
-    byte[] _levelSent = [];
+    /// <summary>Which of each car's wheels its tyre row was last sent as standing on a way.</summary>
+    byte[] _wheelsSent = [];
 
     /// <summary>Whether the town had already asked to grow each car's line before this tick.</summary>
     bool[] _askedBefore = [];
@@ -63,7 +63,7 @@ internal sealed partial class DeviceCarTick
         _coveredAt = new float[capacity];
         _authorityAt = new float[capacity];
         _actionAt = new CarAction[capacity];
-        _levelSent = new byte[capacity];
+        _wheelsSent = new byte[capacity];
         _askedBefore = new bool[capacity];
         _passHeld = new Overtake[capacity];
         _actionDue = new CarAction[capacity];
@@ -154,7 +154,7 @@ internal sealed partial class DeviceCarTick
             {
                 if (cars.LineLaid[car] != _lineLaidAt[car]) LayTheLine(cars, car);
                 if (cars.ProgressM[car] != _progressAt[car] || cars.CoveredSinceClaimM[car] != _coveredAt[car]) LayTheReading(cars, car);
-                if (cars.LevelOf(car) != _levelSent[car]) LayTheCarRow(town, car);
+                if (cars.WheelsOnAWay[car] != _wheelsSent[car]) LayTheCarRow(town, car);
             }
 
             _held[car] = true;
@@ -247,12 +247,12 @@ internal sealed partial class DeviceCarTick
     {
         var cars = town.Cars;
         var row = new DeviceTyres.CarRow(
-            cars.GroundCoefficient[car], 1f / town.PhysicsForInstruments.InverseInertiaOf(cars.Body[car]), cars.SlipThrottle[car],
-            DeviceTyres.CarRow.FlagsOf(cars.Action[car] == CarAction.Hand, cars.DrivenSlipping[car], cars.LevelOf(car)));
+            1f / town.PhysicsForInstruments.InverseInertiaOf(cars.Body[car]), cars.SlipThrottle[car],
+            DeviceTyres.CarRow.FlagsOf(cars.Action[car] == CarAction.Hand, cars.DrivenSlipping[car], cars.WheelsOnAWay[car]));
         _tyres.Table.Cars.Rows(car)[0] = row;
         _tyres.Table.Cars.Mark(car);
         _carBefore[car] = row;
-        _levelSent[car] = cars.LevelOf(car);
+        _wheelsSent[car] = cars.WheelsOnAWay[car];
     }
 
     /// <summary>
@@ -350,7 +350,7 @@ internal sealed partial class DeviceCarTick
         var entryRows = _entries.Rows(car);
         for (var arc = 0; arc < line.ArcCount; arc++)
         {
-            arcRows[arc] = DeviceGround.ArcRow.Of(arcs[arc]);
+            arcRows[arc] = ArcRow.Of(arcs[arc]);
             entryRows[arc] = entries[arc];
         }
 
@@ -467,7 +467,7 @@ internal sealed partial class DeviceCarTick
     static string? Told(CarFleet cars, int car, in ContextRow context, in BoxRow box)
     {
         var host = cars.Context[car];
-        var same = host.GroundCoefficient == context.GroundCoefficient && Near(host.AuthorityM, context.AuthorityM)
+        var same = Near(host.AuthorityM, context.AuthorityM)
                    && (uint)host.GrantCutBy == context.GrantCutBy && Near(host.PlaceStopM, context.PlaceStopM)
                    && host.MarginM == context.MarginM && host.WaitsToPass == (context.WaitsToPass != 0u)
                    && Near(host.HorizonM, context.HorizonM) && host.PassAsideM == context.PassAsideM && host.BackUpM == context.BackUpM
@@ -498,8 +498,8 @@ internal sealed partial class DeviceCarTick
         var tick = TicksAfter[car];
         var told = ContextsAfter[car];
         var context = new DriveContext(
-            told.GroundCoefficient, told.AuthorityM, (HeadwayKind)told.GrantCutBy, told.PlaceStopM, told.MarginM, told.WaitsToPass != 0u,
-            told.HorizonM, told.PassAsideM, told.BackUpM, told.Blocked != 0u, told.WaitAtM);
+            told.AuthorityM, (HeadwayKind)told.GrantCutBy, told.PlaceStopM, told.MarginM, told.WaitsToPass != 0u, told.HorizonM,
+            told.PassAsideM, told.BackUpM, told.Blocked != 0u, told.WaitAtM);
         var pose = PoseOf(car);
         var drive = CarFollower.DriveTheLine(
             _config, cars.BuildOf(car), pose, cars.LineOf(car), cars.EntriesOf(car), tick.ProgressM, cars.Line[car].LengthM, context,
@@ -559,17 +559,15 @@ internal sealed partial class DeviceCarTick
         }
 
         var after = _tyres.CarsAfter[car];
-        if (after.GroundCoefficient != cars.GroundCoefficient[car]) return $"ground: town {cars.GroundCoefficient[car]}, device {after}";
-
         var pose = PoseOf(car);
         var atRest = TyrePass.Step(
-            _config, town.Terrain, cars.BuildOf(car),
+            _config, town.WheelGrounds, cars.BuildOf(car),
             pose with
             {
                 VelocityMps = new Vector2(Flushed(pose.VelocityMps.X), Flushed(pose.VelocityMps.Y)),
                 YawRateRadPerS = Flushed(pose.YawRateRadPerS),
             },
-            CommandOf(onDevice), false, after.GroundCoefficient, laid.InertiaKgM2, cars.LevelOf(car),
+            CommandOf(onDevice), false, laid.InertiaKgM2, cars.WheelsOnAWay[car],
             new TyreCarry(_spinMps, _scrubTravelM, _marking, _markFromM, _markIntensity, ref slipThrottle, ref slipping), _surfaces,
             _impulses, _scrub, _marks, out _);
         if (atRest != ((after.Flags & DeviceTyres.CarRow.AtRest) != 0)) return $"at rest: host {atRest}, device {after}";

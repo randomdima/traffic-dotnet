@@ -11,10 +11,10 @@ using Xunit;
 namespace TrafficSimulation.Tests.Agents.Car;
 
 /// <summary>
-/// <b>Two thousand cars' tyre pass, on the host and on the device</b>: the fixture town's ground under every wheel,
-/// cars of every variant on and off its roads, at rest, creeping, held by their locks and driven hard, carrying
-/// every kind of rim, scrub and mark — <see cref="TyrePass.Step"/> asked of each, and <c>tyre_pass.comp</c> of all of
-/// them at once.
+/// <b>Two thousand cars' tyre pass, on the host and on the device</b>: cars of every variant on and off the fixture town's
+/// roads, with every one of the sixteen ways their four wheels may have been laid on a way or off one, at rest, creeping,
+/// held by their locks and driven hard, carrying every kind of rim, scrub and mark — <see cref="TyrePass.Step"/> asked of
+/// each, and <c>tyre_pass.comp</c> of all of them at once.
 /// </summary>
 /// <remarks>
 /// A front wheel of a car whose wheel is turned points by the device's own sine and cosine
@@ -25,8 +25,8 @@ public sealed class StagedTyrePass : IDisposable
     static readonly SimConfig Config = SimConfig.Shipped();
 
     internal sealed record Car(
-        int BuildAt, CarBuild Build, CarPose Pose, DriveCommand Command, bool Hand, float GroundCoefficient, float InertiaKgM2,
-        byte Level, float[] SpinMps, float[] ScrubTravelM, bool[] Marking, Vector2[] MarkFromM, float[] MarkIntensity,
+        int BuildAt, CarBuild Build, CarPose Pose, DriveCommand Command, bool Hand, float InertiaKgM2,
+        byte WheelsOnAWay, float[] SpinMps, float[] ScrubTravelM, bool[] Marking, Vector2[] MarkFromM, float[] MarkIntensity,
         float SlipThrottle, bool DrivenSlipping)
     {
         /// <summary>Whether this wheel points by the device's trigonometry rather than the body's own rotation.</summary>
@@ -39,13 +39,13 @@ public sealed class StagedTyrePass : IDisposable
     /// <summary>What the host's pass made of one car, its carried state as the pass left it.</summary>
     internal sealed record Outcome(
         bool AtRest, float SlipThrottle, bool DrivenSlipping, float[] SpinMps, float[] ScrubTravelM, bool[] Marking,
-        Vector2[] MarkFromM, float[] MarkIntensity, SurfaceUnderWheel[] Ground, WheelImpulse[] Impulses, TyreScrub[] Scrub);
+        Vector2[] MarkFromM, float[] MarkIntensity, WheelImpulse[] Impulses, TyreScrub[] Scrub);
 
     public StagedTyrePass()
     {
         var plan = Towns.Of(Towns.Fixture);
         var shapes = new GroundShapes(plan.Paving(Config), Config);
-        var terrain = new GroundLocator(shapes, Config);
+        var grounds = WheelGrounds.Of(Config, new GroundLocator(shapes, Config));
         CarBuild[] builds =
             [CarBuild.Nominal(Config, Config.Car.DrivenFrontShare), .. CarCatalog.Shared.Variants.Select(look => CarBuild.Of(Config, look))];
         Cars = Staged(2000, 7, builds, shapes, plan.WorldSizeM);
@@ -63,17 +63,16 @@ public sealed class StagedTyrePass : IDisposable
             var impulses = new WheelImpulse[TyreModel.Wheels];
             var scrub = new TyreScrub[TyreModel.Wheels];
             var atRest = TyrePass.Step(
-                Config, terrain, car.Build, car.Pose, car.Command, car.Hand, car.GroundCoefficient, car.InertiaKgM2, car.Level,
+                Config, grounds, car.Build, car.Pose, car.Command, car.Hand, car.InertiaKgM2, car.WheelsOnAWay,
                 new TyreCarry(spin, travel, marking, from, intensity, ref slipThrottle, ref slipping), ground, impulses, scrub, laid,
                 out var count);
             for (var mark = 0; mark < count; mark++) marks.Add((at, laid[mark]));
-            Host[at] = new Outcome(atRest, slipThrottle, slipping, spin, travel, marking, from, intensity, ground, impulses, scrub);
+            Host[at] = new Outcome(atRest, slipThrottle, slipping, spin, travel, marking, from, intensity, impulses, scrub);
         }
 
         HostMarks = [.. marks];
 
-        using var deviceGround = new DeviceGround(Device.Vk, shapes.Table);
-        using var tyres = new DeviceTyres(Device.Vk, Config, deviceGround, terrain.EffectTable, builds, Cars.Length);
+        using var tyres = new DeviceTyres(Device.Vk, Config, grounds, builds, Cars.Length);
         for (var at = 0; at < Cars.Length; at++)
         {
             var car = Cars[at];
@@ -81,7 +80,7 @@ public sealed class StagedTyrePass : IDisposable
             tyres.Poses[at] = DeviceTyres.PoseRow.Of(car.Pose);
             tyres.Commands[at] = DeviceTyres.CommandRow.Of(car.Command);
             tyres.Cars[at] = new DeviceTyres.CarRow(
-                car.GroundCoefficient, car.InertiaKgM2, car.SlipThrottle, DeviceTyres.CarRow.FlagsOf(car.Hand, car.DrivenSlipping, car.Level));
+                car.InertiaKgM2, car.SlipThrottle, DeviceTyres.CarRow.FlagsOf(car.Hand, car.DrivenSlipping, car.WheelsOnAWay));
             for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
             {
                 tyres.Wheels[at * TyreModel.Wheels + wheel] = new DeviceTyres.WheelRow(
@@ -92,7 +91,6 @@ public sealed class StagedTyrePass : IDisposable
         tyres.Step(Cars.Length);
         CarsAfter = tyres.CarsAfter.ToArray();
         WheelsAfter = tyres.WheelsAfter.ToArray();
-        Surfaces = tyres.Ground.ToArray();
         Impulses = tyres.Impulses.ToArray();
         Scrub = tyres.Scrub.ToArray();
         MarkCount = tyres.MarkCount;
@@ -111,8 +109,6 @@ public sealed class StagedTyrePass : IDisposable
     internal DeviceTyres.CarRow[] CarsAfter { get; }
 
     internal DeviceTyres.WheelRow[] WheelsAfter { get; }
-
-    internal DeviceTyres.SurfaceRow[] Surfaces { get; }
 
     internal Vector4[] Impulses { get; }
 
@@ -198,8 +194,9 @@ public sealed class StagedTyrePass : IDisposable
             }
 
             cars[at] = new Car(
-                buildAt, build, pose, command, OneIn(5), Between(0.15f, 1.05f), build.MassKg * Between(1.2f, 3.5f), (byte)(OneIn(10) ? 1 : 0),
-                spin, travel, marking, from, intensity, OneIn(3) ? 1f : Between(Config.Tyre.MinSlipThrottleFraction, 1f), OneIn(3));
+                buildAt, build, pose, command, OneIn(5), build.MassKg * Between(1.2f, 3.5f),
+                (byte)random.Next(1 << TyreModel.Wheels), spin, travel, marking, from, intensity,
+                OneIn(3) ? 1f : Between(Config.Tyre.MinSlipThrottleFraction, 1f), OneIn(3));
         }
 
         return cars;
@@ -210,36 +207,14 @@ public sealed class StagedTyrePass : IDisposable
 
 /// <summary>
 /// <b>A car's whole tyre pass on the device</b> (<c>agents/car/body/kernels/tyre_pass.glsl</c>): what
-/// <see cref="TyrePass.Step"/> makes of a car — the ground under its wheels, the standstill it skips, the throttle it
-/// lifts, the impulses it spends and the hold of its locks, the slide it reports, the marks it carries and lays — asked
-/// of the kernel over the fixture town (<see cref="StagedTyrePass"/>).
+/// <see cref="TyrePass.Step"/> makes of a car — the standstill it skips, the throttle it lifts, the impulses it spends on
+/// the ground under each wheel and the hold of its locks, the slide it reports, the marks it carries and lays — asked of
+/// the kernel over the fixture town (<see cref="StagedTyrePass"/>).
 /// </summary>
 [Trait(Tier.Key, Tier.Device)]
 [Trait(Priority.Key, Priority.P3)]
 public class TyrePassKernelTests(StagedTyrePass staged) : IClassFixture<StagedTyrePass>
 {
-    /// <summary>Under every wheel of a car not at rest, the device finds the host's ground and makes the same patch of it.</summary>
-    [Fact]
-    public void EveryWheelStandsOnTheHostsGround()
-    {
-        var differ = new List<string>();
-        Each((at, car, host) =>
-        {
-            if (host.AtRest) return;
-
-            for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
-            {
-                var onDevice = staged.Surfaces[(at * TyreModel.Wheels) + wheel];
-                if (DeviceTyres.SurfaceRow.Of(host.Ground[wheel]) != onDevice)
-                {
-                    differ.Add($"car {at} wheel {wheel}: host {host.Ground[wheel]}, device {onDevice}");
-                }
-            }
-        });
-
-        Assert.True(differ.Count == 0, $"{differ.Count} wheels differ: {string.Join("; ", differ.Take(6))}");
-    }
-
     /// <summary>The cars the host finds at rest are the ones the device skips, and each spends and scrubs nothing.</summary>
     [Fact]
     public void TheCarsAtRestAreTheHostsAndSpendNothing()

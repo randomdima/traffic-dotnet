@@ -95,10 +95,8 @@ public class DeviceBodyPhaseTests(Lavapipe device) : IClassFixture<Lavapipe>
         var cars = world.Cars;
         var physics = world.PhysicsForInstruments;
 
-        var shapes = new GroundShapes(plan.Paving(Config), Config);
-        using var ground = new DeviceGround(device.Vk, shapes.Table);
         var builds = Enumerable.Range(0, CarCatalog.Shared.SheetCount).Select(variant => cars.BuildOfVariant(variant)).ToArray();
-        using var tyres = new DeviceTyres(device.Vk, Config, ground, world.Terrain.EffectTable, builds, cars.Capacity);
+        using var tyres = new DeviceTyres(device.Vk, Config, world.WheelGrounds, builds, cars.Capacity);
         using var solver = new DeviceSolver(device.Vk, Config, physics.Table) { SolveInContactOrder = solveInContactOrder };
         using var phase = new DeviceBodyPhase(device.Vk, Config, solver, tyres, world.People.Capacity + (2 * cars.Capacity));
 

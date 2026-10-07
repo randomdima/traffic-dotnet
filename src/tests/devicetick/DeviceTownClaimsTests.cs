@@ -45,7 +45,8 @@ public class DeviceTownClaimsTests(ClaimsLaidOnTheDevice run) : IClassFixture<Cl
 
     /// <summary>
     /// <b>Every car holds and is granted what the town's car is</b>: its hold, how far its claim reaches and is committed,
-    /// its horizon, what it was granted and kept off and what cut it, the room it backed up into and the channels it is on.
+    /// its horizon, what it was granted and kept off and what cut it, the room it backed up into, the channels it is on and
+    /// which of its wheels its tyres grip on a way with.
     /// </summary>
     [Fact]
     public void EveryCarHoldsAndIsGrantedWhatTheTownsIs() => Assert.True(run.Cars.Kept, run.Cars.Said + run.Seen);
@@ -271,11 +272,12 @@ public sealed class ClaimsLaidOnTheDevice : IDisposable
             if (!a.Equals(b)) Cars.Add($"tick {tick} car {car}: own {a}; mirrored {b}");
         }
 
-        static (int, float, float, float, float, float, float, HeadwayKind, float, float, byte) ClaimOf(TownWorld town, int car)
+        static (int, float, float, float, float, float, float, HeadwayKind, float, float, byte, byte) ClaimOf(TownWorld town, int car)
         {
             var cars = town.Cars;
             return (town.PlanHoldOf(car), cars.AuthorityM[car], cars.HorizonM[car], cars.ClaimFromM[car], cars.ClaimToM[car], cars.CommittedToM[car],
-                    cars.GrantMarginM[car], cars.GrantCutBy[car], cars.CoveredSinceClaimM[car], cars.BackRoomM[car], cars.Channels[car]);
+                    cars.GrantMarginM[car], cars.GrantCutBy[car], cars.CoveredSinceClaimM[car], cars.BackRoomM[car], cars.Channels[car],
+                    cars.WheelsOnAWay[car]);
         }
     }
 
@@ -465,7 +467,6 @@ internal sealed class ClaimsRig : IDisposable
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
-    readonly DeviceGround _ground;
     readonly DeviceTyres _tyres;
     readonly DeviceClaims _claims;
 
@@ -473,13 +474,12 @@ internal sealed class ClaimsRig : IDisposable
     {
         var cars = town.Cars;
         var occupancy = town.Occupancy;
-        _ground = new DeviceGround(vk, town.Terrain.ShapeTable);
         var builds = new CarBuild[CarCatalog.Shared.SheetCount];
         for (var variant = 0; variant < builds.Length; variant++) builds[variant] = cars.BuildOfVariant(variant);
 
-        _tyres = new DeviceTyres(vk, Config, _ground, town.Terrain.EffectTable, builds, cars.Capacity);
+        _tyres = new DeviceTyres(vk, Config, town.WheelGrounds, builds, cars.Capacity);
         _claims = new DeviceClaims(vk, occupancy.WayCount, occupancy.Capacity, occupancy.HoldCapacity, Config.Road.MostSettlingPasses, cars.Capacity);
-        Cars = new DeviceCarTick(vk, Config, _tyres, _ground, town.Roads, cars.LineArcsOf(0).Length, town.Ways.OfRoadConnector(0), _claims.Cut);
+        Cars = new DeviceCarTick(vk, Config, _tyres, town.Roads, cars.LineArcsOf(0).Length, town.Ways.OfRoadConnector(0), _claims.Cut);
         Claims = new DeviceTownClaims(vk, Config, town, _claims, Cars);
     }
 
@@ -493,6 +493,5 @@ internal sealed class ClaimsRig : IDisposable
         Cars.Dispose();
         _claims.Dispose();
         _tyres.Dispose();
-        _ground.Dispose();
     }
 }

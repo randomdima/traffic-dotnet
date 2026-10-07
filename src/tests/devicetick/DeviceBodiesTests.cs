@@ -25,7 +25,7 @@ public class DeviceBodiesTests(Lavapipe device) : IClassFixture<Lavapipe>
     /// <summary>
     /// <b>Every car's body lies over the ways the town lays it over, over the same stretches, travelling them as fast
     /// and on to the same next way, at rest where the town's is</b>, and every car is left on the channels the town put
-    /// it on — bit for bit, over every rebuild of the run.
+    /// it on with the same wheels on a way (TER-7b) — bit for bit, over every rebuild of the run.
     /// </summary>
     /// <remarks>Way by way, since nothing in the fixture town is towed or on duty, so no car's body is grown into another's.</remarks>
     [Fact]
@@ -69,6 +69,11 @@ public class DeviceBodiesTests(Lavapipe device) : IClassFixture<Lavapipe>
             if (onDevice.ChannelsOf(car) != town.Cars.Channels[car])
             {
                 differ.Add($"rebuild {rebuild} car {car}: town on channels {town.Cars.Channels[car]}, device {onDevice.ChannelsOf(car)}");
+            }
+
+            if (onDevice.WheelsOnAWayOf(car) != town.Cars.WheelsOnAWay[car])
+            {
+                differ.Add($"rebuild {rebuild} car {car}: town's wheels on a way {town.Cars.WheelsOnAWay[car]}, device's {onDevice.WheelsOnAWayOf(car)}");
             }
         }
 

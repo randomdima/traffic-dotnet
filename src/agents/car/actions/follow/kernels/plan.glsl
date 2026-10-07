@@ -155,7 +155,7 @@ PlanOutRow planTheCar(uint car, PlanCarRow row, CarBuildRow build, CarLineRow li
     if ((row.flags & PlanCarProposes) == 0u) return result;
 
     float standOffM = PLAN_FIGURES.standOffM;
-    precise float brakingMps2 = buildUtmostBrakingMps2(build, row.groundCoefficient) * PLAN_FIGURES.brakingMargin;
+    precise float brakingMps2 = buildUtmostBrakingMps2(build) * PLAN_FIGURES.brakingMargin;
     float alongMps = max(0.0, row.alongMps);
     float plannedMps = row.plannedMps;
     precise float committedM = (alongMps * PLAN_FIGURES.reactionS) + planStoppingM(alongMps, brakingMps2);

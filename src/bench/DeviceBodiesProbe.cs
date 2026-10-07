@@ -41,12 +41,10 @@ internal static class DeviceBodiesProbe
         var cars = world.Cars;
         var physics = world.PhysicsForInstruments;
         using var vk = Vk.Open("traffic-dotnet", validation: false);
-        var shapes = new GroundShapes(plan.Paving(config), config);
-        using var ground = new DeviceGround(vk, shapes.Table);
         var builds = new CarBuild[CarCatalog.Shared.SheetCount];
         for (var variant = 0; variant < builds.Length; variant++) builds[variant] = cars.BuildOfVariant(variant);
 
-        using var tyres = new DeviceTyres(vk, config, ground, world.Terrain.EffectTable, builds, cars.Capacity);
+        using var tyres = new DeviceTyres(vk, config, world.WheelGrounds, builds, cars.Capacity);
         using var solver = new DeviceSolver(vk, config, physics.Table);
         using var phase = new DeviceBodyPhase(vk, config, solver, tyres, world.People.Capacity + (2 * cars.Capacity));
 

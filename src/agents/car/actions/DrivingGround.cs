@@ -130,7 +130,7 @@ internal sealed class DrivingGround(
         if (speedMps <= Config.Driving.StopSpeedMps) return;
 
         ref readonly var build = ref Cars.BuildOf(car);
-        var brakingMps2 = CarFollower.BrakingMps2(Config, build, Cars.GroundCoefficient[car]);
+        var brakingMps2 = CarFollower.BrakingMps2(Config, build);
         var committedM = (speedMps * Config.CarReactionS) + StoppingM(speedMps, brakingMps2);
         var travel = velocity / speedMps;
         var frontM = build.HalfLengthM;

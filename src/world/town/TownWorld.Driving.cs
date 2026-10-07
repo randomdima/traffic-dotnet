@@ -182,7 +182,6 @@ internal sealed partial class TownWorld
 
         Cars.ProgressM[car] = progressM;
         Cars.AlongMps[car] = alongMps;
-        Cars.GroundCoefficient[car] = _terrain.At(pose.PositionM, Cars.LevelOf(car)).Coefficient;
 
         // A pass is laid along the lane the car is on and nowhere else (CAR-46).
         if (_overtaking.IsOffTheLaneOfItsPass(car)) Enter(car, CarAction.Follow);
@@ -244,8 +243,7 @@ internal sealed partial class TownWorld
         // named. It is a term of the same minimum the grant is in, so a driver stopping for one is running its
         // line on the road that place left it.
         var context = new DriveContext(
-            Cars.GroundCoefficient[car], Cars.GrantLeftM(car), Cars.GrantCutBy[car], ToTheSceneM(car),
-            Cars.GrantMarginM[car], waitsToPass, Cars.HorizonM[car] - Cars.CoveredSinceClaimM[car], passAsideM, backUpM,
+            Cars.GrantLeftM(car), Cars.GrantCutBy[car], ToTheSceneM(car), Cars.GrantMarginM[car], waitsToPass, Cars.HorizonM[car] - Cars.CoveredSinceClaimM[car], passAsideM, backUpM,
             blocked, waitAtM);
 
         Cars.Context[car] = context;
@@ -288,8 +286,6 @@ internal sealed partial class TownWorld
     /// <returns>Whether a line was laid over the lane under it.</returns>
     bool Reacquire(int car, Vector2 rearAxleM)
     {
-        if (!_terrain.At(rearAxleM, Cars.LevelOf(car)).Drivable) return false;
-
         var forward = ForwardOf(car);
         var under = TheCarriagewayUnder(rearAxleM, forward, Cars.LevelOf(car));
         if (under.Lane < 0) return false;
@@ -310,7 +306,6 @@ internal sealed partial class TownWorld
         }
 
         LayLine(car, TheChainFrom(car, under));
-        Cars.ProgressM[car] = under.AlongM;
         LinesReacquired++;
         return true;
     }

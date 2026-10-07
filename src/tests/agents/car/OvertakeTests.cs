@@ -20,7 +20,7 @@ public class OvertakeTests
 
     static readonly CarBuild Car = CarBuild.Nominal(Figures, Figures.Car.DrivenFrontShare);
 
-    static readonly float CorneringMps2 = CarFollower.CorneringMps2(Figures, Car, 1f);
+    static readonly float CorneringMps2 = CarFollower.CorneringMps2(Figures, Car);
 
     /// <summary>The nominal lane's width, which is how far across a two-way street's other lane stands.</summary>
     static float AsideM => -Figures.LaneWidthM;

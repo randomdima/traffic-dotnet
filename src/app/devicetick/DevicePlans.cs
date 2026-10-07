@@ -134,7 +134,7 @@ internal sealed class DevicePlans : IDisposable
         if (lines is null)
         {
             _lines = Mapped<CarLineRow>(_cars);
-            _arcs = Mapped<DeviceGround.ArcRow>(_cars * _arcsPerCar);
+            _arcs = Mapped<ArcRow>(_cars * _arcsPerCar);
             _entries = Mapped<float>(_cars * _arcsPerCar);
             _chain = Mapped<int>(_cars * LineAssembler.MostLanes);
             _starts = Mapped<float>(_cars * LineAssembler.MostLanes);
@@ -208,14 +208,14 @@ internal sealed class DevicePlans : IDisposable
             var proposes = Proposing(world, car);
             var flags = (proposes ? Proposes : 0u) | (cars.BlueLight[car] ? OnACall : 0u) | (cars.LineIsReverse[car] ? LineIsReverse : 0u);
             rows[car] = new UInt4(cars.Variant[car], flags, 0u, 0u);
-            figures[car * 2] = new Vector4(cars.ProgressM[car], cars.AlongMps[car], cars.PlannedMps[car], cars.GroundCoefficient[car]);
+            figures[car * 2] = new Vector4(cars.ProgressM[car], cars.AlongMps[car], cars.PlannedMps[car], 0f);
             figures[car * 2 + 1] = new Vector4(cars.GrantMarginM[car], proposes ? world.KeptOffWhatItMayPassM(car) : 0f, 0f, 0f);
         }
 
         if (_lines is null) return;
 
         var lines = _lines.Span<CarLineRow>();
-        var arcs = _arcs!.Span<DeviceGround.ArcRow>();
+        var arcs = _arcs!.Span<ArcRow>();
         var entries = _entries!.Span<float>();
         var chain = _chain!.Span<int>();
         var starts = _starts!.Span<float>();
@@ -227,7 +227,7 @@ internal sealed class DevicePlans : IDisposable
             var line = cars.Line[car];
             lines[car] = new CarLineRow((uint)line.ArcCount, (uint)line.LaneCount, line.LengthM, 0u);
             var laid = cars.LineOf(car);
-            for (var arc = 0; arc < laid.Length; arc++) arcs[(car * _arcsPerCar) + arc] = DeviceGround.ArcRow.Of(laid[arc]);
+            for (var arc = 0; arc < laid.Length; arc++) arcs[(car * _arcsPerCar) + arc] = ArcRow.Of(laid[arc]);
             cars.EntriesOf(car).CopyTo(entries.Slice(car * _arcsPerCar));
             for (var slot = 0; slot < line.LaneCount; slot++)
             {

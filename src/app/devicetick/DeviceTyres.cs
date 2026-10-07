@@ -4,16 +4,15 @@ using Silk.NET.Vulkan;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Runtime;
-using TrafficSimulation.World.Terrain;
 using Vk = TrafficSimulation.Runtime.Vk;
 
 namespace TrafficSimulation.App.DeviceTick;
 
 /// <summary>
 /// <b>A whole car's tyre pass on the device</b> (<c>agents/car/body/kernels/tyre_pass.glsl</c>, run by
-/// <c>tyre_pass.comp</c>, one thread a car): the cars' rows sent, the pass run over the ground's own tables
-/// (<see cref="DeviceGround"/>) and the kinds' effects laid once, and what it wrote read back — the marks it laid as a
-/// ring of records, filed in (car, wheel) order by <see cref="MarksLaid"/>.
+/// <c>tyre_pass.comp</c>, one thread a car): the cars' rows sent — which of each car's wheels stood on a way when its
+/// body was last laid among them — the pass run over what a wheel on a way and off one is worth, laid once, and what it
+/// wrote read back — the marks it laid as a ring of records, filed in (car, wheel) order by <see cref="MarksLaid"/>.
 /// </summary>
 /// <remarks>
 /// <b>Run in shadow</b>: every pass is handed the host's own state for its cars, so <see cref="TyrePass.Step"/> and the
@@ -42,12 +41,13 @@ internal sealed class DeviceTyres : IDisposable
 
     /// <summary>One car's own figures and flags (<c>TyreCarRow</c>): <see cref="Flags"/> holds what <see cref="FlagsOf"/> packs.</summary>
     [StructLayout(LayoutKind.Sequential)]
-    internal readonly record struct CarRow(float GroundCoefficient, float InertiaKgM2, float SlipThrottle, uint Flags)
+    internal readonly record struct CarRow(float InertiaKgM2, float SlipThrottle, uint Flags)
     {
         public const uint Hand = 1u, DrivenSlipping = 2u, AtRest = 4u;
 
-        public static uint FlagsOf(bool hand, bool drivenSlipping, byte level) =>
-            (hand ? Hand : 0u) | (drivenSlipping ? DrivenSlipping : 0u) | ((uint)level << 8);
+        /// <param name="wheelsOnAWay">Which of its wheels stood on a way when its body was last laid (<see cref="CarFleet.WheelsOnAWay"/>).</param>
+        public static uint FlagsOf(bool hand, bool drivenSlipping, byte wheelsOnAWay) =>
+            (hand ? Hand : 0u) | (drivenSlipping ? DrivenSlipping : 0u) | ((uint)wheelsOnAWay << 8);
     }
 
     /// <summary>One wheel's carried state (<c>TyreWheelRow</c>).</summary>
@@ -73,38 +73,33 @@ internal sealed class DeviceTyres : IDisposable
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct MarkRow(Vector2 FromM, Vector2 ToM, float WidthM, float Intensity, uint CarWheel, uint Ploughed);
 
-    /// <summary>What a kind of ground does to a wheel on it (<c>world/terrain/kernels/ground_effect.glsl</c>).</summary>
-    [StructLayout(LayoutKind.Sequential)]
-    internal readonly record struct GroundEffectRow(float Coefficient, float DragMps2, float MarkFactor, uint Ploughs);
-
     /// <summary>The pass's figures (<c>TyrePassFigures</c>), field for field, each the host's own.</summary>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct Figures(
         float DtS, float StandardGravityMps2, float WheelSpinFadeMps, float WheelSpinAllowanceMps, float MarkSlipMps,
         float MarkCorneringSlipMps, float PloughCrawlMps, float EngineBrakingMps2, float SlipBackOffS, float SlipRecoverS,
-        float MinSlipThrottleFraction, float TractionThrottleFraction, float NominalGripMps2, float MarkPowerM2S3,
-        float MarkOnsetM, float MarkPloughFloor, float MarkSpacingM)
+        float MinSlipThrottleFraction, float TractionThrottleFraction, float NominalGripMps2, float MarkOnsetM,
+        float MarkPloughFloor, float MarkSpacingM)
     {
         public static Figures Of(SimConfig config) => new(
             config.TickSeconds, config.Tyre.StandardGravityMps2, config.Tyre.WheelSpinFadeMps, config.Tyre.WheelSpinAllowanceMps,
             config.Marks.SlipMps, config.Marks.CorneringSlipMps, config.Marks.PloughCrawlMps, config.CarEngineBrakingMps2,
             config.Tyre.SlipBackOffS, config.Tyre.SlipRecoverS, config.Tyre.MinSlipThrottleFraction,
-            config.Tyre.TractionThrottleFraction, config.TyreGripMps2, config.Marks.PowerM2S3, config.Marks.OnsetM,
-            config.Marks.PloughFloor, config.Marks.SpacingM);
+            config.Tyre.TractionThrottleFraction, config.TyreGripMps2, config.Marks.OnsetM, config.Marks.PloughFloor,
+            config.Marks.SpacingM);
     }
 
-    /// <summary>The kernel's push constants: the ground's ask, its count the cars', then the figures.</summary>
+    /// <summary>The kernel's push constants: how many cars, then the figures.</summary>
     [StructLayout(LayoutKind.Sequential)]
     internal struct PassPush
     {
-        public DeviceGround.AskPush Ground;
+        public uint CarCount;
         public Figures Figures;
     }
 
     const int WheelsACar = TyreModel.Wheels;
 
     readonly Vk _vk;
-    readonly DeviceGround _ground;
     readonly Figures _figures;
     readonly List<GpuBuffer> _owned = [];
     readonly ComputeKernel _kernel;
@@ -116,7 +111,6 @@ internal sealed class DeviceTyres : IDisposable
     readonly ResidentRows<CommandRow> _commands;
     readonly ResidentRows<CarRow> _carRows;
     readonly ResidentRows<WheelRow> _wheels;
-    readonly ResidentRows<SurfaceRow> _surfaces;
     readonly ResidentRows<Vector4> _impulses;
     readonly ResidentRows<ScrubRow> _scrubs;
     readonly GpuBuffer _markCountOut;
@@ -129,36 +123,26 @@ internal sealed class DeviceTyres : IDisposable
     readonly GpuBuffer _marks;
     int _cars;
 
-    /// <param name="effects">What each kind of ground does to a wheel, indexed by kind (<see cref="GroundLocator.EffectTable"/>).</param>
+    /// <param name="grounds">What a wheel on a way and off one stands on, laid once.</param>
     /// <param name="builds">Every build a car may be, indexed as <see cref="BuildOf"/> names them.</param>
     /// <param name="capacity">The most cars a pass is asked of; the ring holds a mark for every wheel of them.</param>
-    public DeviceTyres(
-        Vk vk, SimConfig config, DeviceGround ground, ReadOnlySpan<GroundEffect> effects, ReadOnlySpan<CarBuild> builds, int capacity)
+    public DeviceTyres(Vk vk, SimConfig config, in WheelGrounds grounds, ReadOnlySpan<CarBuild> builds, int capacity)
     {
         _vk = vk;
-        _ground = ground;
         _figures = Figures.Of(config);
         Capacity = capacity;
 
         var buildRows = new CarBuildRow[builds.Length];
         for (var build = 0; build < buildRows.Length; build++) buildRows[build] = CarBuildRow.Of(builds[build]);
 
-        var effectRows = new GroundEffectRow[effects.Length];
-        for (var kind = 0; kind < effectRows.Length; kind++)
-        {
-            var effect = effects[kind];
-            effectRows[kind] = new GroundEffectRow(effect.Coefficient, effect.DragMps2, effect.MarkFactor, effect.Ploughs ? 1u : 0u);
-        }
-
         var wheels = capacity * WheelsACar;
         var buildBuffer = Laid<CarBuildRow>(buildRows);
-        var effectBuffer = Laid<GroundEffectRow>(effectRows);
+        var wheelGroundsBuffer = Laid<SurfaceRow>([SurfaceRow.Of(grounds.OffAWay), SurfaceRow.Of(grounds.OnAWay)]);
         _buildOf = new ResidentRows<uint>(vk, capacity, 1, hostOnly: true);
         _poses = new ResidentRows<PoseRow>(vk, capacity, 1);
         _commands = new ResidentRows<CommandRow>(vk, capacity, 1, readsBack: true);
         _carRows = new ResidentRows<CarRow>(vk, capacity, 1, readsBack: true);
         _wheels = new ResidentRows<WheelRow>(vk, capacity, WheelsACar, readsBack: true);
-        _surfaces = new ResidentRows<SurfaceRow>(vk, capacity, WheelsACar, readsBack: true);
         _impulses = new ResidentRows<Vector4>(vk, capacity, WheelsACar, readsBack: true);
         _scrubs = new ResidentRows<ScrubRow>(vk, capacity, WheelsACar, readsBack: true);
         _markCount = Device<uint>(1);
@@ -166,11 +150,10 @@ internal sealed class DeviceTyres : IDisposable
         _markCountOut = Readback<uint>(1);
 
         Table = (buildBuffer, _buildOf, _poses, _commands, _carRows, _wheels);
-        Effects = effectBuffer;
         GpuBuffer[] bound =
         [
-            buildBuffer, _buildOf.Device, _poses.Device, _commands.Device, _carRows.Device, _wheels.Device, _surfaces.Device,
-            _impulses.Device, _scrubs.Device, _markCount, _marks, effectBuffer, .. ground.Tables,
+            buildBuffer, _buildOf.Device, _poses.Device, _commands.Device, _carRows.Device, _wheels.Device, _impulses.Device,
+            _scrubs.Device, _markCount, _marks, wheelGroundsBuffer,
         ];
         _kernel = new ComputeKernel(vk, "tyre_pass.comp", bound.Length, (uint)Marshal.SizeOf<PassPush>());
         _set = _kernel.Bind(bound);
@@ -189,14 +172,11 @@ internal sealed class DeviceTyres : IDisposable
     public (GpuBuffer Builds, ResidentRows<uint> BuildOf, ResidentRows<PoseRow> Poses, ResidentRows<CommandRow> Commands,
         ResidentRows<CarRow> Cars, ResidentRows<WheelRow> Wheels) Table { get; }
 
-    /// <summary>What each kind of ground does to a wheel, as the pass binds it (<c>GROUND_EFFECT_BINDING</c>).</summary>
-    public GpuBuffer Effects { get; }
-
     /// <summary>
-    /// Whether <see cref="Read"/> hands back the ground under each wheel and what each did to it — scratch to a town whose
-    /// tick the device runs, and the shadow's to compare.
+    /// Whether <see cref="Read"/> hands back what each wheel did to its ground — scratch to a town whose tick the device
+    /// runs, and the shadow's to compare.
     /// </summary>
-    public bool ReadsGroundAndScrub { get; set; } = true;
+    public bool ReadsScrub { get; set; } = true;
 
     /// <summary>
     /// Each wheel's impulse and where it is spent, as the pass leaves it on the device — four a car in the tyre model's
@@ -225,9 +205,6 @@ internal sealed class DeviceTyres : IDisposable
 
     /// <summary>The wheels as the last pass left them: rims wound on, and the mark state.</summary>
     public ReadOnlySpan<WheelRow> WheelsAfter => _wheels.AllRead[..(_cars * WheelsACar)];
-
-    /// <summary>The ground under each wheel, nought under a car at rest.</summary>
-    public ReadOnlySpan<SurfaceRow> Ground => _surfaces.AllRead[..(_cars * WheelsACar)];
 
     /// <summary>Each wheel's impulse and where it is spent: (impulse, at).</summary>
     public ReadOnlySpan<Vector4> Impulses => _impulses.AllRead[..(_cars * WheelsACar)];
@@ -305,7 +282,7 @@ internal sealed class DeviceTyres : IDisposable
     public void Run(CommandBuffer commands, int cars)
     {
         _cars = cars;
-        var push = new PassPush { Ground = _ground.PushFor(cars), Figures = _figures };
+        var push = new PassPush { CarCount = (uint)cars, Figures = _figures };
         _kernel.Dispatch(commands, _set, (uint)Math.Max(1, (cars + 63) / 64), push);
     }
 
@@ -316,11 +293,7 @@ internal sealed class DeviceTyres : IDisposable
         _carRows.Read(commands, _cars);
         _wheels.Read(commands, _cars);
         _impulses.Read(commands, _cars);
-        if (ReadsGroundAndScrub)
-        {
-            _surfaces.Read(commands, _cars);
-            _scrubs.Read(commands, _cars);
-        }
+        if (ReadsScrub) _scrubs.Read(commands, _cars);
 
         _vk.Copy(commands, _markCount, _markCountOut, sizeof(uint));
     }
@@ -360,7 +333,6 @@ internal sealed class DeviceTyres : IDisposable
         _commands.Dispose();
         _carRows.Dispose();
         _wheels.Dispose();
-        _surfaces.Dispose();
         _impulses.Dispose();
         _scrubs.Dispose();
         foreach (var buffer in _owned) buffer.Dispose();

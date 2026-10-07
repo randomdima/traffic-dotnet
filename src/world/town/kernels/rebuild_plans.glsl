@@ -3,7 +3,7 @@
 // claims the host lays where they stand, then every car's claim, then every walker's walk — counted, scanned, and each
 // unit's filed from where its scans say, after the bodies and their passes. The one binding layout both kernels of it
 // run over (rebuild_count.comp, rebuild_file.comp), laid by app/devicetick/DeviceRebuild. The including kernel declares
-// `figures` (stretchCount, carCount, walkerCount, mostPieces, proposedRoom, standingUnit, standOffM) first.
+// `figures` (stretchCount, carCount, walkerCount, mostPieces, standingUnit, standOffM) first.
 //
 // A unit the host lays itself is filed by rebuild_host.comp; here it is only counted.
 

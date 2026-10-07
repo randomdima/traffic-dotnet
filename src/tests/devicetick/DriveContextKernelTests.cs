@@ -38,13 +38,13 @@ public class DriveContextKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
     [StructLayout(LayoutKind.Sequential)]
     readonly record struct ContextCarRow(
         float ProgressM, float CoveredSinceClaimM, float AuthorityM, float HorizonM, float ClaimFromM, float CommittedToM,
-        float GrantMarginM, float GroundCoefficient, float PlannedMps, uint GrantCutBy, uint Flags, int CutOn, Vector2 PlaceM,
+        float GrantMarginM, float PlannedMps, uint GrantCutBy, uint Flags, int CutOn, float Pad0, Vector2 PlaceM,
         float PlaceReachM, float Pad, Vector2 PositionM, float Pad1, float Pad2);
 
     [StructLayout(LayoutKind.Sequential)]
     readonly record struct ContextRow(
-        float GroundCoefficient, float AuthorityM, uint GrantCutBy, float PlaceStopM, float MarginM, uint WaitsToPass, float HorizonM,
-        float PassAsideM, float BackUpM, uint Blocked, float WaitAtM, float Pad);
+        float AuthorityM, uint GrantCutBy, float PlaceStopM, float MarginM, uint WaitsToPass, float HorizonM, float PassAsideM,
+        float BackUpM, uint Blocked, float WaitAtM, float Pad0, float Pad1);
 
     [StructLayout(LayoutKind.Sequential)]
     readonly record struct BoxRow(float ToTheBoxM, float LightAheadM, uint Flags, uint Pad);
@@ -75,7 +75,7 @@ public class DriveContextKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
             Enumerable.Range(0, CarCatalog.Shared.SheetCount).Select(variant => CarBuildRow.Of(fleet.Of(variant))).ToArray());
         using var buildOf = device.Sized<uint>(capacity);
         using var lines = device.Sized<CarLineRow>(capacity);
-        using var lineArcs = device.Sized<DeviceGround.ArcRow>(capacity * arcsPerCar);
+        using var lineArcs = device.Sized<ArcRow>(capacity * arcsPerCar);
         using var chain = device.Sized<int>(capacity * lanes);
         using var starts = device.Sized<float>(capacity * lanes);
         using var ends = device.Sized<float>(capacity * lanes);
@@ -134,7 +134,7 @@ public class DriveContextKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
                 buildOf.Span<uint>()[car] = cars.Variant[car];
                 var line = cars.Line[car];
                 lines.Span<CarLineRow>()[car] = new CarLineRow((uint)line.ArcCount, (uint)line.LaneCount, line.LengthM, 0u);
-                for (var arc = 0; arc < line.ArcCount; arc++) lineArcs.Span<DeviceGround.ArcRow>()[(car * arcsPerCar) + arc] = DeviceGround.ArcRow.Of(cars.LineOf(car)[arc]);
+                for (var arc = 0; arc < line.ArcCount; arc++) lineArcs.Span<ArcRow>()[(car * arcsPerCar) + arc] = ArcRow.Of(cars.LineOf(car)[arc]);
                 for (var slot = 0; slot < line.LaneCount; slot++)
                 {
                     chain.Span<int>()[(car * lanes) + slot] = cars.ChainOf(car)[slot];
@@ -156,8 +156,8 @@ public class DriveContextKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
                             | (hold != LaneOccupancy.NoHold ? 8u : 0u) | (cut.Found ? 16u : 0u);
                 carRows.Span<ContextCarRow>()[car] = new ContextCarRow(
                     cars.ProgressM[car], cars.CoveredSinceClaimM[car], cars.AuthorityM[car], cars.HorizonM[car], cars.ClaimFromM[car],
-                    cars.CommittedToM[car], cars.GrantMarginM[car], cars.GroundCoefficient[car], plannedBefore[car], (uint)cars.GrantCutBy[car],
-                    flags, cutOn, placeM, reachM, 0f, cars.PositionM[car], 0f, 0f);
+                    cars.CommittedToM[car], cars.GrantMarginM[car], plannedBefore[car], (uint)cars.GrantCutBy[car], flags, cutOn, 0f,
+                    placeM, reachM, 0f, cars.PositionM[car], 0f, 0f);
                 cutters.Span<DeviceClaims.ClaimRow>()[car] = cut.Found ? DeviceClaims.ClaimRow.Of(cut, cutOn, false, cut.FromM) : default;
             }
 
@@ -185,7 +185,7 @@ public class DriveContextKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         var host = cars.Context[car];
         var boxFlags = (cars.BoxIsOurs[car] ? 1u : 0u) | (cars.TurningAtTheBox[car] ? 2u : 0u) | (cars.InsideTheBox[car] ? 4u : 0u)
                        | (cars.CommittedToTheBox[car] ? 8u : 0u);
-        var same = host.GroundCoefficient == context.GroundCoefficient && host.AuthorityM == context.AuthorityM
+        var same = host.AuthorityM == context.AuthorityM
                    && (uint)host.GrantCutBy == context.GrantCutBy && Near(host.PlaceStopM, context.PlaceStopM)
                    && host.MarginM == context.MarginM && host.WaitsToPass == (context.WaitsToPass != 0u)
                    && host.HorizonM == context.HorizonM && cars.ToTheBoxM[car] == box.ToTheBoxM

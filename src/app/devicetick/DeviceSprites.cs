@@ -219,7 +219,7 @@ internal sealed class DeviceSprites : IDisposable
             Laid<Vector4>(Tints(config)),
             _people = Device<PersonRow>(personCapacity),
             _cars = Device<CarRow>(cars.Capacity),
-            _lineArcs = Device<DeviceGround.ArcRow>(cars.Capacity * arcsPerCar),
+            _lineArcs = Device<ArcRow>(cars.Capacity * arcsPerCar),
             _hands = Device<uint>(cars.Capacity),
             Laid<HeadRow>(Heads(heads)),
             Laid<int>(signals.LaneAxis),
@@ -237,7 +237,7 @@ internal sealed class DeviceSprites : IDisposable
         _frameIn = Staging<FrameRow>(1);
         _peopleIn = Staging<PersonRow>(personCapacity);
         _carsIn = Staging<CarRow>(cars.Capacity);
-        _lineArcsIn = Staging<DeviceGround.ArcRow>(cars.Capacity * arcsPerCar);
+        _lineArcsIn = Staging<ArcRow>(cars.Capacity * arcsPerCar);
         _handsIn = Staging<uint>(cars.Capacity);
         _instancesOut = Readback<SpriteInstance>(room.Over + room.Above);
         _drawsOut = Readback<DrawIndirectCommand>(2);
@@ -299,7 +299,7 @@ internal sealed class DeviceSprites : IDisposable
     public void LayCars(CarFleet cars, RecoveryDuty recovery, ReadOnlySpan<Selection> handDriven, int alsoDrivenCar)
     {
         var rows = _carsIn.Span<CarRow>();
-        var arcs = _lineArcsIn.Span<DeviceGround.ArcRow>();
+        var arcs = _lineArcsIn.Span<ArcRow>();
         var aheadM = _config.Lamps.TurnAheadM;
         var arcsLaid = 0;
         for (var car = 0; car < cars.Count; car++)
@@ -311,7 +311,7 @@ internal sealed class DeviceSprites : IDisposable
             {
                 if (startM >= lastM) break;
 
-                arcs[arcsLaid++] = DeviceGround.ArcRow.Of(arc);
+                arcs[arcsLaid++] = ArcRow.Of(arc);
                 startM += arc.LengthM;
             }
 
@@ -362,7 +362,7 @@ internal sealed class DeviceSprites : IDisposable
         vk.Copy(commands, _frameIn, _frame, Bytes<FrameRow>(1));
         vk.Copy(commands, _peopleIn, _people, Bytes<PersonRow>(_peopleLaid));
         vk.Copy(commands, _carsIn, _cars, Bytes<CarRow>(_carsLaid));
-        vk.Copy(commands, _lineArcsIn, _lineArcs, Bytes<DeviceGround.ArcRow>(_arcsLaid));
+        vk.Copy(commands, _lineArcsIn, _lineArcs, Bytes<ArcRow>(_arcsLaid));
         vk.Copy(commands, _handsIn, _hands, Bytes<uint>(_handsLaid));
         vk.AfterTransfer(commands);
         _timer.Stamp(commands, (int)Stage.Began);

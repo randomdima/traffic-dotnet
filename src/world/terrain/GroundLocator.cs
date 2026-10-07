@@ -62,37 +62,17 @@ internal sealed class GroundLocator
     /// <summary>The same, for a body on one level (<see cref="GroundShapes.At(GroundShapes.Scan, Vector2, byte)"/>): a car on a bridge is on its deck and not on what the deck passes over.</summary>
     public GroundSample At(Vector2 pointM, byte level) => Sample(_shapes.At(pointM, level));
 
-    /// <summary>
-    /// A scan of the shapes behind this ground, for a caller that means to ask off its own thread
-    /// (<see cref="GroundShapes.Scan"/>). <b>The ground itself is shared and read-only</b>; the scan is the
-    /// whole of what an ask writes to.
-    /// </summary>
-    public GroundShapes.Scan NewScan() => _shapes.NewScan();
-
-    /// <inheritdoc cref="At(Vector2)"/>
-    public GroundSample At(GroundShapes.Scan scan, Vector2 pointM) => Sample(_shapes.At(scan, pointM));
-
     GroundSample Sample(Ground ground) =>
         new(ground, GroundCatalog.RulesOf(ground), _catalog.Coefficient(ground));
 
     public Ground GroundAt(Vector2 pointM) => _shapes.At(pointM);
 
     /// <summary>
-    /// The three physics figures under one point. Kept apart from <see cref="At"/> because the two have
-    /// different callers: what a wheel wants is what this ground does to it, and what a walker and the
-    /// planners want is who is permitted here.
+    /// <b>What the ground under a wheel does to it</b> (TER-7b): the carriageway's surface where the wheel stands on a way
+    /// of the town (<c>RibbonAtlas.UnderWheels</c>), and the grass's anywhere else. Kept apart from <see cref="At"/>, which is
+    /// who is permitted at a point, because a wheel asks no shape what it stands on.
     /// </summary>
-    public GroundEffect EffectAt(Vector2 pointM) => _catalog.EffectOf(_shapes.At(pointM));
-
-    /// <inheritdoc cref="EffectAt(Vector2)"/>
-    /// <param name="level">The level the wheel is on (<see cref="At(Vector2, byte)"/>).</param>
-    public GroundEffect EffectAt(Vector2 pointM, byte level) => _catalog.EffectOf(_shapes.At(pointM, level));
-
-    /// <summary>What each kind of ground does to a body on it, as the figures stand now (<see cref="GroundCatalog.Table"/>).</summary>
-    public ReadOnlySpan<GroundEffect> EffectTable => _catalog.Table;
-
-    /// <summary>The shapes' own tables, as a device laying the ground once reads them (<c>DeviceGround</c>).</summary>
-    public GroundTable ShapeTable => _shapes.Table;
+    public GroundEffect UnderAWheel(bool onAWay) => _catalog.EffectOf(onAWay ? Ground.Road : Ground.Grass);
 
     /// <summary>Whether the point is inside the town's own box, for a caller that wants to know before it asks.</summary>
     public bool Contains(Vector2 pointM) => _shapes.Contains(pointM);

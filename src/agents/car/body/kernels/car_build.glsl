@@ -30,12 +30,8 @@ struct CarBuildRow
     float tailBehindAxleM;
 };
 
-// What it may be braking at at all on this ground: the pedal's cap, or what the patch puts down (CarBuild).
-float buildUtmostBrakingMps2(CarBuildRow car, float groundCoefficient)
-{
-    precise float patchMps2 = car.gripMps2 * groundCoefficient;
-    return min(car.brakingMps2, patchMps2);
-}
+// What it may be braking at at all: the pedal's cap, or what its own patch puts down (CarBuild.UtmostBrakingMps2).
+float buildUtmostBrakingMps2(CarBuildRow car) { return min(car.brakingMps2, car.gripMps2); }
 
 // Where the wheel is after a tick of winding it towards what was asked (CarBuild.WheelWoundTo, CAR-3a).
 float buildWheelWoundTo(CarBuildRow car, float fromRad, float wantedRad, float dtS)

@@ -283,10 +283,10 @@ public class JunctionClaimTests
     }
 
     /// <summary>
-    /// <b>And on no join it is standing clear of, wherever in the box it is put.</b> A body is on a way where
-    /// its collider is over that way's ribbon, so no body is ever on a join whose line is further from it than
-    /// its own corner and the join's half width — measured here by walking the line, which is a different
-    /// sum from the lattice that laid it.
+    /// <b>And on no join it is standing clear of, wherever in the box it is put.</b> A car is on a way where a
+    /// wheel of it stands on that way's ribbon, and its wheels stand inside its body, so no car is ever on a join
+    /// whose line is further from it than its own corner and the join's half width — measured here by walking the
+    /// line, which is a different sum from the lattice that laid it.
     /// </summary>
     [Theory]
     [MemberData(nameof(CrossedMaps))]

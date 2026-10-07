@@ -1,6 +1,5 @@
 using System.Numerics;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.World.Terrain;
 
 namespace TrafficSimulation.Agents.Car.Body;
 
@@ -63,17 +62,18 @@ internal readonly ref struct TyreCarry
 /// the device's kernel (<c>kernels/tyre_pass.glsl</c>) are held to one function.
 /// </summary>
 /// <remarks>
-/// The terrain is sampled under each wheel and never under the car: a car with two wheels off the road grips
+/// The ground is asked under each wheel and never under the car: a car with two wheels off the road grips
 /// asymmetrically, and that asymmetry is a yaw the solver produces out of four impulses at four places rather than
-/// anything decided here.
+/// anything decided here. <b>What a wheel stands on is whether it was on a way when the car's body was last laid</b>
+/// (TER-7b) — the very reading that put the body on the ways it stands on (TER-4c.2), taken once a laying and not a tick.
 /// </remarks>
 internal static class TyrePass
 {
     /// <summary>One car's four patches for this tick, and what each wheel wrote on the ground it stood on.</summary>
+    /// <param name="grounds">What a wheel on a way and off one stands on, for the figures as they stand.</param>
     /// <param name="hand">Whether a hand is at the wheel (<see cref="Actions.CarAction.Hand"/>), which the ceiling reads.</param>
-    /// <param name="groundCoefficient">The ground under the car's middle (<see cref="CarFleet.GroundCoefficient"/>), which the ceiling reads.</param>
     /// <param name="inertiaKgM2">The body's own moment of inertia about its centre, for the hold of a car its locks keep still.</param>
-    /// <param name="level">The level the car stands on, which is the one its wheels' ground is asked on.</param>
+    /// <param name="wheelsOnAWay">Which of its wheels stood on a way when its body was last laid (<see cref="CarFleet.WheelsOnAWay"/>).</param>
     /// <param name="ground">What each wheel stands on, written unless the car was at rest.</param>
     /// <param name="marks">
     /// The marks laid this tick, at most one a wheel and in wheel order — what the caller files, in that order.
@@ -81,8 +81,8 @@ internal static class TyrePass
     /// <param name="marksLaid">How many of <paramref name="marks"/> were written.</param>
     /// <returns>Whether the car was at rest and the tyres had nothing to do (<see cref="AtRest"/>).</returns>
     public static bool Step(
-        SimConfig config, GroundLocator terrain, in CarBuild car, in CarPose pose, in DriveCommand command, bool hand,
-        float groundCoefficient, float inertiaKgM2, byte level, in TyreCarry carry, Span<SurfaceUnderWheel> ground,
+        SimConfig config, in WheelGrounds grounds, in CarBuild car, in CarPose pose, in DriveCommand command,
+        bool hand, float inertiaKgM2, byte wheelsOnAWay, in TyreCarry carry, Span<SurfaceUnderWheel> ground,
         Span<WheelImpulse> impulses, Span<TyreScrub> scrub, Span<TyreMark> marks, out int marksLaid)
     {
         marksLaid = 0;
@@ -90,7 +90,7 @@ internal static class TyrePass
         // Taken before the standstill is answered, because a car parked mid-slide still has a throttle
         // to recover: what it may ask for when it pulls away again is not a thing that happens only
         // while the wheels are turning.
-        var ceilingMps2 = DriveCeilingMps2(config, car, hand, groundCoefficient, pose.AccelerationMps2.Y, carry);
+        var ceilingMps2 = DriveCeilingMps2(config, car, hand, pose.AccelerationMps2.Y, carry);
         if (AtRest(pose, command, carry))
         {
             // Cleared rather than left, because the four from the tick it stopped on would otherwise be spent
@@ -105,9 +105,7 @@ internal static class TyrePass
         TyreModel.WheelPointsM(car, pose, atM);
         for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
         {
-            var effect = terrain.EffectAt(atM[wheel], level);
-            ground[wheel] = new SurfaceUnderWheel(
-                effect.Coefficient, effect.DragMps2, config.Marks.PowerM2S3 * effect.MarkFactor, effect.Ploughs);
+            ground[wheel] = grounds.Under(wheelsOnAWay, wheel);
         }
 
         TyreModel.Step(config, car, pose, command, ceilingMps2, atM, ground, carry.SpinMps, config.TickSeconds, impulses, scrub);
@@ -177,8 +175,7 @@ internal static class TyrePass
     /// reads no crossings, so nothing about it waits on that.
     /// </para>
     /// </remarks>
-    static float DriveCeilingMps2(
-        SimConfig config, in CarBuild car, bool hand, float groundCoefficient, float acrossMps2, in TyreCarry carry)
+    static float DriveCeilingMps2(SimConfig config, in CarBuild car, bool hand, float acrossMps2, in TyreCarry carry)
     {
         carry.SlipThrottle = carry.DrivenSlipping
             ? MathF.Max(carry.SlipThrottle - (config.TickSeconds / config.Tyre.SlipBackOffS), config.Tyre.MinSlipThrottleFraction)
@@ -186,10 +183,10 @@ internal static class TyrePass
 
         if (hand)
         {
-            return TyreModel.DriveLeftMps2(car.GripMps2 * groundCoefficient, acrossMps2);
+            return TyreModel.DriveLeftMps2(car.GripMps2, acrossMps2);
         }
 
-        var leftMps2 = TyreModel.DriveLeftMps2(config.TyreGripMps2 * groundCoefficient, acrossMps2);
+        var leftMps2 = TyreModel.DriveLeftMps2(config.TyreGripMps2, acrossMps2);
         return leftMps2 * config.Tyre.TractionThrottleFraction * carry.SlipThrottle;
     }
 

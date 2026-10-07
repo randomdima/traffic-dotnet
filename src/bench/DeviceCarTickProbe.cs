@@ -34,14 +34,12 @@ internal static class DeviceCarTickProbe
         using var vk = Vk.Open("traffic-dotnet", validation: false);
         using var answered = new DeviceClaims(
             vk, claims.WayCount, claims.Capacity, claims.HoldCapacity, config.Road.MostSettlingPasses, cars.Capacity);
-        var shapes = new GroundShapes(plan.Paving(config), config);
-        using var ground = new DeviceGround(vk, shapes.Table);
         var builds = new CarBuild[CarCatalog.Shared.SheetCount];
         for (var variant = 0; variant < builds.Length; variant++) builds[variant] = cars.BuildOfVariant(variant);
 
-        using var tyres = new DeviceTyres(vk, config, ground, world.Terrain.EffectTable, builds, cars.Capacity);
+        using var tyres = new DeviceTyres(vk, config, world.WheelGrounds, builds, cars.Capacity);
         using var tick = new DeviceCarTick(
-            vk, config, tyres, ground, world.Roads, cars.LineArcsOf(0).Length, world.Ways.OfRoadConnector(0), answered.Cut);
+            vk, config, tyres, world.Roads, cars.LineArcsOf(0).Length, world.Ways.OfRoadConnector(0), answered.Cut);
 
         // The device's claims are the ones the tick reads, so nothing is asked of it until it has answered a rebuild.
         var rebuilt = false;
@@ -124,7 +122,7 @@ internal static class DeviceCarTickProbe
         Console.WriteLine($"device car tick probe — {map} on {vk.DeviceName}, {cars.Count} cars and {world.People.Count} walkers after {WarmupTicks} ticks");
         Console.WriteLine($"{tickMs.Count} ticks, median {Median(takenCounts.ConvertAll(taken => (double)taken)):F0} following cars a tick taken by the device:");
         Console.WriteLine($"  host, every agent's tick   median {Median(hostMs),8:F3} ms   most {hostMs.Max(),8:F3} ms");
-        Console.WriteLine($"  device ground and drive    median {Median(tickMs),8:F3} ms   most {tickMs.Max(),8:F3} ms");
+        Console.WriteLine($"  device drive               median {Median(tickMs),8:F3} ms   most {tickMs.Max(),8:F3} ms");
         Console.WriteLine($"  device tyres               median {Median(tyresMs),8:F3} ms   most {tyresMs.Max(),8:F3} ms");
         Console.WriteLine($"  taking in what the town changed  median {Median(sentMs),8:F3} ms   most {sentMs.Max(),8:F3} ms");
         Console.WriteLine($"    of it, median {Median(sentKb),8:F0} KiB a tick, lines {Median(linesKb):F0} KiB; most {sentKb.Max():F0} KiB");

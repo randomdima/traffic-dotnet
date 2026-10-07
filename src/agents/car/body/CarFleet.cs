@@ -52,6 +52,7 @@ internal sealed class CarFleet
         Action = new CarAction[capacity];
         Broken = new bool[capacity];
         Channels = new byte[capacity];
+        WheelsOnAWay = new byte[capacity];
         Ambulance = new bool[capacity];
         BlueLight = new bool[capacity];
         AtWork = new bool[capacity];
@@ -89,7 +90,6 @@ internal sealed class CarFleet
         PlannedMps = new float[capacity];
         PaceMps = new float[capacity];
         Array.Fill(PaceMps, float.PositiveInfinity);
-        GroundCoefficient = new float[capacity];
         Command = new DriveCommand[capacity];
         Hold = new Control.DrivingHold[capacity];
         Context = new Control.DriveContext[capacity];
@@ -196,6 +196,12 @@ internal sealed class CarFleet
     /// car at a bridgehead is on the deck where there is deck and on the ground past its end.
     /// </summary>
     public byte LevelOf(int car) => (byte)BitOperations.Log2(Channels[car]);
+
+    /// <summary>
+    /// <b>Which of the car's wheels stood on a way when its body was last laid</b> (TER-7b, TER-4c.2), a bit a wheel in the
+    /// tyre model's order: what each grips on until the next laying, a wheel on none gripping as on grass.
+    /// </summary>
+    public byte[] WheelsOnAWay { get; }
 
     /// <summary>
     /// <b>AMB-3: whether this car is an ambulance</b> — a fact about the car and never about what it is
@@ -407,8 +413,6 @@ internal sealed class CarFleet
     /// thing that sets one.
     /// </summary>
     public float[] PaceMps { get; }
-
-    public float[] GroundCoefficient { get; }
 
     /// <summary>What the driver asked for this tick, kept for the tyres, the debug layer and whoever asks what the car is doing.</summary>
     public DriveCommand[] Command { get; }
@@ -737,6 +741,7 @@ internal sealed class CarFleet
         Action[car] = CarAction.Stand;
         Broken[car] = false;
         Channels[car] = CityPlan.RoadArrays.GroundChannel;
+        WheelsOnAWay[car] = 0;
         Ambulance[car] = false;
         BlueLight[car] = false;
         AtWork[car] = false;
@@ -758,7 +763,6 @@ internal sealed class CarFleet
         GrantCutBy[car] = Control.HeadwayKind.Nothing;
         PlannedMps[car] = 0f;
         PaceMps[car] = float.PositiveInfinity;
-        GroundCoefficient[car] = 1f;
         Command[car] = DriveCommand.Parked;
         Hold[car] = Control.DrivingHold.None;
         Context[car] = Control.DriveContext.Clear;

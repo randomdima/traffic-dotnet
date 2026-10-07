@@ -15,8 +15,8 @@ using Xunit;
 namespace TrafficSimulation.Tests.World;
 
 /// <summary>
-/// The reservations asked of a running town: that the physical layer puts every body on the ways its
-/// collider stands over, and that the planned layer reaches as far as its holders mean to go and no further.
+/// The reservations asked of a running town: that the physical layer puts every body on the ways it stands on,
+/// and that the planned layer reaches as far as its holders mean to go and no further.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
 [Trait(Priority.Key, Priority.P1)]
@@ -139,12 +139,12 @@ public class LaneOccupancyInATownTests
     }
 
     /// <summary>
-    /// <b>A body holds what its collider covers of a way and no more</b> (TER-4c.2): lying across a lane it
-    /// takes its own width of it, where lying along the lane it takes its length — each to within the
-    /// half step either side a lattice point stands for.
+    /// <b>A car holds all of the lane its body covers, lying along it or across it</b> (TER-4c.2): read off its wheels
+    /// and widened by how far its body reaches past them, what it holds takes in its collider's length lying along the
+    /// lane and its width lying across — and across, less than along.
     /// </summary>
     [Fact]
-    public void ABodyAcrossALaneTakesItsWidthOfItAndNotItsLength()
+    public void ACarHoldsAllOfTheLaneItsBodyCoversAlongItOrAcross()
     {
         using var world = new TownWorld(Towns.Of(Towns.City), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
@@ -160,8 +160,9 @@ public class LaneOccupancyInATownTests
         StandTheBodyOn(world, lane, 0f, out _, MathF.PI * 0.5f);
         var acrossTheLaneM = LengthHeldOn(world, way, TheBodyToStand);
 
-        Assert.InRange(alongTheLaneM, collider.X, collider.X + Config.RibbonLatticeStepM);
-        Assert.InRange(acrossTheLaneM, collider.Y, collider.Y + Config.RibbonLatticeStepM);
+        Assert.True(alongTheLaneM >= collider.X, $"along lane {lane} a car {collider.X} m long holds {alongTheLaneM} m of it");
+        Assert.True(acrossTheLaneM >= collider.Y, $"across lane {lane} a car {collider.Y} m wide holds {acrossTheLaneM} m of it");
+        Assert.True(acrossTheLaneM < alongTheLaneM, $"across lane {lane} a car holds {acrossTheLaneM} m, and along it {alongTheLaneM} m");
     }
 
     /// <summary>
@@ -191,12 +192,12 @@ public class LaneOccupancyInATownTests
     }
 
     /// <summary>
-    /// <b>And a body up to the paint is on the lane it is in and on no other</b> (TER-4c.2): a lane's
-    /// ribbon ends at the paint, so a body has to reach into the lane running back — and not merely to its
-    /// edge — to be on it.
+    /// <b>And a car whose wheels are clear of the paint is on the lane it is in and on no other</b> (TER-4c.2): a lane's
+    /// ribbon ends at the paint, so a wheel has to stand in the lane running back to put the car on it — clear of it by
+    /// the lattice's reach, since a wheel is read at the lattice point nearest it.
     /// </summary>
     [Fact]
-    public void ABodyUpToThePaintIsOnOnlyTheLaneItIsIn()
+    public void ACarWithItsWheelsClearOfThePaintIsOnOnlyTheLaneItIsIn()
     {
         using var world = new TownWorld(Towns.Of(Towns.City), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
@@ -204,9 +205,10 @@ public class LaneOccupancyInATownTests
 
         var lane = AQuietLane(world, needsTheLaneBack: true);
         var back = world.Roads.LaneReverse[lane];
-        var halfWidthM = world.Cars.BuildOf(TheBodyToStand).CollisionSizeM.Y * 0.5f;
+        var halfTrackM = world.Cars.BuildOf(TheBodyToStand).HalfTrackM;
+        var clearM = RibbonAtlas.ReachOf(Config.RibbonLatticeStepM) + RoundedClearM;
 
-        var car = StandTheBodyOn(world, lane, -(Config.LaneOffsetM - halfWidthM) * Config.RoadSideSign, out _);
+        var car = StandTheBodyOn(world, lane, -(Config.LaneOffsetM - halfTrackM - clearM) * Config.RoadSideSign, out _);
 
         Assert.True(
             LengthHeldOn(world, world.Ways.OfRoadLane(lane), car) > 0f,
@@ -281,12 +283,12 @@ public class LaneOccupancyInATownTests
     }
 
     /// <summary>
-    /// <b>A body whose nose is over the metre its lane is left at is on the movement beyond it</b>
-    /// (TER-4c.2, TER-5d): past that metre the ground is the join's, so a body reaching past it is standing
-    /// in the junction whatever its middle is doing.
+    /// <b>A car whose front wheels are past the metre its lane is left at is on the movement beyond it</b>
+    /// (TER-4c.2, TER-5d): past that metre the ground is the join's, so a car with its wheels there is standing in the
+    /// junction whatever its middle is doing.
     /// </summary>
     [Fact]
-    public void ABodyWithItsNoseOverTheEndOfItsLaneIsOnTheMovementBeyondIt()
+    public void ACarWithItsFrontWheelsPastTheEndOfItsLaneIsOnTheMovementBeyondIt()
     {
         using var world = new TownWorld(Towns.Of(Towns.City), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
@@ -296,34 +298,34 @@ public class LaneOccupancyInATownTests
         var lane = AQuietLaneOntoAJunction(world);
         Assert.True(lane >= 0, "the town has no quiet lane running into a junction");
 
-        // A metre short of the lane's own end, so that the body is on the lane and its nose is not.
-        var on = Spline.SampleAt(roads.ArcsOf(lane), roads.LaneLengthM[lane] - 1f);
+        // Its front axle a lattice step past the lane's own end, its middle short of it on the lane.
+        var frontAxleM = TyreModel.WheelAtM(world.Cars.BuildOf(TheBodyToStand), 0).X;
+        var on = Spline.SampleAt(roads.ArcsOf(lane), roads.LaneLengthM[lane] + Config.RibbonLatticeStepM - frontAxleM);
         var car = StandTheBodyAt(world, on.PositionM, MathF.Atan2(on.Direction.Y, on.Direction.X));
-        Assert.True(
-            world.Cars.BuildOf(car).CollisionSizeM.X * 0.5f > 1f + Config.RibbonLatticeStepM,
-            "a body shorter than the metre it stands back is no test");
 
         var way = roads.WayOfConnector(roads.ConnectorsFrom(lane)[0]);
-        Assert.True(LengthHeldOn(world, way, car) > 0f, $"a body with its nose over the end of lane {lane} is not on join {way}");
+        Assert.True(LengthHeldOn(world, way, car) > 0f, $"a car with its front wheels past the end of lane {lane} is not on join {way}");
     }
 
     /// <summary>
-    /// <b>A car standing on a zebra is on the crossing way and the lane under it alike</b> (TER-4c.2): the
+    /// <b>A car with its wheels on a zebra is on the crossing way and the lane under it alike</b> (TER-4c.2): the
     /// paint is ground two networks name, and a body on two ways is on two ways.
     /// </summary>
     [Fact]
-    public void ACarOnAZebraIsOnTheCrossingWayUnderIt()
+    public void ACarWithItsWheelsOnAZebraIsOnTheCrossingWayUnderIt()
     {
         using var world = new TownWorld(Towns.Of(Towns.City), Config);
 
         var crossing = ACrossingWay(world);
         Assert.True(crossing >= 0, "the town painted no zebra to stand a car on");
 
-        // Square across the paint, which is how a car meets one: along the road the zebra is painted over.
+        // Square across the paint, which is how a car meets one: along the road the zebra is painted over, its front
+        // axle on the crossing's own line.
         var alongM = world.Ways.LengthM(crossing) * 0.5f;
         var on = Spline.SampleAt(world.LineOfWay(crossing, out _), alongM);
         var across = Heading.RightOf(on.Direction);
-        var car = StandTheBodyAt(world, on.PositionM, MathF.Atan2(across.Y, across.X));
+        var frontAxleM = TyreModel.WheelAtM(world.Cars.BuildOf(TheBodyToStand), 0).X;
+        var car = StandTheBodyAt(world, on.PositionM - (across * frontAxleM), MathF.Atan2(across.Y, across.X));
 
         Assert.Equal(car, BodyOn(world, crossing, alongM));
         Assert.True(
@@ -400,7 +402,7 @@ public class LaneOccupancyInATownTests
             if (plannedM <= 0f) continue;
 
             ref readonly var build = ref world.Cars.BuildOf(car);
-            var brakingMps2 = CarFollower.BrakingMps2(Config, build, world.Cars.GroundCoefficient[car]);
+            var brakingMps2 = CarFollower.BrakingMps2(Config, build);
             var topMps = build.MaxSpeedMps;
             var ceilingM =
                 (topMps * Config.Driving.PlannedRunS) + (topMps * topMps / (2f * brakingMps2)) + Config.Driving.StandOffM;
@@ -434,7 +436,7 @@ public class LaneOccupancyInATownTests
             var askedAtMps = world.Cars.AlongMps[car] + (build.BrakingMps2 * Config.TickSeconds);
             if (askedAtMps > Config.Driving.StopSpeedMps) continue;
 
-            var brakingMps2 = CarFollower.BrakingMps2(Config, build, world.Cars.GroundCoefficient[car]);
+            var brakingMps2 = CarFollower.BrakingMps2(Config, build);
             var pulledToMps = MathF.Max(0f, askedAtMps) + (build.AccelerationMps2 * Config.CarReactionS);
             var roomM = (pulledToMps * Config.CarReactionS) + (pulledToMps * pulledToMps / (2f * brakingMps2))
                         + MathF.Max(Config.Driving.StandOffM, world.Cars.GrantMarginM[car]);
@@ -535,6 +537,9 @@ public class LaneOccupancyInATownTests
 
     /// <summary>The car these place, moved out of whatever the town had it doing and stood where the test wants it.</summary>
     const int TheBodyToStand = 1;
+
+    /// <summary>How much clearer than a distance a wheel is stood, so the arithmetic standing it cannot round it back onto the line.</summary>
+    const float RoundedClearM = 0.01f;
 
     /// <summary>
     /// One body stood still on a lane, <paramref name="acrossM"/> to the right of that lane's own line and
@@ -689,50 +694,6 @@ public class LaneOccupancyInATownTests
 
         return 0f;
     }
-
-    /// <summary>
-    /// <b>A walker read as clear on the way it walks stands over no other way's ribbon</b> (TER-4c.2), so laying it on
-    /// that way alone, without asking the atlas, leaves it off nobody's ground. Asked of every walker of the suite's
-    /// walking town at the instant the claims are laid, every tenth of a second for a minute, against what the atlas
-    /// finds under its disc there.
-    /// </summary>
-    [Fact]
-    public void AWalkerClearOnItsWayIsOverThatWayAlone()
-    {
-        using var world = new TownWorld(Towns.Built, Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
-        loop.Advance(WalkersOutTicks);
-
-        Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
-        for (var asked = 0; asked < TimesAsked; asked++)
-        {
-            loop.Advance(TicksBetweenAsks);
-            world.LayTheClaims();
-            for (var person = 0; person < world.People.Count; person++)
-            {
-                var way = world.People.OnWay[person];
-                var radiusM = world.People.RadiusM[person];
-                if (!world.WalkingGround.IsClearOnItsWay(person, way, radiusM)) continue;
-
-                var count = world.Atlas.UnderDisc(world.People.PositionM[person], radiusM, under);
-                for (var at = 0; at < count; at++)
-                {
-                    Assert.True(
-                        under[at].Way == way,
-                        $"walker {person}, clear on way {way} at {world.People.OnWayM[person]:0.00} m, " +
-                        $"stands over way {under[at].Way} too");
-                }
-            }
-        }
-    }
-
-    /// <summary>Long enough for the town's first trips to be out on the pavement.</summary>
-    const int WalkersOutTicks = 600;
-
-    /// <summary>A tenth of a second, and a minute of them.</summary>
-    const int TicksBetweenAsks = 6;
-
-    const int TimesAsked = 600;
 
     /// <summary>Ground on a way is metres, and a plan is arithmetic on floats: a centimetre is not a finding.</summary>
     const float Tolerance = 1e-2f;

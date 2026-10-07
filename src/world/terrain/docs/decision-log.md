@@ -1,5 +1,38 @@
 # Terrain — decision log
 
+## 2026-10-07 — the ground is a wheel's, read once a laying
+
+**The owner ruled it: a wheel asks which lane ribbon it is on, once each time the claims are laid, and nothing else
+asks the ground for a car.** On any way the atlas holds under it a wheel grips as on the carriageway, on none as on
+grass (`GroundLocator.UnderAWheel`), and the same reading puts the car's body on those ways at p0 (TER-4c.2) — where
+a car's grip and its reservations had been two readings of the ground every tick, the shell's under each wheel and
+the atlas's under its collider. **The car itself does not care what ground it is on**: no figure for the ground under
+it is kept, and its driver plans on its own rubber (agents/car log). `TER-7b`'s first consequence (`P0`) was
+reworded at the owner's word, from *what a wheel stands on is the shell's* to this; `TER-7` and `TER-2` say what
+follows.
+
+- **Read at the laying and kept** (`CarFleet.WheelsOnAWay`, a bit a wheel): the tyres grip on it every tick until
+  the next laying, so a wheel's answer is up to 0.05 s old, and no tick asks what ground a car is on.
+- **A wheel is read at the lattice point nearest it**, so where it stands is answered to within the lattice's reach
+  of a band's edge — 0.35 m at the shipped step.
+- **What the ribbons do not cover is grass to a wheel**: a pocket of paving inside the kerb, a car park's apron, the
+  pavement of a town nobody walks, and water. The kinds' own figures are still the ground's, and are what the walk
+  planner reads (`GroundLocator.At`).
+- **The two grounds are worked out once** for the figures as they stand (`WheelGrounds`) and picked by a wheel's bit,
+  on the host and in the kernel alike — the device is laid the two as rows, mark threshold and all, and hands no
+  wheel's ground back.
+- **The device is handed the bits** with each car's tyre row, read where its own claims laying read them
+  (`car_bodies.glsl`, mirrored back with the channels), so the tyre pass binds neither the atlas nor the shell.
+- **Nothing on the device asks the shell**: the kernel that read it under each car's middle (`car_ground.comp`) went,
+  and with it the shell's tables laid on the device and the query over them (`DeviceGround`, `ground_at.comp`,
+  `--bench deviceground`), which tyres and that middle were the only askers of.
+
+On OdesaOsm 62 of 40 052 wheels stand otherwise than the shell has them — 29 on the carriageway's kind and on no way,
+29 of 245 on the pavement's and on one, 4 of 23 on grass and on one (`--bench deviceatlas`). With the wheels read at
+the laying, the whole fleet's tyre pass went 4.93 → 2.13 ms a tick on the host and 0.704 → 0.015 ms on the device
+(`--bench devicetyres`); with the two grounds worked out once and none handed back it reads 2.04 ms on the host and
+0.018 on the device, and taking the rows in and handing them back 3.18 → 2.68 ms.
+
 ## 2026-10-04 — a bridge over a road is a level of the ground of its own, drawn above
 
 **The owner asked for it: a bridge over roads is rendered above them, as a separate road.** `TER-7b` and
@@ -12,8 +45,6 @@ standing at its corners.
   turns round, and the walk struck round that, stand under the deck drawn over them.
 - **The level above's corners are filled and never cut** (`ArcOutset.Corners.Filled`): a bridge's end is square where
   it lands, and a corner rounded off there is a bite out of the road at every bridgehead.
-- **A wheel is asked what it stands on, on its own level** (`GroundShapes.At(…, level)`): on a bridge its carriageway
-  and deck, and past the deck's edge whatever is below.
 - **No walk crosses a bridge over a road.** The walk is struck off the ground's boundary and a walker is on the ground,
   so a walker reaching a bridgehead turns round its end ([the known gaps](../../../../docs/index.md#known-gaps)).
 
@@ -26,18 +57,17 @@ say so, and `TER-7b`'s first consequence names a wheel alone (at the owner's wor
 any more: every walker tick, every paused walker and every casualty took one ask each, and a blocked doorway
 took up to thirty-three a tick.
 
-## 2026-09-27 — the ground is answered off the shell, and a lane is the actors' alone
+## 2026-09-27 — the ground is answered off the shell
 
-The owner ruled it: **a lane is for the actors' logical behaviour and never for physics, and the ground is
-the shell.** What a wheel stands on is which side it is of the rings the picture fills
-(`GroundRings.Carriageway` and `Walk`), asked through a lattice over their pieces (`RingSides`,
+The owner ruled it: **the ground is the shell.** What the ground is at a point is which side it is of the rings
+the picture fills (`GroundRings.Carriageway` and `Walk`), asked through a lattice over their pieces (`RingSides`,
 `Terrain.ShellCellsAcrossGridCell`): a cell no ring crosses is a lookup of the winding at its corner, and a cell one does
 cross walks two legs from that corner to the point. The answer is the rings' own, so the corner where the
 square bands and the rounded fill parted, and the wedge a junction's corner is paved back over, are no longer
 a gap — the answer is the picture. `TER-7b`'s first consequence was reworded at the owner's word, from which
 line lays a point and how far off the kerb it stands to which side it is of the layers' rings.
 
-The bands made a wheel pay for every lane and movement within a walk of it. Asked per kind on Odesa
+The bands made an ask pay for every lane and movement within a walk of it. Asked per kind on Odesa
 (`--bench census`), carriageway went 549 ns → 32, pavement 372 → 74 and grass 62 → 37; on a running Odesa the
 tyres went 1.21 → 0.29 ms a frame and the main thread 3.75 → 2.8 ms (`qq prof`). At 4 m a layer is 2.4 MB with a fifth of
 its cells crossed; at 2 m it was 9.9 MB and no faster, an ask being bound by the fetch and not by the pieces.

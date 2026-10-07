@@ -39,14 +39,12 @@ internal static class DeviceTickProbe
         var cars = world.Cars;
         using var vk = Vk.Open("traffic-dotnet", validation: false);
         using var rebuild = new DeviceRebuild(vk, config, world);
-        var shapes = new GroundShapes(plan.Paving(config), config);
-        using var ground = new DeviceGround(vk, shapes.Table);
         var builds = new CarBuild[CarCatalog.Shared.SheetCount];
         for (var variant = 0; variant < builds.Length; variant++) builds[variant] = cars.BuildOfVariant(variant);
 
-        using var tyres = new DeviceTyres(vk, config, ground, world.Terrain.EffectTable, builds, cars.Capacity);
+        using var tyres = new DeviceTyres(vk, config, world.WheelGrounds, builds, cars.Capacity);
         using var carTick = new DeviceCarTick(
-            vk, config, tyres, ground, world.Roads, cars.LineArcsOf(0).Length, world.Ways.OfRoadConnector(0), rebuild.Claims,
+            vk, config, tyres, world.Roads, cars.LineArcsOf(0).Length, world.Ways.OfRoadConnector(0), rebuild.Claims,
             (rebuild.Grants, rebuild.Cutters, rebuild.Told));
         using var solver = new DeviceSolver(vk, config, world.PhysicsForInstruments.Table);
         using var bodies = new DeviceBodyPhase(vk, config, solver, tyres, world.People.Capacity + (2 * cars.Capacity));

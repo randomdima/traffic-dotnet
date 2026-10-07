@@ -311,7 +311,7 @@ Six rules govern all of it:
   stretch** (TER-5f). Which turn a connector makes is a fact about the road, not about the car on it.
 - A crossing registry queryable by junction, and a stop-line registry carrying the bars actually painted.
 - **A ribbon atlas over every way of the town** (TER-4c.4), laid once from the lines and widths each network
-  hands over as data: which ways a collider stands over, and the marks — every pair of ways whose ribbons share
+  hands over as data: which ways a collider stands over and which a wheel stands on, and the marks — every pair of ways whose ribbons share
   ground, in both ways' own metres (TER-5c). **There is no register of who is inside a junction**: the marks
   place a plan's secondary claims as it is laid, and the answer comes off the reservations everything else
   reads (TER-5c.1).

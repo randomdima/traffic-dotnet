@@ -1,5 +1,7 @@
 using System.Numerics;
+using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Terrain;
 
 namespace TrafficSimulation.Agents.Car.Body;
 
@@ -42,7 +44,26 @@ internal readonly record struct TyreMark(Vector2 FromM, Vector2 ToM, float Width
 /// What the ground under one patch does to it: grip, drag and the mark threshold, the last already in
 /// the units the scrub is measured in.
 /// </summary>
-internal readonly record struct SurfaceUnderWheel(float Coefficient, float DragMps2, float MarkThresholdM2S3, bool Ploughs);
+internal readonly record struct SurfaceUnderWheel(float Coefficient, float DragMps2, float MarkThresholdM2S3, bool Ploughs)
+{
+    public static SurfaceUnderWheel Of(SimConfig config, in GroundEffect effect) =>
+        new(effect.Coefficient, effect.DragMps2, config.Marks.PowerM2S3 * effect.MarkFactor, effect.Ploughs);
+}
+
+/// <summary>
+/// <b>The only two grounds a wheel stands on</b> (TER-7b): the carriageway's where it stood on a way when its car's body
+/// was last laid (<see cref="CarFleet.WheelsOnAWay"/>), the grass's anywhere else — worked out once for the figures as
+/// they stand, and picked by the wheel's bit every tick.
+/// </summary>
+internal readonly record struct WheelGrounds(SurfaceUnderWheel OffAWay, SurfaceUnderWheel OnAWay)
+{
+    public static WheelGrounds Of(SimConfig config, GroundLocator terrain) => new(
+        SurfaceUnderWheel.Of(config, terrain.UnderAWheel(onAWay: false)),
+        SurfaceUnderWheel.Of(config, terrain.UnderAWheel(onAWay: true)));
+
+    /// <summary>Under one wheel of a car whose body was last laid with these of its wheels on a way.</summary>
+    public SurfaceUnderWheel Under(byte wheelsOnAWay, int wheel) => ((wheelsOnAWay >> wheel) & 1) != 0 ? OnAWay : OffAWay;
+}
 
 /// <summary>
 /// What one wheel did to the ground it stood on, as friction <b>power per kg</b> of the load that

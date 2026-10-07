@@ -97,7 +97,7 @@ internal static class ExamCards
     /// <summary>Two ways meet only where their ribbons do, so ways that share no ground never hold each other.</summary>
     const string Apart = "TER-5c";
 
-    /// <summary>A body standing is on the ways its collider is over and on nothing beside them.</summary>
+    /// <summary>A body standing is on the ways it stands on — a car's, the ways under its wheels — and on nothing beside them.</summary>
     const string Standing = "TER-4c.2";
 
     const string RightOfWay = "TER-5e, TER-5g";

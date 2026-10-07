@@ -62,15 +62,13 @@ public class DeviceCarTickTests(Lavapipe device) : IClassFixture<Lavapipe>
         var cars = world.Cars;
         var claims = world.Occupancy;
 
-        var shapes = new GroundShapes(plan.Paving(Config), Config);
-        using var ground = new DeviceGround(device.Vk, shapes.Table);
         var builds = Enumerable.Range(0, CarCatalog.Shared.SheetCount).Select(variant => cars.BuildOfVariant(variant)).ToArray();
-        using var tyres = new DeviceTyres(device.Vk, Config, ground, world.Terrain.EffectTable, builds, cars.Capacity);
+        using var tyres = new DeviceTyres(device.Vk, Config, world.WheelGrounds, builds, cars.Capacity);
         using var rows = device.Sized<DeviceClaims.ClaimRow>(claims.Capacity);
         using var plannedRuns = device.Sized<UInt2>(claims.WayCount);
         using var plannedOrder = device.Sized<uint>(claims.Capacity);
         using var tick = new DeviceCarTick(
-            device.Vk, Config, tyres, ground, world.Roads, cars.LineArcsOf(0).Length, world.Ways.OfRoadConnector(0),
+            device.Vk, Config, tyres, world.Roads, cars.LineArcsOf(0).Length, world.Ways.OfRoadConnector(0),
             (rows, plannedRuns, plannedOrder));
 
         var taken = new int[cars.Capacity];
@@ -84,14 +82,6 @@ public class DeviceCarTickTests(Lavapipe device) : IClassFixture<Lavapipe>
             {
                 HostClaims.Lay(town.Occupancy, rows.Span<DeviceClaims.ClaimRow>(), plannedRuns.Span<UInt2>(), plannedOrder.Span<uint>(), listed);
                 count = tick.Prepare(town, taken, resident);
-
-                // Every road of the city is the same ground, so a coefficient left as the last tick's is the one read
-                // afresh; nothing but a reading can answer a car on its line here.
-                foreach (var car in taken.AsSpan(0, count))
-                {
-                    if (cars.Line[car].LaneCount > 0) tyres.Cars[car] = tyres.Cars[car] with { GroundCoefficient = float.NaN };
-                }
-
                 tick.Step(count, cars.Count);
                 return;
             }

@@ -63,13 +63,13 @@ public class LineKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         Stage(graph, cars, rearAxles, forwards, runsOn, new Random(7));
 
         var mostLanes = LineAssembler.MostLanes;
-        var arcs = new DeviceGround.ArcRow[Count * arcsPerCar];
+        var arcs = new ArcRow[Count * arcsPerCar];
         var entries = new float[Count * arcsPerCar];
         for (var car = 0; car < Count; car++)
         {
             for (var arc = 0; arc < cars.Line[car].ArcCount; arc++)
             {
-                arcs[(car * arcsPerCar) + arc] = DeviceGround.ArcRow.Of(cars.LineOf(car)[arc]);
+                arcs[(car * arcsPerCar) + arc] = ArcRow.Of(cars.LineOf(car)[arc]);
                 entries[(car * arcsPerCar) + arc] = cars.EntriesOf(car)[arc];
             }
         }
@@ -80,7 +80,7 @@ public class LineKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         using var poses = device.Holding<PoseRow>(rearAxles.Select((_, car) => new PoseRow(cars.PositionM[car], forwards[car])).ToArray());
         using var lasts = device.Holding<float>(cars.ProgressM.AsSpan(0, Count));
         using var roadRunsOn = device.Holding<uint>(runsOn);
-        using var lineArcs = device.Holding<DeviceGround.ArcRow>(arcs);
+        using var lineArcs = device.Holding<ArcRow>(arcs);
         using var entryBuffer = device.Holding<float>(entries);
         using var chain = device.Holding<int>(Slots(cars, car => cars.ChainOf(car)));
         using var starts = device.Holding<float>(Slots(cars, car => cars.LaneStartsOf(car)));
@@ -123,7 +123,7 @@ public class LineKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
 
             for (var arc = 0; same && arc < cars.Line[car].ArcCount; arc++)
             {
-                same = lineArcs.Span<DeviceGround.ArcRow>()[laid + arc] == DeviceGround.ArcRow.Of(cars.LineOf(car)[arc])
+                same = lineArcs.Span<ArcRow>()[laid + arc] == ArcRow.Of(cars.LineOf(car)[arc])
                        && entryBuffer.Span<float>()[laid + arc] == cars.EntriesOf(car)[arc];
             }
 

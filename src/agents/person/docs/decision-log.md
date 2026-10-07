@@ -273,7 +273,7 @@ of how far the plan reaches.
 
 The reservations were reworked into a body and a plan for everybody
 ([world/road](../../../world/road/docs/decision-log.md)), and a walker is laid on exactly the terms a
-driver is (PER-26): its body on every way its disc is over and always on the way it walks, and a plan from
+driver is (PER-26): its body on every way it stands on (TER-4c.2) and always on the way it walks, and a plan from
 the front of the body down its walk, answered — cut at the first body in front, weighed against every plan it
 meets — and granted. **What came back was a grant, so a walker spends one**: it aims no further than it was
 given and stands where it is when given nothing. That undoes the entry that put queueing down (a walker's

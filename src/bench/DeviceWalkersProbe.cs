@@ -66,7 +66,6 @@ internal static class DeviceWalkersProbe
         var reads = new Stage("answers read, aimed");
         var listsMs = new List<double>();
         var cover = new BodyPiece[WalkingGround.MostPiecesOfABody];
-        var recall = new RibbonAtlas.Recall(world.People.Capacity);
         world.WatchingTheClaims = (town, stage) =>
         {
             switch (stage)
@@ -84,7 +83,7 @@ internal static class DeviceWalkersProbe
                     onDevice.Lay(town, Piece.Body);
                     onDevice.Run(Piece.Body);
                     bodies.DeviceMs.Add(onDevice.RanMs);
-                    CompareTheBodies(town, onDevice, bodies, recall, cover);
+                    CompareTheBodies(town, onDevice, bodies, cover);
                     bodies.Host.Restart();
                     break;
 
@@ -153,7 +152,7 @@ internal static class DeviceWalkersProbe
         }
     }
 
-    static void CompareTheBodies(TownWorld town, DeviceWalkers onDevice, Stage into, RibbonAtlas.Recall recall, BodyPiece[] cover)
+    static void CompareTheBodies(TownWorld town, DeviceWalkers onDevice, Stage into, BodyPiece[] cover)
     {
         for (var person = 0; person < town.People.Count; person++)
         {
@@ -161,7 +160,7 @@ internal static class DeviceWalkersProbe
 
             into.Asked++;
             var laid = onDevice.BodyOf(person);
-            var count = town.WalkingGround.BodyCover(person, recall, cover);
+            var count = town.WalkingGround.BodyCover(person, cover);
             var occupant = town.GroundHeldAs(person, out _);
             var discrete = laid.Length == count && onDevice.Walkers[person].HeldAs == occupant;
             var apartM = 0f;

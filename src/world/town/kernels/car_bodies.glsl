@@ -1,26 +1,28 @@
 // Every car's body laid onto the ways under it, on the device (TownWorld.LayTheCarsBody, DrivingGround.IsOnItsLine):
-// the atlas's ways under its box (atlas.glsl), and on each whether the car — or the truck it hangs from (EVA-5) — is
-// travelling that way, how fast, where its line goes next, and whether it is at rest — as body rows in the claims'
+// the atlas's ways under its four wheels (atlas.glsl), and on each whether the car — or the truck it hangs from (EVA-5)
+// — is travelling that way, how fast, where its line goes next, and whether it is at rest — as body rows in the claims'
 // layout (claims_rows.glsl), in the order the atlas found them.
 //
 // The including kernel includes rounded.glsl, atlas.glsl, claims_rows.glsl, car_line.glsl, road_joins.glsl and
 // line_onward.glsl, declares CAR_LINES (CarLineRow[]), and supplies BODY_FIGURES.groundChannel — what every way is on
-// where the atlas keeps no channels (RibbonAtlas.ChannelsOf).
+// where the atlas keeps no channels (RibbonAtlas.ChannelsOf) — and BODY_FIGURES.aroundAWheelM
+// (RoadFigures.HeldAroundAWheelM).
 
-// What the laying reads of one car (CarFleet): its box and channels, and of the car it is laid as (TownWorld.LaidAs) —
-// itself, or the truck it hangs from — how fast it goes along its line and what the town says of it this rebuild.
+// What the laying reads of one car (CarFleet): where it stands, where its wheels are under it (TyreModel.WheelAtM), its
+// channels, and of the car it is laid as (TownWorld.LaidAs) — itself, or the truck it hangs from — how fast it goes along
+// its line and what the town says of it this rebuild.
 struct CarBodyRow
 {
     vec2 centreM;
     vec2 forward;
-    float halfLengthM;
-    float halfWidthM;
+    float frontAxleM;
+    float rearAxleM;
+    float halfTrackM;
     uint channels;
     int occupant;
     float alongMps;
     uint flags;
-    float pad0;
-    float pad1;
+    uint pad;
 };
 
 // CarBodyRow.flags: of the car it is laid as, whether it drives its route's line (TownWorld.IsUnderWay) and whether
@@ -31,13 +33,29 @@ const uint BodyRunsOnPastItself = 2u;
 const uint BodyStill = 4u;
 const uint BodyBlocked = 8u;
 
-// One car's body on every way the atlas finds under its box (TownWorld.LayTheCarsBody), into rows[]; how many, and the
-// channels of the ways it stands over (its own where it stands over none).
-int bodyLayTheCar(CarBodyRow car, out ClaimRow rows[AtlasMostWaysUnderABody], out uint channels, out uint dropped)
+// Where a car's four wheels stand, in the tyre model's order (TyreModel.WheelPointsM).
+void bodyWheelsOf(CarBodyRow car, out vec2 wheelsM[4])
+{
+    vec2 right = vec2(-car.forward.y, car.forward.x);
+    for (int wheel = 0; wheel < 4; wheel++)
+    {
+        vec2 atBody = vec2(wheel < 2 ? car.frontAxleM : car.rearAxleM, wheel % 2 == 0 ? car.halfTrackM : -car.halfTrackM);
+        precise vec2 at = car.centreM + (car.forward * atBody.x) + (right * atBody.y);
+        wheelsM[wheel] = at;
+    }
+}
+
+// One car's body on every way the atlas finds under its wheels (TownWorld.LayTheCarsBody), into rows[]; how many, the
+// channels of the ways it stands over (its own where it stands over none), and which of its wheels stand on one
+// (CarFleet.WheelsOnAWay).
+int bodyLayTheCar(
+    CarBodyRow car, out ClaimRow rows[AtlasMostWaysUnderABody], out uint channels, out uint dropped, out uint wheelsOnAWay)
 {
     AtlasCover found[AtlasMostWaysUnderABody];
     dropped = 0u;
-    int count = atlasUnderBox(car.centreM, car.forward, car.halfLengthM, car.halfWidthM, car.channels, found, dropped);
+    vec2 wheelsM[4];
+    bodyWheelsOf(car, wheelsM);
+    int count = atlasUnderWheels(wheelsM, BODY_FIGURES.aroundAWheelM, car.channels, found, dropped, wheelsOnAWay);
 
     bool travelling = (car.flags & BodyTravelling) != 0u;
     bool still = (car.flags & BodyStill) != 0u;

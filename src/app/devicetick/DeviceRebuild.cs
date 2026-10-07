@@ -114,8 +114,7 @@ internal sealed partial class DeviceRebuild : IDisposable
 
     [StructLayout(LayoutKind.Sequential)]
     readonly record struct PlansPush(
-        uint StretchCount, uint CarCount, uint WalkerCount, uint MostPieces, uint ProposedRoom, uint StandingUnit, float StandOffM,
-        uint Pad = 0u);
+        uint StretchCount, uint CarCount, uint WalkerCount, uint MostPieces, uint StandingUnit, float StandOffM);
 
     [StructLayout(LayoutKind.Sequential)]
     readonly record struct RangePush(uint RowFirst, uint RowCount, uint HoldFirst, uint HoldCount);
@@ -336,7 +335,7 @@ internal sealed partial class DeviceRebuild : IDisposable
     public long Rebuilds { get; private set; }
 
     /// <summary>
-    /// What a car's tick binds in place of its own grant tables (<c>car_tick.comp</c>'s bindings 23 and 22, and the told
+    /// What a car's tick binds in place of its own grant tables (<c>car_tick.comp</c>'s bindings 22 and 21, and the told
     /// row's claims bits): <c>CarGrantRow</c> a car, every field but <c>placeReachM</c> and <c>placeM</c> written for every
     /// car the laying asked; the <see cref="ClaimRow"/> that cut its hold; and a <c>uint</c> holding <c>HasAHold</c> (8)
     /// and <c>Cut</c> (16), to be merged into <c>CarToldRow.flags</c>.
@@ -548,8 +547,8 @@ internal sealed partial class DeviceRebuild : IDisposable
 
         var units = _stretches + 1 + _carCount + _walkerCount;
         var push = new PlansPush(
-            (uint)_stretches, (uint)_carCount, (uint)_walkerCount, (uint)_plans.MostPieces, (uint)_walkers.ProposedRoom,
-            StandingUnit, _config.Driving.StandOffM);
+            (uint)_stretches, (uint)_carCount, (uint)_walkerCount, (uint)_plans.MostPieces, StandingUnit,
+            _config.Driving.StandOffM);
         _count.Dispatch(commands, units, push);
         vk.BetweenKernels(commands);
         _scanRows.Record(commands, units);

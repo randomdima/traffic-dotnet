@@ -2,9 +2,12 @@
 // skip, the ground under each wheel, the model's four impulses, the hold of a car its locks keep still, the slide it
 // lifts for next tick, and the marks it lays. Line for line with the host, `precise` where it rounds twice.
 //
-// The including kernel includes car_build.glsl, tyre.glsl, tyre_marks.glsl and world/terrain/kernels/ground_effect.glsl
-// (after the ground's own tables) first, and its TYRE_FIGURES also carries slipBackOffS, slipRecoverS,
-// minSlipThrottleFraction, tractionThrottleFraction, nominalGripMps2, markPowerM2S3 and markSpacingM.
+// The including kernel includes car_build.glsl, tyre.glsl and tyre_marks.glsl first, defines TYRE_WHEEL_GROUNDS_BINDING,
+// and its TYRE_FIGURES also carries slipBackOffS, slipRecoverS, minSlipThrottleFraction, tractionThrottleFraction,
+// nominalGripMps2 and markSpacingM.
+
+// The only two grounds a wheel stands on (WheelGrounds): two rows laid once, off every way and then on one.
+layout(std430, binding = TYRE_WHEEL_GROUNDS_BINDING) readonly buffer TyreWheelGrounds { TyreSurface tyreWheelGrounds[]; };
 
 // What a car's tyres carry from one tick to the next (TyreCarry).
 struct TyreCarry
@@ -28,7 +31,7 @@ struct TyreMark
 };
 
 // The most a driven axle may be asked for, with the throttle's back-off wound on first (TyrePass.DriveCeilingMps2).
-float tyrePassCeilingMps2(CarBuildRow car, bool hand, float groundCoefficient, float acrossMps2, float dtS, inout TyreCarry carry)
+float tyrePassCeilingMps2(CarBuildRow car, bool hand, float acrossMps2, float dtS, inout TyreCarry carry)
 {
     if (carry.drivenSlipping)
     {
@@ -41,14 +44,9 @@ float tyrePassCeilingMps2(CarBuildRow car, bool hand, float groundCoefficient, f
         carry.slipThrottle = min(recoveredTo, 1.0);
     }
 
-    if (hand)
-    {
-        precise float ownGripMps2 = car.gripMps2 * groundCoefficient;
-        return tyreDriveLeftMps2(ownGripMps2, acrossMps2);
-    }
+    if (hand) return tyreDriveLeftMps2(car.gripMps2, acrossMps2);
 
-    precise float nominalGripMps2 = TYRE_FIGURES.nominalGripMps2 * groundCoefficient;
-    float leftMps2 = tyreDriveLeftMps2(nominalGripMps2, acrossMps2);
+    float leftMps2 = tyreDriveLeftMps2(TYRE_FIGURES.nominalGripMps2, acrossMps2);
     precise float ceilingMps2 = leftMps2 * TYRE_FIGURES.tractionThrottleFraction * carry.slipThrottle;
     return ceilingMps2;
 }
@@ -114,22 +112,21 @@ bool tyrePassLayMark(vec2 atM, TyreSurface surface, TyreScrub scrub, int wheel, 
 }
 
 // One car's four patches for this tick (TyrePass.Step): true where the car was at rest and nothing was asked of its
-// tyres. `laid` has a bit a wheel that laid a mark, which is then that wheel's of `marks`.
+// tyres. `wheelsOnAWay` has a bit a wheel that stood on a way when the car's body was last laid; `laid` has a bit a wheel
+// that laid a mark, which is then that wheel's of `marks`.
 bool tyrePass(
-    CarBuildRow car, TyrePose pose, TyreCommand command, bool hand, float groundCoefficient, float inertiaKgM2, uint level,
-    float dtS, inout TyreCarry carry, out TyreSurface ground[4], out vec4 impulses[4], out TyreScrub scrub[4],
-    out TyreMark marks[4], out uint laid)
+    CarBuildRow car, TyrePose pose, TyreCommand command, bool hand, float inertiaKgM2, uint wheelsOnAWay, float dtS,
+    inout TyreCarry carry, out vec4 impulses[4], out TyreScrub scrub[4], out TyreMark marks[4], out uint laid)
 {
     laid = 0u;
     for (int wheel = 0; wheel < TyreWheels; wheel++)
     {
-        ground[wheel] = TyreSurface(0.0, 0.0, 0.0, 0u);
         impulses[wheel] = vec4(0.0);
         scrub[wheel] = TyreScrub(0.0, 0.0, 0.0, 0u);
         marks[wheel] = TyreMark(vec2(0.0), vec2(0.0), 0.0, false);
     }
 
-    float ceilingMps2 = tyrePassCeilingMps2(car, hand, groundCoefficient, pose.accelerationMps2.y, dtS, carry);
+    float ceilingMps2 = tyrePassCeilingMps2(car, hand, pose.accelerationMps2.y, dtS, carry);
     if (tyrePassAtRest(pose, command, carry))
     {
         carry.drivenSlipping = false;
@@ -138,12 +135,8 @@ bool tyrePass(
 
     vec2 atM[4];
     tyreWheelPointsM(car, pose, atM);
-    for (int wheel = 0; wheel < TyreWheels; wheel++)
-    {
-        GroundEffect effect = groundEffectAt(atM[wheel], level);
-        precise float thresholdM2S3 = TYRE_FIGURES.markPowerM2S3 * effect.markFactor;
-        ground[wheel] = TyreSurface(effect.coefficient, effect.dragMps2, thresholdM2S3, effect.ploughs);
-    }
+    TyreSurface ground[4];
+    for (int wheel = 0; wheel < TyreWheels; wheel++) ground[wheel] = tyreWheelGrounds[(wheelsOnAWay >> uint(wheel)) & 1u];
 
     tyreStep(car, pose, command, ceilingMps2, atM, ground, carry.spinMps, dtS, impulses, scrub);
 

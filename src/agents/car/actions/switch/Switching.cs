@@ -439,9 +439,9 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
         var beside = Roads.LaneBeside(lane, _inward[car]);
         if (beside == RoadGraph.NoLane) return false;
 
-        var asideM = Aside(lane, beside, Math.Clamp(progressM, 0f, Roads.LaneLengthM[lane]));
-        var corneringMps2 = CarFollower.CorneringMps2(Config, build, Cars.GroundCoefficient[car]);
-        var brakingMps2 = CarFollower.BrakingMps2(Config, build, Cars.GroundCoefficient[car]);
+        var asideM = _asideM[car];
+        var corneringMps2 = CarFollower.CorneringMps2(Config, build);
+        var brakingMps2 = CarFollower.BrakingMps2(Config, build);
         var outM = progressM + (speedMps * 2f * Config.CarReactionS) + Config.Driving.PassSpareM;
         var landsByM = Cars.LaneEndsOf(car)[0];
 

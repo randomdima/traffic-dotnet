@@ -56,16 +56,17 @@ internal sealed class WalkingBack(WalkingGround ground, PersonActions actions)
         Spline.SampleAt(ground.Walking.WayArcs(People.CurrentRouteWay(person)), People.OnWayM[person]).PositionM;
 
     /// <summary>
-    /// <b>Whether a walker's body stands on any of the pavement</b>, its own way or not. One between the two lanes of a
-    /// pavement, or shoved across the corner of one, walks its route: what it steps over getting back onto its way is
-    /// ground its body stands on, and where it is going is its plan's (PER-26). <b>Off the pavement altogether</b> it
-    /// is walking back over ground only a straight of its own can claim.
+    /// <b>Whether a walker's body stands on any of the pavement</b>, its own way or not — read where its body is laid,
+    /// at its centre (TER-4c.2). One between the two lanes of a pavement, or shoved across the corner of one, walks its
+    /// route: what it steps over getting back onto its way is ground its body stands on, and where it is going is its
+    /// plan's (PER-26). <b>Off the pavement altogether</b> it is walking back over ground only a straight of its own can
+    /// claim.
     /// </summary>
     [SkipLocalsInit]
     bool StandsOnThePavement(int person)
     {
         Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
-        var count = ground.Atlas.UnderDisc(People.PositionM[person], People.RadiusM[person], under);
+        var count = ground.Atlas.UnderAWheel(People.PositionM[person], People.RadiusM[person], under);
         for (var at = 0; at < count; at++)
         {
             if (!ground.Ways.IsDriven(under[at].Way)) return true;

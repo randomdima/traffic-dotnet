@@ -7,7 +7,7 @@
 // A walker is a WalkerRow; its route is WALKER_FIGURES.routeRoom ways of WALK_ROUTES from walker × routeRoom, its
 // straight's runs WALKER_FIGURES.straightRoom of SWEPT_RUNS, and its pass's runs WALKER_FIGURES.passRoom of PASS_RUNS.
 // The including kernel supplies WALKER_FIGURES' fields routeRoom, straightRoom, passRoom, stepM, standstillGapM,
-// walkAheadM, offLaneM, touchM and groundChannel, declares WALK_ROUTES (int[]), SWEPT_RUNS and PASS_RUNS (SweptRun[]),
+// walkAheadM, offLaneM and groundChannel, declares WALK_ROUTES (int[]), SWEPT_RUNS and PASS_RUNS (SweptRun[]),
 // MARK_AT and MARK_SECTIONS (claims_propose.glsl's) and BODY_COVER (ClaimRow[]), and includes walker_rows.glsl,
 // rounded.glsl, arc.glsl, arc_chain.glsl, walking.glsl, atlas.glsl, swept.glsl, claims_rows.glsl, claims_questions.glsl
 // and claims_propose.glsl first.
@@ -417,34 +417,6 @@ bool walkerEndOfTheWalk(WalkerRow row, uint walker, float stopsAtM, out vec2 atM
     return false;
 }
 
-// Whether a walker's disc stands inside the band of the way it walks and over no other way's ribbon
-// (WalkingGround.IsClearOnItsWay).
-bool walkerIsClearOnItsWay(WalkerRow row, int way, float radiusM)
-{
-    if (way == WalkerNone) return false;
-
-    float touchM = WALKER_FIGURES.touchM;
-    WalkWayRow line = walkWayOfTown(way);
-    precise float reachM = row.offWayM + radiusM;
-    precise float insideM = (line.widthM * 0.5) - touchM;
-    if (reachM > insideM) return false;
-
-    precise float fromM = row.onWayM - radiusM - touchM;
-    precise float toM = row.onWayM + radiusM + touchM;
-    precise float endsM = line.widthM * 0.5;
-    precise float shortM = fromM - endsM;
-    precise float pastM = toM + endsM;
-    if (shortM < 0.0 || pastM > line.lengthM) return false;
-
-    for (uint at = MARK_AT[way]; at < MARK_AT[way + 1]; at++)
-    {
-        WayMark mark = MARK_SECTIONS[at];
-        if (mark.mineFromM < toM && mark.mineToM > fromM) return false;
-    }
-
-    return true;
-}
-
 // A body's piece laid as a row (LaneOccupancy.LayBody): standing, so a body; its holder its occupant.
 ClaimRow walkerBodyRow(int way, float fromM, float toM, float alongMps, int occupant, uint roster, bool onItsLine, int onward, bool still)
 {
@@ -463,19 +435,16 @@ uint walkerBodyCover(WalkerRow row, uint walker, int occupant, uint roster, uint
     bool still = walkerIs(row, WalkerWounded) || all(equal(row.declaredMps, vec2(0.0)));
 
     uint written = 0u;
-    if (!walkerIsClearOnItsWay(row, walking, radiusM))
+    AtlasCover under[AtlasMostWaysUnderABody];
+    uint dropped = 0u;
+    int count = atlasUnderAWheel(row.positionM, radiusM, WALKER_FIGURES.groundChannel, under, dropped);
+    for (int at = 0; at < count; at++)
     {
-        AtlasCover under[AtlasMostWaysUnderABody];
-        uint dropped = 0u;
-        int count = atlasUnderDisc(row.positionM, radiusM, WALKER_FIGURES.groundChannel, under, dropped);
-        for (int at = 0; at < count; at++)
-        {
-            bool onItsLine = under[at].way == walking;
-            BODY_COVER[into + written] = walkerBodyRow(
-                under[at].way, under[at].fromM, under[at].toM, onItsLine ? alongMps : 0.0, occupant, roster, onItsLine,
-                onItsLine ? onward : OnwardNoWay, still);
-            written++;
-        }
+        bool onItsLine = under[at].way == walking;
+        BODY_COVER[into + written] = walkerBodyRow(
+            under[at].way, under[at].fromM, under[at].toM, onItsLine ? alongMps : 0.0, occupant, roster, onItsLine,
+            onItsLine ? onward : OnwardNoWay, still);
+        written++;
     }
 
     if (walking == WalkerNone) return written;

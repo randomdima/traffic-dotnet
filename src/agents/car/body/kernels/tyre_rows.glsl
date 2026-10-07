@@ -24,11 +24,10 @@ struct TyreCommand
     uint handbrakeAndReverse;
 };
 
-// One car's own figures and flags (DeviceTyres.CarRow): hand 1, driven wheels slipping 2, at rest 4 (written), the
-// level in bits 8–15.
+// One car's own figures and flags (DeviceTyres.CarRow): hand 1, driven wheels slipping 2, at rest 4 (written), and which
+// of its wheels stood on a way when its body was last laid in bits 8–11.
 struct TyreCarRow
 {
-    float groundCoefficient;
     float inertiaKgM2;
     float slipThrottle;
     uint flags;
@@ -44,4 +43,4 @@ struct TyreWheelRow
     uint marking;
 };
 
-uint tyreLevelOf(TyreCarRow row) { return (row.flags >> 8) & 0xffu; }
+uint tyreWheelsOnAWayOf(TyreCarRow row) { return (row.flags >> 8) & 0xfu; }

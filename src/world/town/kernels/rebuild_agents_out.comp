@@ -3,7 +3,8 @@
 
 // What a rebuild handed back to the town says of each car and each walker, packed one row each, one thread an agent: a
 // car's plan (Following.Plan's claimToM, committedToM, horizonM), whether it laid a hold, whether a body stands inside its
-// pass, and the channels its body is on; and whether a walker's walk laid a hold and committed it to a straight.
+// pass, the channels its body is on and which of its wheels stand on a way; and whether a walker's walk laid a hold and
+// committed it to a straight.
 
 layout(local_size_x = 64) in;
 
@@ -27,6 +28,7 @@ struct CarOut
 const uint CarLaidAHold = 1u;
 const uint CarHeldInItsPass = 2u;
 const uint CarChannelsShift = 8u;
+const uint CarWheelsShift = 16u;
 
 const uint WalkerLaidAHold = 1u;
 const uint WalkerCommittedAStraight = 2u;
@@ -45,7 +47,7 @@ void main()
     {
         PlanOutRow plan = planResults[agent];
         uint bits = (plan.laidAHold != 0u ? CarLaidAHold : 0u) | (askAnswers[agent].x != 0u ? CarHeldInItsPass : 0u)
-                    | (carCounts[agent].y << CarChannelsShift);
+                    | (carCounts[agent].y << CarChannelsShift) | (carCounts[agent].w << CarWheelsShift);
         carsOut[agent] = CarOut(plan.claimToM, plan.committedToM, plan.horizonM, bits);
     }
 

@@ -84,8 +84,7 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
         if (backsUp || stillRollingBack)
         {
             town.SetTheContext(car, progressM, coveredM, stillThere, overtaking.AsideOfItsPassM(car), asksM, blocked);
-            DriveBack(ref town, car, Cars.BuildOf(car), pose, Cars.LineOf(car), progressM, backsUp ? backUpM : 0f,
-                Cars.GroundCoefficient[car]);
+            DriveBack(ref town, car, Cars.BuildOf(car), pose, Cars.LineOf(car), progressM, backsUp ? backUpM : 0f);
             return;
         }
 
@@ -145,7 +144,7 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
             return;
         }
 
-        var brakingMps2 = CarFollower.BrakingMps2(Config, build, Cars.GroundCoefficient[car]);
+        var brakingMps2 = CarFollower.BrakingMps2(Config, build);
         var committedM = (backingMps * Config.CarReactionS) + DrivingGround.StoppingM(backingMps, brakingMps2);
         var wantedFromM = tailM - MathF.Max(askedM, committedM);
         var fromM = MathF.Max(0f, wantedFromM);
@@ -177,8 +176,7 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
     /// what the rack starts from is the wheel as it stands, whichever gear it was left in.
     /// </remarks>
     void DriveBack<TTown>(
-        ref TTown town, int car, in CarBuild build, in CarPose pose, ReadOnlySpan<ArcSeg> line, float progressM,
-        float toGoM, float groundCoefficient)
+        ref TTown town, int car, in CarBuild build, in CarPose pose, ReadOnlySpan<ArcSeg> line, float progressM, float toGoM)
         where TTown : struct, ICarTown
     {
         var travel = -pose.Forward;
@@ -189,9 +187,8 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
         var wantedRad = CarFollower.Steer(build, line, progressM, rearAxleM, travel, -lookaheadM);
         var steerRad = build.WheelWoundTo(-Cars.Command[car].SteerRad, wantedRad, Config.TickSeconds);
         var lastMps2 = CarFollower.PedalMps2(Cars.Command[car]);
-        var targetMps = CarFollower.BackingMps(Config, build, toGoM, alongMps, groundCoefficient, lastMps2);
-        var pedals = CarFollower.Pedals(
-            Config, build, steerRad, targetMps, alongMps, groundCoefficient, Config.TickSeconds, lastMps2);
+        var targetMps = CarFollower.BackingMps(Config, build, toGoM, alongMps, lastMps2);
+        var pedals = CarFollower.Pedals(Config, build, steerRad, targetMps, alongMps, Config.TickSeconds, lastMps2);
 
         Cars.Command[car] = pedals with { SteerRad = -pedals.SteerRad, Reverse = true };
         Cars.Hold[car] = DrivingHold.BackingUp;

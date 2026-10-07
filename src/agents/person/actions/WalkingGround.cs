@@ -187,7 +187,7 @@ internal sealed class WalkingGround(
     /// <b>It is regularly false for a stretch at the start of a walk</b>, and that is the state and not a
     /// fault: a walker standing on one lane of a pavement may be routed down the other (WLK-8,
     /// <see cref="WalkingNetwork.EntriesNear"/>), and until it has crossed to it, it is between the two —
-    /// holding the ground its own disc is over like any body, and not yet on the way it walks. What it plans
+    /// holding the ground its centre stands on like any body, and not yet on the way it walks. What it plans
     /// is that way all the same (<see cref="HasAWalkToPlan"/>): where it is going does not wait on its feet.
     /// </remarks>
     public bool IsOnItsWay(int person)
@@ -492,8 +492,9 @@ internal sealed class WalkingGround(
 
     /// <summary>
     /// <b>The ground a walker's body stands on</b> (TER-4c.2), as the stretches the town lays for it in the order it lays
-    /// them: every way the atlas finds under its disc — and the way it is walking, over the stretch its own body takes of
-    /// it. Whose ground it is is the town's to say.
+    /// them: every way under it as a single wheel at its centre, held its radius either side
+    /// (<see cref="RibbonAtlas.UnderAWheel"/>) — and the way it is walking, over the stretch its own body takes of it.
+    /// Whose ground it is is the town's to say.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -501,16 +502,15 @@ internal sealed class WalkingGround(
     /// which ground it stands on is a fact about the ground (TER-4c.2).
     /// </para>
     /// <para>
-    /// <b>Its own way is read off its place on it</b> (<see cref="PersonFleet.OnWayM"/>), because a body is
-    /// narrower than the lattice is fine and could fall between its points — and the way it walks is the one
-    /// way it must never be missing from. <b>A body clear on that way is read off nothing else</b>
-    /// (<see cref="IsClearOnItsWay"/>): no other ribbon is under it, so the atlas has nothing to add.
+    /// <b>Its own way is read off its place on it</b> (<see cref="PersonFleet.OnWayM"/>), because the lattice point
+    /// nearest its centre may stand across the edge of that way's band — and the way it walks is the one way it must
+    /// never be missing from.
     /// </para>
     /// </remarks>
-    /// <param name="recall">What the atlas last found under each walker (<see cref="RibbonAtlas.Recall"/>).</param>
     /// <param name="into">Room for <see cref="MostPiecesOfABody"/>.</param>
     /// <returns>How many were written.</returns>
-    public int BodyCover(int person, RibbonAtlas.Recall recall, Span<BodyPiece> into)
+    [SkipLocalsInit]
+    public int BodyCover(int person, Span<BodyPiece> into)
     {
         var radiusM = People.RadiusM[person];
         var walking = People.OnWay[person];
@@ -521,9 +521,8 @@ internal sealed class WalkingGround(
         // nothing whatever it is sliding at.
         var still = People.Wounded[person] || People.DeclaredMps[person] == Vector2.Zero;
 
-        var under = IsClearOnItsWay(person, walking, radiusM)
-            ? default
-            : Atlas.UnderDisc(People.PositionM[person], radiusM, recall, person);
+        Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
+        under = under[..Atlas.UnderAWheel(People.PositionM[person], radiusM, under)];
         var written = 0;
         foreach (ref readonly var cover in under)
         {
@@ -540,38 +539,6 @@ internal sealed class WalkingGround(
             walking, MathF.Max(0f, atM - radiusM), MathF.Min(Ways.LengthM(walking), atM + radiusM), alongMps, OnItsLine: true,
             onward, still);
         return written;
-    }
-
-    /// <summary>
-    /// <b>Whether a walker's disc stands inside the band of the way it walks and over no other way's ribbon</b>
-    /// (TER-4c.2): clear of either side by a touch, of either end by half the way's width, and of every mark on the
-    /// way.
-    /// </summary>
-    /// <remarks>
-    /// <b>Every other ribbon over a way's band is a mark on it</b> (TER-5c) but for those laid edge to edge with it,
-    /// which share nothing worn and are never marked: the way beside it, which a disc a touch clear of the side
-    /// cannot reach, and the ways carrying on from its ends, which at a corner reach back over the band by up to
-    /// about half its width.
-    /// </remarks>
-    public bool IsClearOnItsWay(int person, int way, float radiusM)
-    {
-        if (way == PersonFleet.NoWay) return false;
-
-        var touchM = Config.RibbonTouchM;
-        Lines.LineOf(way, out var widthM);
-        if (People.OffWayM[person] + radiusM > (widthM * 0.5f) - touchM) return false;
-
-        var fromM = People.OnWayM[person] - radiusM - touchM;
-        var toM = People.OnWayM[person] + radiusM + touchM;
-        var endsM = widthM * 0.5f;
-        if (fromM - endsM < 0f || toM + endsM > Ways.LengthM(way)) return false;
-
-        foreach (ref readonly var mark in Atlas.Marks.Of(way))
-        {
-            if (mark.MineFromM < toM && mark.MineToM > fromM) return false;
-        }
-
-        return true;
     }
 
     /// <summary>

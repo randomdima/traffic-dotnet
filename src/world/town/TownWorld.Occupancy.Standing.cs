@@ -1,15 +1,14 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Actions;
-using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Town;
 
 /// <summary>
 /// <b>The cars whose claims are what they were at the last laying</b> (TER-4c.2, SOL-37): standing, frozen through every
-/// step since, and in no other action in between. Each is laid again from what the atlas found under it then and asked
-/// nothing else, and no other pass of the laying visits it — what each would do with a standing car is clear what it
-/// cleared last time.
+/// step since, and in no other action in between. Each is laid again from the ways under its wheels on the channels it
+/// was read on then and asked nothing else, and no other pass of the laying visits it — what each would do with a
+/// standing car is clear what it cleared last time.
 /// </summary>
 internal sealed partial class TownWorld
 {
@@ -38,12 +37,7 @@ internal sealed partial class TownWorld
 
         public int AskedCount;
 
-        /// <summary>
-        /// Whether what the atlas found under a kept car is in its recall — false where a device laid the body it was
-        /// kept at (<see cref="AskTheCars"/>), and the channels it was read on then.
-        /// </summary>
-        public readonly bool[] Recalled = new bool[cars];
-
+        /// <summary>The channels a kept car's body was read on.</summary>
         public readonly byte[] ReadOn = new byte[cars];
     }
 
@@ -75,22 +69,20 @@ internal sealed partial class TownWorld
         {
             if (StandsAsLaid(car))
             {
-                if (!_standing.Recalled[car]) ReadTheStandingBodyAgain(car);
-
                 LayTheStandingBody(car);
                 continue;
             }
 
             var channels = Cars.Channels[car];
             LayTheCarsBody(car);
-            KeepIfStanding(car, recalled: true, channels);
+            KeepIfStanding(car, channels);
             _standing.Asked[_standing.AskedCount++] = car;
         }
     }
 
     /// <summary>
     /// <b>The cars a laying whose bodies a device lays asks</b> (<see cref="ITownClaims"/>): the same list
-    /// <see cref="LayTheCarsBodies"/> makes, and the same cars kept — the atlas read for none of them, so none is recalled.
+    /// <see cref="LayTheCarsBodies"/> makes, and the same cars kept.
     /// </summary>
     void AskTheCars()
     {
@@ -99,22 +91,9 @@ internal sealed partial class TownWorld
         {
             if (StandsAsLaid(car)) continue;
 
-            KeepIfStanding(car, recalled: false, Cars.Channels[car]);
+            KeepIfStanding(car, Cars.Channels[car]);
             _standing.Asked[_standing.AskedCount++] = car;
         }
-    }
-
-    /// <summary>
-    /// A kept car whose body a device laid read off the atlas now, at the pose and on the channels it was kept at — what
-    /// the atlas would have recalled had the town read it then.
-    /// </summary>
-    void ReadTheStandingBodyAgain(int car)
-    {
-        var halfM = Cars.BuildOf(car).CollisionSizeM * 0.5f;
-        _atlas.UnderBox(
-            _standing.PositionM[car], Heading.Unit(_standing.HeadingRad[car]), halfM.X, halfM.Y, _groundUnderCars, car,
-            _standing.ReadOn[car]);
-        _standing.Recalled[car] = true;
     }
 
     /// <summary>The cars this laying asked, which are the only ones whose drive, pass, manoeuvre and grant can be anything but what they were.</summary>
@@ -122,12 +101,12 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// A standing car is laid as <see cref="LayTheCarsBody"/> lays it: its own body, under its own name, going nowhere
-    /// down any way and still — over every way the atlas found under it at this same pose.
+    /// down any way and still — over every way under its wheels at this same pose, on the channels it was read on.
     /// </summary>
     void LayTheStandingBody(int car)
     {
-        var covers = _groundUnderCars.CoversOf(car)[.._groundUnderCars.Last[car].Count];
-        foreach (ref readonly var cover in covers)
+        Span<WayCover> into = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
+        foreach (ref readonly var cover in WaysUnderTheWheels(car, _standing.ReadOn[car], into))
         {
             _occupancy.LayBody(
                 cover.Way, cover.FromM, cover.ToM, 0f, car, LaneRoster.Driving, onItsLine: false, LaneOccupancy.NoWay,
@@ -136,7 +115,7 @@ internal sealed partial class TownWorld
     }
 
     /// <param name="readOn">The channels its body was read on.</param>
-    void KeepIfStanding(int car, bool recalled, byte readOn)
+    void KeepIfStanding(int car, byte readOn)
     {
         var body = Cars.Body[car];
         var standing = Cars.Action[car] == CarAction.Stand && _recovery.OnTheHookOf[car] < 0 && _physics.IsFrozen(body);
@@ -147,7 +126,6 @@ internal sealed partial class TownWorld
         _standing.Entries[car] = _carActions.EntriesOf(car);
         _standing.PositionM[car] = Cars.PositionM[car];
         _standing.HeadingRad[car] = Cars.HeadingRad[car];
-        _standing.Recalled[car] = recalled;
         _standing.ReadOn[car] = readOn;
     }
 }

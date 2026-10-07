@@ -40,10 +40,6 @@ internal sealed partial class TownWorld
 
         public float ToTheSceneM(int car) => town.ToTheSceneM(car);
 
-        public float OffTheLineAllowanceM(int car) => town.OffTheLineAllowanceM(car);
-
-        public float GroundCoefficientAt(Vector2 pointM) => town._terrain.At(pointM).Coefficient;
-
         public void ParkIt(int car, int bay) => town.ParkIt(car, bay);
 
         public bool LeaveTheBay(int car, int bay) => town.LeaveTheBay(car, bay);

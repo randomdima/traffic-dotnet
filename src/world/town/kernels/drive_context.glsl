@@ -25,11 +25,11 @@ struct ContextCarRow
     float claimFromM;
     float committedToM;
     float grantMarginM;
-    float groundCoefficient;
     float plannedMps;
     uint grantCutBy;
     uint flags;
     int cutOn;
+    float pad0;
     vec2 placeM;
     float placeReachM;
     float pad;
@@ -212,8 +212,8 @@ bool contextWaitsToPass(uint car, CarBuildRow build, CarLineRow line, ContextCar
     return contextMayGetPast(cutBy, onward, (row.flags & ContextOnACall) != 0u, row.plannedMps);
 }
 
-// What a car following its line is told this tick (TownWorld.SetTheContext): its ground, what is granted and what cut
-// it, the place it was sent to, whether it waits to pass, and the end of its plan where that was held short.
+// What a car following its line is told this tick (TownWorld.SetTheContext): what is granted and what cut it, the place
+// it was sent to, whether it waits to pass, and the end of its plan where that was held short.
 DriveContextRow contextSetTheContext(uint car, CarBuildRow build, CarLineRow line, ContextCarRow row, ClaimRow cutBy)
 {
     float toTheSceneM = (row.flags & ContextHasAPlace) != 0u ? contextToThePlaceOnTheLineM(car, build, line, row) : contextInfinity();
@@ -221,6 +221,6 @@ DriveContextRow contextSetTheContext(uint car, CarBuildRow build, CarLineRow lin
     precise float horizonLeftM = row.horizonM - row.coveredSinceClaimM;
     bool waitsToPass = contextWaitsToPass(car, build, line, row, cutBy);
     return DriveContextRow(
-        row.groundCoefficient, grantLeftM, row.grantCutBy, toTheSceneM, row.grantMarginM, waitsToPass ? 1u : 0u, horizonLeftM,
-        0.0, 0.0, 0u, contextInfinity(), 0.0);
+        grantLeftM, row.grantCutBy, toTheSceneM, row.grantMarginM, waitsToPass ? 1u : 0u, horizonLeftM, 0.0, 0.0, 0u,
+        contextInfinity(), 0.0, 0.0);
 }

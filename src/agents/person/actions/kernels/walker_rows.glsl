@@ -44,14 +44,12 @@ const uint WalkerOnAStraight = 64u;
 struct WalkerRow
 {
     vec2 positionM;
-    vec2 velocityMps;
     vec2 declaredMps;
     vec2 destinationM;
     vec2 goalM;
     vec2 backToM;
     vec2 straightFromM;
     vec2 straightToM;
-    float headingRad;
     float radiusM;
     float onWayM;
     float offWayM;
@@ -75,6 +73,7 @@ struct WalkerRow
     uint stage;
     int hold;
     float alongMps;
+    uint pad;
 };
 
 // One of the town's ways under a stretch of a walk (LineWay).

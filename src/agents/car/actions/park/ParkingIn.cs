@@ -90,7 +90,7 @@ internal sealed class ParkingIn(
     public bool TakeUpTheBay(int car, int bay, float progressM, float alongMps)
     {
         ref readonly var build = ref Cars.BuildOf(car);
-        var brakingMps2 = CarFollower.BrakingMps2(ground.Config, build, Cars.GroundCoefficient[car]);
+        var brakingMps2 = CarFollower.BrakingMps2(ground.Config, build);
         var toTheStopM = Cars.Line[car].LengthM - progressM;
         if (toTheStopM > DrivingGround.StoppingM(MathF.Max(0f, alongMps), brakingMps2) + build.LengthM) return false;
 

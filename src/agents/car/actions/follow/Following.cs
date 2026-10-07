@@ -106,7 +106,7 @@ internal sealed class Following(
     {
         ref readonly var build = ref Cars.BuildOf(car);
         var noseM = Cars.ClaimFromM[car];
-        var brakingMps2 = CarFollower.BrakingMps2(Config, build, Cars.GroundCoefficient[car]);
+        var brakingMps2 = CarFollower.BrakingMps2(Config, build);
         var alongMps = MathF.Max(0f, Cars.AlongMps[car]);
         var plannedMps = Cars.PlannedMps[car];
         var standOffM = Config.Driving.StandOffM;

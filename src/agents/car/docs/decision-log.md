@@ -3,6 +3,25 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-10-07 — a driver plans on its own rubber, and never on the ground
+
+**The owner ruled it: a car does not care what ground it is on — that is its wheels', read separately.** Every tick
+the car's middle was asked what ground it stood on (`GroundLocator.At`, and `car_ground.comp` on the device) and the
+figure scaled every grip the driver planned with: the braking every stop and claim is laid against, the corner speed,
+the brake's ceiling in a bend, the throttle's ceiling, the room a car keeps to step out round what it passes. **It is
+gone, and with it `CarFleet.GroundCoefficient` and `DriveContext`'s**: the driver plans on its own build's grip
+(`CarBuild.UtmostBrakingMps2`, `CarFollower.CorneringMps2`), which is the paved ground's, and only the four wheels feel
+anything else (terrain log). A car that has lost its line takes the lane under its rear axle back wherever that lane is
+near enough, without asking whether the ground there is drivable.
+
+- **On a road nothing moves**: paved ground is worth 1, so every figure is the one it was.
+- **Off a road the driver asks for what the road would give**: a car on grass brakes and corners on what its tyres
+  find there, so a stop planned on a road's grip runs long, and what catches it is the hazard (`IsAHazard`), as for a
+  stop planned through a bend.
+- **The cars' phase went 9.96 → 6.39 ms a tick on the host** on OdesaOsm (`--bench town`), and the whole tick
+  21.88 → 17.96, with the walker read as one wheel landing alongside (road log); `--bench devicetown` reads agents
+  9.45 → 6.58 ms and the device's kernels 0.64 → 0.46.
+
 ## 2026-10-07 — the device takes the town's tick in step
 
 **A town with a device set (`TownWorld.Device`, `app/devicetick/DeviceTown`) ticks every car and walker the device
@@ -40,10 +59,10 @@ no pass failed 326 of them.
 
 ## 2026-10-07 — a following car's whole tick runs on the device
 
-**`TownWorld.TickCar` for a car following its route's line on no pass is three kernels over one table** in one submit
-(`app/devicetick/DeviceCarTick`): the ground under it (`world/town/kernels/car_ground.comp`), its line read, what it is
-told and the line driven (`car_tick.glsl` over `line.glsl`, `drive_context.glsl` and `follower.glsl`), then the tyre
-pass, which reads the command the tick left in the tyres' own table (`tyre_rows.glsl` is that table's rows).
+**`TownWorld.TickCar` for a car following its route's line on no pass is two kernels over one table** in one submit
+(`app/devicetick/DeviceCarTick`): its line read, what it is told and the line driven (`car_tick.glsl` over `line.glsl`,
+`drive_context.glsl` and `follower.glsl`), then the tyre pass, which reads the command the tick left in the tyres' own
+table (`tyre_rows.glsl` is that table's rows).
 
 - **The table is the device's, indexed by the fleet's own car, and kept from tick to tick** (`runtime/ResidentRows`):
   the tick runs over a list of the cars it takes, and a car's line, reading, command, tyres and junction ahead are what its
@@ -99,14 +118,14 @@ OdesaOsm. What `TownWorld.Tyres` did around the tyre model — the throttle's ba
 skip, the ground under each wheel, the hold of a car its locks keep still, the slide lifted for, the marks — is now
 `TyrePass.Step` over the state a car carries (`TyreCarry`). The town calls it, and the device is held to it:
 `body/kernels/tyre_pass.glsl`, with `HoldStill` beside `tyreStep` in `tyre.glsl`, the marks' arithmetic in
-`tyre_marks.glsl`, and the kinds of ground as a table (`GroundCatalog.Table`, `world/terrain/kernels/ground_effect.glsl`)
-looked up on what `groundAt` answers.
+`tyre_marks.glsl`, and the only two grounds a wheel stands on as two rows laid once (`WheelGrounds`), picked by
+whether the wheel stood on a way when its car's body was last laid (terrain log).
 
 - **A mark laid is a record in a ring**, carrying its car and wheel (`app/devicetick/DeviceTyres`). The host files them
   in (car, wheel) order, which is the order the town lays them in when it steps its cars in order.
 - **Moving it moved nothing**: `--bench age` on Odesa gives the same digests to the bit at 60, 180 and 300 s.
 
-Held to the host over 2 000 cars of every variant on the fixture town's ground (`TyrePassKernelTests`): the ground, the
+Held to the host over 2 000 cars of every variant on the fixture town's ground (`TyrePassKernelTests`): the
 standstill, the throttle, the hold, the slide and the marks to the bit, and a turned front wheel within the device's
 trigonometry. On OdesaOsm's 10 013 cars (`--bench devicetyres`, RX 9070 XT), the pass took 4.90 ms on the host and
 0.66 ms in the kernel, plus 3.94 ms to send the rows and read them back, which a resident town does not pay. One car
@@ -564,7 +583,7 @@ Every arc of a line carries what it may be entered at and still hold every corne
 tighter one (`CornerLimits`), laid once when the line is — the join a route takes decides what a lane is braked
 for, so it is the line and not the lane that carries it. **It is carried as the entry speed squared over the
 grip**, a length, so one line serves every build: a corner and a stop both scale with the grip a car plans
-against, and a car's own figure is its utmost braking on the ground under it times the arc's. It replaced
+against, and a car's own figure is its utmost braking times the arc's. It replaced
 walking every arc within braking range on every tick: the arcs the lead point has reached still bind at their
 own corner, and the first it has not binds at its entry, which already holds everything past it.
 

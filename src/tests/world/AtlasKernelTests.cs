@@ -208,4 +208,88 @@ public class AtlasKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
 
         Assert.NotEqual(0, AssertTheSame(world.Atlas, bodies));
     }
+
+    /// <summary>
+    /// <b>Two thousand cars' wheels over the fixture town stand on exactly the ways the host finds</b>
+    /// (<see cref="RibbonAtlas.UnderWheels"/>) — each wheel on a way or not as the host has it, and the car on the same
+    /// ways in the same order over the same stretches.
+    /// </summary>
+    [Fact]
+    public void EveryCarsWheelsStandOnTheWaysTheHostFinds()
+    {
+        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
+
+        Assert.NotEqual(0, AssertTheSameWheels(world.Atlas, OnWheels(Staged(world, 2400, 23, discs: false), world.Atlas.StepM)));
+    }
+
+    /// <summary><b>The same on a deck over a street</b>, every car on either channel or both.</summary>
+    [Fact]
+    public void ACarsWheelsOnADeckOverAStreetStandOnTheWaysTheHostFindsOnItsChannels()
+    {
+        using var world = new TownWorld(TracedPlanTests.OverAStreet(), Config);
+
+        Assert.NotEqual(0, AssertTheSameWheels(world.Atlas, OnWheels(Staged(world, 2400, 29, discs: false), world.Atlas.StepM)));
+    }
+
+    /// <summary>
+    /// Each staged box as a car's four wheels, half a lattice step in from its corners — so a box square on the lattice
+    /// stands every wheel on the edge between two points — with its body held a share of its length either side of each.
+    /// </summary>
+    static WheelsRow[] OnWheels(BodyRow[] boxes, float stepM) =>
+    [
+        .. boxes.Select(box =>
+        {
+            var alongM = box.Forward * (box.HalfLengthM - (stepM * 0.5f));
+            var acrossM = Heading.RightOf(box.Forward) * (box.HalfWidthM - (stepM * 0.5f));
+            return new WheelsRow(
+                box.CentreM + alongM + acrossM, box.CentreM + alongM - acrossM, box.CentreM - alongM + acrossM,
+                box.CentreM - alongM - acrossM, box.HalfLengthM * 0.3f, box.Channels);
+        }),
+    ];
+
+    /// <summary>
+    /// Every car held to the host's read of its wheels: which wheels stand on a way, the same ways in the same order with
+    /// the same stretches, and as many dropped. Returns how many cars were found over more than one way.
+    /// </summary>
+    int AssertTheSameWheels(RibbonAtlas atlas, WheelsRow[] cars)
+    {
+        using var deviceAtlas = new DeviceAtlas(device.Vk, atlas.Table);
+        using var asked = device.Holding<WheelsRow>(cars);
+        using var counts = device.Sized<UInt4>(cars.Length);
+        using var covers = device.Sized<WayCover>(cars.Length * RibbonAtlas.MostWaysUnderABody);
+        GpuBuffer[] buffers = [asked, counts, covers, .. deviceAtlas.Tables];
+        using var kernel = new ComputeKernel(device.Vk, "atlas_wheels.comp", buffers.Length, (uint)Marshal.SizeOf<AskPush>());
+        var set = kernel.Bind(buffers);
+        using var batch = new ComputeBatch(device.Vk);
+        kernel.Dispatch(batch.Begin(), set, (uint)((cars.Length + 63) / 64), deviceAtlas.PushFor(cars.Length));
+        batch.SubmitAndWait();
+        var found = counts.Span<UInt4>().ToArray();
+        var onTheDevice = covers.Span<WayCover>().ToArray();
+
+        Span<WayCover> host = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
+        Span<Vector2> wheelsM = stackalloc Vector2[4];
+        var differ = new List<string>();
+        var overMore = 0;
+        for (var at = 0; at < cars.Length; at++)
+        {
+            var car = cars[at];
+            (wheelsM[0], wheelsM[1], wheelsM[2], wheelsM[3]) = (car.Wheel0M, car.Wheel1M, car.Wheel2M, car.Wheel3M);
+            var droppedBefore = atlas.Dropped;
+            var count = atlas.UnderWheels(wheelsM, car.AroundAWheelM, host, out var onAWay, (byte)car.Channels);
+            var dropped = atlas.Dropped - droppedBefore;
+
+            var onDevice = onTheDevice.AsSpan(at * RibbonAtlas.MostWaysUnderABody, (int)Math.Min(found[at].X, (uint)RibbonAtlas.MostWaysUnderABody));
+            if (found[at] != new UInt4((uint)count, (uint)dropped, onAWay, 0u) || !onDevice.SequenceEqual(host[..count]))
+            {
+                differ.Add(
+                    $"{car}: host {count} (+{dropped}, wheels {onAWay}) [{string.Join(", ", host[..count].ToArray())}], " +
+                    $"device {found[at]} [{string.Join(", ", onDevice.ToArray())}]");
+            }
+
+            if (count > 1) overMore++;
+        }
+
+        Assert.True(differ.Count == 0, $"{differ.Count} of {cars.Length} differ: {string.Join("; ", differ.Take(4))}");
+        return overMore;
+    }
 }

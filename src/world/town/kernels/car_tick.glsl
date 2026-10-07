@@ -1,6 +1,6 @@
 // TownWorld.TickCar on the device for a car following its route's line on no pass (CarAction.Follow): the line under it
 // read (ReadTheLine, line.glsl), what it is told set (SetTheContext, drive_context.glsl) and the line driven (Drive,
-// follower.glsl) — the command the tyre pass then delivers. The ground under it is car_ground.comp's, read before.
+// follower.glsl) — the command the tyre pass then delivers.
 //
 // The including kernel includes what line.glsl, follower.glsl and drive_context.glsl ask for, then those three; its
 // CONNECTOR_AT is road_joins.glsl's.
@@ -60,7 +60,7 @@ struct CarGrantRow
 DriveContextRow carTickToldNothing()
 {
     float infinity = contextInfinity();
-    return DriveContextRow(1.0, infinity, 0u, infinity, 0.0, 0u, infinity, 0.0, 0.0, 0u, infinity, 0.0);
+    return DriveContextRow(infinity, 0u, infinity, 0.0, 0u, infinity, 0.0, 0.0, 0u, infinity, 0.0, 0.0);
 }
 
 // A car off its line (Rejoining.LoseTheLine through TownWorld.Hold): stopping on the handbrake and told nothing, with no
@@ -102,7 +102,7 @@ float carTickWaitAtM(CarToldRow told, CarLineRow line, float progressM)
 // its line. A switch's step kept or withdrawn is the claims' to answer, and the lane beside it steps out onto the
 // host's to lay (TickSteppedOut); the device drives on along the step meanwhile.
 void carTick(
-    uint car, CarBuildRow build, TyrePose pose, float groundCoefficient, CarToldRow told, CarGrantRow grant, ClaimRow cutBy,
+    uint car, CarBuildRow build, TyrePose pose, CarToldRow told, CarGrantRow grant, ClaimRow cutBy,
     inout CarTickRow tick, inout CarLineRow line, inout TyreCommand command, out DriveContextRow context, inout BoxAheadRow box,
     inout OvertakeRow pass)
 {
@@ -142,8 +142,8 @@ void carTick(
 
     ContextCarRow row = ContextCarRow(
         tick.progressM, tick.coveredSinceClaimM, grant.authorityM, grant.horizonM, grant.claimFromM, grant.committedToM,
-        grant.grantMarginM, groundCoefficient, tick.plannedMps, grant.grantCutBy, told.flags, grant.cutOn, told.placeM,
-        told.placeReachM, 0.0, pose.positionM, 0.0, 0.0);
+        grant.grantMarginM, tick.plannedMps, grant.grantCutBy, told.flags, grant.cutOn, 0.0, told.placeM, told.placeReachM, 0.0,
+        pose.positionM, 0.0, 0.0);
     box = contextReadTheBoxAhead(car, build, line, row);
     context = contextSetTheContext(car, build, line, row, cutBy);
     if ((told.flags & ToldSwitching) != 0u)

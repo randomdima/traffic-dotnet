@@ -304,47 +304,6 @@ public class GroundLocatorTests
     }
 
     /// <summary>
-    /// <b>The pavement is the same surface as the carriageway to a wheel</b> (TER-2): everything inside the
-    /// town's boundary is asphalt, so a car that puts two wheels over the kerb keeps its grip, its drag and
-    /// its mark threshold and loses only its legality. What it is <em>permitted</em> to do there is the
-    /// catalogue's and is a different answer.
-    /// </summary>
-    /// <remarks>
-    /// Compared against the tarmac this same town answers rather than against a figure, so the claim is that
-    /// the two grounds are one surface and not that either is worth some number.
-    /// </remarks>
-    [Fact]
-    public void ThePavementIsTheSameSurfaceAsTheCarriagewayToAWheel()
-    {
-        var plan = Towns.Of(Towns.Fixture);
-        var ground = GroundOf(Towns.Fixture);
-        var paving = plan.Paving(Config);
-        var ways = FootWays.Lay(plan, Config);
-
-        var onALaneM = Spline.SampleAt(paving.ArcsOfDriven(0), paving.DrivenLengthM(0) * 0.5f).PositionM;
-        Assert.Equal(Ground.Road, ground.GroundAt(onALaneM));
-        var tarmac = ground.EffectAt(onALaneM);
-
-        var walked = 0;
-        for (var way = 0; way < ways.Count; way++)
-        {
-            if (ways.KindOf(way) == FootConnectorKind.Crossing) continue;
-
-            for (var lane = 0; lane < FootConnectors.LanesPerWay; lane++)
-            {
-                var line = ways.LaneOf(way, lane);
-                if (line.Length == 0) continue;
-
-                walked++;
-                var atM = Spline.SampleAt(line, Spline.TotalLengthM(line) * 0.5f).PositionM;
-                Assert.Equal(tarmac, ground.EffectAt(atM));
-            }
-        }
-
-        Assert.True(walked > 0, "the fixture town lays no walk along its boundary at all");
-    }
-
-    /// <summary>
     /// Ground legal to nobody is terrain and not a hole in the map (TER-3a): inside a water outline the
     /// locator answers ground nobody is permitted on, everywhere the town has not deliberately carried a
     /// bridge over it.
@@ -420,7 +379,7 @@ public class GroundLocatorTests
                 // Everything the query touches is walked over by other queries in between.
                 foreach (var strideM in (ReadOnlySpan<float>)[-40f, -2f, 2f, 40f])
                 {
-                    ground.EffectAt(on.PositionM + (on.Right * strideM));
+                    ground.At(on.PositionM + (on.Right * strideM));
                 }
 
                 Assert.Equal(once, ground.GroundAt(on.PositionM));

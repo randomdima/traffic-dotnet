@@ -26,13 +26,15 @@ with square ends. There is no other width a ribbon is laid at: what travels a wa
 and not a second, narrower ribbon inside it. The town samples every ribbon a body can be read onto onto a
 lattice of points when it is laid — **a walked one only in a town anybody walks, or where the traffic crosses
 it**, a zebra's paint — and each point knows which ways it lies under, how far along each of them it stands
-and how far outside each one's band. **That lattice is how a body is read onto ways**: which ways a collider
-is over is a look-up of the points inside it. Which ways share ground is worked out from the ribbons
-themselves (TER-5c), every one of them.
+and how far outside each one's band. **That lattice is how a body is read onto ways**: which ways a wheel stands on
+is a look-up of the point nearest it, and which ways a collider swept down a manoeuvre is over is a look-up of the
+points inside it. Which ways share ground is worked out from the ribbons themselves (TER-5c), every one of them.
 
 - **The lattice files a point a reach past every band**, the furthest any ground is from the point standing
   for it, **and a body is on a way only where it reaches past a point further than the point stands outside
   the band.** So a body over the band is never between two points, and a body up to its edge is not on it.
+- **A wheel is on a way where the point nearest it lies inside the band**, so where it stands is answered to
+  within that reach of the band's edge.
 - **How fine the lattice is, is data**, and it is sized against the ground it must not miss: an overlap
   thinner than its diagonal can fall between points, so that diagonal is held under the narrowest thing a
   body must be seen straddling.
@@ -84,20 +86,26 @@ they are doing and wherever they are standing; a thing a driver must be held off
 the driver cannot see, and there is no second mechanism — no ray, no cast — behind the reservations to catch
 what they left out. **The town's furniture stands on no driven ribbon** (TER-4c.4), and so is in nobody's way.
 
-**TER-4c.2** `P3` **A body is on every way whose ribbon its collider is over, at p0, over the stretch it
-covers.** It is read off the lattice at the pose the solver left it in — the collider and never the drawn
-picture, and never the square round it — so a car across the line between two lanes is on both, and one
-turned across its own lane holds the corner of the next and not its own shadow down it. **Only the ways on its
-own channels** (PHY-1a): a car on a bridge is on the bridge's lanes and on nothing of the road under it, one at a
-bridgehead on the ways of both levels there, and a walker on the ground's.
+**TER-4c.2** `P3` **A body is on every way it stands on, at p0, over the stretch it covers.** It is read off the
+lattice at the pose the solver left it in, once a laying (TER-49), and never off the drawn picture. **A car stands
+on the ways its wheels stand on** — the ways whose bands hold the lattice point nearest each of its four, the one
+reading that also says what each grips on until the next laying (TER-7b) — **over the stretch its wheels on each
+stand at, held one reach either side of every wheel** (`Road.HeldAroundAWheelM`): where several stand on one way,
+from the hindmost less that reach to the foremost and as much again. So a car with wheels either side of the line
+between two lanes is on both, one with all four in its own lane is on that lane alone however its body overhangs
+the paint, one with its axles on two ways holds each round the wheels on it, and **one with no wheel on a way is on
+the grass and on no way at all**. **A walker stands as a single wheel at its centre**, held its own radius either
+side, and on the way it walks at its place on it. **No body's collider is read against the ribbons.** **Only the
+ways on its own channels** (PHY-1a): a car on a bridge is on the bridge's lanes and on nothing of the road under it,
+one at a bridgehead on the ways of both levels there, and a walker on the ground's.
 
 - **Nothing about the write turns on what the body is doing.** Driven, parked, wrecked, under a hand or
   knocked down, a body in a way is in it; a body inside a building is in no way at all.
 - **Bodies are never compared, cut or taken**, and two of them over one metre are both laid. The physical
   layer is a record of where things are, and two bodies over one metre is a collision — the solver's
   question (`PHY-1`), not a reservation gone wrong.
-- **A body is one stretch of each way it is on** (TER-5c.2). Read at two places — a walker's disc and its
-  place on the way it walks — it grows to cover both.
+- **A body is one stretch of each way it is on** (TER-5c.2). Read at more than one place — a car's wheels, or a
+  walker's centre and its place on the way it walks — it grows to cover them all.
 - **A body says whether it is travelling the way it is on**, and if so **which way its line takes next** — or
   that its line runs on down this way and is not yet laid past it, or ends where it stands. A car on a way of
   its own line, or a walker on the way it is walking, is a queue to whoever comes up behind it; anywhere else it
@@ -133,10 +141,9 @@ has left its own way cannot safely go back. So it is asked for only where it can
 - **Over the lane beside and back**: the asker's own line moved across onto the way running back beside it,
   and back onto that line past what it passes, with room there to come back into. **A junction is no end to
   one**: the line runs on through a box, and so does the pass, wherever its ground can be had.
-- **Its ground is the holder's own body swept down the whole of it and read off the atlas, as a body's is**
-  (TER-4c.2): from where its step out begins to where it is back on its line, a body stood at every place the
-  pass puts it and turned the way the pass turns it there, and whichever ways lie under those bodies are the
-  ways it holds — **and the holder's own way from where it stands when it asks up to there**, so every metre it
+- **Its ground is the holder's own collider swept down the whole of it and read off the atlas** (TER-4c.4): from
+  where its step out begins to where it is back on its line, a collider stood at every place the pass puts it and
+  turned the way the pass turns it there, and whichever ways lie under those colliders are the ways it holds — **and the holder's own way from where it stands when it asks up to there**, so every metre it
   moves from asking to the end of the pass is the pass's. **Swept once, when the pass is decided**, and kept:
   asked for, laid and given back as the holder goes by from what was swept, and never swept again. It is laid on the network its holder travels and on no other — a car's on the ways the traffic
   drives, a walker's on the pavement — so neither holds the other's ground, and a pass whose body stands over

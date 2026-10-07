@@ -47,6 +47,13 @@ internal sealed class RoadFigures
     public float RibbonTouchInCarWidths { get; init; } = 0.02f;
 
     /// <summary>
+    /// <b>How far along a way a car's body is held either side of each of its wheels on it</b> (TER-4c.2): the stretch
+    /// is the least and most of where its wheels stand on that way, widened by this at each end.
+    /// </summary>
+    /// <remarks><b>The owner's figure</b>, one for every build.</remarks>
+    public float HeldAroundAWheelM { get; init; } = 1f;
+
+    /// <summary>
     /// <b>How many times a tick's plans are answered again against what the others came to</b> before the
     /// layer is left as it stands (TER-4c.3) — the first answer past it read against a longer layer than its own. A
     /// bound on the work: a layer still moving at it is disjoint but not where its answers say, and counted

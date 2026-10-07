@@ -52,16 +52,17 @@ void walkersStation(inout WalkerRow row, uint walker)
     walkerConsiderWalkingBack(row, walker);
 }
 
-// A walker where its collider stands, held as whoever the town holds its ground as, at BODY_COVER[into ..]
-// (TownWorld.LayTheWalkersBody); how many rows.
+// A walker where its centre stands, held as whoever the town holds its ground as, at BODY_COVER[into ..]
+// (TownWorld.LayTheWalkersBody); how many rows. Whose ground it is is held to for an inside walker too, whose body lays
+// nothing, so its walk reads it rather than asking again.
 uint walkersLayTheBody(inout WalkerRow row, uint walker, uint into)
 {
-    if (walkerIs(row, WalkerInside)) return 0u;
-
     uint roster;
     int occupant = walkersGroundHeldAs(row, walker, roster);
     row.heldAs = occupant;
     row.flags = roster == RosterDriving ? row.flags | WalkerHeldAsDriving : row.flags & ~WalkerHeldAsDriving;
+    if (walkerIs(row, WalkerInside)) return 0u;
+
     return walkerBodyCover(row, walker, occupant, roster, into);
 }
 
@@ -106,7 +107,7 @@ WalkersPlan walkersPlanTheWalk(inout WalkerRow row, uint walker, int hold, uint 
 
     plan.ways = walkersWaysOfTheWalk(row, walker, ways);
     uint roster;
-    int occupant = walkersGroundHeldAs(row, walker, roster);
+    int occupant = walkersHeldAs(row, roster);
     plan.rows = walkerClaim(row, occupant, roster, hold, ways, plan.ways, into);
     plan.hold.endRow = into + plan.rows;
     if (plan.ways > 0) plan.hold.flags |= HoldAnswered;

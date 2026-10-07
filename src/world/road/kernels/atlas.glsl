@@ -1,8 +1,8 @@
-// RibbonAtlas.UnderBox and UnderDisc on the device: every way a body stands over, and the stretch of each, read off the
-// atlas's own tables (AtlasTable, laid by app/devicetick/DeviceAtlas) — the same ways in the same order over the same
-// stretches the host finds (TER-4c.4). Line for line with RibbonAtlas.Read, Grow and Widened and the Box and Disc
-// bodies, `precise` wherever the host rounds; the quotients and roots are rounded.glsl's, since which lattice points a
-// body takes in, and which bands it reaches over, is decided on their last bit.
+// RibbonAtlas.UnderBox, UnderDisc and UnderWheels on the device: every way a body stands over, and the stretch of
+// each, read off the atlas's own tables (AtlasTable, laid by app/devicetick/DeviceAtlas) — the same ways in the same
+// order over the same stretches the host finds (TER-4c.4). Line for line with RibbonAtlas.Read, Grow and Widened and the
+// Box and Disc bodies, `precise` wherever the host rounds; the quotients and roots are rounded.glsl's, since which
+// lattice points a body takes in, and which bands it reaches over, is decided on their last bit.
 //
 // The including kernel defines ATLAS_BINDING (the tables bind from there on, AtlasBindings of them), supplies the figures
 // as ATLAS_FIGURES' fields — cellsFromX, cellsFromY, cellsWidth, cellsHeight, perCellM, cellM, shift, mask, startShift,
@@ -194,6 +194,29 @@ bool atlasAcross(AtlasBody body, float y, out float fromX, out float toX)
     return toX >= fromX;
 }
 
+// One way found at a metre along it, in tenths: the stretch of it already found grown to take it in, or a stretch begun
+// (RibbonAtlas.Grow). A way past the room is counted in `dropped`.
+int atlasGrow(inout AtlasCover found[AtlasMostWaysUnderABody], int written, int way, float alongTenths, inout uint dropped)
+{
+    for (int held = 0; held < written; held++)
+    {
+        if (found[held].way != way) continue;
+
+        found[held].fromM = min(found[held].fromM, alongTenths);
+        found[held].toM = max(found[held].toM, alongTenths);
+        return written;
+    }
+
+    if (written == AtlasMostWaysUnderABody)
+    {
+        dropped++;
+        return written;
+    }
+
+    found[written] = AtlasCover(way, alongTenths, alongTenths);
+    return written + 1;
+}
+
 // The ways under a body's points, a row at a time, each point counted only where the body reaches further past it than
 // it stands outside that way's band (RibbonAtlas.Read, with Grow); the stretches are left in tenths. A way past the room
 // is counted in `dropped`.
@@ -248,28 +271,7 @@ int atlasRead(AtlasBody body, uint channels, inout AtlasCover found[AtlasMostWay
                     if (depthM <= outsideM) continue;
                 }
 
-                float alongTenths = float(entry.x >> 16);
-                bool grown = false;
-                for (int held = 0; held < written; held++)
-                {
-                    if (found[held].way != way) continue;
-
-                    found[held].fromM = min(found[held].fromM, alongTenths);
-                    found[held].toM = max(found[held].toM, alongTenths);
-                    grown = true;
-                    break;
-                }
-
-                if (grown) continue;
-
-                if (written == AtlasMostWaysUnderABody)
-                {
-                    dropped++;
-                    continue;
-                }
-
-                found[written] = AtlasCover(way, alongTenths, alongTenths);
-                written++;
+                written = atlasGrow(found, written, way, float(entry.x >> 16), dropped);
             }
         }
     }
@@ -277,16 +279,17 @@ int atlasRead(AtlasBody body, uint channels, inout AtlasCover found[AtlasMostWay
     return written;
 }
 
-// A point stands for the half step either side of it along the way, so each stretch is widened by that much, held to
-// the way's own two ends and turned from tenths into metres (RibbonAtlas.Widened).
-void atlasWidened(inout AtlasCover found[AtlasMostWaysUnderABody], int written)
+// A point stands for the half step either side of it along the way, so each stretch is widened by that much and by
+// `pastM` — how far the body reaches past the points it was read at — held to the way's own two ends and turned from
+// tenths into metres (RibbonAtlas.Widened).
+void atlasWidened(inout AtlasCover found[AtlasMostWaysUnderABody], int written, float pastM)
 {
-    precise float halfM = ATLAS_FIGURES.cellM * 0.5;
+    precise float reachM = ATLAS_FIGURES.cellM * 0.5 + pastM;
     for (int held = 0; held < written; held++)
     {
         AtlasCover one = found[held];
-        precise float fromM = roundedQuotient(one.fromM, ATLAS_FIGURES.alongPerMetre) - halfM;
-        precise float toM = roundedQuotient(one.toM, ATLAS_FIGURES.alongPerMetre) + halfM;
+        precise float fromM = roundedQuotient(one.fromM, ATLAS_FIGURES.alongPerMetre) - reachM;
+        precise float toM = roundedQuotient(one.toM, ATLAS_FIGURES.alongPerMetre) + reachM;
         found[held] = AtlasCover(one.way, max(0.0, fromM), min(atlasLengthM[one.way], toM));
     }
 }
@@ -298,7 +301,7 @@ int atlasUnderBox(
     inout uint dropped)
 {
     int written = atlasRead(atlasBox(centreM, forward, halfLengthM, halfWidthM), channels, covers, dropped);
-    atlasWidened(covers, written);
+    atlasWidened(covers, written, 0.0);
     return written;
 }
 
@@ -306,6 +309,92 @@ int atlasUnderBox(
 int atlasUnderDisc(vec2 centreM, float radiusM, uint channels, inout AtlasCover covers[AtlasMostWaysUnderABody], inout uint dropped)
 {
     int written = atlasRead(atlasDisc(centreM, radiusM), channels, covers, dropped);
-    atlasWidened(covers, written);
+    atlasWidened(covers, written, 0.0);
+    return written;
+}
+
+// The entries of the run of points holding the lattice point nearest a point, as [first, end) of atlasEntries, and that
+// point's column in its cell — an entry of the run in another column is passed over. An empty run where no ribbon
+// covers the point's cell (RibbonAtlas.EntriesOfThePointNearest).
+void atlasPointNearest(vec2 pointM, out int first, out int end, out int column)
+{
+    precise float x = pointM.x * ATLAS_FIGURES.perCellM;
+    precise float y = pointM.y * ATLAS_FIGURES.perCellM;
+    int pointColumn = int(floor(x));
+    int pointRow = int(floor(y));
+    column = pointColumn & ATLAS_FIGURES.mask;
+    first = 0;
+    end = 0;
+
+    int cellColumn = pointColumn >> ATLAS_FIGURES.shift;
+    int cellRow = pointRow >> ATLAS_FIGURES.shift;
+    if (uint(cellColumn - ATLAS_FIGURES.cellsFromX) >= uint(ATLAS_FIGURES.cellsWidth)
+        || uint(cellRow - ATLAS_FIGURES.cellsFromY) >= uint(ATLAS_FIGURES.cellsHeight)) return;
+
+    int slot = atlasCellSlot[(cellRow - ATLAS_FIGURES.cellsFromY) * ATLAS_FIGURES.cellsWidth + (cellColumn - ATLAS_FIGURES.cellsFromX)];
+    if (slot < 0) return;
+
+    int start = slot * ATLAS_FIGURES.startsPerCell + ((pointRow & ATLAS_FIGURES.mask) << ATLAS_FIGURES.rowStartsShift)
+                + (column >> ATLAS_FIGURES.startShift);
+    first = atlasSlotFirst[slot] + int(atlasPointStart(start));
+    end = atlasSlotFirst[slot] + int(atlasPointStart(start + 1));
+}
+
+// Whether an entry of a point at this column of its cell is a way on one of the channels whose band holds the point
+// (RibbonAtlas.OnTheWay).
+bool atlasOnTheWay(uvec2 entry, int column, uint channels)
+{
+    if (int((entry.x >> 8) & 0xFFu) != column || (entry.x & 0xFFu) != 0u) return false;
+
+    return ATLAS_FIGURES.hasChannels == 0u || (atlasChannelsOf(int(entry.y)) & channels) != 0u;
+}
+
+// Every way whose band holds the lattice point nearest a wheel, grown into `covers` at the metre that point stands at;
+// whether there was any.
+bool atlasGrowUnderAWheel(
+    vec2 wheelM, uint channels, inout AtlasCover covers[AtlasMostWaysUnderABody], inout int written, inout uint dropped)
+{
+    int first;
+    int end;
+    int column;
+    atlasPointNearest(wheelM, first, end, column);
+    bool onAWay = false;
+    for (int at = first; at < end; at++)
+    {
+        uvec2 entry = atlasEntries[at];
+        if (!atlasOnTheWay(entry, column, channels)) continue;
+
+        written = atlasGrow(covers, written, int(entry.y), float(entry.x >> 16), dropped);
+        onAWay = true;
+    }
+
+    return onAWay;
+}
+
+// Which of a car's four wheels stand on a way, a bit a wheel in `onAWay`, and every way they stand on, in wheel order,
+// with the stretch its body holds of each — the least and most metre its wheels stand at, widened by half a step and by
+// `aroundAWheelM`; how many (RibbonAtlas.UnderWheels).
+int atlasUnderWheels(
+    vec2 wheelsM[4], float aroundAWheelM, uint channels, inout AtlasCover covers[AtlasMostWaysUnderABody], inout uint dropped,
+    out uint onAWay)
+{
+    int written = 0;
+    onAWay = 0u;
+    for (int wheel = 0; wheel < 4; wheel++)
+    {
+        if (atlasGrowUnderAWheel(wheelsM[wheel], channels, covers, written, dropped)) onAWay |= 1u << uint(wheel);
+    }
+
+    atlasWidened(covers, written, aroundAWheelM);
+    return written;
+}
+
+// The same for one wheel alone — a walker, standing as a single wheel at its centre (RibbonAtlas.UnderAWheel).
+int atlasUnderAWheel(
+    vec2 wheelM, float aroundM, uint channels, inout AtlasCover covers[AtlasMostWaysUnderABody], inout uint dropped)
+{
+    int written = 0;
+    atlasGrowUnderAWheel(wheelM, channels, covers, written, dropped);
+    atlasWidened(covers, written, aroundM);
     return written;
 }

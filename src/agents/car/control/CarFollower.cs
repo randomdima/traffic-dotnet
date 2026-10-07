@@ -57,10 +57,10 @@ internal enum HeadwayKind : byte
 }
 
 /// <summary>
-/// What the driver has been told about the world this tick, over and above the line it is driving: the
-/// ground under it, and the road it was granted.
+/// What the driver has been told about the world this tick, over and above the line it is driving: the road it was
+/// granted. <b>Never the ground under it</b> — what a wheel stands on is its tyre's alone (TER-7b), and the driver plans on
+/// its own car's rubber.
 /// </summary>
-/// <param name="GroundCoefficient">What the surface under it is worth, which scales every grip figure the profile plans against.</param>
 /// <param name="AuthorityM">
 /// How far ahead of the nose the reservations cut this car's own plan short, or
 /// <see cref="float.PositiveInfinity"/> where nothing cut it. <b>It is the whole of following</b>: no two
@@ -102,12 +102,12 @@ internal enum HeadwayKind : byte
 /// where it waits for nothing.
 /// </param>
 internal readonly record struct DriveContext(
-    float GroundCoefficient, float AuthorityM = float.PositiveInfinity, HeadwayKind GrantCutBy = HeadwayKind.Nothing,
+    float AuthorityM, HeadwayKind GrantCutBy = HeadwayKind.Nothing,
     float PlaceStopM = float.PositiveInfinity, float MarginM = 0f, bool WaitsToPass = false,
     float HorizonM = float.PositiveInfinity, float PassAsideM = 0f, float BackUpM = 0f, bool Blocked = false,
     float WaitAtM = float.PositiveInfinity)
 {
-    public static DriveContext Clear => new(1f);
+    public static DriveContext Clear => new(float.PositiveInfinity);
 
     /// <summary>How far ahead of the nose the section this car holds ends — where what cut it begins.</summary>
     public float HeldM => AuthorityM + MarginM;
@@ -167,9 +167,6 @@ internal enum DrivingHold : byte
     /// </summary>
     BackingUp,
 }
-
-/// <summary>What a tick of the driver came to: the command, and what decided it.</summary>
-internal readonly record struct DriveDecision(DriveCommand Command, DrivingHold Hold, float TargetMps);
 
 /// <summary>
 /// <b>A tick of a car driving a line</b> (<see cref="CarFollower.DriveTheLine"/>): the command, the term that set its
@@ -235,26 +232,6 @@ internal static class CarFollower
         return (on.PositionM + (on.Right * asideM) - rearAxleM).Length();
     }
 
-    /// <summary>One tick of one driver: the line, what is on it, and what the body is doing, into one command.</summary>
-    /// <param name="entryM">The line's own entry figures (<see cref="World.Road.CornerLimits"/>), one to an arc.</param>
-    public static DriveDecision Step(
-        SimConfig config, in CarBuild car, in CarPose pose, ReadOnlySpan<ArcSeg> line, ReadOnlySpan<float> entryM,
-        float progressM, float lineLengthM, in DriveContext context, float dtS)
-    {
-        var forward = pose.Forward;
-        var alongMps = Vector2.Dot(pose.VelocityMps, forward);
-        var rearAxleM = RearAxleM(car, pose.PositionM, forward);
-
-        var lookaheadM = LookaheadM(car, MathF.Abs(alongMps), config.Driving.LookaheadS);
-        var steerRad = Steer(car, line, progressM, rearAxleM, forward, lookaheadM);
-        var targetMps = TargetSpeedMps(
-            config, car, line, entryM, progressM, lineLengthM, steerRad, alongMps, lookaheadM, context, out var hold,
-            out _);
-
-        return new DriveDecision(
-            Pedals(config, car, steerRad, targetMps, alongMps, context.GroundCoefficient, dtS), hold, targetMps);
-    }
-
     /// <summary>
     /// S-1, S-2 and S-5: <b>the wheel is pure pursuit and the pedals are the speed profile</b> — one tick of a car on its
     /// line, from the wheel and the pedal it was left at to the command it is given. Nothing here decides what the car
@@ -308,7 +285,7 @@ internal static class CarFollower
         capMps = MathF.Min(capMps, paceMps);
         targetMps = MathF.Min(targetMps, capMps);
 
-        var pedals = Pedals(config, build, steerRad, targetMps, alongMps, context.GroundCoefficient, config.TickSeconds, lastMps2);
+        var pedals = Pedals(config, build, steerRad, targetMps, alongMps, config.TickSeconds, lastMps2);
         var command = reverse ? pedals with { SteerRad = -pedals.SteerRad, Reverse = true } : pedals;
 
         // <b>The margin the profile kept back, spent</b>: the profile plans every stop against usable grip (S-2), and
@@ -413,9 +390,8 @@ internal static class CarFollower
         return MathF.Min(gripMps, rackMps);
     }
 
-    /// <summary>What the car plans a corner to hold on the ground it is on: the tyres' grip, less the margin kept back.</summary>
-    public static float CorneringMps2(SimConfig config, in CarBuild car, float groundCoefficient) =>
-        car.GripMps2 * groundCoefficient * config.Driving.GripMargin;
+    /// <summary>What the car plans a corner to hold: its tyres' grip, less the margin kept back.</summary>
+    public static float CorneringMps2(SimConfig config, in CarBuild car) => car.GripMps2 * config.Driving.GripMargin;
 
     /// <summary>
     /// The circle through the axle, tangent to the heading, that passes through the lead point: its curvature is
@@ -469,10 +445,9 @@ internal static class CarFollower
     /// </summary>
     /// <param name="alongMps">How fast it is going the way it is backing.</param>
     /// <param name="lastMps2">Where the pedal was left last tick (<see cref="PedalMps2"/>), which the lead travels from.</param>
-    public static float BackingMps(
-        SimConfig config, in CarBuild car, float toGoM, float alongMps, float groundCoefficient, float lastMps2)
+    public static float BackingMps(SimConfig config, in CarBuild car, float toGoM, float alongMps, float lastMps2)
     {
-        var brakingMps2 = BrakingMps2(config, car, groundCoefficient);
+        var brakingMps2 = BrakingMps2(config, car);
         var leadM = MathF.Abs(alongMps) * LeadS(config, car, brakingMps2, lastMps2);
         return MathF.Min(car.ReverseMaxMps, ApproachMps(0f, toGoM - leadM, brakingMps2));
     }
@@ -507,8 +482,8 @@ internal static class CarFollower
         out DrivingHold hold, out float plannedMps, in Overtake pass = default, float lastMps2 = 0f)
     {
         hold = DrivingHold.None;
-        var lateralMps2 = CorneringMps2(config, car, context.GroundCoefficient);
-        var brakingMps2 = BrakingMps2(config, car, context.GroundCoefficient);
+        var lateralMps2 = CorneringMps2(config, car);
+        var brakingMps2 = BrakingMps2(config, car);
         var leadM = MathF.Abs(alongMps) * LeadS(config, car, brakingMps2, lastMps2);
 
         var targetMps = car.MaxSpeedMps;
@@ -518,7 +493,7 @@ internal static class CarFollower
         // lead is what stops a car arriving at the corner speed a lookahead too late, which is a car on the pavement
         // at the exit of every tight bend. So each arc the lead point has reached binds at its own corner, and the
         // first it has not binds the braking into it: its entry figure already holds every corner past it.
-        var gripMps2 = car.UtmostBrakingMps2(context.GroundCoefficient);
+        var gripMps2 = car.UtmostBrakingMps2;
         var reachedM = progressM + leadM + lookaheadM;
         var startM = 0f;
         for (var arc = 0; arc < line.Length; arc++)
@@ -601,8 +576,8 @@ internal static class CarFollower
     }
 
     /// <summary>
-    /// What the car may actually brake at on the ground it is on: the pedal's own bound, or what the tyres
-    /// can put down along the roll, whichever gives out first — and nearly all of that
+    /// What the car may actually brake at: the pedal's own bound, or what its tyres can put down along the roll,
+    /// whichever gives out first — and nearly all of that
     /// (<see cref="DrivingFigures.BrakingMargin"/>), because a stop is the one manoeuvre a driver aims the
     /// whole car at.
     /// </summary>
@@ -612,8 +587,7 @@ internal static class CarFollower
     /// the tyres answer to one ellipse: a stop planned through a corner is made over more ground than it was planned
     /// in, and what catches the difference is the hazard (<see cref="IsAHazard"/>).
     /// </remarks>
-    public static float BrakingMps2(SimConfig config, in CarBuild car, float groundCoefficient) =>
-        car.UtmostBrakingMps2(groundCoefficient) * config.Driving.BrakingMargin;
+    public static float BrakingMps2(SimConfig config, in CarBuild car) => car.UtmostBrakingMps2 * config.Driving.BrakingMargin;
 
     /// <summary>
     /// <b>The tick where the section this car holds cannot be stopped in</b> (S-2) even at what the tyres can
@@ -639,7 +613,7 @@ internal static class CarFollower
         var heldM = context.HeldM;
         if (heldM <= 0f) return true;
 
-        return alongMps * alongMps / (2f * heldM) > car.UtmostBrakingMps2(context.GroundCoefficient);
+        return alongMps * alongMps / (2f * heldM) > car.UtmostBrakingMps2;
     }
 
     static void Bind(ref float targetMps, float limitMps, DrivingHold limit, ref DrivingHold hold)
@@ -673,14 +647,12 @@ internal static class CarFollower
     /// second — which the tyre model then answers with a load transfer apiece. Bounding the rate keeps the
     /// demand exactly where it was and only limits how fast the foot gets there.
     /// </remarks>
-    /// <param name="groundCoefficient">The ground under the car, which the brake's ceiling is taken on (<see cref="BrakeCeilingMps2"/>).</param>
     /// <param name="lastMps2">
     /// What the pedal was asking for last tick, throttle positive and brake negative — <c>0</c> for a
     /// caller with no previous command, which is a foot starting from neither pedal.
     /// </param>
     public static DriveCommand Pedals(
-        SimConfig config, in CarBuild car, float steerRad, float targetMps, float alongMps, float groundCoefficient,
-        float dtS, float lastMps2 = 0f)
+        SimConfig config, in CarBuild car, float steerRad, float targetMps, float alongMps, float dtS, float lastMps2 = 0f)
     {
         // Both terms, and not just the target: the handbrake is the car's own (CTL-5a), pulled on a dead
         // stop it has already made and never on the way down to one, so a car waiting holds its spot
@@ -696,8 +668,7 @@ internal static class CarFollower
         return wantedMps2 >= 0f
             ? new DriveCommand(steerRad, MathF.Min(wantedMps2, car.AccelerationMps2), 0f, false, false)
             : new DriveCommand(
-                steerRad, 0f, MathF.Min(-wantedMps2, BrakeCeilingMps2(config, car, steerRad, alongMps, groundCoefficient)),
-                false, false);
+                steerRad, 0f, MathF.Min(-wantedMps2, BrakeCeilingMps2(config, car, steerRad, alongMps)), false, false);
     }
 
     /// <summary>
@@ -712,11 +683,10 @@ internal static class CarFollower
     /// and not the one the tyres are carrying</b>, because a sliding car carries less than it asks for and would read
     /// its own slide as room to brake. A hazard is not held to this (<see cref="IsAHazard"/>).
     /// </remarks>
-    public static float BrakeCeilingMps2(
-        SimConfig config, in CarBuild car, float steerRad, float alongMps, float groundCoefficient)
+    public static float BrakeCeilingMps2(SimConfig config, in CarBuild car, float steerRad, float alongMps)
     {
         var acrossMps2 = alongMps * alongMps * MathF.Abs(MathF.Tan(steerRad)) / car.WheelbaseM;
-        var leftMps2 = TyreModel.DriveLeftMps2(car.GripMps2 * groundCoefficient, acrossMps2);
+        var leftMps2 = TyreModel.DriveLeftMps2(car.GripMps2, acrossMps2);
         return MathF.Min(car.BrakingMps2, leftMps2) * config.Driving.BrakingMargin;
     }
 
