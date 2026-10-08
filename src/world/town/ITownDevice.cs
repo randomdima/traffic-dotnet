@@ -41,6 +41,15 @@ internal interface ITownDevice
     /// town's own to what a decision changed meanwhile.
     /// </summary>
     bool DecidesATickBehind { get; }
+
+    /// <summary>
+    /// <b>Every car the device ticked handed back as its last tick left it</b>, where the town is about to read every car —
+    /// a closure sending the town round it, the town laying the claims itself — rather than only those it reads after a
+    /// tick (<see cref="TownWorld.ReadsTheTickOf"/>). Nothing where the device hands every car back with every tick.
+    /// </summary>
+    void TakeEveryCarBack(TownWorld town)
+    {
+    }
 }
 
 /// <summary>

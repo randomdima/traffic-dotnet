@@ -39,6 +39,30 @@ internal sealed partial class TownWorld
     /// <summary>A device spent this car's braking margin (<see cref="HardBrakings"/>).</summary>
     public void BrakedHardOnTheDevice() => HardBrakings++;
 
+    /// <summary>
+    /// <b>Whether an instrument reads every car's tick every tick</b> — a watch's claims over the whole fleet — so a device
+    /// hands every car back with every tick (<see cref="ReadsTheTickOf"/>).
+    /// </summary>
+    public bool WatchesEveryCar { get; set; }
+
+    /// <summary>
+    /// <b>Whether the town reads this car's tick as the device leaves it, before the device ticks it again</b> — so it is
+    /// handed back, where every other car's stays on the device: its decision is due on the tick being handed back, or was
+    /// due on the one before and taken while it ran, which may have set it doing something else and lays it whole from what
+    /// the town holds; or the town reads it every tick whatever the decisions' clock — a switch's step or a pass kept or
+    /// withdrawn and laid, a rejoin, a call's closure, a tow, the selection.
+    /// </summary>
+    public bool ReadsTheTickOf(int car)
+    {
+        if (WatchesEveryCar) return true;
+
+        var agent = Roster.AgentOfCar(car);
+        if (_decisions.Turn(_agentsTick, agent) || _decisions.Turn(_agentsTick - 1, agent)) return true;
+
+        return Cars.Action[car] is CarAction.Switch or CarAction.Overtake or CarAction.Rejoin || Cars.BlueLight[car]
+               || _recovery.Towing[car] >= 0 || _selected.Holds(SelectionKind.Car, car);
+    }
+
     /// <summary>Whether a hand walks this walker this tick, which the town's own tick does (CTL-6).</summary>
     public bool WalksUnderAHand(int person) =>
         !People.Inside[person].Any && People.Acts(person) && _hands.Held && _selected.Holds(SelectionKind.Person, person);

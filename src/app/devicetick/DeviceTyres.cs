@@ -208,6 +208,25 @@ internal sealed class DeviceTyres : IDisposable
     public void RecordHandOver(CommandBuffer commands, ReadOnlySpan<int> cars) => _wheels.ReadItems(commands, cars, _handOverRuns);
 
     /// <summary>
+    /// Those cars' commands and own rows copied back where <see cref="CommandRead"/> and <see cref="CarRead"/> read them,
+    /// recorded — for a reader that does not <see cref="Read"/> every car's. The caller barriers before it.
+    /// </summary>
+    public void RecordHandOverOfTheRows(CommandBuffer commands, ReadOnlySpan<int> cars)
+    {
+        _commands.ReadItems(commands, cars, _handOverRuns);
+        _carRows.ReadItems(commands, cars, _handOverRuns);
+    }
+
+    /// <summary>A car's command as the last copy back of it left it.</summary>
+    public CommandRow CommandRead(int car) => _commands.AllRead[car];
+
+    /// <summary>A car's own row as the last copy back of it left it.</summary>
+    public CarRow CarRead(int car) => _carRows.AllRead[car];
+
+    /// <summary>How many marks the last pass laid, copied back where <see cref="MarkCount"/> reads it, recorded; the caller barriers before it.</summary>
+    public void RecordReadTheMarkCount(CommandBuffer commands) => _vk.Copy(commands, _markCount, _markCountOut, sizeof(uint));
+
+    /// <summary>
     /// Each wheel's impulse and where it is spent, as the pass leaves it on the device — four a car in the tyre model's
     /// order, (impulse, at) — for the bodies' phase that spends them (<see cref="DeviceBodyPhase"/>).
     /// </summary>
@@ -344,7 +363,7 @@ internal sealed class DeviceTyres : IDisposable
 
         if (ReadsScrub) _scrubs.Read(commands, _cars);
 
-        _vk.Copy(commands, _markCount, _markCountOut, sizeof(uint));
+        RecordReadTheMarkCount(commands);
     }
 
     GpuBuffer Device<T>(int count) where T : unmanaged => Own(

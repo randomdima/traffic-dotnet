@@ -33,8 +33,11 @@ internal interface ISimWorld
     /// <summary>Phase 3a — what each body does with what it holds: the hard rules, the wheel and the pedals, every tick.</summary>
     void TickAgent(int agent);
 
-    /// <summary>Phase 3a's end, once every agent has been handed to <see cref="TickAgent"/> and before any decision.</summary>
-    void AgentsTicked();
+    /// <summary>
+    /// Phase 3a's end, once every agent has been handed to <see cref="TickAgent"/> and before any decision — on the loop's
+    /// <paramref name="tick"/>, whose turn of the decisions (<see cref="TickGroups.Turn"/>) is taken next.
+    /// </summary>
+    void AgentsTicked(long tick);
 
     /// <summary>Phase 3b — each agent's own decision, run on the decision clock: a car's errand and its leg, a walker's trip.</summary>
     void DecideAgent(int agent, float sinceLastDecisionS);

@@ -39,7 +39,7 @@ internal sealed class RecordingWorld(int agentCount) : ISimWorld
 
     public void TickAgent(int agent) => Log.Add((Phase.TickAgent, agent));
 
-    public void AgentsTicked()
+    public void AgentsTicked(long tick)
     {
     }
 

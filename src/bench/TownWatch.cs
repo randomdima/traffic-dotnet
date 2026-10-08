@@ -86,6 +86,9 @@ internal sealed class TownWatch : ScenarioWatch
         _pastForTicks = new int[_overlapM.Length];
         _stillFromM = new Vector2[world.People.Count];
         _stillForTicks = new int[world.People.Count];
+
+        // How far past its grant every car is, every tick (SoakProbe.SweepPastTheGrant), read off the town's copy.
+        world.WatchesEveryCar = true;
     }
 
     /// <summary>The roster these figures were taken over, because a figure with no census beside it says nothing.</summary>

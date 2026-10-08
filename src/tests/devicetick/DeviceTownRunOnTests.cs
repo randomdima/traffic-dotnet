@@ -54,7 +54,8 @@ public class DeviceTownRunOnTests(Lavapipe device) : IClassFixture<Lavapipe>
         Assert.True(unlike.Count == 0, $"{unlike.Count} agents differ: {string.Join("; ", unlike.Take(6))}");
     }
 
-    static void Compare(TownWorld one, TownWorld other, int tick, List<string> unlike)
+    /// <summary>Every car and walker of one town against the other's, to the bit: where each stands, moves and faces, and its hold.</summary>
+    internal static void Compare(TownWorld one, TownWorld other, int tick, List<string> unlike)
     {
         var (cars, otherCars) = (one.Cars, other.Cars);
         for (var car = 0; car < cars.Count; car++)

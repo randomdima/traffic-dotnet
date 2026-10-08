@@ -37,6 +37,9 @@ internal sealed partial class DeviceCarTick : IDisposable
         float ProgressM, float CoveredSinceClaimM, float AlongMps, float OffLineM, float PlannedMps, uint Hold, uint Flags)
     {
         public const uint Lost = 32u, AsksTheRoute = 64u, Shifted = 128u, Hazard = 256u, SteppedOut = 512u, PassMade = 1024u;
+
+        /// <summary>What a tick asks of the town (<c>TickEvents</c>): a car whose tick raised any is handed back whoever reads it.</summary>
+        public const uint Events = Lost | AsksTheRoute | Shifted | Hazard | SteppedOut | PassMade;
     }
 
     /// <summary>
@@ -103,6 +106,17 @@ internal sealed partial class DeviceCarTick : IDisposable
         public const uint Blocked = 16u;
     }
 
+    /// <summary>
+    /// What the town reads of one car's tick, written into the host's memory where it reads it (<c>car_out.comp</c>'s
+    /// <c>CarOutRow</c>): its <see cref="TickRow"/>, command, <see cref="BriefRow"/> and tyre row, and the stamp of the tick
+    /// that wrote it.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal readonly record struct OutRow(TickRow Tick, DeviceTyres.CommandRow Command, BriefRow Brief, DeviceTyres.CarRow Car, uint Stamp);
+
+    [StructLayout(LayoutKind.Sequential)]
+    readonly record struct OutPush(uint CarCount, uint Stamp);
+
     /// <summary>The tick's figures, field for field with <c>car_tick.comp</c>'s, each the host's own.</summary>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct Figures(
@@ -152,6 +166,22 @@ internal sealed partial class DeviceCarTick : IDisposable
     readonly ComputeBatch _batch;
     readonly GpuTimer _timer;
     int _cars;
+    int _takenCount;
+
+    /// <summary>
+    /// <see cref="ReadsEveryCar"/> off: which cars the host reads after a tick, a bit a car, written by the host and read
+    /// by <c>car_out.comp</c>; the rows it writes, and the cars whose tick asked anything, in the host's own memory; and
+    /// how many those were.
+    /// </summary>
+    readonly GpuBuffer _wanted, _rowsOut, _events, _eventCount, _eventCountOut;
+
+    readonly ComputeKernel _outKernel;
+    readonly DescriptorSet _outSet;
+    readonly uint[] _eventsRead;
+    readonly BufferCopy[] _handOverRuns;
+
+    /// <summary>The stamp the last tick wrote its rows with, never the zero of a row never written.</summary>
+    uint _stamp;
 
     /// <param name="tyres">The tyre pass whose table the tick writes the commands into; its capacity is the fleet's.</param>
     /// <param name="arcsPerCar">The room each car's line has (<see cref="Agents.Car.Body.CarFleet.LineArcsOf"/>).</param>
@@ -227,6 +257,19 @@ internal sealed partial class DeviceCarTick : IDisposable
         _tickKernel = new ComputeKernel(vk, "car_tick.comp", ticked.Length, (uint)Marshal.SizeOf<Figures>());
         _tickSet = _tickKernel.Bind(ticked);
 
+        _wanted = vk.CreateBuffer((ulong)(WantedWords * sizeof(uint)), BufferUsageFlags.StorageBufferBit, HostAccess.Writes);
+        _rowsOut = vk.CreateBuffer((ulong)(capacity * Marshal.SizeOf<OutRow>()), BufferUsageFlags.StorageBufferBit, HostAccess.Reads);
+        _events = vk.CreateBuffer((ulong)(capacity * sizeof(uint)), BufferUsageFlags.StorageBufferBit, HostAccess.Reads);
+        _eventCount = vk.CreateBuffer(
+            sizeof(uint), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferSrcBit | BufferUsageFlags.TransferDstBit,
+            HostAccess.None);
+        _eventCountOut = vk.CreateBuffer(sizeof(uint), BufferUsageFlags.TransferDstBit, HostAccess.Reads);
+        _outKernel = new ComputeKernel(vk, "car_out.comp", 9, (uint)Marshal.SizeOf<OutPush>());
+        _outSet = _outKernel.Bind(
+            [_taken.Device, _wanted, _ticks.Device, table.Commands.Device, _briefs.Device, table.Cars.Device, _rowsOut, _events, _eventCount]);
+        _eventsRead = new uint[capacity];
+        _handOverRuns = new BufferCopy[capacity];
+
         _batch = new ComputeBatch(vk);
         _timer = new GpuTimer(vk, Enum.GetValues<Stage>().Length);
         ShadowOf(capacity);
@@ -277,6 +320,7 @@ internal sealed partial class DeviceCarTick : IDisposable
 
         if (cars.ProgressM[car] != _progressAt[car] || cars.CoveredSinceClaimM[car] != _coveredAt[car])
         {
+            ExpectTheTownHolds(car);
             LayTheReading(cars, car);
             _progressAt[car] = cars.ProgressM[car];
             _coveredAt[car] = cars.CoveredSinceClaimM[car];
@@ -405,6 +449,7 @@ internal sealed partial class DeviceCarTick : IDisposable
         if (cars > Capacity) throw new ArgumentOutOfRangeException(nameof(cars), $"The tick holds {Capacity} cars, not {cars}.");
 
         _cars = cars;
+        _takenCount = taken;
         var vk = _vk;
         _timer.Reset(commands);
         _timer.Stamp(commands, (int)Stage.Began);
@@ -416,6 +461,7 @@ internal sealed partial class DeviceCarTick : IDisposable
                     + _passes.MarkedBytes + _holdBits.MarkedBytes;
         LinesSentBytes = _arcs.MarkedBytes + _entries.MarkedBytes;
         _tyres.SendMarked(commands);
+        vk.Fill(commands, _eventCount, 0);
         _ticks.Send(commands);
         _told.Send(commands);
         _grants.Send(commands);
@@ -444,9 +490,18 @@ internal sealed partial class DeviceCarTick : IDisposable
         _timer.Stamp(commands, (int)Stage.Tyred);
     }
 
-    /// <summary>What the last <see cref="Record"/> left, recorded to be handed back where <see cref="TicksAfter"/> and the rest read it.</summary>
+    /// <summary>
+    /// What the last <see cref="Record"/> left, recorded to be handed back where <see cref="TicksAfter"/> and the rest read
+    /// it — or, <see cref="ReadsEveryCar"/> off, where <see cref="RowOut"/> and <see cref="Events"/> read it.
+    /// </summary>
     public void RecordRead(CommandBuffer commands)
     {
+        if (!ReadsEveryCar)
+        {
+            RecordTheOut(commands);
+            return;
+        }
+
         var cars = _cars;
         _vk.BeforeTransfer(commands);
         _tyres.Read(commands);
@@ -469,6 +524,82 @@ internal sealed partial class DeviceCarTick : IDisposable
         _timer.Stamp(commands, (int)Stage.Read);
     }
 
+    /// <summary>
+    /// <b>Whether every car the device ticked is handed back with every tick</b> (<see cref="RecordRead"/>), or only those
+    /// the host marks <see cref="Wanted"/> and those whose tick asked something of the town (<see cref="Events"/>) — each
+    /// written by <c>car_out.comp</c> into the host's own memory where <see cref="RowOut"/> reads it, every other car's
+    /// left on the device until it is handed over (<see cref="RecordTheHandOver"/>).
+    /// </summary>
+    public bool ReadsEveryCar { get; set; } = true;
+
+    int WantedWords => (Capacity + 31) / 32;
+
+    /// <summary>Which cars the host reads after the next tick, a bit a car — written whole before it is recorded.</summary>
+    public Span<uint> Wanted => _wanted.Span<uint>()[..WantedWords];
+
+    /// <summary>
+    /// What the last tick wrote of a car the host reads (<see cref="ReadsEveryCar"/> off): only a car it marked
+    /// <see cref="Wanted"/> or named in <see cref="Events"/> — any other's row is an earlier tick's.
+    /// </summary>
+    public ref readonly OutRow RowOut(int car)
+    {
+        ref readonly var row = ref _rowsOut.Span<OutRow>()[car];
+        if (row.Stamp != _stamp) throw new InvalidOperationException($"Car {car} was read back past the tick that wrote it.");
+
+        return ref row;
+    }
+
+    /// <summary>
+    /// The cars whose last tick asked something of the town (<see cref="TickRow.Events"/>), in order — read once the tick's
+    /// submit has been waited for (<see cref="ReadsEveryCar"/> off).
+    /// </summary>
+    public ReadOnlySpan<uint> Events
+    {
+        get
+        {
+            var count = (int)Math.Min(_eventCountOut.Span<uint>()[0], (uint)_eventsRead.Length);
+            var events = _eventsRead.AsSpan(0, count);
+            _events.Span<uint>()[..count].CopyTo(events);
+            events.Sort();
+            return events;
+        }
+    }
+
+    /// <summary>
+    /// What the town reads of the cars it marked <see cref="Wanted"/> and of those whose tick asked anything, written into the
+    /// host's memory, recorded after the tyre pass; the rest left on the device.
+    /// </summary>
+    void RecordTheOut(CommandBuffer commands)
+    {
+        _stamp++;
+        _vk.BetweenKernels(commands);
+        var groups = (uint)Math.Max(1, (_takenCount + 63) / 64);
+        _outKernel.Dispatch(commands, _outSet, groups, new OutPush((uint)_takenCount, _stamp));
+        _vk.BeforeTransfer(commands);
+        _vk.Copy(commands, _eventCount, _eventCountOut, sizeof(uint));
+        _tyres.RecordReadTheMarkCount(commands);
+        _timer.Stamp(commands, (int)Stage.Read);
+    }
+
+    /// <summary>
+    /// <b>These cars handed back whole</b> where <see cref="HandedOverRow"/> reads them — their wheels, and, where the device
+    /// keeps what the town does not read (<see cref="ReadsEveryCar"/> off), their reading, command, brief and tyre row as
+    /// the last tick left them — recorded. The caller barriers before it.
+    /// </summary>
+    public void RecordTheHandOver(CommandBuffer commands, ReadOnlySpan<int> cars)
+    {
+        _tyres.RecordHandOver(commands, cars);
+        if (ReadsEveryCar) return;
+
+        _ticks.ReadItems(commands, cars, _handOverRuns);
+        _briefs.ReadItems(commands, cars, _handOverRuns);
+        _tyres.RecordHandOverOfTheRows(commands, cars);
+    }
+
+    /// <summary>What <see cref="RecordTheHandOver"/> copied back of a car, once its submit has been waited for.</summary>
+    public OutRow HandedOverRow(int car) =>
+        new(_ticks.AllRead[car], _tyres.CommandRead(car), _briefs.AllRead[car], _tyres.CarRead(car), _stamp);
+
     /// <summary>The device's stamps of the last tick taken in, once its submit has been waited for.</summary>
     public void ReadTimes() => _timer.Read();
 
@@ -488,9 +619,10 @@ internal sealed partial class DeviceCarTick : IDisposable
         _timer.Dispose();
         _batch.Dispose();
         _tickKernel.Dispose();
+        _outKernel.Dispose();
         foreach (var table in (ReadOnlySpan<IDisposable>)[
                      _ticks, _told, _grants, _cutters, _boxes, _contexts, _lines, _arcs, _entries, _chain, _starts, _ends, _firstArcs,
-                     _breaks, _taken, _passes, _holdBits, _briefs])
+                     _breaks, _taken, _passes, _holdBits, _briefs, _wanted, _rowsOut, _events, _eventCount, _eventCountOut])
         {
             table.Dispose();
         }

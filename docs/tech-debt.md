@@ -28,7 +28,7 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   (unit) fail now and then in a full unit run and pass alone: the first four times in about seventeen runs (two of them in a row), 4 296 B on the test's own
   thread over 500 searches; the second once, 7 144 B. The counter is the thread's, so it is not the side-by-side
   classes; something on that thread allocates now and then — a JIT's rejit is the guess, unconfirmed.
-- **`AllocationGateTests.ThisEnginesOwnPhasesAllocateNothingOverAWholeTown(Test)`** failed twice in about eight full
+- **`AllocationGateTests.ThisEnginesOwnPhasesAllocateNothingOverAWholeTown(Test)`** failed three times in about twelve
   perf runs, once at 6.8 B a tick. It passes alone and in reruns of the tier, and a per-agent trace of phases 1–3 found no
   allocation. A `P0` gate that flickers is either a real allocation on a rare path or a measurement that counts
   something it should not; which is not known.
@@ -97,6 +97,15 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **The distance to a fixed place is projected every tick** (`ToThePlaceOnTheLineM`, through `SetTheContext`): the
   place does not move and the line changes only in `LayLine`. Watch the projection window's edges if it is kept per
   line.
+- **A watched town the device ticks hands every car back every tick** (`TownWorld.WatchesEveryCar`, set by
+  `TownWatch`): its past-the-grant claim (`SoakProbe.SweepPastTheGrant`) reads every car's covered ground off the
+  town's copy, and so does nothing else — the app runs under a scenario watch, so a windowed device town copies back
+  what an unwatched one keeps (about 6 400 of 10 000 cars' rows a tick on OdesaOsm, ~0.3 ms). Closes when the sweep's
+  per-car streak and deepest are kept and reduced on the device, and only the figures come back.
+- **What draws a car's indicators, lamps and front wheels reads the town's copy** (`DeviceSprites.LayCars`,
+  `CarLamps`), which an unwatched device town leaves up to a decision interval (0.1 s) old for a car it does not read
+  (`DeviceTown.ReadsEveryCarBack` off). Unseen today, as every windowed run is watched (above); closes when the sprites
+  are laid off the car tick's own tables.
 
 ### Walkers
 

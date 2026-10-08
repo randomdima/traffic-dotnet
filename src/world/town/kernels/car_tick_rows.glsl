@@ -47,6 +47,24 @@ const uint TickHazard = 256u;
 const uint TickSteppedOut = 512u;
 const uint TickPassMade = 1024u;
 
+// What a tick asks of the town (app/devicetick/DeviceCarTick.TickRow.Events): every flag but what the tick only reports.
+const uint TickEvents = TickLost | TickAsksTheRoute | TickShifted | TickHazard | TickSteppedOut | TickPassMade;
+
+// What the town reads of a car's tick besides its tick row (app/devicetick/DeviceCarTick.BriefRow, field for field): of
+// the context only how far it was granted, how far aside its pass steps and whether it is blocked — the junction ahead
+// whole — so the rest of the context need not come back.
+struct CarBriefRow
+{
+    float authorityM;
+    float passAsideM;
+    float toTheBoxM;
+    float lightAheadM;
+    uint flags;
+};
+
+// CarBriefRow.flags: BoxAheadRow's, and the context's own.
+const uint BriefBlocked = 16u;
+
 // What the last claims rebuild granted a car and what cut it (CarFleet.AuthorityM, HorizonM, ClaimFromM, CommittedToM,
 // GrantMarginM, GrantCutBy; LaneOccupancy.HoldCutOn). The place fields are unread: the place is told (CarToldRow).
 struct CarGrantRow

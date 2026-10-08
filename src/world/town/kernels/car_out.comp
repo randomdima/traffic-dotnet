@@ -1,0 +1,50 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// What the town reads of a car's tick, written into the host's own memory only for the cars it reads (app/devicetick/
+// DeviceCarTick.RecordTheOut), one thread a car named in the list taken: a car the host wants this tick, or one whose tick
+// asks something of the town — named in the list of those too. Every other car's rows stay on the device.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint carCount;
+    uint stamp;
+} figures;
+
+#include "agents/car/body/kernels/tyre_rows.glsl"
+#include "world/town/kernels/car_tick_rows.glsl"
+
+// app/devicetick/DeviceCarTick.OutRow, field for field: stamp is the tick that wrote it, never the zero of a row unwritten.
+struct CarOutRow
+{
+    CarTickRow tick;
+    TyreCommand command;
+    CarBriefRow brief;
+    TyreCarRow car;
+    uint stamp;
+};
+
+layout(std430, binding = 0) readonly buffer Taken { uint taken[]; };
+layout(std430, binding = 1) readonly buffer Wanted { uint wanted[]; };
+layout(std430, binding = 2) readonly buffer Ticks { CarTickRow ticks[]; };
+layout(std430, binding = 3) readonly buffer Commands { TyreCommand commands[]; };
+layout(std430, binding = 4) readonly buffer Briefs { CarBriefRow briefs[]; };
+layout(std430, binding = 5) readonly buffer TyreCars { TyreCarRow tyreCars[]; };
+layout(std430, binding = 6) writeonly buffer Out { CarOutRow rows[]; };
+layout(std430, binding = 7) writeonly buffer Events { uint events[]; };
+layout(std430, binding = 8) buffer EventCount { uint eventCount; };
+
+void main()
+{
+    if (gl_GlobalInvocationID.x >= figures.carCount) return;
+
+    uint car = taken[gl_GlobalInvocationID.x];
+    CarTickRow tick = ticks[car];
+    bool asks = (tick.flags & TickEvents) != 0u;
+    if (asks) events[atomicAdd(eventCount, 1u)] = car;
+    if (!asks && (wanted[car >> 5u] & (1u << (car & 31u))) == 0u) return;
+
+    rows[car] = CarOutRow(tick, commands[car], briefs[car], tyreCars[car], figures.stamp);
+}

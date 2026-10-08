@@ -295,6 +295,7 @@ internal sealed partial class DeviceRebuild
             _checksTheCars = value;
             if (!value || _bodiesExpected.Length > 0) return;
 
+            _checkedLaid = new bool[_cars];
             _bodiesExpected = new DeviceBodies.BodyRow[_cars];
             _planRowsExpected = new UInt4[_cars];
             _planFiguresExpected = new System.Numerics.Vector4[_cars * 2];
@@ -313,23 +314,34 @@ internal sealed partial class DeviceRebuild
     /// <summary>How many cars the device laid other than the town would have, over every rebuild checked.</summary>
     public long CarsLaidUnlike { get; private set; }
 
-    /// <summary>Checked: every car the device lays, as the town would lay its body at the head of the rebuild.</summary>
+    /// <summary>How many cars the device laid were held to what the town would have laid (<see cref="ExpectTheBodies"/>), over every rebuild checked.</summary>
+    public long CarsLaidChecked { get; private set; }
+
+    /// <summary>
+    /// Checked: every car the device lays, as the town would lay its body at the head of the rebuild — of those the town
+    /// holds as the device left them (<see cref="DeviceCarTick.TownHolds"/>); a car the device kept is laid off what only it
+    /// holds.
+    /// </summary>
     void ExpectTheBodies(TownWorld town)
     {
         for (var car = 0; car < _carCount; car++)
         {
-            if (_laidOnTheDevice[car]) _bodiesExpected[car] = DeviceBodies.RowOf(town, car, _config.Driving.StopSpeedMps) with { Forward = default };
+            _checkedLaid[car] = _laidOnTheDevice[car] && _carTick!.TownHolds(car);
+            if (_checkedLaid[car]) _bodiesExpected[car] = DeviceBodies.RowOf(town, car, _config.Driving.StopSpeedMps) with { Forward = default };
         }
     }
 
-    /// <summary>Checked: every car the device lays, as the town would lay its plan's rows before the plans.</summary>
+    /// <summary>Checked: every car <see cref="ExpectTheBodies"/> checks, as the town would lay its plan's rows before the plans.</summary>
     void ExpectThePlans(TownWorld town)
     {
         for (var car = 0; car < _carCount; car++)
         {
-            if (_laidOnTheDevice[car]) _planRowsExpected[car] = DevicePlans.RowsOf(town, car, _planFiguresExpected.AsSpan(car * 2, 2));
+            if (_checkedLaid[car]) _planRowsExpected[car] = DevicePlans.RowsOf(town, car, _planFiguresExpected.AsSpan(car * 2, 2));
         }
     }
+
+    /// <summary>Which cars the device lays this rebuild are held to what the town would have laid (<see cref="ExpectTheBodies"/>).</summary>
+    bool[] _checkedLaid = [];
 
     /// <summary>Checked: what the device laid of every car it lays, copied back, recorded; the caller barriers.</summary>
     void RecordReadTheCarsLaid(CommandBuffer commands)
@@ -349,8 +361,9 @@ internal sealed partial class DeviceRebuild
         var unlike = 0;
         for (var car = 0; car < _carCount; car++)
         {
-            if (!_laidOnTheDevice[car]) continue;
+            if (!_checkedLaid[car]) continue;
 
+            CarsLaidChecked++;
             if (bodies[car] with { Forward = default } != _bodiesExpected[car] || rows[car] != _planRowsExpected[car]
                 || figures[car * 2] != _planFiguresExpected[car * 2] || figures[(car * 2) + 1] != _planFiguresExpected[(car * 2) + 1])
             {

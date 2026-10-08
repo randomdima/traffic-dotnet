@@ -23,7 +23,7 @@ internal struct EmptyWorld(int agentCount) : ISimWorld
 
     public void TickAgent(int agent) => AgentTicks++;
 
-    public readonly void AgentsTicked()
+    public readonly void AgentsTicked(long tick)
     {
     }
 

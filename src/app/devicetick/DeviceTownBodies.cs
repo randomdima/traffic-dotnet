@@ -69,6 +69,12 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
     /// <summary>The solver's step on the device, for whoever asks it to solve in contact order or reads its counts.</summary>
     public DeviceSolver Solver => _solver;
 
+    /// <summary>
+    /// The car tick whose hand-over the step's submit records for the cars leaving it (<see cref="DeviceCarTick.RecordTheHandOver"/>)
+    /// — their rows the tick kept as well as their wheels — or none, and only their wheels are handed back.
+    /// </summary>
+    public DeviceCarTick? HandsOverThrough { get; init; }
+
     /// <summary>The phase's kernels, for whoever reads their times.</summary>
     public DeviceBodyPhase Phase => _phase;
 
@@ -174,7 +180,11 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         _phase.Record(
             commands, town.Cars.Count, town.People.Count, dtS,
             DeviceBodyPhase.Reads.Poses | DeviceBodyPhase.Reads.Walkers | DeviceBodyPhase.Reads.Contacts);
-        if (!handedOver.IsEmpty) _tyres.RecordHandOver(commands, handedOver);
+        if (!handedOver.IsEmpty)
+        {
+            if (HandsOverThrough is { } cars) cars.RecordTheHandOver(commands, handedOver);
+            else _tyres.RecordHandOver(commands, handedOver);
+        }
         _batch.SubmitAndWait();
         _phase.ReadTimes();
         var waited = Stopwatch.GetTimestamp();

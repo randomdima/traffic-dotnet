@@ -57,7 +57,8 @@ public class DeviceTownGateTests(TickedOnTheDevice ticked) : IClassFixture<Ticke
     /// <summary>
     /// A car the device ticks has its body and its plan's rows laid on the device off what it holds of the car
     /// (<c>car_claims_gather.comp</c>) — and laid as the town would have laid them, but for the way it faces, which is its
-    /// body's own; or a rebuild answers a car the town does not have.
+    /// body's own; or a rebuild answers a car the town does not have. Held to it is every car the town holds as the
+    /// device left it, a car the device kept being laid off what only the device has.
     /// </summary>
     [Fact]
     public void EveryCarTheDeviceLaysIsLaidAsTheTownWouldLayIt()
@@ -110,7 +111,7 @@ public sealed class TickedOnTheDevice : IDisposable
         world.Device = null;
         (WalkersKept, WalkersUnlike) = (walkers.Keeps, walkers.KeptUnlike);
         WalkerTicksUnlike = town.Walkers.TickReadUnlike;
-        (CarsLaidOnTheDevice, CarsLaidUnlike) = (town.Claims.Rebuild.CarsLaidOnTheDevice > 0, town.Claims.Rebuild.CarsLaidUnlike);
+        (CarsLaidOnTheDevice, CarsLaidUnlike) = (town.Claims.Rebuild.CarsLaidChecked > 0, town.Claims.Rebuild.CarsLaidUnlike);
         (LayersSentInPart, LayersUnlike) = (town.Claims.Rebuild.LayersSentBack > 0, town.Claims.Rebuild.LayersUnlike);
         RebuildsRanOn = town.Claims.Rebuild.RanOn > 0;
     }
@@ -128,7 +129,7 @@ public sealed class TickedOnTheDevice : IDisposable
     /// <summary>How many walkers a tick read other than the town laid them, over every tick.</summary>
     internal long WalkerTicksUnlike { get; }
 
-    /// <summary>Whether the device laid any car's body and plan itself, and how many it laid other than the town would have.</summary>
+    /// <summary>Whether any car the device laid itself was held to the town's laying, and how many it laid other than the town would have.</summary>
     internal bool CarsLaidOnTheDevice { get; }
 
     internal long CarsLaidUnlike { get; }

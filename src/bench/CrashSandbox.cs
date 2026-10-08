@@ -96,7 +96,7 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
     {
     }
 
-    public void AgentsTicked()
+    public void AgentsTicked(long tick)
     {
     }
 

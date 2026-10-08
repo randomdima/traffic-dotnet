@@ -83,6 +83,8 @@ internal sealed partial class TownWorld
     {
         if (!_closuresChanged) return;
 
+        // Every car's line is read against the closures, as its last tick left it.
+        Device?.TakeEveryCarBack(this);
         _closuresChanged = false;
         _anyLinkClosed = false;
         Array.Clear(_closedLanes);

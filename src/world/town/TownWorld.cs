@@ -342,6 +342,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _ground = new DrivingGround(Cars, _occupancy, _atlas, _ways, _roads, _lines, config);
         _carHold = _ground.PlanHold;
         _claims = new TickGroups(config.Sim.ClaimsIntervalS, config.Sim.TickRateHz);
+        _decisions = new TickGroups(config.Sim.AgentDecisionIntervalS, config.Sim.TickRateHz);
         _carActions = new CarActions(_ground, _manoeuvres);
         _overtaking = new Overtaking(_ground, _carActions);
         _switching = new Switching(_ground, _carActions, _overtaking);
@@ -738,6 +739,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// </summary>
     public void LayTheClaims()
     {
+        Device?.TakeEveryCarBack(this);
         RebuildLaneOccupancy();
         ClaimsLaidThisTick = true;
     }
@@ -757,7 +759,12 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             // A laying the device answered and has not yet written back is written back before the next is begun.
             device?.LandTheLastLaying(this);
             if (device != null && device.LaysTheClaims(this)) RebuildLaneOccupancyOn(device);
-            else RebuildLaneOccupancy();
+            else
+            {
+                // Laid here, the claims read every car as its last tick left it.
+                Device?.TakeEveryCarBack(this);
+                RebuildLaneOccupancy();
+            }
         }
 
         // Phase 3 begins on the walkers' ticks, which is the end of the roster the loop walks first.
@@ -831,13 +838,20 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// </summary>
     public ITownClaims? ClaimsDevice { get; set; }
 
-    public void AgentsTicked()
+    public void AgentsTicked(long tick)
     {
+        _agentsTick = tick;
         if (Device is not { } device) return;
 
         if (device.StepsWithTheTick) ReadyTheStep(_config.TickSeconds);
         device.TickTheRest(this);
     }
+
+    /// <summary>The loop's tick the agents were last ticked on, whose turn of the decisions is taken next (<see cref="_decisions"/>).</summary>
+    long _agentsTick;
+
+    /// <summary>The decisions' clock, the loop's own (<c>SimLoop.Decisions</c>), for a device to know whose turn is due.</summary>
+    readonly TickGroups _decisions;
 
     public void TickAgent(int agent)
     {
@@ -894,6 +908,12 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     {
         if (Device is { DecidesATickBehind: true })
         {
+            // What the device handed back for it was chosen by the town's own reckoning of whose turn it is (ReadsTheTickOf).
+            if (!_decisions.Turn(_agentsTick, agent))
+            {
+                throw new InvalidOperationException($"Agent {agent} decided on tick {_agentsTick}, off the town's own clock of the decisions.");
+            }
+
             if (_decisionsPutOff.Length < AgentCount) _decisionsPutOff = new int[AgentCount];
 
             _decisionsPutOff[_putOffCount++] = agent;
