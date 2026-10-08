@@ -6,7 +6,8 @@ namespace TrafficSimulation.Runtime;
 /// <summary>
 /// <b>Rows the device keeps from one submit to the next</b>, a fixed number to an item, with a mapped copy beside them
 /// the host writes into: it writes the rows of the items it changed, marks them, and <see cref="Send"/> copies only
-/// those — as one copy, however many there are, so a submit crosses once a table whatever the town's size.
+/// those — as one copy, or one kernel past a few runs, however many there are, so a submit crosses once a table whatever
+/// the town's size.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -30,10 +31,23 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
     /// </summary>
     const ulong BridgedGapBytes = 1536;
 
+    /// <summary>
+    /// The most runs a send copies; past them a kernel copies them instead (<c>copy_runs.comp</c>), reading the mapped copy
+    /// over the bus, which costs a dispatch whatever their count where a copy costs about 0.6 µs a run
+    /// (<c>--bench devicecopy</c>).
+    /// </summary>
+    const int CopiedRunsAtMost = 8;
+
     readonly Vk _vk;
     readonly GpuBuffer _staging;
     readonly GpuBuffer? _readback;
     readonly BufferCopy[] _runs;
+
+    /// <summary>The kernel that copies a send of many runs, its set over the mapped copy and the device's, and its runs in words.</summary>
+    readonly ComputeKernel? _runCopy;
+
+    readonly DescriptorSet _runCopySet;
+    readonly GpuBuffer? _wordRuns;
     readonly T[]? _laid;
 
     /// <summary>The items whose row a kernel wrote and the host does not know (<see cref="Forget"/>).</summary>
@@ -58,9 +72,16 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
         var bytes = (ulong)(Math.Max(1, items * rowsPerItem) * sizeof(T));
         Device = vk.CreateBuffer(
             bytes, BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferSrcBit | BufferUsageFlags.TransferDstBit, HostAccess.None);
-        _staging = vk.CreateBuffer(bytes, BufferUsageFlags.TransferSrcBit, HostAccess.Writes);
+        _staging = vk.CreateBuffer(bytes, BufferUsageFlags.TransferSrcBit | BufferUsageFlags.StorageBufferBit, HostAccess.Writes);
         if (readsBack) _readback = vk.CreateBuffer(bytes, BufferUsageFlags.TransferDstBit, HostAccess.Reads);
         _runs = new BufferCopy[Math.Max(1, items)];
+        if (sizeof(T) % sizeof(uint) == 0 && items > CopiedRunsAtMost)
+        {
+            _wordRuns = vk.CreateBuffer((ulong)(_runs.Length * sizeof(WordRun)), BufferUsageFlags.StorageBufferBit, HostAccess.Writes);
+            _runCopy = new ComputeKernel(vk, "copy_runs.comp", 3, sizeof(uint));
+            _runCopySet = _runCopy.Bind([_staging, Device, _wordRuns]);
+        }
+
         if (!hostOnly) return;
 
         // The device, the mapped copy and the last laid all begin as zeros, so a row laid as zeros needs no sending.
@@ -179,10 +200,29 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
         _runs[_runCount++] = new BufferCopy(offset, offset, size);
     }
 
-    /// <summary>The marked runs copied to the device and forgotten, recorded; the caller barriers before a kernel reads them.</summary>
+    /// <summary>
+    /// The marked runs copied to the device and forgotten, recorded — by a kernel past <see cref="CopiedRunsAtMost"/> of them;
+    /// the caller barriers before a kernel reads them (<see cref="Vk.AfterTransfer"/>), and after any that wrote them
+    /// (<see cref="Vk.BeforeTransfer"/>).
+    /// </summary>
     public void Send(CommandBuffer commands)
     {
-        _vk.Copy(commands, _staging, Device, _runs.AsSpan(0, _runCount));
+        if (_runCopy is null || _runCount <= CopiedRunsAtMost)
+        {
+            _vk.Copy(commands, _staging, Device, _runs.AsSpan(0, _runCount));
+        }
+        else
+        {
+            var words = _wordRuns!.Span<WordRun>();
+            for (var run = 0; run < _runCount; run++)
+            {
+                ref readonly var copy = ref _runs[run];
+                words[run] = new WordRun((uint)(copy.SrcOffset / sizeof(uint)), (uint)(copy.DstOffset / sizeof(uint)), (uint)(copy.Size / sizeof(uint)), 0u);
+            }
+
+            _runCopy.Dispatch(commands, _runCopySet, (uint)_runCount, (uint)_runCount);
+        }
+
         _runCount = 0;
         MarkedBytes = 0;
     }
@@ -216,8 +256,14 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
 
     public void Dispose()
     {
+        _runCopy?.Dispose();
+        _wordRuns?.Dispose();
         Device.Dispose();
         _staging.Dispose();
         _readback?.Dispose();
     }
 }
+
+/// <summary>One run <c>copy_runs.comp</c> copies: where it starts in each buffer and how long it is, all in 32-bit words.</summary>
+[StructLayout(LayoutKind.Sequential)]
+internal readonly record struct WordRun(uint From, uint To, uint Words, uint Pad);

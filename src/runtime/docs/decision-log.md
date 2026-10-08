@@ -1,5 +1,15 @@
 # The machine — decision log
 
+## 2026-10-08 — rows changed in many places are copied by a kernel, not by the copy engine
+
+`ResidentRows.Send` copied a table's marked rows as one copy of many regions, and on the PCIe link of 5 GT/s × 4 it
+was measured on a region costs about 0.6 µs whatever its size (`--bench devicecopy`: 1 MB in 1 000 runs at 0.97 GB/s
+against 1.81 in one). A town ticked on the device sent 428 regions a tick and 618 a rebuild — mostly the eight tables
+of every car whose line was laid again. Past eight runs a send is now `copy_runs.comp` reading the host's mapped copy
+over the bus, a workgroup a run, which pays a dispatch whatever the count; so `Vk.AfterTransfer` and
+`Vk.BeforeTransfer` order a kernel's writes as they order a copy's. OdesaOsm (`--bench devicetown`): 6.22 → 5.80 ms a
+tick, 34 regions a tick and 24 a rebuild.
+
 ## 2026-09-11 — the swapchain asks for identity, and lets the presenter turn the frame
 
 `PreTransform` was the surface's own current transform, which on a desktop is identity and on a handset

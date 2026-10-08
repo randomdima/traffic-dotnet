@@ -214,6 +214,9 @@ internal sealed partial class DeviceRebuild
     /// <summary>How many bytes the last rebuild in the town sent, and how many it read back.</summary>
     public (ulong Sent, ulong Read) Crossed { get; private set; }
 
+    /// <summary>How many copy regions the last rebuild in the town's own submit recorded (<see cref="Runtime.Vk.RegionsCopied"/>).</summary>
+    public int RegionsCopied { get; private set; }
+
     /// <summary>How many cars on a pass the last rebuild in the town found a body inside.</summary>
     public int HeldInTheirPasses { get; private set; }
 
@@ -316,6 +319,7 @@ internal sealed partial class DeviceRebuild
     {
         var laid = Stopwatch.GetTimestamp();
         var vk = _vk;
+        var regionsFrom = Runtime.Vk.RegionsCopied;
         var commands = _batch.Begin();
         _timer.Reset(commands);
         _timer.Stamp(commands, (int)Stage.Began);
@@ -398,6 +402,7 @@ internal sealed partial class DeviceRebuild
         if (GrantedWithTheAnswers) vk.Copy(commands, _grants, _grantsOut, Bytes<DeviceCarTick.GrantRow>(_carCount));
         _timer.Stamp(commands, (int)Stage.Granted);
         _timer.Stamp(commands, (int)Stage.Read);
+        RegionsCopied = (int)(Runtime.Vk.RegionsCopied - regionsFrom);
         _batch.SubmitAndWait();
         _timer.Read();
         var waited = Stopwatch.GetTimestamp();

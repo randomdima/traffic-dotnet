@@ -44,6 +44,12 @@ internal sealed unsafe partial class Vk : IDisposable
     /// <summary>Crossings of this wall since the process started. DEBUG only, and free in a measured run.</summary>
     public static long Crossings { get; private set; }
 
+    /// <summary>
+    /// Copy regions recorded since the process started — what a transfer costs besides its bytes: about 0.85 µs a region
+    /// on the PCIe link of 5 GT/s × 4 it was measured on (<c>--bench devicecopy</c>).
+    /// </summary>
+    public static long RegionsCopied { get; private set; }
+
     public string DeviceName { get; }
 
     public uint DeviceApiVersion { get; }
@@ -356,6 +362,7 @@ internal sealed unsafe partial class Vk : IDisposable
 
         var region = new BufferCopy { Size = bytes };
         Count();
+        RegionsCopied++;
         _api.CmdCopyBuffer(commands, from.Handle, to.Handle, 1, &region);
     }
 
@@ -365,6 +372,7 @@ internal sealed unsafe partial class Vk : IDisposable
         if (runs.IsEmpty) return;
 
         Count();
+        RegionsCopied += runs.Length;
         fixed (BufferCopy* first = runs) _api.CmdCopyBuffer(commands, from.Handle, to.Handle, (uint)runs.Length, first);
     }
 
@@ -375,19 +383,24 @@ internal sealed unsafe partial class Vk : IDisposable
         _api.CmdFillBuffer(commands, buffer.Handle, 0, Silk.NET.Vulkan.Vk.WholeSize, word);
     }
 
-    /// <summary>A copy's or a fill's writes made visible to the kernels after it.</summary>
+    /// <summary>
+    /// A copy's or a fill's writes — or a kernel's copying in a copy's place (<see cref="ResidentRows{T}.Send"/>) — made
+    /// visible to the kernels after it.
+    /// </summary>
     public void AfterTransfer(CommandBuffer commands) =>
         Barrier(
-            commands, PipelineStageFlags2.AllTransferBit, AccessFlags2.TransferWriteBit,
+            commands, PipelineStageFlags2.AllTransferBit | PipelineStageFlags2.ComputeShaderBit,
+            AccessFlags2.TransferWriteBit | AccessFlags2.ShaderStorageWriteBit,
             PipelineStageFlags2.ComputeShaderBit | PipelineStageFlags2.DrawIndirectBit | PipelineStageFlags2.AllTransferBit,
             AccessFlags2.ShaderStorageReadBit | AccessFlags2.ShaderStorageWriteBit | AccessFlags2.IndirectCommandReadBit
             | AccessFlags2.TransferReadBit | AccessFlags2.TransferWriteBit);
 
-    /// <summary>The kernels' writes made visible to a copy after them.</summary>
+    /// <summary>The kernels' writes made visible to a copy after them — or to a kernel copying in its place (<see cref="ResidentRows{T}.Send"/>).</summary>
     public void BeforeTransfer(CommandBuffer commands) =>
         Barrier(
             commands, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageWriteBit,
-            PipelineStageFlags2.AllTransferBit, AccessFlags2.TransferReadBit | AccessFlags2.TransferWriteBit);
+            PipelineStageFlags2.AllTransferBit | PipelineStageFlags2.ComputeShaderBit,
+            AccessFlags2.TransferReadBit | AccessFlags2.TransferWriteBit | AccessFlags2.ShaderStorageReadBit | AccessFlags2.ShaderStorageWriteBit);
 
     /// <summary>One kernel's writes made visible to the next kernel's reads and writes.</summary>
     public void BetweenKernels(CommandBuffer commands) =>

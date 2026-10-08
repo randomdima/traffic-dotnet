@@ -93,6 +93,7 @@ internal static class DeviceTownProbe
         var claimsMs = 0d;
         var sentBytes = 0d;
         var walkersPatched = 0L;
+        var (tickRegions, rebuildRegions) = (0L, 0L);
         var bodiesLayMs = 0d;
         var bodiesWaitMs = 0d;
         var bodiesBackMs = 0d;
@@ -135,6 +136,7 @@ internal static class DeviceTownProbe
                 claimsPlansMs += rebuild.BetweenMs(DeviceRebuild.Stage.BodiesLaid, DeviceRebuild.Stage.PlansLaid);
                 claimsReadMs += rebuild.BetweenMs(DeviceRebuild.Stage.Answered, DeviceRebuild.Stage.Read);
                 claimsSentMb += rebuild.Crossed.Sent / 1e6;
+                rebuildRegions += rebuild.RegionsCopied;
                 var parts = rebuild.SentParts;
                 ReadOnlySpan<ulong> each = [parts.Bodies, parts.Plans, parts.Walkers, parts.Lines, parts.CarClaims, parts.TownsOwn];
                 for (var part = 0; part < each.Length; part++) sentParts[part] += each[part] / 1e6;
@@ -164,6 +166,7 @@ internal static class DeviceTownProbe
             claimsMs += device.ClaimsMs;
             sentBytes += device.SentBytes;
             walkersPatched += device.WalkersPatched;
+            tickRegions += device.RegionsCopied;
             bodiesLayMs += device.Bodies.LayMs;
             bodiesWaitMs += device.Bodies.WaitMs;
             bodiesBackMs += device.Bodies.HandBackMs;
@@ -179,7 +182,8 @@ internal static class DeviceTownProbe
                 $"  of the wait, the device's own: the submit {submitMs / MeasuredTicks:F2}, of it the town's claims taken in " +
                 $"{claimsMs / MeasuredTicks:F2} and the car rows in and out {copiesMs / MeasuredTicks:F2}; " +
                 $"{sentBytes / MeasuredTicks / 1024:F0} KiB of car rows sent a tick, {walkersPatched / (double)MeasuredTicks:F0} walkers written " +
-                "whole a tick");
+                $"whole a tick; {tickRegions / MeasuredTicks} copy regions a tick's submit, {rebuildRegions / Math.Max(1, rebuilds)} a " +
+                "rebuild's");
             Console.WriteLine(
                 $"  the bodies' phase, ms a tick: laying {bodiesLayMs / MeasuredTicks:F2}, submitting and waiting {bodiesWaitMs / MeasuredTicks:F2} " +
                 $"(the device's kernels {bodiesKernelsMs / MeasuredTicks:F2}), writing what came back {bodiesBackMs / MeasuredTicks:F2}");

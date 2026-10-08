@@ -124,6 +124,9 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// <summary>How many bytes of car rows the last tick sent.</summary>
     public ulong SentBytes { get; private set; }
 
+    /// <summary>How many copy regions the last tick's own submit recorded (<see cref="Vk.RegionsCopied"/>).</summary>
+    public int RegionsCopied { get; private set; }
+
     /// <summary>How many walkers the last tick wrote whole over the device's table, the town holding them otherwise.</summary>
     public int WalkersPatched => _walkers.Patched;
 
@@ -266,6 +269,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         if (stepping) _bodies.LayTheStep(town, _dtS, _taken.AsSpan(0, _count), walkersTicked: true);
         var prepared = Stopwatch.GetTimestamp();
 
+        var regionsFrom = Vk.RegionsCopied;
         var commands = _batch.Begin();
         _timer.Reset(commands);
         _timer.Stamp(commands, 0);
@@ -279,6 +283,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _walkers.RecordRead(commands);
         if (stepping) _bodies.RecordTheStep(commands, town, _dtS);
         _timer.Stamp(commands, 2);
+        RegionsCopied = (int)(Vk.RegionsCopied - regionsFrom);
         _batch.Submit();
 
         // While the tick runs: a layer the last rebuild sent back is written into the town, and this tick's own rebuild's
