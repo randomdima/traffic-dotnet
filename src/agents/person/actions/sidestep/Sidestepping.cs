@@ -363,14 +363,7 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     [SkipLocalsInit]
     bool DrawThePass(int person, float sinceLastDecisionS)
     {
-        var hold = ground.WalkHold[person];
-        var code = People.CurrentRouteWay(person);
-        if (hold == LaneOccupancy.NoHold || code == PersonFleet.NoWay || WalkingNetwork.IsACorner(code)) return false;
-        if (!People.Walking[person] || !People.IsOnItsFeet(person) || ground.IsHopping(person)) return false;
-
-        Occupancy.HoldEndsAtM(hold, out _, out var cutBy);
-        var cutOn = Occupancy.HoldCutOn(hold);
-        if (!cutBy.Found || !cutBy.MayBePassedBy(OnwardAlongTheWalk(person, cutOn))) return false;
+        if (!ComesUpToOneItMayPass(person, out var code, out var cutBy, out var cutOn)) return false;
 
         ref var inS = ref _decidesInS[person];
         inS -= sinceLastDecisionS;
@@ -398,6 +391,26 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
         _looksInS[person] = 0f;
         _waitedS[person] = 0f;
         return true;
+    }
+
+    /// <summary>
+    /// <b>Whether a walker's walk was ended by somebody it may get past</b>, walking a way of its route on its feet — what
+    /// a pass is drawn on, on the pass's own clock (<see cref="DrawThePass"/>). Asked of nothing it changes.
+    /// </summary>
+    public bool ComesUpToOneItMayPass(int person) => ComesUpToOneItMayPass(person, out _, out _, out _);
+
+    bool ComesUpToOneItMayPass(int person, out int code, out LaneClaim cutBy, out int cutOn)
+    {
+        cutBy = LaneClaim.Nothing;
+        cutOn = LaneOccupancy.NoHold;
+        var hold = ground.WalkHold[person];
+        code = People.CurrentRouteWay(person);
+        if (hold == LaneOccupancy.NoHold || code == PersonFleet.NoWay || WalkingNetwork.IsACorner(code)) return false;
+        if (!People.Walking[person] || !People.IsOnItsFeet(person) || ground.IsHopping(person)) return false;
+
+        Occupancy.HoldEndsAtM(hold, out _, out cutBy);
+        cutOn = Occupancy.HoldCutOn(hold);
+        return cutBy.Found && cutBy.MayBePassedBy(OnwardAlongTheWalk(person, cutOn));
     }
 
     /// <summary>

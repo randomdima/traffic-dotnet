@@ -46,6 +46,54 @@ internal sealed partial class TownWorld
         && People.OffWayM[person] > (_config.WalkerOffLaneM * OffLineTolerance) + MathF.Abs(People.Pass[person].AsideM);
 
     /// <summary>
+    /// <b>Whether this walker's decision would do nothing but run its leg's clock</b>: out of doors and on its feet,
+    /// walking its route — no car's way in reached, nobody it may get past ending its walk, its line not lost and its
+    /// chain not run out — and a clock that will not run out on this decision. Asked of nothing it changes.
+    /// </summary>
+    /// <remarks>
+    /// Each refusal is a branch <see cref="DecideNow"/> takes before the clock: a held town, a casualty, a body indoors
+    /// or on duty, a walk to a car at its end, a pass drawn or waited on (<see cref="Sidestepping.Decide"/>), a beat
+    /// stood, a walk laid again, and the clock's own end of the leg.
+    /// </remarks>
+    public bool WalkerTakesOnlyTheClock(int person, float sinceLastDecisionS)
+    {
+        if (HoldAgents || People.Wounded[person] || People.Inside[person].Any || !People.Walking[person]) return false;
+
+        var stage = People.Stage[person];
+        if (stage == TripStage.OnDuty || (stage == TripStage.WalkingToTheCar && HasReached(person, _config.WayInTouchingReachM)))
+        {
+            return false;
+        }
+
+        if (People.Action[person] != PersonAction.Walk || _sidestepping.ComesUpToOneItMayPass(person)) return false;
+        if (HasLostItsLine(person) || ComesToTheEndOfItsChain(person)) return false;
+
+        return !_progress.WouldBeStuck(
+            person, RemainingOnTheWalkM(person), _config.PersonDiameterM, sinceLastDecisionS, _walkingGround.HeldByALight(person),
+            _config.Person.GivesUpAfterS);
+    }
+
+    /// <summary>
+    /// <b>A walker's leg's clock run for this decision</b>: held where a light holds the crossing in front, which will change
+    /// on its own (TLT-2a), and otherwise noted against how much of the walk is left.
+    /// </summary>
+    void RunTheWalksClock(int person, float sinceLastDecisionS)
+    {
+        var remainingM = RemainingOnTheWalkM(person);
+        if (_walkingGround.HeldByALight(person)) _progress.Hold(person, remainingM);
+        else _progress.Note(person, remainingM, _config.PersonDiameterM, sinceLastDecisionS);
+    }
+
+    /// <summary>
+    /// Whether a walker whose decision <see cref="WalkerTakesOnlyTheClock"/> is decided by its clock alone
+    /// (<see cref="RunTheWalksClock"/>) — which is what the whole decision would have come to.
+    /// </summary>
+    public bool DecidesQuietWalkersByTheClock { get; set; }
+
+    /// <summary>How many walkers' decisions were their clock alone (<see cref="DecidesQuietWalkersByTheClock"/>).</summary>
+    public long WalkersDecidedByTheClock { get; private set; }
+
+    /// <summary>
     /// A body whose controller is paused — the same thing done for a body nobody is deciding for: a
     /// walker holds its stance on its own feet, and a car is left with no pedals and no
     /// steering, so what happens to it is the tyres' and the solver's.

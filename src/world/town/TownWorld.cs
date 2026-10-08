@@ -1017,6 +1017,14 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             return;
         }
 
+        // What the whole decision comes to where it is its leg's clock alone.
+        if (DecidesQuietWalkersByTheClock && WalkerTakesOnlyTheClock(agent, sinceLastDecisionS))
+        {
+            RunTheWalksClock(agent, sinceLastDecisionS);
+            WalkersDecidedByTheClock++;
+            return;
+        }
+
         // PER-18: a casualty takes no actions. It is not terminal — an ambulance is on its way — so the
         // body is still stepped, struck and pushed like any other; what it has stopped doing is deciding.
         if (People.Wounded[agent]) return;
@@ -1081,9 +1089,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         //
         // <b>A light holding the crossing in front is the one wait that spends no clock</b>, as it is a driver's
         // (TLT-2a): it will change on its own, so the wait is bought and the standing is not given back.
-        var remainingM = RemainingOnTheWalkM(agent);
-        if (_walkingGround.HeldByALight(agent)) _progress.Hold(agent, remainingM);
-        else _progress.Note(agent, remainingM, _config.PersonDiameterM, sinceLastDecisionS);
+        RunTheWalksClock(agent, sinceLastDecisionS);
 
         // Standing here means the follower has already answered: either it arrived, or it never had
         // anywhere to go. Being stuck is the other way a leg ends, and it is the one that needs a

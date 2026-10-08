@@ -42,4 +42,30 @@ public class QuietDecisionsInATownTests
         Assert.True(byTheClock.DecidedByTheClock > 0, "no car was decided by its clock alone");
         Assert.True(unlike.Count == 0, $"{unlike.Count} agents differ: {string.Join("; ", unlike.Take(6))}");
     }
+
+    /// <summary>
+    /// <b>Every tick, every car and walker stands, moves and faces to the bit as in the town that decides every walker
+    /// whole, and holds the same hold</b> — over a run in which walkers were decided by their clock alone
+    /// (<see cref="TownWorld.WalkerTakesOnlyTheClock"/>).
+    /// </summary>
+    [Fact]
+    public void AWalkerDecidedByItsClockAloneLeavesTheTownAsOneDecidedWhole()
+    {
+        var config = SimConfig.Shipped();
+        using var whole = new TownWorld(Towns.Built, config);
+        using var byTheClock = new TownWorld(Towns.Built, config) { DecidesQuietWalkersByTheClock = true };
+        var wholeLoop = new SimLoop<TownWorld>(whole, config);
+        var clockLoop = new SimLoop<TownWorld>(byTheClock, config);
+
+        var unlike = new List<string>();
+        for (var tick = 0; tick < Ticks && unlike.Count == 0; tick++)
+        {
+            wholeLoop.Advance();
+            clockLoop.Advance();
+            TownsInStep.Compare(whole, byTheClock, tick, unlike);
+        }
+
+        Assert.True(byTheClock.WalkersDecidedByTheClock > 0, "no walker was decided by its clock alone");
+        Assert.True(unlike.Count == 0, $"{unlike.Count} agents differ: {string.Join("; ", unlike.Take(6))}");
+    }
 }
