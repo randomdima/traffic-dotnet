@@ -47,6 +47,9 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   car's wheels (`DeviceTyres.KeptOnTheDevice`), the poses the step left, the walker table (`DeviceWalkerTick.Resident`) —
   is held to handing everything back only by `--bench devicetown`'s counts coming out the same. A test holding the two
   equal tick by tick closes it, as `TheTownHoldsEveryWalkerAsTheDeviceLeftIt` does for the walkers the claims keep.
+- **The Android head has not been built since the device tick came in** (branch `gpu-resident-sim`): no Android SDK
+  where it was worked on. It compiles all of `src/` against Vulkan, so it takes `app/devicetick` as the desktop does,
+  and its shader targets must embed the device's kernels (`copy_runs.comp` among them). A build of it closes this.
 - **Not measured since they landed**: the walker as one wheel, the car no longer asked its ground, and the
   consolidation after them (`WheelGrounds`, `DeviceGround` gone, the walker's pavement read). The figures in the road
   and terrain logs predate all three; the soak after them kept all twelve of OdesaOsm's claims.
