@@ -4,7 +4,8 @@
 // What a rebuild's stages made of the walkers a device keeps, handed back (app/devicetick/DeviceWalkers.WalkerOut), one
 // thread a walker: a row out for every walker whose row they changed from what it was read in as (walkers_kept_gather.comp,
 // walkers_kept_patch.comp) — everything the stages write but the straight, which stays the device's — counted, in no
-// order.
+// order. Its aim and whether it walks are written where its next tick reads them (walker_table.glsl) too, as the town
+// takes them up (TownWorld.KeptOnTheDevice), rather than sent back over the table by the town.
 
 layout(local_size_x = 64) in;
 
@@ -14,6 +15,7 @@ layout(push_constant) uniform Figures
 } figures;
 
 #include "agents/person/actions/kernels/walker_rows.glsl"
+#include "world/town/kernels/walker_table.glsl"
 
 // DeviceWalkers.WalkerOut, field for field.
 struct WalkerOut
@@ -42,6 +44,7 @@ layout(std430, binding = 0) readonly buffer Kept { WalkerRow kept[]; };
 layout(std430, binding = 1) readonly buffer Before { WalkerRow before[]; };
 layout(std430, binding = 2) writeonly buffer Out { WalkerOut rowsOut[]; };
 layout(std430, binding = 3) buffer OutCount { uint outCount; };
+layout(std430, binding = 4) buffer Table { WalkerTableRow table[]; };
 
 // Bit for bit, so a place that is not a number is the same as itself.
 bool keptSame(vec2 one, vec2 other) { return all(equal(floatBitsToUint(one), floatBitsToUint(other))); }
@@ -68,4 +71,8 @@ void main()
     rowsOut[at] = WalkerOut(
         now.destinationM, now.backToM, now.onWayM, now.offWayM, now.grantM, now.passFromM, now.passClearM, now.passAsideM,
         now.passSlot, now.routeTaken, now.onWay, now.onCrossing, now.heldAs, now.flags, now.action, now.hold, now.events, walker);
+
+    table[walker].aimM = now.destinationM;
+    uint walking = (now.flags & WalkerWalking) != 0u ? WalkerTableWalking : 0u;
+    table[walker].flags = (table[walker].flags & ~WalkerTableWalking) | walking;
 }

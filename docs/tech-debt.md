@@ -43,9 +43,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   its front wheels have not reached, is no body there. The gap per car model is not measured.
 - **The device in step is gated only on the town's claims** (`DeviceTownGateTests`: nothing inside anything, nothing past
   its grant, over 600 ticks of the built town): what it keeps on the device and hands back only where it changed — a
-  car's wheels (`DeviceTyres.KeptOnTheDevice`), the poses the step left, the walker table (`DeviceWalkerTick.Resident`) —
-  is held to handing everything back only by `--bench devicetown`'s counts coming out the same. A test holding the two
-  equal tick by tick closes it, as `TheTownHoldsEveryWalkerAsTheDeviceLeftIt` does for the walkers the claims keep.
+  car's wheels (`DeviceTyres.KeptOnTheDevice`), the poses the step left — is held to handing everything back only by
+  `--bench devicetown`'s counts coming out the same. A test holding the two equal tick by tick closes it, as
+  `TheTownHoldsEveryWalkerAsTheDeviceLeftIt` does for the walkers the claims keep and
+  `EveryTickReadsEveryWalkerAsTheTownHoldsIt` for the walker tick's table.
 - **The Android head has not been built since the device tick came in** (branch `gpu-resident-sim`): no Android SDK
   where it was worked on. It compiles all of `src/` against Vulkan, so it takes `app/devicetick` as the desktop does,
   and its shader targets must embed the device's kernels (`copy_runs.comp` among them). A build of it closes this.
@@ -99,10 +100,6 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   shadow.
 - **A rebuild that keeps the walkers still writes every walker's `WalkOut`** (`rebuild_agents_out.comp`), which it never
   reads back.
-- **A kept walker's aim makes a round trip**: the rebuild's read sets it on the device, the town takes it up
-  (`TownWorld.KeptOnTheDevice`), and the next tick writes it back over the walker tick's table
-  (`DeviceWalkerTick.LayWhatChanged` — most of its 1 268 walkers a tick on OdesaOsm). The read could write the tick's
-  `aimM` and the town's known row with it.
 - **A walker's own way is laid as a second piece** (`WalkingGround.BodyCover`, `walkerBodyCover`) when the point read
   already found it; `LayBody` merges the two.
 - **A paused casualty's slide is stepped twice** (`WalkerFollower`'s paused branch, then `TownWorld.Settle`; the same in

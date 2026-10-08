@@ -39,6 +39,14 @@ public class DeviceTownGateTests(TickedOnTheDevice ticked) : IClassFixture<Ticke
         Assert.True(ticked.WalkersKept);
         Assert.Equal(0L, ticked.WalkersUnlike);
     }
+
+    /// <summary>
+    /// The walker tick's table is the device's (<see cref="DeviceWalkerTick.Resident"/>), written over only where the town
+    /// holds a walker other than the device is known to — a rebuild's aims among what it is known to hold — so every tick
+    /// reads every walker as the town would lay it, or a walker walks at an aim the town has moved on from.
+    /// </summary>
+    [Fact]
+    public void EveryTickReadsEveryWalkerAsTheTownHoldsIt() => Assert.Equal(0L, ticked.WalkerTicksUnlike);
 }
 
 /// <summary>The suite's built town, its walkers out of their doors, ticked with the device in step on lavapipe and watched every tick.</summary>
@@ -58,6 +66,7 @@ public sealed class TickedOnTheDevice : IDisposable
         using var town = new DeviceTown(_device.Vk, config, world);
         var walkers = town.Claims.Rebuild.Walkers;
         walkers.ChecksWhatWasTaken = true;
+        town.Walkers.ChecksWhatTheTickReads = true;
         world.Device = town;
         Watch = new TownWatch(world, config);
         for (var tick = 0; tick < Ticks; tick++)
@@ -68,6 +77,7 @@ public sealed class TickedOnTheDevice : IDisposable
 
         world.Device = null;
         (WalkersKept, WalkersUnlike) = (walkers.Keeps, walkers.KeptUnlike);
+        WalkerTicksUnlike = town.Walkers.TickReadUnlike;
     }
 
     internal TownWatch Watch { get; }
@@ -76,6 +86,9 @@ public sealed class TickedOnTheDevice : IDisposable
     internal bool WalkersKept { get; }
 
     internal long WalkersUnlike { get; }
+
+    /// <summary>How many walkers a tick read other than the town laid them, over every tick.</summary>
+    internal long WalkerTicksUnlike { get; }
 
     public void Dispose() => _device.Dispose();
 }

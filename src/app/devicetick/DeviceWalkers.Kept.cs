@@ -98,8 +98,8 @@ internal sealed partial class DeviceWalkers
         _keptGatherSet = _keptGather.Bind([_keptTable, _keptBefore, table]);
         _keptPatch = new ComputeKernel(_vk, "walkers_kept_patch.comp", 3, sizeof(uint));
         _keptPatchSet = _keptPatch.Bind([_keptPatches, _keptTable, _keptBefore]);
-        _keptOut = new ComputeKernel(_vk, "walkers_kept_out.comp", 4, sizeof(uint));
-        _keptOutSet = _keptOut.Bind([_keptTable, _keptBefore, _keptOutRows, _keptOutCount]);
+        _keptOut = new ComputeKernel(_vk, "walkers_kept_out.comp", 5, sizeof(uint));
+        _keptOutSet = _keptOut.Bind([_keptTable, _keptBefore, _keptOutRows, _keptOutCount, table]);
         _known = new WalkerRow[_walkers];
         _isKnown = new bool[_walkers];
         _keptOutBound = _walkers;
@@ -211,12 +211,14 @@ internal sealed partial class DeviceWalkers
 
     /// <summary>
     /// <b>Kept: what the stages made of every walker they changed taken up by the town</b> (<see cref="TownWorld.KeptOnTheDevice"/>)
-    /// and as what the device holds — the rows past what the submit read back read in a second — and every walker's hold
-    /// as the rebuild numbered it (<see cref="TownWorld.WalkedOnTheDevice"/>).
+    /// and as what the device holds — the rows past what the submit read back read in a second, and each one's aim and
+    /// walk as the walker tick's table now holds them (<c>walkers_kept_out.comp</c>) — and every walker's hold as the
+    /// rebuild numbered it (<see cref="TownWorld.WalkedOnTheDevice"/>).
     /// </summary>
+    /// <param name="ticked">The walker tick whose table the stages wrote each changed walker's aim and walk into.</param>
     /// <param name="unitHolds">The hold each unit's first was numbered, read back.</param>
     /// <param name="firstWalker">The unit the first walker's walk is.</param>
-    public void TakeTheKept(TownWorld town, ReadOnlySpan<uint> unitHolds, int firstWalker)
+    public void TakeTheKept(TownWorld town, DeviceWalkerTick ticked, ReadOnlySpan<uint> unitHolds, int firstWalker)
     {
         var count = (int)_keptOutCountRead.Span<uint>()[0];
         if (count > _keptOutBound)
@@ -257,6 +259,7 @@ internal sealed partial class DeviceWalkers
                     made.RouteTaken, made.OnWay, made.OnCrossing, made.HeldAs,
                     known.Is(WalkerRow.HeldAsDriving) ? LaneRoster.Driving : LaneRoster.Walking, known.Is(WalkerRow.Walking),
                     (PersonAction)made.Action, (made.Events & WalkerRow.MadeItsPass) != 0, (made.Events & WalkerRow.WithdrewItsPass) != 0));
+            ticked.KnowTheAim(person, made.DestinationM, known.Is(WalkerRow.Walking));
         }
 
         for (var person = 0; person < _walkerCount; person++)

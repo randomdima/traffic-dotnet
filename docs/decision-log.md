@@ -4,6 +4,18 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-08 — the engine is the device's, and the host runs a tick behind it
+
+**The owner ruled it, for a town whose tick the device runs**, extending 2026-10-06: the engine runs on the GPU, and the
+host keeps only work that is occasional, light and copies little. What was measured against it (OdesaOsm, 5.80 ms a
+tick): ~88 % of the 4.3 MB crossing a tick went back only to keep the host's copy of the town current, and the host and
+the device took turns rather than working side by side.
+
+- **A decision may take its claims answers from the device a rebuild later** (at most three ticks), rather than read a
+  layer copied back to the host.
+- **The host may run a tick behind the device**: it decides on tick N while the device runs tick N + 1, so a decision
+  reads the town a tick older and takes effect a tick later (16.7 ms, against a reaction of 0.1 s).
+
 ## 2026-10-08 — a layer lands on the second tick after its rebuild, copied back in halves
 
 **Within the owner's 2026-10-07 ruling that a decision may read a layer one laying old.** Copied whole behind the

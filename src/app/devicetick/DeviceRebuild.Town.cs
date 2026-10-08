@@ -529,7 +529,7 @@ internal sealed partial class DeviceRebuild
         var firstWalker = firstCar + _carCount;
         if (_walkers.Keeps)
         {
-            _walkers.TakeTheKept(town, unitHolds, firstWalker);
+            _walkers.TakeTheKept(town, _walkerTick!, unitHolds, firstWalker);
         }
         else
         {

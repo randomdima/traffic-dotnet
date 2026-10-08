@@ -112,6 +112,9 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// <summary>The bodies' phase, for whoever reads its times.</summary>
     public DeviceTownBodies Bodies => _bodies;
 
+    /// <summary>The walkers' tick, for whoever checks what it reads.</summary>
+    public DeviceWalkerTick Walkers => _walkers;
+
     /// <summary>The device's time taking the last tick's car rows in and handing them back, in milliseconds.</summary>
     public double CopiesMs => _cars.SentMs + _cars.ReadMs;
 

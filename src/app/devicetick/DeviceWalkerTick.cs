@@ -79,6 +79,12 @@ internal sealed partial class DeviceWalkerTick : IDisposable
     readonly Vector2[] _knownImpulse = [];
     readonly bool[] _isKnown = [];
 
+    /// <summary>Checked: every walker as the town laid it this tick, and the table as the tick read it, copied back.</summary>
+    WalkerRow[]? _laidForCheck;
+
+    GpuBuffer? _readForCheck;
+    bool _checks;
+
     /// <param name="resident">Whether the table is the device's, written over only where the town changed a walker.</param>
     public DeviceWalkerTick(Vk vk, SimConfig config, int capacity, bool resident = false)
     {
@@ -139,6 +145,28 @@ internal sealed partial class DeviceWalkerTick : IDisposable
     /// <summary>How many walkers the last tick was written over whole, resident.</summary>
     public int Patched => _patchCount;
 
+    /// <summary>
+    /// <b>Resident: whether to hold the table, as every tick reads it, to every walker as the town laid it that tick</b>
+    /// (<see cref="TickReadUnlike"/>) — a check of what the device is known to hold, at the cost of the table copied back
+    /// every tick.
+    /// </summary>
+    public bool ChecksWhatTheTickReads
+    {
+        get => _checks;
+        set
+        {
+            _checks = value;
+            if (!value || _readForCheck != null) return;
+
+            _laidForCheck = new WalkerRow[Capacity];
+            _readForCheck = _vk.CreateBuffer(
+                (ulong)(Math.Max(1, Capacity) * Marshal.SizeOf<WalkerRow>()), BufferUsageFlags.TransferDstBit, HostAccess.Reads);
+        }
+    }
+
+    /// <summary>How many walkers a tick read other than the town laid them, but for how far each has walked, over every tick checked.</summary>
+    public long TickReadUnlike { get; private set; }
+
     /// <summary>The device's own time for the last tick's kernel, in milliseconds.</summary>
     public double TickMs => _timer.BetweenMs(0, 1);
 
@@ -159,6 +187,7 @@ internal sealed partial class DeviceWalkerTick : IDisposable
             var row = RowOf(people, person, paused);
             var impulseNs = town.WalkerImpulseNs(person);
             _bodies.Lay(person, people.Body[person].Index);
+            if (_checks) _laidForCheck![person] = row;
             if (_isKnown[person] && SameToTheTick(row, _known[person]) && impulseNs == _knownImpulse[person]) continue;
 
             patches[_patchCount++] = new Patch(row, impulseNs, (uint)person);
@@ -182,6 +211,21 @@ internal sealed partial class DeviceWalkerTick : IDisposable
             _known[walker] = _known[walker] with { DeclaredMps = tick.DeclaredMps, HeadingRad = tick.HeadingRad };
             _knownImpulse[walker] = tick.ImpulseNs;
         }
+
+        if (_checks) TickReadUnlike += UnlikeToTheTick();
+    }
+
+    /// <summary>How many walkers the table held, as the last tick read it, other than the town laid them.</summary>
+    int UnlikeToTheTick()
+    {
+        var read = _readForCheck!.Span<WalkerRow>();
+        var unlike = 0;
+        for (var walker = 0; walker < _count; walker++)
+        {
+            if (!SameToTheTick(read[walker], _laidForCheck![walker])) unlike++;
+        }
+
+        return unlike;
     }
 
     /// <summary>
@@ -197,6 +241,18 @@ internal sealed partial class DeviceWalkerTick : IDisposable
             var at = walked[walker];
             _known[walker] = _known[walker] with { PositionM = new Vector2(at.X, at.Y), VelocityMps = new Vector2(at.Z, at.W) };
         }
+    }
+
+    /// <summary>
+    /// Resident: a walker's aim and whether it walks, as a rebuild that keeps the walkers wrote them into the table
+    /// (<c>walkers_kept_out.comp</c>), taken as what the device holds.
+    /// </summary>
+    public void KnowTheAim(int walker, Vector2 aimM, bool walking)
+    {
+        if (!Resident || !_isKnown[walker]) return;
+
+        ref var known = ref _known[walker];
+        known = known with { AimM = aimM, Flags = walking ? known.Flags | WalkerRow.Walking : known.Flags & ~WalkerRow.Walking };
     }
 
     /// <summary>
@@ -231,6 +287,13 @@ internal sealed partial class DeviceWalkerTick : IDisposable
             {
                 _patchKernel!.Dispatch(commands, _patchSet, (uint)((_patchCount + 63) / 64), (uint)_patchCount);
                 _vk.BetweenKernels(commands);
+            }
+
+            if (_checks)
+            {
+                _vk.BeforeTransfer(commands);
+                _vk.Copy(commands, _walkers.Device, _readForCheck!, (ulong)(walkers * Marshal.SizeOf<WalkerRow>()));
+                _vk.AfterTransfer(commands);
             }
         }
         else
@@ -287,6 +350,7 @@ internal sealed partial class DeviceWalkerTick : IDisposable
         _kernel.Dispose();
         _patchKernel?.Dispose();
         _patches?.Dispose();
+        _readForCheck?.Dispose();
         _patchesIn?.Dispose();
         _walkers.Dispose();
         _impulses.Dispose();
