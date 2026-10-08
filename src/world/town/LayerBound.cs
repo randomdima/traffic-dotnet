@@ -8,13 +8,18 @@ namespace TrafficSimulation.World.Town;
 /// <remarks>
 /// Saved as the readers have it before the laying writes it (<see cref="Save"/>); set back to that once the laying is done,
 /// the laying's own put aside (<see cref="Park"/>); and the laying's taken up when its layer is written back
-/// (<see cref="Adopt"/>) — <b>but wherever a reader has written it since</b>, which stands.
+/// (<see cref="Adopt"/>) — <b>but wherever a reader has written it since</b>, which stands. A laying put aside is written
+/// again between <see cref="Resume"/> and <see cref="Repark"/>, what the readers have meanwhile kept for after.
 /// </remarks>
 internal interface ILayerBound
 {
     void Save();
 
     void Park();
+
+    void Resume();
+
+    void Repark();
 
     void Adopt();
 }
@@ -24,6 +29,7 @@ internal sealed class LayerBound<T>(T[] live) : ILayerBound where T : unmanaged
 {
     readonly T[] _readers = new T[live.Length];
     readonly T[] _laid = new T[live.Length];
+    readonly T[] _meanwhile = new T[live.Length];
 
     public void Save() => live.CopyTo(_readers, 0);
 
@@ -31,6 +37,18 @@ internal sealed class LayerBound<T>(T[] live) : ILayerBound where T : unmanaged
     {
         live.CopyTo(_laid, 0);
         _readers.CopyTo(live, 0);
+    }
+
+    public void Resume()
+    {
+        live.CopyTo(_meanwhile, 0);
+        _laid.CopyTo(live, 0);
+    }
+
+    public void Repark()
+    {
+        live.CopyTo(_laid, 0);
+        _meanwhile.CopyTo(live, 0);
     }
 
     public void Adopt()

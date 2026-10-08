@@ -24,6 +24,13 @@ the device took turns rather than working side by side.
     tick's submit (1.7 ms). 23 cars a tick are moved on from. The town drives a tick later: 1 139 hard brakings against
     1 152, 104 lane switches asked and 99 made against 96 and 95 (the host's own: 102 and 96), 27 pairs beginning to touch
     against 26; the speed and the cars off their lines equal.
+  - **And as a claims rebuild that runs on while the town goes on** (`DeviceTown.RebuildsRunOn`,
+    `DeviceRebuild.AnswersDue`): submitted where its stages reach the plans and not waited for there, its answers
+    written back once the tick's own submit is behind it and before the decisions read them. Nothing else reads them in
+    between but two the device takes a tick late — the channels a car's body was found on, and which wheels of a car the
+    device does not take stand on a way (tech debt). Not where a car backs up or the town drives anybody itself, whose
+    tick or ground reads the answers first. OdesaOsm: 4.81 → 4.49 ms a tick, the town bit for bit as before
+    (`DeviceTownRunOnTests` holds the two towns equal tick by tick).
 
 ## 2026-10-08 — the readers' layer is sent back in part, and a decision asks for the ways it reads
 

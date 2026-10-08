@@ -860,6 +860,7 @@ internal sealed partial class DeviceWalkers : IDisposable
         _keptGather?.Dispose();
         _keptPatch?.Dispose();
         _keptOut?.Dispose();
+        _keptAims?.Dispose();
         foreach (var kernel in _kernels) kernel.Dispose();
         foreach (var buffer in _owned) buffer.Dispose();
         _stationed?.Dispose();

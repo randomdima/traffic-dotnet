@@ -104,6 +104,8 @@ internal static class DeviceTownProbe
         var rebuilds = 0;
         var (claimsLaidMs, claimsWaitMs, claimsMirrorMs, claimsSentMs, claimsKernelsMs, claimsReadMs) = (0d, 0d, 0d, 0d, 0d, 0d);
         var claimsStationedMs = 0d;
+        var claimsIdleMs = 0d;
+        var ranOnFrom = device?.Claims.Rebuild.RanOn ?? 0L;
         var (claimsBodiesMs, claimsPlansMs) = (0d, 0d);
         var (claimsSentMb, claimsReadMb) = (0d, 0d);
         var sentParts = new double[7];
@@ -136,6 +138,7 @@ internal static class DeviceTownProbe
                 claimsLaidMs += rebuild.LaidMs;
                 claimsStationedMs += rebuild.StationedMs;
                 claimsWaitMs += rebuild.WaitedMs;
+                claimsIdleMs += rebuild.IdleMs;
                 claimsMirrorMs += rebuild.MirroredMs;
                 claimsSentMs += rebuild.BetweenMs(DeviceRebuild.Stage.Began, DeviceRebuild.Stage.Sent);
                 claimsKernelsMs += rebuild.BetweenMs(DeviceRebuild.Stage.Sent, DeviceRebuild.Stage.Answered);
@@ -242,6 +245,9 @@ internal static class DeviceTownProbe
                     $"{keptChanged / each} changed by the rebuild and handed back, {walkers.KeptReadPast - keptReadPast} rebuilds " +
                     "read past what their submit read back");
             }
+            Console.WriteLine(
+                $"  {device.Claims.Rebuild.RanOn - ranOnFrom} rebuilds ran on while the town went on, their answers taken up after " +
+                $"the tick was laid; the host waited for the device {claimsIdleMs / each:F2} ms of a rebuild's submitting and waiting");
             Console.Write("  the host's rebuild stage by stage, ms a rebuild, the town's laying before each + the device's at it:");
             for (var stage = 0; stage < stages.Length; stage++)
             {

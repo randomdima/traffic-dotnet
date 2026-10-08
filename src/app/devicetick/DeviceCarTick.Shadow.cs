@@ -69,6 +69,7 @@ internal sealed partial class DeviceCarTick
         _actionDue = new CarAction[capacity];
         _cutOn = new int[capacity];
         _cutterOnTheDevice = new bool[capacity];
+        _grantPending = new bool[capacity];
         _commandBefore = new DeviceTyres.CommandRow[capacity];
         _carBefore = new DeviceTyres.CarRow[capacity];
         _wheelsBefore = new DeviceTyres.WheelRow[capacity * TyreModel.Wheels];
@@ -91,6 +92,23 @@ internal sealed partial class DeviceCarTick
         return cars.Driven[car] && !town.OnTheHook(car)
                && (action is CarAction.Follow or CarAction.Rejoin && !cars.Pass[car].Any || action == CarAction.Switch
                    || action == CarAction.Overtake && !town.Overtaking.IsOffTheLaneOfItsPass(car));
+    }
+
+    /// <summary>
+    /// <b>Whether the town's own tick drives any agent</b>: a driven car the device does not take (<see cref="Takes"/>), or
+    /// anybody under a hand — whose tick reads what the claims granted it as the town holds it.
+    /// </summary>
+    public static bool TheTownDrivesAny(TownWorld town)
+    {
+        if (town.HoldAgents || town.HandsOn) return true;
+
+        var cars = town.Cars;
+        for (var car = 0; car < cars.Count; car++)
+        {
+            if (cars.Driven[car] && !Takes(town, car)) return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -272,6 +290,12 @@ internal sealed partial class DeviceCarTick
         table.Wheels.Mark(car);
     }
 
+    /// <summary>
+    /// Which of a car's wheels stand on a way, as a claims rebuild on the device wrote them into its tyre row
+    /// (<c>rebuild_agents_out.comp</c>), taken as sent.
+    /// </summary>
+    public void KnowTheWheelsOnAWay(int car, byte wheels) => _wheelsSent[car] = wheels;
+
     void LayTheCarRow(TownWorld town, int car)
     {
         var cars = town.Cars;
@@ -291,7 +315,7 @@ internal sealed partial class DeviceCarTick
     void LayWhatItIsTold(TownWorld town, int car, bool granted, bool claimsLaid)
     {
         var cars = town.Cars;
-        if (granted && !GrantedOnTheDevice) LayWhatItWasGranted(town, car, claimsLaid);
+        if (granted && !GrantedOnTheDevice && !_grantPending[car]) LayWhatItWasGranted(town, car, claimsLaid);
 
         var hasAPlace = town.SceneOf(car, out var placeM, out var reachM);
         var told = (cars.BlueLight[car] ? ToldRow.OnACall : 0u) | (cars.LineIsReverse[car] ? ToldRow.LineIsReverse : 0u)
@@ -356,6 +380,7 @@ internal sealed partial class DeviceCarTick
         _holdBits.Assume(car, bits);
         _cutOn[car] = row.CutOn;
         _cutterOnTheDevice[car] = true;
+        _grantPending[car] = false;
     }
 
     /// <summary>
@@ -370,7 +395,21 @@ internal sealed partial class DeviceCarTick
         _holdBits.Forget(car);
         _cutOn[car] = written.CutOn;
         _cutterOnTheDevice[car] = true;
+        _grantPending[car] = false;
     }
+
+    /// <summary>
+    /// <b>These cars' grants left to what a claims rebuild on the device wrote</b>, until its answers are read back
+    /// (<see cref="TakeTheGrantOf"/>): the town's own figures of them are its laying's, which cleared every claim it laid,
+    /// and are not laid over the device's meanwhile (<see cref="DeviceRebuild.AnswersDue"/>).
+    /// </summary>
+    public void GrantsArePending(ReadOnlySpan<int> cars)
+    {
+        foreach (var car in cars) _grantPending[car] = true;
+    }
+
+    /// <summary>Which cars' grants a rebuild on the device wrote that are not yet read back (<see cref="GrantsArePending"/>).</summary>
+    bool[] _grantPending = [];
 
     /// <summary>The way each car's hold was cut on, as the last laying of the claims left it.</summary>
     int[] _cutOn = [];

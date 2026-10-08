@@ -52,8 +52,8 @@ internal sealed partial class DeviceWalkers
 
     GpuBuffer _keptTable = null!, _keptBefore = null!, _keptPatchesIn = null!, _keptPatches = null!;
     GpuBuffer _keptOutRows = null!, _keptOutCount = null!, _keptOutRead = null!, _keptOutCountRead = null!;
-    ComputeKernel? _keptGather, _keptPatch, _keptOut;
-    DescriptorSet _keptGatherSet, _keptPatchSet, _keptOutSet;
+    ComputeKernel? _keptGather, _keptPatch, _keptOut, _keptAims;
+    DescriptorSet _keptGatherSet, _keptPatchSet, _keptOutSet, _keptAimsSet;
 
     /// <summary>Every kept walker's row as the device is known to hold it, and whether it is known at all.</summary>
     WalkerRow[] _known = [];
@@ -98,8 +98,10 @@ internal sealed partial class DeviceWalkers
         _keptGatherSet = _keptGather.Bind([_keptTable, _keptBefore, table]);
         _keptPatch = new ComputeKernel(_vk, "walkers_kept_patch.comp", 3, sizeof(uint));
         _keptPatchSet = _keptPatch.Bind([_keptPatches, _keptTable, _keptBefore]);
-        _keptOut = new ComputeKernel(_vk, "walkers_kept_out.comp", 5, sizeof(uint));
-        _keptOutSet = _keptOut.Bind([_keptTable, _keptBefore, _keptOutRows, _keptOutCount, table]);
+        _keptOut = new ComputeKernel(_vk, "walkers_kept_out.comp", 4, sizeof(uint));
+        _keptOutSet = _keptOut.Bind([_keptTable, _keptBefore, _keptOutRows, _keptOutCount]);
+        _keptAims = new ComputeKernel(_vk, "walkers_kept_aims.comp", 3, sizeof(uint));
+        _keptAimsSet = _keptAims.Bind([_keptOutRows, _keptOutCount, table]);
         _known = new WalkerRow[_walkers];
         _isKnown = new bool[_walkers];
         _keptOutBound = _walkers;
@@ -198,6 +200,14 @@ internal sealed partial class DeviceWalkers
     public void RecordTheKeptOut(CommandBuffer commands) =>
         _keptOut!.Dispatch(commands, _keptOutSet, Groups(_walkerCount), (uint)_walkerCount);
 
+    /// <summary>
+    /// Kept: each walker the last rebuild's stages changed aimed and walking as they left it, in the walker tick's table
+    /// (<c>walkers_kept_aims.comp</c>) — recorded in the next tick's submit, after the walkers the town wrote whole over
+    /// it, and before the tick; the caller barriers.
+    /// </summary>
+    public void RecordTheKeptAims(CommandBuffer commands) =>
+        _keptAims!.Dispatch(commands, _keptAimsSet, Groups(_walkerCount), (uint)_walkerCount);
+
     /// <summary>Kept: the count of what the stages changed, and as many of the rows as the last rebuild's count and a margin, copied back.</summary>
     public void RecordReadTheKept(CommandBuffer commands)
     {
@@ -212,10 +222,10 @@ internal sealed partial class DeviceWalkers
     /// <summary>
     /// <b>Kept: what the stages made of every walker they changed taken up by the town</b> (<see cref="TownWorld.KeptOnTheDevice"/>)
     /// and as what the device holds — the rows past what the submit read back read in a second, and each one's aim and
-    /// walk as the walker tick's table now holds them (<c>walkers_kept_out.comp</c>) — and every walker's hold as the
-    /// rebuild numbered it (<see cref="TownWorld.WalkedOnTheDevice"/>).
+    /// walk as the walker tick's table holds them from the next tick's submit (<see cref="RecordTheKeptAims"/>) — and every
+    /// walker's hold as the rebuild numbered it (<see cref="TownWorld.WalkedOnTheDevice"/>).
     /// </summary>
-    /// <param name="ticked">The walker tick whose table the stages wrote each changed walker's aim and walk into.</param>
+    /// <param name="ticked">The walker tick whose table each changed walker's aim and walk are written into.</param>
     /// <param name="unitHolds">The hold each unit's first was numbered, read back.</param>
     /// <param name="firstWalker">The unit the first walker's walk is.</param>
     public void TakeTheKept(TownWorld town, DeviceWalkerTick ticked, ReadOnlySpan<uint> unitHolds, int firstWalker)

@@ -4,7 +4,8 @@
 // What a rebuild handed back to the town says of each car and each walker, packed one row each, one thread an agent: a
 // car's plan (Following.Plan's claimToM, committedToM, horizonM), whether it laid a hold, whether a body stands inside its
 // pass, the channels its body is on and which of its wheels stand on a way; and whether a walker's walk laid a hold and
-// committed it to a straight, and what that hold came to (WalkingGround.ReadTheGrant's reading of it).
+// committed it to a straight, and what that hold came to (WalkingGround.ReadTheGrant's reading of it). Which wheels stand
+// on a way goes into the car's tyre row too, which the next tyre pass grips by (CarFleet.WheelsOnAWay, TER-7b).
 
 layout(local_size_x = 64) in;
 
@@ -17,6 +18,7 @@ layout(push_constant) uniform Figures
 
 #include "world/road/kernels/claims_rows.glsl"
 #include "agents/car/actions/follow/kernels/plan_rows.glsl"
+#include "agents/car/body/kernels/tyre_rows.glsl"
 
 // app/devicetick/DeviceRebuild.CarOut, field for field.
 struct CarOut
@@ -53,6 +55,11 @@ layout(std430, binding = 4) readonly buffer WalkerCounts { uvec4 walkerCounts[];
 layout(std430, binding = 5) writeonly buffer WalkersOut { WalkOut walkersOut[]; };
 layout(std430, binding = 6) readonly buffer UnitHolds { uint unitHolds[]; };
 layout(std430, binding = 7) readonly buffer Answers { ClaimAnswer answers[]; };
+layout(std430, binding = 8) buffer TyreCars { TyreCarRow tyreCars[]; };
+
+// DeviceTyres.CarRow.FlagsOf: which wheels stand on a way, from bit 8.
+const uint TyreWheelsShift = 8u;
+const uint TyreWheelsBits = 0xff00u;
 
 void main()
 {
@@ -60,9 +67,11 @@ void main()
     if (agent < figures.carCount)
     {
         PlanOutRow plan = planResults[agent];
+        uint wheels = carCounts[agent].w;
         uint bits = (plan.laidAHold != 0u ? CarLaidAHold : 0u) | (askAnswers[agent].x != 0u ? CarHeldInItsPass : 0u)
-                    | (carCounts[agent].y << CarChannelsShift) | (carCounts[agent].w << CarWheelsShift);
+                    | (carCounts[agent].y << CarChannelsShift) | (wheels << CarWheelsShift);
         carsOut[agent] = CarOut(plan.claimToM, plan.committedToM, plan.horizonM, bits);
+        tyreCars[agent].flags = (tyreCars[agent].flags & ~TyreWheelsBits) | (wheels << TyreWheelsShift);
     }
 
     if (agent < figures.walkerCount)

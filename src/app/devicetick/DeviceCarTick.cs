@@ -196,7 +196,8 @@ internal sealed partial class DeviceCarTick : IDisposable
 
         _ticks = new ResidentRows<TickRow>(vk, capacity, 1, readsBack: true);
         _told = new ResidentRows<ToldRow>(vk, capacity, 1, hostOnly: true);
-        _grants = new ResidentRows<GrantRow>(vk, capacity, 1, hostOnly: true);
+        // Not bridged: a rebuild on the device writes every asked car's grant before the host knows it (GrantsArePending).
+        _grants = new ResidentRows<GrantRow>(vk, capacity, 1, hostOnly: true, bridges: false);
         _cutters = new ResidentRows<DeviceClaims.ClaimRow>(vk, capacity, 1, hostOnly: true, bridges: false);
         _boxes = new ResidentRows<BoxRow>(vk, capacity, 1, readsBack: true);
         _contexts = new ResidentRows<ContextRow>(vk, capacity, 1, readsBack: true);

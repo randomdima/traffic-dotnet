@@ -194,6 +194,10 @@ internal sealed partial class DeviceRebuild : IDisposable
     readonly Bound _bodiesCount, _bodiesGather, _bodiesFile, _bodiesSort, _bodiesMark, _bodiesTally, _bodiesLay;
     readonly Bound _tally, _count, _file, _host, _edits, _capture, _grant, _walkerAnswers, _signals, _asked;
     readonly ComputeBatch _batch;
+
+    /// <summary>A rebuild in the town's sends, submitted ahead of the rest of it (<see cref="WaitForTheSends"/>).</summary>
+    readonly ComputeBatch _sendBatch;
+
     readonly GpuTimer _timer;
 
     /// <summary>
@@ -335,6 +339,7 @@ internal sealed partial class DeviceRebuild : IDisposable
             ]);
 
         _batch = new ComputeBatch(vk);
+        _sendBatch = new ComputeBatch(vk);
         _timer = new GpuTimer(vk, Enum.GetValues<Stage>().Length);
         ShadowOf();
         if (cars != null) InTheTownOf(world);
@@ -705,6 +710,7 @@ internal sealed partial class DeviceRebuild : IDisposable
     {
         _timer.Dispose();
         _batch.Dispose();
+        _sendBatch.Dispose();
         _scans.Dispose();
         foreach (var bound in (ReadOnlySpan<Bound>)[
                      _bodiesCount, _bodiesGather, _bodiesFile, _bodiesSort, _bodiesMark, _bodiesTally, _bodiesLay, _tally, _count, _file,

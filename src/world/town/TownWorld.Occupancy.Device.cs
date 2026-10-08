@@ -147,6 +147,22 @@ internal sealed partial class TownWorld
         foreach (var bound in _withTheLayer!) bound.Adopt();
     }
 
+    /// <summary>
+    /// <b>Back onto a laying put aside</b> (<see cref="LayIntoTheLayer"/>), for a device's answers written back after it while
+    /// every reader reads the layer before: every agent's numbers as laid for it, until <see cref="PutTheLayingAsideAgain"/> —
+    /// what the readers' numbers came to meanwhile kept for after.
+    /// </summary>
+    public void TakeUpTheLaying()
+    {
+        foreach (var bound in _withTheLayer!) bound.Resume();
+    }
+
+    /// <summary>The laying taken up (<see cref="TakeUpTheLaying"/>) put aside again, and the readers' numbers back.</summary>
+    public void PutTheLayingAsideAgain()
+    {
+        foreach (var bound in _withTheLayer!) bound.Repark();
+    }
+
     void LayOn(LaneOccupancy occupancy)
     {
         _occupancy = occupancy;

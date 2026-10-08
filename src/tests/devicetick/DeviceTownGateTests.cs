@@ -31,22 +31,28 @@ public class DeviceTownGateTests(TickedOnTheDevice ticked) : IClassFixture<Ticke
 
     /// <summary>
     /// The device keeps the walkers' side of the claims as its own (<see cref="DeviceWalkers.Keeps"/>), and every rebuild the
-    /// town takes up everything it made of them — or the town would write its own stale fields back over the device's.
+    /// town takes up everything it made of them — or the town would write its own stale fields back over the device's — the
+    /// ones that ran on while the town went on (<see cref="DeviceRebuild.AnswersDue"/>) among them.
     /// </summary>
     [Fact]
     public void TheTownHoldsEveryWalkerAsTheDeviceLeftIt()
     {
-        Assert.True(ticked.WalkersKept);
+        Assert.True(ticked.WalkersKept && ticked.RebuildsRanOn);
         Assert.Equal(0L, ticked.WalkersUnlike);
     }
 
     /// <summary>
     /// The walker tick's table is the device's (<see cref="DeviceWalkerTick.Resident"/>), written over only where the town
-    /// holds a walker other than the device is known to — a rebuild's aims among what it is known to hold — so every tick
-    /// reads every walker as the town would lay it, or a walker walks at an aim the town has moved on from.
+    /// holds a walker other than the device is known to — a rebuild's aims among what it is known to hold, taken up after
+    /// the tick was laid where it ran on — so every tick reads every walker as the town would lay it, or a walker walks at
+    /// an aim the town has moved on from.
     /// </summary>
     [Fact]
-    public void EveryTickReadsEveryWalkerAsTheTownHoldsIt() => Assert.Equal(0L, ticked.WalkerTicksUnlike);
+    public void EveryTickReadsEveryWalkerAsTheTownHoldsIt()
+    {
+        Assert.True(ticked.RebuildsRanOn);
+        Assert.Equal(0L, ticked.WalkerTicksUnlike);
+    }
 
     /// <summary>
     /// A car the device ticks has its body and its plan's rows laid on the device off what it holds of the car
@@ -106,7 +112,11 @@ public sealed class TickedOnTheDevice : IDisposable
         WalkerTicksUnlike = town.Walkers.TickReadUnlike;
         (CarsLaidOnTheDevice, CarsLaidUnlike) = (town.Claims.Rebuild.CarsLaidOnTheDevice > 0, town.Claims.Rebuild.CarsLaidUnlike);
         (LayersSentInPart, LayersUnlike) = (town.Claims.Rebuild.LayersSentBack > 0, town.Claims.Rebuild.LayersUnlike);
+        RebuildsRanOn = town.Claims.Rebuild.RanOn > 0;
     }
+
+    /// <summary>Whether any rebuild ran on while the town went on, its answers written back after the tick was laid.</summary>
+    internal bool RebuildsRanOn { get; }
 
     internal TownWatch Watch { get; }
 

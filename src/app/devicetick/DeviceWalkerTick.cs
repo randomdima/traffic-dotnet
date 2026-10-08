@@ -253,6 +253,12 @@ internal sealed partial class DeviceWalkerTick : IDisposable
 
         ref var known = ref _known[walker];
         known = known with { AimM = aimM, Flags = walking ? known.Flags | WalkerRow.Walking : known.Flags & ~WalkerRow.Walking };
+
+        // Taken up after the tick was laid (DeviceRebuild.AnswersDue), and written over what was laid before it ran.
+        if (!_checks) return;
+
+        ref var laid = ref _laidForCheck![walker];
+        laid = laid with { AimM = aimM, Flags = walking ? laid.Flags | WalkerRow.Walking : laid.Flags & ~WalkerRow.Walking };
     }
 
     /// <summary>
@@ -275,6 +281,16 @@ internal sealed partial class DeviceWalkerTick : IDisposable
     /// </summary>
     public void Record(CommandBuffer commands, int walkers)
     {
+        RecordWhatWasLaid(commands, walkers);
+        RecordTheTick(commands);
+    }
+
+    /// <summary>
+    /// The first half of <see cref="Record"/>: what was marked sent — or, resident, every walker staged written over the
+    /// table — leaving the table for whatever else writes it before the tick (<see cref="RecordTheTick"/>) to barrier after.
+    /// </summary>
+    public void RecordWhatWasLaid(CommandBuffer commands, int walkers)
+    {
         if (walkers > Capacity) throw new ArgumentOutOfRangeException(nameof(walkers), $"The table holds {Capacity} walkers, not {walkers}.");
 
         _count = walkers;
@@ -288,19 +304,24 @@ internal sealed partial class DeviceWalkerTick : IDisposable
                 _patchKernel!.Dispatch(commands, _patchSet, (uint)((_patchCount + 63) / 64), (uint)_patchCount);
                 _vk.BetweenKernels(commands);
             }
-
-            if (_checks)
-            {
-                _vk.BeforeTransfer(commands);
-                _vk.Copy(commands, _walkers.Device, _readForCheck!, (ulong)(walkers * Marshal.SizeOf<WalkerRow>()));
-                _vk.AfterTransfer(commands);
-            }
         }
         else
         {
             _walkers.Send(commands);
             _impulses.Send(commands);
             _bodies.Send(commands);
+            _vk.AfterTransfer(commands);
+        }
+    }
+
+    /// <summary>The second half of <see cref="Record"/>: the kernel run over the table as it now stands.</summary>
+    public void RecordTheTick(CommandBuffer commands)
+    {
+        var walkers = _count;
+        if (Resident && _checks)
+        {
+            _vk.BeforeTransfer(commands);
+            _vk.Copy(commands, _walkers.Device, _readForCheck!, (ulong)(walkers * Marshal.SizeOf<WalkerRow>()));
             _vk.AfterTransfer(commands);
         }
 

@@ -184,7 +184,10 @@ internal sealed partial class DeviceRebuild
         var walkerCounts = _walkers.OnTheDevice.Counts;
         _agentsOutKernel = Bound.Of<AgentsPush>(
             _vk, "rebuild_agents_out.comp",
-            [_plans.OnTheDevice.Results, _askAnswers, _bodies.OnTheDevice.Counts, _carsOut, walkerCounts, _walkersOut, _unitHolds, tables.Answers]);
+            [
+                _plans.OnTheDevice.Results, _askAnswers, _bodies.OnTheDevice.Counts, _carsOut, walkerCounts, _walkersOut, _unitHolds,
+                tables.Answers, _carTick!.Tyres.Table.Cars.Device,
+            ]);
         _scratchAsks = new BodyAsk[Overtaking.MostAsksOfAPass(world.Atlas.Marks)];
         LayTheCarsGather(world);
         LayTheWaysOut(world);
@@ -540,7 +543,7 @@ internal sealed partial class DeviceRebuild
         var laid = Stopwatch.GetTimestamp();
         var vk = _vk;
         var regionsFrom = Runtime.Vk.RegionsCopied;
-        var commands = _batch.Begin();
+        var commands = _sendBatch.Begin();
         _timer.Reset(commands);
         _timer.Stamp(commands, (int)Stage.Began);
 
@@ -578,9 +581,13 @@ internal sealed partial class DeviceRebuild
         LandsLater = GrantedWithTheAnswers && !MirrorsAtOnce;
         if (LandsLater) RecordTheWaysAskedSent(commands, town.ReadersOccupancy);
 
-        vk.AfterTransfer(commands);
         _timer.Stamp(commands, (int)Stage.Sent);
+        _sendBatch.Submit();
 
+        // The sends in a submit of their own, so the host may write the mapped copies they read once it is done
+        // (WaitForTheSends) while the rest runs on.
+        commands = _batch.Begin();
+        vk.AfterTheSubmitsBefore(commands);
         _carsGather.Dispatch(commands, _carCount, new GatherPush((uint)_carCount, _config.Driving.StopSpeedMps));
         vk.BetweenKernels(commands);
         RecordTheBodies(commands);
@@ -610,6 +617,13 @@ internal sealed partial class DeviceRebuild
             }
 
             _walkers.RecordTheKeptOut(commands);
+
+            // Where a car backs up, the walkers the town aims after the answers are written whole over these next tick.
+            if (!GrantedWithTheAnswers)
+            {
+                vk.BetweenKernels(commands);
+                _walkers.RecordTheKeptAims(commands);
+            }
         }
 
         vk.BeforeTransfer(commands);
@@ -633,9 +647,67 @@ internal sealed partial class DeviceRebuild
         _timer.Stamp(commands, (int)Stage.Granted);
         _timer.Stamp(commands, (int)Stage.Read);
         RegionsCopied = (int)(Runtime.Vk.RegionsCopied - regionsFrom);
-        _batch.SubmitAndWait();
+        _batch.Submit();
+        _sentBytes = sent;
+        _walkersReadBytes = walkersRead;
+        _submittedAt = laid;
+        _answersInFlight = true;
+        AnswersDue = LandsLater && AnswersAfterTheTick && !DeviceCarTick.TheTownDrivesAny(town);
+        if (AnswersDue) RanOn++;
+        else TakeTheAnswers(town);
+    }
+
+    /// <summary>How many rebuilds in the town ran on while the town went on (<see cref="AnswersDue"/>).</summary>
+    public long RanOn { get; private set; }
+
+    /// <summary>
+    /// <b>Whether a rebuild laid in the town may write its answers back after the tick's own submit</b> rather than before
+    /// any agent is ticked (<see cref="AnswersDue"/>) — set where that tick is the device's, and written back in it
+    /// (<c>DeviceTown</c>).
+    /// </summary>
+    public bool AnswersAfterTheTick { get; set; }
+
+    /// <summary>
+    /// <b>Whether the rebuild just laid in the town runs on while the town goes on</b> (<see cref="AnswersAfterTheTick"/>):
+    /// its plans, holds and grants, and what it made of each walker, are written back once the tick's own submit is behind
+    /// it (<see cref="TakeTheAnswers"/>) — never where a car backs up, whose ground the town lays off the answers, nor where
+    /// the town drives an agent itself, whose tick reads its grant.
+    /// </summary>
+    public bool AnswersDue { get; private set; }
+
+    /// <summary>Whether the rebuild's own submit is in flight, its answers not yet written back.</summary>
+    bool _answersInFlight;
+
+    /// <summary>
+    /// <b>The rebuild's sends waited for</b>: what they copied out of the mapped copies of the car tick's lines, readings and
+    /// poses and the walkers' tables is on the device, and the host may write those copies again. Nothing where none is in
+    /// flight.
+    /// </summary>
+    public void WaitForTheSends() => _sendBatch.Wait();
+
+    ulong _sentBytes;
+    ulong _walkersReadBytes;
+    long _submittedAt;
+
+    /// <summary>Of <see cref="WaitedMs"/>, the host's time with nothing to do but wait for the rebuild, in milliseconds.</summary>
+    public double IdleMs { get; private set; }
+
+    /// <summary>
+    /// <b>What the rebuild in the town answered, written back</b> once its submit is waited for: the counts, the layer where
+    /// it is not sent back later, and every agent (<see cref="MirrorTheAgents"/>). Nothing where nothing is in flight.
+    /// </summary>
+    public void TakeTheAnswers(TownWorld town)
+    {
+        if (!_answersInFlight) return;
+
+        var idle = Stopwatch.GetTimestamp();
+        _batch.Wait();
+        _sendBatch.Wait();
+        _answersInFlight = false;
+        AnswersDue = false;
         _timer.Read();
         var waited = Stopwatch.GetTimestamp();
+        IdleMs = Stopwatch.GetElapsedTime(idle, waited).TotalMilliseconds;
         if (_checksTheCars) CarsLaidUnlike += CarsLaidOtherwise();
 
         _claims.TakeTheCounts();
@@ -653,10 +725,10 @@ internal sealed partial class DeviceRebuild
         var rows = _claims.Rows.Length;
         var holds = _claims.Holds.Length;
         var layer = Bytes<ClaimRow>(rows) + Bytes<uint>(rows) + Bytes<HoldOut>(holds);
-        Crossed = (sent, (LandsLater ? 0ul : layer) + Bytes<uint>(_units) + Bytes<CarOut>(_carCount) + walkersRead
-                         + (GrantedWithTheAnswers ? Bytes<DeviceCarTick.GrantRow>(_carCount) : 0ul));
-        LaidMs = Stopwatch.GetElapsedTime(_laidFrom, laid).TotalMilliseconds;
-        WaitedMs = Stopwatch.GetElapsedTime(laid, waited).TotalMilliseconds;
+        Crossed = (_sentBytes, (LandsLater ? 0ul : layer) + Bytes<uint>(_units) + Bytes<CarOut>(_carCount) + _walkersReadBytes
+                               + (GrantedWithTheAnswers ? Bytes<DeviceCarTick.GrantRow>(_carCount) : 0ul));
+        LaidMs = Stopwatch.GetElapsedTime(_laidFrom, _submittedAt).TotalMilliseconds;
+        WaitedMs = Stopwatch.GetElapsedTime(_submittedAt, waited).TotalMilliseconds;
         MirroredMs = Stopwatch.GetElapsedTime(waited).TotalMilliseconds;
         Rebuilds++;
     }
@@ -779,7 +851,9 @@ internal sealed partial class DeviceRebuild
             var channels = (byte)(carsOut[car].Bits >> CarOut.ChannelsShift);
             if (channels != cars.Channels[car] && CarActions.IsAtABay(cars.Action[car])) OnOtherChannelsAtABay++;
 
-            town.OnTheGroundOfItsBody(car, channels, (byte)(carsOut[car].Bits >> CarOut.WheelsShift));
+            var wheels = (byte)(carsOut[car].Bits >> CarOut.WheelsShift);
+            town.OnTheGroundOfItsBody(car, channels, wheels);
+            _carTick!.KnowTheWheelsOnAWay(car, wheels);
         }
 
         town.AnsweredOnTheDevice(LaidAgain(_claims.Moved, _config.Road.MostSettlingPasses, out var settled), settled);
@@ -829,6 +903,18 @@ internal sealed partial class DeviceRebuild
         if (!GrantedWithTheAnswers) _grant.Dispatch(commands, _carCount, new UnitsPush((uint)_carCount, (uint)(_stretches + 1)));
         vk.BetweenKernels(commands);
         vk.BeforeTransfer(commands);
+    }
+
+    /// <summary>
+    /// <b>Where the walkers a rebuild laid in the town changed are aimed, and whether they walk</b>, written into the walker
+    /// tick's table in the tick after it — after the town's walkers are written whole over that table, and before it ticks
+    /// (<see cref="DeviceWalkers.RecordTheKeptAims"/>). Nothing where the device keeps no walker, or where a car backed up:
+    /// the town read every walker's grant after the answers then, and what it aimed them at is written over the rebuild's
+    /// in its own submit. The caller barriers.
+    /// </summary>
+    public void RecordTheKeptAims(CommandBuffer commands)
+    {
+        if (_walkers.Keeps && GrantedWithTheAnswers) _walkers.RecordTheKeptAims(commands);
     }
 
     /// <summary>What the last rebuild in the town said of every walker, as its own submit read it back.</summary>

@@ -106,6 +106,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _bodies = new DeviceTownBodies(vk, config, town, _tyres, _walkers);
         _townClaims = new DeviceTownClaims(vk, config, town, _claims, _cars, _walkers);
         _townClaims.Rebuild.MirrorsAtOnce = false;
+        RebuildsRunOn = true;
         _batch = new ComputeBatch(vk);
         _stepBatch = new ComputeBatch(vk);
         _timer = new GpuTimer(vk, 3);
@@ -281,6 +282,17 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// </summary>
     public bool DecidesATickBehind { get; init; } = true;
 
+    /// <summary>
+    /// <b>Whether a claims rebuild laid here runs on while the town goes on</b> (<see cref="DeviceRebuild.AnswersDue"/>): its
+    /// answers written back once the tick's own submit is behind it, before the decisions read them. Off, every rebuild is
+    /// waited for where its stages reach the plans.
+    /// </summary>
+    public bool RebuildsRunOn
+    {
+        get => _townClaims.Rebuild.AnswersAfterTheTick;
+        init => _townClaims.Rebuild.AnswersAfterTheTick = value;
+    }
+
     /// <summary>How many cars a tick handed back left to the town, which had changed their line or what they do since they were sent.</summary>
     public long CarsTheTownMovedOn { get; private set; }
 
@@ -288,6 +300,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     {
         if (town.HoldAgents)
         {
+            _townClaims.TakeTheAnswers(town);
             town.TakeTheDecisionsPutOff();
 
             // Nothing is ticked here, and the bodies step on the town's own impulses.
@@ -302,6 +315,9 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         }
 
         var began = Stopwatch.GetTimestamp();
+
+        // A rebuild running on (DeviceRebuild.AnswersDue) copied what it sent out of the tables laid here.
+        _townClaims.Rebuild.WaitForTheSends();
         var laidHere = _townClaims.Pending;
         var laidByTheTown = _townClaims.TakeLaidByTheTown() | (town.ClaimsLaidThisTick && !laidHere);
         if (laidByTheTown) _claims.LayAsCut(town.Occupancy);
@@ -327,7 +343,14 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _cars.Record(commands, _count, town.Cars.Count);
         SentBytes = _cars.SentBytes;
         _cars.RecordRead(commands);
-        _walkers.Record(commands, _walkerCount);
+        _walkers.RecordWhatWasLaid(commands, _walkerCount);
+        if (laidHere)
+        {
+            _townClaims.Rebuild.RecordTheKeptAims(commands);
+            _vk.BetweenKernels(commands);
+        }
+
+        _walkers.RecordTheTick(commands);
         _walkers.RecordRead(commands);
         _timer.Stamp(commands, 2);
         _batch.Submit();
@@ -343,9 +366,11 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
         RegionsCopied = (int)(Vk.RegionsCopied - regionsFrom);
 
-        // While the tick runs: a layer the last rebuild sent back is written into the town, and this tick's own rebuild's
-        // layer is sent back behind it, to be copied in the host's time before the next tick's submit; and the last tick's
-        // decisions are taken, on the layer just landed.
+        // While the tick runs: this tick's rebuild's answers are written back where it ran on meanwhile, a layer the last
+        // rebuild sent back is written into the town, and this tick's own rebuild's layer is sent back behind it, to be
+        // copied in the host's time before the next tick's submit; and the last tick's decisions are taken, on the layer
+        // just landed.
+        _townClaims.TakeTheAnswers(town);
         _townClaims.Rebuild.LandWhatWasSent(town);
         _townClaims.Rebuild.SendTheLayerBack();
         var deciding = Stopwatch.GetTimestamp();

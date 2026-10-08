@@ -28,8 +28,8 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   (unit) fail now and then in a full unit run and pass alone: the first four times in about seventeen runs (two of them in a row), 4 296 B on the test's own
   thread over 500 searches; the second once, 7 144 B. The counter is the thread's, so it is not the side-by-side
   classes; something on that thread allocates now and then — a JIT's rejit is the guess, unconfirmed.
-- **`AllocationGateTests.ThisEnginesOwnPhasesAllocateNothingOverAWholeTown(Test)`** failed once in four full perf runs,
-  at 6.8 B a tick. It passes alone and in three reruns of the tier, and a per-agent trace of phases 1–3 found no
+- **`AllocationGateTests.ThisEnginesOwnPhasesAllocateNothingOverAWholeTown(Test)`** failed twice in about eight full
+  perf runs, once at 6.8 B a tick. It passes alone and in reruns of the tier, and a per-agent trace of phases 1–3 found no
   allocation. A `P0` gate that flickers is either a real allocation on a rare path or a measurement that counts
   something it should not; which is not known.
 
@@ -50,6 +50,11 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   tick closes it, as
   `TheTownHoldsEveryWalkerAsTheDeviceLeftIt` does for the walkers the claims keep and
   `EveryTickReadsEveryWalkerAsTheTownHoldsIt` for the walker tick's table.
+- **No car backs up in the device gates' town**, so a rebuild with one in it is waited for and its walkers' aims written
+  in its own submit (`DeviceRebuild.RecordTheKeptAims`, the town having aimed them after the answers) in no gated run:
+  written in the tick instead, `--bench devicetown` moved (1131 → 1116 hard brakings) and neither
+  `EveryTickReadsEveryWalkerAsTheTownHoldsIt` nor `DeviceTownRunOnTests` failed. A car stood too near a wreck in the
+  gates' town (`OvertakeInATownTests.StandTooNearAWreck`), with walkers about, closes it.
 - **The Android head has not been built since the device tick came in** (branch `gpu-resident-sim`): no Android SDK
   where it was worked on. It compiles all of `src/` against Vulkan, so it takes `app/devicetick` as the desktop does,
   and its shader targets must embed the device's kernels (`copy_runs.comp` among them). A build of it closes this.
@@ -122,6 +127,13 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   `ExamProbe`) see only the ways the readers asked about lately and the lights' holds of the rest, and a hold's pieces
   (`LaneOccupancy.PiecesOf`) not at all. A whole layer read back while the overlay is open closes it.
 
+- **A rebuild that runs on hands two of its answers to the device a tick late** (`DeviceRebuild.AnswersDue`): the channels
+  a car's body was found on (`TownWorld.OnTheGroundOfItsBody` → `PhysicsWorld.PutOnChannels`) reach the bodies' step one
+  step after a waited-for rebuild's would; and which wheels stand on a way, which the rebuild writes into every car's tyre
+  row itself (`rebuild_agents_out.comp`), is laid over from the town's figure before it is taken up for a car the device
+  does not take or lays whole that tick. Neither moved `--bench devicetown` or `DeviceTownRunOnTests`. The rebuild
+  writing the channels into the solver's table, and the tyres of a car the town lays reading the device's wheel bits,
+  closes it.
 - **The device's pedal is off the host's at the turn from braking to throttle**: in the fixture with a wreck staged
   (`DeviceCarTickTests.ACarGettingPastAWreckTicksAsTheTownTicksIt`, every car held), one following car's tick of 13 200
   held to wheel speed asked 0.180 m/s² where the host's `CarFollower.DriveTheLine` asked 0.192 from the same inputs —

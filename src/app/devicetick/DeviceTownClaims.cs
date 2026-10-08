@@ -80,8 +80,10 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
         if (stage != ClaimsStage.Begun) _townMs[(int)stage] = Stopwatch.GetElapsedTime(_left, arrived).TotalMilliseconds;
 
         Rebuild.InTheTown(town, stage);
-        if (stage == ClaimsStage.PlansAnswered && ReadTheGrants) Grant(town);
-        if (stage == ClaimsStage.GrantsRead) TakeTheGrants(town);
+        var due = Rebuild.AnswersDue;
+        if (stage == ClaimsStage.PlansAnswered && ReadTheGrants && !due) Grant(town);
+        if (stage == ClaimsStage.GrantsRead && !due) TakeTheGrants(town);
+        if (stage == ClaimsStage.GrantsRead && due) _cars.GrantsArePending(town.CarsAskedThisLaying);
 
         _left = Stopwatch.GetTimestamp();
         _hereMs[(int)stage] = Stopwatch.GetElapsedTime(arrived, _left).TotalMilliseconds;
@@ -93,7 +95,28 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
 
     public bool LandsLater => Rebuild.LandsLater;
 
-    public void LandTheLastLaying(TownWorld town) => Rebuild.Land(town);
+    public void LandTheLastLaying(TownWorld town)
+    {
+        TakeTheAnswers(town);
+        Rebuild.Land(town);
+    }
+
+    /// <summary>
+    /// <b>A rebuild that ran on while the town went on, its answers written back</b> (<see cref="DeviceRebuild.AnswersDue"/>):
+    /// every agent, then every asked car's grant into the town and taken as the car tick's tables hold it — as its stages
+    /// would have written them had it been waited for. Nothing where none is due.
+    /// </summary>
+    public void TakeTheAnswers(TownWorld town)
+    {
+        if (!Rebuild.AnswersDue) return;
+
+        // Its hold numbers are its laying's, put aside until its layer lands.
+        town.TakeUpTheLaying();
+        Rebuild.TakeTheAnswers(town);
+        if (ReadTheGrants) Grant(town);
+        TakeTheGrants(town);
+        town.PutTheLayingAsideAgain();
+    }
 
     /// <summary>Every asked car's grant and every walker's as the rebuild read them with the answers, written into the town.</summary>
     void Grant(TownWorld town)
