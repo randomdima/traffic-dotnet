@@ -63,7 +63,12 @@
          workshop step no page runs (WEB-3) and the one thing left that would need an encoder.
 
          BotEye and DriveRun draw through the shot's stage, which is the desktop's offscreen target;
-         src/app/drive/web/BotEye.Web.cs is the eye a page names and never opens. -->
+         src/app/drive/web/BotEye.Web.cs is the eye a page names and never opens.
+
+         The tick on the device is Vulkan's compute: the runtime's kernels and the tables they keep,
+         app/devicetick, the probes that run it, and the command line's catalogue of checks that names
+         them — which only the desktop's entry reads. -->
+
     <DesktopOnly>
       src/runtime/Vk.cs;
       src/runtime/Swapchain.cs;
@@ -82,7 +87,15 @@
       src/agents/car/body/LampAtlasBake.cs;
       src/app/shot/**;
       src/app/drive/BotEye.cs;
-      src/app/drive/DriveRun.cs
+      src/app/drive/DriveRun.cs;
+      src/runtime/ComputeBatch.cs;
+      src/runtime/ComputeKernel.cs;
+      src/runtime/GpuTimer.cs;
+      src/runtime/PrefixScan.cs;
+      src/runtime/ResidentRows.cs;
+      src/app/devicetick/**;
+      src/bench/Device*Probe.cs;
+      src/bench/CheckCatalogue.cs
     </DesktopOnly>
     <DefaultItemExcludes>
       $(DefaultItemExcludes);assets/**;towns/**;raw_assets/**;docs/**;.tmp/**;
