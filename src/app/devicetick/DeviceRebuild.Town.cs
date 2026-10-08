@@ -62,7 +62,7 @@ internal sealed partial class DeviceRebuild
 
     /// <summary>What a rebuild says of one car (<c>rebuild_agents_out.comp</c>'s <c>CarOut</c>): its plan, and bits.</summary>
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
-    internal readonly record struct CarOut(float ClaimToM, float CommittedToM, float HorizonM, uint Bits)
+    internal readonly record struct CarOut(float ClaimFromM, float ClaimToM, float CommittedToM, float HorizonM, uint Bits)
     {
         public const uint LaidAHold = 1u, HeldInItsPass = 2u;
         public const int ChannelsShift = 8, WheelsShift = 16;
@@ -138,7 +138,7 @@ internal sealed partial class DeviceRebuild
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
     readonly record struct CarTermsRow(uint Flags, uint Channels, float AllowanceM, float KeptOffM)
     {
-        public const uint Held = 1u, DrivesTheRoute = 2u, OnACall = 4u, LineIsReverse = 8u, PassBegun = 16u;
+        public const uint Held = 1u, DrivesTheRoute = 2u, OnACall = 4u, LineIsReverse = 8u, PassBegun = 16u, Asked = 32u;
     }
 
     /// <summary>
@@ -163,6 +163,9 @@ internal sealed partial class DeviceRebuild
     /// reading the car tick holds as its own (<see cref="DeviceCarTick.HoldsTheReadingOf"/>) — rather than the town.
     /// </summary>
     bool[] _laidOnTheDevice = [];
+
+    /// <summary>Which cars this laying asked (<see cref="TownWorld.CarsAskedThisLaying"/>), by car.</summary>
+    bool[] _askedThisLaying = [];
 
     /// <summary>How many rebuilds in the town asked a car backing up for its ground, which the town lays after the answers.</summary>
     public long BackedUp { get; private set; }
@@ -228,6 +231,7 @@ internal sealed partial class DeviceRebuild
                 contexts, _bodies.Laid, planCars, planFigures,
             ]);
         _laidOnTheDevice = new bool[_cars];
+        _askedThisLaying = new bool[_cars];
     }
 
     /// <summary>
@@ -357,10 +361,21 @@ internal sealed partial class DeviceRebuild
         return unlike;
     }
 
-    /// <summary>Every car's terms laid where they changed, as the cars stand before their plans: nothing for one the town lays.</summary>
+    /// <summary>
+    /// Every car's terms laid where they changed, as the cars stand before their plans: nothing for one the town lays.
+    /// </summary>
+    /// <remarks>
+    /// <b>A car the device holds has its claim cleared there</b> where this laying asked it: the ground it covered since
+    /// counted from nothing again on the device (<c>car_claims_gather.comp</c>), as the town's own clearing counts it
+    /// (<see cref="Agents.Car.Actions.DrivingGround.ClearTheClaim"/>) — so the town's is no change to send.
+    /// </remarks>
     void LayTheCarsTerms(TownWorld town)
     {
         var cars = town.Cars;
+        var asked = _askedThisLaying.AsSpan(0, _carCount);
+        asked.Clear();
+        foreach (var car in town.CarsAskedThisLaying) asked[car] = true;
+
         for (var car = 0; car < _carCount; car++)
         {
             if (!_laidOnTheDevice[car])
@@ -371,6 +386,12 @@ internal sealed partial class DeviceRebuild
 
             var flags = CarTermsRow.Held | (cars.BlueLight[car] ? CarTermsRow.OnACall : 0u)
                         | (cars.LineIsReverse[car] ? CarTermsRow.LineIsReverse : 0u) | (cars.Pass[car].Begun ? CarTermsRow.PassBegun : 0u);
+            if (asked[car])
+            {
+                flags |= CarTermsRow.Asked;
+                _carTick!.ClaimClearedOnTheDevice(car);
+            }
+
             var drives = town.DrivesItsRoute(car);
             if (drives) flags |= CarTermsRow.DrivesTheRoute;
 
@@ -812,7 +833,7 @@ internal sealed partial class DeviceRebuild
             ref readonly var said = ref carsOut[car];
             if ((claim.Flags & CarClaimRow.PlansOnTheDevice) != 0)
             {
-                town.PlannedOnTheDevice(car, said.ClaimToM, said.CommittedToM, said.HorizonM);
+                town.PlannedOnTheDevice(car, said.ClaimFromM, said.ClaimToM, said.CommittedToM, said.HorizonM);
                 var laid = (said.Bits & CarOut.LaidAHold) != 0;
                 town.HeldOnTheDevice(car, laid ? (int)unitHolds[firstCar + car] : LaneOccupancy.NoHold, inItsPass: false);
             }

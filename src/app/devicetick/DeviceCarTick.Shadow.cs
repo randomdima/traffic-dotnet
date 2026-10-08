@@ -210,6 +210,13 @@ internal sealed partial class DeviceCarTick
     public void LayItWholeNext(int car) => _held[car] = false;
 
     /// <summary>
+    /// <b>A held car's claim cleared on the device</b> by the rebuild that asked it (<c>car_claims_gather.comp</c>): the
+    /// ground it covered since is nothing there as in the town (<see cref="DrivingGround.ClearTheClaim"/>), and the town's
+    /// clearing of it is no change to send.
+    /// </summary>
+    public void ClaimClearedOnTheDevice(int car) => _coveredAt[car] = 0f;
+
+    /// <summary>
     /// What both ticks left, remembered for the next: the town's lines, readings and levels, and the device's command and
     /// tyres for every car it took.
     /// </summary>

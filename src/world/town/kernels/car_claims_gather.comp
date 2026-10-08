@@ -34,12 +34,13 @@ struct CarTermsRow
 
 // CarTermsRow.flags: whether the device ticked it last and the town has left it as that tick did; whether its action
 // drives its route's line (CarActions.DrivesTheRoute); whether it is on a call; whether its line is driven in reverse;
-// whether it is on a pass begun.
+// whether it is on a pass begun; whether this laying asked it, which clears its claim (DrivingGround.ClearTheClaim).
 const uint TermsHeld = 1u;
 const uint TermsDrivesTheRoute = 2u;
 const uint TermsOnACall = 4u;
 const uint TermsLineIsReverse = 8u;
 const uint TermsPassBegun = 16u;
+const uint TermsAsked = 32u;
 
 // DeviceRebuild.CarShapeRow, one a build: where its axles stand ahead of its centre (TyreModel.WheelAtM), half its
 // track, and how far its nose and tail stand past its rear axle (CarBuild).
@@ -59,7 +60,7 @@ layout(std430, binding = 0) readonly buffer Terms { CarTermsRow terms[]; };
 layout(std430, binding = 1) readonly buffer BuildOf { uint buildOf[]; };
 layout(std430, binding = 2) readonly buffer Shapes { CarShapeRow shapes[]; };
 layout(std430, binding = 3) readonly buffer Poses { TyrePose poses[]; };
-layout(std430, binding = 4) readonly buffer Ticks { CarTickRow ticks[]; };
+layout(std430, binding = 4) buffer Ticks { CarTickRow ticks[]; };
 layout(std430, binding = 5) readonly buffer Lines { CarLineRow lines[]; };
 layout(std430, binding = 6) readonly buffer Grants { CarGrantRow grants[]; };
 layout(std430, binding = 7) readonly buffer Contexts { DriveContextRow contexts[]; };
@@ -100,4 +101,7 @@ void main()
     planCars[car] = uvec4(build, planFlags, 0u, 0u);
     planFigures[car * 2u] = vec4(tick.progressM, tick.alongMps, tick.plannedMps, 0.0);
     planFigures[car * 2u + 1u] = vec4(grants[car].grantMarginM, proposes ? said.keptOffM : 0.0, 0.0, 0.0);
+
+    // Its claim cleared, the ground it covers is counted from here; nothing in the rebuild reads it before its next tick.
+    if ((said.flags & TermsAsked) != 0u) ticks[car].coveredSinceClaimM = 0.0;
 }

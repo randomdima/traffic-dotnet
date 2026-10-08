@@ -190,9 +190,17 @@ internal sealed partial class TownWorld
     /// <summary>Where a car on a pass looks for a body inside it, for a device laying the bodies (<see cref="Following.AsksOfItsPass"/>).</summary>
     public int BodyAsksOfItsPass(int car, Span<BodyAsk> into) => _following.AsksOfItsPass(car, into);
 
-    /// <summary>A car's plan down its line as a device laid it (<see cref="Following.Plan"/>): how far it reaches, what it is committed to, and its horizon.</summary>
-    public void PlannedOnTheDevice(int car, float claimToM, float committedToM, float horizonM)
+    /// <summary>
+    /// A car's plan down its line as a device laid it (<see cref="Following.Plan"/>): where it begins, how far it reaches,
+    /// what it is committed to, and its horizon.
+    /// </summary>
+    /// <remarks>
+    /// <b>Where it begins is the device's</b>, its nose off the reading the device holds, where the town's own clearing read
+    /// the nose off a reading that may be older (<see cref="DrivingGround.ClearTheClaim"/>).
+    /// </remarks>
+    public void PlannedOnTheDevice(int car, float claimFromM, float claimToM, float committedToM, float horizonM)
     {
+        Cars.ClaimFromM[car] = claimFromM;
         Cars.ClaimToM[car] = claimToM;
         Cars.CommittedToM[car] = committedToM;
         Cars.HorizonM[car] = horizonM;
