@@ -2,29 +2,56 @@
 #extension GL_GOOGLE_include_directive : require
 
 // What a rebuild's stages made of the walkers a device keeps, handed back (app/devicetick/DeviceWalkers.WalkerOut), one
-// thread a walker: a row out for every walker whose row they changed from what it was read in as (walkers_kept_gather.comp,
-// walkers_kept_patch.comp) — everything the stages write but the straight, which stays the device's — counted, in no
-// order. Its aim and whether it walks are written where its next tick reads them from these rows (walkers_kept_aims.comp).
+// thread a walker: a row out on the device for every walker whose row they changed from what it was read in as
+// (walkers_kept_gather.comp, walkers_kept_patch.comp) — everything the stages write but the straight, which stays the
+// device's — counted, in no order, whose aim and whether it walks are written where its next tick reads them from these
+// rows (walkers_kept_aims.comp). Of those, and of every walker left on the device before that the town now reads, the
+// row and its leg's clock go into the host's own memory where the town reads the walker or the stages raised anything of
+// it; every other changed walker is named left on the device. And every walker's hold as the rebuild numbered it.
 
 layout(local_size_x = 64) in;
 
 layout(push_constant) uniform Figures
 {
     uint walkerCount;
+    uint firstWalkerUnit;
+    uint words;
 } figures;
 
 #include "agents/person/actions/kernels/walker_rows.glsl"
 #include "world/town/kernels/walker_out.glsl"
 
+// app/devicetick/DeviceWalkers.HandedRow: the row out and the walker's leg's clock (walker_decide.glsl's WalkerClock).
+struct HandedRow
+{
+    WalkerOut made;
+    uvec4 clock;
+};
+
+// Counts: rows out on the device, rows handed to the host, walkers left on the device.
+const uint CountOut = 0u;
+const uint CountHanded = 1u;
+const uint CountLeft = 2u;
+
 layout(std430, binding = 0) readonly buffer Kept { WalkerRow kept[]; };
 layout(std430, binding = 1) readonly buffer Before { WalkerRow before[]; };
 layout(std430, binding = 2) writeonly buffer Out { WalkerOut rowsOut[]; };
-layout(std430, binding = 3) buffer OutCount { uint outCount; };
+layout(std430, binding = 3) buffer Counts { uint counts[]; };
+
+// Which walkers the town reads, a bit a walker, then which it left on the device, as the host writes them.
+layout(std430, binding = 4) readonly buffer Wanted { uint wanted[]; };
+layout(std430, binding = 5) writeonly buffer Handed { HandedRow handed[]; };
+layout(std430, binding = 6) writeonly buffer Left { uint left[]; };
+layout(std430, binding = 7) readonly buffer UnitHolds { uint unitHolds[]; };
+layout(std430, binding = 8) writeonly buffer HoldsOut { int holdsOut[]; };
+layout(std430, binding = 9) readonly buffer Clocks { uvec4 clocks[]; };
 
 // Bit for bit, so a place that is not a number is the same as itself.
 bool keptSame(vec2 one, vec2 other) { return all(equal(floatBitsToUint(one), floatBitsToUint(other))); }
 
 bool keptSame(float one, float other) { return floatBitsToUint(one) == floatBitsToUint(other); }
+
+bool marked(uint word, uint walker) { return (wanted[word + (walker >> 5u)] & (1u << (walker & 31u))) != 0u; }
 
 void main()
 {
@@ -32,18 +59,21 @@ void main()
     if (walker >= figures.walkerCount) return;
 
     WalkerRow now = kept[walker];
-    WalkerRow was = before[walker];
-    if (keptSame(now.destinationM, was.destinationM) && keptSame(now.backToM, was.backToM) && keptSame(now.onWayM, was.onWayM)
-        && keptSame(now.offWayM, was.offWayM) && keptSame(now.grantM, was.grantM) && keptSame(now.passFromM, was.passFromM)
-        && keptSame(now.passClearM, was.passClearM) && keptSame(now.passAsideM, was.passAsideM) && now.passSlot == was.passSlot
-        && now.routeTaken == was.routeTaken && now.onWay == was.onWay && now.onCrossing == was.onCrossing && now.heldAs == was.heldAs
-        && now.flags == was.flags && now.action == was.action && now.hold == was.hold && now.events == 0u)
-    {
-        return;
-    }
+    holdsOut[walker] = now.hold != WalkerNone ? int(unitHolds[figures.firstWalkerUnit + walker]) : -1;
 
-    uint at = atomicAdd(outCount, 1u);
-    rowsOut[at] = WalkerOut(
-        now.destinationM, now.backToM, now.onWayM, now.offWayM, now.grantM, now.passFromM, now.passClearM, now.passAsideM,
-        now.passSlot, now.routeTaken, now.onWay, now.onCrossing, now.heldAs, now.flags, now.action, now.hold, now.events, walker);
+    WalkerRow was = before[walker];
+    bool changed = !(keptSame(now.destinationM, was.destinationM) && keptSame(now.backToM, was.backToM)
+        && keptSame(now.onWayM, was.onWayM) && keptSame(now.offWayM, was.offWayM) && keptSame(now.grantM, was.grantM)
+        && keptSame(now.passFromM, was.passFromM) && keptSame(now.passClearM, was.passClearM)
+        && keptSame(now.passAsideM, was.passAsideM) && now.passSlot == was.passSlot && now.routeTaken == was.routeTaken
+        && now.onWay == was.onWay && now.onCrossing == was.onCrossing && now.heldAs == was.heldAs && now.flags == was.flags
+        && now.action == was.action && now.hold == was.hold && now.events == 0u);
+    WalkerOut made = walkerOutOf(now, walker);
+    if (changed) rowsOut[atomicAdd(counts[CountOut], 1u)] = made;
+
+    bool reads = marked(0u, walker);
+    if (!changed && !(reads && marked(figures.words, walker))) return;
+
+    if (reads || now.events != 0u) handed[atomicAdd(counts[CountHanded], 1u)] = HandedRow(made, clocks[walker]);
+    else left[atomicAdd(counts[CountLeft], 1u)] = walker;
 }

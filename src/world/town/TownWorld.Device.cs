@@ -1,6 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
+using TrafficSimulation.Agents.Person.Control;
 
 namespace TrafficSimulation.World.Town;
 
@@ -40,8 +41,9 @@ internal sealed partial class TownWorld
     public void BrakedHardOnTheDevice() => HardBrakings++;
 
     /// <summary>
-    /// <b>Whether an instrument reads every car's tick every tick</b> — a watch's claims over the whole fleet — so a device
-    /// hands every car back with every tick (<see cref="ReadsTheTickOf"/>).
+    /// <b>Whether an instrument reads every car's tick every tick</b> — a watch's claims over the whole fleet, and over every
+    /// walker — so a device hands every car back with every tick (<see cref="ReadsTheTickOf"/>), and every walker a claims
+    /// rebuild changed (<see cref="ReadsTheWalker"/>).
     /// </summary>
     public bool WatchesEveryCar { get; set; }
 
@@ -63,6 +65,15 @@ internal sealed partial class TownWorld
         return Cars.Action[car] is CarAction.Switch or CarAction.Overtake or CarAction.Rejoin || Cars.BlueLight[car]
                || _recovery.Towing[car] >= 0 || _selected.Holds(SelectionKind.Car, car);
     }
+
+    /// <summary>
+    /// <b>Whether the town reads a walker as a claims rebuild on the device leaves it</b>, whenever its decision is due: every
+    /// walker where it watches every agent, one whose decision it takes whole — indoors, wounded or on duty — and the one
+    /// selected, which a hand may walk.
+    /// </summary>
+    public bool ReadsTheWalker(int person) =>
+        WatchesEveryCar || People.Inside[person].Any || People.Wounded[person] || People.Stage[person] == TripStage.OnDuty
+        || _selected.Holds(SelectionKind.Person, person);
 
     /// <summary>Whether a hand walks this walker this tick, which the town's own tick does (CTL-6).</summary>
     public bool WalksUnderAHand(int person) =>

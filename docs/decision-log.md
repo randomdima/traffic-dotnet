@@ -81,6 +81,16 @@ the device took turns rather than working side by side.
     device's verdicts are in. While the agents are held, the layer sent back lands before the decisions put off are
     taken, their holds waited for; a town the device lets go has every hold read back, and every car it keeps handed
     back, before it takes them. OdesaOsm: a layer sent back 1.80 → 0.30 MB; the town bit for bit as before.
+  - **A walker a rebuild changed is handed back only where the town reads it** (`DeviceWalkers.LeavesTheUnread`,
+    `walkers_kept_out.comp`): whose decision the town takes on the rebuild's tick, one indoors, wounded, on duty or
+    selected, or every one where the town watches every agent, or a car backs up; and one whose rebuild raised anything
+    of it. Any other is left on the device, the town holding it as the rebuild before left it, and is taken back with
+    the row its decision was asked of where the device hands that decision over — or whole, where the town lays the
+    claims itself, strikes it down, takes it in hand or is let go. Its walk's clock comes with it: the device's, where it
+    ran on the way taken since, or restarted as the town's own taking up restarts it — a restart is the same whenever it
+    comes before the walker's next decision. A walker the town would write over the device's row while it is left there
+    is a defect, and throws. Every walker's hold comes back with them, numbered on the device. OdesaOsm: 1 136 of 4 165
+    walkers a rebuild changed handed back, the walkers' read 0.40 → 0.16 MB a rebuild; the town bit for bit as before.
 
 ## 2026-10-08 — the readers' layer is sent back in part, and a decision asks for the ways it reads
 

@@ -110,8 +110,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   per-car streak and deepest are kept and reduced on the device, and only the figures come back.
 - **What draws a car's indicators, lamps and front wheels reads the town's copy** (`DeviceSprites.LayCars`,
   `CarLamps`), which an unwatched device town leaves up to a decision interval (0.1 s) old for a car it does not read
-  (`DeviceTown.ReadsEveryCarBack` off). Unseen today, as every windowed run is watched (above); closes when the sprites
-  are laid off the car tick's own tables.
+  (`DeviceTown.ReadsEveryCarBack` off) — and so does whether a walker is drawn walking (`PersonSprites`), which it leaves
+  as a claims rebuild before last left it for a walker it does not read (`DeviceWalkers.LeavesTheUnread`). Unseen today, as
+  every windowed run is watched (above); closes when the sprites are laid off the car tick's and the kept walkers' own
+  tables.
 
 ### Walkers
 

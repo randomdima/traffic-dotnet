@@ -79,8 +79,7 @@ internal static class DeviceTownProbe
         var switches = (switching.Asked, switching.Made, switching.Withdrawn);
         var passes = (overtaking.Asked, overtaking.Made, overtaking.Withdrawn);
         var sidesteps = (sidestepping.Asked, sidestepping.Made, sidestepping.Withdrawn);
-        var (keptPatched, keptChanged) = (0L, 0L);
-        var keptReadPast = device?.Claims.Rebuild.Walkers.KeptReadPast ?? 0L;
+        var (keptPatched, keptChanged, keptHanded, keptLeft) = (0L, 0L, 0L, 0L);
         loop.Phases.Reset();
         world.Sub.Reset();
         loop.Timed = world.Timed = true;
@@ -170,7 +169,10 @@ internal static class DeviceTownProbe
                 landedMb += rebuild.LandedBytes / 1e6;
                 (waysKnown, waysLightsOnly) = (waysKnown + rebuild.WaysLanded.Known, waysLightsOnly + rebuild.WaysLanded.LightsOnly);
                 (laidRows, laidBodies, laidHolds) = (laidRows + rows, laidBodies + bodies, laidHolds + holds);
-                (keptPatched, keptChanged) = (keptPatched + rebuild.Walkers.KeptPatched, keptChanged + rebuild.Walkers.KeptChanged);
+                var kept = rebuild.Walkers;
+                (keptPatched, keptChanged, keptHanded, keptLeft) = (
+                    keptPatched + kept.KeptPatched, keptChanged + kept.KeptChanged.Changed, keptHanded + kept.KeptChanged.Handed,
+                    keptLeft + kept.KeptLeft);
                 var (townMs, hereMs) = device.Claims.StageMs;
                 for (var stage = 0; stage < stages.Length; stage++)
                 {
@@ -264,8 +266,8 @@ internal static class DeviceTownProbe
             {
                 Console.WriteLine(
                     $"  the walkers kept on the device: {keptPatched / each} a rebuild written over as the town changed them, " +
-                    $"{keptChanged / each} changed by the rebuild and handed back, {walkers.KeptReadPast - keptReadPast} rebuilds " +
-                    "read past what their submit read back");
+                    $"{keptChanged / each} changed by the rebuild, {keptHanded / each} of them and of those left before handed back, " +
+                    $"{keptLeft / each} left on the device unread");
             }
             Console.WriteLine(
                 $"  {device.Claims.Rebuild.RanOn - ranOnFrom} rebuilds ran on while the town went on, their answers taken up after " +

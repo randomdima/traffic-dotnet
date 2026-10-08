@@ -26,4 +26,12 @@ struct WalkerOut
     uint walker;
 };
 
+// One kept row as it goes out; the includer includes walker_rows.glsl first.
+WalkerOut walkerOutOf(WalkerRow now, uint walker)
+{
+    return WalkerOut(
+        now.destinationM, now.backToM, now.onWayM, now.offWayM, now.grantM, now.passFromM, now.passClearM, now.passAsideM,
+        now.passSlot, now.routeTaken, now.onWay, now.onCrossing, now.heldAs, now.flags, now.action, now.hold, now.events, walker);
+}
+
 #endif

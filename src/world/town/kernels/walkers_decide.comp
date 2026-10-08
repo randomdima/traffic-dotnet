@@ -36,13 +36,14 @@ layout(std430, binding = 23) readonly buffer DecideFigures { WalkerDecideFigures
 // A walker due, and in the top bit whether the town decides it whole whatever is found.
 const uint DecideByTheTown = 0x80000000u;
 
-// What a walker whose decision is more than its clock is decided on: its clock as it stood.
+// What a walker whose decision is more than its clock is decided on: its clock as it stood, and the route slot it was
+// last run or laid at.
 struct WalkerClockOut
 {
     float sinceS;
     float closestM;
     uint stamp;
-    uint pad;
+    int routeTakenAt;
 };
 
 layout(std430, binding = 24) readonly buffer DecideList { uint decideList[]; };
@@ -51,6 +52,11 @@ layout(std430, binding = 26) readonly buffer ReadersHolds { WalkerReadersHold re
 layout(std430, binding = 27) buffer Clocks { WalkerClock clocks[]; };
 layout(std430, binding = 28) writeonly buffer Verdicts { uint verdicts[]; };
 layout(std430, binding = 29) writeonly buffer DecideOut { WalkerClockOut decideOut[]; };
+
+#include "world/town/kernels/walker_out.glsl"
+
+// And its kept row, for the town to take up where it left the walker on the device (DeviceWalkers.LeftOnTheDevice).
+layout(std430, binding = 30) writeonly buffer DecideRows { WalkerOut decideRows[]; };
 
 void main()
 {
@@ -71,5 +77,9 @@ void main()
     if (!more) clocks[walker] = clock;
 
     // Checked, every clock a decision was asked with goes back, for the town to ask its own of it.
-    if (more || DECIDE.checks != 0u) decideOut[walker] = WalkerClockOut(asked.sinceS, asked.closestM, DECIDE.stamp, 0u);
+    if (more || DECIDE.checks != 0u)
+    {
+        decideOut[walker] = WalkerClockOut(asked.sinceS, asked.closestM, DECIDE.stamp, asked.routeTakenAt);
+        decideRows[walker] = walkerOutOf(row, walker);
+    }
 }

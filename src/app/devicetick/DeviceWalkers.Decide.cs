@@ -33,14 +33,20 @@ internal sealed partial class DeviceWalkers
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct WalkerClock(float SinceS, float ClosestM, int RouteTakenAt, uint Pad = 0u);
 
-    /// <summary><c>walkers_decide.comp</c>'s <c>WalkerClockOut</c>: the clock a walker whose decision is more is decided with.</summary>
+    /// <summary>
+    /// <c>walkers_decide.comp</c>'s <c>WalkerClockOut</c>: the clock a walker whose decision is more is decided with, and
+    /// the route slot it was last run or laid at.
+    /// </summary>
     [StructLayout(LayoutKind.Sequential)]
-    internal readonly record struct WalkerClockOut(float SinceS, float ClosestM, uint Stamp, uint Pad);
+    internal readonly record struct WalkerClockOut(float SinceS, float ClosestM, uint Stamp, int RouteTakenAt);
 
     /// <summary>A walker due, in the decision list: the town decides it whole whatever is found.</summary>
     public const uint ByTheTown = 0x80000000u;
 
     GpuBuffer _decideFigures = null!, _decideList = null!, _readersHolds = null!, _walkerVerdicts = null!, _walkerDecideOut = null!;
+
+    /// <summary>The kept row of each walker whose decision was more than its clock, in the host's memory.</summary>
+    GpuBuffer _walkerDecideRows = null!;
     ResidentRows<WalkerClock>? _walkerClocks;
     ComputeKernel? _decide;
     DescriptorSet _decideSet;
@@ -66,10 +72,12 @@ internal sealed partial class DeviceWalkers
         _readersHolds = Device<ReadersHold>(_walkers);
         _walkerVerdicts = _vk.CreateBuffer(Bytes<uint>(_walkers), BufferUsageFlags.StorageBufferBit, HostAccess.Reads);
         _walkerDecideOut = _vk.CreateBuffer(Bytes<WalkerClockOut>(_walkers), BufferUsageFlags.StorageBufferBit, HostAccess.Reads);
+        _walkerDecideRows = _vk.CreateBuffer(Bytes<WalkerOut>(_walkers), BufferUsageFlags.StorageBufferBit, HostAccess.Reads);
         _walkerClocks = new ResidentRows<WalkerClock>(_vk, _walkers, 1);
         GpuBuffer[] set =
         [
             .. _stationSet, _decideFigures, _decideList, ticked, _readersHolds, _walkerClocks.Device, _walkerVerdicts, _walkerDecideOut,
+            _walkerDecideRows,
         ];
         _decide = new ComputeKernel(_vk, "walkers_decide.comp", set.Length, (uint)Marshal.SizeOf<Figures>());
         _decideSet = _decide.Bind(set);
@@ -144,6 +152,9 @@ internal sealed partial class DeviceWalkers
     /// <summary>The clock a walker whose decision was more than its clock is decided with — or, checked, any walker asked.</summary>
     public ref readonly WalkerClockOut DecidedOn(int person) => ref _walkerDecideOut.Span<WalkerClockOut>()[person];
 
+    /// <summary>The kept row a walker whose decision was more than its clock was decided on, as <see cref="DecidedOn"/> says.</summary>
+    ref readonly WalkerOut DecidedRowOf(int person) => ref _walkerDecideRows.Span<WalkerOut>()[person];
+
     void DisposeTheDecisions()
     {
         _decide?.Dispose();
@@ -152,5 +163,6 @@ internal sealed partial class DeviceWalkers
         _decideList?.Dispose();
         _walkerVerdicts?.Dispose();
         _walkerDecideOut?.Dispose();
+        _walkerDecideRows?.Dispose();
     }
 }

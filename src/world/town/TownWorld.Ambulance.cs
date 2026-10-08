@@ -103,6 +103,7 @@ internal sealed partial class TownWorld
     {
         if (People.Wounded[person]) return;
 
+        Device?.TakeTheWalkerBack(this, person);
         _physics.PutOnLayer(People.Body[person], CollisionLayer.Downed);
         People.Wounded[person] = true;
         People.Walking[person] = false;

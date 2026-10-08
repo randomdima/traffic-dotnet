@@ -101,6 +101,7 @@ internal sealed partial class TownWorld
             var held = _hands.Held && _selected.Holds(SelectionKind.Person, person);
             if (held == (action == PersonAction.Hand)) continue;
 
+            Device?.TakeTheWalkerBack(this, person);
             if (held) Enter(person, PersonAction.Hand);
             else Enter(person, People.Walking[person] ? PersonAction.Walk : PersonAction.Stand);
         }

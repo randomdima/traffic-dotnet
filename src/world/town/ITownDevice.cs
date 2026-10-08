@@ -43,11 +43,20 @@ internal interface ITownDevice
     bool DecidesATickBehind { get; }
 
     /// <summary>
-    /// <b>Every car the device ticked handed back as its last tick left it</b>, where the town is about to read every car —
-    /// a closure sending the town round it, the town laying the claims itself — rather than only those it reads after a
-    /// tick (<see cref="TownWorld.ReadsTheTickOf"/>). Nothing where the device hands every car back with every tick.
+    /// <b>Every car the device ticked handed back as its last tick left it, and every walker as its last claims rebuild
+    /// left it</b>, where the town is about to read every agent — a closure sending the town round it, the town laying the
+    /// claims itself — rather than only those it reads (<see cref="TownWorld.ReadsTheTickOf"/>,
+    /// <see cref="TownWorld.ReadsTheWalker"/>). Nothing where the device hands every agent back.
     /// </summary>
     void TakeEveryCarBack(TownWorld town)
+    {
+    }
+
+    /// <summary>
+    /// <b>One walker handed back as the device's last claims rebuild left it</b>, where the town is about to change it out of
+    /// its own turn — struck down, or taken in hand. Nothing for one the town holds as the device left it.
+    /// </summary>
+    void TakeTheWalkerBack(TownWorld town, int person)
     {
     }
 

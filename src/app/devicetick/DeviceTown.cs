@@ -250,7 +250,11 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _walkerListed[person] = false;
         var kept = KeptWalkers;
         var more = kept.DecidedMoreThanTheClock(person);
-        if (ChecksTheDecisions && !_walkerByTheTown[person]) CheckTheWalkersVerdict(person, more);
+        var checks = ChecksTheDecisions && !_walkerByTheTown[person];
+
+        // What the town reads of it is what the device decided it on, where a rebuild left it there.
+        if (more || checks) kept.TakeUpTheDecided(_town, _walkers, person);
+        if (checks) CheckTheWalkersVerdict(person, more);
 
         // Its clock restarted where the rebuild walked it on, as the town's taking that up did, and run there.
         if (!more)
@@ -594,8 +598,11 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         if (DecidesTheCars && !town.DriveClocks.IsTouched(car)) town.DriveClocks.Take(car, row.ClockSinceS, row.ClockClosestM);
     }
 
+    public void TakeTheWalkerBack(TownWorld town, int person) => KeptWalkers.TakeBackTheLeft(town, _walkers, person);
+
     public void TakeEveryCarBack(TownWorld town)
     {
+        KeptWalkers.TakeBackTheLeft(town, _walkers);
         var cars = town.Cars;
         var count = 0;
         for (var car = 0; car < cars.Count; car++)
@@ -675,6 +682,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         if (town.HoldAgents)
         {
             _townClaims.TakeTheAnswers(town);
+            KeptWalkers.TakeBackTheDue(town, _walkers);
             AskTheHoldsOfTheDecisions(town);
             town.TakeTheDecisionsPutOff();
 
@@ -842,6 +850,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     {
         var rebuild = _townClaims.Rebuild;
         rebuild.HoldsAsAsked = DecidesTheCars && DecidesTheWalkers;
+        KeptWalkers.LeavesTheUnread = DecidesTheWalkers;
         _asksTheHolds = rebuild.AsksForTheHolds(town.ReadersOccupancy);
         if (!_asksTheHolds) return;
 
@@ -1114,6 +1123,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _townClaims.LandTheLastLaying(_town);
         _townClaims.Rebuild.LandEveryHold(_town.ReadersOccupancy);
         HandBackAlone(_town, Leaving(_town, everyKept: true));
+        KeptWalkers.TakeBackTheLeft(_town, _walkers);
         _town.TakeTheDecisionsPutOff();
         _timer.Dispose();
         _stepBatch.Dispose();

@@ -295,6 +295,7 @@ internal sealed partial class DeviceRebuild
         LayTheWaysOut(world);
         if (!_walkers.Keeps) return;
 
+        _walkers.HandBackThrough(_unitHolds);
         var (walkerCovers, _, _, _) = _walkers.OnTheDevice;
         _walkerPassStarts = Device<uint>(_walkersRoom);
         _scanWalkerPasses = new PrefixScan(_vk, _scans, _walkerPassStarts, _blockSums, _sums, (uint)Sum.WalkerPasses);
@@ -784,7 +785,9 @@ internal sealed partial class DeviceRebuild
                 _walkers.Record(commands, DeviceWalkers.Piece.Read);
             }
 
-            _walkers.RecordTheKeptOut(commands);
+            // Every walker where a car backs up: the town reads every walker's grant after the answers then.
+            _walkers.WantTheWalkers(town, every: !AnswersOnlyWhatTheTownHolds || !GrantedWithTheAnswers);
+            _walkers.RecordTheKeptOut(commands, _stretches + 1 + _carCount);
 
             // Where a car backs up, the walkers the town aims after the answers are written whole over these next tick.
             if (!GrantedWithTheAnswers)
@@ -813,9 +816,15 @@ internal sealed partial class DeviceRebuild
 
         if (_answeredInPart)
         {
-            // Of the units' holds only the walkers', each where the whole would put it; the cars' are their answers'.
+            // Of the units' holds only the walkers' — each where the whole would put it — and none where the device keeps
+            // the walkers, whose holds come with them; the cars' are their answers'.
             var firstWalker = Bytes<uint>(_stretches + 1 + _carCount);
-            vk.Copy(commands, _unitHolds, _unitHoldsOut, [new BufferCopy(firstWalker, firstWalker, Math.Max(sizeof(uint), Bytes<uint>(_walkerCount)))]);
+            if (!keeps)
+            {
+                vk.Copy(
+                    commands, _unitHolds, _unitHoldsOut, [new BufferCopy(firstWalker, firstWalker, Math.Max(sizeof(uint), Bytes<uint>(_walkerCount)))]);
+            }
+
             vk.Copy(commands, _carsMovedCount, _carsMovedCountRead, sizeof(uint));
         }
         else
@@ -929,7 +938,7 @@ internal sealed partial class DeviceRebuild
         var holds = _claims.Holds.Length;
         var layer = Bytes<ClaimRow>(rows) + Bytes<uint>(rows) + Bytes<HoldOut>(holds);
         ReadParts = _answeredInPart
-            ? (LandsLater ? 0ul : layer, Bytes<uint>(_walkerCount),
+            ? (LandsLater ? 0ul : layer, _walkers.Keeps ? 0ul : Bytes<uint>(_walkerCount),
                Bytes<CarAnswer>(_carsAnswered) + Bytes<uint>(town.CarsAskedThisLaying.Length + _movedCount + 1), _walkersReadBytes, 0ul)
             : (LandsLater ? 0ul : layer, Bytes<uint>(_units), Bytes<CarOut>(_carCount), _walkersReadBytes,
                GrantedWithTheAnswers ? Bytes<DeviceCarTick.GrantRow>(_carCount) : 0ul);
@@ -1019,7 +1028,8 @@ internal sealed partial class DeviceRebuild
         var firstWalker = firstCar + _carCount;
         if (_walkers.Keeps)
         {
-            _walkers.TakeTheKept(town, _walkerTick!, unitHolds, firstWalker);
+            _walkers.TakeTheKept(town, _walkerTick!);
+            _walkersReadBytes = _walkers.KeptReadBytes;
         }
         else
         {

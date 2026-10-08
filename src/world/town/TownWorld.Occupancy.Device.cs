@@ -288,13 +288,17 @@ internal sealed partial class TownWorld
     /// laid as whoever's ground it is, its pass laid or let go, and, where the device read the grants, what it was granted,
     /// its pass's word and where it aims.
     /// </summary>
-    public void KeptOnTheDevice(int person, in KeptWalker kept)
+    /// <param name="restartsTheWalk">
+    /// Whether a way taken restarts its walk's clock here — or the clock is the device's, taken with it, where it was left
+    /// on the device a rebuild or more and the device has run it since.
+    /// </param>
+    public void KeptOnTheDevice(int person, in KeptWalker kept, bool restartsTheWalk = true)
     {
         var people = People;
         if (kept.RouteTaken != people.RouteTaken[person])
         {
             people.RouteTaken[person] = kept.RouteTaken;
-            _progress.Restart(person);
+            if (restartsTheWalk) _progress.Restart(person);
         }
 
         people.DestinationM[person] = kept.DestinationM;
