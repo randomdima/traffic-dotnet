@@ -27,7 +27,8 @@ namespace TrafficSimulation.App.DeviceTick;
 /// </para>
 /// <para>
 /// <b>The bodies are the device's</b> (<see cref="DeviceTownBodies"/>): stepped off the impulses the tick left on the
-/// device, the town's own written over them for what the town ticked itself. The poses the step leaves in the tyre pass's
+/// device, the town's own written over them for what the town ticked itself, in a submit behind the tick's own that runs
+/// while the host writes the cars and walkers back (<see cref="StepsWithTheTick"/>). The poses the step leaves in the tyre pass's
 /// table are what the next tick reads, the forward a body's own; the town lays only those of the cars whose bodies it
 /// changed since (<see cref="DeviceTownBodies.PosesLeftInTheTable"/>).
 /// </para>
@@ -58,6 +59,10 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     readonly DeviceTownBodies _bodies;
     readonly DeviceTownClaims _townClaims;
     readonly ComputeBatch _batch;
+
+    /// <summary>The bodies' step, submitted behind the tick's own (<see cref="StepsWithTheTick"/>).</summary>
+    readonly ComputeBatch _stepBatch;
+
     readonly GpuTimer _timer;
     readonly float _dtS;
     readonly int[] _taken;
@@ -102,6 +107,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _townClaims = new DeviceTownClaims(vk, config, town, _claims, _cars, _walkers);
         _townClaims.Rebuild.MirrorsAtOnce = false;
         _batch = new ComputeBatch(vk);
+        _stepBatch = new ComputeBatch(vk);
         _timer = new GpuTimer(vk, 3);
         _dtS = config.TickSeconds;
         _taken = new int[cars.Capacity];
@@ -255,9 +261,16 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     public double IdleMs { get; private set; }
 
     /// <summary>
-    /// <b>Whether the bodies are stepped in the agents' own submit</b> (<see cref="ITownDevice.StepsWithTheTick"/>): one
-    /// submit a tick rather than two, the decisions reading the town the step left and what one does to a body stepped
-    /// a tick later. Off, the bodies are phase 4's own submit, after the decisions.
+    /// Of the writing back, the host's time waiting for the bodies' step once the cars and walkers were written back, in
+    /// milliseconds (<see cref="StepsWithTheTick"/>).
+    /// </summary>
+    public double StepIdleMs { get; private set; }
+
+    /// <summary>
+    /// <b>Whether the bodies are stepped with the agents' tick</b> (<see cref="ITownDevice.StepsWithTheTick"/>): submitted
+    /// behind it with no wait between, so the host writes the cars and walkers back while the step runs — the decisions
+    /// reading the town the step left and what one does to a body stepped a tick later. Off, the bodies are phase 4's own
+    /// submit, after the decisions.
     /// </summary>
     public bool StepsWithTheTick { get; init; } = true;
 
@@ -316,10 +329,19 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _cars.RecordRead(commands);
         _walkers.Record(commands, _walkerCount);
         _walkers.RecordRead(commands);
-        if (stepping) _bodies.RecordTheStep(commands, town, _dtS);
         _timer.Stamp(commands, 2);
-        RegionsCopied = (int)(Vk.RegionsCopied - regionsFrom);
         _batch.Submit();
+
+        // The step in a submit of its own behind the tick's, so the cars and walkers are written back while it runs.
+        if (stepping)
+        {
+            var step = _stepBatch.Begin();
+            _vk.AfterTheSubmitsBefore(step);
+            _bodies.RecordTheStep(step, town, _dtS);
+            _stepBatch.Submit();
+        }
+
+        RegionsCopied = (int)(Vk.RegionsCopied - regionsFrom);
 
         // While the tick runs: a layer the last rebuild sent back is written into the town, and this tick's own rebuild's
         // layer is sent back behind it, to be copied in the host's time before the next tick's submit; and the last tick's
@@ -344,6 +366,9 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         TakeBackTheWalkers(town);
         if (stepping)
         {
+            var steppedFrom = Stopwatch.GetTimestamp();
+            _stepBatch.Wait();
+            StepIdleMs = Stopwatch.GetElapsedTime(steppedFrom).TotalMilliseconds;
             _bodies.TakeTheStepBack(town, physics.Changes[placedFrom..placedTo]);
             KnowTheStep();
             _swept = false;
@@ -519,6 +544,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _townClaims.LandTheLastLaying(_town);
         HandBackAlone(_town, Leaving(_town, everyKept: true));
         _timer.Dispose();
+        _stepBatch.Dispose();
         _batch.Dispose();
         _townClaims.Dispose();
         _bodies.Dispose();

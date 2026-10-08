@@ -87,7 +87,7 @@ internal static class DeviceTownProbe
         var deviceMs = 0d;
         var prepareMs = 0d;
         var waitMs = 0d;
-        var (decidedMs, idleMs) = (0d, 0d);
+        var (decidedMs, idleMs, stepIdleMs) = (0d, 0d, 0d);
         var movedOnFrom = device?.CarsTheTownMovedOn ?? 0L;
         var takeBackMs = 0d;
         var submitMs = 0d;
@@ -173,6 +173,7 @@ internal static class DeviceTownProbe
             waitMs += device.WaitMs;
             decidedMs += device.DecidedMs;
             idleMs += device.IdleMs;
+            stepIdleMs += device.StepIdleMs;
             takeBackMs += device.TakeBackMs;
             submitMs += device.SubmitMs;
             copiesMs += device.CopiesMs;
@@ -192,8 +193,8 @@ internal static class DeviceTownProbe
             Console.WriteLine(
                 $"  the device's round trip, ms a tick: writing what is sent {prepareMs / MeasuredTicks:F2}, submitting and waiting " +
                 $"{waitMs / MeasuredTicks:F2} (of it the decisions put off a tick {decidedMs / MeasuredTicks:F2} and nothing but waiting " +
-                $"{idleMs / MeasuredTicks:F2}), writing what came back {takeBackMs / MeasuredTicks:F2}; {movedOn} cars the town moved on " +
-                "from while their tick ran");
+                $"{idleMs / MeasuredTicks:F2}), writing what came back {takeBackMs / MeasuredTicks:F2} (of it waiting for the bodies' " +
+                $"step {stepIdleMs / MeasuredTicks:F2}); {movedOn} cars the town moved on from while their tick ran");
             Console.WriteLine(
                 $"  of the wait, the device's own: the submit {submitMs / MeasuredTicks:F2}, of it the town's claims taken in " +
                 $"{claimsMs / MeasuredTicks:F2} and the car rows in and out {copiesMs / MeasuredTicks:F2}; " +

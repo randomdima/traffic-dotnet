@@ -402,6 +402,15 @@ internal sealed unsafe partial class Vk : IDisposable
             PipelineStageFlags2.AllTransferBit | PipelineStageFlags2.ComputeShaderBit,
             AccessFlags2.TransferReadBit | AccessFlags2.TransferWriteBit | AccessFlags2.ShaderStorageReadBit | AccessFlags2.ShaderStorageWriteBit);
 
+    /// <summary>
+    /// <b>Everything submitted to the queue before this command buffer, finished and visible to it</b>: what a submit that
+    /// follows another with no wait between them begins with, since no submit orders itself after the last.
+    /// </summary>
+    public void AfterTheSubmitsBefore(CommandBuffer commands) =>
+        Barrier(
+            commands, PipelineStageFlags2.AllCommandsBit, AccessFlags2.MemoryWriteBit, PipelineStageFlags2.AllCommandsBit,
+            AccessFlags2.MemoryReadBit | AccessFlags2.MemoryWriteBit);
+
     /// <summary>One kernel's writes made visible to the next kernel's reads and writes.</summary>
     public void BetweenKernels(CommandBuffer commands) =>
         Barrier(
