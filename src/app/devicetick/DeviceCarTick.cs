@@ -767,6 +767,15 @@ internal sealed partial class DeviceCarTick : IDisposable
     /// <summary>What a car whose decision was more than its clock is decided on: what its last tick left, and its clock as it stood.</summary>
     public ref readonly OutRow DecidedOn(int car) => ref _decideOut.Span<OutRow>()[car];
 
+    /// <summary>
+    /// The stamp of the last tick recorded, which each car whose decision it found more than its clock is marked with in
+    /// <see cref="DecidedAt"/> — for a kernel after it that reads which.
+    /// </summary>
+    public uint Stamp => _stamp;
+
+    /// <inheritdoc cref="Stamp"/>
+    public GpuBuffer DecidedAt => _decidedAt;
+
     /// <summary>The device's stamps of the last tick taken in, once its submit has been waited for.</summary>
     public void ReadTimes() => _timer.Read();
 

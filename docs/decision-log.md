@@ -72,6 +72,15 @@ the device took turns rather than working side by side.
     copy a rebuild left behind is a defect, and throws. Not where a car backs up: the town reads every asked car's grant
     off its own laying then. OdesaOsm: a rebuild's own read 1.75 → 1.22 MB and 1.24 → 0.87 ms of the device's; the town
     bit for bit as before (`DeviceTownKeptCarsTests`).
+  - **And a layer that lands later sends back no hold; the town asks for the holds it reads** (`DeviceRebuild.HoldsAsAsked`,
+    `readers_holds_out.comp`). A hold is read only by its own holder — in its decision, or the town's own tick of it;
+    what reads another's, the backing and the checks, reads a layer sent back whole. So each tick's head asks for the
+    holds of the agents the town decides — of one whose decision the device was asked, only where it hands it over —
+    and of the cars it drives itself next tick, off copies of the layer the device keeps as the readers have it; a hold
+    read that was not sent throws (`LaneOccupancy.KnowsEveryHold`). Only where the town takes every decision once the
+    device's verdicts are in. While the agents are held, the layer sent back lands before the decisions put off are
+    taken, their holds waited for; a town the device lets go has every hold read back, and every car it keeps handed
+    back, before it takes them. OdesaOsm: a layer sent back 1.80 → 0.30 MB; the town bit for bit as before.
 
 ## 2026-10-08 — the readers' layer is sent back in part, and a decision asks for the ways it reads
 
@@ -79,8 +88,8 @@ the device took turns rather than working side by side.
 rebuild (4.7 MB on OdesaOsm, written into the readers' layer in 1.5 ms) for what the decisions ask of it: about ten
 thousand questions a tick about an agent's own hold, and a few dozen about bodies and plans on particular ways.
 
-- **Every hold comes back, and what cut it** (`rebuild_holds_out.comp`'s rows and `rebuild_cutters.comp`'s cutters), so a
-  question about an agent's own hold is answered as before.
+- **Of the holds, only those the town reads come back**, asked for as it reads them (`DeviceRebuild.HoldsAsAsked`, under
+  the ruling above), so a question about an agent's own hold is answered as before.
 - **Of the rows, only the lists of the ways the readers asked about lately** (`LaneOccupancy.Knows`, kept asked for a
   second), and the lights' holds of every signalled way, so a light ahead is read on every way
   (`rebuild_ways_out.comp`).

@@ -101,12 +101,16 @@ internal sealed partial class TownWorld
     {
         // A table that grows: a laying holds a few dozen rows, and settles into what the town's busiest needs.
         _laying ??= new LaneOccupancy(_ways, LayingRoom, LayingRoom / 16, _atlas.Marks, grows: true);
-        _withTheLayer ??=
-        [
-            new LayerBound<int>(_ground.PlanHold), new LayerBound<int>(_walkingGround.WalkHold),
-            new LayerBound<int>(_walkingGround.HeldAsTables.Occupant), new LayerBound<LaneRoster>(_walkingGround.HeldAsTables.Roster),
-            new LayerBound<long>(_overtaking.LaidFor), new LayerBound<long>(_switching.LaidFor), new LayerBound<long>(_bays.LaidFor),
-        ];
+        if (_withTheLayer == null)
+        {
+            (_planHolds, _walkHolds) = (new LayerBound<int>(_ground.PlanHold), new LayerBound<int>(_walkingGround.WalkHold));
+            _withTheLayer =
+            [
+                _planHolds, _walkHolds, new LayerBound<int>(_walkingGround.HeldAsTables.Occupant),
+                new LayerBound<LaneRoster>(_walkingGround.HeldAsTables.Roster), new LayerBound<long>(_overtaking.LaidFor),
+                new LayerBound<long>(_switching.LaidFor), new LayerBound<long>(_bays.LaidFor),
+            ];
+        }
 
         foreach (var bound in _withTheLayer) bound.Save();
         _laying.Begin();
@@ -122,6 +126,17 @@ internal sealed partial class TownWorld
     /// was laid for.
     /// </summary>
     ILayerBound[]? _withTheLayer;
+
+    LayerBound<int>? _planHolds, _walkHolds;
+
+    /// <summary>
+    /// A car's hold number as the readers read it once the laying put aside lands (<see cref="LandTheLaying"/>) — or, where
+    /// <paramref name="landing"/> is false, as they read it now.
+    /// </summary>
+    public int PlanHoldOf(int car, bool landing) => landing && _planHolds != null ? _planHolds.Adopted(car) : _ground.PlanHold[car];
+
+    /// <summary>A walker's hold number as the readers read it once the laying put aside lands, or as they read it now.</summary>
+    public int WalkHold(int person, bool landing) => landing && _walkHolds != null ? _walkHolds.Adopted(person) : _walkingGround.WalkHold[person];
 
     /// <summary>
     /// <b>Back onto the layer every reader reads</b> once the device has answered — written back into it already, or, where

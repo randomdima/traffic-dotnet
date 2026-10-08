@@ -106,7 +106,13 @@ internal sealed partial class LaneOccupancy
     }
 
     /// <summary>Whether a hold is answered with the plans rather than laid where it stands.</summary>
-    public bool IsAnswered(int hold) => hold != NoHold && _answered[hold];
+    public bool IsAnswered(int hold)
+    {
+        if (hold == NoHold) return false;
+
+        ExpectTheHold(hold);
+        return _answered[hold];
+    }
 
     /// <summary>
     /// <b>Every plan answered, pass after pass</b>, until no answer moves or <paramref name="mostPasses"/> have run and

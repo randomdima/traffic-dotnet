@@ -25,7 +25,11 @@ internal sealed partial class LaneOccupancy
     /// Whether every way's lists are written next — or only some ways' (<see cref="KnowTheWay"/>), every other way's
     /// planned list holding the lights' holds on it alone.
     /// </param>
-    public void BeginTheMirror(int slots, int holds, bool everyWay = true)
+    /// <param name="everyHold">
+    /// Whether every hold is written next — or only those of the agents the town reads, each written as it is asked for
+    /// (<see cref="MirrorTheHold"/>) until the next mirror begins.
+    /// </param>
+    public void BeginTheMirror(int slots, int holds, bool everyWay = true, bool everyHold = true)
     {
         if (slots > _slots.Length || holds > _holdFirst.Length)
         {
@@ -35,6 +39,7 @@ internal sealed partial class LaneOccupancy
         Begin();
         Mirrors++;
         KnowEveryWay(everyWay);
+        KnowEveryHold(everyHold);
         _slotCount = slots;
         _holdCount = holds;
     }
@@ -72,6 +77,7 @@ internal sealed partial class LaneOccupancy
         _holdCutBy[hold] = cutBy;
         _holdCutOn[hold] = cutOn;
         _shownToLineM[hold] = float.PositiveInfinity;
+        _holdKnownIn[hold] = Mirrors;
     }
 
     /// <summary>

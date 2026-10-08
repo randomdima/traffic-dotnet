@@ -50,6 +50,15 @@ internal sealed partial class DeviceWalkers
     /// <summary>Each kept walker's hold as the town's readers read it, written by the rebuild that keeps up with them.</summary>
     public GpuBuffer ReadersHolds => _readersHolds;
 
+    /// <summary>
+    /// Each walker's last verdict — the stamp of the decisions laid (<see cref="DecideStamp"/>) shifted past whether it is
+    /// more than the clock — for a kernel after the decisions that reads which were handed to the town.
+    /// </summary>
+    public GpuBuffer Verdicts => _walkerVerdicts;
+
+    /// <inheritdoc cref="Verdicts"/>
+    public uint DecideStamp => _decideStamp;
+
     void DecideOverThem(GpuBuffer ticked)
     {
         _decideFigures = _vk.CreateBuffer((ulong)Marshal.SizeOf<DecideFigures>(), BufferUsageFlags.StorageBufferBit, HostAccess.Writes);

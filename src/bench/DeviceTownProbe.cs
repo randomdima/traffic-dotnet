@@ -95,6 +95,7 @@ internal static class DeviceTownProbe
         var claimsMs = 0d;
         var sentBytes = 0d;
         var walkersPatched = 0L;
+        var (holdsAsked, holdsAnswered) = (0L, 0L);
         var (tickRegions, rebuildRegions) = (0L, 0L);
         var bodiesLayMs = 0d;
         var bodiesWaitMs = 0d;
@@ -193,6 +194,7 @@ internal static class DeviceTownProbe
             claimsMs += device.ClaimsMs;
             sentBytes += device.SentBytes;
             walkersPatched += device.WalkersPatched;
+            (holdsAsked, holdsAnswered) = (holdsAsked + device.Claims.Rebuild.HoldsAsked.Asked, holdsAnswered + device.Claims.Rebuild.HoldsAsked.Answered);
             tickRegions += device.RegionsCopied;
             bodiesLayMs += device.Bodies.LayMs;
             bodiesWaitMs += device.Bodies.WaitMs;
@@ -254,8 +256,9 @@ internal static class DeviceTownProbe
             Console.WriteLine(
                 $"  the layer written back a tick later for {device.Claims.Rebuild.LayersSentBack - sentBack} of them, inside the next tick's submit: " +
                 $"waiting for it {landingWaitedMs / each:F2} and writing it into the town {landedMs / each:F2} ms a rebuild; sent back in part, " +
-                $"{landedMb / each:F2} MB a rebuild: every hold, the lists of {waysKnown / each} ways the readers asked about and the lights' " +
-                $"holds of {waysLightsOnly / each} more");
+                $"{landedMb / each:F2} MB a rebuild: {(device.Claims.Rebuild.HoldsAsAsked ? "no hold" : "every hold")}, the lists of " +
+                $"{waysKnown / each} ways the readers asked about and the lights' holds of {waysLightsOnly / each} more; holds asked for " +
+                $"{holdsAsked / (double)MeasuredTicks:F0} a tick, {holdsAnswered / (double)MeasuredTicks:F0} of them handed back");
             var walkers = device.Claims.Rebuild.Walkers;
             if (walkers.Keeps)
             {

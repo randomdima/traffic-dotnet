@@ -318,6 +318,8 @@ internal sealed partial class LaneOccupancy
         _knownWays = new int[ways.Count];
         _askedIn = new long[ways.Count];
         Array.Fill(_askedIn, long.MinValue);
+        _holdKnownIn = new long[mostHolds];
+        Array.Fill(_holdKnownIn, long.MinValue);
     }
 
     /// <summary>The numbering these reservations are laid in.</summary>
@@ -365,6 +367,7 @@ internal sealed partial class LaneOccupancy
         _slotCount = 0;
         _holdCount = 0;
         KnowEveryWay(true);
+        KnowEveryHold(true);
     }
 
     /// <summary>
@@ -619,7 +622,13 @@ internal sealed partial class LaneOccupancy
     }
 
     /// <summary>Which way a hold was cut on, for an instrument saying what held somebody — or −1.</summary>
-    public int HoldCutOn(int hold) => hold == NoHold ? NoSlot : _holdCutOn[hold];
+    public int HoldCutOn(int hold)
+    {
+        if (hold == NoHold) return NoSlot;
+
+        ExpectTheHold(hold);
+        return _holdCutOn[hold];
+    }
 
     /// <summary>
     /// <b>What a hold came to</b> once every hold of the rebuild was laid: where on its holder's line it ends
@@ -635,6 +644,7 @@ internal sealed partial class LaneOccupancy
             return float.PositiveInfinity;
         }
 
+        ExpectTheHold(hold);
         marginM = _holdCutMarginM[hold];
         cutBy = _holdCutBy[hold];
         return _holdCutLineM[hold];
@@ -805,6 +815,9 @@ internal sealed partial class LaneOccupancy
         Array.Resize(ref _holdTerms, room);
         Array.Resize(ref _laidAnswer, room);
         Array.Resize(ref _answer, room);
+        var known = _holdKnownIn.Length;
+        Array.Resize(ref _holdKnownIn, room);
+        _holdKnownIn.AsSpan(known).Fill(long.MinValue);
     }
 
     /// <summary>Whether a reservation is the asker's own, which is never held against it.</summary>

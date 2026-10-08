@@ -1,0 +1,72 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The holds the town reads this tick, as its readers' layer holds them (app/devicetick/DeviceRebuild.RecordTheHoldsAsked),
+// one thread an ask, written into the host's own memory: each hold the town asked for whatever the device decided, and
+// each it asked for only where the device found an agent's decision more than its clock and handed it to the town
+// (car_decide.glsl's decidedAt, walkers_decide.comp's verdicts, this tick's stamps). Read off the copies the layer's
+// landing left on the device, which are what the readers' layer holds: the hold as rebuild_holds_out.comp wrote it and
+// the claim that cut it, whole rows copied as words.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint count;
+    uint carStamp;
+    uint walkerStamp;
+    uint stamp;
+} figures;
+
+// An ask: the hold, and whose decision it waits on — none, a car's or a walker's.
+const uint AskIfDecided = 0x80000000u;
+const uint AskOfAWalker = 0x40000000u;
+const uint AskAgent = 0x3fffffffu;
+
+// A walker's verdict: the stamp of the tick that wrote it, shifted past whether the decision is more than the clock.
+const uint VerdictMore = 1u;
+
+// app/devicetick/DeviceRebuild.HoldAnswered: the hold and the stamp that wrote it, then DeviceRebuild.HoldOut and the
+// ClaimRow that cut it, three words of four each.
+struct HoldAnswered
+{
+    uint hold;
+    uint stamp;
+    uint pad0;
+    uint pad1;
+    uvec4 held[3];
+    uvec4 cutter[3];
+};
+
+layout(std430, binding = 0) readonly buffer Asked { uvec2 asked[]; };
+layout(std430, binding = 1) readonly buffer ReadersHolds { uvec4 readersHolds[]; };
+layout(std430, binding = 2) readonly buffer ReadersCutters { uvec4 readersCutters[]; };
+layout(std430, binding = 3) readonly buffer CarsDecidedAt { uint carsDecidedAt[]; };
+layout(std430, binding = 4) readonly buffer WalkerVerdicts { uint walkerVerdicts[]; };
+layout(std430, binding = 5) writeonly buffer Answered { HoldAnswered answered[]; };
+
+void main()
+{
+    uint at = gl_GlobalInvocationID.x;
+    if (at >= figures.count) return;
+
+    uvec2 ask = asked[at];
+    if ((ask.y & AskIfDecided) != 0u)
+    {
+        uint agent = ask.y & AskAgent;
+        bool handed = (ask.y & AskOfAWalker) != 0u
+            ? walkerVerdicts[agent] == ((figures.walkerStamp << 1u) | VerdictMore)
+            : carsDecidedAt[agent] == figures.carStamp;
+        if (!handed) return;
+    }
+
+    uint hold = ask.x;
+    answered[at].hold = hold;
+    for (uint word = 0u; word < 3u; word++)
+    {
+        answered[at].held[word] = readersHolds[hold * 3u + word];
+        answered[at].cutter[word] = readersCutters[hold * 3u + word];
+    }
+
+    answered[at].stamp = figures.stamp;
+}

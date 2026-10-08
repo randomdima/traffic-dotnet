@@ -59,4 +59,7 @@ internal sealed class LayerBound<T>(T[] live) : ILayerBound where T : unmanaged
             if (same.Equals(live[at], _readers[at])) live[at] = _laid[at];
         }
     }
+
+    /// <summary>One agent's entry as <see cref="Adopt"/> will leave it, read while the laying is put aside.</summary>
+    public T Adopted(int at) => EqualityComparer<T>.Default.Equals(live[at], _readers[at]) ? _laid[at] : live[at];
 }

@@ -6,6 +6,7 @@ using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Runtime;
+using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
 using Vk = TrafficSimulation.Runtime.Vk;
 
@@ -197,15 +198,24 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         var firstCar = town.Roster.AgentOfCar(0);
         var kept = KeptWalkers;
         var count = 0;
+        var rebuild = _townClaims.Rebuild;
         foreach (var person in town.DecisionsPutOff)
         {
             if (person >= firstCar) break;
-            if (people.Inside[person].Any || people.Wounded[person] || people.Stage[person] == TripStage.OnDuty) continue;
+
+            var hold = _asksTheHolds ? town.WalkHold(person, rebuild.LandsThisTick) : LaneOccupancy.NoHold;
+            if (people.Inside[person].Any || people.Wounded[person] || people.Stage[person] == TripStage.OnDuty)
+            {
+                rebuild.AskTheHold(hold);
+                continue;
+            }
 
             var byTheTown = !_walkerReadersKnown || !kept.HoldsAsTheTownHas(town, person);
             _walkerByTheTown[person] = byTheTown;
             _walkerListed[person] = true;
             _walkersDue[count++] = (uint)person | (byTheTown ? DeviceWalkers.ByTheTown : 0u);
+            if (ChecksTheDecisions) rebuild.AskTheHold(hold);
+            else rebuild.AskTheWalkersHoldIfDecided(hold, person);
         }
 
         _walkersDueCount = count;
@@ -307,18 +317,24 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     {
         var cars = town.Cars;
         var firstCar = town.Roster.AgentOfCar(0);
+        var rebuild = _townClaims.Rebuild;
         var count = 0;
         foreach (var agent in town.DecisionsPutOff)
         {
             if (agent < firstCar) continue;
 
             var car = town.Roster.CarIndex(agent);
+            var hold = _asksTheHolds ? town.PlanHoldOf(car, rebuild.LandsThisTick) : LaneOccupancy.NoHold;
             if (!_takenNow[car] || !_tyres.KeptOnTheDevice[car] || _cars.TownHolds(car))
             {
                 // The town decides it with what it holds, and may move on from it: handed back as this tick leaves it.
                 if (_cars.Takes(car)) _decidedByTheTown[car] = true;
+                rebuild.AskTheHold(hold);
                 continue;
             }
+
+            if (ChecksTheDecisions) rebuild.AskTheHold(hold);
+            else rebuild.AskTheHoldIfDecided(hold, car);
 
             var byTheTown = readersUnknown || !town.LeavesItsDecisionToItsLine(car);
             _byTheTown[car] = byTheTown;
@@ -659,6 +675,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         if (town.HoldAgents)
         {
             _townClaims.TakeTheAnswers(town);
+            AskTheHoldsOfTheDecisions(town);
             town.TakeTheDecisionsPutOff();
 
             // Nothing is ticked here, and the bodies step on the town's own impulses.
@@ -687,6 +704,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         if (posesInTheTable && !stepping) _bodies.LayThePosesTheTownChanged(town);
         _count = _cars.Prepare(town, _taken, resident: true, laidByTheTown, chosen, posesInTheTable);
         chosen.Clear();
+        AskTheHoldsOfWhatTheTownDrives(town);
 
         // A rebuild laid this tick whose layer lands later leaves the town's readers on the claims before it, which the
         // decisions are asked of — or, where the device has never had them, the town decides every car.
@@ -726,6 +744,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         // The walkers' decisions put off read each one as the town has it now, its hold as the readers do.
         if (readersCopied && _townClaims.Rebuild.RecordTheWalkersReaders(head)) _vk.BetweenKernels(head);
         KeptWalkers.RecordTheDecisions(head);
+        _townClaims.Rebuild.RecordTheHoldsAsked(head, _cars.Stamp, KeptWalkers.DecideStamp);
         _headBatch.Submit();
 
         var commands = _batch.Begin();
@@ -764,6 +783,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         var idle = Stopwatch.GetTimestamp();
         _headBatch.Wait();
         IdleMs = Stopwatch.GetElapsedTime(idle).TotalMilliseconds;
+        _townClaims.Rebuild.MirrorTheHoldsAsked(town.ReadersOccupancy);
 
         // The decisions once the device's verdicts are in, while the tick runs, and before what it left of the cars is
         // written back: the town a tick old either way, and a car a decision moved on from read as the tick had it.
@@ -807,6 +827,52 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         PrepareMs = Stopwatch.GetElapsedTime(began, prepared).TotalMilliseconds;
         WaitMs = Stopwatch.GetElapsedTime(prepared, waited).TotalMilliseconds;
         TakeBackMs = Stopwatch.GetElapsedTime(waited).TotalMilliseconds;
+    }
+
+    /// <summary>Whether this tick asks for the holds the town reads (<see cref="DeviceRebuild.AsksForTheHolds"/>).</summary>
+    bool _asksTheHolds;
+
+    /// <summary>
+    /// <b>Whether this tick asks for the holds the town reads</b> — every layer landing sending back only those
+    /// (<see cref="DeviceRebuild.HoldsAsAsked"/>) where the town takes every decision once the device's verdicts are in — and,
+    /// where it does, the hold of every driven car the device does not take, which the town's own tick reads next
+    /// (<c>Following.Tick</c>). The decisions' holds are asked as they are laid.
+    /// </summary>
+    void AskTheHoldsOfWhatTheTownDrives(TownWorld town)
+    {
+        var rebuild = _townClaims.Rebuild;
+        rebuild.HoldsAsAsked = DecidesTheCars && DecidesTheWalkers;
+        _asksTheHolds = rebuild.AsksForTheHolds(town.ReadersOccupancy);
+        if (!_asksTheHolds) return;
+
+        var cars = town.Cars;
+        for (var car = 0; car < cars.Count; car++)
+        {
+            if (cars.Driven[car] && !_cars.Takes(car)) rebuild.AskTheHold(town.PlanHoldOf(car, rebuild.LandsThisTick));
+        }
+    }
+
+    /// <summary>
+    /// <b>While the agents are held, the holds of every decision put off asked for and waited for</b>, before the town takes
+    /// them — the layer sent back landed first, which the holds asked for are read off.
+    /// </summary>
+    void AskTheHoldsOfTheDecisions(TownWorld town)
+    {
+        var rebuild = _townClaims.Rebuild;
+        rebuild.HoldsAsAsked = DecidesTheCars && DecidesTheWalkers;
+        if (!rebuild.AsksForTheHolds(town.ReadersOccupancy)) return;
+
+        rebuild.LandWhatWasSent(town);
+        var firstCar = town.Roster.AgentOfCar(0);
+        foreach (var agent in town.DecisionsPutOff)
+        {
+            rebuild.AskTheHold(agent < firstCar ? town.WalkHold(agent) : town.PlanHoldOf(town.Roster.CarIndex(agent)));
+        }
+
+        var commands = _batch.Begin();
+        rebuild.RecordTheHoldsAsked(commands, _cars.Stamp, KeptWalkers.DecideStamp);
+        _batch.SubmitAndWait();
+        rebuild.MirrorTheHoldsAsked(town.ReadersOccupancy);
     }
 
     /// <summary>The claims laid here, for whoever reads how many and what each cost.</summary>
@@ -1039,12 +1105,16 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// <summary>Where the bodies' step just handed back left every walker, taken as what the device's walker table holds.</summary>
     void KnowTheStep() => _walkers.KnowTheStep(_bodies.Phase.WalkersAfter);
 
-    /// <remarks>Every wheel the device keeps is handed back first: the town may go on ticking its cars itself.</remarks>
+    /// <remarks>
+    /// The last laying landed with every hold, and every car the device keeps handed back whole, before the decisions put
+    /// off are taken: the town goes on ticking its agents itself, and reads any of them.
+    /// </remarks>
     public void Dispose()
     {
-        _town.TakeTheDecisionsPutOff();
         _townClaims.LandTheLastLaying(_town);
+        _townClaims.Rebuild.LandEveryHold(_town.ReadersOccupancy);
         HandBackAlone(_town, Leaving(_town, everyKept: true));
+        _town.TakeTheDecisionsPutOff();
         _timer.Dispose();
         _stepBatch.Dispose();
         _headBatch.Dispose();
