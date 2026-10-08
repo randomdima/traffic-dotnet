@@ -22,8 +22,8 @@ namespace TrafficSimulation.CityGen.Gen;
 /// to the bays there are</b> — spread over the town rather than filling whichever car park was cut first.
 /// </para>
 /// <para>
-/// <b>A town that cut no car park stands its cars on its lanes</b>, one a lane and none within a car's room of a
-/// bridge's — the fixture, which asks for no buildings and so is owed no parking, and a city whose roads are its own
+/// <b>A town that cut no car park stands its cars on its lanes</b>, one a lane while there are lanes enough and more
+/// on the long ones past that, none within a car's room of a bridge's — the fixture, which asks for no buildings and so is owed no parking, and a city whose roads are its own
 /// (GEN-8). Otherwise the town would not move at all, and a picture of a perfect road fabric with no traffic on it
 /// passes every static test while making every dynamic reading vacuous at once. Such a car tours (CAR-8).
 /// </para>
@@ -49,7 +49,11 @@ internal static class SpawnStage
 
         var doors = buildings.EntryPointM.Length;
         var people = Math.Min(wantPeople, doors);
-        var cars = people > 0 && bays ? 0 : Math.Min(wantCars, places.Count);
+        var stood = people > 0 && bays ? 0 : wantCars;
+        var order = Spread(places.Count, Math.Min(stood, places.Count), ref draw);
+        var standing = new int[places.Count];
+        foreach (var place in order) standing[place] = 1;
+        var cars = order.Length + (bays ? 0 : StandMore(standing, stood - order.Length, places, bridgeCars, lanes, config, ref draw));
         var count = bridgeCars.Count + cars + people;
         var kind = new byte[count];
         var positionM = new Vector2[count];
@@ -59,15 +63,18 @@ internal static class SpawnStage
         bridgeCars.HeadingRad.CopyTo(headingRad, 0);
 
         var taken = bridgeCars.Count;
-        foreach (var place in Spread(places.Count, cars, ref draw))
+        foreach (var place in order)
         {
             var on = places[place];
-            var at = Spline.SampleAt(lanes.ArcsOf(on), MiddleOfThePlaceM(lanes, on, config));
+            for (var car = 0; car < standing[place]; car++)
+            {
+                var at = Spline.SampleAt(lanes.ArcsOf(on), AlongThePlaceM(lanes, on, car, standing[place], config));
 
-            kind[taken] = Car;
-            positionM[taken] = at.PositionM;
-            headingRad[taken] = at.HeadingRad;
-            taken++;
+                kind[taken] = Car;
+                positionM[taken] = at.PositionM;
+                headingRad[taken] = at.HeadingRad;
+                taken++;
+            }
         }
 
         // <b>One person a door, spread over the whole town's worth of them</b> (GEN-7). A body stood at a
@@ -104,6 +111,42 @@ internal static class SpawnStage
         lanes.LaneIsBay[lane]
             ? lanes.LaneLengthM[lane] - (config.CarParkBayLengthM * 0.5f)
             : lanes.LaneLengthM[lane] * 0.5f;
+
+    /// <summary>
+    /// <b>Where along a place's lane one of the cars it stands is stood</b>: the middle of the place for the only one, and
+    /// otherwise each in the middle of its own equal share of the lane.
+    /// </summary>
+    static float AlongThePlaceM(LaneLines lanes, int lane, int car, int of, SimConfig config) =>
+        of == 1 ? MiddleOfThePlaceM(lanes, lane, config) : lanes.LaneLengthM[lane] * (car + 0.5f) / of;
+
+    /// <summary>
+    /// <b>The cars a town asks for past one a lane</b> (GEN-7), stood a round at a time: each round one more on every
+    /// lane whose shares would still each be a car's room (<see cref="RoomM"/>) clear of every bridge's car, spread over
+    /// them as the first round is. How many were stood, at most <paramref name="more"/>.
+    /// </summary>
+    static int StandMore(
+        int[] standing, int more, List<int> lanes, CityPlan.SpawnArrays bridgeCars, LaneLines lines, SimConfig config, ref Rng draw)
+    {
+        var stood = 0;
+        var room = new List<int>();
+        for (var round = 2; stood < more; round++)
+        {
+            room.Clear();
+            for (var place = 0; place < lanes.Count; place++)
+            {
+                if (standing[place] != round - 1 || lines.LaneLengthM[lanes[place]] < round * RoomM(config)) continue;
+                if (ClearOfTheBridges(lines, lanes[place], round, bridgeCars, config)) room.Add(place);
+            }
+
+            if (room.Count == 0) break;
+
+            var taken = Spread(room.Count, Math.Min(more - stood, room.Count), ref draw);
+            foreach (var at in taken) standing[room[at]] = round;
+            stood += taken.Length;
+        }
+
+        return stood;
+    }
 
     /// <summary>
     /// <b>Every bay of the town's own car parks, as the lane driven into it</b> (GEN-53): the middle of the
@@ -162,17 +205,23 @@ internal static class SpawnStage
     {
         if (bridgeCars.Count == 0) return lanes;
 
+        return lanes.FindAll(lane => ClearOfTheBridges(lines, lane, 1, bridgeCars, config));
+    }
+
+    /// <summary>Whether no bridge's car stands within a car's room (<see cref="RoomM"/>) of any of a lane's cars, were it to stand this many.</summary>
+    static bool ClearOfTheBridges(LaneLines lines, int lane, int of, CityPlan.SpawnArrays bridgeCars, SimConfig config)
+    {
         var roomM = RoomM(config);
-        return lanes.FindAll(lane =>
+        for (var car = 0; car < of; car++)
         {
-            var middleM = Spline.SampleAt(lines.ArcsOf(lane), MiddleOfThePlaceM(lines, lane, config)).PositionM;
+            var atM = Spline.SampleAt(lines.ArcsOf(lane), AlongThePlaceM(lines, lane, car, of, config)).PositionM;
             foreach (var carM in bridgeCars.PositionM)
             {
-                if (Vector2.Distance(carM, middleM) < roomM) return false;
+                if (Vector2.Distance(carM, atM) < roomM) return false;
             }
+        }
 
-            return true;
-        });
+        return true;
     }
 
     /// <summary>

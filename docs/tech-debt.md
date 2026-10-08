@@ -40,7 +40,7 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   lattice point nearest it puts a car on a lane its collider does not reach, within 0.35 m of a band, and the traffic
   on that lane brakes for it. Proving a wheel inside a band instead braked harder still (road log).
 - **`--bench devicetown`'s tick wanders run to run on one build**: 4.24–5.65 ms a tick over six runs on OdesaOsm
-  (2026-10-08), where the host town's stayed within 15.7–17.0. Suspected the GPU's clocks and power state, unmeasured; an
+  at 10 000 of each (2026-10-08), where the host town's stayed within 15.7–17.0. Suspected the GPU's clocks and power state, unmeasured; an
   A/B of the device tick needs several runs a side until the device's clocks are pinned or read with the figures. The
   machine's own load moves it too: with another program taking 0.7 of a core, the host town's tick read 18.5–18.8 ms and
   the device town's 6.0–6.5 — so the probe should print the load it ran under, and the device's own figures (its
@@ -72,6 +72,12 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 ### Claims laying
 
+- **The claim table is laid for every agent's worst case at once** (`TownWorld`'s `LaneOccupancy`): each driver's room
+  is every way its body, its line and its backing could be over, with every mark linked to them. OdesaOsm at 20 013 cars
+  and 20 000 people lays 38.5 M slots, 1 764 MiB a copy of `DeviceClaims.ClaimRow`, under 1 % of it touched. The device
+  holds about 250 B a slot (`DeviceClaims`' rows and order, `DeviceRebuild`'s ways rows, and their host-visible copies),
+  about 9.5 GB. 68 M slots ran out of memory on the 16 GB card, so a town about 1.8 times this one does not open on the
+  device. Closes when the table is laid for what the town holds and grows past it.
 - **A parked car's wheels are read again every laying** (`TownWorld.LayTheStandingBody`) at the pose they were read at
   last time. Keeping the covers needs up to `RibbonAtlas.MostWaysUnderABody` (48) a car, or an arena. The host reads
   them on the channels kept with the car (`StandingCars.ReadOn`) while `DeviceBodies` reads on `CarFleet.Channels`,

@@ -12,7 +12,7 @@ namespace TrafficSimulation.Tests.CityGen;
 
 /// <summary>
 /// <b>A town stands the people and cars its map asks for</b> (GEN-7, <see cref="SpawnStage"/>): a person at each door
-/// asked for and — where nobody has a bay — a car on each lane, as many as fit, and no car on top of one its bridges
+/// asked for and — where nobody has a bay — a car on each lane and more on the lanes with room, and no car on top of one its bridges
 /// stand — each asked of a few roads and houses laid by hand.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
@@ -43,19 +43,52 @@ public class RosterTests
     }
 
     /// <summary>
-    /// <b>Asked for more cars than its lanes hold, a town stands one a lane</b> (GEN-8): every car at the middle of a lane
+    /// <b>Asked for as many cars as it has lanes, a town stands one a lane</b> (GEN-7): every car at the middle of a lane
     /// no other car stands on.
     /// </summary>
     [Fact]
-    public void AskedPastItsLanesATownStandsOneALane()
+    public void AskedForItsLanesATownStandsOneALane()
     {
-        var plan = Laid(people: 0, cars: 1000, Tee());
+        var plan = Laid(people: 0, cars: StandableLanes().Count, Tee());
         var lanes = plan.Paving(Config).Lanes;
 
         var on = Standing(plan, SpawnStage.Car).Select(carM => Enumerable.Range(0, lanes.LaneCount).Single(lane =>
             Vector2.Distance(Spline.SampleAt(lanes.ArcsOf(lane), lanes.LaneLengthM[lane] * 0.5f).PositionM, carM) < LineTolerance.RoundingM)).ToArray();
 
         Assert.Equal(on.Length, on.Distinct().Count());
+    }
+
+    /// <summary><b>Asked past its lanes, a town stands the rest on the lanes with room</b> (GEN-7): two a lane asked of a tee stand.</summary>
+    [Fact]
+    public void AskedPastItsLanesTheCarsStandWhereTheLanesHoldThem()
+    {
+        var asked = 2 * StandableLanes().Count;
+
+        Assert.Equal(asked, Standing(Laid(people: 0, cars: asked, Tee()), SpawnStage.Car).Length);
+    }
+
+    /// <summary>
+    /// <b>Cars stood on one lane stand a car's room apart along it</b> (GEN-7, <see cref="SpawnStage.RoomM"/>): asked for a
+    /// thousand, every pair of neighbours on each of a tee's lanes.
+    /// </summary>
+    [Fact]
+    public void CarsOnOneLaneStandACarsRoomApart()
+    {
+        var plan = Laid(people: 0, cars: 1000, Tee());
+        var lanes = plan.Paving(Config).Lanes;
+        var standable = SpawnStage.TheLanes(lanes, Config);
+
+        var gapsM = Standing(plan, SpawnStage.Car)
+            .Select(carM => standable.Select(lane => (Lane: lane, AlongM: Spline.ProjectM(lanes.ArcsOf(lane), carM, 0f, lanes.LaneLengthM[lane], out var offSq), OffSq: offSq))
+                .Single(on => on.OffSq < LineTolerance.RoundingM * LineTolerance.RoundingM))
+            .GroupBy(on => on.Lane)
+            .SelectMany(cars =>
+            {
+                var alongM = cars.Select(on => on.AlongM).Order().ToArray();
+                return alongM.Zip(alongM.Skip(1), (nearM, farM) => farM - nearM);
+            });
+
+        Assert.All(gapsM, gapM => Assert.True(gapM >= SpawnStage.RoomM(Config), $"two cars stand {gapM:F2} m apart along a lane"));
     }
 
     /// <summary>
@@ -78,6 +111,9 @@ public class RosterTests
 
     static readonly Comparer<Vector2> ByPlace = Comparer<Vector2>.Create((one, other) =>
         one.X != other.X ? one.X.CompareTo(other.X) : one.Y.CompareTo(other.Y));
+
+    /// <summary>The tee's lanes a car can be stood on (<see cref="SpawnStage.TheLanes"/>).</summary>
+    static List<int> StandableLanes() => SpawnStage.TheLanes(Laid(people: 0, cars: 0, Tee()).Paving(Config).Lanes, Config);
 
     static Vector2[] Standing(CityPlan plan, byte kind) =>
         [.. Enumerable.Range(0, plan.Spawns.Count).Where(spawn => plan.Spawns.Kind[spawn] == kind).Select(spawn => plan.Spawns.PositionM[spawn])];

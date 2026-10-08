@@ -477,13 +477,14 @@ building is read off the pose the plan left the body in** — the way in it is s
 nothing to say it. **Where people live and the town cut car parks, every car is somebody's** (PER-29): the plan
 stands no car of its own, and the town stands each person's in the free bay nearest their door. **A town nobody lives
 in stands the map's cars in bays of its own car parks**, never a service's yard (GEN-55); **and one that cut no car
-park stands them on its lanes**, one a lane, and they tour (CAR-8) — the fixture, which asks for no buildings and is
+park stands them on its lanes**, one a lane while it has lanes enough and the rest on the lanes with room for
+more, the cars of one lane a car's room apart along it, and they tour (CAR-8) — the fixture, which asks for no buildings and is
 owed no parking, and a town whose roads are its map's own (GEN-57), which cuts none and stands its map's cars on its
 lanes beside its people, none on a bridge's cars.
 
 **How many of each is the map's own** (`ZoneParam.People`, `ZoneParam.Cars`, said by its whole map's zone), and **the
-bound is the town rather than the count**: a person is stood at a way in, and a car the plan stands in a bay or on a
-lane long enough to hold one, spread over the town from a drawn start, so a map asking for more than the ground carries
+bound is the town rather than the count**: a person is stood at a way in, and a car the plan stands in a bay or in a
+car's room of a lane, spread over the town from a drawn start, so a map asking for more than the ground carries
 gets what fitted (GEN-8). A person with no free bay within a walk of their door owns no car.
 
 **GEN-8** `P6` **No candidate city is ever rejected.** A violation of GEN-3…GEN-5 is a defect in the

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.App.DeviceTick;
 using TrafficSimulation.CityGen;
@@ -70,6 +71,14 @@ internal static class DeviceTownProbe
         using var world = new TownWorld(plan, config);
         var loop = new SimLoop<TownWorld>(world, config);
         while (loop.Tick < WarmupTicks) loop.Advance();
+
+        if (vk is not null)
+        {
+            var claims = world.Occupancy;
+            Console.WriteLine(
+                $"  room laid: {world.Cars.Capacity} cars, {world.People.Capacity} people, claims {claims.Capacity} slots " +
+                $"({claims.Capacity * (long)Unsafe.SizeOf<DeviceClaims.ClaimRow>() / (1 << 20)} MiB a copy) and {claims.HoldCapacity} holds");
+        }
 
         using var device = vk is null ? null : new DeviceTown(vk, config, world) { StepsWithTheTick = stepsWithTheTick };
         world.Device = device;

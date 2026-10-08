@@ -468,7 +468,12 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// their own for each person, where a bay near their door is free (PER-29) — the room the fleet is laid with
     /// before the service vehicles go on top of it, and what anything drawing the fleet lays its room for.
     /// </summary>
-    public static int CarsOfThePlan(CityPlan plan) => PeopleIn(plan) + CountOf(plan, SpawnKindCar);
+    /// <remarks>
+    /// Nobody owns more cars than the plan has bays to stand them in, so a town that cut no car park lays no room for
+    /// its people's: every claim slot a car's room reserves is its worst case on every way it could be over.
+    /// </remarks>
+    public static int CarsOfThePlan(CityPlan plan) =>
+        Math.Min(PeopleIn(plan), plan.CarParks.Road.Length) + CountOf(plan, SpawnKindCar);
 
     static int PeopleIn(CityPlan plan) => CountOf(plan, SpawnKindPerson);
 

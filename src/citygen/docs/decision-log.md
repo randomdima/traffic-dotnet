@@ -1,5 +1,23 @@
 # CityGen — decision log
 
+## 2026-10-08 — past one a lane, a town stands more cars on its long lanes
+
+**The owner asked for 20 000 people and 20 000 cars on `OdesaOsm`.** Its lanes clear of the bridges' cars number
+18 677, so one a lane stood 18 675. GEN-7 is restated: a town that cut no car park stands one car a lane while it has
+lanes enough. Past that, a round at a time, one more stands on every lane long enough to give each of its cars a car's
+room (`SpawnStage.RoomM`), spread over them as the first round is, each lane's cars at the middles of equal shares of
+it. A map asking for no more
+cars than lanes is laid exactly as before, draw for draw.
+
+- **A town that cut no car park lays no car room for its people.** `TownWorld.CarsOfThePlan` counted a car for every
+  person, though nobody is handed one without a bay (PER-29); it now counts at most one per bay of the plan. Every car's
+  room is a driver's worst case in the claim table, so at 20 000 people the fleet's room of 38 690 laid 68.1 M slots,
+  3 116 MiB a copy of the device's rows, and `vkAllocateMemory` ran out on the 16 GB card. Bounded, the room is 20 013
+  and the table 38.5 M slots, 1 764 MiB a copy.
+- **What it costs**, `--bench devicetown` on the RX 9070 XT, another program taking 0.7 of a core: the device town 6.51 ms
+  a tick and the host town 35.6, against about 4.4 and 16.5–18.6 at 10 000 of each; the bench's peak resident set
+  7.6 GB; `qq tests maps` 4 m 38 s against 3 m 35 s.
+
 ## 2026-10-06 — every town is laid off its map's file, and its zones lay what the map does not fix
 
 **The owner asked for every map to be one binary file**: what defines the place fixed in it (water, roads, and any
@@ -106,7 +124,7 @@ GEN-57 and TER-5j are restated.
 ## 2026-10-06 — a traced town stands the people and cars its map asks for
 
 **The owner asked for 10 000 people and 10 000 cars on `OdesaOsm`.** A traced map now says who its town stands, set
-in place by `qq osm --people N --cars N`: one person a door and one car a lane, as many as fit. No lane is used whose
+in place by `qq osm --people N --cars N`: one person a door and its cars on its lanes, as many as fit. No lane is used whose
 middle stands within a car's room of a car at a bridge. GEN-7 and GEN-57 are restated.
 
 - **Its cars belong to nobody.** A traced town cuts no car park, so nobody living in it is handed a car (PER-29).
@@ -123,8 +141,6 @@ middle stands within a car's room of a car at a bridge. GEN-7 and GEN-57 are res
     worst case at once and more than 99% untouched. So the page, which commits whatever is reserved, cannot hold the
     town. A window runs at 5 fps.
   - **Tests:** `qq tests maps` takes 3 m 35 s.
-  - **Car slots:** every person still reserves a car slot (`TownWorld.CarsOfThePlan`) though none can be handed one
-    here, so the fleet's room is 20 000 for 10 013 cars.
 
 ## 2026-10-06 — a traced town paints its own zebras and lays its own props
 
