@@ -28,8 +28,8 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   (unit) fail now and then in a full unit run and pass alone: the first four times in about seventeen runs (two of them in a row), 4 296 B on the test's own
   thread over 500 searches; the second once, 7 144 B. The counter is the thread's, so it is not the side-by-side
   classes; something on that thread allocates now and then — a JIT's rejit is the guess, unconfirmed.
-- **`AllocationGateTests.ThisEnginesOwnPhasesAllocateNothingOverAWholeTown(Test)`** failed three times in about twelve
-  perf runs, once at 6.8 B a tick. It passes alone and in reruns of the tier, and a per-agent trace of phases 1–3 found no
+- **`AllocationGateTests.ThisEnginesOwnPhasesAllocateNothingOverAWholeTown(Test)`** failed four times in about eighteen
+  perf runs, at 6.8 and 2.5 B a tick. It passes alone and in reruns of the tier, and a per-agent trace of phases 1–3 found no
   allocation. A `P0` gate that flickers is either a real allocation on a rare path or a measurement that counts
   something it should not; which is not known.
 
@@ -39,11 +39,6 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   `--bench drive`, and pairs beginning to touch 15 → 21. The bodies' reading and not the tyres': a wheel read at the
   lattice point nearest it puts a car on a lane its collider does not reach, within 0.35 m of a band, and the traffic
   on that lane brakes for it. Proving a wheel inside a band instead braked harder still (road log).
-- **Every car's decision due on the tick a rebuild is laid whose layer lands later is the town's**
-  (`DeviceTown.LayTheDecisions`, `readersBehind`): the town's readers read the claims before that rebuild until its layer
-  lands, the device's tables the rebuild's own, so the device's verdict would be read off other claims. Most of the 457
-  car decisions a tick the town still takes on OdesaOsm are these, taken once the tick's submit is waited for and so not
-  hidden under the device. Closes when the device keeps the cutters and hold bits the readers read until the layer lands.
 - **Nobody holds what no wheel stands on**: across a lane's end a car on two ways leaves its wheelbase less two
   metres and two half steps unclaimed; a car straddling a zebra narrower than its wheelbase, or nosing over a junction
   its front wheels have not reached, is no body there. The gap per car model is not measured.

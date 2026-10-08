@@ -133,6 +133,12 @@ layout(std430, binding = 35) writeonly buffer DecidedAt { uint decidedAt[]; };
 layout(std430, binding = 36) writeonly buffer DecideOut { CarOutRow decideOut[]; };
 layout(std430, binding = 37) readonly buffer TyreCars { TyreCarRow tyreCars[]; };
 
+// The grants, cutters and hold bits as the town's readers read them (DeviceCarTick.ReadersKeepUp): what a decision put off
+// is asked of, which may be the claims before the ones this tick drives on.
+layout(std430, binding = 38) readonly buffer ReadersGrants { CarGrantRow readersGrants[]; };
+layout(std430, binding = 39) readonly buffer ReadersCutters { ClaimRow readersCutters[]; };
+layout(std430, binding = 40) readonly buffer ReadersHoldBits { uint readersHoldBits[]; };
+
 // Verdicts: the stamp of the tick that wrote one, shifted past whether the decision is more than the clock.
 const uint VerdictMore = 1u;
 
@@ -145,8 +151,8 @@ void decideOne(uint car)
     vec2 clockWas = clocks[car];
     vec2 clock = clockWas;
     bool more = decideMoreThanTheClock(
-        car, builds[buildOf[car]], lines[car], tick, told[car], brief, holdBits[car], cutters[car], grants[car].cutOn, terms,
-        clock);
+        car, builds[buildOf[car]], lines[car], tick, told[car], brief, readersHoldBits[car], readersCutters[car],
+        readersGrants[car].cutOn, terms, clock);
     verdicts[car] = (figures.stamp << 1u) | (more ? VerdictMore : 0u);
     if (more) decidedAt[car] = figures.stamp;
     else clocks[car] = clock;

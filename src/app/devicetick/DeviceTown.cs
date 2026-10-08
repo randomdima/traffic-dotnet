@@ -171,10 +171,10 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// <summary>
     /// <b>The decisions put off last tick that this tick asks of the device</b>: of every car the device holds as its last
     /// tick left it, what only the town knows laid — the town deciding it whole where the car is not one whose decision is
-    /// read off its line, or where the claims the town's readers read are not yet the device's (a rebuild laid this tick
-    /// whose layer lands later).
+    /// read off its line, or every car where the device has no copy of the claims the town's readers read
+    /// (<see cref="DeviceCarTick.ReadersKeptUp"/>).
     /// </summary>
-    void LayTheDecisions(TownWorld town, bool readersBehind)
+    void LayTheDecisions(TownWorld town, bool readersUnknown)
     {
         var cars = town.Cars;
         var firstCar = town.Roster.AgentOfCar(0);
@@ -191,7 +191,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
                 continue;
             }
 
-            var byTheTown = readersBehind || !town.LeavesItsDecisionToItsLine(car);
+            var byTheTown = readersUnknown || !town.LeavesItsDecisionToItsLine(car);
             _byTheTown[car] = byTheTown;
             var (patienceS, byM, queueReachM) = town.ClockTermsOf(car);
             var flags = (byTheTown ? DeviceCarTick.DecideTermsRow.ByTheTown : ShapeOfTheRoad(town, car))
@@ -559,8 +559,10 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _count = _cars.Prepare(town, _taken, resident: true, laidByTheTown, chosen, posesInTheTable);
         chosen.Clear();
 
-        // A rebuild laid this tick whose layer lands later leaves the town's readers on the claims before it.
-        if (DecidesTheCars) LayTheDecisions(town, laidHere && _townClaims.Rebuild.LandsLater);
+        // A rebuild laid this tick whose layer lands later leaves the town's readers on the claims before it, which the
+        // decisions are asked of — or, where the device has never had them, the town decides every car.
+        _cars.ReadersKeepUp = !(laidHere && _townClaims.Rebuild.LandsLater);
+        if (DecidesTheCars) LayTheDecisions(town, !_cars.ReadersKeepUp && !_cars.ReadersKeptUp);
         if (!_cars.ReadsEveryCar) LayTheWanted(town);
         town.DriveClocks.ForgetTheTouched();
         _walkerCount = _walkers.LayWhatChanged(town);

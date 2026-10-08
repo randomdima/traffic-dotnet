@@ -214,6 +214,12 @@ internal sealed partial class DeviceCarTick : IDisposable
     readonly GpuBuffer _verdicts, _decidedAt, _decideOut;
     int _decideCount;
 
+    /// <summary>
+    /// Each car's grant, what cut it and its hold bits as the tick reads them, and as the town's readers read them
+    /// (<see cref="ReadersKeepUp"/>) — copied from the first where the readers have the claims the tick has.
+    /// </summary>
+    readonly GpuBuffer _grantsBound, _cuttersBound, _holdBitsBound, _readersGrants, _readersCutters, _readersHoldBits;
+
     /// <summary>The stamp the last tick wrote its rows with, never the zero of a row never written.</summary>
     uint _stamp;
 
@@ -283,6 +289,12 @@ internal sealed partial class DeviceCarTick : IDisposable
         _verdicts = vk.CreateBuffer((ulong)(capacity * sizeof(uint)), BufferUsageFlags.StorageBufferBit, HostAccess.Reads);
         _decideOut = vk.CreateBuffer((ulong)(capacity * Marshal.SizeOf<OutRow>()), BufferUsageFlags.StorageBufferBit, HostAccess.Reads);
         _decidedAt = Laid(new uint[capacity]);
+        _grantsBound = granted?.Grants ?? _grants.Device;
+        _cuttersBound = granted?.Cutters ?? _cutters.Device;
+        _holdBitsBound = granted?.HoldBits ?? _holdBits.Device;
+        _readersGrants = Laid(new GrantRow[capacity]);
+        _readersCutters = Laid(new DeviceClaims.ClaimRow[capacity]);
+        _readersHoldBits = Laid(new uint[capacity]);
 
         var table = tyres.Table;
         GpuBuffer[] ticked =
@@ -293,7 +305,7 @@ internal sealed partial class DeviceCarTick : IDisposable
             Laid(lanePassable), claims.Rows, claims.PlannedRuns, claims.PlannedOrder, granted?.Cutters ?? _cutters.Device,
             granted?.Grants ?? _grants.Device, _told.Device, _ticks.Device, _contexts.Device, _boxes.Device, _taken.Device,
             _passes.Device, granted?.HoldBits ?? _holdBits.Device, _briefs.Device, _decideList.Device, _decideTerms.Device,
-            _clocks.Device, _verdicts, _decidedAt, _decideOut, table.Cars.Device,
+            _clocks.Device, _verdicts, _decidedAt, _decideOut, table.Cars.Device, _readersGrants, _readersCutters, _readersHoldBits,
         ];
         _tickKernel = new ComputeKernel(vk, "car_tick.comp", ticked.Length, (uint)Marshal.SizeOf<Figures>());
         _tickSet = _tickKernel.Bind(ticked);
@@ -529,6 +541,16 @@ internal sealed partial class DeviceCarTick : IDisposable
         _decideList.Send(commands);
         _decideTerms.Send(commands);
         _clocks.Send(commands);
+        if (ReadersKeepUp)
+        {
+            // As the claims stand once every rebuild before this submit and every grant sent in it are in.
+            vk.AfterTheSubmitsBefore(commands);
+            vk.Copy(commands, _grantsBound, _readersGrants, (ulong)(Capacity * Marshal.SizeOf<GrantRow>()));
+            vk.Copy(commands, _cuttersBound, _readersCutters, (ulong)(Capacity * Marshal.SizeOf<DeviceClaims.ClaimRow>()));
+            vk.Copy(commands, _holdBitsBound, _readersHoldBits, (ulong)(Capacity * sizeof(uint)));
+            ReadersKeptUp = true;
+        }
+
         vk.AfterTransfer(commands);
         _timer.Stamp(commands, (int)Stage.Sent);
 
@@ -699,6 +721,16 @@ internal sealed partial class DeviceCarTick : IDisposable
 
         return (verdict & 1u) != 0u;
     }
+
+    /// <summary>
+    /// <b>Whether the town's readers read the claims the tick reads</b>, set before each <see cref="Record"/>: where they
+    /// do, the claims a decision is asked of are those; where they do not — a rebuild laid on the tick whose layer lands
+    /// later — the decisions are asked of the claims the readers last had.
+    /// </summary>
+    public bool ReadersKeepUp { get; set; } = true;
+
+    /// <summary>Whether the readers' claims have been copied at all, so a decision may be asked of them.</summary>
+    public bool ReadersKeptUp { get; private set; }
 
     /// <summary>What a car whose decision was more than its clock is decided on: what its last tick left, and its clock as it stood.</summary>
     public ref readonly OutRow DecidedOn(int car) => ref _decideOut.Span<OutRow>()[car];

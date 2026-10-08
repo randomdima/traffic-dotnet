@@ -50,9 +50,12 @@ the device took turns rather than working side by side.
     the town decides it on is handed back and the town decides it once the tick's submit is waited for, the walkers'
     decisions still taken while it runs. What only the town knows is told (`LeavesItsDecisionToItsLine`, what of a switch
     the road and the route answer), and each car's clock is the device's while it holds the car. A car laid whole is
-    handed back the tick after, so nothing the device's tick alone writes is read off a copy older than it.
-    OdesaOsm: 9 134 of 10 005 cars a tick left on the device, 1 138 decisions a tick run there and 457 handed to the
-    town, car rows in and out 0.25 → 0.15 ms; the town bit for bit as before (`DeviceTownDecidesTests`).
+    handed back the tick after, so nothing the device's tick alone writes is read off a copy older than it. A decision is
+    asked of the claims the town's readers read, which on the tick a rebuild is laid whose layer lands later are the
+    claims before it (`DeviceCarTick.ReadersKeepUp`): the device keeps a copy of every grant, cutter and hold bit as the
+    readers have them. OdesaOsm: 9 577 of 10 005 cars a tick left on the device, 1 584 decisions a tick run there and 12
+    handed to the town, car rows in and out 0.25 → 0.11 ms, 4.35 → 4.14 ms a tick; the town bit for bit as before
+    (`DeviceTownDecidesTests`).
 
 ## 2026-10-08 — the readers' layer is sent back in part, and a decision asks for the ways it reads
 
