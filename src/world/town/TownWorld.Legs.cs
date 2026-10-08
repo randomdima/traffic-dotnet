@@ -1,6 +1,7 @@
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Person.Actions;
+using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.World.Parking;
 using TrafficSimulation.World.Routing;
 
@@ -240,6 +241,55 @@ internal sealed partial class TownWorld
 
         GiveUpTheLeg(car);
     }
+
+    /// <summary>
+    /// <b>Whether this car's decision would do nothing but run its leg's clock</b>: an errand that leaves it to the
+    /// leg, a car following its route with no line to grow, no bay to take up, nothing it may get past that it has come
+    /// up to, no lane beside it means to move across onto and its line not spent — and a clock that will not run out on
+    /// this decision. Asked of nothing it changes.
+    /// </summary>
+    /// <remarks>
+    /// Each refusal is a branch <see cref="DecideNow"/> takes before the clock: a car under orders or on a duty, an owner's
+    /// car its owner is not driving to a bay, <see cref="DecideDriver"/>'s line grown and action decided
+    /// (<see cref="Following.Decide"/>), its next step taken, and the clock's own end of the leg.
+    /// </remarks>
+    public bool TakesOnlyTheClock(int car, float sinceLastDecisionS)
+    {
+        if (HoldAgents || IsUnderOrders(car) || Cars.Ambulance[car] || IsAnEvacuator(car) || IsAPatrolCar(car)) return false;
+        if (!Cars.Driven[car] || Cars.Broken[car] || Cars.Action[car] != CarAction.Follow || !ItsErrandLeavesItToTheLeg(car)) return false;
+        if (_asksTheRoute[car] || Cars.StopsForBayOf(car) != CarFleet.NoBay || TheLineIsSpent(car)) return false;
+        if (_overtaking.MayGetPastWhatCutIt(car, out _, out _) && _overtaking.ComesUpTo(car, Cars.AlongMps[car], Cars.Context[car].AuthorityM))
+        {
+            return false;
+        }
+
+        if (_switching.Wants(car, out _)) return false;
+
+        return !_driveProgress.WouldBeStuck(
+            car, RemainingOnTheDriveM(car), Cars.BuildOf(car).WidthM, sinceLastDecisionS, WaitingForAReasonItCanSee(car),
+            _config.CarPatienceS * Cars.FuseJitter[car]);
+    }
+
+    /// <summary>
+    /// Whether a driven car's errand leaves it to its leg this decision (<see cref="RunTheOwnersCar"/>,
+    /// <see cref="RunTheRound"/>): an owner's car its owner is driving to a bay, or one its owner is not at the wheel of.
+    /// </summary>
+    bool ItsErrandLeavesItToTheLeg(int car)
+    {
+        if (Cars.Owner[car] == CarFleet.NoOwner || WheelIsHeldOver(car)) return true;
+
+        var owner = Cars.Owner[car];
+        return !IsAtTheWheel(owner) || (People.Stage[owner] != TripStage.StandingBy && BayAimedAt(car) >= 0);
+    }
+
+    /// <summary>
+    /// Whether a car whose decision <see cref="TakesOnlyTheClock"/> is decided by its clock alone (<see cref="WatchTheProgress"/>)
+    /// — which is what the whole decision would have come to.
+    /// </summary>
+    public bool DecidesQuietCarsByTheClock { get; set; }
+
+    /// <summary>How many cars' decisions were their clock alone (<see cref="DecidesQuietCarsByTheClock"/>).</summary>
+    public long DecidedByTheClock { get; private set; }
 
     /// <summary>
     /// How long this car has been getting nowhere, which is a reading the instruments print and never a

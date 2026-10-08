@@ -124,6 +124,7 @@ internal static class DeviceTownProbe
         var drivenByTheTownFrom = device?.CarsDrivenByTheTown ?? 0L;
         var drivenByTheTown = drivenByTheTownFrom;
         var leftFrom = device?.CarsLeftOnTheDevice ?? 0L;
+        var byTheClockFrom = world.DecidedByTheClock;
         var takenWholeFrom = device?.TakenBackWhole ?? 0L;
         var ticksDrivingAny = 0;
         var started = Stopwatch.GetTimestamp();
@@ -214,7 +215,8 @@ internal static class DeviceTownProbe
                 $"submit, {device.HandedOver.Alone - handedAlone} in {device.HandOverSubmits - handOverSubmits} submits of their own; " +
                 $"{(drivenByTheTown - drivenByTheTownFrom) / (double)MeasuredTicks:F1} driven cars a tick the town ticked itself, on " +
                 $"{ticksDrivingAny} of the {MeasuredTicks} ticks; {(device.CarsLeftOnTheDevice - leftFrom) / (double)MeasuredTicks:F0} " +
-                $"cars a tick left on the device unread, every car taken back {device.TakenBackWhole - takenWholeFrom} times");
+                $"cars a tick left on the device unread, every car taken back {device.TakenBackWhole - takenWholeFrom} times; " +
+                $"{(world.DecidedByTheClock - byTheClockFrom) / (double)MeasuredTicks:F0} cars' decisions a tick their clock alone");
             var (here, byTheTown, onlyTheTown, tooMany) = device.Claims.Rebuilds;
             var each = Math.Max(1, rebuilds);
             Console.WriteLine(

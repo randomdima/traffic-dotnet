@@ -440,8 +440,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         var deciding = Stopwatch.GetTimestamp();
         var physics = town.PhysicsForTheDevice;
         var placedFrom = physics.Changes.Length;
-        town.TakeTheDecisionsPutOff();
-        var placedTo = physics.Changes.Length;
+        town.TakeTheWalkersDecisionsPutOff();
         var idle = Stopwatch.GetTimestamp();
         DecidedMs = Stopwatch.GetElapsedTime(deciding, idle).TotalMilliseconds;
         _batch.Wait();
@@ -449,7 +448,14 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _timer.Read();
         _cars.ReadTimes();
         _walkers.ReadTimes();
+
+        // The cars' decisions once the tick is in, before what it left of them is written back: the town a tick old
+        // either way, and a car a decision moved on from read as the tick had it.
+        var carsDeciding = Stopwatch.GetTimestamp();
+        town.TakeTheDecisionsPutOff();
+        var placedTo = physics.Changes.Length;
         var waited = Stopwatch.GetTimestamp();
+        DecidedMs += Stopwatch.GetElapsedTime(carsDeciding, waited).TotalMilliseconds;
 
         TakeBackTheCars(town);
         TakeBackTheWalkers(town);

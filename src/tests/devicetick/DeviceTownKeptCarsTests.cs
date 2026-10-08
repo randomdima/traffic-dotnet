@@ -3,6 +3,7 @@ using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Tests.CityGen;
 using TrafficSimulation.Tests.Runtime;
+using TrafficSimulation.Tests.World;
 using TrafficSimulation.World.Town;
 using Xunit;
 
@@ -45,7 +46,7 @@ public class DeviceTownKeptCarsTests(Lavapipe device) : IClassFixture<Lavapipe>
         {
             everyLoop.Advance();
             keptLoop.Advance();
-            DeviceTownRunOnTests.Compare(everyCar, kept, tick, unlike);
+            TownsInStep.Compare(everyCar, kept, tick, unlike);
         }
 
         everyCar.Device = kept.Device = null;

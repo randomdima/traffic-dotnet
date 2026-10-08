@@ -930,17 +930,25 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// its next tick runs, on the town as the last tick left it; or by the town before its next decision once no device puts
     /// them off. Nothing where none waits.
     /// </summary>
-    public void TakeTheDecisionsPutOff()
-    {
-        if (_putOffCount == 0) return;
+    public void TakeTheDecisionsPutOff() => TakeTheDecisionsPutOffBefore(AgentCount);
 
-        var count = _putOffCount;
-        _putOffCount = 0;
-        for (var at = 0; at < count; at++)
+    /// <summary>
+    /// <b>The walkers' decisions put off last tick, taken now</b>, the cars' left for <see cref="TakeTheDecisionsPutOff"/> —
+    /// which take the rest in the same order, the roster being walkers then cars.
+    /// </summary>
+    public void TakeTheWalkersDecisionsPutOff() => TakeTheDecisionsPutOffBefore(Roster.AgentOfCar(0));
+
+    void TakeTheDecisionsPutOffBefore(int agentsBefore)
+    {
+        if (_putOffTaken == _putOffCount) return;
+
+        while (_putOffTaken < _putOffCount && _decisionsPutOff[_putOffTaken] < agentsBefore)
         {
-            var agent = _decisionsPutOff[at];
+            var agent = _decisionsPutOff[_putOffTaken++];
             if (!IsTerminal(agent)) DecideNow(agent, _putOffSinceS);
         }
+
+        if (_putOffTaken == _putOffCount) _putOffTaken = _putOffCount = 0;
 
         // What follows is the agents' pass's again, whichever kind decided last.
         AccountFor(AgentCount - 1, deciding: false);
@@ -950,6 +958,10 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     int[] _decisionsPutOff = [];
 
     int _putOffCount;
+
+    /// <summary>How many of those have been taken (<see cref="TakeTheWalkersDecisionsPutOff"/>).</summary>
+    int _putOffTaken;
+
     float _putOffSinceS;
 
     void DecideNow(int agent, float sinceLastDecisionS)
@@ -973,6 +985,14 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             // EVA-5: what is on a bar takes no decisions, the way a casualty on a stretcher takes none.
             // Its errand is still its own and it picks it up again where the arm puts it down.
             if (_recovery.OnTheHookOf[car] >= 0) return;
+
+            // What the whole decision comes to where it is its leg's clock alone.
+            if (DecidesQuietCarsByTheClock && TakesOnlyTheClock(car, sinceLastDecisionS))
+            {
+                WatchTheProgress(car, sinceLastDecisionS);
+                DecidedByTheClock++;
+                return;
+            }
 
             // CTL-2: the player's order pins the goal the behaviour would otherwise have picked, and for a
             // vehicle with an errand the errand is that behaviour — so an ordered one runs the order in

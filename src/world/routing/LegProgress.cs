@@ -72,6 +72,13 @@ internal sealed class LegProgress(int actors)
 
     public bool IsStuck(int actor, float patienceS) => _sinceS[actor] >= patienceS;
 
+    /// <summary>
+    /// Whether the actor would be <see cref="IsStuck"/> after this decision's <see cref="Note"/> — or, where the clock is
+    /// <see cref="Hold"/>, which runs nothing up, as it stands — without noting it.
+    /// </summary>
+    public bool WouldBeStuck(int actor, float remainingM, float byM, float sinceLastDecisionS, bool held, float patienceS) =>
+        held ? IsStuck(actor, patienceS) : remainingM >= _closestM[actor] - byM && _sinceS[actor] + sinceLastDecisionS >= patienceS;
+
     /// <summary>How long this actor has been getting nowhere, which is a reading and never a decision.</summary>
     public float StuckForS(int actor) => _sinceS[actor];
 }

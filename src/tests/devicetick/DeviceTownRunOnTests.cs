@@ -1,9 +1,9 @@
-using System.Numerics;
 using TrafficSimulation.App.DeviceTick;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Tests.CityGen;
 using TrafficSimulation.Tests.Runtime;
+using TrafficSimulation.Tests.World;
 using TrafficSimulation.World.Town;
 using Xunit;
 
@@ -46,31 +46,11 @@ public class DeviceTownRunOnTests(Lavapipe device) : IClassFixture<Lavapipe>
         {
             waitedLoop.Advance();
             ranOnLoop.Advance();
-            Compare(waitedFor, ranOn, tick, unlike);
+            TownsInStep.Compare(waitedFor, ranOn, tick, unlike);
         }
 
         waitedFor.Device = ranOn.Device = null;
         Assert.True(ranOnDevice.Claims.Rebuild.RanOn > 0, "no rebuild ran on");
         Assert.True(unlike.Count == 0, $"{unlike.Count} agents differ: {string.Join("; ", unlike.Take(6))}");
-    }
-
-    /// <summary>Every car and walker of one town against the other's, to the bit: where each stands, moves and faces, and its hold.</summary>
-    internal static void Compare(TownWorld one, TownWorld other, int tick, List<string> unlike)
-    {
-        var (cars, otherCars) = (one.Cars, other.Cars);
-        for (var car = 0; car < cars.Count; car++)
-        {
-            var pose = (cars.PositionM[car], cars.VelocityMps[car], cars.HeadingRad[car], one.PlanHoldOf(car));
-            var otherPose = (otherCars.PositionM[car], otherCars.VelocityMps[car], otherCars.HeadingRad[car], other.PlanHoldOf(car));
-            if (!pose.Equals(otherPose)) unlike.Add($"tick {tick} car {car}: {pose} against {otherPose}");
-        }
-
-        var (people, otherPeople) = (one.People, other.People);
-        for (var person = 0; person < people.Count; person++)
-        {
-            var body = (people.PositionM[person], people.VelocityMps[person], people.HeadingRad[person], one.WalkHold(person));
-            var otherBody = (otherPeople.PositionM[person], otherPeople.VelocityMps[person], otherPeople.HeadingRad[person], other.WalkHold(person));
-            if (!body.Equals(otherBody)) unlike.Add($"tick {tick} walker {person}: {body} against {otherBody}");
-        }
     }
 }
