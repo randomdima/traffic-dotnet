@@ -75,20 +75,22 @@ internal sealed partial class DeviceCarTick
     }
 
     /// <summary>
-    /// <b>Whether the device ticks this car</b>: driven, following its route's line on no pass, waiting to rejoin it, or
-    /// moving across onto the lane beside, and on nobody's arm — the tick <c>car_tick.glsl</c> is. Asked before the town's
-    /// own tick, of the state that tick reads.
+    /// <b>Whether the device ticks this car</b>: driven, following its route's line on no pass, waiting to rejoin it,
+    /// moving across onto the lane beside, or getting past something on the lane its pass was decided along, and on
+    /// nobody's arm — the tick <c>car_tick.glsl</c> is. Asked before the town's own tick, of the state that tick reads.
     /// </summary>
     /// <remarks>
     /// <b>A rejoining car's tick is a following car's</b> (<c>Rejoining.Tick</c>): its line read, held where it is still
-    /// off it, and followed where it is back on — the action it enters then being the host's to change.
+    /// off it, and followed where it is back on — the action it enters then being the host's to change. <b>An overtaking
+    /// car off the lane of its pass</b> is the town's, whose own tick lets the pass go.
     /// </remarks>
     public static bool Takes(TownWorld town, int car)
     {
         var cars = town.Cars;
         var action = cars.Action[car];
         return cars.Driven[car] && !town.OnTheHook(car)
-               && (action is CarAction.Follow or CarAction.Rejoin && !cars.Pass[car].Any || action == CarAction.Switch);
+               && (action is CarAction.Follow or CarAction.Rejoin && !cars.Pass[car].Any || action == CarAction.Switch
+                   || action == CarAction.Overtake && !town.Overtaking.IsOffTheLaneOfItsPass(car));
     }
 
     /// <summary>
@@ -296,14 +298,22 @@ internal sealed partial class DeviceCarTick
                    | (hasAPlace ? ToldRow.HasAPlace : 0u);
         var asideM = 0f;
         var fromRestM = 0f;
+        var stepsOutAtM = 0f;
         if (cars.Action[car] == CarAction.Switch)
         {
             told |= ToldRow.Switching;
             asideM = town.Switching.AsideM(car);
             if (town.Switching.WaitsShortOfTheEnd(car, out fromRestM)) told |= ToldRow.WaitsShortOfTheEnd;
         }
+        else if (cars.Action[car] == CarAction.Overtake)
+        {
+            told |= ToldRow.Overtaking;
+            asideM = town.Overtaking.AsideOfItsPassM(car);
+            stepsOutAtM = town.Overtaking.StepsOutAtM(car);
+        }
 
-        _told.Lay(car, new ToldRow(told, cars.PaceMps[car], town.OffTheLineAllowanceM(car), asideM, fromRestM, reachM, placeM));
+        _told.Lay(
+            car, new ToldRow(told, cars.PaceMps[car], town.OffTheLineAllowanceM(car), asideM, fromRestM, reachM, placeM, stepsOutAtM, 0f));
     }
 
     /// <summary>
@@ -485,6 +495,12 @@ internal sealed partial class DeviceCarTick
 
             SteppedOut++;
             return null;
+        }
+
+        var made = (tick.Flags & TickRow.PassMade) != 0;
+        if (made != (_actionDue[car] == CarAction.Overtake && cars.Action[car] == CarAction.Follow))
+        {
+            return $"pass made: town {cars.Action[car]}, device {made}";
         }
 
         var pass = PassesAfter[car];

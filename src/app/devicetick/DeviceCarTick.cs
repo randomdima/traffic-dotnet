@@ -36,19 +36,24 @@ internal sealed partial class DeviceCarTick : IDisposable
     internal readonly record struct TickRow(
         float ProgressM, float CoveredSinceClaimM, float AlongMps, float OffLineM, float PlannedMps, uint Hold, uint Flags)
     {
-        public const uint Lost = 32u, AsksTheRoute = 64u, Shifted = 128u, Hazard = 256u, SteppedOut = 512u;
+        public const uint Lost = 32u, AsksTheRoute = 64u, Shifted = 128u, Hazard = 256u, SteppedOut = 512u, PassMade = 1024u;
     }
 
     /// <summary>
     /// What the host tells a car's tick (<c>CarToldRow</c>): <see cref="HasAHold"/> and <see cref="Cut"/> are the claims',
     /// told apart in a word of their own (<see cref="DeviceRebuild.Told"/>, or the shadow's).
     /// </summary>
+    /// <remarks>
+    /// <see cref="PassAsideM"/> is a switch's step across or an overtaking car's pass from rest; <see cref="StepsOutAtM"/>
+    /// where along its line that pass's step out begins (<c>Overtaking.StepsOutAtM</c>).
+    /// </remarks>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct ToldRow(
-        uint Flags, float PaceMps, float AllowanceM, float PassAsideM, float FromRestM, float PlaceReachM, Vector2 PlaceM)
+        uint Flags, float PaceMps, float AllowanceM, float PassAsideM, float FromRestM, float PlaceReachM, Vector2 PlaceM,
+        float StepsOutAtM, float Pad)
     {
         public const uint OnACall = 1u, LineIsReverse = 2u, HasAPlace = 4u, HasAHold = 8u, Cut = 16u, Switching = 32u;
-        public const uint WaitsShortOfTheEnd = 64u;
+        public const uint WaitsShortOfTheEnd = 64u, Overtaking = 128u;
     }
 
     /// <summary>The step a car is on (<c>OvertakeRow</c>): <see cref="Overtake"/> field for field.</summary>

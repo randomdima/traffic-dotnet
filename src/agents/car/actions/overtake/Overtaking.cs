@@ -156,11 +156,7 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
         var pass = Cars.Pass[car];
         if (pass.Begun)
         {
-            if (progressM >= pass.EndsM)
-            {
-                Made++;
-                actions.Enter(car, CarAction.Follow);
-            }
+            if (progressM >= pass.EndsM) DrivenToItsEnd(car);
 
             town.DriveOnTheLine(car, pose, progressM, alongMps, coveredM);
             return;
@@ -170,6 +166,23 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
         if (pass.Any && LaidSinceAsked(car)) KeepOrWithdrawThePass(car, pass, progressM);
 
         WaitAtTheStep(ref town, car, pose, progressM, alongMps, coveredM);
+    }
+
+    /// <summary>A pass driven to its end: made, and the car following again — what a device's tick of it reports (<c>car_tick.glsl</c>).</summary>
+    public void DrivenToItsEnd(int car)
+    {
+        Made++;
+        actions.Enter(car, CarAction.Follow);
+    }
+
+    /// <summary>
+    /// <b>A pass laid since it was asked for, kept or withdrawn, for a car whose tick runs elsewhere</b> (a device's): what
+    /// the car's own <see cref="Tick{TTown}"/> answers before it drives, at where the last tick left it on its line.
+    /// </summary>
+    public void KeepOrWithdrawThePassOf(int car)
+    {
+        var pass = Cars.Pass[car];
+        if (pass.Any && !pass.Begun && LaidSinceAsked(car)) KeepOrWithdrawThePass(car, pass, Cars.ProgressM[car]);
     }
 
     /// <summary>

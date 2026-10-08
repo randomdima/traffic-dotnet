@@ -18,9 +18,11 @@ struct CarTickRow
 };
 
 // What the host tells a car's tick, its decisions' (CarFleet.PaceMps, TownWorld.OffTheLineAllowanceM, SceneOf;
-// Switching.AsideM, WaitsShortOfTheEnd): flags in the bits ContextCarRow's flags have — but HasAHold and Cut, which are
-// the claims' and come from the rebuild beside — and above them whether the car is moving across (CAR-53) and whether
-// its line stops where its route moves across; and the place it was sent to and how near it has to stand.
+// Switching.AsideM, WaitsShortOfTheEnd; Overtaking.AsideOfItsPassM, StepsOutAtM): flags in the bits ContextCarRow's flags
+// have — but HasAHold and Cut, which are the claims' and come from the rebuild beside — and above them whether the car is
+// moving across (CAR-53), whether its line stops where its route moves across and whether it is getting past something
+// (CAR-46); the place it was sent to and how near it has to stand; and where an overtaking car's step out from rest
+// begins along its line.
 struct CarToldRow
 {
     uint flags;
@@ -30,16 +32,20 @@ struct CarToldRow
     float fromRestM;
     float placeReachM;
     vec2 placeM;
+    float stepsOutAtM;
+    float pad;
 };
 
 const uint ToldSwitching = 32u;
 const uint ToldWaitsShortOfTheEnd = 64u;
+const uint ToldOvertaking = 128u;
 
 const uint TickLost = 32u;
 const uint TickAsksTheRoute = 64u;
 const uint TickShifted = 128u;
 const uint TickHazard = 256u;
 const uint TickSteppedOut = 512u;
+const uint TickPassMade = 1024u;
 
 // What the last claims rebuild granted a car and what cut it (CarFleet.AuthorityM, HorizonM, ClaimFromM, CommittedToM,
 // GrantMarginM, GrantCutBy; LaneOccupancy.HoldCutOn). The place fields are unread: the place is told (CarToldRow).

@@ -119,6 +119,9 @@ internal static class DeviceTownProbe
         var rebuilt = device?.Claims.Rebuild.Rebuilds ?? 0L;
         var (handedInTheStep, handedAlone) = device?.HandedOver ?? default;
         var handOverSubmits = device?.HandOverSubmits ?? 0L;
+        var drivenByTheTownFrom = device?.CarsDrivenByTheTown ?? 0L;
+        var drivenByTheTown = drivenByTheTownFrom;
+        var ticksDrivingAny = 0;
         var started = Stopwatch.GetTimestamp();
         for (var tick = 0; tick < MeasuredTicks; tick++)
         {
@@ -164,6 +167,8 @@ internal static class DeviceTownProbe
 
             deviceMs += device.KernelsMs;
             taken += device.CarsTaken;
+            if (device.CarsDrivenByTheTown != drivenByTheTown) ticksDrivingAny++;
+            drivenByTheTown = device.CarsDrivenByTheTown;
             prepareMs += device.PrepareMs;
             waitMs += device.WaitMs;
             decidedMs += device.DecidedMs;
@@ -200,7 +205,9 @@ internal static class DeviceTownProbe
                 $"(the device's kernels {bodiesKernelsMs / MeasuredTicks:F2}), writing what came back {bodiesBackMs / MeasuredTicks:F2}");
             Console.WriteLine(
                 $"  wheels handed back to the town as their cars left the device: {device.HandedOver.InTheStep - handedInTheStep} in the bodies' " +
-                $"submit, {device.HandedOver.Alone - handedAlone} in {device.HandOverSubmits - handOverSubmits} submits of their own");
+                $"submit, {device.HandedOver.Alone - handedAlone} in {device.HandOverSubmits - handOverSubmits} submits of their own; " +
+                $"{(drivenByTheTown - drivenByTheTownFrom) / (double)MeasuredTicks:F1} driven cars a tick the town ticked itself, on " +
+                $"{ticksDrivingAny} of the {MeasuredTicks} ticks");
             var (here, byTheTown, onlyTheTown, tooMany) = device.Claims.Rebuilds;
             var each = Math.Max(1, rebuilds);
             Console.WriteLine(

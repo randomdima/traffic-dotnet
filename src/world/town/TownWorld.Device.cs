@@ -30,6 +30,9 @@ internal sealed partial class TownWorld
         _switching.SteppedOut(ref town, car, Cars.ProgressM[car]);
     }
 
+    /// <summary>A device drove this car's pass to its end (CAR-46): made, and following again.</summary>
+    public void MadeThePassOnTheDevice(int car) => _overtaking.DrivenToItsEnd(car);
+
     /// <summary>A device found this car's line short of its sight: its next decision lays the rest (<see cref="_asksTheRoute"/>).</summary>
     public void AskedTheRouteOnTheDevice(int car) => _asksTheRoute[car] = true;
 

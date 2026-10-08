@@ -122,6 +122,11 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   `ExamProbe`) see only the ways the readers asked about lately and the lights' holds of the rest, and a hold's pieces
   (`LaneOccupancy.PiecesOf`) not at all. A whole layer read back while the overlay is open closes it.
 
+- **The device's pedal is off the host's at the turn from braking to throttle**: in the fixture with a wreck staged
+  (`DeviceCarTickTests.ACarGettingPastAWreckTicksAsTheTownTicksIt`, every car held), one following car's tick of 13 200
+  held to wheel speed asked 0.180 m/s² where the host's `CarFollower.DriveTheLine` asked 0.192 from the same inputs —
+  past `Near`'s hundredth. That test holds only the overtaking car; finding which term of `follower.glsl` rounds apart,
+  and holding every car again, closes it.
 - **Two tests of "on its line"**: `Reacquire` takes a lane within `CarOffPathM × OffLineTolerance`, `ReadTheLine` keeps
   a line within `OffTheLineAllowanceM`, which is wider for a tow — so a tow can be refused a lane its line check
   would keep it on. One threshold closes it; it moves tows.

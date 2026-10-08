@@ -689,7 +689,7 @@ public class OvertakeInATownTests
     /// and a third in its lane nose to tail with the first, <see cref="NoseToTailM"/> on.
     /// </summary>
     /// <returns>The car, the lane, where along it the first wreck ends, that wreck, and the one beside it or −1.</returns>
-    static (int Driver, int Lane, float ClearsM, int Wreck, int Beside) StageAWreckAhead(
+    internal static (int Driver, int Lane, float ClearsM, int Wreck, int Beside) StageAWreckAhead(
         TownWorld world, bool alsoInTheLaneBeside, bool alsoPastIt = false)
     {
         var cars = world.Cars;
@@ -785,10 +785,10 @@ public class OvertakeInATownTests
     }
 
     /// <summary>Long enough for every car the fixture stands to have a line.</summary>
-    const int WarmUpTicks = 120;
+    internal const int WarmUpTicks = 120;
 
     /// <summary>Twenty seconds: time to come up to a wreck, wait for the lane beside and get past it.</summary>
-    const int WatchedTicks = 1_200;
+    internal const int WatchedTicks = 1_200;
 
     /// <summary>A second at rest: the car is standing behind what it waits for, and not stopping for a tick.</summary>
     const int StandsForTicks = 60;

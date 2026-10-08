@@ -147,6 +147,9 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// <summary>How many submits of their own handed wheels back.</summary>
     public long HandOverSubmits { get; private set; }
 
+    /// <summary>How many driven cars the town ticked itself, over every tick.</summary>
+    public long CarsDrivenByTheTown { get; private set; }
+
     public bool Takes(int agent)
     {
         var town = _town;
@@ -158,9 +161,12 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         var car = town.Roster.CarIndex(agent);
         var takes = _chosen[car] = DeviceCarTick.Takes(town, car);
 
-        // The step a switching car asked for is answered by the car's own tick before it drives, which the device's is not.
+        // A switching car's step and an overtaking car's pass, asked for and laid since, are kept or withdrawn by the car's
+        // own tick before it drives, which the device's does not.
         if (takes && town.Cars.Action[car] == CarAction.Switch) town.Switching.KeepOrWithdrawTheStep(car);
+        if (takes && town.Cars.Action[car] == CarAction.Overtake) town.Overtaking.KeepOrWithdrawThePassOf(car);
 
+        if (!takes && town.Cars.Driven[car]) CarsDrivenByTheTown++;
         if (!takes && _tyres.KeptOnTheDevice[car])
         {
             // It left during the agents' pass, after the sweep before it.
@@ -439,6 +445,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
             if (cars.Action[car] == CarAction.Rejoin) town.RejoinedOnTheDevice(car);
             if ((flags & DeviceCarTick.TickRow.AsksTheRoute) != 0) town.AskedTheRouteOnTheDevice(car);
             if ((flags & DeviceCarTick.TickRow.SteppedOut) != 0) town.SteppedOutOnTheDevice(car);
+            if ((flags & DeviceCarTick.TickRow.PassMade) != 0) town.MadeThePassOnTheDevice(car);
         }
     }
 

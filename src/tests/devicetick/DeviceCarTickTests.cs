@@ -1,3 +1,4 @@
+using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.App.DeviceTick;
 using TrafficSimulation.CityGen;
@@ -6,6 +7,7 @@ using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.Tests.CityGen;
 using TrafficSimulation.Tests.Runtime;
+using TrafficSimulation.Tests.World;
 using TrafficSimulation.World.Town;
 using Xunit;
 
@@ -36,7 +38,8 @@ public class DeviceCarTickTests(Lavapipe device) : IClassFixture<Lavapipe>
     [Fact]
     public void EveryFollowingCarTicksAsTheTownTicksIt()
     {
-        var (differ, asked) = Shadow(resident: false);
+        using var world = new TownWorld(Towns.Of(Towns.City), Config);
+        var (differ, asked) = Shadow(world, new SimLoop<TownWorld>(world, Config), resident: false, Ticks);
 
         Assert.True(differ.Count == 0, $"{differ.Count} of {asked} ticks differ: {string.Join("; ", differ.Take(6))}");
     }
@@ -49,16 +52,47 @@ public class DeviceCarTickTests(Lavapipe device) : IClassFixture<Lavapipe>
     [Fact]
     public void ACarTheDeviceKeepsTicksAsTheTownTicksIt()
     {
-        var (differ, asked) = Shadow(resident: true);
+        using var world = new TownWorld(Towns.Of(Towns.City), Config);
+        var (differ, asked) = Shadow(world, new SimLoop<TownWorld>(world, Config), resident: true, Ticks);
 
         Assert.True(differ.Count == 0, $"{differ.Count} of {asked} ticks differ: {string.Join("; ", differ.Take(6))}");
     }
 
-    (List<string> Differ, int Asked) Shadow(bool resident)
+    /// <summary>
+    /// <b>An overtaking car the device keeps ticks as the town ticks it</b> (CAR-46): coming up to a wreck in its lane and
+    /// waiting towards where its step out begins, driving its pass over the lane beside, and following again once it is
+    /// past — each held to the town's own tick of it.
+    /// </summary>
+    [Fact]
+    public void ACarGettingPastAWreckTicksAsTheTownTicksIt()
     {
-        var plan = Towns.Of(Towns.City);
-        using var world = new TownWorld(plan, Config);
+        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
+        loop.Advance(OvertakeInATownTests.WarmUpTicks);
+        var (driver, _, _, _, _) = OvertakeInATownTests.StageAWreckAhead(world, alsoInTheLaneBeside: false);
+
+        var (waited, drove, made) = (false, false, false);
+        var (differ, asked) = Shadow(
+            world, loop, resident: true, OvertakeInATownTests.WatchedTicks, (tick, taken) =>
+            {
+                if (!taken.Contains(driver)) return;
+
+                var overtaking = world.Cars.Action[driver] == CarAction.Overtake;
+                waited |= overtaking && !world.Cars.Pass[driver].Begun;
+                drove |= overtaking && world.Cars.Pass[driver].Begun;
+                made |= (tick.TicksAfter[driver].Flags & DeviceCarTick.TickRow.PassMade) != 0;
+            }, onlyCar: driver);
+
+        Assert.True(waited && drove && made, $"the device ticked car {driver} waiting {waited}, on its pass {drove}, past it {made}");
+        Assert.True(differ.Count == 0, $"{differ.Count} of {asked} ticks differ: {string.Join("; ", differ.Take(6))}");
+    }
+
+    /// <param name="watch">Handed the tick and the cars it took once each tick has been held to the town's, before either settles.</param>
+    /// <param name="onlyCar">The one car whose ticks are held to the town's, or every car the device takes.</param>
+    (List<string> Differ, int Asked) Shadow(
+        TownWorld world, SimLoop<TownWorld> loop, bool resident, int ticks, Action<DeviceCarTick, int[]>? watch = null,
+        int onlyCar = -1)
+    {
         var cars = world.Cars;
         var claims = world.Occupancy;
 
@@ -88,15 +122,18 @@ public class DeviceCarTickTests(Lavapipe device) : IClassFixture<Lavapipe>
 
             foreach (var car in taken.AsSpan(0, count))
             {
+                if (onlyCar >= 0 && car != onlyCar) continue;
+
                 asked++;
                 var why = tick.Disagreement(town, car);
                 if (why != null) differ.Add($"tick {loop.Tick} car {car}: {why}");
             }
 
+            watch?.Invoke(tick, taken[..count]);
             tick.Settle(town, taken.AsSpan(0, count));
         };
 
-        for (var at = 0; at < Ticks; at++) loop.Advance();
+        for (var at = 0; at < ticks; at++) loop.Advance();
 
         return (differ, asked);
     }
