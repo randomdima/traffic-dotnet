@@ -1,0 +1,103 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every car the device ticks, laid for a rebuild off what the device already holds of it (app/devicetick/DeviceRebuild's
+// car terms), one thread a car: its body (car_body_row.glsl) and its plan's row and figures (plan_rows.glsl's
+// PlanCarRow, as plan_cars.comp reads them), as DeviceBodies.Lay and DevicePlans.Lay lay them on the host — where it
+// stands and the way it faces off the pose the bodies' step left, where it is on its line and how fast off its tick, its
+// margin off its grant and whether it is blocked off the context its tick told it; what only the town knows of it off
+// its terms. A car its terms do not name the device's is the host's, laid there and left alone here.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint carCount;
+    float stopSpeedMps;
+} figures;
+
+#include "agents/car/body/kernels/tyre_rows.glsl"
+#include "agents/car/control/kernels/car_line.glsl"
+#include "agents/car/control/kernels/drive_context_row.glsl"
+#include "agents/car/actions/follow/kernels/plan_rows.glsl"
+#include "world/town/kernels/car_tick_rows.glsl"
+#include "world/town/kernels/car_body_row.glsl"
+
+// DeviceRebuild.CarTermsRow, field for field: what only the town knows of a car this rebuild.
+struct CarTermsRow
+{
+    uint flags;
+    uint channels;
+    float allowanceM;
+    float keptOffM;
+};
+
+// CarTermsRow.flags: whether the device ticked it last and the town has left it as that tick did; whether its action
+// drives its route's line (CarActions.DrivesTheRoute); whether it is on a call; whether its line is driven in reverse;
+// whether it is on a pass begun.
+const uint TermsHeld = 1u;
+const uint TermsDrivesTheRoute = 2u;
+const uint TermsOnACall = 4u;
+const uint TermsLineIsReverse = 8u;
+const uint TermsPassBegun = 16u;
+
+// DeviceRebuild.CarShapeRow, one a build: where its axles stand ahead of its centre (TyreModel.WheelAtM), half its
+// track, and how far its nose and tail stand past its rear axle (CarBuild).
+struct CarShapeRow
+{
+    float frontAxleM;
+    float rearAxleM;
+    float halfTrackM;
+    float noseAheadOfAxleM;
+    float tailBehindAxleM;
+    float pad0;
+    float pad1;
+    float pad2;
+};
+
+layout(std430, binding = 0) readonly buffer Terms { CarTermsRow terms[]; };
+layout(std430, binding = 1) readonly buffer BuildOf { uint buildOf[]; };
+layout(std430, binding = 2) readonly buffer Shapes { CarShapeRow shapes[]; };
+layout(std430, binding = 3) readonly buffer Poses { TyrePose poses[]; };
+layout(std430, binding = 4) readonly buffer Ticks { CarTickRow ticks[]; };
+layout(std430, binding = 5) readonly buffer Lines { CarLineRow lines[]; };
+layout(std430, binding = 6) readonly buffer Grants { CarGrantRow grants[]; };
+layout(std430, binding = 7) readonly buffer Contexts { DriveContextRow contexts[]; };
+layout(std430, binding = 8) writeonly buffer Bodies { CarBodyRow bodies[]; };
+layout(std430, binding = 9) writeonly buffer PlanCars { uvec4 planCars[]; };
+layout(std430, binding = 10) writeonly buffer PlanFigures { vec4 planFigures[]; };
+
+void main()
+{
+    uint car = gl_GlobalInvocationID.x;
+    if (car >= figures.carCount) return;
+
+    CarTermsRow said = terms[car];
+    if ((said.flags & TermsHeld) == 0u) return;
+
+    TyrePose pose = poses[car];
+    CarTickRow tick = ticks[car];
+    CarLineRow line = lines[car];
+    uint build = buildOf[car];
+    CarShapeRow shape = shapes[build];
+    bool reverse = (said.flags & TermsLineIsReverse) != 0u;
+
+    // TownWorld.IsUnderWay and DrivingGround.RunsOnPastItself; a car the device ticks is laid as itself.
+    bool travelling = (said.flags & TermsDrivesTheRoute) != 0u && line.laneCount > 0u && tick.offLineM <= said.allowanceM;
+    precise float leadingEdgeM = tick.progressM + (reverse ? shape.tailBehindAxleM : shape.noseAheadOfAxleM);
+    precise float speedSquared = pose.velocityMps.x * pose.velocityMps.x + pose.velocityMps.y * pose.velocityMps.y;
+    precise float stopSquared = figures.stopSpeedMps * figures.stopSpeedMps;
+    uint bodyFlags = (travelling ? BodyTravelling : 0u) | (line.lengthM > leadingEdgeM ? BodyRunsOnPastItself : 0u)
+                     | (speedSquared <= stopSquared ? BodyStill : 0u) | (contexts[car].blocked != 0u ? BodyBlocked : 0u);
+    bodies[car] = CarBodyRow(
+        pose.positionM, pose.forward, shape.frontAxleM, shape.rearAxleM, shape.halfTrackM, said.channels, int(car), tick.alongMps,
+        bodyFlags, 0u);
+
+    // DevicePlans.Proposing: a car the device ticks is never a hand's, a truck's or one at a bay.
+    bool proposes = travelling && (said.flags & TermsPassBegun) == 0u;
+    uint planFlags = (proposes ? PlanCarProposes : 0u) | ((said.flags & TermsOnACall) != 0u ? PlanCarOnACall : 0u)
+                     | (reverse ? PlanCarLineIsReverse : 0u);
+    planCars[car] = uvec4(build, planFlags, 0u, 0u);
+    planFigures[car * 2u] = vec4(tick.progressM, tick.alongMps, tick.plannedMps, 0.0);
+    planFigures[car * 2u + 1u] = vec4(grants[car].grantMarginM, proposes ? said.keptOffM : 0.0, 0.0, 0.0);
+}

@@ -259,6 +259,39 @@ internal sealed partial class DeviceCarTick : IDisposable
         _lineLaidAt[car] = cars.LineLaid[car];
     }
 
+    /// <summary>
+    /// <b>Whether the table holds a car as the device's own tick left it</b>, for a kernel that reads it in place
+    /// (<see cref="ReadingTables"/>): the device ticked it last and the town has not changed what it is doing since — its
+    /// reading laid where the town changed that since (a line laid, a reading set), and sent by
+    /// <see cref="RecordTheReadingsSent"/>. A car it does not hold is the town's.
+    /// </summary>
+    public bool HoldsTheReadingOf(CarFleet cars, int car)
+    {
+        if (!_held[car] || cars.Action[car] != _actionAt[car]) return false;
+
+        if (cars.ProgressM[car] != _progressAt[car] || cars.CoveredSinceClaimM[car] != _coveredAt[car])
+        {
+            LayTheReading(cars, car);
+            _progressAt[car] = cars.ProgressM[car];
+            _coveredAt[car] = cars.CoveredSinceClaimM[car];
+        }
+
+        return true;
+    }
+
+    /// <summary>Every car's reading and the context its last tick told it, as the table keeps them (<see cref="HoldsTheReadingOf"/>).</summary>
+    public (GpuBuffer Ticks, GpuBuffer Contexts) ReadingTables => (_ticks.Device, _contexts.Device);
+
+    /// <summary>The readings <see cref="HoldsTheReadingOf"/> laid and the poses laid since the last tick, copied across, recorded; the caller barriers.</summary>
+    public void RecordTheReadingsSent(CommandBuffer commands)
+    {
+        _ticks.Send(commands);
+        _tyres.Table.Poses.Send(commands);
+    }
+
+    /// <summary>How many bytes <see cref="RecordTheReadingsSent"/> will copy.</summary>
+    public ulong ReadingsMarkedBytes => _ticks.MarkedBytes + _tyres.Table.Poses.MarkedBytes;
+
     /// <summary>How many bytes of lines <see cref="RecordTheLinesSent"/> will copy.</summary>
     public ulong LinesMarkedBytes =>
         _lines.MarkedBytes + _arcs.MarkedBytes + _entries.MarkedBytes + _chain.MarkedBytes + _starts.MarkedBytes + _ends.MarkedBytes

@@ -16,6 +16,19 @@ the device took turns rather than working side by side.
 - **The host may run a tick behind the device**: it decides on tick N while the device runs tick N + 1, so a decision
   reads the town a tick older and takes effect a tick later (16.7 ms, against a reaction of 0.1 s).
 
+## 2026-10-08 — a car the device ticks is laid for the claims off what the device holds of it
+
+**Under the ruling above.** A rebuild sent every car's body and plan's rows from the host (0.96 MB on OdesaOsm), though
+the device held all of it: the pose its bodies' step left, the reading its tick left, the line, the grant and the context.
+Now a car whose reading the car tick holds as its own (`DeviceCarTick.HoldsTheReadingOf`) is laid on the device
+(`car_claims_gather.comp`), off those tables and a few terms only the town knows, sent where they change; the town lays
+only the cars it ticks itself.
+
+- **The way a body faces is its own**, the forward the bodies' step left, where the town laid it on the unit vector of
+  its heading; every other figure is the town's to the bit (`DeviceTownGateTests.EveryCarTheDeviceLaysIsLaidAsTheTownWouldLayIt`).
+- OdesaOsm (`--bench devicetown`): a rebuild sends 0.15 MB against 1.10 (0.17 ms against 0.68), 5.71 → 5.56 ms a tick;
+  the town drives the same to the car.
+
 ## 2026-10-08 — a layer lands on the second tick after its rebuild, copied back in halves
 
 **Within the owner's 2026-10-07 ruling that a decision may read a layer one laying old.** Copied whole behind the

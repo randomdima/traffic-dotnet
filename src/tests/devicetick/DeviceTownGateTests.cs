@@ -47,6 +47,18 @@ public class DeviceTownGateTests(TickedOnTheDevice ticked) : IClassFixture<Ticke
     /// </summary>
     [Fact]
     public void EveryTickReadsEveryWalkerAsTheTownHoldsIt() => Assert.Equal(0L, ticked.WalkerTicksUnlike);
+
+    /// <summary>
+    /// A car the device ticks has its body and its plan's rows laid on the device off what it holds of the car
+    /// (<c>car_claims_gather.comp</c>) — and laid as the town would have laid them, but for the way it faces, which is its
+    /// body's own; or a rebuild answers a car the town does not have.
+    /// </summary>
+    [Fact]
+    public void EveryCarTheDeviceLaysIsLaidAsTheTownWouldLayIt()
+    {
+        Assert.True(ticked.CarsLaidOnTheDevice);
+        Assert.Equal(0L, ticked.CarsLaidUnlike);
+    }
 }
 
 /// <summary>The suite's built town, its walkers out of their doors, ticked with the device in step on lavapipe and watched every tick.</summary>
@@ -67,6 +79,7 @@ public sealed class TickedOnTheDevice : IDisposable
         var walkers = town.Claims.Rebuild.Walkers;
         walkers.ChecksWhatWasTaken = true;
         town.Walkers.ChecksWhatTheTickReads = true;
+        town.Claims.Rebuild.ChecksTheCarsLaid = true;
         world.Device = town;
         Watch = new TownWatch(world, config);
         for (var tick = 0; tick < Ticks; tick++)
@@ -78,6 +91,7 @@ public sealed class TickedOnTheDevice : IDisposable
         world.Device = null;
         (WalkersKept, WalkersUnlike) = (walkers.Keeps, walkers.KeptUnlike);
         WalkerTicksUnlike = town.Walkers.TickReadUnlike;
+        (CarsLaidOnTheDevice, CarsLaidUnlike) = (town.Claims.Rebuild.CarsLaidOnTheDevice > 0, town.Claims.Rebuild.CarsLaidUnlike);
     }
 
     internal TownWatch Watch { get; }
@@ -89,6 +103,11 @@ public sealed class TickedOnTheDevice : IDisposable
 
     /// <summary>How many walkers a tick read other than the town laid them, over every tick.</summary>
     internal long WalkerTicksUnlike { get; }
+
+    /// <summary>Whether the device laid any car's body and plan itself, and how many it laid other than the town would have.</summary>
+    internal bool CarsLaidOnTheDevice { get; }
+
+    internal long CarsLaidUnlike { get; }
 
     public void Dispose() => _device.Dispose();
 }

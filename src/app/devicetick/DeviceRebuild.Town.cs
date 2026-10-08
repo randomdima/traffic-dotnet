@@ -11,7 +11,8 @@ namespace TrafficSimulation.App.DeviceTick;
 /// <summary>
 /// <b>The rebuild laid in the town's place</b> (<see cref="ITownClaims.ClaimsAt"/>): what only the town lays gathered stage
 /// by stage as the shadow gathers it, every producer sent what it reads once — the cars' lines read where the car tick
-/// keeps them, the walkers kept on the device — then bodies, lights, plans, walks and answers in one submit, and what they
+/// keeps them, every car the car tick holds laid off its tables (<c>car_claims_gather.comp</c>), the walkers kept on the
+/// device — then bodies, lights, plans, walks and answers in one submit, and what they
 /// came to written back into the town before it lays the backing; the backing and the grants are recorded at the head of
 /// the tick's own submit (<see cref="RecordTheRest"/>).
 /// </summary>
@@ -130,6 +131,39 @@ internal sealed partial class DeviceRebuild
     /// <summary>Whether a backing was asked of a car this laying, so what it cut of the answers is looked for.</summary>
     bool _backsUp;
 
+    /// <summary>
+    /// What only the town knows of a car this rebuild (<c>car_claims_gather.comp</c>'s <c>CarTermsRow</c>), for a car whose
+    /// body and plan's rows the device lays off what it holds of it; nothing for a car the town lays them for.
+    /// </summary>
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    readonly record struct CarTermsRow(uint Flags, uint Channels, float AllowanceM, float KeptOffM)
+    {
+        public const uint Held = 1u, DrivesTheRoute = 2u, OnACall = 4u, LineIsReverse = 8u, PassBegun = 16u;
+    }
+
+    /// <summary>
+    /// One build as a body is laid from (<c>car_claims_gather.comp</c>'s <c>CarShapeRow</c>): its axles ahead of its centre
+    /// (<see cref="Agents.Car.Body.TyreModel.WheelAtM"/>), half its track, and its nose and tail past its rear axle.
+    /// </summary>
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    readonly record struct CarShapeRow(
+        float FrontAxleM, float RearAxleM, float HalfTrackM, float NoseAheadOfAxleM, float TailBehindAxleM, float Pad0 = 0f,
+        float Pad1 = 0f, float Pad2 = 0f);
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    readonly record struct GatherPush(uint CarCount, float StopSpeedMps);
+
+    /// <summary>Each car's terms, on the device where they changed, and the kernel that lays the cars it holds from them.</summary>
+    ResidentRows<CarTermsRow> _carTerms = null!;
+
+    Bound _carsGather;
+
+    /// <summary>
+    /// <b>Which cars' bodies and plans' rows the device lays this rebuild</b> (<c>car_claims_gather.comp</c>) — those whose
+    /// reading the car tick holds as its own (<see cref="DeviceCarTick.HoldsTheReadingOf"/>) — rather than the town.
+    /// </summary>
+    bool[] _laidOnTheDevice = [];
+
     /// <summary>How many rebuilds in the town asked a car backing up for its ground, which the town lays after the answers.</summary>
     public long BackedUp { get; private set; }
 
@@ -152,6 +186,7 @@ internal sealed partial class DeviceRebuild
             _vk, "rebuild_agents_out.comp",
             [_plans.OnTheDevice.Results, _askAnswers, _bodies.OnTheDevice.Counts, _carsOut, walkerCounts, _walkersOut, _unitHolds, tables.Answers]);
         _scratchAsks = new BodyAsk[Overtaking.MostAsksOfAPass(world.Atlas.Marks)];
+        LayTheCarsGather(world);
         if (!_walkers.Keeps) return;
 
         var (walkerCovers, _, _, _) = _walkers.OnTheDevice;
@@ -159,6 +194,160 @@ internal sealed partial class DeviceRebuild
         _scanWalkerPasses = new PrefixScan(_vk, _scans, _walkerPassStarts, _blockSums, _sums, (uint)Sum.WalkerPasses);
         _walkerPasses = Bound.Of<WalkerPassesPush>(
             _vk, "rebuild_walker_passes.comp", [walkerCounts, walkerCovers, _walkerPassStarts, tables.Rows, tables.Tally]);
+    }
+
+    /// <summary>
+    /// The kernel that lays every car the car tick holds off what the device has of it, bound over the car tick's tables
+    /// and every build's shape, laid once.
+    /// </summary>
+    void LayTheCarsGather(TownWorld world)
+    {
+        var cars = world.Cars;
+        var shapes = new CarShapeRow[Agents.Car.Body.CarCatalog.Shared.SheetCount];
+        for (var variant = 0; variant < shapes.Length; variant++)
+        {
+            var build = cars.BuildOfVariant(variant);
+            shapes[variant] = new CarShapeRow(
+                Agents.Car.Body.TyreModel.WheelAtM(build, 0).X, Agents.Car.Body.TyreModel.WheelAtM(build, 2).X, build.HalfTrackM,
+                build.NoseAheadOfAxleM, build.TailBehindAxleM);
+        }
+
+        var carTick = _carTick!;
+        var tyres = carTick.Tyres.Table;
+        var (ticks, contexts) = carTick.ReadingTables;
+        var (planCars, planFigures, _, _) = _plans.OnTheDevice;
+        _carTerms = new ResidentRows<CarTermsRow>(_vk, _cars, 1, hostOnly: true);
+        _carsGather = Bound.Of<GatherPush>(
+            _vk, "car_claims_gather.comp",
+            [
+                _carTerms.Device, tyres.BuildOf.Device, Laid<CarShapeRow>(shapes), tyres.Poses.Device, ticks, carTick.Lines.Lines, _grants,
+                contexts, _bodies.Laid, planCars, planFigures,
+            ]);
+        _laidOnTheDevice = new bool[_cars];
+    }
+
+    /// <summary>
+    /// <b>Which cars the device lays the bodies and plans' rows of</b>, each line made current where the car tick keeps it
+    /// and each held car's reading laid where the town changed it since, and the poses of every car the town moved since the
+    /// last step — at the head of a rebuild, before any body is laid.
+    /// </summary>
+    void LayWhatTheDeviceHolds(TownWorld town)
+    {
+        var cars = town.Cars;
+        var carTick = _carTick!;
+        for (var car = 0; car < _carCount; car++)
+        {
+            carTick.LayTheLineOf(cars, car);
+            _laidOnTheDevice[car] = carTick.HoldsTheReadingOf(cars, car);
+            if (_laidOnTheDevice[car]) CarsLaidOnTheDevice++;
+        }
+
+        carTick.Tyres.LayThePlacedPoses(cars, town.PhysicsForTheDevice);
+    }
+
+    /// <summary>How many cars the device has laid the bodies and plans' rows of itself, over every rebuild in the town.</summary>
+    public long CarsLaidOnTheDevice { get; private set; }
+
+    /// <summary>
+    /// <b>Whether to hold every car the device lays to what the town would have laid for it</b> (<see cref="CarsLaidUnlike"/>),
+    /// but for the way it faces, which is its body's own — a check of the kernel, at the cost of each laying's rows laid on the
+    /// host too and copied back.
+    /// </summary>
+    public bool ChecksTheCarsLaid
+    {
+        get => _checksTheCars;
+        set
+        {
+            _checksTheCars = value;
+            if (!value || _bodiesExpected.Length > 0) return;
+
+            _bodiesExpected = new DeviceBodies.BodyRow[_cars];
+            _planRowsExpected = new UInt4[_cars];
+            _planFiguresExpected = new System.Numerics.Vector4[_cars * 2];
+            _bodiesChecked = Readback<DeviceBodies.BodyRow>(_cars);
+            _planRowsChecked = Readback<UInt4>(_cars);
+            _planFiguresChecked = Readback<System.Numerics.Vector4>(_cars * 2);
+        }
+    }
+
+    bool _checksTheCars;
+    DeviceBodies.BodyRow[] _bodiesExpected = [];
+    UInt4[] _planRowsExpected = [];
+    System.Numerics.Vector4[] _planFiguresExpected = [];
+    GpuBuffer? _bodiesChecked, _planRowsChecked, _planFiguresChecked;
+
+    /// <summary>How many cars the device laid other than the town would have, over every rebuild checked.</summary>
+    public long CarsLaidUnlike { get; private set; }
+
+    /// <summary>Checked: every car the device lays, as the town would lay its body at the head of the rebuild.</summary>
+    void ExpectTheBodies(TownWorld town)
+    {
+        for (var car = 0; car < _carCount; car++)
+        {
+            if (_laidOnTheDevice[car]) _bodiesExpected[car] = DeviceBodies.RowOf(town, car, _config.Driving.StopSpeedMps) with { Forward = default };
+        }
+    }
+
+    /// <summary>Checked: every car the device lays, as the town would lay its plan's rows before the plans.</summary>
+    void ExpectThePlans(TownWorld town)
+    {
+        for (var car = 0; car < _carCount; car++)
+        {
+            if (_laidOnTheDevice[car]) _planRowsExpected[car] = DevicePlans.RowsOf(town, car, _planFiguresExpected.AsSpan(car * 2, 2));
+        }
+    }
+
+    /// <summary>Checked: what the device laid of every car it lays, copied back, recorded; the caller barriers.</summary>
+    void RecordReadTheCarsLaid(CommandBuffer commands)
+    {
+        var (planCars, planFigures, _, _) = _plans.OnTheDevice;
+        _vk.Copy(commands, _bodies.Laid, _bodiesChecked!, Bytes<DeviceBodies.BodyRow>(_carCount));
+        _vk.Copy(commands, planCars, _planRowsChecked!, Bytes<UInt4>(_carCount));
+        _vk.Copy(commands, planFigures, _planFiguresChecked!, Bytes<System.Numerics.Vector4>(_carCount * 2));
+    }
+
+    /// <summary>How many cars the device laid other than the town would have, this rebuild.</summary>
+    int CarsLaidOtherwise()
+    {
+        var bodies = _bodiesChecked!.Span<DeviceBodies.BodyRow>();
+        var rows = _planRowsChecked!.Span<UInt4>();
+        var figures = _planFiguresChecked!.Span<System.Numerics.Vector4>();
+        var unlike = 0;
+        for (var car = 0; car < _carCount; car++)
+        {
+            if (!_laidOnTheDevice[car]) continue;
+
+            if (bodies[car] with { Forward = default } != _bodiesExpected[car] || rows[car] != _planRowsExpected[car]
+                || figures[car * 2] != _planFiguresExpected[car * 2] || figures[(car * 2) + 1] != _planFiguresExpected[(car * 2) + 1])
+            {
+                unlike++;
+            }
+        }
+
+        return unlike;
+    }
+
+    /// <summary>Every car's terms laid where they changed, as the cars stand before their plans: nothing for one the town lays.</summary>
+    void LayTheCarsTerms(TownWorld town)
+    {
+        var cars = town.Cars;
+        for (var car = 0; car < _carCount; car++)
+        {
+            if (!_laidOnTheDevice[car])
+            {
+                _carTerms.Lay(car, default);
+                continue;
+            }
+
+            var flags = CarTermsRow.Held | (cars.BlueLight[car] ? CarTermsRow.OnACall : 0u)
+                        | (cars.LineIsReverse[car] ? CarTermsRow.LineIsReverse : 0u) | (cars.Pass[car].Begun ? CarTermsRow.PassBegun : 0u);
+            var drives = town.DrivesItsRoute(car);
+            if (drives) flags |= CarTermsRow.DrivesTheRoute;
+
+            // What it keeps off what it may pass is read off its lane, and only one under way on its line has one.
+            var keptOffM = drives && cars.Line[car].LaneCount > 0 ? town.KeptOffWhatItMayPassM(car) : 0f;
+            _carTerms.Lay(car, new CarTermsRow(flags, cars.Channels[car], town.OffTheLineAllowanceM(car), keptOffM));
+        }
     }
 
     /// <summary>Kept walkers: how many passes each walker's body laid counted and scanned into where each is filed, recorded.</summary>
@@ -206,10 +395,11 @@ internal sealed partial class DeviceRebuild
     public double MirroredMs { get; private set; }
 
     /// <summary>
-    /// Of what the last rebuild in the town sent, in bytes: the cars' bodies, their plans' rows, the walkers as stationed and
-    /// changed since, the cars' lines, each asked car's claim, and the rows, holds and asks the town laid itself.
+    /// Of what the last rebuild in the town sent, in bytes: the cars' bodies and their plans' rows the town laid, the walkers
+    /// as stationed and changed since, the cars' lines, the readings, poses and terms of the cars the device lays itself,
+    /// each asked car's claim, and the rows, holds and asks the town laid itself.
     /// </summary>
-    public (ulong Bodies, ulong Plans, ulong Walkers, ulong Lines, ulong CarClaims, ulong TownsOwn) SentParts { get; private set; }
+    public (ulong Bodies, ulong Plans, ulong Walkers, ulong Lines, ulong Held, ulong CarClaims, ulong TownsOwn) SentParts { get; private set; }
 
     /// <summary>How many bytes the last rebuild in the town sent, and how many it read back.</summary>
     public (ulong Sent, ulong Read) Crossed { get; private set; }
@@ -241,11 +431,12 @@ internal sealed partial class DeviceRebuild
                 _walkerCount = town.People.Count;
                 _hostRowCount = _hostHoldCount = _rowEditCount = _holdEditCount = _askCount = 0;
                 _hostUnitCount = (int)StandingUnit + 1;
-                _bodies.Lay(town);
 
                 // Every body reads its occupant's line and every plan its own car's, where the car tick keeps them; no
                 // stage of a laying lays a line, so one made current here serves both.
-                for (var car = 0; car < _carCount; car++) _carTick!.LayTheLineOf(town.Cars, car);
+                LayWhatTheDeviceHolds(town);
+                _bodies.Lay(town, _laidOnTheDevice.AsSpan(0, _carCount));
+                if (_checksTheCars) ExpectTheBodies(town);
                 break;
 
             case ClaimsStage.Stationed:
@@ -265,7 +456,9 @@ internal sealed partial class DeviceRebuild
                 break;
 
             case ClaimsStage.PlansDue:
-                _plans.Lay(town);
+                _plans.Lay(town, _laidOnTheDevice.AsSpan(0, _carCount));
+                LayTheCarsTerms(town);
+                if (_checksTheCars) ExpectThePlans(town);
                 _timeS = town.ElapsedS;
                 _plansDueSlots = claims.SlotCount;
                 _plansDueHolds = claims.HoldCount;
@@ -332,14 +525,18 @@ internal sealed partial class DeviceRebuild
         var townsOwn = Sent<ClaimRow>.BytesOf(_hostRowCount) + Sent<uint>.BytesOf(_hostRowCount) + Sent<HoldRow>.BytesOf(_hostHoldCount)
                        + Sent<uint>.BytesOf(_hostHoldCount) + Sent<HostUnit>.BytesOf(_hostUnitCount) + Sent<RowEdit>.BytesOf(_rowEditCount)
                        + Sent<HoldEdit>.BytesOf(_holdEditCount) + Sent<BodyAskRow>.BytesOf(_askCount);
-        SentParts = (_bodies.SentBytes, _plans.SentBytes, _walkers.ResidentSentBytes, _carTick!.LinesMarkedBytes, _carClaims.MarkedBytes, townsOwn);
-        var sent = SentParts.Bodies + SentParts.Plans + SentParts.Walkers + SentParts.Lines + SentParts.CarClaims + townsOwn;
+        SentParts = (
+            _bodies.SentBytes, _plans.SentBytes, _walkers.ResidentSentBytes, _carTick!.LinesMarkedBytes,
+            _carTick.ReadingsMarkedBytes + _carTerms.MarkedBytes, _carClaims.MarkedBytes, townsOwn);
+        var sent = SentParts.Bodies + SentParts.Plans + SentParts.Walkers + SentParts.Lines + SentParts.Held + SentParts.CarClaims + townsOwn;
         _bodies.RecordSend(commands);
         _plans.RecordSend(commands);
         var keeps = _walkers.Keeps;
         if (keeps) _walkers.RecordTheKeptSend(commands);
         else _walkers.RecordTheResidentSend(commands);
         _carTick.RecordTheLinesSent(commands);
+        _carTick.RecordTheReadingsSent(commands);
+        _carTerms.Send(commands);
         _hostRows.Send(commands, _hostRowCount);
         _hostRowUnit.Send(commands, _hostRowCount);
         _hostHolds.Send(commands, _hostHoldCount);
@@ -353,6 +550,8 @@ internal sealed partial class DeviceRebuild
         vk.AfterTransfer(commands);
         _timer.Stamp(commands, (int)Stage.Sent);
 
+        _carsGather.Dispatch(commands, _carCount, new GatherPush((uint)_carCount, _config.Driving.StopSpeedMps));
+        vk.BetweenKernels(commands);
         RecordTheBodies(commands);
         _timer.Stamp(commands, (int)Stage.BodiesLaid);
         RecordThePlans(commands);
@@ -400,12 +599,14 @@ internal sealed partial class DeviceRebuild
         else vk.Copy(commands, _walkersOut, _walkersRead, Bytes<WalkOut>(_walkerCount));
         var walkersRead = keeps ? _walkers.KeptReadBytes : Bytes<WalkOut>(_walkerCount);
         if (GrantedWithTheAnswers) vk.Copy(commands, _grants, _grantsOut, Bytes<DeviceCarTick.GrantRow>(_carCount));
+        if (_checksTheCars) RecordReadTheCarsLaid(commands);
         _timer.Stamp(commands, (int)Stage.Granted);
         _timer.Stamp(commands, (int)Stage.Read);
         RegionsCopied = (int)(Runtime.Vk.RegionsCopied - regionsFrom);
         _batch.SubmitAndWait();
         _timer.Read();
         var waited = Stopwatch.GetTimestamp();
+        if (_checksTheCars) CarsLaidUnlike += CarsLaidOtherwise();
 
         _claims.TakeTheCounts();
         if (LandsLater)

@@ -56,7 +56,11 @@ internal sealed class DevicePlans : IDisposable
     readonly int _mostPieces;
     readonly uint _firstConnector;
     readonly List<GpuBuffer> _owned = [];
-    readonly GpuBuffer _carRows, _carFigures;
+
+    /// <summary>Each car's words — build, flags — and its figures, two a car (<c>PlanCarRow</c>), kept on the device.</summary>
+    readonly ResidentRows<UInt4> _carRows;
+
+    readonly ResidentRows<Vector4> _carFigures;
 
     /// <summary>The lines as each laying sends them — none where the car tick's are read in place.</summary>
     readonly GpuBuffer? _lines, _arcs, _entries, _chain, _starts, _ends, _breaks;
@@ -64,7 +68,7 @@ internal sealed class DevicePlans : IDisposable
     readonly GpuBuffer _pieces, _results, _piecesOut, _resultsOut;
     int _carCount;
 
-    /// <summary>What each laying sends, and the device-local buffers it lands in.</summary>
+    /// <summary>The lines each laying sends whole, and the device-local buffers they land in — none where the car tick's are read.</summary>
     readonly GpuBuffer[] _sent, _resident;
 
     readonly List<(GpuBuffer From, GpuBuffer To)> _once = [];
@@ -129,8 +133,8 @@ internal sealed class DevicePlans : IDisposable
         markAt[wayCount] = (uint)sections.Count;
         if (sections.Count == 0) sections.Add(default);
 
-        _carRows = Mapped<UInt4>(_cars);
-        _carFigures = Mapped<Vector4>(_cars * 2);
+        _carRows = new ResidentRows<UInt4>(vk, _cars, 1, hostOnly: true, bridges: false);
+        _carFigures = new ResidentRows<Vector4>(vk, _cars, 2, hostOnly: true, bridges: false);
         if (lines is null)
         {
             _lines = Mapped<CarLineRow>(_cars);
@@ -140,11 +144,11 @@ internal sealed class DevicePlans : IDisposable
             _starts = Mapped<float>(_cars * LineAssembler.MostLanes);
             _ends = Mapped<float>(_cars * LineAssembler.MostLanes);
             _breaks = Mapped<uint>(_cars * LineAssembler.MostLanes);
-            _sent = [_carRows, _carFigures, _lines, _arcs, _entries, _chain, _starts, _ends, _breaks];
+            _sent = [_lines, _arcs, _entries, _chain, _starts, _ends, _breaks];
         }
         else
         {
-            _sent = [_carRows, _carFigures];
+            _sent = [];
         }
 
         _pieces = Device<DeviceClaims.ClaimRow>(_cars * _mostPieces);
@@ -156,10 +160,10 @@ internal sealed class DevicePlans : IDisposable
 
         GpuBuffer[] carLines = lines is { } kept
             ? [kept.Lines, kept.Arcs, kept.Entries, kept.Chain, kept.Starts, kept.Ends, kept.Breaks]
-            : _resident[2..];
+            : _resident;
         GpuBuffer[] set =
         [
-            Resident(Laid<CarBuildRow>(builds)), _resident[0], _resident[1], .. carLines, Resident(Laid<uint>(connectorAt)),
+            Resident(Laid<CarBuildRow>(builds)), _carRows.Device, _carFigures.Device, .. carLines, Resident(Laid<uint>(connectorAt)),
             Resident(Laid<int>(connectorTo)), Resident(Laid<uint>(connectorRung)), Resident(Laid<float>(roads.LaneLengthM)),
             Resident(Laid<uint>(markAt)), Resident(Laid<SectionRow>(CollectionsMarshal.AsSpan(sections))), _pieces, _results,
         ];
@@ -181,7 +185,7 @@ internal sealed class DevicePlans : IDisposable
     /// two a car, the second's lane <c>y</c> the room it keeps to step out round what it may pass), its pieces at
     /// <see cref="MostPieces"/> a car, and what each claim came to.
     /// </summary>
-    public (GpuBuffer Cars, GpuBuffer Figures, GpuBuffer Pieces, GpuBuffer Results) OnTheDevice => (_resident[0], _resident[1], _pieces, _results);
+    public (GpuBuffer Cars, GpuBuffer Figures, GpuBuffer Pieces, GpuBuffer Results) OnTheDevice => (_carRows.Device, _carFigures.Device, _pieces, _results);
 
     /// <summary>What every car's claim came to on the last laying read back.</summary>
     public ReadOnlySpan<PlanOutRow> Results => _resultsOut.Span<PlanOutRow>()[.._cars];
@@ -195,21 +199,26 @@ internal sealed class DevicePlans : IDisposable
 
     /// <summary>
     /// <b>The cars as they stand before their claims are laid</b> (<see cref="ClaimsStage.PlansDue"/>), written
-    /// into what the device reads: each car's figures, whether it plans down its line, and its line as far as it is laid.
+    /// into what the device reads: each car's figures, whether it plans down its line, and its line as far as it is laid —
+    /// but a car <paramref name="laidOnTheDevice"/> names, whose row and figures a kernel lays in place before the plans read
+    /// them (<c>car_claims_gather.comp</c>).
     /// </summary>
-    public void Lay(TownWorld world)
+    public void Lay(TownWorld world, ReadOnlySpan<bool> laidOnTheDevice = default)
     {
         var cars = world.Cars;
-        var rows = _carRows.Span<UInt4>();
-        var figures = _carFigures.Span<Vector4>();
+        Span<Vector4> figures = stackalloc Vector4[2];
         _carCount = cars.Count;
         for (var car = 0; car < cars.Count; car++)
         {
-            var proposes = Proposing(world, car);
-            var flags = (proposes ? Proposes : 0u) | (cars.BlueLight[car] ? OnACall : 0u) | (cars.LineIsReverse[car] ? LineIsReverse : 0u);
-            rows[car] = new UInt4(cars.Variant[car], flags, 0u, 0u);
-            figures[car * 2] = new Vector4(cars.ProgressM[car], cars.AlongMps[car], cars.PlannedMps[car], 0f);
-            figures[car * 2 + 1] = new Vector4(cars.GrantMarginM[car], proposes ? world.KeptOffWhatItMayPassM(car) : 0f, 0f, 0f);
+            if (!laidOnTheDevice.IsEmpty && laidOnTheDevice[car])
+            {
+                _carRows.Forget(car);
+                _carFigures.Forget(car);
+                continue;
+            }
+
+            _carRows.Lay(car, RowsOf(world, car, figures));
+            _carFigures.LayRows(car, figures);
         }
 
         if (_lines is null) return;
@@ -239,6 +248,17 @@ internal sealed class DevicePlans : IDisposable
         }
     }
 
+    /// <summary>One car's words — build, flags — and, into <paramref name="figures"/>, its two figures, as the plans read them.</summary>
+    internal static UInt4 RowsOf(TownWorld world, int car, Span<Vector4> figures)
+    {
+        var cars = world.Cars;
+        var proposes = Proposing(world, car);
+        var flags = (proposes ? Proposes : 0u) | (cars.BlueLight[car] ? OnACall : 0u) | (cars.LineIsReverse[car] ? LineIsReverse : 0u);
+        figures[0] = new Vector4(cars.ProgressM[car], cars.AlongMps[car], cars.PlannedMps[car], 0f);
+        figures[1] = new Vector4(cars.GrantMarginM[car], proposes ? world.KeptOffWhatItMayPassM(car) : 0f, 0f, 0f);
+        return new UInt4(cars.Variant[car], flags, 0u, 0u);
+    }
+
     /// <summary>Whether a car's claim is the plan down its line the device lays: planning down it, and on no pass begun.</summary>
     public static bool Proposing(TownWorld world, int car) => world.PlansItsLine(car) && !world.Cars.Pass[car].Begun;
 
@@ -260,25 +280,30 @@ internal sealed class DevicePlans : IDisposable
         _timer.Read();
     }
 
-    /// <summary>What was laid for every car laid for copied to the device, recorded as one copy a table; the caller barriers.</summary>
+    /// <summary>What was laid copied to the device — the cars' rows where they changed, each line table whole — recorded; the caller barriers.</summary>
     public void RecordSend(CommandBuffer commands)
     {
-        SentBytes = 0;
-        for (var at = 0; at < _sent.Length; at++)
-        {
-            var bytes = _sent[at].SizeBytes / (ulong)Math.Max(1, _cars) * (ulong)_carCount;
-            _vk.Copy(commands, _sent[at], _resident[at], bytes);
-            SentBytes += bytes;
-        }
-
-        LinesSentBytes = _arcs is null ? 0ul : (_arcs.SizeBytes + _entries!.SizeBytes) / (ulong)Math.Max(1, _cars) * (ulong)_carCount;
+        _carRows.Send(commands);
+        _carFigures.Send(commands);
+        for (var at = 0; at < _sent.Length; at++) _vk.Copy(commands, _sent[at], _resident[at], LineBytes(_sent[at]));
     }
 
-    /// <summary>How many bytes the last send copied, and how many of them were the cars' lines — every arc of each car's room.</summary>
-    public ulong SentBytes { get; private set; }
+    /// <summary>How many bytes the next send copies.</summary>
+    public ulong SentBytes
+    {
+        get
+        {
+            var bytes = _carRows.MarkedBytes + _carFigures.MarkedBytes;
+            foreach (var table in _sent) bytes += LineBytes(table);
+            return bytes;
+        }
+    }
 
-    /// <inheritdoc cref="SentBytes"/>
-    public ulong LinesSentBytes { get; private set; }
+    /// <summary>Of them, how many are the cars' lines — every arc of each car's room.</summary>
+    public ulong LinesSentBytes => _arcs is null ? 0ul : LineBytes(_arcs) + LineBytes(_entries!);
+
+    /// <summary>The part of one of the lines' tables the cars laid for fill.</summary>
+    ulong LineBytes(GpuBuffer table) => table.SizeBytes / (ulong)Math.Max(1, _cars) * (ulong)_carCount;
 
     /// <summary>Every car laid for planned, recorded and made visible to the next kernel.</summary>
     public void Record(CommandBuffer commands)
@@ -335,6 +360,8 @@ internal sealed class DevicePlans : IDisposable
         _timer.Dispose();
         _batch.Dispose();
         _plan.Dispose();
+        _carRows.Dispose();
+        _carFigures.Dispose();
         foreach (var buffer in _owned) buffer.Dispose();
     }
 }

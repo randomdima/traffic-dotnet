@@ -4,6 +4,7 @@ using Silk.NET.Vulkan;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Runtime;
+using TrafficSimulation.World.Physics;
 using Vk = TrafficSimulation.Runtime.Vk;
 
 namespace TrafficSimulation.App.DeviceTick;
@@ -29,6 +30,11 @@ internal sealed class DeviceTyres : IDisposable
     {
         public static PoseRow Of(in CarPose pose) => new(
             pose.PositionM, pose.VelocityMps, pose.Forward, pose.AccelerationMps2, pose.HeadingRad, pose.YawRateRadPerS, pose.MassKg, 0f);
+
+        /// <summary>A car's pose as the fleet holds it.</summary>
+        public static PoseRow Of(CarFleet cars, int car) => Of(new CarPose(
+            cars.PositionM[car], cars.HeadingRad[car], cars.VelocityMps[car], cars.YawRateRadPerS[car], cars.MassKg[car],
+            cars.AccelerationMps2[car]));
     }
 
     /// <summary>The pedals and the wheel (<c>TyreCommand</c>).</summary>
@@ -211,6 +217,22 @@ internal sealed class DeviceTyres : IDisposable
     public Span<uint> BuildOf => _buildOf.All;
 
     public Span<PoseRow> Poses => _poses.All;
+
+    /// <summary>
+    /// <b>The pose of every car whose body the town changed since the solver's last step</b> — put down, reweighed, frozen
+    /// as the step ended — laid again from the fleet, which the town wrote with it, and marked to be sent.
+    /// </summary>
+    public void LayThePlacedPoses(CarFleet cars, PhysicsWorld physics)
+    {
+        foreach (var body in physics.Changes)
+        {
+            var tag = physics.TagOf(new BodyId(body + 1));
+            if (tag.Kind != BodyKind.Car || tag.Index < 0 || tag.Index >= cars.Count) continue;
+
+            _poses.All[tag.Index] = PoseRow.Of(cars, tag.Index);
+            _poses.Mark(tag.Index);
+        }
+    }
 
     public Span<CommandRow> Commands => _commands.All;
 

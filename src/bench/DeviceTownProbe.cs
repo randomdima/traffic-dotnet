@@ -104,7 +104,7 @@ internal static class DeviceTownProbe
         var claimsStationedMs = 0d;
         var (claimsBodiesMs, claimsPlansMs) = (0d, 0d);
         var (claimsSentMb, claimsReadMb) = (0d, 0d);
-        var sentParts = new double[6];
+        var sentParts = new double[7];
         var (laidRows, laidBodies, laidHolds) = (0L, 0L, 0L);
         var stages = Enum.GetValues<ClaimsStage>();
         var stageTownMs = new double[stages.Length];
@@ -138,7 +138,7 @@ internal static class DeviceTownProbe
                 claimsSentMb += rebuild.Crossed.Sent / 1e6;
                 rebuildRegions += rebuild.RegionsCopied;
                 var parts = rebuild.SentParts;
-                ReadOnlySpan<ulong> each = [parts.Bodies, parts.Plans, parts.Walkers, parts.Lines, parts.CarClaims, parts.TownsOwn];
+                ReadOnlySpan<ulong> each = [parts.Bodies, parts.Plans, parts.Walkers, parts.Lines, parts.Held, parts.CarClaims, parts.TownsOwn];
                 for (var part = 0; part < each.Length; part++) sentParts[part] += each[part] / 1e6;
                 claimsReadMb += rebuild.Crossed.Read / 1e6;
                 var (rows, bodies, holds) = rebuild.Counted;
@@ -207,9 +207,9 @@ internal static class DeviceTownProbe
                 $"channels and {device.Claims.Rebuild.BackedUp} rebuilds with a car backing up since the device was set; the town laid " +
                 $"at most {mostHostRows} rows and {mostHostHolds} holds of a rebuild itself");
             Console.WriteLine(
-                $"  of what a rebuild sends, MB: the cars' bodies {sentParts[0] / each:F2}, their plans {sentParts[1] / each:F2}, the walkers " +
-                $"{sentParts[2] / each:F2}, the cars' lines {sentParts[3] / each:F2}, the cars' claims {sentParts[4] / each:F2}, the town's own " +
-                $"{sentParts[5] / each:F2}");
+                $"  of what a rebuild sends, MB: the cars' bodies the town laid {sentParts[0] / each:F2}, their plans {sentParts[1] / each:F2}, " +
+                $"the walkers {sentParts[2] / each:F2}, the cars' lines {sentParts[3] / each:F2}, the readings and terms of the cars the " +
+                $"device lays {sentParts[4] / each:F2}, the cars' claims {sentParts[5] / each:F2}, the town's own {sentParts[6] / each:F2}");
             Console.WriteLine(
                 $"  the layer written back a tick later for {device.Claims.Rebuild.LayersSentBack - sentBack} of them, inside the next tick's submit: " +
                 $"waiting for it {landingWaitedMs / each:F2} and writing it into the town {landedMs / each:F2} ms a rebuild");

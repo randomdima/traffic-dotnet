@@ -76,6 +76,9 @@ internal sealed partial class TownWorld
     /// <summary>For the instruments: whether this car's claim this rebuild is a plan down its own line (<see cref="PlansDownItsLine"/>).</summary>
     public bool PlansItsLine(int car) => PlansDownItsLine(car);
 
+    /// <summary>For a device laying a car's body: whether what it is doing drives its route's line (<see cref="DrivesTheRoute"/>).</summary>
+    public bool DrivesItsRoute(int car) => DrivesTheRoute(car);
+
     /// <summary>
     /// For the instruments: <b>the cars this laying asked</b>, in index order — the only ones whose claim was cleared and
     /// laid again and whose grant was read; every other stands as it was laid last (<see cref="LayTheCarsBodies"/>).

@@ -230,13 +230,7 @@ internal sealed partial class DeviceCarTick
         }
     }
 
-    void LayThePose(TownWorld town, int car)
-    {
-        var cars = town.Cars;
-        _tyres.Poses[car] = DeviceTyres.PoseRow.Of(new CarPose(
-            cars.PositionM[car], cars.HeadingRad[car], cars.VelocityMps[car], cars.YawRateRadPerS[car], cars.MassKg[car],
-            cars.AccelerationMps2[car]));
-    }
+    void LayThePose(TownWorld town, int car) => _tyres.Poses[car] = DeviceTyres.PoseRow.Of(town.Cars, car);
 
     /// <param name="wheels">Whether the host's copy of its wheels is laid — never where the device holds them newer.</param>
     void LayTheTyres(TownWorld town, int car, bool wheels = true)

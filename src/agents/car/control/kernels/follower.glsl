@@ -9,23 +9,7 @@
 // waitingToPassBrakingShare, reactionS, callPaceMps, dtS.
 
 #include "agents/car/control/kernels/overtake.glsl"
-
-// What the driver has been told about the world this tick (DriveContext).
-struct DriveContextRow
-{
-    float authorityM;
-    uint grantCutBy;
-    float placeStopM;
-    float marginM;
-    uint waitsToPass;
-    float horizonM;
-    float passAsideM;
-    float backUpM;
-    uint blocked;
-    float waitAtM;
-    float pad0;
-    float pad1;
-};
+#include "agents/car/control/kernels/drive_context_row.glsl"
 
 // DrivingHold, by number.
 const uint HoldNone = 0u;

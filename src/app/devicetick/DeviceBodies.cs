@@ -31,7 +31,7 @@ internal sealed class DeviceBodies : IDisposable
     /// the device's own trigonometry, and where its axles and track put its wheels (<see cref="TyreModel.WheelAtM"/>).
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
-    readonly record struct BodyRow(
+    internal readonly record struct BodyRow(
         Vector2 CentreM, Vector2 Forward, float FrontAxleM, float RearAxleM, float HalfTrackM, uint Channels, int Occupant,
         float AlongMps, uint Flags, uint Pad = 0u);
 
@@ -53,7 +53,8 @@ internal sealed class DeviceBodies : IDisposable
     readonly uint _firstConnector;
     readonly DeviceAtlas _atlas;
     readonly List<GpuBuffer> _owned = [];
-    readonly GpuBuffer _bodiesIn, _bodies, _lines, _chain, _rows, _counts, _rowsOut, _countsOut;
+    readonly ResidentRows<BodyRow> _bodies;
+    readonly GpuBuffer _lines, _chain, _rows, _counts, _rowsOut, _countsOut;
 
     /// <summary>Each car's line and chain as this sends them — none where the car tick's own are read.</summary>
     readonly GpuBuffer? _linesIn, _chainIn;
@@ -90,8 +91,7 @@ internal sealed class DeviceBodies : IDisposable
 
         for (var connector = 0; connector < roads.ConnectorCount; connector++) connectorTo[connector] = roads.ConnectorTo(connector);
 
-        _bodiesIn = Staging<BodyRow>(_cars);
-        _bodies = Device<BodyRow>(_cars);
+        _bodies = new ResidentRows<BodyRow>(vk, _cars, 1, hostOnly: true, bridges: false);
         if (lines is { } kept)
         {
             (_lines, _chain) = (kept.Lines, kept.Chain);
@@ -113,7 +113,7 @@ internal sealed class DeviceBodies : IDisposable
         var connectorToBuffer = Own(vk.CreateBuffer(Bytes<int>(connectorTo.Length), BufferUsageFlags.StorageBufferBit, HostAccess.Writes));
         connectorToBuffer.Write<int>(connectorTo);
 
-        GpuBuffer[] set = [_bodies, _lines, _chain, connectorAtBuffer, connectorToBuffer, _rows, _counts, .. _atlas.Tables];
+        GpuBuffer[] set = [_bodies.Device, _lines, _chain, connectorAtBuffer, connectorToBuffer, _rows, _counts, .. _atlas.Tables];
         _lay = new ComputeKernel(vk, "car_bodies.comp", set.Length, (uint)Marshal.SizeOf<BodiesPush>());
         _set = _lay.Bind(set);
         _batch = new ComputeBatch(vk);
@@ -143,27 +143,23 @@ internal sealed class DeviceBodies : IDisposable
     /// <summary>Which of a car's wheels stand on a way once its body is laid (<see cref="CarFleet.WheelsOnAWay"/>).</summary>
     public byte WheelsOnAWayOf(int car) => (byte)_countsOut.Span<UInt4>()[car].W;
 
+    /// <summary>The cars' bodies as the laying reads them, for a kernel that lays a car's in the host's place.</summary>
+    public GpuBuffer Laid => _bodies.Device;
+
     /// <summary>
     /// <b>The cars as they stand when a rebuild begins</b> (<see cref="ClaimsStage.Begun"/>), written into
-    /// what the device is sent: each car's wheels under it, on the host's own forward unit vector, and what it is laid as.
+    /// what the device is sent: each car's wheels under it, on the host's own forward unit vector, and what it is laid as —
+    /// but a car <paramref name="laidOnTheDevice"/> names, whose body a kernel lays in place before this laying reads it
+    /// (<c>car_claims_gather.comp</c>).
     /// </summary>
-    public void Lay(TownWorld world)
+    public void Lay(TownWorld world, ReadOnlySpan<bool> laidOnTheDevice = default)
     {
         var cars = world.Cars;
-        var bodies = _bodiesIn.Span<BodyRow>();
-        var stopMps = _config.Driving.StopSpeedMps;
         _carCount = cars.Count;
         for (var car = 0; car < cars.Count; car++)
         {
-            var laying = world.LayingOf(car);
-            ref readonly var build = ref cars.BuildOf(car);
-            var still = cars.VelocityMps[car].LengthSquared() <= stopMps * stopMps;
-            var flags = (laying.Travelling ? Travelling : 0u) | (laying.RunsOnPastItself ? RunsOnPastItself : 0u)
-                        | (still ? Still : 0u) | (laying.Blocked ? Blocked : 0u);
-            bodies[car] = new BodyRow(
-                cars.PositionM[car], Heading.Unit(cars.HeadingRad[car]), TyreModel.WheelAtM(build, 0).X,
-                TyreModel.WheelAtM(build, 2).X, build.HalfTrackM, cars.Channels[car], laying.Occupant, cars.AlongMps[laying.Occupant],
-                flags);
+            if (!laidOnTheDevice.IsEmpty && laidOnTheDevice[car]) _bodies.Forget(car);
+            else _bodies.Lay(car, RowOf(world, car, _config.Driving.StopSpeedMps));
         }
 
         if (_linesIn is null) return;
@@ -177,6 +173,20 @@ internal sealed class DeviceBodies : IDisposable
             lines[car] = new CarLineRow((uint)line.ArcCount, (uint)line.LaneCount, line.LengthM, 0u);
             for (var slot = 0; slot < line.LaneCount; slot++) chain[(car * lanes) + slot] = cars.ChainOf(car)[slot];
         }
+    }
+
+    /// <summary>One car as its body is read, on the host's own forward unit vector (<see cref="TownWorld.LayingOf"/>).</summary>
+    internal static BodyRow RowOf(TownWorld world, int car, float stopMps)
+    {
+        var cars = world.Cars;
+        var laying = world.LayingOf(car);
+        ref readonly var build = ref cars.BuildOf(car);
+        var still = cars.VelocityMps[car].LengthSquared() <= stopMps * stopMps;
+        var flags = (laying.Travelling ? Travelling : 0u) | (laying.RunsOnPastItself ? RunsOnPastItself : 0u)
+                    | (still ? Still : 0u) | (laying.Blocked ? Blocked : 0u);
+        return new BodyRow(
+            cars.PositionM[car], Heading.Unit(cars.HeadingRad[car]), TyreModel.WheelAtM(build, 0).X, TyreModel.WheelAtM(build, 2).X,
+            build.HalfTrackM, cars.Channels[car], laying.Occupant, cars.AlongMps[laying.Occupant], flags);
     }
 
     /// <summary>Every car's body laid, and what each came to read back. One submit and one wait.</summary>
@@ -200,7 +210,7 @@ internal sealed class DeviceBodies : IDisposable
     /// <summary>What was laid copied to the device, recorded; the caller barriers.</summary>
     public void RecordSend(CommandBuffer commands)
     {
-        _vk.Copy(commands, _bodiesIn, _bodies, Bytes<BodyRow>(_carCount));
+        _bodies.Send(commands);
         if (_linesIn is null) return;
 
         _vk.Copy(commands, _linesIn, _lines, Bytes<CarLineRow>(_carCount));
@@ -209,7 +219,7 @@ internal sealed class DeviceBodies : IDisposable
 
     /// <summary>How many bytes <see cref="RecordSend"/> copies.</summary>
     public ulong SentBytes =>
-        Bytes<BodyRow>(_carCount) + (_linesIn is null ? 0ul : Bytes<CarLineRow>(_carCount) + Bytes<int>(_carCount * LineAssembler.MostLanes));
+        _bodies.MarkedBytes + (_linesIn is null ? 0ul : Bytes<CarLineRow>(_carCount) + Bytes<int>(_carCount * LineAssembler.MostLanes));
 
     /// <summary>Every car laid for laid onto the ways under it, recorded and made visible to the next kernel.</summary>
     public void Record(CommandBuffer commands)
@@ -247,6 +257,7 @@ internal sealed class DeviceBodies : IDisposable
         _batch.Dispose();
         _lay.Dispose();
         _atlas.Dispose();
+        _bodies.Dispose();
         foreach (var buffer in _owned) buffer.Dispose();
     }
 }

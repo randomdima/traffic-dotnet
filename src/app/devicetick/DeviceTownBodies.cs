@@ -198,13 +198,13 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         {
             _solver.LayWhole(table);
             _bodiesLaid = table.Count;
-            for (var car = 0; car < cars.Count; car++) _tyres.Poses[car] = PoseOf(cars, car);
+            for (var car = 0; car < cars.Count; car++) _tyres.Poses[car] = DeviceTyres.PoseRow.Of(cars, car);
             _tyres.Table.Poses.Mark(0, cars.Count);
         }
         else
         {
             _solver.LayRows(table, physics.Changes);
-            LayThePlacedCars(town, physics);
+            _tyres.LayThePlacedPoses(cars, physics);
         }
 
         physics.ForgetTheChanges();
@@ -271,25 +271,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
     /// The pose of every car whose body the town changed since the last step — frozen as the step ended, put down,
     /// reweighed — laid from the fleet into the tyre pass's table, for whatever reads it before the next step.
     /// </summary>
-    public void LayThePosesTheTownChanged(TownWorld town) => LayThePlacedCars(town, town.PhysicsForTheDevice);
-
-    /// <summary>The pose of every car whose body the town changed — put down, reweighed — laid again from the fleet, which the town wrote with it.</summary>
-    void LayThePlacedCars(TownWorld town, PhysicsWorld physics)
-    {
-        var cars = town.Cars;
-        foreach (var body in physics.Changes)
-        {
-            var tag = physics.TagOf(new BodyId(body + 1));
-            if (tag.Kind != BodyKind.Car || tag.Index < 0 || tag.Index >= cars.Count) continue;
-
-            _tyres.Poses[tag.Index] = PoseOf(cars, tag.Index);
-            _tyres.Table.Poses.Mark(tag.Index);
-        }
-    }
-
-    static DeviceTyres.PoseRow PoseOf(CarFleet cars, int car) => DeviceTyres.PoseRow.Of(new CarPose(
-        cars.PositionM[car], cars.HeadingRad[car], cars.VelocityMps[car], cars.YawRateRadPerS[car], cars.MassKg[car],
-        cars.AccelerationMps2[car]));
+    public void LayThePosesTheTownChanged(TownWorld town) => _tyres.LayThePlacedPoses(town.Cars, town.PhysicsForTheDevice);
 
     /// <summary>
     /// <b>What the step left, handed back</b>: every car into the fleet as the town's own phase writes it, every walker
