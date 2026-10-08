@@ -538,9 +538,9 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     }
 
     /// <summary>
-    /// <b>Every walker the device ticked, written back</b>: the way it faces, the pace it declared and the impulse it left —
-    /// but a casualty's, whose slide is the town's own bodies' phase's (<c>TownWorld.Settle</c>), written over the tick's
-    /// row before the bodies are stepped.
+    /// <b>Every walker the device ticked, written back</b> where its tick wrote anything: the way it faces, the pace it
+    /// declared and the impulse it left — but a casualty's, whose slide is the town's own bodies' phase's
+    /// (<c>TownWorld.Settle</c>), written over the tick's row before the bodies are stepped.
     /// </summary>
     void TakeBackTheWalkers(TownWorld town)
     {
@@ -548,9 +548,9 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         var ticks = _walkers.TicksAfter;
         for (var person = 0; person < _walkerCount; person++)
         {
-            if (DeviceTownBodies.TheTownsImpulse(town, person)) continue;
-
             ref readonly var tick = ref ticks[person];
+            if (!_walkers.WroteLastTick(tick) || DeviceTownBodies.TheTownsImpulse(town, person)) continue;
+
             people.HeadingRad[person] = tick.HeadingRad;
             people.DeclaredMps[person] = tick.DeclaredMps;
             town.WalkerImpulseFor(person) = tick.ImpulseNs;

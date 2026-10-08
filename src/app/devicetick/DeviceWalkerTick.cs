@@ -36,9 +36,9 @@ internal sealed partial class DeviceWalkerTick : IDisposable
         public const uint Walking = 1u, Wounded = 2u, Inside = 4u, Paused = 8u;
     }
 
-    /// <summary>What the town reads of a walker's tick (<c>walkers_tick.comp</c>'s <c>WalkerTickOut</c>).</summary>
+    /// <summary>What the town reads of a walker's tick (<c>walkers_tick.comp</c>'s <c>WalkerTickOut</c>), and which tick wrote it.</summary>
     [StructLayout(LayoutKind.Sequential)]
-    internal readonly record struct TickOut(Vector2 DeclaredMps, Vector2 ImpulseNs, float HeadingRad, float Pad = 0f);
+    internal readonly record struct TickOut(Vector2 DeclaredMps, Vector2 ImpulseNs, float HeadingRad, uint Tick = 0u);
 
     /// <summary>One walker written whole over the device's table (<c>walkers_patch.comp</c>'s <c>WalkerPatch</c>).</summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -47,11 +47,11 @@ internal sealed partial class DeviceWalkerTick : IDisposable
     /// <summary>The kernel's figures, field for field with <c>walkers_tick.comp</c>'s, each the host's own.</summary>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct Figures(
-        uint WalkerCount, float DtS, float WalkSpeedMps, float TurnRateDegPerS, float FootGripMps2, float SlidingGripMps2)
+        uint WalkerCount, float DtS, float WalkSpeedMps, float TurnRateDegPerS, float FootGripMps2, float SlidingGripMps2, uint Tick)
     {
         public static Figures Of(SimConfig config) => new(
             0u, config.TickSeconds, config.PersonWalkSpeedMps, config.PersonTurnRateDegPerS, config.PersonFootGripMps2,
-            config.PersonSlidingGripMps2);
+            config.PersonSlidingGripMps2, 0u);
     }
 
     readonly Vk _vk;
@@ -60,11 +60,17 @@ internal sealed partial class DeviceWalkerTick : IDisposable
     readonly ResidentRows<WalkerRow> _walkers;
     readonly ResidentRows<Vector2> _impulses;
     readonly ResidentRows<int> _bodies;
-    readonly ResidentRows<TickOut> _ticksOut;
+
+    /// <summary>What each walker's tick wrote, in the host's own memory, where its tick wrote anything (<c>walkers_tick.comp</c>).</summary>
+    readonly GpuBuffer _ticksOut;
+
     readonly ComputeKernel _kernel;
     readonly DescriptorSet _set;
     readonly GpuTimer _timer;
     int _count;
+
+    /// <summary>The stamp the last tick wrote its rows with, never the zero a row never written holds.</summary>
+    uint _tick;
 
     /// <summary>Resident: the patches staged and on the device, and the kernel that writes them.</summary>
     readonly GpuBuffer? _patchesIn, _patches;
@@ -96,9 +102,10 @@ internal sealed partial class DeviceWalkerTick : IDisposable
         _walkers = new ResidentRows<WalkerRow>(vk, capacity, 1, readsBack: true);
         _impulses = new ResidentRows<Vector2>(vk, capacity, 1, readsBack: true);
         _bodies = new ResidentRows<int>(vk, capacity, 1, hostOnly: true);
-        _ticksOut = new ResidentRows<TickOut>(vk, capacity, 1, readsBack: true);
+        _ticksOut = vk.CreateBuffer(
+            (ulong)(Math.Max(1, capacity) * Marshal.SizeOf<TickOut>()), BufferUsageFlags.StorageBufferBit, HostAccess.Reads);
         _kernel = new ComputeKernel(vk, "walkers_tick.comp", 3, (uint)Marshal.SizeOf<Figures>());
-        _set = _kernel.Bind([_walkers.Device, _impulses.Device, _ticksOut.Device]);
+        _set = _kernel.Bind([_walkers.Device, _impulses.Device, _ticksOut]);
         _timer = new GpuTimer(vk, 2);
         if (!resident) return;
 
@@ -136,11 +143,17 @@ internal sealed partial class DeviceWalkerTick : IDisposable
     /// <summary>Every walker's impulse as the last read left it — not resident.</summary>
     public ReadOnlySpan<Vector2> ImpulsesAfter => _impulses.AllRead[.._count];
 
-    /// <summary>Resident: what every walker's last tick declared, left and faced, as the last read handed it back.</summary>
-    public ReadOnlySpan<TickOut> TicksAfter => _ticksOut.AllRead[.._count];
+    /// <summary>
+    /// Resident: what every walker's last tick declared, left and faced — where it wrote anything (<see cref="WroteLastTick"/>);
+    /// a row it did not write holds what an earlier tick did.
+    /// </summary>
+    public ReadOnlySpan<TickOut> TicksAfter => _ticksOut.Span<TickOut>()[.._count];
+
+    /// <summary>Whether the last tick wrote this row of <see cref="TicksAfter"/>: elsewhere it changed nothing the town holds.</summary>
+    public bool WroteLastTick(in TickOut row) => row.Tick == _tick;
 
     /// <summary>The impulse a walker's last tick left on the device, however it was handed back.</summary>
-    public Vector2 ImpulseAfter(int walker) => Resident ? _ticksOut.AllRead[walker].ImpulseNs : _impulses.AllRead[walker];
+    public Vector2 ImpulseAfter(int walker) => Resident ? _ticksOut.Span<TickOut>()[walker].ImpulseNs : _impulses.AllRead[walker];
 
     /// <summary>How many walkers the last tick was written over whole, resident.</summary>
     public int Patched => _patchCount;
@@ -208,6 +221,8 @@ internal sealed partial class DeviceWalkerTick : IDisposable
         for (var walker = 0; walker < ticks.Length; walker++)
         {
             ref readonly var tick = ref ticks[walker];
+            if (!WroteLastTick(tick)) continue;
+
             _known[walker] = _known[walker] with { DeclaredMps = tick.DeclaredMps, HeadingRad = tick.HeadingRad };
             _knownImpulse[walker] = tick.ImpulseNs;
         }
@@ -325,21 +340,22 @@ internal sealed partial class DeviceWalkerTick : IDisposable
             _vk.AfterTransfer(commands);
         }
 
+        _tick++;
         _timer.Reset(commands);
         _timer.Stamp(commands, 0);
-        _kernel.Dispatch(commands, _set, (uint)Math.Max(1, (walkers + 63) / 64), _figures with { WalkerCount = (uint)walkers });
+        _kernel.Dispatch(
+            commands, _set, (uint)Math.Max(1, (walkers + 63) / 64), _figures with { WalkerCount = (uint)walkers, Tick = _tick });
         _timer.Stamp(commands, 1);
     }
 
-    /// <summary>What the walkers' tick and the bodies' phase after it left, recorded to be handed back.</summary>
+    /// <summary>
+    /// What the walkers' tick and the bodies' phase after it left, recorded to be handed back — resident, nothing: the tick
+    /// wrote what the town reads into the host's memory itself (<see cref="TicksAfter"/>).
+    /// </summary>
     public void RecordRead(CommandBuffer commands)
     {
         _vk.BeforeTransfer(commands);
-        if (Resident)
-        {
-            _ticksOut.Read(commands, _count);
-            return;
-        }
+        if (Resident) return;
 
         _walkers.Read(commands, _count);
         _impulses.Read(commands, _count);
