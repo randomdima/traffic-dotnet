@@ -31,6 +31,19 @@ the device took turns rather than working side by side.
     device does not take stand on a way (tech debt). Not where a car backs up or the town drives anybody itself, whose
     tick or ground reads the answers first. OdesaOsm: 4.81 → 4.49 ms a tick, the town bit for bit as before
     (`DeviceTownRunOnTests` holds the two towns equal tick by tick).
+- **The owner, later the same day: what is to stop is the copying of the world's state** — the decisions move to the
+  device where they are what makes it be copied, and not for their own sake. What the host still reads is the deciding
+  agent's own rows (its neighbours come off the claims), every pose for the host's bodies, and every car for a few
+  instruments.
+  - **A car the town does not read after a tick is left on the device** (`DeviceTown.ReadsEveryCarBack` off): the town
+    names the cars it reads before the device ticks them again (`TownWorld.ReadsTheTickOf` — a decision due on the tick
+    or taken while it ran, a switch, a pass, a rejoin, a call, a tow, the selection), the tick hands those back and every
+    car whose tick asked something of the town (`car_out.comp`), and every other car's reading, command and tyres stay
+    there until it leaves the device's tick or the town reads every car (`ITownDevice.TakeEveryCarBack`). The rebuild
+    clears a held car's claim on the device too (`car_claims_gather.comp`), where the town's clearing had sent every
+    moving car's reading again every third tick. A car about to be laid off a copy older than the device's is a defect,
+    and throws. OdesaOsm: car rows sent 112 → 25 KiB a tick, 6 430 of 10 005 cars a tick left on the device, the tick's
+    submit 0.91 → 0.51 ms; the town bit for bit as before (`DeviceTownKeptCarsTests`).
 
 ## 2026-10-08 — the readers' layer is sent back in part, and a decision asks for the ways it reads
 
