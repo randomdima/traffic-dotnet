@@ -356,7 +356,8 @@ internal sealed partial class TownWorld
     bool LetTheOfficerOut(int car, int officer)
     {
         var doorM = TheKerbDoorM(car);
-        if (!ExitSpots.TryFind(
+        if (!KnowsTheGroundOutside(doorM)
+            || !ExitSpots.TryFind(
                 _config, _plan.WorldSizeM, _physics, new DoorStep(this), doorM, doorM + (doorM - Cars.PositionM[car]),
                 out var spotM))
         {

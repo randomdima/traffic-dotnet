@@ -39,11 +39,12 @@ thousand questions a tick about an agent's own hold, and a few dozen about bodie
 - **A reader asks before it reads a way's lists, and a way not yet sent is asked for**: a pass, a step, a manoeuvre or a
   sidestep is drawn, asked, looked round for or kept at the next decision or tick instead, its clock left as it was; a
   spot to put a body down on such a way is taken until it is sent; a lane of a scene is closed as though the scene stood
-  on it.
-- OdesaOsm (`--bench devicetown`): a layer is 1.76 MB against 4.71 (1 262 ways asked about, the lights' holds of 2 654
-  more), written into the town in 0.52 ms against 1.52; 5.31–5.37 → 5.13–5.17 ms a tick. The decisions take 0.85 ms a
-  tick against 0.69. The town drives the same as the host's own to within a car: 1 131 hard brakings (the host's 1 147),
-  102 lane switches asked and 97 made (102 and 96), 26 pairs beginning to touch (26).
+  on it. **The ground outside a way out is asked for whole** before any spot on it is tried: tried a spot at a time,
+  every spot was refused in turn and the decisions took a quarter longer.
+- OdesaOsm (`--bench devicetown`): a layer is 1.80 MB against 4.71 (2 279 ways asked about, the lights' holds of 2 654
+  more), written into the town in 0.61 ms against 1.52; 5.31–5.37 → 5.04 ms a tick, the decisions' time unchanged. The
+  town drives the same as the host's own to within a car: 1 131 hard brakings (the host's 1 147), 102 lane switches asked
+  and 97 made (102 and 96), 27 pairs beginning to touch (26).
 
 ## 2026-10-08 — a car the device ticks is laid for the claims off what the device holds of it
 

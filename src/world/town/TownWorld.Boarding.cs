@@ -39,6 +39,19 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
+    /// <b>Whether the layer every reader reads holds every way a body could be put down on outside a way out</b>
+    /// (<see cref="ExitSpots"/>, as far as <see cref="SimConfig.PersonExitSearchRadiusM"/>), each asked about either way — so
+    /// a layer sent back in part is asked once for all of it rather than refusing every spot in turn.
+    /// </summary>
+    [SkipLocalsInit]
+    bool KnowsTheGroundOutside(Vector2 wayOutM)
+    {
+        Span<WayCover> under = stackalloc WayCover[MostWaysUnderABody];
+        var count = _atlas.UnderDisc(wayOutM, _config.PersonExitSearchRadiusM + _config.PersonDiameterM, under);
+        return KnowsTheWaysUnder(under[..count]);
+    }
+
+    /// <summary>
     /// Whether the layer every reader reads holds every way under a spot (<see cref="LaneOccupancy.Knows(int)"/>), each
     /// asked about either way.
     /// </summary>
@@ -106,7 +119,8 @@ internal sealed partial class TownWorld
         var building = where.Index;
         var centreM = _plan.Buildings.CentreM[building];
         var doorM = DoorOf(building, centreM);
-        if (!ExitSpots.TryFind(
+        if (!KnowsTheGroundOutside(doorM)
+            || !ExitSpots.TryFind(
                 _config, _plan.WorldSizeM, _physics, new DoorStep(this), doorM, doorM + (doorM - centreM), out var spotM))
         {
             return false;

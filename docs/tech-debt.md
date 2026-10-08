@@ -25,7 +25,7 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   across the whole process while the tier runs classes side by side. Counting on the test's own thread, or running them
   apart, closes it.
 - **`RouteSearchTests.SectionedPlanningAllocatesNothing` and `StatusPanelClaimsTests.DrawingTheClaimsAllocatesNothing`**
-  (unit) fail now and then in a full unit run and pass alone: the first three times in about fifteen runs, 4 296 B on the test's own
+  (unit) fail now and then in a full unit run and pass alone: the first four times in about seventeen runs (two of them in a row), 4 296 B on the test's own
   thread over 500 searches; the second once, 7 144 B. The counter is the thread's, so it is not the side-by-side
   classes; something on that thread allocates now and then — a JIT's rejit is the guess, unconfirmed.
 - **`AllocationGateTests.ThisEnginesOwnPhasesAllocateNothingOverAWholeTown(Test)`** failed once in four full perf runs,

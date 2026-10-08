@@ -117,7 +117,8 @@ internal sealed partial class TownWorld
     void LetTheOwnerOut(int car, int owner)
     {
         var doorM = WayInOf(car);
-        if (!ExitSpots.TryFind(
+        if (!KnowsTheGroundOutside(doorM)
+            || !ExitSpots.TryFind(
                 _config, _plan.WorldSizeM, _physics, new BesideTheCar(this, car), doorM,
                 doorM + (doorM - Cars.PositionM[car]), out var spotM))
         {
