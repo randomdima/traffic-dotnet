@@ -18,10 +18,17 @@ internal sealed unsafe class ComputeBatch : IDisposable
     readonly Fence _fence;
 
     /// <summary>
-    /// How many batches have been begun since the process started — which recording a command belongs to, for what the
-    /// host writes once a recording and the device reads when it runs (<see cref="ResidentRows{T}.Send"/>).
+    /// How many batches this thread has begun — which recording a command belongs to, for what the host writes once a
+    /// recording and the device reads when it runs (<see cref="ResidentRows{T}.Send"/>).
     /// </summary>
-    public static long Begun { get; private set; }
+    /// <remarks>
+    /// <b>The thread's own</b>: a batch is recorded on the thread that began it, and one begun on another thread meanwhile —
+    /// a second town in the suite — would otherwise pass for a new recording of this one's.
+    /// </remarks>
+    public static long Begun => _begun;
+
+    [ThreadStatic]
+    static long _begun;
 
     public ComputeBatch(Vk vk)
     {
@@ -40,7 +47,7 @@ internal sealed unsafe class ComputeBatch : IDisposable
 
         var api = _vk.Api;
         Vk.Count();
-        Begun++;
+        _begun++;
         Vk.Check(api.ResetCommandBuffer(_commands, 0), "vkResetCommandBuffer");
 
         var begin = new CommandBufferBeginInfo
