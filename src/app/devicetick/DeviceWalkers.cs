@@ -438,6 +438,7 @@ internal sealed partial class DeviceWalkers : IDisposable
             ];
             _kernels[piece] = new ComputeKernel(vk, shaders[piece], set.Length, pushBytes);
             _sets[piece] = _kernels[piece].Bind(set);
+            if (piece == (int)Piece.Station) _stationSet = set;
         }
 
         _batch = new ComputeBatch(vk);
@@ -451,6 +452,9 @@ internal sealed partial class DeviceWalkers : IDisposable
 
     /// <summary>How many walkers the stages have room for.</summary>
     public int Capacity => _walkers;
+
+    /// <summary>What the station stage binds, which the kept walkers' decisions bind over as well (<c>walkers_buffers.glsl</c>).</summary>
+    GpuBuffer[] _stationSet = [];
 
     /// <summary>The room each walker's body and pass rows have in <see cref="Covers"/>.</summary>
     public int CoverRoom => _coverRoom;
@@ -861,6 +865,7 @@ internal sealed partial class DeviceWalkers : IDisposable
         _keptPatch?.Dispose();
         _keptOut?.Dispose();
         _keptAims?.Dispose();
+        DisposeTheDecisions();
         foreach (var kernel in _kernels) kernel.Dispose();
         foreach (var buffer in _owned) buffer.Dispose();
         _stationed?.Dispose();

@@ -56,6 +56,13 @@ the device took turns rather than working side by side.
     readers have them. OdesaOsm: 9 577 of 10 005 cars a tick left on the device, 1 584 decisions a tick run there and 12
     handed to the town, car rows in and out 0.25 → 0.11 ms, 4.35 → 4.14 ms a tick; the town bit for bit as before
     (`DeviceTownDecidesTests`).
+  - **And a walker's** (`DeviceTown.DecidesTheWalkers`, `walkers_decide.comp`), of the kept table, where its body stands
+    and its hold as the readers read it (`walkers_readers.comp`) — asked only of a walker the kept table holds as the town
+    does (`DeviceWalkers.HoldsAsTheTownHas`), its clock restarted there where a rebuild walked it on. The tick's head —
+    what is sent and the decisions asked — is a submit of its own, and every decision is taken while the rest of the tick
+    runs. OdesaOsm: 620 walkers' decisions a tick run on the device and 81 handed to the town; the town bit for bit as
+    before. It buys little host time — a quiet walker's decision was cheap, the town's time going on trips drawn and
+    routes searched — and is what lets a walker's rows stay on the device next.
 
 ## 2026-10-08 — the readers' layer is sent back in part, and a decision asks for the ways it reads
 

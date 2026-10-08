@@ -1,0 +1,75 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The walkers' decisions put off a tick, asked at the head of the next tick's submit (walker_decide.glsl), one thread a
+// walker named in the list due: each one's verdict where the host reads it, its clock run where that is the whole of its
+// decision, and where it is not, its clock as it stood written into the host's memory — everything else of it the town
+// holds as the kept table does, or the town decides it whole (DecideByTheTown).
+
+layout(local_size_x = 64) in;
+
+#include "world/town/kernels/walkers_buffers.glsl"
+#include "world/town/kernels/walker_table.glsl"
+
+// app/devicetick/DeviceWalkers.DecideFigures: the tick's stamp and how many are due, and the figures the host's own
+// decision reads, as the host has them.
+struct WalkerDecideFigures
+{
+    uint stamp;
+    uint count;
+    float wayInReachM;
+    float walksBeforeTheNextM;
+    float byM;
+    float patienceS;
+    float sinceLastDecisionS;
+    float lostOffM;
+    uint checks;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+};
+
+layout(std430, binding = 23) readonly buffer DecideFigures { WalkerDecideFigures DECIDE; };
+
+#include "agents/person/actions/kernels/walker_decide.glsl"
+
+// A walker due, and in the top bit whether the town decides it whole whatever is found.
+const uint DecideByTheTown = 0x80000000u;
+
+// What a walker whose decision is more than its clock is decided on: its clock as it stood.
+struct WalkerClockOut
+{
+    float sinceS;
+    float closestM;
+    uint stamp;
+    uint pad;
+};
+
+layout(std430, binding = 24) readonly buffer DecideList { uint decideList[]; };
+layout(std430, binding = 25) readonly buffer TickTable { WalkerTableRow tickRows[]; };
+layout(std430, binding = 26) readonly buffer ReadersHolds { WalkerReadersHold readersHolds[]; };
+layout(std430, binding = 27) buffer Clocks { WalkerClock clocks[]; };
+layout(std430, binding = 28) writeonly buffer Verdicts { uint verdicts[]; };
+layout(std430, binding = 29) writeonly buffer DecideOut { WalkerClockOut decideOut[]; };
+
+void main()
+{
+    if (gl_GlobalInvocationID.x >= DECIDE.count) return;
+
+    uint entry = decideList[gl_GlobalInvocationID.x];
+    uint walker = entry & ~DecideByTheTown;
+    bool byTheTown = (entry & DecideByTheTown) != 0u;
+    WalkerRow row = walkers[walker];
+    WalkerClock clock = clocks[walker];
+
+    // A rebuild walked it on to another way: its clock restarted, as the town's taking that up restarts it.
+    if (!byTheTown && row.routeTaken != clock.routeTakenAt) clock = decideRestarted(row);
+
+    WalkerClock asked = clock;
+    bool more = byTheTown || decideWalkerMoreThanTheClock(row, walker, tickRows[walker].positionM, readersHolds[walker], clock);
+    verdicts[walker] = (DECIDE.stamp << 1u) | (more ? 1u : 0u);
+    if (!more) clocks[walker] = clock;
+
+    // Checked, every clock a decision was asked with goes back, for the town to ask its own of it.
+    if (more || DECIDE.checks != 0u) decideOut[walker] = WalkerClockOut(asked.sinceS, asked.closestM, DECIDE.stamp, 0u);
+}

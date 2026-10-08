@@ -1017,7 +1017,13 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             return;
         }
 
-        // What the whole decision comes to where it is its leg's clock alone.
+        // What the whole decision comes to where it is its leg's clock alone — run on the device, or here.
+        if (Device?.WalkerDecidedOnTheDevice(agent) == true)
+        {
+            WalkersDecidedByTheClock++;
+            return;
+        }
+
         if (DecidesQuietWalkersByTheClock && WalkerTakesOnlyTheClock(agent, sinceLastDecisionS))
         {
             RunTheWalksClock(agent, sinceLastDecisionS);

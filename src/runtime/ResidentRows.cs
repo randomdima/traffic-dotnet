@@ -148,6 +148,10 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
         MarkRows(item, rows.Length);
     }
 
+    /// <summary>Whether the first of one item's rows are bit for bit those last laid there, and none forgotten since — marking nothing.</summary>
+    public bool IsLaid(int item, ReadOnlySpan<T> rows) =>
+        !_forgotten![item] && MemoryMarshal.AsBytes(rows).SequenceEqual(MemoryMarshal.AsBytes(_laid!.AsSpan(item * RowsPerItem, rows.Length)));
+
     /// <summary>One item's single row as last laid (<see cref="Lay"/>) — read off the host's own copy, never the mapped one.</summary>
     public ref readonly T LaidRow(int item) => ref _laid![item * RowsPerItem];
 

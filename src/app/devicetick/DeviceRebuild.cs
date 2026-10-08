@@ -721,6 +721,7 @@ internal sealed partial class DeviceRebuild : IDisposable
 
         _holdsOutKernel.Kernel?.Dispose();
         _agentsOutKernel.Kernel?.Dispose();
+        _walkersReaders.Kernel?.Dispose();
         _walkerPasses.Kernel?.Dispose();
         _carsGather.Kernel?.Dispose();
         _waysOut.Kernel?.Dispose();

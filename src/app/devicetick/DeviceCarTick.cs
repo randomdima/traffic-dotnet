@@ -505,6 +505,16 @@ internal sealed partial class DeviceCarTick : IDisposable
     /// </summary>
     public void Record(CommandBuffer commands, int taken, int cars)
     {
+        RecordTheSends(commands, taken, cars);
+        RecordTheTick(commands);
+    }
+
+    /// <summary>
+    /// <b>The first half of <see cref="Record"/></b>: what was marked sent, and the decisions put off asked of what the last
+    /// tick left (<see cref="LayTheDecisions"/>) — for a caller that reads the verdicts before the tick itself is in.
+    /// </summary>
+    public void RecordTheSends(CommandBuffer commands, int taken, int cars)
+    {
         if (cars > Capacity) throw new ArgumentOutOfRangeException(nameof(cars), $"The tick holds {Capacity} cars, not {cars}.");
 
         _cars = cars;
@@ -563,13 +573,20 @@ internal sealed partial class DeviceCarTick : IDisposable
             vk.BetweenKernels(commands);
             _decideCount = 0;
         }
+    }
 
-        var groups = (uint)Math.Max(1, (taken + 63) / 64);
-        _tickKernel.Dispatch(commands, _tickSet, groups, _figures with { CarCount = (uint)taken, Stamp = _stamp });
-        vk.BetweenKernels(commands);
+    /// <summary>
+    /// <b>The second half of <see cref="Record"/></b>: the drive and the tyres over what <see cref="RecordTheSends"/> sent —
+    /// in the same submit, or in one behind it.
+    /// </summary>
+    public void RecordTheTick(CommandBuffer commands)
+    {
+        var groups = (uint)Math.Max(1, (_takenCount + 63) / 64);
+        _tickKernel.Dispatch(commands, _tickSet, groups, _figures with { CarCount = (uint)_takenCount, Stamp = _stamp });
+        _vk.BetweenKernels(commands);
         _timer.Stamp(commands, (int)Stage.Ticked);
 
-        _tyres.Run(commands, cars);
+        _tyres.Run(commands, _cars);
         _timer.Stamp(commands, (int)Stage.Tyred);
     }
 

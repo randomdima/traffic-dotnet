@@ -2,6 +2,7 @@ using System.Diagnostics;
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
+using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Runtime;
@@ -64,6 +65,9 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// <summary>The bodies' step, submitted behind the tick's own (<see cref="StepsWithTheTick"/>).</summary>
     readonly ComputeBatch _stepBatch;
 
+    /// <summary>The head of the tick — what is sent, and the decisions put off asked — submitted ahead of the rest.</summary>
+    readonly ComputeBatch _headBatch;
+
     readonly GpuTimer _timer;
     readonly float _dtS;
     readonly int[] _taken;
@@ -113,6 +117,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         RebuildsRunOn = true;
         _batch = new ComputeBatch(vk);
         _stepBatch = new ComputeBatch(vk);
+        _headBatch = new ComputeBatch(vk);
         _timer = new GpuTimer(vk, 3);
         _dtS = config.TickSeconds;
         _taken = new int[cars.Capacity];
@@ -133,6 +138,18 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _shapeKnown = new bool[cars.Capacity];
         town.DriveClocks.KeepTheTouched();
         town.CarsDecidedOnTheDevice = true;
+
+        // Every walker's clock the device's from here on, as the town has it now.
+        var people = town.People;
+        _walkerListed = new bool[people.Capacity];
+        _walkerByTheTown = new bool[people.Capacity];
+        _walkersDue = new uint[people.Capacity];
+        town.WalkClocks.KeepTheTouched();
+        for (var person = 0; person < people.Count; person++)
+        {
+            var (sinceS, closestM) = town.WalkClocks.Of(person);
+            KeptWalkers.LayTheClock(person, sinceS, closestM, people.RouteTaken[person]);
+        }
     }
 
     /// <summary>
@@ -145,6 +162,118 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     {
         get => _town.CarsDecidedOnTheDevice;
         init => _town.CarsDecidedOnTheDevice = value;
+    }
+
+    /// <summary>
+    /// <b>Whether the device decides the walkers whose decisions put off a tick are their clock alone</b>
+    /// (<see cref="TownWorld.WalkerTakesOnlyTheClock"/>, <c>walkers_decide.comp</c>), as it does the cars
+    /// (<see cref="DecidesTheCars"/>). Off, the town decides every walker.
+    /// </summary>
+    public bool DecidesTheWalkers { get; init; } = true;
+
+    /// <summary>The walkers' side of the claims the device keeps, whose table the walkers' decisions are asked of.</summary>
+    DeviceWalkers KeptWalkers => _townClaims.Rebuild.Walkers;
+
+    /// <summary>Which walkers' decisions this tick asks of the device, which of them the town decides whole, and the list laid.</summary>
+    readonly bool[] _walkerListed, _walkerByTheTown;
+
+    readonly uint[] _walkersDue;
+    int _walkersDueCount;
+
+    /// <summary>Whether the device's copy of every walker's hold is the readers', and whether the town laid the claims itself since the device last did.</summary>
+    bool _walkerReadersKnown, _townLaidSinceTheDevice;
+
+    /// <summary>How many walkers' decisions the device found were more than their clock, or the town took whole, over every tick.</summary>
+    public long WalkersDecidedByTheTown { get; private set; }
+
+    /// <summary>
+    /// <b>The walkers' decisions put off last tick that this tick asks of the device</b>: every one out of doors, on its feet
+    /// and off duty — whose decision may run its clock — the town deciding it whole where the kept table does not hold it as
+    /// the town does (<see cref="DeviceWalkers.HoldsAsTheTownHas"/>), or the device has no copy of the holds the readers read.
+    /// </summary>
+    void LayTheWalkerDecisions(TownWorld town)
+    {
+        var people = town.People;
+        var firstCar = town.Roster.AgentOfCar(0);
+        var kept = KeptWalkers;
+        var count = 0;
+        foreach (var person in town.DecisionsPutOff)
+        {
+            if (person >= firstCar) break;
+            if (people.Inside[person].Any || people.Wounded[person] || people.Stage[person] == TripStage.OnDuty) continue;
+
+            var byTheTown = !_walkerReadersKnown || !kept.HoldsAsTheTownHas(town, person);
+            _walkerByTheTown[person] = byTheTown;
+            _walkerListed[person] = true;
+            _walkersDue[count++] = (uint)person | (byTheTown ? DeviceWalkers.ByTheTown : 0u);
+        }
+
+        _walkersDueCount = count;
+        var (wayInReachM, walksBeforeTheNextM, byM, patienceS, lostOffM) = town.WalkerClockTerms;
+        kept.LayTheDecisions(
+            _walkersDue.AsSpan(0, count),
+            new DeviceWalkers.DecideFigures(
+                0u, 0u, wayInReachM, walksBeforeTheNextM, byM, patienceS, _decisionIntervalS, lostOffM, ChecksTheDecisions ? 1u : 0u, 0u,
+                0u, 0u));
+    }
+
+    /// <summary>Every walker's clock the town changed since it last laid them, laid where the device runs it, with its route slot.</summary>
+    void LayTheWalkersClocks(TownWorld town)
+    {
+        var clocks = town.WalkClocks;
+        foreach (var person in clocks.Touched)
+        {
+            if (!clocks.IsTouched(person)) continue;
+
+            var (sinceS, closestM) = clocks.Of(person);
+            KeptWalkers.LayTheClock(person, sinceS, closestM, town.People.RouteTaken[person]);
+            clocks.Untouch(person);
+        }
+
+        clocks.ForgetTheTouched();
+    }
+
+    public bool WalkerDecidedOnTheDevice(int person)
+    {
+        if (!_walkerListed[person]) return false;
+
+        _walkerListed[person] = false;
+        var kept = KeptWalkers;
+        var more = kept.DecidedMoreThanTheClock(person);
+        if (ChecksTheDecisions && !_walkerByTheTown[person]) CheckTheWalkersVerdict(person, more);
+
+        // Its clock restarted where the rebuild walked it on, as the town's taking that up did, and run there.
+        if (!more)
+        {
+            _town.WalkClocks.Untouch(person);
+            return true;
+        }
+
+        // The town's own clock where it restarted it since: the device restarted it alike.
+        if (!_town.WalkClocks.IsTouched(person))
+        {
+            ref readonly var clock = ref kept.DecidedOn(person);
+            _town.WalkClocks.Take(person, clock.SinceS, clock.ClosestM);
+        }
+
+        WalkersDecidedByTheTown++;
+        return false;
+    }
+
+    /// <summary>A walker's verdict held to the town's own, its clock as the device asked it with.</summary>
+    void CheckTheWalkersVerdict(int person, bool more)
+    {
+        if (!_town.WalkClocks.IsTouched(person))
+        {
+            ref readonly var clock = ref KeptWalkers.DecidedOn(person);
+            _town.WalkClocks.Take(person, clock.SinceS, clock.ClosestM);
+        }
+
+        DecisionsChecked++;
+        if (_town.WalkerTakesOnlyTheClock(person, _decisionIntervalS) != more) return;
+
+        DecisionsUnlike++;
+        if (DecisionsUnlikeSeen.Count < 8) DecisionsUnlikeSeen.Add($"walker {person}: the device found {(more ? "more" : "its clock alone")}");
     }
 
     /// <summary>Which cars' decisions this tick asks of the device, and the list of them laid.</summary>
@@ -566,26 +695,43 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         if (!_cars.ReadsEveryCar) LayTheWanted(town);
         town.DriveClocks.ForgetTheTouched();
         _walkerCount = _walkers.LayWhatChanged(town);
+
+        // The walkers' holds as the readers read them are copied this tick where the readers keep up with the claims, off
+        // the last rebuild laid here — which a laying of the town's own since leaves behind.
+        if (laidHere) _townLaidSinceTheDevice = false;
+        if (laidByTheTown) _townLaidSinceTheDevice = true;
+        var readersCopied = _cars.ReadersKeepUp && _townClaims.Rebuild.LaidAny && !_townLaidSinceTheDevice;
+        if (_cars.ReadersKeepUp) _walkerReadersKnown = readersCopied;
+        if (DecidesTheWalkers) LayTheWalkerDecisions(town);
+        LayTheWalkersClocks(town);
         if (stepping) _bodies.LayTheStep(town, _dtS, _taken.AsSpan(0, _count), walkersTicked: true);
         var prepared = Stopwatch.GetTimestamp();
 
+        // The head of the tick in a submit of its own — what is sent, and the decisions put off asked of what the last tick
+        // left — so the decisions are taken while the rest of it runs.
         var regionsFrom = Vk.RegionsCopied;
-        var commands = _batch.Begin();
-        _timer.Reset(commands);
-        _timer.Stamp(commands, 0);
-        if (laidHere) _townClaims.RecordTheRest(commands);
-        if (laidByTheTown) _claims.RecordAsCut(commands);
-        _timer.Stamp(commands, 1);
-        _cars.Record(commands, _count, town.Cars.Count);
+        var head = _headBatch.Begin();
+        _timer.Reset(head);
+        _timer.Stamp(head, 0);
+        if (laidHere) _townClaims.RecordTheRest(head);
+        if (laidByTheTown) _claims.RecordAsCut(head);
+        _timer.Stamp(head, 1);
+        KeptWalkers.RecordTheClocksSent(head);
+        _cars.RecordTheSends(head, _count, town.Cars.Count);
         SentBytes = _cars.SentBytes;
-        _cars.RecordRead(commands);
-        _walkers.RecordWhatWasLaid(commands, _walkerCount);
-        if (laidHere)
-        {
-            _townClaims.Rebuild.RecordTheKeptAims(commands);
-            _vk.BetweenKernels(commands);
-        }
+        _walkers.RecordWhatWasLaid(head, _walkerCount);
+        if (laidHere) _townClaims.Rebuild.RecordTheKeptAims(head);
+        _vk.BetweenKernels(head);
 
+        // The walkers' decisions put off read each one as the town has it now, its hold as the readers do.
+        if (readersCopied && _townClaims.Rebuild.RecordTheWalkersReaders(head)) _vk.BetweenKernels(head);
+        KeptWalkers.RecordTheDecisions(head);
+        _headBatch.Submit();
+
+        var commands = _batch.Begin();
+        _vk.AfterTheSubmitsBefore(commands);
+        _cars.RecordTheTick(commands);
+        _cars.RecordRead(commands);
         _walkers.RecordTheTick(commands);
         _walkers.RecordRead(commands);
         _timer.Stamp(commands, 2);
@@ -609,31 +755,41 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _townClaims.TakeTheAnswers(town);
         _townClaims.Rebuild.LandWhatWasSent(town);
         _townClaims.Rebuild.SendTheLayerBack();
-        var deciding = Stopwatch.GetTimestamp();
         var physics = town.PhysicsForTheDevice;
         var placedFrom = physics.Changes.Length;
-        town.TakeTheWalkersDecisionsPutOff();
-        var idle = Stopwatch.GetTimestamp();
-        DecidedMs = Stopwatch.GetElapsedTime(deciding, idle).TotalMilliseconds;
-        _batch.Wait();
-        IdleMs = Stopwatch.GetElapsedTime(idle).TotalMilliseconds;
-        _timer.Read();
-        _cars.ReadTimes();
-        _walkers.ReadTimes();
 
-        // The cars' decisions once the tick is in, before what it left of them is written back: the town a tick old
-        // either way, and a car a decision moved on from read as the tick had it.
-        var carsDeciding = Stopwatch.GetTimestamp();
+        // The walkers' decisions the town takes itself while the device runs; asked of the device, once its verdicts are in.
+        var decidingWalkers = Stopwatch.GetTimestamp();
+        if (!DecidesTheWalkers) town.TakeTheWalkersDecisionsPutOff();
+        var idle = Stopwatch.GetTimestamp();
+        _headBatch.Wait();
+        IdleMs = Stopwatch.GetElapsedTime(idle).TotalMilliseconds;
+
+        // The decisions once the device's verdicts are in, while the tick runs, and before what it left of the cars is
+        // written back: the town a tick old either way, and a car a decision moved on from read as the tick had it.
+        var deciding = Stopwatch.GetTimestamp();
         town.TakeTheDecisionsPutOff();
         foreach (var car in _decided.AsSpan(0, _decidedCount))
         {
             if (_listed[car]) throw new InvalidOperationException($"Car {car}'s decision was asked of the device and never taken.");
         }
 
-        _decidedCount = 0;
+        foreach (var entry in _walkersDue.AsSpan(0, _walkersDueCount))
+        {
+            var person = (int)(entry & ~DeviceWalkers.ByTheTown);
+            if (_walkerListed[person]) throw new InvalidOperationException($"Walker {person}'s decision was asked of the device and never taken.");
+        }
+
+        _decidedCount = _walkersDueCount = 0;
         var placedTo = physics.Changes.Length;
+        var decided = Stopwatch.GetTimestamp();
+        DecidedMs = Stopwatch.GetElapsedTime(decidingWalkers, idle).TotalMilliseconds + Stopwatch.GetElapsedTime(deciding, decided).TotalMilliseconds;
+        _batch.Wait();
+        IdleMs += Stopwatch.GetElapsedTime(decided).TotalMilliseconds;
+        _timer.Read();
+        _cars.ReadTimes();
+        _walkers.ReadTimes();
         var waited = Stopwatch.GetTimestamp();
-        DecidedMs += Stopwatch.GetElapsedTime(carsDeciding, waited).TotalMilliseconds;
 
         TakeBackTheCars(town);
         TakeBackTheWalkers(town);
@@ -872,6 +1028,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         HandBackAlone(_town, Leaving(_town, everyKept: true));
         _timer.Dispose();
         _stepBatch.Dispose();
+        _headBatch.Dispose();
         _batch.Dispose();
         _townClaims.Dispose();
         _bodies.Dispose();

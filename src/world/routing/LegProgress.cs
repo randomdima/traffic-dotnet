@@ -58,6 +58,12 @@ internal sealed class LegProgress(int actors)
     /// <summary>Whether this actor's clock changed since <see cref="ForgetTheTouched"/>.</summary>
     public bool IsTouched(int actor) => _touched.Length > 0 && _touched[actor];
 
+    /// <summary>An actor's clock taken as no change of its own after all — the copy kept elsewhere ran the same change.</summary>
+    public void Untouch(int actor)
+    {
+        if (_touched.Length > 0) _touched[actor] = false;
+    }
+
     public void ForgetTheTouched()
     {
         foreach (var actor in Touched) _touched[actor] = false;

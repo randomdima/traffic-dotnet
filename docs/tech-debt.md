@@ -39,6 +39,9 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   `--bench drive`, and pairs beginning to touch 15 → 21. The bodies' reading and not the tyres': a wheel read at the
   lattice point nearest it puts a car on a lane its collider does not reach, within 0.35 m of a band, and the traffic
   on that lane brakes for it. Proving a wheel inside a band instead braked harder still (road log).
+- **`--bench devicetown`'s tick wanders run to run on one build**: 4.24–5.65 ms a tick over six runs on OdesaOsm
+  (2026-10-08), where the host town's stayed within 15.7–17.0. Suspected the GPU's clocks and power state, unmeasured; an
+  A/B of the device tick needs several runs a side until the device's clocks are pinned or read with the figures.
 - **Nobody holds what no wheel stands on**: across a lane's end a car on two ways leaves its wheelbase less two
   metres and two half steps unclaimed; a car straddling a zebra narrower than its wheelbase, or nosing over a junction
   its front wheels have not reached, is no body there. The gap per car model is not measured.

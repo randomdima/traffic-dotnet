@@ -57,6 +57,13 @@ internal interface ITownDevice
     /// False for a car the device did not decide, which the town decides with what it holds.
     /// </summary>
     bool DecidedOnTheDevice(int car) => false;
+
+    /// <summary>
+    /// <b>Whether this walker's decision, put off a tick, was its clock alone and run on the device</b>
+    /// (<see cref="TownWorld.WalkerTakesOnlyTheClock"/>) — or, where it was more, its clock handed back first. False for a
+    /// walker the device did not decide.
+    /// </summary>
+    bool WalkerDecidedOnTheDevice(int person) => false;
 }
 
 /// <summary>

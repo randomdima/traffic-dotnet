@@ -60,6 +60,14 @@ internal sealed partial class DeviceRebuild
 
     Bound _agentsOutKernel;
 
+    /// <summary>
+    /// The kernel that copies each kept walker's hold as the town's readers read it off the last rebuild laid here
+    /// (<c>walkers_readers.comp</c>), and that rebuild's walkers and first walker's unit — or none laid yet.
+    /// </summary>
+    Bound _walkersReaders;
+
+    int _walkersLaid = -1, _firstWalkerUnitLaid;
+
     /// <summary>What a rebuild says of one car (<c>rebuild_agents_out.comp</c>'s <c>CarOut</c>): its plan, and bits.</summary>
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
     internal readonly record struct CarOut(float ClaimFromM, float ClaimToM, float CommittedToM, float HorizonM, uint Bits)
@@ -192,6 +200,12 @@ internal sealed partial class DeviceRebuild
                 tables.Answers, _carTick!.Tyres.Table.Cars.Device,
             ]);
         _scratchAsks = new BodyAsk[Overtaking.MostAsksOfAPass(world.Atlas.Marks)];
+        if (_walkers.Keeps)
+        {
+            _walkersReaders = Bound.Of<UnitsPush>(
+                _vk, "walkers_readers.comp", [_walkers.KeptTable, _unitHolds, tables.Answers, _holdCutters, _walkers.ReadersHolds]);
+        }
+
         LayTheCarsGather(world);
         LayTheWaysOut(world);
         if (!_walkers.Keeps) return;
@@ -686,9 +700,27 @@ internal sealed partial class DeviceRebuild
         _walkersReadBytes = walkersRead;
         _submittedAt = laid;
         _answersInFlight = true;
+        (_walkersLaid, _firstWalkerUnitLaid) = (_walkerCount, _stretches + 1 + _carCount);
         AnswersDue = LandsLater && AnswersAfterTheTick && !DeviceCarTick.TheTownDrivesAny(town);
         if (AnswersDue) RanOn++;
         else TakeTheAnswers(town);
+    }
+
+    /// <summary>
+    /// <b>Each kept walker's hold as the town's readers read it, copied off the last rebuild laid here</b>
+    /// (<c>walkers_readers.comp</c>) into <see cref="DeviceWalkers.ReadersHolds"/> — recorded in a tick's submit after
+    /// whatever the rest of that rebuild edits (<see cref="RecordTheRest"/>), where the readers have its claims. False, and
+    /// nothing recorded, where no rebuild was laid here yet.
+    /// </summary>
+    /// <summary>Whether any rebuild was laid here yet, for <see cref="RecordTheWalkersReaders"/> to copy the walkers' holds off.</summary>
+    public bool LaidAny => _walkersLaid >= 0;
+
+    public bool RecordTheWalkersReaders(CommandBuffer commands)
+    {
+        if (_walkersLaid < 0) return false;
+
+        _walkersReaders.Dispatch(commands, _walkersLaid, new UnitsPush((uint)_walkersLaid, (uint)_firstWalkerUnitLaid));
+        return true;
     }
 
     /// <summary>How many rebuilds in the town ran on while the town went on (<see cref="AnswersDue"/>).</summary>

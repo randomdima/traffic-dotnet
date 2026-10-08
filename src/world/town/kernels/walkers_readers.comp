@@ -1,0 +1,43 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every kept walker's hold as the town's readers read it (walker_readers.glsl), one thread a walker, copied off the last
+// rebuild laid on the device — whether its walk laid a hold (the kept row's), the hold it was numbered, what that came to
+// and the claim that cut it as it stood when it did — where the readers keep up with the device's claims
+// (app/devicetick/DeviceRebuild.RecordTheWalkersReaders). A hold nothing cut has no claim: its cutter row is nought.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint walkerCount;
+    uint firstWalkerUnit;
+} figures;
+
+#include "world/road/kernels/claims_rows.glsl"
+#include "agents/person/actions/kernels/walker_rows.glsl"
+#include "agents/person/actions/kernels/walker_readers.glsl"
+
+layout(std430, binding = 0) readonly buffer Walkers { WalkerRow walkers[]; };
+layout(std430, binding = 1) readonly buffer UnitHolds { uint unitHolds[]; };
+layout(std430, binding = 2) readonly buffer Answers { ClaimAnswer answers[]; };
+layout(std430, binding = 3) readonly buffer HoldCutters { ClaimRow holdCutters[]; };
+layout(std430, binding = 4) writeonly buffer ReadersHolds { WalkerReadersHold readers[]; };
+
+void main()
+{
+    uint walker = gl_GlobalInvocationID.x;
+    if (walker >= figures.walkerCount) return;
+
+    WalkerReadersHold held = WalkerReadersHold(0u, WalkerNone, 0u, 0u, ClaimRow(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0u, 0u));
+    if (walkers[walker].hold != WalkerNone)
+    {
+        uint hold = unitHolds[figures.firstWalkerUnit + walker];
+        ClaimAnswer answer = answers[hold];
+        held.bits = ReadersHasAHold | (answer.cutBy != NoRow ? ReadersCut : 0u);
+        held.cutOn = answer.cutOn;
+        held.cutter = holdCutters[hold];
+    }
+
+    readers[walker] = held;
+}

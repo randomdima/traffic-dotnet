@@ -90,8 +90,20 @@ internal sealed partial class TownWorld
     /// </summary>
     public bool DecidesQuietWalkersByTheClock { get; set; }
 
-    /// <summary>How many walkers' decisions were their clock alone (<see cref="DecidesQuietWalkersByTheClock"/>).</summary>
+    /// <summary>How many walkers' decisions were their clock alone (<see cref="DecidesQuietWalkersByTheClock"/>, or run on a device).</summary>
     public long WalkersDecidedByTheClock { get; private set; }
+
+    /// <summary>Every walker's leg's clock (<see cref="LegProgress"/>), for a device that runs the clocks of the walkers it decides.</summary>
+    public LegProgress WalkClocks => _progress;
+
+    /// <summary>
+    /// What <see cref="WalkerTakesOnlyTheClock"/> reads besides the walker, as the town holds it: how near a car's way in its
+    /// owner has to be, how far a walk goes before the next decision, how much nearer counts as nearer, a walk's patience,
+    /// and how far off its way a walker has lost it but for its pass.
+    /// </summary>
+    public (float WayInReachM, float WalksBeforeTheNextM, float ByM, float PatienceS, float LostOffM) WalkerClockTerms =>
+        (_config.WayInTouchingReachM, _config.PersonWalkSpeedMps * _config.Sim.AgentDecisionIntervalS, _config.PersonDiameterM,
+         _config.Person.GivesUpAfterS, _config.WalkerOffLaneM * OffLineTolerance);
 
     /// <summary>
     /// A body whose controller is paused — the same thing done for a body nobody is deciding for: a

@@ -65,6 +65,9 @@ internal sealed partial class DeviceWalkers
     /// <summary>Whether the device keeps every walker's side of the claims as its own (<see cref="DeviceWalkers"/>'s <c>keptFrom</c>).</summary>
     public bool Keeps { get; private set; }
 
+    /// <summary>Every kept walker's row as the stages leave it, for a kernel that reads it in place.</summary>
+    public GpuBuffer KeptTable => _keptTable;
+
     /// <summary>How many walkers the town changed since the last rebuild, written over the kept table by this one.</summary>
     public int KeptPatched => _keptPatchCount;
 
@@ -105,6 +108,7 @@ internal sealed partial class DeviceWalkers
         _known = new WalkerRow[_walkers];
         _isKnown = new bool[_walkers];
         _keptOutBound = _walkers;
+        DecideOverThem(table);
     }
 
     /// <summary>
