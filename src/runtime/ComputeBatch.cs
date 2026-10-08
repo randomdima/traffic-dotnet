@@ -8,14 +8,20 @@ namespace TrafficSimulation.Runtime;
 /// put off where the host has work of its own to do meanwhile (<see cref="Submit"/>, <see cref="Wait"/>).
 /// </summary>
 /// <remarks>
-/// A windowed run never uses this: its ticks are recorded into the frame's own command buffer and go with its one
-/// submit (rule 1). Here there is no frame, so a batch of ticks is the unit a crossing is paid per.
+/// Here there is no frame, so a batch of ticks is the unit a crossing is paid per — and a windowed run whose tick is the
+/// device's (<c>DeviceTown</c>) submits its tick here too, beside the frame's own submit.
 /// </remarks>
 internal sealed unsafe class ComputeBatch : IDisposable
 {
     readonly Vk _vk;
     readonly CommandBuffer _commands;
     readonly Fence _fence;
+
+    /// <summary>
+    /// How many batches have been begun since the process started — which recording a command belongs to, for what the
+    /// host writes once a recording and the device reads when it runs (<see cref="ResidentRows{T}.Send"/>).
+    /// </summary>
+    public static long Begun { get; private set; }
 
     public ComputeBatch(Vk vk)
     {
@@ -34,6 +40,7 @@ internal sealed unsafe class ComputeBatch : IDisposable
 
         var api = _vk.Api;
         Vk.Count();
+        Begun++;
         Vk.Check(api.ResetCommandBuffer(_commands, 0), "vkResetCommandBuffer");
 
         var begin = new CommandBufferBeginInfo

@@ -48,6 +48,12 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
 
     readonly DescriptorSet _runCopySet;
     readonly GpuBuffer? _wordRuns;
+
+    /// <summary>
+    /// The batch the last kernel copy was recorded into (<see cref="ComputeBatch.Begun"/>): its runs are read when it runs, so
+    /// a second send in the same recording is a copy.
+    /// </summary>
+    long _copiedByKernelIn = -1;
     readonly T[]? _laid;
 
     /// <summary>The items whose row a kernel wrote and the host does not know (<see cref="Forget"/>).</summary>
@@ -207,12 +213,13 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
     /// </summary>
     public void Send(CommandBuffer commands)
     {
-        if (_runCopy is null || _runCount <= CopiedRunsAtMost)
+        if (_runCopy is null || _runCount <= CopiedRunsAtMost || _copiedByKernelIn == ComputeBatch.Begun)
         {
             _vk.Copy(commands, _staging, Device, _runs.AsSpan(0, _runCount));
         }
         else
         {
+            _copiedByKernelIn = ComputeBatch.Begun;
             var words = _wordRuns!.Span<WordRun>();
             for (var run = 0; run < _runCount; run++)
             {
