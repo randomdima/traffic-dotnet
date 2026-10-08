@@ -954,6 +954,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         AccountFor(AgentCount - 1, deciding: false);
     }
 
+    /// <summary>The agents whose decisions are put off and not yet taken, in the order they were due — walkers first, then cars.</summary>
+    public ReadOnlySpan<int> DecisionsPutOff => _decisionsPutOff.AsSpan(_putOffTaken, _putOffCount - _putOffTaken);
+
     /// <summary>The agents whose decision was due and put off, in the order they were due, and the interval they were due after.</summary>
     int[] _decisionsPutOff = [];
 
@@ -986,7 +989,13 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             // Its errand is still its own and it picks it up again where the arm puts it down.
             if (_recovery.OnTheHookOf[car] >= 0) return;
 
-            // What the whole decision comes to where it is its leg's clock alone.
+            // What the whole decision comes to where it is its leg's clock alone — run on the device, or here.
+            if (Device?.DecidedOnTheDevice(car) == true)
+            {
+                DecidedByTheClock++;
+                return;
+            }
+
             if (DecidesQuietCarsByTheClock && TakesOnlyTheClock(car, sinceLastDecisionS))
             {
                 WatchTheProgress(car, sinceLastDecisionS);

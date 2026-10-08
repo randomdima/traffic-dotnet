@@ -50,6 +50,13 @@ internal interface ITownDevice
     void TakeEveryCarBack(TownWorld town)
     {
     }
+
+    /// <summary>
+    /// <b>Whether this car's decision, put off a tick, was its clock alone and run on the device</b>
+    /// (<see cref="TownWorld.TakesOnlyTheClock"/>) — or, where it was more, what the town decides it on handed back first.
+    /// False for a car the device did not decide, which the town decides with what it holds.
+    /// </summary>
+    bool DecidedOnTheDevice(int car) => false;
 }
 
 /// <summary>

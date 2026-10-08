@@ -723,6 +723,7 @@ internal sealed partial class TownWorld
         Cars.RouteTaken[car] = 0;
         Cars.TurnsBackOn[car] = turnsBackOn;
         Cars.RouteRunsOut[car] = ranOut;
+        Cars.RouteChanged(car);
 
         var runs = Driving.Runs;
         var goalLane = runs.PiecesOf(goal.Link)[runs.PieceAt(goal.Link, goal.AlongM, out var goalAlongM)];

@@ -39,10 +39,11 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   `--bench drive`, and pairs beginning to touch 15 → 21. The bodies' reading and not the tyres': a wheel read at the
   lattice point nearest it puts a car on a lane its collider does not reach, within 0.35 m of a band, and the traffic
   on that lane brakes for it. Proving a wheel inside a band instead braked harder still (road log).
-- **The cars' decisions put off a tick are taken once the tick's submit is waited for** (`DeviceTown.TickTheRest`,
-  `TownWorld.TakeTheWalkersDecisionsPutOff`), the walkers' still while it runs: about 0.3 ms a tick on OdesaOsm no longer
-  hidden under the device (4.35 → 4.67, a noisy reading). It is where the device's verdict on which cars' decisions are
-  their clock alone is to be read (`TownWorld.TakesOnlyTheClock`, run on the device); closes when that verdict is.
+- **Every car's decision due on the tick a rebuild is laid whose layer lands later is the town's**
+  (`DeviceTown.LayTheDecisions`, `readersBehind`): the town's readers read the claims before that rebuild until its layer
+  lands, the device's tables the rebuild's own, so the device's verdict would be read off other claims. Most of the 457
+  car decisions a tick the town still takes on OdesaOsm are these, taken once the tick's submit is waited for and so not
+  hidden under the device. Closes when the device keeps the cutters and hold bits the readers read until the layer lands.
 - **Nobody holds what no wheel stands on**: across a lane's end a car on two ways leaves its wheelbase less two
   metres and two half steps unclaimed; a car straddling a zebra narrower than its wheelbase, or nosing over a junction
   its front wheels have not reached, is no body there. The gap per car model is not measured.

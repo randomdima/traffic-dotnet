@@ -56,8 +56,9 @@ internal sealed partial class TownWorld
     {
         if (WatchesEveryCar) return true;
 
+        // Where the device decides the cars, it hands back what a decision it leaves to the town reads.
         var agent = Roster.AgentOfCar(car);
-        if (_decisions.Turn(_agentsTick, agent) || _decisions.Turn(_agentsTick - 1, agent)) return true;
+        if (!CarsDecidedOnTheDevice && (_decisions.Turn(_agentsTick, agent) || _decisions.Turn(_agentsTick - 1, agent))) return true;
 
         return Cars.Action[car] is CarAction.Switch or CarAction.Overtake or CarAction.Rejoin || Cars.BlueLight[car]
                || _recovery.Towing[car] >= 0 || _selected.Holds(SelectionKind.Car, car);

@@ -34,11 +34,60 @@ internal sealed class LegProgress(int actors)
     readonly float[] _sinceS = new float[actors];
     readonly float[] _closestM = new float[actors];
 
+    /// <summary>Which actors' clocks changed since <see cref="ForgetTheTouched"/>, where <see cref="KeepTheTouched"/> was asked.</summary>
+    bool[] _touched = [];
+
+    int[] _touchedList = [];
+    int _touchedCount;
+
+    /// <summary>
+    /// <b>Every actor whose clock changes from here on is remembered</b> until <see cref="ForgetTheTouched"/> — so a copy of
+    /// the clocks kept elsewhere is sent those and no others.
+    /// </summary>
+    public void KeepTheTouched()
+    {
+        if (_touched.Length > 0) return;
+
+        _touched = new bool[_sinceS.Length];
+        _touchedList = new int[_sinceS.Length];
+    }
+
+    /// <summary>The actors whose clocks changed since <see cref="ForgetTheTouched"/>, each once.</summary>
+    public ReadOnlySpan<int> Touched => _touchedList.AsSpan(0, _touchedCount);
+
+    /// <summary>Whether this actor's clock changed since <see cref="ForgetTheTouched"/>.</summary>
+    public bool IsTouched(int actor) => _touched.Length > 0 && _touched[actor];
+
+    public void ForgetTheTouched()
+    {
+        foreach (var actor in Touched) _touched[actor] = false;
+        _touchedCount = 0;
+    }
+
+    void Touch(int actor)
+    {
+        if (_touched.Length == 0 || _touched[actor]) return;
+
+        _touched[actor] = true;
+        _touchedList[_touchedCount++] = actor;
+    }
+
+    /// <summary>An actor's clock as it stands: how long it has got nowhere, and the closest it has come.</summary>
+    public (float SinceS, float ClosestM) Of(int actor) => (_sinceS[actor], _closestM[actor]);
+
+    /// <summary>An actor's clock taken as a copy kept elsewhere ran it, which is no change of the clock's own.</summary>
+    public void Take(int actor, float sinceS, float closestM)
+    {
+        _sinceS[actor] = sinceS;
+        _closestM[actor] = closestM;
+    }
+
     /// <summary>A fresh leg: nothing reached yet, and no time run up against it.</summary>
     public void Restart(int actor)
     {
         _sinceS[actor] = 0f;
         _closestM[actor] = float.MaxValue;
+        Touch(actor);
     }
 
     /// <summary>How far is left to go this decision, and how much world has passed since the last one.</summary>
@@ -50,6 +99,7 @@ internal sealed class LegProgress(int actors)
     /// </param>
     public void Note(int actor, float remainingM, float byM, float sinceLastDecisionS)
     {
+        Touch(actor);
         if (remainingM < _closestM[actor] - byM)
         {
             _closestM[actor] = remainingM;
@@ -68,7 +118,11 @@ internal sealed class LegProgress(int actors)
     /// buys the wait and not the standing</b>: the clock stands still rather than being given back, so a
     /// body still where it was when the light went green is not waiting for it.
     /// </summary>
-    public void Hold(int actor, float remainingM) => _closestM[actor] = MathF.Min(_closestM[actor], remainingM);
+    public void Hold(int actor, float remainingM)
+    {
+        Touch(actor);
+        _closestM[actor] = MathF.Min(_closestM[actor], remainingM);
+    }
 
     public bool IsStuck(int actor, float patienceS) => _sinceS[actor] >= patienceS;
 

@@ -119,24 +119,62 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
     /// </summary>
     public bool Wants(int car, out bool inward)
     {
+        var shape = ShapeOfTheRoad(car, out inward);
+        if ((shape & RoadShape.StopsToMoveAcross) != 0) return (shape & RoadShape.Wants) != 0;
+
+        var heldUp = (shape & RoadShape.Asks) != 0 && IsHeldUp(car);
+        var wants = (shape & (heldUp ? RoadShape.WantsWhenHeldUp : RoadShape.WantsWhenFree)) != 0;
+        inward = heldUp && wants;
+        return wants;
+    }
+
+    /// <summary>
+    /// <b>What of <see cref="Wants"/> the road and the route alone answer</b> — the car's line, the lanes beside it and the
+    /// route queued past it, which change only where a line or a route is laid — leaving only whether it is held up
+    /// (<see cref="IsHeldUp"/>) to the claims.
+    /// </summary>
+    /// <param name="inward">Where the line stops to move across, which way.</param>
+    public RoadShape ShapeOfTheRoad(int car, out bool inward)
+    {
         inward = false;
         var lane = Cars.LaneOf(car);
         if (lane == CarFleet.NoLane || Cars.Line[car].LaneCount == 0 || Cars.LineIsReverse[car] || !Roads.IsAStreetLane(lane))
         {
-            return false;
+            return RoadShape.None;
         }
 
-        if (TheLineStopsToMoveAcross(car, out inward)) return RunsBeside(car, inward, out _);
-
-        var heldUp = IsHeldUp(car);
-        if (heldUp && !Roads.LaneCrossesToPass[lane] && RunsBeside(car, true, out _))
+        if (TheLineStopsToMoveAcross(car, out inward))
         {
-            inward = true;
-            return true;
+            return RoadShape.StopsToMoveAcross | (RunsBeside(car, inward, out _) ? RoadShape.Wants : RoadShape.None);
         }
 
-        inward = false;
-        return !heldUp && RunsBeside(car, false, out var lastBeside) && CarriesOnFrom(car, lastBeside);
+        var shape = RoadShape.Asks;
+        if (!Roads.LaneCrossesToPass[lane] && RunsBeside(car, true, out _)) shape |= RoadShape.WantsWhenHeldUp;
+        if (RunsBeside(car, false, out var lastBeside) && CarriesOnFrom(car, lastBeside)) shape |= RoadShape.WantsWhenFree;
+        return shape;
+    }
+
+    /// <summary>What of <see cref="Wants"/> the road and the route alone answer (<see cref="ShapeOfTheRoad"/>).</summary>
+    [Flags]
+    public enum RoadShape : uint
+    {
+        /// <summary>A car on no street lane, on no line or driving it in reverse, which never wants to move across.</summary>
+        None = 0u,
+
+        /// <summary>Whether it is held up is asked, its line not stopping to move across.</summary>
+        Asks = 1u,
+
+        /// <summary>Its line stops where its route moves across, or its lane ends.</summary>
+        StopsToMoveAcross = 2u,
+
+        /// <summary>And the lanes that way carry its line on: it wants to move across whatever holds it up.</summary>
+        Wants = 4u,
+
+        /// <summary>Held up, the lane toward the line is one it moves across onto.</summary>
+        WantsWhenHeldUp = 8u,
+
+        /// <summary>Not held up, the lane toward the kerb is one it moves back onto.</summary>
+        WantsWhenFree = 16u,
     }
 
     /// <summary>

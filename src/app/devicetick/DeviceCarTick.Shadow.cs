@@ -82,6 +82,23 @@ internal sealed partial class DeviceCarTick
         _wheelsBefore = new DeviceTyres.WheelRow[capacity * TyreModel.Wheels];
         _current = new bool[capacity];
         Array.Fill(_current, true);
+        _laidWhole = new bool[capacity];
+    }
+
+    /// <summary>Which cars <see cref="Prepare"/> laid whole off the town's copy since <see cref="WasLaidWhole"/> asked.</summary>
+    bool[] _laidWhole = [];
+
+    /// <summary>
+    /// <b>Whether the town laid this car whole since last asked</b> — so the tick after is handed back
+    /// (<see cref="ReadsEveryCar"/> off): what the device's tick alone writes of a car the town lays from its copy, as the
+    /// copy had it. A car lost its line is laid with how far off it was, and the town's claims read whether it is
+    /// back on (<c>TownWorld.IsUnderWay</c>), which only a tick handed back says.
+    /// </summary>
+    public bool WasLaidWhole(int car)
+    {
+        var laid = _laidWhole[car];
+        _laidWhole[car] = false;
+        return laid;
     }
 
     /// <summary>
@@ -173,7 +190,7 @@ internal sealed partial class DeviceCarTick
                     throw new InvalidOperationException($"Car {car} left the device's tick with its wheels never handed back.");
                 }
 
-                ExpectTheTownHolds(car);
+                ExpectTheTownHolds(car, "its tyres for the town's own tick");
                 LayTheTyres(town, car);
                 _held[car] = false;
                 continue;
@@ -190,24 +207,28 @@ internal sealed partial class DeviceCarTick
             if (!resident || !_held[car] || cars.Pass[car] != _passHeld[car]) LayThePass(cars, car);
             if (!resident || !_held[car])
             {
-                ExpectTheTownHolds(car);
+                ExpectTheTownHolds(car, "itself whole");
+                _laidWhole[car] = true;
                 LayTheTyres(town, car, wheels: !_tyres.KeptOnTheDevice[car]);
                 LayTheLine(cars, car);
                 LayTheReading(cars, car);
                 LayTheBox(cars, car);
+                LayTheClockOf(town, car);
             }
             else
             {
+                if (town.DriveClocks.IsTouched(car)) LayTheClockOf(town, car);
+
                 if (cars.LineLaid[car] != _lineLaidAt[car]) LayTheLine(cars, car);
                 if (cars.ProgressM[car] != _progressAt[car] || cars.CoveredSinceClaimM[car] != _coveredAt[car])
                 {
-                    ExpectTheTownHolds(car);
+                    ExpectTheTownHolds(car, "its reading");
                     LayTheReading(cars, car);
                 }
 
                 if (cars.WheelsOnAWay[car] != _wheelsSent[car])
                 {
-                    ExpectTheTownHolds(car);
+                    ExpectTheTownHolds(car, "its tyre row");
                     LayTheCarRow(town, car);
                 }
             }
@@ -238,13 +259,22 @@ internal sealed partial class DeviceCarTick
     /// <summary>Whether the town holds a car as the device last left it (<see cref="_current"/>).</summary>
     public bool TownHolds(int car) => _current[car];
 
+    /// <summary>Whether the device ticks this car this tick, once <see cref="Prepare"/> has taken it.</summary>
+    public bool Takes(int car) => _held[car];
+
     /// <summary>
     /// A car about to be laid off the town's copy of it, which must be what the device last left — or the town's own since:
     /// a copy older than the device's laid over it would set the car back.
     /// </summary>
-    void ExpectTheTownHolds(int car)
+    /// <param name="what">What of it would be laid, for the defect's report.</param>
+    void ExpectTheTownHolds(int car, string what)
     {
-        if (!_current[car]) throw new InvalidOperationException($"Car {car} would be laid off the town's copy, older than the device's.");
+        if (!_current[car])
+        {
+            throw new InvalidOperationException(
+                $"Car {car} would have {what} laid off the town's copy, older than the device's (held {_held[car]}, doing " +
+                $"{_actionAt[car]} when the ticks last left it, {_actionDue[car]} when this one began).");
+        }
     }
 
     /// <summary>
@@ -310,6 +340,12 @@ internal sealed partial class DeviceCarTick
     }
 
     void LayThePose(TownWorld town, int car) => _tyres.Poses[car] = DeviceTyres.PoseRow.Of(town.Cars, car);
+
+    void LayTheClockOf(TownWorld town, int car)
+    {
+        var (sinceS, closestM) = town.DriveClocks.Of(car);
+        LayTheClock(car, sinceS, closestM);
+    }
 
     /// <param name="wheels">Whether the host's copy of its wheels is laid — never where the device holds them newer.</param>
     void LayTheTyres(TownWorld town, int car, bool wheels = true)

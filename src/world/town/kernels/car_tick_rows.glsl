@@ -65,6 +65,41 @@ struct CarBriefRow
 // CarBriefRow.flags: BoxAheadRow's, and the context's own.
 const uint BriefBlocked = 16u;
 
+// What the town reads of a car's tick, written into its own memory where it reads it (app/devicetick/DeviceCarTick.OutRow,
+// field for field): its tick row, command, brief and tyre row, its leg's clock (LegProgress), and the stamp of the tick
+// that wrote it, never the zero of a row unwritten. The includer includes tyre_rows.glsl first.
+struct CarOutRow
+{
+    CarTickRow tick;
+    TyreCommand command;
+    CarBriefRow brief;
+    TyreCarRow car;
+    float clockSinceS;
+    float clockClosestM;
+    uint stamp;
+};
+
+// What only the town knows of a car whose decision the device is asked whether it is its clock alone
+// (app/devicetick/DeviceCarTick.DecideTermsRow, TownWorld.TakesOnlyTheClock): flags — whether the town decides it whatever
+// the device finds, and what of Switching.Wants the road and the route alone answer (Switching.RoadShape) — its leg's
+// patience, the width that counts as getting nearer, and how far back a queue at a light reaches.
+struct CarDecideTermsRow
+{
+    uint flags;
+    float patienceS;
+    float byM;
+    float queueReachM;
+};
+
+// CarDecideTermsRow.flags: Switching.RoadShape's in the low bits, then whether the town decides it whole.
+const uint DecideShapeAsks = 1u;
+const uint DecideShapeStopsToMoveAcross = 2u;
+const uint DecideShapeWants = 4u;
+const uint DecideShapeWantsWhenHeldUp = 8u;
+const uint DecideShapeWantsWhenFree = 16u;
+const uint DecideByTheTown = 256u;
+const uint DecideChecked = 512u;
+
 // What the last claims rebuild granted a car and what cut it (CarFleet.AuthorityM, HorizonM, ClaimFromM, CommittedToM,
 // GrantMarginM, GrantCutBy; LaneOccupancy.HoldCutOn). The place fields are unread: the place is told (CarToldRow).
 struct CarGrantRow

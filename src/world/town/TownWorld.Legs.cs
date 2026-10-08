@@ -255,9 +255,7 @@ internal sealed partial class TownWorld
     /// </remarks>
     public bool TakesOnlyTheClock(int car, float sinceLastDecisionS)
     {
-        if (HoldAgents || IsUnderOrders(car) || Cars.Ambulance[car] || IsAnEvacuator(car) || IsAPatrolCar(car)) return false;
-        if (!Cars.Driven[car] || Cars.Broken[car] || Cars.Action[car] != CarAction.Follow || !ItsErrandLeavesItToTheLeg(car)) return false;
-        if (_asksTheRoute[car] || Cars.StopsForBayOf(car) != CarFleet.NoBay || TheLineIsSpent(car)) return false;
+        if (!LeavesItsDecisionToItsLine(car) || TheLineIsSpent(car)) return false;
         if (_overtaking.MayGetPastWhatCutIt(car, out _, out _) && _overtaking.ComesUpTo(car, Cars.AlongMps[car], Cars.Context[car].AuthorityM))
         {
             return false;
@@ -265,10 +263,36 @@ internal sealed partial class TownWorld
 
         if (_switching.Wants(car, out _)) return false;
 
+        var (patienceS, byM, queueReachM) = ClockTermsOf(car);
         return !_driveProgress.WouldBeStuck(
-            car, RemainingOnTheDriveM(car), Cars.BuildOf(car).WidthM, sinceLastDecisionS, WaitingForAReasonItCanSee(car),
-            _config.CarPatienceS * Cars.FuseJitter[car]);
+            car, RemainingOnTheDriveM(car), byM, sinceLastDecisionS, Cars.LightAheadM[car] <= queueReachM, patienceS);
     }
+
+    /// <summary>
+    /// <b>The part of <see cref="TakesOnlyTheClock"/> only the town can answer</b>: no duty or order, an errand that leaves
+    /// the car to its leg, a car following its route with no line to grow and no bay to take up — every other part
+    /// being read off its line, its tick and the claims.
+    /// </summary>
+    public bool LeavesItsDecisionToItsLine(int car) =>
+        !HoldAgents && !IsUnderOrders(car) && !Cars.Ambulance[car] && !IsAnEvacuator(car) && !IsAPatrolCar(car)
+        && Cars.Driven[car] && !Cars.Broken[car] && Cars.Action[car] == CarAction.Follow && ItsErrandLeavesItToTheLeg(car)
+        && !_asksTheRoute[car] && Cars.StopsForBayOf(car) == CarFleet.NoBay;
+
+    /// <summary>
+    /// What a car's leg's clock is run by (<see cref="WatchTheProgress"/>): its patience, how much nearer counts as nearer,
+    /// and how far back a queue at a light reaches.
+    /// </summary>
+    public (float PatienceS, float ByM, float QueueReachM) ClockTermsOf(int car) =>
+        (_config.CarPatienceS * Cars.FuseJitter[car], Cars.BuildOf(car).WidthM, QueueReachM(car));
+
+    /// <summary>Every car's leg's clock (<see cref="LegProgress"/>), for a device that runs the clocks of the cars it decides.</summary>
+    public LegProgress DriveClocks => _driveProgress;
+
+    /// <summary>
+    /// <b>Whether a device decides the cars whose decisions are their clock alone</b> (<see cref="ITownDevice.DecidedOnTheDevice"/>),
+    /// so a car's tick is not handed back for its decision.
+    /// </summary>
+    public bool CarsDecidedOnTheDevice { get; set; }
 
     /// <summary>
     /// Whether a driven car's errand leaves it to its leg this decision (<see cref="RunTheOwnersCar"/>,

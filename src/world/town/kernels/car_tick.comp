@@ -4,6 +4,10 @@
 // The following cars' ticks, one thread a car named in the list taken (car_tick.glsl), over the tyres' table and each
 // car's line in the fleet's own layout — every table indexed by the car — and the claims as they were cut: the command
 // each leaves where the tyre pass reads it.
+//
+// Asked to decide (mode), it is instead the decisions put off a tick of the cars named in the list due, read off what their
+// last tick left before this one runs (car_decide.glsl): each one's verdict where the host reads it, its clock run where
+// that is the whole of its decision, and where it is not, what the host decides it on, written into the host's memory.
 
 layout(local_size_x = 64) in;
 
@@ -35,7 +39,15 @@ layout(push_constant) uniform Figures
     float ploughCrawlMps;
     float engineBrakingMps2;
     float passSpareM;
+    uint mode;
+    uint stamp;
+    float sinceLastDecisionS;
+    float slowerToSwitchMps;
 } figures;
+
+// Figures.mode.
+const uint ModeTick = 0u;
+const uint ModeDecide = 1u;
 
 #define TYRE_FIGURES figures
 #define CAR_TICK_FIGURES figures
@@ -99,6 +111,8 @@ layout(std430, binding = 20) readonly buffer PlannedOrder { uint plannedOrder[];
 #include "agents/car/control/kernels/follower.glsl"
 #include "world/town/kernels/drive_context.glsl"
 #include "world/town/kernels/car_tick.glsl"
+#include "core/geometry/kernels/rounded.glsl"
+#include "world/town/kernels/car_decide.glsl"
 
 layout(std430, binding = 21) readonly buffer Cutters { ClaimRow cutters[]; };
 layout(std430, binding = 22) readonly buffer Grants { CarGrantRow grants[]; };
@@ -110,11 +124,49 @@ layout(std430, binding = 27) readonly buffer Taken { uint taken[]; };
 layout(std430, binding = 28) buffer Passes { OvertakeRow passes[]; };
 layout(std430, binding = 29) readonly buffer HoldBits { uint holdBits[]; };
 
-layout(std430, binding = 30) writeonly buffer Briefs { CarBriefRow briefs[]; };
+layout(std430, binding = 30) buffer Briefs { CarBriefRow briefs[]; };
+layout(std430, binding = 31) readonly buffer DecideList { uint decideList[]; };
+layout(std430, binding = 32) readonly buffer DecideTerms { CarDecideTermsRow decideTerms[]; };
+layout(std430, binding = 33) buffer Clocks { vec2 clocks[]; };
+layout(std430, binding = 34) writeonly buffer Verdicts { uint verdicts[]; };
+layout(std430, binding = 35) writeonly buffer DecidedAt { uint decidedAt[]; };
+layout(std430, binding = 36) writeonly buffer DecideOut { CarOutRow decideOut[]; };
+layout(std430, binding = 37) readonly buffer TyreCars { TyreCarRow tyreCars[]; };
+
+// Verdicts: the stamp of the tick that wrote one, shifted past whether the decision is more than the clock.
+const uint VerdictMore = 1u;
+
+// One car's decision put off, asked of what its last tick left (car_decide.glsl).
+void decideOne(uint car)
+{
+    CarTickRow tick = ticks[car];
+    CarBriefRow brief = briefs[car];
+    CarDecideTermsRow terms = decideTerms[car];
+    vec2 clockWas = clocks[car];
+    vec2 clock = clockWas;
+    bool more = decideMoreThanTheClock(
+        car, builds[buildOf[car]], lines[car], tick, told[car], brief, holdBits[car], cutters[car], grants[car].cutOn, terms,
+        clock);
+    verdicts[car] = (figures.stamp << 1u) | (more ? VerdictMore : 0u);
+    if (more) decidedAt[car] = figures.stamp;
+    else clocks[car] = clock;
+
+    // Checked, what every decision asked was read off goes back, the town to read the same verdict off it.
+    if (more || (terms.flags & DecideChecked) != 0u)
+    {
+        decideOut[car] = CarOutRow(tick, commands[car], brief, tyreCars[car], clockWas.x, clockWas.y, figures.stamp);
+    }
+}
 
 void main()
 {
     if (gl_GlobalInvocationID.x >= figures.carCount) return;
+
+    if (figures.mode == ModeDecide)
+    {
+        decideOne(decideList[gl_GlobalInvocationID.x]);
+        return;
+    }
 
     uint car = taken[gl_GlobalInvocationID.x];
     CarToldRow toldRow = told[car];

@@ -6,6 +6,7 @@ using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Road;
 using Vk = TrafficSimulation.Runtime.Vk;
@@ -112,7 +113,24 @@ internal sealed partial class DeviceCarTick : IDisposable
     /// that wrote it.
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
-    internal readonly record struct OutRow(TickRow Tick, DeviceTyres.CommandRow Command, BriefRow Brief, DeviceTyres.CarRow Car, uint Stamp);
+    internal readonly record struct OutRow(
+        TickRow Tick, DeviceTyres.CommandRow Command, BriefRow Brief, DeviceTyres.CarRow Car, float ClockSinceS, float ClockClosestM,
+        uint Stamp);
+
+    /// <summary>
+    /// What only the town knows of a car whose decision the device is asked whether it is its clock alone
+    /// (<c>CarDecideTermsRow</c>): <see cref="Switching.RoadShape"/>, or <see cref="ByTheTown"/>; and what its clock is run by
+    /// (<see cref="World.Town.TownWorld.ClockTermsOf"/>).
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal readonly record struct DecideTermsRow(uint Flags, float PatienceS, float ByM, float QueueReachM)
+    {
+        /// <summary>The town decides it whole whatever the device finds.</summary>
+        public const uint ByTheTown = 256u;
+
+        /// <summary>What it was read off is handed back whatever the verdict, for the town to hold the verdict to its own.</summary>
+        public const uint Checked = 512u;
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     readonly record struct OutPush(uint CarCount, uint Stamp);
@@ -124,15 +142,19 @@ internal sealed partial class DeviceCarTick : IDisposable
         float QueueInCarLengths, float DtS, float LookaheadS, float GripMargin, float BrakingMargin, float StopSpeedMps,
         float WaitingToPassBrakingShare, float ReactionS, float CallPaceMps, float StandardGravityMps2, float WheelSpinFadeMps,
         float WheelSpinAllowanceMps, float MarkSlipMps, float MarkCorneringSlipMps, float PloughCrawlMps, float EngineBrakingMps2,
-        float PassSpareM)
+        float PassSpareM, uint Mode, uint Stamp, float SinceLastDecisionS, float SlowerToSwitchMps)
     {
+        public const uint Tick = 0u, Decide = 1u;
+
+        /// <remarks>A decision answers for the decisions' interval as the loop reckons it (<see cref="TickGroups.IntervalS"/>).</remarks>
         public static Figures Of(SimConfig config, int arcsPerCar, int firstConnector) => new(
             0u, (uint)arcsPerCar, (uint)LineAssembler.MostLanes, (uint)firstConnector, LineTolerance.RoundingM,
             config.Ambulance.SlowerToPassMps, config.Patience.LightQueueInCarLengths, config.TickSeconds, config.Driving.LookaheadS,
             config.Driving.GripMargin, config.Driving.BrakingMargin, config.Driving.StopSpeedMps,
             config.Driving.WaitingToPassBrakingShare, config.CarReactionS, config.Ambulance.CallPaceMps,
             config.Tyre.StandardGravityMps2, config.Tyre.WheelSpinFadeMps, config.Tyre.WheelSpinAllowanceMps, config.Marks.SlipMps,
-            config.Marks.CorneringSlipMps, config.Marks.PloughCrawlMps, config.CarEngineBrakingMps2, config.Driving.PassSpareM);
+            config.Marks.CorneringSlipMps, config.Marks.PloughCrawlMps, config.CarEngineBrakingMps2, config.Driving.PassSpareM, Tick,
+            0u, new TickGroups(config.Sim.AgentDecisionIntervalS, config.Sim.TickRateHz).IntervalS, config.Driving.SlowerToSwitchMps);
     }
 
     /// <summary>The stamps a tick is timed between.</summary>
@@ -179,6 +201,18 @@ internal sealed partial class DeviceCarTick : IDisposable
     readonly DescriptorSet _outSet;
     readonly uint[] _eventsRead;
     readonly BufferCopy[] _handOverRuns;
+
+    /// <summary>
+    /// The decisions put off a tick the device is asked of (<see cref="LayTheDecisions"/>): the cars, what only the town
+    /// knows of each, every car's leg's clock as the device runs it, and what it found — each verdict and, where a decision
+    /// is more than the clock, what the town decides it on, in the host's memory — and which cars it found so this tick.
+    /// </summary>
+    readonly ResidentRows<uint> _decideList;
+
+    readonly ResidentRows<DecideTermsRow> _decideTerms;
+    readonly ResidentRows<Vector2> _clocks;
+    readonly GpuBuffer _verdicts, _decidedAt, _decideOut;
+    int _decideCount;
 
     /// <summary>The stamp the last tick wrote its rows with, never the zero of a row never written.</summary>
     uint _stamp;
@@ -243,6 +277,12 @@ internal sealed partial class DeviceCarTick : IDisposable
         _passes = new ResidentRows<PassRow>(vk, capacity, 1, readsBack: true);
         _holdBits = new ResidentRows<uint>(vk, capacity, 1, hostOnly: true, bridges: false);
         _briefs = new ResidentRows<BriefRow>(vk, capacity, 1, readsBack: true);
+        _decideList = new ResidentRows<uint>(vk, capacity, 1);
+        _decideTerms = new ResidentRows<DecideTermsRow>(vk, capacity, 1, hostOnly: true);
+        _clocks = new ResidentRows<Vector2>(vk, capacity, 1, readsBack: true);
+        _verdicts = vk.CreateBuffer((ulong)(capacity * sizeof(uint)), BufferUsageFlags.StorageBufferBit, HostAccess.Reads);
+        _decideOut = vk.CreateBuffer((ulong)(capacity * Marshal.SizeOf<OutRow>()), BufferUsageFlags.StorageBufferBit, HostAccess.Reads);
+        _decidedAt = Laid(new uint[capacity]);
 
         var table = tyres.Table;
         GpuBuffer[] ticked =
@@ -252,7 +292,8 @@ internal sealed partial class DeviceCarTick : IDisposable
             Laid(roads.LaneLengthM), Laid(connectorAt), Laid(connectorTo), Laid(connectorRung), Laid(connectorLength),
             Laid(lanePassable), claims.Rows, claims.PlannedRuns, claims.PlannedOrder, granted?.Cutters ?? _cutters.Device,
             granted?.Grants ?? _grants.Device, _told.Device, _ticks.Device, _contexts.Device, _boxes.Device, _taken.Device,
-            _passes.Device, granted?.HoldBits ?? _holdBits.Device, _briefs.Device,
+            _passes.Device, granted?.HoldBits ?? _holdBits.Device, _briefs.Device, _decideList.Device, _decideTerms.Device,
+            _clocks.Device, _verdicts, _decidedAt, _decideOut, table.Cars.Device,
         ];
         _tickKernel = new ComputeKernel(vk, "car_tick.comp", ticked.Length, (uint)Marshal.SizeOf<Figures>());
         _tickSet = _tickKernel.Bind(ticked);
@@ -264,9 +305,12 @@ internal sealed partial class DeviceCarTick : IDisposable
             sizeof(uint), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferSrcBit | BufferUsageFlags.TransferDstBit,
             HostAccess.None);
         _eventCountOut = vk.CreateBuffer(sizeof(uint), BufferUsageFlags.TransferDstBit, HostAccess.Reads);
-        _outKernel = new ComputeKernel(vk, "car_out.comp", 9, (uint)Marshal.SizeOf<OutPush>());
+        _outKernel = new ComputeKernel(vk, "car_out.comp", 11, (uint)Marshal.SizeOf<OutPush>());
         _outSet = _outKernel.Bind(
-            [_taken.Device, _wanted, _ticks.Device, table.Commands.Device, _briefs.Device, table.Cars.Device, _rowsOut, _events, _eventCount]);
+        [
+            _taken.Device, _wanted, _ticks.Device, table.Commands.Device, _briefs.Device, table.Cars.Device, _rowsOut, _events, _eventCount,
+            _clocks.Device, _decidedAt,
+        ]);
         _eventsRead = new uint[capacity];
         _handOverRuns = new BufferCopy[capacity];
 
@@ -320,7 +364,7 @@ internal sealed partial class DeviceCarTick : IDisposable
 
         if (cars.ProgressM[car] != _progressAt[car] || cars.CoveredSinceClaimM[car] != _coveredAt[car])
         {
-            ExpectTheTownHolds(car);
+            ExpectTheTownHolds(car, "its reading for a rebuild");
             LayTheReading(cars, car);
             _progressAt[car] = cars.ProgressM[car];
             _coveredAt[car] = cars.CoveredSinceClaimM[car];
@@ -407,6 +451,9 @@ internal sealed partial class DeviceCarTick : IDisposable
 
     public ReadOnlySpan<DeviceTyres.CommandRow> CommandsAfter => _tyres.CommandsAfter;
 
+    /// <summary>A car's leg's clock as the device runs it (<see cref="LayTheDecisions"/>), as the last read of every car left it.</summary>
+    public Vector2 ClockAfter(int car) => _clocks.AllRead[car];
+
     /// <summary>The device's own time for the last tick's drive, in milliseconds, with nothing sent or read in it.</summary>
     public double TickMs => _timer.BetweenMs((int)Stage.Sent, (int)Stage.Ticked);
 
@@ -450,6 +497,7 @@ internal sealed partial class DeviceCarTick : IDisposable
 
         _cars = cars;
         _takenCount = taken;
+        _stamp++;
         var vk = _vk;
         _timer.Reset(commands);
         _timer.Stamp(commands, (int)Stage.Began);
@@ -478,11 +526,24 @@ internal sealed partial class DeviceCarTick : IDisposable
         _taken.Send(commands);
         _passes.Send(commands);
         _holdBits.Send(commands);
+        _decideList.Send(commands);
+        _decideTerms.Send(commands);
+        _clocks.Send(commands);
         vk.AfterTransfer(commands);
         _timer.Stamp(commands, (int)Stage.Sent);
 
+        // The decisions put off read what the last tick left, before this one writes over it.
+        if (_decideCount > 0)
+        {
+            var decided = (uint)((_decideCount + 63) / 64);
+            _tickKernel.Dispatch(
+                commands, _tickSet, decided, _figures with { CarCount = (uint)_decideCount, Mode = Figures.Decide, Stamp = _stamp });
+            vk.BetweenKernels(commands);
+            _decideCount = 0;
+        }
+
         var groups = (uint)Math.Max(1, (taken + 63) / 64);
-        _tickKernel.Dispatch(commands, _tickSet, groups, _figures with { CarCount = (uint)taken });
+        _tickKernel.Dispatch(commands, _tickSet, groups, _figures with { CarCount = (uint)taken, Stamp = _stamp });
         vk.BetweenKernels(commands);
         _timer.Stamp(commands, (int)Stage.Ticked);
 
@@ -506,6 +567,7 @@ internal sealed partial class DeviceCarTick : IDisposable
         _vk.BeforeTransfer(commands);
         _tyres.Read(commands);
         _ticks.Read(commands, cars);
+        _clocks.Read(commands, cars);
         if (!Shadowed)
         {
             _briefs.Read(commands, cars);
@@ -571,7 +633,6 @@ internal sealed partial class DeviceCarTick : IDisposable
     /// </summary>
     void RecordTheOut(CommandBuffer commands)
     {
-        _stamp++;
         _vk.BetweenKernels(commands);
         var groups = (uint)Math.Max(1, (_takenCount + 63) / 64);
         _outKernel.Dispatch(commands, _outSet, groups, new OutPush((uint)_takenCount, _stamp));
@@ -593,12 +654,54 @@ internal sealed partial class DeviceCarTick : IDisposable
 
         _ticks.ReadItems(commands, cars, _handOverRuns);
         _briefs.ReadItems(commands, cars, _handOverRuns);
+        _clocks.ReadItems(commands, cars, _handOverRuns);
         _tyres.RecordHandOverOfTheRows(commands, cars);
     }
 
     /// <summary>What <see cref="RecordTheHandOver"/> copied back of a car, once its submit has been waited for.</summary>
-    public OutRow HandedOverRow(int car) =>
-        new(_ticks.AllRead[car], _tyres.CommandRead(car), _briefs.AllRead[car], _tyres.CarRead(car), _stamp);
+    public OutRow HandedOverRow(int car)
+    {
+        var clock = _clocks.AllRead[car];
+        return new OutRow(_ticks.AllRead[car], _tyres.CommandRead(car), _briefs.AllRead[car], _tyres.CarRead(car), clock.X, clock.Y, _stamp);
+    }
+
+    /// <summary>
+    /// <b>The decisions put off a tick that the next tick asks of the device</b>, before it runs (<c>car_decide.glsl</c>):
+    /// cars whose last tick the device holds, each with what only the town knows of it laid (<see cref="LayTheDecideTerms"/>)
+    /// and its clock the device's own (<see cref="LayTheClock"/>).
+    /// </summary>
+    public void LayTheDecisions(ReadOnlySpan<int> cars)
+    {
+        var list = _decideList.All;
+        for (var at = 0; at < cars.Length; at++) list[at] = (uint)cars[at];
+        _decideList.Mark(0, cars.Length);
+        _decideCount = cars.Length;
+    }
+
+    /// <summary>What only the town knows of a car whose decision the device is asked, laid where it changed.</summary>
+    public void LayTheDecideTerms(int car, in DecideTermsRow terms) => _decideTerms.Lay(car, terms);
+
+    /// <summary>A car's leg's clock as the town holds it, laid where the device runs it.</summary>
+    public void LayTheClock(int car, float sinceS, float closestM)
+    {
+        _clocks.Rows(car)[0] = new Vector2(sinceS, closestM);
+        _clocks.Mark(car);
+    }
+
+    /// <summary>
+    /// <b>Whether a car's decision the device was asked of was more than its clock</b> (<see cref="LayTheDecisions"/>), read
+    /// once the tick's submit has been waited for; where it was not, the device ran the clock.
+    /// </summary>
+    public bool DecidedMoreThanTheClock(int car)
+    {
+        var verdict = _verdicts.Span<uint>()[car];
+        if (verdict >> 1 != _stamp) throw new InvalidOperationException($"Car {car}'s decision was read past the tick that answered it.");
+
+        return (verdict & 1u) != 0u;
+    }
+
+    /// <summary>What a car whose decision was more than its clock is decided on: what its last tick left, and its clock as it stood.</summary>
+    public ref readonly OutRow DecidedOn(int car) => ref _decideOut.Span<OutRow>()[car];
 
     /// <summary>The device's stamps of the last tick taken in, once its submit has been waited for.</summary>
     public void ReadTimes() => _timer.Read();
@@ -622,7 +725,8 @@ internal sealed partial class DeviceCarTick : IDisposable
         _outKernel.Dispose();
         foreach (var table in (ReadOnlySpan<IDisposable>)[
                      _ticks, _told, _grants, _cutters, _boxes, _contexts, _lines, _arcs, _entries, _chain, _starts, _ends, _firstArcs,
-                     _breaks, _taken, _passes, _holdBits, _briefs, _wanted, _rowsOut, _events, _eventCount, _eventCountOut])
+                     _breaks, _taken, _passes, _holdBits, _briefs, _wanted, _rowsOut, _events, _eventCount, _eventCountOut,
+                     _decideList, _decideTerms, _clocks, _verdicts, _decideOut])
         {
             table.Dispose();
         }

@@ -44,6 +44,15 @@ the device took turns rather than working side by side.
     moving car's reading again every third tick. A car about to be laid off a copy older than the device's is a defect,
     and throws. OdesaOsm: car rows sent 112 → 25 KiB a tick, 6 430 of 10 005 cars a tick left on the device, the tick's
     submit 0.91 → 0.51 ms; the town bit for bit as before (`DeviceTownKeptCarsTests`).
+  - **A car's decision put off a tick is asked of the device first** (`DeviceTown.DecidesTheCars`, `car_decide.glsl`): at
+    the head of the next tick, of what the last left, whether it is the car's leg's clock alone
+    (`TownWorld.TakesOnlyTheClock`) — and where it is, the clock is run there and nothing comes back; where it is more, what
+    the town decides it on is handed back and the town decides it once the tick's submit is waited for, the walkers'
+    decisions still taken while it runs. What only the town knows is told (`LeavesItsDecisionToItsLine`, what of a switch
+    the road and the route answer), and each car's clock is the device's while it holds the car. A car laid whole is
+    handed back the tick after, so nothing the device's tick alone writes is read off a copy older than it.
+    OdesaOsm: 9 134 of 10 005 cars a tick left on the device, 1 138 decisions a tick run there and 457 handed to the
+    town, car rows in and out 0.25 → 0.15 ms; the town bit for bit as before (`DeviceTownDecidesTests`).
 
 ## 2026-10-08 — the readers' layer is sent back in part, and a decision asks for the ways it reads
 

@@ -71,6 +71,7 @@ internal sealed class CarFleet
         CommittedToTheBox = new bool[capacity];
         _line = new DrivenLine[capacity];
         LineLaid = new uint[capacity];
+        RouteLaid = new uint[capacity];
         LineArcs = new ArcSeg[capacity * arcsPerCar];
         LineEntryM = new float[capacity * arcsPerCar];
         StopsForBay = new int[capacity];
@@ -292,6 +293,15 @@ internal sealed class CarFleet
     /// elsewhere — the device's — reads a change it did not make itself off this rather than off the line's contents.
     /// </summary>
     public uint[] LineLaid { get; }
+
+    /// <summary>
+    /// <b>How many times each car's route queue has been laid or changed</b> — a lane taken off it, lanes put back, the
+    /// queue dropped or laid afresh (<see cref="RouteChanged"/>): what reads the queue elsewhere reads a change off this.
+    /// </summary>
+    public uint[] RouteLaid { get; }
+
+    /// <summary>This car's route queue written by whoever laid it, counted in <see cref="RouteLaid"/>.</summary>
+    public void RouteChanged(int car) => RouteLaid[car]++;
 
     /// <summary>This car's line, its arrays already written, taken as laid and counted in <see cref="LineLaid"/>.</summary>
     public void SetLine(int car, DrivenLine line)
@@ -538,6 +548,7 @@ internal sealed class CarFleet
     {
         if (RouteTaken[car] >= RouteCount[car]) return NoLane;
 
+        RouteChanged(car);
         return RouteLanes[(car * RouteLanesPerCar) + RouteTaken[car]++];
     }
 
@@ -566,6 +577,7 @@ internal sealed class CarFleet
         lanes.CopyTo(route);
         RouteTaken[car] = 0;
         RouteCount[car] = lanes.Length + kept;
+        RouteChanged(car);
     }
 
     /// <summary>
@@ -580,6 +592,7 @@ internal sealed class CarFleet
         RouteRunsOut[car] = false;
         RouteEndsOn[car] = NoLane;
         TurnsBackOn[car] = NoLane;
+        RouteChanged(car);
     }
 
     /// <summary>
@@ -770,6 +783,7 @@ internal sealed class CarFleet
         RouteTaken[car] = 0;
         RouteRunsOut[car] = false;
         RouteEndsOn[car] = NoLane;
+        RouteChanged(car);
         HasDestination[car] = false;
         Reroutes[car] = 0;
 
