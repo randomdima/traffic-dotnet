@@ -350,6 +350,10 @@ internal sealed partial class TownWorld
         var halfM = Cars.BuildOf(car).CollisionSizeM * 0.5f;
         Span<WayCover> under = stackalloc WayCover[MostWaysUnderABody];
         var count = _atlas.UnderBox(atM, Heading.Unit(headingRad), halfM.X, halfM.Y, under, Cars.Channels[by]);
+
+        // A layer sent back in part may not hold the ground yet, which is taken until it does.
+        if (!KnowsTheWaysUnder(under[..count])) return false;
+
         for (var at = 0; at < count; at++)
         {
             ref readonly var cover = ref under[at];

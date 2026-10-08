@@ -25,7 +25,7 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   across the whole process while the tier runs classes side by side. Counting on the test's own thread, or running them
   apart, closes it.
 - **`RouteSearchTests.SectionedPlanningAllocatesNothing` and `StatusPanelClaimsTests.DrawingTheClaimsAllocatesNothing`**
-  (unit) fail now and then in a full unit run and pass alone: the first twice in about ten runs, 4 296 B on the test's own
+  (unit) fail now and then in a full unit run and pass alone: the first three times in about fifteen runs, 4 296 B on the test's own
   thread over 500 searches; the second once, 7 144 B. The counter is the thread's, so it is not the side-by-side
   classes; something on that thread allocates now and then — a JIT's rejit is the guess, unconfirmed.
 - **`AllocationGateTests.ThisEnginesOwnPhasesAllocateNothingOverAWholeTown(Test)`** failed once in four full perf runs,
@@ -116,6 +116,11 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   host's `WheelGrounds` and the device keeps the old ones.
 
 ## Inconsistencies
+
+- **What draws the claims reads a layer sent back in part** in a town the device ticks (`DeviceRebuild.LandsLater`): the
+  debug overlay (`DebugOverlay.Occupancy`, `.Pointer`) and the instruments that walk a way's lists (`StuckProbe`,
+  `ExamProbe`) see only the ways the readers asked about lately and the lights' holds of the rest, and a hold's pieces
+  (`LaneOccupancy.PiecesOf`) not at all. A whole layer read back while the overlay is open closes it.
 
 - **Two tests of "on its line"**: `Reacquire` takes a lane within `CarOffPathM × OffLineTolerance`, `ReadTheLine` keeps
   a line within `OffTheLineAllowanceM`, which is wider for a tow — so a tow can be refused a lane its line check

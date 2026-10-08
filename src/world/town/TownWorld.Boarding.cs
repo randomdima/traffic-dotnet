@@ -25,6 +25,10 @@ internal sealed partial class TownWorld
         {
             Span<WayCover> under = stackalloc WayCover[MostWaysUnderABody];
             var count = town._atlas.UnderDisc(atM, radiusM, under);
+
+            // A layer sent back in part may not hold the ground yet, which is taken until it does.
+            if (!town.KnowsTheWaysUnder(under[..count])) return true;
+
             for (var at = 0; at < count; at++)
             {
                 if (town._occupancy.IsTaken(under[at].Way, under[at].FromM, under[at].ToM)) return true;
@@ -32,6 +36,18 @@ internal sealed partial class TownWorld
 
             return false;
         }
+    }
+
+    /// <summary>
+    /// Whether the layer every reader reads holds every way under a spot (<see cref="LaneOccupancy.Knows(int)"/>), each
+    /// asked about either way.
+    /// </summary>
+    bool KnowsTheWaysUnder(ReadOnlySpan<WayCover> under)
+    {
+        var known = true;
+        foreach (ref readonly var cover in under) known &= _occupancy.Knows(cover.Way);
+
+        return known;
     }
 
     /// <summary>

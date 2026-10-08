@@ -21,7 +21,11 @@ internal sealed partial class LaneOccupancy
     /// <b>A rebuild laid elsewhere begun</b>: everything laid last dropped (<see cref="Begin"/>), and room taken for
     /// <paramref name="slots"/> slots and <paramref name="holds"/> holds, every one written next.
     /// </summary>
-    public void BeginTheMirror(int slots, int holds)
+    /// <param name="everyWay">
+    /// Whether every way's lists are written next — or only some ways' (<see cref="KnowTheWay"/>), every other way's
+    /// planned list holding the lights' holds on it alone.
+    /// </param>
+    public void BeginTheMirror(int slots, int holds, bool everyWay = true)
     {
         if (slots > _slots.Length || holds > _holdFirst.Length)
         {
@@ -29,6 +33,8 @@ internal sealed partial class LaneOccupancy
         }
 
         Begin();
+        Mirrors++;
+        KnowEveryWay(everyWay);
         _slotCount = slots;
         _holdCount = holds;
     }

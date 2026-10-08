@@ -120,7 +120,8 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     /// <summary>A shaped manoeuvre asked for where every metre of its ground is free (TER-4c.6), to be laid in the next rebuild.</summary>
     public void Ask(int car)
     {
-        if (!OverTheGround(car)) return;
+        // A layer sent back in part may not hold the ground yet: asked at the next decision.
+        if (!OverTheGround(car, out var known) || !known) return;
 
         manoeuvres.Stage[car] = ManoeuvreStage.Asked;
         Asked++;
@@ -137,6 +138,9 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     public bool KeepOrWithdraw(int car)
     {
         if (_laidFor[car] != _askedAs[car]) return false;
+
+        // A layer sent back in part may not hold the ground yet: answered on a later tick.
+        if (IsSwept(car) && !KnowsTheGround(car)) return false;
 
         if (!IsSwept(car) || !TheGroundIsKept(car))
         {
@@ -353,12 +357,17 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     /// is laid, as a pass is (<see cref="DrivingFigures.PassSpareM"/>), so a manoeuvre clearing something by a hair is
     /// not asked one rebuild and withdrawn the next. False at the first stretch that is not.
     /// </summary>
+    /// <param name="known">
+    /// Whether the layer held every way of the ground (<see cref="LaneOccupancy.Knows(int)"/>) — each asked about either way;
+    /// where it did not, what was not held is not asked of.
+    /// </param>
     [SkipLocalsInit]
-    bool OverTheGround(int car)
+    bool OverTheGround(int car, out bool known)
     {
         var shape = manoeuvres.Shape[car];
         var spareM = Config.Driving.PassSpareM;
         Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
+        known = true;
         for (var piece = 0; piece < shape.Pieces; piece++)
         {
             var line = manoeuvres.PieceOf(car, piece);
@@ -369,6 +378,12 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
                 foreach (ref readonly var swept in Carriageway(under[..count]))
                 {
                     var held = ground.HeldAsABody(swept);
+                    if (!Occupancy.Knows(held.Way))
+                    {
+                        known = false;
+                        continue;
+                    }
+
                     if (!Occupancy.IsFreeForAPass(
                             held.Way, swept.FromM, swept.ToM, held.FromM, held.ToM, car, LaneRoster.Driving, [],
                             PassTerms.Plain))
@@ -402,6 +417,18 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Whether the layer holds every way an asked manoeuvre's ground was laid on (<see cref="LaneOccupancy.Knows(int)"/>),
+    /// each asked about either way.
+    /// </summary>
+    bool KnowsTheGround(int car)
+    {
+        var known = true;
+        for (var piece = 0; piece < manoeuvres.Shape[car].Pieces; piece++) known &= ground.Knows(_pieces, Holder(car, piece));
+
+        return known;
     }
 
     /// <summary>

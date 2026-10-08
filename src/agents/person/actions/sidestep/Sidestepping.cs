@@ -161,7 +161,20 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
         _waitedS[person] += sinceLastDecisionS;
         if (!IsTimeToLook(person, sinceLastDecisionS)) return;
 
-        if (_waitedS[person] > ground.Config.Person.SidestepPatienceS || !IsStillThere(person))
+        if (_waitedS[person] > ground.Config.Person.SidestepPatienceS)
+        {
+            actions.Enter(person, PersonAction.Walk);
+            return;
+        }
+
+        // A layer sent back in part may not hold the ground yet: looked round again at the next decision.
+        if (!KnowsTheGroundOfThePass(person))
+        {
+            _looksInS[person] = 0f;
+            return;
+        }
+
+        if (!IsStillThere(person))
         {
             actions.Enter(person, PersonAction.Walk);
             return;
@@ -428,6 +441,19 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Whether the layer holds the way the one a walker passes was met on and every way its decided pass is asked over
+    /// (<see cref="LaneOccupancy.Knows(int)"/>), each asked about either way.
+    /// </summary>
+    bool KnowsTheGroundOfThePass(int person)
+    {
+        var on = _passedOn[person];
+        var known = on < 0 || Occupancy.Knows(on);
+        foreach (ref readonly var run in _asked.Of(person)) known &= Occupancy.Knows(run.Way);
+
+        return known;
     }
 
     /// <summary>

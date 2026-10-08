@@ -48,6 +48,10 @@ internal sealed partial class TownWorld
 
             Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
             var count = town._atlas.UnderDisc(atM, radiusM, under);
+
+            // A layer sent back in part may not hold the ground yet, which is taken until it does.
+            if (!town.KnowsTheWaysUnder(under[..count])) return true;
+
             for (var at = 0; at < count; at++)
             {
                 ref readonly var cover = ref under[at];

@@ -314,6 +314,10 @@ internal sealed partial class LaneOccupancy
         _answer = new PlanAnswer[mostHolds];
         _slotStandsToM = new float[mostSlots];
         _wayMovedAt = new int[ways.Count];
+        _known = new bool[ways.Count];
+        _knownWays = new int[ways.Count];
+        _askedIn = new long[ways.Count];
+        Array.Fill(_askedIn, long.MinValue);
     }
 
     /// <summary>The numbering these reservations are laid in.</summary>
@@ -360,6 +364,7 @@ internal sealed partial class LaneOccupancy
         _touchedCount = 0;
         _slotCount = 0;
         _holdCount = 0;
+        KnowEveryWay(true);
     }
 
     /// <summary>

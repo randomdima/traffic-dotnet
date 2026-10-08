@@ -230,7 +230,16 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// </summary>
     bool LookRound(int car, float progressM, float alongMps)
     {
-        if (_waitedS[car] > Config.Driving.PassPatienceS || !IsStillThere(car)) return false;
+        if (_waitedS[car] > Config.Driving.PassPatienceS) return false;
+
+        // A layer sent back in part may not hold the ground yet: looked round again at the next decision.
+        if (!KnowsTheGroundOfThePass(car, progressM))
+        {
+            LookNow(car);
+            return true;
+        }
+
+        if (!IsStillThere(car)) return false;
 
         var atSpeed = Holder(car, AtSpeed);
         if (_shapes[atSpeed].Any && CanComeUpTo(car, _shapes[atSpeed], progressM, alongMps))
@@ -325,6 +334,23 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
 
     /// <summary>The car looks round at its next decision — one that has just made the room it backed up for.</summary>
     public void LookNow(int car) => _looksInS[car] = 0f;
+
+    /// <summary>
+    /// <b>Whether the layer holds every way the car's pass is looked round, asked and kept over</b>
+    /// (<see cref="LaneOccupancy.Knows(int)"/>): its line from its tail on, and the ground each shape of its pass was swept
+    /// over — each asked about either way, so a layer sent back in part holds them next.
+    /// </summary>
+    public bool KnowsTheGroundOfThePass(int car, float progressM)
+    {
+        var known = ground.KnowsTheLine(car, progressM - Cars.BuildOf(car).TailBehindAxleM);
+        for (var shape = 0; shape < Shapes; shape++)
+        {
+            known &= ground.Knows(_asked, Holder(car, shape));
+            known &= ground.Knows(_swept, Holder(car, shape));
+        }
+
+        return known;
+    }
 
     /// <summary>
     /// <b>Whether what the car decided to get past is still there to be got past</b>: every body its pass gets past
@@ -511,6 +537,9 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     [SkipLocalsInit]
     void KeepOrWithdrawThePass(int car, in Overtake pass, float progressM)
     {
+        // A layer sent back in part may not hold the ground yet: answered on a later tick.
+        if (!KnowsTheGroundOfThePass(car, progressM)) return;
+
         Span<LineWay> approach = stackalloc LineWay[DrivingGround.MostWaysAlongALine];
         var kept = true;
         foreach (ref readonly var way in TheApproach(car, pass, progressM, approach))
@@ -578,6 +607,13 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
         ref var inS = ref _decidesInS[car];
         inS -= sinceLastDecisionS;
         if (inS > 0f) return false;
+
+        // A layer sent back in part may not hold the line ahead yet: drawn at the next decision.
+        if (!ground.KnowsTheLine(car, progressM - Cars.BuildOf(car).TailBehindAxleM))
+        {
+            inS = 0f;
+            return false;
+        }
 
         // Refused, it is not drawn again before the car would next look round.
         inS = Config.Driving.PassAskEveryS;

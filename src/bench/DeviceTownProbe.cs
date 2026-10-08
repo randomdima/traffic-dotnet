@@ -113,6 +113,8 @@ internal static class DeviceTownProbe
         var stageHereMs = new double[stages.Length];
         var (mostHostRows, mostHostHolds) = (0, 0);
         var (landingWaitedMs, landedMs) = (0d, 0d);
+        var landedMb = 0d;
+        var (waysKnown, waysLightsOnly) = (0L, 0L);
         var sentBack = device?.Claims.Rebuild.LayersSentBack ?? 0L;
         var rebuilt = device?.Claims.Rebuild.Rebuilds ?? 0L;
         var (handedInTheStep, handedAlone) = device?.HandedOver ?? default;
@@ -148,6 +150,8 @@ internal static class DeviceTownProbe
 
                 // The last landing's, which was the rebuild before this one's.
                 (landingWaitedMs, landedMs) = (landingWaitedMs + rebuild.LandingWaitedMs, landedMs + rebuild.LandedMs);
+                landedMb += rebuild.LandedBytes / 1e6;
+                (waysKnown, waysLightsOnly) = (waysKnown + rebuild.WaysLanded.Known, waysLightsOnly + rebuild.WaysLanded.LightsOnly);
                 (laidRows, laidBodies, laidHolds) = (laidRows + rows, laidBodies + bodies, laidHolds + holds);
                 (keptPatched, keptChanged) = (keptPatched + rebuild.Walkers.KeptPatched, keptChanged + rebuild.Walkers.KeptChanged);
                 var (townMs, hereMs) = device.Claims.StageMs;
@@ -219,7 +223,9 @@ internal static class DeviceTownProbe
                 $"device lays {sentParts[4] / each:F2}, the cars' claims {sentParts[5] / each:F2}, the town's own {sentParts[6] / each:F2}");
             Console.WriteLine(
                 $"  the layer written back a tick later for {device.Claims.Rebuild.LayersSentBack - sentBack} of them, inside the next tick's submit: " +
-                $"waiting for it {landingWaitedMs / each:F2} and writing it into the town {landedMs / each:F2} ms a rebuild");
+                $"waiting for it {landingWaitedMs / each:F2} and writing it into the town {landedMs / each:F2} ms a rebuild; sent back in part, " +
+                $"{landedMb / each:F2} MB a rebuild: every hold, the lists of {waysKnown / each} ways the readers asked about and the lights' " +
+                $"holds of {waysLightsOnly / each} more");
             var walkers = device.Claims.Rebuild.Walkers;
             if (walkers.Keeps)
             {

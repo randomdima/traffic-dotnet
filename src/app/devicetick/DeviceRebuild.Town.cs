@@ -187,6 +187,7 @@ internal sealed partial class DeviceRebuild
             [_plans.OnTheDevice.Results, _askAnswers, _bodies.OnTheDevice.Counts, _carsOut, walkerCounts, _walkersOut, _unitHolds, tables.Answers]);
         _scratchAsks = new BodyAsk[Overtaking.MostAsksOfAPass(world.Atlas.Marks)];
         LayTheCarsGather(world);
+        LayTheWaysOut(world);
         if (!_walkers.Keeps) return;
 
         var (walkerCovers, _, _, _) = _walkers.OnTheDevice;
@@ -224,6 +225,32 @@ internal sealed partial class DeviceRebuild
                 contexts, _bodies.Laid, planCars, planFigures,
             ]);
         _laidOnTheDevice = new bool[_cars];
+    }
+
+    /// <summary>
+    /// The kernel that hands back the lists of the ways asked for (<c>rebuild_ways_out.comp</c>), what it writes and reads
+    /// back into, and every signalled way, laid once.
+    /// </summary>
+    void LayTheWaysOut(TownWorld world)
+    {
+        var tables = _claims.OnTheDevice;
+        _lightsWays = [.. world.SignalHolds.Table.Way.ToArray().Distinct().Order()];
+        _waysAsked = new Sent<uint>(this, _ways);
+        _waysScratch = new int[_ways];
+        _waysHeads = Device<UInt4>(_ways);
+        _waysHeadsRead = Readback<UInt4>(_ways);
+        _waysRows = Device<ClaimRow>(_slotRoom);
+        _waysRowsRead = Readback<ClaimRow>(_slotRoom);
+        _waysRowCount = Device<uint>(1);
+        _waysRowCountRead = Readback<uint>(1);
+        _holdCuttersRead = Readback<ClaimRow>(_holdRoom);
+        _waysRowsBound = Math.Min(_slotRoom, ReadPastSlack * 4);
+        _slotNumbers = new uint[_slotRoom];
+        for (var slot = 0; slot < _slotRoom; slot++) _slotNumbers[slot] = (uint)slot;
+
+        _waysOut = Bound.Of<WaysPush>(
+            _vk, "rebuild_ways_out.comp",
+            [_waysAsked.Device, tables.Rows, tables.Order, tables.BodyRuns, tables.PlannedRuns, _waysHeads, _waysRows, _waysRowCount]);
     }
 
     /// <summary>
@@ -547,6 +574,10 @@ internal sealed partial class DeviceRebuild
         _carClaims.Send(commands);
         _asks.Send(commands, _askCount);
         vk.Fill(commands, _wayCounts, 0);
+        GrantedWithTheAnswers = !AnyCarBacksUp(town);
+        LandsLater = GrantedWithTheAnswers && !MirrorsAtOnce;
+        if (LandsLater) RecordTheWaysAskedSent(commands, town.ReadersOccupancy);
+
         vk.AfterTransfer(commands);
         _timer.Stamp(commands, (int)Stage.Sent);
 
@@ -566,8 +597,7 @@ internal sealed partial class DeviceRebuild
         _holdsOutKernel.DispatchIndirect(commands, _claims.OnTheDevice.Tally, Tally.HoldsGroups, default(NoPush));
         _agentsOutKernel.Dispatch(
             commands, Math.Max(_carCount, _walkerCount), new AgentsPush((uint)_carCount, (uint)_walkerCount, (uint)(_stretches + 1 + _carCount)));
-        GrantedWithTheAnswers = !AnyCarBacksUp(town);
-        LandsLater = GrantedWithTheAnswers && !MirrorsAtOnce;
+        if (LandsLater) _waysOut.Dispatch(commands, _waysListed, new WaysPush((uint)_waysListed, (uint)_slotRoom));
         if (GrantedWithTheAnswers) _grant.Dispatch(commands, _carCount, new UnitsPush((uint)_carCount, (uint)(_stretches + 1)));
         if (keeps)
         {
@@ -616,7 +646,7 @@ internal sealed partial class DeviceRebuild
         else
         {
             ReadWhatWasLaidPast();
-            MirrorTheLayer(town);
+            MirrorTheLayer(town.ReadersOccupancy);
         }
 
         MirrorTheAgents(town);
@@ -659,9 +689,8 @@ internal sealed partial class DeviceRebuild
     /// <b>What the device laid and answered written into the layer every reader reads</b>, as the town's own laying would
     /// have left it: every slot, hold and list (<see cref="LaneOccupancy.MirrorTheSlot"/>).
     /// </summary>
-    void MirrorTheLayer(TownWorld town)
+    void MirrorTheLayer(LaneOccupancy occupancy)
     {
-        var occupancy = town.ReadersOccupancy;
         var rows = _claims.Rows;
         var holds = _holdsRead.Span<HoldOut>()[.._claims.Holds.Length];
         occupancy.BeginTheMirror(rows.Length, holds.Length);
@@ -814,18 +843,81 @@ internal sealed partial class DeviceRebuild
 
     /// <summary>
     /// <b>Whether the rebuild just laid in the town writes its layer back later</b> than its own stages (owner, root decision
-    /// log 2026-10-07): only its counts and what it says of each agent come back with it, and the layer — every row, list
-    /// and hold — is copied back in two halves, each behind a tick's own submit in the host's time before the next
-    /// (<see cref="SendTheLayerBack"/>), and written into the readers' layer on the second tick after, while that tick's
-    /// submit runs (<see cref="LandWhatWasSent"/>) — or before any rebuild that comes sooner (<see cref="Land"/>). Never where
-    /// a car backs up, whose ground the town lays off the answered layer, nor where the layer is mirrored at once.
+    /// log 2026-10-07), <b>and in part</b> (2026-10-08): only its counts and what it says of each agent come back with it;
+    /// then, behind the tick's own submit, every hold and what cut it, and of the rows only the lists of the ways the
+    /// readers asked about lately (<see cref="LaneOccupancy.Knows(int)"/>) and the lights' holds on every signalled way
+    /// (<see cref="SendTheLayerBack"/>) — written into the readers' layer on the tick after, while that tick's submit runs
+    /// (<see cref="LandWhatWasSent"/>), or before any rebuild that comes sooner (<see cref="Land"/>). Never where a car backs
+    /// up, whose ground the town lays off the whole answered layer, nor where the layer is mirrored at once.
     /// </summary>
-    /// <remarks>
-    /// <b>Two halves on two ticks</b> (root decision log, 2026-10-08): a layer is a few MB, and copied whole it took longer
-    /// than the host's time between two submits, so the next submit, queued behind it on the one queue, waited for the
-    /// rest. A rebuild comes every few ticks, so what the readers read is still never more than one rebuild old.
-    /// </remarks>
     public bool LandsLater { get; private set; }
+
+    /// <summary>
+    /// How many mirrors a way asked about goes on being sent back after it was last asked about
+    /// (<see cref="LaneOccupancy.WaysAskedSince"/>): a second's worth of rebuilds at the claims' interval, so a decision on
+    /// its own clock finds what it read last time still there.
+    /// </summary>
+    const int WaysAskedForMirrors = 20;
+
+    /// <summary>A way asked for whose lights' holds alone are sent back (<c>rebuild_ways_out.comp</c>'s <c>WayLightsOnly</c>).</summary>
+    const uint LightsOnly = 0x80000000u;
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    readonly record struct WaysPush(uint WayCount, uint RowRoom);
+
+    /// <summary>Every way a light holds a stretch of, ascending, laid once: what a layer sent back in part always holds the lights' holds of.</summary>
+    int[] _lightsWays = [];
+
+    /// <summary>The ways asked for this rebuild, ascending — <see cref="LightsOnly"/> marking those whose lights' holds alone are.</summary>
+    Sent<uint> _waysAsked = null!;
+
+    int[] _waysScratch = [];
+    int _waysListed;
+
+    /// <summary>What <c>rebuild_ways_out.comp</c> hands back — a head a way asked for, its rows, how many — and every hold's cutter, read back.</summary>
+    GpuBuffer _waysHeads = null!, _waysRows = null!, _waysRowCount = null!;
+
+    GpuBuffer _waysHeadsRead = null!, _waysRowsRead = null!, _waysRowCountRead = null!, _holdCuttersRead = null!;
+    Bound _waysOut;
+
+    /// <summary>How many of the ways' rows a landing reads back with the rest, from the last's count and a margin.</summary>
+    int _waysRowsBound;
+
+    /// <summary>The slots a layer sent back in part numbers its rows into, in order: a list's slots are a run of them.</summary>
+    uint[] _slotNumbers = [];
+
+    /// <summary>How many bytes the last layer sent back carried.</summary>
+    public ulong LandedBytes { get; private set; }
+
+    /// <summary>How many ways the last layer sent back held the lists of, and how many it held the lights' holds of alone.</summary>
+    public (int Known, int LightsOnly) WaysLanded { get; private set; }
+
+    /// <summary>
+    /// <b>Every way the readers asked about lately, and every signalled way, listed and sent</b> — each way
+    /// once, ascending — and the count of what <c>rebuild_ways_out.comp</c> hands back cleared. The caller barriers.
+    /// </summary>
+    void RecordTheWaysAskedSent(CommandBuffer commands, LaneOccupancy readers)
+    {
+        var asked = readers.WaysAskedSince(readers.Mirrors - WaysAskedForMirrors, _waysScratch);
+        var listed = _waysAsked.Rows;
+        var (fromAsked, fromLights, count) = (0, 0, 0);
+        while (fromAsked < asked || fromLights < _lightsWays.Length)
+        {
+            if (fromLights == _lightsWays.Length || (fromAsked < asked && _waysScratch[fromAsked] <= _lightsWays[fromLights]))
+            {
+                if (fromLights < _lightsWays.Length && _waysScratch[fromAsked] == _lightsWays[fromLights]) fromLights++;
+                listed[count++] = (uint)_waysScratch[fromAsked++];
+            }
+            else
+            {
+                listed[count++] = (uint)_lightsWays[fromLights++] | LightsOnly;
+            }
+        }
+
+        _waysListed = count;
+        _waysAsked.Send(commands, count);
+        _vk.Fill(commands, _waysRowCount, 0);
+    }
 
     /// <summary>
     /// Whether every rebuild in the town writes its layer back with its own stages — for whoever holds that layer to the
@@ -848,72 +940,194 @@ internal sealed partial class DeviceRebuild
 
     bool _mirrorsAtOnce = true;
 
-    /// <summary>Where a layer that lands later is: laid, its first half copying back, or all of it sent back.</summary>
+    /// <summary>Where a layer that lands later is: laid, or sent back.</summary>
     enum Landing
     {
         None,
         Due,
-        Halfway,
         Sent,
     }
 
     Landing _landing;
 
-    /// <summary>How many of the rows the first half of a layer sent back copies.</summary>
-    int _firstHalfRows;
-
     /// <summary>
-    /// <b>The next half of the layer of a rebuild that lands later copied back</b>, submitted and left running: the first
-    /// as many rows as make half its bytes, then the rest, their order and every hold as the town keeps it — the first half
-    /// waited for before the second is sent, which it has been by then. Nothing else on the device writes them before the
-    /// next rebuild. Nothing where no layer waits to be sent.
+    /// <b>The layer of a rebuild that lands later copied back, in part</b> (<see cref="LandsLater"/>), submitted and left
+    /// running: every hold and what cut it, and the rows of the ways asked for as far as the last landing's count and a
+    /// margin. Nothing else on the device writes them before the next rebuild. Nothing where no layer waits to be sent.
     /// </summary>
     public void SendTheLayerBack()
     {
-        if (_landing is not (Landing.Due or Landing.Halfway)) return;
+        if (_landing != Landing.Due) return;
 
-        var (rows, holds) = (_claims.Rows.Length, _claims.Holds.Length);
-        if (_landing == Landing.Halfway) _batch.Wait();
-
+        var holds = _claims.Holds.Length;
+        _waysRowsBound = Math.Min(_slotRoom, _waysRowsBound);
         var commands = _batch.Begin();
         _vk.BeforeTransfer(commands);
-        if (_landing == Landing.Due)
-        {
-            var bytes = (Bytes<ClaimRow>(rows) + Bytes<uint>(rows) + Bytes<HoldOut>(holds)) / 2;
-            _firstHalfRows = Math.Min(rows, (int)(bytes / Bytes<ClaimRow>(1)));
-            _claims.RecordReadTheRows(commands, 0, _firstHalfRows);
-            _landing = Landing.Halfway;
-            LayersSentBack++;
-        }
-        else
-        {
-            _claims.RecordReadTheRows(commands, _firstHalfRows, rows);
-            _claims.RecordReadTheOrder(commands);
-            _claims.CopyPast<HoldOut>(commands, _holdsOut, _holdsRead, 0, holds);
-            _landing = Landing.Sent;
-        }
-
+        _vk.Copy(commands, _waysRowCount, _waysRowCountRead, sizeof(uint));
+        _claims.CopyPast<UInt4>(commands, _waysHeads, _waysHeadsRead, 0, _waysListed);
+        _claims.CopyPast<ClaimRow>(commands, _waysRows, _waysRowsRead, 0, _waysRowsBound);
+        _claims.CopyPast<HoldOut>(commands, _holdsOut, _holdsRead, 0, holds);
+        _claims.CopyPast<ClaimRow>(commands, _holdCutters, _holdCuttersRead, 0, holds);
+        LandedBytes = sizeof(uint) + Bytes<UInt4>(_waysListed) + Bytes<ClaimRow>(_waysRowsBound) + Bytes<HoldOut>(holds) + Bytes<ClaimRow>(holds);
+        _landing = Landing.Sent;
+        LayersSentBack++;
         _batch.Submit();
     }
 
     /// <summary>
-    /// <b>A rebuild that landed later written into the town</b>: its layer copied back (or now, if it was not yet sent) and
-    /// waited for, written into the layer every reader reads, and the town's own numbers for it taken up
-    /// (<see cref="TownWorld.LandTheLaying"/>). Nothing where no layer waits.
+    /// <b>A rebuild that landed later written into the town</b>: its layer copied back in part (or now, if it was not yet
+    /// sent) and waited for — the rows past what it read read in a second submit — written into the layer every reader
+    /// reads, and the town's own numbers for it taken up (<see cref="TownWorld.LandTheLaying"/>). Nothing where no layer
+    /// waits.
     /// </summary>
     public void Land(TownWorld town)
     {
         if (_landing == Landing.None) return;
 
-        while (_landing != Landing.Sent) SendTheLayerBack();
+        SendTheLayerBack();
         var waited = Stopwatch.GetTimestamp();
         _batch.Wait();
+        var rows = ReadTheWaysPast();
         var landed = Stopwatch.GetTimestamp();
-        MirrorTheLayer(town);
+        MirrorTheWaysAsked(town.ReadersOccupancy, rows);
+        if (ChecksTheLayerSentInPart) LayersUnlike += UnlikeTheWholeLayer(town);
         town.LandTheLaying();
         _landing = Landing.None;
         LandingWaitedMs = Stopwatch.GetElapsedTime(waited, landed).TotalMilliseconds;
         LandedMs = Stopwatch.GetElapsedTime(landed).TotalMilliseconds;
+    }
+
+    /// <summary>
+    /// How many of the ways' rows the landing handed back, the rest past what it read read now — and the next read as far
+    /// as this one's count and a margin.
+    /// </summary>
+    int ReadTheWaysPast()
+    {
+        var count = (int)_waysRowCountRead.Span<uint>()[0];
+        if (count > _waysRowsBound)
+        {
+            ReadPast++;
+            var commands = _batch.Begin();
+            _claims.CopyPast<ClaimRow>(commands, _waysRows, _waysRowsRead, _waysRowsBound, Math.Min(count, _slotRoom));
+            _batch.SubmitAndWait();
+        }
+
+        _waysRowsBound = count + (count / ReadPastShare) + ReadPastSlack;
+        return Math.Min(count, _slotRoom);
+    }
+
+    /// <summary>
+    /// <b>A layer sent back in part written into a layer of the host's</b> (<see cref="LaneOccupancy.KnowTheWay"/>): every
+    /// way asked for's lists, each in the order the rebuild laid it, every other signalled way's planned list holding its
+    /// lights' holds alone, and every hold with what it came to and what cut it, as the claim stood when it did.
+    /// </summary>
+    void MirrorTheWaysAsked(LaneOccupancy occupancy, int count)
+    {
+        var rows = _waysRowsRead.Span<ClaimRow>()[..count];
+        var heads = _waysHeadsRead.Span<UInt4>()[.._waysListed];
+        var holds = _holdsRead.Span<HoldOut>()[.._claims.Holds.Length];
+        var cutters = _holdCuttersRead.Span<ClaimRow>()[..holds.Length];
+        occupancy.BeginTheMirror(count, holds.Length, everyWay: false);
+        for (var slot = 0; slot < count; slot++)
+        {
+            ref readonly var row = ref rows[slot];
+            occupancy.MirrorTheSlot(slot, (int)row.Way, row.Claim, row.IsGone, row.StandsToM);
+        }
+
+        var (known, lightsOnly) = (0, 0);
+        for (var at = 0; at < heads.Length; at++)
+        {
+            ref readonly var head = ref heads[at];
+            var (way, first, bodies, planned) = ((int)head.X, (int)head.Y, (int)head.Z, (int)head.W);
+            if ((_waysAsked.Rows[at] & LightsOnly) != 0)
+            {
+                lightsOnly++;
+            }
+            else
+            {
+                occupancy.KnowTheWay(way);
+                known++;
+            }
+
+            occupancy.MirrorTheList(way, true, _slotNumbers.AsSpan(first, bodies));
+            occupancy.MirrorTheList(way, false, _slotNumbers.AsSpan(first + bodies, planned));
+        }
+
+        WaysLanded = (known, lightsOnly);
+        for (var hold = 0; hold < holds.Length; hold++)
+        {
+            ref readonly var held = ref holds[hold];
+            var terms = new HolderTerms(held.KeptOffWhatItMayPassM, (held.Flags & HoldRow.OnACall) != 0, held.PassesBelowMps);
+            var cutBy = held.CutBy == ClaimAnswer.NoRow ? LaneClaim.Nothing : cutters[hold].Claim with { ToM = held.CutterToM };
+            occupancy.MirrorTheHold(
+                hold, 0, 0, held.StandingMarginM, (held.Flags & HoldRow.Answered) != 0, terms, held.CutLineM, held.MarginM, cutBy,
+                held.CutOn);
+        }
+    }
+
+    /// <summary>
+    /// <b>Whether to hold every layer sent back in part to the whole of it</b> (<see cref="LayersUnlike"/>) — a check of what
+    /// the readers read, at the cost of every row of each layer read back too and written into a layer of its own.
+    /// </summary>
+    public bool ChecksTheLayerSentInPart { get; set; }
+
+    /// <summary>How many holds and ways a layer sent back in part held other than the whole layer did, over every landing checked.</summary>
+    public long LayersUnlike { get; private set; }
+
+    LaneOccupancy? _wholeLayer;
+    LaneClaim[] _partList = [], _wholeList = [];
+
+    /// <summary>
+    /// The layer just landed in part held to the whole of it, read back now: every hold, every way asked for's two lists,
+    /// and the lights' holds of every other signalled way — how many differ.
+    /// </summary>
+    int UnlikeTheWholeLayer(TownWorld town)
+    {
+        var commands = _batch.Begin();
+        _claims.RecordReadTheRows(commands, 0, _claims.Rows.Length);
+        _claims.RecordReadTheOrder(commands);
+        _batch.SubmitAndWait();
+
+        var part = town.ReadersOccupancy;
+        var whole = _wholeLayer ??= new LaneOccupancy(town.Ways, _slotRoom, _holdRoom, town.Atlas.Marks);
+        if (_partList.Length == 0) (_partList, _wholeList) = (new LaneClaim[_slotRoom], new LaneClaim[_slotRoom]);
+
+        MirrorTheLayer(whole);
+        var unlike = 0;
+        for (var hold = 0; hold < _claims.Holds.Length; hold++)
+        {
+            var partM = part.HoldEndsAtM(hold, out var partMarginM, out var partCut);
+            var wholeM = whole.HoldEndsAtM(hold, out var wholeMarginM, out var wholeCut);
+            if (!partM.Equals(wholeM) || !partMarginM.Equals(wholeMarginM) || partCut != wholeCut || part.HoldCutOn(hold) != whole.HoldCutOn(hold))
+            {
+                unlike++;
+            }
+        }
+
+        for (var at = 0; at < _waysListed; at++)
+        {
+            var way = (int)(_waysAsked.Rows[at] & ~LightsOnly);
+            if ((_waysAsked.Rows[at] & LightsOnly) != 0)
+            {
+                var lights = 0;
+                var listed = whole.CopyPlannedTo(way, _wholeList);
+                foreach (ref readonly var claim in _wholeList.AsSpan(0, listed))
+                {
+                    if (claim.Of == LaneRoster.Signal) _wholeList[lights++] = claim;
+                }
+
+                if (!_partList.AsSpan(0, part.CopyPlannedTo(way, _partList)).SequenceEqual(_wholeList.AsSpan(0, lights))) unlike++;
+                continue;
+            }
+
+            if (!_partList.AsSpan(0, part.CopyBodiesTo(way, _partList)).SequenceEqual(_wholeList.AsSpan(0, whole.CopyBodiesTo(way, _wholeList)))
+                || !_partList.AsSpan(0, part.CopyPlannedTo(way, _partList)).SequenceEqual(_wholeList.AsSpan(0, whole.CopyPlannedTo(way, _wholeList))))
+            {
+                unlike++;
+            }
+        }
+
+        return unlike;
     }
 
     /// <summary>A layer sent back whole on earlier ticks written into the town (<see cref="Land"/>); nothing for one still being sent.</summary>

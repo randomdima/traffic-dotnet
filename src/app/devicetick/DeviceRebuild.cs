@@ -717,6 +717,7 @@ internal sealed partial class DeviceRebuild : IDisposable
         _agentsOutKernel.Kernel?.Dispose();
         _walkerPasses.Kernel?.Dispose();
         _carsGather.Kernel?.Dispose();
+        _waysOut.Kernel?.Dispose();
         foreach (var buffer in _owned) buffer.Dispose();
         _carClaims.Dispose();
         _carTerms?.Dispose();

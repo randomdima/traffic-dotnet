@@ -142,7 +142,11 @@ internal sealed partial class TownWorld
         lanes[0] = lane;
         var back = _roads.LaneReverse[lane];
         var (occupant, roster) = casualty >= 0 ? (casualty, LaneRoster.Walking) : (wreck, LaneRoster.Driving);
-        if (back < 0 || lanes.Length < 2 || !_occupancy.HasTheBodyOf(_ways.OfRoadLane(back), occupant, roster)) return 1;
+        if (back < 0 || lanes.Length < 2) return 1;
+
+        // A layer sent back in part may not hold the lane yet, which is closed as though the scene stood on it.
+        var backWay = _ways.OfRoadLane(back);
+        if (_occupancy.Knows(backWay) && !_occupancy.HasTheBodyOf(backWay, occupant, roster)) return 1;
 
         lanes[1] = back;
         return 2;

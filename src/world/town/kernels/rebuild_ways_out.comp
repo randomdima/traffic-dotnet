@@ -1,0 +1,62 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The lists of the ways a town's readers asked about, handed back without the rest of the claims (app/devicetick/
+// DeviceRebuild's layer sent back in part, LaneOccupancy.Knows), one thread a way: its bodies and then its planned pieces,
+// each list in the order the rebuild laid it, taken-out rows among them — or, for a way only its lights are asked of,
+// the lights' holds of its planned list alone. Each way's rows are written together, wherever its count lands them, and
+// what lands past the room is counted and not written.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint wayCount;
+    uint rowRoom;
+} figures;
+
+#include "world/road/kernels/claims_rows.glsl"
+
+// DeviceRebuild's way asked for: the way, and this bit where only its lights' holds are.
+const uint WayLightsOnly = 0x80000000u;
+
+layout(std430, binding = 0) readonly buffer Ways { uint ways[]; };
+layout(std430, binding = 1) readonly buffer Rows { ClaimRow rows[]; };
+layout(std430, binding = 2) readonly buffer Order { uint order[]; };
+layout(std430, binding = 3) readonly buffer BodyRuns { uvec2 bodyRuns[]; };
+layout(std430, binding = 4) readonly buffer PlannedRuns { uvec2 plannedRuns[]; };
+
+// (the way, its first row out, how many bodies, how many planned pieces), a way asked for apiece.
+layout(std430, binding = 5) writeonly buffer Heads { uvec4 heads[]; };
+layout(std430, binding = 6) writeonly buffer RowsOut { ClaimRow rowsOut[]; };
+layout(std430, binding = 7) buffer RowCount { uint rowCount; };
+
+void main()
+{
+    uint at = gl_GlobalInvocationID.x;
+    if (at >= figures.wayCount) return;
+
+    uint asked = ways[at];
+    bool lightsOnly = (asked & WayLightsOnly) != 0u;
+    uint way = asked & ~WayLightsOnly;
+    uvec2 bodyRun = lightsOnly ? uvec2(0u) : bodyRuns[way];
+    uvec2 plannedRun = plannedRuns[way];
+    uint planned = 0u;
+    for (uint index = 0u; index < plannedRun.y; index++)
+    {
+        if (!lightsOnly || claimRoster(rows[order[plannedRun.x + index]]) == RosterSignal) planned++;
+    }
+
+    uint first = atomicAdd(rowCount, bodyRun.y + planned);
+    heads[at] = uvec4(way, first, bodyRun.y, planned);
+    if (first + bodyRun.y + planned > figures.rowRoom) return;
+
+    for (uint index = 0u; index < bodyRun.y; index++) rowsOut[first + index] = rows[order[bodyRun.x + index]];
+
+    uint into = first + bodyRun.y;
+    for (uint index = 0u; index < plannedRun.y; index++)
+    {
+        ClaimRow row = rows[order[plannedRun.x + index]];
+        if (!lightsOnly || claimRoster(row) == RosterSignal) rowsOut[into++] = row;
+    }
+}

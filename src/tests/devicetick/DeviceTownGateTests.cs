@@ -59,6 +59,18 @@ public class DeviceTownGateTests(TickedOnTheDevice ticked) : IClassFixture<Ticke
         Assert.True(ticked.CarsLaidOnTheDevice);
         Assert.Equal(0L, ticked.CarsLaidUnlike);
     }
+
+    /// <summary>
+    /// The layer is sent back in part (<see cref="DeviceRebuild.LandsLater"/>): every hold and what cut it, the lists of
+    /// the ways the readers asked about and the lights' holds of every signalled way — each as the whole layer holds it, or
+    /// a reader asking about a way the device answered reads what it did not lay.
+    /// </summary>
+    [Fact]
+    public void EveryLayerSentInPartHoldsWhatTheWholeDoes()
+    {
+        Assert.True(ticked.LayersSentInPart);
+        Assert.Equal(0L, ticked.LayersUnlike);
+    }
 }
 
 /// <summary>The suite's built town, its walkers out of their doors, ticked with the device in step on lavapipe and watched every tick.</summary>
@@ -80,6 +92,7 @@ public sealed class TickedOnTheDevice : IDisposable
         walkers.ChecksWhatWasTaken = true;
         town.Walkers.ChecksWhatTheTickReads = true;
         town.Claims.Rebuild.ChecksTheCarsLaid = true;
+        town.Claims.Rebuild.ChecksTheLayerSentInPart = true;
         world.Device = town;
         Watch = new TownWatch(world, config);
         for (var tick = 0; tick < Ticks; tick++)
@@ -92,6 +105,7 @@ public sealed class TickedOnTheDevice : IDisposable
         (WalkersKept, WalkersUnlike) = (walkers.Keeps, walkers.KeptUnlike);
         WalkerTicksUnlike = town.Walkers.TickReadUnlike;
         (CarsLaidOnTheDevice, CarsLaidUnlike) = (town.Claims.Rebuild.CarsLaidOnTheDevice > 0, town.Claims.Rebuild.CarsLaidUnlike);
+        (LayersSentInPart, LayersUnlike) = (town.Claims.Rebuild.LayersSentBack > 0, town.Claims.Rebuild.LayersUnlike);
     }
 
     internal TownWatch Watch { get; }
@@ -108,6 +122,11 @@ public sealed class TickedOnTheDevice : IDisposable
     internal bool CarsLaidOnTheDevice { get; }
 
     internal long CarsLaidUnlike { get; }
+
+    /// <summary>Whether any layer was sent back in part, and how many holds and ways one held other than the whole layer.</summary>
+    internal bool LayersSentInPart { get; }
+
+    internal long LayersUnlike { get; }
 
     public void Dispose() => _device.Dispose();
 }

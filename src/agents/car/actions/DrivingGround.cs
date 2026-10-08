@@ -341,6 +341,26 @@ internal sealed class DrivingGround(
         Ways.KindOf(cover.Way) == WayKind.Connector ? cover with { FromM = 0f, ToM = Ways.LengthM(cover.Way) } : cover;
 
     /// <summary>
+    /// <b>Whether the layer holds every way a holder's swept ground is held on</b> (<see cref="LaneOccupancy.Knows(int)"/>) —
+    /// each asked about either way, so a layer sent back in part holds them next.
+    /// </summary>
+    public bool Knows(SweptGround swept, int holder)
+    {
+        var known = true;
+        foreach (ref readonly var run in swept.Of(holder)) known &= Occupancy.Knows(HeldAsABody(run.Cover).Way);
+
+        return known;
+    }
+
+    /// <summary>Whether the layer holds every way of a car's line from <paramref name="fromM"/> to its end, each asked about.</summary>
+    [System.Runtime.CompilerServices.SkipLocalsInit]
+    public bool KnowsTheLine(int car, float fromM)
+    {
+        Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];
+        return Occupancy.Knows(ways[..WaysAlong(car, fromM, Cars.Line[car].LengthM, ways)]);
+    }
+
+    /// <summary>
     /// <b>How many stations a car's swept ground is read at</b>, both ends among them — half a car's width of line
     /// apart, so the body turning between two is covered by the two to within a hair.
     /// </summary>

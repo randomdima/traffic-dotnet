@@ -170,13 +170,20 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
         if (inS > 0f || pass.Any) return;
 
         inS = Config.Driving.LaneSwitchAskEveryS;
-        if (Shape(car, Cars.ProgressM[car], MathF.Max(0f, Cars.AlongMps[car]), out var shape) && Sweep(car, shape)
-            && IsUnheld(car))
+        if (!Shape(car, Cars.ProgressM[car], MathF.Max(0f, Cars.AlongMps[car]), out var shape) || !Sweep(car, shape)) return;
+
+        // A layer sent back in part may not hold the ground yet: asked at the next decision.
+        if (!ground.Knows(_asked, car))
         {
-            Cars.Pass[car] = shape;
-            _askedAs[car]++;
-            Asked++;
+            inS = 0f;
+            return;
         }
+
+        if (!IsUnheld(car)) return;
+
+        Cars.Pass[car] = shape;
+        _askedAs[car]++;
+        Asked++;
     }
 
     /// <summary>
@@ -580,6 +587,9 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
     /// </summary>
     void KeepOrWithdraw(int car, in Overtake step, float progressM)
     {
+        // A layer sent back in part may not hold the ground yet: answered on a later tick.
+        if (!ground.Knows(_swept, car)) return;
+
         var kept = progressM <= step.OutM;
         foreach (ref readonly var run in _swept.Of(car))
         {

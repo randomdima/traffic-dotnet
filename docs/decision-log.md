@@ -25,6 +25,26 @@ the device took turns rather than working side by side.
     1 152, 104 lane switches asked and 99 made against 96 and 95 (the host's own: 102 and 96), 27 pairs beginning to touch
     against 26; the speed and the cars off their lines equal.
 
+## 2026-10-08 — the readers' layer is sent back in part, and a decision asks for the ways it reads
+
+**Under the ruling above** that a decision may take its claims answers a rebuild later. The whole layer came back every
+rebuild (4.7 MB on OdesaOsm, written into the readers' layer in 1.5 ms) for what the decisions ask of it: about ten
+thousand questions a tick about an agent's own hold, and a few dozen about bodies and plans on particular ways.
+
+- **Every hold comes back, and what cut it** (`rebuild_holds_out.comp`'s rows and `rebuild_cutters.comp`'s cutters), so a
+  question about an agent's own hold is answered as before.
+- **Of the rows, only the lists of the ways the readers asked about lately** (`LaneOccupancy.Knows`, kept asked for a
+  second), and the lights' holds of every signalled way, so a light ahead is read on every way
+  (`rebuild_ways_out.comp`).
+- **A reader asks before it reads a way's lists, and a way not yet sent is asked for**: a pass, a step, a manoeuvre or a
+  sidestep is drawn, asked, looked round for or kept at the next decision or tick instead, its clock left as it was; a
+  spot to put a body down on such a way is taken until it is sent; a lane of a scene is closed as though the scene stood
+  on it.
+- OdesaOsm (`--bench devicetown`): a layer is 1.76 MB against 4.71 (1 262 ways asked about, the lights' holds of 2 654
+  more), written into the town in 0.52 ms against 1.52; 5.31–5.37 → 5.13–5.17 ms a tick. The decisions take 0.85 ms a
+  tick against 0.69. The town drives the same as the host's own to within a car: 1 131 hard brakings (the host's 1 147),
+  102 lane switches asked and 97 made (102 and 96), 26 pairs beginning to touch (26).
+
 ## 2026-10-08 — a car the device ticks is laid for the claims off what the device holds of it
 
 **Under the ruling above.** A rebuild sent every car's body and plan's rows from the host (0.96 MB on OdesaOsm), though
