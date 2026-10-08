@@ -15,6 +15,15 @@ the device took turns rather than working side by side.
   layer copied back to the host.
 - **The host may run a tick behind the device**: it decides on tick N while the device runs tick N + 1, so a decision
   reads the town a tick older and takes effect a tick later (16.7 ms, against a reaction of 0.1 s).
+  - **Built as decisions put off a tick** (`DeviceTown.DecidesATickBehind`, `TownWorld.TakeTheDecisionsPutOff`): the
+    decisions due on a tick are taken while the next tick's submit runs. What that tick hands back leaves the town's own
+    where a decision changed it meanwhile — a car laid a line or set doing something else keeps the town's reading and is
+    laid whole next tick; a body put down or put away keeps the town's pose.
+  - OdesaOsm (`--bench devicetown`, two runs): 5.56 → 5.31–5.37 ms a tick. The decisions (0.70 ms) are hidden only where
+    the host has nothing else in the wait: on the tick a layer lands, landing it (1.5 ms) and the decisions outlast the
+    tick's submit (1.7 ms). 23 cars a tick are moved on from. The town drives a tick later: 1 139 hard brakings against
+    1 152, 104 lane switches asked and 99 made against 96 and 95 (the host's own: 102 and 96), 27 pairs beginning to touch
+    against 26; the speed and the cars off their lines equal.
 
 ## 2026-10-08 — a car the device ticks is laid for the claims off what the device holds of it
 

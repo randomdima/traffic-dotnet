@@ -892,6 +892,48 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     public void DecideAgent(int agent, float sinceLastDecisionS)
     {
+        if (Device is { DecidesATickBehind: true })
+        {
+            if (_decisionsPutOff.Length < AgentCount) _decisionsPutOff = new int[AgentCount];
+
+            _decisionsPutOff[_putOffCount++] = agent;
+            _putOffSinceS = sinceLastDecisionS;
+            return;
+        }
+
+        TakeTheDecisionsPutOff();
+        DecideNow(agent, sinceLastDecisionS);
+    }
+
+    /// <summary>
+    /// <b>The decisions put off last tick, taken now</b> (<see cref="ITownDevice.DecidesATickBehind"/>) — by a device while
+    /// its next tick runs, on the town as the last tick left it; or by the town before its next decision once no device puts
+    /// them off. Nothing where none waits.
+    /// </summary>
+    public void TakeTheDecisionsPutOff()
+    {
+        if (_putOffCount == 0) return;
+
+        var count = _putOffCount;
+        _putOffCount = 0;
+        for (var at = 0; at < count; at++)
+        {
+            var agent = _decisionsPutOff[at];
+            if (!IsTerminal(agent)) DecideNow(agent, _putOffSinceS);
+        }
+
+        // What follows is the agents' pass's again, whichever kind decided last.
+        AccountFor(AgentCount - 1, deciding: false);
+    }
+
+    /// <summary>The agents whose decision was due and put off, in the order they were due, and the interval they were due after.</summary>
+    int[] _decisionsPutOff = [];
+
+    int _putOffCount;
+    float _putOffSinceS;
+
+    void DecideNow(int agent, float sinceLastDecisionS)
+    {
         AccountFor(agent, deciding: true);
 
         // Held: no decision, and — the load-bearing half — no clock running up either, so nothing is

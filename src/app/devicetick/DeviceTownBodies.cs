@@ -107,6 +107,8 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
 
     public bool StepsWithTheTick => false;
 
+    public bool DecidesATickBehind => false;
+
     public void StepBodies(TownWorld town, float dtS) => StepBodies(town, dtS, default, walkersTicked: false);
 
     /// <summary>
@@ -132,11 +134,15 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
             DeviceBodyPhase.Reads.Poses | DeviceBodyPhase.Reads.Walkers | DeviceBodyPhase.Reads.Contacts);
 
     /// <summary>What the recorded step left, handed back once the caller's submit has been waited for.</summary>
-    public void TakeTheStepBack(TownWorld town)
+    /// <param name="placedMeanwhile">
+    /// The table's rows the town changed while the step ran (<see cref="PhysicsWorld.Changes"/>) — a body a decision put
+    /// down or put away — whose own pose stands over what the step made of them, and is laid for the next.
+    /// </param>
+    public void TakeTheStepBack(TownWorld town, ReadOnlySpan<int> placedMeanwhile = default)
     {
         var began = Stopwatch.GetTimestamp();
         _phase.ReadTimes();
-        HandBack(town);
+        HandBack(town, placedMeanwhile);
         WaitMs = 0;
         HandBackMs = Stopwatch.GetElapsedTime(began).TotalMilliseconds;
     }
@@ -278,7 +284,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
     /// in the world with how far that step took it, every body into the solver's table, and the contacts in the step's
     /// order — after which the table freezes what has settled and says what began touching.
     /// </summary>
-    void HandBack(TownWorld town)
+    void HandBack(TownWorld town, ReadOnlySpan<int> placedMeanwhile = default)
     {
         var physics = town.PhysicsForTheDevice;
         var began = Stopwatch.GetTimestamp();
@@ -289,6 +295,8 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         var poses = _phase.PosesAfter;
         for (var car = 0; car < cars.Count; car++)
         {
+            if (!placedMeanwhile.IsEmpty && placedMeanwhile.Contains(cars.Body[car].Index)) continue;
+
             ref readonly var row = ref poses[car];
             cars.PositionM[car] = row.PositionM;
             cars.HeadingRad[car] = row.HeadingRad;
@@ -304,6 +312,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         for (var person = 0; person < people.Count; person++)
         {
             if (people.Inside[person].Any) continue;
+            if (!placedMeanwhile.IsEmpty && placedMeanwhile.Contains(people.Body[person].Index)) continue;
 
             var row = walked[person];
             var nowM = new Vector2(row.X, row.Y);

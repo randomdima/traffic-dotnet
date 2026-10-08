@@ -44,8 +44,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   its front wheels have not reached, is no body there. The gap per car model is not measured.
 - **The device in step is gated only on the town's claims** (`DeviceTownGateTests`: nothing inside anything, nothing past
   its grant, over 600 ticks of the built town): what it keeps on the device and hands back only where it changed — a
-  car's wheels (`DeviceTyres.KeptOnTheDevice`), the poses the step left — is held to handing everything back only by
-  `--bench devicetown`'s counts coming out the same. A test holding the two equal tick by tick closes it, as
+  car's wheels (`DeviceTyres.KeptOnTheDevice`), the poses the step left — and what a tick hands back after the decisions
+  put off a tick, leaving the town's own for a car moved on from and a body put down meanwhile
+  (`DeviceTown.DecidesATickBehind`), are held only by `--bench devicetown`'s counts. A test holding the two equal tick by
+  tick closes it, as
   `TheTownHoldsEveryWalkerAsTheDeviceLeftIt` does for the walkers the claims keep and
   `EveryTickReadsEveryWalkerAsTheTownHoldsIt` for the walker tick's table.
 - **The Android head has not been built since the device tick came in** (branch `gpu-resident-sim`): no Android SDK

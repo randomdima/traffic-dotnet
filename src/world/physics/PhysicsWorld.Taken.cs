@@ -54,6 +54,9 @@ internal sealed partial class PhysicsWorld
     /// <summary>The rows changed since <see cref="ForgetTheChanges"/>, each once, in the order they were first changed.</summary>
     public ReadOnlySpan<int> Changes => _changedList.AsSpan(0, _changedCount);
 
+    /// <summary>Whether the town changed this body's row since <see cref="ForgetTheChanges"/>.</summary>
+    public bool HasChanged(BodyId body) => _changed[body.Index];
+
     public void ForgetTheChanges()
     {
         foreach (var body in Changes) _changed[body] = false;

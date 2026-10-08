@@ -180,6 +180,16 @@ internal sealed partial class DeviceCarTick
     }
 
     /// <summary>
+    /// <b>Whether the town laid a car a line or set it doing something else since <see cref="Prepare"/> sent it</b> — a
+    /// decision taken while the tick ran (<see cref="DeviceTown.DecidesATickBehind"/>) — so what the tick read of it is of a
+    /// line or an action the town has moved on from.
+    /// </summary>
+    public bool TheTownMovedOnFrom(CarFleet cars, int car) => cars.LineLaid[car] != _lineLaidDue[car] || cars.Action[car] != _actionDue[car];
+
+    /// <summary>A car the town moved on from laid whole the next time it is taken, its line among it.</summary>
+    public void LayItWholeNext(int car) => _held[car] = false;
+
+    /// <summary>
     /// What both ticks left, remembered for the next: the town's lines, readings and levels, and the device's command and
     /// tyres for every car it took.
     /// </summary>

@@ -144,6 +144,8 @@ public class DeviceTownBodiesTests(Lavapipe device, ShovedCarPark park) : IClass
 
         public bool StepsWithTheTick => false;
 
+        public bool DecidesATickBehind => false;
+
         public void StepBodies(TownWorld town, float dtS)
         {
             var before = GC.GetAllocatedBytesForCurrentThread();

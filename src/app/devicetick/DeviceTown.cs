@@ -36,6 +36,10 @@ namespace TrafficSimulation.App.DeviceTick;
 /// and for a car the town ticked itself the town's own answer stands and the device's is left unread.
 /// </para>
 /// <para>
+/// <b>The town decides a tick behind</b> (<see cref="DecidesATickBehind"/>): the decisions due on a tick are taken while the
+/// next tick's submit runs, and that tick's answer leaves the town's own where a decision changed it meanwhile.
+/// </para>
+/// <para>
 /// <b>A car's wheels stay on the device while the device ticks it</b> (<see cref="DeviceTyres.KeptOnTheDevice"/>): its
 /// impulses are spent where the pass left them and its wheels' carried state is handed back only when it leaves the
 /// device's tick — in the bodies' submit for a car the tick's decisions took off it, and in a submit of their own, before
@@ -64,6 +68,9 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
     /// <summary>The cars whose wheels are being handed back, in the order they are copied.</summary>
     readonly int[] _leaving;
+
+    /// <summary>Which cars the last tick took that the town moved on from while it ran, so what it read of them is not taken back.</summary>
+    readonly bool[] _movedOn;
 
     int _count;
     int _walkerCount;
@@ -101,6 +108,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _takenNow = new bool[cars.Capacity];
         _chosen = new bool[cars.Capacity];
         _leaving = new int[cars.Capacity];
+        _movedOn = new bool[cars.Capacity];
     }
 
     /// <summary>How many cars the device ticked last tick.</summary>
@@ -234,6 +242,12 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// <summary>The host's time writing what the last tick left back into the town, in milliseconds.</summary>
     public double TakeBackMs { get; private set; }
 
+    /// <summary>Of the wait, the host's time taking the decisions the tick before put off (<see cref="DecidesATickBehind"/>), in milliseconds.</summary>
+    public double DecidedMs { get; private set; }
+
+    /// <summary>Of the wait, the host's time with nothing left to do but wait for the device, in milliseconds.</summary>
+    public double IdleMs { get; private set; }
+
     /// <summary>
     /// <b>Whether the bodies are stepped in the agents' own submit</b> (<see cref="ITownDevice.StepsWithTheTick"/>): one
     /// submit a tick rather than two, the decisions reading the town the step left and what one does to a body stepped
@@ -241,10 +255,22 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// </summary>
     public bool StepsWithTheTick { get; init; } = true;
 
+    /// <summary>
+    /// <b>Whether the town decides a tick behind the device</b> (<see cref="ITownDevice.DecidesATickBehind"/>; owner, root
+    /// decision log 2026-10-08): the last tick's decisions are taken while this tick's submit runs, so the host's time on
+    /// them is the device's time on the tick.
+    /// </summary>
+    public bool DecidesATickBehind { get; init; } = true;
+
+    /// <summary>How many cars a tick handed back left to the town, which had changed their line or what they do since they were sent.</summary>
+    public long CarsTheTownMovedOn { get; private set; }
+
     public void TickTheRest(TownWorld town)
     {
         if (town.HoldAgents)
         {
+            town.TakeTheDecisionsPutOff();
+
             // Nothing is ticked here, and the bodies step on the town's own impulses.
             if (!StepsWithTheTick) return;
 
@@ -290,10 +316,19 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _batch.Submit();
 
         // While the tick runs: a layer the last rebuild sent back is written into the town, and this tick's own rebuild's
-        // layer is sent back behind it, to be copied in the host's time before the next tick's submit.
+        // layer is sent back behind it, to be copied in the host's time before the next tick's submit; and the last tick's
+        // decisions are taken, on the layer just landed.
         _townClaims.Rebuild.LandWhatWasSent(town);
         _townClaims.Rebuild.SendTheLayerBack();
+        var deciding = Stopwatch.GetTimestamp();
+        var physics = town.PhysicsForTheDevice;
+        var placedFrom = physics.Changes.Length;
+        town.TakeTheDecisionsPutOff();
+        var placedTo = physics.Changes.Length;
+        var idle = Stopwatch.GetTimestamp();
+        DecidedMs = Stopwatch.GetElapsedTime(deciding, idle).TotalMilliseconds;
         _batch.Wait();
+        IdleMs = Stopwatch.GetElapsedTime(idle).TotalMilliseconds;
         _timer.Read();
         _cars.ReadTimes();
         _walkers.ReadTimes();
@@ -303,7 +338,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         TakeBackTheWalkers(town);
         if (stepping)
         {
-            _bodies.TakeTheStepBack(town);
+            _bodies.TakeTheStepBack(town, physics.Changes[placedFrom..placedTo]);
             KnowTheStep();
             _swept = false;
         }
@@ -360,10 +395,20 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         foreach (var car in taken)
         {
             _takenNow[car] = true;
+            WriteTheTyres(cars, car);
+
+            // A decision taken while the tick ran laid it a line or set it doing something else: what the tick read of the
+            // line it was sent stands for nothing now, and the town's own is laid whole next tick.
+            _movedOn[car] = _cars.TheTownMovedOnFrom(cars, car);
+            if (_movedOn[car])
+            {
+                CarsTheTownMovedOn++;
+                continue;
+            }
+
             if ((ticks[car].Flags & DeviceCarTick.TickRow.Shifted) != 0) town.ShiftedOnTheDevice(car);
 
             WriteTheTick(cars, car);
-            WriteTheTyres(cars, car);
         }
 
         foreach (var mark in _tyres.MarksLaid())
@@ -377,6 +422,12 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _cars.SettleTheDevice(cars, taken);
         foreach (var car in taken)
         {
+            if (_movedOn[car])
+            {
+                _cars.LayItWholeNext(car);
+                continue;
+            }
+
             var flags = ticks[car].Flags;
             if ((flags & DeviceCarTick.TickRow.Hazard) != 0) town.BrakedHardOnTheDevice();
             if ((flags & DeviceCarTick.TickRow.Lost) != 0)
@@ -457,6 +508,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// <remarks>Every wheel the device keeps is handed back first: the town may go on ticking its cars itself.</remarks>
     public void Dispose()
     {
+        _town.TakeTheDecisionsPutOff();
         _townClaims.LandTheLastLaying(_town);
         HandBackAlone(_town, Leaving(_town, everyKept: true));
         _timer.Dispose();

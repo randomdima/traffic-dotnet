@@ -33,6 +33,14 @@ internal interface ITownDevice
     /// read the town the step left, and what a decision does to a body is stepped a tick later.
     /// </summary>
     bool StepsWithTheTick { get; }
+
+    /// <summary>
+    /// <b>Whether the town decides a tick behind the device</b> (root decision log, 2026-10-08): the decisions due on a tick
+    /// are put off and taken while the next tick runs on the device (<see cref="TownWorld.TakeTheDecisionsPutOff"/>), on the
+    /// town as the tick before left it, so what one does is ticked a tick later. A tick handed back after them leaves the
+    /// town's own to what a decision changed meanwhile.
+    /// </summary>
+    bool DecidesATickBehind { get; }
 }
 
 /// <summary>
