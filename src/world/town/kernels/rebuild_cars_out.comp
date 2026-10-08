@@ -1,0 +1,102 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// What a rebuild laid in a town hands back of its cars when the town holds only some as the device left them
+// (app/devicetick/DeviceRebuild.AnswersOnlyWhatTheTownHolds), one thread a car, after every asked car's grant is written
+// (rebuild_grant.comp): of every asked car the hold its plan was numbered, and whether it is held short of a body inside
+// its pass — the readers' layer reads it by that number; and of a car the town marked wanted, or whose body the bodies
+// found on other channels than the town laid it on, what its plan came to, its grant, its channels and which of its
+// wheels stand on a way, in the host's own memory, the second named in a list. Every other car's are left on the device,
+// and come back with its reading (car_out.comp's CarOutRow.grant).
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint carCount;
+    uint firstCarUnit;
+    uint stamp;
+} figures;
+
+#include "world/road/kernels/claims_rows.glsl"
+#include "agents/car/actions/follow/kernels/plan_rows.glsl"
+#include "world/town/kernels/rebuild_rows.glsl"
+#include "agents/car/body/kernels/tyre_rows.glsl"
+#include "world/town/kernels/car_tick_rows.glsl"
+
+// app/devicetick/DeviceRebuild.CarAnswer, field for field: rebuild_agents_out.comp's CarOut, the grant, and the stamp of
+// the rebuild that wrote it.
+struct CarAnswer
+{
+    float claimFromM;
+    float claimToM;
+    float committedToM;
+    float horizonM;
+    uint bits;
+    CarGrantOut grant;
+    uint stamp;
+};
+
+// rebuild_agents_out.comp's CarOut.bits.
+const uint CarLaidAHold = 1u;
+const uint CarHeldInItsPass = 2u;
+const uint CarChannelsShift = 8u;
+const uint CarWheelsShift = 16u;
+
+// What a hold word says: no hold, or the hold held short of the body inside the car's pass.
+const uint HoldNone = 0x7fffffffu;
+const uint HoldInItsPass = 0x80000000u;
+
+layout(std430, binding = 0) readonly buffer CarClaims { CarClaimRow carClaims[]; };
+layout(std430, binding = 1) readonly buffer PlanResults { PlanOutRow planResults[]; };
+layout(std430, binding = 2) readonly buffer AskAnswers { uvec4 askAnswers[]; };
+layout(std430, binding = 3) readonly buffer UnitHolds { uint unitHolds[]; };
+layout(std430, binding = 4) readonly buffer CarCounts { uvec4 carCounts[]; };
+
+// car_claims_gather.comp's CarTermsRow: its channels are the town's for every car.
+layout(std430, binding = 5) readonly buffer CarTerms { uvec4 carTerms[]; };
+layout(std430, binding = 6) readonly buffer Grants { CarGrantRow grants[]; };
+layout(std430, binding = 7) readonly buffer Wanted { uint wanted[]; };
+layout(std430, binding = 8) writeonly buffer Answers { CarAnswer answersOut[]; };
+layout(std430, binding = 9) writeonly buffer Holds { uint holdsOut[]; };
+layout(std430, binding = 10) writeonly buffer Moved { uint moved[]; };
+layout(std430, binding = 11) buffer MovedCount { uint movedCount; };
+
+void main()
+{
+    uint car = gl_GlobalInvocationID.x;
+    if (car >= figures.carCount) return;
+
+    CarClaimRow claim = carClaims[car];
+    PlanOutRow plan = planResults[car];
+    bool heldInItsPass = askAnswers[car][AskFound] != 0u;
+    if ((claim.flags & CarAsked) != 0u)
+    {
+        // As DeviceRebuild.MirrorTheAgents numbers it, and rebuild_grant.comp reads it.
+        uint hold = HoldNone;
+        if ((claim.flags & CarPlansOnTheDevice) != 0u)
+        {
+            if (plan.laidAHold != 0u) hold = unitHolds[figures.firstCarUnit + car];
+        }
+        else if (claim.askCount > 0u && heldInItsPass)
+        {
+            hold = unitHolds[figures.firstCarUnit + car] | HoldInItsPass;
+        }
+        else if (claim.holdUnit >= 0)
+        {
+            hold = unitHolds[uint(claim.holdUnit)] + uint(claim.holdOffset);
+        }
+
+        holdsOut[car] = hold;
+    }
+
+    uint channels = carCounts[car].y;
+    bool movedAcross = channels != carTerms[car].y;
+    if (movedAcross) moved[atomicAdd(movedCount, 1u)] = car;
+    if (!movedAcross && (wanted[car >> 5u] & (1u << (car & 31u))) == 0u) return;
+
+    uint bits = (plan.laidAHold != 0u ? CarLaidAHold : 0u) | (heldInItsPass ? CarHeldInItsPass : 0u)
+                | (channels << CarChannelsShift) | (carCounts[car].w << CarWheelsShift);
+    answersOut[car] = CarAnswer(
+        plan.claimFromM, plan.claimToM, plan.committedToM, plan.horizonM, bits, grantOut(grants[car]), figures.stamp);
+}

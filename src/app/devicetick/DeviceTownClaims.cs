@@ -118,14 +118,30 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
         town.PutTheLayingAsideAgain();
     }
 
-    /// <summary>Every asked car's grant and every walker's as the rebuild read them with the answers, written into the town.</summary>
+    /// <summary>
+    /// Every asked car's grant and every walker's as the rebuild read them with the answers, written into the town — of the
+    /// cars only those it handed back (<see cref="DeviceRebuild.AnsweredInPart"/>).
+    /// </summary>
     void Grant(TownWorld town)
     {
-        var read = Rebuild.GrantsRead;
-        foreach (var car in town.CarsAskedThisLaying)
+        if (Rebuild.AnsweredInPart)
         {
-            ref readonly var row = ref read[car];
-            town.GrantedOnTheDevice(car, row.AuthorityM, row.GrantMarginM, (HeadwayKind)row.GrantCutBy);
+            foreach (var car in town.CarsAskedThisLaying)
+            {
+                if (!Rebuild.HandedBack(car, out var said)) continue;
+
+                var grant = said.Grant;
+                town.GrantedOnTheDevice(car, grant.AuthorityM, grant.GrantMarginM, (HeadwayKind)grant.GrantCutBy);
+            }
+        }
+        else
+        {
+            var read = Rebuild.GrantsRead;
+            foreach (var car in town.CarsAskedThisLaying)
+            {
+                ref readonly var row = ref read[car];
+                town.GrantedOnTheDevice(car, row.AuthorityM, row.GrantMarginM, (HeadwayKind)row.GrantCutBy);
+            }
         }
 
         // Kept walkers' grants were taken up with everything else the device made of them.
@@ -143,13 +159,26 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
     /// <summary>
     /// Every asked car's grant as the car tick's tables now hold it: as the rebuild read it with the answers and handed it
     /// back (<see cref="DeviceCarTick.TakeTheGrantOf"/>), or — where the town laid a backing after them — as the town's own
-    /// reading of the claims (<see cref="DeviceCarTick.AssumeTheGrantOf"/>).
+    /// reading of the claims (<see cref="DeviceCarTick.AssumeTheGrantOf"/>); or, of a car the rebuild did not hand back,
+    /// left to the device (<see cref="DeviceCarTick.LeaveTheGrantOnTheDevice"/>) — but where the town holds it as the
+    /// device left it since, its grant having come back with its reading.
     /// </summary>
     void TakeTheGrants(TownWorld town)
     {
         if (!ReadTheGrants)
         {
             foreach (var car in town.CarsAskedThisLaying) _cars.AssumeTheGrantOf(town, car);
+            return;
+        }
+
+        if (Rebuild.AnsweredInPart)
+        {
+            foreach (var car in town.CarsAskedThisLaying)
+            {
+                if (Rebuild.HandedBack(car, out var said)) _cars.TakeTheGrantOf(car, said.Grant.ToGrantRow());
+                else if (!_cars.TownHolds(car)) _cars.LeaveTheGrantOnTheDevice(town.Cars, car);
+            }
+
             return;
         }
 

@@ -107,15 +107,27 @@ internal sealed partial class DeviceCarTick : IDisposable
         public const uint Blocked = 16u;
     }
 
+    /// <summary>A car's <see cref="GrantRow"/> but for the place, which is told (<c>CarGrantOut</c>).</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal readonly record struct GrantOut(
+        float AuthorityM, float HorizonM, float ClaimFromM, float CommittedToM, float GrantMarginM, uint GrantCutBy, int CutOn)
+    {
+        public static GrantOut Of(in GrantRow row) =>
+            new(row.AuthorityM, row.HorizonM, row.ClaimFromM, row.CommittedToM, row.GrantMarginM, row.GrantCutBy, row.CutOn);
+
+        /// <remarks>The car tick's own grant table holds the place as zero (<see cref="DeviceCarTick.GrantOf"/>), and no kernel writes it.</remarks>
+        public GrantRow ToGrantRow() => new(AuthorityM, HorizonM, ClaimFromM, CommittedToM, GrantMarginM, GrantCutBy, CutOn, 0f, Vector2.Zero);
+    }
+
     /// <summary>
     /// What the town reads of one car's tick, written into the host's memory where it reads it (<c>car_out.comp</c>'s
-    /// <c>CarOutRow</c>): its <see cref="TickRow"/>, command, <see cref="BriefRow"/> and tyre row, and the stamp of the tick
-    /// that wrote it.
+    /// <c>CarOutRow</c>): its <see cref="TickRow"/>, command, <see cref="BriefRow"/> and tyre row, its grant as the tick
+    /// read it, its leg's clock, and the stamp of the tick that wrote it.
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct OutRow(
-        TickRow Tick, DeviceTyres.CommandRow Command, BriefRow Brief, DeviceTyres.CarRow Car, float ClockSinceS, float ClockClosestM,
-        uint Stamp);
+        TickRow Tick, DeviceTyres.CommandRow Command, BriefRow Brief, DeviceTyres.CarRow Car, GrantOut Grant, float ClockSinceS,
+        float ClockClosestM, uint Stamp);
 
     /// <summary>
     /// What only the town knows of a car whose decision the device is asked whether it is its clock alone
@@ -267,7 +279,7 @@ internal sealed partial class DeviceCarTick : IDisposable
         _ticks = new ResidentRows<TickRow>(vk, capacity, 1, readsBack: true);
         _told = new ResidentRows<ToldRow>(vk, capacity, 1, hostOnly: true);
         // Not bridged: a rebuild on the device writes every asked car's grant before the host knows it (GrantsArePending).
-        _grants = new ResidentRows<GrantRow>(vk, capacity, 1, hostOnly: true, bridges: false);
+        _grants = new ResidentRows<GrantRow>(vk, capacity, 1, readsBack: true, hostOnly: true, bridges: false);
         _cutters = new ResidentRows<DeviceClaims.ClaimRow>(vk, capacity, 1, hostOnly: true, bridges: false);
         _boxes = new ResidentRows<BoxRow>(vk, capacity, 1, readsBack: true);
         _contexts = new ResidentRows<ContextRow>(vk, capacity, 1, readsBack: true);
@@ -317,11 +329,11 @@ internal sealed partial class DeviceCarTick : IDisposable
             sizeof(uint), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferSrcBit | BufferUsageFlags.TransferDstBit,
             HostAccess.None);
         _eventCountOut = vk.CreateBuffer(sizeof(uint), BufferUsageFlags.TransferDstBit, HostAccess.Reads);
-        _outKernel = new ComputeKernel(vk, "car_out.comp", 11, (uint)Marshal.SizeOf<OutPush>());
+        _outKernel = new ComputeKernel(vk, "car_out.comp", 12, (uint)Marshal.SizeOf<OutPush>());
         _outSet = _outKernel.Bind(
         [
             _taken.Device, _wanted, _ticks.Device, table.Commands.Device, _briefs.Device, table.Cars.Device, _rowsOut, _events, _eventCount,
-            _clocks.Device, _decidedAt,
+            _clocks.Device, _decidedAt, _grantsBound,
         ]);
         _eventsRead = new uint[capacity];
         _handOverRuns = new BufferCopy[capacity];
@@ -694,6 +706,7 @@ internal sealed partial class DeviceCarTick : IDisposable
         _ticks.ReadItems(commands, cars, _handOverRuns);
         _briefs.ReadItems(commands, cars, _handOverRuns);
         _clocks.ReadItems(commands, cars, _handOverRuns);
+        _grants.ReadItems(commands, cars, _handOverRuns);
         _tyres.RecordHandOverOfTheRows(commands, cars);
     }
 
@@ -701,7 +714,9 @@ internal sealed partial class DeviceCarTick : IDisposable
     public OutRow HandedOverRow(int car)
     {
         var clock = _clocks.AllRead[car];
-        return new OutRow(_ticks.AllRead[car], _tyres.CommandRead(car), _briefs.AllRead[car], _tyres.CarRead(car), clock.X, clock.Y, _stamp);
+        return new OutRow(
+            _ticks.AllRead[car], _tyres.CommandRead(car), _briefs.AllRead[car], _tyres.CarRead(car), GrantOut.Of(_grants.AllRead[car]),
+            clock.X, clock.Y, _stamp);
     }
 
     /// <summary>

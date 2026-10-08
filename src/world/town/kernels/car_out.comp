@@ -28,6 +28,7 @@ layout(std430, binding = 7) writeonly buffer Events { uint events[]; };
 layout(std430, binding = 8) buffer EventCount { uint eventCount; };
 layout(std430, binding = 9) readonly buffer Clocks { vec2 clocks[]; };
 layout(std430, binding = 10) readonly buffer DecidedAt { uint decidedAt[]; };
+layout(std430, binding = 11) readonly buffer Grants { CarGrantRow grants[]; };
 
 void main()
 {
@@ -41,5 +42,5 @@ void main()
     if (!asks && !decided && (wanted[car >> 5u] & (1u << (car & 31u))) == 0u) return;
 
     vec2 clock = clocks[car];
-    rows[car] = CarOutRow(tick, commands[car], briefs[car], tyreCars[car], clock.x, clock.y, figures.stamp);
+    rows[car] = CarOutRow(tick, commands[car], briefs[car], tyreCars[car], grantOut(grants[car]), clock.x, clock.y, figures.stamp);
 }

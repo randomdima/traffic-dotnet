@@ -65,15 +65,29 @@ struct CarBriefRow
 // CarBriefRow.flags: BoxAheadRow's, and the context's own.
 const uint BriefBlocked = 16u;
 
+// A car's grant as CarGrantRow holds it, but for the place, which is told: what the town holds of it only as a car it
+// reads hands it back (app/devicetick/DeviceCarTick.GrantOut).
+struct CarGrantOut
+{
+    float authorityM;
+    float horizonM;
+    float claimFromM;
+    float committedToM;
+    float grantMarginM;
+    uint grantCutBy;
+    int cutOn;
+};
+
 // What the town reads of a car's tick, written into its own memory where it reads it (app/devicetick/DeviceCarTick.OutRow,
-// field for field): its tick row, command, brief and tyre row, its leg's clock (LegProgress), and the stamp of the tick
-// that wrote it, never the zero of a row unwritten. The includer includes tyre_rows.glsl first.
+// field for field): its tick row, command, brief and tyre row, its grant, its leg's clock (LegProgress), and the stamp of
+// the tick that wrote it, never the zero of a row unwritten. The includer includes tyre_rows.glsl first.
 struct CarOutRow
 {
     CarTickRow tick;
     TyreCommand command;
     CarBriefRow brief;
     TyreCarRow car;
+    CarGrantOut grant;
     float clockSinceS;
     float clockClosestM;
     uint stamp;
@@ -114,5 +128,11 @@ struct CarGrantRow
     float placeReachM;
     vec2 placeM;
 };
+
+CarGrantOut grantOut(CarGrantRow grant)
+{
+    return CarGrantOut(
+        grant.authorityM, grant.horizonM, grant.claimFromM, grant.committedToM, grant.grantMarginM, grant.grantCutBy, grant.cutOn);
+}
 
 #endif

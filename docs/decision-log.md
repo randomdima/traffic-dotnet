@@ -63,6 +63,15 @@ the device took turns rather than working side by side.
     runs. OdesaOsm: 620 walkers' decisions a tick run on the device and 81 handed to the town; the town bit for bit as
     before. It buys little host time — a quiet walker's decision was cheap, the town's time going on trips drawn and
     routes searched — and is what lets a walker's rows stay on the device next.
+  - **A rebuild hands back a car's plan and grant only where the town holds the car** (`DeviceRebuild.AnswersOnlyWhatTheTownHolds`,
+    `rebuild_cars_out.comp`): of every asked car only the hold its plan was numbered, which the readers' layer is read
+    by; of a car found on other channels than the town laid it on, its channels; and of a car the town holds as the
+    device left it, the rest. No host code reads another car's plan or grant — its neighbours come off the claims — so a
+    car left on the device keeps its plan and grant there, and they come back with its reading
+    (`DeviceCarTick.OutRow.Grant`, and which wheels stand on a way with its tyre row). A grant the town would lay off a
+    copy a rebuild left behind is a defect, and throws. Not where a car backs up: the town reads every asked car's grant
+    off its own laying then. OdesaOsm: a rebuild's own read 1.75 → 1.22 MB and 1.24 → 0.87 ms of the device's; the town
+    bit for bit as before (`DeviceTownKeptCarsTests`).
 
 ## 2026-10-08 — the readers' layer is sent back in part, and a decision asks for the ways it reads
 

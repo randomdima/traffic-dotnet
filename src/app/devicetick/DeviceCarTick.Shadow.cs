@@ -77,6 +77,7 @@ internal sealed partial class DeviceCarTick
         _cutOn = new int[capacity];
         _cutterOnTheDevice = new bool[capacity];
         _grantPending = new bool[capacity];
+        _grantLeft = new bool[capacity];
         _commandBefore = new DeviceTyres.CommandRow[capacity];
         _carBefore = new DeviceTyres.CarRow[capacity];
         _wheelsBefore = new DeviceTyres.WheelRow[capacity * TyreModel.Wheels];
@@ -400,7 +401,16 @@ internal sealed partial class DeviceCarTick
     void LayWhatItIsTold(TownWorld town, int car, bool granted, bool claimsLaid)
     {
         var cars = town.Cars;
-        if (granted && !GrantedOnTheDevice && !_grantPending[car]) LayWhatItWasGranted(town, car, claimsLaid);
+        if (granted && !GrantedOnTheDevice && !_grantPending[car])
+        {
+            if (_grantLeft[car])
+            {
+                throw new InvalidOperationException(
+                    $"Car {car} would have its grant laid off the town's copy, which a rebuild on the device left behind.");
+            }
+
+            LayWhatItWasGranted(town, car, claimsLaid);
+        }
 
         var hasAPlace = town.SceneOf(car, out var placeM, out var reachM);
         var told = (cars.BlueLight[car] ? ToldRow.OnACall : 0u) | (cars.LineIsReverse[car] ? ToldRow.LineIsReverse : 0u)
@@ -466,6 +476,7 @@ internal sealed partial class DeviceCarTick
         _cutOn[car] = row.CutOn;
         _cutterOnTheDevice[car] = true;
         _grantPending[car] = false;
+        _grantLeft[car] = false;
     }
 
     /// <summary>
@@ -481,7 +492,28 @@ internal sealed partial class DeviceCarTick
         _cutOn[car] = written.CutOn;
         _cutterOnTheDevice[car] = true;
         _grantPending[car] = false;
+        _grantLeft[car] = false;
     }
+
+    /// <summary>
+    /// <b>What a claims rebuild on the device wrote of a car's grant, left there unread</b> — a car the town does not hold
+    /// as the device left it (<see cref="TownHolds"/>), whose grant comes back with its reading when it is handed back
+    /// (<see cref="OutRow.Grant"/>). The town's own figures of it are its laying's, which cleared its claim: taken as the
+    /// last laid, and never sent — a change the town makes to them before the grant is back is a defect, and throws.
+    /// </summary>
+    public void LeaveTheGrantOnTheDevice(CarFleet cars, int car)
+    {
+        _grants.Forget(car);
+        _cutters.Forget(car);
+        _holdBits.Forget(car);
+        _cutterOnTheDevice[car] = true;
+        _grantPending[car] = false;
+        _grantLeft[car] = true;
+        _authorityAt[car] = cars.AuthorityM[car];
+    }
+
+    /// <summary>Which cars' grants a rebuild on the device left there unread (<see cref="LeaveTheGrantOnTheDevice"/>).</summary>
+    bool[] _grantLeft = [];
 
     /// <summary>
     /// <b>These cars' grants left to what a claims rebuild on the device wrote</b>, until its answers are read back

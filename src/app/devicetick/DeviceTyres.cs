@@ -54,6 +54,9 @@ internal sealed class DeviceTyres : IDisposable
         /// <param name="wheelsOnAWay">Which of its wheels stood on a way when its body was last laid (<see cref="CarFleet.WheelsOnAWay"/>).</param>
         public static uint FlagsOf(bool hand, bool drivenSlipping, byte wheelsOnAWay) =>
             (hand ? Hand : 0u) | (drivenSlipping ? DrivenSlipping : 0u) | ((uint)wheelsOnAWay << 8);
+
+        /// <summary>Which of its wheels stand on a way, as <see cref="FlagsOf"/> filed them or a claims rebuild wrote them.</summary>
+        public byte WheelsOnAWay => (byte)(Flags >> 8);
     }
 
     /// <summary>One wheel's carried state (<c>TyreWheelRow</c>).</summary>

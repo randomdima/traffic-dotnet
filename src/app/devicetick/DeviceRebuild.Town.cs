@@ -89,6 +89,89 @@ internal sealed partial class DeviceRebuild
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
     readonly record struct AgentsPush(uint CarCount, uint WalkerCount, uint FirstWalkerUnit);
 
+    /// <summary>
+    /// What a rebuild hands back of a car the town holds, or one found on other channels (<c>rebuild_cars_out.comp</c>'s
+    /// <c>CarAnswer</c>): its <see cref="CarOut"/>, its grant, and the stamp of the rebuild that wrote it.
+    /// </summary>
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    internal readonly record struct CarAnswer(
+        float ClaimFromM, float ClaimToM, float CommittedToM, float HorizonM, uint Bits, DeviceCarTick.GrantOut Grant, uint Stamp);
+
+    /// <summary>What a hold word of <c>rebuild_cars_out.comp</c> says: no hold, or the hold held short of the body inside its pass.</summary>
+    const uint HoldNone = 0x7fffffffu, HoldInItsPass = 0x80000000u;
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    readonly record struct CarsOutPush(uint CarCount, uint FirstCarUnit, uint Stamp);
+
+    /// <summary>
+    /// <see cref="AnswersOnlyWhatTheTownHolds"/>: which cars the town holds as the device left them, a bit a car, written by
+    /// the host; what the rebuild says of those and of the cars found on other channels, each asked car's hold, and the cars
+    /// found on other channels — in the host's own memory — and how many those were.
+    /// </summary>
+    GpuBuffer _answersWanted = null!, _carAnswers = null!, _carHolds = null!, _carsMoved = null!, _carsMovedCount = null!, _carsMovedCountRead = null!;
+
+    Bound _carsOutKernel;
+
+    /// <summary>The stamp the last rebuild in the town wrote its cars' answers with, never the zero of one unwritten.</summary>
+    uint _answerStamp;
+
+    /// <summary>Whether the rebuild just laid in the town hands back only the cars the town holds (<see cref="AnswersOnlyWhatTheTownHolds"/>).</summary>
+    bool _answeredInPart;
+
+    /// <summary>The cars the town held as the device left them when the rebuild was laid, a bit a car; and those found on other channels.</summary>
+    uint[] _wantedWords = [], _carsMovedBits = [];
+
+    /// <summary>How many cars the last rebuild in the town found on other channels, and how many it handed back in all.</summary>
+    int _movedCount, _carsAnswered;
+
+    /// <summary>
+    /// <b>Whether a rebuild in the town hands back only the cars the town holds as the device left them</b>
+    /// (<see cref="DeviceCarTick.TownHolds"/>; <see cref="DeviceCarTick.ReadsEveryCar"/> off) and those found on other
+    /// channels than the town laid them on (<c>rebuild_cars_out.comp</c>), every asked car's hold besides — rather than
+    /// every car's plan, grant, channels and wheels. Every other car's plan and grant stay as the town's laying cleared them,
+    /// and come back with its reading (<see cref="DeviceCarTick.OutRow.Grant"/>) — all but how far its plan reached
+    /// (<see cref="Agents.Car.Body.CarFleet.ClaimToM"/>), which only probes of a town the host lays read; which of its
+    /// wheels stand on a way come back with its tyre row. Never where a car backs up, whose ground the town lays off every
+    /// asked car's.
+    /// </summary>
+    public bool AnswersOnlyWhatTheTownHolds => _carTick is { ReadsEveryCar: false };
+
+    /// <summary>Whether the last rebuild in the town handed back only the cars the town holds (<see cref="AnswersOnlyWhatTheTownHolds"/>).</summary>
+    public bool AnsweredInPart => _answeredInPart;
+
+    /// <summary>
+    /// What the last rebuild in the town handed back of a car the town held when it was laid (<see cref="AnsweredInPart"/>) —
+    /// false for any other car, whose plan and grant are the device's.
+    /// </summary>
+    public bool HandedBack(int car, out CarAnswer said)
+    {
+        said = default;
+        if ((_wantedWords[car >> 5] & (1u << (car & 31))) == 0) return false;
+
+        said = _carAnswers.Span<CarAnswer>()[car];
+        ExpectTheStamp(car, said);
+        return true;
+    }
+
+    void ExpectTheStamp(int car, in CarAnswer said)
+    {
+        if (said.Stamp != _answerStamp) throw new InvalidOperationException($"Car {car}'s answer was read past the rebuild that wrote it.");
+    }
+
+    /// <summary>The cars the town holds as the device left them, marked for the rebuild to hand back.</summary>
+    void WantTheCarsTheTownHolds()
+    {
+        var wanted = _wantedWords.AsSpan();
+        wanted.Clear();
+        for (var car = 0; car < _carCount; car++)
+        {
+            if (_carTick!.TownHolds(car)) wanted[car >> 5] |= 1u << (car & 31);
+        }
+
+        // Built here and copied across whole: the table is memory the host only writes, slow to read back a word at a time.
+        wanted.CopyTo(_answersWanted.Span<uint>());
+    }
+
     /// <summary>Every hold as the town keeps it once answered (<c>rebuild_holds_out.comp</c>), on the device and read back.</summary>
     GpuBuffer _holdsOut = null!, _holdsRead = null!;
 
@@ -207,6 +290,7 @@ internal sealed partial class DeviceRebuild
         }
 
         LayTheCarsGather(world);
+        LayTheCarsOut();
         LayTheWaysOut(world);
         if (!_walkers.Keeps) return;
 
@@ -246,6 +330,28 @@ internal sealed partial class DeviceRebuild
             ]);
         _laidOnTheDevice = new bool[_cars];
         _askedThisLaying = new bool[_cars];
+    }
+
+    /// <summary>
+    /// The kernel that hands back only the cars the town holds and those found on other channels
+    /// (<c>rebuild_cars_out.comp</c>), and the host's memory it writes into, laid once.
+    /// </summary>
+    void LayTheCarsOut()
+    {
+        _answersWanted = Own(_vk.CreateBuffer(Bytes<uint>((_cars + 31) / 32), BufferUsageFlags.StorageBufferBit, HostAccess.Writes));
+        _carAnswers = Own(_vk.CreateBuffer(Bytes<CarAnswer>(_cars), BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
+        _carHolds = Own(_vk.CreateBuffer(Bytes<uint>(_cars), BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
+        _carsMoved = Own(_vk.CreateBuffer(Bytes<uint>(_cars), BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
+        _carsMovedCount = Device<uint>(1);
+        _carsMovedCountRead = Readback<uint>(1);
+        _wantedWords = new uint[(_cars + 31) / 32];
+        _carsMovedBits = new uint[_wantedWords.Length];
+        _carsOutKernel = Bound.Of<CarsOutPush>(
+            _vk, "rebuild_cars_out.comp",
+            [
+                _carClaims.Device, _plans.OnTheDevice.Results, _askAnswers, _unitHolds, _bodies.OnTheDevice.Counts, _carTerms.Device,
+                _grants, _answersWanted, _carAnswers, _carHolds, _carsMoved, _carsMovedCount,
+            ]);
     }
 
     /// <summary>
@@ -389,7 +495,7 @@ internal sealed partial class DeviceRebuild
     }
 
     /// <summary>
-    /// Every car's terms laid where they changed, as the cars stand before their plans: nothing for one the town lays.
+    /// Every car's terms laid where they changed, as the cars stand before their plans: of one the town lays, its channels alone.
     /// </summary>
     /// <remarks>
     /// <b>A car the device holds has its claim cleared there</b> where this laying asked it: the ground it covered since
@@ -405,9 +511,10 @@ internal sealed partial class DeviceRebuild
 
         for (var car = 0; car < _carCount; car++)
         {
+            // Its channels for every car, which the rebuild hands a car back on other channels than (rebuild_cars_out.comp).
             if (!_laidOnTheDevice[car])
             {
-                _carTerms.Lay(car, default);
+                _carTerms.Lay(car, new CarTermsRow(0u, cars.Channels[car], 0f, 0f));
                 continue;
             }
 
@@ -481,6 +588,12 @@ internal sealed partial class DeviceRebuild
 
     /// <summary>How many bytes the last rebuild in the town sent, and how many it read back.</summary>
     public (ulong Sent, ulong Read) Crossed { get; private set; }
+
+    /// <summary>
+    /// Of what the last rebuild in the town read back in its own submit, in bytes: the layer where it is not sent back later,
+    /// the hold each unit's first was numbered, what each car's plan came to, what it made of the walkers, and the grants.
+    /// </summary>
+    public (ulong Layer, ulong UnitHolds, ulong Cars, ulong Walkers, ulong Grants) ReadParts { get; private set; }
 
     /// <summary>How many copy regions the last rebuild in the town's own submit recorded (<see cref="Runtime.Vk.RegionsCopied"/>).</summary>
     public int RegionsCopied { get; private set; }
@@ -627,6 +740,12 @@ internal sealed partial class DeviceRebuild
         vk.Fill(commands, _wayCounts, 0);
         GrantedWithTheAnswers = !AnyCarBacksUp(town);
         LandsLater = GrantedWithTheAnswers && !MirrorsAtOnce;
+        _answeredInPart = GrantedWithTheAnswers && AnswersOnlyWhatTheTownHolds;
+        if (_answeredInPart)
+        {
+            vk.Fill(commands, _carsMovedCount, 0);
+            WantTheCarsTheTownHolds();
+        }
         if (LandsLater) RecordTheWaysAskedSent(commands, town.ReadersOccupancy);
 
         _timer.Stamp(commands, (int)Stage.Sent);
@@ -674,6 +793,12 @@ internal sealed partial class DeviceRebuild
             }
         }
 
+        if (_answeredInPart)
+        {
+            vk.BetweenKernels(commands);
+            _carsOutKernel.Dispatch(commands, _carCount, new CarsOutPush((uint)_carCount, (uint)(_stretches + 1), ++_answerStamp));
+        }
+
         vk.BeforeTransfer(commands);
         if (LandsLater)
         {
@@ -685,12 +810,23 @@ internal sealed partial class DeviceRebuild
             _claims.CopyPast<HoldOut>(commands, _holdsOut, _holdsRead, 0, _holdsBound);
         }
 
-        vk.Copy(commands, _unitHolds, _unitHoldsOut, Bytes<uint>(_units));
-        vk.Copy(commands, _carsOut, _carsRead, Bytes<CarOut>(_carCount));
+        if (_answeredInPart)
+        {
+            // Of the units' holds only the walkers', each where the whole would put it; the cars' are their answers'.
+            var firstWalker = Bytes<uint>(_stretches + 1 + _carCount);
+            vk.Copy(commands, _unitHolds, _unitHoldsOut, [new BufferCopy(firstWalker, firstWalker, Math.Max(sizeof(uint), Bytes<uint>(_walkerCount)))]);
+            vk.Copy(commands, _carsMovedCount, _carsMovedCountRead, sizeof(uint));
+        }
+        else
+        {
+            vk.Copy(commands, _unitHolds, _unitHoldsOut, Bytes<uint>(_units));
+            vk.Copy(commands, _carsOut, _carsRead, Bytes<CarOut>(_carCount));
+            if (GrantedWithTheAnswers) vk.Copy(commands, _grants, _grantsOut, Bytes<DeviceCarTick.GrantRow>(_carCount));
+        }
+
         if (keeps) _walkers.RecordReadTheKept(commands);
         else vk.Copy(commands, _walkersOut, _walkersRead, Bytes<WalkOut>(_walkerCount));
         var walkersRead = keeps ? _walkers.KeptReadBytes : Bytes<WalkOut>(_walkerCount);
-        if (GrantedWithTheAnswers) vk.Copy(commands, _grants, _grantsOut, Bytes<DeviceCarTick.GrantRow>(_carCount));
         if (_checksTheCars) RecordReadTheCarsLaid(commands);
         _timer.Stamp(commands, (int)Stage.Granted);
         _timer.Stamp(commands, (int)Stage.Read);
@@ -791,8 +927,13 @@ internal sealed partial class DeviceRebuild
         var rows = _claims.Rows.Length;
         var holds = _claims.Holds.Length;
         var layer = Bytes<ClaimRow>(rows) + Bytes<uint>(rows) + Bytes<HoldOut>(holds);
-        Crossed = (_sentBytes, (LandsLater ? 0ul : layer) + Bytes<uint>(_units) + Bytes<CarOut>(_carCount) + _walkersReadBytes
-                               + (GrantedWithTheAnswers ? Bytes<DeviceCarTick.GrantRow>(_carCount) : 0ul));
+        ReadParts = _answeredInPart
+            ? (LandsLater ? 0ul : layer, Bytes<uint>(_walkerCount),
+               Bytes<CarAnswer>(_carsAnswered) + Bytes<uint>(town.CarsAskedThisLaying.Length + _movedCount + 1), _walkersReadBytes, 0ul)
+            : (LandsLater ? 0ul : layer, Bytes<uint>(_units), Bytes<CarOut>(_carCount), _walkersReadBytes,
+               GrantedWithTheAnswers ? Bytes<DeviceCarTick.GrantRow>(_carCount) : 0ul);
+        var (readLayer, unitHolds, carsRead, walkersRead, grantsRead) = ReadParts;
+        Crossed = (_sentBytes, readLayer + unitHolds + carsRead + walkersRead + grantsRead);
         LaidMs = Stopwatch.GetElapsedTime(_laidFrom, _submittedAt).TotalMilliseconds;
         WaitedMs = Stopwatch.GetElapsedTime(_submittedAt, waited).TotalMilliseconds;
         MirroredMs = Stopwatch.GetElapsedTime(waited).TotalMilliseconds;
@@ -869,9 +1010,38 @@ internal sealed partial class DeviceRebuild
     void MirrorTheAgents(TownWorld town)
     {
         var unitHolds = _unitHoldsOut.Span<uint>();
-        var carsOut = _carsRead.Span<CarOut>();
         var firstCar = _stretches + 1;
         HeldInTheirPasses = 0;
+        if (_answeredInPart) HoldTheCarsTheTownHolds(town);
+        else HoldEveryCar(town, unitHolds, firstCar);
+
+        var firstWalker = firstCar + _carCount;
+        if (_walkers.Keeps)
+        {
+            _walkers.TakeTheKept(town, _walkerTick!, unitHolds, firstWalker);
+        }
+        else
+        {
+            var walks = _walkersRead.Span<WalkOut>();
+            for (var person = 0; person < _walkerCount; person++)
+            {
+                var hold = (walks[person].Bits & WalkOut.LaidAHold) != 0 ? (int)unitHolds[firstWalker + person] : LaneOccupancy.NoHold;
+                var committed = (walks[person].Bits & WalkOut.CommittedAStraight) != 0;
+                if (committed) _walkers.SendTheStraightAgain(person);
+                if (!town.WalkedOnTheDevice(person, hold, committed)) StraightsTheTownWouldNotCommit++;
+            }
+        }
+
+        if (_answeredInPart) GroundTheCarsTheTownHolds(town);
+        else GroundEveryCar(town);
+
+        town.AnsweredOnTheDevice(LaidAgain(_claims.Moved, _config.Road.MostSettlingPasses, out var settled), settled);
+    }
+
+    /// <summary><see cref="MirrorTheAgents"/> where every car is handed back: each asked car's plan and hold.</summary>
+    void HoldEveryCar(TownWorld town, ReadOnlySpan<uint> unitHolds, int firstCar)
+    {
+        var carsOut = _carsRead.Span<CarOut>();
         foreach (var car in town.CarsAskedThisLaying)
         {
             ref readonly var claim = ref _carClaims.LaidRow(car);
@@ -893,36 +1063,73 @@ internal sealed partial class DeviceRebuild
                     car, claim.HoldUnit >= 0 ? (int)unitHolds[claim.HoldUnit] + claim.HoldOffset : LaneOccupancy.NoHold, inItsPass: false);
             }
         }
+    }
 
-        var firstWalker = firstCar + _carCount;
-        if (_walkers.Keeps)
+    /// <summary>
+    /// <see cref="MirrorTheAgents"/> where only the cars the town holds are handed back (<see cref="AnswersOnlyWhatTheTownHolds"/>):
+    /// every asked car's hold, and the plan of each the town holds — every other car's plan and grant left as its laying
+    /// cleared them, and handed back with its reading.
+    /// </summary>
+    void HoldTheCarsTheTownHolds(TownWorld town)
+    {
+        var holds = _carHolds.Span<uint>();
+        foreach (var car in town.CarsAskedThisLaying)
         {
-            _walkers.TakeTheKept(town, _walkerTick!, unitHolds, firstWalker);
-        }
-        else
-        {
-            var walks = _walkersRead.Span<WalkOut>();
-            for (var person = 0; person < _walkerCount; person++)
+            if ((_carClaims.LaidRow(car).Flags & CarClaimRow.PlansOnTheDevice) != 0 && HandedBack(car, out var said))
             {
-                var hold = (walks[person].Bits & WalkOut.LaidAHold) != 0 ? (int)unitHolds[firstWalker + person] : LaneOccupancy.NoHold;
-                var committed = (walks[person].Bits & WalkOut.CommittedAStraight) != 0;
-                if (committed) _walkers.SendTheStraightAgain(person);
-                if (!town.WalkedOnTheDevice(person, hold, committed)) StraightsTheTownWouldNotCommit++;
+                town.PlannedOnTheDevice(car, said.ClaimFromM, said.ClaimToM, said.CommittedToM, said.HorizonM);
+            }
+
+            var word = holds[car];
+            var inItsPass = (word & HoldInItsPass) != 0;
+            if (inItsPass) HeldInTheirPasses++;
+            town.HeldOnTheDevice(car, word == HoldNone ? LaneOccupancy.NoHold : (int)(word & ~HoldInItsPass), inItsPass);
+        }
+    }
+
+    /// <summary>The channels and wheels of every car, as the last rebuild in the town found them under its body.</summary>
+    void GroundEveryCar(TownWorld town)
+    {
+        var carsOut = _carsRead.Span<CarOut>();
+        for (var car = 0; car < _carCount; car++) Ground(town, car, carsOut[car].Bits);
+    }
+
+    /// <summary>
+    /// The channels and wheels of every car the town holds, and of every car found on other channels than the town laid it
+    /// on — in order, as <see cref="GroundEveryCar"/> takes them. Every other car's are what the town has of it, but which
+    /// wheels stand on a way, handed back with its reading.
+    /// </summary>
+    void GroundTheCarsTheTownHolds(TownWorld town)
+    {
+        var moved = _carsMovedBits.AsSpan(0, _wantedWords.Length);
+        moved.Clear();
+        _movedCount = (int)Math.Min(_carsMovedCountRead.Span<uint>()[0], (uint)_carCount);
+        foreach (var car in _carsMoved.Span<uint>()[.._movedCount]) moved[(int)(car >> 5)] |= 1u << (int)(car & 31);
+
+        _carsAnswered = 0;
+        var answers = _carAnswers.Span<CarAnswer>();
+        for (var word = 0; word < moved.Length; word++)
+        {
+            var bits = _wantedWords[word] | moved[word];
+            while (bits != 0)
+            {
+                var car = (word * 32) + System.Numerics.BitOperations.TrailingZeroCount(bits);
+                bits &= bits - 1;
+                ExpectTheStamp(car, answers[car]);
+                Ground(town, car, answers[car].Bits);
+                _carsAnswered++;
             }
         }
+    }
 
-        var cars = town.Cars;
-        for (var car = 0; car < _carCount; car++)
-        {
-            var channels = (byte)(carsOut[car].Bits >> CarOut.ChannelsShift);
-            if (channels != cars.Channels[car] && CarActions.IsAtABay(cars.Action[car])) OnOtherChannelsAtABay++;
+    void Ground(TownWorld town, int car, uint bits)
+    {
+        var channels = (byte)(bits >> CarOut.ChannelsShift);
+        if (channels != town.Cars.Channels[car] && CarActions.IsAtABay(town.Cars.Action[car])) OnOtherChannelsAtABay++;
 
-            var wheels = (byte)(carsOut[car].Bits >> CarOut.WheelsShift);
-            town.OnTheGroundOfItsBody(car, channels, wheels);
-            _carTick!.KnowTheWheelsOnAWay(car, wheels);
-        }
-
-        town.AnsweredOnTheDevice(LaidAgain(_claims.Moved, _config.Road.MostSettlingPasses, out var settled), settled);
+        var wheels = (byte)(bits >> CarOut.WheelsShift);
+        town.OnTheGroundOfItsBody(car, channels, wheels);
+        _carTick!.KnowTheWheelsOnAWay(car, wheels);
     }
 
     /// <summary>

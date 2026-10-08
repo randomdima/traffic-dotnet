@@ -948,7 +948,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
     /// <summary>
     /// What the last tick handed back of a car: written into the host's memory where the town reads it, or copied back with
-    /// every car's (<see cref="ReadsEveryCarBack"/>).
+    /// every car's (<see cref="ReadsEveryCarBack"/>) — but its grant, which every rebuild handed back then.
     /// </summary>
     DeviceCarTick.OutRow RowOf(int car)
     {
@@ -956,7 +956,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
         var clock = _cars.ClockAfter(car);
         return new DeviceCarTick.OutRow(
-            _cars.TicksAfter[car], _cars.CommandsAfter[car], _cars.BriefsAfter[car], _tyres.CarsAfter[car], clock.X, clock.Y, 0u);
+            _cars.TicksAfter[car], _cars.CommandsAfter[car], _cars.BriefsAfter[car], _tyres.CarsAfter[car], default, clock.X, clock.Y, 0u);
     }
 
     void WriteTheTick(CarFleet cars, int car, in DeviceCarTick.OutRow row)
@@ -986,13 +986,32 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         cars.TurningAtTheBox[car] = (brief.Flags & DeviceCarTick.BoxRow.Turning) != 0;
         cars.InsideTheBox[car] = (brief.Flags & DeviceCarTick.BoxRow.Inside) != 0;
         cars.CommittedToTheBox[car] = (brief.Flags & DeviceCarTick.BoxRow.Committed) != 0;
+
+        // Every rebuild hands back every grant where every car is (DeviceRebuild.AnswersOnlyWhatTheTownHolds).
+        if (_cars.ReadsEveryCar) return;
+
+        var grant = row.Grant;
+        cars.AuthorityM[car] = grant.AuthorityM;
+        cars.HorizonM[car] = grant.HorizonM;
+        cars.ClaimFromM[car] = grant.ClaimFromM;
+        cars.CommittedToM[car] = grant.CommittedToM;
+        cars.GrantMarginM[car] = grant.GrantMarginM;
+        cars.GrantCutBy[car] = (HeadwayKind)grant.GrantCutBy;
+        _cars.TakeTheGrantOf(car, grant.ToGrantRow());
     }
 
-    /// <summary>A car's own tyre row written back; its wheels are kept on the device until it leaves (<see cref="TakeTheWheelsBack"/>).</summary>
-    static void WriteTheTyres(CarFleet cars, int car, in DeviceTyres.CarRow row)
+    /// <summary>
+    /// A car's own tyre row written back, and — where the rebuild hands back only the cars the town holds — which of its
+    /// wheels stand on a way; its wheels are kept on the device until it leaves (<see cref="TakeTheWheelsBack"/>).
+    /// </summary>
+    void WriteTheTyres(CarFleet cars, int car, in DeviceTyres.CarRow row)
     {
         cars.SlipThrottle[car] = row.SlipThrottle;
         cars.DrivenSlipping[car] = (row.Flags & DeviceTyres.CarRow.DrivenSlipping) != 0;
+        if (_cars.ReadsEveryCar) return;
+
+        cars.WheelsOnAWay[car] = row.WheelsOnAWay;
+        _cars.KnowTheWheelsOnAWay(car, row.WheelsOnAWay);
     }
 
     /// <summary>

@@ -41,7 +41,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   on that lane brakes for it. Proving a wheel inside a band instead braked harder still (road log).
 - **`--bench devicetown`'s tick wanders run to run on one build**: 4.24–5.65 ms a tick over six runs on OdesaOsm
   (2026-10-08), where the host town's stayed within 15.7–17.0. Suspected the GPU's clocks and power state, unmeasured; an
-  A/B of the device tick needs several runs a side until the device's clocks are pinned or read with the figures.
+  A/B of the device tick needs several runs a side until the device's clocks are pinned or read with the figures. The
+  machine's own load moves it too: with another program taking 0.7 of a core, the host town's tick read 18.5–18.8 ms and
+  the device town's 6.0–6.5 — so the probe should print the load it ran under, and the device's own figures (its
+  kernels' and copies' stamps) are what an A/B is read off meanwhile.
 - **Nobody holds what no wheel stands on**: across a lane's end a car on two ways leaves its wheelbase less two
   metres and two half steps unclaimed; a car straddling a zebra narrower than its wheelbase, or nosing over a junction
   its front wheels have not reached, is no body there. The gap per car model is not measured.

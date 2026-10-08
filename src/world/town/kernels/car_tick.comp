@@ -160,7 +160,7 @@ void decideOne(uint car)
     // Checked, what every decision asked was read off goes back, the town to read the same verdict off it.
     if (more || (terms.flags & DecideChecked) != 0u)
     {
-        decideOut[car] = CarOutRow(tick, commands[car], brief, tyreCars[car], clockWas.x, clockWas.y, figures.stamp);
+        decideOut[car] = CarOutRow(tick, commands[car], brief, tyreCars[car], grantOut(grants[car]), clockWas.x, clockWas.y, figures.stamp);
     }
 }
 
