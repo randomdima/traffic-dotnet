@@ -39,9 +39,8 @@ before. `DeviceTown`, the town's device, steps its bodies this way.
 - **Held to the host tick for tick** (`DeviceTownBodiesTests`, both solving in contact order): a touring city's cars for
   a second, and a car park shoved into itself — walkers, cars, every pair that began touching, every body's freezing
   and what broke and who was hurt — for three seconds, all within the solver's own agreement and the discrete outcomes
-  exact. What parts the two towns is the device's sine and cosine on a body it turned, which a car's controller carries
-  to millimetres within seconds. So the half minute after is asked only that no body stays inside another (`PHY-1`) and
-  nobody is hurt whom the host left whole. The steady state allocates nothing. With `DeviceTown` ticking the cars and
+  exact; the half minute after is asked only that no body stays inside another (`PHY-1`) and nobody is hurt whom the host
+  left whole. The steady state allocates nothing. With `DeviceTown` ticking the cars and
   walkers too, the shoved car park came out as the host's in a one-off run: 6 wrecks, 10 hurt, 33 pairs began touching,
   111 bodies frozen at the end, casualties at rest; no test holds that, since the cars' own tick parts the two towns.
 
@@ -78,9 +77,7 @@ against 714 (691 before the bodies moved), 16 pairs began touching against 15 (1
   subnormal terms, and four wheel turns below the least normal float, summed on the host to cancel a 1e-38 yaw, are
   dropped one by one on the device. So that edge is held within the flushed terms of nought.
 - **`Vector2.Lerp` is fused on the host** (.NET 10), so the acceleration's lag is an `fma` on the device.
-- **The read-back is the town's within the solver's own agreement** when both solve in contact order. The direction a
-  body points is the integration's built-in sin and cos (Vulkan's bound, 2⁻¹¹), not `trig.glsl`'s; moving it is the
-  step's own change and was not made here.
+- **The read-back is the town's within the solver's own agreement** when both solve in contact order.
 
 On OdesaOsm (10 013 cars, 10 000 walkers; RX 9070 XT, the device in colours) the host's phase was 3.28 ms a tick, of
 which the solver's step was 3.02, and the device's kernels 0.41: impulses 0.008, step 0.394, read-back 0.005. The

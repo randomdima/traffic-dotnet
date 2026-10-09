@@ -10,10 +10,6 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 - **`StopBarsTests.ABarStandsASetbackBehindItsCrossing`** (unit) fails, and fails on the tree before the wheel
   claims too. Nothing has looked at why.
-- **`DeviceTownBodiesTests.TheTableFreezesAndWakesWhatTheHostsDoes`** (device) fails since the wheel claims (road log,
-  2026-10-07). The wheel masks agree in both towns; a pair of cars settling after the shove freezes at step 139 on the
-  host and 140 on the device, a pair that never froze inside the window before. Closes when the step the two freeze
-  at is traced to the term that differs.
 - **`ShippedCityTests.NothingItCarriesStandsOffIt(OdesaOsm)`** (maps) fails on the working tree that stands 40 000 people
   and 40 000 cars (2026-10-09): spawn 37 177 stands at x −0.15 m, off the map's own edge. Nothing past the 20 000 the map
   stood before was asked this; spawning on the map's edge, or the map's bounds taking its spawns in, closes it.
@@ -189,12 +185,13 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   for at the tick's head and another 0.47 at the bodies' step behind it: a read of the atlas (`atlasRead`) walks every point
   of a body's rows one after another, about a third of a millisecond on one thread, and a look reads a step's every station
   at once but each read alone. Closes with a read's rows split across a workgroup.
-- **22 of the 5.5 M verdicts a device town reaches at OdesaOsm differ from the town's own** (`--bench devicedecide`,
-  2026-10-09), each a switching car's look the device found held where the town found room; and 10 856 of 136 851 looks
-  come out alike but leave a figure up to 3.8 mm apart. The step's pose and the lane beside are read off arcs whose
-  trigonometry the device answers to within a float or two of the host's (`trig.glsl`), and a box read a hair otherwise
-  reaches another tenth of a way. Closes with the trigonometry to the host's bit — its C library's `sinf` and `cosf` — or
-  with the look the town's only, which costs 1.2 ms a tick.
+- **19 of the 5.5 M verdicts a device town reaches at OdesaOsm differ from the town's own** (`--bench devicedecide`,
+  2026-10-10), each a switching car's look the device found held where the town found room; and 479 of 136 538 looks
+  come out alike but leave a figure up to 3.9 mm apart. The step's pose and the lane beside are read off arcs, and where
+  a point stands along one is the device's arctangent (`arc.glsl`'s `trigAtan2`, Cephes'), within a float or two of the
+  host's; a box read a hair otherwise reaches another tenth of a way. The sine and cosine are the host's to the bit
+  (core log, 2026-10-10). Closes with the arctangent to the host's bit — glibc 2.43's `atan2f` — or with the look the
+  town's only, which costs 1.2 ms a tick.
 - **Why a switching car with a step is read every tick is reasoned and held by no test** (`TownWorld.ReadsTheTickOf`):
   keeping or withdrawing the step and the rebuild laying its ground read where it stands, but
   `DeviceTownKeptCarsTests`' staging resolves its step alike when such a car is never read. Closes with a staging whose
@@ -219,6 +216,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 - **The shadow's `AlongMps` tolerance** (`DeviceRebuild.Shadow`) allows for a heading grown over, though car rows now
   carry the host's float exactly; only walker rows need it. `SlotOf` scans every slot for each host hold with a cut.
+- **What still allows for the device's own sine and cosine**, which are the host's to the bit since 2026-10-10 (core
+  log): `DeviceBodyPhase.PointsWithin` is Vulkan's 2⁻¹¹ bound on a direction and its doc says the integration takes
+  the driver's own; `DeviceTownBodiesTests` asks within the solver's agreement a car park that stands to the bit for its
+  whole half minute. Each held to the bit — or to the arctangent, where one still reads it — closes it.
 - **`DeviceTyres` is laid its grounds and figures once**, at construction: `TownWorld.FiguresChanged` retunes the
   host's `WheelGrounds` and the device keeps the old ones.
 

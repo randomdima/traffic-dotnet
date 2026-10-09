@@ -1,0 +1,28 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Sine and cosine of each angle, one thread an angle — trig.glsl asked on its own, which is how the device's answer is held
+// to the host's.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Ask
+{
+    uint angleCount;
+};
+
+layout(std430, binding = 0) readonly buffer Angles { float angles[]; };
+layout(std430, binding = 1) writeonly buffer Values { vec2 values[]; };
+
+#include "trig.glsl"
+
+void main()
+{
+    uint at = gl_GlobalInvocationID.x;
+    if (at >= angleCount) return;
+
+    float sine;
+    float cosine;
+    trigSinCos(angles[at], sine, cosine);
+    values[at] = vec2(sine, cosine);
+}

@@ -6,8 +6,8 @@
 // nothing here reads another body, so the order bodies are taken in changes nothing.
 //
 // Every figure the CPU's step also makes is `precise`: left alone, the compiler fuses a*b+c into one fma, which rounds
-// once where the CPU rounds twice, and a bound lands a float away from the host's. sin and cos are trig.glsl's, within a
-// float or two of the host's on every driver.
+// once where the CPU rounds twice, and a bound lands a float away from the host's. sin and cos are trig.glsl's, the host's
+// to the bit.
 
 layout(local_size_x = 64) in;
 

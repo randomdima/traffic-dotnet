@@ -25,11 +25,10 @@ namespace TrafficSimulation.Tests.DeviceTick;
 /// alone, and both towns spend the same impulses. Both solve in contact order (<see cref="DeviceSolver.SolveInContactOrder"/>).
 /// </para>
 /// <para>
-/// <b>What parts them is the device's own trigonometry</b>: a body its step turned points by this device's sine and
-/// cosine, a float off the host's, and a car's controller carries that to a millimetre within seconds. So where every
-/// body is, what freezes and what begins touching are asked over the first seconds (<see cref="ShovedCarPark"/>); the
-/// half minute after is asked only what nothing excuses — no body left inside another, and nobody hurt whom the host's
-/// town left whole.
+/// <b>Where every body is, what freezes and what begins touching are asked over the first seconds</b>
+/// (<see cref="ShovedCarPark"/>), within the solver's own agreement; the half minute after is asked only what nothing
+/// excuses — no body left inside another, and nobody hurt whom the host's town left whole. The two towns stand to the bit
+/// through all of it since the device's sine and cosine became the host's (<c>trig.glsl</c>), which nothing here asks.
 /// </para>
 /// </remarks>
 [Trait(Tier.Key, Tier.Device)]

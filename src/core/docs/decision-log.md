@@ -1,5 +1,28 @@
 # The kernel — decision log
 
+## 2026-10-10 — a kernel's sine and cosine are the host's to the bit
+
+**A float or two apart was a different town.** A shoved car's heading a float off the host's left a contact 34 µm
+deeper after the push, so the pair froze a step later than the host's (`SOL-37`, `DeviceTownBodiesTests`), and 10 856
+of 136 851 switching cars' looks on OdesaOsm came out a figure apart. `MathF.Sin`, `Cos` and `SinCos` are glibc's
+`sinf`, `cosf` and `sincosf`, which on x86-64 with FMA run `__sincosf_fma`: reduced and summed in doubles, every sum
+fused with the product before it, rounded to a float once.
+
+- **`trig.glsl`'s sine and cosine are that code**: its tables to the bit, its sums fused where that build fuses them —
+  read off its disassembly — and the large arguments' 64-bit reduction taken in 32-bit halves. Every kernel that includes
+  it computes in doubles, which every kernel of the device's tick needed already (`DeviceAtlas`).
+- Held: `TrigKernelTests`, 2.1 M angles — a heading's worth, every exponent, every edge of the reduction — the host's to
+  the bit on lavapipe, and 4.2 M on the RX 9070 XT. An unfused reduction fails it; an unfused last sum or a coefficient a
+  double apart does not, since rounding to a float hides them.
+- The shoved car park, the town ticking its agents and the device stepping its bodies, now stands to the bit as the
+  host's for its whole half minute, where it parted by millimetres within seconds. OdesaOsm (`--bench devicedecide`): 19
+  of 5.5 M verdicts unlike where 22 were, and 479 looks alike but for a figure where 10 856 were — the arctangent's,
+  still Cephes'. `--bench devicetown`: the device's kernels 1.71 → 1.78 ms a tick, the tick 11.67 → 11.69; the town
+  drives nearer the host's — 8 949 hard brakings where it braked 8 899 (the host's 8 984), 388 pairs beginning to touch
+  (387; 388), 223 lane switches asked and 195 made (220 and 190; 233 and 207).
+- **Only against the host it was read off**: another C library, or glibc on a machine without FMA (`__sincosf_sse2`),
+  rounds otherwise, and the device stands within a float of it as before.
+
 ## 2026-10-07 — a kernel's trigonometry is its own, not the driver's
 
 **Vulkan lets a driver's atan stand 4096 floats off and bounds sin and cos only absolutely**, and RADV's stand about a
@@ -7,8 +30,8 @@ part in a hundred thousand off. An arc is read about a centre a radius away and 
 back multiplied: on OdesaOsm's bends of 8.6 km a car stood a centimetre from where the host read it on its line, and its
 lead point half a millimetre off at the end of a 500 m chord, which the pedal — closing a speed in one tick — turned
 into a hundredth of a m/s². **The arcs, the line, the driver and the tyres take theirs from `geometry/kernels/trig.glsl`**:
-Cephes' minimax polynomials for atan and for sin and cos over one shared Cody–Waite reduction, within a float or two of
-`MathF` on every driver alike, and `precise` so none fuses them. Of 2.93 million car-ticks the device ran beside the town
+Cephes' minimax polynomials for atan, within a float or two of `MathF` on every driver alike, and `precise` so none
+fuses them; its sine and cosine are the host's own (above). Of 2.93 million car-ticks the device ran beside the town
 (`--bench devicecartick`, RX 9070 XT), 702 answered differently with the driver's own and 21 with these; the tick costs
 0.13 ms more. Android's drivers bound their trigonometry no tighter than Vulkan does, which is the other half of why the
 kernels carry their own.
