@@ -3,23 +3,23 @@
 //
 // The including kernel includes swept_rows.glsl, declares SWEPT_RUNS (SweptRun[]) and includes atlas.glsl first.
 
-// The ways under the body at one more station, atM along the path: each grown into the run its way had at the station
-// before while that run spans less than spanM, and a run of its own otherwise — false where there is no room left for
-// one (SweptGround.Station). stationAtM is the holder's last station, minus infinity before the first.
-bool sweptStation(
-    uint first, inout uint count, uint room, inout float stationAtM, float atM, float spanM,
-    AtlasCover under[AtlasMostWaysUnderABody], int underCount)
+// The ways under the body at one more station, atM along the path — the first underCount of atlasFound, as the read
+// there left them: each grown into the run its way had at the station before while that run spans less than spanM, and
+// a run of its own otherwise — false where there is no room left for one (SweptGround.Station). stationAtM is the
+// holder's last station, minus infinity before the first.
+bool sweptStation(uint first, inout uint count, uint room, inout float stationAtM, float atM, float spanM, int underCount)
 {
     float previousAtM = stationAtM;
     for (int cover = 0; cover < underCount; cover++)
     {
+        AtlasCover under = atlasFound[cover];
         int open = -1;
         for (int at = int(count) - 1; at >= 0; at--)
         {
             SweptRun run = SWEPT_RUNS[first + uint(at)];
             precise float spannedM = atM - run.firstAtM;
             if (spannedM > spanM) break;
-            if (run.way != under[cover].way || run.lastAtM != previousAtM) continue;
+            if (run.way != under.way || run.lastAtM != previousAtM) continue;
 
             open = at;
             break;
@@ -29,13 +29,13 @@ bool sweptStation(
         {
             SweptRun run = SWEPT_RUNS[first + uint(open)];
             SWEPT_RUNS[first + uint(open)] = SweptRun(
-                run.way, min(run.fromM, under[cover].fromM), max(run.toM, under[cover].toM), run.firstAtM, atM);
+                run.way, min(run.fromM, under.fromM), max(run.toM, under.toM), run.firstAtM, atM);
             continue;
         }
 
         if (count == room) return false;
 
-        SWEPT_RUNS[first + count] = SweptRun(under[cover].way, under[cover].fromM, under[cover].toM, atM, atM);
+        SWEPT_RUNS[first + count] = SweptRun(under.way, under.fromM, under.toM, atM, atM);
         count++;
     }
 

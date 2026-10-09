@@ -21,7 +21,8 @@ namespace TrafficSimulation.App.DeviceTick;
 /// <b>The frame's moving sprites emitted on the device</b> (<c>app/render/kernels/sprites_count.comp</c>,
 /// <c>sprites_write.comp</c>): the walkers, every part of every car, the signal heads and the cars on the level above,
 /// written into the over and above runs in <see cref="TownSprites.FillMoving"/>'s order and culled against the view as
-/// it culls — read back to be held to it. One submit and one wait.
+/// it culls — drawn where they are written (<see cref="EmitForTheFrame"/>, <see cref="TownRenderer.DrawTheMovingFrom"/>),
+/// or read back to be held to the host's fill (<see cref="Emit"/>).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -33,10 +34,12 @@ namespace TrafficSimulation.App.DeviceTick;
 /// the same.
 /// </para>
 /// <para>
-/// <b>Run in shadow</b>: each frame the host lays the walkers' and the cars' rows from its own fleets, and a car's line
-/// only as far as a lamp reads it (<see cref="CarLamps.TurnAheadRad"/>), packed. What looks are, where the lenses
-/// are, the heads and the lights' tables are laid once. The view, the clock and the live rosters are a frame block in a
-/// buffer rather than push constants, because the frame that will carry this pass is recorded once
+/// <b>The host lays every unit's row from its own fleets</b> each frame, with how far a car's line bends ahead of it
+/// (<see cref="CarLamps.TurnAheadRad"/>) in place of the line. <b>Bound to a car tick</b>, a car the tick still holds as
+/// it left it (<see cref="DeviceCarTick.Takes"/>) takes what that tick wrote over the town's copy
+/// (<c>sprites_cars.comp</c>) — so the town need not read every car back for the frame drawn after a tick. What looks are,
+/// where the lenses are, the heads and the lights' tables are laid once. The view, the clock and the live rosters are a
+/// frame block in a buffer rather than push constants, because the frame that will carry this pass is recorded once
 /// (<see cref="CameraView"/>).
 /// </para>
 /// </remarks>
@@ -51,12 +54,15 @@ internal sealed class DeviceSprites : IDisposable
         public const uint Walking = 4u;
     }
 
-    /// <summary>One car as the emit reads it (<c>CarRow</c>): its pose, what its lamps answer, its tow and its line.</summary>
+    /// <summary>
+    /// One car as the emit reads it (<c>CarRow</c>, <c>sprites_car.glsl</c>): its pose, what its lamps answer — how far
+    /// its line bends ahead of it among them — and its tow.
+    /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct CarRow(
         Vector2 PositionM, Vector2 Forward, float HeadingRad, float SteerRad, float BrakeMps2, float ProgressM, float AlongMps,
         float ContextPassAsideM, float ToTheBoxM, float FuseJitter, float PassEndsM, float PassSteppedOutM, float PassBackM,
-        float PassAsideM, uint Variant, uint Flags, int Towing, uint FirstArc, uint ArcCount, uint Pad = 0)
+        float PassAsideM, uint Variant, uint Flags, int Towing, float TurnAheadRad)
     {
         public const uint Broken = 1u;
         public const uint Driven = 2u;
@@ -67,8 +73,16 @@ internal sealed class DeviceSprites : IDisposable
         public const uint LineIsReverse = 64u;
         public const uint PassBegun = 128u;
         public const uint HeldByTheTail = 256u;
+
+        /// <summary>The car tick holds it as it left it, and what that tick wrote is laid over the town's (<c>sprites_cars.comp</c>).</summary>
+        public const uint FromTheDevice = 512u;
+
         public const int LevelShift = 16;
     }
+
+    /// <summary>The figures <c>sprites_cars.comp</c> is pushed.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    readonly record struct LayPush(uint CarCount, uint ArcsPerCar, float TurnAheadM);
 
     /// <summary>One walker's look (<c>PersonLook</c>): its quad standing and lying down.</summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -128,7 +142,6 @@ internal sealed class DeviceSprites : IDisposable
         public float LampBrakeMps2;
         public float StepBackLeadS;
         public float JunctionAheadM;
-        public float TurnAheadM;
         public float IndicateRad;
         public float FlashHz;
         public float FlashOnShare;
@@ -157,6 +170,7 @@ internal sealed class DeviceSprites : IDisposable
     internal enum Stage
     {
         Began,
+        Laid,
         Counted,
         Scanned,
         Written,
@@ -174,9 +188,13 @@ internal sealed class DeviceSprites : IDisposable
     readonly int _slots;
     readonly SpriteRoom _room;
 
-    readonly GpuBuffer _frame, _people, _cars, _lineArcs, _hands, _starts, _totals, _instances, _draws;
-    readonly GpuBuffer _frameIn, _peopleIn, _carsIn, _lineArcsIn, _handsIn;
-    readonly GpuBuffer _instancesOut, _drawsOut;
+    readonly GpuBuffer _frame, _people, _cars, _hands, _starts, _totals, _instances, _draws;
+    readonly GpuBuffer _frameIn, _peopleIn, _carsIn, _handsIn;
+    readonly GpuBuffer _drawsOut;
+
+    /// <summary>Both runs as an emit read back left them, laid by the first that is: an emit drawn where it is reads none.</summary>
+    GpuBuffer? _instancesOut;
+
     readonly ScanKernels _scans;
     readonly PrefixScan _scan;
     readonly ComputeKernel _count, _write;
@@ -184,9 +202,15 @@ internal sealed class DeviceSprites : IDisposable
     readonly ComputeBatch _batch;
     readonly GpuTimer _timer;
 
+    /// <summary>The car tick a car is drawn off where it still holds it, the kernel laying it, and each car's room for its line there.</summary>
+    readonly DeviceCarTick? _ticked;
+
+    readonly ComputeKernel? _lay;
+    readonly DescriptorSet _laySet;
+    readonly int _arcsPerCar;
+
     int _peopleLaid;
     int _carsLaid;
-    int _arcsLaid;
     int _handsLaid;
     int _alsoDrivenCar = -1;
 
@@ -194,20 +218,22 @@ internal sealed class DeviceSprites : IDisposable
     /// <param name="personCapacity">The walkers' roster's room.</param>
     /// <param name="signals">The lights' own tables (<see cref="SignalService.Table"/>), which the heads' colours are read off.</param>
     /// <param name="levelled">Whether the town has a level above its ground (<see cref="TownWorld.Levelled"/>).</param>
+    /// <param name="ticked">The car tick a car it still holds is drawn off (<see cref="DeviceCarTick.Drawn"/>), or none: every car as the town holds it.</param>
     public DeviceSprites(
         Vk vk, SimConfig config, TownSprites looks, SpriteRoom room, CarFleet cars, int personCapacity, SignalHeads heads,
-        SignalTable signals, bool levelled)
+        SignalTable signals, bool levelled, DeviceCarTick? ticked = null)
     {
         if (!vk.HasFloat64) throw new NotSupportedException($"{vk.DeviceName} has no doubles in its kernels, and a walker's cell is rounded in them.");
 
         _vk = vk;
         _config = config;
         _room = room;
-        _units =personCapacity + cars.Capacity + heads.Count;
+        _ticked = ticked;
+        _arcsPerCar = cars.Capacity > 0 ? cars.LineArcsOf(0).Length : 0;
+        _units = personCapacity + cars.Capacity + heads.Count;
         _slots = personCapacity + (CarParts(levelled) * cars.Capacity) + heads.Count;
         if (_slots > ScanKernels.MostCounts) throw new ArgumentOutOfRangeException(nameof(cars), _slots, "more sprite slots than one scan covers");
 
-        var arcsPerCar = cars.Capacity > 0 ? cars.LineArcsOf(0).Length : 0;
         var figures = FiguresOf(config, looks, room, cars.Capacity, personCapacity, heads.Count, signals, levelled);
 
         GpuBuffer[] set =
@@ -220,7 +246,6 @@ internal sealed class DeviceSprites : IDisposable
             Laid<Vector4>(Tints(config)),
             _people = Device<PersonRow>(personCapacity),
             _cars = Device<CarRow>(cars.Capacity),
-            _lineArcs = Device<ArcRow>(cars.Capacity * arcsPerCar),
             _hands = Device<uint>(cars.Capacity),
             Laid<HeadRow>(Heads(heads)),
             Laid<int>(signals.LaneAxis),
@@ -231,16 +256,15 @@ internal sealed class DeviceSprites : IDisposable
             _starts = Device<uint>(_slots),
             _totals = Device<uint>(4),
             Device<UInt2>(cars.Capacity),
-            _instances = Device<SpriteInstance>(room.Over + room.Above),
+            // A slot above at the least: a frame binds the run above at its own offset, which may not be the buffer's end.
+            _instances = Device<SpriteInstance>(room.Over + Math.Max(1, room.Above), BufferUsageFlags.VertexBufferBit),
             _draws = Device<DrawIndirectCommand>(2, BufferUsageFlags.IndirectBufferBit),
         ];
 
         _frameIn = Staging<FrameRow>(1);
         _peopleIn = Staging<PersonRow>(personCapacity);
         _carsIn = Staging<CarRow>(cars.Capacity);
-        _lineArcsIn = Staging<ArcRow>(cars.Capacity * arcsPerCar);
         _handsIn = Staging<uint>(cars.Capacity);
-        _instancesOut = Readback<SpriteInstance>(room.Over + room.Above);
         _drawsOut = Readback<DrawIndirectCommand>(2);
 
         _scans = new ScanKernels(vk);
@@ -249,13 +273,34 @@ internal sealed class DeviceSprites : IDisposable
         _write = new ComputeKernel(vk, "sprites_write.comp", set.Length, pushBytes: 0);
         _countSet = _count.Bind(set);
         _writeSet = _write.Bind(set);
+        if (ticked?.Drawn is { } drawn)
+        {
+            _lay = new ComputeKernel(vk, "sprites_cars.comp", 7, (uint)Marshal.SizeOf<LayPush>());
+            _laySet = _lay.Bind([_cars, drawn.Ticks, drawn.Commands, drawn.Briefs, drawn.Passes, drawn.Lines, drawn.Arcs]);
+        }
+
         _batch = new ComputeBatch(vk);
         _timer = new GpuTimer(vk, Enum.GetValues<Stage>().Length);
     }
 
-    /// <summary>The emit for a running town: its fleets' room, its heads and lights, and whether it has a level above.</summary>
-    public static DeviceSprites For(Vk vk, SimConfig config, TownWorld world, TownSprites looks, SpriteRoom room) =>
-        new(vk, config, looks, room, world.Cars, world.People.Capacity, world.Heads, world.Signals.Table, world.Levelled);
+    /// <summary>
+    /// The emit for a running town: its fleets' room, its heads and lights, and whether it has a level above — and the
+    /// car tick a car it still holds is drawn off, where the device ticks the town.
+    /// </summary>
+    public static DeviceSprites For(Vk vk, SimConfig config, TownWorld world, TownSprites looks, SpriteRoom room, DeviceCarTick? ticked = null) =>
+        new(vk, config, looks, room, world.Cars, world.People.Capacity, world.Heads, world.Signals.Table, world.Levelled, ticked);
+
+    /// <summary>
+    /// The two runs as the last emit wrote them, on the device — the over run from the first instance and the run above
+    /// from <see cref="AboveFrom"/> — for a frame to draw.
+    /// </summary>
+    public GpuBuffer Instances => _instances;
+
+    /// <summary>The two draws the last emit wrote, the over run's and the run above's, for a frame's indirect draws.</summary>
+    public GpuBuffer Draws => _draws;
+
+    /// <summary>Where in <see cref="Instances"/> the run above starts: past the over run's room.</summary>
+    public int AboveFrom => _room.Over;
 
     /// <summary>How many instances the last emit wrote into the over run, and into the run above.</summary>
     public int OverCount => (int)_drawsOut.Span<DrawIndirectCommand>()[0].InstanceCount;
@@ -263,10 +308,12 @@ internal sealed class DeviceSprites : IDisposable
     public int AboveCount => (int)_drawsOut.Span<DrawIndirectCommand>()[1].InstanceCount;
 
     /// <summary>The over run as the last emit that read it back wrote it.</summary>
-    public ReadOnlySpan<SpriteInstance> Over => _instancesOut.Span<SpriteInstance>()[..OverCount];
+    public ReadOnlySpan<SpriteInstance> Over => ReadBack.Span<SpriteInstance>()[..OverCount];
 
     /// <summary>And the run above, laid past the over run's room.</summary>
-    public ReadOnlySpan<SpriteInstance> Above => _instancesOut.Span<SpriteInstance>().Slice(_room.Over, AboveCount);
+    public ReadOnlySpan<SpriteInstance> Above => ReadBack.Span<SpriteInstance>().Slice(_room.Over, AboveCount);
+
+    GpuBuffer ReadBack => _instancesOut ?? throw new InvalidOperationException("No emit has read its runs back.");
 
     /// <summary>The device's time between two stages of the last emit, in milliseconds.</summary>
     public double BetweenMs(Stage from, Stage to) => _timer.BetweenMs((int)from, (int)to);
@@ -281,6 +328,8 @@ internal sealed class DeviceSprites : IDisposable
     /// <summary>Every walker of the roster as the emit reads it.</summary>
     public void LayPeople(PersonFleet people)
     {
+        // The last frame's emit may still be copying out of the rows laid for it.
+        _batch.Wait();
         var rows = _peopleIn.Span<PersonRow>();
         for (var person = 0; person < people.Count; person++)
         {
@@ -294,40 +343,30 @@ internal sealed class DeviceSprites : IDisposable
     }
 
     /// <summary>
-    /// Every car of the fleet as the emit reads it, and the hands at the wheel. A line is laid only as far as a lamp
-    /// reads it — the arcs that start short of <see cref="LampFigures.TurnAheadM"/> past the car's progress — and packed.
+    /// Every car of the fleet as the emit reads it, and the hands at the wheel — but where the car tick bound here still
+    /// holds a car (<see cref="DeviceCarTick.Takes"/>), what its tick wrote, which the emit lays over the town's copy.
     /// </summary>
     public void LayCars(CarFleet cars, RecoveryDuty recovery, ReadOnlySpan<Selection> handDriven, int alsoDrivenCar)
     {
+        _batch.Wait();
         var rows = _carsIn.Span<CarRow>();
-        var arcs = _lineArcsIn.Span<ArcRow>();
         var aheadM = _config.Lamps.TurnAheadM;
-        var arcsLaid = 0;
         for (var car = 0; car < cars.Count; car++)
         {
-            var firstArc = arcsLaid;
-            var lastM = cars.ProgressM[car] + aheadM;
-            var startM = 0f;
-            foreach (var arc in cars.LineOf(car))
-            {
-                if (startM >= lastM) break;
-
-                arcs[arcsLaid++] = ArcRow.Of(arc);
-                startM += arc.LengthM;
-            }
-
+            var fromTheDevice = _ticked?.Takes(car) ?? false;
             var pass = cars.Pass[car];
             var command = cars.Command[car];
             var flags = (cars.Broken[car] ? CarRow.Broken : 0u) | (cars.Driven[car] ? CarRow.Driven : 0u)
                         | (command.Reverse ? CarRow.Reverse : 0u) | (cars.BlueLight[car] ? CarRow.BlueLight : 0u)
                         | (cars.AtWork[car] ? CarRow.AtWork : 0u) | (cars.TurningAtTheBox[car] ? CarRow.TurningAtTheBox : 0u)
                         | (cars.LineIsReverse[car] ? CarRow.LineIsReverse : 0u) | (pass.Begun ? CarRow.PassBegun : 0u)
-                        | (recovery.HeldByTheTail[car] ? CarRow.HeldByTheTail : 0u) | ((uint)cars.LevelOf(car) << CarRow.LevelShift);
+                        | (recovery.HeldByTheTail[car] ? CarRow.HeldByTheTail : 0u) | (fromTheDevice ? CarRow.FromTheDevice : 0u)
+                        | ((uint)cars.LevelOf(car) << CarRow.LevelShift);
+            var turnAheadRad = fromTheDevice ? 0f : CarLamps.TurnAheadRad(cars.LineOf(car), cars.ProgressM[car], aheadM);
             rows[car] = new CarRow(
                 cars.PositionM[car], Heading.Unit(cars.HeadingRad[car]), cars.HeadingRad[car], command.SteerRad, command.BrakeMps2,
                 cars.ProgressM[car], cars.AlongMps[car], cars.Context[car].PassAsideM, cars.ToTheBoxM[car], cars.FuseJitter[car],
-                pass.EndsM, pass.SteppedOutM, pass.BackM, pass.AsideM, cars.Variant[car], flags, recovery.Towing[car],
-                (uint)firstArc, (uint)(arcsLaid - firstArc));
+                pass.EndsM, pass.SteppedOutM, pass.BackM, pass.AsideM, cars.Variant[car], flags, recovery.Towing[car], turnAheadRad);
         }
 
         var hands = _handsIn.Span<uint>();
@@ -338,7 +377,6 @@ internal sealed class DeviceSprites : IDisposable
         }
 
         _carsLaid = cars.Count;
-        _arcsLaid = arcsLaid;
         _handsLaid = held;
         _alsoDrivenCar = alsoDrivenCar;
     }
@@ -353,21 +391,64 @@ internal sealed class DeviceSprites : IDisposable
     /// </param>
     public void Emit(Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre, float elapsedS, bool readBack = true)
     {
+        var commands = Record(viewCentreM, viewSpanM, pixelsPerMetre, elapsedS);
+        _vk.BeforeTransfer(commands);
+        if (readBack)
+        {
+            _instancesOut ??= Own(_vk.CreateBuffer(_instances.SizeBytes, BufferUsageFlags.TransferDstBit, HostAccess.Reads));
+            _vk.Copy(commands, _instances, _instancesOut, _instances.SizeBytes);
+        }
+
+        _vk.Copy(commands, _draws, _drawsOut, _draws.SizeBytes);
+        _batch.SubmitAndWait();
+        _timer.Read();
+    }
+
+    /// <summary>
+    /// <b>The two runs emitted for the frame about to be drawn</b>, where they stay (<see cref="Instances"/>,
+    /// <see cref="Draws"/>): submitted and not waited for, behind whatever the queue holds and ahead of whatever follows —
+    /// the frame that draws them, and the next tick writing what this emit read.
+    /// </summary>
+    public void EmitForTheFrame(Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre, float elapsedS)
+    {
+        var commands = Record(viewCentreM, viewSpanM, pixelsPerMetre, elapsedS);
+        _vk.Barrier(
+            commands, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageWriteBit, PipelineStageFlags2.AllCommandsBit,
+            AccessFlags2.MemoryReadBit | AccessFlags2.MemoryWriteBit);
+        _batch.Submit();
+    }
+
+    /// <summary>
+    /// The emit recorded: the frame's words and the rows laid sent, the cars the bound tick holds laid off its tables,
+    /// then count, scan and write — begun behind everything submitted before it, whose last frame may still be drawing the
+    /// runs this one writes.
+    /// </summary>
+    CommandBuffer Record(Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre, float elapsedS)
+    {
+        _batch.Wait();
         _frameIn.Span<FrameRow>()[0] = new FrameRow(
             viewCentreM, viewSpanM, _config.View.CarPartLeastPx / pixelsPerMetre, elapsedS, (uint)_peopleLaid, (uint)_carsLaid,
             (uint)_handsLaid, _alsoDrivenCar);
 
         var vk = _vk;
         var commands = _batch.Begin();
+        vk.AfterTheSubmitsBefore(commands);
         _timer.Reset(commands);
         vk.Copy(commands, _frameIn, _frame, Bytes<FrameRow>(1));
         vk.Copy(commands, _peopleIn, _people, Bytes<PersonRow>(_peopleLaid));
         vk.Copy(commands, _carsIn, _cars, Bytes<CarRow>(_carsLaid));
-        vk.Copy(commands, _lineArcsIn, _lineArcs, Bytes<ArcRow>(_arcsLaid));
         vk.Copy(commands, _handsIn, _hands, Bytes<uint>(_handsLaid));
         vk.AfterTransfer(commands);
         _timer.Stamp(commands, (int)Stage.Began);
 
+        if (_lay is { } lay)
+        {
+            var push = new LayPush((uint)_carsLaid, (uint)_arcsPerCar, _config.Lamps.TurnAheadM);
+            lay.Dispatch(commands, _laySet, (uint)Math.Max(1, (_carsLaid + Group - 1) / Group), push);
+            vk.BetweenKernels(commands);
+        }
+
+        _timer.Stamp(commands, (int)Stage.Laid);
         var groups = (uint)Math.Max(1, (_units + Group - 1) / Group);
         _count.Dispatch(commands, _countSet, groups, default(NoPush));
         vk.BetweenKernels(commands);
@@ -375,13 +456,8 @@ internal sealed class DeviceSprites : IDisposable
         _scan.Record(commands, _slots);
         _timer.Stamp(commands, (int)Stage.Scanned);
         _write.Dispatch(commands, _writeSet, groups, default(NoPush));
-        vk.BeforeTransfer(commands);
         _timer.Stamp(commands, (int)Stage.Written);
-
-        if (readBack) vk.Copy(commands, _instances, _instancesOut, _instances.SizeBytes);
-        vk.Copy(commands, _draws, _drawsOut, _draws.SizeBytes);
-        _batch.SubmitAndWait();
-        _timer.Read();
+        return commands;
     }
 
     /// <summary>A car's four parts, and four again where there is a level above to draw them in.</summary>
@@ -425,7 +501,6 @@ internal sealed class DeviceSprites : IDisposable
             LampBrakeMps2 = lamps.BrakeMps2,
             StepBackLeadS = lamps.StepBackLeadS,
             JunctionAheadM = lamps.JunctionAheadM,
-            TurnAheadM = lamps.TurnAheadM,
             IndicateRad = lamps.TurnDeg * MathF.PI / 180f,
             FlashHz = lamps.FlashHz,
             FlashOnShare = lamps.FlashOnShare,
@@ -574,10 +649,13 @@ internal sealed class DeviceSprites : IDisposable
 
     public void Dispose()
     {
+        // A frame drawing the runs may still be in flight, and its recording names these buffers.
+        _vk.Api.DeviceWaitIdle(_vk.Device);
         _timer.Dispose();
         _batch.Dispose();
         _count.Dispose();
         _write.Dispose();
+        _lay?.Dispose();
         _scans.Dispose();
         foreach (var buffer in _owned) buffer.Dispose();
     }

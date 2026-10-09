@@ -465,6 +465,9 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// <summary>The bodies' phase, for whoever reads its times.</summary>
     public DeviceTownBodies Bodies => _bodies;
 
+    /// <summary>The cars' tick, for a frame that draws them off its tables (<see cref="DeviceCarTick.Drawn"/>).</summary>
+    public DeviceCarTick CarTick => _cars;
+
     /// <summary>The walkers' tick, for whoever checks what it reads.</summary>
     public DeviceWalkerTick Walkers => _walkers;
 
@@ -662,13 +665,26 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
         if (count == 0) return;
 
-        var left = _leaving.AsSpan(0, count);
+        TakeBack(cars, _leaving.AsSpan(0, count));
+        TakenBackWhole++;
+    }
+
+    public void TakeTheCarBack(TownWorld town, int car)
+    {
+        if (_cars.TownHolds(car)) return;
+
+        _leaving[0] = car;
+        TakeBack(town.Cars, _leaving.AsSpan(0, 1));
+    }
+
+    /// <summary>These cars, each left on the device by its last tick, handed over in a submit of their own and taken back as it left them.</summary>
+    void TakeBack(CarFleet cars, ReadOnlySpan<int> left)
+    {
         var commands = _batch.Begin();
         _vk.BeforeTransfer(commands);
         _cars.RecordTheHandOver(commands, left);
         _batch.SubmitAndWait();
         foreach (var car in left) TakeBackOnTheSide(cars, car);
-        TakenBackWhole++;
     }
 
     /// <summary>How many cars a tick ticked and left on the device, the town not reading them (<see cref="ReadsEveryCarBack"/>), over every tick.</summary>

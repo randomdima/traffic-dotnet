@@ -21,6 +21,11 @@ struct AtlasCover
     float toM;
 };
 
+// The ways the last read found under a body, and the stretch of each: the thread's own, read by the caller before its
+// next read. Kept at module scope so no function takes or returns it — the compiler copies an array passed so whole,
+// every entry of the room on every call whatever a read found.
+AtlasCover atlasFound[AtlasMostWaysUnderABody];
+
 layout(std430, binding = ATLAS_BINDING + 0) readonly buffer AtlasCellSlots { int atlasCellSlot[]; };
 layout(std430, binding = ATLAS_BINDING + 1) readonly buffer AtlasSlotFirsts { int atlasSlotFirst[]; };
 layout(std430, binding = ATLAS_BINDING + 2) readonly buffer AtlasPointStarts { uint atlasPointStarts[]; };
@@ -196,14 +201,14 @@ bool atlasAcross(AtlasBody body, float y, out float fromX, out float toX)
 
 // One way found at a metre along it, in tenths: the stretch of it already found grown to take it in, or a stretch begun
 // (RibbonAtlas.Grow). A way past the room is counted in `dropped`.
-int atlasGrow(inout AtlasCover found[AtlasMostWaysUnderABody], int written, int way, float alongTenths, inout uint dropped)
+int atlasGrow(int written, int way, float alongTenths, inout uint dropped)
 {
     for (int held = 0; held < written; held++)
     {
-        if (found[held].way != way) continue;
+        if (atlasFound[held].way != way) continue;
 
-        found[held].fromM = min(found[held].fromM, alongTenths);
-        found[held].toM = max(found[held].toM, alongTenths);
+        atlasFound[held].fromM = min(atlasFound[held].fromM, alongTenths);
+        atlasFound[held].toM = max(atlasFound[held].toM, alongTenths);
         return written;
     }
 
@@ -213,14 +218,14 @@ int atlasGrow(inout AtlasCover found[AtlasMostWaysUnderABody], int written, int 
         return written;
     }
 
-    found[written] = AtlasCover(way, alongTenths, alongTenths);
+    atlasFound[written] = AtlasCover(way, alongTenths, alongTenths);
     return written + 1;
 }
 
 // The ways under a body's points, a row at a time, each point counted only where the body reaches further past it than
 // it stands outside that way's band (RibbonAtlas.Read, with Grow); the stretches are left in tenths. A way past the room
 // is counted in `dropped`.
-int atlasRead(AtlasBody body, uint channels, inout AtlasCover found[AtlasMostWaysUnderABody], inout uint dropped)
+int atlasRead(AtlasBody body, uint channels, inout uint dropped)
 {
     int firstRow = atlasFirstMiddleFrom(atlasLeastY(body));
     int lastRow = atlasLastMiddleTo(atlasMostY(body));
@@ -271,7 +276,7 @@ int atlasRead(AtlasBody body, uint channels, inout AtlasCover found[AtlasMostWay
                     if (depthM <= outsideM) continue;
                 }
 
-                written = atlasGrow(found, written, way, float(entry.x >> 16), dropped);
+                written = atlasGrow(written, way, float(entry.x >> 16), dropped);
             }
         }
     }
@@ -282,34 +287,32 @@ int atlasRead(AtlasBody body, uint channels, inout AtlasCover found[AtlasMostWay
 // A point stands for the half step either side of it along the way, so each stretch is widened by that much and by
 // `pastM` — how far the body reaches past the points it was read at — held to the way's own two ends and turned from
 // tenths into metres (RibbonAtlas.Widened).
-void atlasWidened(inout AtlasCover found[AtlasMostWaysUnderABody], int written, float pastM)
+void atlasWidened(int written, float pastM)
 {
     precise float reachM = ATLAS_FIGURES.cellM * 0.5 + pastM;
     for (int held = 0; held < written; held++)
     {
-        AtlasCover one = found[held];
+        AtlasCover one = atlasFound[held];
         precise float fromM = roundedQuotient(one.fromM, ATLAS_FIGURES.alongPerMetre) - reachM;
         precise float toM = roundedQuotient(one.toM, ATLAS_FIGURES.alongPerMetre) + reachM;
-        found[held] = AtlasCover(one.way, max(0.0, fromM), min(atlasLengthM[one.way], toM));
+        atlasFound[held] = AtlasCover(one.way, max(0.0, fromM), min(atlasLengthM[one.way], toM));
     }
 }
 
-// Every way a box stands over, and the stretch of each, into `covers`; how many (RibbonAtlas.UnderBox). `forward` is
+// Every way a box stands over, and the stretch of each, into atlasFound; how many (RibbonAtlas.UnderBox). `forward` is
 // the host's unit vector of the heading, so no corner is the device's own trigonometry.
-int atlasUnderBox(
-    vec2 centreM, vec2 forward, float halfLengthM, float halfWidthM, uint channels, inout AtlasCover covers[AtlasMostWaysUnderABody],
-    inout uint dropped)
+int atlasUnderBox(vec2 centreM, vec2 forward, float halfLengthM, float halfWidthM, uint channels, inout uint dropped)
 {
-    int written = atlasRead(atlasBox(centreM, forward, halfLengthM, halfWidthM), channels, covers, dropped);
-    atlasWidened(covers, written, 0.0);
+    int written = atlasRead(atlasBox(centreM, forward, halfLengthM, halfWidthM), channels, dropped);
+    atlasWidened(written, 0.0);
     return written;
 }
 
 // The same for a disc — a walker's collider (RibbonAtlas.UnderDisc).
-int atlasUnderDisc(vec2 centreM, float radiusM, uint channels, inout AtlasCover covers[AtlasMostWaysUnderABody], inout uint dropped)
+int atlasUnderDisc(vec2 centreM, float radiusM, uint channels, inout uint dropped)
 {
-    int written = atlasRead(atlasDisc(centreM, radiusM), channels, covers, dropped);
-    atlasWidened(covers, written, 0.0);
+    int written = atlasRead(atlasDisc(centreM, radiusM), channels, dropped);
+    atlasWidened(written, 0.0);
     return written;
 }
 
@@ -349,10 +352,9 @@ bool atlasOnTheWay(uvec2 entry, int column, uint channels)
     return ATLAS_FIGURES.hasChannels == 0u || (atlasChannelsOf(int(entry.y)) & channels) != 0u;
 }
 
-// Every way whose band holds the lattice point nearest a wheel, grown into `covers` at the metre that point stands at;
+// Every way whose band holds the lattice point nearest a wheel, grown into atlasFound at the metre that point stands at;
 // whether there was any.
-bool atlasGrowUnderAWheel(
-    vec2 wheelM, uint channels, inout AtlasCover covers[AtlasMostWaysUnderABody], inout int written, inout uint dropped)
+bool atlasGrowUnderAWheel(vec2 wheelM, uint channels, inout int written, inout uint dropped)
 {
     int first;
     int end;
@@ -364,7 +366,7 @@ bool atlasGrowUnderAWheel(
         uvec2 entry = atlasEntries[at];
         if (!atlasOnTheWay(entry, column, channels)) continue;
 
-        written = atlasGrow(covers, written, int(entry.y), float(entry.x >> 16), dropped);
+        written = atlasGrow(written, int(entry.y), float(entry.x >> 16), dropped);
         onAWay = true;
     }
 
@@ -374,27 +376,24 @@ bool atlasGrowUnderAWheel(
 // Which of a car's four wheels stand on a way, a bit a wheel in `onAWay`, and every way they stand on, in wheel order,
 // with the stretch its body holds of each — the least and most metre its wheels stand at, widened by half a step and by
 // `aroundAWheelM`; how many (RibbonAtlas.UnderWheels).
-int atlasUnderWheels(
-    vec2 wheelsM[4], float aroundAWheelM, uint channels, inout AtlasCover covers[AtlasMostWaysUnderABody], inout uint dropped,
-    out uint onAWay)
+int atlasUnderWheels(vec2 wheelsM[4], float aroundAWheelM, uint channels, inout uint dropped, out uint onAWay)
 {
     int written = 0;
     onAWay = 0u;
     for (int wheel = 0; wheel < 4; wheel++)
     {
-        if (atlasGrowUnderAWheel(wheelsM[wheel], channels, covers, written, dropped)) onAWay |= 1u << uint(wheel);
+        if (atlasGrowUnderAWheel(wheelsM[wheel], channels, written, dropped)) onAWay |= 1u << uint(wheel);
     }
 
-    atlasWidened(covers, written, aroundAWheelM);
+    atlasWidened(written, aroundAWheelM);
     return written;
 }
 
 // The same for one wheel alone — a walker, standing as a single wheel at its centre (RibbonAtlas.UnderAWheel).
-int atlasUnderAWheel(
-    vec2 wheelM, float aroundM, uint channels, inout AtlasCover covers[AtlasMostWaysUnderABody], inout uint dropped)
+int atlasUnderAWheel(vec2 wheelM, float aroundM, uint channels, inout uint dropped)
 {
     int written = 0;
-    atlasGrowUnderAWheel(wheelM, channels, covers, written, dropped);
-    atlasWidened(covers, written, aroundM);
+    atlasGrowUnderAWheel(wheelM, channels, written, dropped);
+    atlasWidened(written, aroundM);
     return written;
 }

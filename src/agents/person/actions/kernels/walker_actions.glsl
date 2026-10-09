@@ -96,12 +96,11 @@ void walkerWalkTheWay(inout WalkerRow row, uint walker)
 // (WalkingBack.StandsOnThePavement).
 bool walkerStandsOnThePavement(WalkerRow row)
 {
-    AtlasCover under[AtlasMostWaysUnderABody];
     uint dropped = 0u;
-    int count = atlasUnderAWheel(row.positionM, row.radiusM, WALKER_FIGURES.groundChannel, under, dropped);
+    int count = atlasUnderAWheel(row.positionM, row.radiusM, WALKER_FIGURES.groundChannel, dropped);
     for (int at = 0; at < count; at++)
     {
-        if (under[at].way >= WALKING_FIGURES.firstFootwayWay) return true;
+        if (atlasFound[at].way >= WALKING_FIGURES.firstFootwayWay) return true;
     }
 
     return false;

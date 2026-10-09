@@ -48,11 +48,10 @@ void main()
     if (car >= ask.bodyCount) return;
 
     AtlasWheels asked = cars[car];
-    AtlasCover found[AtlasMostWaysUnderABody];
     uint dropped = 0u;
     uint onAWay;
-    int count = atlasUnderWheels(asked.wheelsM, asked.aroundAWheelM, asked.channels, found, dropped, onAWay);
+    int count = atlasUnderWheels(asked.wheelsM, asked.aroundAWheelM, asked.channels, dropped, onAWay);
     counts[car] = uvec4(uint(count), dropped, onAWay, 0u);
     uint first = car * uint(AtlasMostWaysUnderABody);
-    for (int at = 0; at < count; at++) covers[first + uint(at)] = found[at];
+    for (int at = 0; at < count; at++) covers[first + uint(at)] = atlasFound[at];
 }

@@ -1,10 +1,10 @@
 // CarLamps on the device (CAR-14): what a car's lamps say, and which of its lenses are lit at one instant — line for
-// line with CarLamps.Showing, OnThePass, Towards, TurnAheadRad, Shown and Phase, `precise` throughout. There is no
-// transcendental and no quotient in a lamp, so every lens is the host's.
+// line with CarLamps.Showing, OnThePass, Towards, Shown and Phase, `precise` throughout. There is no transcendental and
+// no quotient in a lamp, so every lens is the host's. How far the line bends ahead is handed in, worked out where the
+// line is (CarLamps.TurnAheadRad, lamps_turn.glsl).
 //
-// The including kernel supplies LAMP_FIGURES' fields: lampBrakeMps2, stepBackLeadS, junctionAheadM, turnAheadM,
-// indicateRad, flashHz, flashOnShare, beaconHz — and LAMP_LINE_ARCS, the fleet's lines as arc.glsl's Arc, a car's
-// from where its row says. arc.glsl is included first.
+// The including kernel supplies LAMP_FIGURES' fields: lampBrakeMps2, stepBackLeadS, junctionAheadM, indicateRad,
+// flashHz, flashOnShare, beaconHz.
 
 // CarLampSet, by bit.
 const uint LampTurnLeft = 1u;
@@ -28,7 +28,8 @@ const uint LampBeaconRed = 3u;
 const uint LampBeaconBlue = 4u;
 const uint LampBeaconAmber = 5u;
 
-// Everything Showing reads of a car: its command, its priority, its pass and the junction its line enters.
+// Everything Showing reads of a car: its command, its priority, its pass, the junction its line enters and how far the
+// line bends over LampFigures.TurnAheadM past where it stands.
 struct CarLampFacts
 {
     bool broken;
@@ -49,8 +50,7 @@ struct CarLampFacts
     float passAsideM;
     float contextPassAsideM;
     float toTheBoxM;
-    uint firstArc;
-    uint arcCount;
+    float turnAheadRad;
 };
 
 // CarLamps.Towards: the indicator on the side of the car something this far across its line is, the right where positive.
@@ -65,33 +65,6 @@ uint lampsOnThePass(CarLampFacts car)
     precise float backFromM = car.passBackM - leadM;
     float sayBackFromM = max(car.passSteppedOutM, backFromM);
     return car.progressM >= sayBackFromM ? lampsTowards(-car.passAsideM) : 0u;
-}
-
-// CarLamps.TurnAheadRad: how far the line bends over the next aheadM of it, summed along its arcs.
-float lampsTurnAheadRad(uint firstArc, uint arcCount, float progressM, float aheadM)
-{
-    precise float turnRad = 0.0;
-    precise float startM = 0.0;
-    precise float lastM = progressM + aheadM;
-    for (uint at = 0u; at < arcCount; at++)
-    {
-        if (startM >= lastM) break;
-
-        Arc arc = LAMP_LINE_ARCS[firstArc + at];
-        precise float endM = startM + arcLengthM(arc);
-        float fromM = max(startM, progressM);
-        float toM = min(endM, lastM);
-        if (toM > fromM)
-        {
-            precise float acrossM = toM - fromM;
-            precise float bentRad = arcCurvature(arc) * acrossM;
-            turnRad = turnRad + bentRad;
-        }
-
-        startM = endM;
-    }
-
-    return turnRad;
 }
 
 // CarLamps.Showing: what this car's lamps say this tick, as a CarLampSet.
@@ -109,8 +82,7 @@ uint lampsShowing(CarLampFacts car)
     if (car.contextPassAsideM != 0.0) return saying | lampsTowards(car.contextPassAsideM);
     if (!car.turningAtTheBox || car.toTheBoxM > LAMP_FIGURES.junctionAheadM) return saying;
 
-    float turnRad = lampsTurnAheadRad(car.firstArc, car.arcCount, car.progressM, LAMP_FIGURES.turnAheadM);
-    if (car.lineIsReverse) turnRad = -turnRad;
+    float turnRad = car.lineIsReverse ? -car.turnAheadRad : car.turnAheadRad;
 
     if (turnRad >= LAMP_FIGURES.indicateRad) saying |= LampTurnRight;
     else if (turnRad <= -LAMP_FIGURES.indicateRad) saying |= LampTurnLeft;

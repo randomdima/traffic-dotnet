@@ -55,9 +55,9 @@ internal sealed partial class TownWorld
     public float GrantLeftM(int car) => Device is { } device ? device.GrantLeftM(this, car) : Cars.GrantLeftM(car);
 
     /// <summary>
-    /// <b>Whether every car is read as this tick leaves it</b> — by a frame drawn after it, whose lamps, indicators and
-    /// front wheels read each car's command, junction ahead and line off the town's copy — so a device hands every car back
-    /// with it (<see cref="ReadsTheTickOf"/>).
+    /// <b>Whether every car is read as this tick leaves it</b> — by a frame drawn after it off the town's copy, whose lamps,
+    /// indicators and front wheels read each car's command, junction ahead and line, where they are not drawn off the
+    /// device's own tables — so a device hands every car back with it (<see cref="ReadsTheTickOf"/>).
     /// </summary>
     public bool ReadsEveryCarAfterTheTick { get; set; }
 

@@ -1,0 +1,68 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// A frame's cars as the emit reads them (sprites_car.glsl's CarRow), made current off the car tick's own tables, one
+// thread a car: the host lays every car as it holds it, and one the tick still holds as it left it (CarFromTheDevice,
+// app/devicetick/DeviceCarTick.Takes) takes over the town's older copy what its tick wrote — where it is on its line and
+// how fast along it, its command, the junction ahead and how far aside its context steps, its pass, and how far its line
+// bends ahead of it (lamps_turn.glsl), read off the tick's own line.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint carCount;
+    uint arcsPerCar;
+    float turnAheadM;
+} figures;
+
+#define SPLINE_ARCS arcs
+#define LAMP_LINE_ARCS arcs
+
+#include "core/geometry/kernels/arc.glsl"
+#include "agents/car/body/kernels/tyre_rows.glsl"
+#include "agents/car/control/kernels/car_line.glsl"
+#include "world/town/kernels/car_tick_rows.glsl"
+#include "world/town/kernels/box_ahead.glsl"
+#include "app/render/kernels/sprites_car.glsl"
+
+layout(std430, binding = 6) readonly buffer Arcs { Arc arcs[]; };
+
+#include "core/geometry/kernels/arc_chain.glsl"
+#include "agents/car/control/kernels/overtake.glsl"
+#include "agents/car/body/kernels/lamps_turn.glsl"
+
+layout(std430, binding = 0) buffer Cars { CarRow cars[]; };
+layout(std430, binding = 1) readonly buffer Ticks { CarTickRow ticks[]; };
+layout(std430, binding = 2) readonly buffer Commands { TyreCommand commands[]; };
+layout(std430, binding = 3) readonly buffer Briefs { CarBriefRow briefs[]; };
+layout(std430, binding = 4) readonly buffer Passes { OvertakeRow passes[]; };
+layout(std430, binding = 5) readonly buffer Lines { CarLineRow lines[]; };
+
+void main()
+{
+    uint car = gl_GlobalInvocationID.x;
+    if (car >= figures.carCount || (cars[car].flags & CarFromTheDevice) == 0u) return;
+
+    CarTickRow tick = ticks[car];
+    TyreCommand command = commands[car];
+    CarBriefRow brief = briefs[car];
+    OvertakeRow pass = passes[car];
+    CarRow row = cars[car];
+    row.steerRad = command.steerRad;
+    row.brakeMps2 = command.brakeMps2;
+    row.progressM = tick.progressM;
+    row.alongMps = tick.alongMps;
+    row.contextPassAsideM = brief.passAsideM;
+    row.toTheBoxM = brief.toTheBoxM;
+    row.passEndsM = overtakeEndsM(pass);
+    row.passSteppedOutM = overtakeSteppedOutM(pass);
+    row.passBackM = pass.backM;
+    row.passAsideM = pass.asideM;
+    row.turnAheadRad = lampsTurnAheadRad(car * figures.arcsPerCar, lines[car].arcCount, tick.progressM, figures.turnAheadM);
+
+    uint drawn = CarReverse | CarTurningAtTheBox | CarPassBegun;
+    row.flags = (row.flags & ~drawn) | ((command.handbrakeAndReverse & 2u) != 0u ? CarReverse : 0u)
+                | ((brief.flags & BoxTurning) != 0u ? CarTurningAtTheBox : 0u) | (overtakeBegun(pass) ? CarPassBegun : 0u);
+    cars[car] = row;
+}

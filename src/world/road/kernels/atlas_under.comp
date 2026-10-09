@@ -51,13 +51,12 @@ void main()
     if (body >= ask.bodyCount) return;
 
     AtlasAsked asked = bodies[body];
-    AtlasCover found[AtlasMostWaysUnderABody];
     uint dropped = 0u;
     int count = asked.disc != 0u
-        ? atlasUnderDisc(asked.centreM, asked.halfLengthM, asked.channels, found, dropped)
-        : atlasUnderBox(asked.centreM, asked.forward, asked.halfLengthM, asked.halfWidthM, asked.channels, found, dropped);
+        ? atlasUnderDisc(asked.centreM, asked.halfLengthM, asked.channels, dropped)
+        : atlasUnderBox(asked.centreM, asked.forward, asked.halfLengthM, asked.halfWidthM, asked.channels, dropped);
 
     counts[body] = uvec2(uint(count), dropped);
     uint first = body * uint(AtlasMostWaysUnderABody);
-    for (int at = 0; at < count; at++) covers[first + uint(at)] = found[at];
+    for (int at = 0; at < count; at++) covers[first + uint(at)] = atlasFound[at];
 }

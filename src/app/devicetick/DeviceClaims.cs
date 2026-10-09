@@ -143,6 +143,13 @@ internal sealed class DeviceClaims : IDisposable
     readonly List<GpuBuffer> _owned = [];
     readonly GpuBuffer _rows, _counts, _starts, _cursor, _order, _bodyRuns, _plannedRuns, _holds, _shown, _answers, _moved, _tally;
     readonly GpuBuffer _blockSums;
+
+    /// <summary>
+    /// The last pass a hold with a piece on each way moved in, so a pass answers again only the holds with something new
+    /// to be answered against (<c>claims_answer.comp</c>, <c>LaneOccupancy.NeedsAnswer</c>) — cleared to no pass before the first.
+    /// </summary>
+    readonly GpuBuffer _wayMoved;
+
     readonly GpuBuffer? _rowsIn, _holdsIn, _shownIn, _tallyIn;
     readonly GpuBuffer _rowsOut, _holdsOut, _answersOut, _movedOut, _orderOut, _bodyRunsOut, _plannedRunsOut, _tallyOut;
     readonly ComputeKernel _count, _file, _sort, _answer, _show, _cut, _grant;
@@ -185,6 +192,7 @@ internal sealed class DeviceClaims : IDisposable
         _shown = Device<float>(holds);
         _answers = Device<ClaimAnswer>(holds);
         _moved = Device<uint>(_passes);
+        _wayMoved = Device<uint>(ways);
         _blockSums = Device<uint>(ScanKernels.Block);
         _tally = Own(
             vk.CreateBuffer(
@@ -218,7 +226,7 @@ internal sealed class DeviceClaims : IDisposable
         _fileSet = _file.Bind(lists);
         _sortSet = _sort.Bind(lists);
 
-        GpuBuffer[] answers = [_rows, _bodyRuns, _plannedRuns, _order, _order, _holds, _shown, _answers, _moved, _tally];
+        GpuBuffer[] answers = [_rows, _bodyRuns, _plannedRuns, _order, _order, _holds, _shown, _answers, _moved, _tally, _wayMoved];
         var answersPush = (uint)Marshal.SizeOf<ClaimsPush>();
         _answer = new ComputeKernel(vk, "claims_answer.comp", answers.Length, answersPush);
         _show = new ComputeKernel(vk, "claims_show.comp", answers.Length, answersPush);
@@ -551,6 +559,7 @@ internal sealed class DeviceClaims : IDisposable
         var vk = _vk;
         vk.BeforeTransfer(commands);
         vk.Fill(commands, _moved, 0);
+        vk.Fill(commands, _wayMoved, uint.MaxValue);
         vk.AfterTransfer(commands);
         for (var pass = 0; pass < _passes; pass++)
         {

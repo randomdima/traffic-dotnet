@@ -237,8 +237,7 @@ uvec2 spritesLamps(uint car)
     facts.passAsideM = row.passAsideM;
     facts.contextPassAsideM = row.contextPassAsideM;
     facts.toTheBoxM = row.toTheBoxM;
-    facts.firstArc = row.firstArc;
-    facts.arcCount = row.arcCount;
+    facts.turnAheadRad = row.turnAheadRad;
 
     CarLampMoment moment = lampsMoment(lampsShowing(facts), frame.elapsedS, row.fuseJitter);
     uvec2 shown = uvec2(0u);

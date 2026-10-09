@@ -12,6 +12,7 @@ using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Tests.CityGen;
 using TrafficSimulation.Tests.Runtime;
+using TrafficSimulation.Tests.World;
 using TrafficSimulation.World.Containment;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
@@ -89,6 +90,77 @@ public class DeviceSpritesTests(Lavapipe device) : IClassFixture<Lavapipe>
             }
         }
 
+        Assert.True(differ.Count == 0, $"{differ.Count} differences over {drawn} instances: {string.Join("; ", differ.Take(6))}");
+    }
+
+    /// <summary>
+    /// <b>A car the device ticked is drawn off the car tick's own tables as the town draws it once every car is taken
+    /// back</b> (<see cref="DeviceSprites"/> bound to <see cref="DeviceTown.CarTick"/>, <c>sprites_cars.comp</c>): every
+    /// tick of a run that leaves cars on the device — each car the tick still holds read where it is on its line, how
+    /// fast, its command, the junction ahead and its line's bend off the device rather than the town's older copy.
+    /// </summary>
+    [Fact]
+    public void ACarLeftOnTheDeviceIsDrawnAsTheTownTakenBackWholeDrawsIt()
+    {
+        var plan = Towns.Built;
+        using var world = new TownWorld(plan, Config);
+        var loop = new SimLoop<TownWorld>(world, Config);
+        loop.Advance((int)(Config.Building.DwellMaxS * Config.Sim.TickRateHz) + 120);
+        DrawnOffTheDeviceAsTheTownTakenBackWhole(world, loop, plan, ticks: 600, passed: -1);
+    }
+
+    /// <summary>
+    /// <b>And a car getting past a wreck is</b>, the whole of its pass: stepped out, alongside and back, every stage of it
+    /// driven by the device and read off its own row of the pass.
+    /// </summary>
+    [Fact]
+    public void ACarGettingPastAWreckOnTheDeviceIsDrawnAsTheTownTakenBackWholeDrawsIt()
+    {
+        var plan = Towns.Of(Towns.Fixture);
+        using var world = new TownWorld(plan, Config);
+        var loop = new SimLoop<TownWorld>(world, Config);
+        loop.Advance(OvertakeInATownTests.WarmUpTicks);
+        var (driver, _, _, _, _) = OvertakeInATownTests.StageAWreckAhead(world, alsoInTheLaneBeside: false);
+        DrawnOffTheDeviceAsTheTownTakenBackWhole(world, loop, plan, OvertakeInATownTests.WatchedTicks, driver);
+    }
+
+    /// <summary>
+    /// A running town ticked on the device for so many ticks, and each tick its moving runs over the whole town at a scale
+    /// that draws every part, emitted off the device and again off the town once every car is taken back — held equal, and
+    /// the car named, if any, seen on its pass while the tick held it (a car on a pass is handed back every tick, and drawn
+    /// off the device's row all the same).
+    /// </summary>
+    void DrawnOffTheDeviceAsTheTownTakenBackWhole(TownWorld world, SimLoop<TownWorld> loop, CityPlan plan, int ticks, int passed)
+    {
+        const float PxPerM = 20f;
+        var looks = Looks.Value;
+        using var town = new DeviceTown(device.Vk, Config, world);
+        world.Device = town;
+        var room = TownSprites.RoomFor(plan, Config);
+        using var offTheDevice = DeviceSprites.For(device.Vk, Config, world, looks, room, town.CarTick);
+        using var offTheTown = DeviceSprites.For(device.Vk, Config, world, looks, room);
+        var centreM = plan.WorldSizeM * 0.5f;
+
+        var differ = new List<string>();
+        var drawn = 0;
+        var passHeld = false;
+        for (var tick = 0; tick < ticks && differ.Count == 0; tick++)
+        {
+            loop.Advance();
+            passHeld |= passed >= 0 && town.CarTick.Takes(passed) && world.Cars.Pass[passed].Begun;
+            offTheDevice.Lay(world);
+            offTheDevice.Emit(centreM, plan.WorldSizeM, PxPerM, world.ElapsedS);
+            town.TakeEveryCarBack(world);
+            offTheTown.Lay(world);
+            offTheTown.Emit(centreM, plan.WorldSizeM, PxPerM, world.ElapsedS);
+            Compare($"tick {loop.Tick} over", offTheTown.Over, offTheDevice.Over, looks, differ);
+            Compare($"tick {loop.Tick} above", offTheTown.Above, offTheDevice.Above, looks, differ);
+            drawn += offTheTown.OverCount + offTheTown.AboveCount;
+        }
+
+        world.Device = null;
+        Assert.True(town.CarsLeftOnTheDevice > 0, "no car was left on the device");
+        Assert.True(passed < 0 || passHeld, $"car {passed} was never on its pass with the device's tick holding it");
         Assert.True(differ.Count == 0, $"{differ.Count} differences over {drawn} instances: {string.Join("; ", differ.Take(6))}");
     }
 

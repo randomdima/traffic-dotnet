@@ -80,13 +80,19 @@ float claimsKeptOffM(uint hold, ClaimRow asker, uint cutBy)
     return roomFor ? held.keptOffWhatItMayPassM : held.standingMarginM;
 }
 
+// Whether the asker, and the other, is committed to the ground at atM — what decides a meeting first (LaneOccupancy.Beats).
+bvec2 claimsCommitted(ClaimRow ask, float atM, ClaimRow other)
+{
+    return bvec2(atM <= ask.committedToM, !claimHasBody(other) && atM <= other.committedToM);
+}
+
 // Which of two planned reservations meeting on one piece of ground keeps it — true where the asker does
 // (LaneOccupancy.Beats). The asker is a main claim, read as the terms it was asked on (PlannedAsk).
 bool claimsBeats(ClaimRow ask, float atM, bool askStands, ClaimRow other, bool otherStands)
 {
-    bool askCommitted = atM <= ask.committedToM;
-    bool otherCommitted = !claimHasBody(other) && atM <= other.committedToM;
-    if (askCommitted != otherCommitted) return askCommitted;
+    bvec2 committed = claimsCommitted(ask, atM, other);
+    bool askCommitted = committed.x;
+    if (askCommitted != committed.y) return askCommitted;
     if (askStands != otherStands) return askStands;
     if (!askCommitted && claimRung(ask) != claimRung(other)) return claimRung(ask) < claimRung(other);
 
@@ -95,6 +101,18 @@ bool claimsBeats(ClaimRow ask, float atM, bool askStands, ClaimRow other, bool o
     if (askArrivalM != otherArrivalM) return askArrivalM < otherArrivalM;
 
     return claimRoster(ask) != claimRoster(other) ? claimRoster(ask) < claimRoster(other) : ask.occupant < other.occupant;
+}
+
+// The same for two meeting on a way over [atM, overToM), whether each holder's body stands there read only where their
+// commitments leave the meeting open: each read walks the way's bodies, and a hold meets every plan on its ways.
+bool claimsBeatsOn(uint way, ClaimRow ask, float atM, float overToM, ClaimRow other)
+{
+    bvec2 committed = claimsCommitted(ask, atM, other);
+    if (committed.x != committed.y) return committed.x;
+
+    return claimsBeats(
+        ask, atM, claimsStandsOn(way, ask.occupant, claimRoster(ask), atM, overToM), other,
+        claimsStandsOn(way, other.occupant, claimRoster(other), atM, overToM));
 }
 
 // How far along its way a main claim can be had against the bodies and the plans as shown (LaneOccupancy.Reach).
@@ -134,12 +152,7 @@ float claimsReach(ClaimRow ask, out uint cutBy)
         if (claimGone(other) || !claimsShows(other, otherToM) || otherToM <= fromM || claimsOwns(ask, other)) continue;
 
         float overToM = min(toM, otherToM);
-        if (!claimsHeldAgainst(ask, other) && claimsBeats(
-                ask, atM, claimsStandsOn(way, ask.occupant, claimRoster(ask), atM, overToM), other,
-                claimsStandsOn(way, other.occupant, claimRoster(other), atM, overToM)))
-        {
-            continue;
-        }
+        if (!claimsHeldAgainst(ask, other) && claimsBeatsOn(way, ask, atM, overToM, other)) continue;
 
         limitM = atM;
         cutBy = row;
@@ -166,12 +179,7 @@ bool claimsTakenBy(ClaimRow secondary, out uint taker)
 
         float atM = max(main.fromM, secondary.fromM);
         float overToM = min(mainToM, secondary.toM);
-        if (claimsAnswered(main.hold) && !claimsBeats(
-                main, atM, claimsStandsOn(way, main.occupant, claimRoster(main), atM, overToM), secondary,
-                claimsStandsOn(way, secondary.occupant, claimRoster(secondary), atM, overToM)))
-        {
-            continue;
-        }
+        if (claimsAnswered(main.hold) && !claimsBeatsOn(way, main, atM, overToM, secondary)) continue;
 
         taker = row;
         return true;

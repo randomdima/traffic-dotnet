@@ -37,6 +37,7 @@ internal sealed partial class TownWorld
         _selected.Clear();
         _selected.Add(wanted);
         GaveUpTheWheel();
+        TakeTheSelectedBack();
     }
 
     /// <summary>
@@ -49,7 +50,10 @@ internal sealed partial class TownWorld
         if (!wanted.Any) return;
 
         var changed = _selected.Remove(wanted) || _selected.Add(wanted);
-        if (changed) GaveUpTheWheel();
+        if (!changed) return;
+
+        GaveUpTheWheel();
+        TakeTheSelectedBack();
     }
 
     public void SelectNone()
@@ -101,8 +105,28 @@ internal sealed partial class TownWorld
             }
         }
 
-        if (changed) GaveUpTheWheel();
+        if (changed)
+        {
+            GaveUpTheWheel();
+            TakeTheSelectedBack();
+        }
+
         return _selected.Count;
+    }
+
+    /// <summary>
+    /// <b>Every car picked out held as the device's last tick left it</b> (<see cref="ITownDevice.TakeTheCarBack"/>): the
+    /// town reads a selected car every tick from its next on (<see cref="ReadsTheTickOf"/>), and whatever the interface
+    /// does to one before then is done to the car as it stands.
+    /// </summary>
+    void TakeTheSelectedBack()
+    {
+        if (Device is not { } device) return;
+
+        foreach (var unit in _selected.Units)
+        {
+            if (unit.Kind == SelectionKind.Car) device.TakeTheCarBack(this, unit.Index);
+        }
     }
 
     /// <summary>

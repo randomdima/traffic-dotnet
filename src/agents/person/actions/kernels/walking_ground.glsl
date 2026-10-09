@@ -290,16 +290,16 @@ bool walkerIsOnTheStraightTo(WalkerRow row, vec2 toM)
     return walkerLength(apartM) <= walkerAStrideM();
 }
 
-// The ground a body walking straight from one place to another covers (WalkingGround.UnderTheStretch).
-int walkerUnderTheStretch(vec2 fromM, vec2 toM, float halfWidthM, inout AtlasCover under[AtlasMostWaysUnderABody], inout uint dropped)
+// The ground a body walking straight from one place to another covers, into atlasFound (WalkingGround.UnderTheStretch).
+int walkerUnderTheStretch(vec2 fromM, vec2 toM, float halfWidthM, inout uint dropped)
 {
     precise vec2 along = toM - fromM;
     float lengthM = walkerLength(along);
-    if (lengthM <= 0.0) return atlasUnderDisc(fromM, halfWidthM, WALKER_FIGURES.groundChannel, under, dropped);
+    if (lengthM <= 0.0) return atlasUnderDisc(fromM, halfWidthM, WALKER_FIGURES.groundChannel, dropped);
 
     precise vec2 centreM = (fromM + toM) * 0.5;
     precise float halfLengthM = (lengthM * 0.5) + halfWidthM;
-    return atlasUnderBox(centreM, walkerOver(along, lengthM), halfLengthM, halfWidthM, WALKER_FIGURES.groundChannel, under, dropped);
+    return atlasUnderBox(centreM, walkerOver(along, lengthM), halfLengthM, halfWidthM, WALKER_FIGURES.groundChannel, dropped);
 }
 
 // A straight committed to from where the walker stands to toM, the ground under it swept once
@@ -320,7 +320,6 @@ void walkerCommitTheStraight(inout WalkerRow row, uint walker, vec2 toM)
     precise float strideM = radiusM * 2.0;
     precise float spanM = strideM * 2.0;
     uint first = walker * WALKER_FIGURES.straightRoom;
-    AtlasCover under[AtlasMostWaysUnderABody];
     for (float atM = 0.0; ; )
     {
         precise float nextM = atM + strideM;
@@ -328,9 +327,9 @@ void walkerCommitTheStraight(inout WalkerRow row, uint walker, vec2 toM)
         precise vec2 stationM = fromM + (forward * atM);
         precise vec2 toStation = fromM + (forward * toStationM);
         uint dropped = 0u;
-        int count = walkerUnderTheStretch(stationM, toStation, radiusM, under, dropped);
+        int count = walkerUnderTheStretch(stationM, toStation, radiusM, dropped);
         uint runs = row.straightRuns;
-        bool fits = sweptStation(first, runs, WALKER_FIGURES.straightRoom, stationAtM, atM, spanM, under, count);
+        bool fits = sweptStation(first, runs, WALKER_FIGURES.straightRoom, stationAtM, atM, spanM, count);
         row.straightRuns = runs;
         if (!fits || toStationM >= lengthM) return;
 
@@ -435,14 +434,14 @@ uint walkerBodyCover(WalkerRow row, uint walker, int occupant, uint roster, uint
     bool still = walkerIs(row, WalkerWounded) || all(equal(row.declaredMps, vec2(0.0)));
 
     uint written = 0u;
-    AtlasCover under[AtlasMostWaysUnderABody];
     uint dropped = 0u;
-    int count = atlasUnderAWheel(row.positionM, radiusM, WALKER_FIGURES.groundChannel, under, dropped);
+    int count = atlasUnderAWheel(row.positionM, radiusM, WALKER_FIGURES.groundChannel, dropped);
     for (int at = 0; at < count; at++)
     {
-        bool onItsLine = under[at].way == walking;
+        AtlasCover under = atlasFound[at];
+        bool onItsLine = under.way == walking;
         BODY_COVER[into + written] = walkerBodyRow(
-            under[at].way, under[at].fromM, under[at].toM, onItsLine ? alongMps : 0.0, occupant, roster, onItsLine,
+            under.way, under.fromM, under.toM, onItsLine ? alongMps : 0.0, occupant, roster, onItsLine,
             onItsLine ? onward : OnwardNoWay, still);
         written++;
     }

@@ -19,8 +19,8 @@ layout(push_constant) uniform Figures
 #include "world/road/kernels/claims_buffers.glsl"
 
 // A car's hold this rebuild (or -1) and where its claim begins on its line.
-layout(std430, binding = 10) readonly buffer Holders { vec2 holders[]; };
-layout(std430, binding = 11) writeonly buffer Grants { vec4 grants[]; };
+layout(std430, binding = 11) readonly buffer Holders { vec2 holders[]; };
+layout(std430, binding = 12) writeonly buffer Grants { vec4 grants[]; };
 
 void main()
 {

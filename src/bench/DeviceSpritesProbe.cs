@@ -166,7 +166,7 @@ internal static class DeviceSpritesProbe
         public void Add(DeviceSprites onDevice)
         {
             WholeUs.Add(onDevice.BetweenMs(DeviceSprites.Stage.Began, DeviceSprites.Stage.Written) * 1e3);
-            CountUs.Add(onDevice.BetweenMs(DeviceSprites.Stage.Began, DeviceSprites.Stage.Counted) * 1e3);
+            CountUs.Add(onDevice.BetweenMs(DeviceSprites.Stage.Laid, DeviceSprites.Stage.Counted) * 1e3);
             ScanUs.Add(onDevice.BetweenMs(DeviceSprites.Stage.Counted, DeviceSprites.Stage.Scanned) * 1e3);
             WriteUs.Add(onDevice.BetweenMs(DeviceSprites.Stage.Scanned, DeviceSprites.Stage.Written) * 1e3);
         }

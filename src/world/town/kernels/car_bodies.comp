@@ -36,6 +36,7 @@ layout(push_constant) uniform Figures
 #define ATLAS_BINDING 7
 #define LANE_CHAIN chain
 #define CAR_LINES lines
+#define BODY_ROWS rows
 #define CONNECTOR_AT connectorAt
 #define CONNECTOR_TO connectorTo
 
@@ -62,12 +63,9 @@ void main()
     uint car = gl_GlobalInvocationID.x;
     if (car >= figures.bodyCount) return;
 
-    ClaimRow laid[AtlasMostWaysUnderABody];
     uint channels;
     uint dropped;
     uint wheelsOnAWay;
-    int count = bodyLayTheCar(cars[car], laid, channels, dropped, wheelsOnAWay);
+    int count = bodyLayTheCar(cars[car], car * uint(AtlasMostWaysUnderABody), channels, dropped, wheelsOnAWay);
     counts[car] = uvec4(uint(count), channels, dropped, wheelsOnAWay);
-    uint first = car * uint(AtlasMostWaysUnderABody);
-    for (int at = 0; at < count; at++) rows[first + uint(at)] = laid[at];
 }

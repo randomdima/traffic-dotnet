@@ -65,6 +65,15 @@ internal interface ITownDevice
     }
 
     /// <summary>
+    /// <b>One car handed back as the device's last tick left it</b>, where the interface has just picked it out and may
+    /// read or change it before the town's next tick reads it (<see cref="TownWorld.ReadsTheTickOf"/>) — an order, a hand,
+    /// letting it go. Nothing for one the town holds as the device left it.
+    /// </summary>
+    void TakeTheCarBack(TownWorld town, int car)
+    {
+    }
+
+    /// <summary>
     /// <b>How far this car may yet go on its grant</b> (<see cref="Agents.Car.Body.CarFleet.GrantLeftM"/>) as the town would
     /// hold it were the car handed back now: off the device where it keeps a car the town has not read, handed back with
     /// every tick while the town watches every agent (<see cref="TownWorld.WatchesEveryAgent"/>) — the town's own otherwise.

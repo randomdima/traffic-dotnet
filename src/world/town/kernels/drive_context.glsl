@@ -45,20 +45,7 @@ const uint ContextHasAPlace = 4u;
 const uint ContextHasAHold = 8u;
 const uint ContextCut = 16u;
 
-// The junction ahead of a car (CarFleet.ToTheBoxM, BoxIsOurs, TurningAtTheBox, InsideTheBox, CommittedToTheBox,
-// LightAheadM).
-struct BoxAheadRow
-{
-    float toTheBoxM;
-    float lightAheadM;
-    uint flags;
-    uint pad;
-};
-
-const uint BoxClaimed = 1u;
-const uint BoxTurning = 2u;
-const uint BoxInside = 4u;
-const uint BoxCommitted = 8u;
+#include "world/town/kernels/box_ahead.glsl"
 
 float contextInfinity() { return uintBitsToFloat(0x7F800000u); }
 

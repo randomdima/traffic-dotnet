@@ -265,6 +265,17 @@ internal sealed class TownSprites
         TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre,
         Span<SpriteInstance> under, Span<SpriteInstance> over, Span<SpriteInstance> above)
     {
+        var still = FillStill(world, viewCentreM, viewSpanM, under);
+        var (overCount, aboveCount) = FillMoving(world, config, viewCentreM, viewSpanM, pixelsPerMetre, over, above);
+        return still with { Over = overCount, Above = aboveCount };
+    }
+
+    /// <summary>
+    /// <b>All of <see cref="Fill"/> but what moves</b>: what lies under it into <paramref name="under"/>, and the stretch
+    /// of the buildings and props the view can see — what a frame fills where the device emits the rest.
+    /// </summary>
+    public SpriteCounts FillStill(TownWorld world, Vector2 viewCentreM, Vector2 viewSpanM, Span<SpriteInstance> under)
+    {
         // Painter's order, and the marks are under all of it: a skid is on the road, so everything that
         // stands or drives passes over its own.
         var underCount = MarkSprites.Fill(world.Marks, RubberBrushSheet, SoilBrushSheet, viewCentreM, viewSpanM, under);
@@ -272,9 +283,7 @@ internal sealed class TownSprites
         // The scenery under everything that stands: nothing of the town's comes near it but its own neighbours.
         underCount += Scenery.Fill(viewCentreM, viewSpanM, under[underCount..]);
         var (standingFirst, standingCount) = Standing.Range(viewCentreM, viewSpanM);
-
-        var (overCount, aboveCount) = FillMoving(world, config, viewCentreM, viewSpanM, pixelsPerMetre, over, above);
-        return new SpriteCounts(underCount, standingFirst, standingCount, overCount, aboveCount);
+        return new SpriteCounts(underCount, standingFirst, standingCount, 0, 0);
     }
 
     /// <summary>

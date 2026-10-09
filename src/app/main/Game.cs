@@ -223,9 +223,26 @@ internal sealed partial class Game : IDisposable
 
     /// <summary>
     /// The town about to stand handed the device's tick, where this run asked for it, and the last town's let go of —
-    /// or nothing, on a head whose town is always ticked by the host. A null town lets the last go of alone.
+    /// or nothing, on a head whose town is always ticked by the host. A null town lets the last go of alone. Sets
+    /// <see cref="_movingOnTheDevice"/> where it lays the device's tick.
     /// </summary>
     partial void TickOnTheDevice(TownWorld? world);
+
+    /// <summary>
+    /// <b>Whether what moves is emitted on the device and drawn where it is written</b>
+    /// (<see cref="EmitTheMoving"/>) rather than filled from the town's copy: a town the device ticks, on a device whose
+    /// kernels have the doubles the emit rounds in.
+    /// </summary>
+    bool _movingOnTheDevice;
+
+    /// <summary>
+    /// The town just stood's moving runs laid on the device and handed to the renderer to draw — the emit given the
+    /// whole of <paramref name="room"/>, which the renderer was not — where <see cref="_movingOnTheDevice"/>.
+    /// </summary>
+    partial void LayTheMovingOnTheDevice(TownWorld world, SpriteRoom room);
+
+    /// <summary>What moves emitted on the device for the frame about to be drawn, where <see cref="_movingOnTheDevice"/>.</summary>
+    partial void EmitTheMoving(Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre);
 
     /// <summary>
     /// The map that was still being opened when the run ended, given up before anything it was being
@@ -686,13 +703,16 @@ internal sealed partial class Game : IDisposable
         _looks ??= TownSprites.Load(_config);
 
         _renderer.Dispose();
+        _movingOnTheDevice = false;
+        TickOnTheDevice(laid.World);
         _sheets = _looks.Sheets;
-        _renderer = NewRenderer(laid.Ground, TownSprites.RoomFor(laid.Plan, _config));
+        var room = TownSprites.RoomFor(laid.Plan, _config);
+        _renderer = NewRenderer(laid.Ground, _movingOnTheDevice ? room with { Over = 0, Above = 0 } : room);
         _looks.ReadAspects(_renderer.Atlas);
         _looks.Lay(laid.Plan, laid.World.Uses, _config);
         _renderer.LayStanding(_looks.Standing.Instances);
+        LayTheMovingOnTheDevice(laid.World, room);
 
-        TickOnTheDevice(laid.World);
         _world?.Dispose();
         _world = laid.World;
         _ground = laid.Ground;
@@ -810,8 +830,10 @@ internal sealed partial class Game : IDisposable
                     _loop.World.HandOnCar(bot.Hands.Car, bot.Hand);
                 }
 
-                // The frame drawn after the last of them reads every car as it leaves it.
-                _loop.World.ReadsEveryCarAfterTheTick = tick == due - 1;
+                // The frame drawn after the last of them reads every car as it leaves it — where it is filled from the
+                // town's copy, a second seat's eye fills one so, or a layer over the town reads the cars it draws.
+                _loop.World.ReadsEveryCarAfterTheTick =
+                    tick == due - 1 && (!_movingOnTheDevice || _bot is not null || _ui.Switches.AnyOn);
                 _loop.Advance();
                 foreach (var watch in _scenario) watch.Saw(_loop.World);
             }
@@ -854,9 +876,18 @@ internal sealed partial class Game : IDisposable
         {
             // The cull span and not the view span: a turned town shows a diamond, and a body just outside
             // the upright rectangle is inside the picture (OBS-1c).
-            sprites = looks.Fill(
-                _world, _config, _camera.CentreM, _camera.CullSpanM(_uiPx), _camera.PixelsPerMetre,
-                _renderer.SpritesUnder, _renderer.SpritesOver, _renderer.SpritesAbove);
+            var cullSpanM = _camera.CullSpanM(_uiPx);
+            if (_movingOnTheDevice)
+            {
+                sprites = looks.FillStill(_world, _camera.CentreM, cullSpanM, _renderer.SpritesUnder);
+                EmitTheMoving(_camera.CentreM, cullSpanM, _camera.PixelsPerMetre);
+            }
+            else
+            {
+                sprites = looks.Fill(
+                    _world, _config, _camera.CentreM, cullSpanM, _camera.PixelsPerMetre, _renderer.SpritesUnder,
+                    _renderer.SpritesOver, _renderer.SpritesAbove);
+            }
         }
 
         _renderer.SetSpriteCount(sprites);

@@ -350,6 +350,14 @@ internal sealed partial class DeviceCarTick : IDisposable
     /// <summary>The most cars the table holds: the tyre pass's.</summary>
     public int Capacity => _tyres.Capacity;
 
+    /// <summary>
+    /// <b>What a frame draws of every car as the last tick left it</b> (<c>app/render/kernels/sprites_cars.comp</c>): its
+    /// reading, command, <see cref="BriefRow"/>, pass and line — the device's own for a car the tick still
+    /// <see cref="Takes"/>, which the town may not have read since.
+    /// </summary>
+    internal readonly record struct DrawnTables(
+        GpuBuffer Ticks, GpuBuffer Commands, GpuBuffer Briefs, GpuBuffer Passes, GpuBuffer Lines, GpuBuffer Arcs);
+
     /// <summary>Every car's line as the table keeps it (<c>CarLineRow</c>, its arcs and entries, and its lanes' chain, starts, ends and breaks).</summary>
     internal readonly record struct LineTables(
         GpuBuffer Lines, GpuBuffer Arcs, GpuBuffer Entries, GpuBuffer Chain, GpuBuffer Starts, GpuBuffer Ends, GpuBuffer Breaks);
@@ -403,6 +411,9 @@ internal sealed partial class DeviceCarTick : IDisposable
 
     /// <summary>Every car's reading and the context its last tick told it, as the table keeps them (<see cref="HoldsTheReadingOf"/>).</summary>
     public (GpuBuffer Ticks, GpuBuffer Contexts) ReadingTables => (_ticks.Device, _contexts.Device);
+
+    /// <summary>Every car's reading, command, brief, pass and line, as a frame draws a car the tick <see cref="Takes"/> (<see cref="DrawnTables"/>).</summary>
+    public DrawnTables Drawn => new(_ticks.Device, _tyres.Table.Commands.Device, _briefs.Device, _passes.Device, _lines.Device, _arcs.Device);
 
     /// <summary>The readings <see cref="HoldsTheReadingOf"/> laid and the poses laid since the last tick, copied across, recorded; the caller barriers.</summary>
     public void RecordTheReadingsSent(CommandBuffer commands)

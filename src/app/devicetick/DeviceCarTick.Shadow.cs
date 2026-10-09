@@ -243,7 +243,11 @@ internal sealed partial class DeviceCarTick
     /// <summary>Whether the town holds a car as the device last left it (<see cref="_current"/>).</summary>
     public bool TownHolds(int car) => _current[car];
 
-    /// <summary>Whether the device ticks this car this tick, once <see cref="Prepare"/> has taken it.</summary>
+    /// <summary>
+    /// Whether the device ticks this car this tick, once <see cref="Prepare"/> has taken it — and once that tick is taken
+    /// back, whether the tables still hold the car as it left it: the town neither laid it a line nor set it doing
+    /// something else since (<see cref="TheTownMovedOnFrom"/>).
+    /// </summary>
     public bool Takes(int car) => _held[car];
 
     /// <summary>

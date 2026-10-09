@@ -14,6 +14,9 @@ layout(std430, binding = 7) buffer Answers { ClaimAnswer answers[]; };
 layout(std430, binding = 8) buffer Moved { uint moved[]; };
 layout(std430, binding = 9) readonly buffer Tally { uint tally[]; };
 
+// The last pass a hold with a piece on each way moved in (LaneOccupancy._wayMovedAt): what a pass answers again.
+layout(std430, binding = 10) buffer WayMoved { uint wayMovedAt[]; };
+
 #define CLAIMS_FIGURES figures
 #define CLAIM_ROWS rows
 #define BODY_RUNS bodyRuns

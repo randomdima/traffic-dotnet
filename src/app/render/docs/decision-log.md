@@ -3,6 +3,36 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md); how a type
 works is its own XML docs.
 
+## 2026-10-09 — a frame draws what moves where the device emits it, off the car tick's own tables
+
+**Where the device ticks the town, the moving runs are the emit's** (`DeviceSprites.EmitForTheFrame`) and are drawn
+where it wrote them: `TownRenderer.DrawTheMovingFrom` records each image's over and above draws against the emit's
+instances and its two indirect draws, the host fills only what lies under and the stretch standing
+(`TownSprites.FillStill`), and the renderer is laid no room of its own for what moves. Filled on the host, a frame of
+OdesaOsm at 40 000 cars and 40 000 people needed every car handed back after its last tick (1.7 ms) and the solver's
+moving grid laid for the picture alone (`PhysicsWorld.IndexMoving`, 3.1 ms).
+
+- **The emit is a submit of its own, not waited for**: it begins behind everything submitted before it — the last
+  frame still drawing the runs it writes, the tick that wrote what it reads — and ends with a barrier ahead of
+  everything after: the frame that draws it, and the next tick writing what it read. A fixed count of crossings.
+- **A car is drawn off the car tick's tables where the tick still holds it as it left it** (`DeviceCarTick.Takes`):
+  `sprites_cars.comp` lays its reading, command, brief and pass over the row the host laid from the town's copy. So the
+  frame drawn after a tick no longer has every car handed back; `ReadsEveryCarAfterTheTick` stays for a second seat's
+  eye and a layer over the town, which read the town's copy.
+- **A car's line left the emit**: the row carries how far it bends ahead (`CarLamps.TurnAheadRad`, `lamps_turn.glsl`
+  where it is read off the device). Packed as arcs, the emit's room was every car's line room — about 0.74 GB on the
+  device and as much mapped at 40 000 cars.
+- **A car picked out is taken back at once** (`ITownDevice.TakeTheCarBack`). With no frame reading every car back, a
+  car stays on the device across frames, and the interface could act on one before the town's next tick read it: a
+  release standing it down did so on a copy older than the device's, and the next claims laying threw for it
+  (`DeviceCarTick.ExpectTheTownHolds`).
+
+Held by `DeviceSpritesTests`: every tick of 600 of `Towns.Built` leaving cars on the device, and of a fixture car
+getting past a wreck, the emit off the device draws every instance as the emit off the town does once every car is
+taken back. Each fails with the lay left out, the line's bend dropped, or a pass ended at its step back. In the window
+(OdesaOsm, 40 000 of each, RX 9070 XT, `qq prof --device-tick --frame`): 40 → 59 fps, the display's own rate; the
+frame's CPU 25.1 → 15.9 ms, its sprites 2.63 → 0.99 ms; 1.5 → 1.0 ticks a frame.
+
 ## 2026-10-07 — the moving sprites are emitted on the device, beside the fill
 
 **The tick moves to the device** (root log), and once it has, where the cars, the walkers and the lights stand is only
@@ -34,8 +64,7 @@ emit took 25–29 µs at every framing, 14 of them the scan, where the fill took
 whole town; no instance differed. **A head's colour is `signal.glsl`'s, whose quotients are the device's own**: on RADV
 a head at a cycle's edge could turn a frame early, and none did there.
 
-**Not yet:** the marks, which are a ring on the host (`DriftMarks`); and the frame's own draws, which still read the
-fill's instances.
+**Not yet:** the marks, which are a ring on the host (`DriftMarks`).
 
 ## 2026-10-06 — a frame asks the grid what it can see, and the buildings are laid once
 

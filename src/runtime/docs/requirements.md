@@ -11,7 +11,9 @@ this is the layer that gets it there.
 - **One command buffer per swapchain image, recorded once.** Draw counts live in a buffer the CPU writes
   rather than in the calls themselves, so a windowed frame is five crossings — submit and present the
   frame that was filled, then acquire, wait and reset for the next — and an offscreen one is three, and
-  not one of them takes the size of the town as an argument.
+  not one of them takes the size of the town as an argument. Where the device ticks the town, what moves is
+  emitted in a submit of its own ahead of the frame (`DeviceSprites.EmitForTheFrame`): a fixed count of
+  crossings, whatever the town.
 - **Nothing is marshalled.** Blittable structs, `Span<T>` over memory the driver already owns, and
   function pointers. No array copied at the boundary, no string built per frame, no delegate allocated,
   no layout conversion, no pinning that outlives a call.

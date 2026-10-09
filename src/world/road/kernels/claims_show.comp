@@ -1,8 +1,9 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
 
-// One pass of the plans' answers shown: every hold answered with the plans shown to where it was answered, and the
-// holds that moved counted for the pass (LaneOccupancy.ShowTheAnswers' second half).
+// One pass of the plans' answers shown: every hold answered with the plans shown to where it was answered, the holds
+// that moved counted for the pass and the ways of their pieces marked with it (LaneOccupancy.ShowTheAnswers' second
+// half).
 
 layout(local_size_x = 64) in;
 
@@ -28,4 +29,6 @@ void main()
 
     shown[hold] = cutLineM;
     atomicAdd(moved[figures.pass], 1u);
+    HoldRow held = holds[hold];
+    for (uint row = held.firstRow; row < held.endRow; row++) wayMovedAt[rows[row].way] = figures.pass;
 }

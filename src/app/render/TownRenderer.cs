@@ -147,6 +147,12 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     GpuBuffer[] _instances = [];
 
     GpuBuffer[] _spriteIndirect = [];
+
+    /// <summary>
+    /// The moving runs where the device writes them, the run above from <c>AboveFrom</c>, and their two draws
+    /// (<see cref="DrawTheMovingFrom"/>) — or none, and they are what a frame fills.
+    /// </summary>
+    (GpuBuffer Instances, GpuBuffer Draws, int AboveFrom)? _moving;
     GpuBuffer[] _overlay = [];
     GpuBuffer[] _overlayIndirect = [];
     GpuBuffer[] _underlay = [];
@@ -268,6 +274,21 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _standing.Upload<SpriteInstance>(
             count, into => standing.Span[..count].CopyTo(into),
             PipelineStageFlags2.VertexAttributeInputBit, AccessFlags2.VertexAttributeReadBit);
+    }
+
+    /// <summary>
+    /// <b>What moves drawn where the device writes it</b> — the over run from the first instance of
+    /// <paramref name="instances"/> and the run above from <paramref name="aboveFrom"/>, each as many as the first and
+    /// second of <paramref name="draws"/> say — in place of what a frame fills (<see cref="SpritesOver"/>,
+    /// <see cref="SpritesAbove"/>), whose counts are then not read. Every image's frame is written down again once the
+    /// device has let go of them; the writes are ordered before the frame by whoever submits them.
+    /// </summary>
+    public void DrawTheMovingFrom(GpuBuffer instances, GpuBuffer draws, int aboveFrom)
+    {
+        Vk.Count();
+        _vk.Api.DeviceWaitIdle(_vk.Device);
+        _moving = (instances, draws, aboveFrom);
+        for (var image = 0; image < _commands.Length; image++) Record(image);
     }
 
     /// <summary>How much of each run is to be drawn. The only thing a frame changes about the sprite pass.</summary>

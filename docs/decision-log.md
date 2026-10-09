@@ -4,6 +4,34 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-09 — a kernel passes no array through a function, and an answering pass skips a hold with nothing new
+
+**A rebuild that runs on was still waited for 2.70 ms at OdesaOsm's 40 000 cars**: its kernels took 5.46 ms of the
+device's, the tick's head queued behind them. Timed dispatch by dispatch (stamps after each, taken out again), three
+kernels were 65 % of it: the answering passes 1.87 ms, `car_bodies.comp` 1.06 and `walkers_plan.comp` 0.72.
+
+- **An array passed into or out of a function is copied whole** by the compiler (glslang to SPIR-V, RADV): the atlas's
+  48-entry room went in and out of every read, and every car's thread took ~720 µs whether it stood on one way or twelve
+  — with the room cut to 16 for the experiment, 0.23 ms for the whole dispatch. **A read's covers are the thread's own,
+  at module scope** (`atlasFound`, `atlas.glsl`), read by the caller before its next read, and a car's body rows go
+  straight to the output (`car_bodies.glsl`'s `BODY_ROWS`). `car_bodies.comp` 168 → 36 VGPRs and 8 → 32 waves a SIMD;
+  `walkers_plan.comp` 256 VGPRs with 3 546 spilled → 108 with none, its code 190 → 56 KB.
+- **An answering pass answers again only a hold with something new to be answered against**, as the host's
+  `LaneOccupancy.NeedsAnswer` does: `claims_show.comp` marks the ways of a hold that moved with the pass, and
+  `claims_answer.comp` skips a hold none of whose ways was marked the pass before. Exact, since a hold's answer reads
+  nothing but the rows and what is shown on its own ways; the host's own skip rests on the same. The device still runs
+  every pass the host could, and a pass with nothing marked costs a read of each hold's ways.
+- **Whether two holders stand where they meet is read only where their commitments leave the meeting open**
+  (`claimsBeatsOn`): each read walks the way's bodies, and `claimsBeats` decides on commitment first. 1.91 → 1.74 ms of
+  the passes alone.
+- Held: the device tier, and `--bench devicerebuild` on OdesaOsm — 0 of 31 M slots, 5.6 M holds, 5.6 M answers, 4 M
+  grants and 4 M walkers' readings differ over 100 rebuilds. With no way marked, ten device tests fail; with only a
+  moved hold's first way marked, none does and the bench finds 42 answers unlike (tech-debt).
+- OdesaOsm (`--bench devicetown`): the rebuild's kernels 5.46 → 3.27 ms (the bodies 2.09 → 1.04, the plans 1.42 →
+  0.83, the answers 1.95 → 1.40), waited for 2.70 → 0.70 ms a rebuild; the tick 12.98 → 12.10 ms, watched 13.89 →
+  13.04 wall; the town driving as before to the count. `--bench devicerebuild`: 5.95 → 3.97 ms chained. The window
+  (`qq prof --device-tick`): 19 → 40 fps, 1.5 ticks a frame where it ran 3.2, still keeping time.
+
 ## 2026-10-09 — a watch reads every car's grant left off the device, and only a frame has every car handed back
 
 **Under the owner's 2026-10-08 ruling that what is to stop is the copying of the world's state.** Every windowed run is

@@ -266,12 +266,11 @@ internal sealed unsafe partial class TownRenderer
         api.CmdDrawIndirect(
             commands, _spriteIndirect[image].Handle, (ulong)sizeof(DrawIndirectCommand), 1, (uint)sizeof(DrawIndirectCommand));
 
-        var overOffset = (ulong)(Room.Under * sizeof(SpriteInstance));
+        var moving = MovingRunsOf(image);
         Vk.Count();
-        api.CmdBindVertexBuffers(commands, 0, 1, &instanceBuffer, &overOffset);
+        api.CmdBindVertexBuffers(commands, 0, 1, &moving.Instances, &moving.OverAt);
         Vk.Count();
-        api.CmdDrawIndirect(
-            commands, _spriteIndirect[image].Handle, (ulong)(2 * sizeof(DrawIndirectCommand)), 1, (uint)sizeof(DrawIndirectCommand));
+        api.CmdDrawIndirect(commands, moving.Draws, moving.OverDrawAt, 1, (uint)sizeof(DrawIndirectCommand));
 
         // <b>The level above, over the bodies on the ground, its marks over it, and the bodies on it over those</b>
         // (TER-7b, PHY-1a): the ground's second draw — its last part, past the first draw's — then the marks and the
@@ -296,12 +295,10 @@ internal sealed unsafe partial class TownRenderer
 
         Vk.Count();
         api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _spritePipeline);
-        var aboveOffset = (ulong)((Room.Under + Room.Over) * sizeof(SpriteInstance));
         Vk.Count();
-        api.CmdBindVertexBuffers(commands, 0, 1, &instanceBuffer, &aboveOffset);
+        api.CmdBindVertexBuffers(commands, 0, 1, &moving.Instances, &moving.AboveAt);
         Vk.Count();
-        api.CmdDrawIndirect(
-            commands, _spriteIndirect[image].Handle, (ulong)(3 * sizeof(DrawIndirectCommand)), 1, (uint)sizeof(DrawIndirectCommand));
+        api.CmdDrawIndirect(commands, moving.Draws, moving.AboveDrawAt, 1, (uint)sizeof(DrawIndirectCommand));
 
         // The interface and everything that annotates a body, over all of it: the same pipeline the
         // ground marks used, a buffer of its own, and one more indirect draw already written down here.
@@ -322,6 +319,47 @@ internal sealed unsafe partial class TownRenderer
 
         Vk.Count();
         Vk.Check(api.EndCommandBuffer(commands), "vkEndCommandBuffer");
+    }
+
+    /// <summary>Where one image's frame draws what moves from: the buffer and where its two runs start in it, and the buffer and where their two draws are.</summary>
+    struct MovingRuns
+    {
+        public Silk.NET.Vulkan.Buffer Instances;
+        public ulong OverAt;
+        public ulong AboveAt;
+        public Silk.NET.Vulkan.Buffer Draws;
+        public ulong OverDrawAt;
+        public ulong AboveDrawAt;
+    }
+
+    /// <summary>
+    /// What moves, drawn from this image's own buffer as a frame filled it — or from the device's emit where that is what
+    /// draws it (<see cref="DrawTheMovingFrom"/>), the same buffers for every image.
+    /// </summary>
+    MovingRuns MovingRunsOf(int image)
+    {
+        var instance = (ulong)sizeof(SpriteInstance);
+        var draw = (ulong)sizeof(DrawIndirectCommand);
+        if (_moving is { } device)
+        {
+            return new MovingRuns
+            {
+                Instances = device.Instances.Handle,
+                AboveAt = (ulong)device.AboveFrom * instance,
+                Draws = device.Draws.Handle,
+                AboveDrawAt = draw,
+            };
+        }
+
+        return new MovingRuns
+        {
+            Instances = _instances[image].Handle,
+            OverAt = (ulong)Room.Under * instance,
+            AboveAt = (ulong)(Room.Under + Room.Over) * instance,
+            Draws = _spriteIndirect[image].Handle,
+            OverDrawAt = 2 * draw,
+            AboveDrawAt = 3 * draw,
+        };
     }
 
     static DescriptorImageInfo Picture(GpuTexture texture) =>
