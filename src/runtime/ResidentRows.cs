@@ -134,6 +134,31 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
     }
 
     /// <summary>
+    /// <b>The first <c>rows.Length</c> items' single rows laid at once</b>, as <see cref="Lay"/> lays each, but compared a
+    /// block of <see cref="BlockItems"/> at a time: a block bit for bit what was last laid sends nothing, and any other is
+    /// written and marked whole. Only for a table of a row an item whose gaps are bridged, so no row is forgotten.
+    /// </summary>
+    public void LayEvery(ReadOnlySpan<T> rows)
+    {
+        if (RowsPerItem != 1 || !_bridges) throw new InvalidOperationException("Only a bridged table of a row an item is laid a block at a time.");
+
+        var laid = _laid.AsSpan(0, rows.Length);
+        for (var first = 0; first < rows.Length; first += BlockItems)
+        {
+            var count = Math.Min(BlockItems, rows.Length - first);
+            var block = rows.Slice(first, count);
+            if (MemoryMarshal.AsBytes(block).SequenceEqual(MemoryMarshal.AsBytes(laid.Slice(first, count)))) continue;
+
+            block.CopyTo(laid[first..]);
+            block.CopyTo(All[first..]);
+            Mark(first, count);
+        }
+    }
+
+    /// <summary>How many items <see cref="LayEvery"/> compares at once: about the gap a run is carried over.</summary>
+    static int BlockItems => Math.Max(1, (int)(BridgedGapBytes / (ulong)sizeof(T)));
+
+    /// <summary>
     /// The first of one item's rows written and marked, unless they are bit for bit those last laid there — or
     /// <paramref name="again"/>, where what the device holds may be other than what was laid.
     /// </summary>

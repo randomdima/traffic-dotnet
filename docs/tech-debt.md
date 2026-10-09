@@ -167,6 +167,11 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   (`TownWorld.ReadsEveryCarAfterTheTick`, `Game.Advance`; 1.5 ms of that tick at 40 000 cars): the eye is the shot path's
   fill off the town's copy, and the layers and the inspector read the cars they draw there. Closes with each reading what
   it draws off the device, as the window's moving runs do.
+- **What every taken car is told is worked out every tick** (`DeviceCarTick.LayWhatItIsTold`, 1.8 ms of sending a tick at
+  OdesaOsm's 40 000 cars with the rest of `Prepare`, 2026-10-09): its scene, pace, allowance and a switch's or a pass's
+  figures, for 39 000 cars the town has not read since, though only an order after another car or a call's scene moves
+  without the car's own decision. The rows are compared and sent a block at a time (`ResidentRows.LayEvery`). Closes with
+  a car's row worked out only where the town changed what it is made of.
 - **A switching car's look is the town's on a third of the ticks** (`DeviceTown.LayTheDecisions`): on a tick laying a
   rebuild the device holds claims newer than the readers', and has no copy of the readers' own lists to ask. And a look
   that finds room is the town's to take again from the start (`car_switch_look.comp`'s `SwitchAsks`), swept a second time

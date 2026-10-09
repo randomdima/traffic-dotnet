@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.InteropServices;
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
@@ -84,6 +85,7 @@ internal sealed partial class DeviceCarTick
         _current = new bool[capacity];
         Array.Fill(_current, true);
         _laidWhole = new bool[capacity];
+        _toldNow = new ToldRow[capacity];
     }
 
     /// <summary>Which cars <see cref="Prepare"/> laid whole off the town's copy since <see cref="WasLaidWhole"/> asked.</summary>
@@ -161,9 +163,13 @@ internal sealed partial class DeviceCarTick
     {
         var cars = town.Cars;
         var count = 0;
+
+        // A car's build is its variant's, set once as it was added.
+        for (var car = _buildsLaid; car < cars.Count; car++) _tyres.Table.BuildOf.Lay(car, (uint)cars.Variant[car]);
+        _buildsLaid = cars.Count;
+
         for (var car = 0; car < cars.Count; car++)
         {
-            _tyres.Table.BuildOf.Lay(car, (uint)cars.Variant[car]);
             if (!posesInTheTable) LayThePose(town, car);
             _askedBefore[car] = town.AsksTheRoute(car);
             _lineLaidDue[car] = cars.LineLaid[car];
@@ -183,7 +189,6 @@ internal sealed partial class DeviceCarTick
             // A car whose action the town changed since the device last left it is the town's again, and laid whole.
             if (_held[car] && cars.Action[car] != _actionAt[car]) _held[car] = false;
 
-            _taken.Lay(count, (uint)car);
             taken[count++] = car;
             _actionDue[car] = cars.Action[car];
             var granted = !resident || !_held[car] || claimsLaid || cars.AuthorityM[car] != _authorityAt[car];
@@ -220,9 +225,17 @@ internal sealed partial class DeviceCarTick
             _held[car] = true;
         }
 
+        _taken.LayEvery(MemoryMarshal.Cast<int, uint>(taken[..count]));
+        _told.LayEvery(_toldNow.AsSpan(0, cars.Count));
         if (!posesInTheTable) _tyres.Table.Poses.Mark(0, cars.Count);
         return count;
     }
+
+    /// <summary>How many cars' builds are laid: every car's but those added since.</summary>
+    int _buildsLaid;
+
+    /// <summary>What each car's decisions tell its tick, as last worked out — laid a block at a time (<see cref="ResidentRows{T}.LayEvery"/>).</summary>
+    ToldRow[] _toldNow = [];
 
     /// <summary>
     /// <b>Whether the town laid a car a line or set it doing something else since <see cref="Prepare"/> sent it</b> — a
@@ -418,8 +431,7 @@ internal sealed partial class DeviceCarTick
             stepsOutAtM = town.Overtaking.StepsOutAtM(car);
         }
 
-        _told.Lay(
-            car, new ToldRow(told, cars.PaceMps[car], town.OffTheLineAllowanceM(car), asideM, fromRestM, reachM, placeM, stepsOutAtM, 0f));
+        _toldNow[car] = new ToldRow(told, cars.PaceMps[car], town.OffTheLineAllowanceM(car), asideM, fromRestM, reachM, placeM, stepsOutAtM, 0f);
     }
 
     /// <summary>

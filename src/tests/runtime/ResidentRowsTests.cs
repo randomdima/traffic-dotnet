@@ -54,6 +54,49 @@ public class ResidentRowsTests(Lavapipe device) : IClassFixture<Lavapipe>
         Assert.Equal(expected, rows.AllRead.ToArray());
     }
 
+    /// <summary><b>Rows laid a block at a time land as they were laid</b> (<see cref="ResidentRows{T}.LayEvery"/>), one row of every few changed.</summary>
+    [Fact]
+    public void RowsLaidABlockAtATimeLandWhereTheyLie()
+    {
+        using var rows = new ResidentRows<uint>(device.Vk, BlockedItems, 1, readsBack: true, hostOnly: true);
+        using var batch = new ComputeBatch(device.Vk);
+        var expected = new uint[BlockedItems];
+        Array.Fill(expected, Laid);
+        rows.LayEvery(expected);
+        for (var item = 0; item < BlockedItems; item += ChangedEvery) expected[item] = (uint)item;
+        rows.LayEvery(expected);
+
+        var commands = batch.Begin();
+        rows.Send(commands);
+        device.Vk.AfterTransfer(commands);
+        rows.Read(commands, BlockedItems);
+        batch.SubmitAndWait();
+
+        Assert.Equal(expected, rows.AllRead.ToArray());
+    }
+
+    /// <summary><b>Rows laid a block at a time as they were last laid send nothing</b> (<see cref="ResidentRows{T}.LayEvery"/>).</summary>
+    [Fact]
+    public void RowsLaidAgainAsTheyWereSendNothing()
+    {
+        using var rows = new ResidentRows<uint>(device.Vk, Items, 1, hostOnly: true);
+        using var batch = new ComputeBatch(device.Vk);
+        var laid = new uint[Items];
+        Array.Fill(laid, Laid);
+        rows.LayEvery(laid);
+        rows.Send(batch.Begin());
+        batch.SubmitAndWait();
+
+        rows.LayEvery(laid);
+        Assert.Equal(0ul, rows.MarkedBytes);
+    }
+
+    /// <summary>Items a block at a time: several blocks of a word a row.</summary>
+    const int BlockedItems = 2_000;
+
+    /// <summary>One row of every this many changed: a row in some blocks and none in the blocks between.</summary>
+    const int ChangedEvery = 777;
+
     /// <summary>Every row laid as <see cref="Laid"/> and sent, one run; what the device then holds.</summary>
     uint[] LaidWhole(ResidentRows<uint> rows, ComputeBatch batch)
     {
