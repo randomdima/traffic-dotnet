@@ -80,8 +80,8 @@ internal static class DeviceRebuildProbe
                 slots.Add(town.Occupancy.SlotCount);
                 grown += onDevice.Grown;
                 hostRows += onDevice.HostRowsSent;
-                backing += onDevice.BackingSent;
-                edits += onDevice.EditsSent.BeforeTheAnswers + onDevice.EditsSent.AfterThem;
+                backing += onDevice.BackingAsked;
+                edits += onDevice.EditsSent;
                 heldMs.Add(watcher.Elapsed.TotalMilliseconds);
                 return;
             }
@@ -105,7 +105,7 @@ internal static class DeviceRebuildProbe
         Console.WriteLine($"    backing, grants and walkers read      {Median(grantsMs),8:F3} ms");
         Console.WriteLine($"  shadow only: inputs and host's units sent {Median(sentMs),8:F3} ms ({Median(sentMb):F1} MB, the cars' lines {Median(linesMb):F1} MB), read back {Median(readMs),8:F3} ms");
         Console.WriteLine($"  shadow only: written on the host stage by stage {Median(writtenMs),8:F3} ms, held to the town {Median(heldMs),8:F3} ms");
-        Console.WriteLine($"  {grown} bodies grown into another, {hostRows} rows the host laid, {backing} rows and holds of backing, {edits} of the host's cuts");
+        Console.WriteLine($"  {grown} bodies grown into another, {hostRows} rows the host laid, {backing} cars' backing laid, {edits} of the host's cuts");
         foreach (var held in (ReadOnlySpan<Held>)[rows, holds, answers, grants, walkers]) Console.WriteLine($"  {held.Said}");
     }
 

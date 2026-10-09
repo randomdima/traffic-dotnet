@@ -8,6 +8,7 @@ using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
 using Vk = TrafficSimulation.Runtime.Vk;
+using static TrafficSimulation.Runtime.GpuBuffer;
 
 namespace TrafficSimulation.App.DeviceTick;
 
@@ -53,7 +54,7 @@ internal sealed class DevicePlans : IDisposable
     readonly SimConfig _config;
     readonly int _cars;
     readonly int _arcsPerCar;
-    readonly int _mostPieces;
+    int _mostPieces;
     readonly uint _firstConnector;
     readonly List<GpuBuffer> _owned = [];
 
@@ -65,7 +66,10 @@ internal sealed class DevicePlans : IDisposable
     /// <summary>The lines as each laying sends them — none where the car tick's are read in place.</summary>
     readonly GpuBuffer? _lines, _arcs, _entries, _chain, _starts, _ends, _breaks;
 
-    readonly GpuBuffer _pieces, _results, _piecesOut, _resultsOut;
+    readonly GpuBuffer _pieces, _results;
+
+    /// <summary>Every car's claim read back (<see cref="Plan"/>), made the first time it is: a town's rebuild reads none of it.</summary>
+    GpuBuffer? _piecesOut, _resultsOut;
     int _carCount;
 
     /// <summary>The lines each laying sends whole, and the device-local buffers they land in — none where the car tick's are read.</summary>
@@ -81,7 +85,11 @@ internal sealed class DevicePlans : IDisposable
     /// Every car's line as the car tick keeps it on the device, read in place (<see cref="DeviceCarTick.Lines"/>) — or none,
     /// and each laying sends every car's line.
     /// </param>
-    public DevicePlans(Vk vk, SimConfig config, TownWorld world, DeviceCarTick.LineTables? lines = null)
+    /// <param name="mostPieces">
+    /// The pieces each car's claim has room for to begin with (<see cref="GrowPieces"/>) — or none, and every claim a car
+    /// could lay (<see cref="MostPiecesOf"/>).
+    /// </param>
+    public DevicePlans(Vk vk, SimConfig config, TownWorld world, DeviceCarTick.LineTables? lines = null, int? mostPieces = null)
     {
         if (DrivingGround.MostWaysAlongALine != MostWaysInTheKernel)
         {
@@ -95,7 +103,7 @@ internal sealed class DevicePlans : IDisposable
         _arcsPerCar = cars.LineArcsOf(0).Length;
         var roads = world.Roads;
         var marks = world.Atlas.Marks;
-        _mostPieces = (MostWaysInTheKernel + 1) * (1 + marks.MostCrossedByOne);
+        _mostPieces = Math.Min(MostPiecesOf(marks), mostPieces ?? int.MaxValue);
         _firstConnector = (uint)world.Ways.OfRoadConnector(0);
 
         var fleet = CarBuilds.OfTheFleet(config, CarCatalog.Shared);
@@ -153,19 +161,18 @@ internal sealed class DevicePlans : IDisposable
 
         _pieces = Device<DeviceClaims.ClaimRow>(_cars * _mostPieces);
         _results = Device<PlanOutRow>(_cars);
-        _piecesOut = Read<DeviceClaims.ClaimRow>(_cars * _mostPieces);
-        _resultsOut = Read<PlanOutRow>(_cars);
         _resident = new GpuBuffer[_sent.Length];
         for (var at = 0; at < _sent.Length; at++) _resident[at] = Resident(_sent[at].SizeBytes);
 
         GpuBuffer[] carLines = lines is { } kept
             ? [kept.Lines, kept.Arcs, kept.Entries, kept.Chain, kept.Starts, kept.Ends, kept.Breaks]
             : _resident;
+        Marks = (Resident(Laid<uint>(markAt)), Resident(Laid<SectionRow>(CollectionsMarshal.AsSpan(sections))));
         GpuBuffer[] set =
         [
             Resident(Laid<CarBuildRow>(builds)), _carRows.Device, _carFigures.Device, .. carLines, Resident(Laid<uint>(connectorAt)),
             Resident(Laid<int>(connectorTo)), Resident(Laid<uint>(connectorRung)), Resident(Laid<float>(roads.LaneLengthM)),
-            Resident(Laid<uint>(markAt)), Resident(Laid<SectionRow>(CollectionsMarshal.AsSpan(sections))), _pieces, _results,
+            Marks.At, Marks.Sections, _pieces, _results,
         ];
         _plan = new ComputeKernel(vk, "plan_cars.comp", set.Length, (uint)Marshal.SizeOf<PlanPush>());
         _set = _plan.Bind(set);
@@ -181,18 +188,43 @@ internal sealed class DevicePlans : IDisposable
     public int MostPieces => _mostPieces;
 
     /// <summary>
+    /// <b>The most pieces any car's claim could lay</b>: a main claim on every way under the kernel's plan, and a secondary
+    /// claim for every mark the busiest way has — the room that is never passed, which a room grown to fit stops short of.
+    /// </summary>
+    public static int MostPiecesOf(WayCrossings marks) => (MostWaysInTheKernel + 1) * (1 + marks.MostCrossedByOne);
+
+    /// <summary>
+    /// <b>Each car's claim given room for <paramref name="room"/> pieces</b> — what was laid there not kept. Nothing on the
+    /// device may be reading the pieces (<see cref="GpuBuffer.Grow"/>).
+    /// </summary>
+    public void GrowPieces(int room)
+    {
+        if (room <= _mostPieces) return;
+
+        _mostPieces = room;
+        _pieces.Grow(Bytes<DeviceClaims.ClaimRow>(_cars * room));
+        _piecesOut?.Grow(Bytes<DeviceClaims.ClaimRow>(_cars * room));
+    }
+
+    /// <summary>
     /// On the device: each car as the last laying was sent it (<c>PlanCarRow</c>'s words — build, flags — and figures,
     /// two a car, the second's lane <c>y</c> the room it keeps to step out round what it may pass), its pieces at
     /// <see cref="MostPieces"/> a car, and what each claim came to.
     /// </summary>
     public (GpuBuffer Cars, GpuBuffer Figures, GpuBuffer Pieces, GpuBuffer Results) OnTheDevice => (_carRows.Device, _carFigures.Device, _pieces, _results);
 
+    /// <summary>
+    /// The marks on the device (<c>claims_marks.glsl</c>): where each way's run of sections begins, one past the last way's
+    /// end, and the sections.
+    /// </summary>
+    public (GpuBuffer At, GpuBuffer Sections) Marks { get; }
+
     /// <summary>What every car's claim came to on the last laying read back.</summary>
-    public ReadOnlySpan<PlanOutRow> Results => _resultsOut.Span<PlanOutRow>()[.._cars];
+    public ReadOnlySpan<PlanOutRow> Results => _resultsOut!.Span<PlanOutRow>()[.._cars];
 
     /// <summary>One car's pieces as the last laying read back laid them, in the host's order.</summary>
     public ReadOnlySpan<DeviceClaims.ClaimRow> PiecesOf(int car) =>
-        _piecesOut.Span<DeviceClaims.ClaimRow>().Slice(car * _mostPieces, (int)Results[car].Pieces);
+        _piecesOut!.Span<DeviceClaims.ClaimRow>().Slice(car * _mostPieces, (int)Results[car].Pieces);
 
     /// <summary>The device's time over the last laying, in milliseconds.</summary>
     public double LaidMs => _timer.BetweenMs(0, 1);
@@ -266,6 +298,8 @@ internal sealed class DevicePlans : IDisposable
     public void Plan(int carCount)
     {
         _carCount = carCount;
+        _piecesOut ??= Read<DeviceClaims.ClaimRow>(_cars * _mostPieces);
+        _resultsOut ??= Read<PlanOutRow>(_cars);
         var commands = _batch.Begin();
         _timer.Reset(commands);
         RecordSend(commands);
@@ -346,8 +380,6 @@ internal sealed class DevicePlans : IDisposable
         buffer.Write(rows);
         return buffer;
     }
-
-    static unsafe ulong Bytes<T>(int count) where T : unmanaged => (ulong)(Math.Max(1, count) * sizeof(T));
 
     GpuBuffer Own(GpuBuffer buffer)
     {

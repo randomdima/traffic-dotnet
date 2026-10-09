@@ -19,3 +19,22 @@ const uint TallyPlannedRows = 6u;
 const uint TallyCandidatesGroups = 8u;
 const uint TallyRowsGroups = 11u;
 const uint TallyHoldsGroups = 14u;
+
+// The rooms a rebuild numbered on the device lays into, as the host gives them each rebuild — the rows, a car's plan and a
+// walker's walk — and the most any one car's plan and any one walker's walk came to.
+const uint TallyRowRoom = 17u;
+const uint TallyPieceRoom = 18u;
+const uint TallyProposedRoom = 19u;
+const uint TallyMostPieces = 20u;
+const uint TallyMostProposed = 21u;
+
+// Not nought where something laid passed its room: every row and hold filed after is left unfiled, every count the
+// kernels stop at is nought, and what a rebuild hands on to the agents is left as the last one left it — the rebuild did
+// not happen, and is laid again with more room (app/devicetick/DeviceRebuild).
+const uint TallyOverflowed = 22u;
+
+// The rows once the backing is laid after the answers (rebuild_backing.comp) — at most, where it passed the room.
+const uint TallyBackedRows = 23u;
+
+// How many rows the lists were last laid from: the rows still on a way (claims_lists.glsl), the length of the order.
+const uint TallyListed = 24u;

@@ -7,6 +7,7 @@ using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Physics;
 using Vk = TrafficSimulation.Runtime.Vk;
+using static TrafficSimulation.Runtime.GpuBuffer;
 
 namespace TrafficSimulation.App.DeviceTick;
 
@@ -786,8 +787,6 @@ internal sealed class DeviceSolver : IDisposable
         staging = _vk.CreateBuffer(Bytes<int>(Math.Max(1, count)), BufferUsageFlags.TransferSrcBit, HostAccess.Writes);
         return staging.Span<int>()[..count];
     }
-
-    static unsafe ulong Bytes<T>(int count) where T : unmanaged => (ulong)(Math.Max(1, count) * sizeof(T));
 
     GpuBuffer Own(GpuBuffer buffer)
     {

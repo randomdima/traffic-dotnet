@@ -7,6 +7,23 @@ using TrafficSimulation.World.Road;
 namespace TrafficSimulation.Agents.Car.Actions;
 
 /// <summary>
+/// <b>The ground one car asks to back up over</b> (<see cref="BackingUp.Asks"/>): down <paramref name="Way"/> from
+/// <paramref name="FromM"/> up to its tail, all of it its own lane — what it laid of that being how much was had
+/// (<see cref="BackingUp.Had"/>).
+/// </summary>
+/// <param name="WantedFromM">Where it wanted the ground from, before the lane's start held it to <paramref name="FromM"/>.</param>
+/// <param name="CommittedFromM">Where the ground it can no longer stop short of begins, below <paramref name="TailM"/>.</param>
+/// <param name="LineFromM">Where <paramref name="FromM"/> falls on its line.</param>
+/// <param name="AlongMps">Its speed down the way, which backing is never more than nought.</param>
+internal readonly record struct BackingAsk(
+    int Car, int Way, float FromM, float WantedFromM, float TailM, float CommittedFromM, float LineFromM, float AlongMps)
+{
+    /// <summary>The terms it is laid on, in the hold given (<see cref="LaneOccupancy.ReachBack"/>).</summary>
+    public PlannedAsk Planned(int hold) =>
+        new(hold, Car, LaneRoster.Driving, ClaimPriority.Backing, FromM, LineFromM, 0f, float.NegativeInfinity, AlongMps);
+}
+
+/// <summary>
 /// <b>Back up</b> (CAR-50, TER-4c.7): a car standing past where the step out of the pass it decided begins, backing
 /// down its own lane in reverse to there over ground asked for behind its tail at the weakest rung there is — and,
 /// refused that ground, blocked: a car going nowhere that whatever comes up behind it may get past in turn, asking again
@@ -134,45 +151,74 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
     /// <param name="underWay">Whether the car is on the route's line, as the town reads it.</param>
     public void Lay(int car, bool underWay)
     {
-        Cars.BackRoomM[car] = float.NaN;
-        var askedM = _askedM[car];
-        _askedM[car] = 0f;
-        if (Cars.Action[car] != CarAction.BackUp) return;
+        if (!TakeTheAsk(car, underWay, out var asked)) return;
 
+        var occupancy = ground.Occupancy;
+        var hold = occupancy.BeginHold(0f);
+        if (hold == LaneOccupancy.NoHold) return;
+
+        var ask = asked.Planned(hold);
+        var reachM = occupancy.ReachBack(ask, asked.Way, asked.FromM, asked.TailM, asked.CommittedFromM, Config.Driving.PassSpareM, out _);
+        occupancy.TakeBack(ask, asked.Way, reachM, asked.TailM, asked.CommittedFromM);
+        occupancy.EndHold(hold, float.PositiveInfinity, 0f, LaneClaim.Nothing);
+        Had(asked, reachM);
+    }
+
+    /// <summary>
+    /// <b>The ground this car asks to back up over this laying, taken</b> — what it asked for since the claims were last
+    /// laid cleared, and what it was had left unknown until the ground is laid (<see cref="Had"/>), or nought where the lane
+    /// has none of it behind the car. False where it asks for none.
+    /// </summary>
+    /// <param name="underWay">Whether the car is on the route's line, as the town reads it.</param>
+    public bool TakeTheAsk(int car, bool underWay, out BackingAsk ask)
+    {
+        Cars.BackRoomM[car] = float.NaN;
+        var asks = Asks(car, underWay, out ask, out var noneBehind);
+        _askedM[car] = 0f;
+        if (noneBehind) Cars.BackRoomM[car] = 0f;
+
+        return asks;
+    }
+
+    /// <summary>The ground this car would ask to back up over, were the claims laid now — read and never written.</summary>
+    /// <param name="underWay">Whether the car is on the route's line, as the town reads it.</param>
+    public bool Asks(int car, bool underWay, out BackingAsk ask) => Asks(car, underWay, out ask, out _);
+
+    bool Asks(int car, bool underWay, out BackingAsk ask, out bool noneBehind)
+    {
+        ask = default;
+        noneBehind = false;
+        if (Cars.Action[car] != CarAction.BackUp) return false;
+
+        var askedM = _askedM[car];
         var backingMps = MathF.Max(0f, -Cars.AlongMps[car]);
-        if (askedM <= 0f && backingMps <= Config.Driving.StopSpeedMps) return;
-        if (!underWay) return;
+        if (askedM <= 0f && backingMps <= Config.Driving.StopSpeedMps) return false;
+        if (!underWay) return false;
 
         ref readonly var build = ref Cars.BuildOf(car);
         var lane = Cars.LaneOf(car);
-        var tailM = Cars.ProgressM[car] - build.TailBehindAxleM - Cars.LaneStartsOf(car)[0];
+        var laneStartM = Cars.LaneStartsOf(car)[0];
+        var tailM = Cars.ProgressM[car] - build.TailBehindAxleM - laneStartM;
         if (tailM <= 0f || tailM > ground.Roads.LaneLengthM[lane])
         {
-            Cars.BackRoomM[car] = 0f;
-            return;
+            noneBehind = true;
+            return false;
         }
 
         var brakingMps2 = CarFollower.BrakingMps2(Config, build);
         var committedM = (backingMps * Config.CarReactionS) + DrivingGround.StoppingM(backingMps, brakingMps2);
         var wantedFromM = tailM - MathF.Max(askedM, committedM);
         var fromM = MathF.Max(0f, wantedFromM);
-        var committedFromM = tailM - committedM;
+        ask = new BackingAsk(car, ground.Ways.OfRoadLane(lane), fromM, wantedFromM, tailM, tailM - committedM, laneStartM + fromM, -backingMps);
+        return true;
+    }
 
-        var occupancy = ground.Occupancy;
-        var hold = occupancy.BeginHold(0f);
-        if (hold == LaneOccupancy.NoHold) return;
-
-        var way = ground.Ways.OfRoadLane(lane);
-        var ask = new PlannedAsk(
-            hold, car, LaneRoster.Driving, ClaimPriority.Backing, fromM, Cars.LaneStartsOf(car)[0] + fromM, 0f,
-            float.NegativeInfinity, -backingMps);
-        var reachM = occupancy.ReachBack(ask, way, fromM, tailM, committedFromM, Config.Driving.PassSpareM, out _);
-        occupancy.TakeBack(ask, way, reachM, tailM, committedFromM);
-        occupancy.EndHold(hold, float.PositiveInfinity, 0f, LaneClaim.Nothing);
-
+    /// <summary>How much of the ground a car asked to back up over it was had, once the ground is laid as far back as <paramref name="reachM"/>.</summary>
+    public void Had(in BackingAsk ask, float reachM)
+    {
         // Infinite where all of it was had, as a grant nothing cut is (<see cref="CarFleet.AuthorityM"/>): a length
         // carried back and forth would come home a float's grain short of what was asked.
-        Cars.BackRoomM[car] = reachM > fromM || fromM > wantedFromM ? tailM - reachM : float.PositiveInfinity;
+        Cars.BackRoomM[ask.Car] = reachM > ask.FromM || ask.FromM > ask.WantedFromM ? ask.TailM - reachM : float.PositiveInfinity;
     }
 
     /// <summary>

@@ -3,6 +3,7 @@ using Silk.NET.Vulkan;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Road;
 using static TrafficSimulation.App.DeviceTick.DeviceClaims;
+using static TrafficSimulation.Runtime.GpuBuffer;
 
 namespace TrafficSimulation.App.DeviceTick;
 
@@ -62,6 +63,9 @@ internal sealed partial class DeviceRebuild
         var room = (2 * _cars) + _walkersRoom;
         _holdsAsked = Own(_vk.CreateBuffer(Bytes<UInt2>(room), BufferUsageFlags.StorageBufferBit, HostAccess.Writes));
         _holdsAnswered = Own(_vk.CreateBuffer(Bytes<HoldAnswered>(room), BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
+
+        // An ask the kernel leaves unanswered keeps whatever the memory held, so it begins at a stamp no submit writes.
+        _holdsAnswered.Span<HoldAnswered>().Clear();
         var verdicts = _walkers.Keeps ? _walkers.Verdicts : Device<uint>(1);
         _holdsAskedKernel = Bound.Of<HoldsAskedPush>(
             _vk, "readers_holds_out.comp", [_holdsAsked, _readersHoldsOut, _readersHoldCutters, cars.DecidedAt, verdicts, _holdsAnswered]);

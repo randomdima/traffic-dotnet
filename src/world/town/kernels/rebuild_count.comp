@@ -2,7 +2,7 @@
 #extension GL_GOOGLE_include_directive : require
 
 // How many rows and holds each unit of the plans lays, one thread a unit, for the scans that number them
-// (rebuild_plans.glsl).
+// (rebuild_plans.glsl) — and the most any car's plan and any walker's walk laid, for the tally to hold to their rooms.
 
 layout(local_size_x = 64) in;
 
@@ -26,4 +26,6 @@ void main()
     uvec2 laid = plansCountOf(unit);
     unitRows[unit] = laid.x;
     unitHolds[unit] = laid.y;
+    if (unit >= plansFirstWalker()) atomicMax(tally[TallyMostProposed], laid.x);
+    else if (unit >= plansFirstCar() && (carClaims[unit - plansFirstCar()].flags & CarPlansOnTheDevice) != 0u) atomicMax(tally[TallyMostPieces], laid.x);
 }

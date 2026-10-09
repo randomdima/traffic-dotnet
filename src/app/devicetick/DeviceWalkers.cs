@@ -8,6 +8,7 @@ using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
 using Vk = TrafficSimulation.Runtime.Vk;
+using static TrafficSimulation.Runtime.GpuBuffer;
 
 namespace TrafficSimulation.App.DeviceTick;
 
@@ -180,7 +181,7 @@ internal sealed partial class DeviceWalkers : IDisposable
     readonly int _walkers;
     readonly int _ways;
     readonly int _coverRoom;
-    readonly int _proposedRoom;
+    int _proposedRoom;
     readonly int[] _dutyCar;
     readonly List<GpuBuffer> _owned = [];
     readonly DeviceAtlas _atlas;
@@ -211,7 +212,8 @@ internal sealed partial class DeviceWalkers : IDisposable
     /// <summary>Resident: whether a walker's straight is sent whatever was laid last, the device having committed one of its own.</summary>
     readonly bool[] _straightAgain = [];
 
-    readonly GpuBuffer _walkersOut, _straightsOut, _coversOut, _waysOut, _proposedOut, _holdsOut, _countsOut;
+    /// <summary>What a stage reads back (<see cref="RecordRead"/>), made the first time one is: a town's chained rebuild reads none of it.</summary>
+    GpuBuffer? _walkersOut, _straightsOut, _coversOut, _waysOut, _proposedOut, _holdsOut, _countsOut;
 
     /// <summary>The claims a stage run on its own lays from the town's rows; none where the walkers are chained.</summary>
     readonly GpuBuffer? _rowsIn, _answersIn, _rows, _counts, _starts, _cursor, _order, _bodyRuns, _plannedRuns, _blockSums, _totals, _tally;
@@ -237,8 +239,13 @@ internal sealed partial class DeviceWalkers : IDisposable
     /// Resident, the walker tick's own table (<see cref="DeviceWalkerTick.Table"/>) where the device keeps every walker's
     /// side of the claims as its own (<see cref="Keeps"/>), each read in where the bodies' step left it — or none.
     /// </param>
+    /// <param name="proposedRoom">
+    /// The rows each walker's walk has room for to begin with (<see cref="GrowProposed"/>) — or none, and every walk a walker
+    /// could lay: every way of it, each with the most marks any way has.
+    /// </param>
     public DeviceWalkers(
-        Vk vk, SimConfig config, TownWorld world, DeviceClaims.Tables? claims = null, bool resident = false, GpuBuffer? keptFrom = null)
+        Vk vk, SimConfig config, TownWorld world, DeviceClaims.Tables? claims = null, bool resident = false, GpuBuffer? keptFrom = null,
+        int? proposedRoom = null)
     {
         if (keptFrom != null && !resident) throw new ArgumentException("Only walkers kept resident are kept as the device's own.", nameof(keptFrom));
 
@@ -256,7 +263,7 @@ internal sealed partial class DeviceWalkers : IDisposable
         _ways = ways.Count;
         var slots = world.Occupancy.Capacity;
         _coverRoom = WalkingGround.MostPiecesOfABody + Sidestepping.MostRunsOfAPass;
-        _proposedRoom = MostWaysInTheKernel * (1 + marks.MostCrossedByOne);
+        _proposedRoom = Math.Min(MostProposed(marks), proposedRoom ?? int.MaxValue);
         _dutyCar = new int[_walkers];
         _atlas = new DeviceAtlas(vk, world.Atlas.Table);
 
@@ -379,14 +386,6 @@ internal sealed partial class DeviceWalkers : IDisposable
         _holds = Device<DeviceClaims.HoldRow>(_walkers);
         _outCounts = Device<UInt4>(_walkers);
 
-        _walkersOut = Readback<WalkerRow>(_walkers);
-        _straightsOut = Readback<SweptRun>(_walkers * WalkingGround.MostRunsOfAStraight);
-        _coversOut = Readback<DeviceClaims.ClaimRow>(_walkers * _coverRoom);
-        _waysOut = Readback<LineWay>(_walkers * MostWaysInTheKernel);
-        _proposedOut = Readback<DeviceClaims.ClaimRow>(_walkers * _proposedRoom);
-        _holdsOut = Readback<DeviceClaims.HoldRow>(_walkers);
-        _countsOut = Readback<UInt4>(_walkers);
-
         GpuBuffer claimRows, bodyRuns, order;
         if (claims is { } chained)
         {
@@ -463,6 +462,26 @@ internal sealed partial class DeviceWalkers : IDisposable
     public int ProposedRoom => _proposedRoom;
 
     /// <summary>
+    /// <b>The most rows any walk could lay</b>: a main claim on every way of it, and a secondary claim for every mark the
+    /// busiest way has — the room that is never passed, which a room grown to fit stops short of.
+    /// </summary>
+    public static int MostProposed(WayCrossings marks) => MostWaysInTheKernel * (1 + marks.MostCrossedByOne);
+
+    /// <summary>
+    /// <b>Each walker's walk given room for <paramref name="room"/> rows</b>, no more than <see cref="MostProposed"/> — what was
+    /// laid there not kept. Nothing on the device may be reading the walks (<see cref="GpuBuffer.Grow"/>).
+    /// </summary>
+    public void GrowProposed(int room)
+    {
+        if (room <= _proposedRoom) return;
+
+        _proposedRoom = room;
+        _figures.ProposedRoom = (uint)room;
+        _proposed.Grow(Bytes<DeviceClaims.ClaimRow>(_walkers * room));
+        _proposedOut?.Grow(Bytes<DeviceClaims.ClaimRow>(_walkers * room));
+    }
+
+    /// <summary>
     /// On the device, as the last stage recorded left them: each walker's body rows then its pass's
     /// (<see cref="CoverRoom"/> a walker), its plan's rows (<see cref="ProposedRoom"/> a walker) and its hold, and how many
     /// of each (bodies and passes from <see cref="Piece.Body"/>; a hold laid, ways and plan rows from <see cref="Piece.Plan"/>).
@@ -473,39 +492,39 @@ internal sealed partial class DeviceWalkers : IDisposable
     public GpuBuffer AnswersRead => _answers;
 
     /// <summary>Every walker as the last stage read back left it.</summary>
-    public ReadOnlySpan<WalkerRow> Walkers => _walkersOut.Span<WalkerRow>()[.._walkerCount];
+    public ReadOnlySpan<WalkerRow> Walkers => _walkersOut!.Span<WalkerRow>()[.._walkerCount];
 
     /// <summary>One walker's body as the last <see cref="Piece.Body"/> laid it, as rows in the order the town lays them.</summary>
     public ReadOnlySpan<DeviceClaims.ClaimRow> BodyOf(int walker) =>
-        _coversOut.Span<DeviceClaims.ClaimRow>().Slice(walker * _coverRoom, (int)Counts[walker].X);
+        _coversOut!.Span<DeviceClaims.ClaimRow>().Slice(walker * _coverRoom, (int)Counts[walker].X);
 
     /// <summary>And the ground its pass covers, as the passes the town lays.</summary>
     public ReadOnlySpan<DeviceClaims.ClaimRow> PassOf(int walker) =>
-        _coversOut.Span<DeviceClaims.ClaimRow>().Slice((walker * _coverRoom) + (int)Counts[walker].X, (int)Counts[walker].Y);
+        _coversOut!.Span<DeviceClaims.ClaimRow>().Slice((walker * _coverRoom) + (int)Counts[walker].X, (int)Counts[walker].Y);
 
     /// <summary>Whether the last <see cref="Piece.Plan"/> planned this walker's walk down any ways at all.</summary>
     public bool Planned(int walker) => (int)Counts[walker].Z >= 0;
 
     /// <summary>The ways the last <see cref="Piece.Plan"/> planned a walker's walk down.</summary>
     public ReadOnlySpan<LineWay> WaysOf(int walker) =>
-        _waysOut.Span<LineWay>().Slice(walker * MostWaysInTheKernel, Math.Max(0, (int)Counts[walker].Z));
+        _waysOut!.Span<LineWay>().Slice(walker * MostWaysInTheKernel, Math.Max(0, (int)Counts[walker].Z));
 
     /// <summary>Whether the last <see cref="Piece.Plan"/> laid this walker a hold, and the hold.</summary>
     public bool LaidAHold(int walker, out DeviceClaims.HoldRow hold)
     {
-        hold = _holdsOut.Span<DeviceClaims.HoldRow>()[walker];
+        hold = _holdsOut!.Span<DeviceClaims.HoldRow>()[walker];
         return Counts[walker].X != 0;
     }
 
     /// <summary>The rows a walker's hold laid, in the order the town lays them.</summary>
     public ReadOnlySpan<DeviceClaims.ClaimRow> ProposedOf(int walker) =>
-        _proposedOut.Span<DeviceClaims.ClaimRow>().Slice(walker * _proposedRoom, (int)Counts[walker].W);
+        _proposedOut!.Span<DeviceClaims.ClaimRow>().Slice(walker * _proposedRoom, (int)Counts[walker].W);
 
     /// <summary>The ground of the straight a walker last committed to, as the last <see cref="Piece.Plan"/> left it.</summary>
     public ReadOnlySpan<SweptRun> StraightOf(int walker) =>
-        _straightsOut.Span<SweptRun>().Slice(walker * WalkingGround.MostRunsOfAStraight, (int)Walkers[walker].StraightRuns);
+        _straightsOut!.Span<SweptRun>().Slice(walker * WalkingGround.MostRunsOfAStraight, (int)Walkers[walker].StraightRuns);
 
-    ReadOnlySpan<UInt4> Counts => _countsOut.Span<UInt4>();
+    ReadOnlySpan<UInt4> Counts => _countsOut!.Span<UInt4>();
 
     /// <summary>The device's time over the last stage's walkers' kernel run on its own, in milliseconds.</summary>
     public double RanMs => _timer.BetweenMs((int)Stamp.Listed, (int)Stamp.Ran);
@@ -779,6 +798,13 @@ internal sealed partial class DeviceWalkers : IDisposable
     public void RecordRead(CommandBuffer commands, Piece piece)
     {
         var vk = _vk;
+        _walkersOut ??= Readback<WalkerRow>(_walkers);
+        _straightsOut ??= Readback<SweptRun>(_walkers * WalkingGround.MostRunsOfAStraight);
+        _coversOut ??= Readback<DeviceClaims.ClaimRow>(_walkers * _coverRoom);
+        _waysOut ??= Readback<LineWay>(_walkers * MostWaysInTheKernel);
+        _proposedOut ??= Readback<DeviceClaims.ClaimRow>(_walkers * _proposedRoom);
+        _holdsOut ??= Readback<DeviceClaims.HoldRow>(_walkers);
+        _countsOut ??= Readback<UInt4>(_walkers);
         vk.Copy(commands, _on[(int)piece].Walkers, _walkersOut, Bytes<WalkerRow>(_walkerCount));
         vk.Copy(commands, _outCounts, _countsOut, Bytes<UInt4>(_walkerCount));
         switch (piece)
@@ -844,8 +870,6 @@ internal sealed partial class DeviceWalkers : IDisposable
         buffer.Write(rows);
         return buffer;
     }
-
-    static unsafe ulong Bytes<T>(int count) where T : unmanaged => (ulong)(Math.Max(1, count) * sizeof(T));
 
     GpuBuffer Own(GpuBuffer buffer)
     {

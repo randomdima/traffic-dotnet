@@ -122,23 +122,6 @@ internal sealed partial class DeviceCarTick
     }
 
     /// <summary>
-    /// <b>Whether the town's own tick drives any agent</b>: a driven car the device does not take (<see cref="Takes"/>), or
-    /// anybody under a hand — whose tick reads what the claims granted it as the town holds it.
-    /// </summary>
-    public static bool TheTownDrivesAny(TownWorld town)
-    {
-        if (town.HoldAgents || town.HandsOn) return true;
-
-        var cars = town.Cars;
-        for (var car = 0; car < cars.Count; car++)
-        {
-            if (cars.Driven[car] && !Takes(town, car)) return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>
     /// How many switching cars' steps the town's claims kept in the tick the device was asked of, and which the device —
     /// not yet answering a step itself — drove as still asked for (<see cref="Disagreement"/>).
     /// </summary>

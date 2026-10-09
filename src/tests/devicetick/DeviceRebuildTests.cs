@@ -121,7 +121,7 @@ public sealed class RebuildsOnTheDevice : IDisposable
         var hand = OnARedApproach(world, driver);
 
         using var onDevice = new DeviceRebuild(_device.Vk, Config, world);
-        long grown = 0, hostRows = 0, backing = 0, cutBefore = 0, cutAfter = 0;
+        long grown = 0, hostRows = 0, backing = 0, cut = 0;
         world.WatchingTheClaims = (town, stage) =>
         {
             onDevice.Watch(town, stage);
@@ -130,9 +130,8 @@ public sealed class RebuildsOnTheDevice : IDisposable
             onDevice.HoldToTheTown(town, Rows, Holds, Answers, Grants, Walkers);
             grown += onDevice.Grown;
             hostRows += onDevice.HostRowsSent;
-            backing += onDevice.BackingSent;
-            cutBefore += onDevice.EditsSent.BeforeTheAnswers;
-            cutAfter += onDevice.EditsSent.AfterThem;
+            backing += onDevice.BackingAsked;
+            cut += onDevice.EditsSent;
         };
 
         for (var tick = 0; tick < WatchedTicks; tick++)
@@ -143,8 +142,7 @@ public sealed class RebuildsOnTheDevice : IDisposable
 
         world.WatchingTheClaims = null;
         Seen = $" ({onDevice.Rebuilds} rebuilds of {world.Cars.Count} cars and {world.People.Count} walkers, {grown} bodies grown into "
-               + $"another, {hostRows} rows the host laid, {backing} rows and holds of backing, {cutBefore} cut by the host before the "
-               + $"answers and {cutAfter} after)";
+               + $"another, {hostRows} rows the host laid, {backing} cars' backing laid, {cut} rows and holds cut by the host)";
     }
 
     /// <summary>

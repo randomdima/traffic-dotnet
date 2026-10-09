@@ -231,6 +231,13 @@ internal sealed unsafe partial class Vk : IDisposable
     /// <inheritdoc cref="CreateBuffer(ulong, BufferUsageFlags, bool)"/>
     public GpuBuffer CreateBuffer(ulong sizeBytes, BufferUsageFlags usage, HostAccess host)
     {
+        var (buffer, memory, mapped) = AllocateBuffer(sizeBytes, usage, host);
+        return new GpuBuffer(this, buffer, memory, sizeBytes, mapped, usage, host);
+    }
+
+    /// <summary>A buffer and the memory under it, mapped where the host reaches it — what a <see cref="GpuBuffer"/> is made of, or grown into.</summary>
+    internal (Buffer Buffer, DeviceMemory Memory, nint Mapped) AllocateBuffer(ulong sizeBytes, BufferUsageFlags usage, HostAccess host)
+    {
         var info = new BufferCreateInfo
         {
             SType = StructureType.BufferCreateInfo,
@@ -275,7 +282,41 @@ internal sealed unsafe partial class Vk : IDisposable
             Check(_api.MapMemory(_device, memory, 0, requirements.Size, 0, &mapped), "vkMapMemory");
         }
 
-        return new GpuBuffer(this, buffer, memory, sizeBytes, mapped);
+        return (buffer, memory, (nint)mapped);
+    }
+
+    /// <summary>
+    /// <b>Every submit on the device finished</b> — for whatever must change what a recording reads, as a buffer growing
+    /// does (<see cref="GpuBuffer.Grow"/>). A stall: never a frame's.
+    /// </summary>
+    public void WaitIdle()
+    {
+        Count();
+        Check(_api.DeviceWaitIdle(_device), "vkDeviceWaitIdle");
+    }
+
+    /// <summary>One binding of each set pointed at a buffer, as a buffer that grew is bound over again.</summary>
+    internal void Rebind(ReadOnlySpan<(DescriptorSet Set, uint Binding)> bindings, Buffer buffer)
+    {
+        if (bindings.IsEmpty) return;
+
+        var info = new DescriptorBufferInfo(buffer, 0, Silk.NET.Vulkan.Vk.WholeSize);
+        var writes = stackalloc WriteDescriptorSet[bindings.Length];
+        for (var at = 0; at < bindings.Length; at++)
+        {
+            writes[at] = new WriteDescriptorSet
+            {
+                SType = StructureType.WriteDescriptorSet,
+                DstSet = bindings[at].Set,
+                DstBinding = bindings[at].Binding,
+                DescriptorCount = 1,
+                DescriptorType = DescriptorType.StorageBuffer,
+                PBufferInfo = &info,
+            };
+        }
+
+        Count();
+        _api.UpdateDescriptorSets(_device, (uint)bindings.Length, writes, 0, null);
     }
 
     public void DestroyBuffer(Buffer buffer, DeviceMemory memory)
@@ -381,6 +422,19 @@ internal sealed unsafe partial class Vk : IDisposable
     {
         Count();
         _api.CmdFillBuffer(commands, buffer.Handle, 0, Silk.NET.Vulkan.Vk.WholeSize, word);
+    }
+
+    /// <summary>
+    /// <b>A few words written into a buffer from the recording itself</b>, at <paramref name="atWord"/>: what the host says
+    /// of one submit and no table holds, carried in the command buffer (<c>vkCmdUpdateBuffer</c>, 64 KiB at most).
+    /// </summary>
+    public void Update(CommandBuffer commands, GpuBuffer buffer, int atWord, ReadOnlySpan<uint> words)
+    {
+        fixed (uint* data = words)
+        {
+            Count();
+            _api.CmdUpdateBuffer(commands, buffer.Handle, (ulong)atWord * sizeof(uint), (ulong)words.Length * sizeof(uint), data);
+        }
     }
 
     /// <summary>

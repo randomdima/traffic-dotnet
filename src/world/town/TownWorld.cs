@@ -871,11 +871,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
         if (Roster.IsCar(agent))
         {
-            var car = Roster.CarIndex(agent);
-            if (StandsParked(car)) return;
-
-            _standsParked[car] = false;
-            TickCar(car);
+            TickTheCar(Roster.CarIndex(agent));
             return;
         }
 
@@ -887,6 +883,18 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         }
 
         TickTheWalker(agent, paused: false);
+    }
+
+    /// <summary>
+    /// <b>A car's own tick by the town</b>, nothing for one that stands parked: in its turn, or where a device put it off
+    /// (<see cref="ITownDevice.Takes"/>) until what a claims rebuild running on answered is written back.
+    /// </summary>
+    public void TickTheCar(int car)
+    {
+        if (StandsParked(car)) return;
+
+        _standsParked[car] = false;
+        TickCar(car);
     }
 
     /// <summary>

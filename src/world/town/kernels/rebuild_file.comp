@@ -22,7 +22,7 @@ layout(push_constant) uniform Figures
 void main()
 {
     uint unit = gl_GlobalInvocationID.x;
-    if (unit >= plansUnitCount()) return;
+    if (unit >= plansUnitCount() || tally[TallyOverflowed] != 0u) return;
 
     uint rowAt = tally[TallyPassesEnd] + unitRows[unit];
     uint holdAt = unitHolds[unit];

@@ -61,17 +61,14 @@ but lays only what it alone lays**: it stations its walkers, names the cars it a
 where they stand and a car on a pass's plan past it; the device lays every body, light, plan and walk and answers and
 cuts every plan in one submit (`DeviceRebuild.InTheTown`), and the claims are written back into the town's own
 reservations (`LaneOccupancy.MirrorTheSlot` and the rest) — every slot, hold, answer and list, every car's plan and hold,
-every walker's hold, the channels under each car — before the town lays the backing and reads every grant with its own
-code. A town with no such device lays its own exactly as before.
+every walker's hold, the channels under each car. A town with no such device lays its own exactly as before. The backing
+is the device's too (root decision log, 2026-10-09).
 
 - **A car on a pass is planned as though its pass were clear, and the device asks whether a body stands in it**
   (`rebuild_asks.comp`, `LaneOccupancy.FirstBodyIn`): the town's own question, as data — `TheBodyInThePass` and
   `TheBodyInTheSwitch` now ask it the same way — so where one does, the plan the town laid is never filed and the car's
   claim is the hold short of the body. It is the one thing the town lays that reads the bodies, and on OdesaOsm there are
   some twenty such cars every rebuild.
-- **The backing reads the answers, so it is laid by the town on the claims written back** — exactly as its own rebuild
-  lays it — and filed on the device with the grants at the head of the tick's own submit (`DeviceRebuild.RecordTheRest`):
-  the rebuild adds one submit and one wait, and only one.
 - **The town lays the rebuild itself** where only its own laying answers what is laid — what a hand or a truck cannot stop
   short of, which is answered against the bodies and takes a light's stretch, and what stands in a manoeuvre begun at a
   bay — and while its agents are held; each counted (`DeviceTownClaims.Rebuilds`) and sent as cut.
@@ -112,11 +109,9 @@ cutter's row, `CarToldRow`'s `HasAHold` and `Cut`), and every walker's answer wh
 - **No count crosses.** Every kernel over the rows or the holds stops at, and is dispatched indirectly by, the claims'
   tally (`claims_tally.glsl`), which the claims' own kernels now read in place of a pushed count; the scans write it.
 - **What only the host lays is sent as host-laid units, each filed at its own place in that order**: the passes of
-  overtakes, switches, bays and sidesteps; a hand's, a tow's and a manoeuvre's hold; a car on a pass's plan past it; the
-  backing. **And what each one's own `Take` cut of what was already down** — a hand's committed ground taking a light's
-  stretch before the answers, a backing taking the plan of the car queued behind after them — as edits to the rows and
-  holds the device laid. The backing is filed after the lists are laid, so the cut lists a tick reads lack it; the tick
-  asks them only for lights.
+  overtakes, switches, bays and sidesteps; a hand's, a tow's and a manoeuvre's hold; a car on a pass's plan past it.
+  **And what each one's own `Take` cut of what was already down** — a hand's committed ground taking a light's stretch
+  before the answers — as edits to the rows and holds the device laid.
 - **A car's plan begun over no ways is a hold never answered**, since `Propose` is never called — 35 holds a rebuild on
   OdesaOsm, which the plan kernel did not say. `plan_rows.glsl`'s `PlanOutRow` carries the ways it proposed down.
 - **Each producer is still sent the town as it stands at its own stage**: the chain runs from what they lay, and what

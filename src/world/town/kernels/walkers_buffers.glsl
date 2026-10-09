@@ -84,6 +84,7 @@ layout(std430, binding = 16) writeonly buffer Counts { uvec4 counts[]; };
 #define BODY_ORDER order
 #define BODY_COVER covers
 #define CLAIMS_PROPOSED proposed
+#define CLAIMS_PROPOSED_ROOM figures.proposedRoom
 
 #include "core/geometry/kernels/arc_chain.glsl"
 #include "world/foot/kernels/walking.glsl"

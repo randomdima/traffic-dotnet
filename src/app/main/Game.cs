@@ -810,6 +810,8 @@ internal sealed partial class Game : IDisposable
                     _loop.World.HandOnCar(bot.Hands.Car, bot.Hand);
                 }
 
+                // The frame drawn after the last of them reads every car as it leaves it.
+                _loop.World.ReadsEveryCarAfterTheTick = tick == due - 1;
                 _loop.Advance();
                 foreach (var watch in _scenario) watch.Saw(_loop.World);
             }

@@ -29,7 +29,7 @@ internal sealed partial class DeviceRebuild
     /// <summary>How much of the host's table and of its edits the rebuild being watched has written.</summary>
     int _hostRowCount, _hostHoldCount, _hostUnitCount, _rowEditCount, _holdEditCount;
 
-    HostRange _passes, _planned, _backing, _laidEdits, _answeredEdits;
+    HostRange _passes, _planned, _laidEdits;
 
     /// <summary>How many rows and holds of the device's the shadow reads back: as many as the town laid.</summary>
     int _rowsToRead, _holdsToRead;
@@ -57,14 +57,13 @@ internal sealed partial class DeviceRebuild
     public int HostHoldsSent => _hostHoldCount;
 
     /// <summary>
-    /// How many rows and holds the host's own laying cut, and sent as cut, in the last rebuild: before the answers — what
-    /// a hand or a tow takes of a light — and after them, what the backing takes.
+    /// How many rows and holds the host's own laying cut before the answers, and sent as cut, in the last rebuild: what a
+    /// hand or a tow takes of a light.
     /// </summary>
-    public (int BeforeTheAnswers, int AfterThem) EditsSent =>
-        (_laidEdits.RowCount + _laidEdits.HoldCount, _answeredEdits.RowCount + _answeredEdits.HoldCount);
+    public int EditsSent => _laidEdits.RowCount + _laidEdits.HoldCount;
 
-    /// <summary>How many rows and holds the backing laid in the last rebuild.</summary>
-    public int BackingSent => _backing.RowCount + _backing.HoldCount;
+    /// <summary>How many cars' backing the last rebuild laid (<c>rebuild_backing.comp</c>).</summary>
+    public int BackingAsked => _backingCount;
 
     void ShadowOf()
     {
@@ -119,7 +118,7 @@ internal sealed partial class DeviceRebuild
             case ClaimsStage.DrivesDue:
                 _drivesDueHolds = claims.HoldCount;
                 LayTheUnit((int)StandingUnit, claims, _plansDueSlots, _plansDueHolds, Numbering.Plans, (uint)_stretches);
-                _laidEdits = WhatWasCut(claims, _passesLaidSlots, _plansDueSlots, _plansDueHolds, laid: true);
+                _laidEdits = WhatWasCut(claims, _passesLaidSlots, _plansDueSlots, _plansDueHolds);
                 for (var car = 0; car < _carCount; car++) _askedNow[car] = false;
                 foreach (var car in town.CarsAskedThisLaying) _askedNow[car] = true;
                 for (var car = 0; car < _carCount; car++)
@@ -139,15 +138,11 @@ internal sealed partial class DeviceRebuild
             case ClaimsStage.PlansAnswered:
                 _answeredSlots = claims.SlotCount;
                 _answeredHolds = claims.HoldCount;
-                KeepWhatWasLaid(claims, 0, _answeredSlots, _answeredHolds);
+                AskTheBacking(town, takes: false);
                 break;
 
             case ClaimsStage.WalkersDue:
                 _walkers.Lay(town, DeviceWalkers.Piece.Read);
-                var (rowsAt, holdsAt) = (_hostRowCount, _hostHoldCount);
-                LayTheUnit(_hostUnitCount++, claims, _answeredSlots, _answeredHolds, Numbering.Backing, 0u);
-                _backing = new HostRange(rowsAt, _hostRowCount - rowsAt, holdsAt, _hostHoldCount - holdsAt);
-                _answeredEdits = WhatWasCut(claims, 0, _answeredSlots, _answeredHolds, laid: false);
                 break;
 
             case ClaimsStage.GrantsRead:
@@ -192,12 +187,12 @@ internal sealed partial class DeviceRebuild
                 // Planned as though its pass were clear: whether a body stands in it is the device's to ask.
                 askFirst = _askCount;
                 askCount = town.BodyAsksOfItsPass(car, _scratchAsks);
-                var asks = _asks.Rows;
-                if (_askCount + askCount > asks.Length)
+                if (!_asks.MakeRoomFor(_askCount + askCount))
                 {
-                    throw new InvalidOperationException($"The cars on a pass asked past the {asks.Length} stretches the rebuild has room for.");
+                    throw new InvalidOperationException($"The cars on a pass asked past the {_asks.Room} stretches the rebuild has room for.");
                 }
 
+                var asks = _asks.Rows;
                 for (var at = 0; at < askCount; at++) asks[_askCount++] = BodyAskRow.Of(_scratchAsks[at]);
             }
 
@@ -232,9 +227,10 @@ internal sealed partial class DeviceRebuild
     {
         var rowsAt = _hostRowCount;
         var holdsAt = _hostHoldCount;
-        if (rowsAt + (endSlot - firstSlot) > _hostRows.Rows.Length || holdsAt + (endHold - firstHold) > _hostHolds.Rows.Length)
+        var rows = rowsAt + (endSlot - firstSlot);
+        if (!_hostRows.MakeRoomFor(rows) || !_hostRowUnit.MakeRoomFor(rows) || holdsAt + (endHold - firstHold) > _hostHolds.Rows.Length)
         {
-            throw new InvalidOperationException($"The host laid {endSlot - firstSlot} rows and {endHold - firstHold} holds itself, past the {_hostRows.Rows.Length} the rebuild has room for.");
+            throw new InvalidOperationException($"The host laid {endSlot - firstSlot} rows and {endHold - firstHold} holds itself, past the {_hostRows.Room} the rebuild has room for.");
         }
 
         for (var slot = firstSlot; slot < endSlot; slot++)
@@ -315,10 +311,10 @@ internal sealed partial class DeviceRebuild
     }
 
     /// <summary>
-    /// <b>What a run of the host's own laying cut of what was down before it</b> (<c>LaneOccupancy.TakeFrom</c>): every row
-    /// now ending sooner or gone, and every hold now answered otherwise — as laid, before the answers, or as answered after.
+    /// <b>What a run of the host's own laying cut of what was down before it</b> (<c>LaneOccupancy.TakeFrom</c>), before
+    /// the answers: every row now ending sooner or gone, and every hold now laid to end otherwise.
     /// </summary>
-    HostRange WhatWasCut(LaneOccupancy claims, int firstSlot, int endSlot, int endHold, bool laid)
+    HostRange WhatWasCut(LaneOccupancy claims, int firstSlot, int endSlot, int endHold)
     {
         var (rowsAt, holdsAt) = (_rowEditCount, _holdEditCount);
         var slots = claims.Slots;
@@ -326,9 +322,9 @@ internal sealed partial class DeviceRebuild
         for (var slot = firstSlot; slot < endSlot; slot++)
         {
             if (slots[slot].ToM == _toMBefore[slot] && gone[slot] == _goneBefore[slot]) continue;
-            if (_rowEditCount == _rowEdits.Rows.Length)
+            if (!_rowEdits.MakeRoomFor(_rowEditCount + 1))
             {
-                throw new InvalidOperationException($"The host cut more than the {_rowEdits.Rows.Length} rows the rebuild has room to send.");
+                throw new InvalidOperationException($"The host cut more than the {_rowEdits.Room} rows the rebuild has room to send.");
             }
 
             _rowEdits.Rows[_rowEditCount++] = new RowEdit((uint)slot, slots[slot].ToM, gone[slot] ? 1u : 0u);
@@ -341,9 +337,8 @@ internal sealed partial class DeviceRebuild
             if (new PlanAnswer(endsAtM, marginM, cutBy, cutOn) == _answerBefore[hold]) continue;
 
             _holdEdits.Rows[_holdEditCount++] = new HoldEdit(
-                (uint)hold, laid ? 1u : 0u, 0u, 0u,
-                new ClaimAnswer(endsAtM, marginM, SlotOf(claims, cutBy, cutOn), cutOn, float.PositiveInfinity, 0f, 0f, 0f),
-                cutBy.Found ? ClaimRow.Of(cutBy, cutOn, false, cutBy.FromM) : default);
+                (uint)hold, 0u, 0u, 0u,
+                new ClaimAnswer(endsAtM, marginM, SlotOf(claims, cutBy, cutOn), cutOn, float.PositiveInfinity, 0f, 0f, 0f));
         }
 
         return new HostRange(rowsAt, _rowEditCount - rowsAt, holdsAt, _holdEditCount - holdsAt);

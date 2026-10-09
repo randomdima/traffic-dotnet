@@ -7,11 +7,10 @@
 // one walker's body, one car's, one light's stretch, one car's claim or one walker's walk, or a run the host still lays
 // itself (HostUnit).
 
-// Which numbering a host-laid unit is filed in: among the bodies, after them (the passes); among the plans, at a unit of
-// their own; or after the answers (the backing).
+// Which numbering a host-laid unit is filed in: among the bodies, after them (the passes); or among the plans, at a unit
+// of their own.
 const uint HostPasses = 0u;
 const uint HostPlans = 1u;
-const uint HostBacking = 2u;
 
 // One run the host still lays itself (DeviceRebuild.HostUnit): its rows and holds in the host's own table, the slot and
 // the hold the host numbered its first — what its rows' holds and its holds' rows are counted from — and where it is
@@ -85,16 +84,14 @@ struct RowEdit
     uint pad;
 };
 
-// A hold the host cut after it was laid: what it came to and what cut it, `laid` where that is what it was laid to before
-// the plans are answered, and otherwise its answer after them.
+// A hold the host cut after it was laid and before the plans are answered: what it is laid to end at, and what cut it.
 struct HoldEdit
 {
     uint hold;
-    uint laid;
     uint pad0;
     uint pad1;
+    uint pad2;
     ClaimAnswer answer;
-    ClaimRow cutter;
 };
 
 // car_tick.glsl's CarGrantRow, field for field: the rebuild writes every field but the place, which is a decision's.

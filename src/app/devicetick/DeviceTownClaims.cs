@@ -33,10 +33,13 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
     /// The walker tick whose table the walkers are read in from, where the device keeps the walkers as its own
     /// (<see cref="KeepsTheWalkers"/>) — or none, and the town stations them and reads their grants.
     /// </param>
-    public DeviceTownClaims(Vk vk, SimConfig config, TownWorld town, DeviceClaims claims, DeviceCarTick cars, DeviceWalkerTick? walkers = null)
+    /// <param name="rooms">The rooms the rebuild begins with (<see cref="DeviceRebuild.RoomsToStart"/> where none).</param>
+    public DeviceTownClaims(
+        Vk vk, SimConfig config, TownWorld town, DeviceClaims claims, DeviceCarTick cars, DeviceWalkerTick? walkers = null,
+        DeviceRebuild.Rooms? rooms = null)
     {
         _cars = cars;
-        Rebuild = new DeviceRebuild(vk, config, town, claims, cars, walkers);
+        Rebuild = new DeviceRebuild(vk, config, town, claims, cars, walkers, rooms);
     }
 
     /// <summary>The rebuild laid here, for whoever reads its times and what it crossed.</summary>
@@ -48,7 +51,10 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
     /// </summary>
     public (long Here, long ByTheTown, long OnlyTheTownAnswers, long TooManyOnAPass) Rebuilds { get; private set; }
 
-    /// <summary>Whether the town laid claims itself since this was last asked, so they are sent as cut.</summary>
+    /// <summary>
+    /// Whether the town laid claims itself since this was last asked — or before the device was set, where none was laid here
+    /// since — so they are sent as cut.
+    /// </summary>
     public bool TakeLaidByTheTown()
     {
         var laid = _laidByTheTown;
@@ -56,7 +62,8 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
         return laid;
     }
 
-    bool _laidByTheTown;
+    /// <summary>Begun so: until a rebuild is laid, the device's claims are the town's, and its memory is not.</summary>
+    bool _laidByTheTown = true;
 
     public bool LaysTheClaims(TownWorld town)
     {
@@ -71,6 +78,7 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
         }
 
         Rebuilds = (here + 1, byTheTown, onlyTheTown, tooMany);
+        _laidByTheTown = false;
         return true;
     }
 
@@ -81,7 +89,7 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
 
         Rebuild.InTheTown(town, stage);
         var due = Rebuild.AnswersDue;
-        if (stage == ClaimsStage.PlansAnswered && ReadTheGrants && !due) Grant(town);
+        if (stage == ClaimsStage.PlansAnswered && !due) Grant(town);
         if (stage == ClaimsStage.GrantsRead && !due) TakeTheGrants(town);
         if (stage == ClaimsStage.GrantsRead && due) _cars.GrantsArePending(town.CarsAskedThisLaying);
 
@@ -89,7 +97,7 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
         _hereMs[(int)stage] = Stopwatch.GetElapsedTime(arrived, _left).TotalMilliseconds;
     }
 
-    public bool ReadTheGrants => Rebuild.GrantedWithTheAnswers;
+    public bool ReadTheGrants => true;
 
     public bool KeepsTheWalkers => Rebuild.Walkers.Keeps;
 
@@ -113,7 +121,7 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
         // Its hold numbers are its laying's, put aside until its layer lands.
         town.TakeUpTheLaying();
         Rebuild.TakeTheAnswers(town);
-        if (ReadTheGrants) Grant(town);
+        Grant(town);
         TakeTheGrants(town);
         town.PutTheLayingAsideAgain();
     }
@@ -158,19 +166,12 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
 
     /// <summary>
     /// Every asked car's grant as the car tick's tables now hold it: as the rebuild read it with the answers and handed it
-    /// back (<see cref="DeviceCarTick.TakeTheGrantOf"/>), or — where the town laid a backing after them — as the town's own
-    /// reading of the claims (<see cref="DeviceCarTick.AssumeTheGrantOf"/>); or, of a car the rebuild did not hand back,
-    /// left to the device (<see cref="DeviceCarTick.LeaveTheGrantOnTheDevice"/>) — but where the town holds it as the
-    /// device left it since, its grant having come back with its reading.
+    /// back (<see cref="DeviceCarTick.TakeTheGrantOf"/>); or, of a car the rebuild did not hand back, left to the device
+    /// (<see cref="DeviceCarTick.LeaveTheGrantOnTheDevice"/>) — but where the town holds it as the device left it since,
+    /// its grant having come back with its reading.
     /// </summary>
     void TakeTheGrants(TownWorld town)
     {
-        if (!ReadTheGrants)
-        {
-            foreach (var car in town.CarsAskedThisLaying) _cars.AssumeTheGrantOf(town, car);
-            return;
-        }
-
         if (Rebuild.AnsweredInPart)
         {
             foreach (var car in town.CarsAskedThisLaying)
@@ -197,11 +198,11 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
     /// </summary>
     public (double[] Town, double[] Here) StageMs => (_townMs, _hereMs);
 
-    /// <summary>Whether a rebuild laid here waits for its backing and grants to be recorded (<see cref="RecordTheRest"/>).</summary>
+    /// <summary>Whether a rebuild was laid here since the last tick recorded behind one (<see cref="RecordTheTickBehind"/>).</summary>
     public bool Pending => Rebuild.Pending;
 
-    /// <inheritdoc cref="DeviceRebuild.RecordTheRest"/>
-    public void RecordTheRest(CommandBuffer commands) => Rebuild.RecordTheRest(commands);
+    /// <inheritdoc cref="DeviceRebuild.RecordTheTickBehind"/>
+    public void RecordTheTickBehind(CommandBuffer commands) => Rebuild.RecordTheTickBehind(commands);
 
     public void Dispose() => Rebuild.Dispose();
 }

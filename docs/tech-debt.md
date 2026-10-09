@@ -14,22 +14,30 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   2026-10-07). The wheel masks agree in both towns; a pair of cars settling after the shove freezes at step 139 on the
   host and 140 on the device, a pair that never froze inside the window before. Closes when the step the two freeze
   at is traced to the term that differs.
+- **`ShippedCityTests.NothingItCarriesStandsOffIt(OdesaOsm)`** (maps) fails on the working tree that stands 40 000 people
+  and 40 000 cars (2026-10-09): spawn 37 177 stands at x −0.15 m, off the map's own edge. Nothing past the 20 000 the map
+  stood before was asked this; spawning on the map's edge, or the map's bounds taking its spawns in, closes it.
+- **`DeviceTownRoomsTests` cannot tell a grant written by a rebuild that passed its room from one stood down**
+  (`rebuild_grant.comp`, `rebuild_agents_out.comp`): with the stand-down taken out it still passes, the margin the fixture's
+  cars read back being the same either way. It does tell the kept walkers put back from left as they were (28 walkers part
+  by tick 18). A town where a stood-down grant differs, or a check reading the grants a rebuild laid again left, closes it.
 - **Exam cards 44, 79 and 85 fail** on the tree before the wheel claims as well:
   - 44 (four left turns at once): driver 0 never gets out of the box.
   - 79 (left out of the stem on its own green): driver 1 never gets where it was sent.
   - 85 (leaving a roundabout gives way on the zebra): driver 0 is on the zebra for 78.8 s with walker 0 in its half.
 - **Exam card 109** (a car on a call gets past a queue at a red) fails since the wheel claims: the car on the call
   reaches the box at 25.0 s, after the queue's head at 17.8 s.
-- **`InspectorTests.AnInspectedFrameAllocatesNothing` and `UnitPanelTests.DrawingThePanelAllocatesNothing`** (unit) each
-  failed once in a full unit run (3.4 KB and a few KB over) and pass alone every time: both read an allocation counter
+- **`InspectorTests.AnInspectedFrameAllocatesNothing` and `UnitPanelTests.DrawingThePanelAllocatesNothing`** (unit) fail
+  now and then in a full unit run — the first twice (3.4 KB over each time), the second twice (a few KB, then 8.0 KB) — and pass alone
+  every time: both read an allocation counter
   across the whole process while the tier runs classes side by side. Counting on the test's own thread, or running them
   apart, closes it.
 - **`RouteSearchTests.SectionedPlanningAllocatesNothing` and `StatusPanelClaimsTests.DrawingTheClaimsAllocatesNothing`**
-  (unit) fail now and then in a full unit run and pass alone: the first four times in about seventeen runs (two of them in a row), 4 296 B on the test's own
-  thread over 500 searches; the second once, 7 144 B. The counter is the thread's, so it is not the side-by-side
+  (unit) fail now and then in a full unit run and pass alone: the first five times in about twenty runs (two of them in a
+  row), 4 296–5 600 B on the test's own thread over 500 searches; the second once, 7 144 B. The counter is the thread's, so it is not the side-by-side
   classes; something on that thread allocates now and then — a JIT's rejit is the guess, unconfirmed.
-- **`AllocationGateTests.ThisEnginesOwnPhasesAllocateNothingOverAWholeTown(Test)`** failed four times in about eighteen
-  perf runs, at 6.8 and 2.5 B a tick. It passes alone and in reruns of the tier, and a per-agent trace of phases 1–3 found no
+- **`AllocationGateTests.ThisEnginesOwnPhasesAllocateNothingOverAWholeTown(Test)`** failed five times in about twenty
+  perf runs, at 8.1, 6.8 and 2.5 B a tick. It passes alone and in reruns of the tier, and a per-agent trace of phases 1–3 found no
   allocation. A `P0` gate that flickers is either a real allocation on a rare path or a measurement that counts
   something it should not; which is not known.
 
@@ -44,7 +52,14 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   A/B of the device tick needs several runs a side until the device's clocks are pinned or read with the figures. The
   machine's own load moves it too: with another program taking 0.7 of a core, the host town's tick read 18.5–18.8 ms and
   the device town's 6.0–6.5 — so the probe should print the load it ran under, and the device's own figures (its
-  kernels' and copies' stamps) are what an A/B is read off meanwhile.
+  kernels' and copies' stamps) are what an A/B is read off meanwhile. `qq prof --gpu` reads the clocks: over a
+  windowed device run of OdesaOsm at 40 000 of each (2026-10-09) the shader clock sat at a median of 1.0 GHz and never
+  passed 1.3 of the card's 2.52, the GPU 20 % busy in short bursts; the memory clock stayed at its top.
+- **A windowed device run allocates in bursts**: OdesaOsm at 40 000 of each with `--device-tick` (2026-10-09, `qq prof
+  --counters`) collected nothing but allocated 0.1–0.8 MB at a time a few times a minute, 1.0–1.7 MB a minute over two
+  runs, where the same window ticked by the host showed about 0.5. Under both lies a flat ~32 kB/s that is the counters' listener
+  itself — the same a second at 1.7 frames a second as at 5. One sampled stack allocates a string under `Interface.Draw`;
+  the rest is unattributed. An allocation trace with stacks over a standing device window closes it.
 - **Nobody holds what no wheel stands on**: across a lane's end a car on two ways leaves its wheelbase less two
   metres and two half steps unclaimed; a car straddling a zebra narrower than its wheelbase, or nosing over a junction
   its front wheels have not reached, is no body there. The gap per car model is not measured.
@@ -56,11 +71,14 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   tick closes it, as
   `TheTownHoldsEveryWalkerAsTheDeviceLeftIt` does for the walkers the claims keep and
   `EveryTickReadsEveryWalkerAsTheTownHoldsIt` for the walker tick's table.
-- **No car backs up in the device gates' town**, so a rebuild with one in it is waited for and its walkers' aims written
-  in its own submit (`DeviceRebuild.RecordTheKeptAims`, the town having aimed them after the answers) in no gated run:
-  written in the tick instead, `--bench devicetown` moved (1131 → 1116 hard brakings) and neither
-  `EveryTickReadsEveryWalkerAsTheTownHoldsIt` nor `DeviceTownRunOnTests` failed. A car stood too near a wreck in the
-  gates' town (`OvertakeInATownTests.StandTooNearAWreck`), with walkers about, closes it.
+- **No car backs up in the town the device's own tick is gated on** (`Towns.Built`, in `DeviceTownGateTests`,
+  `DeviceTownKeptCarsTests`, `DeviceTownDecidesTests`), so a backing laid on the device under a layer that lands later is
+  held only to itself: `DeviceTownRunOnTests` runs a car backing up past a wreck and holds a rebuild that runs on to one
+  waited for, both the device's; `DeviceRebuildTests` and `DeviceTownClaimsTests` hold the backing to the town's, laid and
+  mirrored at once. A car stood too near a wreck in a gated town (`OvertakeInATownTests.StandTooNearAWreck`) closes it.
+- **A tick that throws between its submit and its wait is reported as `DeviceTown.Dispose`'s "A batch is begun again
+  while its last submit is in flight"**: the town's own exception is lost behind the one disposing it throws. A dispose
+  that waits out whatever is in flight first closes it.
 - **The Android head has not been built since the device tick came in** (branch `gpu-resident-sim`): no Android SDK
   where it was worked on. It compiles all of `src/` against Vulkan, so it takes `app/devicetick` as the desktop does,
   and its shader targets must embed the device's kernels (`copy_runs.comp` among them). A build of it closes this.
@@ -72,12 +90,30 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 ### Claims laying
 
-- **The claim table is laid for every agent's worst case at once** (`TownWorld`'s `LaneOccupancy`): each driver's room
-  is every way its body, its line and its backing could be over, with every mark linked to them. OdesaOsm at 20 013 cars
-  and 20 000 people lays 38.5 M slots, 1 764 MiB a copy of `DeviceClaims.ClaimRow`, under 1 % of it touched. The device
-  holds about 250 B a slot (`DeviceClaims`' rows and order, `DeviceRebuild`'s ways rows, and their host-visible copies),
-  about 9.5 GB. 68 M slots ran out of memory on the 16 GB card, so a town about 1.8 times this one does not open on the
-  device. Closes when the table is laid for what the town holds and grows past it.
+- **The host's claim table is laid for every agent's worst case at once** (`TownWorld`'s `LaneOccupancy`): each driver's
+  room is every way its body, its line and its backing could be over, with every mark linked to them — 95 % of it
+  `MostCrossedByOne` (58 on OdesaOsm, a footway's) times every one of a line's 24 ways. At 40 013 cars and 40 000 people
+  that is 77.1 M slots, 5.07 GB of the managed heap committed and 49 MB of it resident, against 327 k laid at most
+  (`--bench room`). The device's rooms grow to what is laid (root decision log, 2026-10-09); a `DeviceRebuild` held to
+  the town's (`Watch`), and every check that feeds the device off the host's table, still lay theirs at this one.
+  Closes when the town's table grows (`LaneOccupancy`'s `grows`) and those checks size by what it holds.
+- **What else the GPU holds for a worst case** (`qq prof --buffers`, OdesaOsm at 40 000 of each, after the rooms grew to
+  fit: 4.66 GiB device-local, 1.92 GiB mapped): every car's line laid for twelve lanes each as long as the town's longest
+  (`CarFleet.LineArcs` → `DeviceCarTick._arcs`, `_entries`: 0.84 GiB, on the device and staged), the solver's contacts
+  for 48 candidates a moving body (`DeviceSolver`, ~0.9 GiB), and a walker's straight 128 runs whatever it walks
+  (`DeviceWalkers._straights`, 0.2 GiB). Closes room by room, each sized to what it holds and grown as the claims' are.
+- **The ribbon atlas is on the GPU twice**: `DeviceBodies` and `DeviceWalkers` each lay a `DeviceAtlas` off
+  `world.Atlas.Table`, about 1.0 GiB apiece. One shared closes it.
+- **A rebuild that runs on is still waited for 2.6 ms at 40 000 cars** (`DeviceRebuild.IdleMs`, `--bench devicetown`,
+  OdesaOsm, 2026-10-09): its kernels take 5.5 ms of the device's, and the host has 3 ms of the tick's own to lay beside
+  them before it needs the answers and the decisions' verdicts — the tick's head queued behind the rebuild on the one
+  queue. Closes with the head on a queue of its own, or the rebuild's kernels shorter than the host's work beside them.
+- **A layer sent back in part reads past its bound on 9 of 200 rebuilds at 40 000 cars** (`DeviceRebuild.ReadTheWaysPast`),
+  a second submit and wait each, the bound being the last landing's count and a thirty-second more. Closes with a bound
+  that follows how far the count moves between landings.
+- **The backing walks a way's list once for every row it steps over** (`rebuild_backing.comp`'s `backingNextOn`, every row
+  the backing laid so far scanned for the next on the way), on one thread: 0.30 ms of the device's with the grants and
+  walkers' readings at 125 asks in 100 rebuilds of OdesaOsm, unmeasured alone and quadratic in the asks.
 - **A parked car's wheels are read again every laying** (`TownWorld.LayTheStandingBody`) at the pose they were read at
   last time. Keeping the covers needs up to `RibbonAtlas.MostWaysUnderABody` (48) a car, or an arena. The host reads
   them on the channels kept with the car (`StandingCars.ReadOn`) while `DeviceBodies` reads on `CarFleet.Channels`,
@@ -109,17 +145,15 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **The distance to a fixed place is projected every tick** (`ToThePlaceOnTheLineM`, through `SetTheContext`): the
   place does not move and the line changes only in `LayLine`. Watch the projection window's edges if it is kept per
   line.
-- **A watched town the device ticks hands every car back every tick** (`TownWorld.WatchesEveryCar`, set by
-  `TownWatch`): its past-the-grant claim (`SoakProbe.SweepPastTheGrant`) reads every car's covered ground off the
-  town's copy, and so does nothing else — the app runs under a scenario watch, so a windowed device town copies back
-  what an unwatched one keeps (about 6 400 of 10 000 cars' rows a tick on OdesaOsm, ~0.3 ms). Closes when the sweep's
-  per-car streak and deepest are kept and reduced on the device, and only the figures come back.
-- **What draws a car's indicators, lamps and front wheels reads the town's copy** (`DeviceSprites.LayCars`,
-  `CarLamps`), which an unwatched device town leaves up to a decision interval (0.1 s) old for a car it does not read
-  (`DeviceTown.ReadsEveryCarBack` off) — and so does whether a walker is drawn walking (`PersonSprites`), which it leaves
-  as a claims rebuild before last left it for a walker it does not read (`DeviceWalkers.LeavesTheUnread`). Unseen today, as
-  every windowed run is watched (above); closes when the sprites are laid off the car tick's and the kept walkers' own
-  tables.
+- **What draws a car's indicators, lamps and front wheels reads the town's copy** (`TownSprites`, `CarLamps`,
+  `DeviceSprites.LayCars`), which a device town leaves up to a decision interval (0.1 s) old for a car it does not read
+  (`DeviceTown.ReadsEveryCarBack` off) — so the last tick before each frame hands every car back for it
+  (`TownWorld.ReadsEveryCarAfterTheTick`, set in `Game.Advance`): `DeviceTown.TakeBackTheCars` 1.5 ms of that tick at
+  OdesaOsm's 40 000 cars, and of every tick where a frame runs one. Whether a walker is drawn walking (`PersonSprites`)
+  reads the town's copy too, which a device leaves as a claims rebuild before last left it for a walker it does not read
+  (`DeviceWalkers.LeavesTheUnread`) — current in a window only because its watch has every walker a rebuild changed
+  handed back (`TownWorld.WatchesEveryAgent`). Closes when the sprites are laid off the car tick's and the kept walkers'
+  own tables.
 
 ### Walkers
 
@@ -150,13 +184,12 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   `ExamProbe`) see only the ways the readers asked about lately and the lights' holds of the rest, and a hold's pieces
   (`LaneOccupancy.PiecesOf`) not at all. A whole layer read back while the overlay is open closes it.
 
-- **A rebuild that runs on hands two of its answers to the device a tick late** (`DeviceRebuild.AnswersDue`): the channels
-  a car's body was found on (`TownWorld.OnTheGroundOfItsBody` → `PhysicsWorld.PutOnChannels`) reach the bodies' step one
-  step after a waited-for rebuild's would; and which wheels stand on a way, which the rebuild writes into every car's tyre
-  row itself (`rebuild_agents_out.comp`), is laid over from the town's figure before it is taken up for a car the device
-  does not take or lays whole that tick. Neither moved `--bench devicetown` or `DeviceTownRunOnTests`. The rebuild
-  writing the channels into the solver's table, and the tyres of a car the town lays reading the device's wheel bits,
-  closes it.
+- **A rebuild that runs on has which wheels stand on a way read before it is taken up** (`DeviceRebuild.AnswersDue`,
+  `TownWorld.OnTheGroundOfItsBody`): the rebuild writes it into every car's tyre row itself (`rebuild_agents_out.comp`),
+  and the tick lays it over from the town's figure for a car the device does not take or lays whole that tick; and a
+  wreck's tyres are settled before the tick is handed over (`TownWorld.Settle`, in `ReadyTheStep`) on the town's figure
+  too. Neither moved `--bench devicetown` or `DeviceTownRunOnTests`. The tyres of a car the town lays reading the
+  device's wheel bits, and the step readied after the answers, closes it.
 - **The device's pedal is off the host's at the turn from braking to throttle**: in the fixture with a wreck staged
   (`DeviceCarTickTests.ACarGettingPastAWreckTicksAsTheTownTicksIt`, every car held), one following car's tick of 13 200
   held to wheel speed asked 0.180 m/s² where the host's `CarFollower.DriveTheLine` asked 0.192 from the same inputs —

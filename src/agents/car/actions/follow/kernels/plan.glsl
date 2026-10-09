@@ -115,7 +115,8 @@ ClaimRow planAsk(int car, int hold, LineWayRow way, uint rung, float claimFromM,
 }
 
 // Every mark over [ask.fromM, ask.toM) of a main claim's way, the whole of its section of the other way laid as a
-// secondary claim of the same hold (LaneOccupancy.PlaceTheMarks), at pieces[at..end); where the next goes.
+// secondary claim of the same hold (LaneOccupancy.PlaceTheMarks), at pieces[at..end); where the next goes, counted on
+// past the end so the plan says how much room it wanted.
 uint planPlaceTheMarks(ClaimRow ask, uint at, uint end)
 {
     for (uint mark = MARK_AT[ask.way]; mark < MARK_AT[ask.way + 1u]; mark++)
@@ -131,10 +132,12 @@ uint planPlaceTheMarks(ClaimRow ask, uint at, uint end)
         float committedToM = atM <= ask.committedToM ? planInfinity() : -planInfinity();
         if (at < end)
         {
-            PLAN_PIECES[at++] = ClaimRow(
+            PLAN_PIECES[at] = ClaimRow(
                 section.fromM, section.toM, 0.0, lineM, arrivalM, committedToM, section.fromM, ask.occupant, ask.hold, -1,
                 uint(section.onWay), (ask.flags & ClaimRungBits) | ClaimSecondary);
         }
+
+        at++;
     }
 
     return at;
@@ -142,7 +145,8 @@ uint planPlaceTheMarks(ClaimRow ask, uint at, uint end)
 
 // One car's claim of this rebuild (DrivingGround.ClearTheClaim, then Following.Plan for a car planning down its line),
 // its pieces laid at PLAN_PIECES[car * PLAN_FIGURES.mostPieces ..]. hold is the hold the host numbered its plan, which
-// is the hold the pieces carry.
+// is the hold the pieces carry. Its pieces are counted whole: a plan past its room lays only what fits and says how many
+// it wanted, which is more than the room (DevicePlans.MostPieces).
 PlanOutRow planTheCar(uint car, PlanCarRow row, CarBuildRow build, CarLineRow line, int hold)
 {
     bool reverse = (row.flags & PlanCarLineIsReverse) != 0u;
@@ -227,7 +231,8 @@ PlanOutRow planTheCar(uint car, PlanCarRow row, CarBuildRow build, CarLineRow li
         if (ask.toM <= ask.fromM) continue;
 
         at = planPlaceTheMarks(ask, at, end);
-        if (at < end) PLAN_PIECES[at++] = ask;
+        if (at < end) PLAN_PIECES[at] = ask;
+        at++;
     }
 
     result.pieces = at - first;

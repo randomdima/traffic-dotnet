@@ -20,7 +20,7 @@ layout(push_constant) uniform Figures
 void main()
 {
     uint unit = gl_GlobalInvocationID.x;
-    if (unit >= bodiesUnitCount()) return;
+    if (unit >= bodiesUnitCount() || tally[TallyOverflowed] != 0u) return;
 
     uint first = unitCandidates[unit];
     uint pieces = bodiesPiecesOf(unit);

@@ -6,6 +6,7 @@ using TrafficSimulation.Core.Config;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Physics;
 using Vk = TrafficSimulation.Runtime.Vk;
+using static TrafficSimulation.Runtime.GpuBuffer;
 
 namespace TrafficSimulation.App.DeviceTick;
 
@@ -385,8 +386,6 @@ internal sealed class DeviceTyres : IDisposable
         buffer.Upload<T>(rows.Length, into => rows.CopyTo(into), PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit);
         return buffer;
     }
-
-    static unsafe ulong Bytes<T>(int count) where T : unmanaged => (ulong)(Math.Max(1, count) * sizeof(T));
 
     GpuBuffer Own(GpuBuffer buffer)
     {

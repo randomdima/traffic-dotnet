@@ -5,7 +5,8 @@
 // DrivingGround.ReadTheGrant), one thread a car, written where its tick reads it (car_tick.glsl's CarGrantRow, its
 // cutter, and its told row's HasAHold and Cut): the claim it laid — the device's plan, or what the host left it — then
 // its authority, margin and what cut it, the way its hold was cut on, and the row that cut it. A car not asked is left as
-// its last laying left it, and the place it was sent to is never written here.
+// its last laying left it, and the place it was sent to is never written here — nor is any car's where the rebuild
+// passed a room (claims_tally.glsl), which is laid again off the grants as they stood.
 
 layout(local_size_x = 64) in;
 
@@ -16,6 +17,7 @@ layout(push_constant) uniform Figures
 } figures;
 
 #include "world/road/kernels/claims_rows.glsl"
+#include "world/road/kernels/claims_tally.glsl"
 #include "world/road/kernels/claims_grant.glsl"
 #include "agents/car/actions/follow/kernels/plan_rows.glsl"
 #include "world/town/kernels/rebuild_rows.glsl"
@@ -29,11 +31,12 @@ layout(std430, binding = 5) buffer Grants { CarGrant grants[]; };
 layout(std430, binding = 6) writeonly buffer Cutters { ClaimRow cutters[]; };
 layout(std430, binding = 7) writeonly buffer Told { uint told[]; };
 layout(std430, binding = 8) readonly buffer AskAnswers { uvec4 askAnswers[]; };
+layout(std430, binding = 9) readonly buffer Tally { uint tally[]; };
 
 void main()
 {
     uint car = gl_GlobalInvocationID.x;
-    if (car >= figures.carCount) return;
+    if (car >= figures.carCount || tally[TallyOverflowed] != 0u) return;
 
     CarClaimRow claim = carClaims[car];
     if ((claim.flags & CarAsked) == 0u) return;

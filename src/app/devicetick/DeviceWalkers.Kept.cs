@@ -6,6 +6,7 @@ using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
+using static TrafficSimulation.Runtime.GpuBuffer;
 
 namespace TrafficSimulation.App.DeviceTick;
 
@@ -151,13 +152,32 @@ internal sealed partial class DeviceWalkers
 
     /// <summary>
     /// Kept: the kernel that hands back what a rebuild's stages made of the walkers (<c>walkers_kept_out.comp</c>), bound
-    /// over the rebuild's numbering of its units' holds once the rebuild has laid it.
+    /// over the rebuild's numbering of its units' holds once the rebuild has laid it, and over the claims' tally, which says
+    /// whether the rebuild passed a room and hands back nothing.
     /// </summary>
-    public void HandBackThrough(GpuBuffer unitHolds)
+    public void HandBackThrough(GpuBuffer unitHolds, GpuBuffer tally)
     {
-        _keptOut = new ComputeKernel(_vk, "walkers_kept_out.comp", 10, (uint)Marshal.SizeOf<KeptOutPush>());
+        _keptOut = new ComputeKernel(_vk, "walkers_kept_out.comp", 11, (uint)Marshal.SizeOf<KeptOutPush>());
         _keptOutSet = _keptOut.Bind(
-            [_keptTable, _keptBefore, _keptOutRows, _keptCounts, _keptMarked, _keptHanded, _keptLeft, unitHolds, _keptHolds, _walkerClocks!.Device]);
+            [
+                _keptTable, _keptBefore, _keptOutRows, _keptCounts, _keptMarked, _keptHanded, _keptLeft, unitHolds, _keptHolds,
+                _walkerClocks!.Device, tally,
+            ]);
+    }
+
+    /// <summary>
+    /// Kept: every walker put back as a rebuild that passed a room read it in — before its stages, which wrote over the
+    /// kept table, and its count of what is handed back cleared — for the rebuild to be laid again from it. Recorded; the
+    /// caller barriers.
+    /// </summary>
+    /// <remarks>
+    /// <b>The straights the stages committed stay</b>: laid again from the same rows at the same instant, every walker
+    /// commits the very straight it did, over the very runs.
+    /// </remarks>
+    public void RecordTheKeptAgain(CommandBuffer commands)
+    {
+        _vk.Copy(commands, _keptBefore!, _keptTable!, Bytes<WalkerRow>(_walkerCount));
+        _vk.Fill(commands, _keptCounts!, 0);
     }
 
     /// <summary>

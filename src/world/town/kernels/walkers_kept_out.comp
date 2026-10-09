@@ -8,6 +8,7 @@
 // rows (walkers_kept_aims.comp). Of those, and of every walker left on the device before that the town now reads, the
 // row and its leg's clock go into the host's own memory where the town reads the walker or the stages raised anything of
 // it; every other changed walker is named left on the device. And every walker's hold as the rebuild numbered it.
+// Nothing where the rebuild passed a room (claims_tally.glsl): it is laid again, from the rows as they were read in.
 
 layout(local_size_x = 64) in;
 
@@ -20,6 +21,7 @@ layout(push_constant) uniform Figures
 
 #include "agents/person/actions/kernels/walker_rows.glsl"
 #include "world/town/kernels/walker_out.glsl"
+#include "world/road/kernels/claims_tally.glsl"
 
 // app/devicetick/DeviceWalkers.HandedRow: the row out and the walker's leg's clock (walker_decide.glsl's WalkerClock).
 struct HandedRow
@@ -45,6 +47,7 @@ layout(std430, binding = 6) writeonly buffer Left { uint left[]; };
 layout(std430, binding = 7) readonly buffer UnitHolds { uint unitHolds[]; };
 layout(std430, binding = 8) writeonly buffer HoldsOut { int holdsOut[]; };
 layout(std430, binding = 9) readonly buffer Clocks { uvec4 clocks[]; };
+layout(std430, binding = 10) readonly buffer Tally { uint tally[]; };
 
 // Bit for bit, so a place that is not a number is the same as itself.
 bool keptSame(vec2 one, vec2 other) { return all(equal(floatBitsToUint(one), floatBitsToUint(other))); }
@@ -56,7 +59,7 @@ bool marked(uint word, uint walker) { return (wanted[word + (walker >> 5u)] & (1
 void main()
 {
     uint walker = gl_GlobalInvocationID.x;
-    if (walker >= figures.walkerCount) return;
+    if (walker >= figures.walkerCount || tally[TallyOverflowed] != 0u) return;
 
     WalkerRow now = kept[walker];
     holdsOut[walker] = now.hold != WalkerNone ? int(unitHolds[figures.firstWalkerUnit + walker]) : -1;

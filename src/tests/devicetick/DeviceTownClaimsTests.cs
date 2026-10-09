@@ -59,8 +59,8 @@ public class DeviceTownClaimsTests(ClaimsLaidOnTheDevice run) : IClassFixture<Cl
     public void EveryWalkerHoldsAndAimsAsTheTownsDoes() => Assert.True(run.Walkers.Kept, run.Walkers.Said + run.Seen);
 
     /// <summary>
-    /// <b>Every asked car's grant is written where its tick reads it as the town reads its own</b> — once the backing the
-    /// town lays after the answers is filed on the device too: the grant, what cut it and its hold bits.
+    /// <b>Every asked car's grant is written where its tick reads it as the town reads its own</b> — read after the backing
+    /// the device laid after the answers: the grant, what cut it and its hold bits.
     /// </summary>
     [Fact]
     public void EveryAskedCarsGrantIsWrittenWhereItsTickReadsIt() => Assert.True(run.Grants.Kept, run.Grants.Said + run.Seen);
@@ -369,7 +369,7 @@ public sealed class ClaimsLaidOnTheDevice : IDisposable
         {
             var (onGrants, onCutters, onBits) = _rig.Cars.GrantTables;
             var commands = _batch.Begin();
-            Claims.RecordTheRest(commands);
+            Claims.RecordTheTickBehind(commands);
             _vk.Copy(commands, onGrants, _grants, _grants.SizeBytes);
             _vk.Copy(commands, onCutters, _cutters, _cutters.SizeBytes);
             _vk.Copy(commands, onBits, _bits, _bits.SizeBytes);

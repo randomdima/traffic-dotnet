@@ -9,25 +9,66 @@ namespace TrafficSimulation.Runtime;
 /// so writing into it is a <see cref="Span{T}"/> over memory the driver already owns: no copy, no pin,
 /// no marshalling and no allocation.
 /// </summary>
+/// <remarks>
+/// <b>It may grow</b> (<see cref="Grow"/>): the same object over a bigger buffer, every set a kernel bound it in pointed at
+/// the new one — so whoever holds it, and every kernel, goes on reading it with nothing rebound by hand.
+/// </remarks>
 internal sealed unsafe class GpuBuffer : IDisposable
 {
     readonly Vk _vk;
-    readonly void* _mapped;
+    readonly BufferUsageFlags _usage;
+    readonly HostAccess _host;
+    void* _mapped;
 
-    public GpuBuffer(Vk vk, Buffer buffer, DeviceMemory memory, ulong sizeBytes, void* mapped)
+    /// <summary>Every binding of every set a kernel bound this buffer in (<see cref="ComputeKernel.Bind"/>), pointed again where it grows.</summary>
+    readonly List<(DescriptorSet Set, uint Binding)> _boundIn = [];
+
+    public GpuBuffer(Vk vk, Buffer buffer, DeviceMemory memory, ulong sizeBytes, nint mapped, BufferUsageFlags usage, HostAccess host)
     {
         _vk = vk;
-        _mapped = mapped;
+        _mapped = (void*)mapped;
+        _usage = usage;
+        _host = host;
         Handle = buffer;
         Memory = memory;
         SizeBytes = sizeBytes;
     }
 
-    public Buffer Handle { get; }
+    public Buffer Handle { get; private set; }
 
-    public DeviceMemory Memory { get; }
+    public DeviceMemory Memory { get; private set; }
 
-    public ulong SizeBytes { get; }
+    public ulong SizeBytes { get; private set; }
+
+    /// <summary>
+    /// <b>The buffer made at least <paramref name="sizeBytes"/> long</b>: a new buffer and memory of the same use under this
+    /// object, and every set it was bound in pointed at it. Nothing where it is that long already.
+    /// </summary>
+    /// <param name="keep">
+    /// Whether what it holds is kept, copied by the host — mapped memory only. Otherwise the new buffer holds nothing yet.
+    /// </param>
+    /// <remarks>
+    /// <b>Nothing on the device may be reading it</b>, nor any recording still to be submitted bind it: a set is rewritten in
+    /// place, which no pending submit may hold (<see cref="Vk.WaitIdle"/>). A span taken of it before is of memory freed.
+    /// </remarks>
+    public void Grow(ulong sizeBytes, bool keep = false)
+    {
+        if (sizeBytes <= SizeBytes) return;
+        if (keep && _mapped is null) throw new InvalidOperationException("Only mapped memory is kept as it grows: the host copies it.");
+
+        var (buffer, memory, mapped) = _vk.AllocateBuffer(sizeBytes, _usage, _host);
+        if (keep) System.Buffer.MemoryCopy(_mapped, (void*)mapped, sizeBytes, SizeBytes);
+        _vk.DestroyBuffer(Handle, Memory);
+        (Handle, Memory, SizeBytes) = (buffer, memory, sizeBytes);
+        _mapped = (void*)mapped;
+        _vk.Rebind(CollectionsMarshal.AsSpan(_boundIn), buffer);
+    }
+
+    /// <summary>One binding of a set this buffer was bound in, kept so a growth points it at the new buffer.</summary>
+    internal void BoundIn(DescriptorSet set, uint binding) => _boundIn.Add((set, binding));
+
+    /// <summary>Every binding of a set no longer in use forgotten, as its kernel goes.</summary>
+    internal void Unbound(DescriptorSet set) => _boundIn.RemoveAll(bound => bound.Set.Handle == set.Handle);
 
     /// <summary>The mapped memory as the type being written into it. Host-visible buffers only.</summary>
     public Span<T> Span<T>() where T : unmanaged
@@ -39,8 +80,14 @@ internal sealed unsafe class GpuBuffer : IDisposable
 
     public void Write<T>(ReadOnlySpan<T> data) where T : unmanaged
     {
-        MemoryMarshal.Cast<T, byte>(data).CopyTo(Span<byte>());
+        data.CopyTo(Span<T>());
     }
+
+    /// <summary>
+    /// <b>The size of a buffer of <paramref name="count"/> elements</b>, never empty. Counted in 64 bits: a claim table
+    /// past 2 GiB counted in an <see cref="int"/> wraps to a size no device has, refused as out of memory.
+    /// </summary>
+    public static ulong Bytes<T>(int count) where T : unmanaged => (ulong)Math.Max(1, count) * (ulong)sizeof(T);
 
     /// <summary>
     /// <b>Elements written into a device-local buffer</b> (one made with <see cref="BufferUsageFlags.TransferDstBit"/>):

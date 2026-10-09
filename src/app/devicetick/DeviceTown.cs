@@ -21,12 +21,12 @@ namespace TrafficSimulation.App.DeviceTick;
 /// <remarks>
 /// <para>
 /// <b>The claims are laid here too</b> (<see cref="DeviceRebuild.InTheTown"/>): the town lays only what it alone lays, the
-/// device every body, light, plan, walk and answer in one submit, and the claims are written back into the town before
-/// it lays the backing and reads every grant; the backing and the cars' grants are recorded at the head of the tick's own
-/// submit, into the tables the car tick reads. The walkers' side of them is the device's own, read in off the walker tick's
+/// device every body, light, plan, walk, answer and backing in one submit, and every grant into the tables the car tick
+/// reads, and the claims are written back into the town. The walkers' side of them is the device's own, read in off the walker tick's
 /// table (<see cref="DeviceWalkers.Keeps"/>). <b>Where the town has to lay them itself</b> — a hand or a truck holding
 /// what it cannot stop short of, a manoeuvre begun at a bay, a tick held, more cars on a pass than there is room to ask
-/// for — they are sent as cut (<see cref="DeviceClaims.LayAsCut"/>), as each was before, and counted.
+/// for — they are sent as cut (<see cref="DeviceClaims.LayAsCut"/>), as each was before, and counted. A rebuild laid here
+/// runs on while the town goes on (<see cref="RebuildsRunOn"/>), the cars the town ticks itself put off until it answers.
 /// </para>
 /// <para>
 /// <b>The bodies are the device's</b> (<see cref="DeviceTownBodies"/>): stepped off the impulses the tick left on the
@@ -77,6 +77,11 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// <summary>Which cars the town's tick left to the device this tick, as <see cref="Takes"/> answered it.</summary>
     readonly bool[] _chosen;
 
+    /// <summary>The cars the town ticks itself, put off this tick while a claims rebuild runs on (<see cref="Takes"/>).</summary>
+    readonly int[] _putOff;
+
+    int _putOffCount;
+
     /// <summary>The cars whose wheels are being handed back, in the order they are copied.</summary>
     readonly int[] _leaving;
 
@@ -85,6 +90,9 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
     /// <summary>Which cars the last tick took that it handed back (<see cref="ReadsEveryCarBack"/>): every one, or those the town reads.</summary>
     readonly bool[] _handedBack;
+
+    /// <summary>Which cars the last tick that took them handed their grant left back (<see cref="DeviceCarTick.HandsBackTheGrantsLeft"/>).</summary>
+    readonly bool[] _grantLeftHandedBack;
 
     int _count;
     int _walkerCount;
@@ -95,7 +103,11 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// <summary>Whether this tick's agents have been looked over for a car leaving the device with its wheels still there.</summary>
     bool _swept;
 
-    public DeviceTown(Vk vk, SimConfig config, TownWorld town)
+    /// <param name="rooms">
+    /// The rooms the claims laid here begin with — its rows, a car's plan and a walk — grown to fit whatever is laid
+    /// (<see cref="DeviceRebuild.RoomsToStart"/> where none).
+    /// </param>
+    public DeviceTown(Vk vk, SimConfig config, TownWorld town, DeviceRebuild.Rooms? rooms = null)
     {
         _vk = vk;
         _town = town;
@@ -104,8 +116,9 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         var builds = new CarBuild[CarCatalog.Shared.SheetCount];
         for (var variant = 0; variant < builds.Length; variant++) builds[variant] = cars.BuildOfVariant(variant);
 
+        var start = rooms ?? DeviceRebuild.RoomsToStart(town);
         _tyres = new DeviceTyres(vk, config, town.WheelGrounds, builds, cars.Capacity) { ReadsEveryWheel = false };
-        _claims = new DeviceClaims(vk, claims.WayCount, claims.Capacity, claims.HoldCapacity, config.Road.MostSettlingPasses, cars.Capacity);
+        _claims = new DeviceClaims(vk, claims.WayCount, start.Rows, claims.HoldCapacity, config.Road.MostSettlingPasses, cars.Capacity);
         _cars = new DeviceCarTick(
             vk, config, _tyres, town.Roads, cars.LineArcsOf(0).Length, town.Ways.OfRoadConnector(0), _claims.Cut)
         {
@@ -113,7 +126,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         };
         _walkers = new DeviceWalkerTick(vk, config, town.People.Capacity, resident: true);
         _bodies = new DeviceTownBodies(vk, config, town, _tyres, _walkers) { HandsOverThrough = _cars };
-        _townClaims = new DeviceTownClaims(vk, config, town, _claims, _cars, _walkers);
+        _townClaims = new DeviceTownClaims(vk, config, town, _claims, _cars, _walkers, start);
         _townClaims.Rebuild.MirrorsAtOnce = false;
         RebuildsRunOn = true;
         _batch = new ComputeBatch(vk);
@@ -124,9 +137,11 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _taken = new int[cars.Capacity];
         _takenNow = new bool[cars.Capacity];
         _chosen = new bool[cars.Capacity];
+        _putOff = new int[cars.Capacity];
         _leaving = new int[cars.Capacity];
         _movedOn = new bool[cars.Capacity];
         _handedBack = new bool[cars.Capacity];
+        _grantLeftHandedBack = new bool[cars.Capacity];
         _wanted = new uint[_cars.Wanted.Length];
         _cars.ReadsEveryCar = false;
         _listed = new bool[cars.Capacity];
@@ -480,6 +495,9 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// <summary>How many driven cars the town ticked itself, over every tick.</summary>
     public long CarsDrivenByTheTown { get; private set; }
 
+    /// <summary>How many cars the town ticked itself once a claims rebuild that ran on had its answers written back, over every tick.</summary>
+    public long CarsPutOff { get; private set; }
+
     public bool Takes(int agent)
     {
         var town = _town;
@@ -504,7 +522,23 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
             HandBackAlone(town, _leaving.AsSpan(0, 1));
         }
 
-        return takes;
+        if (takes || !_townClaims.Rebuild.AnswersDue) return takes;
+
+        // Its own tick reads what the rebuild running on answered it (TickThePutOff).
+        _putOff[_putOffCount++] = car;
+        return true;
+    }
+
+    /// <summary>
+    /// <b>The cars the town ticks itself, put off while a claims rebuild ran on</b> (<see cref="Takes"/>), ticked by the town
+    /// once its answers are written back — on them and on the layer before it, as a rebuild waited for leaves them to the
+    /// town's turn.
+    /// </summary>
+    void TickThePutOff(TownWorld town)
+    {
+        foreach (var car in _putOff.AsSpan(0, _putOffCount)) town.TickTheCar(car);
+        CarsPutOff += _putOffCount;
+        _putOffCount = 0;
     }
 
     /// <summary>Whether a car whose wheels the device keeps goes on being ticked there next, as the town stands now.</summary>
@@ -600,6 +634,22 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
     public void TakeTheWalkerBack(TownWorld town, int person) => KeptWalkers.TakeBackTheLeft(town, _walkers, person);
 
+    /// <remarks>
+    /// The town's own where it holds the car, or moved on from what the device read of it — a wreck, whose grant went with
+    /// its action — which a hand-back leaves standing (<see cref="TakeBackOnTheSide"/>).
+    /// </remarks>
+    public float GrantLeftM(TownWorld town, int car)
+    {
+        var cars = town.Cars;
+        if (_cars.TownHolds(car) || _cars.TheTownMovedOnFrom(cars, car)) return cars.GrantLeftM(car);
+        if (!_grantLeftHandedBack[car])
+        {
+            throw new InvalidOperationException($"Car {car}'s grant left was not handed back: the town did not watch every agent when it was ticked.");
+        }
+
+        return _cars.GrantLeftAfter(car);
+    }
+
     public void TakeEveryCarBack(TownWorld town)
     {
         KeptWalkers.TakeBackTheLeft(town, _walkers);
@@ -665,8 +715,9 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
     /// <summary>
     /// <b>Whether a claims rebuild laid here runs on while the town goes on</b> (<see cref="DeviceRebuild.AnswersDue"/>): its
-    /// answers written back once the tick's own submit is behind it, before the decisions read them. Off, every rebuild is
-    /// waited for where its stages reach the plans.
+    /// answers written back once the tick's own submit is behind it, and the cars the town ticks itself ticked on them then
+    /// (<see cref="Takes"/>), before the bodies' step is laid and the decisions read them. Off, every rebuild is waited for
+    /// where its stages reach the plans.
     /// </summary>
     public bool RebuildsRunOn
     {
@@ -719,6 +770,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _cars.ReadersKeepUp = !(laidHere && _townClaims.Rebuild.LandsLater);
         if (DecidesTheCars) LayTheDecisions(town, !_cars.ReadersKeepUp && !_cars.ReadersKeptUp);
         if (!_cars.ReadsEveryCar) LayTheWanted(town);
+        _cars.HandsBackTheGrantsLeft = town.WatchesEveryAgent;
         town.DriveClocks.ForgetTheTouched();
         _walkerCount = _walkers.LayWhatChanged(town);
 
@@ -730,7 +782,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         if (_cars.ReadersKeepUp) _walkerReadersKnown = readersCopied;
         if (DecidesTheWalkers) LayTheWalkerDecisions(town);
         LayTheWalkersClocks(town);
-        if (stepping) _bodies.LayTheStep(town, _dtS, _taken.AsSpan(0, _count), walkersTicked: true);
+        if (stepping) _bodies.LayThePosesForTheTick(town);
         var prepared = Stopwatch.GetTimestamp();
 
         // The head of the tick in a submit of its own — what is sent, and the decisions put off asked of what the last tick
@@ -739,7 +791,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         var head = _headBatch.Begin();
         _timer.Reset(head);
         _timer.Stamp(head, 0);
-        if (laidHere) _townClaims.RecordTheRest(head);
+        if (laidHere) _townClaims.RecordTheTickBehind(head);
         if (laidByTheTown) _claims.RecordAsCut(head);
         _timer.Stamp(head, 1);
         KeptWalkers.RecordTheClocksSent(head);
@@ -764,9 +816,16 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _timer.Stamp(commands, 2);
         _batch.Submit();
 
-        // The step in a submit of its own behind the tick's, so the cars and walkers are written back while it runs.
+        // While the tick runs: this tick's rebuild's answers are written back where it ran on meanwhile, and the cars the
+        // town ticks itself, put off for them, are ticked on them.
+        _townClaims.TakeTheAnswers(town);
+        TickThePutOff(town);
+
+        // The step in a submit of its own behind the tick's, laid with what the town ticked, so the cars and walkers are
+        // written back while it runs.
         if (stepping)
         {
+            _bodies.LayTheStep(town, _dtS, _taken.AsSpan(0, _count), walkersTicked: true);
             var step = _stepBatch.Begin();
             _vk.AfterTheSubmitsBefore(step);
             _bodies.RecordTheStep(step, town, _dtS);
@@ -775,11 +834,9 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
         RegionsCopied = (int)(Vk.RegionsCopied - regionsFrom);
 
-        // While the tick runs: this tick's rebuild's answers are written back where it ran on meanwhile, a layer the last
-        // rebuild sent back is written into the town, and this tick's own rebuild's layer is sent back behind it, to be
-        // copied in the host's time before the next tick's submit; and the last tick's decisions are taken, on the layer
-        // just landed.
-        _townClaims.TakeTheAnswers(town);
+        // And a layer the last rebuild sent back is written into the town, and this tick's own rebuild's layer is sent back
+        // behind it, to be copied in the host's time before the next tick's submit; and the last tick's decisions are
+        // taken, on the layer just landed.
         _townClaims.Rebuild.LandWhatWasSent(town);
         _townClaims.Rebuild.SendTheLayerBack();
         var physics = town.PhysicsForTheDevice;
@@ -933,6 +990,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         {
             _takenNow[car] = true;
             _tyres.KeptOnTheDevice[car] = true;
+            _grantLeftHandedBack[car] = _cars.HandsBackTheGrantsLeft;
 
             // A decision taken while the tick ran laid it a line or set it doing something else: what the tick read of the
             // line it was sent stands for nothing now, and the town's own is laid whole next tick.

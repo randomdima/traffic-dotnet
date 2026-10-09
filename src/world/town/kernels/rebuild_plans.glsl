@@ -41,7 +41,7 @@ layout(std430, binding = 13) writeonly buffer Rows { ClaimRow rows[]; };
 layout(std430, binding = 14) writeonly buffer Holds { HoldRow holds[]; };
 layout(std430, binding = 15) writeonly buffer Answers { ClaimAnswer answers[]; };
 layout(std430, binding = 16) writeonly buffer Shown { float shown[]; };
-layout(std430, binding = 17) readonly buffer Tally { uint tally[]; };
+layout(std430, binding = 17) buffer Tally { uint tally[]; };
 
 // What each car on a pass found inside it (rebuild_asks.comp).
 layout(std430, binding = 18) readonly buffer AskAnswers { uvec4 askAnswers[]; };

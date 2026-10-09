@@ -10,8 +10,9 @@ namespace TrafficSimulation.World.Town;
 /// <summary>
 /// <b>A claims rebuild a device lays</b> (<see cref="ITownClaims"/>): <see cref="RebuildLaneOccupancy"/> stage
 /// for stage, the town laying here only what it alone lays — every walker stationed, the passes, the claims laid where
-/// they stand, a car on a pass's plan past it, the backing and every grant read — and the device every body, light, plan
-/// and walk, and every answer, handed back into the reservations before the backing is laid.
+/// they stand, a car on a pass's plan past it, and every grant the device did not read — and the device every body,
+/// light, plan and walk, every answer and the backing after them (<see cref="TakeTheBackingAsk"/>), handed back into the
+/// reservations.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -75,7 +76,6 @@ internal sealed partial class TownWorld
         var landsLater = device.LandsLater;
         LayIntoTheLayer(landsLater);
         device.ClaimsAt(this, ClaimsStage.PlansAnswered);
-        foreach (var car in CarsAsked) _backingUp.Lay(car, IsUnderWay(car));
         var granted = device.ReadTheGrants;
         if (!granted)
         {
@@ -314,6 +314,21 @@ internal sealed partial class TownWorld
         _walkingGround.HoldTheGroundAs(person, kept.HeldAs, kept.HeldAsRoster);
         _sidestepping.CountTheWord(kept.MadeItsPass, kept.WithdrewItsPass);
     }
+
+    /// <summary>
+    /// <b>The ground a car asked this laying means to back up over</b> (<see cref="BackingUp.Asks"/>), for a device laying
+    /// the backing beside the town's own — read and never written.
+    /// </summary>
+    public bool AsksToBackUp(int car, out BackingAsk ask) => _backingUp.Asks(car, IsUnderWay(car), out ask);
+
+    /// <summary>
+    /// <b>And taken by a device that lays the backing in the town's place</b> (<see cref="BackingUp.TakeTheAsk"/>): what the
+    /// car asked for cleared, and how much it was had left for the device to say (<see cref="BackedUpOnTheDevice"/>).
+    /// </summary>
+    public bool TakeTheBackingAsk(int car, out BackingAsk ask) => _backingUp.TakeTheAsk(car, IsUnderWay(car), out ask);
+
+    /// <summary>How far back down its way a device laid a car's backing (<see cref="BackingUp.Had"/>).</summary>
+    public void BackedUpOnTheDevice(in BackingAsk ask, float reachM) => _backingUp.Had(ask, reachM);
 
     /// <summary>How a device's answering of the plans went (<see cref="AnswerThePlans"/>): answers moved past the first pass, and whether they settled.</summary>
     public void AnsweredOnTheDevice(int laidAgain, bool settled)

@@ -47,18 +47,18 @@ bool hostHeldInItsPass(HostUnit unit)
     return carClaims[car].askCount > 0u && askAnswers[car][AskFound] != 0u;
 }
 
-// Where a unit's first row and first hold are filed: after the bodies for the passes, at its own unit among the plans,
-// and after every plan for the backing.
+// Where a unit's first row and first hold are filed: after the bodies for the passes, and at its own unit among the plans.
 uvec2 hostFiledAt(HostUnit unit)
 {
     if (unit.numbering == HostPasses) return uvec2(tally[TallyBodies], 0u);
-    if (unit.numbering == HostPlans) return uvec2(tally[TallyPassesEnd] + unitRows[unit.unit], unitHolds[unit.unit]);
-    return uvec2(tally[TallyPlannedRows], tally[TallyPlannedHolds]);
+    return uvec2(tally[TallyPassesEnd] + unitRows[unit.unit], unitHolds[unit.unit]);
 }
 
 void main()
 {
     uint at = gl_GlobalInvocationID.x;
+    if (tally[TallyOverflowed] != 0u) return;
+
     if (at < figures.rowCount)
     {
         uint row = figures.rowFirst + at;

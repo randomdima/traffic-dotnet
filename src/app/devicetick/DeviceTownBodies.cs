@@ -118,16 +118,36 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
     public void StepBodies(TownWorld town, float dtS) => StepBodies(town, dtS, default, walkersTicked: false);
 
     /// <summary>
-    /// <b>One step laid for a submit the agents' tick is recorded into first</b> (<see cref="RecordTheStep"/>): as
-    /// <see cref="StepBodies(TownWorld, float, ReadOnlySpan{int}, bool, ReadOnlySpan{int})"/> lays it, but for the walkers'
-    /// impulses, which that tick has not handed back yet — a walker's is its row there but where the town's own is the
-    /// one that stands: a casualty's slide, a walker under a hand.
+    /// <b>The poses the agents' tick reads, for a step submitted behind it</b>, laid before the tick's rows are sent: every
+    /// car's where the step lays the table whole, else those whose bodies the town changed since the last step. The rest of
+    /// the step is <see cref="LayTheStep"/>'s.
+    /// </summary>
+    public void LayThePosesForTheTick(TownWorld town)
+    {
+        var began = Stopwatch.GetTimestamp();
+        var physics = town.PhysicsForTheDevice;
+        _laysWhole = physics.StepsTaken != _stepsTaken || physics.Table.Count != _bodiesLaid;
+        if (_laysWhole) LayEveryPose(town.Cars);
+        else _tyres.LayThePlacedPoses(town.Cars, physics);
+
+        LayMs = Stopwatch.GetElapsedTime(began).TotalMilliseconds;
+    }
+
+    /// <summary>Whether the step whose poses <see cref="LayThePosesForTheTick"/> laid lays the table whole.</summary>
+    bool _laysWhole;
+
+    /// <summary>
+    /// <b>One step laid for a submit behind the agents' tick</b> (<see cref="RecordTheStep"/>), its poses laid before it
+    /// (<see cref="LayThePosesForTheTick"/>): as <see cref="StepBodies(TownWorld, float, ReadOnlySpan{int}, bool, ReadOnlySpan{int})"/>
+    /// lays it, but for the walkers' impulses, which that tick has not handed back yet — a walker's is its row there but
+    /// where the town's own is the one that stands: a casualty's slide, a walker under a hand. Laid once the town has ticked
+    /// what it ticks itself, every row it changed since the poses is laid with it.
     /// </summary>
     public void LayTheStep(TownWorld town, float dtS, ReadOnlySpan<int> tyresStepped, bool walkersTicked)
     {
         var began = Stopwatch.GetTimestamp();
         Lay(town, dtS, tyresStepped, walkersTicked, tickedInThisSubmit: true);
-        LayMs = Stopwatch.GetElapsedTime(began).TotalMilliseconds;
+        LayMs += Stopwatch.GetElapsedTime(began).TotalMilliseconds;
     }
 
     /// <summary>
@@ -201,26 +221,26 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
     /// make itself.
     /// </summary>
     /// <param name="tickedInThisSubmit">
-    /// Whether the walkers' tick runs in the step's own submit, so its impulses are not handed back yet and the town's own
-    /// are laid exactly where they stand — rather than wherever they differ from what the tick handed back.
+    /// Whether the agents' tick runs ahead of the step, its poses laid (<see cref="LayThePosesForTheTick"/>) and its walkers'
+    /// impulses not handed back yet, so the town's own are laid exactly where they stand — rather than wherever they differ
+    /// from what the tick handed back.
     /// </param>
     void Lay(TownWorld town, float dtS, ReadOnlySpan<int> tyresStepped, bool walkersTicked, bool tickedInThisSubmit)
     {
         var physics = town.PhysicsForTheDevice;
         var table = physics.Table;
         var cars = town.Cars;
-        LaidWhole = physics.StepsTaken != _stepsTaken || table.Count != _bodiesLaid;
+        LaidWhole = (tickedInThisSubmit && _laysWhole) || physics.StepsTaken != _stepsTaken || table.Count != _bodiesLaid;
         if (LaidWhole)
         {
             _solver.LayWhole(table);
             _bodiesLaid = table.Count;
-            for (var car = 0; car < cars.Count; car++) _tyres.Poses[car] = DeviceTyres.PoseRow.Of(cars, car);
-            _tyres.Table.Poses.Mark(0, cars.Count);
+            if (!tickedInThisSubmit) LayEveryPose(cars);
         }
         else
         {
             _solver.LayRows(table, physics.Changes);
-            _tyres.LayThePlacedPoses(cars, physics);
+            if (!tickedInThisSubmit) _tyres.LayThePlacedPoses(cars, physics);
         }
 
         physics.ForgetTheChanges();
@@ -288,6 +308,12 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
     /// reweighed — laid from the fleet into the tyre pass's table, for whatever reads it before the next step.
     /// </summary>
     public void LayThePosesTheTownChanged(TownWorld town) => _tyres.LayThePlacedPoses(town.Cars, town.PhysicsForTheDevice);
+
+    void LayEveryPose(CarFleet cars)
+    {
+        for (var car = 0; car < cars.Count; car++) _tyres.Poses[car] = DeviceTyres.PoseRow.Of(cars, car);
+        _tyres.Table.Poses.Mark(0, cars.Count);
+    }
 
     /// <summary>
     /// <b>What the step left, handed back</b>: every car into the fleet as the town's own phase writes it, every walker

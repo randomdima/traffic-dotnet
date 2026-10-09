@@ -37,6 +37,8 @@ void main()
         return;
     }
 
+    if (tally[TallyOverflowed] != 0u) return;
+
     uint from = walker * figures.coverRoom + counts.x;
     uint slot = tally[TallyBodies] + figures.hostPassRows + passStarts[walker];
     for (uint at = 0u; at < counts.y; at++) rows[slot + at] = walkerCovers[from + at];

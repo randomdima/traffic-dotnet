@@ -4,6 +4,7 @@ using Silk.NET.Vulkan;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Road;
 using Vk = TrafficSimulation.Runtime.Vk;
+using static TrafficSimulation.Runtime.GpuBuffer;
 
 namespace TrafficSimulation.App.DeviceTick;
 
@@ -103,7 +104,15 @@ internal sealed class DeviceClaims : IDisposable
         public const int CandidatesGroups = 8;
         public const int RowsGroups = 11;
         public const int HoldsGroups = 14;
-        public const int Words = 17;
+        public const int RowRoom = 17;
+        public const int PieceRoom = 18;
+        public const int ProposedRoom = 19;
+        public const int MostPieces = 20;
+        public const int MostProposed = 21;
+        public const int Overflowed = 22;
+        public const int BackedRows = 23;
+        public const int Listed = 24;
+        public const int Words = 25;
 
         /// <summary>Where a word lies in the buffer, as an indirect dispatch names it.</summary>
         public static ulong BytesTo(int word) => (ulong)word * sizeof(uint);
@@ -133,7 +142,7 @@ internal sealed class DeviceClaims : IDisposable
     readonly int _ways;
     readonly List<GpuBuffer> _owned = [];
     readonly GpuBuffer _rows, _counts, _starts, _cursor, _order, _bodyRuns, _plannedRuns, _holds, _shown, _answers, _moved, _tally;
-    readonly GpuBuffer _blockSums, _totals;
+    readonly GpuBuffer _blockSums;
     readonly GpuBuffer? _rowsIn, _holdsIn, _shownIn, _tallyIn;
     readonly GpuBuffer _rowsOut, _holdsOut, _answersOut, _movedOut, _orderOut, _bodyRunsOut, _plannedRunsOut, _tallyOut;
     readonly ComputeKernel _count, _file, _sort, _answer, _show, _cut, _grant;
@@ -147,7 +156,9 @@ internal sealed class DeviceClaims : IDisposable
     readonly int _passes;
     int _rowCount;
     int _holdCount;
+    int _rowRoom;
 
+    /// <param name="slots">The rows there is room for to begin with (<see cref="GrowRows"/>).</param>
     /// <param name="mostPasses">The host's own bound (<see cref="Core.Config.RoadFigures.MostSettlingPasses"/>).</param>
     /// <param name="cars">How many cars' grants a host-fed answering reads back (<see cref="Holders"/>).</param>
     /// <param name="sentFromTheHost">
@@ -161,6 +172,7 @@ internal sealed class DeviceClaims : IDisposable
         _vk = vk;
         _ways = ways;
         _passes = (mostPasses % 2 == 1 ? mostPasses : mostPasses + 1) + 1;
+        _rowRoom = Math.Max(1, slots);
 
         _rows = Device<ClaimRow>(slots);
         _counts = Device<uint>(2 * ways);
@@ -174,7 +186,6 @@ internal sealed class DeviceClaims : IDisposable
         _answers = Device<ClaimAnswer>(holds);
         _moved = Device<uint>(_passes);
         _blockSums = Device<uint>(ScanKernels.Block);
-        _totals = Device<uint>(1);
         _tally = Own(
             vk.CreateBuffer(
                 Bytes<uint>(Tally.Words),
@@ -223,7 +234,7 @@ internal sealed class DeviceClaims : IDisposable
         _grantSet = _grant.Bind(grants);
 
         _scans = new ScanKernels(vk);
-        _scan = new PrefixScan(vk, _scans, _starts, _blockSums, _totals, 0);
+        _scan = new PrefixScan(vk, _scans, _starts, _blockSums, _tally, (uint)Tally.Listed);
         _batch = new ComputeBatch(vk);
         _timer = new GpuTimer(vk, Enum.GetValues<Stage>().Length);
     }
@@ -283,15 +294,16 @@ internal sealed class DeviceClaims : IDisposable
     {
         if (to <= from) return;
 
-        var at = (ulong)(from * sizeof(T));
-        _vk.Copy(commands, source, into, [new BufferCopy(at, at, (ulong)((to - from) * sizeof(T)))]);
+        var at = (ulong)from * (ulong)sizeof(T);
+        _vk.Copy(commands, source, into, [new BufferCopy(at, at, (ulong)(to - from) * (ulong)sizeof(T))]);
     }
 
     /// <summary>
     /// <b>Every way's two lists as the last counted read handed them back</b>, one row a place: grouped bodies first, then
-    /// planned pieces, each group a way's and in its way's order — so a way's list is a run of it, found off its rows.
+    /// planned pieces, each group a way's and in its way's order — so a way's list is a run of it, found off its rows. A row
+    /// taken out before the lists were laid is on none (<see cref="Tally.Listed"/>).
     /// </summary>
-    public ReadOnlySpan<uint> Order => _orderOut.Span<uint>()[.._rowCount];
+    public ReadOnlySpan<uint> Order => _orderOut.Span<uint>()[..(int)TallyRead[Tally.Listed]];
 
     /// <summary>How many rows and holds a counted read handed back, taken off the tally it read.</summary>
     public void TakeTheCounts()
@@ -302,6 +314,57 @@ internal sealed class DeviceClaims : IDisposable
 
     /// <summary>How many passes an answering runs.</summary>
     public int Passes => _passes;
+
+    /// <summary>How many rows there is room for: the rows, their order, and every copy of them each way.</summary>
+    public int RowRoom => _rowRoom;
+
+    /// <summary>
+    /// <b>Room made for <paramref name="rows"/> rows</b> — every table of them grown, what they held not kept. Nothing on the
+    /// device may be reading them (<see cref="GpuBuffer.Grow"/>); nothing where there is room already.
+    /// </summary>
+    public void GrowRows(int rows)
+    {
+        if (rows <= _rowRoom) return;
+
+        _rowRoom = rows;
+        _rows.Grow(Bytes<ClaimRow>(rows));
+        _order.Grow(Bytes<uint>(rows));
+        _rowsIn?.Grow(Bytes<ClaimRow>(rows));
+        _rowsOut.Grow(Bytes<ClaimRow>(rows));
+        _orderOut.Grow(Bytes<uint>(rows));
+    }
+
+    /// <summary>
+    /// <b>The rooms a rebuild numbered on the device lays into</b>, written into the tally — the rows, a car's plan and a
+    /// walker's walk — and, at its beginning, the most each came to and whether anything passed its room cleared
+    /// (<c>claims_tally.glsl</c>). Recorded; the caller barriers.
+    /// </summary>
+    /// <param name="noRows">Whether the rows are told they have no room, so whatever is laid passes it: for a check of laying again.</param>
+    public void RecordTheRooms(CommandBuffer commands, int pieces, int proposed, bool beginning, bool noRows = false)
+    {
+        ReadOnlySpan<uint> rooms = [noRows ? 0u : (uint)_rowRoom, (uint)pieces, (uint)proposed, 0u, 0u, 0u, 0u];
+        _vk.Update(commands, _tally, Tally.RowRoom, beginning ? rooms : rooms[..3]);
+    }
+
+    /// <summary>Whether the rebuild the tally was last read back off passed a room, and laid nothing (<see cref="Tally.Overflowed"/>).</summary>
+    public bool Overflowed => TallyRead[Tally.Overflowed] != 0u;
+
+    /// <summary>
+    /// What the rebuild the tally was last read back off laid, whether or not it fitted: its rows — the backing's among them
+    /// where it was laid — the most any car's plan laid, and the most any walker's walk did.
+    /// </summary>
+    public (int Rows, int Pieces, int Proposed) Needs =>
+        ((int)Math.Max(TallyRead[Tally.PlannedRows], TallyRead[Tally.BackedRows]), (int)TallyRead[Tally.MostPieces],
+         (int)TallyRead[Tally.MostProposed]);
+
+    /// <summary>Room for the host's own laying of <paramref name="rows"/> rows, made where there is not, the device waited for first.</summary>
+    void MakeRoomFor(int rows)
+    {
+        if (rows <= _rowRoom) return;
+
+        _vk.WaitIdle();
+        GrowRows((int)Math.Min(int.MaxValue, BitOperations.RoundUpToPowerOf2((uint)rows)));
+    }
 
     /// <summary>The claims' tables on the device: what a rebuild numbered there files its rows and holds into.</summary>
     public Tables OnTheDevice => new(_rows, _holds, _shown, _answers, _bodyRuns, _plannedRuns, _order, _tally);
@@ -365,6 +428,7 @@ internal sealed class DeviceClaims : IDisposable
             throw new InvalidOperationException("These claims are laid on the device and have no room for the host's.");
         }
 
+        MakeRoomFor(claims.SlotCount);
         var rows = _rowsIn.Span<ClaimRow>();
         for (var slot = 0; slot < claims.SlotCount; slot++) rows[slot] = ClaimRow.OfSlot(claims, slot);
 
@@ -401,6 +465,7 @@ internal sealed class DeviceClaims : IDisposable
     {
         if (_rowsIn is null || _tallyIn is null) throw new InvalidOperationException("These claims are laid on the device and have no room for the host's.");
 
+        MakeRoomFor(claims.SlotCount);
         var rows = _rowsIn.Span<ClaimRow>();
         for (var slot = 0; slot < claims.SlotCount; slot++)
         {
@@ -542,8 +607,6 @@ internal sealed class DeviceClaims : IDisposable
 
     GpuBuffer Readback<T>(int count) where T : unmanaged =>
         Own(_vk.CreateBuffer(Bytes<T>(count), BufferUsageFlags.TransferDstBit, HostAccess.Reads));
-
-    static unsafe ulong Bytes<T>(int count) where T : unmanaged => (ulong)(Math.Max(1, count) * sizeof(T));
 
     GpuBuffer Own(GpuBuffer buffer)
     {

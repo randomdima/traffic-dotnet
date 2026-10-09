@@ -3,7 +3,8 @@
 // claim — the host's order — at CLAIMS_PROPOSED[into + written ..].
 //
 // The including kernel includes claims_rows.glsl and claims_marks.glsl and declares MARK_AT (uint[] a way, and one past
-// the last), MARK_SECTIONS (WayMark[]) and CLAIMS_PROPOSED (ClaimRow[]) first.
+// the last), MARK_SECTIONS (WayMark[]), CLAIMS_PROPOSED (ClaimRow[]) and CLAIMS_PROPOSED_ROOM (how many rows a hold
+// has room for from `into`) first. A hold past its room lays what fits and counts on, so it says how many it wanted.
 
 // The terms one piece of a plan is asked on (PlannedAsk).
 struct ClaimsAsk
@@ -56,10 +57,10 @@ uint claimsPropose(ClaimsAsk ask, uint way, float toM, float standsToM, uint int
         if (mark.mineFromM >= toM) break;
         if (mark.mineToM <= ask.fromM) continue;
 
-        CLAIMS_PROPOSED[into + written] = claimsMarked(ask, mark, max(ask.fromM, mark.mineFromM));
+        if (written < CLAIMS_PROPOSED_ROOM) CLAIMS_PROPOSED[into + written] = claimsMarked(ask, mark, max(ask.fromM, mark.mineFromM));
         written++;
     }
 
-    CLAIMS_PROPOSED[into + written] = claimsLaid(ask, way, toM, standsToM);
+    if (written < CLAIMS_PROPOSED_ROOM) CLAIMS_PROPOSED[into + written] = claimsLaid(ask, way, toM, standsToM);
     return written + 1u;
 }

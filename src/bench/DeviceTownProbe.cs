@@ -13,10 +13,11 @@ namespace TrafficSimulation.Bench;
 
 /// <summary>
 /// <b>A town ticked with the device in step against the same town ticked by the host alone</b> (<see cref="DeviceTown"/>):
-/// three of one map warmed alike — the host's, the device's with the bodies stepped in the agents' submit, and the device's
-/// with them stepped after the decisions (<see cref="DeviceTown.StepsWithTheTick"/>) — then each run for the same ticks
-/// with the phases timed: what each phase cost a tick, and what the town did meanwhile — how fast its cars went, how many
-/// lost their lines, braked hard or began touching.
+/// four of one map warmed alike — the host's, the device's with the bodies stepped in the agents' submit, the device's
+/// with them stepped after the decisions (<see cref="DeviceTown.StepsWithTheTick"/>), and the first watched every tick
+/// as a window watches it (<see cref="TownWatch"/>) — then each run for the same ticks with the phases timed: what each
+/// phase and the watch cost a tick, and what the town did meanwhile — how fast its cars went, how many lost their lines,
+/// braked hard or began touching.
 /// </summary>
 /// <remarks>
 /// <b>The two towns part after the first tick the device takes</b>, by a float's noise that the town's own chaos grows,
@@ -29,7 +30,7 @@ internal static class DeviceTownProbe
 
     readonly record struct Window(
         double TickMs, double ClaimsMs, double AgentsMs, double DecisionsMs, double BodiesMs, double ContactsMs, double WallMs,
-        double DeviceKernelsMs, int CarsTaken, double MeanMps, int Rejoining, long HardBrakings, long Touches,
+        double DeviceKernelsMs, double WatchMs, int CarsTaken, double MeanMps, int Rejoining, long HardBrakings, long Touches,
         (long Asked, long Made, long Withdrawn) Switches, (long Asked, long Made, long Withdrawn) Passes,
         (long Asked, long Made, long Withdrawn) Sidesteps);
 
@@ -43,15 +44,17 @@ internal static class DeviceTownProbe
         var after = Measure(plan, config, vk, stepsWithTheTick: false);
         Console.WriteLine("the device, the bodies stepped with the agents' tick:");
         var device = Measure(plan, config, vk);
+        Console.WriteLine("the device, the bodies stepped with the agents' tick, watched:");
+        var watched = Measure(plan, config, vk, watched: true);
 
-        ReadOnlySpan<(string, Window)> runs = [("host", host), ("device", device), ("after", after)];
+        ReadOnlySpan<(string, Window)> runs = [("host", host), ("device", device), ("after", after), ("watched", watched)];
         Console.WriteLine($"device town probe — {map} on {vk.DeviceName}, {WarmupTicks} ticks warmed, {MeasuredTicks} measured; ms a tick");
-        Console.WriteLine($"{"",-8}{"tick",8}{"wall",8}{"claims",8}{"agents",8}{"decide",8}{"bodies",8}{"contacts",10}{"device",8}");
+        Console.WriteLine($"{"",-8}{"tick",8}{"wall",8}{"claims",8}{"agents",8}{"decide",8}{"bodies",8}{"contacts",10}{"device",8}{"watch",8}");
         foreach (var (name, run) in runs)
         {
             Console.WriteLine(
                 $"{name,-8}{run.TickMs,8:F2}{run.WallMs,8:F2}{run.ClaimsMs,8:F2}{run.AgentsMs,8:F2}{run.DecisionsMs,8:F2}{run.BodiesMs,8:F2}" +
-                $"{run.ContactsMs,10:F2}{run.DeviceKernelsMs,8:F2}");
+                $"{run.ContactsMs,10:F2}{run.DeviceKernelsMs,8:F2}{run.WatchMs,8:F2}");
         }
 
         Console.WriteLine($"what each town did over the {MeasuredTicks} ticks:");
@@ -66,7 +69,8 @@ internal static class DeviceTownProbe
         }
     }
 
-    static Window Measure(CityPlan plan, SimConfig config, Vk? vk, bool stepsWithTheTick = true)
+    /// <param name="watched">Whether the town is watched every tick as a window watches it, the watch's time apart from the tick's.</param>
+    static Window Measure(CityPlan plan, SimConfig config, Vk? vk, bool stepsWithTheTick = true, bool watched = false)
     {
         using var world = new TownWorld(plan, config);
         var loop = new SimLoop<TownWorld>(world, config);
@@ -80,8 +84,10 @@ internal static class DeviceTownProbe
                 $"({claims.Capacity * (long)Unsafe.SizeOf<DeviceClaims.ClaimRow>() / (1 << 20)} MiB a copy) and {claims.HoldCapacity} holds");
         }
 
+        var watch = watched ? new TownWatch(world, config) : null;
         using var device = vk is null ? null : new DeviceTown(vk, config, world) { StepsWithTheTick = stepsWithTheTick };
         world.Device = device;
+        var watchMs = 0d;
         var brakings = world.HardBrakings;
         var touches = world.Touches;
         var (switching, overtaking, sidestepping) = (world.Switching, world.Overtaking, world.Sidestepping);
@@ -115,6 +121,7 @@ internal static class DeviceTownProbe
         var claimsStationedMs = 0d;
         var claimsIdleMs = 0d;
         var ranOnFrom = device?.Claims.Rebuild.RanOn ?? 0L;
+        var putOffFrom = device?.CarsPutOff ?? 0L;
         var (claimsBodiesMs, claimsPlansMs) = (0d, 0d);
         var (claimsSentMb, claimsReadMb) = (0d, 0d);
         var sentParts = new double[7];
@@ -144,6 +151,13 @@ internal static class DeviceTownProbe
         for (var tick = 0; tick < MeasuredTicks; tick++)
         {
             loop.Advance();
+            if (watch is not null)
+            {
+                var sawFrom = Stopwatch.GetTimestamp();
+                watch.Saw(world);
+                watchMs += Stopwatch.GetElapsedTime(sawFrom).TotalMilliseconds;
+            }
+
             if (device is null) continue;
 
             var rebuild = device.Claims.Rebuild;
@@ -280,7 +294,13 @@ internal static class DeviceTownProbe
             }
             Console.WriteLine(
                 $"  {device.Claims.Rebuild.RanOn - ranOnFrom} rebuilds ran on while the town went on, their answers taken up after " +
-                $"the tick was laid; the host waited for the device {claimsIdleMs / each:F2} ms of a rebuild's submitting and waiting");
+                $"the tick was laid, and {device.CarsPutOff - putOffFrom} cars' own ticks by the town put off until then; the host " +
+                $"waited for the device {claimsIdleMs / each:F2} ms of a rebuild's submitting and waiting");
+            var rooms = device.Claims.Rebuild.RoomsNow;
+            Console.WriteLine(
+                $"  the claims' rooms as they stand: {rooms.Rows} rows ({rooms.Rows * (long)Unsafe.SizeOf<DeviceClaims.ClaimRow>() / (1 << 20)} " +
+                $"MiB a copy), {rooms.Pieces} pieces a car's plan, {rooms.Proposed} rows a walk; grown {device.Claims.Rebuild.RoomsGrown} " +
+                $"times and {device.Claims.Rebuild.RebuildsLaidAgain} rebuilds laid again since the device was set");
             Console.Write("  the host's rebuild stage by stage, ms a rebuild, the town's laying before each + the device's at it:");
             for (var stage = 0; stage < stages.Length; stage++)
             {
@@ -313,7 +333,7 @@ internal static class DeviceTownProbe
             phases.MillisecondsPer(phases.WholeTicks), phases.MillisecondsPer(phases.IndexTicks),
             phases.MillisecondsPer(sub.WalkerTicks + sub.CarTicks), phases.MillisecondsPer(sub.WalkerDecisionTicks + sub.CarDecisionTicks),
             phases.MillisecondsPer(phases.BodyTicks), phases.MillisecondsPer(phases.ContactTicks), wallMs, deviceMs / MeasuredTicks,
-            (int)(taken / MeasuredTicks), mps / Math.Max(1, driven), rejoining, world.HardBrakings - brakings, world.Touches - touches,
+            watchMs / MeasuredTicks, (int)(taken / MeasuredTicks), mps / Math.Max(1, driven), rejoining, world.HardBrakings - brakings, world.Touches - touches,
             (switching.Asked - switches.Asked, switching.Made - switches.Made, switching.Withdrawn - switches.Withdrawn),
             (overtaking.Asked - passes.Asked, overtaking.Made - passes.Made, overtaking.Withdrawn - passes.Withdrawn),
             (sidestepping.Asked - sidesteps.Asked, sidestepping.Made - sidesteps.Made, sidestepping.Withdrawn - sidesteps.Withdrawn));

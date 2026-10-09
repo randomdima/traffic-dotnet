@@ -10,7 +10,11 @@ namespace TrafficSimulation.World.Town;
 /// </remarks>
 internal interface ITownDevice
 {
-    /// <summary>Whether the device ticks this agent this tick, so that the town does not — asked before the agent's own tick.</summary>
+    /// <summary>
+    /// <b>Whether the town leaves this agent's tick to the device this tick</b>, asked before the agent's own tick: the device
+    /// ticks it, or puts off a car the town ticks itself until what that tick reads is written back, and has the town tick
+    /// it then (<see cref="TownWorld.TickTheCar"/>).
+    /// </summary>
     bool Takes(int agent);
 
     /// <summary>
@@ -61,6 +65,13 @@ internal interface ITownDevice
     }
 
     /// <summary>
+    /// <b>How far this car may yet go on its grant</b> (<see cref="Agents.Car.Body.CarFleet.GrantLeftM"/>) as the town would
+    /// hold it were the car handed back now: off the device where it keeps a car the town has not read, handed back with
+    /// every tick while the town watches every agent (<see cref="TownWorld.WatchesEveryAgent"/>) — the town's own otherwise.
+    /// </summary>
+    float GrantLeftM(TownWorld town, int car) => town.Cars.GrantLeftM(car);
+
+    /// <summary>
     /// <b>Whether this car's decision, put off a tick, was its clock alone and run on the device</b>
     /// (<see cref="TownWorld.TakesOnlyTheClock"/>) — or, where it was more, what the town decides it on handed back first.
     /// False for a car the device did not decide, which the town decides with what it holds.
@@ -77,8 +88,8 @@ internal interface ITownDevice
 
 /// <summary>
 /// <b>The town's claims rebuild laid on a device in step</b> (<see cref="TownWorld.ClaimsDevice"/>): the town lays only what
-/// it alone lays, the device every body, light, plan and walk and every answer, and the claims are written back before
-/// the town lays the backing and reads a single grant — so every reader reads what the town's own rebuild would have laid.
+/// it alone lays, the device every body, light, plan and walk, every answer and the backing after them, and the claims are
+/// written back before the town reads a single grant — so every reader reads what the town's own rebuild would have laid.
 /// </summary>
 /// <remarks>
 /// Declared here and implemented above (<c>app/devicetick</c>), as <see cref="ITownDevice"/> is.
@@ -94,7 +105,8 @@ internal interface ITownClaims
     /// <summary>
     /// <b>A claims rebuild the device lays</b>, handed the town at every stage as the town lays what only it lays
     /// (<see cref="ClaimsStage"/>): at <see cref="ClaimsStage.PlansLaid"/> the device lays every body, light, plan and walk,
-    /// answers every plan and writes the claims back into the town, which then lays the backing and reads every grant.
+    /// answers every plan, lays the backing every car asked for by then (<see cref="TownWorld.TakeTheBackingAsk"/>) and
+    /// writes the claims back into the town, which then reads every grant it did not.
     /// </summary>
     void ClaimsAt(TownWorld town, ClaimsStage stage);
 

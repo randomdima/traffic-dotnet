@@ -1,5 +1,7 @@
+using System.Numerics;
 using System.Runtime.InteropServices;
 using Silk.NET.Vulkan;
+using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Runtime;
@@ -7,6 +9,7 @@ using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
 using Vk = TrafficSimulation.Runtime.Vk;
 using static TrafficSimulation.App.DeviceTick.DeviceClaims;
+using static TrafficSimulation.Runtime.GpuBuffer;
 
 namespace TrafficSimulation.App.DeviceTick;
 
@@ -23,13 +26,14 @@ namespace TrafficSimulation.App.DeviceTick;
 /// every walker's body and then every car's (<see cref="DeviceWalkers"/>, <see cref="DeviceBodies"/>), a piece grown into
 /// its holder's body already on the way where the host grows it; the passes; every light's stretch
 /// (<c>signal_holds.comp</c>); the claims the host lays where they stand; every car's claim (<see cref="DevicePlans"/>)
-/// and every walker's walk — then <see cref="DeviceClaims"/> lists, answers and cuts them, and the backing is laid after.
-/// No count crosses: every kernel over the rows or the holds stops at, and is dispatched by, the claims' tally.
+/// and every walker's walk — then <see cref="DeviceClaims"/> lists, answers and cuts them, and the backing every car asked
+/// for is laid after (<see cref="BackingAskRow"/>, <c>rebuild_backing.comp</c>). No count crosses: every kernel over the
+/// rows or the holds stops at, and is dispatched by, the claims' tally.
 /// </para>
 /// <para>
 /// <b>What only the host lays is sent as host-laid units filed at their own place in that order</b>
 /// (<see cref="HostUnit"/>): the passes of overtakes, switches, bays and sidesteps, the holds of a hand, a tow and a
-/// manoeuvre, the plan of a car on a pass, and the backing — each with what its own laying cut of what was already down
+/// manoeuvre, and the plan of a car on a pass — each with what its own laying cut of what was already down
 /// (<see cref="RowEdit"/>, <see cref="HoldEdit"/>) — and, of every car, whether it was asked this laying and what a claim
 /// the host laid left it granted (<see cref="CarClaimRow"/>).
 /// </para>
@@ -50,7 +54,7 @@ internal sealed partial class DeviceRebuild : IDisposable
     /// <summary>One run the host lays itself (<c>rebuild_rows.glsl</c>'s <c>HostUnit</c>).</summary>
     /// <param name="HostSlotFirst">The slot the host numbered its first row — what its holds' rows are counted from.</param>
     /// <param name="HostHoldFirst">And the hold — what its rows' holds are counted from.</param>
-    /// <param name="Numbering">Where it is filed: <see cref="Numbering.Passes"/>, <see cref="Numbering.Plans"/> or <see cref="Numbering.Backing"/>.</param>
+    /// <param name="Numbering">Where it is filed: <see cref="Numbering.Passes"/> or <see cref="Numbering.Plans"/>.</param>
     /// <param name="Unit">Among the plans, the unit it is filed as.</param>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct HostUnit(
@@ -61,7 +65,15 @@ internal sealed partial class DeviceRebuild : IDisposable
     {
         public const uint Passes = 0u;
         public const uint Plans = 1u;
-        public const uint Backing = 2u;
+    }
+
+    /// <summary>The ground one car asks to back up over (<see cref="BackingAsk"/>), as <c>rebuild_backing.comp</c> reads it.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal readonly record struct BackingAskRow(
+        int Car, uint Way, float FromM, float TailM, float CommittedFromM, float LineFromM, float AlongMps, uint Pad = 0u)
+    {
+        public static BackingAskRow Of(in BackingAsk ask) =>
+            new(ask.Car, (uint)ask.Way, ask.FromM, ask.TailM, ask.CommittedFromM, ask.LineFromM, ask.AlongMps);
     }
 
     /// <summary>What the host tells the rebuild of one car (<c>rebuild_rows.glsl</c>'s <c>CarClaimRow</c>).</summary>
@@ -90,9 +102,9 @@ internal sealed partial class DeviceRebuild : IDisposable
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct RowEdit(uint Slot, float ToM, uint Gone, uint Pad = 0u);
 
-    /// <summary>A hold the host cut after it was laid (<c>rebuild_rows.glsl</c>'s <c>HoldEdit</c>).</summary>
+    /// <summary>A hold the host cut after it was laid, before the answers (<c>rebuild_rows.glsl</c>'s <c>HoldEdit</c>).</summary>
     [StructLayout(LayoutKind.Sequential)]
-    internal readonly record struct HoldEdit(uint Hold, uint Laid, uint Pad0, uint Pad1, ClaimAnswer Answer, ClaimRow Cutter);
+    internal readonly record struct HoldEdit(uint Hold, uint Pad0, uint Pad1, uint Pad2, ClaimAnswer Answer);
 
     /// <summary>The stamps a rebuild is timed between.</summary>
     internal enum Stage
@@ -110,7 +122,7 @@ internal sealed partial class DeviceRebuild : IDisposable
     readonly record struct BodiesPush(uint WalkerCount, uint CarCount, uint WayCount, uint CoverRoom, uint CarRoom);
 
     [StructLayout(LayoutKind.Sequential)]
-    readonly record struct TallyPush(uint Step, uint HostRows, uint HostHolds, uint WalkerPasses);
+    readonly record struct TallyPush(uint Step, uint HostRows, uint WalkerPasses);
 
     [StructLayout(LayoutKind.Sequential)]
     readonly record struct PlansPush(
@@ -126,6 +138,9 @@ internal sealed partial class DeviceRebuild : IDisposable
     readonly record struct UnitsPush(uint Count, uint FirstUnit);
 
     [StructLayout(LayoutKind.Sequential)]
+    readonly record struct BackingPush(uint AskCount, float BodyKeptOffM, uint HoldRoom);
+
+    [StructLayout(LayoutKind.Sequential)]
     readonly record struct SignalPush(uint StretchCount, uint LaneCount, uint CrossingCount, float CycleS, float AmberTailS, float TimeS);
 
     [StructLayout(LayoutKind.Sequential)]
@@ -137,7 +152,6 @@ internal sealed partial class DeviceRebuild : IDisposable
         Candidates,
         Bodies,
         Plans,
-        Backing,
     }
 
     enum Sum
@@ -189,10 +203,20 @@ internal sealed partial class DeviceRebuild : IDisposable
 
     readonly GpuBuffer _askAnswers;
 
+    /// <summary>
+    /// The ground each car backing up asks for this laying, in the town's order, sent (<see cref="BackingAsk"/>); and how far
+    /// back down its way each was laid (<c>rebuild_backing.comp</c>), an ask a float, read back.
+    /// </summary>
+    readonly Sent<BackingAskRow> _backingAsks;
+
+    readonly BackingAsk[] _backingAsked;
+    readonly GpuBuffer _reached, _reachedRead;
+    int _backingCount;
+
     readonly ScanKernels _scans;
     readonly PrefixScan _scanCandidates, _scanWays, _scanBodies, _scanRows, _scanHolds;
     readonly Bound _bodiesCount, _bodiesGather, _bodiesFile, _bodiesSort, _bodiesMark, _bodiesTally, _bodiesLay;
-    readonly Bound _tally, _count, _file, _host, _edits, _capture, _grant, _walkerAnswers, _signals, _asked;
+    readonly Bound _tally, _count, _file, _host, _edits, _capture, _backing, _grant, _walkerAnswers, _signals, _asked;
     readonly ComputeBatch _batch;
 
     /// <summary>A rebuild in the town's sends, submitted ahead of the rest of it (<see cref="WaitForTheSends"/>).</summary>
@@ -209,8 +233,13 @@ internal sealed partial class DeviceRebuild : IDisposable
     /// The walker tick of a device that ticks the walkers too, whose table a rebuild in the town reads them in from and keeps
     /// them as its own (<see cref="DeviceWalkers.Keeps"/>) — or none.
     /// </param>
+    /// <param name="rooms">
+    /// In the town, the rooms a car's plan and a walk begin with (<see cref="RoomsToStart"/> where none), grown to fit what is
+    /// laid; the rows' are the claims'. Held to the town's, every room is what either could ever lay.
+    /// </param>
     public DeviceRebuild(
-        Vk vk, SimConfig config, TownWorld world, DeviceClaims? claims = null, DeviceCarTick? cars = null, DeviceWalkerTick? walkers = null)
+        Vk vk, SimConfig config, TownWorld world, DeviceClaims? claims = null, DeviceCarTick? cars = null, DeviceWalkerTick? walkers = null,
+        Rooms? rooms = null)
     {
         if (walkers != null && cars == null) throw new ArgumentException("Only a rebuild laid in the town keeps the walkers.", nameof(walkers));
 
@@ -229,9 +258,10 @@ internal sealed partial class DeviceRebuild : IDisposable
 
         _claims = claims ?? new DeviceClaims(vk, _ways, occupancy.Capacity, _holdRoom, config.Road.MostSettlingPasses, _cars, sentFromTheHost: false);
         var tables = _claims.OnTheDevice;
+        var start = cars != null ? rooms ?? RoomsToStart(world) : (Rooms?)null;
         _bodies = new DeviceBodies(vk, config, world, cars?.Lines);
-        _plans = new DevicePlans(vk, config, world, cars?.Lines);
-        _walkers = new DeviceWalkers(vk, config, world, tables, resident: cars != null, keptFrom: walkers?.Table);
+        _plans = new DevicePlans(vk, config, world, cars?.Lines, start?.Pieces);
+        _walkers = new DeviceWalkers(vk, config, world, tables, resident: cars != null, keptFrom: walkers?.Table, proposedRoom: start?.Proposed);
         _walkerTick = walkers;
         _candidates = Math.Max(1, (_walkersRoom * _walkers.CoverRoom) + (_cars * DeviceBodies.Room));
 
@@ -257,19 +287,23 @@ internal sealed partial class DeviceRebuild : IDisposable
         _toldOut = Readback<uint>(_cars);
 
         var hostRoom = HostRowRoom(world);
-        _hostRows = new Sent<ClaimRow>(this, hostRoom);
+        _hostRows = new Sent<ClaimRow>(this, HostRowsToStart, hostRoom);
         _hostHolds = new Sent<HoldRow>(this, _holdRoom);
         _hostUnits = new Sent<HostUnit>(this, _cars + 3);
-        _hostRowUnit = new Sent<uint>(this, hostRoom);
+        _hostRowUnit = new Sent<uint>(this, HostRowsToStart, hostRoom);
         _hostHoldUnit = new Sent<uint>(this, _holdRoom);
-        _rowEdits = new Sent<RowEdit>(this, hostRoom);
-        _holdEdits = new Sent<HoldEdit>(this, 2 * _holdRoom);
+        _rowEdits = new Sent<RowEdit>(this, HostRowsToStart, hostRoom);
+        _holdEdits = new Sent<HoldEdit>(this, _holdRoom);
         _carClaims = new ResidentRows<CarClaimRow>(vk, _cars, 1, hostOnly: true);
         _primedGrants = Staging<DeviceCarTick.GrantRow>(_cars);
         _primedCutters = Staging<ClaimRow>(_cars);
         _primedTold = Staging<uint>(_cars);
-        _asks = new Sent<BodyAskRow>(this, AskRoom(world));
+        _asks = new Sent<BodyAskRow>(this, HostRowsToStart, AskRoom(world));
         _askAnswers = Device<UInt4>(_cars);
+        _backingAsks = new Sent<BackingAskRow>(this, Math.Min(_cars, HostRowsToStart), _cars);
+        _backingAsked = new BackingAsk[_cars];
+        _reached = Device<float>(_cars);
+        _reachedRead = Readback<float>(_cars);
 
         _scans = new ScanKernels(vk);
         _scanCandidates = new PrefixScan(vk, _scans, _unitCandidates, _blockSums, _sums, (uint)Sum.Candidates);
@@ -313,12 +347,19 @@ internal sealed partial class DeviceRebuild : IDisposable
                 tables.Rows, tables.Holds, tables.Answers, tables.Shown, tables.Tally, _carClaims.Device, _askAnswers,
             ]);
         _edits = Bound.Of<RangePush>(
-            vk, "rebuild_edits.comp", [_rowEdits.Device, _holdEdits.Device, tables.Rows, tables.Holds, tables.Answers, _holdCutters]);
+            vk, "rebuild_edits.comp", [_rowEdits.Device, _holdEdits.Device, tables.Rows, tables.Holds, tables.Answers, tables.Tally]);
         _capture = Bound.Of<NoPush>(vk, "rebuild_cutters.comp", [tables.Rows, tables.Answers, _holdCutters, tables.Tally]);
         _grant = Bound.Of<UnitsPush>(
             vk, "rebuild_grant.comp",
-            [_carClaims.Device, planResults, _unitHolds, tables.Answers, _holdCutters, _grants, _cutters, _told, _askAnswers]);
+            [_carClaims.Device, planResults, _unitHolds, tables.Answers, _holdCutters, _grants, _cutters, _told, _askAnswers, tables.Tally]);
         _walkerAnswers = Bound.Of<UnitsPush>(vk, "rebuild_walkers.comp", [walkerCounts, _unitHolds, tables.Answers, _walkers.AnswersRead]);
+        var (markAt, markSections) = _plans.Marks;
+        _backing = Bound.Of<BackingPush>(
+            vk, "rebuild_backing.comp",
+            [
+                _backingAsks.Device, tables.Rows, tables.Holds, tables.Answers, tables.Shown, _holdCutters, tables.BodyRuns,
+                tables.PlannedRuns, tables.Order, markAt, markSections, _reached, tables.Tally,
+            ]);
 
         var signals = world.Signals.Table;
         _laneCount = (uint)signals.LaneAxis.Length;
@@ -443,6 +484,7 @@ internal sealed partial class DeviceRebuild : IDisposable
         _hostUnits.Send(commands, _hostUnitCount);
         _rowEdits.Send(commands, _rowEditCount);
         _holdEdits.Send(commands, _holdEditCount);
+        _backingAsks.Send(commands, _backingCount);
         _carClaimsSent = _carClaims.MarkedBytes;
         _carClaims.Send(commands);
         if (_priming)
@@ -509,6 +551,9 @@ internal sealed partial class DeviceRebuild : IDisposable
         var vk = _vk;
         var tally = _claims.OnTheDevice.Tally;
         var keeps = _walkers.Keeps;
+        vk.BeforeTransfer(commands);
+        _claims.RecordTheRooms(commands, _plans.MostPieces, _walkers.ProposedRoom, beginning: true, _toldNoRoom);
+        vk.AfterTransfer(commands);
         if (keeps) _walkers.RecordTheKeptIn(commands);
         if (_carTick is null || keeps) _walkers.Record(commands, DeviceWalkers.Piece.Station);
 
@@ -521,7 +566,7 @@ internal sealed partial class DeviceRebuild : IDisposable
         _bodiesCount.Dispatch(commands, units, push);
         vk.BetweenKernels(commands);
         _scanCandidates.Record(commands, units);
-        RecordTheTally(commands, Step.Candidates, 0, 0);
+        RecordTheTally(commands, Step.Candidates);
         _bodiesGather.Dispatch(commands, units, push);
         vk.BeforeTransfer(commands);
         vk.Copy(commands, _wayCounts, _wayStarts, _wayCounts.SizeBytes);
@@ -539,7 +584,7 @@ internal sealed partial class DeviceRebuild : IDisposable
         _bodiesTally.Dispatch(commands, units, push);
         vk.BetweenKernels(commands);
         _scanBodies.Record(commands, units);
-        RecordTheTally(commands, Step.Bodies, _passes.RowCount, 0);
+        RecordTheTally(commands, Step.Bodies, _passes.RowCount);
         _bodiesLay.Dispatch(commands, units, push);
         RecordTheHostUnits(commands, _passes);
         if (keeps) RecordTheWalkersPassesFiled(commands);
@@ -572,7 +617,7 @@ internal sealed partial class DeviceRebuild : IDisposable
         vk.BetweenKernels(commands);
         _scanRows.Record(commands, units);
         _scanHolds.Record(commands, units);
-        RecordTheTally(commands, Step.Plans, 0, 0);
+        RecordTheTally(commands, Step.Plans);
         _file.Dispatch(commands, units, push);
         RecordTheHostUnits(commands, _planned);
         vk.BetweenKernels(commands);
@@ -580,18 +625,41 @@ internal sealed partial class DeviceRebuild : IDisposable
         _claims.RecordLists(commands);
     }
 
-    /// <summary>The host's backing filed after every plan, with what it cut of them, and the tally moved past it.</summary>
+    /// <summary>
+    /// <b>The ground every car backing up asked for laid after the answers and the cut</b> (<c>rebuild_backing.comp</c>),
+    /// numbered after everything else and the tally moved past it, and every way's lists laid again with it — nothing where
+    /// no car asked.
+    /// </summary>
     void RecordTheBacking(CommandBuffer commands)
     {
-        RecordTheHostUnits(commands, _backing);
+        if (_backingCount == 0) return;
+
+        _backing.Dispatch(commands, 1, new BackingPush((uint)_backingCount, _config.Driving.PassSpareM, (uint)_holdRoom));
         _vk.BetweenKernels(commands);
-        RecordTheEdits(commands, _answeredEdits);
-        RecordTheTally(commands, Step.Backing, _backing.RowCount, _backing.HoldCount);
+        _claims.RecordLists(commands);
     }
 
-    void RecordTheTally(CommandBuffer commands, Step step, int hostRows, int hostHolds)
+    /// <summary>
+    /// <b>Every car's ask to back up taken off the town</b>, in its order, and sent with the rebuild — or, held to the town's
+    /// own laying, read and left there (<see cref="TownWorld.AsksToBackUp"/>).
+    /// </summary>
+    void AskTheBacking(TownWorld town, bool takes)
     {
-        _tally.Dispatch(commands, 1, new TallyPush((uint)step, (uint)hostRows, (uint)hostHolds, _walkers.Keeps ? 1u : 0u));
+        _backingCount = 0;
+        foreach (var car in town.CarsAskedThisLaying)
+        {
+            var asks = takes ? town.TakeTheBackingAsk(car, out var ask) : town.AsksToBackUp(car, out ask);
+            if (!asks) continue;
+
+            _backingAsks.MakeRoomFor(_backingCount + 1);
+            _backingAsks.Rows[_backingCount] = BackingAskRow.Of(ask);
+            _backingAsked[_backingCount++] = ask;
+        }
+    }
+
+    void RecordTheTally(CommandBuffer commands, Step step, int hostRows = 0)
+    {
+        _tally.Dispatch(commands, 1, new TallyPush((uint)step, (uint)hostRows, _walkers.Keeps ? 1u : 0u));
         _vk.BetweenKernels(commands);
     }
 
@@ -607,14 +675,63 @@ internal sealed partial class DeviceRebuild : IDisposable
 
     /// <summary>
     /// <b>How many rows the host may lay itself in one rebuild</b>: every car's body swept down a pass and every walker's
-    /// sidestep, a hand's or a tow's hold, a car on a pass planning past it, and a backing — each within what the town's
-    /// own table gives one car or one walker.
+    /// sidestep, a hand's or a tow's hold, and a car on a pass planning past it — each within what the town's own table
+    /// gives one car or one walker.
     /// </summary>
     static int HostRowRoom(TownWorld world) =>
         Math.Min(world.Occupancy.Capacity, (world.Cars.Capacity * HostRowsPerCar) + (world.People.Capacity * Sidestepping.MostRunsOfAPass) + 1);
 
     /// <summary>A generous share of a car's own room in the table for the rows only the host lays: its pass's sweep and its plan past it.</summary>
     const int HostRowsPerCar = 256;
+
+    /// <summary>
+    /// The rows the host's own laying, its cuts and its cars' asks begin with room for, each grown to fit
+    /// (<see cref="Sent{T}.MakeRoomFor"/>): what a town lays itself in a rebuild is a few hands, tows and passes (OdesaOsm: at
+    /// most 140 rows).
+    /// </summary>
+    const int HostRowsToStart = 1024;
+
+    /// <summary>
+    /// <b>About what one agent lays into a rebuild in the town</b>, its body's rows and its plan's together — what the rows'
+    /// room is begun at before the town has laid any (OdesaOsm: about four).
+    /// </summary>
+    const int RowsAnAgentLays = 4;
+
+    /// <summary>About the most one car's plan lays, which its room is begun at (OdesaOsm: 44 at most of 40 000).</summary>
+    const int PiecesACarLays = 32;
+
+    /// <summary>About the most one walker's walk lays, which its room is begun at (OdesaOsm: 35 at most of 40 000).</summary>
+    const int RowsAWalkLays = 32;
+
+    /// <summary>
+    /// <b>How many times what a rebuild laid its room is kept at</b>: a room is grown before the next rebuild where the last
+    /// one laid more than this share of it — to the power of two past this many times what it laid — so one rebuild laying
+    /// twice the last, as a car going on a call does (<see cref="Core.Config.AmbulanceFigures.CallReachShare"/>), still fits.
+    /// </summary>
+    const int Headroom = 2;
+
+    /// <summary>The room kept for <paramref name="laid"/>: <see cref="Headroom"/> times it, to the power of two past that.</summary>
+    static int RoomFor(int laid) =>
+        (int)Math.Min(int.MaxValue, BitOperations.RoundUpToPowerOf2((uint)Math.Max(1L, Math.Min(int.MaxValue, (long)laid * Headroom))));
+
+    /// <summary>The rooms a rebuild laid in the town begins with: its rows, the pieces of a car's plan and the rows of a walk.</summary>
+    internal readonly record struct Rooms(int Rows, int Pieces, int Proposed);
+
+    /// <summary>The rooms as they stand now (<see cref="Rooms"/>), grown or not.</summary>
+    public Rooms RoomsNow => new(_claims.RowRoom, _plans.MostPieces, _walkers.ProposedRoom);
+
+    /// <summary>
+    /// <b>The rooms a rebuild laid in the town begins with</b>: rows for <see cref="RowsAnAgentLays"/> each agent's, or what
+    /// the town last laid where it laid more — never more than its table holds — and room for what a car's plan and a walk
+    /// lay at most, each kept at <see cref="Headroom"/>.
+    /// </summary>
+    public static Rooms RoomsToStart(TownWorld world)
+    {
+        var claims = world.Occupancy;
+        var agents = (long)world.Cars.Capacity + world.People.Capacity;
+        var rows = Math.Min(claims.Capacity, RoomFor((int)Math.Min(int.MaxValue, Math.Max(agents * RowsAnAgentLays, claims.SlotCount))));
+        return new Rooms(rows, RoomFor(PiecesACarLays), RoomFor(RowsAWalkLays));
+    }
 
     static uint Groups(int count) => (uint)Math.Max(1, (count + 63) / 64);
 
@@ -664,31 +781,60 @@ internal sealed partial class DeviceRebuild : IDisposable
         return buffer;
     }
 
-    static unsafe ulong Bytes<T>(int count) where T : unmanaged => (ulong)(Math.Max(1, count) * sizeof(T));
-
     GpuBuffer Own(GpuBuffer buffer)
     {
         _owned.Add(buffer);
         return buffer;
     }
 
-    /// <summary>Rows the host writes into a staged copy each rebuild and sends to the device's own, as one copy.</summary>
+    /// <summary>
+    /// Rows the host writes into a staged copy each rebuild and sends to the device's own, as one copy — with room for as
+    /// many as it was made with, or grown to fit (<see cref="MakeRoomFor"/>) where it was made with less than it could hold.
+    /// </summary>
     sealed class Sent<T> where T : unmanaged
     {
-        public Sent(DeviceRebuild owner, int room)
+        /// <param name="room">The rows there is room for to begin with.</param>
+        /// <param name="most">The most rows there could ever be, past which a laying is a defect.</param>
+        public Sent(DeviceRebuild owner, int room, int most)
         {
             _owner = owner;
-            Staging = owner.Staging<T>(room);
-            Device = owner.Device<T>(room);
+            _most = most;
+            Staging = owner.Staging<T>(Math.Min(room, most));
+            Device = owner.Device<T>(Math.Min(room, most));
+        }
+
+        public Sent(DeviceRebuild owner, int room) : this(owner, room, room)
+        {
         }
 
         readonly DeviceRebuild _owner;
+        readonly int _most;
 
         public GpuBuffer Staging { get; }
 
         public GpuBuffer Device { get; }
 
         public Span<T> Rows => Staging.Span<T>();
+
+        /// <summary>How many rows there is room for.</summary>
+        public unsafe int Room => (int)(Staging.SizeBytes / (ulong)sizeof(T));
+
+        /// <summary>
+        /// <b>Room made for <paramref name="count"/> rows</b>, every row written so far kept — the device waited for first, as a
+        /// staged copy and the table it is sent to grow together (<see cref="GpuBuffer.Grow"/>). False where that is past
+        /// the most there could ever be.
+        /// </summary>
+        public bool MakeRoomFor(int count)
+        {
+            if (count <= Room) return true;
+            if (count > _most) return false;
+
+            var room = Math.Min(_most, RoomFor(count));
+            _owner._vk.WaitIdle();
+            Staging.Grow(BytesOf(room), keep: true);
+            Device.Grow(BytesOf(room));
+            return true;
+        }
 
         /// <summary>The first <paramref name="count"/> rows copied across, recorded; nothing where there are none.</summary>
         public void Send(CommandBuffer commands, int count) => Send(commands, 0, count);
@@ -698,12 +844,12 @@ internal sealed partial class DeviceRebuild : IDisposable
         {
             if (count <= 0) return;
 
-            var at = (ulong)(first * sizeof(T));
-            _owner._vk.Copy(commands, Staging, Device, [new BufferCopy(at, at, (ulong)(count * sizeof(T)))]);
+            var at = (ulong)first * (ulong)sizeof(T);
+            _owner._vk.Copy(commands, Staging, Device, [new BufferCopy(at, at, BytesOf(count))]);
         }
 
         /// <summary>How many bytes <paramref name="count"/> rows are.</summary>
-        public static unsafe ulong BytesOf(int count) => (ulong)(count * sizeof(T));
+        public static unsafe ulong BytesOf(int count) => (ulong)count * (ulong)sizeof(T);
     }
 
     public void Dispose()
@@ -714,7 +860,7 @@ internal sealed partial class DeviceRebuild : IDisposable
         _scans.Dispose();
         foreach (var bound in (ReadOnlySpan<Bound>)[
                      _bodiesCount, _bodiesGather, _bodiesFile, _bodiesSort, _bodiesMark, _bodiesTally, _bodiesLay, _tally, _count, _file,
-                     _host, _edits, _capture, _grant, _walkerAnswers, _signals, _asked])
+                     _host, _edits, _capture, _backing, _grant, _walkerAnswers, _signals, _asked])
         {
             bound.Kernel.Dispose();
         }

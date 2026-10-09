@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using Silk.NET.Vulkan;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Town;
+using static TrafficSimulation.Runtime.GpuBuffer;
 
 namespace TrafficSimulation.App.DeviceTick;
 

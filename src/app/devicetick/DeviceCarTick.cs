@@ -145,7 +145,7 @@ internal sealed partial class DeviceCarTick : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    readonly record struct OutPush(uint CarCount, uint Stamp);
+    readonly record struct OutPush(uint CarCount, uint Stamp, uint GrantsLeft);
 
     /// <summary>The tick's figures, field for field with <c>car_tick.comp</c>'s, each the host's own.</summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -208,6 +208,9 @@ internal sealed partial class DeviceCarTick : IDisposable
     /// how many those were.
     /// </summary>
     readonly GpuBuffer _wanted, _rowsOut, _events, _eventCount, _eventCountOut;
+
+    /// <summary>Every car's grant left as the last tick that took it with <see cref="HandsBackTheGrantsLeft"/> left it, in the host's memory.</summary>
+    readonly GpuBuffer _grantsLeft;
 
     readonly ComputeKernel _outKernel;
     readonly DescriptorSet _outSet;
@@ -329,11 +332,12 @@ internal sealed partial class DeviceCarTick : IDisposable
             sizeof(uint), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferSrcBit | BufferUsageFlags.TransferDstBit,
             HostAccess.None);
         _eventCountOut = vk.CreateBuffer(sizeof(uint), BufferUsageFlags.TransferDstBit, HostAccess.Reads);
-        _outKernel = new ComputeKernel(vk, "car_out.comp", 12, (uint)Marshal.SizeOf<OutPush>());
+        _grantsLeft = vk.CreateBuffer((ulong)(capacity * sizeof(float)), BufferUsageFlags.StorageBufferBit, HostAccess.Reads);
+        _outKernel = new ComputeKernel(vk, "car_out.comp", 13, (uint)Marshal.SizeOf<OutPush>());
         _outSet = _outKernel.Bind(
         [
             _taken.Device, _wanted, _ticks.Device, table.Commands.Device, _briefs.Device, table.Cars.Device, _rowsOut, _events, _eventCount,
-            _clocks.Device, _decidedAt, _grantsBound,
+            _clocks.Device, _decidedAt, _grantsBound, _grantsLeft,
         ]);
         _eventsRead = new uint[capacity];
         _handOverRuns = new BufferCopy[capacity];
@@ -663,6 +667,15 @@ internal sealed partial class DeviceCarTick : IDisposable
     }
 
     /// <summary>
+    /// <b>Whether the next tick hands back every car's grant left</b> (<see cref="Agents.Car.Body.CarFleet.GrantLeftM"/>) where
+    /// <see cref="GrantLeftAfter"/> reads it, besides the rows the town reads (<see cref="ReadsEveryCar"/> off).
+    /// </summary>
+    public bool HandsBackTheGrantsLeft { get; set; }
+
+    /// <summary>A car's grant left as the last tick that took it with <see cref="HandsBackTheGrantsLeft"/> left it.</summary>
+    public float GrantLeftAfter(int car) => _grantsLeft.Span<float>()[car];
+
+    /// <summary>
     /// The cars whose last tick asked something of the town (<see cref="TickRow.Events"/>), in order — read once the tick's
     /// submit has been waited for (<see cref="ReadsEveryCar"/> off).
     /// </summary>
@@ -686,7 +699,7 @@ internal sealed partial class DeviceCarTick : IDisposable
     {
         _vk.BetweenKernels(commands);
         var groups = (uint)Math.Max(1, (_takenCount + 63) / 64);
-        _outKernel.Dispatch(commands, _outSet, groups, new OutPush((uint)_takenCount, _stamp));
+        _outKernel.Dispatch(commands, _outSet, groups, new OutPush((uint)_takenCount, _stamp, HandsBackTheGrantsLeft ? 1u : 0u));
         _vk.BeforeTransfer(commands);
         _vk.Copy(commands, _eventCount, _eventCountOut, sizeof(uint));
         _tyres.RecordReadTheMarkCount(commands);
@@ -798,7 +811,7 @@ internal sealed partial class DeviceCarTick : IDisposable
         _outKernel.Dispose();
         foreach (var table in (ReadOnlySpan<IDisposable>)[
                      _ticks, _told, _grants, _cutters, _boxes, _contexts, _lines, _arcs, _entries, _chain, _starts, _ends, _firstArcs,
-                     _breaks, _taken, _passes, _holdBits, _briefs, _wanted, _rowsOut, _events, _eventCount, _eventCountOut,
+                     _breaks, _taken, _passes, _holdBits, _briefs, _wanted, _rowsOut, _events, _eventCount, _eventCountOut, _grantsLeft,
                      _decideList, _decideTerms, _clocks, _verdicts, _decideOut])
         {
             table.Dispose();
