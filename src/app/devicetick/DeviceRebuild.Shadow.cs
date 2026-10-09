@@ -287,10 +287,11 @@ internal sealed partial class DeviceRebuild
     /// <summary>Every row's extent and every hold's answer as they stand, to find later what a run of the host's own cut.</summary>
     void KeepWhatWasLaid(LaneOccupancy claims, int firstSlot, int endSlot, int endHold)
     {
-        // Grown to twice the most a laying has laid, so a town settles into a size and is not grown again.
+        // A table that grows is kept whole, so these grow only as it does; one laid for every worst case is far past what a
+        // laying lays, and these follow twice the most a laying has laid.
         if (_toMBefore.Length < endSlot)
         {
-            var room = Math.Min(claims.Capacity, 2 * endSlot);
+            var room = claims.Grows ? claims.Capacity : Math.Min(claims.Capacity, 2 * endSlot);
             Array.Resize(ref _toMBefore, room);
             Array.Resize(ref _goneBefore, room);
         }

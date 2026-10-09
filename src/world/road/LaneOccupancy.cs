@@ -263,6 +263,9 @@ internal sealed partial class LaneOccupancy
     /// <summary>Whether a slot or hold past the room is made room for rather than dropped (<see cref="Dropped"/>).</summary>
     readonly bool _grows;
 
+    /// <summary>Whether the room is a beginning rather than a bound: made more of where a laying needs it, rather than laid for every worst case.</summary>
+    public bool Grows => _grows;
+
     int _slotCount;
     int _touchedCount;
     int _holdCount;

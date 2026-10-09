@@ -97,10 +97,12 @@ retired number, which the owning slice's log records.
 Absences that are gaps rather than decisions, and none of them is silent. Why each came about is the
 owning slice's log; this list says only what is absent now and what closes it.
 
-- **The tick still runs on the CPU.** [goals.md](goals.md) puts it on the device, state resident and swapped
-  each tick; until the move lands ([decision-log.md](decision-log.md)), every phase of it is managed code and
-  the renderer is fed by the CPU's sprite fill. **The browser head keeps the managed tick after the move**, by the
-  owner's choice: its kernels wait on a shader path that writes WGSL from the same source as the SPIR-V.
+- **The tick runs on the CPU unless the device is asked for.** [goals.md](goals.md) puts it on the device, state
+  resident and swapped each tick. A desktop run with `--device-tick` and the `--bench device*` probes tick it there
+  ([decision-log.md](decision-log.md)); every other run — the default window, `--shot`, and every tier of the suite but
+  `device` — ticks it in managed code, and the renderer is fed by the CPU's sprite fill. **The browser head keeps the
+  managed tick after the move**, by the owner's choice: its kernels wait on a shader path that writes WGSL from the same
+  source as the SPIR-V.
 - **A lot's own arithmetic is not reworded**: `GEN-4b` and `GEN-4d` still describe kerbside lots laid along a
   chord, which the plan partly reads (`CarParks.BaysPerLotMost`). A car park is a rank of bays laid off a street
   that stays whole (`GEN-53`, `GEN-4h`), and the rules that size and space one are `GEN-53`'s and the

@@ -59,7 +59,15 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   --counters`) collected nothing but allocated 0.1–0.8 MB at a time a few times a minute, 1.0–1.7 MB a minute over two
   runs, where the same window ticked by the host showed about 0.5. Under both lies a flat ~32 kB/s that is the counters' listener
   itself — the same a second at 1.7 frames a second as at 5. One sampled stack allocates a string under `Interface.Draw`;
-  the rest is unattributed. An allocation trace with stacks over a standing device window closes it.
+  the rest is unattributed. A device's tick of the suite's built town allocates nothing once settled
+  (`DeviceAllocationGateTests`), so what is left is the frame's, or growth at OdesaOsm's size that the built town never reaches. An allocation
+  trace with stacks over a standing device window closes it.
+- **Rule 1 on a device's tick is held by no gate**: `CrossingGateTests` asks only that the town's own tick cross nothing.
+  A device's tick records its submits again every tick, each recording branching on what the tick holds, so its count is
+  flat in the town but not one figure: 278–301 crossings a plain tick, 328–358 one laying a rebuild that runs on and
+  717–783 one waiting for its rebuild, alike on the suite's built town at 132 cars and at 269 (2026-10-10, Debug,
+  lavapipe). Recorded once and submitted again — what the frame's own submit is owed (Inconsistencies) — it is one figure
+  a gate can hold.
 - **Nobody holds what no wheel stands on**: across a lane's end a car on two ways leaves its wheelbase less two
   metres and two half steps unclaimed; a car straddling a zebra narrower than its wheelbase, or nosing over a junction
   its front wheels have not reached, is no body there. The gap per car model is not measured.
