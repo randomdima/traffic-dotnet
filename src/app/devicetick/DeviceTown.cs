@@ -472,8 +472,8 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// <summary>
     /// How many switching cars' looks the device took came out as the town's own did but left it a figure other than the
     /// town's, and the most apart any stood (<see cref="LooksMostApartM"/>): how far across the lane beside stands is read off
-    /// the road's arcs, whose trigonometry the device answers to within a float or two of the host's (<c>trig.glsl</c>), and
-    /// the step from rest and its room are drawn off that.
+    /// the road's arcs, and the step from rest and its room are drawn off that — a figure the device reads a float or two
+    /// from the host's, by a term not yet traced (tech debt).
     /// </summary>
     public long LooksApart { get; private set; }
 

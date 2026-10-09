@@ -30,7 +30,7 @@ namespace TrafficSimulation.App.DeviceTick;
 /// </para>
 /// <para>
 /// <b>Numbers the device's</b> (root decision log, 2026-10-08): a walker's place on its way is the device's projection, and
-/// how fast it goes the way it faces its own trigonometry's, where the town's own rebuild stationed it to the bit.
+/// how fast it goes the way it faces the device's arithmetic, where the town's own rebuild stationed it to the bit.
 /// </para>
 /// </remarks>
 internal sealed partial class DeviceWalkers

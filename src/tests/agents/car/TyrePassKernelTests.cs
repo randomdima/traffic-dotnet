@@ -17,8 +17,8 @@ namespace TrafficSimulation.Tests.Agents.Car;
 /// each, and <c>tyre_pass.comp</c> of all of them at once.
 /// </summary>
 /// <remarks>
-/// A front wheel of a car whose wheel is turned points by the device's own tangent and arctangent
-/// (<see cref="TyrePassKernelTests.Near(float, float)"/>); everything else is the host's arithmetic to the bit.
+/// A front wheel of a car whose wheel is turned is asked within <see cref="TyrePassKernelTests.Near(float, float)"/>, a
+/// tolerance the device's trigonometry no longer needs (tech debt); everything else is the host's arithmetic to the bit.
 /// </remarks>
 public sealed class StagedTyrePass : IDisposable
 {
