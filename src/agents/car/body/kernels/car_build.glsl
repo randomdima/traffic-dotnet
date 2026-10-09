@@ -28,6 +28,9 @@ struct CarBuildRow
     float lengthM;
     float noseAheadOfAxleM;
     float tailBehindAxleM;
+    float widthM;
+    float collisionLengthM;
+    float collisionWidthM;
 };
 
 // What it may be braking at at all: the pedal's cap, or what its own patch puts down (CarBuild.UtmostBrakingMps2).

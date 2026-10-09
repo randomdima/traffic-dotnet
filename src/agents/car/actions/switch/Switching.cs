@@ -39,7 +39,7 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
     /// How many runs one switch's ground is kept in (<see cref="SweptGround"/>). A bound on the table and not a figure
     /// behaviour reads: a run is one way under a car's length of the step, and a step lands inside one lane.
     /// </summary>
-    const int MostRunsOfASwitch = 64;
+    internal const int MostRunsOfASwitch = 64;
 
     /// <summary>The ground each car's step sweeps — what is laid, kept, and looked for a body in.</summary>
     readonly SweptGround _swept = new(ground.Cars.Capacity, MostRunsOfASwitch);
@@ -182,47 +182,88 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
     /// drawn from where it stands and asked for every <see cref="DrivingFigures.LaneSwitchAskEveryS"/>.
     /// </summary>
     /// <param name="sinceLastDecisionS">How much of the town's time this decision answers for, which its clock runs by.</param>
-    public void Decide(int car, float sinceLastDecisionS)
+    public void Decide(int car, float sinceLastDecisionS) => Take(car, Consider(car, sinceLastDecisionS));
+
+    /// <summary>
+    /// <b>What a decision of a car meaning to move across comes to</b>, worked out before any of it is taken
+    /// (<see cref="Take"/>): the swept ground of a step drawn is kept, and the ways it asks the layer about are marked asked,
+    /// as a decision leaves them — nothing else is changed.
+    /// </summary>
+    public SwitchLook Consider(int car, float sinceLastDecisionS)
     {
         var pass = Cars.Pass[car];
-        if (pass.Begun) return;
+        var look = new SwitchLook(
+            SwitchOutcome.Begun, _inward[car], Turned: false, _asideM[car], _looksInS[car], _fromRestM[car], _roomToM[car], Overtake.None);
+        if (pass.Begun) return look;
 
         // <b>A line that stops for a bay is the leg's own end</b>, which following knows how to come up to.
-        if (Cars.StopsForBayOf(car) != CarFleet.NoBay || !Wants(car, out var inward))
+        if (Cars.StopsForBayOf(car) != CarFleet.NoBay || !Wants(car, out var inward)) return look with { Outcome = SwitchOutcome.LetsGo };
+
+        // Turned to look the other way, a step asked toward the first is let go and the look is due at once.
+        var turned = inward != _inward[car];
+        if (turned) pass = Overtake.None;
+
+        var looksInS = (turned ? 0f : _looksInS[car]) - sinceLastDecisionS;
+        look = look with
         {
-            actions.Enter(car, CarAction.Follow);
-            return;
-        }
+            Outcome = SwitchOutcome.Waits, Inward = inward, Turned = turned, AsideM = AsideOnTheLaneBeside(car, inward), LooksInS = looksInS,
+        };
+        if (looksInS > 0f || pass.Any) return look;
 
-        if (inward != _inward[car])
-        {
-            _inward[car] = inward;
-            Cars.Pass[car] = Overtake.None;
-            _looksInS[car] = 0f;
-        }
-
-        _asideM[car] = AsideOnTheLaneBeside(car);
-
-        ref var inS = ref _looksInS[car];
-        inS -= sinceLastDecisionS;
-        if (inS > 0f || pass.Any) return;
-
-        inS = Config.Driving.LaneSwitchAskEveryS;
-        if (!Shape(car, Cars.ProgressM[car], MathF.Max(0f, Cars.AlongMps[car]), out var shape) || !Sweep(car, shape)) return;
+        look = look with { Outcome = SwitchOutcome.Looked, LooksInS = Config.Driving.LaneSwitchAskEveryS };
+        var shaped = Shape(car, inward, look.AsideM, Cars.ProgressM[car], MathF.Max(0f, Cars.AlongMps[car]), out var step, ref look);
+        if (!shaped || !Sweep(car, step, look.RoomToM)) return look;
 
         // A layer sent back in part may not hold the ground yet: asked at the next decision.
-        if (!ground.Knows(_asked, car))
+        if (!ground.Knows(_asked, car)) return look with { Outcome = SwitchOutcome.Unknown, LooksInS = 0f };
+
+        return IsUnheld(car) ? look with { Outcome = SwitchOutcome.Asks, Step = step } : look;
+    }
+
+    /// <summary>A decision taken as <see cref="Consider"/> worked it out — by the town, or by a device that looked for it.</summary>
+    public void Take(int car, in SwitchLook look)
+    {
+        switch (look.Outcome)
         {
-            inS = 0f;
-            return;
+            case SwitchOutcome.Begun:
+                return;
+            case SwitchOutcome.LetsGo:
+                actions.Enter(car, CarAction.Follow);
+                return;
         }
 
-        if (!IsUnheld(car)) return;
+        if (look.Turned) Cars.Pass[car] = Overtake.None;
 
-        Cars.Pass[car] = shape;
+        _inward[car] = look.Inward;
+        _asideM[car] = look.AsideM;
+        _looksInS[car] = look.LooksInS;
+        _fromRestM[car] = look.FromRestM;
+        _roomToM[car] = look.RoomToM;
+        if (look.Outcome != SwitchOutcome.Asks) return;
+
+        Cars.Pass[car] = look.Step;
         _askedAs[car]++;
         Asked++;
     }
+
+    /// <summary>
+    /// <b>A decision a device worked out as <see cref="Consider"/> would</b>, taken — the ways its look asked the layer about
+    /// marked asked first, as the look marks them (<see cref="DrivingGround.Knows"/>), so the layer goes on holding them.
+    /// </summary>
+    public void TakeTheLook(int car, in SwitchLook look, ReadOnlySpan<uint> askedAbout)
+    {
+        foreach (var way in askedAbout) Occupancy.Knows((int)way);
+        Take(car, look);
+    }
+
+    /// <summary>Which way each car means to move across, as its last decision left it — for a device that looks for it.</summary>
+    public bool Inward(int car) => _inward[car];
+
+    /// <summary>Where along its line a car's last look had its step's ground end, and how far ahead its step from rest is — for a device that looks for it.</summary>
+    public (float FromRestM, float RoomToM) LastLookOf(int car) => (_fromRestM[car], _roomToM[car]);
+
+    /// <summary>How long until a car meaning to move across looks for the room again, as its last decision left it.</summary>
+    public float LooksInS(int car) => _looksInS[car];
 
     /// <summary>
     /// <b>This tick of a car moving across</b>, once the line under it has been read: driven down its step and handed the
@@ -482,25 +523,28 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
     /// <summary>
     /// <b>A step across drawn for a car doing <paramref name="speedMps"/></b>: begun as far ahead of the car as it covers
     /// before the step can be laid and kept, the shortest it can drive at that pace, landing inside the lane it begins on,
-    /// and the room to stop in past it at the pace it is driven at — its end kept in <see cref="_roomToM"/>.
+    /// and the room to stop in past it at the pace it is driven at — its end and the step from rest kept in
+    /// <paramref name="look"/>.
     /// </summary>
-    bool Shape(int car, float progressM, float speedMps, out Overtake step)
+    bool Shape(int car, bool inward, float asideM, float progressM, float speedMps, out Overtake step, ref SwitchLook look)
     {
         step = Overtake.None;
         ref readonly var build = ref Cars.BuildOf(car);
         var lane = Cars.LaneOf(car);
-        var beside = Roads.LaneBeside(lane, _inward[car]);
+        var beside = Roads.LaneBeside(lane, inward);
         if (beside == RoadGraph.NoLane) return false;
 
-        var asideM = _asideM[car];
         var corneringMps2 = CarFollower.CorneringMps2(Config, build);
         var brakingMps2 = CarFollower.BrakingMps2(Config, build);
         var outM = progressM + (speedMps * 2f * Config.CarReactionS) + Config.Driving.PassSpareM;
         var landsByM = Cars.LaneEndsOf(car)[0];
 
-        _fromRestM[car] = CarFollower.ShapeAPass(build, 0f, asideM, corneringMps2, 0f, out var fromRestM, out _)
-            ? fromRestM + Config.Driving.PassSpareM
-            : float.PositiveInfinity;
+        look = look with
+        {
+            FromRestM = CarFollower.ShapeAPass(build, 0f, asideM, corneringMps2, 0f, out var fromRestM, out _)
+                ? fromRestM + Config.Driving.PassSpareM
+                : float.PositiveInfinity,
+        };
 
         var lineBend = 0f;
         while (true)
@@ -526,7 +570,7 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
                 continue;
             }
 
-            _roomToM[car] = roomToM;
+            look = look with { RoomToM = roomToM };
             step = new Overtake(
                 lane, outM, stepM, float.PositiveInfinity, 0f, asideM, outMps, float.PositiveInfinity, steppedOutM, Begun: false);
             return IsOnTheRoad(car, step, progressM, roomToM);
@@ -534,16 +578,15 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
     }
 
     /// <summary>
-    /// <b>A step's ground, swept once</b> from where the car stands to the end of the room past it: what its body covers,
-    /// for laying and keeping, and the same grown by the pass's spare and run on by the stand-off, for asking. False where
-    /// it does not fit in the runs a step may have.
+    /// <b>A step's ground, swept once</b> from where the car stands to <paramref name="toM"/>, the end of the room past it:
+    /// what its body covers, for laying and keeping, and the same grown by the pass's spare and run on by the stand-off, for
+    /// asking. False where it does not fit in the runs a step may have.
     /// </summary>
     [SkipLocalsInit]
-    bool Sweep(int car, in Overtake step)
+    bool Sweep(int car, in Overtake step, float toM)
     {
         var spanM = Cars.BuildOf(car).LengthM;
         var fromM = Cars.ProgressM[car];
-        var toM = _roomToM[car];
         Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
         return SweepInto(_swept, car, step, fromM, toM, 0f, spanM, under)
                && SweepInto(_asked, car, step, fromM, toM, Config.Driving.PassSpareM, spanM, under);
@@ -695,10 +738,10 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
     }
 
     /// <summary>How far across the lane beside the car means to move onto stands from where it is — what it indicates toward (CAR-14.7).</summary>
-    float AsideOnTheLaneBeside(int car)
+    float AsideOnTheLaneBeside(int car, bool inward)
     {
         var lane = Cars.LaneOf(car);
-        var beside = lane == CarFleet.NoLane ? RoadGraph.NoLane : Roads.LaneBeside(lane, _inward[car]);
+        var beside = lane == CarFleet.NoLane ? RoadGraph.NoLane : Roads.LaneBeside(lane, inward);
         return beside == RoadGraph.NoLane ? 0f : Aside(lane, beside, Math.Clamp(Cars.ProgressM[car], 0f, Roads.LaneLengthM[lane]));
     }
 

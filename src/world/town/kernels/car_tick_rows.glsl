@@ -105,7 +105,9 @@ struct CarDecideTermsRow
     float queueReachM;
 };
 
-// CarDecideTermsRow.flags: Switching.RoadShape's in the low bits, then whether the town decides it whole.
+// CarDecideTermsRow.flags: Switching.RoadShape's in the low bits, then whether the town decides it whole — and of a car
+// moving across whose look the device takes (DecideSwitching), which way its line stopping to move across has it move
+// (DecideShapeInward), and which way its last decision had it mean to (DecideSwitchInward).
 const uint DecideShapeAsks = 1u;
 const uint DecideShapeStopsToMoveAcross = 2u;
 const uint DecideShapeWants = 4u;
@@ -113,6 +115,9 @@ const uint DecideShapeWantsWhenHeldUp = 8u;
 const uint DecideShapeWantsWhenFree = 16u;
 const uint DecideByTheTown = 256u;
 const uint DecideChecked = 512u;
+const uint DecideSwitching = 1024u;
+const uint DecideShapeInward = 2048u;
+const uint DecideSwitchInward = 4096u;
 
 // What the last claims rebuild granted a car and what cut it (CarFleet.AuthorityM, HorizonM, ClaimFromM, CommittedToM,
 // GrantMarginM, GrantCutBy; LaneOccupancy.HoldCutOn). The place fields are unread: the place is told (CarToldRow).

@@ -68,6 +68,28 @@ bool decideWants(uint car, CarBuildRow build, CarLineRow line, CarTickRow tick, 
     return (shape & (heldUp ? DecideShapeWantsWhenHeldUp : DecideShapeWantsWhenFree)) != 0u;
 }
 
+// Whether a car moving across still means to, and the same way its last decision left it (Switching.Consider before it
+// looks): what follows — the look for room — is switch_look.comp's.
+bool decideSwitchGoesOn(uint car, CarBuildRow build, CarLineRow line, CarTickRow tick, uint flags, uint holdBits, ClaimRow cutBy,
+    int cutOn, bool reverse, float grantLeftM)
+{
+    bool wants;
+    bool inward;
+    if ((flags & DecideShapeStopsToMoveAcross) != 0u)
+    {
+        wants = (flags & DecideShapeWants) != 0u;
+        inward = (flags & DecideShapeInward) != 0u;
+    }
+    else
+    {
+        bool heldUp = (flags & DecideShapeAsks) != 0u && decideIsHeldUp(car, build, line, tick, holdBits, cutBy, cutOn, reverse, grantLeftM);
+        wants = (flags & (heldUp ? DecideShapeWantsWhenHeldUp : DecideShapeWantsWhenFree)) != 0u;
+        inward = heldUp && wants;
+    }
+
+    return wants && inward == ((flags & DecideSwitchInward) != 0u);
+}
+
 // How much of a car's leg is left to drive (TownWorld.RemainingOnTheDriveM): what remains of the lane it is on, with the
 // ground back onto its line counted.
 float decideRemainingM(uint car, CarLineRow line, CarTickRow tick, float allowanceM)
@@ -84,10 +106,12 @@ float decideRemainingM(uint car, CarLineRow line, CarTickRow tick, float allowan
 
 // Whether a car's decision does anything but run its leg's clock (TownWorld.TakesOnlyTheClock), and its clock — how long
 // it has got nowhere and the closest it has come (LegProgress) — run where it does not. A clock that would run out is
-// left as it stood: the town's decision runs it.
+// left as it stood: the town's decision runs it. A car moving across (DecideSwitching) is asked as a following one but
+// for following's own questions: whether it still means to move across the same way, unless its step is begun — and its
+// look for room is switch_look.comp's.
 bool decideMoreThanTheClock(
     uint car, CarBuildRow build, CarLineRow line, CarTickRow tick, CarToldRow told, CarBriefRow brief, uint holdBits,
-    ClaimRow cutBy, int cutOn, CarDecideTermsRow terms, inout vec2 clock)
+    ClaimRow cutBy, int cutOn, CarDecideTermsRow terms, OvertakeRow pass, inout vec2 clock)
 {
     if ((terms.flags & DecideByTheTown) != 0u || (tick.flags & TickEvents) != 0u) return true;
 
@@ -98,14 +122,25 @@ bool decideMoreThanTheClock(
     // Overtaking.MayGetPastWhatCutIt, as the tick asks it, and ComesUpTo the grant its last tick left.
     bool reverse = (told.flags & ContextLineIsReverse) != 0u;
     float grantLeftM = brief.authorityM;
-    uint flags = told.flags | (holdBits & (ContextHasAHold | ContextCut));
-    ContextCarRow row = ContextCarRow(
-        tick.progressM, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, tick.plannedMps, 0u, flags, cutOn, 0.0, vec2(0.0), 0.0, 0.0, vec2(0.0), 0.0,
-        0.0);
-    if (contextWaitsToPass(car, build, line, row, cutBy) && decideComesUpTo(build, tick.alongMps, grantLeftM)) return true;
+    if ((terms.flags & DecideSwitching) != 0u)
+    {
+        if (!overtakeBegun(pass)
+            && !decideSwitchGoesOn(car, build, line, tick, terms.flags, holdBits, cutBy, cutOn, reverse, grantLeftM))
+        {
+            return true;
+        }
+    }
+    else
+    {
+        uint flags = told.flags | (holdBits & (ContextHasAHold | ContextCut));
+        ContextCarRow row = ContextCarRow(
+            tick.progressM, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, tick.plannedMps, 0u, flags, cutOn, 0.0, vec2(0.0), 0.0, 0.0, vec2(0.0),
+            0.0, 0.0);
+        if (contextWaitsToPass(car, build, line, row, cutBy) && decideComesUpTo(build, tick.alongMps, grantLeftM)) return true;
 
-    uint shape = terms.flags & (DecideShapeAsks | DecideShapeStopsToMoveAcross | DecideShapeWants | DecideShapeWantsWhenHeldUp | DecideShapeWantsWhenFree);
-    if (decideWants(car, build, line, tick, shape, holdBits, cutBy, cutOn, reverse, grantLeftM)) return true;
+        uint shape = terms.flags & (DecideShapeAsks | DecideShapeStopsToMoveAcross | DecideShapeWants | DecideShapeWantsWhenHeldUp | DecideShapeWantsWhenFree);
+        if (decideWants(car, build, line, tick, shape, holdBits, cutBy, cutOn, reverse, grantLeftM)) return true;
+    }
 
     float remainingM = decideRemainingM(car, line, tick, told.allowanceM);
     float sinceS = clock.x;

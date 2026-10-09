@@ -67,6 +67,9 @@ internal sealed class DeviceBodies : IDisposable
     int _carCount;
 
     /// <param name="lines">The car tick's lines, read in place of lines sent here — or none, and every car's is sent.</param>
+    /// <summary>The atlas the bodies are read off, for a kernel that reads it too.</summary>
+    public DeviceAtlas Atlas => _atlas;
+
     public DeviceBodies(Vk vk, SimConfig config, TownWorld world, DeviceCarTick.LineTables? lines = null)
     {
         if (RibbonAtlas.MostWaysUnderABody != MostWaysInTheKernel)

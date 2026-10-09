@@ -147,6 +147,8 @@ internal static class DeviceTownProbe
         var walkersByTheTownFrom = device?.WalkersDecidedByTheTown ?? 0L;
         var takenWholeFrom = device?.TakenBackWhole ?? 0L;
         var handedBackFrom = device?.HandedBackFor ?? default;
+        var looksFrom = device?.LooksTaken ?? default;
+        var (asidesMs, askedMs, sortedMs, lookedMs) = (0d, 0d, 0d, 0d);
         var ticksDrivingAny = 0;
         var started = Stopwatch.GetTimestamp();
         for (var tick = 0; tick < MeasuredTicks; tick++)
@@ -206,6 +208,9 @@ internal static class DeviceTownProbe
             }
 
             deviceMs += device.KernelsMs;
+            var looking = device.Looks.TimesMs;
+            (asidesMs, askedMs, sortedMs, lookedMs) = (
+                asidesMs + looking.AsidesMs, askedMs + looking.DecidedMs, sortedMs + looking.SortedMs, lookedMs + looking.LookedMs);
             taken += device.CarsTaken;
             if (device.CarsDrivenByTheTown != drivenByTheTown) ticksDrivingAny++;
             drivenByTheTown = device.CarsDrivenByTheTown;
@@ -263,6 +268,12 @@ internal static class DeviceTownProbe
                 $"overtaking {(why.Overtaking - handedBackFrom.Overtaking) / t:F0}, rejoining {(why.Rejoining - handedBackFrom.Rejoining) / t:F0}, " +
                 $"read for anything else {(why.Read - handedBackFrom.Read) / t:F0}, and {(why.Asked - handedBackFrom.Asked) / t:F0} more " +
                 "whose own tick asked something of it");
+            var looks = device.LooksTaken;
+            Console.WriteLine(
+                $"  switching cars' decisions a tick taken on the device with their look: not looking yet {(looks.Waits - looksFrom.Waits) / t:F0}, " +
+                $"looked and found no room {(looks.Looked - looksFrom.Looked) / t:F0}, found ground the layer does not hold " +
+                $"{(looks.Unknown - looksFrom.Unknown) / t:F1}; the device's time, ms a tick: the asides {asidesMs / t:F3}, the decisions " +
+                $"{askedMs / t:F3}, sorting them {sortedMs / t:F3}, the looks {lookedMs / t:F3}");
             var (here, byTheTown, onlyTheTown, tooMany) = device.Claims.Rebuilds;
             var each = Math.Max(1, rebuilds);
             Console.WriteLine(

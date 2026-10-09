@@ -273,10 +273,41 @@ internal sealed partial class TownWorld
     /// the car to its leg, a car following its route with no line to grow and no bay to take up — every other part
     /// being read off its line, its tick and the claims.
     /// </summary>
-    public bool LeavesItsDecisionToItsLine(int car) =>
+    public bool LeavesItsDecisionToItsLine(int car) => Cars.Action[car] == CarAction.Follow && LeavesItToItsLeg(car);
+
+    /// <summary>
+    /// <b>The same of a car moving across</b> (<see cref="TakesOnlyItsLook"/>): whose decision, past its errand and its line,
+    /// is its look for room (<see cref="Switching.Consider"/>) and its leg's clock.
+    /// </summary>
+    public bool LeavesItsSwitchToItsLine(int car) => Cars.Action[car] == CarAction.Switch && LeavesItToItsLeg(car);
+
+    /// <summary>
+    /// <b>Whether this switching car's decision would do nothing but look for room and run its leg's clock</b> — what a
+    /// device that takes the look is held to: its errand and line a following car's would leave to it, still meaning to move
+    /// across the same way and finding no step to ask for, and a clock that will not run out on this decision. The look it
+    /// came to is <paramref name="look"/>, its swept ground kept and the ways it asked about marked, as a decision leaves them.
+    /// </summary>
+    public bool TakesOnlyItsLook(int car, float sinceLastDecisionS, out SwitchLook look)
+    {
+        look = default;
+        if (!LeavesItsSwitchToItsLine(car) || TheLineIsSpent(car)) return false;
+
+        look = _switching.Consider(car, sinceLastDecisionS);
+        if (look.Outcome is SwitchOutcome.LetsGo or SwitchOutcome.Asks || look.Turned) return false;
+
+        var (patienceS, byM, queueReachM) = ClockTermsOf(car);
+        return !_driveProgress.WouldBeStuck(
+            car, RemainingOnTheDriveM(car), byM, sinceLastDecisionS, Cars.LightAheadM[car] <= queueReachM, patienceS);
+    }
+
+    /// <summary>
+    /// No duty or order, an errand that leaves the car to its leg, and a car driving its route with no line to grow and no
+    /// bay to take up — whatever its action.
+    /// </summary>
+    bool LeavesItToItsLeg(int car) =>
         !HoldAgents && !IsUnderOrders(car) && !Cars.Ambulance[car] && !IsAnEvacuator(car) && !IsAPatrolCar(car)
-        && Cars.Driven[car] && !Cars.Broken[car] && Cars.Action[car] == CarAction.Follow && ItsErrandLeavesItToTheLeg(car)
-        && !_asksTheRoute[car] && Cars.StopsForBayOf(car) == CarFleet.NoBay;
+        && Cars.Driven[car] && !Cars.Broken[car] && ItsErrandLeavesItToTheLeg(car) && !_asksTheRoute[car]
+        && Cars.StopsForBayOf(car) == CarFleet.NoBay;
 
     /// <summary>
     /// What a car's leg's clock is run by (<see cref="WatchTheProgress"/>): its patience, how much nearer counts as nearer,

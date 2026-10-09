@@ -1,0 +1,53 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// How far across the lane beside stands for every car moving across whose look the device takes, one thread a car of the
+// decisions due (Switching.AsideOnTheLaneBeside): off the road's own lanes, ahead of switch_look.comp, which reads the
+// car's line through the one arcs buffer a kernel samples.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint carCount;
+    uint mostLanes;
+} figures;
+
+#define SPLINE_ARCS laneArcs
+#define LANE_FIRST_ARC laneFirstArc
+#define LANE_LENGTH laneLength
+#define LANE_WIDTH laneWidth
+
+#include "core/geometry/kernels/arc.glsl"
+#include "core/geometry/kernels/rounded.glsl"
+#include "agents/car/control/kernels/car_line.glsl"
+#include "agents/car/body/kernels/tyre_rows.glsl"
+#include "world/town/kernels/car_tick_rows.glsl"
+
+layout(std430, binding = 0) readonly buffer DecideList { uint decideList[]; };
+layout(std430, binding = 1) readonly buffer DecideTerms { CarDecideTermsRow decideTerms[]; };
+layout(std430, binding = 2) readonly buffer Ticks { CarTickRow ticks[]; };
+layout(std430, binding = 3) readonly buffer Lines { CarLineRow lines[]; };
+layout(std430, binding = 4) readonly buffer Chain { int chain[]; };
+layout(std430, binding = 5) readonly buffer LaneArcs { Arc laneArcs[]; };
+layout(std430, binding = 6) readonly buffer LaneFirstArc { uint laneFirstArc[]; };
+layout(std430, binding = 7) readonly buffer LaneLength { float laneLength[]; };
+layout(std430, binding = 8) readonly buffer LaneWidth { float laneWidth[]; };
+layout(std430, binding = 9) readonly buffer LaneBeside { int laneBeside[]; };
+layout(std430, binding = 10) writeonly buffer Asides { float asides[]; };
+
+#include "core/geometry/kernels/arc_chain.glsl"
+#include "agents/car/actions/switch/kernels/switch_aside.glsl"
+
+void main()
+{
+    if (gl_GlobalInvocationID.x >= figures.carCount) return;
+
+    uint car = decideList[gl_GlobalInvocationID.x];
+    uint flags = decideTerms[car].flags;
+    if ((flags & DecideSwitching) == 0u) return;
+
+    int lane = lines[car].laneCount > 0u ? chain[car * figures.mostLanes] : -1;
+    int beside = lane < 0 ? -1 : laneBeside[(uint(lane) * 2u) + ((flags & DecideSwitchInward) != 0u ? 1u : 0u)];
+    asides[car] = beside < 0 ? 0.0 : switchAside(lane, beside, clamp(ticks[car].progressM, 0.0, laneLength[lane]));
+}

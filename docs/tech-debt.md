@@ -167,10 +167,21 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   (`TownWorld.ReadsEveryCarAfterTheTick`, `Game.Advance`; 1.5 ms of that tick at 40 000 cars): the eye is the shot path's
   fill off the town's copy, and the layers and the inspector read the cars they draw there. Closes with each reading what
   it draws off the device, as the window's moving runs do.
-- **A switching car's decisions are the town's** (`Switching.Decide`, 1.9 ms of a windowed frame at OdesaOsm's 40 000
-  cars, 2026-10-09): every one asked of the device comes back to be decided (`DecideTermsRow.ByTheTown`), 507 a tick
-  against 161 for every other kind, its look for room swept on the host off the atlas and the claims the device holds
-  too. Closes with the look on the device, as a walker's sidestep's is (`walker_actions.glsl`).
+- **A switching car's look is the town's on a third of the ticks** (`DeviceTown.LayTheDecisions`): on a tick laying a
+  rebuild the device holds claims newer than the readers', and has no copy of the readers' own lists to ask. And a look
+  that finds room is the town's to take again from the start (`car_switch_look.comp`'s `SwitchAsks`), swept a second time
+  on the host. Closes with the readers' lists kept on the device a rebuild behind, and the step and its swept ground handed
+  back with the verdict.
+- **A switching car's look costs the device 0.39 ms a tick at OdesaOsm's 40 000 cars** (2026-10-09), 0.37 ms of it waited
+  for at the tick's head and another 0.47 at the bodies' step behind it: a read of the atlas (`atlasRead`) walks every point
+  of a body's rows one after another, about a third of a millisecond on one thread, and a look reads a step's every station
+  at once but each read alone. Closes with a read's rows split across a workgroup.
+- **22 of the 5.5 M verdicts a device town reaches at OdesaOsm differ from the town's own** (`--bench devicedecide`,
+  2026-10-09), each a switching car's look the device found held where the town found room; and 10 856 of 136 851 looks
+  come out alike but leave a figure up to 3.8 mm apart. The step's pose and the lane beside are read off arcs whose
+  trigonometry the device answers to within a float or two of the host's (`trig.glsl`), and a box read a hair otherwise
+  reaches another tenth of a way. Closes with the trigonometry to the host's bit — its C library's `sinf` and `cosf` — or
+  with the look the town's only, which costs 1.2 ms a tick.
 - **Why a switching car with a step is read every tick is reasoned and held by no test** (`TownWorld.ReadsTheTickOf`):
   keeping or withdrawing the step and the rebuild laying its ground read where it stands, but
   `DeviceTownKeptCarsTests`' staging resolves its step alike when such a car is never read. Closes with a staging whose

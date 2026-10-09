@@ -139,10 +139,15 @@ layout(std430, binding = 38) readonly buffer ReadersGrants { CarGrantRow readers
 layout(std430, binding = 39) readonly buffer ReadersCutters { ClaimRow readersCutters[]; };
 layout(std430, binding = 40) readonly buffer ReadersHoldBits { uint readersHoldBits[]; };
 
+// A switching car's clock as its decision ran it, for switch_look.comp to keep where the look leaves the decision the
+// device's (DecideSwitching).
+layout(std430, binding = 41) writeonly buffer SwitchClocks { vec2 switchClocks[]; };
+
 // Verdicts: the stamp of the tick that wrote one, shifted past whether the decision is more than the clock.
 const uint VerdictMore = 1u;
 
-// One car's decision put off, asked of what its last tick left (car_decide.glsl).
+// One car's decision put off, asked of what its last tick left (car_decide.glsl). A switching car's is not done until
+// its look is: what the town would decide it on goes back whatever, and its clock is the look's to keep.
 void decideOne(uint car)
 {
     CarTickRow tick = ticks[car];
@@ -152,13 +157,15 @@ void decideOne(uint car)
     vec2 clock = clockWas;
     bool more = decideMoreThanTheClock(
         car, builds[buildOf[car]], lines[car], tick, told[car], brief, readersHoldBits[car], readersCutters[car],
-        readersGrants[car].cutOn, terms, clock);
+        readersGrants[car].cutOn, terms, passes[car], clock);
+    bool looks = (terms.flags & DecideSwitching) != 0u;
     verdicts[car] = (figures.stamp << 1u) | (more ? VerdictMore : 0u);
     if (more) decidedAt[car] = figures.stamp;
+    else if (looks) switchClocks[car] = clock;
     else clocks[car] = clock;
 
     // Checked, what every decision asked was read off goes back, the town to read the same verdict off it.
-    if (more || (terms.flags & DecideChecked) != 0u)
+    if (more || looks || (terms.flags & DecideChecked) != 0u)
     {
         decideOut[car] = CarOutRow(tick, commands[car], brief, tyreCars[car], grantOut(grants[car]), clockWas.x, clockWas.y, figures.stamp);
     }

@@ -142,6 +142,15 @@ internal sealed partial class DeviceCarTick : IDisposable
 
         /// <summary>What it was read off is handed back whatever the verdict, for the town to hold the verdict to its own.</summary>
         public const uint Checked = 512u;
+
+        /// <summary>A car moving across whose look for room the device takes (<see cref="DeviceSwitchLook"/>).</summary>
+        public const uint Switching = 1024u;
+
+        /// <summary>Of one, which way its line stopping to move across has it move (<see cref="Agents.Car.Actions.Switching.ShapeOfTheRoad"/>).</summary>
+        public const uint ShapeInward = 2048u;
+
+        /// <summary>And which way its last decision had it mean to (<see cref="Agents.Car.Actions.Switching.Inward"/>).</summary>
+        public const uint SwitchInward = 4096u;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -227,6 +236,10 @@ internal sealed partial class DeviceCarTick : IDisposable
     readonly ResidentRows<DecideTermsRow> _decideTerms;
     readonly ResidentRows<Vector2> _clocks;
     readonly GpuBuffer _verdicts, _decidedAt, _decideOut;
+
+    /// <summary>Each switching car's clock as its decision ran it, kept by its look where the look leaves the decision here (<see cref="Looks"/>).</summary>
+    readonly GpuBuffer _switchClocks;
+
     int _decideCount;
 
     /// <summary>
@@ -304,6 +317,7 @@ internal sealed partial class DeviceCarTick : IDisposable
         _verdicts = vk.CreateBuffer((ulong)(capacity * sizeof(uint)), BufferUsageFlags.StorageBufferBit, HostAccess.Reads);
         _decideOut = vk.CreateBuffer((ulong)(capacity * Marshal.SizeOf<OutRow>()), BufferUsageFlags.StorageBufferBit, HostAccess.Reads);
         _decidedAt = Laid(new uint[capacity]);
+        _switchClocks = Laid(new Vector2[capacity]);
         _grantsBound = granted?.Grants ?? _grants.Device;
         _cuttersBound = granted?.Cutters ?? _cutters.Device;
         _holdBitsBound = granted?.HoldBits ?? _holdBits.Device;
@@ -321,6 +335,7 @@ internal sealed partial class DeviceCarTick : IDisposable
             granted?.Grants ?? _grants.Device, _told.Device, _ticks.Device, _contexts.Device, _boxes.Device, _taken.Device,
             _passes.Device, granted?.HoldBits ?? _holdBits.Device, _briefs.Device, _decideList.Device, _decideTerms.Device,
             _clocks.Device, _verdicts, _decidedAt, _decideOut, table.Cars.Device, _readersGrants, _readersCutters, _readersHoldBits,
+            _switchClocks,
         ];
         _tickKernel = new ComputeKernel(vk, "car_tick.comp", ticked.Length, (uint)Marshal.SizeOf<Figures>());
         _tickSet = _tickKernel.Bind(ticked);
@@ -349,6 +364,27 @@ internal sealed partial class DeviceCarTick : IDisposable
 
     /// <summary>The most cars the table holds: the tyre pass's.</summary>
     public int Capacity => _tyres.Capacity;
+
+    /// <summary>
+    /// <b>What a switching car's look for room reads and writes of the decisions put off</b> (<see cref="DeviceSwitchLook"/>):
+    /// every car's build, reading, line, lanes and step as the last tick left them, the decisions due and their terms, and
+    /// each one's verdict, the stamp it was found more at, its clock, and its clock as its decision ran it.
+    /// </summary>
+    internal readonly record struct DecideTables(
+        GpuBuffer Builds, GpuBuffer BuildOf, GpuBuffer Ticks, GpuBuffer Lines, GpuBuffer Arcs, GpuBuffer Chain, GpuBuffer Ends,
+        GpuBuffer Passes, GpuBuffer DecideList, GpuBuffer DecideTerms, GpuBuffer Verdicts, GpuBuffer DecidedAt, GpuBuffer Clocks,
+        GpuBuffer SwitchClocks);
+
+    /// <inheritdoc cref="DecideTables"/>
+    public DecideTables Decided => new(
+        _tyres.Table.Builds, _tyres.Table.BuildOf.Device, _ticks.Device, _lines.Device, _arcs.Device, _chain.Device, _ends.Device,
+        _passes.Device, _decideList.Device, _decideTerms.Device, _verdicts, _decidedAt, _clocks.Device, _switchClocks);
+
+    /// <summary>
+    /// <b>The look for room of a switching car whose decision is asked of the device</b> (<see cref="DecideTermsRow.Switching"/>),
+    /// recorded around the decisions put off — or none, and every switching car's decision is the town's.
+    /// </summary>
+    public DeviceSwitchLook? Looks { get; set; }
 
     /// <summary>
     /// <b>What a frame draws of every car as the last tick left it</b> (<c>app/render/kernels/sprites_cars.comp</c>): its
@@ -578,6 +614,7 @@ internal sealed partial class DeviceCarTick : IDisposable
         _decideList.Send(commands);
         _decideTerms.Send(commands);
         _clocks.Send(commands);
+        Looks?.RecordTheSends(commands);
         if (ReadersKeepUp)
         {
             // As the claims stand once every rebuild before this submit and every grant sent in it are in.
@@ -591,13 +628,16 @@ internal sealed partial class DeviceCarTick : IDisposable
         vk.AfterTransfer(commands);
         _timer.Stamp(commands, (int)Stage.Sent);
 
-        // The decisions put off read what the last tick left, before this one writes over it.
+        // The decisions put off read what the last tick left, before this one writes over it — a switching car's ended by its
+        // look for room.
         if (_decideCount > 0)
         {
+            Looks?.RecordTheAsides(commands, _decideCount);
             var decided = (uint)((_decideCount + 63) / 64);
             _tickKernel.Dispatch(
                 commands, _tickSet, decided, _figures with { CarCount = (uint)_decideCount, Mode = Figures.Decide, Stamp = _stamp });
             vk.BetweenKernels(commands);
+            Looks?.RecordTheLooks(commands, _decideCount, _stamp);
             _decideCount = 0;
         }
     }

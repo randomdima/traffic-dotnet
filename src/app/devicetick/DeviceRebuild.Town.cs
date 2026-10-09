@@ -850,6 +850,18 @@ internal sealed partial class DeviceRebuild
     public bool LaidAny => _walkersLaid >= 0;
 
     /// <summary>
+    /// <b>What a car's look for room reads of the layer the last rebuild laid</b> (<see cref="DeviceSwitchLook"/>): the atlas,
+    /// every way's marks, the claims as that rebuild's lists left them, and the ways it sent back to the readers' layer —
+    /// ascending, <see cref="LightsOnly"/> marking those sent for their lights' holds alone — of which
+    /// <see cref="WaysSentBack"/> are its.
+    /// </summary>
+    internal (DeviceAtlas Atlas, (GpuBuffer At, GpuBuffer Sections) Marks, DeviceClaims.Tables Claims, GpuBuffer WaysSent) ForTheLook =>
+        (_bodies.Atlas, _plans.Marks, _claims.OnTheDevice, _waysAsked.Device);
+
+    /// <summary>How many ways the last rebuild laid here sent back to the readers' layer (<see cref="ForTheLook"/>).</summary>
+    internal int WaysSentBack => _waysListed;
+
+    /// <summary>
     /// <b>Each kept walker's hold as the town's readers read it, copied off the last rebuild laid here</b>
     /// (<c>walkers_readers.comp</c>) into <see cref="DeviceWalkers.ReadersHolds"/> — recorded in a tick's submit behind that
     /// rebuild (<see cref="RecordTheTickBehind"/>), where the readers have its claims. False, and nothing recorded, where no

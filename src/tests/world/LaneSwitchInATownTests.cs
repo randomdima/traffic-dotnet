@@ -143,6 +143,52 @@ public class LaneSwitchInATownTests
         throw new InvalidOperationException("the town stood no car on the street that way");
     }
 
+    /// <summary>
+    /// The car the tee stands on its kerb lane running east, left to its own tour, held up by a wreck put down on that lane
+    /// <see cref="HeldUpAheadM"/> on from it — and a second on the inner lane <see cref="BesideShortM"/> short of abeam that,
+    /// standing on the ground a step across would cover: the car means to move across and finds no room for as long as the
+    /// second stands there.
+    /// </summary>
+    /// <returns>The car, and the wreck on the inner lane.</returns>
+    internal static (int Car, int Beside) StageAWreckOnEitherLane(TownWorld world)
+    {
+        var car = TheCarOnTheStreet(world);
+        var roads = world.Roads;
+        var kerb = roads.NearestStreetLane(world.Cars.PositionM[car], out var alongM);
+        var (ahead, beside) = (-1, -1);
+        for (var other = 0; other < world.Cars.Count && beside < 0; other++)
+        {
+            if (other == car) continue;
+
+            if (ahead < 0) ahead = other;
+            else beside = other;
+        }
+
+        var atM = alongM + HeldUpAheadM;
+        var onTheKerb = Spline.SampleAt(roads.ArcsOf(kerb), atM);
+        var onTheInner = Spline.SampleAt(roads.ArcsOf(roads.LaneBeside(kerb, inward: true)), atM - BesideShortM);
+        PutDownBeside(world, car, ahead, onTheKerb);
+        PutDownBeside(world, car, beside, onTheInner);
+        return (car, beside);
+
+        // On the car's own level: the town stands the others on the bridge over the street.
+        static void PutDownBeside(TownWorld world, int car, int wreck, in SplineSample at)
+        {
+            OvertakeInATownTests.PutDown(world, wreck, at.PositionM, at.HeadingRad);
+            world.Cars.Channels[wreck] = world.Cars.Channels[car];
+            world.PhysicsForInstruments.PutOnChannels(world.Cars.Body[wreck], world.Cars.Channels[car]);
+        }
+    }
+
+    /// <summary>
+    /// How far on from a car the wrecks holding it up stand: far enough that it comes up to them at a town's pace, and
+    /// means to move across while there is still the room to.
+    /// </summary>
+    const float HeldUpAheadM = 200f;
+
+    /// <summary>How far short of abeam the first wreck the second stands: inside a step's ground as the car first looks.</summary>
+    const float BesideShortM = 10f;
+
     /// <summary>A car moved across onto the lane beside the one it stands on, toward the line, where it stands abeam.</summary>
     static void PutOnTheLaneBeside(TownWorld world, int car)
     {

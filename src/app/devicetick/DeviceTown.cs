@@ -128,6 +128,8 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _bodies = new DeviceTownBodies(vk, config, town, _tyres, _walkers) { HandsOverThrough = _cars };
         _townClaims = new DeviceTownClaims(vk, config, town, _claims, _cars, _walkers, start);
         _townClaims.Rebuild.MirrorsAtOnce = false;
+        _looks = new DeviceSwitchLook(vk, config, town, _cars.Decided, _townClaims.Rebuild);
+        _cars.Looks = _looks;
         RebuildsRunOn = true;
         _batch = new ComputeBatch(vk);
         _stepBatch = new ComputeBatch(vk);
@@ -150,8 +152,10 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _decisionIntervalS = new TickGroups(config.Sim.AgentDecisionIntervalS, config.Sim.TickRateHz).IntervalS;
         _decided = new int[cars.Capacity];
         _shapeOf = new uint[cars.Capacity];
+        _shapeInward = new bool[cars.Capacity];
         _shapeLaidAt = new (uint, uint)[cars.Capacity];
         _shapeKnown = new bool[cars.Capacity];
+        _looking = new bool[cars.Capacity];
         town.DriveClocks.KeepTheTouched();
         town.CarsDecidedOnTheDevice = true;
 
@@ -315,11 +319,13 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     int _decidedCount;
 
     /// <summary>
-    /// What of each car's wish to move across its road and route alone answer (<see cref="Switching.ShapeOfTheRoad"/>), and
-    /// the line and route it was read off (<see cref="CarFleet.LineLaid"/>, <see cref="CarFleet.RouteLaid"/>).
+    /// What of each car's wish to move across its road and route alone answer (<see cref="Switching.ShapeOfTheRoad"/>), which
+    /// way its line stopping to move across has it move, and the line and route it was read off (<see cref="CarFleet.LineLaid"/>,
+    /// <see cref="CarFleet.RouteLaid"/>).
     /// </summary>
     readonly uint[] _shapeOf;
 
+    readonly bool[] _shapeInward;
     readonly (uint Line, uint Route)[] _shapeLaidAt;
     readonly bool[] _shapeKnown;
 
@@ -327,16 +333,40 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     public long DecidedByTheTown { get; private set; }
 
     /// <summary>
+    /// <b>Whether a switching car's look for room is asked of the device</b> with its decision (<see cref="DeviceSwitchLook"/>),
+    /// where the device holds the layer the town's readers read. Off, every switching car's decision is the town's.
+    /// </summary>
+    public bool LooksOnTheDevice { get; init; } = true;
+
+    readonly DeviceSwitchLook _looks;
+
+    /// <summary>The switching cars' looks on the device, for whoever reads their times.</summary>
+    public DeviceSwitchLook Looks => _looks;
+
+    /// <summary>Which cars' decisions this tick asks of the device with their look for room.</summary>
+    readonly bool[] _looking;
+
+    /// <summary>
+    /// How many switching cars' decisions the device took with their look, over every tick, by how the look came out: not
+    /// looking yet, looked and found no room, or found ground the layer does not hold yet.
+    /// </summary>
+    public (long Waits, long Looked, long Unknown) LooksTaken { get; private set; }
+
+    /// <summary>
     /// <b>The decisions put off last tick that this tick asks of the device</b>: of every car the device holds as its last
     /// tick left it, what only the town knows laid — the town deciding it whole where the car is not one whose decision is
     /// read off its line, or every car where the device has no copy of the claims the town's readers read
-    /// (<see cref="DeviceCarTick.ReadersKeptUp"/>).
+    /// (<see cref="DeviceCarTick.ReadersKeptUp"/>). <b>A switching car's look for room is asked with it</b>
+    /// (<see cref="LooksOnTheDevice"/>) where the claims the device holds are the readers': no rebuild laid on this tick, and
+    /// the last laid here rather than by the town.
     /// </summary>
-    void LayTheDecisions(TownWorld town, bool readersUnknown)
+    void LayTheDecisions(TownWorld town, bool readersUnknown, bool laidByTheTown)
     {
         var cars = town.Cars;
         var firstCar = town.Roster.AgentOfCar(0);
         var rebuild = _townClaims.Rebuild;
+        var looks = LooksOnTheDevice && _cars.ReadersKeepUp && rebuild.LaidAny && rebuild.LandsLater && !_townLaidSinceTheDevice
+                    && !laidByTheTown;
         var count = 0;
         foreach (var agent in town.DecisionsPutOff)
         {
@@ -355,11 +385,15 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
             if (ChecksTheDecisions) rebuild.AskTheHold(hold);
             else rebuild.AskTheHoldIfDecided(hold, car);
 
-            var byTheTown = readersUnknown || !town.LeavesItsDecisionToItsLine(car);
+            var switching = looks && town.LeavesItsSwitchToItsLine(car);
+            var byTheTown = readersUnknown || !(switching || town.LeavesItsDecisionToItsLine(car));
             _byTheTown[car] = byTheTown;
+            _looking[car] = switching && !byTheTown;
             var (patienceS, byM, queueReachM) = town.ClockTermsOf(car);
             var flags = (byTheTown ? DeviceCarTick.DecideTermsRow.ByTheTown : ShapeOfTheRoad(town, car))
                         | (ChecksTheDecisions ? DeviceCarTick.DecideTermsRow.Checked : 0u);
+            if (_looking[car]) flags |= LayTheSwitch(town, car);
+
             _cars.LayTheDecideTerms(car, new DeviceCarTick.DecideTermsRow(flags, patienceS, byM, queueReachM));
             _listed[car] = true;
             _decided[count++] = car;
@@ -390,9 +424,10 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
     /// <summary>
     /// A verdict held to the town's own, the car written into the town as the device read it — the town a decision put off
-    /// reads, a tick behind — and its clock as it stood before the device ran it.
+    /// reads, a tick behind — and its clock as it stood before the device ran it; and of a switching car whose look the
+    /// device took, the look too, figure for figure — but where the device left it to the town for want of room.
     /// </summary>
-    void CheckTheVerdict(int car, bool more)
+    void CheckTheVerdict(int car, bool more, bool looking)
     {
         var cars = _town.Cars;
         ref readonly var row = ref _cars.DecidedOn(car);
@@ -400,10 +435,79 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         WriteTheTick(cars, car, row);
         _town.DriveClocks.Take(car, row.ClockSinceS, row.ClockClosestM);
         DecisionsChecked++;
-        if (_town.TakesOnlyTheClock(car, _decisionIntervalS) != more) return;
+        if (!looking)
+        {
+            if (_town.TakesOnlyTheClock(car, _decisionIntervalS) != more) return;
+
+            DecisionsUnlike++;
+            if (DecisionsUnlikeSeen.Count < 8) DecisionsUnlikeSeen.Add($"car {car}: the device found {(more ? "more" : "its clock alone")}");
+            return;
+        }
+
+        if (more && _looks.Deferred(car)) return;
+
+        var alone = _town.TakesOnlyItsLook(car, _decisionIntervalS, out var townLook);
+        if (more && !alone) return;
+
+        var deviceLook = more ? default : _looks.LookOf(car, _town.Switching.Inward(car), out _);
+        if (!more && alone && deviceLook.Outcome == townLook.Outcome)
+        {
+            var apartM = FiguresApartM(townLook, deviceLook);
+            if (apartM == 0f) return;
+
+            LooksApart++;
+            LooksMostApartM = MathF.Max(LooksMostApartM, apartM);
+            return;
+        }
 
         DecisionsUnlike++;
-        if (DecisionsUnlikeSeen.Count < 8) DecisionsUnlikeSeen.Add($"car {car}: the device found {(more ? "more" : "its clock alone")}");
+        if (DecisionsUnlikeSeen.Count < 8)
+        {
+            DecisionsUnlikeSeen.Add(
+                $"switching car {car}: the device found {(more ? "more" : $"its look alone, {deviceLook}")}; the town " +
+                $"{(alone ? "its look alone" : "more")}, {townLook}");
+        }
+    }
+
+    /// <summary>
+    /// How many switching cars' looks the device took came out as the town's own did but left it a figure other than the
+    /// town's, and the most apart any stood (<see cref="LooksMostApartM"/>): how far across the lane beside stands is read off
+    /// the road's arcs, whose trigonometry the device answers to within a float or two of the host's (<c>trig.glsl</c>), and
+    /// the step from rest and its room are drawn off that.
+    /// </summary>
+    public long LooksApart { get; private set; }
+
+    /// <inheritdoc cref="LooksApart"/>
+    public float LooksMostApartM { get; private set; }
+
+    /// <summary>How far apart the figures of two looks that came out alike stand, the most of them: nought for the same to the bit.</summary>
+    static float FiguresApartM(in SwitchLook one, in SwitchLook other)
+    {
+        if (!Same(one.LooksInS, other.LooksInS)) return float.PositiveInfinity;
+
+        return MathF.Max(MathF.Max(ApartM(one.AsideM, other.AsideM), ApartM(one.FromRestM, other.FromRestM)), ApartM(one.RoomToM, other.RoomToM));
+
+        static float ApartM(float one, float other) => Same(one, other) ? 0f : MathF.Max(MathF.Abs(one - other), float.Epsilon);
+    }
+
+    static bool Same(float one, float other) => BitConverter.SingleToInt32Bits(one) == BitConverter.SingleToInt32Bits(other);
+
+    /// <summary>
+    /// <b>A switching car's look the device took, taken</b> (<see cref="Switching.TakeTheLook"/>): how far across it stands,
+    /// when it looks again and what its look drew — and the ways the look asked the layer about marked asked.
+    /// </summary>
+    void TakeTheLook(int car)
+    {
+        var switching = _town.Switching;
+        var look = _looks.LookOf(car, switching.Inward(car), out var askedAbout);
+        switching.TakeTheLook(car, look, askedAbout);
+        var (waits, looked, unknown) = LooksTaken;
+        LooksTaken = look.Outcome switch
+        {
+            SwitchOutcome.Looked => (waits, looked + 1, unknown),
+            SwitchOutcome.Unknown => (waits, looked, unknown + 1),
+            _ => (waits + 1, looked, unknown),
+        };
     }
 
     /// <summary>What a decision answers for, as the loop reckons it.</summary>
@@ -415,10 +519,23 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         var laidAt = (town.Cars.LineLaid[car], town.Cars.RouteLaid[car]);
         if (_shapeKnown[car] && _shapeLaidAt[car] == laidAt) return _shapeOf[car];
 
-        _shapeOf[car] = (uint)town.Switching.ShapeOfTheRoad(car, out _);
+        _shapeOf[car] = (uint)town.Switching.ShapeOfTheRoad(car, out _shapeInward[car]);
         _shapeLaidAt[car] = laidAt;
         _shapeKnown[car] = true;
         return _shapeOf[car];
+    }
+
+    /// <summary>
+    /// A switching car's look asked of the device with its decision: the car as its last decision left it laid, and the terms
+    /// that say so — which way its line stopping has it move (read with <see cref="ShapeOfTheRoad"/>), and which way it meant to.
+    /// </summary>
+    uint LayTheSwitch(TownWorld town, int car)
+    {
+        var switching = town.Switching;
+        var (fromRestM, roomToM) = switching.LastLookOf(car);
+        _looks.Lay(car, new DeviceSwitchLook.InRow(town.Cars.Channels[car], switching.LooksInS(car), fromRestM, roomToM));
+        return DeviceCarTick.DecideTermsRow.Switching | (_shapeInward[car] ? DeviceCarTick.DecideTermsRow.ShapeInward : 0u)
+               | (switching.Inward(car) ? DeviceCarTick.DecideTermsRow.SwitchInward : 0u);
     }
 
     public bool DecidedOnTheDevice(int car)
@@ -426,9 +543,15 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         if (!_listed[car]) return false;
 
         _listed[car] = false;
+        var looking = _looking[car];
+        _looking[car] = false;
         var more = _cars.DecidedMoreThanTheClock(car);
-        if (ChecksTheDecisions && !_byTheTown[car]) CheckTheVerdict(car, more);
-        if (!more) return true;
+        if (ChecksTheDecisions && !_byTheTown[car]) CheckTheVerdict(car, more, looking);
+        if (!more)
+        {
+            if (looking) TakeTheLook(car);
+            return true;
+        }
 
         // More than the clock: the town decides it on what its last tick left, as the device read it.
         var cars = _town.Cars;
@@ -784,7 +907,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         // A rebuild laid this tick whose layer lands later leaves the town's readers on the claims before it, which the
         // decisions are asked of — or, where the device has never had them, the town decides every car.
         _cars.ReadersKeepUp = !(laidHere && _townClaims.Rebuild.LandsLater);
-        if (DecidesTheCars) LayTheDecisions(town, !_cars.ReadersKeepUp && !_cars.ReadersKeptUp);
+        if (DecidesTheCars) LayTheDecisions(town, !_cars.ReadersKeepUp && !_cars.ReadersKeptUp, laidByTheTown);
         if (!_cars.ReadsEveryCar) LayTheWanted(town);
         _cars.HandsBackTheGrantsLeft = town.WatchesEveryAgent;
         town.DriveClocks.ForgetTheTouched();
@@ -864,6 +987,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         var idle = Stopwatch.GetTimestamp();
         _headBatch.Wait();
         IdleMs = Stopwatch.GetElapsedTime(idle).TotalMilliseconds;
+        _looks.ReadTimes();
         _townClaims.Rebuild.MirrorTheHoldsAsked(town.ReadersOccupancy);
 
         // The decisions once the device's verdicts are in, while the tick runs, and before what it left of the cars is
@@ -1225,6 +1349,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _stepBatch.Dispose();
         _headBatch.Dispose();
         _batch.Dispose();
+        _looks.Dispose();
         _townClaims.Dispose();
         _bodies.Dispose();
         _walkers.Dispose();

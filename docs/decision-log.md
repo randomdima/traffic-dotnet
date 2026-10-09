@@ -4,6 +4,36 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-09 — a switching car's look for room is taken on the device
+
+**Under the owner's 2026-10-08 ruling.** At OdesaOsm's 40 000 cars a switching car's decision was the town's whatever it
+came to — 507 a tick asked of the device only to be handed back — and its look for room (`Switching.Shape`, `Sweep`,
+`IsUnheld`) was 1.9 ms of a windowed frame, swept on the host off the atlas and the claims the device already holds.
+
+- **A switching car's decision is asked of the device as a following car's is** (`DecideTermsRow.Switching`,
+  `TownWorld.LeavesItsSwitchToItsLine`): whether it still means to move across the same way (`car_decide.glsl`), how far
+  across the lane beside stands (`car_switch_aside.comp`, off the road's own lanes), whether it looks again yet, and its look
+  (`car_switch_look.comp`) — the step drawn (`pass_shape.glsl`), the body read down it off the atlas, the runs merged, and
+  their ground asked of the claims the readers hold (`claims_free.glsl`). The town takes what it came to as it takes its own
+  (`Switching.Consider`, `Take`, `TakeTheLook`), the ways the look asked about marked asked, so the layer goes on holding them.
+- **Only a look that changes nothing the car does is the device's**: one that finds room and asks for a step, or more than
+  the device's rooms hold, is more than the clock, and the town takes the decision whole. **And only where the device holds
+  the readers' claims**: on a tick laying a rebuild, or where the town laid the claims itself, the town looks.
+- **A look is a workgroup**, a thread a station's read, one merging the runs in order and a thread a run asked: the first,
+  a thread a look, took the device 8.1 ms a tick where the host had taken 1.9 — a read of the atlas is a long walk, and a
+  look of ninety of them in turn was latency nothing hid.
+- Held: `DeviceTownDecidesTests` on the traced two-lane tee, a car held up by a wreck on its lane and a second on the lane
+  beside holding its step's ground — a town whose device looks held to one whose town looks, every car's pose, hold, action,
+  step and switching state every tick, to the bit; every look the device takes to the town's own, figure for figure; and,
+  the second wreck left and a patience short enough to run out, the ground it looks at kept known and its clock run out as
+  the town's. Each fails with the aside a part in ten thousand off, the claims never free, no way marked, or the clock not
+  kept; the runs merged out of order pass, the verdict reading their union. `--bench devicedecide` holds every verdict on a map.
+- OdesaOsm (`--bench devicedecide`, 600 ticks): of 5.5 M verdicts 22 unlike — each a look the device found held where the
+  town found room — and 10 856 of 136 851 looks alike but for a figure, at most 3.8 mm apart (tech-debt). `--bench
+  devicetown`: the decisions put off 3.54 → 2.27 ms a tick, the device's kernels 1.31 → 1.71 (the looks 0.39), the tick
+  12.43 → 11.73; 75 looks a tick taken on the device and 152 decisions not looking yet. The town drives as a town whose
+  device looks: 8 899 hard brakings where it braked 9 001, 220 switches asked and 190 made where 226 and 197 were.
+
 ## 2026-10-09 — a switching car with no step is left on the device as a following car is
 
 **Under the owner's 2026-10-08 ruling.** At OdesaOsm's 40 000 cars about 2 700 cars a tick were still handed back, and

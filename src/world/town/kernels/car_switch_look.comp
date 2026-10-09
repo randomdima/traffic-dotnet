@@ -1,0 +1,394 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The switching cars of the decisions due, after car_tick.comp asked them (Switching.Consider past the turn), in two
+// passes. Asked to sort (mode), one thread a decision: a car on its step, or not looking again yet, has its decision kept
+// here and its clock with it, and one whose look is due is listed — past the device's rooms, left to the town. Asked to
+// look, one workgroup a car listed: its step drawn, the body read at every station down it a thread a station, the runs
+// those leave merged in their order, and what they hold asked of the claims the town's readers hold a thread a run. What
+// each came to is written where the host reads it and the car's clock kept — or, where a look found room for a step or
+// more than the device's rooms hold, its decision handed to the town as more than its clock.
+
+// A look's workgroup reads all its stations' two sweeps at once (SwitchMostStations of each): a read is a long walk of the
+// atlas, and a look's latency is the reads one thread takes in turn.
+layout(local_size_x = 256) in;
+
+// The atlas's figures (DeviceAtlas.AskPush, bodyCount the decisions due), then the passes' own.
+layout(push_constant) uniform Push
+{
+    uint bodyCount;
+    int cellsFromX;
+    int cellsFromY;
+    int cellsWidth;
+    int cellsHeight;
+    float perCellM;
+    float cellM;
+    int shift;
+    int mask;
+    int startShift;
+    int rowStartsShift;
+    int startsPerCell;
+    float metresPerOutside;
+    float alongPerMetre;
+    uint hasChannels;
+    uint stamp;
+    uint waysKnown;
+    uint markRoom;
+    uint mode;
+    uint dueRoom;
+    uint poolRoom;
+} push;
+
+// What a look is drawn and swept by, every figure the host's own (DeviceSwitchLook.Figures).
+layout(std430, binding = 20) readonly buffer SwitchFigures
+{
+    float reactionS;
+    float passSpareM;
+    float standOffM;
+    float gripMargin;
+    float brakingMargin;
+    float askEveryS;
+    float sinceLastDecisionS;
+    float tau;
+    float tauSquared;
+    float fourPiSquared;
+    uint firstConnector;
+    uint firstFootway;
+    uint arcsPerCar;
+    uint mostLanes;
+    uint mostRunsOfASwitch;
+    uint pad;
+} switchFigures;
+
+#define ATLAS_FIGURES push
+#define ATLAS_BINDING 32
+#define SWITCH_PUSH push
+#define SWITCH_FIGURES switchFigures
+#define PASS_SHAPE_FIGURES switchFigures
+#define SPLINE_ARCS lineArcs
+#define CAR_LINES lines
+#define LANE_CHAIN chain
+#define LANE_END ends
+#define LANE_BESIDE laneBeside
+#define MARK_AT markAt
+#define MARKS marks
+#define ZEBRA_WAYS zebraWays
+#define WAYS_KNOWN waysKnown
+#define SWEPT_RUNS swept
+#define CLAIM_ROWS claimRows
+#define BODY_RUNS bodyRuns
+#define PLANNED_RUNS plannedRuns
+#define CLAIM_ORDER claimOrder
+
+#include "core/geometry/kernels/arc.glsl"
+#include "core/geometry/kernels/rounded.glsl"
+#include "agents/car/body/kernels/car_build.glsl"
+#include "agents/car/body/kernels/tyre_rows.glsl"
+#include "agents/car/control/kernels/car_line.glsl"
+#include "world/town/kernels/car_tick_rows.glsl"
+#include "world/road/kernels/claims_rows.glsl"
+#include "world/road/kernels/swept_rows.glsl"
+#include "agents/car/actions/follow/kernels/plan_rows.glsl"
+#include "world/road/kernels/atlas.glsl"
+
+// One car moving across as the town left it (DeviceSwitchLook.InRow): the channels its body is read on, how long until
+// it looks again, and the step from rest and the room past a step its last look drew.
+struct SwitchInRow
+{
+    uint channels;
+    float looksInS;
+    float fromRestM;
+    float roomToM;
+};
+
+// What its decision came to (DeviceSwitchLook.OutRow, SwitchLook): how, the figures it left, the ways its look asked the
+// layer about, and the stamp of the tick that wrote it.
+struct SwitchOutRow
+{
+    uint outcome;
+    float asideM;
+    float looksInS;
+    float fromRestM;
+    float roomToM;
+    uint markFirst;
+    uint markCount;
+    uint stamp;
+};
+
+layout(std430, binding = 0) readonly buffer DecideList { uint decideList[]; };
+layout(std430, binding = 1) readonly buffer DecideTerms { CarDecideTermsRow decideTerms[]; };
+layout(std430, binding = 2) readonly buffer Builds { CarBuildRow builds[]; };
+layout(std430, binding = 3) readonly buffer BuildOf { uint buildOf[]; };
+layout(std430, binding = 4) readonly buffer Ticks { CarTickRow ticks[]; };
+layout(std430, binding = 5) readonly buffer Lines { CarLineRow lines[]; };
+layout(std430, binding = 6) readonly buffer LineArcs { Arc lineArcs[]; };
+layout(std430, binding = 7) readonly buffer Chain { int chain[]; };
+layout(std430, binding = 8) readonly buffer Ends { float ends[]; };
+layout(std430, binding = 10) buffer Verdicts { uint verdicts[]; };
+layout(std430, binding = 11) writeonly buffer DecidedAt { uint decidedAt[]; };
+layout(std430, binding = 12) writeonly buffer Clocks { vec2 clocks[]; };
+layout(std430, binding = 13) readonly buffer SwitchClocks { vec2 switchClocks[]; };
+layout(std430, binding = 14) readonly buffer SwitchIn { SwitchInRow switchIn[]; };
+layout(std430, binding = 15) readonly buffer Asides { float asides[]; };
+layout(std430, binding = 16) buffer SwitchOut { SwitchOutRow switchOut[]; };
+layout(std430, binding = 17) writeonly buffer Marked { uint marked[]; };
+
+// The looks listed (due) and how many — read too as the look pass's indirect dispatch — and the ways marked so far.
+layout(std430, binding = 18) buffer Counts { uint dueCount; uint dueY; uint dueZ; uint marksUsed; } counts;
+
+layout(std430, binding = 19) buffer Swept { SweptRun swept[]; };
+layout(std430, binding = 21) readonly buffer LaneBeside { int laneBeside[]; };
+layout(std430, binding = 22) readonly buffer WayLength { float wayLength[]; };
+layout(std430, binding = 23) readonly buffer MarkAt { uint markAt[]; };
+layout(std430, binding = 24) readonly buffer Marks { CrossedSection marks[]; };
+layout(std430, binding = 25) readonly buffer ZebraWays { uint zebraWays[]; };
+layout(std430, binding = 26) readonly buffer WaysKnown { uint waysKnown[]; };
+layout(std430, binding = 27) readonly buffer ClaimRows { ClaimRow claimRows[]; };
+layout(std430, binding = 28) readonly buffer BodyRuns { uvec2 bodyRuns[]; };
+layout(std430, binding = 29) readonly buffer PlannedRuns { uvec2 plannedRuns[]; };
+layout(std430, binding = 30) readonly buffer ClaimOrder { uint claimOrder[]; };
+
+// Each look's two pools of what its stations read — the body's and the same grown, carriageway only — push.poolRoom each.
+layout(std430, binding = 31) buffer Covers { AtlasCover covers[]; };
+
+// The cars whose looks the sort pass listed, a look pass's workgroup each.
+layout(std430, binding = 38) buffer Due { uint due[]; };
+
+#include "core/geometry/kernels/arc_chain.glsl"
+#include "agents/car/control/kernels/overtake.glsl"
+
+layout(std430, binding = 9) readonly buffer Passes { OvertakeRow passes[]; };
+
+#include "agents/car/control/kernels/pass_shape.glsl"
+#include "world/road/kernels/swept.glsl"
+#include "world/road/kernels/claims_free.glsl"
+#include "agents/car/actions/switch/kernels/switch_look.glsl"
+
+// Every thread of the workgroup here, and what each wrote — shared or to a buffer — seen by all.
+void switchTogether()
+{
+    groupMemoryBarrier();
+    barrier();
+}
+
+// Verdicts: the stamp of the tick that wrote one, shifted past whether the decision is more than the clock (car_tick.comp).
+const uint VerdictMore = 1u;
+
+// Push.mode.
+const uint ModeSort = 0u;
+const uint ModeLook = 1u;
+
+// The most stations one look reads, past which it is the town's: a step and the room past it at a town's pace, with room.
+const int SwitchMostStations = 128;
+
+// What a car's decision came to written where the host reads it: its clock kept where the look leaves it the device's,
+// and otherwise its decision more than its clock.
+void switchFinish(uint car, SwitchOutRow left)
+{
+    switchOut[car] = left;
+    if (left.outcome == SwitchAsks || left.outcome == SwitchDefers)
+    {
+        verdicts[car] = (push.stamp << 1u) | VerdictMore;
+        decidedAt[car] = push.stamp;
+        return;
+    }
+
+    clocks[car] = switchClocks[car];
+}
+
+// One decision due: a switching car's settled here or its look listed (the sort pass).
+void switchSort(uint decision)
+{
+    if (decision >= push.bodyCount) return;
+
+    uint car = decideList[decision];
+    if ((decideTerms[car].flags & DecideSwitching) == 0u || (verdicts[car] & VerdictMore) != 0u) return;
+
+    SwitchInRow given = switchIn[car];
+    OvertakeRow pass = passes[car];
+    SwitchOutRow left = SwitchOutRow(SwitchBegun, 0.0, given.looksInS, given.fromRestM, given.roomToM, 0u, 0u, push.stamp);
+    if (!overtakeBegun(pass))
+    {
+        left.asideM = asides[car];
+        precise float looksInS = given.looksInS - switchFigures.sinceLastDecisionS;
+        left.looksInS = looksInS;
+        left.outcome = SwitchWaits;
+        if (looksInS <= 0.0 && pass.lane < 0)
+        {
+            left.looksInS = switchFigures.askEveryS;
+            uint slot = atomicAdd(counts.dueCount, 1u);
+            if (slot < push.dueRoom)
+            {
+                due[slot] = car;
+                switchOut[car] = left;
+                return;
+            }
+
+            left.outcome = SwitchDefers;
+        }
+    }
+
+    switchFinish(car, left);
+}
+
+// The look pass's shared figures: how the look stands, the step and its sweep, what each station read and where its
+// reads went in the pools, and the runs the merge left.
+shared uint lookOutcome;
+shared OvertakeRow lookStep;
+shared float lookFromM;
+shared float lookFromRestM;
+shared float lookRoomToM;
+shared int lookStations;
+shared uint lookOffTheRoad;
+shared uint lookHeld;
+shared uint lookPooled[2];
+shared uvec2 lookStationReads[2][SwitchMostStations];
+shared int lookRuns;
+shared uint lookMarkFirst;
+
+// The reads of every station of one pool merged in their order into the car's room (Switching.SweepInto): how many runs,
+// or −1 where the room has none left.
+int switchMerge(uint slot, uint pool, CarBuildRow build)
+{
+    uint first = slot * switchFigures.mostRunsOfASwitch;
+    uint base = (slot * 2u + pool) * push.poolRoom;
+    uint count = 0u;
+    float stationAtM = -passInfinity();
+    for (int station = 0; station < lookStations; station++)
+    {
+        uvec2 read = lookStationReads[pool][station];
+        for (uint at = 0u; at < read.y; at++) atlasFound[at] = covers[base + read.x + at];
+
+        float atM = switchStationM(build, lookFromM, lookRoomToM, station);
+        if (!sweptStation(first, count, switchFigures.mostRunsOfASwitch, stationAtM, atM, build.lengthM, int(read.y))) return -1;
+    }
+
+    return int(count);
+}
+
+// One listed car's look, a workgroup's (the look pass).
+void switchLookFor(uint slot, uint thread)
+{
+    if (slot >= push.dueRoom) return;
+
+    uint car = due[slot];
+    CarBuildRow build = builds[buildOf[car]];
+    uint channels = switchIn[car].channels;
+    if (thread == 0u)
+    {
+        SwitchOutRow given = switchOut[car];
+        CarTickRow tick = ticks[car];
+        float fromRestM = given.fromRestM;
+        float roomToM = given.roomToM;
+        OvertakeRow step;
+        bool inward = (decideTerms[car].flags & DecideSwitchInward) != 0u;
+        uint drawn = switchShape(car, build, tick, inward, given.asideM, step, fromRestM, roomToM);
+        lookStep = step;
+        lookFromM = tick.progressM;
+        lookFromRestM = fromRestM;
+        lookRoomToM = roomToM;
+        lookStations = drawn == SwitchDrawn ? switchStations(build.widthM * 0.5, tick.progressM, roomToM) : 0;
+        lookOutcome = drawn == SwitchDrawn && lookStations > SwitchMostStations ? SwitchDefers : drawn;
+        lookOffTheRoad = 0u;
+        lookHeld = 0u;
+        lookPooled[0] = 0u;
+        lookPooled[1] = 0u;
+        lookRuns = 0;
+        lookMarkFirst = 0u;
+    }
+
+    // Each station read twice, a thread a read: the body, whose ground must be road, and the same grown, carriageway only.
+    switchTogether();
+    if (lookOutcome == SwitchDrawn)
+    {
+        for (int read = int(thread); read < 2 * lookStations; read += int(gl_WorkGroupSize.x))
+        {
+            int station = read >> 1;
+            uint pool = uint(read & 1);
+            float atM = switchStationM(build, lookFromM, lookRoomToM, station);
+            int under = switchUnderTheCar(car, build, lookStep, atM, pool == 0u ? 0.0 : switchFigures.passSpareM, channels);
+            if (pool == 0u && !switchIsOnTheRoad(under)) atomicOr(lookOffTheRoad, 1u);
+            if (pool == 1u) under = switchKeepTheCarriageway(under);
+
+            uint at = atomicAdd(lookPooled[pool], uint(under));
+            lookStationReads[pool][station] = uvec2(at, uint(under));
+            uint base = (slot * 2u + pool) * push.poolRoom;
+            for (int cover = 0; cover < under && at + uint(cover) < push.poolRoom; cover++) covers[base + at + uint(cover)] = atlasFound[cover];
+        }
+    }
+
+    switchTogether();
+    if (thread == 0u && lookOutcome == SwitchDrawn)
+    {
+        int runs = -1;
+        if (lookPooled[0] > push.poolRoom || lookPooled[1] > push.poolRoom) lookOutcome = SwitchDefers;
+        else if (lookOffTheRoad != 0u || switchMerge(slot, 0u, build) < 0) lookOutcome = SwitchLooked;
+        else runs = switchMerge(slot, 1u, build);
+
+        if (lookOutcome == SwitchDrawn && runs < 0) lookOutcome = SwitchLooked;
+        if (lookOutcome == SwitchDrawn)
+        {
+            // Every way of the ground asked about is marked asked, as the town's look marks it, so the layer goes on
+            // holding it.
+            uint markFirst = atomicAdd(counts.marksUsed, uint(runs));
+            if (markFirst + uint(runs) > push.markRoom)
+            {
+                lookOutcome = SwitchDefers;
+            }
+            else
+            {
+                bool known = true;
+                uint first = slot * switchFigures.mostRunsOfASwitch;
+                for (int run = 0; run < runs; run++)
+                {
+                    int way = swept[first + uint(run)].way;
+                    marked[markFirst + uint(run)] = uint(way);
+                    known = switchKnows(way) && known;
+                }
+
+                lookMarkFirst = markFirst;
+                lookRuns = runs;
+                if (!known) lookOutcome = SwitchUnknown;
+            }
+        }
+    }
+
+    switchTogether();
+    if (lookOutcome == SwitchDrawn)
+    {
+        uint first = slot * switchFigures.mostRunsOfASwitch;
+        for (int run = int(thread); run < lookRuns; run += int(gl_WorkGroupSize.x))
+        {
+            SweptRun held = swept[first + uint(run)];
+            float heldFromM = switchIsConnector(held.way) ? 0.0 : held.fromM;
+            float heldToM = switchIsConnector(held.way) ? wayLength[held.way] : held.toM;
+            if (!claimsIsFreeForAPass(uint(held.way), held.fromM, held.toM, heldFromM, heldToM, int(car), RosterDriving))
+            {
+                atomicOr(lookHeld, 1u);
+            }
+        }
+    }
+
+    switchTogether();
+    if (thread != 0u) return;
+
+    SwitchOutRow left = switchOut[car];
+    left.outcome = lookOutcome == SwitchDrawn ? (lookHeld != 0u ? SwitchLooked : SwitchAsks) : lookOutcome;
+    left.fromRestM = lookFromRestM;
+    left.roomToM = lookRoomToM;
+    left.markFirst = lookMarkFirst;
+    left.markCount = uint(lookRuns);
+    if (left.outcome == SwitchUnknown) left.looksInS = 0.0;
+    switchFinish(car, left);
+}
+
+void main()
+{
+    if (push.mode == ModeSort)
+    {
+        switchSort(gl_GlobalInvocationID.x);
+        return;
+    }
+
+    switchLookFor(gl_WorkGroupID.x, gl_LocalInvocationID.x);
+}
