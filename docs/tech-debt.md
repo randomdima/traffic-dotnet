@@ -167,6 +167,14 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   (`TownWorld.ReadsEveryCarAfterTheTick`, `Game.Advance`; 1.5 ms of that tick at 40 000 cars): the eye is the shot path's
   fill off the town's copy, and the layers and the inspector read the cars they draw there. Closes with each reading what
   it draws off the device, as the window's moving runs do.
+- **A switching car's decisions are the town's** (`Switching.Decide`, 1.9 ms of a windowed frame at OdesaOsm's 40 000
+  cars, 2026-10-09): every one asked of the device comes back to be decided (`DecideTermsRow.ByTheTown`), 507 a tick
+  against 161 for every other kind, its look for room swept on the host off the atlas and the claims the device holds
+  too. Closes with the look on the device, as a walker's sidestep's is (`walker_actions.glsl`).
+- **Why a switching car with a step is read every tick is reasoned and held by no test** (`TownWorld.ReadsTheTickOf`):
+  keeping or withdrawing the step and the rebuild laying its ground read where it stands, but
+  `DeviceTownKeptCarsTests`' staging resolves its step alike when such a car is never read. Closes with a staging whose
+  step a stale reading would keep, withdraw or lay otherwise.
 
 ### Walkers
 

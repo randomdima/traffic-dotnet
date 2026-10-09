@@ -4,6 +4,28 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-09 — a switching car with no step is left on the device as a following car is
+
+**Under the owner's 2026-10-08 ruling.** At OdesaOsm's 40 000 cars about 2 700 cars a tick were still handed back, and
+1 800 of them only because they were moving across (CAR-53): a car waiting on its lane for room beside it waits long
+in a full town, and the town read every switching car every tick (`TownWorld.ReadsTheTickOf`).
+
+- **A switching car with no step asked is read as a following car is** — where its decision is due, its row coming back
+  by the decisions' own path (`DeviceTown.DecidedOnTheDevice`). Nothing of the town reads it between: what it is told is
+  the town's own (`Switching.AsideM`, `Switching.WaitsShortOfTheEnd`), and a step only its decision asks for. **One with
+  a step asked or begun is still read every tick**: keeping or withdrawing it reads where it stands, and so does the
+  rebuild that lays its ground.
+- **`--bench devicetown` says why each car handed back was**: laid whole, decided by the town, switching, overtaking,
+  rejoining, read for anything else, or asked by its own tick.
+- Held: `DeviceTownKeptCarsTests` stages a car on a street of two lanes sent up an arm only the inner lane turns onto,
+  a wreck on the inner lane holding its step's ground, and holds the town to one handing every car back — every car's
+  pose, hold, action and step every tick, to the bit, over 30 s in which it was left on the device moving across with no
+  step. Reading every switching car, it fails its guard. Never reading one with a step passes too: the staging's step
+  resolves alike either way (tech-debt).
+- OdesaOsm: handed back 2 700 → 645 cars a tick (switching 1 800 → 38), left on the device 37 103 → 38 835; the town
+  driving as before to the count. The tick 12.64 → 12.43 ms, writing what came back 1.98 → 1.79. Its decisions are the
+  town's still — 507 a tick asked of the device and handed to the town, against 161.
+
 ## 2026-10-09 — a kernel passes no array through a function, and an answering pass skips a hold with nothing new
 
 **A rebuild that runs on was still waited for 2.70 ms at OdesaOsm's 40 000 cars**: its kernels took 5.46 ms of the

@@ -1015,6 +1015,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
             var asked = nextEvent < events.Length && events[nextEvent] == car;
             if (asked) nextEvent++;
+            if (asked && !_handedBack[car]) HandedBackFor = HandedBackFor with { Asked = HandedBackFor.Asked + 1 };
             _handedBack[car] |= everyCar || asked;
             if (!_handedBack[car])
             {
@@ -1079,21 +1080,42 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         // Built here and copied across whole: the table is memory the host only writes, slow to read back a word at a time.
         var wanted = _wanted.AsSpan(0, _cars.Wanted.Length);
         wanted.Clear();
+        var why = HandedBackFor;
         foreach (var car in _taken.AsSpan(0, _count))
         {
             var decidedByTheTown = _decidedByTheTown[car];
             _decidedByTheTown[car] = false;
-            if (!_cars.WasLaidWhole(car) && !decidedByTheTown && !town.ReadsTheTickOf(car)) continue;
+            var whole = _cars.WasLaidWhole(car);
+            if (!whole && !decidedByTheTown && !town.ReadsTheTickOf(car)) continue;
 
             wanted[car >> 5] |= 1u << (car & 31);
             _handedBack[car] = true;
+            if (whole) why.Whole++;
+            else if (decidedByTheTown) why.Decided++;
+            else if (town.Cars.Action[car] == CarAction.Switch) why.Switching++;
+            else if (town.Cars.Action[car] == CarAction.Overtake) why.Overtaking++;
+            else if (town.Cars.Action[car] == CarAction.Rejoin) why.Rejoining++;
+            else why.Read++;
         }
+
+        HandedBackFor = why;
 
         wanted.CopyTo(_cars.Wanted);
     }
 
     /// <summary>Which cars the town reads after this tick, a bit a car, as <see cref="LayTheWanted"/> builds them.</summary>
     readonly uint[] _wanted;
+
+    /// <summary>
+    /// How many cars' ticks were handed back for the town to read, over every tick, by why (<see cref="LayTheWanted"/>): laid
+    /// whole, decided by the town, read while switching, overtaking or rejoining, read for anything else — and how many
+    /// besides whose own tick asked something of the town.
+    /// </summary>
+    public HandedBackCounts HandedBackFor { get; private set; }
+
+    /// <inheritdoc cref="HandedBackFor"/>
+    public record struct HandedBackCounts(
+        long Whole, long Decided, long Switching, long Overtaking, long Rejoining, long Read, long Asked);
 
     /// <summary>
     /// What the last tick handed back of a car: written into the host's memory where the town reads it, or copied back with

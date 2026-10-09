@@ -146,6 +146,7 @@ internal static class DeviceTownProbe
         var walkersByTheClockFrom = world.WalkersDecidedByTheClock;
         var walkersByTheTownFrom = device?.WalkersDecidedByTheTown ?? 0L;
         var takenWholeFrom = device?.TakenBackWhole ?? 0L;
+        var handedBackFrom = device?.HandedBackFor ?? default;
         var ticksDrivingAny = 0;
         var started = Stopwatch.GetTimestamp();
         for (var tick = 0; tick < MeasuredTicks; tick++)
@@ -254,6 +255,14 @@ internal static class DeviceTownProbe
                 $"the device, and {(device.DecidedByTheTown - byTheTownFrom) / (double)MeasuredTicks:F0} the device asked of handed to the town; " +
                 $"walkers' {(world.WalkersDecidedByTheClock - walkersByTheClockFrom) / (double)MeasuredTicks:F0} and " +
                 $"{(device.WalkersDecidedByTheTown - walkersByTheTownFrom) / (double)MeasuredTicks:F0}");
+            var why = device.HandedBackFor;
+            var t = (double)MeasuredTicks;
+            Console.WriteLine(
+                $"  cars handed back a tick for the town to read: laid whole {(why.Whole - handedBackFrom.Whole) / t:F0}, decided by the " +
+                $"town {(why.Decided - handedBackFrom.Decided) / t:F0}, switching {(why.Switching - handedBackFrom.Switching) / t:F0}, " +
+                $"overtaking {(why.Overtaking - handedBackFrom.Overtaking) / t:F0}, rejoining {(why.Rejoining - handedBackFrom.Rejoining) / t:F0}, " +
+                $"read for anything else {(why.Read - handedBackFrom.Read) / t:F0}, and {(why.Asked - handedBackFrom.Asked) / t:F0} more " +
+                "whose own tick asked something of it");
             var (here, byTheTown, onlyTheTown, tooMany) = device.Claims.Rebuilds;
             var each = Math.Max(1, rebuilds);
             Console.WriteLine(

@@ -128,7 +128,7 @@ public class LaneSwitchInATownTests
     }
 
     /// <summary>The car the town stands on the street short of the bridge over it, running east — or west, where asked.</summary>
-    static int TheCarOnTheStreet(TownWorld world, bool eastward = true)
+    internal static int TheCarOnTheStreet(TownWorld world, bool eastward = true)
     {
         for (var car = 0; car < world.Cars.Count; car++)
         {
@@ -164,7 +164,7 @@ public class LaneSwitchInATownTests
     }
 
     /// <summary>Where the car is sent: a place up the north arm.</summary>
-    static readonly Vector2 UpTheArmM = new(900f, 300f);
+    internal static readonly Vector2 UpTheArmM = new(900f, 300f);
 
     /// <summary>Or a place on the street where it runs on in one lane.</summary>
     static readonly Vector2 OnTheOneLaneM = new(1500f, 500f);

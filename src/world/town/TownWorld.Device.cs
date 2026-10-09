@@ -65,10 +65,14 @@ internal sealed partial class TownWorld
     /// <b>Whether the town reads this car's tick as the device leaves it, before the device ticks it again</b> — so it is
     /// handed back, where every other car's stays on the device: its decision is due on the tick being handed back, or was
     /// due on the one before and taken while it ran, which may have set it doing something else and lays it whole from what
-    /// the town holds; or the town reads it every tick whatever the decisions' clock — a switch's step or a pass kept or
-    /// withdrawn and laid, a rejoin, a call's closure, a tow, the selection — or every car, read after this tick
-    /// (<see cref="ReadsEveryCarAfterTheTick"/>).
+    /// the town holds; or the town reads it every tick whatever the decisions' clock — a switch's step asked or begun, a
+    /// pass kept or withdrawn and laid, a rejoin, a call's closure, a tow, the selection — or every car, read after this
+    /// tick (<see cref="ReadsEveryCarAfterTheTick"/>).
     /// </summary>
+    /// <remarks>
+    /// <b>A switching car with no step is read as a following car is</b>: between its decisions nothing of the town reads
+    /// its tick — what it is told is the town's own (<see cref="Switching.AsideM"/>), and a step only the decision asks for.
+    /// </remarks>
     public bool ReadsTheTickOf(int car)
     {
         if (ReadsEveryCarAfterTheTick) return true;
@@ -77,7 +81,8 @@ internal sealed partial class TownWorld
         var agent = Roster.AgentOfCar(car);
         if (!CarsDecidedOnTheDevice && (_decisions.Turn(_agentsTick, agent) || _decisions.Turn(_agentsTick - 1, agent))) return true;
 
-        return Cars.Action[car] is CarAction.Switch or CarAction.Overtake or CarAction.Rejoin || Cars.BlueLight[car]
+        return Cars.Action[car] is CarAction.Overtake or CarAction.Rejoin || (Cars.Action[car] == CarAction.Switch && Cars.Pass[car].Any)
+               || Cars.BlueLight[car]
                || _recovery.Towing[car] >= 0 || _selected.Holds(SelectionKind.Car, car);
     }
 
