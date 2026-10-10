@@ -4,19 +4,33 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
-## 2026-10-10 — the CPU keeps no copy of the engine
+## 2026-10-11 — the whole engine on the device; the host only supports it
 
-**The owner's goal (2026-10-10), in their words: "CPU dont need to know state of the world constantly. So no per tick
-regular sync needed. CPU dont need a copy of the engine."** This extends 2026-10-06 and 2026-10-08 (goals.md).
+**The owner (2026-10-11), in their words: "Just move the rest of logic to gpu already. Then polish the issues. No need
+to do it in million steps. Its just making the logic much more complex. Simple as possible - gpu must have everything
+to run and render the simulation. Cpu here just to support".** This supersedes moving the town onto the device a slice
+at a time behind a host copy kept in step: every decision goes onto the device too, and the copy goes.
 
-- **What is to go is the copy, not its cost.** Tracking which agents the host changed, so that only those are compared
-  against the device, makes a copy cheaper to keep. That is not the way.
-- **Reads:** the host reads on an event, and only what that event needs — a decision's own rows, a picked unit, a call's
-  nearest truck — handed to it or taken back then, as the poses already are (2026-10-10).
-- **Writes:** what the host decides goes to the device as a command.
-- **No loop by the roster:** nothing the host does walks every agent on a tick or a rebuild.
-- **Measured by** the host's work and the bytes crossing a tick, both of which should follow the events, not the town's
-  size.
+- **One engine resident on the device** (`app/devicetick/ResidentTown`), built beside the hybrid (`DeviceTown`) until it
+  runs everything the town does, then made `--device-tick` and the hybrid with its mirror deleted. The host builds the
+  town, lays every table once, records the tick, sends input as commands and reads a little telemetry late, never
+  waiting on it to run the next tick.
+- **Every table on one root of addresses** (`TownRoot`, `town_root.glsl`): a field has one table, named after its C#
+  field, and a ported decision reads any field the way its C# does. The town's own `TownState` lays what no row of the
+  device's earlier tables held.
+- **The C# engine stays as source**: the browser's head runs it, and every ported kernel is held to the C# it was ported
+  from on staged inputs. A desktop run never ticks it once the device has the town.
+- **A search is a request** (`route_asks.glsl`): it does not answer in the decision that asks it, so the asker is told
+  *pending* and decided again — the one place the device's town may differ from the C#'s in what it does, by when.
+- **Shared things are claimed by atomics** (a bay, a seat, a call): a race inside one tick is won by whichever thread
+  swaps first, the one way a resident run may not repeat itself.
+- **Laid off a town that ticked once on the hybrid** until the hybrid goes, so every table the device's tick already
+  read is laid as it was proven.
+- **Under the owner's goal of 2026-10-10, in their words: "CPU dont need to know state of the world constantly. So no
+  per tick regular sync needed. CPU dont need a copy of the engine."** What is to go is the copy, not its cost: tracking
+  which agents the host changed, so only those cross, is not the way. The host reads on an event and only what that
+  event needs (a picked unit, the panel's figures); nothing it does walks every agent on a tick or a rebuild; and it is
+  measured by the host's work and the bytes crossing a tick, which follow the events, not the town's size.
 
 ## 2026-10-10 — a step's poses stay on the device, and the host gathers what it reads
 

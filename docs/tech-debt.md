@@ -101,6 +101,14 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   run on OdesaOsm since was taken beside a game holding three and a half cores and the GPU, the host town's own tick
   90.1 ms against 74.1 before, so none of it compares. A run on a quiet machine closes it — the cars and walkers walked a
   tick among it.
+- **A route searched on the device is slower than the host's** (`route_search.comp`, `--bench deviceroutes`, RX 9070 XT):
+  a batch of 64 searches on OdesaOsm takes 16.0 ms median and 119 ms at worst driving (host, one thread: 7.3), 25.2 ms
+  walking (host 12.2). A search is one thread's chain of dependent loads, so memory latency is the whole cost. Recorded
+  inline in the resident tick, a tick that asks a cross-town route waits that long. A search shaped for the device (a
+  workgroup a search relaxing in parallel, or nearer searches) closes it — a change to the algorithm, _owner_.
+- **The resident town is measured only with no decision running** (`--bench resident`, OdesaOsm, 2026-10-11: 3.03 ms a
+  tick with the device finished, 36 976 of 40 013 cars moved). Every figure moves as the decisions, routes and errands
+  land in it; a run once they do closes it.
 - **Not measured since they landed**: the walker as one wheel, the car no longer asked its ground, and the
   consolidation after them (`WheelGrounds`, `DeviceGround` gone, the walker's pavement read). The figures in the road
   and terrain logs predate all three; the soak after them kept all twelve of OdesaOsm's claims.
@@ -246,6 +254,25 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **A paused casualty's slide is stepped twice** (`WalkerFollower`'s paused branch, then `TownWorld.Settle`; the same in
   `walker.glsl` and `walkers_tick.comp`), the second overwriting the first with the same inputs.
 
+### Resident town
+
+- **The same static tables are on the device up to four times**: `RoadGraph.LaneLengthM` laid by `DeviceCarTick`,
+  `DevicePlans`, `DeviceSwitchLook` and `TownState`; the connectors by three of them; the lanes beside by
+  `DeviceSwitchLook` twice and `TownState`. Load-time memory and upload. Closes with the hybrid's kernels reading
+  `TownState`'s tables through the root, or going with the hybrid.
+- **Every route slot's scratch is sized to the larger network** (`DeviceRoutes`): 24 B a link a slot, 498 MiB on OdesaOsm
+  for 64 slots. Fewer slots, a pool a network or packed link state closes it.
+- **A device search reads every surcharge laid, spent or live, on every relaxation** (`route_planner.glsl`); the host
+  reads the live list (`LinkSurcharges._live`). Same answer, up to 64 reads a turn once the town marks ways. The kernel
+  that lays the marks keeping a live list closes it.
+- **Route requests and answers sit in host-visible memory** (`DeviceRoutes`) so the suite's and the probe's helpers reach
+  them; every kernel read of one crosses the bus. Device-local tables once the asking kernels exist closes it.
+- **`route_search.comp` keeps an idle second lane in every workgroup for lavapipe**, which in a workgroup of one runs a
+  loop's body once more with no lane active and reads past a table. A minimal reproduction reported to Mesa, or a
+  workgroup a search, closes it.
+- **A resident town is laid off one tick of the hybrid** (`ResidentTown`, `DeviceTown`): the hybrid's whole host machinery
+  runs once at load. Laying each table directly closes it, and goes with the hybrid.
+
 ### Device mirror
 
 - **`DeviceRebuild.Shadow.SlotOf` scans every slot** for each host hold with a cut.
@@ -291,6 +318,25 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   the rest time, and a pair the device saw begin and stop touching can begin again or go unreported once. The probes
   unset it only as they finish, and nothing steps a town after that today. Reading both back from the device when it is
   unset closes it.
+- **The resident car tick takes an overtaking car off the lane of its pass** (`resident_lists.comp`'s `takes`), which
+  `DeviceCarTick.Takes` leaves to the town's own tick. `overtaking_IsOffTheLaneOfItsPass` asked there closes it.
+- **A resident rebuild reads the car terms and claim rows the town last laid** (`DeviceRebuild.RecordResident`): no car
+  is asked anew, so every car is asked as at the hand-over and none is held standing. A kernel laying them off the device
+  (`AskTheCars`, `TermsOf`, the claim rows) closes it.
+- **A resident rebuild never grows a room**: the rooms are grown ahead off a count read back (`GrowAhead`), which nothing
+  reads now, so a town past them lays short. The device telling the host it passed one, and the host growing it then,
+  closes it.
+- **Three of a walker's fields have several copies on the device**: whether it walks, is wounded or inside in the walk
+  row's flags, the walker tick's flags and `people_Inside`; where it aims in the walk row and the tick row. Each is laid
+  once and kept by whichever kernel writes it; a decision setting one and not the others leaves them apart. One copy each
+  closes it.
+- **The walk row keeps two fields otherwise than the C#**: a straight never committed to is a flag where
+  `WalkingGround._straightToM` is NaN, and the roster a walker's ground is held as is one bit where the C# has three
+  values, so a walker held as `Signal` cannot be held. One encoding closes it.
+- **Strides and sizes copied from the C# into the device's headers and hosts** (`CarFleetRouteLanesPerCar`,
+  `OvertakingMostRunsOfAPass` and the rest in `town_*.glsl`; `DeviceRoutes.MostLinks`, `MostMarks` and the entry room off
+  `TownWorld`'s private ones): `TownStateTests` reads past row 0 of some, not all. Each laid in a state row or `TownCounts`
+  and read from there closes it.
 - **`IsUnderWay` checks `OffLineM` against the allowance again** after `ReadTheLine` has already sent any car past it
   into `Rejoin` (SIM-7). Confirm the order of decide, tick and `Switching.SteppedOut` on both host and device before
   dropping it.
@@ -307,6 +353,11 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **The bridge level's lattice** in `GroundShapes` is built at load for `GroundLocator.At(point, level)`, which only
   `--bench deviceatlas` asks.
 - **`CarCorneringRadiusM(atMps, groundCoefficient)`** is only ever handed `PavedCoefficient`, by the generator.
+- **`CarFleet.DrivenFrontShare`** is written once in `Add` and read nowhere: the tyre pass reads the build's.
+- **`WalkingNetwork.LaneMOf` floors an edge's length at a literal `1e-4f`**, mirrored on the device as
+  `WalkingNetworkLeastEdgeM`. A named figure read by both closes it.
+- **`DrivingGround.PlanHold` and `WalkingGround.WalkHold` start at 0**, a real hold, rather than `NoHold`, until the
+  first laying. Filling them with `NoHold` at allocation closes it, once what reads them before then is checked.
 - **`DeviceWalkers.ProposedRoom`** has no reader outside its class; **`WheelScratch`'s ground** is written and read
   inside one call and could be the stack's.
 

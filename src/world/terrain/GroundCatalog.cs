@@ -103,7 +103,7 @@ internal readonly struct GroundCatalog
     public float DragMps2(Ground ground) => _effects[(int)ground].DragMps2;
 
     /// <summary>
-    /// The <b>mark threshold</b>, as a factor on <see cref="SimConfig.Marks.PowerM2S3"/>:
+    /// The <b>mark threshold</b>, as a factor on <see cref="MarkFigures.PowerM2S3"/>:
     /// how hard this ground has to be worked before it keeps a record of it.
     /// </summary>
     public float MarkFactor(Ground ground) => _effects[(int)ground].MarkFactor;
