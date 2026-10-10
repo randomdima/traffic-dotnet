@@ -80,10 +80,15 @@ internal sealed class DeviceSolver : IDisposable
         public uint Pad0;
     }
 
-    /// <summary>One body's row as the host lays it (<c>LaidBody</c>, <c>kernels/laid_bodies.comp</c>): every field the step reads.</summary>
+    /// <summary>
+    /// One body's row as the host lays it (<c>LaidBody</c>, <c>kernels/laid_bodies.comp</c>): every field the step reads,
+    /// of which only those <see cref="Laid"/> names are written (<see cref="RowChange"/>) — and the motion is what a push
+    /// added where it names <see cref="RowChange.Pushed"/> and not <see cref="RowChange.Motion"/>.
+    /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct LaidBodyRow(
-        Vector4 Pose, Vector4 Motion, Vector4 Shape, Vector4 Bounds, UInt4 Filter, Vector2 Mass, float HeadingRad, int Body);
+        Vector4 Pose, Vector4 Motion, Vector4 Shape, Vector4 Bounds, UInt4 Filter, Vector2 Mass, float HeadingRad, int Body,
+        uint Laid, uint Pad0 = 0u, uint Pad1 = 0u, uint Pad2 = 0u);
 
     /// <summary>Where the step keeps its running totals (<c>kernels/step.glsl</c>).</summary>
     internal static class Totals
@@ -621,8 +626,9 @@ internal sealed class DeviceSolver : IDisposable
     }
 
     /// <summary>
-    /// <b>Only these rows laid</b>, as the table holds them, each written into the device's table by the laid-rows kernel
-    /// (<see cref="RecordLaidRows"/>) — and the owners laid again where the table has grown since. A body is named once.
+    /// <b>Only these rows laid</b>, each written into the device's table by the laid-rows kernel (<see cref="RecordLaidRows"/>)
+    /// — and of each only what the town changed (<see cref="BodyTable.RowChanges"/>), so whatever else the device holds of
+    /// it stands — and the owners laid again where the table has grown since. A body is named once.
     /// </summary>
     public void LayRows(BodyTable table, ReadOnlySpan<int> bodies)
     {
@@ -631,15 +637,20 @@ internal sealed class DeviceSolver : IDisposable
         var rows = _laidRows.Span<LaidBodyRow>();
         foreach (var body in bodies)
         {
+            var change = table.RowChanges[body];
+            var motion = (change & (RowChange.Motion | RowChange.Pushed)) == RowChange.Pushed
+                ? new Vector4(table.PushedMps[body], table.PushedYawRadPerS[body], 0f)
+                : new Vector4(table.VelocityMps[body], table.YawRateRadPerS[body], 0f);
             rows[_laidRowCount++] = new LaidBodyRow(
                 new Vector4(table.PositionM[body], table.Rotation[body].X, table.Rotation[body].Y),
-                new Vector4(table.VelocityMps[body], table.YawRateRadPerS[body], 0f),
+                motion,
                 new Vector4(table.ExtentM[body], table.CornerRadiusM[body], table.ReachM[body]),
                 new Vector4(table.LeastM[body], table.MostM[body].X, table.MostM[body].Y),
                 FilterOf(table, body),
                 new Vector2(table.InverseMass[body], table.InverseInertia[body]),
                 table.HeadingRad[body],
-                body);
+                body,
+                (uint)change);
         }
 
         LayEveryOwner(table.Count, always: false);

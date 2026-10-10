@@ -242,13 +242,16 @@ internal sealed class DeviceTyres : IDisposable
     public Span<PoseRow> Poses => _poses.All;
 
     /// <summary>
-    /// <b>The pose of every car whose body the town changed since the solver's last step</b> — put down, reweighed, frozen
-    /// as the step ended — laid again from the fleet, which the town wrote with it, and marked to be sent.
+    /// <b>The pose of every car whose body the town put down or reweighed since the solver's last step</b> — laid again
+    /// from the fleet, which the town wrote with it, and marked to be sent. A car whose body it changed otherwise keeps
+    /// the pose the step left in the table.
     /// </summary>
     public void LayThePlacedPoses(CarFleet cars, PhysicsWorld physics)
     {
         foreach (var body in physics.Changes)
         {
+            if ((physics.ChangeOf(body) & (RowChange.Pose | RowChange.Mass)) == 0) continue;
+
             var tag = physics.TagOf(new BodyId(body + 1));
             if (tag.Kind != BodyKind.Car || tag.Index < 0 || tag.Index >= cars.Count) continue;
 

@@ -2,6 +2,33 @@ using System.Numerics;
 
 namespace TrafficSimulation.World.Physics;
 
+/// <summary>What of a body's row the town changed since a device was last sent it (<see cref="PhysicsWorld.ChangeOf"/>).</summary>
+[Flags]
+internal enum RowChange : byte
+{
+    None = 0,
+
+    /// <summary>Where it stands and which way it faces, and its bounds with them: put down, or added.</summary>
+    Pose = 1,
+
+    /// <summary>Its motion, as the table holds it: stilled, put down, or frozen by the table's own step.</summary>
+    Motion = 2,
+
+    /// <summary>Its motion pushed, by what the table says the pushes added (<see cref="PhysicsWorld.PushedMpsOf"/>).</summary>
+    Pushed = 4,
+
+    /// <summary>Its flags, its layer and its channels.</summary>
+    Filter = 8,
+
+    /// <summary>What it weighs, and what it takes to turn it.</summary>
+    Mass = 16,
+
+    /// <summary>Its shape, which is only ever laid as it is added.</summary>
+    Shape = 32,
+
+    Whole = Pose | Motion | Filter | Mass | Shape,
+}
+
 /// <summary>
 /// <b>A step taken elsewhere</b> — on a device that steps every body in the world — handed back so that everything the
 /// table answers reads as after a step of its own: the moved bodies' poses and motion, which bodies froze and which a
@@ -44,6 +71,9 @@ internal sealed partial class PhysicsWorld
     int[] _changedList = new int[Room];
     int _changedCount;
     bool[] _restAfresh = new bool[Room];
+    RowChange[] _rowChange = new RowChange[Room];
+    Vector2[] _pushedMps = new Vector2[Room];
+    float[] _pushedYawRadPerS = new float[Room];
 
     /// <summary>
     /// How many steps this table has been through, its own and those taken elsewhere — so whoever steps it elsewhere
@@ -70,9 +100,32 @@ internal sealed partial class PhysicsWorld
     /// </summary>
     public bool CountsRestAfresh(int body) => _restAfresh[body];
 
+    /// <summary>What of this body's row the town changed since <see cref="ForgetTheChanges"/>.</summary>
+    public RowChange ChangeOf(int body) => _rowChange[body];
+
+    /// <summary>
+    /// What the pushes since <see cref="ForgetTheChanges"/> added to this body's velocity, where its motion is otherwise as
+    /// the device left it (<see cref="RowChange.Pushed"/>).
+    /// </summary>
+    /// <remarks>
+    /// One push adds exactly what it adds here. Two between steps are summed first, which can round otherwise than the
+    /// table adding each in turn.
+    /// </remarks>
+    public Vector2 PushedMpsOf(int body) => _pushedMps[body];
+
+    /// <inheritdoc cref="PushedMpsOf"/>
+    public float PushedYawRadPerSOf(int body) => _pushedYawRadPerS[body];
+
     public void ForgetTheChanges()
     {
-        foreach (var body in Changes) _changed[body] = _restAfresh[body] = false;
+        foreach (var body in Changes)
+        {
+            _changed[body] = _restAfresh[body] = false;
+            _rowChange[body] = RowChange.None;
+            _pushedMps[body] = default;
+            _pushedYawRadPerS[body] = 0f;
+        }
+
         _changedCount = 0;
     }
 
@@ -82,18 +135,40 @@ internal sealed partial class PhysicsWorld
         if (!_keepsChanges) return;
 
         _restAfresh[index] = true;
-        Changed(index);
+        Changed(index, RowChange.None);
     }
 
     /// <summary>What a body is, as it was tagged (<see cref="Tag"/>).</summary>
     public BodyTag TagOf(BodyId body) => BodyTag.Unpack(_tag[body.Index]);
 
-    void Changed(int index)
+    void Changed(int index, RowChange what)
     {
-        if (!_keepsChanges || _changed[index]) return;
+        if (!_keepsChanges) return;
+
+        _rowChange[index] |= what;
+        if (_changed[index]) return;
 
         _changed[index] = true;
         _changedList[_changedCount++] = index;
+    }
+
+    /// <summary>
+    /// A push's worth of motion kept as what it added — unless the town set the body's motion since the last step, which
+    /// the table's figure then holds whole.
+    /// </summary>
+    void Pushed(int index, Vector2 byMps, float byYawRadPerS)
+    {
+        if (!_keepsChanges) return;
+
+        if ((_rowChange[index] & RowChange.Motion) != 0)
+        {
+            Changed(index, RowChange.Filter);
+            return;
+        }
+
+        _pushedMps[index] += byMps;
+        _pushedYawRadPerS[index] += byYawRadPerS;
+        Changed(index, RowChange.Pushed | RowChange.Filter);
     }
 
     /// <summary>

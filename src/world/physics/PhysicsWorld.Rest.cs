@@ -285,7 +285,7 @@ internal sealed partial class PhysicsWorld
             if (!_settling[body]) continue;
 
             Freeze(body);
-            Changed(body);
+            Changed(body, RowChange.Motion | RowChange.Filter);
         }
 
         LeaveTheFrozenBehind();

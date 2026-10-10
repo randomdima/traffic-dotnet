@@ -273,7 +273,7 @@ internal sealed partial class PhysicsWorld
         Wake(index);
         RestAfresh(index);
         _flags[index] &= ~(BodyFlags.Enabled | BodyFlags.FiledFrozen);
-        Changed(index);
+        Changed(index, RowChange.Motion | RowChange.Filter);
     }
 
     /// <summary>
@@ -290,7 +290,7 @@ internal sealed partial class PhysicsWorld
         _flags[index] |= BodyFlags.Enabled;
         Join(index);
         _movingIndexStale = true;
-        Changed(index);
+        Changed(index, RowChange.Pose | RowChange.Motion | RowChange.Filter);
     }
 
     /// <summary>
@@ -318,7 +318,7 @@ internal sealed partial class PhysicsWorld
         _category[index] = (ulong)layer;
         _mask[index] = MaskOf(layer);
         Wake(index);
-        Changed(index);
+        Changed(index, RowChange.Filter);
     }
 
     /// <summary>
@@ -334,7 +334,7 @@ internal sealed partial class PhysicsWorld
         var index = body.Index;
         _channels[index] = channels;
         Wake(index);
-        Changed(index);
+        Changed(index, RowChange.Filter);
     }
 
     /// <summary>
@@ -380,7 +380,7 @@ internal sealed partial class PhysicsWorld
         _inverseInertia[index] = (_flags[index] & BodyFlags.RotationLocked) != 0
             ? 0f
             : 1f / (massKg * Shape.InertiaPerKg(_extentM[index], _cornerRadiusM[index]));
-        Changed(index);
+        Changed(index, RowChange.Mass);
     }
 
     /// <summary>
@@ -426,8 +426,9 @@ internal sealed partial class PhysicsWorld
 
         var index = body.Index;
         Wake(index);
-        _velocityMps[index] += impulseNs * _inverseMass[index];
-        Changed(index);
+        var byMps = impulseNs * _inverseMass[index];
+        _velocityMps[index] += byMps;
+        Pushed(index, byMps, 0f);
     }
 
     /// <summary>
@@ -440,9 +441,11 @@ internal sealed partial class PhysicsWorld
 
         var index = body.Index;
         Wake(index);
-        _velocityMps[index] += impulseNs * _inverseMass[index];
-        _yawRateRadPerS[index] += _inverseInertia[index] * Shape.Cross(atM - _positionM[index], impulseNs);
-        Changed(index);
+        var byMps = impulseNs * _inverseMass[index];
+        var byYawRadPerS = _inverseInertia[index] * Shape.Cross(atM - _positionM[index], impulseNs);
+        _velocityMps[index] += byMps;
+        _yawRateRadPerS[index] += byYawRadPerS;
+        Pushed(index, byMps, byYawRadPerS);
     }
 
     /// <summary>Whether a body is frozen (SOL-37): at rest, with its pose and motion exactly what they were when it froze.</summary>
@@ -539,7 +542,7 @@ internal sealed partial class PhysicsWorld
 
         Place(index, positionM, headingRad);
         _movingIndexStale = true;
-        Changed(index);
+        Changed(index, RowChange.Whole);
         return new BodyId(index + 1);
     }
 
@@ -610,6 +613,9 @@ internal sealed partial class PhysicsWorld
         Array.Resize(ref _changed, room);
         Array.Resize(ref _changedList, room);
         Array.Resize(ref _restAfresh, room);
+        Array.Resize(ref _rowChange, room);
+        Array.Resize(ref _pushedMps, room);
+        Array.Resize(ref _pushedYawRadPerS, room);
         ResizeRosters(room);
     }
 }

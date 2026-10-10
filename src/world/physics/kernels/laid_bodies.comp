@@ -2,14 +2,23 @@
 #extension GL_GOOGLE_include_directive : require
 
 // The rows the town changed since the last step, written into the table as the host laid them (DeviceSolver.LayRows):
-// one thread a row, each naming its body, read straight out of the memory the host wrote them into. No body is laid
-// twice in one step, so no two threads write one body.
+// one thread a row, each naming its body, read straight out of the memory the host wrote them into. Of each, only what
+// the town changed is written (PhysicsWorld.ChangeOf), and a push is added to the motion the device holds. No body is
+// laid twice in one step, so no two threads write one body.
 
 layout(local_size_x = 64) in;
 
 #include "step.glsl"
 
-// One body's row as the host lays it (DeviceSolver.LaidBodyRow): every field the step reads.
+// What of a row the town changed (RowChange).
+const uint LaidPose = 1u;
+const uint LaidMotion = 2u;
+const uint LaidPushed = 4u;
+const uint LaidFilter = 8u;
+const uint LaidMass = 16u;
+const uint LaidShape = 32u;
+
+// One body's row as the host lays it (DeviceSolver.LaidBodyRow): every field the step reads, and which were changed.
 struct LaidBody
 {
     vec4 pose;
@@ -20,12 +29,16 @@ struct LaidBody
     vec2 mass;
     float headingRad;
     int body;
+    uint laid;
+    uint pad0;
+    uint pad1;
+    uint pad2;
 };
 
 layout(std430, binding = 0) readonly buffer Laid { LaidBody laid[]; };
 layout(std430, binding = 1) writeonly buffer Pose { vec4 pose[]; };
 layout(std430, binding = 2) writeonly buffer HeadingB { float headingRad[]; };
-layout(std430, binding = 3) writeonly buffer Motion { vec4 motion[]; };
+layout(std430, binding = 3) buffer Motion { vec4 motion[]; };
 layout(std430, binding = 4) writeonly buffer Mass { vec2 mass[]; };
 layout(std430, binding = 5) writeonly buffer ShapeB { vec4 shape[]; };
 layout(std430, binding = 6) writeonly buffer Bounds { vec4 bounds[]; };
@@ -38,11 +51,24 @@ void main()
 
     LaidBody row = laid[at];
     int body = row.body;
-    pose[body] = row.pose;
-    headingRad[body] = row.headingRad;
-    motion[body] = row.motion;
-    mass[body] = row.mass;
-    shape[body] = row.shape;
-    bounds[body] = row.bounds;
-    filter_[body] = row.filter_;
+    if ((row.laid & LaidPose) != 0u)
+    {
+        pose[body] = row.pose;
+        headingRad[body] = row.headingRad;
+        bounds[body] = row.bounds;
+    }
+
+    if ((row.laid & LaidMotion) != 0u)
+    {
+        motion[body] = row.motion;
+    }
+    else if ((row.laid & LaidPushed) != 0u)
+    {
+        precise vec3 pushed = motion[body].xyz + row.motion.xyz;
+        motion[body].xyz = pushed;
+    }
+
+    if ((row.laid & LaidShape) != 0u) shape[body] = row.shape;
+    if ((row.laid & LaidFilter) != 0u) filter_[body] = row.filter_;
+    if ((row.laid & LaidMass) != 0u) mass[body] = row.mass;
 }

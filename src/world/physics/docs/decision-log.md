@@ -3,6 +3,17 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md) and
 [solver.md](solver.md).
 
+## 2026-10-10 — a changed row lays only what changed
+
+**Of a row the town changed, only what it changed is laid on the device** (`RowChange`, `PhysicsWorld.ChangeOf`,
+`kernels/laid_bodies.comp`). A body put on another layer or channel sends its flags. One put in a container sends its
+motion and flags, and a reweighed one its mass. One put down or added sends everything. A pushed one sends what the push
+added to its motion, which the device adds to its own. So the device's own pose and motion stand, as they must once
+the host no longer holds every pose. Two pushes between steps are summed before they are added, which can round
+otherwise than the host adding each in turn. Nothing in a tick pushes a body the device steps; only an instrument
+does. A car's pose is laid again into the tyre table only where its body was put down or reweighed.
+`DeviceLaidRowsTests` holds both over a car the device has driven on from where the table last saw it.
+
 ## 2026-10-10 — the device settles what it steps
 
 **With the device stepping the bodies, it also works out what froze, what woke and which pairs began touching**

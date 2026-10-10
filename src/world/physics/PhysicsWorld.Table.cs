@@ -35,6 +35,15 @@ internal readonly ref struct BodyTable
     /// <summary>The awake roster in index order, as the next step will own it (SOL-37): every enabled body not frozen.</summary>
     public required ReadOnlySpan<int> Moving { get; init; }
 
+    /// <summary>What of each row the town changed since a device was last sent it (<see cref="PhysicsWorld.ChangeOf"/>).</summary>
+    public required ReadOnlySpan<RowChange> RowChanges { get; init; }
+
+    /// <summary>What the pushes since then added to each body's velocity (<see cref="PhysicsWorld.PushedMpsOf"/>).</summary>
+    public required ReadOnlySpan<Vector2> PushedMps { get; init; }
+
+    /// <summary>What they added to each body's yaw rate.</summary>
+    public required ReadOnlySpan<float> PushedYawRadPerS { get; init; }
+
     /// <summary>The town's furniture, in the order it was added.</summary>
     public required ReadOnlySpan<int> Statics { get; init; }
 }
@@ -78,6 +87,9 @@ internal sealed partial class PhysicsWorld
         LeastM = _leastM.AsSpan(0, _count),
         MostM = _mostM.AsSpan(0, _count),
         Moving = _moving.AsSpan(0, _movingCount),
+        RowChanges = _rowChange.AsSpan(0, _count),
+        PushedMps = _pushedMps.AsSpan(0, _count),
+        PushedYawRadPerS = _pushedYawRadPerS.AsSpan(0, _count),
         Statics = _static.AsSpan(0, _staticCount),
     };
 
