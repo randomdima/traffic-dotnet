@@ -144,6 +144,7 @@ internal sealed partial class DeviceWalkers
         _known = new WalkerRow[_walkers];
         _isKnown = new bool[_walkers];
         _left = new bool[_walkers];
+        _laidAgain = new int[_walkers];
         _marks = new uint[2 * Words];
         DecideOverThem(table);
         _keptHand = new ComputeKernel(_vk, "walkers_kept_hand.comp", 4, sizeof(uint));
@@ -194,7 +195,8 @@ internal sealed partial class DeviceWalkers
         NameTheOfficers(world);
 
         var patches = _keptPatchesIn.Span<KeptPatch>();
-        for (var person = 0; person < people.Count; person++)
+        var laid = ticked.TheWalkersSetSinceTheLaying(world, people.Count, _laidAgain);
+        foreach (var person in laid)
         {
             _routes!.LayRows(person, people.RouteOf(person)[..people.RouteCount[person]]);
             _passes!.LayRows(person, world.Sidestepping.SweptOf(person));
@@ -225,6 +227,41 @@ internal sealed partial class DeviceWalkers
             patches[_keptPatchCount++] = new KeptPatch(row, (uint)person, kept ? 1u : 0u);
             _known[person] = row;
             _isKnown[person] = true;
+        }
+
+        if (ticked.ChecksTheVisits) HoldTheUnlaid(world, ticked, laid);
+    }
+
+    /// <summary>The walkers <see cref="LayTheKept"/> lays again: those the town may have set anything of since the last.</summary>
+    int[] _laidAgain = [];
+
+    /// <summary>
+    /// Checked: every walker <see cref="LayTheKept"/> did not lay held to what laying it would have — known, the same to the
+    /// claims, its body where the walker tick's table has it, and its route and pass's ground as last laid — or it throws: a
+    /// walker the town changed while the device kept it, unmarked (<see cref="TownWorld.TouchedWalkers"/>).
+    /// </summary>
+    void HoldTheUnlaid(TownWorld world, DeviceWalkerTick ticked, ReadOnlySpan<int> laid)
+    {
+        var people = world.People;
+        var next = 0;
+        for (var person = 0; person < people.Count; person++)
+        {
+            if (next < laid.Length && laid[next] == person)
+            {
+                next++;
+                continue;
+            }
+
+            var unlike = !_isKnown[person] ? "whether the device is known to hold it"
+                : !SameToTheClaims(RowOf(world, person) with { Hold = _known[person].Hold }, _known[person]) ? "its row"
+                : !people.Inside[person].Any && !ticked.HoldsTheBodyOf(people, person) ? "where its body stands"
+                : !_routes!.IsLaid(person, people.RouteOf(person)[..people.RouteCount[person]]) ? "its route"
+                : !_passes!.IsLaid(person, world.Sidestepping.SweptOf(person)) ? "its pass's ground"
+                : null;
+            if (unlike is null) continue;
+
+            throw new InvalidOperationException(
+                $"Walker {person}'s claims were changed by the town while the device kept them, and not marked touched: {unlike}.");
         }
     }
 
@@ -473,6 +510,8 @@ internal sealed partial class DeviceWalkers
             restartsTheWalk: !ranOn);
         if (ranOn) town.WalkClocks.Take(person, clock.SinceS, clock.ClosestM);
 
+        // What the town took up of it may be more than the device is known to hold, laid again with the next laying.
+        town.TouchTheWalker(person);
         ticked.KnowTheAim(person, made.DestinationM, known.Is(WalkerRow.Walking));
         if (!_left[person]) return;
 

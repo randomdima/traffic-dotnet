@@ -126,6 +126,8 @@ internal sealed partial class TownWorld
             return;
         }
 
+        // Out of its own turn: a walker the device keeps is the town's before anything of it is set.
+        Device?.TakeTheWalkerBack(this, owner);
         _containers.Alight(car, owner);
         Place(owner, spotM, MathF.Atan2(spotM.Y - Cars.PositionM[car].Y, spotM.X - Cars.PositionM[car].X));
 

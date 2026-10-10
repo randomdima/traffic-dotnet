@@ -30,7 +30,7 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   apart, closes it.
 - **`RouteSearchTests.SectionedPlanningAllocatesNothing` and `StatusPanelClaimsTests.DrawingTheClaimsAllocatesNothing`**
   (unit) fail now and then in a full unit run and pass alone: the first five times in about twenty runs (two of them in a
-  row), 4 296–5 600 B on the test's own thread over 500 searches; the second twice, 7 144 B, then 8 088 B on 2026-10-10. The counter is the thread's, so it is not the side-by-side
+  row), 4 296–6 624 B on the test's own thread over 500 searches; the second twice, 7 144 B, then 8 088 B on 2026-10-10. The counter is the thread's, so it is not the side-by-side
   classes; something on that thread allocates now and then — a JIT's rejit is the guess, unconfirmed.
 - **`AllocationGateTests.ThisEnginesOwnPhasesAllocateNothingOverAWholeTown(Test)`** failed five times in about twenty
   perf runs, at 8.1, 6.8 and 2.5 B a tick, and again at 5.7 and 1.9 on 2026-10-10. It passes alone and in reruns of the tier, and a per-agent trace of phases 1–3 found no

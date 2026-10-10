@@ -120,6 +120,7 @@ internal sealed partial class DeviceWalkerTick : IDisposable
         _isKnown = new bool[capacity];
         _townHolds = new AgentSet(capacity);
         _walked = new AgentSet(capacity);
+        _heldSinceTheLaying = new AgentSet(capacity);
         _takenBack = new AgentSet(capacity);
         _walk = new int[capacity];
     }
@@ -214,6 +215,7 @@ internal sealed partial class DeviceWalkerTick : IDisposable
         foreach (var person in walk)
         {
             _walked.Add(person);
+            _heldSinceTheLaying.Add(person);
             var row = RowOf(people, person, paused);
             var impulseNs = town.WalkerImpulseNs(person);
             _bodies.Lay(person, people.Body[person].Index);
@@ -321,7 +323,14 @@ internal sealed partial class DeviceWalkerTick : IDisposable
         SameToTheTick(one with { PositionM = default, VelocityMps = default }, other with { PositionM = default, VelocityMps = default });
 
     /// <summary>A walker the town reads, or took back since: what the device holds of it is the town's again.</summary>
-    public void TookBack(int walker) => _townHolds.Add(walker);
+    public void TookBack(int walker) => Hold(walker);
+
+    /// <summary>A walker the town holds from here on, and so one it may set anything of before the next laying.</summary>
+    void Hold(int walker)
+    {
+        _townHolds.Add(walker);
+        _heldSinceTheLaying.Add(walker);
+    }
 
     /// <summary>A walker the town does not read after this tick: its pace, heading and impulse stay the device's.</summary>
     public void LeftOnTheDevice(int walker) => _townHolds.Remove(walker);
@@ -342,6 +351,31 @@ internal sealed partial class DeviceWalkerTick : IDisposable
 
     /// <summary>The walkers the town holds as the device left them, in order, written into <paramref name="into"/> — whose poses it reads.</summary>
     public Span<int> TheWalkersTheTownHolds(int count, Span<int> into) => into[.._townHolds.CopyTo(count, into)];
+
+    /// <summary>
+    /// <b>The walkers the town may have set anything of since the last laying of the claims asked</b>, in order: those it
+    /// walked or held since — if only between two walks, taken back for a decision and left again — those it holds or
+    /// touched now, and those added since; or every walker, where the next walks every one. Every other is as that laying
+    /// left it. The held and walked are forgotten once asked.
+    /// </summary>
+    public ReadOnlySpan<int> TheWalkersSetSinceTheLaying(TownWorld town, int count, Span<int> into)
+    {
+        if (VisitsEveryWalker) return into[..EveryWalker(count, into)];
+
+        _takenBack.CopyFrom(_heldSinceTheLaying);
+        _takenBack.UnionWith(_townHolds);
+        var added = Math.Min(_walkersAdded, count);
+        var named = _takenBack.Union(town.TouchedWalkers, added, into);
+        for (var person = added; person < count; person++) into[named++] = person;
+        _heldSinceTheLaying.Clear();
+        return into[..named];
+    }
+
+    /// <summary>
+    /// The walkers <see cref="LayWhatChanged"/> walked or the town held since <see cref="TheWalkersSetSinceTheLaying"/> last
+    /// asked.
+    /// </summary>
+    AgentSet _heldSinceTheLaying = null!;
 
     AgentSet _takenBack = null!;
 
@@ -367,7 +401,7 @@ internal sealed partial class DeviceWalkerTick : IDisposable
     {
         if (!Resident || walker >= _count || _townHolds.Has(walker)) return;
 
-        _townHolds.Add(walker);
+        Hold(walker);
         ref readonly var tick = ref TicksAfter[walker];
         if (tick.Tick == 0u) return;
 

@@ -90,6 +90,7 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
         var arrived = Stopwatch.GetTimestamp();
         if (stage != ClaimsStage.Begun) _townMs[(int)stage] = Stopwatch.GetElapsedTime(_left, arrived).TotalMilliseconds;
 
+        Laying = stage != ClaimsStage.GrantsRead;
         Rebuild.InTheTown(town, stage);
         var due = Rebuild.AnswersDue;
         if (stage == ClaimsStage.PlansAnswered && !due) Grant(town);
@@ -99,6 +100,9 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
         _left = Stopwatch.GetTimestamp();
         _hereMs[(int)stage] = Stopwatch.GetElapsedTime(arrived, _left).TotalMilliseconds;
     }
+
+    /// <summary>Whether a laying's stages are under way: begun (<see cref="ClaimsStage.Begun"/>) and its grants not yet read.</summary>
+    public bool Laying { get; private set; }
 
     public bool ReadTheGrants => true;
 

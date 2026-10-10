@@ -1122,18 +1122,28 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
     public void TickTheRest(TownWorld town)
     {
+        _unfinished = true;
         if (town.HoldAgents)
         {
             // The decisions owed are taken on a held tick, which takes none; the turn about to be taken is owed.
             _owedTick = NoneOwed;
             TickTheRestHeld(town);
             _owedTick = town.AgentsTick;
-            return;
+        }
+        else
+        {
+            TickTheRestOnTheDevice(town);
+            _owedTick = town.AgentsTick;
         }
 
-        TickTheRestOnTheDevice(town);
-        _owedTick = town.AgentsTick;
+        _unfinished = _townClaims.Laying;
     }
+
+    /// <summary>
+    /// Whether a tick or a laying of the claims was begun here and not finished — what threw out of it left the town
+    /// between two states, which <see cref="Dispose"/> takes nothing back from.
+    /// </summary>
+    bool _unfinished;
 
     void TickTheRestHeld(TownWorld town)
     {
@@ -1381,7 +1391,12 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
     public bool LaysTheClaims(TownWorld town) => _townClaims.LaysTheClaims(town);
 
-    public void ClaimsAt(TownWorld town, ClaimsStage stage) => _townClaims.ClaimsAt(town, stage);
+    public void ClaimsAt(TownWorld town, ClaimsStage stage)
+    {
+        _unfinished = true;
+        _townClaims.ClaimsAt(town, stage);
+        _unfinished = _townClaims.Laying;
+    }
 
     public bool ReadTheGrants => _townClaims.ReadTheGrants;
 
@@ -1676,7 +1691,8 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// </remarks>
     /// <remarks>
     /// <b>Whatever a tick left in flight is waited out first</b> — one that threw between its submit and its wait — and the
-    /// device is idle before anything is freed, whatever the taking back threw.
+    /// device is idle before anything is freed, whatever the taking back threw. <b>A town a tick or a laying threw out of is
+    /// given nothing back</b> (<see cref="_unfinished"/>): what threw is what its caller sees.
     /// </remarks>
     public void Dispose()
     {
@@ -1685,6 +1701,8 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _stepBatch.Wait();
         try
         {
+            if (_unfinished) return;
+
             _walkers.TakeEveryTickBack(_town);
             _bodies.TakeEveryPoseBack(_town);
             _townClaims.LandTheLastLaying(_town);

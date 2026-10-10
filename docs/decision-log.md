@@ -47,6 +47,14 @@ those to ask (`DeviceTown.LayTheDecisions`): the host named about one car in six
 - **A walker indoors is left on the device** (`TownWorld.ReadsTheWalkersTick`): the town held every walker it reads at a
   rebuild, the indoors among them, so OdesaOsm's host walked 23 000 of its 40 000 walkers a tick. An indoor walker's tick
   only stands it still, and what the town's decision sets of it is marked; the visits' check holds it so.
+- **A laying lays again only the walkers set since the last** (`DeviceWalkerTick.TheWalkersSetSinceTheLaying`,
+  `DeviceWalkers.LayTheKept`): it diffed every walker's claims against what the device was known to hold, 3.6 ms of each
+  OdesaOsm rebuild. A walker's claims change through the town's own decision — the walker held, if only between two
+  walks — or through what a rebuild hands back, which marks it now; the visits' check holds every other walker as it was
+  laid (`HoldTheUnlaid`). The diff had been hiding two writes nobody marked: a car's decision letting its owner out
+  (`TownWorld.LetTheOwnerOut`, which takes the walker back now), and a walker held only for its decision.
+- **A device town a tick or a laying threw out of gives nothing back as it goes** (`DeviceTown.Dispose`): deciding on a
+  town left half-laid threw in its turn and hid what threw first.
 - **Two more walks of every body a tick went**: what slides with nothing driving it is found off the wounded and the
   wrecked, kept where each is set (`TownWorld.Settle`, `BreakWhereItStands` for a staging's wreck), and the holds of the
   cars the town drives itself off the cars it holds (`DeviceTown.AskTheHoldsOfWhatTheTownDrives`).
