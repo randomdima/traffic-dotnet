@@ -148,6 +148,7 @@ internal static class DeviceTownProbe
         var byTheClockFrom = world.DecidedByTheClock;
         var byTheTownFrom = device?.DecidedByTheTown ?? 0L;
         var foundFrom = device?.DecisionsFound ?? 0L;
+        var walkersFoundFrom = device?.WalkerDecisionsFound ?? 0L;
         var walkersByTheClockFrom = world.WalkersDecidedByTheClock;
         var walkersByTheTownFrom = device?.WalkersDecidedByTheTown ?? 0L;
         var takenWholeFrom = device?.TakenBackWhole ?? 0L;
@@ -271,7 +272,8 @@ internal static class DeviceTownProbe
                 $"the device, and {(device.DecidedByTheTown - byTheTownFrom) / (double)MeasuredTicks:F0} the device asked of handed to the town, " +
                 $"{(device.DecisionsFound - foundFrom) / (double)MeasuredTicks:F0} found by the device without the town naming them; " +
                 $"walkers' {(world.WalkersDecidedByTheClock - walkersByTheClockFrom) / (double)MeasuredTicks:F0} and " +
-                $"{(device.WalkersDecidedByTheTown - walkersByTheTownFrom) / (double)MeasuredTicks:F0}");
+                $"{(device.WalkersDecidedByTheTown - walkersByTheTownFrom) / (double)MeasuredTicks:F0}, " +
+                $"{(device.WalkerDecisionsFound - walkersFoundFrom) / (double)MeasuredTicks:F0} found by the device");
             var why = device.HandedBackFor;
             var t = (double)MeasuredTicks;
             Console.WriteLine(

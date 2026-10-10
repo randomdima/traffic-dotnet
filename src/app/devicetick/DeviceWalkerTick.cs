@@ -325,6 +325,9 @@ internal sealed partial class DeviceWalkerTick : IDisposable
     /// <summary>A walker the town reads, or took back since: what the device holds of it is the town's again.</summary>
     public void TookBack(int walker) => Hold(walker);
 
+    /// <summary>A walker the town took up anything of the claims' since the last laying, to be laid again with the next (<see cref="TheWalkersSetSinceTheLaying"/>).</summary>
+    public void LayAgainWithTheClaims(int walker) => _heldSinceTheLaying.Add(walker);
+
     /// <summary>A walker the town holds from here on, and so one it may set anything of before the next laying.</summary>
     void Hold(int walker)
     {
@@ -413,10 +416,33 @@ internal sealed partial class DeviceWalkerTick : IDisposable
         _knownImpulse[walker] = tick.ImpulseNs;
     }
 
-    /// <summary>Every walker the device kept taken back as its ticks last left it (<see cref="TakeTheTickBack"/>), for a town about to read every one.</summary>
+    /// <summary>Every walker the device kept taken back as its ticks last left it (<see cref="TakeTheTickBack"/>), for a town about to set any.</summary>
     public void TakeEveryTickBack(TownWorld town)
     {
         for (var walker = 0; walker < _count; walker++) TakeTheTickBack(town, walker);
+    }
+
+    /// <summary>
+    /// <b>Every walker the device kept read as its ticks last left it</b>, for a town about to read every one and set none:
+    /// written into the town as <see cref="TakeTheTickBack"/> writes it, and left with the device all the same.
+    /// </summary>
+    public void ReadEveryTickBack(TownWorld town)
+    {
+        if (!Resident) return;
+
+        var people = town.People;
+        var ticks = TicksAfter;
+        for (var walker = 0; walker < _count; walker++)
+        {
+            if (_townHolds.Has(walker) || ticks[walker].Tick == 0u) continue;
+
+            ref readonly var tick = ref ticks[walker];
+            people.HeadingRad[walker] = tick.HeadingRad;
+            people.DeclaredMps[walker] = tick.DeclaredMps;
+            town.WalkerImpulseFor(walker) = tick.ImpulseNs;
+            _known[walker] = _known[walker] with { DeclaredMps = tick.DeclaredMps, HeadingRad = tick.HeadingRad };
+            _knownImpulse[walker] = tick.ImpulseNs;
+        }
     }
 
     /// <summary>Checked: what the tick read of every walker the town holds held to what it laid, over the last tick.</summary>

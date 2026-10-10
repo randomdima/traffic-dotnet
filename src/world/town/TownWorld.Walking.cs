@@ -93,6 +93,16 @@ internal sealed partial class TownWorld
     /// <summary>How many walkers' decisions were their clock alone (<see cref="DecidesQuietWalkersByTheClock"/>, or run on a device).</summary>
     public long WalkersDecidedByTheClock { get; private set; }
 
+    /// <summary>Decisions a device found its walkers' clock alone without the town putting them off (<see cref="ITownDevice.WalkerDecidesItself"/>), counted in.</summary>
+    public void WalkersDecidedByTheClockOnTheDevice(int count)
+    {
+        WalkersDecidedByTheClock += count;
+        WalkerDecisionsTaken += count;
+    }
+
+    /// <summary>How many walkers' decisions were taken, wherever each was — every walker's turn but one held.</summary>
+    public long WalkerDecisionsTaken { get; private set; }
+
     /// <summary>Every walker's leg's clock (<see cref="LegProgress"/>), for a device that runs the clocks of the walkers it decides.</summary>
     public LegProgress WalkClocks => _progress;
 

@@ -130,6 +130,18 @@ internal interface ITownDevice
     ReadOnlySpan<int> CarsTheTownDecides(TownWorld town) => default;
 
     /// <summary>
+    /// <b>The walkers whose decisions the town takes on their turn</b>, in order, where the device names the cars
+    /// (<see cref="NamesTheCars"/>): every walker the device does not find the decision of (<see cref="WalkerDecidesItself"/>).
+    /// </summary>
+    ReadOnlySpan<int> WalkersTheTownDecides(TownWorld town) => default;
+
+    /// <summary>
+    /// <b>Whether the device finds this walker's decision itself</b>, a tick behind, as it does a car's
+    /// (<see cref="DecidesItself"/>).
+    /// </summary>
+    bool WalkerDecidesItself(int person) => false;
+
+    /// <summary>
     /// <b>Whether the device finds this car's decision itself</b>, a tick behind (<see cref="DecidesATickBehind"/>): the town
     /// puts nothing off for it, and is handed it to decide only where the device finds it more than its clock
     /// (<see cref="TownWorld.PutOffTheDecisions"/>).

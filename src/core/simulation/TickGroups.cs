@@ -37,7 +37,4 @@ internal readonly struct TickGroups
 
     /// <summary>Whether this tick is this member's turn.</summary>
     public bool Turn(long tick, int member) => Groups == 1 || (tick + member) % Groups == 0;
-
-    /// <summary>The first member whose turn this tick is; every <see cref="Groups"/>th member after it is too.</summary>
-    public int FirstTurnOn(long tick) => (int)((Groups - (tick % Groups)) % Groups);
 }

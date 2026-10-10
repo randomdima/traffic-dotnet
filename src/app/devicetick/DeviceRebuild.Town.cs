@@ -1416,6 +1416,7 @@ internal sealed partial class DeviceRebuild
         _claims.CopyPast<HoldOut>(commands, _holdsOut, _readersHoldsOut, 0, holds);
         _claims.CopyPast<ClaimRow>(commands, _holdCutters, _readersHoldCutters, 0, holds);
         _claims.CopyPast<int>(commands, _holdOf, _readersHoldOf, 0, _cars);
+        if (_walkers.Keeps) _claims.CopyPast<int>(commands, _walkers.KeptHolds, _readersWalkHoldOf, 0, _walkersRoom);
         LandedBytes =sizeof(uint) + Bytes<UInt4>(_waysListed) + Bytes<ClaimRow>(_waysRowsBound);
         if (LandsEveryHold)
         {

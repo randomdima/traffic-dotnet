@@ -177,6 +177,9 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
         // Every walker's clock the device's from here on, as the town has it now.
         var people = town.People;
+        _walkerFound = new bool[people.Capacity];
+        _walkersNamed = new int[people.Capacity];
+        _walkersLetGo = new int[people.Capacity];
         _walkerListed = new bool[people.Capacity];
         _walkerByTheTown = new bool[people.Capacity];
         _walkersDue = new uint[people.Capacity];
@@ -258,8 +261,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         kept.LayTheDecisions(
             _walkersDue.AsSpan(0, count),
             new DeviceWalkers.DecideFigures(
-                0u, 0u, wayInReachM, walksBeforeTheNextM, byM, patienceS, _decisionIntervalS, lostOffM, ChecksTheDecisions ? 1u : 0u, 0u,
-                0u, 0u));
+                0u, 0u, wayInReachM, walksBeforeTheNextM, byM, patienceS, _decisionIntervalS, lostOffM, ChecksTheDecisions ? 1u : 0u));
     }
 
     /// <summary>Every walker's clock the town changed since it last laid them, laid where the device runs it, with its route slot.</summary>
@@ -278,8 +280,126 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         clocks.ForgetTheTouched();
     }
 
+    public bool WalkerDecidesItself(int person) => KeptWalkers.Keeps && KeptWalkers.DecidesItself(person);
+
+    public ReadOnlySpan<int> WalkersTheTownDecides(TownWorld town)
+    {
+        var count = town.People.Count;
+        if (KeptWalkers.Keeps) return KeptWalkers.TheWalkersNotDecidingThemselves(count, _walkersNamed);
+
+        for (var person = 0; person < count; person++) _walkersNamed[person] = person;
+        return _walkersNamed.AsSpan(0, count);
+    }
+
+    /// <summary>Room for the walkers the town decides, and for the walkers a letting go or a finding puts off.</summary>
+    readonly int[] _walkersNamed, _walkersLetGo;
+
+    /// <summary>
+    /// <b>Whether the device finds this walker's decision itself</b> (<see cref="DeviceWalkers.FindTheDecisionsDue"/>), as it
+    /// does a car's (<see cref="FindsItsOwnDecision"/>): one it keeps, that the town neither holds nor touched, out of doors,
+    /// on its feet and off duty, and held in the kept table as the town has it.
+    /// </summary>
+    string? WhyTheTownDecidesTheWalker(TownWorld town, int person)
+    {
+        var people = town.People;
+        return !DecidesTheWalkers || !DecidesATickBehind || ChecksTheDecisions || !KeptWalkers.Keeps ? "the device does not find decisions"
+            : _walkers.TownHolds(person) ? "the town holds it"
+            : town.TouchedWalkers.Has(person) ? "the town touched it"
+            : people.Inside[person].Any || people.Wounded[person] || people.Stage[person] == TripStage.OnDuty ? "the town decides it whole"
+            : !KeptWalkers.HoldsAsTheTownHas(town, person) ? "the kept table holds it other than the town"
+            : null;
+    }
+
+    /// <summary>This walker's decision the town's again, named for the town to put off where its turn is the one owed (<see cref="LetGoOfTheDecision"/>).</summary>
+    int LetGoOfTheWalkersDecision(TownWorld town, int person, Span<int> putOff)
+    {
+        if (!KeptWalkers.Keeps || !KeptWalkers.DecidesItself(person)) return 0;
+
+        KeptWalkers.LetItDecideItself(person, false);
+        if (_owedTick == NoneOwed || !town.DecisionClock.Turn(_owedTick, person)) return 0;
+
+        putOff[0] = person;
+        return 1;
+    }
+
+    /// <summary>
+    /// <b>Every walker the host walked let go of</b>, as the cars are (<see cref="LetGoOfTheWalked"/>), and, checked, every
+    /// other the device finds held to still being one it would.
+    /// </summary>
+    void LetGoOfTheWalkedWalkers(TownWorld town)
+    {
+        var count = 0;
+        foreach (var person in _walkers.Walked) count += LetGoOfTheWalkersDecision(town, person, _walkersLetGo.AsSpan(count));
+        town.PutOffTheDecisions(_walkersLetGo.AsSpan(0, count));
+        if (!_walkers.ChecksTheVisits || !KeptWalkers.Keeps) return;
+
+        var walked = _walkers.Walked;
+        var next = 0;
+        for (var person = 0; person < town.People.Count; person++)
+        {
+            if (next < walked.Length && walked[next] == person)
+            {
+                next++;
+                continue;
+            }
+
+            if (!KeptWalkers.DecidesItself(person) || WhyTheTownDecidesTheWalker(town, person) is not { } why) continue;
+
+            throw new InvalidOperationException(
+                $"Walker {person}'s decision was left to the device by a town that changed it since, and did not mark it touched: {why}.");
+        }
+    }
+
+    /// <summary>
+    /// <b>What the device found of the walkers' decisions it owed</b>, once the head of the tick is waited for, as of the cars'
+    /// (<see cref="TakeWhatWasFound"/>).
+    /// </summary>
+    void TakeWhatTheWalkersFound(TownWorld town)
+    {
+        if (!KeptWalkers.Keeps) return;
+
+        var found = KeptWalkers.FoundMore(out var clockAlone);
+        town.WalkersDecidedByTheClockOnTheDevice(clockAlone);
+        WalkerDecisionsFound += clockAlone + found.Length;
+        if (found.IsEmpty) return;
+
+        if (_asksTheHolds) _townClaims.Rebuild.MirrorTheFoundWalkerHolds(town, found, checks: _walkers.ChecksTheVisits);
+        foreach (var person in found) _walkerFound[person] = true;
+        found.CopyTo(_walkersLetGo);
+        town.PutOffTheDecisions(_walkersLetGo.AsSpan(0, found.Length));
+        _walkerFoundCount = found.Length;
+    }
+
+    /// <summary>How many walkers' decisions the device found itself (<see cref="WalkerDecidesItself"/>), over every tick.</summary>
+    public long WalkerDecisionsFound { get; private set; }
+
+    /// <summary>How many walkers' decisions the device finds itself now (<see cref="WalkerDecidesItself"/>).</summary>
+    public int WalkersDecidingThemselves => KeptWalkers.Keeps ? KeptWalkers.DecidingItself : 0;
+
+    /// <summary>Which walkers the device found more than their clock this tick, until the town decides them; and how many.</summary>
+    readonly bool[] _walkerFound;
+
+    int _walkerFoundCount;
+
     public bool WalkerDecidedOnTheDevice(int person)
     {
+        if (_walkerFound[person])
+        {
+            _walkerFound[person] = false;
+            var found = KeptWalkers;
+            found.TakeUpTheDecided(_town, _walkers, person);
+            _walkers.TakeTheTickBack(_town, person);
+            _bodies.TakeThePoseBack(_town, person);
+            if (!_town.WalkClocks.IsTouched(person))
+            {
+                ref readonly var clockFound = ref found.DecidedOn(person);
+                _town.WalkClocks.Take(person, clockFound.SinceS, clockFound.ClosestM);
+            }
+
+            WalkersDecidedByTheTown++;
+            return false;
+        }
+
         if (!_walkerListed[person]) return false;
 
         _walkerListed[person] = false;
@@ -701,6 +821,10 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// <summary>Every car's decision the town's from here on, those the device owes put off (<see cref="LetGoOfTheDecision"/>).</summary>
     void LetGoOfEveryDecision(TownWorld town)
     {
+        var walkers = 0;
+        for (var person = 0; person < town.People.Count; person++) walkers += LetGoOfTheWalkersDecision(town, person, _walkersLetGo.AsSpan(walkers));
+        town.PutOffTheDecisions(_walkersLetGo.AsSpan(0, walkers));
+
         var count = 0;
         for (var car = 0; car < town.Cars.Count; car++) count += LetGoOfTheDecision(town, car, _letGo.AsSpan(count));
         town.PutOffTheDecisions(_letGo.AsSpan(0, count));
@@ -1238,12 +1362,12 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
             _cars.FindTheDecisionsDue(town.DecisionClock, _owedTick, town.Roster.AgentOfCar(0), readersUnknown);
         }
 
-        _owedTick = NoneOwed;
         if (!_cars.ReadsEveryCar) LayTheWanted(town);
         _cars.HandsBackTheGrantsLeft = town.WatchesEveryAgent;
         town.DriveClocks.ForgetTheTouched();
         _walkerCount = _walkers.LayWhatChanged(town);
         WalkersWalked += _walkers.Walked.Length;
+        LetGoOfTheWalkedWalkers(town);
 
         // The walkers' holds as the readers read them are copied this tick where the readers keep up with the claims, off
         // the last rebuild laid here — which a laying of the town's own since leaves behind.
@@ -1252,6 +1376,12 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         var readersCopied = _cars.ReadersKeepUp && _townClaims.Rebuild.LaidAny && !_townLaidSinceTheDevice;
         if (_cars.ReadersKeepUp) _walkerReadersKnown = readersCopied;
         if (DecidesTheWalkers) LayTheWalkerDecisions(town);
+        if (DecidesTheWalkers && KeptWalkers.Keeps && _owedTick != NoneOwed && KeptWalkers.DecidingItself > 0)
+        {
+            KeptWalkers.FindTheDecisionsDue(town.DecisionClock, _owedTick, _walkerCount, !_walkerReadersKnown);
+        }
+
+        _owedTick = NoneOwed;
         LayTheWalkersClocks(town);
         if (stepping) _bodies.LayThePosesForTheTick(town);
         var prepared = Stopwatch.GetTimestamp();
@@ -1275,7 +1405,9 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         // The walkers' decisions put off read each one as the town has it now, its hold as the readers do.
         if (readersCopied && _townClaims.Rebuild.RecordTheWalkersReaders(head)) _vk.BetweenKernels(head);
         KeptWalkers.RecordTheDecisions(head);
-        _townClaims.Rebuild.RecordTheHoldsAsked(head, _cars.Stamp, KeptWalkers.DecideStamp, ofTheFound: _asksTheHolds && _cars.FindsTheDecisionsDue);
+        _townClaims.Rebuild.RecordTheHoldsAsked(
+            head, _cars.Stamp, KeptWalkers.DecideStamp, ofTheFound: _asksTheHolds && _cars.FindsTheDecisionsDue,
+            ofTheFoundWalkers: _asksTheHolds && KeptWalkers.FindsTheDecisionsDue);
         _headBatch.Submit();
 
         var commands = _batch.Begin();
@@ -1326,6 +1458,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         // written back: the town a tick old either way, and a car a decision moved on from read as the tick had it.
         var deciding = Stopwatch.GetTimestamp();
         TakeWhatWasFound(town);
+        TakeWhatTheWalkersFound(town);
         town.TakeTheDecisionsPutOff();
         foreach (var car in _decided.AsSpan(0, _decidedCount))
         {
@@ -1338,7 +1471,12 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
             if (_found[car]) throw new InvalidOperationException($"Car {car}'s decision was found more than its clock and never taken.");
         }
 
-        _foundCount = 0;
+        foreach (var person in _walkersLetGo.AsSpan(0, _walkerFoundCount))
+        {
+            if (_walkerFound[person]) throw new InvalidOperationException($"Walker {person}'s decision was found more than its clock and never taken.");
+        }
+
+        _foundCount = _walkerFoundCount = 0;
 
         foreach (var entry in _walkersDue.AsSpan(0, _walkersDueCount))
         {
@@ -1418,7 +1556,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         }
 
         var commands = _batch.Begin();
-        rebuild.RecordTheHoldsAsked(commands, _cars.Stamp, KeptWalkers.DecideStamp, ofTheFound: false);
+        rebuild.RecordTheHoldsAsked(commands, _cars.Stamp, KeptWalkers.DecideStamp, ofTheFound: false, ofTheFoundWalkers: false);
         _batch.SubmitAndWait();
         rebuild.MirrorTheHoldsAsked(town.ReadersOccupancy);
     }
@@ -1685,8 +1823,11 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
             if (!everyWalker && !town.ReadsTheWalkersTick(person) && !town.WalksUnderAHand(person) && _walkers.HoldsAsTheTownHas(town, person))
             {
                 _walkers.LeftOnTheDevice(person);
+                if (KeptWalkers.Keeps) KeptWalkers.LetItDecideItself(person, WhyTheTownDecidesTheWalker(town, person) is null);
                 continue;
             }
+
+            if (KeptWalkers.Keeps) KeptWalkers.LetItDecideItself(person, false);
 
             ref readonly var tick = ref ticks[person];
             if (!_walkers.WroteLastTick(tick) || DeviceTownBodies.TheTownsImpulse(town, person)) continue;
@@ -1710,9 +1851,10 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _bodies.TakeThePoseBack(town, agent);
     }
 
+    /// <remarks>Read and not held: every walker the device kept is left with it.</remarks>
     public void TakeEveryPoseBack(TownWorld town)
     {
-        _walkers.TakeEveryTickBack(town);
+        _walkers.ReadEveryTickBack(town);
         _bodies.TakeEveryPoseBack(town);
     }
 

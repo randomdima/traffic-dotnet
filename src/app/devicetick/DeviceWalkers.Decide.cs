@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using Silk.NET.Vulkan;
+using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Town;
 using static TrafficSimulation.Runtime.GpuBuffer;
@@ -24,7 +25,8 @@ internal sealed partial class DeviceWalkers
     [StructLayout(LayoutKind.Sequential)]
     internal record struct DecideFigures(
         uint Stamp, uint Count, float WayInReachM, float WalksBeforeTheNextM, float ByM, float PatienceS, float SinceLastDecisionS,
-        float LostOffM, uint Checks, uint Pad0, uint Pad1, uint Pad2);
+        float LostOffM, uint Checks, uint FindCount = 0u, uint DueTick = 0u, uint Groups = 1u, uint FoundByTheTown = 0u,
+        uint Pad0 = 0u, uint Pad1 = 0u, uint Pad2 = 0u);
 
     /// <summary><c>walker_readers.glsl</c>'s <c>WalkerReadersHold</c>, field for field.</summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -75,10 +77,18 @@ internal sealed partial class DeviceWalkers
         _walkerDecideOut = _vk.CreateBuffer(Bytes<WalkerClockOut>(_walkers), BufferUsageFlags.StorageBufferBit, HostAccess.Reads);
         _walkerDecideRows = _vk.CreateBuffer(Bytes<WalkerOut>(_walkers), BufferUsageFlags.StorageBufferBit, HostAccess.Reads);
         _walkerClocks = new ResidentRows<WalkerClock>(_vk, _walkers, 1);
+        _decidesItself = new AgentSet(_walkers);
+        _decidesItselfWords = new ResidentRows<uint>(_vk, Words, 1, hostOnly: true);
+        _wordChanged = new bool[Words];
+        _wordsChanged = new int[Words];
+        _foundCounts = Device<uint>(2);
+        _foundCountsOut = Readback<uint>(2);
+        _foundWalkers = Own(_vk.CreateBuffer(Bytes<uint>(_walkers), BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
+        _found = new int[_walkers];
         GpuBuffer[] set =
         [
             .. _stationSet, _decideFigures, _decideList, ticked, _readersHolds, _walkerClocks.Device, _walkerVerdicts, _walkerDecideOut,
-            _walkerDecideRows,
+            _walkerDecideRows, _decidesItselfWords.Device, _foundCounts, _foundWalkers,
         ];
         _decide = new ComputeKernel(_vk, "walkers_decide.comp", set.Length, (uint)Marshal.SizeOf<Figures>());
         _decideSet = _decide.Bind(set);
@@ -132,14 +142,120 @@ internal sealed partial class DeviceWalkers
     /// <summary>The clocks laid since the last tick, copied across, recorded; the caller barriers.</summary>
     public void RecordTheClocksSent(CommandBuffer commands) => _walkerClocks!.Send(commands);
 
-    /// <summary>The decisions laid asked, recorded after what they read is in; the caller barriers before what reads the clocks.</summary>
+    /// <summary>
+    /// The decisions laid asked, and those found (<see cref="FindTheDecisionsDue"/>), recorded after what they read is in; the
+    /// caller barriers before what reads the clocks.
+    /// </summary>
     public void RecordTheDecisions(CommandBuffer commands)
     {
-        if (_decideCount == 0) return;
+        foreach (var word in _wordsChanged.AsSpan(0, _wordsChangedCount))
+        {
+            _wordChanged[word] = false;
+            _decidesItselfWords!.Lay(word, _decidesItself!.WordOf(word << 5));
+        }
 
-        _decide!.Dispatch(commands, _decideSet, Groups(_decideCount), _figures with { WalkerCount = (uint)_decideCount });
+        _wordsChangedCount = 0;
+        _decidesItselfWords!.Send(commands);
+        var finding = FindsTheDecisionsDue ? _decideFigures.Span<DecideFigures>()[0].FindCount : 0u;
+        if (finding > 0) _vk.Fill(commands, _foundCounts, 0);
+        _vk.AfterTransfer(commands);
+        if (_decideCount == 0 && finding == 0) return;
+
+        var threads = _decideCount + (int)finding;
+        _decide!.Dispatch(commands, _decideSet, Groups(threads), _figures with { WalkerCount = (uint)threads });
         _decideCount = 0;
+        if (finding == 0) return;
+
+        _vk.BetweenKernels(commands);
+        _vk.BeforeTransfer(commands);
+        _vk.Copy(commands, _foundCounts, _foundCountsOut, Bytes<uint>(2));
     }
+
+    /// <summary>
+    /// <b>Whether the device finds this walker's decision itself</b> (<see cref="FindTheDecisionsDue"/>): the host neither
+    /// puts it off nor names it, and decides it only where the device finds it more than its clock.
+    /// </summary>
+    public bool DecidesItself(int walker) => _decidesItself!.Has(walker);
+
+    /// <summary>Whether the device finds this walker's decision itself from the next decisions asked on (<see cref="DecidesItself"/>).</summary>
+    public void LetItDecideItself(int walker, bool decides)
+    {
+        if (decides == _decidesItself!.Has(walker)) return;
+
+        if (decides) _decidesItself.Add(walker);
+        else _decidesItself.Remove(walker);
+        DecidingItself += decides ? 1 : -1;
+        var word = walker >> 5;
+        if (_wordChanged[word]) return;
+
+        _wordChanged[word] = true;
+        _wordsChanged[_wordsChangedCount++] = word;
+    }
+
+    /// <summary>How many walkers' decisions the device finds itself (<see cref="DecidesItself"/>).</summary>
+    public int DecidingItself { get; private set; }
+
+    /// <summary>The walkers below <paramref name="count"/> whose decisions the device does not find itself, in order.</summary>
+    public ReadOnlySpan<int> TheWalkersNotDecidingThemselves(int count, Span<int> into) => into[.._decidesItself!.CopyAbsentTo(count, into)];
+
+    /// <summary>
+    /// <b>The decisions due on a tick of every walker whose decision the device finds itself</b>, asked with the next
+    /// decisions laid (<see cref="LayTheDecisions"/>, which comes first): each one's clock run where that is the whole of it,
+    /// and where it is not, named where <see cref="FoundMore"/> reads it with what the town decides it on
+    /// (<see cref="DecidedOn"/>).
+    /// </summary>
+    /// <param name="tick">The loop's tick they were due on, by <paramref name="decisions"/>' turns.</param>
+    /// <param name="walkers">How many walkers the table holds.</param>
+    /// <param name="byTheTown">Whether every one is the town's to take whatever the device finds.</param>
+    public void FindTheDecisionsDue(TickGroups decisions, long tick, int walkers, bool byTheTown)
+    {
+        ref var figures = ref _decideFigures.Span<DecideFigures>()[0];
+        figures = figures with
+        {
+            FindCount = (uint)walkers, DueTick = (uint)(tick % decisions.Groups), Groups = (uint)decisions.Groups,
+            FoundByTheTown = byTheTown ? 1u : 0u,
+        };
+        FindsTheDecisionsDue = true;
+    }
+
+    /// <summary>Whether the next decisions asked find the decisions due (<see cref="FindTheDecisionsDue"/>), until what was found is read.</summary>
+    public bool FindsTheDecisionsDue { get; private set; }
+
+    /// <summary>
+    /// The walkers <see cref="FindTheDecisionsDue"/> found more than their clock, in order, and how many it found their clock
+    /// alone — read once the submit that found them is waited for. Nothing where none were asked.
+    /// </summary>
+    public ReadOnlySpan<int> FoundMore(out int clockAlone)
+    {
+        clockAlone = 0;
+        if (!FindsTheDecisionsDue) return default;
+
+        FindsTheDecisionsDue = false;
+        _decideFigures.Span<DecideFigures>()[0].FindCount = 0u;
+        var counts = _foundCountsOut.Span<uint>();
+        clockAlone = (int)counts[1];
+        var found = _found.AsSpan(0, (int)counts[0]);
+        MemoryMarshal.Cast<uint, int>(_foundWalkers.Span<uint>()[..found.Length]).CopyTo(found);
+        found.Sort();
+        return found;
+    }
+
+    /// <summary>What a kernel after the decisions reads of the walkers found: how many were more than their clock and how many their clock alone, and the walkers found more.</summary>
+    public (GpuBuffer Counts, GpuBuffer More) FoundTables => (_foundCounts, _foundWalkers);
+
+    /// <summary>
+    /// Which walkers' decisions the device finds itself, as the host keeps them and as the decisions read them, and which words
+    /// of those changed since they were sent; how many it found of each kind, on the device and where the host reads them; the
+    /// walkers found more, in the host's memory, and read into order.
+    /// </summary>
+    AgentSet? _decidesItself;
+
+    ResidentRows<uint>? _decidesItselfWords;
+    bool[] _wordChanged = [];
+    int[] _wordsChanged = [];
+    int _wordsChangedCount;
+    GpuBuffer _foundCounts = null!, _foundCountsOut = null!, _foundWalkers = null!;
+    int[] _found = [];
 
     /// <summary>Whether a walker's decision the device was asked of was more than its clock, once the tick's submit is waited for.</summary>
     public bool DecidedMoreThanTheClock(int person)
@@ -160,6 +276,7 @@ internal sealed partial class DeviceWalkers
     {
         _decide?.Dispose();
         _walkerClocks?.Dispose();
+        _decidesItselfWords?.Dispose();
         _decideFigures?.Dispose();
         _decideList?.Dispose();
         _walkerVerdicts?.Dispose();

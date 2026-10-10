@@ -36,8 +36,12 @@ those to ask (`DeviceTown.LayTheDecisions`): the host named about one car in six
 - **Held by the visits' check**: a car left to the device that the town changed without marking it throws, and each
   found car's hold is held to the town's number for it. A test touches cars on their turn and counts the decisions taken
   against a town that decides every car (`ACarTouchedOnItsTurnIsDecidedOnItOnce`); losing the owed turn fails it.
-- **Still the town's**: a switching car's look (its look state is read back each decision), a car the town holds, and the
-  walkers' decisions.
+- **Still the town's**: a switching car's look (its look state is read back each decision), and a car the town holds.
+- **The walkers' decisions are found the same way** (`DeviceTown.WhyTheTownDecidesTheWalker`, `walkers_decide.comp`'s threads
+  past its list): a walker the device keeps, out of doors, on its feet and off duty, and held in the kept table as the town
+  has it. Its hold comes back by the number the layer carries (`DeviceWalkers.KeptHolds`). `AWalkerTouchedOnItsTurnIsDecidedOnItOnce`
+  counts the decisions against a town deciding every walker. Reading every pose (`TownWorld.TakeEveryPoseBack`) reads the
+  walkers and leaves them with the device: holding every one undid every walker's decision a tick.
 - **The loop's two passes are the world's** (`ISimWorld.TickTheAgents`, `DecideTheAgents`). A world with no device walks
   the whole roster as the loop did (`EveryAgent`). A town whose device names its cars (`ITownDevice.NamesTheCars`) ticks
   only the walkers under a hand and the cars it holds, touched or added since (`DeviceCarTick.TheCarsTheTownTicks`); every

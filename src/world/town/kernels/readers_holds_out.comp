@@ -8,8 +8,8 @@
 // landing left on the device, which are what the readers' layer holds: the hold as rebuild_holds_out.comp wrote it and
 // the claim that cut it, whole rows copied as words.
 //
-// Asked of the found (mode), one thread a car the tick found more than its clock without the host naming it
-// (car_tick.comp's ModeFindDue): that car's own hold as the readers' layer numbers it, written where the car is.
+// Asked of the found (mode), one thread a car or a walker the tick found more than its clock without the host naming it
+// (car_tick.comp's ModeFindDue, walkers_decide.comp's): its own hold as the readers' layer numbers it, written where it is.
 
 layout(local_size_x = 64) in;
 
@@ -22,9 +22,10 @@ layout(push_constant) uniform Figures
     uint mode;
 } figures;
 
-// Figures.mode.
+// Figures.mode: the asks, the cars found, or the walkers found (walkers_decide.comp's).
 const uint ModeAsked = 0u;
 const uint ModeFound = 1u;
+const uint ModeFoundWalkers = 2u;
 
 // A hold number for none (ReadersHoldOf), written for a found car that holds none.
 const uint NoHold = 0xffffffffu;
@@ -63,23 +64,27 @@ layout(std430, binding = 7) readonly buffer FoundMore { uint foundCars[]; };
 layout(std430, binding = 8) readonly buffer ReadersHoldOf { int readersHoldOf[]; };
 layout(std430, binding = 9) writeonly buffer FoundAnswered { HoldAnswered foundAnswered[]; };
 
-void answerTheFound(uint at)
-{
-    if (at >= foundMore) return;
+// The same of the walkers found: how many, which, each one's hold as the readers' layer numbers it (walkers_kept_out.comp's
+// holdsOut, copied with the layer), and what came of each one's, a row a walker.
+layout(std430, binding = 10) readonly buffer WalkersFoundCounts { uint walkersFoundMore; uint walkersFoundClockAlone; };
+layout(std430, binding = 11) readonly buffer WalkersFoundMore { uint foundWalkers[]; };
+layout(std430, binding = 12) readonly buffer ReadersWalkHoldOf { int readersWalkHoldOf[]; };
+layout(std430, binding = 13) writeonly buffer WalkersFoundAnswered { HoldAnswered walkersFoundAnswered[]; };
 
-    uint car = foundCars[at];
-    int hold = readersHoldOf[car];
-    foundAnswered[car].hold = hold < 0 ? NoHold : uint(hold);
-    if (hold >= 0)
+HoldAnswered answerOf(int hold)
+{
+    HoldAnswered answer;
+    answer.hold = hold < 0 ? NoHold : uint(hold);
+    answer.stamp = figures.stamp;
+    answer.pad0 = 0u;
+    answer.pad1 = 0u;
+    for (uint word = 0u; word < 3u; word++)
     {
-        for (uint word = 0u; word < 3u; word++)
-        {
-            foundAnswered[car].held[word] = readersHolds[uint(hold) * 3u + word];
-            foundAnswered[car].cutter[word] = readersCutters[uint(hold) * 3u + word];
-        }
+        answer.held[word] = hold < 0 ? uvec4(0u) : readersHolds[uint(hold) * 3u + word];
+        answer.cutter[word] = hold < 0 ? uvec4(0u) : readersCutters[uint(hold) * 3u + word];
     }
 
-    foundAnswered[car].stamp = figures.stamp;
+    return answer;
 }
 
 void main()
@@ -89,7 +94,13 @@ void main()
 
     if (figures.mode == ModeFound)
     {
-        answerTheFound(at);
+        if (at < foundMore) foundAnswered[foundCars[at]] = answerOf(readersHoldOf[foundCars[at]]);
+        return;
+    }
+
+    if (figures.mode == ModeFoundWalkers)
+    {
+        if (at < walkersFoundMore) walkersFoundAnswered[foundWalkers[at]] = answerOf(readersWalkHoldOf[foundWalkers[at]]);
         return;
     }
 

@@ -936,8 +936,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     int[] _underAHand = [];
 
     /// <remarks>
-    /// <b>Where a device names the cars the town decides</b> (<see cref="ITownDevice.NamesTheCars"/>), the walkers whose turn it
-    /// is are taken by their turn and the cars from those named — never the cars the device finds the decisions of.
+    /// <b>Where a device names the cars the town decides</b> (<see cref="ITownDevice.NamesTheCars"/>), the walkers and the cars
+    /// are taken from those it names — never one the device finds the decision of.
     /// </remarks>
     public void DecideTheAgents(long tick, TickGroups decisions)
     {
@@ -948,10 +948,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             return;
         }
 
-        var firstCar = Roster.AgentOfCar(0);
-        for (var person = decisions.FirstTurnOn(tick); person < firstCar; person += decisions.Groups)
+        foreach (var person in device.WalkersTheTownDecides(this))
         {
-            if (!IsTerminal(person)) DecideAgent(person, decisions.IntervalS);
+            if (decisions.Turn(tick, person) && !IsTerminal(person)) DecideAgent(person, decisions.IntervalS);
         }
 
         foreach (var car in device.CarsTheTownDecides(this))
@@ -1030,7 +1029,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
                 throw new InvalidOperationException($"Agent {agent} decided on tick {_agentsTick}, off the town's own clock of the decisions.");
             }
 
-            if (Roster.IsCar(agent) && device.DecidesItself(Roster.CarIndex(agent))) return;
+            if (Roster.IsCar(agent) ? device.DecidesItself(Roster.CarIndex(agent)) : device.WalkerDecidesItself(agent)) return;
 
             if (_decisionsPutOff.Length < AgentCount) _decisionsPutOff = new int[AgentCount];
 
@@ -1178,6 +1177,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             DecideDriver(car, sinceLastDecisionS);
             return;
         }
+
+        WalkerDecisionsTaken++;
 
         // What the whole decision comes to where it is its leg's clock alone — run on the device, or here.
         if (Device?.WalkerDecidedOnTheDevice(agent) == true)

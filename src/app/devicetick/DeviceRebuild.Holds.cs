@@ -28,7 +28,7 @@ internal sealed partial class DeviceRebuild
     [StructLayout(LayoutKind.Sequential)]
     readonly record struct HoldsAskedPush(uint Count, uint CarStamp, uint WalkerStamp, uint Stamp, uint Mode)
     {
-        public const uint Asked = 0u, Found = 1u;
+        public const uint Asked = 0u, Found = 1u, FoundWalkers = 2u;
     }
 
     /// <summary>Whose decision an ask waits on (<c>readers_holds_out.comp</c>'s): none, or a car's or a walker's, by index.</summary>
@@ -49,6 +49,9 @@ internal sealed partial class DeviceRebuild
     /// host's memory (<see cref="DeviceCarTick.FindsTheDecisionsDue"/>).
     /// </summary>
     GpuBuffer _readersHoldOf = null!, _foundAnswered = null!;
+
+    /// <summary>The same of the walkers (<see cref="DeviceWalkers.FindsTheDecisionsDue"/>): each one's hold number as the readers' layer numbers it, and what came of each one found.</summary>
+    GpuBuffer _readersWalkHoldOf = null!, _foundWalkerAnswered = null!;
 
     Bound _holdsAskedKernel;
     int _holdsAskedCount;
@@ -79,17 +82,21 @@ internal sealed partial class DeviceRebuild
         _holdsAnswered = Own(_vk.CreateBuffer(Bytes<HoldAnswered>(room), BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
         _readersHoldOf = Device<int>(_cars);
         _foundAnswered = Own(_vk.CreateBuffer(Bytes<HoldAnswered>(_cars), BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
+        _readersWalkHoldOf = Device<int>(_walkersRoom);
+        _foundWalkerAnswered = Own(_vk.CreateBuffer(Bytes<HoldAnswered>(_walkersRoom), BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
 
         // An ask the kernel leaves unanswered keeps whatever the memory held, so it begins at a stamp no submit writes.
         _holdsAnswered.Span<HoldAnswered>().Clear();
         _foundAnswered.Span<HoldAnswered>().Clear();
+        _foundWalkerAnswered.Span<HoldAnswered>().Clear();
         var verdicts = _walkers.Keeps ? _walkers.Verdicts : Device<uint>(1);
         var (foundCounts, foundMore) = cars.FoundTables;
+        var (walkersFoundCounts, walkersFoundMore) = _walkers.Keeps ? _walkers.FoundTables : (Device<uint>(2), Device<uint>(1));
         _holdsAskedKernel = Bound.Of<HoldsAskedPush>(
             _vk, "readers_holds_out.comp",
             [
                 _holdsAsked, _readersHoldsOut, _readersHoldCutters, cars.DecidedAt, verdicts, _holdsAnswered, foundCounts, foundMore,
-                _readersHoldOf, _foundAnswered,
+                _readersHoldOf, _foundAnswered, walkersFoundCounts, walkersFoundMore, _readersWalkHoldOf, _foundWalkerAnswered,
             ]);
     }
 
@@ -129,14 +136,44 @@ internal sealed partial class DeviceRebuild
     /// Whether the hold of each car the tick found more than its clock without the host naming it is handed back too
     /// (<see cref="DeviceCarTick.FindsTheDecisionsDue"/>), where <see cref="MirrorTheFoundHolds"/> reads it.
     /// </param>
-    public void RecordTheHoldsAsked(CommandBuffer commands, uint carStamp, uint walkerStamp, bool ofTheFound)
+    /// <param name="ofTheFoundWalkers">And of each walker found so (<see cref="DeviceWalkers.FindsTheDecisionsDue"/>), where <see cref="MirrorTheFoundWalkerHolds"/> reads it.</param>
+    public void RecordTheHoldsAsked(CommandBuffer commands, uint carStamp, uint walkerStamp, bool ofTheFound, bool ofTheFoundWalkers)
     {
-        if (_holdsAskedCount == 0 && !ofTheFound) return;
+        if (_holdsAskedCount == 0 && !ofTheFound && !ofTheFoundWalkers) return;
 
         _vk.AfterTheSubmitsBefore(commands);
         var push = new HoldsAskedPush((uint)_holdsAskedCount, carStamp, walkerStamp, ++_holdsStamp, HoldsAskedPush.Asked);
         if (_holdsAskedCount > 0) _holdsAskedKernel.Dispatch(commands, _holdsAskedCount, push);
         if (ofTheFound) _holdsAskedKernel.Dispatch(commands, _cars, push with { Count = (uint)_cars, Mode = HoldsAskedPush.Found });
+        if (ofTheFoundWalkers)
+        {
+            _holdsAskedKernel.Dispatch(
+                commands, _walkersRoom, push with { Count = (uint)_walkersRoom, Mode = HoldsAskedPush.FoundWalkers });
+        }
+    }
+
+    /// <summary>
+    /// <b>The hold of each walker the decisions found more than its clock written into the readers' layer</b>, as
+    /// <see cref="MirrorTheFoundHolds"/> writes a car's.
+    /// </summary>
+    /// <param name="checks">Whether to throw where the device numbers a walker's hold other than the town does.</param>
+    public void MirrorTheFoundWalkerHolds(TownWorld town, ReadOnlySpan<int> found, bool checks)
+    {
+        var answers = _foundWalkerAnswered.Span<HoldAnswered>();
+        foreach (var person in found)
+        {
+            ref readonly var said = ref answers[person];
+            if (said.Stamp != _holdsStamp) throw new InvalidOperationException($"Walker {person}'s hold was found and never handed back.");
+
+            var hold = said.Hold == FoundNoHold ? LaneOccupancy.NoHold : (int)said.Hold;
+            if (checks && hold != town.WalkHold(person, landing: false))
+            {
+                throw new InvalidOperationException(
+                    $"Walker {person}'s hold is {town.WalkHold(person, landing: false)} in the town and {hold} as the device numbers it.");
+            }
+
+            if (hold != LaneOccupancy.NoHold) MirrorTheHold(town.ReadersOccupancy, hold, said.Held, said.Cutter);
+        }
     }
 
     /// <summary>

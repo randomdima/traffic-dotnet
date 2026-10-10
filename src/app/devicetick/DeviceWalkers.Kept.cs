@@ -94,6 +94,9 @@ internal sealed partial class DeviceWalkers
     /// <summary>Every kept walker's row as the stages leave it, for a kernel that reads it in place.</summary>
     public GpuBuffer KeptTable => _keptTable;
 
+    /// <summary>Every walker's hold as the last rebuild numbered it, or −1 (<c>walkers_kept_out.comp</c>), to be copied with its layer.</summary>
+    public GpuBuffer KeptHolds => _keptHolds;
+
     /// <summary>How many walkers the town changed since the last rebuild, written over the kept table by this one.</summary>
     public int KeptPatched => _keptPatchCount;
 
@@ -132,7 +135,7 @@ internal sealed partial class DeviceWalkers
         _keptMarked = Own(_vk.CreateBuffer(Bytes<uint>(2 * Words), BufferUsageFlags.StorageBufferBit, HostAccess.Writes));
         _keptHanded = Own(_vk.CreateBuffer(Bytes<HandedRow>(_walkers), BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
         _keptLeft = Own(_vk.CreateBuffer(Bytes<uint>(_walkers), BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
-        _keptHolds = Own(_vk.CreateBuffer(Bytes<int>(_walkers), BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
+        _keptHolds = Own(_vk.CreateBuffer(Bytes<int>(_walkers), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferSrcBit, HostAccess.Reads));
         _keptNamed = Own(_vk.CreateBuffer(Bytes<uint>(_walkers), BufferUsageFlags.StorageBufferBit, HostAccess.Writes));
         _keptNamedBack = Own(_vk.CreateBuffer(Bytes<HandedRow>(_walkers), BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
         _keptGather = new ComputeKernel(_vk, "walkers_kept_gather.comp", 3, sizeof(uint));
@@ -510,8 +513,9 @@ internal sealed partial class DeviceWalkers
             restartsTheWalk: !ranOn);
         if (ranOn) town.WalkClocks.Take(person, clock.SinceS, clock.ClosestM);
 
-        // What the town took up of it may be more than the device is known to hold, laid again with the next laying.
-        town.TouchTheWalker(person);
+        // What the town took up of it may be more than the device is known to hold, laid again with the next laying; its tick
+        // reads only its aim and walk, known here.
+        ticked.LayAgainWithTheClaims(person);
         ticked.KnowTheAim(person, made.DestinationM, known.Is(WalkerRow.Walking));
         if (!_left[person]) return;
 

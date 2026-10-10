@@ -97,6 +97,47 @@ public class DeviceTownDecidesTests(Lavapipe device) : IClassFixture<Lavapipe>
     }
 
     /// <summary>
+    /// <b>A walker whose decision the device finds itself, touched by the town before the device found the turn it owes, is
+    /// decided on that turn once</b> (<see cref="DeviceTown.WalkerDecidesItself"/>), as a car is — against a town that
+    /// decides every walker itself, and as many decisions taken.
+    /// </summary>
+    [Fact]
+    public void AWalkerTouchedOnItsTurnIsDecidedOnItOnce()
+    {
+        var config = SimConfig.Shipped();
+        using var itself = new TownWorld(Towns.Built, config);
+        using var onTheDevice = new TownWorld(Towns.Built, config);
+        var itselfLoop = new SimLoop<TownWorld>(itself, config);
+        var deviceLoop = new SimLoop<TownWorld>(onTheDevice, config);
+        var warm = (int)(config.Building.DwellMaxS * config.Sim.TickRateHz) + 120;
+        itselfLoop.Advance(warm);
+        deviceLoop.Advance(warm);
+        using var itselfDevice = new DeviceTown(device.Vk, config, itself) { DecidesTheWalkers = false };
+        using var decidingDevice = new DeviceTown(device.Vk, config, onTheDevice);
+        itself.Device = itselfDevice;
+        onTheDevice.Device = decidingDevice;
+
+        var (itselfFrom, deviceFrom) = (itself.WalkerDecisionsTaken, onTheDevice.WalkerDecisionsTaken);
+        var unlike = new List<string>();
+        var mostDeciding = 0;
+        for (var tick = 0; tick < Ticks && unlike.Count == 0; tick++)
+        {
+            itselfLoop.Advance();
+            deviceLoop.Advance();
+            mostDeciding = Math.Max(mostDeciding, decidingDevice.WalkersDecidingThemselves);
+            TownsInStep.Compare(itself, onTheDevice, tick, unlike);
+            if (tick % 3 != 0) continue;
+
+            for (var person = tick % 5; person < onTheDevice.People.Count; person += 5) onTheDevice.TouchTheWalker(person);
+        }
+
+        itself.Device = onTheDevice.Device = null;
+        Assert.True(decidingDevice.WalkerDecisionsFound > 0, $"no walker's decision was found on the device, at most {mostDeciding} finding theirs");
+        Assert.True(unlike.Count == 0, $"{unlike.Count} agents differ: {string.Join("; ", unlike.Take(6))}");
+        Assert.Equal(itself.WalkerDecisionsTaken - itselfFrom, onTheDevice.WalkerDecisionsTaken - deviceFrom);
+    }
+
+    /// <summary>
     /// <b>Every tick, every car and walker stands, moves and faces to the bit as in the town that decides every walker
     /// itself, and holds the same hold</b> — over a run in which the device decided walkers.
     /// </summary>

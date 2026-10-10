@@ -214,9 +214,6 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   last laying, each lays what it laid then. The one figure of such a car the town reads off its own copy is its hold
   number (`PlanHold`), after a take-back and for a decision it lists. Closes with the hold number handed back with the
   car, and a laying that asks only the cars set since the last.
-- **The walkers' decisions are still walked by their turn** (`TownWorld.DecideTheAgents`): a sixth of the walkers a tick
-  put off and named to the device (`DeviceTown.LayTheWalkerDecisions`), as the cars were before the device found theirs.
-  Closes with the walkers' decisions found on the device as the cars' are.
 
 ### Walkers
 

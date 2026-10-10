@@ -5,6 +5,10 @@
 // walker named in the list due: each one's verdict where the host reads it, its clock run where that is the whole of its
 // decision, and where it is not, its clock as it stood written into the host's memory — everything else of it the town
 // holds as the kept table does, or the town decides it whole (DecideByTheTown).
+//
+// Past the list, one thread a walker of the table (findCount): every walker whose decision the device finds itself
+// (decidesItself) and whose turn it was, the host naming none — those more than their clock named in a list where it
+// reads them.
 
 layout(local_size_x = 64) in;
 
@@ -24,6 +28,13 @@ struct WalkerDecideFigures
     float sinceLastDecisionS;
     float lostOffM;
     uint checks;
+
+    // The walkers whose decisions are found past the list, their decisions' tick modulo their groups and the groups
+    // (TickGroups), and whether every one found is the town's whatever the device finds.
+    uint findCount;
+    uint dueTick;
+    uint groups;
+    uint foundByTheTown;
     uint pad0;
     uint pad1;
     uint pad2;
@@ -58,13 +69,36 @@ layout(std430, binding = 29) writeonly buffer DecideOut { WalkerClockOut decideO
 // And its kept row, for the town to take up where it left the walker on the device (DeviceWalkers.LeftOnTheDevice).
 layout(std430, binding = 30) writeonly buffer DecideRows { WalkerOut decideRows[]; };
 
+// Which walkers' decisions the device finds itself, a bit a walker (app/devicetick/DeviceWalkers.DecidesItself); how many
+// of those due it found more than their clock and how many its clock alone; and the first, in the host's memory.
+layout(std430, binding = 31) readonly buffer DecidesItself { uint decidesItself[]; };
+layout(std430, binding = 32) buffer FoundCounts { uint foundMore; uint foundClockAlone; };
+layout(std430, binding = 33) writeonly buffer FoundMore { uint foundWalkers[]; };
+
+bool decideOne(uint walker, bool byTheTown);
+
 void main()
 {
-    if (gl_GlobalInvocationID.x >= DECIDE.count) return;
+    uint at = gl_GlobalInvocationID.x;
+    if (at < DECIDE.count)
+    {
+        uint entry = decideList[at];
+        decideOne(entry & ~DecideByTheTown, (entry & DecideByTheTown) != 0u);
+        return;
+    }
 
-    uint entry = decideList[gl_GlobalInvocationID.x];
-    uint walker = entry & ~DecideByTheTown;
-    bool byTheTown = (entry & DecideByTheTown) != 0u;
+    // TickGroups.Turn, of the walker's agent: walkers come first in the roster.
+    uint walker = at - DECIDE.count;
+    if (walker >= DECIDE.findCount || (decidesItself[walker >> 5u] & (1u << (walker & 31u))) == 0u) return;
+    if (DECIDE.groups > 1u && (DECIDE.dueTick + walker) % DECIDE.groups != 0u) return;
+
+    if (decideOne(walker, DECIDE.foundByTheTown != 0u)) foundWalkers[atomicAdd(foundMore, 1u)] = walker;
+    else atomicAdd(foundClockAlone, 1u);
+}
+
+// One walker's decision put off, and whether it was more than its clock.
+bool decideOne(uint walker, bool byTheTown)
+{
     WalkerRow row = walkers[walker];
     WalkerClock clock = clocks[walker];
 
@@ -82,4 +116,6 @@ void main()
         decideOut[walker] = WalkerClockOut(asked.sinceS, asked.closestM, DECIDE.stamp, asked.routeTakenAt);
         decideRows[walker] = walkerOutOf(row, walker);
     }
+
+    return more;
 }
