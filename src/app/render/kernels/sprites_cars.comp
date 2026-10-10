@@ -5,7 +5,8 @@
 // thread a car: the host lays every car as it holds it, and one the tick still holds as it left it (CarFromTheDevice,
 // app/devicetick/DeviceCarTick.Takes) takes over the town's older copy what its tick wrote — where it is on its line and
 // how fast along it, its command, the junction ahead and how far aside its context steps, its pass, and how far its line
-// bends ahead of it (lamps_turn.glsl), read off the tick's own line.
+// bends ahead of it (lamps_turn.glsl), read off the tick's own line. A car whose pose the bodies' step left in the tyre
+// table (CarPoseFromTheDevice) takes that pose, facing as the host turns its heading into a direction.
 
 layout(local_size_x = 64) in;
 
@@ -38,11 +39,23 @@ layout(std430, binding = 2) readonly buffer Commands { TyreCommand commands[]; }
 layout(std430, binding = 3) readonly buffer Briefs { CarBriefRow briefs[]; };
 layout(std430, binding = 4) readonly buffer Passes { OvertakeRow passes[]; };
 layout(std430, binding = 5) readonly buffer Lines { CarLineRow lines[]; };
+layout(std430, binding = 7) readonly buffer Poses { TyrePose poses[]; };
 
 void main()
 {
     uint car = gl_GlobalInvocationID.x;
-    if (car >= figures.carCount || (cars[car].flags & CarFromTheDevice) == 0u) return;
+    if (car >= figures.carCount) return;
+
+    uint laid = cars[car].flags;
+    if ((laid & CarPoseFromTheDevice) != 0u)
+    {
+        TyrePose pose = poses[car];
+        cars[car].positionM = pose.positionM;
+        cars[car].headingRad = pose.headingRad;
+        cars[car].forward = trigUnit(pose.headingRad);
+    }
+
+    if ((laid & CarFromTheDevice) == 0u) return;
 
     CarTickRow tick = ticks[car];
     TyreCommand command = commands[car];

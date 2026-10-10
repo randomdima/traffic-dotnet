@@ -46,7 +46,7 @@ internal sealed partial class Game
     {
         if (!_movingOnTheDevice || _deviceTown is not { } town) return;
 
-        _deviceSprites = DeviceSprites.For(_vk, _config, world, _looks!, room, town.CarTick);
+        _deviceSprites = DeviceSprites.For(_vk, _config, world, _looks!, room, town);
         _renderer.DrawTheMovingFrom(_deviceSprites.Instances, _deviceSprites.Draws, _deviceSprites.AboveFrom);
     }
 

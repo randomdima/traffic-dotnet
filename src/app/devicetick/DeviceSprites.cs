@@ -11,6 +11,7 @@ using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Runtime;
+using TrafficSimulation.World.Physics;
 using TrafficSimulation.World.Town;
 using Vk = TrafficSimulation.Runtime.Vk;
 using static TrafficSimulation.Runtime.GpuBuffer;
@@ -35,9 +36,11 @@ namespace TrafficSimulation.App.DeviceTick;
 /// </para>
 /// <para>
 /// <b>The host lays every unit's row from its own fleets</b> each frame, with how far a car's line bends ahead of it
-/// (<see cref="CarLamps.TurnAheadRad"/>) in place of the line. <b>Bound to a car tick</b>, a car the tick still holds as
-/// it left it (<see cref="DeviceCarTick.Takes"/>) takes what that tick wrote over the town's copy
-/// (<c>sprites_cars.comp</c>) — so the town need not read every car back for the frame drawn after a tick. What looks are,
+/// (<see cref="CarLamps.TurnAheadRad"/>) in place of the line. <b>Bound to a device town</b>, a car the car tick still
+/// holds as it left it (<see cref="DeviceCarTick.Takes"/>) takes what that tick wrote over the town's copy
+/// (<c>sprites_cars.comp</c>), and a car and a walker take where the bodies' step left them off the tyre table and the
+/// walker table (<c>sprites_walkers.comp</c>) wherever the town has put neither down since — so the town need not read
+/// them back for the frame drawn after a tick. What looks are,
 /// where the lenses are, the heads and the lights' tables are laid once. The view, the clock and the live rosters are a
 /// frame block in a buffer rather than push constants, because the frame that will carry this pass is recorded once
 /// (<see cref="CameraView"/>).
@@ -52,6 +55,9 @@ internal sealed class DeviceSprites : IDisposable
         public const uint Inside = 1u;
         public const uint Down = 2u;
         public const uint Walking = 4u;
+
+        /// <summary>The walker table holds it as the town has it, and its pose is read off that (<c>sprites_walkers.comp</c>).</summary>
+        public const uint PoseFromTheDevice = 8u;
     }
 
     /// <summary>
@@ -76,6 +82,9 @@ internal sealed class DeviceSprites : IDisposable
 
         /// <summary>The car tick holds it as it left it, and what that tick wrote is laid over the town's (<c>sprites_cars.comp</c>).</summary>
         public const uint FromTheDevice = 512u;
+
+        /// <summary>Its pose is the one the bodies' step left in the tyre table, laid over the town's (<c>sprites_cars.comp</c>).</summary>
+        public const uint PoseFromTheDevice = 1024u;
 
         public const int LevelShift = 16;
     }
@@ -209,6 +218,12 @@ internal sealed class DeviceSprites : IDisposable
     readonly DescriptorSet _laySet;
     readonly int _arcsPerCar;
 
+    /// <summary>The device town whose step left the poses a car and a walker are drawn at, its walker tick, and the kernel laying walkers.</summary>
+    readonly DeviceTown? _town;
+
+    readonly ComputeKernel? _layWalkers;
+    readonly DescriptorSet _layWalkersSet;
+
     int _peopleLaid;
     int _carsLaid;
     int _handsLaid;
@@ -218,11 +233,15 @@ internal sealed class DeviceSprites : IDisposable
     /// <param name="personCapacity">The walkers' roster's room.</param>
     /// <param name="signals">The lights' own tables (<see cref="SignalService.Table"/>), which the heads' colours are read off.</param>
     /// <param name="levelled">Whether the town has a level above its ground (<see cref="TownWorld.Levelled"/>).</param>
-    /// <param name="ticked">The car tick a car it still holds is drawn off (<see cref="DeviceCarTick.Drawn"/>), or none: every car as the town holds it.</param>
+    /// <param name="town">
+    /// The device town whose car tick a car it still holds is drawn off (<see cref="DeviceCarTick.Drawn"/>), and whose bodies'
+    /// step a car and a walker are drawn where it left them — or none: every car and walker as the town holds it.
+    /// </param>
     public DeviceSprites(
         Vk vk, SimConfig config, TownSprites looks, SpriteRoom room, CarFleet cars, int personCapacity, SignalHeads heads,
-        SignalTable signals, bool levelled, DeviceCarTick? ticked = null)
+        SignalTable signals, bool levelled, DeviceTown? town = null)
     {
+        var ticked = town?.CarTick;
         if (!vk.HasFloat64) throw new NotSupportedException($"{vk.DeviceName} has no doubles in its kernels, and a walker's cell is rounded in them.");
 
         _vk = vk;
@@ -275,8 +294,16 @@ internal sealed class DeviceSprites : IDisposable
         _writeSet = _write.Bind(set);
         if (ticked?.Drawn is { } drawn)
         {
-            _lay = new ComputeKernel(vk, "sprites_cars.comp", 7, (uint)Marshal.SizeOf<LayPush>());
-            _laySet = _lay.Bind([_cars, drawn.Ticks, drawn.Commands, drawn.Briefs, drawn.Passes, drawn.Lines, drawn.Arcs]);
+            _lay = new ComputeKernel(vk, "sprites_cars.comp", 8, (uint)Marshal.SizeOf<LayPush>());
+            _laySet = _lay.Bind(
+                [_cars, drawn.Ticks, drawn.Commands, drawn.Briefs, drawn.Passes, drawn.Lines, drawn.Arcs, ticked.Tyres.Table.Poses.Device]);
+        }
+
+        if (town != null)
+        {
+            _town = town;
+            _layWalkers = new ComputeKernel(vk, "sprites_walkers.comp", 2, sizeof(uint));
+            _layWalkersSet = _layWalkers.Bind([_people, town.Walkers.Table]);
         }
 
         _batch = new ComputeBatch(vk);
@@ -285,10 +312,10 @@ internal sealed class DeviceSprites : IDisposable
 
     /// <summary>
     /// The emit for a running town: its fleets' room, its heads and lights, and whether it has a level above — and the
-    /// car tick a car it still holds is drawn off, where the device ticks the town.
+    /// device town whose tables what moves is drawn off, where the device ticks the town.
     /// </summary>
-    public static DeviceSprites For(Vk vk, SimConfig config, TownWorld world, TownSprites looks, SpriteRoom room, DeviceCarTick? ticked = null) =>
-        new(vk, config, looks, room, world.Cars, world.People.Capacity, world.Heads, world.Signals.Table, world.Levelled, ticked);
+    public static DeviceSprites For(Vk vk, SimConfig config, TownWorld world, TownSprites looks, SpriteRoom room, DeviceTown? town = null) =>
+        new(vk, config, looks, room, world.Cars, world.People.Capacity, world.Heads, world.Signals.Table, world.Levelled, town);
 
     /// <summary>
     /// The two runs as the last emit wrote them, on the device — the over run from the first instance and the run above
@@ -318,11 +345,17 @@ internal sealed class DeviceSprites : IDisposable
     /// <summary>The device's time between two stages of the last emit, in milliseconds.</summary>
     public double BetweenMs(Stage from, Stage to) => _timer.BetweenMs((int)from, (int)to);
 
-    /// <summary>A running town's walkers and cars laid as its frame will read them.</summary>
+    /// <summary>
+    /// A running town's walkers and cars laid as its frame will read them — where bound to a device town, a car at the pose
+    /// its bodies' step left in the tyre table where the town has stepped and put it down nowhere since
+    /// (<see cref="DeviceTownBodies.PosesLeftInTheTable"/>), and a walker at where the walker table holds it where that is
+    /// known to be as the town has it (<see cref="DeviceWalkerTick.HoldsTheBodyOf"/>).
+    /// </summary>
     public void Lay(TownWorld world)
     {
         LayPeople(world.People);
-        LayCars(world.Cars, world.Recovery, world.HandDriven, world.HandDrivenCar);
+        var posedBy = _lay != null && _town != null && _town.Bodies.PosesLeftInTheTable(world) ? world.PhysicsForTheDevice : null;
+        LayCars(world.Cars, world.Recovery, world.HandDriven, world.HandDrivenCar, posedBy);
     }
 
     /// <summary>Every walker of the roster as the emit reads it.</summary>
@@ -331,10 +364,13 @@ internal sealed class DeviceSprites : IDisposable
         // The last frame's emit may still be copying out of the rows laid for it.
         _batch.Wait();
         var rows = _peopleIn.Span<PersonRow>();
+        var walkers = _town?.Walkers;
         for (var person = 0; person < people.Count; person++)
         {
-            var flags = (people.Inside[person].Any ? PersonRow.Inside : 0u) | (people.Wounded[person] ? PersonRow.Down : 0u)
-                        | (people.Walking[person] ? PersonRow.Walking : 0u);
+            var inside = people.Inside[person].Any;
+            var flags = (inside ? PersonRow.Inside : 0u) | (people.Wounded[person] ? PersonRow.Down : 0u)
+                        | (people.Walking[person] ? PersonRow.Walking : 0u)
+                        | (!inside && walkers != null && walkers.HoldsTheBodyOf(people, person) ? PersonRow.PoseFromTheDevice : 0u);
             rows[person] = new PersonRow(
                 people.PositionM[person], people.HeadingRad[person], people.DistanceWalkedM[person], people.Variant[person], flags);
         }
@@ -346,7 +382,12 @@ internal sealed class DeviceSprites : IDisposable
     /// Every car of the fleet as the emit reads it, and the hands at the wheel — but where the car tick bound here still
     /// holds a car (<see cref="DeviceCarTick.Takes"/>), what its tick wrote, which the emit lays over the town's copy.
     /// </summary>
-    public void LayCars(CarFleet cars, RecoveryDuty recovery, ReadOnlySpan<Selection> handDriven, int alsoDrivenCar)
+    /// <param name="posedBy">
+    /// The table of a town whose bodies' step left every car's pose in the tyre table, where each car the town has not put
+    /// down since is drawn at that pose — or none.
+    /// </param>
+    public void LayCars(
+        CarFleet cars, RecoveryDuty recovery, ReadOnlySpan<Selection> handDriven, int alsoDrivenCar, PhysicsWorld? posedBy = null)
     {
         _batch.Wait();
         var rows = _carsIn.Span<CarRow>();
@@ -354,6 +395,7 @@ internal sealed class DeviceSprites : IDisposable
         for (var car = 0; car < cars.Count; car++)
         {
             var fromTheDevice = _ticked?.Takes(car) ?? false;
+            var poseFromTheDevice = posedBy != null && (posedBy.ChangeOf(cars.Body[car].Index) & RowChange.Pose) == 0;
             var pass = cars.Pass[car];
             var command = cars.Command[car];
             var flags = (cars.Broken[car] ? CarRow.Broken : 0u) | (cars.Driven[car] ? CarRow.Driven : 0u)
@@ -361,7 +403,7 @@ internal sealed class DeviceSprites : IDisposable
                         | (cars.AtWork[car] ? CarRow.AtWork : 0u) | (cars.TurningAtTheBox[car] ? CarRow.TurningAtTheBox : 0u)
                         | (cars.LineIsReverse[car] ? CarRow.LineIsReverse : 0u) | (pass.Begun ? CarRow.PassBegun : 0u)
                         | (recovery.HeldByTheTail[car] ? CarRow.HeldByTheTail : 0u) | (fromTheDevice ? CarRow.FromTheDevice : 0u)
-                        | ((uint)cars.LevelOf(car) << CarRow.LevelShift);
+                        | (poseFromTheDevice ? CarRow.PoseFromTheDevice : 0u) | ((uint)cars.LevelOf(car) << CarRow.LevelShift);
             var turnAheadRad = fromTheDevice ? 0f : CarLamps.TurnAheadRad(cars.LineOf(car), cars.ProgressM[car], aheadM);
             rows[car] = new CarRow(
                 cars.PositionM[car], Heading.Unit(cars.HeadingRad[car]), cars.HeadingRad[car], command.SteerRad, command.BrakeMps2,
@@ -445,8 +487,10 @@ internal sealed class DeviceSprites : IDisposable
         {
             var push = new LayPush((uint)_carsLaid, (uint)_arcsPerCar, _config.Lamps.TurnAheadM);
             lay.Dispatch(commands, _laySet, (uint)Math.Max(1, (_carsLaid + Group - 1) / Group), push);
-            vk.BetweenKernels(commands);
         }
+
+        _layWalkers?.Dispatch(commands, _layWalkersSet, (uint)Math.Max(1, (_peopleLaid + Group - 1) / Group), (uint)_peopleLaid);
+        if (_lay != null || _layWalkers != null) vk.BetweenKernels(commands);
 
         _timer.Stamp(commands, (int)Stage.Laid);
         var groups = (uint)Math.Max(1, (_units + Group - 1) / Group);
@@ -656,6 +700,7 @@ internal sealed class DeviceSprites : IDisposable
         _count.Dispose();
         _write.Dispose();
         _lay?.Dispose();
+        _layWalkers?.Dispose();
         _scans.Dispose();
         foreach (var buffer in _owned) buffer.Dispose();
     }

@@ -3,6 +3,19 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md); how a type
 works is its own XML docs.
 
+## 2026-10-10 — what moves is drawn where the bodies' step left it, off the device's own tables
+
+**Bound to a device town, the emit takes every car's and every walker's pose off the device**. A car's comes from the
+tyre table the bodies' step mirrors into (`sprites_cars.comp`), facing as the host turns its heading into a direction.
+A walker's comes from the walker tick's table (`sprites_walkers.comp`): where it stands, which way it faces, how far it
+has walked. The host's copy stands only where it is newer. That is a car the town put down since the step
+(`RowChange.Pose`), every car before the device's first step or after the town stepped itself
+(`DeviceTownBodies.PosesLeftInTheTable`), and a walker the table is not known to hold as the town has it
+(`DeviceWalkerTick.HoldsTheBodyOf`). The frame then no longer needs the host to hold every pose, which a hand-back of
+only some poses requires. The host still lays every row each frame for the rest of what a sprite reads.
+`DeviceSpritesTests` holds the bound emit to the host's every tick, and it fails with either pose moved by a
+centimetre.
+
 ## 2026-10-09 — a frame draws what moves where the device emits it, off the car tick's own tables
 
 **Where the device ticks the town, the moving runs are the emit's** (`DeviceSprites.EmitForTheFrame`) and are drawn

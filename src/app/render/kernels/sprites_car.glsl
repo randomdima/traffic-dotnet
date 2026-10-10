@@ -37,6 +37,9 @@ const uint CarLineIsReverse = 64u;
 const uint CarPassBegun = 128u;
 const uint CarHeldByTheTail = 256u;
 const uint CarFromTheDevice = 512u;
+
+// Its pose is the bodies' step's, read off the tyre table (sprites_cars.comp), over the town's copy.
+const uint CarPoseFromTheDevice = 1024u;
 const uint CarLevelShift = 16u;
 
 #endif

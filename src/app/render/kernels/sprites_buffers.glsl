@@ -3,6 +3,7 @@
 // kernel enables doubles, which rounded.glsl answers its quotients in.
 
 #include "app/render/kernels/sprites_car.glsl"
+#include "app/render/kernels/sprites_person.glsl"
 
 // The frame's own words, written by the host each frame into a buffer rather than pushed, because a frame is recorded
 // once (CameraView): the view as the fill takes it, the narrowest part drawn, the town's clock and its live rosters.
@@ -120,19 +121,6 @@ struct LensRow
     uint fittingAndFirstColour;
 };
 
-// One walker this frame (DeviceSprites.PersonRow); flags: inside, down, walking.
-struct PersonRow
-{
-    vec2 positionM;
-    float headingRad;
-    float distanceWalkedM;
-    uint variant;
-    uint flags;
-};
-
-const uint PersonInside = 1u;
-const uint PersonDown = 2u;
-const uint PersonWalking = 4u;
 
 // One signal head (DeviceSprites.HeadRow), in the order its rows file it.
 struct HeadRow

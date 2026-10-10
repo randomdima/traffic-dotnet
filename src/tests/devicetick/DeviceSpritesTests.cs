@@ -136,7 +136,7 @@ public class DeviceSpritesTests(Lavapipe device) : IClassFixture<Lavapipe>
         using var town = new DeviceTown(device.Vk, Config, world);
         world.Device = town;
         var room = TownSprites.RoomFor(plan, Config);
-        using var offTheDevice = DeviceSprites.For(device.Vk, Config, world, looks, room, town.CarTick);
+        using var offTheDevice = DeviceSprites.For(device.Vk, Config, world, looks, room, town);
         using var offTheTown = DeviceSprites.For(device.Vk, Config, world, looks, room);
         var centreM = plan.WorldSizeM * 0.5f;
 
