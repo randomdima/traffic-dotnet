@@ -54,7 +54,11 @@ internal sealed class ResidentTown : IDisposable
     readonly GpuBuffer _listCounts;
     readonly ComputeKernel _lists;
     readonly DescriptorSet _listsSet;
-    readonly ComputeBatch _batch;
+
+    /// <summary>Two ticks' command buffers in turn, so one is recorded while the device runs the other.</summary>
+    readonly ComputeBatch[] _batches;
+
+    int _batchAt;
     readonly float _dtS;
     readonly int _cars, _people;
 
@@ -108,7 +112,7 @@ internal sealed class ResidentTown : IDisposable
         Owned(ListsId + (int)List.WalkersDue, Device<uint>(town.People.Capacity));
         _lists = new ComputeKernel(vk, "resident_lists.comp", 1, (uint)Marshal.SizeOf<ListsPush>());
         _listsSet = _lists.Bind([_root.Buffer]);
-        _batch = new ComputeBatch(vk);
+        _batches = [new ComputeBatch(vk), new ComputeBatch(vk)];
     }
 
     /// <summary>The root every resident kernel reaches the town's tables through.</summary>
@@ -121,14 +125,18 @@ internal sealed class ResidentTown : IDisposable
     public (int Cars, int People) Counts => (_cars, _people);
 
     /// <summary>
-    /// <b>One tick of the town</b>, recorded, submitted and waited for: the cars the car tick takes listed, their tick and
-    /// the tyres, the walkers' tick, and the bodies' step.
+    /// <b>One tick of the town</b>, recorded and submitted, and not waited for: the claims laid on their clock, the lists
+    /// written, the searches asked answered, the cars the car tick takes ticked with the tyres, the walkers' tick, and the
+    /// bodies' step. The host waits only where it would run two ticks ahead of the device (<see cref="_batches"/>).
     /// </summary>
     public void Tick()
     {
         var (_, cars, walkers, bodies, claims, _) = _laid.Parts;
         var vk = _vk;
-        var commands = _batch.Begin();
+        var batch = _batches[_batchAt];
+        _batchAt ^= 1;
+        batch.Wait();
+        var commands = batch.Begin();
         vk.AfterTheSubmitsBefore(commands);
         if (_claimsClock.Turn(_ticks, 0))
         {
@@ -157,7 +165,13 @@ internal sealed class ResidentTown : IDisposable
         walkers.RecordTheTick(commands);
         vk.BetweenKernels(commands);
         bodies.Phase.Record(commands, _cars, _people, _dtS, DeviceBodyPhase.Reads.None);
-        _batch.SubmitAndWait();
+        batch.Submit();
+    }
+
+    /// <summary>Every tick submitted finished — for whoever reads the town's tables off the device, as an instrument does.</summary>
+    public void Settle()
+    {
+        foreach (var batch in _batches) batch.Wait();
     }
 
     /// <summary>Where a list's dispatch stands in the counts, in bytes.</summary>
@@ -196,7 +210,8 @@ internal sealed class ResidentTown : IDisposable
 
     public void Dispose()
     {
-        _batch.Dispose();
+        Settle();
+        foreach (var batch in _batches) batch.Dispose();
         _lists.Dispose();
         _listCounts.Dispose();
         foreach (var table in _owned) table.Dispose();

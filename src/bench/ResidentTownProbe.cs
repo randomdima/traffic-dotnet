@@ -47,7 +47,9 @@ internal static class ResidentTownProbe
         var carsBefore = Read<DeviceTyres.PoseRow>(vk, resident.Root[TownRows.CarsPoses]!, cars);
         var peopleBefore = Read<DeviceWalkerTick.WalkerRow>(vk, resident.Root[TownRows.PeopleTable]!, people);
 
+        // The host's own time a tick, and the whole run's wall clock with the device finished, which is the tick's rate.
         var tickMs = new double[Measured];
+        var ranFrom = Stopwatch.GetTimestamp();
         for (var tick = 0; tick < Measured; tick++)
         {
             var began = Stopwatch.GetTimestamp();
@@ -55,6 +57,8 @@ internal static class ResidentTownProbe
             tickMs[tick] = Stopwatch.GetElapsedTime(began).TotalMilliseconds;
         }
 
+        resident.Settle();
+        var wallMs = Stopwatch.GetElapsedTime(ranFrom).TotalMilliseconds / Measured;
         var carsAfter = Read<DeviceTyres.PoseRow>(vk, resident.Root[TownRows.CarsPoses]!, cars);
         var peopleAfter = Read<DeviceWalkerTick.WalkerRow>(vk, resident.Root[TownRows.PeopleTable]!, people);
         var (carsMoved, carsLost) = (0, 0);
@@ -87,7 +91,9 @@ internal static class ResidentTownProbe
 
         Array.Sort(tickMs);
         Console.WriteLine($"resident town probe — {map} on {vk.DeviceName}, {cars} cars and {people} people, warmed {Warm} ticks on the host");
-        Console.WriteLine($"  handed over in {handedMs:F0} ms; {Measured} ticks resident: median {tickMs[Measured / 2]:F2} ms, p90 {tickMs[Measured * 9 / 10]:F2}, worst {tickMs[^1]:F2}");
+        Console.WriteLine(
+            $"  handed over in {handedMs:F0} ms; {Measured} ticks resident at {wallMs:F2} ms a tick, the device finished; the host's own " +
+            $"median {tickMs[Measured / 2]:F2} ms, p90 {tickMs[Measured * 9 / 10]:F2}, worst {tickMs[^1]:F2}");
         Console.WriteLine($"  cars moved {carsMoved} of {cars}, not a number {carsLost}; walkers moved {peopleMoved} of {people}, not a number {peopleLost}");
         Console.WriteLine(
             $"  at the end: {drivenCount} cars driven, {taken} taken by the car tick; by action " +
