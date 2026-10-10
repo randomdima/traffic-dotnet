@@ -41,6 +41,10 @@ internal sealed class BayStreets
 
     public int BayCount => _lane.Length / MostLanes;
 
+    /// <summary>Every table of the bays' streets, for the device to lay once at load (<c>app/devicetick/TownState</c>).</summary>
+    internal (int[] Lane, float[] AtLaneM, int[] FirstBayOfLane, int[] BaysOffLane, int[] BayOnLane) Kept =>
+        (_lane, _atLaneM, _firstBayOfLane, _baysOffLane, _bayOnLane);
+
     /// <summary>The street lanes this bay is worked off — one on a street driven one way, two on one driven both.</summary>
     public ReadOnlySpan<int> LanesOf(int bay)
     {

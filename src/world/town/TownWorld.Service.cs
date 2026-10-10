@@ -60,6 +60,9 @@ internal sealed partial class TownWorld
 
     int _apronStride;
 
+    /// <summary>Every apron's and yard's bays and the run each entry takes, for the device to lay once at load.</summary>
+    internal (int[] Bays, int Stride) Aprons => (_apronBays, _apronStride);
+
     /// <summary>Where the depots' runs begin, which is after every hospital's and every station's.</summary>
     int TheFirstYard => Hospitals.Count + PoliceStations.Count;
 

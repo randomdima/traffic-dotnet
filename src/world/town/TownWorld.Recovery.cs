@@ -74,6 +74,9 @@ internal sealed partial class TownWorld
     /// <summary>And how many are on a bar this instant, which is what the coupling phase is skipped on.</summary>
     int _onTheBar;
 
+    /// <summary>The wrecks waiting, mending and on a bar, for the device to lay once at load (<c>app/devicetick/TownState</c>).</summary>
+    internal (int Waiting, int Mending, int OnTheBar) Wrecks => (_wreckCount, _mendingCount, _onTheBar);
+
     /// <summary>
     /// <b>A car stood on a depot's apron becomes one of that depot's evacuators</b> (SRV-2, EVA-2): the yard it
     /// delivers to and the bay held for it, which is where every recovery of one that does not patrol begins and

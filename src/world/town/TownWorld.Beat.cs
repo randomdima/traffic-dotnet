@@ -33,6 +33,9 @@ internal sealed partial class TownWorld
 
     int[] _districtLanes = [];
 
+    /// <summary>Each district's streets, for the device to lay once at load (<c>app/devicetick/TownState</c>).</summary>
+    internal (int[] Offsets, int[] Lanes) DistrictStreets => (_districtLaneOffsets, _districtLanes);
+
     /// <summary>How many people ride in each service vehicle: the figure, and never more than it has seats for (SRV-3).</summary>
     static int CrewAboard(SimConfig config) => Math.Min(config.Service.CrewPerVehicle, Containers.CrewSeats);
 

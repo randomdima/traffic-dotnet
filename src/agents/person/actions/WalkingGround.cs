@@ -67,6 +67,9 @@ internal sealed class WalkingGround(
     /// <summary>The straight each walker walking straight at a place committed to, and the ground under it swept once.</summary>
     readonly SweptGround _straight = new(people.Capacity, MostRunsOfAStraight);
 
+    /// <summary>The ground under each walker's straight, for the device to lay once at load (<c>app/devicetick/TownState</c>).</summary>
+    internal SweptGround StraightGround => _straight;
+
     readonly Vector2[] _straightFromM = new Vector2[people.Capacity];
 
     readonly Vector2[] _straightToM = Unset(people.Capacity);

@@ -40,6 +40,9 @@ internal sealed partial class TownWorld
     /// <summary>Which building each way in of <see cref="_doors"/> belongs to.</summary>
     readonly int[] _buildingOfDoor;
 
+    /// <summary>The ways in filed by where they stand and whose each is, for the device to lay once at load.</summary>
+    internal (BucketGrid Grid, int[] BuildingOf) Doors => (_doors, _buildingOfDoor);
+
     static int[] BuildingsOfTheDoors(CityPlan.BuildingArrays buildings)
     {
         var of = new int[buildings.EntryPointM.Length];

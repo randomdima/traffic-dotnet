@@ -114,6 +114,16 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// <summary>Which of each car's asks the claims every reader reads were laid for: kept with the layer they belong to.</summary>
     internal long[] LaidFor => _laidFor;
 
+    /// <summary>
+    /// <b>Every table this action keeps a car in</b>, for the device to lay once at load (<c>app/devicetick/TownState</c>):
+    /// a shape's held at <c>car · 2 + shape</c>, from rest first, and <see cref="MostPassedAtOnce"/> bodies passed a shape.
+    /// </summary>
+    internal (Overtake[] Shapes, SweptGround Swept, SweptGround AskedGround, LaneClaim[] Passed, int[] PassedOn,
+        int[] PassedCount, int[] Asking, float[] LooksInS, float[] WaitedS, float[] DecidesInS, bool[] Looks, long[] AskedAs,
+        float[] RoomM, int[] RoomLane) Kept =>
+        (_shapes, _swept, _asked, _passed, _passedOn, _passedCount, _asking, _looksInS, _waitedS, _decidesInS, _looks, _askedAs,
+            _roomM, _roomLane);
+
     bool LaidSinceAsked(int car) => _askedAs[car] != 0 && _laidFor[car] == _askedAs[car];
 
     /// <summary>

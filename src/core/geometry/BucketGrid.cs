@@ -89,6 +89,13 @@ internal sealed class BucketGrid
     public int Count => _count;
 
     /// <summary>
+    /// <b>The index as it stands</b>, for the device to lay once at load (<c>app/devicetick/TownState</c>): a bucket is live
+    /// only where its stamp is <c>Generation</c>.
+    /// </summary>
+    internal (int[] BucketStart, int[] BucketCount, int[] Stamp, int Generation, int[] Items, float MaxRadiusM) Kept =>
+        (_bucketStart, _bucketCount, _stamp, _generation, _items, _maxRadiusM);
+
+    /// <summary>
     /// Lay the index over the arrays as they stand. The arrays are kept by reference rather than
     /// copied — they are the roster's own, and an index that copied them would be a second truth.
     /// </summary>

@@ -63,6 +63,9 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
     /// <summary>The most ground behind it each car has asked for since the claims were last laid, which laying them reads.</summary>
     readonly float[] _askedM = new float[ground.Cars.Capacity];
 
+    /// <summary>The ground each car has asked for behind it, for the device to lay once at load (<c>app/devicetick/TownState</c>).</summary>
+    internal float[] AskedM => _askedM;
+
     /// <summary>Car-ticks spent backing up for the room to step out (CAR-50), since the town was laid.</summary>
     public long CarTicksBackingUp { get; private set; }
 

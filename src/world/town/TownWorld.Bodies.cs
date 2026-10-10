@@ -41,6 +41,9 @@ internal sealed partial class TownWorld
     /// </summary>
     readonly AgentSet _wounded, _wrecked;
 
+    /// <summary>The walkers wounded and the cars wrecked, for the device to lay once at load (<c>app/devicetick/TownState</c>).</summary>
+    internal (AgentSet Wounded, AgentSet Wrecked) Settled => (_wounded, _wrecked);
+
     readonly int[] _settling;
 
     /// <summary>

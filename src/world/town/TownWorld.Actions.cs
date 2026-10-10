@@ -46,6 +46,12 @@ internal sealed partial class TownWorld
     /// <summary>The manoeuvres, for an instrument or the debug layer; the driver's own and read by nothing else.</summary>
     public Manoeuvres Manoeuvres => _manoeuvres;
 
+    /// <summary>What each car is doing and how often it was handed over, for the device to lay once at load.</summary>
+    internal CarActions CarActions => _carActions;
+
+    /// <summary>Getting back onto the lane under it (CAR-9), for the device to lay once at load.</summary>
+    internal Rejoining Rejoining => _rejoining;
+
     bool IsManoeuvring(int car) => _carActions.IsManoeuvring(car);
 
     /// <summary>

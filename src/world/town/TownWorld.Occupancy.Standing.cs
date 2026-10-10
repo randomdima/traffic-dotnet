@@ -14,12 +14,15 @@ internal sealed partial class TownWorld
 {
     readonly StandingCars _standing;
 
+    /// <summary>What the last laying kept of the cars that stood, for the device to lay once at load (<c>app/devicetick/TownState</c>).</summary>
+    internal StandingCars StandingKept => _standing;
+
     /// <summary>
     /// <b>What a laying kept of a car that stood</b>: which freezing it was in and how many actions it had been handed by
     /// then — the two things that change when anything that decides its claims does — and, for the passes after the
     /// bodies, the cars this laying did ask.
     /// </summary>
-    sealed class StandingCars(int cars)
+    internal sealed class StandingCars(int cars)
     {
         public readonly bool[] Kept = new bool[cars];
 

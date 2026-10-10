@@ -28,6 +28,9 @@ internal sealed partial class TownWorld
 {
     readonly PlayerOrders _carOrders;
 
+    /// <summary>Every car's order, for the device to lay once at load (<c>app/devicetick/TownState</c>).</summary>
+    internal PlayerOrders CarOrders => _carOrders;
+
     /// <summary>Whether this car answers to the player rather than to a trip or an errand of its own (CTL-4).</summary>
     public bool IsUnderOrders(int car) => _carOrders.Manual[car];
 

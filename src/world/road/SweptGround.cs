@@ -75,6 +75,12 @@ internal sealed class SweptGround
     /// <summary>A holder's runs, in the order of their first stations.</summary>
     public ReadOnlySpan<SweptRun> Of(int holder) => _runs.AsSpan(holder * _mostEach, _count[holder]);
 
+    /// <summary>
+    /// <b>Every table the ground is kept in</b>, for the device to lay once at load (<c>app/devicetick/TownState</c>):
+    /// <c>MostEach</c> runs a holder, how many each holds, and the station each was last swept at.
+    /// </summary>
+    internal (SweptRun[] Runs, int[] Count, float[] StationAtM, int MostEach) Kept => (_runs, _count, _stationAtM, _mostEach);
+
     /// <summary>The same runs measured from a path that begins <paramref name="shiftM"/> further on.</summary>
     public void Shift(int holder, float shiftM)
     {

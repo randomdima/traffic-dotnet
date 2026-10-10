@@ -97,8 +97,15 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <summary>The paint each lane meets — its stop bar and the crossings across it — projected once at load.</summary>
     readonly LaneFurniture _furniture;
 
+    /// <summary>The paint each lane meets, for the device to lay once at load (<c>app/devicetick/TownState</c>).</summary>
+    internal LaneFurniture Furniture => _furniture;
+
     /// <summary>Whether each car's nose was behind its approach's painted bar last tick — the other half of a crossing event.</summary>
     readonly bool[] _behindTheBar;
+
+    /// <inheritdoc cref="_behindTheBar"/>
+    /// <remarks>For the device to lay once at load (<c>app/devicetick/TownState</c>).</remarks>
+    internal ReadOnlySpan<bool> BehindTheBar => _behindTheBar;
 
     /// <summary>A search over the road network: one entry, since a car is on the lane it is on.</summary>
     readonly RouteSearch _driveSearch;
@@ -207,6 +214,13 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     HandInput _otherHand;
 
     int _ordered;
+
+    /// <summary>
+    /// What the interface has handed the town and the town has not yet taken — the selection, both hands and the walkers'
+    /// orders — for the device to lay once at load (<c>app/devicetick/TownState</c>).
+    /// </summary>
+    internal (SelectionSet Selected, HandInput Hands, int OtherCar, HandInput OtherHand, int[] OrderedPeople, Vector2[] OrderedToM,
+        int Ordered) Commands => (_selected, _hands, _otherCar, _otherHand, _orderedPeople, _orderedToM, _ordered);
 
     /// <param name="agentSeed">
     /// The second of the two seeds: what the agents draw from, kept apart from the world seed so the

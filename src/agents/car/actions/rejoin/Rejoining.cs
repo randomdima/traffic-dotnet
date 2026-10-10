@@ -21,6 +21,9 @@ internal sealed class Rejoining(DrivingGround ground, CarActions actions, Follow
     /// <summary>How long until a car at rest off its line looks for the lane under it again.</summary>
     readonly float[] _looksInS = new float[ground.Cars.Capacity];
 
+    /// <summary>Each car's clock to its next look, for the device to lay once at load (<c>app/devicetick/TownState</c>).</summary>
+    internal float[] LooksInS => _looksInS;
+
     CarFleet Cars => ground.Cars;
 
     /// <summary>

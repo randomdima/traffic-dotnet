@@ -71,6 +71,10 @@ internal sealed class Switching(DrivingGround ground, CarActions actions, Overta
     /// <summary>Which of each car's asks the claims every reader reads were laid for: kept with the layer they belong to.</summary>
     internal long[] LaidFor => _laidFor;
 
+    /// <summary>Every table this action keeps a car in, for the device to lay once at load (<c>app/devicetick/TownState</c>).</summary>
+    internal (SweptGround Swept, SweptGround AskedGround, bool[] Inward, float[] AsideM, float[] RoomToM, float[] FromRestM,
+        float[] LooksInS, long[] AskedAs) Kept => (_swept, _asked, _inward, _asideM, _roomToM, _fromRestM, _looksInS, _askedAs);
+
     bool LaidSinceAsked(int car) => _askedAs[car] != 0 && _laidFor[car] == _askedAs[car];
 
     CarFleet Cars => ground.Cars;

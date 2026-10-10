@@ -4,15 +4,7 @@
 const uint RungSpecial = 2u;
 const uint RungFirm = 7u;
 
-// One way's section a mark links another's stretch to (CrossedSection), filed under that other way.
-struct CrossedSection
-{
-    int onWay;
-    float fromM;
-    float toM;
-    float mineFromM;
-    float mineToM;
-};
+#include "world/road/kernels/crossed_section.glsl"
 
 // What the plan reads of a car (CarFleet), and whether it plans down its line at all this rebuild (TownWorld's
 // PlansDownItsLine) — the host's to say until the actions are the device's — and, on a pass begun, where on its line

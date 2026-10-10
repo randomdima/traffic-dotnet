@@ -57,6 +57,10 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     /// <summary>How long until a walker refused a pass by the ground decides on one again.</summary>
     readonly float[] _decidesInS = new float[ground.People.Capacity];
 
+    /// <summary>Every table this action keeps a walker in, for the device to lay once at load (<c>app/devicetick/TownState</c>).</summary>
+    internal (Sidestep[] Decided, SweptGround Swept, SweptGround AskedGround, LaneClaim[] Passed, int[] PassedOn, float[] LooksInS,
+        float[] WaitedS, float[] DecidesInS) Kept => (_decided, _swept, _asked, _passed, _passedOn, _looksInS, _waitedS, _decidesInS);
+
     PersonFleet People => ground.People;
 
     LaneOccupancy Occupancy => ground.Occupancy;

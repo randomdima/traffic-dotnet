@@ -67,6 +67,10 @@ internal sealed partial class TownWorld
     /// </summary>
     int _woundedCount;
 
+    /// <inheritdoc cref="_woundedCount"/>
+    /// <remarks>For the device to lay once at load (<c>app/devicetick/TownState</c>).</remarks>
+    internal int WoundedWaiting => _woundedCount;
+
     /// <summary>
     /// <b>A car stood on a hospital's apron becomes that hospital's ambulance</b> (AMB-2, AMB-3): the
     /// hospital it delivers to and the bay held for it, which is where every leg of every call ends.

@@ -85,7 +85,15 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     int _rebuild = 1;
 
     /// <summary>A car's station read in one rebuild: on which piece, where along it, and how many covers it kept.</summary>
-    readonly record struct Standing(int Rebuild, int Piece, float AtM, int Covers);
+    internal readonly record struct Standing(int Rebuild, int Piece, float AtM, int Covers);
+
+    /// <summary>
+    /// <b>Every table this action keeps a car in</b>, for the device to lay once at load (<c>app/devicetick/TownState</c>):
+    /// a piece's ground held at <c>car · 2 + piece</c>, and <see cref="RibbonAtlas.MostWaysUnderABody"/> covers a car's
+    /// station.
+    /// </summary>
+    internal (SweptGround Pieces, long[] AskedAs, long[] SweptFor, Standing[] StandingOf, WayCover[] StandingCovers, int Rebuild) Kept =>
+        (_pieces, _askedAs, _sweptFor, _standingOf, _standingCovers, _rebuild);
 
     CarFleet Cars => ground.Cars;
 

@@ -39,6 +39,10 @@ internal sealed partial class TownWorld
     /// <summary>Whether a closure began or ended since the town's closures were last laid.</summary>
     bool _closuresChanged;
 
+    /// <inheritdoc cref="_closuresChanged"/>
+    /// <remarks>For the device to lay once at load (<c>app/devicetick/TownState</c>).</remarks>
+    internal bool ClosuresChanged => _closuresChanged;
+
     /// <summary>Every lane a closure holds now, one flag a lane — what a tour may not draw (SRV-10).</summary>
     bool[] _closedLanes = [];
 

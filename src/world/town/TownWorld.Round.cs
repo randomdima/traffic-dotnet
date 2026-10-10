@@ -20,6 +20,9 @@ internal sealed partial class TownWorld
     /// <summary>Whether any bay of this town can be driven into, which is what says its cars park rather than tour.</summary>
     bool _townParks;
 
+    /// <summary>Each car's round and whether the town parks at all, for the device to lay once at load.</summary>
+    internal (ParkedRound Round, bool TownParks) Rounds => (_round, _townParks);
+
     /// <summary>How many times a car on its round has set off from where it stood for a bay somewhere else.</summary>
     public long RoundsSetOff { get; private set; }
 
