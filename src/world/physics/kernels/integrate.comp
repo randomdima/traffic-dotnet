@@ -23,6 +23,9 @@ layout(std430, binding = 5) readonly buffer ShapeB { vec4 shape[]; };
 layout(std430, binding = 6) writeonly buffer Bounds { vec4 bounds[]; };
 layout(std430, binding = 7) buffer Filter { uvec4 filter_[]; };
 
+// Whether the step moved the body or turned it, for settle.comp: a frozen body it did is one it took in (SOL-37a).
+layout(std430, binding = 8) writeonly buffer Moved { uint moved[]; };
+
 const float Pi = 3.14159265358979;
 const float Turn = 2.0 * Pi;
 
@@ -54,6 +57,7 @@ void main()
     // A body whose heading the step left alone keeps the direction it was laid with: the host's, to the bit, rather
     // than this device's sin and cos of the same angle — so a body that does not move is left exactly as it stood.
     vec2 unit = heading == headingRad[body] ? was.zw : trigUnit(heading);
+    moved[body] = position != was.xy || heading != headingRad[body] ? 1u : 0u;
     headingRad[body] = heading;
     pose[body] = vec4(position, unit);
 

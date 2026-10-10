@@ -35,8 +35,14 @@ layout(push_constant) uniform Step
     uint positionIterations;
     uint staticBit;
     uint filedFrozenBit;
-    uint pad0;
-    uint pad1;
+    uint frozenBit;
+
+    // How many steps in a row a body ends at rest before it freezes, and the rest speed squared, taken on the host.
+    uint ticksToFreeze;
+    float restSpeedMpsSquared;
+
+    // How many bodies the host counts at rest afresh this step (DeviceSolver.CountAfresh).
+    uint afreshCount;
 };
 
 // Where the step keeps its running totals and the indirect dispatches made of them (DeviceSolver.Totals).

@@ -1,0 +1,105 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The settling's parallel passes (settle.glsl), one thread a roster slot or a contact as the mode says, handing back
+// which frozen bodies the step took in and which it froze, in index order (DeviceSolver.Woke, DeviceSolver.Froze).
+// What a contact passes along it passes once here; settle_spread.comp passes it on until nothing changes, where this
+// pass changed anything.
+
+layout(local_size_x = 64) in;
+
+#include "settle.glsl"
+
+bool owns(uint s) { return (s & Owned) != 0u; }
+bool woke(uint s) { return (s & (Owned | WasFrozen)) == (Owned | WasFrozen); }
+bool froze(uint s) { return (s & (Owned | Settling)) == (Owned | Settling); }
+
+void main()
+{
+    uint at = gl_GlobalInvocationID.x;
+
+    if (mode == Owning)
+    {
+        // Rest counted afresh where the host reset it: a body put in a container, or added.
+        if (at < afreshCount) restTicks[afresh[at]] = 0u;
+        if (at >= rosterCount) return;
+
+        // The owners as the step began, and every frozen body the step moved or left moving (PhysicsWorld.Moved).
+        uint body = uint(owners[at]);
+        uint flags = filter_[body].x;
+        uint s = 0u;
+        if ((flags & enabledBit) != 0u)
+        {
+            bool frozen = (flags & frozenBit) != 0u;
+            vec4 m = motion[body];
+            if (frozen) s |= WasFrozen;
+            if (!frozen || moved[body] != 0u || m.xy != vec2(0.0) || m.z != 0.0) s |= Owned;
+        }
+
+        state[body] = s;
+        return;
+    }
+
+    if (mode == Waking)
+    {
+        if (at < contactCount() && wake(at)) atomicOr(totals[WokenAt], 1u);
+        return;
+    }
+
+    if (mode == Unsettling)
+    {
+        if (at < contactCount() && unsettle(at)) atomicOr(totals[UnsettledAt], 1u);
+        return;
+    }
+
+    if (at >= rosterCount) return;
+
+    uint body = uint(owners[at]);
+    uint s = state[body];
+
+    if (mode == Resting)
+    {
+        // Each owner's rest (PhysicsWorld.FreezeWhatHasSettled): its centre and its furthest point no faster than the
+        // rest speed, and no overlap left to push out.
+        if (!owns(s)) return;
+
+        vec4 m = motion[body];
+        precise float speedSquared = m.x * m.x + m.y * m.y;
+        precise float swingMps = m.z * shape[body].w;
+        precise float swingSquared = swingMps * swingMps;
+        bool atRest = speedSquared <= restSpeedMpsSquared && swingSquared <= restSpeedMpsSquared
+            && uintBitsToFloat(overlap[body]) <= allowedPenetrationM;
+        uint ticks = atRest ? min(restTicks[body] + 1u, ticksToFreeze) : 0u;
+        restTicks[body] = ticks;
+        if (ticks >= ticksToFreeze) state[body] = s | Settling;
+        return;
+    }
+
+    if (mode == Freezing)
+    {
+        // What froze stilled and flagged, what woke and stays awake unflagged, and each counted for its list.
+        if (froze(s))
+        {
+            motion[body].xyz = vec3(0.0);
+            filter_[body].x |= frozenBit;
+        }
+        else if (woke(s))
+        {
+            filter_[body].x &= ~frozenBit;
+        }
+
+        wokeAt[at] = woke(s) ? 1u : 0u;
+        frozeAt[at] = froze(s) ? 1u : 0u;
+        return;
+    }
+
+    // Listing, where the scans of those counts put each.
+    if (at == 0u)
+    {
+        settled[0] = totals[WokeCountAt];
+        settled[1] = totals[FrozeCountAt];
+    }
+
+    if (woke(s)) settled[2u + wokeAt[at]] = body;
+    if (froze(s)) settled[2u + rosterCount + frozeAt[at]] = body;
+}

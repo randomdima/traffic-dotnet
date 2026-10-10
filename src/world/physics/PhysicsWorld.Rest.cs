@@ -284,22 +284,44 @@ internal sealed partial class PhysicsWorld
             var body = _moving[slot];
             if (!_settling[body]) continue;
 
-            _velocityMps[body] = default;
-            _yawRateRadPerS[body] = 0f;
-            _flags[body] |= BodyFlags.Frozen;
-            _frozeAtStep[body] = _stepStamp;
-            FrozenBodyCount++;
+            Freeze(body);
             Changed(body);
-
-            // Standing where the frozen index filed it, it is already there; anywhere else it waits for it.
-            if ((_flags[body] & (BodyFlags.FiledFrozen | BodyFlags.Unfiled)) == 0)
-            {
-                _flags[body] |= BodyFlags.Unfiled;
-                _unfiled[_unfiledCount++] = body;
-            }
         }
 
         LeaveTheFrozenBehind();
+    }
+
+    /// <summary>
+    /// <b>What a step taken elsewhere froze</b>, frozen here as <see cref="FreezeWhatHasSettled"/> freezes it — the step
+    /// stilled it itself, so its row is not the town's change. One the town has woken or taken out of the world since the
+    /// step was laid is left as the town has it.
+    /// </summary>
+    void FreezeWhatTheStepFroze(ReadOnlySpan<int> froze)
+    {
+        foreach (var body in froze)
+        {
+            if (_ownedInStep[body] != _stepStamp || (_flags[body] & (BodyFlags.Frozen | BodyFlags.Enabled)) != BodyFlags.Enabled) continue;
+
+            Freeze(body);
+        }
+
+        LeaveTheFrozenBehind();
+    }
+
+    void Freeze(int body)
+    {
+        _velocityMps[body] = default;
+        _yawRateRadPerS[body] = 0f;
+        _flags[body] |= BodyFlags.Frozen;
+        _frozeAtStep[body] = _stepStamp;
+        FrozenBodyCount++;
+
+        // Standing where the frozen index filed it, it is already there; anywhere else it waits for it.
+        if ((_flags[body] & (BodyFlags.FiledFrozen | BodyFlags.Unfiled)) == 0)
+        {
+            _flags[body] |= BodyFlags.Unfiled;
+            _unfiled[_unfiledCount++] = body;
+        }
     }
 
     /// <summary>

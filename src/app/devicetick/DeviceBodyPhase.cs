@@ -180,7 +180,10 @@ internal sealed partial class DeviceBodyPhase : IDisposable
     public double ApplyMs => _timer.BetweenMs((int)Stage.Sent, (int)Stage.Applied);
 
     /// <summary>The device's time for the solver's step alone, as the solver stamps it, in milliseconds.</summary>
-    public double StepMs => _solver.BetweenMs(DeviceSolver.Stage.Began, DeviceSolver.Stage.Integrated);
+    public double StepMs => _solver.BetweenMs(DeviceSolver.Stage.Began, DeviceSolver.Stage.Settled);
+
+    /// <summary>Of <see cref="StepMs"/>, the device's time working out what the step froze and woke (<see cref="DeviceSolver.Settles"/>), in milliseconds.</summary>
+    public double SettleMs => _solver.BetweenMs(DeviceSolver.Stage.Integrated, DeviceSolver.Stage.Settled);
 
     /// <summary>The device's time reading every car off its body, in milliseconds.</summary>
     public double MirrorMs => _timer.BetweenMs((int)Stage.Stepped, (int)Stage.Mirrored);

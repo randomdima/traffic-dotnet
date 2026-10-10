@@ -1,0 +1,44 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// What settle.comp's parallel pass over the contacts passed along (settle.glsl), passed on until no contact passes
+// anything — in one workgroup, whose barrier ends each pass rather than a queue's. Nothing to do where that pass
+// changed nothing, which is most steps.
+
+layout(local_size_x = 1024) in;
+
+#include "settle.glsl"
+
+const uint Threads = 1024u;
+
+shared bool changed;
+
+void sync()
+{
+    memoryBarrierBuffer();
+    memoryBarrierShared();
+    barrier();
+}
+
+void main()
+{
+    if (totals[mode == Waking ? WokenAt : UnsettledAt] == 0u) return;
+
+    uint thread = gl_LocalInvocationID.x;
+    uint contacts = contactCount();
+    bool passing;
+    do
+    {
+        sync();
+        if (thread == 0u) changed = false;
+        sync();
+        for (uint at = thread; at < contacts; at += Threads)
+        {
+            if (mode == Waking ? wake(at) : unsettle(at)) changed = true;
+        }
+
+        sync();
+        passing = changed;
+    }
+    while (passing);
+}

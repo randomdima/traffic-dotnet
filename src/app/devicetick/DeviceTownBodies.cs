@@ -24,9 +24,9 @@ namespace TrafficSimulation.App.DeviceTick;
 /// every car's pose; after that only the rows the town changed (<see cref="PhysicsWorld.Changes"/>) and the poses of the
 /// cars whose bodies those are, which body each car and walker is where that changed, and the wheels and pulls the town
 /// still makes. <b>Handed back</b>: every car as the step read it off its body, every walker in the world off its own,
-/// and as many contacts as the step found — written into the fleets as the town's own phase writes them, and into the
-/// solver's table, which goes on freezing what has settled and reports what began touching
-/// (<see cref="PhysicsWorld.EndTheStepTaken"/>).
+/// as many contacts as the step found, and which frozen bodies it took in and which it froze (<see cref="DeviceSolver.Settles"/>)
+/// — written into the fleets as the town's own phase writes them, and into the solver's table, which reports what began
+/// touching (<see cref="PhysicsWorld.EndTheStepTaken"/>). The rest counts are the device's.
 /// </para>
 /// <para>
 /// <b>Set as the town's device on its own, it takes no agent</b> and ticks nothing: the town ticks every agent and the
@@ -57,7 +57,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         _tyres = tyres;
         var physics = town.PhysicsForTheDevice;
         physics.KeepTheChanges();
-        _solver = new DeviceSolver(vk, config, physics.Table, room: physics.RoomForBodies);
+        _solver = new DeviceSolver(vk, config, physics.Table, room: physics.RoomForBodies) { Settles = true };
         _phase = new DeviceBodyPhase(
             vk, config, _solver, tyres, town.People.Capacity + (2 * town.Cars.Capacity), town.People.Capacity);
         if (walkers != null) _phase.TakeTheWalkers(walkers);
@@ -234,6 +234,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         if (LaidWhole)
         {
             _solver.LayWhole(table);
+            if (physics.StepsTaken != _stepsTaken) _solver.LayTheRestCounts(table);
             _bodiesLaid = table.Count;
             if (!tickedInThisSubmit) LayEveryPose(cars);
         }
@@ -241,6 +242,11 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         {
             _solver.LayRows(table, physics.Changes);
             if (!tickedInThisSubmit) _tyres.LayThePlacedPoses(cars, physics);
+        }
+
+        foreach (var body in physics.Changes)
+        {
+            if (physics.CountsRestAfresh(body)) _solver.CountAfresh(body);
         }
 
         physics.ForgetTheChanges();
@@ -304,8 +310,8 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         _stepsTaken == town.PhysicsForTheDevice.StepsTaken && town.Cars.Count <= _posesLeftFor;
 
     /// <summary>
-    /// The pose of every car whose body the town changed since the last step — frozen as the step ended, put down,
-    /// reweighed — laid from the fleet into the tyre pass's table, for whatever reads it before the next step.
+    /// The pose of every car whose body the town changed since the last step — put down, pushed, reweighed — laid from
+    /// the fleet into the tyre pass's table, for whatever reads it before the next step.
     /// </summary>
     public void LayThePosesTheTownChanged(TownWorld town) => _tyres.LayThePlacedPoses(town.Cars, town.PhysicsForTheDevice);
 
@@ -317,8 +323,8 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
 
     /// <summary>
     /// <b>What the step left, handed back</b>: every car into the fleet as the town's own phase writes it, every walker
-    /// in the world with how far that step took it, every body into the solver's table, and the contacts in the step's
-    /// order — after which the table freezes what has settled and says what began touching.
+    /// in the world with how far that step took it, every body into the solver's table, what the step took in, the
+    /// contacts in its order and what it froze — after which the table says what began touching.
     /// </summary>
     void HandBack(TownWorld town, ReadOnlySpan<int> placedMeanwhile = default)
     {
@@ -361,6 +367,8 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
             walkers++;
         }
 
+        foreach (var body in _solver.Woke) physics.WokeInTheStep(body);
+
         var contacts = _solver.Contacts;
         var normals = _solver.ContactNormals;
         var points = _solver.ContactPoints;
@@ -382,37 +390,13 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         }
 
         var ending = Stopwatch.GetTimestamp();
-        physics.EndTheStepTaken();
+        physics.EndTheStepTaken(_solver.Froze);
         SettlingMs = Stopwatch.GetElapsedTime(ending).TotalMilliseconds;
         _stepsTaken = physics.StepsTaken;
         _posesLeftFor = cars.Count;
-        TheFrozenStill(town, physics);
         ReadBytes = _phase.ReadBytes + (ulong)(walkers * Unsafe.SizeOf<Vector4>())
-                    + (ulong)(contacts.Length * (Unsafe.SizeOf<UInt4>() + (2 * Unsafe.SizeOf<Vector4>())));
-    }
-
-    /// <summary>
-    /// <b>What froze in the step stands still in the fleets as in the table</b>: the town's own phase reads its fleets
-    /// off the table after the freezing, so a body frozen at the end of a step is at exactly no motion there. The rows
-    /// changed since the step was laid are exactly those it froze, and are sent with the next.
-    /// </summary>
-    static void TheFrozenStill(TownWorld town, PhysicsWorld physics)
-    {
-        foreach (var index in physics.Changes)
-        {
-            var body = new BodyId(index + 1);
-            var tag = physics.TagOf(body);
-            switch (tag.Kind)
-            {
-                case BodyKind.Car:
-                    town.Cars.VelocityMps[tag.Index] = physics.VelocityOf(body);
-                    town.Cars.YawRateRadPerS[tag.Index] = physics.YawRateOf(body);
-                    break;
-                case BodyKind.Person:
-                    town.People.VelocityMps[tag.Index] = physics.VelocityOf(body);
-                    break;
-            }
-        }
+                    + (ulong)(contacts.Length * (Unsafe.SizeOf<UInt4>() + (2 * Unsafe.SizeOf<Vector4>())))
+                    + (ulong)((2 + _solver.Woke.Length + _solver.Froze.Length) * sizeof(uint));
     }
 
     public void Dispose()

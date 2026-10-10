@@ -18,6 +18,13 @@ internal readonly ref struct BodyTable
     public required ReadOnlySpan<float> InverseInertia { get; init; }
     public required ReadOnlySpan<Vector2> ExtentM { get; init; }
     public required ReadOnlySpan<float> CornerRadiusM { get; init; }
+
+    /// <summary>How far each body's furthest point stands from its centre: its core's half-diagonal and its corner radius.</summary>
+    public required ReadOnlySpan<float> ReachM { get; init; }
+
+    /// <summary>How many steps in a row each body has ended at rest, up to the steps it takes to freeze (SOL-37).</summary>
+    public required ReadOnlySpan<int> RestTicks { get; init; }
+
     public required ReadOnlySpan<BodyFlags> Flags { get; init; }
     public required ReadOnlySpan<ulong> Category { get; init; }
     public required ReadOnlySpan<ulong> Mask { get; init; }
@@ -62,6 +69,8 @@ internal sealed partial class PhysicsWorld
         InverseInertia = _inverseInertia.AsSpan(0, _count),
         ExtentM = _extentM.AsSpan(0, _count),
         CornerRadiusM = _cornerRadiusM.AsSpan(0, _count),
+        ReachM = _reachM.AsSpan(0, _count),
+        RestTicks = _restTicks.AsSpan(0, _count),
         Flags = _flags.AsSpan(0, _count),
         Category = _category.AsSpan(0, _count),
         Mask = _mask.AsSpan(0, _count),

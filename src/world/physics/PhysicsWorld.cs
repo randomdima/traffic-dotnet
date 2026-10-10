@@ -271,7 +271,7 @@ internal sealed partial class PhysicsWorld
         }
 
         Wake(index);
-        _restTicks[index] = 0;
+        RestAfresh(index);
         _flags[index] &= ~(BodyFlags.Enabled | BodyFlags.FiledFrozen);
         Changed(index);
     }
@@ -524,7 +524,7 @@ internal sealed partial class PhysicsWorld
         _velocityMps[index] = Vector2.Zero;
         _yawRateRadPerS[index] = 0f;
         _overlapM[index] = 0f;
-        _restTicks[index] = 0;
+        RestAfresh(index);
 
         var immovable = (flags & BodyFlags.Static) != 0;
         _massKg[index] = immovable ? 0f : massKg;
@@ -605,6 +605,7 @@ internal sealed partial class PhysicsWorld
         Array.Resize(ref _static, room);
         Array.Resize(ref _changed, room);
         Array.Resize(ref _changedList, room);
+        Array.Resize(ref _restAfresh, room);
         ResizeRosters(room);
     }
 }
