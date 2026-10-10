@@ -75,6 +75,18 @@ internal sealed class AgentSet(int capacity)
     /// <summary>The agents below <paramref name="count"/> in this set, in order, written into <paramref name="into"/>; how many.</summary>
     public int CopyTo(int count, Span<int> into) => Union(null, count, into);
 
+    /// <summary>
+    /// The agents below <paramref name="count"/> as a device's table of a bit an agent holds them (<see cref="WordOf"/>),
+    /// written over the whole of <paramref name="into"/>.
+    /// </summary>
+    public void CopyWordsTo(int count, Span<uint> into)
+    {
+        into.Clear();
+        var words = (count + 31) >> 5;
+        for (var word = 0; word < words; word++) into[word] = WordOf(word << 5);
+        if ((count & 31) != 0) into[words - 1] &= (1u << (count & 31)) - 1;
+    }
+
     /// <summary>The agents below <paramref name="count"/> not in this set, in order, written into <paramref name="into"/>; how many.</summary>
     public int CopyAbsentTo(int count, Span<int> into)
     {

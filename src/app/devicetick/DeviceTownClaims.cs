@@ -38,8 +38,12 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
         DeviceRebuild.Rooms? rooms = null)
     {
         _cars = cars;
+        _held = new int[town.Cars.Capacity];
         Rebuild = new DeviceRebuild(vk, config, town, claims, cars, walkers, rooms);
     }
+
+    /// <summary>Room for the cars the town holds, which are the only ones that may be on a begun pass.</summary>
+    readonly int[] _held;
 
     /// <summary>The rebuild laid here, for whoever reads its times and what it crossed.</summary>
     public DeviceRebuild Rebuild { get; }
@@ -67,7 +71,8 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
     public bool LaysTheClaims(TownWorld town)
     {
         var (here, byTheTown, tooMany) = Rebuilds;
-        var crowded = !town.HoldAgents && !DeviceRebuild.HasRoomForThePasses(town);
+        var crowded = !town.HoldAgents
+                      && !DeviceRebuild.HasRoomForThePasses(town, _cars.TheCarsTheTownHolds(town.Cars.Count, (Span<int>)_held));
         if (town.HoldAgents || crowded)
         {
             _laidByTheTown = true;

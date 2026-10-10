@@ -504,6 +504,9 @@ internal sealed partial class DeviceCarTick
     /// <summary>The cars the town holds as the device left them, in order, written into <paramref name="into"/> — whose poses it reads.</summary>
     public Span<int> TheCarsTheTownHolds(int count, Span<int> into) => into[.._townHolds.CopyTo(count, into)];
 
+    /// <summary>The cars below <paramref name="count"/> the town holds as the device left them, a bit a car, written over <paramref name="words"/>.</summary>
+    public void TheCarsTheTownHolds(int count, Span<uint> words) => _townHolds.CopyWordsTo(count, words);
+
     /// <summary>Whether this car is among those the device ticks (<see cref="Prepare"/>).</summary>
     public bool IsTaken(int car) => _takenBits.Has(car);
 

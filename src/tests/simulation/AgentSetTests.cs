@@ -58,6 +58,18 @@ public class AgentSetTests
         Assert.Equal([130, 132, 134], walked[..count].ToArray());
     }
 
+    [Fact]
+    public void TheWordsHoldNoAgentAtOrPastTheCount()
+    {
+        var set = new AgentSet(200);
+        set.AddFirst(200);
+        var words = new uint[7];
+
+        set.CopyWordsTo(40, words);
+
+        Assert.Equal([uint.MaxValue, 0xffu, 0u, 0u, 0u, 0u, 0u], words);
+    }
+
     /// <summary>A device reads agent <c>a</c> as bit <c>a % 32</c> of word <c>a / 32</c>.</summary>
     [Fact]
     public void AWordHoldsTheBitsOfItsOwnThirtyTwoAgents()

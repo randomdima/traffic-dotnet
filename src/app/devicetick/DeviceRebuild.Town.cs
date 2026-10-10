@@ -161,11 +161,7 @@ internal sealed partial class DeviceRebuild
     void WantTheCarsTheTownHolds()
     {
         var wanted = _wantedWords.AsSpan();
-        wanted.Clear();
-        for (var car = 0; car < _carCount; car++)
-        {
-            if (_carTick!.TownHolds(car)) wanted[car >> 5] |= 1u << (car & 31);
-        }
+        _carTick!.TheCarsTheTownHolds(_carCount, wanted);
 
         // Built here and copied across whole: the table is memory the host only writes, slow to read back a word at a time.
         wanted.CopyTo(_answersWanted.Span<uint>());
@@ -547,11 +543,15 @@ internal sealed partial class DeviceRebuild
     static int AskRoom(TownWorld world) => Math.Min(world.Cars.Capacity, MostCarsOnAPass) * Overtaking.MostAsksOfAPass(world.Atlas.Marks);
 
     /// <summary>Whether this rebuild's cars on a pass fit the room for their asks.</summary>
-    public static bool HasRoomForThePasses(TownWorld world)
+    /// <param name="mayBeOnAPass">
+    /// Every car that may be on a begun pass: the town begins one, and reads the car every tick while it is
+    /// (<see cref="TownWorld.ReadsTheTickOf"/>) — so the cars the town holds (<see cref="DeviceCarTick.TownHolds"/>).
+    /// </param>
+    public static bool HasRoomForThePasses(TownWorld world, ReadOnlySpan<int> mayBeOnAPass)
     {
         var cars = world.Cars;
         var onAPass = 0;
-        for (var car = 0; car < cars.Count; car++)
+        foreach (var car in mayBeOnAPass)
         {
             if (cars.Pass[car].Begun) onAPass++;
         }
