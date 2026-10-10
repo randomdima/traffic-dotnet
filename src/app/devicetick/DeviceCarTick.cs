@@ -397,6 +397,56 @@ internal sealed partial class DeviceCarTick : IDisposable
     public int Capacity => _tyres.Capacity;
 
     /// <summary>
+    /// <b>Every table the tick keeps of a car, and the tyres', set on the resident town's root</b> at the ids
+    /// <c>town_rows.glsl</c> names them by — the grants as the tick reads them, the device's own rebuild's where it writes them.
+    /// </summary>
+    public void Register(TownRoot root)
+    {
+        root.Set(TownRows.CarsTicks, _ticks.Device);
+        root.Set(TownRows.CarsTold, _told.Device);
+        root.Set(TownRows.CarsGrants, _grantsBound);
+        root.Set(TownRows.CarsCutters, _cuttersBound);
+        root.Set(TownRows.CarsHoldBits, _holdBitsBound);
+        root.Set(TownRows.CarsBoxes, _boxes.Device);
+        root.Set(TownRows.CarsContexts, _contexts.Device);
+        root.Set(TownRows.CarsBriefs, _briefs.Device);
+        root.Set(TownRows.CarsLines, _lines.Device);
+        root.Set(TownRows.CarsArcs, _arcs.Device);
+        root.Set(TownRows.CarsEntries, _entries.Device);
+        root.Set(TownRows.CarsChain, _chain.Device);
+        root.Set(TownRows.CarsStarts, _starts.Device);
+        root.Set(TownRows.CarsEnds, _ends.Device);
+        root.Set(TownRows.CarsFirstArcs, _firstArcs.Device);
+        root.Set(TownRows.CarsBreaks, _breaks.Device);
+        root.Set(TownRows.CarsPasses, _passes.Device);
+        root.Set(TownRows.CarsClocks, _clocks.Device);
+        var tyres = _tyres.Table;
+        root.Set(TownRows.CarsPoses, tyres.Poses.Device);
+        root.Set(TownRows.CarsCommands, tyres.Commands.Device);
+        root.Set(TownRows.CarsTyreRows, tyres.Cars.Device);
+        root.Set(TownRows.CarsWheels, tyres.Wheels.Device);
+        root.Set(TownRows.CarsWheelImpulses, _tyres.ImpulseTable);
+        root.Set(TownRows.CarsBuildOf, tyres.BuildOf.Device);
+        root.Set(TownRows.CarsBuilds, tyres.Builds);
+    }
+
+    /// <summary>The list of cars the tick takes, as the resident town's own kernel writes it (<see cref="RecordTheTickOver"/>).</summary>
+    public GpuBuffer TakenTable => _taken.Device;
+
+    /// <summary>
+    /// <b>The tick of the cars a kernel listed</b>, as many as a count it wrote says, and the tyres of the first
+    /// <paramref name="cars"/> — the resident town's, whose list is never the host's.
+    /// </summary>
+    /// <param name="counts">Where the list's workgroups stand as an indirect dispatch's three words.</param>
+    public void RecordTheTickOver(CommandBuffer commands, GpuBuffer counts, ulong offsetBytes, int cars)
+    {
+        _stamp++;
+        _tickKernel.DispatchIndirect(commands, _tickSet, counts, offsetBytes, _figures with { CarCount = (uint)Capacity, Stamp = _stamp });
+        _vk.BetweenKernels(commands);
+        _tyres.Run(commands, cars);
+    }
+
+    /// <summary>
     /// <b>What a switching car's look for room reads and writes of the decisions put off</b> (<see cref="DeviceSwitchLook"/>):
     /// every car's build, reading, line, lanes and step as the last tick left them, the decisions due and their terms, and
     /// each one's verdict, the stamp it was found more at, its clock, and its clock as its decision ran it.

@@ -214,6 +214,13 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// <summary>The walkers' side of the claims the device keeps, whose table the walkers' decisions are asked of.</summary>
     DeviceWalkers KeptWalkers => _townClaims.Rebuild.Walkers;
 
+    /// <summary>
+    /// <b>The tables and kernels a resident town ticks</b> once this has laid them off the town (<see cref="ResidentTown"/>):
+    /// the tyres, the cars' and walkers' ticks, the bodies, the claims and the walkers the claims keep.
+    /// </summary>
+    internal (DeviceTyres Tyres, DeviceCarTick Cars, DeviceWalkerTick Walkers, DeviceTownBodies Bodies, DeviceTownClaims Claims,
+        DeviceWalkers Kept) Parts => (_tyres, _cars, _walkers, _bodies, _townClaims, KeptWalkers);
+
     /// <summary>Which walkers' decisions this tick asks of the device, which of them the town decides whole, and the list laid.</summary>
     readonly bool[] _walkerListed, _walkerByTheTown;
 

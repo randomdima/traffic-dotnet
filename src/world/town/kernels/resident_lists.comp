@@ -1,0 +1,64 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The resident town's lists (app/devicetick/ResidentTown), off the town as the device holds it: every car the car tick
+// takes (DeviceCarTick.Takes) — driven, not on a bar, and following its line, moving across, rejoining or overtaking
+// (whether an overtaking car is off the lane of its pass is not asked yet). Listed in any order — each car's tick writes its own rows alone — and, once listed, the count's
+// workgroups written where an indirect dispatch reads them and the list padded to its last workgroup with no car.
+
+#include "world/town/kernels/town_state.glsl"
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Push
+{
+    uint cars;
+    uint mode;
+    uint group;
+} push;
+
+const uint ModeList = 0u;
+const uint ModeClose = 1u;
+
+// No car, in a list's padding (car_tick.comp's TakenNone).
+const uint ListNone = 0xFFFFFFFFu;
+
+// Where the lists stand: the taken count, then its dispatch's three words.
+const uint ResidentListCounts = 2u;
+const uint ResidentTaken = 3u;
+
+#define listCounts TOWN(Uints, ResidentListCounts)
+#define taken TOWN(Uints, ResidentTaken)
+
+bool takes(uint car)
+{
+    if (cars_Driven(car) == 0u || recovery_OnTheHookOf(car) >= 0) return false;
+
+    uint action = cars_Action(car);
+    bool onAPass = cars_PassWord(car, 0u) >= 0;
+    return (action == CarActionFollow || action == CarActionRejoin) && !onAPass || action == CarActionSwitch
+           || action == CarActionOvertake;
+}
+
+void main()
+{
+    uint at = gl_GlobalInvocationID.x;
+    if (push.mode == ModeClose)
+    {
+        uint count = listCounts.v[0];
+        uint padded = min(((count + push.group - 1u) / push.group) * push.group, push.cars);
+        if (at == 0u)
+        {
+            listCounts.v[1] = (count + push.group - 1u) / push.group;
+            listCounts.v[2] = 1u;
+            listCounts.v[3] = 1u;
+        }
+
+        if (at >= count && at < padded) taken.v[at] = ListNone;
+        return;
+    }
+
+    if (at >= push.cars || !takes(at)) return;
+
+    taken.v[atomicAdd(listCounts.v[0], 1u)] = at;
+}

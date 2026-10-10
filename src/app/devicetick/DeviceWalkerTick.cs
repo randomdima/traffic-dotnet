@@ -144,6 +144,14 @@ internal sealed partial class DeviceWalkerTick : IDisposable
     /// <summary>Which body each walker is, for the bodies' phase.</summary>
     public GpuBuffer BodyTable => _bodies.Device;
 
+    /// <summary>The walkers' tick's tables set on the resident town's root (<c>town_rows.glsl</c>): the table, impulses and bodies.</summary>
+    public void Register(TownRoot root)
+    {
+        root.Set(TownRows.PeopleTable, _walkers.Device);
+        root.Set(TownRows.PeopleImpulses, _impulses.Device);
+        root.Set(TownRows.PeopleBodies, _bodies.Device);
+    }
+
     /// <summary>Every walker as the last read left it — not resident.</summary>
     public ReadOnlySpan<WalkerRow> WalkersAfter => _walkers.AllRead[.._count];
 

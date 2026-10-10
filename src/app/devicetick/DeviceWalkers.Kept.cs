@@ -94,6 +94,19 @@ internal sealed partial class DeviceWalkers
     /// <summary>Every kept walker's row as the stages leave it, for a kernel that reads it in place.</summary>
     public GpuBuffer KeptTable => _keptTable;
 
+    /// <summary>
+    /// <b>The kept walkers' tables set on the resident town's root</b> at the ids <c>town_rows.glsl</c> names them by: each
+    /// walker's walk row, route, straight, pass and leg's clock.
+    /// </summary>
+    public void Register(TownRoot root)
+    {
+        root.Set(TownRows.PeopleWalks, _keptTable);
+        root.Set(TownRows.PeopleRoutes, _routes!.Device);
+        root.Set(TownRows.PeopleStraights, _straights!.Device);
+        root.Set(TownRows.PeoplePasses, _passes!.Device);
+        root.Set(TownRows.PeopleClocks, _walkerClocks!.Device);
+    }
+
     /// <summary>Every walker's hold as the last rebuild numbered it, or −1 (<c>walkers_kept_out.comp</c>), to be copied with its layer.</summary>
     public GpuBuffer KeptHolds => _keptHolds;
 

@@ -363,6 +363,9 @@ internal static class Program
             case "devicerebuild":
                 DeviceRebuildProbe.Run(map ?? Options.FixtureMap, config);
                 return 0;
+            case "resident":
+                ResidentTownProbe.Run(map ?? Options.FixtureMap, config);
+                return 0;
             case "deviceroutes" when map is not null:
                 return Kept(DeviceRoutesProbe.Run(map, config));
             case "devicesprites":

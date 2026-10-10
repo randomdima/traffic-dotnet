@@ -59,6 +59,9 @@ const uint ModeTick = 0u;
 const uint ModeDecide = 1u;
 const uint ModeFindDue = 2u;
 
+// No car, in a list's padding.
+const uint TakenNone = 0xFFFFFFFFu;
+
 #define TYRE_FIGURES figures
 #define CAR_TICK_FIGURES figures
 #define FOLLOWER_FIGURES figures
@@ -213,7 +216,10 @@ void main()
         return;
     }
 
+    // A list a kernel wrote is padded to its last workgroup with no car (app/devicetick/ResidentTown).
     uint car = taken[gl_GlobalInvocationID.x];
+    if (car == TakenNone) return;
+
     CarToldRow toldRow = told[car];
     toldRow.flags |= holdBits[car] & (ContextHasAHold | ContextCut);
     CarTickRow tick = ticks[car];
