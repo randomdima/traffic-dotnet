@@ -55,6 +55,7 @@ internal static class CheckCatalogue
         new("devicemirror", "A town's claims laid on the device and mirrored back, beside the same town laying its own in step: where any slot, hold, car, walker or pose first parts", Quoted(config => DeviceMirrorProbe.Run("Odesa", config))),
         new("devicecopy", "What a copy costs the device each way, whole and cut into many runs", Quoted(DeviceCopyProbe.Run)),
         new("room", "The claims' room term by term against the most a standing town's agents lay into it", Quoted(config => RoomProbe.Run("Odesa", config))),
+        new("deviceroutes", "A shipped city's route searches on the device beside the town's own, a batch of slots at a time: time, and one answer", config => DeviceRoutesProbe.Run("Odesa", config)),
         new("devicesprites", "A running town's moving sprites emitted on the device beside the host's fill, framing by framing: time, and one answer", Quoted(config => DeviceSpritesProbe.Run("Odesa", config))),
         new("shape", "What shape a town came out: how its roads bend, where its junctions stand", Quoted(config => TownShape.Run("Odesa", config))),
         new("joints", "Every junction only two roads meet at, and which structure kept it", Quoted(config => TownShape.Joints("Odesa", config))),
