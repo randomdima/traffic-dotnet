@@ -380,6 +380,22 @@ internal sealed class DeviceSprites : IDisposable
     /// what the town alone sets, and stays as laid. Every row is laid where the cars start or stop being drawn off the tyre
     /// table, and by a laying asked to (<see cref="LaysEveryRow"/>). One laying a town asks what was set since it.
     /// </remarks>
+    /// <summary>
+    /// <b>A resident town's rows, laid on the device every frame</b> (<c>sprites_resident.comp</c>) off the town's tables
+    /// on <paramref name="root"/> rather than off the host's — so nothing of the town is laid here again, and every car and
+    /// walker is read off the ticks' tables after it.
+    /// </summary>
+    public void LayResident(TownRoot root, int cars, int people)
+    {
+        _resident = new ComputeKernel(_vk, "sprites_resident.comp", 3, 2 * sizeof(uint));
+        _residentSet = _resident.Bind([root.Buffer, _cars.Device, _people.Device]);
+        (_carsLaid, _peopleLaid) = (cars, people);
+        UnitsLaid = (people, cars);
+    }
+
+    ComputeKernel? _resident;
+    DescriptorSet _residentSet;
+
     public void Lay(TownWorld world)
     {
         // The last frame's emit may still be copying out of the rows laid for it.
@@ -642,6 +658,13 @@ internal sealed class DeviceSprites : IDisposable
         vk.AfterTransfer(commands);
         _timer.Stamp(commands, (int)Stage.Began);
 
+        if (_resident is { } resident)
+        {
+            var units = Math.Max(_carsLaid, _peopleLaid);
+            resident.Dispatch(commands, _residentSet, (uint)Math.Max(1, (units + Group - 1) / Group), new UInt2((uint)_carsLaid, (uint)_peopleLaid));
+            vk.BetweenKernels(commands);
+        }
+
         if (_lay is { } lay)
         {
             var push = new LayPush((uint)_carsLaid, (uint)_arcsPerCar, _config.Lamps.TurnAheadM);
@@ -858,6 +881,7 @@ internal sealed class DeviceSprites : IDisposable
         _batch.Dispose();
         _count.Dispose();
         _write.Dispose();
+        _resident?.Dispose();
         _lay?.Dispose();
         _layWalkers?.Dispose();
         _scans.Dispose();

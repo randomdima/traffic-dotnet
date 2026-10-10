@@ -1,0 +1,52 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// A resident town's frame rows (app/devicetick/DeviceSprites), off the town as the device holds it, one thread a unit: what
+// the host laid of each car and walker (DeviceSprites.CarRowOf, PersonRowOf) — every car's pose and tick, and every
+// walker's pose and walk, then laid over by sprites_cars.comp and sprites_walkers.comp off the ticks' own tables.
+
+#include "world/town/kernels/town_state.glsl"
+#include "app/render/kernels/sprites_car.glsl"
+#include "app/render/kernels/sprites_person.glsl"
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Push
+{
+    uint cars;
+    uint people;
+} push;
+
+layout(std430, set = 0, binding = 1) writeonly buffer Cars { CarRow carRows[]; };
+layout(std430, set = 0, binding = 2) writeonly buffer People { PersonRow personRows[]; };
+
+void layCar(uint car)
+{
+    uint flags = (cars_Broken(car) != 0u ? CarBroken : 0u) | (cars_Driven(car) != 0u ? CarDriven : 0u)
+                 | (cars_BlueLight(car) != 0u ? CarBlueLight : 0u) | (cars_AtWork(car) != 0u ? CarAtWork : 0u)
+                 | (cars_LineIsReverse(car) != 0u ? CarLineIsReverse : 0u)
+                 | (recovery_HeldByTheTail(car) != 0u ? CarHeldByTheTail : 0u) | CarFromTheDevice | CarPoseFromTheDevice
+                 | (uint(findMSB(cars_Channels(car))) << CarLevelShift);
+    carRows[car] = CarRow(
+        vec2(0.0), vec2(0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, cars_FuseJitter(car), 0.0, 0.0, 0.0, 0.0, cars_Variant(car),
+        flags, recovery_Towing(car), 0.0);
+}
+
+void layPerson(uint person)
+{
+    if (people_Inside(person).kind != ContainerKindNone)
+    {
+        personRows[person] = PersonRow(vec2(0.0), 0.0, 0.0, 0u, PersonInside);
+        return;
+    }
+
+    uint down = (people_WalkFlags(person) & WalkerWounded) != 0u ? PersonDown : 0u;
+    personRows[person] = PersonRow(vec2(0.0), 0.0, 0.0, people_Variant(person), down | PersonPoseFromTheDevice);
+}
+
+void main()
+{
+    uint at = gl_GlobalInvocationID.x;
+    if (at < push.cars) layCar(at);
+    if (at < push.people) layPerson(at);
+}

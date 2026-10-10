@@ -98,6 +98,7 @@ internal static class Program
             fullscreen: !options.Windowed, options.Display)
         {
             TicksOnTheDevice = options.DeviceTick,
+            TicksResident = options.Resident,
         };
 
         // --ui reaches the windowed run as it reaches a shot: a measured run of a town nobody is
@@ -637,7 +638,7 @@ internal static class Program
         string? Sheet, bool Caption, string? Title, string? Note, bool Lamps,
         bool Windowed, string? Display, string? Drive, string? Frames, string? Out, bool Live, int FrameWidth,
         string? Bot, int BotCar, string? BotFrames, string? BotOut, int BotEyeWidth, float BotViewM,
-        bool BotWaits, string? Author, bool DeviceTick)
+        bool BotWaits, string? Author, bool DeviceTick, bool Resident = false)
     {
         /// <summary>
         /// What every check that is not about a particular town is staged on: a small town laid from a
@@ -675,7 +676,8 @@ internal static class Program
         /// something else; <c>--display</c> names the screen to open on, by the desktop's own name for
         /// it or by its index, since a desktop nobody can ask which screen is in front of the person
         /// leaves the choice a guess; <c>--device-tick</c> ticks a windowed run's agents on the device in step
-        /// (<see cref="App.DeviceTick.DeviceTown"/>); and <c>--check</c> is the dependency read-out.
+        /// (<see cref="App.DeviceTick.DeviceTown"/>); <c>--resident</c> stands the town resident on the device
+        /// (<see cref="App.DeviceTick.ResidentTown"/>); and <c>--check</c> is the dependency read-out.
         /// </summary>
         /// <remarks>
         /// <b>The driving words are their own set too</b> (<see cref="DriveAsk"/>): <c>--drive FILE|-</c>
@@ -726,6 +728,9 @@ internal static class Program
                         break;
                     case "--device-tick":
                         options = options with { DeviceTick = true };
+                        break;
+                    case "--resident":
+                        options = options with { Resident = true };
                         break;
                     case "--display" when i + 1 < args.Length:
                         options = options with { Display = args[i + 1] };
@@ -883,7 +888,7 @@ internal static class Program
                                                     "--at X Y, --shot PATH, --sheet FILE.json|-, --caption, " +
                                                     "--title TEXT, --note TEXT, --ui LAYERS, --rule X1 Y1 X2 Y2, " +
                                                     "--size W H, --ui-scale N, --present fifo|mailbox|immediate, " +
-                                                    "--windowed, --display NAME|N, --device-tick, --seconds N, --validate, --check, " +
+                                                    "--windowed, --display NAME|N, --device-tick, --resident, --seconds N, --validate, --check, " +
                                                     "--bench NAME|all, --lamps, --drive FILE|-, --live, " +
                                                     "--frames DIR, --frame-width PX, --out FILE.md, --author BRIEF|all.");
                 }

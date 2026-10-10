@@ -241,6 +241,9 @@ internal sealed partial class Game : IDisposable
     /// </summary>
     partial void LayTheMovingOnTheDevice(TownWorld world, SpriteRoom room);
 
+    /// <summary>One tick of a town resident on the device, where this run stands one — <paramref name="ticked"/> set where it was.</summary>
+    partial void TickResident(ref bool ticked);
+
     /// <summary>What moves emitted on the device for the frame about to be drawn, where <see cref="_movingOnTheDevice"/>.</summary>
     partial void EmitTheMoving(Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre);
 
@@ -832,6 +835,10 @@ internal sealed partial class Game : IDisposable
 
                 // The frame drawn after the last of them reads every car as it leaves it — where it is filled from the
                 // town's copy, a second seat's eye fills one so, or a layer over the town reads the cars it draws.
+                var resident = false;
+                TickResident(ref resident);
+                if (resident) continue;
+
                 _loop.World.ReadsEveryCarAfterTheTick =
                     tick == due - 1 && (!_movingOnTheDevice || _bot is not null || _ui.Switches.AnyOn);
                 _loop.Advance();

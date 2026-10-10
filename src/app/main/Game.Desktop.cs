@@ -29,24 +29,65 @@ internal sealed partial class Game
     /// </summary>
     public bool TicksOnTheDevice { get; init; }
 
+    /// <summary>
+    /// <c>--resident</c>: every town this run stands is resident on the device (<see cref="ResidentTown"/>) — laid there
+    /// once and ticked there with nothing read back, and drawn off its own tables.
+    /// </summary>
+    public bool TicksResident { get; init; }
+
+    ResidentTown? _resident;
+
     partial void TickOnTheDevice(TownWorld? world)
     {
         _deviceSprites?.Dispose();
         _deviceSprites = null;
         _deviceTown?.Dispose();
         _deviceTown = null;
-        if (world is null || !TicksOnTheDevice) return;
+        _resident?.Dispose();
+        _resident = null;
+        if (world is null) return;
+
+        if (TicksResident)
+        {
+            _resident = new ResidentTown(_vk, _config, world);
+            _movingOnTheDevice = _vk.HasFloat64;
+            return;
+        }
+
+        if (!TicksOnTheDevice) return;
 
         _deviceTown = new DeviceTown(_vk, _config, world);
         world.Device = _deviceTown;
         _movingOnTheDevice = _vk.HasFloat64;
     }
 
+    partial void TickResident(ref bool ticked)
+    {
+        if (_resident is not { } resident) return;
+
+        resident.Tick();
+        ticked = true;
+    }
+
     partial void LayTheMovingOnTheDevice(TownWorld world, SpriteRoom room)
     {
-        if (!_movingOnTheDevice || _deviceTown is not { } town) return;
+        if (!_movingOnTheDevice) return;
 
-        _deviceSprites = DeviceSprites.For(_vk, _config, world, _looks!, room, town);
+        if (_resident is { } resident)
+        {
+            _deviceSprites = DeviceSprites.For(_vk, _config, world, _looks!, room, resident.Tables);
+            var (cars, people) = resident.Counts;
+            _deviceSprites.LayResident(resident.Root, cars, people);
+        }
+        else if (_deviceTown is { } town)
+        {
+            _deviceSprites = DeviceSprites.For(_vk, _config, world, _looks!, room, town);
+        }
+        else
+        {
+            return;
+        }
+
         _renderer.DrawTheMovingFrom(_deviceSprites.Instances, _deviceSprites.Draws, _deviceSprites.AboveFrom);
     }
 
@@ -54,7 +95,7 @@ internal sealed partial class Game
     {
         if (_deviceSprites is not { } sprites || _world is not { } world) return;
 
-        sprites.Lay(world);
+        if (_resident is null) sprites.Lay(world);
         sprites.EmitForTheFrame(viewCentreM, viewSpanM, pixelsPerMetre, world.ElapsedS);
     }
 

@@ -91,6 +91,12 @@ internal sealed class ResidentTown : IDisposable
     /// <summary>The root every resident kernel reaches the town's tables through.</summary>
     public TownRoot Root => _root;
 
+    /// <summary>The device's tick that laid the tables, whose tables a frame draws off (<see cref="DeviceSprites"/>).</summary>
+    public DeviceTown Tables => _laid;
+
+    /// <summary>How many cars and walkers the town holds.</summary>
+    public (int Cars, int People) Counts => (_cars, _people);
+
     /// <summary>
     /// <b>One tick of the town</b>, recorded, submitted and waited for: the cars the car tick takes listed, their tick and
     /// the tyres, the walkers' tick, and the bodies' step.
