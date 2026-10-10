@@ -259,6 +259,12 @@ internal sealed partial class DeviceBodyPhase : IDisposable
     /// <summary>Which body a walker is, marked to be sent only where it differs from what was sent last (<see cref="Reads.Walkers"/>).</summary>
     public void LayWalker(int walker, int body) => _walkerBodies!.Lay(walker, body);
 
+    /// <summary>Which body each walker is, as the last step was sent it, on the device — none where the phase hands back no walker.</summary>
+    public GpuBuffer? WalkerBodies => _walkerBodies?.Device;
+
+    /// <summary>Which body each car is (<see cref="CarBodyRow"/>), as the last step was sent it, on the device.</summary>
+    public GpuBuffer CarBodies => _carBodies.Device;
+
     /// <summary>
     /// A walker's impulse as the town made it, written over the walker tick's own row for this tick — for a walker the
     /// tick did not answer for (<see cref="TakeTheWalkers"/>). A walker is laid at most once a step.

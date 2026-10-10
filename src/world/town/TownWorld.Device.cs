@@ -64,7 +64,8 @@ internal sealed partial class TownWorld
     /// <summary>
     /// <b>Whether an instrument reads every agent every tick</b> — a watch's claims over the whole fleet, and over every
     /// walker — so a device hands back every car's grant left with every tick (<see cref="GrantLeftM"/>), every walker a
-    /// claims rebuild changed (<see cref="ReadsTheWalker"/>), and how deep every body is into what it touches.
+    /// claims rebuild changed (<see cref="ReadsTheWalker"/>), and how deep every body is into what it touches. A watch a
+    /// device sweeps itself (<see cref="ITownDevice.WatchesTheTown"/>) reads none of it.
     /// </summary>
     public bool WatchesEveryAgent { get; set; }
 

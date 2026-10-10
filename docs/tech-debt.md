@@ -75,6 +75,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   tick closes it, as
   `TheTownHoldsEveryWalkerAsTheDeviceLeftIt` does for the walkers the claims keep and
   `EveryTickReadsEveryWalkerAsTheTownHoldsIt` for the walker tick's table.
+- **A walker the walker tick comes to hold after a rebuild was laid is left by that rebuild** (`DeviceWalkers.WantTheWalkers`
+  marks the walkers held when the rebuild is laid): its tick would then be laid off a town copy older than the rebuild's
+  aim. Not seen over the gate's 600 ticks, where `EveryTickReadsEveryWalkerAsTheTownHoldsIt` would count it; no
+  fixture forces it. A walker held since the laying taken back with the rebuild's answers closes it.
 - **The poses a town is handed back in part are held only on the suite's two towns** (`DeviceTownPosesTests`, root log
   2026-10-10). A host read of a pose the town was not handed, somewhere those runs never reach, reads a stale figure:
   the interface, a tow arm, a closure, a follow order, a debug layer. Every such read named in the 2026-10-10
@@ -172,12 +176,18 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   place does not move and the line changes only in `LayLine`. Watch the projection window's edges if it is kept per
   line.
 - **A frame's rows are laid from the town's copy every frame** (`DeviceSprites.LayCars` 0.52 ms and `LayPeople` 0.16 ms of
-  a windowed frame at OdesaOsm's 40 000 of each, 2026-10-09): every car's pose and flags though the device holds the
-  poses, and its reading, command and pass though the emit lays them again for every car the tick holds. Whether a walker
-  is drawn walking reads the town's copy too, which a device leaves as a claims rebuild before last left it for a walker
-  it does not read (`DeviceWalkers.LeavesTheUnread`) — current in a window only because its watch has every walker a
-  rebuild changed handed back (`TownWorld.WatchesEveryAgent`). Closes with the walkers laid off the kept walkers' table,
-  the poses off the bodies', and a car's row laid only where the town changed it.
+  a windowed frame at OdesaOsm's 40 000 of each, 2026-10-09): every car's and walker's pose and flags, which a device
+  town's emit then lays over again wherever it holds them (`sprites_cars.comp`: a car's pose, reading, command and pass;
+  `sprites_walkers.comp`: a walker's pose and whether it walks). Closes with a row laid only where something the emit does
+  not lay over changed.
+- **The town's watch counts the wounded and the wrecked by walking every walker and car** every tick (`TownWatch.Saw`):
+  `TownWorld`'s own sets of them (`_wounded`, `_wrecked`) would answer it, but `PersonFleet` and `CarFleet` clear the
+  flags on a slot used again without either set hearing of it. The sets held to the flags close it.
+- **Every step copies every car's and every walker's pose into the host's memory** (`DeviceBodyPhase.Record`, asked
+  `Reads.Poses` and `Reads.Walkers` by `DeviceTownBodies.WhatIsRead` every step): 3.2 MB a step at OdesaOsm's 40 000 of
+  each, of which the town writes back about 950 cars and 20 walkers (2026-10-10). The rest is there for a pose taken back
+  later without a wait (`DeviceTownBodies.TakeThePoseBack`). Closes with the poses the town will read named before the
+  step, and every other read of one moved to the device.
 - **A frame with a second seat or a layer over the town still has every car handed back** after its last tick
   (`TownWorld.ReadsEveryCarAfterTheTick`, `Game.Advance`; 1.5 ms of that tick at 40 000 cars): the eye is the shot path's
   fill off the town's copy, and the layers and the inspector read the cars they draw there. Closes with each reading what
@@ -239,10 +249,6 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   `DeviceTownBodies.HandBack`), every tick, though about 950 of OdesaOsm's 40 013 cars and none of its walkers are
   written. That walk is most of what is left of the bodies' 0.43 ms of writing back. A list of the agents the town
   reads, kept as each comes to be read or stops being read, closes it.
-- **The sprites' rows are laid whole from the fleets every frame** (`DeviceSprites.LayCars`, `LayPeople`). That includes
-  every pose, which a device town's emit then overwrites with its own (`sprites_cars.comp`, `sprites_walkers.comp`):
-  a loop over every car and walker, part of the 0.99 ms the frame's sprites cost on OdesaOsm at 40 000 of each
-  (render log, 2026-10-09). Laying a row only where something other than its pose changed closes it.
 
 ## Inconsistencies
 

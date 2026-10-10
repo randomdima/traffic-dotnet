@@ -53,6 +53,9 @@ internal sealed partial class TownWorld
         _wrecked.Add(car);
     }
 
+    /// <summary>Every car wrecked, in order, written into <paramref name="into"/>.</summary>
+    public ReadOnlySpan<int> WreckedCars(Span<int> into) => into[.._wrecked.CopyTo(Cars.Count, into)];
+
     /// <summary>Whether any car in the town is on a tow bar this tick.</summary>
     public bool AnyOnTheBar => _onTheBar > 0;
 

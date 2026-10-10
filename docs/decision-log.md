@@ -18,6 +18,34 @@ regular sync needed. CPU dont need a copy of the engine."** This extends 2026-10
 - **Measured by** the host's work and the bytes crossing a tick, both of which should follow the events, not the town's
   size.
 
+## 2026-10-10 — the town's watch is kept on the device
+
+**Under the owner's goal above.** Every town a window stands is watched (`Scenarios.For`, `TownWatch`): nothing inside
+anything, nothing past its grant, how long a walker afoot gets nowhere, how far the cars drive. The watch swept the town's
+copy every tick, so it had the device hand back every agent (`TownWorld.WatchesEveryAgent`). On OdesaOsm a watched run
+walked all 40 000 walkers on the host and read back 56 788 poses a tick and 1.9 MB a rebuild: 11.8 ms a tick against 10.6
+unwatched.
+
+- **The device sweeps the town itself** (`ITownDevice.WatchesTheTown`, `DeviceTownWatch`, `town_watch.comp`). Recorded
+  behind every step, it keeps every body's runs on the device. Each step it hands back 48 bytes: the deepest, longest and
+  furthest, each with the first body that had it, and the metres driven. The town hands back nothing for it. OdesaOsm
+  watched is 8.9 ms a tick, with 973 poses and 0.45 MB a rebuild read back.
+- **The arithmetic is the watch's** (`WatchRuns`, which still sweeps the town's copy where no device keeps the watch). A
+  test holds the kernel to it step by step (`DeviceTownWatchTests`).
+- **Handed over once**: the first tick is swept on the town's copy and its runs go to the device. A device let go of hands
+  the watch back to the town's copy.
+- **Each car is read against the grant its own tick drove on, and each walker as its tick walked it.** The car tick writes
+  every car it takes (`car_out.comp`); the town lays every car it ticked itself; a car left at rest keeps what was last
+  laid of it. A car a decision moved on from while its tick ran, and a walker a decision stopped, are read as the tick left
+  them, where the town's sweep read them after.
+- **A unit's note** (`TownWatch.Notes`) is said of the first eight bodies selected, and of no other.
+- **A walker the walker tick holds is handed back by every rebuild** (`DeviceWalkers.WantTheWalkers`). The town lays it
+  off its own copy every tick, and a rebuild that left it on the device left that copy older than the aim the tick read.
+  The watch handing every walker back had hidden this; `EveryTickReadsEveryWalkerAsTheTownHoldsIt` found it once the watch
+  moved.
+- **Whether a walker walks is drawn off the walker tick's table** where that holds the walker (`sprites_walkers.comp`),
+  as a rebuild on the device sets it for walkers the town does not read.
+
 ## 2026-10-10 — the device finds the decisions of the cars it keeps, and the loop's passes are the world's
 
 **Under the owner's goal above.** The town put off every car's decision on its turn, and the device was handed the list of

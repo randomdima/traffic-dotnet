@@ -5,7 +5,8 @@
 // DeviceCarTick.RecordTheOut), one thread a car named in the list taken: a car the host wants this tick, one whose decision
 // the device found was more than its clock and the town decides (car_decide.glsl, this tick's stamp), or one whose tick asks
 // something of the town — named in the list of those too. Every other car's rows stay on the device. Where the town
-// watches every agent, every car's grant left (CarFleet.GrantLeftM) is written besides, a float a car.
+// watches every agent, every car's grant left (CarFleet.GrantLeftM) is written besides, a float a car; where the device
+// keeps a watch itself, every car as the watch reads it (app/devicetick/DeviceTownWatch.CarRow).
 
 layout(local_size_x = 64) in;
 
@@ -14,10 +15,12 @@ layout(push_constant) uniform Figures
     uint carCount;
     uint stamp;
     uint grantsLeft;
+    uint watched;
 } figures;
 
 #include "agents/car/body/kernels/tyre_rows.glsl"
 #include "world/town/kernels/car_tick_rows.glsl"
+#include "world/town/kernels/car_watched.glsl"
 
 layout(std430, binding = 0) readonly buffer Taken { uint taken[]; };
 layout(std430, binding = 1) readonly buffer Wanted { uint wanted[]; };
@@ -32,6 +35,7 @@ layout(std430, binding = 9) readonly buffer Clocks { vec2 clocks[]; };
 layout(std430, binding = 10) readonly buffer DecidedAt { uint decidedAt[]; };
 layout(std430, binding = 11) readonly buffer Grants { CarGrantRow grants[]; };
 layout(std430, binding = 12) writeonly buffer GrantsLeft { float grantLeftM[]; };
+layout(std430, binding = 13) writeonly buffer Watched { WatchCarRow watched[]; };
 
 void main()
 {
@@ -39,7 +43,11 @@ void main()
 
     uint car = taken[gl_GlobalInvocationID.x];
     CarTickRow tick = ticks[car];
-    if (figures.grantsLeft != 0u) grantLeftM[car] = grants[car].authorityM - tick.coveredSinceClaimM;
+    float leftM = grants[car].authorityM - tick.coveredSinceClaimM;
+    if (figures.grantsLeft != 0u) grantLeftM[car] = leftM;
+
+    // A grant nothing cut is infinite, and nothing is past it.
+    if (figures.watched != 0u) watched[car] = WatchCarRow(isinf(leftM) || isnan(leftM) ? 0.0 : max(0.0, -leftM), 1u);
     bool asks = (tick.flags & TickEvents) != 0u;
     if (asks) events[atomicAdd(eventCount, 1u)] = car;
     bool decided = decidedAt[car] == figures.stamp;

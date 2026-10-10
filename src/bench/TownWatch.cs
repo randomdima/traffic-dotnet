@@ -1,4 +1,3 @@
-using System.Numerics;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.World.Road;
@@ -46,11 +45,13 @@ internal sealed class TownWatch : ScenarioWatch
         "what the town cost its people",
     ];
 
+    /// <summary>What the watch asks of a step, handed to a device that keeps it itself.</summary>
+    static readonly TownWatchTerms Terms = new(SoakProbe.OverlapAllowanceM, SoakProbe.PastTheGrantAllowanceM, StuckProbe.MovedM);
+
+    readonly WatchRuns _runs;
     readonly float[] _overlapM;
-    readonly int[] _stuckForTicks;
     readonly float[] _pastM;
-    readonly float[] _wasPastM;
-    readonly int[] _pastForTicks;
+    readonly bool[] _afoot;
     readonly int _walkers;
 
     long _ticks;
@@ -66,9 +67,13 @@ internal sealed class TownWatch : ScenarioWatch
     long _gaveUpBefore = -1;
     long _setDownBefore = -1;
 
-    readonly Vector2[] _stillFromM;
-    readonly int[] _stillForTicks;
     int _longestStillTicks;
+
+    /// <summary>
+    /// The device that keeps the watch, from the step after it was handed the runs (<see cref="ITownDevice.WatchesTheTown"/>),
+    /// or none: the town's copy is swept.
+    /// </summary>
+    ITownDevice? _device;
 
     /// <summary>How long one tick is, which is what turns a speed into the metres a car covered in it.</summary>
     readonly float _tickSeconds;
@@ -79,16 +84,13 @@ internal sealed class TownWatch : ScenarioWatch
         _tickSeconds = config.TickSeconds;
         _walkers = world.People.Count;
         Cars = world.Cars.Count;
-        _overlapM = new float[world.People.Count + world.Cars.Count];
-        _stuckForTicks = new int[_overlapM.Length];
-        _pastM = new float[_overlapM.Length];
-        _wasPastM = new float[_overlapM.Length];
-        _pastForTicks = new int[_overlapM.Length];
-        _stillFromM = new Vector2[world.People.Count];
-        _stillForTicks = new int[world.People.Count];
+        _runs = new WatchRuns(_walkers, Cars, Terms);
+        _overlapM = new float[_runs.Bodies];
+        _pastM = new float[_runs.Bodies];
+        _afoot = new bool[_walkers];
 
         // How far past its grant every car is, every tick (SoakProbe.SweepPastTheGrant), and how long every walker walked
-        // nowhere, read where a device keeps them.
+        // nowhere, read where a device keeps them — until a device keeps the watch itself.
         world.WatchesEveryAgent = true;
     }
 
@@ -242,35 +244,56 @@ internal sealed class TownWatch : ScenarioWatch
     /// It is the same two sweeps the claims above are answered from, read at one body instead of over all
     /// of them. <b>A body that is inside nothing and where it was told to be has nothing said about it</b>:
     /// the label beside a unit is the unit's own state, and a line reading "0 mm" on every car in the town
-    /// is a line nobody reads.
+    /// is a line nobody reads. Where a device keeps the watch, it has said what it has against the first few bodies
+    /// selected (<see cref="ITownDevice.WatchNotes"/>), and nothing of any other.
     /// </remarks>
     public override bool Notes(SelectionKind kind, int index, ref TextBuffer into)
     {
         var body = kind == SelectionKind.Person ? index : _walkers + index;
-        if (body < 0 || body >= _overlapM.Length) return false;
+        if (body < 0 || body >= _runs.Bodies || !NoteOf(body, out var note)) return false;
 
         var wrote = false;
-        if (_overlapM[body] > SoakProbe.OverlapAllowanceM)
+        if (note.OverlapM > SoakProbe.OverlapAllowanceM)
         {
-            into.Add(_overlapM[body] * 1_000f, "F0");
+            into.Add(note.OverlapM * 1_000f, "F0");
             into.Add(" mm inside something, ");
-            into.Add(_stuckForTicks[body]);
+            into.Add(note.StuckTicks);
             into.Add(" of ");
             into.Add(SoakProbe.StuckAfterTicks);
             into.Add(" ticks");
             wrote = true;
         }
 
-        if (_pastM[body] <= SoakProbe.PastTheGrantAllowanceM) return wrote;
+        if (note.PastM <= SoakProbe.PastTheGrantAllowanceM) return wrote;
 
         if (wrote) into.Add("   ");
-        into.Add(_pastM[body] * 1_000f, "F0");
+        into.Add(note.PastM * 1_000f, "F0");
         into.Add(" mm past its grant, ");
-        into.Add(_pastForTicks[body]);
+        into.Add(note.PastTicks);
         into.Add(" of ");
         into.Add(SoakProbe.PastAfterTicks);
         into.Add(" ticks");
         return true;
+    }
+
+    bool NoteOf(int body, out TownWatchNote note)
+    {
+        if (_device is null)
+        {
+            note = _runs.NoteOf(body);
+            return true;
+        }
+
+        foreach (var noted in _device.WatchNotes)
+        {
+            if (noted.Body != body) continue;
+
+            note = noted;
+            return true;
+        }
+
+        note = default;
+        return false;
     }
 
     /// <summary>
@@ -278,6 +301,12 @@ internal sealed class TownWatch : ScenarioWatch
     /// how long one body has been inside another is the whole of what tells a solver recovering from a
     /// body nothing pushed back out, and a sweep taken every other tick would count half of it.
     /// </summary>
+    /// <remarks>
+    /// <b>Swept on the device where it keeps the watch itself</b> (<see cref="ITownDevice.WatchesTheTown"/>): handed the runs
+    /// once the town's copy was swept, every step after it sweeps what it holds, and the town has no agent handed back for
+    /// it. Each car is read against the grant its own tick drove on, and each walker as its tick walked it — so a car a
+    /// decision moved on from while its tick ran, and a walker a decision stopped, are read as the tick left them.
+    /// </remarks>
     public override void Saw(TownWorld world)
     {
         // What the town had already given up on when this watch began, so what is quoted is what happened
@@ -285,83 +314,23 @@ internal sealed class TownWatch : ScenarioWatch
         if (_gaveUpBefore < 0) _gaveUpBefore = world.WalksGivenUp;
         if (_setDownBefore < 0) _setDownBefore = world.WalkersSetDown;
 
-        _ticks++;
-        SoakProbe.SweepOverlaps(world, _overlapM);
-        for (var body = 0; body < _overlapM.Length; body++)
+        // A device let go of has handed every agent back, and the town's copy is the whole town again — swept on from the
+        // runs the device was handed.
+        if (_device != null && world.Device != _device)
         {
-            // Which body it was and not only how deep: a walker a car swept and a car that drove into
-            // another are the same millimetres and different findings.
-            if (_overlapM[body] > _deepestM)
-            {
-                _deepestM = _overlapM[body];
-                _deepestBody = body;
-            }
-
-            _stuckForTicks[body] = _overlapM[body] > SoakProbe.OverlapAllowanceM ? _stuckForTicks[body] + 1 : 0;
-            if (_stuckForTicks[body] <= _longestStuckTicks) continue;
-
-            _longestStuckTicks = _stuckForTicks[body];
-            _stuckBody = body;
+            _device = null;
+            world.WatchesEveryAgent = true;
         }
 
-        // And the same question asked of the claims rather than of the shapes: whether a body is where it was
-        // told it could be. The two are not one reading — a car past its grant with nothing yet in the metres
-        // it took is inside nothing at all, and is the tick before the contact rather than the contact.
-        //
-        // <b>What is counted is going deeper and never being past</b>. A body stops where it was told to and
-        // stays there, so a stride's worth of overshoot latches: read as a state it is a car stopped short of
-        // a crossing reported for the whole minute it waits, and the claim then says nothing about anybody
-        // driving on.
-        for (var body = 0; body < _pastM.Length; body++) _wasPastM[body] = _pastM[body];
-
-        SoakProbe.SweepPastTheGrant(world, _pastM);
-        for (var body = 0; body < _pastM.Length; body++)
+        Take(_device?.Watched ?? Swept(world));
+        if (_device is null && world.Device is { } device && device.WatchesTheTown(Terms, _runs.Runs))
         {
-            if (_pastM[body] > _furthestPastM)
-            {
-                _furthestPastM = _pastM[body];
-                _furthestPastBody = body;
-            }
-
-            var deeper = _pastM[body] > SoakProbe.PastTheGrantAllowanceM
-                         && _pastM[body] > _wasPastM[body] + SoakProbe.PastTheGrantAllowanceM;
-            _pastForTicks[body] = deeper ? _pastForTicks[body] + 1 : 0;
-            if (_pastForTicks[body] <= _longestPastTicks) continue;
-
-            _longestPastTicks = _pastForTicks[body];
-            _pastBody = body;
+            _device = device;
+            world.WatchesEveryAgent = false;
         }
 
         WalksGivenUp = world.WalksGivenUp - _gaveUpBefore;
         WalkersSetDown = world.WalkersSetDown - _setDownBefore;
-
-        // <b>How long a walker has been walking and getting nowhere</b>, which is the one thing about the
-        // walking that nothing else in the town reports: every other figure here counts an event, and a
-        // body that is never given up and never arrives raises none of them.
-        for (var person = 0; person < world.People.Count; person++)
-        {
-            var people = world.People;
-            var afoot = people.Acts(person) && people.Walking[person] && !people.Inside[person].Any;
-            if (!afoot || (people.PositionM[person] - _stillFromM[person]).Length() > StuckProbe.MovedM)
-            {
-                _stillFromM[person] = people.PositionM[person];
-                _stillForTicks[person] = 0;
-                continue;
-            }
-
-            _stillForTicks[person]++;
-            _longestStillTicks = Math.Max(_longestStillTicks, _stillForTicks[person]);
-        }
-
-        var drivenM = 0f;
-        for (var car = 0; car < world.Cars.Count; car++)
-        {
-            if (!world.Cars.Driven[car] || world.Cars.Broken[car]) continue;
-
-            drivenM += world.Cars.VelocityMps[car].Length() * _tickSeconds;
-        }
-
-        DrivenM += drivenM;
         Touches = world.Touches;
 
         var down = 0;
@@ -378,6 +347,49 @@ internal sealed class TownWatch : ScenarioWatch
 
         Down = down;
         Wrecked = wrecked;
+    }
+
+    /// <summary>
+    /// One step's sweep taken into what the watch has seen: which body it was and not only how deep — a walker a car swept
+    /// and a car that drove into another are the same millimetres and different findings.
+    /// </summary>
+    void Take(in TownWatchedTick tick)
+    {
+        _ticks++;
+        if (tick.DeepestOverlapM > _deepestM) (_deepestM, _deepestBody) = (tick.DeepestOverlapM, tick.DeepestBody);
+        if (tick.LongestStuckTicks > _longestStuckTicks) (_longestStuckTicks, _stuckBody) = (tick.LongestStuckTicks, tick.StuckBody);
+        if (tick.FurthestPastM > _furthestPastM) (_furthestPastM, _furthestPastBody) = (tick.FurthestPastM, tick.FurthestPastBody);
+        if (tick.LongestPastTicks > _longestPastTicks) (_longestPastTicks, _pastBody) = (tick.LongestPastTicks, tick.PastBody);
+        _longestStillTicks = Math.Max(_longestStillTicks, tick.LongestStillTicks);
+        DrivenM += tick.DrivenM;
+    }
+
+    /// <summary>
+    /// The town's copy swept. <b>The claims are asked of the shapes and of the grants both</b>, and the two are not one
+    /// reading: a car past its grant with nothing yet in the metres it took is inside nothing at all, and is the tick before
+    /// the contact rather than the contact. <b>How long a walker has been walking and getting nowhere</b> is the one thing
+    /// about the walking that nothing else in the town reports: every other figure here counts an event, and a body that is
+    /// never given up and never arrives raises none of them.
+    /// </summary>
+    TownWatchedTick Swept(TownWorld world)
+    {
+        SoakProbe.SweepOverlaps(world, _overlapM);
+        SoakProbe.SweepPastTheGrant(world, _pastM);
+        var people = world.People;
+        for (var person = 0; person < _walkers; person++)
+        {
+            _afoot[person] = people.Acts(person) && people.Walking[person] && !people.Inside[person].Any;
+        }
+
+        var drivenM = 0f;
+        for (var car = 0; car < world.Cars.Count; car++)
+        {
+            if (!world.Cars.Driven[car] || world.Cars.Broken[car]) continue;
+
+            drivenM += world.Cars.VelocityMps[car].Length() * _tickSeconds;
+        }
+
+        return _runs.Step(_overlapM, _pastM, people.PositionM.AsSpan(0, _walkers), _afoot, drivenM);
     }
 
     /// <summary>What a body's place in the sweep is called: the roster it falls in and its own index there.</summary>

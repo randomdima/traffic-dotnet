@@ -154,6 +154,22 @@ internal interface ITownDevice
     /// walker the device did not decide.
     /// </summary>
     bool WalkerDecidedOnTheDevice(int person) => false;
+
+    /// <summary>
+    /// <b>Whether the device sweeps the town for a watch over every body from its next step on</b> (<see cref="Watched"/>),
+    /// going on from the runs the watch kept so far — so the town has no agent handed back for it
+    /// (<see cref="TownWorld.WatchesEveryAgent"/>). False where it cannot, and the watch sweeps the town's copy.
+    /// </summary>
+    bool WatchesTheTown(in TownWatchTerms terms, TownWatchRuns runs) => false;
+
+    /// <summary>What the device's last step made of the watch it keeps (<see cref="WatchesTheTown"/>).</summary>
+    TownWatchedTick Watched => default;
+
+    /// <summary>
+    /// What the watch the device keeps has against each body the town has selected (<see cref="TownWorld.Selected"/>), as its
+    /// last step left them — the first few selected, at most.
+    /// </summary>
+    ReadOnlySpan<TownWatchNote> WatchNotes => default;
 }
 
 /// <summary>

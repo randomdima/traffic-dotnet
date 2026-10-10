@@ -154,7 +154,7 @@ internal sealed partial class DeviceCarTick : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    readonly record struct OutPush(uint CarCount, uint Stamp, uint GrantsLeft);
+    readonly record struct OutPush(uint CarCount, uint Stamp, uint GrantsLeft, uint Watched);
 
     /// <summary>The tick's figures, field for field with <c>car_tick.comp</c>'s, each the host's own.</summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -222,6 +222,9 @@ internal sealed partial class DeviceCarTick : IDisposable
 
     /// <summary>Every car's grant left as the last tick that took it with <see cref="HandsBackTheGrantsLeft"/> left it, in the host's memory.</summary>
     readonly GpuBuffer _grantsLeft;
+
+    /// <summary>Every car as a watch the device keeps reads it, written for each car a tick takes while <see cref="Watched"/> (<see cref="DeviceTownWatch.CarRow"/>).</summary>
+    readonly GpuBuffer _watchedCars;
 
     readonly ComputeKernel _outKernel;
     readonly DescriptorSet _outSet;
@@ -373,11 +376,14 @@ internal sealed partial class DeviceCarTick : IDisposable
             HostAccess.None);
         _eventCountOut = vk.CreateBuffer(sizeof(uint), BufferUsageFlags.TransferDstBit, HostAccess.Reads);
         _grantsLeft = vk.CreateBuffer((ulong)(capacity * sizeof(float)), BufferUsageFlags.StorageBufferBit, HostAccess.Reads);
-        _outKernel = new ComputeKernel(vk, "car_out.comp", 13, (uint)Marshal.SizeOf<OutPush>());
+        _watchedCars = vk.CreateBuffer(
+            GpuBuffer.Bytes<DeviceTownWatch.CarRow>(capacity), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferDstBit,
+            HostAccess.None);
+        _outKernel = new ComputeKernel(vk, "car_out.comp", 14, (uint)Marshal.SizeOf<OutPush>());
         _outSet = _outKernel.Bind(
         [
             _taken.Device, _wanted, _ticks.Device, table.Commands.Device, _briefs.Device, table.Cars.Device, _rowsOut, _events, _eventCount,
-            _clocks.Device, _decidedAt, _grantsBound, _grantsLeft,
+            _clocks.Device, _decidedAt, _grantsBound, _grantsLeft, _watchedCars,
         ]);
         _eventsRead = new uint[capacity];
         _handOverRuns = new BufferCopy[capacity];
@@ -852,6 +858,15 @@ internal sealed partial class DeviceCarTick : IDisposable
     public float GrantLeftAfter(int car) => _grantsLeft.Span<float>()[car];
 
     /// <summary>
+    /// <b>Whether each tick writes every car it takes as a watch the device keeps reads it</b> (<see cref="WatchedCars"/>):
+    /// how far past the grant it drove on, and driven.
+    /// </summary>
+    public bool Watched { get; set; }
+
+    /// <summary>Every car as a watch the device keeps reads it, as whatever wrote each last left it (<see cref="DeviceTownWatch.Tables.Cars"/>).</summary>
+    public GpuBuffer WatchedCars => _watchedCars;
+
+    /// <summary>
     /// The cars whose last tick asked something of the town (<see cref="TickRow.Events"/>), in order — read once the tick's
     /// submit has been waited for (<see cref="ReadsEveryCar"/> off).
     /// </summary>
@@ -875,7 +890,7 @@ internal sealed partial class DeviceCarTick : IDisposable
     {
         _vk.BetweenKernels(commands);
         var groups = (uint)Math.Max(1, (_takenCount + 63) / 64);
-        _outKernel.Dispatch(commands, _outSet, groups, new OutPush((uint)_takenCount, _stamp, HandsBackTheGrantsLeft ? 1u : 0u));
+        _outKernel.Dispatch(commands, _outSet, groups, new OutPush((uint)_takenCount, _stamp, HandsBackTheGrantsLeft ? 1u : 0u, Watched ? 1u : 0u));
         _vk.BeforeTransfer(commands);
         _vk.Copy(commands, _eventCount, _eventCountOut, sizeof(uint));
         _tyres.RecordReadTheMarkCount(commands);
@@ -987,7 +1002,7 @@ internal sealed partial class DeviceCarTick : IDisposable
         _outKernel.Dispose();
         foreach (var table in (ReadOnlySpan<IDisposable>)[
                      _ticks, _told, _grants, _cutters, _boxes, _contexts, _lines, _arcs, _entries, _chain, _starts, _ends, _firstArcs,
-                     _breaks, _taken, _passes, _holdBits, _briefs, _wanted, _rowsOut, _events, _eventCount, _eventCountOut, _grantsLeft,
+                     _breaks, _taken, _passes, _holdBits, _briefs, _wanted, _rowsOut, _events, _eventCount, _eventCountOut, _grantsLeft, _watchedCars,
                      _decideList, _decideTerms, _clocks, _verdicts, _decideOut, _decidesItselfWords, _foundCounts, _foundCountsOut,
                      _foundMore])
         {

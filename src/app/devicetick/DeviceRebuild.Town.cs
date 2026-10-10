@@ -839,7 +839,7 @@ internal sealed partial class DeviceRebuild
             _walkerAnswers.Dispatch(commands, _walkerCount, new UnitsPush((uint)_walkerCount, (uint)(_stretches + 1 + _carCount)));
             vk.BetweenKernels(commands);
             _walkers.Record(commands, DeviceWalkers.Piece.Read);
-            _walkers.WantTheWalkers(town, every: !AnswersOnlyWhatTheTownHolds);
+            _walkers.WantTheWalkers(town, _walkerTick, every: !AnswersOnlyWhatTheTownHolds);
             _walkers.RecordTheKeptOut(commands, _stretches + 1 + _carCount);
         }
 

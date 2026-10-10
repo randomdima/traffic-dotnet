@@ -147,6 +147,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _timer = new GpuTimer(vk, 3);
         _dtS = config.TickSeconds;
         _taken = new int[cars.Capacity];
+        _watchLaid = new int[cars.Capacity];
         _takenNow = new AgentSet(cars.Capacity);
         _takeBack = new int[cars.Capacity];
         _maySet = new int[cars.Capacity];
@@ -1135,6 +1136,80 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         return _cars.GrantLeftAfter(car);
     }
 
+    /// <remarks>
+    /// <b>Only where the walkers' table is the device's own</b> (<see cref="DeviceWalkerTick.Resident"/>), which is where a
+    /// walker stands and how it is told to walk, and only one watch.
+    /// </remarks>
+    public bool WatchesTheTown(in TownWatchTerms terms, TownWatchRuns runs)
+    {
+        if (_watch != null || !_walkers.Resident || _bodies.Phase.WalkerBodies is not { } walkerBodies) return false;
+
+        var bodies = _bodies.Solver.Bodies;
+        _watch = new DeviceTownWatch(
+            _vk, terms, _dtS, runs.Walkers, runs.Cars,
+            new DeviceTownWatch.Tables(
+                _bodies.Solver.Overlap, bodies.Pose, bodies.Motion, walkerBodies, _bodies.Phase.CarBodies, _walkers.Table, _cars.WatchedCars));
+        _watch.Seed(runs);
+        _bodies.Watch = _watch;
+        _cars.Watched = true;
+        _watchLaysEveryCar = true;
+        return true;
+    }
+
+    public TownWatchedTick Watched => _watch?.Watched ?? default;
+
+    public ReadOnlySpan<TownWatchNote> WatchNotes => _watch != null ? _watch.Notes : default;
+
+    /// <summary>The watch kept here (<see cref="WatchesTheTown"/>), or none.</summary>
+    DeviceTownWatch? _watch;
+
+    /// <summary>Whether the next step lays every car the car tick does not take into the watch: the first it keeps.</summary>
+    bool _watchLaysEveryCar;
+
+    /// <summary>Room for the cars the watch is laid, and the bodies it notes.</summary>
+    readonly int[] _watchLaid, _watchNoted = new int[DeviceTownWatch.MostNoted];
+
+    /// <summary>
+    /// <b>What the watch kept here reads of the cars the car tick does not take this step</b>, laid off the town's copy before
+    /// the step is recorded: every one the town ticked itself, and every one where the watch was just taken over — a car left
+    /// at rest keeping what the last laid of it; a wreck the car tick still drives read as not driven; and the bodies
+    /// selected, noted.
+    /// </summary>
+    /// <param name="ticked">Whether the car tick ran this tick, so a car it took is its to write.</param>
+    void LayTheWatched(TownWorld town, bool ticked)
+    {
+        if (_watch is not { } watch) return;
+
+        var cars = town.Cars;
+        var laid = _watchLaysEveryCar ? _cars.EveryCar(cars.Count, _watchLaid) : _cars.TheCarsTheTownHolds(cars.Count, (Span<int>)_watchLaid);
+        _watchLaysEveryCar = false;
+        foreach (var car in laid)
+        {
+            if (ticked && _cars.IsTaken(car)) continue;
+
+            watch.LayCar(car, DeviceTownWatch.CarRow.Of(cars.GrantLeftM(car), cars.Driven[car] && !cars.Broken[car]));
+        }
+
+        if (ticked)
+        {
+            foreach (var car in town.WreckedCars(_watchLaid))
+            {
+                if (_cars.IsTaken(car)) watch.LayDriven(car, drivenAndWhole: false);
+            }
+        }
+
+        var noted = 0;
+        foreach (var unit in town.Selected)
+        {
+            if (noted == _watchNoted.Length) break;
+
+            if (unit.Kind == SelectionKind.Person) _watchNoted[noted++] = unit.Index;
+            else if (unit.Kind == SelectionKind.Car) _watchNoted[noted++] = town.People.Count + unit.Index;
+        }
+
+        watch.Note(_watchNoted.AsSpan(0, noted));
+    }
+
     public void TakeEveryCarBack(TownWorld town)
     {
         KeptWalkers.TakeBackTheLeft(town, _walkers);
@@ -1449,6 +1524,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         // written back while it runs.
         if (stepping)
         {
+            LayTheWatched(town, ticked: true);
             _bodies.LayTheStep(town, _dtS, _taken.AsSpan(0, _count), walkersTicked: true);
             var step = _stepBatch.Begin();
             _vk.AfterTheSubmitsBefore(step);
@@ -1610,6 +1686,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     public void StepBodies(TownWorld town, float dtS)
     {
         var leaving = Leaving(town, everyKept: false);
+        LayTheWatched(town, _ticked);
         _bodies.StepBodies(town, dtS, _ticked ? _taken.AsSpan(0, _count) : default, walkersTicked: _ticked, leaving);
         TakeTheWheelsBack(town.Cars, leaving);
         LeaveTheParkedAtRest(town);
@@ -1928,6 +2005,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _batch.Dispose();
         _looks.Dispose();
         _townClaims.Dispose();
+        _watch?.Dispose();
         _bodies.Dispose();
         _walkers.Dispose();
         _cars.Dispose();

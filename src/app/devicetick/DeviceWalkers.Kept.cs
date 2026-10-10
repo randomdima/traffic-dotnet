@@ -332,11 +332,12 @@ internal sealed partial class DeviceWalkers
 
     /// <summary>
     /// <b>Which walkers the town reads as this rebuild leaves them</b>, marked for it to hand back: every one where
-    /// <paramref name="every"/>, else those the town reads whenever (<see cref="TownWorld.ReadsTheWalker"/>) and those whose
-    /// decision it takes this tick (<see cref="TownWorld.DecisionsPutOff"/>) — and which it left on the device before, which
+    /// <paramref name="every"/>, else those the town reads whenever (<see cref="TownWorld.ReadsTheWalker"/>), those whose
+    /// tick it holds — which it lays off its own copy every tick (<see cref="DeviceWalkerTick.TownHolds"/>) — and those whose
+    /// decision it takes this tick (<see cref="TownWorld.DecisionsPutOff"/>); and which it left on the device before, which
     /// are handed back whether changed or not.
     /// </summary>
-    public void WantTheWalkers(TownWorld town, bool every)
+    public void WantTheWalkers(TownWorld town, DeviceWalkerTick? ticked, bool every)
     {
         every |= !LeavesTheUnread;
         var words = Words;
@@ -346,7 +347,7 @@ internal sealed partial class DeviceWalkers
         var left = marks[words..];
         for (var person = 0; person < _walkerCount; person++)
         {
-            if (every || town.ReadsTheWalker(person)) wanted[person >> 5] |= 1u << (person & 31);
+            if (every || town.ReadsTheWalker(person) || ticked?.TownHolds(person) == true) wanted[person >> 5] |= 1u << (person & 31);
             if (_left[person]) left[person >> 5] |= 1u << (person & 31);
         }
 

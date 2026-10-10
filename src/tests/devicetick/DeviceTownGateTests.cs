@@ -30,6 +30,13 @@ public class DeviceTownGateTests(TickedOnTheDevice ticked) : IClassFixture<Ticke
     public void NobodyGoesOnIntoGroundItWasRefused() => Assert.Equal(ClaimVerdict.Kept, ticked.Watch.Verdict(TownWatch.NothingIsPastItsGrant));
 
     /// <summary>
+    /// <b>The watch is kept on the device</b> (<see cref="DeviceTown.WatchesTheTown"/>): the two claims above are its sweeps,
+    /// and the town has no agent handed back for them (<see cref="TownWorld.WatchesEveryAgent"/>).
+    /// </summary>
+    [Fact]
+    public void TheWatchIsKeptOnTheDevice() => Assert.True(ticked.WatchedOnTheDevice);
+
+    /// <summary>
     /// The device keeps the walkers' side of the claims as its own (<see cref="DeviceWalkers.Keeps"/>), and every rebuild the
     /// town takes up everything it made of them — or the town would write its own stale fields back over the device's — the
     /// ones that ran on while the town went on (<see cref="DeviceRebuild.AnswersDue"/>) among them.
@@ -108,6 +115,7 @@ public sealed class TickedOnTheDevice : IDisposable
             Watch.Saw(world);
         }
 
+        WatchedOnTheDevice = !world.WatchesEveryAgent;
         world.Device = null;
         (WalkersKept, WalkersUnlike) = (walkers.Keeps, walkers.KeptUnlike);
         WalkerTicksUnlike = town.Walkers.TickReadUnlike;
@@ -120,6 +128,9 @@ public sealed class TickedOnTheDevice : IDisposable
     internal bool RebuildsRanOn { get; }
 
     internal TownWatch Watch { get; }
+
+    /// <summary>Whether the device kept the watch by the end, the town watching no agent itself.</summary>
+    internal bool WatchedOnTheDevice { get; }
 
     /// <summary>Whether the device kept the walkers' side of the claims, and how many walkers the town held otherwise right after a rebuild was taken back.</summary>
     internal bool WalkersKept { get; }

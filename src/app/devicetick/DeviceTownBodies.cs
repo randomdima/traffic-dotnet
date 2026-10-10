@@ -218,8 +218,17 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
     /// The step <see cref="LayTheStep"/> laid, recorded after the agents' tick in the caller's submit — whose tyre pass and
     /// walkers' tick the caller has barriered against a copy (<see cref="Vk.BeforeTransfer"/>).
     /// </summary>
-    public void RecordTheStep(CommandBuffer commands, TownWorld town, float dtS) =>
+    public void RecordTheStep(CommandBuffer commands, TownWorld town, float dtS)
+    {
         _phase.Record(commands, town.Cars.Count, town.People.Count, dtS, WhatIsRead(town));
+        Watch?.Record(commands);
+    }
+
+    /// <summary>
+    /// <b>A watch over every body kept on the device</b>, recorded behind every step and read once the step is waited for —
+    /// or none.
+    /// </summary>
+    public DeviceTownWatch? Watch { get; set; }
 
     /// <summary>What the recorded step left, handed back once the caller's submit has been waited for.</summary>
     /// <param name="placedMeanwhile">
@@ -230,6 +239,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
     {
         var began = Stopwatch.GetTimestamp();
         _phase.ReadTimes();
+        Watch?.Read();
         HandBack(town, placedMeanwhile);
         WaitMs = 0;
         HandBackMs = Stopwatch.GetElapsedTime(began).TotalMilliseconds;
@@ -260,6 +270,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
 
         var commands = _batch.Begin();
         _phase.Record(commands, town.Cars.Count, town.People.Count, dtS, WhatIsRead(town));
+        Watch?.Record(commands);
         if (!handedOver.IsEmpty)
         {
             if (HandsOverThrough is { } cars) cars.RecordTheHandOver(commands, handedOver);
@@ -267,6 +278,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         }
         _batch.SubmitAndWait();
         _phase.ReadTimes();
+        Watch?.Read();
         var waited = Stopwatch.GetTimestamp();
 
         HandBack(town);

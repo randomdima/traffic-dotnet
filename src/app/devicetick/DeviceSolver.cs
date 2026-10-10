@@ -543,6 +543,9 @@ internal sealed class DeviceSolver : IDisposable
     /// <summary>How deep each body was into whatever it touched, as a float's bits (SOL-9).</summary>
     public ReadOnlySpan<uint> OverlapBits => _overlapOut.Span<uint>()[.._bodies];
 
+    /// <summary>The same on the device, as the last step left it until the next begins, for a kernel reading it there.</summary>
+    public GpuBuffer Overlap => _overlap;
+
     /// <summary>The last step's contacts in its order: the pair, how many points, and the colour it was solved in.</summary>
     public ReadOnlySpan<UInt4> Contacts => _contactOut.Span<UInt4>()[..ContactCount];
 
