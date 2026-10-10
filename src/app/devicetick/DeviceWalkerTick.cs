@@ -121,6 +121,7 @@ internal sealed partial class DeviceWalkerTick : IDisposable
         _townHolds = new AgentSet(capacity);
         _walked = new AgentSet(capacity);
         _heldSinceTheLaying = new AgentSet(capacity);
+        _setSinceTheFrame = new AgentSet(capacity);
         _takenBack = new AgentSet(capacity);
         _walk = new int[capacity];
     }
@@ -215,7 +216,7 @@ internal sealed partial class DeviceWalkerTick : IDisposable
         foreach (var person in walk)
         {
             _walked.Add(person);
-            _heldSinceTheLaying.Add(person);
+            Set(person);
             var row = RowOf(people, person, paused);
             var impulseNs = town.WalkerImpulseNs(person);
             _bodies.Lay(person, people.Body[person].Index);
@@ -326,14 +327,37 @@ internal sealed partial class DeviceWalkerTick : IDisposable
     public void TookBack(int walker) => Hold(walker);
 
     /// <summary>A walker the town took up anything of the claims' since the last laying, to be laid again with the next (<see cref="TheWalkersSetSinceTheLaying"/>).</summary>
-    public void LayAgainWithTheClaims(int walker) => _heldSinceTheLaying.Add(walker);
+    public void LayAgainWithTheClaims(int walker) => Set(walker);
 
     /// <summary>A walker the town holds from here on, and so one it may set anything of before the next laying.</summary>
     void Hold(int walker)
     {
         _townHolds.Add(walker);
-        _heldSinceTheLaying.Add(walker);
+        Set(walker);
     }
+
+    /// <summary>A walker the town may have set anything of, for the next laying and the next frame.</summary>
+    void Set(int walker)
+    {
+        _heldSinceTheLaying.Add(walker);
+        _setSinceTheFrame.Add(walker);
+    }
+
+    /// <summary>
+    /// <b>The walkers the town may have set anything of since the frame last asked</b> (<see cref="DeviceSprites.Lay"/>),
+    /// added to <paramref name="into"/>: those walked or held since, and those it holds or touched now. The walked and held
+    /// are forgotten once asked.
+    /// </summary>
+    public void TheWalkersSetSinceTheFrame(TownWorld town, AgentSet into)
+    {
+        into.UnionWith(_setSinceTheFrame);
+        into.UnionWith(_townHolds);
+        into.UnionWith(town.TouchedWalkers);
+        _setSinceTheFrame.Clear();
+    }
+
+    /// <summary>The walkers walked or held since <see cref="TheWalkersSetSinceTheFrame"/> last asked.</summary>
+    AgentSet _setSinceTheFrame = null!;
 
     /// <summary>A walker the town does not read after this tick: its pace, heading and impulse stay the device's.</summary>
     public void LeftOnTheDevice(int walker) => _townHolds.Remove(walker);

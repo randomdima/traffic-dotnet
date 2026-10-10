@@ -175,11 +175,14 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **The distance to a fixed place is projected every tick** (`ToThePlaceOnTheLineM`, through `SetTheContext`): the
   place does not move and the line changes only in `LayLine`. Watch the projection window's edges if it is kept per
   line.
-- **A frame's rows are laid from the town's copy every frame** (`DeviceSprites.LayCars` 0.52 ms and `LayPeople` 0.16 ms of
-  a windowed frame at OdesaOsm's 40 000 of each, 2026-10-09): every car's and walker's pose and flags, which a device
-  town's emit then lays over again wherever it holds them (`sprites_cars.comp`: a car's pose, reading, command and pass;
-  `sprites_walkers.comp`: a walker's pose and whether it walks). Closes with a row laid only where something the emit does
-  not lay over changed.
+- **A frame lays every walker whose decision the town takes itself** (`DeviceSprites.LayWhatChanged`, 2026-10-10): about
+  3 400 a tick at OdesaOsm — inside, down or on duty — each held by its take-back (`DeviceWalkerTick.TakeTheTickBack`)
+  whether its decision set anything or not, and most of the 4 045 walkers a frame lays; an inside one's row is only that
+  it is inside, so few are sent. Closes with those decisions taken on the device, or a walker marked only where its
+  decision set something.
+- **A car the town moves after the step and before a frame is laid by no test** (`DeviceSprites.LayWhatChanged`'s
+  `physics.Changes` and `_posedByTheTown`): a step taken with the tick forgets the town's moves before the frame, so the
+  suite never reaches it. Closes with a staging that puts a car down between a tick and its frame.
 - **The town's watch counts the wounded and the wrecked by walking every walker and car** every tick (`TownWatch.Saw`):
   `TownWorld`'s own sets of them (`_wounded`, `_wrecked`) would answer it, but `PersonFleet` and `CarFleet` clear the
   flags on a slot used again without either set hearing of it. The sets held to the flags close it.

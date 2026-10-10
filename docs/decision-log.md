@@ -18,6 +18,25 @@ regular sync needed. CPU dont need a copy of the engine."** This extends 2026-10
 - **Measured by** the host's work and the bytes crossing a tick, both of which should follow the events, not the town's
   size.
 
+## 2026-10-10 — a frame lays only the units the town set since the last
+
+**Under the owner's goal above.** A window's frame laid every walker's and every car's sprite row off the town's copy:
+0.62 ms a frame at OdesaOsm's 40 000 of each, though the device lays a kept unit's pose, reading, command and pass over
+its row.
+
+- **A row leaves out what the emit lays over it** (`DeviceSprites.CarRowOf`, `PersonRowOf`), so a unit the device keeps
+  has a row of what the host alone sets — its looks, flags, tow and level — and an inside walker a row of being inside.
+- **Only the units the town may have set since the last frame are laid** (`DeviceCarTick.TheCarsSetSinceTheFrame`,
+  `DeviceWalkerTick.TheWalkersSetSinceTheFrame`): those the ticks walked, held or let go since, those the town holds or
+  touched, those added, and cars whose pose the town set since the step. Rows are sent where they changed
+  (`ResidentRows`). 0.14 ms a frame at OdesaOsm, 4 045 walkers and 1 399 cars.
+- **This is a cheaper read of the host's copy, not its end**: the host-only fields go to the device as commands when
+  the copy goes.
+- **Held by a checked mode** (`DeviceSprites.ChecksTheRows`, on in the suite): every unit not laid is held to the row
+  laying it would have. `AFrameLayingWhatTheTownSetIsDrawnAsOneLayingEveryRow` draws a frame every other tick, as a
+  window falling behind the town does: with a frame after every tick, leaving out the units walked and let go since
+  failed nothing.
+
 ## 2026-10-10 — the town's watch is kept on the device
 
 **Under the owner's goal above.** Every town a window stands is watched (`Scenarios.For`, `TownWatch`): nothing inside

@@ -6,6 +6,7 @@ using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.TrafficLight.Body;
 using TrafficSimulation.App.DeviceTick;
 using TrafficSimulation.App.Render;
+using TrafficSimulation.Bench;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
@@ -160,6 +161,59 @@ public class DeviceSpritesTests(Lavapipe device) : IClassFixture<Lavapipe>
         world.Device = null;
         Assert.True(town.CarsLeftOnTheDevice > 0, "no car was left on the device");
         Assert.True(passed < 0 || passHeld, $"car {passed} was never on its pass with the device's tick holding it");
+        Assert.True(differ.Count == 0, $"{differ.Count} differences over {drawn} instances: {string.Join("; ", differ.Take(6))}");
+    }
+
+    /// <summary>
+    /// <b>A frame laying only what the town set since the last is drawn as one laying every row</b>
+    /// (<see cref="DeviceSprites.Lay"/>): the built town's walkers and cars ticked on the device and watched as a window
+    /// watches them, emitted every tick off both — and every row the first did not lay held to the row laying it would
+    /// have (<see cref="DeviceSprites.ChecksTheRows"/>).
+    /// </summary>
+    [Fact]
+    public void AFrameLayingWhatTheTownSetIsDrawnAsOneLayingEveryRow()
+    {
+        const float PxPerM = 20f;
+        const int Ticks = 600;
+
+        // A frame drawn over more than one tick, as a window falling behind the town draws it.
+        const int TicksBetweenFrames = 2;
+        var plan = Towns.Built;
+        using var world = new TownWorld(plan, Config);
+        var loop = new SimLoop<TownWorld>(world, Config);
+        loop.Advance((int)(Config.Building.DwellMaxS * Config.Sim.TickRateHz) + 120);
+        using var town = new DeviceTown(device.Vk, Config, world);
+        world.Device = town;
+        var watch = new TownWatch(world, Config);
+        var looks = Looks.Value;
+        var room = TownSprites.RoomFor(plan, Config);
+        using var whatWasSet = DeviceSprites.For(device.Vk, Config, world, looks, room, town);
+        using var everyRow = DeviceSprites.For(device.Vk, Config, world, looks, room, town);
+        whatWasSet.ChecksTheRows = true;
+        everyRow.LaysEveryRow = true;
+        var centreM = plan.WorldSizeM * 0.5f;
+
+        var differ = new List<string>();
+        var (drawn, laid, every) = (0, 0L, 0L);
+        for (var tick = 0; tick < Ticks && differ.Count == 0; tick++)
+        {
+            loop.Advance();
+            watch.Saw(world);
+            if (tick % TicksBetweenFrames != 0) continue;
+
+            whatWasSet.Lay(world);
+            whatWasSet.Emit(centreM, plan.WorldSizeM, PxPerM, world.ElapsedS);
+            everyRow.Lay(world);
+            everyRow.Emit(centreM, plan.WorldSizeM, PxPerM, world.ElapsedS);
+            Compare($"tick {loop.Tick} over", everyRow.Over, whatWasSet.Over, differ);
+            Compare($"tick {loop.Tick} above", everyRow.Above, whatWasSet.Above, differ);
+            drawn += everyRow.OverCount + everyRow.AboveCount;
+            (laid, every) = (
+                laid + whatWasSet.UnitsLaid.Walkers + whatWasSet.UnitsLaid.Cars, every + everyRow.UnitsLaid.Walkers + everyRow.UnitsLaid.Cars);
+        }
+
+        world.Device = null;
+        Assert.True(laid < every, $"every frame laid every row: {laid} of {every}");
         Assert.True(differ.Count == 0, $"{differ.Count} differences over {drawn} instances: {string.Join("; ", differ.Take(6))}");
     }
 

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.App.DeviceTick;
+using TrafficSimulation.App.Render;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
@@ -87,6 +88,15 @@ internal static class DeviceTownProbe
         var watch = watched ? new TownWatch(world, config) : null;
         using var device = vk is null ? null : new DeviceTown(vk, config, world) { StepsWithTheTick = stepsWithTheTick };
         world.Device = device;
+
+        // Watched, a frame after every tick as a window draws one: laying what the town set since, and every row beside it.
+        var sprites = watched && device is not null ? TownSprites.Load(config) : null;
+        sprites?.ReadAspects(SheetAtlas.Pack(sprites.Sheets));
+        var room = TownSprites.RoomFor(plan, config);
+        using var frames = sprites is null ? null : DeviceSprites.For(vk!, config, world, sprites, room, device);
+        using var everyRow = sprites is null ? null : DeviceSprites.For(vk!, config, world, sprites, room, device);
+        if (everyRow is not null) everyRow.LaysEveryRow = true;
+        var (frameMs, everyRowMs, walkersLaid, carsLaid) = (0d, 0d, 0L, 0L);
         var watchMs = 0d;
         var brakings = world.HardBrakings;
         var touches = world.Touches;
@@ -165,6 +175,13 @@ internal static class DeviceTownProbe
                 var sawFrom = Stopwatch.GetTimestamp();
                 watch.Saw(world);
                 watchMs += Stopwatch.GetElapsedTime(sawFrom).TotalMilliseconds;
+            }
+
+            if (frames is not null && everyRow is not null)
+            {
+                frameMs += Laid(frames, world, plan);
+                (walkersLaid, carsLaid) = (walkersLaid + frames.UnitsLaid.Walkers, carsLaid + frames.UnitsLaid.Cars);
+                everyRowMs += Laid(everyRow, world, plan);
             }
 
             if (device is null) continue;
@@ -274,6 +291,14 @@ internal static class DeviceTownProbe
                 $"walkers' {(world.WalkersDecidedByTheClock - walkersByTheClockFrom) / (double)MeasuredTicks:F0} and " +
                 $"{(device.WalkersDecidedByTheTown - walkersByTheTownFrom) / (double)MeasuredTicks:F0}, " +
                 $"{(device.WalkerDecisionsFound - walkersFoundFrom) / (double)MeasuredTicks:F0} found by the device");
+            if (frames is not null)
+            {
+                Console.WriteLine(
+                    $"  a frame's rows, laid after every tick: {frameMs / MeasuredTicks:F2} ms laying the {walkersLaid / (double)MeasuredTicks:F0} " +
+                    $"walkers and {carsLaid / (double)MeasuredTicks:F0} cars a frame the town set since the last, {everyRowMs / MeasuredTicks:F2} " +
+                    "ms laying every row");
+            }
+
             var (broken, drivenHeld, notRested, notFrozen, heldElse) = device.WhyHeldAndNotAtRest(world);
             Console.WriteLine(
                 $"  cars the town holds that the device does not tick, at the end: {broken} done for, {drivenHeld} driven, " +
@@ -375,5 +400,15 @@ internal static class DeviceTownProbe
             (switching.Asked - switches.Asked, switching.Made - switches.Made, switching.Withdrawn - switches.Withdrawn),
             (overtaking.Asked - passes.Asked, overtaking.Made - passes.Made, overtaking.Withdrawn - passes.Withdrawn),
             (sidestepping.Asked - sidesteps.Asked, sidestepping.Made - sidesteps.Made, sidestepping.Withdrawn - sidesteps.Withdrawn));
+    }
+
+    /// <summary>A frame's rows laid, timed, and emitted over the whole town — sent, but read back by nothing.</summary>
+    static double Laid(DeviceSprites frame, TownWorld world, CityPlan plan)
+    {
+        var from = Stopwatch.GetTimestamp();
+        frame.Lay(world);
+        var ms = Stopwatch.GetElapsedTime(from).TotalMilliseconds;
+        frame.Emit(plan.WorldSizeM * 0.5f, plan.WorldSizeM, 1f, world.ElapsedS, readBack: false);
+        return ms;
     }
 }

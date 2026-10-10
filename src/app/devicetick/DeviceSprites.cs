@@ -10,6 +10,7 @@ using TrafficSimulation.App.Render;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Physics;
 using TrafficSimulation.World.Town;
@@ -35,12 +36,13 @@ namespace TrafficSimulation.App.DeviceTick;
 /// the same.
 /// </para>
 /// <para>
-/// <b>The host lays every unit's row from its own fleets</b> each frame, with how far a car's line bends ahead of it
-/// (<see cref="CarLamps.TurnAheadRad"/>) in place of the line. <b>Bound to a device town</b>, a car the car tick still
-/// holds as it left it (<see cref="DeviceCarTick.Takes"/>) takes what that tick wrote over the town's copy
-/// (<c>sprites_cars.comp</c>), and a car and a walker take where the bodies' step left them off the tyre table and the
-/// walker table (<c>sprites_walkers.comp</c>) wherever the town has put neither down since — so the town need not read
-/// them back for the frame drawn after a tick. What looks are,
+/// <b>The host lays a unit's row from its own fleets</b>, with how far a car's line bends ahead of it
+/// (<see cref="CarLamps.TurnAheadRad"/>) in place of the line, and sends the rows that changed. <b>Bound to a device
+/// town</b>, a car the car tick still holds as it left it (<see cref="DeviceCarTick.Takes"/>) takes what that tick wrote
+/// over the town's copy (<c>sprites_cars.comp</c>), and a car and a walker take where the bodies' step left them off the
+/// tyre table and the walker table (<c>sprites_walkers.comp</c>) wherever the town has put neither down since — so the
+/// town need not read them back for the frame drawn after a tick, and a frame lays only the units the town set since the
+/// last (<see cref="Lay"/>). What looks are,
 /// where the lenses are, the heads and the lights' tables are laid once. The view, the clock and the live rosters are a
 /// frame block in a buffer rather than push constants, because the frame that will carry this pass is recorded once
 /// (<see cref="CameraView"/>).
@@ -197,9 +199,25 @@ internal sealed class DeviceSprites : IDisposable
     readonly int _slots;
     readonly SpriteRoom _room;
 
-    readonly GpuBuffer _frame, _people, _cars, _hands, _starts, _totals, _instances, _draws;
-    readonly GpuBuffer _frameIn, _peopleIn, _carsIn, _handsIn;
+    readonly GpuBuffer _frame, _hands, _starts, _totals, _instances, _draws;
+    readonly GpuBuffer _frameIn, _handsIn;
     readonly GpuBuffer _drawsOut;
+
+    /// <summary>Every walker's and every car's row as the emit reads it, sent where one differs from the last laid.</summary>
+    readonly ResidentRows<PersonRow> _people;
+
+    readonly ResidentRows<CarRow> _cars;
+
+    /// <summary>
+    /// The walkers and cars the last <see cref="Lay"/> laid, and the cars it laid at a pose the town set since the step —
+    /// laid again by the next, which may draw them off the tyre table.
+    /// </summary>
+    readonly AgentSet _peopleToLay, _carsToLay, _posedByTheTown;
+
+    readonly int[] _laying;
+
+    /// <summary>Whether the last <see cref="Lay"/> drew the cars at the poses the bodies' step left.</summary>
+    bool _posedLast;
 
     /// <summary>Both runs as an emit read back left them, laid by the first that is: an emit drawn where it is reads none.</summary>
     GpuBuffer? _instancesOut;
@@ -254,6 +272,12 @@ internal sealed class DeviceSprites : IDisposable
         if (_slots > ScanKernels.MostCounts) throw new ArgumentOutOfRangeException(nameof(cars), _slots, "more sprite slots than one scan covers");
 
         var figures = FiguresOf(config, looks, room, cars.Capacity, personCapacity, heads.Count, signals, levelled);
+        _people = new ResidentRows<PersonRow>(vk, personCapacity, 1, hostOnly: true);
+        _cars = new ResidentRows<CarRow>(vk, cars.Capacity, 1, hostOnly: true);
+        _peopleToLay = new AgentSet(personCapacity);
+        _carsToLay = new AgentSet(cars.Capacity);
+        _posedByTheTown = new AgentSet(cars.Capacity);
+        _laying = new int[Math.Max(personCapacity, cars.Capacity)];
 
         GpuBuffer[] set =
         [
@@ -263,8 +287,8 @@ internal sealed class DeviceSprites : IDisposable
             Laid<CarLook>(CarLooks(looks, cars)),
             Laid<LensRow>(Lenses(looks, config)),
             Laid<Vector4>(Tints(config)),
-            _people = Device<PersonRow>(personCapacity),
-            _cars = Device<CarRow>(cars.Capacity),
+            _people.Device,
+            _cars.Device,
             _hands = Device<uint>(cars.Capacity),
             Laid<HeadRow>(Heads(heads)),
             Laid<int>(signals.LaneAxis),
@@ -281,8 +305,6 @@ internal sealed class DeviceSprites : IDisposable
         ];
 
         _frameIn = Staging<FrameRow>(1);
-        _peopleIn = Staging<PersonRow>(personCapacity);
-        _carsIn = Staging<CarRow>(cars.Capacity);
         _handsIn = Staging<uint>(cars.Capacity);
         _drawsOut = Readback<DrawIndirectCommand>(2);
 
@@ -296,14 +318,14 @@ internal sealed class DeviceSprites : IDisposable
         {
             _lay = new ComputeKernel(vk, "sprites_cars.comp", 8, (uint)Marshal.SizeOf<LayPush>());
             _laySet = _lay.Bind(
-                [_cars, drawn.Ticks, drawn.Commands, drawn.Briefs, drawn.Passes, drawn.Lines, drawn.Arcs, ticked.Tyres.Table.Poses.Device]);
+                [_cars.Device, drawn.Ticks, drawn.Commands, drawn.Briefs, drawn.Passes, drawn.Lines, drawn.Arcs, ticked.Tyres.Table.Poses.Device]);
         }
 
         if (town != null)
         {
             _town = town;
             _layWalkers = new ComputeKernel(vk, "sprites_walkers.comp", 2, sizeof(uint));
-            _layWalkersSet = _layWalkers.Bind([_people, town.Walkers.Table]);
+            _layWalkersSet = _layWalkers.Bind([_people.Device, town.Walkers.Table]);
         }
 
         _batch = new ComputeBatch(vk);
@@ -346,35 +368,58 @@ internal sealed class DeviceSprites : IDisposable
     public double BetweenMs(Stage from, Stage to) => _timer.BetweenMs((int)from, (int)to);
 
     /// <summary>
-    /// A running town's walkers and cars laid as its frame will read them — where bound to a device town, a car at the pose
-    /// its bodies' step left in the tyre table where the town has stepped and put it down nowhere since
+    /// <b>A running town's walkers and cars laid as its frame will read them</b> — where bound to a device town, a car at the
+    /// pose its bodies' step left in the tyre table where the town has stepped and put it down nowhere since
     /// (<see cref="DeviceTownBodies.PosesLeftInTheTable"/>), and a walker at where the walker table holds it where that is
     /// known to be as the town has it (<see cref="DeviceWalkerTick.HoldsTheBodyOf"/>).
     /// </summary>
+    /// <remarks>
+    /// <b>Bound to a device town, only the rows the town may have set since the last laying are laid</b>
+    /// (<see cref="DeviceCarTick.TheCarsSetSinceTheFrame"/>, <see cref="DeviceWalkerTick.TheWalkersSetSinceTheFrame"/>): a
+    /// row leaves out what the emit lays over it off the device's tables, so a car or walker the device keeps holds only
+    /// what the town alone sets, and stays as laid. Every row is laid where the cars start or stop being drawn off the tyre
+    /// table, and by a laying asked to (<see cref="LaysEveryRow"/>). One laying a town asks what was set since it.
+    /// </remarks>
     public void Lay(TownWorld world)
     {
-        LayPeople(world.People);
+        // The last frame's emit may still be copying out of the rows laid for it.
+        _batch.Wait();
         var posedBy = _lay != null && _town != null && _town.Bodies.PosesLeftInTheTable(world) ? world.PhysicsForTheDevice : null;
-        LayCars(world.Cars, world.Recovery, world.HandDriven, world.HandDrivenCar, posedBy);
+        var every = LaysEveryRow || _lay == null || _town is not { Walkers.Resident: true } || (posedBy != null) != _posedLast;
+        if (every)
+        {
+            LayPeople(world.People);
+            LayCars(world.Cars, world.Recovery, world.HandDriven, world.HandDrivenCar, posedBy);
+            UnitsLaid = (world.People.Count, world.Cars.Count);
+        }
+        else
+        {
+            UnitsLaid = LayWhatChanged(world, posedBy);
+            LayTheHands(world.HandDriven, world.HandDrivenCar);
+            if (ChecksTheRows) HoldTheUnlaid(world, posedBy);
+        }
+
+        _posedLast = posedBy != null;
     }
+
+    /// <summary>Whether <see cref="Lay"/> lays every row whatever the town set — one laying held against another that does not.</summary>
+    public bool LaysEveryRow { get; set; }
+
+    /// <summary>How many walkers and cars the last <see cref="Lay"/> laid.</summary>
+    public (int Walkers, int Cars) UnitsLaid { get; private set; }
+
+    /// <summary>
+    /// <b>Whether to hold every walker and car <see cref="Lay"/> did not lay to the row laying it would have</b>, and throw
+    /// where it differs: one the town changed while the device kept it, and did not mark.
+    /// </summary>
+    public bool ChecksTheRows { get; set; } = DeviceCarTick.ChecksTheVisitsInEveryTown;
 
     /// <summary>Every walker of the roster as the emit reads it.</summary>
     public void LayPeople(PersonFleet people)
     {
-        // The last frame's emit may still be copying out of the rows laid for it.
         _batch.Wait();
-        var rows = _peopleIn.Span<PersonRow>();
         var walkers = _town?.Walkers;
-        for (var person = 0; person < people.Count; person++)
-        {
-            var inside = people.Inside[person].Any;
-            var flags = (inside ? PersonRow.Inside : 0u) | (people.Wounded[person] ? PersonRow.Down : 0u)
-                        | (people.Walking[person] ? PersonRow.Walking : 0u)
-                        | (!inside && walkers != null && walkers.HoldsTheBodyOf(people, person) ? PersonRow.PoseFromTheDevice : 0u);
-            rows[person] = new PersonRow(
-                people.PositionM[person], people.HeadingRad[person], people.DistanceWalkedM[person], people.Variant[person], flags);
-        }
-
+        for (var person = 0; person < people.Count; person++) _people.Lay(person, PersonRowOf(people, walkers, person));
         _peopleLaid = people.Count;
     }
 
@@ -390,27 +435,142 @@ internal sealed class DeviceSprites : IDisposable
         CarFleet cars, RecoveryDuty recovery, ReadOnlySpan<Selection> handDriven, int alsoDrivenCar, PhysicsWorld? posedBy = null)
     {
         _batch.Wait();
-        var rows = _carsIn.Span<CarRow>();
-        var aheadM = _config.Lamps.TurnAheadM;
-        for (var car = 0; car < cars.Count; car++)
+        _posedByTheTown.Clear();
+        for (var car = 0; car < cars.Count; car++) LayCar(cars, recovery, car, posedBy);
+        _carsLaid = cars.Count;
+        LayTheHands(handDriven, alsoDrivenCar);
+    }
+
+    /// <summary>
+    /// The walkers and cars the town may have set anything of since the last <see cref="Lay"/>, those added since, and the
+    /// cars whose pose the town set since the step or did when they were last laid — each sent where its row changed.
+    /// </summary>
+    /// <returns>How many walkers and cars were laid.</returns>
+    (int Walkers, int Cars) LayWhatChanged(TownWorld world, PhysicsWorld? posedBy)
+    {
+        var town = _town!;
+        var people = world.People;
+        _peopleToLay.Clear();
+        town.Walkers.TheWalkersSetSinceTheFrame(world, _peopleToLay);
+        for (var person = _peopleLaid; person < people.Count; person++) _peopleToLay.Add(person);
+        var walkers = _laying.AsSpan(0, _peopleToLay.CopyTo(people.Count, _laying));
+        foreach (var person in walkers) _people.Lay(person, PersonRowOf(people, town.Walkers, person));
+        _peopleLaid = people.Count;
+
+        var cars = world.Cars;
+        var physics = world.PhysicsForTheDevice;
+        _carsToLay.CopyFrom(_posedByTheTown);
+        _posedByTheTown.Clear();
+        town.CarTick.TheCarsSetSinceTheFrame(world, _carsToLay);
+        foreach (var body in physics.Changes)
         {
-            var fromTheDevice = _ticked?.Takes(car) ?? false;
-            var poseFromTheDevice = posedBy != null && (posedBy.ChangeOf(cars.Body[car].Index) & RowChange.Pose) == 0;
-            var pass = cars.Pass[car];
-            var command = cars.Command[car];
-            var flags = (cars.Broken[car] ? CarRow.Broken : 0u) | (cars.Driven[car] ? CarRow.Driven : 0u)
-                        | (command.Reverse ? CarRow.Reverse : 0u) | (cars.BlueLight[car] ? CarRow.BlueLight : 0u)
-                        | (cars.AtWork[car] ? CarRow.AtWork : 0u) | (cars.TurningAtTheBox[car] ? CarRow.TurningAtTheBox : 0u)
-                        | (cars.LineIsReverse[car] ? CarRow.LineIsReverse : 0u) | (pass.Begun ? CarRow.PassBegun : 0u)
-                        | (recovery.HeldByTheTail[car] ? CarRow.HeldByTheTail : 0u) | (fromTheDevice ? CarRow.FromTheDevice : 0u)
-                        | (poseFromTheDevice ? CarRow.PoseFromTheDevice : 0u) | ((uint)cars.LevelOf(car) << CarRow.LevelShift);
-            var turnAheadRad = fromTheDevice ? 0f : CarLamps.TurnAheadRad(cars.LineOf(car), cars.ProgressM[car], aheadM);
-            rows[car] = new CarRow(
-                cars.PositionM[car], Heading.Unit(cars.HeadingRad[car]), cars.HeadingRad[car], command.SteerRad, command.BrakeMps2,
-                cars.ProgressM[car], cars.AlongMps[car], cars.Context[car].PassAsideM, cars.ToTheBoxM[car], cars.FuseJitter[car],
-                pass.EndsM, pass.SteppedOutM, pass.BackM, pass.AsideM, cars.Variant[car], flags, recovery.Towing[car], turnAheadRad);
+            var tag = physics.TagOf(new BodyId(body + 1));
+            if (tag.Kind == BodyKind.Car) _carsToLay.Add(tag.Index);
         }
 
+        for (var car = _carsLaid; car < cars.Count; car++) _carsToLay.Add(car);
+        var walkersLaid = walkers.Length;
+        var laying = _laying.AsSpan(0, _carsToLay.CopyTo(cars.Count, _laying));
+        foreach (var car in laying) LayCar(cars, world.Recovery, car, posedBy);
+        _carsLaid = cars.Count;
+        return (walkersLaid, laying.Length);
+    }
+
+    /// <summary>
+    /// Checked: every walker and car the last <see cref="Lay"/> did not lay held to the row laying it would have — or it
+    /// throws, naming one the town changed while the device kept it, and did not mark.
+    /// </summary>
+    void HoldTheUnlaid(TownWorld world, PhysicsWorld? posedBy)
+    {
+        var people = world.People;
+        for (var person = 0; person < people.Count; person++)
+        {
+            if (_peopleToLay.Has(person)) continue;
+
+            var row = PersonRowOf(people, _town!.Walkers, person);
+            if (row == _people.LaidRow(person)) continue;
+
+            throw new InvalidOperationException(
+                $"Walker {person} was changed by the town while the device kept it, and not marked: laid {_people.LaidRow(person)}, now {row}.");
+        }
+
+        var cars = world.Cars;
+        for (var car = 0; car < cars.Count; car++)
+        {
+            if (_carsToLay.Has(car)) continue;
+
+            var row = CarRowOf(cars, world.Recovery, car, posedBy);
+            if (row == _cars.LaidRow(car)) continue;
+
+            throw new InvalidOperationException(
+                $"Car {car} was changed by the town while the device kept it, and not marked: laid {_cars.LaidRow(car)}, now {row}.");
+        }
+    }
+
+    /// <summary>
+    /// One walker as the emit reads it — less where it stands, faces and has walked, and whether it walks, where those are
+    /// read off the walker table (<c>sprites_walkers.comp</c>), and nothing but its being inside where it is, which draws
+    /// nothing — so its row changes only with what is drawn of what the town alone sets.
+    /// </summary>
+    static PersonRow PersonRowOf(PersonFleet people, DeviceWalkerTick? walkers, int person)
+    {
+        if (people.Inside[person].Any) return new PersonRow(default, 0f, 0f, 0u, PersonRow.Inside);
+
+        var flags = people.Wounded[person] ? PersonRow.Down : 0u;
+        if (walkers != null && walkers.HoldsTheBodyOf(people, person))
+        {
+            return new PersonRow(default, 0f, 0f, people.Variant[person], flags | PersonRow.PoseFromTheDevice);
+        }
+
+        return new PersonRow(
+            people.PositionM[person], people.HeadingRad[person], people.DistanceWalkedM[person], people.Variant[person],
+            flags | (people.Walking[person] ? PersonRow.Walking : 0u));
+    }
+
+    /// <summary>One car's row laid, and noted where laid at a pose the town set since the step, which the next laying lays again.</summary>
+    void LayCar(CarFleet cars, RecoveryDuty recovery, int car, PhysicsWorld? posedBy)
+    {
+        var row = CarRowOf(cars, recovery, car, posedBy);
+        if (posedBy != null && (row.Flags & CarRow.PoseFromTheDevice) == 0) _posedByTheTown.Add(car);
+        _cars.Lay(car, row);
+    }
+
+    /// <summary>
+    /// One car as the emit reads it — less its pose where that is read off the tyre table, and less what its tick wrote
+    /// where the car tick still holds it (<c>sprites_cars.comp</c>), so its row changes only with what the town alone sets.
+    /// </summary>
+    CarRow CarRowOf(CarFleet cars, RecoveryDuty recovery, int car, PhysicsWorld? posedBy)
+    {
+        var fromTheDevice = _ticked?.Takes(car) ?? false;
+        var poseFromTheDevice = posedBy != null && (posedBy.ChangeOf(cars.Body[car].Index) & RowChange.Pose) == 0;
+        var flags = (cars.Broken[car] ? CarRow.Broken : 0u) | (cars.Driven[car] ? CarRow.Driven : 0u)
+                    | (cars.BlueLight[car] ? CarRow.BlueLight : 0u) | (cars.AtWork[car] ? CarRow.AtWork : 0u)
+                    | (cars.LineIsReverse[car] ? CarRow.LineIsReverse : 0u) | (recovery.HeldByTheTail[car] ? CarRow.HeldByTheTail : 0u)
+                    | (poseFromTheDevice ? CarRow.PoseFromTheDevice : 0u) | ((uint)cars.LevelOf(car) << CarRow.LevelShift);
+        var (positionM, forward, headingRad) = poseFromTheDevice
+            ? (Vector2.Zero, Vector2.Zero, 0f)
+            : (cars.PositionM[car], Heading.Unit(cars.HeadingRad[car]), cars.HeadingRad[car]);
+        if (fromTheDevice)
+        {
+            return new CarRow(
+                positionM, forward, headingRad, 0f, 0f, 0f, 0f, 0f, 0f, cars.FuseJitter[car], 0f, 0f, 0f, 0f, cars.Variant[car],
+                flags | CarRow.FromTheDevice, recovery.Towing[car], 0f);
+        }
+
+        var pass = cars.Pass[car];
+        var command = cars.Command[car];
+        flags |= (command.Reverse ? CarRow.Reverse : 0u) | (cars.TurningAtTheBox[car] ? CarRow.TurningAtTheBox : 0u)
+                 | (pass.Begun ? CarRow.PassBegun : 0u);
+        return new CarRow(
+            positionM, forward, headingRad, command.SteerRad, command.BrakeMps2, cars.ProgressM[car], cars.AlongMps[car],
+            cars.Context[car].PassAsideM, cars.ToTheBoxM[car], cars.FuseJitter[car], pass.EndsM, pass.SteppedOutM, pass.BackM,
+            pass.AsideM, cars.Variant[car], flags, recovery.Towing[car],
+            CarLamps.TurnAheadRad(cars.LineOf(car), cars.ProgressM[car], _config.Lamps.TurnAheadM));
+    }
+
+    /// <summary>The cars at a hand's wheel, and the one driven besides.</summary>
+    void LayTheHands(ReadOnlySpan<Selection> handDriven, int alsoDrivenCar)
+    {
         var hands = _handsIn.Span<uint>();
         var held = 0;
         foreach (var unit in handDriven)
@@ -418,7 +578,6 @@ internal sealed class DeviceSprites : IDisposable
             if (unit.Kind == SelectionKind.Car && held < hands.Length) hands[held++] = (uint)unit.Index;
         }
 
-        _carsLaid = cars.Count;
         _handsLaid = held;
         _alsoDrivenCar = alsoDrivenCar;
     }
@@ -477,8 +636,8 @@ internal sealed class DeviceSprites : IDisposable
         vk.AfterTheSubmitsBefore(commands);
         _timer.Reset(commands);
         vk.Copy(commands, _frameIn, _frame, Bytes<FrameRow>(1));
-        vk.Copy(commands, _peopleIn, _people, Bytes<PersonRow>(_peopleLaid));
-        vk.Copy(commands, _carsIn, _cars, Bytes<CarRow>(_carsLaid));
+        _people.Send(commands);
+        _cars.Send(commands);
         vk.Copy(commands, _handsIn, _hands, Bytes<uint>(_handsLaid));
         vk.AfterTransfer(commands);
         _timer.Stamp(commands, (int)Stage.Began);
@@ -702,6 +861,8 @@ internal sealed class DeviceSprites : IDisposable
         _lay?.Dispose();
         _layWalkers?.Dispose();
         _scans.Dispose();
+        _people.Dispose();
+        _cars.Dispose();
         foreach (var buffer in _owned) buffer.Dispose();
     }
 }

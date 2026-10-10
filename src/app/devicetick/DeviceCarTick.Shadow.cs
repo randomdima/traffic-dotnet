@@ -92,6 +92,7 @@ internal sealed partial class DeviceCarTick
         _visited = new AgentSet(capacity);
         _takenBack = new AgentSet(capacity);
         _heldSinceTheLaying = new AgentSet(capacity);
+        _setSinceTheFrame = new AgentSet(capacity);
         _visit = new int[capacity];
         _laidWhole = new bool[capacity];
     }
@@ -201,7 +202,7 @@ internal sealed partial class DeviceCarTick
         foreach (var car in visit)
         {
             _visited.Add(car);
-            _heldSinceTheLaying.Add(car);
+            Set(car);
             if (!posesInTheTable) LayThePose(town, car);
             _askedBefore[car] = town.AsksTheRoute(car);
             _lineLaidDue[car] = cars.LineLaid[car];
@@ -380,14 +381,18 @@ internal sealed partial class DeviceCarTick
     public bool TheTownMovedOnFrom(CarFleet cars, int car) => cars.LineLaid[car] != _lineLaidDue[car] || cars.Action[car] != _actionDue[car];
 
     /// <summary>A car the town moved on from laid whole the next time it is taken, its line among it.</summary>
-    public void LayItWholeNext(int car) => _held[car] = false;
+    public void LayItWholeNext(int car)
+    {
+        _held[car] = false;
+        _setSinceTheFrame.Add(car);
+    }
 
     /// <summary>A car the last tick handed back, or a hand-over since: the town holds it as the device left it (<see cref="_current"/>).</summary>
     public void TookBack(int car)
     {
         _current[car] = true;
         _townHolds.Add(car);
-        _heldSinceTheLaying.Add(car);
+        Set(car);
     }
 
     /// <summary>
@@ -416,10 +421,33 @@ internal sealed partial class DeviceCarTick
     public bool LaysEveryCarNext { get; set; } = true;
 
     /// <summary>A car whose copy the town wrote from the device's without holding it, to be laid again with the next laying.</summary>
-    public void LayAgainWithTheClaims(int car) => _heldSinceTheLaying.Add(car);
+    public void LayAgainWithTheClaims(int car) => Set(car);
 
     /// <summary>The cars walked or held since <see cref="TheCarsSetSinceTheLaying"/> last asked.</summary>
     AgentSet _heldSinceTheLaying = null!;
+
+    /// <summary>
+    /// <b>The cars the town may have set anything of since the frame last asked</b> (<see cref="DeviceSprites.Lay"/>), added
+    /// to <paramref name="into"/>: those walked, held or let go since, and those it holds or touched now. The walked, held
+    /// and let go are forgotten once asked.
+    /// </summary>
+    public void TheCarsSetSinceTheFrame(TownWorld town, AgentSet into)
+    {
+        into.UnionWith(_setSinceTheFrame);
+        into.UnionWith(_townHolds);
+        into.UnionWith(town.TouchedCars);
+        _setSinceTheFrame.Clear();
+    }
+
+    /// <summary>The cars walked, held or let go since <see cref="TheCarsSetSinceTheFrame"/> last asked.</summary>
+    AgentSet _setSinceTheFrame = null!;
+
+    /// <summary>A car the town may have set anything of, for the next laying and the next frame.</summary>
+    void Set(int car)
+    {
+        _heldSinceTheLaying.Add(car);
+        _setSinceTheFrame.Add(car);
+    }
 
     /// <summary>A car the last tick ticked that the town did not read: its reading, command and tyres are the device's (<see cref="_current"/>).</summary>
     public void LeftOnTheDevice(int car)
@@ -530,7 +558,7 @@ internal sealed partial class DeviceCarTick
         _coveredAt[car] = cars.CoveredSinceClaimM[car];
         _authorityAt[car] = cars.AuthorityM[car];
         _actionAt[car] = cars.Action[car];
-        if (_held[car] && cars.Action[car] != _actionDue[car]) _held[car] = false;
+        if (_held[car] && cars.Action[car] != _actionDue[car]) LayItWholeNext(car);
     }
 
     /// <summary>
