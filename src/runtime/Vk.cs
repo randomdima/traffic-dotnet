@@ -57,6 +57,9 @@ internal sealed unsafe partial class Vk : IDisposable
     /// <summary>Whether a kernel may compute in doubles on this device — which the ground's kernels need.</summary>
     public bool HasFloat64 { get; private set; }
 
+    /// <summary>Whether a kernel may hold 64-bit integers on this device — which reaching a table by its address needs.</summary>
+    public bool HasInt64 { get; private set; }
+
     /// <summary>What one tick of the device's timestamp counter is, in nanoseconds.</summary>
     public float TimestampPeriodNs
     {
@@ -238,6 +241,10 @@ internal sealed unsafe partial class Vk : IDisposable
     /// <summary>A buffer and the memory under it, mapped where the host reaches it — what a <see cref="GpuBuffer"/> is made of, or grown into.</summary>
     internal (Buffer Buffer, DeviceMemory Memory, nint Mapped) AllocateBuffer(ulong sizeBytes, BufferUsageFlags usage, HostAccess host)
     {
+        // Every storage buffer is reachable by its address, so a kernel may read any table the town holds (GpuBuffer.Address).
+        var addressed = (usage & BufferUsageFlags.StorageBufferBit) != 0;
+        if (addressed) usage |= BufferUsageFlags.ShaderDeviceAddressBit;
+
         var info = new BufferCreateInfo
         {
             SType = StructureType.BufferCreateInfo,
@@ -262,9 +269,15 @@ internal sealed unsafe partial class Vk : IDisposable
             _ => TryMemoryTypeIndex(requirements.MemoryTypeBits, Mapped | MemoryPropertyFlags.HostCachedBit)
                  ?? MemoryTypeIndex(requirements.MemoryTypeBits, Mapped),
         };
+        var flags = new MemoryAllocateFlagsInfo
+        {
+            SType = StructureType.MemoryAllocateFlagsInfo,
+            Flags = MemoryAllocateFlags.DeviceAddressBit,
+        };
         var allocation = new MemoryAllocateInfo
         {
             SType = StructureType.MemoryAllocateInfo,
+            PNext = addressed ? &flags : null,
             AllocationSize = requirements.Size,
             MemoryTypeIndex = type,
         };
@@ -615,6 +628,7 @@ internal sealed unsafe partial class Vk : IDisposable
             DescriptorIndexing = true,
             ShaderSampledImageArrayNonUniformIndexing = true,
             RuntimeDescriptorArray = true,
+            BufferDeviceAddress = true,
         };
 
         // An indirect draw that starts part way into its buffer: the stretch of a town's buildings and props a
@@ -623,11 +637,15 @@ internal sealed unsafe partial class Vk : IDisposable
         Count();
         _api.GetPhysicalDeviceFeatures(Physical, out var offered);
         HasFloat64 = offered.ShaderFloat64;
+        HasInt64 = offered.ShaderInt64;
         var features = new PhysicalDeviceFeatures2
         {
             SType = StructureType.PhysicalDeviceFeatures2,
             PNext = &twelve,
-            Features = new PhysicalDeviceFeatures { DrawIndirectFirstInstance = true, ShaderFloat64 = offered.ShaderFloat64 },
+            Features = new PhysicalDeviceFeatures
+            {
+                DrawIndirectFirstInstance = true, ShaderFloat64 = offered.ShaderFloat64, ShaderInt64 = offered.ShaderInt64,
+            },
         };
 
         var extensionsPtr = withSwapchain ? SilkMarshal.StringArrayToPtr(new[] { KhrSwapchain.ExtensionName }) : 0;

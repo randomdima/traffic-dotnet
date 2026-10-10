@@ -41,6 +41,20 @@ internal sealed unsafe class GpuBuffer : IDisposable
     public ulong SizeBytes { get; private set; }
 
     /// <summary>
+    /// <b>Where a kernel reaches the buffer by address</b> (<c>GL_EXT_buffer_reference</c>), storage buffers only. A buffer
+    /// that grows moves (<see cref="Grow"/>), so whoever wrote this down writes it again.
+    /// </summary>
+    public ulong Address
+    {
+        get
+        {
+            var info = new BufferDeviceAddressInfo { SType = StructureType.BufferDeviceAddressInfo, Buffer = Handle };
+            Vk.Count();
+            return _vk.Api.GetBufferDeviceAddress(_vk.Device, &info);
+        }
+    }
+
+    /// <summary>
     /// <b>The buffer made at least <paramref name="sizeBytes"/> long</b>: a new buffer and memory of the same use under this
     /// object, and every set it was bound in pointed at it. Nothing where it is that long already.
     /// </summary>
@@ -62,7 +76,14 @@ internal sealed unsafe class GpuBuffer : IDisposable
         (Handle, Memory, SizeBytes) = (buffer, memory, sizeBytes);
         _mapped = (void*)mapped;
         _vk.Rebind(CollectionsMarshal.AsSpan(_boundIn), buffer);
+        foreach (var (book, id) in _addressedIn) book.Moved(id, this);
     }
+
+    /// <summary>Every book this buffer's address is written in (<see cref="AddressedIn"/>), told again where it grows.</summary>
+    readonly List<(IAddressBook Book, int Id)> _addressedIn = [];
+
+    /// <summary>A book that holds this buffer's address under an id, told its new one when it grows.</summary>
+    internal void AddressedIn(IAddressBook book, int id) => _addressedIn.Add((book, id));
 
     /// <summary>One binding of a set this buffer was bound in, kept so a growth points it at the new buffer.</summary>
     internal void BoundIn(DescriptorSet set, uint binding) => _boundIn.Add((set, binding));
@@ -131,6 +152,13 @@ internal sealed unsafe class GpuBuffer : IDisposable
     }
 
     public void Dispose() => _vk.DestroyBuffer(Handle, Memory);
+}
+
+/// <summary>Whatever writes buffers' addresses down by id, so a kernel reaches each through one table of them.</summary>
+internal interface IAddressBook
+{
+    /// <summary>The buffer under this id moved: its address is written again.</summary>
+    void Moved(int id, GpuBuffer buffer);
 }
 
 /// <summary>The elements a staged upload writes, into memory the upload already owns.</summary>
