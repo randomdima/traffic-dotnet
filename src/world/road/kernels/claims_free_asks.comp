@@ -1,0 +1,50 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Whether each pass asked is free on the device, and the row that refuses it — claims_free.glsl asked on its own, one
+// thread an ask, which is how the device's answer is held to the host's.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Ask
+{
+    uint askCount;
+};
+
+#include "world/road/kernels/claims_rows.glsl"
+
+// One pass asked about: the way, what its body sweeps and what it holds of it, and its holder.
+struct PassAsk
+{
+    uint way;
+    float sweptFromM;
+    float sweptToM;
+    float heldFromM;
+    float heldToM;
+    int occupant;
+    uint roster;
+    uint pad;
+};
+
+layout(std430, binding = 0) readonly buffer Rows { ClaimRow claimRows[]; };
+layout(std430, binding = 1) readonly buffer BodyRuns { uvec2 bodyRuns[]; };
+layout(std430, binding = 2) readonly buffer PlannedRuns { uvec2 plannedRuns[]; };
+layout(std430, binding = 3) readonly buffer Order { uint claimOrder[]; };
+layout(std430, binding = 4) readonly buffer Asks { PassAsk asks[]; };
+layout(std430, binding = 5) writeonly buffer Refusing { uint refusing[]; };
+
+#define CLAIM_ROWS claimRows
+#define BODY_RUNS bodyRuns
+#define PLANNED_RUNS plannedRuns
+#define CLAIM_ORDER claimOrder
+
+#include "world/road/kernels/claims_free.glsl"
+
+void main()
+{
+    uint at = gl_GlobalInvocationID.x;
+    if (at >= askCount) return;
+
+    PassAsk ask = asks[at];
+    refusing[at] = claimsRefusingAPass(ask.way, ask.sweptFromM, ask.sweptToM, ask.heldFromM, ask.heldToM, ask.occupant, ask.roster);
+}

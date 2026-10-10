@@ -102,7 +102,8 @@ struct SwitchInRow
 };
 
 // What its decision came to (DeviceSwitchLook.OutRow, SwitchLook): how, the figures it left, the ways its look asked the
-// layer about, and the stamp of the tick that wrote it.
+// layer about, the stamp of the tick that wrote it — and, for whoever holds it to the town's, why a look found no room
+// and the claim that refused it where one did.
 struct SwitchOutRow
 {
     uint outcome;
@@ -113,7 +114,21 @@ struct SwitchOutRow
     uint markFirst;
     uint markCount;
     uint stamp;
+    uint why;
+    uint refusedWay;
+    int refusedOccupant;
+    uint refusedFlags;
+    float refusedFromM;
+    float refusedToM;
 };
+
+// Why a look found no room (DeviceSwitchLook.Why).
+const uint WhyRoom = 0u;
+const uint WhyNoStep = 1u;
+const uint WhyOffTheRoad = 2u;
+const uint WhyBodyPastItsRuns = 3u;
+const uint WhyAskedPastItsRuns = 4u;
+const uint WhyRefused = 5u;
 
 layout(std430, binding = 0) readonly buffer DecideList { uint decideList[]; };
 layout(std430, binding = 1) readonly buffer DecideTerms { CarDecideTermsRow decideTerms[]; };
@@ -206,7 +221,8 @@ void switchSort(uint decision)
 
     SwitchInRow given = switchIn[car];
     OvertakeRow pass = passes[car];
-    SwitchOutRow left = SwitchOutRow(SwitchBegun, 0.0, given.looksInS, given.fromRestM, given.roomToM, 0u, 0u, push.stamp);
+    SwitchOutRow left = SwitchOutRow(
+        SwitchBegun, 0.0, given.looksInS, given.fromRestM, given.roomToM, 0u, 0u, push.stamp, WhyRoom, 0u, -1, 0u, 0.0, 0.0);
     if (!overtakeBegun(pass))
     {
         left.asideM = asides[car];
@@ -241,6 +257,8 @@ shared float lookRoomToM;
 shared int lookStations;
 shared uint lookOffTheRoad;
 shared uint lookHeld;
+shared uint lookWhy;
+shared uint lookRefused;
 shared uint lookPooled[2];
 shared uvec2 lookStationReads[2][SwitchMostStations];
 shared int lookRuns;
@@ -291,6 +309,8 @@ void switchLookFor(uint slot, uint thread)
         lookOutcome = drawn == SwitchDrawn && lookStations > SwitchMostStations ? SwitchDefers : drawn;
         lookOffTheRoad = 0u;
         lookHeld = 0u;
+        lookWhy = drawn == SwitchLooked ? WhyNoStep : WhyRoom;
+        lookRefused = NoRow;
         lookPooled[0] = 0u;
         lookPooled[1] = 0u;
         lookRuns = 0;
@@ -322,10 +342,12 @@ void switchLookFor(uint slot, uint thread)
     {
         int runs = -1;
         if (lookPooled[0] > push.poolRoom || lookPooled[1] > push.poolRoom) lookOutcome = SwitchDefers;
-        else if (lookOffTheRoad != 0u || switchMerge(slot, 0u, build) < 0) lookOutcome = SwitchLooked;
+        else if (lookOffTheRoad != 0u) lookWhy = WhyOffTheRoad;
+        else if (switchMerge(slot, 0u, build) < 0) lookWhy = WhyBodyPastItsRuns;
         else runs = switchMerge(slot, 1u, build);
 
-        if (lookOutcome == SwitchDrawn && runs < 0) lookOutcome = SwitchLooked;
+        if (lookOutcome == SwitchDrawn && lookWhy == WhyRoom && runs < 0) lookWhy = WhyAskedPastItsRuns;
+        if (lookWhy != WhyRoom) lookOutcome = SwitchLooked;
         if (lookOutcome == SwitchDrawn)
         {
             // Every way of the ground asked about is marked asked, as the town's look marks it, so the layer goes on
@@ -362,9 +384,11 @@ void switchLookFor(uint slot, uint thread)
             SweptRun held = swept[first + uint(run)];
             float heldFromM = switchIsConnector(held.way) ? 0.0 : held.fromM;
             float heldToM = switchIsConnector(held.way) ? wayLength[held.way] : held.toM;
-            if (!claimsIsFreeForAPass(uint(held.way), held.fromM, held.toM, heldFromM, heldToM, int(car), RosterDriving))
+            uint refusing = claimsRefusingAPass(uint(held.way), held.fromM, held.toM, heldFromM, heldToM, int(car), RosterDriving);
+            if (refusing != NoRow)
             {
                 atomicOr(lookHeld, 1u);
+                atomicMin(lookRefused, refusing);
             }
         }
     }
@@ -378,6 +402,16 @@ void switchLookFor(uint slot, uint thread)
     left.roomToM = lookRoomToM;
     left.markFirst = lookMarkFirst;
     left.markCount = uint(lookRuns);
+    left.why = lookHeld != 0u ? WhyRefused : lookWhy;
+    if (lookRefused != NoRow)
+    {
+        ClaimRow refused = claimRows[lookRefused];
+        left.refusedWay = refused.way;
+        left.refusedOccupant = refused.occupant;
+        left.refusedFlags = refused.flags;
+        left.refusedFromM = refused.fromM;
+        left.refusedToM = refused.toM;
+    }
     if (left.outcome == SwitchUnknown) left.looksInS = 0.0;
     switchFinish(car, left);
 }

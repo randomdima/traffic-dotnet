@@ -464,9 +464,32 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         if (DecisionsUnlikeSeen.Count < 8)
         {
             DecisionsUnlikeSeen.Add(
-                $"switching car {car}: the device found {(more ? "more" : $"its look alone, {deviceLook}")}; the town " +
-                $"{(alone ? "its look alone" : "more")}, {townLook}");
+                $"switching car {car}: the device found {(more ? "more" : $"its look alone, {deviceLook}, {_looks.WhyOf(car)}")}; " +
+                $"the town {(alone ? "its look alone" : "more")}, {townLook}{TheTownsClaimOf(car)}");
         }
+    }
+
+    /// <summary>Where the device's look was refused by a claim, that holder's claims on the same way as the town's readers hold them.</summary>
+    string TheTownsClaimOf(int car)
+    {
+        if (!_looks.RefusedBy(car, out var way, out var occupant, out var roster)) return "";
+
+        var claims = _town.ReadersOccupancy;
+        var held = new List<string>();
+        Span<int> slots = stackalloc int[64];
+        foreach (var bodies in (ReadOnlySpan<bool>)[true, false])
+        {
+            foreach (var slot in slots[..claims.ListOf(way, bodies, slots)])
+            {
+                var claim = claims.Slots[slot];
+                if (claim.Occupant == occupant && claim.Of == roster)
+                {
+                    held.Add($"{(bodies ? "body" : "plan")} [{claim.FromM}, {claim.ToM}){(claim.Passing ? " passing" : "")}");
+                }
+            }
+        }
+
+        return $"; the town's readers hold of {roster} {occupant} on way {way}: {(held.Count == 0 ? "nothing" : string.Join(", ", held))}";
     }
 
     /// <summary>

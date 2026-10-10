@@ -38,11 +38,48 @@ internal sealed class DeviceSwitchLook : IDisposable
 
     /// <summary>
     /// What its decision came to (<c>SwitchOutRow</c>, <see cref="SwitchLook"/>): how, the figures it left, the ways its look
-    /// asked the layer about (<see cref="LookOf"/>), and the stamp of the tick that wrote it.
+    /// asked the layer about (<see cref="LookOf"/>), the stamp of the tick that wrote it — and why a look found no room, with
+    /// the claim that refused it where one did, for whoever holds it to the town's (<see cref="WhyOf"/>).
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct OutRow(
-        uint Outcome, float AsideM, float LooksInS, float FromRestM, float RoomToM, uint MarkFirst, uint MarkCount, uint Stamp);
+        uint Outcome, float AsideM, float LooksInS, float FromRestM, float RoomToM, uint MarkFirst, uint MarkCount, uint Stamp,
+        Why Why, uint RefusedWay, int RefusedOccupant, uint RefusedFlags, float RefusedFromM, float RefusedToM);
+
+    /// <summary>Why a look found no room (<c>car_switch_look.comp</c>'s <c>Why…</c>), or that it found some.</summary>
+    internal enum Why : uint
+    {
+        Room,
+        NoStep,
+        OffTheRoad,
+        BodyPastItsRuns,
+        AskedPastItsRuns,
+        Refused,
+    }
+
+    /// <summary>Where a claim refused this tick's look for a car: the way it is on, and whose it is.</summary>
+    public bool RefusedBy(int car, out int way, out int occupant, out LaneRoster roster)
+    {
+        ref readonly var row = ref _out.Span<OutRow>()[car];
+        (way, occupant, roster) = ((int)row.RefusedWay, row.RefusedOccupant, (LaneRoster)((row.RefusedFlags >> 4) & 3u));
+        return row.Why == Why.Refused;
+    }
+
+    /// <summary>
+    /// Why this tick's look for a car came out as it did, and — where a claim refused it — that claim as the device held it,
+    /// in the words of the town's own <see cref="LaneClaim"/>'s figures.
+    /// </summary>
+    public string WhyOf(int car)
+    {
+        ref readonly var row = ref _out.Span<OutRow>()[car];
+        if (row.Why != Why.Refused) return $"{row.Why}";
+
+        var roster = (LaneRoster)((row.RefusedFlags >> 4) & 3u);
+        var passing = (row.RefusedFlags & (1u << 9)) != 0u;
+        var secondary = (row.RefusedFlags & (1u << 7)) != 0u;
+        return $"refused on way {row.RefusedWay} by {roster} {row.RefusedOccupant} [{row.RefusedFromM}, {row.RefusedToM})" +
+               $"{(passing ? " passing" : "")}{(secondary ? " secondary" : "")}";
+    }
 
     /// <summary>What a look is drawn and swept by, field for field with <c>car_switch_look.comp</c>'s, each the host's own.</summary>
     [StructLayout(LayoutKind.Sequential)]

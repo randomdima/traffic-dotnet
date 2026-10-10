@@ -185,12 +185,6 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   for at the tick's head and another 0.47 at the bodies' step behind it: a read of the atlas (`atlasRead`) walks every point
   of a body's rows one after another, about a third of a millisecond on one thread, and a look reads a step's every station
   at once but each read alone. Closes with a read's rows split across a workgroup.
-- **23 of the 5.5 M verdicts a device town reaches at OdesaOsm differ from the town's own** (`--bench devicedecide`,
-  2026-10-10), each a switching car's look the device found held where the town found room, every figure of the look
-  alike — and the same cars every run (11239, 12167, 3409, 2842 among them). So it is not arithmetic, which is the host's
-  to the bit (core log, 2026-10-10), but what the look reads: a run of the step's ground the device's copy of the readers'
-  claims holds and the town's does not, or a run merged otherwise. Closes with that traced, or with the look the town's
-  only, which costs 1.2 ms a tick.
 - **Why a switching car with a step is read every tick is reasoned and held by no test** (`TownWorld.ReadsTheTickOf`):
   keeping or withdrawing the step and the rebuild laying its ground read where it stands, but
   `DeviceTownKeptCarsTests`' staging resolves its step alike when such a car is never read. Closes with a staging whose

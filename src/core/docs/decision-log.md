@@ -17,7 +17,9 @@ still took the driver's own `cos` and `sin` for a walker's facing (`walkers_kept
 - Held on the card, by the probes that hold a device's stage to the host's from the same inputs: OdesaOsm's walkers
   (`--bench devicewalkers`) 0 of 8 M stations, 4.4 M bodies, 4.4 M walks and 8 M readings apart, where 325 106 stations
   and 915 readings were a bit off; its car tick (`--bench devicecartick`) 0 of 12.0 M car-ticks, where 57 were; its
-  switching looks (`--bench devicedecide`) none a figure apart, where 415 were.
+  switching looks (`--bench devicedecide`) none a figure apart, where 415 were. The verdicts' last 23 unlike were a look
+  reading a claim a cut had taken out of its way's list (`claims_free.glsl` skips one now, as every other reader of the
+  lists does, and `ClaimsFreeKernelTests` holds it): 0 of 5.5 M since.
 - **So every check of a kernel against the host asks it to the bit**: the kernel tests, the walkers', the rebuild's and
   the car tick's shadows, and the sprites' probe each dropped the hundredth and the thousandth they allowed the device's
   trigonometry, the car tick's shadow its slide's onset, and two staged towns the thresholds they kept their agents off.
@@ -47,8 +49,8 @@ of 136 851 switching cars' looks on OdesaOsm came out a figure apart.
   for its whole half minute, where it parted by millimetres within seconds. On OdesaOsm the rest moved little: 23 of
   5.5 M verdicts unlike where 22 were, and 415 looks a figure apart where 10 856 were (`--bench devicedecide`); 57 of
   12.0 M car-ticks differ (`--bench devicecartick`) and 4.1 % of walkers' stations are not to the bit
-  (`--bench devicewalkers`) — what still parted them was the driver's quotients and roots (above), not the
-  trigonometry. `--bench devicetown`: the device's kernels
+  (`--bench devicewalkers`) — what still parted them was the driver's quotients and roots (above) and, for the
+  verdicts, a look that read a claim a cut had taken out (`claims_free.glsl`), not the trigonometry. `--bench devicetown`: the device's kernels
   1.71 → 1.91 ms a tick, 0.07 of it the sine and cosine and the rest the tangent and arctangents in doubles; the tick
   11.67 → 12.04, inside the probe's wander from run to run (tech debt) and on a device idle most of a tick.
 - **Only against the host it was read off**: another C library, or glibc on a machine without FMA (`__sincosf_sse2`),

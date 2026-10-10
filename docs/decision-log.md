@@ -29,7 +29,8 @@ came to — 507 a tick asked of the device only to be handed back — and its lo
   the town's. Each fails with the aside a part in ten thousand off, the claims never free, no way marked, or the clock not
   kept; the runs merged out of order pass, the verdict reading their union. `--bench devicedecide` holds every verdict on a map.
 - OdesaOsm (`--bench devicedecide`, 600 ticks): of 5.5 M verdicts 22 unlike — each a look the device found held where the
-  town found room — and 10 856 of 136 851 looks alike but for a figure, at most 3.8 mm apart (tech-debt). `--bench
+  town found room — and 10 856 of 136 851 looks alike but for a figure, at most 3.8 mm apart (none of either since: the
+  kernel's log, 2026-10-10). `--bench
   devicetown`: the decisions put off 3.54 → 2.27 ms a tick, the device's kernels 1.31 → 1.71 (the looks 0.39), the tick
   12.43 → 11.73; 75 looks a tick taken on the device and 152 decisions not looking yet. The town drives as a town whose
   device looks: 8 899 hard brakings where it braked 9 001, 220 switches asked and 190 made where 226 and 197 were.
