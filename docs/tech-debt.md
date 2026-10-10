@@ -208,10 +208,6 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 ### Device mirror
 
 - **`DeviceRebuild.Shadow.SlotOf` scans every slot** for each host hold with a cut.
-- **What still allows for the device's own trigonometry**, which is the host's to the bit since 2026-10-10 (core log):
-  `DeviceBodyPhase.PointsWithin` is Vulkan's 2⁻¹¹ bound on a direction and its doc says the integration takes the
-  driver's own; and `DeviceTownBodiesTests` asks within the solver's agreement a car park that stands to the bit for its
-  whole half minute. Each held to the bit closes it.
 - **`DeviceTyres` is laid its grounds and figures once**, at construction: `TownWorld.FiguresChanged` retunes the
   host's `WheelGrounds` and the device keeps the old ones.
 

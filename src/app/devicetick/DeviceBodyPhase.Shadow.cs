@@ -1,6 +1,5 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
-using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Physics;
 using TrafficSimulation.World.Town;
 
@@ -12,20 +11,19 @@ namespace TrafficSimulation.App.DeviceTick;
 /// </summary>
 internal sealed partial class DeviceBodyPhase
 {
-    /// <summary>How far the device may land a body from the town's, in metres: the solver's own agreement in contact order (<c>DeviceSolverTests</c>).</summary>
-    public const float AgreesWithinM = 1e-4f;
-
-    /// <summary>And its velocity, in metres a second, and its yaw rate, in radians a second.</summary>
-    public const float AgreesWithinMps = 1e-3f;
-
-    /// <summary>And its heading: a yaw rate within <see cref="AgreesWithinMps"/> turns it by a tick's share of that.</summary>
-    public const float AgreesWithinRad = 1e-4f;
-
     /// <summary>
-    /// How far the direction a body points may stand off the host's, each component: Vulkan's own bound on sin and cos,
-    /// 2⁻¹¹ absolute, which the solver's integration turns the heading into a direction with.
+    /// <b>The edge of rest</b>: a speed or a turn below 2⁻⁹⁶ the device may leave otherwise than the host, since a body
+    /// decaying to rest passes through terms a kernel flushes as subnormal and the host keeps (lavapipe preserves none, so
+    /// no kernel asks it to). Every other figure of a body is the host's to the bit, in contact order.
     /// </summary>
-    public const float PointsWithin = 1f / 2048f;
+    public static readonly float EdgeOfRest = MathF.ScaleB(1f, -96);
+
+    /// <summary>The same speed or turn as the host's, or both at the <see cref="EdgeOfRest"/>.</summary>
+    public static bool SameMotion(float host, float onDevice) =>
+        host == onDevice || (MathF.Abs(host) < EdgeOfRest && MathF.Abs(onDevice) < EdgeOfRest);
+
+    /// <inheritdoc cref="SameMotion(float, float)"/>
+    public static bool SameMotion(Vector2 host, Vector2 onDevice) => SameMotion(host.X, onDevice.X) && SameMotion(host.Y, onDevice.Y);
 
     /// <summary>
     /// <b>The town as its bodies' phase finds it</b>, laid to go with the next <see cref="Step"/>, handed over where the
@@ -98,28 +96,19 @@ internal sealed partial class DeviceBodyPhase
 
     /// <summary>
     /// <b>Where the device's step left a car that the town's did not</b>, asked once both have stepped — or null where
-    /// they agree: the body within the solver's own agreement (<see cref="AgreesWithinM"/>, <see cref="AgreesWithinMps"/>,
-    /// <see cref="AgreesWithinRad"/>), the way it points within <see cref="PointsWithin"/>, and the acceleration within
-    /// <see cref="Near"/>, which is read along that direction.
+    /// they agree: every figure to the bit but its motion at the <see cref="EdgeOfRest"/>.
     /// </summary>
     public string? Disagreement(TownWorld town, int car)
     {
         var cars = town.Cars;
         var row = PosesAfter[car];
         var forward = town.PhysicsForInstruments.RotationOf(cars.Body[car]);
-        var same = Vector2.Distance(cars.PositionM[car], row.PositionM) <= AgreesWithinM
-                   && Vector2.Distance(cars.VelocityMps[car], row.VelocityMps) <= AgreesWithinMps
-                   && MathF.Abs(cars.YawRateRadPerS[car] - row.YawRateRadPerS) <= AgreesWithinMps
-                   && MathF.Abs(Spline.WrapRad(cars.HeadingRad[car] - row.HeadingRad)) <= AgreesWithinRad
-                   && MathF.Abs(forward.X - row.Forward.X) <= PointsWithin && MathF.Abs(forward.Y - row.Forward.Y) <= PointsWithin
-                   && Near(cars.AccelerationMps2[car].X, row.AccelerationMps2.X)
-                   && Near(cars.AccelerationMps2[car].Y, row.AccelerationMps2.Y) && cars.MassKg[car] == row.MassKg;
+        var same = cars.PositionM[car] == row.PositionM && SameMotion(cars.VelocityMps[car], row.VelocityMps)
+                   && SameMotion(cars.YawRateRadPerS[car], row.YawRateRadPerS) && cars.HeadingRad[car] == row.HeadingRad
+                   && forward == row.Forward && cars.AccelerationMps2[car] == row.AccelerationMps2 && cars.MassKg[car] == row.MassKg;
         return same
             ? null
             : $"town at {cars.PositionM[car]} moving {cars.VelocityMps[car]} heading {cars.HeadingRad[car]} turning "
               + $"{cars.YawRateRadPerS[car]} forward {forward} accelerating {cars.AccelerationMps2[car]}; device {row}";
     }
-
-    /// <summary>Within a part in a thousand and a hundredth absolute — the device's trigonometry, as every kernel test reads it.</summary>
-    static bool Near(float host, float onDevice) => host == onDevice || MathF.Abs(host - onDevice) <= 1e-2f + (1e-3f * MathF.Abs(host));
 }

@@ -4,7 +4,6 @@ using TrafficSimulation.App.DeviceTick;
 using TrafficSimulation.Bench;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Tests.CityGen;
 using TrafficSimulation.Tests.Runtime;
@@ -26,9 +25,9 @@ namespace TrafficSimulation.Tests.DeviceTick;
 /// </para>
 /// <para>
 /// <b>Where every body is, what freezes and what begins touching are asked over the first seconds</b>
-/// (<see cref="ShovedCarPark"/>), within the solver's own agreement; the half minute after is asked only what nothing
-/// excuses — no body left inside another, and nobody hurt whom the host's town left whole. The two towns stand to the bit
-/// through all of it since the device's sine and cosine became the host's (<c>trig.glsl</c>), which nothing here asks.
+/// (<see cref="ShovedCarPark"/>), to the bit but a body's motion at the edge of rest
+/// (<see cref="DeviceBodyPhase.EdgeOfRest"/>); the half minute after is asked only what nothing excuses — no body left
+/// inside another, and nobody hurt whom the host's town left whole.
 /// </para>
 /// </remarks>
 [Trait(Tier.Key, Tier.Device)]
@@ -59,15 +58,15 @@ public class DeviceTownBodiesTests(Lavapipe device, ShovedCarPark park) : IClass
     }
 
     /// <summary>
-    /// <b>Every walker in the world is where the host's step left it</b>, within the solver's own agreement, as the car
-    /// park's walkers leave their doors and walk.
+    /// <b>Every walker in the world is where the host's step left it</b>, to the bit, as the car park's walkers leave their
+    /// doors and walk.
     /// </summary>
     [Fact]
     public void EveryWalkerIsWhereTheHostsStepLeftIt() => Assert.True(park.Walkers.Kept, park.Walkers.Said);
 
     /// <summary>
-    /// <b>Through the shove every car is where the host's step left it</b>, within the solver's own agreement: the shoved
-    /// cars, the frozen ones they hit and woke, and the wrecks as they settle and freeze again.
+    /// <b>Through the shove every car is where the host's step left it</b>, to the bit: the shoved cars, the frozen ones they
+    /// hit and woke, and the wrecks as they settle and freeze again.
     /// </summary>
     [Fact]
     public void ThroughTheShoveEveryCarIsWhereTheHostsStepLeftIt() => Assert.True(park.Cars.Kept, park.Cars.Said);
@@ -286,8 +285,8 @@ public sealed class ShovedCarPark : IDisposable
         {
             if (host.Inside[person].Any) continue;
 
-            var same = Vector2.Distance(host.PositionM[person], onDevice.PositionM[person]) <= DeviceBodyPhase.AgreesWithinM
-                       && Vector2.Distance(host.VelocityMps[person], onDevice.VelocityMps[person]) <= DeviceBodyPhase.AgreesWithinMps;
+            var same = host.PositionM[person] == onDevice.PositionM[person]
+                       && DeviceBodyPhase.SameMotion(host.VelocityMps[person], onDevice.VelocityMps[person]);
             Walkers.Ask(
                 $"tick {tick} walker {person}",
                 same ? null : $"host at {host.PositionM[person]} moving {host.VelocityMps[person]}, device at {onDevice.PositionM[person]} moving {onDevice.VelocityMps[person]}");
@@ -434,28 +433,19 @@ internal sealed class TwoTowns : IDisposable
     }
 
     /// <summary>
-    /// Where the device's town left a car that the host's did not, or null where they agree: within the solver's own
-    /// agreement where it is, how fast it moves and turns and which way it heads, the way it points within the device's
-    /// sine and cosine, and its acceleration within the trigonometry every kernel test reads it to.
+    /// Where the device's town left a car that the host's did not, or null where they agree: where it is, which way it heads
+    /// and points and its acceleration to the bit, and how fast it moves and turns to the bit but at the edge of rest
+    /// (<see cref="DeviceBodyPhase.SameMotion(float, float)"/>).
     /// </summary>
-    /// <remarks>
-    /// <b>Not whether it stands at exactly no motion</b>: a body decaying to rest passes through subnormal speeds, which a
-    /// kernel flushes to nought a few ticks before the host's arithmetic reaches it.
-    /// </remarks>
     public static string? CarApart(TownWorld host, TownWorld onDevice, int car)
     {
         var a = host.Cars;
         var b = onDevice.Cars;
         var forwardA = host.PhysicsForInstruments.RotationOf(a.Body[car]);
         var forwardB = onDevice.PhysicsForInstruments.RotationOf(b.Body[car]);
-        var same = Vector2.Distance(a.PositionM[car], b.PositionM[car]) <= DeviceBodyPhase.AgreesWithinM
-                   && Vector2.Distance(a.VelocityMps[car], b.VelocityMps[car]) <= DeviceBodyPhase.AgreesWithinMps
-                   && MathF.Abs(a.YawRateRadPerS[car] - b.YawRateRadPerS[car]) <= DeviceBodyPhase.AgreesWithinMps
-                   && MathF.Abs(Spline.WrapRad(a.HeadingRad[car] - b.HeadingRad[car])) <= DeviceBodyPhase.AgreesWithinRad
-                   && MathF.Abs(forwardA.X - forwardB.X) <= DeviceBodyPhase.PointsWithin
-                   && MathF.Abs(forwardA.Y - forwardB.Y) <= DeviceBodyPhase.PointsWithin
-                   && Near(a.AccelerationMps2[car].X, b.AccelerationMps2[car].X)
-                   && Near(a.AccelerationMps2[car].Y, b.AccelerationMps2[car].Y);
+        var same = a.PositionM[car] == b.PositionM[car] && DeviceBodyPhase.SameMotion(a.VelocityMps[car], b.VelocityMps[car])
+                   && DeviceBodyPhase.SameMotion(a.YawRateRadPerS[car], b.YawRateRadPerS[car]) && a.HeadingRad[car] == b.HeadingRad[car]
+                   && forwardA == forwardB && a.AccelerationMps2[car] == b.AccelerationMps2[car];
         return same
             ? null
             : $"host at {a.PositionM[car]} moving {a.VelocityMps[car]} heading {a.HeadingRad[car]} turning {a.YawRateRadPerS[car]} "
@@ -465,7 +455,7 @@ internal sealed class TwoTowns : IDisposable
 
     /// <summary>
     /// What began touching in the device's town's last step that did not in the host's, or null where the same pairs
-    /// began in the same order, each normal within the device's sine and cosine.
+    /// began in the same order, each with the same normal.
     /// </summary>
     public static string? TouchesApart(TownWorld host, TownWorld onDevice)
     {
@@ -477,7 +467,7 @@ internal sealed class TwoTowns : IDisposable
         foreach (var touch in onDevice.PhysicsForInstruments.BeganTouchingThisStep())
         {
             same &= at < began.Count && began[at].First == touch.First && began[at].Second == touch.Second
-                    && Vector2.Distance(began[at].Normal, touch.Normal) <= DeviceBodyPhase.PointsWithin;
+                    && began[at].Normal == touch.Normal;
             at++;
         }
 
@@ -499,9 +489,6 @@ internal sealed class TwoTowns : IDisposable
             ? null
             : $"host frozen {frozenA} through the step {throughA} at {atA}, device frozen {frozenB} through the step {throughB} at {atB}";
     }
-
-    /// <summary>Within a part in a thousand and a hundredth absolute — the device's trigonometry, as every kernel test reads it.</summary>
-    static bool Near(float host, float onDevice) => host == onDevice || MathF.Abs(host - onDevice) <= 1e-2f + (1e-3f * MathF.Abs(host));
 
     public void Dispose()
     {
