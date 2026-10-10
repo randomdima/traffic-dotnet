@@ -255,7 +255,7 @@ internal sealed partial class DeviceWalkerTick : IDisposable
                 !_isKnown[person] ? "whether the device is known to hold it"
                 : !SameButTheBody(row, _known[person]) ? $"its row, {row} against {_known[person]}"
                 : town.WalkerImpulseNs(person) != _knownImpulse[person] ? "its impulse"
-                : town.ReadsTheWalker(person) ? "whether the town reads it"
+                : town.ReadsTheWalkersTick(person) ? "whether the town reads it"
                 : town.WalksUnderAHand(person) ? "whether a hand walks it"
                 : null;
             if (unlike is null) continue;

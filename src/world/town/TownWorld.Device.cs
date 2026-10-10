@@ -116,6 +116,16 @@ internal sealed partial class TownWorld
         WatchesEveryAgent || People.Inside[person].Any || People.Wounded[person] || People.Stage[person] == TripStage.OnDuty
         || _selected.Holds(SelectionKind.Person, person);
 
+    /// <summary>
+    /// <b>Whether the town reads a walker's tick as the device leaves it, every tick</b> — so it holds the walker's pace,
+    /// heading and impulse rather than leaving them with the device: every walker where it watches every agent, a casualty,
+    /// whose slide is its own (<see cref="Settle"/>), one on duty, and one selected. <b>A walker indoors is not</b>: its tick
+    /// writes nothing, and what its decision sets of it the town marks (<see cref="TouchedWalkers"/>).
+    /// </summary>
+    public bool ReadsTheWalkersTick(int person) =>
+        WatchesEveryAgent || People.Wounded[person] || People.Stage[person] == TripStage.OnDuty
+        || _selected.Holds(SelectionKind.Person, person);
+
     /// <summary>Whether a hand walks this walker this tick, which the town's own tick does (CTL-6).</summary>
     public bool WalksUnderAHand(int person) =>
         !People.Inside[person].Any && People.Acts(person) && _hands.Held && _selected.Holds(SelectionKind.Person, person);

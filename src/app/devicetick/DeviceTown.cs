@@ -1629,7 +1629,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         // the rest, one the town does not read and has set nothing of since it was laid is left with it (TakeTheWalkerBack).
         foreach (var person in _walkers.TheWalkersTheTownMayHaveSet(_walkerCount, _walkersBack))
         {
-            if (!everyWalker && !town.ReadsTheWalker(person) && !town.WalksUnderAHand(person) && _walkers.HoldsAsTheTownHas(town, person))
+            if (!everyWalker && !town.ReadsTheWalkersTick(person) && !town.WalksUnderAHand(person) && _walkers.HoldsAsTheTownHas(town, person))
             {
                 _walkers.LeftOnTheDevice(person);
                 continue;

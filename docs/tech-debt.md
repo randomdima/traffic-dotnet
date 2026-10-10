@@ -33,7 +33,7 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   row), 4 296–5 600 B on the test's own thread over 500 searches; the second twice, 7 144 B, then 8 088 B on 2026-10-10. The counter is the thread's, so it is not the side-by-side
   classes; something on that thread allocates now and then — a JIT's rejit is the guess, unconfirmed.
 - **`AllocationGateTests.ThisEnginesOwnPhasesAllocateNothingOverAWholeTown(Test)`** failed five times in about twenty
-  perf runs, at 8.1, 6.8 and 2.5 B a tick, and again at 5.7 on 2026-10-10. It passes alone and in reruns of the tier, and a per-agent trace of phases 1–3 found no
+  perf runs, at 8.1, 6.8 and 2.5 B a tick, and again at 5.7 and 1.9 on 2026-10-10. It passes alone and in reruns of the tier, and a per-agent trace of phases 1–3 found no
   allocation. A `P0` gate that flickers is either a real allocation on a rare path or a measurement that counts
   something it should not; which is not known.
 
@@ -208,6 +208,16 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   `ItsErrandLeavesItToTheLeg`), which the owner's own decision sets without marking the car. The visits' check would
   throw on it, and has not in the suite; no shipped city has been run with the check on. Closes with the car marked
   touched wherever its driver's stage or bay is set, or a soak with the check on.
+- **A car the device does not tick is held by the town for ever** (`DeviceCarTick.TownHolds`): a parked or standing car
+  is in every walk the town's held cars get — `Prepare` laying its tyres, the agents' pass, the bodies' step handing its
+  pose back — every tick, though nothing of it changes until the town touches it or something shoves it. Closes with an
+  untouched car at rest left on the device as a driving one is, and handed back on a shove.
+- **Every laying walks every car the town asks** (`TownWorld.AskTheCars`, the passes, `ClearTheClaim`; and the device's
+  `LayWhatTheDeviceHolds`, `LayTheCarsTerms`, `LayTheCarsClaims`, `DeviceBodies.Lay`, `DevicePlans.Lay`,
+  `HoldTheCarsTheTownHolds`), a rebuild every third tick: for a car the device keeps and nobody set anything of since the
+  last laying, each lays what it laid then. The one figure of such a car the town reads off its own copy is its hold
+  number (`PlanHold`), after a take-back and for a decision it lists. Closes with the hold number handed back with the
+  car, and a laying that asks only the cars set since the last.
 - **The walkers' decisions are still walked by their turn** (`TownWorld.DecideTheAgents`): a sixth of the walkers a tick
   put off and named to the device (`DeviceTown.LayTheWalkerDecisions`), as the cars were before the device found theirs.
   Closes with the walkers' decisions found on the device as the cars' are.
