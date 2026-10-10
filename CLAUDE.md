@@ -191,6 +191,11 @@ build may ship any number of them at any number of seeds without that being a ch
 suite gating on one would be a function of the content. `qq tests maps` is the whole of what is asked of
 them, and it is asked deliberately.
 
+**A run leaves the machine usable unless the whole of it is asked for.** `qq tests` and `qq checks` are light by
+default — low priority, half the cores — and `--full` is for when asked; a probe run by hand is started the same way
+(`nice`, `DOTNET_PROCESSOR_COUNT` and `LP_NUM_THREADS` at half the cores), and on the smallest map that answers the
+question.
+
 **A test run is waited for, never backgrounded and polled.** A poll is a round trip that costs more than
 waiting does; `--changed` is how a run is made short. And **`qq tests all` is still the commit's tier
 rather than the edit loop's** — it is two builds and every gate, and the tier that fits the change is
