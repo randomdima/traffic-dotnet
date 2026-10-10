@@ -44,6 +44,9 @@ those to ask (`DeviceTown.LayTheDecisions`): the host named about one car in six
   other car was taken last tick and nothing of it was set since, so the device takes it again without being asked
   (`Prepare`'s `asked`). It decides the walkers by their turn (`TickGroups.FirstTurnOn`) and the cars the device does not
   decide (`TheCarsNotDecidingThemselves`), a word of 64 cars at a time.
+- **Two more walks of every body a tick went**: what slides with nothing driving it is found off the wounded and the
+  wrecked, kept where each is set (`TownWorld.Settle`, `BreakWhereItStands` for a staging's wreck), and the holds of the
+  cars the town drives itself off the cars it holds (`DeviceTown.AskTheHoldsOfWhatTheTownDrives`).
 
 ## 2026-10-10 — the host walks only the walkers it holds or touched
 

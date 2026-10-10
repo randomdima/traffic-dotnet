@@ -1345,8 +1345,9 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _asksTheHolds = rebuild.AsksForTheHolds(town.ReadersOccupancy);
         if (!_asksTheHolds) return;
 
+        // A car the device does not tick is the town's, and held by it.
         var cars = town.Cars;
-        for (var car = 0; car < cars.Count; car++)
+        foreach (var car in _cars.TheCarsTheTownHolds(cars.Count, _townTicks))
         {
             if (cars.Driven[car] && !_cars.Takes(car)) rebuild.AskTheHold(town.PlanHoldOf(car, rebuild.LandsThisTick));
         }

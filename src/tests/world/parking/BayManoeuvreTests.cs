@@ -241,7 +241,7 @@ public class BayManoeuvreTests
     internal static void PutDown(TownWorld world, int car, Vector2 atM, float headingRad)
     {
         world.Cars.Driven[car] = false;
-        world.Cars.Broken[car] = true;
+        world.BreakWhereItStands(car);
         world.Cars.Command[car] = DriveCommand.Locked;
         world.Cars.WheelSpinOf(car).Clear();
         world.Cars.PositionM[car] = atM;

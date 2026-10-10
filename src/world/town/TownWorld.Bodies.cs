@@ -34,6 +34,25 @@ internal sealed partial class TownWorld
     /// <summary>For the instruments: whether this car rested parked on its last tick, so the bodies' phase spends nothing of its wheels.</summary>
     public bool RestsParked(int car) => _standsParked[car];
 
+    /// <summary>
+    /// The walkers wounded and the cars wrecked, kept where each is set and cleared (<see cref="RaiseTheCall"/>,
+    /// <see cref="Wreck"/>), so what slides with nothing driving it is found without walking every body
+    /// (<see cref="Settle"/>); and room to walk them in.
+    /// </summary>
+    readonly AgentSet _wounded, _wrecked;
+
+    readonly int[] _settling;
+
+    /// <summary>
+    /// <b>A car a wreck where it stands and nothing else of it changed</b> — for a staging that puts one down by hand rather
+    /// than crashing it (<see cref="Wreck"/> does the rest): its wheels locked by <see cref="Settle"/> from here on.
+    /// </summary>
+    public void BreakWhereItStands(int car)
+    {
+        Cars.Broken[car] = true;
+        _wrecked.Add(car);
+    }
+
     /// <summary>Whether any car in the town is on a tow bar this tick.</summary>
     public bool AnyOnTheBar => _onTheBar > 0;
 
@@ -197,9 +216,9 @@ internal sealed partial class TownWorld
     /// </remarks>
     void Settle(float dtS)
     {
-        for (var person = 0; person < People.Count; person++)
+        foreach (var person in _settling.AsSpan(0, _wounded.CopyTo(People.Count, _settling)))
         {
-            if (!People.Wounded[person] || People.Inside[person].Any) continue;
+            if (People.Inside[person].Any) continue;
 
             var positionM = People.PositionM[person];
             var step = WalkerFollower.Step(
@@ -209,10 +228,8 @@ internal sealed partial class TownWorld
             _impulseNs[person] = step.ImpulseNs;
         }
 
-        for (var car = 0; car < Cars.Count; car++)
+        foreach (var car in _settling.AsSpan(0, _wrecked.CopyTo(Cars.Count, _settling)))
         {
-            if (!Cars.Broken[car]) continue;
-
             // <b>A wreck on a hook is not a wreck being dragged</b> (EVA-5). Its front is up on the bar and
             // its back pair is rolling, so the locked block PHY-5 describes is exactly the wrong model for
             // it: run as one, a towed car scrubs four locked tyres against the tow and the pair crawls.
@@ -428,6 +445,7 @@ internal sealed partial class TownWorld
         // called the player's would read as a car waiting to be told what to do next.
         _carOrders.Release(car);
         Cars.Broken[car] = true;
+        _wrecked.Add(car);
         Cars.Driven[car] = false;
         if (Cars.Action[car] != CarAction.Towed) Enter(car, CarAction.Stand);
         Cars.Command[car] = DriveCommand.LockedAt(Cars.Command[car].SteerRad);

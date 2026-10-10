@@ -536,6 +536,7 @@ internal sealed partial class TownWorld
         _mendingCount--;
 
         Cars.Broken[car] = false;
+        _wrecked.Remove(car);
         Cars.Command[car] = DriveCommand.Parked;
         Cars.AccelerationMps2[car] = Vector2.Zero;
         for (var wheel = car * TyreModel.Wheels; wheel < (car + 1) * TyreModel.Wheels; wheel++)

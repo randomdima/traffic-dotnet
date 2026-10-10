@@ -273,7 +273,7 @@ public class JunctionClaimTests
         var car = ACarOffTheParking(world, map);
 
         world.Cars.Driven[car] = false;
-        world.Cars.Broken[car] = true;
+        world.BreakWhereItStands(car);
         world.Cars.PositionM[car] = atM;
         world.Cars.VelocityMps[car] = Vector2.Zero;
         world.LayTheClaims();
@@ -297,7 +297,7 @@ public class JunctionClaimTests
         var car = ACarOffTheParking(world, map);
 
         world.Cars.Driven[car] = false;
-        world.Cars.Broken[car] = true;
+        world.BreakWhereItStands(car);
         world.Cars.VelocityMps[car] = Vector2.Zero;
 
         var halfM = world.Cars.BuildOf(car).CollisionSizeM * 0.5f;

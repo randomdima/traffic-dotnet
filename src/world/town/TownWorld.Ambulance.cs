@@ -106,6 +106,7 @@ internal sealed partial class TownWorld
         Device?.TakeTheWalkerBack(this, person);
         _physics.PutOnLayer(People.Body[person], CollisionLayer.Downed);
         People.Wounded[person] = true;
+        _wounded.Add(person);
         People.Walking[person] = false;
         Enter(person, PersonAction.Down);
         People.ClearRoute(person);
@@ -436,6 +437,7 @@ internal sealed partial class TownWorld
         // still inside: what walks back out of the door is somebody the town can bump into.
         _physics.PutOnLayer(People.Body[casualty], CollisionLayer.Person);
         People.Wounded[casualty] = false;
+        _wounded.Remove(casualty);
         People.Stage[casualty] = TripStage.Dwelling;
         People.TimerS[casualty] = _config.Ambulance.TreatmentS;
         People.DestinationBuilding[casualty] = hospital;

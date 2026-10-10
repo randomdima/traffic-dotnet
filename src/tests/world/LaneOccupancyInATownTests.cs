@@ -271,7 +271,7 @@ public class LaneOccupancyInATownTests
             Spline.SampleAt(world.Roads.ArcsOf(lane), alongM + world.Cars.BuildOf(hauler).LengthM).PositionM;
         world.Cars.HeadingRad[hauler] = MathF.Atan2(on.Direction.Y, on.Direction.X);
         world.Cars.Driven[wreck] = false;
-        world.Cars.Broken[wreck] = true;
+        world.BreakWhereItStands(wreck);
         world.Cars.VelocityMps[wreck] = Vector2.Zero;
         world.Cars.PositionM[wreck] = on.PositionM;
         world.Cars.HeadingRad[wreck] = MathF.Atan2(on.Direction.Y, on.Direction.X) + (MathF.PI * 0.5f);
@@ -559,7 +559,7 @@ public class LaneOccupancyInATownTests
     static int StandTheBodyAt(TownWorld world, Vector2 atM, float headingRad)
     {
         world.Cars.Driven[TheBodyToStand] = false;
-        world.Cars.Broken[TheBodyToStand] = true;
+        world.BreakWhereItStands(TheBodyToStand);
         world.Cars.VelocityMps[TheBodyToStand] = Vector2.Zero;
         world.Cars.PositionM[TheBodyToStand] = atM;
         world.Cars.HeadingRad[TheBodyToStand] = headingRad;
