@@ -19,6 +19,12 @@ internal sealed class AgentSet(int capacity)
 
     public bool Has(int agent) => (_words[agent >> 6] & (1UL << (agent & 63))) != 0;
 
+    /// <summary>
+    /// The 32 agents' bits this one is among, as a device's table of a bit an agent holds them: word <c>agent / 32</c>, bit
+    /// <c>agent % 32</c>.
+    /// </summary>
+    public uint WordOf(int agent) => (uint)(_words[agent >> 6] >> (agent & 32));
+
     /// <summary>Every agent below <paramref name="count"/> added.</summary>
     public void AddFirst(int count)
     {

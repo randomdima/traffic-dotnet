@@ -163,9 +163,10 @@ internal sealed partial class DeviceCarTick : IDisposable
         float QueueInCarLengths, float DtS, float LookaheadS, float GripMargin, float BrakingMargin, float StopSpeedMps,
         float WaitingToPassBrakingShare, float ReactionS, float CallPaceMps, float StandardGravityMps2, float WheelSpinFadeMps,
         float WheelSpinAllowanceMps, float MarkSlipMps, float MarkCorneringSlipMps, float PloughCrawlMps, float EngineBrakingMps2,
-        float PassSpareM, uint Mode, uint Stamp, float SinceLastDecisionS, float SlowerToSwitchMps)
+        float PassSpareM, uint Mode, uint Stamp, float SinceLastDecisionS, float SlowerToSwitchMps, uint DueTick, uint Groups,
+        uint FirstCarAgent, uint DueFlags)
     {
-        public const uint Tick = 0u, Decide = 1u;
+        public const uint Tick = 0u, Decide = 1u, FindDue = 2u;
 
         /// <remarks>A decision answers for the decisions' interval as the loop reckons it (<see cref="TickGroups.IntervalS"/>).</remarks>
         public static Figures Of(SimConfig config, int arcsPerCar, int firstConnector) => new(
@@ -175,7 +176,8 @@ internal sealed partial class DeviceCarTick : IDisposable
             config.Driving.WaitingToPassBrakingShare, config.CarReactionS, config.Ambulance.CallPaceMps,
             config.Tyre.StandardGravityMps2, config.Tyre.WheelSpinFadeMps, config.Tyre.WheelSpinAllowanceMps, config.Marks.SlipMps,
             config.Marks.CorneringSlipMps, config.Marks.PloughCrawlMps, config.CarEngineBrakingMps2, config.Driving.PassSpareM, Tick,
-            0u, new TickGroups(config.Sim.AgentDecisionIntervalS, config.Sim.TickRateHz).IntervalS, config.Driving.SlowerToSwitchMps);
+            0u, new TickGroups(config.Sim.AgentDecisionIntervalS, config.Sim.TickRateHz).IntervalS, config.Driving.SlowerToSwitchMps,
+            0u, 1u, 0u, 0u);
     }
 
     /// <summary>The stamps a tick is timed between.</summary>
@@ -241,6 +243,19 @@ internal sealed partial class DeviceCarTick : IDisposable
     readonly GpuBuffer _switchClocks;
 
     int _decideCount;
+
+    /// <summary>
+    /// <b>Which cars' decisions the device finds itself</b> (<see cref="DecidesItself"/>), a bit a car, as the host keeps them
+    /// and as the tick reads them; how many of those due it found more than their clock and how many its clock alone, and
+    /// those counts copied where the host reads them; the cars found more, in the host's memory; and the figures they are
+    /// found with (<see cref="FindTheDecisionsDue"/>).
+    /// </summary>
+    readonly AgentSet _decidesItself;
+
+    readonly ResidentRows<uint> _decidesItselfWords;
+    readonly GpuBuffer _foundCounts, _foundCountsOut, _foundMore;
+    readonly int[] _found;
+    Figures _due;
 
     /// <summary>
     /// Each car's grant, what cut it and its hold bits as the tick reads them, and as the town's readers read them
@@ -324,6 +339,16 @@ internal sealed partial class DeviceCarTick : IDisposable
         _readersGrants = Laid(new GrantRow[capacity]);
         _readersCutters = Laid(new DeviceClaims.ClaimRow[capacity]);
         _readersHoldBits = Laid(new uint[capacity]);
+        _decidesItself = new AgentSet(capacity);
+        _decidesItselfWords = new ResidentRows<uint>(vk, WantedWords, 1, hostOnly: true);
+        _wordChanged = new bool[WantedWords];
+        _wordsChanged = new int[WantedWords];
+        _foundCounts = vk.CreateBuffer(
+            2 * sizeof(uint), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferSrcBit | BufferUsageFlags.TransferDstBit,
+            HostAccess.None);
+        _foundCountsOut = vk.CreateBuffer(2 * sizeof(uint), BufferUsageFlags.TransferDstBit, HostAccess.Reads);
+        _foundMore = vk.CreateBuffer((ulong)(capacity * sizeof(uint)), BufferUsageFlags.StorageBufferBit, HostAccess.Reads);
+        _found = new int[capacity];
 
         var table = tyres.Table;
         GpuBuffer[] ticked =
@@ -335,7 +360,7 @@ internal sealed partial class DeviceCarTick : IDisposable
             granted?.Grants ?? _grants.Device, _told.Device, _ticks.Device, _contexts.Device, _boxes.Device, _taken.Device,
             _passes.Device, granted?.HoldBits ?? _holdBits.Device, _briefs.Device, _decideList.Device, _decideTerms.Device,
             _clocks.Device, _verdicts, _decidedAt, _decideOut, table.Cars.Device, _readersGrants, _readersCutters, _readersHoldBits,
-            _switchClocks,
+            _switchClocks, _decidesItselfWords.Device, _foundCounts, _foundMore,
         ];
         _tickKernel = new ComputeKernel(vk, "car_tick.comp", ticked.Length, (uint)Marshal.SizeOf<Figures>());
         _tickSet = _tickKernel.Bind(ticked);
@@ -595,6 +620,7 @@ internal sealed partial class DeviceCarTick : IDisposable
         LinesSentBytes = _arcs.MarkedBytes + _entries.MarkedBytes;
         _tyres.SendMarked(commands);
         vk.Fill(commands, _eventCount, 0);
+        if (FindsTheDecisionsDue) vk.Fill(commands, _foundCounts, 0);
         _ticks.Send(commands);
         _told.Send(commands);
         _grants.Send(commands);
@@ -614,6 +640,8 @@ internal sealed partial class DeviceCarTick : IDisposable
         _decideList.Send(commands);
         _decideTerms.Send(commands);
         _clocks.Send(commands);
+        LayTheWordsChanged();
+        _decidesItselfWords.Send(commands);
         Looks?.RecordTheSends(commands);
         if (ReadersKeepUp)
         {
@@ -640,7 +668,104 @@ internal sealed partial class DeviceCarTick : IDisposable
             Looks?.RecordTheLooks(commands, _decideCount, _stamp);
             _decideCount = 0;
         }
+
+        // And those of the cars whose decisions it finds itself, none of them listed above.
+        if (FindsTheDecisionsDue)
+        {
+            _tickKernel.Dispatch(commands, _tickSet, (uint)Math.Max(1, (cars + 63) / 64), _due with { CarCount = (uint)cars, Stamp = _stamp });
+            vk.BetweenKernels(commands);
+            vk.BeforeTransfer(commands);
+            vk.Copy(commands, _foundCounts, _foundCountsOut, 2 * sizeof(uint));
+        }
     }
+
+    /// <summary>
+    /// <b>Whether the device finds this car's decision itself</b> (<see cref="FindTheDecisionsDue"/>): the host neither puts
+    /// it off nor names it, and decides it only where the device finds it more than its clock.
+    /// </summary>
+    public bool DecidesItself(int car) => _decidesItself.Has(car);
+
+    /// <summary>Whether the device finds this car's decision itself from the next tick sent on (<see cref="DecidesItself"/>).</summary>
+    public void LetItDecideItself(int car, bool decides)
+    {
+        if (decides == _decidesItself.Has(car)) return;
+
+        if (decides) _decidesItself.Add(car);
+        else _decidesItself.Remove(car);
+        DecidingItself += decides ? 1 : -1;
+        var word = car >> 5;
+        if (_wordChanged[word]) return;
+
+        _wordChanged[word] = true;
+        _wordsChanged[_wordsChangedCount++] = word;
+    }
+
+    /// <summary>Which words of <see cref="_decidesItselfWords"/> changed since they were last sent, a flag a word and in order of change.</summary>
+    readonly bool[] _wordChanged;
+
+    readonly int[] _wordsChanged;
+    int _wordsChangedCount;
+
+    /// <summary>Each word of <see cref="_decidesItselfWords"/> that changed laid once, as it stands now.</summary>
+    void LayTheWordsChanged()
+    {
+        foreach (var word in _wordsChanged.AsSpan(0, _wordsChangedCount))
+        {
+            _wordChanged[word] = false;
+            _decidesItselfWords.Lay(word, _decidesItself.WordOf(word << 5));
+        }
+
+        _wordsChangedCount = 0;
+    }
+
+    /// <summary>How many cars' decisions the device finds itself (<see cref="DecidesItself"/>).</summary>
+    public int DecidingItself { get; private set; }
+
+    /// <summary>
+    /// <b>The decisions due on a tick of every car whose decision the device finds itself</b> (<see cref="DecidesItself"/>),
+    /// asked with the next tick's sends as a decision put off is (<see cref="LayTheDecisions"/>): each car's clock run where
+    /// that is the whole of it, and where it is not, named where <see cref="FoundMore"/> reads it, with what the town decides
+    /// it on (<see cref="DecidedOn"/>).
+    /// </summary>
+    /// <param name="tick">The loop's tick they were due on, by <paramref name="decisions"/>' turns.</param>
+    /// <param name="firstCarAgent">The agent the first car is, whose turn its index is counted from.</param>
+    /// <param name="byTheTown">Whether every one is the town's to take whatever the device finds (<see cref="DecideTermsRow.ByTheTown"/>).</param>
+    public void FindTheDecisionsDue(TickGroups decisions, long tick, int firstCarAgent, bool byTheTown)
+    {
+        _due = _figures with
+        {
+            Mode = Figures.FindDue, DueTick = (uint)(tick % decisions.Groups), Groups = (uint)decisions.Groups,
+            FirstCarAgent = (uint)firstCarAgent, DueFlags = byTheTown ? DecideTermsRow.ByTheTown : 0u,
+        };
+        FindsTheDecisionsDue = true;
+    }
+
+    /// <summary>Whether the next tick sent finds the decisions due (<see cref="FindTheDecisionsDue"/>), until what it found is read.</summary>
+    public bool FindsTheDecisionsDue { get; private set; }
+
+    /// <summary>
+    /// The cars <see cref="FindTheDecisionsDue"/> found more than their clock, in order, and how many it found their clock
+    /// alone — read once the submit that found them is waited for. Nothing where none were asked.
+    /// </summary>
+    public ReadOnlySpan<int> FoundMore(out int clockAlone)
+    {
+        clockAlone = 0;
+        if (!FindsTheDecisionsDue) return default;
+
+        FindsTheDecisionsDue = false;
+        var counts = _foundCountsOut.Span<uint>();
+        clockAlone = (int)counts[1];
+        var found = _found.AsSpan(0, (int)counts[0]);
+        MemoryMarshal.Cast<uint, int>(_foundMore.Span<uint>()[..found.Length]).CopyTo(found);
+        found.Sort();
+        return found;
+    }
+
+    /// <summary>
+    /// What a kernel after the tick's sends reads of the decisions found (<see cref="FindTheDecisionsDue"/>): how many were
+    /// more than their clock and how many their clock alone, and the cars found more.
+    /// </summary>
+    public (GpuBuffer Counts, GpuBuffer More) FoundTables => (_foundCounts, _foundMore);
 
     /// <summary>
     /// <b>The second half of <see cref="Record"/></b>: the drive and the tyres over what <see cref="RecordTheSends"/> sent —
@@ -863,7 +988,8 @@ internal sealed partial class DeviceCarTick : IDisposable
         foreach (var table in (ReadOnlySpan<IDisposable>)[
                      _ticks, _told, _grants, _cutters, _boxes, _contexts, _lines, _arcs, _entries, _chain, _starts, _ends, _firstArcs,
                      _breaks, _taken, _passes, _holdBits, _briefs, _wanted, _rowsOut, _events, _eventCount, _eventCountOut, _grantsLeft,
-                     _decideList, _decideTerms, _clocks, _verdicts, _decideOut])
+                     _decideList, _decideTerms, _clocks, _verdicts, _decideOut, _decidesItselfWords, _foundCounts, _foundCountsOut,
+                     _foundMore])
         {
             table.Dispose();
         }

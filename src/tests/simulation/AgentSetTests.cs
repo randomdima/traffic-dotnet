@@ -44,4 +44,14 @@ public class AgentSetTests
 
         Assert.Equal(70, set.CountBelow(200));
     }
+
+    /// <summary>A device reads agent <c>a</c> as bit <c>a % 32</c> of word <c>a / 32</c>.</summary>
+    [Fact]
+    public void AWordHoldsTheBitsOfItsOwnThirtyTwoAgents()
+    {
+        var set = new AgentSet(200);
+        foreach (var agent in (ReadOnlySpan<int>)[31, 32, 70, 101]) set.Add(agent);
+
+        Assert.Equal([1u << 31, 1u, 1u << 6, 1u << 5], new[] { set.WordOf(0), set.WordOf(63), set.WordOf(64), set.WordOf(127) });
+    }
 }

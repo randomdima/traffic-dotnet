@@ -1397,8 +1397,8 @@ internal sealed partial class DeviceRebuild
 
     /// <summary>
     /// <b>The layer of a rebuild that lands later copied back, in part</b> (<see cref="LandsLater"/>), submitted and left
-    /// running: the rows of the ways asked for as far as the last landing's count and a margin, and every hold and what cut
-    /// it — copied on the device as the readers' layer will hold them, and back only where every hold lands
+    /// running: the rows of the ways asked for as far as the last landing's count and a margin, and every hold, what cut it
+    /// and each car's hold number — copied on the device as the readers' layer will hold them, and back only where every hold lands
     /// (<see cref="HoldsAsAsked"/>). Nothing else on the device writes them before the next rebuild. Nothing where no layer
     /// waits to be sent.
     /// </summary>
@@ -1415,7 +1415,8 @@ internal sealed partial class DeviceRebuild
         _claims.CopyPast<ClaimRow>(commands, _waysRows, _waysRowsRead, 0, _waysRowsBound);
         _claims.CopyPast<HoldOut>(commands, _holdsOut, _readersHoldsOut, 0, holds);
         _claims.CopyPast<ClaimRow>(commands, _holdCutters, _readersHoldCutters, 0, holds);
-        LandedBytes = sizeof(uint) + Bytes<UInt4>(_waysListed) + Bytes<ClaimRow>(_waysRowsBound);
+        _claims.CopyPast<int>(commands, _holdOf, _readersHoldOf, 0, _cars);
+        LandedBytes =sizeof(uint) + Bytes<UInt4>(_waysListed) + Bytes<ClaimRow>(_waysRowsBound);
         if (LandsEveryHold)
         {
             _claims.CopyPast<HoldOut>(commands, _holdsOut, _holdsRead, 0, holds);

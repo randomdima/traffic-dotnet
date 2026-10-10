@@ -36,6 +36,10 @@ layout(std430, binding = 9) readonly buffer Tally { uint tally[]; };
 // The hold each car laid where it stands, numbered from that unit's first, or -1 (rebuild_standing.comp).
 layout(std430, binding = 10) readonly buffer StandingHoldOf { int standingHoldOf[]; };
 
+// The hold each asked car's claim laid, as TownWorld.HeldOnTheDevice numbers it, or -1 — copied with the layer as its
+// readers will number it (readers_holds_out.comp).
+layout(std430, binding = 11) writeonly buffer HoldOf { int holdOf[]; };
+
 void main()
 {
     uint car = gl_GlobalInvocationID.x;
@@ -72,6 +76,7 @@ void main()
         if ((claim.flags & CarStands) != 0u && standingHoldOf[car] >= 0) hold = int(unitHolds[figures.firstCarUnit - 1u]) + standingHoldOf[car];
     }
 
+    holdOf[car] = hold;
     int cutOn = -1;
     uint bits = 0u;
     ClaimRow cutter = ClaimRow(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0u, 0u);

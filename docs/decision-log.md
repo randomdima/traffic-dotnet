@@ -18,6 +18,27 @@ regular sync needed. CPU dont need a copy of the engine."** This extends 2026-10
 - **Measured by** the host's work and the bytes crossing a tick, both of which should follow the events, not the town's
   size.
 
+## 2026-10-10 — the device finds the decisions of the cars it keeps
+
+**Under the owner's goal above.** The town put off every car's decision on its turn, and the device was handed the list of
+those to ask (`DeviceTown.LayTheDecisions`): the host named about one car in six a tick, and read every verdict back.
+
+- **A car the device keeps, and whose decision only its line and clock answer, finds its own decision**
+  (`DeviceTown.FindsItsOwnDecision`, `DeviceCarTick.DecidesItself`): the town's loop skips it on its turn
+  (`TownWorld.DecideAgent`), and the next tick's head asks every such car whose turn it was, the host naming none
+  (`car_tick.comp`'s `ModeFindDue`). A clock alone is run there and counted. One more than its clock is named in a list,
+  its hold as the readers hold it handed back beside it (`readers_holds_out.comp`, by the hold number `rebuild_grant.comp`
+  laid and the layer carried), and put off for the town in its turn's order (`TownWorld.PutOffTheDecisions`).
+- **Which cars those are is set where the host already walks**: after a take-back, for the cars it took back or walked; a
+  car the host walks is let go of first, and its turn, where the device still owed it, put off for the town
+  (`LetGoOfTheWalked`). A held tick owes nothing, as the town's own held decision is nothing. The device let go hands every
+  owed turn to the town (`ITownDevice.LetGo`).
+- **Held by the visits' check**: a car left to the device that the town changed without marking it throws, and each
+  found car's hold is held to the town's number for it. A test touches cars on their turn and counts the decisions taken
+  against a town that decides every car (`ACarTouchedOnItsTurnIsDecidedOnItOnce`); losing the owed turn fails it.
+- **Still the town's**: a switching car's look (its look state is read back each decision), a car the town holds, the
+  walkers' decisions, and the loop itself, which still walks the roster to skip them (`SimLoop.Decide`).
+
 ## 2026-10-10 — the host walks only the walkers it holds or touched
 
 **As the cars below.** Every tick, the host walked every walker to find what to patch over the device's table

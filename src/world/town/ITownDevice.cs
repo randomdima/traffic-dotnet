@@ -72,6 +72,12 @@ internal interface ITownDevice
     }
 
     /// <summary>
+    /// <b>The town let go of</b> as it stops ticking on the device: every pose handed back (<see cref="TakeEveryPoseBack"/>),
+    /// and whatever the device was to take of the town's handed to it.
+    /// </summary>
+    void LetGo(TownWorld town) => TakeEveryPoseBack(town);
+
+    /// <summary>
     /// <b>One walker handed back as the device's last claims rebuild left it</b>, where the town is about to change it out of
     /// its own turn — struck down, or taken in hand. Nothing for one the town holds as the device left it.
     /// </summary>
@@ -101,6 +107,13 @@ internal interface ITownDevice
     /// False for a car the device did not decide, which the town decides with what it holds.
     /// </summary>
     bool DecidedOnTheDevice(int car) => false;
+
+    /// <summary>
+    /// <b>Whether the device finds this car's decision itself</b>, a tick behind (<see cref="DecidesATickBehind"/>): the town
+    /// puts nothing off for it, and is handed it to decide only where the device finds it more than its clock
+    /// (<see cref="TownWorld.PutOffTheDecisions"/>).
+    /// </summary>
+    bool DecidesItself(int car) => false;
 
     /// <summary>
     /// <b>Whether this walker's decision, put off a tick, was its clock alone and run on the device</b>

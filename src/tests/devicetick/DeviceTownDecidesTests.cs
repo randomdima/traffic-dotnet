@@ -57,6 +57,46 @@ public class DeviceTownDecidesTests(Lavapipe device) : IClassFixture<Lavapipe>
     }
 
     /// <summary>
+    /// <b>A car whose decision the device finds itself, touched by the town before the device found the turn it owes, is
+    /// decided on that turn once</b> (<see cref="DeviceTown.DecidesItself"/>): every third tick a fifth of the cars marked
+    /// touched, as the town marks a car it set anything of — the town as one that decides every car itself, and as many
+    /// decisions taken.
+    /// </summary>
+    [Fact]
+    public void ACarTouchedOnItsTurnIsDecidedOnItOnce()
+    {
+        var config = SimConfig.Shipped();
+        using var itself = new TownWorld(Towns.Built, config);
+        using var onTheDevice = new TownWorld(Towns.Built, config);
+        var itselfLoop = new SimLoop<TownWorld>(itself, config);
+        var deviceLoop = new SimLoop<TownWorld>(onTheDevice, config);
+        var warm = (int)(config.Building.DwellMaxS * config.Sim.TickRateHz) + 120;
+        itselfLoop.Advance(warm);
+        deviceLoop.Advance(warm);
+        using var itselfDevice = new DeviceTown(device.Vk, config, itself) { DecidesTheCars = false };
+        using var decidingDevice = new DeviceTown(device.Vk, config, onTheDevice);
+        itself.Device = itselfDevice;
+        onTheDevice.Device = decidingDevice;
+
+        var (itselfFrom, deviceFrom) = (itself.CarDecisionsTaken, onTheDevice.CarDecisionsTaken);
+        var unlike = new List<string>();
+        for (var tick = 0; tick < Ticks && unlike.Count == 0; tick++)
+        {
+            itselfLoop.Advance();
+            deviceLoop.Advance();
+            TownsInStep.Compare(itself, onTheDevice, tick, unlike);
+            if (tick % 3 != 0) continue;
+
+            for (var car = tick % 5; car < onTheDevice.Cars.Count; car += 5) onTheDevice.TouchTheCar(car);
+        }
+
+        itself.Device = onTheDevice.Device = null;
+        Assert.True(decidingDevice.DecisionsFound > 0, "no car's decision was found on the device");
+        Assert.True(unlike.Count == 0, $"{unlike.Count} agents differ: {string.Join("; ", unlike.Take(6))}");
+        Assert.Equal(itself.CarDecisionsTaken - itselfFrom, onTheDevice.CarDecisionsTaken - deviceFrom);
+    }
+
+    /// <summary>
     /// <b>Every tick, every car and walker stands, moves and faces to the bit as in the town that decides every walker
     /// itself, and holds the same hold</b> — over a run in which the device decided walkers.
     /// </summary>

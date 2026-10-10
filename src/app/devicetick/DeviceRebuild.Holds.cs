@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using Silk.NET.Vulkan;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Road;
+using TrafficSimulation.World.Town;
 using static TrafficSimulation.App.DeviceTick.DeviceClaims;
 using static TrafficSimulation.Runtime.GpuBuffer;
 
@@ -25,16 +26,29 @@ internal sealed partial class DeviceRebuild
     readonly record struct HoldAnswered(uint Hold, uint Stamp, uint Pad0, uint Pad1, HoldOut Held, ClaimRow Cutter);
 
     [StructLayout(LayoutKind.Sequential)]
-    readonly record struct HoldsAskedPush(uint Count, uint CarStamp, uint WalkerStamp, uint Stamp);
+    readonly record struct HoldsAskedPush(uint Count, uint CarStamp, uint WalkerStamp, uint Stamp, uint Mode)
+    {
+        public const uint Asked = 0u, Found = 1u;
+    }
 
     /// <summary>Whose decision an ask waits on (<c>readers_holds_out.comp</c>'s): none, or a car's or a walker's, by index.</summary>
     const uint AskIfDecided = 0x80000000u, AskOfAWalker = 0x40000000u;
+
+    /// <summary>A found car's hold number where it holds none (<c>readers_holds_out.comp</c>'s <c>NoHold</c>).</summary>
+    const uint FoundNoHold = 0xffffffffu;
 
     /// <summary>
     /// Every hold and what cut it as the readers' layer holds them, copied on the device as a layer is sent back; the holds
     /// asked this tick, written by the host; what came of them, in the host's memory.
     /// </summary>
     GpuBuffer _readersHoldsOut = null!, _readersHoldCutters = null!, _holdsAsked = null!, _holdsAnswered = null!;
+
+    /// <summary>
+    /// Each car's hold number as the readers' layer numbers it (<see cref="_holdOf"/>, copied with the layer), and each car
+    /// the tick found more than its clock without the host naming it, its own hold as that layer holds it, a row a car in the
+    /// host's memory (<see cref="DeviceCarTick.FindsTheDecisionsDue"/>).
+    /// </summary>
+    GpuBuffer _readersHoldOf = null!, _foundAnswered = null!;
 
     Bound _holdsAskedKernel;
     int _holdsAskedCount;
@@ -63,12 +77,20 @@ internal sealed partial class DeviceRebuild
         var room = (2 * _cars) + _walkersRoom;
         _holdsAsked = Own(_vk.CreateBuffer(Bytes<UInt2>(room), BufferUsageFlags.StorageBufferBit, HostAccess.Writes));
         _holdsAnswered = Own(_vk.CreateBuffer(Bytes<HoldAnswered>(room), BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
+        _readersHoldOf = Device<int>(_cars);
+        _foundAnswered = Own(_vk.CreateBuffer(Bytes<HoldAnswered>(_cars), BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
 
         // An ask the kernel leaves unanswered keeps whatever the memory held, so it begins at a stamp no submit writes.
         _holdsAnswered.Span<HoldAnswered>().Clear();
+        _foundAnswered.Span<HoldAnswered>().Clear();
         var verdicts = _walkers.Keeps ? _walkers.Verdicts : Device<uint>(1);
+        var (foundCounts, foundMore) = cars.FoundTables;
         _holdsAskedKernel = Bound.Of<HoldsAskedPush>(
-            _vk, "readers_holds_out.comp", [_holdsAsked, _readersHoldsOut, _readersHoldCutters, cars.DecidedAt, verdicts, _holdsAnswered]);
+            _vk, "readers_holds_out.comp",
+            [
+                _holdsAsked, _readersHoldsOut, _readersHoldCutters, cars.DecidedAt, verdicts, _holdsAnswered, foundCounts, foundMore,
+                _readersHoldOf, _foundAnswered,
+            ]);
     }
 
     /// <summary>
@@ -103,13 +125,42 @@ internal sealed partial class DeviceRebuild
     /// </summary>
     /// <param name="carStamp">The car tick's stamp this tick (<see cref="DeviceCarTick.Stamp"/>).</param>
     /// <param name="walkerStamp">The walkers' decisions' stamp this tick (<see cref="DeviceWalkers.DecideStamp"/>).</param>
-    public void RecordTheHoldsAsked(CommandBuffer commands, uint carStamp, uint walkerStamp)
+    /// <param name="ofTheFound">
+    /// Whether the hold of each car the tick found more than its clock without the host naming it is handed back too
+    /// (<see cref="DeviceCarTick.FindsTheDecisionsDue"/>), where <see cref="MirrorTheFoundHolds"/> reads it.
+    /// </param>
+    public void RecordTheHoldsAsked(CommandBuffer commands, uint carStamp, uint walkerStamp, bool ofTheFound)
     {
-        if (_holdsAskedCount == 0) return;
+        if (_holdsAskedCount == 0 && !ofTheFound) return;
 
         _vk.AfterTheSubmitsBefore(commands);
-        _holdsAskedKernel.Dispatch(
-            commands, _holdsAskedCount, new HoldsAskedPush((uint)_holdsAskedCount, carStamp, walkerStamp, ++_holdsStamp));
+        var push = new HoldsAskedPush((uint)_holdsAskedCount, carStamp, walkerStamp, ++_holdsStamp, HoldsAskedPush.Asked);
+        if (_holdsAskedCount > 0) _holdsAskedKernel.Dispatch(commands, _holdsAskedCount, push);
+        if (ofTheFound) _holdsAskedKernel.Dispatch(commands, _cars, push with { Count = (uint)_cars, Mode = HoldsAskedPush.Found });
+    }
+
+    /// <summary>
+    /// <b>The hold of each car the tick found more than its clock written into the readers' layer</b>, by the number the
+    /// readers' layer gives it — once the submit that handed them back is waited for and any layer landing this tick has
+    /// landed (<see cref="RecordTheHoldsAsked"/>).
+    /// </summary>
+    /// <param name="checks">Whether to throw where the device numbers a car's hold other than the town does.</param>
+    public void MirrorTheFoundHolds(TownWorld town, ReadOnlySpan<int> found, bool checks)
+    {
+        var answers = _foundAnswered.Span<HoldAnswered>();
+        foreach (var car in found)
+        {
+            ref readonly var said = ref answers[car];
+            if (said.Stamp != _holdsStamp) throw new InvalidOperationException($"Car {car}'s hold was found and never handed back.");
+
+            var hold = said.Hold == FoundNoHold ? LaneOccupancy.NoHold : (int)said.Hold;
+            if (checks && hold != town.PlanHoldOf(car))
+            {
+                throw new InvalidOperationException($"Car {car}'s hold is {town.PlanHoldOf(car)} in the town and {hold} as the device numbers it.");
+            }
+
+            if (hold != LaneOccupancy.NoHold) MirrorTheHold(town.ReadersOccupancy, hold, said.Held, said.Cutter);
+        }
     }
 
     /// <summary>

@@ -346,6 +346,16 @@ internal sealed partial class TownWorld
     /// <summary>How many cars' decisions were their clock alone (<see cref="DecidesQuietCarsByTheClock"/>).</summary>
     public long DecidedByTheClock { get; private set; }
 
+    /// <summary>Decisions a device found its cars' clock alone without the town putting them off (<see cref="ITownDevice.DecidesItself"/>), counted in.</summary>
+    public void DecidedByTheClockOnTheDevice(int count)
+    {
+        DecidedByTheClock += count;
+        CarDecisionsTaken += count;
+    }
+
+    /// <summary>How many cars' decisions were taken, wherever each was — every car's turn but one held or on a bar.</summary>
+    public long CarDecisionsTaken { get; private set; }
+
     /// <summary>
     /// How long this car has been getting nowhere, which is a reading the instruments print and never a
     /// decision anything here takes.

@@ -97,7 +97,8 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   where it was worked on. It compiles all of `src/` against Vulkan, so it takes `app/devicetick` as the desktop does,
   and its shader targets must embed the device's kernels (`copy_runs.comp` among them). A build of it closes this.
 - **Nothing since the claims laid where they stand is measured** (root log 2026-10-10: those claims, a car on a pass
-  planned on the device, the host walking only the cars and walkers it holds or touched): the one `--bench devicetown`
+  planned on the device, the host walking only the cars and walkers it holds or touched, the device finding its cars'
+  decisions): the one `--bench devicetown`
   run on OdesaOsm since was taken beside a game holding three and a half cores and the GPU, the host town's own tick
   90.1 ms against 74.1 before, so none of it compares. A run on a quiet machine closes it — the cars and walkers walked a
   tick among it.
@@ -204,6 +205,16 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   keeping or withdrawing the step and the rebuild laying its ground read where it stands, but
   `DeviceTownKeptCarsTests`' staging resolves its step alike when such a car is never read. Closes with a staging whose
   step a stale reading would keep, withdraw or lay otherwise.
+- **Letting go of a walked car whose decision the device finds is held by no test** (`DeviceTown.LetGoOfTheWalked`):
+  skipping it passes the device tier, because nothing in the suite changes what decides such a car between its take-back
+  and its next walk — only a wreck after the decisions or a player's order before the tick can. Closes with a staging that
+  wrecks or orders such a car on its turn.
+- **Whether a car finds its own decision reads its owner's stage and bay** (`TownWorld.LeavesItsDecisionToItsLine`,
+  `ItsErrandLeavesItToTheLeg`), which the owner's own decision sets without marking the car. The visits' check would
+  throw on it, and has not in the suite; no shipped city has been run with the check on. Closes with the car marked
+  touched wherever its driver's stage or bay is set, or a soak with the check on.
+- **The town's loop still walks the roster to skip the cars the device decides** (`SimLoop.Decide`, `TownWorld.DecideAgent`):
+  a call an agent a tick, and a turn's worth of `DecidesItself`. Closes with the loop's two passes handed to the world.
 
 ### Walkers
 

@@ -211,6 +211,12 @@ internal sealed partial class DeviceRebuild : IDisposable
     /// </summary>
     readonly GpuBuffer _standingRows, _standingHolds, _standingCounts, _standingHoldOf, _standingSaid, _stretchCuts;
 
+    /// <summary>
+    /// The hold each car's claim laid, as the town numbers it (<see cref="TownWorld.HeldOnTheDevice"/>), or −1 — a car not
+    /// asked left as its last laying left it (<c>rebuild_grant.comp</c>).
+    /// </summary>
+    readonly GpuBuffer _holdOf;
+
     /// <summary>Each way's lights' stretches, in their order (<c>rebuild_standing.comp</c>): where each way's run starts, and the run.</summary>
     readonly GpuBuffer _wayLightAt, _wayLights;
 
@@ -339,6 +345,7 @@ internal sealed partial class DeviceRebuild : IDisposable
         _standingHolds = Device<HoldRow>(StandingToStart);
         _standingCounts = Device<uint>(2);
         _standingHoldOf = Device<int>(_cars);
+        _holdOf = Device<int>(_cars);
         _standingSaid = Own(_vk.CreateBuffer(Bytes<int>(StandingToStart), BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
         _stretchCuts = Device<UInt4>(Math.Max(1, _stretches));
         _standingOf = new int[_cars];
@@ -400,7 +407,7 @@ internal sealed partial class DeviceRebuild : IDisposable
             vk, "rebuild_grant.comp",
             [
                 _carClaims.Device, planResults, _unitHolds, tables.Answers, _holdCutters, _grants, _cutters, _told, _askAnswers, tables.Tally,
-                _standingHoldOf,
+                _standingHoldOf, _holdOf,
             ]);
         _walkerAnswers = Bound.Of<UnitsPush>(vk, "rebuild_walkers.comp", [walkerCounts, _unitHolds, tables.Answers, _walkers.AnswersRead]);
         var (markAt, markSections) = _plans.Marks;

@@ -167,6 +167,8 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _shapeLaidAt = new (uint, uint)[cars.Capacity];
         _shapeKnown = new bool[cars.Capacity];
         _looking = new bool[cars.Capacity];
+        _found = new bool[cars.Capacity];
+        _letGo = new int[cars.Capacity];
         town.DriveClocks.KeepTheTouched();
         town.CarsDecidedOnTheDevice = true;
 
@@ -428,7 +430,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// <see cref="DecisionsUnlike"/>) — a check of the kernel, at the cost of what every decision asked of it was read off
     /// handed back.
     /// </summary>
-    public bool ChecksTheDecisions { get; set; }
+    public bool ChecksTheDecisions { get; init; }
 
     /// <summary>How many decisions the device found its clock alone where the town finds more, or the other way, over every check.</summary>
     public long DecisionsUnlike { get; private set; }
@@ -581,6 +583,13 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
     public bool DecidedOnTheDevice(int car)
     {
+        if (_found[car])
+        {
+            _found[car] = false;
+            HandTheDecisionOver(car);
+            return false;
+        }
+
         if (!_listed[car]) return false;
 
         _listed[car] = false;
@@ -594,8 +603,16 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
             return true;
         }
 
-        // More than the clock: the town decides it on what its last tick left, as the device read it, and where its last
-        // step left it.
+        HandTheDecisionOver(car);
+        return false;
+    }
+
+    /// <summary>
+    /// A decision the device found more than the clock: the town decides it on what the car's last tick left, as the device
+    /// read it, and where its last step left it.
+    /// </summary>
+    void HandTheDecisionOver(int car)
+    {
         var cars = _town.Cars;
         ref readonly var row = ref _cars.DecidedOn(car);
         WriteTheTyres(cars, car, row.Car);
@@ -607,8 +624,136 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         // And this tick handed it back as well (car_out.comp), which a decision that moved it on lays it whole from.
         _handedBack[car] = true;
         DecidedByTheTown++;
-        return false;
     }
+
+    public bool DecidesItself(int car) => _cars.DecidesItself(car);
+
+    /// <summary>
+    /// <b>Whether the device finds this car's decision itself</b> (<see cref="DeviceCarTick.FindTheDecisionsDue"/>): one the
+    /// device ticked last tick and keeps, that the town neither holds nor touched since, that is not done for, and whose
+    /// decision only its line and clock answer (<see cref="TownWorld.LeavesItsDecisionToItsLine"/>) — so it is put off as the
+    /// town would put it off, and the town is handed it only where it is more than its clock. Never where the verdicts are
+    /// checked, or the town decides as it goes.
+    /// </summary>
+    bool FindsItsOwnDecision(TownWorld town, int car) => WhyTheTownDecides(town, car) is null;
+
+    /// <summary>What of <see cref="FindsItsOwnDecision"/> leaves the car's decision the town's, or null where none does.</summary>
+    string? WhyTheTownDecides(TownWorld town, int car) =>
+        !DecidesTheCars || !DecidesATickBehind || ChecksTheDecisions ? "the device does not find decisions"
+        : !_takenNow.Has(car) || !_tyres.KeptOnTheDevice[car] ? "the device did not keep it"
+        : _cars.TownHolds(car) ? "the town holds it"
+        : town.TouchedCars.Has(car) ? "the town touched it"
+        : town.IsTerminal(town.Roster.AgentOfCar(car)) ? "it is done for"
+        : !town.LeavesItsDecisionToItsLine(car) ? "what decides it is not its line alone"
+        : null;
+
+    /// <summary>
+    /// <b>Whether the cars the device finds the decisions of were let off the decisions' turn the town took last</b>, and
+    /// which turn: the town's loop skipped them on it (<see cref="TownWorld.DecideAgent"/>), and the device finds them with
+    /// the next tick's sends — so a car let go of before then is put off for the town (<see cref="LetGoOfTheDecision"/>).
+    /// None while the agents are held, whose decisions put off are nothing.
+    /// </summary>
+    long _owedTick = NoneOwed;
+
+    const long NoneOwed = -1;
+
+    /// <summary>
+    /// <b>This car's decision the town's again</b>: no longer found on the device, and — where its turn was the one the device
+    /// owes — named in <paramref name="putOff"/> for the town to put off.
+    /// </summary>
+    /// <returns>How many it named: one or none.</returns>
+    int LetGoOfTheDecision(TownWorld town, int car, Span<int> putOff)
+    {
+        if (!_cars.DecidesItself(car)) return 0;
+
+        _cars.LetItDecideItself(car, false);
+        var agent = town.Roster.AgentOfCar(car);
+        if (_owedTick == NoneOwed || !town.DecisionClock.Turn(_owedTick, agent)) return 0;
+
+        putOff[0] = agent;
+        return 1;
+    }
+
+    /// <summary>
+    /// <b>Every car the host walked let go of</b>, its decision the town's from here on (<see cref="LetGoOfTheDecision"/>) —
+    /// whatever the town set of it may have changed what decides it — and, checked, every other the device finds held to
+    /// still being one it would (<see cref="DeviceCarTick.ChecksTheVisits"/>).
+    /// </summary>
+    void LetGoOfTheWalked(TownWorld town)
+    {
+        var count = 0;
+        foreach (var car in _cars.Walked) count += LetGoOfTheDecision(town, car, _letGo.AsSpan(count));
+        town.PutOffTheDecisions(_letGo.AsSpan(0, count));
+        if (!_cars.ChecksTheVisits) return;
+
+        for (var car = 0; car < town.Cars.Count; car++)
+        {
+            if (_cars.Visited(car) || !_cars.DecidesItself(car) || WhyTheTownDecides(town, car) is not { } why) continue;
+
+            throw new InvalidOperationException(
+                $"Car {car}'s decision was left to the device by a town that changed it since, and did not mark it touched: {why}.");
+        }
+    }
+
+    /// <summary>Every car's decision the town's from here on, those the device owes put off (<see cref="LetGoOfTheDecision"/>).</summary>
+    void LetGoOfEveryDecision(TownWorld town)
+    {
+        var count = 0;
+        for (var car = 0; car < town.Cars.Count; car++) count += LetGoOfTheDecision(town, car, _letGo.AsSpan(count));
+        town.PutOffTheDecisions(_letGo.AsSpan(0, count));
+    }
+
+    /// <summary>
+    /// Of the cars this tick took that the town may read or have set, which the device finds the decisions of from the next
+    /// turn on (<see cref="FindsItsOwnDecision"/>), each with what only the town knows of it laid.
+    /// </summary>
+    void LetTheDecisionsBeFound(TownWorld town, ReadOnlySpan<int> taken)
+    {
+        foreach (var car in taken)
+        {
+            var finds = FindsItsOwnDecision(town, car);
+            _cars.LetItDecideItself(car, finds);
+            if (!finds) continue;
+
+            var (patienceS, byM, queueReachM) = town.ClockTermsOf(car);
+            _cars.LayTheDecideTerms(car, new DeviceCarTick.DecideTermsRow(ShapeOfTheRoad(town, car), patienceS, byM, queueReachM));
+        }
+    }
+
+    /// <summary>
+    /// <b>What the device found of the decisions it owed</b>, once the head of the tick is waited for: each car more than its
+    /// clock put off for the town in its turn's order, its hold as the readers hold it written into their layer where the
+    /// tick asked for the holds — every other its clock alone, run there and counted.
+    /// </summary>
+    void TakeWhatWasFound(TownWorld town)
+    {
+        var found = _cars.FoundMore(out var clockAlone);
+        town.DecidedByTheClockOnTheDevice(clockAlone);
+        DecisionsFound += clockAlone + found.Length;
+        if (found.IsEmpty) return;
+
+        if (_asksTheHolds) _townClaims.Rebuild.MirrorTheFoundHolds(town, found, checks: _cars.ChecksTheVisits);
+        var agents = _letGo.AsSpan(0, found.Length);
+        for (var at = 0; at < found.Length; at++)
+        {
+            _found[found[at]] = true;
+            agents[at] = town.Roster.AgentOfCar(found[at]);
+        }
+
+        town.PutOffTheDecisions(agents);
+        _foundCount = found.Length;
+    }
+
+    /// <summary>How many cars' decisions the device found itself (<see cref="DecidesItself"/>), over every tick.</summary>
+    public long DecisionsFound { get; private set; }
+
+    /// <summary>Which cars the device found more than their clock this tick, until the town decides them; and how many.</summary>
+    readonly bool[] _found;
+
+    int _foundCount;
+
+    /// <summary>Room for the agents a letting go or a finding puts off.</summary>
+    readonly int[] _letGo;
 
     /// <summary>
     /// <b>Whether every car the device ticked is handed back with every tick</b>, or only those the town reads before the
@@ -945,21 +1090,35 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     {
         if (town.HoldAgents)
         {
-            _townClaims.TakeTheAnswers(town);
-            KeptWalkers.TakeBackTheDue(town, _walkers);
-            AskTheHoldsOfTheDecisions(town);
-            town.TakeTheDecisionsPutOff();
-
-            // Nothing is ticked here, and the bodies step on the town's own impulses.
-            if (!StepsWithTheTick) return;
-
-            _bodies.StepBodies(town, _dtS, default, walkersTicked: false);
-            _townClaims.Rebuild.LandWhatWasSent(town);
-            _townClaims.Rebuild.SendTheLayerBack();
-            _swept = false;
+            // The decisions owed are taken on a held tick, which takes none; the turn about to be taken is owed.
+            _owedTick = NoneOwed;
+            TickTheRestHeld(town);
+            _owedTick = town.AgentsTick;
             return;
         }
 
+        TickTheRestOnTheDevice(town);
+        _owedTick = town.AgentsTick;
+    }
+
+    void TickTheRestHeld(TownWorld town)
+    {
+        _townClaims.TakeTheAnswers(town);
+        KeptWalkers.TakeBackTheDue(town, _walkers);
+        AskTheHoldsOfTheDecisions(town);
+        town.TakeTheDecisionsPutOff();
+
+        // Nothing is ticked here, and the bodies step on the town's own impulses.
+        if (!StepsWithTheTick) return;
+
+        _bodies.StepBodies(town, _dtS, default, walkersTicked: false);
+        _townClaims.Rebuild.LandWhatWasSent(town);
+        _townClaims.Rebuild.SendTheLayerBack();
+        _swept = false;
+    }
+
+    void TickTheRestOnTheDevice(TownWorld town)
+    {
         var began = Stopwatch.GetTimestamp();
 
         // A rebuild running on (DeviceRebuild.AnswersDue) copied what it sent out of the tables laid here.
@@ -985,12 +1144,20 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _count = _cars.Prepare(town, _taken, resident: true, laidByTheTown, chosen, posesInTheTable);
         CarsWalked += _cars.Walked.Length;
         chosen.Clear();
+        LetGoOfTheWalked(town);
         AskTheHoldsOfWhatTheTownDrives(town);
 
         // A rebuild laid this tick whose layer lands later leaves the town's readers on the claims before it, which the
         // decisions are asked of — or, where the device has never had them, the town decides every car.
         _cars.ReadersKeepUp = !(laidHere && _townClaims.Rebuild.LandsLater);
-        if (DecidesTheCars) LayTheDecisions(town, !_cars.ReadersKeepUp && !_cars.ReadersKeptUp, laidByTheTown);
+        var readersUnknown = !_cars.ReadersKeepUp && !_cars.ReadersKeptUp;
+        if (DecidesTheCars) LayTheDecisions(town, readersUnknown, laidByTheTown);
+        if (_owedTick != NoneOwed && _cars.DecidingItself > 0)
+        {
+            _cars.FindTheDecisionsDue(town.DecisionClock, _owedTick, town.Roster.AgentOfCar(0), readersUnknown);
+        }
+
+        _owedTick = NoneOwed;
         if (!_cars.ReadsEveryCar) LayTheWanted(town);
         _cars.HandsBackTheGrantsLeft = town.WatchesEveryAgent;
         town.DriveClocks.ForgetTheTouched();
@@ -1027,7 +1194,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         // The walkers' decisions put off read each one as the town has it now, its hold as the readers do.
         if (readersCopied && _townClaims.Rebuild.RecordTheWalkersReaders(head)) _vk.BetweenKernels(head);
         KeptWalkers.RecordTheDecisions(head);
-        _townClaims.Rebuild.RecordTheHoldsAsked(head, _cars.Stamp, KeptWalkers.DecideStamp);
+        _townClaims.Rebuild.RecordTheHoldsAsked(head, _cars.Stamp, KeptWalkers.DecideStamp, ofTheFound: _asksTheHolds && _cars.FindsTheDecisionsDue);
         _headBatch.Submit();
 
         var commands = _batch.Begin();
@@ -1077,11 +1244,20 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         // The decisions once the device's verdicts are in, while the tick runs, and before what it left of the cars is
         // written back: the town a tick old either way, and a car a decision moved on from read as the tick had it.
         var deciding = Stopwatch.GetTimestamp();
+        TakeWhatWasFound(town);
         town.TakeTheDecisionsPutOff();
         foreach (var car in _decided.AsSpan(0, _decidedCount))
         {
             if (_listed[car]) throw new InvalidOperationException($"Car {car}'s decision was asked of the device and never taken.");
         }
+
+        foreach (var agent in _letGo.AsSpan(0, _foundCount))
+        {
+            var car = town.Roster.CarIndex(agent);
+            if (_found[car]) throw new InvalidOperationException($"Car {car}'s decision was found more than its clock and never taken.");
+        }
+
+        _foundCount = 0;
 
         foreach (var entry in _walkersDue.AsSpan(0, _walkersDueCount))
         {
@@ -1159,7 +1335,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         }
 
         var commands = _batch.Begin();
-        rebuild.RecordTheHoldsAsked(commands, _cars.Stamp, KeptWalkers.DecideStamp);
+        rebuild.RecordTheHoldsAsked(commands, _cars.Stamp, KeptWalkers.DecideStamp, ofTheFound: false);
         _batch.SubmitAndWait();
         rebuild.MirrorTheHoldsAsked(town.ReadersOccupancy);
     }
@@ -1279,6 +1455,9 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
             if ((flags & DeviceCarTick.TickRow.SteppedOut) != 0) town.SteppedOutOnTheDevice(car);
             if ((flags & DeviceCarTick.TickRow.PassMade) != 0) town.MadeThePassOnTheDevice(car);
         }
+
+        // Every other car the device took is as it was, and so is whether it finds its decision.
+        LetTheDecisionsBeFound(town, taken);
     }
 
     /// <summary>
@@ -1448,6 +1627,13 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _bodies.TakeEveryPoseBack(town);
     }
 
+    /// <remarks>Every decision the device finds is the town's from here on, those it owes put off.</remarks>
+    public void LetGo(TownWorld town)
+    {
+        LetGoOfEveryDecision(town);
+        TakeEveryPoseBack(town);
+    }
+
     /// <remarks>
     /// The last laying landed with every hold, and every car the device keeps handed back whole, before the decisions put
     /// off are taken: the town goes on ticking its agents itself, and reads any of them.
@@ -1469,6 +1655,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
             _townClaims.Rebuild.LandEveryHold(_town.ReadersOccupancy);
             HandBackAlone(_town, Leaving(_town, everyKept: true));
             KeptWalkers.TakeBackTheLeft(_town, _walkers);
+            LetGoOfEveryDecision(_town);
             _town.TakeTheDecisionsPutOff();
         }
         finally

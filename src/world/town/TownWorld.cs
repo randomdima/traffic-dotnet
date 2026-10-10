@@ -846,7 +846,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         get => _device;
         set
         {
-            _device?.TakeEveryPoseBack(this);
+            _device?.LetGo(this);
             _device = value;
         }
     }
@@ -948,13 +948,15 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     public void DecideAgent(int agent, float sinceLastDecisionS)
     {
-        if (Device is { DecidesATickBehind: true })
+        if (Device is { DecidesATickBehind: true } device)
         {
             // What the device handed back for it was chosen by the town's own reckoning of whose turn it is (ReadsTheTickOf).
             if (!_decisions.Turn(_agentsTick, agent))
             {
                 throw new InvalidOperationException($"Agent {agent} decided on tick {_agentsTick}, off the town's own clock of the decisions.");
             }
+
+            if (Roster.IsCar(agent) && device.DecidesItself(Roster.CarIndex(agent))) return;
 
             if (_decisionsPutOff.Length < AgentCount) _decisionsPutOff = new int[AgentCount];
 
@@ -966,6 +968,46 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         TakeTheDecisionsPutOff();
         DecideNow(agent, sinceLastDecisionS);
     }
+
+    /// <summary>
+    /// <b>Decisions due on the decisions' last turn that the town did not put off</b>, put off now with those it did, in the
+    /// order they were due (<see cref="ITownDevice.DecidesItself"/>): ones the device found more than their clock, and ones it
+    /// stopped finding before it found them.
+    /// </summary>
+    /// <param name="agents">The agents, in order.</param>
+    public void PutOffTheDecisions(ReadOnlySpan<int> agents)
+    {
+        if (agents.IsEmpty) return;
+
+        if (_decisionsPutOff.Length < AgentCount) _decisionsPutOff = new int[AgentCount];
+        if (_putOffMerged.Length < AgentCount) _putOffMerged = new int[AgentCount];
+
+        var waiting = _decisionsPutOff.AsSpan(_putOffTaken, _putOffCount - _putOffTaken);
+        var merged = _putOffMerged.AsSpan(0, waiting.Length + agents.Length);
+        var (fromWaiting, fromAgents) = (0, 0);
+        for (var at = 0; at < merged.Length; at++)
+        {
+            merged[at] = fromAgents == agents.Length || (fromWaiting < waiting.Length && waiting[fromWaiting] < agents[fromAgents])
+                ? waiting[fromWaiting++]
+                : agents[fromAgents++];
+        }
+
+        merged.CopyTo(_decisionsPutOff.AsSpan(_putOffTaken));
+        _putOffCount = _putOffTaken + merged.Length;
+        _putOffSinceS = _decisions.IntervalS;
+    }
+
+    /// <summary>Room for <see cref="PutOffTheDecisions"/> to merge into.</summary>
+    int[] _putOffMerged = [];
+
+    /// <summary>
+    /// The decisions' clock (<c>SimLoop.Decisions</c>), and the loop's tick the agents were last ticked on — whose decisions
+    /// are taken once that tick's agents are, and put off to the next.
+    /// </summary>
+    public TickGroups DecisionClock => _decisions;
+
+    /// <inheritdoc cref="DecisionClock"/>
+    public long AgentsTick => _agentsTick;
 
     /// <summary>
     /// <b>The decisions put off last tick, taken now</b> (<see cref="ITownDevice.DecidesATickBehind"/>) — by a device while
@@ -1030,6 +1072,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             // EVA-5: what is on a bar takes no decisions, the way a casualty on a stretcher takes none.
             // Its errand is still its own and it picks it up again where the arm puts it down.
             if (_recovery.OnTheHookOf[car] >= 0) return;
+
+            CarDecisionsTaken++;
 
             // What the whole decision comes to where it is its leg's clock alone — run on the device, or here.
             if (Device?.DecidedOnTheDevice(car) == true)

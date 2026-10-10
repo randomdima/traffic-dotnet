@@ -8,6 +8,8 @@
 // Asked to decide (mode), it is instead the decisions put off a tick of the cars named in the list due, read off what their
 // last tick left before this one runs (car_decide.glsl): each one's verdict where the host reads it, its clock run where
 // that is the whole of its decision, and where it is not, what the host decides it on, written into the host's memory.
+// Asked to find the decisions due, it is the same of every car whose decision the device finds itself (decidesItself) and
+// whose turn it was, the host never naming them — those more than their clock named in a list where it reads them.
 
 layout(local_size_x = 64) in;
 
@@ -43,11 +45,19 @@ layout(push_constant) uniform Figures
     uint stamp;
     float sinceLastDecisionS;
     float slowerToSwitchMps;
+
+    // ModeFindDue: the decisions' tick modulo their groups, the groups (TickGroups), the first car's agent, and the flags
+    // every decision found is asked with.
+    uint dueTick;
+    uint groups;
+    uint firstCarAgent;
+    uint dueFlags;
 } figures;
 
 // Figures.mode.
 const uint ModeTick = 0u;
 const uint ModeDecide = 1u;
+const uint ModeFindDue = 2u;
 
 #define TYRE_FIGURES figures
 #define CAR_TICK_FIGURES figures
@@ -143,16 +153,24 @@ layout(std430, binding = 40) readonly buffer ReadersHoldBits { uint readersHoldB
 // device's (DecideSwitching).
 layout(std430, binding = 41) writeonly buffer SwitchClocks { vec2 switchClocks[]; };
 
+// Which cars' decisions the device finds itself, a bit a car (app/devicetick/DeviceCarTick.DecidesItself); how many of
+// those due it found more than their clock and how many its clock alone; and the first, in the host's memory.
+layout(std430, binding = 42) readonly buffer DecidesItself { uint decidesItself[]; };
+layout(std430, binding = 43) buffer FoundCounts { uint foundMore; uint foundClockAlone; };
+layout(std430, binding = 44) writeonly buffer FoundMore { uint foundCars[]; };
+
 // Verdicts: the stamp of the tick that wrote one, shifted past whether the decision is more than the clock.
 const uint VerdictMore = 1u;
 
-// One car's decision put off, asked of what its last tick left (car_decide.glsl). A switching car's is not done until
-// its look is: what the town would decide it on goes back whatever, and its clock is the look's to keep.
-void decideOne(uint car)
+// One car's decision put off, asked of what its last tick left (car_decide.glsl), and whether it was more than its clock.
+// A switching car's is not done until its look is: what the town would decide it on goes back whatever, and its clock is
+// the look's to keep.
+bool decideOne(uint car, uint askedWith)
 {
     CarTickRow tick = ticks[car];
     CarBriefRow brief = briefs[car];
     CarDecideTermsRow terms = decideTerms[car];
+    terms.flags |= askedWith;
     vec2 clockWas = clocks[car];
     vec2 clock = clockWas;
     bool more = decideMoreThanTheClock(
@@ -169,6 +187,8 @@ void decideOne(uint car)
     {
         decideOut[car] = CarOutRow(tick, commands[car], brief, tyreCars[car], grantOut(grants[car]), clockWas.x, clockWas.y, figures.stamp);
     }
+
+    return more;
 }
 
 void main()
@@ -177,7 +197,19 @@ void main()
 
     if (figures.mode == ModeDecide)
     {
-        decideOne(decideList[gl_GlobalInvocationID.x]);
+        decideOne(decideList[gl_GlobalInvocationID.x], 0u);
+        return;
+    }
+
+    if (figures.mode == ModeFindDue)
+    {
+        // TickGroups.Turn, of the car's agent.
+        uint car = gl_GlobalInvocationID.x;
+        if ((decidesItself[car >> 5u] & (1u << (car & 31u))) == 0u) return;
+        if (figures.groups > 1u && (figures.dueTick + figures.firstCarAgent + car) % figures.groups != 0u) return;
+
+        if (decideOne(car, figures.dueFlags)) foundCars[atomicAdd(foundMore, 1u)] = car;
+        else atomicAdd(foundClockAlone, 1u);
         return;
     }
 
