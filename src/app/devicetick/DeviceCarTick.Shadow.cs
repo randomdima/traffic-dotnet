@@ -213,6 +213,9 @@ internal sealed partial class DeviceCarTick
                 LayTheTyres(town, car);
                 _held[car] = false;
                 _takenBits.Remove(car);
+
+                // The town's own to tick, whatever left it at rest before (LeftAtRest).
+                _townHolds.Add(car);
                 continue;
             }
 
@@ -343,6 +346,7 @@ internal sealed partial class DeviceCarTick
             var takes = chosen.IsEmpty || (asked is not null && !asked.Has(car)) ? Takes(town, car) : chosen[car];
             var unlike =
                 takes != _takenBits.Has(car) ? "whether the device ticks it"
+                : !takes ? IsLeftAtRest(car) && town.StandsParked(car) && !town.ReadsTheTickOf(car) ? null : "whether it stands parked"
                 : !_held[car] ? "whether the device holds it"
                 : cars.Action[car] != _actionAt[car] ? "what it is doing"
                 : cars.LineLaid[car] != _lineLaidAt[car] ? "its line"
@@ -388,6 +392,16 @@ internal sealed partial class DeviceCarTick
         _current[car] = false;
         _townHolds.Remove(car);
     }
+
+    /// <summary>
+    /// <b>A car the device does not tick, standing parked, left out of the walks</b> (<see cref="TownWorld.StandsParked"/>):
+    /// the town's copy of it stays current while its body stays frozen, and its own tick changes nothing — until the town
+    /// touches it, and is walked again, or the step wakes it, and it is taken back (<see cref="TookBack"/>).
+    /// </summary>
+    public void LeftAtRest(int car) => _townHolds.Remove(car);
+
+    /// <summary>Whether this car is left at rest (<see cref="LeftAtRest"/>): its copy the town's, and walked no more.</summary>
+    public bool IsLeftAtRest(int car) => _current[car] && !_townHolds.Has(car) && !_takenBits.Has(car);
 
     /// <summary>
     /// The cars the town holds as the device left them or touched since <see cref="Prepare"/> — or every car, where the next

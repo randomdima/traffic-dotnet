@@ -47,6 +47,13 @@ those to ask (`DeviceTown.LayTheDecisions`): the host named about one car in six
 - **A walker indoors is left on the device** (`TownWorld.ReadsTheWalkersTick`): the town held every walker it reads at a
   rebuild, the indoors among them, so OdesaOsm's host walked 23 000 of its 40 000 walkers a tick. An indoor walker's tick
   only stands it still, and what the town's decision sets of it is marked; the visits' check holds it so.
+- **A car standing parked is left at rest** (`DeviceCarTick.LeftAtRest`, `DeviceTown.LeaveTheParkedAtRest`): a car the
+  device does not tick was held for ever, so every parked car was in `Prepare`'s walk, the agents' pass and the bodies'
+  hand-back every tick — 950 poses a tick at OdesaOsm. Once a step leaves one standing parked (`TownWorld.StandsParked`:
+  frozen, nothing driving it, its own tick a no-op) and nothing reads it every tick, it leaves the held cars, its copy
+  still current while its body stays frozen. It comes back when the step wakes it (the solver's woken, its pose with
+  it), when the town moves its body (`PhysicsWorld.Changes`), or when the town touches it; the visits' check holds every
+  other to still standing parked.
 - **A laying lays again only the walkers set since the last** (`DeviceWalkerTick.TheWalkersSetSinceTheLaying`,
   `DeviceWalkers.LayTheKept`): it diffed every walker's claims against what the device was known to hold, 3.6 ms of each
   OdesaOsm rebuild. A walker's claims change through the town's own decision — the walker held, if only between two

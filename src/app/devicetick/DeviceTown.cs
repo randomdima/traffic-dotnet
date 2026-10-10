@@ -6,6 +6,7 @@ using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Runtime;
+using TrafficSimulation.World.Physics;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
 using Vk = TrafficSimulation.Runtime.Vk;
@@ -825,6 +826,14 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     {
         if (!_swept) HandBackTheLeavers(town);
 
+        // A car left at rest whose body the town moved since the step — pushed, put down — is the town's to tick again.
+        var physics = town.PhysicsForTheDevice;
+        foreach (var body in physics.Changes)
+        {
+            var tag = physics.TagOf(new BodyId(body + 1));
+            if (tag.Kind == BodyKind.Car && _cars.IsLeftAtRest(tag.Index)) _cars.TookBack(tag.Index);
+        }
+
         var cars = _cars.TheCarsTheTownTicks(town, _townTicks);
         _asked.Clear();
         foreach (var car in cars) _asked.Add(car);
@@ -1156,9 +1165,36 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         if (!StepsWithTheTick) return;
 
         _bodies.StepBodies(town, _dtS, default, walkersTicked: false);
+        LeaveTheParkedAtRest(town);
         _townClaims.Rebuild.LandWhatWasSent(town);
         _townClaims.Rebuild.SendTheLayerBack();
         _swept = false;
+    }
+
+    /// <summary>
+    /// <b>Once a step's frozen and woken are in</b>: every car left at rest the step woke taken back, its pose with it, and
+    /// every car the town holds that the device does not tick, standing parked and read by nothing every tick, left at rest
+    /// (<see cref="DeviceCarTick.LeftAtRest"/>) — so a car park is walked by nothing until something moves in it.
+    /// </summary>
+    void LeaveTheParkedAtRest(TownWorld town)
+    {
+        var physics = town.PhysicsForTheDevice;
+        foreach (var body in _bodies.Solver.Woke)
+        {
+            var tag = physics.TagOf(new BodyId(body + 1));
+            if (tag.Kind != BodyKind.Car || !_cars.IsLeftAtRest(tag.Index)) continue;
+
+            _bodies.TakeThePoseBack(town, town.Roster.AgentOfCar(tag.Index));
+            _cars.TookBack(tag.Index);
+        }
+
+        foreach (var car in _cars.TheCarsTheTownHolds(town.Cars.Count, (Span<int>)_townTicks))
+        {
+            if (!_cars.IsTaken(car) && town.StandsParked(car) && !town.ReadsTheTickOf(car) && !town.TouchedCars.Has(car))
+            {
+                _cars.LeftAtRest(car);
+            }
+        }
     }
 
     void TickTheRestOnTheDevice(TownWorld town)
@@ -1330,6 +1366,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
             StepIdleMs = Stopwatch.GetElapsedTime(steppedFrom).TotalMilliseconds;
             _bodies.TakeTheStepBack(town, physics.Changes[placedFrom..placedTo]);
             _swept = false;
+            LeaveTheParkedAtRest(town);
         }
 
         _ticked = !stepping;
@@ -1416,6 +1453,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         var leaving = Leaving(town, everyKept: false);
         _bodies.StepBodies(town, dtS, _ticked ? _taken.AsSpan(0, _count) : default, walkersTicked: _ticked, leaving);
         TakeTheWheelsBack(town.Cars, leaving);
+        LeaveTheParkedAtRest(town);
         HandedOver = (HandedOver.InTheStep + leaving.Length, HandedOver.Alone);
         _ticked = false;
         _swept = false;

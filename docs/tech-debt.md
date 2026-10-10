@@ -208,10 +208,6 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   `ItsErrandLeavesItToTheLeg`), which the owner's own decision sets without marking the car. The visits' check would
   throw on it, and has not in the suite; no shipped city has been run with the check on. Closes with the car marked
   touched wherever its driver's stage or bay is set, or a soak with the check on.
-- **A car the device does not tick is held by the town for ever** (`DeviceCarTick.TownHolds`): a parked or standing car
-  is in every walk the town's held cars get — `Prepare` laying its tyres, the agents' pass, the bodies' step handing its
-  pose back — every tick, though nothing of it changes until the town touches it or something shoves it. Closes with an
-  untouched car at rest left on the device as a driving one is, and handed back on a shove.
 - **Every laying walks every car the town asks** (`TownWorld.AskTheCars`, the passes, `ClearTheClaim`; and the device's
   `LayWhatTheDeviceHolds`, `LayTheCarsTerms`, `LayTheCarsClaims`, `DeviceBodies.Lay`, `DevicePlans.Lay`,
   `HoldTheCarsTheTownHolds`), a rebuild every third tick: for a car the device keeps and nobody set anything of since the

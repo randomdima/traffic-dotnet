@@ -61,7 +61,7 @@ internal sealed partial class TownWorld
     /// solver has not moved it (SOL-37), and the fleet still has it at a dead standstill — which is all a parked
     /// tick reads of its pose.
     /// </summary>
-    bool StandsParked(int car) =>
+    public bool StandsParked(int car) =>
         _standsParked[car] && !Cars.Driven[car] && Cars.Action[car] != CarAction.Hand
         && _recovery.OnTheHookOf[car] < 0 && Cars.Hold[car] == DrivingHold.None
         && Cars.Command[car] == DriveCommand.Parked && _physics.FrozenThroughLastStep(Cars.Body[car])
