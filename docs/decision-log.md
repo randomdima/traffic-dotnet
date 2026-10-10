@@ -18,6 +18,27 @@ regular sync needed. CPU dont need a copy of the engine."** This extends 2026-10
 - **Measured by** the host's work and the bytes crossing a tick, both of which should follow the events, not the town's
   size.
 
+## 2026-10-10 — the host walks only the cars it holds or touched
+
+**Under the owner's goal above.** Every tick the host walked every car to find what to send (`DeviceCarTick.Prepare`),
+then every car the device ticked to take back what came back (`DeviceTown.TakeBackTheCars`), then to say which it reads
+(`LayTheWanted`), then every car again for which ones leave the device (`Leaving`). At OdesaOsm's 40 000 cars, about 39 000
+of them were cars the device keeps, of which the host sets nothing.
+
+- **The device keeps a car the town does not hold** (`DeviceCarTick.TownHolds`): handed back and left there unread. Laying
+  one off the town's copy already throws. So the town can have set a figure the device reads only of a car it holds,
+  unless something marks the car.
+- **What marks a car** (`TownWorld.TouchedCars`): anything that sets what the device reads of a car the town may not hold.
+  For now that is an action entered (`CarActions.Enter`) and a wreck (`TownWorld.Wreck`). The walks take those cars and the
+  held ones, in order (`AgentSet`). The take-back adds those whose own tick asked something of the town.
+- **Every car is still walked** where what each is read or told for changes at once: a watch begun or let go, the town
+  deciding or reading every car, or the town laying the claims itself (`DeviceCarTick.VisitsEveryCar`).
+- **Held by a check run in every device town the suite builds** (`DeviceCarTick.ChecksTheVisits`). Every car not walked is
+  held to what walking it would have laid — taken or not, its action, line, pass, reading, wheels, grant, clock and what
+  it is told — and whether the town reads it. A difference throws. The check found the two marks above: a car wrecked
+  while the device kept it, and the decisions' own check writing the device's row into the town. The device tier passes
+  with it on.
+
 ## 2026-10-10 — a car on a pass is planned on the device
 
 **Under the owner's goal above.** Every plan down a car's line is now the device's. Until now the town laid one itself:

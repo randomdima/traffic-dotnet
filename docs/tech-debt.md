@@ -97,9 +97,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **The Android head has not been built since the device tick came in** (branch `gpu-resident-sim`): no Android SDK
   where it was worked on. It compiles all of `src/` against Vulkan, so it takes `app/devicetick` as the desktop does,
   and its shader targets must embed the device's kernels (`copy_runs.comp` among them). A build of it closes this.
-- **The claims laid where they stand on the device are not measured** (root log 2026-10-10): the one `--bench devicetown`
-  run on OdesaOsm since was taken beside a game holding three and a half cores and the GPU, the host town's own tick
-  90.1 ms against 74.1 before, so none of it compares. A run on a quiet machine closes it.
+- **Nothing since the claims laid where they stand is measured** (root log 2026-10-10: those claims, a car on a pass
+  planned on the device, the host walking only the cars it holds or touched): the one `--bench devicetown` run on
+  OdesaOsm since was taken beside a game holding three and a half cores and the GPU, the host town's own tick 90.1 ms
+  against 74.1 before, so none of it compares. A run on a quiet machine closes it — the cars walked a tick among it.
 - **Not measured since they landed**: the walker as one wheel, the car no longer asked its ground, and the
   consolidation after them (`WheelGrounds`, `DeviceGround` gone, the walker's pavement read). The figures in the road
   and terrain logs predate all three; the soak after them kept all twelve of OdesaOsm's claims.

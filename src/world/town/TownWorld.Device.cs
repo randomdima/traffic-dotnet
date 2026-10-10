@@ -2,6 +2,7 @@ using System.Numerics;
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Person.Control;
+using TrafficSimulation.Core.Simulation;
 
 namespace TrafficSimulation.World.Town;
 
@@ -39,6 +40,16 @@ internal sealed partial class TownWorld
 
     /// <summary>A device spent this car's braking margin (<see cref="HardBrakings"/>).</summary>
     public void BrakedHardOnTheDevice() => HardBrakings++;
+
+    /// <summary>
+    /// <b>The cars the town set anything of a device may keep, since the device last took them in</b> — what it is doing,
+    /// whether it is driven, on an arm or picked out — so the device lays those again and walks no other car the town does
+    /// not hold (root decision log, 2026-10-10). The device clears it once it has.
+    /// </summary>
+    public AgentSet TouchedCars { get; }
+
+    /// <summary>One car marked set by the town (<see cref="TouchedCars"/>).</summary>
+    public void TouchTheCar(int car) => TouchedCars.Add(car);
 
     /// <summary>
     /// <b>Whether an instrument reads every agent every tick</b> — a watch's claims over the whole fleet, and over every

@@ -356,6 +356,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _wheels = new WheelScratch(drivers);
         _standsParked = new bool[drivers];
         _asksTheRoute = new bool[drivers];
+        TouchedCars = new AgentSet(drivers);
+        _carActions.Touched = TouchedCars;
         _standing = new StandingCars(drivers);
         _behindTheBar = new bool[drivers];
         Marks = new DriftMarks(config.Marks.Capacity, config.Grid.Main, 0f, plan.WorldSizeM.Y);

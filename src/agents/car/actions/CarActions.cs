@@ -1,4 +1,5 @@
 using TrafficSimulation.Agents.Car.Control;
+using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.Agents.Car.Actions;
@@ -47,7 +48,14 @@ internal sealed class CarActions(DrivingGround ground, Manoeuvres manoeuvres)
 
         cars.Action[car] = action;
         _entries[car]++;
+        Touched?.Add(car);
     }
+
+    /// <summary>
+    /// Where a car handed over to another action is marked, for a device that walks only what the town set
+    /// (<c>TownWorld.TouchedCars</c>) — or nowhere.
+    /// </summary>
+    public AgentSet? Touched { get; set; }
 
     /// <summary>Whether an action is a car's manoeuvre at a bay, into one or out of it.</summary>
     public static bool IsAtABay(CarAction action) => action is CarAction.Park or CarAction.Unpark;

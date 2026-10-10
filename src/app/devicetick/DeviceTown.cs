@@ -72,7 +72,12 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     readonly GpuTimer _timer;
     readonly float _dtS;
     readonly int[] _taken;
-    readonly bool[] _takenNow;
+
+    /// <summary>Which cars the last tick took, a bit a car — what a decision put off from it reads them as.</summary>
+    readonly AgentSet _takenNow;
+
+    /// <summary>The cars a take-back walks, and those whose staying on the device the town may have changed.</summary>
+    readonly int[] _takeBack, _maySet;
 
     /// <summary>Which cars the town's tick left to the device this tick, as <see cref="Takes"/> answered it.</summary>
     readonly bool[] _chosen;
@@ -142,7 +147,9 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _timer = new GpuTimer(vk, 3);
         _dtS = config.TickSeconds;
         _taken = new int[cars.Capacity];
-        _takenNow = new bool[cars.Capacity];
+        _takenNow = new AgentSet(cars.Capacity);
+        _takeBack = new int[cars.Capacity];
+        _maySet = new int[cars.Capacity];
         _chosen = new bool[cars.Capacity];
         _putOff = new int[cars.Capacity];
         _leaving = new int[cars.Capacity];
@@ -384,7 +391,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
             var car = town.Roster.CarIndex(agent);
             var hold = _asksTheHolds ? town.PlanHoldOf(car, rebuild.LandsThisTick) : LaneOccupancy.NoHold;
-            if (!_takenNow[car] || !_tyres.KeptOnTheDevice[car] || _cars.TownHolds(car))
+            if (!_takenNow.Has(car) || !_tyres.KeptOnTheDevice[car] || _cars.TownHolds(car))
             {
                 // The town decides it with what it holds, and may move on from it: handed back as this tick leaves it.
                 if (_cars.Takes(car)) _decidedByTheTown[car] = true;
@@ -443,6 +450,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         ref readonly var row = ref _cars.DecidedOn(car);
         WriteTheTyres(cars, car, row.Car);
         WriteTheTick(cars, car, row);
+        _cars.SettleTheTown(cars, [car]);
         _town.DriveClocks.Take(car, row.ClockSinceS, row.ClockClosestM);
         DecisionsChecked++;
         if (!looking)
@@ -730,12 +738,16 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         HandOverSubmits++;
     }
 
-    /// <summary>The cars whose wheels the device keeps and that will not be ticked there next — or, asked so, every one.</summary>
+    /// <summary>
+    /// The cars whose wheels the device keeps and that will not be ticked there next — of those the town holds or touched,
+    /// the only ones whose staying it can have changed; or, asked so, every one.
+    /// </summary>
     Span<int> Leaving(TownWorld town, bool everyKept)
     {
         var kept = _tyres.KeptOnTheDevice;
         var count = 0;
-        for (var car = 0; car < town.Cars.Count; car++)
+        var asked = everyKept || town.HoldAgents ? _cars.EveryCar(town.Cars.Count, _maySet) : _cars.TheTownMayHaveSet(town, _maySet);
+        foreach (var car in asked)
         {
             if (kept[car] && (everyKept || !StaysOnTheDevice(town, car))) _leaving[count++] = car;
         }
@@ -854,6 +866,12 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// <summary>How many cars a tick ticked and left on the device, the town not reading them (<see cref="ReadsEveryCarBack"/>), over every tick.</summary>
     public long CarsLeftOnTheDevice { get; private set; }
 
+    /// <summary>
+    /// How many cars the host walked to lay what each tick sends, over every tick: those it holds or touched
+    /// (<see cref="DeviceCarTick.Walked"/>), or every car.
+    /// </summary>
+    public long CarsWalked { get; private set; }
+
     /// <summary>How many times the town read every car, which every car the device kept was handed back for (<see cref="TakeEveryCarBack"/>).</summary>
     public long TakenBackWhole { get; private set; }
 
@@ -908,6 +926,16 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// <summary>How many cars a tick handed back left to the town, which had changed their line or what they do since they were sent.</summary>
     public long CarsTheTownMovedOn { get; private set; }
 
+    /// <summary>Whether the town watched every agent as the last tick was laid, so a watch begun or let go walks every car.</summary>
+    bool _watchedEveryAgent;
+
+    /// <inheritdoc cref="DeviceCarTick.ChecksTheVisits"/>
+    public bool ChecksTheVisits
+    {
+        get => _cars.ChecksTheVisits;
+        init => _cars.ChecksTheVisits = value;
+    }
+
     public void TickTheRest(TownWorld town)
     {
         if (town.HoldAgents)
@@ -941,7 +969,16 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         // Stepped in this submit, the step lays every pose the town changed itself, before the tick's rows are sent.
         var posesInTheTable = stepping || _bodies.PosesLeftInTheTable(town);
         if (posesInTheTable && !stepping) _bodies.LayThePosesTheTownChanged(town);
+
+        // Every car is walked where what each is read or told for changed at once, or the town decides or reads them all.
+        if (!DecidesTheCars || laidByTheTown || town.ReadsEveryCarAfterTheTick || town.WatchesEveryAgent != _watchedEveryAgent)
+        {
+            _cars.VisitsEveryCar = true;
+        }
+
+        _watchedEveryAgent = town.WatchesEveryAgent;
         _count = _cars.Prepare(town, _taken, resident: true, laidByTheTown, chosen, posesInTheTable);
+        CarsWalked += _cars.Walked.Length;
         chosen.Clear();
         AskTheHoldsOfWhatTheTownDrives(town);
 
@@ -1162,14 +1199,17 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     void TakeBackTheCars(TownWorld town)
     {
         var cars = town.Cars;
-        var taken = _taken.AsSpan(0, _count);
-        _takenNow.AsSpan(0, cars.Count).Clear();
+        _takenNow.CopyFrom(_cars.TakenCars);
         var everyCar = _cars.ReadsEveryCar;
         var events = everyCar ? default : _cars.Events;
+
+        // A car the town neither holds nor touched, whose tick asked nothing of it, is the device's as it was: nothing of it
+        // is taken back or set here.
+        var taken = _cars.TheTakenToTakeBack(cars.Count, events, _takeBack);
         var nextEvent = 0;
+        var handedBackCount = 0;
         foreach (var car in taken)
         {
-            _takenNow[car] = true;
             _tyres.KeptOnTheDevice[car] = true;
             _grantLeftHandedBack[car] = _cars.HandsBackTheGrantsLeft;
 
@@ -1185,10 +1225,10 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
             if (!_handedBack[car])
             {
                 _cars.LeftOnTheDevice(car);
-                CarsLeftOnTheDevice++;
                 continue;
             }
 
+            handedBackCount++;
             var row = RowOf(car);
             WriteTheTyres(cars, car, row.Car);
             TakeTheClock(town, car, row);
@@ -1200,14 +1240,15 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
             WriteTheTick(cars, car, row);
         }
 
+        CarsLeftOnTheDevice += _count - handedBackCount;
         foreach (var mark in _tyres.MarksLaid())
         {
-            if (!_takenNow[(int)(mark.CarWheel / TyreModel.Wheels)]) continue;
+            if (!_takenNow.Has((int)(mark.CarWheel / TyreModel.Wheels))) continue;
 
             town.Marks.Mark(mark.FromM, mark.ToM, mark.WidthM, mark.Intensity, mark.Ploughed != 0u);
         }
 
-        _cars.SettleTheTown(town);
+        _cars.SettleTheTown(cars, taken);
         _cars.SettleTheDevice(cars, taken);
         foreach (var car in taken)
         {
@@ -1246,8 +1287,12 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         var wanted = _wanted.AsSpan(0, _cars.Wanted.Length);
         wanted.Clear();
         var why = HandedBackFor;
-        foreach (var car in _taken.AsSpan(0, _count))
+
+        // Only a car the town holds or touched can be one it decides, laid whole or reads (DeviceCarTick.ChecksTheVisits).
+        foreach (var car in _cars.Walked)
         {
+            if (!_cars.IsTaken(car)) continue;
+
             var decidedByTheTown = _decidedByTheTown[car];
             _decidedByTheTown[car] = false;
             var whole = _cars.WasLaidWhole(car);

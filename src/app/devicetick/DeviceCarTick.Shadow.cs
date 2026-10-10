@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
+using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
 
@@ -84,8 +85,13 @@ internal sealed partial class DeviceCarTick
         _wheelsBefore = new DeviceTyres.WheelRow[capacity * TyreModel.Wheels];
         _current = new bool[capacity];
         Array.Fill(_current, true);
+        _townHolds = new AgentSet(capacity);
+        _townHolds.AddFirst(capacity);
+        _takenBits = new AgentSet(capacity);
+        _visited = new AgentSet(capacity);
+        _takenBack = new AgentSet(capacity);
+        _visit = new int[capacity];
         _laidWhole = new bool[capacity];
-        _toldNow = new ToldRow[capacity];
     }
 
     /// <summary>Which cars <see cref="Prepare"/> laid whole off the town's copy since <see cref="WasLaidWhole"/> asked.</summary>
@@ -138,6 +144,11 @@ internal sealed partial class DeviceCarTick
     /// left, but for what the town changed since — a line laid, a reading set, a level crossed. A car it does not take is
     /// the town's, and its tyres run on the town's own state.
     /// </summary>
+    /// <remarks>
+    /// <b>Only a car the town holds or touched is walked</b> (<see cref="Walked"/>, <see cref="TownWorld.TouchedCars"/>):
+    /// one the device keeps, which the town has set nothing of, is ticked as it was and laid nothing — every car is walked
+    /// only where what each is told or read for changed at once (<see cref="VisitsEveryCar"/>).
+    /// </remarks>
     /// <param name="taken">Filled with the cars the device takes, in the order the list sends them.</param>
     /// <param name="resident">
     /// Whether a car the device took last tick keeps what that tick left; otherwise every car it takes is laid whole every
@@ -162,14 +173,27 @@ internal sealed partial class DeviceCarTick
         bool posesInTheTable = false)
     {
         var cars = town.Cars;
-        var count = 0;
 
-        // A car's build is its variant's, set once as it was added.
-        for (var car = _buildsLaid; car < cars.Count; car++) _tyres.Table.BuildOf.Lay(car, (uint)cars.Variant[car]);
+        // A car's build is its variant's, set once as it was added; a car added is the town's own.
+        for (var car = _buildsLaid; car < cars.Count; car++)
+        {
+            _tyres.Table.BuildOf.Lay(car, (uint)cars.Variant[car]);
+            _townHolds.Add(car);
+        }
+
         _buildsLaid = cars.Count;
 
-        for (var car = 0; car < cars.Count; car++)
+        // Every car where the town lays what the device would keep — its poses, its grants, every car whole — or where
+        // anything every car is told by changed; otherwise only those the town holds or touched.
+        var every = !resident || !posesInTheTable || (claimsLaid && !GrantedOnTheDevice) || VisitsEveryCar;
+        VisitsEveryCar = false;
+        var visit = every ? EveryCar(cars.Count) : _visit.AsSpan(0, _townHolds.Union(town.TouchedCars, cars.Count, _visit));
+        _walkedCount = visit.Length;
+        town.TouchedCars.Clear();
+        _visited.Clear();
+        foreach (var car in visit)
         {
+            _visited.Add(car);
             if (!posesInTheTable) LayThePose(town, car);
             _askedBefore[car] = town.AsksTheRoute(car);
             _lineLaidDue[car] = cars.LineLaid[car];
@@ -183,13 +207,14 @@ internal sealed partial class DeviceCarTick
                 ExpectTheTownHolds(car, "its tyres for the town's own tick");
                 LayTheTyres(town, car);
                 _held[car] = false;
+                _takenBits.Remove(car);
                 continue;
             }
 
             // A car whose action the town changed since the device last left it is the town's again, and laid whole.
             if (_held[car] && cars.Action[car] != _actionAt[car]) _held[car] = false;
 
-            taken[count++] = car;
+            _takenBits.Add(car);
             _actionDue[car] = cars.Action[car];
             var granted = !resident || !_held[car] || claimsLaid || cars.AuthorityM[car] != _authorityAt[car];
             LayWhatItIsTold(town, car, granted, claimsLaid);
@@ -225,17 +250,90 @@ internal sealed partial class DeviceCarTick
             _held[car] = true;
         }
 
+        if (ChecksTheVisits && !every) HoldTheUnvisited(town, chosen, claimsLaid);
+
+        var count = _takenBits.CopyTo(cars.Count, taken);
         _taken.LayEvery(MemoryMarshal.Cast<int, uint>(taken[..count]));
-        _told.LayEvery(_toldNow.AsSpan(0, cars.Count));
         if (!posesInTheTable) _tyres.Table.Poses.Mark(0, cars.Count);
         return count;
+    }
+
+    /// <summary>
+    /// <b>Whether the next <see cref="Prepare"/> walks every car</b>: set where what every car is told changed at once — a
+    /// watch begun or let go, the agents held or let go, a scene opened — and cleared by it.
+    /// </summary>
+    public bool VisitsEveryCar { get; set; } = true;
+
+    /// <summary>
+    /// <b>Whether to hold every car <see cref="Prepare"/> did not walk to what a walk of it would have laid</b>, and throw
+    /// where it differs: a car the town changed while the device kept it, and did not mark (<see cref="TownWorld.TouchedCars"/>).
+    /// </summary>
+    public bool ChecksTheVisits { get; set; } = ChecksTheVisitsInEveryTown;
+
+    /// <summary>What <see cref="ChecksTheVisits"/> begins as in every car tick made after it is set — the suite's, on.</summary>
+    internal static bool ChecksTheVisitsInEveryTown { get; set; }
+
+    /// <summary>Which cars the town holds as the device last left them, a bit a car (<see cref="TownHolds"/>).</summary>
+    AgentSet _townHolds = null!;
+
+    /// <summary>Which cars the device ticks, and which the last <see cref="Prepare"/> walked.</summary>
+    AgentSet _takenBits = null!, _visited = null!;
+
+    /// <summary>The cars a <see cref="Prepare"/> walks, in order, and how many the last walked.</summary>
+    int[] _visit = [];
+
+    int _walkedCount;
+
+    /// <summary>The cars the last <see cref="Prepare"/> walked, in order: every car whose figures the town may have set.</summary>
+    public ReadOnlySpan<int> Walked => _visit.AsSpan(0, _walkedCount);
+
+    /// <summary>Whether the last <see cref="Prepare"/> walked this car, so what the town holds of it is current there.</summary>
+    public bool Visited(int car) => _visited.Has(car);
+
+    Span<int> EveryCar(int count) => EveryCar(count, _visit);
+
+    /// <summary>Every car below <paramref name="count"/>, in order, written into <paramref name="into"/>.</summary>
+    public Span<int> EveryCar(int count, Span<int> into)
+    {
+        for (var car = 0; car < count; car++) into[car] = car;
+        return into[..count];
+    }
+
+    /// <summary>
+    /// Every car <see cref="Prepare"/> did not walk held to what walking it would have laid: taken as it was, doing what it
+    /// did, on the line, pass and reading it was, told what it was, its clock untouched and not read by the town.
+    /// </summary>
+    void HoldTheUnvisited(TownWorld town, ReadOnlySpan<bool> chosen, bool claimsLaid)
+    {
+        var cars = town.Cars;
+        for (var car = 0; car < cars.Count; car++)
+        {
+            if (_visited.Has(car)) continue;
+
+            var takes = chosen.IsEmpty ? Takes(town, car) : chosen[car];
+            var unlike =
+                takes != _takenBits.Has(car) ? "whether the device ticks it"
+                : !_held[car] ? "whether the device holds it"
+                : cars.Action[car] != _actionAt[car] ? "what it is doing"
+                : cars.LineLaid[car] != _lineLaidAt[car] ? "its line"
+                : cars.Pass[car] != _passHeld[car] ? "its pass"
+                : cars.ProgressM[car] != _progressAt[car] || cars.CoveredSinceClaimM[car] != _coveredAt[car] ? "its reading"
+                : cars.WheelsOnAWay[car] != _wheelsSent[car] ? "which of its wheels stand on a way"
+                : WouldLayTheGrant(town, car) ? "its grant"
+                : town.DriveClocks.IsTouched(car) ? "its clock"
+                : ToldOf(town, car) != _told.LaidRow(car) ? "what it is told"
+                : town.ReadsTheTickOf(car) ? "whether the town reads it"
+                : null;
+            if (unlike is null) continue;
+
+            throw new InvalidOperationException(
+                $"Car {car} was changed by the town while the device kept it, and not marked touched: {unlike} (claims laid {claimsLaid}).");
+        }
     }
 
     /// <summary>How many cars' builds are laid: every car's but those added since.</summary>
     int _buildsLaid;
 
-    /// <summary>What each car's decisions tell its tick, as last worked out — laid a block at a time (<see cref="ResidentRows{T}.LayEvery"/>).</summary>
-    ToldRow[] _toldNow = [];
 
     /// <summary>
     /// <b>Whether the town laid a car a line or set it doing something else since <see cref="Prepare"/> sent it</b> — a
@@ -248,10 +346,28 @@ internal sealed partial class DeviceCarTick
     public void LayItWholeNext(int car) => _held[car] = false;
 
     /// <summary>A car the last tick handed back, or a hand-over since: the town holds it as the device left it (<see cref="_current"/>).</summary>
-    public void TookBack(int car) => _current[car] = true;
+    public void TookBack(int car)
+    {
+        _current[car] = true;
+        _townHolds.Add(car);
+    }
 
     /// <summary>A car the last tick ticked that the town did not read: its reading, command and tyres are the device's (<see cref="_current"/>).</summary>
-    public void LeftOnTheDevice(int car) => _current[car] = false;
+    public void LeftOnTheDevice(int car)
+    {
+        _current[car] = false;
+        _townHolds.Remove(car);
+    }
+
+    /// <summary>
+    /// The cars the town holds as the device left them or touched since <see cref="Prepare"/> — or every car, where the next
+    /// walks every one — in order, written into <paramref name="into"/>: those whose figures the town may have set.
+    /// </summary>
+    public Span<int> TheTownMayHaveSet(TownWorld town, Span<int> into)
+    {
+        var count = town.Cars.Count;
+        return VisitsEveryCar ? EveryCar(count, into) : into[.._townHolds.Union(town.TouchedCars, count, into)];
+    }
 
     /// <summary>Whether the town holds a car as the device last left it (<see cref="_current"/>).</summary>
     public bool TownHolds(int car) => _current[car];
@@ -305,17 +421,48 @@ internal sealed partial class DeviceCarTick
     /// </remarks>
     public void SettleTheTown(TownWorld town)
     {
-        var cars = town.Cars;
-        for (var car = 0; car < cars.Count; car++)
-        {
-            _lineLaidAt[car] = cars.LineLaid[car];
-            _progressAt[car] = cars.ProgressM[car];
-            _coveredAt[car] = cars.CoveredSinceClaimM[car];
-            _authorityAt[car] = cars.AuthorityM[car];
-            _actionAt[car] = cars.Action[car];
-            if (_held[car] && cars.Action[car] != _actionDue[car]) _held[car] = false;
-        }
+        for (var car = 0; car < town.Cars.Count; car++) SettleTheTown(town.Cars, car);
     }
+
+    /// <summary><see cref="SettleTheTown(TownWorld)"/> of only these cars: every other the town has set nothing of since.</summary>
+    public void SettleTheTown(CarFleet cars, ReadOnlySpan<int> settled)
+    {
+        foreach (var car in settled) SettleTheTown(cars, car);
+    }
+
+    void SettleTheTown(CarFleet cars, int car)
+    {
+        _lineLaidAt[car] = cars.LineLaid[car];
+        _progressAt[car] = cars.ProgressM[car];
+        _coveredAt[car] = cars.CoveredSinceClaimM[car];
+        _authorityAt[car] = cars.AuthorityM[car];
+        _actionAt[car] = cars.Action[car];
+        if (_held[car] && cars.Action[car] != _actionDue[car]) _held[car] = false;
+    }
+
+    /// <summary>
+    /// <b>The cars this tick took that the town may read or have set</b>, in order: those <see cref="Prepare"/> walked, those
+    /// it holds now, and those whose tick asked something of it — or every one, where every car is handed back.
+    /// </summary>
+    public Span<int> TheTakenToTakeBack(int count, ReadOnlySpan<uint> events, Span<int> into)
+    {
+        if (ReadsEveryCar) return into[.._takenBits.CopyTo(count, into)];
+
+        _takenBack.CopyFrom(_visited);
+        _takenBack.UnionWith(_townHolds);
+        foreach (var car in events) _takenBack.Add((int)car);
+        _takenBack.IntersectWith(_takenBits);
+        return into[.._takenBack.CopyTo(count, into)];
+    }
+
+    /// <summary>The cars <see cref="TheTakenToTakeBack"/> last named, a bit a car.</summary>
+    AgentSet _takenBack = null!;
+
+    /// <summary>Whether this car is among those the device ticks (<see cref="Prepare"/>).</summary>
+    public bool IsTaken(int car) => _takenBits.Has(car);
+
+    /// <summary>Which cars the device ticks, a bit a car — for a caller that keeps what the last tick took.</summary>
+    public AgentSet TakenCars => _takenBits;
 
     /// <summary>The device's half of <see cref="Settle"/>: its command and tyres for every car it took, as its tick left them.</summary>
     /// <remarks>
@@ -412,6 +559,13 @@ internal sealed partial class DeviceCarTick
             LayWhatItWasGranted(town, car, claimsLaid);
         }
 
+        _told.Lay(car, ToldOf(town, car));
+    }
+
+    /// <summary>What a car's decisions tell its tick, as the town has them now.</summary>
+    static ToldRow ToldOf(TownWorld town, int car)
+    {
+        var cars = town.Cars;
         var hasAPlace = town.SceneOf(car, out var placeM, out var reachM);
         var told = (cars.BlueLight[car] ? ToldRow.OnACall : 0u) | (cars.LineIsReverse[car] ? ToldRow.LineIsReverse : 0u)
                    | (hasAPlace ? ToldRow.HasAPlace : 0u);
@@ -431,7 +585,7 @@ internal sealed partial class DeviceCarTick
             stepsOutAtM = town.Overtaking.StepsOutAtM(car);
         }
 
-        _toldNow[car] = new ToldRow(told, cars.PaceMps[car], town.OffTheLineAllowanceM(car), asideM, fromRestM, reachM, placeM, stepsOutAtM, 0f);
+        return new ToldRow(told, cars.PaceMps[car], town.OffTheLineAllowanceM(car), asideM, fromRestM, reachM, placeM, stepsOutAtM, 0f);
     }
 
     /// <summary>
@@ -453,12 +607,25 @@ internal sealed partial class DeviceCarTick
             return;
         }
 
+        _grants.Lay(car, TheTownsGrant(town.Cars, car));
+    }
+
+    /// <summary>A car's grant off the town's own figures, cut on the way the last laying cut its hold on.</summary>
+    GrantRow TheTownsGrant(CarFleet cars, int car) => new(
+        cars.AuthorityM[car], cars.HorizonM[car], cars.ClaimFromM[car], cars.CommittedToM[car], cars.GrantMarginM[car],
+        (uint)cars.GrantCutBy[car], _cutOn[car], 0f, Vector2.Zero);
+
+    /// <summary>
+    /// Whether walking a car would lay its grant again between layings (<see cref="LayWhatItIsTold"/>): the town's figures
+    /// changed since, and laid would send other than the table holds — or would throw, its grant being the device's.
+    /// </summary>
+    bool WouldLayTheGrant(TownWorld town, int car)
+    {
         var cars = town.Cars;
-        _grants.Lay(
-            car,
-            new GrantRow(
-                cars.AuthorityM[car], cars.HorizonM[car], cars.ClaimFromM[car], cars.CommittedToM[car], cars.GrantMarginM[car],
-                (uint)cars.GrantCutBy[car], _cutOn[car], 0f, Vector2.Zero));
+        if (GrantedOnTheDevice || _grantPending[car] || cars.AuthorityM[car] == _authorityAt[car]) return false;
+
+        var row = _cutterOnTheDevice[car] ? TheTownsGrant(cars, car) : GrantOf(town, car, out _, out _);
+        return _grantLeft[car] || row != _grants.LaidRow(car);
     }
 
     /// <summary>

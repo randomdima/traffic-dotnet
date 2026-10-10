@@ -418,6 +418,8 @@ internal sealed partial class TownWorld
     {
         if (Cars.Broken[car]) return;
 
+        TouchTheCar(car);
+
         // EVA-1: the wreck is a recovery from the tick it becomes one, raised where it happens so that
         // nothing has to search the fleet for one.
         RaiseTheRecovery(car);
