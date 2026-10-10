@@ -96,11 +96,19 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
     {
     }
 
+    public void TickTheAgents()
+    {
+    }
+
     public void AgentsTicked(long tick)
     {
     }
 
     public void DecideAgent(int agent, float sinceLastDecisionS)
+    {
+    }
+
+    public void DecideTheAgents(long tick, TickGroups decisions)
     {
     }
 

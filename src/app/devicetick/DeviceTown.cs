@@ -169,6 +169,8 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _looking = new bool[cars.Capacity];
         _found = new bool[cars.Capacity];
         _letGo = new int[cars.Capacity];
+        _townTicks = new int[cars.Capacity];
+        _asked = new AgentSet(cars.Capacity);
         town.DriveClocks.KeepTheTouched();
         town.CarsDecidedOnTheDevice = true;
 
@@ -812,6 +814,38 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// <summary>How many cars the town ticked itself once a claims rebuild that ran on had its answers written back, over every tick.</summary>
     public long CarsPutOff { get; private set; }
 
+    public bool NamesTheCars => true;
+
+    /// <remarks>
+    /// Those the town holds or touched, and those added since the last tick laid — every other car the device took last
+    /// tick, and the town set nothing of since, so it takes it again (<see cref="DeviceCarTick.ChecksTheVisits"/>). Every car
+    /// where the next tick walks every one.
+    /// </remarks>
+    public ReadOnlySpan<int> CarsTheTownTicks(TownWorld town)
+    {
+        if (!_swept) HandBackTheLeavers(town);
+
+        var cars = _cars.TheCarsTheTownTicks(town, _townTicks);
+        _asked.Clear();
+        foreach (var car in cars) _asked.Add(car);
+        _named = true;
+        return cars;
+    }
+
+    public ReadOnlySpan<int> CarsTheTownDecides(TownWorld town) => _cars.TheCarsNotDecidingThemselves(town.Cars.Count, _townTicks);
+
+    /// <summary>Room for the cars the town ticks or decides (<see cref="CarsTheTownTicks"/>, <see cref="CarsTheTownDecides"/>).</summary>
+    readonly int[] _townTicks;
+
+    /// <summary>
+    /// Which cars this tick's agents' pass was named (<see cref="CarsTheTownTicks"/>), whose answers <see cref="_chosen"/>
+    /// holds — none where one not done for was not asked (<see cref="Takes"/>) — and whether it was named any, rather than
+    /// asking every agent.
+    /// </summary>
+    readonly AgentSet _asked;
+
+    bool _named;
+
     public bool Takes(int agent)
     {
         var town = _town;
@@ -1141,9 +1175,10 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
         if (town.WatchesEveryAgent != _watchedEveryAgent) _walkers.VisitsEveryWalker = true;
         _watchedEveryAgent = town.WatchesEveryAgent;
-        _count = _cars.Prepare(town, _taken, resident: true, laidByTheTown, chosen, posesInTheTable);
+        _count = _cars.Prepare(town, _taken, resident: true, laidByTheTown, chosen, posesInTheTable, _named ? _asked : null);
         CarsWalked += _cars.Walked.Length;
         chosen.Clear();
+        _named = false;
         LetGoOfTheWalked(town);
         AskTheHoldsOfWhatTheTownDrives(town);
 

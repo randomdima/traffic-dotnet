@@ -45,6 +45,19 @@ public class AgentSetTests
         Assert.Equal(70, set.CountBelow(200));
     }
 
+    [Fact]
+    public void TheAbsentAreEveryAgentBelowTheCountNotInTheSetInOrder()
+    {
+        var set = new AgentSet(200);
+        set.AddFirst(130);
+        foreach (var agent in (ReadOnlySpan<int>)[131, 133]) set.Add(agent);
+
+        Span<int> walked = stackalloc int[200];
+        var count = set.CopyAbsentTo(135, walked);
+
+        Assert.Equal([130, 132, 134], walked[..count].ToArray());
+    }
+
     /// <summary>A device reads agent <c>a</c> as bit <c>a % 32</c> of word <c>a / 32</c>.</summary>
     [Fact]
     public void AWordHoldsTheBitsOfItsOwnThirtyTwoAgents()

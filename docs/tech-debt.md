@@ -213,8 +213,9 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   `ItsErrandLeavesItToTheLeg`), which the owner's own decision sets without marking the car. The visits' check would
   throw on it, and has not in the suite; no shipped city has been run with the check on. Closes with the car marked
   touched wherever its driver's stage or bay is set, or a soak with the check on.
-- **The town's loop still walks the roster to skip the cars the device decides** (`SimLoop.Decide`, `TownWorld.DecideAgent`):
-  a call an agent a tick, and a turn's worth of `DecidesItself`. Closes with the loop's two passes handed to the world.
+- **The walkers' decisions are still walked by their turn** (`TownWorld.DecideTheAgents`): a sixth of the walkers a tick
+  put off and named to the device (`DeviceTown.LayTheWalkerDecisions`), as the cars were before the device found theirs.
+  Closes with the walkers' decisions found on the device as the cars' are.
 
 ### Walkers
 

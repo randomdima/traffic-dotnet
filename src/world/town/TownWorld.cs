@@ -887,6 +887,77 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <summary>The decisions' clock, the loop's own (<c>SimLoop.Decisions</c>), for a device to know whose turn is due.</summary>
     readonly TickGroups _decisions;
 
+    /// <remarks>
+    /// <b>Where a device names the cars the town ticks</b> (<see cref="ITownDevice.NamesTheCars"/>), only those and the
+    /// walkers under a hand are asked: the device takes every other agent, and asking it again of each is a walk of the
+    /// roster a tick.
+    /// </remarks>
+    public void TickTheAgents()
+    {
+        if (HoldAgents || Device is not { NamesTheCars: true } device)
+        {
+            var world = this;
+            EveryAgent.Tick(ref world);
+            return;
+        }
+
+        var cars = device.CarsTheTownTicks(this);
+        foreach (var person in WalkersUnderAHand())
+        {
+            if (!IsTerminal(person)) TickAgent(person);
+        }
+
+        foreach (var car in cars)
+        {
+            var agent = Roster.AgentOfCar(car);
+            if (!IsTerminal(agent)) TickAgent(agent);
+        }
+    }
+
+    /// <summary>The walkers a hand walks this tick (<see cref="WalksUnderAHand"/>), in order.</summary>
+    ReadOnlySpan<int> WalkersUnderAHand()
+    {
+        if (_underAHand.Length < _selected.Capacity) _underAHand = new int[_selected.Capacity];
+
+        var count = 0;
+        foreach (var unit in _selected.Units)
+        {
+            if (unit.Kind == SelectionKind.Person && WalksUnderAHand(unit.Index)) _underAHand[count++] = unit.Index;
+        }
+
+        var walkers = _underAHand.AsSpan(0, count);
+        walkers.Sort();
+        return walkers;
+    }
+
+    int[] _underAHand = [];
+
+    /// <remarks>
+    /// <b>Where a device names the cars the town decides</b> (<see cref="ITownDevice.NamesTheCars"/>), the walkers whose turn it
+    /// is are taken by their turn and the cars from those named — never the cars the device finds the decisions of.
+    /// </remarks>
+    public void DecideTheAgents(long tick, TickGroups decisions)
+    {
+        if (Device is not { NamesTheCars: true, DecidesATickBehind: true } device)
+        {
+            var world = this;
+            EveryAgent.Decide(ref world, tick, decisions);
+            return;
+        }
+
+        var firstCar = Roster.AgentOfCar(0);
+        for (var person = decisions.FirstTurnOn(tick); person < firstCar; person += decisions.Groups)
+        {
+            if (!IsTerminal(person)) DecideAgent(person, decisions.IntervalS);
+        }
+
+        foreach (var car in device.CarsTheTownDecides(this))
+        {
+            var agent = Roster.AgentOfCar(car);
+            if (decisions.Turn(tick, agent) && !IsTerminal(agent)) DecideAgent(agent, decisions.IntervalS);
+        }
+    }
+
     public void TickAgent(int agent)
     {
         AccountFor(agent, deciding: false);

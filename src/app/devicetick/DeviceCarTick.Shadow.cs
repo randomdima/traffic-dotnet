@@ -167,10 +167,15 @@ internal sealed partial class DeviceCarTick
     /// the device, and the ones the town changed since laid (<see cref="DeviceTownBodies.PosesLeftInTheTable"/>) — so none
     /// is laid here.
     /// </param>
+    /// <param name="asked">
+    /// Which cars <paramref name="chosen"/> holds an answer for, where the town asked only those
+    /// (<see cref="TheCarsTheTownTicks"/>) — every other car untouched before its pass, and taken as it was. Null, every car
+    /// was asked.
+    /// </param>
     /// <returns>How many cars the device takes.</returns>
     public int Prepare(
         TownWorld town, Span<int> taken, bool resident, bool claimsLaid = true, ReadOnlySpan<bool> chosen = default,
-        bool posesInTheTable = false)
+        bool posesInTheTable = false, AgentSet? asked = null)
     {
         var cars = town.Cars;
 
@@ -197,7 +202,7 @@ internal sealed partial class DeviceCarTick
             if (!posesInTheTable) LayThePose(town, car);
             _askedBefore[car] = town.AsksTheRoute(car);
             _lineLaidDue[car] = cars.LineLaid[car];
-            if (chosen.IsEmpty ? !Takes(town, car) : !chosen[car])
+            if (!TakesAsAsked(town, car, chosen, asked))
             {
                 if (_tyres.KeptOnTheDevice[car])
                 {
@@ -250,13 +255,38 @@ internal sealed partial class DeviceCarTick
             _held[car] = true;
         }
 
-        if (ChecksTheVisits && !every) HoldTheUnvisited(town, chosen, claimsLaid);
+        if (ChecksTheVisits && !every) HoldTheUnvisited(town, chosen, asked, claimsLaid);
 
         var count = _takenBits.CopyTo(cars.Count, taken);
         _taken.LayEvery(MemoryMarshal.Cast<int, uint>(taken[..count]));
         if (!posesInTheTable) _tyres.Table.Poses.Mark(0, cars.Count);
         return count;
     }
+
+    /// <summary>
+    /// Whether the device takes this car this tick: as the town's agents' pass answered it, or, where the pass did not ask it,
+    /// as it took it last — or asked here, where no pass asked any.
+    /// </summary>
+    bool TakesAsAsked(TownWorld town, int car, ReadOnlySpan<bool> chosen, AgentSet? asked) =>
+        chosen.IsEmpty ? Takes(town, car) : asked is null || asked.Has(car) ? chosen[car] : _takenBits.Has(car);
+
+    /// <summary>
+    /// <b>The cars the town's agents' pass asks</b> (<see cref="ITownDevice.CarsTheTownTicks"/>), in order: those it holds or
+    /// touched, and those added since the last <see cref="Prepare"/> — or every car, where the next walks every one.
+    /// </summary>
+    public ReadOnlySpan<int> TheCarsTheTownTicks(TownWorld town, Span<int> into)
+    {
+        var count = town.Cars.Count;
+        if (VisitsEveryCar) return EveryCar(count, into);
+
+        var laid = Math.Min(_buildsLaid, count);
+        var named = _townHolds.Union(town.TouchedCars, laid, into);
+        for (var car = laid; car < count; car++) into[named++] = car;
+        return into[..named];
+    }
+
+    /// <summary>The cars below <paramref name="count"/> whose decisions the device does not find itself (<see cref="DecidesItself"/>), in order.</summary>
+    public ReadOnlySpan<int> TheCarsNotDecidingThemselves(int count, Span<int> into) => into[.._decidesItself.CopyAbsentTo(count, into)];
 
     /// <summary>
     /// <b>Whether the next <see cref="Prepare"/> walks every car</b>: set where what every car is told changed at once — a
@@ -303,14 +333,14 @@ internal sealed partial class DeviceCarTick
     /// Every car <see cref="Prepare"/> did not walk held to what walking it would have laid: taken as it was, doing what it
     /// did, on the line, pass and reading it was, told what it was, its clock untouched and not read by the town.
     /// </summary>
-    void HoldTheUnvisited(TownWorld town, ReadOnlySpan<bool> chosen, bool claimsLaid)
+    void HoldTheUnvisited(TownWorld town, ReadOnlySpan<bool> chosen, AgentSet? asked, bool claimsLaid)
     {
         var cars = town.Cars;
         for (var car = 0; car < cars.Count; car++)
         {
             if (_visited.Has(car)) continue;
 
-            var takes = chosen.IsEmpty ? Takes(town, car) : chosen[car];
+            var takes = chosen.IsEmpty || (asked is not null && !asked.Has(car)) ? Takes(town, car) : chosen[car];
             var unlike =
                 takes != _takenBits.Has(car) ? "whether the device ticks it"
                 : !_held[car] ? "whether the device holds it"

@@ -18,7 +18,7 @@ regular sync needed. CPU dont need a copy of the engine."** This extends 2026-10
 - **Measured by** the host's work and the bytes crossing a tick, both of which should follow the events, not the town's
   size.
 
-## 2026-10-10 — the device finds the decisions of the cars it keeps
+## 2026-10-10 — the device finds the decisions of the cars it keeps, and the loop's passes are the world's
 
 **Under the owner's goal above.** The town put off every car's decision on its turn, and the device was handed the list of
 those to ask (`DeviceTown.LayTheDecisions`): the host named about one car in six a tick, and read every verdict back.
@@ -36,8 +36,14 @@ those to ask (`DeviceTown.LayTheDecisions`): the host named about one car in six
 - **Held by the visits' check**: a car left to the device that the town changed without marking it throws, and each
   found car's hold is held to the town's number for it. A test touches cars on their turn and counts the decisions taken
   against a town that decides every car (`ACarTouchedOnItsTurnIsDecidedOnItOnce`); losing the owed turn fails it.
-- **Still the town's**: a switching car's look (its look state is read back each decision), a car the town holds, the
-  walkers' decisions, and the loop itself, which still walks the roster to skip them (`SimLoop.Decide`).
+- **Still the town's**: a switching car's look (its look state is read back each decision), a car the town holds, and the
+  walkers' decisions.
+- **The loop's two passes are the world's** (`ISimWorld.TickTheAgents`, `DecideTheAgents`). A world with no device walks
+  the whole roster as the loop did (`EveryAgent`). A town whose device names its cars (`ITownDevice.NamesTheCars`) ticks
+  only the walkers under a hand and the cars it holds, touched or added since (`DeviceCarTick.TheCarsTheTownTicks`); every
+  other car was taken last tick and nothing of it was set since, so the device takes it again without being asked
+  (`Prepare`'s `asked`). It decides the walkers by their turn (`TickGroups.FirstTurnOn`) and the cars the device does not
+  decide (`TheCarsNotDecidingThemselves`), a word of 64 cars at a time.
 
 ## 2026-10-10 — the host walks only the walkers it holds or touched
 

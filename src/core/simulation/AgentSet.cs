@@ -75,6 +75,25 @@ internal sealed class AgentSet(int capacity)
     /// <summary>The agents below <paramref name="count"/> in this set, in order, written into <paramref name="into"/>; how many.</summary>
     public int CopyTo(int count, Span<int> into) => Union(null, count, into);
 
+    /// <summary>The agents below <paramref name="count"/> not in this set, in order, written into <paramref name="into"/>; how many.</summary>
+    public int CopyAbsentTo(int count, Span<int> into)
+    {
+        var written = 0;
+        var words = (count + 63) >> 6;
+        for (var word = 0; word < words; word++)
+        {
+            var bits = ~_words[word];
+            if (word == words - 1 && (count & 63) != 0) bits &= (1UL << (count & 63)) - 1;
+            while (bits != 0)
+            {
+                into[written++] = (word << 6) + BitOperations.TrailingZeroCount(bits);
+                bits &= bits - 1;
+            }
+        }
+
+        return written;
+    }
+
     /// <summary>How many agents below <paramref name="count"/> the set holds.</summary>
     public int CountBelow(int count)
     {

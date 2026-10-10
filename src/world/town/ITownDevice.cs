@@ -109,6 +109,27 @@ internal interface ITownDevice
     bool DecidedOnTheDevice(int car) => false;
 
     /// <summary>
+    /// <b>Whether the device names the cars the town ticks and decides itself</b> (<see cref="CarsTheTownTicks"/>,
+    /// <see cref="CarsTheTownDecides"/>): it takes every other car and every walker not under a hand
+    /// (<see cref="TownWorld.WalksUnderAHand"/>), while the agents are not held — so the town's two passes walk those and no
+    /// other agent. False, the town asks every agent (<see cref="Takes"/>).
+    /// </summary>
+    bool NamesTheCars => false;
+
+    /// <summary>
+    /// <b>The cars the town ticks itself this tick, and those it may</b>, in order, where the device names them
+    /// (<see cref="NamesTheCars"/>): every car any other answer of <see cref="Takes"/> could be other than the device's own
+    /// tick taking it. Asked before any agent is ticked.
+    /// </summary>
+    ReadOnlySpan<int> CarsTheTownTicks(TownWorld town) => default;
+
+    /// <summary>
+    /// <b>The cars whose decisions the town takes on their turn</b>, in order, where the device names them
+    /// (<see cref="NamesTheCars"/>): every car the device does not find the decision of (<see cref="DecidesItself"/>).
+    /// </summary>
+    ReadOnlySpan<int> CarsTheTownDecides(TownWorld town) => default;
+
+    /// <summary>
     /// <b>Whether the device finds this car's decision itself</b>, a tick behind (<see cref="DecidesATickBehind"/>): the town
     /// puts nothing off for it, and is handed it to decide only where the device finds it more than its clock
     /// (<see cref="TownWorld.PutOffTheDecisions"/>).

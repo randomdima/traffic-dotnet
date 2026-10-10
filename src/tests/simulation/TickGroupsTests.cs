@@ -57,6 +57,23 @@ public class TickGroupsTests
         Assert.All(perTick, count => Assert.Equal(Members / groups.Groups, count));
     }
 
+    /// <summary>A pass that walks only the members whose turn it is, from the first by the groups, walks exactly those.</summary>
+    [Theory]
+    [InlineData(0.1f)]
+    [InlineData(0f)]
+    public void StridingFromTheFirstTurnWalksEveryMemberWhoseTurnItIsAndNoOther(float intervalS)
+    {
+        const int Members = 40;
+        var groups = new TickGroups(intervalS, 60);
+        for (var tick = 0L; tick < 14; tick++)
+        {
+            var strode = new List<int>();
+            for (var member = groups.FirstTurnOn(tick); member < Members; member += groups.Groups) strode.Add(member);
+
+            Assert.Equal(Enumerable.Range(0, Members).Where(member => groups.Turn(tick, member)), strode);
+        }
+    }
+
     [Fact]
     public void ARateBelowOneTickIsRoundedUpToEveryTick()
     {

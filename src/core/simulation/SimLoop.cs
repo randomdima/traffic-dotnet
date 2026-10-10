@@ -182,24 +182,11 @@ internal sealed class SimLoop<TWorld> where TWorld : ISimWorld
     /// </remarks>
     void Decide()
     {
-        var agents = _world.AgentCount;
         WatchingTheAgents?.Invoke(_world, AgentsStage.Due);
-        for (var agent = 0; agent < agents; agent++)
-        {
-            if (!_world.IsTerminal(agent)) _world.TickAgent(agent);
-        }
-
+        _world.TickTheAgents();
         _world.AgentsTicked(Tick);
         WatchingTheAgents?.Invoke(_world, AgentsStage.Ticked);
-        for (var agent = 0; agent < agents; agent++)
-        {
-            if (_world.IsTerminal(agent)) continue;
-
-            if (Decisions.Turn(Tick, agent) || _world.DecidesEveryTick(agent))
-            {
-                _world.DecideAgent(agent, Decisions.IntervalS);
-            }
-        }
+        _world.DecideTheAgents(Tick, Decisions);
     }
 
     public void Advance(int ticks)
