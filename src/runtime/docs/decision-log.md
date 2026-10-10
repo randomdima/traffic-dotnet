@@ -1,5 +1,15 @@
 # The machine — decision log
 
+## 2026-10-10 — a kernel bound with fewer buffers than it declares is refused where it is made
+
+The device tier's test host died now and then with nothing but the drivers' warnings in its log — five times in a day.
+The core showed a lavapipe worker inside a kernel's own code (`cs_exec_fn`), and the one submit in flight was
+`IntegrateKernelTests`' `integrate.comp`, whose ninth binding (the bodies it moved, `moved`) the test had never bound:
+the kernel wrote through a descriptor its layout did not hold, and lavapipe took whatever pointer it found there. The
+test binds it now, and `ComputeKernel` reads the bindings off the kernel's SPIR-V (`Vk.BindingsDeclared`) and refuses a
+layout with fewer, so the next such kernel fails at its constructor, every time. `qq tests device` runs under
+`--blame-crash`, so a fault there leaves a dump and the tests in flight in `.tmp/blame/`.
+
 ## 2026-10-08 — rows changed in many places are copied by a kernel, not by the copy engine
 
 `ResidentRows.Send` copied a table's marked rows as one copy of many regions, and on the PCIe link of 5 GT/s × 4 it

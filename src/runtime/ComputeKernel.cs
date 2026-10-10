@@ -42,6 +42,13 @@ internal sealed unsafe class ComputeKernel : IDisposable
         _pushBytes = pushBytes;
         Buffers = buffers;
         var api = vk.Api;
+        var module = vk.LoadShader(shader, out var declared);
+        if (declared > buffers)
+        {
+            Vk.Count();
+            api.DestroyShaderModule(vk.Device, module, null);
+            throw new ArgumentException($"{shader} declares {declared} bindings and the kernel binds {buffers}.", nameof(buffers));
+        }
 
         var bindings = stackalloc DescriptorSetLayoutBinding[buffers];
         for (var binding = 0; binding < buffers; binding++)
@@ -77,7 +84,6 @@ internal sealed unsafe class ComputeKernel : IDisposable
         Vk.Count();
         Vk.Check(api.CreatePipelineLayout(vk.Device, &layoutInfo, null, out _layout), "vkCreatePipelineLayout");
 
-        var module = vk.LoadShader(shader);
         var entry = (byte*)SilkMarshal.StringToPtr("main");
         try
         {

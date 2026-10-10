@@ -493,12 +493,16 @@ internal sealed unsafe partial class Vk : IDisposable
     }
 
     /// <summary>A shader, as SPIR-V embedded in this assembly by the project file's own glslc step.</summary>
-    public ShaderModule LoadShader(string name)
+    public ShaderModule LoadShader(string name) => LoadShader(name, out _);
+
+    /// <param name="bindings">How many bindings the shader declares (<see cref="BindingsDeclared"/>).</param>
+    public ShaderModule LoadShader(string name, out int bindings)
     {
         using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"Shaders/{name}.spv")
                            ?? throw new FileNotFoundException($"Shaders/{name}.spv is not embedded: did the CompileShaders target run?");
         var code = new byte[stream.Length];
         stream.ReadExactly(code);
+        bindings = BindingsDeclared(code);
 
         fixed (byte* p = code)
         {
@@ -513,6 +517,34 @@ internal sealed unsafe partial class Vk : IDisposable
             Check(_api.CreateShaderModule(_device, &info, null, out var module), "vkCreateShaderModule");
             return module;
         }
+    }
+
+    /// <summary>
+    /// <b>How many bindings a shader's SPIR-V declares</b>: one past the highest <c>Binding</c> it decorates anything with,
+    /// nought for none.
+    /// </summary>
+    /// <remarks>
+    /// A binding the shader declares and its layout leaves out is read through a descriptor that is not there: lavapipe
+    /// takes whatever pointer it finds, and now and then faults the whole process.
+    /// </remarks>
+    internal static int BindingsDeclared(ReadOnlySpan<byte> spirv)
+    {
+        const uint OpDecorate = 71, DecorationBinding = 33;
+        const int HeaderWords = 5;
+        var words = MemoryMarshal.Cast<byte, uint>(spirv);
+        var declared = 0;
+        for (var at = HeaderWords; at < words.Length;)
+        {
+            var count = (int)(words[at] >> 16);
+            if ((words[at] & 0xffffu) == OpDecorate && count >= 4 && words[at + 2] == DecorationBinding)
+            {
+                declared = Math.Max(declared, (int)words[at + 3] + 1);
+            }
+
+            at += Math.Max(1, count);
+        }
+
+        return declared;
     }
 
     public uint MemoryTypeIndex(uint allowed, MemoryPropertyFlags wanted) =>

@@ -36,11 +36,6 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   perf runs, at 8.1, 6.8 and 2.5 B a tick, and again at 5.7 on 2026-10-10. It passes alone and in reruns of the tier, and a per-agent trace of phases 1–3 found no
   allocation. A `P0` gate that flickers is either a real allocation on a rare path or a measurement that counts
   something it should not; which is not known.
-- **The device tier's test host crashed twice** (2026-10-10), with nothing but the drivers' warnings in the log: once a
-  few seconds into a run just after a kernel was rebuilt, once in a run where a device town threw mid-tick. Every class
-  passed alone and the whole tier in every rerun. The suspect is a town disposed with its device still working on what
-  it freed — lavapipe runs the kernels on the host's own threads — which `DeviceTown.Dispose` now waits out; a crash dump
-  of the next one, or none in a week of runs, closes it.
 
 ## Regressions and figures not taken
 

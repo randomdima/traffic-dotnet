@@ -67,6 +67,7 @@ public class IntegrateKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
                 device.Holding<Vector4>(shape),
                 device.Sized<Vector4>(bodies),
                 device.Holding<UInt4>(filter),
+                device.Sized<uint>(bodies),
             ];
             return _buffers;
         }
