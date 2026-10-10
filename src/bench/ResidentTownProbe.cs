@@ -73,11 +73,29 @@ internal static class ResidentTownProbe
             else if (Vector2.Distance(at, peopleBefore[person].PositionM) > MovedM) peopleMoved++;
         }
 
+        // What the device holds of each car's action and whether it is driven, and how many its last tick took.
+        var driven = Read<uint>(vk, resident.Root[CarsDrivenId]!, cars);
+        var actions = Read<uint>(vk, resident.Root[CarsActionId]!, cars);
+        var taken = Read<uint>(vk, resident.Root[ListCountsId]!, 1)[0];
+        var byAction = new int[16];
+        var drivenCount = 0;
+        for (var car = 0; car < cars; car++)
+        {
+            if (driven[car] != 0) drivenCount++;
+            byAction[Math.Min(actions[car], 15u)]++;
+        }
+
         Array.Sort(tickMs);
         Console.WriteLine($"resident town probe — {map} on {vk.DeviceName}, {cars} cars and {people} people, warmed {Warm} ticks on the host");
         Console.WriteLine($"  handed over in {handedMs:F0} ms; {Measured} ticks resident: median {tickMs[Measured / 2]:F2} ms, p90 {tickMs[Measured * 9 / 10]:F2}, worst {tickMs[^1]:F2}");
         Console.WriteLine($"  cars moved {carsMoved} of {cars}, not a number {carsLost}; walkers moved {peopleMoved} of {people}, not a number {peopleLost}");
+        Console.WriteLine(
+            $"  at the end: {drivenCount} cars driven, {taken} taken by the car tick; by action " +
+            string.Join(", ", Enum.GetValues<Agents.Car.Actions.CarAction>().Select(action => $"{action} {byAction[(int)action]}")));
     }
+
+    /// <summary>The device's tables the probe reads besides the rows: whether each car is driven, its action, and the lists' counts.</summary>
+    const int CarsDrivenId = 130, CarsActionId = 131, ListCountsId = 2;
 
     /// <summary>A device table's first rows, copied out once — the probe's own read, not the town's.</summary>
     static T[] Read<T>(Vk vk, GpuBuffer table, int count) where T : unmanaged

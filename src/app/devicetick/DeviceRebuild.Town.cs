@@ -1316,6 +1316,45 @@ internal sealed partial class DeviceRebuild
     }
 
     /// <summary>
+    /// <b>A resident town's rebuild</b> (<see cref="ResidentTown"/>), recorded into its tick's own submit: every car laid off
+    /// the device's own tables (<c>car_claims_gather.comp</c>) by the terms and claims a kernel before it wrote, the kept
+    /// walkers read in where the step left them, every body, light, plan and walk laid, every plan answered and cut, every
+    /// car granted and every walker read and aimed — nothing laid by the host and nothing read back. The caller barriers.
+    /// </summary>
+    /// <param name="timeS">The town's clock, which the lights' holds are laid at.</param>
+    public void RecordResident(CommandBuffer commands, int cars, int walkers, float timeS)
+    {
+        (_carCount, _walkerCount, _timeS) = (cars, walkers, timeS);
+        (_hostRowCount, _hostHoldCount, _askCount, _backingCount, _standingCount) = (0, 0, 0, 0, 0);
+        _passes = new HostRange(0, 0, 0, 0);
+        _toldNoRoom = false;
+        var vk = _vk;
+        var tally = _claims.OnTheDevice.Tally;
+        vk.Fill(commands, _wayCounts, 0);
+        vk.AfterTransfer(commands);
+
+        _carsGather.Dispatch(commands, _carCount, new GatherPush((uint)_carCount, _config.Driving.StopSpeedMps));
+        vk.BetweenKernels(commands);
+        RecordTheBodies(commands);
+        RecordThePlans(commands);
+        _claims.RecordAnswers(commands);
+        _capture.DispatchIndirect(commands, tally, Tally.HoldsGroups, default(NoPush));
+        vk.BetweenKernels(commands);
+        _claims.RecordCut(commands);
+        _holdsOutKernel.DispatchIndirect(commands, tally, Tally.HoldsGroups, default(NoPush));
+        _agentsOutKernel.Dispatch(
+            commands, Math.Max(_carCount, _walkerCount), new AgentsPush((uint)_carCount, (uint)_walkerCount, (uint)(_stretches + 1 + _carCount)));
+        _grant.Dispatch(commands, _carCount, new UnitsPush((uint)_carCount, (uint)(_stretches + 1)));
+        if (!_walkers.Keeps) return;
+
+        _walkerAnswers.Dispatch(commands, _walkerCount, new UnitsPush((uint)_walkerCount, (uint)(_stretches + 1 + _carCount)));
+        vk.BetweenKernels(commands);
+        _walkers.Record(commands, DeviceWalkers.Piece.Read);
+        vk.BetweenKernels(commands);
+        _walkers.RecordTheKeptAims(commands);
+    }
+
+    /// <summary>
     /// <b>The tick after a rebuild laid in the town, recorded behind it</b>: every write of the rebuild's own submit — still
     /// running where it runs on (<see cref="AnswersDue"/>) — made visible to whatever the tick's head records next.
     /// </summary>

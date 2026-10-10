@@ -53,18 +53,29 @@ internal sealed class ResidentTown : IDisposable
     readonly float _dtS;
     readonly int _cars, _people;
 
+    /// <summary>When the claims are laid (<see cref="SimFigures.ClaimsIntervalS"/>), counted in the town's own ticks.</summary>
+    readonly TickGroups _claimsClock;
+
+    /// <summary>The town's ticks and its clock, the host's to count: what the lights and the claims are laid at.</summary>
+    long _ticks;
+
+    float _elapsedS;
+
     public ResidentTown(Vk vk, SimConfig config, TownWorld town)
     {
         if (!vk.HasInt64) throw new NotSupportedException($"{vk.DeviceName} holds no 64-bit integers, which reaching the town's tables by address needs.");
 
         _vk = vk;
         _dtS = config.TickSeconds;
+        _claimsClock = new TickGroups(config.Sim.ClaimsIntervalS, config.Sim.TickRateHz);
 
         // One tick of the town on its device lays every table that tick reads; the town is then let go, its poses taken back.
         _laid = new DeviceTown(vk, config, town);
         town.Device = _laid;
         new SimLoop<TownWorld>(town, config).Advance();
         town.Device = null;
+        _ticks = 1;
+        _elapsedS = town.ElapsedS;
 
         _cars = town.Cars.Count;
         _people = town.People.Count;
@@ -103,10 +114,18 @@ internal sealed class ResidentTown : IDisposable
     /// </summary>
     public void Tick()
     {
-        var (_, cars, walkers, bodies, _, _) = _laid.Parts;
+        var (_, cars, walkers, bodies, claims, _) = _laid.Parts;
         var vk = _vk;
         var commands = _batch.Begin();
         vk.AfterTheSubmitsBefore(commands);
+        if (_claimsClock.Turn(_ticks, 0))
+        {
+            claims.Rebuild.RecordResident(commands, _cars, _people, _elapsedS);
+            vk.BetweenKernels(commands);
+        }
+
+        _ticks++;
+        _elapsedS += _dtS;
         vk.Fill(commands, _listCounts, 0u);
         vk.AfterTransfer(commands);
         var groups = (uint)((_cars + (int)CarTickGroup - 1) / (int)CarTickGroup);
