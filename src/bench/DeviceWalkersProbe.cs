@@ -29,10 +29,13 @@ internal static class DeviceWalkersProbe
     const int WarmupTicks = 1_200;
     const int MeasuredTicks = 600;
 
-    /// <summary>How far a figure the device's own trigonometry reaches may land from the host's and still be one answer.</summary>
+    /// <summary>How far a figure may land from the host's and still be one answer, as against one apart in its discrete outcome.</summary>
     const float WithinM = 1e-2f;
 
-    /// <summary>One stage over the run: the host's time and the device's, how many walkers were asked, and how they differ.</summary>
+    /// <summary>
+    /// One stage over the run: the host's time and the device's, how many walkers were asked, how they differ, and the first
+    /// walker of each kind, figure by figure.
+    /// </summary>
     sealed class Stage(string what)
     {
         public readonly List<double> HostMs = [];
@@ -41,11 +44,15 @@ internal static class DeviceWalkersProbe
         public int Asked;
         public int Differ;
         public int NotExact;
+        public string? FirstDiffering;
+        public string? FirstNotExact;
 
         public void Print()
         {
             Console.WriteLine(
                 $"  {what,-24} host {Median(HostMs),7:F3} ms   device {Median(DeviceMs),7:F3} ms   {Differ} of {Asked} differ, {NotExact} not to the bit");
+            if (FirstDiffering != null) Console.WriteLine($"    first differing: {FirstDiffering}");
+            if (FirstNotExact != null) Console.WriteLine($"    first not to the bit: {FirstNotExact}");
         }
     }
 
@@ -146,9 +153,16 @@ internal static class DeviceWalkersProbe
             var discrete = row.OnWay == people.OnWay[person] && row.RouteTaken == people.RouteTaken[person]
                            && row.Is(WalkerRow.Walking) == people.Walking[person] && row.Action == (uint)people.Action[person]
                            && row.PassAsideM == people.Pass[person].AsideM;
-            Tally(
+            var came = Tally(
                 into, discrete, Apart(people.OnWayM[person], row.OnWayM), Apart(people.OffWayM[person], row.OffWayM),
                 Apart(people.DestinationM[person], row.DestinationM), Apart(town.WalkingBack.BackToM[person], row.BackToM));
+            if (!IsTheFirst(into, came)) continue;
+
+            Describe(
+                into, came,
+                $"walker {person} {people.Action[person]} on way {people.OnWay[person]}: host at {people.OnWayM[person]:R} off " +
+                $"{people.OffWayM[person]:R} aiming {people.DestinationM[person]:R} back to {town.WalkingBack.BackToM[person]:R}; device " +
+                $"way {row.OnWay} at {row.OnWayM:R} off {row.OffWayM:R} aiming {row.DestinationM:R} back to {row.BackToM:R}");
         }
     }
 
@@ -217,16 +231,45 @@ internal static class DeviceWalkersProbe
             var discrete = row.GrantM == people.GrantM[person] && row.OnCrossing == people.OnCrossing[person]
                            && row.Action == (uint)people.Action[person] && row.PassAsideM == people.Pass[person].AsideM
                            && row.Is(WalkerRow.PassBegun) == people.Pass[person].Begun;
-            Tally(into, discrete, Apart(people.DestinationM[person], row.DestinationM));
+            var came = Tally(into, discrete, Apart(people.DestinationM[person], row.DestinationM));
+            if (!IsTheFirst(into, came)) continue;
+
+            Describe(
+                into, came,
+                $"walker {person} {people.Action[person]}: host granted {people.GrantM[person]:R} aiming {people.DestinationM[person]:R}; " +
+                $"device granted {row.GrantM:R} {(PersonAction)row.Action} aiming {row.DestinationM:R}");
         }
     }
 
-    static void Tally(Stage into, bool discrete, params ReadOnlySpan<float> apartM)
+    const int Alike = 0;
+    const int NotExact = 1;
+    const int Differs = 2;
+
+    /// <returns>How the walker came out: <see cref="Alike"/>, <see cref="NotExact"/> or <see cref="Differs"/>.</returns>
+    static int Tally(Stage into, bool discrete, params ReadOnlySpan<float> apartM)
     {
         var most = 0f;
         foreach (var apart in apartM) most = MathF.Max(most, apart);
-        if (!discrete || most > WithinM) into.Differ++;
-        else if (most > 0f) into.NotExact++;
+        if (!discrete || most > WithinM)
+        {
+            into.Differ++;
+            return Differs;
+        }
+
+        if (most == 0f) return Alike;
+
+        into.NotExact++;
+        return NotExact;
+    }
+
+    /// <summary>Whether a walker that came out so is the first of its kind, and so wants describing.</summary>
+    static bool IsTheFirst(Stage of, int came) =>
+        (came == Differs && of.FirstDiffering == null) || (came == NotExact && of.FirstNotExact == null);
+
+    static void Describe(Stage of, int came, string walker)
+    {
+        if (came == Differs) of.FirstDiffering = walker;
+        else of.FirstNotExact = walker;
     }
 
     static float Apart(float host, float onDevice) => host == onDevice ? 0f : MathF.Abs(host - onDevice);

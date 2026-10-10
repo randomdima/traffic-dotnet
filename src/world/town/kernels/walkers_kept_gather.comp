@@ -15,6 +15,7 @@ layout(push_constant) uniform Figures
 
 #include "agents/person/actions/kernels/walker_rows.glsl"
 #include "world/town/kernels/walker_table.glsl"
+#include "core/geometry/kernels/trig.glsl"
 
 layout(std430, binding = 0) buffer Kept { WalkerRow kept[]; };
 layout(std430, binding = 1) writeonly buffer Before { WalkerRow before[]; };
@@ -31,7 +32,7 @@ void main()
     row.declaredMps = ticked.declaredMps;
 
     // WalkingGround.AlongItsWalkMps, off the device's own heading.
-    precise vec2 facing = vec2(cos(ticked.headingRad), sin(ticked.headingRad));
+    vec2 facing = trigUnit(ticked.headingRad);
     precise float alongMps = ticked.velocityMps.x * facing.x + ticked.velocityMps.y * facing.y;
     row.alongMps = alongMps;
     row.events = 0u;

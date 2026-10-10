@@ -9,6 +9,7 @@ layout(local_size_x = 64) in;
 
 #include "bodies_phase.glsl"
 #include "world/town/kernels/walker_table.glsl"
+#include "core/geometry/kernels/rounded.glsl"
 
 layout(std430, binding = 0) readonly buffer WalkerBodies { int walkerBodies[]; };
 layout(std430, binding = 1) buffer Walkers { WalkerTableRow walkers[]; };
@@ -27,7 +28,7 @@ void main()
     vec2 nowM = pose[body].xy;
     precise vec2 movedM = nowM - row.positionM;
     precise float movedSquared = movedM.x * movedM.x + movedM.y * movedM.y;
-    precise float walkedM = row.distanceWalkedM + sqrt(movedSquared);
+    precise float walkedM = row.distanceWalkedM + roundedSqrt(movedSquared);
     row.positionM = nowM;
     row.velocityMps = motion[body].xy;
     row.distanceWalkedM = walkedM;

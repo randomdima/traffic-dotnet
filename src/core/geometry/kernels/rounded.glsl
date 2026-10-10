@@ -1,12 +1,15 @@
 // A quotient and a square root as the host's float arithmetic gives them — the float nearest the exact answer — on a
-// device Vulkan lets round both its own way (OpFDiv to 2.5 ULP, sqrt to inversesqrt's error). Where a discrete verdict
-// is taken on one, a last bit is a different answer: which lattice point a body's edge reaches, which side of a band a
-// point stands.
+// device Vulkan lets round both its own way (OpFDiv to 2.5 ULP, sqrt to inversesqrt's error). RADV's own misses the
+// nearest on 28 % of quotients and 15 % of roots. So every quotient and root a kernel shares with the host is taken here,
+// and a kernel is the host's to the bit on every driver rather than on one that happens to round them.
 //
 // The device's own answer is moved a float at a time until it is the nearest. Which side of the midpoint between two
 // neighbours the exact answer lies is asked in doubles, which hold that midpoint (25 bits) times a float (24) or squared
-// exactly, and the exact answer never lies on a midpoint, so there is no tie to break. The including kernel enables
-// 64-bit floats.
+// exactly, and the exact answer never lies on a midpoint, so there is no tie to break. The including kernel gets 64-bit
+// floats with it. Included by whatever needs it, as often as it likes.
+
+#ifndef ROUNDED_GLSL
+#define ROUNDED_GLSL
 
 // How far off the device's own answer is looked for, in floats either way: past Vulkan's bound for either operation.
 const int RoundedMostSteps = 4;
@@ -68,3 +71,18 @@ float roundedSqrt(float x)
 
     return s;
 }
+
+// v / s, each of its two quotients the float nearest — as a Vector2 divided by a float divides each.
+vec2 roundedQuotient(vec2 v, float s)
+{
+    return vec2(roundedQuotient(v.x, s), roundedQuotient(v.y, s));
+}
+
+// The length of v as the host's Vector2.Length() has it: its two squares summed, each rounded, and the nearest root.
+float roundedLength(vec2 v)
+{
+    precise float squared = v.x * v.x + v.y * v.y;
+    return roundedSqrt(squared);
+}
+
+#endif

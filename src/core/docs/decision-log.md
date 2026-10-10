@@ -1,5 +1,24 @@
 # The kernel — decision log
 
+## 2026-10-10 — every quotient and root a kernel shares with the host is the nearest float
+
+**The suite runs its kernels on lavapipe, which rounds a quotient and a root to the nearest as the host does; the GPU
+does not.** On the RX 9070 XT, RADV's own `a / b` missed the host's on 28 % of 4.2 M pairs, `sqrt` on 15 % and
+`length` on 11 %, where lavapipe missed none — so OdesaOsm's walkers stood 4.1 % of their stations a bit off the host's
+on the card and none on lavapipe, the same kernels. `rounded.glsl` held the nearest for where a discrete verdict hung on
+one; **now it holds every one**: each quotient (`roundedQuotient`, of a float or a `Vector2`), root (`roundedSqrt`) and
+length (`roundedLength`, the host's `Vector2.Length()`) the arcs, the solver's shapes and masses, the tyres, the
+driver, the pass, the walker, the lights and the bodies' mirrors take, written in the host's own grouping. One kernel
+still took the driver's own `cos` and `sin` for a walker's facing (`walkers_kept_gather.comp`); it takes `trig.glsl`'s.
+
+- A double's quotient or root rounded once to a float is the same nearest float for two floats (53 bits ≥ 2 × 24 + 2),
+  and missed none of the 4.2 M on the card either; `rounded.glsl` keeps its own walk, which asks a double nothing but
+  products.
+- Held on the card, by the probes that hold a device's stage to the host's from the same inputs: OdesaOsm's walkers
+  (`--bench devicewalkers`) 0 of 8 M stations, 4.4 M bodies, 4.4 M walks and 8 M readings apart, where 325 106 stations
+  and 915 readings were a bit off; O30's cars (`--bench devicecartick`) 0 of 127 504 car-ticks apart and its decisions
+  (`--bench devicedecide`) 0 of 42 487.
+
 ## 2026-10-10 — a kernel's trigonometry is the host's to the bit
 
 **A float or two apart was a different town.** A shoved car's heading a float off the host's left a contact 34 µm
@@ -25,7 +44,8 @@ of 136 851 switching cars' looks on OdesaOsm came out a figure apart.
   for its whole half minute, where it parted by millimetres within seconds. On OdesaOsm the rest moved little: 23 of
   5.5 M verdicts unlike where 22 were, and 415 looks a figure apart where 10 856 were (`--bench devicedecide`); 57 of
   12.0 M car-ticks differ (`--bench devicecartick`) and 4.1 % of walkers' stations are not to the bit
-  (`--bench devicewalkers`) — what still parts them is not the trigonometry. `--bench devicetown`: the device's kernels
+  (`--bench devicewalkers`) — what still parted them was the driver's quotients and roots (above), not the
+  trigonometry. `--bench devicetown`: the device's kernels
   1.71 → 1.91 ms a tick, 0.07 of it the sine and cosine and the rest the tangent and arctangents in doubles; the tick
   11.67 → 12.04, inside the probe's wander from run to run (tech debt) and on a device idle most of a tick.
 - **Only against the host it was read off**: another C library, or glibc on a machine without FMA (`__sincosf_sse2`),

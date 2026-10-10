@@ -45,8 +45,9 @@ float followPursuitBend(vec2 rearAxleM, vec2 forward, vec2 leadM)
     float reachM = tyreLength(toLead);
     if (reachM < 1e-3) return 0.0;
 
-    precise float bend = 2.0 * tyreCross(forward, toLead) / (reachM * reachM);
-    return bend;
+    precise float twice = 2.0 * tyreCross(forward, toLead);
+    precise float reachSquared = reachM * reachM;
+    return roundedQuotient(twice, reachSquared);
 }
 
 float followSteerFor(CarBuildRow car, float curvature)
@@ -84,9 +85,9 @@ float followSteerThePass(
 float followLeadS(CarBuildRow car, float brakingMps2, float throttleMps2)
 {
     float onMps2 = max(0.0, throttleMps2);
-    precise float releaseS = onMps2 / car.pedalRateMps3;
-    precise float leadS = FOLLOWER_FIGURES.reactionS + (brakingMps2 / (2.0 * car.pedalRateMps3))
-                          + (releaseS * (1.0 + (onMps2 / (2.0 * brakingMps2))));
+    float releaseS = roundedQuotient(onMps2, car.pedalRateMps3);
+    precise float leadS = FOLLOWER_FIGURES.reactionS + roundedQuotient(brakingMps2, 2.0 * car.pedalRateMps3)
+                          + (releaseS * (1.0 + roundedQuotient(onMps2, 2.0 * brakingMps2)));
     return leadS;
 }
 
@@ -107,13 +108,13 @@ float followApproachMps(float atMps, float distanceM, float brakingMps2)
     if (distanceM <= 0.0) return atMps;
 
     precise float squared = atMps * atMps + 2.0 * brakingMps2 * distanceM;
-    return sqrt(squared);
+    return roundedSqrt(squared);
 }
 
 float followCornerMps(float curvature, float lateralMps2)
 {
     float bend = abs(curvature);
-    return bend < 1e-4 ? followInfinity() : sqrt(lateralMps2 / bend);
+    return bend < 1e-4 ? followInfinity() : roundedSqrt(roundedQuotient(lateralMps2, bend));
 }
 
 void followBind(inout float targetMps, float limitMps, uint limit, inout uint hold)
@@ -147,7 +148,8 @@ float followTargetSpeedMps(
         {
             if (startM > reachedM)
             {
-                precise float entryMps = sqrt(gripMps2 * FOLLOWER_ENTRIES[entryAt + (arc - first)]);
+                precise float entrySquared = gripMps2 * FOLLOWER_ENTRIES[entryAt + (arc - first)];
+                float entryMps = roundedSqrt(entrySquared);
                 precise float toItM = startM - reachedM;
                 followBind(targetMps, followApproachMps(entryMps, toItM, brakingMps2), HoldCorner, hold);
                 break;
@@ -184,7 +186,7 @@ float followTargetSpeedMps(
 
     plannedMps = max(0.0, targetMps);
 
-    precise float wheelBend = trigTan(steerRad) / car.wheelbaseM;
+    float wheelBend = roundedQuotient(trigTan(steerRad), car.wheelbaseM);
     followBind(targetMps, followCornerMps(wheelBend, lateralMps2), HoldWheel, hold);
     precise float toTheHorizonM = context.horizonM - leadM;
     followBind(targetMps, followApproachMps(0.0, toTheHorizonM, brakingMps2), HoldReach, hold);
@@ -207,7 +209,8 @@ float followTargetSpeedMps(
 
 float followBrakeCeilingMps2(CarBuildRow car, float steerRad, float alongMps)
 {
-    precise float acrossMps2 = alongMps * alongMps * abs(trigTan(steerRad)) / car.wheelbaseM;
+    precise float turning = alongMps * alongMps * abs(trigTan(steerRad));
+    float acrossMps2 = roundedQuotient(turning, car.wheelbaseM);
     float leftMps2 = tyreDriveLeftMps2(car.gripMps2, acrossMps2);
     precise float ceiling = min(car.brakingMps2, leftMps2) * FOLLOWER_FIGURES.brakingMargin;
     return ceiling;
@@ -222,7 +225,7 @@ TyreCommand followPedals(CarBuildRow car, float steerRad, float targetMps, float
     }
 
     precise float travelMps2 = car.pedalRateMps3 * FOLLOWER_FIGURES.dtS;
-    precise float asked = (targetMps - alongMps) / FOLLOWER_FIGURES.dtS;
+    float asked = roundedQuotient(targetMps - alongMps, FOLLOWER_FIGURES.dtS);
     precise float least = lastMps2 - travelMps2;
     precise float most = lastMps2 + travelMps2;
     float wantedMps2 = clamp(asked, least, most);
@@ -238,7 +241,8 @@ bool followIsAHazard(CarBuildRow car, float alongMps, DriveContextRow context)
     precise float heldM = context.authorityM + context.marginM;
     if (heldM <= 0.0) return true;
 
-    precise float needs = alongMps * alongMps / (2.0 * heldM);
+    precise float speedSquared = alongMps * alongMps;
+    float needs = roundedQuotient(speedSquared, 2.0 * heldM);
     return needs > buildUtmostBrakingMps2(car);
 }
 

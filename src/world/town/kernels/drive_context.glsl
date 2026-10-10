@@ -46,6 +46,7 @@ const uint ContextHasAHold = 8u;
 const uint ContextCut = 16u;
 
 #include "world/town/kernels/box_ahead.glsl"
+#include "core/geometry/kernels/rounded.glsl"
 
 float contextInfinity() { return uintBitsToFloat(0x7F800000u); }
 
@@ -143,14 +144,14 @@ float contextToThePlaceOnTheLineM(uint car, CarBuildRow build, CarLineRow line, 
     float headingRad;
     splineSample(first, first + line.arcCount, atM, onM, headingRad);
     precise vec2 off = onM - row.placeM;
-    precise float offM = sqrt(off.x * off.x + off.y * off.y);
+    float offM = roundedLength(off);
     if (offM > row.placeReachM) return contextInfinity();
 
     precise float aheadM = atM - row.progressM;
     if (atM < row.progressM)
     {
         precise vec2 apart = row.positionM - row.placeM;
-        precise float apartM = sqrt(apart.x * apart.x + apart.y * apart.y);
+        float apartM = roundedLength(apart);
         return apartM <= row.placeReachM ? aheadM : contextInfinity();
     }
 

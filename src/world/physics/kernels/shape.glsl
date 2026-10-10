@@ -1,7 +1,9 @@
 // Shape.cs on the device: the one shape (SOL-1), a core box of half-extents grown by a corner radius, and the manifold
 // two of them make. Written once for the general shape, with the two closed forms that cover most of a town's pairs —
 // each line follows its C# counterpart so a change to one is found in the other. `precise` throughout: a fused
-// multiply-add rounds once where the host rounds twice.
+// multiply-add rounds once where the host rounds twice; and every quotient and root rounded.glsl's.
+
+#include "core/geometry/kernels/rounded.glsl"
 
 struct Manifold
 {
@@ -66,8 +68,8 @@ bool shapeTwoDiscs(vec2 centreA, float radiusA, vec2 centreB, float radiusB, flo
     precise float reachSquared = reachM * reachM;
     if (apartSquared > reachSquared) return false;
 
-    float apartM = sqrt(apartSquared);
-    m.normal = apartM > 1e-6 ? between / apartM : vec2(1.0, 0.0);
+    float apartM = roundedSqrt(apartSquared);
+    m.normal = apartM > 1e-6 ? roundedQuotient(between, apartM) : vec2(1.0, 0.0);
     precise float separation = apartM - radiusA - radiusB;
     m.separation0 = separation;
     precise vec2 point = centreA + m.normal * (radiusA + separation * 0.5);
@@ -90,11 +92,11 @@ bool shapeDiscAndBox(
     precise float outwardSquared = outward.x * outward.x + outward.y * outward.y;
     if (outwardSquared > 1e-12)
     {
-        float apartM = sqrt(outwardSquared);
+        float apartM = roundedSqrt(outwardSquared);
         precise float separationM = apartM - radiusM;
         if (separationM > marginM) return false;
 
-        m.normal = -shapeRotate(boxRotation, outward / apartM);
+        m.normal = -shapeRotate(boxRotation, roundedQuotient(outward, apartM));
         m.separation0 = separationM;
         precise vec2 point = ((boxCentre + shapeRotate(boxRotation, nearest) + centre + m.normal * radiusM) * 0.5)
                              - (m.normal * cornerRadiusM);
@@ -168,7 +170,7 @@ vec2 shapeOnSegment(vec2 fromM, vec2 toM, vec2 pointM)
     precise float lengthSquared = along.x * along.x + along.y * along.y;
     if (lengthSquared < 1e-12) return fromM;
 
-    precise vec2 on = fromM + along * clamp(shapeDot(pointM - fromM, along) / lengthSquared, 0.0, 1.0);
+    precise vec2 on = fromM + along * clamp(roundedQuotient(shapeDot(pointM - fromM, along), lengthSquared), 0.0, 1.0);
     return on;
 }
 
@@ -214,10 +216,10 @@ bool shapeNearest(
         }
     }
 
-    float apartM = sqrt(apartSquared);
+    float apartM = roundedSqrt(apartSquared);
     if (apartM < 1e-5) return false;
 
-    m.normal = (onB - onA) / apartM;
+    m.normal = roundedQuotient(onB - onA, apartM);
     precise float separation = apartM - cornerA - cornerB;
     m.separation0 = separation;
     precise vec2 point = ((onA + onB) * 0.5) + (m.normal * ((cornerA - cornerB) * 0.5));
@@ -328,8 +330,8 @@ bool shapeRoundedBoxes(
     float toFraction = 1.0;
     if (abs(span) > 1e-9)
     {
-        precise float atLeast = (least - firstAt) / span;
-        precise float atMost = (most - firstAt) / span;
+        float atLeast = roundedQuotient(least - firstAt, span);
+        float atMost = roundedQuotient(most - firstAt, span);
         fromFraction = max(fromFraction, min(atLeast, atMost));
         toFraction = min(toFraction, max(atLeast, atMost));
     }

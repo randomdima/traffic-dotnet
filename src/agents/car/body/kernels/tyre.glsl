@@ -1,12 +1,14 @@
 // TyreModel on the device: one car's four patches for one tick — an impulse and a place to spend it per wheel, what
 // each did to the ground, and the four rims wound on (TyreModel.Step, Loads, Ackermann, WheelPointsM, Rim, Scrub,
-// RollingDrag, HoldStill). Line for line with the host, `precise` where it rounds twice; its trigonometry is trig.glsl's.
+// RollingDrag, HoldStill). Line for line with the host, `precise` where it rounds twice; its trigonometry is trig.glsl's
+// and its quotients and roots rounded.glsl's.
 //
 // The including kernel supplies the tyre figures as TYRE_FIGURES' fields: standardGravityMps2, wheelSpinFadeMps,
 // wheelSpinAllowanceMps, markSlipMps, markCorneringSlipMps, ploughCrawlMps, engineBrakingMps2 — and includes
 // car_build.glsl and tyre_rows.glsl first.
 
 #include "core/geometry/kernels/trig.glsl"
+#include "core/geometry/kernels/rounded.glsl"
 
 const int TyreWheels = 4;
 const int TyreRearRight = 2;
@@ -38,7 +40,7 @@ float tyreGearSign(TyreCommand command) { return (command.handbrakeAndReverse & 
 
 float tyreDot(vec2 a, vec2 b) { precise float d = a.x * b.x + a.y * b.y; return d; }
 float tyreCross(vec2 a, vec2 b) { precise float c = (a.x * b.y) - (a.y * b.x); return c; }
-float tyreLength(vec2 v) { precise float squared = v.x * v.x + v.y * v.y; return sqrt(squared); }
+float tyreLength(vec2 v) { return roundedLength(v); }
 
 vec2 tyreWheelAtM(CarBuildRow car, int wheel)
 {
@@ -61,8 +63,8 @@ void tyreWheelPointsM(CarBuildRow car, TyrePose pose, out vec2 atM[4])
 void tyreLoads(CarBuildRow car, TyrePose pose, out float into[4])
 {
     float weight = TYRE_FIGURES.standardGravityMps2;
-    precise float alongShare = pose.accelerationMps2.x * car.cgHeightM / (car.wheelbaseM * weight);
-    precise float acrossShare = pose.accelerationMps2.y * car.cgHeightM / (car.halfTrackM * 2.0 * weight);
+    float alongShare = roundedQuotient(pose.accelerationMps2.x * car.cgHeightM, car.wheelbaseM * weight);
+    float acrossShare = roundedQuotient(pose.accelerationMps2.y * car.cgHeightM, car.halfTrackM * 2.0 * weight);
     precise float front = clamp(car.frontWeightShare - alongShare, 0.0, 1.0);
     precise float toTheSide = clamp(0.5 - acrossShare, 0.0, 1.0);
     precise float l0 = front * toTheSide;
@@ -86,10 +88,10 @@ void tyreAckermann(CarBuildRow car, float steerRad, out float into[4])
         return;
     }
 
-    precise float radiusM = abs(car.wheelbaseM / trigTan(steerRad));
-    float innerRad = trigAtan(car.wheelbaseM / max(0.01, radiusM - car.halfTrackM));
+    float radiusM = abs(roundedQuotient(car.wheelbaseM, trigTan(steerRad)));
+    float innerRad = trigAtan(roundedQuotient(car.wheelbaseM, max(0.01, radiusM - car.halfTrackM)));
     precise float outerRadius = radiusM + car.halfTrackM;
-    float outerRad = trigAtan(car.wheelbaseM / outerRadius);
+    float outerRad = trigAtan(roundedQuotient(car.wheelbaseM, outerRadius));
     float s = sign(steerRad);
     into[0] = s * (s > 0.0 ? innerRad : outerRad);
     into[1] = s * (s > 0.0 ? outerRad : innerRad);
@@ -101,13 +103,13 @@ float tyreSyncMassKg(CarBuildRow car, float loadKg)
 {
     if (loadKg <= 0.0) return 0.0;
 
-    precise float sum = (1.0 / car.wheelRotatingMassKg) + (1.0 / loadKg);
-    return 1.0 / sum;
+    precise float sum = roundedQuotient(1.0, car.wheelRotatingMassKg) + roundedQuotient(1.0, loadKg);
+    return roundedQuotient(1.0, sum);
 }
 
 float tyreAxleShare(float wholeMps2, float share, float axleLoad)
 {
-    precise float r = wholeMps2 * share / axleLoad;
+    float r = roundedQuotient(wholeMps2 * share, axleLoad);
     return axleLoad > 1e-3 ? r : 0.0;
 }
 
@@ -115,7 +117,8 @@ float tyreSpinAllowanceMps(float alongMps)
 {
     if (TYRE_FIGURES.wheelSpinFadeMps <= 0.0) return TYRE_FIGURES.wheelSpinAllowanceMps;
 
-    precise float faded = TYRE_FIGURES.wheelSpinAllowanceMps * clamp(1.0 - (abs(alongMps) / TYRE_FIGURES.wheelSpinFadeMps), 0.0, 1.0);
+    precise float faded =
+        TYRE_FIGURES.wheelSpinAllowanceMps * clamp(1.0 - roundedQuotient(abs(alongMps), TYRE_FIGURES.wheelSpinFadeMps), 0.0, 1.0);
     return faded;
 }
 
@@ -123,7 +126,8 @@ float tyreEngineBrakingMps2(CarBuildRow car, TyreCommand command)
 {
     if (tyreLocksEveryWheel(command) || car.accelerationMps2 <= 0.0) return 0.0;
 
-    precise float held = TYRE_FIGURES.engineBrakingMps2 * (1.0 - clamp(command.throttleMps2 / car.accelerationMps2, 0.0, 1.0));
+    precise float held =
+        TYRE_FIGURES.engineBrakingMps2 * (1.0 - clamp(roundedQuotient(command.throttleMps2, car.accelerationMps2), 0.0, 1.0));
     return held;
 }
 
@@ -131,9 +135,9 @@ float tyreDriveLeftMps2(float gripMps2, float acrossMps2)
 {
     if (gripMps2 <= 0.0) return 0.0;
 
-    precise float spent = abs(acrossMps2) / gripMps2;
+    float spent = roundedQuotient(abs(acrossMps2), gripMps2);
     precise float left = 1.0 - (spent * spent);
-    precise float drive = gripMps2 * sqrt(max(0.0, left));
+    precise float drive = gripMps2 * roundedSqrt(max(0.0, left));
     return drive;
 }
 
@@ -142,15 +146,15 @@ float tyreRim(
     float loadKg, float driveMps2, float brakeMps2, float spinAllowanceMps, float dtS)
 {
     float rotatingKg = car.wheelRotatingMassKg;
-    precise float pedalledMps = spinMps + (driveMps2 * loadKg / rotatingKg * dtS);
-    precise float freeMps = pedalledMps - (wantAlongNs / rotatingKg);
+    precise float pedalledMps = spinMps + (roundedQuotient(driveMps2 * loadKg, rotatingKg) * dtS);
+    precise float freeMps = pedalledMps - roundedQuotient(wantAlongNs, rotatingKg);
 
     precise float either = (pedalledMps - alongAfterMps) * (freeMps - alongAfterMps);
     if (either < 0.0) freeMps = alongAfterMps;
 
     if (brakeMps2 > 0.0)
     {
-        precise float braked = brakeMps2 * loadKg / rotatingKg * dtS;
+        precise float braked = roundedQuotient(brakeMps2 * loadKg, rotatingKg) * dtS;
         freeMps -= sign(freeMps) * min(braked, abs(freeMps));
     }
 
@@ -178,7 +182,7 @@ TyreScrub tyreScrub(
     if (surface.ploughs != 0u)
     {
         float patchSpeedMps = tyreLength(velocityMps);
-        precise float power = tyreLength(dragNs) / perKg * patchSpeedMps;
+        precise float power = roundedQuotient(tyreLength(dragNs), perKg) * patchSpeedMps;
         ploughPowerM2S3 = power;
         ploughing = patchSpeedMps > TYRE_FIGURES.ploughCrawlMps;
     }
@@ -187,10 +191,11 @@ TyreScrub tyreScrub(
     if (alongSlideMps != 0.0 || acrossSlideMps != 0.0)
     {
         precise float squared = (alongSlideMps * alongSlideMps) + (acrossSlideMps * acrossSlideMps);
-        slideSpeedMps = sqrt(squared);
+        slideSpeedMps = roundedSqrt(squared);
     }
 
-    precise float slidePower = ((abs(wantAlongNs) * alongSlideMps) + (abs(wantAcrossNs) * acrossSlideMps)) / perKg;
+    precise float slideWork = (abs(wantAlongNs) * alongSlideMps) + (abs(wantAcrossNs) * acrossSlideMps);
+    float slidePower = roundedQuotient(slideWork, perKg);
     return TyreScrub(slidePower, ploughPowerM2S3, slideSpeedMps, (ploughing ? 1u : 0u) | (sliding ? 2u : 0u));
 }
 
@@ -209,7 +214,7 @@ vec2 tyreRollingDrag(vec2 velocityMps, vec2 wheelForward, float alongMps, float 
     if (speedMps <= 0.0) return vec2(0.0);
 
     precise float held = min(dragMps2 * loadKg * dtS, speedMps * loadKg);
-    precise vec2 drag = -velocityMps / speedMps * held;
+    precise vec2 drag = roundedQuotient(-velocityMps, speedMps) * held;
     return drag;
 }
 
@@ -234,7 +239,8 @@ bool tyreHoldStill(
     vec2 forward = pose.forward;
     precise vec2 middleM = (rightM + leftM) * 0.5;
     precise vec2 acrossM = rightM - leftM;
-    precise float coupleNs = (spinNms - tyreCross(middleM, impulseNs)) / tyreCross(acrossM, forward);
+    precise float couple = spinNms - tyreCross(middleM, impulseNs);
+    float coupleNs = roundedQuotient(couple, tyreCross(acrossM, forward));
     precise vec2 rightNs = (impulseNs * 0.5) + (forward * coupleNs);
     precise vec2 leftNs = (impulseNs * 0.5) - (forward * coupleNs);
 
@@ -334,15 +340,16 @@ void tyreStep(
         bool sliding = false;
         if (budgetNs > 0.0)
         {
-            precise float alongShare = alongSlipAskMps / (gripMps2 * dtS);
-            precise float acrossShare = acrossSlipAskMps / (gripMps2 * dtS);
+            precise float perGripMps = gripMps2 * dtS;
+            float alongShare = roundedQuotient(alongSlipAskMps, perGripMps);
+            float acrossShare = roundedQuotient(acrossSlipAskMps, perGripMps);
             precise float squared = alongShare * alongShare + acrossShare * acrossShare;
-            float demand = sqrt(squared);
+            float demand = roundedSqrt(squared);
             sliding = demand > 1.0;
             if (sliding)
             {
-                precise float alongBound = budgetNs * alongShare / demand;
-                precise float acrossBound = budgetNs * acrossShare / demand;
+                float alongBound = roundedQuotient(budgetNs * alongShare, demand);
+                float acrossBound = roundedQuotient(budgetNs * acrossShare, demand);
                 wantAlongNs = tyreNoLargerThan(alongBound, wantAlongNs);
                 wantAcrossNs = tyreNoLargerThan(acrossBound, wantAcrossNs);
             }
@@ -362,8 +369,9 @@ void tyreStep(
         float acrossAfterMps = acrossMps;
         if (loadKg > 0.0)
         {
-            precise float along = alongMps + (wantAlongNs + tyreDot(dragNs, wheelForward)) / loadKg;
-            precise float across = acrossMps + wantAcrossNs / loadKg;
+            precise float alongNs = wantAlongNs + tyreDot(dragNs, wheelForward);
+            precise float along = alongMps + roundedQuotient(alongNs, loadKg);
+            precise float across = acrossMps + roundedQuotient(wantAcrossNs, loadKg);
             alongAfterMps = along;
             acrossAfterMps = across;
         }

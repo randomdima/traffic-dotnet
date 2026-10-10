@@ -35,12 +35,12 @@ float tyrePassCeilingMps2(CarBuildRow car, bool hand, float acrossMps2, float dt
 {
     if (carry.drivenSlipping)
     {
-        precise float liftedTo = carry.slipThrottle - (dtS / TYRE_FIGURES.slipBackOffS);
+        precise float liftedTo = carry.slipThrottle - roundedQuotient(dtS, TYRE_FIGURES.slipBackOffS);
         carry.slipThrottle = max(liftedTo, TYRE_FIGURES.minSlipThrottleFraction);
     }
     else
     {
-        precise float recoveredTo = carry.slipThrottle + (dtS / TYRE_FIGURES.slipRecoverS);
+        precise float recoveredTo = carry.slipThrottle + roundedQuotient(dtS, TYRE_FIGURES.slipRecoverS);
         carry.slipThrottle = min(recoveredTo, 1.0);
     }
 

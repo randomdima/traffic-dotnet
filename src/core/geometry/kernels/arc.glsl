@@ -1,13 +1,15 @@
 // ArcSeg on the device: one piece of a chain, where it puts a point a distance along it and which of its points is
 // nearest a place. Each function follows its C# counterpart line for line (ArcSeg.FromStartM, Spline.NearestOnArc,
-// NearestOnFlat), `precise` wherever the host's arithmetic would round twice. Its trigonometry is trig.glsl's, since a
-// gentle arc multiplies an arctangent's error by its radius and a long chord a sine's by its length.
+// NearestOnFlat), `precise` wherever the host's arithmetic would round twice, and every quotient rounded.glsl's. Its
+// trigonometry is trig.glsl's, since a gentle arc multiplies an arctangent's error by its radius and a long chord a
+// sine's by its length.
 //
 // A piece is two words of four: (start.xy, the unit vector of its first heading) and (heading, length, curvature, 0).
 // The unit vector is the host's, laid with the piece, so a straight is answered to the host's float. A chain of them
 // is arc_chain.glsl's.
 
 #include "core/geometry/kernels/trig.glsl"
+#include "core/geometry/kernels/rounded.glsl"
 
 struct Arc
 {
@@ -31,8 +33,7 @@ float arcSinc(float x)
 {
     if (abs(x) >= ArcSeriesLimitRad)
     {
-        precise float s = trigSin(x) / x;
-        return s;
+        return roundedQuotient(trigSin(x), x);
     }
 
     precise float square = x * x;
@@ -97,7 +98,7 @@ float arcNearest(Arc arc, vec2 pointM)
 
     if (abs(curvature) < ArcFlatCurvature) return arcNearestOnFlat(arc, pointM);
 
-    precise float radius = 1.0 / curvature;
+    float radius = roundedQuotient(1.0, curvature);
     precise vec2 centreM = arcStart(arc) + radius * vec2(-along.y, along.x);
     precise vec2 fromCentre = arcStart(arc) - centreM;
     precise vec2 toPoint = pointM - centreM;
@@ -105,10 +106,10 @@ float arcNearest(Arc arc, vec2 pointM)
 
     precise float crossed = fromCentre.x * toPoint.y - fromCentre.y * toPoint.x;
     float turnRad = trigAtan2(crossed, arcDot(fromCentre, toPoint));
-    precise float alongM = turnRad / curvature;
+    float alongM = roundedQuotient(turnRad, curvature);
     if (alongM < 0.0)
     {
-        precise float round_ = alongM + ArcTau / abs(curvature);
+        precise float round_ = alongM + roundedQuotient(ArcTau, abs(curvature));
         alongM = round_ <= arcLengthM(arc) ? round_ : 0.0;
     }
 

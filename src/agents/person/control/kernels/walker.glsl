@@ -1,10 +1,12 @@
 // WalkerFollower on the device: one tick of one walker — stand, turn on the spot, or walk straight at the aim, and the
 // impulse that costs at the grip it has (WalkerFollower.Tick, Step, TurnToward, Wrap, AtMost). Line for line with the
-// host, `precise` throughout; the bearing is trig.glsl's arctangent, and nothing else is trigonometry.
+// host, `precise` throughout; the bearing is trig.glsl's arctangent, and nothing else is trigonometry; every quotient and
+// root is rounded.glsl's.
 //
 // The including kernel supplies WALKER_FIGURES' fields: walkSpeedMps, turnRateDegPerS, footGripMps2, slidingGripMps2.
 
 #include "core/geometry/kernels/trig.glsl"
+#include "core/geometry/kernels/rounded.glsl"
 
 // MathF.PI and the Tau Wrap reduces by, as the host's floats.
 const float WalkerPi = 3.14159274;
@@ -18,13 +20,13 @@ struct WalkerStep
     vec2 impulseNs;
 };
 
-float walkerLength(vec2 v) { precise float squared = v.x * v.x + v.y * v.y; return sqrt(squared); }
+float walkerLength(vec2 v) { return roundedLength(v); }
 
 // Into (−π, π]. The host's % truncates toward zero and is exact; this is the same remainder for an angle under two and a
 // half turns either way, which a heading's difference from a bearing never comes near: past it τ·n is no longer a float.
 float walkerWrap(float angleRad)
 {
-    precise float turns = trunc(angleRad / WalkerTau);
+    float turns = trunc(roundedQuotient(angleRad, WalkerTau));
     precise float wrapped = angleRad - (WalkerTau * turns);
     if (wrapped > WalkerPi)
     {
@@ -56,7 +58,7 @@ vec2 walkerAtMost(vec2 changeMps, float mostMps)
     float lengthMps = walkerLength(changeMps);
     if (!(lengthMps > mostMps)) return changeMps;
 
-    precise float share = mostMps / lengthMps;
+    float share = roundedQuotient(mostMps, lengthMps);
     precise vec2 cut = changeMps * share;
     return cut;
 }
@@ -75,15 +77,14 @@ WalkerStep walkerStep(
     {
         float paceMps = WALKER_FIGURES.walkSpeedMps;
         float bearingRad = trigAtan2(toAim.y, toAim.x);
-        precise float mostRad = WALKER_FIGURES.turnRateDegPerS * WalkerPi / 180.0 * dtS;
+        precise float mostRad = roundedQuotient(WALKER_FIGURES.turnRateDegPerS * WalkerPi, 180.0) * dtS;
         precise float hopM = paceMps * dtS;
 
         if (distanceM <= hopM)
         {
             if (moving)
             {
-                precise vec2 hop = toAim / dtS;
-                desired = hop;
+                desired = roundedQuotient(toAim, dtS);
             }
         }
         else
@@ -98,7 +99,7 @@ WalkerStep walkerStep(
                 heading = bearingRad;
                 if (moving)
                 {
-                    precise vec2 pace = toAim / distanceM * paceMps;
+                    precise vec2 pace = roundedQuotient(toAim, distanceM) * paceMps;
                     desired = pace;
                 }
             }

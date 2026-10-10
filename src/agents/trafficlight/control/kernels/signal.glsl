@@ -1,11 +1,14 @@
 // SignalCycle on the device: which colour an axis of a junction is showing at a moment, what the crossing over a road on
 // it shows, and what a light's stretch is shown through the town's own lookups (SignalCycle.ForAxis, ForCrossing;
-// SignalService.ForApproach, ForCrossing; SignalHolds.ColourOf). Line for line with the host and `precise` throughout:
-// there is no transcendental in a light, so its colour is the host's at every edge of the cycle.
+// SignalService.ForApproach, ForCrossing; SignalHolds.ColourOf). Line for line with the host and `precise` throughout,
+// its quotients rounded.glsl's: there is no transcendental in a light, so its colour is the host's at every edge of the
+// cycle.
 //
 // The including kernel supplies SIGNAL_FIGURES' fields: cycleS, amberTailS, laneCount, crossingCount — and the
 // service's tables (SignalService.Table) as SIGNAL_LANE_AXIS, SIGNAL_LANE_JUNCTION, SIGNAL_OFFSETS, SIGNAL_CROSSING_AXIS
 // and SIGNAL_CROSSING_JUNCTION.
+
+#include "core/geometry/kernels/rounded.glsl"
 
 // SignalColour, by number.
 const uint SignalRed = 0u;
@@ -20,12 +23,12 @@ uint signalForAxis(int axis, float offsetS, float timeS)
     float cycleS = SIGNAL_FIGURES.cycleS;
     if (cycleS <= 0.0) return SignalGreen;
 
-    precise float phaseS = cycleS / float(SignalAxes);
+    float phaseS = roundedQuotient(cycleS, float(SignalAxes));
     precise float atS = timeS + offsetS;
-    precise float turnsS = floor(atS / cycleS) * cycleS;
+    precise float turnsS = floor(roundedQuotient(atS, cycleS)) * cycleS;
     precise float intoCycleS = atS - turnsS;
 
-    precise float phases = intoCycleS / phaseS;
+    float phases = roundedQuotient(intoCycleS, phaseS);
     int greenAxis = min(int(phases), SignalAxes - 1);
     if (greenAxis != axis) return SignalRed;
 

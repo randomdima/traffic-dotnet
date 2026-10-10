@@ -186,15 +186,11 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   of a body's rows one after another, about a third of a millisecond on one thread, and a look reads a step's every station
   at once but each read alone. Closes with a read's rows split across a workgroup.
 - **23 of the 5.5 M verdicts a device town reaches at OdesaOsm differ from the town's own** (`--bench devicedecide`,
-  2026-10-10), each a switching car's look the device found held where the town found room; and 415 of 136 675 looks
-  come out alike but leave a figure up to 4.8 mm apart. It is not the trigonometry, which is the host's to the bit (core
-  log, 2026-10-10): a box read a hair otherwise reaches another tenth of a way, and which term of the look reads it
-  otherwise is not traced. Closes with that term to the host's bit, or with the look the town's only, which costs 1.2 ms
-  a tick.
-- **57 of 12.0 M car-ticks and 4.1 % of walkers' stations still part from the host's** at OdesaOsm's 40 000 of each
-  (`--bench devicecartick`, `--bench devicewalkers`, 2026-10-10) with the trigonometry the host's to the bit: the first a
-  following car's drive command (car 3392 at tick 618, steer 0.11989 against 0.11993), the rest a station's figure more
-  than a bit apart. Untraced; each traced to its term closes it.
+  2026-10-10), each a switching car's look the device found held where the town found room, every figure of the look
+  alike — and the same cars every run (11239, 12167, 3409, 2842 among them). So it is not arithmetic, which is the host's
+  to the bit (core log, 2026-10-10), but what the look reads: a run of the step's ground the device's copy of the readers'
+  claims holds and the town's does not, or a run merged otherwise. Closes with that traced, or with the look the town's
+  only, which costs 1.2 ms a tick.
 - **Why a switching car with a step is read every tick is reasoned and held by no test** (`TownWorld.ReadsTheTickOf`):
   keeping or withdrawing the step and the rebuild laying its ground read where it stands, but
   `DeviceTownKeptCarsTests`' staging resolves its step alike when such a car is never read. Closes with a staging whose
@@ -222,9 +218,8 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **What still allows for the device's own trigonometry**, which is the host's to the bit since 2026-10-10 (core log):
   `DeviceBodyPhase.PointsWithin` is Vulkan's 2⁻¹¹ bound on a direction and its doc says the integration takes the
   driver's own; `DeviceTownBodiesTests` asks within the solver's agreement a car park that stands to the bit for its whole
-  half minute; and `TyrePassKernelTests.Near`, `LineKernelTests`, `FollowerKernelTests`, `DriveContextKernelTests`,
-  `DeviceWalkersTests`, `DeviceRebuildTests` and `DeviceWalkersProbe.WithinM` each say they allow for it. Each held to the
-  bit, or to the term that still parts it, closes it.
+  half minute; and `TyrePassKernelTests.Near`, `TyreKernelTests.Near`, `LineKernelTests`, `FollowerKernelTests`,
+  `DriveContextKernelTests` and `DeviceRebuildTests` each say they allow for it. Each held to the bit closes it.
 - **`DeviceTyres` is laid its grounds and figures once**, at construction: `TownWorld.FiguresChanged` retunes the
   host's `WheelGrounds` and the device keeps the old ones.
 

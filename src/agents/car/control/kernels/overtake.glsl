@@ -1,7 +1,7 @@
 // Overtake on the device (CAR-46): a car's line moved across onto the lane beside for a stretch and back, at the rear
 // axle and in the line's own metres — how far across, how steeply and how that slope turns at a metre, where the axle
 // stands and which way the car points there, and how the pass bends. Line for line with the host, `precise` where it
-// rounds twice; its trigonometry is trig.glsl's.
+// rounds twice; its trigonometry is trig.glsl's and its quotients and roots rounded.glsl's.
 //
 // The including kernel includes arc.glsl and arc_chain.glsl (its SPLINE_ARCS the lines) first.
 
@@ -47,7 +47,7 @@ float overtakeEndsM(OvertakeRow pass)
 float overtakeRise(float share)
 {
     precise float turned = OvertakeTau * share;
-    precise float rise = share - (trigSin(turned) / OvertakeTau);
+    precise float rise = share - roundedQuotient(trigSin(turned), OvertakeTau);
     return rise;
 }
 
@@ -64,8 +64,8 @@ float overtakeRiseSlope(float share)
 
 float overtakeTurnOfAStep(OvertakeRow pass, float intoM, float stepM)
 {
-    precise float turned = OvertakeTau * intoM / stepM;
-    precise float turn = pass.asideM / (stepM * stepM) * OvertakeTau * trigSin(turned);
+    float turned = roundedQuotient(OvertakeTau * intoM, stepM);
+    precise float turn = roundedQuotient(pass.asideM, stepM * stepM) * OvertakeTau * trigSin(turned);
     return turn;
 }
 
@@ -75,14 +75,14 @@ float overtakeAsideAtM(OvertakeRow pass, float atM)
     if (atM <= pass.outM || atM >= overtakeEndsM(pass)) return 0.0;
     if (atM < overtakeSteppedOutM(pass))
     {
-        precise float share = (atM - pass.outM) / pass.outStepM;
+        float share = roundedQuotient(atM - pass.outM, pass.outStepM);
         precise float aside = pass.asideM * overtakeRise(share);
         return aside;
     }
 
     if (atM <= pass.backM) return pass.asideM;
 
-    precise float share = (atM - pass.backM) / pass.backStepM;
+    float share = roundedQuotient(atM - pass.backM, pass.backStepM);
     precise float aside = pass.asideM * (1.0 - overtakeRise(share));
     return aside;
 }
@@ -93,15 +93,15 @@ float overtakeSlopeAtM(OvertakeRow pass, float atM)
     if (atM <= pass.outM || atM >= overtakeEndsM(pass)) return 0.0;
     if (atM < overtakeSteppedOutM(pass))
     {
-        precise float share = (atM - pass.outM) / pass.outStepM;
-        precise float slope = pass.asideM / pass.outStepM * overtakeRiseSlope(share);
+        float share = roundedQuotient(atM - pass.outM, pass.outStepM);
+        precise float slope = roundedQuotient(pass.asideM, pass.outStepM) * overtakeRiseSlope(share);
         return slope;
     }
 
     if (atM <= pass.backM) return 0.0;
 
-    precise float share = (atM - pass.backM) / pass.backStepM;
-    precise float slope = -pass.asideM / pass.backStepM * overtakeRiseSlope(share);
+    float share = roundedQuotient(atM - pass.backM, pass.backStepM);
+    precise float slope = roundedQuotient(-pass.asideM, pass.backStepM) * overtakeRiseSlope(share);
     return slope;
 }
 
@@ -137,8 +137,7 @@ void overtakePoseAtM(OvertakeRow pass, uint first, uint end, float atM, out vec2
     axleM = axle;
     precise vec2 pointing = (direction * (1.0 - (curvature * asideM))) + (right * overtakeSlopeAtM(pass, atM));
     precise float lengthSquared = pointing.x * pointing.x + pointing.y * pointing.y;
-    precise vec2 unit = pointing / sqrt(lengthSquared);
-    forward = unit;
+    forward = roundedQuotient(pointing, roundedSqrt(lengthSquared));
 }
 
 // How the pass bends at this metre of the line, the line's own bend under it included, signed as the line's
@@ -154,8 +153,8 @@ float overtakeBendAtM(OvertakeRow pass, uint first, uint end, float atM)
     precise float alongSquared = along * along;
     precise float bent = (alongSquared * lineBend) + (along * overtakeTurnAtM(pass, atM)) + (2.0 * lineBend * slope * slope);
     precise float stretch = alongSquared + (slope * slope);
-    precise float bend = bent / (stretch * sqrt(stretch));
-    return bend;
+    precise float under = stretch * roundedSqrt(stretch);
+    return roundedQuotient(bent, under);
 }
 
 #endif

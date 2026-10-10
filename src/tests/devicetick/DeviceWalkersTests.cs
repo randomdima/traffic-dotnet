@@ -21,16 +21,9 @@ namespace TrafficSimulation.Tests.DeviceTick;
 /// device, and what it came to held to what the town made of the same walkers (<see cref="WalkersOnTheDevice"/>).
 /// </summary>
 /// <remarks>
-/// <para>
-/// <b>Exact where the arithmetic is the host's</b>, and within the device's own trigonometry where a sine, cosine or
-/// arctangent is taken: where a walker is found on a bent way and how far off it, a point sampled on one, and how fast a
-/// walker goes the way it faces (<see cref="WalkersOnTheDevice.Near(float, float)"/>).
-/// </para>
-/// <para>
-/// <b>A discrete outcome is exact everywhere</b>, and a walker stationed within a millimetre of a threshold a last place
-/// of trigonometry could carry it across — walking a way out, standing on its way's ground, arriving — is left out of the
-/// station's comparison rather than the check loosened. How many were is in the message.
-/// </para>
+/// <b>Every figure to the bit</b> (<see cref="WalkersOnTheDevice.Same(float, float)"/>), the trigonometry's among them —
+/// where a walker is found on a bent way and how far off it, a point sampled on one, and how fast a walker goes the way it
+/// faces — since the device's is the host's (<c>trig.glsl</c>).
 /// </remarks>
 [Trait(Tier.Key, Tier.Device)]
 [Trait(Priority.Key, Priority.P3)]
@@ -39,7 +32,7 @@ public class DeviceWalkersTests(WalkersOnTheDevice run) : IClassFixture<WalkersO
     /// <summary>
     /// <b>Every walker is stationed where the town stations it</b>: on the same way of its route, on its own way's ground
     /// or not, walking or arrived, walking its route or back onto it, with the same pass — and found as far along its way,
-    /// as far off it, aiming at and walking back to the same places, to the device's own trigonometry.
+    /// as far off it, aiming at and walking back to the same places.
     /// </summary>
     [Fact]
     public void EveryWalkerIsStationedAsTheTownStationsIt() => Assert.True(run.Stations.Kept, run.Stations.Said);
@@ -47,7 +40,7 @@ public class DeviceWalkersTests(WalkersOnTheDevice run) : IClassFixture<WalkersO
     /// <summary>
     /// <b>Every walker's body is laid where the town lays it</b>: held as the same ground, over the same ways and the same
     /// stretches of each in the same order — its own way's off its place on it — travelling the same ones, onward the
-    /// same, at rest or not, going as fast down them to the device's own cosine.
+    /// same, at rest or not, going as fast down them.
     /// </summary>
     [Fact]
     public void EveryWalkersBodyIsLaidAsTheTownLaysIt() => Assert.True(run.Bodies.Kept, run.Bodies.Said);
@@ -71,15 +64,14 @@ public class DeviceWalkersTests(WalkersOnTheDevice run) : IClassFixture<WalkersO
     /// <b>Every walker's claim is laid as the town lays it</b>: a hold for the same walkers, answered with the plans or
     /// held where it stands as the town's is, kept off what cuts it by as much — and its pieces, main claims and the
     /// secondary claims their marks place, the same rows in the same order: ways, stretches, line metres, arrivals, rungs
-    /// and how far the walker's own body already reaches, going as fast down them to the device's own cosine.
+    /// and how far the walker's own body already reaches, going as fast down them.
     /// </summary>
     [Fact]
     public void EveryWalkersClaimIsLaidAsTheTownLaysIt() => Assert.True(run.Claims.Kept, run.Claims.Said);
 
     /// <summary>
     /// <b>Every walker reads its answer as the town reads it</b>: granted as far, on or held off the same zebra, its pass
-    /// begun, withdrawn or over where the town's is, walking the same action — and aimed at the same place, to the device's
-    /// own trigonometry.
+    /// begun, withdrawn or over where the town's is, walking the same action — and aimed at the same place.
     /// </summary>
     [Fact]
     public void EveryWalkerReadsItsAnswerAsTheTownReadsIt() => Assert.True(run.Readings.Kept, run.Readings.Said);
@@ -126,9 +118,6 @@ public sealed class WalkersOnTheDevice : IDisposable
 
     const float RoomPastM = 4f;
 
-    /// <summary>How near a threshold a trigonometric last place could carry a walker's station across, in metres.</summary>
-    const float ThresholdM = 1e-3f;
-
     readonly Lavapipe _device = new();
 
     internal Asked Stations { get; } = new("stationed");
@@ -156,7 +145,6 @@ public sealed class WalkersOnTheDevice : IDisposable
         var body = new BodyPiece[WalkingGround.MostPiecesOfABody];
         var left = new SweptRun[Sidestepping.MostRunsOfAPass];
         var planned = new bool[world.People.Count];
-        var aside = 0;
         var straights = 0;
         var hops = 0;
         var byAction = new int[Enum.GetValues<PersonAction>().Length];
@@ -169,7 +157,7 @@ public sealed class WalkersOnTheDevice : IDisposable
                     onDevice.Run(Piece.Station);
                     break;
                 case ClaimsStage.Stationed:
-                    aside += CompareTheStations(town, onDevice);
+                    CompareTheStations(town, onDevice);
                     onDevice.Lay(town, Piece.Body);
                     onDevice.Run(Piece.Body);
                     CompareTheBodies(town, onDevice, body);
@@ -208,34 +196,23 @@ public sealed class WalkersOnTheDevice : IDisposable
         };
 
         loop.Advance(WatchedTicks);
-        Stations.Also = $" ({aside} on a threshold)";
         Walks.Also = $" ({byAction[(int)PersonAction.Walk]} walking, {hops} of them hopping, {byAction[(int)PersonAction.Sidestep]} sidestepping, {byAction[(int)PersonAction.Rejoin]} walking back, {byAction[(int)PersonAction.Post]} to a post; {straights} straights)";
     }
 
-    /// <returns>How many walkers were left out, stationed on a threshold.</returns>
-    int CompareTheStations(TownWorld town, DeviceWalkers onDevice)
+    void CompareTheStations(TownWorld town, DeviceWalkers onDevice)
     {
-        var aside = 0;
         var people = town.People;
         for (var person = 0; person < people.Count; person++)
         {
-            if (OnAThreshold(town, person))
-            {
-                aside++;
-                continue;
-            }
-
             Stations.Count++;
             var row = onDevice.Walkers[person];
             var same = row.OnWay == people.OnWay[person] && row.RouteTaken == people.RouteTaken[person]
                        && row.Is(WalkerRow.Walking) == people.Walking[person] && row.Action == (uint)people.Action[person]
-                       && SamePass(row, town, person) && Near(people.OnWayM[person], row.OnWayM)
-                       && Near(people.OffWayM[person], row.OffWayM) && Near(people.DestinationM[person], row.DestinationM)
-                       && Near(town.WalkingBack.BackToM[person], row.BackToM);
+                       && SamePass(row, town, person) && Same(people.OnWayM[person], row.OnWayM)
+                       && Same(people.OffWayM[person], row.OffWayM) && Same(people.DestinationM[person], row.DestinationM)
+                       && Same(town.WalkingBack.BackToM[person], row.BackToM);
             if (!same) Stations.Differ.Add($"walker {person}: town way {people.OnWay[person]} slot {people.RouteTaken[person]} at {people.OnWayM[person]} off {people.OffWayM[person]} {people.Action[person]} aiming {people.DestinationM[person]}; device way {row.OnWay} slot {row.RouteTaken} at {row.OnWayM} off {row.OffWayM} {(PersonAction)row.Action} aiming {row.DestinationM}");
         }
-
-        return aside;
     }
 
     void CompareTheBodies(TownWorld town, DeviceWalkers onDevice, BodyPiece[] into)
@@ -260,7 +237,7 @@ public sealed class WalkersOnTheDevice : IDisposable
                 var expected = DeviceClaims.ClaimRow.Of(
                     new LaneClaim(piece.FromM, piece.ToM, piece.AlongMps, occupant, ClaimPriority.Hard, roster, piece.OnItsLine, Onward: piece.Onward, Still: piece.Still),
                     piece.Way, false, piece.FromM);
-                same = Near(expected.AlongMps, laid[at].AlongMps) && laid[at] with { AlongMps = expected.AlongMps } == expected;
+                same = laid[at] == expected;
             }
 
             if (!same) Bodies.Differ.Add($"walker {person}: town {count} as {occupant}/{roster} [{string.Join(", ", into[..count])}]; device {laid.Length} as {row.HeldAs} [{string.Join(", ", laid.ToArray())}]");
@@ -337,7 +314,7 @@ public sealed class WalkersOnTheDevice : IDisposable
                 var slot = first + at;
                 var expected = DeviceClaims.ClaimRow.Of(
                     claims.Slots[slot], claims.SlotWays[slot], false, claims.Slots[slot].Secondary ? claims.Slots[slot].FromM : claims.SlotStandsToM[slot]);
-                same = Near(expected.AlongMps, rows[at].AlongMps) && rows[at] with { Hold = expected.Hold, AlongMps = expected.AlongMps } == expected;
+                same = rows[at] with { Hold = expected.Hold } == expected;
             }
 
             if (!same)
@@ -359,7 +336,7 @@ public sealed class WalkersOnTheDevice : IDisposable
             Readings.Count++;
             var row = onDevice.Walkers[person];
             var same = row.GrantM == people.GrantM[person] && row.OnCrossing == people.OnCrossing[person]
-                       && row.Action == (uint)people.Action[person] && SamePass(row, town, person) && Near(people.DestinationM[person], row.DestinationM);
+                       && row.Action == (uint)people.Action[person] && SamePass(row, town, person) && Same(people.DestinationM[person], row.DestinationM);
             if (!same) Readings.Differ.Add($"walker {person}: town granted {people.GrantM[person]} crossing {people.OnCrossing[person]} {people.Action[person]} {people.Pass[person]} aiming {people.DestinationM[person]}; device {row.GrantM} {row.OnCrossing} {(PersonAction)row.Action} begun {row.Is(WalkerRow.PassBegun)} aside {row.PassAsideM} aiming {row.DestinationM}");
         }
     }
@@ -486,30 +463,10 @@ public sealed class WalkersOnTheDevice : IDisposable
                && row.PassAsideM == pass.AsideM && row.Is(WalkerRow.PassBegun) == pass.Begun;
     }
 
-    /// <summary>
-    /// Whether the town stationed a walker within <see cref="ThresholdM"/> of a threshold its own trigonometry decides:
-    /// the end of the way it is on, the edge of that way's ground, or the hop's end.
-    /// </summary>
-    static bool OnAThreshold(TownWorld town, int person)
-    {
-        var people = town.People;
-        var way = people.CurrentRouteWay(person);
-        if (way == -1 || !people.Walking[person]) return false;
+    /// <summary>The same float to the bit.</summary>
+    internal static bool Same(float host, float onDevice) => BitConverter.SingleToInt32Bits(host) == BitConverter.SingleToInt32Bits(onDevice);
 
-        var walkedOutM = MathF.Abs(people.OnWayM[person] - (town.WalkingGround.EndOfTheWayM(person) - Config.PersonStepM));
-        var groundM = MathF.Abs(people.OffWayM[person] - (town.Walking.WayWidthM(way) * 0.5f));
-        var arrivedM = MathF.Abs((people.DestinationM[person] - people.PositionM[person]).Length() - people.RadiusM[person]);
-        return walkedOutM < ThresholdM || groundM < ThresholdM || arrivedM < ThresholdM;
-    }
-
-    /// <summary>
-    /// Within a part in a thousand and a hundredth absolute: a point on a bent way, and a pace along a heading, is found
-    /// by the device's own sine, which Vulkan allows far further off the host's than a float's last bit.
-    /// </summary>
-    internal static bool Near(float host, float onDevice) =>
-        host == onDevice || MathF.Abs(host - onDevice) <= 1e-2f + (1e-3f * MathF.Abs(host));
-
-    static bool Near(Vector2 host, Vector2 onDevice) => Near(host.X, onDevice.X) && Near(host.Y, onDevice.Y);
+    static bool Same(Vector2 host, Vector2 onDevice) => Same(host.X, onDevice.X) && Same(host.Y, onDevice.Y);
 
     public void Dispose() => _device.Dispose();
 }

@@ -18,8 +18,9 @@ float tyreMarkIntensity(float powerM2S3, float thresholdM2S3)
 {
     if (thresholdM2S3 <= 0.0) return 0.0;
 
-    precise float share = (powerM2S3 - thresholdM2S3) / (thresholdM2S3 * TyreMarkSaturationSpan);
-    return clamp(share, 0.0, 1.0);
+    precise float over = powerM2S3 - thresholdM2S3;
+    precise float span = thresholdM2S3 * TyreMarkSaturationSpan;
+    return clamp(roundedQuotient(over, span), 0.0, 1.0);
 }
 
 // How dark a mark this wheel leaves on the ground under it (TyreModel.GroundMarkIntensity).
