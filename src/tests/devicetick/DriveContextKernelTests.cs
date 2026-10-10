@@ -51,8 +51,8 @@ public class DriveContextKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
 
     /// <summary>
     /// <b>Every car that followed its line is told what the town told it</b> — its grant, what cut it, its margin, the
-    /// end of its plan, whether it waits to pass, and the junction and light ahead — exactly, and where the place it was
-    /// sent to falls on its line to the device's own trigonometry.
+    /// end of its plan, whether it waits to pass, the junction and light ahead, and where the place it was sent to falls on
+    /// its line — exactly.
     /// </summary>
     /// <remarks>
     /// Ten seconds of the suite's city have 36 000 such contexts, inside boxes, behind lights and short of claimed ones —
@@ -186,17 +186,13 @@ public class DriveContextKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         var boxFlags = (cars.BoxIsOurs[car] ? 1u : 0u) | (cars.TurningAtTheBox[car] ? 2u : 0u) | (cars.InsideTheBox[car] ? 4u : 0u)
                        | (cars.CommittedToTheBox[car] ? 8u : 0u);
         var same = host.AuthorityM == context.AuthorityM
-                   && (uint)host.GrantCutBy == context.GrantCutBy && Near(host.PlaceStopM, context.PlaceStopM)
+                   && (uint)host.GrantCutBy == context.GrantCutBy && Same(host.PlaceStopM, context.PlaceStopM)
                    && host.MarginM == context.MarginM && host.WaitsToPass == (context.WaitsToPass != 0u)
                    && host.HorizonM == context.HorizonM && cars.ToTheBoxM[car] == box.ToTheBoxM
                    && cars.LightAheadM[car] == box.LightAheadM && boxFlags == box.Flags;
         if (!same) differ.Add($"tick {tick} car {car}: town {host} box {cars.ToTheBoxM[car]} light {cars.LightAheadM[car]} flags {boxFlags}; device {context} {box}");
     }
 
-    /// <summary>
-    /// Within a part in a thousand and a hundredth absolute: where a place falls on a bend is found by the device's own
-    /// sine, which Vulkan allows far further off the host's than a float's last bit.
-    /// </summary>
-    static bool Near(float host, float onDevice) =>
-        host == onDevice || MathF.Abs(host - onDevice) <= 1e-2f + (1e-3f * MathF.Abs(host));
+    /// <summary>The same float to the bit.</summary>
+    static bool Same(float host, float onDevice) => BitConverter.SingleToInt32Bits(host) == BitConverter.SingleToInt32Bits(onDevice);
 }

@@ -128,7 +128,7 @@ internal static class DeviceCarTickProbe
         Console.WriteLine($"    of it, median {Median(sentKb),8:F0} KiB a tick, lines {Median(linesKb):F0} KiB; most {sentKb.Max():F0} KiB");
         Console.WriteLine($"  handing every row back (shadow only) median {Median(readMs),8:F3} ms");
         Console.WriteLine($"  finding and writing what changed (shadow only) median {Median(layMs),8:F3} ms");
-        Console.WriteLine($"  {differ} of {asked} car-ticks differ; {tick.SlideOnsets} wheels at a slide's onset");
+        Console.WriteLine($"  {differ} of {asked} car-ticks differ");
         Console.WriteLine($"  switches: {tick.StepsKeptByTheTown} steps kept by the town's claims, {tick.SteppedOut} stepped out onto the lane beside");
         foreach (var (kind, many) in kinds) Console.WriteLine($"    {kind}, {many}: the first {examples[kind]}");
         Console.WriteLine($"  the cars the device does not take, a tick on average: {string.Join(", ", left.Select(what => $"{what.Key} {what.Value / (double)Math.Max(1, hostMs.Count):F1}"))}");

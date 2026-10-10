@@ -136,7 +136,7 @@ public class FollowerKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
 
     /// <summary>
     /// <b>Two thousand cars on the fixture town's lines are driven as the host drives them</b>: the same term binds each,
-    /// the same pedal is pressed by as much and the margin is spent on the same ones — to the device's own trigonometry.
+    /// the same pedal is pressed by as much and the margin is spent on the same ones — to the bit.
     /// </summary>
     [Fact]
     public void TheLinesAreDrivenAsTheHostDrivesThem()
@@ -216,9 +216,9 @@ public class FollowerKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
                 car.Reverse, car.Last, car.Pass, car.Laneless, car.BlueLight, car.PaceMps);
             var command = commands.Span<CommandRow>()[at];
             var outcome = outcomes.Span<Vector4>()[at];
-            if (!Near(host.Command.SteerRad, command.SteerRad) || !Near(host.Command.ThrottleMps2, command.ThrottleMps2)
-                || !Near(host.Command.BrakeMps2, command.BrakeMps2) || CommandRow.Of(host.Command).HandbrakeAndReverse != command.HandbrakeAndReverse
-                || (uint)host.Hold != (uint)outcome.X || !Near(host.PlannedMps, outcome.Y) || host.Hazard != (outcome.Z != 0f))
+            if (!Same(host.Command.SteerRad, command.SteerRad) || !Same(host.Command.ThrottleMps2, command.ThrottleMps2)
+                || !Same(host.Command.BrakeMps2, command.BrakeMps2) || CommandRow.Of(host.Command).HandbrakeAndReverse != command.HandbrakeAndReverse
+                || (uint)host.Hold != (uint)outcome.X || !Same(host.PlannedMps, outcome.Y) || host.Hazard != (outcome.Z != 0f))
             {
                 differ.Add($"car {at}: host {host}, device steer {command.SteerRad} throttle {command.ThrottleMps2} brake {command.BrakeMps2} hold {(DrivingHold)(uint)outcome.X} planned {outcome.Y}");
             }
@@ -227,10 +227,6 @@ public class FollowerKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         return differ;
     }
 
-    /// <summary>
-    /// Within a part in a thousand and a hundredth absolute: the lead point is found by the device's own sine and the
-    /// wheel by its own arctangent, which Vulkan allows far further off the host's than a float's last bit.
-    /// </summary>
-    static bool Near(float host, float onDevice) =>
-        host == onDevice || MathF.Abs(host - onDevice) <= 1e-2f + (1e-3f * MathF.Abs(host));
+    /// <summary>The same float to the bit.</summary>
+    static bool Same(float host, float onDevice) => BitConverter.SingleToInt32Bits(host) == BitConverter.SingleToInt32Bits(onDevice);
 }

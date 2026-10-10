@@ -23,7 +23,7 @@ namespace TrafficSimulation.Bench;
 /// <remarks>
 /// The device's figure is its own time from the first kernel to the last, read off the queue's stamps: what laying the
 /// shadow's rows and reading the runs back cost is the shadow's and is printed apart. An instance differs where any of
-/// its fields does but a tow arm's bearing, which is the device's own arctangent and is held within it.
+/// its fields does.
 /// </remarks>
 internal static class DeviceSpritesProbe
 {
@@ -100,8 +100,8 @@ internal static class DeviceSpritesProbe
                 onDevice.Emit(centreM, spanM, pxPerM, world.ElapsedS);
                 readMs.Add(emitting.Elapsed.TotalMilliseconds);
                 rows[at].Drawn += overCount + aboveCount;
-                rows[at].Differ += Differing(over.AsSpan(0, overCount), onDevice.Over, looks)
-                                   + Differing(above.AsSpan(0, aboveCount), onDevice.Above, looks);
+                rows[at].Differ += Differing(over.AsSpan(0, overCount), onDevice.Over)
+                                   + Differing(above.AsSpan(0, aboveCount), onDevice.Above);
             }
         }
 
@@ -173,17 +173,12 @@ internal static class DeviceSpritesProbe
     }
 
     /// <summary>How many instances of a run differ, counting every one past the shorter run's end.</summary>
-    static int Differing(ReadOnlySpan<SpriteInstance> host, ReadOnlySpan<SpriteInstance> onDevice, TownSprites looks)
+    static int Differing(ReadOnlySpan<SpriteInstance> host, ReadOnlySpan<SpriteInstance> onDevice)
     {
         var differ = Math.Abs(host.Length - onDevice.Length);
         for (var at = 0; at < Math.Min(host.Length, onDevice.Length); at++)
         {
-            var arm = host[at].Sheet >= looks.FirstBeamSheet && host[at].Sheet < looks.FirstBuildingSheet;
-            var same = host[at] with { HeadingRad = 0f } == onDevice[at] with { HeadingRad = 0f }
-                       && (arm
-                           ? MathF.Abs(host[at].HeadingRad - onDevice[at].HeadingRad) <= 1e-2f + (1e-3f * MathF.Abs(host[at].HeadingRad))
-                           : host[at].HeadingRad == onDevice[at].HeadingRad);
-            if (!same) differ++;
+            if (host[at] != onDevice[at]) differ++;
         }
 
         return differ;

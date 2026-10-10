@@ -25,9 +25,8 @@ namespace TrafficSimulation.Tests.DeviceTick;
 /// same two runs with (<see cref="TownSprites.FillMoving"/>): the same instances in the same order, field for field.
 /// </summary>
 /// <remarks>
-/// <b>Exact but for a tow arm's bearing</b>, which is the device's own arctangent; where the arm stands is not, since
-/// its direction is a quotient by a root and both are rounded as the host rounds them. Nothing else in a sprite is a
-/// transcendental — a car's forward is laid from the host's — so every other field is compared bit for bit.
+/// <b>Every field bit for bit</b>, a tow arm's bearing among them: the device's arctangent, quotients and roots are the
+/// host's (<c>trig.glsl</c>, <c>rounded.glsl</c>), and a car's forward is laid from the host's.
 /// </remarks>
 [Trait(Tier.Key, Tier.Device)]
 [Trait(Priority.Key, Priority.P3)]
@@ -84,8 +83,8 @@ public class DeviceSpritesTests(Lavapipe device) : IClassFixture<Lavapipe>
                 var (overCount, aboveCount) = looks.FillMoving(world, Config, centreM, spanM, pxPerM, over, above);
                 onDevice.Emit(centreM, spanM, pxPerM, world.ElapsedS);
                 var frame = $"tick {loop.Tick} {name}";
-                Compare($"{frame} over", over.AsSpan(0, overCount), onDevice.Over, looks, differ);
-                Compare($"{frame} above", above.AsSpan(0, aboveCount), onDevice.Above, looks, differ);
+                Compare($"{frame} over", over.AsSpan(0, overCount), onDevice.Over, differ);
+                Compare($"{frame} above", above.AsSpan(0, aboveCount), onDevice.Above, differ);
                 drawn += overCount + aboveCount;
             }
         }
@@ -153,8 +152,8 @@ public class DeviceSpritesTests(Lavapipe device) : IClassFixture<Lavapipe>
             town.TakeEveryCarBack(world);
             offTheTown.Lay(world);
             offTheTown.Emit(centreM, plan.WorldSizeM, PxPerM, world.ElapsedS);
-            Compare($"tick {loop.Tick} over", offTheTown.Over, offTheDevice.Over, looks, differ);
-            Compare($"tick {loop.Tick} above", offTheTown.Above, offTheDevice.Above, looks, differ);
+            Compare($"tick {loop.Tick} over", offTheTown.Over, offTheDevice.Over, differ);
+            Compare($"tick {loop.Tick} above", offTheTown.Above, offTheDevice.Above, differ);
             drawn += offTheTown.OverCount + offTheTown.AboveCount;
         }
 
@@ -205,7 +204,7 @@ public class DeviceSpritesTests(Lavapipe device) : IClassFixture<Lavapipe>
         onDevice.Emit(centreM, spanM, pixelsPerMetre: 10f, elapsedS: 0f);
 
         var differ = new List<string>();
-        Compare("walkers", host.AsSpan(0, written), onDevice.Over, looks, differ);
+        Compare("walkers", host.AsSpan(0, written), onDevice.Over, differ);
         Assert.True(differ.Count == 0, $"{differ.Count} differences over {written} walkers: {string.Join("; ", differ.Take(6))}");
     }
 
@@ -247,8 +246,8 @@ public class DeviceSpritesTests(Lavapipe device) : IClassFixture<Lavapipe>
                 cars, recovery, every, Config, ElapsedS, hands, AlsoDriven, centreM, spanM, leastPartM, above, CityPlan.RoadArrays.Over);
             onDevice.Emit(centreM, spanM, pxPerM, ElapsedS);
 
-            Compare($"{pxPerM} px/m over", over.AsSpan(0, overCount), onDevice.Over, looks, differ);
-            Compare($"{pxPerM} px/m above", above.AsSpan(0, aboveCount), onDevice.Above, looks, differ);
+            Compare($"{pxPerM} px/m over", over.AsSpan(0, overCount), onDevice.Over, differ);
+            Compare($"{pxPerM} px/m above", above.AsSpan(0, aboveCount), onDevice.Above, differ);
             drawn += overCount + aboveCount;
         }
 
@@ -349,23 +348,13 @@ public class DeviceSpritesTests(Lavapipe device) : IClassFixture<Lavapipe>
         return cars;
     }
 
-    static void Compare(string frame, ReadOnlySpan<SpriteInstance> host, ReadOnlySpan<SpriteInstance> onDevice, TownSprites looks, List<string> differ)
+    static void Compare(string frame, ReadOnlySpan<SpriteInstance> host, ReadOnlySpan<SpriteInstance> onDevice, List<string> differ)
     {
         if (host.Length != onDevice.Length) differ.Add($"{frame}: the host drew {host.Length}, the device {onDevice.Length}");
 
         for (var at = 0; at < Math.Min(host.Length, onDevice.Length); at++)
         {
-            if (!Same(host[at], onDevice[at], looks)) differ.Add($"{frame} #{at}: host {host[at]}; device {onDevice[at]}");
+            if (host[at] != onDevice[at]) differ.Add($"{frame} #{at}: host {host[at]}; device {onDevice[at]}");
         }
     }
-
-    static bool Same(in SpriteInstance host, in SpriteInstance onDevice, TownSprites looks)
-    {
-        var arm = host.Sheet >= looks.FirstBeamSheet && host.Sheet < looks.FirstBuildingSheet;
-        return host with { HeadingRad = 0f } == onDevice with { HeadingRad = 0f }
-               && (arm ? Near(host.HeadingRad, onDevice.HeadingRad) : host.HeadingRad == onDevice.HeadingRad);
-    }
-
-    static bool Near(float host, float onDevice) =>
-        host == onDevice || MathF.Abs(host - onDevice) <= 1e-2f + (1e-3f * MathF.Abs(host));
 }

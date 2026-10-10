@@ -213,13 +213,11 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 ### Device mirror
 
-- **The shadow's `AlongMps` tolerance** (`DeviceRebuild.Shadow`) allows for a heading grown over, though car rows now
-  carry the host's float exactly; only walker rows need it. `SlotOf` scans every slot for each host hold with a cut.
+- **`DeviceRebuild.Shadow.SlotOf` scans every slot** for each host hold with a cut.
 - **What still allows for the device's own trigonometry**, which is the host's to the bit since 2026-10-10 (core log):
   `DeviceBodyPhase.PointsWithin` is Vulkan's 2⁻¹¹ bound on a direction and its doc says the integration takes the
-  driver's own; `DeviceTownBodiesTests` asks within the solver's agreement a car park that stands to the bit for its whole
-  half minute; and `TyrePassKernelTests.Near`, `TyreKernelTests.Near`, `LineKernelTests`, `FollowerKernelTests`,
-  `DriveContextKernelTests` and `DeviceRebuildTests` each say they allow for it. Each held to the bit closes it.
+  driver's own; and `DeviceTownBodiesTests` asks within the solver's agreement a car park that stands to the bit for its
+  whole half minute. Each held to the bit closes it.
 - **`DeviceTyres` is laid its grounds and figures once**, at construction: `TownWorld.FiguresChanged` retunes the
   host's `WheelGrounds` and the device keeps the old ones.
 
@@ -243,11 +241,6 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   wreck's tyres are settled before the tick is handed over (`TownWorld.Settle`, in `ReadyTheStep`) on the town's figure
   too. Neither moved `--bench devicetown` or `DeviceTownRunOnTests`. The tyres of a car the town lays reading the
   device's wheel bits, and the step readied after the answers, closes it.
-- **The device's pedal is off the host's at the turn from braking to throttle**: in the fixture with a wreck staged
-  (`DeviceCarTickTests.ACarGettingPastAWreckTicksAsTheTownTicksIt`, every car held), one following car's tick of 13 200
-  held to wheel speed asked 0.180 m/s² where the host's `CarFollower.DriveTheLine` asked 0.192 from the same inputs —
-  past `Near`'s hundredth. That test holds only the overtaking car; finding which term of `follower.glsl` rounds apart,
-  and holding every car again, closes it.
 - **Two tests of "on its line"**: `Reacquire` takes a lane within `CarOffPathM × OffLineTolerance`, `ReadTheLine` keeps
   a line within `OffTheLineAllowanceM`, which is wider for a tow — so a tow can be refused a lane its line check
   would keep it on. One threshold closes it; it moves tows.

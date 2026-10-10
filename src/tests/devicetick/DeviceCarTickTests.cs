@@ -81,17 +81,15 @@ public class DeviceCarTickTests(Lavapipe device) : IClassFixture<Lavapipe>
                 waited |= overtaking && !world.Cars.Pass[driver].Begun;
                 drove |= overtaking && world.Cars.Pass[driver].Begun;
                 made |= (tick.TicksAfter[driver].Flags & DeviceCarTick.TickRow.PassMade) != 0;
-            }, onlyCar: driver);
+            });
 
         Assert.True(waited && drove && made, $"the device ticked car {driver} waiting {waited}, on its pass {drove}, past it {made}");
         Assert.True(differ.Count == 0, $"{differ.Count} of {asked} ticks differ: {string.Join("; ", differ.Take(6))}");
     }
 
     /// <param name="watch">Handed the tick and the cars it took once each tick has been held to the town's, before either settles.</param>
-    /// <param name="onlyCar">The one car whose ticks are held to the town's, or every car the device takes.</param>
     (List<string> Differ, int Asked) Shadow(
-        TownWorld world, SimLoop<TownWorld> loop, bool resident, int ticks, Action<DeviceCarTick, int[]>? watch = null,
-        int onlyCar = -1)
+        TownWorld world, SimLoop<TownWorld> loop, bool resident, int ticks, Action<DeviceCarTick, int[]>? watch = null)
     {
         var cars = world.Cars;
         var claims = world.Occupancy;
@@ -122,8 +120,6 @@ public class DeviceCarTickTests(Lavapipe device) : IClassFixture<Lavapipe>
 
             foreach (var car in taken.AsSpan(0, count))
             {
-                if (onlyCar >= 0 && car != onlyCar) continue;
-
                 asked++;
                 var why = tick.Disagreement(town, car);
                 if (why != null) differ.Add($"tick {loop.Tick} car {car}: {why}");

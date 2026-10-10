@@ -624,8 +624,7 @@ internal sealed partial class DeviceCarTick
     /// <summary>
     /// <b>What the device's tick of a car did that the town's tick of it did not</b>, after both: whether it lost its line,
     /// where it is on its line and the line itself, what it was told and the junction ahead, then its drive and its tyres —
-    /// or null where they agree. Every figure is held within <see cref="Near"/>, since a point on a bend is found by the
-    /// device's own sine; every outcome is held exactly.
+    /// or null where they agree. Every figure and every outcome is held to the bit (<see cref="Same"/>).
     /// </summary>
     /// <remarks>
     /// <b>The drive and the tyres are held to the host's own functions asked of what the device handed them</b>
@@ -680,8 +679,8 @@ internal sealed partial class DeviceCarTick
 
         // A car that lost its line has left the action its grant was laid for, and the town's Enter dropped the grant; the
         // device's tick leaves that to the action's change.
-        if (!Near(cars.ProgressM[car], tick.ProgressM) || (!lost && !Near(cars.CoveredSinceClaimM[car], tick.CoveredSinceClaimM))
-            || !Near(cars.AlongMps[car], tick.AlongMps) || !Near(cars.OffLineM[car], tick.OffLineM))
+        if (!Same(cars.ProgressM[car], tick.ProgressM) || (!lost && !Same(cars.CoveredSinceClaimM[car], tick.CoveredSinceClaimM))
+            || !Same(cars.AlongMps[car], tick.AlongMps) || !Same(cars.OffLineM[car], tick.OffLineM))
         {
             return $"reading: town progress {cars.ProgressM[car]} covered {cars.CoveredSinceClaimM[car]} along {cars.AlongMps[car]} " +
                    $"off {cars.OffLineM[car]}; device {tick}";
@@ -708,14 +707,14 @@ internal sealed partial class DeviceCarTick
     static string? Told(CarFleet cars, int car, in ContextRow context, in BoxRow box)
     {
         var host = cars.Context[car];
-        var same = Near(host.AuthorityM, context.AuthorityM)
-                   && (uint)host.GrantCutBy == context.GrantCutBy && Near(host.PlaceStopM, context.PlaceStopM)
+        var same = Same(host.AuthorityM, context.AuthorityM)
+                   && (uint)host.GrantCutBy == context.GrantCutBy && Same(host.PlaceStopM, context.PlaceStopM)
                    && host.MarginM == context.MarginM && host.WaitsToPass == (context.WaitsToPass != 0u)
-                   && Near(host.HorizonM, context.HorizonM) && host.PassAsideM == context.PassAsideM && host.BackUpM == context.BackUpM
-                   && host.Blocked == (context.Blocked != 0u) && Near(host.WaitAtM, context.WaitAtM);
+                   && Same(host.HorizonM, context.HorizonM) && host.PassAsideM == context.PassAsideM && host.BackUpM == context.BackUpM
+                   && host.Blocked == (context.Blocked != 0u) && Same(host.WaitAtM, context.WaitAtM);
         if (!same) return $"told: town {host}, device {context}";
 
-        return Near(cars.ToTheBoxM[car], box.ToTheBoxM) && Near(cars.LightAheadM[car], box.LightAheadM) && BoxFlagsOf(cars, car) == box.Flags
+        return Same(cars.ToTheBoxM[car], box.ToTheBoxM) && Same(cars.LightAheadM[car], box.LightAheadM) && BoxFlagsOf(cars, car) == box.Flags
             ? null
             : $"box: town {cars.ToTheBoxM[car]} light {cars.LightAheadM[car]} flags {BoxFlagsOf(cars, car)}, device {box}";
     }
@@ -749,9 +748,9 @@ internal sealed partial class DeviceCarTick
 
         var host = DeviceTyres.CommandRow.Of(drive.Command);
         var command = CommandsAfter[car];
-        var same = Near(host.SteerRad, command.SteerRad) && Near(host.ThrottleMps2, command.ThrottleMps2)
-                   && Near(host.BrakeMps2, command.BrakeMps2) && host.HandbrakeAndReverse == command.HandbrakeAndReverse
-                   && (uint)drive.Hold == tick.Hold && Near(drive.PlannedMps, tick.PlannedMps)
+        var same = Same(host.SteerRad, command.SteerRad) && Same(host.ThrottleMps2, command.ThrottleMps2)
+                   && Same(host.BrakeMps2, command.BrakeMps2) && host.HandbrakeAndReverse == command.HandbrakeAndReverse
+                   && (uint)drive.Hold == tick.Hold && Same(drive.PlannedMps, tick.PlannedMps)
                    && drive.Hazard == ((tick.Flags & TickRow.Hazard) != 0);
         return same ? null : $"drive: host {drive}, device {command} {(DrivingHold)tick.Hold} planned {tick.PlannedMps}";
     }
@@ -766,22 +765,9 @@ internal sealed partial class DeviceCarTick
         row.SteerRad, row.ThrottleMps2, row.BrakeMps2, (row.HandbrakeAndReverse & 1u) != 0, (row.HandbrakeAndReverse & 2u) != 0);
 
     /// <summary>
-    /// How many wheels the shadow found at the onset of a slide — sliding on one side and gripping on the other — and so
-    /// did not hold (<see cref="Delivered"/>).
-    /// </summary>
-    public int SlideOnsets { get; private set; }
-
-    /// <summary>
     /// <b>The device's tyre pass held to the host's asked of the device's own command</b>, off the tyres the device held
-    /// going in. The town's own tyres were asked the town's command, and a steer a part in ten thousand off — a point on
-    /// its line found by the device's own sine — is a wheel's sideways impulse a part in a hundred off.
+    /// going in — so a command apart is the drive's to report (<see cref="Driven"/>), and not every wheel's after it.
     /// </summary>
-    /// <remarks>
-    /// <b>A wheel on its friction circle answers either way</b>: the device's own tangent turns one front wheel a
-    /// ten-millionth of a radian from the host's, and that decides between grip and slide, a tenth of the impulse apart. Such
-    /// a wheel is counted (<see cref="SlideOnsets"/>) and not held, and neither is whether the car's driven wheels slipped,
-    /// which it can decide.
-    /// </remarks>
     string? Delivered(TownWorld town, int car, in DeviceTyres.CommandRow onDevice)
     {
         var cars = town.Cars;
@@ -812,35 +798,29 @@ internal sealed partial class DeviceCarTick
             new TyreCarry(_spinMps, _scrubTravelM, _marking, _markFromM, _markIntensity, ref slipThrottle, ref slipping), _surfaces,
             _impulses, _scrub, _marks, out _);
         if (atRest != ((after.Flags & DeviceTyres.CarRow.AtRest) != 0)) return $"at rest: host {atRest}, device {after}";
-        if (!Near(slipThrottle, after.SlipThrottle)) return $"throttle: host {slipThrottle}, device {after}";
+        if (!Same(slipThrottle, after.SlipThrottle)) return $"throttle: host {slipThrottle}, device {after}";
 
-        var onsets = 0;
         for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
         {
             var carried = _tyres.WheelsAfter[four + wheel];
             var spent = _tyres.Impulses[four + wheel];
-            if (_scrub[wheel].Sliding != ((_tyres.Scrub[four + wheel].Flags & DeviceTyres.ScrubRow.Sliding) != 0))
-            {
-                onsets++;
-                continue;
-            }
-
-            var same = Near(_spinMps[wheel], carried.SpinMps) && Near(_scrubTravelM[wheel], carried.ScrubTravelM)
-                       && _marking[wheel] == (carried.Marking != 0) && Near(_markIntensity[wheel], carried.MarkIntensity)
-                       && Near(_markFromM[wheel].X, carried.MarkFromM.X) && Near(_markFromM[wheel].Y, carried.MarkFromM.Y)
-                       && Near(_impulses[wheel].ImpulseNs.X, spent.X) && Near(_impulses[wheel].ImpulseNs.Y, spent.Y)
-                       && Near(_impulses[wheel].AtM.X, spent.Z) && Near(_impulses[wheel].AtM.Y, spent.W);
+            var same = _scrub[wheel].Sliding == ((_tyres.Scrub[four + wheel].Flags & DeviceTyres.ScrubRow.Sliding) != 0)
+                       && Same(_spinMps[wheel], carried.SpinMps) && Same(_scrubTravelM[wheel], carried.ScrubTravelM)
+                       && _marking[wheel] == (carried.Marking != 0) && Same(_markIntensity[wheel], carried.MarkIntensity)
+                       && Same(_markFromM[wheel].X, carried.MarkFromM.X) && Same(_markFromM[wheel].Y, carried.MarkFromM.Y)
+                       && Same(_impulses[wheel].ImpulseNs.X, spent.X) && Same(_impulses[wheel].ImpulseNs.Y, spent.Y)
+                       && Same(_impulses[wheel].AtM.X, spent.Z) && Same(_impulses[wheel].AtM.Y, spent.W);
             if (!same) return $"wheel {wheel}: host spin {_spinMps[wheel]} {_impulses[wheel]} {_scrub[wheel]}, device {carried} {spent}";
         }
 
-        SlideOnsets += onsets;
-        return onsets > 0 || slipping == ((after.Flags & DeviceTyres.CarRow.DrivenSlipping) != 0)
-            ? null
-            : $"slipping: host {slipping}, device {after}";
+        return slipping == ((after.Flags & DeviceTyres.CarRow.DrivenSlipping) != 0) ? null : $"slipping: host {slipping}, device {after}";
     }
 
-    /// <summary>Within a part in a thousand and a hundredth absolute — the device's trigonometry, as every kernel test reads it.</summary>
-    static bool Near(float host, float onDevice) => host == onDevice || MathF.Abs(host - onDevice) <= 1e-2f + (1e-3f * MathF.Abs(host));
+    /// <summary>
+    /// The host's figure to the bit, as the device keeps it: one the host leaves subnormal the device flushes to nought, as
+    /// every kernel does.
+    /// </summary>
+    static bool Same(float host, float onDevice) => Flushed(host) == onDevice;
 
     /// <summary>
     /// A figure as a kernel reads it: <b>below the least normal float it is nought</b>, since a kernel's float flushes

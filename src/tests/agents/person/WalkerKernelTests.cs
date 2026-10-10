@@ -62,10 +62,9 @@ public class WalkerKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
     }
 
     /// <remarks>
-    /// <b>No aim stands on the edge between facing and turning</b>, nor half a turn round: which side of either a bearing
-    /// falls is decided by the device's own arctangent, so a bearing a part in a million from the edge could go either way
-    /// for a reason that is not the follower's. Every one is a fifth of a tick's turn clear of the first and a twentieth
-    /// of a radian clear of the second.
+    /// <b>Each aim is the kind it is drawn as</b>: a facing one a fifth of a tick's turn inside the edge between facing and
+    /// turning, a turning one a fifth past it and a twentieth of a radian short of half a turn round — so each kind is asked
+    /// as often as it is drawn.
     /// </remarks>
     static Walker[] Walkers(int count, int seed)
     {
@@ -158,8 +157,8 @@ public class WalkerKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
     }
 
     /// <summary>
-    /// <b>Two thousand walkers face where the host's do</b>: exactly where one turned at the turn rate, stood or was not
-    /// its own to turn, and to the device's own arctangent where it took the bearing of an aim it was already facing.
+    /// <b>Two thousand walkers face where the host's do</b>, to the bit: where one turned at the turn rate, stood, was not
+    /// its own to turn, or took the bearing of an aim it was already facing.
     /// </summary>
     [Fact]
     public void EveryWalkerFacesWhereTheHostsDoes()
@@ -173,9 +172,8 @@ public class WalkerKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
             var walker = walkers[at];
             if (!walker.Tick(out var host)) continue;
 
-            var tookTheBearing = walker.Kind == AimKind.Facing && !walker.Paused && !walker.Inside;
             var onDevice = outcomes[at].HeadingRad;
-            if (tookTheBearing ? !Near(host.HeadingRad, onDevice) : host.HeadingRad != onDevice)
+            if (BitConverter.SingleToInt32Bits(host.HeadingRad) != BitConverter.SingleToInt32Bits(onDevice))
             {
                 differ.Add($"walker {at} ({walker.Kind}, flags {walker.Flags}): from {walker.HeadingRad}, host {host.HeadingRad}, device {onDevice}");
             }
@@ -183,11 +181,4 @@ public class WalkerKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
 
         Assert.True(differ.Count == 0, $"{differ.Count} of {walkers.Length} face otherwise: {string.Join("; ", differ.Take(5))}");
     }
-
-    /// <summary>
-    /// Within a part in a thousand and a hundredth absolute: the bearing is the device's own arctangent, which Vulkan allows
-    /// far further off the host's than a float's last bit.
-    /// </summary>
-    static bool Near(float host, float onDevice) =>
-        host == onDevice || MathF.Abs(host - onDevice) <= 1e-2f + (1e-3f * MathF.Abs(host));
 }

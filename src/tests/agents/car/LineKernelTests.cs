@@ -44,12 +44,8 @@ public class LineKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
     /// <summary>
     /// <b>Two thousand cars on the fixture town's lines are read as the host reads them</b>: the same ones pass into
     /// their next lane and leave the same line behind them, arc for arc and metre for metre, and the same ones find
-    /// their line short — where they are along it and how far off it, to the device's own trigonometry.
+    /// their line short — where they are along it and how far off it, to the bit.
     /// </summary>
-    /// <remarks>
-    /// Every car is placed off the two thresholds a trigonometric last place could carry it across: a tenth of a metre
-    /// clear of where its next lane begins, and clear of its sight distance from the end of its line.
-    /// </remarks>
     [Fact]
     public void TheLinesAreReadAsTheHostReadsThem()
     {
@@ -102,15 +98,17 @@ public class LineKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         var differ = new List<string>();
         for (var car = 0; car < Count; car++)
         {
-            var advance = LineReader.Advance(cars, car, rearAxles[car]);
-            var offLineM = CarFollower.OffLineM(cars.LineOf(car), rearAxles[car], advance.ProgressM);
+            // Off the pose, as the device and the town's own tick have it: the staged rear axle is a last bit from it.
+            var rearAxleM = CarFollower.RearAxleM(cars.BuildOf(car), cars.PositionM[car], forwards[car]);
+            var advance = LineReader.Advance(cars, car, rearAxleM);
+            var offLineM = CarFollower.OffLineM(cars.LineOf(car), rearAxleM, advance.ProgressM);
             var reading = readings.Span<Vector4>()[car];
             var line = lines.Span<CarLineRow>()[car];
             var slots = car * mostLanes;
             var laid = car * arcsPerCar;
             var same =
-                Near(advance.ProgressM, reading.X) && Near(advance.CoveredM, reading.Y) && advance.ShiftM == reading.Z
-                && Near(offLineM, reading.W) && line == CarLineRow.Of(cars, car)
+                Same(advance.ProgressM, reading.X) && Same(advance.CoveredM, reading.Y) && advance.ShiftM == reading.Z
+                && Same(offLineM, reading.W) && line == CarLineRow.Of(cars, car)
                 && LineReader.RunsShort(cars, car, advance.ProgressM, runsOn[car] != 0u) == (runsShort.Span<uint>()[car] != 0u);
             for (var slot = 0; same && slot < cars.Line[car].LaneCount; slot++)
             {
@@ -171,9 +169,7 @@ public class LineKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
 
             ref readonly var build = ref cars.BuildOf(car);
             var atM = Between(0f, line.LengthM);
-            var nearANextLane = line.LaneCount > 1 && MathF.Abs(atM - cars.LaneStartsOf(car)[1]) < 0.1f;
-            var nearItsSight = MathF.Abs(line.LengthM - atM - build.SightM) < 0.2f;
-            if (line.ArcCount == 0 || nearANextLane || nearItsSight)
+            if (line.ArcCount == 0)
             {
                 cars.SetLine(car, default);
                 continue;
@@ -195,10 +191,6 @@ public class LineKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         return all;
     }
 
-    /// <summary>
-    /// Within a part in a thousand and a hundredth absolute: a point on a bend is found by the device's own sine, which
-    /// Vulkan allows far further off the host's than a float's last bit.
-    /// </summary>
-    static bool Near(float host, float onDevice) =>
-        host == onDevice || MathF.Abs(host - onDevice) <= 1e-2f + (1e-3f * MathF.Abs(host));
+    /// <summary>The same float to the bit.</summary>
+    static bool Same(float host, float onDevice) => BitConverter.SingleToInt32Bits(host) == BitConverter.SingleToInt32Bits(onDevice);
 }

@@ -19,9 +19,8 @@ namespace TrafficSimulation.Tests.DeviceTick;
 /// same rebuild (<see cref="RebuildsOnTheDevice"/>).
 /// </summary>
 /// <remarks>
-/// <b>Exact but for a pace along a heading and where a walker aims</b>, which the device's own trigonometry finds: a row's
-/// speed down its way where a walker's body laid it, or a car's grown over it, and a walker's destination. The numbering,
-/// every hold, every answer and every grant are compared to the bit.
+/// <b>Everything to the bit</b> (<see cref="DeviceRebuild"/>'s shadow): the numbering, every hold, answer and grant, a
+/// row's speed down its way and a walker's destination.
 /// </remarks>
 [Trait(Tier.Key, Tier.Device)]
 [Trait(Priority.Key, Priority.P3)]
@@ -59,7 +58,7 @@ public class DeviceRebuildTests(RebuildsOnTheDevice run) : IClassFixture<Rebuild
 
     /// <summary>
     /// <b>Every walker reads the device's answer as the town reads its own</b>: granted as far, on or held off the same
-    /// zebra, its pass and action as the town left them, and aimed at the same place to the device's own trigonometry.
+    /// zebra, its pass and action as the town left them, and aimed at the same place.
     /// </summary>
     [Fact]
     public void EveryWalkerReadsItsAnswerAsTheTownReadsIt() => Assert.True(run.Walkers.Kept, run.Walkers.Said + run.Seen);

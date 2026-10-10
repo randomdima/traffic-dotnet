@@ -17,8 +17,7 @@ namespace TrafficSimulation.Tests.Agents.Car;
 /// each, and <c>tyre_pass.comp</c> of all of them at once.
 /// </summary>
 /// <remarks>
-/// A front wheel of a car whose wheel is turned is asked within <see cref="TyrePassKernelTests.Near(float, float)"/>, a
-/// tolerance the device's trigonometry no longer needs (tech debt); everything else is the host's arithmetic to the bit.
+/// Every figure is the host's to the bit, a turned front wheel's among them.
 /// </remarks>
 public sealed class StagedTyrePass : IDisposable
 {
@@ -29,9 +28,6 @@ public sealed class StagedTyrePass : IDisposable
         byte WheelsOnAWay, float[] SpinMps, float[] ScrubTravelM, bool[] Marking, Vector2[] MarkFromM, float[] MarkIntensity,
         float SlipThrottle, bool DrivenSlipping)
     {
-        /// <summary>Whether this wheel points by the device's trigonometry rather than the body's own rotation.</summary>
-        public bool Steered(int wheel) => wheel < TyreModel.SteeredWheels && Command.SteerRad != 0f;
-
         /// <summary>Whether its locks may hold it still this tick (<see cref="TyreModel.HoldStill"/>).</summary>
         public bool MayBeHeld => (Command.LocksEveryWheel || Command.Handbrake) && Command.ThrottleMps2 == 0f;
     }
@@ -270,9 +266,7 @@ public class TyrePassKernelTests(StagedTyrePass staged) : IClassFixture<StagedTy
     public void ACarItsLocksHoldIsHeldAsTheHostHoldsIt() => AssertSpentAsTheHost(car => car.MayBeHeld);
 
     /// <summary>
-    /// The cars whose driven wheels slipped under the pedal are the host's. A turned front wheel's slide is decided by
-    /// the device's own trigonometry against the edge of its ellipse; no car of the sample stands close enough to it
-    /// for that to cross.
+    /// The cars whose driven wheels slipped under the pedal are the host's.
     /// </summary>
     [Fact]
     public void TheDrivenWheelsSlipWhereTheHostsDo()
@@ -299,10 +293,9 @@ public class TyrePassKernelTests(StagedTyrePass staged) : IClassFixture<StagedTy
         {
             for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
             {
-                var steered = car.Steered(wheel);
                 var onDevice = staged.WheelsAfter[(at * TyreModel.Wheels) + wheel];
-                if (!Same(host.ScrubTravelM[wheel], onDevice.ScrubTravelM, steered) || host.Marking[wheel] != (onDevice.Marking != 0)
-                    || host.MarkFromM[wheel] != onDevice.MarkFromM || !Same(host.MarkIntensity[wheel], onDevice.MarkIntensity, steered))
+                if (!Same(host.ScrubTravelM[wheel], onDevice.ScrubTravelM) || host.Marking[wheel] != (onDevice.Marking != 0)
+                    || host.MarkFromM[wheel] != onDevice.MarkFromM || !Same(host.MarkIntensity[wheel], onDevice.MarkIntensity))
                 {
                     differ.Add(
                         $"car {at} wheel {wheel}: host {host.ScrubTravelM[wheel]} {host.Marking[wheel]} {host.MarkFromM[wheel]} " +
@@ -330,9 +323,8 @@ public class TyrePassKernelTests(StagedTyrePass staged) : IClassFixture<StagedTy
         {
             var (car, mark) = host[at];
             var laid = onDevice[at];
-            var steered = staged.Cars[car].Steered(mark.Wheel);
             if (laid.CarWheel != (uint)((car * TyreModel.Wheels) + mark.Wheel) || laid.FromM != mark.FromM || laid.ToM != mark.ToM
-                || laid.WidthM != mark.WidthM || !Same(mark.Intensity, laid.Intensity, steered) || (laid.Ploughed != 0) != mark.Ploughed)
+                || laid.WidthM != mark.WidthM || !Same(mark.Intensity, laid.Intensity) || (laid.Ploughed != 0) != mark.Ploughed)
             {
                 differ.Add($"mark {at}: host car {car} {mark}, device {laid}");
             }
@@ -350,17 +342,16 @@ public class TyrePassKernelTests(StagedTyrePass staged) : IClassFixture<StagedTy
 
             for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
             {
-                var steered = car.Steered(wheel);
                 var spent = staged.Impulses[(at * TyreModel.Wheels) + wheel];
                 var scrub = staged.Scrub[(at * TyreModel.Wheels) + wheel];
                 var spin = staged.WheelsAfter[(at * TyreModel.Wheels) + wheel].SpinMps;
                 var hostScrub = host.Scrub[wheel];
                 var flags = (hostScrub.Ploughing ? 1u : 0u) | (hostScrub.Sliding ? 2u : 0u);
-                if (!Same(host.Impulses[wheel].ImpulseNs, new Vector2(spent.X, spent.Y), steered)
-                    || host.Impulses[wheel].AtM != new Vector2(spent.Z, spent.W) || !Same(host.SpinMps[wheel], spin, steered)
-                    || !Same(hostScrub.SlidePowerM2S3, scrub.SlidePowerM2S3, steered)
-                    || !Same(hostScrub.PloughPowerM2S3, scrub.PloughPowerM2S3, steered)
-                    || !Same(hostScrub.SlideSpeedMps, scrub.SlideSpeedMps, steered) || flags != scrub.Flags)
+                if (!Same(host.Impulses[wheel].ImpulseNs, new Vector2(spent.X, spent.Y))
+                    || host.Impulses[wheel].AtM != new Vector2(spent.Z, spent.W) || !Same(host.SpinMps[wheel], spin)
+                    || !Same(hostScrub.SlidePowerM2S3, scrub.SlidePowerM2S3)
+                    || !Same(hostScrub.PloughPowerM2S3, scrub.PloughPowerM2S3)
+                    || !Same(hostScrub.SlideSpeedMps, scrub.SlideSpeedMps) || flags != scrub.Flags)
                 {
                     differ.Add($"car {at} wheel {wheel}: host {host.Impulses[wheel]} spin {host.SpinMps[wheel]} {hostScrub}, device {spent} spin {spin} {scrub}");
                 }
@@ -375,16 +366,8 @@ public class TyrePassKernelTests(StagedTyrePass staged) : IClassFixture<StagedTy
         for (var at = 0; at < staged.Cars.Length; at++) check(at, staged.Cars[at], staged.Host[at]);
     }
 
-    /// <summary>The host's figure to the bit, or <see cref="Near(float, float)"/> where it flows from a turned wheel.</summary>
-    static bool Same(float host, float onDevice, bool steered) => steered ? Near(host, onDevice) : host == onDevice;
+    /// <summary>The host's figure to the bit.</summary>
+    static bool Same(float host, float onDevice) => BitConverter.SingleToInt32Bits(host) == BitConverter.SingleToInt32Bits(onDevice);
 
-    static bool Same(Vector2 host, Vector2 onDevice, bool steered) => Same(host.X, onDevice.X, steered) && Same(host.Y, onDevice.Y, steered);
-
-    /// <summary>
-    /// Within a part in a thousand, and a hundredth absolute. A turned wheel points by the device's own tan, atan, sin
-    /// and cos, which Vulkan allows to stand far further off the host's than a float's last bit; a mistake in the pass is
-    /// a part in one, not in a thousand.
-    /// </summary>
-    internal static bool Near(float host, float onDevice) =>
-        host == onDevice || MathF.Abs(host - onDevice) <= 1e-2f + (1e-3f * MathF.Abs(host));
+    static bool Same(Vector2 host, Vector2 onDevice) => Same(host.X, onDevice.X) && Same(host.Y, onDevice.Y);
 }

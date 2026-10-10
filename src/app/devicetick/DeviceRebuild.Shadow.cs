@@ -405,8 +405,7 @@ internal sealed partial class DeviceRebuild
     /// <summary>
     /// <b>The device's rebuild held to the town's</b>, once both are done (<see cref="ClaimsStage.GrantsRead"/>): every slot's
     /// row in the town's numbering, every hold and what it came to, every car's grant, cutter and told bits, and every
-    /// walker's reading. Exact everywhere but a pace along a heading — a walker's, or a body grown over one — and where a
-    /// walker aims, which the device's own trigonometry finds (<see cref="Near"/>).
+    /// walker's reading, every figure to the bit (<see cref="Same"/>).
     /// </summary>
     public void HoldToTheTown(TownWorld town, Held rows, Held holds, Held answers, Held grants, Held walkers)
     {
@@ -430,7 +429,7 @@ internal sealed partial class DeviceRebuild
             rows.Asked++;
             var host = ClaimRow.OfSlot(claims, slot);
             var device = laid[slot];
-            if (!Near(host.AlongMps, device.AlongMps) || device with { AlongMps = host.AlongMps } != host)
+            if (!Same(host.AlongMps, device.AlongMps) || device with { AlongMps = host.AlongMps } != host)
             {
                 rows.Add($"rebuild {rebuild} slot {slot}: town {host}; device {device}");
             }
@@ -467,7 +466,7 @@ internal sealed partial class DeviceRebuild
             var host = TheTownsGrant(town, car, out var hostCutter, out var hostTold);
             var device = GrantsRead[car] with { PlaceReachM = host.PlaceReachM, PlaceM = host.PlaceM };
             var cutter = CuttersRead[car];
-            var sameCutter = Near(hostCutter.AlongMps, cutter.AlongMps) && cutter with { AlongMps = hostCutter.AlongMps } == hostCutter;
+            var sameCutter = Same(hostCutter.AlongMps, cutter.AlongMps) && cutter with { AlongMps = hostCutter.AlongMps } == hostCutter;
             if (device != host || !sameCutter || ToldRead[car] != hostTold)
             {
                 grants.Add($"rebuild {rebuild} car {car}: town {host} {hostCutter} told {hostTold}; device {GrantsRead[car]} {cutter} told {ToldRead[car]}");
@@ -484,8 +483,8 @@ internal sealed partial class DeviceRebuild
             var same = row.GrantM == people.GrantM[person] && row.OnCrossing == people.OnCrossing[person]
                        && row.Action == (uint)people.Action[person] && row.PassSlot == pass.Slot && row.PassFromM == pass.FromM
                        && row.PassClearM == pass.ClearM && row.PassAsideM == pass.AsideM
-                       && row.Is(DeviceWalkers.WalkerRow.PassBegun) == pass.Begun && Near(people.DestinationM[person].X, row.DestinationM.X)
-                       && Near(people.DestinationM[person].Y, row.DestinationM.Y);
+                       && row.Is(DeviceWalkers.WalkerRow.PassBegun) == pass.Begun && Same(people.DestinationM[person].X, row.DestinationM.X)
+                       && Same(people.DestinationM[person].Y, row.DestinationM.Y);
             if (!same)
             {
                 walkers.Add($"rebuild {rebuild} walker {person}: town granted {people.GrantM[person]} crossing {people.OnCrossing[person]} {people.Action[person]} {pass} aiming {people.DestinationM[person]}; device {row.GrantM} {row.OnCrossing} {(PersonAction)row.Action} aiming {row.DestinationM}");
@@ -493,6 +492,6 @@ internal sealed partial class DeviceRebuild
         }
     }
 
-    /// <summary>Within a part in a thousand and a hundredth absolute: a figure the device's own trigonometry finds, as every kernel test reads it.</summary>
-    static bool Near(float host, float onDevice) => host == onDevice || MathF.Abs(host - onDevice) <= 1e-2f + (1e-3f * MathF.Abs(host));
+    /// <summary>The same float to the bit: the device's trigonometry, quotients and roots are the host's (core log).</summary>
+    static bool Same(float host, float onDevice) => BitConverter.SingleToInt32Bits(host) == BitConverter.SingleToInt32Bits(onDevice);
 }

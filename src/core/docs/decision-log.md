@@ -16,8 +16,11 @@ still took the driver's own `cos` and `sin` for a walker's facing (`walkers_kept
   products.
 - Held on the card, by the probes that hold a device's stage to the host's from the same inputs: OdesaOsm's walkers
   (`--bench devicewalkers`) 0 of 8 M stations, 4.4 M bodies, 4.4 M walks and 8 M readings apart, where 325 106 stations
-  and 915 readings were a bit off; O30's cars (`--bench devicecartick`) 0 of 127 504 car-ticks apart and its decisions
-  (`--bench devicedecide`) 0 of 42 487.
+  and 915 readings were a bit off; its car tick (`--bench devicecartick`) 0 of 12.0 M car-ticks, where 57 were; its
+  switching looks (`--bench devicedecide`) none a figure apart, where 415 were.
+- **So every check of a kernel against the host asks it to the bit**: the kernel tests, the walkers', the rebuild's and
+  the car tick's shadows, and the sprites' probe each dropped the hundredth and the thousandth they allowed the device's
+  trigonometry, the car tick's shadow its slide's onset, and two staged towns the thresholds they kept their agents off.
 
 ## 2026-10-10 — a kernel's trigonometry is the host's to the bit
 

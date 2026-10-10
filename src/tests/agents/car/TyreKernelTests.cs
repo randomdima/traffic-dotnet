@@ -80,7 +80,7 @@ public class TyreKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
 
     /// <summary>
     /// <b>Every patch of two thousand cars spends what the host's model spends</b>, lands its rim where the host's does
-    /// and scrubs the ground as the host's does, to the device's own trigonometry (<see cref="Near(float, float)"/>).
+    /// and scrubs the ground as the host's does, to the bit (<see cref="Same(float, float)"/>).
     /// </summary>
     [Fact]
     public void TheTyresSpendWhatTheHostsModelSpends()
@@ -131,8 +131,8 @@ public class TyreKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
                 var onDevice = impulses.Span<Vector4>()[at * 4 + wheel];
                 var scrubbed = scrubs.Span<ScrubRow>()[at * 4 + wheel];
                 var spinOnDevice = wheel switch { 0 => deviceSpin.X, 1 => deviceSpin.Y, 2 => deviceSpin.Z, _ => deviceSpin.W };
-                if (!Near(spent[wheel].ImpulseNs, new Vector2(onDevice.X, onDevice.Y)) || !Near(spin[wheel], spinOnDevice)
-                    || !Near(scrub[wheel].SlideSpeedMps, scrubbed.SlideSpeedMps) || scrub[wheel].Sliding != ((scrubbed.Flags & 2u) != 0))
+                if (!Same(spent[wheel].ImpulseNs, new Vector2(onDevice.X, onDevice.Y)) || !Same(spin[wheel], spinOnDevice)
+                    || !Same(scrub[wheel].SlideSpeedMps, scrubbed.SlideSpeedMps) || scrub[wheel].Sliding != ((scrubbed.Flags & 2u) != 0))
                 {
                     differ.Add($"car {at} wheel {wheel}: host {spent[wheel].ImpulseNs} spin {spin[wheel]}, device ({onDevice.X}, {onDevice.Y}) spin {spinOnDevice}");
                 }
@@ -142,12 +142,8 @@ public class TyreKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         Assert.True(differ.Count == 0, $"{differ.Count} of {cars.Length * 4} patches differ: {string.Join("; ", differ.Take(6))}");
     }
 
-    /// <summary>
-    /// Within a part in a thousand, and a hundredth absolute. A steered wheel points by the device's own tan, atan, sin
-    /// and cos, which Vulkan allows to stand far further off the host's than a float's last bit (an absolute 2⁻¹¹ for a
-    /// sine); a mistake in the model is a part in one, not in a thousand.
-    /// </summary>
-    static bool Near(float host, float onDevice) => MathF.Abs(host - onDevice) <= 1e-2f + (1e-3f * MathF.Abs(host));
+    /// <summary>The same float to the bit.</summary>
+    static bool Same(float host, float onDevice) => BitConverter.SingleToInt32Bits(host) == BitConverter.SingleToInt32Bits(onDevice);
 
-    static bool Near(Vector2 host, Vector2 onDevice) => Near(host.X, onDevice.X) && Near(host.Y, onDevice.Y);
+    static bool Same(Vector2 host, Vector2 onDevice) => Same(host.X, onDevice.X) && Same(host.Y, onDevice.Y);
 }
