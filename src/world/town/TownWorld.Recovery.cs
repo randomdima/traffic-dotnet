@@ -240,6 +240,7 @@ internal sealed partial class TownWorld
         {
             if (other == car || !IsAnEvacuator(other) || Cars.Broken[other] || _recovery.IsOnARecovery(other)) continue;
 
+            TakeTheCarsPoseBack(other);
             var otherM = (Cars.PositionM[wreck] - Cars.PositionM[other]).LengthSquared();
             var nearer = otherM < farM || (otherM == farM && other < car);
             if (nearer && HasRoomInItsYard(other)) return false;
@@ -669,6 +670,8 @@ internal sealed partial class TownWorld
     /// </remarks>
     int WhatTheArmIsTouching(int car, out bool byTheTail)
     {
+        // Every car is asked whether the arm reaches it, wherever its last step left it.
+        TakeEveryPoseBack();
         ref readonly var build = ref Cars.BuildOf(car);
         var forward = ForwardOf(car);
         var hingeM = TowBar.HookM(build, Cars.PositionM[car], forward);

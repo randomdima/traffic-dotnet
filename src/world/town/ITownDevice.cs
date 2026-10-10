@@ -50,9 +50,24 @@ internal interface ITownDevice
     /// <b>Every car the device ticked handed back as its last tick left it, and every walker as its last claims rebuild
     /// left it</b>, where the town is about to read every agent — a closure sending the town round it, the town laying the
     /// claims itself — rather than only those it reads (<see cref="TownWorld.ReadsTheTickOf"/>,
-    /// <see cref="TownWorld.ReadsTheWalker"/>). Nothing where the device hands every agent back.
+    /// <see cref="TownWorld.ReadsTheWalker"/>), every pose with them (<see cref="TakeEveryPoseBack"/>). Nothing where the
+    /// device hands every agent back.
     /// </summary>
     void TakeEveryCarBack(TownWorld town)
+    {
+    }
+
+    /// <summary>
+    /// <b>This agent's pose as the device's last step left it</b>, written into the town's fleets and its solver's table
+    /// where they hold an older one — before the town reads a body it does not read every tick: a partner, the nearest of a
+    /// kind, one picked out, one a crash wrecked. Nothing where the device hands every pose back.
+    /// </summary>
+    void TakeThePoseBack(TownWorld town, int agent)
+    {
+    }
+
+    /// <summary><b>Every agent's pose as the device's last step left it</b>, where the town is about to read every one.</summary>
+    void TakeEveryPoseBack(TownWorld town)
     {
     }
 

@@ -54,7 +54,12 @@ internal sealed partial class DeviceBodyPhase : IDisposable
     /// <summary>The kernels' push constants (<c>bodies_phase.glsl</c>), field for field.</summary>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct PhasePush(
-        uint Count, uint WheelsACar, float DtS, float LoadSettledShare, uint EnabledBit, uint Pad0, uint Pad1, uint Pad2);
+        uint Count, uint WheelsACar, float DtS, float LoadSettledShare, uint EnabledBit, uint WalkerTableBound, uint Pad1, uint Pad2);
+
+    /// <summary>One walker as a step left its body (<c>WalkedRow</c>, <c>bodies_walkers_read.comp</c>), and how far it has walked.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal readonly record struct WalkedRow(
+        Vector2 PositionM, Vector2 VelocityMps, float DistanceWalkedM, float Pad0 = 0f, float Pad1 = 0f, float Pad2 = 0f);
 
     /// <summary>What a step hands back to the host.</summary>
     [Flags]
@@ -88,7 +93,13 @@ internal sealed partial class DeviceBodyPhase : IDisposable
     readonly ResidentRows<LaidImpulseRow> _laid;
     readonly GpuBuffer _wheelsIn;
     readonly BufferCopy[] _wheelRuns;
-    readonly GpuBuffer _posesOut;
+
+    /// <summary>
+    /// What a step hands back of every car and walker, two of each and a step's to each in turn: what the last step taken
+    /// back left stays readable while the next writes the other (<see cref="Side"/>).
+    /// </summary>
+    readonly GpuBuffer[] _posesOut;
+
     readonly GpuBuffer _appliedOut;
     readonly ComputeKernel _wheels, _laidKernel, _mirror;
     readonly DescriptorSet _wheelsSet, _laidSet, _mirrorSet;
@@ -99,15 +110,16 @@ internal sealed partial class DeviceBodyPhase : IDisposable
     BufferCopy[] _walkerImpulseRuns = [];
     int _walkerImpulseRunCount;
     readonly ResidentRows<int>? _walkerBodies;
-    readonly GpuBuffer? _walkersOut;
+    readonly GpuBuffer[] _walkersOut = [];
     readonly ComputeKernel? _walkersRead;
-    readonly DescriptorSet _walkersReadSet;
+    readonly DescriptorSet[] _walkersReadSets = [];
     readonly ComputeBatch _batch;
     readonly GpuTimer _timer;
     int _wheelRunCount;
     int _laidCount;
     int _cars;
     int _walkersHanded;
+    int _side;
 
     /// <param name="solver">The solver whose table the phase spends the impulses on and steps.</param>
     /// <param name="tyres">The tyre pass whose impulses the phase spends and whose poses it writes; its capacity is the fleet's.</param>
@@ -126,8 +138,12 @@ internal sealed partial class DeviceBodyPhase : IDisposable
         _wheelsIn = vk.CreateBuffer(
             (ulong)(Math.Max(1, capacity * WheelsACar) * Unsafe.SizeOf<Vector4>()), BufferUsageFlags.TransferSrcBit, HostAccess.Writes);
         _wheelRuns = new BufferCopy[Math.Max(1, capacity)];
-        _posesOut = vk.CreateBuffer(
-            (ulong)(Math.Max(1, capacity) * Unsafe.SizeOf<DeviceTyres.PoseRow>()), BufferUsageFlags.TransferDstBit, HostAccess.Reads);
+        var poseBytes = (ulong)(Math.Max(1, capacity) * Unsafe.SizeOf<DeviceTyres.PoseRow>());
+        _posesOut =
+        [
+            vk.CreateBuffer(poseBytes, BufferUsageFlags.TransferDstBit, HostAccess.Reads),
+            vk.CreateBuffer(poseBytes, BufferUsageFlags.TransferDstBit, HostAccess.Reads),
+        ];
         _appliedOut = vk.CreateBuffer(
             (ulong)(Math.Max(1, solver.BodyCount) * Unsafe.SizeOf<Vector4>()), BufferUsageFlags.TransferDstBit, HostAccess.Reads);
 
@@ -143,10 +159,16 @@ internal sealed partial class DeviceBodyPhase : IDisposable
         if (walkers > 0)
         {
             _walkerBodies = new ResidentRows<int>(vk, walkers, 1, hostOnly: true);
-            _walkersOut = vk.CreateBuffer(
-                (ulong)(walkers * Unsafe.SizeOf<Vector4>()), BufferUsageFlags.StorageBufferBit, HostAccess.Reads);
-            _walkersRead = new ComputeKernel(vk, "bodies_walkers_read.comp", 5, pushBytes);
-            _walkersReadSet = _walkersRead.Bind([_walkerBodies.Device, bodies.Filter, bodies.Pose, bodies.Motion, _walkersOut]);
+            var walkedBytes = (ulong)(walkers * Unsafe.SizeOf<WalkedRow>());
+            _walkersOut =
+            [
+                vk.CreateBuffer(walkedBytes, BufferUsageFlags.StorageBufferBit, HostAccess.Reads),
+                vk.CreateBuffer(walkedBytes, BufferUsageFlags.StorageBufferBit, HostAccess.Reads),
+            ];
+
+            // Bound twice again where the walkers' tick is taken (TakeTheWalkers), its table in place of the stand-in.
+            _walkersRead = new ComputeKernel(vk, "bodies_walkers_read.comp", 6, pushBytes, sets: 4);
+            _walkersReadSets = [WalkersReadSet(0, _walkersOut[0]), WalkersReadSet(1, _walkersOut[1])];
         }
 
         _batch = new ComputeBatch(vk);
@@ -172,6 +194,17 @@ internal sealed partial class DeviceBodyPhase : IDisposable
         _walkerSet = _walkerKernel.Bind([walkers.BodyTable, walkers.Table, walkers.ImpulseTable, bodies.Motion, bodies.Mass, bodies.Filter]);
         _walkerMirror = new ComputeKernel(_vk, "bodies_walkers_mirror.comp", 4, pushBytes);
         _walkerMirrorSet = _walkerMirror.Bind([walkers.BodyTable, walkers.Table, bodies.Pose, bodies.Motion]);
+        if (_walkersRead == null) return;
+
+        _walkersReadSets[0] = WalkersReadSet(0, walkers.Table);
+        _walkersReadSets[1] = WalkersReadSet(1, walkers.Table);
+    }
+
+    /// <summary>The walkers' read-back bound to write one side, reading how far each has walked off <paramref name="walkerTable"/>.</summary>
+    DescriptorSet WalkersReadSet(int side, GpuBuffer walkerTable)
+    {
+        var bodies = _solver.Bodies;
+        return _walkersRead!.Bind([_walkerBodies!.Device, bodies.Filter, bodies.Pose, bodies.Motion, _walkersOut[side], walkerTable]);
     }
 
     /// <summary>The device's own time for the last step's kernels — the impulses, the solver's step and the read-back — in milliseconds.</summary>
@@ -202,13 +235,23 @@ internal sealed partial class DeviceBodyPhase : IDisposable
     public ulong WheelBytes { get; private set; }
 
     /// <summary>Every car as the last step read it off its body, where it was asked to be read back (<see cref="Step"/>).</summary>
-    public ReadOnlySpan<DeviceTyres.PoseRow> PosesAfter => _posesOut.Span<DeviceTyres.PoseRow>()[.._cars];
+    public ReadOnlySpan<DeviceTyres.PoseRow> PosesAfter => PosesOn(_side, _cars);
 
     /// <summary>
-    /// Every walker as the last step left its body — position, then velocity — where it was asked to be handed back
-    /// (<see cref="Reads.Walkers"/>). A walker whose body is out of the world is not written, and holds whatever it last did.
+    /// Every walker as the last step left its body, where it was asked to be handed back (<see cref="Reads.Walkers"/>). A
+    /// walker whose body is out of the world is not written, and holds whatever it last did.
     /// </summary>
-    public ReadOnlySpan<Vector4> WalkersAfter => _walkersOut == null ? default : _walkersOut.Span<Vector4>()[.._walkersHanded];
+    public ReadOnlySpan<WalkedRow> WalkersAfter => WalkersOn(_side, _walkersHanded);
+
+    /// <summary>Which of the two hand-backs the last step recorded wrote, which stays as it left it until the step after that.</summary>
+    public int Side => _side;
+
+    /// <summary>The first <paramref name="cars"/> cars as the step that wrote <paramref name="side"/> left them.</summary>
+    public ReadOnlySpan<DeviceTyres.PoseRow> PosesOn(int side, int cars) => _posesOut[side].Span<DeviceTyres.PoseRow>()[..cars];
+
+    /// <summary>The first <paramref name="walkers"/> walkers as the step that wrote <paramref name="side"/> left them.</summary>
+    public ReadOnlySpan<WalkedRow> WalkersOn(int side, int walkers) =>
+        _walkersOut.Length == 0 ? default : _walkersOut[side].Span<WalkedRow>()[..walkers];
 
     /// <summary>How many bytes the last step handed back, where it was asked to, but the walkers': those are as many as are in the world.</summary>
     public ulong ReadBytes { get; private set; }
@@ -313,7 +356,9 @@ internal sealed partial class DeviceBodyPhase : IDisposable
         if (cars > _tyres.Capacity) throw new ArgumentOutOfRangeException(nameof(cars), $"The phase holds {_tyres.Capacity} cars, not {cars}.");
 
         _cars = cars;
-        var push = new PhasePush((uint)cars, WheelsACar, dtS, TownWorld.LoadSettledShare(_config, dtS), (uint)BodyFlags.Enabled, 0u, 0u, 0u);
+        _side ^= 1;
+        var push = new PhasePush(
+            (uint)cars, WheelsACar, dtS, TownWorld.LoadSettledShare(_config, dtS), (uint)BodyFlags.Enabled, _walkers != null ? 1u : 0u, 0u, 0u);
         var vk = _vk;
         _timer.Reset(commands);
         _timer.Stamp(commands, (int)Stage.Began);
@@ -376,7 +421,7 @@ internal sealed partial class DeviceBodyPhase : IDisposable
         if ((reads & Reads.Poses) != 0)
         {
             var bytes = (ulong)(cars * Unsafe.SizeOf<DeviceTyres.PoseRow>());
-            vk.Copy(commands, poses.Device, _posesOut, bytes);
+            vk.Copy(commands, poses.Device, _posesOut[_side], bytes);
             ReadBytes += bytes;
         }
 
@@ -387,7 +432,7 @@ internal sealed partial class DeviceBodyPhase : IDisposable
             if (walkers > most) throw new ArgumentOutOfRangeException(nameof(walkers), $"The phase hands back {most} walkers, not {walkers}.");
 
             _walkersHanded = walkers;
-            _walkersRead!.Dispatch(commands, _walkersReadSet, Groups(walkers), push with { Count = (uint)walkers });
+            _walkersRead!.Dispatch(commands, _walkersReadSets[_side], Groups(walkers), push with { Count = (uint)walkers });
         }
 
         if ((reads & Reads.Overlap) != 0) ReadBytes += _solver.RecordTheOverlapRead(commands);
@@ -423,11 +468,11 @@ internal sealed partial class DeviceBodyPhase : IDisposable
         _walkersRead?.Dispose();
         _walkerBodies?.Dispose();
         _walkerImpulsesIn?.Dispose();
-        _walkersOut?.Dispose();
+        foreach (var buffer in _walkersOut) buffer.Dispose();
         _carBodies.Dispose();
         _laid.Dispose();
         _wheelsIn.Dispose();
-        _posesOut.Dispose();
+        foreach (var buffer in _posesOut) buffer.Dispose();
         _appliedOut.Dispose();
     }
 }

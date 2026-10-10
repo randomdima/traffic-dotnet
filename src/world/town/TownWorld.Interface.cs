@@ -77,6 +77,7 @@ internal sealed partial class TownWorld
     /// <returns>How many units the box came to.</returns>
     public int SelectIn(Vector2 centreM, Vector2 sizeM, float turnRad, bool add)
     {
+        TakeEveryPoseBack();
         var alongBox = Heading.Unit(turnRad);
         var acrossBox = Heading.RightOf(alongBox);
         var halfM = Vector2.Abs(sizeM) * 0.5f;
@@ -141,6 +142,7 @@ internal sealed partial class TownWorld
         switch (Standing(unit).Kind)
         {
             case SelectionKind.Car:
+                TakeTheCarsPoseBack(unit.Index);
                 atM = Cars.PositionM[unit.Index];
                 velocityMps = Cars.VelocityMps[unit.Index];
                 return true;
@@ -149,11 +151,13 @@ internal sealed partial class TownWorld
                 var inside = People.Inside[unit.Index];
                 if (inside.Kind == ContainerKind.Car)
                 {
+                    TakeTheCarsPoseBack(inside.Index);
                     atM = Cars.PositionM[inside.Index];
                     velocityMps = Cars.VelocityMps[inside.Index];
                     return true;
                 }
 
+                TakeThePoseBack(unit.Index);
                 atM = People.PositionM[unit.Index];
                 velocityMps = inside.Any ? Vector2.Zero : People.VelocityMps[unit.Index];
                 return true;
@@ -392,6 +396,7 @@ internal sealed partial class TownWorld
     /// <summary>The car whose footprint covers a point, or −1. Tested in the body's own frame, which is the frame it is drawn in.</summary>
     public int CarAt(Vector2 pointM)
     {
+        TakeEveryPoseBack();
         for (var car = 0; car < Cars.Count; car++)
         {
             if (CoversTheSpot(car, pointM)) return car;
@@ -418,6 +423,7 @@ internal sealed partial class TownWorld
     /// <summary>The walker under a point, or −1. The fine test the proximity index's superset was for.</summary>
     public int PersonAt(Vector2 pointM)
     {
+        TakeEveryPoseBack();
         var best = -1;
         var bestDistanceSq = float.MaxValue;
         for (var person = 0; person < People.Count; person++)

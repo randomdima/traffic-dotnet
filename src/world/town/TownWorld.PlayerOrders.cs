@@ -252,8 +252,11 @@ internal sealed partial class TownWorld
     /// direction of its own and a body in the road has not, and reading the leader's tells the follower
     /// which end of a car it is meant to be at even where the two are off the lane entirely.
     /// </remarks>
-    Vector2 TheFollowingPlaceM(int lead) =>
-        Cars.PositionM[lead] - (ForwardOf(lead) * _config.OrderedFollowGapM);
+    Vector2 TheFollowingPlaceM(int lead)
+    {
+        TakeTheCarsPoseBack(lead);
+        return Cars.PositionM[lead] - (ForwardOf(lead) * _config.OrderedFollowGapM);
+    }
 
     /// <summary>
     /// <b>Where an order stops the car</b> — the same stop point, asked of a hand's order the same way it is

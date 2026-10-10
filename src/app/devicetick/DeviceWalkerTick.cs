@@ -22,7 +22,7 @@ namespace TrafficSimulation.App.DeviceTick;
 /// <b>Resident, for a town whose walkers the device ticks</b> (<see cref="LayWhatChanged"/>): the table is the device's, and
 /// only a walker whose row or impulse the town holds other than the device is known to hold is written over it, whole
 /// (<c>walkers_patch.comp</c>); what comes back is each walker's declared pace, impulse and heading
-/// (<see cref="TicksAfter"/>), and where its body's step left it is learnt from the bodies' phase (<see cref="KnowTheStep"/>).
+/// (<see cref="TicksAfter"/>), and where its body's step left it is learnt as the town takes it (<see cref="KnowTheBody"/>).
 /// </para>
 /// </remarks>
 internal sealed partial class DeviceWalkerTick : IDisposable
@@ -200,6 +200,13 @@ internal sealed partial class DeviceWalkerTick : IDisposable
             var row = RowOf(people, person, paused);
             var impulseNs = town.WalkerImpulseNs(person);
             _bodies.Lay(person, people.Body[person].Index);
+            if (_isKnown[person] && !(SameToTheTick(row, _known[person]) && impulseNs == _knownImpulse[person]))
+            {
+                // Written over the device's row whole, it is written where the device's last step left it.
+                town.TakeThePoseBack(person);
+                row = RowOf(people, person, paused);
+            }
+
             if (_checks) _laidForCheck![person] = row;
             if (_isKnown[person] && SameToTheTick(row, _known[person]) && impulseNs == _knownImpulse[person]) continue;
 
@@ -244,18 +251,15 @@ internal sealed partial class DeviceWalkerTick : IDisposable
     }
 
     /// <summary>
-    /// Resident: where the bodies' step left every walker the device's table holds in the world
-    /// (<c>bodies_walkers_mirror.comp</c>), taken as what the device holds — off the walkers the step handed back.
+    /// Resident: where the bodies' step left a walker the device's table holds in the world (<c>bodies_walkers_mirror.comp</c>),
+    /// as the town has just taken it — taken as what the device holds, so it is not laid back over the table. A walker the
+    /// town has not taken is known where it was last taken, as the town holds it.
     /// </summary>
-    public void KnowTheStep(ReadOnlySpan<Vector4> walked)
+    public void KnowTheBody(int walker, Vector2 positionM, Vector2 velocityMps)
     {
-        for (var walker = 0; walker < Math.Min(_count, walked.Length); walker++)
-        {
-            if ((_known[walker].Flags & WalkerRow.Inside) != 0) continue;
+        if (!Resident || walker >= _count || (_known[walker].Flags & WalkerRow.Inside) != 0) return;
 
-            var at = walked[walker];
-            _known[walker] = _known[walker] with { PositionM = new Vector2(at.X, at.Y), VelocityMps = new Vector2(at.Z, at.W) };
-        }
+        _known[walker] = _known[walker] with { PositionM = positionM, VelocityMps = velocityMps };
     }
 
     /// <summary>

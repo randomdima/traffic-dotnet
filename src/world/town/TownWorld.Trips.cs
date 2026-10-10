@@ -213,6 +213,8 @@ internal sealed partial class TownWorld
         if (!aboard) CallTheCar(person);
 
         var car = People.Car[person];
+        if (car != PersonFleet.NoCar) TakeTheCarsPoseBack(car);
+
         var carToHand = !aboard && HasTheCarToHand(person);
         var fromM = aboard ? Cars.PositionM[car] : People.PositionM[person];
         var reachM = aboard || carToHand ? _config.PersonTripReachM : _config.PersonWalkReachM;
@@ -296,6 +298,7 @@ internal sealed partial class TownWorld
     /// </summary>
     Vector2 WayInOf(int car)
     {
+        TakeTheCarsPoseBack(car);
         var bay = _parking.BayOf(car);
         if (bay >= 0)
         {
@@ -311,6 +314,7 @@ internal sealed partial class TownWorld
     /// </summary>
     Vector2 DriverDoorM(int car)
     {
+        TakeTheCarsPoseBack(car);
         var forward = Heading.Unit(Cars.HeadingRad[car]);
         var door = new Vector2(-forward.Y, forward.X) * -_config.RoadSideSign;
         return Cars.PositionM[car] + door * (Cars.BuildOf(car).FlankM + _config.PersonDiameterM);

@@ -125,7 +125,12 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
             Shadowed = false,
         };
         _walkers = new DeviceWalkerTick(vk, config, town.People.Capacity, resident: true);
-        _bodies = new DeviceTownBodies(vk, config, town, _tyres, _walkers) { HandsOverThrough = _cars };
+        _carsUnread = new bool[cars.Capacity];
+        _walkersUnread = new bool[town.People.Capacity];
+        _bodies = new DeviceTownBodies(vk, config, town, _tyres, _walkers)
+        {
+            HandsOverThrough = _cars, CarsUnread = _carsUnread, WalkersUnread = _walkersUnread,
+        };
         _townClaims = new DeviceTownClaims(vk, config, town, _claims, _cars, _walkers, start);
         _townClaims.Rebuild.MirrorsAtOnce = false;
         _looks = new DeviceSwitchLook(vk, config, town, _cars.Decided, _townClaims.Rebuild);
@@ -271,8 +276,13 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         var more = kept.DecidedMoreThanTheClock(person);
         var checks = ChecksTheDecisions && !_walkerByTheTown[person];
 
-        // What the town reads of it is what the device decided it on, where a rebuild left it there.
-        if (more || checks) kept.TakeUpTheDecided(_town, _walkers, person);
+        // What the town reads of it is what the device decided it on, where a rebuild left it there, and where its last
+        // step left it.
+        if (more || checks)
+        {
+            kept.TakeUpTheDecided(_town, _walkers, person);
+            _bodies.TakeThePoseBack(_town, person);
+        }
         if (checks) CheckTheWalkersVerdict(person, more);
 
         // Its clock restarted where the rebuild walked it on, as the town's taking that up did, and run there.
@@ -576,13 +586,15 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
             return true;
         }
 
-        // More than the clock: the town decides it on what its last tick left, as the device read it.
+        // More than the clock: the town decides it on what its last tick left, as the device read it, and where its last
+        // step left it.
         var cars = _town.Cars;
         ref readonly var row = ref _cars.DecidedOn(car);
         WriteTheTyres(cars, car, row.Car);
         WriteTheTick(cars, car, row);
         _town.DriveClocks.Take(car, row.ClockSinceS, row.ClockClosestM);
         _cars.TookBack(car);
+        _bodies.TakeThePoseBack(_town, _town.Roster.AgentOfCar(car));
 
         // And this tick handed it back as well (car_out.comp), which a decision that moved it on lays it whole from.
         _handedBack[car] = true;
@@ -765,6 +777,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     {
         if (_cars.TownHolds(car)) return;
 
+        _bodies.TakeThePoseBack(_town, _town.Roster.AgentOfCar(car));
         var row = _cars.HandedOverRow(car);
         WriteTheTyres(cars, car, row.Car);
         TakeTheClock(_town, car, row);
@@ -781,7 +794,11 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         if (DecidesTheCars && !town.DriveClocks.IsTouched(car)) town.DriveClocks.Take(car, row.ClockSinceS, row.ClockClosestM);
     }
 
-    public void TakeTheWalkerBack(TownWorld town, int person) => KeptWalkers.TakeBackTheLeft(town, _walkers, person);
+    public void TakeTheWalkerBack(TownWorld town, int person)
+    {
+        KeptWalkers.TakeBackTheLeft(town, _walkers, person);
+        _bodies.TakeThePoseBack(town, person);
+    }
 
     /// <remarks>
     /// The town's own where it holds the car, or moved on from what the device read of it — a wreck, whose grant went with
@@ -802,6 +819,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     public void TakeEveryCarBack(TownWorld town)
     {
         KeptWalkers.TakeBackTheLeft(town, _walkers);
+        _bodies.TakeEveryPoseBack(town);
         var cars = town.Cars;
         var count = 0;
         for (var car = 0; car < cars.Count; car++)
@@ -902,8 +920,8 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
             // Nothing is ticked here, and the bodies step on the town's own impulses.
             if (!StepsWithTheTick) return;
 
+            MarkWhatTheTownLeavesUnread(town);
             _bodies.StepBodies(town, _dtS, default, walkersTicked: false);
-            KnowTheStep();
             _townClaims.Rebuild.LandWhatWasSent(town);
             _townClaims.Rebuild.SendTheLayerBack();
             _swept = false;
@@ -1046,8 +1064,8 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
             var steppedFrom = Stopwatch.GetTimestamp();
             _stepBatch.Wait();
             StepIdleMs = Stopwatch.GetElapsedTime(steppedFrom).TotalMilliseconds;
+            MarkWhatTheTownLeavesUnread(town);
             _bodies.TakeTheStepBack(town, physics.Changes[placedFrom..placedTo]);
-            KnowTheStep();
             _swept = false;
         }
 
@@ -1127,8 +1145,8 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     public void StepBodies(TownWorld town, float dtS)
     {
         var leaving = Leaving(town, everyKept: false);
+        MarkWhatTheTownLeavesUnread(town);
         _bodies.StepBodies(town, dtS, _ticked ? _taken.AsSpan(0, _count) : default, walkersTicked: _ticked, leaving);
-        KnowTheStep();
         TakeTheWheelsBack(town.Cars, leaving);
         HandedOver = (HandedOver.InTheStep + leaving.Length, HandedOver.Alone);
         _ticked = false;
@@ -1354,8 +1372,30 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _walkers.KnowTheTick();
     }
 
-    /// <summary>Where the bodies' step just handed back left every walker, taken as what the device's walker table holds.</summary>
-    void KnowTheStep() => _walkers.KnowTheStep(_bodies.Phase.WalkersAfter);
+    /// <summary>
+    /// The cars and walkers whose poses the town does not read after the step about to be taken back
+    /// (<see cref="DeviceTownBodies.CarsUnread"/>): a car the device keeps, its tick left unread
+    /// (<see cref="DeviceCarTick.TownHolds"/>), and a walker the town neither reads whole (<see cref="TownWorld.ReadsTheWalker"/>)
+    /// nor walks under a hand — but none where a frame drawn after the tick reads the town's copy of everything
+    /// (<see cref="TownWorld.ReadsEveryCarAfterTheTick"/>). Any of them the town comes to read is taken back then
+    /// (<see cref="TakeThePoseBack"/>).
+    /// </summary>
+    void MarkWhatTheTownLeavesUnread(TownWorld town)
+    {
+        var everyAgent = town.ReadsEveryCarAfterTheTick;
+        for (var car = 0; car < town.Cars.Count; car++) _carsUnread[car] = !everyAgent && !_cars.TownHolds(car);
+        for (var person = 0; person < town.People.Count; person++)
+        {
+            _walkersUnread[person] = !everyAgent && !town.ReadsTheWalker(person) && !town.WalksUnderAHand(person);
+        }
+    }
+
+    readonly bool[] _carsUnread;
+    readonly bool[] _walkersUnread;
+
+    public void TakeThePoseBack(TownWorld town, int agent) => _bodies.TakeThePoseBack(town, agent);
+
+    public void TakeEveryPoseBack(TownWorld town) => _bodies.TakeEveryPoseBack(town);
 
     /// <remarks>
     /// The last laying landed with every hold, and every car the device keeps handed back whole, before the decisions put
@@ -1363,6 +1403,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// </remarks>
     public void Dispose()
     {
+        _bodies.TakeEveryPoseBack(_town);
         _townClaims.LandTheLastLaying(_town);
         _townClaims.Rebuild.LandEveryHold(_town.ReadersOccupancy);
         HandBackAlone(_town, Leaving(_town, everyKept: true));

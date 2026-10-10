@@ -116,6 +116,7 @@ internal sealed partial class TownWorld
     /// </summary>
     void LetTheOwnerOut(int car, int owner)
     {
+        TakeTheCarsPoseBack(car);
         var doorM = WayInOf(car);
         if (!KnowsTheGroundOutside(doorM)
             || !ExitSpots.TryFind(
@@ -180,6 +181,8 @@ internal sealed partial class TownWorld
     {
         var car = People.Car[person];
         if (car == PersonFleet.NoCar || !IsFreeToDrive(car)) return;
+
+        TakeTheCarsPoseBack(car);
         if (Vector2.Distance(Cars.PositionM[car], People.PositionM[person]) <= _config.PersonWalkReachM) return;
 
         var bay = FreeBayNear(People.PositionM[person], _config.PersonWalkReachM);
@@ -193,6 +196,8 @@ internal sealed partial class TownWorld
     bool HasTheCarToHand(int person)
     {
         var car = People.Car[person];
+        if (car != PersonFleet.NoCar) TakeTheCarsPoseBack(car);
+
         return car != PersonFleet.NoCar
                && IsFreeToDrive(car)
                && Vector2.Distance(Cars.PositionM[car], People.PositionM[person]) <= _config.PersonWalkReachM;

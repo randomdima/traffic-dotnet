@@ -139,6 +139,7 @@ internal sealed partial class TownWorld
     {
         if (person < 0) return;
 
+        TakeTheCarsPoseBack(car);
         var doorM = DriverDoorM(car);
         _containers.Alight(car, person);
         People.Stage[person] = TripStage.StandingBy;
@@ -298,6 +299,7 @@ internal sealed partial class TownWorld
         {
             if (other == car || !Cars.Ambulance[other] || Cars.Broken[other] || _duty.IsOnACall(other)) continue;
 
+            TakeTheCarsPoseBack(other);
             var otherM = (People.PositionM[person] - Cars.PositionM[other]).LengthSquared();
             if (otherM < farM || (otherM == farM && other < car)) return false;
         }
@@ -672,6 +674,7 @@ internal sealed partial class TownWorld
         Cars.BlueLight[car] = false;
         if (casualty < 0) return;
 
+        TakeTheCarsPoseBack(car);
         var headingRad = Cars.HeadingRad[car];
         var behind = -Heading.Unit(headingRad);
         var tailM = Cars.PositionM[car] + (behind * (Cars.BuildOf(car).HalfLengthM + _config.PersonDiameterM));

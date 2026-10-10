@@ -50,6 +50,7 @@ internal sealed partial class TownWorld
     /// </summary>
     void LayTheFirstLine(int car)
     {
+        TakeTheCarsPoseBack(car);
         _manoeuvres.Clear(car);
 
         // <b>The bay the body is in, whether or not it was registered there</b>: a leg given up on the way
@@ -169,6 +170,7 @@ internal sealed partial class TownWorld
     /// </remarks>
     bool TakeTheLaneUnderIt(int car)
     {
+        TakeTheCarsPoseBack(car);
         var forward = ForwardOf(car);
         var rearAxleM = CarFollower.RearAxleM(Cars.BuildOf(car), Cars.PositionM[car], forward);
         var under = TheCarriagewayUnder(rearAxleM, forward, Cars.LevelOf(car));

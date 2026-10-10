@@ -558,6 +558,7 @@ internal sealed partial class TownWorld
         // than standing in a lane. <b>An errand's own leg is the one that is not aimed at a bay at all</b>
         // (AMB-5, EVA-3): it is aimed at a body or a wreck in the road, and a bay claimed for it would be a
         // leg that parked instead of arriving.
+        TakeTheCarsPoseBack(car);
         if (!IsAimedAtAPlaceInTheRoad(car)
             && BayAimedAt(car) < 0
             && !RetargetTheBay(car, Cars.PositionM[car], ParkingRegistry.NoBay))

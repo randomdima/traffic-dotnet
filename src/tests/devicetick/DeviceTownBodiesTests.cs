@@ -402,27 +402,32 @@ internal sealed class TwoTowns : IDisposable
     /// Every other car sent at the nearest car standing in the next bay, as the host's town has them — the same push to
     /// the same body in both towns, spent on its body between two ticks.
     /// </summary>
-    public void ShoveTheParkedCars()
+    public void ShoveTheParkedCars() => ShoveTheParkedCars(Host, Host, OnDevice);
+
+    /// <summary>
+    /// Every other car sent at the nearest car standing in the next bay, as <paramref name="reference"/> has them — the same
+    /// push to the same body in every town, spent on its body between two ticks.
+    /// </summary>
+    public static void ShoveTheParkedCars(TownWorld reference, params TownWorld[] towns)
     {
-        var cars = Host.Cars;
+        var cars = reference.Cars;
         for (var car = 0; car < cars.Count; car += 2)
         {
-            var beside = NearestCar(cars.PositionM[car], car);
+            var beside = NearestCar(cars, cars.PositionM[car], car);
             if (beside < 0) continue;
 
             var impulseNs = Vector2.Normalize(cars.PositionM[beside] - cars.PositionM[car]) * (cars.MassKg[car] * ShoveMps);
-            Host.PhysicsForInstruments.ApplyCentralImpulse(Host.Cars.Body[car], impulseNs);
-            OnDevice.PhysicsForInstruments.ApplyCentralImpulse(OnDevice.Cars.Body[car], impulseNs);
+            foreach (var town in towns) town.PhysicsForInstruments.ApplyCentralImpulse(town.Cars.Body[car], impulseNs);
         }
     }
 
-    int NearestCar(Vector2 fromM, int besides)
+    static int NearestCar(CarFleet cars, Vector2 fromM, int besides)
     {
         var nearest = -1;
         var nearestM = BesideWithinM;
-        for (var car = 0; car < Host.Cars.Count; car++)
+        for (var car = 0; car < cars.Count; car++)
         {
-            var apartM = Vector2.Distance(Host.Cars.PositionM[car], fromM);
+            var apartM = Vector2.Distance(cars.PositionM[car], fromM);
             if (car == besides || apartM >= nearestM) continue;
 
             nearest = car;

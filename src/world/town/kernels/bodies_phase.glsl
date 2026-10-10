@@ -14,7 +14,9 @@ layout(push_constant) uniform Phase
 
     // The bit of a body's flags that says it is in the world (BodyFlags.Enabled).
     uint enabledBit;
-    uint pad0;
+
+    // Whether the walkers' tick's table is bound, which keeps how far each walker has walked (bodies_walkers_read.comp).
+    uint walkerTableBound;
     uint pad1;
     uint pad2;
 };

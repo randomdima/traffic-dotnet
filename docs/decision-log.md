@@ -4,6 +4,39 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-10 — the town is handed back only the poses it reads
+
+**The owner's ruling (2026-10-10)**: the host's copy of a pose may go stale on purpose. A town a device steps writes back
+after each step only the poses it reads. A town held, or watched by an instrument (TownWatch), still reads every pose.
+
+- **A car's pose is written back where the town holds the car** (`DeviceCarTick.TownHolds`): one it ticks, decides,
+  reads every tick (`TownWorld.ReadsTheTickOf`), or one every car is read for, as a frame drawn off the town's copy is
+  (`ReadsEveryCarAfterTheTick`). **A walker's** is written back where the town reads it whole: indoors, wounded, on duty,
+  picked out or under a hand (`TownWorld.ReadsTheWalker`). Every pose is still copied back into host memory, into one
+  of two buffers in turn (`DeviceBodyPhase.Side`). What the host no longer does is write each one into its fleets and its
+  table.
+- **A pose left unread is taken back when something asks for it** (`ITownDevice.TakeThePoseBack`, `TakeEveryPoseBack`),
+  off the buffer the last finished step wrote. The next step writes the other buffer, so the decisions put off, taken
+  while that step runs, can ask too. The town asks:
+  - for an agent before deciding it, and for a car the device hands it to decide;
+  - for a car as it leaves the device;
+  - for a walker about to be written over the device's table;
+  - for a car's door, its first line and its lane;
+  - for a free ambulance, patrol or evacuator weighed against a call, and for a wreck's occupants thrown clear;
+  - for every agent where the town lays the claims itself, works a tow arm, picks or boxes units, or lets a device go.
+- **The table is no longer laid whole because it grew.** That would send stale poses over the device's own; a body added
+  is a changed row like any other (`RowChange.Whole`).
+- **Held by `DeviceTownPosesTests`**: two device towns of one plan, one written every pose and one only what it reads,
+  held to each other's device every tick over half a minute of the shoved car park and of the city brief. The partial
+  town writes nought-over-nought into every pose it leaves unread (`DeviceTownBodies.PoisonsWhatIsUnread`), so a read
+  of one cannot pass unnoticed. It caught the kept walkers' patch, and it fails with the take-back for a car the device
+  hands the town left out.
+
+On OdesaOsm at 40 000 of each (`--bench devicetown`) about 950 cars' poses and no walker's are written back a tick, where
+all 40 013 and 16 775 were. The bodies' writing back fell from 0.66 to 0.43 ms a tick (0.63 to 0.36 with the bodies
+stepped after the decisions). The tick is within noise of before (12.0 ms), and the town drove the same to the count:
+388 pairs began touching, 9 016 hard brakings, 157 cars off their lines.
+
 ## 2026-10-09 — a switching car's look for room is taken on the device
 
 **Under the owner's 2026-10-08 ruling.** At OdesaOsm's 40 000 cars a switching car's decision was the town's whatever it

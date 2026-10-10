@@ -204,6 +204,11 @@ internal sealed partial class DeviceWalkers
             {
                 row.Hold = _known[person].Hold;
                 if (SameToTheClaims(row, _known[person]) && (row.Is(WalkerRow.Inside) || ticked.HoldsTheBodyOf(people, person))) continue;
+
+                // Written over the device's row whole, it is written where the device's last step left it.
+                world.TakeThePoseBack(person);
+                row = RowOf(world, person) with { Hold = _known[person].Hold };
+                if (SameToTheClaims(row, _known[person]) && (row.Is(WalkerRow.Inside) || ticked.HoldsTheBodyOf(people, person))) continue;
             }
             else
             {

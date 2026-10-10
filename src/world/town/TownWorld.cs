@@ -751,6 +751,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     public void RebuildProximityIndex()
     {
+        // A town about to tick every agent itself, or watching every one, reads every pose.
+        if (HoldAgents || WatchesEveryAgent) TakeEveryPoseBack();
+
         TakeUpTheHands();
         LayTheClosures();
         DriveTheEmptyMap();
@@ -832,9 +835,32 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     /// <summary>
     /// <b>Where the town's tick runs other than in its own loops</b> (<see cref="ITownDevice"/>), or none: the agents it takes
-    /// are not ticked here, and what they left is handed back before any decision reads it.
+    /// are not ticked here, and what they left is handed back before any decision reads it. A device let go of hands every
+    /// pose back first, which the town's own step goes on from.
     /// </summary>
-    public ITownDevice? Device { get; set; }
+    public ITownDevice? Device
+    {
+        get => _device;
+        set
+        {
+            _device?.TakeEveryPoseBack(this);
+            _device = value;
+        }
+    }
+
+    ITownDevice? _device;
+
+    /// <summary>
+    /// <b>This agent's pose as the device's last step left it</b>, where the town reads a body it does not read every tick
+    /// (<see cref="ITownDevice.TakeThePoseBack"/>): a partner, the nearest of a kind, one picked out, one a crash wrecked.
+    /// </summary>
+    public void TakeThePoseBack(int agent) => _device?.TakeThePoseBack(this, agent);
+
+    /// <inheritdoc cref="TakeThePoseBack"/>
+    public void TakeTheCarsPoseBack(int car) => _device?.TakeThePoseBack(this, Roster.AgentOfCar(car));
+
+    /// <summary>Every agent's pose as the device's last step left it, where the town is about to read every one.</summary>
+    public void TakeEveryPoseBack() => _device?.TakeEveryPoseBack(this);
 
     /// <summary>
     /// <b>Where the claims are laid other than in the town's own rebuild</b> (<see cref="ITownClaims"/>): this, or else the
@@ -1009,6 +1035,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
                 return;
             }
 
+            // Decided here, it is decided where the device's last step left it.
+            TakeThePoseBack(agent);
             if (DecidesQuietCarsByTheClock && TakesOnlyTheClock(car, sinceLastDecisionS))
             {
                 WatchTheProgress(car, sinceLastDecisionS);
@@ -1037,6 +1065,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             return;
         }
 
+        TakeThePoseBack(agent);
         if (DecidesQuietWalkersByTheClock && WalkerTakesOnlyTheClock(agent, sinceLastDecisionS))
         {
             RunTheWalksClock(agent, sinceLastDecisionS);

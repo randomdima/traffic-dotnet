@@ -242,6 +242,7 @@ internal sealed partial class TownWorld
         {
             if (other == car || !TakesCalls(other)) continue;
 
+            TakeTheCarsPoseBack(other);
             var otherM = (sceneM - Cars.PositionM[other]).LengthSquared();
             if (otherM < farM || (otherM == farM && other < car)) return false;
         }

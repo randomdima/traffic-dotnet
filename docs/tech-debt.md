@@ -75,6 +75,11 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   tick closes it, as
   `TheTownHoldsEveryWalkerAsTheDeviceLeftIt` does for the walkers the claims keep and
   `EveryTickReadsEveryWalkerAsTheTownHoldsIt` for the walker tick's table.
+- **The poses a town is handed back in part are held only on the suite's two towns** (`DeviceTownPosesTests`, root log
+  2026-10-10). A host read of a pose the town was not handed, somewhere those runs never reach, reads a stale figure:
+  the interface, a tow arm, a closure, a follow order, a debug layer. Every such read named in the 2026-10-10
+  inventory takes the pose back first. A probe that runs a shipped city poisoned, held to one handed every pose
+  (`DeviceTownBodies.PoisonsWhatIsUnread`, as the test runs it), closes it.
 - **No car backs up in the town the device's own tick is gated on** (`Towns.Built`, in `DeviceTownGateTests`,
   `DeviceTownKeptCarsTests`, `DeviceTownDecidesTests`), so a backing laid on the device under a layer that lands later is
   held only to itself: `DeviceTownRunOnTests` runs a car backing up past a wreck and holds a rebuild that runs on to one
@@ -210,6 +215,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **`DeviceRebuild.Shadow.SlotOf` scans every slot** for each host hold with a cut.
 - **`DeviceTyres` is laid its grounds and figures once**, at construction: `TownWorld.FiguresChanged` retunes the
   host's `WheelGrounds` and the device keeps the old ones.
+- **Which poses a step writes back is found by walking every car and walker** (`DeviceTown.MarkWhatTheTownLeavesUnread`,
+  `DeviceTownBodies.HandBack`), every tick, though about 950 of OdesaOsm's 40 013 cars and none of its walkers are
+  written. That walk is most of what is left of the bodies' 0.43 ms of writing back. A list of the agents the town
+  reads, kept as each comes to be read or stops being read, closes it.
 - **The sprites' rows are laid whole from the fleets every frame** (`DeviceSprites.LayCars`, `LayPeople`). That includes
   every pose, which a device town's emit then overwrites with its own (`sprites_cars.comp`, `sprites_walkers.comp`):
   a loop over every car and walker, part of the 0.99 ms the frame's sprites cost on OdesaOsm at 40 000 of each

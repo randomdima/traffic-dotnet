@@ -5,9 +5,14 @@ namespace TrafficSimulation.Tests.World;
 /// <summary>Two towns run side by side, held to each other.</summary>
 internal static class TownsInStep
 {
-    /// <summary>Every car and walker of one town against the other's, to the bit: where each stands, moves and faces, and its hold.</summary>
+    /// <summary>
+    /// Every car and walker of one town against the other's, to the bit: where each stands, moves and faces, and its hold —
+    /// every pose taken back first where a device stepped the town and handed back only what it reads.
+    /// </summary>
     public static void Compare(TownWorld one, TownWorld other, int tick, List<string> unlike)
     {
+        one.TakeEveryPoseBack();
+        other.TakeEveryPoseBack();
         var (cars, otherCars) = (one.Cars, other.Cars);
         for (var car = 0; car < cars.Count; car++)
         {
