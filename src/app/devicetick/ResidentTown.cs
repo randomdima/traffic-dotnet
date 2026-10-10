@@ -32,10 +32,15 @@ namespace TrafficSimulation.App.DeviceTick;
 internal sealed class ResidentTown : IDisposable
 {
     [StructLayout(LayoutKind.Sequential)]
-    readonly record struct ListsPush(uint Cars, uint Mode, uint Group);
+    readonly record struct ListsPush(uint Cars, uint People, uint Mode, uint Group, uint DueTick, uint Groups);
 
-    /// <summary>The ids of the resident town's own lists on the root (<c>resident_lists.comp</c>).</summary>
-    const int ListCountsId = 2, TakenId = 3;
+    /// <summary>
+    /// The resident town's own lists (<c>resident_lists.comp</c>): their counts on the root, four words a list — the count
+    /// and its dispatch — and each list's table from <see cref="ListsId"/>, in this order.
+    /// </summary>
+    internal enum List { Taken, CarsLeft, CarsDue, WalkersDue }
+
+    const int ListCountsId = 2, ListsId = 3, Lists = 4;
 
     /// <summary>The car tick's workgroup (<c>car_tick.comp</c>), which the list's padding and dispatch are counted in.</summary>
     const uint CarTickGroup = 64;
@@ -55,6 +60,9 @@ internal sealed class ResidentTown : IDisposable
 
     /// <summary>When the claims are laid (<see cref="SimFigures.ClaimsIntervalS"/>), counted in the town's own ticks.</summary>
     readonly TickGroups _claimsClock;
+
+    /// <summary>Whose turn of the decisions each tick is (<see cref="SimFigures.AgentDecisionIntervalS"/>).</summary>
+    readonly TickGroups _decisions;
 
     /// <summary>The town's ticks and its clock, the host's to count: what the lights and the claims are laid at.</summary>
     long _ticks;
@@ -89,11 +97,15 @@ internal sealed class ResidentTown : IDisposable
         _state = new TownState(vk, _root, town);
         _routes = DeviceRoutes.Of(vk, _root, town);
 
+        _decisions = new TickGroups(config.Sim.AgentDecisionIntervalS, config.Sim.TickRateHz);
         _listCounts = vk.CreateBuffer(
-            Bytes<uint>(4), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.IndirectBufferBit | BufferUsageFlags.TransferDstBit,
+            Bytes<uint>(4 * Lists), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.IndirectBufferBit | BufferUsageFlags.TransferDstBit,
             HostAccess.None);
         _root.Set(ListCountsId, _listCounts);
-        _root.Set(TakenId, cars.TakenTable);
+        _root.Set(ListsId + (int)List.Taken, cars.TakenTable);
+        Owned(ListsId + (int)List.CarsLeft, Device<uint>(town.Cars.Capacity));
+        Owned(ListsId + (int)List.CarsDue, Device<uint>(town.Cars.Capacity));
+        Owned(ListsId + (int)List.WalkersDue, Device<uint>(town.People.Capacity));
         _lists = new ComputeKernel(vk, "resident_lists.comp", 1, (uint)Marshal.SizeOf<ListsPush>());
         _listsSet = _lists.Bind([_root.Buffer]);
         _batch = new ComputeBatch(vk);
@@ -124,23 +136,35 @@ internal sealed class ResidentTown : IDisposable
             vk.BetweenKernels(commands);
         }
 
-        _ticks++;
-        _elapsedS += _dtS;
         vk.Fill(commands, _listCounts, 0u);
         vk.AfterTransfer(commands);
-        var groups = (uint)((_cars + (int)CarTickGroup - 1) / (int)CarTickGroup);
-        _lists.Dispatch(commands, _listsSet, Math.Max(1u, groups), new ListsPush((uint)_cars, 0u, CarTickGroup));
+        var units = Math.Max(_cars, _people);
+        var groups = (uint)Math.Max(1, (units + (int)CarTickGroup - 1) / (int)CarTickGroup);
+        var lists = new ListsPush(
+            (uint)_cars, (uint)_people, 0u, CarTickGroup, (uint)(_ticks % _decisions.Groups), (uint)_decisions.Groups);
+        _lists.Dispatch(commands, _listsSet, groups, lists);
         vk.BetweenKernels(commands);
-        _lists.Dispatch(commands, _listsSet, Math.Max(1u, groups), new ListsPush((uint)_cars, 1u, CarTickGroup));
+        _lists.Dispatch(commands, _listsSet, groups, lists with { Mode = 1u });
         vk.BetweenKernels(commands);
+        _ticks++;
+        _elapsedS += _dtS;
 
-        cars.RecordTheTickOver(commands, _listCounts, sizeof(uint), _cars);
+        // The searches the decisions asked, each answered by the agent's next decision.
+        _routes.Record(commands);
+
+        cars.RecordTheTickOver(commands, _listCounts, DispatchOf(List.Taken), _cars);
         vk.BetweenKernels(commands);
         walkers.RecordTheTick(commands);
         vk.BetweenKernels(commands);
         bodies.Phase.Record(commands, _cars, _people, _dtS, DeviceBodyPhase.Reads.None);
         _batch.SubmitAndWait();
     }
+
+    /// <summary>Where a list's dispatch stands in the counts, in bytes.</summary>
+    static ulong DispatchOf(List list) => (ulong)(((4 * (int)list) + 1) * sizeof(uint));
+
+    GpuBuffer Device<T>(int count) where T : unmanaged =>
+        _vk.CreateBuffer(Bytes<T>(count), BufferUsageFlags.StorageBufferBit, HostAccess.None);
 
     static TownRows.CountsRow CountsOf(TownWorld town)
     {
