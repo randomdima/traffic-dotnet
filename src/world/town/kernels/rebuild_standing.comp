@@ -1,0 +1,370 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// What every car whose claim is laid where it stands holds (TownWorld.PlanTheDrive: DrivingGround.HoldWhatCannotBeStoppedShortOf,
+// BayManoeuvring.Hold), laid after every light's stretch and before any plan, off what the host asked of each
+// (TownWorld.AsksWhereItStands) — one thread over the cars in the town's order, since each is laid against those before it:
+// a hand's or a truck's committed ground a stretch at a time, how far each can be had against the bodies and what is
+// planned (LaneOccupancy.Reach), then taken — whatever it meets cut back, every mark over it placed, then the stretch
+// itself (LaneOccupancy.Take); a manoeuvre's hold before it is begun, ended where its claim was cleared to; and a begun one's
+// short of the first body standing in what is left of it (LaneOccupancy.FirstBodyIn). Rows and holds are numbered from the
+// unit's own first for rebuild_file.comp to file where its scans say, as is each light's stretch they took. The rest of
+// the group clears what the lights' stretches were taken first.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Figures
+{
+    uint standingCount;
+    uint stretchCount;
+    float standOffM;
+} figures;
+
+#include "world/road/kernels/claims_rows.glsl"
+#include "world/road/kernels/claims_marks.glsl"
+#include "world/town/kernels/rebuild_rows.glsl"
+
+// One car whose claim is laid where it stands (app/devicetick/DeviceRebuild.StandingRow): how, the run of its committed
+// stretches or of its asks after a body, and where its claim was cleared to.
+struct StandingRow
+{
+    uint car;
+    uint kind;
+    uint first;
+    uint count;
+    float claimFromM;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+};
+
+// StandingClaim.
+const uint StandsCommitted = 1u;
+const uint StandsWaiting = 2u;
+const uint StandsManoeuvre = 3u;
+
+layout(std430, binding = 0) readonly buffer Standing { StandingRow standing[]; };
+layout(std430, binding = 1) readonly buffer Stretches { ClaimRow stretches[]; };
+layout(std430, binding = 2) readonly buffer Asks { BodyAskRow asks[]; };
+// Written by nothing here: claims.glsl's cut, which writes the rows it reads, is never called.
+layout(std430, binding = 3) buffer Rows { ClaimRow rows[]; };
+layout(std430, binding = 4) readonly buffer BodyRuns { uvec2 bodyRuns[]; };
+layout(std430, binding = 5) readonly buffer Order { uint order[]; };
+layout(std430, binding = 6) readonly buffer Held { vec4 held[]; };
+layout(std430, binding = 7) readonly buffer StretchPieces { ClaimRow stretchPieces[]; };
+layout(std430, binding = 8) readonly buffer WayLightAt { uint wayLightAt[]; };
+layout(std430, binding = 9) readonly buffer WayLights { uint wayLights[]; };
+layout(std430, binding = 10) readonly buffer MarkAt { uint markAt[]; };
+layout(std430, binding = 11) readonly buffer Marks { WayMark marks[]; };
+layout(std430, binding = 12) buffer StandingRows { ClaimRow laid[]; };
+layout(std430, binding = 13) buffer StandingHolds { HoldRow laidHolds[]; };
+layout(std430, binding = 14) writeonly buffer StandingCounts { uint laidCounts[]; };
+layout(std430, binding = 15) writeonly buffer StandingHoldOf { int standingHoldOf[]; };
+layout(std430, binding = 16) writeonly buffer Said { int said[]; };
+layout(std430, binding = 17) buffer StretchCuts { uvec4 stretchCuts[]; };
+
+// Nothing is listed among the plans yet, and nothing here is answered or shown: the planned pieces a stretch meets are the
+// lights' and this unit's own, walked below.
+struct StandingShows
+{
+    uint plansHidden;
+};
+
+const StandingShows standingShows = StandingShows(0u);
+float standingShownNever[1];
+
+#define CLAIMS_FIGURES standingShows
+#define CLAIM_ROWS rows
+#define BODY_RUNS bodyRuns
+#define PLANNED_RUNS bodyRuns
+#define BODY_ORDER order
+#define PLANNED_ORDER order
+#define HOLD_ROWS laidHolds
+#define SHOWN_TO standingShownNever
+
+#include "world/road/kernels/claims.glsl"
+
+// The rows this unit has laid so far.
+uint laidEnd;
+
+// One planned piece on a way while the unit is laid: a light's (kind 0, by its stretch) or one of the unit's own rows
+// (kind 1) — or none (kind 2).
+struct Piece
+{
+    uint kind;
+    uint index;
+};
+
+const uint LightPiece = 0u;
+const uint OwnPiece = 1u;
+const uint NoPieceKind = 2u;
+
+ClaimRow pieceRow(Piece piece) { return piece.kind == LightPiece ? stretchPieces[piece.index] : laid[piece.index]; }
+
+bool pieceGone(Piece piece)
+{
+    return piece.kind == LightPiece ? (stretchCuts[piece.index].x & StretchTaken) != 0u : claimGone(laid[piece.index]);
+}
+
+// Whether one piece stands before another in its way's list (LaneOccupancy.Precedes): nearest first, then laid first —
+// every light's before every one of the unit's own.
+bool standingPrecedes(Piece one, Piece other)
+{
+    float oneM = pieceRow(one).fromM;
+    float otherM = pieceRow(other).fromM;
+    if (oneM != otherM) return oneM < otherM;
+
+    return one.kind != other.kind ? one.kind < other.kind : one.index < other.index;
+}
+
+// Whether a piece is one to walk past `after` and nearer than `best` so far.
+bool standingCloser(Piece piece, Piece after, Piece best)
+{
+    if (pieceGone(piece)) return false;
+    if (after.kind != NoPieceKind && !standingPrecedes(after, piece)) return false;
+
+    return best.kind == NoPieceKind || standingPrecedes(piece, best);
+}
+
+// The next planned piece on a way after `after` — the first, after none — as its list stands while the unit is laid: a
+// light's piece placed and not taken, and the unit's own not gone.
+Piece standingNext(uint way, Piece after)
+{
+    Piece next = Piece(NoPieceKind, 0u);
+    for (uint at = wayLightAt[way]; at < wayLightAt[way + 1u]; at++)
+    {
+        uint stretch = wayLights[at];
+        if (held[stretch].x == 0.0 || held[stretch].y == 0.0) continue;
+
+        Piece piece = Piece(LightPiece, stretch);
+        if (standingCloser(piece, after, next)) next = piece;
+    }
+
+    for (uint row = 0u; row < laidEnd; row++)
+    {
+        if (laid[row].way != way) continue;
+
+        Piece piece = Piece(OwnPiece, row);
+        if (standingCloser(piece, after, next)) next = piece;
+    }
+
+    return next;
+}
+
+// How far along its way a stretch can be had against the bodies and what is planned there (LaneOccupancy.Reach): the
+// stretch's own start is where its holder's body stands to.
+float standingReach(ClaimRow ask)
+{
+    uint way = ask.way;
+    float fromM = ask.fromM;
+    float toM = ask.toM;
+    float limitM = toM;
+    uvec2 bodies = bodyRuns[way];
+    for (uint at = bodies.x; at < bodies.x + bodies.y; at++)
+    {
+        ClaimRow body = rows[order[at]];
+        if (body.fromM >= limitM) break;
+        if (claimsOwns(ask, body) || body.toM <= ask.standsToM) continue;
+        if (claimPassing(body) && claimsStandsOn(way, ask.occupant, claimRoster(ask), body.fromM, body.toM)) continue;
+
+        limitM = max(fromM, body.fromM);
+        break;
+    }
+
+    for (Piece piece = standingNext(way, Piece(NoPieceKind, 0u)); piece.kind != NoPieceKind; piece = standingNext(way, piece))
+    {
+        ClaimRow other = pieceRow(piece);
+        float atM = max(fromM, other.fromM);
+        if (atM >= limitM) break;
+        if (other.toM <= fromM || claimsOwns(ask, other)) continue;
+
+        float overToM = min(toM, other.toM);
+        if (claimsBeatsOn(way, ask, atM, overToM, other)) continue;
+
+        limitM = atM;
+        break;
+    }
+
+    return limitM;
+}
+
+// One hold a piece is of cut at a metre of its holder's line by a taker's row (LaneOccupancy.CutHold): a light's whole —
+// its one piece is secondary, met at its own line metre — and one of the unit's own past the metre, the main claim running
+// over it ending there; and the hold laid to end there, where that is nearer.
+void standingCutHold(Piece piece, ClaimRow met, float lineM, uint taker, uint way)
+{
+    if (piece.kind == LightPiece)
+    {
+        uvec4 cut = stretchCuts[piece.index];
+        cut.x |= StretchTaken;
+        float endsM = (cut.x & StretchCut) != 0u ? uintBitsToFloat(cut.y) : held[piece.index].z;
+        if (lineM < endsM) cut = uvec4(cut.x | StretchCut, floatBitsToUint(lineM), taker, way);
+        stretchCuts[piece.index] = cut;
+        return;
+    }
+
+    uint hold = uint(met.hold);
+    HoldRow cutHold = laidHolds[hold];
+    for (uint row = cutHold.firstRow; row < cutHold.endRow; row++)
+    {
+        ClaimRow own = laid[row];
+        if (claimGone(own)) continue;
+        if (own.lineFromM >= lineM)
+        {
+            laid[row].flags = own.flags | ClaimGone;
+            continue;
+        }
+
+        if (claimSecondary(own)) continue;
+
+        precise float endsAtLineM = own.lineFromM + (own.toM - own.fromM);
+        if (endsAtLineM <= lineM) continue;
+
+        precise float toM = own.fromM + (lineM - own.lineFromM);
+        if (toM <= own.fromM) laid[row].flags = own.flags | ClaimGone;
+        else laid[row].toM = toM;
+    }
+
+    if (lineM >= cutHold.laidCutLineM) return;
+
+    laidHolds[hold].laidCutLineM = lineM;
+    laidHolds[hold].laidMarginM = cutHold.standingMarginM;
+    laidHolds[hold].laidCutBy = StandingOwnRow | taker;
+    laidHolds[hold].laidCutOn = int(way);
+}
+
+// Every other hold's piece over the taker's stretch of its way cut back to where the two met (LaneOccupancy.TakeFrom) —
+// one walk serving the host's walk begun again after each cut, since a cut only ends pieces sooner.
+void standingTakeFrom(ClaimRow main, uint taker)
+{
+    for (Piece piece = standingNext(main.way, Piece(NoPieceKind, 0u)); piece.kind != NoPieceKind; piece = standingNext(main.way, piece))
+    {
+        ClaimRow other = pieceRow(piece);
+        if (other.fromM >= main.toM) break;
+        if (other.toM <= main.fromM || claimsOwns(main, other)) continue;
+
+        float atM = max(main.fromM, other.fromM);
+        precise float lineM = claimSecondary(other) ? other.lineFromM : other.lineFromM + (atM - other.fromM);
+        standingCutHold(piece, other, lineM, taker, main.way);
+
+        // Held to the exact metre it was met at, as the host's is.
+        if (piece.kind == LightPiece || claimGone(laid[piece.index]) || laid[piece.index].toM <= atM) continue;
+
+        if (atM <= laid[piece.index].fromM) laid[piece.index].flags |= ClaimGone;
+        else laid[piece.index].toM = atM;
+    }
+}
+
+// One stretch of a hold laid over [fromM, toM) of its way (LaneOccupancy.Take): what it meets cut back, every mark over it
+// placed as a secondary claim of the hold, then the stretch.
+void standingTake(ClaimRow main)
+{
+    if (main.toM <= main.fromM) return;
+
+    uint way = main.way;
+    uint taker = laidEnd + (markAt[way + 1u] - markAt[way]);
+    for (uint at = markAt[way]; at < markAt[way + 1u]; at++)
+    {
+        if (marks[at].mineToM <= main.fromM || marks[at].mineFromM >= main.toM) taker--;
+    }
+
+    standingTakeFrom(main, taker);
+    uint flags = (main.flags & (ClaimRungBits | (3u << ClaimRosterShift))) | ClaimSecondary;
+    for (uint at = markAt[way]; at < markAt[way + 1u]; at++)
+    {
+        WayMark mark = marks[at];
+        if (mark.mineFromM >= main.toM) break;
+        if (mark.mineToM <= main.fromM) continue;
+
+        float atM = max(main.fromM, mark.mineFromM);
+        precise float pastM = max(0.0, atM - main.fromM);
+        precise float lineM = main.lineFromM + pastM;
+        precise float arrivalM = main.aheadM + pastM;
+        float committedToM = atM <= main.committedToM ? claimsInfinity() : -claimsInfinity();
+        laid[laidEnd++] = ClaimRow(
+            mark.fromM, mark.toM, 0.0, lineM, arrivalM, committedToM, mark.fromM, main.occupant, main.hold, OnwardNoWay, uint(mark.onWay),
+            flags);
+    }
+
+    laid[laidEnd++] = main;
+}
+
+// The first body over one ask's stretch, other than the asker's own (LaneOccupancy.AheadBody), or NoRow.
+uint standingFirstBody(BodyAskRow ask, int asker)
+{
+    uvec2 run = bodyRuns[uint(ask.way)];
+    for (uint at = 0u; at < run.y; at++)
+    {
+        uint slot = order[run.x + at];
+        ClaimRow body = rows[slot];
+        if (body.fromM > ask.toM) break;
+        if (body.toM <= ask.fromM || (body.occupant == asker && claimRoster(body) == RosterDriving)) continue;
+
+        return slot;
+    }
+
+    return NoRow;
+}
+
+// A hold with no ground (LaneOccupancy.BeginHold, EndHold): kept off what cut it by the stand-off, and laid to end at a
+// metre of its holder's line, kept off what ended it there by marginM.
+HoldRow standingHold(float endsAtM, float marginM, uint cutBy, int cutOn)
+{
+    float standOffM = figures.standOffM;
+    return HoldRow(laidEnd, laidEnd, standOffM, 0u, standOffM, -claimsInfinity(), endsAtM, marginM, cutBy, cutOn, 0.0, 0.0);
+}
+
+void main()
+{
+    for (uint stretch = gl_LocalInvocationID.x; stretch < figures.stretchCount; stretch += gl_WorkGroupSize.x) stretchCuts[stretch] = uvec4(0u);
+
+    memoryBarrierBuffer();
+    barrier();
+    if (gl_LocalInvocationID.x != 0u) return;
+
+    laidEnd = 0u;
+    uint hold = 0u;
+    for (uint at = 0u; at < figures.standingCount; at++)
+    {
+        StandingRow car = standing[at];
+        int carsHold = -1;
+        if (car.kind == StandsCommitted)
+        {
+            // Its own hold and never the car's, which drives no line (DrivingGround.HoldWhatCannotBeStoppedShortOf).
+            laidHolds[hold] = standingHold(claimsInfinity(), 0.0, NoRow, -1);
+            for (uint stretch = car.first; stretch < car.first + car.count; stretch++)
+            {
+                ClaimRow main = stretches[stretch];
+                main.hold = int(hold);
+                main.toM = standingReach(main);
+                standingTake(main);
+            }
+
+            laidHolds[hold].endRow = laidEnd;
+            hold++;
+        }
+        else if (car.kind == StandsWaiting)
+        {
+            laidHolds[hold] = standingHold(car.claimFromM, 0.0, NoRow, -1);
+            carsHold = int(hold++);
+        }
+        else
+        {
+            for (uint ask = car.first; ask < car.first + car.count; ask++)
+            {
+                uint body = standingFirstBody(asks[ask], int(car.car));
+                if (body == NoRow) continue;
+
+                laidHolds[hold] = standingHold(asks[ask].inTheWayM, figures.standOffM, body, asks[ask].way);
+                carsHold = int(hold++);
+                break;
+            }
+        }
+
+        standingHoldOf[car.car] = carsHold;
+        said[at] = carsHold;
+    }
+
+    laidCounts[0] = laidEnd;
+    laidCounts[1] = hold;
+}

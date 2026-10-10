@@ -62,6 +62,9 @@ layout(std430, binding = 9) writeonly buffer Holds { uint holdsOut[]; };
 layout(std430, binding = 10) writeonly buffer Moved { uint moved[]; };
 layout(std430, binding = 11) buffer MovedCount { uint movedCount; };
 
+// The hold each car laid where it stands, numbered from that unit's first, or -1 (rebuild_standing.comp).
+layout(std430, binding = 12) readonly buffer StandingHoldOf { int standingHoldOf[]; };
+
 void main()
 {
     uint car = gl_GlobalInvocationID.x;
@@ -77,6 +80,10 @@ void main()
         if ((claim.flags & CarPlansOnTheDevice) != 0u)
         {
             if (plan.laidAHold != 0u) hold = unitHolds[figures.firstCarUnit + car];
+        }
+        else if ((claim.flags & CarStands) != 0u)
+        {
+            if (standingHoldOf[car] >= 0) hold = unitHolds[figures.firstCarUnit - 1u] + uint(standingHoldOf[car]);
         }
         else if (claim.askCount > 0u && heldInItsPass)
         {

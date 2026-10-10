@@ -78,7 +78,7 @@ public class DeviceRebuildTests(RebuildsOnTheDevice run) : IClassFixture<Rebuild
 /// <b>With a car stood too near a wreck to step out round it</b>, which backs up for the room into the plans of whoever
 /// queues behind it (CAR-50, <see cref="World.OvertakeInATownTests.StandTooNearAWreck"/>), <b>and a hand at another car's
 /// wheel driving it flat out over a light's bar</b> (CTL-5d): a town left to itself backs nobody up and has no hand on a
-/// wheel, and what the host lays after the answers and what it cuts of what was laid before it are only asked where
+/// wheel, and what is laid after the answers and what a hand's ground takes of a light's stretch are only asked where
 /// somebody does.
 /// </para>
 /// </remarks>
@@ -93,7 +93,7 @@ public sealed class RebuildsOnTheDevice : IDisposable
     const int WatchedTicks = 1_200;
 
     /// <summary>A hand holding the throttle down and the wheel straight (CTL-5d).</summary>
-    static readonly HandInput FlatOut = new(Held: true, Throttle: 1f, Steer: 0f, Handbrake: false, WalkDirection: Vector2.Zero);
+    internal static readonly HandInput FlatOut = new(Held: true, Throttle: 1f, Steer: 0f, Handbrake: false, WalkDirection: Vector2.Zero);
 
     readonly Lavapipe _device = new();
 
@@ -120,7 +120,7 @@ public sealed class RebuildsOnTheDevice : IDisposable
         var hand = OnARedApproach(world, driver);
 
         using var onDevice = new DeviceRebuild(_device.Vk, Config, world);
-        long grown = 0, hostRows = 0, backing = 0, cut = 0;
+        long grown = 0, hostRows = 0, backing = 0, standing = 0;
         world.WatchingTheClaims = (town, stage) =>
         {
             onDevice.Watch(town, stage);
@@ -130,7 +130,7 @@ public sealed class RebuildsOnTheDevice : IDisposable
             grown += onDevice.Grown;
             hostRows += onDevice.HostRowsSent;
             backing += onDevice.BackingAsked;
-            cut += onDevice.EditsSent;
+            standing += onDevice.StandingHeld;
         };
 
         for (var tick = 0; tick < WatchedTicks; tick++)
@@ -141,14 +141,14 @@ public sealed class RebuildsOnTheDevice : IDisposable
 
         world.WatchingTheClaims = null;
         Seen = $" ({onDevice.Rebuilds} rebuilds of {world.Cars.Count} cars and {world.People.Count} walkers, {grown} bodies grown into "
-               + $"another, {hostRows} rows the host laid, {backing} cars' backing laid, {cut} rows and holds cut by the host)";
+               + $"another, {hostRows} rows the host laid, {backing} cars' backing laid, {standing} holds laid where they stand)";
     }
 
     /// <summary>
     /// A driven car put down on an approach its light holds, its nose at the bar, to be driven flat out over it by a hand:
     /// what it cannot stop short of is laid where it stands (TER-5e) over the light's stretch, and takes it.
     /// </summary>
-    static int OnARedApproach(TownWorld world, int notThis)
+    internal static int OnARedApproach(TownWorld world, params ReadOnlySpan<int> notThese)
     {
         var lights = world.SignalHolds.Table;
         var cars = world.Cars;
@@ -159,7 +159,7 @@ public sealed class RebuildsOnTheDevice : IDisposable
 
             for (var car = 0; car < cars.Count; car++)
             {
-                if (car == notThis || !cars.Driven[car] || cars.Broken[car] || world.OnTheHook(car)) continue;
+                if (notThese.Contains(car) || !cars.Driven[car] || cars.Broken[car] || world.OnTheHook(car)) continue;
 
                 var at = Spline.SampleAt(world.Roads.ArcsOf(lights.Subject[stretch]), lights.FromM[stretch] - cars.BuildOf(car).HalfLengthM);
                 cars.PositionM[car] = at.PositionM;

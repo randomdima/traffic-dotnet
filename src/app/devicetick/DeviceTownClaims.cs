@@ -14,9 +14,8 @@ namespace TrafficSimulation.App.DeviceTick;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The town lays a rebuild itself</b> where only its own laying can answer what is laid — a hand or a truck holding what
-/// it cannot stop short of, a manoeuvre begun at a bay (<see cref="TownWorld.LaysWhatOnlyTheTownAnswers"/>) — where more
-/// cars are on a pass than there is room to ask for, and while the town's agents are held.
+/// <b>The town lays a rebuild itself</b> where more cars are on a pass than there is room to ask for, and while the town's
+/// agents are held.
 /// </para>
 /// <para>
 /// <b>Once every grant is read</b>, what the device is to write of each asked car's grant is taken as what the car tick's
@@ -46,10 +45,10 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
     public DeviceRebuild Rebuild { get; }
 
     /// <summary>
-    /// How many claims rebuilds were laid here, and how many the town laid itself — of them, how many for what only the
-    /// town's laying answers, and how many for more cars on a pass than there is room to ask for.
+    /// How many claims rebuilds were laid here, and how many the town laid itself — of them, how many for more cars on a
+    /// pass than there is room to ask for.
     /// </summary>
-    public (long Here, long ByTheTown, long OnlyTheTownAnswers, long TooManyOnAPass) Rebuilds { get; private set; }
+    public (long Here, long ByTheTown, long TooManyOnAPass) Rebuilds { get; private set; }
 
     /// <summary>
     /// Whether the town laid claims itself since this was last asked — or before the device was set, where none was laid here
@@ -67,17 +66,16 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
 
     public bool LaysTheClaims(TownWorld town)
     {
-        var (here, byTheTown, onlyTheTown, tooMany) = Rebuilds;
-        var only = !town.HoldAgents && town.LaysWhatOnlyTheTownAnswers();
-        var crowded = !town.HoldAgents && !only && !DeviceRebuild.HasRoomForThePasses(town);
-        if (town.HoldAgents || only || crowded)
+        var (here, byTheTown, tooMany) = Rebuilds;
+        var crowded = !town.HoldAgents && !DeviceRebuild.HasRoomForThePasses(town);
+        if (town.HoldAgents || crowded)
         {
             _laidByTheTown = true;
-            Rebuilds = (here, byTheTown + 1, onlyTheTown + (only ? 1 : 0), tooMany + (crowded ? 1 : 0));
+            Rebuilds = (here, byTheTown + 1, tooMany + (crowded ? 1 : 0));
             return false;
         }
 
-        Rebuilds = (here + 1, byTheTown, onlyTheTown, tooMany);
+        Rebuilds = (here + 1, byTheTown, tooMany);
         _laidByTheTown = false;
         return true;
     }

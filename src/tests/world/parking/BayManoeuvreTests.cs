@@ -158,7 +158,7 @@ public class BayManoeuvreTests
     /// A car standing in a bay — nose in where <paramref name="noseIn"/> asks it — sent across the town, with the
     /// first piece of its way out as its line.
     /// </summary>
-    static (int Car, int Bay) SendACarOut(TownWorld world, bool? noseIn)
+    internal static (int Car, int Bay) SendACarOut(TownWorld world, bool? noseIn)
     {
         var cars = world.Cars;
         for (var car = 0; car < cars.Count; car++)
@@ -238,7 +238,7 @@ public class BayManoeuvreTests
     }
 
     /// <summary>A car broken where it is put down: nothing drives it, and it holds its ground as a body (TER-4c.2).</summary>
-    static void PutDown(TownWorld world, int car, Vector2 atM, float headingRad)
+    internal static void PutDown(TownWorld world, int car, Vector2 atM, float headingRad)
     {
         world.Cars.Driven[car] = false;
         world.Cars.Broken[car] = true;

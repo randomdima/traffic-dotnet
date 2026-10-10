@@ -12,7 +12,6 @@ layout(push_constant) uniform Figures
     uint carCount;
     uint walkerCount;
     uint mostPieces;
-    uint standingUnit;
     float standOffM;
 } figures;
 

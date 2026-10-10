@@ -2,7 +2,8 @@
 #extension GL_GOOGLE_include_directive : require
 
 // Every unit of the plans the device laid filed at the rows and holds its scans number, one thread a unit
-// (rebuild_plans.glsl): a light's hold and its piece (SignalHolds.HoldTheStretch), a car's plan (Following.Plan), a
+// (rebuild_plans.glsl): a light's hold and its piece (SignalHolds.HoldTheStretch), as the claims laid where they stand
+// left them; those claims, numbered from the unit's own first (rebuild_standing.comp); a car's plan (Following.Plan); a
 // walker's walk (WalkingGround.Claim, HoldShortOf) — each hold with the terms its holder gave it, and each row named it.
 
 layout(local_size_x = 64) in;
@@ -13,11 +14,20 @@ layout(push_constant) uniform Figures
     uint carCount;
     uint walkerCount;
     uint mostPieces;
-    uint standingUnit;
     float standOffM;
 } figures;
 
 #include "world/town/kernels/rebuild_plans.glsl"
+
+// Where the claims laid where they stand are filed: their first row and first hold.
+uvec2 fileStandingAt()
+{
+    uint unit = figures.stretchCount;
+    return uvec2(tally[TallyPassesEnd] + unitRows[unit], unitHolds[unit]);
+}
+
+// A row the claims laid where they stand named, numbered from their first, filed where they are.
+uint fileStandingRow(uint row) { return fileStandingAt().x + row; }
 
 void main()
 {
@@ -32,21 +42,46 @@ void main()
         if (stretch.x == 0.0) return;
 
         // A light's hold is placed, so answered, keeps nothing off what cuts it and is laid to end where its stretch was
-        // cut — on no way (LaneOccupancy.Place, EndHold).
+        // cut — on no way (LaneOccupancy.Place, EndHold) — or nearer, where a claim laid where it stands took its piece
+        // (LaneOccupancy.CutHold), on the way it was taken on.
+        uvec4 cut = stretchCuts[unit];
+        bool nearer = (cut.x & StretchCut) != 0u;
         uint placed = stretch.y != 0.0 ? 1u : 0u;
         plansFileTheHold(holdAt, HoldRow(
-            rowAt, rowAt + placed, 0.0, HoldAnswered, 0.0, -rebuildInfinity(), stretch.z, 0.0, floatBitsToUint(stretch.w), -1, 0.0, 0.0));
+            rowAt, rowAt + placed, 0.0, HoldAnswered, 0.0, -rebuildInfinity(), nearer ? uintBitsToFloat(cut.y) : stretch.z, 0.0,
+            nearer ? fileStandingRow(cut.z) : floatBitsToUint(stretch.w), nearer ? int(cut.w) : -1, 0.0, 0.0));
         if (placed == 0u) return;
 
         ClaimRow piece = stretchPieces[unit];
         piece.hold = int(holdAt);
+        if ((cut.x & StretchTaken) != 0u) piece.flags |= ClaimGone;
         rows[rowAt] = piece;
         return;
     }
 
     if (unit < plansFirstWalker())
     {
-        if (unit < plansFirstCar()) return;
+        if (unit < plansFirstCar())
+        {
+            // The claims laid where they stand, a hold cut by one of their own rows naming it as filed.
+            for (uint hold = 0u; hold < standingCounts[1]; hold++)
+            {
+                HoldRow laid = standingHolds[hold];
+                laid.firstRow += rowAt;
+                laid.endRow += rowAt;
+                if (laid.laidCutBy != NoRow && (laid.laidCutBy & StandingOwnRow) != 0u) laid.laidCutBy = rowAt + (laid.laidCutBy & ~StandingOwnRow);
+                plansFileTheHold(holdAt + hold, laid);
+            }
+
+            for (uint row = 0u; row < standingCounts[0]; row++)
+            {
+                ClaimRow laid = standingRows[row];
+                laid.hold += int(holdAt);
+                rows[rowAt + row] = laid;
+            }
+
+            return;
+        }
 
         uint car = unit - plansFirstCar();
         if (plansHeldInItsPass(car))

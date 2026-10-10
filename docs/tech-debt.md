@@ -33,9 +33,12 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   row), 4 296–5 600 B on the test's own thread over 500 searches; the second once, 7 144 B. The counter is the thread's, so it is not the side-by-side
   classes; something on that thread allocates now and then — a JIT's rejit is the guess, unconfirmed.
 - **`AllocationGateTests.ThisEnginesOwnPhasesAllocateNothingOverAWholeTown(Test)`** failed five times in about twenty
-  perf runs, at 8.1, 6.8 and 2.5 B a tick. It passes alone and in reruns of the tier, and a per-agent trace of phases 1–3 found no
+  perf runs, at 8.1, 6.8 and 2.5 B a tick, and again at 5.7 on 2026-10-10. It passes alone and in reruns of the tier, and a per-agent trace of phases 1–3 found no
   allocation. A `P0` gate that flickers is either a real allocation on a rare path or a measurement that counts
   something it should not; which is not known.
+- **The device tier's test host crashed once** (2026-10-10), a few seconds into the run, just after a kernel was rebuilt,
+  with nothing but the drivers' warnings in the log; every class passed alone and the whole tier passed in three reruns
+  since. Unexplained: a crash dump of the next one closes it.
 
 ## Regressions and figures not taken
 
@@ -85,12 +88,18 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   held only to itself: `DeviceTownRunOnTests` runs a car backing up past a wreck and holds a rebuild that runs on to one
   waited for, both the device's; `DeviceRebuildTests` and `DeviceTownClaimsTests` hold the backing to the town's, laid and
   mirrored at once. A car stood too near a wreck in a gated town (`OvertakeInATownTests.StandTooNearAWreck`) closes it.
+- **A tow's ground is laid on the device and held by no gate** (`rebuild_standing.comp`, root log 2026-10-10): a hand's
+  is, by `DeviceRebuildTests` and `DeviceTownClaimsTests`, and a tow's differs only in whose ground it is — the truck's
+  (`TownWorld.LaidAs`). A truck towing a car through a staged town, held to the town's own laying, closes it.
 - **A tick that throws between its submit and its wait is reported as `DeviceTown.Dispose`'s "A batch is begun again
   while its last submit is in flight"**: the town's own exception is lost behind the one disposing it throws. A dispose
   that waits out whatever is in flight first closes it.
 - **The Android head has not been built since the device tick came in** (branch `gpu-resident-sim`): no Android SDK
   where it was worked on. It compiles all of `src/` against Vulkan, so it takes `app/devicetick` as the desktop does,
   and its shader targets must embed the device's kernels (`copy_runs.comp` among them). A build of it closes this.
+- **The claims laid where they stand on the device are not measured** (root log 2026-10-10): the one `--bench devicetown`
+  run on OdesaOsm since was taken beside a game holding three and a half cores and the GPU, the host town's own tick
+  90.1 ms against 74.1 before, so none of it compares. A run on a quiet machine closes it.
 - **Not measured since they landed**: the walker as one wheel, the car no longer asked its ground, and the
   consolidation after them (`WheelGrounds`, `DeviceGround` gone, the walker's pavement read). The figures in the road
   and terrain logs predate all three; the soak after them kept all twelve of OdesaOsm's claims.

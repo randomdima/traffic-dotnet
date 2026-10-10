@@ -4,8 +4,8 @@
 //
 // Every slot and every hold is numbered as the host's laying numbers it: the pieces each producer laid are counted unit
 // by unit in the host's laying order, the counts scanned, and each unit's filed from where its scan says — a unit being
-// one walker's body, one car's, one light's stretch, one car's claim or one walker's walk, or a run the host still lays
-// itself (HostUnit).
+// one walker's body, one car's, one light's stretch, the claims laid where they stand (rebuild_standing.comp), one car's
+// claim or one walker's walk, or a run the host still lays itself (HostUnit).
 
 // Which numbering a host-laid unit is filed in: among the bodies, after them (the passes); or among the plans, at a unit
 // of their own.
@@ -27,12 +27,13 @@ struct HostUnit
     uint unit;
 };
 
-// What the host tells the rebuild of one car (DeviceRebuild.CarClaimRow): whether it was asked this laying and whether
-// its claim is the plan the device lays (CarAsked, CarPlansOnTheDevice); where else its claim is laid — a host unit, the
-// plans' unit its grant's hold is in and that hold's place there — and, for a claim the host laid, what the car was left
-// granted before its grant is read (CarFleet.AuthorityM, HorizonM, ClaimFromM, CommittedToM, GrantMarginM, GrantCutBy);
-// and, for a car on a pass whose plan the host laid as though its pass were clear, the run of BodyAskRows that looks for
-// a body inside it (Following.AsksOfItsPass).
+// What the host tells the rebuild of one car (DeviceRebuild.CarClaimRow): whether it was asked this laying, whether its
+// claim is the plan the device lays, and whether it is laid where it stands, its hold that unit's where it has one
+// (CarAsked, CarPlansOnTheDevice, CarStands); where else its claim is laid — a host unit, the plans' unit its grant's hold
+// is in and that hold's place there — and, for a claim not the device's plan, what the car was left granted before its
+// grant is read (CarFleet.AuthorityM, HorizonM, ClaimFromM, CommittedToM, GrantMarginM, GrantCutBy); and, for a car on a
+// pass whose plan the host laid as though its pass were clear, the run of BodyAskRows that looks for a body inside it
+// (Following.AsksOfItsPass).
 struct CarClaimRow
 {
     uint flags;
@@ -51,6 +52,14 @@ struct CarClaimRow
 
 const uint CarAsked = 1u;
 const uint CarPlansOnTheDevice = 2u;
+const uint CarStands = 4u;
+
+// What rebuild_standing.comp laid, before it is filed: a hold of its own cut by one of its own rows names that row from
+// the unit's first (StandingOwnRow); and of each light's stretch, whether it took the piece (StretchTaken) and whether it
+// cut the light's hold nearer than it was laid to end (StretchCut) — then where, by which of its rows, on which way.
+const uint StandingOwnRow = 0x80000000u;
+const uint StretchTaken = 1u;
+const uint StretchCut = 2u;
 
 // One stretch of one way asked for a body standing in it (BodyAsk): somebody on foot alone, a body beginning at its end
 // left out (AskOnFoot) — otherwise anybody but the asker, one beginning there taken — and where on the asker's line it
@@ -74,25 +83,6 @@ const uint AskFound = 0u;
 const uint AskInTheWayM = 1u;
 const uint AskBody = 2u;
 const uint AskOn = 3u;
-
-// A row the host cut after it was laid (LaneOccupancy.TakeFrom, CutHold): where it now ends, and whether it is gone.
-struct RowEdit
-{
-    uint slot;
-    float toM;
-    uint gone;
-    uint pad;
-};
-
-// A hold the host cut after it was laid and before the plans are answered: what it is laid to end at, and what cut it.
-struct HoldEdit
-{
-    uint hold;
-    uint pad0;
-    uint pad1;
-    uint pad2;
-    ClaimAnswer answer;
-};
 
 // car_tick.glsl's CarGrantRow, field for field: the rebuild writes every field but the place, which is a decision's.
 struct CarGrant

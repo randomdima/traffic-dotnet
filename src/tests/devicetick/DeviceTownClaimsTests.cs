@@ -5,11 +5,13 @@ using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.App.DeviceTick;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.Tests.CityGen;
 using TrafficSimulation.Tests.Runtime;
 using TrafficSimulation.Tests.World;
+using TrafficSimulation.Tests.World.Parking;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
 using Xunit;
@@ -83,8 +85,11 @@ public class DeviceTownClaimsTests(ClaimsLaidOnTheDevice run) : IClassFixture<Cl
 /// </para>
 /// <para>
 /// <b>And the walked town once its walkers are out of their doors</b>: walkers stationed, laid, walking and crossing, owners
-/// walking to their cars, and cars manoeuvring at bays — whose begun manoeuvres the town lays itself, so the claims pass
-/// between the device and the town as the run goes.
+/// walking to their cars, and cars manoeuvring at bays.
+/// </para>
+/// <para>
+/// <b>And the walked town with claims laid where they stand</b>, which a town left to itself seldom has: a manoeuvre begun
+/// with a wreck in what is left of it, one waiting on a wreck, and a hand driving a car flat out over a light's bar.
 /// </para>
 /// </remarks>
 public sealed class ClaimsLaidOnTheDevice : IDisposable
@@ -133,8 +138,56 @@ public sealed class ClaimsLaidOnTheDevice : IDisposable
                 OvertakeInATownTests.PutDown(town, beside, alongsideM, MathF.Atan2(forward.Y, forward.X));
             });
         var walked = Watch(Towns.Built, (_, loop) => loop.Advance(WalkersOutTicks));
-        Seen = $" (the fixture backing up: {backing}; the fixture held in its pass: {held}; the walked town: {walked})";
+        var hand = -1;
+        var standing = Watch(
+            Towns.Built, (town, loop) => hand = StandWhereTheyStand(town, loop), town => town.HandOnCar(hand, RebuildsOnTheDevice.FlatOut));
+        Seen = $" (the fixture backing up: {backing}; the fixture held in its pass: {held}; the walked town: {walked}; the walked "
+               + $"town's claims laid where they stand: {standing})";
     }
+
+    /// <summary>
+    /// Cars whose claims are laid where they stand (<see cref="TownWorld.AsksWhereItStands"/>): one begun out of its bay with
+    /// a wreck put down at the end of the piece it drives, another waiting to begin its way out onto a wreck, and a car
+    /// driven on put on an approach its light holds, for a hand to drive flat out over the bar — that one.
+    /// </summary>
+    static int StandWhereTheyStand(TownWorld town, SimLoop<TownWorld> loop)
+    {
+        loop.Advance(WarmUpTicks);
+        var manoeuvres = town.Manoeuvres;
+        var (begun, _) = BayManoeuvreTests.SendACarOut(town, noseIn: true);
+        for (var tick = 0; tick < LeavingTicks && !manoeuvres.IsBegun(begun); tick++) loop.Advance(1);
+        Assert.True(manoeuvres.IsBegun(begun), $"staging: car {begun} did not begin its way out of its bay in {LeavingTicks} ticks");
+
+        var waiting = BayManoeuvreTests.SendACarOut(town, noseIn: true).Car;
+        Span<int> staged = [begun, waiting, -1];
+        staged[2] = PutDownAtTheEndOf(town, begun, manoeuvres.Piece[begun], staged[..2]);
+        PutDownAtTheEndOf(town, waiting, 0, staged);
+
+        // A town this young drives nobody else.
+        BayManoeuvreTests.SendACarOut(town, noseIn: null);
+        return RebuildsOnTheDevice.OnARedApproach(town, begun, waiting);
+    }
+
+    /// <summary>A car standing in a bay, none of the staged, put down broken at the end of one piece of a car's manoeuvre: the wreck.</summary>
+    static int PutDownAtTheEndOf(TownWorld town, int car, int piece, ReadOnlySpan<int> staged)
+    {
+        var line = town.Manoeuvres.PieceOf(car, piece);
+        var end = Spline.SampleAt(line, Spline.TotalLengthM(line));
+        var cars = town.Cars;
+        for (var wreck = 0; wreck < cars.Count; wreck++)
+        {
+            if (staged.Contains(wreck) || cars.Driven[wreck] || cars.Broken[wreck] || town.Parking.BayOf(wreck) < 0) continue;
+
+            BayManoeuvreTests.PutDown(town, wreck, end.PositionM, end.HeadingRad);
+            return wreck;
+        }
+
+        Assert.Fail("staging: the walked town had no car standing in a bay to wreck");
+        return -1;
+    }
+
+    /// <summary>Half a minute: long enough to wait out the street and begin a way out of a bay.</summary>
+    const int LeavingTicks = 1800;
 
     /// <summary>
     /// A car stood too near a wreck to step out round it and the lane beside it cleared, so it backs up for the room and
@@ -148,8 +201,11 @@ public sealed class ClaimsLaidOnTheDevice : IDisposable
         return (driver, beside);
     }
 
-    /// <summary>One town staged alike twice, then run in step with the device laying one's claims, held to the other after every rebuild.</summary>
-    string Watch(CityPlan plan, Action<TownWorld, SimLoop<TownWorld>> stage)
+    /// <summary>
+    /// One town staged alike twice, then run in step with the device laying one's claims — each handed the same every tick
+    /// first, where <paramref name="eachTick"/> says — held to the other after every rebuild.
+    /// </summary>
+    string Watch(CityPlan plan, Action<TownWorld, SimLoop<TownWorld>> stage, Action<TownWorld>? eachTick = null)
     {
         using var own = new TownWorld(plan, Config);
         using var mirrored = new TownWorld(plan, Config);
@@ -163,6 +219,8 @@ public sealed class ClaimsLaidOnTheDevice : IDisposable
         long rebuilds = 0;
         for (var tick = 0; tick < WatchedTicks; tick++)
         {
+            eachTick?.Invoke(own);
+            eachTick?.Invoke(mirrored);
             ownLoop.Advance(1);
             mirroredLoop.Advance(1);
             HoldThePoses(own, mirrored, tick);
@@ -176,9 +234,10 @@ public sealed class ClaimsLaidOnTheDevice : IDisposable
         }
 
         mirrored.ClaimsDevice = null;
-        var (here, byTheTown, _, _) = onDevice.Claims.Rebuilds;
+        var (here, byTheTown, _) = onDevice.Claims.Rebuilds;
         return $"{rebuilds} rebuilds of {own.Cars.Count} cars and {own.People.Count} walkers, {here} laid on the device and {byTheTown} "
-               + $"by the town, {onDevice.HeldInTheirPasses} cars held short of a body inside their pass, {onDevice.BackedUp} cars backed up";
+               + $"by the town, {onDevice.HeldInTheirPasses} cars held short of a body inside their pass, {onDevice.BackedUp} cars backed "
+               + $"up, {onDevice.StandingHeld} holds laid where they stand";
     }
 
     void HoldThePoses(TownWorld own, TownWorld mirrored, int tick)
@@ -358,7 +417,11 @@ public sealed class ClaimsLaidOnTheDevice : IDisposable
             foreach (var car in town.CarsAskedThisLaying) BackedUp += float.IsNaN(town.Cars.BackRoomM[car]) ? 0 : 1;
 
             HoldTheGrants(town, _held, _rebuild);
+            StandingHeld += Claims.Rebuild.StandingHeld;
         }
+
+        /// <summary>How many holds the rebuilds laid here laid where they stand.</summary>
+        public long StandingHeld { get; private set; }
 
         /// <summary>
         /// The rest of the last rebuild recorded as the tick would record it, every car's grant, cutter and hold bits read

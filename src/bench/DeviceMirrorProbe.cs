@@ -72,12 +72,12 @@ internal static class DeviceMirrorProbe
         }
 
         mirrored.ClaimsDevice = null;
-        var (here, byTheTown, onlyTheTown, tooMany) = onDevice.Rebuilds;
+        var (here, byTheTown, tooMany) = onDevice.Rebuilds;
         var rebuild = onDevice.Rebuild;
         Console.WriteLine($"device mirror probe — {map} on {vk.DeviceName}, {WarmupTicks} ticks warmed, {MeasuredTicks} held in step");
         Console.WriteLine(
             $"  {rebuilds} rebuilds of {own.Cars.Count} cars and {own.People.Count} walkers: {here} laid on the device and {byTheTown} by the town " +
-            $"({onlyTheTown} for what only the town answers, {tooMany} for too many cars on a pass)");
+            $"({tooMany} for too many cars on a pass)");
         Console.WriteLine(
             $"  what may not be mirrored exactly: {rebuild.OnOtherChannelsAtABay} cars at a bay put on other channels, " +
             $"{rebuild.StraightsTheTownWouldNotCommit} straights the device committed and the town would not");

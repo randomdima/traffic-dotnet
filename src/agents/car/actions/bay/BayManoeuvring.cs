@@ -293,9 +293,10 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     /// (TER-4c.1): where it stood at the last station of this piece with nobody on its ground. And a manoeuvre not
     /// yet begun is ground the car does not have, so it stands where it is.
     /// </summary>
+    [System.Runtime.CompilerServices.SkipLocalsInit]
     public void Hold(int car)
     {
-        if (!Cars.Driven[car] || Cars.Broken[car]) return;
+        if (!HoldsWhereItStands(car)) return;
 
         var standOffM = Config.Driving.StandOffM;
         if (!manoeuvres.IsBegun(car))
@@ -306,7 +307,9 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
             return;
         }
 
-        if (!TheBodyInTheManoeuvre(car, out var inTheWayM, out var body, out var on))
+        Span<BodyAsk> asks = stackalloc BodyAsk[MostAsksOfAManoeuvre];
+        var count = AsksOfTheManoeuvre(car, asks);
+        if (!Occupancy.FirstBodyIn(asks[..count], car, out var inTheWayM, out var body, out var on))
         {
             Cars.AuthorityM[car] = float.PositiveInfinity;
             return;
@@ -317,39 +320,42 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
         Occupancy.EndHold(held, inTheWayM, standOffM, body, on);
     }
 
-    /// <summary>The first body standing in what is left of the piece the car drives, and how far it may go short of it.</summary>
+    /// <summary>Whether a car manoeuvring at a bay holds anything where it stands (<see cref="Hold"/>): one driven and whole.</summary>
+    public bool HoldsWhereItStands(int car) => Cars.Driven[car] && !Cars.Broken[car];
+
+    /// <summary>The most stretches a begun manoeuvre looks for a body in (<see cref="AsksOfTheManoeuvre"/>).</summary>
+    public const int MostAsksOfAManoeuvre = RibbonAtlas.MostWaysUnderABody + MostRunsOfAPiece;
+
+    /// <summary>
+    /// <b>Where a begun manoeuvre looks for a body standing in what is left of the piece it drives</b>, in order
+    /// (<see cref="LaneOccupancy.FirstBodyIn"/>): the station it stands at, then every run of the piece ahead of it — each
+    /// with how far the car may go short of a body found there; how many.
+    /// </summary>
     /// <remarks>
     /// <b>A station clear of bodies is where the car may bring its axle</b>: the one it stands at, or the one before the
     /// first a body is in — half a width short of that one, and never behind where the car stands.
     /// </remarks>
-    bool TheBodyInTheManoeuvre(int car, out float inTheWayM, out LaneClaim body, out int on)
+    public int AsksOfTheManoeuvre(int car, Span<BodyAsk> into)
     {
         var progressM = Cars.ProgressM[car];
         var edgeM = ground.LeadingEdgeAheadOfTheAxleM(car);
+        var count = 0;
         foreach (ref readonly var cover in TheStationItStandsAt(car))
         {
-            if (!Occupancy.AheadBody(cover.Way, cover.FromM, cover.ToM, car, out body)) continue;
-
-            on = cover.Way;
-            inTheWayM = progressM + edgeM;
-            return true;
+            into[count++] = new BodyAsk(cover.Way, cover.FromM, cover.ToM, OnFoot: false, progressM + edgeM, FromTheBody: false);
         }
 
         var flankM = Cars.BuildOf(car).FlankM;
         var ahead = IsSwept(car) ? _pieces.Of(Holder(car, manoeuvres.Piece[car])) : default;
         foreach (ref readonly var run in ahead)
         {
-            if (run.FirstAtM <= progressM || !Occupancy.AheadBody(run.Way, run.FromM, run.ToM, car, out body)) continue;
+            if (run.FirstAtM <= progressM) continue;
 
-            on = run.Way;
-            inTheWayM = MathF.Max(progressM, run.FirstAtM - flankM) + edgeM;
-            return true;
+            var inTheWayM = MathF.Max(progressM, run.FirstAtM - flankM) + edgeM;
+            into[count++] = new BodyAsk(run.Way, run.FromM, run.ToM, OnFoot: false, inTheWayM, FromTheBody: false);
         }
 
-        inTheWayM = float.PositiveInfinity;
-        body = LaneClaim.Nothing;
-        on = LaneOccupancy.NoHold;
-        return false;
+        return count;
     }
 
     /// <summary>

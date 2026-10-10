@@ -1,9 +1,9 @@
 // Every hold a rebuild lays before its plans are answered numbered and filed on the device, with the rows they lay
 // (TownWorld.LightTheWays, PlanTheDrive, PlanTheWalk): a unit each in the host's order — every light's stretch, then the
-// claims the host lays where they stand, then every car's claim, then every walker's walk — counted, scanned, and each
-// unit's filed from where its scans say, after the bodies and their passes. The one binding layout both kernels of it
-// run over (rebuild_count.comp, rebuild_file.comp), laid by app/devicetick/DeviceRebuild. The including kernel declares
-// `figures` (stretchCount, carCount, walkerCount, mostPieces, standingUnit, standOffM) first.
+// claims laid where they stand (rebuild_standing.comp), then every car's claim, then every walker's walk — counted,
+// scanned, and each unit's filed from where its scans say, after the bodies and their passes. The one binding layout both
+// kernels of it run over (rebuild_count.comp, rebuild_file.comp), laid by app/devicetick/DeviceRebuild. The including
+// kernel declares `figures` (stretchCount, carCount, walkerCount, mostPieces, standOffM) first.
 //
 // A unit the host lays itself is filed by rebuild_host.comp; here it is only counted.
 
@@ -46,6 +46,13 @@ layout(std430, binding = 17) buffer Tally { uint tally[]; };
 // What each car on a pass found inside it (rebuild_asks.comp).
 layout(std430, binding = 18) readonly buffer AskAnswers { uvec4 askAnswers[]; };
 
+// The claims laid where they stand as rebuild_standing.comp numbered them from the unit's own first — how many rows and
+// holds, the rows and the holds — and what it took of each light's stretch.
+layout(std430, binding = 19) readonly buffer StandingCounts { uint standingCounts[]; };
+layout(std430, binding = 20) readonly buffer StandingRows { ClaimRow standingRows[]; };
+layout(std430, binding = 21) readonly buffer StandingHolds { HoldRow standingHolds[]; };
+layout(std430, binding = 22) readonly buffer StretchCuts { uvec4 stretchCuts[]; };
+
 // Whether a car on a pass has a body inside it, so its claim is the hold short of that and not the plan the host laid
 // past its pass (Following.Plan).
 bool plansHeldInItsPass(uint car) { return carClaims[car].askCount > 0u && askAnswers[car][AskFound] != 0u; }
@@ -65,11 +72,7 @@ uvec2 plansCountOf(uint unit)
         return uvec2(stretch.y != 0.0 ? 1u : 0u, stretch.x != 0.0 ? 1u : 0u);
     }
 
-    if (unit < plansFirstCar())
-    {
-        HostUnit standing = hostUnits[figures.standingUnit];
-        return uvec2(standing.rowCount, standing.holdCount);
-    }
+    if (unit < plansFirstCar()) return uvec2(standingCounts[0], standingCounts[1]);
 
     if (unit < plansFirstWalker())
     {

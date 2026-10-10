@@ -280,11 +280,11 @@ internal static class DeviceTownProbe
                 $"looked and found no room {(looks.Looked - looksFrom.Looked) / t:F0}, found ground the layer does not hold " +
                 $"{(looks.Unknown - looksFrom.Unknown) / t:F1}; the device's time, ms a tick: the asides {asidesMs / t:F3}, the decisions " +
                 $"{askedMs / t:F3}, sorting them {sortedMs / t:F3}, the looks {lookedMs / t:F3}");
-            var (here, byTheTown, onlyTheTown, tooMany) = device.Claims.Rebuilds;
+            var (here, byTheTown, tooMany) = device.Claims.Rebuilds;
             var each = Math.Max(1, rebuilds);
             Console.WriteLine(
                 $"  the claims, ms a rebuild laid on the device ({rebuilds} measured; {here} laid there and {byTheTown} by the town since it was " +
-                $"set, {onlyTheTown} of them for what only the town answers and {tooMany} for too many cars on a pass): the town laying its own " +
+                $"set, {tooMany} of them for too many cars on a pass): the town laying its own " +
                 $"and gathering {claimsLaidMs / each:F2} (stationing its walkers {claimsStationedMs / each:F2} of it), submitting and waiting " +
                 $"{claimsWaitMs / each:F2}, writing back {claimsMirrorMs / each:F2}");
             Console.WriteLine(

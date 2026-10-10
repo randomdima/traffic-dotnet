@@ -12,10 +12,8 @@ namespace TrafficSimulation.App.DeviceTick;
 /// </summary>
 internal sealed partial class DeviceRebuild
 {
-    /// <summary>The host's own units that always exist: the passes, and the claims laid where they stand among the plans.</summary>
+    /// <summary>The host's own unit that always exists: the passes.</summary>
     const int PassesUnit = 0;
-
-    const uint StandingUnit = 1u;
 
     /// <summary>How many cars and walkers the rebuild being watched lays.</summary>
     int _carCount, _walkerCount;
@@ -26,26 +24,19 @@ internal sealed partial class DeviceRebuild
     /// <summary>Whether the next rebuild first sends the town's grants as they stand, which a car the laying does not ask keeps.</summary>
     bool _priming = true;
 
-    /// <summary>How much of the host's table and of its edits the rebuild being watched has written.</summary>
-    int _hostRowCount, _hostHoldCount, _hostUnitCount, _rowEditCount, _holdEditCount;
+    /// <summary>How much of the host's table the rebuild being watched has written.</summary>
+    int _hostRowCount, _hostHoldCount, _hostUnitCount;
 
-    HostRange _passes, _planned, _laidEdits;
+    HostRange _passes, _planned;
 
     /// <summary>How many rows and holds of the device's the shadow reads back: as many as the town laid.</summary>
     int _rowsToRead, _holdsToRead;
 
     /// <summary>The town's numbering where each run the host lays itself began.</summary>
-    int _carsLaidSlots, _passesLaidSlots, _plansDueSlots, _plansDueHolds, _drivesDueHolds, _answeredSlots, _answeredHolds;
+    int _carsLaidSlots, _passesLaidSlots, _plansDueSlots, _answeredSlots, _answeredHolds;
 
     /// <summary>Each car's claim as the plans began to be laid: asked, planning down its line, on a pass.</summary>
     bool[] _askedNow = [], _plansItsLine = [], _onAPass = [];
-
-    /// <summary>What every row and hold was before a run the host lays itself, to find what that run cut of them.</summary>
-    float[] _toMBefore = [];
-
-    bool[] _goneBefore = [];
-
-    PlanAnswer[] _answerBefore = [];
 
     /// <summary>How many pieces of the last rebuild's bodies were grown into a body already on their way rather than laid as one.</summary>
     public long Grown => _claims.TallyRead[Tally.Candidates] - _claims.TallyRead[Tally.Bodies];
@@ -56,12 +47,6 @@ internal sealed partial class DeviceRebuild
     /// <summary>And how many holds.</summary>
     public int HostHoldsSent => _hostHoldCount;
 
-    /// <summary>
-    /// How many rows and holds the host's own laying cut before the answers, and sent as cut, in the last rebuild: what a
-    /// hand or a tow takes of a light.
-    /// </summary>
-    public int EditsSent => _laidEdits.RowCount + _laidEdits.HoldCount;
-
     /// <summary>How many cars' backing the last rebuild laid (<c>rebuild_backing.comp</c>).</summary>
     public int BackingAsked => _backingCount;
 
@@ -70,7 +55,6 @@ internal sealed partial class DeviceRebuild
         _askedNow = new bool[_cars];
         _plansItsLine = new bool[_cars];
         _onAPass = new bool[_cars];
-        _answerBefore = new PlanAnswer[_holdRoom];
     }
 
     /// <summary>
@@ -86,8 +70,8 @@ internal sealed partial class DeviceRebuild
             case ClaimsStage.Begun:
                 _carCount = town.Cars.Count;
                 _walkerCount = town.People.Count;
-                _hostRowCount = _hostHoldCount = _rowEditCount = _holdEditCount = 0;
-                _hostUnitCount = (int)StandingUnit + 1;
+                _hostRowCount = _hostHoldCount = 0;
+                _hostUnitCount = PassesUnit + 1;
                 if (_priming) Prime(town);
                 _bodies.Lay(town);
                 _walkers.Lay(town, DeviceWalkers.Piece.Station);
@@ -111,14 +95,10 @@ internal sealed partial class DeviceRebuild
                 _plans.Lay(town);
                 _timeS = town.ElapsedS;
                 _plansDueSlots = claims.SlotCount;
-                _plansDueHolds = claims.HoldCount;
-                KeepWhatWasLaid(claims, _passesLaidSlots, _plansDueSlots, _plansDueHolds);
                 break;
 
             case ClaimsStage.DrivesDue:
-                _drivesDueHolds = claims.HoldCount;
-                LayTheUnit((int)StandingUnit, claims, _plansDueSlots, _plansDueHolds, Numbering.Plans, (uint)_stretches);
-                _laidEdits = WhatWasCut(claims, _passesLaidSlots, _plansDueSlots, _plansDueHolds);
+                AskTheStanding(town);
                 for (var car = 0; car < _carCount; car++) _askedNow[car] = false;
                 foreach (var car in town.CarsAskedThisLaying) _askedNow[car] = true;
                 for (var car = 0; car < _carCount; car++)
@@ -178,6 +158,16 @@ internal sealed partial class DeviceRebuild
                 continue;
             }
 
+            if (_standingOf[car] >= 0)
+            {
+                // A begun manoeuvre with nothing standing in it holds nothing, and is granted the whole of it (BayManoeuvring.Hold).
+                var manoeuvre = _standing.Rows[_standingOf[car]].Kind == (uint)StandingClaim.Manoeuvre;
+                rows.Lay(car, new CarClaimRow(
+                    CarClaimRow.Asked | CarClaimRow.Stands, -1, -1, 0, manoeuvre ? float.PositiveInfinity : cars.AuthorityM[car],
+                    cars.HorizonM[car], cars.ClaimFromM[car], cars.CommittedToM[car], cars.GrantMarginM[car], (uint)cars.GrantCutBy[car]));
+                continue;
+            }
+
             var hold = town.PlanHoldOf(car);
             var hostUnit = -1;
             var (holdUnit, holdOffset) = (-1, 0);
@@ -207,10 +197,6 @@ internal sealed partial class DeviceRebuild
                     LayTheRun(hostUnit, town.Occupancy, first, end, hold, hold + 1, Numbering.Plans, unit);
                     (holdUnit, holdOffset) = ((int)unit, 0);
                 }
-            }
-            else if (hold != LaneOccupancy.NoHold && hold >= _plansDueHolds && hold < _drivesDueHolds)
-            {
-                (holdUnit, holdOffset) = (_stretches, hold - _plansDueHolds);
             }
 
             rows.Lay(car, new CarClaimRow(
@@ -283,67 +269,6 @@ internal sealed partial class DeviceRebuild
     static bool SameClaim(in LaneClaim one, in LaneClaim other) =>
         one.Occupant == other.Occupant && one.Of == other.Of && one.Hold == other.Hold && one.FromM == other.FromM
         && one.Priority == other.Priority && one.Secondary == other.Secondary && one.Passing == other.Passing;
-
-    /// <summary>Every row's extent and every hold's answer as they stand, to find later what a run of the host's own cut.</summary>
-    void KeepWhatWasLaid(LaneOccupancy claims, int firstSlot, int endSlot, int endHold)
-    {
-        // A table that grows is kept whole, so these grow only as it does; one laid for every worst case is far past what a
-        // laying lays, and these follow twice the most a laying has laid.
-        if (_toMBefore.Length < endSlot)
-        {
-            var room = claims.Grows ? claims.Capacity : Math.Min(claims.Capacity, 2 * endSlot);
-            Array.Resize(ref _toMBefore, room);
-            Array.Resize(ref _goneBefore, room);
-        }
-
-        var slots = claims.Slots;
-        var gone = claims.SlotsGone;
-        for (var slot = firstSlot; slot < endSlot; slot++)
-        {
-            _toMBefore[slot] = slots[slot].ToM;
-            _goneBefore[slot] = gone[slot];
-        }
-
-        for (var hold = 0; hold < endHold; hold++)
-        {
-            var endsAtM = claims.HoldEndsAtM(hold, out var marginM, out var cutBy);
-            _answerBefore[hold] = new PlanAnswer(endsAtM, marginM, cutBy, claims.HoldCutOn(hold));
-        }
-    }
-
-    /// <summary>
-    /// <b>What a run of the host's own laying cut of what was down before it</b> (<c>LaneOccupancy.TakeFrom</c>), before
-    /// the answers: every row now ending sooner or gone, and every hold now laid to end otherwise.
-    /// </summary>
-    HostRange WhatWasCut(LaneOccupancy claims, int firstSlot, int endSlot, int endHold)
-    {
-        var (rowsAt, holdsAt) = (_rowEditCount, _holdEditCount);
-        var slots = claims.Slots;
-        var gone = claims.SlotsGone;
-        for (var slot = firstSlot; slot < endSlot; slot++)
-        {
-            if (slots[slot].ToM == _toMBefore[slot] && gone[slot] == _goneBefore[slot]) continue;
-            if (!_rowEdits.MakeRoomFor(_rowEditCount + 1))
-            {
-                throw new InvalidOperationException($"The host cut more than the {_rowEdits.Room} rows the rebuild has room to send.");
-            }
-
-            _rowEdits.Rows[_rowEditCount++] = new RowEdit((uint)slot, slots[slot].ToM, gone[slot] ? 1u : 0u);
-        }
-
-        for (var hold = 0; hold < endHold; hold++)
-        {
-            var endsAtM = claims.HoldEndsAtM(hold, out var marginM, out var cutBy);
-            var cutOn = claims.HoldCutOn(hold);
-            if (new PlanAnswer(endsAtM, marginM, cutBy, cutOn) == _answerBefore[hold]) continue;
-
-            _holdEdits.Rows[_holdEditCount++] = new HoldEdit(
-                (uint)hold, 0u, 0u, 0u,
-                new ClaimAnswer(endsAtM, marginM, SlotOf(claims, cutBy, cutOn), cutOn, float.PositiveInfinity, 0f, 0f, 0f));
-        }
-
-        return new HostRange(rowsAt, _rowEditCount - rowsAt, holdsAt, _holdEditCount - holdsAt);
-    }
 
     /// <summary>
     /// Every car's grant, cutter and told bits as the town has them before its first watched rebuild, sent with it: a car

@@ -346,7 +346,7 @@ internal sealed partial class DeviceRebuild
             _vk, "rebuild_cars_out.comp",
             [
                 _carClaims.Device, _plans.OnTheDevice.Results, _askAnswers, _unitHolds, _bodies.OnTheDevice.Counts, _carTerms.Device,
-                _grants, _answersWanted, _carAnswers, _carHolds, _carsMoved, _carsMovedCount,
+                _grants, _answersWanted, _carAnswers, _carHolds, _carsMoved, _carsMovedCount, _standingHoldOf,
             ]);
     }
 
@@ -616,8 +616,8 @@ internal sealed partial class DeviceRebuild
                 _laidFrom = Stopwatch.GetTimestamp();
                 _carCount = town.Cars.Count;
                 _walkerCount = town.People.Count;
-                _hostRowCount = _hostHoldCount = _rowEditCount = _holdEditCount = _askCount = 0;
-                _hostUnitCount = (int)StandingUnit + 1;
+                _hostRowCount = _hostHoldCount = _askCount = 0;
+                _hostUnitCount = PassesUnit + 1;
 
                 // Every body reads its occupant's line and every plan its own car's, where the car tick keeps them; no
                 // stage of a laying lays a line, so one made current here serves both.
@@ -648,8 +648,6 @@ internal sealed partial class DeviceRebuild
                 if (_checksTheCars) ExpectThePlans(town);
                 _timeS = town.ElapsedS;
                 _plansDueSlots = claims.SlotCount;
-                _plansDueHolds = claims.HoldCount;
-                KeepWhatWasLaid(claims, _passesLaidSlots, _plansDueSlots, _plansDueHolds);
                 break;
 
             case ClaimsStage.DrivesDue:
@@ -688,9 +686,8 @@ internal sealed partial class DeviceRebuild
         _timer.Stamp(commands, (int)Stage.Began);
 
         var townsOwn = Sent<ClaimRow>.BytesOf(_hostRowCount) + Sent<uint>.BytesOf(_hostRowCount) + Sent<HoldRow>.BytesOf(_hostHoldCount)
-                       + Sent<uint>.BytesOf(_hostHoldCount) + Sent<HostUnit>.BytesOf(_hostUnitCount) + Sent<RowEdit>.BytesOf(_rowEditCount)
-                       + Sent<HoldEdit>.BytesOf(_holdEditCount) + Sent<BodyAskRow>.BytesOf(_askCount)
-                       + Sent<BackingAskRow>.BytesOf(_backingCount);
+                       + Sent<uint>.BytesOf(_hostHoldCount) + Sent<HostUnit>.BytesOf(_hostUnitCount) + StandingSentBytes
+                       + Sent<BodyAskRow>.BytesOf(_askCount) + Sent<BackingAskRow>.BytesOf(_backingCount);
         SentParts = (
             _bodies.SentBytes, _plans.SentBytes, _walkers.ResidentSentBytes, _carTick!.LinesMarkedBytes,
             _carTick.ReadingsMarkedBytes + _carTerms.MarkedBytes, _carClaims.MarkedBytes, townsOwn);
@@ -708,8 +705,7 @@ internal sealed partial class DeviceRebuild
         _hostHolds.Send(commands, _hostHoldCount);
         _hostHoldUnit.Send(commands, _hostHoldCount);
         _hostUnits.Send(commands, _hostUnitCount);
-        _rowEdits.Send(commands, _rowEditCount);
-        _holdEdits.Send(commands, _holdEditCount);
+        RecordTheStandingSent(commands);
         _carClaims.Send(commands);
         _asks.Send(commands, _askCount);
         _backingAsks.Send(commands, _backingCount);
@@ -1165,6 +1161,11 @@ internal sealed partial class DeviceRebuild
                 town.PlannedOnTheDevice(car, said.ClaimFromM, said.ClaimToM, said.CommittedToM, said.HorizonM);
                 var laid = (said.Bits & CarOut.LaidAHold) != 0;
                 town.HeldOnTheDevice(car, laid ? (int)unitHolds[firstCar + car] : LaneOccupancy.NoHold, inItsPass: false);
+            }
+            else if ((claim.Flags & CarClaimRow.Stands) != 0)
+            {
+                var stands = _standingSaid.Span<int>()[_standingOf[car]];
+                town.HeldOnTheDevice(car, stands >= 0 ? (int)unitHolds[firstCar - 1] + stands : LaneOccupancy.NoHold, inItsPass: false);
             }
             else if (claim.AskCount > 0 && (said.Bits & CarOut.HeldInItsPass) != 0)
             {

@@ -126,9 +126,33 @@ internal sealed class DrivingGround(
     [System.Runtime.CompilerServices.SkipLocalsInit]
     public void HoldWhatCannotBeStoppedShortOf(int car, int occupant)
     {
+        Span<CommittedStretch> stretches = stackalloc CommittedStretch[RibbonAtlas.MostWaysUnderABody];
+        var count = WhatCannotBeStoppedShortOf(car, occupant, stretches);
+        if (count == 0) return;
+
+        var hold = Occupancy.BeginHold(Config.Driving.StandOffM);
+        foreach (ref readonly var stretch in stretches[..count])
+        {
+            var ask = stretch.Ask with { Hold = hold };
+
+            // Never over a body (TER-4c.1): what is standing there is what the car is about to meet.
+            Occupancy.Take(ask, stretch.Way, Occupancy.Reach(ask, stretch.Way, stretch.ToM, ask.FromM, out _));
+        }
+
+        Occupancy.EndHold(hold, float.PositiveInfinity, 0f, LaneClaim.Nothing);
+    }
+
+    /// <summary>
+    /// <b>The ground a car nobody drives can no longer stop short of, asked</b> (<see cref="HoldWhatCannotBeStoppedShortOf"/>)
+    /// — a stretch a way under it, each as its hold lays it but for the hold — for a device laying it in the town's place.
+    /// None where the car is at rest, or nothing is under it.
+    /// </summary>
+    [System.Runtime.CompilerServices.SkipLocalsInit]
+    public int WhatCannotBeStoppedShortOf(int car, int occupant, Span<CommittedStretch> into)
+    {
         var velocity = Cars.VelocityMps[car];
         var speedMps = velocity.Length();
-        if (speedMps <= Config.Driving.StopSpeedMps) return;
+        if (speedMps <= Config.Driving.StopSpeedMps) return 0;
 
         ref readonly var build = ref Cars.BuildOf(car);
         var brakingMps2 = CarFollower.BrakingMps2(Config, build);
@@ -140,9 +164,6 @@ internal sealed class DrivingGround(
         var count = Atlas.UnderBox(
             Cars.PositionM[car] + (travel * (frontM + (committedM * 0.5f))), travel, committedM * 0.5f,
             build.WidthM * 0.5f, under, Cars.Channels[car]);
-        if (count == 0) return;
-
-        var hold = Occupancy.BeginHold(Config.Driving.StandOffM);
         for (var at = 0; at < count; at++)
         {
             ref readonly var cover = ref under[at];
@@ -150,15 +171,14 @@ internal sealed class DrivingGround(
             var aheadM = MathF.Max(0f, MathF.Min(
                 System.Numerics.Vector2.Dot(Spline.SampleAt(line, cover.FromM).PositionM - Cars.PositionM[car], travel),
                 System.Numerics.Vector2.Dot(Spline.SampleAt(line, cover.ToM).PositionM - Cars.PositionM[car], travel)) - frontM);
-            var ask = new PlannedAsk(
-                hold, occupant, LaneRoster.Driving, ClaimPriority.Firm, cover.FromM, aheadM, aheadM,
-                float.PositiveInfinity, speedMps);
-
-            // Never over a body (TER-4c.1): what is standing there is what the car is about to meet.
-            Occupancy.Take(ask, cover.Way, Occupancy.Reach(ask, cover.Way, cover.ToM, cover.FromM, out _));
+            into[at] = new CommittedStretch(
+                cover.Way, cover.ToM,
+                new PlannedAsk(
+                    LaneOccupancy.NoHold, occupant, LaneRoster.Driving, ClaimPriority.Firm, cover.FromM, aheadM, aheadM,
+                    float.PositiveInfinity, speedMps));
         }
 
-        Occupancy.EndHold(hold, float.PositiveInfinity, 0f, LaneClaim.Nothing);
+        return count;
     }
 
     /// <summary>
@@ -387,3 +407,9 @@ internal sealed class DrivingGround(
         _ => HeadwayKind.Obstruction,
     };
 }
+
+/// <summary>
+/// One way's stretch of what a car nobody drives can no longer stop short of (<see cref="DrivingGround.WhatCannotBeStoppedShortOf"/>):
+/// asked up to <paramref name="ToM"/>, on the terms of <paramref name="Ask"/>, whose hold is the one it is laid under.
+/// </summary>
+internal readonly record struct CommittedStretch(int Way, float ToM, PlannedAsk Ask);

@@ -9,10 +9,10 @@ namespace TrafficSimulation.World.Town;
 
 /// <summary>
 /// <b>A claims rebuild a device lays</b> (<see cref="ITownClaims"/>): <see cref="RebuildLaneOccupancy"/> stage
-/// for stage, the town laying here only what it alone lays — every walker stationed, the passes, the claims laid where
-/// they stand, a car on a pass's plan past it, and every grant the device did not read — and the device every body,
-/// light, plan and walk, every answer and the backing after them (<see cref="TakeTheBackingAsk"/>), handed back into the
-/// reservations.
+/// for stage, the town laying here only what it alone lays — every walker stationed, the passes, a car on a pass's plan
+/// past it, and every grant the device did not read — and the device every body, light, plan and walk, what each car
+/// holds where it stands off what it asks (<see cref="AsksWhereItStands"/>), every answer and the backing after them
+/// (<see cref="TakeTheBackingAsk"/>), handed back into the reservations.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -54,13 +54,15 @@ internal sealed partial class TownWorld
         LayThePasses(walkers);
         device.ClaimsAt(this, ClaimsStage.PassesLaid);
         device.ClaimsAt(this, ClaimsStage.PlansDue);
-        Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];
+
+        // What a car holds where it stands is the device's to lay, off what it asks (AsksWhereItStands).
         foreach (var car in CarsAsked)
         {
-            if (!PlansDownItsLine(car)) PlanTheDrive(car, ways);
+            if (!PlansDownItsLine(car)) _ground.ClearTheClaim(car);
         }
 
         device.ClaimsAt(this, ClaimsStage.DrivesDue);
+        Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];
         _following.AsksTheBodiesLater = true;
         foreach (var car in CarsAsked)
         {
@@ -186,20 +188,31 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>Whether this rebuild lays ground only the town's own laying can answer</b>: what a hand or a truck cannot stop
-    /// short of, answered against the bodies and taking a light's stretch before any plan; and what stands in a manoeuvre
-    /// begun at a bay, read off the bodies before the plans. A device asks this before it lays the claims.
+    /// <b>What a car whose claim is laid where it stands asks of a device laying it in the town's place</b>
+    /// (<see cref="PlanTheDrive"/>): the ground a hand or a truck can no longer stop short of; a manoeuvre's hold before it
+    /// is begun, laid to end where the car's claim was cleared to; or where a begun one looks for a body in what is left of
+    /// it. Asked once every claim is cleared, of a car that does not plan down its line.
     /// </summary>
-    public bool LaysWhatOnlyTheTownAnswers()
+    /// <param name="count">How many of <paramref name="stretches"/> or <paramref name="asks"/> it filled.</param>
+    public StandingClaim AsksWhereItStands(int car, Span<CommittedStretch> stretches, Span<BodyAsk> asks, out int count)
     {
-        var stopMps = _config.Driving.StopSpeedMps;
-        for (var car = 0; car < Cars.Count; car++)
+        count = 0;
+        switch (Cars.Action[car])
         {
-            if (Cars.Action[car] is CarAction.Hand or CarAction.Towed && Cars.VelocityMps[car].LengthSquared() > stopMps * stopMps) return true;
-            if (IsManoeuvring(car) && _manoeuvres.IsBegun(car) && Cars.Driven[car] && !Cars.Broken[car]) return true;
+            case CarAction.Hand:
+                count = _ground.WhatCannotBeStoppedShortOf(car, car, stretches);
+                return count > 0 ? StandingClaim.Committed : StandingClaim.None;
+
+            case CarAction.Towed:
+                count = _ground.WhatCannotBeStoppedShortOf(car, LaidAs(car), stretches);
+                return count > 0 ? StandingClaim.Committed : StandingClaim.None;
         }
 
-        return false;
+        if (!IsManoeuvring(car) || !_bays.HoldsWhereItStands(car)) return StandingClaim.None;
+        if (!_manoeuvres.IsBegun(car)) return StandingClaim.Waiting;
+
+        count = _bays.AsksOfTheManoeuvre(car, asks);
+        return StandingClaim.Manoeuvre;
     }
 
     /// <summary>Where a car on a pass looks for a body inside it, for a device laying the bodies (<see cref="Following.AsksOfItsPass"/>).</summary>
@@ -336,6 +349,22 @@ internal sealed partial class TownWorld
         PlansLaidAgain += laidAgain;
         if (!settled) Unsettled++;
     }
+}
+
+/// <summary>How a car's claim laid where it stands is laid (<see cref="TownWorld.AsksWhereItStands"/>).</summary>
+internal enum StandingClaim
+{
+    /// <summary>Nothing: at rest under a hand or a truck, or a manoeuvre's car not driven or broken.</summary>
+    None,
+
+    /// <summary>A hold of what a hand or a truck can no longer stop short of, never over a body — not the car's own hold.</summary>
+    Committed,
+
+    /// <summary>A manoeuvre not yet begun: the car's hold, with no ground, ended where its claim was cleared to.</summary>
+    Waiting,
+
+    /// <summary>A begun manoeuvre: the car's hold short of the first body standing in what is left of it, or none.</summary>
+    Manoeuvre,
 }
 
 /// <summary>

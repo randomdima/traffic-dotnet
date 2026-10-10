@@ -4,6 +4,41 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-10 — the claims laid where they stand are laid on the device
+
+**The owner asked for all the claims' logic on the device (2026-10-10).** This is the first step: what a car holds where
+it stands. Until now, a town whose device lays the claims laid the whole rebuild itself in two cases: a car under a hand or
+on a tow bar moving faster than its stop speed, or a manoeuvre begun at a bay (`LaysWhatOnlyTheTownAnswers`). Only the
+town's own laying could answer those against the bodies and the lights. So every car was taken back and the whole layer
+was sent as cut, on every rebuild while the player drove a car or a truck towed one. At OdesaOsm's 40 000 cars that is the
+host's own rebuild: its claims phase is 26.3 ms a tick, a rebuild every third tick.
+
+- **The town asks; the device lays** (`TownWorld.AsksWhereItStands`). The town says how each car that does not plan down its
+  line stands. A hand's or a truck's ground is sent as the stretches under it, each as its main claim would lay it. The
+  geometry is the town's own atlas and lines, through the same code its own laying runs
+  (`DrivingGround.WhatCannotBeStoppedShortOf`). A manoeuvre waiting to begin is sent with where its claim was cleared to. A
+  begun manoeuvre is sent as where it looks for a body (`BayManoeuvring.AsksOfTheManoeuvre`, answered on the host by
+  `LaneOccupancy.FirstBodyIn`).
+- **`rebuild_standing.comp` lays them after the lights and before any plan.** It is one thread in the town's order, since
+  each car is laid against those before it, and it does what `LaneOccupancy.Reach`, `Take` and `CutHold` do:
+  - each stretch reaches against the bodies, the lights' stretches and the unit's own claims;
+  - each takes what it meets, which cuts a light's hold or an earlier hand's hold;
+  - it places the marks over each stretch.
+
+  The rows and holds are numbered from the unit's own first, and `rebuild_file.comp` files them where the scans put the
+  unit. It also files each light's stretch as they cut it. A car's grant is read off the hold it stands in
+  (`CarClaimRow.Stands`).
+- **What is gone:** the host-laid standing unit, the host's edits to what the device laid (`RowEdit`, `HoldEdit`,
+  `rebuild_edits.comp`), and the town-only rebuild. The town now lays a rebuild itself only while its agents are held, or
+  where more cars are on a pass than there is room to ask for.
+- **Gates:**
+  - `DeviceRebuildTests` covers a hand driving flat out over a red light's bar and cars at bays. It fails where a light's
+    cut is not filed, or a waiting manoeuvre's hold is laid a metre off.
+  - `DeviceTownClaimsTests` gains a staged walked town: a manoeuvre begun with a wreck in what is left of it, one waiting
+    on a wreck, and a hand flat out over a bar. It runs 200 rebuilds, all laid on the device, with 610 holds laid where
+    they stand. It fails where a begun manoeuvre's hold is laid a metre off, which no gate saw before: the town laid those
+    itself.
+
 ## 2026-10-10 — the town is handed back only the poses it reads
 
 **The owner's ruling (2026-10-10)**: the host's copy of a pose may go stale on purpose. A town a device steps writes back
