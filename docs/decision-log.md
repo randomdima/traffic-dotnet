@@ -18,6 +18,24 @@ regular sync needed. CPU dont need a copy of the engine."** This extends 2026-10
 - **Measured by** the host's work and the bytes crossing a tick, both of which should follow the events, not the town's
   size.
 
+## 2026-10-10 — a car on a pass is planned on the device
+
+**Under the owner's goal above.** Every plan down a car's line is now the device's. Until now the town laid one itself:
+the plan of a car on a pass begun, from where it is back in its own lane (`Following.Plan`, `Overtaking.PlannedFromM`).
+That plan is the same as any other except where it begins.
+
+- **`plan.glsl` plans such a car from where its pass ends** (`PlanCarRow.passEndsM`). The town sends that metre with the
+  car's plan row, or with its terms where the device holds the car. A pass that reaches past all the car means to plan
+  grants it the whole of the pass (`CarClaimRow.OnAPass`), as the town's does.
+- **Whether a body stands inside the pass is asked of the device's bodies as before** (`rebuild_asks.comp`). Where one
+  does, the device's plan is never filed and the car's claim is the hold short of the body.
+- **What is gone:** the town's plan of a car on a pass, its host unit, the cars' host and hold units
+  (`CarClaimRow.HostUnit`, `HoldUnit`, `HoldOffset`), and `Following.AsksTheBodiesLater`. The host's units now carry only
+  the passes.
+- **Gates:** `DeviceRebuildTests` and `DeviceTownClaimsTests` hold the plan, its hold and its grant to the town's own. Both
+  fail where a car on a pass plans a metre short of its pass's end. Both also fail where a pass that reaches past the plan
+  grants nothing.
+
 ## 2026-10-10 — the claims laid where they stand are laid on the device
 
 **The owner asked for all the claims' logic on the device (2026-10-10).** This is the first step: what a car holds where

@@ -20,8 +20,8 @@ namespace TrafficSimulation.App.DeviceTick;
 /// </summary>
 /// <remarks>
 /// <b>The road and the marks are laid once</b>; a car's line crosses only as far as it is laid — or not at all, where the
-/// lines the car tick keeps on the device are read in place (<see cref="DeviceCarTick.Lines"/>). A car on a pass is the
-/// host's still: its plan begins past the pass.
+/// lines the car tick keeps on the device are read in place (<see cref="DeviceCarTick.Lines"/>). A car on a pass begun plans
+/// from where it is back in its own lane (<c>Overtaking.PlannedFromM</c>).
 /// </remarks>
 internal sealed class DevicePlans : IDisposable
 {
@@ -49,6 +49,7 @@ internal sealed class DevicePlans : IDisposable
     const uint Proposes = 1u;
     const uint OnACall = 2u;
     const uint LineIsReverse = 4u;
+    const uint OnAPass = 8u;
 
     readonly Vk _vk;
     readonly SimConfig _config;
@@ -284,15 +285,14 @@ internal sealed class DevicePlans : IDisposable
     internal static UInt4 RowsOf(TownWorld world, int car, Span<Vector4> figures)
     {
         var cars = world.Cars;
-        var proposes = Proposing(world, car);
-        var flags = (proposes ? Proposes : 0u) | (cars.BlueLight[car] ? OnACall : 0u) | (cars.LineIsReverse[car] ? LineIsReverse : 0u);
+        var proposes = world.PlansItsLine(car);
+        var pass = cars.Pass[car];
+        var flags = (proposes ? Proposes : 0u) | (cars.BlueLight[car] ? OnACall : 0u) | (cars.LineIsReverse[car] ? LineIsReverse : 0u)
+                    | (pass.Begun ? OnAPass : 0u);
         figures[0] = new Vector4(cars.ProgressM[car], cars.AlongMps[car], cars.PlannedMps[car], 0f);
-        figures[1] = new Vector4(cars.GrantMarginM[car], proposes ? world.KeptOffWhatItMayPassM(car) : 0f, 0f, 0f);
+        figures[1] = new Vector4(cars.GrantMarginM[car], proposes ? world.KeptOffWhatItMayPassM(car) : 0f, pass.Begun ? pass.EndsM : 0f, 0f);
         return new UInt4(cars.Variant[car], flags, 0u, 0u);
     }
-
-    /// <summary>Whether a car's claim is the plan down its line the device lays: planning down it, and on no pass begun.</summary>
-    public static bool Proposing(TownWorld world, int car) => world.PlansItsLine(car) && !world.Cars.Pass[car].Begun;
 
     /// <summary>Every car's claim laid, and what it came to read back. One submit and one wait.</summary>
     public void Plan(int carCount)

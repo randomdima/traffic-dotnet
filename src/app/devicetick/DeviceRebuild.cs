@@ -33,8 +33,8 @@ namespace TrafficSimulation.App.DeviceTick;
 /// </para>
 /// <para>
 /// <b>What only the host lays is sent as host-laid units filed at their own place in that order</b>
-/// (<see cref="HostUnit"/>): the passes of overtakes, switches, bays and sidesteps, and the plan of a car on a pass — and,
-/// of every car, whether it was asked this laying and what a claim the host laid left it granted (<see cref="CarClaimRow"/>).
+/// (<see cref="HostUnit"/>): the passes of overtakes, switches, bays and sidesteps — and, of every car, whether it was
+/// asked this laying and what the host left it granted where its claim is not the device's (<see cref="CarClaimRow"/>).
 /// </para>
 /// <para>
 /// <b>Each producer is still sent the town as it stands at its own stage</b> (<see cref="Watch"/>): the chain is from what
@@ -76,17 +76,21 @@ internal sealed partial class DeviceRebuild : IDisposable
     }
 
     /// <summary>What the host tells the rebuild of one car (<c>rebuild_rows.glsl</c>'s <c>CarClaimRow</c>).</summary>
+    /// <param name="AuthorityM">What a car whose claim is not the device's plan is left granted before its grant is read.</param>
     /// <param name="AskFirst">Where the run of <see cref="BodyAskRow"/>s a car on a pass looks for a body inside it begins.</param>
     [StructLayout(LayoutKind.Sequential)]
     internal record struct CarClaimRow(
-        uint Flags, int HostUnit, int HoldUnit, int HoldOffset, float AuthorityM, float HorizonM, float ClaimFromM, float CommittedToM,
-        float GrantMarginM, uint GrantCutBy, int AskFirst = 0, uint AskCount = 0u)
+        uint Flags, float AuthorityM, float HorizonM, float ClaimFromM, float CommittedToM, float GrantMarginM, uint GrantCutBy,
+        int AskFirst = 0, uint AskCount = 0u)
     {
         public const uint Asked = 1u;
         public const uint PlansOnTheDevice = 2u;
 
         /// <summary>Its claim is laid where it stands (<see cref="StandingRow"/>), and its hold, where it has one, is that unit's.</summary>
         public const uint Stands = 4u;
+
+        /// <summary>It plans past a pass begun, and is granted the whole of it where it plans nothing past it (<c>Following.Plan</c>).</summary>
+        public const uint OnAPass = 8u;
     }
 
     /// <summary>
@@ -234,6 +238,11 @@ internal sealed partial class DeviceRebuild : IDisposable
 
     readonly GpuBuffer _askAnswers;
 
+    /// <summary>How many asks this rebuild sends, and room for one car on a pass's asks as the town writes them.</summary>
+    int _askCount;
+
+    readonly BodyAsk[] _scratchAsks;
+
     /// <summary>
     /// The ground each car backing up asks for this laying, in the town's order, sent (<see cref="BackingAsk"/>); and how far
     /// back down its way each was laid (<c>rebuild_backing.comp</c>), an ask a float, read back.
@@ -338,6 +347,7 @@ internal sealed partial class DeviceRebuild : IDisposable
         _primedCutters = Staging<ClaimRow>(_cars);
         _primedTold = Staging<uint>(_cars);
         _asks = new Sent<BodyAskRow>(this, HostRowsToStart, AskRoom(world));
+        _scratchAsks = new BodyAsk[Overtaking.MostAsksOfAPass(world.Atlas.Marks)];
         _askAnswers = Device<UInt4>(_cars);
         _backingAsks = new Sent<BackingAskRow>(this, Math.Min(_cars, HostRowsToStart), _cars);
         _backingAsked = new BackingAsk[_cars];
@@ -373,9 +383,9 @@ internal sealed partial class DeviceRebuild : IDisposable
         var (planCars, planFigures, planPieces, planResults) = _plans.OnTheDevice;
         GpuBuffer[] plans =
         [
-            _held, _stretchPieces, _hostUnits.Device, _carClaims.Device, planCars, planFigures, planResults, planPieces, walkerCounts,
+            _held, _stretchPieces, _stretchCuts, _carClaims.Device, planCars, planFigures, planResults, planPieces, walkerCounts,
             walkerHolds, walkerProposed, _unitRows, _unitHolds, tables.Rows, tables.Holds, tables.Answers, tables.Shown, tables.Tally,
-            _askAnswers, _standingCounts, _standingRows, _standingHolds, _stretchCuts,
+            _askAnswers, _standingCounts, _standingRows, _standingHolds,
         ];
         _count = Bound.Of<PlansPush>(vk, "rebuild_count.comp", plans);
         _file = Bound.Of<PlansPush>(vk, "rebuild_file.comp", plans);
@@ -383,7 +393,7 @@ internal sealed partial class DeviceRebuild : IDisposable
             vk, "rebuild_host.comp",
             [
                 _hostRows.Device, _hostHolds.Device, _hostUnits.Device, _hostRowUnit.Device, _hostHoldUnit.Device, _unitRows, _unitHolds,
-                tables.Rows, tables.Holds, tables.Answers, tables.Shown, tables.Tally, _carClaims.Device, _askAnswers,
+                tables.Rows, tables.Holds, tables.Answers, tables.Shown, tables.Tally,
             ]);
         _capture = Bound.Of<NoPush>(vk, "rebuild_cutters.comp", [tables.Rows, tables.Answers, _holdCutters, tables.Tally]);
         _grant = Bound.Of<UnitsPush>(
@@ -532,6 +542,7 @@ internal sealed partial class DeviceRebuild : IDisposable
         _hostHoldUnit.Send(commands, _hostHoldCount);
         _hostUnits.Send(commands, _hostUnitCount);
         RecordTheStandingSent(commands);
+        _asks.Send(commands, _askCount);
         _backingAsks.Send(commands, _backingCount);
         _carClaimsSent = _carClaims.MarkedBytes;
         _carClaims.Send(commands);
@@ -669,7 +680,6 @@ internal sealed partial class DeviceRebuild : IDisposable
         _scanHolds.Record(commands, units);
         RecordTheTally(commands, Step.Plans);
         _file.Dispatch(commands, units, push);
-        RecordTheHostUnits(commands, _planned);
         vk.BetweenKernels(commands);
         _claims.RecordLists(commands);
     }
@@ -718,8 +728,7 @@ internal sealed partial class DeviceRebuild : IDisposable
 
     /// <summary>
     /// <b>How many rows the host may lay itself in one rebuild</b>: every car's body swept down a pass and every walker's
-    /// sidestep, a hand's or a tow's hold, and a car on a pass planning past it — each within what the town's own table
-    /// gives one car or one walker.
+    /// sidestep — each within what the town's own table gives one car or one walker.
     /// </summary>
     static int HostRowRoom(TownWorld world) =>
         Math.Min(world.Occupancy.Capacity, (world.Cars.Capacity * HostRowsPerCar) + (world.People.Capacity * Sidestepping.MostRunsOfAPass) + 1);

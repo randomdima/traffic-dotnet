@@ -15,7 +15,8 @@ struct CrossedSection
 };
 
 // What the plan reads of a car (CarFleet), and whether it plans down its line at all this rebuild (TownWorld's
-// PlansDownItsLine) — the host's to say until the actions are the device's.
+// PlansDownItsLine) — the host's to say until the actions are the device's — and, on a pass begun, where on its line
+// its pass ends (Overtake.EndsM), which it plans from (Overtaking.PlannedFromM).
 struct PlanCarRow
 {
     float progressM;
@@ -25,11 +26,13 @@ struct PlanCarRow
     float keptOffWhatItMayPassM;
     uint flags;
     uint build;
+    float passEndsM;
 };
 
 const uint PlanCarProposes = 1u;
 const uint PlanCarOnACall = 2u;
 const uint PlanCarLineIsReverse = 4u;
+const uint PlanCarOnAPass = 8u;
 
 // What a car's claim came to (CarFleet.ClaimFromM, ClaimToM, CommittedToM, HorizonM; HolderTerms.PassesBelowMps), how
 // many pieces it laid, and how many ways it proposed down — a hold begun over none is never answered with the plans

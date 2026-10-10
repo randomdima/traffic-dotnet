@@ -23,13 +23,18 @@ layout(push_constant) uniform Figures
 #include "world/town/kernels/car_tick_rows.glsl"
 #include "world/town/kernels/car_body_row.glsl"
 
-// DeviceRebuild.CarTermsRow, field for field: what only the town knows of a car this rebuild.
+// DeviceRebuild.CarTermsRow, field for field: what only the town knows of a car this rebuild — and, on a pass begun,
+// where on its line the pass ends.
 struct CarTermsRow
 {
     uint flags;
     uint channels;
     float allowanceM;
     float keptOffM;
+    float passEndsM;
+    uint pad0;
+    uint pad1;
+    uint pad2;
 };
 
 // CarTermsRow.flags: whether the device ticked it last and the town has left it as that tick did; whether its action
@@ -94,13 +99,14 @@ void main()
         pose.positionM, pose.forward, shape.frontAxleM, shape.rearAxleM, shape.halfTrackM, said.channels, int(car), tick.alongMps,
         bodyFlags, 0u);
 
-    // DevicePlans.Proposing: a car the device ticks is never a hand's, a truck's or one at a bay.
-    bool proposes = travelling && (said.flags & TermsPassBegun) == 0u;
+    // TownWorld.PlansItsLine: a car the device ticks is never a hand's, a truck's or one at a bay.
+    bool proposes = travelling;
+    bool onAPass = (said.flags & TermsPassBegun) != 0u;
     uint planFlags = (proposes ? PlanCarProposes : 0u) | ((said.flags & TermsOnACall) != 0u ? PlanCarOnACall : 0u)
-                     | (reverse ? PlanCarLineIsReverse : 0u);
+                     | (reverse ? PlanCarLineIsReverse : 0u) | (onAPass ? PlanCarOnAPass : 0u);
     planCars[car] = uvec4(build, planFlags, 0u, 0u);
     planFigures[car * 2u] = vec4(tick.progressM, tick.alongMps, tick.plannedMps, 0.0);
-    planFigures[car * 2u + 1u] = vec4(grants[car].grantMarginM, proposes ? said.keptOffM : 0.0, 0.0, 0.0);
+    planFigures[car * 2u + 1u] = vec4(grants[car].grantMarginM, proposes ? said.keptOffM : 0.0, onAPass ? said.passEndsM : 0.0, 0.0);
 
     // Its claim cleared, the ground it covers is counted from here; nothing in the rebuild reads it before its next tick.
     if ((said.flags & TermsAsked) != 0u) ticks[car].coveredSinceClaimM = 0.0;

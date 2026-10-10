@@ -27,7 +27,7 @@ internal sealed partial class DeviceRebuild
     /// <summary>How much of the host's table the rebuild being watched has written.</summary>
     int _hostRowCount, _hostHoldCount, _hostUnitCount;
 
-    HostRange _passes, _planned;
+    HostRange _passes;
 
     /// <summary>How many rows and holds of the device's the shadow reads back: as many as the town laid.</summary>
     int _rowsToRead, _holdsToRead;
@@ -70,7 +70,7 @@ internal sealed partial class DeviceRebuild
             case ClaimsStage.Begun:
                 _carCount = town.Cars.Count;
                 _walkerCount = town.People.Count;
-                _hostRowCount = _hostHoldCount = 0;
+                _hostRowCount = _hostHoldCount = _askCount = 0;
                 _hostUnitCount = PassesUnit + 1;
                 if (_priming) Prime(town);
                 _bodies.Lay(town);
@@ -112,7 +112,6 @@ internal sealed partial class DeviceRebuild
             case ClaimsStage.WalksDue:
                 _walkers.Lay(town, DeviceWalkers.Piece.Plan);
                 LayTheCarsClaims(town);
-                _planned = new HostRange(_passes.RowCount, _hostRowCount - _passes.RowCount, 0, _hostHoldCount);
                 break;
 
             case ClaimsStage.PlansAnswered:
@@ -136,9 +135,9 @@ internal sealed partial class DeviceRebuild
     }
 
     /// <summary>
-    /// <b>Every car's claim as the host left it before any grant is read</b>: whether the laying asked it, whether its claim
-    /// is the device's plan, a car on a pass's plan past it laid by the host as a unit of its own, and for every claim the
-    /// host laid, what it left the car granted and which hold its grant is read off.
+    /// <b>Every car's claim as the host left it before any grant is read</b>: whether the laying asked it; whether its claim
+    /// is the device's plan — past its pass, where it is on one, with where a body inside the pass is looked for; whether
+    /// it is laid where it stands; and for any other, what the host left it granted.
     /// </summary>
     void LayTheCarsClaims(TownWorld town)
     {
@@ -148,61 +147,49 @@ internal sealed partial class DeviceRebuild
         {
             if (!_askedNow[car])
             {
-                rows.Lay(car, new CarClaimRow(0u, -1, -1, 0, 0f, 0f, 0f, 0f, 0f, 0u));
+                rows.Lay(car, new CarClaimRow(0u, 0f, 0f, 0f, 0f, 0f, 0u));
                 continue;
-            }
-
-            if (_plansItsLine[car] && !_onAPass[car])
-            {
-                rows.Lay(car, new CarClaimRow(CarClaimRow.Asked | CarClaimRow.PlansOnTheDevice, -1, -1, 0, 0f, 0f, 0f, 0f, 0f, 0u));
-                continue;
-            }
-
-            if (_standingOf[car] >= 0)
-            {
-                // A begun manoeuvre with nothing standing in it holds nothing, and is granted the whole of it (BayManoeuvring.Hold).
-                var manoeuvre = _standing.Rows[_standingOf[car]].Kind == (uint)StandingClaim.Manoeuvre;
-                rows.Lay(car, new CarClaimRow(
-                    CarClaimRow.Asked | CarClaimRow.Stands, -1, -1, 0, manoeuvre ? float.PositiveInfinity : cars.AuthorityM[car],
-                    cars.HorizonM[car], cars.ClaimFromM[car], cars.CommittedToM[car], cars.GrantMarginM[car], (uint)cars.GrantCutBy[car]));
-                continue;
-            }
-
-            var hold = town.PlanHoldOf(car);
-            var hostUnit = -1;
-            var (holdUnit, holdOffset) = (-1, 0);
-            var (askFirst, askCount) = (0, 0);
-            if (_plansItsLine[car] && _carTick != null)
-            {
-                // Planned as though its pass were clear: whether a body stands in it is the device's to ask.
-                askFirst = _askCount;
-                askCount = town.BodyAsksOfItsPass(car, _scratchAsks);
-                if (!_asks.MakeRoomFor(_askCount + askCount))
-                {
-                    throw new InvalidOperationException($"The cars on a pass asked past the {_asks.Room} stretches the rebuild has room for.");
-                }
-
-                var asks = _asks.Rows;
-                for (var at = 0; at < askCount; at++) asks[_askCount++] = BodyAskRow.Of(_scratchAsks[at]);
             }
 
             if (_plansItsLine[car])
             {
-                hostUnit = _hostUnitCount++;
-                var unit = (uint)(_stretches + 1 + car);
-                if (hold == LaneOccupancy.NoHold) LayTheRun(hostUnit, town.Occupancy, 0, 0, 0, 0, Numbering.Plans, unit);
-                else
-                {
-                    var (first, end) = town.Occupancy.PiecesOf(hold);
-                    LayTheRun(hostUnit, town.Occupancy, first, end, hold, hold + 1, Numbering.Plans, unit);
-                    (holdUnit, holdOffset) = ((int)unit, 0);
-                }
+                rows.Lay(car, _onAPass[car] ? OnAPass(town, car) : new CarClaimRow(CarClaimRow.Asked | CarClaimRow.PlansOnTheDevice, 0f, 0f, 0f, 0f, 0f, 0u));
+                continue;
+            }
+
+            var flags = CarClaimRow.Asked;
+            var authorityM = cars.AuthorityM[car];
+            if (_standingOf[car] >= 0)
+            {
+                // A begun manoeuvre with nothing standing in it holds nothing, and is granted the whole of it (BayManoeuvring.Hold).
+                flags |= CarClaimRow.Stands;
+                if (_standing.Rows[_standingOf[car]].Kind == (uint)StandingClaim.Manoeuvre) authorityM = float.PositiveInfinity;
             }
 
             rows.Lay(car, new CarClaimRow(
-                CarClaimRow.Asked, hostUnit, holdUnit, holdOffset, cars.AuthorityM[car], cars.HorizonM[car], cars.ClaimFromM[car],
-                cars.CommittedToM[car], cars.GrantMarginM[car], (uint)cars.GrantCutBy[car], askFirst, (uint)askCount));
+                flags, authorityM, cars.HorizonM[car], cars.ClaimFromM[car], cars.CommittedToM[car], cars.GrantMarginM[car],
+                (uint)cars.GrantCutBy[car]));
         }
+    }
+
+    /// <summary>
+    /// A car on a pass: planned past it by the device as though the pass were clear, and whether a body stands inside it
+    /// asked of the device's bodies (<see cref="TownWorld.BodyAsksOfItsPass"/>).
+    /// </summary>
+    CarClaimRow OnAPass(TownWorld town, int car)
+    {
+        var askFirst = _askCount;
+        var askCount = town.BodyAsksOfItsPass(car, _scratchAsks);
+        if (!_asks.MakeRoomFor(_askCount + askCount))
+        {
+            throw new InvalidOperationException($"The cars on a pass asked past the {_asks.Room} stretches the rebuild has room for.");
+        }
+
+        var asks = _asks.Rows;
+        for (var at = 0; at < askCount; at++) asks[_askCount++] = BodyAskRow.Of(_scratchAsks[at]);
+
+        return new CarClaimRow(
+            CarClaimRow.Asked | CarClaimRow.PlansOnTheDevice | CarClaimRow.OnAPass, 0f, 0f, 0f, 0f, 0f, 0u, askFirst, (uint)askCount);
     }
 
     /// <summary>A run of the host's own laying, every slot and hold from where the host was at the run's start to where it is now.</summary>

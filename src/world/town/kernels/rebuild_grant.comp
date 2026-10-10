@@ -58,26 +58,18 @@ void main()
         horizonM = plan.horizonM;
         claimFromM = plan.claimFromM;
         committedToM = plan.committedToM;
-        if (plan.laidAHold != 0u) hold = int(unitHolds[figures.firstCarUnit + car]);
-    }
-    else if (claim.askCount > 0u && askAnswers[car][AskFound] != 0u)
-    {
-        // Held short of the body inside its pass (rebuild_file.comp): granted nothing until that hold is read.
-        hold = int(unitHolds[figures.firstCarUnit + car]);
+
+        // Held short of a body inside its pass (rebuild_file.comp), granted nothing until that hold is read; or the whole
+        // of a pass that reaches past all it plans.
+        if ((claim.askCount > 0u && askAnswers[car][AskFound] != 0u) || plan.laidAHold != 0u) hold = int(unitHolds[figures.firstCarUnit + car]);
+        else if ((claim.flags & CarOnAPass) != 0u) authorityM = rebuildInfinity();
     }
     else
     {
         authorityM = claim.authorityM;
         marginM = claim.grantMarginM;
         cutBy = claim.grantCutBy;
-        if ((claim.flags & CarStands) != 0u)
-        {
-            if (standingHoldOf[car] >= 0) hold = int(unitHolds[figures.firstCarUnit - 1u]) + standingHoldOf[car];
-        }
-        else if (claim.holdUnit >= 0)
-        {
-            hold = int(unitHolds[uint(claim.holdUnit)]) + claim.holdOffset;
-        }
+        if ((claim.flags & CarStands) != 0u && standingHoldOf[car] >= 0) hold = int(unitHolds[figures.firstCarUnit - 1u]) + standingHoldOf[car];
     }
 
     int cutOn = -1;

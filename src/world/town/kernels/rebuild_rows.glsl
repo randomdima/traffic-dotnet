@@ -28,18 +28,14 @@ struct HostUnit
 };
 
 // What the host tells the rebuild of one car (DeviceRebuild.CarClaimRow): whether it was asked this laying, whether its
-// claim is the plan the device lays, and whether it is laid where it stands, its hold that unit's where it has one
-// (CarAsked, CarPlansOnTheDevice, CarStands); where else its claim is laid — a host unit, the plans' unit its grant's hold
-// is in and that hold's place there — and, for a claim not the device's plan, what the car was left granted before its
-// grant is read (CarFleet.AuthorityM, HorizonM, ClaimFromM, CommittedToM, GrantMarginM, GrantCutBy); and, for a car on a
-// pass whose plan the host laid as though its pass were clear, the run of BodyAskRows that looks for a body inside it
-// (Following.AsksOfItsPass).
+// claim is the plan the device lays, whether it is laid where it stands, its hold that unit's where it has one, and
+// whether its plan is past a pass begun (CarAsked, CarPlansOnTheDevice, CarStands, CarOnAPass); for a claim not the
+// device's plan, what the car was left granted before its grant is read (CarFleet.AuthorityM, HorizonM, ClaimFromM,
+// CommittedToM, GrantMarginM, GrantCutBy); and, for a car on a pass, the run of BodyAskRows that looks for a body inside
+// it, its plan laid as though the pass were clear (Following.AsksOfItsPass).
 struct CarClaimRow
 {
     uint flags;
-    int hostUnit;
-    int holdUnit;
-    int holdOffset;
     float authorityM;
     float horizonM;
     float claimFromM;
@@ -53,6 +49,7 @@ struct CarClaimRow
 const uint CarAsked = 1u;
 const uint CarPlansOnTheDevice = 2u;
 const uint CarStands = 4u;
+const uint CarOnAPass = 8u;
 
 // What rebuild_standing.comp laid, before it is filed: a hold of its own cut by one of its own rows names that row from
 // the unit's first (StandingOwnRow); and of each light's stretch, whether it took the piece (StretchTaken) and whether it

@@ -80,10 +80,10 @@ void main()
     if (car >= figures.carCount) return;
 
     // A car's row: its build, its flags, the hold its plan was numbered; its figures: progress, along, planned — and the
-    // grant margin and room in the second half.
+    // grant margin, room and where its pass ends in the second half.
     uvec4 row = carRows[car];
     vec4 moving = carFigures[car * 2u];
     vec4 kept = carFigures[car * 2u + 1u];
-    PlanCarRow plan = PlanCarRow(moving.x, moving.y, moving.z, kept.x, kept.y, row.y, row.x);
+    PlanCarRow plan = PlanCarRow(moving.x, moving.y, moving.z, kept.x, kept.y, row.y, row.x, kept.z);
     results[car] = planTheCar(car, plan, builds[row.x], lines[car], int(row.z));
 }

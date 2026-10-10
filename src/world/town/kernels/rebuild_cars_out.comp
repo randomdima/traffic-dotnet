@@ -53,7 +53,7 @@ layout(std430, binding = 2) readonly buffer AskAnswers { uvec4 askAnswers[]; };
 layout(std430, binding = 3) readonly buffer UnitHolds { uint unitHolds[]; };
 layout(std430, binding = 4) readonly buffer CarCounts { uvec4 carCounts[]; };
 
-// car_claims_gather.comp's CarTermsRow: its channels are the town's for every car.
+// car_claims_gather.comp's CarTermsRow, two words a car: its channels are the town's for every car.
 layout(std430, binding = 5) readonly buffer CarTerms { uvec4 carTerms[]; };
 layout(std430, binding = 6) readonly buffer Grants { CarGrantRow grants[]; };
 layout(std430, binding = 7) readonly buffer Wanted { uint wanted[]; };
@@ -77,28 +77,15 @@ void main()
     {
         // As DeviceRebuild.MirrorTheAgents numbers it, and rebuild_grant.comp reads it.
         uint hold = HoldNone;
-        if ((claim.flags & CarPlansOnTheDevice) != 0u)
-        {
-            if (plan.laidAHold != 0u) hold = unitHolds[figures.firstCarUnit + car];
-        }
-        else if ((claim.flags & CarStands) != 0u)
-        {
-            if (standingHoldOf[car] >= 0) hold = unitHolds[figures.firstCarUnit - 1u] + uint(standingHoldOf[car]);
-        }
-        else if (claim.askCount > 0u && heldInItsPass)
-        {
-            hold = unitHolds[figures.firstCarUnit + car] | HoldInItsPass;
-        }
-        else if (claim.holdUnit >= 0)
-        {
-            hold = unitHolds[uint(claim.holdUnit)] + uint(claim.holdOffset);
-        }
+        if (claim.askCount > 0u && heldInItsPass) hold = unitHolds[figures.firstCarUnit + car] | HoldInItsPass;
+        else if ((claim.flags & CarPlansOnTheDevice) != 0u && plan.laidAHold != 0u) hold = unitHolds[figures.firstCarUnit + car];
+        else if ((claim.flags & CarStands) != 0u && standingHoldOf[car] >= 0) hold = unitHolds[figures.firstCarUnit - 1u] + uint(standingHoldOf[car]);
 
         holdsOut[car] = hold;
     }
 
     uint channels = carCounts[car].y;
-    bool movedAcross = channels != carTerms[car].y;
+    bool movedAcross = channels != carTerms[car * 2u].y;
     if (movedAcross) moved[atomicAdd(movedCount, 1u)] = car;
     if (!movedAcross && (wanted[car >> 5u] & (1u << (car & 31u))) == 0u) return;
 

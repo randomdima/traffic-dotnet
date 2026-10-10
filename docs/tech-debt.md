@@ -24,7 +24,7 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **Exam card 109** (a car on a call gets past a queue at a red) fails since the wheel claims: the car on the call
   reaches the box at 25.0 s, after the queue's head at 17.8 s.
 - **`InspectorTests.AnInspectedFrameAllocatesNothing` and `UnitPanelTests.DrawingThePanelAllocatesNothing`** (unit) fail
-  now and then in a full unit run — the first three times (3.4 KB over twice, 5.7 KB on 2026-10-09), the second twice (a few KB, then 8.0 KB) — and pass alone
+  now and then in a full unit run — the first four times (3.4 KB over twice, 5.7 KB on 2026-10-09, 3.4 KB on 2026-10-10), the second twice (a few KB, then 8.0 KB) — and pass alone
   every time: both read an allocation counter
   across the whole process while the tier runs classes side by side. Counting on the test's own thread, or running them
   apart, closes it.
@@ -274,6 +274,9 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 ## Dead figures and members
 
+- **The host's units are numbered among the plans and carry holds, and nothing lays either now** (`rebuild_host.comp`'s
+  `HostPlans` filing and its holds, `DeviceRebuild`'s `_hostHolds`, `_hostHoldUnit`, `Numbering.Plans`; root log 2026-10-10):
+  only the passes are a host unit, rows and no holds. Laying the passes on the device takes the host's units away whole.
 - **Water's figures feed a catalogue row no wheel reads**: `WaterCoefficient`, `WaterResistance`, `WaterDragMps2` and
   `WaterMarkFactor`. `GroundCatalog`'s `Walkable`, `Preferred`, `Ploughs`, `MarkFactor`, `DragMps2` and `Table`, and
   `GroundSample.Coefficient`, are read by tests alone.

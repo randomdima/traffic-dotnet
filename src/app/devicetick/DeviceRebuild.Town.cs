@@ -25,8 +25,8 @@ namespace TrafficSimulation.App.DeviceTick;
 /// submit (<see cref="ReadPast"/>), counted.
 /// </para>
 /// <para>
-/// <b>A car on a pass is planned by the town as though its pass were clear</b>, and the device asks whether a body stands in
-/// it (<c>rebuild_asks.comp</c>): where one does, that car's plan is never filed and its claim is the hold short of the body,
+/// <b>A car on a pass is planned past it as though its pass were clear</b>, and the device asks whether a body stands in it
+/// (<c>rebuild_asks.comp</c>): where one does, that car's plan is never filed and its claim is the hold short of the body,
 /// as <c>Following.Plan</c> lays it.
 /// </para>
 /// </remarks>
@@ -210,17 +210,14 @@ internal sealed partial class DeviceRebuild
     /// </summary>
     public long StraightsTheTownWouldNotCommit { get; private set; }
 
-    int _askCount;
-
-    /// <summary>Room for one car on a pass's asks, as the town writes them.</summary>
-    BodyAsk[] _scratchAsks = [];
-
     /// <summary>
     /// What only the town knows of a car this rebuild (<c>car_claims_gather.comp</c>'s <c>CarTermsRow</c>), for a car whose
-    /// body and plan's rows the device lays off what it holds of it; nothing for a car the town lays them for.
+    /// body and plan's rows the device lays off what it holds of it — on a pass begun, where on its line the pass ends;
+    /// nothing for a car the town lays them for.
     /// </summary>
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
-    readonly record struct CarTermsRow(uint Flags, uint Channels, float AllowanceM, float KeptOffM)
+    readonly record struct CarTermsRow(
+        uint Flags, uint Channels, float AllowanceM, float KeptOffM, float PassEndsM = 0f, uint Pad0 = 0u, uint Pad1 = 0u, uint Pad2 = 0u)
     {
         public const uint Held = 1u, DrivesTheRoute = 2u, OnACall = 4u, LineIsReverse = 8u, PassBegun = 16u, Asked = 32u;
     }
@@ -276,7 +273,6 @@ internal sealed partial class DeviceRebuild
                 _plans.OnTheDevice.Results, _askAnswers, _bodies.OnTheDevice.Counts, _carsOut, walkerCounts, _walkersOut, _unitHolds,
                 tables.Answers, _carTick!.Tyres.Table.Cars.Device, tables.Tally,
             ]);
-        _scratchAsks = new BodyAsk[Overtaking.MostAsksOfAPass(world.Atlas.Marks)];
         if (_walkers.Keeps)
         {
             _walkersReaders = Bound.Of<UnitsPush>(
@@ -513,8 +509,9 @@ internal sealed partial class DeviceRebuild
                 continue;
             }
 
+            var pass = cars.Pass[car];
             var flags = CarTermsRow.Held | (cars.BlueLight[car] ? CarTermsRow.OnACall : 0u)
-                        | (cars.LineIsReverse[car] ? CarTermsRow.LineIsReverse : 0u) | (cars.Pass[car].Begun ? CarTermsRow.PassBegun : 0u);
+                        | (cars.LineIsReverse[car] ? CarTermsRow.LineIsReverse : 0u) | (pass.Begun ? CarTermsRow.PassBegun : 0u);
             if (asked[car])
             {
                 flags |= CarTermsRow.Asked;
@@ -526,7 +523,7 @@ internal sealed partial class DeviceRebuild
 
             // What it keeps off what it may pass is read off its lane, and only one under way on its line has one.
             var keptOffM = drives && cars.Line[car].LaneCount > 0 ? town.KeptOffWhatItMayPassM(car) : 0f;
-            _carTerms.Lay(car, new CarTermsRow(flags, cars.Channels[car], town.OffTheLineAllowanceM(car), keptOffM));
+            _carTerms.Lay(car, new CarTermsRow(flags, cars.Channels[car], town.OffTheLineAllowanceM(car), keptOffM, pass.Begun ? pass.EndsM : 0f));
         }
     }
 
@@ -657,7 +654,6 @@ internal sealed partial class DeviceRebuild
             case ClaimsStage.WalksDue:
                 if (!_walkers.Keeps) _walkers.LayWhatChanged(town);
                 LayTheCarsClaims(town);
-                _planned = new HostRange(_passes.RowCount, _hostRowCount - _passes.RowCount, 0, _hostHoldCount);
                 AskTheBacking(town, takes: true);
                 if (_backingCount > 0) BackedUp++;
                 break;
@@ -1159,23 +1155,19 @@ internal sealed partial class DeviceRebuild
             if ((claim.Flags & CarClaimRow.PlansOnTheDevice) != 0)
             {
                 town.PlannedOnTheDevice(car, said.ClaimFromM, said.ClaimToM, said.CommittedToM, said.HorizonM);
-                var laid = (said.Bits & CarOut.LaidAHold) != 0;
-                town.HeldOnTheDevice(car, laid ? (int)unitHolds[firstCar + car] : LaneOccupancy.NoHold, inItsPass: false);
+                var inItsPass = claim.AskCount > 0 && (said.Bits & CarOut.HeldInItsPass) != 0;
+                if (inItsPass) HeldInTheirPasses++;
+                var laid = inItsPass || (said.Bits & CarOut.LaidAHold) != 0;
+                town.HeldOnTheDevice(car, laid ? (int)unitHolds[firstCar + car] : LaneOccupancy.NoHold, inItsPass);
             }
             else if ((claim.Flags & CarClaimRow.Stands) != 0)
             {
                 var stands = _standingSaid.Span<int>()[_standingOf[car]];
                 town.HeldOnTheDevice(car, stands >= 0 ? (int)unitHolds[firstCar - 1] + stands : LaneOccupancy.NoHold, inItsPass: false);
             }
-            else if (claim.AskCount > 0 && (said.Bits & CarOut.HeldInItsPass) != 0)
-            {
-                HeldInTheirPasses++;
-                town.HeldOnTheDevice(car, (int)unitHolds[firstCar + car], inItsPass: true);
-            }
             else
             {
-                town.HeldOnTheDevice(
-                    car, claim.HoldUnit >= 0 ? (int)unitHolds[claim.HoldUnit] + claim.HoldOffset : LaneOccupancy.NoHold, inItsPass: false);
+                town.HeldOnTheDevice(car, LaneOccupancy.NoHold, inItsPass: false);
             }
         }
     }

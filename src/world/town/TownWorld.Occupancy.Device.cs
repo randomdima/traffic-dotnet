@@ -9,10 +9,10 @@ namespace TrafficSimulation.World.Town;
 
 /// <summary>
 /// <b>A claims rebuild a device lays</b> (<see cref="ITownClaims"/>): <see cref="RebuildLaneOccupancy"/> stage
-/// for stage, the town laying here only what it alone lays — every walker stationed, the passes, a car on a pass's plan
-/// past it, and every grant the device did not read — and the device every body, light, plan and walk, what each car
-/// holds where it stands off what it asks (<see cref="AsksWhereItStands"/>), every answer and the backing after them
-/// (<see cref="TakeTheBackingAsk"/>), handed back into the reservations.
+/// for stage, the town laying here only what it alone lays — every walker stationed, the passes, and every grant the device
+/// did not read — and the device every body, light, plan and walk, what each car holds where it stands off what it asks
+/// (<see cref="AsksWhereItStands"/>), every answer and the backing after them (<see cref="TakeTheBackingAsk"/>), handed
+/// back into the reservations.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -21,8 +21,8 @@ namespace TrafficSimulation.World.Town;
 /// every walker's hold, the channels each car stands on, and how the answers went.
 /// </para>
 /// <para>
-/// <b>A car on a pass plans as though its pass were clear</b> (<see cref="Following.AsksTheBodiesLater"/>): whether a body
-/// stands inside it is asked of the device's bodies, and where one does its plan is the hold short of it.
+/// <b>A car on a pass is planned past it as though its pass were clear</b>: whether a body stands inside it is asked of the
+/// device's bodies (<see cref="BodyAsksOfItsPass"/>), and where one does its plan is the hold short of it.
 /// </para>
 /// <para>
 /// <b>A device that keeps the walkers</b> (<see cref="ITownClaims.KeepsTheWalkers"/>) stations them, lays their passes and
@@ -62,17 +62,13 @@ internal sealed partial class TownWorld
         }
 
         device.ClaimsAt(this, ClaimsStage.DrivesDue);
-        Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];
-        _following.AsksTheBodiesLater = true;
+
+        // And every plan down a line is the device's, past a car's pass where it is on one.
         foreach (var car in CarsAsked)
         {
-            if (!PlansDownItsLine(car)) continue;
-
-            if (Cars.Pass[car].Begun) PlanTheDrive(car, ways);
-            else _ground.ClearTheClaim(car);
+            if (PlansDownItsLine(car)) _ground.ClearTheClaim(car);
         }
 
-        _following.AsksTheBodiesLater = false;
         device.ClaimsAt(this, ClaimsStage.WalksDue);
         device.ClaimsAt(this, ClaimsStage.PlansLaid);
         var landsLater = device.LandsLater;

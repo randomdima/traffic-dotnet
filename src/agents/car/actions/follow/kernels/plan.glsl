@@ -186,7 +186,9 @@ PlanOutRow planTheCar(uint car, PlanCarRow row, CarBuildRow build, CarLineRow li
     float wantedToM = min(wantedEndM, lengthM);
     precise float committedToM = noseM + committedM;
 
-    float planFromM = noseM;
+    // A car on a pass plans from where it is back in its own lane: the ground up to there is its pass's, laid as a body.
+    precise float backInM = row.passEndsM + build.noseAheadOfAxleM;
+    float planFromM = (row.flags & PlanCarOnAPass) != 0u ? max(noseM, backInM) : noseM;
     float planToM = min(max(committedToM, min(wantedToM, planHorizonToM(car, line.laneCount, planFromM, build, reach))), lengthM);
 
     float mouthM;
