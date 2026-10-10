@@ -458,6 +458,22 @@ internal sealed partial class DeviceCarTick
     /// <summary>The cars <see cref="TheTakenToTakeBack"/> last named, a bit a car.</summary>
     AgentSet _takenBack = null!;
 
+    /// <summary>
+    /// The cars the last <see cref="Prepare"/> walked and those the town holds now — every car whose body, rest or wheels
+    /// the town may have set — or every car, where the next walks every one; in order.
+    /// </summary>
+    public Span<int> TheCarsToLay(int count, Span<int> into)
+    {
+        if (VisitsEveryCar) return EveryCar(count, into);
+
+        _takenBack.CopyFrom(_visited);
+        _takenBack.UnionWith(_townHolds);
+        return into[.._takenBack.CopyTo(count, into)];
+    }
+
+    /// <summary>The cars the town holds as the device left them, in order, written into <paramref name="into"/> — whose poses it reads.</summary>
+    public Span<int> TheCarsTheTownHolds(int count, Span<int> into) => into[.._townHolds.CopyTo(count, into)];
+
     /// <summary>Whether this car is among those the device ticks (<see cref="Prepare"/>).</summary>
     public bool IsTaken(int car) => _takenBits.Has(car);
 

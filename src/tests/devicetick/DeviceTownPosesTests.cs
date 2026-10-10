@@ -10,7 +10,7 @@ using Xunit;
 namespace TrafficSimulation.Tests.DeviceTick;
 
 /// <summary>
-/// <b>A town handed back only the poses it reads goes as one handed back every pose</b> (<see cref="DeviceTownBodies.CarsUnread"/>):
+/// <b>A town handed back only the poses it reads goes as one handed back every pose</b> (<see cref="DeviceTownBodies.HandsBackEveryPose"/>):
 /// two device towns of one plan, one handed every pose back after every step and one only what it reads, held to each
 /// other's device every tick — so a pose the town read and was not handed shows as the two parting.
 /// </summary>

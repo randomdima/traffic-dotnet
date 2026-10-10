@@ -294,9 +294,11 @@ internal sealed partial class DeviceWalkerTick : IDisposable
     /// <summary>The walkers the last <see cref="LayWhatChanged"/> walked, in order: every walker whose row the town may have set.</summary>
     public ReadOnlySpan<int> Walked => _walk.AsSpan(0, _walkedCount);
 
-    int EveryWalker(int count)
+    int EveryWalker(int count) => EveryWalker(count, _walk);
+
+    static int EveryWalker(int count, Span<int> into)
     {
-        for (var person = 0; person < count; person++) _walk[person] = person;
+        for (var person = 0; person < count; person++) into[person] = person;
         return count;
     }
 
@@ -326,14 +328,20 @@ internal sealed partial class DeviceWalkerTick : IDisposable
 
     /// <summary>
     /// The walkers the last <see cref="LayWhatChanged"/> walked, and those the town holds now — those whose tick the town
-    /// may read — in order, written into <paramref name="into"/>.
+    /// may read, and whose body and impulse it may have set — or every walker, where the next walks every one; in order,
+    /// written into <paramref name="into"/>.
     /// </summary>
-    public Span<int> TheWalkersToTakeBack(int count, Span<int> into)
+    public Span<int> TheWalkersTheTownMayHaveSet(int count, Span<int> into)
     {
+        if (VisitsEveryWalker) return into[..EveryWalker(count, into)];
+
         _takenBack.CopyFrom(_walked);
         _takenBack.UnionWith(_townHolds);
         return into[.._takenBack.CopyTo(count, into)];
     }
+
+    /// <summary>The walkers the town holds as the device left them, in order, written into <paramref name="into"/> — whose poses it reads.</summary>
+    public Span<int> TheWalkersTheTownHolds(int count, Span<int> into) => into[.._townHolds.CopyTo(count, into)];
 
     AgentSet _takenBack = null!;
 

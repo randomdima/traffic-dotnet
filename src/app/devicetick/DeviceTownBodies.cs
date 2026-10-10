@@ -27,7 +27,7 @@ namespace TrafficSimulation.App.DeviceTick;
 /// still makes. <b>Handed back</b>: every car as the step read it off its body, every walker in the world off its own,
 /// which frozen bodies it took in and which it froze, and which pairs began touching (<see cref="DeviceSolver.Settles"/>)
 /// — written into the fleets as the town's own phase writes them, and into the solver's table
-/// (<see cref="PhysicsWorld.EndTheStepTaken"/>), but a pose only where the town reads it (<see cref="CarsUnread"/>): any
+/// (<see cref="PhysicsWorld.EndTheStepTaken"/>), but a pose only where the town holds the agent (<see cref="HandsBackEveryPose"/>): any
 /// other is taken back when something asks (<see cref="TakeThePoseBack"/>). No contact comes back: the rest counts and
 /// what was touching are the device's, and how deep each body is into what it touches comes back only where asked
 /// (<see cref="ReadsTheOverlap"/>).
@@ -81,21 +81,24 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         _batch = new ComputeBatch(vk);
         _carPoseAt = new int[town.Cars.Capacity];
         _walkerPoseAt = new int[town.People.Capacity];
+        _cars = new int[town.Cars.Capacity];
+        _walkers = new int[town.People.Capacity];
+    }
+
+    /// <summary>The cars and the walkers a step walks to lay or hand back, in order.</summary>
+    readonly int[] _cars, _walkers;
+
+    static Span<int> EveryAgent(int count, Span<int> into)
+    {
+        for (var agent = 0; agent < count; agent++) into[agent] = agent;
+        return into[..count];
     }
 
     /// <summary>
-    /// <b>The cars whose poses the town does not read after this step</b>, a flag a car, filled by whoever knows before each
-    /// step is taken back — or none, and every car's pose is written into the fleets and the table. A pose left unread is
-    /// taken back when something asks for it (<see cref="TakeThePoseBack"/>).
-    /// </summary>
-    public bool[]? CarsUnread { get; init; }
-
-    /// <inheritdoc cref="CarsUnread"/>
-    public bool[]? WalkersUnread { get; init; }
-
-    /// <summary>
-    /// Whether every pose is written back after every step whatever <see cref="CarsUnread"/> and <see cref="WalkersUnread"/>
-    /// say — as it is while the town holds its agents or watches every one.
+    /// Whether every pose is written back after every step, where it is not only those the town holds
+    /// (<see cref="DeviceCarTick.TownHolds"/>, <see cref="DeviceWalkerTick.TownHolds"/>) — as it is while the town holds its
+    /// agents, watches every one or draws off its own copy. A pose left unread is taken back when something asks for it
+    /// (<see cref="TakeThePoseBack"/>).
     /// </summary>
     public bool HandsBackEveryPose { get; set; }
 
@@ -105,7 +108,8 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
     /// </summary>
     public bool PoisonsWhatIsUnread { get; set; }
 
-    bool EveryPoseRead(TownWorld town) => HandsBackEveryPose || town.HoldAgents || town.WatchesEveryAgent;
+    bool EveryPoseRead(TownWorld town) =>
+        HandsBackEveryPose || town.HoldAgents || town.WatchesEveryAgent || town.ReadsEveryCarAfterTheTick;
 
     /// <summary>The solver's step on the device, for whoever asks it to solve in contact order or reads its counts.</summary>
     public DeviceSolver Solver => _solver;
@@ -309,8 +313,11 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
 
         physics.ForgetTheChanges();
 
+        // A car the device keeps, which the town has set nothing of, is the body, the rest and the wheels it was: only one the
+        // town holds or touched is laid (DeviceCarTick.TheCarsToLay) — every one, the table laid whole.
         var stepped = 0;
-        for (var car = 0; car < cars.Count; car++)
+        var carsLaid = LaidWhole || HandsOverThrough is not { } carTick ? EveryAgent(cars.Count, _cars) : carTick.TheCarsToLay(cars.Count, _cars);
+        foreach (var car in carsLaid)
         {
             _phase.LayCar(car, cars.Body[car].Index, town.RestsParked(car));
             while (stepped < tyresStepped.Length && tyresStepped[stepped] < car) stepped++;
@@ -321,7 +328,10 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
 
         var people = town.People;
         var ticked = walkersTicked && _walkerTick != null ? _walkerTick.Count : 0;
-        for (var person = 0; person < people.Count; person++)
+        var walkersLaid = LaidWhole || !walkersTicked || _walkerTick is not { Resident: true } walkerTick
+            ? EveryAgent(people.Count, _walkers)
+            : walkerTick.TheWalkersTheTownMayHaveSet(people.Count, _walkers);
+        foreach (var person in walkersLaid)
         {
             _phase.LayWalker(person, people.Body[person].Index);
             var impulseNs = town.WalkerImpulseNs(person);
@@ -392,14 +402,19 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         physics.BeginTheStepTaken();
         RosterMs = Stopwatch.GetElapsedTime(began).TotalMilliseconds;
 
+        // The town reads the pose of a car or walker it holds (DeviceCarTick.TownHolds, DeviceWalkerTick.TownHolds), and of
+        // every one where every pose is read; every other is left where the step left it.
         var every = EveryPoseRead(town);
         var cars = town.Cars;
         var poses = _phase.PosesAfter;
         var carsRead = 0;
-        for (var car = 0; car < cars.Count; car++)
+        var carsHeld = every || PoisonsWhatIsUnread || HandsOverThrough is not { } carTick
+            ? EveryAgent(cars.Count, _cars)
+            : carTick.TheCarsTheTownHolds(cars.Count, _cars);
+        foreach (var car in carsHeld)
         {
             if (!placedMeanwhile.IsEmpty && placedMeanwhile.Contains(cars.Body[car].Index)) continue;
-            if (!every && CarsUnread is { } unread && unread[car])
+            if (!every && HandsOverThrough is { } holds && !holds.TownHolds(car))
             {
                 if (PoisonsWhatIsUnread) Poison(cars, car);
                 continue;
@@ -412,11 +427,14 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         var people = town.People;
         var walked = _phase.WalkersAfter;
         var walkers = 0;
-        for (var person = 0; person < people.Count; person++)
+        var walkersHeld = every || PoisonsWhatIsUnread || _walkerTick is not { Resident: true } walkerTick
+            ? EveryAgent(people.Count, _walkers)
+            : walkerTick.TheWalkersTheTownHolds(walked.Length, _walkers);
+        foreach (var person in walkersHeld)
         {
             if (people.Inside[person].Any) continue;
             if (!placedMeanwhile.IsEmpty && placedMeanwhile.Contains(people.Body[person].Index)) continue;
-            if (!every && WalkersUnread is { } unread && unread[person])
+            if (!every && _walkerTick is { Resident: true } held && !held.TownHolds(person))
             {
                 if (PoisonsWhatIsUnread) people.PositionM[person] = people.VelocityMps[person] = new Vector2(float.NaN);
                 continue;
@@ -446,7 +464,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
                     + (ulong)(begun.Length * Unsafe.SizeOf<DeviceSolver.BegunRow>());
     }
 
-    /// <summary>How many cars' and walkers' poses the last step wrote into the fleets and the table (<see cref="CarsUnread"/>).</summary>
+    /// <summary>How many cars' and walkers' poses the last step wrote into the fleets and the table (<see cref="HandsBackEveryPose"/>).</summary>
     public int CarsRead { get; private set; }
 
     /// <inheritdoc cref="CarsRead"/>

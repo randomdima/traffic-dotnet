@@ -130,12 +130,10 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
             Shadowed = false,
         };
         _walkers = new DeviceWalkerTick(vk, config, town.People.Capacity, resident: true);
-        _carsUnread = new bool[cars.Capacity];
-        _walkersUnread = new bool[town.People.Capacity];
         _walkersBack = new int[town.People.Capacity];
         _bodies = new DeviceTownBodies(vk, config, town, _tyres, _walkers)
         {
-            HandsOverThrough = _cars, CarsUnread = _carsUnread, WalkersUnread = _walkersUnread,
+            HandsOverThrough = _cars,
         };
         _townClaims = new DeviceTownClaims(vk, config, town, _claims, _cars, _walkers, start);
         _townClaims.Rebuild.MirrorsAtOnce = false;
@@ -955,7 +953,6 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
             // Nothing is ticked here, and the bodies step on the town's own impulses.
             if (!StepsWithTheTick) return;
 
-            MarkWhatTheTownLeavesUnread(town);
             _bodies.StepBodies(town, _dtS, default, walkersTicked: false);
             _townClaims.Rebuild.LandWhatWasSent(town);
             _townClaims.Rebuild.SendTheLayerBack();
@@ -1110,7 +1107,6 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
             var steppedFrom = Stopwatch.GetTimestamp();
             _stepBatch.Wait();
             StepIdleMs = Stopwatch.GetElapsedTime(steppedFrom).TotalMilliseconds;
-            MarkWhatTheTownLeavesUnread(town);
             _bodies.TakeTheStepBack(town, physics.Changes[placedFrom..placedTo]);
             _swept = false;
         }
@@ -1191,7 +1187,6 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     public void StepBodies(TownWorld town, float dtS)
     {
         var leaving = Leaving(town, everyKept: false);
-        MarkWhatTheTownLeavesUnread(town);
         _bodies.StepBodies(town, dtS, _ticked ? _taken.AsSpan(0, _count) : default, walkersTicked: _ticked, leaving);
         TakeTheWheelsBack(town.Cars, leaving);
         HandedOver = (HandedOver.InTheStep + leaving.Length, HandedOver.Alone);
@@ -1417,7 +1412,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
         // Of a walker the town neither holds nor touched nothing changed but what the device's tick wrote, which it keeps; of
         // the rest, one the town does not read and has set nothing of since it was laid is left with it (TakeTheWalkerBack).
-        foreach (var person in _walkers.TheWalkersToTakeBack(_walkerCount, _walkersBack))
+        foreach (var person in _walkers.TheWalkersTheTownMayHaveSet(_walkerCount, _walkersBack))
         {
             if (!everyWalker && !town.ReadsTheWalker(person) && !town.WalksUnderAHand(person) && _walkers.HoldsAsTheTownHas(town, person))
             {
@@ -1439,27 +1434,6 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
 
     /// <summary>The walkers a take-back walks.</summary>
     readonly int[] _walkersBack;
-
-    /// <summary>
-    /// The cars and walkers whose poses the town does not read after the step about to be taken back
-    /// (<see cref="DeviceTownBodies.CarsUnread"/>): a car the device keeps, its tick left unread
-    /// (<see cref="DeviceCarTick.TownHolds"/>), and a walker the town neither reads whole (<see cref="TownWorld.ReadsTheWalker"/>)
-    /// nor walks under a hand — but none where a frame drawn after the tick reads the town's copy of everything
-    /// (<see cref="TownWorld.ReadsEveryCarAfterTheTick"/>). Any of them the town comes to read is taken back then
-    /// (<see cref="TakeThePoseBack"/>).
-    /// </summary>
-    void MarkWhatTheTownLeavesUnread(TownWorld town)
-    {
-        var everyAgent = town.ReadsEveryCarAfterTheTick;
-        for (var car = 0; car < town.Cars.Count; car++) _carsUnread[car] = !everyAgent && !_cars.TownHolds(car);
-        for (var person = 0; person < town.People.Count; person++)
-        {
-            _walkersUnread[person] = !everyAgent && !town.ReadsTheWalker(person) && !town.WalksUnderAHand(person);
-        }
-    }
-
-    readonly bool[] _carsUnread;
-    readonly bool[] _walkersUnread;
 
     /// <remarks>A walker's pace, heading and impulse are taken back with its pose (<see cref="DeviceWalkerTick.TakeTheTickBack"/>).</remarks>
     public void TakeThePoseBack(TownWorld town, int agent)

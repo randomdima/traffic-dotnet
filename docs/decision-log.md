@@ -35,6 +35,10 @@ regular sync needed. CPU dont need a copy of the engine."** This extends 2026-10
   case: a walker held while indoors, left with its walk out of the door unlaid.
 - **`DeviceTown.Dispose` waits out what a tick left in flight** before it takes anything back, and frees nothing until
   the device is idle.
+- **The bodies' step walks the same agents** (`DeviceTownBodies`). It lays which body, rest and wheels each car and
+  walker is only for those the town holds or touched: a car the device keeps rests parked only by the town's own tick.
+  It hands back only the poses of those the town holds. The flags of what the town leaves unread, filled for every agent
+  every tick, are gone.
 
 ## 2026-10-10 — the host walks only the cars it holds or touched
 
