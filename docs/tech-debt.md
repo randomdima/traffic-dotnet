@@ -210,6 +210,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **`DeviceRebuild.Shadow.SlotOf` scans every slot** for each host hold with a cut.
 - **`DeviceTyres` is laid its grounds and figures once**, at construction: `TownWorld.FiguresChanged` retunes the
   host's `WheelGrounds` and the device keeps the old ones.
+- **The sprites' rows are laid whole from the fleets every frame** (`DeviceSprites.LayCars`, `LayPeople`). That includes
+  every pose, which a device town's emit then overwrites with its own (`sprites_cars.comp`, `sprites_walkers.comp`):
+  a loop over every car and walker, part of the 0.99 ms the frame's sprites cost on OdesaOsm at 40 000 of each
+  (render log, 2026-10-09). Laying a row only where something other than its pose changed closes it.
 
 ## Inconsistencies
 
