@@ -17,7 +17,7 @@ namespace TrafficSimulation.App.DeviceTick;
 internal sealed class TownRoot : IAddressBook, IDisposable
 {
     /// <summary>How many ids the root has room for — every module's range.</summary>
-    public const int Ids = 1024;
+    public const int Ids = 2048;
 
     readonly GpuBuffer _root;
     readonly GpuBuffer?[] _tables = new GpuBuffer?[Ids];

@@ -1,6 +1,9 @@
 // The reservations' rows on the device (LaneOccupancy), field for field with app/devicetick/DeviceClaims: every claim
 // a row, every hold a row, and what each hold was answered.
 
+#ifndef CLAIMS_ROWS_GLSL
+#define CLAIMS_ROWS_GLSL
+
 // ClaimPriority's rungs that are named here.
 const uint RungHard = 0u;
 
@@ -81,3 +84,5 @@ bool claimHasBody(ClaimRow claim) { return claimRung(claim) == RungHard; }
 bool claimSecondary(ClaimRow claim) { return (claim.flags & ClaimSecondary) != 0u; }
 bool claimPassing(ClaimRow claim) { return (claim.flags & ClaimPassing) != 0u; }
 bool claimGone(ClaimRow claim) { return (claim.flags & ClaimGone) != 0u; }
+
+#endif

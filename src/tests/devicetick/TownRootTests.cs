@@ -13,7 +13,7 @@ namespace TrafficSimulation.Tests.DeviceTick;
 /// the root, and a table that grew read where it went.
 /// </summary>
 [Trait(Tier.Key, Tier.Device)]
-[Trait(Priority.Key, Priority.P1)]
+[Trait(Priority.Key, Priority.P3)]
 public class TownRootTests(Lavapipe device) : IClassFixture<Lavapipe>
 {
     [StructLayout(LayoutKind.Sequential)]

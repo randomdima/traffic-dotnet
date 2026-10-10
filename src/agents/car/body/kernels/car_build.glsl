@@ -1,6 +1,9 @@
 // One variant as a kernel reads it (CarBuild): what the tyres and the driver of that car are worth, field for field
 // with app/devicetick/CarBuildRow.
 
+#ifndef CAR_BUILD_GLSL
+#define CAR_BUILD_GLSL
+
 struct CarBuildRow
 {
     float wheelbaseM;
@@ -44,3 +47,5 @@ float buildWheelWoundTo(CarBuildRow car, float fromRad, float wantedRad, float d
     precise float most = fromRad + travelRad;
     return clamp(wantedRad, least, most);
 }
+
+#endif

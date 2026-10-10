@@ -3,6 +3,9 @@
 // reads or writes the tyres' table, whether or not it runs the tyre model.
 
 // The body at the start of the tick (CarPose); forward is the body's own rotation, the one way the car points.
+#ifndef TYRE_ROWS_GLSL
+#define TYRE_ROWS_GLSL
+
 struct TyrePose
 {
     vec2 positionM;
@@ -44,3 +47,5 @@ struct TyreWheelRow
 };
 
 uint tyreWheelsOnAWayOf(TyreCarRow row) { return (row.flags >> 8) & 0xfu; }
+
+#endif

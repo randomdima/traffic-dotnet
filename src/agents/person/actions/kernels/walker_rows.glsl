@@ -1,5 +1,8 @@
 // The walkers as rows on the device, field for field with app/devicetick/DeviceWalkers' WalkerRow and LineWay.
 
+#ifndef WALKER_ROWS_GLSL
+#define WALKER_ROWS_GLSL
+
 // WalkingGround.MostWaysAlongAWalk; app/devicetick/DeviceWalkers refuses a host whose figure is another.
 const int WalkerMostWays = 5;
 
@@ -90,3 +93,5 @@ struct WalkerWay
     float toM;
     float lineFromM;
 };
+
+#endif

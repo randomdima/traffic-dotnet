@@ -4,7 +4,7 @@
 // One table read and another written through the root alone (town_root.glsl): what every resident kernel stands on,
 // asked of itself — each value of the first table doubled into the second.
 
-#include "world/town/kernels/town_root.glsl"
+#include "world/town/kernels/town_rows.glsl"
 
 layout(local_size_x = 64) in;
 
