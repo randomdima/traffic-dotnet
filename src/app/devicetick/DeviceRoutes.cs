@@ -105,6 +105,11 @@ internal sealed class DeviceRoutes : IDisposable
     const int InWindowId = 426;
     const int WindowCellsId = 427;
 
+    /// <summary>Per agent, the slot its ask is held in and the stamp it last asked with (<c>route_asks.glsl</c>).</summary>
+    const int AskSlotId = 428;
+
+    const int AskStampId = 429;
+
     /// <summary>Where a surcharges table's marks start, past its count (<c>RouteSurchargeTable</c>).</summary>
     const int MarksAtBytes = 16;
 
@@ -186,10 +191,11 @@ internal sealed class DeviceRoutes : IDisposable
             throw new NotSupportedException($"The town drives {mostEntries} lanes abeam and a request has room for {MostEntries}.");
         }
 
-        return new DeviceRoutes(vk, root, town.Driving.Cells, town.Walking.Cells);
+        return new DeviceRoutes(vk, root, town.Driving.Cells, town.Walking.Cells, town.People.Capacity + town.Cars.Capacity);
     }
 
-    public DeviceRoutes(Vk vk, TownRoot root, RouteCells driving, RouteCells walking)
+    /// <param name="agents">How many agents may ask: the roster's room, walkers then cars.</param>
+    public DeviceRoutes(Vk vk, TownRoot root, RouteCells driving, RouteCells walking, int agents = 0)
     {
         _vk = vk;
         _root = root;
@@ -212,6 +218,10 @@ internal sealed class DeviceRoutes : IDisposable
             Set(CoarseStateId, Scratch((long)Slots * cellRoom * LinkStateBytes)),
             Set(InWindowId, Scratch((long)Slots * cellRoom * sizeof(uint))),
         ];
+        var noSlot = new int[Math.Max(1, agents)];
+        Array.Fill(noSlot, -1);
+        Set(AskSlotId, Laid<int>(noSlot));
+        Set(AskStampId, Laid<uint>(new uint[Math.Max(1, agents)]));
         Set(FineHeapId, Scratch((long)Slots * fineRoom * HeapEntryBytes));
         Set(CoarseHeapId, Scratch((long)Slots * cellRoom * HeapEntryBytes));
         Set(CrossedId, Scratch((long)Slots * (cellRoom + 1) * sizeof(int)));
