@@ -54,7 +54,8 @@ the GPU, in step with the rest of its tick (`src/app/devicetick/DeviceTown.cs`).
 entries: `--check` prints the dependency read-out, `--shot` takes a picture with no window at all,
 `--ui` opens the panels and the debug layers, and `--bench <name>` runs one of the probes in `src/bench/`
 (`census`, `load`, `sprites`, `shape`, `joints`, `parks`, `shapes`, `outset`, `fill`, `drive`, `trips`, `rescue`,
-`recovery`, `crash`, `soak`, `stuck`, `tick`, `town`, `age`, `solver`, `walk`); `--bench all` runs the lot, and
+`recovery`, `crash`, `soak`, `stuck`, `tick`, `town`, `age`, `solver`, `walk`, and the `device…` probes that hold
+the GPU's tick to the host's, `devicetown` among them); `--bench all` runs the lot, and
 the list itself is [`CheckCatalogue`](src/bench/CheckCatalogue.cs). The map list the menu reads is the map
 list the command line reads; the probes are the command line's alone.
 
