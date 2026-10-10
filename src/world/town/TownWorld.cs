@@ -862,6 +862,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// </summary>
     public void TakeThePoseBack(int agent) => _device?.TakeThePoseBack(this, agent);
 
+    /// <summary>These agents' poses as the device's last step left them, taken back at once (<see cref="ITownDevice.TakeThePosesBack"/>).</summary>
+    public void TakeThePosesBack(ReadOnlySpan<int> agents) => _device?.TakeThePosesBack(this, agents);
+
     /// <inheritdoc cref="TakeThePoseBack"/>
     public void TakeTheCarsPoseBack(int car) => _device?.TakeThePoseBack(this, Roster.AgentOfCar(car));
 

@@ -1504,6 +1504,12 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _townClaims.Rebuild.RecordTheHoldsAsked(
             head, _cars.Stamp, KeptWalkers.DecideStamp, ofTheFound: _asksTheHolds && _cars.FindsTheDecisionsDue,
             ofTheFoundWalkers: _asksTheHolds && KeptWalkers.FindsTheDecisionsDue);
+
+        // And the poses those decisions read, off what the last step kept.
+        _vk.BetweenKernels(head);
+        _bodies.RecordTheDecided(
+            head, town, _cars.FindsTheDecisionsDue ? _cars.FoundTables : null,
+            KeptWalkers.Keeps && KeptWalkers.FindsTheDecisionsDue ? KeptWalkers.FoundTables : null);
         _headBatch.Submit();
 
         var commands = _batch.Begin();
@@ -1596,10 +1602,12 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         TakeBackTheWalkers(town);
         if (stepping)
         {
+            var placed = physics.Changes[placedFrom..placedTo];
+            _bodies.GatherTheHeld(town, placed);
             var steppedFrom = Stopwatch.GetTimestamp();
             _stepBatch.Wait();
             StepIdleMs = Stopwatch.GetElapsedTime(steppedFrom).TotalMilliseconds;
-            _bodies.TakeTheStepBack(town, physics.Changes[placedFrom..placedTo]);
+            _bodies.TakeTheStepBack(town, placed);
             _swept = false;
             LeaveTheParkedAtRest(town);
         }
@@ -1947,6 +1955,17 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     {
         if (!town.Roster.IsCar(agent)) _walkers.TakeTheTickBack(town, agent);
         _bodies.TakeThePoseBack(town, agent);
+    }
+
+    /// <inheritdoc cref="TakeThePoseBack"/>
+    public void TakeThePosesBack(TownWorld town, ReadOnlySpan<int> agents)
+    {
+        foreach (var agent in agents)
+        {
+            if (!town.Roster.IsCar(agent)) _walkers.TakeTheTickBack(town, agent);
+        }
+
+        _bodies.TakeThePosesBack(town, agents);
     }
 
     /// <remarks>Read and not held: every walker the device kept is left with it.</remarks>

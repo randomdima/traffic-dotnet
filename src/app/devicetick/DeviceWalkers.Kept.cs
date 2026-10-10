@@ -148,6 +148,8 @@ internal sealed partial class DeviceWalkers
         _isKnown = new bool[_walkers];
         _left = new bool[_walkers];
         _laidAgain = new int[_walkers];
+        _takenBack = new int[_walkers];
+        _asKnown = new bool[_walkers];
         _marks = new uint[2 * Words];
         DecideOverThem(table);
         _keptHand = new ComputeKernel(_vk, "walkers_kept_hand.comp", 4, sizeof(uint));
@@ -199,20 +201,30 @@ internal sealed partial class DeviceWalkers
 
         var patches = _keptPatchesIn.Span<KeptPatch>();
         var laid = ticked.TheWalkersSetSinceTheLaying(world, people.Count, _laidAgain);
-        foreach (var person in laid)
+
+        // One written over the device's row whole is written where the device's last step left it: every such taken back at
+        // once, before any is laid.
+        var takenBack = 0;
+        for (var at = 0; at < laid.Length; at++)
         {
+            var person = laid[at];
+            _asKnown[at] = _isKnown[person] && LaidAsKnown(world, ticked, person);
+            if (_isKnown[person] && !_asKnown[at]) _takenBack[takenBack++] = person;
+        }
+
+        world.TakeThePosesBack(_takenBack.AsSpan(0, takenBack));
+        for (var at = 0; at < laid.Length; at++)
+        {
+            var person = laid[at];
             _routes!.LayRows(person, people.RouteOf(person)[..people.RouteCount[person]]);
             _passes!.LayRows(person, world.Sidestepping.SweptOf(person));
+            if (_asKnown[at]) continue;
+
             var row = RowOf(world, person);
             var kept = _isKnown[person];
             if (kept)
             {
                 row.Hold = _known[person].Hold;
-                if (SameToTheClaims(row, _known[person]) && (row.Is(WalkerRow.Inside) || ticked.HoldsTheBodyOf(people, person))) continue;
-
-                // Written over the device's row whole, it is written where the device's last step left it.
-                world.TakeThePoseBack(person);
-                row = RowOf(world, person) with { Hold = _known[person].Hold };
                 if (SameToTheClaims(row, _known[person]) && (row.Is(WalkerRow.Inside) || ticked.HoldsTheBodyOf(people, person))) continue;
             }
             else
@@ -237,6 +249,19 @@ internal sealed partial class DeviceWalkers
 
     /// <summary>The walkers <see cref="LayTheKept"/> lays again: those the town may have set anything of since the last.</summary>
     int[] _laidAgain = [];
+
+    /// <summary>Of those, the ones it writes over the device's rows whole, whose poses it takes back first.</summary>
+    int[] _takenBack = [];
+
+    /// <summary>Whether each walker laid again, in its order there, is known to the device as the town has it before any is taken back.</summary>
+    bool[] _asKnown = [];
+
+    /// <summary>Whether a known walker's row as the town has it is the same to the claims as the device holds it, its body with it.</summary>
+    bool LaidAsKnown(TownWorld world, DeviceWalkerTick ticked, int person)
+    {
+        var row = RowOf(world, person) with { Hold = _known[person].Hold };
+        return SameToTheClaims(row, _known[person]) && (row.Is(WalkerRow.Inside) || ticked.HoldsTheBodyOf(world.People, person));
+    }
 
     /// <summary>
     /// Checked: every walker <see cref="LayTheKept"/> did not lay held to what laying it would have — known, the same to the

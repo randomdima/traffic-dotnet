@@ -78,6 +78,12 @@ internal sealed partial class DeviceBodyPhase : IDisposable
 
         /// <summary>How deep each body was into what it touched (<see cref="DeviceSolver.OverlapBits"/>) — an instrument's.</summary>
         Overlap = 8,
+
+        /// <summary>
+        /// Every car and every walker as the step left them kept on the device, crossing nothing (<see cref="PosesKept"/>,
+        /// <see cref="WalkersKept"/>) — for whoever gathers what it reads of them.
+        /// </summary>
+        Kept = 16,
     }
 
     /// <summary>The stamps a step is timed between.</summary>
@@ -96,9 +102,10 @@ internal sealed partial class DeviceBodyPhase : IDisposable
 
     /// <summary>
     /// What a step hands back of every car and walker, two of each and a step's to each in turn: what the last step taken
-    /// back left stays readable while the next writes the other (<see cref="Side"/>).
+    /// back left stays readable while the next writes the other (<see cref="Side"/>) — kept on the device, and copied into
+    /// the host's memory where every one is read.
     /// </summary>
-    readonly GpuBuffer[] _posesOut;
+    readonly GpuBuffer[] _posesKept, _posesOut;
 
     readonly GpuBuffer _appliedOut;
     readonly ComputeKernel _wheels, _laidKernel, _mirror;
@@ -110,7 +117,7 @@ internal sealed partial class DeviceBodyPhase : IDisposable
     BufferCopy[] _walkerImpulseRuns = [];
     int _walkerImpulseRunCount;
     readonly ResidentRows<int>? _walkerBodies;
-    readonly GpuBuffer[] _walkersOut = [];
+    readonly GpuBuffer[] _walkersKept = [], _walkersOut = [];
     readonly ComputeKernel? _walkersRead;
     readonly DescriptorSet[] _walkersReadSets = [];
     readonly ComputeBatch _batch;
@@ -139,6 +146,8 @@ internal sealed partial class DeviceBodyPhase : IDisposable
             (ulong)(Math.Max(1, capacity * WheelsACar) * Unsafe.SizeOf<Vector4>()), BufferUsageFlags.TransferSrcBit, HostAccess.Writes);
         _wheelRuns = new BufferCopy[Math.Max(1, capacity)];
         var poseBytes = (ulong)(Math.Max(1, capacity) * Unsafe.SizeOf<DeviceTyres.PoseRow>());
+        const BufferUsageFlags Kept = BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferSrcBit | BufferUsageFlags.TransferDstBit;
+        _posesKept = [vk.CreateBuffer(poseBytes, Kept, HostAccess.None), vk.CreateBuffer(poseBytes, Kept, HostAccess.None)];
         _posesOut =
         [
             vk.CreateBuffer(poseBytes, BufferUsageFlags.TransferDstBit, HostAccess.Reads),
@@ -160,10 +169,11 @@ internal sealed partial class DeviceBodyPhase : IDisposable
         {
             _walkerBodies = new ResidentRows<int>(vk, walkers, 1, hostOnly: true);
             var walkedBytes = (ulong)(walkers * Unsafe.SizeOf<WalkedRow>());
+            _walkersKept = [vk.CreateBuffer(walkedBytes, Kept, HostAccess.None), vk.CreateBuffer(walkedBytes, Kept, HostAccess.None)];
             _walkersOut =
             [
-                vk.CreateBuffer(walkedBytes, BufferUsageFlags.StorageBufferBit, HostAccess.Reads),
-                vk.CreateBuffer(walkedBytes, BufferUsageFlags.StorageBufferBit, HostAccess.Reads),
+                vk.CreateBuffer(walkedBytes, BufferUsageFlags.TransferDstBit, HostAccess.Reads),
+                vk.CreateBuffer(walkedBytes, BufferUsageFlags.TransferDstBit, HostAccess.Reads),
             ];
 
             // Bound twice again where the walkers' tick is taken (TakeTheWalkers), its table in place of the stand-in.
@@ -204,7 +214,7 @@ internal sealed partial class DeviceBodyPhase : IDisposable
     DescriptorSet WalkersReadSet(int side, GpuBuffer walkerTable)
     {
         var bodies = _solver.Bodies;
-        return _walkersRead!.Bind([_walkerBodies!.Device, bodies.Filter, bodies.Pose, bodies.Motion, _walkersOut[side], walkerTable]);
+        return _walkersRead!.Bind([_walkerBodies!.Device, bodies.Filter, bodies.Pose, bodies.Motion, _walkersKept[side], walkerTable]);
     }
 
     /// <summary>The device's own time for the last step's kernels — the impulses, the solver's step and the read-back — in milliseconds.</summary>
@@ -246,12 +256,21 @@ internal sealed partial class DeviceBodyPhase : IDisposable
     /// <summary>Which of the two hand-backs the last step recorded wrote, which stays as it left it until the step after that.</summary>
     public int Side => _side;
 
+    /// <summary>How many walkers the last step recorded handed back, into the host's memory or kept on the device.</summary>
+    public int WalkersHanded => _walkersHanded;
+
     /// <summary>The first <paramref name="cars"/> cars as the step that wrote <paramref name="side"/> left them.</summary>
     public ReadOnlySpan<DeviceTyres.PoseRow> PosesOn(int side, int cars) => _posesOut[side].Span<DeviceTyres.PoseRow>()[..cars];
 
     /// <summary>The first <paramref name="walkers"/> walkers as the step that wrote <paramref name="side"/> left them.</summary>
     public ReadOnlySpan<WalkedRow> WalkersOn(int side, int walkers) =>
         _walkersOut.Length == 0 ? default : _walkersOut[side].Span<WalkedRow>()[..walkers];
+
+    /// <summary>Every car as the step that wrote <paramref name="side"/> left it, kept on the device (<see cref="Reads.Kept"/>).</summary>
+    public GpuBuffer PosesKept(int side) => _posesKept[side];
+
+    /// <summary>Every walker as the step that wrote <paramref name="side"/> left it, kept on the device — none where the phase hands back no walker.</summary>
+    public GpuBuffer? WalkersKept(int side) => _walkersKept.Length == 0 ? null : _walkersKept[side];
 
     /// <summary>How many bytes the last step handed back, where it was asked to, but the walkers': those are as many as are in the world.</summary>
     public ulong ReadBytes { get; private set; }
@@ -424,21 +443,27 @@ internal sealed partial class DeviceBodyPhase : IDisposable
 
         _solver.RecordReadBack(commands, everything: false);
         ReadBytes = DeviceSolver.Totals.Count * sizeof(uint);
+        var carBytes = (ulong)(cars * Unsafe.SizeOf<DeviceTyres.PoseRow>());
+        if ((reads & Reads.Kept) != 0) vk.Copy(commands, poses.Device, _posesKept[_side], carBytes);
         if ((reads & Reads.Poses) != 0)
         {
-            var bytes = (ulong)(cars * Unsafe.SizeOf<DeviceTyres.PoseRow>());
-            vk.Copy(commands, poses.Device, _posesOut[_side], bytes);
-            ReadBytes += bytes;
+            vk.Copy(commands, poses.Device, _posesOut[_side], carBytes);
+            ReadBytes += carBytes;
         }
 
         _walkersHanded = 0;
-        if ((reads & Reads.Walkers) != 0 && walkers > 0)
+        if ((reads & (Reads.Walkers | Reads.Kept)) != 0 && walkers > 0)
         {
             var most = _walkerBodies?.Items ?? 0;
             if (walkers > most) throw new ArgumentOutOfRangeException(nameof(walkers), $"The phase hands back {most} walkers, not {walkers}.");
 
             _walkersHanded = walkers;
             _walkersRead!.Dispatch(commands, _walkersReadSets[_side], Groups(walkers), push with { Count = (uint)walkers });
+            if ((reads & Reads.Walkers) != 0)
+            {
+                vk.AfterTransfer(commands);
+                vk.Copy(commands, _walkersKept[_side], _walkersOut[_side], (ulong)(walkers * Unsafe.SizeOf<WalkedRow>()));
+            }
         }
 
         if ((reads & Reads.Overlap) != 0) ReadBytes += _solver.RecordTheOverlapRead(commands);
@@ -475,10 +500,12 @@ internal sealed partial class DeviceBodyPhase : IDisposable
         _walkerBodies?.Dispose();
         _walkerImpulsesIn?.Dispose();
         foreach (var buffer in _walkersOut) buffer.Dispose();
+        foreach (var buffer in _walkersKept) buffer.Dispose();
         _carBodies.Dispose();
         _laid.Dispose();
         _wheelsIn.Dispose();
         foreach (var buffer in _posesOut) buffer.Dispose();
+        foreach (var buffer in _posesKept) buffer.Dispose();
         _appliedOut.Dispose();
     }
 }

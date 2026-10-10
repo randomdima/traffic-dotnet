@@ -66,6 +66,12 @@ internal interface ITownDevice
     {
     }
 
+    /// <summary>These agents' poses taken back as <see cref="TakeThePoseBack"/> takes each — at once, where the device would fetch each alone.</summary>
+    void TakeThePosesBack(TownWorld town, ReadOnlySpan<int> agents)
+    {
+        foreach (var agent in agents) TakeThePoseBack(town, agent);
+    }
+
     /// <summary><b>Every agent's pose as the device's last step left it</b>, where the town is about to read every one.</summary>
     void TakeEveryPoseBack(TownWorld town)
     {

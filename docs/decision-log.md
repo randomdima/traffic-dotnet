@@ -18,6 +18,26 @@ regular sync needed. CPU dont need a copy of the engine."** This extends 2026-10
 - **Measured by** the host's work and the bytes crossing a tick, both of which should follow the events, not the town's
   size.
 
+## 2026-10-10 — a step's poses stay on the device, and the host gathers what it reads
+
+**Under the owner's goal above.** Every step copied every car's pose and wrote every walker's into the host's memory,
+3.2 MB at OdesaOsm's 40 000 of each, so that any pose could be taken back later without a wait. The town reads about 950
+cars and 20 walkers at the hand-back, and a few hundred more a tick for its decisions.
+
+- **The step keeps its hand-back on the device** (`DeviceBodyPhase.Reads.Kept`), two sides in turn as before. The host's
+  memory receives only rows named to it, each stamped with its step (`GatheredRows`, `rows_gather.comp`):
+  - the agents the town holds, gathered behind the step and sent before it is waited for (`DeviceTownBodies.GatherTheHeld`);
+  - the decisions' agents, gathered in the head of the tick that takes them: every agent put off, and those the device
+    found more than their clock, off its own lists (`RecordTheDecided`);
+  - the walkers a rebuild lays whole, gathered at once (`ITownDevice.TakeThePosesBack`);
+  - any other the moment it is asked for, alone and behind whatever the queue holds (`PosesFetched`): none a tick at
+    OdesaOsm.
+- **OdesaOsm, `--bench devicetown`**: 0.074 MB a step read back. The wait for the step fell from 1.48 to 0.26 ms a tick,
+  and the tick from 8.85 to 7.66 ms (watched, 8.77 to 7.64).
+- **Held by `DeviceTownPosesTests`**: both towns also read every pose whole (`DeviceTownBodies.ReadsEveryPoseToo`), and
+  every pose taken off a gather is held to the whole read of its step (`GathersUnlike`). A car and a walker are picked
+  out alone every tick. A gather off the wrong side fails it for each of the four kinds.
+
 ## 2026-10-10 — a frame lays only the units the town set since the last
 
 **Under the owner's goal above.** A window's frame laid every walker's and every car's sprite row off the town's copy:
@@ -228,12 +248,10 @@ after each step only the poses it reads. A town held, or watched by an instrumen
 - **A car's pose is written back where the town holds the car** (`DeviceCarTick.TownHolds`): one it ticks, decides,
   reads every tick (`TownWorld.ReadsTheTickOf`), or one every car is read for, as a frame drawn off the town's copy is
   (`ReadsEveryCarAfterTheTick`). **A walker's** is written back where the town reads it whole: indoors, wounded, on duty,
-  picked out or under a hand (`TownWorld.ReadsTheWalker`). Every pose is still copied back into host memory, into one
-  of two buffers in turn (`DeviceBodyPhase.Side`). What the host no longer does is write each one into its fleets and its
-  table.
+  picked out or under a hand (`TownWorld.ReadsTheWalker`).
 - **A pose left unread is taken back when something asks for it** (`ITownDevice.TakeThePoseBack`, `TakeEveryPoseBack`),
-  off the buffer the last finished step wrote. The next step writes the other buffer, so the decisions put off, taken
-  while that step runs, can ask too. The town asks:
+  off the hand-back the last finished step kept (`DeviceBodyPhase.Side`). The next step writes the other, so the
+  decisions put off, taken while that step runs, can ask too. The town asks:
   - for an agent before deciding it, and for a car the device hands it to decide;
   - for a car as it leaves the device;
   - for a walker about to be written over the device's table;

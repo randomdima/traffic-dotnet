@@ -24,13 +24,14 @@ namespace TrafficSimulation.App.DeviceTick;
 /// <b>Sent</b>: the first step after the device is set, or after the town has stepped itself, lays the table whole and
 /// every car's pose; after that only the rows the town changed (<see cref="PhysicsWorld.Changes"/>) and the poses of the
 /// cars whose bodies those are, which body each car and walker is where that changed, and the wheels and pulls the town
-/// still makes. <b>Handed back</b>: every car as the step read it off its body, every walker in the world off its own,
-/// which frozen bodies it took in and which it froze, and which pairs began touching (<see cref="DeviceSolver.Settles"/>)
-/// — written into the fleets as the town's own phase writes them, and into the solver's table
-/// (<see cref="PhysicsWorld.EndTheStepTaken"/>), but a pose only where the town holds the agent (<see cref="HandsBackEveryPose"/>): any
-/// other is taken back when something asks (<see cref="TakeThePoseBack"/>). No contact comes back: the rest counts and
-/// what was touching are the device's, and how deep each body is into what it touches comes back only where asked
-/// (<see cref="ReadsTheOverlap"/>).
+/// still makes. <b>Handed back</b>: which frozen bodies the step took in and which it froze, which pairs began touching
+/// (<see cref="DeviceSolver.Settles"/>), and the pose of every agent the town holds (<see cref="HandsBackEveryPose"/>) —
+/// written into the fleets as the town's own phase writes them, and into the solver's table
+/// (<see cref="PhysicsWorld.EndTheStepTaken"/>). <b>Every other pose stays on the device</b>, every car as the step read it
+/// off its body and every walker off its own (<see cref="DeviceBodyPhase.Reads.Kept"/>), until it is gathered: with the
+/// decisions that read it (<see cref="RecordTheDecided"/>), or alone when something asks (<see cref="TakeThePoseBack"/>). No
+/// contact comes back: the rest counts and what was touching are the device's, and how deep each body is into what it
+/// touches comes back only where asked (<see cref="ReadsTheOverlap"/>).
 /// </para>
 /// <para>
 /// <b>Set as the town's device on its own, it takes no agent</b> and ticks nothing: the town ticks every agent and the
@@ -39,11 +40,36 @@ namespace TrafficSimulation.App.DeviceTick;
 /// </remarks>
 internal sealed class DeviceTownBodies : ITownDevice, IDisposable
 {
+    readonly Vk _vk;
     readonly DeviceTyres _tyres;
     readonly DeviceSolver _solver;
     readonly DeviceBodyPhase _phase;
     readonly ComputeBatch _batch;
     readonly DeviceWalkerTick? _walkerTick;
+
+    /// <summary>
+    /// <b>What the town reads of a step's hand-back, gathered into its memory</b> off what the step kept on the device
+    /// (<see cref="DeviceBodyPhase.Reads.Kept"/>): the agents it holds once the step is waited for, the decisions' agents in
+    /// the head of the tick that takes them (<see cref="RecordTheDecided"/>), and any other the moment it is asked for
+    /// (<see cref="PosesFetched"/>) — each row stamped with the step it is of (<see cref="_settledStamp"/>).
+    /// </summary>
+    readonly GatheredRows<DeviceTyres.PoseRow> _carsRead;
+
+    readonly GatheredRows<DeviceBodyPhase.WalkedRow>? _walkersRead;
+
+    /// <summary>The gathers' slots: the agents a hand-back reads, the decisions' agents, and one asked for alone.</summary>
+    const int Held = 0, Decided = 1, Fetched = 2, Slots = 3;
+
+    /// <summary>Each slot's gather bound to each side's hand-back, a side's slots together.</summary>
+    readonly DescriptorSet[] _carSets, _walkerSets;
+
+    /// <summary>The gathers of the lists of the decisions the device found more than their clock, bound to each side the first time.</summary>
+    DescriptorSet[]? _carsFoundSets, _walkersFoundSets;
+
+    readonly ComputeBatch _gathers;
+
+    /// <summary>The stamp of the last step handed back, which every row gathered of it carries; none before the first.</summary>
+    uint _stamp, _settledStamp;
 
     /// <summary>How many steps the town's table had been through when the device last stepped it, or none yet.</summary>
     int _stepsTaken = -1;
@@ -77,6 +103,18 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
             vk, config, _solver, tyres, town.People.Capacity + (2 * town.Cars.Capacity), town.People.Capacity);
         if (walkers != null) _phase.TakeTheWalkers(walkers);
 
+        _vk = vk;
+        const int SetsAGather = 2 * (Slots + 1);
+        _carsRead = new GatheredRows<DeviceTyres.PoseRow>(vk, town.Cars.Capacity, Slots, SetsAGather);
+        _carSets = BindTheSlots(_carsRead, _phase.PosesKept(0), _phase.PosesKept(1));
+        _walkerSets = [];
+        if (_phase.WalkersKept(0) is { } walkersKept)
+        {
+            _walkersRead = new GatheredRows<DeviceBodyPhase.WalkedRow>(vk, town.People.Capacity, Slots, SetsAGather);
+            _walkerSets = BindTheSlots(_walkersRead, walkersKept, _phase.WalkersKept(1)!);
+        }
+
+        _gathers = new ComputeBatch(vk);
         _walkerTick = walkers;
         _batch = new ComputeBatch(vk);
         _carPoseAt = new int[town.Cars.Capacity];
@@ -93,6 +131,97 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         for (var agent = 0; agent < count; agent++) into[agent] = agent;
         return into[..count];
     }
+
+    static DescriptorSet[] BindTheSlots<T>(GatheredRows<T> rows, GpuBuffer firstSide, GpuBuffer secondSide) where T : unmanaged
+    {
+        var sets = new DescriptorSet[2 * Slots];
+        for (var slot = 0; slot < Slots; slot++)
+        {
+            sets[slot] = rows.BindNamed(firstSide, slot);
+            sets[Slots + slot] = rows.BindNamed(secondSide, slot);
+        }
+
+        return sets;
+    }
+
+    /// <summary>A slot's cars and walkers gathered off one side's hand-back, recorded.</summary>
+    void RecordTheGather(CommandBuffer commands, int slot, int side, uint stamp)
+    {
+        _carsRead.Record(commands, _carSets[(side * Slots) + slot], slot, stamp);
+        _walkersRead?.Record(commands, _walkerSets[(side * Slots) + slot], slot, stamp);
+    }
+
+    /// <summary>A slot's gather in a submit of its own, waited for — behind whatever the queue already holds.</summary>
+    void GatherNow(int slot, int side, uint stamp)
+    {
+        if (_carsRead.NamedIn(slot) == 0 && (_walkersRead?.NamedIn(slot) ?? 0) == 0) return;
+
+        var commands = _gathers.Begin();
+        _vk.AfterTheSubmitsBefore(commands);
+        RecordTheGather(commands, slot, side, stamp);
+        _gathers.SubmitAndWait();
+    }
+
+    /// <summary>
+    /// <b>The poses the decisions put off read, gathered in the head of the tick that takes them</b> — off the last step's
+    /// hand-back, before that tick's own step writes the other side: every car and every walker out of doors put off
+    /// (<see cref="TownWorld.DecisionsPutOff"/>), and those the device found more than their clock, off the lists the
+    /// decisions recorded before it wrote (<see cref="DeviceCarTick.FoundTables"/>, <see cref="DeviceWalkers.FoundTables"/>).
+    /// </summary>
+    /// <param name="carsFound">The cars' found lists, where the head finds the decisions due — or none.</param>
+    /// <param name="walkersFound">The walkers', likewise.</param>
+    public void RecordTheDecided(
+        CommandBuffer head, TownWorld town, (GpuBuffer Counts, GpuBuffer More)? carsFound, (GpuBuffer Counts, GpuBuffer More)? walkersFound)
+    {
+        if (_settledSide < 0 || town.PhysicsForTheDevice.StepsTaken != _stepsTaken) return;
+
+        var firstCar = town.Roster.AgentOfCar(0);
+        foreach (var agent in town.DecisionsPutOff)
+        {
+            if (agent >= firstCar)
+            {
+                var car = town.Roster.CarIndex(agent);
+                if (car < _settledCars) _carsRead.Name(Decided, car);
+            }
+            else if (agent < _settledWalkers && !town.People.Inside[agent].Any)
+            {
+                _walkersRead?.Name(Decided, agent);
+            }
+        }
+
+        RecordTheGather(head, Decided, _settledSide, _settledStamp);
+        if (carsFound is { } cars)
+        {
+            _carsFoundSets ??=
+            [
+                _carsRead.BindListed(_phase.PosesKept(0), cars.More, cars.Counts), _carsRead.BindListed(_phase.PosesKept(1), cars.More, cars.Counts),
+            ];
+            _carsRead.Record(head, _carsFoundSets[_settledSide], countAt: 0, _settledCars, _settledStamp);
+        }
+
+        if (walkersFound is { } walkers && _walkersRead is { } walkersRead)
+        {
+            _walkersFoundSets ??=
+            [
+                walkersRead.BindListed(_phase.WalkersKept(0)!, walkers.More, walkers.Counts),
+                walkersRead.BindListed(_phase.WalkersKept(1)!, walkers.More, walkers.Counts),
+            ];
+            walkersRead.Record(head, _walkersFoundSets[_settledSide], countAt: 0, _settledWalkers, _settledStamp);
+        }
+    }
+
+    /// <summary>
+    /// <b>How many poses were asked for that no gather had named</b> (<see cref="TakeThePoseBack"/>), each gathered in a submit
+    /// of its own and waited for — behind any tick or step the queue holds — over every step.
+    /// </summary>
+    public long PosesFetched { get; private set; }
+
+    /// <summary>
+    /// <b>Whether every step also copies every car's and walker's pose into the host's memory</b>
+    /// (<see cref="DeviceBodyPhase.PosesAfter"/>, <see cref="DeviceBodyPhase.WalkersAfter"/>) — an instrument's, to hold one
+    /// town's device against another's; the town reads none of it.
+    /// </summary>
+    public bool ReadsEveryPoseToo { get; set; }
 
     /// <summary>
     /// Whether every pose is written back after every step, where it is not only those the town holds
@@ -136,7 +265,8 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
     DeviceBodyPhase.Reads WhatIsRead(TownWorld town)
     {
         _overlapRead = ReadsTheOverlap || town.WatchesEveryAgent;
-        return DeviceBodyPhase.Reads.Poses | DeviceBodyPhase.Reads.Walkers | (_overlapRead ? DeviceBodyPhase.Reads.Overlap : 0);
+        return DeviceBodyPhase.Reads.Kept | (ReadsEveryPoseToo ? DeviceBodyPhase.Reads.Poses | DeviceBodyPhase.Reads.Walkers : 0)
+               | (_overlapRead ? DeviceBodyPhase.Reads.Overlap : 0);
     }
 
     /// <summary>The host's time laying the last step's rows, in milliseconds.</summary>
@@ -161,8 +291,9 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
     public double SettlingMs { get; private set; }
 
     /// <summary>
-    /// How many bytes the last step handed back: the totals and the cars, every walker in the world, what woke, froze and
-    /// began touching, and the overlap where it was asked for.
+    /// How many bytes the last step handed back: the totals, the poses gathered by name since the step before — the town's
+    /// held, the decisions' and those asked for alone — what woke, froze and began touching, and every pose and the overlap
+    /// where they were asked for.
     /// </summary>
     public ulong ReadBytes { get; private set; }
 
@@ -404,8 +535,9 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
     /// <summary>
     /// <b>What the step left, handed back</b>: every car the town reads into the fleet as the town's own phase writes it,
     /// every walker it reads in the world with how far that step took it, those bodies into the solver's table, what the
-    /// step took in, what it froze and which pairs began touching, in its order. Every other pose stays where the step
-    /// left it, until something asks for it (<see cref="TakeThePoseBack"/>).
+    /// step took in, what it froze and which pairs began touching, in its order. The poses read are gathered off what the
+    /// step kept on the device in a submit of their own; every other stays there until something asks for it
+    /// (<see cref="TakeThePoseBack"/>).
     /// </summary>
     void HandBack(TownWorld town, ReadOnlySpan<int> placedMeanwhile = default)
     {
@@ -414,11 +546,75 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         physics.BeginTheStepTaken();
         RosterMs = Stopwatch.GetElapsedTime(began).TotalMilliseconds;
 
-        // The town reads the pose of a car or walker it holds (DeviceCarTick.TownHolds, DeviceWalkerTick.TownHolds), and of
-        // every one where every pose is read; every other is left where the step left it.
+        if (_heldSent)
+        {
+            _gathers.Wait();
+        }
+        else
+        {
+            NameTheHeld(town, placedMeanwhile);
+            GatherNow(Held, _phase.Side, _stamp);
+        }
+
+        _heldSent = false;
+        var (carsRead, walkers) = (_heldCars, _heldWalkers);
+        foreach (var car in _cars.AsSpan(0, carsRead)) TakeTheCar(town, car, Gathered(_phase.Side, car));
+        foreach (var person in _walkers.AsSpan(0, walkers)) TakeTheWalker(town, person, GatheredWalker(_phase.Side, person));
+
+        foreach (var body in _solver.Woke) physics.WokeInTheStep(body);
+
+        var ending = Stopwatch.GetTimestamp();
+        physics.EndTheStepTaken(_solver.Froze);
+        var begun = _solver.Begun;
+        foreach (ref readonly var pair in begun) physics.BeganInTheStep((int)pair.First, (int)pair.Second, pair.Normal, pair.ClosingMps);
+
+        if (_overlapRead) physics.TakeTheOverlapM(MemoryMarshal.Cast<uint, float>(_solver.OverlapBits));
+
+        SettlingMs = Stopwatch.GetElapsedTime(ending).TotalMilliseconds;
+        _stepsTaken = physics.StepsTaken;
+        _posesLeftFor = town.Cars.Count;
+        (_settledSide, _settledCars, _settledWalkers, _settledStamp) = (_phase.Side, town.Cars.Count, _phase.WalkersHanded, _stamp);
+        CarsRead = carsRead;
+        WalkersRead = walkers;
+        var gathered = _carsRead.GatheredBytes + (_walkersRead?.GatheredBytes ?? 0);
+        _carsRead.GatheredBytes = 0;
+        if (_walkersRead is { } walkersRead) walkersRead.GatheredBytes = 0;
+        ReadBytes = _phase.ReadBytes + gathered + (ulong)((2 + _solver.Woke.Length + _solver.Froze.Length) * sizeof(uint))
+                    + (ulong)(begun.Length * Unsafe.SizeOf<DeviceSolver.BegunRow>());
+    }
+
+    /// <summary>
+    /// <b>The poses the step's hand-back reads, gathered behind the step</b> in a submit of their own sent while it still runs,
+    /// so the host waits for both at once (<see cref="TakeTheStepBack"/>): the agents the town holds once its tick is taken
+    /// back, which nothing may change before the step is.
+    /// </summary>
+    public void GatherTheHeld(TownWorld town, ReadOnlySpan<int> placedMeanwhile)
+    {
+        NameTheHeld(town, placedMeanwhile);
+        _heldSent = true;
+        if (_carsRead.NamedIn(Held) == 0 && (_walkersRead?.NamedIn(Held) ?? 0) == 0) return;
+
+        var commands = _gathers.Begin();
+        _vk.AfterTheSubmitsBefore(commands);
+        RecordTheGather(commands, Held, _phase.Side, _stamp);
+        _gathers.Submit();
+    }
+
+    /// <summary>Whether the hand-back's gather was sent ahead of it (<see cref="GatherTheHeld"/>).</summary>
+    bool _heldSent;
+
+    /// <summary>How many cars and walkers the hand-back reads, named first in <see cref="_cars"/> and <see cref="_walkers"/>.</summary>
+    int _heldCars, _heldWalkers;
+
+    /// <summary>
+    /// The cars and walkers the step's hand-back reads, named to be gathered under the step's own stamp: every one the town
+    /// holds (<see cref="DeviceCarTick.TownHolds"/>, <see cref="DeviceWalkerTick.TownHolds"/>), or every one where every
+    /// pose is read; every other is left where the step kept it.
+    /// </summary>
+    void NameTheHeld(TownWorld town, ReadOnlySpan<int> placedMeanwhile)
+    {
         var every = EveryPoseRead(town);
         var cars = town.Cars;
-        var poses = _phase.PosesAfter;
         var carsRead = 0;
         var carsHeld = every || PoisonsWhatIsUnread || HandsOverThrough is not { } carTick
             ? EveryAgent(cars.Count, _cars)
@@ -432,16 +628,16 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
                 continue;
             }
 
-            TakeTheCar(town, car, poses[car]);
-            carsRead++;
+            _cars[carsRead++] = car;
+            _carsRead.Name(Held, car);
         }
 
         var people = town.People;
-        var walked = _phase.WalkersAfter;
+        var walkersHanded = _phase.WalkersHanded;
         var walkers = 0;
         var walkersHeld = every || PoisonsWhatIsUnread || _walkerTick is not { Resident: true } walkerTick
-            ? EveryAgent(people.Count, _walkers)
-            : walkerTick.TheWalkersTheTownHolds(walked.Length, _walkers);
+            ? EveryAgent(walkersHanded, _walkers)
+            : walkerTick.TheWalkersTheTownHolds(walkersHanded, _walkers);
         foreach (var person in walkersHeld)
         {
             if (people.Inside[person].Any) continue;
@@ -452,28 +648,12 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
                 continue;
             }
 
-            TakeTheWalker(town, person, walked[person]);
-            walkers++;
+            _walkers[walkers++] = person;
+            _walkersRead!.Name(Held, person);
         }
 
-        foreach (var body in _solver.Woke) physics.WokeInTheStep(body);
-
-        var ending = Stopwatch.GetTimestamp();
-        physics.EndTheStepTaken(_solver.Froze);
-        var begun = _solver.Begun;
-        foreach (ref readonly var pair in begun) physics.BeganInTheStep((int)pair.First, (int)pair.Second, pair.Normal, pair.ClosingMps);
-
-        if (_overlapRead) physics.TakeTheOverlapM(MemoryMarshal.Cast<uint, float>(_solver.OverlapBits));
-
-        SettlingMs = Stopwatch.GetElapsedTime(ending).TotalMilliseconds;
-        _stepsTaken = physics.StepsTaken;
-        _posesLeftFor = cars.Count;
-        (_settledSide, _settledCars, _settledWalkers) = (_phase.Side, cars.Count, walked.Length);
-        CarsRead = carsRead;
-        WalkersRead = walkers;
-        ReadBytes = _phase.ReadBytes + (ulong)(walked.Length * Unsafe.SizeOf<DeviceBodyPhase.WalkedRow>())
-                    + (ulong)((2 + _solver.Woke.Length + _solver.Froze.Length) * sizeof(uint))
-                    + (ulong)(begun.Length * Unsafe.SizeOf<DeviceSolver.BegunRow>());
+        (_heldCars, _heldWalkers) = (carsRead, walkers);
+        _stamp++;
     }
 
     /// <summary>How many cars' and walkers' poses the last step wrote into the fleets and the table (<see cref="HandsBackEveryPose"/>).</summary>
@@ -513,35 +693,117 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
 
     /// <summary>
     /// <b>An agent's pose as the device's last step left it</b>, written into the fleet and the table where they hold an
-    /// older one (<see cref="ITownDevice.TakeThePoseBack"/>) — off the hand-back that step wrote, which the step after leaves
-    /// alone, so it may be asked while that one runs. A body the town put down since keeps its own.
+    /// older one (<see cref="ITownDevice.TakeThePoseBack"/>) — off the hand-back that step kept, which the step after leaves
+    /// alone, so it may be asked while that one runs: as a gather left it, or gathered alone where none named it
+    /// (<see cref="PosesFetched"/>). A body the town put down since keeps its own.
     /// </summary>
     public void TakeThePoseBack(TownWorld town, int agent)
     {
-        var physics = town.PhysicsForTheDevice;
-        if (_settledSide < 0 || physics.StepsTaken != _stepsTaken) return;
+        if (!Unread(town, agent)) return;
 
         if (town.Roster.IsCar(agent))
         {
             var car = town.Roster.CarIndex(agent);
-            if (car >= _settledCars || _carPoseAt[car] == _stepsTaken || PutDownSince(physics, town.Cars.Body[car])) return;
-
-            TakeTheCar(town, car, _phase.PosesOn(_settledSide, _settledCars)[car]);
+            if (!_carsRead.Holds(car, _settledStamp)) Fetch(_carsRead, car);
+            TakeTheCar(town, car, Gathered(_settledSide, car));
             return;
+        }
+
+        if (!_walkersRead!.Holds(agent, _settledStamp)) Fetch(_walkersRead, agent);
+        TakeTheWalker(town, agent, GatheredWalker(_settledSide, agent));
+    }
+
+    /// <summary>A car's gathered pose, held to the whole read of the same side where every pose is read too (<see cref="GathersUnlike"/>).</summary>
+    DeviceTyres.PoseRow Gathered(int side, int car)
+    {
+        var row = _carsRead.Row(car);
+        if (ReadsEveryPoseToo && row != _phase.PosesOn(side, car + 1)[car]) GathersUnlike++;
+        return row;
+    }
+
+    /// <inheritdoc cref="Gathered"/>
+    DeviceBodyPhase.WalkedRow GatheredWalker(int side, int person)
+    {
+        var row = _walkersRead!.Row(person);
+        if (ReadsEveryPoseToo && row != _phase.WalkersOn(side, person + 1)[person]) GathersUnlike++;
+        return row;
+    }
+
+    /// <summary>
+    /// <b>How many poses the town took off a gather other than the whole read of the same step holds them</b>, where every pose
+    /// is read too (<see cref="ReadsEveryPoseToo"/>), over every step: what holds a gather to the side and step it stands for.
+    /// </summary>
+    public long GathersUnlike { get; private set; }
+
+    /// <summary>These agents' poses taken back as <see cref="TakeThePoseBack"/> takes each, those no gather named gathered at once.</summary>
+    public void TakeThePosesBack(TownWorld town, ReadOnlySpan<int> agents)
+    {
+        foreach (var agent in agents)
+        {
+            if (!Unread(town, agent)) continue;
+
+            if (!town.Roster.IsCar(agent))
+            {
+                if (!_walkersRead!.Holds(agent, _settledStamp)) _walkersRead.Name(Fetched, agent);
+            }
+            else if (town.Roster.CarIndex(agent) is var car && !_carsRead.Holds(car, _settledStamp))
+            {
+                _carsRead.Name(Fetched, car);
+            }
+        }
+
+        GatherNow(Fetched, _settledSide, _settledStamp);
+        foreach (var agent in agents) TakeThePoseBack(town, agent);
+    }
+
+    /// <summary>
+    /// Whether an agent's pose in the fleets and the table is older than the last step taken back left it, and that step's
+    /// is the one to take: the town has stepped none since, has not put its body down since, and it is out of doors.
+    /// </summary>
+    bool Unread(TownWorld town, int agent)
+    {
+        var physics = town.PhysicsForTheDevice;
+        if (_settledSide < 0 || physics.StepsTaken != _stepsTaken) return false;
+
+        if (town.Roster.IsCar(agent))
+        {
+            var car = town.Roster.CarIndex(agent);
+            return car < _settledCars && _carPoseAt[car] != _stepsTaken && !PutDownSince(physics, town.Cars.Body[car]);
         }
 
         var people = town.People;
-        if (agent >= _settledWalkers || _walkerPoseAt[agent] == _stepsTaken || people.Inside[agent].Any || PutDownSince(physics, people.Body[agent]))
-        {
-            return;
-        }
-
-        TakeTheWalker(town, agent, _phase.WalkersOn(_settledSide, _settledWalkers)[agent]);
+        return agent < _settledWalkers && _walkerPoseAt[agent] != _stepsTaken && !people.Inside[agent].Any
+               && !PutDownSince(physics, people.Body[agent]);
     }
 
-    /// <summary>Every agent's pose as the device's last step left it, written where the fleets and the table hold an older one.</summary>
+    void Fetch<T>(GatheredRows<T> rows, int item) where T : unmanaged
+    {
+        rows.Name(Fetched, item);
+        GatherNow(Fetched, _settledSide, _settledStamp);
+        PosesFetched++;
+    }
+
+    /// <summary>
+    /// Every agent's pose as the device's last step left it, written where the fleets and the table hold an older one —
+    /// those no gather named gathered at once.
+    /// </summary>
     public void TakeEveryPoseBack(TownWorld town)
     {
+        if (_settledSide >= 0 && town.PhysicsForTheDevice.StepsTaken == _stepsTaken)
+        {
+            for (var car = 0; car < _settledCars; car++)
+            {
+                if (!_carsRead.Holds(car, _settledStamp)) _carsRead.Name(Fetched, car);
+            }
+
+            for (var person = 0; person < _settledWalkers; person++)
+            {
+                if (!_walkersRead!.Holds(person, _settledStamp)) _walkersRead.Name(Fetched, person);
+            }
+
+            GatherNow(Fetched, _settledSide, _settledStamp);
+        }
+
         for (var car = 0; car < town.Cars.Count; car++) TakeThePoseBack(town, town.Roster.AgentOfCar(car));
         for (var person = 0; person < town.People.Count; person++) TakeThePoseBack(town, person);
     }
@@ -557,6 +819,9 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
     public void Dispose()
     {
         _batch.Dispose();
+        _gathers.Dispose();
+        _carsRead.Dispose();
+        _walkersRead?.Dispose();
         _phase.Dispose();
         _solver.Dispose();
     }

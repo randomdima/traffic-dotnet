@@ -186,11 +186,14 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **The town's watch counts the wounded and the wrecked by walking every walker and car** every tick (`TownWatch.Saw`):
   `TownWorld`'s own sets of them (`_wounded`, `_wrecked`) would answer it, but `PersonFleet` and `CarFleet` clear the
   flags on a slot used again without either set hearing of it. The sets held to the flags close it.
-- **Every step copies every car's and every walker's pose into the host's memory** (`DeviceBodyPhase.Record`, asked
-  `Reads.Poses` and `Reads.Walkers` by `DeviceTownBodies.WhatIsRead` every step): 3.2 MB a step at OdesaOsm's 40 000 of
-  each, of which the town writes back about 950 cars and 20 walkers (2026-10-10). The rest is there for a pose taken back
-  later without a wait (`DeviceTownBodies.TakeThePoseBack`). Closes with the poses the town will read named before the
-  step, and every other read of one moved to the device.
+- **The decisions' poses are gathered for every agent put off** (`DeviceTownBodies.RecordTheDecided`), though the device
+  takes most of those decisions by the clock alone and the town then reads no pose: about 24 KB a step at OdesaOsm, where
+  the town's decisions read some 300 poses a tick (2026-10-10). Closes with the gather reading the verdicts the head wrote
+  before it.
+- **The hand-back's gather is a submit of its own behind the step** (`DeviceTownBodies.GatherTheHeld`): the agents the
+  town holds change with the tick's take-back, which comes after the step is recorded. The bodies' writing back rose from
+  0.16 to 0.23 ms a tick at OdesaOsm. Closes with the take-back's changes to what the town holds known on the device, so
+  the step's own submit gathers them.
 - **A frame with a second seat or a layer over the town still has every car handed back** after its last tick
   (`TownWorld.ReadsEveryCarAfterTheTick`, `Game.Advance`; 1.5 ms of that tick at 40 000 cars): the eye is the shot path's
   fill off the town's copy, and the layers and the inspector read the cars they draw there. Closes with each reading what

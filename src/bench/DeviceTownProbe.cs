@@ -127,6 +127,8 @@ internal static class DeviceTownProbe
         var bodiesKernelsMs = 0d;
         var bodiesSettleMs = 0d;
         var (carPosesRead, walkerPosesRead) = (0L, 0L);
+        var posesFetchedFrom = device?.Bodies.PosesFetched ?? 0L;
+        var bodiesReadMb = 0d;
         var taken = 0L;
         var rebuilds = 0;
         var (claimsLaidMs, claimsWaitMs, claimsMirrorMs, claimsSentMs, claimsKernelsMs, claimsReadMs) = (0d, 0d, 0d, 0d, 0d, 0d);
@@ -256,6 +258,7 @@ internal static class DeviceTownProbe
             bodiesKernelsMs += device.Bodies.Phase.KernelsMs;
             bodiesSettleMs += device.Bodies.Phase.SettleMs;
             (carPosesRead, walkerPosesRead) = (carPosesRead + device.Bodies.CarsRead, walkerPosesRead + device.Bodies.WalkersRead);
+            bodiesReadMb += device.Bodies.ReadBytes / 1e6;
         }
 
         if (device != null)
@@ -276,7 +279,9 @@ internal static class DeviceTownProbe
                 $"  the bodies' phase, ms a tick: laying {bodiesLayMs / MeasuredTicks:F2}, submitting and waiting {bodiesWaitMs / MeasuredTicks:F2} " +
                 $"(the device's kernels {bodiesKernelsMs / MeasuredTicks:F2}, of them what froze and woke {bodiesSettleMs / MeasuredTicks:F2}), " +
                 $"writing what came back {bodiesBackMs / MeasuredTicks:F2} — {carPosesRead / (double)MeasuredTicks:F0} cars' and " +
-                $"{walkerPosesRead / (double)MeasuredTicks:F0} walkers' poses a tick");
+                $"{walkerPosesRead / (double)MeasuredTicks:F0} walkers' poses a tick, {bodiesReadMb / MeasuredTicks:F3} MB a step read back, " +
+                $"{(device.Bodies.PosesFetched - posesFetchedFrom) / (double)MeasuredTicks:F1} poses a tick no gather named, each gathered " +
+                "alone");
             Console.WriteLine(
                 $"  wheels handed back to the town as their cars left the device: {device.HandedOver.InTheStep - handedInTheStep} in the bodies' " +
                 $"submit, {device.HandedOver.Alone - handedAlone} in {device.HandOverSubmits - handOverSubmits} submits of their own; " +

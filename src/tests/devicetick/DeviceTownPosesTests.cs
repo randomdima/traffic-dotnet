@@ -12,7 +12,9 @@ namespace TrafficSimulation.Tests.DeviceTick;
 /// <summary>
 /// <b>A town handed back only the poses it reads goes as one handed back every pose</b> (<see cref="DeviceTownBodies.HandsBackEveryPose"/>):
 /// two device towns of one plan, one handed every pose back after every step and one only what it reads, held to each
-/// other's device every tick — so a pose the town read and was not handed shows as the two parting.
+/// other's device every tick — so a pose the town read and was not handed shows as the two parting — and every pose either
+/// takes off a gather held to the whole read of its step (<see cref="DeviceTownBodies.GathersUnlike"/>), a car and a walker
+/// picked out alone every tick among them.
 /// </summary>
 [Trait(Tier.Key, Tier.Device)]
 [Trait(Priority.Key, Priority.P3)]
@@ -53,6 +55,7 @@ public class DeviceTownPosesTests(Lavapipe device) : IClassFixture<Lavapipe>
         using var someDevice = new DeviceTown(device.Vk, Config, some);
         everyDevice.Bodies.HandsBackEveryPose = true;
         someDevice.Bodies.PoisonsWhatIsUnread = true;
+        everyDevice.Bodies.ReadsEveryPoseToo = someDevice.Bodies.ReadsEveryPoseToo = true;
         every.Device = everyDevice;
         some.Device = someDevice;
         var (carsUnread, walkersUnread) = (0L, 0L);
@@ -64,15 +67,26 @@ public class DeviceTownPosesTests(Lavapipe device) : IClassFixture<Lavapipe>
 
                 everyLoop.Advance();
                 someLoop.Advance();
+
+                // A car and a walker picked out between ticks, as the interface picks one, each pose taken back alone.
+                var (car, walker) = (tick % Math.Max(1, some.Cars.Count), tick % Math.Max(1, some.People.Count));
+                foreach (var town in (ReadOnlySpan<TownWorld>)[every, some])
+                {
+                    town.TakeTheCarsPoseBack(car);
+                    if (town.People.Count > 0) town.TakeThePoseBack(walker);
+                }
+
                 if (Apart(tick, everyDevice.Bodies.Phase, someDevice.Bodies.Phase, some) is { } apart) return apart;
 
                 carsUnread += some.Cars.Count - someDevice.Bodies.CarsRead;
                 walkersUnread += someDevice.Bodies.Phase.WalkersAfter.Length - someDevice.Bodies.WalkersRead;
             }
 
-            return carsUnread > 0 && (!walkersLeft || walkersUnread > 0)
-                ? null
-                : $"too little was left unread: {carsUnread} car-ticks, {walkersUnread} walker-ticks";
+            var unlike = everyDevice.Bodies.GathersUnlike + someDevice.Bodies.GathersUnlike;
+            var fetched = someDevice.Bodies.PosesFetched;
+            return unlike > 0 ? $"{unlike} poses taken off a gather other than their step's whole read"
+                : carsUnread > 0 && (!walkersLeft || walkersUnread > 0) && fetched > 0 ? null
+                : $"too little was left unread: {carsUnread} car-ticks, {walkersUnread} walker-ticks, {fetched} poses asked for alone";
         }
         finally
         {
