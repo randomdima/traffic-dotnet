@@ -471,9 +471,13 @@ internal sealed partial class PhysicsWorld
     /// The step's own manifold separations and not a sweep taken afterwards, so it answers about the
     /// geometry the solver acted on rather than giving a second opinion about it. The figure belongs to
     /// the poses the step began at and not to the ones it left behind, which is why the soak counts
-    /// <em>runs</em> of ticks rather than instants.
+    /// <em>runs</em> of ticks rather than instants. After a step taken elsewhere it is known only where it was handed
+    /// over (<see cref="TakeTheOverlapM"/>), and asking otherwise throws.
     /// </remarks>
-    public float OverlapOf(BodyId body) => _overlapM[body.Index];
+    public float OverlapOf(BodyId body) =>
+        _overlapTaken
+            ? _overlapM[body.Index]
+            : throw new InvalidOperationException("The last step was taken elsewhere and how deep its bodies were was not handed over.");
 
     /// <summary>
     /// The one place a layer becomes a body's filter. The mask is the <em>symmetrised</em> one, so the

@@ -52,6 +52,29 @@ public class DeviceSettlingTests(Lavapipe device) : IClassFixture<Lavapipe>
         Assert.Empty(Step(world).Froze);
     }
 
+    /// <summary>
+    /// <c>SOL-37c</c>: a pair that froze touching is held through a step that moves neither, and is the same touch when one
+    /// of them is woken — it does not begin again.
+    /// </summary>
+    [Fact]
+    public void ATouchThatFrozeDoesNotBeginAgainOnWaking()
+    {
+        var world = new PhysicsWorld(Config);
+        var first = world.AddNominalCar(Vector2.Zero, 0f);
+        world.AddNominalCar(new Vector2(Config.Car.LengthM, 0f), 0f);
+        Advance(world, Config.SolverRestTicks + 1);
+
+        using var solver = Settling(world);
+        solver.LayTheTouching(world.TouchingKeys);
+        solver.Step(world.Table, StepSeconds, readBack: false);
+
+        // Pressed into the other, which keeps the pair touching on the step it is woken.
+        world.ApplyCentralImpulse(first, new Vector2(Config.Car.MassKg * 0.01f, 0f));
+        solver.Step(world.Table, StepSeconds, readBack: false);
+
+        Assert.Empty(solver.Begun.ToArray());
+    }
+
     /// <summary>A car along the row's last car's flank and away at a walking pace: touching it, and pressing on it nowhere.</summary>
     static void PassAlongTheLastCar(PhysicsWorld world)
     {
@@ -61,10 +84,17 @@ public class DeviceSettlingTests(Lavapipe device) : IClassFixture<Lavapipe>
 
     (int[] Woke, int[] Froze) Step(PhysicsWorld world)
     {
-        using var solver = new DeviceSolver(device.Vk, Config, world.Table) { Settles = true };
-        solver.LayTheRestCounts(world.Table);
+        using var solver = Settling(world);
         solver.Step(world.Table, StepSeconds, readBack: false);
         return (solver.Woke.ToArray(), solver.Froze.ToArray());
+    }
+
+    /// <summary>A device solver settling what it steps, laid the table's rest counts.</summary>
+    DeviceSolver Settling(PhysicsWorld world)
+    {
+        var solver = new DeviceSolver(device.Vk, Config, world.Table) { Settles = true };
+        solver.LayTheRestCounts(world.Table);
+        return solver;
     }
 
     static void Advance(PhysicsWorld world, int steps)

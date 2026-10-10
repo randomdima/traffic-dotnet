@@ -3,13 +3,14 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md) and
 [solver.md](solver.md).
 
-## 2026-10-10 — the device freezes what it steps
+## 2026-10-10 — the device settles what it steps
 
-**With the device stepping the bodies, it also works out what froze and what woke** (`SOL-37`, `SOL-37a`, `SOL-37b`;
-`kernels/settle.comp`, `DeviceSolver.Settles`), so whether a body is frozen no longer needs every pose and contact
-handed back to the host. The host's table takes two lists in index order instead: the frozen bodies the step took
-in (`PhysicsWorld.WokeInTheStep`) and the ones it froze (`EndTheStepTaken`). A frozen body's row is no longer a change
-the town sends back the next step: the device has already stilled and flagged it.
+**With the device stepping the bodies, it also works out what froze, what woke and which pairs began touching**
+(`SOL-37`, `SOL-37a`, `SOL-37b`, `SOL-6`, `SOL-37c`; `kernels/settle.comp`, `kernels/touches.comp`,
+`DeviceSolver.Settles`), so **no contact is handed back to the host**. The host's table takes three lists, each in
+order: the frozen bodies the step took in (`PhysicsWorld.WokeInTheStep`), the ones it froze (`EndTheStepTaken`), and
+the pairs that began touching, with their normals (`BeganInTheStep`), which is all phase 5 reads. A frozen body's row
+is no longer a change the town sends back the next step: the device has already stilled and flagged it.
 
 - **The owners are the host step's.** These are every body in the world not frozen as the step began, every frozen one
   the step moved or left moving (`integrate.comp` marks a moved body), and every frozen one touching an owner, and so on.
@@ -23,13 +24,22 @@ the town sends back the next step: the device has already stilled and flagged it
 - **The rest counts are the device's from the first settling step on.** The host lays its own counts whole only before
   that step, or after the town has stepped itself. After that it sends only the bodies whose count it set back to nought
   (`PhysicsWorld.CountsRestAfresh`: one put in a container, or added).
-- **Held to the host's step** by `DeviceTownBodiesTests` (every body's freezing through the shoved car park) and
-  `DeviceSettlingTests`. In the second, the waking and then the unsettling have to run against the contacts' order, and
-  the car park never asks for that.
+- **What was touching is the last step's contacts, each marked whether it was**, so there is no list of held pairs.
+  A contact counts as touching when the step owned one of its bodies, or when it was touching before. A pair neither of
+  whose bodies a step owns has not moved since the step that last asked, so the device finds it among its contacts
+  again. Each step's contacts are searched against the last step's, and the two lists swap. The host lays its own
+  touching pairs at the same times as its rest counts (`PhysicsWorld.TouchingKeys`).
+- **The host's table holds no contacts after such a step.** How deep a body is into what it touches comes back only for
+  an instrument that asks (`DeviceTownBodies.ReadsTheOverlap`, or a town watching every agent). `OverlapOf` throws when
+  it was not handed back, rather than answer with a stale figure.
+- **Held to the host's step** by `DeviceTownBodiesTests` (every body's freezing and every pair that began touching
+  through the shoved car park) and `DeviceSettlingTests`. The second stages what the car park never asks for: the
+  waking and then the unsettling run against the contacts' order, and a pair held through a step that moves neither.
 
-On OdesaOsm at 40 000 of each (`--bench devicetown`, RX 9070 XT), the device took 0.05 ms of the bodies' 0.74 ms of
-kernels to settle. The device's tick was 12.1 ms, and the town drove as before: 388 pairs began touching on both the
-host's and the device's.
+On OdesaOsm at 40 000 of each (`--bench devicetown`, RX 9070 XT), the device took 0.07 ms of the bodies' 0.75 ms of
+kernels to settle and find what began touching. The device's tick was 12.1 ms, and the town drove the same to the
+count as with the host doing both: 388 pairs began touching, as they did on the host's. Writing back held at
+0.63–0.73 ms: on this map that cost is every car's and walker's pose, not the contacts.
 
 ## 2026-10-07 — the bodies' phase in the town's place
 
@@ -52,10 +62,8 @@ before. `DeviceTown`, the town's device, steps its bodies this way.
   and `pairs.comp` passes over one out of the world, so a walker boarding sends one row and no roster. A frozen body
   is stepped like any other at exactly no motion, and `integrate.comp` leaves a body whose heading the step did not
   change with the direction it was laid with, so it stands to the bit.
-- **Handed back**: every car's row off its body (one copy), every walker in the world off its own (a kernel writing
-  host memory, only for bodies in the world), and the contacts, as many as were found (`kernels/contacts_taken.comp`).
-  What began touching is the table's own merge over those (`SOL-6`). The device asks every pair, so a contact neither of
-  whose bodies the step owned is dropped and a touch held between frozen bodies stays held (`SOL-37c`).
+- **Handed back**: every car's row off its body (one copy), and every walker in the world off its own (a kernel writing
+  host memory, only for bodies in the world).
 - **The indexes are laid when a picture or a ray first asks**, not every step: nothing in a device's step reads them.
   That was 0.74 ms of the 0.9 the hand-back cost on OdesaOsm.
 - **Which body each car and walker is is laid through `ResidentRows.Lay`**, which keeps what it laid host-side. Reading

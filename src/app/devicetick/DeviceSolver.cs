@@ -26,7 +26,8 @@ namespace TrafficSimulation.App.DeviceTick;
 /// <b>Or in the town's place</b> (<see cref="LayWhole"/>, <see cref="LayRows"/>): the table laid once, and after that
 /// only the rows the town changed, each written by a kernel (<c>kernels/laid_bodies.comp</c>) — and every moving body
 /// an owner whether or not it is in the world, which the kernels pass over, so a body going into a container changes
-/// no roster. What the step found is handed back as many contacts as it found (<see cref="RecordContactsTaken"/>).
+/// no roster. What the step found is not handed back: what froze, woke and began touching is
+/// (<see cref="Settles"/>).
 /// </para>
 /// <para>
 /// <b>A step is also recorded into another's submit</b> (<see cref="Lay"/>, <see cref="Send"/>, <see cref="Record"/>),
@@ -75,6 +76,8 @@ internal sealed class DeviceSolver : IDisposable
         public uint TicksToFreeze;
         public float RestSpeedMpsSquared;
         public uint AfreshCount;
+        public uint BegunRoom;
+        public uint Pad0;
     }
 
     /// <summary>One body's row as the host lays it (<c>LaidBody</c>, <c>kernels/laid_bodies.comp</c>): every field the step reads.</summary>
@@ -98,7 +101,8 @@ internal sealed class DeviceSolver : IDisposable
         public const int UnsettledAt = 17;
         public const int WokeCountAt = 18;
         public const int FrozeCountAt = 19;
-        public const int Count = 20;
+        public const int BegunCountAt = 20;
+        public const int Count = 21;
     }
 
     /// <summary>The stamps a step's device time is read between.</summary>
@@ -150,6 +154,13 @@ internal sealed class DeviceSolver : IDisposable
     readonly GpuBuffer _settledOut;
     readonly GpuBuffer _wokeAt;
     readonly GpuBuffer _frozeAt;
+
+    // What was touching and what began (kernels/touches.comp): the last step's pairs and this one's, swapped each step.
+    readonly GpuBuffer[] _touched;
+    readonly GpuBuffer[] _touchedCount;
+    readonly GpuBuffer _begunGroups;
+    readonly GpuBuffer _begunOut;
+    GpuBuffer _touchedIn;
 
     // What the host writes them from.
     readonly GpuBuffer _poseIn;
@@ -209,9 +220,9 @@ internal sealed class DeviceSolver : IDisposable
     readonly ComputeKernel _solve;
     readonly ComputeKernel _integrate;
     readonly ComputeKernel _laidBodies;
-    readonly ComputeKernel _contactsTaken;
     readonly ComputeKernel _settle;
     readonly ComputeKernel _settleSpread;
+    readonly ComputeKernel _touches;
 
     readonly DescriptorSet _movingCountSet;
     readonly DescriptorSet _movingFillSet;
@@ -224,9 +235,11 @@ internal sealed class DeviceSolver : IDisposable
     readonly DescriptorSet _solveSet;
     readonly DescriptorSet _integrateSet;
     readonly DescriptorSet _laidBodiesSet;
-    readonly DescriptorSet _contactsTakenSet;
     readonly DescriptorSet _settleSet;
     readonly DescriptorSet _settleSpreadSet;
+
+    /// <summary>The touches' sets, one a way round: the step reading the pairs in <c>_touched[n]</c> uses set n.</summary>
+    readonly DescriptorSet[] _touchesSets;
 
     /// <summary>The rows the town changed, as the host lays them and the laid-rows kernel reads them, straight from mapped memory.</summary>
     readonly GpuBuffer _laidRows;
@@ -238,6 +251,7 @@ internal sealed class DeviceSolver : IDisposable
     readonly PrefixScan _contactScan;
     readonly PrefixScan _wokeScan;
     readonly PrefixScan _frozeScan;
+    readonly PrefixScan _begunScan;
 
     readonly ComputeBatch _batch;
     readonly GpuTimer _timer;
@@ -258,6 +272,12 @@ internal sealed class DeviceSolver : IDisposable
 
     /// <summary>The roster the last settling was worked over, which says where its frozen list begins.</summary>
     int _settledOver;
+
+    /// <summary>Which of <c>_touched</c> holds the pairs the next step reads as touching before it.</summary>
+    int _touchedWas;
+
+    /// <summary>How many of the table's touching pairs were laid since the last send (<see cref="LayTheTouching"/>), or none.</summary>
+    int _touchingLaid = -1;
 
     /// <param name="candidatesPerOwner">How many candidates a step may hold per moving body before it is full.</param>
     /// <param name="room">
@@ -306,6 +326,12 @@ internal sealed class DeviceSolver : IDisposable
         _settledOut = Readback<uint>(2 + (2 * _moving.Length));
         _wokeAt = Device<uint>(Math.Max(1, _moving.Length));
         _frozeAt = Device<uint>(Math.Max(1, _moving.Length));
+        _touched = [Device<UInt2>(CandidateCapacity), Device<UInt2>(CandidateCapacity)];
+        _touchedCount = [Device<uint>(1), Device<uint>(1)];
+        _begunGroups = Device<uint>(BegunGroups);
+        BegunRoom = Math.Max(1024, _moving.Length);
+        _begunOut = Readback<UInt4>(BegunRoom);
+        _touchedIn = Staging<UInt2>(Math.Max(1, _moving.Length));
 
         _poseIn = Staging<Vector4>(_bodies);
         _headingIn = Staging<float>(_bodies);
@@ -366,9 +392,9 @@ internal sealed class DeviceSolver : IDisposable
         _solve = Kernel("solve.comp", 13);
         _integrate = Kernel("integrate.comp", 9);
         _laidBodies = Kernel("laid_bodies.comp", 8);
-        _contactsTaken = Kernel("contacts_taken.comp", 7);
         _settle = Kernel("settle.comp", 14);
         _settleSpread = Kernel("settle_spread.comp", 14);
+        _touches = Kernel("touches.comp", 10, sets: 2);
 
         _movingCountSet = _gridCount.Bind([_owners, _bounds, _movingCounts]);
         _movingFillSet = _gridFill.Bind([_owners, _bounds, _movingStarts, _movingCursor, _movingItemsBuffer]);
@@ -401,15 +427,21 @@ internal sealed class DeviceSolver : IDisposable
         ];
         _settleSet = _settle.Bind(settling);
         _settleSpreadSet = _settleSpread.Bind(settling);
+        _touchesSets =
+        [
+            _touches.Bind(
+                [_contact, _contactNormal, _totals, _settling, _touched[0], _touchedCount[0], _touched[1], _touchedCount[1], _begunGroups, _begunOut]),
+            _touches.Bind(
+                [_contact, _contactNormal, _totals, _settling, _touched[1], _touchedCount[1], _touched[0], _touchedCount[0], _begunGroups, _begunOut]),
+        ];
         _laidBodiesSet = _laidBodies.Bind([_laidRows, _pose, _heading, _motion, _mass, _shape, _bounds, _filter]);
-        _contactsTakenSet = _contactsTaken.Bind(
-            [_contact, _contactNormal, _contactPoints, _totals, _contactOut, _contactNormalOut, _contactPointsOut]);
 
         _movingScan = new PrefixScan(vk, _scans, _movingStarts, _blockSums, _totals, Totals.MovingCellsAt);
         _candidateScan = new PrefixScan(vk, _scans, _candidateStarts, _blockSums, _totals, Totals.CandidatesAt);
         _contactScan = new PrefixScan(vk, _scans, _contactStarts, _blockSums, _totals, Totals.ContactsAt);
         _wokeScan = new PrefixScan(vk, _scans, _wokeAt, _blockSums, _totals, Totals.WokeCountAt);
         _frozeScan = new PrefixScan(vk, _scans, _frozeAt, _blockSums, _totals, Totals.FrozeCountAt);
+        _begunScan = new PrefixScan(vk, _scans, _begunGroups, _blockSums, _totals, Totals.BegunCountAt);
         var staticScan = new PrefixScan(vk, _scans, _staticStarts, _blockSums, _totals, Totals.StaticCellsAt);
 
         _batch = new ComputeBatch(vk);
@@ -426,6 +458,8 @@ internal sealed class DeviceSolver : IDisposable
         vk.Fill(commands, _push, 0);
         vk.Fill(commands, _restTicks, 0);
         vk.Fill(commands, _settling, 0);
+        vk.Fill(commands, _touchedCount[0], 0);
+        vk.Fill(commands, _touchedCount[1], 0);
         vk.Fill(commands, _staticCounts, 0);
         vk.Fill(commands, staticCursor, 0);
         vk.Fill(commands, _lowest, uint.MaxValue);
@@ -500,7 +534,8 @@ internal sealed class DeviceSolver : IDisposable
     /// <summary>
     /// <b>Whether a step settles what it stepped</b> (<c>kernels/settle.comp</c>, SOL-37): which frozen bodies it took in,
     /// each body's rest count, and what froze — stilled and flagged in the table, and handed back as <see cref="Woke"/>
-    /// and <see cref="Froze"/>. In the town's place; a step in shadow is laid the host's freezing whole every time.
+    /// and <see cref="Froze"/> — and which pairs began touching (<see cref="Begun"/>, SOL-6). In the town's place; a step
+    /// in shadow is laid the host's freezing whole every time.
     /// </summary>
     public bool Settles { get; set; }
 
@@ -510,6 +545,27 @@ internal sealed class DeviceSolver : IDisposable
     /// <summary>The bodies the last settling step froze, in index order.</summary>
     public ReadOnlySpan<int> Froze =>
         MemoryMarshal.Cast<uint, int>(_settledOut.Span<uint>().Slice(2 + _settledOver, (int)_settledOut.Span<uint>()[1]));
+
+    /// <summary>How many pairs a settling step lists as begun touching (<see cref="Begun"/>).</summary>
+    public int BegunRoom { get; }
+
+    /// <summary>
+    /// <b>The pairs the last settling step began touching</b> (SOL-6, <c>kernels/touches.comp</c>), in its contacts' order:
+    /// the two bodies, then the normal's two figures as a float's bits.
+    /// </summary>
+    public ReadOnlySpan<UInt4> Begun
+    {
+        get
+        {
+            var count = TotalsRead[Totals.BegunCountAt];
+            return count <= BegunRoom
+                ? _begunOut.Span<UInt4>()[..(int)count]
+                : throw new InvalidOperationException($"{count} pairs began touching in one step, past the {BegunRoom} the device lists.");
+        }
+    }
+
+    /// <summary>How many workgroups of 64 the step's contacts can take, each counting its own begun.</summary>
+    int BegunGroups => (CandidateCapacity + 63) / 64;
 
     /// <summary>
     /// <b>The body table as the device keeps it from one step to the next</b>, for kernels recorded around a step
@@ -601,6 +657,30 @@ internal sealed class DeviceSolver : IDisposable
         _restLaid = true;
     }
 
+    /// <summary>
+    /// <b>The table's touching pairs laid</b> (<see cref="PhysicsWorld.TouchingKeys"/>), to go with the next <see cref="Send"/>
+    /// as what was touching before the next step — where the table's are the ones that stand, as its rest counts are.
+    /// </summary>
+    public void LayTheTouching(ReadOnlySpan<ulong> keys)
+    {
+        if (keys.Length > CandidateCapacity) throw new InvalidOperationException($"{keys.Length} pairs touching, past the {CandidateCapacity} the device holds.");
+
+        if ((ulong)keys.Length > _touchedIn.SizeBytes / (ulong)Unsafe.SizeOf<UInt2>())
+        {
+            _owned.Remove(_touchedIn);
+            _touchedIn.Dispose();
+            _touchedIn = Staging<UInt2>(keys.Length);
+        }
+
+        var pairs = _touchedIn.Span<UInt2>();
+        for (var at = 0; at < keys.Length; at++) pairs[at] = new UInt2((uint)(keys[at] >> 32), (uint)keys[at] | TouchingBit);
+
+        _touchingLaid = keys.Length;
+    }
+
+    /// <summary>A listed pair's mark that it is touching (<c>kernels/touches.comp</c>).</summary>
+    const uint TouchingBit = 0x8000_0000u;
+
     /// <summary>A body whose rest the town counted afresh since the last step (<see cref="PhysicsWorld.CountsRestAfresh"/>), counted afresh by the next.</summary>
     public void CountAfresh(int body) => _afresh.Span<int>()[_afreshCount++] = body;
 
@@ -633,6 +713,15 @@ internal sealed class DeviceSolver : IDisposable
         {
             SentBytes += CopyRows(commands, _restIn, _restTicks);
             _restLaid = false;
+        }
+
+        if (_touchingLaid >= 0)
+        {
+            var bytes = (ulong)(_touchingLaid * Unsafe.SizeOf<UInt2>());
+            if (bytes > 0) _vk.Copy(commands, _touchedIn, _touched[_touchedWas], bytes);
+            _vk.Fill(commands, _touchedCount[_touchedWas], (uint)_touchingLaid);
+            SentBytes += bytes;
+            _touchingLaid = -1;
         }
 
         if (!_ownersLaid) return;
@@ -675,6 +764,7 @@ internal sealed class DeviceSolver : IDisposable
         vk.Fill(commands, _overlap, 0);
         vk.Fill(commands, _totals, 0);
         vk.Fill(commands, _contactStarts, 0);
+        if (Settles) vk.Fill(commands, _begunGroups, 0);
         vk.AfterTransfer(commands);
         _timer.Stamp(commands, (int)Stage.Began);
 
@@ -753,6 +843,14 @@ internal sealed class DeviceSolver : IDisposable
         _frozeScan.Record(commands, roster);
         _settle.Dispatch(commands, _settleSet, Groups(roster), push with { Mode = SettleListing });
         _settledOver = roster;
+
+        // What began touching, once the owners are known (kernels/touches.comp); the pairs written are the next step's.
+        vk.BetweenKernels(commands);
+        _touches.DispatchIndirect(commands, _touchesSets[_touchedWas], _totals, perContact, push with { Mode = 0 });
+        vk.BetweenKernels(commands);
+        _begunScan.Record(commands, BegunGroups);
+        _touches.DispatchIndirect(commands, _touchesSets[_touchedWas], _totals, perContact, push with { Mode = 1, BegunRoom = (uint)BegunRoom });
+        _touchedWas ^= 1;
     }
 
     // The settling's passes (kernels/settle.glsl).
@@ -783,13 +881,10 @@ internal sealed class DeviceSolver : IDisposable
     }
 
     /// <summary>
-    /// <b>The last step's contacts handed back, as many as it found</b> (<c>kernels/contacts_taken.comp</c>), into
-    /// <see cref="Contacts"/>, <see cref="ContactNormals"/> and <see cref="ContactPoints"/> — which count them by the
-    /// totals <see cref="RecordReadBack"/> hands back. Recorded after the step, which barriers before it.
+    /// How deep each moving body was into what it touched recorded to be handed back (<see cref="OverlapBits"/>); how many
+    /// bytes that is. The caller barriers before it.
     /// </summary>
-    public void RecordContactsTaken(CommandBuffer commands) =>
-        _contactsTaken.DispatchIndirect(
-            commands, _contactsTakenSet, _totals, Totals.ContactGroupsAt * sizeof(uint), Push(0f) with { Capacity = (uint)CandidateCapacity });
+    public ulong RecordTheOverlapRead(CommandBuffer commands) => CopyRows(commands, _overlap, _overlapOut);
 
     /// <summary>The step's stamps read, once the submit it was recorded into is waited for.</summary>
     public void ReadTimes() => _timer.Read();

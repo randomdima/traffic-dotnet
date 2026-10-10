@@ -1,0 +1,112 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Which pairs began touching in the step (PhysicsWorld.ReportBegun, SOL-6, SOL-37c), after settle.comp has said which
+// bodies the step owned. One thread a contact, in the contacts' own order, which is their pairs' (lower body, then
+// higher, the furniture second).
+//
+// What was touching is the last step's contacts, each marked whether it was: one the step owned a body of, or one held
+// — neither body owned, and touching before. A pair neither of whose bodies a step owns has not moved since the step
+// that last asked, so it is among this step's contacts again, and a touch held between frozen bodies is held here
+// without a list of its own. A pair is begun where the step owned a body of it and it was not touching.
+//
+// Mode 0 marks each contact and counts what began, a workgroup at a time; the scan of those counts says where each
+// workgroup's begun go, and mode 1 lists them there, in the contacts' order (DeviceSolver.Begun).
+
+layout(local_size_x = 64) in;
+
+#include "step.glsl"
+
+// A body the step owned, in settle.glsl's state.
+const uint Owned = 1u;
+
+// A listed pair's second body, with whether it is touching and whether it began in the step in its top bits.
+const uint Touching = 0x80000000u;
+const uint Began = 0x40000000u;
+const uint Body = 0x3FFFFFFFu;
+
+layout(std430, binding = 0) readonly buffer Contact { uvec4 contact[]; };
+layout(std430, binding = 1) readonly buffer ContactNormal { vec4 contactNormal[]; };
+layout(std430, binding = 2) readonly buffer Totals { uint totals[]; };
+layout(std430, binding = 3) readonly buffer State { uint state[]; };
+layout(std430, binding = 4) readonly buffer Was { uvec2 was[]; };
+layout(std430, binding = 5) readonly buffer WasCount { uint wasCount; };
+layout(std430, binding = 6) buffer Now { uvec2 now[]; };
+layout(std430, binding = 7) writeonly buffer NowCount { uint nowCount; };
+layout(std430, binding = 8) buffer BegunGroups { uint begunGroups[]; };
+
+// The pair and the normal of each begun, from 0 on, as many as there is room for (begunRoom).
+layout(std430, binding = 9) writeonly buffer Begun { uvec4 begun[]; };
+
+shared uint scanned[64];
+
+bool before(uvec2 a, uvec2 b) { return a.x < b.x || (a.x == b.x && a.y < b.y); }
+
+// Whether the pair was touching as the step began: found among the last step's, and marked so.
+bool wasTouching(uvec2 pair)
+{
+    uint low = 0u;
+    uint high = wasCount;
+    while (low < high)
+    {
+        uint middle = (low + high) / 2u;
+        if (before(uvec2(was[middle].x, was[middle].y & Body), pair)) low = middle + 1u;
+        else high = middle;
+    }
+
+    return low < wasCount && was[low].x == pair.x && (was[low].y & Body) == pair.y && (was[low].y & Touching) != 0u;
+}
+
+void main()
+{
+    uint at = gl_GlobalInvocationID.x;
+    uint thread = gl_LocalInvocationID.x;
+    uint contacts = min(totals[ContactTotalAt], capacity);
+
+    if (mode == 0u)
+    {
+        bool began = false;
+        if (at < contacts)
+        {
+            uvec2 pair = contact[at].xy;
+            bool owned = ((state[pair.x] | state[pair.y]) & Owned) != 0u;
+            bool touching = wasTouching(pair);
+            began = owned && !touching;
+            now[at] = uvec2(pair.x, pair.y | (owned || touching ? Touching : 0u) | (began ? Began : 0u));
+        }
+
+        if (at == 0u) nowCount = contacts;
+
+        scanned[thread] = began ? 1u : 0u;
+        barrier();
+        for (uint offset = 32u; offset > 0u; offset >>= 1u)
+        {
+            if (thread < offset) scanned[thread] += scanned[thread + offset];
+            barrier();
+        }
+
+        if (thread == 0u) begunGroups[gl_WorkGroupID.x] = scanned[0];
+        return;
+    }
+
+    bool began = at < contacts && (now[at].y & Began) != 0u;
+    uint flag = began ? 1u : 0u;
+    scanned[thread] = flag;
+    barrier();
+    for (uint offset = 1u; offset < 64u; offset <<= 1u)
+    {
+        uint earlier = thread >= offset ? scanned[thread - offset] : 0u;
+        barrier();
+        scanned[thread] += earlier;
+        barrier();
+    }
+
+    if (!began) return;
+
+    uint into = begunGroups[gl_WorkGroupID.x] + scanned[thread] - flag;
+    if (into >= begunRoom) return;
+
+    uvec2 pair = contact[at].xy;
+    vec2 normal = contactNormal[at].xy;
+    begun[into] = uvec4(pair, floatBitsToUint(normal.x), floatBitsToUint(normal.y));
+}

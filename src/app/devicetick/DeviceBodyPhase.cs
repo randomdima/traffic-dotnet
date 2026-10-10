@@ -34,7 +34,8 @@ namespace TrafficSimulation.App.DeviceTick;
 /// <para>
 /// <b>Or in the town's place</b> (<see cref="DeviceTownBodies"/>): the solver's table laid once and then only where the
 /// town changed it, and a step handing back what <see cref="Reads"/> names — the cars, every walker in the world off
-/// its body (<see cref="LayWalker"/>), and the contacts the step found.
+/// its body (<see cref="LayWalker"/>), and how deep each body was into what it touched — and what the solver's settling
+/// hands back of itself (<see cref="DeviceSolver.Settles"/>).
 /// </para>
 /// </remarks>
 internal sealed partial class DeviceBodyPhase : IDisposable
@@ -70,8 +71,8 @@ internal sealed partial class DeviceBodyPhase : IDisposable
         /// <summary>Every walker in the world as the step left its body (<see cref="WalkersAfter"/>).</summary>
         Walkers = 4,
 
-        /// <summary>The step's contacts, as many as it found, and its totals (<see cref="DeviceSolver.Contacts"/>).</summary>
-        Contacts = 8,
+        /// <summary>How deep each body was into what it touched (<see cref="DeviceSolver.OverlapBits"/>) — an instrument's.</summary>
+        Overlap = 8,
     }
 
     /// <summary>The stamps a step is timed between.</summary>
@@ -209,7 +210,7 @@ internal sealed partial class DeviceBodyPhase : IDisposable
     /// </summary>
     public ReadOnlySpan<Vector4> WalkersAfter => _walkersOut == null ? default : _walkersOut.Span<Vector4>()[.._walkersHanded];
 
-    /// <summary>How many bytes the last step handed back, where it was asked to, but the contacts' and the walkers': those are as many as were found.</summary>
+    /// <summary>How many bytes the last step handed back, where it was asked to, but the walkers': those are as many as are in the world.</summary>
     public ulong ReadBytes { get; private set; }
 
     /// <summary>Which body a walker is, marked to be sent only where it differs from what was sent last (<see cref="Reads.Walkers"/>).</summary>
@@ -389,7 +390,7 @@ internal sealed partial class DeviceBodyPhase : IDisposable
             _walkersRead!.Dispatch(commands, _walkersReadSet, Groups(walkers), push with { Count = (uint)walkers });
         }
 
-        if ((reads & Reads.Contacts) != 0) _solver.RecordContactsTaken(commands);
+        if ((reads & Reads.Overlap) != 0) ReadBytes += _solver.RecordTheOverlapRead(commands);
 
         _timer.Stamp(commands, (int)Stage.Read);
     }

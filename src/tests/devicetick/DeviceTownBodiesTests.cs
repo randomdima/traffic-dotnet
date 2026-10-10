@@ -125,7 +125,7 @@ public class DeviceTownBodiesTests(Lavapipe device, ShovedCarPark park) : IClass
         counted.AllocatedBytes = 0;
         for (var tick = 0; tick < DrivenTicks; tick++) two.Advance();
 
-        Assert.True(two.OnDevice.PhysicsForInstruments.Contacts.Count > 0, "the wrecks should still be touching what they hit");
+        Assert.True(two.Bodies.Solver.ContactCount > 0, "the wrecks should still be touching what they hit");
         Assert.Equal(0L, counted.AllocatedBytes);
     }
 
@@ -378,7 +378,7 @@ internal sealed class TwoTowns : IDisposable
         var cars = OnDevice.Cars;
         var builds = Enumerable.Range(0, CarCatalog.Shared.SheetCount).Select(variant => cars.BuildOfVariant(variant)).ToArray();
         _tyres = new DeviceTyres(device.Vk, Config, OnDevice.WheelGrounds, builds, cars.Capacity);
-        _bodies = new DeviceTownBodies(device.Vk, Config, OnDevice, _tyres);
+        _bodies = new DeviceTownBodies(device.Vk, Config, OnDevice, _tyres) { ReadsTheOverlap = true };
         _bodies.Solver.SolveInContactOrder = true;
         if (handedAtOnce) HandOver();
     }

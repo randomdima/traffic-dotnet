@@ -43,6 +43,10 @@ layout(push_constant) uniform Step
 
     // How many bodies the host counts at rest afresh this step (DeviceSolver.CountAfresh).
     uint afreshCount;
+
+    // How many pairs a step can list as begun touching (touches.comp).
+    uint begunRoom;
+    uint pad0;
 };
 
 // Where the step keeps its running totals and the indirect dispatches made of them (DeviceSolver.Totals).

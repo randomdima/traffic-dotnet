@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Silk.NET.Vulkan;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Core.Config;
@@ -24,9 +25,10 @@ namespace TrafficSimulation.App.DeviceTick;
 /// every car's pose; after that only the rows the town changed (<see cref="PhysicsWorld.Changes"/>) and the poses of the
 /// cars whose bodies those are, which body each car and walker is where that changed, and the wheels and pulls the town
 /// still makes. <b>Handed back</b>: every car as the step read it off its body, every walker in the world off its own,
-/// as many contacts as the step found, and which frozen bodies it took in and which it froze (<see cref="DeviceSolver.Settles"/>)
-/// — written into the fleets as the town's own phase writes them, and into the solver's table, which reports what began
-/// touching (<see cref="PhysicsWorld.EndTheStepTaken"/>). The rest counts are the device's.
+/// which frozen bodies it took in and which it froze, and which pairs began touching (<see cref="DeviceSolver.Settles"/>)
+/// — written into the fleets as the town's own phase writes them, and into the solver's table
+/// (<see cref="PhysicsWorld.EndTheStepTaken"/>). No contact comes back: the rest counts and what was touching are the
+/// device's, and how deep each body is into what it touches comes back only where asked (<see cref="ReadsTheOverlap"/>).
 /// </para>
 /// <para>
 /// <b>Set as the town's device on its own, it takes no agent</b> and ticks nothing: the town ticks every agent and the
@@ -78,6 +80,22 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
     /// <summary>The phase's kernels, for whoever reads their times.</summary>
     public DeviceBodyPhase Phase => _phase;
 
+    /// <summary>
+    /// Whether every step hands back how deep each body was into what it touched (<see cref="PhysicsWorld.OverlapOf"/>) —
+    /// for an instrument that asks it of a town the device steps; nothing in a tick does. A town watching every agent
+    /// has it handed back whatever this says (<see cref="TownWorld.WatchesEveryAgent"/>).
+    /// </summary>
+    public bool ReadsTheOverlap { get; set; }
+
+    /// <summary>Whether the step last recorded hands back the overlap.</summary>
+    bool _overlapRead;
+
+    DeviceBodyPhase.Reads WhatIsRead(TownWorld town)
+    {
+        _overlapRead = ReadsTheOverlap || town.WatchesEveryAgent;
+        return DeviceBodyPhase.Reads.Poses | DeviceBodyPhase.Reads.Walkers | (_overlapRead ? DeviceBodyPhase.Reads.Overlap : 0);
+    }
+
     /// <summary>The host's time laying the last step's rows, in milliseconds.</summary>
     public double LayMs { get; private set; }
 
@@ -94,12 +112,15 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
     public double RosterMs { get; private set; }
 
     /// <summary>
-    /// Of <see cref="HandBackMs"/>, the table's own working out: what the step woke, its freezing and what began touching
+    /// Of <see cref="HandBackMs"/>, the table taking what the step froze and what began touching
     /// (<see cref="PhysicsWorld.EndTheStepTaken"/>), in milliseconds.
     /// </summary>
     public double SettlingMs { get; private set; }
 
-    /// <summary>How many bytes the last step handed back: the totals and the cars, every walker in the world, and the contacts.</summary>
+    /// <summary>
+    /// How many bytes the last step handed back: the totals and the cars, every walker in the world, what woke, froze and
+    /// began touching, and the overlap where it was asked for.
+    /// </summary>
     public ulong ReadBytes { get; private set; }
 
     /// <summary>Whether the last step laid the table whole.</summary>
@@ -155,9 +176,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
     /// walkers' tick the caller has barriered against a copy (<see cref="Vk.BeforeTransfer"/>).
     /// </summary>
     public void RecordTheStep(CommandBuffer commands, TownWorld town, float dtS) =>
-        _phase.Record(
-            commands, town.Cars.Count, town.People.Count, dtS,
-            DeviceBodyPhase.Reads.Poses | DeviceBodyPhase.Reads.Walkers | DeviceBodyPhase.Reads.Contacts);
+        _phase.Record(commands, town.Cars.Count, town.People.Count, dtS, WhatIsRead(town));
 
     /// <summary>What the recorded step left, handed back once the caller's submit has been waited for.</summary>
     /// <param name="placedMeanwhile">
@@ -197,9 +216,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         var laid = Stopwatch.GetTimestamp();
 
         var commands = _batch.Begin();
-        _phase.Record(
-            commands, town.Cars.Count, town.People.Count, dtS,
-            DeviceBodyPhase.Reads.Poses | DeviceBodyPhase.Reads.Walkers | DeviceBodyPhase.Reads.Contacts);
+        _phase.Record(commands, town.Cars.Count, town.People.Count, dtS, WhatIsRead(town));
         if (!handedOver.IsEmpty)
         {
             if (HandsOverThrough is { } cars) cars.RecordTheHandOver(commands, handedOver);
@@ -234,7 +251,12 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         if (LaidWhole)
         {
             _solver.LayWhole(table);
-            if (physics.StepsTaken != _stepsTaken) _solver.LayTheRestCounts(table);
+            if (physics.StepsTaken != _stepsTaken)
+            {
+                _solver.LayTheRestCounts(table);
+                _solver.LayTheTouching(physics.TouchingKeys);
+            }
+
             _bodiesLaid = table.Count;
             if (!tickedInThisSubmit) LayEveryPose(cars);
         }
@@ -323,8 +345,8 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
 
     /// <summary>
     /// <b>What the step left, handed back</b>: every car into the fleet as the town's own phase writes it, every walker
-    /// in the world with how far that step took it, every body into the solver's table, what the step took in, the
-    /// contacts in its order and what it froze — after which the table says what began touching.
+    /// in the world with how far that step took it, every body into the solver's table, what the step took in, what it
+    /// froze and which pairs began touching, in its order.
     /// </summary>
     void HandBack(TownWorld town, ReadOnlySpan<int> placedMeanwhile = default)
     {
@@ -369,34 +391,23 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
 
         foreach (var body in _solver.Woke) physics.WokeInTheStep(body);
 
-        var contacts = _solver.Contacts;
-        var normals = _solver.ContactNormals;
-        var points = _solver.ContactPoints;
-        for (var contact = 0; contact < contacts.Length; contact++)
-        {
-            var pair = contacts[contact];
-            var normal = normals[contact];
-            var at = points[contact];
-            var manifold = new Manifold
-            {
-                Normal = new Vector2(normal.X, normal.Y),
-                Separation0 = normal.Z,
-                Separation1 = normal.W,
-                Point0 = new Vector2(at.X, at.Y),
-                Point1 = new Vector2(at.Z, at.W),
-                PointCount = (int)pair.Z,
-            };
-            physics.Touched((int)pair.X, (int)pair.Y, manifold);
-        }
-
         var ending = Stopwatch.GetTimestamp();
         physics.EndTheStepTaken(_solver.Froze);
+        var begun = _solver.Begun;
+        foreach (var pair in begun)
+        {
+            physics.BeganInTheStep(
+                (int)pair.X, (int)pair.Y, new Vector2(BitConverter.UInt32BitsToSingle(pair.Z), BitConverter.UInt32BitsToSingle(pair.W)));
+        }
+
+        if (_overlapRead) physics.TakeTheOverlapM(MemoryMarshal.Cast<uint, float>(_solver.OverlapBits));
+
         SettlingMs = Stopwatch.GetElapsedTime(ending).TotalMilliseconds;
         _stepsTaken = physics.StepsTaken;
         _posesLeftFor = cars.Count;
         ReadBytes = _phase.ReadBytes + (ulong)(walkers * Unsafe.SizeOf<Vector4>())
-                    + (ulong)(contacts.Length * (Unsafe.SizeOf<UInt4>() + (2 * Unsafe.SizeOf<Vector4>())))
-                    + (ulong)((2 + _solver.Woke.Length + _solver.Froze.Length) * sizeof(uint));
+                    + (ulong)((2 + _solver.Woke.Length + _solver.Froze.Length) * sizeof(uint))
+                    + (ulong)(begun.Length * Unsafe.SizeOf<UInt4>());
     }
 
     public void Dispose()

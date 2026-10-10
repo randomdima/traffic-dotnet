@@ -104,6 +104,7 @@ internal sealed partial class PhysicsWorld
         if (_staticIndexStale) SettleStatics();
 
         _indexedWhenAsked = false;
+        _overlapTaken = true;
         LayTheIndexes();
         FindContacts();
         IntegratedBodyCount = _movingCount;

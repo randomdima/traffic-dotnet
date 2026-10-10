@@ -240,11 +240,12 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **Two straights for one walker** while the device keeps the walkers: the device's walks commit them and the town's
   (`WalkingGround.StraightOf`) are left as they were, so a rebuild the town lays itself walks the town's, and a walker new
   to the device is sent the town's. Nothing else reads them; reading the device's back where it commits one closes it.
-- **The host's rest counts stand still while the device steps the bodies** (`PhysicsWorld._restTicks`,
-  `kernels/settle.comp`). They are the counts the device was handed, plus every reset since. A town whose device is
-  unset goes on freezing from those, so a body can freeze late or early once, by up to the rest time. The probes unset
-  it only as they finish, and nothing steps a town after that today. Reading the device's counts back when it is unset
-  closes it.
+- **The host's rest counts and touching pairs stand still while the device steps the bodies** (`PhysicsWorld._restTicks`,
+  `_previousKey`; `kernels/settle.comp`, `kernels/touches.comp`). They are what the device was handed, with the town's
+  own resets since. A town whose device is unset goes on from those. A body can then freeze late or early once, by up to
+  the rest time, and a pair the device saw begin and stop touching can begin again or go unreported once. The probes
+  unset it only as they finish, and nothing steps a town after that today. Reading both back from the device when it is
+  unset closes it.
 - **`IsUnderWay` checks `OffLineM` against the allowance again** after `ReadTheLine` has already sent any car past it
   into `Rejoin` (SIM-7). Confirm the order of decide, tick and `Switching.SteppedOut` on both host and device before
   dropping it.

@@ -19,13 +19,15 @@ namespace TrafficSimulation.World.Physics;
 /// counts one afresh (<see cref="CountsRestAfresh"/>).
 /// </para>
 /// <para>
-/// <b>The device asks every pair</b>, frozen ones among them; a contact neither of whose bodies the step owned is
-/// dropped, so a touch held between frozen bodies is held here as before (SOL-37c).
+/// <b>The device says which pairs began touching</b>, holding what was touching itself (SOL-6, SOL-37c), so no contact
+/// is handed back: the table holds none after such a step (<see cref="Contacts"/>, <see cref="ContactPointCount"/>), and
+/// how deep a body is into what it touches is known only where it was handed over (<see cref="TakeTheOverlapM"/>). The
+/// table's touching pairs, like its rest counts, are the ones it was handed.
 /// </para>
 /// <para>
 /// The order is <see cref="BeginTheStepTaken"/>, then <see cref="Moved(BodyId, Vector2, Vector2, float, Vector2, float)"/>
-/// for each body the device moved, <see cref="WokeInTheStep"/> for each frozen body it took in and
-/// <see cref="Touched"/> for each contact in the device's order, then <see cref="EndTheStepTaken"/> with what it froze.
+/// for each body the device moved and <see cref="WokeInTheStep"/> for each frozen body it took in, then
+/// <see cref="EndTheStepTaken"/> with what it froze, and <see cref="BeganInTheStep"/> for each pair that began touching.
 /// </para>
 /// </remarks>
 internal sealed partial class PhysicsWorld
@@ -34,6 +36,9 @@ internal sealed partial class PhysicsWorld
 
     /// <summary>Whether the last step was taken elsewhere, so the indexes are laid when first asked rather than by a step.</summary>
     bool _indexedWhenAsked;
+
+    /// <summary>Whether how deep each body is into what it touches is known: after the table's own step, or handed over.</summary>
+    bool _overlapTaken = true;
 
     bool[] _changed = new bool[Room];
     int[] _changedList = new int[Room];
@@ -107,6 +112,7 @@ internal sealed partial class PhysicsWorld
         BeginTheContacts();
         for (var slot = 0; slot < _movingCount; slot++) _ownedInStep[_moving[slot]] = _stepStamp;
         _indexedWhenAsked = true;
+        _overlapTaken = false;
     }
 
     /// <summary>
@@ -135,13 +141,6 @@ internal sealed partial class PhysicsWorld
     public void Moved(BodyId body, Vector2 positionM, Vector2 velocityMps) =>
         Moved(body, positionM, _rotation[body.Index], _headingRad[body.Index], velocityMps, 0f);
 
-    /// <summary>One contact the step found, handed over in the step's own order: by the lower body, then the higher, the furniture second.</summary>
-    public void Touched(int first, int second, in Manifold manifold)
-    {
-        RoomForContact();
-        WriteContact(_contactCount++, first, second, manifold);
-    }
-
     /// <summary>
     /// <b>A frozen body the step took in</b> (SOL-37a): one it moved or left moving, or one touching a body it owned,
     /// and so on along what touches what — woken into it, and owned by it. A body the town has woken or taken out of
@@ -156,33 +155,41 @@ internal sealed partial class PhysicsWorld
     }
 
     /// <summary>
-    /// <b>The step taken elsewhere ended</b>: the contacts kept that the table's own step would have found; the census;
-    /// what the step froze (SOL-37, SOL-37b); and which pairs began touching (SOL-6).
+    /// <b>The step taken elsewhere ended</b>: the census and what the step froze (SOL-37, SOL-37b). Which pairs began
+    /// touching follow (<see cref="BeganInTheStep"/>).
     /// </summary>
     /// <param name="froze">The bodies the step froze, each an owner of it and stilled there.</param>
     public void EndTheStepTaken(ReadOnlySpan<int> froze)
     {
-        KeepTheOwnedContacts();
-        OrderContacts();
         IntegratedBodyCount = _movingCount;
         FreezeWhatTheStepFroze(froze);
         _movingIndexStale = true;
-        ReportBegun();
+        _beganCount = 0;
     }
 
-    /// <summary>The contacts with a body the step owned, kept in their order and taken in as the table's own step takes them; the rest dropped.</summary>
-    void KeepTheOwnedContacts()
+    /// <summary>One pair the step began touching (SOL-6), in its order: by the lower body, then the higher, the furniture second.</summary>
+    public void BeganInTheStep(int first, int second, Vector2 normal)
     {
-        var found = _contactCount;
-        _contactCount = 0;
-        for (var contact = 0; contact < found; contact++)
-        {
-            if (_ownedInStep[_contactA[contact]] != _stepStamp && _ownedInStep[_contactB[contact]] != _stepStamp) continue;
+        RoomForTouching(_beganCount + 1);
+        _beganA[_beganCount] = first;
+        _beganB[_beganCount] = second;
+        _beganNormal[_beganCount] = normal;
+        _beganCount++;
+    }
 
-            var into = _contactCount++;
-            if (into != contact) CopyContact(contact, into);
+    /// <summary>
+    /// The pairs touching as the last step of the table's own left them, held ones among them, by the lower body then the
+    /// higher — for a device that takes the steps on from here.
+    /// </summary>
+    public ReadOnlySpan<ulong> TouchingKeys => _previousKey.AsSpan(0, _previousCount);
 
-            Touching(into);
-        }
+    /// <summary>
+    /// How deep each body was into what it touched in the step taken elsewhere, by index (<see cref="OverlapOf"/>) — handed
+    /// over only where something will read it, since nothing in a tick does.
+    /// </summary>
+    public void TakeTheOverlapM(ReadOnlySpan<float> overlapM)
+    {
+        overlapM[..Math.Min(overlapM.Length, _count)].CopyTo(_overlapM);
+        _overlapTaken = true;
     }
 }
