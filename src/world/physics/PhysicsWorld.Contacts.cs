@@ -19,6 +19,7 @@ internal sealed partial class PhysicsWorld
     void ReportBegun()
     {
         _beganCount = 0;
+        _beganClosed = false;
         _heldCount = 0;
 
         var now = 0;
@@ -148,6 +149,7 @@ internal sealed partial class PhysicsWorld
         Array.Resize(ref _beganA, room);
         Array.Resize(ref _beganB, room);
         Array.Resize(ref _beganNormal, room);
+        Array.Resize(ref _beganClosingMps, room);
     }
 
     /// <summary>The walk over one step's begin-touch events. Not a snapshot — it reads the world's own arrays in place.</summary>
@@ -175,7 +177,8 @@ internal sealed partial class PhysicsWorld
             Current = new Touch(
                 BodyTag.Unpack(_physics._tag[_physics._beganA[began]]),
                 BodyTag.Unpack(_physics._tag[_physics._beganB[began]]),
-                _physics._beganNormal[began]);
+                _physics._beganNormal[began],
+                _physics._beganClosed ? _physics._beganClosingMps[began] : null);
             return true;
         }
     }

@@ -394,11 +394,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         var ending = Stopwatch.GetTimestamp();
         physics.EndTheStepTaken(_solver.Froze);
         var begun = _solver.Begun;
-        foreach (var pair in begun)
-        {
-            physics.BeganInTheStep(
-                (int)pair.X, (int)pair.Y, new Vector2(BitConverter.UInt32BitsToSingle(pair.Z), BitConverter.UInt32BitsToSingle(pair.W)));
-        }
+        foreach (ref readonly var pair in begun) physics.BeganInTheStep((int)pair.First, (int)pair.Second, pair.Normal, pair.ClosingMps);
 
         if (_overlapRead) physics.TakeTheOverlapM(MemoryMarshal.Cast<uint, float>(_solver.OverlapBits));
 
@@ -407,7 +403,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
         _posesLeftFor = cars.Count;
         ReadBytes = _phase.ReadBytes + (ulong)(walkers * Unsafe.SizeOf<Vector4>())
                     + (ulong)((2 + _solver.Woke.Length + _solver.Froze.Length) * sizeof(uint))
-                    + (ulong)(begun.Length * Unsafe.SizeOf<UInt4>());
+                    + (ulong)(begun.Length * Unsafe.SizeOf<DeviceSolver.BegunRow>());
     }
 
     public void Dispose()

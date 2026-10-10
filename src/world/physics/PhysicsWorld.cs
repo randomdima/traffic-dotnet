@@ -27,13 +27,14 @@ internal readonly record struct RayHit(BodyTag Tag, Vector2 PointM, Vector2 Velo
 
 /// <summary>
 /// Two bodies that <b>began</b> touching in the step just taken, and the contact normal, which points
-/// from the first towards the second.
+/// from the first towards the second — and, where the step was taken elsewhere, how fast the two closed along it on
+/// the motion they brought into the tick, which the town's fleets need not hold then.
 /// </summary>
 /// <remarks>
 /// The beginning is reported and never the touching, which is the whole of "once per touch": a pair
 /// resting against each other in a queue is one of these and never sixty a second.
 /// </remarks>
-internal readonly record struct Touch(BodyTag First, BodyTag Second, Vector2 Normal);
+internal readonly record struct Touch(BodyTag First, BodyTag Second, Vector2 Normal, float? ClosingMps = null);
 
 /// <summary>What is true of a body that is not a number: seven bits, and nothing that needs a branch to read.</summary>
 [Flags]

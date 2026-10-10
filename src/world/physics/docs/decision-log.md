@@ -3,6 +3,16 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md) and
 [solver.md](solver.md).
 
+## 2026-10-10 — a touch's closing speed is the device's
+
+**The device says how fast each pair that began touching closed** (`Touch.ClosingMps`, `kernels/touches.comp`), so
+phase 5 no longer reads every agent's motion into the tick off the town's fleets (`TownWorld.ReadyTheStep` keeps none
+while a device steps the bodies). The device keeps that motion itself (`DeviceSolver._motionIntoTick`): what the last
+step left once frozen bodies were stilled, plus what the town set outright since (`RowChange.Motion`: a body put down,
+added or contained). A push is left out, as the town's fleets leave it out. The closing speed is the host's own
+dot product on those figures, to the bit. `DeviceTownBodiesTests` holds what the shove breaks and hurts to the host's,
+and halving the device's figure fails it.
+
 ## 2026-10-10 — a changed row lays only what changed
 
 **Of a row the town changed, only what it changed is laid on the device** (`RowChange`, `PhysicsWorld.ChangeOf`,

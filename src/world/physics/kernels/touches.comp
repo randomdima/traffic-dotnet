@@ -35,8 +35,20 @@ layout(std430, binding = 6) buffer Now { uvec2 now[]; };
 layout(std430, binding = 7) writeonly buffer NowCount { uint nowCount; };
 layout(std430, binding = 8) buffer BegunGroups { uint begunGroups[]; };
 
-// The pair and the normal of each begun, from 0 on, as many as there is room for (begunRoom).
-layout(std430, binding = 9) writeonly buffer Begun { uvec4 begun[]; };
+// Each begun from 0 on, as many as there is room for (begunRoom): its pair, its normal, and how fast the two closed along
+// it on the motion they brought into the tick (DeviceSolver.BegunRow, ContactArbiter) — the furniture's none.
+struct BegunRow
+{
+    uvec2 pair;
+    vec2 normal;
+    float closingMps;
+    float pad0;
+    float pad1;
+    float pad2;
+};
+
+layout(std430, binding = 9) writeonly buffer Begun { BegunRow begun[]; };
+layout(std430, binding = 10) readonly buffer MotionIntoTick { vec4 motionIntoTick[]; };
 
 shared uint scanned[64];
 
@@ -108,5 +120,7 @@ void main()
 
     uvec2 pair = contact[at].xy;
     vec2 normal = contactNormal[at].xy;
-    begun[into] = uvec4(pair, floatBitsToUint(normal.x), floatBitsToUint(normal.y));
+    precise vec2 apartMps = motionIntoTick[pair.x].xy - motionIntoTick[pair.y].xy;
+    precise float closingMps = apartMps.x * normal.x + apartMps.y * normal.y;
+    begun[into] = BegunRow(pair, normal, closingMps, 0.0, 0.0, 0.0);
 }

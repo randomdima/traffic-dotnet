@@ -240,15 +240,20 @@ internal sealed partial class PhysicsWorld
         FreezeWhatTheStepFroze(froze);
         _movingIndexStale = true;
         _beganCount = 0;
+        _beganClosed = true;
     }
 
-    /// <summary>One pair the step began touching (SOL-6), in its order: by the lower body, then the higher, the furniture second.</summary>
-    public void BeganInTheStep(int first, int second, Vector2 normal)
+    /// <summary>
+    /// One pair the step began touching (SOL-6), in its order — by the lower body, then the higher, the furniture second
+    /// — and how fast the two closed along the normal on the motion they brought into the tick.
+    /// </summary>
+    public void BeganInTheStep(int first, int second, Vector2 normal, float closingMps)
     {
         RoomForTouching(_beganCount + 1);
         _beganA[_beganCount] = first;
         _beganB[_beganCount] = second;
         _beganNormal[_beganCount] = normal;
+        _beganClosingMps[_beganCount] = closingMps;
         _beganCount++;
     }
 

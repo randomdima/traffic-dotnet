@@ -160,8 +160,12 @@ internal sealed partial class TownWorld
 
         // The motion the step begins from, kept because it is the motion phase 5's arithmetic is about: a contact is
         // reported after the step, by which time the bodies hold the solver's response to it and no longer the cause.
-        for (var person = 0; person < People.Count; person++) _velocityIntoTickMps[person] = People.VelocityMps[person];
-        for (var car = 0; car < Cars.Count; car++) _velocityIntoTickMps[Roster.AgentOfCar(car)] = Cars.VelocityMps[car];
+        // A device stepping the bodies keeps it itself, and says each touch's closing speed (Touch.ClosingMps).
+        if (Device == null)
+        {
+            for (var person = 0; person < People.Count; person++) _velocityIntoTickMps[person] = People.VelocityMps[person];
+            for (var car = 0; car < Cars.Count; car++) _velocityIntoTickMps[Roster.AgentOfCar(car)] = Cars.VelocityMps[car];
+        }
 
         BeforeTheImpulses?.Invoke(this);
     }

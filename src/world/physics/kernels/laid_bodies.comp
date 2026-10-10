@@ -44,6 +44,10 @@ layout(std430, binding = 5) writeonly buffer ShapeB { vec4 shape[]; };
 layout(std430, binding = 6) writeonly buffer Bounds { vec4 bounds[]; };
 layout(std430, binding = 7) writeonly buffer Filter { uvec4 filter_[]; };
 
+// The motion the step finds before anything is spent on it (DeviceSolver._motionIntoTick): what the town set, as its
+// fleets hold it — which a push is not.
+layout(std430, binding = 8) writeonly buffer MotionIntoTick { vec4 motionIntoTick[]; };
+
 void main()
 {
     uint at = gl_GlobalInvocationID.x;
@@ -61,6 +65,7 @@ void main()
     if ((row.laid & LaidMotion) != 0u)
     {
         motion[body] = row.motion;
+        motionIntoTick[body] = row.motion;
     }
     else if ((row.laid & LaidPushed) != 0u)
     {

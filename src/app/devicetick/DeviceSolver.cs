@@ -150,6 +150,13 @@ internal sealed class DeviceSolver : IDisposable
     readonly GpuBuffer _owners;
     readonly GpuBuffer _overlap;
 
+    /// <summary>
+    /// Each body's motion as the next step finds it before anything is spent on it: the last step's, and what the town
+    /// set since (<see cref="RowChange.Motion"/>) — but not a push, which the town's fleets never hold. What a pair's
+    /// closing speed is read off (<c>kernels/touches.comp</c>, <c>TownWorld.VelocityIntoTickMps</c>).
+    /// </summary>
+    readonly GpuBuffer _motionIntoTick;
+
     // What the step settled (kernels/settle.comp).
     readonly GpuBuffer _moved;
     readonly GpuBuffer _restTicks;
@@ -323,6 +330,7 @@ internal sealed class DeviceSolver : IDisposable
         _filter = Device<UInt4>(_bodies);
         _owners = Device<int>(Math.Max(1, _moving.Length));
         _overlap = Device<uint>(_bodies);
+        _motionIntoTick = Device<Vector4>(_bodies);
         _moved = Device<uint>(_bodies);
         _restTicks = Device<uint>(_bodies);
         _restIn = Staging<uint>(_bodies);
@@ -335,7 +343,7 @@ internal sealed class DeviceSolver : IDisposable
         _touchedCount = [Device<uint>(1), Device<uint>(1)];
         _begunGroups = Device<uint>(BegunGroups);
         BegunRoom = Math.Max(1024, _moving.Length);
-        _begunOut = Readback<UInt4>(BegunRoom);
+        _begunOut = Readback<BegunRow>(BegunRoom);
         _touchedIn = Staging<UInt2>(Math.Max(1, _moving.Length));
 
         _poseIn = Staging<Vector4>(_bodies);
@@ -396,10 +404,10 @@ internal sealed class DeviceSolver : IDisposable
         _prepare = Kernel("prepare.comp", 9);
         _solve = Kernel("solve.comp", 13);
         _integrate = Kernel("integrate.comp", 9);
-        _laidBodies = Kernel("laid_bodies.comp", 8);
+        _laidBodies = Kernel("laid_bodies.comp", 9);
         _settle = Kernel("settle.comp", 14);
         _settleSpread = Kernel("settle_spread.comp", 14);
-        _touches = Kernel("touches.comp", 10, sets: 2);
+        _touches = Kernel("touches.comp", 11, sets: 2);
 
         _movingCountSet = _gridCount.Bind([_owners, _bounds, _movingCounts]);
         _movingFillSet = _gridFill.Bind([_owners, _bounds, _movingStarts, _movingCursor, _movingItemsBuffer]);
@@ -435,11 +443,17 @@ internal sealed class DeviceSolver : IDisposable
         _touchesSets =
         [
             _touches.Bind(
-                [_contact, _contactNormal, _totals, _settling, _touched[0], _touchedCount[0], _touched[1], _touchedCount[1], _begunGroups, _begunOut]),
+            [
+                _contact, _contactNormal, _totals, _settling, _touched[0], _touchedCount[0], _touched[1], _touchedCount[1], _begunGroups,
+                _begunOut, _motionIntoTick,
+            ]),
             _touches.Bind(
-                [_contact, _contactNormal, _totals, _settling, _touched[1], _touchedCount[1], _touched[0], _touchedCount[0], _begunGroups, _begunOut]),
+            [
+                _contact, _contactNormal, _totals, _settling, _touched[1], _touchedCount[1], _touched[0], _touchedCount[0], _begunGroups,
+                _begunOut, _motionIntoTick,
+            ]),
         ];
-        _laidBodiesSet = _laidBodies.Bind([_laidRows, _pose, _heading, _motion, _mass, _shape, _bounds, _filter]);
+        _laidBodiesSet = _laidBodies.Bind([_laidRows, _pose, _heading, _motion, _mass, _shape, _bounds, _filter, _motionIntoTick]);
 
         _movingScan = new PrefixScan(vk, _scans, _movingStarts, _blockSums, _totals, Totals.MovingCellsAt);
         _candidateScan = new PrefixScan(vk, _scans, _candidateStarts, _blockSums, _totals, Totals.CandidatesAt);
@@ -555,19 +569,26 @@ internal sealed class DeviceSolver : IDisposable
     public int BegunRoom { get; }
 
     /// <summary>
-    /// <b>The pairs the last settling step began touching</b> (SOL-6, <c>kernels/touches.comp</c>), in its contacts' order:
-    /// the two bodies, then the normal's two figures as a float's bits.
+    /// <b>The pairs the last settling step began touching</b> (SOL-6, <c>kernels/touches.comp</c>), in its contacts' order.
     /// </summary>
-    public ReadOnlySpan<UInt4> Begun
+    public ReadOnlySpan<BegunRow> Begun
     {
         get
         {
             var count = TotalsRead[Totals.BegunCountAt];
             return count <= BegunRoom
-                ? _begunOut.Span<UInt4>()[..(int)count]
+                ? _begunOut.Span<BegunRow>()[..(int)count]
                 : throw new InvalidOperationException($"{count} pairs began touching in one step, past the {BegunRoom} the device lists.");
         }
     }
+
+    /// <summary>
+    /// One pair that began touching (<c>Begun</c>, <c>kernels/touches.comp</c>): its two bodies, the normal from the first
+    /// to the second, and how fast the two closed along it on the motion they brought into the tick (<c>ContactArbiter</c>).
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal readonly record struct BegunRow(
+        uint First, uint Second, Vector2 Normal, float ClosingMps, float Pad0 = 0f, float Pad1 = 0f, float Pad2 = 0f);
 
     /// <summary>How many workgroups of 64 the step's contacts can take, each counting its own begun.</summary>
     int BegunGroups => (CandidateCapacity + 63) / 64;
@@ -862,6 +883,10 @@ internal sealed class DeviceSolver : IDisposable
         _begunScan.Record(commands, BegunGroups);
         _touches.DispatchIndirect(commands, _touchesSets[_touchedWas], _totals, perContact, push with { Mode = 1, BegunRoom = (uint)BegunRoom });
         _touchedWas ^= 1;
+
+        // The motion the next step finds, before anything is spent on it: this one's, the frozen stilled.
+        vk.BeforeTransfer(commands);
+        CopyRows(commands, _motion, _motionIntoTick);
     }
 
     // The settling's passes (kernels/settle.glsl).
@@ -983,8 +1008,8 @@ internal sealed class DeviceSolver : IDisposable
 
     (GpuBuffer From, GpuBuffer To)[] Uploads() =>
     [
-        (_poseIn, _pose), (_headingIn, _heading), (_motionIn, _motion), (_massIn, _mass), (_shapeIn, _shape),
-        (_boundsIn, _bounds), (_filterIn, _filter),
+        (_poseIn, _pose), (_headingIn, _heading), (_motionIn, _motion), (_motionIn, _motionIntoTick), (_massIn, _mass),
+        (_shapeIn, _shape), (_boundsIn, _bounds), (_filterIn, _filter),
     ];
 
     /// <summary>The moving rows of one field copied across, which is every row the step can have changed; how many bytes they are.</summary>

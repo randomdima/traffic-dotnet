@@ -54,8 +54,9 @@ internal static class ContactArbiter
             judged++;
 
             // Along the normal, which points from the first body to the second: positive is the two of
-            // them closing, and the resolver reads a negative one as what it is — bodies separating.
-            var closingMps = Vector2.Dot(
+            // them closing, and the resolver reads a negative one as what it is — bodies separating. A step
+            // taken elsewhere says it itself, off the motion it kept.
+            var closingMps = touch.ClosingMps ?? Vector2.Dot(
                 roster.VelocityIntoTickMps(touch.First) - roster.VelocityIntoTickMps(touch.Second), touch.Normal);
 
             var verdict = DamageResolver.Resolve(config, first, second, closingMps);

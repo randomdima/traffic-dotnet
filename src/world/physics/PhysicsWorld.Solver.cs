@@ -82,7 +82,11 @@ internal sealed partial class PhysicsWorld
     int[] _beganA = [];
     int[] _beganB = [];
     Vector2[] _beganNormal = [];
+    float[] _beganClosingMps = [];
     int _beganCount;
+
+    /// <summary>Whether the last step's begun pairs came with their closing speeds — a step taken elsewhere's.</summary>
+    bool _beganClosed;
 
     /// <summary>
     /// One tick of the world: what is touching what, what that does to the velocities, and where
