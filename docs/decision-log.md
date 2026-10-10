@@ -18,6 +18,24 @@ regular sync needed. CPU dont need a copy of the engine."** This extends 2026-10
 - **Measured by** the host's work and the bytes crossing a tick, both of which should follow the events, not the town's
   size.
 
+## 2026-10-10 — the host walks only the walkers it holds or touched
+
+**As the cars below.** Every tick, the host walked every walker to find what to patch over the device's table
+(`DeviceWalkerTick.LayWhatChanged`). It then wrote every walker's pace, heading and impulse back from the device's tick
+(`DeviceTown.TakeBackTheWalkers`), and took each as known.
+
+- **A walker the town does not read is left with the device** once nothing the town set of it is waiting to be laid
+  (`DeviceWalkerTick.LeftOnTheDevice`, `HoldsAsTheTownHas`). Its pace, heading and impulse are then the device's, and
+  the town's copy of them is as old as what the device is known to hold. A walker comes back with its pose wherever
+  that is taken back (`TakeTheTickBack`): before a decision of the town's, a hand-back of every car, or the device let
+  go.
+- **The walks take the walkers the town holds and those it touched** (`TownWorld.TouchedWalkers`), or every walker
+  where the agents are held or let go or a watch begins or ends. A walker the device kept that the town changed in
+  between would throw (`DeviceWalkerTick.ChecksTheVisits`, on in every device town the suite builds). The check found one
+  case: a walker held while indoors, left with its walk out of the door unlaid.
+- **`DeviceTown.Dispose` waits out what a tick left in flight** before it takes anything back, and frees nothing until
+  the device is idle.
+
 ## 2026-10-10 — the host walks only the cars it holds or touched
 
 **Under the owner's goal above.** Every tick the host walked every car to find what to send (`DeviceCarTick.Prepare`),

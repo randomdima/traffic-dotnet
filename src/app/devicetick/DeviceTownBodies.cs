@@ -329,7 +329,7 @@ internal sealed class DeviceTownBodies : ITownDevice, IDisposable
             {
                 var townsOwn = tickedInThisSubmit
                     ? !walkersTicked || TheTownsImpulse(town, person)
-                    : person >= ticked || _walkerTick.ImpulseAfter(person) != impulseNs;
+                    : person >= ticked || (_walkerTick.TownHolds(person) && _walkerTick.ImpulseAfter(person) != impulseNs);
                 if (townsOwn) _phase.LayWalkerImpulse(person, impulseNs);
                 continue;
             }

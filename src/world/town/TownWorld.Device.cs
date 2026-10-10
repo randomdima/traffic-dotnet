@@ -52,6 +52,16 @@ internal sealed partial class TownWorld
     public void TouchTheCar(int car) => TouchedCars.Add(car);
 
     /// <summary>
+    /// <b>The walkers the town set anything of a device may keep, since the device last took them in</b> — what it is doing,
+    /// whether it is indoors, wounded or on duty — so the device lays those again and walks no other walker the town does
+    /// not hold. The device clears it once it has.
+    /// </summary>
+    public AgentSet TouchedWalkers { get; }
+
+    /// <summary>One walker marked set by the town (<see cref="TouchedWalkers"/>).</summary>
+    public void TouchTheWalker(int person) => TouchedWalkers.Add(person);
+
+    /// <summary>
     /// <b>Whether an instrument reads every agent every tick</b> — a watch's claims over the whole fleet, and over every
     /// walker — so a device hands back every car's grant left with every tick (<see cref="GrantLeftM"/>), every walker a
     /// claims rebuild changed (<see cref="ReadsTheWalker"/>), and how deep every body is into what it touches.

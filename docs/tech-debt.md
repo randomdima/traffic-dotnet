@@ -36,9 +36,11 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   perf runs, at 8.1, 6.8 and 2.5 B a tick, and again at 5.7 on 2026-10-10. It passes alone and in reruns of the tier, and a per-agent trace of phases 1–3 found no
   allocation. A `P0` gate that flickers is either a real allocation on a rare path or a measurement that counts
   something it should not; which is not known.
-- **The device tier's test host crashed once** (2026-10-10), a few seconds into the run, just after a kernel was rebuilt,
-  with nothing but the drivers' warnings in the log; every class passed alone and the whole tier passed in three reruns
-  since. Unexplained: a crash dump of the next one closes it.
+- **The device tier's test host crashed twice** (2026-10-10), with nothing but the drivers' warnings in the log: once a
+  few seconds into a run just after a kernel was rebuilt, once in a run where a device town threw mid-tick. Every class
+  passed alone and the whole tier in every rerun. The suspect is a town disposed with its device still working on what
+  it freed — lavapipe runs the kernels on the host's own threads — which `DeviceTown.Dispose` now waits out; a crash dump
+  of the next one, or none in a week of runs, closes it.
 
 ## Regressions and figures not taken
 
@@ -91,16 +93,14 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **A tow's ground is laid on the device and held by no gate** (`rebuild_standing.comp`, root log 2026-10-10): a hand's
   is, by `DeviceRebuildTests` and `DeviceTownClaimsTests`, and a tow's differs only in whose ground it is — the truck's
   (`TownWorld.LaidAs`). A truck towing a car through a staged town, held to the town's own laying, closes it.
-- **A tick that throws between its submit and its wait is reported as `DeviceTown.Dispose`'s "A batch is begun again
-  while its last submit is in flight"**: the town's own exception is lost behind the one disposing it throws. A dispose
-  that waits out whatever is in flight first closes it.
 - **The Android head has not been built since the device tick came in** (branch `gpu-resident-sim`): no Android SDK
   where it was worked on. It compiles all of `src/` against Vulkan, so it takes `app/devicetick` as the desktop does,
   and its shader targets must embed the device's kernels (`copy_runs.comp` among them). A build of it closes this.
 - **Nothing since the claims laid where they stand is measured** (root log 2026-10-10: those claims, a car on a pass
-  planned on the device, the host walking only the cars it holds or touched): the one `--bench devicetown` run on
-  OdesaOsm since was taken beside a game holding three and a half cores and the GPU, the host town's own tick 90.1 ms
-  against 74.1 before, so none of it compares. A run on a quiet machine closes it — the cars walked a tick among it.
+  planned on the device, the host walking only the cars and walkers it holds or touched): the one `--bench devicetown`
+  run on OdesaOsm since was taken beside a game holding three and a half cores and the GPU, the host town's own tick
+  90.1 ms against 74.1 before, so none of it compares. A run on a quiet machine closes it — the cars and walkers walked a
+  tick among it.
 - **Not measured since they landed**: the walker as one wheel, the car no longer asked its ground, and the
   consolidation after them (`WheelGrounds`, `DeviceGround` gone, the walker's pavement read). The figures in the road
   and terrain logs predate all three; the soak after them kept all twelve of OdesaOsm's claims.

@@ -132,6 +132,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _walkers = new DeviceWalkerTick(vk, config, town.People.Capacity, resident: true);
         _carsUnread = new bool[cars.Capacity];
         _walkersUnread = new bool[town.People.Capacity];
+        _walkersBack = new int[town.People.Capacity];
         _bodies = new DeviceTownBodies(vk, config, town, _tyres, _walkers)
         {
             HandsOverThrough = _cars, CarsUnread = _carsUnread, WalkersUnread = _walkersUnread,
@@ -288,6 +289,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         if (more || checks)
         {
             kept.TakeUpTheDecided(_town, _walkers, person);
+            _walkers.TakeTheTickBack(_town, person);
             _bodies.TakeThePoseBack(_town, person);
         }
         if (checks) CheckTheWalkersVerdict(person, more);
@@ -809,6 +811,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     public void TakeTheWalkerBack(TownWorld town, int person)
     {
         KeptWalkers.TakeBackTheLeft(town, _walkers, person);
+        _walkers.TakeTheTickBack(town, person);
         _bodies.TakeThePoseBack(town, person);
     }
 
@@ -831,6 +834,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     public void TakeEveryCarBack(TownWorld town)
     {
         KeptWalkers.TakeBackTheLeft(town, _walkers);
+        _walkers.TakeEveryTickBack(town);
         _bodies.TakeEveryPoseBack(town);
         var cars = town.Cars;
         var count = 0;
@@ -871,6 +875,9 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// (<see cref="DeviceCarTick.Walked"/>), or every car.
     /// </summary>
     public long CarsWalked { get; private set; }
+
+    /// <summary>And how many walkers (<see cref="DeviceWalkerTick.Walked"/>).</summary>
+    public long WalkersWalked { get; private set; }
 
     /// <summary>How many times the town read every car, which every car the device kept was handed back for (<see cref="TakeEveryCarBack"/>).</summary>
     public long TakenBackWhole { get; private set; }
@@ -976,6 +983,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
             _cars.VisitsEveryCar = true;
         }
 
+        if (town.WatchesEveryAgent != _watchedEveryAgent) _walkers.VisitsEveryWalker = true;
         _watchedEveryAgent = town.WatchesEveryAgent;
         _count = _cars.Prepare(town, _taken, resident: true, laidByTheTown, chosen, posesInTheTable);
         CarsWalked += _cars.Walked.Length;
@@ -990,6 +998,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _cars.HandsBackTheGrantsLeft = town.WatchesEveryAgent;
         town.DriveClocks.ForgetTheTouched();
         _walkerCount = _walkers.LayWhatChanged(town);
+        WalkersWalked += _walkers.Walked.Length;
 
         // The walkers' holds as the readers read them are copied this tick where the readers keep up with the claims, off
         // the last rebuild laid here — which a laying of the town's own since leaves behind.
@@ -1404,18 +1413,32 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     {
         var people = town.People;
         var ticks = _walkers.TicksAfter;
-        for (var person = 0; person < _walkerCount; person++)
+        var everyWalker = !DecidesTheWalkers || town.ReadsEveryCarAfterTheTick;
+
+        // Of a walker the town neither holds nor touched nothing changed but what the device's tick wrote, which it keeps; of
+        // the rest, one the town does not read and has set nothing of since it was laid is left with it (TakeTheWalkerBack).
+        foreach (var person in _walkers.TheWalkersToTakeBack(_walkerCount, _walkersBack))
         {
+            if (!everyWalker && !town.ReadsTheWalker(person) && !town.WalksUnderAHand(person) && _walkers.HoldsAsTheTownHas(town, person))
+            {
+                _walkers.LeftOnTheDevice(person);
+                continue;
+            }
+
             ref readonly var tick = ref ticks[person];
             if (!_walkers.WroteLastTick(tick) || DeviceTownBodies.TheTownsImpulse(town, person)) continue;
 
             people.HeadingRad[person] = tick.HeadingRad;
             people.DeclaredMps[person] = tick.DeclaredMps;
             town.WalkerImpulseFor(person) = tick.ImpulseNs;
+            _walkers.KnowTheTick(person);
         }
 
-        _walkers.KnowTheTick();
+        _walkers.CheckTheTick();
     }
+
+    /// <summary>The walkers a take-back walks.</summary>
+    readonly int[] _walkersBack;
 
     /// <summary>
     /// The cars and walkers whose poses the town does not read after the step about to be taken back
@@ -1438,22 +1461,51 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     readonly bool[] _carsUnread;
     readonly bool[] _walkersUnread;
 
-    public void TakeThePoseBack(TownWorld town, int agent) => _bodies.TakeThePoseBack(town, agent);
+    /// <remarks>A walker's pace, heading and impulse are taken back with its pose (<see cref="DeviceWalkerTick.TakeTheTickBack"/>).</remarks>
+    public void TakeThePoseBack(TownWorld town, int agent)
+    {
+        if (!town.Roster.IsCar(agent)) _walkers.TakeTheTickBack(town, agent);
+        _bodies.TakeThePoseBack(town, agent);
+    }
 
-    public void TakeEveryPoseBack(TownWorld town) => _bodies.TakeEveryPoseBack(town);
+    public void TakeEveryPoseBack(TownWorld town)
+    {
+        _walkers.TakeEveryTickBack(town);
+        _bodies.TakeEveryPoseBack(town);
+    }
 
     /// <remarks>
     /// The last laying landed with every hold, and every car the device keeps handed back whole, before the decisions put
     /// off are taken: the town goes on ticking its agents itself, and reads any of them.
     /// </remarks>
+    /// <remarks>
+    /// <b>Whatever a tick left in flight is waited out first</b> — one that threw between its submit and its wait — and the
+    /// device is idle before anything is freed, whatever the taking back threw.
+    /// </remarks>
     public void Dispose()
     {
-        _bodies.TakeEveryPoseBack(_town);
-        _townClaims.LandTheLastLaying(_town);
-        _townClaims.Rebuild.LandEveryHold(_town.ReadersOccupancy);
-        HandBackAlone(_town, Leaving(_town, everyKept: true));
-        KeptWalkers.TakeBackTheLeft(_town, _walkers);
-        _town.TakeTheDecisionsPutOff();
+        _headBatch.Wait();
+        _batch.Wait();
+        _stepBatch.Wait();
+        try
+        {
+            _walkers.TakeEveryTickBack(_town);
+            _bodies.TakeEveryPoseBack(_town);
+            _townClaims.LandTheLastLaying(_town);
+            _townClaims.Rebuild.LandEveryHold(_town.ReadersOccupancy);
+            HandBackAlone(_town, Leaving(_town, everyKept: true));
+            KeptWalkers.TakeBackTheLeft(_town, _walkers);
+            _town.TakeTheDecisionsPutOff();
+        }
+        finally
+        {
+            _vk.WaitIdle();
+            DisposeTheTables();
+        }
+    }
+
+    void DisposeTheTables()
+    {
         _timer.Dispose();
         _stepBatch.Dispose();
         _headBatch.Dispose();

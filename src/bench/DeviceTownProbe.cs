@@ -144,6 +144,7 @@ internal static class DeviceTownProbe
         var drivenByTheTown = drivenByTheTownFrom;
         var leftFrom = device?.CarsLeftOnTheDevice ?? 0L;
         var walkedFrom = device?.CarsWalked ?? 0L;
+        var walkersWalkedFrom = device?.WalkersWalked ?? 0L;
         var byTheClockFrom = world.DecidedByTheClock;
         var byTheTownFrom = device?.DecidedByTheTown ?? 0L;
         var walkersByTheClockFrom = world.WalkersDecidedByTheClock;
@@ -262,7 +263,8 @@ internal static class DeviceTownProbe
                 $"submit, {device.HandedOver.Alone - handedAlone} in {device.HandOverSubmits - handOverSubmits} submits of their own; " +
                 $"{(drivenByTheTown - drivenByTheTownFrom) / (double)MeasuredTicks:F1} driven cars a tick the town ticked itself, on " +
                 $"{ticksDrivingAny} of the {MeasuredTicks} ticks; {(device.CarsLeftOnTheDevice - leftFrom) / (double)MeasuredTicks:F0} " +
-                $"cars a tick left on the device unread, {(device.CarsWalked - walkedFrom) / (double)MeasuredTicks:F0} walked by the host to send, " +
+                $"cars a tick left on the device unread, {(device.CarsWalked - walkedFrom) / (double)MeasuredTicks:F0} cars and " +
+                $"{(device.WalkersWalked - walkersWalkedFrom) / (double)MeasuredTicks:F0} walkers walked by the host to send, " +
                 $"every car taken back {device.TakenBackWhole - takenWholeFrom} times; " +
                 $"{(world.DecidedByTheClock - byTheClockFrom) / (double)MeasuredTicks:F0} cars' decisions a tick their clock alone, run on " +
                 $"the device, and {(device.DecidedByTheTown - byTheTownFrom) / (double)MeasuredTicks:F0} the device asked of handed to the town; " +

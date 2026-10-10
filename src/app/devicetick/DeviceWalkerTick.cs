@@ -2,6 +2,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using Silk.NET.Vulkan;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Town;
 using Vk = TrafficSimulation.Runtime.Vk;
@@ -117,6 +118,10 @@ internal sealed partial class DeviceWalkerTick : IDisposable
         _known = new WalkerRow[capacity];
         _knownImpulse = new Vector2[capacity];
         _isKnown = new bool[capacity];
+        _townHolds = new AgentSet(capacity);
+        _walked = new AgentSet(capacity);
+        _takenBack = new AgentSet(capacity);
+        _walk = new int[capacity];
     }
 
     /// <summary>The most walkers the table holds.</summary>
@@ -195,8 +200,20 @@ internal sealed partial class DeviceWalkerTick : IDisposable
         var patches = _patchesIn!.Span<Patch>();
         var paused = town.HoldAgents;
         _patchCount = 0;
-        for (var person = 0; person < people.Count; person++)
+
+        // A walker added is the town's own; only one the town holds or touched can be other than the device is known to hold.
+        for (var person = _walkersAdded; person < people.Count; person++) _townHolds.Add(person);
+        _walkersAdded = people.Count;
+        var every = VisitsEveryWalker || paused != _paused;
+        VisitsEveryWalker = false;
+        _paused = paused;
+        var walk = _walk.AsSpan(0, every ? EveryWalker(people.Count) : _townHolds.Union(town.TouchedWalkers, people.Count, _walk));
+        _walkedCount = walk.Length;
+        town.TouchedWalkers.Clear();
+        _walked.Clear();
+        foreach (var person in walk)
         {
+            _walked.Add(person);
             var row = RowOf(people, person, paused);
             var impulseNs = town.WalkerImpulseNs(person);
             _bodies.Lay(person, people.Body[person].Index);
@@ -216,35 +233,164 @@ internal sealed partial class DeviceWalkerTick : IDisposable
             _isKnown[person] = true;
         }
 
+        if (ChecksTheVisits && !every) HoldTheUnwalked(town, paused);
+
         return people.Count;
     }
 
     /// <summary>
-    /// Resident: what the tick just handed back taken as what the device holds — every walker's pace, impulse and heading.
+    /// Every walker <see cref="LayWhatChanged"/> did not walk held to what the device is known to hold of it, its impulse
+    /// with it, and to a walker the town neither reads nor walks under a hand: one the town changed while the device kept
+    /// it, unmarked (<see cref="TownWorld.TouchedWalkers"/>), throws.
     /// </summary>
-    public void KnowTheTick()
+    void HoldTheUnwalked(TownWorld town, bool paused)
     {
-        var ticks = TicksAfter;
-        for (var walker = 0; walker < ticks.Length; walker++)
+        var people = town.People;
+        for (var person = 0; person < people.Count; person++)
         {
-            ref readonly var tick = ref ticks[walker];
-            if (!WroteLastTick(tick)) continue;
+            if (_walked.Has(person)) continue;
 
-            _known[walker] = _known[walker] with { DeclaredMps = tick.DeclaredMps, HeadingRad = tick.HeadingRad };
-            _knownImpulse[walker] = tick.ImpulseNs;
+            var row = RowOf(people, person, paused);
+            var unlike =
+                !_isKnown[person] ? "whether the device is known to hold it"
+                : !SameButTheBody(row, _known[person]) ? $"its row, {row} against {_known[person]}"
+                : town.WalkerImpulseNs(person) != _knownImpulse[person] ? "its impulse"
+                : town.ReadsTheWalker(person) ? "whether the town reads it"
+                : town.WalksUnderAHand(person) ? "whether a hand walks it"
+                : null;
+            if (unlike is null) continue;
+
+            throw new InvalidOperationException(
+                $"Walker {person} was changed by the town while the device kept it, and not marked touched: {unlike}.");
         }
+    }
 
+    /// <summary>
+    /// <b>Whether the next <see cref="LayWhatChanged"/> walks every walker</b>: set where what each is read for changed at
+    /// once — a watch begun or let go — and cleared by it; the agents held or let go walk every walker too.
+    /// </summary>
+    public bool VisitsEveryWalker { get; set; } = true;
+
+    /// <summary>
+    /// <b>Whether to hold every walker <see cref="LayWhatChanged"/> did not walk to what the device is known to hold</b>, and
+    /// throw where it differs (<see cref="HoldTheUnwalked"/>).
+    /// </summary>
+    public bool ChecksTheVisits { get; set; } = DeviceCarTick.ChecksTheVisitsInEveryTown;
+
+    /// <summary>Which walkers the town holds as the device last left them — their pace, heading and impulse — a bit a walker.</summary>
+    AgentSet _townHolds = null!;
+
+    /// <summary>Which walkers the last <see cref="LayWhatChanged"/> walked, a bit a walker and in order, and how many.</summary>
+    AgentSet _walked = null!;
+
+    int[] _walk = [];
+    int _walkedCount;
+
+    /// <summary>How many walkers the table had when <see cref="LayWhatChanged"/> last took the added in, and whether the agents were held.</summary>
+    int _walkersAdded;
+
+    bool _paused;
+
+    /// <summary>The walkers the last <see cref="LayWhatChanged"/> walked, in order: every walker whose row the town may have set.</summary>
+    public ReadOnlySpan<int> Walked => _walk.AsSpan(0, _walkedCount);
+
+    int EveryWalker(int count)
+    {
+        for (var person = 0; person < count; person++) _walk[person] = person;
+        return count;
+    }
+
+    /// <summary>Whether the town holds this walker's pace, heading and impulse as the device last left them.</summary>
+    public bool TownHolds(int walker) => _townHolds.Has(walker);
+
+    /// <summary>
+    /// Whether the device is known to hold a walker as the town has it — nothing the town set of it waiting to be laid — so
+    /// it may be left with the device.
+    /// </summary>
+    public bool HoldsAsTheTownHas(TownWorld town, int walker) =>
+        _isKnown[walker] && SameButTheBody(RowOf(town.People, walker, town.HoldAgents), _known[walker])
+        && town.WalkerImpulseNs(walker) == _knownImpulse[walker];
+
+    /// <summary>
+    /// Whether two rows are one to the tick but for where the walker stands and how it moves, which are its body's — taken
+    /// back with its pose (<see cref="DeviceTownBodies.TakeThePoseBack"/>) and stale in the town where it is not read.
+    /// </summary>
+    static bool SameButTheBody(WalkerRow one, WalkerRow other) =>
+        SameToTheTick(one with { PositionM = default, VelocityMps = default }, other with { PositionM = default, VelocityMps = default });
+
+    /// <summary>A walker the town reads, or took back since: what the device holds of it is the town's again.</summary>
+    public void TookBack(int walker) => _townHolds.Add(walker);
+
+    /// <summary>A walker the town does not read after this tick: its pace, heading and impulse stay the device's.</summary>
+    public void LeftOnTheDevice(int walker) => _townHolds.Remove(walker);
+
+    /// <summary>
+    /// The walkers the last <see cref="LayWhatChanged"/> walked, and those the town holds now — those whose tick the town
+    /// may read — in order, written into <paramref name="into"/>.
+    /// </summary>
+    public Span<int> TheWalkersToTakeBack(int count, Span<int> into)
+    {
+        _takenBack.CopyFrom(_walked);
+        _takenBack.UnionWith(_townHolds);
+        return into[.._takenBack.CopyTo(count, into)];
+    }
+
+    AgentSet _takenBack = null!;
+
+    /// <summary>
+    /// Resident: what the tick handed back of one walker taken as what the device holds — its pace, impulse and heading —
+    /// where its tick last wrote them.
+    /// </summary>
+    public void KnowTheTick(int walker)
+    {
+        ref readonly var tick = ref TicksAfter[walker];
+        if (!WroteLastTick(tick)) return;
+
+        _known[walker] = _known[walker] with { DeclaredMps = tick.DeclaredMps, HeadingRad = tick.HeadingRad };
+        _knownImpulse[walker] = tick.ImpulseNs;
+    }
+
+    /// <summary>
+    /// <b>One walker the device kept taken back as its ticks last left it</b>: the pace, heading and impulse its last tick
+    /// to write any wrote — what the town read of every walker while every one came back — taken as what the device holds.
+    /// Nothing for one the town holds.
+    /// </summary>
+    public void TakeTheTickBack(TownWorld town, int walker)
+    {
+        if (!Resident || walker >= _count || _townHolds.Has(walker)) return;
+
+        _townHolds.Add(walker);
+        ref readonly var tick = ref TicksAfter[walker];
+        if (tick.Tick == 0u) return;
+
+        var people = town.People;
+        people.HeadingRad[walker] = tick.HeadingRad;
+        people.DeclaredMps[walker] = tick.DeclaredMps;
+        town.WalkerImpulseFor(walker) = tick.ImpulseNs;
+        _known[walker] = _known[walker] with { DeclaredMps = tick.DeclaredMps, HeadingRad = tick.HeadingRad };
+        _knownImpulse[walker] = tick.ImpulseNs;
+    }
+
+    /// <summary>Every walker the device kept taken back as its ticks last left it (<see cref="TakeTheTickBack"/>), for a town about to read every one.</summary>
+    public void TakeEveryTickBack(TownWorld town)
+    {
+        for (var walker = 0; walker < _count; walker++) TakeTheTickBack(town, walker);
+    }
+
+    /// <summary>Checked: what the tick read of every walker the town holds held to what it laid, over the last tick.</summary>
+    public void CheckTheTick()
+    {
         if (_checks) TickReadUnlike += UnlikeToTheTick();
     }
 
-    /// <summary>How many walkers the table held, as the last tick read it, other than the town laid them.</summary>
+    /// <summary>How many walkers the town laid that the table held, as the last tick read it, other than laid.</summary>
     int UnlikeToTheTick()
     {
         var read = _readForCheck!.Span<WalkerRow>();
         var unlike = 0;
-        for (var walker = 0; walker < _count; walker++)
+        foreach (var walker in Walked)
         {
-            if (!SameToTheTick(read[walker], _laidForCheck![walker])) unlike++;
+            if (walker < _count && !SameToTheTick(read[walker], _laidForCheck![walker])) unlike++;
         }
 
         return unlike;
