@@ -4,6 +4,7 @@ using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Simulation;
+using TrafficSimulation.World.Physics;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
 
@@ -90,6 +91,7 @@ internal sealed partial class DeviceCarTick
         _takenBits = new AgentSet(capacity);
         _visited = new AgentSet(capacity);
         _takenBack = new AgentSet(capacity);
+        _heldSinceTheLaying = new AgentSet(capacity);
         _visit = new int[capacity];
         _laidWhole = new bool[capacity];
     }
@@ -199,6 +201,7 @@ internal sealed partial class DeviceCarTick
         foreach (var car in visit)
         {
             _visited.Add(car);
+            _heldSinceTheLaying.Add(car);
             if (!posesInTheTable) LayThePose(town, car);
             _askedBefore[car] = town.AsksTheRoute(car);
             _lineLaidDue[car] = cars.LineLaid[car];
@@ -384,7 +387,39 @@ internal sealed partial class DeviceCarTick
     {
         _current[car] = true;
         _townHolds.Add(car);
+        _heldSinceTheLaying.Add(car);
     }
+
+    /// <summary>
+    /// <b>The cars the town may have set anything of since the last laying of the claims asked</b>, in order: those walked or
+    /// held since, those it holds or touched now, and those added since — or every car, where the next laying lays every
+    /// one (<see cref="LaysEveryCarNext"/>, <see cref="VisitsEveryCar"/>). Every other the laying leaves as the last left it.
+    /// The walked and held are forgotten once asked.
+    /// </summary>
+    public ReadOnlySpan<int> TheCarsSetSinceTheLaying(TownWorld town, Span<int> into)
+    {
+        var count = town.Cars.Count;
+        var every = LaysEveryCarNext || VisitsEveryCar;
+        LaysEveryCarNext = false;
+        _heldSinceTheLaying.UnionWith(_townHolds);
+        var laid = Math.Min(_buildsLaid, count);
+        var named = every ? EveryCar(laid, into).Length : _heldSinceTheLaying.Union(town.TouchedCars, laid, into);
+        for (var car = laid; car < count; car++) into[named++] = car;
+        _heldSinceTheLaying.Clear();
+        return into[..named];
+    }
+
+    /// <summary>
+    /// <b>Whether the next laying lays every car</b> (<see cref="TheCarsSetSinceTheLaying"/>): before the first, and after one
+    /// the town laid itself, which left every car's claim the town's.
+    /// </summary>
+    public bool LaysEveryCarNext { get; set; } = true;
+
+    /// <summary>A car whose copy the town wrote from the device's without holding it, to be laid again with the next laying.</summary>
+    public void LayAgainWithTheClaims(int car) => _heldSinceTheLaying.Add(car);
+
+    /// <summary>The cars walked or held since <see cref="TheCarsSetSinceTheLaying"/> last asked.</summary>
+    AgentSet _heldSinceTheLaying = null!;
 
     /// <summary>A car the last tick ticked that the town did not read: its reading, command and tyres are the device's (<see cref="_current"/>).</summary>
     public void LeftOnTheDevice(int car)
@@ -399,6 +434,20 @@ internal sealed partial class DeviceCarTick
     /// touches it, and is walked again, or the step wakes it, and it is taken back (<see cref="TookBack"/>).
     /// </summary>
     public void LeftAtRest(int car) => _townHolds.Remove(car);
+
+    /// <summary>
+    /// Every car left at rest whose body the town moved since the step — pushed, put down — the town's again
+    /// (<see cref="TookBack"/>): asked before anything walks the held cars, the agents' pass or a laying.
+    /// </summary>
+    public void TakeBackWhatTheTownMoved(TownWorld town)
+    {
+        var physics = town.PhysicsForTheDevice;
+        foreach (var body in physics.Changes)
+        {
+            var tag = physics.TagOf(new BodyId(body + 1));
+            if (tag.Kind == BodyKind.Car && IsLeftAtRest(tag.Index)) TookBack(tag.Index);
+        }
+    }
 
     /// <summary>Whether this car is left at rest (<see cref="LeftAtRest"/>): its copy the town's, and walked no more.</summary>
     public bool IsLeftAtRest(int car) => _current[car] && !_townHolds.Has(car) && !_takenBits.Has(car);

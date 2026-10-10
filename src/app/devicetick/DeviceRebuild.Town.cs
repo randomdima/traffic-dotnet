@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Silk.NET.Vulkan;
 using TrafficSimulation.Agents.Car.Actions;
+using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
@@ -376,7 +377,9 @@ internal sealed partial class DeviceRebuild
     {
         var cars = town.Cars;
         var carTick = _carTick!;
-        for (var car = 0; car < _carCount; car++)
+        carTick.TakeBackWhatTheTownMoved(town);
+        _layingCount = carTick.TheCarsSetSinceTheLaying(town, _layingCars).Length;
+        foreach (var car in LayingCars)
         {
             carTick.LayTheLineOf(cars, car);
             _laidOnTheDevice[car] = carTick.HoldsTheReadingOf(cars, car);
@@ -384,6 +387,49 @@ internal sealed partial class DeviceRebuild
         }
 
         carTick.Tyres.LayThePlacedPoses(cars, town.PhysicsForTheDevice);
+    }
+
+    /// <summary>
+    /// <b>The cars this laying lays again</b> (<see cref="DeviceCarTick.TheCarsSetSinceTheLaying"/>), in order: every other is a
+    /// car the device keeps and the town set nothing of since the last, whose line, reading, body, plan, terms and claim are
+    /// what that laying left — held so where the visits are checked (<see cref="HoldTheUnlaidCars"/>).
+    /// </summary>
+    ReadOnlySpan<int> LayingCars => _layingCars.AsSpan(0, _layingCount);
+
+    int[] _layingCars = [];
+    int _layingCount;
+
+    /// <summary>
+    /// Checked: every car this laying did not lay again held to what laying it would have — laid on the device, and the same
+    /// terms and claim — or it throws.
+    /// </summary>
+    void HoldTheUnlaidCars(TownWorld town)
+    {
+        var cars = town.Cars;
+        var asked = _askedThisLaying.AsSpan(0, _carCount);
+        var laying = LayingCars;
+        var next = 0;
+        for (var car = 0; car < _carCount; car++)
+        {
+            if (next < laying.Length && laying[next] == car)
+            {
+                next++;
+                continue;
+            }
+
+            // A car the device keeps, or one at rest whose rows the host laid and nothing has moved since.
+            var unlike = !_laidOnTheDevice[car] && !_carTick!.IsLeftAtRest(car) ? "whether the device lays it"
+                : asked[car] != _askedNow[car] || (_laidOnTheDevice[car] && !asked[car]) ? "whether the laying asks it"
+                : asked[car] && town.PlansItsLine(car) != _plansItsLine[car] ? "whether it plans down its line"
+                : cars.Pass[car].Begun || _onAPass[car] ? "its pass"
+                : TermsOf(town, cars, car, asked[car]) != _carTerms.LaidRow(car) ? "its terms"
+                : !_carClaims.IsLaid(car, [ClaimOf(town, car)]) ? "its claim"
+                : null;
+            if (unlike is null) continue;
+
+            throw new InvalidOperationException(
+                $"Car {car}'s claim was changed by the town while the device kept it, and not marked touched: {unlike}.");
+        }
     }
 
     /// <summary>How many cars the device has laid the bodies and plans' rows of itself, over every rebuild in the town.</summary>
@@ -494,33 +540,39 @@ internal sealed partial class DeviceRebuild
         var cars = town.Cars;
         var asked = _askedThisLaying.AsSpan(0, _carCount);
         asked.Clear();
-        foreach (var car in town.CarsAskedThisLaying) asked[car] = true;
-
-        for (var car = 0; car < _carCount; car++)
+        foreach (var car in town.CarsAskedThisLaying)
         {
-            // Its channels for every car, which the rebuild hands a car back on other channels than (rebuild_cars_out.comp).
-            if (!_laidOnTheDevice[car])
-            {
-                _carTerms.Lay(car, new CarTermsRow(0u, cars.Channels[car], 0f, 0f));
-                continue;
-            }
+            asked[car] = true;
 
-            var pass = cars.Pass[car];
-            var flags = CarTermsRow.Held | (cars.BlueLight[car] ? CarTermsRow.OnACall : 0u)
-                        | (cars.LineIsReverse[car] ? CarTermsRow.LineIsReverse : 0u) | (pass.Begun ? CarTermsRow.PassBegun : 0u);
-            if (asked[car])
-            {
-                flags |= CarTermsRow.Asked;
-                _carTick!.ClaimClearedOnTheDevice(car);
-            }
-
-            var drives = town.DrivesItsRoute(car);
-            if (drives) flags |= CarTermsRow.DrivesTheRoute;
-
-            // What it keeps off what it may pass is read off its lane, and only one under way on its line has one.
-            var keptOffM = drives && cars.Line[car].LaneCount > 0 ? town.KeptOffWhatItMayPassM(car) : 0f;
-            _carTerms.Lay(car, new CarTermsRow(flags, cars.Channels[car], town.OffTheLineAllowanceM(car), keptOffM, pass.Begun ? pass.EndsM : 0f));
+            // Kept as it stands, the next laying asks it nothing: laid again with that one.
+            if (town.StandsAsLaidNext(car)) _carTick!.LayAgainWithTheClaims(car);
         }
+
+        foreach (var car in LayingCars)
+        {
+            if (_laidOnTheDevice[car] && asked[car]) _carTick!.ClaimClearedOnTheDevice(car);
+            _carTerms.Lay(car, TermsOf(town, cars, car, asked[car]));
+        }
+    }
+
+    /// <summary>
+    /// One car's terms (<see cref="LayTheCarsTerms"/>): of one the town lays, its channels alone — which the rebuild hands a car
+    /// back on other channels than (<c>rebuild_cars_out.comp</c>).
+    /// </summary>
+    CarTermsRow TermsOf(TownWorld town, CarFleet cars, int car, bool asked)
+    {
+        if (!_laidOnTheDevice[car]) return new CarTermsRow(0u, cars.Channels[car], 0f, 0f);
+
+        var pass = cars.Pass[car];
+        var flags = CarTermsRow.Held | (cars.BlueLight[car] ? CarTermsRow.OnACall : 0u)
+                    | (cars.LineIsReverse[car] ? CarTermsRow.LineIsReverse : 0u) | (pass.Begun ? CarTermsRow.PassBegun : 0u)
+                    | (asked ? CarTermsRow.Asked : 0u);
+        var drives = town.DrivesItsRoute(car);
+        if (drives) flags |= CarTermsRow.DrivesTheRoute;
+
+        // What it keeps off what it may pass is read off its lane, and only one under way on its line has one.
+        var keptOffM = drives && cars.Line[car].LaneCount > 0 ? town.KeptOffWhatItMayPassM(car) : 0f;
+        return new CarTermsRow(flags, cars.Channels[car], town.OffTheLineAllowanceM(car), keptOffM, pass.Begun ? pass.EndsM : 0f);
     }
 
     /// <summary>Kept walkers: how many passes each walker's body laid counted and scanned into where each is filed, recorded.</summary>
@@ -619,7 +671,7 @@ internal sealed partial class DeviceRebuild
                 // Every body reads its occupant's line and every plan its own car's, where the car tick keeps them; no
                 // stage of a laying lays a line, so one made current here serves both.
                 LayWhatTheDeviceHolds(town);
-                _bodies.Lay(town, _laidOnTheDevice.AsSpan(0, _carCount));
+                _bodies.Lay(town, _laidOnTheDevice.AsSpan(0, _carCount), LayingCars);
                 if (_checksTheCars) ExpectTheBodies(town);
                 break;
 
@@ -640,7 +692,7 @@ internal sealed partial class DeviceRebuild
                 break;
 
             case ClaimsStage.PlansDue:
-                _plans.Lay(town, _laidOnTheDevice.AsSpan(0, _carCount));
+                _plans.Lay(town, _laidOnTheDevice.AsSpan(0, _carCount), LayingCars);
                 LayTheCarsTerms(town);
                 if (_checksTheCars) ExpectThePlans(town);
                 _timeS = town.ElapsedS;
@@ -1235,6 +1287,7 @@ internal sealed partial class DeviceRebuild
         if (channels != town.Cars.Channels[car] && CarActions.IsAtABay(town.Cars.Action[car])) OnOtherChannelsAtABay++;
 
         var wheels = (byte)(bits >> CarOut.WheelsShift);
+        if (channels != town.Cars.Channels[car]) _carTick!.LayAgainWithTheClaims(car);
         town.OnTheGroundOfItsBody(car, channels, wheels);
         _carTick!.KnowTheWheelsOnAWay(car, wheels);
     }

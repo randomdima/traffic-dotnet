@@ -274,6 +274,10 @@ internal static class DeviceTownProbe
                 $"walkers' {(world.WalkersDecidedByTheClock - walkersByTheClockFrom) / (double)MeasuredTicks:F0} and " +
                 $"{(device.WalkersDecidedByTheTown - walkersByTheTownFrom) / (double)MeasuredTicks:F0}, " +
                 $"{(device.WalkerDecisionsFound - walkersFoundFrom) / (double)MeasuredTicks:F0} found by the device");
+            var (broken, drivenHeld, notRested, notFrozen, heldElse) = device.WhyHeldAndNotAtRest(world);
+            Console.WriteLine(
+                $"  cars the town holds that the device does not tick, at the end: {broken} done for, {drivenHeld} driven, " +
+                $"{notRested} not resting parked, {notFrozen} not frozen, {heldElse} for anything else");
             var why = device.HandedBackFor;
             var t = (double)MeasuredTicks;
             Console.WriteLine(

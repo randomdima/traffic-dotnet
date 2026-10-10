@@ -576,6 +576,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         WriteTheTyres(cars, car, row.Car);
         WriteTheTick(cars, car, row);
         _cars.SettleTheTown(cars, [car]);
+        _cars.LayAgainWithTheClaims(car);
         _town.DriveClocks.Take(car, row.ClockSinceS, row.ClockClosestM);
         DecisionsChecked++;
         if (!looking)
@@ -950,14 +951,7 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     {
         if (!_swept) HandBackTheLeavers(town);
 
-        // A car left at rest whose body the town moved since the step — pushed, put down — is the town's to tick again.
-        var physics = town.PhysicsForTheDevice;
-        foreach (var body in physics.Changes)
-        {
-            var tag = physics.TagOf(new BodyId(body + 1));
-            if (tag.Kind == BodyKind.Car && _cars.IsLeftAtRest(tag.Index)) _cars.TookBack(tag.Index);
-        }
-
+        _cars.TakeBackWhatTheTownMoved(town);
         var cars = _cars.TheCarsTheTownTicks(town, _townTicks);
         _asked.Clear();
         foreach (var car in cars) _asked.Add(car);
@@ -1300,6 +1294,29 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
     /// every car the town holds that the device does not tick, standing parked and read by nothing every tick, left at rest
     /// (<see cref="DeviceCarTick.LeftAtRest"/>) — so a car park is walked by nothing until something moves in it.
     /// </summary>
+    /// <summary>
+    /// For the instruments: of the cars the town holds that the device does not tick, how many are held for being done for,
+    /// being driven, not resting parked by their last tick, not frozen through the last step, or anything else of
+    /// <see cref="TownWorld.StandsParked"/> or <see cref="LeaveTheParkedAtRest"/>.
+    /// </summary>
+    public (int Broken, int Driven, int NotRested, int NotFrozen, int Else) WhyHeldAndNotAtRest(TownWorld town)
+    {
+        var (broken, driven, notRested, notFrozen, other) = (0, 0, 0, 0, 0);
+        var physics = town.PhysicsForTheDevice;
+        foreach (var car in _cars.TheCarsTheTownHolds(town.Cars.Count, (Span<int>)_townTicks))
+        {
+            if (_cars.IsTaken(car)) continue;
+
+            if (town.Cars.Broken[car]) broken++;
+            else if (town.Cars.Driven[car]) driven++;
+            else if (!town.RestsParked(car)) notRested++;
+            else if (!physics.FrozenThroughLastStep(town.Cars.Body[car])) notFrozen++;
+            else other++;
+        }
+
+        return (broken, driven, notRested, notFrozen, other);
+    }
+
     void LeaveTheParkedAtRest(TownWorld town)
     {
         var physics = town.PhysicsForTheDevice;
@@ -1329,7 +1346,11 @@ internal sealed class DeviceTown : ITownDevice, ITownClaims, IDisposable
         _townClaims.Rebuild.WaitForTheSends();
         var laidHere = _townClaims.Pending;
         var laidByTheTown = _townClaims.TakeLaidByTheTown() | (town.ClaimsLaidThisTick && !laidHere);
-        if (laidByTheTown) _claims.LayAsCut(town.Occupancy);
+        if (laidByTheTown)
+        {
+            _claims.LayAsCut(town.Occupancy);
+            _cars.LaysEveryCarNext = true;
+        }
         var chosen = _chosen.AsSpan(0, town.Cars.Count);
         var stepping = StepsWithTheTick;
 

@@ -96,6 +96,12 @@ internal sealed partial class TownWorld
         }
     }
 
+    /// <summary>
+    /// Whether a car this laying asked was kept standing (<see cref="KeepIfStanding"/>), so the next asks it nothing if it
+    /// stands as laid then.
+    /// </summary>
+    public bool StandsAsLaidNext(int car) => _standing.Kept[car];
+
     /// <summary>The cars this laying asked, which are the only ones whose drive, pass, manoeuvre and grant can be anything but what they were.</summary>
     ReadOnlySpan<int> CarsAsked => _standing.Asked.AsSpan(0, _standing.AskedCount);
 

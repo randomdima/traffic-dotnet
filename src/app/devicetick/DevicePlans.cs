@@ -236,13 +236,20 @@ internal sealed class DevicePlans : IDisposable
     /// but a car <paramref name="laidOnTheDevice"/> names, whose row and figures a kernel lays in place before the plans read
     /// them (<c>car_claims_gather.comp</c>).
     /// </summary>
-    public void Lay(TownWorld world, ReadOnlySpan<bool> laidOnTheDevice = default)
+    public void Lay(TownWorld world, ReadOnlySpan<bool> laidOnTheDevice = default) => Lay(world, laidOnTheDevice, default, every: true);
+
+    /// <inheritdoc cref="Lay(TownWorld, ReadOnlySpan{bool})"/>
+    /// <param name="only">The cars laid, in order; every other is as the last laying left it.</param>
+    public void Lay(TownWorld world, ReadOnlySpan<bool> laidOnTheDevice, ReadOnlySpan<int> only) => Lay(world, laidOnTheDevice, only, every: false);
+
+    void Lay(TownWorld world, ReadOnlySpan<bool> laidOnTheDevice, ReadOnlySpan<int> only, bool every)
     {
         var cars = world.Cars;
         Span<Vector4> figures = stackalloc Vector4[2];
         _carCount = cars.Count;
-        for (var car = 0; car < cars.Count; car++)
+        for (var at = 0; at < (every ? cars.Count : only.Length); at++)
         {
+            var car = every ? at : only[at];
             if (!laidOnTheDevice.IsEmpty && laidOnTheDevice[car])
             {
                 _carRows.Forget(car);

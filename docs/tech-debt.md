@@ -208,12 +208,12 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   `ItsErrandLeavesItToTheLeg`), which the owner's own decision sets without marking the car. The visits' check would
   throw on it, and has not in the suite; no shipped city has been run with the check on. Closes with the car marked
   touched wherever its driver's stage or bay is set, or a soak with the check on.
-- **Every laying walks every car the town asks** (`TownWorld.AskTheCars`, the passes, `ClearTheClaim`; and the device's
-  `LayWhatTheDeviceHolds`, `LayTheCarsTerms`, `LayTheCarsClaims`, `DeviceBodies.Lay`, `DevicePlans.Lay`,
-  `HoldTheCarsTheTownHolds`), a rebuild every third tick: for a car the device keeps and nobody set anything of since the
-  last laying, each lays what it laid then. The one figure of such a car the town reads off its own copy is its hold
-  number (`PlanHold`), after a take-back and for a decision it lists. Closes with the hold number handed back with the
-  car, and a laying that asks only the cars set since the last.
+- **Every laying still walks every car the town asks** (`TownWorld.AskTheCars`, `LayThePasses`, `ClearTheClaim`,
+  `HoldTheCarsTheTownHolds`, and the asked flags built off the whole list in `LayTheCarsTerms` and the shadow's
+  `DrivesDue`), a rebuild every third tick: for a car the device keeps and nobody set anything of since the last laying,
+  each does what it did then. The device's own walks lay only the cars set since (root log 2026-10-10). The one figure of
+  such a car the town reads off its own copy is its hold number (`PlanHold`), after a take-back and for a decision it
+  lists. Closes with the hold number handed back with the car, and the town asking only the cars set since the last.
 
 ### Walkers
 

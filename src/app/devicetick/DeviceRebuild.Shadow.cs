@@ -54,6 +54,7 @@ internal sealed partial class DeviceRebuild
     {
         _askedNow = new bool[_cars];
         _plansItsLine = new bool[_cars];
+        _layingCars = new int[_cars];
         _onAPass = new bool[_cars];
     }
 
@@ -72,6 +73,10 @@ internal sealed partial class DeviceRebuild
                 _walkerCount = town.People.Count;
                 _hostRowCount = _hostHoldCount = _askCount = 0;
                 _hostUnitCount = PassesUnit + 1;
+
+                // Held beside the town's own, every car is laid every laying.
+                for (var car = 0; car < _carCount; car++) _layingCars[car] = car;
+                _layingCount = _carCount;
                 if (_priming) Prime(town);
                 _bodies.Lay(town);
                 _walkers.Lay(town, DeviceWalkers.Piece.Station);
@@ -99,9 +104,9 @@ internal sealed partial class DeviceRebuild
 
             case ClaimsStage.DrivesDue:
                 AskTheStanding(town);
-                for (var car = 0; car < _carCount; car++) _askedNow[car] = false;
+                foreach (var car in LayingCars) _askedNow[car] = false;
                 foreach (var car in town.CarsAskedThisLaying) _askedNow[car] = true;
-                for (var car = 0; car < _carCount; car++)
+                foreach (var car in LayingCars)
                 {
                     _plansItsLine[car] = _askedNow[car] && town.PlansItsLine(car);
                     _onAPass[car] = town.Cars.Pass[car].Begun;
@@ -141,35 +146,36 @@ internal sealed partial class DeviceRebuild
     /// </summary>
     void LayTheCarsClaims(TownWorld town)
     {
-        var cars = town.Cars;
-        var rows = _carClaims;
-        for (var car = 0; car < _carCount; car++)
+        foreach (var car in LayingCars)
         {
-            if (!_askedNow[car])
-            {
-                rows.Lay(car, new CarClaimRow(0u, 0f, 0f, 0f, 0f, 0f, 0u));
-                continue;
-            }
-
-            if (_plansItsLine[car])
-            {
-                rows.Lay(car, _onAPass[car] ? OnAPass(town, car) : new CarClaimRow(CarClaimRow.Asked | CarClaimRow.PlansOnTheDevice, 0f, 0f, 0f, 0f, 0f, 0u));
-                continue;
-            }
-
-            var flags = CarClaimRow.Asked;
-            var authorityM = cars.AuthorityM[car];
-            if (_standingOf[car] >= 0)
-            {
-                // A begun manoeuvre with nothing standing in it holds nothing, and is granted the whole of it (BayManoeuvring.Hold).
-                flags |= CarClaimRow.Stands;
-                if (_standing.Rows[_standingOf[car]].Kind == (uint)StandingClaim.Manoeuvre) authorityM = float.PositiveInfinity;
-            }
-
-            rows.Lay(car, new CarClaimRow(
-                flags, authorityM, cars.HorizonM[car], cars.ClaimFromM[car], cars.CommittedToM[car], cars.GrantMarginM[car],
-                (uint)cars.GrantCutBy[car]));
+            _carClaims.Lay(car, _plansItsLine[car] && _onAPass[car] ? OnAPass(town, car) : ClaimOf(town, car));
         }
+
+        if (_carTick is { ChecksTheVisits: true }) HoldTheUnlaidCars(town);
+    }
+
+    /// <summary>
+    /// One car's claim as the host leaves it (<see cref="LayTheCarsClaims"/>), but of a car on a pass planned past it, whose
+    /// asks the laying sends (<see cref="OnAPass"/>).
+    /// </summary>
+    CarClaimRow ClaimOf(TownWorld town, int car)
+    {
+        if (!_askedNow[car]) return new CarClaimRow(0u, 0f, 0f, 0f, 0f, 0f, 0u);
+        if (_plansItsLine[car]) return new CarClaimRow(CarClaimRow.Asked | CarClaimRow.PlansOnTheDevice, 0f, 0f, 0f, 0f, 0f, 0u);
+
+        var cars = town.Cars;
+        var flags = CarClaimRow.Asked;
+        var authorityM = cars.AuthorityM[car];
+        if (_standingOf[car] >= 0)
+        {
+            // A begun manoeuvre with nothing standing in it holds nothing, and is granted the whole of it (BayManoeuvring.Hold).
+            flags |= CarClaimRow.Stands;
+            if (_standing.Rows[_standingOf[car]].Kind == (uint)StandingClaim.Manoeuvre) authorityM = float.PositiveInfinity;
+        }
+
+        return new CarClaimRow(
+            flags, authorityM, cars.HorizonM[car], cars.ClaimFromM[car], cars.CommittedToM[car], cars.GrantMarginM[car],
+            (uint)cars.GrantCutBy[car]);
     }
 
     /// <summary>

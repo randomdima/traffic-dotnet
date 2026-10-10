@@ -76,6 +76,7 @@ internal sealed class DeviceTownClaims : ITownClaims, IDisposable
         if (town.HoldAgents || crowded)
         {
             _laidByTheTown = true;
+            _cars.LaysEveryCarNext = true;
             Rebuilds = (here, byTheTown + 1, tooMany + (crowded ? 1 : 0));
             return false;
         }
