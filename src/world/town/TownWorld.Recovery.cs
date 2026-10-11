@@ -90,7 +90,7 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>Whether this car is a town's evacuator, which is the one question the decision loop asks before running the errand.</summary>
-    bool IsAnEvacuator(int car) => _recovery.Depot[car] != RecoveryDuty.NoBuilding;
+    internal bool IsAnEvacuator(int car) => _recovery.Depot[car] != RecoveryDuty.NoBuilding;
 
     /// <summary>
     /// <b>How far off its line a car may be before the road calls the line lost</b> (CAR-10a) — the nominal

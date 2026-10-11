@@ -39,6 +39,13 @@ struct CarBuildRow
 // What it may be braking at at all: the pedal's cap, or what its own patch puts down (CarBuild.UtmostBrakingMps2).
 float buildUtmostBrakingMps2(CarBuildRow car) { return min(car.brakingMps2, car.gripMps2); }
 
+// Half its width (CarBuild.FlankM).
+float buildFlankM(CarBuildRow car)
+{
+    precise float flankM = car.widthM * 0.5;
+    return flankM;
+}
+
 // Where the wheel is after a tick of winding it towards what was asked (CarBuild.WheelWoundTo, CAR-3a).
 float buildWheelWoundTo(CarBuildRow car, float fromRad, float wantedRad, float dtS)
 {

@@ -212,7 +212,7 @@ internal sealed partial class TownWorld
     /// laid again first, because a leg that cannot get down this street may well get down another; past
     /// the last reroute the answer is that the leg is over.
     /// </summary>
-    void WatchTheProgress(int car, float elapsedS)
+    internal void WatchTheProgress(int car, float elapsedS)
     {
         var remainingM = RemainingOnTheDriveM(car);
 

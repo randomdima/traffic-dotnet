@@ -518,6 +518,13 @@ internal sealed class RoadGraph : ILaneEnds
     /// <returns>How many there are, which may be more than <paramref name="lanes"/> has room for.</returns>
     public int LanesAround(Vector2 pointM, float radiusM, Span<int> lanes) => _nearest.Around(pointM, radiusM, lanes);
 
+    /// <summary>
+    /// <b>The lane indexes as they stand</b>, for the device to lay once at load (<c>app/devicetick/TownState</c>): every
+    /// lane's, the carriageway's, and the carriageway's a level at a time — none of those in a town on one level.
+    /// </summary>
+    internal (ChainIndex Nearest, ChainIndex NearestStreet, ChainIndex[] NearestStreetOn) LaneIndexes =>
+        (_nearest, _nearestStreet, _nearestStreetOn);
+
     public SplineSample StartOf(int lane) => Spline.SampleAt(ArcsOf(lane), 0f);
 
     public SplineSample EndOf(int lane) => Spline.SampleAt(ArcsOf(lane), LaneLengthM[lane]);

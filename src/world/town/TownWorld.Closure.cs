@@ -79,6 +79,12 @@ internal sealed partial class TownWorld
     /// </summary>
     ReadOnlySpan<bool> ClosedLinksFor(int car) => Cars.BlueLight[car] ? default : ClosedLinksNow;
 
+    /// <summary>Whether the closed runs bar this car's search at all (<see cref="ClosedLinksFor"/>), as a device's request says it.</summary>
+    internal bool ClosedLinksBar(int car) => !ClosedLinksFor(car).IsEmpty;
+
+    /// <summary>Whether the closed runs bar a search at all now (<see cref="ClosedLinksNow"/>).</summary>
+    internal bool ClosedLinksBarNow => !ClosedLinksNow.IsEmpty;
+
     /// <summary>
     /// <b>The town's closures laid again</b> where one began or ended: which lanes and runs are closed, and every
     /// route that ran through one dropped, so a car already on its way is sent round rather than into an officer.
@@ -276,7 +282,7 @@ internal sealed partial class TownWorld
     /// named lane rather than the nearer side of a street, since a car at the mouth of the other lane closes
     /// nothing (<see cref="RouteGoalsFor"/>).
     /// </summary>
-    bool TheEntranceItIsSentTo(int car, out int lane, out float alongM)
+    internal bool TheEntranceItIsSentTo(int car, out int lane, out float alongM)
     {
         lane = PatrolDuty.Nobody;
         alongM = 0f;

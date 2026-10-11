@@ -218,7 +218,7 @@ internal sealed partial class TownWorld
         && !_containers.AnybodyAboard(car);
 
     /// <summary>Whether this person is at the wheel of their own car.</summary>
-    bool IsAtTheWheel(int person) =>
+    internal bool IsAtTheWheel(int person) =>
         People.Car[person] is var car and not PersonFleet.NoCar && _containers.DriverOf(car) == person;
 
     /// <summary>Whether a car is standing in the bay registered as its own, which is what a parked car is.</summary>

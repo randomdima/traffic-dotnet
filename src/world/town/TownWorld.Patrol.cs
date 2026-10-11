@@ -35,7 +35,7 @@ internal sealed partial class TownWorld
     /// Whether this car is one of the town's patrols, which is the one question the decision loop asks
     /// before running the errand — a police car is a car with a station.
     /// </summary>
-    bool IsAPatrolCar(int car) => _beat.Station[car] != PatrolDuty.NoBuilding;
+    internal bool IsAPatrolCar(int car) => _beat.Station[car] != PatrolDuty.NoBuilding;
 
     /// <summary>
     /// <b>Whether this patrol's leg ends at a place on a lane rather than in a bay</b>: a beat's place and a

@@ -82,6 +82,33 @@ struct MapState
 layout(buffer_reference, std430, buffer_reference_align = 4) buffer CrossedSectionRows { CrossedSection r[]; };
 layout(buffer_reference, std430, buffer_reference_align = 8) buffer MapStateRows { MapState r[]; };
 
+// One of RoadGraph's lane indexes (ChainIndex) as it stands: its window's cells (GridWindow) at their level (cells a
+// metre, a cell's metres), and how many chains it holds. Its slots' chains and boxes, and its cells' runs of slots, are
+// tables of their own (RoadsIndexIds of them an index, from its first); a chain's arcs and length are its lane's.
+struct ChainIndexWindow
+{
+    int fromX;
+    int fromY;
+    int width;
+    int height;
+    float perCellM;
+    float cellM;
+    int chains;
+    int pad;
+};
+
+// RoadGraph's four lane indexes (RoadsIndexNearest …), and whether it keeps the carriageway's a level at a time.
+struct LaneIndexState
+{
+    ChainIndexWindow indexes[4];
+    uint levelled;
+    uint pad0;
+    uint pad1;
+    uint pad2;
+};
+
+layout(buffer_reference, std430, buffer_reference_align = 4) buffer LaneIndexStateRows { LaneIndexState r[]; };
+
 const uint RoadsLaneRoadId = 640u;
 const uint RoadsLaneWidthMId = 641u;
 const uint RoadsLaneFromJunctionId = 642u;
@@ -164,8 +191,45 @@ const uint SignalsLaneJunctionId = 718u;
 const uint SignalsCrossingAxisId = 719u;
 const uint SignalsCrossingJunctionId = 720u;
 const uint MapStateId = 721u;
+const uint RoadsNearestChainsId = 722u;
+const uint RoadsNearestLeastMId = 723u;
+const uint RoadsNearestMostMId = 724u;
+const uint RoadsNearestCellStartId = 725u;
+const uint RoadsNearestEntrySlotId = 726u;
+const uint RoadsNearestStreetChainsId = 727u;
+const uint RoadsNearestStreetLeastMId = 728u;
+const uint RoadsNearestStreetMostMId = 729u;
+const uint RoadsNearestStreetCellStartId = 730u;
+const uint RoadsNearestStreetEntrySlotId = 731u;
+const uint RoadsNearestLevel0ChainsId = 732u;
+const uint RoadsNearestLevel0LeastMId = 733u;
+const uint RoadsNearestLevel0MostMId = 734u;
+const uint RoadsNearestLevel0CellStartId = 735u;
+const uint RoadsNearestLevel0EntrySlotId = 736u;
+const uint RoadsNearestLevel1ChainsId = 737u;
+const uint RoadsNearestLevel1LeastMId = 738u;
+const uint RoadsNearestLevel1MostMId = 739u;
+const uint RoadsNearestLevel1CellStartId = 740u;
+const uint RoadsNearestLevel1EntrySlotId = 741u;
+const uint LaneIndexStateId = 742u;
 
 #define mapState TOWN(MapStateRows, MapStateId).r[0]
+
+// RoadGraph's lane indexes: every lane's (_nearest), the carriageway's (_nearestStreet) and the carriageway's on each of
+// two levels (_nearestStreetOn) — index k's tables from RoadsNearestChainsId + RoadsIndexIds·k: each slot's chain (its
+// lane) and box, and each cell's run of slots, from roads_IndexCellStart(k, cell) up to that of cell + 1.
+const uint RoadsIndexNearest = 0u;
+const uint RoadsIndexNearestStreet = 1u;
+const uint RoadsIndexNearestStreetOn = 2u;
+const uint RoadsIndexIds = 5u;
+#define laneIndexState TOWN(LaneIndexStateRows, LaneIndexStateId).r[0]
+#define roads_IndexWindow(k) laneIndexState.indexes[k]
+#define roads_IndexChain(k, slot) TOWN(Ints, RoadsNearestChainsId + RoadsIndexIds * (k)).v[slot]
+#define roads_IndexLeastM(k, slot) TOWN(Vec2s, RoadsNearestLeastMId + RoadsIndexIds * (k)).v[slot]
+#define roads_IndexMostM(k, slot) TOWN(Vec2s, RoadsNearestMostMId + RoadsIndexIds * (k)).v[slot]
+#define roads_IndexCellStart(k, cell) TOWN(Ints, RoadsNearestCellStartId + RoadsIndexIds * (k)).v[cell]
+#define roads_IndexEntrySlot(k, entry) TOWN(Ints, RoadsNearestEntrySlotId + RoadsIndexIds * (k)).v[entry]
+#define roads_IndexesLevelled laneIndexState.levelled
 
 // RoadGraph: each lane's road, width, plan junctions at either end, whether it runs with its road, length, level, the
 // lane the other way, whether it and that one are one line, whether it may cross the line to pass, where it stands from

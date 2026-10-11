@@ -167,6 +167,13 @@ internal sealed class ChainIndex
     public int ChainCount => _chainId.Length;
 
     /// <summary>
+    /// <b>The index as it stands</b>, for the device to lay once at load (<c>app/devicetick/TownState</c>): each slot's chain
+    /// and box, and each cell's run of slots. The chains' own arcs are their owner's, and laid there.
+    /// </summary>
+    internal (int[] ChainId, Vector2[] SlotLeastM, Vector2[] SlotMostM, int[] CellStart, int[] EntrySlot, float[] LengthM) Kept =>
+        (_chainId, _slotLeastM, _slotMostM, _cellStart, _entrySlot, _lengthM);
+
+    /// <summary>
     /// <b>Every piece over the lattice as a chain of its own</b>, numbered by where it stands in
     /// <paramref name="pieces"/> — so that what is near a place is measured against the pieces near it
     /// rather than against every piece of whatever ring they belong to.

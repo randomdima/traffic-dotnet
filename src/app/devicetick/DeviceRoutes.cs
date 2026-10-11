@@ -255,7 +255,8 @@ internal sealed class DeviceRoutes : IDisposable
 
     /// <summary>
     /// <b>A network's surcharges laid as the town holds them</b>, every slot marked whether live or spent: a search asks
-    /// each its life at the clock its request names (<see cref="LinkSurcharges.SlotsMarked"/>).
+    /// each its life at the clock its request names (<see cref="LinkSurcharges.SlotsMarked"/>) — and with them how many were
+    /// laid, so a mark laid on the device overwrites the slot the town's next would, and the clock they are read against.
     /// </summary>
     public void LaySurcharges(Network network, LinkSurcharges surcharges)
     {
@@ -270,7 +271,23 @@ internal sealed class DeviceRoutes : IDisposable
             marks[slot] = new MarkRow(link, untilS, priceM);
         }
 
-        MemoryMarshal.Cast<byte, uint>(table)[0] = (uint)count;
+        var header = MemoryMarshal.Cast<byte, uint>(table[..MarksAtBytes]);
+        header[0] = (uint)count;
+        header[1] = (uint)surcharges.MarksLaid;
+        header[2] = BitConverter.SingleToUInt32Bits(surcharges.NowS);
+        header[3] = MostMarks;
+    }
+
+    /// <summary>A network's surcharges as the device last left them: each slot's mark, how many hold one, and how many were laid.</summary>
+    public (int Count, int Laid, float NowS) SurchargesOf(Network network, Span<(int Link, float PriceM, float UntilS)> marks)
+    {
+        var table = _surcharges[(int)network].Span<byte>();
+        var header = MemoryMarshal.Cast<byte, uint>(table[..MarksAtBytes]);
+        var rows = MemoryMarshal.Cast<byte, MarkRow>(table[MarksAtBytes..]);
+        var count = (int)header[0];
+        for (var slot = 0; slot < count && slot < marks.Length; slot++) marks[slot] = (rows[slot].Link, rows[slot].PriceM, rows[slot].UntilS);
+
+        return (count, (int)header[1], BitConverter.UInt32BitsToSingle(header[2]));
     }
 
     /// <summary>A network's closed links laid, one flag a link — or none closed, for an empty span.</summary>
@@ -339,6 +356,7 @@ internal sealed class DeviceRoutes : IDisposable
 
         var surcharges = Set(first + SurchargesId, Mapped<byte>(MarksAtBytes + (MostMarks * Marshal.SizeOf<MarkRow>()), HostAccess.Writes));
         surcharges.Span<byte>().Clear();
+        MemoryMarshal.Cast<byte, uint>(surcharges.Span<byte>()[..MarksAtBytes])[3] = MostMarks;
         _surcharges[(int)network] = surcharges;
 
         var closed = Set(first + ClosedId, Mapped<uint>(cells.Graph.LinkCount, HostAccess.Writes));
