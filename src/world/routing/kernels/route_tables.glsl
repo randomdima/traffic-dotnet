@@ -162,13 +162,15 @@ layout(buffer_reference, std430, buffer_reference_align = 4) buffer RouteLinkSta
 layout(buffer_reference, std430, buffer_reference_align = 4) buffer RouteHeap { RouteHeapEntry v[]; };
 layout(buffer_reference, std430, buffer_reference_align = 4) buffer RouteSlotRows { RouteSlotRow v[]; };
 
-// The marks a network's surcharges hold, live or spent (LinkSurcharges): count of them laid.
+// The marks a network's surcharges hold, live or spent (LinkSurcharges): how many slots hold one, how many were ever laid
+// as far as which slot the next overwrites goes (LinkSurcharges.MarksLaid: the next is that modulo room), the clock they
+// are read against (LinkSurcharges.NowS), and how many slots the table has.
 layout(buffer_reference, std430, buffer_reference_align = 4) buffer RouteSurchargeTable
 {
     uint count;
-    uint pad0;
-    uint pad1;
-    uint pad2;
+    uint marked;
+    float nowS;
+    uint room;
     RouteMark marks[];
 };
 

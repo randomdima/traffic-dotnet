@@ -37,8 +37,10 @@ internal sealed partial class TownState : IDisposable
         LayThePlaces(town);
         LayTheErrands(town);
         LayTheMap(town);
+        LayTheLaneIndexes(town);
         LayTheCarActions(town);
         LayTheWalkerActions(town);
+        LayTheLegs(town);
     }
 
     /// <summary>A device-local table holding these rows, sent once through a staging buffer and set at its id.</summary>

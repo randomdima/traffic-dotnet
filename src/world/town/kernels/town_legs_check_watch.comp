@@ -1,0 +1,19 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The leg's probe of its clock run out or not (town_legs_check.glsl): TownWorld.WatchTheProgress.
+
+#include "world/town/kernels/town_legs_check.glsl"
+
+void main()
+{
+    for (uint row = 0u; row < push.count; row++)
+    {
+        reached = 0u;
+        uint car = uint(listedCar(row));
+        town_WatchTheProgress(car, push.sinceLastDecisionS);
+        putTheCar(row, car);
+    }
+
+    putTheCounts();
+}

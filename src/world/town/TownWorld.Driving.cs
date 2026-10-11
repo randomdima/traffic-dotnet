@@ -571,7 +571,7 @@ internal sealed partial class TownWorld
         if (TryPlan(car, fromLane) == RouteFound.Arrived) RouteArrivals++;
     }
 
-    enum RouteFound
+    internal enum RouteFound
     {
         /// <summary>Lanes were laid into the queue.</summary>
         Route,
@@ -606,7 +606,7 @@ internal sealed partial class TownWorld
         return _driving.GoalsAt(Cars.DestinationM[car], into);
     }
 
-    RouteFound TryPlan(int car, int fromLane)
+    internal RouteFound TryPlan(int car, int fromLane)
     {
         var driving = Driving;
 
@@ -848,7 +848,7 @@ internal sealed partial class TownWorld
     /// Laid on a tick, so grown only off the route's queue (<see cref="NextQueuedLane"/>). Otherwise the route is asked
     /// whole, which answers whatever a tick left for the decision.
     /// </param>
-    void LayLine(int car, int from, float spentM = 0f, bool fromTheQueue = false)
+    internal void LayLine(int car, int from, float spentM = 0f, bool fromTheQueue = false)
     {
         if (!fromTheQueue) _asksTheRoute[car] = false;
 

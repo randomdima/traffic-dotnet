@@ -8,6 +8,9 @@
 // The unit vector is the host's, laid with the piece, so a straight is answered to the host's float. A chain of them
 // is arc_chain.glsl's.
 
+#ifndef ARC_GLSL
+#define ARC_GLSL
+
 #include "core/geometry/kernels/trig.glsl"
 #include "core/geometry/kernels/rounded.glsl"
 
@@ -115,3 +118,5 @@ float arcNearest(Arc arc, vec2 pointM)
 
     return clamp(alongM, 0.0, arcLengthM(arc));
 }
+
+#endif

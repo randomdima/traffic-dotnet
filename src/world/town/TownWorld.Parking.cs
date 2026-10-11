@@ -464,14 +464,14 @@ internal sealed partial class TownWorld
     /// The nearest free bay a car can be got into within <paramref name="withinM"/> of a place, or −1 —
     /// where a service vehicle is stood before the first tick and where it is sent home to (AMB-2, SRV-2).
     /// </summary>
-    int FreeBayNear(Vector2 ofM, float withinM) => FreeBayNear(ofM, withinM, AnySide);
+    internal int FreeBayNear(Vector2 ofM, float withinM) => FreeBayNear(ofM, withinM, AnySide);
 
     /// <summary>
     /// <b>And the same refused any bay across the carriageway from a place</b> (GEN-4k) — how an apron is
     /// kept to one kerb. A station whose vehicles stand on both sides of the street does not read as a
     /// station at all.
     /// </summary>
-    int FreeBayNear(Vector2 ofM, float withinM, Vector2 sameSideAsM)
+    internal int FreeBayNear(Vector2 ofM, float withinM, Vector2 sameSideAsM)
     {
         var bays = _parking.BaysNear(ofM, withinM, _bayCandidates);
         for (var slot = 0; slot < bays; slot++)

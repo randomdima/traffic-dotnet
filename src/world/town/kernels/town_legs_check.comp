@@ -1,0 +1,20 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The leg's probe of a car's line laid again (town_legs_check.glsl): TownWorld.LayLine from the end of the line in hand,
+// grown off the route's queue alone or with the route asked whole.
+
+#include "world/town/kernels/town_legs_check.glsl"
+
+void main()
+{
+    for (uint row = 0u; row < push.count; row++)
+    {
+        reached = 0u;
+        uint car = uint(listedCar(row));
+        town_LayLine(car, cars_Line(car).laneCount, cars_ProgressM(car), push.fromTheQueue != 0u);
+        putTheCar(row, car);
+    }
+
+    putTheCounts();
+}

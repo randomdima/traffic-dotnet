@@ -1,6 +1,9 @@
 // A chain of arcs on the device (Spline.ProjectM, SampleAt): a run [first, end) of pieces in the buffer the including
 // kernel names SPLINE_ARCS, declared before this is included. The pieces' own arithmetic is arc.glsl's.
 
+#ifndef ARC_CHAIN_GLSL
+#define ARC_CHAIN_GLSL
+
 // The distance along the chain [first, end) whose point is nearest the one given, searched within windowM of aroundM,
 // and how far off it landed, squared (Spline.ProjectM).
 float splineProject(uint first, uint end, vec2 pointM, float aroundM, float windowM, out float offSq)
@@ -81,3 +84,5 @@ void splineSampleBent(uint first, uint end, float distanceM, out vec2 positionM,
         return;
     }
 }
+
+#endif

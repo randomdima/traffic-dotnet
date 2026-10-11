@@ -690,6 +690,12 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     public DrivingNetwork Driving => _driving;
 
+    /// <summary>The figures the town was stood with, for the device to lay its own rows of them once (<c>app/devicetick/TownState</c>).</summary>
+    internal SimConfig Config => _config;
+
+    /// <summary>The driving network's surcharges, for the device's route service to lay as the town holds them.</summary>
+    internal LinkSurcharges DriveSurcharges => _surcharges;
+
 
     public int StaticBodyCount => _physics.StaticBodyCount;
 

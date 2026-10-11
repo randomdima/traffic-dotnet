@@ -108,6 +108,12 @@ internal sealed class LinkSurcharges
     public float NowS => _nowS;
 
     /// <summary>
+    /// <b>How many marks were ever laid</b>, as far as which slot the next one overwrites goes: the slots filled, and past
+    /// a full table the oldest's place — what a copy of the table marks on from (<c>route_tables.glsl</c>'s <c>marked</c>).
+    /// </summary>
+    public int MarksLaid => _count < _link.Length ? _count : _link.Length + _oldest;
+
+    /// <summary>
     /// The link one of the marks that may still be live prices up, or <see cref="TravelGraph.NoLink"/> where its
     /// life has run out — for a search that has to know whether its ground holds one (<see cref="RouteSearch"/>).
     /// </summary>

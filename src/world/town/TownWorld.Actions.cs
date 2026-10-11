@@ -52,6 +52,9 @@ internal sealed partial class TownWorld
     /// <summary>Getting back onto the lane under it (CAR-9), for the device to lay once at load.</summary>
     internal Rejoining Rejoining => _rejoining;
 
+    /// <summary>Getting into a bay (GEN-4f), for a device held to what it answers.</summary>
+    internal ParkingIn ParkingIn => _parkingIn;
+
     bool IsManoeuvring(int car) => _carActions.IsManoeuvring(car);
 
     /// <summary>

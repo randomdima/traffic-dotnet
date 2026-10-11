@@ -718,7 +718,7 @@ internal sealed partial class TownWorld
     /// orders</b> (CTL-8a, CTL-8c), which is the whole of what makes "drive to that spot" different from
     /// "park near it".
     /// </remarks>
-    bool IsAimedAtAPlaceInTheRoad(int car) =>
+    internal bool IsAimedAtAPlaceInTheRoad(int car) =>
         IsOnItsWayToAScene(car) || IsOnItsWayToAWreck(car) || IsOnItsBeatOrToAScene(car) || IsDrivingItsBeat(car)
         || IsOrderedToAPlaceInTheRoad(car);
 

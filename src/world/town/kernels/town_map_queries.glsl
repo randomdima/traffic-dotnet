@@ -2,17 +2,18 @@
 // alike: roads_ConnectorBetween is RoadGraph.ConnectorBetween, driving_PlaceOfM DrivingNetwork.PlaceOfM. A quotient or a
 // root is rounded.glsl's, so it is the host's to the bit; the including kernel gets doubles with it.
 //
-// The queries that answer a route's entry or goal (DrivingNetwork.EntryOnLane, GoalOnLane; WalkingNetwork.EntryOnEdge)
+// The queries that answer a route's entry or goal (DrivingNetwork.EntryOnLane, GoalOnLane, GoalsAt; WalkingNetwork.EntryOnEdge)
 // answer the routing module's RouteEntry and RouteGoal, and are here only where the includer has included
-// world/routing/kernels/route_tables.glsl first. What is asked of a spatial index of lanes or edges (RoadGraph.NearestLane,
-// NearestStreetLane, LanesAround; FootGraph.NearestEdge, EdgesNear, and with them DrivingNetwork.GoalsAt and
-// WalkingNetwork.EntriesNear, GoalsAt, AsideM) is not: no ChainIndex is on the device yet.
+// world/routing/kernels/route_tables.glsl first. RoadGraph's lane indexes are on the device (RoadGraph.NearestLane,
+// NearestStreetLane, over town_map.glsl's ChainIndex tables); the pavement's (FootGraph.NearestEdge, EdgesNear, and with
+// them WalkingNetwork.EntriesNear, GoalsAt, AsideM) is not yet, and neither is the build-time RoadGraph.LanesAround.
 
 #ifndef TOWN_MAP_QUERIES_GLSL
 #define TOWN_MAP_QUERIES_GLSL
 
 #include "world/town/kernels/town_map.glsl"
 #include "world/town/kernels/town_places.glsl"
+#include "world/town/kernels/town_arcs.glsl"
 #include "core/geometry/kernels/rounded.glsl"
 
 // WalkingNetwork.LaneMOf's floor on an edge's length, a literal in the C#.
@@ -411,6 +412,146 @@ int bucketGrid_Nearest(BucketGridRow grid, uint startsId, uint countsId, uint it
     return best;
 }
 
+// GridWindow.TryOverlap over a window's corner, size and level: the cells of it a box of ground overlaps, as (fromX, fromY,
+// toX, toY), and false where it overlaps none.
+bool gridWindow_TryOverlap(int fromX, int fromY, int width, int height, float perCellM, vec2 leastM, vec2 mostM, out ivec4 range)
+{
+    range = ivec4(0);
+    precise vec2 leastScaled = leastM * perCellM;
+    precise vec2 mostScaled = mostM * perCellM;
+    ivec2 from = ivec2(floor(leastScaled));
+    ivec2 to = ivec2(floor(mostScaled));
+    int toX = fromX + width - 1;
+    int toY = fromY + height - 1;
+    if (width == 0 || height == 0 || to.x < fromX || to.y < fromY || from.x > toX || from.y > toY) return false;
+
+    range = ivec4(clamp(from.x, fromX, toX), clamp(from.y, fromY, toY), clamp(to.x, fromX, toX), clamp(to.y, fromY, toY));
+    return true;
+}
+
+// ChainIndex over one of RoadGraph's lane indexes (town_map.glsl's RoadsIndex…): the chain nearest a point, the grid
+// deciding which chains are measured and the measuring the whole-network scan's, ties settled on the chain. A chain met in
+// several cells is measured again, which leaves the answer as it was (Measure keeps a chain only strictly nearer, or as
+// near and lower), so no scan's stamps are wanted.
+
+// How far a place stands off one slot's box, squared (ChainIndex.OffTheBoxSq).
+float chainIndex_OffTheBoxSq(uint k, int slot, vec2 pointM)
+{
+    precise vec2 below = roads_IndexLeastM(k, slot) - pointM;
+    precise vec2 above = pointM - roads_IndexMostM(k, slot);
+    vec2 off = max(max(below, above), vec2(0.0));
+    precise float offSq = off.x * off.x + off.y * off.y;
+    return offSq;
+}
+
+// One slot measured, kept only where nearer than what stands, or as near and a lower chain (ChainIndex.Measure).
+void chainIndex_Measure(uint k, int slot, vec2 pointM, inout int best, inout float bestDistanceSq, inout float alongM)
+{
+    if (chainIndex_OffTheBoxSq(k, slot, pointM) > bestDistanceSq) return;
+
+    int chain = roads_IndexChain(k, slot);
+    float lengthM = roads_LaneLengthM(chain);
+    precise float aroundM = lengthM * 0.5;
+    float distanceSq;
+    float atM = splineProject(townLaneArcsFrom(chain), townLaneArcsTo(chain), pointM, aroundM, lengthM, distanceSq);
+    if (distanceSq > bestDistanceSq || (distanceSq == bestDistanceSq && chain >= best)) return;
+
+    bestDistanceSq = distanceSq;
+    alongM = atM;
+    best = chain;
+}
+
+// Every slot whose pieces reach the box of ground radiusM round the point, measured (ChainIndex.Gather, Weigh).
+int chainIndex_Weigh(uint k, vec2 pointM, float radiusM, out float alongM, out float bestDistanceSq)
+{
+    alongM = 0.0;
+    bestDistanceSq = 3.402823466e+38;
+    int best = -1;
+    ChainIndexWindow window = roads_IndexWindow(k);
+    precise vec2 leastM = pointM - vec2(radiusM);
+    precise vec2 mostM = pointM + vec2(radiusM);
+    ivec4 range;
+    if (!gridWindow_TryOverlap(window.fromX, window.fromY, window.width, window.height, window.perCellM, leastM, mostM, range)) return best;
+
+    for (int y = range.y; y <= range.w; y++)
+    {
+        for (int x = range.x; x <= range.z; x++)
+        {
+            int cell = ((y - window.fromY) * window.width) + (x - window.fromX);
+            for (int entry = roads_IndexCellStart(k, cell); entry < roads_IndexCellStart(k, cell + 1); entry++)
+            {
+                chainIndex_Measure(k, roads_IndexEntrySlot(k, entry), pointM, best, bestDistanceSq, alongM);
+            }
+        }
+    }
+
+    return best;
+}
+
+// The whole set, for a point standing off the far side of the grid (ChainIndex.Everything).
+int chainIndex_Everything(uint k, vec2 pointM, out float alongM)
+{
+    alongM = 0.0;
+    float bestDistanceSq = 3.402823466e+38;
+    int best = -1;
+    for (int slot = 0; slot < roads_IndexWindow(k).chains; slot++) chainIndex_Measure(k, slot, pointM, best, bestDistanceSq, alongM);
+
+    return best;
+}
+
+// The chain whose line passes nearest the point and how far along it, or -1 where none was registered (ChainIndex.Nearest).
+int chainIndex_Nearest(uint k, vec2 pointM, out float alongM)
+{
+    alongM = 0.0;
+    ChainIndexWindow window = roads_IndexWindow(k);
+    if (window.chains == 0) return -1;
+
+    townArcsOfLanes();
+    float radiusM = window.cellM;
+    precise float acrossM = float(window.width + window.height) * window.cellM;
+    while (true)
+    {
+        float bestDistanceSq;
+        int best = chainIndex_Weigh(k, pointM, radiusM, alongM, bestDistanceSq);
+        precise float radiusSq = radiusM * radiusM;
+        if (best >= 0 && bestDistanceSq <= radiusSq) return best;
+        if (radiusM >= acrossM) return best >= 0 ? best : chainIndex_Everything(k, pointM, alongM);
+
+        precise float twice = radiusM * 2.0;
+        radiusM = max(best >= 0 ? roundedSqrt(bestDistanceSq) : 0.0, twice);
+    }
+
+    return -1;
+}
+
+// RoadGraph's lane indexes asked: the nearest lane, the nearest of the carriageway, and the nearest of one level's
+// carriageway — or the whole carriageway's in a town on one level.
+int roads_NearestLane(vec2 pointM, out float progressM) { return chainIndex_Nearest(RoadsIndexNearest, pointM, progressM); }
+
+int roads_NearestStreetLane(vec2 pointM, out float progressM)
+{
+    return chainIndex_Nearest(RoadsIndexNearestStreet, pointM, progressM);
+}
+
+int roads_NearestStreetLaneOn(vec2 pointM, uint level, out float progressM)
+{
+    return roads_IndexesLevelled != 0u
+        ? chainIndex_Nearest(RoadsIndexNearestStreetOn + level, pointM, progressM)
+        : chainIndex_Nearest(RoadsIndexNearestStreet, pointM, progressM);
+}
+
+// RoadGraph.LanesFrom, LanesIntoJunction: how many, and the one at a place in the run.
+int roads_LanesFromCount(int lane) { return roads_ConnectorAt(lane + 1) - roads_ConnectorAt(lane); }
+
+int roads_LaneFrom(int lane, int at) { return roads_ConnectorToLane(roads_ConnectorAt(lane) + at); }
+
+// DrivingNetwork.SwitchM: what moving across from one lane onto another of its stretch costs a route (CAR-53).
+float driving_SwitchM(int fromLane, int besideLane, float nominalCarLengthM, float laneSwitchPriceCarLengths)
+{
+    precise float switchM = float(abs(roads_LanesOver(fromLane, besideLane))) * nominalCarLengthM * laneSwitchPriceCarLengths;
+    return switchM;
+}
+
 #ifdef ROUTE_TABLES_GLSL
 
 RouteEntry driving_EntryOnLane(int lane, float alongLaneM)
@@ -429,6 +570,29 @@ int driving_GoalOnLane(int lane, float alongLaneM, out RouteGoal goal)
 
     goal = RouteGoal(driving_LinkOfLane(lane), driving_PlaceOfM(lane, alongLaneM));
     return 1;
+}
+
+// DrivingNetwork.GoalsAt into goals of room ROUTE_MOST_GOALS: the place on the nearest street lane, and the same place on
+// its reverse.
+int driving_GoalsAt(vec2 pointM, out RouteGoal into[ROUTE_MOST_GOALS])
+{
+    for (int at = 0; at < ROUTE_MOST_GOALS; at++) into[at] = RouteGoal(TravelGraphNoLink, 0.0);
+
+    float alongM;
+    int lane = roads_NearestStreetLane(pointM, alongM);
+    if (lane < 0) return 0;
+
+    int count = 0;
+    into[count++] = RouteGoal(driving_LinkOfLane(lane), driving_PlaceOfM(lane, alongM));
+
+    int reverse = roads_LaneReverse(lane);
+    if (reverse >= 0 && ROUTE_MOST_GOALS > 1)
+    {
+        precise float backM = roads_LaneLengthM(reverse) - alongM;
+        into[count++] = RouteGoal(driving_LinkOfLane(reverse), driving_PlaceOfM(reverse, max(0.0, backM)));
+    }
+
+    return count;
 }
 
 RouteEntry walking_EntryOnEdge(int edge, float alongEdgeM)
