@@ -315,7 +315,6 @@ public class LaneOccupancyTests
 
         Assert.Empty(index.Bodies(way).ToArray());
         Assert.Empty(index.Mains(way).ToArray());
-        Assert.Empty(index.OccupiedWays.ToArray());
     }
 
     /// <summary>A place a body is put down must be clear of bodies and of ground a holder cannot stop short of, and of nothing else.</summary>

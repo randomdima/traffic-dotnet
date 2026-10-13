@@ -26,14 +26,14 @@ internal sealed partial class LaneOccupancy
     {
         CloseTheBodies();
         var row = RowOf(way);
-        return row == NoRow ? [] : Read(_rows[row].Bodies, ClaimKind.Body, _bodyView);
+        return row == NoRow ? [] : Read(_bodies, _rows[row].Bodies, ClaimKind.Body, _bodyView);
     }
 
     /// <summary>The main claims on one way, nearest first — none until the plans are answered. Read as <see cref="Bodies"/> are.</summary>
     public ReadOnlySpan<Claim> Mains(int way)
     {
         var row = RowOf(way);
-        return _answered && row != NoRow ? Read(_rows[row].Mains, ClaimKind.Main, _mainView) : [];
+        return _answered && row != NoRow ? Read(_slots, _rows[row].Mains, ClaimKind.Main, _mainView) : [];
     }
 
     /// <summary>
@@ -43,7 +43,7 @@ internal sealed partial class LaneOccupancy
     public ReadOnlySpan<Claim> Secondaries(int way)
     {
         var row = RowOf(way);
-        return _answered && row != NoRow ? Read(_rows[row].Seconds, ClaimKind.Secondary, _secondView) : [];
+        return _answered && row != NoRow ? Read(_slots, _rows[row].Seconds, ClaimKind.Secondary, _secondView) : [];
     }
 
     /// <summary>The holders of one claim as its kind was last read.</summary>
@@ -59,14 +59,14 @@ internal sealed partial class LaneOccupancy
     }
 
     /// <summary>One run read into a view: of one rung, those overlapping made one claim, its holders in the order laid.</summary>
-    ReadOnlySpan<Claim> Read(int head, ClaimKind kind, ClaimView view)
+    static ReadOnlySpan<Claim> Read(Slot[] slots, int head, ClaimKind kind, ClaimView view)
     {
         Span<int> open = stackalloc int[Rungs];
         open.Fill(-1);
         var count = 0;
-        for (var at = head; at != NoSlot; at = _slots[at].Next)
+        for (var at = head; at != NoSlot; at = slots[at].Next)
         {
-            ref readonly var slot = ref _slots[at];
+            ref readonly var slot = ref slots[at];
             ref var into = ref open[(int)slot.Rung];
             if (into >= 0 && view.Claims[into].ToDm > slot.FromDm)
             {
@@ -86,10 +86,10 @@ internal sealed partial class LaneOccupancy
         foreach (ref var claim in view.Claims.AsSpan(0, count))
         {
             var from = holders;
-            for (var at = claim.HoldersFrom; at != NoSlot && _slots[at].FromDm < claim.ToDm; at = _slots[at].Next)
+            for (var at = claim.HoldersFrom; at != NoSlot && slots[at].FromDm < claim.ToDm; at = slots[at].Next)
             {
-                var key = _slots[at].Key;
-                if (_slots[at].Rung != claim.Rung || view.Holders.AsSpan(from, holders - from).Contains(key)) continue;
+                var key = slots[at].Key;
+                if (slots[at].Rung != claim.Rung || view.Holders.AsSpan(from, holders - from).Contains(key)) continue;
 
                 if (holders == view.Holders.Length) Array.Resize(ref view.Holders, 2 * holders);
 

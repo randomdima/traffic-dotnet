@@ -46,7 +46,7 @@ internal sealed partial class LaneOccupancy
 
         var row = Touch(way);
         var key = KeyOf(occupant, of);
-        InsertAfterTies(ref _rows[row].Bodies, fromDm, toDm, ClaimPriority.Hard, key);
+        InsertTheBody(ref _rows[row].Bodies, fromDm, toDm, key);
         if (key != NoKey && of == LaneRoster.Driving)
         {
             if (occupant >= _ownHeads.Length) Array.Resize(ref _ownHeads, Math.Max(occupant + 1, 2 * _ownHeads.Length));
@@ -82,9 +82,9 @@ internal sealed partial class LaneOccupancy
         var row = RowOf(way);
         if (RosterOf(key) != LaneRoster.Driving)
         {
-            for (var at = BodiesOn(row); at != NoSlot; at = _slots[at].Next)
+            for (var at = BodiesOn(row); at != NoSlot; at = _bodies[at].Next)
             {
-                ref readonly var body = ref _slots[at];
+                ref readonly var body = ref _bodies[at];
                 if (body.Key != key) continue;
 
                 fromDm = Math.Min(fromDm, body.FromDm);
@@ -152,9 +152,9 @@ internal sealed partial class LaneOccupancy
 
         var reachDm = (ushort)0;
         var begun = false;
-        for (var at = BodiesOn(row); at != NoSlot; at = _slots[at].Next)
+        for (var at = BodiesOn(row); at != NoSlot; at = _bodies[at].Next)
         {
-            ref readonly var body = ref _slots[at];
+            ref readonly var body = ref _bodies[at];
             if (!begun || body.FromDm >= reachDm)
             {
                 if (begun && reachDm > atDm) break;
@@ -183,9 +183,9 @@ internal sealed partial class LaneOccupancy
     {
         found = NoSlot;
         atDm = 0;
-        for (var at = BodiesOn(row); at != NoSlot; at = _slots[at].Next)
+        for (var at = BodiesOn(row); at != NoSlot; at = _bodies[at].Next)
         {
-            ref readonly var body = ref _slots[at];
+            ref readonly var body = ref _bodies[at];
             if (body.FromDm >= toDm) break;
             if (body.Key == key || body.ToDm <= fromDm) continue;
 

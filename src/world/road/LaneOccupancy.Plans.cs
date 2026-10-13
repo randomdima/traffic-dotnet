@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace TrafficSimulation.World.Road;
 
 /// <summary>
@@ -64,10 +66,20 @@ internal sealed partial class LaneOccupancy
     }
 
     /// <summary>
-    /// <b>What one hold came to</b>, and where its wishes are (<see cref="HoldState"/> says whose it is).
+    /// <b>What one hold came to</b>, where its wishes are while it is answered, and the claims it holds in the order it
+    /// asked them (<see cref="HoldState"/> says whose it is).
     /// </summary>
-    /// <param name="WishFrom">Where its wishes begin — one run of them, for a hold had whole.</param>
-    record struct HoldRow(Refusal Cut, int WishFrom, int Wishes);
+    struct HoldRow
+    {
+        public Refusal Cut;
+
+        /// <summary>Where its wishes begin — one run of them, for a hold had whole.</summary>
+        public int WishFrom;
+
+        public int Wishes;
+        public int FirstClaim;
+        public int LastClaim;
+    }
 
     /// <summary>
     /// <b>What answering reads of a hold for every piece</b>: whose it is, whether it is had whole or not at all, and
@@ -114,13 +126,40 @@ internal sealed partial class LaneOccupancy
             Array.Resize(ref _holdStates, _holds.Length);
         }
 
-        _holds[_holdCount] = new HoldRow(Refusal.Whole, _wishCount, 0);
+        _holds[_holdCount] = new HoldRow
+        {
+            Cut = Refusal.Whole, WishFrom = _wishCount, Wishes = 0, FirstClaim = NoSlot, LastClaim = NoSlot,
+        };
         _holdStates[_holdCount] = new HoldState { Key = KeyOf(occupant, of), Whole = whole };
         return _holdCount++;
     }
 
     /// <summary>How many holds this rebuild began.</summary>
     public int HoldCount => _holdCount;
+
+    /// <summary>
+    /// <b>Every claim a hold has, let go of</b>: each taken out of its way's run, and the hold left holding nothing and
+    /// answered as nothing (<see cref="CutOf"/>).
+    /// </summary>
+    void LetGoOf(int hold)
+    {
+        ref var row = ref _holds[hold];
+        for (var claim = row.FirstClaim; claim != NoSlot; claim = _owners[claim].HoldNext) LetGo(claim);
+
+        row.FirstClaim = row.LastClaim = NoSlot;
+        row.Cut = Refusal.Whole;
+    }
+
+    /// <summary>Every hold let go of, and none kept: the rebuild begins with nothing held but what is laid in it.</summary>
+    void LetGoOfEveryHold()
+    {
+        for (var hold = 0; hold < _holdCount; hold++) LetGoOf(hold);
+
+        Debug.Assert(_freeSlotCount == _slotCount, "a claim held by no hold");
+        _holdCount = 0;
+        _slotCount = 0;
+        _freeSlotCount = 0;
+    }
 
     /// <summary>
     /// <b>One piece of a hold's own line</b>: <c>[fromM, toM)</c> of one way, up its metres, asked at
@@ -329,9 +368,9 @@ internal sealed partial class LaneOccupancy
         var count = 0;
         foreach (ref readonly var row in _rows.AsSpan(0, _touchedCount))
         {
-            for (var at = row.Bodies; at != NoSlot; at = _slots[at].Next)
+            for (var at = row.Bodies; at != NoSlot; at = _bodies[at].Next)
             {
-                if (RosterOf(_slots[at].Key) == roster) count++;
+                if (RosterOf(_bodies[at].Key) == roster) count++;
             }
         }
 

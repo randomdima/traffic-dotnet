@@ -43,7 +43,7 @@ internal sealed partial class LaneOccupancy
     public bool FirstBodySeen(int way, float fromM, float toM, int occupant, LaneRoster of, out BodySeen body)
     {
         var found = BodyIn(RowOf(way), DmOf(fromM), DmOf(toM), KeyOf(occupant, of), false, out var member, out _);
-        body = found ? new BodySeen(way, MetresOf(_slots[member].FromDm), MetresOf(_slots[member].ToDm)) : default;
+        body = found ? new BodySeen(way, MetresOf(_bodies[member].FromDm), MetresOf(_bodies[member].ToDm)) : default;
         return found;
     }
 
@@ -114,9 +114,9 @@ internal sealed partial class LaneOccupancy
         var one = KeyOf(occupant, of);
         var other = KeyOf(alsoOccupant, of);
         var row = RowOf(way);
-        for (var at = BodiesOn(row); at != NoSlot; at = _slots[at].Next)
+        for (var at = BodiesOn(row); at != NoSlot; at = _bodies[at].Next)
         {
-            ref readonly var member = ref _slots[at];
+            ref readonly var member = ref _bodies[at];
             if (member.FromDm >= toDm) break;
             if (member.ToDm > fromDm && member.Key != one && member.Key != other) return true;
         }

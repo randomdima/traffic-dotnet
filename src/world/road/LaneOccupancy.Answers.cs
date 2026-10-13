@@ -240,53 +240,11 @@ internal sealed partial class LaneOccupancy
         return found;
     }
 
-    /// <summary>A claim taken into its way's run of its kind.</summary>
-    void Insert(in Wish wish, ushort fromDm, ushort toDm, int key)
-    {
-        if (wish.Kind == ClaimKind.Main)
-        {
-            InsertMain(wish.Row, fromDm, toDm, wish.Rung, key);
-            return;
-        }
-
-        InsertAfterTies(ref _rows[wish.Row].Seconds, fromDm, toDm, wish.Rung, key);
-    }
-
     /// <summary>
-    /// <b>A main claim taken in, with every main claim it lies over</b> — all of them its own holder's, since another's
-    /// would have refused it: two holds of one holder, a plan and a pass, being one holder's ground. So a run of main
-    /// claims never overlaps itself, and what it lies over is found where its near edge is.
+    /// <b>A claim taken into its way's run of its kind</b>, and held by its hold. Main claims of one holder may lie over
+    /// one another — a plan and a pass of one car being one holder's ground — and another's never do, since it would have
+    /// refused them.
     /// </summary>
-    void InsertMain(int row, ushort fromDm, ushort toDm, ClaimPriority rung, int key)
-    {
-        // Grown before the walk, which holds a reference into the table.
-        if (_slotCount == _slots.Length) Array.Resize(ref _slots, 2 * _slots.Length);
-
-        ref var link = ref _rows[row].Mains;
-        while (link != NoSlot && _slots[link].ToDm <= fromDm) link = ref _slots[link].Next;
-
-        if (link == NoSlot || _slots[link].FromDm >= toDm)
-        {
-            var slot = NewSlot(fromDm, toDm, rung, key);
-            _slots[slot].Next = link;
-            link = slot;
-            return;
-        }
-
-        ref var first = ref _slots[link];
-        var next = link;
-        for (; next != NoSlot && _slots[next].FromDm < toDm; next = _slots[next].Next)
-        {
-            ref readonly var own = ref _slots[next];
-            Debug.Assert(own.Key == key, "a main claim taken over another holder's");
-            (fromDm, toDm) = (Math.Min(fromDm, own.FromDm), Math.Max(toDm, own.ToDm));
-            rung = own.Rung < rung ? own.Rung : rung;
-        }
-
-        first.FromDm = fromDm;
-        first.ToDm = toDm;
-        first.Rung = rung;
-        first.Next = next;
-    }
-
+    void Insert(in Wish wish, ushort fromDm, ushort toDm, int key) =>
+        Hold(wish.Row, wish.Kind, wish.Hold, fromDm, toDm, wish.Rung, key);
 }
