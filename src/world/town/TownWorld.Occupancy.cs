@@ -88,6 +88,7 @@ internal sealed partial class TownWorld
 
         at = Spent(LayingStage.Backing, at);
         _occupancy.Answer();
+        _signalHolds.NoteWhatHolds(_occupancy, _layings);
 
         at = Spent(LayingStage.Answer, at);
         foreach (var car in CarsAsked) _backingUp.Read(car);

@@ -136,15 +136,16 @@ internal sealed partial class TownWorld
     /// ground on the ways of the car's line, laid under the lights' own roster.
     /// </summary>
     /// <remarks>
-    /// <b>The hold is found once a laying and a line</b> (<see cref="FindTheLightAhead"/>) and only measured each tick,
-    /// to the bit what reading the ways under the reach every tick answers: a light's hold changes only at a laying, a
-    /// way's list is kept in the order of its near edges, and a nose that has not gone back finds nothing nearer than
-    /// what it found before. A nose that has gone back, or past the far end of what it found, looks again.
+    /// <b>The hold is found once a line and kept while the lights stand as they did</b> (<see cref="FindTheLightAhead"/>,
+    /// <see cref="LightsStandAsFound"/>), and only measured each tick, to the bit what reading the ways under the reach
+    /// every tick answers: a light's hold changes only at a laying, a way's list is kept in the order of its near edges,
+    /// and a nose that has not gone back finds nothing nearer than what it found before. A nose that has gone back, or
+    /// past the far end of what it found, looks again.
     /// </remarks>
     float LightAheadM(int car, float noseM)
     {
         var lights = _lightsAhead;
-        if (lights.Laying[car] != _layings || lights.Line[car] != Cars.LinesLaid[car] || noseM < lights.FromNoseM[car])
+        if (lights.Line[car] != Cars.LinesLaid[car] || noseM < lights.FromNoseM[car] || !LightsStandAsFound(car))
         {
             FindTheLightAhead(car, noseM);
         }
@@ -179,6 +180,8 @@ internal sealed partial class TownWorld
         lights.Line[car] = Cars.LinesLaid[car];
         lights.FromNoseM[car] = noseM;
         lights.WayFromM[car] = LightsAhead.None;
+        lights.FromSlot[car] = LaneAheadSlot(car, noseM - Cars.BuildOf(car).NoseAheadOfAxleM);
+        lights.ToSlot[car] = Cars.Line[car].LaneCount - 1;
 
         Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];
         Span<WaySpan> spans = stackalloc WaySpan[MostWaysAlongALine];
@@ -195,14 +198,49 @@ internal sealed partial class TownWorld
             lights.WayToM[car] = spans[index].EndM;
             lights.HeldFromM[car] = heldFromM;
             lights.HeldToM[car] = heldToM;
+            lights.ToSlot[car] = SlotOfTheLane(car, lights.FromSlot[car], _ways.RoadLaneOf(way.Way));
             return;
         }
     }
 
     /// <summary>
+    /// <b>Whether what the lights hold on the lanes a car looked down for its light is as it was when it looked</b>
+    /// (<see cref="SignalHolds.ChangedAt"/>): from the lane its nose was on to the one the hold was found on, or to the
+    /// line's end where none was — so the same look now finds the same hold. A look taken while a laying stood
+    /// unanswered is no look.
+    /// </summary>
+    bool LightsStandAsFound(int car)
+    {
+        var lights = _lightsAhead;
+        var foundAt = lights.Laying[car];
+        if (foundAt < 0 || (foundAt & 1) != 0) return false;
+
+        var chain = Cars.ChainOf(car);
+        for (var slot = lights.FromSlot[car]; slot <= lights.ToSlot[car]; slot++)
+        {
+            if (_signalHolds.ChangedAt(chain[slot]) > foundAt) return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>The slot of the chain from <paramref name="fromSlot"/> on that is this lane, or the last.</summary>
+    int SlotOfTheLane(int car, int fromSlot, int lane)
+    {
+        var chain = Cars.ChainOf(car);
+        var last = Cars.Line[car].LaneCount - 1;
+        for (var slot = fromSlot; slot < last; slot++)
+        {
+            if (chain[slot] == lane) return slot;
+        }
+
+        return last;
+    }
+
+    /// <summary>
     /// <b>Each car's nearest light's hold, as <see cref="FindTheLightAhead"/> last found it</b>: the laying and the line it
-    /// was found on and the nose it was found from, the line's metres the way under it spans and the way's own metres of
-    /// the hold.
+    /// was found on, the nose it was found from and the lanes it looked down, the line's metres the way under it spans
+    /// and the way's own metres of the hold.
     /// </summary>
     internal sealed class LightsAhead(int cars)
     {
@@ -222,6 +260,11 @@ internal sealed partial class TownWorld
         public readonly float[] HeldFromM = new float[cars];
 
         public readonly float[] HeldToM = new float[cars];
+
+        /// <summary>The slots of the chain it looked down: from the lane its axle was on to the one the hold is on, or the last.</summary>
+        public readonly int[] FromSlot = new int[cars];
+
+        public readonly int[] ToSlot = new int[cars];
 
         static long[] Filled(int count, long value)
         {

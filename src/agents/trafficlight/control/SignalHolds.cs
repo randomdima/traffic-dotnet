@@ -50,7 +50,19 @@ internal sealed class SignalHolds
     readonly int[] _junctions;
     readonly JunctionPhase[] _phases;
 
-    SignalHolds(int[] way, float[] fromM, float[] toM, bool[] forCars, int[] axis, int[] junctionAt, int[] junctions)
+    /// <summary>The lane each approach's stretch holds, or −1 for a crossing's.</summary>
+    readonly int[] _laneOf;
+
+    /// <summary>What each approach's stretch held as the last laying answered it (<see cref="NoteWhatHolds"/>): whether anything, and where.</summary>
+    readonly bool[] _held;
+    readonly float[] _heldFromM, _heldToM;
+
+    /// <summary>The laying at which what any light holds on each lane last changed.</summary>
+    readonly long[] _changedAt;
+
+    SignalHolds(
+        int[] way, float[] fromM, float[] toM, bool[] forCars, int[] axis, int[] junctionAt, int[] junctions, int[] laneOf,
+        int lanes)
     {
         _way = way;
         _fromM = fromM;
@@ -60,6 +72,11 @@ internal sealed class SignalHolds
         _junctionAt = junctionAt;
         _junctions = junctions;
         _phases = new JunctionPhase[junctions.Length];
+        _laneOf = laneOf;
+        _held = new bool[way.Length];
+        _heldFromM = new float[way.Length];
+        _heldToM = new float[way.Length];
+        _changedAt = new long[lanes];
     }
 
     /// <summary>
@@ -79,6 +96,7 @@ internal sealed class SignalHolds
         var axis = new List<int>();
         var junctionAt = new List<int>();
         var junctions = new List<int>();
+        var laneOf = new List<int>();
         var slotOf = new Dictionary<int, int>();
 
         for (var bar = 0; bar < bars.Count; bar++)
@@ -87,6 +105,7 @@ internal sealed class SignalHolds
             if (signals.AxisOfLane(lane) == SignalService.NoAxis) continue;
 
             way.Add(ways.OfRoadLane(lane));
+            laneOf.Add(lane);
             fromM.Add(bars.AlongM[bar] - (bars.ThicknessM[bar] * 0.5f));
             toM.Add(roads.LaneLengthM[lane]);
             forCars.Add(true);
@@ -103,6 +122,7 @@ internal sealed class SignalHolds
 
             var footway = ways.OfFootway(edge);
             way.Add(footway);
+            laneOf.Add(-1);
             fromM.Add(0f);
             toM.Add(ways.LengthM(footway));
             forCars.Add(false);
@@ -110,7 +130,9 @@ internal sealed class SignalHolds
             junctionAt.Add(SlotOf(signals.JunctionOfCrossing(crossing)));
         }
 
-        return new SignalHolds([.. way], [.. fromM], [.. toM], [.. forCars], [.. axis], [.. junctionAt], [.. junctions]);
+        return new SignalHolds(
+            [.. way], [.. fromM], [.. toM], [.. forCars], [.. axis], [.. junctionAt], [.. junctions], [.. laneOf],
+            roads.LaneCount);
 
         int SlotOf(int junction)
         {
@@ -140,6 +162,31 @@ internal sealed class SignalHolds
             HoldTheStretch(occupancy, stretch, _way[stretch], _fromM[stretch], _toM[stretch]);
         }
     }
+
+    /// <summary>
+    /// <b>What every approach's light holds, as this laying answered it</b>, against what the last one did: each lane whose
+    /// hold came out anywhere else is stamped with <paramref name="laying"/> (<see cref="ChangedAt"/>). Read as a driver
+    /// reads it (<see cref="LaneOccupancy.FirstSecondary"/>), so a hold the answer cut — ground a car could no longer stop
+    /// short of, on an amber — is a change too.
+    /// </summary>
+    public void NoteWhatHolds(LaneOccupancy occupancy, long laying)
+    {
+        for (var stretch = 0; stretch < _way.Length; stretch++)
+        {
+            var lane = _laneOf[stretch];
+            if (lane < 0) continue;
+
+            var held = occupancy.FirstSecondary(
+                _way[stretch], _fromM[stretch], _toM[stretch], ClaimPriority.Signal, out var heldFromM, out var heldToM);
+            if (held == _held[stretch] && heldFromM == _heldFromM[stretch] && heldToM == _heldToM[stretch]) continue;
+
+            (_held[stretch], _heldFromM[stretch], _heldToM[stretch]) = (held, heldFromM, heldToM);
+            _changedAt[lane] = laying;
+        }
+    }
+
+    /// <summary>The laying at which what any light holds on this lane last came out otherwise (<see cref="NoteWhatHolds"/>).</summary>
+    public long ChangedAt(int lane) => _changedAt[lane];
 
     /// <summary>
     /// What a stretch's light is showing it at the last laying: its approach's colour, or its crossing's

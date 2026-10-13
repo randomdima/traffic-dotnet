@@ -269,9 +269,10 @@ internal static class CarFollower
             return new LineDrive(InTheGear(backingPedals, reverse), DrivingHold.BackingUp, float.NaN, Hazard: false);
         }
 
+        var steerTan = MathF.Tan(steerRad);
         var targetMps = TargetSpeedMps(
             config, build, line, entryM, progressM, lengthM, steerRad, alongMps, lookaheadM, context, out var hold,
-            out var plannedMps, pass, lastMps2, cursor);
+            out var plannedMps, pass, lastMps2, cursor, steerTan);
 
         // <b>A manoeuvre at a bay is driven at manoeuvring pace</b> whichever gear its piece is in, and the reverse cap
         // is that pace — deliberately off the forward cap's scale, because this is its only use.
@@ -290,7 +291,8 @@ internal static class CarFollower
         capMps = MathF.Min(capMps, paceMps);
         targetMps = MathF.Min(targetMps, capMps);
 
-        var command = InTheGear(Pedals(config, build, steerRad, targetMps, alongMps, config.TickSeconds, lastMps2), reverse);
+        var command = InTheGear(
+            Pedals(config, build, steerRad, targetMps, alongMps, config.TickSeconds, lastMps2, steerTan), reverse);
 
         // <b>The margin the profile kept back, spent</b>: the profile plans every stop against usable grip (S-2), and
         // this is the tick where that margin is no longer enough. Asked of the profile's own answer rather than instead
@@ -496,11 +498,12 @@ internal static class CarFollower
     /// arc, folded into what that arc may be entered at.
     /// </param>
     /// <param name="cursor">Where on the line the car's walks of it begin (<see cref="CarFleet.LineCursor"/>), or its head.</param>
+    /// <param name="steerTan">The tangent of <paramref name="steerRad"/> where the caller has it, or NaN.</param>
     public static float TargetSpeedMps(
         SimConfig config, in CarBuild car, ReadOnlySpan<ArcSeg> line, ReadOnlySpan<float> entryM, float progressM,
         float lineLengthM, float steerRad, float alongMps, float lookaheadM, in DriveContext context,
         out DrivingHold hold, out float plannedMps, in Overtake pass = default, float lastMps2 = 0f,
-        SplineCursor cursor = default)
+        SplineCursor cursor = default, float steerTan = float.NaN)
     {
         hold = DrivingHold.None;
         var lateralMps2 = car.PlannedCorneringMps2;
@@ -564,7 +567,8 @@ internal static class CarFollower
 
         // <b>And the corner the wheel is asking for</b>, which is the car's and not the road's: left out of the planned
         // speed, or a car steering back onto its line would draw its plan back for a bend the road does not have.
-        Bind(ref targetMps, CornerMps(MathF.Tan(steerRad) / car.WheelbaseM, lateralMps2), DrivingHold.Wheel, ref hold);
+        Bind(
+            ref targetMps, CornerMps(TanOf(steerRad, steerTan) / car.WheelbaseM, lateralMps2), DrivingHold.Wheel, ref hold);
 
         // <b>And the end of its own plan</b> (TER-4c.1), where it was held short of what the car wanted: past it is
         // road nobody holds for this car, so ground it could no longer stop short of could run on beyond anything
@@ -664,8 +668,10 @@ internal static class CarFollower
     /// What the pedal was asking for last tick, throttle positive and brake negative — <c>0</c> for a
     /// caller with no previous command, which is a foot starting from neither pedal.
     /// </param>
+    /// <param name="steerTan">The tangent of <paramref name="steerRad"/> where the caller has it, or NaN.</param>
     public static DriveCommand Pedals(
-        SimConfig config, in CarBuild car, float steerRad, float targetMps, float alongMps, float dtS, float lastMps2 = 0f)
+        SimConfig config, in CarBuild car, float steerRad, float targetMps, float alongMps, float dtS, float lastMps2 = 0f,
+        float steerTan = float.NaN)
     {
         // Both terms, and not just the target: the handbrake is the car's own (CTL-5a), pulled on a dead
         // stop it has already made and never on the way down to one, so a car waiting holds its spot
@@ -685,8 +691,12 @@ internal static class CarFollower
         return wantedMps2 >= 0f
             ? new DriveCommand(steerRad, MathF.Min(wantedMps2, car.AccelerationMps2), 0f, false, false)
             : new DriveCommand(
-                steerRad, 0f, MathF.Min(-wantedMps2, BrakeCeilingMps2(config, car, steerRad, alongMps)), false, false);
+                steerRad, 0f, MathF.Min(-wantedMps2, BrakeCeilingMps2(config, car, steerRad, alongMps, steerTan)), false,
+                false);
     }
+
+    /// <summary>The tangent of a wheel's angle, unless the caller already has it.</summary>
+    static float TanOf(float steerRad, float steerTan) => float.IsNaN(steerTan) ? MathF.Tan(steerRad) : steerTan;
 
     /// <summary>
     /// <b>The most a driver brakes at in the ordinary way</b> (CAR-47): what the tyres have left along the roll once
@@ -700,9 +710,10 @@ internal static class CarFollower
     /// and not the one the tyres are carrying</b>, because a sliding car carries less than it asks for and would read
     /// its own slide as room to brake. A hazard is not held to this (<see cref="IsAHazard"/>).
     /// </remarks>
-    public static float BrakeCeilingMps2(SimConfig config, in CarBuild car, float steerRad, float alongMps)
+    public static float BrakeCeilingMps2(
+        SimConfig config, in CarBuild car, float steerRad, float alongMps, float steerTan = float.NaN)
     {
-        var acrossMps2 = alongMps * alongMps * MathF.Abs(MathF.Tan(steerRad)) / car.WheelbaseM;
+        var acrossMps2 = alongMps * alongMps * MathF.Abs(TanOf(steerRad, steerTan)) / car.WheelbaseM;
         var leftMps2 = TyreModel.DriveLeftMps2(car.GripMps2, acrossMps2);
         return MathF.Min(car.BrakingMps2, leftMps2) * config.Driving.BrakingMargin;
     }

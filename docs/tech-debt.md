@@ -199,12 +199,8 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   laying, a new line or nothing changes:
   - **the speed profile's stop terms and corner walk every tick** (`CarFollower.DriveTheLine`), though each is a fixed
     metre of the line between layings, and `PlannedMps`, which only the laying reads;
-  - **a `tan` of the wheel twice** (`TargetSpeedMps`, `BrakeCeilingMps2`) over the `atan` it was steered by;
   - **the lamps' turn read off the arcs ahead** (`CarLamps.TurnAheadRad`) though the turn is the line's;
-  - **`TownWatch.Saw` every tick in the live game** (5.3 ms), an instrument;
-  - **the light ahead found again every laying for every car not gaining** (`FindTheLightAhead` under
-    `WaitingForAReasonItCanSee`, 6.9 ms of 168 on 2026-10-13): a queue's cars walk their ways and the secondaries on
-    them each laying though no light's hold moved. Keeping what was found until a hold on its way changes closes it.
+  - **`TownWatch.Saw` every tick in the live game** (5.3 ms), an instrument.
 
   The steering and the speed profile themselves are a 60 Hz controller on the body's pose fed a view a step stale —
   the world's job by the 2026-10-11 ruling's own terms. The world already reads progress (root log, 2026-10-14);
