@@ -6,7 +6,8 @@
 #include "app/render/kernels/sprites_person.glsl"
 
 // The frame's own words, written by the host each frame into a buffer rather than pushed, because a frame is recorded
-// once (CameraView): the view as the fill takes it, the narrowest part drawn, the town's clock and its live rosters.
+// once (CameraView): the view as the fill takes it, the narrowest part drawn, the town's clock, its live rosters, and
+// which of the world's two views the host is showing (sprites_world.comp).
 layout(std430, binding = 0) readonly buffer Frame
 {
     vec2 viewCentreM;
@@ -15,8 +16,8 @@ layout(std430, binding = 0) readonly buffer Frame
     float elapsedS;
     uint personCount;
     uint carCount;
-    uint handCount;
-    int alsoDrivenCar;
+    uint viewSlot;
+    uint pad;
 } frame;
 
 // What is fixed when the town is laid: the rosters' room, the runs' room, the sheet slots and the figures.
@@ -45,31 +46,27 @@ layout(std430, binding = 1) readonly buffer Figures
     float widestGlowM;
     float facingFromRad;
     float facingStepRad;
-    float personCellU;
-    float personCellV;
-    float lampBrakeMps2;
-    float stepBackLeadS;
-    float junctionAheadM;
-    float indicateRad;
+    uint personColumns;
+    uint personRows;
     float flashHz;
     float flashOnShare;
     float beaconHz;
     float halfLensCellM;
-    float lensCellU;
-    float lensCellV;
+    uint lensColumns;
+    uint lensRows;
     float carHeadHalfX;
     float carHeadHalfY;
     float walkHeadHalfX;
     float walkHeadHalfY;
     float headReachM;
-    float carHeadRedU;
-    float carHeadAmberU;
-    float carHeadGreenU;
-    float carHeadCellU;
-    float walkHeadRedU;
-    float walkHeadAmberU;
-    float walkHeadGreenU;
-    float walkHeadCellU;
+    uint carHeadRed;
+    uint carHeadAmber;
+    uint carHeadGreen;
+    uint carHeadFrames;
+    uint walkHeadRed;
+    uint walkHeadAmber;
+    uint walkHeadGreen;
+    uint walkHeadFrames;
     float cycleS;
     float amberTailS;
 } figures;
@@ -110,13 +107,13 @@ struct CarLook
     uint extendedSheet;
 };
 
-// One lens of a look (DeviceSprites.LensRow): where it is on the body, its two cells, its glow, and its fitting with
-// the colour its first cell burns in the next byte.
+// One lens of a look (DeviceSprites.LensRow): where it is on the body, its two cells (SpriteCell, packed), its glow, and
+// its fitting with the colour its first cell burns in the next byte.
 struct LensRow
 {
     vec2 atBodyM;
-    vec2 firstCellUv;
-    vec2 secondCellUv;
+    uint firstCell;
+    uint secondCell;
     float glowM;
     uint fittingAndFirstColour;
 };
@@ -132,18 +129,18 @@ struct HeadRow
     uint pad;
 };
 
-// One instance as the sprite pipeline reads it (SpriteInstance): fifty-six bytes, the tint as two pairs so the row
-// packs to eight and not to sixteen.
+// One instance as the sprite pipeline reads it (SpriteInstance): twenty-eight bytes, every member four, so the row is
+// laid at four and not rounded up to a vec2's eight — the half-size as two halves, the cell as four bytes (SpriteCell),
+// the tint as four (SpriteTint).
 struct SpriteOut
 {
-    vec2 centreM;
-    vec2 halfSizeM;
-    vec2 uvMin;
-    vec2 uvSize;
-    vec2 tintRG;
-    vec2 tintBA;
-    uint sheet;
+    float centreX;
+    float centreY;
+    uint halfSize;
     float headingRad;
+    uint cell;
+    uint tint;
+    uint sheet;
 };
 
 // VkDrawIndirectCommand.
@@ -158,21 +155,20 @@ struct SpriteDraw
 layout(std430, binding = 2) readonly buffer PersonLooks { PersonLook personLooks[]; };
 layout(std430, binding = 3) readonly buffer CarLooks { CarLook carLooks[]; };
 layout(std430, binding = 4) readonly buffer Lenses { LensRow lenses[]; };
-layout(std430, binding = 5) readonly buffer LampTints { vec4 lampTints[]; };
+layout(std430, binding = 5) readonly buffer LampTints { uint lampTints[]; };
 layout(std430, binding = 6) readonly buffer People { PersonRow people[]; };
 layout(std430, binding = 7) readonly buffer Cars { CarRow cars[]; };
-layout(std430, binding = 8) readonly buffer Hands { uint hands[]; };
-layout(std430, binding = 9) readonly buffer Heads { HeadRow heads[]; };
-layout(std430, binding = 10) readonly buffer LaneAxis { int laneAxis[]; };
-layout(std430, binding = 11) readonly buffer LaneJunction { int laneJunction[]; };
-layout(std430, binding = 12) readonly buffer Offsets { float offsetS[]; };
-layout(std430, binding = 13) readonly buffer CrossingAxis { int crossingAxis[]; };
-layout(std430, binding = 14) readonly buffer CrossingJunction { int crossingJunction[]; };
-layout(std430, binding = 15) buffer Starts { uint starts[]; };
-layout(std430, binding = 16) readonly buffer Totals { uint totals[]; };
-layout(std430, binding = 17) buffer LampsShown { uvec2 lampsShown[]; };
-layout(std430, binding = 18) writeonly buffer Instances { SpriteOut instances[]; };
-layout(std430, binding = 19) writeonly buffer Draws { SpriteDraw draws[]; };
+layout(std430, binding = 8) readonly buffer Heads { HeadRow heads[]; };
+layout(std430, binding = 9) readonly buffer LaneAxis { int laneAxis[]; };
+layout(std430, binding = 10) readonly buffer LaneJunction { int laneJunction[]; };
+layout(std430, binding = 11) readonly buffer Offsets { float offsetS[]; };
+layout(std430, binding = 12) readonly buffer CrossingAxis { int crossingAxis[]; };
+layout(std430, binding = 13) readonly buffer CrossingJunction { int crossingJunction[]; };
+layout(std430, binding = 14) buffer Starts { uint starts[]; };
+layout(std430, binding = 15) readonly buffer Totals { uint totals[]; };
+layout(std430, binding = 16) buffer LampsShown { uvec2 lampsShown[]; };
+layout(std430, binding = 17) writeonly buffer Instances { SpriteOut instances[]; };
+layout(std430, binding = 18) writeonly buffer Draws { SpriteDraw draws[]; };
 
 #define LAMP_FIGURES figures
 #define SIGNAL_FIGURES figures

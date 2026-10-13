@@ -2,6 +2,16 @@
 
 Why the rules in [requirements.md](requirements.md) read as they do.
 
+## 2026-10-12 — the amber is 2 s
+
+**`SignalFigures.AmberTailS` went 1.5 → 2 s.** A car that could no longer stop at the amber's start goes on (TLT-2a),
+and one doing that while slowing for the turn past the bar — 18 m/s at the amber, 7.5 m/s at the bar — had its rear
+axle over it a few tenths into the red (CAR-13.3). With the car's plan end kept as a hold found there would cut it
+(car log, same day), the reds crossed per 1 800 ticks of `--bench drive` at 1.5 / 2 / 2.5 / 3 s: Exam 2 / 1 / 0 / 0,
+Odesa 6 / 2 / 1 / 1, River 1 / 1 / 1 / 1, O10 36 / 11 / 5 / 1; mean speed on Odesa 10.06 / 9.90 / 9.74 / 9.68 m/s.
+Hard brakings unmoved by it. 2 s is where Odesa came under its count before the driver's longer committed ground; a
+longer amber is held as a red is and taken off every green, which the cycle's short half does not spare.
+
 ## 2026-10-06 — a light's colour is asked on the device, off the service's own tables
 
 **The tick moves to the device** (root log). `control/kernels/signal.glsl` is `SignalCycle`, `SignalService`'s two

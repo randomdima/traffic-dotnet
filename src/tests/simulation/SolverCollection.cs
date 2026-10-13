@@ -21,9 +21,8 @@ namespace TrafficSimulation.Tests.Simulation;
 /// <para>
 /// <b>A class that measures nothing is a bug in here</b>, and a costly one: a class that only asserts about
 /// a town lays a single-file tail on the end of the town tier for nothing. <b>The membership test is
-/// whether a failure could be caused by something else running</b> — a byte count, a wall clock, a crossing
-/// count, or the one class that stands a world of the incumbent package's own, whose worlds live in a
-/// static roster (<see cref="Physics.CastDifferenceTests"/>). Everything else runs beside everything else.
+/// whether a failure could be caused by something else running</b> — a byte count, a wall clock or a crossing
+/// count. Everything else runs beside everything else.
 /// </para>
 /// </remarks>
 [CollectionDefinition(Name, DisableParallelization = true)]

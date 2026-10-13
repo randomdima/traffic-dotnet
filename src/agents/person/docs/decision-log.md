@@ -4,50 +4,51 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
-## 2026-10-07 — a walker's tick runs on the device, and its impulse is the device's to spend
+## 2026-10-13 — a straight holds what the walker stands on and where it lands, and nothing it crosses is looked up
 
-**Every walker's tick and every casualty's slide are one kernel over a walker table the device keeps**
-(`world/town/kernels/walkers_tick.comp`, `app/devicetick/DeviceWalkerTick`): `WalkerFollower.Tick`, then the town's
-`Settle` for a casualty on the ground, its impulse left where the bodies' phase spends it at the body's centre and its
-position, velocity and distance walked read back after the step (`bodies_walkers.comp`, `bodies_walkers_mirror.comp`).
-**A walker whose tick writes nothing keeps last tick's impulse**, as the town's array does. Boarding and stepping off
-are decisions, and land between the tick and the step.
+**At the owner's ruling that the host looks nothing up** (the root log, 2026-10-13): a straight — a walk back onto the
+pavement, a hop off the end of a route, an officer's to their post — had swept the atlas under it once and held every
+way it crossed. It now holds, at the walker's rung (PER-25, `WalkingGround.TheStraightAhead`):
 
-Held to the town over ten seconds of the suite's city with people on it (`DeviceWalkerTickTests`); a kernel that never
-left its impulse failed 3 746 of 122 400. On OdesaOsm the tick takes 0.003 ms for 10 000 walkers, chained with the cars'
-in one submit (`--bench devicetick`), and every walker stands where the town's step leaves it at the 99th percentile.
+- **the ways the world reads its body on**, as far either side of it as it would set off into (`PlansAheadM`) — a
+  walker standing in a lane holds the lane round it as it goes;
+- **the way it lands on**, from where the body is abeam of it to where it lands, as far past both, once the edge of
+  the way is inside its plan's reach. A walk back lands on its own way; a hop lands on its route's last way or one
+  joined at its end that the place stands on (`WhereTheHopLands`) — a zebra's paint, for an ordered walk over it.
 
-## 2026-10-07 — a walker's side of the claims is asked on the device, stage by stage
+**Both halves are needed.** Holding only where it lands, a walker paused on the paint held its own body's width of it,
+which its own plan never holds (TER-4c.1): the car's committed plan took the whole of the zebra and card 81 failed,
+the car standing on the paint with the walker in its half. Holding the lane under it as well, as the swept straight
+had, the card passes. Whether a walker off the pavement is on any of it is read off the same covers (`WalkingBack`).
 
-**What a rebuild does with a walker moves to the device** (root log), in four kernels over one row a walker
-(`world/town/kernels/walkers*.comp`, `app/devicetick/DeviceWalkers`): stationed on its walk (`StationTheWalker`), its
-body and its pass laid (`LayTheWalkersBody`, `Sidestepping.Lay`), its walk planned and proposed (`PlanTheWalk`), and its
-grant read, its pass considered and its aim set. `actions/kernels/walking_ground.glsl` and `walker_actions.glsl` are
-`WalkingGround`, `WalkingItsRoute`, `WalkingBack`, `WalkingToThePost` and `Sidestepping` line for line. To be asked one
-function, the body's cover moved out of `TownWorld` into `WalkingGround.BodyCover` and a pass's ground into
-`Sidestepping.GroundStillToCover`, unchanged.
+A sidestep's ground (`Sidestepping`, never decided while nothing calls `DrawThePass`) is its own route's to where it
+steps back. The exam the same 13 cards, the unit, town and perf tiers green.
 
-**Each stage is asked of the town as the town has it at that stage** (`TownWorld.WatchingTheClaims`), and held to what
-the town made of it (`DeviceWalkersTests`, on `Towns.Built` — the suite's city with people on it — staged so that some
-walkers sidestep, walk back and go to a post): over 163 200 walker-rebuilds, 19 207 walks and 340 passes, every
-discrete outcome exactly, every row of a claim to the bit, and a place on a bent way or a pace along a heading to
-`trig.glsl`. Three stations within a millimetre of a threshold are left out of the comparison and counted.
+**And a walk is laid from places, not points** (the root log): from the walker's last place on the pavement, kept as
+it walks its way (`TownWorld.KeepItsPlace`), to its goal's — a door's, a bay's way in or the kerb beside a car, all
+tabled with the map, and only a player's order looked up. **A walker walking back is never laid again**: laid from
+where it left the pavement, its walk handed it back to its route every decision and it flapped between the two,
+walking nowhere. Coming out of a building or a car it is put down along the pavement off the way out (PHY-7a), and a
+trip is drawn down the road (PER-9).
 
-- **A walker's hold is numbered by the walker** on the device; the holds are numbered on the host, and the rows a hold
-  lays are compared without it.
-- **Still the host's:** `Sidestepping.Decide`, on the walker's own clock; the answer each hold came to, which a read is
-  handed off the host's claims (`DeviceClaims` answers them apart); and the rows the claims' body lists are laid from
-  each stage.
+## 2026-10-11 — an owner refused the ground beside the door asks again a second later
+
+**An owner parked where every place beside the door was taken asked for one every decision** — the whole ring of exit
+spots, each a reach, a disc under the atlas and the claims under it — and was refused every time while whoever stood
+there stood: the cars' share of the age probe's Odesa tick fell 5–8 µs (of about 120) once it stopped. It now asks every
+`PersonFigures.ExitAskEveryS` (1 s, the pass's and the sidestep's own ask) from the last refusal. PHY-7a holds: the
+exit is unavailable while no place is free, and a place freed is taken up to a second later than it was. The town
+moves with it (the age probe's digests from 60 s on).
 
 ## 2026-10-07 — a walker's cell is picked on the device
 
 `PersonCatalog.FacingRow` and `WalkColumn` are `body/kernels/look.glsl`, for the frame's emit (`app/render` log). Both
-quotients are `rounded.glsl`'s, so a heading on the edge between two facings picks the host's row on any device — held
-over 2 000 staged walkers of every look, a tenth of them headed exactly on an edge (`DeviceSpritesTests`).
+quotients are `rounded.glsl`'s, so a heading on the edge between two facings picks the host's row on any device, as
+2 000 staged walkers of every look, a tenth of them headed exactly on an edge, bore out.
 
 ## 2026-10-06 — a walker's tick is asked on the device, of the host's own function
 
-**The tick moves to the device** (root log). What the tick does with a walker is now one function,
+**A walker's footing is the world's** (root log, 2026-10-11). What the tick does with a walker is now one function,
 `WalkerFollower.Tick` — the paused stance, nothing for a body inside something, nothing written for a casualty, and the
 step at the aim — moved out of `TownWorld.TickAgent` and `Paused` unchanged, and `control/kernels/walker.glsl` is it
 line for line. Held over 2 400 walkers of every case it branches on: the declaration and the impulse to the bit, and
@@ -153,12 +154,10 @@ rebuild, and every rebuild swept it again to lay it, keep it and look for a body
 to a doorstep or to a post read the atlas under a fresh stretch of the straight every rebuild, and walking back it
 aimed each tick at wherever its way was abeam of it then.
 
-- **A pass is decided once** (PER-28, `Sidestepping`): drawn and swept where the walker stands, kept as runs
-  (`SweptGround`), asked for every `SidestepAskEveryS` (1 s), let go where the one it passes has gone or moved or
-  after `SidestepPatienceS` (5 s), and withdrawn back to waiting rather than to walking.
-- **A straight is decided once** (PER-25, `WalkingGround.TheStraightAhead`): where it goes is fixed as the walker
-  sets off down it — the walk back aims at where its way was abeam of it then — and the ground under it swept, the
-  plan read off that as it walks. A walker shoved a stride off it, or sent elsewhere, decides it again.
+- **A pass is decided once** (PER-28, `Sidestepping`): drawn where the walker stands, asked for every
+  `SidestepAskEveryS` (1 s), let go where the one it passes has gone or moved or after `SidestepPatienceS` (5 s), and
+  withdrawn back to waiting rather than to walking.
+- **A walk back aims where its way was abeam of the walker as it stepped off** (PER-25), and nowhere else after.
 
 Over Odesa's and River's five minutes walks given up read 430 and 340 (438 and 333 before) with fewer passes
 begun (1 and 6, where 10 and 13 were); the walker's pass test that had failed since before 83180f2 passes.
@@ -230,8 +229,9 @@ A way is now walked out within a tick's walk of its end (`HasWalkedOut`).
 acceleration for its own move — and neither a walker that braces against a car nor one a car cannot throw**
 (PER-3). So what it declares it has on the next tick, and only what a contact did to it is taken back at the
 foot grip, which now sizes that and not the walker's own starts and stops; the last of a walk, short of a
-tick's, is stepped onto whatever way it faces. That needed the velocity it declared kept per walker
-(`PersonFleet.DeclaredMps`). Its aim is where the middle of its body gets to — its place plus the grant, where
+tick's, is stepped onto whatever way it faces. That needed the velocity it declared kept per walker, which the
+world keeps (`WalkerFollower.Step`'s caller); the town is told only whether it declared one (`PersonFleet.Declares`).
+Its aim is where the middle of its body gets to — its place plus the grant, where
 it had been the grant and a radius, harmless only while the aim was a direction — and it plans a tick's walk
 and the gap, that being what it takes to stop. Over the same minute: no walker circles, walks given up
 44 → 15, touches 8 → 3; 109 of 109 exam cards pass.

@@ -1,48 +1,49 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
 
-// Every pair worth a manifold, gathered by its owner (PhysicsWorld.FindContacts / Gather). One thread an owner: the
-// cells its box covers in the moving grid and in the furniture's, each body met kept once — in the first cell the two
-// share (CellGrid.FirstShared) — where the boxes meet, the filters let them and the channels meet (PHY-1a).
+// Every pair worth a manifold that an awake body owns (PhysicsWorld.FindContacts / Gather), one thread a roster body
+// (gather.glsl). Which bodies are awake is their state as the step began (owned.glsl): the frozen ones a manifold wakes
+// are woken.comp's, which gathers what they own.
 //
-// A pair of moving bodies is the lower one's: the CPU's owners run in index order and skip whatever already owned,
-// and every moving body here is an owner. The furniture owns nothing and is always second.
+// A pair is filed in the run of its lower body, the furniture always second, so the whole list reads by (first,
+// second) — the order the CPU puts its contacts in (PhysicsWorld.OrderContacts) — with no sort but each run's own:
+// - an awake body takes every moving body above it that it meets, awake or frozen, and the furniture it meets;
+// - a frozen body takes only the awake bodies above it, which own the pair on the CPU — so it walks the moving grid,
+//   where a cell holds a handful, and never the furniture's, which is what freezing saves (SOL-37);
+// - two frozen bodies make no pair here.
 //
-// Mode 0 counts each owner's candidates; mode 1 writes them at the run the scan of those counts gave it, ordered by
-// the other body's index — so the whole list reads by (owner, other), the order the CPU solves its contacts in.
+// Mode 0 counts each body's candidates; mode 1 writes them at the run the scan of those counts gave it, ordered by
+// the other body's index.
 //
-// An owner out of the world owns nothing: the roster may name every moving body whether or not it is in the world, so
+// A body out of the world owns nothing: the roster may name every moving body whether or not it is in the world, so
 // that a body going into a container changes no roster (DeviceSolver.LayEveryOwner).
 
 layout(local_size_x = 64) in;
 
 #include "step.glsl"
+#include "owned.glsl"
 
 layout(std430, binding = 0) readonly buffer Owners { int owners[]; };
 layout(std430, binding = 1) readonly buffer Bounds { vec4 bounds[]; };
-layout(std430, binding = 2) readonly buffer Filter { uvec4 filter_[]; };
-layout(std430, binding = 3) readonly buffer MovingCounts { uint movingCounts[]; };
-layout(std430, binding = 4) readonly buffer MovingStarts { uint movingStarts[]; };
-layout(std430, binding = 5) readonly buffer MovingItems { int movingItems[]; };
-layout(std430, binding = 6) readonly buffer StaticCounts { uint staticCounts[]; };
-layout(std430, binding = 7) readonly buffer StaticStarts { uint staticStarts[]; };
-layout(std430, binding = 8) readonly buffer StaticItems { int staticItems[]; };
-layout(std430, binding = 9) buffer CandidateCounts { uint candidateCounts[]; };
-layout(std430, binding = 10) readonly buffer CandidateStarts { uint candidateStarts[]; };
-layout(std430, binding = 11) buffer Candidates { uvec2 candidates[]; };
-layout(std430, binding = 12) buffer Totals { uint totals[]; };
+layout(std430, binding = 2) readonly buffer Filter { uint filter_[]; };
+layout(std430, binding = 3) readonly buffer MovingStarts { uint movingStarts[]; };
+layout(std430, binding = 4) readonly buffer MovingItems { uvec2 movingItems[]; };
+layout(std430, binding = 5) readonly buffer StaticCounts { uint staticCounts[]; };
+layout(std430, binding = 6) readonly buffer StaticStarts { uint staticStarts[]; };
+layout(std430, binding = 7) readonly buffer StaticItems { int staticItems[]; };
+layout(std430, binding = 8) buffer CandidateCounts { uint candidateCounts[]; };
+layout(std430, binding = 9) readonly buffer CandidateStarts { uint candidateStarts[]; };
+layout(std430, binding = 10) buffer Candidates { uvec2 candidates[]; };
+layout(std430, binding = 11) buffer Totals { uint totals[]; };
+layout(std430, binding = 12) readonly buffer State { uint state[]; };
 
-bool apart(vec4 a, vec4 b) { return a.z < b.x || a.x > b.z || a.w < b.y || a.y > b.w; }
-
-bool meets(uvec4 owner, uvec4 other)
-{
-    return (other.x & enabledBit) != 0u
-        && (owner.y & other.z) != 0u && (other.y & owner.z) != 0u
-        && (owner.w & other.w) != 0u;
-}
+#include "gather.glsl"
 
 uint found;
 uint writeFrom;
+bool ownerAwake;
+
+bool takes(int owner, int other) { return other > owner && (ownerAwake || awakeAtStart(state[other])); }
 
 void keep(int owner, int other)
 {
@@ -61,55 +62,16 @@ void main()
     if (slot >= rosterCount) return;
 
     int owner = owners[slot];
-    vec4 box = bounds[owner];
-    uvec4 ownerFilter = filter_[owner];
-    if ((ownerFilter.x & enabledBit) == 0u)
+    if ((filter_[owner] & enabledBit) == 0u)
     {
         if (mode == 0u) candidateCounts[slot] = 0u;
         return;
     }
 
-    int fromX = cellX(box.x);
-    int fromY = cellY(box.y);
-    int toX = cellX(box.z);
-    int toY = cellY(box.w);
     found = 0u;
     writeFrom = mode == 1u ? candidateStarts[slot] : 0u;
-
-    for (int y = fromY; y <= toY; y++)
-    {
-        for (int x = fromX; x <= toX; x++)
-        {
-            uint cell = cellIndex(x, y);
-            uint start = movingStarts[cell];
-            uint end = start + movingCounts[cell];
-            for (uint item = start; item < end; item++)
-            {
-                int other = movingItems[item];
-                if (other <= owner) continue;
-
-                vec4 otherBox = bounds[other];
-                if (apart(otherBox, box)) continue;
-                if ((x != fromX && cellX(otherBox.x) != x) || (y != fromY && cellY(otherBox.y) != y)) continue;
-                if (!meets(ownerFilter, filter_[other])) continue;
-
-                keep(owner, other);
-            }
-
-            start = staticStarts[cell];
-            end = start + staticCounts[cell];
-            for (uint item = start; item < end; item++)
-            {
-                int other = staticItems[item];
-                vec4 otherBox = bounds[other];
-                if (apart(otherBox, box)) continue;
-                if ((x != fromX && cellX(otherBox.x) != x) || (y != fromY && cellY(otherBox.y) != y)) continue;
-                if (!meets(ownerFilter, filter_[other])) continue;
-
-                keep(owner, other);
-            }
-        }
-    }
+    ownerAwake = awakeAtStart(state[owner]);
+    gather(owner, ownerAwake);
 
     if (mode == 0u)
     {

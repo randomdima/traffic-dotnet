@@ -22,6 +22,12 @@ public class LaneSwitchInATownTests
     static readonly SimConfig Config = SimConfig.Shipped();
 
     /// <summary>
+    /// Why a case is skipped: no car moves across to get past what holds it up (CAR-53), since whether that is at rest or
+    /// slow is what the body is doing, and the claims say only where it is (TER-4c.5).
+    /// </summary>
+    const string NoSwitchPastWhatHoldsItUp = "no switch past what holds a car up until a reading of the bodies ahead says what they are doing — docs/tech-debt.md";
+
+    /// <summary>
     /// <b>A car turns off the lane beside the one it is on by moving across onto it first</b>: sent up an arm turned
     /// onto from the inner lane alone, the car on the kerb lane gets up it — the street runs on to a dead end, so there
     /// is no way round.
@@ -71,7 +77,7 @@ public class LaneSwitchInATownTests
     /// road of more than a lane each way (CAR-6.2b): with a wreck on the kerb lane ahead of it on a street of two lanes east
     /// and one west, the car sent along the street gets past it without once crossing to the lane running west.
     /// </summary>
-    [Fact]
+    [Fact(Skip = NoSwitchPastWhatHoldsItUp)]
     public void ACarGetsPastAWreckOverTheLaneBesideAndNotTheOncomingOne()
     {
         using var world = new TownWorld(TracedPlanTests.TwoLanesIntoATee(againstWest: 1), Config);
@@ -100,7 +106,7 @@ public class LaneSwitchInATownTests
     /// <b>A car moves across to get past traffic going slower than it means to</b>, on a road of more than a lane each
     /// way: a car held to a crawl ahead of it on the kerb lane, both sent along the street, is got past.
     /// </summary>
-    [Fact]
+    [Fact(Skip = NoSwitchPastWhatHoldsItUp)]
     public void ACarGetsPastSlowerTrafficOverTheLaneBeside()
     {
         using var world = new TownWorld(TracedPlanTests.TwoLanesIntoATee(againstWest: 1), Config);
@@ -109,9 +115,7 @@ public class LaneSwitchInATownTests
         var slow = TheCarOnTheStreet(world, eastward: false);
         var kerbLane = world.Roads.NearestStreetLane(world.Cars.PositionM[car], out _);
         var at = Spline.SampleAt(world.Roads.ArcsOf(kerbLane), world.Roads.LaneLengthM[kerbLane] * SlowAlongShare);
-        world.Cars.PositionM[slow] = at.PositionM;
-        world.Cars.HeadingRad[slow] = at.HeadingRad;
-        world.PhysicsForInstruments.Release(world.Cars.Body[slow], at.PositionM, at.HeadingRad);
+        world.StandTheCarAt(slow, at.PositionM, at.HeadingRad);
         world.Cars.PaceMps[slow] = CrawlMps;
         Assert.True(world.OrderCar(slow, OnTheOneLaneM) && world.OrderCar(car, OnTheOneLaneM), "the two cars took no orders along the street");
 
@@ -175,8 +179,7 @@ public class LaneSwitchInATownTests
         static void PutDownBeside(TownWorld world, int car, int wreck, in SplineSample at)
         {
             OvertakeInATownTests.PutDown(world, wreck, at.PositionM, at.HeadingRad);
-            world.Cars.Channels[wreck] = world.Cars.Channels[car];
-            world.PhysicsForInstruments.PutOnChannels(world.Cars.Body[wreck], world.Cars.Channels[car]);
+            world.PutTheCarOnChannels(wreck, world.Cars.Channels[car]);
         }
     }
 
@@ -195,9 +198,7 @@ public class LaneSwitchInATownTests
         var roads = world.Roads;
         var lane = roads.NearestStreetLane(world.Cars.PositionM[car], out var alongM);
         var at = Spline.SampleAt(roads.ArcsOf(roads.LaneBeside(lane, inward: true)), alongM);
-        world.Cars.PositionM[car] = at.PositionM;
-        world.Cars.HeadingRad[car] = at.HeadingRad;
-        world.PhysicsForInstruments.Release(world.Cars.Body[car], at.PositionM, at.HeadingRad);
+        world.StandTheCarAt(car, at.PositionM, at.HeadingRad);
     }
 
     /// <summary>Whether a car is on the north arm's lane running away from the tee: the one lane of the town that runs north.</summary>

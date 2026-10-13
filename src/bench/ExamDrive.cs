@@ -256,7 +256,7 @@ internal sealed class ExamDrive
         var to = _lattice.Outward(log.Card, log.Drives.To);
         var atRest = speedMps < _config.Driving.StopSpeedMps;
 
-        log.Touched |= _world.PhysicsForInstruments.OverlapOf(cars.Body[car]) > SoakProbe.OverlapAllowanceM;
+        log.Touched |= _world.OverlapOfCar(car) > SoakProbe.OverlapAllowanceM;
         log.Wrecked |= cars.Broken[car];
         if (log.Touched && log.TouchedAt < 0) log.TouchedAt = tick;
 
@@ -325,9 +325,7 @@ internal sealed class ExamDrive
                 {
                     log.HeldFor = cars.Hold[car];
                     log.HeldIn = cars.Context[car];
-                    var hold = _world.DriveHold(car);
-                    log.HeldBy = LaneClaim.Nothing;
-                    if (hold != LaneOccupancy.NoHold) _world.Occupancy.HoldEndsAtM(hold, out _, out log.HeldBy);
+                    log.HeldBy = CutSeen.Of(_world.Occupancy, _world.DriveHold(car));
                 }
 
                 log.HeldTicks++;
@@ -400,7 +398,7 @@ internal sealed class ExamDrive
         }
 
         log.Down |= people.Wounded[person];
-        log.Touched |= _world.PhysicsForInstruments.OverlapOf(people.Body[person]) > SoakProbe.OverlapAllowanceM;
+        log.Touched |= _world.OverlapOfWalker(person) > SoakProbe.OverlapAllowanceM;
 
         // <b>On the paint means crossing it</b>: a body standing at the edge of the paint before it sets off,
         // or at the far edge once it is over, is somebody at the kerb and not somebody the traffic is crossing.
@@ -481,22 +479,31 @@ internal sealed class ExamDrive
     /// <b>What a plan was cut at, by whose card</b>: a body, a main claim or a secondary claim, of a driver or a
     /// walker named by the card that staged it — or that nothing cut it.
     /// </summary>
-    public string Cut(in LaneClaim by)
+    public string Cut(in CutSeen seen)
     {
-        if (!by.Found) return "nothing (its plan whole)";
+        var by = seen.By;
+        if (!by.Refused) return "nothing (its plan whole)";
 
-        var what = by.HasBody ? "the body" : by.Secondary ? "the secondary claim" : "the main claim";
-        var whose = by.Of switch
+        var what = by.Kind switch
         {
-            LaneRoster.Signal => $"light stretch {by.Occupant}",
-            LaneRoster.Walking => by.Occupant < _walkers.Length
-                ? $"walker {_walkers[by.Occupant].Walker} of card {_walkers[by.Occupant].Card}"
-                : $"walker {by.Occupant}, staged by no card",
-            _ => by.Occupant < _cars.Length
-                ? $"driver {_cars[by.Occupant].Driver} of card {_cars[by.Occupant].Card}"
-                : $"car {by.Occupant}, staged by no card",
+            ClaimKind.Body => "the body",
+            ClaimKind.Secondary => "the secondary claim",
+            _ => "the main claim",
         };
-        return $"{what} of {whose} at {by.Priority}";
+        if (seen.Holder < 0) return $"{what} at {by.Rung}, laid by nobody it can name";
+
+        var occupant = LaneOccupancy.OccupantOf(seen.Holder);
+        var whose = LaneOccupancy.RosterOf(seen.Holder) switch
+        {
+            LaneRoster.Signal => $"light stretch {occupant}",
+            LaneRoster.Walking => occupant < _walkers.Length
+                ? $"walker {_walkers[occupant].Walker} of card {_walkers[occupant].Card}"
+                : $"walker {occupant}, staged by no card",
+            _ => occupant < _cars.Length
+                ? $"driver {_cars[occupant].Driver} of card {_cars[occupant].Card}"
+                : $"car {occupant}, staged by no card",
+        };
+        return $"{what} of {whose} at {by.Rung}";
     }
 
     /// <summary>
@@ -623,8 +630,8 @@ internal sealed class ExamCarLog
     /// <summary>And what the driver had been told then: the headway, the stop, the crossing and the place.</summary>
     public DriveContext HeldIn = DriveContext.Clear;
 
-    /// <summary>And what its plan was cut at then — <see cref="LaneClaim.Nothing"/> where its plan was whole.</summary>
-    public LaneClaim HeldBy = LaneClaim.Nothing;
+    /// <summary>And what its plan was cut at then — <see cref="Refusal.Whole"/> where its plan was whole.</summary>
+    public CutSeen HeldBy = CutSeen.Whole;
 
     /// <summary>And every tick at rest there, a red included.</summary>
     public int StoodTicks;
@@ -687,4 +694,19 @@ internal sealed class ExamWalkerLog
     public bool OnThePaintNow;
     public bool Down;
     public bool Touched;
+}
+
+/// <summary>
+/// <b>What cut a plan, as an instrument keeps it</b>: the refusal, and the first holder of the claim it was met at,
+/// read the laying it was met in — the claims are laid again before anybody prints it.
+/// </summary>
+internal readonly record struct CutSeen(Refusal By, int Holder)
+{
+    public static CutSeen Whole => new(Refusal.Whole, -1);
+
+    public static CutSeen Of(LaneOccupancy claims, int hold)
+    {
+        var by = claims.CutOf(hold);
+        return new CutSeen(by, claims.HolderAt(by));
+    }
 }

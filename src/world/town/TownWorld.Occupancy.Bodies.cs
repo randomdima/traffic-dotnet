@@ -22,65 +22,28 @@ internal sealed partial class TownWorld
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Its wheels and never its box</b> (<see cref="RibbonAtlas.UnderWheels"/>), read once a laying: which of them
-    /// stand on a way is what its tyres grip on until the next (<see cref="CarFleet.WheelsOnAWay"/>, TER-7b), and each
-    /// way's stretch is where its wheels on it stand, widened by <see cref="RoadFigures.HeldAroundAWheelM"/>.
+    /// <b>Its wheels and never its box</b>, as the world read them behind its last step (<see cref="WorldView.CoversOfCar"/>):
+    /// each way's stretch is where its wheels on it stand, widened by <see cref="RoadFigures.HeldAroundAWheelM"/>.
     /// </para>
     /// <para>
-    /// <b>Where it is travelling a way of its own line it says so</b> (<see cref="LaneClaim.OnItsLine"/>),
-    /// with the speed it is doing down it and the way it takes next — which is what makes it a queue to the car
-    /// behind, and one making that car's own movement (TER-4c.6). Anywhere else it is standing on the way, going
-    /// nowhere down it. <b>And whether it is at rest</b>, which is what a body something may get past is.
+    /// <b>Where it stands and nothing else</b>: the claims say where a body is and never what it is doing (TER-4c.5).
     /// </para>
     /// <para>
     /// <b>A car on a bar is laid under the vehicle pulling it</b> (EVA-5): the pair is one movement, so it is
     /// one occupant, and the truck is never held off its own trailer.
     /// </para>
     /// <para>
-    /// <b>And it is put on the channels of the ways it stands over</b> (PHY-1a), every one of them: read on its own
-    /// channels alone, so a car on a bridge never finds the road under it, and a car crossing a bridgehead finds the
-    /// ways of both levels there and is on both until it is clear of one. Over none it keeps what it had.
+    /// <b>Which channels it is on is the world's</b> (PHY-1a): read on its own channels alone, and put on those of the ways
+    /// it stands over as it reads them.
     /// </para>
     /// </remarks>
     void LayTheCarsBody(int car)
     {
         var occupant = LaidAs(car);
-        Span<WayCover> covers = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
-        var under = WaysUnderTheWheels(car, Cars.Channels[car], covers);
-
-        var travelling = IsUnderWay(occupant);
-        var stopMps = _config.Driving.StopSpeedMps;
-        var still = Cars.VelocityMps[car].LengthSquared() <= stopMps * stopMps;
-
-        // <b>Blocked, it goes nowhere</b> (CAR-50): its line runs on, but it can neither get past what stands in
-        // front of it nor back up for the room to, so to whoever comes up behind it is a body to get past.
-        var blocked = still && Cars.Context[occupant].Blocked;
-        byte channels = 0;
-        for (var at = 0; at < under.Length; at++)
+        foreach (ref readonly var cover in _world.View.CoversOfCar(car))
         {
-            ref readonly var cover = ref under[at];
-            channels |= _atlas.ChannelsOf(cover.Way);
-            var onward = LaneOccupancy.NoWay;
-            var onItsLine = travelling && _ground.IsOnItsLine(occupant, cover.Way, out onward);
-            if (blocked) onward = LaneOccupancy.NoWay;
-            _occupancy.LayBody(
-                cover.Way, cover.FromM, cover.ToM, onItsLine ? Cars.AlongMps[occupant] : 0f, occupant,
-                LaneRoster.Driving, onItsLine, onward, still);
+            _occupancy.LayBody(cover.Way, cover.FromM, cover.ToM, occupant, LaneRoster.Driving);
         }
-
-        if (channels != 0 && channels != Cars.Channels[car]) PutOnChannels(car, channels);
-    }
-
-    /// <summary>
-    /// The ways under a car's four wheels where the fleet has it, read on these channels (<see cref="RibbonAtlas.UnderWheels"/>),
-    /// and which of its wheels stand on one kept for its tyres.
-    /// </summary>
-    ReadOnlySpan<WayCover> WaysUnderTheWheels(int car, byte channels, Span<WayCover> into)
-    {
-        Span<Vector2> wheelsM = stackalloc Vector2[TyreModel.Wheels];
-        TyreModel.WheelPointsM(Cars.BuildOf(car), PoseOf(car), wheelsM);
-        var count = _atlas.UnderWheels(wheelsM, _config.Road.HeldAroundAWheelM, into, out Cars.WheelsOnAWay[car], channels);
-        return into[..count];
     }
 
     /// <summary>
@@ -94,19 +57,15 @@ internal sealed partial class TownWorld
     /// laid under whoever the town holds that ground as (<see cref="GroundHeldAs"/>).
     /// </summary>
     /// <param name="body">Room for one body's pieces (<see cref="WalkingGround.MostPiecesOfABody"/>), written over.</param>
-    void LayTheWalkersBody(int person, Span<BodyPiece> body)
+    void LayTheWalkersBody(int person, Span<WayCover> body)
     {
         var occupant = HoldTheWalkersGround(person, out var roster);
 
         // PHY-7: inside a container there is no body in the world and nothing in anybody's way.
         if (People.Inside[person].Any) return;
 
-        var count = _walkingGround.BodyCover(person, body);
-        foreach (ref readonly var piece in body[..count])
-        {
-            _occupancy.LayBody(
-                piece.Way, piece.FromM, piece.ToM, piece.AlongMps, occupant, roster, piece.OnItsLine, piece.Onward, piece.Still);
-        }
+        var count = _walkingGround.BodyCover(person, _world.View.CoversOfWalker(person), body);
+        foreach (ref readonly var piece in body[..count]) _occupancy.LayBody(piece.Way, piece.FromM, piece.ToM, occupant, roster);
     }
 
     /// <summary>Whose ground a walker's body is laid as this rebuild (<see cref="GroundHeldAs"/>), held to from here on.</summary>
@@ -142,15 +101,11 @@ internal sealed partial class TownWorld
 
         if (People.Stage[person] != TripStage.OnDuty) return person;
 
-        for (var car = 0; car < Cars.Count; car++)
-        {
-            if (_beat.Officer[car] != person) continue;
+        var crewOf = _crewOf[person];
+        if (crewOf == NoCar || _beat.Officer[crewOf] != person) return person;
 
-            roster = LaneRoster.Driving;
-            return car;
-        }
-
-        return person;
+        roster = LaneRoster.Driving;
+        return crewOf;
     }
 
     /// <summary>
@@ -163,7 +118,7 @@ internal sealed partial class TownWorld
         Span<WayCover> under = stackalloc WayCover[MostWaysUnderABody];
         for (var prop = 0; prop < _plan.Props.Count; prop++)
         {
-            var count = _atlas.UnderDisc(_plan.Props.CentreM[prop], _plan.Props.RadiusM[prop], under);
+            var count = Atlas.UnderDisc(_plan.Props.CentreM[prop], _plan.Props.RadiusM[prop], under);
             for (var at = 0; at < count; at++)
             {
                 if (!_ways.IsDriven(under[at].Way)) continue;

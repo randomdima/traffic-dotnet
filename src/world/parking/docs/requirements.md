@@ -96,13 +96,13 @@ wide circle makes a different manoeuvre into the same bay than a small car does.
 
 **Its ground is a pass's, and nothing else holds the street for it** (`TER-4c.6`, `SIM-7`):
 
-- **Asked for whole, laid as a body, kept or withdrawn once.** Its ground is the car's body swept down every
-  piece still to be driven, and it is asked for only where all of that is free — no body on it but the car's own,
-  and no plan over it — with the pass's own room to spare. Short of that the car lays nothing and waits, holding
-  no more of the street than its body does.
-- **Once begun it holds that ground until it has driven it**, at p0 where nothing takes it, given back as it is
-  driven: a car half across a street cannot give the street back, so whoever is coming is held short of it by
-  the ground and by nothing else. What stops the car itself is a body standing in what is left of it.
+- **Asked for whole, laid as a plan of its own, kept or withdrawn once.** Its ground is the car's body swept down
+  every piece still to be driven, and it is asked for only where all of that is free — no body on it but the car's
+  own, and no plan over it — with the pass's own room to spare, and kept only where all of it was had. Short of that
+  the car lays nothing and waits, holding no more of the street than its body does.
+- **Once begun it holds that ground until it has driven it**, at p1 where it is taken before every right of way,
+  given back as it is driven: a car half across a street cannot give the street back, so whoever is coming is held
+  short of it by the ground and by nothing else. What stops the car itself is a body standing in what is left of it.
 - **A car backing into a bay asks for the whole of it before it pulls past the bay**, so whoever follows it is
   held short of the ground it reverses over rather than stopping on it behind the car.
 

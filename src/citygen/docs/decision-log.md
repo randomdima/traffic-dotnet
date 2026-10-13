@@ -14,8 +14,8 @@ cars than lanes is laid exactly as before, draw for draw.
   room is a driver's worst case in the claim table, so at 20 000 people the fleet's room of 38 690 laid 68.1 M slots,
   3 116 MiB a copy of the device's rows, and `vkAllocateMemory` ran out on the 16 GB card. Bounded, the room is 20 013
   and the table 38.5 M slots, 1 764 MiB a copy.
-- **What it costs**, `--bench devicetown` on the RX 9070 XT, another program taking 0.7 of a core: the device town 6.51 ms
-  a tick and the host town 35.6, against about 4.4 and 16.5–18.6 at 10 000 of each; the bench's peak resident set
+- **What it costs**, on the RX 9070 XT, another program taking 0.7 of a core: the town ticked on the device 6.51 ms
+  a tick and on the host 35.6, against about 4.4 and 16.5–18.6 at 10 000 of each; the run's peak resident set
   7.6 GB; `qq tests maps` 4 m 38 s against 3 m 35 s.
 
 ## 2026-10-06 — every town is laid off its map's file, and its zones lay what the map does not fix

@@ -30,39 +30,6 @@ internal sealed partial class TownWorld
     public long CarsCalled { get; private set; }
 
     /// <summary>
-    /// <b>The ground beside a car as the place its owner gets out onto</b> (PHY-7a): the door step, with the car's own
-    /// ground no objection and its panels one — the walk to and from it is held as the car's (<see cref="GroundHeldAs"/>),
-    /// and a reservation has no across, so the car's own claim on its bay is over every place beside its door.
-    /// </summary>
-    /// <remarks>
-    /// Asked of the car's own claim, every place within reach of a door in a bay was taken by the car standing in it,
-    /// and an owner parked there could never get out: refused, and asked again every decision for as long as the town
-    /// ran.
-    /// </remarks>
-    readonly struct BesideTheCar(TownWorld town, int car) : IStandingGround
-    {
-        [SkipLocalsInit]
-        public bool IsTaken(Vector2 atM, float radiusM)
-        {
-            if (town._physics.Reaches(town.Cars.Body[car], atM, radiusM)) return true;
-
-            Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
-            var count = town._atlas.UnderDisc(atM, radiusM, under);
-
-            // A layer sent back in part may not hold the ground yet, which is taken until it does.
-            if (!town.KnowsTheWaysUnder(under[..count])) return true;
-
-            for (var at = 0; at < count; at++)
-            {
-                ref readonly var cover = ref under[at];
-                if (town._occupancy.IsTakenByOthers(cover.Way, cover.FromM, cover.ToM, car, car, LaneRoster.Driving)) return true;
-            }
-
-            return false;
-        }
-    }
-
-    /// <summary>
     /// One decision of a car somebody owns, taken before the leg's own. <b>With its owner at the wheel it is the
     /// trip's</b>; with nobody in it, it stands in its bay, or parks in one where it was left anywhere else.
     /// </summary>
@@ -79,7 +46,7 @@ internal sealed partial class TownWorld
 
         if (Cars.Driven[car] || StandsInItsBay(car)) return;
 
-        var bay = FreeBayNear(Cars.PositionM[car], _config.PersonWalkReachM);
+        var bay = FreeBayOff(RoadPlaceOfCar(car), Cars.PositionM[car], _config.PersonWalkReachM);
         if (bay >= 0) SendTo(car, _parking.CentreM(bay), bay);
     }
 
@@ -109,27 +76,27 @@ internal sealed partial class TownWorld
         GiveUpTheTrip(owner);
     }
 
+    /// <summary>When each car's owner was last refused the ground beside its door (<see cref="LetTheOwnerOut"/>), on the town's clock.</summary>
+    readonly float[] _exitRefusedAtS;
+
     /// <summary>
-    /// <b>The owner out, beside the driver's door</b> (GEN-4e, PHY-7a) — refused, and asked again, while there is no
-    /// free ground there — and the rest of the trip walked: to the door it was driven for, where that is within a
+    /// <b>The owner out, beside the driver's door</b> (GEN-4e, PHY-7a) — refused, and asked again every
+    /// <see cref="Core.Config.PersonFigures.ExitAskEveryS"/>, while there is no free ground there — and the rest of the trip walked: to the door it was driven for, where that is within a
     /// walk of where they got out, and otherwise a trip drawn again from there.
     /// </summary>
     void LetTheOwnerOut(int car, int owner)
     {
-        TakeTheCarsPoseBack(car);
-        var doorM = WayInOf(car);
-        if (!KnowsTheGroundOutside(doorM)
-            || !ExitSpots.TryFind(
-                _config, _plan.WorldSizeM, _physics, new BesideTheCar(this, car), doorM,
-                doorM + (doorM - Cars.PositionM[car]), out var spotM))
+        if (_elapsedS - _exitRefusedAtS[car] < _config.Person.ExitAskEveryS) return;
+
+        var (beside, free) = ExitBesideTheCar(car);
+        if (!TryPutDownOff(beside, free, car, out var spotM, out var spot))
         {
+            _exitRefusedAtS[car] = _elapsedS;
             return;
         }
 
-        // Out of its own turn: a walker the device keeps is the town's before anything of it is set.
-        Device?.TakeTheWalkerBack(this, owner);
         _containers.Alight(car, owner);
-        Place(owner, spotM, MathF.Atan2(spotM.Y - Cars.PositionM[car].Y, spotM.X - Cars.PositionM[car].X));
+        Place(owner, spotM, MathF.Atan2(spotM.Y - Cars.PositionM[car].Y, spotM.X - Cars.PositionM[car].X), spot);
 
         if (People.Manual[owner])
         {
@@ -152,17 +119,18 @@ internal sealed partial class TownWorld
         }
 
         People.Stage[owner] = TripStage.WalkingFromTheCar;
-        WalkTo(owner, buildingDoorM);
+        WalkTo(owner, buildingDoorM, DoorPlaceOf(building, spotM));
     }
 
     /// <summary>
     /// <b>The leg to a bay near a door</b>: the free one nearest it on its own block (<see cref="Core.Config.SimConfig.PersonWalkWorthM"/>),
     /// or within a walk of it where the block's are taken. A door with neither is a trip given up, and drawn again.
     /// </summary>
-    void DriveToABayNear(int car, Vector2 doorM)
+    void DriveToABayNear(int car, int building, Vector2 doorM)
     {
-        var bay = FreeBayNear(doorM, _config.PersonWalkWorthM);
-        if (bay < 0) bay = FreeBayNear(doorM, _config.PersonWalkReachM);
+        var street = _roadPlaceOfBuilding[building];
+        var bay = FreeBayOff(street, doorM, _config.PersonWalkWorthM);
+        if (bay < 0) bay = FreeBayOff(street, doorM, _config.PersonWalkReachM);
         if (bay < 0)
         {
             GiveUpTheTrip(Cars.Owner[car]);
@@ -184,10 +152,9 @@ internal sealed partial class TownWorld
         var car = People.Car[person];
         if (car == PersonFleet.NoCar || !IsFreeToDrive(car)) return;
 
-        TakeTheCarsPoseBack(car);
         if (Vector2.Distance(Cars.PositionM[car], People.PositionM[person]) <= _config.PersonWalkReachM) return;
 
-        var bay = FreeBayNear(People.PositionM[person], _config.PersonWalkReachM);
+        var bay = FreeBayOff(RoadPlaceOfWalker(person), People.PositionM[person], _config.PersonWalkReachM);
         if (bay < 0) return;
 
         CarsCalled++;
@@ -198,8 +165,6 @@ internal sealed partial class TownWorld
     bool HasTheCarToHand(int person)
     {
         var car = People.Car[person];
-        if (car != PersonFleet.NoCar) TakeTheCarsPoseBack(car);
-
         return car != PersonFleet.NoCar
                && IsFreeToDrive(car)
                && Vector2.Distance(Cars.PositionM[car], People.PositionM[person]) <= _config.PersonWalkReachM;

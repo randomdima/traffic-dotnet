@@ -37,20 +37,22 @@ void writeCar(uint car)
     uint run = spritesRunOf(row);
     if (run == RunNone) return;
 
-    SpriteOut first;
-    SpriteOut second;
+    // A part the first pass counted is one it found shown, so it is built and laid without asking again.
     uint slot = spritesCarSlot(run, PartTyres, car);
-    if (countAt(slot) != 0u && spritesTyres(car, first, second) == 2u)
+    if (countAt(slot) != 0u)
     {
+        SpriteOut first;
+        SpriteOut second;
+        spritesTyres(car, first, second);
         put(run, starts[slot], first);
         put(run, starts[slot] + 1u, second);
     }
 
     slot = spritesCarSlot(run, PartBody, car);
-    if (countAt(slot) != 0u && spritesBody(car, first)) put(run, starts[slot], first);
+    if (countAt(slot) != 0u) put(run, starts[slot], spritesBody(car));
 
     slot = spritesCarSlot(run, PartBeam, car);
-    if (countAt(slot) != 0u && spritesBeam(car, first)) put(run, starts[slot], first);
+    if (countAt(slot) != 0u) put(run, starts[slot], spritesBeam(car));
 
     // Every glow on the car before any of its lenses (LampSprites.Fill).
     slot = spritesCarSlot(run, PartLamps, car);
@@ -84,10 +86,9 @@ void main()
         draws[1] = SpriteDraw(SpriteQuadCorners, min(total - overTotal, figures.roomAbove), 0u, 0u);
     }
 
-    SpriteOut sprite;
     if (unit < figures.personCapacity)
     {
-        if (countAt(unit) != 0u && spritesPerson(unit, sprite)) put(RunOver, starts[unit], sprite);
+        if (countAt(unit) != 0u) put(RunOver, starts[unit], spritesPerson(unit));
         return;
     }
 
@@ -100,5 +101,5 @@ void main()
 
     unit -= figures.carCapacity;
     uint slot = spritesHeadsFrom() + unit;
-    if (unit < figures.headCount && countAt(slot) != 0u && spritesHead(unit, sprite)) put(RunOver, starts[slot], sprite);
+    if (unit < figures.headCount && countAt(slot) != 0u) put(RunOver, starts[slot], spritesHead(unit));
 }

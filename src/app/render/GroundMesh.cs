@@ -241,7 +241,45 @@ internal sealed partial class GroundMesh
     {
     }
 
-    public ReadOnlySpan<GroundVertex> Vertices => CollectionsMarshal.AsSpan(_vertices);
+    /// <summary>What the ground was laid from, to lay its triangles again once they are let go (<see cref="ForgetTheTriangles"/>).</summary>
+    (CityPlan Plan, SimConfig Config)? _laidFrom;
+
+    bool _forgotten;
+
+    /// <summary>
+    /// <b>The triangles let go, once the device holds its own</b> — the host keeps no geometry it does not read (the
+    /// owner, 2026-10-13). <see cref="Parts"/> and the figures stay; <b>the triangles asked for again are laid again</b>
+    /// off the plan, which on a city is seconds and which only the debug wireframe asks.
+    /// </summary>
+    public void ForgetTheTriangles()
+    {
+        if (_laidFrom is null) return;
+
+        _vertices.Clear();
+        _vertices.TrimExcess();
+        _indices.Clear();
+        _indices.TrimExcess();
+        _forgotten = true;
+    }
+
+    void LayAgainIfForgotten()
+    {
+        if (!_forgotten || _laidFrom is not var (plan, config)) return;
+
+        var again = Build(plan, config);
+        _vertices.AddRange(again.Vertices);
+        _indices.AddRange(again.Indices);
+        _forgotten = false;
+    }
+
+    public ReadOnlySpan<GroundVertex> Vertices
+    {
+        get
+        {
+            LayAgainIfForgotten();
+            return CollectionsMarshal.AsSpan(_vertices);
+        }
+    }
 
     /// <summary>
     /// The period each surface's texture repeats over, grass, tarmac, pavement and deck, in metres from the figures
@@ -252,7 +290,17 @@ internal sealed partial class GroundMesh
     /// <summary>And the water's, the fifth surface, alone in its first place.</summary>
     public Vector4 WaterPeriodM { get; private init; } = Vector4.One;
 
-    public ReadOnlySpan<uint> Indices => CollectionsMarshal.AsSpan(_indices);
+    /// <summary>How tall a band of rows a frame draws the ground by is (<see cref="GroundBands"/>): the town's own grid's cell (SIM-8).</summary>
+    public float BandM { get; private init; } = 1f;
+
+    public ReadOnlySpan<uint> Indices
+    {
+        get
+        {
+            LayAgainIfForgotten();
+            return CollectionsMarshal.AsSpan(_indices);
+        }
+    }
 
     /// <summary>
     /// Where the marks start, as an index into <see cref="Vertices"/>: everything from here to
@@ -359,6 +407,8 @@ internal sealed partial class GroundMesh
                 config.View.GroundPeriodGrassM, config.View.GroundPeriodTarmacM, config.View.GroundPeriodPavementM,
                 config.View.GroundPeriodDeckM),
             WaterPeriodM = new Vector4(config.View.GroundPeriodWaterM, 0f, 0f, 0f),
+            BandM = config.Grid.Main.CellM,
+            _laidFrom = (plan, config),
         };
         var startedAt = Stopwatch.GetTimestamp();
 

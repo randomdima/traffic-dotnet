@@ -25,7 +25,12 @@ internal static class CornerLimits
     /// Every arc's entry figure, from the last arc back: its own corner, or the next arc's entry and a stop's worth
     /// of its own length, whichever is less.
     /// </summary>
-    public static void Lay(ReadOnlySpan<ArcSeg> arcs, Span<float> entryM, SimConfig config)
+    /// <param name="keptBefore">
+    /// How many of the first arcs, and their figures, stand as they were laid with the line before — a line grown at its
+    /// far end. Laying back stops at the first of them whose figure comes out the same, since every figure before it is
+    /// then the same too.
+    /// </param>
+    public static void Lay(ReadOnlySpan<ArcSeg> arcs, Span<float> entryM, SimConfig config, int keptBefore = 0)
     {
         var cornerShare = config.Driving.GripMargin;
         var brakingShare = config.Driving.BrakingMargin;
@@ -33,6 +38,8 @@ internal static class CornerLimits
         for (var arc = arcs.Length - 1; arc >= 0; arc--)
         {
             nextM = MathF.Min(CornerM(arcs[arc].Curvature, cornerShare), nextM + (2f * brakingShare * arcs[arc].LengthM));
+            if (arc < keptBefore && entryM[arc] == nextM) return;
+
             entryM[arc] = nextM;
         }
     }

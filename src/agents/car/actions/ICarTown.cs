@@ -37,16 +37,19 @@ internal interface ICarTown
         int car, float progressM, float coveredM, bool waitsToPass, float passAsideM, float backUpM, bool blocked,
         float waitAtM = float.PositiveInfinity);
 
-    /// <summary>S-1, S-2 and S-5 down any line the car is on, in the gear given: the wheel and the pedals.</summary>
+    /// <summary>
+    /// S-1, S-2 and S-5 down any line the car is on, in the gear given: the wheel and the pedals — or, given
+    /// <paramref name="backsUpByM"/>, backing down it to rest that far behind (CAR-50, <see cref="CarFollower.DriveTheLine"/>).
+    /// </summary>
     void Drive(
         int car, in CarBuild build, in CarPose pose, ReadOnlySpan<ArcSeg> line, float progressM, float lengthM,
-        in DriveContext context, Vector2 travel, float alongMps, bool reverse);
+        in DriveContext context, Vector2 travel, float alongMps, bool reverse, float backsUpByM = float.NaN);
 
     /// <summary>A car that is doing nothing this tick, and the one reason it is not.</summary>
     void Hold(int car, in CarPose pose, DrivingHold why);
 
-    /// <summary>The command a car was left with, spent on its four patches.</summary>
-    void Tyres(int car, in CarPose pose);
+    /// <summary>The command a car was left with, handed on to be spent on its four patches.</summary>
+    void Tyres(int car);
 
     /// <summary>
     /// <b>How far ahead along the line the place this car was sent to stands</b> — a casualty, a wreck, a scene, a place

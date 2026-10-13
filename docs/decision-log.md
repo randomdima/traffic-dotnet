@@ -4,665 +4,126 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
-## 2026-10-11 — the whole engine on the device; the host only supports it
-
-**The owner (2026-10-11), in their words: "Just move the rest of logic to gpu already. Then polish the issues. No need
-to do it in million steps. Its just making the logic much more complex. Simple as possible - gpu must have everything
-to run and render the simulation. Cpu here just to support".** This supersedes moving the town onto the device a slice
-at a time behind a host copy kept in step: every decision goes onto the device too, and the copy goes.
-
-- **One engine resident on the device** (`app/devicetick/ResidentTown`), built beside the hybrid (`DeviceTown`) until it
-  runs everything the town does, then made `--device-tick` and the hybrid with its mirror deleted. The host builds the
-  town, lays every table once, records the tick, sends input as commands and reads a little telemetry late, never
-  waiting on it to run the next tick.
-- **Every table on one root of addresses** (`TownRoot`, `town_root.glsl`): a field has one table, named after its C#
-  field, and a ported decision reads any field the way its C# does. The town's own `TownState` lays what no row of the
-  device's earlier tables held.
-- **The C# engine stays as source**: the browser's head runs it, and every ported kernel is held to the C# it was ported
-  from on staged inputs. A desktop run never ticks it once the device has the town.
-- **A search is a request** (`route_asks.glsl`): it does not answer in the decision that asks it, so the asker is told
-  *pending* and decided again — the one place the device's town may differ from the C#'s in what it does, by when.
-- **Shared things are claimed by atomics** (a bay, a seat, a call): a race inside one tick is won by whichever thread
-  swaps first, the one way a resident run may not repeat itself.
-- **Laid off a town that ticked once on the hybrid** until the hybrid goes, so every table the device's tick already
-  read is laid as it was proven.
-- **Under the owner's goal of 2026-10-10, in their words: "CPU dont need to know state of the world constantly. So no
-  per tick regular sync needed. CPU dont need a copy of the engine."** What is to go is the copy, not its cost: tracking
-  which agents the host changed, so only those cross, is not the way. The host reads on an event and only what that
-  event needs (a picked unit, the panel's figures); nothing it does walks every agent on a tick or a rebuild; and it is
-  measured by the host's work and the bytes crossing a tick, which follow the events, not the town's size.
-
-## 2026-10-10 — a step's poses stay on the device, and the host gathers what it reads
-
-**Under the owner's goal above.** Every step copied every car's pose and wrote every walker's into the host's memory,
-3.2 MB at OdesaOsm's 40 000 of each, so that any pose could be taken back later without a wait. The town reads about 950
-cars and 20 walkers at the hand-back, and a few hundred more a tick for its decisions.
-
-- **The step keeps its hand-back on the device** (`DeviceBodyPhase.Reads.Kept`), two sides in turn as before. The host's
-  memory receives only rows named to it, each stamped with its step (`GatheredRows`, `rows_gather.comp`):
-  - the agents the town holds, gathered behind the step and sent before it is waited for (`DeviceTownBodies.GatherTheHeld`);
-  - the decisions' agents, gathered in the head of the tick that takes them: every agent put off, and those the device
-    found more than their clock, off its own lists (`RecordTheDecided`);
-  - the walkers a rebuild lays whole, gathered at once (`ITownDevice.TakeThePosesBack`);
-  - any other the moment it is asked for, alone and behind whatever the queue holds (`PosesFetched`): none a tick at
-    OdesaOsm.
-- **OdesaOsm, `--bench devicetown`**: 0.074 MB a step read back. The wait for the step fell from 1.48 to 0.26 ms a tick,
-  and the tick from 8.85 to 7.66 ms (watched, 8.77 to 7.64).
-- **Held by `DeviceTownPosesTests`**: both towns also read every pose whole (`DeviceTownBodies.ReadsEveryPoseToo`), and
-  every pose taken off a gather is held to the whole read of its step (`GathersUnlike`). A car and a walker are picked
-  out alone every tick. A gather off the wrong side fails it for each of the four kinds.
-
-## 2026-10-10 — a frame lays only the units the town set since the last
-
-**Under the owner's goal above.** A window's frame laid every walker's and every car's sprite row off the town's copy:
-0.62 ms a frame at OdesaOsm's 40 000 of each, though the device lays a kept unit's pose, reading, command and pass over
-its row.
-
-- **A row leaves out what the emit lays over it** (`DeviceSprites.CarRowOf`, `PersonRowOf`), so a unit the device keeps
-  has a row of what the host alone sets — its looks, flags, tow and level — and an inside walker a row of being inside.
-- **Only the units the town may have set since the last frame are laid** (`DeviceCarTick.TheCarsSetSinceTheFrame`,
-  `DeviceWalkerTick.TheWalkersSetSinceTheFrame`): those the ticks walked, held or let go since, those the town holds or
-  touched, those added, and cars whose pose the town set since the step. Rows are sent where they changed
-  (`ResidentRows`). 0.14 ms a frame at OdesaOsm, 4 045 walkers and 1 399 cars.
-- **This is a cheaper read of the host's copy, not its end**: the host-only fields go to the device as commands when
-  the copy goes.
-- **Held by a checked mode** (`DeviceSprites.ChecksTheRows`, on in the suite): every unit not laid is held to the row
-  laying it would have. `AFrameLayingWhatTheTownSetIsDrawnAsOneLayingEveryRow` draws a frame every other tick, as a
-  window falling behind the town does: with a frame after every tick, leaving out the units walked and let go since
-  failed nothing.
-
-## 2026-10-10 — the town's watch is kept on the device
-
-**Under the owner's goal above.** Every town a window stands is watched (`Scenarios.For`, `TownWatch`): nothing inside
-anything, nothing past its grant, how long a walker afoot gets nowhere, how far the cars drive. The watch swept the town's
-copy every tick, so it had the device hand back every agent (`TownWorld.WatchesEveryAgent`). On OdesaOsm a watched run
-walked all 40 000 walkers on the host and read back 56 788 poses a tick and 1.9 MB a rebuild: 11.8 ms a tick against 10.6
-unwatched.
-
-- **The device sweeps the town itself** (`ITownDevice.WatchesTheTown`, `DeviceTownWatch`, `town_watch.comp`). Recorded
-  behind every step, it keeps every body's runs on the device. Each step it hands back 48 bytes: the deepest, longest and
-  furthest, each with the first body that had it, and the metres driven. The town hands back nothing for it. OdesaOsm
-  watched is 8.9 ms a tick, with 973 poses and 0.45 MB a rebuild read back.
-- **The arithmetic is the watch's** (`WatchRuns`, which still sweeps the town's copy where no device keeps the watch). A
-  test holds the kernel to it step by step (`DeviceTownWatchTests`).
-- **Handed over once**: the first tick is swept on the town's copy and its runs go to the device. A device let go of hands
-  the watch back to the town's copy.
-- **Each car is read against the grant its own tick drove on, and each walker as its tick walked it.** The car tick writes
-  every car it takes (`car_out.comp`); the town lays every car it ticked itself; a car left at rest keeps what was last
-  laid of it. A car a decision moved on from while its tick ran, and a walker a decision stopped, are read as the tick left
-  them, where the town's sweep read them after.
-- **A unit's note** (`TownWatch.Notes`) is said of the first eight bodies selected, and of no other.
-- **A walker the walker tick holds is handed back by every rebuild** (`DeviceWalkers.WantTheWalkers`). The town lays it
-  off its own copy every tick, and a rebuild that left it on the device left that copy older than the aim the tick read.
-  The watch handing every walker back had hidden this; `EveryTickReadsEveryWalkerAsTheTownHoldsIt` found it once the watch
-  moved.
-- **Whether a walker walks is drawn off the walker tick's table** where that holds the walker (`sprites_walkers.comp`),
-  as a rebuild on the device sets it for walkers the town does not read.
-
-## 2026-10-10 — the device finds the decisions of the cars it keeps, and the loop's passes are the world's
-
-**Under the owner's goal above.** The town put off every car's decision on its turn, and the device was handed the list of
-those to ask (`DeviceTown.LayTheDecisions`): the host named about one car in six a tick, and read every verdict back.
-
-- **A car the device keeps, and whose decision only its line and clock answer, finds its own decision**
-  (`DeviceTown.FindsItsOwnDecision`, `DeviceCarTick.DecidesItself`): the town's loop skips it on its turn
-  (`TownWorld.DecideAgent`), and the next tick's head asks every such car whose turn it was, the host naming none
-  (`car_tick.comp`'s `ModeFindDue`). A clock alone is run there and counted. One more than its clock is named in a list,
-  its hold as the readers hold it handed back beside it (`readers_holds_out.comp`, by the hold number `rebuild_grant.comp`
-  laid and the layer carried), and put off for the town in its turn's order (`TownWorld.PutOffTheDecisions`).
-- **Which cars those are is set where the host already walks**: after a take-back, for the cars it took back or walked; a
-  car the host walks is let go of first, and its turn, where the device still owed it, put off for the town
-  (`LetGoOfTheWalked`). A held tick owes nothing, as the town's own held decision is nothing. The device let go hands every
-  owed turn to the town (`ITownDevice.LetGo`).
-- **Held by the visits' check**: a car left to the device that the town changed without marking it throws, and each
-  found car's hold is held to the town's number for it. A test touches cars on their turn and counts the decisions taken
-  against a town that decides every car (`ACarTouchedOnItsTurnIsDecidedOnItOnce`); losing the owed turn fails it.
-- **Still the town's**: a switching car's look (its look state is read back each decision), and a car the town holds.
-- **The walkers' decisions are found the same way** (`DeviceTown.WhyTheTownDecidesTheWalker`, `walkers_decide.comp`'s threads
-  past its list): a walker the device keeps, out of doors, on its feet and off duty, and held in the kept table as the town
-  has it. Its hold comes back by the number the layer carries (`DeviceWalkers.KeptHolds`). `AWalkerTouchedOnItsTurnIsDecidedOnItOnce`
-  counts the decisions against a town deciding every walker. Reading every pose (`TownWorld.TakeEveryPoseBack`) reads the
-  walkers and leaves them with the device: holding every one undid every walker's decision a tick.
-- **The loop's two passes are the world's** (`ISimWorld.TickTheAgents`, `DecideTheAgents`). A world with no device walks
-  the whole roster as the loop did (`EveryAgent`). A town whose device names its cars (`ITownDevice.NamesTheCars`) ticks
-  only the walkers under a hand and the cars it holds, touched or added since (`DeviceCarTick.TheCarsTheTownTicks`); every
-  other car was taken last tick and nothing of it was set since, so the device takes it again without being asked
-  (`Prepare`'s `asked`). It decides the walkers by their turn (`TickGroups.FirstTurnOn`) and the cars the device does not
-  decide (`TheCarsNotDecidingThemselves`), a word of 64 cars at a time.
-- **A walker indoors is left on the device** (`TownWorld.ReadsTheWalkersTick`): the town held every walker it reads at a
-  rebuild, the indoors among them, so OdesaOsm's host walked 23 000 of its 40 000 walkers a tick. An indoor walker's tick
-  only stands it still, and what the town's decision sets of it is marked; the visits' check holds it so.
-- **A laying on the device lays again only the cars set since the last** (`DeviceCarTick.TheCarsSetSinceTheLaying`,
-  `DeviceRebuild.LayingCars`): the line made current, whether the device lays it, its body, plan, terms and claim are what
-  the last laying left for a car the device keeps and nobody set anything of. Walked, held, touched, added, moved by the
-  town or on other channels than it was laid on, or kept standing by this laying — whose next asks it nothing — a car is
-  laid again; every car after a laying the town did itself. The visits' check holds every other as laid
-  (`HoldTheUnlaidCars`), and found each of those marks missing in turn. The town's own walks of every asked car stay
-  (tech debt).
-- **A car standing parked is left at rest** (`DeviceCarTick.LeftAtRest`, `DeviceTown.LeaveTheParkedAtRest`): a car the
-  device does not tick was held for ever, so every parked car was in `Prepare`'s walk, the agents' pass and the bodies'
-  hand-back every tick — 950 poses a tick at OdesaOsm. Once a step leaves one standing parked (`TownWorld.StandsParked`:
-  frozen, nothing driving it, its own tick a no-op) and nothing reads it every tick, it leaves the held cars, its copy
-  still current while its body stays frozen. It comes back when the step wakes it (the solver's woken, its pose with
-  it), when the town moves its body (`PhysicsWorld.Changes`), or when the town touches it; the visits' check holds every
-  other to still standing parked.
-- **A laying lays again only the walkers set since the last** (`DeviceWalkerTick.TheWalkersSetSinceTheLaying`,
-  `DeviceWalkers.LayTheKept`): it diffed every walker's claims against what the device was known to hold, 3.6 ms of each
-  OdesaOsm rebuild. A walker's claims change through the town's own decision — the walker held, if only between two
-  walks — or through what a rebuild hands back, which marks it now; the visits' check holds every other walker as it was
-  laid (`HoldTheUnlaid`). The diff had been hiding two writes nobody marked: a car's decision letting its owner out
-  (`TownWorld.LetTheOwnerOut`, which takes the walker back now), and a walker held only for its decision.
-- **A device town a tick or a laying threw out of gives nothing back as it goes** (`DeviceTown.Dispose`): deciding on a
-  town left half-laid threw in its turn and hid what threw first.
-- **Two more walks of every body a tick went**: what slides with nothing driving it is found off the wounded and the
-  wrecked, kept where each is set (`TownWorld.Settle`, `BreakWhereItStands` for a staging's wreck), and the holds of the
-  cars the town drives itself off the cars it holds (`DeviceTown.AskTheHoldsOfWhatTheTownDrives`).
-
-## 2026-10-10 — the host walks only the walkers it holds or touched
-
-**As the cars below.** Every tick, the host walked every walker to find what to patch over the device's table
-(`DeviceWalkerTick.LayWhatChanged`). It then wrote every walker's pace, heading and impulse back from the device's tick
-(`DeviceTown.TakeBackTheWalkers`), and took each as known.
-
-- **A walker the town does not read is left with the device** once nothing the town set of it is waiting to be laid
-  (`DeviceWalkerTick.LeftOnTheDevice`, `HoldsAsTheTownHas`). Its pace, heading and impulse are then the device's, and
-  the town's copy of them is as old as what the device is known to hold. A walker comes back with its pose wherever
-  that is taken back (`TakeTheTickBack`): before a decision of the town's, a hand-back of every car, or the device let
-  go.
-- **The walks take the walkers the town holds and those it touched** (`TownWorld.TouchedWalkers`), or every walker
-  where the agents are held or let go or a watch begins or ends. A walker the device kept that the town changed in
-  between would throw (`DeviceWalkerTick.ChecksTheVisits`, on in every device town the suite builds). The check found one
-  case: a walker held while indoors, left with its walk out of the door unlaid.
-- **`DeviceTown.Dispose` waits out what a tick left in flight** before it takes anything back, and frees nothing until
-  the device is idle.
-- **The bodies' step walks the same agents** (`DeviceTownBodies`). It lays which body, rest and wheels each car and
-  walker is only for those the town holds or touched: a car the device keeps rests parked only by the town's own tick.
-  It hands back only the poses of those the town holds. The flags of what the town leaves unread, filled for every agent
-  every tick, are gone.
-
-## 2026-10-10 — the host walks only the cars it holds or touched
-
-**Under the owner's goal above.** Every tick the host walked every car to find what to send (`DeviceCarTick.Prepare`),
-then every car the device ticked to take back what came back (`DeviceTown.TakeBackTheCars`), then to say which it reads
-(`LayTheWanted`), then every car again for which ones leave the device (`Leaving`). At OdesaOsm's 40 000 cars, about 39 000
-of them were cars the device keeps, of which the host sets nothing.
-
-- **The device keeps a car the town does not hold** (`DeviceCarTick.TownHolds`): handed back and left there unread. Laying
-  one off the town's copy already throws. So the town can have set a figure the device reads only of a car it holds,
-  unless something marks the car.
-- **What marks a car** (`TownWorld.TouchedCars`): anything that sets what the device reads of a car the town may not hold.
-  For now that is an action entered (`CarActions.Enter`) and a wreck (`TownWorld.Wreck`). The walks take those cars and the
-  held ones, in order (`AgentSet`). The take-back adds those whose own tick asked something of the town.
-- **Every car is still walked** where what each is read or told for changes at once: a watch begun or let go, the town
-  deciding or reading every car, or the town laying the claims itself (`DeviceCarTick.VisitsEveryCar`).
-- **Held by a check run in every device town the suite builds** (`DeviceCarTick.ChecksTheVisits`). Every car not walked is
-  held to what walking it would have laid — taken or not, its action, line, pass, reading, wheels, grant, clock and what
-  it is told — and whether the town reads it. A difference throws. The check found the two marks above: a car wrecked
-  while the device kept it, and the decisions' own check writing the device's row into the town. The device tier passes
-  with it on.
-
-## 2026-10-10 — a car on a pass is planned on the device
-
-**Under the owner's goal above.** Every plan down a car's line is now the device's. Until now the town laid one itself:
-the plan of a car on a pass begun, from where it is back in its own lane (`Following.Plan`, `Overtaking.PlannedFromM`).
-That plan is the same as any other except where it begins.
-
-- **`plan.glsl` plans such a car from where its pass ends** (`PlanCarRow.passEndsM`). The town sends that metre with the
-  car's plan row, or with its terms where the device holds the car. A pass that reaches past all the car means to plan
-  grants it the whole of the pass (`CarClaimRow.OnAPass`), as the town's does.
-- **Whether a body stands inside the pass is asked of the device's bodies as before** (`rebuild_asks.comp`). Where one
-  does, the device's plan is never filed and the car's claim is the hold short of the body.
-- **What is gone:** the town's plan of a car on a pass, its host unit, the cars' host and hold units
-  (`CarClaimRow.HostUnit`, `HoldUnit`, `HoldOffset`), and `Following.AsksTheBodiesLater`. The host's units now carry only
-  the passes.
-- **Gates:** `DeviceRebuildTests` and `DeviceTownClaimsTests` hold the plan, its hold and its grant to the town's own. Both
-  fail where a car on a pass plans a metre short of its pass's end. Both also fail where a pass that reaches past the plan
-  grants nothing.
-
-## 2026-10-10 — the claims laid where they stand are laid on the device
-
-**The owner asked for all the claims' logic on the device (2026-10-10).** This is the first step: what a car holds where
-it stands. Until now, a town whose device lays the claims laid the whole rebuild itself in two cases: a car under a hand or
-on a tow bar moving faster than its stop speed, or a manoeuvre begun at a bay (`LaysWhatOnlyTheTownAnswers`). Only the
-town's own laying could answer those against the bodies and the lights. So every car was taken back and the whole layer
-was sent as cut, on every rebuild while the player drove a car or a truck towed one. At OdesaOsm's 40 000 cars that is the
-host's own rebuild: its claims phase is 26.3 ms a tick, a rebuild every third tick.
-
-- **The town asks; the device lays** (`TownWorld.AsksWhereItStands`). The town says how each car that does not plan down its
-  line stands. A hand's or a truck's ground is sent as the stretches under it, each as its main claim would lay it. The
-  geometry is the town's own atlas and lines, through the same code its own laying runs
-  (`DrivingGround.WhatCannotBeStoppedShortOf`). A manoeuvre waiting to begin is sent with where its claim was cleared to. A
-  begun manoeuvre is sent as where it looks for a body (`BayManoeuvring.AsksOfTheManoeuvre`, answered on the host by
-  `LaneOccupancy.FirstBodyIn`).
-- **`rebuild_standing.comp` lays them after the lights and before any plan.** It is one thread in the town's order, since
-  each car is laid against those before it, and it does what `LaneOccupancy.Reach`, `Take` and `CutHold` do:
-  - each stretch reaches against the bodies, the lights' stretches and the unit's own claims;
-  - each takes what it meets, which cuts a light's hold or an earlier hand's hold;
-  - it places the marks over each stretch.
-
-  The rows and holds are numbered from the unit's own first, and `rebuild_file.comp` files them where the scans put the
-  unit. It also files each light's stretch as they cut it. A car's grant is read off the hold it stands in
-  (`CarClaimRow.Stands`).
-- **What is gone:** the host-laid standing unit, the host's edits to what the device laid (`RowEdit`, `HoldEdit`,
-  `rebuild_edits.comp`), and the town-only rebuild. The town now lays a rebuild itself only while its agents are held, or
-  where more cars are on a pass than there is room to ask for.
-- **Gates:**
-  - `DeviceRebuildTests` covers a hand driving flat out over a red light's bar and cars at bays. It fails where a light's
-    cut is not filed, or a waiting manoeuvre's hold is laid a metre off.
-  - `DeviceTownClaimsTests` gains a staged walked town: a manoeuvre begun with a wreck in what is left of it, one waiting
-    on a wreck, and a hand flat out over a bar. It runs 200 rebuilds, all laid on the device, with 610 holds laid where
-    they stand. It fails where a begun manoeuvre's hold is laid a metre off, which no gate saw before: the town laid those
-    itself.
-
-## 2026-10-10 — the town is handed back only the poses it reads
-
-**The owner's ruling (2026-10-10)**: the host's copy of a pose may go stale on purpose. A town a device steps writes back
-after each step only the poses it reads. A town held, or watched by an instrument (TownWatch), still reads every pose.
-
-- **A car's pose is written back where the town holds the car** (`DeviceCarTick.TownHolds`): one it ticks, decides,
-  reads every tick (`TownWorld.ReadsTheTickOf`), or one every car is read for, as a frame drawn off the town's copy is
-  (`ReadsEveryCarAfterTheTick`). **A walker's** is written back where the town reads it whole: indoors, wounded, on duty,
-  picked out or under a hand (`TownWorld.ReadsTheWalker`).
-- **A pose left unread is taken back when something asks for it** (`ITownDevice.TakeThePoseBack`, `TakeEveryPoseBack`),
-  off the hand-back the last finished step kept (`DeviceBodyPhase.Side`). The next step writes the other, so the
-  decisions put off, taken while that step runs, can ask too. The town asks:
-  - for an agent before deciding it, and for a car the device hands it to decide;
-  - for a car as it leaves the device;
-  - for a walker about to be written over the device's table;
-  - for a car's door, its first line and its lane;
-  - for a free ambulance, patrol or evacuator weighed against a call, and for a wreck's occupants thrown clear;
-  - for every agent where the town lays the claims itself, works a tow arm, picks or boxes units, or lets a device go.
-- **The table is no longer laid whole because it grew.** That would send stale poses over the device's own; a body added
-  is a changed row like any other (`RowChange.Whole`).
-- **Held by `DeviceTownPosesTests`**: two device towns of one plan, one written every pose and one only what it reads,
-  held to each other's device every tick over half a minute of the shoved car park and of the city brief. The partial
-  town writes nought-over-nought into every pose it leaves unread (`DeviceTownBodies.PoisonsWhatIsUnread`), so a read
-  of one cannot pass unnoticed. It caught the kept walkers' patch, and it fails with the take-back for a car the device
-  hands the town left out.
-
-On OdesaOsm at 40 000 of each (`--bench devicetown`) about 950 cars' poses and no walker's are written back a tick, where
-all 40 013 and 16 775 were. The bodies' writing back fell from 0.66 to 0.43 ms a tick (0.63 to 0.36 with the bodies
-stepped after the decisions). The tick is within noise of before (12.0 ms), and the town drove the same to the count:
-388 pairs began touching, 9 016 hard brakings, 157 cars off their lines.
-
-## 2026-10-09 — a switching car's look for room is taken on the device
-
-**Under the owner's 2026-10-08 ruling.** At OdesaOsm's 40 000 cars a switching car's decision was the town's whatever it
-came to — 507 a tick asked of the device only to be handed back — and its look for room (`Switching.Shape`, `Sweep`,
-`IsUnheld`) was 1.9 ms of a windowed frame, swept on the host off the atlas and the claims the device already holds.
-
-- **A switching car's decision is asked of the device as a following car's is** (`DecideTermsRow.Switching`,
-  `TownWorld.LeavesItsSwitchToItsLine`): whether it still means to move across the same way (`car_decide.glsl`), how far
-  across the lane beside stands (`car_switch_aside.comp`, off the road's own lanes), whether it looks again yet, and its look
-  (`car_switch_look.comp`) — the step drawn (`pass_shape.glsl`), the body read down it off the atlas, the runs merged, and
-  their ground asked of the claims the readers hold (`claims_free.glsl`). The town takes what it came to as it takes its own
-  (`Switching.Consider`, `Take`, `TakeTheLook`), the ways the look asked about marked asked, so the layer goes on holding them.
-- **Only a look that changes nothing the car does is the device's**: one that finds room and asks for a step, or more than
-  the device's rooms hold, is more than the clock, and the town takes the decision whole. **And only where the device holds
-  the readers' claims**: on a tick laying a rebuild, or where the town laid the claims itself, the town looks.
-- **A look is a workgroup**, a thread a station's read, one merging the runs in order and a thread a run asked: the first,
-  a thread a look, took the device 8.1 ms a tick where the host had taken 1.9 — a read of the atlas is a long walk, and a
-  look of ninety of them in turn was latency nothing hid.
-- Held: `DeviceTownDecidesTests` on the traced two-lane tee, a car held up by a wreck on its lane and a second on the lane
-  beside holding its step's ground — a town whose device looks held to one whose town looks, every car's pose, hold, action,
-  step and switching state every tick, to the bit; every look the device takes to the town's own, figure for figure; and,
-  the second wreck left and a patience short enough to run out, the ground it looks at kept known and its clock run out as
-  the town's. Each fails with the aside a part in ten thousand off, the claims never free, no way marked, or the clock not
-  kept; the runs merged out of order pass, the verdict reading their union. `--bench devicedecide` holds every verdict on a map.
-- OdesaOsm (`--bench devicedecide`, 600 ticks): of 5.5 M verdicts 22 unlike — each a look the device found held where the
-  town found room — and 10 856 of 136 851 looks alike but for a figure, at most 3.8 mm apart (none of either since: the
-  kernel's log, 2026-10-10). `--bench
-  devicetown`: the decisions put off 3.54 → 2.27 ms a tick, the device's kernels 1.31 → 1.71 (the looks 0.39), the tick
-  12.43 → 11.73; 75 looks a tick taken on the device and 152 decisions not looking yet. The town drives as a town whose
-  device looks: 8 899 hard brakings where it braked 9 001, 220 switches asked and 190 made where 226 and 197 were.
-
-## 2026-10-09 — a switching car with no step is left on the device as a following car is
-
-**Under the owner's 2026-10-08 ruling.** At OdesaOsm's 40 000 cars about 2 700 cars a tick were still handed back, and
-1 800 of them only because they were moving across (CAR-53): a car waiting on its lane for room beside it waits long
-in a full town, and the town read every switching car every tick (`TownWorld.ReadsTheTickOf`).
-
-- **A switching car with no step asked is read as a following car is** — where its decision is due, its row coming back
-  by the decisions' own path (`DeviceTown.DecidedOnTheDevice`). Nothing of the town reads it between: what it is told is
-  the town's own (`Switching.AsideM`, `Switching.WaitsShortOfTheEnd`), and a step only its decision asks for. **One with
-  a step asked or begun is still read every tick**: keeping or withdrawing it reads where it stands, and so does the
-  rebuild that lays its ground.
-- **`--bench devicetown` says why each car handed back was**: laid whole, decided by the town, switching, overtaking,
-  rejoining, read for anything else, or asked by its own tick.
-- Held: `DeviceTownKeptCarsTests` stages a car on a street of two lanes sent up an arm only the inner lane turns onto,
-  a wreck on the inner lane holding its step's ground, and holds the town to one handing every car back — every car's
-  pose, hold, action and step every tick, to the bit, over 30 s in which it was left on the device moving across with no
-  step. Reading every switching car, it fails its guard. Never reading one with a step passes too: the staging's step
-  resolves alike either way (tech-debt).
-- OdesaOsm: handed back 2 700 → 645 cars a tick (switching 1 800 → 38), left on the device 37 103 → 38 835; the town
-  driving as before to the count. The tick 12.64 → 12.43 ms, writing what came back 1.98 → 1.79. Its decisions are the
-  town's still — 507 a tick asked of the device and handed to the town, against 161.
-
-## 2026-10-09 — a kernel passes no array through a function, and an answering pass skips a hold with nothing new
-
-**A rebuild that runs on was still waited for 2.70 ms at OdesaOsm's 40 000 cars**: its kernels took 5.46 ms of the
-device's, the tick's head queued behind them. Timed dispatch by dispatch (stamps after each, taken out again), three
-kernels were 65 % of it: the answering passes 1.87 ms, `car_bodies.comp` 1.06 and `walkers_plan.comp` 0.72.
-
-- **An array passed into or out of a function is copied whole** by the compiler (glslang to SPIR-V, RADV): the atlas's
-  48-entry room went in and out of every read, and every car's thread took ~720 µs whether it stood on one way or twelve
-  — with the room cut to 16 for the experiment, 0.23 ms for the whole dispatch. **A read's covers are the thread's own,
-  at module scope** (`atlasFound`, `atlas.glsl`), read by the caller before its next read, and a car's body rows go
-  straight to the output (`car_bodies.glsl`'s `BODY_ROWS`). `car_bodies.comp` 168 → 36 VGPRs and 8 → 32 waves a SIMD;
-  `walkers_plan.comp` 256 VGPRs with 3 546 spilled → 108 with none, its code 190 → 56 KB.
-- **An answering pass answers again only a hold with something new to be answered against**, as the host's
-  `LaneOccupancy.NeedsAnswer` does: `claims_show.comp` marks the ways of a hold that moved with the pass, and
-  `claims_answer.comp` skips a hold none of whose ways was marked the pass before. Exact, since a hold's answer reads
-  nothing but the rows and what is shown on its own ways; the host's own skip rests on the same. The device still runs
-  every pass the host could, and a pass with nothing marked costs a read of each hold's ways.
-- **Whether two holders stand where they meet is read only where their commitments leave the meeting open**
-  (`claimsBeatsOn`): each read walks the way's bodies, and `claimsBeats` decides on commitment first. 1.91 → 1.74 ms of
-  the passes alone.
-- Held: the device tier, and `--bench devicerebuild` on OdesaOsm — 0 of 31 M slots, 5.6 M holds, 5.6 M answers, 4 M
-  grants and 4 M walkers' readings differ over 100 rebuilds. With no way marked, ten device tests fail; with only a
-  moved hold's first way marked, none does and the bench finds 42 answers unlike (tech-debt).
-- OdesaOsm (`--bench devicetown`): the rebuild's kernels 5.46 → 3.27 ms (the bodies 2.09 → 1.04, the plans 1.42 →
-  0.83, the answers 1.95 → 1.40), waited for 2.70 → 0.70 ms a rebuild; the tick 12.98 → 12.10 ms, watched 13.89 →
-  13.04 wall; the town driving as before to the count. `--bench devicerebuild`: 5.95 → 3.97 ms chained. The window
-  (`qq prof --device-tick`): 19 → 40 fps, 1.5 ticks a frame where it ran 3.2, still keeping time.
-
-## 2026-10-09 — a watch reads every car's grant left off the device, and only a frame has every car handed back
-
-**Under the owner's 2026-10-08 ruling that what is to stop is the copying of the world's state.** Every windowed run is
-watched (`TownWatch`), and its past-the-grant claim read every car's grant left off the town's copy, so a watched
-device town handed every car back every tick: at OdesaOsm's 40 000 cars, 15.41 ms a tick where an unwatched one took
-13.50.
-
-- **The car tick hands back a float a car where the town watches every agent** (`TownWorld.WatchesEveryAgent`,
-  `car_out.comp`): its grant left, as the town would read it off the rows it leaves on the device, which the watch reads
-  through `TownWorld.GrantLeftM` — the town's own where it holds the car, or moved on from what the device read of it (a
-  wreck, whose grant went with its action), as a hand-back leaves it.
-- **A frame still reads every car's command, junction ahead and line off the town's copy** — the lamps, the
-  indicators, the front wheels — so the last tick before each draw hands every car back
-  (`TownWorld.ReadsEveryCarAfterTheTick`, `Game.Advance`), and the ticks between them leave the cars the town does not
-  read on the device.
-- Held: `DeviceTownKeptCarsTests` holds the figure a watch reads to a town handing every car back, every car every
-  tick and to the bit over 600 ticks, one car wrecked while left on the device. Read off the town's copy, it fails at
-  tick 1; without the moved-on branch, at the wreck.
-- OdesaOsm (`--bench devicetown`, its watched run new): watched, 16.13 → 13.89 ms a tick with the watch (the tick 15.41
-  → 13.09, the watch 0.72 → 0.79), the town driving as the unwatched one to the braking. The window
-  (`qq prof --device-tick`): 7 → 19 fps, the sim 16.9 → 16.0 ms a tick — inside the 16.7 ms of a tick at 60 Hz, so it
-  keeps time at 3.2 ticks a frame where it fell behind at the 8-tick cap.
-
-## 2026-10-09 — a rebuild runs on past the cars the town ticks itself
-
-**Under the owner's 2026-10-08 ruling.** At OdesaOsm's 40 000 cars the town ticks 4.8 driven cars a tick itself — backing
-up, at a bay, past a wreck — and no rebuild ran on: each was waited for where its stages reach the plans, the host idle
-5.6 ms of it.
-
-- **While a rebuild runs on, a car the town ticks itself is put off** (`DeviceTown.Takes`): left out of the town's turn,
-  and ticked by the town (`TownWorld.TickTheCar`) once the tick's own submit is behind it and the rebuild's answers are
-  written back — before the layer the last rebuild sent back lands and the holds asked are read, as a rebuild waited for
-  leaves it to its turn. Only a hand keeps a rebuild waited for (`TownWorld.HandsOn`): a walker under it is the town's to
-  walk in its turn, on what the rebuild made of it.
-- **So the bodies' step is laid after them**: the poses the tick reads before its rows are sent
-  (`DeviceTownBodies.LayThePosesForTheTick`), the rest — the town's own wheels, every row it changed — once the town has
-  ticked and the answers are in, the step's submit behind it. The channels a rebuild finds a car's body on reach the step
-  a rebuild waited for would have.
-- **A device begins on the town's claims**: until it lays a rebuild, the claims the town laid before it was set are sent
-  as cut with its first tick (`DeviceTownClaims.TakeLaidByTheTown`). It had ticked on memory nothing wrote until its first
-  rebuild — 224 s a tick on lavapipe, where another test had used that memory before.
-- Held: `DeviceTownRunOnTests` holds a town whose car backs up for room past a wreck and drives its pass to one whose
-  rebuilds were waited for, tick by tick and to the bit. With the put-off cars ticked before the answers, it fails at
-  tick 41.
-- OdesaOsm (`--bench devicetown`, two runs): 14.07 → 13.08 and 12.99 ms a tick, the claims 4.28 → 2.19 and 2.23. 199 of
-  200 rebuilds run on, and the host waits 2.6 ms of one where it waited 5.6: the tick's head queues behind the rebuild on
-  the device. The town drives as before to the braking: 9 001 hard brakings, 387 pairs beginning to touch, 226 lane
-  switches asked and 197 made.
-
-## 2026-10-09 — the backing is laid on the device
-
-**Under the owner's 2026-10-08 ruling that what is to stop is the copying of the world's state.** At OdesaOsm's 40 000
-cars every rebuild had a car backing up (200 of 200), and the host laid the backing off the whole answered layer: 19.1 MB
-of it back in the rebuild's own submit and written into the town (7.7 ms), every walker read and aimed by the town and
-sent back whole (2.4 MB), and no layer landing later.
-
-- **The town names each car's ask before the rebuild is recorded** (`TownWorld.TakeTheBackingAsk`) — where its tail
-  stands, what it asked for, what it can no longer stop short of: the car's own state, which nothing in a rebuild moves.
-- **The device lays it after the answers and the cut** (`rebuild_backing.comp`): one thread over every ask in the town's
-  order, each laid against those before it, as `LaneOccupancy.ReachBack` and `TakeBack` lay it — the plan queued behind
-  cut back, with its hold's answer and cutter — and every way's lists laid again after. How far each reached comes back,
-  a float a car (`TownWorld.BackedUpOnTheDevice`).
-- **So every rebuild reads its grants on the device**, and lands later where the walkers are kept; the host's backing,
-  its cuts after the answers and the head of the tick that filed them are gone.
-- **A row taken out before the lists are laid is on none**, so the lists' order is as long as the scan's total, kept in
-  the tally (`Tally.Listed`); a backing that passes the rows' room says the most it could have laid (`Tally.BackedRows`).
-- Held to the town's own laying (`--bench devicerebuild`, OdesaOsm, 100 rebuilds, 125 cars' backing): 0 of 31.0 M slots,
-  5.6 M holds and answers, 4.0 M grants and 4.0 M walkers' readings differ; the backing, the grants and the walkers'
-  readings 0.30 ms of the device's. `DeviceRebuildTests` fails where the backing's cut, or its exception for the plan
-  queued behind, is taken out.
-- OdesaOsm (`--bench devicetown`): 18.69 → 14.07 ms a tick, the claims 8.63 → 4.28. A rebuild sends 0.30 MB against 2.66
-  and reads 0.79 against 21.95 in its own submit, its layer 1.80 MB later in part; the host writes it back in 0.55 ms
-  against 7.71, and writes 79 walkers whole a tick against 4 979. **Every layer there lands a tick later now**, which none
-  did: 9 001 hard brakings against 8 934 (the host's own 8 984), 387 pairs beginning to touch against 379 (388), 226 lane
-  switches asked and 197 made against 245 and 216 (233 and 207).
-
-## 2026-10-09 — the device's claims are laid in rooms grown to what the town lays
-
-**The owner chose rooms grown to fit over a tighter fixed bound.** What the device laid was every agent's worst case — a
-car's plan 24 ways times the busiest way's 58 marks, at OdesaOsm's 40 013 cars and 40 000 people 77.1 M slots, a 48 B row
-each kept five times over — where a rebuild lays 327 k at most (0.42 %), a car's plan 44 pieces and a walk 35 rows
-(`--bench room`). 34 GB of the GPU's for it, 3.5 GB of that past the card and in system memory.
-
-- **Every room the device lays into begins near what a town lays, and grows** (`DeviceRebuild.Rooms`): the rows, a car's
-  plan and a walk, kept at twice what the last rebuild laid — to the power of two past it — grown ahead of the next
-  rebuild, and never past what could ever be laid. A buffer grows in place (`GpuBuffer.Grow`), every set bound over it
-  pointed at the new one. What the host lays itself — its own rows, its cuts, its cars' asks — grows before it is written.
-- **A rebuild that passes a room did not happen** (`claims_tally.glsl`'s `TallyOverflowed`): a plan or a walk past its
-  room lays what fits and counts the rest, the tally says a room was passed and every count after it is nought, and every
-  kernel that writes what outlives the rebuild — its rows, the grants, the tyre rows, the kept walkers handed back —
-  stands down. The host grows the rooms to what was laid, puts the kept walkers back as the rebuild read them in, and lays
-  it again at the same instant. The straights the first laying committed stay: laid again off the same rows, every walker
-  commits the very same.
-- **A rebuild that runs on is never laid again**: the tick beside it read what it left. None runs on before a rebuild has
-  fitted, and one that passes a room there is a defect, and throws.
-- **The host's own table is still laid for every worst case**: it is address space and not memory (49 MB of its 5 GB
-  resident at 40 000), and every check that feeds the device off it sizes by it.
-- OdesaOsm: 1 048 576 rows (48 MiB a copy, against 3 527), 128 pieces a car's plan (1 416), 64 rows a walk (295), grown
-  once and no rebuild laid again in 600 ticks. The device's buffers 4.66 GiB device-local and 1.92 GiB mapped, against
-  15.1 and 16.5; the process 6.3 GB of VRAM and 2.0 GB of system memory the GPU maps, against 17.0 and 20.4. The town
-  drives to the figure as before — 8 934 hard brakings, 379 pairs beginning to touch, 245 lane switches asked and 216 made
-  — at 18.69 ms a tick against 18.74 (`--bench devicetown`). `DeviceTownRoomsTests` holds a town begun with room for
-  nothing, and told every seventh rebuild it has none, to one whose rooms never ran short, tick by tick.
-
-## 2026-10-08 — the engine is the device's, and the host runs a tick behind it
-
-**The owner ruled it, for a town whose tick the device runs**, extending 2026-10-06: the engine runs on the GPU, and the
-host keeps only work that is occasional, light and copies little. What was measured against it (OdesaOsm, 5.80 ms a
-tick): ~88 % of the 4.3 MB crossing a tick went back only to keep the host's copy of the town current, and the host and
-the device took turns rather than working side by side.
-
-- **A decision may take its claims answers from the device a rebuild later** (at most three ticks), rather than read a
-  layer copied back to the host.
-- **The host may run a tick behind the device**: it decides on tick N while the device runs tick N + 1, so a decision
-  reads the town a tick older and takes effect a tick later (16.7 ms, against a reaction of 0.1 s).
-  - **Built as decisions put off a tick** (`DeviceTown.DecidesATickBehind`, `TownWorld.TakeTheDecisionsPutOff`): the
-    decisions due on a tick are taken while the next tick's submit runs. What that tick hands back leaves the town's own
-    where a decision changed it meanwhile — a car laid a line or set doing something else keeps the town's reading and is
-    laid whole next tick; a body put down or put away keeps the town's pose.
-  - OdesaOsm (`--bench devicetown`, two runs): 5.56 → 5.31–5.37 ms a tick. The decisions (0.70 ms) are hidden only where
-    the host has nothing else in the wait: on the tick a layer lands, landing it (1.5 ms) and the decisions outlast the
-    tick's submit (1.7 ms). 23 cars a tick are moved on from. The town drives a tick later: 1 139 hard brakings against
-    1 152, 104 lane switches asked and 99 made against 96 and 95 (the host's own: 102 and 96), 27 pairs beginning to touch
-    against 26; the speed and the cars off their lines equal.
-  - **And as a claims rebuild that runs on while the town goes on** (`DeviceTown.RebuildsRunOn`,
-    `DeviceRebuild.AnswersDue`): submitted where its stages reach the plans and not waited for there, its answers
-    written back once the tick's own submit is behind it and before the decisions read them. Nothing else reads them in
-    between but which wheels of a car stand on a way, which the device takes a tick late (tech debt). OdesaOsm: 4.81 →
-    4.49 ms a tick, the town bit for bit as before (`DeviceTownRunOnTests` holds the two towns equal tick by tick).
-- **The owner, later the same day: what is to stop is the copying of the world's state** — the decisions move to the
-  device where they are what makes it be copied, and not for their own sake. What the host still reads is the deciding
-  agent's own rows (its neighbours come off the claims), every pose for the host's bodies, and every car for a few
-  instruments.
-  - **A car the town does not read after a tick is left on the device** (`DeviceTown.ReadsEveryCarBack` off): the town
-    names the cars it reads before the device ticks them again (`TownWorld.ReadsTheTickOf` — a decision due on the tick
-    or taken while it ran, a switch, a pass, a rejoin, a call, a tow, the selection), the tick hands those back and every
-    car whose tick asked something of the town (`car_out.comp`), and every other car's reading, command and tyres stay
-    there until it leaves the device's tick or the town reads every car (`ITownDevice.TakeEveryCarBack`). The rebuild
-    clears a held car's claim on the device too (`car_claims_gather.comp`), where the town's clearing had sent every
-    moving car's reading again every third tick. A car about to be laid off a copy older than the device's is a defect,
-    and throws. OdesaOsm: car rows sent 112 → 25 KiB a tick, 6 430 of 10 005 cars a tick left on the device, the tick's
-    submit 0.91 → 0.51 ms; the town bit for bit as before (`DeviceTownKeptCarsTests`).
-  - **A car's decision put off a tick is asked of the device first** (`DeviceTown.DecidesTheCars`, `car_decide.glsl`): at
-    the head of the next tick, of what the last left, whether it is the car's leg's clock alone
-    (`TownWorld.TakesOnlyTheClock`) — and where it is, the clock is run there and nothing comes back; where it is more, what
-    the town decides it on is handed back and the town decides it once the tick's submit is waited for, the walkers'
-    decisions still taken while it runs. What only the town knows is told (`LeavesItsDecisionToItsLine`, what of a switch
-    the road and the route answer), and each car's clock is the device's while it holds the car. A car laid whole is
-    handed back the tick after, so nothing the device's tick alone writes is read off a copy older than it. A decision is
-    asked of the claims the town's readers read, which on the tick a rebuild is laid whose layer lands later are the
-    claims before it (`DeviceCarTick.ReadersKeepUp`): the device keeps a copy of every grant, cutter and hold bit as the
-    readers have them. OdesaOsm: 9 577 of 10 005 cars a tick left on the device, 1 584 decisions a tick run there and 12
-    handed to the town, car rows in and out 0.25 → 0.11 ms, 4.35 → 4.14 ms a tick; the town bit for bit as before
-    (`DeviceTownDecidesTests`).
-  - **And a walker's** (`DeviceTown.DecidesTheWalkers`, `walkers_decide.comp`), of the kept table, where its body stands
-    and its hold as the readers read it (`walkers_readers.comp`) — asked only of a walker the kept table holds as the town
-    does (`DeviceWalkers.HoldsAsTheTownHas`), its clock restarted there where a rebuild walked it on. The tick's head —
-    what is sent and the decisions asked — is a submit of its own, and every decision is taken while the rest of the tick
-    runs. OdesaOsm: 620 walkers' decisions a tick run on the device and 81 handed to the town; the town bit for bit as
-    before. It buys little host time — a quiet walker's decision was cheap, the town's time going on trips drawn and
-    routes searched — and is what lets a walker's rows stay on the device next.
-  - **A rebuild hands back a car's plan and grant only where the town holds the car** (`DeviceRebuild.AnswersOnlyWhatTheTownHolds`,
-    `rebuild_cars_out.comp`): of every asked car only the hold its plan was numbered, which the readers' layer is read
-    by; of a car found on other channels than the town laid it on, its channels; and of a car the town holds as the
-    device left it, the rest. No host code reads another car's plan or grant — its neighbours come off the claims — so a
-    car left on the device keeps its plan and grant there, and they come back with its reading
-    (`DeviceCarTick.OutRow.Grant`, and which wheels stand on a way with its tyre row). A grant the town would lay off a
-    copy a rebuild left behind is a defect, and throws. OdesaOsm: a rebuild's own read 1.75 → 1.22 MB and 1.24 → 0.87 ms
-    of the device's; the town bit for bit as before (`DeviceTownKeptCarsTests`).
-  - **And a layer that lands later sends back no hold; the town asks for the holds it reads** (`DeviceRebuild.HoldsAsAsked`,
-    `readers_holds_out.comp`). A hold is read only by its own holder — in its decision, or the town's own tick of it;
-    what reads another's, the checks, reads a layer sent back whole. So each tick's head asks for the
-    holds of the agents the town decides — of one whose decision the device was asked, only where it hands it over —
-    and of the cars it drives itself next tick, off copies of the layer the device keeps as the readers have it; a hold
-    read that was not sent throws (`LaneOccupancy.KnowsEveryHold`). Only where the town takes every decision once the
-    device's verdicts are in. While the agents are held, the layer sent back lands before the decisions put off are
-    taken, their holds waited for; a town the device lets go has every hold read back, and every car it keeps handed
-    back, before it takes them. OdesaOsm: a layer sent back 1.80 → 0.30 MB; the town bit for bit as before.
-  - **A walker a rebuild changed is handed back only where the town reads it** (`DeviceWalkers.LeavesTheUnread`,
-    `walkers_kept_out.comp`): whose decision the town takes on the rebuild's tick, one indoors, wounded, on duty or
-    selected, or every one where the town watches every agent; and one whose rebuild raised anything
-    of it. Any other is left on the device, the town holding it as the rebuild before left it, and is taken back with
-    the row its decision was asked of where the device hands that decision over — or whole, where the town lays the
-    claims itself, strikes it down, takes it in hand or is let go. Its walk's clock comes with it: the device's, where it
-    ran on the way taken since, or restarted as the town's own taking up restarts it — a restart is the same whenever it
-    comes before the walker's next decision. A walker the town would write over the device's row while it is left there
-    is a defect, and throws. Every walker's hold comes back with them, numbered on the device. OdesaOsm: 1 136 of 4 165
-    walkers a rebuild changed handed back, the walkers' read 0.40 → 0.16 MB a rebuild; the town bit for bit as before.
-
-## 2026-10-08 — the readers' layer is sent back in part, and a decision asks for the ways it reads
-
-**Under the ruling above** that a decision may take its claims answers a rebuild later. The whole layer came back every
-rebuild (4.7 MB on OdesaOsm, written into the readers' layer in 1.5 ms) for what the decisions ask of it: about ten
-thousand questions a tick about an agent's own hold, and a few dozen about bodies and plans on particular ways.
-
-- **Of the holds, only those the town reads come back**, asked for as it reads them (`DeviceRebuild.HoldsAsAsked`, under
-  the ruling above), so a question about an agent's own hold is answered as before.
-- **Of the rows, only the lists of the ways the readers asked about lately** (`LaneOccupancy.Knows`, kept asked for a
-  second), and the lights' holds of every signalled way, so a light ahead is read on every way
-  (`rebuild_ways_out.comp`).
-- **A reader asks before it reads a way's lists, and a way not yet sent is asked for**: a pass, a step, a manoeuvre or a
-  sidestep is drawn, asked, looked round for or kept at the next decision or tick instead, its clock left as it was; a
-  spot to put a body down on such a way is taken until it is sent; a lane of a scene is closed as though the scene stood
-  on it. **The ground outside a way out is asked for whole** before any spot on it is tried: tried a spot at a time,
-  every spot was refused in turn and the decisions took a quarter longer.
-- OdesaOsm (`--bench devicetown`): a layer is 1.80 MB against 4.71 (2 279 ways asked about, the lights' holds of 2 654
-  more), written into the town in 0.61 ms against 1.52; 5.31–5.37 → 5.04 ms a tick, the decisions' time unchanged. The
-  town drives the same as the host's own to within a car: 1 131 hard brakings (the host's 1 147), 102 lane switches asked
-  and 97 made (102 and 96), 27 pairs beginning to touch (26).
-
-## 2026-10-08 — a car the device ticks is laid for the claims off what the device holds of it
-
-**Under the ruling above.** A rebuild sent every car's body and plan's rows from the host (0.96 MB on OdesaOsm), though
-the device held all of it: the pose its bodies' step left, the reading its tick left, the line, the grant and the context.
-Now a car whose reading the car tick holds as its own (`DeviceCarTick.HoldsTheReadingOf`) is laid on the device
-(`car_claims_gather.comp`), off those tables and a few terms only the town knows, sent where they change; the town lays
-only the cars it ticks itself.
-
-- **The way a body faces is its own**, the forward the bodies' step left, where the town laid it on the unit vector of
-  its heading; every other figure is the town's to the bit (`DeviceTownGateTests.EveryCarTheDeviceLaysIsLaidAsTheTownWouldLayIt`).
-- OdesaOsm (`--bench devicetown`): a rebuild sends 0.15 MB against 1.10 (0.17 ms against 0.68), 5.71 → 5.56 ms a tick;
-  the town drives the same to the car.
-
-## 2026-10-08 — a layer lands on the second tick after its rebuild, copied back in halves
-
-**Within the owner's 2026-10-07 ruling that a decision may read a layer one laying old.** Copied whole behind the
-rebuild's tick, a layer (4.7 MB on OdesaOsm) outlasted the host's time before the next submit, and that submit — behind
-it on the device's one queue — waited 1.45 ms a rebuild for the rest. Now half is copied behind each of two ticks'
-submits and the layer lands on the second (`DeviceRebuild.SendTheLayerBack`). A rebuild comes every third tick, so the
-readers read the newest layer one tick in three rather than two, and never one two rebuilds old.
-
-- OdesaOsm (`--bench devicetown`): 7.08 → 6.64 ms a tick, the agents' share 4.10 → 3.65. What is decided on the layer
-  waits a tick longer: 96 lane switches asked against 102 (95 made against 97; the host's own makes 96), and 1 152 hard
-  brakings against 1 147; the speed, the cars off their lines and the touches equal.
-
-## 2026-10-08 — the walkers' side of the claims is the device's, and so are its numbers
-
-**Under the owner's 2026-10-06 decision, for a town whose walkers the device ticks** (`DeviceWalkers.Keeps`).
-
-- **The device keeps a walker table of its own for the claims**, and every rebuild runs each stage over it in turn:
-  every walker stationed, its body and its pass laid, its walk planned and — with the cars' grants — its grant read, its
-  pass's word given and its aim set. Each walker is read in where the bodies' step left it; the town sends only the
-  walkers it changed since, and takes back only those the rebuild changed (`TownWorld.KeptOnTheDevice`), with its own
-  code for what follows from them — a way taken restarts the give-up clock, a pass made or withdrawn is counted.
-- **Its numbers are the device's**: a walker's place on its way is the device's projection, and how fast it goes the
-  way it faces is the device's trigonometry's, where the town stationed it to the bit before (`--bench devicewalkers`:
-  2 of 2 M stations apart, 7.5 % not to the bit). What is still held to the bit is the claims-only device
-  (`--bench devicemirror`), which leaves the walkers to the town.
-- **A sidestep's word is given in the rebuild, off its own answers**, so it no longer waits for the layer to land; and
-  a layer only lands later where the device keeps the walkers (`DeviceRebuild.MirrorsAtOnce`).
-- **The walkers' passes are filed where the town files its own**, after the cars' (`rebuild_walker_passes.comp`).
-- OdesaOsm (`--bench devicetown`): 7.61 → 7.08 ms a tick, the claims 2.86 → 2.30. A rebuild sends 1.10 MB against
-  2.52 and reads 1.71 against 1.48; the town's own share of it is 1.22 ms against 2.20. 541 of 10 000 walkers are
-  written over a rebuild and 4 182 handed back. The town drives the same to the car: 1 147 hard brakings, 97 of 102
-  lane switches, 77 cars off their lines, 26 touches.
-
-## 2026-10-07 — a decision's effect on a body is stepped a tick later, and the claims it reads may be a laying old
-
-**The owner ruled both, for a town whose tick the device runs.**
-
-- **The bodies are stepped in the agents' own submit** (`DeviceTown.StepsWithTheTick`, `ITownDevice`): the town readies
-  the step at the end of phase 3a rather than the start of phase 4 (`TownWorld.ReadyTheStep` — a casualty's slide, a
-  wreck's wheels, the motion into the tick), the decisions read the town the step left, and what a decision does to a
-  body — boarding, a car parked or put down, a coupling — is stepped a tick later. One submit a tick instead of two.
-- **It bought no time on the link it was measured on**: OdesaOsm (`--bench devicetown`, both orders of the two runs)
-  reads 9.10 against 9.39 ms a tick in one order and 9.42 against 8.98 in the other, the town's counts equal to the car.
-  A round trip there costs about a tenth of a millisecond besides its bytes, and the bytes are what a submit waits on.
-  The rest of a tick at a tick's lag is overlap — host work beside the device's — which this is the first step towards.
-- **A decision may read a claims layer one laying old**: the rebuild's own steps take what they need of each agent
-  from the device, and the whole layer may come back later than the laying that made it.
-  - **What the tail reads comes back with the answers**: every asked car's grant (`rebuild_grant.comp` in the rebuild's
-    own submit) and every walker's (`rebuild_agents_out.comp`), so nothing in a rebuild reads a grant off the layer.
-  - **The layer lands on a later tick** (`DeviceRebuild.LandsLater`): copied back behind a tick's submit, in the host's
-    time between submits, and written into the readers' layer while a later tick's submit runs. Until then every
-    reader reads the last laying's layer, with the hold numbers, held-as and asks it was laid with (`LayerBound`); the town
-    lays its own few rows into a laying of its own meanwhile. **What is decided on the layer waits for it**: a pass's,
-    step's or manoeuvre's keep-or-withdraw, a tick or two later than before.
-  - OdesaOsm (`--bench devicetown`): 8.81 → 7.78 ms a tick, the claims 4.30 → 2.96; a rebuild reads back 1.5 MB against
-    5.5. The town drives the same — 1 147 hard brakings against 1 127 (the host's own: 1 147), 97 of 102 lane switches
-    made against 99 of 105, the speed, the cars off their lines and the touches equal.
-
-## 2026-10-06 — the tick moves onto the device
-
-**The owner decided it: everything that can move to the GPU moves, and its state stays there.** OdesaOsm cannot
-run in real time on the CPU tick — 23.5 ms against a 16.7 ms budget at 10 013 cars and 10 000 walkers
-(`--bench town`): the claims 6.8, the cars' own tick 12.8, the solver 3.3.
-
-- **Every per-tick reader and writer of a body moves with it**, not the solver alone: the solver is a seventh of
-  the tick, and a solver on the device under a car tick on the CPU is a round trip every tick.
-- **A tick reads one copy and writes the other**, and the copies swap. Reading only the old copy is what gives
-  every agent the same instant, which the proximity index gives now.
-- **The CPU keeps the decision clock**, the errands and routing, the instruments and the load. A decision taken
-  on tick T's snapshot lands at a fixed tick T + L, never when the readback happens to arrive, so the digest
-  does not depend on frame pacing.
-- **The tick still crosses nothing** (rule 1): its dispatches ride the frame's one submit.
-
-What each slice gives up for it is that slice's own log, as each one lands.
+## 2026-10-14 — the world reads where a car is on its lane
+
+**The owner (2026-10-14), in their words: "Wait cpu calculates where the car is on the lane? That was supposed to be done
+by gpu … lets rework it so gpu gives back that instead. What lanes car touching and how its positioned along the lane.
+So cpu needs to only decide what to do" … "Gpu should already know lane geometry, since ribbons are basically that just
+2d".** Every tick the host projected each moving car's rear axle onto its line and sampled the line again for how far
+off it stood — the trig of the car tick.
+
+- **A car names what it follows and the world reads it there** (`LineFollowed`, `ControlAction.Follow`): the lane its
+  line is on, the join off it and where the stretch stops, signalled when the line is laid, shifted or the car put
+  somewhere. The world reads the rear axle along that stretch every step, on from where it read it last, and hands
+  back the progress, the distance off and the follow's serial with the view (`CarView`). Chosen by the owner over every
+  way under the axle: a junction mouth holds a lane and up to four joins starting at one point, and a list capped
+  below that reads a car whose own join was dropped as off its line.
+- **The ribbons' own centre lines are on the device** (`DeviceLanes`): the lanes' and joins' arcs, laid once. Chosen by
+  the owner over reading the lattice, which holds a way and its metre in decimetres at half-metre points and nothing
+  across a band — 5 cm along and nothing across, where the progress drives the speed profile and its covered metres
+  are summed tick to tick.
+- **To the bit**: the stretch is the line's own head (a lane laid into a line is its own arcs, the last cut,
+  `Spline.HeadInto`), and the reading is the host's projection and sample over it (`LineReading`,
+  `line_reading.glsl`). OdesaOsm's drive census came out the same to the digit with the world reading as without, and
+  the device's reading is the managed world's to the bit.
+- **The host still projects** a line with no lanes (a manoeuvre's pieces), a pass's aim, and the tick or two after a
+  line is laid again before the world has read the new one.
+
+OdesaOsm on the device: the frame 159 → 140 ms, the car tick 9.1 → 7.5 ms a tick, `atan2f` off the profile and
+`sincosf` 4.6 → 1.5 ms a frame.
+
+## 2026-10-13 — the CPU holds no geometry but the lanes its actors follow
+
+**The owner (2026-10-13), in their words: "Cpu should not own geometry. Only minimal basic math" … "make sure we drop
+all unused geometry. Only geometry we nees is lane path for actors tp follow. Nothing else".** It narrows the ruling
+below: the host keeps the paths a car or a walker follows and the claims' topology over them, and nothing of the
+ribbons, the ground, the furniture or the mesh once the device has them.
+
+**And on what the actor layer still read the atlas for, in their words: "We dont need that. Actors follow lanes and
+straigh to lane if offlane. Technically follow the lane should already cover this" … "Same for ground - they dont need
+that" … "Same for grids and cells - there should be no lookups at all" … "Gpu should give actors their lane they are
+on".** So the host does no spatial look-up of any
+kind — no atlas, no ground lattice, no grid, cell or nearest-point index. An actor knows the lane or way it is on and
+where along it, and asks the ground of the lanes it will drive or walk: a pass, a step across and a manoeuvre at a bay
+ask stretches of the lanes and ways their path runs down, and an actor off every lane goes straight back to one. Where
+a body stands is the world's to say: the device reads every body onto its ways and hands each actor the lanes it is on
+with the view (TER-4c.2), and that is the only place an actor learns it.
+
+**And where the line falls, in their words: "Player actions could defy the rules. Since they dont affect perf
+meaningfully. Other only map build calculations are allowesld, no runtime".** So a look-up is the map's to make while it
+is built — a door's way, a bay's lane, an exit spot, a spawn's lane — and a player's, for what a click or an order
+names; nothing else asks one while the town runs. **And, in their words: "Special units are allowed to do minimal
+calculations when they arrive"** — an ambulance, a tow, a patrol at its scene may work out where it puts a body down
+or sets a wreck down, off the ways it and the scene stand on, at the moment it gets there.
+
+What it came to (OdesaOsm on the device):
+- **The actions ask the lanes they run down** (the car and walker logs): no sweep, no atlas, no swept tables.
+- **An actor's place is the world's covers or a place it carries**: a car takes its lane off its wheels' covers, and
+  one off every lane goes back to the lane it was driving; a walk is laid from the walker's last place on the pavement
+  to a goal's place (`FootPlace`); a leg to a place in the road carries its lane and metre (`RoadPlace`), read off the
+  body it is going to.
+- **Everything a place needs is tabled while the map is built** (`TownWorld.Places`): each door's and bay's way in and
+  the kerb beside every lane on the pavement, with which spots off each are clear of the furniture; the street beside
+  each building and each stretch of pavement; each lane's bay lanes within a walk, and its buildings. A trip and a
+  round are drawn down the road from where the actor is.
+- **The host lets go of what the device has**: its atlas and furniture once the world is handed over, the ground's
+  lattices and rings, the door grid. Heap 2.35 GB → 685 MB, resident 2.13 GB → 839 MB, the load's peak 5.1 → 3.4 GB;
+  the frame 168 → 161 ms, the tick's own share outside the cars and the claims 38 → 8 ms.
+
+## 2026-10-11 — the device runs the world, the CPU runs the actors
+
+**The owner (2026-10-11), in their words: "Goal is changed for GPU work to be more limited. GPU is to run full physics
+engine and calcuate collider to lane ribbon intersections. CPU is to run actor behavior and to send control signals to
+GPU. Each layer owns its state and does not require resending it. Meaning GPU run next physics step and calculate ribbon
+intersection without any CPU input ( by reusing its pref state buffer ). GPU will read control signal buffer each tick (
+written by CPU actors ). It should contain minimal info - object id, action id, params. … CPU will read shallow world
+state each tick ( dynamic object positon, angle, speed, lanes they intersect ). Static objects dont need to
+communicated. CPU runs full claim logic ( without geometry ). And full actor behavior logic. GPU simulating the world
+and running geometry calculations. … GPU renders its own state, no need for CPU to send actor info. We want
+communication between layers to be minimal."** It supersedes every ruling of 2026-10-06 to 2026-10-11 that moved the
+tick's decisions, the claims and the routes onto the device ([goals.md](goals.md)).
+
+- **What went**: the fully resident town (`ResidentTown`, `TownState`, `TownRoot`, `DeviceRoutes`) and the hybrid's
+  behaviour on the device — the car and walker ticks, their decisions, the switch look, the plans, the claims rebuild,
+  and the mirror, shadows and visits' checks that kept the host's copy in step with them, down to the body table's own
+  record of which rows the town changed between two steps. That path had grown to ~18 000 lines of host code and
+  ~10 000 of kernels to keep two engines bit-equal, and was half-way.
+- **The world layer** (`world/town/WorldLayer`) is the seam: control signals in, shallow state out, the touches the
+  step began. The managed world (the browser head, the suite) and the device world (`app/devicetick/DeviceWorld`) are
+  its two implementations, and the actor layer reads nothing else of a body.
+- **Neither layer holds the other's state.** The town lays its bodies as plain data (`WorldLaying`: the furniture, each
+  agent's pose and build), and each world stands its own body table off it. A signal names an agent by its roster index
+  and never a body, so which row a body is is the world's alone. The town keeps only the furniture (`StaticBodies`), to
+  find where a body may be put down; the world keeps what its tyres write on the ground. Handing the world a body table
+  the town had filled instead left the town holding the managed world's live solver.
+- **The world runs a step ahead of what the actors read** (`WorldLayer.StepsAhead`), at the owner's word: "implement
+  processing pipeline, so they run concurrently — CPU actors dont usually change decisions each tick anyway". A tick
+  waited on its step whole — a 12-car town took 3.9 ms a tick on the device against 0.02 managed, nearly all of it the
+  submit's round trip — and the device idled through the decisions as the host did through the step. Now a step waits
+  for the one begun the tick before and begins its own, so actors decide off a view a tick older. The managed world
+  shows its answer as late, so the two worlds stay comparable step for step, and steps on a thread of its own the same
+  way (`ManagedWorld`, `AsideThread`) — the same arithmetic in the same order, so a town steps to the bit as it would at
+  once, and the browser's one thread steps at once; a body the town sets somewhere keeps the town's pose until a view
+  that took the signal arrives.
+- **The view is read where the world wrote it** (`WorldView.ReadOver`): the device writes each step's rows into one of
+  two mapped buffers and the host reads them in place, the step in flight writing the other. A row carries what the
+  actor layer reads every tick and nothing else — a body's covers' ranges come with the covers, on the claims' clock,
+  and the step a car froze at is read off its flags (frozen, and not through the last step), since the town reads every
+  view.
+- **The tyres and a walker's footing are the world's**: they turn a car's wheel and pedals (`DriveCommand`) and a
+  walker's heading and pace into impulses, so they are physics. Which ways a wheel grips on comes off the world's own
+  reading of the ribbons.
+- **The ribbons a body stands on are read by the world on the claims' clock** (`Sim.ClaimsIntervalS`, TER-49), which
+  both layers read off the same figures — so it needs no signal. What the actor layer adds to a cover — whether the body
+  travels that way, where its line goes next — is behaviour, and is the actor layer's.
+- **What is static is laid once and never signalled** — the owner, in their words: "Car weight cannot change in runtime -
+  we dont need mechanics for updates of a static properties". A body's mass and shape are its variant's, laid with the
+  world; the figures panel's trims are surfaces' (`TrimFigures`), handed over whole when turned
+  (`WorldLayer.FiguresChanged`).
+- **Why the split falls there**, measured before the device took the tick (OdesaOsm, 10 013 cars and 10 000 walkers,
+  `--bench town`, 2026-10-06): 23.5 ms a tick against a 16.7 ms budget — the claims 6.8, the cars' own tick 12.8 (of it
+  the tyres), the solver 3.3. The solver and the tyres are the arithmetic the device is for; the claims and decisions are
+  branching over sparse lists, which the device took 18 000 lines to keep equal to the host's.
 
 ## 2026-10-05 — an open's peak is what stands while the atlas is filed
 
@@ -701,10 +162,10 @@ the published page's own heap a minute after the map was named:
 The coarsening moved the ground by five triangles of three million: the indexes it put right are coarser, and the
 merge reads its candidates off a coarser cell.
 
-**Not done: the paving's build-time indexes let go once the town stands** (`Paving.DrivenLines`, `GroundRings`' kerb
-scan, 51 MB). Let go after the peak, they give a page nothing back. **Nor the street lanes' third index**
-(`RoadGraph`'s, 20 MB), answered off the two a level each: the nearest of a bridge's lanes from anywhere in town is a
-ring grown kilometres wide. **Nor the filing a block at a time**, letting each go once filed: the entries are laid out
+**The build-time indexes are let go once the town stands** (`Paving.LetGoOfTheLayingIndexes`,
+`RoadGraph.LetGoOfTheLayingIndex`, 2026-10-13, at the owner's "drop all unused geometry"), and laid again if asked: they
+give a page nothing back, but a desktop's standing memory 60 MB. **Not done: the filing a block at a time**, letting
+each go once filed: the entries are laid out
 while every block still stands, so the peak is the same. A filing that keeps no points at all is a second run of the
 geometry, and waits for that run to be cheaper.
 

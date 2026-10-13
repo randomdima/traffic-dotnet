@@ -125,21 +125,41 @@ internal sealed unsafe class ComputeKernel : IDisposable
     public int Buffers { get; }
 
     /// <summary>A set over these buffers, in binding order, written once.</summary>
-    public DescriptorSet Bind(ReadOnlySpan<GpuBuffer> buffers)
+    public DescriptorSet Bind(ReadOnlySpan<GpuBuffer> buffers) => Bind(buffers, default);
+
+    /// <summary>
+    /// A set over these buffers, written into <paramref name="into"/> where it is one of this kernel's — a buffer
+    /// swapped for a larger one, with the device idle — and otherwise a set of its own. Rewriting rather than allocating
+    /// keeps a kernel within the sets its pool was laid for however often its buffers are replaced.
+    /// </summary>
+    public DescriptorSet Bind(ReadOnlySpan<GpuBuffer> buffers, DescriptorSet into)
     {
         if (buffers.Length != Buffers) throw new ArgumentException($"The kernel binds {Buffers} buffers, not {buffers.Length}.");
 
         var api = _vk.Api;
-        var setLayout = _setLayout;
-        var allocate = new DescriptorSetAllocateInfo
+        var set = into;
+        if (set.Handle != 0)
         {
-            SType = StructureType.DescriptorSetAllocateInfo,
-            DescriptorPool = _pool,
-            DescriptorSetCount = 1,
-            PSetLayouts = &setLayout,
-        };
-        Vk.Count();
-        Vk.Check(api.AllocateDescriptorSets(_vk.Device, &allocate, out var set), "vkAllocateDescriptorSets");
+            foreach (var (buffer, boundSet) in _bound)
+            {
+                if (boundSet.Handle == set.Handle) buffer.Unbound(set);
+            }
+
+            _bound.RemoveAll(bound => bound.Set.Handle == set.Handle);
+        }
+        else
+        {
+            var setLayout = _setLayout;
+            var allocate = new DescriptorSetAllocateInfo
+            {
+                SType = StructureType.DescriptorSetAllocateInfo,
+                DescriptorPool = _pool,
+                DescriptorSetCount = 1,
+                PSetLayouts = &setLayout,
+            };
+            Vk.Count();
+            Vk.Check(api.AllocateDescriptorSets(_vk.Device, &allocate, out set), "vkAllocateDescriptorSets");
+        }
 
         var infos = stackalloc DescriptorBufferInfo[Buffers];
         var writes = stackalloc WriteDescriptorSet[Buffers];
@@ -174,6 +194,7 @@ internal sealed unsafe class ComputeKernel : IDisposable
     {
         BindFor(commands, set, push);
         Vk.Count();
+        Vk.CountDispatch();
         _vk.Api.CmdDispatch(commands, groups, 1, 1);
     }
 
@@ -186,6 +207,7 @@ internal sealed unsafe class ComputeKernel : IDisposable
     {
         BindFor(commands, set, push);
         Vk.Count();
+        Vk.CountDispatch();
         _vk.Api.CmdDispatchIndirect(commands, counts.Handle, offsetBytes);
     }
 

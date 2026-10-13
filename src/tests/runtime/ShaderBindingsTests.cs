@@ -11,7 +11,7 @@ namespace TrafficSimulation.Tests.Runtime;
 [Trait(Priority.Key, Priority.P2)]
 public class ShaderBindingsTests
 {
-    /// <summary><c>integrate.comp</c> declares bindings 0 to 8, the last the bodies it moved.</summary>
+    /// <summary><c>integrate.comp</c> declares bindings 0 to 9, the last the bodies whose rest is counted afresh.</summary>
     [Fact]
     public void AKernelDeclaresOnePastItsHighestBinding()
     {
@@ -19,6 +19,6 @@ public class ShaderBindingsTests
         var spirv = new byte[stream.Length];
         stream.ReadExactly(spirv);
 
-        Assert.Equal(9, Vk.BindingsDeclared(spirv));
+        Assert.Equal(10, Vk.BindingsDeclared(spirv));
     }
 }

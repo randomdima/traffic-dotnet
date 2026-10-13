@@ -53,14 +53,6 @@ internal sealed class RoadFigures
     /// <remarks><b>The owner's figure</b>, one for every build.</remarks>
     public float HeldAroundAWheelM { get; init; } = 1f;
 
-    /// <summary>
-    /// <b>How many times a tick's plans are answered again against what the others came to</b> before the
-    /// layer is left as it stands (TER-4c.3) — the first answer past it read against a longer layer than its own. A
-    /// bound on the work: a layer still moving at it is disjoint but not where its answers say, and counted
-    /// (<c>TownWorld.Unsettled</c>).
-    /// </summary>
-    public int MostSettlingPasses { get; init; } = 4;
-
     public float IntersectionCornerRadiusInCarWidths { get; init; } = 2.5f;
 
     /// <summary>
@@ -422,7 +414,12 @@ internal sealed class SignalFigures
     public float CycleS { get; init; } = 15f;
 
     /// <summary>The last stretch of a green rather than time added to it.</summary>
-    public float AmberTailS { get; init; } = 1.5f;
+    /// <remarks>
+    /// Long enough for a car that could no longer stop at its start to have its rear axle over the bar by its end
+    /// while slowing for the turn beyond it. Shorter, such a car is counted over on a red (CAR-13.3); longer, every
+    /// green loses what it gains, since the amber is held as a red is.
+    /// </remarks>
+    public float AmberTailS { get; init; } = 2f;
 
     /// <summary>How far past its own stop bar, along the road, a car head stands.</summary>
     public float HeadSetbackM { get; init; } = 7f;
@@ -446,7 +443,6 @@ internal sealed class TerrainFigures
 {
     public float GrassCoefficient { get; init; } = 0.8f;
     public float PavedCoefficient { get; init; } = 1.0f;
-    public float WaterCoefficient { get; init; } = 0.15f;
 
     /// <summary>
     /// Resistance to travel over a surface, <b>as a coefficient</b> — the raw term, dimensionless, against
@@ -461,7 +457,6 @@ internal sealed class TerrainFigures
     public float GrassResistance { get; init; } = 0.2915f;
 
     public float PavedResistance { get; init; } = 0.012f;
-    public float WaterResistance { get; init; } = 0.3466f;
 
     /// <summary>
     /// How easily tarmac takes a permanent mark, as a factor on <see cref="MarkFigures.PowerM2S3"/>. Softer
@@ -477,8 +472,9 @@ internal sealed class TerrainFigures
     /// <remarks>
     /// A cell the boundary does not pass through is answered by a lookup, so the narrower the cells the more
     /// of a lane that is — at five bytes a cell for each layer answered. <b>Finer than the grid's own cell
-    /// because every wheel asks it every tick</b>: at the grid's cell a two-lane street is kerb to kerb in
-    /// one cell, and every answer on it walks the kerbs.
+    /// because the generator asks it at every point of every prop it stands</b> (<c>GroundShapes.IsAll</c>): at
+    /// the grid's cell a two-lane street is kerb to kerb in one cell, and every answer on it walks the kerbs. No
+    /// tick asks it — a wheel reads the ribbons (TER-7b).
     /// </remarks>
     public int ShellCellsAcrossGridCell { get; init; } = 2;
 

@@ -1,0 +1,138 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every body onto the lane ribbons it stands on (TER-4c.2; ManagedWorld.ReadCovers), behind a step whose next tick lays
+// the claims, one thread a body — the cars first, then the walkers. A car is read under its four wheels on its own
+// channels, which of them stand on a way kept for its tyres, and put on the channels of every way it stands over
+// (PHY-1a); a walker under its centre as one wheel, held its own radius; a body out of the world on none. Each body's
+// covers are appended whole where an atomic puts them, and where they begin is its range — so a list's order is the
+// device's, and each body's own covers are its own, in the atlas's order.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Covers
+{
+    uint bodyCount;
+    int cellsFromX;
+    int cellsFromY;
+    int cellsWidth;
+    int cellsHeight;
+    float perCellM;
+    float cellM;
+    int shift;
+    int mask;
+    int startShift;
+    int rowStartsShift;
+    int startsPerCell;
+    float metresPerOutside;
+    float alongPerMetre;
+    uint hasChannels;
+    uint carCount;
+    uint walkerCount;
+    float heldAroundAWheelM;
+    uint carRoom;
+    uint walkerRoom;
+    uint enabledBit;
+} covers;
+
+#define ATLAS_FIGURES covers
+#define ATLAS_BINDING 12
+#include "core/geometry/kernels/rounded.glsl"
+#include "world/road/kernels/atlas.glsl"
+#include "world/town/kernels/world_rows.glsl"
+#include "agents/car/body/kernels/car_build.glsl"
+#include "agents/car/body/kernels/tyre_rows.glsl"
+#include "world/physics/kernels/filter.glsl"
+
+layout(std430, binding = 0) readonly buffer Cars { WorldCar cars[]; };
+layout(std430, binding = 1) readonly buffer Walkers { WorldWalker walkers[]; };
+layout(std430, binding = 2) readonly buffer Builds { CarBuildRow builds[]; };
+layout(std430, binding = 3) readonly buffer BuildOf { uint buildOf[]; };
+layout(std430, binding = 4) readonly buffer Pose { vec4 pose[]; };
+layout(std430, binding = 5) buffer Filter { uint filter_[]; };
+layout(std430, binding = 6) buffer CarRows { TyreCarRow carRows[]; };
+layout(std430, binding = 7) writeonly buffer CarCovers { AtlasCover carCovers[]; };
+layout(std430, binding = 8) writeonly buffer WalkerCovers { AtlasCover walkerCovers[]; };
+
+// How many covers each list holds, then how many were dropped past its room.
+layout(std430, binding = 9) buffer Counts { uint counts[4]; };
+layout(std430, binding = 10) buffer CarRanges { ivec2 carRanges[]; };
+layout(std430, binding = 11) buffer WalkerRanges { ivec2 walkerRanges[]; };
+
+// TyreModel.WheelAtM.
+vec2 wheelAtM(CarBuildRow car, int wheel)
+{
+    precise float front = car.wheelbaseM - car.centreAheadOfAxleM;
+    return vec2(wheel < 2 ? front : -car.centreAheadOfAxleM, wheel % 2 == 0 ? car.halfTrackM : -car.halfTrackM);
+}
+
+void readTheCar(uint car)
+{
+    int body = cars[car].body;
+    CarBuildRow build = builds[buildOf[car]];
+    vec4 placed = pose[body];
+    vec2 forward = placed.zw;
+    vec2 right = vec2(-forward.y, forward.x);
+    vec2 wheelsM[4];
+    for (int wheel = 0; wheel < 4; wheel++)
+    {
+        vec2 atBody = wheelAtM(build, wheel);
+        precise vec2 at = placed.xy + (forward * atBody.x) + (right * atBody.y);
+        wheelsM[wheel] = at;
+    }
+
+    uint channels = filterChannels(filter_[body]);
+    uint dropped = 0u;
+    uint onAWay;
+    int count = atlasUnderWheels(wheelsM, covers.heldAroundAWheelM, channels, dropped, onAWay);
+    carRows[car].flags = (carRows[car].flags & ~0xf00u) | ((onAWay & 0xfu) << 8);
+
+    if (covers.hasChannels != 0u)
+    {
+        uint over = 0u;
+        for (int at = 0; at < count; at++) over |= atlasChannelsOf(atlasFound[at].way);
+        if (over != 0u && over != channels) filter_[body] = filterOnChannels(filter_[body], over);
+    }
+
+    uint first = atomicAdd(counts[0], uint(count));
+    if (first + uint(count) > covers.carRoom)
+    {
+        atomicAdd(counts[2], uint(count));
+        carRanges[car] = ivec2(0, 0);
+        return;
+    }
+
+    for (int at = 0; at < count; at++) carCovers[first + uint(at)] = atlasFound[at];
+    carRanges[car] = ivec2(int(first), count);
+}
+
+void readTheWalker(uint walker)
+{
+    WorldWalker row = walkers[walker];
+    int body = row.body;
+    if ((filter_[body] & covers.enabledBit) == 0u)
+    {
+        walkerRanges[walker] = ivec2(0, 0);
+        return;
+    }
+
+    uint dropped = 0u;
+    int count = atlasUnderAWheel(pose[body].xy, row.radiusM, filterChannels(filter_[body]), dropped);
+    uint first = atomicAdd(counts[1], uint(count));
+    if (first + uint(count) > covers.walkerRoom)
+    {
+        atomicAdd(counts[3], uint(count));
+        walkerRanges[walker] = ivec2(0, 0);
+        return;
+    }
+
+    for (int at = 0; at < count; at++) walkerCovers[first + uint(at)] = atlasFound[at];
+    walkerRanges[walker] = ivec2(int(first), count);
+}
+
+void main()
+{
+    uint at = gl_GlobalInvocationID.x;
+    if (at < covers.carCount) readTheCar(at);
+    else if (at < covers.carCount + covers.walkerCount) readTheWalker(at - covers.carCount);
+}

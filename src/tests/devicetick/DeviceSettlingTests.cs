@@ -75,6 +75,35 @@ public class DeviceSettlingTests(Lavapipe device) : IClassFixture<Lavapipe>
         Assert.Empty(solver.Begun.ToArray());
     }
 
+    /// <summary>
+    /// <c>SOL-37c</c>: touches held through a step either side of one the step found — frozen pairs below and above a
+    /// pressed one in index — are still the same touches when their cars are woken on the next.
+    /// </summary>
+    [Fact]
+    public void TouchesHeldEitherSideOfAFoundOneDoNotBeginAgain()
+    {
+        var world = new PhysicsWorld(Config);
+        var firsts = new BodyId[3];
+        for (var pair = 0; pair < 3; pair++)
+        {
+            var atM = new Vector2(0f, 10f * pair);
+            firsts[pair] = world.AddNominalCar(atM, 0f);
+            world.AddNominalCar(atM + new Vector2(Config.Car.LengthM, 0f), 0f);
+        }
+
+        Advance(world, Config.SolverRestTicks + 1);
+        using var solver = Settling(world);
+        solver.LayTheTouching(world.TouchingKeys);
+        var press = new Vector2(Config.Car.MassKg * 0.01f, 0f);
+        world.ApplyCentralImpulse(firsts[1], press);
+        solver.Step(world.Table, StepSeconds, readBack: false);
+
+        foreach (var first in firsts) world.ApplyCentralImpulse(first, press);
+        solver.Step(world.Table, StepSeconds, readBack: false);
+
+        Assert.Empty(solver.Begun.ToArray());
+    }
+
     /// <summary>A car along the row's last car's flank and away at a walking pace: touching it, and pressing on it nowhere.</summary>
     static void PassAlongTheLastCar(PhysicsWorld world)
     {
@@ -89,10 +118,10 @@ public class DeviceSettlingTests(Lavapipe device) : IClassFixture<Lavapipe>
         return (solver.Woke.ToArray(), solver.Froze.ToArray());
     }
 
-    /// <summary>A device solver settling what it steps, laid the table's rest counts.</summary>
+    /// <summary>A device solver settling what it steps and listing what it settled, laid the table's rest counts.</summary>
     DeviceSolver Settling(PhysicsWorld world)
     {
-        var solver = new DeviceSolver(device.Vk, Config, world.Table) { Settles = true };
+        var solver = new DeviceSolver(device.Vk, Config, world.Table) { Settles = true, ListsWhatSettled = true };
         solver.LayTheRestCounts(world.Table);
         return solver;
     }

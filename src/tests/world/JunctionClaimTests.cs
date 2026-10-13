@@ -106,7 +106,7 @@ public class JunctionClaimTests
         for (var car = 0; car < world.Cars.Count; car++)
         {
             if (!OnARoute(world, car) || world.Cars.GrantCutBy[car] != HeadwayKind.Light) continue;
-            if (world.Cars.InsideTheBox[car] || world.Cars.AuthorityM[car] >= world.Cars.ToTheBoxM[car]) continue;
+            if (world.Cars.IsInsideTheBox(car) || world.Cars.AuthorityM[car] >= world.Cars.ToTheBoxM[car]) continue;
 
             found.AtARed++;
             if (found.PastARed is not null) continue;
@@ -123,20 +123,26 @@ public class JunctionClaimTests
     /// <summary>A join this car holds a main claim on, or −1 — which is what having a movement through a box is.</summary>
     static int TheJoinItPlans(TownWorld world, int car)
     {
-        var claims = new LaneClaim[64];
         foreach (var way in world.Occupancy.OccupiedWays)
         {
-            if (world.Ways.KindOf(way) != WayKind.Connector) continue;
-
-            var count = world.Occupancy.CopyPlannedTo(way, claims);
-            for (var at = 0; at < count; at++)
-            {
-                ref readonly var claim = ref claims[at];
-                if (claim.Occupant == car && claim.Of == LaneRoster.Driving && !claim.Secondary) return way;
-            }
+            if (world.Ways.KindOf(way) == WayKind.Connector && MainsOf(world, way, car).Count > 0) return way;
         }
 
         return -1;
+    }
+
+    /// <summary>Every main claim one car holds on one way.</summary>
+    static List<Claim> MainsOf(TownWorld world, int way, int car)
+    {
+        var claims = world.Occupancy;
+        var key = LaneOccupancy.KeyOf(car, LaneRoster.Driving);
+        var found = new List<Claim>();
+        foreach (var main in claims.Mains(way))
+        {
+            if (claims.HoldersOf(main)[0] == key) found.Add(main);
+        }
+
+        return found;
     }
 
     /// <summary>
@@ -168,14 +174,13 @@ public class JunctionClaimTests
             var mouthM = world.Cars.LaneEndsOf(car)[0];
             if (world.Cars.ClaimFromM[car] >= mouthM) continue;
 
-            var endsAtM = MathF.Min(
-                world.Cars.ClaimToM[car], world.Occupancy.HoldEndsAtM(world.DriveHold(car), out _, out _));
+            var endsAtM = MathF.Min(world.Cars.ClaimToM[car], world.Occupancy.CutOf(world.DriveHold(car)).CutLineM);
             if (endsAtM <= mouthM + Tolerance) continue;
 
             found.Reaching++;
             var way = world.Ways.OfRoadConnector(join);
             if (found.MissedTheNearEdge is not null
-                || world.Occupancy.PlannedToM(way, 0f, car, LaneRoster.Driving) > Tolerance)
+                || MainsOf(world, way, car).Exists(main => main.FromDm == 0 && main.ToM > Tolerance))
             {
                 continue;
             }
@@ -204,25 +209,26 @@ public class JunctionClaimTests
 
     static void NoPieceIsLaidOnAWayOnlyCrossed(TownWorld world, string map, int tick, Watched found)
     {
-        Span<LaneClaim> slots = stackalloc LaneClaim[128];
-        foreach (var way in world.Occupancy.OccupiedWays)
+        var claims = world.Occupancy;
+        foreach (var way in claims.OccupiedWays)
         {
-            var count = world.Occupancy.CopyPlannedTo(way, slots);
-            for (var slot = 0; slot < count; slot++)
+            foreach (var second in claims.Secondaries(way))
             {
-                ref readonly var piece = ref slots[slot];
-                if (piece.Of != LaneRoster.Driving || world.Cars.Line[piece.Occupant].LaneCount == 0) continue;
-
-                if (piece.Secondary)
+                foreach (var holder in claims.HoldersOf(second))
                 {
-                    found.Crossing++;
-                    continue;
+                    if (LaneOccupancy.RosterOf(holder) == LaneRoster.Driving) found.Crossing++;
                 }
+            }
 
-                if (found.LaidOnAWayItCrosses is not null || OnItsLine(world, piece.Occupant, way)) continue;
+            foreach (var piece in claims.Mains(way))
+            {
+                var holder = claims.HoldersOf(piece)[0];
+                var car = LaneOccupancy.OccupantOf(holder);
+                if (LaneOccupancy.RosterOf(holder) != LaneRoster.Driving || world.Cars.Line[car].LaneCount == 0) continue;
+                if (found.LaidOnAWayItCrosses is not null || OnItsLine(world, car, way)) continue;
 
                 found.LaidOnAWayItCrosses =
-                    $"{map}: car {piece.Occupant} holds {piece.FromM:0.00}–{piece.ToM:0.00} m of "
+                    $"{map}: car {car} holds {piece.FromM:0.00}–{piece.ToM:0.00} m of "
                     + $"{world.Ways.KindOf(way)} way {way} at tick {tick}, which is on no line it drives";
             }
         }
@@ -274,8 +280,7 @@ public class JunctionClaimTests
 
         world.Cars.Driven[car] = false;
         world.BreakWhereItStands(car);
-        world.Cars.PositionM[car] = atM;
-        world.Cars.VelocityMps[car] = Vector2.Zero;
+        world.StandTheCarAt(car, atM, world.Cars.HeadingRad[car]);
         world.LayTheClaims();
 
         Assert.True(IsABodyOn(world, join, car), $"{map}: join {join}, which it is lying on, does not have it");
@@ -298,7 +303,7 @@ public class JunctionClaimTests
 
         world.Cars.Driven[car] = false;
         world.BreakWhereItStands(car);
-        world.Cars.VelocityMps[car] = Vector2.Zero;
+        var headingRad = world.Cars.HeadingRad[car];
 
         var halfM = world.Cars.BuildOf(car).CollisionSizeM * 0.5f;
         var cornerM = halfM.Length();
@@ -308,7 +313,7 @@ public class JunctionClaimTests
         {
             for (var across = -overM; across <= overM; across += halfM.X)
             {
-                world.Cars.PositionM[car] = atM + new Vector2(across, down);
+                world.StandTheCarAt(car, atM + new Vector2(across, down), headingRad);
                 world.LayTheClaims();
 
                 foreach (var way in world.Occupancy.OccupiedWays)
@@ -369,17 +374,8 @@ public class JunctionClaimTests
     }
 
     /// <summary>Whether this car is a body on one join.</summary>
-    static bool IsABodyOn(TownWorld world, int join, int car)
-    {
-        Span<LaneClaim> slots = stackalloc LaneClaim[32];
-        var count = world.Occupancy.CopyBodiesTo(world.Ways.OfRoadConnector(join), slots);
-        for (var at = 0; at < count; at++)
-        {
-            if (slots[at].Occupant == car && slots[at].Of == LaneRoster.Driving) return true;
-        }
-
-        return false;
-    }
+    static bool IsABodyOn(TownWorld world, int join, int car) =>
+        world.Occupancy.HasTheBodyOf(world.Ways.OfRoadConnector(join), car, LaneRoster.Driving);
 
     /// <summary>
     /// A car standing on the road rather than in a bay, which is the one a body can be put anywhere.

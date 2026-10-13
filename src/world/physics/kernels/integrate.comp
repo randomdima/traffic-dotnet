@@ -2,7 +2,7 @@
 #extension GL_GOOGLE_include_directive : require
 
 // The solver's last stage on the device: every moving body taken to where its own motion and the push it was given
-// leave it, its rotation and bounds read again (PhysicsWorld.Integrate). One thread a body of the moving roster;
+// leave it, its rotation and bounds read again (PhysicsWorld.IntegrateAndCountTheRest). One thread a body of the moving roster;
 // nothing here reads another body, so the order bodies are taken in changes nothing.
 //
 // Every figure the CPU's step also makes is `precise`: left alone, the compiler fuses a*b+c into one fma, which rounds
@@ -21,10 +21,15 @@ layout(std430, binding = 3) readonly buffer Motion { vec4 motion[]; };
 layout(std430, binding = 4) readonly buffer PushB { vec4 push_[]; };
 layout(std430, binding = 5) readonly buffer ShapeB { vec4 shape[]; };
 layout(std430, binding = 6) writeonly buffer Bounds { vec4 bounds[]; };
-layout(std430, binding = 7) buffer Filter { uvec4 filter_[]; };
+layout(std430, binding = 7) buffer Filter { uint filter_[]; };
 
-// Whether the step moved the body or turned it, for settle.comp: a frozen body it did is one it took in (SOL-37a).
-layout(std430, binding = 8) writeonly buffer Moved { uint moved[]; };
+// With IntegrateAndRest, the rest counted afresh where the host reset it (DeviceSolver.CountAfresh) — one thread a roster
+// slot, or an afresh slot past the roster — before the settling counts it on.
+layout(std430, binding = 8) buffer Rest { uint restTicks[]; };
+layout(std430, binding = 9) readonly buffer Afresh { int afresh[]; };
+
+// DeviceSolver.IntegrateAndRest.
+const uint IntegrateAndRest = 1u;
 
 const float Pi = 3.14159265358979;
 const float Turn = 2.0 * Pi;
@@ -40,6 +45,7 @@ float wrapped(float rad)
 void main()
 {
     uint slot = gl_GlobalInvocationID.x;
+    if (mode == IntegrateAndRest && slot < afreshCount) restTicks[afresh[slot]] = 0u;
     if (slot >= rosterCount) return;
 
     int body = owners[slot];
@@ -47,7 +53,8 @@ void main()
     vec4 p = push_[body];
     precise vec2 travelMps = m.xy + p.xy;
     precise float turnRadPerS = m.z + p.z;
-    if (travelMps != vec2(0.0) || turnRadPerS != 0.0) filter_[body].x &= ~filedFrozenBit;
+    uint flags = filter_[body];
+    if (travelMps != vec2(0.0) || turnRadPerS != 0.0) filter_[body] = flags & ~filedFrozenBit;
 
     vec4 was = pose[body];
     precise vec2 position = was.xy + travelMps * dtS;
@@ -57,7 +64,6 @@ void main()
     // A body whose heading the step left alone keeps the direction it was laid with: the host's, to the bit, rather
     // than this device's sin and cos of the same angle — so a body that does not move is left exactly as it stood.
     vec2 unit = heading == headingRad[body] ? was.zw : trigUnit(heading);
-    moved[body] = position != was.xy || heading != headingRad[body] ? 1u : 0u;
     headingRad[body] = heading;
     pose[body] = vec4(position, unit);
 

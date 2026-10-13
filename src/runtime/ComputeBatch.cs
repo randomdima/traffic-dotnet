@@ -8,8 +8,8 @@ namespace TrafficSimulation.Runtime;
 /// put off where the host has work of its own to do meanwhile (<see cref="Submit"/>, <see cref="Wait"/>).
 /// </summary>
 /// <remarks>
-/// Here there is no frame, so a batch of ticks is the unit a crossing is paid per — and a windowed run whose tick is the
-/// device's (<c>DeviceTown</c>) submits its tick here too, beside the frame's own submit.
+/// Here there is no frame, so a batch of ticks is the unit a crossing is paid per — and a windowed run whose world is the
+/// device's (<c>DeviceWorld</c>) submits its step here too, beside the frame's own submit.
 /// </remarks>
 internal sealed unsafe class ComputeBatch : IDisposable
 {

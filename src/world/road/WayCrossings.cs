@@ -63,6 +63,12 @@ internal sealed class WayCrossings
             ? []
             : _sections.AsSpan(_offsets[way], _offsets[way + 1] - _offsets[way]);
 
+    /// <summary>Where one way's marks (<see cref="Of"/>) begin among every way's, for a table kept beside this one.</summary>
+    public int FirstOf(int way) => way < 0 || way + 1 >= _offsets.Length ? 0 : _offsets[way];
+
+    /// <summary>Every way's marks, in the order <see cref="FirstOf"/> numbers them.</summary>
+    public ReadOnlySpan<CrossedSection> All => _sections;
+
     /// <summary>
     /// How many marks the busiest way carries — <b>how many secondary claims one main claim may place</b>,
     /// which sizes the planned layer.

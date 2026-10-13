@@ -1,0 +1,99 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// A frame's cars and walkers as the emit reads them (sprites_car.glsl's CarRow, sprites_person.glsl's PersonRow), laid
+// off the world's own state on the device (app/devicetick/DeviceWorld) and nothing the host sends: in mode 0 a thread a
+// car — where its body is and how it points, its wheel, what its lamps say and whether it is a wreck as it last
+// signalled them, which end it hangs off a bar by, and its level off its channels; in mode 2, once every car's row is
+// laid, each car on a bar names itself to its tractor's; in mode 1 a thread a walker — where it stands and faces, how
+// far it has walked, inside, down or walking.
+//
+// **Where a body is and how it points are the view's the host is showing** (WorldView, the slot the frame names), and not
+// the solver's step in flight: what is drawn over a body — its selection, its path, the debug layers — is read off that
+// view, so a body drawn a step ahead of it would stand a step's travel off its own marks. How a car points is its
+// heading's unit vector to the host's bit (trig.glsl), as the host's fill turns it.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Lay
+{
+    uint count;
+    uint mode;
+} lay;
+
+#include "app/render/kernels/sprites_car.glsl"
+#include "app/render/kernels/sprites_person.glsl"
+#include "world/town/kernels/world_rows.glsl"
+#include "agents/car/body/kernels/tyre_rows.glsl"
+#include "core/geometry/kernels/trig.glsl"
+
+// What a unit looks like, fixed when the town is laid: a car's variant and the jitter its flashers run at, a walker's.
+struct CarLookRow
+{
+    uint variant;
+    float fuseJitter;
+};
+
+layout(std430, binding = 0) writeonly buffer Cars { CarRow cars[]; };
+layout(std430, binding = 1) writeonly buffer People { PersonRow people[]; };
+layout(std430, binding = 2) readonly buffer WorldCars { WorldCar worldCars[]; };
+layout(std430, binding = 3) readonly buffer WorldWalkers { WorldWalker worldWalkers[]; };
+layout(std430, binding = 4) readonly buffer Commands { TyreCommand commands[]; };
+layout(std430, binding = 5) readonly buffer CarLooks { CarLookRow carLooks[]; };
+layout(std430, binding = 6) readonly buffer PersonVariants { uint personVariants[]; };
+
+// The frame's words as sprites_buffers.glsl reads them, of which only the view's slot is read here.
+layout(std430, binding = 7) readonly buffer Frame
+{
+    vec2 viewCentreM;
+    vec2 viewSpanM;
+    float leastPartM;
+    float elapsedS;
+    uint personCount;
+    uint carCount;
+    uint viewSlot;
+} frame;
+
+// The two views' rows (DeviceWorld's ping-pong), the host showing the frame's slot.
+layout(std430, binding = 8) readonly buffer CarViews0 { CarViewRow carViews0[]; };
+layout(std430, binding = 9) readonly buffer CarViews1 { CarViewRow carViews1[]; };
+layout(std430, binding = 10) readonly buffer WalkerViews0 { WalkerViewRow walkerViews0[]; };
+layout(std430, binding = 11) readonly buffer WalkerViews1 { WalkerViewRow walkerViews1[]; };
+
+void layTheCar(uint car)
+{
+    WorldCar row = worldCars[car];
+    CarViewRow seen = frame.viewSlot == 0u ? carViews0[car] : carViews1[car];
+    uint channels = seen.flags >> 16;
+    uint level = channels == 0u ? 0u : uint(findMSB(channels));
+    uint flags = ((row.flags & CarShowsBroken) != 0u ? CarBroken : 0u)
+                 | ((row.flags & CarByTheTail) != 0u ? CarHeldByTheTail : 0u) | (level << CarLevelShift);
+    CarLookRow look = carLooks[car];
+    cars[car] = CarRow(
+        seen.positionM, trigUnit(seen.headingRad), seen.headingRad, commands[car].steerRad, look.fuseJitter,
+        (row.flags >> CarShowsShift) & 0xffu, look.variant, flags, -1, 0.0);
+}
+
+void layTheWalker(uint walker)
+{
+    WorldWalker row = worldWalkers[walker];
+    if ((row.flags & WalkerInside) != 0u)
+    {
+        people[walker] = PersonRow(vec2(0.0), 0.0, 0.0, 0u, PersonInside);
+        return;
+    }
+
+    WalkerViewRow seen = frame.viewSlot == 0u ? walkerViews0[walker] : walkerViews1[walker];
+    uint flags = ((row.flags & WalkOnFeet) == 0u ? PersonDown : 0u) | ((row.flags & WalkMoving) != 0u ? PersonWalking : 0u);
+    people[walker] = PersonRow(seen.positionM, seen.headingRad, row.distanceWalkedM, personVariants[walker], flags);
+}
+
+void main()
+{
+    uint at = gl_GlobalInvocationID.x;
+    if (at >= lay.count) return;
+
+    if (lay.mode == 0u) layTheCar(at);
+    else if (lay.mode == 1u) layTheWalker(at);
+    else if (worldCars[at].tractor >= 0) cars[worldCars[at].tractor].towing = int(at);
+}

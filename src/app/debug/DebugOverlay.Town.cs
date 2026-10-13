@@ -98,6 +98,11 @@ internal sealed partial class DebugOverlay
         TownWorld world, GroundMesh? mesh, SimConfig config, DebugSwitches switches, Vector2 viewCentreM,
         Vector2 viewSpanM, float pixelsPerMetre)
     {
+        // <b>Laid at the zoom's rung of a ladder and not at the zoom</b> (ViewFigures.DebugRelayZoomFactor): every notch of
+        // the wheel is a new scale, and laying the town's graphs again for each is the cost this cache is for.
+        var rung = config.View.DebugRelayZoomFactor;
+        pixelsPerMetre = MathF.Pow(rung, MathF.Floor(MathF.Log(pixelsPerMetre) / MathF.Log(rung)));
+
         var marginM = viewSpanM * MarginFraction;
         var inside = Vector2.Abs(viewCentreM - _drawnCentreM) + viewSpanM * 0.5f;
         var stale = switches.Generation != _drawnGeneration

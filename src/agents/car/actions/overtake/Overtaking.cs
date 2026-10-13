@@ -12,33 +12,33 @@ namespace TrafficSimulation.Agents.Car.Actions;
 /// <summary>
 /// <b>Overtake</b> (CAR-46, TER-4c.6): a car getting past what stands in its lane — decided once, where it would begin
 /// slowing for it, and committed to: its shape and its ground worked out then and never again. Waited for at the place
-/// its step out begins, asked for whole on its own clock (<see cref="DrivingFigures.PassAskEveryS"/>), laid as a body
-/// over all the ground it will cover, kept or withdrawn once before the car moves over, and driven as the car's own line
-/// aimed across into the lane beside. Over once the car is back in its own lane; let go once what it was getting past
-/// is gone, or once it has waited its patience out (<see cref="DrivingFigures.PassPatienceS"/>).
+/// its step out begins, asked for whole on its own clock (<see cref="DrivingFigures.PassAskEveryS"/>), laid as a plan of
+/// its own over all the ground it will cover, kept or withdrawn once before the car moves over, and driven as the car's
+/// own line aimed across into the lane beside. Over once the car is back in its own lane; let go once what it was
+/// getting past is gone, or once it has waited its patience out (<see cref="DrivingFigures.PassPatienceS"/>).
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Nothing here reads another agent</b> (TER-4c.5). What is in the way, whether it is at rest and whether it
-/// is making this car's own movement are what its body said of itself on the way it cut the grant; whether the
-/// ground of the pass is free is what is laid on the ways under it.
+/// <b>Nothing decides a pass</b> (<see cref="DrawThePass"/>): whether what cut the grant is at rest and going nowhere
+/// is what that body is doing, and the claims say only where it is (TER-4c.5). Everything past the decision is here,
+/// for the reading that will make it.
 /// </para>
 /// <para>
-/// <b>Its ground is the car's own body swept down the pass and read off the atlas once</b>, as a body's is
-/// (TER-4c.2): the collider stood where the pass puts the rear axle and pointed the way it points there, every
-/// half a car's width of line from where the step out begins to where it is back in its lane — kept as runs
-/// (<see cref="SweptGround"/>), so asking for it, laying it and giving back what the car has driven past are reads of
-/// what was swept. So a pass runs through a box as it runs along a street, wherever its ground can be had.
+/// <b>Nothing here reads another agent</b> (TER-4c.5). What is in the way is a body claim, told apart by where it
+/// stands; whether the ground of the pass is free is what is laid on the ways under it.
+/// </para>
+/// <para>
+/// <b>Its ground is the two lanes it runs down</b> (<see cref="PassGround"/>): its own line and the lane running back
+/// beside it, from where its step out begins to where it is back in its lane — the lane back asked down its own metres,
+/// which run against the car.
 /// </para>
 /// <para>
 /// <b>A pass is never given up once the car has moved over</b>: it cannot safely be, so it is asked for only
-/// over ground nobody holds, and it holds that ground at p0, where nothing takes it.
+/// over ground nobody holds, and once begun it holds that ground at <see cref="ClaimPriority.Committed"/>.
 /// </para>
 /// <para>
-/// <b>A car on a call asks at its call's rung</b> (AMB-4.4, <see cref="TermsOfThePass"/>): a plan that rung beats
-/// holds none of the ground, a queue making the car's own movement is got past like anything else at rest and so is
-/// traffic slower than the call (<see cref="MayGetPast"/>), and the paint of a zebra is claimed whole — somebody on
-/// foot already on it is waited for short of the paint.
+/// <b>A car on a call asks at its call's rung</b> (AMB-4.4), and the paint of a zebra under its pass is claimed whole —
+/// a body already on it is waited for short of the paint.
 /// </para>
 /// <para>
 /// <b>Too near to step out, it backs up for the room</b> (CAR-50, <see cref="BackingUp"/>) and comes back to this
@@ -58,13 +58,6 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     const int StepBackReadings = 3;
 
     /// <summary>
-    /// How many runs one pass's ground is kept in (<see cref="SweptGround"/>). A bound on the table and not a figure
-    /// behaviour reads: a run is one way under a car's length of the pass, so a pass past a queue through a box is
-    /// well inside it, and one that is not is a pass the road does not offer.
-    /// </summary>
-    const int MostRunsOfAPass = 64;
-
-    /// <summary>
     /// The two shapes a car decides its pass in, both at once: drawn to step out from rest — where it waits and what it
     /// backs up for — and drawn for the pace it came up at, which is had only while the car can still come up to where
     /// that one begins at a pace it may be driven at.
@@ -74,18 +67,16 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// <summary>Each car's decided shapes, committed to while it waits for its pass, backs up for it and drives it.</summary>
     readonly Overtake[] _shapes = new Overtake[ground.Cars.Capacity * Shapes];
 
-    /// <summary>The ground each decided shape's body sweeps — what is laid, kept, and looked for a body in.</summary>
-    readonly SweptGround _swept = new(ground.Cars.Capacity * Shapes, MostRunsOfAPass);
+    /// <summary>
+    /// The bodies each decided shape gets past, where they stood — in the room the car holds for its pass
+    /// (<see cref="CarActions.PassRooms"/>, <see cref="Table"/>).
+    /// </summary>
+    readonly BodySeen[] _passed = new BodySeen[actions.PassRooms.Count * Shapes * MostPassedAtOnce];
 
-    /// <summary>And the same grown by the pass's spare and run on by the stand-off — what is asked for.</summary>
-    readonly SweptGround _asked = new(ground.Cars.Capacity * Shapes, MostRunsOfAPass);
+    readonly int[] _passedCount = new int[actions.PassRooms.Count * Shapes];
 
-    /// <summary>The bodies each decided shape gets past, and the ways they were met on.</summary>
-    readonly LaneClaim[] _passed = new LaneClaim[ground.Cars.Capacity * Shapes * MostPassedAtOnce];
-
-    readonly int[] _passedOn = new int[ground.Cars.Capacity * Shapes * MostPassedAtOnce];
-
-    readonly int[] _passedCount = new int[ground.Cars.Capacity * Shapes];
+    /// <summary>The hold each car's pass was asked in this rebuild, or <see cref="LaneOccupancy.NoHold"/>.</summary>
+    readonly int[] _holds = LaneOccupancy.NoHolds(ground.Cars.Capacity);
 
     /// <summary>Which of its shapes a car asked for — what is laid, kept and driven while it has a pass.</summary>
     readonly int[] _asking = new int[ground.Cars.Capacity];
@@ -111,28 +102,7 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// <inheritdoc cref="_askedAs"/>
     readonly long[] _laidFor = new long[ground.Cars.Capacity];
 
-    /// <summary>Which of each car's asks the claims every reader reads were laid for: kept with the layer they belong to.</summary>
-    internal long[] LaidFor => _laidFor;
-
-    /// <summary>
-    /// <b>Every table this action keeps a car in</b>, for the device to lay once at load (<c>app/devicetick/TownState</c>):
-    /// a shape's held at <c>car · 2 + shape</c>, from rest first, and <see cref="MostPassedAtOnce"/> bodies passed a shape.
-    /// </summary>
-    internal (Overtake[] Shapes, SweptGround Swept, SweptGround AskedGround, LaneClaim[] Passed, int[] PassedOn,
-        int[] PassedCount, int[] Asking, float[] LooksInS, float[] WaitedS, float[] DecidesInS, bool[] Looks, long[] AskedAs,
-        float[] RoomM, int[] RoomLane) Kept =>
-        (_shapes, _swept, _asked, _passed, _passedOn, _passedCount, _asking, _looksInS, _waitedS, _decidesInS, _looks, _askedAs,
-            _roomM, _roomLane);
-
     bool LaidSinceAsked(int car) => _askedAs[car] != 0 && _laidFor[car] == _askedAs[car];
-
-    /// <summary>
-    /// The room each car keeps to step out from rest (<see cref="KeptOffWhatItMayPassM"/>), and the lane it was drawn for —
-    /// the only thing it reads that changes.
-    /// </summary>
-    readonly float[] _roomM = new float[ground.Cars.Capacity];
-
-    readonly int[] _roomLane = Unset(ground.Cars.Capacity);
 
     CarFleet Cars => ground.Cars;
 
@@ -173,26 +143,16 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
         }
 
         // Asked for and laid since: kept, or withdrawn and asked for again when the car next looks.
-        if (pass.Any && LaidSinceAsked(car)) KeepOrWithdrawThePass(car, pass, progressM);
+        if (pass.Any && LaidSinceAsked(car)) KeepOrWithdrawThePass(car, pass);
 
         WaitAtTheStep(ref town, car, pose, progressM, alongMps, coveredM);
     }
 
-    /// <summary>A pass driven to its end: made, and the car following again — what a device's tick of it reports (<c>car_tick.glsl</c>).</summary>
-    public void DrivenToItsEnd(int car)
+    /// <summary>A pass driven to its end: made, and the car following again.</summary>
+    void DrivenToItsEnd(int car)
     {
         Made++;
         actions.Enter(car, CarAction.Follow);
-    }
-
-    /// <summary>
-    /// <b>A pass laid since it was asked for, kept or withdrawn, for a car whose tick runs elsewhere</b> (a device's): what
-    /// the car's own <see cref="Tick{TTown}"/> answers before it drives, at where the last tick left it on its line.
-    /// </summary>
-    public void KeepOrWithdrawThePassOf(int car)
-    {
-        var pass = Cars.Pass[car];
-        if (pass.Any && !pass.Begun && LaidSinceAsked(car)) KeepOrWithdrawThePass(car, pass, Cars.ProgressM[car]);
     }
 
     /// <summary>
@@ -254,14 +214,6 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     bool LookRound(int car, float progressM, float alongMps)
     {
         if (_waitedS[car] > Config.Driving.PassPatienceS) return false;
-
-        // A layer sent back in part may not hold the ground yet: looked round again at the next decision.
-        if (!KnowsTheGroundOfThePass(car, progressM))
-        {
-            LookNow(car);
-            return true;
-        }
-
         if (!IsStillThere(car)) return false;
 
         var atSpeed = Holder(car, AtSpeed);
@@ -296,22 +248,20 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     [SkipLocalsInit]
     public bool IsTheRoomHeld(int car)
     {
-        var holder = Holder(car, FromRest);
-        ref readonly var shape = ref _shapes[holder];
+        ref readonly var shape = ref _shapes[Holder(car, FromRest)];
         var reachM = shape.EndsM + Cars.BuildOf(car).NoseAheadOfAxleM + Config.Driving.StandOffM;
         Span<LineWay> ways = stackalloc LineWay[DrivingGround.MostWaysAlongALine];
         var count = ground.WaysAlong(car, shape.ClearsM, reachM, ways);
         var clearedM = shape.ClearsM;
-        return TheNextBodyPast(car, ways[..count], shape.ClearsM, reachM, Passed(holder), ref clearedM, out _, out _);
+        return TheNextBodyPast(car, ways[..count], shape.ClearsM, reachM, Passed(Table(car, FromRest)), ref clearedM);
     }
 
     /// <summary>One of the car's shapes asked for, where all its ground is free — laid in the rebuild after.</summary>
     void Ask(int car, int shape, float progressM)
     {
-        var at = Holder(car, shape);
-        if (!IsThePassUnheld(car, at, progressM)) return;
+        if (!IsThePassUnheld(car, shape, progressM)) return;
 
-        Cars.Pass[car] = _shapes[at];
+        Cars.Pass[car] = _shapes[Holder(car, shape)];
         _asking[car] = shape;
         _askedAs[car]++;
         Asked++;
@@ -329,17 +279,18 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
         var speedMps = MathF.Max(0f, alongMps);
         if (speedMps <= shape.OutMps) return true;
 
-        var brakingMps2 = CarFollower.BrakingMps2(Config, Cars.BuildOf(car));
-        var slowsOverM = (speedMps * Config.CarReactionS)
-                         + (((speedMps * speedMps) - (shape.OutMps * shape.OutMps)) / (2f * brakingMps2));
-        return slowsOverM <= toM;
+        ref readonly var build = ref Cars.BuildOf(car);
+        return CarFollower.SlowsOverM(build, speedMps, shape.OutMps) <= toM;
     }
 
-    /// <summary>Which holder of the shape tables one of a car's shapes is.</summary>
+    /// <summary>Which of the decided shapes one of a car's shapes is (<see cref="_shapes"/>).</summary>
     static int Holder(int car, int shape) => (car * Shapes) + shape;
 
-    /// <summary>The shape of its pass the car asked for — what is laid, kept and driven.</summary>
-    int Asking(int car) => Holder(car, _asking[car]);
+    /// <summary>
+    /// Which holder of the passed table one of a car's shapes is: in the room the car holds for its pass, which it takes
+    /// when it draws one and gives back when it leaves the overtake (<see cref="CarActions.PassRooms"/>).
+    /// </summary>
+    int Table(int car, int shape) => (actions.PassRooms.RoomOf(car) * Shapes) + shape;
 
     /// <summary>
     /// <b>Whether a car waiting on its pass looks round at this decision</b> — every
@@ -359,39 +310,15 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     public void LookNow(int car) => _looksInS[car] = 0f;
 
     /// <summary>
-    /// <b>Whether the layer holds every way the car's pass is looked round, asked and kept over</b>
-    /// (<see cref="LaneOccupancy.Knows(int)"/>): its line from its tail on, and the ground each shape of its pass was swept
-    /// over — each asked about either way, so a layer sent back in part holds them next.
-    /// </summary>
-    public bool KnowsTheGroundOfThePass(int car, float progressM)
-    {
-        var known = ground.KnowsTheLine(car, progressM - Cars.BuildOf(car).TailBehindAxleM);
-        for (var shape = 0; shape < Shapes; shape++)
-        {
-            known &= ground.Knows(_asked, Holder(car, shape));
-            known &= ground.Knows(_swept, Holder(car, shape));
-        }
-
-        return known;
-    }
-
-    /// <summary>
-    /// <b>Whether what the car decided to get past is still there to be got past</b>: every body its pass gets past
-    /// still on the way it was met on, still one this car may, and still where it was to within the pass's spare —
-    /// which is where the pass was drawn round it. <b>Traffic a call gets past moves on</b>, so a pass drawn round it
-    /// is let go at the car's next look and decided again from there.
+    /// <b>Whether what the car decided to get past is still there to be got past</b>: a body on the way each was met on
+    /// still standing where it stood to within the pass's spare — which is where the pass was drawn round it.
     /// </summary>
     public bool IsStillThere(int car)
     {
-        var fromRest = Holder(car, FromRest);
-        var passed = Passed(fromRest);
-        var passedOn = _passedOn.AsSpan(fromRest * MostPassedAtOnce, passed.Length);
         var spareM = Config.Driving.PassSpareM;
-        for (var index = 0; index < passed.Length; index++)
+        foreach (ref readonly var was in Passed(Table(car, FromRest)))
         {
-            ref readonly var was = ref passed[index];
-            if (!Occupancy.TheBodyOf(passedOn[index], was.Occupant, was.Of, out var body)
-                || !MayGetPast(car, body, passedOn[index])
+            if (!Occupancy.FirstBodySeen(was.Way, was.FromM, was.ToM, car, LaneRoster.Driving, out var body)
                 || MathF.Abs(body.FromM - was.FromM) > spareM || MathF.Abs(body.ToM - was.ToM) > spareM)
             {
                 return false;
@@ -429,28 +356,30 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
         if (Cars.Pass[car].Any) Cars.Pass[car] = Cars.Pass[car].From(lane, shiftM);
         if (Cars.Action[car] is not (CarAction.Overtake or CarAction.BackUp)) return;
 
-        for (var shape = Holder(car, 0); shape < Holder(car, Shapes); shape++)
+        for (var shape = 0; shape < Shapes; shape++)
         {
-            if (!_shapes[shape].Any) continue;
+            ref var decided = ref _shapes[Holder(car, shape)];
+            if (!decided.Any) continue;
 
-            _shapes[shape] = _shapes[shape].From(lane, shiftM);
-            _swept.Shift(shape, shiftM);
-            _asked.Shift(shape, shiftM);
+            decided = decided.From(lane, shiftM);
         }
     }
 
     /// <summary>
-    /// <b>The ground this car's pass will cover, laid as a body</b> (TER-4c.6): the car's own lane up to where its step
-    /// out begins, where it has not come up to it yet, and every run of its swept ground it has not yet driven past. A
-    /// pass the car is no longer on its line for, or no longer on the lane of, is given up for following.
+    /// <b>The ground this car's pass will cover, asked as a plan of its own</b> (TER-4c.6): the car's own lane up to where
+    /// its step out begins, where it has not come up to it yet, and what of the pass's two lanes it has not yet driven
+    /// past (<see cref="PassGround"/>) — at <see cref="ClaimPriority.Committed"/> once begun, and at the car's own rung
+    /// before. A pass the car is no longer on its line for, or no longer on the lane of, is given up for following.
     /// </summary>
     /// <remarks>
-    /// <b>What it has driven over is given back</b> a run at a time, as the car comes past the last station of each.
+    /// <b>Once begun, whatever refuses it is where the car stops</b>, and the car's plan carries on from this hold
+    /// (<see cref="HoldOf"/>).
     /// </remarks>
     /// <param name="underWay">Whether the car is on the route's line, as the town reads it.</param>
     [SkipLocalsInit]
     public void Lay(int car, bool underWay)
     {
+        _holds[car] = LaneOccupancy.NoHold;
         var pass = Cars.Pass[car];
         if (Cars.Action[car] != CarAction.Overtake || !pass.Any) return;
 
@@ -461,23 +390,69 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
         }
 
         var progressM = Cars.ProgressM[car];
+        var rung = pass.Begun ? ClaimPriority.Committed : Cars.BlueLight[car] ? ClaimPriority.Special : ClaimPriority.Firm;
+        var hold = _holds[car] = Occupancy.BeginHold(car, LaneRoster.Driving, whole: !pass.Begun);
         Span<LineWay> approach = stackalloc LineWay[DrivingGround.MostWaysAlongALine];
         foreach (ref readonly var way in TheApproach(car, pass, progressM, approach))
         {
-            Occupancy.LayPass(way.Way, way.FromM, way.ToM, 0f, car, LaneRoster.Driving);
+            Occupancy.Ask(hold, way.Way, way.FromM, way.ToM, way.LineFromM, rung);
         }
 
-        foreach (ref readonly var run in _swept.Of(Asking(car)))
+        // The paint of a zebra the pass crosses is held whole, the car stopping short of it where somebody is on it.
+        var stopM = ground.StopsShortOfM(car, MathF.Max(progressM, pass.OutM));
+        Span<LineWay> own = stackalloc LineWay[DrivingGround.MostWaysAlongALine];
+        var count = PassGround(car, pass, progressM, pass.EndsM, 0f, own, out var back);
+        foreach (ref readonly var way in own[..count])
         {
-            if (run.LastAtM < progressM) continue;
+            Occupancy.Ask(hold, way.Way, way.FromM, way.ToM, way.LineFromM, rung);
+            if (ground.CrossesAZebra(way.Way, way.FromM, way.ToM)) AskThePaintItCrosses(hold, way, stopM, rung);
+        }
 
-            var held = ground.HeldAsABody(run.Cover);
-            Occupancy.LayPass(held.Way, held.FromM, held.ToM, 0f, car, LaneRoster.Driving);
-            LayThePaintItCrosses(car, run.Cover);
+        if (back.ToM > back.FromM)
+        {
+            Occupancy.AskDown(hold, back.Way, back.FromM, back.ToM, back.LineFromM, rung);
+            if (ground.CrossesAZebra(back.Way, back.FromM, back.ToM)) AskThePaintItCrosses(hold, back, stopM, rung);
         }
 
         _laidFor[car] = _askedAs[car];
     }
+
+    /// <summary>
+    /// <b>A pass's ground, as the two lanes it runs down</b> (TER-4c.6): the ways of its own line from where its step out
+    /// begins, or the car's tail past there, to where it is back in its lane by <paramref name="toLineM"/> — and the stretch
+    /// of the lane running back beside the line's first lane over the same metres (<paramref name="back"/>, its
+    /// <see cref="LineWay.LineFromM"/> where its far end falls on the line) — each grown by <paramref name="spareM"/>.
+    /// </summary>
+    /// <remarks>
+    /// <b>The lane back is read in step with the car's</b>, the two running the same stretch the other way round: a metre
+    /// of the one is the same share of the other's length, counted from its far end. A pass is drawn inside the line's
+    /// first lane.
+    /// </remarks>
+    int PassGround(
+        int car, in Overtake pass, float progressM, float toLineM, float spareM, Span<LineWay> own, out LineWay back)
+    {
+        ref readonly var build = ref Cars.BuildOf(car);
+        var fromLineM = MathF.Max(pass.OutM, progressM) - build.TailBehindAxleM - spareM;
+        var endLineM = toLineM + build.NoseAheadOfAxleM + spareM;
+        var count = ground.WaysAlong(car, fromLineM, endLineM, own);
+
+        back = default;
+        var lane = pass.Lane;
+        var reverse = Roads.LaneReverse[lane];
+        if (reverse < 0) return count;
+
+        var startM = Cars.LaneStartsOf(car)[0];
+        var lengthM = Roads.LaneLengthM[lane];
+        var share = Roads.LaneLengthM[reverse] / lengthM;
+        var laneFromM = Math.Clamp(fromLineM - startM, 0f, lengthM);
+        var laneToM = Math.Clamp(endLineM - startM, 0f, lengthM);
+        back = new LineWay(
+            ground.Ways.OfRoadLane(reverse), (lengthM - laneToM) * share, (lengthM - laneFromM) * share, startM + laneFromM);
+        return count;
+    }
+
+    /// <summary>The hold this car's pass was asked in this rebuild, or <see cref="LaneOccupancy.NoHold"/>.</summary>
+    public int HoldOf(int car) => _holds[car];
 
     /// <summary>
     /// <b>The car's own lane under it and on to where its body stands at the first station of a shape of its pass</b> —
@@ -495,45 +470,18 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// <summary>
     /// <b>The paint of every zebra a stretch of a pass crosses, laid whole</b> (TER-4c.6, TER-5c.3): kerb to kerb
     /// on each of its walking lanes, as a car's plan over any of it holds all of it — so nobody on foot steps onto
-    /// it in front of the pass. Only a call's pass is ever over one.
+    /// it in front of the pass, and the pass stops short of anybody already on it. Only a call's pass is ever over one.
     /// </summary>
-    void LayThePaintItCrosses(int car, in WayCover swept)
+    void AskThePaintItCrosses(int hold, in LineWay stretch, float stopM, ClaimPriority rung)
     {
-        foreach (ref readonly var mark in Occupancy.Marks.Of(swept.Way))
+        foreach (ref readonly var mark in Occupancy.Marks.Of(stretch.Way))
         {
-            if (mark.MineFromM >= swept.ToM) break;
-            if (mark.MineToM <= swept.FromM || ground.Lines.ZebraOf(mark.OnWay) == RibbonMarks.NoZebra) continue;
+            if (mark.MineFromM >= stretch.ToM) break;
+            if (mark.MineToM <= stretch.FromM || ground.Lines.ZebraOf(mark.OnWay) == RibbonMarks.NoZebra) continue;
 
-            Occupancy.LayPass(mark.OnWay, mark.FromM, mark.ToM, 0f, car, LaneRoster.Driving);
+            Occupancy.AskSwept(hold, mark.OnWay, mark.FromM, mark.ToM, stopM, rung);
         }
     }
-
-    /// <summary>
-    /// <b>Whether the car may get past what ended its grant</b>: a body it may pass (<see cref="MayGetPast"/>), in a
-    /// lane that has a lane running back beside it, on the route's own line driven forwards.
-    /// </summary>
-    public bool MayGetPastWhatCutIt(int car, out LaneClaim cutBy, out int cutOn)
-    {
-        cutBy = LaneClaim.Nothing;
-        cutOn = LaneOccupancy.NoHold;
-        var hold = ground.PlanHold[car];
-        if (hold == LaneOccupancy.NoHold || !HasALaneToPassOn(car)) return false;
-
-        Occupancy.HoldEndsAtM(hold, out _, out cutBy);
-        cutOn = Occupancy.HoldCutOn(hold);
-        return cutBy.Found && MayGetPast(car, cutBy, cutOn);
-    }
-
-    /// <summary>
-    /// <b>Whether this car may get past a body on one of its ways</b> (<see cref="LaneClaim.MayBePassedBy"/>): at
-    /// rest, not a pass, and — unless the car is on a call — not making the car's own movement there. <b>A car on a
-    /// call gets past traffic that is moving too, where it is going slower than the call means to</b>
-    /// (<see cref="CarFleet.PlannedMps"/>) by more than <see cref="AmbulanceFigures.SlowerToPassMps"/>: what goes as
-    /// fast is no hindrance, and an escort held under its charge's pace is never one.
-    /// </summary>
-    bool MayGetPast(int car, in LaneClaim body, int on) =>
-        body.MayBePassedBy(ground.OnwardAlongTheLine(car, on), Cars.BlueLight[car])
-        && (body.Still || body.AlongMps < Cars.PlannedMps[car] - Config.Ambulance.SlowerToPassMps);
 
     /// <summary>
     /// Whether the car could pass anything at all where it is: on the route's own line driven forwards, in a
@@ -553,34 +501,12 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
         roads.LaneReverse[lane] >= 0 && !roads.LaneOverOneLine[lane] && roads.LaneCrossesToPass[lane];
 
     /// <summary>
-    /// <b>A pass laid in this rebuild, kept or withdrawn</b> before the car moves over: kept where nothing but the
-    /// car itself is on its ground, the one exception a pass asked for on the same tick by a holder numbered after
-    /// it (<see cref="LaneOccupancy.KeepsItsPass"/>).
+    /// <b>A pass laid in this rebuild, kept or withdrawn</b> before the car moves over: kept where the whole of its ground
+    /// was had (<see cref="DrivingGround.IsKept"/>).
     /// </summary>
-    [SkipLocalsInit]
-    void KeepOrWithdrawThePass(int car, in Overtake pass, float progressM)
+    void KeepOrWithdrawThePass(int car, in Overtake pass)
     {
-        // A layer sent back in part may not hold the ground yet: answered on a later tick.
-        if (!KnowsTheGroundOfThePass(car, progressM)) return;
-
-        Span<LineWay> approach = stackalloc LineWay[DrivingGround.MostWaysAlongALine];
-        var kept = true;
-        foreach (ref readonly var way in TheApproach(car, pass, progressM, approach))
-        {
-            kept &= Occupancy.KeepsItsPass(way.Way, way.FromM, way.ToM, car, LaneRoster.Driving);
-        }
-
-        foreach (ref readonly var run in _swept.Of(Asking(car)))
-        {
-            if (!kept) break;
-            if (run.LastAtM < progressM) continue;
-
-            var held = ground.HeldAsABody(run.Cover);
-            kept = Occupancy.KeepsItsPass(
-                held.Way, run.FromM, run.ToM, held.FromM, held.ToM, car, LaneRoster.Driving, TermsOfThePass(car, run.Cover));
-        }
-
-        if (kept)
+        if (ground.IsKept(_holds[car]))
         {
             Cars.Pass[car] = pass with { Begun = true };
             return;
@@ -599,17 +525,16 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     {
         ref readonly var build = ref Cars.BuildOf(car);
         var speedMps = MathF.Max(0f, alongMps);
-        var brakingMps2 = CarFollower.BrakingMps2(Config, build);
-        var slowsFromM = DrivingGround.StoppingM(speedMps, brakingMps2 * Config.Driving.WaitingToPassBrakingShare)
-                         + (speedMps * CarFollower.LeadS(Config, build, brakingMps2)) + Config.Driving.PassSpareM;
+        var slowsFromM = DrivingGround.StoppingM(speedMps, build.PlannedBrakingMps2 * Config.Driving.WaitingToPassBrakingShare)
+                         + (speedMps * build.RestingLeadS) + Config.Driving.PassSpareM;
         return toTheStopM <= slowsFromM;
     }
 
     /// <summary>
-    /// <b>A pass decided on, once</b> (CAR-46): where the grant was ended on the car's own line by a body it may get
-    /// past, drawn, swept and committed to — what the car then waits for, backs up for and drives, and never draws
-    /// again. False where the road refuses it, which is not asked again before the car would next look round
-    /// (<see cref="DrivingFigures.PassAskEveryS"/>).
+    /// <b>A pass decided on, once</b> (CAR-46): where the grant was ended on the car's own line by a body at
+    /// <paramref name="cutAtM"/> of <paramref name="cutOn"/> it means to get past, drawn, swept and committed to — what
+    /// the car then waits for, backs up for and drives, and never draws again. False where the road refuses it, which is
+    /// not asked again before the car would next look round (<see cref="DrivingFigures.PassAskEveryS"/>).
     /// </summary>
     /// <remarks>
     /// <para>
@@ -621,38 +546,39 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// <b>Not decided short of a place in the road it was sent to</b> (AMB-5, EVA-3, SRV-6, CTL-8a): what stands
     /// before it there is what it was sent to, and a pass ending past the place would drive it by.
     /// </para>
+    /// <para>
+    /// <b>Nothing calls it</b>: which body is one to get past is what the body is doing, which the claims do not say
+    /// (TER-4c.5) — <c>docs/tech-debt.md</c>.
+    /// </para>
     /// </remarks>
     /// <param name="sinceLastDecisionS">How much of the town's time this decision answers for, which its clock runs by.</param>
     /// <param name="toTheSceneM">How far ahead along the line the place the car was sent to stands, or infinity.</param>
     public bool DrawThePass(
-        int car, float sinceLastDecisionS, float progressM, float alongMps, float toTheSceneM, in LaneClaim cutBy, int cutOn)
+        int car, float sinceLastDecisionS, float progressM, float alongMps, float toTheSceneM, int cutOn, float cutAtM)
     {
+        if (!HasALaneToPassOn(car)) return false;
+
         ref var inS = ref _decidesInS[car];
         inS -= sinceLastDecisionS;
         if (inS > 0f) return false;
 
-        // A layer sent back in part may not hold the line ahead yet: drawn at the next decision.
-        if (!ground.KnowsTheLine(car, progressM - Cars.BuildOf(car).TailBehindAxleM))
-        {
-            inS = 0f;
-            return false;
-        }
-
-        // Refused, it is not drawn again before the car would next look round.
+        // Refused, it is not drawn again before the car would next look round — and the room it was drawn in is given
+        // back, since a car following holds none.
         inS = Config.Driving.PassAskEveryS;
-        var atSpeed = Holder(car, AtSpeed);
+        if (!actions.PassRooms.Take(car, out _)) return false;
+
         var speedMps = MathF.Max(0f, alongMps);
         if (!(speedMps > Config.Driving.StopSpeedMps
-              && Shape(car, atSpeed, progressM, speedMps, cutBy, cutOn, out var shape)
+              && Shape(car, AtSpeed, progressM, speedMps, cutOn, cutAtM, out var shape)
               && CanComeUpTo(car, shape, progressM, speedMps)
-              && Commit(car, atSpeed, shape, progressM + toTheSceneM)))
+              && Commit(car, AtSpeed, shape, progressM + toTheSceneM)))
         {
-            _shapes[atSpeed] = Overtake.None;
+            _shapes[Holder(car, AtSpeed)] = Overtake.None;
         }
 
-        var fromRest = Holder(car, FromRest);
-        if (!Shape(car, fromRest, progressM, 0f, cutBy, cutOn, out shape) || !Commit(car, fromRest, shape, progressM + toTheSceneM))
+        if (!Shape(car, FromRest, progressM, 0f, cutOn, cutAtM, out shape) || !Commit(car, FromRest, shape, progressM + toTheSceneM))
         {
+            actions.PassRooms.Free(car);
             return false;
         }
 
@@ -666,16 +592,12 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// <b>A drawn shape committed to</b>: its ground on the road a pass may be had on, ending short of the place the
     /// car was sent to, and swept. False where it is not.
     /// </summary>
-    bool Commit(int car, int holder, in Overtake shape, float sceneAtM)
+    /// <param name="drawnAs">Which of the car's shapes it is (<see cref="FromRest"/>, <see cref="AtSpeed"/>).</param>
+    bool Commit(int car, int drawnAs, in Overtake shape, float sceneAtM)
     {
-        if (sceneAtM < shape.EndsM
-            || !IsThePassOnTheRoad(car, shape, shape.OutM, shape.EndsM + Config.Driving.StandOffM)
-            || !Sweep(car, holder, shape))
-        {
-            return false;
-        }
+        if (sceneAtM < shape.EndsM || !IsThePassOnTheRoad(car, shape, shape.EndsM + Config.Driving.StandOffM)) return false;
 
-        _shapes[holder] = shape;
+        _shapes[Holder(car, drawnAs)] = shape;
         return true;
     }
 
@@ -687,9 +609,8 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// <remarks>
     /// <para>
     /// <b>What it makes for is the room past what it passes</b>: the first stretch of its own line past it long
-    /// enough to come back into — the step back, and the car's own length and stand-off past that. Another body it
-    /// may pass standing in that room is passed too, and the room looked for past it. <b>Anything else standing
-    /// there</b> — traffic, a queue — is where the car comes back once that has gone: it has decided, and waits.
+    /// enough to come back into — the step back, and the car's own length and stand-off past that. <b>Anything
+    /// standing there</b> is where the car comes back once that has gone: it has decided, and waits.
     /// </para>
     /// <para>
     /// <b>The step back begins as soon past what it passes as the body can come back</b>
@@ -698,10 +619,11 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// beside as soon as that pace takes it.
     /// </para>
     /// </remarks>
-    /// <param name="holder">The car's shape this is drawn as, which its bodies passed are kept under.</param>
+    /// <param name="drawnAs">The car's shape this is drawn as, which its bodies passed are kept under.</param>
     [SkipLocalsInit]
-    bool Shape(int car, int holder, float progressM, float speedMps, in LaneClaim cutBy, int cutOn, out Overtake pass)
+    bool Shape(int car, int drawnAs, float progressM, float speedMps, int cutOn, float cutAtM, out Overtake pass)
     {
+        var holder = Table(car, drawnAs);
         pass = Overtake.None;
         ref readonly var build = ref Cars.BuildOf(car);
         var lane = Cars.LaneOf(car);
@@ -710,18 +632,21 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
         var lineM = Cars.Line[car].LengthM;
         Span<LineWay> ways = stackalloc LineWay[DrivingGround.MostWaysAlongALine];
         var count = ground.WaysAlong(car, noseM, lineM, ways);
-        if (!OnTheLine(ways[..count], cutOn, cutBy.FromM, out var standsFromM)) return false;
+        if (!OnTheLine(ways[..count], cutOn, cutAtM, out var standsFromM)
+            || !Occupancy.FirstBodySeen(cutOn, cutAtM, Occupancy.WayLengthM(cutOn), car, LaneRoster.Driving, out var cutBy))
+        {
+            return false;
+        }
 
         var asideM = AsideOnTheLaneBeside(lane, back, Math.Clamp(progressM, 0f, Roads.LaneLengthM[lane]));
 
         var passed = _passed.AsSpan(holder * MostPassedAtOnce, MostPassedAtOnce);
-        var passedOn = _passedOn.AsSpan(holder * MostPassedAtOnce, MostPassedAtOnce);
         ref var passedCount = ref _passedCount[holder];
         passedCount = 0;
         var clearsM = noseM;
-        if (!Passes(car, ways[..count], cutOn, cutBy, passed, passedOn, ref passedCount, ref clearsM)) return false;
+        if (!Passes(ways[..count], cutBy, passed, ref passedCount, ref clearsM)) return false;
 
-        var corneringMps2 = CarFollower.CorneringMps2(Config, build);
+        var corneringMps2 = build.PlannedCorneringMps2;
         var bandM = Roads.LaneWidthM[lane] * 0.5f;
         var lineBend = 0f;
         while (true)
@@ -734,28 +659,19 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
             var outM = standsFromM - leadM - Config.Driving.PassSpareM;
             if (!StepOutAndBack(
                     car, outM, stepM, fromMps, asideM, corneringMps2, lineBend, bandM, clearsM, out var outStepM,
-                    out var outMps, out var backM, out var backStepM, out var backMps, out _))
+                    out var outMps, out var backM, out var backStepM, out var backMps))
             {
                 return false;
             }
 
-            // Standing in the room it comes back into: a body it may pass is passed too, and the room looked for past it;
-            // anything else is where the car comes back once that has gone. What it already passes reaching on further
-            // over another of its ways moves the room on with it.
+            // Standing in the room it comes back into: where the car comes back once that has gone. What it already passes
+            // reaching on further over another of its ways moves the room on with it.
             var reachM = backM + backStepM + build.NoseAheadOfAxleM + Config.Driving.StandOffM;
             var clearedM = clearsM;
-            var found = TheNextBodyPast(
-                car, ways[..count], clearsM, reachM, passed[..passedCount], ref clearedM, out var next, out var nextOn);
+            TheNextBodyPast(car, ways[..count], clearsM, reachM, passed[..passedCount], ref clearedM);
             if (clearedM > clearsM)
             {
                 clearsM = clearedM;
-                continue;
-            }
-
-            if (found && MayGetPast(car, next, nextOn))
-            {
-                if (!Passes(car, ways[..count], nextOn, next, passed, passedOn, ref passedCount, ref clearsM)) return false;
-
                 continue;
             }
 
@@ -775,43 +691,8 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
         }
     }
 
-    /// <summary>
-    /// <b>A decided pass's ground, swept once</b> (<see cref="SweptGround"/>): what its body covers, for laying and
-    /// keeping, and the same grown by the spare and run on by the stand-off past its end, for asking — the carriageway
-    /// of each, a car's length of stations to a run. False where it does not fit in the runs a pass may have.
-    /// </summary>
-    [SkipLocalsInit]
-    bool Sweep(int car, int holder, in Overtake pass)
-    {
-        var spanM = Cars.BuildOf(car).LengthM;
-        Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
-        return SweepInto(_swept, holder, car, pass, pass.EndsM, 0f, spanM, under)
-               && SweepInto(
-                   _asked, holder, car, pass, pass.EndsM + Config.Driving.StandOffM, Config.Driving.PassSpareM, spanM,
-                   under);
-    }
-
-    bool SweepInto(
-        SweptGround into, int holder, int car, in Overtake pass, float toM, float spareM, float spanM, Span<WayCover> under)
-    {
-        into.Clear(holder);
-        for (var station = 0; station < ground.StationsOfTheSweep(car, pass.OutM, toM); station++)
-        {
-            var count = UnderTheCarOnThePass(car, pass, pass.OutM, toM, station, spareM, under, out var atM);
-            var kept = 0;
-            for (var at = 0; at < count; at++)
-            {
-                if (ground.IsCarriageway(under[at].Way)) under[kept++] = under[at];
-            }
-
-            if (!into.Station(holder, atM, spanM, under[..kept])) return false;
-        }
-
-        return true;
-    }
-
-    /// <summary>The bodies one of a car's shapes gets past, named by occupant and roster.</summary>
-    ReadOnlySpan<LaneClaim> Passed(int holder) => _passed.AsSpan(holder * MostPassedAtOnce, _passedCount[holder]);
+    /// <summary>The bodies one of a car's shapes gets past, where each stood.</summary>
+    ReadOnlySpan<BodySeen> Passed(int holder) => _passed.AsSpan(holder * MostPassedAtOnce, _passedCount[holder]);
 
     /// <summary>
     /// <b>A pass's two steps</b>: out from where it begins over <paramref name="stepM"/>, driven no faster than
@@ -819,18 +700,17 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// step out. False where the line under them bends as tight as the lock.
     /// </summary>
     /// <param name="fromMps">The pace the shortest step out is drawn for, which no step out is driven below.</param>
-    /// <param name="mayBeginBackM">Where the step back could begin with the step out done by then.</param>
     bool StepOutAndBack(
         int car, float progressM, float stepM, float fromMps, float asideM, float corneringMps2, float lineBend,
         float bandM, float clearsM, out float outStepM, out float outMps, out float backM, out float backStepM,
-        out float backMps, out float mayBeginBackM)
+        out float backMps)
     {
         outStepM = stepM;
         outMps = MathF.Max(fromMps, CarFollower.StepMps(Cars.BuildOf(car), stepM, asideM, corneringMps2, lineBend));
         var steppedOutMps = MathF.Min(outMps, MathF.Max(fromMps, PicksUpMps(car, fromMps, stepM)));
         return StepBack(
             car, asideM, corneringMps2, lineBend, bandM, clearsM, progressM + stepM, steppedOutMps, out backM,
-            out backStepM, out backMps, out mayBeginBackM);
+            out backStepM, out backMps);
     }
 
     /// <summary>
@@ -844,16 +724,18 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// begin sooner, and so is drawn for less. They are read against each other <see cref="StepBackReadings"/> times,
     /// which settles them inside what either is worth, and the step last drawn is the one laid.
     /// </remarks>
-    /// <param name="mayBeginM">Where it could begin were the step out done by then.</param>
     bool StepBack(
         int car, float asideM, float corneringMps2, float lineBend, float bandM, float clearsM, float steppedOutM,
-        float steppedOutMps, out float backM, out float backStepM, out float backMps, out float mayBeginM)
+        float steppedOutMps, out float backM, out float backStepM, out float backMps)
     {
         ref readonly var build = ref Cars.BuildOf(car);
-        mayBeginM = clearsM;
         backM = MathF.Max(clearsM, steppedOutM);
         backStepM = 0f;
         backMps = steppedOutMps;
+
+        // A trail moves the step back only where it begins it past the end of the step out: that, the trail's own half
+        // lattice step, and half a step of slack for the float grain of the body's corners.
+        var decidesToM = clearsM - steppedOutM + Config.RibbonLatticeStepM;
         for (var reading = 0; reading < StepBackReadings; reading++)
         {
             var reachedMps = MathF.Max(steppedOutMps, PicksUpMps(car, steppedOutMps, backM - steppedOutM));
@@ -862,8 +744,7 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
                 return false;
             }
 
-            mayBeginM = clearsM + StepBackTrailM(build, asideM, backStepM, bandM);
-            backM = MathF.Max(mayBeginM, steppedOutM);
+            backM = MathF.Max(clearsM + StepBackTrailM(build, asideM, backStepM, bandM, decidesToM), steppedOutM);
         }
 
         return true;
@@ -907,23 +788,34 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
             mostM = MathF.Max(mostM, toM);
         }
 
-        return mostM + (ground.Atlas.StepM * 0.5f);
+        return mostM + (Config.RibbonLatticeStepM * 0.5f);
     }
 
     /// <summary>
     /// <b>And how soon past what it passes the step back may begin</b>: as far past it as the nearest any of the body
     /// comes back over the lane, behind where the step back begins.
     /// </summary>
-    float StepBackTrailM(in CarBuild build, float asideM, float stepM, float bandM)
+    /// <remarks>
+    /// <b>Read no further along the step than <paramref name="decidesToM"/></b>, past which no part of the body at a
+    /// sample can stand (<see cref="GrownReachM"/>): a nearer point found there would set a trail its caller then
+    /// discards. A step drawn at the tyres' very edge on a bending line runs to kilometres, and read whole a lattice
+    /// step at a time it is milliseconds of one decision.
+    /// </remarks>
+    /// <param name="decidesToM">How far along the step the nearest point back over the lane can still decide anything.</param>
+    float StepBackTrailM(in CarBuild build, float asideM, float stepM, float bandM, float decidesToM)
     {
         var acrossM = MathF.Abs(asideM);
         var leastM = float.PositiveInfinity;
         var samples = SamplesOfAStep(stepM);
+        var readsToM = decidesToM + GrownReachM(build);
         for (var sample = 0; sample <= samples; sample++)
         {
             var share = (float)sample / samples;
+            var alongM = share * stepM;
+            if (alongM > readsToM) break;
+
             if (!OverTheLaneItLeaves(
-                    build, share * stepM, acrossM * (1f - Overtake.Rise(share)),
+                    build, alongM, acrossM * (1f - Overtake.Rise(share)),
                     -acrossM / stepM * Overtake.RiseSlope(share), bandM, out var fromM, out _))
             {
                 continue;
@@ -932,11 +824,22 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
             leastM = MathF.Min(leastM, fromM);
         }
 
-        return -leastM + (ground.Atlas.StepM * 0.5f);
+        return -leastM + (Config.RibbonLatticeStepM * 0.5f);
     }
 
-    /// <summary>How many pieces a step is read in: one a lattice step, which is as finely as the atlas reads a body.</summary>
-    int SamplesOfAStep(float stepM) => Math.Max(1, (int)MathF.Ceiling(stepM / ground.Atlas.StepM));
+    /// <summary>
+    /// <b>The furthest any of a car's collider, grown as <see cref="OverTheLaneItLeaves"/> grows it, stands from its
+    /// rear axle</b> whichever way it points — a bound on how far behind a sample's axle the body can reach.
+    /// </summary>
+    float GrownReachM(in CarBuild build)
+    {
+        var spareM = Config.Driving.PassSpareM;
+        var halfM = build.CollisionSizeM * 0.5f;
+        return MathF.Abs(build.CentreAheadOfAxleM + (spareM * 0.5f)) + halfM.X + (spareM * 0.5f) + halfM.Y + spareM;
+    }
+
+    /// <summary>How many pieces a step is read in: one a lattice step, which is as finely as the world reads a body.</summary>
+    int SamplesOfAStep(float stepM) => Math.Max(1, (int)MathF.Ceiling(stepM / Config.RibbonLatticeStepM));
 
     /// <summary>
     /// <b>Where a car's body stands over the lane it steps off, at one place on the step</b> — the rear axle
@@ -1010,38 +913,23 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     }
 
     /// <summary>
-    /// <b>One more body the pass gets past</b>, where it is one this car may: the pass then clears it, wherever on
-    /// the car's line it ends — <b>and, where it is moving, wherever it can come to rest</b>
-    /// (<see cref="LaneOccupancy.StopsByM"/>), since the pass laid past it is what it is then held short of.
+    /// <b>One more body the pass gets past</b>: the pass then clears it, wherever on the car's line it ends.
     /// </summary>
-    bool Passes(
-        int car, ReadOnlySpan<LineWay> ways, int on, in LaneClaim body, Span<LaneClaim> passed, Span<int> passedOn,
-        ref int count, ref float clearsM)
+    static bool Passes(ReadOnlySpan<LineWay> ways, in BodySeen body, Span<BodySeen> passed, ref int count, ref float clearsM)
     {
-        if (count == passed.Length || !MayGetPast(car, body, on)) return false;
+        if (count == passed.Length || !OnTheLine(ways, body.Way, body.ToM, out var endsM)) return false;
 
-        var endsAtM = body.Still ? body.ToM : Occupancy.StopsByM(on, body);
-        if (!OnTheLine(ways, on, endsAtM, out var endsM)) return false;
-
-        passedOn[count] = on;
         passed[count++] = body;
         clearsM = MathF.Max(clearsM, endsM);
         return true;
     }
 
     /// <summary>
-    /// <b>The nearest body on this car's own ways over a stretch of its line</b>, other than its own and what it
-    /// already passes — whose furthest end on those ways is carried out in <paramref name="clearsM"/>, since one
-    /// body is a stretch of every way it stands on.
+    /// <b>Whether a body the car does not pass stands on its own ways over a stretch of its line</b>, other than its own —
+    /// the furthest end on those ways of each it does pass, met before, carried out in <paramref name="clearsM"/>.
     /// </summary>
-    /// <remarks>
-    /// <b>What it passes is told apart by who it is, and never by where</b>: a metre carried from a way to the line
-    /// and back is a float's grain off where it began, and a body read again a grain short of its own end was passed
-    /// once for every slot the pass had, and the pass given up.
-    /// </remarks>
     bool TheNextBodyPast(
-        int car, ReadOnlySpan<LineWay> ways, float fromM, float toM, ReadOnlySpan<LaneClaim> passed, ref float clearsM,
-        out LaneClaim body, out int on)
+        int car, ReadOnlySpan<LineWay> ways, float fromM, float toM, ReadOnlySpan<BodySeen> passed, ref float clearsM)
     {
         foreach (ref readonly var way in ways)
         {
@@ -1051,262 +939,76 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
 
             var searchFromM = OnTheWayM(way, fromM);
             var searchToM = OnTheWayM(way, toM);
-            while (Occupancy.AheadBody(way.Way, searchFromM, searchToM, car, out body))
+            while (Occupancy.FirstBodySeen(way.Way, searchFromM, searchToM, car, LaneRoster.Driving, out var body))
             {
-                if (!IsAmong(body, passed))
-                {
-                    on = way.Way;
-                    return true;
-                }
+                if (!body.IsUnderAny(passed)) return true;
 
                 clearsM = MathF.Max(clearsM, OnTheLineM(way, body.ToM));
                 searchFromM = body.ToM;
             }
         }
 
-        body = LaneClaim.Nothing;
-        on = LaneOccupancy.NoHold;
-        return false;
-    }
-
-    /// <summary>Whether a body is one of those a pass already gets past, by occupant and roster.</summary>
-    static bool IsAmong(in LaneClaim body, ReadOnlySpan<LaneClaim> passed)
-    {
-        foreach (ref readonly var one in passed)
-        {
-            if (one.Occupant == body.Occupant && one.Of == body.Of) return true;
-        }
-
         return false;
     }
 
     /// <summary>
-    /// <b>Whether the ground a pass would cover is road a pass may be had on</b> (TER-4c.6): on the carriageway — a
-    /// stretch over ground the traffic does not drive is a pass run off the road — and clear of every zebra, but for
+    /// <b>Whether the ground a pass would cover is road a pass may be had on</b> (TER-4c.6): clear of every zebra, but for
     /// a car on a call, whose rung is above everybody on foot (TER-5g): the paint it crosses is road to it.
     /// </summary>
-    /// <remarks>
-    /// Asked of the body alone, since the spare (<see cref="DrivingFigures.PassSpareM"/>) is room to stray into and
-    /// not a place the car is taken.
-    /// </remarks>
     [SkipLocalsInit]
-    bool IsThePassOnTheRoad(int car, in Overtake pass, float fromM, float toM)
+    bool IsThePassOnTheRoad(int car, in Overtake pass, float toLineM)
     {
-        var overThePaint = Cars.BlueLight[car];
-        Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
-        for (var station = 0; station < ground.StationsOfTheSweep(car, fromM, toM); station++)
+        if (Cars.BlueLight[car]) return true;
+
+        Span<LineWay> own = stackalloc LineWay[DrivingGround.MostWaysAlongALine];
+        var count = PassGround(car, pass, pass.OutM, toLineM, 0f, own, out var back);
+        foreach (ref readonly var way in own[..count])
         {
-            var count = UnderTheCarOnThePass(car, pass, fromM, toM, station, 0f, under, out _);
-            for (var at = 0; at < count; at++)
-            {
-                ref readonly var cover = ref under[at];
-                if (overThePaint)
-                {
-                    if (!ground.IsCarriageway(cover.Way) && !ground.Lines.IsTheCrossing(cover.Way)) return false;
-                }
-                else if (!ground.IsCarriageway(cover.Way) || ground.CrossesAZebra(cover.Way, cover.FromM, cover.ToM))
-                {
-                    return false;
-                }
-            }
+            if (ground.CrossesAZebra(way.Way, way.FromM, way.ToM)) return false;
         }
 
-        return true;
+        return !(back.ToM > back.FromM && ground.CrossesAZebra(back.Way, back.FromM, back.ToM));
     }
 
     /// <summary>
-    /// <b>And whether it is free</b> (TER-4c.6): nobody standing on any of it but the car, and nobody planning it but
-    /// what it passes — and, for a car on a call, but what its terms take and wait for (<see cref="TermsOfThePass"/>):
-    /// the car's own lane up to where its step out begins, and every run of the ground it was decided with.
+    /// <b>And whether it is free</b> (TER-4c.6): nobody standing on any of it but the car and what it passes — the car's
+    /// own lane up to where its step out begins, and every run of the ground it was decided with. Whether a plan holds
+    /// any of it is answered when the pass is laid, which is answered after every plan of its rung.
     /// </summary>
     /// <remarks>
     /// <b>Nobody else is asked for with room to spare</b> (<see cref="DrivingFigures.PassSpareM"/>) — and the ground
     /// is laid and kept without it: a pass that cleared what it passes by a hair was asked for one tick and withdrawn
-    /// the next, as that body settled a hair nearer. For a call's pass the spare is also what keeps the ground it
-    /// takes clear of what an oncoming holder can no longer stop short of by the rebuild the pass is laid in.
+    /// the next, as that body settled a hair nearer.
     /// </remarks>
     [SkipLocalsInit]
-    bool IsThePassUnheld(int car, int holder, float progressM)
+    bool IsThePassUnheld(int car, int shape, float progressM)
     {
-        var passed = Passed(holder);
+        var table = Table(car, shape);
+        var passed = Passed(table);
         Span<LineWay> approach = stackalloc LineWay[DrivingGround.MostWaysAlongALine];
-        foreach (ref readonly var way in TheApproach(car, _shapes[holder], progressM, approach))
+        foreach (ref readonly var way in TheApproach(car, _shapes[Holder(car, shape)], progressM, approach))
         {
-            if (!Occupancy.IsFreeForAPass(way.Way, way.FromM, way.ToM, car, LaneRoster.Driving, passed)) return false;
+            if (Occupancy.AnyBodyOver(way.Way, way.FromM, way.ToM, car, LaneRoster.Driving)) return false;
         }
 
-        foreach (ref readonly var run in _asked.Of(holder))
+        ref readonly var decided = ref _shapes[Holder(car, shape)];
+        Span<LineWay> stretches = stackalloc LineWay[DrivingGround.MostWaysAlongALine + 1];
+        var count = PassGround(
+            car, decided, decided.OutM, decided.EndsM + Config.Driving.StandOffM, Config.Driving.PassSpareM,
+            stretches[..^1], out var back);
+        stretches[count++] = back;
+        foreach (ref readonly var run in stretches[..count])
         {
-            var held = ground.HeldAsABody(run.Cover);
-            if (!Occupancy.IsFreeForAPass(
-                    held.Way, run.FromM, run.ToM, held.FromM, held.ToM, car, LaneRoster.Driving, passed,
-                    TermsOfThePass(car, run.Cover)))
+            var fromM = run.FromM;
+            while (fromM < run.ToM && Occupancy.FirstBodySeen(run.Way, fromM, run.ToM, car, LaneRoster.Driving, out var body))
             {
-                return false;
+                if (!body.IsUnderAny(passed)) return false;
+
+                fromM = body.ToM;
             }
         }
 
         return true;
-    }
-
-    /// <summary>
-    /// <b>Where the nose of a car on a pass has to stop short of a body standing inside what is left of it</b> — the
-    /// one thing that ends a pass's ground short of its end, since nothing planned can be laid over it (TER-4c.1):
-    /// short of it on the car's own lane before the step out, and short of the first station of the run it stands in
-    /// after that.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Read where the pass's body goes</b>, and not over the whole of a movement the pass holds: a body on that
-    /// movement clear of it is in nobody's way, and is what the pass is getting past where it stands in a box.
-    /// </para>
-    /// <para>
-    /// <b>And short of a zebra's paint while anybody on foot is on any of it</b> — the pass holds it whole, and
-    /// somebody already on it crosses — so the car never stands on the paint across the way they walk, each waiting
-    /// for the other. <b>A car already over the paint drives on off it</b>, and is held by a body in its way alone.
-    /// </para>
-    /// </remarks>
-    public bool TheBodyInThePass(int car, out float inTheWayM, out LaneClaim body, out int on) =>
-        Occupancy.FirstBodyIn(_asks.AsSpan(0, AsksOfThePass(car, _asks)), car, out inTheWayM, out body, out on);
-
-    /// <summary>
-    /// <b>Where <see cref="TheBodyInThePass"/> looks, in the order it looks</b>: the approach on the car's own lane, then
-    /// each run of the pass not yet driven past — and, where a run crosses a zebra's paint the car is not already on,
-    /// that paint's walking lanes for somebody on foot.
-    /// </summary>
-    /// <remarks>
-    /// <b>Which paint the car is already on is read off the runs alone</b>: a run is only reached with nothing found in
-    /// any before it, so where the car stands over the paint is the same whatever stands on the ground.
-    /// </remarks>
-    /// <param name="into">Room for <see cref="MostAsksOfAPass"/> of the town's marks.</param>
-    [SkipLocalsInit]
-    public int AsksOfThePass(int car, Span<BodyAsk> into)
-    {
-        ref readonly var build = ref Cars.BuildOf(car);
-        var progressM = Cars.ProgressM[car];
-        var written = 0;
-        Span<LineWay> approach = stackalloc LineWay[DrivingGround.MostWaysAlongALine];
-        foreach (ref readonly var way in TheApproach(car, Cars.Pass[car], progressM, approach))
-        {
-            into[written++] = new BodyAsk(way.Way, way.FromM, way.ToM, OnFoot: false, way.LineFromM, FromTheBody: true);
-        }
-
-        // The paint the car stands over at its first station, and on unbroken from there, is paint it is already on.
-        var onThePaintToM = progressM;
-        var onThePaint = true;
-        foreach (ref readonly var run in _swept.Of(Asking(car)))
-        {
-            if (run.LastAtM < progressM) continue;
-
-            var inTheWayM = MathF.Max(progressM, run.FirstAtM - build.FlankM) + build.NoseAheadOfAxleM;
-            into[written++] = new BodyAsk(run.Way, run.FromM, run.ToM, OnFoot: false, inTheWayM, FromTheBody: false);
-            if (!ground.CrossesAZebra(run.Way, run.FromM, run.ToM)) continue;
-
-            if (onThePaint && run.FirstAtM <= onThePaintToM + build.FlankM)
-            {
-                onThePaintToM = MathF.Max(onThePaintToM, run.LastAtM);
-                continue;
-            }
-
-            onThePaint = false;
-            written += ground.AsksOfThePaint(run.Cover, inTheWayM, into[written..]);
-        }
-
-        return written;
-    }
-
-    /// <summary>
-    /// How many stretches one pass is looked over for a body (<see cref="AsksOfThePass"/>): its approach, and every run
-    /// with the paint of every mark the busiest way carries.
-    /// </summary>
-    public static int MostAsksOfAPass(WayCrossings marks) =>
-        DrivingGround.MostWaysAlongALine + (MostRunsOfAPass * (1 + marks.MostCrossedByOne));
-
-    /// <summary>Room for one pass's <see cref="AsksOfThePass"/>.</summary>
-    readonly BodyAsk[] _asks = new BodyAsk[MostAsksOfAPass(ground.Occupancy.Marks)];
-
-    /// <summary>
-    /// <b>What a car's pass is asked and kept on over one stretch of a way it sweeps</b> (<see cref="PassTerms"/>):
-    /// for a car on a call, its call's rung (AMB-4.4) and the paint of any zebra there, where somebody on foot is
-    /// waited for (<see cref="TheBodyInThePass"/>) rather than refusing the pass; for every other car, neither.
-    /// </summary>
-    PassTerms TermsOfThePass(int car, in WayCover swept)
-    {
-        if (!Cars.BlueLight[car]) return PassTerms.Plain;
-
-        var paintFromM = float.PositiveInfinity;
-        var paintToM = float.NegativeInfinity;
-        foreach (ref readonly var mark in Occupancy.Marks.Of(swept.Way))
-        {
-            if (mark.MineFromM >= swept.ToM) break;
-            if (mark.MineToM <= swept.FromM || ground.Lines.ZebraOf(mark.OnWay) == RibbonMarks.NoZebra) continue;
-
-            paintFromM = MathF.Min(paintFromM, mark.MineFromM);
-            paintToM = MathF.Max(paintToM, mark.MineToM);
-        }
-
-        return new PassTerms(ClaimPriority.Special, paintFromM, paintToM);
-    }
-
-    /// <summary>
-    /// <b>The ways under the car at one station of its pass</b>: its collider, stood where the pass puts the rear
-    /// axle at that metre of the line and pointed the way the pass points it there — and grown by
-    /// <paramref name="spareM"/> ahead and to either side, the ways it could stray into; behind it is the ground it
-    /// came from.
-    /// </summary>
-    int UnderTheCarOnThePass(
-        int car, in Overtake pass, float fromM, float toM, int station, float spareM, Span<WayCover> under,
-        out float atM)
-    {
-        ref readonly var build = ref Cars.BuildOf(car);
-        atM = MathF.Min(toM, fromM + (station * build.FlankM));
-        pass.PoseAtM(Cars.LineOf(car), atM, out var axleM, out var forward);
-
-        var halfM = build.CollisionSizeM * 0.5f;
-        var centreM = axleM + (forward * (build.CentreAheadOfAxleM + (spareM * 0.5f)));
-        return ground.Atlas.UnderBox(centreM, forward, halfM.X + (spareM * 0.5f), halfM.Y + spareM, under, Cars.Channels[car]);
-    }
-
-    /// <summary>
-    /// <b>How far short of something it may get past a car comes to rest</b> (S-2a, CAR-46): no nearer than it needs to
-    /// step out round it from a standstill, with the pass's spare, where it has a lane to pass on — and its stand-off
-    /// where it has none. What it may get past is the claims' to say (<see cref="LaneOccupancy"/>'s <c>KeptOffM</c>).
-    /// </summary>
-    /// <remarks>
-    /// <b>Read on a straight</b>: where the line bends under the step, the step is longer and the car asks from where it
-    /// stands, which the ground then answers.
-    /// </remarks>
-    public float KeptOffWhatItMayPassM(int car) =>
-        HasALaneToPassOn(car) ? MathF.Max(Config.Driving.StandOffM, RoomToStepOutM(car)) : Config.Driving.StandOffM;
-
-    /// <summary>
-    /// <b>How far short of what it passes a car's nose stands to step out round it from rest</b>, on the lane it is on:
-    /// the lead of the shortest step it can drive from a standstill, and the pass's spare — or nothing where no step
-    /// takes it off the lane. Drawn once a lane, which is all it reads that changes.
-    /// </summary>
-    float RoomToStepOutM(int car)
-    {
-        var lane = Cars.LaneOf(car);
-        if (_roomLane[car] == lane) return _roomM[car];
-
-        ref readonly var build = ref Cars.BuildOf(car);
-        var asideM = (Roads.LaneWidthM[lane] + Roads.LaneWidthM[Roads.LaneReverse[lane]]) * 0.5f;
-        var corneringMps2 = CarFollower.CorneringMps2(Config, build);
-        var leadM = CarFollower.ShapeAPass(build, 0f, asideM, corneringMps2, 0f, out var stepM, out _)
-            ? StepOutLeadM(build, asideM, stepM, Roads.LaneWidthM[lane] * 0.5f)
-            : float.PositiveInfinity;
-
-        _roomLane[car] = lane;
-        return _roomM[car] = float.IsPositiveInfinity(leadM)
-            ? float.NegativeInfinity
-            : leadM + Config.Driving.PassSpareM - build.NoseAheadOfAxleM;
-    }
-
-    static int[] Unset(int count)
-    {
-        var lanes = new int[count];
-        Array.Fill(lanes, CarFleet.NoLane);
-        return lanes;
     }
 
     /// <summary>How far across its line this car is aimed at one metre of it: its pass's, once begun, and none otherwise.</summary>

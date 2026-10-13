@@ -207,7 +207,7 @@ public class RoadClosureInATownTests
                     $"patrol {world.Beat.Stage[car]} station {world.Beat.Station[car]}, came off lane {was[car]}, " +
                     $"chain {string.Join(",", world.Cars.ChainOf(car)[..world.Cars.Line[car].LaneCount].ToArray())}, " +
                     $"route {string.Join(",", world.Cars.RouteOf(car)[..world.Cars.RouteCount[car]].ToArray())}, " +
-                    $"destination {world.Cars.DestinationM[car]}, committed {world.Cars.CommittedToTheBox[car]}");
+                    $"destination {world.Cars.DestinationM[car]}, committed {world.CommittedToTheBox(car)}");
                 was[car] = world.Cars.LaneOf(car);
             }
         }
@@ -281,15 +281,20 @@ public class RoadClosureInATownTests
             : at.PositionM;
         var headingRad = acrossTheRoad ? at.HeadingRad + (MathF.PI * 0.5f) : at.HeadingRad;
 
-        world.Cars.PositionM[victim] = positionM;
-        world.Cars.HeadingRad[victim] = headingRad;
-        world.Cars.VelocityMps[victim] = Vector2.Zero;
-        world.PhysicsForInstruments.Release(world.Cars.Body[victim], positionM, headingRad);
+        world.StandTheCarAt(victim, positionM, headingRad);
         world.Apply(new BodyTag(BodyKind.Car, victim), DamageOutcome.Broken);
 
-        // Held off the recovery, as a wreck an evacuator has already taken: one towing it away ends the scene, and
-        // whether it gets there before the police is where the town happened to stand a depot, not what is asked.
-        world.Recovery.Wreck[victim] = victim;
+        // Held off the recovery, as a wreck an evacuator of the town's has already taken: one towing it away ends the
+        // scene, and whether it gets there before the police is where the town happened to stand a depot, not what is
+        // asked. The evacuator is left standing, so it never runs to it.
+        var holder = -1;
+        for (var car = 0; car < world.Cars.Count && holder < 0; car++)
+        {
+            if (world.Recovery.Depot[car] >= 0 && !world.Cars.Broken[car]) holder = car;
+        }
+
+        Assert.True(holder >= 0, "the built city has no evacuator to hold the wreck");
+        world.Recovery.Wreck[holder] = victim;
         return victim;
     }
 

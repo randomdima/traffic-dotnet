@@ -236,7 +236,8 @@ internal sealed partial class PhysicsWorld
     /// <para>
     /// At rest is three things: the centre slower than the rest speed, the furthest point of the body swung no
     /// faster, and no overlap left for the push to take out — a body being pushed out of another is moving on an
-    /// accumulator the velocities never see.
+    /// accumulator the velocities never see. Each body's own rest is counted on the integration's pass
+    /// (<see cref="IntegrateAndCountTheRest"/>), and only its contacts' is settled here.
     /// </para>
     /// <para>
     /// <b>A pair settles together or not at all.</b> A body pushed slowly by an actor's car is at rest by its own
@@ -247,22 +248,6 @@ internal sealed partial class PhysicsWorld
     /// </remarks>
     void FreezeWhatHasSettled()
     {
-        var restMps = _config.Solver.RestSpeedMps;
-        var restSquared = restMps * restMps;
-        var restTicks = _config.SolverRestTicks;
-        var allowedM = _config.Solver.AllowedPenetrationM;
-
-        for (var slot = 0; slot < _movingCount; slot++)
-        {
-            var body = _moving[slot];
-            var swingMps = _yawRateRadPerS[body] * _reachM[body];
-            var atRest = _velocityMps[body].LengthSquared() <= restSquared && swingMps * swingMps <= restSquared
-                         && _overlapM[body] <= allowedM;
-
-            _restTicks[body] = atRest ? Math.Min(_restTicks[body] + 1, restTicks) : 0;
-            _settling[body] = _restTicks[body] >= restTicks;
-        }
-
         bool unsettled;
         do
         {
@@ -282,27 +267,7 @@ internal sealed partial class PhysicsWorld
         for (var slot = 0; slot < _movingCount; slot++)
         {
             var body = _moving[slot];
-            if (!_settling[body]) continue;
-
-            Freeze(body);
-            Changed(body, RowChange.Motion | RowChange.Filter);
-        }
-
-        LeaveTheFrozenBehind();
-    }
-
-    /// <summary>
-    /// <b>What a step taken elsewhere froze</b>, frozen here as <see cref="FreezeWhatHasSettled"/> freezes it — the step
-    /// stilled it itself, so its row is not the town's change. One the town has woken or taken out of the world since the
-    /// step was laid is left as the town has it.
-    /// </summary>
-    void FreezeWhatTheStepFroze(ReadOnlySpan<int> froze)
-    {
-        foreach (var body in froze)
-        {
-            if (_ownedInStep[body] != _stepStamp || (_flags[body] & (BodyFlags.Frozen | BodyFlags.Enabled)) != BodyFlags.Enabled) continue;
-
-            Freeze(body);
+            if (_settling[body]) Freeze(body);
         }
 
         LeaveTheFrozenBehind();
@@ -313,7 +278,6 @@ internal sealed partial class PhysicsWorld
         _velocityMps[body] = default;
         _yawRateRadPerS[body] = 0f;
         _flags[body] |= BodyFlags.Frozen;
-        _frozeAtStep[body] = _stepStamp;
         FrozenBodyCount++;
 
         // Standing where the frozen index filed it, it is already there; anywhere else it waits for it.

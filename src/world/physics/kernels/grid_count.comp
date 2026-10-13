@@ -1,29 +1,68 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
 
-// A grid's first pass (CellGrid.Rebuild): every cell a roster body's box covers counted once for it. The counts are
-// scanned into where each cell's run starts, and grid_fill files the bodies there.
+// A grid's first pass (CellGrid.Rebuild): every cell a roster body's box covers counted once for it, where the body is
+// in the world — one out of it meets nothing (pairs.comp), so filing it would only cost the owners that read its cells.
+// The counts are scanned into where each slot's run starts (step.glsl's slotOf: a cell, or the bucket a hashed grid
+// files it in), and grid_fill files the bodies there.
+//
+// With CountAndDamp the roster is the step's moving bodies, and each is first given its state as the step begins
+// (owned.glsl) — an owner's overlap cleared for the step to find again, as PhysicsWorld.BeginTheContacts clears the
+// awake roster's, and a frozen body's left as it froze — and then the damping that reaches every moving body once a step
+// (PhysicsWorld.DampAndEmptyThePush), in the world or not, which no pass before the solve reads.
 
 layout(local_size_x = 64) in;
 
 #include "step.glsl"
+#include "owned.glsl"
+
+// DeviceSolver.CountAndDamp.
+const uint CountAndDamp = 1u;
 
 layout(std430, binding = 0) readonly buffer Roster { int roster[]; };
 layout(std430, binding = 1) readonly buffer Bounds { vec4 bounds[]; };
 layout(std430, binding = 2) buffer Counts { uint counts[]; };
+layout(std430, binding = 3) buffer Motion { vec4 motion[]; };
+layout(std430, binding = 4) readonly buffer Filter { uint filter_[]; };
+layout(std430, binding = 5) writeonly buffer State { uint state[]; };
+layout(std430, binding = 6) writeonly buffer Overlap { uint overlap[]; };
 
 void main()
 {
     uint slot = gl_GlobalInvocationID.x;
     if (slot >= rosterCount) return;
 
-    vec4 box = bounds[roster[slot]];
+    int body = roster[slot];
+    uint flags = filter_[body];
+    bool inTheWorld = (flags & enabledBit) != 0u;
+    if (mode == CountAndDamp)
+    {
+        vec4 m = motion[body];
+        uint s = Left;
+        if (inTheWorld)
+        {
+            bool frozen = (flags & frozenBit) != 0u;
+            s = frozen ? WasFrozen : 0u;
+            if (!frozen || m.xyz != vec3(0.0))
+            {
+                s |= Owned;
+                overlap[body] = 0u;
+            }
+        }
+
+        state[body] = s;
+        motion[body] = vec4(m.xy * linearKeep, m.z * angularKeep, m.w);
+    }
+
+    if (!inTheWorld) return;
+
+    vec4 box = bounds[body];
     int fromX = cellX(box.x);
     int fromY = cellY(box.y);
     int toX = cellX(box.z);
     int toY = cellY(box.w);
     for (int y = fromY; y <= toY; y++)
     {
-        for (int x = fromX; x <= toX; x++) atomicAdd(counts[cellIndex(x, y)], 1u);
+        for (int x = fromX; x <= toX; x++) atomicAdd(counts[slotOf(cellIndex(x, y))], 1u);
     }
 }

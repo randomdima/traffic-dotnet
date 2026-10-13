@@ -3,55 +3,63 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md); how a type
 works is its own XML docs.
 
-## 2026-10-10 — what moves is drawn where the bodies' step left it, off the device's own tables
+## 2026-10-12 — a frame writes only what changed: marks, scenery and the ground drawn off rows laid once
 
-**Bound to a device town, the emit takes every car's and every walker's pose off the device**. A car's comes from the
-tyre table the bodies' step mirrors into (`sprites_cars.comp`), facing as the host turns its heading into a direction.
-A walker's comes from the walker tick's table (`sprites_walkers.comp`): where it stands, which way it faces, how far it
-has walked. The host's copy stands only where it is newer. That is a car the town put down since the step
-(`RowChange.Pose`), every car before the device's first step or after the town stepped itself
-(`DeviceTownBodies.PosesLeftInTheTable`), and a walker the table is not known to hold as the town has it
-(`DeviceWalkerTick.HoldsTheBodyOf`). The frame then no longer needs the host to hold every pose, which a hand-back of
-only some poses requires. The host still lays every row each frame for the rest of what a sprite reads.
-`DeviceSpritesTests` holds the bound emit to the host's every tick, and it fails with either pose moved by a
-centimetre.
+The engine review's draw items (`.tmp/engine-review.md` §3.2–3.4, 3.9, 4.20–4.25). Whole-town framing, RX 9070 XT,
+`qq prof --frame --view 40000` (the exit's new `written` line): Odesa 1 916 → 93 kB a frame written into memory the
+device reads, ticked on the device 1 796 → 33 kB with its sprites 0.13 → 0.01 ms; OdesaOsm 9 896 → 1 781 kB.
 
-## 2026-10-09 — a frame draws what moves where the device emits it, off the car tick's own tables
+- **An instance is 28 bytes** (`SpriteInstance`): the half-size two halves, the cell of its sheet four bytes, the tint
+  four normalised bytes. The emit rounds the halves in integer arithmetic as `Half` does (`spritesHalf`), so the device's
+  instances stay the host's to the bit (`--bench deviceworld`). A cell and not a pair of texture coordinates, because
+  every sheet the town draws a part of is cut on a grid.
+- **The marks are a ring of 24-byte rows drawn where they lie** (`mark.vert`): on the device the tyre pass lays them into
+  a ring there (`drift_marks.glsl`) and the view's pass moves its head, so nothing crosses to the host and back; on the
+  host each swapchain image's copy of the ring takes only the marks laid since it last drew. Drawn oldest first, the
+  laid order, rubber and soil as they fell.
+- **The scenery's pieces are on the device, laid once** (`scenery.vert`): a frame writes the runs of each row in view
+  and the thinning (`ScenerySprites.Spans`), the same pieces in the same order the host's fill took, so a pan neither
+  thins nor shimmers.
+- **A prop smaller than `PropLeastPx` across is put out of the picture by the vertex stage** (`CameraView.PropCull`),
+  standing or scenery: a whole-town framing had drawn hundreds of thousands of them a pixel or less, speckling the grass.
+  A building is drawn at any size.
+- **The ground is drawn a band of rows at a time** (`GroundBands`): each part's triangles filed by the band they stand
+  in, in classes a doubling of height, a draw a class, the parts in TER-7b's order and recorded once; a frame writes
+  each draw's first and count. Every e2e frame but the props' is unchanged to the pixel.
+- **What moves is emitted inside the frame that draws it** (`IMovingEmit`, `DeviceSprites.Record`): recorded once a
+  swapchain image ahead of the pass, steered by that image's frame words — the view, the clock, the view slot the host
+  shows, and the lay's workgroups, nought where no batch of signals came between — at no crossing and no submit of its
+  own. The rows are laid off the view the host is showing, so a body is drawn where its selection and paths are.
+- **What a frame writes for the device to read is in the device's own memory where it is offered mapped**
+  (`HostAccess.Streams`), and the sheets' table is written there once.
 
-**Where the device ticks the town, the moving runs are the emit's** (`DeviceSprites.EmitForTheFrame`) and are drawn
+## 2026-10-09 — a frame draws what moves where the device emits it
+
+**Where the world is the device's, the moving runs are the emit's** (`DeviceSprites`) and are drawn
 where it wrote them: `TownRenderer.DrawTheMovingFrom` records each image's over and above draws against the emit's
-instances and its two indirect draws, the host fills only what lies under and the stretch standing
-(`TownSprites.FillStill`), and the renderer is laid no room of its own for what moves. Filled on the host, a frame of
+instances and its two indirect draws, the host fills only the stretch standing (`TownSprites.FillStill`), and the
+renderer is laid no room of its own for what moves. Filled on the host, a frame of
 OdesaOsm at 40 000 cars and 40 000 people needed every car handed back after its last tick (1.7 ms) and the solver's
 moving grid laid for the picture alone (`PhysicsWorld.IndexMoving`, 3.1 ms).
 
-- **The emit is a submit of its own, not waited for**: it begins behind everything submitted before it — the last
-  frame still drawing the runs it writes, the tick that wrote what it reads — and ends with a barrier ahead of
-  everything after: the frame that draws it, and the next tick writing what it read. A fixed count of crossings.
-- **A car is drawn off the car tick's tables where the tick still holds it as it left it** (`DeviceCarTick.Takes`):
-  `sprites_cars.comp` lays its reading, command, brief and pass over the row the host laid from the town's copy. So the
-  frame drawn after a tick no longer has every car handed back; `ReadsEveryCarAfterTheTick` stays for a second seat's
-  eye and a layer over the town, which read the town's copy.
-- **A car's line left the emit**: the row carries how far it bends ahead (`CarLamps.TurnAheadRad`, `lamps_turn.glsl`
-  where it is read off the device). Packed as arcs, the emit's room was every car's line room — about 0.74 GB on the
-  device and as much mapped at 40 000 cars.
-- **A car picked out is taken back at once** (`ITownDevice.TakeTheCarBack`). With no frame reading every car back, a
-  car stays on the device across frames, and the interface could act on one before the town's next tick read it: a
-  release standing it down did so on a copy older than the device's, and the next claims laying threw for it
-  (`DeviceCarTick.ExpectTheTownHolds`).
+- **What a car's lamps say is the car's own** (`CarLamps.Showing`): the town signals it where it changes
+  (`ControlAction.Show`) and the emit reads the lamp set off the world's row of the car (`sprites_world.comp`), so no
+  line, pass or junction ahead crosses to be drawn. Packed as arcs, the lines had been the emit's room — about 0.74 GB on
+  the device and as much mapped at 40 000 cars.
+- **Every row is laid on the device off the world's own state** (root `decision-log.md`, 2026-10-11): where each body
+  is and points, its wheel, what it shows, its tow and its level; a look and a flasher's jitter are laid once. Nothing of
+  an agent is sent for a frame.
 
-Held by `DeviceSpritesTests`: every tick of 600 of `Towns.Built` leaving cars on the device, and of a fixture car
-getting past a wreck, the emit off the device draws every instance as the emit off the town does once every car is
-taken back. Each fails with the lay left out, the line's bend dropped, or a pass ended at its step back. In the window
-(OdesaOsm, 40 000 of each, RX 9070 XT, `qq prof --device-tick --frame`): 40 → 59 fps, the display's own rate; the
+In the window (OdesaOsm, 40 000 of each, RX 9070 XT, `qq prof --device-tick --frame`, the whole town then ticked on the
+device): 40 → 59 fps, the display's own rate; the
 frame's CPU 25.1 → 15.9 ms, its sprites 2.63 → 0.99 ms; 1.5 → 1.0 ticks a frame.
 
 ## 2026-10-07 — the moving sprites are emitted on the device, beside the fill
 
-**The tick moves to the device** (root log), and once it has, where the cars, the walkers and the lights stand is only
-there, so what a frame draws of them has to be written there. `TownSprites.FillMoving` is the host's half — the walkers,
+**The world is the device's** (root log, 2026-10-11), so where the cars and the walkers stand is only there, and what a
+frame draws of them has to be written there. `TownSprites.FillMoving` is the host's half — the walkers,
 every car part by part, the heads, and the cars on the level above, as `Fill` lays them past the marks and the scenery —
-and `kernels/sprites_count.comp` and `sprites_write.comp` over `sprites.glsl` are the device's, run in shadow by
+and `kernels/sprites_count.comp` and `sprites_write.comp` over `sprites.glsl` are the device's, run by
 `app/devicetick/DeviceSprites`. A car's lamps are `agents/car/body/kernels/lamps.glsl` and a walker's cell
 `agents/person/body/kernels/look.glsl`, each its own slice's.
 
@@ -68,11 +76,11 @@ and `kernels/sprites_count.comp` and `sprites_write.comp` over `sprites.glsl` ar
   (`SignalSprites.CellOf`), a look's build with no car wearing it (`CarFleet.BuildOfVariant`); and `FillCars` takes
   the fleets rather than the town, so a staged fleet is drawn by the code a town is.
 
-Held to the host by `DeviceSpritesTests`: the fixture town running, five framings a second for twenty seconds; 2 000
+Held to the host's fill as it was laid: the fixture town running, five framings a second for twenty seconds; 2 000
 staged walkers of every look standing, walking, down and inside; 2 000 staged cars of every look with every lamp input,
 wrecked, towing by either end, under a hand, on three levels, at three scales. Every field is the host's to the bit but
 a tow arm's bearing, the device's arctangent; a walker's facing and stride and the arm's direction are rounded.glsl's
-quotients and root. On OdesaOsm (`--bench devicesprites`, RX 9070 XT; 10 013 cars, 10 000 walkers, 2 714 heads) the
+quotients and root. On OdesaOsm (RX 9070 XT; 10 013 cars, 10 000 walkers, 2 714 heads) the
 emit took 25–29 µs at every framing, 14 of them the scan, where the fill took 0.7 µs at a street and 137 µs over the
 whole town; no instance differed. **A head's colour is `signal.glsl`'s, whose quotients are the device's own**: on RADV
 a head at a cycle's edge could turn a frame early, and none did there.

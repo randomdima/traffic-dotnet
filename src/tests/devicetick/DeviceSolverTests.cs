@@ -96,6 +96,38 @@ public class DeviceSolverTests(Lavapipe device) : IClassFixture<Lavapipe>
     }
 
     /// <summary>
+    /// <c>SOL-37</c>, <c>SOL-37a</c>: <b>where frozen bodies are met, the device finds the CPU's contacts pair for pair and in
+    /// its order</b> — a frozen row woken whole from both ends, by a car below its indices and one above, with the wall the
+    /// row's far end leans on, and nothing between two frozen cars nobody met.
+    /// </summary>
+    [Fact]
+    public void WhereFrozenBodiesAreMetTheDeviceFindsTheCpusContacts()
+    {
+        var world = new PhysicsWorld(Config);
+        var (lengthM, widthM) = (Config.Car.LengthM, Config.Car.WidthM);
+        var below = world.AddNominalCar(new Vector2(2f * lengthM, -widthM), 0f);
+        world.AddStaticBox(new Vector2(-0.5f * lengthM - 0.5f, 0f), new Vector2(1f, 4f), 0f);
+        for (var car = 0; car < 6; car++) world.AddNominalCar(new Vector2(lengthM * car, 0f), 0f);
+        world.AddNominalCar(new Vector2(0f, 50f), 0f);
+        world.AddNominalCar(new Vector2(lengthM, 50f), 0f);
+        for (var step = 0; step <= Config.SolverRestTicks; step++) world.Step(Config.TickSeconds);
+
+        world.ApplyCentralImpulse(below, new Vector2(0f, Config.Car.MassKg * 0.5f));
+        var above = world.AddNominalCar(new Vector2(5.5f * lengthM, widthM), 0f);
+        world.ApplyCentralImpulse(above, new Vector2(Config.Car.MassKg * 0.5f, 0f));
+        using var solver = new DeviceSolver(device.Vk, Config, world.Table);
+        solver.Step(world.Table, Config.TickSeconds, readBack: true);
+        world.Step(Config.TickSeconds);
+
+        var cpu = world.Contacts;
+        var expected = new List<(int, int)>();
+        for (var contact = 0; contact < cpu.Count; contact++) expected.Add((cpu.First[contact], cpu.Second[contact]));
+        var found = new List<(int, int)>();
+        foreach (var contact in solver.Contacts) found.Add(((int)contact.X, (int)contact.Y));
+        Assert.Equal(expected, found);
+    }
+
+    /// <summary>
     /// <b>Where no two contacts share a moving body the order they are solved in changes nothing</b>, so the coloured
     /// solve lands every body where the CPU's sequential one does, to a hundredth of a millimetre and a thousandth of a
     /// metre a second.

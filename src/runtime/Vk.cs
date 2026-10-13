@@ -50,6 +50,28 @@ internal sealed unsafe partial class Vk : IDisposable
     /// </summary>
     public static long RegionsCopied { get; private set; }
 
+    /// <summary>Dispatches recorded since the process started, direct or indirect. DEBUG only.</summary>
+    public static long Dispatches { get; private set; }
+
+    /// <summary>Pipeline barriers recorded since the process started. DEBUG only.</summary>
+    public static long Barriers { get; private set; }
+
+    /// <summary>
+    /// <b>What the live buffers hold</b> (<see cref="GpuBuffer"/>), as asked for: device-local, and mapped for the host — what
+    /// a laying costs the device and the host's pinned memory. Textures are not counted.
+    /// </summary>
+    public (long DeviceLocal, long Mapped) BufferBytes => (_deviceLocalBytes, _mappedBytes);
+
+    long _deviceLocalBytes;
+    long _mappedBytes;
+
+    /// <summary>A buffer's bytes counted in or, negative, out (<see cref="BufferBytes"/>).</summary>
+    internal void Held(HostAccess host, long bytes)
+    {
+        if (host == HostAccess.None) _deviceLocalBytes += bytes;
+        else _mappedBytes += bytes;
+    }
+
     public string DeviceName { get; }
 
     public uint DeviceApiVersion { get; }
@@ -262,12 +284,13 @@ internal sealed unsafe partial class Vk : IDisposable
         const MemoryPropertyFlags Mapped = MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit;
 
         // Read back, uncached memory is a bus read per word; cached is a copy the CPU reads at its own speed.
+        var plain = MemoryTypeIndex(requirements.MemoryTypeBits, Mapped);
         var type = host switch
         {
             HostAccess.None => MemoryTypeIndex(requirements.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit),
-            HostAccess.Writes => MemoryTypeIndex(requirements.MemoryTypeBits, Mapped),
-            _ => TryMemoryTypeIndex(requirements.MemoryTypeBits, Mapped | MemoryPropertyFlags.HostCachedBit)
-                 ?? MemoryTypeIndex(requirements.MemoryTypeBits, Mapped),
+            HostAccess.Writes => plain,
+            HostAccess.Streams => TryMemoryTypeIndex(requirements.MemoryTypeBits, Mapped | MemoryPropertyFlags.DeviceLocalBit) ?? plain,
+            _ => TryMemoryTypeIndex(requirements.MemoryTypeBits, Mapped | MemoryPropertyFlags.HostCachedBit) ?? plain,
         };
         var flags = new MemoryAllocateFlagsInfo
         {
@@ -283,7 +306,17 @@ internal sealed unsafe partial class Vk : IDisposable
         };
 
         Count();
-        Check(_api.AllocateMemory(_device, &allocation, null, out var memory), "vkAllocateMemory");
+        var allocated = _api.AllocateMemory(_device, &allocation, null, out var memory);
+
+        // A mapped window onto the device's memory is a small heap without resizable BAR: spent, a stream is plain mapped.
+        if (allocated == Result.ErrorOutOfDeviceMemory && host == HostAccess.Streams && type != plain)
+        {
+            allocation.MemoryTypeIndex = plain;
+            Count();
+            allocated = _api.AllocateMemory(_device, &allocation, null, out memory);
+        }
+
+        Check(allocated, "vkAllocateMemory");
 
         Count();
         Check(_api.BindBufferMemory(_device, buffer, memory, 0), "vkBindBufferMemory");
@@ -406,6 +439,7 @@ internal sealed unsafe partial class Vk : IDisposable
             PMemoryBarriers = &barrier,
         };
         Count();
+        CountBarrier();
         _api.CmdPipelineBarrier2(commands, &dependency);
     }
 
@@ -437,17 +471,11 @@ internal sealed unsafe partial class Vk : IDisposable
         _api.CmdFillBuffer(commands, buffer.Handle, 0, Silk.NET.Vulkan.Vk.WholeSize, word);
     }
 
-    /// <summary>
-    /// <b>A few words written into a buffer from the recording itself</b>, at <paramref name="atWord"/>: what the host says
-    /// of one submit and no table holds, carried in the command buffer (<c>vkCmdUpdateBuffer</c>, 64 KiB at most).
-    /// </summary>
-    public void Update(CommandBuffer commands, GpuBuffer buffer, int atWord, ReadOnlySpan<uint> words)
+    /// <summary>A run of a buffer filled with one 32-bit word, recorded: <paramref name="offsetBytes"/> and <paramref name="bytes"/> are whole words.</summary>
+    public void Fill(CommandBuffer commands, GpuBuffer buffer, ulong offsetBytes, ulong bytes, uint word)
     {
-        fixed (uint* data = words)
-        {
-            Count();
-            _api.CmdUpdateBuffer(commands, buffer.Handle, (ulong)atWord * sizeof(uint), (ulong)words.Length * sizeof(uint), data);
-        }
+        Count();
+        _api.CmdFillBuffer(commands, buffer.Handle, offsetBytes, bytes, word);
     }
 
     /// <summary>
@@ -601,6 +629,12 @@ internal sealed unsafe partial class Vk : IDisposable
     [Conditional("DEBUG")]
     public static void Count() => Crossings++;
 
+    [Conditional("DEBUG")]
+    public static void CountDispatch() => Dispatches++;
+
+    [Conditional("DEBUG")]
+    static void CountBarrier() => Barriers++;
+
     void CreateDevice(bool withSwapchain)
     {
         var priority = 1f;
@@ -613,12 +647,15 @@ internal sealed unsafe partial class Vk : IDisposable
         };
 
         // Dynamic rendering removes render passes and framebuffers outright; descriptor indexing
-        // removes nearly all descriptor plumbing — one set bound once instead of a set per material.
+        // removes nearly all descriptor plumbing — one set bound once instead of a set per material. A fragment
+        // stage's `discard`, compiled for Vulkan 1.3, is a demote to a helper invocation, which 1.3 requires of every
+        // device and a device still has to be opened asking for.
         var thirteen = new PhysicalDeviceVulkan13Features
         {
             SType = StructureType.PhysicalDeviceVulkan13Features,
             DynamicRendering = true,
             Synchronization2 = true,
+            ShaderDemoteToHelperInvocation = true,
         };
 
         var twelve = new PhysicalDeviceVulkan12Features

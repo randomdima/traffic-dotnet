@@ -69,7 +69,7 @@ public class AllocationGateTests
             var sum = 0f;
             for (var probe = 0; probe < 1_000_000; probe++)
             {
-                sum += ground.At(new Vector2(step.X * (probe % 1_000), step.Y * (probe % 997))).Coefficient;
+                sum += (int)ground.At(new Vector2(step.X * (probe % 1_000), step.Y * (probe % 997))).Rules;
             }
 
             return sum;
@@ -157,10 +157,11 @@ public class AllocationGateTests
         // the figure. What would retire the chase is pre-sizing the arrays that grow.
         loop.Advance(Towns.SettleTicks(map));
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
+        // The world steps on a thread of its own (ManagedWorld), and what that thread allocates is counted with this one's.
+        var before = GC.GetAllocatedBytesForCurrentThread() + world.AllocatedAsideBytes;
         loop.Advance(600);
 
-        Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());
+        Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread() + world.AllocatedAsideBytes);
     }
 
     /// <summary>

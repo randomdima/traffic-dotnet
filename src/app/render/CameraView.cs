@@ -24,8 +24,13 @@ namespace TrafficSimulation.App.Render;
 /// renderer writes the ones its mesh was laid with over whatever it is handed. Four floats a vector, because a
 /// uniform block lays a vector of four at sixteen bytes and the five surfaces need two.
 /// </para>
+/// <para>
+/// <b><see cref="PropCull"/> is the renderer's too</b>: the least half-size a prop is drawn at this frame, and the prop
+/// looks' sheets from and past (<see cref="TownRenderer.LayTown"/>) — a prop smaller on screen than
+/// <c>ViewFigures.PropLeastPx</c> is put out of the picture by the vertex stage, which is where its size is known.
+/// </para>
 /// </remarks>
 [StructLayout(LayoutKind.Sequential)]
 internal readonly record struct CameraView(
     Vector2 CentreM, Vector2 ClipPerM, Vector2 UiPx, Vector2 Facing, Vector4 SurfacePeriodsM = default,
-    Vector4 WaterPeriodM = default);
+    Vector4 WaterPeriodM = default, Vector4 PropCull = default);

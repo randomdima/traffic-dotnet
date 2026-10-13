@@ -1,5 +1,4 @@
 using TrafficSimulation.Agents.Car.Actions;
-using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
@@ -10,22 +9,14 @@ using TrafficSimulation.World.Town;
 namespace TrafficSimulation.Bench;
 
 /// <summary>
-/// <b>What the claims' room is laid for against what a standing town lays into it</b>: each term of the room
-/// (<see cref="TownWorld"/>'s table) beside the most any one agent laid of it in a rebuild, the slots and holds every
-/// rebuild came to, and how the marks that multiply the plans' terms lie over the town's ways.
+/// <b>What a standing town lays into the claims</b>: the holds and pieces every rebuild asked, the body, main and
+/// secondary claims they came to and the holders those name — on average and at most — the town's longest way against
+/// the decimetres a claim can name, and how the marks that split the plans lie over the town's ways.
 /// </summary>
-/// <remarks>
-/// <b>An agent's figures are of one rebuild</b>: its body's slots, the pieces of every hold it laid, the main claims of
-/// its longest hold — the ways that hold ran along — and that hold's secondary claims. The spread of what a planning
-/// agent laid is over every rebuild it laid any plan in.
-/// </remarks>
 internal static class RoomProbe
 {
     const int WarmupTicks = 1200;
     const int MeasuredTicks = 1200;
-
-    /// <summary>The shares of the spread printed, of every planning agent's every rebuild.</summary>
-    static readonly double[] Shares = [0.5, 0.99, 0.999];
 
     public static void Run(string map, SimConfig config)
     {
@@ -37,36 +28,158 @@ internal static class RoomProbe
 
         var claims = world.Occupancy;
         var marks = world.Atlas.Marks;
-        var crossed = 1 + marks.MostCrossedByOne;
-        var (cars, people) = (new Agents(world.Cars.Capacity), new Agents(world.People.Capacity));
-        var (rebuilds, mostSlots, mostHolds, slots, holds) = (0, 0, 0, 0L, 0L);
+        var rebuilds = 0;
+        var layingFrom = world.LayingTicks.ToArray();
+        var (holds, wishes, bodies, mains, seconds, holders) = (new Tally(), new Tally(), new Tally(), new Tally(), new Tally(), new Tally());
+        var (laidBodies, ways) = (new Tally(), new Tally());
+        var (driven, drivenAtRest, walking, walkingAtRest) = (new Tally(), new Tally(), new Tally(), new Tally());
+        var (carsAsked, askedAtRest, askedFollowing, askedAsBefore, plannedAsBefore) =
+            (new Tally(), new Tally(), new Tally(), new Tally(), new Tally());
+        var tablesUsed = new Dictionary<string, (string Table, int Used, int Rows, int RowBytes)>();
+        var lineArcs = new List<int>();
+        var before = new PlanSeen[world.Cars.Count];
+        var stopMps = config.Driving.StopSpeedMps;
+        var rosters = Enum.GetValues<LaneRoster>();
+        var byRoster = rosters.Select(_ => (Holds: new Tally(), Mains: new Tally(), Seconds: new Tally(), Bodies: new Tally())).ToArray();
+        var kinds = Enum.GetValues<WayKind>();
+        var across = rosters.Select(_ => Enumerable.Range(0, kinds.Length * kinds.Length).Select(_ => new Tally()).ToArray()).ToArray();
+        Span<int> acrossNow = stackalloc int[kinds.Length * kinds.Length];
         for (var tick = 0; tick < MeasuredTicks; tick++)
         {
             loop.Advance();
             if (!world.ClaimsLaidThisTick) continue;
 
             rebuilds++;
-            (mostSlots, mostHolds) = (Math.Max(mostSlots, claims.SlotCount), Math.Max(mostHolds, claims.HoldCount));
-            (slots, holds) = (slots + claims.SlotCount, holds + claims.HoldCount);
-            Count(claims, cars, people);
+            for (var car = 0; car < world.Cars.Count; car++) lineArcs.Add(world.Cars.Line[car].ArcCount);
+
+            foreach (var table in claims.TablesUsed())
+            {
+                tablesUsed[table.Table] = tablesUsed.TryGetValue(table.Table, out var seen)
+                    ? seen with { Used = Math.Max(seen.Used, table.Used), Rows = table.Rows }
+                    : table;
+            }
+
+            var laid = claims.Laid();
+            holds.Add(claims.HoldCount);
+            wishes.Add(claims.WishCount);
+            bodies.Add(laid.Bodies);
+            mains.Add(laid.Mains);
+            seconds.Add(laid.Secondaries);
+            holders.Add(laid.Holders);
+            laidBodies.Add(claims.BodiesLaid);
+            ways.Add(claims.OccupiedWays.Length);
+            var (cars, carsAtRest, people, peopleAtRest) = (0, 0, 0, 0);
+            for (var car = 0; car < world.Cars.Count; car++)
+            {
+                if (!world.Cars.Driven[car]) continue;
+
+                cars++;
+                if (world.Cars.VelocityMps[car].Length() <= stopMps) carsAtRest++;
+            }
+
+            for (var person = 0; person < world.People.Count; person++)
+            {
+                if (world.People.Inside[person].Any || !world.People.Walking[person]) continue;
+
+                people++;
+                if (world.People.VelocityMps[person].Length() <= stopMps) peopleAtRest++;
+            }
+
+            var (atRest, following, asBefore, plannedSame) = (0, 0, 0, 0);
+            foreach (var car in world.CarsAsked)
+            {
+                var seen = PlanSeen.Of(world, car, rebuilds);
+                if (world.Cars.VelocityMps[car].Length() > stopMps)
+                {
+                    before[car] = default;
+                    continue;
+                }
+
+                atRest++;
+                if (world.Cars.Action[car] == CarAction.Follow) following++;
+                if (seen.AsBefore(before[car]))
+                {
+                    asBefore++;
+                    if (seen.PlannedAs(before[car])) plannedSame++;
+                }
+
+                before[car] = seen;
+            }
+
+            carsAsked.Add(world.CarsAsked.Length);
+            askedAtRest.Add(atRest);
+            askedFollowing.Add(following);
+            askedAsBefore.Add(asBefore);
+            plannedAsBefore.Add(plannedSame);            driven.Add(cars);
+            drivenAtRest.Add(carsAtRest);
+            walking.Add(people);
+            walkingAtRest.Add(peopleAtRest);
+            for (var at = 0; at < rosters.Length; at++)
+            {
+                var asked = claims.AskedBy(rosters[at]);
+                byRoster[at].Holds.Add(asked.Holds);
+                byRoster[at].Mains.Add(asked.Mains);
+                byRoster[at].Seconds.Add(asked.Secondaries);
+                byRoster[at].Bodies.Add(claims.BodiesLaidBy(rosters[at]));
+                acrossNow.Clear();
+                claims.SecondariesAskedAcross(rosters[at], acrossNow);
+                for (var pair = 0; pair < acrossNow.Length; pair++) across[at][pair].Add(acrossNow[pair]);
+            }
         }
 
-        var carRoom = RibbonAtlas.MostWaysUnderABody + ((DrivingGround.MostWaysAlongALine + 1) * crossed) + (BackingUp.BackingPieces * crossed);
-        var walkerRoom = RibbonAtlas.MostWaysUnderABody + 1 + (WalkingGround.MostWaysAlongAWalk * crossed);
+        var longestM = 0f;
+        for (var way = 0; way < world.Ways.Count; way++) longestM = MathF.Max(longestM, world.Ways.LengthM(way));
+
         Console.WriteLine(
             $"room probe — {map}: {world.Cars.Count} cars, {world.People.Count} people; {rebuilds} rebuilds over {MeasuredTicks} ticks " +
             $"after {WarmupTicks}");
+        Console.WriteLine($"longest way {longestM:F1} m: {LaneOccupancy.DmOf(longestM):N0} of {ushort.MaxValue:N0} dm");
+        var msPer = 1000.0 / System.Diagnostics.Stopwatch.Frequency / Math.Max(1, rebuilds);
+        var stages = Enum.GetValues<TownWorld.LayingStage>();
+        var spentMs = stages.Select(stage => (world.LayingTicks[(int)stage] - layingFrom[(int)stage]) * msPer).ToArray();
         Console.WriteLine(
-            $"room laid: {claims.Capacity:N0} slots and {claims.HoldCapacity:N0} holds — a car {carRoom}: body {RibbonAtlas.MostWaysUnderABody}, " +
-            $"plan {DrivingGround.MostWaysAlongALine + 1} ways x {crossed}, backing {BackingUp.BackingPieces} x {crossed}; a walker {walkerRoom}: " +
-            $"body {RibbonAtlas.MostWaysUnderABody + 1}, walk {WalkingGround.MostWaysAlongAWalk} ways x {crossed}");
-        Console.WriteLine(
-            $"laid a rebuild: slots {slots / Math.Max(1, rebuilds):N0} on average and {mostSlots:N0} at most ({100d * mostSlots / claims.Capacity:F2} % " +
-            $"of the room), holds {holds / Math.Max(1, rebuilds):N0} and {mostHolds:N0}");
-        Console.WriteLine($"{"",-8}{"body",8}{"passes",8}{"planned",9}{"ways",6}{"marks",7}  planned spread {string.Join(" / ", Shares.Select(s => $"{s:P1}"))}");
-        Report("a car", cars, RibbonAtlas.MostWaysUnderABody, carRoom - RibbonAtlas.MostWaysUnderABody, DrivingGround.MostWaysAlongALine + 1);
-        Report("a walker", people, RibbonAtlas.MostWaysUnderABody + 1, walkerRoom - RibbonAtlas.MostWaysUnderABody - 1, WalkingGround.MostWaysAlongAWalk);
+            $"a laying {spentMs.Sum():F2} ms: " + string.Join(", ", stages.Select((stage, at) => $"{stage} {spentMs[at]:F2}")));
+        Console.WriteLine($"{"a rebuild",-12}{"average",10}{"most",10}");
+        driven.Print("cars driven", rebuilds);
+        drivenAtRest.Print("  at rest", rebuilds);
+        carsAsked.Print("cars asked", rebuilds);
+        askedAtRest.Print("  at rest", rebuilds);
+        askedFollowing.Print("  following", rebuilds);
+        askedAsBefore.Print("  as before", rebuilds);
+        plannedAsBefore.Print("  same plan", rebuilds);        walking.Print("walking", rebuilds);
+        walkingAtRest.Print("  at rest", rebuilds);
+        ways.Print("ways", rebuilds);
+        holds.Print("holds", rebuilds);
+        wishes.Print("pieces", rebuilds);
+        laidBodies.Print("bodies laid", rebuilds);
+        bodies.Print("bodies", rebuilds);
+        mains.Print("mains", rebuilds);
+        seconds.Print("secondaries", rebuilds);
+        holders.Print("holders", rebuilds);
+        for (var at = 0; at < rosters.Length; at++)
+        {
+            byRoster[at].Holds.Print($"{rosters[at]} holds", rebuilds);
+            byRoster[at].Mains.Print($"  main pieces", rebuilds);
+            byRoster[at].Seconds.Print($"  secondary", rebuilds);
+            for (var pair = 0; pair < across[at].Length; pair++)
+            {
+                if (across[at][pair].Any) across[at][pair].Print($"    {kinds[pair / kinds.Length]}→{kinds[pair % kinds.Length]}", rebuilds);
+            }
 
+            byRoster[at].Bodies.Print($"  bodies laid", rebuilds);
+        }
+
+        Console.WriteLine($"{"claims' tables",-16}{"most used",12}{"rows",12}{"MB",8}{"MB used",9}");
+        foreach (var (table, used, rows, rowBytes) in tablesUsed.Values)
+        {
+            Console.WriteLine(
+                $"  {table,-14}{used,12:N0}{rows,12:N0}{rows * (double)rowBytes / 1e6,8:F1}{used * (double)rowBytes / 1e6,9:F1}");
+        }
+
+        lineArcs.Sort();
+        Console.WriteLine(
+            $"a car's line, arcs at every laying: median {At(lineArcs, 0.5)}, p99 {At(lineArcs, 0.99)}, " +
+            $"p99.9 {At(lineArcs, 0.999)}, most {lineArcs[^1]}, of {world.Cars.LineArcsOf(0).Length} a car has room for");
         Console.WriteLine($"marks a way (most crossed by one: {marks.MostCrossedByOne}){"",4}{"ways",8}{"median",8}{"p90",6}{"p99",6}{"most",6}");
         foreach (var kind in Enum.GetValues<WayKind>())
         {
@@ -82,85 +195,72 @@ internal static class RoomProbe
             Console.WriteLine(
                 $"  {kind,-40}{counts.Count,8}{At(counts, 0.5),8}{At(counts, 0.9),6}{At(counts, 0.99),6}{counts[^1],6}");
         }
-    }
 
-    /// <summary>One rebuild's slots and holds, counted to the agent each is of.</summary>
-    static void Count(LaneOccupancy claims, Agents cars, Agents people)
-    {
-        cars.Begin();
-        people.Begin();
-        foreach (ref readonly var slot in claims.Slots)
+        Console.WriteLine($"marks by kinds, metres of mine{"",13}{"marks",8}{"median",8}{"p90",6}{"p99",6}{"most",6}");
+        foreach (var from in kinds)
         {
-            if (!slot.HasBody || slot.Of == LaneRoster.Signal) continue;
-
-            var of = slot.Of == LaneRoster.Driving ? cars : people;
-            if (slot.Passing) of.Passes[slot.Occupant]++;
-            else of.Body[slot.Occupant]++;
-        }
-
-        var laid = claims.Slots;
-        for (var hold = 0; hold < claims.HoldCount; hold++)
-        {
-            var (first, end) = claims.PiecesOf(hold);
-            if (end <= first || laid[first].Of == LaneRoster.Signal) continue;
-
-            var of = laid[first].Of == LaneRoster.Driving ? cars : people;
-            var occupant = laid[first].Occupant;
-            var main = 0;
-            for (var slot = first; slot < end; slot++)
+            foreach (var onto in kinds)
             {
-                if (!laid[slot].Secondary) main++;
+                var lengthsDm = new List<int>();
+                for (var way = 0; way < world.Ways.Count; way++)
+                {
+                    if (world.Ways.KindOf(way) != from) continue;
+
+                    foreach (var mark in marks.Of(way))
+                    {
+                        if (world.Ways.KindOf(mark.OnWay) == onto) lengthsDm.Add((int)((mark.MineToM - mark.MineFromM) * 10f));
+                    }
+                }
+
+                if (lengthsDm.Count == 0) continue;
+
+                lengthsDm.Sort();
+                Console.WriteLine(
+                    $"  {$"{from}→{onto}",-40}{lengthsDm.Count,8}{At(lengthsDm, 0.5) / 10f,8:F1}{At(lengthsDm, 0.9) / 10f,6:F1}" +
+                    $"{At(lengthsDm, 0.99) / 10f,6:F0}{lengthsDm[^1] / 10f,6:F0}");
             }
-
-            of.Planned[occupant] += end - first;
-            if (main > of.Ways[occupant]) (of.Ways[occupant], of.Marks[occupant]) = (main, end - first - main);
         }
-
-        cars.End();
-        people.End();
     }
 
-    static void Report(string who, Agents agents, int bodyRoom, int plannedRoom, int waysRoom)
+    /// <summary>
+    /// <b>What a car asked at rest was planned from, and what it came to</b>: one asked at rest at the last laying too,
+    /// from the same nose, line, action and planned speed, is asked as before — a plan that could be laid again unread.
+    /// </summary>
+    readonly record struct PlanSeen(
+        int Laying, float FromM, uint Line, CarAction Action, uint Entries, float PlannedMps, float ToM, float CommittedToM)
     {
-        agents.Spread.Sort();
-        var spread = string.Join(" / ", Shares.Select(share => agents.Spread.Count == 0 ? "-" : $"{At(agents.Spread, share)}"));
-        Console.WriteLine(
-            $"{who,-8}{agents.MostBody,8}{agents.MostPasses,8}{agents.MostPlanned,9}{agents.MostWays,6}{agents.MostMarks,7}  {spread}");
-        Console.WriteLine($"{"  room",-8}{bodyRoom,8}{"",8}{plannedRoom,9}{waysRoom,6}");
+        public static PlanSeen Of(TownWorld world, int car, int laying)
+        {
+            var cars = world.Cars;
+            return new PlanSeen(
+                laying, cars.ClaimFromM[car], cars.LinesLaid[car], cars.Action[car], world.ActionEntriesOf(car),
+                cars.PlannedMps[car], cars.ClaimToM[car], cars.CommittedToM[car]);
+        }
+
+        public bool AsBefore(in PlanSeen last) =>
+            last.Laying > 0 && last.Laying == Laying - 1 && last.FromM == FromM && last.Line == Line && last.Action == Action
+            && last.Entries == Entries && last.PlannedMps == PlannedMps;
+
+        public bool PlannedAs(in PlanSeen last) => last.ToM == ToM && last.CommittedToM == CommittedToM;
     }
 
     static int At(List<int> sorted, double share) => sorted[Math.Min(sorted.Count - 1, (int)(share * sorted.Count))];
 
-    /// <summary>One roster's counts of the rebuild being read, and the most any agent of it came to.</summary>
-    sealed class Agents(int capacity)
+    /// <summary>One count over every rebuild: its sum and its most.</summary>
+    sealed class Tally
     {
-        public readonly int[] Body = new int[capacity];
-        public readonly int[] Passes = new int[capacity];
-        public readonly int[] Planned = new int[capacity];
-        public readonly int[] Ways = new int[capacity];
-        public readonly int[] Marks = new int[capacity];
-        public readonly List<int> Spread = [];
-        public int MostBody, MostPasses, MostPlanned, MostWays, MostMarks;
+        long _sum;
+        int _most;
 
-        public void Begin()
+        public void Add(int count)
         {
-            Array.Clear(Body);
-            Array.Clear(Passes);
-            Array.Clear(Planned);
-            Array.Clear(Ways);
-            Array.Clear(Marks);
+            _sum += count;
+            _most = Math.Max(_most, count);
         }
 
-        public void End()
-        {
-            for (var agent = 0; agent < Body.Length; agent++)
-            {
-                MostBody = Math.Max(MostBody, Body[agent]);
-                MostPasses = Math.Max(MostPasses, Passes[agent]);
-                MostPlanned = Math.Max(MostPlanned, Planned[agent]);
-                if (Ways[agent] > MostWays) (MostWays, MostMarks) = (Ways[agent], Marks[agent]);
-                if (Planned[agent] > 0) Spread.Add(Planned[agent]);
-            }
-        }
+        public bool Any => _sum > 0;
+
+        public void Print(string what, int rebuilds) =>
+            Console.WriteLine($"{what,-12}{_sum / Math.Max(1, rebuilds),10:N0}{_most,10:N0}");
     }
 }

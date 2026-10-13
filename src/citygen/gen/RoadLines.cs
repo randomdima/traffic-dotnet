@@ -583,8 +583,7 @@ internal sealed class RoadLines(
                 RoadClass.Street => config.CityGen.StreetDesignSpeedMps,
                 RoadClass.Roundabout => config.CityGen.RoundaboutDesignSpeedMps,
                 _ => config.CityGen.ArterialDesignSpeedMps,
-            },
-            config.Terrain.PavedCoefficient);
+            });
 
     /// <summary>
     /// <b>How far off its own chord a road is allowed to wander</b>: the block spacing of the district it runs

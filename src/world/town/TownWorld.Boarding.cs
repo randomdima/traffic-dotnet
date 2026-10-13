@@ -5,6 +5,7 @@ using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Containment;
+using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Parking;
 using TrafficSimulation.World.Road;
 
@@ -13,56 +14,6 @@ namespace TrafficSimulation.World.Town;
 /// <summary>The one leg of a trip that is not walking: a door gone through, and the containment that hides a body while it is behind one.</summary>
 internal sealed partial class TownWorld
 {
-    /// <summary>
-    /// <b>The town's reservations as the ground a body coming out of a door is put down on</b> (PHY-7a): a spot
-    /// is taken where somebody stands on any way under it, or has ground there it can no longer stop short of.
-    /// The containment slice places a body without ever learning what an agent is.
-    /// </summary>
-    readonly struct DoorStep(TownWorld town) : IStandingGround
-    {
-        [SkipLocalsInit]
-        public bool IsTaken(Vector2 atM, float radiusM)
-        {
-            Span<WayCover> under = stackalloc WayCover[MostWaysUnderABody];
-            var count = town._atlas.UnderDisc(atM, radiusM, under);
-
-            // A layer sent back in part may not hold the ground yet, which is taken until it does.
-            if (!town.KnowsTheWaysUnder(under[..count])) return true;
-
-            for (var at = 0; at < count; at++)
-            {
-                if (town._occupancy.IsTaken(under[at].Way, under[at].FromM, under[at].ToM)) return true;
-            }
-
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// <b>Whether the layer every reader reads holds every way a body could be put down on outside a way out</b>
-    /// (<see cref="ExitSpots"/>, as far as <see cref="SimConfig.PersonExitSearchRadiusM"/>), each asked about either way — so
-    /// a layer sent back in part is asked once for all of it rather than refusing every spot in turn.
-    /// </summary>
-    [SkipLocalsInit]
-    bool KnowsTheGroundOutside(Vector2 wayOutM)
-    {
-        Span<WayCover> under = stackalloc WayCover[MostWaysUnderABody];
-        var count = _atlas.UnderDisc(wayOutM, _config.PersonExitSearchRadiusM + _config.PersonDiameterM, under);
-        return KnowsTheWaysUnder(under[..count]);
-    }
-
-    /// <summary>
-    /// Whether the layer every reader reads holds every way under a spot (<see cref="LaneOccupancy.Knows(int)"/>), each
-    /// asked about either way.
-    /// </summary>
-    bool KnowsTheWaysUnder(ReadOnlySpan<WayCover> under)
-    {
-        var known = true;
-        foreach (ref readonly var cover in under) known &= _occupancy.Knows(cover.Way);
-
-        return known;
-    }
-
     /// <summary>
     /// OBJ-5: the door. Capacity is checked here, atomically — the claim held during the walk was
     /// advisory and only kept the crowd down.
@@ -118,16 +69,11 @@ internal sealed partial class TownWorld
 
         var building = where.Index;
         var centreM = _plan.Buildings.CentreM[building];
-        var doorM = DoorOf(building, centreM);
-        if (!KnowsTheGroundOutside(doorM)
-            || !ExitSpots.TryFind(
-                _config, _plan.WorldSizeM, _physics, new DoorStep(this), doorM, doorM + (doorM - centreM), out var spotM))
-        {
-            return false;
-        }
+        var (door, free) = DoorExitOf(building, centreM);
+        if (!TryPutDownOff(door, free, beside: -1, out var spotM, out var spot)) return false;
 
         _containers.LeaveBuilding(building, person);
-        Place(person, spotM, MathF.Atan2(spotM.Y - centreM.Y, spotM.X - centreM.X));
+        Place(person, spotM, MathF.Atan2(spotM.Y - centreM.Y, spotM.X - centreM.X), spot);
         return true;
     }
 
@@ -135,12 +81,16 @@ internal sealed partial class TownWorld
     /// Which of a building's ways in this trip uses. Settled when the trip is drawn and never
     /// afterwards: a door chosen again from where the body has got to re-plans at every swing.
     /// </summary>
-    Vector2 DoorOf(int building, Vector2 fromM)
+    Vector2 DoorOf(int building, Vector2 fromM) =>
+        EntryOf(building, fromM) is var entry and >= 0 ? _plan.Buildings.EntryPointM[entry] : _plan.Buildings.CentreM[building];
+
+    /// <summary>Which of a building's ways in is nearest a place (<see cref="DoorOf"/>), or −1 for a building with none.</summary>
+    int EntryOf(int building, Vector2 fromM)
     {
         var buildings = _plan.Buildings;
         var first = buildings.EntryOffsets[building];
         var last = buildings.EntryOffsets[building + 1];
-        if (last <= first) return buildings.CentreM[building];
+        if (last <= first) return -1;
 
         var best = first;
         var bestDistanceSq = float.MaxValue;
@@ -153,7 +103,7 @@ internal sealed partial class TownWorld
             bestDistanceSq = distanceSq;
         }
 
-        return buildings.EntryPointM[best];
+        return best;
     }
 
     /// <summary>Into a container: the body leaves the world and everything the follower held for it is dropped.</summary>
@@ -162,25 +112,21 @@ internal sealed partial class TownWorld
         People.Walking[person] = false;
         Enter(person, PersonAction.Inside);
         People.ClearRoute(person);
-        _impulseNs[person] = Vector2.Zero;
-        People.DeclaredMps[person] = Vector2.Zero;
-        _physics.Contain(People.Body[person]);
+        ContainTheWalker(person);
     }
 
     /// <summary>And back out, where the container put them down — the one place a walker's pose is written by anything but the solver.</summary>
-    void Place(int person, Vector2 atM, float headingRad)
+    /// <param name="place">The pavement the container stands beside, which the body's next walk is laid from.</param>
+    void Place(int person, Vector2 atM, float headingRad, in FootPlace place)
     {
-        People.PositionM[person] = atM;
-        People.VelocityMps[person] = Vector2.Zero;
-        People.DeclaredMps[person] = Vector2.Zero;
-        People.HeadingRad[person] = headingRad;
         People.DestinationM[person] = atM;
         People.GoalM[person] = atM;
+        _placeOf[person] = place;
+        _goalPlace[person] = place;
         SetWalking(person, false);
         People.ClearRoute(person);
-        _impulseNs[person] = Vector2.Zero;
         _progress.Restart(person);
-        _physics.Release(People.Body[person], atM, headingRad);
+        PlaceTheWalker(person, atM, headingRad);
     }
 
     /// <summary>
@@ -207,12 +153,13 @@ internal sealed partial class TownWorld
             People.DestinationBuilding[person] = building;
             _containers.Claim(building);
             People.Stage[person] = TripStage.WalkingToTheDoor;
-            WalkTo(person, DoorOf(building, People.PositionM[person]));
+            WalkTo(person, DoorOf(building, People.PositionM[person]), DoorPlaceOf(building, People.PositionM[person]));
             return;
         }
 
+        // A player's order may look the ground up (the root decision log, 2026-10-13).
         People.Stage[person] = TripStage.UnderOrders;
-        WalkTo(person, toM);
+        WalkTo(person, toM, _walking.PlaceNearest(toM));
     }
 
     /// <summary>The building a point falls inside, or −1 — what a right-click on one reads as.</summary>

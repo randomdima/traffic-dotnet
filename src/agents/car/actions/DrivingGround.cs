@@ -1,3 +1,4 @@
+using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Config;
@@ -18,7 +19,7 @@ namespace TrafficSimulation.Agents.Car.Actions;
 /// only the town knows — the leg, the errand, the tyres — an action asks of <see cref="ICarTown"/>.
 /// </remarks>
 internal sealed class DrivingGround(
-    CarFleet cars, LaneOccupancy occupancy, RibbonAtlas atlas, TownWays ways, RoadGraph roads, WayLines lines,
+    CarFleet cars, LaneOccupancy occupancy, TownWays ways, RoadGraph roads, WayLines lines,
     SimConfig config)
 {
     /// <summary>
@@ -32,8 +33,6 @@ internal sealed class DrivingGround(
     /// <summary>What is laid on the ways: the layer every reader reads, or a laying of the town's own while one lasts.</summary>
     public LaneOccupancy Occupancy { get; internal set; } = occupancy;
 
-    public RibbonAtlas Atlas { get; } = atlas;
-
     public TownWays Ways { get; } = ways;
 
     public RoadGraph Roads { get; } = roads;
@@ -46,20 +45,36 @@ internal sealed class DrivingGround(
     /// <b>The plan each car laid down its own line this rebuild</b>, or <see cref="LaneOccupancy.NoHold"/> — the one
     /// claim two actions share (TER-4c.8), and what a car was cut at is read off.
     /// </summary>
-    public int[] PlanHold { get; } = new int[cars.Capacity];
+    public int[] PlanHold { get; } = LaneOccupancy.NoHolds(cars.Capacity);
+
+    /// <summary>The ground each car keeps off whatever cuts its plan (S-2a) — its own, given with the plan.</summary>
+    readonly float[] _planMarginM = new float[cars.Capacity];
+
+    /// <summary>
+    /// <b>A car's plan begun</b> for this rebuild: its hold, and the ground it keeps off whatever cuts it.
+    /// </summary>
+    /// <param name="begunOn">
+    /// <b>The hold of a pass or a manoeuvre the car has begun</b>, which the plan carries on from — what it drives first,
+    /// so whatever refuses that ends the plan too — or <see cref="LaneOccupancy.NoHold"/>.
+    /// </param>
+    public int BeginThePlan(int car, float marginM, int begunOn = LaneOccupancy.NoHold)
+    {
+        var hold = begunOn != LaneOccupancy.NoHold ? begunOn : Occupancy.BeginHold(car, LaneRoster.Driving);
+        PlanHold[car] = hold;
+        _planMarginM[car] = marginM;
+        return hold;
+    }
 
     /// <summary>
     /// <b>A car's claim of the rebuild before, forgotten</b> before its action lays this rebuild's: no hold, a plan
     /// from its nose to its nose, and <b>nothing granted</b> (TER-4c.8) — a car moves over ground its action has
     /// claimed this rebuild and over no other, so what the action lays is the only thing that grants it road.
     /// </summary>
-    /// <returns>The ground it was kept off what cut it, which the plan it lays next keeps (<see cref="Following.Plan"/>).</returns>
-    public float ClearTheClaim(int car)
+    public void ClearTheClaim(int car)
     {
         PlanHold[car] = LaneOccupancy.NoHold;
 
         var noseM = Cars.ProgressM[car] + LeadingEdgeAheadOfTheAxleM(car);
-        var keptOffM = Cars.GrantMarginM[car];
         Cars.ClaimFromM[car] = noseM;
         Cars.ClaimToM[car] = noseM;
         Cars.CommittedToM[car] = noseM;
@@ -68,7 +83,6 @@ internal sealed class DrivingGround(
         Cars.GrantCutBy[car] = HeadwayKind.Nothing;
         Cars.AuthorityM[car] = 0f;
         Cars.CoveredSinceClaimM[car] = 0f;
-        return keptOffM;
     }
 
     /// <summary>
@@ -99,86 +113,56 @@ internal sealed class DrivingGround(
         var hold = PlanHold[car];
         if (hold == LaneOccupancy.NoHold) return;
 
-        var endsAtM = Occupancy.HoldEndsAtM(hold, out var marginM, out var cutBy);
-        if (float.IsPositiveInfinity(endsAtM))
+        var cut = Occupancy.CutOf(hold);
+        if (!cut.Refused)
         {
             Cars.AuthorityM[car] = float.PositiveInfinity;
             return;
         }
 
-        Cars.AuthorityM[car] = endsAtM - marginM - Cars.ClaimFromM[car];
+        var marginM = _planMarginM[car];
+        Cars.AuthorityM[car] = cut.CutLineM - marginM - Cars.ClaimFromM[car];
         Cars.GrantMarginM[car] = marginM;
-        Cars.GrantCutBy[car] = cutBy.Found ? KindOf(cutBy) : HeadwayKind.Claimed;
+        Cars.GrantCutBy[car] = KindOf(cut);
     }
 
     /// <summary>
     /// <b>A car nobody in the town is driving holds the road it can no longer stop short of</b> (TER-5e, TER-4c.8) —
-    /// one under a hand (CTL-5) and one on a bar (EVA-5): the stretch straight ahead of it that its speed carries it
-    /// over before it could be at rest, on every way the atlas finds under it, as committed ground under
-    /// <paramref name="occupant"/> — so the traffic plans round what the hand or the truck cannot help, and nothing
-    /// is said about where either means to go.
+    /// one under a hand (CTL-5) and one on a bar (EVA-5): on every way the world reads its body on
+    /// (<paramref name="under"/>), the stretch past the body its speed carries it down that way before it could be at
+    /// rest, as committed ground under <paramref name="occupant"/> — so the traffic plans round what the hand or the
+    /// truck cannot help, and nothing is said about where either means to go.
     /// </summary>
     /// <remarks>
-    /// <b>Its own hold and never the drive's</b>: it drives no line, so nothing here is asked again when the plans
-    /// are settled, and no grant is read back — the hand or the truck is the car's whole answer (S-7).
+    /// <b>Down the way and never across it</b>: a body off every way holds nothing, and one leaving its way holds the
+    /// way it is on until the world reads it on another. <b>Its own hold and never the drive's</b>: it drives no line, so
+    /// no grant is read back — the hand or the truck is the car's whole answer (S-7). <b>Never over a body</b>
+    /// (TER-4c.1): what is standing there is what the car is about to meet, and refuses each stretch as it refuses any
+    /// plan.
     /// </remarks>
     /// <param name="occupant">Whose ground it is held as: the car's own, or the truck's it is laid under.</param>
-    [System.Runtime.CompilerServices.SkipLocalsInit]
-    public void HoldWhatCannotBeStoppedShortOf(int car, int occupant)
-    {
-        Span<CommittedStretch> stretches = stackalloc CommittedStretch[RibbonAtlas.MostWaysUnderABody];
-        var count = WhatCannotBeStoppedShortOf(car, occupant, stretches);
-        if (count == 0) return;
-
-        var hold = Occupancy.BeginHold(Config.Driving.StandOffM);
-        foreach (ref readonly var stretch in stretches[..count])
-        {
-            var ask = stretch.Ask with { Hold = hold };
-
-            // Never over a body (TER-4c.1): what is standing there is what the car is about to meet.
-            Occupancy.Take(ask, stretch.Way, Occupancy.Reach(ask, stretch.Way, stretch.ToM, ask.FromM, out _));
-        }
-
-        Occupancy.EndHold(hold, float.PositiveInfinity, 0f, LaneClaim.Nothing);
-    }
-
-    /// <summary>
-    /// <b>The ground a car nobody drives can no longer stop short of, asked</b> (<see cref="HoldWhatCannotBeStoppedShortOf"/>)
-    /// — a stretch a way under it, each as its hold lays it but for the hold — for a device laying it in the town's place.
-    /// None where the car is at rest, or nothing is under it.
-    /// </summary>
-    [System.Runtime.CompilerServices.SkipLocalsInit]
-    public int WhatCannotBeStoppedShortOf(int car, int occupant, Span<CommittedStretch> into)
+    public void HoldWhatCannotBeStoppedShortOf(int car, int occupant, ReadOnlySpan<WayCover> under)
     {
         var velocity = Cars.VelocityMps[car];
         var speedMps = velocity.Length();
-        if (speedMps <= Config.Driving.StopSpeedMps) return 0;
+        if (speedMps <= Config.Driving.StopSpeedMps) return;
 
-        ref readonly var build = ref Cars.BuildOf(car);
-        var brakingMps2 = CarFollower.BrakingMps2(Config, build);
-        var committedM = (speedMps * Config.CarReactionS) + StoppingM(speedMps, brakingMps2);
-        var travel = velocity / speedMps;
-        var frontM = build.HalfLengthM;
-
-        Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
-        var count = Atlas.UnderBox(
-            Cars.PositionM[car] + (travel * (frontM + (committedM * 0.5f))), travel, committedM * 0.5f,
-            build.WidthM * 0.5f, under, Cars.Channels[car]);
-        for (var at = 0; at < count; at++)
+        var committedM = CarFollower.SlowsOverM(Cars.BuildOf(car), speedMps);
+        foreach (ref readonly var cover in under)
         {
-            ref readonly var cover = ref under[at];
             var line = Lines.LineOf(cover.Way, out _);
-            var aheadM = MathF.Max(0f, MathF.Min(
-                System.Numerics.Vector2.Dot(Spline.SampleAt(line, cover.FromM).PositionM - Cars.PositionM[car], travel),
-                System.Numerics.Vector2.Dot(Spline.SampleAt(line, cover.ToM).PositionM - Cars.PositionM[car], travel)) - frontM);
-            into[at] = new CommittedStretch(
-                cover.Way, cover.ToM,
-                new PlannedAsk(
-                    LaneOccupancy.NoHold, occupant, LaneRoster.Driving, ClaimPriority.Firm, cover.FromM, aheadM, aheadM,
-                    float.PositiveInfinity, speedMps));
+            var lengthM = Ways.LengthM(cover.Way);
+            var alongTheWay = Vector2.Dot(Spline.SampleAt(line, (cover.FromM + cover.ToM) * 0.5f).Direction, velocity) >= 0f;
+            var hold = Occupancy.BeginHold(occupant, LaneRoster.Driving);
+            if (alongTheWay)
+            {
+                Occupancy.Ask(hold, cover.Way, cover.ToM, MathF.Min(lengthM, cover.ToM + committedM), 0f, ClaimPriority.Committed);
+            }
+            else
+            {
+                Occupancy.AskDown(hold, cover.Way, MathF.Max(0f, cover.FromM - committedM), cover.FromM, 0f, ClaimPriority.Committed);
+            }
         }
-
-        return count;
     }
 
     /// <summary>
@@ -199,21 +183,28 @@ internal sealed class DrivingGround(
     /// length</b>, though a line may stop short of it where a car waits for its bay: the line is the axle's, and
     /// the nose of a car at rest at its end stands further on.
     /// </remarks>
-    public int WaysAlong(int car, float fromLineM, float toLineM, Span<LineWay> into)
+    /// <param name="spansM">
+    /// Where given, room for where on the line each way written begins and ends — the line metres a way's own nought and
+    /// its end fall at, unclipped by the stretch.
+    /// </param>
+    public int WaysAlong(int car, float fromLineM, float toLineM, Span<LineWay> into, Span<WaySpan> spansM = default)
     {
         var lanes = Cars.Line[car].LaneCount;
         var chain = Cars.ChainOf(car);
+        var joins = Cars.JoinsOf(car);
         var starts = Cars.LaneStartsOf(car);
         var ends = Cars.LaneEndsOf(car);
+        var spans = !spansM.IsEmpty;
 
         var written = 0;
         for (var index = 0; index < lanes && written < into.Length; index++)
         {
-            var leavingOn = index < lanes - 1 ? Roads.ConnectorBetween(chain[index], chain[index + 1]) : RoadGraph.NoConnector;
+            var leavingOn = joins[index];
             var endsM = index < lanes - 1 ? ends[index] : starts[index] + Roads.LaneLengthM[chain[index]];
 
             if (Overlaps(fromLineM, toLineM, starts[index], endsM, out var fromM, out var toM))
             {
+                if (spans) spansM[written] = new WaySpan(starts[index], endsM);
                 into[written++] = new LineWay(
                     Ways.OfRoadLane(chain[index]), fromM - starts[index], toM - starts[index], fromM);
             }
@@ -225,6 +216,7 @@ internal sealed class DrivingGround(
             if (written < into.Length && starts[index + 1] > ends[index]
                 && Overlaps(fromLineM, toLineM, ends[index], starts[index + 1], out fromM, out toM))
             {
+                if (spans) spansM[written] = new WaySpan(ends[index], starts[index + 1]);
                 into[written++] = new LineWay(
                     Ways.OfRoadConnector(leavingOn), fromM - ends[index], toM - ends[index], fromM);
             }
@@ -232,55 +224,6 @@ internal sealed class DrivingGround(
 
         return written;
     }
-
-    /// <summary>
-    /// <b>Whether one of the town's ways is one this car's own line runs over</b> — the lanes of its chain and
-    /// the joins between them — and <b>which way the line takes after it</b> (<see cref="LaneClaim.Onward"/>). A
-    /// manoeuvre at a bay runs over none: the car making one is standing on whatever it is over.
-    /// </summary>
-    /// <remarks>
-    /// <b>A line's last lane is not where it ends until the car is at its end.</b> A line is laid a sight distance
-    /// ahead and grown lane by lane, so a car on the first part of a long lane is on the last lane of its line with
-    /// its route running on: read as ending there, a queue on it was a car going nowhere to the car behind.
-    /// </remarks>
-    public bool IsOnItsLine(int car, int way, out int onward)
-    {
-        onward = LaneOccupancy.NoWay;
-        var lanes = Cars.Line[car].LaneCount;
-        var chain = Cars.ChainOf(car);
-        for (var index = 0; index < lanes; index++)
-        {
-            var join = index == lanes - 1 ? RoadGraph.NoConnector : Roads.ConnectorBetween(chain[index], chain[index + 1]);
-            var joinWay = join == RoadGraph.NoConnector ? LaneOccupancy.NoWay : Ways.OfRoadConnector(join);
-            if (Ways.OfRoadLane(chain[index]) == way)
-            {
-                onward = joinWay != LaneOccupancy.NoWay ? joinWay
-                    : RunsOnPastItself(car) ? LaneOccupancy.RunsOn
-                    : LaneOccupancy.NoWay;
-                return true;
-            }
-
-            if (joinWay != LaneOccupancy.NoWay && joinWay == way)
-            {
-                onward = Ways.OfRoadLane(chain[index + 1]);
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// <b>Which way this car's line takes after one it runs over</b> (<see cref="IsOnItsLine"/>), or
-    /// <see cref="LaneOccupancy.NoWay"/> — the movement a body in its way is weighed against (TER-4c.6).
-    /// </summary>
-    public int OnwardAlongTheLine(int car, int way) => IsOnItsLine(car, way, out var onward) ? onward : LaneOccupancy.NoWay;
-
-    /// <summary>
-    /// Whether this car's line runs on past its leading edge. A line is the rear axle's (CAR-4a) and a car is
-    /// brought to rest with that axle at its end, so one that has arrived is past it.
-    /// </summary>
-    public bool RunsOnPastItself(int car) => Cars.Line[car].LengthM > Cars.ProgressM[car] + LeadingEdgeAheadOfTheAxleM(car);
 
     /// <summary>
     /// <b>How far ahead of the rear axle the body's leading edge stands along the line it is driving</b> —
@@ -305,13 +248,6 @@ internal sealed class DrivingGround(
         Ways.KindOf(way) == WayKind.Connector ? Roads.FirmOnConnector(Ways.RoadConnectorOf(way)) : ClaimPriority.Firm;
 
     /// <summary>
-    /// <b>Whether a car's pass or manoeuvre is laid on a way</b>: the ways the traffic drives, and never the pavement
-    /// — whose band may lie over the kerb (WLK-16), and whose walkers a pass that held it would hold on the kerb they
-    /// stand on.
-    /// </summary>
-    public bool IsCarriageway(int way) => Ways.IsDriven(way);
-
-    /// <summary>
     /// <b>Whether a zebra's paint lies over any of a stretch of one way</b>, read off its marks (TER-5c.3) — ground a
     /// car's pass never covers: somebody on the paint is somebody crossing, and a pass holding the rest of the zebra
     /// in front of them would stand them in the car's way with nowhere to go.
@@ -328,88 +264,35 @@ internal sealed class DrivingGround(
     }
 
     /// <summary>
-    /// <b>Where somebody on foot on the paint of a zebra a stretch of one way lies under is looked for</b> — anywhere on
-    /// any of its walking lanes, kerb to kerb, in the order the marks lie — each stopping the asker at
-    /// <paramref name="inTheWayM"/> (<see cref="LaneOccupancy.FirstBodyIn"/>).
+    /// <b>Where on its line a car's leading edge stops for something in ground a pass or a manoeuvre holds</b> from
+    /// <paramref name="firstAtM"/> on: at the station a flank short of it, and never behind where the car stands.
     /// </summary>
-    /// <returns>How many were written: one a mark of a zebra over the stretch.</returns>
-    public int AsksOfThePaint(in WayCover swept, float inTheWayM, Span<BodyAsk> into)
-    {
-        var written = 0;
-        foreach (ref readonly var mark in Occupancy.Marks.Of(swept.Way))
-        {
-            if (mark.MineFromM >= swept.ToM) break;
-            if (mark.MineToM <= swept.FromM || Lines.ZebraOf(mark.OnWay) == RibbonMarks.NoZebra) continue;
+    public float StopsShortOfM(int car, float firstAtM) =>
+        MathF.Max(Cars.ProgressM[car], firstAtM - Cars.BuildOf(car).FlankM) + LeadingEdgeAheadOfTheAxleM(car);
 
-            into[written++] = new BodyAsk(mark.OnWay, mark.FromM, mark.ToM, OnFoot: true, inTheWayM, FromTheBody: false);
-        }
-
-        return written;
-    }
+    /// <summary>Whether a hold of ground asked whole was had whole (TER-4c.6).</summary>
+    public bool IsKept(int hold) => hold != LaneOccupancy.NoHold && !Occupancy.CutOf(hold).Refused;
 
     /// <summary>
-    /// <b>The stretch of a way ground swept as a body holds where the body is over part of it</b>: that part, or — for
-    /// a movement through a box — the whole movement.
-    /// </summary>
-    /// <remarks>
-    /// <b>A box is held a movement at a time and never a piece of one</b>, as a car that is in one plans the rest of
-    /// the join: held in part, a car crossing the box was let in and cut in the middle of it, its body standing over
-    /// the ground of the pass on the movement beside its own, the pass waiting on it and it on the pass. Held
-    /// whole, it waits at the mouth.
-    /// </remarks>
-    public WayCover HeldAsABody(in WayCover cover) =>
-        Ways.KindOf(cover.Way) == WayKind.Connector ? cover with { FromM = 0f, ToM = Ways.LengthM(cover.Way) } : cover;
-
-    /// <summary>
-    /// <b>Whether the layer holds every way a holder's swept ground is held on</b> (<see cref="LaneOccupancy.Knows(int)"/>) —
-    /// each asked about either way, so a layer sent back in part holds them next.
-    /// </summary>
-    public bool Knows(SweptGround swept, int holder)
-    {
-        var known = true;
-        foreach (ref readonly var run in swept.Of(holder)) known &= Occupancy.Knows(HeldAsABody(run.Cover).Way);
-
-        return known;
-    }
-
-    /// <summary>Whether the layer holds every way of a car's line from <paramref name="fromM"/> to its end, each asked about.</summary>
-    [System.Runtime.CompilerServices.SkipLocalsInit]
-    public bool KnowsTheLine(int car, float fromM)
-    {
-        Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];
-        return Occupancy.Knows(ways[..WaysAlong(car, fromM, Cars.Line[car].LengthM, ways)]);
-    }
-
-    /// <summary>
-    /// <b>How many stations a car's swept ground is read at</b>, both ends among them — half a car's width of line
+    /// <b>How many stations a manoeuvre's ground is read at</b>, both ends among them — half a car's width of line
     /// apart, so the body turning between two is covered by the two to within a hair.
     /// </summary>
     public int StationsOfTheSweep(int car, float fromM, float toM) =>
         toM <= fromM ? 0 : (int)MathF.Ceiling((toM - fromM) / Cars.BuildOf(car).FlankM) + 1;
 
     /// <summary>
-    /// <b>What a reservation is to a driver reading it</b> — which is the reader's question and not the
-    /// row's, answered off the row alone (TER-4c.5).
+    /// <b>What cut a plan, to a driver reading it</b> — off its kind and rung alone (TER-4c.5): a body, a light's hold, or
+    /// ground somebody plans to use.
     /// </summary>
-    /// <remarks>
-    /// <b>A queue is a body travelling the way it is on</b> (<see cref="LaneClaim.OnItsLine"/>), which the
-    /// body said of itself when it was laid; a body merely standing on the way is something in the way of
-    /// whoever is travelling it. Ground somebody plans to use is a place to stop short of.
-    /// </remarks>
-    public static HeadwayKind KindOf(in LaneClaim claim) => claim switch
-    {
-        { Found: false } => HeadwayKind.Nothing,
-        { HasBody: false, Of: LaneRoster.Signal } => HeadwayKind.Light,
-        { HasBody: false } => HeadwayKind.Claimed,
-        { Passing: true } => HeadwayKind.Passing,
-        { Of: LaneRoster.Walking } => HeadwayKind.Walker,
-        { OnItsLine: true } => HeadwayKind.Queue,
-        _ => HeadwayKind.Obstruction,
-    };
+    public static HeadwayKind KindOf(in Refusal cut) =>
+        !cut.Refused ? HeadwayKind.Nothing
+        : cut.Kind == ClaimKind.Body ? HeadwayKind.Body
+        : cut.ByALight ? HeadwayKind.Light
+        : HeadwayKind.Claimed;
 }
 
 /// <summary>
-/// One way's stretch of what a car nobody drives can no longer stop short of (<see cref="DrivingGround.WhatCannotBeStoppedShortOf"/>):
-/// asked up to <paramref name="ToM"/>, on the terms of <paramref name="Ask"/>, whose hold is the one it is laid under.
+/// Where on a car's line one of the ways under it begins and ends (<see cref="DrivingGround.WaysAlong"/>): the line metre
+/// the way's own nought falls at, and the line metre its stretch of the line ends at.
 /// </summary>
-internal readonly record struct CommittedStretch(int Way, float ToM, PlannedAsk Ask);
+internal readonly record struct WaySpan(float StartM, float EndM);

@@ -2,6 +2,7 @@ using System.Numerics;
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.CityGen;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Containment;
 using TrafficSimulation.World.Parking;
 using TrafficSimulation.World.Terrain;
@@ -27,9 +28,6 @@ namespace TrafficSimulation.World.Town;
 internal sealed partial class TownWorld
 {
     readonly PlayerOrders _carOrders;
-
-    /// <summary>Every car's order, for the device to lay once at load (<c>app/devicetick/TownState</c>).</summary>
-    internal PlayerOrders CarOrders => _carOrders;
 
     /// <summary>Whether this car answers to the player rather than to a trip or an errand of its own (CTL-4).</summary>
     public bool IsUnderOrders(int car) => _carOrders.Manual[car];
@@ -87,8 +85,7 @@ internal sealed partial class TownWorld
     /// nothing else — a car, a car park, ground a car may drive on, or none of those.
     /// </summary>
     /// <remarks>
-    /// The ground is the plan's own classifier and not a shape test, so the answer agrees with what the
-    /// reader can see under the pointer to within half a cell. <b>A click on the ordered car itself is
+    /// A bay is a bay's space and a road is half a lane of a street lane's line. <b>A click on the ordered car itself is
     /// not a car it can follow</b>, and falls through to the ground beneath it.
     /// </remarks>
     PlayerOrder TheOrderAt(int car, Vector2 pointM, out int lead)
@@ -99,10 +96,14 @@ internal sealed partial class TownWorld
         if (lead == car || (lead >= 0 && Cars.Broken[lead])) lead = PlayerOrders.NoCar;
         if (lead >= 0) return PlayerOrder.FollowThatCar;
 
-        var ground = _terrain.GroundAt(pointM);
-        if (ground == Ground.Parking) return PlayerOrder.ParkThere;
+        // A player's order may look the place up (the root decision log, 2026-10-13): off the bays and the lanes, the
+        // town holding no ground of its own while it runs.
+        if (_parking.BayHolding(pointM) >= 0) return PlayerOrder.ParkThere;
 
-        return GroundCatalog.Drivable(ground) ? PlayerOrder.DriveThere : PlayerOrder.ParkAndWalkThere;
+        var lane = _roads.NearestStreetLane(pointM, out var alongM);
+        var onTheRoad = lane >= 0
+            && (Spline.SampleAt(_roads.ArcsOf(lane), alongM).PositionM - pointM).Length() <= _roads.LaneWidthM[lane] * 0.5f;
+        return onTheRoad ? PlayerOrder.DriveThere : PlayerOrder.ParkAndWalkThere;
     }
 
     /// <summary>The order in hand, begun. A leg that cannot be arranged at all is a refusal and never a car left half-sent.</summary>
@@ -257,7 +258,6 @@ internal sealed partial class TownWorld
     /// </remarks>
     Vector2 TheFollowingPlaceM(int lead)
     {
-        TakeTheCarsPoseBack(lead);
         return Cars.PositionM[lead] - (ForwardOf(lead) * _config.OrderedFollowGapM);
     }
 

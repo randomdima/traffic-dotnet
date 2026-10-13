@@ -85,12 +85,19 @@ internal sealed partial class DebugOverlay
         }
     }
 
-    /// <summary>The town's furniture as the solver bins it, which does not move once the town is laid.</summary>
+    /// <summary>
+    /// The town's furniture as the solver bins it, which does not move once the town is laid. <b>Only where the world is
+    /// stepped in managed code</b>: the device's grids are its own.
+    /// </summary>
     static void SolverStatics(
-        ref ScreenDraw draw, TownWorld world, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre) =>
+        ref ScreenDraw draw, TownWorld world, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
+    {
+        if (world.PhysicsForInstruments is not { } physics) return;
+
         SolverCells(
-            ref draw, world.PhysicsForInstruments.StaticIndex, Theme.SolverStaticCell, Theme.SolverStaticEdge,
-            viewCentreM, viewSpanM, pixelsPerMetre);
+            ref draw, physics.StaticIndex, Theme.SolverStaticCell, Theme.SolverStaticEdge, viewCentreM, viewSpanM,
+            pixelsPerMetre);
+    }
 
     /// <summary>
     /// And the roster the last step integrated, which is the half a frame pays for. <b>A body standing
@@ -98,10 +105,14 @@ internal sealed partial class DebugOverlay
     /// index: what the layer draws is the work the step did and not the town's census.
     /// </summary>
     static void SolverMovers(
-        ref ScreenDraw draw, TownWorld world, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre) =>
+        ref ScreenDraw draw, TownWorld world, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
+    {
+        if (world.PhysicsForInstruments is not { } physics) return;
+
         SolverCells(
-            ref draw, world.PhysicsForInstruments.MovingIndex, Theme.SolverMovingCell, Theme.SolverMovingEdge,
-            viewCentreM, viewSpanM, pixelsPerMetre);
+            ref draw, physics.MovingIndex, Theme.SolverMovingCell, Theme.SolverMovingEdge, viewCentreM, viewSpanM,
+            pixelsPerMetre);
+    }
 
     /// <summary>Whether a cell of this grid is on it at all and holds anything, which is what decides a shared edge.</summary>
     static bool Holds(CellGrid grid, int x, int y) => grid.Items(x, y).Length > 0;

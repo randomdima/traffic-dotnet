@@ -10,13 +10,17 @@ layout(push_constant) uniform Figures
 {
     uint carCount;
     float dtS;
-    float standardGravityMps2;
     float wheelSpinFadeMps;
     float wheelSpinAllowanceMps;
     float markSlipMps;
     float markCorneringSlipMps;
     float ploughCrawlMps;
     float engineBrakingMps2;
+    float workingSlipTangent;
+    float alongSlipEpsilonMps;
+    float liftedAxleLoadShare;
+    float ackermannLeastSteerRad;
+    float innerWheelLeastRadiusM;
 } figures;
 
 #define TYRE_FIGURES figures

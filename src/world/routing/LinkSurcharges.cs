@@ -91,29 +91,6 @@ internal sealed class LinkSurcharges
     public int MayBeLive => _liveCount;
 
     /// <summary>
-    /// How many slots hold a mark, live or spent — what a copy of the table is laid from (<see cref="MarkIn"/>), for a
-    /// search that reads it elsewhere (<c>DeviceRoutes</c>).
-    /// </summary>
-    /// <remarks>
-    /// <b>A slot off the live list is spent at <see cref="NowS"/></b>: it leaves the list only on a scan that found its life
-    /// run out, and every slot is listed again when the clock runs back. So every slot asked its life against
-    /// <see cref="NowS"/> answers what <see cref="PriceM"/> and <see cref="MarkedLink"/> answer.
-    /// </remarks>
-    public int SlotsMarked => _count;
-
-    /// <summary>One slot's mark as laid: the link it prices up, by how much, and until when.</summary>
-    public (int Link, float PriceM, float UntilS) MarkIn(int slot) => (_link[slot], _priceM[slot], _untilS[slot]);
-
-    /// <summary>The clock the marks are read against, as <see cref="Advance"/> last set it.</summary>
-    public float NowS => _nowS;
-
-    /// <summary>
-    /// <b>How many marks were ever laid</b>, as far as which slot the next one overwrites goes: the slots filled, and past
-    /// a full table the oldest's place — what a copy of the table marks on from (<c>route_tables.glsl</c>'s <c>marked</c>).
-    /// </summary>
-    public int MarksLaid => _count < _link.Length ? _count : _link.Length + _oldest;
-
-    /// <summary>
     /// The link one of the marks that may still be live prices up, or <see cref="TravelGraph.NoLink"/> where its
     /// life has run out — for a search that has to know whether its ground holds one (<see cref="RouteSearch"/>).
     /// </summary>

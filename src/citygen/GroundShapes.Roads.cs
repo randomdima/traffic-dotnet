@@ -70,13 +70,13 @@ internal sealed partial class GroundShapes
     /// walk of the tarmac and the tarmac stops square, so past the end the band is the square end grown by
     /// a walk and the corner of it is an arc.
     /// </remarks>
-    RoadGround Roads(Vector2 pointM) => Roads(_ownScan.Roads, pointM, CityPlan.RoadArrays.Ground);
+    RoadGround Roads(Vector2 pointM) => Roads(_ownScan.Roads, pointM);
 
     /// <inheritdoc cref="Roads(Vector2)"/>
     /// <remarks>
     /// <para>
-    /// <b>The roads of one level and none of another</b> (PHY-1a): a deck over a road says nothing about the
-    /// ground under it, and the road under it nothing about the deck.
+    /// <b>The roads of the ground and none of a bridge's</b> (PHY-1a): a deck over a road says nothing about the
+    /// ground under it.
     /// </para>
     /// <para>
     /// <b>The working set is not zeroed.</b> <see cref="ChainIndex.Near"/> fills every slot below the count
@@ -85,7 +85,7 @@ internal sealed partial class GroundShapes
     /// </para>
     /// </remarks>
     [SkipLocalsInit]
-    RoadGround Roads(ChainIndex.Scan scan, Vector2 pointM, byte level)
+    RoadGround Roads(ChainIndex.Scan scan, Vector2 pointM)
     {
         Span<int> near = stackalloc int[MostRoadsNear];
         Span<float> alongM = stackalloc float[MostRoadsNear];
@@ -97,7 +97,7 @@ internal sealed partial class GroundShapes
         var count = Math.Min(found, near.Length);
         for (var index = 0; index < count; index++)
         {
-            Weigh(near[index], alongM[index], pointM, level, ref deck, ref crossing, ref bay);
+            Weigh(near[index], alongM[index], pointM, ref deck, ref crossing, ref bay);
         }
 
         // The index answered with more roads than there was room for, so what it gave back is part of the
@@ -112,16 +112,16 @@ internal sealed partial class GroundShapes
 
                 var arcs = _pieces.Roads.SegmentsOf(road);
                 var atM = Spline.ProjectM(arcs, pointM, _roadLengthM[road] * 0.5f, _roadLengthM[road]);
-                Weigh(road, atM, pointM, level, ref deck, ref crossing, ref bay);
+                Weigh(road, atM, pointM, ref deck, ref crossing, ref bay);
             }
         }
 
         return new RoadGround(deck, crossing, bay);
     }
 
-    void Weigh(int road, float atM, Vector2 pointM, byte level, ref bool deck, ref bool crossing, ref bool bay)
+    void Weigh(int road, float atM, Vector2 pointM, ref bool deck, ref bool crossing, ref bool bay)
     {
-        if (_pieces.Roads.LevelOf(road) != level) return;
+        if (_pieces.Roads.LevelOf(road) != CityPlan.RoadArrays.Ground) return;
 
         var arcs = _pieces.Roads.SegmentsOf(road);
         var on = Spline.SampleAt(arcs, atM);

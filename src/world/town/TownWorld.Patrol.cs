@@ -164,7 +164,8 @@ internal sealed partial class TownWorld
         var bestM = float.PositiveInfinity;
 
         // Whether a scene is taken is a walk of the fleet, so only one nearer than the best is asked it.
-        for (var person = 0; person < People.Count; person++)
+        // A scene is somebody down or something wrecked, so only those are walked (TheSceneStands).
+        for (var person = _wounded.Next(0, People.Count); person >= 0; person = _wounded.Next(person + 1, People.Count))
         {
             var farM = (People.PositionM[person] - fromM).LengthSquared();
             if (farM >= bestM || !IsASceneWorthClosing(car, person, PatrolDuty.Nobody)) continue;
@@ -174,7 +175,7 @@ internal sealed partial class TownWorld
             bestM = farM;
         }
 
-        for (var broken = 0; broken < Cars.Count; broken++)
+        for (var broken = _wrecked.Next(0, Cars.Count); broken >= 0; broken = _wrecked.Next(broken + 1, Cars.Count))
         {
             var farM = (Cars.PositionM[broken] - fromM).LengthSquared();
             if (farM >= bestM || !IsASceneWorthClosing(car, PatrolDuty.Nobody, broken)) continue;
@@ -238,11 +239,10 @@ internal sealed partial class TownWorld
     /// </remarks>
     bool IsTheNearestFreePatrolTo(int car, Vector2 sceneM, float farM)
     {
-        for (var other = 0; other < Cars.Count; other++)
+        foreach (var other in _patrols)
         {
             if (other == car || !TakesCalls(other)) continue;
 
-            TakeTheCarsPoseBack(other);
             var otherM = (sceneM - Cars.PositionM[other]).LengthSquared();
             if (otherM < farM || (otherM == farM && other < car)) return false;
         }

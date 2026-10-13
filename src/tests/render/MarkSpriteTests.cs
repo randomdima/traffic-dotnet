@@ -76,7 +76,8 @@ public class MarkSpriteTests
 
         var drawn = Drawn(marks, new Vector2(0.5f, 0.5f));
 
-        Assert.Equal(drawn[0].Tint.W * 0.25f, drawn[1].Tint.W, 1e-5f);
+        // A tint is carried in 255 steps, each strength within half of one of what it was laid at.
+        Assert.Equal(drawn[0].Tint.W * 0.25f, drawn[1].Tint.W, 1f / byte.MaxValue);
         Assert.InRange(drawn[0].Tint.W, 0f, 1f);
     }
 

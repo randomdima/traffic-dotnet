@@ -12,9 +12,45 @@ namespace TrafficSimulation.Agents.Car.Body;
 /// wheels' work, and the order the wheels happened to be stepped in would break the cancellation
 /// between the two ends of an axle.
 /// </remarks>
-internal readonly record struct CarPose(
-    Vector2 PositionM, float HeadingRad, Vector2 VelocityMps, float YawRateRadPerS, float MassKg, Vector2 AccelerationMps2)
+internal readonly record struct CarPose
 {
+    public CarPose(
+        Vector2 positionM, float headingRad, Vector2 velocityMps, float yawRateRadPerS, float massKg, Vector2 accelerationMps2)
+        : this(positionM, headingRad, Heading.Unit(headingRad), velocityMps, yawRateRadPerS, massKg, accelerationMps2)
+    {
+    }
+
+    /// <summary>A pose whose <paramref name="forward"/> is already in hand as the unit vector of <paramref name="headingRad"/>.</summary>
+    /// <remarks>
+    /// <b>Only for a forward that is <c>Heading.Unit(headingRad)</c> to the bit</b> — the solver's own rotation, which it
+    /// reduces the heading to with that very function (<c>Shape.Rotation</c>) — so a pose read off a body costs no
+    /// <c>sincos</c>.
+    /// </remarks>
+    public CarPose(
+        Vector2 positionM, float headingRad, Vector2 forward, Vector2 velocityMps, float yawRateRadPerS, float massKg,
+        Vector2 accelerationMps2)
+    {
+        PositionM = positionM;
+        HeadingRad = headingRad;
+        Forward = forward;
+        VelocityMps = velocityMps;
+        YawRateRadPerS = yawRateRadPerS;
+        MassKg = massKg;
+        AccelerationMps2 = accelerationMps2;
+    }
+
+    public Vector2 PositionM { get; init; }
+
+    public float HeadingRad { get; init; }
+
+    public Vector2 VelocityMps { get; init; }
+
+    public float YawRateRadPerS { get; init; }
+
+    public float MassKg { get; init; }
+
+    public Vector2 AccelerationMps2 { get; init; }
+
     /// <summary>
     /// The way the car is pointing, taken once when the pose is read off the body. Five places in a
     /// driver's tick want it and each used to work it out again, which is a sine and a cosine apiece on
@@ -24,7 +60,7 @@ internal readonly record struct CarPose(
     /// Derived at construction, so a <c>with</c> expression that changed the heading would carry the old
     /// direction. Build a new pose instead.
     /// </remarks>
-    public Vector2 Forward { get; } = Heading.Unit(HeadingRad);
+    public Vector2 Forward { get; }
 
     /// <summary>The driver's right, which with <c>+y</c> down is the heading turned a quarter turn.</summary>
     public Vector2 Right => Heading.RightOf(Forward);
@@ -52,14 +88,16 @@ internal readonly record struct SurfaceUnderWheel(float Coefficient, float DragM
 
 /// <summary>
 /// <b>The only two grounds a wheel stands on</b> (TER-7b): the carriageway's where it stood on a way when its car's body
-/// was last laid (<see cref="CarFleet.WheelsOnAWay"/>), the grass's anywhere else — worked out once for the figures as
+/// was last laid — a bit a wheel, which the world keeps with the body — the grass's anywhere else — worked out once for the figures as
 /// they stand, and picked by the wheel's bit every tick.
 /// </summary>
 internal readonly record struct WheelGrounds(SurfaceUnderWheel OffAWay, SurfaceUnderWheel OnAWay)
 {
-    public static WheelGrounds Of(SimConfig config, GroundLocator terrain) => new(
-        SurfaceUnderWheel.Of(config, terrain.UnderAWheel(onAWay: false)),
-        SurfaceUnderWheel.Of(config, terrain.UnderAWheel(onAWay: true)));
+    public static WheelGrounds Of(SimConfig config)
+    {
+        var catalog = new GroundCatalog(config);
+        return new(SurfaceUnderWheel.Of(config, catalog.Grass), SurfaceUnderWheel.Of(config, catalog.Paved));
+    }
 
     /// <summary>Under one wheel of a car whose body was last laid with these of its wheels on a way.</summary>
     public SurfaceUnderWheel Under(byte wheelsOnAWay, int wheel) => ((wheelsOnAWay >> wheel) & 1) != 0 ? OnAWay : OffAWay;

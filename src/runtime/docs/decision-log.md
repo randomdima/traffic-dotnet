@@ -17,8 +17,8 @@ was measured on a region costs about 0.6 µs whatever its size (`--bench devicec
 against 1.81 in one). A town ticked on the device sent 428 regions a tick and 618 a rebuild — mostly the eight tables
 of every car whose line was laid again. Past eight runs a send is now `copy_runs.comp` reading the host's mapped copy
 over the bus, a workgroup a run, which pays a dispatch whatever the count; so `Vk.AfterTransfer` and
-`Vk.BeforeTransfer` order a kernel's writes as they order a copy's. OdesaOsm (`--bench devicetown`): 6.22 → 5.80 ms a
-tick, 34 regions a tick and 24 a rebuild.
+`Vk.BeforeTransfer` order a kernel's writes as they order a copy's. OdesaOsm, the town ticked on the device: 6.22 →
+5.80 ms a tick, 34 regions a tick and 24 a rebuild.
 
 ## 2026-09-11 — the swapchain asks for identity, and lets the presenter turn the frame
 

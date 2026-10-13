@@ -22,9 +22,14 @@ internal sealed class WalkingToThePost(WalkingGround ground, PersonActions actio
         actions.Enter(officer, PersonAction.Post);
     }
 
-    /// <summary>The ground the walk to the post covers, nearest first: every way the straight to it crosses.</summary>
-    public Span<LineWay> WaysOf(int officer, Span<LineWay> into) =>
-        into[..ground.TheStraightAhead(officer, People.GoalM[officer], People.RadiusM[officer], ground.PlansAheadM, into)];
+    /// <summary>
+    /// The ground the walk to the post covers: what the officer stands on as it goes, the post standing on no way of its
+    /// own (<see cref="WalkingGround.TheStraightAhead"/>).
+    /// </summary>
+    /// <param name="under">The ways the world read the officer's body on (TER-4c.2).</param>
+    public Span<LineWay> WaysOf(int officer, ReadOnlySpan<WayCover> under, Span<LineWay> into) =>
+        into[..ground.TheStraightAhead(
+            officer, People.GoalM[officer], PersonFleet.NoWay, 0f, People.RadiusM[officer], ground.PlansAheadM, under, into)];
 
     /// <summary>Aimed down the straight to the post, no further than it was granted.</summary>
     public void Aim(int officer) => ground.AimAlongTheStraight(officer, People.GoalM[officer]);

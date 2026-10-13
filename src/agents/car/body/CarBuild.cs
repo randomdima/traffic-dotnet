@@ -130,6 +130,23 @@ internal readonly record struct CarBuild
     /// </summary>
     public required float WheelRotatingMassKg { get; init; }
 
+    /// <summary>
+    /// <b>The per-tick arithmetic's own constants of this body</b>, laid with the build so a wheel loads them rather than
+    /// working them out: one over <see cref="WheelRotatingMassKg"/>, and the wheelbase and the track each times the weight
+    /// a load is a share of (<see cref="TyreModel.Loads"/>).
+    /// </summary>
+    /// <remarks>
+    /// Each is the very expression the model wrote before, so the model rounds as it did. Derived when the build is
+    /// resolved: a <c>with</c> that changed the wheelbase, the track or the rim would carry the old figure.
+    /// </remarks>
+    public required float InverseWheelRotatingMassPerKg { get; init; }
+
+    /// <inheritdoc cref="InverseWheelRotatingMassPerKg"/>
+    public required float WheelbaseWeightM2PerS2 { get; init; }
+
+    /// <inheritdoc cref="InverseWheelRotatingMassPerKg"/>
+    public required float TrackWeightM2PerS2 { get; init; }
+
     public required float MaxSteerRad { get; init; }
 
     public required float PedalRateMps3 { get; init; }
@@ -184,6 +201,41 @@ internal readonly record struct CarBuild
     /// plans by turns on it.
     /// </remarks>
     public float UtmostBrakingMps2 => MathF.Min(BrakingMps2, GripMps2);
+
+    /// <summary>
+    /// <b>What the car may actually brake at</b>: the pedal's own bound, or what its tyres can put down along the roll,
+    /// whichever gives out first — and nearly all of that (<see cref="DrivingFigures.BrakingMargin"/>), because a stop is
+    /// the one manoeuvre a driver aims the whole car at.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It is a figure along the roll and takes no notice of what the wheel is doing</b>, and every stop is planned at
+    /// it. The brake a driver actually applies in a bend is less (<see cref="CarFollower.BrakeCeilingMps2"/>), since the
+    /// tyres answer to one ellipse: a stop planned through a corner is made over more ground than it was planned in, and
+    /// what catches the difference is the hazard (<see cref="CarFollower.IsAHazard"/>).
+    /// </para>
+    /// <para>
+    /// This and the three figures below are derived when the build is resolved, each the very expression its readers
+    /// wrote before, so they round as they did — and, like the tyre constants, a <c>with</c> carries the old figure.
+    /// </para>
+    /// </remarks>
+    public required float PlannedBrakingMps2 { get; init; }
+
+    /// <summary>What the car plans a corner to hold: its tyres' grip, less the margin kept back (<see cref="DrivingFigures.GripMargin"/>).</summary>
+    public required float PlannedCorneringMps2 { get; init; }
+
+    /// <summary>
+    /// <b>How far in front of itself the profile plans with the pedal off the throttle</b>
+    /// (<see cref="CarFollower.LeadS"/>): the staleness of what the driver reads, and half the brake pedal's travel to
+    /// <see cref="PlannedBrakingMps2"/> — the lead every committed stretch of ground is taken at.
+    /// </summary>
+    public required float RestingLeadS { get; init; }
+
+    /// <summary>
+    /// <b>How far ahead of its nose a light holding the road is one this car is queueing for</b>
+    /// (<see cref="DrivePatienceFigures.LightQueueInCarLengths"/>) — the one wait that spends no clock (TLT-2a).
+    /// </summary>
+    public required float LightQueueReachM { get; init; }
 
     /// <summary>
     /// Where the wheel is after a tick of winding it from <paramref name="fromRad"/> towards
@@ -271,6 +323,10 @@ internal readonly record struct CarBuild
         // stays a demand a tyre can be measured against when the compound underneath it moves (CAR-45).
         var drivenTractionMps2 = DrivenTraction(gripMps2, frontShare, drivenFrontShare);
         var accelerationMps2 = drivenTractionMps2 * config.Car.DrivePedalInDrivenGrips * handling.Acceleration;
+        var rotatingMassKg = wheelRotatingMassKg ?? config.Tyre.WheelRotatingMassKg;
+        var weightMps2 = config.Tyre.StandardGravityMps2;
+        var pedalRateMps3 = (accelerationMps2 + brakingMps2) / config.Driving.PedalTravelS;
+        var plannedBrakingMps2 = MathF.Min(brakingMps2, gripMps2) * config.Driving.BrakingMargin;
 
         return new CarBuild
         {
@@ -299,9 +355,16 @@ internal readonly record struct CarBuild
             GripMps2 = gripMps2,
             WheelLengthM = wheelM?.X ?? config.Tyre.WheelLengthM,
             WheelWidthM = wheelM?.Y ?? config.Tyre.WheelWidthM,
-            WheelRotatingMassKg = wheelRotatingMassKg ?? config.Tyre.WheelRotatingMassKg,
+            WheelRotatingMassKg = rotatingMassKg,
+            InverseWheelRotatingMassPerKg = 1f / rotatingMassKg,
+            WheelbaseWeightM2PerS2 = wheelbaseM * weightMps2,
+            TrackWeightM2PerS2 = halfTrackM * 2f * weightMps2,
             MaxSteerRad = maxSteerRad,
-            PedalRateMps3 = (accelerationMps2 + brakingMps2) / config.Driving.PedalTravelS,
+            PedalRateMps3 = pedalRateMps3,
+            PlannedBrakingMps2 = plannedBrakingMps2,
+            PlannedCorneringMps2 = gripMps2 * config.Driving.GripMargin,
+            RestingLeadS = config.CarReactionS + (plannedBrakingMps2 / (2f * pedalRateMps3)),
+            LightQueueReachM = lengthM * config.Patience.LightQueueInCarLengths,
             SteerRateRadPerS = 2f * maxSteerRad / config.Driving.WheelTravelS,
             TurningRadiusM = turningRadiusM,
             ParkingTemplateRadiusM = turningRadiusM * config.Car.ParkingTemplateArcMargin,

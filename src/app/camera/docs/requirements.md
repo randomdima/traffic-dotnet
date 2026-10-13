@@ -21,8 +21,8 @@ the unit already picked out is how a reader asks to be put back on it.
 
 The zoom is about the **pointer**.
 
-**OBS-1b** `P7` A run **opens looking at the middle of the town, or at the nearest ground a car could be on**
-where no road is in the frame there at all. The middle of a city is a street and the middle of a ring is
+**OBS-1b** `P7` A run **opens looking at the middle of the town, or at the nearest street lane's line** where no
+road is in the frame there at all. The middle of a city is a street and the middle of a ring is
 the field inside it, so a camera left on the geometric centre opens on grass wherever a map's subject is
 not in the middle of its bounding box — anything laid around a park, a lake or a bay. **It is the nearest
 such ground and never a fit to the whole town**: the opening span is a figure, and what moves is where the

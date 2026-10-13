@@ -72,16 +72,12 @@ public class BayManoeuvreTests
     }
 
     /// <summary>
-    /// <b>Nor while the town's plans are being settled round it</b>: a car waiting for its manoeuvre's ground is held
-    /// where it stands by the manoeuvre and not by a plan down its line, so answering the plans again hands it
-    /// nothing to drive.
+    /// <b>Nor while the town's plans cut each other round it</b>: a car waiting for its manoeuvre's ground is held where it
+    /// stands by the manoeuvre and not by a plan down its line, so whatever the plans come to hands it nothing to drive.
     /// </summary>
-    /// <remarks>
-    /// Staged with every other car sent across the town, and watched until plans have been settled, because they
-    /// are settled again only in a rebuild where one cut another — which a town standing in its bays never has.
-    /// </remarks>
+    /// <remarks>Staged with every other car sent across the town, so the plans round it are cut every laying.</remarks>
     [Fact]
-    public void ACarDoesNotStartOutOfItsBayWhileTheTownsPlansAreSettled()
+    public void ACarDoesNotStartOutOfItsBayWhileTheTownMovesRoundIt()
     {
         using var world = new TownWorld(Towns.Built, Config);
         var loop = new SimLoop<TownWorld>(world, Config);
@@ -89,18 +85,14 @@ public class BayManoeuvreTests
 
         var (car, _, wreck) = SendACarOutOverAWreck(world);
         SendTheRestAcrossTheTown(world, car, wreck);
-        var settledBefore = world.PlansLaidAgain;
 
         var fastestMps = 0f;
-        var settledAt = -1;
-        for (var tick = 0; tick < SettlingTicks && (settledAt < 0 || tick < settledAt + WatchedTicks); tick++)
+        for (var tick = 0; tick < WatchedTicks; tick++)
         {
             loop.Advance(1);
             fastestMps = MathF.Max(fastestMps, world.Cars.VelocityMps[car].Length());
-            if (settledAt < 0 && world.PlansLaidAgain > settledBefore) settledAt = tick;
         }
 
-        Assert.True(settledAt >= 0, $"staging: no plan was settled in {SettlingTicks} ticks while the car waited");
         Assert.True(
             fastestMps <= Config.Driving.StopSpeedMps,
             $"car {car} rolled at up to {fastestMps:F2} m/s with its landing stood on; manoeuvre " +
@@ -243,18 +235,12 @@ public class BayManoeuvreTests
         world.Cars.Driven[car] = false;
         world.BreakWhereItStands(car);
         world.Cars.Command[car] = DriveCommand.Locked;
-        world.Cars.WheelSpinOf(car).Clear();
-        world.Cars.PositionM[car] = atM;
-        world.Cars.HeadingRad[car] = headingRad;
-        world.Cars.VelocityMps[car] = Vector2.Zero;
-        world.PhysicsForInstruments.Release(world.Cars.Body[car], atM, headingRad);
+        world.HandOverTheCommand(car);
+        world.StandTheCarAt(car, atM, headingRad);
     }
 
     /// <summary>Long enough for every car the city stands to be in its bay and at rest.</summary>
     const int WarmUpTicks = 120;
-
-    /// <summary>Three minutes: long enough for the city's cars, all sent across it at once, to cut each other's plans.</summary>
-    const int SettlingTicks = 10_800;
 
     /// <summary>Ten seconds: long enough to have begun a manoeuvre several times over.</summary>
     const int WatchedTicks = 600;

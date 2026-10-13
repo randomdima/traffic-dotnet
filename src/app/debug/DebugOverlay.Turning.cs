@@ -46,7 +46,7 @@ internal sealed partial class DebugOverlay
             // about the car, so a car that is not on screen draws nothing however far its arc would reach.
             if (!OnScreen(atM, viewCentreM, viewSpanM, build.LengthM)) continue;
 
-            if (!TurnCircle.Of(build, atM, cars.HeadingRad[car], cars.Command[car].SteerRad, out var turn)) continue;
+            if (!TurnCircle.Of(world.Config, build, atM, cars.HeadingRad[car], cars.Command[car].SteerRad, out var turn)) continue;
 
             var colour = Theme.TurnCircle;
             draw.LineM(turn.CentreM, turn.RearOuterM, lineM, colour);

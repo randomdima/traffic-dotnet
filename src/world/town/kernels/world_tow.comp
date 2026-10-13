@@ -1,0 +1,194 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every car's wheels and every tow bar (EVA-5, TowBar; ManagedWorld.TrailerWheels, HaulOnTheBars, TownWorld.StepBodies),
+// one thread a car, the car on the bar answering for its pair. Mode 0, after the tyre pass: a car on a bar rolls on the
+// pair at the far end from the fork — the lifted pair spends nothing, the pair down holds what it can of its sideways slip
+// and drags at the ground's drag, and turns with the road — and then every car's wheels are spent on its body in wheel
+// order, each impulse as the tyre pass or the bar left it in its table (DeviceTyres.ImpulseTable), at its point. Mode 1,
+// after every wheel is spent: the bar's pull at the towed car's eye and its opposite at the tractor's hook, answering the
+// motion the tyres have just asked for — run only where a bar is up (DeviceWorld). A car is on one bar and a tractor pulls
+// one car, so no two threads write one body.
+
+layout(local_size_x = 64) in;
+
+#include "world/town/kernels/world.glsl"
+#include "agents/car/body/kernels/car_build.glsl"
+#include "agents/car/body/kernels/tyre_rows.glsl"
+#include "world/physics/kernels/impulse.glsl"
+
+// The ground under a patch (DeviceTyres.SurfaceRow): off every way, then on one.
+struct TowSurface
+{
+    float coefficient;
+    float dragMps2;
+    float markThresholdM2S3;
+    uint ploughs;
+};
+
+layout(std430, binding = 0) readonly buffer Cars { WorldCar cars[]; };
+layout(std430, binding = 1) readonly buffer Builds { CarBuildRow builds[]; };
+layout(std430, binding = 2) readonly buffer BuildOf { uint buildOf[]; };
+layout(std430, binding = 3) readonly buffer Poses { TyrePose poses[]; };
+layout(std430, binding = 4) readonly buffer CarRows { TyreCarRow carRows[]; };
+layout(std430, binding = 5) readonly buffer Grounds { TowSurface grounds[]; };
+layout(std430, binding = 6) buffer ImpulseRows { vec4 impulseRows[]; };
+layout(std430, binding = 7) buffer WheelRows { TyreWheelRow wheelRows[]; };
+layout(std430, binding = 8) readonly buffer Pose { vec4 pose[]; };
+layout(std430, binding = 9) buffer Motion { vec4 motion[]; };
+layout(std430, binding = 10) readonly buffer Mass { vec2 mass[]; };
+
+const int TowWheels = 2;
+const int FrontPair = 0;
+const int RearPair = 2;
+
+// TyreModel.Wheels.
+const uint WheelsACar = 4u;
+
+vec2 rightOf(vec2 forward) { return vec2(-forward.y, forward.x); }
+
+// TyreModel.WheelAtM.
+vec2 wheelAtM(CarBuildRow car, int wheel)
+{
+    precise float front = car.wheelbaseM - car.centreAheadOfAxleM;
+    return vec2(wheel < 2 ? front : -car.centreAheadOfAxleM, wheel % 2 == 0 ? car.halfTrackM : -car.halfTrackM);
+}
+
+void trailerWheels(uint car, WorldCar row)
+{
+    bool byTheTail = (row.flags & CarByTheTail) != 0u;
+    int down = byTheTail ? FrontPair : RearPair;
+    int up = byTheTail ? RearPair : FrontPair;
+    CarBuildRow build = builds[buildOf[car]];
+    TyrePose p = poses[car];
+    vec2 right = rightOf(p.forward);
+    float loadKg = p.massKg * world.onTheTrailerAxleShare / float(TowWheels);
+    uint onAWay = tyreWheelsOnAWayOf(carRows[car]);
+    precise float alongMps = dot(p.velocityMps, p.forward);
+
+    for (int wheel = 0; wheel < TowWheels; wheel++)
+    {
+        impulseRows[car * 4u + uint(up + wheel)] = vec4(0.0);
+
+        int at = down + wheel;
+        vec2 atBody = wheelAtM(build, at);
+        precise vec2 atM = p.positionM + (p.forward * atBody.x) + (right * atBody.y);
+        vec2 fromCentreM = atM - p.positionM;
+        precise vec2 velocityMps = p.velocityMps + (p.yawRateRadPerS * vec2(-fromCentreM.y, fromCentreM.x));
+        TowSurface surface = grounds[(onAWay >> uint(at)) & 1u];
+        float wheelAlongMps = dot(velocityMps, p.forward);
+        float acrossMps = dot(velocityMps, right);
+
+        precise float wantAcrossNs = -acrossMps * loadKg;
+        precise float budgetNs = build.gripMps2 * surface.coefficient * loadKg * world.dtS;
+        float acrossNs = sign(wantAcrossNs) * min(abs(wantAcrossNs), budgetNs);
+        float dragNs = surface.dragMps2 <= 0.0
+            ? 0.0
+            : -sign(wheelAlongMps) * min(surface.dragMps2 * loadKg * world.dtS, abs(wheelAlongMps) * loadKg);
+
+        precise vec2 impulseNs = (right * acrossNs) + (p.forward * dragNs);
+        impulseRows[car * 4u + uint(at)] = vec4(impulseNs, atM);
+        wheelRows[car * 4u + uint(at)].spinMps = alongMps;
+    }
+}
+
+// One end of the bar off the body it is bolted to (TowBar's HookEnd): its point, that point's velocity, the arm from the
+// body's centre, and the body's two inverses.
+struct HookEnd
+{
+    vec2 atM;
+    vec2 velocityMps;
+    vec2 armM;
+    vec2 inverses;
+};
+
+HookEnd endOf(int body, vec2 atM)
+{
+    vec4 moving = motion[body];
+    vec2 armM = atM - pose[body].xy;
+    return HookEnd(atM, moving.xy + (moving.z * vec2(-armM.y, armM.x)), armM, mass[body]);
+}
+
+float crossOf(vec2 a, vec2 b) { return (a.x * b.y) - (a.y * b.x); }
+
+// TowBar.EffectiveKg.
+float effectiveKg(HookEnd first, HookEnd second, vec2 direction)
+{
+    float turnA = crossOf(first.armM, direction);
+    float turnB = crossOf(second.armM, direction);
+    float resistance = first.inverses.x + second.inverses.x + (first.inverses.y * turnA * turnA)
+                       + (second.inverses.y * turnB * turnB);
+    return resistance > 0.0 ? 1.0 / resistance : 0.0;
+}
+
+// TowBar.Held.
+vec2 held(vec2 impulseNs, float mostNs)
+{
+    float lengthNs = length(impulseNs);
+    return lengthNs <= mostNs || lengthNs <= 0.0 ? impulseNs : impulseNs / lengthNs * mostNs;
+}
+
+// TowBar.PullNs.
+vec2 pullNs(HookEnd tractor, HookEnd towed, float towedKg)
+{
+    if (world.hitchSettleS <= 0.0) return vec2(0.0);
+
+    vec2 alongTheBarM = tractor.atM - towed.atM;
+    vec2 wantMps = (alongTheBarM / world.hitchSettleS) - (towed.velocityMps - tractor.velocityMps);
+    vec2 along = dot(alongTheBarM, alongTheBarM) > 0.0 ? normalize(alongTheBarM) : vec2(1.0, 0.0);
+    vec2 across = vec2(-along.y, along.x);
+    float mostNs = world.hitchMostMps2 * towedKg * world.dtS;
+    vec2 alongNs = held(along * dot(wantMps, along) * effectiveKg(tractor, towed, along), mostNs);
+    vec2 acrossNs = held(across * dot(wantMps, across) * effectiveKg(tractor, towed, across), mostNs * world.hitchSideShare);
+    return alongNs + acrossNs;
+}
+
+void haul(uint car, WorldCar row)
+{
+    uint tractor = uint(row.tractor);
+    int towedBody = row.body;
+    int tractorBody = cars[tractor].body;
+    CarBuildRow tractorBuild = builds[buildOf[tractor]];
+    CarBuildRow towedBuild = builds[buildOf[car]];
+    float endSign = (row.flags & CarByTheTail) != 0u ? -1.0 : 1.0;
+
+    vec4 hooked = pose[tractorBody];
+    vec4 towing = pose[towedBody];
+    precise vec2 hookM = hooked.xy + (hooked.zw * tractorBuild.towHingeAheadOfCentreM);
+    precise vec2 eyeM = towing.xy + (towing.zw * endSign * (towedBuild.towGripFromTheMiddleM + tractorBuild.towReachM));
+    vec2 pull = pullNs(endOf(tractorBody, hookM), endOf(towedBody, eyeM), row.massKg);
+
+    motion[towedBody] = impulsedAt(motion[towedBody], towing.xy, mass[towedBody], pull, eyeM);
+    motion[tractorBody] = impulsedAt(motion[tractorBody], hooked.xy, mass[tractorBody], -pull, hookM);
+}
+
+// Every wheel of the car spent on its body (PhysicsWorld.ApplyImpulseAt), in wheel order as on the host.
+void spendTheWheels(uint car, int body)
+{
+    vec2 positionM = pose[body].xy;
+    vec2 inverses = mass[body];
+    vec4 moving = motion[body];
+    for (uint wheel = 0u; wheel < WheelsACar; wheel++)
+    {
+        vec4 spent = impulseRows[car * WheelsACar + wheel];
+        moving = impulsedAt(moving, positionM, inverses, spent.xy, spent.zw);
+    }
+
+    motion[body] = moving;
+}
+
+void main()
+{
+    uint car = gl_GlobalInvocationID.x;
+    if (car >= world.count) return;
+
+    WorldCar row = cars[car];
+    if (world.mode == 0u)
+    {
+        if (row.tractor >= 0) trailerWheels(car, row);
+        spendTheWheels(car, row.body);
+        return;
+    }
+
+    if (row.tractor >= 0) haul(car, row);
+}

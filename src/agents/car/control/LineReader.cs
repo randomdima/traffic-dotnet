@@ -15,7 +15,7 @@ internal readonly record struct LineAdvance(float ProgressM, float CoveredM, flo
 /// <summary>
 /// <b>The route's line under a car, read on its tick</b>: where along it the rear axle is, the lane it has left shifted
 /// off it, and whether what is left has run short of the car's sight. Arithmetic over the fleet's own line and nothing
-/// else, so a tick reads every car at once and the town's tick and the device's are held to one answer.
+/// else, so a tick reads every car at once.
 /// </summary>
 internal static class LineReader
 {
@@ -28,11 +28,25 @@ internal static class LineReader
     /// place drawn at a node, a turn-in that begins where the lane does — ends where that lane begins, and a car handed
     /// over onto it there was a line laid again at its own stop, past it by its own nose, and sent round.
     /// </remarks>
-    public static LineAdvance Advance(CarFleet cars, int car, Vector2 rearAxleM)
+    /// <param name="readM">
+    /// Where the world read the car along this very line (<c>LineFollowed</c>), which is the projection's own answer to the
+    /// bit — or NaN, where the car is projected onto it here.
+    /// </param>
+    public static LineAdvance Advance(CarFleet cars, int car, Vector2 rearAxleM, float readM)
     {
         ref readonly var build = ref cars.BuildOf(car);
         var lastM = cars.ProgressM[car];
-        var progressM = CarFollower.ProgressM(build, cars.LineOf(car), rearAxleM, lastM);
+        float progressM;
+        if (float.IsNaN(readM))
+        {
+            progressM = CarFollower.ProgressM(build, cars.LineOf(car), rearAxleM, lastM, ref cars.LineCursor[car]);
+        }
+        else
+        {
+            progressM = readM;
+            Spline.MoveTheCursor(cars.LineOf(car), lastM, build.ProjectionWindowM, ref cars.LineCursor[car]);
+        }
+
         var coveredM = MathF.Abs(progressM - lastM);
 
         var line = cars.Line[car];
@@ -43,7 +57,8 @@ internal static class LineReader
         }
 
         var shiftM = cars.ShiftTheLine(car);
-        progressM = CarFollower.ProgressM(build, cars.LineOf(car), rearAxleM, MathF.Max(0f, progressM - shiftM));
+        progressM = CarFollower.ProgressM(
+            build, cars.LineOf(car), rearAxleM, MathF.Max(0f, progressM - shiftM), ref cars.LineCursor[car]);
         return new LineAdvance(progressM, coveredM, shiftM);
     }
 

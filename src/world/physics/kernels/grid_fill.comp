@@ -1,9 +1,14 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
 
-// A grid's second pass: every roster body filed in every cell its box covers, at the run the scan gave that cell.
-// The order within a cell is whichever thread got there first — nothing reads it in that order, since each owner
-// sorts the candidates it gathers (pairs.comp).
+// A grid's second pass: every roster body in the world filed in every cell its box covers, at the run the scan gave
+// that cell's slot (grid_count.comp). The order within a run is whichever thread got there first — nothing reads it in
+// that order, since each owner sorts the candidates it gathers (pairs.comp).
+//
+// Filed cell for cell (buckets 0, the furniture's grid, once), a body is written as itself, at the run's start plus a
+// cursor counted up from nought. Hashed, it is written with the cell it is filed for, since a bucket holds every cell
+// that hashes to it, at the run's start plus its slot's count counted back down — which leaves every count at nought
+// for the next step's grid_count, so nothing is cleared between steps.
 
 layout(local_size_x = 64) in;
 
@@ -12,8 +17,13 @@ layout(local_size_x = 64) in;
 layout(std430, binding = 0) readonly buffer Roster { int roster[]; };
 layout(std430, binding = 1) readonly buffer Bounds { vec4 bounds[]; };
 layout(std430, binding = 2) readonly buffer Starts { uint starts[]; };
-layout(std430, binding = 3) buffer Cursor { uint cursor[]; };
-layout(std430, binding = 4) writeonly buffer Items { int items[]; };
+
+// The cursor, filed cell for cell; the counts grid_count left, hashed.
+layout(std430, binding = 3) buffer Taken { uint taken[]; };
+
+// A body a cell filed cell for cell; a body and its cell two words an entry, hashed.
+layout(std430, binding = 4) writeonly buffer Items { uint items[]; };
+layout(std430, binding = 5) readonly buffer Filter { uint filter_[]; };
 
 void main()
 {
@@ -21,6 +31,8 @@ void main()
     if (slot >= rosterCount) return;
 
     int body = roster[slot];
+    if ((filter_[body] & enabledBit) == 0u) return;
+
     vec4 box = bounds[body];
     int fromX = cellX(box.x);
     int fromY = cellY(box.y);
@@ -31,8 +43,19 @@ void main()
         for (int x = fromX; x <= toX; x++)
         {
             uint cell = cellIndex(x, y);
-            uint at = starts[cell] + atomicAdd(cursor[cell], 1u);
-            if (at < capacity) items[at] = body;
+            if (buckets == 0u)
+            {
+                uint at = starts[cell] + atomicAdd(taken[cell], 1u);
+                if (at < capacity) items[at] = uint(body);
+                continue;
+            }
+
+            uint bucket = slotOf(cell);
+            uint at = starts[bucket] + atomicAdd(taken[bucket], 0xFFFFFFFFu) - 1u;
+            if (at >= capacity) continue;
+
+            items[2u * at] = uint(body);
+            items[2u * at + 1u] = cell;
         }
     }
 }

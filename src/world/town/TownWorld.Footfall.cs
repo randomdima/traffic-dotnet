@@ -63,7 +63,9 @@ internal sealed partial class TownWorld
 
         if (_walkingGround.IsAfoot(person, out var way)) People.OnWay[person] = way;
 
-        _walkingBack.Consider(person);
+        KeepItsPlace(person);
+
+        _walkingBack.Consider(person, _world.View.CoversOfWalker(person));
     }
 
     /// <summary>
@@ -77,26 +79,19 @@ internal sealed partial class TownWorld
         _walkingGround.WalkHold[person] = LaneOccupancy.NoHold;
         if (!_personActions.WalksOnItsOwnFeet(person)) return;
 
-        // <b>A walker on a pass is held only by a body inside it</b> (TER-4c.6): the ground up to its end is the
-        // pass's, and what it plans begins past there.
-        if (People.Pass[person].Begun && _sidestepping.TheBodyInTheSidestep(person, out var inTheWay, out var on))
-        {
-            _walkingGround.HoldShortOf(person, inTheWay, on);
-            return;
-        }
-
+        // <b>A walker on a pass walks on in the pass's hold</b> (TER-4c.6): whatever refuses the pass holds it where it
+        // stands.
         var ways = WaysOfTheWalk(person, walk);
-        WhenAWalkIsPlanned?.Invoke(this, person, ways);
         var occupant = _walkingGround.HeldAs(person, out var roster);
-        _walkingGround.Claim(person, occupant, roster, ways);
+        _walkingGround.Claim(person, occupant, roster, ways, _sidestepping.HoldOf(person));
     }
 
     /// <summary>The ground a walker's action walks, nearest first, as that action has it.</summary>
     Span<LineWay> WaysOfTheWalk(int person, Span<LineWay> into) => People.Action[person] switch
     {
-        PersonAction.Rejoin => _walkingBack.WaysOf(person, into),
-        PersonAction.Post => _walkingToThePost.WaysOf(person, into),
-        _ => _walkingItsRoute.WaysOf(person, into),
+        PersonAction.Rejoin => _walkingBack.WaysOf(person, _world.View.CoversOfWalker(person), into),
+        PersonAction.Post => _walkingToThePost.WaysOf(person, _world.View.CoversOfWalker(person), into),
+        _ => _walkingItsRoute.WaysOf(person, _world.View.CoversOfWalker(person), into),
     };
 
     /// <summary>

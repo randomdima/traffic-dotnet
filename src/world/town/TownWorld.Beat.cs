@@ -6,6 +6,7 @@ using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Containment;
 using TrafficSimulation.World.Parking;
+using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Town;
 
@@ -33,9 +34,6 @@ internal sealed partial class TownWorld
 
     int[] _districtLanes = [];
 
-    /// <summary>Each district's streets, for the device to lay once at load (<c>app/devicetick/TownState</c>).</summary>
-    internal (int[] Offsets, int[] Lanes) DistrictStreets => (_districtLaneOffsets, _districtLanes);
-
     /// <summary>How many people ride in each service vehicle: the figure, and never more than it has seats for (SRV-3).</summary>
     static int CrewAboard(SimConfig config) => Math.Min(config.Service.CrewPerVehicle, Containers.CrewSeats);
 
@@ -61,13 +59,37 @@ internal sealed partial class TownWorld
 
         _districtLaneOffsets = counts;
         _districtLanes = new int[counts[^1]];
+        _inTheDistrictFromM = new float[counts[^1]];
+        _inTheDistrictToM = new float[counts[^1]];
         var filled = new int[districts.Count];
         for (var lane = 0; lane < of.Length; lane++)
         {
             if (of[lane] == ServiceBeat.NoDistrict) continue;
 
-            _districtLanes[counts[of[lane]] + filled[of[lane]]++] = lane;
+            var at = counts[of[lane]] + filled[of[lane]]++;
+            _districtLanes[at] = lane;
+            InTheDistrict(lane, of[lane], out _inTheDistrictFromM[at], out _inTheDistrictToM[at]);
         }
+    }
+
+    /// <summary>
+    /// How much of each district street lies in the district it is filed under (<see cref="_districtLanes"/>), as the
+    /// stretch either side of its middle — worked out while the map is built, a lane's width at a time, so a beat drawn
+    /// on it asks nothing of the districts while the town runs (the root decision log, 2026-10-13).
+    /// </summary>
+    float[] _inTheDistrictFromM = [];
+
+    /// <inheritdoc cref="_inTheDistrictFromM"/>
+    float[] _inTheDistrictToM = [];
+
+    void InTheDistrict(int lane, int district, out float fromM, out float toM)
+    {
+        var arcs = _roads.ArcsOf(lane);
+        var lengthM = _roads.LaneLengthM[lane];
+        var stepM = _config.LaneWidthM;
+        fromM = toM = lengthM * 0.5f;
+        while (fromM - stepM >= 0f && _plan.Districts.At(Spline.SampleAt(arcs, fromM - stepM).PositionM) == district) fromM -= stepM;
+        while (toM + stepM <= lengthM && _plan.Districts.At(Spline.SampleAt(arcs, toM + stepM).PositionM) == district) toM += stepM;
     }
 
     /// <summary>
@@ -114,19 +136,19 @@ internal sealed partial class TownWorld
         // A street runs over a district's edge as often as not, and the part of it past the edge is the next
         // district's: a place drawn there is moved to the street's middle, which is this district's.
         ref var draw = ref Cars.Draw[car];
-        var lane = _districtLanes[from + draw.NextInt(to - from)];
-        var arcs = _roads.ArcsOf(lane);
-        var placeM = Spline.SampleAt(arcs, draw.NextFloat() * _roads.LaneLengthM[lane]).PositionM;
-        if (district >= 0 && _plan.Districts.At(placeM) != district)
+        var at = from + draw.NextInt(to - from);
+        var lane = _districtLanes[at];
+        var alongM = draw.NextFloat() * _roads.LaneLengthM[lane];
+        if (district >= 0 && (alongM < _inTheDistrictFromM[at] || alongM > _inTheDistrictToM[at]))
         {
-            placeM = Spline.SampleAt(arcs, _roads.LaneLengthM[lane] * 0.5f).PositionM;
+            alongM = _roads.LaneLengthM[lane] * 0.5f;
         }
 
         if (Cars.Ambulance[car]) EnterTheStage(car, RescueStage.Patrolling);
         else if (IsAnEvacuator(car)) EnterTheRecoveryStage(car, RecoveryStage.Patrolling);
         else EnterThePatrolStage(car, PatrolStage.Patrolling);
 
-        SendTo(car, placeM, ParkingRegistry.NoBay);
+        SendTo(car, new RoadPlace(lane, alongM));
         return true;
     }
 

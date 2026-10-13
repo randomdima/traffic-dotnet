@@ -88,16 +88,6 @@ internal sealed class ParkingRegistry
 
     public int BayCount => _centreM.Length;
 
-    /// <summary>
-    /// <b>Every table the registry keeps</b>, for the device to lay once at load (<c>app/devicetick/TownState</c>): each
-    /// bay's place, the three pairs of inverse registers, the long holds, the index of the bays' centres and one bay's size.
-    /// </summary>
-    internal (Vector2[] CentreM, float[] HeadingRad, Vector2[] DoorM, int[] BayOfCar, int[] CarInBay, int[] ClaimedBy,
-        int[] ClaimedBayOfCar, int[] TurningIn, int[] TurnOfCar, int[] HeldFor, BucketGrid Near, float SpaceLengthM,
-        float SpaceWidthM) Kept =>
-        (_centreM, _headingRad, _doorM, _bayOfCar, _carInBay, _claimedBy, _claimedBayOfCar, _turningIn, _turnOfCar, _heldFor, _near,
-            _spaceLengthM, _spaceWidthM);
-
     public Vector2 CentreM(int bay) => _centreM[bay];
 
     public float HeadingRad(int bay) => _headingRad[bay];

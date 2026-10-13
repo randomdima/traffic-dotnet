@@ -26,8 +26,8 @@ public class CarFleetLineTests
         var graph = RoadGraph.Build(Towns.Of(Towns.Fixture), Config);
         var arcsPerCar = LineAssembler.ArcsFor(graph);
         var cars = new CarFleet(2, arcsPerCar, CarBuilds.OfTheFleet(Config, CarCatalog.Shared));
-        var shifted = cars.Add(default, Vector2.Zero, 0f, 0, false, new Rng(1, 1));
-        var laid = cars.Add(default, Vector2.Zero, 0f, 0, false, new Rng(1, 2));
+        var shifted = cars.Add(Vector2.Zero, 0f, 0, false, new Rng(1, 1));
+        var laid = cars.Add(Vector2.Zero, 0f, 0, false, new Rng(1, 2));
         var random = new Random(3);
         Span<int> lanes = stackalloc int[LineAssembler.MostLanes];
         for (var trial = 0; trial < 500; trial++)
@@ -53,9 +53,61 @@ public class CarFleetLineTests
                 Assert.Equal(cars.LaneFirstArcsOf(laid)[slot], cars.LaneFirstArcsOf(shifted)[slot]);
                 Assert.Equal(cars.LaneStartsOf(laid)[slot], cars.LaneStartsOf(shifted)[slot], LineTolerance.RoundingM);
                 Assert.Equal(cars.LaneEndsOf(laid)[slot], cars.LaneEndsOf(shifted)[slot], LineTolerance.RoundingM);
+                Assert.Equal(cars.JoinsOf(laid)[slot], cars.JoinsOf(shifted)[slot]);
                 if (slot + 1 < cars.Line[laid].LaneCount) Assert.Equal(cars.JoinBreaksOf(laid)[slot], cars.JoinBreaksOf(shifted)[slot]);
             }
         }
+    }
+
+    /// <summary>
+    /// <b>A line grown at its far end is the line assembled whole over the same lanes</b>, to the bit — its arcs, entry
+    /// figures and metres — whether or not it was shifted on before it grew: the lanes it kept are summed again, never
+    /// carried (<see cref="LineAssembler.Assemble"/>'s <c>keptWhole</c>, <see cref="CornerLimits.Lay"/>'s <c>keptBefore</c>).
+    /// </summary>
+    [Fact]
+    public void AGrownLineIsTheLineAssembledWhole()
+    {
+        var graph = RoadGraph.Build(Towns.Of(Towns.Fixture), Config);
+        var cars = new CarFleet(2, LineAssembler.ArcsFor(graph), CarBuilds.OfTheFleet(Config, CarCatalog.Shared));
+        var grown = cars.Add(Vector2.Zero, 0f, 0, false, new Rng(1, 1));
+        var whole = cars.Add(Vector2.Zero, 0f, 0, false, new Rng(1, 2));
+        var random = new Random(5);
+        Span<int> lanes = stackalloc int[LineAssembler.MostLanes];
+        var grew = 0;
+        for (var trial = 0; trial < 500; trial++)
+        {
+            var count = Chain(graph, lanes, random);
+            var shifts = random.Next(2);
+            var keeps = 2 + shifts;
+            if (count <= keeps) continue;
+
+            var stopM = random.NextSingle() * graph.LaneLengthM[lanes[keeps - 1]];
+            Lay(graph, cars, grown, lanes[..keeps], stopM);
+            if (cars.Line[grown].LaneCount != keeps) continue;
+
+            for (var shift = 0; shift < shifts; shift++) cars.ShiftTheLine(grown);
+
+            var chain = lanes[shifts..count];
+            var kept = cars.Line[grown].LaneCount - 1;
+            var line = LineAssembler.Assemble(
+                graph, chain, cars.LineArcsOf(grown), cars.LaneStartsOf(grown), cars.LaneEndsOf(grown),
+                laneFirstArc: cars.LaneFirstArcsOf(grown), keptWhole: kept);
+            var keptArcs = cars.LaneFirstArcsOf(grown)[kept];
+            cars.SetLine(grown, line);
+            CornerLimits.Lay(cars.LineOf(grown), cars.LineEntriesOf(grown), Config, keptArcs);
+            Lay(graph, cars, whole, chain, float.PositiveInfinity);
+            grew++;
+
+            Assert.Equal(cars.Line[whole], cars.Line[grown]);
+            Assert.True(cars.LineOf(whole).SequenceEqual(cars.LineOf(grown)));
+            Assert.True(cars.EntriesOf(whole).SequenceEqual(cars.EntriesOf(grown)));
+            var laneCount = cars.Line[whole].LaneCount;
+            Assert.True(cars.LaneStartsOf(whole)[..laneCount].SequenceEqual(cars.LaneStartsOf(grown)[..laneCount]));
+            Assert.True(cars.LaneEndsOf(whole)[..laneCount].SequenceEqual(cars.LaneEndsOf(grown)[..laneCount]));
+            Assert.True(cars.LaneFirstArcsOf(whole)[..laneCount].SequenceEqual(cars.LaneFirstArcsOf(grown)[..laneCount]));
+        }
+
+        Assert.True(grew > 0, "no chain was long enough to grow");
     }
 
     static int Chain(RoadGraph graph, Span<int> lanes, Random random)
@@ -80,9 +132,6 @@ public class CarFleetLineTests
         cars.SetLine(car, line);
         lanes[..line.LaneCount].CopyTo(cars.ChainOf(car));
         CornerLimits.Lay(cars.LineOf(car), cars.LineEntriesOf(car), Config);
-        for (var slot = 0; slot + 1 < line.LaneCount; slot++)
-        {
-            cars.JoinBreaksOf(car)[slot] = graph.BreaksTheLine(graph.ConnectorBetween(lanes[slot], lanes[slot + 1]));
-        }
+        cars.LayTheJoins(car, graph);
     }
 }

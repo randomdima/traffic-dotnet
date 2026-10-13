@@ -51,11 +51,13 @@ internal sealed class ParkingIn(
 
     /// <summary>
     /// <b>A car waiting for its manoeuvre into a bay, on its own clock</b>: shaped afresh from where it stands and asked
-    /// for, where the last one asked for was not had.
+    /// for, where the last one asked for was not had — every <see cref="Core.Config.DrivingFigures.ManoeuvreAskEveryS"/>.
     /// </summary>
-    public void Decide(int car)
+    /// <param name="sinceLastDecisionS">How much of the town's time this decision answers for, which its clock runs by.</param>
+    public void Decide(int car, float sinceLastDecisionS)
     {
         if (Manoeuvres.IsBegun(car) || Manoeuvres.Stage[car] == ManoeuvreStage.Asked) return;
+        if (!bays.IsTimeToAsk(car, sinceLastDecisionS)) return;
 
         TakeUpTheBay(car, Manoeuvres.Bay[car], Cars.ProgressM[car], Cars.AlongMps[car]);
     }
@@ -90,9 +92,8 @@ internal sealed class ParkingIn(
     public bool TakeUpTheBay(int car, int bay, float progressM, float alongMps)
     {
         ref readonly var build = ref Cars.BuildOf(car);
-        var brakingMps2 = CarFollower.BrakingMps2(ground.Config, build);
         var toTheStopM = Cars.Line[car].LengthM - progressM;
-        if (toTheStopM > DrivingGround.StoppingM(MathF.Max(0f, alongMps), brakingMps2) + build.LengthM) return false;
+        if (toTheStopM > DrivingGround.StoppingM(MathF.Max(0f, alongMps), build.PlannedBrakingMps2) + build.LengthM) return false;
 
         var lane = Cars.ChainOf(car)[Cars.Line[car].LaneCount - 1];
         if (!ShapeTheWayIn(car, bay, lane)) return false;
@@ -157,7 +158,7 @@ internal sealed class ParkingIn(
     bool ShapeTheWayIn(int car, int bay, int lane)
     {
         ref readonly var build = ref Cars.BuildOf(car);
-        var forward = Heading.Unit(Cars.HeadingRad[car]);
+        var forward = Cars.Forward[car];
         var from = new BayManoeuvre.Pose(CarFollower.RearAxleM(build, Cars.PositionM[car], forward), Cars.HeadingRad[car]);
         var radiusM = build.ParkingTemplateRadiusM;
 
@@ -169,8 +170,8 @@ internal sealed class ParkingIn(
 
         var noseM = float.PositiveInfinity;
         var backM = float.PositiveInfinity;
-        if (noseShape.Exists && !bays.WhatTheShapeTakes(car, noseIn, noseShape, out noseM)) noseM = float.PositiveInfinity;
-        if (backShape.Exists && !bays.WhatTheShapeTakes(car, backIn, backShape, out backM)) backM = float.PositiveInfinity;
+        if (noseShape.Exists && !bays.WhatTheShapeTakes(car, bay, noseIn, noseShape, out noseM)) noseM = float.PositiveInfinity;
+        if (backShape.Exists && !bays.WhatTheShapeTakes(car, bay, backIn, backShape, out backM)) backM = float.PositiveInfinity;
         if (float.IsPositiveInfinity(noseM) && float.IsPositiveInfinity(backM)) return false;
 
         var backs = backM < noseM || (backM == noseM && Cars.BacksIntoBays[car]);

@@ -40,6 +40,8 @@ internal sealed partial class Game
     private partial BotEye? NewEye(CityPlan plan, GroundMesh ground, int widthPx, int heightPx) =>
         new(_vk, plan, ground, _looks!, _config, widthPx, heightPx);
 
+    partial void LetGoOfTheTriangles(GroundMesh ground) => ground.ForgetTheTriangles();
+
     /// <summary>
     /// The map picked, laid on a thread of its own (<see cref="LaidTown"/>) and stood up on the first
     /// frame it is ready in. <b>No frame waits for it</b> (OBS-2n): the window keeps pumping, the town

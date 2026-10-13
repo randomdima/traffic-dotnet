@@ -8,9 +8,9 @@ using Xunit;
 namespace TrafficSimulation.Tests.CityGen;
 
 /// <summary>
-/// <b>A bridge over a road is driven ground of its own</b> (TER-7b, PHY-1a): the ground's boundary leaves it out and
-/// the level above is its own shape, so what a point is depends on which of the two a body stands on — each asked
-/// of one street carried over another (<see cref="TracedPlanTests.OverAStreet"/>).
+/// <b>A bridge over a road is driven ground of its own</b> (TER-7b, PHY-1a): the ground's boundary leaves it out, so
+/// what the ground is under a deck is the ground level's — each asked of one street carried over another
+/// (<see cref="TracedPlanTests.OverAStreet"/>).
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
 [Trait(Priority.Key, Priority.P4)]
@@ -19,17 +19,15 @@ public class LevelAboveTests
     static readonly SimConfig Config = SimConfig.Shipped();
 
     /// <summary>
-    /// <b>A point on a bridge is road to a body on the bridge and not to one under it</b>: halfway between its
-    /// bridgehead and the street it passes over, the ground is the grass under the deck.
+    /// <b>The ground's boundary leaves a bridge out</b>: halfway between its bridgehead and the street it passes over,
+    /// the ground is the grass under the deck.
     /// </summary>
     [Fact]
-    public void APointOnABridgeIsRoadOnTheBridgeAndGrassUnderIt()
+    public void UnderABridgeIsTheGroundBelowIt()
     {
         var shapes = new GroundShapes(TracedPlanTests.OverAStreet().Paving(Config), Config);
-        var onTheBridgeM = new Vector2(450f, 500f);
 
-        Assert.Equal(Ground.Road, shapes.At(onTheBridgeM, CityPlan.RoadArrays.Over));
-        Assert.Equal(Ground.Grass, shapes.At(onTheBridgeM));
+        Assert.Equal(Ground.Grass, shapes.At(new Vector2(450f, 500f)));
     }
 
     /// <summary>

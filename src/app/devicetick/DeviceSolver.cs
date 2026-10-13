@@ -18,30 +18,28 @@ namespace TrafficSimulation.App.DeviceTick;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Run in shadow</b> (<see cref="Lay"/>): every step is handed the CPU's table as it stands before the CPU's own
-/// step, so the two are asked the same question and can be compared. What crosses is the moving rows, never the
-/// furniture's, and one submit a step.
+/// <b>In the town's place</b> (<see cref="LayWhole"/>): the table laid once, and every moving body an owner whether or
+/// not it is in the world, which the kernels pass over, so a body going into a container changes no roster. What the
+/// step found is not handed back: what froze, woke and began touching is (<see cref="Settles"/>). The step is recorded
+/// into <see cref="DeviceWorld"/>'s submit (<see cref="Send"/>, <see cref="Record"/>), between kernels that read and
+/// write the same table (<see cref="Bodies"/>).
 /// </para>
 /// <para>
-/// <b>Or in the town's place</b> (<see cref="LayWhole"/>, <see cref="LayRows"/>): the table laid once, and after that
-/// only the rows the town changed, each written by a kernel (<c>kernels/laid_bodies.comp</c>) — and every moving body
-/// an owner whether or not it is in the world, which the kernels pass over, so a body going into a container changes
-/// no roster. What the step found is not handed back: what froze, woke and began touching is
-/// (<see cref="Settles"/>).
+/// <b>Or held to the CPU's step</b> (<see cref="Lay"/>, <see cref="Step"/>): handed the CPU's table as it stands before
+/// the CPU's own step, so the two are asked the same question and can be compared. What crosses is the moving rows,
+/// never the furniture's, and one submit a step.
 /// </para>
 /// <para>
-/// <b>A step is also recorded into another's submit</b> (<see cref="Lay"/>, <see cref="Send"/>, <see cref="Record"/>),
-/// between kernels that read and write the same table (<see cref="Bodies"/>) — the bodies' phase
-/// (<see cref="DeviceBodyPhase"/>), which spends the tick's impulses on it first and reads the cars off it after.
-/// </para>
-/// <para>
-/// <b>Every enabled moving body owns its pairs every step, frozen or not</b> (SOL-37): on the CPU freezing saves the
-/// broad phase and changes no answer, since a standing body is held at exactly nothing. In the town's place the step
-/// still works out what the CPU's would have frozen and woken (<see cref="Settles"/>), keeping the rest counts itself.
+/// <b>A frozen body owns no pairs</b> (SOL-37, <c>kernels/owned.glsl</c>): the pairs are the CPU's, pair for pair and in
+/// its order — what the awake bodies meet, and what the frozen bodies a manifold wakes meet in turn
+/// (<c>kernels/woken.comp</c>). In the town's place the step also works out what the CPU's would have frozen
+/// (<see cref="Settles"/>), keeping the rest counts itself.
 /// </para>
 /// <para>
 /// <b>The grids' window is the town's at load</b>, capped as <see cref="CellGrid"/> caps one and with the same rim:
-/// a body past it is filed in the edge cell, so the pairs are the same and only what they cost moves.
+/// a body past it is filed in the edge cell, so the pairs are the same and only what they cost moves. The furniture's
+/// grid keeps the window cell for cell; the moving grid hashes its cells into buckets as many as the moving bodies can
+/// cover, so a step costs what moves and not the town.
 /// </para>
 /// </remarks>
 internal sealed class DeviceSolver : IDisposable
@@ -77,18 +75,10 @@ internal sealed class DeviceSolver : IDisposable
         public float RestSpeedMpsSquared;
         public uint AfreshCount;
         public uint BegunRoom;
-        public uint Pad0;
+        public uint Buckets;
+        public uint ContactCapacity;
+        public uint SideRoom;
     }
-
-    /// <summary>
-    /// One body's row as the host lays it (<c>LaidBody</c>, <c>kernels/laid_bodies.comp</c>): every field the step reads,
-    /// of which only those <see cref="Laid"/> names are written (<see cref="RowChange"/>) — and the motion is what a push
-    /// added where it names <see cref="RowChange.Pushed"/> and not <see cref="RowChange.Motion"/>.
-    /// </summary>
-    [StructLayout(LayoutKind.Sequential)]
-    internal readonly record struct LaidBodyRow(
-        Vector4 Pose, Vector4 Motion, Vector4 Shape, Vector4 Bounds, UInt4 Filter, Vector2 Mass, float HeadingRad, int Body,
-        uint Laid, uint Pad0 = 0u, uint Pad1 = 0u, uint Pad2 = 0u);
 
     /// <summary>Where the step keeps its running totals (<c>kernels/step.glsl</c>).</summary>
     internal static class Totals
@@ -96,31 +86,31 @@ internal sealed class DeviceSolver : IDisposable
         public const int CandidatesAt = 0;
         public const int ContactsAt = 1;
         public const int OverflowAt = 2;
+
+        /// <summary>How many contacts the bodies the step woke found (<c>kernels/woken.comp</c>), already in <see cref="ContactsAt"/>.</summary>
+        public const int SideContactsAt = 3;
+
         public const int CandidateGroupsAt = 4;
         public const int ContactGroupsAt = 8;
         public const int ColoursAt = 12;
         public const int LeftOverAt = 13;
         public const int MovingCellsAt = 14;
         public const int StaticCellsAt = 15;
+
+        /// <summary>How many frozen bodies the step woke into itself (<c>kernels/narrow.comp</c>, <c>kernels/woken.comp</c>).</summary>
         public const int WokenAt = 16;
+
         public const int UnsettledAt = 17;
         public const int WokeCountAt = 18;
         public const int FrozeCountAt = 19;
-        public const int BegunCountAt = 20;
-        public const int Count = 21;
-    }
 
-    /// <summary>The stamps a step's device time is read between.</summary>
-    internal enum Stage
-    {
-        Began,
-        Grid,
-        Pairs,
-        Manifolds,
-        Prepared,
-        Solved,
-        Integrated,
-        Settled,
+        /// <summary>The pairs that began touching and the pairs held (<c>kernels/touches.comp</c>); handed back as the begun alone.</summary>
+        public const int BegunCountAt = 20;
+
+        /// <summary>The two indirect dispatches the scan of the met flags is sized by, six words (<see cref="PrefixScan.RecordIndirect"/>).</summary>
+        public const int MetScanAt = 21;
+
+        public const int Count = 27;
     }
 
     readonly Vk _vk;
@@ -132,6 +122,14 @@ internal sealed class DeviceSolver : IDisposable
     readonly int _firstMoving;
     readonly int _movingRows;
     readonly int _movingItems;
+
+    /// <summary>
+    /// How many buckets the moving grid is hashed into (<c>kernels/step.glsl</c>'s <c>slotOf</c>): the most cells the moving
+    /// bodies can cover, to the next power of two — never more entries than buckets, and in a town about a third as many —
+    /// rather than the town's window, which a step would otherwise scan whole.
+    /// </summary>
+    readonly int _buckets;
+
     readonly int _staticItems;
     readonly int _statics;
 
@@ -152,16 +150,21 @@ internal sealed class DeviceSolver : IDisposable
 
     /// <summary>
     /// Each body's motion as the next step finds it before anything is spent on it: the last step's, and what the town
-    /// set since (<see cref="RowChange.Motion"/>) — but not a push, which the town's fleets never hold. What a pair's
+    /// set since — but not a push. What a pair's
     /// closing speed is read off (<c>kernels/touches.comp</c>, <c>TownWorld.VelocityIntoTickMps</c>).
     /// </summary>
     readonly GpuBuffer _motionIntoTick;
 
+    // Each body's state through the step (kernels/owned.glsl), the frozen bodies it woke in the order it woke them, and
+    // the contacts those found (kernels/woken.comp) — as found, and in their pairs' order.
+    readonly GpuBuffer _state;
+    readonly GpuBuffer _woken;
+    readonly GpuBuffer _side;
+    readonly GpuBuffer _sideInOrder;
+
     // What the step settled (kernels/settle.comp).
-    readonly GpuBuffer _moved;
     readonly GpuBuffer _restTicks;
     readonly GpuBuffer _restIn;
-    readonly GpuBuffer _settling;
     readonly GpuBuffer _afresh;
     readonly GpuBuffer _settledOut;
     readonly GpuBuffer _wokeAt;
@@ -184,10 +187,9 @@ internal sealed class DeviceSolver : IDisposable
     readonly GpuBuffer _filterIn;
     readonly GpuBuffer _ownersIn;
 
-    // The grids.
+    // The grids. The moving grid's counts are left at nought by every step's fill (kernels/grid_fill.comp).
     readonly GpuBuffer _movingCounts;
     readonly GpuBuffer _movingStarts;
-    readonly GpuBuffer _movingCursor;
     readonly GpuBuffer _movingItemsBuffer;
     readonly GpuBuffer _staticCounts;
     readonly GpuBuffer _staticStarts;
@@ -211,27 +213,18 @@ internal sealed class DeviceSolver : IDisposable
     readonly GpuBuffer _totals;
     readonly GpuBuffer _blockSums;
 
-    // What is read back.
-    readonly GpuBuffer _poseOut;
-    readonly GpuBuffer _headingOut;
-    readonly GpuBuffer _motionOut;
-    readonly GpuBuffer _overlapOut;
+    // What is read back: the totals every step, and the rest only by a step held to the CPU's that asks for it.
     readonly GpuBuffer _totalsOut;
-    readonly GpuBuffer _contactOut;
-    readonly GpuBuffer _contactNormalOut;
-    readonly GpuBuffer _contactPointsOut;
+    ReadBacks? _readBacks;
 
     readonly ComputeKernel _gridCount;
     readonly ComputeKernel _gridFill;
     readonly ComputeKernel _pairs;
     readonly ComputeKernel _narrow;
-    readonly ComputeKernel _groups;
+    readonly ComputeKernel _wokenKernel;
     readonly ComputeKernel _compact;
-    readonly ComputeKernel _damp;
-    readonly ComputeKernel _prepare;
     readonly ComputeKernel _solve;
     readonly ComputeKernel _integrate;
-    readonly ComputeKernel _laidBodies;
     readonly ComputeKernel _settle;
     readonly ComputeKernel _settleSpread;
     readonly ComputeKernel _touches;
@@ -240,23 +233,15 @@ internal sealed class DeviceSolver : IDisposable
     readonly DescriptorSet _movingFillSet;
     readonly DescriptorSet _pairsSet;
     readonly DescriptorSet _narrowSet;
-    readonly DescriptorSet _groupsSet;
+    readonly DescriptorSet _wokenSet;
     readonly DescriptorSet _compactSet;
-    readonly DescriptorSet _dampSet;
-    readonly DescriptorSet _prepareSet;
     readonly DescriptorSet _solveSet;
     readonly DescriptorSet _integrateSet;
-    readonly DescriptorSet _laidBodiesSet;
     readonly DescriptorSet _settleSet;
     readonly DescriptorSet _settleSpreadSet;
 
     /// <summary>The touches' sets, one a way round: the step reading the pairs in <c>_touched[n]</c> uses set n.</summary>
     readonly DescriptorSet[] _touchesSets;
-
-    /// <summary>The rows the town changed, as the host lays them and the laid-rows kernel reads them, straight from mapped memory.</summary>
-    readonly GpuBuffer _laidRows;
-
-    int _laidRowCount;
 
     readonly PrefixScan _movingScan;
     readonly PrefixScan _candidateScan;
@@ -266,7 +251,6 @@ internal sealed class DeviceSolver : IDisposable
     readonly PrefixScan _begunScan;
 
     readonly ComputeBatch _batch;
-    readonly GpuTimer _timer;
 
     /// <summary>Each field's staging buffer and the device's, in one list so a step walks it without an iterator.</summary>
     readonly (GpuBuffer From, GpuBuffer To)[] _uploads;
@@ -291,12 +275,11 @@ internal sealed class DeviceSolver : IDisposable
     /// <summary>How many of the table's touching pairs were laid since the last send (<see cref="LayTheTouching"/>), or none.</summary>
     int _touchingLaid = -1;
 
-    /// <param name="candidatesPerOwner">How many candidates a step may hold per moving body before it is full.</param>
     /// <param name="room">
     /// How many bodies the table may come to hold (<see cref="PhysicsWorld.RoomForBodies"/>), every one past what it holds
     /// now a moving body — or none, for a table laid as it stands.
     /// </param>
-    public DeviceSolver(Vk vk, SimConfig config, BodyTable table, int candidatesPerOwner = 48, int room = 0)
+    public DeviceSolver(Vk vk, SimConfig config, BodyTable table, int room = 0)
     {
         _vk = vk;
         _config = config;
@@ -316,8 +299,11 @@ internal sealed class DeviceSolver : IDisposable
         _movingRows = _moving.Length == 0 ? 0 : _moving[^1] - _firstMoving + 1;
         _window = TownWindow(level, table);
         _movingItems = Math.Max(1, MostCells(level, table, _moving));
+        _buckets = (int)BitOperations.RoundUpToPowerOf2((uint)_movingItems);
         _staticItems = Math.Max(1, CellsCovered(table, table.Statics));
-        CandidateCapacity = Math.Max(1024, _moving.Length * candidatesPerOwner);
+        CandidateCapacity = (int)Math.Min(ScanKernels.MostCounts, Math.Max(1024L, (long)_moving.Length * CandidatesPerOwner));
+        ContactCapacity = (int)Math.Min(CandidateCapacity, Math.Max(1024L, (long)_moving.Length * ContactsPerOwner));
+        WithinTheScans();
         var cells = _window.Count;
 
         _pose = Device<Vector4>(_bodies);
@@ -327,21 +313,25 @@ internal sealed class DeviceSolver : IDisposable
         _mass = Device<Vector2>(_bodies);
         _shape = Device<Vector4>(_bodies);
         _bounds = Device<Vector4>(_bodies);
-        _filter = Device<UInt4>(_bodies);
+        _filter = Device<uint>(_bodies);
         _owners = Device<int>(Math.Max(1, _moving.Length));
         _overlap = Device<uint>(_bodies);
         _motionIntoTick = Device<Vector4>(_bodies);
-        _moved = Device<uint>(_bodies);
+        _state = Device<uint>(_bodies);
+        _woken = Device<uint>(Math.Max(1, _moving.Length));
+        SideRoom = Math.Max(1024, _moving.Length / SideShare);
+        _side = Device<SideContact>(SideRoom);
+        _sideInOrder = Device<SideContact>(SideRoom);
         _restTicks = Device<uint>(_bodies);
         _restIn = Staging<uint>(_bodies);
-        _settling = Device<uint>(_bodies);
         _afresh = Own(_vk.CreateBuffer(Bytes<int>(Math.Max(1, _moving.Length)), BufferUsageFlags.StorageBufferBit, HostAccess.Writes));
+        _listedAfresh = new bool[_bodies];
         _settledOut = Readback<uint>(2 + (2 * _moving.Length));
         _wokeAt = Device<uint>(Math.Max(1, _moving.Length));
         _frozeAt = Device<uint>(Math.Max(1, _moving.Length));
-        _touched = [Device<UInt2>(CandidateCapacity), Device<UInt2>(CandidateCapacity)];
+        _touched = [Device<UInt2>(ContactCapacity), Device<UInt2>(ContactCapacity)];
         _touchedCount = [Device<uint>(1), Device<uint>(1)];
-        _begunGroups = Device<uint>(BegunGroups);
+        _begunGroups = Device<uint>(2 * BegunGroups);
         BegunRoom = Math.Max(1024, _moving.Length);
         _begunOut = Readback<BegunRow>(BegunRoom);
         _touchedIn = Staging<UInt2>(Math.Max(1, _moving.Length));
@@ -352,18 +342,20 @@ internal sealed class DeviceSolver : IDisposable
         _massIn = Staging<Vector2>(_bodies);
         _shapeIn = Staging<Vector4>(_bodies);
         _boundsIn = Staging<Vector4>(_bodies);
-        _filterIn = Staging<UInt4>(_bodies);
+        _filterIn = Staging<uint>(_bodies);
         _ownersIn = Staging<int>(Math.Max(1, _moving.Length));
 
-        _movingCounts = Device<uint>(cells);
-        _movingStarts = Device<uint>(cells);
-        _movingCursor = Device<uint>(cells);
-        _movingItemsBuffer = Device<int>(_movingItems);
+        // A slot past the last bucket, never counted, so a bucket's run ends where the next one's starts.
+        _movingCounts = Device<uint>(_buckets + 1);
+        _movingStarts = Device<uint>(_buckets + 1);
+        _movingItemsBuffer = Device<UInt2>(_movingItems);
         _staticCounts = Device<uint>(cells);
         _staticStarts = Device<uint>(cells);
-        var staticCursor = Device<uint>(cells);
         var staticItems = Device<int>(_staticItems);
-        var statics = Device<int>(Math.Max(1, _statics));
+
+        // Only the furniture's filing reads these, once.
+        using var staticCursor = _vk.CreateBuffer(Bytes<uint>(cells), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferDstBit, HostAccess.None);
+        using var statics = _vk.CreateBuffer(Bytes<int>(_statics), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferDstBit, HostAccess.None);
 
         _candidateCounts = Device<uint>(Math.Max(1, _moving.Length));
         _candidateStarts = Device<uint>(Math.Max(1, _moving.Length));
@@ -372,71 +364,61 @@ internal sealed class DeviceSolver : IDisposable
         _contactStarts = Device<uint>(CandidateCapacity);
         _manifoldA = Device<Vector4>(CandidateCapacity);
         _manifoldB = Device<Vector4>(CandidateCapacity);
-        _contact = Device<UInt4>(CandidateCapacity);
-        _contactNormal = Device<Vector4>(CandidateCapacity);
-        _contactPoints = Device<Vector4>(CandidateCapacity);
-        _arms = Device<Vector4>(CandidateCapacity * 2);
-        _pointMass = Device<Vector2>(CandidateCapacity * 2);
-        _impulses = Device<Vector4>(CandidateCapacity * 2);
+        _contact = Device<UInt4>(ContactCapacity);
+        _contactNormal = Device<Vector4>(ContactCapacity);
+        _contactPoints = Device<Vector4>(ContactCapacity);
+        _arms = Device<Vector4>(ContactCapacity * 2);
+        _pointMass = Device<Vector2>(ContactCapacity * 2);
+        _impulses = Device<Vector4>(ContactCapacity * 2);
         _lowest = Device<uint>(_bodies);
-        _order = Device<uint>(CandidateCapacity);
+        _order = Device<uint>(ContactCapacity);
         _totals = Device<uint>(Totals.Count, BufferUsageFlags.IndirectBufferBit);
         _blockSums = Device<uint>(ScanKernels.Block);
-
-        _poseOut = Readback<Vector4>(_bodies);
-        _headingOut = Readback<float>(_bodies);
-        _motionOut = Readback<Vector4>(_bodies);
-        _overlapOut = Readback<uint>(_bodies);
         _totalsOut = Readback<uint>(Totals.Count);
-        _contactOut = Readback<UInt4>(CandidateCapacity);
-        _contactNormalOut = Readback<Vector4>(CandidateCapacity);
-        _contactPointsOut = Readback<Vector4>(CandidateCapacity);
-        _laidRows = Own(_vk.CreateBuffer(
-            Bytes<LaidBodyRow>(_moving.Length), BufferUsageFlags.StorageBufferBit, HostAccess.Writes));
 
-        _gridCount = Kernel("grid_count.comp", 3, sets: 2);
-        _gridFill = Kernel("grid_fill.comp", 5, sets: 2);
+        _gridCount = Kernel("grid_count.comp", 7, sets: 2);
+        _gridFill = Kernel("grid_fill.comp", 6, sets: 2);
         _pairs = Kernel("pairs.comp", 13);
-        _narrow = Kernel("narrow.comp", 8);
-        _groups = Kernel("groups.comp", 1);
-        _compact = Kernel("compact.comp", 11);
-        _damp = Kernel("damp.comp", 2);
-        _prepare = Kernel("prepare.comp", 9);
+        _narrow = Kernel("narrow.comp", 11);
+        _wokenKernel = Kernel("woken.comp", 15);
+        _compact = Kernel("compact.comp", 17);
         _solve = Kernel("solve.comp", 13);
-        _integrate = Kernel("integrate.comp", 9);
-        _laidBodies = Kernel("laid_bodies.comp", 9);
-        _settle = Kernel("settle.comp", 14);
-        _settleSpread = Kernel("settle_spread.comp", 14);
-        _touches = Kernel("touches.comp", 11, sets: 2);
+        _integrate = Kernel("integrate.comp", 10);
+        _settle = Kernel("settle.comp", 12);
+        _settleSpread = Kernel("settle_spread.comp", 12);
+        _touches = Kernel("touches.comp", 12, sets: 2);
 
-        _movingCountSet = _gridCount.Bind([_owners, _bounds, _movingCounts]);
-        _movingFillSet = _gridFill.Bind([_owners, _bounds, _movingStarts, _movingCursor, _movingItemsBuffer]);
-        var staticCountSet = _gridCount.Bind([statics, _bounds, _staticCounts]);
-        var staticFillSet = _gridFill.Bind([statics, _bounds, _staticStarts, staticCursor, staticItems]);
+        _movingCountSet = _gridCount.Bind([_owners, _bounds, _movingCounts, _motion, _filter, _state, _overlap]);
+        _movingFillSet = _gridFill.Bind([_owners, _bounds, _movingStarts, _movingCounts, _movingItemsBuffer, _filter]);
+        var staticCountSet = _gridCount.Bind([statics, _bounds, _staticCounts, _motion, _filter, _state, _overlap]);
+        var staticFillSet = _gridFill.Bind([statics, _bounds, _staticStarts, staticCursor, staticItems, _filter]);
         _pairsSet = _pairs.Bind(
         [
-            _owners, _bounds, _filter, _movingCounts, _movingStarts, _movingItemsBuffer, _staticCounts, _staticStarts,
-            staticItems, _candidateCounts, _candidateStarts, _candidates, _totals,
+            _owners, _bounds, _filter, _movingStarts, _movingItemsBuffer, _staticCounts, _staticStarts, staticItems,
+            _candidateCounts, _candidateStarts, _candidates, _totals, _state,
         ]);
-        _narrowSet = _narrow.Bind([_candidates, _pose, _shape, _met, _contactStarts, _manifoldA, _manifoldB, _totals]);
-        _groupsSet = _groups.Bind([_totals]);
+        _narrowSet = _narrow.Bind(
+            [_candidates, _pose, _shape, _met, _contactStarts, _manifoldA, _manifoldB, _totals, _state, _overlap, _woken]);
+        _wokenSet = _wokenKernel.Bind(
+        [
+            _bounds, _filter, _pose, _shape, _state, _overlap, _movingStarts, _movingItemsBuffer, _staticCounts, _staticStarts,
+            staticItems, _woken, _totals, _side, _sideInOrder,
+        ]);
         _compactSet = _compact.Bind(
         [
             _candidates, _met, _contactStarts, _manifoldA, _manifoldB, _contact, _contactNormal, _contactPoints, _overlap,
-            _filter, _totals,
+            _filter, _totals, _pose, _mass, _arms, _pointMass, _impulses, _sideInOrder,
         ]);
-        _dampSet = _damp.Bind([_owners, _motion]);
-        _prepareSet = _prepare.Bind([_contact, _contactNormal, _contactPoints, _pose, _mass, _arms, _pointMass, _impulses, _totals]);
         _solveSet = _solve.Bind(
         [
             _contact, _contactNormal, _arms, _pointMass, _impulses, _motion, _push, _mass, _filter, _lowest, _order, _owners,
             _totals,
         ]);
-        _integrateSet = _integrate.Bind([_owners, _pose, _heading, _motion, _push, _shape, _bounds, _filter, _moved]);
+        _integrateSet = _integrate.Bind(
+            [_owners, _pose, _heading, _motion, _push, _shape, _bounds, _filter, _restTicks, _afresh]);
         GpuBuffer[] settling =
         [
-            _owners, _filter, _motion, _shape, _overlap, _moved, _restTicks, _settling, _contact, _totals, _afresh, _settledOut,
-            _wokeAt, _frozeAt,
+            _owners, _filter, _motion, _shape, _overlap, _restTicks, _state, _contact, _totals, _settledOut, _wokeAt, _frozeAt,
         ];
         _settleSet = _settle.Bind(settling);
         _settleSpreadSet = _settleSpread.Bind(settling);
@@ -444,27 +426,29 @@ internal sealed class DeviceSolver : IDisposable
         [
             _touches.Bind(
             [
-                _contact, _contactNormal, _totals, _settling, _touched[0], _touchedCount[0], _touched[1], _touchedCount[1], _begunGroups,
-                _begunOut, _motionIntoTick,
+                _contact, _contactNormal, _totals, _state, _touched[0], _touchedCount[0], _touched[1], _touchedCount[1], _begunGroups,
+                _begunOut, _motionIntoTick, _totalsOut,
             ]),
             _touches.Bind(
             [
-                _contact, _contactNormal, _totals, _settling, _touched[1], _touchedCount[1], _touched[0], _touchedCount[0], _begunGroups,
-                _begunOut, _motionIntoTick,
+                _contact, _contactNormal, _totals, _state, _touched[1], _touchedCount[1], _touched[0], _touchedCount[0], _begunGroups,
+                _begunOut, _motionIntoTick, _totalsOut,
             ]),
         ];
-        _laidBodiesSet = _laidBodies.Bind([_laidRows, _pose, _heading, _motion, _mass, _shape, _bounds, _filter, _motionIntoTick]);
 
-        _movingScan = new PrefixScan(vk, _scans, _movingStarts, _blockSums, _totals, Totals.MovingCellsAt);
-        _candidateScan = new PrefixScan(vk, _scans, _candidateStarts, _blockSums, _totals, Totals.CandidatesAt);
-        _contactScan = new PrefixScan(vk, _scans, _contactStarts, _blockSums, _totals, Totals.ContactsAt);
+        _movingScan = new PrefixScan(vk, _scans, _movingCounts, _movingStarts, _blockSums, _totals, Totals.MovingCellsAt);
+        _candidateScan = new PrefixScan(
+            vk, _scans, _candidateCounts, _candidateStarts, _blockSums, _totals, Totals.CandidatesAt, Totals.CandidateGroupsAt,
+            (uint)CandidateCapacity, Totals.MetScanAt);
+        _contactScan = new PrefixScan(
+            vk, _scans, _contactStarts, _contactStarts, _blockSums, _totals, Totals.ContactsAt, Totals.ContactGroupsAt,
+            (uint)ContactCapacity);
         _wokeScan = new PrefixScan(vk, _scans, _wokeAt, _blockSums, _totals, Totals.WokeCountAt);
         _frozeScan = new PrefixScan(vk, _scans, _frozeAt, _blockSums, _totals, Totals.FrozeCountAt);
         _begunScan = new PrefixScan(vk, _scans, _begunGroups, _blockSums, _totals, Totals.BegunCountAt);
-        var staticScan = new PrefixScan(vk, _scans, _staticStarts, _blockSums, _totals, Totals.StaticCellsAt);
+        var staticScan = new PrefixScan(vk, _scans, _staticCounts, _staticStarts, _blockSums, _totals, Totals.StaticCellsAt);
 
         _batch = new ComputeBatch(vk);
-        _timer = new GpuTimer(vk, Enum.GetValues<Stage>().Length);
 
         // The whole table once, the furniture's rows for good, and the furniture filed. A row to come is out of the world.
         _uploads = Uploads();
@@ -476,26 +460,89 @@ internal sealed class DeviceSolver : IDisposable
         vk.Copy(commands, staticsIn, statics, staticsIn.SizeBytes);
         vk.Fill(commands, _push, 0);
         vk.Fill(commands, _restTicks, 0);
-        vk.Fill(commands, _settling, 0);
+        vk.Fill(commands, _state, 0);
         vk.Fill(commands, _touchedCount[0], 0);
         vk.Fill(commands, _touchedCount[1], 0);
         vk.Fill(commands, _staticCounts, 0);
         vk.Fill(commands, staticCursor, 0);
+        vk.Fill(commands, _movingCounts, 0);
         vk.Fill(commands, _lowest, uint.MaxValue);
+        FillRows(commands, _overlap, 0);
         vk.AfterTransfer(commands);
         var push = Push(0f) with { RosterCount = (uint)_statics, Capacity = (uint)_staticItems };
         _gridCount.Dispatch(commands, staticCountSet, Groups(_statics), push);
-        vk.BeforeTransfer(commands);
-        vk.Copy(commands, _staticCounts, _staticStarts, _staticCounts.SizeBytes);
-        vk.AfterTransfer(commands);
+        vk.BetweenKernels(commands);
         staticScan.Record(commands, cells);
         _gridFill.Dispatch(commands, staticFillSet, Groups(_statics), push);
         _batch.SubmitAndWait();
         staticsIn.Dispose();
     }
 
-    /// <summary>How many candidates a step may hold; past it a step's pairs are cut, and <see cref="Overflowed"/> says so.</summary>
+    /// <summary>
+    /// How many candidates a step may hold (<see cref="CandidatesPerOwner"/>); past it a step's pairs are cut, and
+    /// <see cref="Overflowed"/> says so. Never more than one scan covers (<see cref="ScanKernels.MostCounts"/>).
+    /// </summary>
     public int CandidateCapacity { get; }
+
+    /// <summary>
+    /// The candidates a step has room for per moving body, frozen or not. Only an awake body gathers more than the awake
+    /// bodies it meets, so a town gathers far fewer: OdesaOsm's 80 000 bodies a few thousand, Odesa's 1 476 about a hundred,
+    /// a yard of cars shoved into each other a handful each.
+    /// </summary>
+    const int CandidatesPerOwner = 16;
+
+    /// <summary>
+    /// How many contacts a step may hold, and pairs it may list as touching: fewer than its candidates, since a pair whose
+    /// boxes meet is seldom one that touches. Past it a step's contacts are cut, and <see cref="Overflowed"/> says so.
+    /// </summary>
+    public int ContactCapacity { get; }
+
+    /// <summary>
+    /// The contacts a step has room for per moving body (<see cref="ContactCapacity"/>): a body packed in a crowd touches
+    /// about six others, and a pair is one contact, so a crowd comes to three a body and its furniture to one more — this
+    /// is twice that.
+    /// </summary>
+    const int ContactsPerOwner = 8;
+
+    /// <summary>
+    /// How many contacts the frozen bodies a step wakes may find (<c>kernels/woken.comp</c>): one for every
+    /// <see cref="SideShare"/> moving bodies, and never fewer than a crowd's worth. Past it a step's contacts are cut, and
+    /// <see cref="Overflowed"/> says so.
+    /// </summary>
+    int SideRoom { get; }
+
+    /// <summary>How many moving bodies share one contact of <see cref="SideRoom"/>: a pile-up wakes a row, not a car park.</summary>
+    const int SideShare = 4;
+
+    /// <summary>What the step's own buffers hold, device-local and mapped together — its share of <see cref="Vk.BufferBytes"/>.</summary>
+    public long BytesHeld
+    {
+        get
+        {
+            var bytes = 0L;
+            foreach (var buffer in _owned) bytes += (long)buffer.SizeBytes;
+            return bytes;
+        }
+    }
+
+    /// <summary>One contact the woken bodies' pairs met (<c>kernels/woken.comp</c>): the pair and how many points, the normal and the two separations, the two points.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    readonly record struct SideContact(UInt4 Pair, Vector4 NormalAndDepth, Vector4 Points);
+
+    /// <summary>
+    /// <b>Every scan a step records whose length grows with the town is one scan long</b> — the moving grid's buckets and the
+    /// roster — refused here, at laying, rather than as the first step is recorded. The candidates are held to it by
+    /// their capacity and the furniture's grid by its window.
+    /// </summary>
+    void WithinTheScans()
+    {
+        if (_buckets + 1 > ScanKernels.MostCounts || _moving.Length > ScanKernels.MostCounts)
+        {
+            throw new InvalidOperationException(
+                $"{_moving.Length} moving bodies covering up to {_movingItems} cells are past the {ScanKernels.MostCounts} counts " +
+                "one scan of the device's step covers.");
+        }
+    }
 
     /// <summary>
     /// <b>Every contact solved by one thread in the CPU's own order</b> rather than in colours — an instrument, for an
@@ -503,63 +550,68 @@ internal sealed class DeviceSolver : IDisposable
     /// </summary>
     public bool SolveInContactOrder { get; set; }
 
-    /// <summary>The cells the grids are filed over.</summary>
-    public GridWindow Window => _window;
-
-    /// <summary>How many bodies the table holds, the furniture's among them.</summary>
-    public int BodyCount => _bodies;
-
     /// <summary>
-    /// The roster of owners the last lay sent: the moving bodies in the world, in shadow (<see cref="Lay"/>); every
-    /// moving body the table holds, in the town's place (<see cref="LayWhole"/>).
+    /// The roster of owners the last lay sent: the moving bodies in the world, held to the CPU's step (<see cref="Lay"/>);
+    /// every moving body the table holds, in the town's place (<see cref="LayWhole"/>).
     /// </summary>
     public int Owners { get; private set; }
 
-    public int Candidates => (int)Math.Min(TotalsRead[Totals.CandidatesAt], (uint)CandidateCapacity);
-
-    public int ContactCount => (int)Math.Min(TotalsRead[Totals.ContactsAt], (uint)CandidateCapacity);
+    public int ContactCount => (int)Math.Min(TotalsRead[Totals.ContactsAt], (uint)ContactCapacity);
 
     public int Colours => (int)TotalsRead[Totals.ColoursAt];
 
     /// <summary>The contacts no colour was left for, which one thread ran in contact order.</summary>
     public int LeftOver => (int)TotalsRead[Totals.LeftOverAt];
 
-    /// <summary>Whether the last step found more candidates than <see cref="CandidateCapacity"/>, and so lost some.</summary>
-    public bool Overflowed => TotalsRead[Totals.OverflowAt] > CandidateCapacity;
+    /// <summary>
+    /// Whether the last step found more candidates than <see cref="CandidateCapacity"/> or more contacts than
+    /// <see cref="ContactCapacity"/>, and so lost some.
+    /// </summary>
+    public bool Overflowed =>
+        TotalsRead[Totals.OverflowAt] > CandidateCapacity || TotalsRead[Totals.ContactsAt] > ContactCapacity;
 
     ReadOnlySpan<uint> TotalsRead => _totalsOut.Span<uint>()[..Totals.Count];
 
-    /// <summary>The device's time between two stages of the last step, in milliseconds.</summary>
-    public double BetweenMs(Stage from, Stage to) => _timer.BetweenMs((int)from, (int)to);
+    /// <summary>Where the last step left each body: position and rotation, as the device keeps them. Read back where asked.</summary>
+    public ReadOnlySpan<Vector4> Pose => ReadBack.Pose.Span<Vector4>()[.._bodies];
 
-    /// <summary>Where the last step left each body: position and rotation, as the device keeps them.</summary>
-    public ReadOnlySpan<Vector4> Pose => _poseOut.Span<Vector4>()[.._bodies];
+    /// <summary>Velocity and yaw rate after the last step's solve. Read back where asked.</summary>
+    public ReadOnlySpan<Vector4> Motion => ReadBack.Motion.Span<Vector4>()[.._bodies];
 
-    public ReadOnlySpan<float> HeadingRad => _headingOut.Span<float>()[.._bodies];
+    ReadBacks ReadBack => _readBacks ?? throw new InvalidOperationException("No step asked for its answer to be read back.");
 
-    /// <summary>Velocity and yaw rate after the last step's solve.</summary>
-    public ReadOnlySpan<Vector4> Motion => _motionOut.Span<Vector4>()[.._bodies];
+    /// <summary>
+    /// <b>What a step held to the CPU's reads back beside its totals</b> (<see cref="Step"/>): poses, motion and contacts —
+    /// mapped memory the size of the table and the contacts, made only once a step asks for it.
+    /// </summary>
+    sealed record ReadBacks(GpuBuffer Pose, GpuBuffer Motion, GpuBuffer Contact, GpuBuffer ContactNormal, GpuBuffer ContactPoints);
 
-    /// <summary>How deep each body was into whatever it touched, as a float's bits (SOL-9).</summary>
-    public ReadOnlySpan<uint> OverlapBits => _overlapOut.Span<uint>()[.._bodies];
-
-    /// <summary>The same on the device, as the last step left it until the next begins, for a kernel reading it there.</summary>
+    /// <summary>
+    /// How deep each body was into whatever it touched, as a float's bits (SOL-9), as the last step left it on the device
+    /// until the next begins, for a kernel reading it there.
+    /// </summary>
     public GpuBuffer Overlap => _overlap;
 
     /// <summary>The last step's contacts in its order: the pair, how many points, and the colour it was solved in.</summary>
-    public ReadOnlySpan<UInt4> Contacts => _contactOut.Span<UInt4>()[..ContactCount];
+    public ReadOnlySpan<UInt4> Contacts => ReadBack.Contact.Span<UInt4>()[..ContactCount];
 
-    public ReadOnlySpan<Vector4> ContactNormals => _contactNormalOut.Span<Vector4>()[..ContactCount];
+    public ReadOnlySpan<Vector4> ContactNormals => ReadBack.ContactNormal.Span<Vector4>()[..ContactCount];
 
-    public ReadOnlySpan<Vector4> ContactPoints => _contactPointsOut.Span<Vector4>()[..ContactCount];
+    public ReadOnlySpan<Vector4> ContactPoints => ReadBack.ContactPoints.Span<Vector4>()[..ContactCount];
 
     /// <summary>
     /// <b>Whether a step settles what it stepped</b> (<c>kernels/settle.comp</c>, SOL-37): which frozen bodies it took in,
-    /// each body's rest count, and what froze — stilled and flagged in the table, and handed back as <see cref="Woke"/>
-    /// and <see cref="Froze"/> — and which pairs began touching (<see cref="Begun"/>, SOL-6). In the town's place; a step
-    /// in shadow is laid the host's freezing whole every time.
+    /// each body's rest count, and what froze — stilled and flagged in the table, and listed where
+    /// <see cref="ListsWhatSettled"/> asks — and which pairs began touching (<see cref="Begun"/>, SOL-6). In the town's place; a step
+    /// held to the CPU's is laid the host's freezing whole every time.
     /// </summary>
     public bool Settles { get; set; }
+
+    /// <summary>
+    /// Whether a settling step lists what it woke and froze (<see cref="Woke"/>, <see cref="Froze"/>) — an instrument: the
+    /// town reads neither, and the two scans and the pass that lists them are a third of the settling's dispatches.
+    /// </summary>
+    public bool ListsWhatSettled { get; set; }
 
     /// <summary>The frozen bodies the last settling step took in (SOL-37a), refrozen or not, in index order.</summary>
     public ReadOnlySpan<int> Woke => MemoryMarshal.Cast<uint, int>(_settledOut.Span<uint>().Slice(2, (int)_settledOut.Span<uint>()[0]));
@@ -569,7 +621,7 @@ internal sealed class DeviceSolver : IDisposable
         MemoryMarshal.Cast<uint, int>(_settledOut.Span<uint>().Slice(2 + _settledOver, (int)_settledOut.Span<uint>()[1]));
 
     /// <summary>How many pairs a settling step lists as begun touching (<see cref="Begun"/>).</summary>
-    public int BegunRoom { get; }
+    int BegunRoom { get; }
 
     /// <summary>
     /// <b>The pairs the last settling step began touching</b> (SOL-6, <c>kernels/touches.comp</c>), in its contacts' order.
@@ -594,7 +646,7 @@ internal sealed class DeviceSolver : IDisposable
         uint First, uint Second, Vector2 Normal, float ClosingMps, float Pad0 = 0f, float Pad1 = 0f, float Pad2 = 0f);
 
     /// <summary>How many workgroups of 64 the step's contacts can take, each counting its own begun.</summary>
-    int BegunGroups => (CandidateCapacity + 63) / 64;
+    int BegunGroups => (ContactCapacity + 63) / 64;
 
     /// <summary>
     /// <b>The body table as the device keeps it from one step to the next</b>, for kernels recorded around a step
@@ -605,11 +657,27 @@ internal sealed class DeviceSolver : IDisposable
         (_pose, _heading, _motion, _mass, _filter);
 
     /// <summary>
+    /// <b>The rest of a body's row</b>, for a kernel that puts a body somewhere between steps: its shape (core half-size,
+    /// corner radius, reach), its bounds, and the motion the next step reads its touches' closing speed off.
+    /// </summary>
+    public (GpuBuffer Shape, GpuBuffer Bounds, GpuBuffer MotionIntoTick) Rows => (_shape, _bounds, _motionIntoTick);
+
+    /// <summary>A layer mask in the byte of a body's filter the kernels read it in (<see cref="LayerByte"/>).</summary>
+    public static uint FilterWordOf(ulong mask) => LayerByte(mask);
+
+    /// <summary>
     /// <b>One step of the table the CPU is about to step</b>: its moving rows sent, the step run, and — where asked — the
     /// answer and the contacts read back. One submit and one wait.
     /// </summary>
     public void Step(BodyTable table, float dtS, bool readBack)
     {
+        if (readBack)
+        {
+            _readBacks ??= new ReadBacks(
+                Readback<Vector4>(_bodies), Readback<Vector4>(_bodies), Readback<UInt4>(ContactCapacity),
+                Readback<Vector4>(ContactCapacity), Readback<Vector4>(ContactCapacity));
+        }
+
         Lay(table);
         var commands = _batch.Begin();
         Send(commands);
@@ -617,7 +685,6 @@ internal sealed class DeviceSolver : IDisposable
         _vk.BeforeTransfer(commands);
         RecordReadBack(commands, readBack);
         _batch.SubmitAndWait();
-        ReadTimes();
     }
 
     /// <summary>
@@ -645,39 +712,7 @@ internal sealed class DeviceSolver : IDisposable
     public void LayWhole(BodyTable table)
     {
         WriteTheMovingRows(table);
-        _laidRowCount = 0;
-        LayEveryOwner(table.Count, always: true);
-    }
-
-    /// <summary>
-    /// <b>Only these rows laid</b>, each written into the device's table by the laid-rows kernel (<see cref="RecordLaidRows"/>)
-    /// — and of each only what the town changed (<see cref="BodyTable.RowChanges"/>), so whatever else the device holds of
-    /// it stands — and the owners laid again where the table has grown since. A body is named once.
-    /// </summary>
-    public void LayRows(BodyTable table, ReadOnlySpan<int> bodies)
-    {
-        if (table.Count > _bodies) throw new InvalidOperationException($"The device's table holds {_bodies} bodies, not {table.Count}.");
-
-        var rows = _laidRows.Span<LaidBodyRow>();
-        foreach (var body in bodies)
-        {
-            var change = table.RowChanges[body];
-            var motion = (change & (RowChange.Motion | RowChange.Pushed)) == RowChange.Pushed
-                ? new Vector4(table.PushedMps[body], table.PushedYawRadPerS[body], 0f)
-                : new Vector4(table.VelocityMps[body], table.YawRateRadPerS[body], 0f);
-            rows[_laidRowCount++] = new LaidBodyRow(
-                new Vector4(table.PositionM[body], table.Rotation[body].X, table.Rotation[body].Y),
-                motion,
-                new Vector4(table.ExtentM[body], table.CornerRadiusM[body], table.ReachM[body]),
-                new Vector4(table.LeastM[body], table.MostM[body].X, table.MostM[body].Y),
-                FilterOf(table, body),
-                new Vector2(table.InverseMass[body], table.InverseInertia[body]),
-                table.HeadingRad[body],
-                body,
-                (uint)change);
-        }
-
-        LayEveryOwner(table.Count, always: false);
+        LayEveryOwner(table.Count);
     }
 
     /// <summary>
@@ -698,7 +733,7 @@ internal sealed class DeviceSolver : IDisposable
     /// </summary>
     public void LayTheTouching(ReadOnlySpan<ulong> keys)
     {
-        if (keys.Length > CandidateCapacity) throw new InvalidOperationException($"{keys.Length} pairs touching, past the {CandidateCapacity} the device holds.");
+        if (keys.Length > ContactCapacity) throw new InvalidOperationException($"{keys.Length} pairs touching, past the {ContactCapacity} the device holds.");
 
         if ((ulong)keys.Length > _touchedIn.SizeBytes / (ulong)Unsafe.SizeOf<UInt2>())
         {
@@ -708,27 +743,35 @@ internal sealed class DeviceSolver : IDisposable
         }
 
         var pairs = _touchedIn.Span<UInt2>();
-        for (var at = 0; at < keys.Length; at++) pairs[at] = new UInt2((uint)(keys[at] >> 32), (uint)keys[at] | TouchingBit);
+        for (var at = 0; at < keys.Length; at++) pairs[at] = new UInt2((uint)(keys[at] >> 32), (uint)keys[at]);
 
         _touchingLaid = keys.Length;
     }
 
-    /// <summary>A listed pair's mark that it is touching (<c>kernels/touches.comp</c>).</summary>
-    const uint TouchingBit = 0x8000_0000u;
-
-    /// <summary>A body whose rest the town counted afresh since the last step (<see cref="PhysicsWorld.CountsRestAfresh"/>), counted afresh by the next.</summary>
-    public void CountAfresh(int body) => _afresh.Span<int>()[_afreshCount++] = body;
-
-    /// <summary>
-    /// Every moving body the table holds an owner — laid <paramref name="always"/>, or otherwise only where the table has
-    /// grown past the owners the last lay sent, which were every moving body it held then.
-    /// </summary>
-    void LayEveryOwner(int bodies, bool always)
+    /// <summary>A body whose rest the town counted afresh since the last step — put down or contained — counted afresh by the next.</summary>
+    /// <remarks>Listed once however often it is named, so the list holds at most every moving body.</remarks>
+    public void CountAfresh(int body)
     {
-        var count = always ? 0 : Owners;
-        while (count < _moving.Length && _moving[count] < bodies) count++;
-        if (count == Owners && !always) return;
+        if (_listedAfresh[body]) return;
 
+        _listedAfresh[body] = true;
+        _afresh.Span<int>()[_afreshCount++] = body;
+    }
+
+    /// <summary>Which bodies the afresh list holds since the last step (<see cref="CountAfresh"/>).</summary>
+    readonly bool[] _listedAfresh;
+
+    void ForgetTheAfresh()
+    {
+        foreach (var body in _afresh.Span<int>()[.._afreshCount]) _listedAfresh[body] = false;
+        _afreshCount = 0;
+    }
+
+    /// <summary>Every moving body the table holds an owner.</summary>
+    void LayEveryOwner(int bodies)
+    {
+        var count = 0;
+        while (count < _moving.Length && _moving[count] < bodies) count++;
         _moving.AsSpan(0, count).CopyTo(_ownersIn.Span<int>());
         Owners = count;
         _ownersLaid = true;
@@ -737,16 +780,15 @@ internal sealed class DeviceSolver : IDisposable
     /// <summary>What was laid since the last send copied across, recorded; nothing if nothing was. The caller barriers after.</summary>
     public void Send(CommandBuffer commands)
     {
-        SentBytes = (ulong)((_laidRowCount * Unsafe.SizeOf<LaidBodyRow>()) + (_afreshCount * sizeof(int)));
         if (_wholeLaid)
         {
-            foreach (var (from, to) in _uploads) SentBytes += CopyRows(commands, from, to);
+            foreach (var (from, to) in _uploads) CopyRows(commands, from, to);
             _wholeLaid = false;
         }
 
         if (_restLaid)
         {
-            SentBytes += CopyRows(commands, _restIn, _restTicks);
+            CopyRows(commands, _restIn, _restTicks);
             _restLaid = false;
         }
 
@@ -755,116 +797,80 @@ internal sealed class DeviceSolver : IDisposable
             var bytes = (ulong)(_touchingLaid * Unsafe.SizeOf<UInt2>());
             if (bytes > 0) _vk.Copy(commands, _touchedIn, _touched[_touchedWas], bytes);
             _vk.Fill(commands, _touchedCount[_touchedWas], (uint)_touchingLaid);
-            SentBytes += bytes;
             _touchingLaid = -1;
         }
 
         if (!_ownersLaid) return;
 
         _vk.Copy(commands, _ownersIn, _owners, (ulong)(Owners * sizeof(int)));
-        SentBytes += (ulong)(Owners * sizeof(int));
         _ownersLaid = false;
     }
 
     /// <summary>
-    /// <b>The rows laid one by one written into the table</b>, recorded after <see cref="Send"/>'s copies are made
-    /// visible (<see cref="Vk.AfterTransfer"/>); whether anything was, so the caller barriers before the kernels that
-    /// read the table.
-    /// </summary>
-    public bool RecordLaidRows(CommandBuffer commands)
-    {
-        if (_laidRowCount == 0) return false;
-
-        _laidBodies.Dispatch(commands, _laidBodiesSet, Groups(_laidRowCount), Push(0f) with { RosterCount = (uint)_laidRowCount });
-        _laidRowCount = 0;
-        return true;
-    }
-
-    /// <summary>How many bytes the last <see cref="Send"/> took in, the rows the laid-rows kernel reads among them.</summary>
-    public ulong SentBytes { get; private set; }
-
-    /// <summary>
-    /// <b>The step recorded</b> over the table as the device holds it, timed stage by stage (<see cref="BetweenMs"/>, read
-    /// once the submit is waited for by <see cref="ReadTimes"/>). What came before it is made visible to it here; the
+    /// <b>The step recorded</b> over the table as the device holds it. What came before it is made visible to it here; the
     /// caller barriers what reads its answer.
     /// </summary>
     public void Record(CommandBuffer commands, float dtS)
     {
         var count = Owners;
-        var push = Push(dtS) with { RosterCount = (uint)count, Capacity = (uint)CandidateCapacity };
+        var push = Push(dtS) with { RosterCount = (uint)count };
         var vk = _vk;
-        _timer.Reset(commands);
-        vk.Fill(commands, _movingCounts, 0);
-        vk.Fill(commands, _movingCursor, 0);
-        vk.Fill(commands, _overlap, 0);
         vk.Fill(commands, _totals, 0);
-        vk.Fill(commands, _contactStarts, 0);
         if (Settles) vk.Fill(commands, _begunGroups, 0);
         vk.AfterTransfer(commands);
-        _timer.Stamp(commands, (int)Stage.Began);
 
-        _gridCount.Dispatch(commands, _movingCountSet, Groups(count), push);
-        vk.BeforeTransfer(commands);
-        vk.Copy(commands, _movingCounts, _movingStarts, _movingCounts.SizeBytes);
-        vk.AfterTransfer(commands);
-        _movingScan.Record(commands, _window.Count);
-        _gridFill.Dispatch(commands, _movingFillSet, Groups(count), push with { Capacity = (uint)_movingItems });
+        var hashed = push with { Buckets = (uint)_buckets };
+        _gridCount.Dispatch(commands, _movingCountSet, Groups(count), hashed with { Mode = CountAndDamp });
         vk.BetweenKernels(commands);
-        _timer.Stamp(commands, (int)Stage.Grid);
+        _movingScan.Record(commands, _buckets + 1);
+        _gridFill.Dispatch(commands, _movingFillSet, Groups(count), hashed with { Capacity = (uint)_movingItems });
+        vk.BetweenKernels(commands);
 
-        _pairs.Dispatch(commands, _pairsSet, Groups(count), push with { Mode = 0 });
-        vk.BeforeTransfer(commands);
-        vk.Copy(commands, _candidateCounts, _candidateStarts, (ulong)(count * sizeof(uint)));
-        vk.AfterTransfer(commands);
+        _pairs.Dispatch(commands, _pairsSet, Groups(count), hashed with { Mode = 0 });
+        vk.BetweenKernels(commands);
         _candidateScan.Record(commands, count);
-        _pairs.Dispatch(commands, _pairsSet, Groups(count), push with { Mode = 1 });
+        _pairs.Dispatch(commands, _pairsSet, Groups(count), hashed with { Mode = 1 });
         vk.BetweenKernels(commands);
-        _groups.Dispatch(commands, _groupsSet, 1, push);
-        vk.BetweenKernels(commands);
-        _timer.Stamp(commands, (int)Stage.Pairs);
 
         _narrow.DispatchIndirect(commands, _narrowSet, _totals, Totals.CandidateGroupsAt * sizeof(uint), push);
         vk.BetweenKernels(commands);
-        _contactScan.Record(commands, CandidateCapacity);
-        _groups.Dispatch(commands, _groupsSet, 1, push);
+        _contactScan.RecordIndirect(commands, Totals.CandidatesAt, Totals.MetScanAt, CandidateCapacity);
+        _wokenKernel.Dispatch(commands, _wokenSet, 1, hashed);
         vk.BetweenKernels(commands);
         _compact.DispatchIndirect(commands, _compactSet, _totals, Totals.CandidateGroupsAt * sizeof(uint), push);
         vk.BetweenKernels(commands);
-        _timer.Stamp(commands, (int)Stage.Manifolds);
-
-        _damp.Dispatch(commands, _dampSet, Groups(count), push);
-        _prepare.DispatchIndirect(commands, _prepareSet, _totals, Totals.ContactGroupsAt * sizeof(uint), push);
-        vk.BetweenKernels(commands);
-        _timer.Stamp(commands, (int)Stage.Prepared);
 
         _solve.Dispatch(commands, _solveSet, 1, push with { Mode = SolveInContactOrder ? 2u : 0u });
         vk.BetweenKernels(commands);
-        _timer.Stamp(commands, (int)Stage.Solved);
 
-        _integrate.Dispatch(commands, _integrateSet, Groups(count), push);
-        _timer.Stamp(commands, (int)Stage.Integrated);
-        if (Settles) RecordTheSettling(commands, push with { AfreshCount = (uint)_afreshCount });
+        var settles = push with { Mode = IntegrateAndRest, AfreshCount = (uint)_afreshCount };
+        _integrate.Dispatch(
+            commands, _integrateSet, Groups(Settles ? Math.Max(count, _afreshCount) : count), Settles ? settles : push);
+        if (Settles) RecordTheSettling(commands, settles);
 
-        _afreshCount = 0;
-        _timer.Stamp(commands, (int)Stage.Settled);
+        ForgetTheAfresh();
     }
 
     /// <summary>
-    /// <b>What the step froze and woke worked out</b> (<c>kernels/settle.comp</c>): the owners, then waking along the
-    /// contacts, each owner's rest, unsettling along the contacts, the freezing and the two lists — a pass passed on in
-    /// one workgroup (<c>settle_spread.comp</c>) only where its parallel pass changed anything.
+    /// <c>grid_count.comp</c>'s mode for the step's roster: each body's state as the step begins written
+    /// (<c>kernels/owned.glsl</c>), and each damped, as it is counted.
+    /// </summary>
+    const uint CountAndDamp = 1;
+
+    /// <summary><c>integrate.comp</c>'s mode for a settling step: the rest counted afresh where the host reset it, as the step integrates.</summary>
+    const uint IntegrateAndRest = 1;
+
+    /// <summary>
+    /// <b>What the step froze worked out</b> (<c>kernels/settle.comp</c>), over the owners the step's pairs settled
+    /// (<c>kernels/owned.glsl</c>): each owner's rest, unsettling along the contacts — passed on in one workgroup
+    /// (<c>settle_spread.comp</c>) only where its parallel pass changed anything — the freezing, and the two lists where
+    /// asked for (<see cref="ListsWhatSettled"/>).
     /// </summary>
     void RecordTheSettling(CommandBuffer commands, StepPush push)
     {
         var vk = _vk;
         var roster = Owners;
         const ulong perContact = Totals.ContactGroupsAt * sizeof(uint);
-        vk.BetweenKernels(commands);
-        _settle.Dispatch(commands, _settleSet, Groups(Math.Max(roster, _afreshCount)), push with { Mode = SettleOwning });
-        vk.BetweenKernels(commands);
-        _settle.DispatchIndirect(commands, _settleSet, _totals, perContact, push with { Mode = SettleWaking });
-        vk.BetweenKernels(commands);
-        _settleSpread.Dispatch(commands, _settleSpreadSet, 1, push with { Mode = SettleWaking });
         vk.BetweenKernels(commands);
         _settle.Dispatch(commands, _settleSet, Groups(roster), push with { Mode = SettleResting });
         vk.BetweenKernels(commands);
@@ -873,17 +879,21 @@ internal sealed class DeviceSolver : IDisposable
         _settleSpread.Dispatch(commands, _settleSpreadSet, 1, push with { Mode = SettleUnsettling });
         vk.BetweenKernels(commands);
         _settle.Dispatch(commands, _settleSet, Groups(roster), push with { Mode = SettleFreezing });
-        vk.BetweenKernels(commands);
-        _wokeScan.Record(commands, roster);
-        _frozeScan.Record(commands, roster);
-        _settle.Dispatch(commands, _settleSet, Groups(roster), push with { Mode = SettleListing });
-        _settledOver = roster;
 
-        // What began touching, once the owners are known (kernels/touches.comp); the pairs written are the next step's.
-        vk.BetweenKernels(commands);
+        // What began touching and what is held (kernels/touches.comp), beside the freezing: it reads only whether a body
+        // asked what it touches, which the pairs settled; the pairs written are the next step's.
         _touches.DispatchIndirect(commands, _touchesSets[_touchedWas], _totals, perContact, push with { Mode = 0 });
         vk.BetweenKernels(commands);
-        _begunScan.Record(commands, BegunGroups);
+        if (ListsWhatSettled)
+        {
+            _wokeScan.Record(commands, roster);
+            _frozeScan.Record(commands, roster);
+            _settle.Dispatch(commands, _settleSet, Groups(roster), push with { Mode = SettleListing });
+            vk.BetweenKernels(commands);
+            _settledOver = roster;
+        }
+
+        _begunScan.Record(commands, 2 * BegunGroups);
         _touches.DispatchIndirect(commands, _touchesSets[_touchedWas], _totals, perContact, push with { Mode = 1, BegunRoom = (uint)BegunRoom });
         _touchedWas ^= 1;
 
@@ -893,8 +903,6 @@ internal sealed class DeviceSolver : IDisposable
     }
 
     // The settling's passes (kernels/settle.glsl).
-    const uint SettleOwning = 0;
-    const uint SettleWaking = 1;
     const uint SettleResting = 2;
     const uint SettleUnsettling = 3;
     const uint SettleFreezing = 4;
@@ -904,29 +912,20 @@ internal sealed class DeviceSolver : IDisposable
     /// The last step's totals recorded to be handed back, and — where <paramref name="everything"/> — the poses, the
     /// motion and the contacts; read once the submit is waited for. The caller barriers before it.
     /// </summary>
+    /// <remarks>A settling step hands its totals back from its last kernel (<c>kernels/touches.comp</c>), so only the rest is copied.</remarks>
     public void RecordReadBack(CommandBuffer commands, bool everything)
     {
         var vk = _vk;
-        vk.Copy(commands, _totals, _totalsOut, _totals.SizeBytes);
+        if (!Settles) vk.Copy(commands, _totals, _totalsOut, _totals.SizeBytes);
         if (!everything) return;
 
-        CopyRows(commands, _pose, _poseOut);
-        CopyRows(commands, _heading, _headingOut);
-        CopyRows(commands, _motion, _motionOut);
-        CopyRows(commands, _overlap, _overlapOut);
-        vk.Copy(commands, _contact, _contactOut, _contact.SizeBytes);
-        vk.Copy(commands, _contactNormal, _contactNormalOut, _contactNormal.SizeBytes);
-        vk.Copy(commands, _contactPoints, _contactPointsOut, _contactPoints.SizeBytes);
+        var into = ReadBack;
+        CopyRows(commands, _pose, into.Pose);
+        CopyRows(commands, _motion, into.Motion);
+        vk.Copy(commands, _contact, into.Contact, _contact.SizeBytes);
+        vk.Copy(commands, _contactNormal, into.ContactNormal, _contactNormal.SizeBytes);
+        vk.Copy(commands, _contactPoints, into.ContactPoints, _contactPoints.SizeBytes);
     }
-
-    /// <summary>
-    /// How deep each moving body was into what it touched recorded to be handed back (<see cref="OverlapBits"/>); how many
-    /// bytes that is. The caller barriers before it.
-    /// </summary>
-    public ulong RecordTheOverlapRead(CommandBuffer commands) => CopyRows(commands, _overlap, _overlapOut);
-
-    /// <summary>The step's stamps read, once the submit it was recorded into is waited for.</summary>
-    public void ReadTimes() => _timer.Read();
 
     StepPush Push(float dtS)
     {
@@ -955,6 +954,9 @@ internal sealed class DeviceSolver : IDisposable
             FrozenBit = (uint)BodyFlags.Frozen,
             TicksToFreeze = (uint)_config.SolverRestTicks,
             RestSpeedMpsSquared = solver.RestSpeedMps * solver.RestSpeedMps,
+            Capacity = (uint)CandidateCapacity,
+            ContactCapacity = (uint)ContactCapacity,
+            SideRoom = (uint)SideRoom,
         };
     }
 
@@ -976,7 +978,7 @@ internal sealed class DeviceSolver : IDisposable
         var mass = _massIn.Span<Vector2>();
         var shape = _shapeIn.Span<Vector4>();
         var bounds = _boundsIn.Span<Vector4>();
-        var filter = _filterIn.Span<UInt4>();
+        var filter = _filterIn.Span<uint>();
         for (var body = from; body < from + rows; body++)
         {
             pose[body] = new Vector4(table.PositionM[body], table.Rotation[body].X, table.Rotation[body].Y);
@@ -998,16 +1000,20 @@ internal sealed class DeviceSolver : IDisposable
         _massIn.Span<Vector2>().Slice(from, rows).Clear();
         _shapeIn.Span<Vector4>().Slice(from, rows).Clear();
         _boundsIn.Span<Vector4>().Slice(from, rows).Clear();
-        _filterIn.Span<UInt4>().Slice(from, rows).Clear();
+        _filterIn.Span<uint>().Slice(from, rows).Clear();
     }
 
-    /// <summary>A body's flags, category, mask and channels, as the kernels read its filter.</summary>
-    static UInt4 FilterOf(in BodyTable table, int body) =>
-        new((uint)table.Flags[body], LowWord(table.Category[body]), LowWord(table.Mask[body]), table.Channels[body]);
+    /// <summary>
+    /// A body's filter in the one word the kernels read it in (<c>kernels/filter.glsl</c>): its flags, then its category,
+    /// its mask and its channels, a byte each.
+    /// </summary>
+    static uint FilterOf(in BodyTable table, int body) =>
+        (uint)table.Flags[body] | (LayerByte(table.Category[body]) << 8) | (LayerByte(table.Mask[body]) << 16)
+        | ((uint)table.Channels[body] << 24);
 
-    /// <summary>A layer mask in the one word the kernels read it in: every layer this town has is in its low bits.</summary>
-    static uint LowWord(ulong mask) =>
-        mask >> 32 == 0 ? (uint)mask : throw new InvalidOperationException("A collision layer past the 32nd is not laid on the device.");
+    /// <summary>A layer mask in the byte the kernels read it in: every layer this town has is in its low bits.</summary>
+    static uint LayerByte(ulong mask) =>
+        mask >> 8 == 0 ? (uint)mask : throw new InvalidOperationException("A collision layer past the 8th is not laid on the device.");
 
     (GpuBuffer From, GpuBuffer To)[] Uploads() =>
     [
@@ -1015,16 +1021,22 @@ internal sealed class DeviceSolver : IDisposable
         (_shapeIn, _shape), (_boundsIn, _bounds), (_filterIn, _filter),
     ];
 
-    /// <summary>The moving rows of one field copied across, which is every row the step can have changed; how many bytes they are.</summary>
-    unsafe ulong CopyRows(CommandBuffer commands, GpuBuffer from, GpuBuffer to)
+    /// <summary>The moving rows of one field filled with one word: the furniture's are never written, and never read.</summary>
+    void FillRows(CommandBuffer commands, GpuBuffer buffer, uint word)
+    {
+        var stride = buffer.SizeBytes / (ulong)_bodies;
+        if (_movingRows > 0) _vk.Fill(commands, buffer, (ulong)_firstMoving * stride, (ulong)_movingRows * stride, word);
+    }
+
+    /// <summary>The moving rows of one field copied across, which is every row the step can have changed.</summary>
+    unsafe void CopyRows(CommandBuffer commands, GpuBuffer from, GpuBuffer to)
     {
         var stride = from.SizeBytes / (ulong)_bodies;
         var region = new BufferCopy((ulong)_firstMoving * stride, (ulong)_firstMoving * stride, (ulong)_movingRows * stride);
-        if (region.Size == 0) return 0;
+        if (region.Size == 0) return;
 
         Vk.Count();
         _vk.Api.CmdCopyBuffer(commands, from.Handle, to.Handle, 1, &region);
-        return region.Size;
     }
 
     static uint Groups(int count) => (uint)Math.Max(1, (count + 63) / 64);
@@ -1128,7 +1140,6 @@ internal sealed class DeviceSolver : IDisposable
 
     public void Dispose()
     {
-        _timer.Dispose();
         _batch.Dispose();
         foreach (var kernel in _kernels) kernel.Dispose();
         _scans.Dispose();

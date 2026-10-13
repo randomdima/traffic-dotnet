@@ -1,9 +1,17 @@
 #version 460
 
-// An exclusive prefix sum of a run of counts, in place, 2 048 to a workgroup (Blelloch's up- and down-sweep in
-// shared memory). Each block's total goes to sums[sumAt + block], so the same kernel scans the counts and then,
-// one workgroup over those totals, the totals themselves — the second time with sumAt naming the slot the grand
-// total is kept in.
+// An exclusive prefix sum of a run of counts, 2 048 to a workgroup (Blelloch's up- and down-sweep in shared memory),
+// written where the starts go — the counts' own buffer, or another, so the counts are kept beside them. Each block's
+// total goes to sums[sumAt + block], so the same kernel scans the counts and then, one workgroup over those totals,
+// the totals themselves — the second time, or the only time where one block holds every count, with sumAt naming the
+// slot the grand total is kept in. Where groupsAt names a slot, the grand total is also written there as the indirect
+// dispatch a later pass is sized by: a workgroup of 64 for each of the first `capacity`, and never none, so a pass
+// that keeps a count of its own still runs to write it. Where argsAt names one, the two indirect dispatches a scan of
+// those first `capacity` items is sized by are written there too: its blocks, then scan_add's workgroups.
+//
+// How many it scans is the push constant's `count`, or — where countAt names a slot of `source` — the figure a pass
+// before it left there, held to `count` and taken in blocks of 2^countShift: a scan sized on the device, dispatched
+// indirectly off the dispatches an earlier scan wrote (PrefixScan.RecordIndirect).
 
 layout(local_size_x = 1024) in;
 
@@ -11,19 +19,43 @@ layout(push_constant) uniform Scan
 {
     uint count;
     uint sumAt;
+    uint groupsAt;
+    uint capacity;
+    uint countAt;
+    uint countShift;
+    uint argsAt;
+    uint pad0;
 };
 
-layout(std430, binding = 0) buffer Data { uint data[]; };
-layout(std430, binding = 1) buffer Sums { uint sums[]; };
+// PrefixScan.NoGroups, and a count given by the push constant alone.
+const uint NoGroups = 0xFFFFFFFFu;
+const uint NoCount = 0xFFFFFFFFu;
+
+// The two may be one buffer: every thread reads its own two counts before the first barrier and writes their starts
+// after the last.
+layout(std430, binding = 0) readonly buffer Counts { uint counts[]; };
+layout(std430, binding = 1) writeonly buffer Starts { uint starts[]; };
+layout(std430, binding = 2) buffer Sums { uint sums[]; };
+
+// Where a scan sized on the device reads its count. May be the sums' own buffer, read at a slot no pass of this scan writes.
+layout(std430, binding = 3) readonly buffer Source { uint source[]; };
 
 shared uint running[2048];
 
+void writeDispatch(uint at, uint groups)
+{
+    sums[at] = max(1u, groups);
+    sums[at + 1u] = 1u;
+    sums[at + 2u] = 1u;
+}
+
 void main()
 {
+    uint n = countAt == NoCount ? count : (min(source[countAt], count) + (1u << countShift) - 1u) >> countShift;
     uint thread = gl_LocalInvocationID.x;
     uint first = gl_WorkGroupID.x * 2048 + 2 * thread;
-    running[2 * thread] = first < count ? data[first] : 0;
-    running[2 * thread + 1] = first + 1 < count ? data[first + 1] : 0;
+    running[2 * thread] = first < n ? counts[first] : 0;
+    running[2 * thread + 1] = first + 1 < n ? counts[first + 1] : 0;
 
     uint stride = 1;
     for (uint working = 1024; working > 0; working >>= 1)
@@ -42,8 +74,16 @@ void main()
     barrier();
     if (thread == 0)
     {
-        sums[sumAt + gl_WorkGroupID.x] = running[2047];
+        uint total = running[2047];
+        sums[sumAt + gl_WorkGroupID.x] = total;
         running[2047] = 0;
+        uint held = min(total, capacity);
+        if (groupsAt != NoGroups) writeDispatch(groupsAt, (held + 63u) / 64u);
+        if (argsAt != NoGroups)
+        {
+            writeDispatch(argsAt, (held + 2047u) / 2048u);
+            writeDispatch(argsAt + 3u, (held + 255u) / 256u);
+        }
     }
 
     for (uint working = 1; working < 2048; working <<= 1)
@@ -61,6 +101,6 @@ void main()
     }
 
     barrier();
-    if (first < count) data[first] = running[2 * thread];
-    if (first + 1 < count) data[first + 1] = running[2 * thread + 1];
+    if (first < n) starts[first] = running[2 * thread];
+    if (first + 1 < n) starts[first + 1] = running[2 * thread + 1];
 }

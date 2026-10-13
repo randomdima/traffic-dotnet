@@ -1,11 +1,12 @@
 // TyreModel on the device: one car's four patches for one tick — an impulse and a place to spend it per wheel, what
-// each did to the ground, and the four rims wound on (TyreModel.Step, Loads, Ackermann, WheelPointsM, Rim, Scrub,
+// each did to the ground, and the four rims wound on (TyreModel.Step, Loads, AckermannTurns, WheelPointsM, Rim, Scrub,
 // RollingDrag, HoldStill). Line for line with the host, `precise` where it rounds twice; its trigonometry is trig.glsl's
 // and its quotients and roots rounded.glsl's.
 //
-// The including kernel supplies the tyre figures as TYRE_FIGURES' fields: standardGravityMps2, wheelSpinFadeMps,
-// wheelSpinAllowanceMps, markSlipMps, markCorneringSlipMps, ploughCrawlMps, engineBrakingMps2 — and includes
-// car_build.glsl and tyre_rows.glsl first.
+// The including kernel supplies the tyre figures as TYRE_FIGURES' fields: wheelSpinFadeMps, wheelSpinAllowanceMps,
+// markSlipMps, markCorneringSlipMps, ploughCrawlMps, engineBrakingMps2, workingSlipTangent, alongSlipEpsilonMps,
+// liftedAxleLoadShare, ackermannLeastSteerRad, innerWheelLeastRadiusM (TyreFigures) — and includes car_build.glsl and
+// tyre_rows.glsl first.
 
 #include "core/geometry/kernels/trig.glsl"
 #include "core/geometry/kernels/rounded.glsl"
@@ -13,8 +14,6 @@
 const int TyreWheels = 4;
 const int TyreRearRight = 2;
 const int TyreRearLeft = 3;
-const float TyreWorkingSlipTangent = 0.3;
-const float TyreAlongSlipEpsilonMps = 0.01;
 
 // The ground under one patch (SurfaceUnderWheel).
 struct TyreSurface
@@ -62,9 +61,8 @@ void tyreWheelPointsM(CarBuildRow car, TyrePose pose, out vec2 atM[4])
 
 void tyreLoads(CarBuildRow car, TyrePose pose, out float into[4])
 {
-    float weight = TYRE_FIGURES.standardGravityMps2;
-    float alongShare = roundedQuotient(pose.accelerationMps2.x * car.cgHeightM, car.wheelbaseM * weight);
-    float acrossShare = roundedQuotient(pose.accelerationMps2.y * car.cgHeightM, car.halfTrackM * 2.0 * weight);
+    float alongShare = roundedQuotient(pose.accelerationMps2.x * car.cgHeightM, car.wheelbaseWeightM2PerS2);
+    float acrossShare = roundedQuotient(pose.accelerationMps2.y * car.cgHeightM, car.trackWeightM2PerS2);
     precise float front = clamp(car.frontWeightShare - alongShare, 0.0, 1.0);
     precise float toTheSide = clamp(0.5 - acrossShare, 0.0, 1.0);
     precise float l0 = front * toTheSide;
@@ -77,24 +75,45 @@ void tyreLoads(CarBuildRow car, TyrePose pose, out float into[4])
     into[3] = l3;
 }
 
-void tyreAckermann(CarBuildRow car, float steerRad, out float into[4])
+// The direction a wheel offM from the circle's centre line and a wheelbase ahead of it rolls along (TyreModel.WheelTurn).
+vec2 tyreWheelTurn(float offM, float wheelbaseM)
 {
-    into[2] = 0.0;
-    into[3] = 0.0;
-    if (abs(steerRad) < 1e-4)
+    precise float squared = (offM * offM) + (wheelbaseM * wheelbaseM);
+    float reachM = roundedSqrt(squared);
+    return vec2(roundedQuotient(offM, reachM), roundedQuotient(wheelbaseM, reachM));
+}
+
+// The two front wheels' turns as the directions they turn the car's by (TyreModel.AckermannTurns); only for a rack off nought.
+void tyreAckermannTurns(CarBuildRow car, float steerRad, out vec2 into[2])
+{
+    if (abs(steerRad) < TYRE_FIGURES.ackermannLeastSteerRad)
     {
-        into[0] = steerRad;
-        into[1] = steerRad;
+        precise float rackSquared = 1.0 + (steerRad * steerRad);
+        float rackM = roundedSqrt(rackSquared);
+        vec2 rack = vec2(roundedQuotient(1.0, rackM), roundedQuotient(steerRad, rackM));
+        into[0] = rack;
+        into[1] = rack;
         return;
     }
 
     float radiusM = abs(roundedQuotient(car.wheelbaseM, trigTan(steerRad)));
-    float innerRad = trigAtan(roundedQuotient(car.wheelbaseM, max(0.01, radiusM - car.halfTrackM)));
-    precise float outerRadius = radiusM + car.halfTrackM;
-    float outerRad = trigAtan(roundedQuotient(car.wheelbaseM, outerRadius));
+    precise float innerOffM = radiusM - car.halfTrackM;
+    vec2 inner = tyreWheelTurn(max(TYRE_FIGURES.innerWheelLeastRadiusM, innerOffM), car.wheelbaseM);
+    precise float outerOffM = radiusM + car.halfTrackM;
+    vec2 outer = tyreWheelTurn(outerOffM, car.wheelbaseM);
+
+    vec2 rightWheel = steerRad > 0.0 ? inner : outer;
+    vec2 leftWheel = steerRad > 0.0 ? outer : inner;
     float s = sign(steerRad);
-    into[0] = s * (s > 0.0 ? innerRad : outerRad);
-    into[1] = s * (s > 0.0 ? outerRad : innerRad);
+    into[0] = vec2(rightWheel.x, s * rightWheel.y);
+    into[1] = vec2(leftWheel.x, s * leftWheel.y);
+}
+
+// A direction turned by a turn, both unit vectors (TyreModel.Turned).
+vec2 tyreTurned(vec2 direction, vec2 turn)
+{
+    precise vec2 turned = vec2((direction.x * turn.x) - (direction.y * turn.y), (direction.y * turn.x) + (direction.x * turn.y));
+    return turned;
 }
 
 float tyreNoLargerThan(float value, float most) { return sign(value) * min(abs(value), abs(most)); }
@@ -103,14 +122,14 @@ float tyreSyncMassKg(CarBuildRow car, float loadKg)
 {
     if (loadKg <= 0.0) return 0.0;
 
-    precise float sum = roundedQuotient(1.0, car.wheelRotatingMassKg) + roundedQuotient(1.0, loadKg);
+    precise float sum = car.inverseWheelRotatingMassPerKg + roundedQuotient(1.0, loadKg);
     return roundedQuotient(1.0, sum);
 }
 
 float tyreAxleShare(float wholeMps2, float share, float axleLoad)
 {
     float r = roundedQuotient(wholeMps2 * share, axleLoad);
-    return axleLoad > 1e-3 ? r : 0.0;
+    return axleLoad > TYRE_FIGURES.liftedAxleLoadShare ? r : 0.0;
 }
 
 float tyreSpinAllowanceMps(float alongMps)
@@ -161,7 +180,7 @@ float tyreRim(
     precise float capMps = abs(alongMps) + spinAllowanceMps;
     float spunMps = clamp(freeMps, -capMps, capMps);
 
-    precise float holds = abs(wantAlongNs) + (TyreAlongSlipEpsilonMps * loadKg);
+    precise float holds = abs(wantAlongNs) + (TYRE_FIGURES.alongSlipEpsilonMps * loadKg);
     return !sliding || abs(askedAlongNs) <= holds ? alongAfterMps : spunMps;
 }
 
@@ -173,7 +192,7 @@ TyreScrub tyreScrub(
     if (perKg <= 0.0) return TyreScrub(0.0, 0.0, 0.0, 0u);
 
     precise float alongSlideMps = max(abs(alongSlipMps) - TYRE_FIGURES.markSlipMps, 0.0);
-    precise float working = abs(spinMps) * TyreWorkingSlipTangent;
+    precise float working = abs(spinMps) * TYRE_FIGURES.workingSlipTangent;
     float creepMps = max(min(TYRE_FIGURES.markCorneringSlipMps, working), TYRE_FIGURES.markSlipMps);
     precise float acrossSlideMps = max(abs(acrossSlipMps) - creepMps, 0.0);
 
@@ -271,8 +290,9 @@ void tyreStep(
     float loadFraction[4];
     tyreLoads(car, pose, loadFraction);
 
-    float steerRad[4];
-    tyreAckermann(car, command.steerRad, steerRad);
+    vec2 turnedBy[2];
+    bool steered = command.steerRad != 0.0;
+    if (steered) tyreAckermannTurns(car, command.steerRad, turnedBy);
 
     precise float frontLoad = loadFraction[0] + loadFraction[1];
     precise float driveMps2 = command.throttleMps2 * tyreGearSign(command);
@@ -291,11 +311,7 @@ void tyreStep(
         precise vec2 fromCentreM = atM[wheel] - pose.positionM;
         precise vec2 velocityMps = pose.velocityMps + pose.yawRateRadPerS * vec2(-fromCentreM.y, fromCentreM.x);
         vec2 wheelForward = forward;
-        if (steerRad[wheel] != 0.0)
-        {
-            precise float turned = pose.headingRad + steerRad[wheel];
-            wheelForward = trigUnit(turned);
-        }
+        if (steered && wheel < 2) wheelForward = tyreTurned(forward, turnedBy[wheel]);
 
         vec2 wheelRight = vec2(-wheelForward.y, wheelForward.x);
 

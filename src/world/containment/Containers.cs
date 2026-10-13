@@ -19,7 +19,7 @@ internal readonly record struct Contained(ContainerKind Kind, int Index)
 /// <summary>
 /// <b>One containment contract for both container kinds</b> (PHY-7): who is inside what, how many a
 /// building will hold (OBJ-5) and which car has its one driver (CAR-2). It is bookkeeping and nothing
-/// else — where a body goes when it comes out is <see cref="ExitSpots"/>'s, and what a person may do
+/// else — where a body goes when it comes out is the town's (PHY-7a), and what a person may do
 /// while inside is the trip's.
 /// </summary>
 /// <remarks>
@@ -92,9 +92,6 @@ internal sealed class Containers
     public const int CrewSeats = 2;
 
     public int OccupantsOf(int building) => _buildingOccupants[building];
-
-    /// <summary>How many people are on their way to it, which is what makes one with room a better draw than one without.</summary>
-    public int ClaimsOn(int building) => _buildingClaims[building];
 
     /// <summary>Whether a building has room once the people already walking to it are counted (PER-11).</summary>
     public bool LooksLikelyToHaveRoom(int building) =>

@@ -1,3 +1,5 @@
+using TrafficSimulation.Core.Config;
+using TrafficSimulation.Tests.CityGen;
 using TrafficSimulation.World.Road;
 using Xunit;
 
@@ -12,16 +14,25 @@ namespace TrafficSimulation.Tests.Agents.Ambulance;
 [Trait(Priority.Key, Priority.P2)]
 public class RescuePriorityTests
 {
-    /// <summary>A holder asking for the metre at <paramref name="rung"/>, as near it as the other and able to stop short of it.</summary>
-    static PlannedAsk Asking(ClaimPriority rung) =>
-        new(0, 1, LaneRoster.Driving, rung, 10f, 10f, AheadM: 5f, CommittedToM: float.NegativeInfinity, AlongMps: 10f);
+    static readonly SimConfig Config = SimConfig.Shipped();
 
-    /// <summary>Another holder's plan over the same metre, at <paramref name="rung"/>.</summary>
-    static LaneClaim Planned(ClaimPriority rung, bool committed = false) =>
-        new(10f, 20f, 10f, 2, rung, AheadM: 5f, CommittedToM: committed ? 20f : float.NegativeInfinity);
+    static readonly TownWays Ways = TownWays.OfTheRoad(RoadGraph.Build(Towns.Of("Test"), Config));
 
-    static bool Keeps(ClaimPriority mine, in LaneClaim theirs) =>
-        LaneOccupancy.Beats(Asking(mine), 10f, false, theirs, false);
+    /// <summary>
+    /// Whether a holder asking for a stretch of one way at <paramref name="mine"/> keeps it against another asking for
+    /// the same stretch at <paramref name="theirs"/> — the other asked first, so only the rung can give it to the first.
+    /// </summary>
+    static bool Keeps(ClaimPriority mine, ClaimPriority theirs)
+    {
+        var index = new LaneOccupancy(Ways, WayCrossings.None);
+        index.Begin();
+        var other = index.BeginHold(2, LaneRoster.Driving);
+        index.Ask(other, 0, 10f, 20f, 10f, theirs);
+        var asker = index.BeginHold(1, LaneRoster.Driving);
+        index.Ask(asker, 0, 10f, 20f, 10f, mine);
+        index.Answer();
+        return !index.CutOf(asker).Refused;
+    }
 
     /// <summary>
     /// A rescue outranks every ordinary movement, the paint and <b>a closed road</b> (SRV-6), so none of their
@@ -38,9 +49,9 @@ public class RescuePriorityTests
     [InlineData((byte)8)]
     public void ARescueKeepsGroundAgainstEveryOrdinaryMovement(byte theirs)
     {
-        Assert.True(Keeps(ClaimPriority.Special, Planned((ClaimPriority)theirs)));
-        Assert.True(Keeps(ClaimPriority.Special, Planned(ClaimPriority.Signal)));
-        Assert.True(Keeps(ClaimPriority.Special, Planned(ClaimPriority.Afoot)));
+        Assert.True(Keeps(ClaimPriority.Special, (ClaimPriority)theirs));
+        Assert.True(Keeps(ClaimPriority.Special, ClaimPriority.Signal));
+        Assert.True(Keeps(ClaimPriority.Special, ClaimPriority.Afoot));
     }
 
     /// <summary>And the mirror of it: everything below a rescue gives it way, which is what "yield" means here.</summary>
@@ -50,7 +61,7 @@ public class RescuePriorityTests
     [InlineData((byte)8)]
     public void EverythingBelowARescueGivesItWay(byte mine)
     {
-        Assert.False(Keeps((ClaimPriority)mine, Planned(ClaimPriority.Special)));
+        Assert.False(Keeps((ClaimPriority)mine, ClaimPriority.Special));
     }
 
     /// <summary>
@@ -60,17 +71,6 @@ public class RescuePriorityTests
     [Fact]
     public void ARescueGivesWayToGroundItsHolderCanNoLongerStopShortOf()
     {
-        Assert.False(Keeps(ClaimPriority.Special, Planned(ClaimPriority.FirmAcross, committed: true)));
-    }
-
-    /// <summary>
-    /// The ladder is an order and the order runs one way: a byte comparison is the whole mechanism, so the
-    /// one thing that could break it silently is somebody inserting a rung in the wrong place.
-    /// </summary>
-    [Fact]
-    public void ARescueStandsBetweenTheTrafficAndCommittedGround()
-    {
-        Assert.True(ClaimPriority.Special < ClaimPriority.FirmStraight);
-        Assert.True(ClaimPriority.Special > ClaimPriority.Committed);
+        Assert.False(Keeps(ClaimPriority.Special, ClaimPriority.Committed));
     }
 }

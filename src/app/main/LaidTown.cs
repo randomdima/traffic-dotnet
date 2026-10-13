@@ -49,6 +49,8 @@ internal sealed class LaidTown
         // first stood under it; laid after, it is laid into what the atlas worked in.
         var world = new TownWorld(plan, config);
         var ground = GroundMesh.Build(plan, config);
+        plan.Paving(config).LetGoOfTheLayingIndexes();
+        world.Roads.LetGoOfTheLayingIndex();
         return new LaidTown(plan, ground, world, Scenarios.For(world, config));
     }
 }

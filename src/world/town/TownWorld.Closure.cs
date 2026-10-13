@@ -39,10 +39,6 @@ internal sealed partial class TownWorld
     /// <summary>Whether a closure began or ended since the town's closures were last laid.</summary>
     bool _closuresChanged;
 
-    /// <inheritdoc cref="_closuresChanged"/>
-    /// <remarks>For the device to lay once at load (<c>app/devicetick/TownState</c>).</remarks>
-    internal bool ClosuresChanged => _closuresChanged;
-
     /// <summary>Every lane a closure holds now, one flag a lane — what a tour may not draw (SRV-10).</summary>
     bool[] _closedLanes = [];
 
@@ -61,9 +57,6 @@ internal sealed partial class TownWorld
     /// <summary>The lanes closed now, for whoever draws or measures them.</summary>
     public ReadOnlySpan<bool> ClosedLanes => _closedLanes;
 
-    /// <summary>And the runs a route may not enter, for whoever plans one the way a car does (CTL-1a).</summary>
-    public ReadOnlySpan<bool> ClosedLinks => _closedLinks;
-
     /// <summary>Whether any run is closed now.</summary>
     bool _anyLinkClosed;
 
@@ -79,12 +72,6 @@ internal sealed partial class TownWorld
     /// </summary>
     ReadOnlySpan<bool> ClosedLinksFor(int car) => Cars.BlueLight[car] ? default : ClosedLinksNow;
 
-    /// <summary>Whether the closed runs bar this car's search at all (<see cref="ClosedLinksFor"/>), as a device's request says it.</summary>
-    internal bool ClosedLinksBar(int car) => !ClosedLinksFor(car).IsEmpty;
-
-    /// <summary>Whether the closed runs bar a search at all now (<see cref="ClosedLinksNow"/>).</summary>
-    internal bool ClosedLinksBarNow => !ClosedLinksNow.IsEmpty;
-
     /// <summary>
     /// <b>The town's closures laid again</b> where one began or ended: which lanes and runs are closed, and every
     /// route that ran through one dropped, so a car already on its way is sent round rather than into an officer.
@@ -93,8 +80,6 @@ internal sealed partial class TownWorld
     {
         if (!_closuresChanged) return;
 
-        // Every car's line is read against the closures, as its last tick left it.
-        Device?.TakeEveryCarBack(this);
         _closuresChanged = false;
         _anyLinkClosed = false;
         Array.Clear(_closedLanes);
@@ -139,30 +124,31 @@ internal sealed partial class TownWorld
         if (!lineCrosses && !routeCrosses) return;
 
         Cars.ClearRoute(car);
-        if (lineCrosses && !Cars.CommittedToTheBox[car]) LayLine(car, 1);
+        if (lineCrosses && !CommittedToTheBox(car)) LayLine(car, 1);
     }
 
     /// <summary>
-    /// <b>The street lanes a scene lies across</b> (SRV-9), nearest first: the lane nearest it, and the other lane
-    /// of its street where the scene's body stands on that one too — read off the ground the body was laid on.
+    /// <b>The street lanes a scene lies across</b> (SRV-9): the street lanes the world reads the scene's body on
+    /// (TER-4c.2) — nothing looked up (the root decision log, 2026-10-13).
     /// </summary>
     int TheScenesLanes(int casualty, int wreck, Span<int> lanes)
     {
-        var lane = _roads.NearestStreetLane(TheSceneM(casualty, wreck), out _);
-        if (lane < 0) return 0;
+        var count = 0;
+        foreach (ref readonly var cover in TheScenesCovers(casualty, wreck))
+        {
+            if (count == lanes.Length) break;
+            if (_ways.KindOf(cover.Way) != WayKind.Lane) continue;
 
-        lanes[0] = lane;
-        var back = _roads.LaneReverse[lane];
-        var (occupant, roster) = casualty >= 0 ? (casualty, LaneRoster.Walking) : (wreck, LaneRoster.Driving);
-        if (back < 0 || lanes.Length < 2) return 1;
+            var lane = _ways.RoadLaneOf(cover.Way);
+            if (_roads.IsAStreetLane(lane) && !lanes[..count].Contains(lane)) lanes[count++] = lane;
+        }
 
-        // A layer sent back in part may not hold the lane yet, which is closed as though the scene stood on it.
-        var backWay = _ways.OfRoadLane(back);
-        if (_occupancy.Knows(backWay) && !_occupancy.HasTheBodyOf(backWay, occupant, roster)) return 1;
-
-        lanes[1] = back;
-        return 2;
+        return count;
     }
+
+    /// <summary>The ways the world reads a scene's body on: the casualty's, or the wreck's.</summary>
+    ReadOnlySpan<WayCover> TheScenesCovers(int casualty, int wreck) =>
+        casualty >= 0 ? _world.View.CoversOfWalker(casualty) : CoversOfCar(wreck);
 
     /// <summary>
     /// <b>A lane of the scene no other patrol is closing, and the stretch that closes it</b> (SRV-9): the nearer
@@ -250,7 +236,7 @@ internal sealed partial class TownWorld
     /// </summary>
     bool IsClosedByAnother(int car, int lane)
     {
-        for (var other = 0; other < Cars.Count; other++)
+        foreach (var other in _patrols)
         {
             if (other != car && _beat.SceneLane[other] == lane && _beat.IsOnACall(other)) return true;
         }
@@ -367,17 +353,11 @@ internal sealed partial class TownWorld
     /// </summary>
     bool LetTheOfficerOut(int car, int officer)
     {
-        var doorM = TheKerbDoorM(car);
-        if (!KnowsTheGroundOutside(doorM)
-            || !ExitSpots.TryFind(
-                _config, _plan.WorldSizeM, _physics, new DoorStep(this), doorM, doorM + (doorM - Cars.PositionM[car]),
-                out var spotM))
-        {
-            return false;
-        }
+        var (beside, free) = ExitBesideTheCar(car);
+        if (!TryPutDownOff(beside, free, beside: -1, out var spotM, out var spot)) return false;
 
         _containers.Alight(car, officer);
-        Place(officer, spotM, Cars.HeadingRad[car]);
+        Place(officer, spotM, Cars.HeadingRad[car], spot);
         People.Stage[officer] = TripStage.OnDuty;
         return true;
     }

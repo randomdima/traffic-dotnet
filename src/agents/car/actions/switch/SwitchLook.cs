@@ -31,9 +31,6 @@ internal enum SwitchOutcome : uint
     /// <summary>Looked, and found no step it can drive, no room to sweep one in, or its ground held.</summary>
     Looked,
 
-    /// <summary>Looked, and found a step whose ground the layer does not hold yet: looked for again at the next decision.</summary>
-    Unknown,
-
     /// <summary>Looked, and found a step with its ground free: the step asked for.</summary>
     Asks,
 }

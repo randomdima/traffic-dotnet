@@ -77,7 +77,20 @@ internal sealed class WalkingNetwork
 
             MostTurnsAtANode = Math.Max(MostTurnsAtANode, turns);
         }
+
+        _besideOf = new int[foot.EdgeCount];
+        for (var edge = 0; edge < _besideOf.Length; edge++)
+        {
+            _besideOf[edge] = LaneBeside(edge, _foot.LengthM(edge) * 0.5f, Spline.SampleAt(_foot.ArcsOf(edge), _foot.LengthM(edge) * 0.5f).PositionM, out _);
+        }
     }
+
+    /// <summary>
+    /// <b>The lane running back past each lane, found once while the map is built</b> (<see cref="LaneBeside(int, float, Vector2, out float)"/>,
+    /// at its middle) — or <see cref="NoLane"/>. A walk is entered and aimed on both (<see cref="EntriesAt"/>), and that
+    /// is never searched for while the town runs (the root decision log, 2026-10-13).
+    /// </summary>
+    readonly int[] _besideOf;
 
     public FootGraph Foot => _foot;
 
@@ -97,12 +110,6 @@ internal sealed class WalkingNetwork
 
     /// <summary>The graph cut into the cells a search crosses before it details any of them.</summary>
     public RouteCells Cells { get; }
-
-    /// <summary>The run a stretch is part of. Every stretch belongs to exactly one, which is what a contraction may not lose.</summary>
-    public int LinkOfEdge(int edge) => _linkOfEdge[edge];
-
-    /// <summary>Where in that run the stretch stands, as an index into its pieces.</summary>
-    public int SlotOfEdge(int edge) => _slotOfEdge[edge];
 
     /// <summary>How many mitres the town holds, which is what numbers the corners apart from the lanes.</summary>
     public int TurnCount => _joins.ToEdge.Length;
@@ -143,9 +150,6 @@ internal sealed class WalkingNetwork
     /// the <em>stretch</em> onto the lane, and nothing else needs it.
     /// </summary>
     public float HeadLengthM(int edge) => _lanes.HeadM[edge];
-
-    /// <summary>And what the corner leaving it took off the other end, on the same terms.</summary>
-    public float EndLengthM(int edge) => _lanes.EndM[edge];
 
     /// <summary>
     /// The turn this lane <b>carries rather than hands over at</b>, or <see cref="NoTurn"/> where it carries
@@ -289,55 +293,110 @@ internal sealed class WalkingNetwork
     /// <see cref="FootGraph.Reverse"/>): a pavement is two one-way lanes a lane's width apart, so what a
     /// body may set off down is whichever of them it is standing nearest — and both, because it is standing
     /// on the ground of both. Offered one, a walker could only ever go the way its own lane happened to
-    /// run, and anything behind it cost a lap of the ring.
+    /// run, and anything behind it cost a lap of the ring. <b>At a loop's end the two are one link</b>, the
+    /// lane beside at another place of the same run, and which of them a walk sets off from is
+    /// <see cref="SetOffFrom"/>'s.
     /// </remarks>
-    public int EntriesNear(Vector2 pointM, Span<RouteEntry> into)
+    public int EntriesAt(in FootPlace place, Span<RouteEntry> into)
     {
-        var edge = _foot.NearestEdge(pointM, out var alongM);
-        if (edge < 0) return 0;
+        if (!place.IsSomewhere) return 0;
 
         var count = 0;
-        into[count++] = EntryOnEdge(edge, alongM);
+        into[count++] = EntryOnEdge(place.Edge, place.AlongM);
 
-        var back = LaneBeside(edge, alongM, pointM, out var backM);
+        var back = BesideAt(place, out var backM);
         if (back >= 0 && into.Length > 1) into[count++] = EntryOnEdge(back, backM);
 
         return count;
     }
 
     /// <summary>
-    /// <b>Which of the entries the search actually set off from</b>: the one standing on the first link it
-    /// returned. Expanding a chain from either of the others starts the walk facing backwards, so this is
-    /// the metre the first way of that chain is entered at.
+    /// <b>The place on the pavement nearest a point</b> — a look-up, and only the map's while it is built and a
+    /// player's for what an order names (the root decision log, 2026-10-13): everything else carries its place.
+    /// </summary>
+    public FootPlace PlaceNearest(Vector2 pointM)
+    {
+        var edge = _foot.NearestEdge(pointM, out var alongM);
+        return edge < 0 ? FootPlace.Nowhere : new FootPlace(edge, alongM);
+    }
+
+    /// <summary>
+    /// <b>The lane running back past a place, and the place abeam of it there</b> (<see cref="_besideOf"/>): the same
+    /// share of that lane's length from its far end, the two being one stretch walked both ways.
+    /// </summary>
+    int BesideAt(in FootPlace place, out float besideAlongM)
+    {
+        var back = _besideOf[place.Edge];
+        besideAlongM = back < 0 ? 0f : (1f - ShareAlong(place.Edge, place.AlongM)) * _foot.LengthM(back);
+        return back;
+    }
+
+    /// <summary>
+    /// <b>A place on a stretch from a metre of the lane it is walked down</b> — <see cref="LaneMOf"/> the other way
+    /// round, for a body whose place on its way is kept in the lane's metres.
+    /// </summary>
+    public FootPlace PlaceOnLane(int edge, float laneM)
+    {
+        var headM = HeadLengthM(edge);
+        var alongTheStretchM = LaneLengthM(edge) - TailLengthM(edge) + headM;
+        var share = alongTheStretchM > 0f ? Math.Clamp((laneM + headM) / alongTheStretchM, 0f, 1f) : 0f;
+        return new FootPlace(edge, share * _foot.LengthM(edge));
+    }
+
+    /// <summary>
+    /// <b>Which of the entries the search actually set off from</b>: of those standing on the first link it
+    /// returned, the one it priced cheapest — straight to the goal where the route is that one link, and to the
+    /// link's end where it goes on. Expanding a chain from any other starts the walk facing backwards or further
+    /// back than it stands, so this is the metre the first way of that chain is entered at.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>Two entries may stand on one link</b>: at a loop's end the lane and the lane beside it are one contracted
+    /// run, and a body standing there is at two places of it (<see cref="EntriesAt"/>). From the dearer one the
+    /// walk goes round the loop for nothing — or, where the goal stands between the two, sets off past it.
+    /// </para>
+    /// <para>
     /// A route always begins on one of the entries it was offered — the planner marks an entry's link as
     /// having nothing behind it and reconstructs back to one — so the first of them is a fallback that
     /// nothing reaches rather than a case with an answer of its own.
+    /// </para>
     /// </remarks>
-    public static RouteEntry SetOffFrom(ReadOnlySpan<RouteEntry> entries, int link)
+    /// <param name="links">The route the search returned, the link it set off on first.</param>
+    /// <param name="goal">The goal it reached.</param>
+    public static RouteEntry SetOffFrom(ReadOnlySpan<RouteEntry> entries, ReadOnlySpan<int> links, in RouteGoal goal)
     {
-        foreach (var entry in entries)
+        var straightToTheGoal = links.Length == 1;
+        var best = -1;
+        var bestM = float.PositiveInfinity;
+        for (var at = 0; at < entries.Length; at++)
         {
-            if (entry.Link == link) return entry;
+            ref readonly var entry = ref entries[at];
+            if (entry.Link != links[0]) continue;
+
+            var costM = !straightToTheGoal ? entry.EnterM + entry.RemainingM
+                : entry.AlongM <= goal.AlongM ? entry.EnterM + goal.AlongM - entry.AlongM
+                : float.PositiveInfinity;
+            if (best >= 0 && costM >= bestM) continue;
+
+            best = at;
+            bestM = costM;
         }
 
-        return entries[0];
+        return entries[Math.Max(0, best)];
     }
 
     /// <summary>
     /// A destination as the search takes it: a place on a link, <b>offered on both lanes of the pavement it
-    /// stands on</b> — the same two <see cref="EntriesNear"/> offers, for the same reason.
+    /// stands on</b> — the same two <see cref="EntriesAt"/> offers, for the same reason.
     /// </summary>
-    public int GoalsAt(Vector2 pointM, Span<RouteGoal> into)
+    public int GoalsAt(in FootPlace place, Span<RouteGoal> into)
     {
-        var edge = _foot.NearestEdge(pointM, out var alongM);
-        if (edge < 0) return 0;
+        if (!place.IsSomewhere) return 0;
 
         var count = 0;
-        into[count++] = new RouteGoal(_linkOfEdge[edge], PlaceOfM(edge, alongM));
+        into[count++] = new RouteGoal(_linkOfEdge[place.Edge], PlaceOfM(place.Edge, place.AlongM));
 
-        var back = LaneBeside(edge, alongM, pointM, out var backM);
+        var back = BesideAt(place, out var backM);
         if (back >= 0 && into.Length > 1) into[count++] = new RouteGoal(_linkOfEdge[back], PlaceOfM(back, backM));
 
         return count;
@@ -429,11 +488,20 @@ internal sealed class WalkingNetwork
     /// </summary>
     public float LaneMOf(int edge, float alongEdgeM)
     {
-        var edgeLengthM = MathF.Max(1e-4f, _foot.LengthM(edge));
         var headM = HeadLengthM(edge);
         var alongTheStretchM = LaneLengthM(edge) - TailLengthM(edge) + headM;
 
-        return MathF.Max(0f, (alongEdgeM / edgeLengthM * alongTheStretchM) - headM);
+        return MathF.Max(0f, (ShareAlong(edge, alongEdgeM) * alongTheStretchM) - headM);
+    }
+
+    /// <summary>
+    /// How far along a stretch a place is, as a share of the stretch: nought on one of no length, which the weld
+    /// leaves none of — a lane whose ends weld to one node is not laid — but which a share must not divide by.
+    /// </summary>
+    public float ShareAlong(int edge, float alongEdgeM)
+    {
+        var edgeLengthM = _foot.LengthM(edge);
+        return edgeLengthM > 0f ? alongEdgeM / edgeLengthM : 0f;
     }
 
     /// <summary>
@@ -572,7 +640,7 @@ internal sealed class WalkingNetwork
     /// offset line was cut off the head of it so that the mitre onto it lands on its first metre.
     /// </summary>
     readonly record struct Lanes(
-        int[] ArcOffsets, ArcSeg[] Arcs, float[] LengthM, float[] TailM, float[] HeadM, float[] EndM)
+        int[] ArcOffsets, ArcSeg[] Arcs, float[] LengthM, float[] TailM, float[] HeadM)
     {
         public ReadOnlySpan<ArcSeg> Of(int edge) =>
             Arcs.AsSpan(ArcOffsets[edge], ArcOffsets[edge + 1] - ArcOffsets[edge]);
@@ -621,9 +689,7 @@ internal sealed class WalkingNetwork
                 arcs.AsSpan(arcOffsets[edge], arcOffsets[edge + 1] - arcOffsets[edge]));
         }
 
-        return new Lanes(
-            arcOffsets, arcs, lengthM, new float[foot.EdgeCount], new float[foot.EdgeCount],
-            new float[foot.EdgeCount]);
+        return new Lanes(arcOffsets, arcs, lengthM, new float[foot.EdgeCount], new float[foot.EdgeCount]);
     }
 
     /// <summary>
@@ -658,7 +724,6 @@ internal sealed class WalkingNetwork
         var lengthM = new float[foot.EdgeCount];
         var tailM = new float[foot.EdgeCount];
         var headM = new float[foot.EdgeCount];
-        var endM = new float[foot.EdgeCount];
 
         for (var edge = 0; edge < foot.EdgeCount; edge++)
         {
@@ -692,13 +757,12 @@ internal sealed class WalkingNetwork
             for (var arc = 0; arc < written; arc++) arcs.Add(cut[arc]);
 
             headM[edge] = fromM;
-            endM[edge] = Spline.TotalLengthM(carried.AsSpan(0, held)) - toM;
             tailM[edge] = tail == NoTurn ? 0f : joins.LengthM[tail];
             lengthM[edge] = toM - fromM;
             arcOffsets[edge + 1] = arcs.Count;
         }
 
-        return new Lanes(arcOffsets, [.. arcs], lengthM, tailM, headM, endM);
+        return new Lanes(arcOffsets, [.. arcs], lengthM, tailM, headM);
     }
 
     /// <summary>
@@ -1032,4 +1096,15 @@ internal sealed class WalkingNetwork
     {
         public float PriceM(int fromEdge, int toEdge) => 0f;
     }
+}
+
+/// <summary>
+/// <b>A place on the pavement</b>: a stretch of the fine graph and how far along it — what a walk is entered at and aimed
+/// at, carried by whoever names it rather than looked for (the root decision log, 2026-10-13).
+/// </summary>
+internal readonly record struct FootPlace(int Edge, float AlongM)
+{
+    public static FootPlace Nowhere => new(WalkingNetwork.NoLane, 0f);
+
+    public bool IsSomewhere => Edge >= 0;
 }

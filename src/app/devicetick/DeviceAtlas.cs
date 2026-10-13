@@ -84,15 +84,12 @@ internal sealed class DeviceAtlas : IDisposable
         if (!vk.HasFloat64) throw new NotSupportedException($"{vk.DeviceName} has no doubles in its kernels, and a body's edges are put right in them.");
 
         _vk = vk;
-        var entries = new EntryRow[table.Entries.Length];
-        for (var at = 0; at < entries.Length; at++) entries[at] = EntryRow.Of(table.Entries[at]);
-
         Tables =
         [
             Laid(table.CellSlot),
             Laid(table.SlotFirst),
             Laid<uint>(InWords(table.PointStart)),
-            Laid<EntryRow>(entries),
+            LaidEntries(table.Entries),
             Laid(table.LengthM),
             Laid<uint>(InWords(table.WayChannels)),
         ];
@@ -129,15 +126,29 @@ internal sealed class DeviceAtlas : IDisposable
         return words;
     }
 
-    /// <summary>A device-local buffer holding these rows, sent once through a staging buffer.</summary>
+    /// <summary>A device-local buffer holding these rows, sent once through a staging buffer and no copy of them besides.</summary>
     GpuBuffer Laid<T>(ReadOnlySpan<T> rows) where T : unmanaged
     {
+        var buffer = Room<T>(rows.Length);
+        buffer.Upload(rows, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit);
+        return buffer;
+    }
+
+    /// <summary>The entries, each turned into the device's row as it is staged (<see cref="EntryRow.Of"/>).</summary>
+    unsafe GpuBuffer LaidEntries(ReadOnlySpan<RibbonAtlas.Entry> entries)
+    {
+        var buffer = Room<EntryRow>(entries.Length);
+        buffer.Upload<RibbonAtlas.Entry, EntryRow>(
+            entries, &EntryRow.Of, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit);
+        return buffer;
+    }
+
+    GpuBuffer Room<T>(int count) where T : unmanaged
+    {
         var buffer = _vk.CreateBuffer(
-            (ulong)(Math.Max(1, rows.Length) * Marshal.SizeOf<T>()),
+            (ulong)(Math.Max(1, count) * Marshal.SizeOf<T>()),
             BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferDstBit, HostAccess.None);
         _owned.Add(buffer);
-        var copy = rows.ToArray();
-        buffer.Upload<T>(copy.Length, into => copy.CopyTo(into), PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit);
         return buffer;
     }
 

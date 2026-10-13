@@ -33,7 +33,7 @@ namespace TrafficSimulation.App.Debug;
 /// <para>
 /// <b>Every reading is off the producer</b>, like the rest of this slice: what a cell holds is the index's own
 /// answer, a way and what holds it are the town's (<see cref="TownWorld.LineOfWay"/>,
-/// <see cref="LaneOccupancy.CopyTo"/>), the ribbon is the band the merge was given (<see cref="ArcRibbon"/>),
+/// <see cref="LaneOccupancy.Bodies"/>), the ribbon is the band the merge was given (<see cref="ArcRibbon"/>),
 /// and the boundary is the merge's own output (<see cref="LaneShell"/>).
 /// </para>
 /// </remarks>
@@ -338,11 +338,11 @@ internal sealed partial class DebugOverlay
 
         card.Keep(in line);
 
-        if (float.IsFinite(cars.LightAheadM[car]))
+        if (world.LightAheadM(car) is var lightAheadM && float.IsFinite(lightAheadM))
         {
             line = card.Next();
             line.Add("light in ");
-            line.Add(cars.LightAheadM[car], "F1");
+            line.Add(lightAheadM, "F1");
             line.Add(" m");
             card.Keep(in line);
         }
@@ -481,8 +481,11 @@ internal sealed partial class DebugOverlay
 
         if (!focus.Switches.Claims) return;
 
-        Span<LaneClaim> slots = stackalloc LaneClaim[MostDrawnSlotsOnAWay];
-        var count = world.Occupancy.CopyTo(way, slots);
+        var index = world.Occupancy;
+        var bodies = index.Bodies(way);
+        var mains = index.Mains(way);
+        var seconds = index.Secondaries(way);
+        var count = bodies.Length + mains.Length + seconds.Length;
         if (count == 0)
         {
             line = card.Next();
@@ -493,24 +496,32 @@ internal sealed partial class DebugOverlay
 
         for (var slot = 0; slot < count && slot < MostClaimsListed; slot++)
         {
-            ref readonly var claim = ref slots[slot];
+            var claim = slot < bodies.Length ? bodies[slot]
+                : slot < bodies.Length + mains.Length ? mains[slot - bodies.Length]
+                : seconds[slot - bodies.Length - mains.Length];
+            var holders = index.HoldersOf(claim);
             line = card.Next();
             line.Add(claim.FromM <= alongM && alongM <= claim.ToM ? "> " : "  ");
-            if (claim.Occupant == LaneOccupancy.Nobody) line.Add("furniture");
+            if (holders.Length == 0) line.Add("nobody");
             else
             {
-                line.Add(RosterWords[(int)claim.Of]);
-                line.Add(claim.Occupant);
+                line.Add(RosterWords[(int)LaneOccupancy.RosterOf(holders[0])]);
+                line.Add(LaneOccupancy.OccupantOf(holders[0]));
+                if (holders.Length > 1)
+                {
+                    line.Add(" +");
+                    line.Add(holders.Length - 1);
+                }
             }
 
             line.PadTo(14);
-            line.Add(PriorityWords[(int)claim.Priority]);
+            line.Add(PriorityWords[(int)claim.Rung]);
             line.PadTo(28);
             line.Add(claim.FromM, "F1");
             line.Add(" - ");
             line.Add(claim.ToM, "F1");
             line.Add(" m");
-            if (claim.Secondary) line.Add(", crossed");
+            if (claim.Kind == ClaimKind.Secondary) line.Add(", crossed");
             card.Keep(in line);
         }
 
@@ -678,7 +689,8 @@ internal sealed partial class DebugOverlay
     /// <summary>How many bodies the three solver grids hold between them at a place, which is whether there is a cell there to ask about.</summary>
     static int SolverCellAt(TownWorld world, Vector2 pointM)
     {
-        var physics = world.PhysicsForInstruments;
+        if (world.PhysicsForInstruments is not { } physics) return 0;
+
         return BodiesAt(physics.MovingIndex, pointM, out _, out _) + BodiesAt(physics.FrozenIndex, pointM, out _, out _)
                + BodiesAt(physics.StaticIndex, pointM, out _, out _);
     }
@@ -697,7 +709,8 @@ internal sealed partial class DebugOverlay
     /// </summary>
     static void FocusSolverCells(ref ScreenDraw draw, in Focus focus, Vector2 atM)
     {
-        var physics = focus.World.PhysicsForInstruments;
+        if (focus.World.PhysicsForInstruments is not { } physics) return;
+
         SolverCell(ref draw, physics.StaticIndex, atM, focus.LineM, Theme.SolverStaticEdge with { W = 1f });
         SolverCell(ref draw, physics.FrozenIndex, atM, focus.LineM, Theme.SolverMovingEdge with { W = 1f });
         SolverCell(ref draw, physics.MovingIndex, atM, focus.LineM, Theme.SolverMovingEdge with { W = 1f });
@@ -715,7 +728,8 @@ internal sealed partial class DebugOverlay
 
     static void DescribeSolverCells(ref InfoCard card, TownWorld world, Vector2 atM)
     {
-        var physics = world.PhysicsForInstruments;
+        if (world.PhysicsForInstruments is not { } physics) return;
+
         var line = card.Next();
         line.Add("solver cells here");
         card.Keep(in line);

@@ -3,8 +3,8 @@
 // lifts for next tick, and the marks it lays. Line for line with the host, `precise` where it rounds twice.
 //
 // The including kernel includes car_build.glsl, tyre.glsl and tyre_marks.glsl first, defines TYRE_WHEEL_GROUNDS_BINDING,
-// and its TYRE_FIGURES also carries slipBackOffS, slipRecoverS, minSlipThrottleFraction, tractionThrottleFraction,
-// nominalGripMps2 and markSpacingM.
+// and its TYRE_FIGURES also carries slipBackOffPerTick, slipRecoverPerTick (SimConfig.TyreSlipBackOffPerTick and
+// TyreSlipRecoverPerTick), minSlipThrottleFraction, tractionThrottleFraction, nominalGripMps2 and markSpacingM.
 
 // The only two grounds a wheel stands on (WheelGrounds): two rows laid once, off every way and then on one.
 layout(std430, binding = TYRE_WHEEL_GROUNDS_BINDING) readonly buffer TyreWheelGrounds { TyreSurface tyreWheelGrounds[]; };
@@ -30,24 +30,28 @@ struct TyreMark
     bool ploughed;
 };
 
-// The most a driven axle may be asked for, with the throttle's back-off wound on first (TyrePass.DriveCeilingMps2).
-float tyrePassCeilingMps2(CarBuildRow car, bool hand, float acrossMps2, float dtS, inout TyreCarry carry)
+// The throttle's back-off wound on for this tick, every tick and whether or not the wheels turn (TyrePass.WindTheSlipThrottle).
+void tyrePassWindTheSlipThrottle(inout TyreCarry carry)
 {
     if (carry.drivenSlipping)
     {
-        precise float liftedTo = carry.slipThrottle - roundedQuotient(dtS, TYRE_FIGURES.slipBackOffS);
+        precise float liftedTo = carry.slipThrottle - TYRE_FIGURES.slipBackOffPerTick;
         carry.slipThrottle = max(liftedTo, TYRE_FIGURES.minSlipThrottleFraction);
     }
     else
     {
-        precise float recoveredTo = carry.slipThrottle + roundedQuotient(dtS, TYRE_FIGURES.slipRecoverS);
+        precise float recoveredTo = carry.slipThrottle + TYRE_FIGURES.slipRecoverPerTick;
         carry.slipThrottle = min(recoveredTo, 1.0);
     }
+}
 
+// The most a driven axle may be asked for, off the throttle's back-off as it was wound this tick (TyrePass.DriveCeilingMps2).
+float tyrePassCeilingMps2(CarBuildRow car, bool hand, float acrossMps2, float slipThrottle)
+{
     if (hand) return tyreDriveLeftMps2(car.gripMps2, acrossMps2);
 
     float leftMps2 = tyreDriveLeftMps2(TYRE_FIGURES.nominalGripMps2, acrossMps2);
-    precise float ceilingMps2 = leftMps2 * TYRE_FIGURES.tractionThrottleFraction * carry.slipThrottle;
+    precise float ceilingMps2 = leftMps2 * TYRE_FIGURES.tractionThrottleFraction * slipThrottle;
     return ceilingMps2;
 }
 
@@ -63,6 +67,13 @@ bool tyrePassAtRest(TyrePose pose, TyreCommand command, TyreCarry carry)
     }
 
     return true;
+}
+
+// A car whose pass would clear its impulses and scrub and change nothing else (TyrePass.Settled): at rest, with the
+// throttle's back-off wound all the way back and no slide to lift for.
+bool tyrePassSettled(TyrePose pose, TyreCommand command, TyreCarry carry)
+{
+    return carry.slipThrottle == 1.0 && !carry.drivenSlipping && tyrePassAtRest(pose, command, carry);
 }
 
 bool tyrePassIsDriven(float drivenFrontShare, int wheel)
@@ -126,13 +137,14 @@ bool tyrePass(
         marks[wheel] = TyreMark(vec2(0.0), vec2(0.0), 0.0, false);
     }
 
-    float ceilingMps2 = tyrePassCeilingMps2(car, hand, pose.accelerationMps2.y, dtS, carry);
+    tyrePassWindTheSlipThrottle(carry);
     if (tyrePassAtRest(pose, command, carry))
     {
         carry.drivenSlipping = false;
         return true;
     }
 
+    float ceilingMps2 = tyrePassCeilingMps2(car, hand, pose.accelerationMps2.y, carry.slipThrottle);
     vec2 atM[4];
     tyreWheelPointsM(car, pose, atM);
     TyreSurface ground[4];

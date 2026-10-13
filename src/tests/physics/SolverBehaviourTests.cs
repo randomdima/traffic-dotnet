@@ -131,19 +131,32 @@ public class SolverBehaviourTests
         var walker = world.AddPerson(new Vector2(5f, 0f));
         world.Tag(walker, new BodyTag(BodyKind.Person, 7));
 
-        Assert.True(world.CastRay(Vector2.Zero, new Vector2(20f, 0f), BodyId.None, statics: false, out var before));
-        Assert.Equal(new BodyTag(BodyKind.Person, 7), before.Tag);
+        world.Step(StepSeconds);
+        Assert.Equal([7], PersonsIn(world));
 
         world.Contain(walker);
-        Assert.False(world.CastRay(Vector2.Zero, new Vector2(20f, 0f), BodyId.None, statics: false, out _));
+        world.Step(StepSeconds);
+        Assert.Empty(PersonsIn(world));
         Assert.Equal(0, world.IntegratedBodyCount);
         Assert.Equal(1, world.DynamicBodyCount);
 
         world.Release(walker, new Vector2(12f, 0f), 1.2f);
-        Assert.True(world.CastRay(Vector2.Zero, new Vector2(20f, 0f), BodyId.None, statics: false, out var after));
-        Assert.Equal(new BodyTag(BodyKind.Person, 7), after.Tag);
+        world.Step(StepSeconds);
+        Assert.Equal([7], PersonsIn(world));
+        Assert.Equal(new BodyTag(BodyKind.Person, 7), world.TagOf(walker));
         Assert.Equal(1, world.IntegratedBodyCount);
         Assert.Equal(new Vector2(12f, 0f), world.PositionOf(walker));
+    }
+
+    /// <summary>
+    /// The people's roster indexes the world's grids hold over the twenty metres east of the origin, each once
+    /// (<see cref="PhysicsWorld.InBox"/> writes a body once a cell).
+    /// </summary>
+    static int[] PersonsIn(PhysicsWorld world)
+    {
+        var into = new int[16];
+        var written = world.InBox(new Vector2(0f, -1f), new Vector2(20f, 1f), BodyKind.Person, mostCells: 64, into);
+        return into[..written].Distinct().ToArray();
     }
 
     /// <summary><c>SOL-10</c>: a figure with no census is not a figure, so the world can say what it is carrying.</summary>
@@ -172,30 +185,24 @@ public class SolverBehaviourTests
     [Fact]
     public void TheStaticQueryFindsWhatStandsInTheBox()
     {
-        var world = new PhysicsWorld(Config);
-        world.AddStaticDisc(new Vector2(10f, 10f), 0.6f);
-        world.AddStaticBox(new Vector2(40f, 0f), new Vector2(6f, 3f), 0.5f);
-        world.AddNominalCar(new Vector2(70f, 0f), 0f);
-        world.SettleStatics();
+        var statics = new StaticBodies(Config.Grid.Main);
+        statics.AddDisc(new Vector2(10f, 10f), 0.6f);
+        statics.AddBox(new Vector2(40f, 0f), new Vector2(6f, 3f), 0.5f);
 
-        Assert.True(world.StaticInBox(new Vector2(9f, 9f), new Vector2(11f, 11f)));
-        Assert.True(world.StaticInBox(new Vector2(38f, -2f), new Vector2(42f, 2f)));
-
-        // Empty ground, and ground with only a dynamic body on it: a car is not the town's furniture.
-        Assert.False(world.StaticInBox(new Vector2(20f, 20f), new Vector2(25f, 25f)));
-        Assert.False(world.StaticInBox(new Vector2(68f, -2f), new Vector2(72f, 2f)));
+        Assert.True(statics.InBox(new Vector2(9f, 9f), new Vector2(11f, 11f)));
+        Assert.True(statics.InBox(new Vector2(38f, -2f), new Vector2(42f, 2f)));
+        Assert.False(statics.InBox(new Vector2(20f, 20f), new Vector2(25f, 25f)));
     }
 
     /// <summary><c>SOL-8</c>: a box turned off the grid is asked about by its shape, so ground beside it inside its bounds is clear.</summary>
     [Fact]
     public void TheStaticQueryReadsATurnedBoxByItsShape()
     {
-        var world = new PhysicsWorld(Config);
-        world.AddStaticBox(Vector2.Zero, new Vector2(10f, 1f), MathF.PI / 4f);
-        world.SettleStatics();
+        var statics = new StaticBodies(Config.Grid.Main);
+        statics.AddBox(Vector2.Zero, new Vector2(10f, 1f), MathF.PI / 4f);
 
-        Assert.False(world.StaticInBox(new Vector2(2.75f, -3.25f), new Vector2(3.25f, -2.75f)));
-        Assert.True(world.StaticInBox(new Vector2(2.75f, 2.75f), new Vector2(3.25f, 3.25f)));
+        Assert.False(statics.InBox(new Vector2(2.75f, -3.25f), new Vector2(3.25f, -2.75f)));
+        Assert.True(statics.InBox(new Vector2(2.75f, 2.75f), new Vector2(3.25f, 3.25f)));
     }
 
     /// <summary><c>SOL-9</c>: how deep a body is into everything touching it, which is what measures PHY-1.</summary>
@@ -261,7 +268,7 @@ public class SolverBehaviourTests
     }
 
     /// <summary>
-    /// <c>PHY-5b</c>: a body put on the downed layer is driven through, walked through and cast through,
+    /// <c>PHY-5b</c>: a body put on the downed layer is driven through and walked through,
     /// and the only thing left that can stop it is the town's furniture.
     /// </summary>
     [Fact]
@@ -275,9 +282,6 @@ public class SolverBehaviourTests
         world.SettleStatics();
 
         world.PutOnLayer(walker, CollisionLayer.Downed);
-
-        // A driver looking down the road no longer finds it, which is the same filter said as a query.
-        Assert.False(world.CastRay(Vector2.Zero, new Vector2(20f, 0f), BodyId.None, statics: false, out _));
 
         // Driven over: the car keeps the speed it arrived with and the body is left where it lay.
         world.ApplyCentralImpulse(car, new Vector2(Config.Car.MassKg * 8f, 0f));

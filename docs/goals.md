@@ -17,16 +17,35 @@ Everything else is detail on one idea: **the town's behaviour is emergent, so th
 and the failures have to be recoverable.** A build that reaches the same picture by any other route has
 built something that looks like this and is not it.
 
-And it is written with **no engine under it**: C# on .NET 10 for building the town and everything that is
-not the tick, and **the tick itself — every decision in it — as this project's own compute kernels, resident on the
-device**. The
-town's state lives in VRAM; a tick reads one copy of it and writes the other; the CPU sends commands in and
-reads events out, and both are sparse — nothing is uploaded or read back by the roster. **The CPU keeps no copy of
-the engine**: it needs no standing knowledge of the world's state, so nothing is synchronised every tick. The unmanaged
-boundary is at the graphics driver and the window and nowhere else. No Godot, no MonoGame, no Unity, no
+And it is written with **no engine under it**: C# on .NET 10, and this project's own compute kernels. The
+unmanaged boundary is at the graphics driver and the window and nowhere else. No Godot, no MonoGame, no Unity, no
 retained renderer, no ECS framework — nothing that wants to own the loop, the window, the update order or
 the object model. The physics is not a package either: [world/physics/](../src/world/physics/) is this
 project's own broad phase, narrow phase and contact solver.
+
+## Two layers, each owning its own state
+
+The town is split in two, and **each layer keeps its own state and is never sent it again**:
+
+- **The world layer is the device's.** It runs the whole physics engine — the tyres, a walker's footing, the
+  solver, the contacts — and the one geometric question the town asks of a moving body: **which lane ribbons
+  its colliders stand on** (TER-4c.2). It steps from the state it left last tick, with no input from the CPU
+  but the control signals, and it draws the town from that same state: no agent's pose is ever sent to be drawn.
+- **The actor layer is the CPU's.** It runs every agent's behaviour and the whole of the claims (TER-49) — the
+  interval logic over way metres, never a geometric query of a moving body — and decides what each actor does.
+
+**What crosses between them is minimal, and nothing else does:**
+
+- **CPU → device, every tick: the control signals** — a list of `(object, action, parameters)`: a car's wheel and
+  pedals, a walker's heading and pace, a body put somewhere, enabled or coupled. The object is an agent; which body
+  that is, is the world's alone. An object nobody signalled keeps doing what it was last told.
+- **Device → CPU, every tick: the shallow world state** — every dynamic body's position, heading, velocity, and
+  the lane ribbons it stands on (way, from, to), with the touches the step began.
+- **Static things are never communicated.** Both layers lay them off the same map: the ground, the buildings,
+  the ribbons and their atlas.
+
+The browser head, which has no compute, runs the same world layer in managed code behind the same signals and
+the same shallow state, so the actor layer cannot tell which world it is driving.
 
 ## The quality bar
 

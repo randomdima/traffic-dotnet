@@ -204,6 +204,13 @@ internal sealed class TyreFigures
     public float LoadSettleS { get; init; } = 0.08f;
 
     /// <summary>
+    /// The least settled load that is any, along or across: one under it is nought. A load lagged toward nothing
+    /// otherwise runs down to the least denormal, which the lag rounds back to itself, and a parked car is worked out
+    /// for ever — and a device that flushes denormals would read it as nought where the host does not.
+    /// </summary>
+    public float LeastSettledLoadMps2 { get; init; } = 1e-4f;
+
+    /// <summary>
     /// Share of a driven tyre's grip along the roll that a car driving <em>itself</em> will ask for, and
     /// how fast that ask is given up and taken back when the tyres report a slide. Past the patch,
     /// throttle buys no acceleration and only lays rubber. A hand at the wheel gets none of this.
@@ -215,6 +222,38 @@ internal sealed class TyreFigures
 
     /// <summary>Never so little that a car needing power to get anywhere is stranded by its own traction control.</summary>
     public float MinSlipThrottleFraction { get; init; } = 0.2f;
+
+    /// <summary>
+    /// The slip angle a tyre does its cornering at, as a tangent: how much sideways creep every unit of
+    /// rolling speed is worth before the patch counts as sliding rather than working. ≈ 17°, which at
+    /// town speeds is the 1.5–4 m/s an ordinary turn actually carries.
+    /// </summary>
+    public float WorkingSlipTangent { get; init; } = 0.3f;
+
+    /// <summary>
+    /// How much of the demand along the roll may go unmet before the wheel counts as slipping rather
+    /// than rolling: a hair, so a demand shaved by floating-point noise at the edge of the ellipse does
+    /// not unstick a rolling wheel.
+    /// </summary>
+    public float AlongSlipEpsilonMps { get; init; } = 0.01f;
+
+    /// <summary>
+    /// The share of a car's weight an axle has to stand on to be asked for any of the drive or the engine's hold: an axle
+    /// lighter than this is off the ground, and dividing the car's whole figure by its load would ask it for an infinity.
+    /// </summary>
+    public float LiftedAxleLoadShare { get; init; } = 1e-3f;
+
+    /// <summary>
+    /// The rack angle under which both front wheels are turned alike: the two radii of an Ackermann split are kilometres
+    /// apart from each other there, and nothing between them is worth a tangent and two arctangents.
+    /// </summary>
+    public float AckermannLeastSteerRad { get; init; } = 1e-4f;
+
+    /// <summary>
+    /// The least circle the inner front wheel is turned for: past full lock the inner wheel's radius would come to nought
+    /// or less, and a wheel steered about its own patch turns a right angle.
+    /// </summary>
+    public float InnerWheelLeastRadiusM { get; init; } = 0.01f;
 }
 
 /// <summary>
@@ -328,6 +367,13 @@ internal sealed class DrivingFigures
     public float LaneSwitchAskEveryS { get; init; } = 0.25f;
 
     /// <summary>
+    /// <b>How often a car waiting on its manoeuvre at a bay shapes it again and asks for its ground</b> (GEN-4f) — each
+    /// time a sweep of the whole shape over the atlas and the layer: often enough that a gap in the traffic going by is
+    /// seen, since the street does not wait for it.
+    /// </summary>
+    public float ManoeuvreAskEveryS { get; init; } = 0.25f;
+
+    /// <summary>
     /// <b>How often a car at rest off its line looks for the lane under it again</b> (CAR-9): what it stands on does not
     /// change while it stands, so it is not asked every tick.
     /// </summary>
@@ -399,10 +445,6 @@ internal sealed class DrivingFigures
     /// light's bar, a movement it gives way to, a zebra, somebody on foot. It is the whole of the following
     /// distance at rest, and the one figure a car keeps off anything.
     /// </summary>
-    /// <remarks>
-    /// <b>The one exception is room to step out</b> (CAR-46): behind a body at rest that is going nowhere, a car
-    /// that could get past it stands where it could step out round it, which is further back than this.
-    /// </remarks>
     public float StandOffM { get; init; } = 1.5f;
 
     /// <summary>
@@ -411,8 +453,8 @@ internal sealed class DrivingFigures
     /// </summary>
     /// <remarks>
     /// <b>It is what tells a plan from a commitment, and without it there is no difference.</b> The ground a
-    /// car can no longer stop short of is one decision interval of travel and a stop
-    /// (<see cref="SimConfig.CarReactionS"/>, a tenth of a second), so a plan measured at the same interval is
+    /// car can no longer stop short of is a lead of travel and a stop (<c>CarFollower.SlowsOverM</c>, a fraction of a
+    /// second), so a plan measured at the same lead is
     /// exactly that ground again for any car already doing the speed it is planning for — which is every car on
     /// an open road, and the ones whose intentions are worth having planned. <b>What it costs is room</b>: it
     /// is metres planned at every speed by every car in the town, each weighed against every other plan it
@@ -565,6 +607,12 @@ internal sealed class PersonFigures
     public float MassKg { get; init; } = 80f;
 
     /// <summary>
+    /// <b>How near its aim a walker's body has to stand for the aim to be under it</b>, as the square of the distance — a
+    /// tenth of a millimetre: it stands rather than turning to face a point a rounding away (<c>WalkerFollower.Step</c>).
+    /// </summary>
+    public float AimUnderfootM2 { get; init; } = 1e-8f;
+
+    /// <summary>
     /// <b>How much of its own diameter a body is carried by a shove at walking pace before its feet have
     /// taken it back</b>, which is what the foot grip is (<see cref="SimConfig.PersonFootGripMps2"/>). A fifth:
     /// a walker bumped is carried well inside its own footprint, which is what makes a crowd on a pavement
@@ -654,6 +702,12 @@ internal sealed class PersonFigures
 
     public float DiameterInPropDiameters { get; init; } = 0.5f;
     public float ExitSearchRadiusInPropDiameters { get; init; } = 1f;
+
+    /// <summary>
+    /// <b>How often a driver refused the ground beside its door asks for it again</b> (PHY-7a): every place in reach is
+    /// taken by somebody, which a decision later it almost always still is.
+    /// </summary>
+    public float ExitAskEveryS { get; init; } = 1f;
 }
 
 /// <summary>What a contact has to spend to end a unit. Damage is binary: a car is intact or broken, a person on their feet or down.</summary>

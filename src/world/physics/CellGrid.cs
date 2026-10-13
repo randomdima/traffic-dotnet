@@ -6,15 +6,13 @@ namespace TrafficSimulation.World.Physics;
 
 /// <summary>
 /// A set of bodies' bounding boxes filed on a level of the grid (SIM-8), which is the whole of this solver's
-/// broad phase. It answers two questions and no others: <em>what could be in this box</em>, and
-/// <em>what could this segment cross, in the order it would cross it</em>.
+/// broad phase. It answers one question and no other: <em>what could be in this box</em>.
 /// </summary>
 /// <remarks>
 /// <para>
 /// A body is written into every cell its box touches, unlike <see cref="Core.Geometry.BucketGrid"/>,
-/// which indexes a centre and widens the query by the largest radius in the set. A grid a ray walks
-/// cannot widen a query — a segment crosses the cells it crosses — and the static set holds a tree
-/// beside a building, so one radius for all would make every query pay for the largest thing in town.
+/// which indexes a centre and widens the query by the largest radius in the set. The static set holds a
+/// tree beside a building, so one radius for all would make every query pay for the largest thing in town.
 /// </para>
 /// <para>
 /// Nothing is cleared between rebuilds: a cell is live only while its stamp matches the current
@@ -27,8 +25,7 @@ namespace TrafficSimulation.World.Physics;
 /// <para>
 /// <b>A set spread wider than <see cref="MostCells"/> is kept in a window that size about its middle</b>,
 /// and whatever stands past it is filed in the rim: every box query still finds it, since a box past the
-/// rim reads the rim. A segment is walked over the window alone, so a cast wholly outside it finds nothing —
-/// which, in a town the window covers, only a body flung kilometres out of it can meet.
+/// rim reads the rim.
 /// </para>
 /// <para>
 /// <b>The rim is correct and not cheap.</b> A rim cell holds everything in its row or column past the
@@ -220,142 +217,6 @@ internal sealed class CellGrid
     public bool FirstShared(in CellRange range, int x, int y, Vector2 bodyLeastM) =>
         (x == range.FromX || _window.ClampX(_window.Level.CellOf(bodyLeastM.X)) == x)
         && (y == range.FromY || _window.ClampY(_window.Level.CellOf(bodyLeastM.Y)) == y);
-
-    /// <summary>The cells a segment crosses, in the order it crosses them. See <see cref="RayWalk"/>.</summary>
-    public RayWalk Walk(Vector2 fromM, Vector2 travelM) => new(this, fromM, travelM);
-
-    /// <summary>
-    /// A segment's cells, one at a time, each with the fraction of the segment at which it is left. A
-    /// caster that has already found something nearer than that fraction is finished, which is what
-    /// makes a cast cost the ground it covers rather than the grid it covers it in.
-    /// </summary>
-    /// <remarks>
-    /// Amanatides and Woo's traversal, and a <c>ref struct</c> so the items it hands back are a span of
-    /// the grid's own array and nothing is copied or allocated to walk it.
-    /// </remarks>
-    public ref struct RayWalk
-    {
-        readonly CellGrid _grid;
-        readonly int _stepX;
-        readonly int _stepY;
-        readonly float _deltaX;
-        readonly float _deltaY;
-        readonly float _to;
-
-        int _x;
-        int _y;
-        float _crossX;
-        float _crossY;
-        bool _started;
-        bool _done;
-
-        public RayWalk(CellGrid grid, Vector2 fromM, Vector2 travelM)
-        {
-            _grid = grid;
-            _done = true;
-
-            var window = grid._window;
-            if (window.IsEmpty) return;
-            if (!Clip(fromM, travelM, window.LeastM, window.MostM, out var from, out var to)) return;
-
-            _to = to;
-            var enteredM = fromM + travelM * from;
-            var level = window.Level;
-            _x = window.ClampX(level.CellOf(enteredM.X));
-            _y = window.ClampY(level.CellOf(enteredM.Y));
-
-            Axis(fromM.X, travelM.X, level.CellM, _x, out _stepX, out _crossX, out _deltaX);
-            Axis(fromM.Y, travelM.Y, level.CellM, _y, out _stepY, out _crossY, out _deltaY);
-            _done = false;
-        }
-
-        /// <summary>The bodies in the cell the walk currently stands in.</summary>
-        public ReadOnlySpan<int> Items { get; private set; }
-
-        /// <summary>The fraction of the whole segment at which this cell is left behind.</summary>
-        public float ExitFraction { get; private set; }
-
-        public bool MoveNext()
-        {
-            if (_done) return false;
-
-            if (_started)
-            {
-                float entered;
-                if (_crossX < _crossY)
-                {
-                    _x += _stepX;
-                    entered = _crossX;
-                    _crossX += _deltaX;
-                }
-                else
-                {
-                    _y += _stepY;
-                    entered = _crossY;
-                    _crossY += _deltaY;
-                }
-
-                if (entered >= _to || !_grid._window.Holds(_x, _y))
-                {
-                    _done = true;
-                    return false;
-                }
-            }
-
-            _started = true;
-            Items = _grid.Items(_x, _y);
-            ExitFraction = MathF.Min(MathF.Min(_crossX, _crossY), _to);
-            return true;
-        }
-
-        /// <summary>Which way this axis is walked, where its first cell boundary falls, and how far apart the rest are.</summary>
-        static void Axis(float fromM, float travelM, float cellM, int cell, out int step, out float cross, out float delta)
-        {
-            if (MathF.Abs(travelM) < 1e-9f)
-            {
-                step = 0;
-                cross = float.PositiveInfinity;
-                delta = float.PositiveInfinity;
-                return;
-            }
-
-            step = travelM > 0f ? 1 : -1;
-            delta = MathF.Abs(cellM / travelM);
-            var boundaryM = (travelM > 0f ? cell + 1 : cell) * cellM;
-            cross = (boundaryM - fromM) / travelM;
-        }
-
-        /// <summary>The stretch of the segment that lies inside the grid's own rectangle, as two fractions of it.</summary>
-        static bool Clip(Vector2 fromM, Vector2 travelM, Vector2 leastM, Vector2 mostM, out float from, out float to)
-        {
-            from = 0f;
-            to = 1f;
-            for (var axis = 0; axis < 2; axis++)
-            {
-                var at = axis == 0 ? fromM.X : fromM.Y;
-                var along = axis == 0 ? travelM.X : travelM.Y;
-                var least = axis == 0 ? leastM.X : leastM.Y;
-                var most = axis == 0 ? mostM.X : mostM.Y;
-
-                if (MathF.Abs(along) < 1e-9f)
-                {
-                    if (at < least || at > most) return false;
-
-                    continue;
-                }
-
-                var enters = (least - at) / along;
-                var leaves = (most - at) / along;
-                if (enters > leaves) (enters, leaves) = (leaves, enters);
-
-                from = MathF.Max(from, enters);
-                to = MathF.Min(to, leaves);
-                if (to < from) return false;
-            }
-
-            return true;
-        }
-    }
 
     /// <summary>
     /// The window the set is filed in: the level's cells its boxes reach, or at most <see cref="MostCells"/>

@@ -35,7 +35,7 @@ layout(std430, binding = 4) coherent buffer Impulses { vec4 impulses[]; };
 layout(std430, binding = 5) coherent buffer Motion { vec4 motion[]; };
 layout(std430, binding = 6) coherent buffer PushB { vec4 push_[]; };
 layout(std430, binding = 7) readonly buffer Mass { vec2 mass[]; };
-layout(std430, binding = 8) readonly buffer Filter { uvec4 filter_[]; };
+layout(std430, binding = 8) readonly buffer Filter { uint filter_[]; };
 layout(std430, binding = 9) coherent buffer Lowest { uint lowest[]; };
 layout(std430, binding = 10) coherent buffer Order { uint order[]; };
 layout(std430, binding = 11) readonly buffer Owners { int owners[]; };
@@ -46,7 +46,25 @@ shared uint colours;
 shared uint colourCount[MostColours + 1u];
 shared uint colourStart[MostColours + 2u];
 
-bool moves(uint body) { return (filter_[body].x & staticBit) == 0u; }
+// Whether any contact has a point deeper than the allowance: where none has, every position pass would push nothing.
+shared bool anyDeep;
+
+// Whether a point of the contact is deeper than the allowance, as solvePush reckons it.
+bool deep(uint at)
+{
+    uvec4 c = contact[at];
+    vec4 normalAndDepth = contactNormal[at];
+    for (uint point = 0u; point < c.z; point++)
+    {
+        float separationM = point == 0u ? normalAndDepth.z : normalAndDepth.w;
+        precise float depthM = -(separationM + allowedPenetrationM);
+        if (depthM > 0.0) return true;
+    }
+
+    return false;
+}
+
+bool moves(uint body) { return (filter_[body] & staticBit) == 0u; }
 
 // A contact's rank in the colouring: a bijection of its number (lowbias32), so two contacts never rank alike.
 uint rank(uint at)
@@ -155,10 +173,15 @@ void solvePush(uint at)
 void main()
 {
     uint thread = gl_LocalInvocationID.x;
-    uint contacts = min(totals[ContactTotalAt], capacity);
+    uint contacts = min(totals[ContactTotalAt], contactCapacity);
 
     for (uint at = thread; at < contacts; at += 1024u) contact[at].w = Uncoloured;
-    if (thread == 0u) colours = 0u;
+    if (thread == 0u)
+    {
+        colours = 0u;
+        anyDeep = false;
+    }
+
     sync();
 
     // Mode 2 colours nothing, so every contact is run by one thread in contact order — the CPU's own order, for an
@@ -212,6 +235,7 @@ void main()
     {
         uint colour = min(contact[at].w, MostColours);
         if (colour < MostColours) atomicAdd(colourCount[colour], 1u);
+        if (deep(at)) anyDeep = true;
     }
 
     sync();
@@ -243,7 +267,9 @@ void main()
         if (colour < MostColours) order[colourStart[colour] + atomicAdd(colourCount[colour], 1u)] = at;
     }
 
+    // Whether one thread runs any contacts after the colours: where none is left over, a pass ends with its last colour.
     sync();
+    bool leftOver = colourStart[MostColours] < colourStart[MostColours + 1u];
     for (uint pass = 0u; pass < velocityIterations; pass++)
     {
         for (uint colour = 0u; colour < colours; colour++)
@@ -251,6 +277,8 @@ void main()
             for (uint at = colourStart[colour] + thread; at < colourStart[colour + 1u]; at += 1024u) solveVelocity(order[at]);
             sync();
         }
+
+        if (!leftOver) continue;
 
         if (thread == 0u)
         {
@@ -262,13 +290,15 @@ void main()
 
     for (uint slot = thread; slot < rosterCount; slot += 1024u) push_[owners[slot]] = vec4(0.0);
     sync();
-    for (uint pass = 0u; pass < positionIterations; pass++)
+    for (uint pass = 0u; pass < (anyDeep ? positionIterations : 0u); pass++)
     {
         for (uint colour = 0u; colour < colours; colour++)
         {
             for (uint at = colourStart[colour] + thread; at < colourStart[colour + 1u]; at += 1024u) solvePush(order[at]);
             sync();
         }
+
+        if (!leftOver) continue;
 
         if (thread == 0u)
         {

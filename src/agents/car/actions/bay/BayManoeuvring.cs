@@ -4,6 +4,7 @@ using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Parking;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.Agents.Car.Actions;
@@ -11,22 +12,23 @@ namespace TrafficSimulation.Agents.Car.Actions;
 /// <summary>
 /// <b>A car's manoeuvre at a bay</b> (GEN-4f), whichever way it is made — into one (<see cref="ParkingIn"/>) or out
 /// of one (<see cref="PullingOut"/>): a shape the car lays for itself off its own circle from where it stands, asked
-/// for where all of its ground is free, laid as a body over that ground, kept or withdrawn once, and driven a piece at
-/// a time in each piece's gear.
+/// for where no body stands on its ground, laid as a plan of its own over that ground, kept or withdrawn once, and
+/// driven a piece at a time in each piece's gear.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Its ground is a pass's</b> (TER-4c.6): the car's own body swept down the shape and read off the atlas, laid at
-/// p0 where nothing compares it, cuts it or takes it — a car half across a street cannot give the street back —
-/// and given back as it is driven. So the traffic is held off a car manoeuvring, and a car manoeuvring off the
-/// traffic, by the ground each holds and by nothing else (SIM-7).
+/// <b>Its ground is a pass's</b> (TER-4c.6): the stretch of each lane the bay is worked off that the car's body stands
+/// over somewhere down the shape (<see cref="StreetUnder"/>), asked whole — at <see cref="ClaimPriority.Committed"/> once
+/// begun, since a car half across a street cannot give the street back — and given back as it is driven. So the traffic
+/// is held off a car manoeuvring, and a car manoeuvring off the traffic, by the ground each holds and by nothing else
+/// (SIM-7).
 /// </para>
 /// <para>
-/// <b>Nothing here reads another agent</b> (TER-4c.5): whether the ground is free is what is laid on the ways
-/// under it, and the bays either side are ways like any other.
+/// <b>Nothing here reads another agent</b> (TER-4c.5): whether the ground is free is what is laid on the lanes under
+/// it.
 /// </para>
 /// </remarks>
-internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, Manoeuvres manoeuvres)
+internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, Manoeuvres manoeuvres, BayStreets streets)
 {
     /// <summary>
     /// How many of the street's ways one shape's ground is totalled over. A bound on a stack span and not a figure
@@ -35,33 +37,10 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     const int MostStreetWaysTaken = 16;
 
     /// <summary>
-    /// How many stretches of carriageway one piece's ground is kept in (<see cref="SweptGround"/>), one to a station
-    /// and a way. A bound on the table and not a figure behaviour reads: a piece is a few car lengths, and one that
-    /// does not fit is a manoeuvre withdrawn rather than one driven over ground nobody laid.
-    /// </summary>
-    const int MostRunsOfAPiece = 256;
-
-    /// <summary>
-    /// <b>The ground every piece of a car's manoeuvre covers, swept once for the ask it was laid for</b>: station by
-    /// station from the start of each piece, as the rebuild after the ask lays it, so keeping it, laying it again
-    /// and finding a body in it as the car drives read these and never the atlas. A station keeps a run of its own
-    /// on each way (a span of nothing), so what is read is each station's own ground.
-    /// </summary>
-    /// <remarks>
-    /// <b>The shape cannot move under it</b>: an asked manoeuvre is kept or withdrawn as it was shaped, and a begun
-    /// one is driven as it was kept. Only the station the car stands at moves, and it is read afresh
-    /// (<see cref="TheStationItStandsAt"/>).
-    /// </remarks>
-    readonly SweptGround _pieces = new(manoeuvres.Piece.Length * BayManoeuvre.MostPieces, MostRunsOfAPiece);
-
-    /// <summary>
     /// Which ask each car's manoeuvre is now, counted per car so that an ask writes nothing another car reads — none
     /// before its first.
     /// </summary>
     readonly long[] _askedAs = new long[manoeuvres.Piece.Length];
-
-    /// <summary>And which ask its pieces were swept for, so a sweep is read only for the manoeuvre it was made of.</summary>
-    readonly long[] _sweptFor = new long[manoeuvres.Piece.Length];
 
     /// <summary>
     /// And which ask the claims were last laid for — what an ask is answered after, kept or withdrawn, and not before:
@@ -69,31 +48,8 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     /// </summary>
     readonly long[] _laidFor = new long[manoeuvres.Piece.Length];
 
-    /// <summary>Which of each car's asks the claims every reader reads were laid for: kept with the layer they belong to.</summary>
-    internal long[] LaidFor => _laidFor;
-
-    /// <summary>
-    /// <b>The station each car stands at on the piece it drives, read once a rebuild</b>: <see cref="Lay"/> and
-    /// <see cref="Hold"/> both begin from it, the second after every pass is down, so the first to ask keeps its
-    /// stretches of carriageway here for the other.
-    /// </summary>
-    readonly Standing[] _standingOf = new Standing[manoeuvres.Piece.Length];
-
-    readonly WayCover[] _standingCovers = new WayCover[manoeuvres.Piece.Length * RibbonAtlas.MostWaysUnderABody];
-
-    /// <summary>Which rebuild a kept station was read in; one a car was never read in is none of them.</summary>
-    int _rebuild = 1;
-
-    /// <summary>A car's station read in one rebuild: on which piece, where along it, and how many covers it kept.</summary>
-    internal readonly record struct Standing(int Rebuild, int Piece, float AtM, int Covers);
-
-    /// <summary>
-    /// <b>Every table this action keeps a car in</b>, for the device to lay once at load (<c>app/devicetick/TownState</c>):
-    /// a piece's ground held at <c>car · 2 + piece</c>, and <see cref="RibbonAtlas.MostWaysUnderABody"/> covers a car's
-    /// station.
-    /// </summary>
-    internal (SweptGround Pieces, long[] AskedAs, long[] SweptFor, Standing[] StandingOf, WayCover[] StandingCovers, int Rebuild) Kept =>
-        (_pieces, _askedAs, _sweptFor, _standingOf, _standingCovers, _rebuild);
+    /// <summary>The hold each car's manoeuvre was asked in this rebuild, or <see cref="LaneOccupancy.NoHold"/>.</summary>
+    readonly int[] _holds = LaneOccupancy.NoHolds(manoeuvres.Piece.Length);
 
     CarFleet Cars => ground.Cars;
 
@@ -125,11 +81,29 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     /// </summary>
     public double StreetM { get; private set; }
 
+    /// <summary>How long until a car waiting on its manoeuvre shapes it and asks for it again (<see cref="DrivingFigures.ManoeuvreAskEveryS"/>).</summary>
+    readonly float[] _asksInS = new float[manoeuvres.Piece.Length];
+
+    /// <summary>
+    /// <b>Whether a car waiting on its manoeuvre shapes it and asks for it at this decision</b> — no sooner than
+    /// <see cref="DrivingFigures.ManoeuvreAskEveryS"/> after it last did: each is a sweep of the whole shape.
+    /// </summary>
+    /// <param name="sinceLastDecisionS">How much of the town's time this decision answers for, which the clock runs by.</param>
+    public bool IsTimeToAsk(int car, float sinceLastDecisionS)
+    {
+        ref var inS = ref _asksInS[car];
+        inS -= sinceLastDecisionS;
+        if (inS > 0f) return false;
+
+        inS = Config.Driving.ManoeuvreAskEveryS;
+        return true;
+    }
+
     /// <summary>A shaped manoeuvre asked for where every metre of its ground is free (TER-4c.6), to be laid in the next rebuild.</summary>
     public void Ask(int car)
     {
-        // A layer sent back in part may not hold the ground yet: asked at the next decision.
-        if (!OverTheGround(car, out var known) || !known) return;
+        _asksInS[car] = Config.Driving.ManoeuvreAskEveryS;
+        if (!OverTheGround(car)) return;
 
         manoeuvres.Stage[car] = ManoeuvreStage.Asked;
         Asked++;
@@ -137,20 +111,16 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     }
 
     /// <summary>
-    /// <b>A manoeuvre laid in this rebuild, kept or withdrawn</b> before the car moves on it — kept where nothing but
-    /// the car itself is on its ground, as a pass is (<see cref="LaneOccupancy.KeepsItsPass(int, float, float, float, float, int, LaneRoster, in PassTerms)"/>).
-    /// <b>Kept, the whole of its ground is the car's from this tick</b>, and a car getting into a bay takes up its
-    /// first piece in place of the route's line. One whose ground did not fit the table is withdrawn, and one the
+    /// <b>A manoeuvre laid in this rebuild, kept or withdrawn</b> before the car moves on it — kept where the whole of its
+    /// ground was had, as a pass is (<see cref="DrivingGround.IsKept"/>). <b>Kept, the whole of its ground is the car's
+    /// from this tick</b>, and a car getting into a bay takes up its first piece in place of the route's line. One the
     /// claims have not been laid for since it was asked waits for them.
     /// </summary>
     public bool KeepOrWithdraw(int car)
     {
         if (_laidFor[car] != _askedAs[car]) return false;
 
-        // A layer sent back in part may not hold the ground yet: answered on a later tick.
-        if (IsSwept(car) && !KnowsTheGround(car)) return false;
-
-        if (!IsSwept(car) || !TheGroundIsKept(car))
+        if (!ground.IsKept(_holds[car]))
         {
             manoeuvres.Stage[car] = ManoeuvreStage.Shaped;
             Withdrawn++;
@@ -159,6 +129,9 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
 
         manoeuvres.Stage[car] = ManoeuvreStage.Begun;
         Begun++;
+
+        // The next manoeuvre this car waits on is asked for at its first decision.
+        _asksInS[car] = 0f;
         StreetM += manoeuvres.StreetM[car];
         if (manoeuvres.Kind[car] == ManoeuvreKind.Park)
         {
@@ -195,7 +168,7 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
         Cars.GrantMarginM[car] = 0f;
 
         ref readonly var build = ref Cars.BuildOf(car);
-        var axleM = CarFollower.RearAxleM(build, Cars.PositionM[car], Heading.Unit(Cars.HeadingRad[car]));
+        var axleM = CarFollower.RearAxleM(build, Cars.PositionM[car], Cars.Forward[car]);
         Cars.ProgressM[car] = CarFollower.ProgressM(build, arcs, axleM, 0f);
     }
 
@@ -232,7 +205,6 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
         Cars.ProgressM[car] = progressM;
         Cars.AlongMps[car] = alongMps;
         Cars.OffLineM[car] = CarFollower.OffLineM(line, rearAxleM, progressM);
-        Cars.CommittedToTheBox[car] = false;
 
         var context = new DriveContext(
             Cars.GrantLeftM(car), Cars.GrantCutBy[car], MarginM: Cars.GrantMarginM[car],
@@ -242,21 +214,15 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
         town.Drive(car, build, pose, line, progressM, lengthM, context, travel, alongMps, reverse);
     }
 
-    /// <summary>A new rebuild: no station read in the last one is kept into it (<see cref="_standingOf"/>).</summary>
-    public void ForgetTheSweeps() => _rebuild++;
-
     /// <summary>
-    /// <b>The ground a car's manoeuvre will cover, laid as a body</b> (TER-4c.6) — once asked and every rebuild after
-    /// it is begun, from where the car stands on its piece to the end of its last. <b>A manoeuvre into a bay the line
-    /// stops for no longer is given up here</b>, for the road.
+    /// <b>The ground a car's manoeuvre will cover, asked as a plan of its own</b> (TER-4c.6) — once asked and every
+    /// rebuild after it is begun, from where the car stands on its piece to the end of its last. <b>A manoeuvre into a bay
+    /// the line stops for no longer is given up here</b>, for the road.
     /// </summary>
-    /// <remarks>
-    /// <b>The rebuild after the ask is where the pieces are swept</b> (<see cref="_pieces"/>), whole, so this lay and
-    /// the keeping after it read the same stations. Begun, the car's own station is read afresh and the stations ahead
-    /// of it are the kept ones.
-    /// </remarks>
+    [SkipLocalsInit]
     public void Lay(int car)
     {
+        _holds[car] = LaneOccupancy.NoHold;
         if (!CarActions.IsAtABay(Cars.Action[car])) return;
 
         if (Cars.Action[car] == CarAction.Park && !manoeuvres.IsBegun(car)
@@ -269,142 +235,65 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
         if (manoeuvres.Stage[car] is ManoeuvreStage.None or ManoeuvreStage.Shaped) return;
 
         var begun = manoeuvres.IsBegun(car);
-        if (!begun)
-        {
-            SweepThePieces(car);
-            _laidFor[car] = _askedAs[car];
-        }
+        if (!begun) _laidFor[car] = _askedAs[car];
 
-        if (!IsSwept(car)) return;
+        var hold = _holds[car] = Occupancy.BeginHold(car, LaneRoster.Driving, whole: !begun);
+        var rung = begun ? ClaimPriority.Committed : ClaimPriority.Firm;
+        var progressM = Cars.ProgressM[car];
+        var firstPiece = begun ? manoeuvres.Piece[car] : 0;
+        var shape = manoeuvres.Shape[car];
 
-        var firstPiece = 0;
-        var aheadOfM = float.NegativeInfinity;
-        if (begun)
+        // A body in a piece past this one is met where this one ends, which the car is at rest at before it takes the next.
+        var endsM = MathF.Max(progressM, Spline.TotalLengthM(manoeuvres.PieceOf(car, firstPiece)))
+                    + ground.LeadingEdgeAheadOfTheAxleM(car);
+        Span<StreetRun> runs = stackalloc StreetRun[BayStreets.MostLanes];
+        for (var piece = firstPiece; piece < shape.Pieces; piece++)
         {
-            firstPiece = manoeuvres.Piece[car];
-            aheadOfM = Cars.ProgressM[car];
-            foreach (ref readonly var cover in TheStationItStandsAt(car)) LayThePass(car, ground.HeldAsABody(cover));
-        }
-
-        for (var piece = firstPiece; piece < manoeuvres.Shape[car].Pieces; piece++)
-        {
-            foreach (ref readonly var run in _pieces.Of(Holder(car, piece)))
+            var line = manoeuvres.PieceOf(car, piece);
+            var fromM = begun && piece == firstPiece ? progressM : 0f;
+            var count = StreetUnder(car, manoeuvres.Bay[car], line, shape.IsReverse(piece), fromM, 0f, runs);
+            foreach (ref readonly var run in runs[..count])
             {
-                if (piece > firstPiece || run.FirstAtM > aheadOfM) LayThePass(car, ground.HeldAsABody(run.Cover));
+                var stopsAtM = piece > firstPiece ? endsM : ground.StopsShortOfM(car, run.FirstAtM);
+                Occupancy.AskSwept(hold, run.Way, run.FromM, run.ToM, stopsAtM, rung);
             }
         }
     }
 
     /// <summary>
-    /// <b>What a car's manoeuvre grants it</b>: the whole of its ground, but short of a body standing inside what is
-    /// left of it — the one thing that ends its ground short of its end, since nothing planned can be laid over it
-    /// (TER-4c.1): where it stood at the last station of this piece with nobody on its ground. And a manoeuvre not
+    /// <b>What a car's manoeuvre grants it</b>: once begun, the whole of its ground short of whatever refuses its hold
+    /// (<see cref="Lay"/>) — where it stood at the last station of this piece with nobody on its ground. A manoeuvre not
     /// yet begun is ground the car does not have, so it stands where it is.
     /// </summary>
-    [System.Runtime.CompilerServices.SkipLocalsInit]
     public void Hold(int car)
     {
-        if (!HoldsWhereItStands(car)) return;
+        if (!HoldsWhereItStands(car) || !manoeuvres.IsBegun(car)) return;
 
-        var standOffM = Config.Driving.StandOffM;
-        if (!manoeuvres.IsBegun(car))
-        {
-            var waiting = Occupancy.BeginHold(standOffM);
-            ground.PlanHold[car] = waiting;
-            Occupancy.EndHold(waiting, Cars.ClaimFromM[car], 0f, LaneClaim.Nothing);
-            return;
-        }
-
-        Span<BodyAsk> asks = stackalloc BodyAsk[MostAsksOfAManoeuvre];
-        var count = AsksOfTheManoeuvre(car, asks);
-        if (!Occupancy.FirstBodyIn(asks[..count], car, out var inTheWayM, out var body, out var on))
-        {
-            Cars.AuthorityM[car] = float.PositiveInfinity;
-            return;
-        }
-
-        var held = Occupancy.BeginHold(standOffM);
-        ground.PlanHold[car] = held;
-        Occupancy.EndHold(held, inTheWayM, standOffM, body, on);
+        ground.BeginThePlan(car, Config.Driving.StandOffM, _holds[car]);
     }
 
     /// <summary>Whether a car manoeuvring at a bay holds anything where it stands (<see cref="Hold"/>): one driven and whole.</summary>
-    public bool HoldsWhereItStands(int car) => Cars.Driven[car] && !Cars.Broken[car];
-
-    /// <summary>The most stretches a begun manoeuvre looks for a body in (<see cref="AsksOfTheManoeuvre"/>).</summary>
-    public const int MostAsksOfAManoeuvre = RibbonAtlas.MostWaysUnderABody + MostRunsOfAPiece;
+    bool HoldsWhereItStands(int car) => Cars.Driven[car] && !Cars.Broken[car];
 
     /// <summary>
-    /// <b>Where a begun manoeuvre looks for a body standing in what is left of the piece it drives</b>, in order
-    /// (<see cref="LaneOccupancy.FirstBodyIn"/>): the station it stands at, then every run of the piece ahead of it — each
-    /// with how far the car may go short of a body found there; how many.
+    /// <b>Whether nobody stands on any stretch of a shaped manoeuvre's ground</b>, grown by room to spare — asked before
+    /// it is laid, as a pass is (<see cref="DrivingFigures.PassSpareM"/>), so a manoeuvre clearing something by a hair is
+    /// not asked one rebuild and withdrawn the next. False at the first stretch that is not. Whether a plan holds any of
+    /// it is answered when it is laid, after every plan of its rung.
     /// </summary>
-    /// <remarks>
-    /// <b>A station clear of bodies is where the car may bring its axle</b>: the one it stands at, or the one before the
-    /// first a body is in — half a width short of that one, and never behind where the car stands.
-    /// </remarks>
-    public int AsksOfTheManoeuvre(int car, Span<BodyAsk> into)
-    {
-        var progressM = Cars.ProgressM[car];
-        var edgeM = ground.LeadingEdgeAheadOfTheAxleM(car);
-        var count = 0;
-        foreach (ref readonly var cover in TheStationItStandsAt(car))
-        {
-            into[count++] = new BodyAsk(cover.Way, cover.FromM, cover.ToM, OnFoot: false, progressM + edgeM, FromTheBody: false);
-        }
-
-        var flankM = Cars.BuildOf(car).FlankM;
-        var ahead = IsSwept(car) ? _pieces.Of(Holder(car, manoeuvres.Piece[car])) : default;
-        foreach (ref readonly var run in ahead)
-        {
-            if (run.FirstAtM <= progressM) continue;
-
-            var inTheWayM = MathF.Max(progressM, run.FirstAtM - flankM) + edgeM;
-            into[count++] = new BodyAsk(run.Way, run.FromM, run.ToM, OnFoot: false, inTheWayM, FromTheBody: false);
-        }
-
-        return count;
-    }
-
-    /// <summary>
-    /// <b>Whether every stretch of a shaped manoeuvre's ground is free</b>, grown by room to spare — asked before it
-    /// is laid, as a pass is (<see cref="DrivingFigures.PassSpareM"/>), so a manoeuvre clearing something by a hair is
-    /// not asked one rebuild and withdrawn the next. False at the first stretch that is not.
-    /// </summary>
-    /// <param name="known">
-    /// Whether the layer held every way of the ground (<see cref="LaneOccupancy.Knows(int)"/>) — each asked about either way;
-    /// where it did not, what was not held is not asked of.
-    /// </param>
     [SkipLocalsInit]
-    bool OverTheGround(int car, out bool known)
+    bool OverTheGround(int car)
     {
         var shape = manoeuvres.Shape[car];
-        var spareM = Config.Driving.PassSpareM;
-        Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
-        known = true;
+        Span<StreetRun> runs = stackalloc StreetRun[BayStreets.MostLanes];
         for (var piece = 0; piece < shape.Pieces; piece++)
         {
-            var line = manoeuvres.PieceOf(car, piece);
-            var toM = Spline.TotalLengthM(line);
-            for (var station = 0; station < ground.StationsOfTheSweep(car, 0f, toM); station++)
+            var count = StreetUnder(
+                car, manoeuvres.Bay[car], manoeuvres.PieceOf(car, piece), shape.IsReverse(piece), 0f, Config.Driving.PassSpareM,
+                runs);
+            foreach (ref readonly var run in runs[..count])
             {
-                var count = UnderTheCarOnThePiece(car, line, shape.IsReverse(piece), 0f, toM, station, spareM, under, out _);
-                foreach (ref readonly var swept in Carriageway(under[..count]))
-                {
-                    var held = ground.HeldAsABody(swept);
-                    if (!Occupancy.Knows(held.Way))
-                    {
-                        known = false;
-                        continue;
-                    }
-
-                    if (!Occupancy.IsFreeForAPass(
-                            held.Way, swept.FromM, swept.ToM, held.FromM, held.ToM, car, LaneRoster.Driving, [],
-                            PassTerms.Plain))
-                    {
-                        return false;
-                    }
-                }
+                if (Occupancy.AnyBodyOver(run.Way, run.FromM, run.ToM, car, LaneRoster.Driving)) return false;
             }
         }
 
@@ -412,139 +301,27 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     }
 
     /// <summary>
-    /// <b>Whether the ground laid for an asked manoeuvre is still the car's</b>, read off the stations it was laid from
-    /// (<see cref="_pieces"/>). False at the first stretch somebody else has.
-    /// </summary>
-    bool TheGroundIsKept(int car)
-    {
-        for (var piece = 0; piece < manoeuvres.Shape[car].Pieces; piece++)
-        {
-            foreach (ref readonly var run in _pieces.Of(Holder(car, piece)))
-            {
-                var held = ground.HeldAsABody(run.Cover);
-                if (!Occupancy.KeepsItsPass(
-                        held.Way, run.FromM, run.ToM, held.FromM, held.ToM, car, LaneRoster.Driving, PassTerms.Plain))
-                {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
-
-    /// <summary>
-    /// Whether the layer holds every way an asked manoeuvre's ground was laid on (<see cref="LaneOccupancy.Knows(int)"/>),
-    /// each asked about either way.
-    /// </summary>
-    bool KnowsTheGround(int car)
-    {
-        var known = true;
-        for (var piece = 0; piece < manoeuvres.Shape[car].Pieces; piece++) known &= ground.Knows(_pieces, Holder(car, piece));
-
-        return known;
-    }
-
-    /// <summary>
-    /// <b>Every piece of an asked manoeuvre swept from its start</b>, station by station, into <see cref="_pieces"/> —
-    /// once for the ask, and left unswept where a piece does not fit the table.
+    /// <b>How much street a shape takes</b> — the metres of the lanes the bay is worked off that its body stands over,
+    /// each lane's stretch once however many pieces lie on it, and an aisle of a car park left out, since that is what
+    /// the car is getting into or out of. <b>False where it lies over a zebra's paint</b> (TER-4c.6): a shape run through
+    /// a crossing is not one the car makes.
     /// </summary>
     [SkipLocalsInit]
-    void SweepThePieces(int car)
-    {
-        if (IsSwept(car)) return;
-
-        var shape = manoeuvres.Shape[car];
-        Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
-        for (var piece = 0; piece < shape.Pieces; piece++)
-        {
-            var holder = Holder(car, piece);
-            var line = manoeuvres.PieceOf(car, piece);
-            var toM = Spline.TotalLengthM(line);
-            _pieces.Clear(holder);
-            for (var station = 0; station < ground.StationsOfTheSweep(car, 0f, toM); station++)
-            {
-                var count = UnderTheCarOnThePiece(car, line, shape.IsReverse(piece), 0f, toM, station, 0f, under, out var atM);
-                if (!_pieces.Station(holder, atM, 0f, Carriageway(under[..count]))) return;
-            }
-        }
-
-        _sweptFor[car] = _askedAs[car];
-    }
-
-    bool IsSwept(int car) => _sweptFor[car] != 0 && _sweptFor[car] == _askedAs[car];
-
-    static int Holder(int car, int piece) => (car * BayManoeuvre.MostPieces) + piece;
-
-    /// <summary>
-    /// <b>The carriageway under the car where it stands on the piece it drives</b> — the first station of what it has
-    /// left of the piece, read once a rebuild (<see cref="_standingOf"/>) — or nothing past the piece's end.
-    /// </summary>
-    ReadOnlySpan<WayCover> TheStationItStandsAt(int car)
-    {
-        var piece = manoeuvres.Piece[car];
-        var progressM = Cars.ProgressM[car];
-        var covers = _standingCovers.AsSpan(car * RibbonAtlas.MostWaysUnderABody, RibbonAtlas.MostWaysUnderABody);
-        ref var kept = ref _standingOf[car];
-        if (kept.Rebuild == _rebuild && kept.Piece == piece && kept.AtM == progressM) return covers[..kept.Covers];
-
-        var line = manoeuvres.PieceOf(car, piece);
-        var toM = Spline.TotalLengthM(line);
-        var count = 0;
-        if (ground.StationsOfTheSweep(car, progressM, toM) > 0)
-        {
-            var found = UnderTheCarOnThePiece(
-                car, line, manoeuvres.Shape[car].IsReverse(piece), progressM, toM, 0, 0f, covers, out _);
-            count = Carriageway(covers[..found]).Length;
-        }
-
-        kept = new Standing(_rebuild, piece, progressM, count);
-        return covers[..count];
-    }
-
-    /// <summary>The covers that are carriageway, moved to the front of the span they were found in.</summary>
-    Span<WayCover> Carriageway(Span<WayCover> under)
-    {
-        var kept = 0;
-        foreach (ref readonly var cover in under)
-        {
-            if (ground.IsCarriageway(cover.Way)) under[kept++] = cover;
-        }
-
-        return under[..kept];
-    }
-
-    void LayThePass(int car, in WayCover held) =>
-        Occupancy.LayPass(held.Way, held.FromM, held.ToM, 0f, car, LaneRoster.Driving);
-
-    /// <summary>
-    /// <b>How much street a shape takes</b> — the metres of the street's own ways its body is swept over, each way's
-    /// stretch once however many stations lie on it, and a bay's own ground left out, since that is what the car is
-    /// getting into or out of. <b>False where its body leaves the driven ground or lies over a zebra's paint</b>
-    /// (TER-4c.6): a shape run off the road, or through a crossing, is not one the car makes.
-    /// </summary>
-    [SkipLocalsInit]
-    public bool WhatTheShapeTakes(int car, ReadOnlySpan<ArcSeg> arcs, in BayManoeuvre.Shape shape, out float streetM)
+    public bool WhatTheShapeTakes(int car, int bay, ReadOnlySpan<ArcSeg> arcs, in BayManoeuvre.Shape shape, out float streetM)
     {
         streetM = 0f;
-        Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
+        Span<StreetRun> runs = stackalloc StreetRun[BayStreets.MostLanes];
         Span<WayCover> taken = stackalloc WayCover[MostStreetWaysTaken];
         var takenCount = 0;
         for (var piece = 0; piece < shape.Pieces; piece++)
         {
             var line = arcs.Slice(shape.FirstArcOf(piece), shape.ArcsOf(piece));
-            var toM = Spline.TotalLengthM(line);
-            for (var station = 0; station < ground.StationsOfTheSweep(car, 0f, toM); station++)
+            foreach (ref readonly var run in runs[..StreetUnder(car, bay, line, shape.IsReverse(piece), 0f, 0f, runs)])
             {
-                var count = UnderTheCarOnThePiece(car, line, shape.IsReverse(piece), 0f, toM, station, 0f, under, out _);
-                for (var at = 0; at < count; at++)
-                {
-                    ref readonly var cover = ref under[at];
-                    if (!ground.IsCarriageway(cover.Way) || ground.CrossesAZebra(cover.Way, cover.FromM, cover.ToM)) return false;
-                    if (ground.Ways.KindOf(cover.Way) == WayKind.Lane && ground.Roads.IsABayArm(ground.Ways.RoadLaneOf(cover.Way))) continue;
+                if (ground.CrossesAZebra(run.Way, run.FromM, run.ToM)) return false;
+                if (ground.Roads.IsABayArm(ground.Ways.RoadLaneOf(run.Way))) continue;
 
-                    TakenOnce(taken, ref takenCount, cover, ref streetM);
-                }
+                TakenOnce(taken, ref takenCount, new WayCover(run.Way, run.FromM, run.ToM), ref streetM);
             }
         }
 
@@ -575,21 +352,60 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     }
 
     /// <summary>
-    /// <b>The ways under the car at one station of a piece</b>: its collider stood where the piece puts the rear axle
-    /// and pointed the way the car points there — along the piece, or back along it on a piece driven in reverse —
-    /// grown by <paramref name="spareM"/> all round.
+    /// <b>The street a piece of a manoeuvre is driven over</b> (TER-4c.6): for each lane the bay is worked off, the
+    /// stretch of it the car's body stands over at some station of the piece from <paramref name="fromM"/> on — where
+    /// the body's middle stands within half the lane and the body's half reach of the lane's line, its half reach
+    /// either side along it — grown by <paramref name="spareM"/>, with the piece's metre it first stands on the lane at.
     /// </summary>
-    int UnderTheCarOnThePiece(
-        int car, ReadOnlySpan<ArcSeg> piece, bool reverse, float fromM, float toM, int station, float spareM,
-        Span<WayCover> under, out float atM)
+    /// <remarks>
+    /// <b>Read off the lanes the bay is worked off and no others</b>: those are what a manoeuvre comes from or goes to, and
+    /// a body swung past them is the world's to meet. Each station is found on a lane from the bay's own metre on it,
+    /// which is where the shape was drawn from.
+    /// </remarks>
+    int StreetUnder(
+        int car, int bay, ReadOnlySpan<ArcSeg> piece, bool reverse, float fromM, float spareM, Span<StreetRun> into)
     {
         ref readonly var build = ref Cars.BuildOf(car);
-        atM = MathF.Min(toM, fromM + (station * build.FlankM));
-        var on = Spline.SampleAt(piece, atM);
-        var forward = reverse ? -on.Direction : on.Direction;
+        var reachM = (build.CollisionSizeM * 0.5f).Length() + spareM;
+        var toM = Spline.TotalLengthM(piece);
+        var stations = ground.StationsOfTheSweep(car, fromM, toM);
+        var count = 0;
+        foreach (var lane in streets.LanesOf(bay))
+        {
+            var arcs = ground.Roads.ArcsOf(lane);
+            var lengthM = ground.Roads.LaneLengthM[lane];
+            var aroundM = streets.AtLaneM(bay, lane);
+            var windowM = toM + build.LengthM;
+            var acrossM = (ground.Roads.LaneWidthM[lane] * 0.5f) + reachM;
+            var leastM = float.PositiveInfinity;
+            var mostM = float.NegativeInfinity;
+            var firstAtM = float.PositiveInfinity;
+            var lastAtM = float.NegativeInfinity;
+            for (var station = 0; station < stations; station++)
+            {
+                var atM = MathF.Min(toM, fromM + (station * build.FlankM));
+                var on = Spline.SampleAt(piece, atM);
+                var centreM = on.PositionM + ((reverse ? -on.Direction : on.Direction) * build.CentreAheadOfAxleM);
+                var alongM = Spline.ProjectM(arcs, centreM, aroundM, windowM, out var offSq);
+                if (offSq > acrossM * acrossM) continue;
 
-        var halfM = build.CollisionSizeM * 0.5f;
-        var centreM = on.PositionM + (forward * build.CentreAheadOfAxleM);
-        return ground.Atlas.UnderBox(centreM, forward, halfM.X + spareM, halfM.Y + spareM, under, Cars.Channels[car]);
+                leastM = MathF.Min(leastM, alongM - reachM);
+                mostM = MathF.Max(mostM, alongM + reachM);
+                firstAtM = MathF.Min(firstAtM, atM);
+                lastAtM = MathF.Max(lastAtM, atM);
+            }
+
+            leastM = MathF.Max(0f, leastM);
+            mostM = MathF.Min(lengthM, mostM);
+            if (mostM > leastM) into[count++] = new StreetRun(ground.Ways.OfRoadLane(lane), leastM, mostM, firstAtM, lastAtM);
+        }
+
+        return count;
     }
 }
+
+/// <summary>
+/// One lane under a piece of a manoeuvre (<see cref="BayManoeuvring"/>): the stretch of it, in the lane's own metres, that
+/// the body stands over at any station from <paramref name="FirstAtM"/> to <paramref name="LastAtM"/> along the piece.
+/// </summary>
+internal readonly record struct StreetRun(int Way, float FromM, float ToM, float FirstAtM, float LastAtM);

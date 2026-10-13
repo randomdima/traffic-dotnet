@@ -73,7 +73,7 @@ internal sealed class ShotStage : IDisposable
         var looks = TownSprites.Load(config);
         var vk = Vk.Open("traffic-dotnet", validate);
         var renderer = TownRenderer.Offscreen(
-            vk, widthPx, heightPx, ground, ProjectPaths.GroundSurfaceFiles(), looks.Sheets, TownSprites.RoomFor(plan, config));
+            vk, widthPx, heightPx, ground, ProjectPaths.GroundSurfaceFiles(), looks.Sheets, looks.RoomFor(plan, config));
 
         return new ShotStage(config, plan, ground, looks, vk, renderer, widthPx, heightPx);
     }
@@ -92,7 +92,7 @@ internal sealed class ShotStage : IDisposable
         Vk vk, CityPlan plan, GroundMesh ground, TownSprites looks, SimConfig config, int widthPx, int heightPx)
     {
         var renderer = TownRenderer.Offscreen(
-            vk, widthPx, heightPx, ground, ProjectPaths.GroundSurfaceFiles(), looks.Sheets, TownSprites.RoomFor(plan, config));
+            vk, widthPx, heightPx, ground, ProjectPaths.GroundSurfaceFiles(), looks.Sheets, looks.RoomFor(plan, config));
 
         return new ShotStage(config, plan, ground, looks, vk, renderer, widthPx, heightPx, ownsDevice: false);
     }
@@ -159,7 +159,7 @@ internal sealed class ShotStage : IDisposable
         // Where a run opens looking (OBS-1b), so an unframed picture is the frame the game opens on
         // rather than a second answer about the same map.
         camera.LookAt(
-            ask.AtM ?? Opening.LooksAtM(world.Terrain, _config, Plan.WorldSizeM, camera.ViewSpanM(uiPx).Y * 0.5f));
+            ask.AtM ?? Opening.LooksAtM(world.Roads, Plan.WorldSizeM, camera.ViewSpanM(uiPx).Y * 0.5f));
 
         // About the middle of the frame, so the turn moves what is in the picture round rather than
         // moving the picture off what was framed (OBS-1c).
@@ -167,12 +167,13 @@ internal sealed class ShotStage : IDisposable
 
         _looks.ReadAspects(_renderer.Atlas);
         _looks.Lay(Plan, world.Uses, _config);
-        _renderer.LayStanding(_looks.Standing.Instances);
+        _renderer.LayTown(_looks, _config.View.PropLeastPx);
+        var lying = _renderer.FillUnder(world.Marks, camera.CentreM, camera.CullSpanM(uiPx), camera.PixelsPerMetre);
         var counts = _looks.Fill(
-            world, _config, camera.CentreM, camera.CullSpanM(uiPx), camera.PixelsPerMetre, _renderer.SpritesUnder,
-            _renderer.SpritesOver, _renderer.SpritesAbove);
+            world, _config, camera.CentreM, camera.CullSpanM(uiPx), camera.PixelsPerMetre, _renderer.SpritesOver,
+            _renderer.SpritesAbove);
         _renderer.SetSpriteCount(counts);
-        var sprites = counts.Drawn;
+        var sprites = lying + counts.Drawn;
 
         // The pointer is put outside the frame, so nothing is drawn hovered: a shot with a row lit
         // under a pointer nobody can see is a shot of a state the reader cannot account for. <b>Unless the

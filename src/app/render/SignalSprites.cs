@@ -65,9 +65,8 @@ internal static class SignalSprites
                     ? world.Signals.ForApproach(heads[head].Subject, timeS)
                     : world.Signals.ForCrossing(heads[head].Subject, timeS);
 
-                var (uvMin, uvSize) = CellOf(forCars, colour);
                 into[written++] = new SpriteInstance(
-                    centreM, forCars ? carHalfM : walkHalfM, uvMin, uvSize, PersonSprites.Plain,
+                    centreM, forCars ? carHalfM : walkHalfM, CellOf(forCars, colour), SpriteTint.Plain,
                     (uint)(firstSheet + (forCars ? 0 : 1)), heads[head].HeadingRad);
             }
         }
@@ -75,13 +74,12 @@ internal static class SignalSprites
         return written;
     }
 
-    /// <summary>Which frame of its strip a head showing <paramref name="colour"/> is drawn from, as texture coordinates.</summary>
-    public static (Vector2 UvMin, Vector2 UvSize) CellOf(bool forCars, SignalColour colour)
-    {
-        var frames = forCars ? CarFrames : WalkFrames;
-        var column = forCars ? CarColumn(colour) : WalkColumn(colour);
-        return (new Vector2(column / (float)frames, 0f), new Vector2(1f / frames, 1f));
-    }
+    /// <summary>Which frame of its strip a head showing <paramref name="colour"/> is drawn from.</summary>
+    public static SpriteCell CellOf(bool forCars, SignalColour colour) =>
+        SpriteCell.Of(ColumnOf(forCars, colour), 0, forCars ? CarFrames : WalkFrames, 1);
+
+    /// <summary>The column of its strip a head showing <paramref name="colour"/> is drawn from.</summary>
+    public static int ColumnOf(bool forCars, SignalColour colour) => forCars ? CarColumn(colour) : WalkColumn(colour);
 
     static int CarColumn(SignalColour colour) => colour switch
     {

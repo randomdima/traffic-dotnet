@@ -185,7 +185,7 @@ public class TownWorldTests
         Assert.True(world.Cars.Count > 0, "the fixture town stands cars");
         var car = 0;
         var wasGrip = world.Cars.BuildOf(car).GripMps2;
-        var wasMass = world.Cars.MassKg[car];
+        var wasMass = world.Cars.MassKgOf(car);
         var wasAt = world.Cars.PositionM[car];
         var bodies = world.StaticBodyCount;
 
@@ -195,7 +195,7 @@ public class TownWorldTests
         Assert.Equal(wasGrip * 2f, world.Cars.BuildOf(car).GripMps2, 3);
 
         // And what the car itself is came through untouched, because no dial speaks for a body.
-        Assert.Equal(wasMass, world.Cars.MassKg[car], 3);
+        Assert.Equal(wasMass, world.Cars.MassKgOf(car), 3);
 
         // And the town itself did not move: the same bodies, in the same places, mid-whatever they were in.
         Assert.Equal(wasAt, world.Cars.PositionM[car]);

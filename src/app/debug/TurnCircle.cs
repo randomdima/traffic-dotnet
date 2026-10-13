@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
+using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.App.Debug;
@@ -59,12 +60,13 @@ internal readonly record struct TurnCircle(
     /// for</b>: the rack takes time to travel, and a circle drawn for the lock a driver wanted is a circle
     /// the car is not on yet.
     /// </param>
-    public static bool Of(in CarBuild build, Vector2 positionM, float headingRad, float steerRad, out TurnCircle circle)
+    public static bool Of(
+        SimConfig config, in CarBuild build, Vector2 positionM, float headingRad, float steerRad, out TurnCircle circle)
     {
         Heading.Frame(headingRad, out var forward, out var right);
 
         Span<float> wheelRad = stackalloc float[TyreModel.Wheels];
-        TyreModel.Ackermann(build, steerRad, wheelRad);
+        TyreModel.Ackermann(config, build, steerRad, wheelRad);
 
         // The turn is to the driver's right for a positive angle, so the inside of it is the +y side of
         // the body — which is the side the pair with the even indices stand on.

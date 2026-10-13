@@ -221,6 +221,20 @@ internal sealed class Paving
         lock (_laying) return _rings ??= GroundRings.Of(Perimeter(config), config);
     }
 
+    /// <summary>
+    /// <b>The indexes only laying the town reads, let go once it stands</b> (<see cref="DrivenLines"/>, and the rings
+    /// with their lattices — <see cref="Rings"/>): the host keeps no geometry it does not read (the owner, 2026-10-13).
+    /// Asked for again — a ground mesh laid again, a probe — each is laid again.
+    /// </summary>
+    public void LetGoOfTheLayingIndexes()
+    {
+        lock (_laying)
+        {
+            _drivenLines = null;
+            _rings = null;
+        }
+    }
+
     public static Paving Lay(GroundPieces pieces, SimConfig config) =>
         new(pieces, LaneLines.Of(pieces, config));
 }

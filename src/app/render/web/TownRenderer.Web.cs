@@ -1,7 +1,9 @@
+using System.Numerics;
 using System.Runtime.InteropServices;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Runtime;
+using TrafficSimulation.World.Terrain;
 
 namespace TrafficSimulation.App.Render;
 
@@ -47,8 +49,8 @@ internal sealed class TownRenderer : IDisposable
     const int GlyphTexture = 1;
     const int FirstSurfaceTexture = 2;
 
-    /// <summary>A uniform block is a multiple of sixteen bytes wide, and the camera is four pairs of floats and two fours.</summary>
-    const int CameraBytes = 64;
+    /// <summary>A uniform block is a multiple of sixteen bytes wide, and the camera is four pairs of floats and three fours.</summary>
+    const int CameraBytes = 80;
 
     public const int OverlayCapacity = 65536;
 
@@ -117,8 +119,12 @@ internal sealed class TownRenderer : IDisposable
     /// <summary>How many instances each run of the sprite pass was laid for.</summary>
     public SpriteRoom Room { get; }
 
-    /// <summary>The instance buffer as the caller writes it, run by run. It is this engine's own memory, and the frame hands the browser a window onto it.</summary>
-    public Span<SpriteInstance> SpritesUnder => MemoryMarshal.Cast<byte, SpriteInstance>(_sprites.AsSpan())[..Room.Under];
+    /// <summary>
+    /// The instance buffer, run by run. It is this engine's own memory, and the frame hands the browser a window onto it.
+    /// <b>What lies under is written here</b> (<see cref="FillUnder"/>): a page draws the marks and the scenery as
+    /// instances, where the desktop draws them out of rows of their own.
+    /// </summary>
+    Span<SpriteInstance> SpritesUnder => MemoryMarshal.Cast<byte, SpriteInstance>(_sprites.AsSpan())[..Room.Under];
 
     public Span<SpriteInstance> SpritesOver => MemoryMarshal.Cast<byte, SpriteInstance>(_sprites.AsSpan()).Slice(Room.Under, Room.Over);
 
@@ -129,9 +135,14 @@ internal sealed class TownRenderer : IDisposable
     public Span<SpriteInstance> SpritesAbove =>
         MemoryMarshal.Cast<byte, SpriteInstance>(_sprites.AsSpan()).Slice(Room.Under + Room.Over, Room.Above);
 
-    /// <summary>The town's buildings and props handed to the page once, as the desktop's are (<see cref="StandingSprites.Range"/>).</summary>
-    public void LayStanding(ReadOnlyMemory<SpriteInstance> standing)
+    /// <summary>
+    /// The town's buildings and props handed to the page once, as the desktop's are (<see cref="StandingSprites.Range"/>),
+    /// and the looks a frame's marks and scenery are written from. A page draws every prop it is handed.
+    /// </summary>
+    public void LayTown(TownSprites looks, float propLeastPx)
     {
+        _looks = looks;
+        var standing = looks.Standing.Instances;
         var count = Math.Min(standing.Length, Math.Max(1, Room.Standing));
         if (count == 0) return;
 
@@ -139,6 +150,13 @@ internal sealed class TownRenderer : IDisposable
         WebGpu.Buffer(StandingStream, bytes, WebGpu.Vertex);
         Rebuild();
     }
+
+    /// <summary>What lies under everything that stands, written as instances into the run under it; answers how many.</summary>
+    public int FillUnder(DriftMarks marks, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre) =>
+        _underCount = _looks?.FillUnder(marks, viewCentreM, viewSpanM, SpritesUnder) ?? 0;
+
+    TownSprites? _looks;
+    int _underCount;
 
     /// <summary>The recording again, over the buffers as they now are: a buffer given anew is a buffer the last recording does not read.</summary>
     void Rebuild() => WebGpu.Rebuild(_indexCount, Room.Under * Marshal.SizeOf<SpriteInstance>());
@@ -188,9 +206,12 @@ internal sealed class TownRenderer : IDisposable
     /// </summary>
     public double BlockedMs => 0;
 
+    /// <summary>What the last <see cref="Frame"/> handed the page's buffers: the camera and every run and quad it counted.</summary>
+    public long WrittenBytes { get; private set; }
+
     /// <summary>How much of each run is to be drawn. The only thing a frame changes about the sprite pass.</summary>
     public void SetSpriteCount(in SpriteCounts counts) => _spriteCounts = new SpriteCounts(
-        Math.Clamp(counts.Under, 0, Room.Under), Math.Clamp(counts.StandingFirst, 0, Room.Standing),
+        Math.Clamp(_underCount, 0, Room.Under), Math.Clamp(counts.StandingFirst, 0, Room.Standing),
         Math.Clamp(counts.StandingCount, 0, Room.Standing), Math.Clamp(counts.Over, 0, Room.Over),
         Math.Clamp(counts.Above, 0, Room.Above));
 
@@ -222,6 +243,7 @@ internal sealed class TownRenderer : IDisposable
 
         var camera = view with { SurfacePeriodsM = _mesh.SurfacePeriodsM, WaterPeriodM = _mesh.WaterPeriodM };
         MemoryMarshal.Write(_camera, in camera);
+        WrittenBytes = CameraBytes + ((long)(counts.Under + over) * size) + ((long)(_overlayCount + marks) * quad);
         WebGpu.Frame(
             _camera,
             _sprites.AsSpan(0, counts.Under * size),

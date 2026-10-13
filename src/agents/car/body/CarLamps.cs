@@ -176,7 +176,7 @@ internal static class CarLamps
         // straight and the junction is thirty metres off. A reverse line is laid in the direction the rear
         // axle travels, which is the way the car is *not* pointing — the bend that takes the tail to the
         // line's left takes the nose to the body's right, and a lamp is bolted to the body.
-        var turnRad = TurnAheadRad(cars.LineOf(car), cars.ProgressM[car], config.Lamps.TurnAheadM);
+        var turnRad = TurnAheadRad(cars.LineOf(car), cars.ProgressM[car], config.Lamps.TurnAheadM, cars.LineCursor[car]);
         if (cars.LineIsReverse[car]) turnRad = -turnRad;
 
         var indicateRad = config.Lamps.TurnDeg * MathF.PI / 180f;
@@ -208,15 +208,18 @@ internal static class CarLamps
     /// car's own right. Summed along the arcs rather than differenced between two headings, because a way
     /// into a bay bends by half a turn and a difference of two angles cannot say which way round that was.
     /// </summary>
-    public static float TurnAheadRad(ReadOnlySpan<ArcSeg> line, float progressM, float aheadM)
+    /// <param name="cursor">Where the car's walks of its line begin (<see cref="CarFleet.LineCursor"/>), or its head.</param>
+    public static float TurnAheadRad(ReadOnlySpan<ArcSeg> line, float progressM, float aheadM, SplineCursor cursor = default)
     {
         var turnRad = 0f;
-        var startM = 0f;
+        var from = cursor.Piece < line.Length ? cursor.StartingBefore(progressM) : default;
+        var startM = from.PieceStartM;
         var lastM = progressM + aheadM;
-        foreach (var arc in line)
+        for (var piece = from.Piece; piece < line.Length; piece++)
         {
             if (startM >= lastM) break;
 
+            ref readonly var arc = ref line[piece];
             var fromM = MathF.Max(startM, progressM);
             var toM = MathF.Min(startM + arc.LengthM, lastM);
             if (toM > fromM) turnRad += arc.Curvature * (toM - fromM);

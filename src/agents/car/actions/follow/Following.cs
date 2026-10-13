@@ -25,23 +25,23 @@ internal sealed class Following(
 
     /// <summary>
     /// <b>This tick of a car following its route</b>, once the line under it has been read: on down the line on the
-    /// ground it was granted, slowed for gently from the first where what ended the grant is something it may get past
-    /// (CAR-46). Into its bay's manoeuvre or onto a pass is decided on the car's own clock (<see cref="Decide"/>).
+    /// ground it was granted. Into its bay's manoeuvre or across onto the lane beside is decided on the car's own clock
+    /// (<see cref="Decide"/>).
     /// </summary>
     public void Tick<TTown>(ref TTown town, int car, in CarPose pose, float progressM, float alongMps, float coveredM)
-        where TTown : struct, ICarTown
-    {
-        var waitsToPass = overtaking.MayGetPastWhatCutIt(car, out _, out _);
-        town.DriveOnTheLine(car, pose, progressM, alongMps, coveredM, waitsToPass);
-    }
+        where TTown : struct, ICarTown =>
+        town.DriveOnTheLine(car, pose, progressM, alongMps, coveredM);
 
     /// <summary>
     /// <b>A car following its route, on its own clock</b>: where the line stops for its bay and the car is near enough,
-    /// its manoeuvre in shaped from where it stands and asked for (GEN-4f); otherwise, where something ended its grant
-    /// that it may get past and it has come to where it would begin slowing for it, its pass drawn — once — and taken
-    /// up, or backed up for (CAR-46, CAR-50); otherwise, where it means to move across onto the lane beside, that
-    /// looked for (CAR-53).
+    /// its manoeuvre in shaped from where it stands and asked for (GEN-4f); otherwise, where it means to move across onto
+    /// the lane beside, that looked for (CAR-53).
     /// </summary>
+    /// <remarks>
+    /// <b>A pass round what cut its grant is never decided here</b> (CAR-46): whether that is something to get past is
+    /// what the body is doing, which the claims do not say (TER-4c.5). <see cref="Overtaking"/> waits on a reading of it
+    /// that does.
+    /// </remarks>
     /// <param name="sinceLastDecisionS">How much of the town's time this decision answers for, which its clocks run by.</param>
     public void Decide<TTown>(ref TTown town, int car, float sinceLastDecisionS)
         where TTown : struct, ICarTown
@@ -51,14 +51,6 @@ internal sealed class Following(
         if (Cars.StopsForBayOf(car) is var bay and not CarFleet.NoBay && parkingIn.TakeUpTheBay(car, bay, progressM, alongMps))
         {
             actions.Enter(car, CarAction.Park);
-            return;
-        }
-
-        if (overtaking.MayGetPastWhatCutIt(car, out var cutBy, out var cutOn)
-            && overtaking.ComesUpTo(car, alongMps, Cars.Context[car].AuthorityM)
-            && overtaking.DrawThePass(car, sinceLastDecisionS, progressM, alongMps, town.ToTheSceneM(car), cutBy, cutOn))
-        {
-            actions.Enter(car, overtaking.BacksUp(car, progressM, alongMps) ? CarAction.BackUp : CarAction.Overtake);
             return;
         }
 
@@ -92,34 +84,31 @@ internal sealed class Following(
     /// between itself and the way out.
     /// </para>
     /// <para>
-    /// <b>It is laid whole and answered with every other plan</b> (<see cref="LaneOccupancy.Propose"/>,
-    /// <see cref="LaneOccupancy.AnswerThePlans"/>): what it keeps is what every pass of the answers leaves it, so ground is never taken off
-    /// another plan for a hold that then does not use it.
+    /// <b>It is asked a piece a way and answered with every other plan</b> (<see cref="LaneOccupancy.Ask"/>,
+    /// <see cref="LaneOccupancy.Answer"/>), the committed piece of each way apart from the rest.
     /// </para>
     /// <para>
-    /// <b>A car on a pass plans past it</b> (TER-4c.6, <see cref="Overtaking.PlannedFromM"/>): the pass is already its
-    /// own, and what it passes stands on its line inside it.
+    /// <b>A car on a pass plans past it</b> (TER-4c.6, <see cref="Overtaking.PlannedFromM"/>), in the pass's own hold: the
+    /// pass is already its own, what it passes stands on its line inside it, and whatever refuses the pass ends the
+    /// plan before it begins.
     /// </para>
     /// </remarks>
-    /// <param name="keptOffM">The ground the car was kept off what cut it the rebuild before.</param>
-    public void Plan(int car, float keptOffM, Span<LineWay> ways)
+    public void Plan(int car, Span<LineWay> ways)
     {
         ref readonly var build = ref Cars.BuildOf(car);
         var noseM = Cars.ClaimFromM[car];
-        var brakingMps2 = CarFollower.BrakingMps2(Config, build);
+        var brakingMps2 = build.PlannedBrakingMps2;
         var alongMps = MathF.Max(0f, Cars.AlongMps[car]);
         var plannedMps = Cars.PlannedMps[car];
         var standOffM = Config.Driving.StandOffM;
 
-        var committedM = (alongMps * Config.CarReactionS) + DrivingGround.StoppingM(alongMps, brakingMps2);
+        var committedM = CarFollower.SlowsOverM(build, alongMps);
 
         // Bounded by the pedal: from a standstill, what a reaction interval of the car's own acceleration
-        // reaches and a stop from there — the room to pull away, and nothing it could not have driven over — and
-        // past that the ground it was last kept off what cut it, so a car standing off something with room to step
-        // round it (CAR-46) keeps it in its plan rather than creeping up until it is back in reach.
+        // reaches and a stop from there as the profile stops — the room to pull away, and nothing it could not have
+        // driven over — and its stand-off past that.
         var reachableMps = MathF.Min(plannedMps, alongMps + (build.AccelerationMps2 * Config.CarReactionS));
-        var pullsAwayM = (reachableMps * Config.CarReactionS) + DrivingGround.StoppingM(reachableMps, brakingMps2)
-                         + MathF.Max(standOffM, keptOffM);
+        var pullsAwayM = CarFollower.SlowsOverM(build, reachableMps) + standOffM;
 
         var moving = alongMps > Config.Driving.StopSpeedMps;
         var meansM = moving ? MeansToM(alongMps, plannedMps, build.AccelerationMps2, brakingMps2) + standOffM : 0f;
@@ -142,7 +131,7 @@ internal sealed class Following(
         var committedToM = noseM + committedM;
 
         // <b>A car on a pass plans from where it is back in its own lane</b> (TER-4c.6): the ground up to there
-        // is its pass's, laid as a body, and only a body standing inside it can end it short.
+        // is its pass's, and only a body standing inside it can end it short.
         var planFromM = overtaking.PlannedFromM(car);
 
         // <b>No further than a plan may reach</b>, and never short of what the car can no longer stop short of.
@@ -161,24 +150,13 @@ internal sealed class Following(
         Cars.CommittedToM[car] = committedToM;
         if (planToM < wantedToM) Cars.HorizonM[car] = planToM - noseM;
 
-        if (Cars.Pass[car].Begun && TheBodyInItsPass(car, out var inTheWayM, out var inTheWay, out var on))
-        {
-            var held = Occupancy.BeginHold(standOffM);
-            ground.PlanHold[car] = held;
-            Occupancy.EndHold(held, inTheWayM, standOffM, inTheWay, on);
-            return;
-        }
+        // A pass that reaches past all the car means to plan is the whole of its ground: whatever refuses that is all
+        // that holds the car.
+        var passHold = TheHoldOfItsPass(car);
+        if (planToM <= planFromM && passHold == LaneOccupancy.NoHold) return;
 
-        // A pass that reaches past all the car means to plan is the whole of its ground, and nothing in it.
-        if (planToM <= planFromM)
-        {
-            if (Cars.Pass[car].Begun) Cars.AuthorityM[car] = float.PositiveInfinity;
-            return;
-        }
-
-        var hold = Occupancy.BeginHold(standOffM);
-        ground.PlanHold[car] = hold;
-        Occupancy.Terms(hold, TermsOf(car));
+        var hold = ground.BeginThePlan(car, standOffM, passHold);
+        if (planToM <= planFromM) return;
 
         var count = ground.WaysAlong(car, planFromM, planToM, ways);
         Span<ClaimPriority> rungs = stackalloc ClaimPriority[count];
@@ -187,33 +165,29 @@ internal sealed class Following(
         for (var index = 0; index < count; index++)
         {
             ref readonly var way = ref ways[index];
-            Occupancy.Propose(AskOn(car, hold, way, rungs[index]), way.Way, way.ToM, way.FromM);
-        }
+            var committedOnWayM = OnTheWayM(way, committedToM);
+            if (committedOnWayM > way.FromM)
+            {
+                Occupancy.Ask(hold, way.Way, way.FromM, committedOnWayM, way.LineFromM, ClaimPriority.Committed);
+            }
 
-        Occupancy.EndHold(hold, float.PositiveInfinity, 0f, LaneClaim.Nothing);
+            var fromM = MathF.Max(way.FromM, committedOnWayM);
+            if (way.ToM > fromM) Occupancy.Ask(hold, way.Way, fromM, way.ToM, OnTheLineM(way, fromM), rungs[index]);
+        }
     }
 
     /// <summary>
-    /// <b>What this car reads of whatever refuses its plan</b> (<see cref="HolderTerms"/>): the room to step out
-    /// round what it may get past, and — on a call — how much slower than it means to go traffic has to be for it to.
+    /// The hold of the pass or step across a car has begun and is driving, which its plan carries on from — or
+    /// <see cref="LaneOccupancy.NoHold"/>.
     /// </summary>
-    HolderTerms TermsOf(int car) => new(
-        overtaking.KeptOffWhatItMayPassM(car), Cars.BlueLight[car],
-        Cars.BlueLight[car] ? Cars.PlannedMps[car] - Config.Ambulance.SlowerToPassMps : float.NegativeInfinity);
-
-    /// <summary>A body standing inside what is left of the ground the car's pass or step across holds — whichever it is driving.</summary>
-    bool TheBodyInItsPass(int car, out float inTheWayM, out LaneClaim body, out int on) =>
-        Cars.Action[car] == CarAction.Switch
-            ? switching.TheBodyInTheSwitch(car, out inTheWayM, out body, out on)
-            : overtaking.TheBodyInThePass(car, out inTheWayM, out body, out on);
-
-    /// <summary>
-    /// <b>Where a car on a pass looks for a body inside it</b>, in order (<see cref="LaneOccupancy.FirstBodyIn"/>): what its
-    /// plan comes to is a hold at the first one found, kept off it by the stand-off, and otherwise the plan it laid.
-    /// </summary>
-    /// <param name="into">Room for <see cref="Overtaking.MostAsksOfAPass"/> of the town's marks.</param>
-    public int AsksOfItsPass(int car, Span<BodyAsk> into) =>
-        Cars.Action[car] == CarAction.Switch ? switching.AsksOfTheSwitch(car, into) : overtaking.AsksOfThePass(car, into);
+    int TheHoldOfItsPass(int car) =>
+        !Cars.Pass[car].Begun ? LaneOccupancy.NoHold
+        : Cars.Action[car] switch
+        {
+            CarAction.Switch => switching.HoldOf(car),
+            CarAction.Overtake => overtaking.HoldOf(car),
+            _ => LaneOccupancy.NoHold,
+        };
 
     /// <summary>
     /// <b>Where a car means to be able to stop</b> (TER-4c.1): as far as it gets in the planned run
@@ -269,12 +243,6 @@ internal sealed class Following(
     /// everybody else.
     /// </summary>
     float ReachShare(int car) => Cars.BlueLight[car] ? Config.Ambulance.CallReachShare : 1f;
-
-    /// <summary>One piece of a car's plan as the terms it is asked on.</summary>
-    PlannedAsk AskOn(int car, int hold, in LineWay way, ClaimPriority rung) =>
-        new(
-            hold, car, LaneRoster.Driving, rung, way.FromM, way.LineFromM, way.LineFromM - Cars.ClaimFromM[car],
-            way.FromM + (Cars.CommittedToM[car] - way.LineFromM), Cars.AlongMps[car]);
 
     /// <summary>
     /// <b>The rung each piece of a plan is held at</b> (TER-5e, TER-5g.1): the movement's own on a join, and

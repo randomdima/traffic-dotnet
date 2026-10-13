@@ -4,7 +4,7 @@ using Silk.NET.Vulkan;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Runtime;
-using TrafficSimulation.World.Physics;
+using TrafficSimulation.World.Terrain;
 using Vk = TrafficSimulation.Runtime.Vk;
 using static TrafficSimulation.Runtime.GpuBuffer;
 
@@ -13,13 +13,14 @@ namespace TrafficSimulation.App.DeviceTick;
 /// <summary>
 /// <b>A whole car's tyre pass on the device</b> (<c>agents/car/body/kernels/tyre_pass.glsl</c>, run by
 /// <c>tyre_pass.comp</c>, one thread a car): the cars' rows sent — which of each car's wheels stood on a way when its
-/// body was last laid among them — the pass run over what a wheel on a way and off one is worth, laid once, and what it
-/// wrote read back — the marks it laid as a ring of records, filed in (car, wheel) order by <see cref="MarksLaid"/>.
+/// body was last laid among them — the pass run over what a wheel on a way and off one is worth, laid once, and the
+/// marks it laid laid into the ground's ring on the device (<see cref="GroundMarks"/>).
 /// </summary>
 /// <remarks>
-/// <b>Run in shadow</b>: every pass is handed the host's own state for its cars, so <see cref="TyrePass.Step"/> and the
-/// kernel are asked one question. What the state is sent from and read back into is mapped memory beside the device's
-/// own, and <see cref="PassMs"/> is the kernel alone.
+/// <b>The car table stays on the device</b> (<see cref="Table"/>): <see cref="DeviceWorld"/> records the pass into its own
+/// submit (<see cref="SendMarked"/>, <see cref="Run"/>) between kernels that read and write the same rows, and reads none
+/// of it back. <see cref="Step"/> hands every row back instead, the marks too as records filed in (car, wheel) order by
+/// <see cref="MarksLaid()"/>, so a test can ask the kernel and <see cref="TyrePass.Step"/> one question.
 /// </remarks>
 internal sealed class DeviceTyres : IDisposable
 {
@@ -31,11 +32,6 @@ internal sealed class DeviceTyres : IDisposable
     {
         public static PoseRow Of(in CarPose pose) => new(
             pose.PositionM, pose.VelocityMps, pose.Forward, pose.AccelerationMps2, pose.HeadingRad, pose.YawRateRadPerS, pose.MassKg, 0f);
-
-        /// <summary>A car's pose as the fleet holds it.</summary>
-        public static PoseRow Of(CarFleet cars, int car) => Of(new CarPose(
-            cars.PositionM[car], cars.HeadingRad[car], cars.VelocityMps[car], cars.YawRateRadPerS[car], cars.MassKg[car],
-            cars.AccelerationMps2[car]));
     }
 
     /// <summary>The pedals and the wheel (<c>TyreCommand</c>).</summary>
@@ -52,12 +48,9 @@ internal sealed class DeviceTyres : IDisposable
     {
         public const uint Hand = 1u, DrivenSlipping = 2u, AtRest = 4u;
 
-        /// <param name="wheelsOnAWay">Which of its wheels stood on a way when its body was last laid (<see cref="CarFleet.WheelsOnAWay"/>).</param>
+        /// <param name="wheelsOnAWay">Which of its wheels stood on a way when its body was last laid (<see cref="World.Town.CarView.WheelsOnAWay"/>).</param>
         public static uint FlagsOf(bool hand, bool drivenSlipping, byte wheelsOnAWay) =>
             (hand ? Hand : 0u) | (drivenSlipping ? DrivenSlipping : 0u) | ((uint)wheelsOnAWay << 8);
-
-        /// <summary>Which of its wheels stand on a way, as <see cref="FlagsOf"/> filed them or a claims rebuild wrote them.</summary>
-        public byte WheelsOnAWay => (byte)(Flags >> 8);
     }
 
     /// <summary>One wheel's carried state (<c>TyreWheelRow</c>).</summary>
@@ -86,24 +79,27 @@ internal sealed class DeviceTyres : IDisposable
     /// <summary>The pass's figures (<c>TyrePassFigures</c>), field for field, each the host's own.</summary>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct Figures(
-        float DtS, float StandardGravityMps2, float WheelSpinFadeMps, float WheelSpinAllowanceMps, float MarkSlipMps,
-        float MarkCorneringSlipMps, float PloughCrawlMps, float EngineBrakingMps2, float SlipBackOffS, float SlipRecoverS,
+        float DtS, float WheelSpinFadeMps, float WheelSpinAllowanceMps, float MarkSlipMps, float MarkCorneringSlipMps,
+        float PloughCrawlMps, float EngineBrakingMps2, float SlipBackOffPerTick, float SlipRecoverPerTick,
         float MinSlipThrottleFraction, float TractionThrottleFraction, float NominalGripMps2, float MarkOnsetM,
-        float MarkPloughFloor, float MarkSpacingM)
+        float MarkPloughFloor, float MarkSpacingM, float WorkingSlipTangent, float AlongSlipEpsilonMps,
+        float LiftedAxleLoadShare, float AckermannLeastSteerRad, float InnerWheelLeastRadiusM)
     {
         public static Figures Of(SimConfig config) => new(
-            config.TickSeconds, config.Tyre.StandardGravityMps2, config.Tyre.WheelSpinFadeMps, config.Tyre.WheelSpinAllowanceMps,
-            config.Marks.SlipMps, config.Marks.CorneringSlipMps, config.Marks.PloughCrawlMps, config.CarEngineBrakingMps2,
-            config.Tyre.SlipBackOffS, config.Tyre.SlipRecoverS, config.Tyre.MinSlipThrottleFraction,
+            config.TickSeconds, config.Tyre.WheelSpinFadeMps, config.Tyre.WheelSpinAllowanceMps, config.Marks.SlipMps,
+            config.Marks.CorneringSlipMps, config.Marks.PloughCrawlMps, config.CarEngineBrakingMps2,
+            config.TyreSlipBackOffPerTick, config.TyreSlipRecoverPerTick, config.Tyre.MinSlipThrottleFraction,
             config.Tyre.TractionThrottleFraction, config.TyreGripMps2, config.Marks.OnsetM, config.Marks.PloughFloor,
-            config.Marks.SpacingM);
+            config.Marks.SpacingM, config.Tyre.WorkingSlipTangent, config.Tyre.AlongSlipEpsilonMps,
+            config.Tyre.LiftedAxleLoadShare, config.Tyre.AckermannLeastSteerRad, config.Tyre.InnerWheelLeastRadiusM);
     }
 
-    /// <summary>The kernel's push constants: how many cars, then the figures.</summary>
+    /// <summary>The kernel's push constants: how many cars, whether the scrub is written, then the figures.</summary>
     [StructLayout(LayoutKind.Sequential)]
     internal struct PassPush
     {
         public uint CarCount;
+        public uint HandsBack;
         public Figures Figures;
     }
 
@@ -115,7 +111,6 @@ internal sealed class DeviceTyres : IDisposable
     readonly ComputeKernel _kernel;
     readonly DescriptorSet _set;
     readonly ComputeBatch _batch;
-    readonly GpuTimer _timer;
     readonly ResidentRows<uint> _buildOf;
     readonly ResidentRows<PoseRow> _poses;
     readonly ResidentRows<CommandRow> _commands;
@@ -125,22 +120,27 @@ internal sealed class DeviceTyres : IDisposable
     readonly ResidentRows<ScrubRow> _scrubs;
     readonly GpuBuffer _markCountOut;
     readonly GpuBuffer _markCount;
-    readonly BufferCopy[] _handOverRuns;
 
     /// <summary>
-    /// The ring of marks, written by the kernel straight into memory the host reads: a tick lays tens of the fleet's
-    /// thousands of wheels, and a copy of the whole ring would move every one of them across the bus.
+    /// The marks a pass laid as records of their car and wheel, written by the kernel straight into memory the host reads
+    /// — a test's (<see cref="MarksLaid()"/>), and a row long where nobody asks.
     /// </summary>
     readonly GpuBuffer _marks;
+    readonly bool _handsBack;
     int _cars;
 
     /// <param name="grounds">What a wheel on a way and off one stands on, laid once.</param>
     /// <param name="builds">Every build a car may be, indexed as <see cref="BuildOf"/> names them.</param>
     /// <param name="capacity">The most cars a pass is asked of; the ring holds a mark for every wheel of them.</param>
-    public DeviceTyres(Vk vk, SimConfig config, in WheelGrounds grounds, ReadOnlySpan<CarBuild> builds, int capacity)
+    /// <param name="handsBack">
+    /// Whether a pass hands its rows and each patch's scrub back to the host (<see cref="Step"/>) — a test's question: the
+    /// town reads only the marks.
+    /// </param>
+    public DeviceTyres(Vk vk, SimConfig config, in WheelGrounds grounds, ReadOnlySpan<CarBuild> builds, int capacity, bool handsBack = false)
     {
         _vk = vk;
         _figures = Figures.Of(config);
+        _handsBack = handsBack;
         Capacity = capacity;
 
         var buildRows = new CarBuildRow[builds.Length];
@@ -149,90 +149,90 @@ internal sealed class DeviceTyres : IDisposable
         var wheels = capacity * WheelsACar;
         var buildBuffer = Laid<CarBuildRow>(buildRows);
         var wheelGroundsBuffer = Laid<SurfaceRow>([SurfaceRow.Of(grounds.OffAWay), SurfaceRow.Of(grounds.OnAWay)]);
+        WheelGrounds = wheelGroundsBuffer;
         _buildOf = new ResidentRows<uint>(vk, capacity, 1, hostOnly: true);
         _poses = new ResidentRows<PoseRow>(vk, capacity, 1);
-        _commands = new ResidentRows<CommandRow>(vk, capacity, 1, readsBack: true);
-        _carRows = new ResidentRows<CarRow>(vk, capacity, 1, readsBack: true);
-        _wheels = new ResidentRows<WheelRow>(vk, capacity, WheelsACar, readsBack: true);
-        _impulses = new ResidentRows<Vector4>(vk, capacity, WheelsACar, readsBack: true);
-        _scrubs = new ResidentRows<ScrubRow>(vk, capacity, WheelsACar, readsBack: true);
+        _commands = new ResidentRows<CommandRow>(vk, capacity, 1);
+        _carRows = new ResidentRows<CarRow>(vk, capacity, 1, readsBack: handsBack);
+        _wheels = new ResidentRows<WheelRow>(vk, capacity, WheelsACar, readsBack: handsBack);
+        _impulses = new ResidentRows<Vector4>(vk, capacity, WheelsACar, readsBack: handsBack);
+        _scrubs = new ResidentRows<ScrubRow>(vk, capacity, WheelsACar, readsBack: handsBack);
         _markCount = Device<uint>(1);
-        _marks = Own(_vk.CreateBuffer(Bytes<MarkRow>(wheels), BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
+        _marks = Own(_vk.CreateBuffer(Bytes<MarkRow>(handsBack ? wheels : 1), BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
         _markCountOut = Readback<uint>(1);
-        _handOverRuns = new BufferCopy[capacity];
-        KeptOnTheDevice = new bool[capacity];
+
+        var drawnCapacity = Math.Max(1, config.Marks.Capacity);
+        GroundMarks = Own(_vk.CreateBuffer(
+            Bytes<DriftMarkRow>(drawnCapacity), BufferUsageFlags.StorageBufferBit, HostAccess.None));
+        GroundMarkRing = Own(_vk.CreateBuffer(
+            Bytes<DriftMarkRing>(1), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.IndirectBufferBit | BufferUsageFlags.TransferDstBit,
+            HostAccess.None));
+        GroundMarkRing.Upload<DriftMarkRing>(
+            1, into => into[0] = DriftMarkRing.After(0, drawnCapacity),
+            PipelineStageFlags2.ComputeShaderBit | PipelineStageFlags2.DrawIndirectBit,
+            AccessFlags2.ShaderStorageReadBit | AccessFlags2.IndirectCommandReadBit);
 
         Table = (buildBuffer, _buildOf, _poses, _commands, _carRows, _wheels);
         GpuBuffer[] bound =
         [
             buildBuffer, _buildOf.Device, _poses.Device, _commands.Device, _carRows.Device, _wheels.Device, _impulses.Device,
-            _scrubs.Device, _markCount, _marks, wheelGroundsBuffer,
+            _scrubs.Device, _markCount, _marks, wheelGroundsBuffer, GroundMarks, GroundMarkRing,
         ];
         _kernel = new ComputeKernel(vk, "tyre_pass.comp", bound.Length, (uint)Marshal.SizeOf<PassPush>());
         _set = _kernel.Bind(bound);
         _batch = new ComputeBatch(vk);
-        _timer = new GpuTimer(vk, 4);
     }
 
     /// <summary>The most cars a pass is asked of.</summary>
     public int Capacity { get; }
 
     /// <summary>
+    /// <b>The ground's ring of marks, on the device and drawn from there</b> (<see cref="DriftMarkRow"/>,
+    /// <c>drift_marks.glsl</c>): every pass lays its marks into it, and nothing of it crosses to the host.
+    /// </summary>
+    public GpuBuffer GroundMarks { get; }
+
+    /// <summary>
+    /// And its words (<see cref="DriftMarkRing"/>), whose head a pass after the tyres' moves past the tick's marks
+    /// (<c>world_view.comp</c>) — the indirect buffer of a frame's draw of the ring.
+    /// </summary>
+    public GpuBuffer GroundMarkRing { get; }
+
+    /// <summary>What a wheel off every way and on one stands on (<c>TyreSurface</c>), laid once, for a kernel binding it too.</summary>
+    public GpuBuffer WheelGrounds { get; }
+
+    /// <summary>
+    /// The figures retuned under a standing town: every build and both grounds laid again over what the pass reads, with
+    /// nothing in flight.
+    /// </summary>
+    public void Retune(in WheelGrounds grounds, ReadOnlySpan<CarBuild> builds)
+    {
+        var buildRows = new CarBuildRow[builds.Length];
+        for (var build = 0; build < buildRows.Length; build++) buildRows[build] = CarBuildRow.Of(builds[build]);
+
+        Table.Builds.Upload<CarBuildRow>(
+            buildRows.Length, into => buildRows.CopyTo(into), PipelineStageFlags2.ComputeShaderBit,
+            AccessFlags2.ShaderStorageReadBit);
+        SurfaceRow[] surfaces = [SurfaceRow.Of(grounds.OffAWay), SurfaceRow.Of(grounds.OnAWay)];
+        WheelGrounds.Upload<SurfaceRow>(
+            surfaces.Length, into => surfaces.CopyTo(into), PipelineStageFlags2.ComputeShaderBit,
+            AccessFlags2.ShaderStorageReadBit);
+    }
+
+    /// <summary>
     /// <b>The car table the pass reads and writes, kept on the device from one pass to the next</b> — the builds, which
     /// each car is, its pose, its command, its own row and its wheels — for a caller that marks only the cars it changed
-    /// and runs kernels before the pass in the same submit (<see cref="DeviceCarTick"/>).
+    /// and runs kernels around the pass in the same submit (<see cref="DeviceWorld"/>).
     /// </summary>
     public (GpuBuffer Builds, ResidentRows<uint> BuildOf, ResidentRows<PoseRow> Poses, ResidentRows<CommandRow> Commands,
         ResidentRows<CarRow> Cars, ResidentRows<WheelRow> Wheels) Table { get; }
 
-    /// <summary>
-    /// Whether <see cref="Read"/> hands back what each wheel did to its ground — scratch to a town whose tick the device
-    /// runs, and the shadow's to compare.
-    /// </summary>
-    public bool ReadsScrub { get; set; } = true;
-
-    /// <summary>
-    /// Whether <see cref="Read"/> hands back every car's wheels and impulses. <b>A town whose tick the device runs keeps
-    /// them there</b>: the bodies' phase spends the impulses where the pass left them, and a car's wheels go back to the
-    /// host only once the car leaves the device's tick (<see cref="RecordHandOver"/>, <see cref="KeptOnTheDevice"/>).
-    /// </summary>
-    public bool ReadsEveryWheel { get; set; } = true;
-
-    /// <summary>
-    /// <b>Which cars' wheels the device holds newer than the host's copy</b>: those a pass ran for while
-    /// <see cref="ReadsEveryWheel"/> is off, until they are handed back. Kept by whoever reads the pass; a car marked here
-    /// is never laid from the host's copy.
-    /// </summary>
-    public bool[] KeptOnTheDevice { get; }
-
-    /// <summary>
-    /// <b>Those cars' wheels copied back</b> where <see cref="WheelsAfter"/> reads them, recorded — the wheels as the last
-    /// pass left them, which nothing on the device writes until the next. The caller barriers before it.
-    /// </summary>
-    public void RecordHandOver(CommandBuffer commands, ReadOnlySpan<int> cars) => _wheels.ReadItems(commands, cars, _handOverRuns);
-
-    /// <summary>
-    /// Those cars' commands and own rows copied back where <see cref="CommandRead"/> and <see cref="CarRead"/> read them,
-    /// recorded — for a reader that does not <see cref="Read"/> every car's. The caller barriers before it.
-    /// </summary>
-    public void RecordHandOverOfTheRows(CommandBuffer commands, ReadOnlySpan<int> cars)
-    {
-        _commands.ReadItems(commands, cars, _handOverRuns);
-        _carRows.ReadItems(commands, cars, _handOverRuns);
-    }
-
-    /// <summary>A car's command as the last copy back of it left it.</summary>
-    public CommandRow CommandRead(int car) => _commands.AllRead[car];
-
-    /// <summary>A car's own row as the last copy back of it left it.</summary>
-    public CarRow CarRead(int car) => _carRows.AllRead[car];
-
     /// <summary>How many marks the last pass laid, copied back where <see cref="MarkCount"/> reads it, recorded; the caller barriers before it.</summary>
-    public void RecordReadTheMarkCount(CommandBuffer commands) => _vk.Copy(commands, _markCount, _markCountOut, sizeof(uint));
+    void RecordReadTheMarkCount(CommandBuffer commands) => _vk.Copy(commands, _markCount, _markCountOut, sizeof(uint));
 
     /// <summary>
     /// Each wheel's impulse and where it is spent, as the pass leaves it on the device — four a car in the tyre model's
-    /// order, (impulse, at) — for the bodies' phase that spends them (<see cref="DeviceBodyPhase"/>).
+    /// order, (impulse, at) — for the kernel that spends them (<c>world_tow.comp</c>).
     /// </summary>
     public GpuBuffer ImpulseTable => _impulses.Device;
 
@@ -241,25 +241,6 @@ internal sealed class DeviceTyres : IDisposable
 
     public Span<PoseRow> Poses => _poses.All;
 
-    /// <summary>
-    /// <b>The pose of every car whose body the town put down or reweighed since the solver's last step</b> — laid again
-    /// from the fleet, which the town wrote with it, and marked to be sent. A car whose body it changed otherwise keeps
-    /// the pose the step left in the table.
-    /// </summary>
-    public void LayThePlacedPoses(CarFleet cars, PhysicsWorld physics)
-    {
-        foreach (var body in physics.Changes)
-        {
-            if ((physics.ChangeOf(body) & (RowChange.Pose | RowChange.Mass)) == 0) continue;
-
-            var tag = physics.TagOf(new BodyId(body + 1));
-            if (tag.Kind != BodyKind.Car || tag.Index < 0 || tag.Index >= cars.Count) continue;
-
-            _poses.All[tag.Index] = PoseRow.Of(cars, tag.Index);
-            _poses.Mark(tag.Index);
-        }
-    }
-
     public Span<CommandRow> Commands => _commands.All;
 
     /// <summary>Each car's own figures and the throttle it carries, as the pass reads them.</summary>
@@ -267,9 +248,6 @@ internal sealed class DeviceTyres : IDisposable
 
     /// <summary>Each wheel's carried state, four to a car in the tyre model's order.</summary>
     public Span<WheelRow> Wheels => _wheels.All;
-
-    /// <summary>The commands as the last read left them.</summary>
-    public ReadOnlySpan<CommandRow> CommandsAfter => _commands.AllRead[.._cars];
 
     /// <summary>The cars as the last pass left them: the throttle wound on, and whether each was slipping or at rest.</summary>
     public ReadOnlySpan<CarRow> CarsAfter => _carRows.AllRead[.._cars];
@@ -282,22 +260,17 @@ internal sealed class DeviceTyres : IDisposable
 
     public ReadOnlySpan<ScrubRow> Scrub => _scrubs.AllRead[..(_cars * WheelsACar)];
 
-    /// <summary>How many marks the last pass laid, which may be more than the ring held (<see cref="Capacity"/> × 4).</summary>
+    /// <summary>How many marks the last <see cref="Step"/> laid, which may be more than the ring held (<see cref="Capacity"/> × 4).</summary>
     public int MarkCount => (int)_markCountOut.Span<uint>()[0];
 
-    /// <summary>The device's own time for the last pass's kernel, in milliseconds, with nothing sent or read in it.</summary>
-    public double PassMs => _timer.BetweenMs(1, 2);
-
-    /// <summary>The device's time spent taking the last pass's rows in, and handing its answers back, in milliseconds.</summary>
-    public double CopiesMs => _timer.BetweenMs(0, 1) + _timer.BetweenMs(2, 3);
-
     /// <summary>
-    /// The marks the last pass laid, filed in (car, wheel) order — which is the order the town lays them in when it
-    /// steps its cars in order — and each car's are in wheel order as <see cref="TyrePass.Step"/> lays them.
+    /// The marks the last <see cref="Step"/> laid, filed in (car, wheel) order — which is the order the town lays them in
+    /// when it steps its cars in order — and each car's are in wheel order as <see cref="TyrePass.Step"/> lays them. Only a
+    /// pass that hands back keeps these records.
     /// </summary>
     public ReadOnlySpan<MarkRow> MarksLaid()
     {
-        var laid = _marks.Span<MarkRow>()[..Math.Min(MarkCount, Capacity * WheelsACar)];
+        var laid = _marks.Span<MarkRow>()[..Math.Min(MarkCount, _handsBack ? Capacity * WheelsACar : 0)];
         laid.Sort(static (a, b) => a.CarWheel.CompareTo(b.CarWheel));
         return laid;
     }
@@ -309,24 +282,16 @@ internal sealed class DeviceTyres : IDisposable
     public void Step(int cars)
     {
         var commands = _batch.Begin();
-        _timer.Reset(commands);
-        _timer.Stamp(commands, 0);
         Send(commands, cars);
         _vk.AfterTransfer(commands);
-        _timer.Stamp(commands, 1);
-
         Run(commands, cars);
         _vk.BeforeTransfer(commands);
-        _timer.Stamp(commands, 2);
-
         Read(commands);
-        _timer.Stamp(commands, 3);
         _batch.SubmitAndWait();
-        _timer.Read();
     }
 
     /// <summary>The rows written for the first <paramref name="cars"/> cars taken in and the ring emptied, recorded; the caller barriers after.</summary>
-    public void Send(CommandBuffer commands, int cars)
+    void Send(CommandBuffer commands, int cars)
     {
         if (cars > Capacity) throw new ArgumentOutOfRangeException(nameof(cars), $"The pass holds {Capacity} cars, not {cars}.");
 
@@ -353,23 +318,17 @@ internal sealed class DeviceTyres : IDisposable
     public void Run(CommandBuffer commands, int cars)
     {
         _cars = cars;
-        var push = new PassPush { CarCount = (uint)cars, Figures = _figures };
+        var push = new PassPush { CarCount = (uint)cars, HandsBack = _handsBack ? 1u : 0u, Figures = _figures };
         _kernel.Dispatch(commands, _set, (uint)Math.Max(1, (cars + 63) / 64), push);
     }
 
     /// <summary>What the last <see cref="Run"/> wrote, recorded to be handed back where <see cref="CarsAfter"/> and the rest read it.</summary>
-    public void Read(CommandBuffer commands)
+    void Read(CommandBuffer commands)
     {
-        _commands.Read(commands, _cars);
         _carRows.Read(commands, _cars);
-        if (ReadsEveryWheel)
-        {
-            _wheels.Read(commands, _cars);
-            _impulses.Read(commands, _cars);
-        }
-
-        if (ReadsScrub) _scrubs.Read(commands, _cars);
-
+        _wheels.Read(commands, _cars);
+        _impulses.Read(commands, _cars);
+        _scrubs.Read(commands, _cars);
         RecordReadTheMarkCount(commands);
     }
 
@@ -398,7 +357,6 @@ internal sealed class DeviceTyres : IDisposable
 
     public void Dispose()
     {
-        _timer.Dispose();
         _batch.Dispose();
         _kernel.Dispose();
         _buildOf.Dispose();

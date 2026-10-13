@@ -37,13 +37,11 @@ internal sealed class CarFleet
     {
         _arcsPerCar = arcsPerCar;
         _builds = builds;
-        Body = new BodyId[capacity];
         PositionM = new Vector2[capacity];
         HeadingRad = new float[capacity];
+        Forward = new Vector2[capacity];
         VelocityMps = new Vector2[capacity];
         YawRateRadPerS = new float[capacity];
-        AccelerationMps2 = new Vector2[capacity];
-        MassKg = new float[capacity];
         Variant = new byte[capacity];
         Draw = new Rng[capacity];
         Owner = new int[capacity];
@@ -52,7 +50,6 @@ internal sealed class CarFleet
         Action = new CarAction[capacity];
         Broken = new bool[capacity];
         Channels = new byte[capacity];
-        WheelsOnAWay = new byte[capacity];
         Ambulance = new bool[capacity];
         BlueLight = new bool[capacity];
         AtWork = new bool[capacity];
@@ -61,22 +58,23 @@ internal sealed class CarFleet
         LaneEndM = new float[capacity * LineAssembler.MostLanes];
         LaneFirstArc = new int[capacity * LineAssembler.MostLanes];
         JoinBreaks = new bool[capacity * LineAssembler.MostLanes];
+        Joins = new int[capacity * LineAssembler.MostLanes];
+        Array.Fill(Joins, RoadGraph.NoConnector);
         ProgressM = new float[capacity];
         AlongMps = new float[capacity];
         OffLineM = new float[capacity];
         ToTheBoxM = new float[capacity];
         Array.Fill(ToTheBoxM, float.PositiveInfinity);
         TurningAtTheBox = new bool[capacity];
-        BoxIsOurs = new bool[capacity];
-        CommittedToTheBox = new bool[capacity];
         _line = new DrivenLine[capacity];
-        LineLaid = new uint[capacity];
-        RouteLaid = new uint[capacity];
+        LinesLaid = new uint[capacity];
+        LineCursor = new SplineCursor[capacity];
         LineArcs = new ArcSeg[capacity * arcsPerCar];
         LineEntryM = new float[capacity * arcsPerCar];
         StopsForBay = new int[capacity];
         Array.Fill(StopsForBay, NoBay);
         StopsAtItsPlace = new bool[capacity];
+        LineStopsAtM = new float[capacity];
         TurnsBackOn = new int[capacity];
         Array.Fill(TurnsBackOn, NoLane);
         ClaimFromM = new float[capacity];
@@ -92,6 +90,7 @@ internal sealed class CarFleet
         PaceMps = new float[capacity];
         Array.Fill(PaceMps, float.PositiveInfinity);
         Command = new DriveCommand[capacity];
+        Lamps = new CarLampSet[capacity];
         Hold = new Control.DrivingHold[capacity];
         Context = new Control.DriveContext[capacity];
         Array.Fill(Context, Control.DriveContext.Clear);
@@ -108,22 +107,10 @@ internal sealed class CarFleet
         FuseJitter = new float[capacity];
         BacksIntoBays = new bool[capacity];
         LineIsReverse = new bool[capacity];
-        InsideTheBox = new bool[capacity];
-        LightAheadM = new float[capacity];
-        Array.Fill(LightAheadM, float.PositiveInfinity);
         Pass = new Control.Overtake[capacity];
         Array.Fill(Pass, Control.Overtake.None);
         BackRoomM = new float[capacity];
         Array.Fill(BackRoomM, float.NaN);
-        WheelSpinMps = new float[capacity * TyreModel.Wheels];
-        ScrubTravelM = new float[capacity * TyreModel.Wheels];
-        MarkFromM = new Vector2[capacity * TyreModel.Wheels];
-        MarkIntensity = new float[capacity * TyreModel.Wheels];
-        Marking = new bool[capacity * TyreModel.Wheels];
-        SlipThrottle = new float[capacity];
-        Array.Fill(SlipThrottle, 1f);
-        DrivenSlipping = new bool[capacity];
-        DrivenFrontShare = new float[capacity];
     }
 
     /// <summary>
@@ -135,9 +122,7 @@ internal sealed class CarFleet
 
     public int Count { get; private set; }
 
-    public int Capacity => Body.Length;
-
-    public BodyId[] Body { get; }
+    public int Capacity => PositionM.Length;
 
     /// <summary>The middle of the body. Every <em>line</em> is the rear axle's, which is that less half a wheelbase along the heading.</summary>
     public Vector2[] PositionM { get; }
@@ -145,14 +130,19 @@ internal sealed class CarFleet
     /// <summary>Solver output, unlike a walker's: a car is a box that turns because its tyres turned it.</summary>
     public float[] HeadingRad { get; }
 
+    /// <summary>
+    /// <see cref="HeadingRad"/> as the unit it is — the body's own rotation as the world turned it, which is
+    /// <c>Heading.Unit</c> of the heading to the bit — so a tick reading a car's pose reduces no angle.
+    /// </summary>
+    /// <remarks>Written wherever <see cref="HeadingRad"/> is, and nowhere else.</remarks>
+    public Vector2[] Forward { get; }
+
     public Vector2[] VelocityMps { get; }
 
     public float[] YawRateRadPerS { get; }
 
-    /// <summary>What the body actually did last tick, in its own frame — the loads the tyres are weighed by.</summary>
-    public Vector2[] AccelerationMps2 { get; }
-
-    public float[] MassKg { get; }
+    /// <summary>What the car weighs — its build's (<see cref="CarBuild.MassKg"/>), which nothing changes while it runs.</summary>
+    public float MassKgOf(int car) => BuildOf(car).MassKg;
 
     public byte[] Variant { get; }
 
@@ -197,12 +187,6 @@ internal sealed class CarFleet
     /// car at a bridgehead is on the deck where there is deck and on the ground past its end.
     /// </summary>
     public byte LevelOf(int car) => (byte)BitOperations.Log2(Channels[car]);
-
-    /// <summary>
-    /// <b>Which of the car's wheels stood on a way when its body was last laid</b> (TER-7b, TER-4c.2), a bit a wheel in the
-    /// tyre model's order: what each grips on until the next laying, a wheel on none gripping as on grass.
-    /// </summary>
-    public byte[] WheelsOnAWay { get; }
 
     /// <summary>
     /// <b>AMB-3: whether this car is an ambulance</b> — a fact about the car and never about what it is
@@ -273,42 +257,29 @@ internal sealed class CarFleet
     /// </summary>
     public bool[] TurningAtTheBox { get; }
 
-    /// <summary>
-    /// <b>Whether the road this car was granted reaches into that box</b> — for the read-out and the
-    /// instruments. Nothing decides on it: the grant is what the car drives to.
-    /// </summary>
-    public bool[] BoxIsOurs { get; }
-
-    /// <summary>
-    /// <b>Whether this car is past the point it could stop short of that box</b> — an instrument's reading of
-    /// the same relation the plan is laid on (<see cref="CommittedToM"/>).
-    /// </summary>
-    public bool[] CommittedToTheBox { get; }
-
     /// <summary>How much of each car's line there is, its arrays aside; laid by <see cref="SetLine"/>.</summary>
     public ReadOnlySpan<DrivenLine> Line => _line;
 
-    /// <summary>
-    /// <b>How many times each car's line has been laid or changed</b> (<see cref="SetLine"/>): a copy of the lines kept
-    /// elsewhere — the device's — reads a change it did not make itself off this rather than off the line's contents.
-    /// </summary>
-    public uint[] LineLaid { get; }
-
-    /// <summary>
-    /// <b>How many times each car's route queue has been laid or changed</b> — a lane taken off it, lanes put back, the
-    /// queue dropped or laid afresh (<see cref="RouteChanged"/>): what reads the queue elsewhere reads a change off this.
-    /// </summary>
-    public uint[] RouteLaid { get; }
-
-    /// <summary>This car's route queue written by whoever laid it, counted in <see cref="RouteLaid"/>.</summary>
-    public void RouteChanged(int car) => RouteLaid[car]++;
-
-    /// <summary>This car's line, its arrays already written, taken as laid and counted in <see cref="LineLaid"/>.</summary>
+    /// <summary>This car's line, its arrays already written, taken as laid.</summary>
     public void SetLine(int car, DrivenLine line)
     {
         _line[car] = line;
-        LineLaid[car]++;
+        LinesLaid[car]++;
+        LineCursor[car] = default;
     }
+
+    /// <summary>
+    /// <b>Where on its line each car's walks of it begin</b>: the first arc that reaches the window its progress was last
+    /// found in (<see cref="Spline.ProjectM(ReadOnlySpan{ArcSeg}, Vector2, float, float, ref SplineCursor)"/>), so a tick
+    /// reads the line from about where the car is rather than from its head. Back at the head with every line.
+    /// </summary>
+    public SplineCursor[] LineCursor { get; }
+
+    /// <summary>
+    /// <b>How many lines this car has been handed</b> — laid, shifted or dropped (<see cref="SetLine"/>): what a figure
+    /// read off the line and kept beside it is checked against, so it cannot outlive the line it was read off.
+    /// </summary>
+    public uint[] LinesLaid { get; }
 
     /// <summary>
     /// <b>The bay this car's line stops short of</b> — the one the leg parks in off the last lane of the line,
@@ -327,6 +298,13 @@ internal sealed class CarFleet
     /// and written where the line is assembled and nowhere else, as <see cref="StopsForBay"/> is.
     /// </summary>
     public bool[] StopsAtItsPlace { get; }
+
+    /// <summary>
+    /// <b>How far along its own lane the line's last lane is laid to</b> (<see cref="LineAssembler.Assemble"/>): the lane's
+    /// length, or short of it where the line stops for a bay or a place — what a world reading the car on its lanes cuts
+    /// that lane at (<see cref="LineFollowed"/>). Written where the line is assembled, and kept by a shift.
+    /// </summary>
+    public float[] LineStopsAtM { get; }
 
     /// <summary>
     /// <b>The lane this leg comes back down after turning at a car park</b> (GEN-4l), or
@@ -397,8 +375,8 @@ internal sealed class CarFleet
     public float[] GrantMarginM { get; }
 
     /// <summary>
-    /// <b>What cut that grant</b> — the queue in front, a body going nowhere, somebody on foot in the lane,
-    /// ground somebody has claimed — or <see cref="Control.HeadwayKind.Nothing"/> where nothing did.
+    /// <b>What cut that grant</b> — a body, a light's hold, ground somebody has claimed — or
+    /// <see cref="Control.HeadwayKind.Nothing"/> where nothing did.
     /// </summary>
     /// <remarks>
     /// <b>Why a car is held, and never how fast it may go</b>: the speed is the grant's distance whatever cut
@@ -426,6 +404,12 @@ internal sealed class CarFleet
 
     /// <summary>What the driver asked for this tick, kept for the tyres, the debug layer and whoever asks what the car is doing.</summary>
     public DriveCommand[] Command { get; }
+
+    /// <summary>
+    /// <b>What each car's lamps say</b> (CAR-14), as its last tick worked them out (<see cref="CarLamps.Showing"/>) — what
+    /// the world is handed and what a frame draws, so the two never disagree about a lamp.
+    /// </summary>
+    public CarLampSet[] Lamps { get; }
 
     /// <summary>Which of the things that limit a car limited this one — an instrument, and the only useful question about a slow car.</summary>
     public Control.DrivingHold[] Hold { get; }
@@ -507,18 +491,12 @@ internal sealed class CarFleet
     public bool[] LineIsReverse { get; }
 
     /// <summary>
-    /// Whether the body is <em>in</em> the junction box rather than approaching one. <b>Waiting at a
-    /// boundary is not standing across a lane.</b> An instrument's: the stuck probe prints it and nothing
-    /// decides by it.
+    /// Whether the body is <em>in</em> the junction box rather than approaching one — its rear axle past the mouth, where
+    /// <see cref="ToTheBoxM"/> reads nought. <b>Waiting at a boundary is not standing across a lane.</b> An instrument's:
+    /// the stuck probe prints it and nothing decides by it.
     /// </summary>
-    public bool[] InsideTheBox { get; }
-
-    /// <summary>
-    /// How far ahead of its nose a light holds this car's road, out to a queue's length of it, or infinity
-    /// where none does (TLT-1). <b>A car queueing for a light spends none of its leg's clock</b>, and this is
-    /// the whole of how the clock knows one.
-    /// </summary>
-    public float[] LightAheadM { get; }
+    /// <remarks>A nose brought to a stop on the mouth to the bit reads as in it too.</remarks>
+    public bool IsInsideTheBox(int car) => ToTheBoxM[car] == 0f;
 
     /// <summary>
     /// The pass this car is getting past something on (CAR-46), or <see cref="Control.Overtake.None"/>. <b>The
@@ -548,7 +526,6 @@ internal sealed class CarFleet
     {
         if (RouteTaken[car] >= RouteCount[car]) return NoLane;
 
-        RouteChanged(car);
         return RouteLanes[(car * RouteLanesPerCar) + RouteTaken[car]++];
     }
 
@@ -577,7 +554,6 @@ internal sealed class CarFleet
         lanes.CopyTo(route);
         RouteTaken[car] = 0;
         RouteCount[car] = lanes.Length + kept;
-        RouteChanged(car);
     }
 
     /// <summary>
@@ -592,47 +568,7 @@ internal sealed class CarFleet
         RouteRunsOut[car] = false;
         RouteEndsOn[car] = NoLane;
         TurnsBackOn[car] = NoLane;
-        RouteChanged(car);
     }
-
-    /// <summary>
-    /// Each wheel's own rotation, as the speed its tread runs over the ground — four to a car, in the
-    /// order the tyre model works them. It is the state the whole rolling model turns on: the daylight
-    /// between it and the road under the patch is what says whether a wheel is spinning, locked, or
-    /// simply rolling.
-    /// </summary>
-    public float[] WheelSpinMps { get; }
-
-    /// <summary>How far each tyre has dragged in the slide it is in, capped at the onset distance.</summary>
-    public float[] ScrubTravelM { get; }
-
-    /// <summary>Where the stretch of mark being laid started, how dark it is, and whether that wheel is marking at all.</summary>
-    public Vector2[] MarkFromM { get; }
-
-    public float[] MarkIntensity { get; }
-
-    public bool[] Marking { get; }
-
-    /// <summary>
-    /// What is left of the throttle after backing off for driven wheels that are already past what
-    /// they can put down — traction control, worked off the slide the tyres themselves report rather
-    /// than off anything the driver has to guess at. A hand at the wheel gets none of it.
-    /// </summary>
-    public float[] SlipThrottle { get; }
-
-    /// <summary>Whether a wheel the engine is turning was past its budget last tick.</summary>
-    public bool[] DrivenSlipping { get; }
-
-    /// <summary>Where this car's drive is placed: 1 front, 0 rear, ½ all four — the variant's own layout.</summary>
-    public float[] DrivenFrontShare { get; }
-
-    public Span<float> WheelSpinOf(int car) => WheelSpinMps.AsSpan(car * TyreModel.Wheels, TyreModel.Wheels);
-
-    /// <summary>What this car's tyres carry from one tick to the next, over this fleet's own arrays.</summary>
-    public TyreCarry TyresOf(int car) => new(
-        WheelSpinOf(car), ScrubTravelM.AsSpan(car * TyreModel.Wheels, TyreModel.Wheels),
-        Marking.AsSpan(car * TyreModel.Wheels, TyreModel.Wheels), MarkFromM.AsSpan(car * TyreModel.Wheels, TyreModel.Wheels),
-        MarkIntensity.AsSpan(car * TyreModel.Wheels, TyreModel.Wheels), ref SlipThrottle[car], ref DrivenSlipping[car]);
 
     public Span<ArcSeg> LineArcsOf(int car) => LineArcs.AsSpan(car * _arcsPerCar, _arcsPerCar);
 
@@ -676,6 +612,7 @@ internal sealed class CarFleet
         var endM = LaneEndsOf(car);
         var firstArc = LaneFirstArcsOf(car);
         var breaks = JoinBreaksOf(car);
+        var joins = JoinsOf(car);
         var shiftM = startM[1];
         var shiftArcs = firstArc[1];
 
@@ -688,6 +625,7 @@ internal sealed class CarFleet
             endM[slot] = endM[slot + 1] - shiftM;
             firstArc[slot] = firstArc[slot + 1] - shiftArcs;
             breaks[slot] = breaks[slot + 1];
+            joins[slot] = joins[slot + 1];
         }
 
         SetLine(car, new DrivenLine(line.ArcCount - shiftArcs, lanes - 1, line.LengthM - shiftM));
@@ -699,6 +637,31 @@ internal sealed class CarFleet
     /// laid with the line — what says how many lanes ahead a plan may reach (TER-4c.1).
     /// </summary>
     public Span<bool> JoinBreaksOf(int car) => JoinBreaks.AsSpan(car * LineAssembler.MostLanes, LineAssembler.MostLanes);
+
+    /// <summary>
+    /// <b>The movement each lane of the chain is left by</b> — the connector onto the next — and
+    /// <see cref="RoadGraph.NoConnector"/> past the last, laid with the line (<see cref="LayTheJoins"/>).
+    /// </summary>
+    public Span<int> JoinsOf(int car) => Joins.AsSpan(car * LineAssembler.MostLanes, LineAssembler.MostLanes);
+
+    /// <summary>
+    /// <b>The joins of a line just assembled over the chain</b>: each lane's movement onto the next and whether it breaks
+    /// the line (<see cref="JoinsOf"/>, <see cref="JoinBreaksOf"/>), so nothing that reads the line searches the road for
+    /// them again.
+    /// </summary>
+    public void LayTheJoins(int car, RoadGraph roads)
+    {
+        var chain = ChainOf(car);
+        var joins = JoinsOf(car);
+        var breaks = JoinBreaksOf(car);
+        var lanes = Line[car].LaneCount;
+        for (var slot = 0; slot < lanes; slot++)
+        {
+            var join = slot + 1 < lanes ? roads.ConnectorBetween(chain[slot], chain[slot + 1]) : RoadGraph.NoConnector;
+            joins[slot] = join;
+            breaks[slot] = join != RoadGraph.NoConnector && roads.BreaksTheLine(join);
+        }
+    }
 
     /// <summary>
     /// The bay the line in hand stops short of, or <see cref="NoBay"/>. <b>A line with no lanes stops for no
@@ -732,29 +695,23 @@ internal sealed class CarFleet
     /// Whether this driver backs into parking spaces (GEN-4j). The spawner's, because it is what the pose
     /// a car starts standing in was chosen against.
     /// </param>
-    public int Add(
-        BodyId body, Vector2 positionM, float headingRad, byte variant, bool backsIntoBays, Rng draw)
+    public int Add(Vector2 positionM, float headingRad, byte variant, bool backsIntoBays, Rng draw)
     {
         if (Count == Capacity) throw new InvalidOperationException($"The roster was laid for {Capacity} cars and is full.");
 
         var car = Count++;
-        ref readonly var build = ref _builds.Of(variant);
-        Body[car] = body;
         PositionM[car] = positionM;
         HeadingRad[car] = headingRad;
+        Forward[car] = Heading.Unit(headingRad);
         VelocityMps[car] = Vector2.Zero;
         YawRateRadPerS[car] = 0f;
-        AccelerationMps2[car] = Vector2.Zero;
-        MassKg[car] = build.MassKg;
         Variant[car] = variant;
-        DrivenFrontShare[car] = build.DrivenFrontShare;
         Draw[car] = draw;
         Owner[car] = NoOwner;
         Driven[car] = false;
         Action[car] = CarAction.Stand;
         Broken[car] = false;
         Channels[car] = CityPlan.RoadArrays.GroundChannel;
-        WheelsOnAWay[car] = 0;
         Ambulance[car] = false;
         BlueLight[car] = false;
         AtWork[car] = false;
@@ -763,8 +720,6 @@ internal sealed class CarFleet
         OffLineM[car] = 0f;
         ToTheBoxM[car] = float.PositiveInfinity;
         TurningAtTheBox[car] = false;
-        BoxIsOurs[car] = false;
-        CommittedToTheBox[car] = false;
         SetLine(car, default);
         StopsForBay[car] = NoBay;
         StopsAtItsPlace[car] = false;
@@ -777,13 +732,13 @@ internal sealed class CarFleet
         PlannedMps[car] = 0f;
         PaceMps[car] = float.PositiveInfinity;
         Command[car] = DriveCommand.Parked;
+        Lamps[car] = CarLampSet.None;
         Hold[car] = Control.DrivingHold.None;
         Context[car] = Control.DriveContext.Clear;
         RouteCount[car] = 0;
         RouteTaken[car] = 0;
         RouteRunsOut[car] = false;
         RouteEndsOn[car] = NoLane;
-        RouteChanged(car);
         HasDestination[car] = false;
         Reroutes[car] = 0;
 
@@ -791,21 +746,8 @@ internal sealed class CarFleet
         FuseJitter[car] = Draw[car].NextFloat(1f - FuseJitterShare, 1f + FuseJitterShare);
         BacksIntoBays[car] = backsIntoBays;
         LineIsReverse[car] = false;
-        InsideTheBox[car] = false;
-        LightAheadM[car] = float.PositiveInfinity;
         Pass[car] = Control.Overtake.None;
         BackRoomM[car] = float.NaN;
-        SlipThrottle[car] = 1f;
-        DrivenSlipping[car] = false;
-        for (var wheel = car * TyreModel.Wheels; wheel < (car + 1) * TyreModel.Wheels; wheel++)
-        {
-            WheelSpinMps[wheel] = 0f;
-            ScrubTravelM[wheel] = 0f;
-            MarkFromM[wheel] = positionM;
-            MarkIntensity[wheel] = 0f;
-            Marking[wheel] = false;
-        }
-
         return car;
     }
 
@@ -838,4 +780,6 @@ internal sealed class CarFleet
     int[] LaneFirstArc { get; }
 
     bool[] JoinBreaks { get; }
+
+    int[] Joins { get; }
 }

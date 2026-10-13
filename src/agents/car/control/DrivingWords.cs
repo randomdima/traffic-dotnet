@@ -29,8 +29,7 @@ internal static class DrivingWords
             CarAction.Overtake => cars.Pass[car].Begun ? "overtaking" : "waiting to overtake",
             CarAction.Switch => cars.Pass[car].Begun ? "changing lanes" : "looking to change lanes",
 
-            // Neither past what stands in front of it nor back for the room to, which the traffic behind reads as a
-            // body going nowhere (CAR-50).
+            // Neither past what stands in front of it nor back for the room to (CAR-50).
             CarAction.BackUp => cars.Context[car].Blocked ? "blocked" : HoldName(DrivingHold.BackingUp),
             CarAction.Park when cars.Line[car].LaneCount > 0 => "coming up to its bay",
             CarAction.Park => reverse ? "backing into a bay" : "driving into a bay",
@@ -45,12 +44,9 @@ internal static class DrivingWords
     /// </summary>
     public static string AheadName(HeadwayKind ahead) => ahead switch
     {
-        HeadwayKind.Queue => "a queue",
-        HeadwayKind.Obstruction => "an obstruction",
+        HeadwayKind.Body => "a body",
         HeadwayKind.Claimed => "road somebody means to use",
         HeadwayKind.Light => "a light",
-        HeadwayKind.Walker => "a walker",
-        HeadwayKind.Passing => "somebody overtaking",
         _ => "nothing",
     };
 

@@ -3,163 +3,200 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md) and
 [solver.md](solver.md).
 
+## 2026-10-12 — the damping stays, because the driver's margin is in it
+
+**Measured and not taken: `SolverFigures.LinearDamping` and `AngularDamping` to nought.** Every body has an actuator
+to rest by — a car its tyres, a walker its foot or sliding grip, a casualty the sliding grip — and the two worlds keep
+the same bits either way, the keep factor being exactly one. What moved was the driving, `--bench drive` against the
+tree with both on:
+
+| | hard brakings Exam / Odesa / O10 / OdesaOsm | reds Exam / Odesa / O10 | mean m/s Odesa |
+|---|---|---|---|
+| both on | 6 / 0 / 121 / 22 714 | 1 / 2 / 11 | 9.90 |
+| both off | 569 / 96 / 584 / 40 918 | 10 / 8 / 57 | — |
+| linear off | 539 / 3 / 438 / — | 7 / 8 / 57 | 10.49 |
+| linear 0.05/s | 61 / 4 / 201 / — | 3 / 4 / 14 | 10.18 |
+| linear off, `BrakingMargin` 0.85 | 47 / 3 / 131 / — | 4 / 5 / 31 | 10.18 |
+| linear off, brake ceiling at the whole patch | 675 / 2 / 391 / — | 10 / 8 / 58 | 10.52 |
+| angular off | 0 / 2 / 137 / 18 357 | 1 / 3 / 13 | 10.00 |
+
+Both off, the soak of every map lost 1 → 5 walkers and 0 → 31 cars on O10, 0 → 55 and 0 → 46 on O30, and the exam
+16 cards. **The linear drag is a margin nobody declared**: about 1.4 m/s² at 14 m/s, so every car stops shorter than
+its profile planned and is slower than it would be, and neither a wider braking margin nor a higher brake ceiling
+stood in for it. **The angular one alone** traded Odesa's soak over 24 seeds (8 → 11 down, 6 → 8 wrecked, 146 → 171
+pairs touching) against the Exam's (18 → 10 wrecked) and OdesaOsm's hard brakings, so it stays too.
+
+## 2026-10-12 — the ray cast is retired, and nothing looks down the road at a body
+
+Nothing in the town cast a ray: what is ahead of a driver is the claims', with no second mechanism behind them
+(`TER-4c`). The cast was kept for its tests alone, and with it a moving index re-laid between steps for a query
+nobody asked, a grid walk and a segment test per shape. `CastRay`, the grid's segment walk,
+the segment casts and the stale-index flag went with it, and the package-against-package cast test with them; the
+contained body's identity is read off the grids a step lays instead. Retired: `SOL-7`, `SOL-19`.
+
+## 2026-10-11 — the managed step trimmed to the bit, and what was measured and left
+
+Measured with `--bench age` on Odesa (692 cars, 784 walkers), a baseline build against the change, interleaved, with each
+part of the managed world's step timed on its own; the digests are the same to the bit at 60, 180 and 300 s.
+
+- **A pose read off a body takes its direction from the body** (`ManagedWorld.PoseOf`, `CarPose`'s forward): the
+  solver's rotation is `Shape.Rotation` of the heading, which is `Heading.Unit` itself, so no `sincos` is taken again.
+- **The integration leaves a rotation and a bounds alone where the step left their bits alone**
+  (`IntegrateAndCountTheRest`) — compared as bits, so −0 to +0 is turned again — and counts each body's rest on the same
+  pass; the damping empties the push on its pass (`DampAndEmptyThePush`). The integration went 6.4 → 4.6 µs a tick.
+- **Each entry's bounds filed beside it in its cell, and a body's layer, mask and channels packed in one word, were
+  tried and taken out**: the broad phase read 26.5 → 27.3 µs a tick and laying the indexes 12.9 → 14.4, and the packed
+  word alone 26.1 → 26.7. Odesa's three
+  grids are 375 × 279 cells or so each, about 1.9 MB with their room, and stay in the cache; what the broad phase pays
+  is the entries it walks and not where it reads them from.
+- **The three grids keep a dense table each**: the cell lookups one shared table would save are 0.4 % of the probe's
+  samples against the broad phase's 3.9 %, and a shared dense table is as many cells, so it saves no memory on Odesa.
+  A hashed one does, and needs each body filed once a bucket so a pair is not found twice (tech debt).
+- **The moving index is laid whole every step**: laying all the indexes takes 12.6 µs a tick, and a re-file of only
+  the bodies that changed cells would keep a cell's entries in order under insertion and removal.
+- **The motion into the step is read for every body**, frozen or not: both rosters' reading is 1.2 µs a tick, and
+  skipping the frozen would need a stamp a body read back at every touch.
+
+## 2026-10-11 — the device's step costs what moves, not the town
+
+**A step on the device is sized by the moving bodies and what they meet, and a frozen body owns no pairs** (SOL-37),
+so OdesaOsm's 80 013 moving bodies among 401 057 pieces of furniture lay and step. Before, the moving grid was the
+town's window of 3.9 million cells, filled and scanned whole every step, and every buffer of the contacts was the
+candidates' size — 48 a moving body, 3.8 million — with mapped read-backs as big, for a dozen contacts a step.
+
+- **The moving grid is hashed** (`kernels/step.glsl`'s `slotOf`): its window's cells are numbered as before (SIM-8) and
+  filed in as many buckets as the moving bodies can cover cells, to a power of two, each entry with the cell it is for.
+  The fill counts each bucket back down as it files into it, so the counts are nought again for the next step and
+  nothing is cleared between steps. The furniture's grid keeps the window cell for cell, filed once.
+- **The contacts have room of their own**, 8 a moving body against the candidates' 16 — a pair whose boxes meet is
+  seldom one that touches; OdesaOsm came to 3 614 candidates and 22 contacts at most. The met flags are scanned only as
+  far as the candidates found, dispatched off the candidates' scan (`PrefixScan.RecordIndirect`), and nothing is
+  cleared over the room. Each room is overflow-checked, and the contacts' read-backs are made only by a step held to the
+  CPU's that asks for them.
+- **No scan whose length grows with the town is longer than one scan covers**: the buckets and the roster are refused
+  at laying, the candidates' room is held to `ScanKernels.MostCounts`, and the furniture's grid to its window.
+- **A frozen body owns no pairs, and the pairs are the host's pair for pair.** An awake body takes every moving body
+  above it and the furniture; a frozen one takes only the awake bodies above it, walking the moving grid alone; so every
+  pair is filed with its lower body and the list stays in the host's order with no sort. A frozen body a manifold meets
+  is woken as it is met (`narrow.comp`), and what the woken own is gathered round by round in one workgroup
+  (`woken.comp`) — rare, and so not worth a pass of its own — into a side list merged into the contacts as they are
+  packed. Every contact then has an owner, so nothing is woken along the contacts afterwards; a touch between two frozen
+  bodies is no longer found again each step, so the touches merge the held pairs into what is touching (`touches.comp`),
+  as `PhysicsWorld.ReportBegun` does. A frozen body's overlap is left as it froze, as the host's is.
+
+`--bench deviceworld` (RX 9070 XT, 97–99 % busy with another process, so no wall clock is read off it): Test 27.3 → 26.3
+dispatches and 28.3 → 27.3 barriers a tick, Odesa 29.6 → 28.6 and 30.6 → 29.6; Odesa laid 65.0 → 52.3 MB device-local
+and 5.9 → 2.0 MB mapped, the step's own 7.2 MB. OdesaOsm laid 1 365 MB device-local and 87 MB mapped, the step's own
+310 MB, and recorded 33.3 dispatches a tick. Test and Odesa stood 0 m from the host's town at every tick asked, and
+`DeviceSolverTests` holds a frozen row woken from both ends to the host's contacts.
+
+## 2026-10-11 — the device's tick is the passes that need a barrier, and nothing beside them
+
+**A device tick records what has to wait for the pass before it, and folds the rest in** (`DeviceWorld.Begin`,
+`DeviceSolver.Record`). The tick is latency-bound — a dozen cars or seven hundred, the device idles between passes — so
+the figure is dispatches and barriers, not bytes. `--bench deviceworld` (RX 9070 XT, shared with another process):
+Test 45.3 → 27.3 dispatches and 48.3 → 28.3 barriers a tick, Odesa 46.3 → 29.6 and 49.3 → 30.6, one submit; the
+device's minute of Odesa 18.0 → 14.2 s, managed 10.8. Every answer is the host's to the bit, as before.
+
+- **A pass is fused into another only where it reads nothing that pass writes for another body**: the damping into the
+  moving grid's count, the contacts' preparation into their packing, the rest counted afresh into the integration,
+  a tow bar's trailing wheels into every wheel's spending (which takes `bodies_wheels.comp`'s place), and the touches'
+  first pass beside the freezing, which reads only whether a body was owned.
+- **A scan one block covers is one dispatch**, written out of place where the counts are read again (the moving grid,
+  the candidates), and the scan of a run a later pass is sized by writes that pass's indirect dispatch — at least one
+  workgroup, so a pass that keeps a count of its own (the touches') writes it on a step with no contacts.
+- **What only a test reads is behind a flag**: the lists of what woke and froze (`DeviceSolver.ListsWhatSettled`), the
+  tyres' rows and scrub (`DeviceTyres` `handsBack`).
+- **Nothing is copied back behind the step**: the totals come back from the touches' last pass, and the covers' counts
+  and the marks laid from the view's first thread.
+- **A car's tyres read the pose the last step's view wrote**, which the signals keep where they move the body, rather
+  than a pass reading every car off its body first. Whether a car comes into a step frozen is kept the same way
+  (`CarFrozenNext`), apart from whether it came into the last one, which an off-clock view reads.
+- **The signals cross into device-local memory** and the events sit at the back of the buffer, so no thread walks the
+  commands to find them, and a kind with none runs no pass. The off-clock read of the covers takes its signals in the
+  same submit (`WorldLayer.TakeTheSignalsAndReadCovers`). The pull of the tow bars runs only while one is up.
+- **A body's filter is one word** (`kernels/filter.glsl`): flags, layer, mask and channels a byte each, which this
+  town's four layers fit.
+
+`DeviceWorldTests` holds what the restructuring could have moved and the lockstep does not compare: a car's frozen
+flags in every view, and a car put down between steps.
+
 ## 2026-10-10 — a touch's closing speed is the device's
 
 **The device says how fast each pair that began touching closed** (`Touch.ClosingMps`, `kernels/touches.comp`), so
-phase 5 no longer reads every agent's motion into the tick off the town's fleets (`TownWorld.ReadyTheStep` keeps none
-while a device steps the bodies). The device keeps that motion itself (`DeviceSolver._motionIntoTick`): what the last
-step left once frozen bodies were stilled, plus what the town set outright since (`RowChange.Motion`: a body put down,
-added or contained). A push is left out, as the town's fleets leave it out. The closing speed is the host's own
-dot product on those figures, to the bit. `DeviceTownBodiesTests` holds what the shove breaks and hurts to the host's,
-and halving the device's figure fails it.
-
-## 2026-10-10 — a changed row lays only what changed
-
-**Of a row the town changed, only what it changed is laid on the device** (`RowChange`, `PhysicsWorld.ChangeOf`,
-`kernels/laid_bodies.comp`). A body put on another layer or channel sends its flags. One put in a container sends its
-motion and flags, and a reweighed one its mass. One put down or added sends everything. A pushed one sends what the push
-added to its motion, which the device adds to its own. So the device's own pose and motion stand, as they must once
-the host no longer holds every pose. Two pushes between steps are summed before they are added, which can round
-otherwise than the host adding each in turn. Nothing in a tick pushes a body the device steps; only an instrument
-does. A car's pose is laid again into the tyre table only where its body was put down or reweighed.
-`DeviceLaidRowsTests` holds both over a car the device has driven on from where the table last saw it.
+phase 5 no longer reads every agent's motion into the tick off the town's fleets. The device keeps that motion itself
+(`DeviceSolver._motionIntoTick`): what the last step left once frozen bodies were stilled, plus what the town set
+outright since (`RowChange.Motion`: a body put down, added or contained). A push is left out, as the town's fleets leave
+it out. The closing speed is the host's own dot product on those figures, to the bit.
 
 ## 2026-10-10 — the device settles what it steps
 
 **With the device stepping the bodies, it also works out what froze, what woke and which pairs began touching**
 (`SOL-37`, `SOL-37a`, `SOL-37b`, `SOL-6`, `SOL-37c`; `kernels/settle.comp`, `kernels/touches.comp`,
-`DeviceSolver.Settles`), so **no contact is handed back to the host**. The host's table takes three lists, each in
-order: the frozen bodies the step took in (`PhysicsWorld.WokeInTheStep`), the ones it froze (`EndTheStepTaken`), and
-the pairs that began touching, with their normals (`BeganInTheStep`), which is all phase 5 reads. A frozen body's row
-is no longer a change the town sends back the next step: the device has already stilled and flagged it.
+`DeviceSolver.Settles`), so **no contact is handed back to the host** — only the pairs that began touching, with their
+normals and the speed they closed at (`DeviceWorld`, `WorldView.TouchesBegun`), which is all phase 5 reads, and whether
+each car is frozen, in its view.
 
-- **The owners are the host step's.** These are every body in the world not frozen as the step began, every frozen one
-  the step moved or left moving (`integrate.comp` marks a moved body), and every frozen one touching an owner, and so on.
-  Rest is worked over those owners, and so is the rule that a pair touching settles together, with the host's
-  arithmetic on the host's figures. The reach goes in the shape's last word, so nothing is worked out twice.
-- **What is passed along the contacts gets one parallel pass first.** `settle_spread.comp` then passes it on in one
-  workgroup until nothing changes, and it does so only when that parallel pass changed something. That is rare,
-  because a frozen body that is struck is solved on the device anyway and so counts as moved. The two lists are written
-  by a prefix scan. A first cut ran everything in one workgroup and cost 0.36 ms a tick on OdesaOsm at 40 000 of each,
-  bound by latency. Split up, it costs 0.05.
-- **The rest counts are the device's from the first settling step on.** The host lays its own counts whole only before
-  that step, or after the town has stepped itself. After that it sends only the bodies whose count it set back to nought
-  (`PhysicsWorld.CountsRestAfresh`: one put in a container, or added).
-- **What was touching is the last step's contacts, each marked whether it was**, so there is no list of held pairs.
-  A contact counts as touching when the step owned one of its bodies, or when it was touching before. A pair neither of
-  whose bodies a step owns has not moved since the step that last asked, so the device finds it among its contacts
-  again. Each step's contacts are searched against the last step's, and the two lists swap. The host lays its own
-  touching pairs at the same times as its rest counts (`PhysicsWorld.TouchingKeys`).
-- **The host's table holds no contacts after such a step.** How deep a body is into what it touches comes back only for
-  an instrument that asks (`DeviceTownBodies.ReadsTheOverlap`, or a town watching every agent). `OverlapOf` throws when
-  it was not handed back, rather than answer with a stale figure.
-- **Held to the host's step** by `DeviceTownBodiesTests` (every body's freezing and every pair that began touching
-  through the shoved car park) and `DeviceSettlingTests`. The second stages what the car park never asks for: the
-  waking and then the unsettling run against the contacts' order, and a pair held through a step that moves neither.
+- **Rest is worked over the host step's owners**, and so is the rule that a pair touching settles together, with the
+  host's arithmetic on the host's figures. The reach goes in the shape's last word, so nothing is worked out twice.
+- **What the unsettling passes along the contacts gets one parallel pass first.** `settle_spread.comp` then passes it on
+  in one workgroup until nothing changes, and it does so only when that parallel pass changed something. The two lists,
+  where asked for, are written by a prefix scan. A first cut ran everything in one workgroup and cost 0.36 ms a tick on
+  OdesaOsm at 40 000 of each, bound by latency. Split up, it costs 0.05.
+- **The rest counts are the device's from the first settling step on.** The host lays its own counts whole once, when
+  the world is handed over; after that it names only the bodies a signal put down or contained
+  (`DeviceSolver.CountAfresh`), which the signals' kernel thaws. A body refiltered is thawed and keeps its count, as
+  `PhysicsWorld.PutOnLayer` keeps it: counted afresh, a car thawed by its channels froze half a second after the host's.
+- **What was touching is one sorted list of pairs**, searched by the next step and swapped with the one it writes. The
+  host lays its own touching pairs at the same times as its rest counts (`PhysicsWorld.TouchingKeys`).
+- **The host's table holds no contacts after such a step.** How deep a body is into what it touches comes back in each
+  body's row of the world's view (`world_view.comp`), not in the table. `OverlapOf` throws when it was not handed back,
+  rather than answer with a stale figure.
+- **Held to the host's step** by `DeviceSettlingTests`, which stages what a shoved car park never asks for: a frozen row
+  woken from its far end, the unsettling run against the contacts' order, and pairs held through a step that moves
+  neither.
 
-On OdesaOsm at 40 000 of each (`--bench devicetown`, RX 9070 XT), the device took 0.07 ms of the bodies' 0.75 ms of
-kernels to settle and find what began touching. The device's tick was 12.1 ms, and the town drove the same to the
-count as with the host doing both: 388 pairs began touching, as they did on the host's. Writing back held at
+On OdesaOsm at 40 000 of each (RX 9070 XT, the whole town then ticked on the device), the device took 0.07 ms of the
+bodies' 0.75 ms of kernels to settle and find what began touching. The device's tick was 12.1 ms, and the town drove
+the same to the count as with the host doing both: 388 pairs began touching, as they did on the host's. Writing back held at
 0.63–0.73 ms: on this map that cost is every car's and walker's pose, not the contacts.
-
-## 2026-10-07 — the bodies' phase in the town's place
-
-**With a device set on the town, phase 4 is the device's**: `TownWorld.StepBodies` hands it to `ITownDevice.StepBodies`,
-which `app/devicetick/DeviceTownBodies` implements in one submit and one wait, and the town no longer steps its
-`PhysicsWorld`. The town keeps what slides with nothing driving it (a casualty, a wreck's wheels, a towed car's trailer
-pair), the motion into the tick that phase 5 judges, and its timing marks; phase 5 reads `BeganTouchingThisStep` as
-before. `DeviceTown`, the town's device, steps its bodies this way.
-
-- **The impulses spent are the tick's where the device ticked, the town's everywhere else.** The wheels are the tyre
-  pass's for the cars the device ticked and the town's own for the rest, written over the pass's rows. A walker's
-  impulse is the walkers' tick's row, but where the town's own differs from what the tick handed back — a casualty's
-  slide, a walker under a hand — it is written over that row. A tick held runs nothing on the device, and then every
-  impulse is the town's.
-
-- **Only what the town changed is sent.** The table remembers the rows the town changes (`PhysicsWorld.Changes`): a
-  body added, put in or out of a container, moved to another layer or channel, reweighed, or pushed. They go as
-  one dense run the device reads straight from mapped memory and writes with a kernel (`kernels/laid_bodies.comp`). The
-  first step, and any after the town has stepped itself, lays the moving rows whole. **Every moving body is an owner**,
-  and `pairs.comp` passes over one out of the world, so a walker boarding sends one row and no roster. A frozen body
-  is stepped like any other at exactly no motion, and `integrate.comp` leaves a body whose heading the step did not
-  change with the direction it was laid with, so it stands to the bit.
-- **Handed back**: every car's row off its body (one copy), and every walker in the world off its own (a kernel writing
-  host memory, only for bodies in the world).
-- **The indexes are laid when a picture or a ray first asks**, not every step: nothing in a device's step reads them.
-  That was 0.74 ms of the 0.9 the hand-back cost on OdesaOsm.
-- **Which body each car and walker is is laid through `ResidentRows.Lay`**, which keeps what it laid host-side. Reading
-  the mapped rows back to see what changed cost 3 ms a tick on OdesaOsm.
-- **Held to the host tick for tick** (`DeviceTownBodiesTests`, both solving in contact order): a touring city's cars for
-  a second, and a car park shoved into itself — walkers, cars, every pair that began touching, every body's freezing
-  and what broke and who was hurt — for three seconds, all to the bit but a speed or a turn at the edge of rest, which a
-  kernel flushes as subnormal and the host keeps (`DeviceBodyPhase.EdgeOfRest`; lavapipe preserves no subnormal, so no
-  kernel asks to); the half minute after is asked only that no body stays inside another (`PHY-1`) and nobody is hurt whom the host
-  left whole. The steady state allocates nothing. With `DeviceTown` ticking the cars and
-  walkers too, the shoved car park came out as the host's in a one-off run: 6 wrecks, 10 hurt, 33 pairs began touching,
-  111 bodies frozen at the end, casualties at rest; no test holds that, since the cars' own tick parts the two towns.
-
-On OdesaOsm (10 013 cars, 10 000 walkers, 431 070 bodies; RX 9070 XT), the device stepping the bodies alone, with every
-wheel and walker impulse the town's and so sent: the town's own phase 4 took a median of 2.48 ms a tick (solver 2.39
-mean), and handed to the device 1.92. Laying took 0.08 ms on the host and writing back 0.19. Submit to answer was 1.62,
-of which the device spent 0.45 taking in 771 KiB (626 KiB of it the town's wheels, which a device running its own tyre
-pass does not send), 0.34 on the kernels and 0.32 handing back 543 KiB. About 0.6 is the device waking from the
-tick's idle: an empty submit is 0.03 ms back to back and 0.61 after a sixtieth of a second's sleep. The host's own
-figure moved between 2.5 and 3.3 ms from run to run on this machine. The first step, laid whole, was 18 ms and 4 MiB.
-
-With `DeviceTown` (`--bench devicetown`, OdesaOsm, Release, this machine under another run's load) the bodies' column
-went from 3.12 ms a tick to 1.72–1.81, against 3.35–3.67 on the host alone, and the device's whole tick from 19.3 to
-16.6–17.0 (host alone 25.7–27.3). The phase lays 0.08 ms, waits 1.4–1.5 of which the kernels are 0.40, and writes back
-0.20. The town drove the same: 12.85 m/s against the host's 12.86, 79 cars off their lines each, 695 hard brakings
-against 714 (691 before the bodies moved), 16 pairs began touching against 15 (16 before).
 
 ## 2026-10-07 — the bodies' phase on the device
 
-**The phase between the tyres and the next tick's car tick moves to the device**, in shadow beside
-`TownWorld.StepBodies`: `app/devicetick/DeviceBodyPhase` records three kernels round the solver's step in one submit
-(`world/town/kernels/bodies_*.comp`, over `kernels/impulse.glsl`), and `--bench devicebodies` compares the two.
+**The phase between the tyres and the solver's step is the device's**, recorded round the step in the world's one
+submit (`world/town/kernels/world_tow.comp`'s first pass, over `kernels/impulse.glsl`).
 
 - **The wheels are spent off the tyre pass's own table** (`DeviceTyres.ImpulseTable`), one thread a car in wheel
-  order; then what the host lays, one row a body; then the step; then every car is read back off its body into the
-  tyre pass's poses, which is what the next car tick reads. The lagged acceleration is read off the same impulse table.
+  order. The lagged acceleration is read off the same impulse table.
 - **`DeviceSolver` is split into lay, send and record**, so another submit can carry its step between kernels that
-  use its table. `Step` is the three in its own submit, as before.
-- **Still laid by the host**: which body each car is and whether it rested parked, sent only where it changed; every
-  walker's central impulse and both ends of a tow bar; and the two trailer wheels of a car on a tow, written over the
-  tyre pass's rows. The walkers' read-back and the velocities kept for the arbiter stay on the host.
-- **The impulses are the host's to the bit** (`DeviceBodyPhaseTests`, City's driven cars and Built's walkers and
-  parked cars): the same products and sums in the same order. The exception is the edge of rest. A kernel flushes
-  subnormal terms, and four wheel turns below the least normal float, summed on the host to cancel a 1e-38 yaw, are
-  dropped one by one on the device. So that edge is held within the flushed terms of nought.
+  use its table.
+- **The impulses are the host's to the bit**: the same products and sums in the same order. The exception is the edge
+  of rest. A kernel flushes subnormal terms, and four wheel turns below the least normal float, summed on the host to
+  cancel a 1e-38 yaw, are dropped one by one on the device. So that edge is held within the flushed terms of nought.
 - **`Vector2.Lerp` is fused on the host** (.NET 10), so the acceleration's lag is an `fma` on the device.
-- **The read-back is the town's to the bit** when both solve in contact order, but at the edge of rest (above).
 
 On OdesaOsm (10 013 cars, 10 000 walkers; RX 9070 XT, the device in colours) the host's phase was 3.28 ms a tick, of
-which the solver's step was 3.02, and the device's kernels 0.41: impulses 0.008, step 0.394, read-back 0.005. The
-shadow's sends were apart: 3 MiB a tick, 1.76 ms on the device and 2.35 ms laying it on the host, and 0.27 ms handing
-it back. Over 4.2 million bodies no impulse differed. Over 100 130 car-ticks no position differed; the most any
-velocity differed was 1.3e-7 m/s, heading 1.2e-7 rad, direction 2.8e-7 and acceleration 1.1e-6 m/s².
+which the solver's step was 3.02, and the device's kernels 0.41: impulses 0.008, step 0.394, read-back 0.005. Over
+4.2 million bodies no impulse differed. Over 100 130 car-ticks no position differed; the most any velocity differed
+was 1.3e-7 m/s, heading 1.2e-7 rad, direction 2.8e-7 and acceleration 1.1e-6 m/s².
 
 ## 2026-10-06 — the step on the device
 
-**The tick moves to the device** (root log), and the solver's step is its first piece: `kernels/` holds it pass for
-pass, and `app/devicetick/DeviceSolver` lays the table and records it. It runs in shadow for now — handed the CPU's
-table before each CPU step — and `--bench devicestep` compares the two.
+**The solver's step is the device's** (root log, 2026-10-11): `kernels/` holds it pass for pass, and
+`app/devicetick/DeviceSolver` lays the table and records it, held to the CPU's step from the same table.
 
-- **The grids are counted, scanned and filled**, over one window for the town; an owner sorts its own candidates, so
-  the order a cell was filled in is never read. **A moving pair is the lower body's**, as on the CPU, so the contacts
-  come out by (owner, other) with no global sort — and they are the CPU's to the pair and the order (`DeviceSolverTests`).
+- **The grids are counted, scanned and filled**; an owner sorts its own candidates, so the order a cell was filled in
+  is never read. **A moving pair is filed with the lower body**, so the contacts come out by (first, second) with no
+  global sort — and they are the CPU's to the pair and the order (`DeviceSolverTests`).
 - **The contacts are solved in colours**: no two of one colour share a moving body, so a colour runs at once, and the
   colours run in turn inside one workgroup. **A contact's rank in the colouring is a bijection of its number**, not the
   number: numbered by their bodies, a queue's contacts are a chain the lowest-number rule colours one a round.
 - **The answer is the CPU's but for the order.** Run in contact order on one thread the device lands a crowded yard
   within a tenth of a millimetre of the CPU; in colours it is a Gauss–Seidel of its own and lands near.
-- **Nothing freezes on the device** (SOL-37): every enabled moving body owns its pairs. What freezing saved was the
-  CPU's broad phase, and the pairs only frozen bodies add are solved to nothing.
 - **`precise` on everything the CPU also computes**, or a fused multiply-add moves the last bit.
 
 On OdesaOsm (14 250 moving bodies, 401 057 pieces of furniture, a dozen contacts a step) the CPU's step was 2.58 ms a
-tick and the device's 0.39 ms, of which the moving grid was 0.17 — the town's window is 3.9 million cells, filled and
-scanned whole. The contacts agreed pair for pair, and where only frozen bodies met the device found three more.
+tick and the device's 0.39 ms, of which the moving grid was 0.17.
 
 ## 2026-10-05 — a body is on the channels of the ways under it
 
@@ -274,11 +311,6 @@ things had to be right: the face-clip choice is the *cores'*, or pairs overlappi
 back as missed; and the separating axis can only rule a pair out, so the margin is enforced again on the
 real distance.
 
-## 2026-08-21 — going into a container no longer marks the moving index stale
-
-`Contain` rebuilt the whole moving grid mid-phase for a body that had merely had a bit cleared; every reader
-already tests the bit, so the stale entry is filtered rather than found. Coming back out still marks it.
-
 ## 2026-08-19 — the solver stopped being a package
 
 Box2D.NET was defensible — pure C#, no native asset — and cost more than it saved: a step allocated
@@ -286,8 +318,7 @@ several hundred bytes, against a `SOL-20` that cannot be kept *nearly*; the port
 data-oriented arrays into classes, which is the exact shape of C# this project exists to stop being
 confused with; and it ran a general soft-step solver where the town wanted a bespoke one. This slice's own
 is five times cheaper a step and allocates nothing. Box2D.NET is still referenced by the unit suite alone,
-as the independent implementation the manifolds are checked against — it settled `SOL-19` and found a
-reference-face disagreement neither implementation would have found alone.
+as the independent implementation the manifolds are checked against — it found a reference-face disagreement neither implementation would have found alone.
 
 ## Undated — the overlap is pushed out on an accumulator that is thrown away
 

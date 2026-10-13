@@ -14,29 +14,21 @@ namespace TrafficSimulation.Agents.Car.Actions;
 /// <param name="WantedFromM">Where it wanted the ground from, before the lane's start held it to <paramref name="FromM"/>.</param>
 /// <param name="CommittedFromM">Where the ground it can no longer stop short of begins, below <paramref name="TailM"/>.</param>
 /// <param name="LineFromM">Where <paramref name="FromM"/> falls on its line.</param>
-/// <param name="AlongMps">Its speed down the way, which backing is never more than nought.</param>
 internal readonly record struct BackingAsk(
-    int Car, int Way, float FromM, float WantedFromM, float TailM, float CommittedFromM, float LineFromM, float AlongMps)
-{
-    /// <summary>The terms it is laid on, in the hold given (<see cref="LaneOccupancy.ReachBack"/>).</summary>
-    public PlannedAsk Planned(int hold) =>
-        new(hold, Car, LaneRoster.Driving, ClaimPriority.Backing, FromM, LineFromM, 0f, float.NegativeInfinity, AlongMps);
-}
+    int Car, int Way, float FromM, float WantedFromM, float TailM, float CommittedFromM, float LineFromM);
 
 /// <summary>
 /// <b>Back up</b> (CAR-50, TER-4c.7): a car standing past where the step out of the pass it decided begins, backing
 /// down its own lane in reverse to there over ground asked for behind its tail at the weakest rung there is — and,
-/// refused that ground, blocked: a car going nowhere that whatever comes up behind it may get past in turn, asking again
+/// refused that ground, blocked: standing where it is, asking again
 /// on the pass's clock (<see cref="DrivingFigures.PassAskEveryS"/>). Over once it is at rest with the room made, or
 /// with nothing left to make room for.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Why a car is ever too near</b>: it keeps room to step out only behind a body already going nowhere when it
-/// comes up (<see cref="Overtaking.KeptOffWhatItMayPassM"/>). Anything else it may get past — a queue making another movement, a
-/// car backing out of a bay, the head of a queue then stood down — is waited behind at the stand-off, nearer than any
-/// step out from rest clears. A reservation has no across in it (TER-4c), so the whole of the body has to be off its
-/// own lane before it comes level with what it passes, however little of the lane that takes up.
+/// <b>Why a car is ever too near</b>: whatever it means to get past is waited behind at the stand-off, nearer than any
+/// step out from rest clears. A claim has no across in it (TER-4c), so the whole of the body has to be off its own lane
+/// before it comes level with what it passes, however little of the lane that takes up.
 /// </para>
 /// <para>
 /// <b>Where it backs up to is the pass's, decided once</b> (<see cref="Overtaking.StepsOutAtM"/>): the car backs up
@@ -50,11 +42,6 @@ internal readonly record struct BackingAsk(
 /// </remarks>
 internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overtaking overtaking)
 {
-    /// <summary>
-    /// How many pieces the ground a car backs up over is laid in: what it can no longer stop short of, and the rest.
-    /// A bound on the table and not a figure behaviour reads.
-    /// </summary>
-    public const int BackingPieces = 2;
 
     CarFleet Cars => ground.Cars;
 
@@ -62,9 +49,6 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
 
     /// <summary>The most ground behind it each car has asked for since the claims were last laid, which laying them reads.</summary>
     readonly float[] _askedM = new float[ground.Cars.Capacity];
-
-    /// <summary>The ground each car has asked for behind it, for the device to lay once at load (<c>app/devicetick/TownState</c>).</summary>
-    internal float[] AskedM => _askedM;
 
     /// <summary>Car-ticks spent backing up for the room to step out (CAR-50), since the town was laid.</summary>
     public long CarTicksBackingUp { get; private set; }
@@ -85,14 +69,6 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
         // Looked round on the pass's clock, which the car's decision runs: what it passes gone, or the room past it held
         // by something it may not pass, and there is nothing to back up for.
         var looks = overtaking.TakeTheLook(car);
-
-        // A layer sent back in part may not hold the ground yet: looked round again at the next decision.
-        if (looks && !overtaking.KnowsTheGroundOfThePass(car, progressM))
-        {
-            overtaking.LookNow(car);
-            looks = false;
-        }
-
         var stillThere = !looks || overtaking.IsStillThere(car);
         var roomHeld = looks && stillThere && overtaking.IsTheRoomHeld(car);
         var backUpM = stillThere && !roomHeld && overtaking.IsTooNear(car, progressM)
@@ -111,8 +87,12 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
         var stillRollingBack = alongMps < -Config.Driving.StopSpeedMps;
         if (backsUp || stillRollingBack)
         {
-            town.SetTheContext(car, progressM, coveredM, stillThere, overtaking.AsideOfItsPassM(car), asksM, blocked);
-            DriveBack(ref town, car, Cars.BuildOf(car), pose, Cars.LineOf(car), progressM, backsUp ? backUpM : 0f);
+            var context = town.SetTheContext(car, progressM, coveredM, stillThere, overtaking.AsideOfItsPassM(car), asksM, blocked);
+            var travel = -pose.Forward;
+            town.Drive(
+                car, Cars.BuildOf(car), pose, Cars.LineOf(car), progressM, Cars.Line[car].LengthM, context, travel,
+                System.Numerics.Vector2.Dot(pose.VelocityMps, travel), reverse: true, backsUpByM: backsUp ? backUpM : 0f);
+            CarTicksBackingUp++;
             return;
         }
 
@@ -133,18 +113,14 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
     }
 
     /// <summary>
-    /// <b>The ground this car means to back up over, asked for and laid</b> (TER-4c.7) behind its tail down the lane it
-    /// is on, and how much of it was had — after every plan is settled, since it is weaker than all of them but the
-    /// plan of somebody queued behind it, which it cuts short.
+    /// <b>The ground this car means to back up over, asked for</b> (TER-4c.7) behind its tail down the lane it is on — at
+    /// the weakest rung there is, so every plan keeps what it holds of it. How much was had is read once the plans are
+    /// answered (<see cref="Read"/>).
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Kept off the body behind it by the pass's spare</b> (<see cref="DrivingFigures.PassSpareM"/>): the ground is
-    /// what it backs up over, and what it may stray backing up is the same room as what it may stray stepping out.
-    /// </para>
-    /// <para>
     /// <b>What it asked for, or what it can no longer stop short of if that is more</b>: a car rolling back holds the
-    /// ground its stop needs whatever it decided, and that ground nothing takes (TER-5e).
+    /// ground its stop needs whatever it decided, at <see cref="ClaimPriority.Committed"/> (TER-5e).
     /// </para>
     /// <para>
     /// <b>Its own lane and no other</b>: behind the start of the lane is the box the car came through, which it never
@@ -154,18 +130,40 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
     /// <param name="underWay">Whether the car is on the route's line, as the town reads it.</param>
     public void Lay(int car, bool underWay)
     {
+        _holds[car] = LaneOccupancy.NoHold;
         if (!TakeTheAsk(car, underWay, out var asked)) return;
 
         var occupancy = ground.Occupancy;
-        var hold = occupancy.BeginHold(0f);
+        var hold = _holds[car] = occupancy.BeginHold(car, LaneRoster.Driving);
+        _laid[car] = asked;
+        var splitM = Math.Clamp(asked.CommittedFromM, asked.FromM, asked.TailM);
+        occupancy.AskDown(hold, asked.Way, splitM, asked.TailM, 0f, ClaimPriority.Committed);
+        occupancy.AskDown(hold, asked.Way, asked.FromM, splitM, asked.TailM - splitM, ClaimPriority.Backing);
+    }
+
+    /// <summary>
+    /// <b>How much of the ground behind it a car backing up had</b>, once the plans are answered: as far down as what
+    /// refused it — <b>kept off a body there by the pass's spare</b> (<see cref="DrivingFigures.PassSpareM"/>), since what
+    /// it may stray backing up is the same room as what it may stray stepping out.
+    /// </summary>
+    public void Read(int car)
+    {
+        var hold = _holds[car];
         if (hold == LaneOccupancy.NoHold) return;
 
-        var ask = asked.Planned(hold);
-        var reachM = occupancy.ReachBack(ask, asked.Way, asked.FromM, asked.TailM, asked.CommittedFromM, Config.Driving.PassSpareM, out _);
-        occupancy.TakeBack(ask, asked.Way, reachM, asked.TailM, asked.CommittedFromM);
-        occupancy.EndHold(hold, float.PositiveInfinity, 0f, LaneClaim.Nothing);
+        ref readonly var asked = ref _laid[car];
+        var cut = ground.Occupancy.CutOf(hold);
+        var reachM = !cut.Refused ? asked.FromM
+            : cut.Kind == ClaimKind.Body ? MathF.Min(asked.TailM, cut.AtM + Config.Driving.PassSpareM)
+            : cut.AtM;
         Had(asked, reachM);
     }
+
+    /// <summary>The hold each car's backing was asked in this rebuild, or <see cref="LaneOccupancy.NoHold"/>.</summary>
+    readonly int[] _holds = LaneOccupancy.NoHolds(ground.Cars.Capacity);
+
+    /// <summary>And what it asked, which <see cref="Read"/> reads back.</summary>
+    readonly BackingAsk[] _laid = new BackingAsk[ground.Cars.Capacity];
 
     /// <summary>
     /// <b>The ground this car asks to back up over this laying, taken</b> — what it asked for since the claims were last
@@ -208,11 +206,10 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
             return false;
         }
 
-        var brakingMps2 = CarFollower.BrakingMps2(Config, build);
-        var committedM = (backingMps * Config.CarReactionS) + DrivingGround.StoppingM(backingMps, brakingMps2);
+        var committedM = CarFollower.SlowsOverM(build, backingMps);
         var wantedFromM = tailM - MathF.Max(askedM, committedM);
         var fromM = MathF.Max(0f, wantedFromM);
-        ask = new BackingAsk(car, ground.Ways.OfRoadLane(lane), fromM, wantedFromM, tailM, tailM - committedM, laneStartM + fromM, -backingMps);
+        ask = new BackingAsk(car, ground.Ways.OfRoadLane(lane), fromM, wantedFromM, tailM, tailM - committedM, laneStartM + fromM);
         return true;
     }
 
@@ -222,34 +219,5 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
         // Infinite where all of it was had, as a grant nothing cut is (<see cref="CarFleet.AuthorityM"/>): a length
         // carried back and forth would come home a float's grain short of what was asked.
         Cars.BackRoomM[ask.Car] = reachM > ask.FromM || ask.FromM > ask.WantedFromM ? ask.TailM - reachM : float.PositiveInfinity;
-    }
-
-    /// <summary>
-    /// <b>A car driven backing up</b> (CAR-50): down its own line in reverse, the wheel pursuing it behind the car, and
-    /// at rest by <paramref name="toGoM"/> behind where it is.
-    /// </summary>
-    /// <remarks>
-    /// <b>The wheel is carried in the frame of the way the car is going</b>, which a reverse command gives out negated:
-    /// what the rack starts from is the wheel as it stands, whichever gear it was left in.
-    /// </remarks>
-    void DriveBack<TTown>(
-        ref TTown town, int car, in CarBuild build, in CarPose pose, ReadOnlySpan<ArcSeg> line, float progressM, float toGoM)
-        where TTown : struct, ICarTown
-    {
-        var travel = -pose.Forward;
-        var alongMps = System.Numerics.Vector2.Dot(pose.VelocityMps, travel);
-        var rearAxleM = CarFollower.RearAxleM(build, pose.PositionM, pose.Forward);
-        var lookaheadM = CarFollower.LookaheadM(build, MathF.Abs(alongMps), Config.Driving.LookaheadS);
-
-        var wantedRad = CarFollower.Steer(build, line, progressM, rearAxleM, travel, -lookaheadM);
-        var steerRad = build.WheelWoundTo(-Cars.Command[car].SteerRad, wantedRad, Config.TickSeconds);
-        var lastMps2 = CarFollower.PedalMps2(Cars.Command[car]);
-        var targetMps = CarFollower.BackingMps(Config, build, toGoM, alongMps, lastMps2);
-        var pedals = CarFollower.Pedals(Config, build, steerRad, targetMps, alongMps, Config.TickSeconds, lastMps2);
-
-        Cars.Command[car] = pedals with { SteerRad = -pedals.SteerRad, Reverse = true };
-        Cars.Hold[car] = DrivingHold.BackingUp;
-        CarTicksBackingUp++;
-        town.Tyres(car, pose);
     }
 }

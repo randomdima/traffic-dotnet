@@ -95,20 +95,16 @@ public class WalkingTests
         // asked is where the two stood when the reservations were laid.
         world.LayTheClaims();
 
-        Span<LaneClaim> bodies = stackalloc LaneClaim[MostClaimsOnAWay];
         foreach (var person in afoot)
         {
             var way = world.People.OnWay[person];
             if (way == PersonFleet.NoWay) continue;
 
             var atM = world.People.OnWayM[person];
-            var occupant = world.GroundHeldAs(person, out var roster);
             var found = false;
-            var count = world.Occupancy.CopyBodiesTo(way, bodies);
-            for (var slot = 0; slot < count && !found; slot++)
+            foreach (var body in ClaimsOf(world, way, person, ClaimKind.Body))
             {
-                found = bodies[slot].Of == roster && bodies[slot].Occupant == occupant
-                        && bodies[slot].OnItsLine && bodies[slot].FromM <= atM && bodies[slot].ToM >= atM;
+                found |= body.FromM <= atM && body.ToM >= atM;
             }
 
             Assert.True(found, $"walker {person} walks way {way} at {atM:0.00} m and is no body there");
@@ -163,18 +159,18 @@ public class WalkingTests
     {
         using var world = Walking(out _);
 
-        Span<LaneClaim> claims = stackalloc LaneClaim[MostClaimsOnAWay];
-        foreach (var way in world.Occupancy.OccupiedWays)
+        var claims = world.Occupancy;
+        foreach (var way in claims.OccupiedWays)
         {
-            var count = world.Occupancy.CopyPlannedTo(way, claims);
-            for (var at = 0; at < count; at++)
+            foreach (var main in claims.Mains(way))
             {
-                ref readonly var claim = ref claims[at];
-                if (claim.Of != LaneRoster.Walking) continue;
+                var holder = claims.HoldersOf(main)[0];
+                if (LaneOccupancy.RosterOf(holder) != LaneRoster.Walking) continue;
 
+                var walker = LaneOccupancy.OccupantOf(holder);
                 Assert.True(
-                    world.People.OnWay[claim.Occupant] != PersonFleet.NoWay,
-                    $"walker {claim.Occupant} is on no way of the network and plans {way}");
+                    world.People.OnWay[walker] != PersonFleet.NoWay,
+                    $"walker {walker} is on no way of the network and plans {way}");
             }
         }
     }
@@ -236,7 +232,7 @@ public class WalkingTests
     /// <remarks>
     /// <b>It is the one thing a re-plan drawn beside the body gets wrong, and it gets it wrong often.</b>
     /// The pavement offers a walk both ways along the stretch a body stands on
-    /// (<see cref="WalkingNetwork.EntriesNear"/>), so a search run again from under a walker is free to
+    /// (<see cref="WalkingNetwork.EntriesAt"/>), so a search run again from under a walker is free to
     /// answer with the lane running back — and then the line drawn is a U-turn across the pavement while
     /// the body walks on down the chain it is actually holding.
     /// </remarks>
@@ -269,9 +265,10 @@ public class WalkingTests
     /// happened to run — putting anything behind it a lap of the ring away.
     /// </summary>
     /// <remarks>
-    /// <b>Two links and not two readings of one.</b> A pavement is two one-way lines a lane's width apart
-    /// (<see cref="FootGraph.Reverse"/> is none), so the second entry is a stretch of its own — and where
-    /// the two offered were the same link, nothing would have been offered at all.
+    /// <b>Two places and not two readings of one.</b> A pavement is two one-way lines a lane's width apart
+    /// (<see cref="FootGraph.Reverse"/> is none), so the second entry is a stretch of its own — on a link of
+    /// its own, or at a loop's end, where the lane and the lane beside it are one contracted run, at another
+    /// place of the same one. Where the two offered were one place, nothing would have been offered at all.
     /// </remarks>
     [Fact]
     public void AWalkerIsOfferedBothWaysAlongThePavement()
@@ -281,14 +278,14 @@ public class WalkingTests
         var entries = new RouteEntry[2];
         foreach (var person in afoot)
         {
-            var count = world.Walking.EntriesNear(world.People.PositionM[person], entries);
+            var count = world.Walking.EntriesAt(world.Walking.PlaceNearest(world.People.PositionM[person]), entries);
 
             Assert.True(
                 count == 2,
                 $"walker {person} at {world.People.PositionM[person]} was offered {count} ways onto the network rather than two");
             Assert.True(
-                entries[0].Link != entries[1].Link,
-                $"walker {person} was offered link {entries[0].Link} twice");
+                entries[0].Link != entries[1].Link || entries[0].AlongM != entries[1].AlongM,
+                $"walker {person} was offered link {entries[0].Link} at {entries[0].AlongM} m twice");
         }
     }
 
@@ -313,8 +310,8 @@ public class WalkingTests
         var lane = LongestLane(world.Roads);
         var alongM = world.Roads.LaneLengthM[lane] * 0.5f;
 
-        world.People.PositionM[person] = Spline.SampleAt(world.Roads.ArcsOf(lane), alongM).PositionM;
-        world.People.VelocityMps[person] = Vector2.Zero;
+        world.StandTheWalkerAt(
+            person, Spline.SampleAt(world.Roads.ArcsOf(lane), alongM).PositionM, world.People.HeadingRad[person]);
         world.LayTheClaims();
 
         var way = world.Ways.OfRoadLane(lane);
@@ -344,21 +341,20 @@ public class WalkingTests
     {
         using var world = Walking(out _);
 
-        var claims = new LaneClaim[MostClaimsOnAWay];
+        var claims = world.Occupancy;
         var planned = 0;
-        for (var way = 0; way < world.Occupancy.WayCount; way++)
+        foreach (var way in claims.OccupiedWays)
         {
-            var count = world.Occupancy.CopyPlannedTo(way, claims);
-            for (var at = 0; at < count; at++)
+            foreach (var main in claims.Mains(way))
             {
-                ref readonly var claim = ref claims[at];
-                if (claim.Of != LaneRoster.Walking) continue;
+                var holder = claims.HoldersOf(main)[0];
+                if (LaneOccupancy.RosterOf(holder) != LaneRoster.Walking) continue;
 
                 planned++;
                 Assert.True(
-                    claim.Priority == ClaimPriority.Afoot,
-                    $"walker {claim.Occupant} plans {claim.FromM:0.00}–{claim.ToM:0.00} m of way {way} at"
-                    + $" p{(byte)claim.Priority} rather than p{(byte)ClaimPriority.Afoot}");
+                    main.Rung == ClaimPriority.Afoot,
+                    $"walker {LaneOccupancy.OccupantOf(holder)} plans {main.FromM:0.00}–{main.ToM:0.00} m of way {way} at"
+                    + $" p{(byte)main.Rung} rather than p{(byte)ClaimPriority.Afoot}");
             }
         }
 
@@ -496,8 +492,7 @@ public class WalkingTests
         people.RouteRunsOut[person] = true;
         people.RouteToM[person] = world.Walking.WayLengthM(lane);
         people.OnWayM[person] = atM;
-        people.VelocityMps[person] = Vector2.Zero;
-        people.PositionM[person] = Spline.SampleAt(world.Walking.WayArcs(lane), atM).PositionM;
+        world.StandTheWalkerAt(person, Spline.SampleAt(world.Walking.WayArcs(lane), atM).PositionM, people.HeadingRad[person]);
 
         world.LayTheClaims();
     }
@@ -512,7 +507,7 @@ public class WalkingTests
         {
             Assert.True(
                 ClaimsOf(world, under.OnWay, person, ClaimPriority.Afoot)
-                    .Exists(claim => claim.FromM <= under.FromM && claim.ToM >= under.ToM),
+                    .Exists(claim => claim.FromDm <= LaneOccupancy.DmOf(under.FromM) && claim.ToDm >= LaneOccupancy.DmOf(under.ToM)),
                 $"walker {person} plans paint way {way} and does not hold {under.FromM:0.00}–{under.ToM:0.00} m "
                 + $"of way {under.OnWay} under its zebra, which carries {WhatIsOn(world, under.OnWay)}");
         }
@@ -561,42 +556,41 @@ public class WalkingTests
     /// <summary>Everything on one way, for a message that has to say why an answer was not the one wanted.</summary>
     static string WhatIsOn(TownWorld world, int way)
     {
-        var claims = new LaneClaim[MostClaimsOnAWay];
-        var count = world.Occupancy.CopyTo(way, claims);
         var said = new List<string>();
-        for (var at = 0; at < count; at++)
+        foreach (var (claim, holder) in Every(world, way))
         {
-            said.Add($"{claims[at].Of} {claims[at].Occupant} p{(byte)claims[at].Priority} "
-                + $"{claims[at].FromM:0.0}-{claims[at].ToM:0.0}");
+            said.Add($"{LaneOccupancy.RosterOf(holder)} {LaneOccupancy.OccupantOf(holder)} p{(byte)claim.Rung} "
+                + $"{claim.FromM:0.0}-{claim.ToM:0.0}");
         }
 
         return said.Count == 0 ? "nothing" : string.Join(", ", said);
     }
 
     /// <summary>Whether no wheeled body and no driver's road is anywhere on this way.</summary>
-    static bool IsQuiet(TownWorld world, int way)
-    {
-        var claims = new LaneClaim[MostClaimsOnAWay];
-        var count = world.Occupancy.CopyTo(way, claims);
-        for (var at = 0; at < count; at++)
-        {
-            if (claims[at].Of == LaneRoster.Driving) return false;
-        }
-
-        return true;
-    }
+    static bool IsQuiet(TownWorld world, int way) =>
+        !Every(world, way).Exists(held => LaneOccupancy.RosterOf(held.Holder) == LaneRoster.Driving);
 
     /// <summary>Whether a light holds any of this way (TLT-1) — a red the walker would be answered at, whoever stood where.</summary>
-    static bool IsHeldByALight(TownWorld world, int way)
-    {
-        var claims = new LaneClaim[MostClaimsOnAWay];
-        var count = world.Occupancy.CopyTo(way, claims);
-        for (var at = 0; at < count; at++)
-        {
-            if (claims[at].Of == LaneRoster.Signal) return true;
-        }
+    static bool IsHeldByALight(TownWorld world, int way) =>
+        Every(world, way).Exists(held => LaneOccupancy.RosterOf(held.Holder) == LaneRoster.Signal);
 
-        return false;
+    /// <summary>Every claim on one way, once for each of its holders.</summary>
+    static List<(Claim Claim, int Holder)> Every(TownWorld world, int way)
+    {
+        var claims = world.Occupancy;
+        var found = new List<(Claim, int)>();
+        Add(claims.Bodies(way));
+        Add(claims.Mains(way));
+        Add(claims.Secondaries(way));
+        return found;
+
+        void Add(ReadOnlySpan<Claim> run)
+        {
+            foreach (var claim in run)
+            {
+                foreach (var holder in claims.HoldersOf(claim)) found.Add((claim, holder));
+            }
+        }
     }
 
     /// <summary>The pavement a walk reaches this stretch of paint from, or <see cref="PersonFleet.NoWay"/>.</summary>
@@ -629,8 +623,7 @@ public class WalkingTests
 
         var atM = MathF.Max(0f, world.Walking.WayLengthM(from) - AtTheKerbM);
         people.OnWayM[person] = atM;
-        people.VelocityMps[person] = Vector2.Zero;
-        people.PositionM[person] = Spline.SampleAt(world.Walking.WayArcs(from), atM).PositionM;
+        world.StandTheWalkerAt(person, Spline.SampleAt(world.Walking.WayArcs(from), atM).PositionM, people.HeadingRad[person]);
 
         world.LayTheClaims();
     }
@@ -687,7 +680,7 @@ public class WalkingTests
         people.RouteTaken[person] = 1;
         people.RouteToM[person] = world.Ways.LengthM(way);
         people.OnWayM[person] = alongM;
-        people.PositionM[person] = Spline.SampleAt(world.LineOfWay(way, out _), alongM).PositionM;
+        world.StandTheWalkerAt(person, Spline.SampleAt(world.LineOfWay(way, out _), alongM).PositionM, people.HeadingRad[person]);
 
         world.LayTheClaims();
     }
@@ -695,19 +688,10 @@ public class WalkingTests
     /// <summary>Whether this body holds a stretch of any way of the pavement at p0, which is PER-26's first claim.</summary>
     static bool HoldsAnyPavement(TownWorld world, int person)
     {
-        var occupant = world.GroundHeldAs(person, out var roster);
-        var claims = new LaneClaim[MostClaimsOnAWay];
         foreach (var way in world.Occupancy.OccupiedWays)
         {
             if (world.Ways.KindOf(way) is not (WayKind.Footway or WayKind.Mitre)) continue;
-
-            var count = world.Occupancy.CopyTo(way, claims);
-            for (var at = 0; at < count; at++)
-            {
-                ref readonly var claim = ref claims[at];
-                if (claim.Occupant != occupant || claim.Of != roster) continue;
-                if (claim.Priority == ClaimPriority.Hard) return true;
-            }
+            if (ClaimsOf(world, way, person, ClaimKind.Body).Count > 0) return true;
         }
 
         return false;
@@ -725,45 +709,24 @@ public class WalkingTests
     }
 
     /// <summary>Every main claim of one way this walker plans on its own walk, whatever its rung.</summary>
-    static List<LaneClaim> PlannedOf(TownWorld world, int way, int person)
+    static List<Claim> PlannedOf(TownWorld world, int way, int person) => ClaimsOf(world, way, person, ClaimKind.Main);
+
+    /// <summary>Every claim of one way this walker holds at one rung.</summary>
+    static List<Claim> ClaimsOf(TownWorld world, int way, int person, ClaimPriority rung) =>
+        Held(world, way, person).FindAll(claim => claim.Rung == rung);
+
+    /// <summary>Every claim of one way of one kind this walker holds.</summary>
+    static List<Claim> ClaimsOf(TownWorld world, int way, int person, ClaimKind kind) =>
+        Held(world, way, person).FindAll(claim => claim.Kind == kind);
+
+    /// <summary>Every claim of one way this walker is a holder of, under whoever the town holds its ground as.</summary>
+    static List<Claim> Held(TownWorld world, int way, int person)
     {
-        var found = new List<LaneClaim>();
-        if (way == PersonFleet.NoWay) return found;
+        if (way == PersonFleet.NoWay) return [];
 
-        var occupant = world.GroundHeldAs(person, out var roster);
-        var claims = new LaneClaim[MostClaimsOnAWay];
-        var count = world.Occupancy.CopyPlannedTo(way, claims);
-        for (var at = 0; at < count; at++)
-        {
-            if (claims[at].Occupant == occupant && claims[at].Of == roster && !claims[at].Secondary) found.Add(claims[at]);
-        }
-
-        return found;
+        var key = LaneOccupancy.KeyOf(world.GroundHeldAs(person, out var roster), roster);
+        return Every(world, way).FindAll(held => held.Holder == key).ConvertAll(held => held.Claim);
     }
-
-    /// <summary>Every stretch of one way this walker holds at one rank.</summary>
-    static List<LaneClaim> ClaimsOf(TownWorld world, int way, int person, ClaimPriority priority)
-    {
-        var found = new List<LaneClaim>();
-        if (way == PersonFleet.NoWay) return found;
-
-        var occupant = world.GroundHeldAs(person, out var roster);
-        var claims = new LaneClaim[MostClaimsOnAWay];
-        var count = world.Occupancy.CopyTo(way, claims);
-        for (var at = 0; at < count; at++)
-        {
-            ref readonly var claim = ref claims[at];
-            if (claim.Occupant != occupant || claim.Of != roster) continue;
-            if (claim.Priority != priority) continue;
-
-            found.Add(claim);
-        }
-
-        return found;
-    }
-
-    /// <summary>More stretches than any way of a pavement carries, which is a handful of bodies at a corner.</summary>
-    const int MostClaimsOnAWay = 64;
 
     /// <summary>The town stood up and not yet ticked, which is where GEN-7 is asked.</summary>
     static TownWorld Stood(out CityPlan plan)

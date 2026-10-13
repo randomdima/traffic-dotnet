@@ -60,9 +60,6 @@ internal sealed partial class TownWorld
 
     int _apronStride;
 
-    /// <summary>Every apron's and yard's bays and the run each entry takes, for the device to lay once at load.</summary>
-    internal (int[] Bays, int Stride) Aprons => (_apronBays, _apronStride);
-
     /// <summary>Where the depots' runs begin, which is after every hospital's and every station's.</summary>
     int TheFirstYard => Hospitals.Count + PoliceStations.Count;
 
@@ -217,16 +214,14 @@ internal sealed partial class TownWorld
         var first = PatrolDuty.Nobody;
         for (var seat = 0; seat < CrewAboard(_config); seat++)
         {
-            var positionM = Cars.PositionM[car];
-            var body = _physics.AddPerson(positionM);
             var person = People.Add(
-                body, positionM, Cars.HeadingRad[car], _physics.MassOf(body), _config.PersonDiameterM * 0.5f,
+                Cars.PositionM[car], Cars.HeadingRad[car], _config.Person.MassKg, _config.PersonRadiusM,
                 (byte)uniform, new Rng(_agentSeed, CrewStream + (ulong)((car * Containers.CrewSeats) + seat)),
                 reckless: false);
-            _physics.Tag(body, new BodyTag(BodyKind.Person, person));
             _progress.Restart(person);
 
             People.Stage[person] = TripStage.OnDuty;
+            _crewOf[person] = car;
             if (_containers.TryTakeACrewSeat(car, person)) Contain(person);
             if (first < 0) first = person;
         }
@@ -246,6 +241,35 @@ internal sealed partial class TownWorld
     const int NoCar = -1;
 
     /// <summary>
+    /// <b>The cars stood as each kind of service vehicle</b>, in index order (<see cref="ListTheServiceVehicles"/>). A car
+    /// is made one only when the town is stood and may be struck off later (<see cref="LetTheBuildingLetItGo"/>), so a
+    /// dispatch walks these in place of the fleet and still asks each whether it is one — the lists say only which cars
+    /// can be, and the duties stay the one register of what each is doing.
+    /// </summary>
+    int[] _ambulances = [], _patrols = [], _evacuators = [];
+
+    void ListTheServiceVehicles()
+    {
+        var ambulances = new List<int>();
+        var patrols = new List<int>();
+        var evacuators = new List<int>();
+        for (var car = 0; car < Cars.Count; car++)
+        {
+            if (Cars.Ambulance[car]) ambulances.Add(car);
+            if (IsAPatrolCar(car)) patrols.Add(car);
+            if (IsAnEvacuator(car)) evacuators.Add(car);
+        }
+
+        (_ambulances, _patrols, _evacuators) = ([.. ambulances], [.. patrols], [.. evacuators]);
+    }
+
+    /// <summary>
+    /// The service vehicle each walker was stood as crew of (<see cref="StandTheCrew"/>), or <see cref="NoCar"/> — fixed
+    /// for the life of the town, so the only car whose <see cref="PatrolDuty.Officer"/> a person can ever be.
+    /// </summary>
+    readonly int[] _crewOf;
+
+    /// <summary>
     /// One service vehicle standing in its bay (SRV-3). <b>The same pose a spawned car comes
     /// to rest in</b> (GEN-4i): every manoeuvre out of the bay is shaped from it, so the first thing it does
     /// when it is given something to do is drive rather than recover.
@@ -261,13 +285,7 @@ internal sealed partial class TownWorld
         var draw = new Rng(_agentSeed, stream + (ulong)bay);
         var backsIn = draw.NextFloat() < _config.Driving.BacksIntoBaysShare;
         var headingRad = BayTemplate.StandingHeadingRad(_parking.HeadingRad(bay), !backsIn);
-        var positionM = _parking.CentreM(bay);
-
-        ref readonly var build = ref _builds.Of(variant);
-        var body = _physics.AddCar(
-            positionM, headingRad, build.CollisionSizeM * 0.5f, build.CornerRadiusM, build.MassKg);
-        var car = Cars.Add(body, positionM, headingRad, variant, backsIn, draw);
-        _physics.Tag(body, new BodyTag(BodyKind.Car, car));
+        var car = Cars.Add(_parking.CentreM(bay), headingRad, variant, backsIn, draw);
         _parking.Occupy(bay, car);
         return car;
     }

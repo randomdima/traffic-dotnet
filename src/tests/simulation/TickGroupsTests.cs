@@ -57,6 +57,23 @@ public class TickGroupsTests
         Assert.All(perTick, count => Assert.Equal(Members / groups.Groups, count));
     }
 
+    /// <summary>The decide loop steps from <see cref="TickGroups.FirstInTurn"/> by the groups, so that is every member whose turn it is.</summary>
+    [Theory]
+    [InlineData(0.1f)]
+    [InlineData(0f)]
+    public void SteppingFromTheFirstInTurnFindsExactlyTheMembersWhoseTurnItIs(float intervalS)
+    {
+        const int Members = 40;
+        var groups = new TickGroups(intervalS, 60);
+        for (var tick = 0L; tick < 3 * groups.Groups; tick++)
+        {
+            var stepped = new List<int>();
+            for (var member = groups.FirstInTurn(tick); member < Members; member += groups.Groups) stepped.Add(member);
+
+            Assert.Equal(Enumerable.Range(0, Members).Where(member => groups.Turn(tick, member)), stepped);
+        }
+    }
+
     [Fact]
     public void ARateBelowOneTickIsRoundedUpToEveryTick()
     {

@@ -111,9 +111,21 @@ internal sealed class SignalService
         return SignalCycle.ForCrossing(_config, _crossingAxis[crossing], _offsetS[_crossingJunction[crossing]], timeS);
     }
 
+    /// <summary>Where a lit junction's cycle stands, which every approach and crossing of it is shown off (<see cref="SignalCycle.Shown"/>).</summary>
+    public JunctionPhase PhaseOf(int junction, float timeS) => SignalCycle.At(_config, _offsetS[junction], timeS);
+
+    /// <summary>The junction a lane with an axis arrives at (<see cref="AxisOfLane"/>).</summary>
+    public int JunctionOfLane(int lane) => _laneJunction[lane];
+
+    /// <summary>The junction a lit crossing is at, and the axis of the road it crosses (<see cref="CrossingIsLit"/>).</summary>
+    public int JunctionOfCrossing(int crossing) => _crossingJunction[crossing];
+
+    /// <inheritdoc cref="JunctionOfCrossing"/>
+    public int AxisOfCrossing(int crossing) => _crossingAxis[crossing];
+
     /// <summary>
-    /// <b>Everything <see cref="ForApproach"/> and <see cref="ForCrossing"/> read, as data</b> — for a device that asks
-    /// the same cycle of its own copy, through the same lookups.
+    /// <b>Everything <see cref="ForApproach"/> and <see cref="ForCrossing"/> read, as data</b> — for a kernel that asks
+    /// the same cycle of its own copy, through the same lookups (<c>DeviceSprites</c>).
     /// </summary>
     public SignalTable Table => new(_laneAxis, _laneJunction, _offsetS, _crossingAxis, _crossingJunction);
 

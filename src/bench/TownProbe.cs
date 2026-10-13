@@ -41,7 +41,7 @@ internal static class TownProbe
     static void Run(SimConfig config, string[] maps)
     {
         Console.WriteLine($"town probe — {WarmupTicks} warm-up ticks, {WindowS:F0} s measured per window, {config.Solver.VelocityIterations} solver iterations");
-        Console.WriteLine($"{"map",-10}{"walkers",9}{"cars",6}{"statics",9}{"room",9}{"stand ms",10}{"B/tick",10}{"ours B",9}{"solver B",10}{"µs/tick",10}{"gen0",7}{"ticks",10}");
+        Console.WriteLine($"{"map",-10}{"walkers",9}{"cars",6}{"statics",9}{"claims",9}{"stand ms",10}{"B/tick",10}{"ours B",9}{"solver B",10}{"µs/tick",10}{"gen0",7}{"ticks",10}");
 
         // The capacity a big world grows outlives the world that grew it, and so does the compiler's
         // opinion of the tick: nothing is measured until a town has been stood up and run
@@ -53,7 +53,7 @@ internal static class TownProbe
         {
             var sample = Sample(maps[map], config);
             samples[map] = sample;
-            Console.WriteLine($"{maps[map],-10}{sample.Walkers,9}{sample.Cars,6}{sample.Statics,9}{sample.Room,9}{sample.StandMs,10:F0}{sample.BytesPerTick,10:F1}" +
+            Console.WriteLine($"{maps[map],-10}{sample.Walkers,9}{sample.Cars,6}{sample.Statics,9}{sample.Claims,9}{sample.StandMs,10:F0}{sample.BytesPerTick,10:F1}" +
                               $"{sample.OwnBytesPerTick,9:F1}{sample.SolverBytesPerTick,10:F1}{sample.MicrosecondsPerTick,10:F1}{sample.Gen0Collections,7}{sample.MeasuredTicks,10}");
         }
 
@@ -89,7 +89,7 @@ internal static class TownProbe
         Console.WriteLine("the tick ranked by phase — µs per tick, on a second window with the timing on: not " +
                           "comparable with the µs/tick above, which is a different window of a moving town");
         Console.WriteLine($"{"map",-10}{"tick",8}{"input",8}{"index",8}{"agents",8}{"walkers",9}{"cars",8}{"decide w",10}" +
-                          $"{"decide c",10}{"bodies",8}{"solver",8}{"own",8}{"contacts",10}{"other",8}");
+                          $"{"decide c",10}{"bodies",8}{"solver",8}{"own",8}{"contacts",10}{"other",8}{"worst",8}{"worst ix",10}");
 
         for (var map = 0; map < maps.Length; map++)
         {
@@ -103,11 +103,13 @@ internal static class TownProbe
                 $"{Micro(phases, sub.WalkerDecisionTicks),10:F1}{Micro(phases, sub.CarDecisionTicks),10:F1}" +
                 $"{Micro(phases, phases.BodyTicks),8:F1}{Micro(phases, sub.SolverTicks),8:F1}" +
                 $"{Micro(phases, phases.BodyTicks - sub.SolverTicks),8:F1}{Micro(phases, phases.ContactTicks),10:F1}" +
-                $"{Micro(phases, phases.OtherTicks),8:F1}");
+                $"{Micro(phases, phases.OtherTicks),8:F1}{PhaseTimes.Microseconds(phases.WorstTickTicks),8:F1}" +
+                $"{PhaseTimes.Microseconds(phases.WorstIndexTicks),10:F1}");
         }
 
         Console.WriteLine("tick is measured whole rather than added up, so other is a real residual: it reading " +
-                          "as nothing is what says the five phases still cover the tick.");
+                          "as nothing is what says the five phases still cover the tick. worst is the dearest one tick " +
+                          "and worst ix its dearest phase 2 — maxima, so the machine's own preemptions read in them.");
     }
 
     static double Micro(in PhaseTimes phases, long ticks) => phases.MillisecondsPer(ticks) * 1000d;
@@ -116,9 +118,9 @@ internal static class TownProbe
     /// One map's answer. <see cref="OwnBytesPerTick"/> is phases 1–3 — everything this engine wrote —
     /// and <see cref="SolverBytesPerTick"/> is what is left, which is phase 4's step.
     /// </summary>
-    /// <param name="Room">How many reservations the town has room for — the standing cost of the two layers.</param>
+    /// <param name="Claims">How many claims the last laying of the window came to, of every kind.</param>
     public readonly record struct TownSample(
-        int Walkers, int Cars, int Statics, int Room, double StandMs, double BytesPerTick, double OwnBytesPerTick,
+        int Walkers, int Cars, int Statics, int Claims, double StandMs, double BytesPerTick, double OwnBytesPerTick,
         double MicrosecondsPerTick, int Gen0Collections, long MeasuredTicks, PhaseTimes Phases, TickParts Sub)
     {
         public double SolverBytesPerTick => BytesPerTick - OwnBytesPerTick;
@@ -136,11 +138,11 @@ internal static class TownProbe
         loop.Advance(WarmupTicks);
 
         var gen0 = GC.CollectionCount(0);
-        var before = GC.GetAllocatedBytesForCurrentThread();
+        var before = GC.GetAllocatedBytesForCurrentThread() + world.AllocatedAsideBytes;
         started = Stopwatch.GetTimestamp();
         var measured = AdvanceFor(loop, WindowS);
         var elapsed = Stopwatch.GetElapsedTime(started);
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        var allocated = GC.GetAllocatedBytesForCurrentThread() + world.AllocatedAsideBytes - before;
 
         // A second window, with the timing on. It is not folded into the first because a timed tick is
         // not the tick this build runs — the difference between the two is the instrument, and it is
@@ -156,8 +158,9 @@ internal static class TownProbe
         loop.Timed = false;
         world.Timed = false;
 
+        var laid = world.Occupancy.Laid();
         return new TownSample(
-            world.People.Count, world.Cars.Count, world.StaticBodyCount, world.Occupancy.Capacity, standMs, allocated / (double)measured,
+            world.People.Count, world.Cars.Count, world.StaticBodyCount, laid.Bodies + laid.Mains + laid.Secondaries, standMs, allocated / (double)measured,
             OwnBytesPerTick(world, config), elapsed.TotalMicroseconds / measured, GC.CollectionCount(0) - gen0,
             measured, phases, sub);
     }
@@ -245,6 +248,9 @@ internal static class TownProbe
                 }
 
                 town.ResolveContacts();
+
+                // What the world's step would take: with no step, a tick's signals are only what the agents wrote.
+                town.World.Signals.Clear();
             }
         }
     }

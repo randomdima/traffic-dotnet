@@ -108,7 +108,7 @@ internal static class WalkerFollower
         // to be does not carry on the way it was last pointed until something else stops it.
         var toAim = aimM - positionM;
         var distanceM = toAim.Length();
-        if (distanceM * distanceM > 1e-8f)
+        if (distanceM * distanceM > config.Person.AimUnderfootM2)
         {
             var paceMps = config.PersonWalkSpeedMps;
             var bearingRad = MathF.Atan2(toAim.Y, toAim.X);

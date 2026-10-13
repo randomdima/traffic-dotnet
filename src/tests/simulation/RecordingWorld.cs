@@ -45,10 +45,6 @@ internal sealed class RecordingWorld(int agentCount) : ISimWorld
         EveryAgent.Tick(ref world);
     }
 
-    public void AgentsTicked(long tick)
-    {
-    }
-
     public void DecideAgent(int agent, float sinceLastDecisionS) => Log.Add((Phase.Decide, agent));
 
     public void DecideTheAgents(long tick, TickGroups decisions)

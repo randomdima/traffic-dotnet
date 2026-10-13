@@ -70,34 +70,34 @@ internal static partial class TyreModel
         var drivenFrontShare = car.DrivenFrontShare;
 
         Span<float> loadFraction = stackalloc float[Wheels];
-        Loads(config, car, pose, loadFraction);
+        Loads(car, pose, loadFraction);
 
-        Span<float> steerRad = stackalloc float[Wheels];
-        Ackermann(car, command.SteerRad, steerRad);
+        Span<Vector2> turnedBy = stackalloc Vector2[SteeredWheels];
+        var steered = command.SteerRad != 0f;
+        if (steered) AckermannTurns(config, car, command.SteerRad, turnedBy);
 
         // Drive is placed by layout and divided by the load of the axle it is placed on, so a light end
         // of the car spins its wheels rather than pushing the whole of it.
         var frontLoad = loadFraction[0] + loadFraction[1];
         var driveMps2 = command.ThrottleMps2 * command.GearSign;
-        var frontDriveMps2 = NoLargerThan(AxleShare(driveMps2, drivenFrontShare, frontLoad), axleDriveCeilingMps2);
-        var rearDriveMps2 = NoLargerThan(AxleShare(driveMps2, 1f - drivenFrontShare, 1f - frontLoad), axleDriveCeilingMps2);
+        var frontDriveMps2 = NoLargerThan(AxleShare(config, driveMps2, drivenFrontShare, frontLoad), axleDriveCeilingMps2);
+        var rearDriveMps2 = NoLargerThan(
+            AxleShare(config, driveMps2, 1f - drivenFrontShare, 1f - frontLoad), axleDriveCeilingMps2);
         var spinAllowanceMps = SpinAllowanceMps(config, Vector2.Dot(pose.VelocityMps, forward));
 
         // The engine holds the car back through the same wheels it drives, so it is a brake on the driven axle.
         var engineMps2 = EngineBrakingMps2(config, car, command);
-        var frontEngineMps2 = AxleShare(engineMps2, drivenFrontShare, frontLoad);
-        var rearEngineMps2 = AxleShare(engineMps2, 1f - drivenFrontShare, 1f - frontLoad);
+        var frontEngineMps2 = AxleShare(config, engineMps2, drivenFrontShare, frontLoad);
+        var rearEngineMps2 = AxleShare(config, engineMps2, 1f - drivenFrontShare, 1f - frontLoad);
 
         for (var wheel = 0; wheel < Wheels; wheel++)
         {
             // The body's motion plus what the yaw rate carries that corner round by.
             var fromCentreM = atM[wheel] - pose.PositionM;
             var velocityMps = pose.VelocityMps + pose.YawRateRadPerS * new Vector2(-fromCentreM.Y, fromCentreM.X);
-            // An unturned wheel points where the car does. Adding a zero to the heading cannot move it,
-            // so this is the same direction rather than one near it.
-            var wheelForward = steerRad[wheel] == 0f
-                ? forward
-                : Heading.Unit(pose.HeadingRad + steerRad[wheel]);
+            // An unturned wheel points where the car does, to the bit; a turned one is the car's direction turned by its
+            // own share of the rack.
+            var wheelForward = steered && wheel < SteeredWheels ? Turned(forward, turnedBy[wheel]) : forward;
             var wheelRight = Heading.RightOf(wheelForward);
 
             var rear = wheel >= 2;
@@ -194,7 +194,7 @@ internal static partial class TyreModel
             if (!locked && loadKg > 0f)
             {
                 spinMps[wheel] = Rim(
-                    car, spin, alongMps, alongAfterMps, wantAlongNs, askedAlongNs, sliding, loadKg,
+                    config, car, spin, alongMps, alongAfterMps, wantAlongNs, askedAlongNs, sliding, loadKg,
                     (rear ? rearDriveMps2 : frontDriveMps2), brakeMps2, spinAllowanceMps, dtS);
             }
 
@@ -218,7 +218,7 @@ internal static partial class TyreModel
     /// </remarks>
     /// <param name="inertiaKgM2">The body's own moment of inertia about its centre, which the corners' loads are not.</param>
     public static bool HoldStill(
-        SimConfig config, in CarBuild car, in CarPose pose, float inertiaKgM2, ReadOnlySpan<Vector2> atM,
+        in CarBuild car, in CarPose pose, float inertiaKgM2, ReadOnlySpan<Vector2> atM,
         ReadOnlySpan<SurfaceUnderWheel> ground, float dtS, Span<WheelImpulse> into, Span<float> spinMps)
     {
         var impulseNs = -pose.VelocityMps * pose.MassKg;
@@ -233,7 +233,7 @@ internal static partial class TyreModel
         var leftNs = (impulseNs * 0.5f) - (forward * coupleNs);
 
         Span<float> loadFraction = stackalloc float[Wheels];
-        Loads(config, car, pose, loadFraction);
+        Loads(car, pose, loadFraction);
         if (!Grips(car, pose, ground[RearRight], loadFraction[RearRight], rightNs, dtS)
             || !Grips(car, pose, ground[RearLeft], loadFraction[RearLeft], leftNs, dtS))
         {
@@ -264,7 +264,7 @@ internal static partial class TyreModel
     /// wind it back up, which is the difference between a locked wheel and a merely braked one.
     /// </summary>
     static float Rim(
-        in CarBuild car, float spinMps, float alongMps, float alongAfterMps, float wantAlongNs, float askedAlongNs,
+        SimConfig config, in CarBuild car, float spinMps, float alongMps, float alongAfterMps, float wantAlongNs, float askedAlongNs,
         bool sliding, float loadKg, float driveMps2, float brakeMps2, float spinAllowanceMps, float dtS)
     {
         var rotatingKg = car.WheelRotatingMassKg;
@@ -287,7 +287,7 @@ internal static partial class TyreModel
 
         // While the patch can take what it is asked for along its roll the wheel is not slipping: it
         // rolls with the road, and that constraint replaces the integration above.
-        return !sliding || MathF.Abs(askedAlongNs) <= MathF.Abs(wantAlongNs) + (AlongSlipEpsilonMps * loadKg)
+        return !sliding || MathF.Abs(askedAlongNs) <= MathF.Abs(wantAlongNs) + (config.Tyre.AlongSlipEpsilonMps * loadKg)
             ? alongAfterMps
             : spunMps;
     }
@@ -312,7 +312,7 @@ internal static partial class TyreModel
 
         var alongSlideMps = MathF.Max(MathF.Abs(alongSlipMps) - config.Marks.SlipMps, 0f);
         var creepMps = MathF.Max(
-            MathF.Min(config.Marks.CorneringSlipMps, MathF.Abs(spinMps) * WorkingSlipTangent), config.Marks.SlipMps);
+            MathF.Min(config.Marks.CorneringSlipMps, MathF.Abs(spinMps) * config.Tyre.WorkingSlipTangent), config.Marks.SlipMps);
         var acrossSlideMps = MathF.Max(MathF.Abs(acrossSlipMps) - creepMps, 0f);
 
         // Only ground that can be displaced is ever asked what a merely rolling wheel did to it, and
@@ -380,7 +380,7 @@ internal static partial class TyreModel
     /// wheel everything.
     /// </summary>
     static float SyncMassKg(in CarBuild car, float loadKg) =>
-        loadKg <= 0f ? 0f : 1f / ((1f / car.WheelRotatingMassKg) + (1f / loadKg));
+        loadKg <= 0f ? 0f : 1f / (car.InverseWheelRotatingMassPerKg + (1f / loadKg));
 
     /// <summary>
     /// <b>What the circle has left along the roll once the corner the car is taking has been paid for</b>
@@ -410,25 +410,12 @@ internal static partial class TyreModel
             : config.Tyre.WheelSpinAllowanceMps * Math.Clamp(1f - (MathF.Abs(alongMps) / config.Tyre.WheelSpinFadeMps), 0f, 1f);
 
     /// <summary>
-    /// The slip angle a tyre does its cornering at, as a tangent: how much sideways creep every unit of
-    /// rolling speed is worth before the patch counts as sliding rather than working. ≈ 17°, which at
-    /// town speeds is the 1.5–4 m/s an ordinary turn actually carries.
-    /// </summary>
-    const float WorkingSlipTangent = 0.3f;
-
-    /// <summary>
-    /// How much of the demand along the roll may go unmet before the wheel counts as slipping rather
-    /// than rolling: a hair, so a demand shaved by floating-point noise at the edge of the ellipse does
-    /// not unstick a rolling wheel.
-    /// </summary>
-    const float AlongSlipEpsilonMps = 0.01f;
-
-    /// <summary>
     /// What one axle is asked for of a whole-car figure placed on it by layout: divided by the load it stands
-    /// on, because that is the figure each of its wheels is actually asked for.
+    /// on, because that is the figure each of its wheels is actually asked for — and nothing of an axle off the ground
+    /// (<see cref="TyreFigures.LiftedAxleLoadShare"/>).
     /// </summary>
-    static float AxleShare(float wholeMps2, float share, float axleLoad) =>
-        axleLoad > 1e-3f ? wholeMps2 * share / axleLoad : 0f;
+    static float AxleShare(SimConfig config, float wholeMps2, float share, float axleLoad) =>
+        axleLoad > config.Tyre.LiftedAxleLoadShare ? wholeMps2 * share / axleLoad : 0f;
 
     /// <summary>
     /// <b>What the drivetrain holds the car back by</b> (CAR-51, <see cref="SimConfig.CarEngineBrakingMps2"/>): all of

@@ -46,34 +46,6 @@ internal sealed partial class TownWorld
         && People.OffWayM[person] > (_config.WalkerOffLaneM * OffLineTolerance) + MathF.Abs(People.Pass[person].AsideM);
 
     /// <summary>
-    /// <b>Whether this walker's decision would do nothing but run its leg's clock</b>: out of doors and on its feet,
-    /// walking its route — no car's way in reached, nobody it may get past ending its walk, its line not lost and its
-    /// chain not run out — and a clock that will not run out on this decision. Asked of nothing it changes.
-    /// </summary>
-    /// <remarks>
-    /// Each refusal is a branch <see cref="DecideNow"/> takes before the clock: a held town, a casualty, a body indoors
-    /// or on duty, a walk to a car at its end, a pass drawn or waited on (<see cref="Sidestepping.Decide"/>), a beat
-    /// stood, a walk laid again, and the clock's own end of the leg.
-    /// </remarks>
-    public bool WalkerTakesOnlyTheClock(int person, float sinceLastDecisionS)
-    {
-        if (HoldAgents || People.Wounded[person] || People.Inside[person].Any || !People.Walking[person]) return false;
-
-        var stage = People.Stage[person];
-        if (stage == TripStage.OnDuty || (stage == TripStage.WalkingToTheCar && HasReached(person, _config.WayInTouchingReachM)))
-        {
-            return false;
-        }
-
-        if (People.Action[person] != PersonAction.Walk || _sidestepping.ComesUpToOneItMayPass(person)) return false;
-        if (HasLostItsLine(person) || ComesToTheEndOfItsChain(person)) return false;
-
-        return !_progress.WouldBeStuck(
-            person, RemainingOnTheWalkM(person), _config.PersonDiameterM, sinceLastDecisionS, _walkingGround.HeldByALight(person),
-            _config.Person.GivesUpAfterS);
-    }
-
-    /// <summary>
     /// <b>A walker's leg's clock run for this decision</b>: held where a light holds the crossing in front, which will change
     /// on its own (TLT-2a), and otherwise noted against how much of the walk is left.
     /// </summary>
@@ -83,37 +55,6 @@ internal sealed partial class TownWorld
         if (_walkingGround.HeldByALight(person)) _progress.Hold(person, remainingM);
         else _progress.Note(person, remainingM, _config.PersonDiameterM, sinceLastDecisionS);
     }
-
-    /// <summary>
-    /// Whether a walker whose decision <see cref="WalkerTakesOnlyTheClock"/> is decided by its clock alone
-    /// (<see cref="RunTheWalksClock"/>) — which is what the whole decision would have come to.
-    /// </summary>
-    public bool DecidesQuietWalkersByTheClock { get; set; }
-
-    /// <summary>How many walkers' decisions were their clock alone (<see cref="DecidesQuietWalkersByTheClock"/>, or run on a device).</summary>
-    public long WalkersDecidedByTheClock { get; private set; }
-
-    /// <summary>Decisions a device found its walkers' clock alone without the town putting them off (<see cref="ITownDevice.WalkerDecidesItself"/>), counted in.</summary>
-    public void WalkersDecidedByTheClockOnTheDevice(int count)
-    {
-        WalkersDecidedByTheClock += count;
-        WalkerDecisionsTaken += count;
-    }
-
-    /// <summary>How many walkers' decisions were taken, wherever each was — every walker's turn but one held.</summary>
-    public long WalkerDecisionsTaken { get; private set; }
-
-    /// <summary>Every walker's leg's clock (<see cref="LegProgress"/>), for a device that runs the clocks of the walkers it decides.</summary>
-    public LegProgress WalkClocks => _progress;
-
-    /// <summary>
-    /// What <see cref="WalkerTakesOnlyTheClock"/> reads besides the walker, as the town holds it: how near a car's way in its
-    /// owner has to be, how far a walk goes before the next decision, how much nearer counts as nearer, a walk's patience,
-    /// and how far off its way a walker has lost it but for its pass.
-    /// </summary>
-    public (float WayInReachM, float WalksBeforeTheNextM, float ByM, float PatienceS, float LostOffM) WalkerClockTerms =>
-        (_config.WayInTouchingReachM, _config.PersonWalkSpeedMps * _config.Sim.AgentDecisionIntervalS, _config.PersonDiameterM,
-         _config.Person.GivesUpAfterS, _config.WalkerOffLaneM * OffLineTolerance);
 
     /// <summary>
     /// A body whose controller is paused — the same thing done for a body nobody is deciding for: a
@@ -126,7 +67,8 @@ internal sealed partial class TownWorld
         {
             var car = Roster.CarIndex(agent);
             Cars.Command[car] = DriveCommand.Idle;
-            Tyres(car, PoseOf(car));
+            Tyres(car);
+            SignalTheShow(car);
             return;
         }
 
@@ -155,20 +97,79 @@ internal sealed partial class TownWorld
     /// </param>
     void LayWalk(int person, bool reachTheGoal = false)
     {
+        var fromM = People.PositionM[person];
+        var goalM = People.GoalM[person];
+        var hopsAnyDistance = HopsAnyDistance(person);
+        var seatM = LayTheWalk(person, reachTheGoal);
+        _walkLaid[person] = new WalkLaid(fromM, goalM, reachTheGoal, hopsAnyDistance, seatM, People.GoalM[person]);
+    }
+
+    /// <summary>
+    /// <b>The walk laid again</b> — and where it was last laid from, to the same goal on the same terms, the search
+    /// would answer the very chain the walker holds, so it is seated on it afresh as <see cref="LayTheWalk"/> seats it
+    /// and nothing is searched. A body wedged off its line asks for it every decision.
+    /// </summary>
+    void LayWalkAgain(int person, bool reachTheGoal)
+    {
+        ref readonly var laid = ref _walkLaid[person];
+        if (laid.FromM != People.PositionM[person] || laid.GoalM != People.GoalM[person] || laid.ReachTheGoal != reachTheGoal
+            || laid.HopsAnyDistance != HopsAnyDistance(person))
+        {
+            LayWalk(person, reachTheGoal);
+            return;
+        }
+
+        var people = People;
+        people.GoalM[person] = laid.MovedGoalM;
+        var (count, runsOut, toM) = (people.RouteCount[person], people.RouteRunsOut[person], people.RouteToM[person]);
+        people.ClearRoute(person);
+        if (count == 0) return;
+
+        people.RouteCount[person] = count;
+        people.RouteRunsOut[person] = runsOut;
+        people.RouteToM[person] = toM;
+        people.RouteTaken[person] = 1;
+        people.OnWayM[person] = laid.SeatM;
+        _walkingGround.PlaceItOnItsWay(person, float.PositiveInfinity);
+    }
+
+    /// <summary>
+    /// <b>What each walker's walk was last laid off</b> (<see cref="LayWalk"/>) — where from, to which goal, on which
+    /// terms — and what it came to: the metre of its first way it was seated at and the goal as the walk moved it.
+    /// Nothing but a laying writes a walk's chain, and the walking network's prices are never marked, so the laying is a
+    /// function of the first four alone (<see cref="LayWalkAgain"/>).
+    /// </summary>
+    readonly WalkLaid[] _walkLaid;
+
+    readonly record struct WalkLaid(
+        Vector2 FromM, Vector2 GoalM, bool ReachTheGoal, bool HopsAnyDistance, float SeatM, Vector2 MovedGoalM)
+    {
+        /// <summary>No walk laid yet: a place no body stands at.</summary>
+        public static WalkLaid Never => new(new Vector2(float.NaN), default, false, false, 0f, default);
+    }
+
+    /// <summary>
+    /// The walk laid from where the walker last stood on the pavement (<see cref="_placeOf"/>) to where its goal stands
+    /// on it (<see cref="_goalPlace"/>), its body seated on the first way of it; the metre it was seated at before it was
+    /// placed (<see cref="WalkingGround.PlaceItOnItsWay"/>). <b>Nothing is looked up</b> (the root decision log,
+    /// 2026-10-13): a body off the pavement walks straight back to where it left it.
+    /// </summary>
+    float LayTheWalk(int person, bool reachTheGoal)
+    {
         var people = People;
         people.ClearRoute(person);
 
         var walking = Walking;
         var entries = _walkSearch.Entries;
-        var entryCount = walking.EntriesNear(people.PositionM[person], entries);
-        var goalCount = walking.GoalsAt(people.GoalM[person], _walkSearch.Goals);
-        if (entryCount == 0 || goalCount == 0) return;
+        var entryCount = walking.EntriesAt(_placeOf[person], entries);
+        var goalCount = walking.GoalsAt(_goalPlace[person], _walkSearch.Goals);
+        if (entryCount == 0 || goalCount == 0) return 0f;
 
         var linkCount = _walkSearch.Plan(entryCount, goalCount, _walkSurcharges, out var goalSlot);
-        if (linkCount == 0 || goalSlot < 0) return;
+        if (linkCount == 0 || goalSlot < 0) return 0f;
 
         var links = _walkSearch.Links(linkCount);
-        var entry = WalkingNetwork.SetOffFrom(entries[..entryCount], links[0]);
+        var entry = WalkingNetwork.SetOffFrom(entries[..entryCount], links, _walkSearch.Goals[goalSlot]);
 
         var runs = walking.Runs;
         var joins = new WalkingNetwork.FootJoins(walking);
@@ -177,7 +178,7 @@ internal sealed partial class TownWorld
             ref joins, runs, links, fromWay: NothingBehind, firstSlot: runs.PieceAt(links[0], entry.AlongM, out var enteredAtM),
             _walkSearch.Goals[goalSlot], into, out var ranOut);
 
-        if (written == 0) return;
+        if (written == 0) return 0f;
 
         // A section handed over short of the goal is a chain that ran out: the rest is laid again from its end.
         var runsOut = ranOut || _walkSearch.StopsShort;
@@ -188,10 +189,12 @@ internal sealed partial class TownWorld
         // Seated on the first way, as far along it as the body actually stands — found over the whole of
         // that way, the entry's own metre being the fine graph's and this the lane's.
         people.RouteTaken[person] = 1;
-        people.OnWayM[person] = walking.LaneMOf(into[0], enteredAtM);
+        var seatM = walking.LaneMOf(into[0], enteredAtM);
+        people.OnWayM[person] = seatM;
         _walkingGround.PlaceItOnItsWay(person, float.PositiveInfinity);
 
         MoveTheGoalOntoTheWalk(person, reachTheGoal, walking, into[..written]);
+        return seatM;
     }
 
     /// <summary>What a route chain is expanded from when there is no way behind the body: a walk begins on its first way.</summary>
@@ -269,11 +272,11 @@ internal sealed partial class TownWorld
         // A player's order is exempt from the cap on what a trip may hand somebody: that cap is a rule
         // about the routes this town draws for itself. So is the walk to a car, whose way in is beside it
         // in the bay (GEN-4e) — across the car park from the walk that wraps it, however deep that is.
-        var capM = People.Manual[person] || People.Stage[person] == TripStage.WalkingToTheCar
-            ? float.PositiveInfinity
-            : _config.PersonOffNetworkHopM;
+        var capM = HopsAnyDistance(person) ? float.PositiveInfinity : _config.PersonOffNetworkHopM;
         if ((People.GoalM[person] - endsAtM).Length() > capM) People.GoalM[person] = endsAtM;
     }
+
+    bool HopsAnyDistance(int person) => People.Manual[person] || People.Stage[person] == TripStage.WalkingToTheCar;
 
     /// <summary>
     /// <b>PER-8: a body that cannot walk back to the network is set down on it.</b> The second walk is the
@@ -294,15 +297,17 @@ internal sealed partial class TownWorld
     {
         if (_walkingGround.IsOnItsWay(person)) return false;
 
-        var goals = _walkSearch.Goals;
-        if (_walking.GoalsAt(People.PositionM[person], goals) == 0) return false;
+        // Back where it last stood on the pavement (<see cref="_placeOf"/>), and set down where nobody has the ground,
+        // as a body out of a door is (PHY-7a): a lift onto somebody, or in front of a car that cannot stop, is a failure
+        // moved rather than mended. Taken, it waits a tick.
+        var place = _placeOf[person];
+        if (!place.IsSomewhere) return false;
 
-        // Set down where nobody has the ground, as a body out of a door is (PHY-7a): a lift onto somebody, or
-        // in front of a car that cannot stop, is a failure moved rather than mended. Taken, it waits a tick.
-        var atM = NetworkPointM(goals[0]);
-        if (new DoorStep(this).IsTaken(atM, People.RadiusM[person])) return false;
+        var wayM = _walking.LaneMOf(place.Edge, place.AlongM);
+        var radiusM = People.RadiusM[person];
+        if (_occupancy.IsTaken(_ways.OfFootway(place.Edge), wayM - radiusM, wayM + radiusM)) return false;
 
-        Place(person, atM, People.HeadingRad[person]);
+        Place(person, PointOf(place), People.HeadingRad[person], place);
         WalkersSetDown++;
         return true;
     }

@@ -1,9 +1,10 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
 
-// The settling's parallel passes (settle.glsl), one thread a roster slot or a contact as the mode says, handing back
-// which frozen bodies the step took in and which it froze, in index order (DeviceSolver.Woke, DeviceSolver.Froze).
-// What a contact passes along it passes once here; settle_spread.comp passes it on until nothing changes, where this
+// The settling's parallel passes (settle.glsl), one thread a roster slot or a contact as the mode says, and — where the
+// host lists them (DeviceSolver.ListsWhatSettled) — which frozen bodies the step took in and which it froze, in index
+// order (DeviceSolver.Woke, DeviceSolver.Froze).
+// What a contact unsettles it unsettles once here; settle_spread.comp passes it on until nothing changes, where this
 // pass changed anything.
 
 layout(local_size_x = 64) in;
@@ -17,34 +18,6 @@ bool froze(uint s) { return (s & (Owned | Settling)) == (Owned | Settling); }
 void main()
 {
     uint at = gl_GlobalInvocationID.x;
-
-    if (mode == Owning)
-    {
-        // Rest counted afresh where the host reset it: a body put in a container, or added.
-        if (at < afreshCount) restTicks[afresh[at]] = 0u;
-        if (at >= rosterCount) return;
-
-        // The owners as the step began, and every frozen body the step moved or left moving (PhysicsWorld.Moved).
-        uint body = uint(owners[at]);
-        uint flags = filter_[body].x;
-        uint s = 0u;
-        if ((flags & enabledBit) != 0u)
-        {
-            bool frozen = (flags & frozenBit) != 0u;
-            vec4 m = motion[body];
-            if (frozen) s |= WasFrozen;
-            if (!frozen || moved[body] != 0u || m.xy != vec2(0.0) || m.z != 0.0) s |= Owned;
-        }
-
-        state[body] = s;
-        return;
-    }
-
-    if (mode == Waking)
-    {
-        if (at < contactCount() && wake(at)) atomicOr(totals[WokenAt], 1u);
-        return;
-    }
 
     if (mode == Unsettling)
     {
@@ -81,11 +54,11 @@ void main()
         if (froze(s))
         {
             motion[body].xyz = vec3(0.0);
-            filter_[body].x |= frozenBit;
+            filter_[body] |= frozenBit;
         }
         else if (woke(s))
         {
-            filter_[body].x &= ~frozenBit;
+            filter_[body] &= ~frozenBit;
         }
 
         wokeAt[at] = woke(s) ? 1u : 0u;

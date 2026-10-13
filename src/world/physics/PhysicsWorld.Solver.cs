@@ -45,7 +45,6 @@ internal sealed partial class PhysicsWorld
 
     int[] _filed = new int[Room];
     int _filedCount;
-    bool _movingIndexStale = true;
     bool _staticIndexStale;
 
     int[] _candidate = [];
@@ -82,11 +81,7 @@ internal sealed partial class PhysicsWorld
     int[] _beganA = [];
     int[] _beganB = [];
     Vector2[] _beganNormal = [];
-    float[] _beganClosingMps = [];
     int _beganCount;
-
-    /// <summary>Whether the last step's begun pairs came with their closing speeds — a step taken elsewhere's.</summary>
-    bool _beganClosed;
 
     /// <summary>
     /// One tick of the world: what is touching what, what that does to the velocities, and where
@@ -95,9 +90,9 @@ internal sealed partial class PhysicsWorld
     /// <remarks>
     /// <para>
     /// <b>The moving index is laid once a step, at the poses the step begins at</b>, which is the only index the
-    /// step reads. What the integration leaves is laid again only for a query asked before the next step
-    /// (<see cref="EnsureIndex"/>) — and a town asks none: its clearance queries are of the static grid alone, so
-    /// a step's own is the one lay it pays for, however many walkers came out of doors since the last.
+    /// step reads. Nothing outside a step asks it anything that decides: the town's clearance queries are of the
+    /// static grid alone, so a step's own is the one lay it pays for, however many walkers came out of doors
+    /// since the last.
     /// </para>
     /// <para>
     /// The census is taken after the contacts, because the bodies they woke are integrated too.
@@ -107,18 +102,15 @@ internal sealed partial class PhysicsWorld
     {
         if (_staticIndexStale) SettleStatics();
 
-        _indexedWhenAsked = false;
-        _overlapTaken = true;
         LayTheIndexes();
         FindContacts();
         IntegratedBodyCount = _movingCount;
-        Damp(dtS);
+        DampAndEmptyThePush(dtS);
         Prepare();
         SolveVelocities(dtS);
         SolvePush(dtS);
-        Integrate(dtS);
+        IntegrateAndCountTheRest(dtS);
         FreezeWhatHasSettled();
-        _movingIndexStale = true;
         ReportBegun();
     }
 
@@ -128,96 +120,10 @@ internal sealed partial class PhysicsWorld
     public BeganTouching BeganTouchingThisStep() => new(this);
 
     /// <summary>
-    /// The nearest body a ray meets, and how fast it is going — the whole of the cast this engine
-    /// offers (`SOL-7`): nearest hit, filtered by mask, with one named body excluded. A ray whose origin
-    /// lies inside a shape does not report that shape (<see cref="Shape.CastSegment"/>), and the caster
-    /// is excluded by name anyway, so the guarantee a caster leans on is this method's and not the
-    /// geometry's (`SOL-19`).
+    /// The damping that reaches every body, applied once a step — and the push accumulator emptied on the same pass,
+    /// since nothing between here and <see cref="SolvePush"/> reads it.
     /// </summary>
-    /// <param name="statics">
-    /// Whether the town's furniture is in the ray's question at all. Saying no is a narrower question and
-    /// not a cheaper answer to the same one, so only a caller that already knows there is nothing
-    /// immovable within reach may ask it. What it buys is that the static grid is never <em>entered</em>:
-    /// ninety-odd thousand props cost such a ray nothing rather than a rejected test each.
-    /// </param>
-    public bool CastRay(Vector2 fromM, Vector2 toM, BodyId ignore, bool statics, out RayHit hit)
-    {
-        EnsureIndex();
-
-        var travelM = toM - fromM;
-        var nearest = float.MaxValue;
-        var found = -1;
-
-        Sweep(_dynamicGrid, BodyFlags.Enabled, fromM, travelM, ignore.Index, ref nearest, ref found);
-        Sweep(_frozenGrid, BodyFlags.Enabled | BodyFlags.FiledFrozen, fromM, travelM, ignore.Index, ref nearest, ref found);
-        if (statics) Sweep(_staticGrid, BodyFlags.Enabled, fromM, travelM, ignore.Index, ref nearest, ref found);
-
-        if (found < 0)
-        {
-            hit = default;
-            return false;
-        }
-
-        hit = new RayHit(
-            BodyTag.Unpack(_tag[found]), fromM + travelM * nearest, _velocityMps[found], nearest * travelM.Length());
-        return true;
-    }
-
-    /// <summary>
-    /// Whether any of the town's furniture stands inside an axis-aligned box. Asked when somewhere to put
-    /// a body down is being chosen and never in a tick, so it walks the static grid rather than keeping an
-    /// answer anything has to maintain.
-    /// </summary>
-    /// <remarks>
-    /// <b>The furniture's own shape, and never its bounds</b>: a building turned off the grid is bounded by a box
-    /// far bigger than it, and that box covers the pavement at its own door.
-    /// </remarks>
-    public bool StaticInBox(Vector2 leastM, Vector2 mostM)
-    {
-        if (_staticIndexStale) SettleStatics();
-
-        if (!_staticGrid.TryRange(leastM, mostM, out var range)) return false;
-
-        var centreM = (leastM + mostM) * 0.5f;
-        var halfM = (mostM - leastM) * 0.5f;
-        var square = Shape.Rotation(0f);
-        for (var y = range.FromY; y <= range.ToY; y++)
-        {
-            for (var x = range.FromX; x <= range.ToX; x++)
-            {
-                foreach (var body in _staticGrid.Items(x, y))
-                {
-                    if ((_category[body] & StaticsOnlyMask) == 0) continue;
-                    if (Apart(body, leastM, mostM)) continue;
-                    if (!Shape.Collide(
-                            centreM, square, halfM, 0f, _positionM[body], _rotation[body], _extentM[body],
-                            _cornerRadiusM[body], 0f, out _))
-                    {
-                        continue;
-                    }
-
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// <b>Whether one body's own shape reaches a disc</b> — for a place a person is put down beside the body putting
-    /// them there, whose ground is no objection and whose panels are (PHY-7a).
-    /// </summary>
-    public bool Reaches(BodyId body, Vector2 centreM, float radiusM)
-    {
-        var index = body.Index;
-        return Shape.Collide(
-            centreM, Shape.Rotation(0f), Vector2.Zero, radiusM, _positionM[index], _rotation[index], _extentM[index],
-            _cornerRadiusM[index], 0f, out _);
-    }
-
-    /// <summary>The damping that reaches every body, applied once a step.</summary>
-    void Damp(float dtS)
+    void DampAndEmptyThePush(float dtS)
     {
         var linear = 1f / (1f + dtS * _config.Solver.LinearDamping);
         var angular = 1f / (1f + dtS * _config.Solver.AngularDamping);
@@ -226,6 +132,8 @@ internal sealed partial class PhysicsWorld
             var body = _moving[slot];
             _velocityMps[body] *= linear;
             _yawRateRadPerS[body] *= angular;
+            _pushMps[body] = Vector2.Zero;
+            _pushYawRadPerS[body] = 0f;
         }
     }
 
@@ -276,7 +184,8 @@ internal sealed partial class PhysicsWorld
 
     /// <summary>
     /// The collision response: no bounce, Coulomb friction, and a speculative term that stops an approach
-    /// in the tick it would otherwise have crossed. Restitution is not modelled at all — a collision in
+    /// still short of touching in the tick it would otherwise have crossed — one within the speculative
+    /// distance (<see cref="SpeculativeM"/>). Restitution is not modelled at all — a collision in
     /// this town is a crash rather than a break shot, so there is no coefficient to set to zero.
     /// </summary>
     void SolveVelocities(float dtS)
@@ -339,12 +248,6 @@ internal sealed partial class PhysicsWorld
     /// </remarks>
     void SolvePush(float dtS)
     {
-        for (var slot = 0; slot < _movingCount; slot++)
-        {
-            _pushMps[_moving[slot]] = Vector2.Zero;
-            _pushYawRadPerS[_moving[slot]] = 0f;
-        }
-
         var allowedM = _config.Solver.AllowedPenetrationM;
         var bias = _config.Solver.ContactBias / dtS;
         var mostMps = _config.Solver.MaxPushOutMps;
@@ -405,10 +308,22 @@ internal sealed partial class PhysicsWorld
 
     /// <summary>
     /// Where the step leaves everything: the body's own motion plus the push it was given, and the push
-    /// discarded on the way out. A body that moves stops being where the frozen index filed it.
+    /// discarded on the way out. A body that moves stops being where the frozen index filed it. Each body's rest
+    /// is counted on the same pass, off the motion the step left it (<see cref="FreezeWhatHasSettled"/>).
     /// </summary>
-    void Integrate(float dtS)
+    /// <remarks>
+    /// <b>A heading the step left alone to the bit keeps its rotation, and a pose left alone keeps its bounds</b> — each
+    /// is a function of those bits alone (<see cref="Place"/> is the only other writer), so what is skipped is the same
+    /// answer and not one near it: a walker never turns and a car standing still never moves. The comparison is of bits
+    /// and not of values, so a heading gone from −0 to +0 is turned again (integrate.comp's own skip compares values).
+    /// </remarks>
+    void IntegrateAndCountTheRest(float dtS)
     {
+        var restMps = _config.Solver.RestSpeedMps;
+        var restSquared = restMps * restMps;
+        var restTicks = _config.SolverRestTicks;
+        var allowedM = _config.Solver.AllowedPenetrationM;
+
         for (var slot = 0; slot < _movingCount; slot++)
         {
             var body = _moving[slot];
@@ -416,14 +331,27 @@ internal sealed partial class PhysicsWorld
             var turnRadPerS = _yawRateRadPerS[body] + _pushYawRadPerS[body];
             if (travelMps != Vector2.Zero || turnRadPerS != 0f) _flags[body] &= ~BodyFlags.FiledFrozen;
 
-            _positionM[body] += travelMps * dtS;
-
-            var headingRad = Wrap(_headingRad[body] + turnRadPerS * dtS);
+            var wasM = _positionM[body];
+            var positionM = wasM + travelMps * dtS;
+            var wasRad = _headingRad[body];
+            var headingRad = Wrap(wasRad + turnRadPerS * dtS);
+            var turned = BitConverter.SingleToInt32Bits(headingRad) != BitConverter.SingleToInt32Bits(wasRad);
+            _positionM[body] = positionM;
             _headingRad[body] = headingRad;
-            _rotation[body] = Shape.Rotation(headingRad);
-            Bound(body);
+            if (turned) _rotation[body] = Shape.Rotation(headingRad);
+            if (turned || !SameBits(positionM, wasM)) Bound(body);
+
+            var swingMps = _yawRateRadPerS[body] * _reachM[body];
+            var atRest = _velocityMps[body].LengthSquared() <= restSquared && swingMps * swingMps <= restSquared
+                         && _overlapM[body] <= allowedM;
+            _restTicks[body] = atRest ? Math.Min(_restTicks[body] + 1, restTicks) : 0;
+            _settling[body] = _restTicks[body] >= restTicks;
         }
     }
+
+    static bool SameBits(Vector2 a, Vector2 b) =>
+        BitConverter.SingleToInt32Bits(a.X) == BitConverter.SingleToInt32Bits(b.X)
+        && BitConverter.SingleToInt32Bits(a.Y) == BitConverter.SingleToInt32Bits(b.Y);
 
     /// <summary>A heading is reported in the half-open turn the rest of the engine reads.</summary>
     static float Wrap(float headingRad)

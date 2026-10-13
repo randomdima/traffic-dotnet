@@ -1,6 +1,6 @@
 using System.Numerics;
-using TrafficSimulation.Core.Config;
-using TrafficSimulation.World.Terrain;
+using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.App.Camera;
 
@@ -22,53 +22,27 @@ namespace TrafficSimulation.App.Camera;
 /// </para>
 /// <para>
 /// <b>What it is not is a fit to the whole town.</b> The opening span is a figure
-/// (<see cref="ViewFigures.CameraDefaultViewM"/>) and a whole-town fit on a small map is unreadably
+/// (<see cref="Core.Config.ViewFigures.CameraDefaultViewM"/>) and a whole-town fit on a small map is unreadably
 /// small; what moves here is where the camera stands and never how much it shows.
 /// </para>
 /// </remarks>
 internal static class Opening
 {
-    /// <summary>How far out the search gives up, as a share of the town. Past this there is nothing to find.</summary>
-    const float OfTheTown = 0.5f;
-
     /// <param name="inViewM">
     /// How far from the middle the opening view already reaches, which is half its short side: road inside
     /// that is road the reader can see without the camera moving anywhere.
     /// </param>
-    public static Vector2 LooksAtM(GroundLocator terrain, SimConfig config, Vector2 worldSizeM, float inViewM)
+    /// <remarks>
+    /// <b>The player's look-up</b> (the root decision log, 2026-10-13): the nearest street lane to the middle, off the
+    /// road's own index — the town holds no ground of its own while it runs.
+    /// </remarks>
+    public static Vector2 LooksAtM(RoadGraph roads, Vector2 worldSizeM, float inViewM)
     {
         var middleM = worldSizeM * 0.5f;
-        var roadM = NearestRoadM(terrain, config.Terrain.GroundStepM, middleM, worldSizeM);
+        var lane = roads.NearestStreetLane(middleM, out var alongM);
+        if (lane < 0) return middleM;
+
+        var roadM = Spline.SampleAt(roads.ArcsOf(lane), alongM).PositionM;
         return (roadM - middleM).Length() <= inViewM ? middleM : roadM;
-    }
-
-    /// <summary>The nearest ground a car could be on, or the middle itself where the town holds none.</summary>
-    static Vector2 NearestRoadM(GroundLocator terrain, float stepM, Vector2 middleM, Vector2 worldSizeM)
-    {
-        if (terrain.At(middleM).Drivable) return middleM;
-
-        var reachM = MathF.Max(worldSizeM.X, worldSizeM.Y) * OfTheTown;
-        for (var ringM = stepM; ringM <= reachM; ringM += stepM)
-        {
-            // The ring is walked as a square rather than a circle: the answer is the same ground either
-            // way, and a trigonometric sweep is arithmetic spent on nothing.
-            var steps = (int)MathF.Ceiling(ringM / stepM);
-            for (var step = -steps; step <= steps; step++)
-            {
-                var alongM = step * stepM;
-                if (Drivable(terrain, middleM + new Vector2(alongM, -ringM), out var atM)) return atM;
-                if (Drivable(terrain, middleM + new Vector2(alongM, ringM), out atM)) return atM;
-                if (Drivable(terrain, middleM + new Vector2(-ringM, alongM), out atM)) return atM;
-                if (Drivable(terrain, middleM + new Vector2(ringM, alongM), out atM)) return atM;
-            }
-        }
-
-        return middleM;
-    }
-
-    static bool Drivable(GroundLocator terrain, Vector2 pointM, out Vector2 atM)
-    {
-        atM = pointM;
-        return terrain.At(pointM).Drivable;
     }
 }

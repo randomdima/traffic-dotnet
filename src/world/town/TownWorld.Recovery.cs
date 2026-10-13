@@ -71,12 +71,6 @@ internal sealed partial class TownWorld
     /// <summary>And how many are standing in a yard being mended, which is what the repair pass is skipped on.</summary>
     int _mendingCount;
 
-    /// <summary>And how many are on a bar this instant, which is what the coupling phase is skipped on.</summary>
-    int _onTheBar;
-
-    /// <summary>The wrecks waiting, mending and on a bar, for the device to lay once at load (<c>app/devicetick/TownState</c>).</summary>
-    internal (int Waiting, int Mending, int OnTheBar) Wrecks => (_wreckCount, _mendingCount, _onTheBar);
-
     /// <summary>
     /// <b>A car stood on a depot's apron becomes one of that depot's evacuators</b> (SRV-2, EVA-2): the yard it
     /// delivers to and the bay held for it, which is where every recovery of one that does not patrol begins and
@@ -191,9 +185,9 @@ internal sealed partial class TownWorld
         var fromM = Cars.PositionM[car];
         var best = RecoveryDuty.Nothing;
         var bestM = float.PositiveInfinity;
-        for (var wreck = 0; wreck < Cars.Count; wreck++)
+        for (var wreck = _wrecked.Next(0, Cars.Count); wreck >= 0; wreck = _wrecked.Next(wreck + 1, Cars.Count))
         {
-            // Whether a wreck is taken is a walk of the fleet, so only one nearer than the best is asked it.
+            // Whether a wreck is taken is a walk of the evacuators, so only one nearer than the best is asked it.
             var farM = (Cars.PositionM[wreck] - fromM).LengthSquared();
             if (farM >= bestM || !IsAWreckWorthFetching(wreck)) continue;
 
@@ -207,7 +201,7 @@ internal sealed partial class TownWorld
         _recovery.SinceS[car] = 0f;
         _recovery.HitchedForS[car] = 0f;
         EnterTheRecoveryStage(car, RecoveryStage.Running);
-        SendTo(car, Cars.PositionM[best], ParkingRegistry.NoBay);
+        SendTo(car, RoadPlaceOfCar(best), Cars.PositionM[best]);
         return true;
     }
 
@@ -219,10 +213,13 @@ internal sealed partial class TownWorld
         Cars.Broken[wreck] && _recovery.OnTheHookOf[wreck] == RecoveryDuty.Nothing
         && !_recovery.InTheYard[wreck] && !IsAlreadyTaken(wreck);
 
-    /// <summary>Whether some other evacuator has already taken this wreck.</summary>
+    /// <summary>
+    /// Whether some other evacuator has already taken this wreck. Only a car stood as one is ever given a recovery
+    /// (<see cref="TakeAWreck"/>), and one struck off since stays on the list, so the list is every car that can hold one.
+    /// </summary>
     bool IsAlreadyTaken(int wreck)
     {
-        for (var car = 0; car < Cars.Count; car++)
+        foreach (var car in _evacuators)
         {
             if (_recovery.Wreck[car] == wreck) return true;
         }
@@ -239,11 +236,10 @@ internal sealed partial class TownWorld
     /// </summary>
     bool IsTheNearestFreeEvacuatorTo(int car, int wreck, float farM)
     {
-        for (var other = 0; other < Cars.Count; other++)
+        foreach (var other in _evacuators)
         {
             if (other == car || !IsAnEvacuator(other) || Cars.Broken[other] || _recovery.IsOnARecovery(other)) continue;
 
-            TakeTheCarsPoseBack(other);
             var otherM = (Cars.PositionM[wreck] - Cars.PositionM[other]).LengthSquared();
             var nearer = otherM < farM || (otherM == farM && other < car);
             if (nearer && HasRoomInItsYard(other)) return false;
@@ -283,7 +279,7 @@ internal sealed partial class TownWorld
         // A leg that ended before the wreck was reached — given up, or a bay left and nowhere gone
         // — is begun again from where the evacuator actually stands (CAR-15). A wreck is shunted about by
         // whatever hits it, so the standing place is re-read rather than remembered.
-        if (!TheHitchingPlaceM(car, wreck, out var standM))
+        if (!TheHitchingPlace(car, wreck, out var stand))
         {
             GiveUpTheRecovery(car, counted: true);
             return;
@@ -292,12 +288,12 @@ internal sealed partial class TownWorld
         if (!Cars.Driven[car])
         {
             ShowTheStage(car, RecoveryStage.Running);
-            SendTo(car, standM, ParkingRegistry.NoBay);
+            SendTo(car, stand);
             return;
         }
 
         var atRest = Cars.VelocityMps[car].Length() <= _config.Driving.StopSpeedMps;
-        var withinReach = (Cars.PositionM[car] - standM).Length() <= _config.EvacuatorSceneReachM;
+        var withinReach = (Cars.PositionM[car] - PointOf(stand)).Length() <= _config.EvacuatorSceneReachM;
         if (!atRest || !withinReach)
         {
             _recovery.HitchedForS[car] = 0f;
@@ -306,7 +302,7 @@ internal sealed partial class TownWorld
             // Come to rest at the place and still out of reach: the evacuator overshot or stopped on the
             // wrong side of it. A place behind the car is not a place to hold at, so the leg is laid
             // again from the pose it is actually in and the route takes it round.
-            if (atRest && StoppedWhereItWasSent(car)) SendTo(car, standM, ParkingRegistry.NoBay);
+            if (atRest && StoppedWhereItWasSent(car)) SendTo(car, stand);
 
             return;
         }
@@ -338,7 +334,7 @@ internal sealed partial class TownWorld
     {
         var behindM = TowBar.SetDownBehindM(Cars.BuildOf(car), Cars.BuildOf(wreck));
         var atM = Cars.PositionM[car] - (ForwardOf(car) * behindM);
-        if (!IsFreeToSetDown(wreck, car, atM, Cars.HeadingRad[car])) return false;
+        if (!IsFreeToSetDown(wreck, car, atM)) return false;
 
         SetTheWreckDown(wreck, car, atM, Cars.HeadingRad[car]);
         return true;
@@ -348,20 +344,20 @@ internal sealed partial class TownWorld
     /// <b>Whether a car can be put down here</b> (TER-4c.8): nobody but it and the truck putting it there stands on
     /// the ground its body would, and nobody has ground there it can no longer stop short of.
     /// </summary>
-    [SkipLocalsInit]
-    bool IsFreeToSetDown(int car, int by, Vector2 atM, float headingRad)
+    /// <remarks>
+    /// <b>A special unit's own sum on arriving</b> (the root decision log, 2026-10-13): the ground is read on the ways the
+    /// world reads the truck on (TER-4c.2) — the place found on each, its body's length either side — and nothing is
+    /// looked up.
+    /// </remarks>
+    bool IsFreeToSetDown(int car, int by, Vector2 atM)
     {
-        var halfM = Cars.BuildOf(car).CollisionSizeM * 0.5f;
-        Span<WayCover> under = stackalloc WayCover[MostWaysUnderABody];
-        var count = _atlas.UnderBox(atM, Heading.Unit(headingRad), halfM.X, halfM.Y, under, Cars.Channels[by]);
-
-        // A layer sent back in part may not hold the ground yet, which is taken until it does.
-        if (!KnowsTheWaysUnder(under[..count])) return false;
-
-        for (var at = 0; at < count; at++)
+        var halfM = Cars.BuildOf(car).HalfLengthM;
+        foreach (ref readonly var cover in CoversOfCar(by))
         {
-            ref readonly var cover = ref under[at];
-            if (_occupancy.IsTakenByOthers(cover.Way, cover.FromM, cover.ToM, car, by, LaneRoster.Driving)) return false;
+            var line = _lines.LineOf(cover.Way, out _);
+            var aroundM = (cover.FromM + cover.ToM) * 0.5f;
+            var onM = Spline.ProjectM(line, atM, aroundM, cover.ToM - cover.FromM + (4f * halfM));
+            if (_occupancy.IsTakenByOthers(cover.Way, onM - halfM, onM + halfM, car, by, LaneRoster.Driving)) return false;
         }
 
         return true;
@@ -379,19 +375,15 @@ internal sealed partial class TownWorld
     /// its lane is one the fork arrives at an angle to, and the leg is laid again until `EVA-8`'s bound ends
     /// the recovery.
     /// </remarks>
-    bool TheHitchingPlaceM(int car, int wreck, out Vector2 placeM)
+    /// <remarks>
+    /// <b>Read off where the world reads the wreck</b> (<see cref="RoadPlaceOfCar"/>): nothing is looked up (the root
+    /// decision log, 2026-10-13).
+    /// </remarks>
+    bool TheHitchingPlace(int car, int wreck, out RoadPlace place)
     {
-        var lyingAtM = Cars.PositionM[wreck];
-        var lane = _roads.NearestStreetLane(lyingAtM, out var alongM);
-        if (lane < 0)
-        {
-            placeM = default;
-            return false;
-        }
-
-        var forward = Spline.SampleAt(_roads.ArcsOf(lane), alongM).Direction;
-        placeM = lyingAtM + (forward * TowBar.SetDownBehindM(Cars.BuildOf(car), Cars.BuildOf(wreck)));
-        return true;
+        var lying = RoadPlaceOfCar(wreck);
+        place = lying.IsSomewhere ? OnAlong(lying, TowBar.SetDownBehindM(Cars.BuildOf(car), Cars.BuildOf(wreck))) : lying;
+        return lying.IsSomewhere;
     }
 
     /// <summary>
@@ -484,7 +476,7 @@ internal sealed partial class TownWorld
         if (_recovery.HitchedForS[car] < _config.Evacuator.HitchingS) return;
 
         var headingRad = BayTemplate.StandingHeadingRad(_parking.HeadingRad(slot), noseIn: true);
-        if (!IsFreeToSetDown(wreck, car, _parking.CentreM(slot), headingRad)) return;
+        if (!IsFreeToSetDown(wreck, car, _parking.CentreM(slot))) return;
 
         SetTheWreckDown(wreck, car, _parking.CentreM(slot), headingRad);
         _parking.Occupy(slot, wreck);
@@ -492,7 +484,6 @@ internal sealed partial class TownWorld
         LetGoOfIt(car, wreck);
         _recovery.InTheYard[wreck] = true;
         _recovery.RepairedForS[wreck] = 0f;
-        _onTheBar--;
         _mendingCount++;
         WrecksYarded++;
 
@@ -541,13 +532,9 @@ internal sealed partial class TownWorld
         Cars.Broken[car] = false;
         _wrecked.Remove(car);
         Cars.Command[car] = DriveCommand.Parked;
-        Cars.AccelerationMps2[car] = Vector2.Zero;
-        for (var wheel = car * TyreModel.Wheels; wheel < (car + 1) * TyreModel.Wheels; wheel++)
-        {
-            Cars.WheelSpinMps[wheel] = 0f;
-        }
-
-        _wheels.Clear(car);
+        SignalTheWheel(car);
+        SignalTheShow(car);
+        ClearTheWheels(car);
         LetTheBuildingLetItGo(car);
         WrecksRestored++;
     }
@@ -623,7 +610,6 @@ internal sealed partial class TownWorld
         if (towed < 0) return;
 
         LetGoOfIt(car, towed);
-        _onTheBar--;
         if (Cars.Broken[towed]) _wreckCount++;
     }
 
@@ -674,8 +660,6 @@ internal sealed partial class TownWorld
     /// </remarks>
     int WhatTheArmIsTouching(int car, out bool byTheTail)
     {
-        // Every car is asked whether the arm reaches it, wherever its last step left it.
-        TakeEveryPoseBack();
         ref readonly var build = ref Cars.BuildOf(car);
         var forward = ForwardOf(car);
         var hingeM = TowBar.HookM(build, Cars.PositionM[car], forward);
@@ -737,9 +721,9 @@ internal sealed partial class TownWorld
         Cars.Reroutes[caught] = 0;
         _driveProgress.Restart(caught);
         Cars.Command[caught] = Cars.Broken[caught] ? DriveCommand.Locked : DriveCommand.Idle;
+        SignalTheWheel(caught);
 
         CoupleUp(car, caught);
-        _onTheBar++;
         if (!Cars.Broken[caught]) return;
 
         _wreckCount--;
@@ -760,6 +744,7 @@ internal sealed partial class TownWorld
         _recovery.Towing[car] = wreck;
         _recovery.OnTheHookOf[wreck] = car;
         Enter(wreck, CarAction.Towed);
+        Couple(wreck, car, _recovery.HeldByTheTail[wreck]);
     }
 
     /// <summary>And parted, at whichever end the errand ended.</summary>
@@ -768,6 +753,7 @@ internal sealed partial class TownWorld
         _recovery.Towing[car] = RecoveryDuty.Nothing;
         _recovery.OnTheHookOf[wreck] = RecoveryDuty.Nothing;
         Enter(wreck, CarAction.Stand);
+        Couple(wreck, -1, byTheTail: false);
     }
 
     /// <summary>The recovery given up: the wreck released for whoever can reach it, and the evacuator sent home.</summary>
@@ -820,10 +806,9 @@ internal sealed partial class TownWorld
     {
         var slot = AFreeYardSlot(_recovery.Yard[car]);
         var depot = _recovery.Depot[car];
-        SendTo(
-            car,
-            slot >= 0 ? _parking.CentreM(slot) : depot >= 0 ? _plan.Buildings.CentreM[depot] : Cars.PositionM[car],
-            ParkingRegistry.NoBay);
+        if (slot >= 0) SendTo(car, RoadPlaceOfBay(slot), _parking.CentreM(slot));
+        else if (depot >= 0) SendTo(car, _roadPlaceOfBuilding[depot], _plan.Buildings.CentreM[depot]);
+        else SendTo(car, RoadPlace.Nowhere);
     }
 
     /// <summary>
@@ -843,8 +828,9 @@ internal sealed partial class TownWorld
             if (bay >= 0 && _parking.CarInBay(bay) == ParkingRegistry.Nobody) room++;
         }
 
-        for (var other = 0; other < Cars.Count && room > 0; other++)
+        foreach (var other in _evacuators)
         {
+            if (room <= 0) break;
             if (other != car && _recovery.Yard[other] == yard && _recovery.Wreck[other] != RecoveryDuty.Nothing) room--;
         }
 
@@ -902,13 +888,8 @@ internal sealed partial class TownWorld
     void SetTheWreckDown(int wreck, int by, Vector2 atM, float headingRad)
     {
         PutOnChannels(wreck, Cars.Channels[by]);
-        _physics.Release(Cars.Body[wreck], atM, headingRad);
-        Cars.PositionM[wreck] = atM;
-        Cars.HeadingRad[wreck] = headingRad;
-        Cars.VelocityMps[wreck] = Vector2.Zero;
-        Cars.YawRateRadPerS[wreck] = 0f;
-        Cars.AccelerationMps2[wreck] = Vector2.Zero;
-        _wheels.Clear(wreck);
+        PlaceTheCar(wreck, atM, headingRad);
+        ClearTheWheels(wreck);
     }
 
     /// <summary>

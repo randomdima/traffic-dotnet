@@ -7,8 +7,10 @@ namespace TrafficSimulation.Core.Config;
 /// Sixteen iterations and a 0.8 contact bias are Box2D v3's, which is what the picture was matched
 /// against; no restitution appears at all, because a collision in this town is a crash rather than a
 /// break shot. The allowance and the speculative distance are a pair — the allowance is the depth an
-/// overlap settles to, the speculative distance is how early a pair is given a manifold, which is what
-/// stops an approach in the tick it would otherwise have crossed and is why nothing is swept.
+/// overlap settles to, the speculative distance is how early a pair is given a manifold. <b>It stops only an
+/// approach that closes by no more than itself in a step</b>: one closing faster is first seen already
+/// overlapping and is pushed out (SOL-12), and nothing is swept (SOL-17), so a fast body can pass through a
+/// thin one.
 /// </remarks>
 internal sealed class SolverFigures
 {
@@ -24,7 +26,14 @@ internal sealed class SolverFigures
     /// <summary>The ceiling on a positional correction, so a body found deep inside another is walked out rather than fired out.</summary>
     public float MaxPushOutMps { get; init; } = 3f;
 
+    /// <summary>A drag on every moving body, per second of its speed — and its yaw rate's pair below.</summary>
+    /// <remarks>
+    /// <b>Unmodelled, and the driver leans on it</b>: about 1.4 m/s² at 14 m/s, which no stopping figure, committed ground
+    /// or top speed is derived with, so every car stops shorter than it planned by it. At 0 the hazards and the reds
+    /// rose severalfold (physics log, 2026-10-12).
+    /// </remarks>
     public float LinearDamping { get; init; } = 0.1f;
+
     public float AngularDamping { get; init; } = 1f;
 
     /// <summary>
@@ -61,6 +70,13 @@ internal sealed class SimFigures
     /// </remarks>
     public float ClaimsIntervalS { get; init; } = 0.05f;
 
+    /// <summary>
+    /// <b>How many steps the world runs ahead of what the actors read of it</b> (<c>WorldLayer.StepsAhead</c>): a command
+    /// acts on the world this many steps after the one it was read off.
+    /// </summary>
+    /// <remarks>The world layer's shape and not a tuning: it keeps one view ahead, so this is not authored.</remarks>
+    public const int WorldStepsAhead = 1;
+
     /// <summary>A time scale above this integrates the physics coarsely and manufactures collisions the model never had.</summary>
     public float SoakMaxTimeScale { get; init; } = 5f;
 
@@ -77,7 +93,7 @@ internal sealed class SimFigures
     /// </summary>
     /// <remarks>
     /// Sized at the question rather than at any one population: two car lengths puts a car's box in one or
-    /// two cells and keeps a hundred-metre ray's walk to a dozen, and a street's own lines, a walker's flight
+    /// two cells, and a street's own lines, a walker's flight
     /// and a car park's bays are all asked about within a cell or two of this.
     /// </remarks>
     public float GridCellInCarWidths { get; init; } = 4f;
@@ -192,6 +208,21 @@ internal sealed class ViewFigures
     /// picture carries its rear tyres and its dull lenses either way.
     /// </summary>
     public float CarPartLeastPx { get; init; } = 1.5f;
+
+    /// <summary>
+    /// The smallest a prop — standing or scenery — is drawn, in interface pixels across its longer side; smaller, the
+    /// vertex stage puts it out of the picture. <b>It is where a whole-town framing is</b>: hundreds of thousands of props
+    /// each a pixel or less, blended into the ground under them at a cost the picture does not show.
+    /// </summary>
+    public float PropLeastPx { get; init; } = 1.5f;
+
+    /// <summary>
+    /// How far the zoom moves, as a factor, before the debug layers lay the town's graphs again: they are laid at the
+    /// scale of the rung of this ladder at or under the zoom, so a line's floor in pixels is at most this much heavier
+    /// than at the zoom itself, and a wheel turned a notch at a time lays them once every few notches
+    /// (<see cref="CameraZoomPerNotch"/>) rather than at every one.
+    /// </summary>
+    public float DebugRelayZoomFactor { get; init; } = 1.5f;
 
     /// <summary>
     /// How many units one selection may hold (CTL-1b). A bound and not a preference: the set is one

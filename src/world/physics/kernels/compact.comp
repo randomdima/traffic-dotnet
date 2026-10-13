@@ -1,14 +1,32 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
 
-// The candidates that met, packed into the step's contacts in the candidates' own order — the scan of the met flags
-// says where each goes — and each body's overlap with what it touches kept (PhysicsWorld.OverlapOf, SOL-9): the
-// deepest point, the furniture's left alone. The overlap is a float kept as its bits, which for a depth that is
-// never negative order the same, so the maximum does not depend on which contact got there first.
+// The candidates that met, packed into the step's contacts in the order of their pairs — the scan of the met flags says
+// where each goes among the candidates' — merged with the side list the woken bodies' pairs met (woken.comp), which is
+// in the same order: one thread a candidate, then one a side contact, each placed by how many of the other list come
+// before it. Each body's overlap with what it touches is kept (PhysicsWorld.OverlapOf, SOL-9): the deepest point, the
+// furniture's left alone. The overlap is a float kept as its bits, which for a depth that is never negative order the
+// same, so the maximum does not depend on which contact got there first.
+//
+// Each contact is then prepared where it was packed (PhysicsWorld.Prepare): the arms and effective masses every point
+// is solved against, with the impulses started from nothing — off the contact just written and the bodies' poses and
+// inverses, which nothing before the solve changes. Two slots a contact, as on the CPU: point p of contact c at 2c + p.
 
 layout(local_size_x = 64) in;
 
 #include "step.glsl"
+#include "shape.glsl"
+
+// Where the step's totals keep how many contacts the side list holds (DeviceSolver.Totals).
+const uint SideContactsAt = 3u;
+
+// woken.comp's side list, in its pairs' order.
+struct SideContact
+{
+    uvec4 pair;
+    vec4 normalAndDepth;
+    vec4 points;
+};
 
 layout(std430, binding = 0) readonly buffer Candidates { uvec2 candidates[]; };
 layout(std430, binding = 1) readonly buffer Met { uint met[]; };
@@ -19,28 +37,110 @@ layout(std430, binding = 5) writeonly buffer Contact { uvec4 contact[]; };
 layout(std430, binding = 6) writeonly buffer ContactNormal { vec4 contactNormal[]; };
 layout(std430, binding = 7) writeonly buffer ContactPoints { vec4 contactPoints[]; };
 layout(std430, binding = 8) buffer Overlap { uint overlap[]; };
-layout(std430, binding = 9) readonly buffer Filter { uvec4 filter_[]; };
+layout(std430, binding = 9) readonly buffer Filter { uint filter_[]; };
 layout(std430, binding = 10) readonly buffer Totals { uint totals[]; };
+layout(std430, binding = 11) readonly buffer Pose { vec4 pose[]; };
+layout(std430, binding = 12) readonly buffer Mass { vec2 mass[]; };
+layout(std430, binding = 13) writeonly buffer Arms { vec4 arms[]; };
+layout(std430, binding = 14) writeonly buffer PointMass { vec2 pointMass[]; };
+layout(std430, binding = 15) writeonly buffer Impulses { vec4 impulses[]; };
+layout(std430, binding = 16) readonly buffer Side { SideContact side[]; };
 
-void main()
+float effectiveMass(vec2 massA, vec2 massB, vec2 armA, vec2 armB, vec2 direction)
 {
-    uint at = gl_GlobalInvocationID.x;
-    if (at >= min(totals[CandidateTotalAt], capacity)) return;
+    float turnA = shapeCross(armA, direction);
+    float turnB = shapeCross(armB, direction);
+    precise float resistance = massA.x + massB.x + massA.y * turnA * turnA + massB.y * turnB * turnB;
+    return resistance > 0.0 ? roundedQuotient(1.0, resistance) : 0.0;
+}
 
-    uint points = met[at];
-    if (points == 0u) return;
+void prepare(uint at, uvec2 pair, uint pointCount, vec2 normal, vec4 points)
+{
+    vec2 tangent = shapeLeftPerpendicular(normal);
+    vec2 positionA = pose[pair.x].xy;
+    vec2 positionB = pose[pair.y].xy;
+    vec2 massA = mass[pair.x];
+    vec2 massB = mass[pair.y];
 
-    uint into = starts[at];
-    uvec2 pair = candidates[at];
-    vec4 normalAndDepth = manifoldA[at];
+    for (uint point = 0u; point < pointCount; point++)
+    {
+        vec2 pointM = point == 0u ? points.xy : points.zw;
+        precise vec2 armA = pointM - positionA;
+        precise vec2 armB = pointM - positionB;
+        uint slot = at * 2u + point;
+        arms[slot] = vec4(armA, armB);
+        pointMass[slot] = vec2(effectiveMass(massA, massB, armA, armB, normal), effectiveMass(massA, massB, armA, armB, tangent));
+        impulses[slot] = vec4(0.0);
+    }
+}
+
+bool before(uvec2 a, uvec2 b) { return a.x < b.x || (a.x == b.x && a.y < b.y); }
+
+// How many of the side list's pairs come before this one.
+uint sidesBefore(uvec2 pair, uint sides)
+{
+    uint low = 0u;
+    uint high = sides;
+    while (low < high)
+    {
+        uint middle = (low + high) / 2u;
+        if (before(side[middle].pair.xy, pair)) low = middle + 1u;
+        else high = middle;
+    }
+
+    return low;
+}
+
+// How many of the candidates' contacts come before this pair, which is none of theirs.
+uint metBefore(uvec2 pair, uint count)
+{
+    uint low = 0u;
+    uint high = count;
+    while (low < high)
+    {
+        uint middle = (low + high) / 2u;
+        if (before(candidates[middle], pair)) low = middle + 1u;
+        else high = middle;
+    }
+
+    return low == 0u ? 0u : starts[low - 1u] + (met[low - 1u] != 0u ? 1u : 0u);
+}
+
+void pack(uint into, uvec2 pair, uint points, vec4 normalAndDepth, vec4 contactAt)
+{
+    // Past the room, the step's contact total says so (DeviceSolver.Overflowed).
+    if (into >= contactCapacity) return;
+
     contact[into] = uvec4(pair, points, 0u);
     contactNormal[into] = normalAndDepth;
-    contactPoints[into] = manifoldB[at];
+    contactPoints[into] = contactAt;
+    prepare(into, pair, points, normalAndDepth.xy, contactAt);
 
     float deepestM = -normalAndDepth.z;
     if (points > 1u) deepestM = max(deepestM, -normalAndDepth.w);
     if (deepestM <= 0.0) return;
 
     atomicMax(overlap[pair.x], floatBitsToUint(deepestM));
-    if ((filter_[pair.y].x & staticBit) == 0u) atomicMax(overlap[pair.y], floatBitsToUint(deepestM));
+    if ((filter_[pair.y] & staticBit) == 0u) atomicMax(overlap[pair.y], floatBitsToUint(deepestM));
+}
+
+void main()
+{
+    uint at = gl_GlobalInvocationID.x;
+    uint count = min(totals[CandidateTotalAt], capacity);
+    uint sides = totals[SideContactsAt];
+    if (at < count)
+    {
+        uint points = met[at];
+        if (points == 0u) return;
+
+        uvec2 pair = candidates[at];
+        pack(starts[at] + sidesBefore(pair, sides), pair, points, manifoldA[at], manifoldB[at]);
+        return;
+    }
+
+    if (at >= count + sides) return;
+
+    SideContact found = side[at - count];
+    pack(at - count + metBefore(found.pair.xy, count), found.pair.xy, found.pair.z, found.normalAndDepth, found.points);
 }

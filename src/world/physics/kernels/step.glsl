@@ -46,7 +46,14 @@ layout(push_constant) uniform Step
 
     // How many pairs a step can list as begun touching (touches.comp).
     uint begunRoom;
-    uint pad0;
+
+    // How many buckets a hashed grid's cells are filed in, a power of two — or none, for a grid filed cell for cell.
+    uint buckets;
+
+    // How many contacts a step may hold, where `capacity` is how many candidates (DeviceSolver.ContactCapacity), and how
+    // many of them the bodies it woke may find (woken.comp).
+    uint contactCapacity;
+    uint sideRoom;
 };
 
 // Where the step keeps its running totals and the indirect dispatches made of them (DeviceSolver.Totals).
@@ -61,3 +68,18 @@ const uint LeftOverAt = 13u;
 int cellX(float atM) { precise float scaled = atM * perCellM; return clamp(int(floor(scaled)), windowFromX, windowFromX + windowWidth - 1); }
 int cellY(float atM) { precise float scaled = atM * perCellM; return clamp(int(floor(scaled)), windowFromY, windowFromY + windowHeight - 1); }
 uint cellIndex(int x, int y) { return uint((y - windowFromY) * windowWidth + (x - windowFromX)); }
+
+// Where a grid keeps a cell's run: the cell's own place, or the bucket it hashes to where the grid is hashed (buckets).
+// Neighbouring cells are numbered one or a row apart, so the number is mixed whole before it is cut to the buckets.
+uint slotOf(uint cell)
+{
+    if (buckets == 0u) return cell;
+
+    uint mixed = cell;
+    mixed ^= mixed >> 16;
+    mixed *= 0x7feb352du;
+    mixed ^= mixed >> 15;
+    mixed *= 0x846ca68bu;
+    mixed ^= mixed >> 16;
+    return mixed & (buckets - 1u);
+}

@@ -31,12 +31,12 @@ internal sealed partial class TownWorld
 
         public void Drive(
             int car, in CarBuild build, in CarPose pose, ReadOnlySpan<ArcSeg> line, float progressM, float lengthM,
-            in DriveContext context, Vector2 travel, float alongMps, bool reverse) =>
-            town.Drive(car, build, pose, line, progressM, lengthM, context, travel, alongMps, reverse);
+            in DriveContext context, Vector2 travel, float alongMps, bool reverse, float backsUpByM = float.NaN) =>
+            town.Drive(car, build, pose, line, progressM, lengthM, context, travel, alongMps, reverse, default, backsUpByM);
 
         public void Hold(int car, in CarPose pose, DrivingHold why) => town.Hold(car, pose, why);
 
-        public void Tyres(int car, in CarPose pose) => town.Tyres(car, pose);
+        public void Tyres(int car) => town.Tyres(car);
 
         public float ToTheSceneM(int car) => town.ToTheSceneM(car);
 

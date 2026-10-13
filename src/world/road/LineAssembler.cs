@@ -39,14 +39,31 @@ internal static class LineAssembler
     /// <summary>The most lanes a line is laid over, whatever the distance says — a bound on the work, not a figure behaviour reads.</summary>
     public const int MostLanes = 12;
 
-    /// <summary>What the arc budget per car has to be for a line of <see cref="MostLanes"/> lanes and the joins between them.</summary>
-    public static int ArcsFor(RoadGraph graph)
+    /// <summary>
+    /// <b>The most arcs a line is laid with</b> — a bound on each car's room for its line, not a figure behaviour reads: a
+    /// line stops at the last lane sure to fit, as it stops at <see cref="MostLanes"/>, and the car asks for more as it
+    /// runs out. OdesaOsm's longest held 57 (`--bench room`), where room for twelve of the town's longest lanes was 343.
+    /// </summary>
+    public const int MostArcs = 96;
+
+    /// <summary>The most one lane and the join into it add to a line.</summary>
+    public static int MostArcsOfALane(RoadGraph graph)
     {
         var most = 0;
         for (var lane = 0; lane < graph.LaneCount; lane++) most = Math.Max(most, graph.ArcsOf(lane).Length);
 
-        return (most + 2) * MostLanes + (MostLanes - 1) * Spline.MostMovementArcs;
+        return most + Spline.MostMovementArcs;
     }
+
+    /// <summary>What one lane and the join into it from <paramref name="fromLane"/> add to a line.</summary>
+    public static int ArcsOfALane(RoadGraph graph, int fromLane, int lane)
+    {
+        var join = fromLane < 0 ? RoadGraph.NoConnector : graph.ConnectorBetween(fromLane, lane);
+        return graph.ArcsOf(lane).Length + (join == RoadGraph.NoConnector ? 0 : graph.ConnectorArcs(join).Length);
+    }
+
+    /// <summary>The room each car has for its line: <see cref="MostArcs"/>, or two of the town's longest lanes where that is more.</summary>
+    public static int ArcsFor(RoadGraph graph) => Math.Max(MostArcs, 2 * MostArcsOfALane(graph));
 
     /// <summary>
     /// The line over a run of lanes, with the town's own join through each junction threaded between
@@ -71,9 +88,16 @@ internal static class LineAssembler
     /// Where given, the arc each lane's own arcs begin at — what a line shifted on past its first lane drops the arcs
     /// in front of (<c>CarFleet.ShiftTheLine</c>).
     /// </param>
+    /// <param name="keptWhole">
+    /// How many of the first lanes already stand in <paramref name="into"/> as an assembly over these very lanes laid
+    /// them, each with a lane after it — a line grown at its far end. Their arcs are kept as they stand and only their
+    /// metres summed again, so the line comes out to the bit as one assembled whole; <paramref name="laneFirstArc"/>
+    /// has to hold where the earlier assembly began each of them and the one after.
+    /// </param>
     public static DrivenLine Assemble(
         RoadGraph graph, ReadOnlySpan<int> lanes, Span<ArcSeg> into, Span<float> laneStartM,
-        Span<float> laneEndM, float lastLaneToM = float.PositiveInfinity, Span<int> laneFirstArc = default)
+        Span<float> laneEndM, float lastLaneToM = float.PositiveInfinity, Span<int> laneFirstArc = default,
+        int keptWhole = 0)
     {
         var written = 0;
         var lengthM = 0f;
@@ -83,23 +107,25 @@ internal static class LineAssembler
         {
             var lane = lanes[index];
             var leavingOn = index < lanes.Length - 1 ? graph.ConnectorBetween(lane, lanes[index + 1]) : RoadGraph.NoConnector;
+            var kept = index < keptWhole;
 
             if (arrivedOn != RoadGraph.NoConnector)
             {
                 var join = graph.ConnectorArcs(arrivedOn);
-                join.CopyTo(into[written..]);
+                if (!kept) join.CopyTo(into[written..]);
                 written += join.Length;
                 lengthM += graph.ConnectorLengthM(arrivedOn);
             }
 
             // <b>A lane is threaded whole</b> (TER-5d): every join lands on its first point, and the join
             // after it begins where its line ends.
-            var toM = graph.LaneLengthM[lane];
-            if (index == lanes.Length - 1) toM = MathF.Min(toM, MathF.Max(0f, lastLaneToM));
+            var toM = LaidToM(graph, lane, index == lanes.Length - 1, lastLaneToM);
 
             laneStartM[index] = lengthM;
             if (!laneFirstArc.IsEmpty) laneFirstArc[index] = written;
-            var laid = Spline.SubChainInto(graph.ArcsOf(lane), 0f, toM, into[written..]);
+            var laid = kept
+                ? laneFirstArc[index + 1] - written - graph.ConnectorArcs(leavingOn).Length
+                : Spline.HeadInto(graph.ArcsOf(lane), toM, into[written..]);
             for (var arc = 0; arc < laid; arc++) lengthM += into[written + arc].LengthM;
             written += laid;
             laneEndM[index] = lengthM;
@@ -115,13 +141,17 @@ internal static class LineAssembler
         return new DrivenLine(written, lanes.Length, lengthM);
     }
 
+    /// <summary>How far along its own lane a lane is laid into a line: whole, or to where the line stops on the last one asked for.</summary>
+    public static float LaidToM(RoadGraph graph, int lane, bool lastAskedFor, float lastLaneToM) =>
+        lastAskedFor ? MathF.Min(graph.LaneLengthM[lane], MathF.Max(0f, lastLaneToM)) : graph.LaneLengthM[lane];
+
     /// <summary>
     /// <b>Where a place on one of a line's lanes falls along the line itself</b> — a painted bar, a
     /// crossing, anything the town measured against a lane and a driver has to meet on its own line.
     /// </summary>
     /// <remarks>
     /// <b>The two measures run at the same rate and start together at the lane's own start.</b> The line over
-    /// a lane <em>is</em> that lane's own arcs and nothing else (<see cref="Spline.SubChainInto"/>), so a
+    /// a lane <em>is</em> that lane's own arcs and nothing else (<see cref="Spline.HeadInto"/>), so a
     /// metre of one is a metre of the other. It is still clamped to the stretch being driven, because a line
     /// may stop short of a lane's end where a car waits for its manoeuvre into a bay.
     /// </remarks>

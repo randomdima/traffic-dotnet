@@ -158,7 +158,7 @@ public class TyreModelTests
         var wheels = Step(pose, new DriveCommand(0.4f, Figures.CarAccelerationMps2, 0f, false, false));
 
         Span<float> loads = stackalloc float[TyreModel.Wheels];
-        TyreModel.Loads(Figures, Car, pose,loads);
+        TyreModel.Loads(Car,pose,loads);
 
         for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
         {
@@ -194,7 +194,7 @@ public class TyreModelTests
         var wheels = Step(pose, DriveCommand.Parked, AllOf(Paved), spinMps, out _);
 
         Span<float> loads = stackalloc float[TyreModel.Wheels];
-        TyreModel.Loads(Figures, Car, pose,loads);
+        TyreModel.Loads(Car,pose,loads);
 
         // A rolling front wheel spends its rolling resistance and the engine's share of holding the car back,
         // the front being the driven pair, and nothing else, and is still turning with the road; the rear
@@ -227,7 +227,7 @@ public class TyreModelTests
         var wheels = new WheelImpulse[TyreModel.Wheels];
         float[] spinMps = [2e-3f, -2e-3f, 0f, 0f];
 
-        Assert.True(TyreModel.HoldStill(Figures, Car, pose, inertiaKgM2, atM, AllOf(Paved), Figures.TickSeconds, wheels, spinMps));
+        Assert.True(TyreModel.HoldStill(Car, pose, inertiaKgM2, atM, AllOf(Paved), Figures.TickSeconds, wheels, spinMps));
 
         var momentumNs = Vector2.Zero;
         var spinNms = 0f;
@@ -258,7 +258,7 @@ public class TyreModelTests
         float[] spinMps = [5f, 5f, 0f, 0f];
 
         Assert.False(TyreModel.HoldStill(
-            Figures, Car, pose, Figures.Car.MassKg * 2f, atM, AllOf(Paved), Figures.TickSeconds, wheels, spinMps));
+            Car, pose, Figures.Car.MassKg * 2f, atM, AllOf(Paved), Figures.TickSeconds, wheels, spinMps));
         Assert.All(wheels, wheel => Assert.Equal(Vector2.Zero, wheel.ImpulseNs));
         Assert.Equal(5f, spinMps[0]);
     }
@@ -274,7 +274,7 @@ public class TyreModelTests
             Vector2.Zero, 0f, Vector2.Zero, 0f, Figures.Car.MassKg, new Vector2(alongMps2, acrossMps2));
 
         Span<float> loads = stackalloc float[TyreModel.Wheels];
-        TyreModel.Loads(Figures, Car, pose,loads);
+        TyreModel.Loads(Car,pose,loads);
 
         var total = 0f;
         foreach (var load in loads)
@@ -302,7 +302,7 @@ public class TyreModelTests
     {
         Span<float> loads = stackalloc float[TyreModel.Wheels];
         TyreModel.Loads(
-            Figures, Car, new CarPose(Vector2.Zero, 0f, Vector2.Zero, 0f, Figures.Car.MassKg, new Vector2(-40f, 30f)), loads);
+            Car, new CarPose(Vector2.Zero, 0f, Vector2.Zero, 0f, Figures.Car.MassKg, new Vector2(-40f, 30f)), loads);
 
         var total = 0f;
         foreach (var load in loads)
@@ -321,9 +321,9 @@ public class TyreModelTests
         Span<float> resting = stackalloc float[TyreModel.Wheels];
         Span<float> braking = stackalloc float[TyreModel.Wheels];
         TyreModel.Loads(
-            Figures, Car, new CarPose(Vector2.Zero, 0f, Vector2.Zero, 0f, Figures.Car.MassKg, Vector2.Zero), resting);
+            Car, new CarPose(Vector2.Zero, 0f, Vector2.Zero, 0f, Figures.Car.MassKg, Vector2.Zero), resting);
         TyreModel.Loads(
-            Figures, Car, new CarPose(Vector2.Zero, 0f, Vector2.Zero, 0f, Figures.Car.MassKg, new Vector2(-9f, 0f)), braking);
+            Car, new CarPose(Vector2.Zero, 0f, Vector2.Zero, 0f, Figures.Car.MassKg, new Vector2(-9f, 0f)), braking);
 
         Assert.Equal(0.5f, resting[0] + resting[1], 1e-4f);
         Assert.True(braking[0] + braking[1] > 0.5f);
@@ -335,13 +335,13 @@ public class TyreModelTests
     public void TheInnerFrontWheelTurnsFurtherThanTheOuter()
     {
         Span<float> steer = stackalloc float[TyreModel.Wheels];
-        TyreModel.Ackermann(Car,0.4f, steer);
+        TyreModel.Ackermann(Figures, Car, 0.4f, steer);
 
         Assert.True(steer[0] > steer[1], $"right {steer[0]:F3} should out-turn left {steer[1]:F3} on a right-hander");
         Assert.Equal(0f, steer[2]);
         Assert.Equal(0f, steer[3]);
 
-        TyreModel.Ackermann(Car,-0.4f, steer);
+        TyreModel.Ackermann(Figures, Car, -0.4f, steer);
         Assert.True(steer[1] < steer[0], "and the other way round on a left-hander");
     }
 
@@ -357,7 +357,7 @@ public class TyreModelTests
         var acrossNs = Step(Rolling(0f, 30f), DriveCommand.Locked)[0].ImpulseNs.Length();
 
         Span<float> loads = stackalloc float[TyreModel.Wheels];
-        TyreModel.Loads(Figures, Car, Rolling(30f), loads);
+        TyreModel.Loads(Car,Rolling(30f), loads);
 
         var budgetNs = Figures.TyreGripMps2 * Figures.Car.MassKg * loads[0] * Figures.TickSeconds;
         var dragNs = Figures.PavedDragMps2 * Figures.Car.MassKg * loads[0] * Figures.TickSeconds;
@@ -380,7 +380,7 @@ public class TyreModelTests
         var wheels = Step(pose, new DriveCommand(0f, Figures.CarAccelerationMps2, 0f, false, false));
 
         Span<float> loads = stackalloc float[TyreModel.Wheels];
-        TyreModel.Loads(Figures, Car, pose,loads);
+        TyreModel.Loads(Car,pose,loads);
 
         var alongNs = 0f;
         foreach (var wheel in wheels) alongNs += wheel.ImpulseNs.X;

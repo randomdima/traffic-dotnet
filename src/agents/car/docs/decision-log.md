@@ -3,6 +3,157 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-10-13 — a pass, a step across and a manoeuvre ask the lanes they run down, and nothing is swept
+
+**At the owner's ruling that the host looks nothing up** (the root log, 2026-10-13): every action's ground had been a
+collider swept down its path and read off the atlas — a step across's, a pass's, a manoeuvre's at a bay — and a car
+nobody drives held the box its speed swept ahead of it. Each now asks stretches of the lanes it runs down (TER-4c.6):
+
+- **A step across** (`Switching.StepGround`): its own line from the nose to where it lands, and the lane beside on to
+  the room past it, read in step with its own lane — the two being offsets of one road. The room runs no further than
+  the lane beside does; the line laid down that lane once the car is on it plans the rest.
+- **A pass** (`Overtaking.PassGround`, never decided while nothing calls `DrawThePass`): its own line and the lane
+  running back over the same metres, asked down that lane's own metres.
+- **A manoeuvre at a bay** (`BayManoeuvring.StreetUnder`): the lanes the bay is worked off, over the stretch of each
+  the body stands over at some station down the shape — the station's place on the lane being where it projects onto
+  the lane's own line from the bay's own metre on it. A body swung past those lanes is the world's to meet.
+- **A car under a hand or on a bar** (`DrivingGround.HoldWhatCannotBeStoppedShortOf`): its stopping distance down
+  each way the world reads its body on, the way it is travelling — a car off every way holds nothing.
+
+The swept tables went with them (`SweptGround`, 224 MB on OdesaOsm, almost none of it resident), as did the rooms a
+step and a manoeuvre held them in. The exam the same 13 cards, the unit, town and perf tiers green.
+
+## 2026-10-13 — a car's tick claims and follows, and nothing it reads is detected again
+
+**At the owner's word: a car does the claims and follows its known path or manoeuvre.** Profiled on OdesaOsm on the
+device (40 000 cars, 8 ticks a frame), the car tick was 111 ms of a 204 ms frame — and much of it was asking again,
+every tick, what the claims had answered:
+
+- **Nothing a car drives by is looked for ahead of it** (`TownWorld.ReadTheBoxAhead`): a light's hold and the box are
+  in its grant (TLT-1), so the tick keeps only the box's distance and turn its indicator reads. Whether it is committed
+  to the box or was granted into it, and how far a light holds its road, are worked out where they are asked
+  (`CommittedToTheBox`, `BoxIsOurs`, `LightAheadM`), and the bar a red was crossed at only while an instrument counts
+  it (`CountsRedBarCrossings`). The light is asked only by a car getting nowhere, at its decision
+  (`LegProgress.Gains`), so a car gaining ground near a light now has its clock given back like any other.
+- **A car standing in a queue does not tick** while nothing it reads has changed since a tick that changed nothing
+  (`TownWorld.TicksAsBefore`): frozen through the step, the same pose, line, action, grant, pace and stop. Exact:
+  O10's digests the same to the bit.
+
+The frame 204 → 167 ms, the car tick 111 → 71. The exam the same 13 cards; O10's digests moved with the light asked
+where it is read — the decision now reads the laying it decides after, where it read the tick before it.
+
+## 2026-10-12 — every car's wheel and pedals are worked out every tick
+
+**Measured and not taken: a cruising car holding its command for 3 ticks.** A car following its route held only by
+the gear's cap or its plan's end, moving, outside any box and clear of a hazard (asked every tick) kept the command it
+was given, its rack and pedal travelling for the ticks held when it was next worked out. On `--bench town --map Odesa`
+the car tick read 115.0 → 103.0 µs and on `--bench age` 60.4 → 59.8 (one pair, against the tree with the plan's end
+below); under `--bench drive` O10's hard brakings went 121 → 134 and its reds 11 → 13, Odesa's reds 2 → 3. Most of a
+car's tick is reading its line, its box and its grant, which a held command still needs every tick for the hazard;
+the pursuit and the profile it saves are what is left.
+
+## 2026-10-12 — a car keeps its plan's end as a hold found there would cut it
+
+**The end of a car's own plan is stopped a stand-off short of and two leads ahead** (`CarFollower.TargetSpeedMps`'s
+reach term, S-2). Bound at the bare end, a car cruising on a long straight settled where its committed ground was
+within a metre or two of its plan's 40 m: a light's hold just past the end entered the plan only once the plan had
+grown into it, cut the grant a stand-off short of it, and was read a lead after that — by when the car was committed
+past it, so the next laying let it through the red (traced on River: grant unbounded through 6 s of a red, refused
+once at 1.6 m less than it could stop in). A stand-off and one lead were the two things the bare end left out; with
+only the stand-off, or a stand-off and a claims interval, Exam's hard brakings stayed at 111 and 48.
+
+**What it moved** (`--bench drive`, against the tree before, with the amber at 2 s — trafficlight log): bars crossed on
+a red Exam 5 → 1, Odesa 8 → 2, River 4 → 1, Test 1 → 0, O10 69 → 11, O30 141 → 21, OdesaOsm 245 → 126; hard brakings
+Exam 147 → 6, Odesa 1 → 0, O10 158 → 123, OdesaOsm 24 109 → 22 714, River 3 → 3, O30 198 → 222 (the reach term's
+alone, the amber's moved none). Mean speed 1–3 % lower. The Exam's soak over 96 seeds: 72 → 54 cars wrecked, 138 →
+112 pairs touching; Odesa and River over 16: unchanged.
+
+## 2026-10-12 — a settled car's tyres are skipped where skipping changes nothing, on both worlds
+
+**A car's tyre pass is skipped only where running it would clear its impulses and scrub and change nothing else**
+(`TyrePass.Settled`): at rest, the throttle's back-off wound all the way back and no slide to lift for — on the host
+(`ManagedWorld.StepTheTyres`) and on the device (`tyre_pass.comp`) alike. The host had skipped every parked car frozen
+through the step, which left its throttle's recovery unwound where the device's wound it; the two worlds now keep the
+same carry, and either is the same to the bit as running every car.
+
+**A settled load under `TyreFigures.LeastSettledLoadMps2` is nought** on both worlds (`TownWorld.AtLeastALoad`,
+`world_view.comp`): lagged toward nothing, a parked car's load ran down to the least denormal and stayed there, so every
+car was worked out every tick, and a device flushing denormals would read it as nought where the host did not. The
+host passes over a car frozen through the step whose load is nought (`ManagedWorld.SettleTheLoads`). It moves the
+digests by loads under a ten-thousandth of a metre a second squared.
+
+## 2026-10-12 — a car reads what it already has, and only a few cars hold room for a pass
+
+**What a car worked out once is kept with what it was worked out from** and not asked again each tick: the light ahead
+once a laying and a line (`TownWorld.LightAheadM`, to the bit), the joins of its line laid with it (`CarFleet.JoinsOf`),
+where on its line its walks begin (`CarFleet.LineCursor`), the road's half of whether it moves across
+(`Switching.ShapeOfTheRoad`), its build's planned braking, cornering, resting lead and light queue reach
+(`CarBuild.PlannedBrakingMps2` and the rest, each the expression it replaced), and the lamps its tick worked out, which
+the frame now draws (`CarFleet.Lamps`). A line grown at its far end keeps its arcs (`LineAssembler.Assemble`'s
+`keptWhole`). On `--bench town --map Odesa` the car tick went 138.6 → 112.8 µs, its decisions 82.5 → 42.8 µs and the
+worst tick 18.9 → 1.0 ms (two pairs against the tree before).
+
+- **A step back's trail is read only as far as it can decide anything** (`Overtaking.StepBackTrailM`): a step drawn at
+  the tyres' edge on a bending line ran to 110 km and was read a lattice step at a time, 9.3 ms of one decision. The
+  same answer.
+- **The wheel and the off-line distance sample the line from the cursor** (`Spline.SampleFrom`), which sums the arcs
+  before it rather than taking each from the distance in turn: the same point to a float's grain, so the town is no
+  longer the same to the bit as before, and every tier answers as it did.
+- **A manoeuvre at a bay is asked for on a clock of its own** (`DrivingFigures.ManoeuvreAskEveryS`), as a pass and a
+  step across are: each ask sweeps the whole shape, and it was swept every decision while the car waited.
+- **The room to pull away and a step across's room are stopped as the profile stops** (`CarFollower.SlowsOverM`), with
+  the pedal's travel in the lead, as a plan's committed ground already was.
+- **Backing up is driven by the follower** (`CarFollower.DriveTheLine`'s `backsUpByM`) and not by a second copy of it.
+  Without the hazard: the hazard reads the grant ahead, and backing has none.
+- **What a pass, a step across and a manoeuvre sweep is kept in rooms laid for a share of the fleet** (`ActionRooms`):
+  about 21 KB a car before, 2.2 KB after. A car that finds none left is refused as one whose ground does not fit.
+- **The quiet decision by the clock alone is gone**, its test with it: switched on, it saved nothing (57.4 against
+  58.2 µs of car decisions), the full decision having become as cheap as asking whether it could be skipped.
+
+## 2026-10-11 — a car an empty map could not put on a lane asks again on its decision clock
+
+**A map with no bay a car can reach drives its own cars** (CAR-8, `TownWorld.DriveTheEmptyMap`), asked every tick. A car
+refused the lane under it — standing on none — was asked again every tick, a lane lookup each, for as long as it
+stood there. It is now asked again on its own turn of the decision clock; a car stood down is still asked on the tick it
+is, so a toured car's next leg begins as before, and only a car the map has already refused waits up to a decision
+interval longer for its lane.
+
+## 2026-10-11 — a front wheel is turned by the circle, not by its angle
+
+**The model turns a front wheel by the direction its circle gives it** (`TyreModel.AckermannTurns`): a wheel `r` off
+the turn's centre line and a wheelbase ahead of it rolls along `(r, wheelbase)`, and the car's own direction is turned
+by that — a tangent and two roots a car, where the angles cost a tangent, two arctangents and a `sincos` a wheel. The
+angles are kept for what draws the wheels (`TyreModel.Ackermann`, `TurnCircle`). The same arithmetic on the device
+(`tyre.glsl`), so the two worlds stay together to the bit; the town is no longer the same to the bit as before it.
+The tyres went 53.8 → 47.3 µs a tick on Odesa (`--bench age`).
+
+- **What the model divided out every tick is laid with the build** (`CarBuild.InverseWheelRotatingMassPerKg`,
+  `WheelbaseWeightM2PerS2`, `TrackWeightM2PerS2`) and the throttle's back-off a tick on the root
+  (`SimConfig.TyreSlipBackOffPerTick`), each the very expression it replaced; the ceiling is taken only once the car is
+  found moving, the back-off still wound every tick (`TyrePass.WindTheSlipThrottle`).
+- **The model's own numbers are figures** (`TyreFigures.WorkingSlipTangent`, `AlongSlipEpsilonMps`,
+  `LiftedAxleLoadShare`, `AckermannLeastSteerRad`, `InnerWheelLeastRadiusM`), handed to the kernels with the rest.
+
+## 2026-10-11 — a driver leads by what it reads stale, and pedals for the step it cannot see
+
+With the world a step ahead (`WorldLayer.StepsAhead`), a command acts one step after the one it was read off, and
+nothing in the driver accounted for it.
+
+- **The reaction lead is what a driver reads stale** (`SimConfig.CarReactionS`, S-2): a grant as old as the claims
+  interval, off a world stepped on since — 0.067 s, where the decision interval's 0.1 s stood. The decision clock
+  moves no pedal, so it was never the staleness, and a lead on it would grow with every throttling of decisions.
+- **The pedal closes on the speed it will be doing** (`CarFollower.Pedals`): the demand closes the speed gap in one
+  tick, and with one tick unseen it asked twice for every gap, so a car held to a speed hunted round it — 3.55 to
+  3.76 m/s twelve ticks a cycle on Laid — and a plan nothing cut, measured off that speed, drew back (TER-4c.1:
+  `PlansInATownTests` failed on Test and Laid, and pass with it).
+- **Committed ground is what the profile itself slows over** (`CarFollower.SlowsOverM`, one helper for the plan, a
+  driverless car, backing and a pass): the lead with the pedal's ramp, which the bare reaction left out — about 1.4 m
+  short at 14 m/s.
+- **What it moved** (`--bench drive --map`, against the tree before): hard brakings Odesa 7 → 0, River 2 → 3, Exam
+  114 → 174; bars crossed on a red Odesa 4 → 7, River 1 → 2, Exam 4 → 7. The reds are the committed ground's: a car
+  that truly cannot stop at an amber's start goes, and `SignalFigures.AmberTailS` does not clear its rear axle; the
+  Exam's hard brakings are the shorter lead's.
+
 ## 2026-10-07 — a driver plans on its own rubber, and never on the ground
 
 **The owner ruled it: a car does not care what ground it is on — that is its wheels', read separately.** Every tick
@@ -10,7 +161,7 @@ the car's middle was asked what ground it stood on (`GroundLocator.At`, and `car
 figure scaled every grip the driver planned with: the braking every stop and claim is laid against, the corner speed,
 the brake's ceiling in a bend, the throttle's ceiling, the room a car keeps to step out round what it passes. **It is
 gone, and with it `CarFleet.GroundCoefficient` and `DriveContext`'s**: the driver plans on its own build's grip
-(`CarBuild.UtmostBrakingMps2`, `CarFollower.CorneringMps2`), which is the paved ground's, and only the four wheels feel
+(`CarBuild.UtmostBrakingMps2`, `CarBuild.PlannedCorneringMps2`), which is the paved ground's, and only the four wheels feel
 anything else (terrain log). A car that has lost its line takes the lane under its rear axle back wherever that lane is
 near enough, without asking whether the ground there is drivable.
 
@@ -19,112 +170,19 @@ near enough, without asking whether the ground there is drivable.
   find there, so a stop planned on a road's grip runs long, and what catches it is the hazard (`IsAHazard`), as for a
   stop planned through a bend.
 - **The cars' phase went 9.96 → 6.39 ms a tick on the host** on OdesaOsm (`--bench town`), and the whole tick
-  21.88 → 17.96, with the walker read as one wheel landing alongside (road log); `--bench devicetown` reads agents
-  9.45 → 6.58 ms and the device's kernels 0.64 → 0.46.
-
-## 2026-10-07 — the device takes the town's tick in step
-
-**A town with a device set (`TownWorld.Device`, `app/devicetick/DeviceTown`) ticks every car and walker the device
-takes there, inside the town's own tick**: the loop skips them, and once every agent the town keeps has ticked the
-device runs the rest in one submit and hands back what each tick left, before any decision reads it. Nothing is
-pipelined — the town a decision reads is the tick it just ran. On OdesaOsm 10 002 of 10 013 cars a tick are the device's,
-and the town drives as it does alone (`--bench devicetown`: the same mean speed and the same cars off their lines).
-
-- **What a car's tick asks of the town is taken with the town's own code** — a line shifted on, lost, rejoined, a step
-  out onto the lane beside (`TownWorld.ShiftedOnTheDevice` and the rest, `Rejoining.Lose`, `Switching.SteppedOut`) —
-  after its state is written back, so a consequence reads the tick that caused it.
-- **Which cars the device ticks is answered once, as the town's tick reaches each** (`ITownDevice.Takes`), and the
-  submit ticks exactly those. Asked again after the loop, a car whose own tick moved it into Follow would be ticked twice.
-- **A switching car's step is kept or withdrawn by the town as the device takes the car**
-  (`Switching.KeepOrWithdrawTheStep`), at where the last tick left it on its line rather than where this one reads it:
-  the device drives a step and never answers one. Left to the car's own tick, which the device's replaces, no step was
-  ever begun on the device — 23 of 92 made over 600 ticks of OdesaOsm against the host's 96 of 102, now 99 of 105.
-- **Only what the town reads comes back.** The line, its chain, the pass, and the ground and scrub under each wheel are
-  the shadow's to compare (`DeviceCarTick.Shadowed`): the town shifts its own line as the device did, and the ground and
-  scrub are scratch the pass that wrote them spends. The marks are written into memory the host reads, so a tick's few
-  cross the bus rather than a ring with room for every wheel. **The bus is what a tick waits on**: the link this was
-  measured on carries 1.8 GB/s, and a tick's car rows in and out are most of the submit.
-- **A car's wheels stay on the device while it ticks there** (`DeviceTyres.KeptOnTheDevice`): the impulses are spent
-  where the pass left them, and the wheels' carried state goes back to the town only as the car leaves the device's tick,
-  since only the town's own tyre pass reads it. OdesaOsm hands back a car every hundred ticks or so.
-- **The tick reads the poses the bodies' step left**, the town laying only the cars whose bodies it changed since
-  (`DeviceTownBodies.PosesLeftInTheTable`): so a car's forward is its body's own rather than its heading turned back into
-  one by the host's sine. The two part in the last bit; the town drives the same (`--bench devicetown`: 1 115 hard
-  brakings against 1 117, every other count equal), and the car rows sent a tick went 576 → 107 KiB.
-- **The claims are laid on the device too** (`DeviceTownClaims`, `world/road/docs/decision-log.md`), and a car's grant
-  is read where the device's rebuild writes it — into the car tick's own tables, which the town lays a grant into only
-  where it changed one since. **The bodies are stepped on the device** (`DeviceTownBodies`,
-  `world/physics/docs/decision-log.md`) off the impulses the tick left there.
-- **A car on a pass plans as though its pass were clear where the device lays the claims** (`Following.AsksTheBodiesLater`):
-  whether a body stands inside it is asked of the device's bodies (`Following.AsksOfItsPass`, `LaneOccupancy.FirstBodyIn`),
-  the very stretches `TheBodyInThePass` looks over, in its order.
-
-## 2026-10-07 — a pass is driven on the device
-
-**The driver on the device drives a pass it has begun** (CAR-46): `control/kernels/overtake.glsl` is `Overtake` line
-for line — how far across the axle is aimed, how steeply, how that turns, the pose and the bend — and `follower.glsl`
-steers it as `SteerThePass` does and holds each step to the pace it was drawn for. It is what Overtake and Switch drive
-once they are on the lane beside, which on OdesaOsm is two hundred cars a tick. Held over 2 000 staged cars on begun
-passes, from short of the step out to past the step back (`FollowerKernelTests`); a device that steered them as if on
-no pass failed 326 of them.
-
-## 2026-10-07 — a following car's whole tick runs on the device
-
-**`TownWorld.TickCar` for a car following its route's line on no pass is two kernels over one table** in one submit
-(`app/devicetick/DeviceCarTick`): its line read, what it is told and the line driven (`car_tick.glsl` over `line.glsl`,
-`drive_context.glsl` and `follower.glsl`), then the tyre pass, which reads the command the tick left in the tyres' own
-table (`tyre_rows.glsl` is that table's rows).
-
-- **The table is the device's, indexed by the fleet's own car, and kept from tick to tick** (`runtime/ResidentRows`):
-  the tick runs over a list of the cars it takes, and a car's line, reading, command, tyres and junction ahead are what its
-  last tick left. The host sends what changed outside the tick and only that — as one copy a table, however many cars.
-  **A line is laid through `CarFleet.SetLine`, which counts it** (`LineLaid`), so a copy of the lines elsewhere reads a
-  change it did not make itself off the count rather than off the arcs.
-- **A car that loses its line stops on the device and says so** (a flag); the action it enters is the host's, and so is
-  the grant that action's change drops. **A car waiting to rejoin its line is ticked the same way** (`Rejoining.Tick`
-  is a following car's tick): held while still off it, followed once back on, the Follow it enters again the host's.
-- **A car moving across onto the lane beside is ticked on the device too** (CAR-53): told the aside it decided and
-  where a line stopping for its route makes it wait, its step shifted on with its line and driven once begun. **Whether
-  a step asked for is kept is the claims' to answer**, and the lane beside it steps out onto is the host's to lay a line
-  down (a flag); until then the device drives on along the step, whose aside holds it on that lane.
-- **The shadow holds each stage to the host's own function asked of what the stage before handed it**: the reading to
-  the town's, the drive to `CarFollower.DriveTheLine` on the device's reading, the tyres to `TyrePass.Step` on the
-  device's command. Held to the town's answer, a tenth of a millimetre on the line is a hundredth of a m/s² on a pedal
-  that closes a speed in one tick, and a ten-thousandth of a radian of steer a hundredth of a wheel's impulse.
-- **A wheel on its friction circle answers either way** — grip or slide, a tenth of the impulse apart, decided by a
-  wheel's direction a ten-millionth of a radian off — and is counted rather than held. So is a denormal: a kernel's float
-  flushes them, and a body decaying to rest through them is at rest on the device a score of ticks before the host.
-
-Held to the town over ten seconds of the suite's city, 36 000 car-ticks, laid whole every tick and kept by the device
-(`DeviceCarTickTests`). On OdesaOsm (`--bench devicecartick`, RX 9070 XT, 9 757 following cars a tick, kept) the ground
-and the drive take 0.30 ms and the tyres 0.92 ms; the lines decisions laid come to 6 KiB a tick. 21 of 2.93 million
-car-ticks differ, each a pedal or a threshold the float noise of a 10 km coordinate decides.
-
-## 2026-10-07 — a car's plan is laid on the device
-
-**The claims rebuild moves to the device with the tick** (root log), and every car planning down its line lays its
-plan there: `actions/follow/kernels/plan.glsl` is `ClearTheClaim`, `Following.Plan`, `WaysAlong`, `LevelTheRungs`,
-`AskOn` and the marks' secondary claims line for line, one car a thread, over the line in the fleet's own layout and
-the road's connectors, rungs and marks laid once (`app/devicetick/DevicePlans`). The town hands the cars over just
-before their claims are cleared (`TownWorld.WatchingTheClaims` at `ClaimsStage.PlansDue`).
-
-- **Every quotient is the host's float** (`rounded.glsl`): with RADV's own division 8 443 of OdesaOsm's 990 767 plans
-  ended a last bit elsewhere; with it, none.
-- **A car on a pass is still the host's**: its plan begins past the pass, and a body inside the pass is a hold of its own.
-- Held to the town over 400 fixture rebuilds (`DevicePlansTests`): where each claim begins, reaches, is committed to and
-  is held short, and every piece and secondary claim in order, bit for bit. On OdesaOsm (`--bench deviceclaims`) the
-  plans are laid in 0.24 ms.
+  21.88 → 17.96, with the walker read as one wheel landing alongside (road log); with the town ticked on the device,
+  reading its agents went 9.45 → 6.58 ms and the device's kernels 0.64 → 0.46.
 
 ## 2026-10-07 — a car's lamps are asked on the device
 
 `CarLamps.Showing`, `Shown` and `TurnAheadRad` are `body/kernels/lamps.glsl` line for line, for the frame's emit
-(`app/render` log). A lamp takes no transcendental and no quotient, so every lens is the host's to the bit — held over
-2 000 staged cars of every look and every input a lamp answers (`DeviceSpritesTests`). The line is read only as far as
-`TurnAheadM` past the car, so the shadow sends no more of it.
+(`app/render` log). A lamp takes no transcendental and no quotient, so every lens is the host's to the bit, as 2 000
+staged cars of every look and every input a lamp answers bore out. The line is read only as far as `TurnAheadM` past
+the car.
 
 ## 2026-10-06 — a car's whole tyre pass is one function, and the device runs it
 
-**The tick moves to the device** (root log), and the tyres with the ground under them are most of a car's tick on
+**The tyres are the world's** (root log, 2026-10-11), and with the ground under them they are most of a car's tick on
 OdesaOsm. What `TownWorld.Tyres` did around the tyre model — the throttle's back-off and the ceiling, the standstill
 skip, the ground under each wheel, the hold of a car its locks keep still, the slide lifted for, the marks — is now
 `TyrePass.Step` over the state a car carries (`TyreCarry`). The town calls it, and the device is held to it:
@@ -138,8 +196,8 @@ whether the wheel stood on a way when its car's body was last laid (terrain log)
 
 Held to the host over 2 000 cars of every variant on the fixture town's ground (`TyrePassKernelTests`): the
 standstill, the throttle, the hold, the slide and the marks to the bit, and a turned front wheel within the device's
-trigonometry. On OdesaOsm's 10 013 cars (`--bench devicetyres`, RX 9070 XT), the pass took 4.90 ms on the host and
-0.66 ms in the kernel, plus 3.94 ms to send the rows and read them back, which a resident town does not pay. One car
+trigonometry. On OdesaOsm's 10 013 cars (RX 9070 XT), the pass took 4.90 ms on the host and 0.66 ms in the kernel,
+plus 3.94 ms to send the rows and read them back, which a world keeping its tyres on the device does not pay. One car
 differs: a standing car the solver left a denormal velocity, which RADV flushes to none and so finds at rest.
 
 ## 2026-10-06 — a tick shifts a line on and lays nothing; the decision grows it
@@ -151,8 +209,8 @@ tour and price a stretch up.
 
 - **Crossing into the next lane shifts the line on** (`CarFleet.ShiftTheLine`, read by `LineReader.Advance`): the
   passed lane and its join are dropped and everything else is kept as laid, its stop included, so nothing is asked of
-  the road or the route. It is a move of the car's own arrays, the same on the host and the device; the device holds
-  it to the host bit for bit, and a unit test holds it to the line laid over the rest of the chain.
+  the road or the route. It is a move of the car's own arrays, and a unit test holds it to the line laid over the rest
+  of the chain.
 - **Growing the line is the next decision's** (`LayTheRestOfTheLine`): a tick that finds the line short of the car's
   sight (`LineReader.RunsShort`) flags it, and the decision grows it from where the body stands, asking the route
   whole. The sight distance is a stop from the car's top speed, so the decision interval the line waits is road the
@@ -285,34 +343,6 @@ Measured on `--bench age --map Odesa`, µs a tick, two runs each:
 `--bench stuck --map Odesa` parked 502 cars (503) off 1 282 manoeuvres asked (1 285), none withdrawn; cars asked
 for 28 passes (19).
 
-## 2026-10-01 — a manoeuvre's pieces are swept once, for the ask they are laid for
-
-**A manoeuvre at a bay was the largest single cost left in a running town**: `BayManoeuvring.UnderTheCarOnThePiece`
-was a tenth of Odesa's CPU, all of it atlas reads. Every rebuild swept what was left of the piece a car was driving,
-station by station from where it stood, and every later piece whole; the rebuild after an ask swept every piece to
-lay it and the keeping swept them all again. The shape does not move once it is asked for — it is kept or withdrawn
-as shaped and driven as kept — so all of those were the same reads.
-
-**The rebuild after an ask sweeps every piece from its start, once** (`BayManoeuvring._pieces`, a
-`SweptGround` with a run to each station and way), and the keeping, every later lay and the body check read those
-stations. Only the station the car stands at moves, and it is read afresh once a rebuild. The stations ahead of the
-car are now the piece's own, from its start, rather than counted from wherever the car stood, so the body check
-holds a car half a width short of the first station a body is in, as a pass's does. A piece too long for the table
-is a manoeuvre withdrawn.
-
-Measured on `--bench age --map Odesa`, µs a tick with the timing on, two runs each:
-
-| | before | after |
-|---|---|---|
-| index, 1 min | 373–379 | 338–340 |
-| index, 3 min | 499–509 | 444–458 |
-| index, 5 min | 435–441 | 398–416 |
-| whole tick, 1 min | 744–760 | 717 |
-| whole tick, 3 min | 1168–1197 | 1124–1145 |
-
-`--bench stuck --map Odesa` (300 s) parked the same 507 cars off the same 1 288 manoeuvres asked and begun, none
-withdrawn; the town is no longer the same to the bit, and at five minutes it costs what it did.
-
 ## 2026-09-30 — a car is held back by its engine and not by the road it drives on
 
 **The owner reported the cars slow beside the town's walkers** (CAR-51). Tarmac's rolling resistance was a feel
@@ -380,16 +410,15 @@ would then ask for; the follower asked it again to decide, and a car backing up 
 how near it stood. Late in Odesa's run a hundred cars were doing that every tick: the cars' share of the tick went
 from 1 050 µs to 1 900, and to 3 900 in the minute one fast call waited behind a queue.
 
-- **Two shapes, drawn and swept once, when the pass is decided** (`Overtaking.Decide`): one for the pace the car came
+- **Two shapes, drawn once, when the pass is decided** (`Overtaking.Decide`): one for the pace the car came
   up at, had only while it can still come up to where that one begins at a pace it may be driven at, and one from
   rest, where it waits and what it backs up for. One shape would not do: drawn for the pace, the car waited behind
   a step too long to leave a straight alongside what it passed; drawn from rest, a car on a free road would have
   swung round a parked car at the lock's crawl. **Each begins at the last place the body clears what it passes**, a
   place fixed in the line's metres that the car drives up to — where it began on the car, the shape was stale the
   tick after it was drawn.
-- **The ground is kept as runs** (`SweptGround`): one way under a car's length of stations, laid, kept, asked for and
-  given back by reading them. With the car's own lane from where it stands up to the step out, so every metre it
-  moves from asking to the end of the pass is the pass's (TER-4c.6).
+- **With the car's own lane from where it stands up to the step out**, so every metre it moves from asking to the end
+  of the pass is the pass's (TER-4c.6).
 - **Waited for on a clock** (`PassAskEveryS`, 1 s): asked, and what it passes looked at again — let go where that has
   gone, has moved or can no longer be passed, and after `PassPatienceS` (10 s), to be decided afresh from where the
   car then stands. A body that has moved is a new state of the road, and a pass drawn round moving traffic by a call
@@ -637,7 +666,7 @@ reservations carry it (roads' log); what the driver adds is the line and the pac
 
 **The pass is the car's own line aimed across**, not a shape drawn beside it (`Overtake`), and the line is
 still the town's (CAR-15). The swerve the catalogue drew had 352 of 353 shapes refused by the terrain; this one
-needs no terrain answer, its ground being read off the atlas and refused where it is not carriageway.
+needs no terrain answer, its ground being the lanes it runs down.
 
 **Each step is one swing of the wheel, the shortest the car can drive at the speed it is doing.** Steps of two
 arcs at the lock, taken at the crawl that swings the rack between them, were the shortest on the ground and the
@@ -653,8 +682,8 @@ search on every ask. An earlier try at steps sized to the speed failed on where 
 shape — they stepped out 29 m short of a wreck at 13 m/s, the whole step done behind it.
 
 **Out as late and back as early as the body allows** (`StepOutLeadM`, `StepBackTrailM`): the step out begins as
-far short of what is passed as any of the body, grown by the spare, is still over the lane it leaves, read as
-the atlas reads it — so the step runs on alongside what it passes and is often straight into the step back.
+far short of what is passed as any of the body, grown by the spare, is still over the lane it leaves — so the step
+runs on alongside what it passes and is often straight into the step back.
 
 **Asked from where the car would begin slowing, and slowed for gently** (`WaitingToPassBrakingShare`). With the
 lane beside free the car never slows; with it held the car comes up slowly, asking every tick it is still far
@@ -664,10 +693,6 @@ before the car is on it — 1.4 s at 12 m/s in the fixture — and that is the p
 **The wheel is the pass's own bend, corrected by pursuit.** Pursuit alone turns into each step a lookahead early
 and cuts it. The bend is worked out and not read off three samples of the line, whose sag at speed is a float's
 grain.
-
-**The ground is the car's collider swept from where it stands.** It had been the line moved across, a car's
-width wide, from the nose on — so the ground the body swings over as it turns out was nobody's, and the owner
-saw the claim begin too far on.
 
 **Asked with room to spare, laid and kept without.** Asked and kept on the same exact ground, a car that had
 closed up on a car reversing out at a crawl asked its pass one rebuild and had it withdrawn the next, as the

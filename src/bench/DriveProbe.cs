@@ -6,6 +6,7 @@ using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Town;
 
 using TrafficSimulation.World.Statics;
+using TrafficSimulation.World.Terrain;
 
 namespace TrafficSimulation.Bench;
 
@@ -87,7 +88,8 @@ internal static class DriveProbe
     public static DriveSample Sample(string map, SimConfig config)
     {
         var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
-        using var world = new TownWorld(plan, config);
+        using var world = new TownWorld(plan, config) { CountsRedBarCrossings = true };
+        var terrain = new GroundLocator(plan, config);
         var loop = new SimLoop<TownWorld>(world, config);
         loop.Advance(WarmupTicks);
 
@@ -135,7 +137,7 @@ internal static class DriveProbe
                 offLineSum += offLineM;
                 worstOffLineM = Math.Max(worstOffLineM, offLineM);
                 if (alongMps <= config.Driving.StopSpeedMps) stopped++;
-                if (!world.Terrain.At(rearAxleM).Drivable) offRoad++;
+                if (!terrain.At(rearAxleM).Drivable) offRoad++;
             }
         }
 

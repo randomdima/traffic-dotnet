@@ -14,7 +14,35 @@ namespace TrafficSimulation.Core.Config;
 /// </remarks>
 internal sealed partial class SimConfig
 {
-    public float TickSeconds => 1f / Sim.TickRateHz;
+    /// <summary>
+    /// <b>The figures a tick spends per car or per wheel, worked out on their first read and kept</b>, so a hot path
+    /// loads them rather than dividing for them every time.
+    /// </summary>
+    /// <remarks>
+    /// <b>Only figures off groups that are set once</b>: every authored group is init-only and the override file is
+    /// applied before anything reads a figure (<see cref="Load"/>), so the first read sees the figures the run keeps.
+    /// Nothing off <see cref="Trim"/>, which a running session moves, may be laid here.
+    /// </remarks>
+    sealed class PerTick(SimConfig config)
+    {
+        public readonly float TickSeconds = 1f / config.Sim.TickRateHz;
+
+        public readonly float SlipBackOff = (1f / config.Sim.TickRateHz) / config.Tyre.SlipBackOffS;
+
+        public readonly float SlipRecover = (1f / config.Sim.TickRateHz) / config.Tyre.SlipRecoverS;
+    }
+
+    PerTick? _perTick;
+
+    PerTick Laid => _perTick ??= new PerTick(this);
+
+    public float TickSeconds => Laid.TickSeconds;
+
+    /// <summary>How much of the throttle a self-driver lifts in one tick while a driven wheel slides (<see cref="TyreFigures.SlipBackOffS"/>).</summary>
+    public float TyreSlipBackOffPerTick => Laid.SlipBackOff;
+
+    /// <summary>And how much it gives back in one tick once none does (<see cref="TyreFigures.SlipRecoverS"/>).</summary>
+    public float TyreSlipRecoverPerTick => Laid.SlipRecover;
 
     /// <summary>+1 where traffic keeps right, which with <c>+y</c> down is the way curvature counts positive.</summary>
     public float RoadSideSign => Road.TrafficKeepsRight ? 1f : -1f;
@@ -53,8 +81,6 @@ internal sealed partial class SimConfig
 
     public float PavedDragMps2 => Terrain.PavedResistance * Tyre.StandardGravityMps2;
 
-    public float WaterDragMps2 => Terrain.WaterResistance * Tyre.StandardGravityMps2;
-
     /// <summary>
     /// What the drivetrain holds a car back by with the throttle shut, off its coefficient and a weight
     /// (<see cref="CarFigures.EngineBrakingResistance"/>) — about 1 m/s², where tarmac's own drag is a tenth of it.
@@ -65,9 +91,10 @@ internal sealed partial class SimConfig
     /// <b>The widest a line has to be drawn for a car to hold this speed round it</b> — the corner formula
     /// the speed profile reads, turned round. A line laid tighter is not refused; it is driven slower,
     /// because the profile's corner term reads the arcs of every line exactly as it reads the arcs of a road.
+    /// On tarmac, the one ground a line is laid over.
     /// </summary>
-    public float CarCorneringRadiusM(float atMps, float groundCoefficient) =>
-        atMps * atMps / (TyreGripMps2 * groundCoefficient * Driving.GripMargin);
+    public float CarCorneringRadiusM(float atMps) =>
+        atMps * atMps / (TyreGripMps2 * Terrain.PavedCoefficient * Driving.GripMargin);
 
     /// <summary>A walk, at <see cref="PersonFigures.PaceScale"/> of life's.</summary>
     public float PersonWalkSpeedMps => Person.RealWalkSpeedMps * Person.PaceScale;
@@ -96,6 +123,9 @@ internal sealed partial class SimConfig
     public float PropDiameterM => Car.WidthM * Prop.DiameterInCarWidths;
 
     public float PersonDiameterM => PropDiameterM * Person.DiameterInPropDiameters;
+
+    /// <summary>A walker's body as the solver stands it, and as the town and the device read its ground under it.</summary>
+    public float PersonRadiusM => PersonDiameterM * 0.5f;
 
     public float PersonExitSearchRadiusM => PropDiameterM * Person.ExitSearchRadiusInPropDiameters;
 
@@ -435,7 +465,7 @@ internal sealed partial class SimConfig
     /// between them (<c>CityGenFigures.LocalityM</c>), which at three or four arms is the wider of the two.
     /// </remarks>
     public float RoundaboutRadiusFloorM =>
-        CarCorneringRadiusM(CityGen.RoundaboutDesignSpeedMps, Terrain.PavedCoefficient);
+        CarCorneringRadiusM(CityGen.RoundaboutDesignSpeedMps);
 
     /// <summary>
     /// <b>The tightest line a movement through a junction may be laid on</b>: what the junction's own design
@@ -443,7 +473,7 @@ internal sealed partial class SimConfig
     /// in metres is a figure nobody could check against the car that has to hold it.
     /// </summary>
     public float JunctionCorneringRadiusM =>
-        CarCorneringRadiusM(CityGen.JunctionDesignSpeedMps, Terrain.PavedCoefficient);
+        CarCorneringRadiusM(CityGen.JunctionDesignSpeedMps);
 
     /// <summary>
     /// <b>The circle a turn through a junction is given room for</b>: the wider of the junction's cornering radius
@@ -581,11 +611,12 @@ internal sealed partial class SimConfig
     public float CarOffPathM => LaneOffsetM;
 
     /// <summary>
-    /// The lead every distance the speed profile measures is taken from — the staleness of the driver's
-    /// own decision, about a metre at town speed. A car that planned from where it is arrives at each
-    /// constraint one decision late.
+    /// The lead every distance the speed profile measures is taken from — how stale what a driver reads can be by the
+    /// time its pedal acts: a grant as old as the claims interval, read off a world that has stepped on since
+    /// (<see cref="SimFigures.WorldStepsAhead"/>). A car that planned from where it is arrives at each constraint that
+    /// much late.
     /// </summary>
-    public float CarReactionS => Sim.AgentDecisionIntervalS;
+    public float CarReactionS => Sim.ClaimsIntervalS + (SimFigures.WorldStepsAhead * TickSeconds);
 
     /// <summary>
     /// <b>What the brake pedal may ask for</b>, which stands well clear of what the tyres will hold

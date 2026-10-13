@@ -32,7 +32,7 @@ internal sealed partial class TownWorld
     {
         for (var prop = 0; prop < _plan.Props.Count; prop++)
         {
-            _physics.AddStaticDisc(_plan.Props.CentreM[prop], _plan.Props.RadiusM[prop]);
+            Statics.AddDisc(_plan.Props.CentreM[prop], _plan.Props.RadiusM[prop]);
         }
 
         for (var building = 0; building < _plan.Buildings.Count; building++)
@@ -44,7 +44,7 @@ internal sealed partial class TownWorld
             if (variant.PartsM.Length == 0)
             {
                 var fittedM = roof.FootprintM / variant.FootprintM;
-                _physics.AddStaticBox(
+                Statics.AddBox(
                     centreM, roof.FootprintM, roof.HeadingRad, variant.CornerRadiusM * MathF.Min(fittedM.X, fittedM.Y));
                 continue;
             }
@@ -58,15 +58,9 @@ internal sealed partial class TownWorld
             foreach (var part in variant.PartsM)
             {
                 var atM = part.AtM * scale;
-                _physics.AddStaticBox(
-                    centreM + (forward * atM.X) + (right * atM.Y), part.SizeM * scale, roof.HeadingRad);
+                Statics.AddBox(centreM + (forward * atM.X) + (right * atM.Y), part.SizeM * scale, roof.HeadingRad);
             }
         }
-
-        // Every body the town will hold, its statics and one for each seat of either fleet — fitted before the
-        // statics are settled, since the grid they are settled into reads the table it was laid over.
-        _physics.Fit(_physics.StaticBodyCount + Cars.Capacity + People.Capacity);
-        _physics.SettleStatics();
     }
 
     void Spawn()
@@ -84,18 +78,18 @@ internal sealed partial class TownWorld
             if (_plan.Spawns.Kind[spawn] != SpawnKindPerson) continue;
 
             var positionM = _plan.Spawns.PositionM[spawn];
-            var body = _physics.AddPerson(positionM);
             // Round the walkers and never past them, as the fleet's own wrap does: the uniforms share
             // the sheet list with them (<see cref="PersonCatalog.Count"/>), and nobody wears one who was
             // not named to (SRV-3a).
             var person = People.Add(
-                body, positionM, _plan.Spawns.HeadingRad[spawn], _physics.MassOf(body), _config.PersonDiameterM * 0.5f,
+                positionM, _plan.Spawns.HeadingRad[spawn], _config.Person.MassKg, _config.PersonRadiusM,
                 (byte)(variants % PersonCatalog.Shared.Count), new Rng(_agentSeed, (ulong)spawn),
                 PersonFleet.DrawsReckless(_agentSeed, (ulong)spawn, _config.Driving.RecklessShare));
             variants++;
             if (People.Reckless[person]) RecklessDrivers++;
 
-            _physics.Tag(body, new BodyTag(BodyKind.Person, person));
+            // Where on the pavement the plan stood it, found while the map is built (the root decision log, 2026-10-13).
+            _placeOf[person] = _walking.PlaceNearest(positionM);
             _progress.Restart(person);
             MoveIn(person, positionM);
             if (People.Inside[person].Any) HandThemTheirCar(person, spawn, positionM);
@@ -254,7 +248,8 @@ internal sealed partial class TownWorld
     /// <para>
     /// <b>It is asked every tick and not done once.</b> A toured car's leg ends the way every leg does, by
     /// the car being stood down where its clock ran out, and nothing else would send it anywhere: the rule
-    /// that put it on the road is the same rule that puts it back on it.
+    /// that put it on the road is the same rule that puts it back on it. <b>A car refused a lane asks again on
+    /// its own decision clock</b> (<see cref="_refusedALane"/>) rather than every tick, as any leg's re-ask is.
     /// </para>
     /// </remarks>
     void DriveTheEmptyMap()
@@ -265,13 +260,24 @@ internal sealed partial class TownWorld
         {
             // A car whose wheel is already held over has somebody deciding for it, which is the whole of
             // what this rule exists to supply. Handing it a lane as well would lay a line nothing drives.
-            if (Cars.Driven[car] || Cars.Broken[car] || WheelIsHeldOver(car)) continue;
-            if (!TakeTheLaneUnderIt(car)) continue;
+            if (Cars.Driven[car] || Cars.Broken[car] || WheelIsHeldOver(car))
+            {
+                _refusedALane[car] = false;
+                continue;
+            }
+
+            if (_refusedALane[car] && !_decisions.Turn(_clockTicks, Roster.AgentOfCar(car))) continue;
+
+            _refusedALane[car] = !TakeTheLaneUnderIt(car);
+            if (_refusedALane[car]) continue;
 
             Enter(car, CarAction.Follow);
             Cars.Driven[car] = true;
         }
     }
+
+    /// <summary>Whether a car <see cref="DriveTheEmptyMap"/> stood down was refused the lane under it when it last asked.</summary>
+    readonly bool[] _refusedALane;
 
     /// <summary>
     /// Whether somebody's hand is on this car's wheel rather than anything in the town deciding for it
@@ -353,15 +359,8 @@ internal sealed partial class TownWorld
     /// sized against it and the road is the same road whoever turns up — but nothing a car decides for itself is
     /// taken from it any more.
     /// </summary>
-    int AddCar(Vector2 positionM, float headingRad, byte variant, bool backsIn, Rng draw)
-    {
-        ref readonly var build = ref _builds.Of(variant);
-        var body = _physics.AddCar(
-            positionM, headingRad, build.CollisionSizeM * 0.5f, build.CornerRadiusM, build.MassKg);
-        var car = Cars.Add(body, positionM, headingRad, variant, backsIn, draw);
-        _physics.Tag(body, new BodyTag(BodyKind.Car, car));
-        return car;
-    }
+    int AddCar(Vector2 positionM, float headingRad, byte variant, bool backsIn, Rng draw) =>
+        Cars.Add(positionM, headingRad, variant, backsIn, draw);
 
     /// <summary>A car's own stream, keyed by the spawn it was stood for — its own, or its owner's.</summary>
     Rng CarDraw(int spawn) => new(_agentSeed, (ulong)(spawn + 1) << 8);

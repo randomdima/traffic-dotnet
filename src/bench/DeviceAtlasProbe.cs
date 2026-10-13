@@ -11,6 +11,7 @@ using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Statics;
+using TrafficSimulation.World.Terrain;
 using TrafficSimulation.World.Town;
 using Vk = TrafficSimulation.Runtime.Vk;
 
@@ -204,6 +205,7 @@ internal static class DeviceAtlasProbe
     static string WheelsOnTheGround(TownWorld world, DeviceAtlas.WheelsRow[] cars)
     {
         var kinds = Enum.GetValues<Ground>();
+        var terrain = new GroundLocator(world.Plan, SimConfig.Shipped());
         var all = new int[kinds.Length];
         var onAWay = new int[kinds.Length];
         Span<Vector2> wheelsM = stackalloc Vector2[TyreModel.Wheels];
@@ -215,7 +217,7 @@ internal static class DeviceAtlasProbe
             world.Atlas.UnderWheels(wheelsM, row.AroundAWheelM, under, out var wheels, (byte)row.Channels);
             for (var wheel = 0; wheel < wheelsM.Length; wheel++)
             {
-                var kind = (int)world.Terrain.At(wheelsM[wheel], world.Cars.LevelOf(car)).Ground;
+                var kind = (int)terrain.GroundAt(wheelsM[wheel]);
                 all[kind]++;
                 if (((wheels >> wheel) & 1) != 0) onAWay[kind]++;
             }

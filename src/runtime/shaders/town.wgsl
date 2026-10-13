@@ -16,6 +16,8 @@ struct Camera {
     // The period each surface's texture repeats over: grass, tarmac, pavement and deck, then the water.
     surfacePeriodsM: vec4f,
     waterPeriodM: vec4f,
+    // The desktop's least prop and prop sheets (CameraView.PropCull); a page draws every prop and reads none of it.
+    propCull: vec4f,
 };
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -141,13 +143,14 @@ struct SpriteOut {
 @vertex
 fn spriteVertex(
     @builtin(vertex_index) vertex: u32,
+    // SpriteInstance, packed as the desktop reads it: the half-size two halves, the cell four bytes, the tint four
+    // normalised bytes.
     @location(0) centreM: vec2f,
     @location(1) halfSizeM: vec2f,
-    @location(2) uvMin: vec2f,
-    @location(3) uvSize: vec2f,
+    @location(2) headingRad: f32,
+    @location(3) cell: vec4u,
     @location(4) tint: vec4f,
     @location(5) sheet: u32,
-    @location(6) headingRad: f32,
 ) -> SpriteOut {
     let at = corner(vertex);
     let fromCentreM = (at * 2.0 - 1.0) * halfSizeM;
@@ -157,7 +160,7 @@ fn spriteVertex(
     let across = vec2f(-along.y, along.x);
 
     let place = sheets.place[sheet];
-    let uv = uvMin + at * uvSize;
+    let uv = (vec2f(cell.xy) + at) / vec2f(cell.zw);
 
     var result: SpriteOut;
     result.position = toClip(centreM + along * fromCentreM.x + across * fromCentreM.y);

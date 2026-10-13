@@ -45,7 +45,7 @@ internal sealed class TownWatch : ScenarioWatch
         "what the town cost its people",
     ];
 
-    /// <summary>What the watch asks of a step, handed to a device that keeps it itself.</summary>
+    /// <summary>What the watch asks of a step.</summary>
     static readonly TownWatchTerms Terms = new(SoakProbe.OverlapAllowanceM, SoakProbe.PastTheGrantAllowanceM, StuckProbe.MovedM);
 
     readonly WatchRuns _runs;
@@ -69,12 +69,6 @@ internal sealed class TownWatch : ScenarioWatch
 
     int _longestStillTicks;
 
-    /// <summary>
-    /// The device that keeps the watch, from the step after it was handed the runs (<see cref="ITownDevice.WatchesTheTown"/>),
-    /// or none: the town's copy is swept.
-    /// </summary>
-    ITownDevice? _device;
-
     /// <summary>How long one tick is, which is what turns a speed into the metres a car covered in it.</summary>
     readonly float _tickSeconds;
 
@@ -88,10 +82,6 @@ internal sealed class TownWatch : ScenarioWatch
         _overlapM = new float[_runs.Bodies];
         _pastM = new float[_runs.Bodies];
         _afoot = new bool[_walkers];
-
-        // How far past its grant every car is, every tick (SoakProbe.SweepPastTheGrant), and how long every walker walked
-        // nowhere, read where a device keeps them — until a device keeps the watch itself.
-        world.WatchesEveryAgent = true;
     }
 
     /// <summary>The roster these figures were taken over, because a figure with no census beside it says nothing.</summary>
@@ -244,13 +234,14 @@ internal sealed class TownWatch : ScenarioWatch
     /// It is the same two sweeps the claims above are answered from, read at one body instead of over all
     /// of them. <b>A body that is inside nothing and where it was told to be has nothing said about it</b>:
     /// the label beside a unit is the unit's own state, and a line reading "0 mm" on every car in the town
-    /// is a line nobody reads. Where a device keeps the watch, it has said what it has against the first few bodies
-    /// selected (<see cref="ITownDevice.WatchNotes"/>), and nothing of any other.
+    /// is a line nobody reads.
     /// </remarks>
     public override bool Notes(SelectionKind kind, int index, ref TextBuffer into)
     {
         var body = kind == SelectionKind.Person ? index : _walkers + index;
-        if (body < 0 || body >= _runs.Bodies || !NoteOf(body, out var note)) return false;
+        if (body < 0 || body >= _runs.Bodies) return false;
+
+        var note = _runs.NoteOf(body);
 
         var wrote = false;
         if (note.OverlapM > SoakProbe.OverlapAllowanceM)
@@ -276,37 +267,11 @@ internal sealed class TownWatch : ScenarioWatch
         return true;
     }
 
-    bool NoteOf(int body, out TownWatchNote note)
-    {
-        if (_device is null)
-        {
-            note = _runs.NoteOf(body);
-            return true;
-        }
-
-        foreach (var noted in _device.WatchNotes)
-        {
-            if (noted.Body != body) continue;
-
-            note = noted;
-            return true;
-        }
-
-        note = default;
-        return false;
-    }
-
     /// <summary>
     /// One tick. <b>The overlap is swept every tick and the rest is read off the town's own counters</b>:
     /// how long one body has been inside another is the whole of what tells a solver recovering from a
     /// body nothing pushed back out, and a sweep taken every other tick would count half of it.
     /// </summary>
-    /// <remarks>
-    /// <b>Swept on the device where it keeps the watch itself</b> (<see cref="ITownDevice.WatchesTheTown"/>): handed the runs
-    /// once the town's copy was swept, every step after it sweeps what it holds, and the town has no agent handed back for
-    /// it. Each car is read against the grant its own tick drove on, and each walker as its tick walked it — so a car a
-    /// decision moved on from while its tick ran, and a walker a decision stopped, are read as the tick left them.
-    /// </remarks>
     public override void Saw(TownWorld world)
     {
         // What the town had already given up on when this watch began, so what is quoted is what happened
@@ -314,39 +279,13 @@ internal sealed class TownWatch : ScenarioWatch
         if (_gaveUpBefore < 0) _gaveUpBefore = world.WalksGivenUp;
         if (_setDownBefore < 0) _setDownBefore = world.WalkersSetDown;
 
-        // A device let go of has handed every agent back, and the town's copy is the whole town again — swept on from the
-        // runs the device was handed.
-        if (_device != null && world.Device != _device)
-        {
-            _device = null;
-            world.WatchesEveryAgent = true;
-        }
-
-        Take(_device?.Watched ?? Swept(world));
-        if (_device is null && world.Device is { } device && device.WatchesTheTown(Terms, _runs.Runs))
-        {
-            _device = device;
-            world.WatchesEveryAgent = false;
-        }
+        Take(Swept(world));
 
         WalksGivenUp = world.WalksGivenUp - _gaveUpBefore;
         WalkersSetDown = world.WalkersSetDown - _setDownBefore;
         Touches = world.Touches;
-
-        var down = 0;
-        for (var person = 0; person < world.People.Count; person++)
-        {
-            if (world.People.Wounded[person]) down++;
-        }
-
-        var wrecked = 0;
-        for (var car = 0; car < world.Cars.Count; car++)
-        {
-            if (world.Cars.Broken[car]) wrecked++;
-        }
-
-        Down = down;
-        Wrecked = wrecked;
+        Down = world.Down;
+        Wrecked = world.Wrecked;
     }
 
     /// <summary>
@@ -365,7 +304,7 @@ internal sealed class TownWatch : ScenarioWatch
     }
 
     /// <summary>
-    /// The town's copy swept. <b>The claims are asked of the shapes and of the grants both</b>, and the two are not one
+    /// The town swept. <b>The claims are asked of the shapes and of the grants both</b>, and the two are not one
     /// reading: a car past its grant with nothing yet in the metres it took is inside nothing at all, and is the tick before
     /// the contact rather than the contact. <b>How long a walker has been walking and getting nowhere</b> is the one thing
     /// about the walking that nothing else in the town reports: every other figure here counts an event, and a body that is

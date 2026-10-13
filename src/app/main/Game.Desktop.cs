@@ -19,84 +19,45 @@ namespace TrafficSimulation.App.Main;
 /// </remarks>
 internal sealed partial class Game
 {
-    DeviceTown? _deviceTown;
-    DeviceSprites? _deviceSprites;
+    DeviceWorld? _deviceWorld;
 
     /// <summary>
-    /// <c>--device-tick</c>: every town this run stands has its agents ticked on the device in step
-    /// (<see cref="DeviceTown"/>), on the device that draws it — and what moves in it emitted there
-    /// (<see cref="DeviceSprites"/>), off the car tick's own tables.
+    /// <c>--device-tick</c>: every town this run stands has its world stepped on the device that draws it
+    /// (<see cref="DeviceWorld"/>), and what moves in it drawn off the device's own state.
     /// </summary>
     public bool TicksOnTheDevice { get; init; }
 
-    /// <summary>
-    /// <c>--resident</c>: every town this run stands is resident on the device (<see cref="ResidentTown"/>) — laid there
-    /// once and ticked there with nothing read back, and drawn off its own tables.
-    /// </summary>
-    public bool TicksResident { get; init; }
-
-    ResidentTown? _resident;
-
     partial void TickOnTheDevice(TownWorld? world)
     {
-        _deviceSprites?.Dispose();
-        _deviceSprites = null;
-        _deviceTown?.Dispose();
-        _deviceTown = null;
-        _resident?.Dispose();
-        _resident = null;
-        if (world is null) return;
+        _deviceWorld = null;
+        if (world is null || !TicksOnTheDevice) return;
 
-        if (TicksResident)
-        {
-            _resident = new ResidentTown(_vk, _config, world);
-            _movingOnTheDevice = _vk.HasFloat64;
-            return;
-        }
-
-        if (!TicksOnTheDevice) return;
-
-        _deviceTown = new DeviceTown(_vk, _config, world);
-        world.Device = _deviceTown;
+        world.HandTheWorldTo(laying => _deviceWorld = new DeviceWorld(_vk, laying));
         _movingOnTheDevice = _vk.HasFloat64;
-    }
 
-    partial void TickResident(ref bool ticked)
-    {
-        if (_resident is not { } resident) return;
-
-        resident.Tick();
-        ticked = true;
+        // What the town let go of with the handover — its atlas, its furniture and the managed world — given back once,
+        // before the first frame, rather than held committed for the run.
+        GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
     }
 
     partial void LayTheMovingOnTheDevice(TownWorld world, SpriteRoom room)
     {
+        if (_deviceWorld is not { } device) return;
+
+        // The marks are the device's whether or not what moves is drawn there: the host's ring is not filled.
+        var (rows, ring) = device.GroundMarks;
+        _renderer.DrawTheMarksFrom(rows, ring);
         if (!_movingOnTheDevice) return;
 
-        if (_resident is { } resident)
-        {
-            _deviceSprites = DeviceSprites.For(_vk, _config, world, _looks!, room, resident.Tables);
-            var (cars, people) = resident.Counts;
-            _deviceSprites.LayResident(resident.Root, cars, people);
-        }
-        else if (_deviceTown is { } town)
-        {
-            _deviceSprites = DeviceSprites.For(_vk, _config, world, _looks!, room, town);
-        }
-        else
-        {
-            return;
-        }
-
-        _renderer.DrawTheMovingFrom(_deviceSprites.Instances, _deviceSprites.Draws, _deviceSprites.AboveFrom);
+        _renderer.DrawTheMovingFrom(device.DrawWith(world, _looks!, room));
     }
 
     partial void EmitTheMoving(Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
     {
-        if (_deviceSprites is not { } sprites || _world is not { } world) return;
+        if (_deviceWorld is not { Sprites: { } sprites } device || _world is not { } world) return;
 
-        if (_resident is null) sprites.Lay(world);
-        sprites.EmitForTheFrame(viewCentreM, viewSpanM, pixelsPerMetre, world.ElapsedS);
+        sprites.WriteTheFrame(_renderer.ImageIndex, viewCentreM, viewSpanM, pixelsPerMetre, world.ElapsedS, device.SignalsTaken);
+        _renderer.Wrote(sprites.FrameBytes);
     }
 
     private partial AppWindow Boot(int width, int height, bool validate, float uiScale, Pacing pacing, bool fullscreen, string? display)

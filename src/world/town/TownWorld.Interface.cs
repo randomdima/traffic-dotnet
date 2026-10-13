@@ -37,7 +37,6 @@ internal sealed partial class TownWorld
         _selected.Clear();
         _selected.Add(wanted);
         GaveUpTheWheel();
-        TakeTheSelectedBack();
     }
 
     /// <summary>
@@ -53,7 +52,6 @@ internal sealed partial class TownWorld
         if (!changed) return;
 
         GaveUpTheWheel();
-        TakeTheSelectedBack();
     }
 
     public void SelectNone()
@@ -77,7 +75,6 @@ internal sealed partial class TownWorld
     /// <returns>How many units the box came to.</returns>
     public int SelectIn(Vector2 centreM, Vector2 sizeM, float turnRad, bool add)
     {
-        TakeEveryPoseBack();
         var alongBox = Heading.Unit(turnRad);
         var acrossBox = Heading.RightOf(alongBox);
         var halfM = Vector2.Abs(sizeM) * 0.5f;
@@ -109,25 +106,9 @@ internal sealed partial class TownWorld
         if (changed)
         {
             GaveUpTheWheel();
-            TakeTheSelectedBack();
         }
 
         return _selected.Count;
-    }
-
-    /// <summary>
-    /// <b>Every car picked out held as the device's last tick left it</b> (<see cref="ITownDevice.TakeTheCarBack"/>): the
-    /// town reads a selected car every tick from its next on (<see cref="ReadsTheTickOf"/>), and whatever the interface
-    /// does to one before then is done to the car as it stands.
-    /// </summary>
-    void TakeTheSelectedBack()
-    {
-        if (Device is not { } device) return;
-
-        foreach (var unit in _selected.Units)
-        {
-            if (unit.Kind == SelectionKind.Car) device.TakeTheCarBack(this, unit.Index);
-        }
     }
 
     /// <summary>
@@ -142,7 +123,6 @@ internal sealed partial class TownWorld
         switch (Standing(unit).Kind)
         {
             case SelectionKind.Car:
-                TakeTheCarsPoseBack(unit.Index);
                 atM = Cars.PositionM[unit.Index];
                 velocityMps = Cars.VelocityMps[unit.Index];
                 return true;
@@ -151,13 +131,11 @@ internal sealed partial class TownWorld
                 var inside = People.Inside[unit.Index];
                 if (inside.Kind == ContainerKind.Car)
                 {
-                    TakeTheCarsPoseBack(inside.Index);
                     atM = Cars.PositionM[inside.Index];
                     velocityMps = Cars.VelocityMps[inside.Index];
                     return true;
                 }
 
-                TakeThePoseBack(unit.Index);
                 atM = People.PositionM[unit.Index];
                 velocityMps = inside.Any ? Vector2.Zero : People.VelocityMps[unit.Index];
                 return true;
@@ -300,16 +278,14 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>A figure has been turned under the town</b> (<see cref="TrimFigures"/>): every look is built
-    /// again, the ground is worth what it is now worth, and the cars standing on it take the weight their
-    /// new build gives them. Nothing else moves — the plan, the roads, the bodies, where each of them is
-    /// and what it was in the middle of are all left exactly as they were.
+    /// again and the ground is worth what it is now worth. Nothing else moves — the plan, the roads, the bodies,
+    /// where each of them is and what it was in the middle of are all left exactly as they were.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>A build is read <c>in</c> from the array it lives in</b>, so refilling that array is the whole of
-    /// what most of a figure does: the tyres and the follower both reach for it every tick and get the new
-    /// one on the next. The two that do not are the weight, which the solver holds its own
-    /// copy of, and the ground, which is a table built once with the town.
+    /// <b>A trim is a surface's and never a car's own</b>: a body's mass and shape are its variant's and laid once, so
+    /// nothing of a body is sent again. The town's builds are refilled where they live, and the world takes the new
+    /// builds and grounds its tyres read (<see cref="WorldLayer.FiguresChanged"/>).
     /// </para>
     /// <para>
     /// <b>What it deliberately does not do is re-plan.</b> A car halfway along a line laid for the car it
@@ -321,15 +297,8 @@ internal sealed partial class TownWorld
     public void FiguresChanged()
     {
         _builds.Resolve(_config);
-        _terrain.FiguresChanged(_config);
-        WheelGrounds = WheelGrounds.Of(_config, _terrain);
-
-        for (var car = 0; car < Cars.Count; car++)
-        {
-            ref readonly var build = ref _builds.Of(Cars.Variant[car]);
-            Cars.MassKg[car] = build.MassKg;
-            _physics.Reweigh(Cars.Body[car], build.MassKg);
-        }
+        WheelGrounds = WheelGrounds.Of(_config);
+        _world.FiguresChanged(WheelGrounds);
     }
 
     /// <summary>
@@ -396,7 +365,6 @@ internal sealed partial class TownWorld
     /// <summary>The car whose footprint covers a point, or −1. Tested in the body's own frame, which is the frame it is drawn in.</summary>
     public int CarAt(Vector2 pointM)
     {
-        TakeEveryPoseBack();
         for (var car = 0; car < Cars.Count; car++)
         {
             if (CoversTheSpot(car, pointM)) return car;
@@ -423,7 +391,6 @@ internal sealed partial class TownWorld
     /// <summary>The walker under a point, or −1. The fine test the proximity index's superset was for.</summary>
     public int PersonAt(Vector2 pointM)
     {
-        TakeEveryPoseBack();
         var best = -1;
         var bestDistanceSq = float.MaxValue;
         for (var person = 0; person < People.Count; person++)
@@ -447,7 +414,7 @@ internal sealed partial class TownWorld
     {
         // Phase 1 advances the town's clock, so every decision this tick reads the same instant — which
         // is all the signals are derived from.
-        _elapsedS += _config.TickSeconds;
+        _elapsedS = (float)(++_clockTicks / (double)_config.Sim.TickRateHz);
 
         // The same clock a blocked-road mark expires against, so a stretch nobody has driven since is
         // tried again instead of believed for ever.
@@ -495,7 +462,7 @@ internal sealed partial class TownWorld
 
                 // Where the car stands against the junction ahead is still the town's to count — a red run
                 // under a hand is a red run.
-                ReadTheBoxAhead(car, progressM, out _, out _);
+                ReadTheBoxAhead(car, progressM);
             }
         }
 
@@ -505,7 +472,7 @@ internal sealed partial class TownWorld
         // Nothing was asked of the world on this car's behalf, so the layer has nothing about it to
         // draw: a hand-driven car reads no claims and is stopped by nothing but the hand on the pedal.
         Cars.Context[car] = DriveContext.Clear;
-        Tyres(car, pose);
+        Tyres(car);
     }
 
     /// <summary>

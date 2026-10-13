@@ -34,7 +34,7 @@ public class TurnCircleTests
     public void TheCentreIsSquareOutFromTheRearAxle(float headingRad)
     {
         var atM = new Vector2(30f, -12f);
-        Assert.True(TurnCircle.Of(Car, atM, headingRad, PartLockRad, out var turn));
+        Assert.True(TurnCircle.Of(Config, Car,atM, headingRad, PartLockRad, out var turn));
 
         Heading.Frame(headingRad, out var forward, out _);
         var rearAxleM = atM - (forward * Car.CentreAheadOfAxleM);
@@ -54,7 +54,7 @@ public class TurnCircleTests
     [InlineData(-0.5f)]
     public void TheRadiusIsTheWheelbaseOverTheTangentOfTheLock(float steerRad)
     {
-        Assert.True(TurnCircle.Of(Car, Vector2.Zero, 0.4f, steerRad, out var turn));
+        Assert.True(TurnCircle.Of(Config, Car,Vector2.Zero, 0.4f, steerRad, out var turn));
 
         Assert.Equal(MathF.Abs(Car.WheelbaseM / MathF.Tan(steerRad)), turn.RearAxleRadiusM, 2);
 
@@ -71,7 +71,7 @@ public class TurnCircleTests
     [InlineData(-PartLockRad, -1f)]
     public void TheCentreIsOnTheSideTheWheelIsTurnedTo(float steerRad, float side)
     {
-        Assert.True(TurnCircle.Of(Car, Vector2.Zero, 0f, steerRad, out var turn));
+        Assert.True(TurnCircle.Of(Config, Car,Vector2.Zero, 0f, steerRad, out var turn));
 
         Heading.Frame(0f, out _, out var right);
         Assert.True(
@@ -90,7 +90,7 @@ public class TurnCircleTests
     [InlineData(0f)]
     [InlineData(1e-5f)]
     public void StraightWheelsHaveNoCircle(float steerRad) =>
-        Assert.False(TurnCircle.Of(Car, Vector2.Zero, 0f, steerRad, out _));
+        Assert.False(TurnCircle.Of(Config, Car,Vector2.Zero, 0f, steerRad, out _));
 
     /// <summary>And neither has a wheel turned so little that the circle is wider than anything is drawn.</summary>
     [Fact]
@@ -98,7 +98,7 @@ public class TurnCircleTests
     {
         var justOffStraightRad = MathF.Atan(Car.WheelbaseM / (TurnCircle.WidestM * 2f));
 
-        Assert.False(TurnCircle.Of(Car, Vector2.Zero, 0f, justOffStraightRad, out _));
+        Assert.False(TurnCircle.Of(Config, Car,Vector2.Zero, 0f, justOffStraightRad, out _));
     }
 
     /// <summary>
@@ -116,7 +116,7 @@ public class TurnCircleTests
         for (var variant = 0; variant < CarCatalog.Shared.Count; variant++)
         {
             ref readonly var build = ref builds.Of(variant);
-            Assert.True(TurnCircle.Of(build, Vector2.Zero, 0f, build.MaxSteerRad, out var turn));
+            Assert.True(TurnCircle.Of(Config, build,Vector2.Zero, 0f, build.MaxSteerRad, out var turn));
 
             Assert.Equal(MathF.Abs(build.WheelbaseM / MathF.Tan(build.MaxSteerRad)), turn.RearAxleRadiusM, 2);
             tightestM = MathF.Min(tightestM, turn.RearAxleRadiusM);

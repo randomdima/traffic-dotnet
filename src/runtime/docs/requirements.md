@@ -11,20 +11,18 @@ this is the layer that gets it there.
 - **One command buffer per swapchain image, recorded once.** Draw counts live in a buffer the CPU writes
   rather than in the calls themselves, so a windowed frame is five crossings — submit and present the
   frame that was filled, then acquire, wait and reset for the next — and an offscreen one is three, and
-  not one of them takes the size of the town as an argument. Where the device ticks the town, what moves is
-  emitted in a submit of its own ahead of the frame (`DeviceSprites.EmitForTheFrame`): a fixed count of
-  crossings, whatever the town.
+  not one of them takes the size of the town as an argument. Where the device steps the world, what moves is
+  emitted inside the frame's own command buffer, recorded with it once (`DeviceSprites.Record`): no crossing of
+  its own.
 - **Nothing is marshalled.** Blittable structs, `Span<T>` over memory the driver already owns, and
   function pointers. No array copied at the boundary, no string built per frame, no delegate allocated,
   no layout conversion, no pinning that outlives a call.
 - **A re-recording renderer is the failure mode**, not a slower version of the same thing. It is what the
   gate in `src/tests/gates/CrossingGateTests.cs` exists to catch.
 
-**The tick's kernels cross nothing of their own** (root log, 2026-10-06). A windowed tick is recorded into the
-frame's command buffer and goes with its one submit; a run with no frame steps a batch of ticks as one submit
-and one wait (`ComputeBatch`), so its count is per batch and never per tick or per body. A kernel's buffers are
-bound in a set written once (`ComputeKernel.Bind`), and which of two swapped buffers is current is a word a
-kernel reads, never a set rebound.
+**A tick of the world on the device is one submit and one wait** (`DeviceWorld.Step`, root log 2026-10-11): the
+signals in, every kernel of the step, the view out — never a crossing a body. A kernel's buffers are bound in a set
+written once (`ComputeKernel.Bind`) and bound again only where a buffer grows past its room.
 
 ## What is embedded and what is found
 

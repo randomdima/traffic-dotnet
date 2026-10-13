@@ -35,23 +35,16 @@ internal interface ISimWorld
 
     /// <summary>
     /// Phase 3a over the roster: <see cref="TickAgent"/> of every agent not terminal, in roster order
-    /// (<see cref="EveryAgent.Tick"/>) — or of only those a world knows may do anything, where something else ticks the rest.
+    /// (<see cref="EveryAgent.Tick"/>) — or of only those a world knows may do anything.
     /// </summary>
     void TickTheAgents();
-
-    /// <summary>
-    /// Phase 3a's end, once every agent has been handed to <see cref="TickAgent"/> and before any decision — on the loop's
-    /// <paramref name="tick"/>, whose turn of the decisions (<see cref="TickGroups.Turn"/>) is taken next.
-    /// </summary>
-    void AgentsTicked(long tick);
 
     /// <summary>Phase 3b — each agent's own decision, run on the decision clock: a car's errand and its leg, a walker's trip.</summary>
     void DecideAgent(int agent, float sinceLastDecisionS);
 
     /// <summary>
     /// Phase 3b over the roster: <see cref="DecideAgent"/> of every agent not terminal whose turn <paramref name="tick"/> is
-    /// on <paramref name="decisions"/>, or that decides every tick, in roster order (<see cref="EveryAgent.Decide"/>) — or of
-    /// only those a world knows are its to decide, where something else takes the rest.
+    /// on <paramref name="decisions"/>, or that decides every tick, in roster order (<see cref="EveryAgent.Decide"/>).
     /// </summary>
     void DecideTheAgents(long tick, TickGroups decisions);
 

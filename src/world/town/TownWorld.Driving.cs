@@ -36,8 +36,8 @@ namespace TrafficSimulation.World.Town;
 internal sealed partial class TownWorld
 {
     /// <summary>
-    /// Whether this car's last tick was a parked one that left it rested — nobody driving, the parked command, every
-    /// wheel cleared and the throttle recovered — so another tick at the same pose would write what is already there.
+    /// Whether this car's last tick was a parked one — nobody driving, the parked command — so another tick at the same
+    /// pose would write what is already there.
     /// </summary>
     readonly bool[] _standsParked;
 
@@ -49,11 +49,8 @@ internal sealed partial class TownWorld
     /// </summary>
     readonly bool[] _asksTheRoute;
 
-    /// <summary>For the instruments: whether a tick has left this car's next decision to lay the rest of its line (<see cref="_asksTheRoute"/>).</summary>
-    public bool AsksTheRoute(int car) => _asksTheRoute[car];
-
-    /// <summary>For the instruments: whether this car is on somebody's arm, so its tick is the trailer's wheels (EVA-5).</summary>
-    public bool OnTheHook(int car) => _recovery.OnTheHookOf[car] >= 0;
+    /// <summary>The most one lane and its join add to a line (<see cref="LineAssembler.MostArcsOfALane"/>).</summary>
+    readonly int _mostArcsOfALane;
 
     /// <summary>
     /// <b>Whether this car's tick would change nothing</b>, so it is not taken at all: it rested parked last tick
@@ -64,20 +61,54 @@ internal sealed partial class TownWorld
     public bool StandsParked(int car) =>
         _standsParked[car] && !Cars.Driven[car] && Cars.Action[car] != CarAction.Hand
         && _recovery.OnTheHookOf[car] < 0 && Cars.Hold[car] == DrivingHold.None
-        && Cars.Command[car] == DriveCommand.Parked && _physics.FrozenThroughLastStep(Cars.Body[car])
+        && Cars.Command[car] == DriveCommand.Parked
+        && (_world.View.Cars[car].Flags & CarView.FrozenThroughLastStep) != 0
         && Cars.VelocityMps[car] == Vector2.Zero && Cars.YawRateRadPerS[car] == 0f;
+
+    /// <summary>
+    /// <b>What a car following its line read on a tick that left its command as it found it, standing still</b> — its
+    /// pose, its line and action, its grant and the stop it was sent to. The same again on a tick it was frozen through the
+    /// step before is the same tick (<see cref="TicksAsBefore"/>): a car queueing for its grant.
+    /// </summary>
+    readonly record struct StoodTick(
+        Vector2 PositionM, float HeadingRad, uint Line, uint Entries, DriveCommand Command, float AuthorityM,
+        float CoveredSinceClaimM, float HorizonM, float GrantMarginM, HeadwayKind GrantCutBy, float SceneM, float PaceMps,
+        bool BlueLight);
+
+    /// <summary>Each car's last tick, where it is one to take again unread (<see cref="StoodTick"/>), and whether it is.</summary>
+    readonly StoodTick[] _stoodTick;
+
+    readonly bool[] _stood;
+
+    StoodTick StoodTickOf(int car) => new(
+        Cars.PositionM[car], Cars.HeadingRad[car], Cars.LinesLaid[car], _carActions.EntriesOf(car), Cars.Command[car],
+        Cars.AuthorityM[car], Cars.CoveredSinceClaimM[car], Cars.HorizonM[car], Cars.GrantMarginM[car],
+        Cars.GrantCutBy[car], ToTheSceneM(car), Cars.PaceMps[car], Cars.BlueLight[car]);
+
+    /// <summary>
+    /// <b>Whether this car's tick would be its last one again</b>: it stood still through the step, and nothing it reads —
+    /// its pose, line, action, grant, pace or the stop it was sent to — has changed since a tick that changed nothing.
+    /// </summary>
+    bool TicksAsBefore(int car) =>
+        _stood[car] && (_world.View.Cars[car].Flags & CarView.FrozenThroughLastStep) != 0
+                    && StoodTickOf(car) == _stoodTick[car];
+
+    /// <summary>A tick just taken kept, where it changed nothing of a car following its line at a standstill.</summary>
+    void KeepTheTick(int car, in DriveCommand commandWas)
+    {
+        _stood[car] = Cars.Action[car] == CarAction.Follow && Cars.Driven[car] && Cars.Command[car] == commandWas
+                      && (_world.View.Cars[car].Flags & CarView.FrozenThroughLastStep) != 0
+                      && Cars.VelocityMps[car] == Vector2.Zero && Cars.YawRateRadPerS[car] == 0f;
+        if (_stood[car]) _stoodTick[car] = StoodTickOf(car);
+    }
 
     /// <summary>One tick of one car's body: where it is, what it can see, and what the pedals and the wheel are asked for.</summary>
     void TickCar(int car)
     {
         // EVA-5: <b>a car on somebody's arm is not driving</b>. One end of it is off the ground and the other
         // is rolling where the truck takes it, which is exactly a wreck's state said of a car nobody broke —
-        // so what it gets is the trailer's two wheels and no driving at all.
-        if (_recovery.OnTheHookOf[car] >= 0)
-        {
-            TrailerWheels(car);
-            return;
-        }
+        // so what it gets is the trailer's two wheels, which are the world's (ControlAction.Tow), and no driving at all.
+        if (_recovery.OnTheHookOf[car] >= 0) return;
 
         var pose = PoseOf(car);
         if (Cars.Action[car] == CarAction.Hand)
@@ -89,8 +120,9 @@ internal sealed partial class TownWorld
 
         if (!Cars.Driven[car])
         {
-            // Rested with its throttle recovered, the next tick of a car nobody drives does exactly this again.
-            _standsParked[car] = Hold(car, pose, DrivingHold.None) && Cars.SlipThrottle[car] == 1f;
+            // The next tick of a car nobody drives does exactly this again.
+            Hold(car, pose, DrivingHold.None);
+            _standsParked[car] = true;
             return;
         }
 
@@ -174,19 +206,25 @@ internal sealed partial class TownWorld
             return false;
         }
 
-        var advance = LineReader.Advance(Cars, car, rearAxleM);
+        // <b>Where the car is on its line is the world's reading</b> (the root decision log, 2026-10-14); it is projected
+        // here only on the tick or two after its line was laid again, before the world has read it along the new one.
+        var readM = ReadProgressM(car);
+        var advance = LineReader.Advance(Cars, car, rearAxleM, readM);
         progressM = advance.ProgressM;
         coveredM = advance.CoveredM;
         Cars.CoveredSinceClaimM[car] += coveredM;
         if (advance.Shifted) AdvanceLane(car, advance.ShiftM);
 
-        Cars.ProgressM[car] = progressM;
+        Cars.ProgressM[car] = _progressRead[car] = progressM;
         Cars.AlongMps[car] = alongMps;
 
         // A pass is laid along the lane the car is on and nowhere else (CAR-46).
         if (_overtaking.IsOffTheLaneOfItsPass(car)) Enter(car, CarAction.Follow);
 
-        Cars.OffLineM[car] = CarFollower.OffLineM(Cars.LineOf(car), rearAxleM, progressM, _overtaking.AsideAtM(car, progressM));
+        var asideM = _overtaking.AsideAtM(car, progressM);
+        Cars.OffLineM[car] = asideM == 0f && !float.IsNaN(readM) && !advance.Shifted
+            ? _world.View.Cars[car].OffLineM
+            : CarFollower.OffLineM(Cars.LineOf(car), rearAxleM, progressM, asideM, Cars.LineCursor[car]);
 
         // <b>Being off the line is ordinary; being off it by this much is not</b> (CAR-10a). A line is a
         // recommendation and every car holds it with its own steering, so a long car cuts a corner a short
@@ -221,7 +259,7 @@ internal sealed partial class TownWorld
         var context = SetTheContext(car, progressM, coveredM, waitsToPass, passAsideM, backUpM, blocked, waitAtM);
         Drive(
             car, Cars.BuildOf(car), pose, Cars.LineOf(car), progressM, Cars.Line[car].LengthM, context, pose.Forward,
-            alongMps, reverse: false);
+            alongMps, reverse: false, Cars.LineCursor[car]);
     }
 
     /// <summary>What a car on the route's line is told about the world this tick, and the junction ahead of it read.</summary>
@@ -229,11 +267,9 @@ internal sealed partial class TownWorld
         int car, float progressM, float coveredM, bool waitsToPass, float passAsideM, float backUpM, bool blocked,
         float waitAtM = float.PositiveInfinity)
     {
-        // S-4: the junction ahead. Whether the box is this car's is its grant's to say, and a light is in the
-        // grant too — its hold is ground like any other (TLT-1).
-        ReadTheBoxAhead(car, progressM, out var toTheBoxM, out var claimed);
-        Cars.ToTheBoxM[car] = toTheBoxM;
-        Cars.BoxIsOurs[car] = claimed;
+        // S-4: the junction ahead, for the indicator. Whether the box is this car's is its grant's to say, and a light is
+        // in the grant too — its hold is ground like any other (TLT-1).
+        ReadTheBoxAhead(car, progressM);
 
         // The grant was taken against the claims while they were being laid, so it is a distance from where the
         // nose stood then: walking it in by the ground covered since (<see cref="CarFleet.GrantLeftM"/>) is what
@@ -254,19 +290,39 @@ internal sealed partial class TownWorld
     /// S-1, S-2 and S-5: <b>the wheel is pure pursuit and the pedals are the speed profile</b>
     /// (<see cref="CarFollower.DriveTheLine"/>), and what they ask for delivered by the tyres.
     /// </summary>
+    /// <param name="cursor">Where the car's walks of <paramref name="line"/> begin, where it is the car's own (<see cref="CarFleet.LineCursor"/>).</param>
+    /// <param name="backsUpByM">Where given, the car backs down the line to rest this far behind (<see cref="CarFollower.DriveTheLine"/>).</param>
     void Drive(
         int car, in CarBuild build, in CarPose pose, ReadOnlySpan<ArcSeg> line, float progressM, float lengthM,
-        in DriveContext context, Vector2 travel, float alongMps, bool reverse)
+        in DriveContext context, Vector2 travel, float alongMps, bool reverse, SplineCursor cursor = default,
+        float backsUpByM = float.NaN)
     {
         var drive = CarFollower.DriveTheLine(
             _config, build, pose, line, Cars.EntriesOf(car), progressM, lengthM, context, travel, alongMps, reverse,
-            Cars.Command[car], Cars.Pass[car], Cars.Line[car].LaneCount == 0, Cars.BlueLight[car], Cars.PaceMps[car]);
+            Cars.Command[car], Cars.Pass[car], Cars.Line[car].LaneCount == 0, Cars.BlueLight[car], Cars.PaceMps[car],
+            cursor, backsUpByM);
 
-        Cars.PlannedMps[car] = drive.PlannedMps;
+        // A car backing up keeps the speed it planned down the road before it began.
+        if (!float.IsNaN(drive.PlannedMps)) Cars.PlannedMps[car] = drive.PlannedMps;
         if (drive.Hazard) HardBrakings++;
         Cars.Command[car] = drive.Command;
         Cars.Hold[car] = drive.Hold;
-        Tyres(car, pose);
+        Tyres(car);
+    }
+
+    /// <summary>
+    /// <b>A car off every lane goes straight back onto the one it was driving</b> (the root decision log, 2026-10-13):
+    /// the first lane of its chain, known by name and never searched for, where its rear axle stands abeam of it — or
+    /// nowhere where it had none.
+    /// </summary>
+    StandingOn BackOntoItsLane(int car, Vector2 rearAxleM)
+    {
+        if (Cars.Line[car].LaneCount == 0) return StandingOn.Nowhere;
+
+        var lane = Cars.ChainOf(car)[0];
+        var arcs = _roads.ArcsOf(lane);
+        var alongM = Spline.ProjectM(arcs, rearAxleM, Math.Clamp(Cars.ProgressM[car], 0f, _roads.LaneLengthM[lane]), _roads.LaneLengthM[lane]);
+        return new StandingOn(lane, CarFleet.NoLane, alongM, Spline.SampleAt(arcs, alongM));
     }
 
     /// <summary>
@@ -287,7 +343,8 @@ internal sealed partial class TownWorld
     bool Reacquire(int car, Vector2 rearAxleM)
     {
         var forward = ForwardOf(car);
-        var under = TheCarriagewayUnder(rearAxleM, forward, Cars.LevelOf(car));
+        var under = TheCarriagewayUnder(rearAxleM, forward, CoversOfCar(car));
+        if (under.Lane < 0) under = BackOntoItsLane(car, rearAxleM);
         if (under.Lane < 0) return false;
         if ((under.At.PositionM - rearAxleM).Length() > _config.CarOffPathM * OffLineTolerance) return false;
         if (Vector2.Dot(under.At.Direction, forward) <= 0f) return false;
@@ -336,15 +393,14 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>A car that is doing nothing this tick, and the one reason it is not.</summary>
-    /// <returns>Whether the car was at rest and the tyres had nothing to do.</returns>
-    bool Hold(int car, in CarPose pose, DrivingHold why)
+    void Hold(int car, in CarPose pose, DrivingHold why)
     {
         Cars.Command[car] = why == DrivingHold.None
             ? DriveCommand.Parked
             : DriveCommand.Stopping(Cars.BuildOf(car).BrakingMps2);
         Cars.Hold[car] = why;
         Cars.Context[car] = DriveContext.Clear;
-        return Tyres(car, pose);
+        Tyres(car);
     }
 
     /// <summary>
@@ -473,7 +529,7 @@ internal sealed partial class TownWorld
             return;
         }
 
-        LayLine(car, Cars.Line[car].LaneCount, Cars.ProgressM[car]);
+        LayLine(car, Cars.Line[car].LaneCount, Cars.ProgressM[car], grows: true);
     }
 
     /// <summary>
@@ -558,7 +614,6 @@ internal sealed partial class TownWorld
         // than standing in a lane. <b>An errand's own leg is the one that is not aimed at a bay at all</b>
         // (AMB-5, EVA-3): it is aimed at a body or a wreck in the road, and a bay claimed for it would be a
         // leg that parked instead of arriving.
-        TakeTheCarsPoseBack(car);
         if (!IsAimedAtAPlaceInTheRoad(car)
             && BayAimedAt(car) < 0
             && !RetargetTheBay(car, Cars.PositionM[car], ParkingRegistry.NoBay))
@@ -603,7 +658,10 @@ internal sealed partial class TownWorld
 
         if (!IsAimedAtAPlaceInTheRoad(car)) return BayGoals(BayAimedAt(car), into);
 
-        return _driving.GoalsAt(Cars.DestinationM[car], into);
+        // A place a player named is looked up (the root decision log, 2026-10-13); every other carries its own.
+        return _destinationPlace[car].IsSomewhere
+            ? _driving.GoalsAt(_destinationPlace[car], into)
+            : _driving.GoalsAt(Cars.DestinationM[car], into);
     }
 
     internal RouteFound TryPlan(int car, int fromLane)
@@ -724,7 +782,6 @@ internal sealed partial class TownWorld
         Cars.RouteTaken[car] = 0;
         Cars.TurnsBackOn[car] = turnsBackOn;
         Cars.RouteRunsOut[car] = ranOut;
-        Cars.RouteChanged(car);
 
         var runs = Driving.Runs;
         var goalLane = runs.PiecesOf(goal.Link)[runs.PieceAt(goal.Link, goal.AlongM, out var goalAlongM)];
@@ -848,7 +905,11 @@ internal sealed partial class TownWorld
     /// Laid on a tick, so grown only off the route's queue (<see cref="NextQueuedLane"/>). Otherwise the route is asked
     /// whole, which answers whatever a tick left for the decision.
     /// </param>
-    internal void LayLine(int car, int from, float spentM = 0f, bool fromTheQueue = false)
+    /// <param name="grows">
+    /// Whether the chain in hand is the line's own as it stands, every lane of it kept — a line grown at its far end, whose
+    /// arcs and corner figures but those of its last lane stand as they are (<see cref="LineAssembler.Assemble"/>).
+    /// </param>
+    internal void LayLine(int car, int from, float spentM = 0f, bool fromTheQueue = false, bool grows = false)
     {
         if (!fromTheQueue) _asksTheRoute[car] = false;
 
@@ -860,7 +921,16 @@ internal sealed partial class TownWorld
         var reachM = SightM(car);
         var seenM = -spentM;
         var searched = false;
-        for (var index = 0; index < from; index++) seenM += _roads.LaneLengthM[chain[index]];
+        var arcs = 0;
+        for (var index = 0; index < from; index++)
+        {
+            seenM += _roads.LaneLengthM[chain[index]];
+            arcs += LineAssembler.ArcsOfALane(_roads, index > 0 ? chain[index - 1] : -1, chain[index]);
+        }
+
+        // <b>Never a lane the car's room for its line might not hold</b> (LineAssembler.MostArcs): the next is asked for
+        // only while the longest lane would still fit, since asking takes it off the route.
+        var roomForArcs = Cars.LineArcsOf(car).Length - _mostArcsOfALane;
 
         // <b>The route is asked at the end of the line already in hand, whether or not another lane is
         // wanted.</b> A lane is the whole stretch between two junctions, so the one under a car regularly
@@ -870,13 +940,14 @@ internal sealed partial class TownWorld
         // a dead end and standing there for the rest of the run. <b>A lane it hands back is taken</b>: the
         // queue has already given that lane up, and a line one lane past the sight distance is line to
         // spare rather than line to waste.
-        while (lanes < LineAssembler.MostLanes)
+        while (lanes < LineAssembler.MostLanes && arcs <= roomForArcs)
         {
             var next = fromTheQueue
                 ? NextQueuedLane(car, chain[lanes - 1])
                 : NextLaneOnRoute(car, chain[lanes - 1], ref searched);
             if (next < 0) break;
 
+            arcs += LineAssembler.ArcsOfALane(_roads, chain[lanes - 1], next);
             chain[lanes++] = next;
             seenM += _roads.LaneLengthM[next];
             if (seenM >= reachM) break;
@@ -897,22 +968,23 @@ internal sealed partial class TownWorld
         var placeM = bay == CarFleet.NoBay ? ThePlaceTheLineStopsAtM(car, lastLane) : float.NaN;
         Cars.StopsForBay[car] = bay;
         Cars.StopsAtItsPlace[car] = !float.IsNaN(placeM);
-        Cars.SetLine(car, LineAssembler.Assemble(
-            _roads, chain[..lanes], Cars.LineArcsOf(car), Cars.LaneStartsOf(car), Cars.LaneEndsOf(car),
-            bay != CarFleet.NoBay ? _parkingIn.StopForTheBayM(car, bay, lastLane)
-            : float.IsNaN(placeM) ? float.PositiveInfinity
-            : placeM,
-            Cars.LaneFirstArcsOf(car)));
 
-        // What a plan reads of the line it runs down (TER-4c.1, S-2): the corners folded into each arc, and which
-        // joins break it — once a line, so the plan and the profile read segments rather than walk geometry.
-        CornerLimits.Lay(Cars.LineOf(car), Cars.LineEntriesOf(car), _config);
-        var breaks = Cars.JoinBreaksOf(car);
-        for (var slot = 0; slot + 1 < Cars.Line[car].LaneCount; slot++)
-        {
-            var join = _roads.ConnectorBetween(chain[slot], chain[slot + 1]);
-            breaks[slot] = join != RoadGraph.NoConnector && _roads.BreaksTheLine(join);
-        }
+        // Grown, every lane in hand but the last keeps its arcs; the last was laid as an end and is laid again as a lane.
+        var keptWhole = grows && lanes > wasLanes ? wasLanes - 1 : 0;
+        var keptArcs = keptWhole > 0 ? Cars.LaneFirstArcsOf(car)[keptWhole] : 0;
+        var lastLaneToM = bay != CarFleet.NoBay ? _parkingIn.StopForTheBayM(car, bay, lastLane)
+            : float.IsNaN(placeM) ? float.PositiveInfinity
+            : placeM;
+        var laid = LineAssembler.Assemble(
+            _roads, chain[..lanes], Cars.LineArcsOf(car), Cars.LaneStartsOf(car), Cars.LaneEndsOf(car), lastLaneToM,
+            Cars.LaneFirstArcsOf(car), keptWhole);
+        Cars.SetLine(car, laid);
+        Cars.LineStopsAtM[car] = LineAssembler.LaidToM(_roads, chain[laid.LaneCount - 1], laid.LaneCount == lanes, lastLaneToM);
+
+        // What a plan reads of the line it runs down (TER-4c.1, S-2): the corners folded into each arc, and the joins
+        // and which of them break it — once a line, so the plan and the profile read segments rather than walk geometry.
+        CornerLimits.Lay(Cars.LineOf(car), Cars.LineEntriesOf(car), _config, keptArcs);
+        Cars.LayTheJoins(car, _roads);
 
         KeepTheGrantOnTheLanesKept(car, was[..wasLanes]);
     }

@@ -10,15 +10,19 @@ namespace TrafficSimulation.Agents.Person.Actions;
 
 /// <summary>
 /// <b>Sidestep</b> (PER-28, TER-4c.6): a walker getting past somebody standing on its way — the car's pass said of a
-/// walker: asked for off the grant a body ended, laid as a body over the ground it will cover, kept or withdrawn once,
-/// and walked as a step across onto the lane beside, a walk down it and a step back. Done once it is back on its route
-/// past the one it passed.
+/// walker: asked for off the grant a body ended, laid as a plan of its own over the ground it will cover, kept or
+/// withdrawn once, and walked as a step across onto the lane beside, a walk down it and a step back. Done once it is
+/// back on its route past the one it passed.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Its ground is the walker's own disc swept down its three legs and read off the atlas</b>, as a body's is
-/// (TER-4c.2): across from where it stands, along the lane beside a stride at a time, and back — so a pass runs
-/// round a corner and across the joint where a pavement is parted for a zebra as along a stretch.
+/// <b>Nothing decides a pass</b> (<see cref="DrawThePass"/>): whether what ended the grant is somebody standing still is
+/// what that body is doing, and the claims say only where it is (TER-4c.5).
+/// </para>
+/// <para>
+/// <b>Its ground is its own route's</b> (<see cref="GroundOfThePass"/>), from where it stands to the gap past where it
+/// steps back — the lane beside it walks down being ground the world reads its body on as it goes (TER-4c.2) — so a pass
+/// runs round a corner and across the joint where a pavement is parted for a zebra as along a stretch.
 /// </para>
 /// <para>
 /// <b>It may run on past the end of the way it began on</b>, which is the whole of getting round somebody
@@ -28,25 +32,14 @@ namespace TrafficSimulation.Agents.Person.Actions;
 /// </remarks>
 internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
 {
-    /// <summary>
-    /// How many runs one walker's pass is kept in (<see cref="SweptGround"/>). A bound on the table and not a figure
-    /// behaviour reads: a pass is a step across, a few strides and a step back.
-    /// </summary>
-    public const int MostRunsOfAPass = 32;
-
     /// <summary>The pass each walker decided on, committed to while it waits for it and walks it.</summary>
     readonly Sidestep[] _decided = new Sidestep[ground.People.Capacity];
 
-    /// <summary>The pavement each decided pass's body sweeps — what is laid, kept, and looked for a body in.</summary>
-    readonly SweptGround _swept = new(ground.People.Capacity, MostRunsOfAPass);
+    /// <summary>The body each decided pass gets past, where it stood.</summary>
+    readonly BodySeen[] _passed = new BodySeen[ground.People.Capacity];
 
-    /// <summary>And everything it sweeps, with the room past where it steps back — what is asked for.</summary>
-    readonly SweptGround _asked = new(ground.People.Capacity, MostRunsOfAPass);
-
-    /// <summary>The body each decided pass gets past, and the way it was met on.</summary>
-    readonly LaneClaim[] _passed = new LaneClaim[ground.People.Capacity];
-
-    readonly int[] _passedOn = new int[ground.People.Capacity];
+    /// <summary>The hold each walker's pass was asked in this rebuild, or <see cref="LaneOccupancy.NoHold"/>.</summary>
+    readonly int[] _holds = LaneOccupancy.NoHolds(ground.People.Capacity);
 
     /// <summary>How long until a walker waiting on its pass looks round again (<see cref="PersonFigures.SidestepAskEveryS"/>).</summary>
     readonly float[] _looksInS = new float[ground.People.Capacity];
@@ -56,10 +49,6 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
 
     /// <summary>How long until a walker refused a pass by the ground decides on one again.</summary>
     readonly float[] _decidesInS = new float[ground.People.Capacity];
-
-    /// <summary>Every table this action keeps a walker in, for the device to lay once at load (<c>app/devicetick/TownState</c>).</summary>
-    internal (Sidestep[] Decided, SweptGround Swept, SweptGround AskedGround, LaneClaim[] Passed, int[] PassedOn, float[] LooksInS,
-        float[] WaitedS, float[] DecidesInS) Kept => (_decided, _swept, _asked, _passed, _passedOn, _looksInS, _waitedS, _decidesInS);
 
     PersonFleet People => ground.People;
 
@@ -75,13 +64,15 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     public long Made { get; private set; }
 
     /// <summary>
-    /// <b>The ground this walker's pass will cover, laid as a body</b> (TER-4c.6): the pavement it was swept over
-    /// (<see cref="IsPavement"/>), given back a stride behind the walker as it goes.
+    /// <b>The ground this walker's pass will cover, asked as a plan of its own</b> (TER-4c.6): what is left of its
+    /// route's ground (<see cref="GroundStillToCover"/>) — at a walker's rung, and at <see cref="ClaimPriority.Committed"/>
+    /// once begun.
     /// </summary>
     [SkipLocalsInit]
     public void Lay(int person)
     {
-        Span<SweptRun> left = stackalloc SweptRun[MostRunsOfAPass];
+        _holds[person] = LaneOccupancy.NoHold;
+        Span<LineWay> left = stackalloc LineWay[WalkingGround.MostWaysAlongAWalk];
         var count = GroundStillToCover(person, left);
         if (count < 0)
         {
@@ -89,32 +80,43 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
             return;
         }
 
+        if (count == 0) return;
+
+        // Begun, the walker stands where it is short of whatever refuses the pass: nought on its walk is its centre.
+        var begun = People.Pass[person].Begun;
         var occupant = ground.HeldAs(person, out var roster);
-        foreach (ref readonly var run in left[..count]) Occupancy.LayPass(run.Way, run.FromM, run.ToM, 0f, occupant, roster);
+        var hold = _holds[person] = Occupancy.BeginHold(occupant, roster, whole: !begun);
+        var rung = begun ? ClaimPriority.Committed : ClaimPriority.Afoot;
+        foreach (ref readonly var way in left[..count]) Occupancy.Ask(hold, way.Way, way.FromM, way.ToM, way.LineFromM, rung);
     }
 
     /// <summary>
-    /// <b>What is left of the ground a walker's pass covers</b> (<see cref="Lay"/>): the runs it was swept in that the
-    /// walker has not yet walked a stride past.
+    /// The hold of the pass a walker has begun, which its walk carries on from (<see cref="WalkingGround.Claim"/>) — or
+    /// <see cref="LaneOccupancy.NoHold"/>.
     /// </summary>
-    /// <param name="into">Room for <see cref="MostRunsOfAPass"/>.</param>
+    public int HoldOf(int person) => People.Pass[person].Begun ? _holds[person] : LaneOccupancy.NoHold;
+
+    /// <summary>
+    /// <b>What is left of the ground a walker's pass covers</b> (<see cref="Lay"/>): its route's from where it stands to
+    /// where it steps back.
+    /// </summary>
+    /// <param name="into">Room for <see cref="WalkingGround.MostWaysAlongAWalk"/>.</param>
     /// <returns>How many: none for a walker on no pass, and −1 for one no longer on the sidestep it decided.</returns>
-    public int GroundStillToCover(int person, Span<SweptRun> into)
+    public int GroundStillToCover(int person, Span<LineWay> into)
     {
         var pass = People.Pass[person];
         if (People.Action[person] != PersonAction.Sidestep || !pass.Any) return 0;
         if (!WhereOnItsSidestep(person, pass, out var place)) return -1;
 
-        var written = 0;
-        foreach (ref readonly var run in _swept.Of(person))
-        {
-            if (run.LastAtM < place.WalkedM - AStrideM(person)) continue;
-
-            into[written++] = run;
-        }
-
-        return written;
+        return GroundOfThePass(person, pass, place.WalkedM, 0f, into);
     }
+
+    /// <summary>
+    /// <b>A pass's ground</b> (TER-4c.6): the ways of the walker's route from where it stands to where it steps back
+    /// onto it, <paramref name="walkedM"/> down the pass, and <paramref name="roomM"/> past that.
+    /// </summary>
+    int GroundOfThePass(int person, in Sidestep pass, float walkedM, float roomM, Span<LineWay> into) =>
+        ground.WaysAlongTheWalk(person, MathF.Max(0f, pass.ClearM - walkedM) + People.RadiusM[person] + roomM, into);
 
     /// <summary>
     /// <b>This rebuild's word on a walker's pass</b>, read once its grant is: begun or withdrawn in the rebuild after it
@@ -139,27 +141,14 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
         if (pass.Any) KeepOrWithdrawTheSidestep(person, pass);
     }
 
-    /// <summary>A pass's word as it was given wherever that was (<see cref="Consider"/>'s, or a device's), counted: made, or withdrawn.</summary>
-    public void CountTheWord(bool made, bool withdrawn)
-    {
-        if (made) Made++;
-        if (withdrawn) Withdrawn++;
-    }
-
     /// <summary>
-    /// <b>A walker's pass, on its own clock</b>: decided where the grant was ended by somebody it may get past; and while
-    /// it waits, looked round every <see cref="PersonFigures.SidestepAskEveryS"/> — asked for, or let go where the one it
-    /// passes has gone or it has waited its patience out.
+    /// <b>A walker's pass, on its own clock</b>: while it waits, looked round every
+    /// <see cref="PersonFigures.SidestepAskEveryS"/> — asked for, or let go where the one it passes has gone or it has
+    /// waited its patience out.
     /// </summary>
     /// <param name="sinceLastDecisionS">How much of the town's time this decision answers for, which its clocks run by.</param>
     public void Decide(int person, float sinceLastDecisionS)
     {
-        if (People.Action[person] == PersonAction.Walk)
-        {
-            if (DrawThePass(person, sinceLastDecisionS)) actions.Enter(person, PersonAction.Sidestep);
-            return;
-        }
-
         if (People.Action[person] != PersonAction.Sidestep || People.Pass[person].Any) return;
 
         _waitedS[person] += sinceLastDecisionS;
@@ -168,13 +157,6 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
         if (_waitedS[person] > ground.Config.Person.SidestepPatienceS)
         {
             actions.Enter(person, PersonAction.Walk);
-            return;
-        }
-
-        // A layer sent back in part may not hold the ground yet: looked round again at the next decision.
-        if (!KnowsTheGroundOfThePass(person))
-        {
-            _looksInS[person] = 0f;
             return;
         }
 
@@ -191,39 +173,6 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     }
 
     /// <summary>
-    /// <b>Whether somebody stands inside what is left of a walker's pass</b> — the one thing that holds a walker
-    /// on a pass where it is, since nothing planned can be laid over the ground it covers (TER-4c.1).
-    /// </summary>
-    public bool TheBodyInTheSidestep(int person, out LaneClaim body, out int on)
-    {
-        body = LaneClaim.Nothing;
-        on = LaneOccupancy.NoHold;
-        var pass = People.Pass[person];
-        if (!WhereOnItsSidestep(person, pass, out var place)) return false;
-
-        var occupant = ground.HeldAs(person, out var roster);
-        foreach (ref readonly var run in _swept.Of(person))
-        {
-            if (run.LastAtM < place.WalkedM - AStrideM(person)
-                || !Occupancy.AheadBody(run.Way, run.FromM, run.ToM, occupant, out body, roster))
-            {
-                continue;
-            }
-
-            on = run.Way;
-            return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>The pavement a walker's decided pass sweeps, as the runs it is laid, kept and looked for a body in.</summary>
-    public ReadOnlySpan<SweptRun> SweptOf(int person) => _swept.Of(person);
-
-    /// <summary>A stride of the walker's own: what it has walked past a run by before that run is given back.</summary>
-    float AStrideM(int person) => People.RadiusM[person] * 2f;
-
-    /// <summary>
     /// <b>Whether a walker waiting on its pass looks round at this decision</b> — every
     /// <see cref="PersonFigures.SidestepAskEveryS"/> from when it decided.
     /// </summary>
@@ -238,17 +187,15 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     }
 
     /// <summary>
-    /// <b>Whether the one the walker decided to get past is still there to be got past</b>: on the way it was met
-    /// on, still somebody it may pass, and standing where it stood to within a tick's walk — where the pass was
-    /// drawn round it.
+    /// <b>Whether the one the walker decided to get past is still there to be got past</b>: a body on the way it was met
+    /// on, standing where it stood to within a tick's walk — where the pass was drawn round it.
     /// </summary>
     bool IsStillThere(int person)
     {
         ref readonly var was = ref _passed[person];
-        var on = _passedOn[person];
+        var occupant = ground.HeldAs(person, out var roster);
         var withinM = ground.Config.PersonStepM;
-        return Occupancy.TheBodyOf(on, was.Occupant, was.Of, out var body)
-               && body.MayBePassedBy(OnwardAlongTheWalk(person, on))
+        return Occupancy.FirstBodySeen(was.Way, was.FromM, was.ToM, occupant, roster, out var body)
                && MathF.Abs(body.FromM - was.FromM) <= withinM && MathF.Abs(body.ToM - was.ToM) <= withinM;
     }
 
@@ -341,11 +288,8 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     /// </summary>
     void KeepOrWithdrawTheSidestep(int person, in Sidestep pass)
     {
-        var occupant = ground.HeldAs(person, out var roster);
-        foreach (ref readonly var run in _swept.Of(person))
+        if (Occupancy.CutOf(_holds[person]).Refused)
         {
-            if (Occupancy.KeepsItsPass(run.Way, run.FromM, run.ToM, occupant, roster)) continue;
-
             Withdrawn++;
             People.Pass[person] = Sidestep.None;
             return;
@@ -355,19 +299,31 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     }
 
     /// <summary>
-    /// <b>A walker's pass decided on, once</b> (PER-28): where its grant was ended on its walk by somebody it may get
-    /// past, a lane runs back beside the way it is on, and its route runs on far enough past them to step back onto —
+    /// <b>A walker's pass decided on, once</b> (PER-28): where its grant was ended on its walk by a body on
+    /// <paramref name="cutOn"/> at <paramref name="cutAtM"/> it means to get past, walking a way of its route on its
+    /// feet, a lane runs back beside the way it is on, and its route runs on far enough past them to step back onto —
     /// drawn and swept then, and never again. False where the pavement refuses it, which is not asked again before the
     /// walker would next look round.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>As short as a walker can make it</b>: straight across from where it stands, along the lane beside until
     /// its back is the gap it keeps past them, and straight back (<see cref="Sidestep"/>).
+    /// </para>
+    /// <para>
+    /// <b>Nothing calls it</b>: which body is one to get past is what the body is doing, which the claims do not say
+    /// (TER-4c.5) — <c>docs/tech-debt.md</c>.
+    /// </para>
     /// </remarks>
     [SkipLocalsInit]
-    bool DrawThePass(int person, float sinceLastDecisionS)
+    public bool DrawThePass(int person, float sinceLastDecisionS, int cutOn, float cutAtM)
     {
-        if (!ComesUpToOneItMayPass(person, out var code, out var cutBy, out var cutOn)) return false;
+        var code = People.CurrentRouteWay(person);
+        if (code == PersonFleet.NoWay || WalkingNetwork.IsACorner(code)) return false;
+        if (!People.Walking[person] || !People.IsOnItsFeet(person) || ground.IsHopping(person)) return false;
+
+        var occupant = ground.HeldAs(person, out var roster);
+        if (!Occupancy.FirstBodySeen(cutOn, cutAtM, Occupancy.WayLengthM(cutOn), occupant, roster, out var cutBy)) return false;
 
         ref var inS = ref _decidesInS[person];
         inS -= sinceLastDecisionS;
@@ -386,108 +342,39 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
 
         var pass = new Sidestep(
             People.RouteAt(person), placeM, farM + ground.Config.PersonStandstillGapM + radiusM, asideM, false);
-        if (!Sweep(person, pass)) return false;
+        if (!ground.OnTheWalkAt(person, pass.ClearM + RoomPastM(person), out _)) return false;
 
         _decided[person] = pass;
         _passed[person] = cutBy;
-        _passedOn[person] = cutOn;
         inS = 0f;
         _looksInS[person] = 0f;
         _waitedS[person] = 0f;
         return true;
     }
 
-    /// <summary>
-    /// <b>Whether a walker's walk was ended by somebody it may get past</b>, walking a way of its route on its feet — what
-    /// a pass is drawn on, on the pass's own clock (<see cref="DrawThePass"/>). Asked of nothing it changes.
-    /// </summary>
-    public bool ComesUpToOneItMayPass(int person) => ComesUpToOneItMayPass(person, out _, out _, out _);
-
-    bool ComesUpToOneItMayPass(int person, out int code, out LaneClaim cutBy, out int cutOn)
-    {
-        cutBy = LaneClaim.Nothing;
-        cutOn = LaneOccupancy.NoHold;
-        var hold = ground.WalkHold[person];
-        code = People.CurrentRouteWay(person);
-        if (hold == LaneOccupancy.NoHold || code == PersonFleet.NoWay || WalkingNetwork.IsACorner(code)) return false;
-        if (!People.Walking[person] || !People.IsOnItsFeet(person) || ground.IsHopping(person)) return false;
-
-        Occupancy.HoldEndsAtM(hold, out _, out cutBy);
-        cutOn = Occupancy.HoldCutOn(hold);
-        return cutBy.Found && cutBy.MayBePassedBy(OnwardAlongTheWalk(person, cutOn));
-    }
+    /// <summary>The gap a walker keeps in front of where it steps back onto its route.</summary>
+    float RoomPastM(int person) => People.RadiusM[person] + ground.Config.PersonStandstillGapM;
 
     /// <summary>
-    /// <b>A decided pass's ground, swept once</b> (<see cref="SweptGround"/>) from where the walker stands, each piece
-    /// at how far down its route it is walked — the step across at its start, each stride where it ends, the step back
-    /// where the walker is clear: the pavement of it for laying and keeping, and all of it with the room past where it
-    /// steps back for asking. <b>False where any of it is ground the traffic drives</b> — a pass stepped off the kerb —
-    /// or the route does not run that far, or it does not fit.
+    /// <b>Whether the ground a walker's decided pass would cover is free</b> (TER-4c.6): nobody standing on any of it but
+    /// the walker and the one it passes, the gap it keeps past where it steps back included, so it never steps back in
+    /// front of somebody. Whether a plan holds any of it is answered when the pass is laid.
     /// </summary>
     [SkipLocalsInit]
-    bool Sweep(int person, in Sidestep pass)
-    {
-        _swept.Clear(person);
-        _asked.Clear(person);
-        var place = new SidestepPlace(0f, 0f, SidestepLeg.Across);
-        var pieces = PiecesOfTheSidestep(person, pass, place);
-        var strideM = AStrideM(person);
-        Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
-        for (var piece = 0; piece <= pieces; piece++)
-        {
-            var count = piece < pieces
-                ? UnderThePieceOfTheSidestep(person, pass, place, piece, under)
-                : UnderTheRoomPastTheSidestep(person, pass, under);
-            if (count < 0) return false;
-
-            var atM = piece == 0 ? 0f
-                : piece < pieces - 1 ? MathF.Min(pass.ClearM, piece * strideM)
-                : pass.ClearM;
-            var pavement = 0;
-            for (var at = 0; at < count; at++)
-            {
-                if (ground.Ways.IsDriven(under[at].Way)) return false;
-                if (!IsPavement(under[at].Way)) continue;
-
-                (under[pavement], under[at]) = (under[at], under[pavement]);
-                pavement++;
-            }
-
-            if (!_asked.Station(person, atM, strideM, under[..count])) return false;
-            if (piece < pieces && !_swept.Station(person, atM, strideM, under[..pavement])) return false;
-        }
-
-        return true;
-    }
-
-    /// <summary>
-    /// Whether the layer holds the way the one a walker passes was met on and every way its decided pass is asked over
-    /// (<see cref="LaneOccupancy.Knows(int)"/>), each asked about either way.
-    /// </summary>
-    bool KnowsTheGroundOfThePass(int person)
-    {
-        var on = _passedOn[person];
-        var known = on < 0 || Occupancy.Knows(on);
-        foreach (ref readonly var run in _asked.Of(person)) known &= Occupancy.Knows(run.Way);
-
-        return known;
-    }
-
-    /// <summary>
-    /// <b>Whether the ground a walker's decided pass would cover is free</b> (TER-4c.6): nobody on any of it but the
-    /// walker, and nobody planning it but the one it passes, the paint of a zebra it only skirts aside; and the gap it
-    /// keeps past where it steps back free too, so it never steps back in front of somebody.
-    /// </summary>
     bool IsTheSidestepFree(int person)
     {
-        var passed = new ReadOnlySpan<LaneClaim>(in _passed[person]);
+        var passed = new ReadOnlySpan<BodySeen>(in _passed[person]);
         var occupant = ground.HeldAs(person, out var roster);
-        foreach (ref readonly var run in _asked.Of(person))
+        Span<LineWay> ways = stackalloc LineWay[WalkingGround.MostWaysAlongAWalk];
+        var count = GroundOfThePass(person, _decided[person], 0f, RoomPastM(person), ways);
+        foreach (ref readonly var run in ways[..count])
         {
-            if (!Occupancy.IsFreeForAPass(
-                    run.Way, run.FromM, run.ToM, occupant, roster, passed, !ground.Lines.IsTheCrossing(run.Way)))
+            var fromM = run.FromM;
+            while (Occupancy.FirstBodySeen(run.Way, fromM, run.ToM, occupant, roster, out var body))
             {
-                return false;
+                if (!body.IsUnderAny(passed)) return false;
+
+                fromM = body.ToM;
             }
         }
 
@@ -523,93 +410,6 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
 
         walkedM = ground.WalkedSince(person, pass.Slot, pass.FromM);
         return true;
-    }
-
-    /// <summary>
-    /// <b>Which way a walker's route takes after one of its ways</b> — the movement a body in its way is weighed
-    /// against (TER-4c.6) — or <see cref="LaneOccupancy.NoWay"/> where the way is not ahead on it or is its last.
-    /// </summary>
-    int OnwardAlongTheWalk(int person, int way)
-    {
-        var route = People.RouteOf(person);
-        for (var slot = Math.Max(0, People.RouteAt(person)); slot < People.RouteCount[person]; slot++)
-        {
-            if (ground.WayOf(route[slot]) != way) continue;
-
-            return slot + 1 < People.RouteCount[person] ? ground.WayOf(route[slot + 1]) : LaneOccupancy.NoWay;
-        }
-
-        return LaneOccupancy.NoWay;
-    }
-
-    /// <summary>
-    /// <b>Whether a walker's pass is laid on a way</b>: the pavement's lanes and its corners, and never the carriageway
-    /// or a zebra's paint — held there, somebody crossing towards the kerb would be held in the road.
-    /// </summary>
-    bool IsPavement(int way) => !ground.Ways.IsDriven(way) && !ground.Lines.IsTheCrossing(way);
-
-    /// <summary>
-    /// <b>How many pieces what is left of a walker's pass is swept in</b>: the step across, each stride down the lane
-    /// beside — a body's width, so no stride is wider than the walker taking it — and the step back.
-    /// </summary>
-    int PiecesOfTheSidestep(int person, in Sidestep pass, in SidestepPlace place)
-    {
-        var alongM = MathF.Max(0f, pass.ClearM - place.WalkedM);
-        return 2 + (int)MathF.Ceiling(alongM / (People.RadiusM[person] * 2f));
-    }
-
-    /// <summary>
-    /// <b>The ways under one piece of what is left of a walker's pass</b>, as wide as the walker: the step across
-    /// from where it stands while it is still stepping across, a stride down the lane beside while it has still to
-    /// clear what it passes, and the step back from wherever it has got to across — or −1 where the route does not
-    /// run that far.
-    /// </summary>
-    int UnderThePieceOfTheSidestep(int person, in Sidestep pass, in SidestepPlace place, int piece, Span<WayCover> under)
-    {
-        var radiusM = People.RadiusM[person];
-        var clearM = MathF.Max(0f, pass.ClearM - place.WalkedM);
-        var last = PiecesOfTheSidestep(person, pass, place) - 1;
-        if (piece == 0)
-        {
-            if (place.Leg != SidestepLeg.Across) return 0;
-            if (!ground.OnTheWalkAt(person, 0f, out var here)) return -1;
-
-            return ground.UnderTheStretch(
-                here.PositionM + (here.Right * place.AcrossM), here.PositionM + (here.Right * pass.AsideM), radiusM, under);
-        }
-
-        if (piece == last)
-        {
-            if (place.Leg > SidestepLeg.Back) return 0;
-            if (!ground.OnTheWalkAt(person, clearM, out var back)) return -1;
-
-            var fromAcrossM = place.Leg == SidestepLeg.Back ? place.AcrossM : pass.AsideM;
-            return ground.UnderTheStretch(back.PositionM + (back.Right * fromAcrossM), back.PositionM, radiusM, under);
-        }
-
-        if (place.Leg > SidestepLeg.Along) return 0;
-
-        var fromM = (piece - 1) * radiusM * 2f;
-        var toM = MathF.Min(clearM, fromM + (radiusM * 2f));
-        if (!ground.OnTheWalkAt(person, fromM, out var from) || !ground.OnTheWalkAt(person, toM, out var to)) return -1;
-
-        return ground.UnderTheStretch(
-            from.PositionM + (from.Right * pass.AsideM), to.PositionM + (to.Right * pass.AsideM), radiusM, under);
-    }
-
-    /// <summary>
-    /// The ways under the gap a walker keeps in front of where it steps back onto its route — asked free with the
-    /// pass and never laid, since it is the room the walk goes on into.
-    /// </summary>
-    int UnderTheRoomPastTheSidestep(int person, in Sidestep pass, Span<WayCover> under)
-    {
-        var roomM = People.RadiusM[person] + ground.Config.PersonStandstillGapM;
-        if (!ground.OnTheWalkAt(person, pass.ClearM, out var from) || !ground.OnTheWalkAt(person, pass.ClearM + roomM, out var to))
-        {
-            return -1;
-        }
-
-        return ground.UnderTheStretch(from.PositionM, to.PositionM, People.RadiusM[person], under);
     }
 }
 

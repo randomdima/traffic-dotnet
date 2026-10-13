@@ -9,7 +9,7 @@ physics layer is [requirements.md](requirements.md); why the solver is written h
 ## Scope
 
 **In.** The broad phase over the town, the narrow phase for the two shapes this town has, the contact
-solver, the contact-begin report, the ray cast, the static-overlap query, and the body table those read.
+solver, the contact-begin report, the static-overlap query, and the body table those read.
 
 **Out, and the exclusion list is the requirement.** Every row below would be reasonable in a physics
 library and is wrong here; adding one back is a change to this document first.
@@ -18,6 +18,7 @@ library and is wrong here; adding one back is a change to this document first.
 |---|---|
 | Joints, motors, springs | Nothing in the town is jointed. A car is one body |
 | Sensors, triggers, overlap events | The town asks its own indexes what is near what |
+| Ray and shape casts | No driver looks down the road at a body: what is ahead is the claims' to answer ([claims](../../road/docs/claims.md)) |
 | Shapes beyond the rounded oriented box | OBJ-2's five bodies are all of them. Neither the radius nor the coreless disc is a second shape: same axes, same separating axis, same clip |
 | Restitution | A collision here is a crash, not a break shot |
 | Continuous collision / sweeping | A stated limit rather than a divergence |
@@ -39,7 +40,6 @@ answer by a test.
 **SOL-4** `P4` A body can be taken out of the world and put back keeping its identity.
 **SOL-5** `P4` Layers and masks under the town's rule: two bodies interact when *either* scans the other.
 **SOL-6** `P4` Which two bodies **began** touching in the step just taken, and the contact normal.
-**SOL-7** `P4` A nearest-hit ray cast, filtered by mask, able to exclude one named body.
 **SOL-8** `P4` Whether anything static stands inside an axis-aligned box.
 **SOL-9** `P4` How deep one body is into everything touching it, for the probe that measures PHY-1.
 **SOL-10** `P8` Counts of what it is carrying — static, dynamic, integrated, frozen, and the last step's contacts.
@@ -53,7 +53,6 @@ over other roads is the same plane, its cars on a channel of their own (`PHY-1a`
 **SOL-14** `P3` An impulse off the centre spins the body it hits, unless that body's rotation is locked.
 **SOL-15** `P4` The reference collision model is what the picture is matched against.
 **SOL-17** `P4` Nothing is swept: a fast body can pass through a thin one.
-**SOL-19** `P4` Whether a ray reports the shape its origin lies inside is **stated and tested**.
 **SOL-35** `P3` The same town, seed and tick count produce the same digest, on one machine.
 **SOL-36** `P8` Whether the digest holds across machines and architectures is a claim to be tested, never
 assumed.

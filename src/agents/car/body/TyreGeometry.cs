@@ -55,11 +55,10 @@ internal static partial class TyreModel
     /// else — no body in this fleet is heavier on one flank than the other.
     /// </para>
     /// </remarks>
-    public static void Loads(SimConfig config, in CarBuild car, in CarPose pose, Span<float> into)
+    public static void Loads(in CarBuild car, in CarPose pose, Span<float> into)
     {
-        var weight = config.Tyre.StandardGravityMps2;
-        var alongShare = pose.AccelerationMps2.X * car.CgHeightM / (car.WheelbaseM * weight);
-        var acrossShare = pose.AccelerationMps2.Y * car.CgHeightM / (car.HalfTrackM * 2f * weight);
+        var alongShare = pose.AccelerationMps2.X * car.CgHeightM / car.WheelbaseWeightM2PerS2;
+        var acrossShare = pose.AccelerationMps2.Y * car.CgHeightM / car.TrackWeightM2PerS2;
 
         // Nought and one, because that is what a load is: a wheel asked for more transfer than it stands
         // on lifts, and a lifted wheel carries nothing rather than pulling the car down. There is no
@@ -73,14 +72,58 @@ internal static partial class TyreModel
     }
 
     /// <summary>
+    /// <b>The two front wheels' turns as the directions they turn the car's by</b> — each the unit vector of its
+    /// <see cref="Ackermann"/> angle in the body's frame, <c>+y</c> the driver's right — worked out off the circle itself
+    /// rather than off the angle: a wheel <c>r</c> off the centre's line and a wheelbase ahead of it points along
+    /// <c>(r, wheelbase)</c>, so a turn costs a tangent and two roots where the angles cost a tangent, two arctangents
+    /// and a sine and cosine a wheel.
+    /// </summary>
+    /// <remarks>
+    /// Under <see cref="TyreFigures.AckermannLeastSteerRad"/> both turn by the rack's own angle, as <c>(1, s)</c> made a
+    /// unit — which, so near straight, is its cosine and its sine to the float. Only for a rack off nought: a wheel not
+    /// turned at all is the car's own direction (<see cref="Step"/>).
+    /// </remarks>
+    public static void AckermannTurns(SimConfig config, in CarBuild car, float steerRad, Span<Vector2> into)
+    {
+        if (MathF.Abs(steerRad) < config.Tyre.AckermannLeastSteerRad)
+        {
+            var rackM = MathF.Sqrt(1f + (steerRad * steerRad));
+            into[0] = into[1] = new Vector2(1f / rackM, steerRad / rackM);
+            return;
+        }
+
+        var radiusM = MathF.Abs(car.WheelbaseM / MathF.Tan(steerRad));
+        var inner = WheelTurn(MathF.Max(config.Tyre.InnerWheelLeastRadiusM, radiusM - car.HalfTrackM), car.WheelbaseM);
+        var outer = WheelTurn(radiusM + car.HalfTrackM, car.WheelbaseM);
+
+        // Turning to the driver's right puts the right-hand wheels on the inside of the circle.
+        var (rightWheel, leftWheel) = steerRad > 0f ? (inner, outer) : (outer, inner);
+        var sign = MathF.Sign(steerRad);
+        into[0] = new Vector2(rightWheel.X, sign * rightWheel.Y);
+        into[1] = new Vector2(leftWheel.X, sign * leftWheel.Y);
+    }
+
+    /// <summary>The direction a wheel <paramref name="offM"/> from the circle's centre line and a wheelbase ahead of it rolls along.</summary>
+    static Vector2 WheelTurn(float offM, float wheelbaseM)
+    {
+        var reachM = MathF.Sqrt((offM * offM) + (wheelbaseM * wheelbaseM));
+        return new Vector2(offM / reachM, wheelbaseM / reachM);
+    }
+
+    /// <summary>A direction turned by a turn, both unit vectors: the car's own turned by a wheel's (<see cref="AckermannTurns"/>).</summary>
+    public static Vector2 Turned(Vector2 direction, Vector2 turn) => new(
+        (direction.X * turn.X) - (direction.Y * turn.Y), (direction.Y * turn.X) + (direction.X * turn.Y));
+
+    /// <summary>
     /// The two front wheels turned for the same circle: the inner one turns further than the outer,
     /// because they are turning about one centre at two radii.
     /// </summary>
-    public static void Ackermann(in CarBuild car, float steerRad, Span<float> into)
+    /// <remarks>The angles a picture of the wheels is drawn at; the model turns its wheels by <see cref="AckermannTurns"/>, the same circle.</remarks>
+    public static void Ackermann(SimConfig config, in CarBuild car, float steerRad, Span<float> into)
     {
         into[2] = 0f;
         into[3] = 0f;
-        if (MathF.Abs(steerRad) < 1e-4f)
+        if (MathF.Abs(steerRad) < config.Tyre.AckermannLeastSteerRad)
         {
             into[0] = steerRad;
             into[1] = steerRad;
@@ -88,7 +131,7 @@ internal static partial class TyreModel
         }
 
         var radiusM = MathF.Abs(car.WheelbaseM / MathF.Tan(steerRad));
-        var innerRad = MathF.Atan(car.WheelbaseM / MathF.Max(0.01f, radiusM - car.HalfTrackM));
+        var innerRad = MathF.Atan(car.WheelbaseM / MathF.Max(config.Tyre.InnerWheelLeastRadiusM, radiusM - car.HalfTrackM));
         var outerRad = MathF.Atan(car.WheelbaseM / (radiusM + car.HalfTrackM));
 
         // Turning to the driver's right puts the right-hand wheels on the inside of the circle.

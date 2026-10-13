@@ -51,8 +51,20 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 {
     readonly SimConfig _config;
     readonly CityPlan _plan;
-    readonly GroundLocator _terrain;
-    readonly PhysicsWorld _physics;
+
+    /// <summary>
+    /// <b>The town's furniture</b>, laid off the plan: handed to the world with the laying, and read here only while the
+    /// map is built (<see cref="LayTheExits"/>) — let go once the world is the device's (<see cref="HandTheWorldTo"/>).
+    /// </summary>
+    StaticBodies? _statics;
+
+    int _staticBodyCount;
+
+    /// <summary>The furniture, while the town still holds it (<see cref="_statics"/>).</summary>
+    StaticBodies Statics => _statics ?? throw new InvalidOperationException("The town's furniture is the device's once the world is.");
+
+    /// <summary>The world layer: every body, stepped (<see cref="WorldLayer"/>).</summary>
+    WorldLayer _world = null!;
 
     readonly RoadGraph _roads;
 
@@ -68,17 +80,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <see cref="RebuildLaneOccupancy"/>. One set of claims over one set of ways: a car that has mounted a
     /// kerb and the walker beside it are two stretches of one footway and not two records in two tables.
     /// </summary>
-    /// <remarks>
-    /// <b>The layer every reader reads</b> (<see cref="_layer"/>) but while a rebuild a device lays has the town laying its
-    /// own few rows, which go into a laying of their own (<see cref="LayIntoTheLaying"/>).
-    /// </remarks>
-    LaneOccupancy _occupancy;
-
-    /// <summary>The layer every reader reads, which a device's rebuild is written back into.</summary>
-    readonly LaneOccupancy _layer;
-
-    /// <summary>What the town lays itself in a rebuild a device lays, made the first time one is.</summary>
-    LaneOccupancy? _laying;
+    readonly LaneOccupancy _occupancy;
     readonly SignalService _signals;
     readonly SignalHeads _heads;
 
@@ -97,15 +99,11 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <summary>The paint each lane meets — its stop bar and the crossings across it — projected once at load.</summary>
     readonly LaneFurniture _furniture;
 
-    /// <summary>The paint each lane meets, for the device to lay once at load (<c>app/devicetick/TownState</c>).</summary>
-    internal LaneFurniture Furniture => _furniture;
-
     /// <summary>Whether each car's nose was behind its approach's painted bar last tick — the other half of a crossing event.</summary>
     readonly bool[] _behindTheBar;
 
-    /// <inheritdoc cref="_behindTheBar"/>
-    /// <remarks>For the device to lay once at load (<c>app/devicetick/TownState</c>).</remarks>
-    internal ReadOnlySpan<bool> BehindTheBar => _behindTheBar;
+    /// <summary>Each car's nearest light's hold on its line (<see cref="LightAheadM"/>).</summary>
+    readonly LightsAhead _lightsAhead;
 
     /// <summary>A search over the road network: one entry, since a car is on the lane it is on.</summary>
     readonly RouteSearch _driveSearch;
@@ -131,22 +129,16 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// </summary>
     readonly CrossingEdges _crossingEdges;
 
-    float _elapsedS;
+    /// <summary>
+    /// The town's clock as ticks counted, which <see cref="ElapsedS"/> is derived from rather than summed, so a phase read
+    /// hours in is as true as one read in the first minute.
+    /// </summary>
+    long _clockTicks;
 
-    readonly Vector2[] _impulseNs;
+    float _elapsedS;
 
     /// <summary>How close each walker has come to where it is going, and how long since it last did better.</summary>
     readonly LegProgress _progress;
-
-    /// <summary>
-    /// What every dynamic body carried into this tick, in roster order — walkers, then cars. Taken
-    /// before the step, because the arithmetic in phase 5 needs the motion that <em>caused</em> a
-    /// contact and the bodies by then hold the solver's answer to it.
-    /// </summary>
-    readonly Vector2[] _velocityIntoTickMps;
-
-    /// <summary>One tick's working set for the fleet's wheels; it survives no tick.</summary>
-    readonly WheelScratch _wheels;
 
     readonly CarBuilds _builds;
 
@@ -166,8 +158,11 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <summary>The street every bay is worked off (GEN-4f); getting in and out of one is the car's own manoeuvre.</summary>
     readonly BayStreets _bayStreets;
 
-    /// <summary>The ground of every way, and which ways share it (<see cref="RibbonAtlas"/>).</summary>
-    readonly RibbonAtlas _atlas;
+    /// <summary>
+    /// The ground of every way, and which ways share it (<see cref="RibbonAtlas"/>) — read by the managed world, and by
+    /// the town only while the map is built; let go once the world is the device's (<see cref="HandTheWorldTo"/>).
+    /// </summary>
+    RibbonAtlas? _atlas;
 
     /// <summary>The line every way is travelled on, and the zebra it paints (<see cref="WayLines"/>).</summary>
     readonly WayLines _lines;
@@ -215,13 +210,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     int _ordered;
 
-    /// <summary>
-    /// What the interface has handed the town and the town has not yet taken — the selection, both hands and the walkers'
-    /// orders — for the device to lay once at load (<c>app/devicetick/TownState</c>).
-    /// </summary>
-    internal (SelectionSet Selected, HandInput Hands, int OtherCar, HandInput OtherHand, int[] OrderedPeople, Vector2[] OrderedToM,
-        int Ordered) Commands => (_selected, _hands, _otherCar, _otherHand, _orderedPeople, _orderedToM, _ordered);
-
     /// <param name="agentSeed">
     /// The second of the two seeds: what the agents draw from, kept apart from the world seed so the
     /// same town can be watched with different traffic on it. It defaults to the plan's own, which is
@@ -233,9 +221,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _config = config;
         _plan = plan;
         _agentSeed = agentSeed ?? plan.Seed;
-        _terrain = new GroundLocator(plan, config);
-        WheelGrounds = WheelGrounds.Of(config, _terrain);
-        _physics = new PhysicsWorld(config);
+        WheelGrounds = WheelGrounds.Of(config);
+        _statics = new StaticBodies(config.Grid.Main);
 
         // The selection and the orders it can give are laid with the town: what the interface holds is
         // bounded (CTL-1b), so a drag over a district writes into an array that already exists.
@@ -329,8 +316,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         RefuseFurnitureOnTheRoad();
 
         People = new PersonFleet(walkers);
-        _impulseNs = new Vector2[walkers];
-        _walkGrantedOnTheDevice = new (bool, float, float, int)[walkers];
         _progress = new LegProgress(walkers);
 
         // <b>A town stands the fleet</b> (CAR-11a). The maps that stood one look apiece were laid to compare
@@ -338,56 +323,58 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _builds = CarBuilds.OfTheFleet(config, CarCatalog.Shared);
 
         Cars = new CarFleet(drivers, Math.Max(LineAssembler.ArcsFor(_roads), BayManoeuvre.MostArcsPerPiece), _builds);
+        _mostArcsOfALane = LineAssembler.MostArcsOfALane(_roads);
         _manoeuvres = new Manoeuvres(drivers);
 
-        // <b>One table, sized for every shape either roster can be in</b> (TER-4c): every way a body can be
-        // over, and a plan down its own line with every section its marks link it to. A driver may also
-        // hold the ground behind it it backs up over (TER-4c.7), and every stretch a light holds is a hold
-        // (TLT-1) — each one piece placed on one way.
-        _occupancy = new LaneOccupancy(
-            _ways,
-            (drivers * (MostWaysUnderABody + MostPlannedPer(MostWaysAlongALine + 1, _atlas.Marks)
-                        + MostPlannedPer(BackingUp.BackingPieces, _atlas.Marks)))
-            + (walkers * (MostWaysUnderABody + 1 + MostPlannedPer(WalkingGround.MostWaysAlongAWalk, _atlas.Marks)))
-            + _signalHolds.Count,
-            (drivers * 2) + walkers + _signalHolds.Count,
-            _atlas.Marks);
-        _layer = _occupancy;
-        _ground = new DrivingGround(Cars, _occupancy, _atlas, _ways, _roads, _lines, config);
+        _occupancy = new LaneOccupancy(_ways, _atlas.Marks, drivers + walkers + _signalHolds.Count);
+        _ground = new DrivingGround(Cars, _occupancy, _ways, _roads, _lines, config);
         _carHold = _ground.PlanHold;
-        _claims = new TickGroups(config.Sim.ClaimsIntervalS, config.Sim.TickRateHz);
         _decisions = new TickGroups(config.Sim.AgentDecisionIntervalS, config.Sim.TickRateHz);
         _carActions = new CarActions(_ground, _manoeuvres);
         _overtaking = new Overtaking(_ground, _carActions);
-        _switching = new Switching(_ground, _carActions, _overtaking);
+        _switching = new Switching(_ground, _carActions);
         _backingUp = new BackingUp(_ground, _carActions, _overtaking);
-        _walkingGround = new WalkingGround(People, _occupancy, _atlas, _ways, _lines, _walking, config);
+        _walkingGround = new WalkingGround(People, _occupancy, _ways, _lines, _walking, config);
         _personActions = new PersonActions(People);
         _sidestepping = new Sidestepping(_walkingGround, _personActions);
         _walkingItsRoute = new WalkingItsRoute(_walkingGround, _personActions, _sidestepping, _progress);
         _walkingBack = new WalkingBack(_walkingGround, _personActions);
         _walkingToThePost = new WalkingToThePost(_walkingGround, _personActions);
-        _wheels = new WheelScratch(drivers);
         _standsParked = new bool[drivers];
+        _stood = new bool[drivers];
+        _stoodTick = new StoodTick[drivers];
+        _refusedALane = new bool[drivers];
+        _exitRefusedAtS = new float[drivers];
+        Array.Fill(_exitRefusedAtS, float.NegativeInfinity);
         _asksTheRoute = new bool[drivers];
-        TouchedCars = new AgentSet(drivers);
-        _carActions.Touched = TouchedCars;
-        TouchedWalkers = new AgentSet(walkers);
         _wounded = new AgentSet(walkers);
         _wrecked = new AgentSet(drivers);
-        _settling = new int[Math.Max(walkers, drivers)];
         _standing = new StandingCars(drivers);
         _behindTheBar = new bool[drivers];
-        Marks = new DriftMarks(config.Marks.Capacity, config.Grid.Main, 0f, plan.WorldSizeM.Y);
-
-        _velocityIntoTickMps = new Vector2[walkers + drivers];
+        _lightsAhead = new LightsAhead(drivers);
+        _sentCommand = new DriveCommand[drivers];
+        Array.Fill(_sentCommand, DriveCommand.Parked);
+        _sentHand = new bool[drivers];
+        _sentAimM = new Vector2[walkers];
+        _sentWalk = new ushort[walkers];
+        Array.Fill(_sentWalk, NeverSent);
+        _sentShow = new ushort[drivers];
+        _followedLaid = new uint[drivers];
+        Array.Fill(_followedLaid, NeverFollowed);
+        _followSerial = new ushort[drivers];
+        _progressRead = new float[drivers];
+        _carSetBy = new long[drivers];
+        _walkerSetBy = new long[walkers];
+        _walkLaid = new WalkLaid[walkers];
+        Array.Fill(_walkLaid, WalkLaid.Never);
+        _crewOf = new int[walkers];
+        Array.Fill(_crewOf, NoCar);
 
         _containers = new Containers(_plan.Buildings.Capacity, drivers, People.Inside);
-        _doors = BucketGrid.Build(
-            config.Grid.Main, plan.WorldSizeM, plan.Buildings.EntryPointM, new float[plan.Buildings.EntryPointM.Length]);
-        _buildingOfDoor = BuildingsOfTheDoors(plan.Buildings);
         _parking = ParkingRegistry.Build(plan, _bayStreets, config, drivers);
-        _bays = new BayManoeuvring(_ground, _carActions, _manoeuvres);
+        LayThePlaces(walkers, drivers);
+        LayTheBaysAndDoorsOntoTheLanes();
+        _bays = new BayManoeuvring(_ground, _carActions, _manoeuvres, _bayStreets);
         _pullingOut = new PullingOut(_ground, _bays, _parking, _bayStreets);
         _parkingIn = new ParkingIn(_ground, _carActions, _bays, _parking, _bayStreets);
         _following = new Following(_ground, _carActions, _overtaking, _switching, _parkingIn);
@@ -408,6 +395,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         LayTheDistrictStreets();
 
         if (standStatics) StandStatics();
+        LayTheExits();
 
         // The aprons are claimed before the plan's cars are stood and filled after (GEN-4k): a bay a
         // spawned car is already standing in is not a bay a hospital can have, and a bay a hospital has is
@@ -415,11 +403,15 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         HoldTheAprons();
         Spawn();
         StandTheServiceVehicles();
+        ListTheServiceVehicles();
 
         // <b>The roster is the agents there actually are</b>, and not the room that was laid for them: a
         // hospital with no bay near it stands no ambulance, and a slot nothing was put in is a body the
         // decision loop would hand a tick to and the solver has never heard of.
         Roster = new AgentRoster(People.Count, Cars.Count);
+        _world = new ManagedWorld(LayingForTheWorld);
+
+        // After the world, which reads every body onto its ways as it is stood: a car takes the lane its wheels are on.
         DriveTheEmptyMap();
 
         StoodMs = Stopwatch.GetElapsedTime(stoodAt).TotalMilliseconds;
@@ -512,17 +504,18 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     public CarFleet Cars { get; }
 
-    /// <summary>What the traffic has written on the ground. Scenery: the town lays marks and nothing in it reads one.</summary>
-    internal DriftMarks Marks { get; }
+    /// <summary>What the traffic has written on the ground: the world's (<see cref="WorldLayer.Marks"/>), for whoever draws it.</summary>
+    internal DriftMarks Marks => _world.Marks;
 
-    /// <summary>The solver itself, for an instrument that measures it or draws it. Nothing in the town reaches it this way.</summary>
-    internal PhysicsWorld PhysicsForInstruments => _physics;
+    /// <summary>The solver itself, where the world steps it in managed code, for an instrument that measures it or draws it.</summary>
+    internal PhysicsWorld? PhysicsForInstruments => _world.Solver;
 
     /// <summary>
     /// <b>The cars whose bodies meet a box, in index order and each once</b> — what a picture of the box draws, read
-    /// off the solver's own grids (<see cref="PhysicsWorld.InBox"/>), so a frame of a street pays for the street and
-    /// not for the town. A box spanning more cells than the town has cars is answered as the whole fleet, which is
-    /// the cheaper walk there.
+    /// off the world's own grids where it keeps them (<see cref="WorldLayer.InBox"/>), so a frame of a street pays for the
+    /// street and not for the town. A box spanning more cells than the town has cars, or a world keeping no grid the host
+    /// reads or stepping its bodies as it is asked, is answered off the fleet's own places as the view left them: one
+    /// pass over the roster, each body kept whose reach meets the box.
     /// </summary>
     /// <param name="into">At least the fleet's <see cref="CarFleet.Capacity"/> long.</param>
     /// <returns>The part of <paramref name="into"/> written.</returns>
@@ -536,12 +529,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     ReadOnlySpan<int> InBox(BodyKind kind, int roster, Vector2 leastM, Vector2 mostM, Span<int> into)
     {
-        var found = _physics.InBox(leastM, mostM, kind, roster, into);
-        if (found < 0)
-        {
-            for (var unit = 0; unit < roster; unit++) into[unit] = unit;
-            return into[..roster];
-        }
+        var found = _world.InBox(leastM, mostM, kind, roster, into);
+        if (found < 0) return kind == BodyKind.Car ? CarsPlacedIn(leastM, mostM, into) : PeoplePlacedIn(leastM, mostM, into);
 
         var units = into[..found];
         units.Sort();
@@ -553,6 +542,47 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
         return units[..kept];
     }
+
+    /// <summary>The cars within the fleet's widest half-diagonal of the box from where the view left them, in index order.</summary>
+    ReadOnlySpan<int> CarsPlacedIn(Vector2 leastM, Vector2 mostM, Span<int> into)
+    {
+        if (_carReachM < 0f)
+        {
+            for (var variant = 0; variant < CarCatalog.Shared.SheetCount; variant++)
+            {
+                ref readonly var build = ref _builds.Of(variant);
+                _carReachM = MathF.Max(_carReachM, new Vector2(build.LengthM, build.WidthM).Length() * 0.5f);
+            }
+        }
+
+        var kept = 0;
+        var positions = Cars.PositionM;
+        for (var car = 0; car < Cars.Count; car++)
+        {
+            if (Meets(positions[car], _carReachM, leastM, mostM)) into[kept++] = car;
+        }
+
+        return into[..kept];
+    }
+
+    /// <summary>The widest half-diagonal of any build of the fleet, found the first time a box is asked of the fleet itself.</summary>
+    float _carReachM = -1f;
+
+    /// <summary>And the people, nobody put away inside a building or a car among them (PHY-7).</summary>
+    ReadOnlySpan<int> PeoplePlacedIn(Vector2 leastM, Vector2 mostM, Span<int> into)
+    {
+        var reachM = _config.PersonDiameterM * 0.5f;
+        var kept = 0;
+        for (var person = 0; person < People.Count; person++)
+        {
+            if (!People.Inside[person].Any && Meets(People.PositionM[person], reachM, leastM, mostM)) into[kept++] = person;
+        }
+
+        return into[..kept];
+    }
+
+    static bool Meets(Vector2 atM, float reachM, Vector2 leastM, Vector2 mostM) =>
+        atM.X + reachM >= leastM.X && atM.X - reachM <= mostM.X && atM.Y + reachM >= leastM.Y && atM.Y - reachM <= mostM.Y;
 
     public RoadGraph Roads => _roads;
 
@@ -567,17 +597,14 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// </summary>
     public LaneOccupancy Occupancy => _occupancy;
 
-    /// <summary>
-    /// <b>The layer every reader reads</b> — <see cref="Occupancy"/> but while the town lays its own rows in a rebuild a
-    /// device lays (<see cref="LayIntoTheLaying"/>): what that device's rebuild is written back into.
-    /// </summary>
-    public LaneOccupancy ReadersOccupancy => _layer;
-
     /// <summary>Every way in the town and what kind of ground each is, for whoever holds a way number.</summary>
     public TownWays Ways => _ways;
 
-    /// <summary>The ground of every way and which ways share it, for whoever measures or draws it.</summary>
-    public RibbonAtlas Atlas => _atlas;
+    /// <summary>
+    /// The ground of every way and which ways share it, for whoever measures or draws it — <b>only while the world is
+    /// the managed one</b>; the device's keeps its own.
+    /// </summary>
+    public RibbonAtlas Atlas => _atlas ?? throw new InvalidOperationException("The town's atlas is the device's once the world is.");
 
     /// <summary>
     /// The only thing that knows what colour anything is. No agent reads it: a light holds ground
@@ -651,8 +678,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// </summary>
     public long WalksGivenUp { get; private set; }
 
-    public GroundLocator Terrain => _terrain;
-
     /// <summary>What a wheel on a way and off one stands on, for the figures as they stand (TER-7b).</summary>
     public WheelGrounds WheelGrounds { get; private set; }
 
@@ -690,19 +715,17 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     public DrivingNetwork Driving => _driving;
 
-    /// <summary>The figures the town was stood with, for the device to lay its own rows of them once (<c>app/devicetick/TownState</c>).</summary>
+    /// <summary>The figures the town was stood with.</summary>
     internal SimConfig Config => _config;
 
-    /// <summary>The driving network's surcharges, for the device's route service to lay as the town holds them.</summary>
-    internal LinkSurcharges DriveSurcharges => _surcharges;
+    public int StaticBodyCount => _statics?.Count ?? _staticBodyCount;
 
+    public int IntegratedBodyCount => _world.IntegratedBodyCount;
 
-    public int StaticBodyCount => _physics.StaticBodyCount;
+    public int FrozenBodyCount => _world.FrozenBodyCount;
 
-    public int IntegratedBodyCount => _physics.IntegratedBodyCount;
-
-    public int FrozenBodyCount => _physics.FrozenBodyCount;
-
+    /// <inheritdoc cref="WorldLayer.AllocatedAsideBytes"/>
+    public long AllocatedAsideBytes => _world.AllocatedAsideBytes;
 
     /// <summary>The walkers, then the cars — the flat index space the decision clock staggers.</summary>
     /// <remarks>
@@ -748,15 +771,13 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     bool _inTheDecisions;
 
     /// <summary>
-    /// <b>When the claims are laid: every <see cref="SimFigures.ClaimsIntervalS"/>, and not every tick</b> — between two
-    /// layings each agent holds to the grant it was given, walked in by the ground it has covered since
-    /// (<see cref="CarFleet.GrantLeftM"/>), and an ask is answered in the laying after it. An interval of nothing lays
-    /// them every tick.
+    /// <b>When the claims are laid: on a view whose step read the covers</b> (<see cref="WorldView.CoversRead"/>), which
+    /// the world does every <see cref="SimFigures.ClaimsIntervalS"/> on its own clock — between two layings each agent
+    /// holds to the grant it was given, walked in by the ground it has covered since (<see cref="CarFleet.GrantLeftM"/>),
+    /// and an ask is answered in the laying after it. This is the batch of signals (<see cref="WorldView.SignalsTaken"/>)
+    /// of the view last laid off, so a view shown for two ticks is laid off once.
     /// </summary>
-    readonly TickGroups _claims;
-
-    /// <summary>Ticks since the town was stood up, which is what <see cref="_claims"/> counts.</summary>
-    long _ticks;
+    long _claimsLaidOff = -1;
 
     /// <summary>
     /// Whether the claims were laid this tick — so whoever reads what the layer holds against where the bodies are
@@ -766,39 +787,30 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     /// <summary>
     /// <b>The claims laid now, off their clock</b> — for whoever has put something down and asks what the layer makes
-    /// of it. The tick lays them once a decision interval (<see cref="_claims"/>).
+    /// of it. The tick lays them on the world's claims clock (<see cref="_claimsLaidOff"/>).
     /// </summary>
     public void LayTheClaims()
     {
-        Device?.TakeEveryCarBack(this);
+        _world.ReadTheCovers();
+        ReadTheWorld();
         RebuildLaneOccupancy();
+        _claimsLaidOff = _world.View.SignalsTaken;
         ClaimsLaidThisTick = true;
     }
 
     public void RebuildProximityIndex()
     {
-        // A town about to tick every agent itself, or watching every one, reads every pose.
-        if (HoldAgents || WatchesEveryAgent) TakeEveryPoseBack();
-
         TakeUpTheHands();
         LayTheClosures();
         DriveTheEmptyMap();
         MendTheYards(_config.TickSeconds);
 
-        ClaimsLaidThisTick = _claims.Turn(_ticks++, 0);
+        var view = _world.View;
+        ClaimsLaidThisTick = view.CoversRead && view.SignalsTaken != _claimsLaidOff;
         if (ClaimsLaidThisTick)
         {
-            var device = ClaimsDevice ?? Device as ITownClaims;
-
-            // A laying the device answered and has not yet written back is written back before the next is begun.
-            device?.LandTheLastLaying(this);
-            if (device != null && device.LaysTheClaims(this)) RebuildLaneOccupancyOn(device);
-            else
-            {
-                // Laid here, the claims read every car as its last tick left it.
-                Device?.TakeEveryCarBack(this);
-                RebuildLaneOccupancy();
-            }
+            _claimsLaidOff = view.SignalsTaken;
+            RebuildLaneOccupancy();
         }
 
         // Phase 3 begins on the walkers' ticks, which is the end of the roster the loop walks first.
@@ -859,135 +871,24 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             ? WheelIsHeldOver(Roster.CarIndex(agent))
             : _hands.Held && _selected.Holds(SelectionKind.Person, agent));
 
-    /// <summary>
-    /// <b>Where the town's tick runs other than in its own loops</b> (<see cref="ITownDevice"/>), or none: the agents it takes
-    /// are not ticked here, and what they left is handed back before any decision reads it. A device let go of hands every
-    /// pose back first, which the town's own step goes on from.
-    /// </summary>
-    public ITownDevice? Device
-    {
-        get => _device;
-        set
-        {
-            _device?.LetGo(this);
-            _device = value;
-        }
-    }
-
-    ITownDevice? _device;
-
-    /// <summary>
-    /// <b>This agent's pose as the device's last step left it</b>, where the town reads a body it does not read every tick
-    /// (<see cref="ITownDevice.TakeThePoseBack"/>): a partner, the nearest of a kind, one picked out, one a crash wrecked.
-    /// </summary>
-    public void TakeThePoseBack(int agent) => _device?.TakeThePoseBack(this, agent);
-
-    /// <summary>These agents' poses as the device's last step left them, taken back at once (<see cref="ITownDevice.TakeThePosesBack"/>).</summary>
-    public void TakeThePosesBack(ReadOnlySpan<int> agents) => _device?.TakeThePosesBack(this, agents);
-
-    /// <inheritdoc cref="TakeThePoseBack"/>
-    public void TakeTheCarsPoseBack(int car) => _device?.TakeThePoseBack(this, Roster.AgentOfCar(car));
-
-    /// <summary>Every agent's pose as the device's last step left it, where the town is about to read every one.</summary>
-    public void TakeEveryPoseBack() => _device?.TakeEveryPoseBack(this);
-
-    /// <summary>
-    /// <b>Where the claims are laid other than in the town's own rebuild</b> (<see cref="ITownClaims"/>): this, or else the
-    /// device the town's tick runs on where that one lays them — or neither, and the town lays its own. Set apart only by
-    /// an instrument holding a device's claims to a town that ticks itself.
-    /// </summary>
-    public ITownClaims? ClaimsDevice { get; set; }
-
-    public void AgentsTicked(long tick)
-    {
-        _agentsTick = tick;
-        if (Device is not { } device) return;
-
-        if (device.StepsWithTheTick) ReadyTheStep(_config.TickSeconds);
-        device.TickTheRest(this);
-    }
-
-    /// <summary>The loop's tick the agents were last ticked on, whose turn of the decisions is taken next (<see cref="_decisions"/>).</summary>
-    long _agentsTick;
-
-    /// <summary>The decisions' clock, the loop's own (<c>SimLoop.Decisions</c>), for a device to know whose turn is due.</summary>
+    /// <summary>The decisions' clock, the loop's own (<c>SimLoop.Decisions</c>).</summary>
     readonly TickGroups _decisions;
 
-    /// <remarks>
-    /// <b>Where a device names the cars the town ticks</b> (<see cref="ITownDevice.NamesTheCars"/>), only those and the
-    /// walkers under a hand are asked: the device takes every other agent, and asking it again of each is a walk of the
-    /// roster a tick.
-    /// </remarks>
     public void TickTheAgents()
     {
-        if (HoldAgents || Device is not { NamesTheCars: true } device)
-        {
-            var world = this;
-            EveryAgent.Tick(ref world);
-            return;
-        }
-
-        var cars = device.CarsTheTownTicks(this);
-        foreach (var person in WalkersUnderAHand())
-        {
-            if (!IsTerminal(person)) TickAgent(person);
-        }
-
-        foreach (var car in cars)
-        {
-            var agent = Roster.AgentOfCar(car);
-            if (!IsTerminal(agent)) TickAgent(agent);
-        }
+        var world = this;
+        EveryAgent.Tick(ref world);
     }
 
-    /// <summary>The walkers a hand walks this tick (<see cref="WalksUnderAHand"/>), in order.</summary>
-    ReadOnlySpan<int> WalkersUnderAHand()
-    {
-        if (_underAHand.Length < _selected.Capacity) _underAHand = new int[_selected.Capacity];
-
-        var count = 0;
-        foreach (var unit in _selected.Units)
-        {
-            if (unit.Kind == SelectionKind.Person && WalksUnderAHand(unit.Index)) _underAHand[count++] = unit.Index;
-        }
-
-        var walkers = _underAHand.AsSpan(0, count);
-        walkers.Sort();
-        return walkers;
-    }
-
-    int[] _underAHand = [];
-
-    /// <remarks>
-    /// <b>Where a device names the cars the town decides</b> (<see cref="ITownDevice.NamesTheCars"/>), the walkers and the cars
-    /// are taken from those it names — never one the device finds the decision of.
-    /// </remarks>
     public void DecideTheAgents(long tick, TickGroups decisions)
     {
-        if (Device is not { NamesTheCars: true, DecidesATickBehind: true } device)
-        {
-            var world = this;
-            EveryAgent.Decide(ref world, tick, decisions);
-            return;
-        }
-
-        foreach (var person in device.WalkersTheTownDecides(this))
-        {
-            if (decisions.Turn(tick, person) && !IsTerminal(person)) DecideAgent(person, decisions.IntervalS);
-        }
-
-        foreach (var car in device.CarsTheTownDecides(this))
-        {
-            var agent = Roster.AgentOfCar(car);
-            if (decisions.Turn(tick, agent) && !IsTerminal(agent)) DecideAgent(agent, decisions.IntervalS);
-        }
+        var world = this;
+        EveryAgent.DecideTheTurn(ref world, tick, decisions);
     }
 
     public void TickAgent(int agent)
     {
         AccountFor(agent, deciding: false);
-        if (Device?.Takes(agent) == true) return;
-
         if (HoldAgents && !Handed(agent))
         {
             Paused(agent);
@@ -1010,142 +911,28 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         TickTheWalker(agent, paused: false);
     }
 
-    /// <summary>
-    /// <b>A car's own tick by the town</b>, nothing for one that stands parked: in its turn, or where a device put it off
-    /// (<see cref="ITownDevice.Takes"/>) until what a claims rebuild running on answered is written back.
-    /// </summary>
+    /// <summary><b>A car's own tick by the town</b>, nothing for one that stands parked.</summary>
     public void TickTheCar(int car)
     {
         if (StandsParked(car)) return;
 
         _standsParked[car] = false;
+        if (TicksAsBefore(car)) return;
+
+        var commandWas = Cars.Command[car];
         TickCar(car);
+        SignalTheShow(car);
+        SignalTheFollow(car);
+        KeepTheTick(car, commandWas);
     }
 
     /// <summary>
-    /// <b>A walker's own tick, written back</b> (<see cref="WalkerFollower.Tick"/>): at the aim settled when the grant was
-    /// read (<see cref="AimTheWalker"/>), and nothing written for a casualty, whose slide is <see cref="Settle"/>'s.
+    /// <b>A walker's own tick</b>: at the aim settled when the grant was read (<see cref="AimTheWalker"/>), handed to the
+    /// world, whose footing walks it there (<see cref="SignalTheWalk"/>).
     /// </summary>
-    void TickTheWalker(int person, bool paused)
-    {
-        if (!WalkerFollower.Tick(
-                _config, People.HeadingRad[person], People.PositionM[person], People.VelocityMps[person],
-                People.DeclaredMps[person], People.DestinationM[person], People.Walking[person], People.Wounded[person],
-                People.Inside[person].Any, paused, People.MassKg[person], _config.TickSeconds, out var step))
-        {
-            return;
-        }
+    void TickTheWalker(int person, bool paused) => SignalTheWalk(person, paused);
 
-        People.HeadingRad[person] = step.HeadingRad;
-        People.DeclaredMps[person] = step.DesiredMps;
-        _impulseNs[person] = step.ImpulseNs;
-    }
-
-
-    public void DecideAgent(int agent, float sinceLastDecisionS)
-    {
-        if (Device is { DecidesATickBehind: true } device)
-        {
-            // What the device handed back for it was chosen by the town's own reckoning of whose turn it is (ReadsTheTickOf).
-            if (!_decisions.Turn(_agentsTick, agent))
-            {
-                throw new InvalidOperationException($"Agent {agent} decided on tick {_agentsTick}, off the town's own clock of the decisions.");
-            }
-
-            if (Roster.IsCar(agent) ? device.DecidesItself(Roster.CarIndex(agent)) : device.WalkerDecidesItself(agent)) return;
-
-            if (_decisionsPutOff.Length < AgentCount) _decisionsPutOff = new int[AgentCount];
-
-            _decisionsPutOff[_putOffCount++] = agent;
-            _putOffSinceS = sinceLastDecisionS;
-            return;
-        }
-
-        TakeTheDecisionsPutOff();
-        DecideNow(agent, sinceLastDecisionS);
-    }
-
-    /// <summary>
-    /// <b>Decisions due on the decisions' last turn that the town did not put off</b>, put off now with those it did, in the
-    /// order they were due (<see cref="ITownDevice.DecidesItself"/>): ones the device found more than their clock, and ones it
-    /// stopped finding before it found them.
-    /// </summary>
-    /// <param name="agents">The agents, in order.</param>
-    public void PutOffTheDecisions(ReadOnlySpan<int> agents)
-    {
-        if (agents.IsEmpty) return;
-
-        if (_decisionsPutOff.Length < AgentCount) _decisionsPutOff = new int[AgentCount];
-        if (_putOffMerged.Length < AgentCount) _putOffMerged = new int[AgentCount];
-
-        var waiting = _decisionsPutOff.AsSpan(_putOffTaken, _putOffCount - _putOffTaken);
-        var merged = _putOffMerged.AsSpan(0, waiting.Length + agents.Length);
-        var (fromWaiting, fromAgents) = (0, 0);
-        for (var at = 0; at < merged.Length; at++)
-        {
-            merged[at] = fromAgents == agents.Length || (fromWaiting < waiting.Length && waiting[fromWaiting] < agents[fromAgents])
-                ? waiting[fromWaiting++]
-                : agents[fromAgents++];
-        }
-
-        merged.CopyTo(_decisionsPutOff.AsSpan(_putOffTaken));
-        _putOffCount = _putOffTaken + merged.Length;
-        _putOffSinceS = _decisions.IntervalS;
-    }
-
-    /// <summary>Room for <see cref="PutOffTheDecisions"/> to merge into.</summary>
-    int[] _putOffMerged = [];
-
-    /// <summary>
-    /// The decisions' clock (<c>SimLoop.Decisions</c>), and the loop's tick the agents were last ticked on — whose decisions
-    /// are taken once that tick's agents are, and put off to the next.
-    /// </summary>
-    public TickGroups DecisionClock => _decisions;
-
-    /// <inheritdoc cref="DecisionClock"/>
-    public long AgentsTick => _agentsTick;
-
-    /// <summary>
-    /// <b>The decisions put off last tick, taken now</b> (<see cref="ITownDevice.DecidesATickBehind"/>) — by a device while
-    /// its next tick runs, on the town as the last tick left it; or by the town before its next decision once no device puts
-    /// them off. Nothing where none waits.
-    /// </summary>
-    public void TakeTheDecisionsPutOff() => TakeTheDecisionsPutOffBefore(AgentCount);
-
-    /// <summary>
-    /// <b>The walkers' decisions put off last tick, taken now</b>, the cars' left for <see cref="TakeTheDecisionsPutOff"/> —
-    /// which take the rest in the same order, the roster being walkers then cars.
-    /// </summary>
-    public void TakeTheWalkersDecisionsPutOff() => TakeTheDecisionsPutOffBefore(Roster.AgentOfCar(0));
-
-    void TakeTheDecisionsPutOffBefore(int agentsBefore)
-    {
-        if (_putOffTaken == _putOffCount) return;
-
-        while (_putOffTaken < _putOffCount && _decisionsPutOff[_putOffTaken] < agentsBefore)
-        {
-            var agent = _decisionsPutOff[_putOffTaken++];
-            if (!IsTerminal(agent)) DecideNow(agent, _putOffSinceS);
-        }
-
-        if (_putOffTaken == _putOffCount) _putOffTaken = _putOffCount = 0;
-
-        // What follows is the agents' pass's again, whichever kind decided last.
-        AccountFor(AgentCount - 1, deciding: false);
-    }
-
-    /// <summary>The agents whose decisions are put off and not yet taken, in the order they were due — walkers first, then cars.</summary>
-    public ReadOnlySpan<int> DecisionsPutOff => _decisionsPutOff.AsSpan(_putOffTaken, _putOffCount - _putOffTaken);
-
-    /// <summary>The agents whose decision was due and put off, in the order they were due, and the interval they were due after.</summary>
-    int[] _decisionsPutOff = [];
-
-    int _putOffCount;
-
-    /// <summary>How many of those have been taken (<see cref="TakeTheWalkersDecisionsPutOff"/>).</summary>
-    int _putOffTaken;
-
-    float _putOffSinceS;
+    public void DecideAgent(int agent, float sinceLastDecisionS) => DecideNow(agent, sinceLastDecisionS);
 
     void DecideNow(int agent, float sinceLastDecisionS)
     {
@@ -1169,24 +956,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             // Its errand is still its own and it picks it up again where the arm puts it down.
             if (_recovery.OnTheHookOf[car] >= 0) return;
 
-            CarDecisionsTaken++;
-
-            // What the whole decision comes to where it is its leg's clock alone — run on the device, or here.
-            if (Device?.DecidedOnTheDevice(car) == true)
-            {
-                DecidedByTheClock++;
-                return;
-            }
-
-            // Decided here, it is decided where the device's last step left it.
-            TakeThePoseBack(agent);
-            if (DecidesQuietCarsByTheClock && TakesOnlyTheClock(car, sinceLastDecisionS))
-            {
-                WatchTheProgress(car, sinceLastDecisionS);
-                DecidedByTheClock++;
-                return;
-            }
-
             // CTL-2: the player's order pins the goal the behaviour would otherwise have picked, and for a
             // vehicle with an errand the errand is that behaviour — so an ordered one runs the order in
             // place of it, and picks its errand back up where the reset leaves it (CTL-4).
@@ -1198,23 +967,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             else if (_townParks && !IsAServiceVehicle(car)) RunTheRound(car, sinceLastDecisionS);
 
             DecideDriver(car, sinceLastDecisionS);
-            return;
-        }
-
-        WalkerDecisionsTaken++;
-
-        // What the whole decision comes to where it is its leg's clock alone — run on the device, or here.
-        if (Device?.WalkerDecidedOnTheDevice(agent) == true)
-        {
-            WalkersDecidedByTheClock++;
-            return;
-        }
-
-        TakeThePoseBack(agent);
-        if (DecidesQuietWalkersByTheClock && WalkerTakesOnlyTheClock(agent, sinceLastDecisionS))
-        {
-            RunTheWalksClock(agent, sinceLastDecisionS);
-            WalkersDecidedByTheClock++;
+            SignalTheFollow(car);
             return;
         }
 
@@ -1262,9 +1015,13 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         //
         // <b>And a chain that ran out of room is laid on from where the body has got to before its plan runs off
         // the end of it</b>, which is the same laying from the same place (<see cref="ComesToTheEndOfItsChain"/>).
-        if (HasLostItsLine(agent) || ComesToTheEndOfItsChain(agent))
+        //
+        // <b>Never for one already walking back</b> (PER-25): its walk is laid from where it last stood on the pavement
+        // (<see cref="_placeOf"/>), and the straight back there is what it is doing — laid again, it was handed back to
+        // its route each decision and walked back to it the laying after.
+        if ((HasLostItsLine(agent) && People.Action[agent] != PersonAction.Rejoin) || ComesToTheEndOfItsChain(agent))
         {
-            LayWalk(
+            LayWalkAgain(
                 agent,
                 reachTheGoal: People.Stage[agent] is TripStage.WalkingToTheDoor or TripStage.WalkingToTheCar
                     or TripStage.WalkingFromTheCar or TripStage.UnderOrders);
@@ -1328,12 +1085,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
 
 
-    /// <summary>
-    /// Nothing to release: the solver is this project's own arrays and the collector owns them. The town
-    /// is still handed out as a disposable because that is what every caller holds it in.
-    /// </summary>
-    public void Dispose()
-    {
-    }
+    /// <summary>The world let go of: the thread a managed world steps on, or the device's buffers.</summary>
+    public void Dispose() => _world.Dispose();
 
 }

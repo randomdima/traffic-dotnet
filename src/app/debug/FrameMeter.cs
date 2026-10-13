@@ -74,6 +74,9 @@ internal readonly record struct FrameFigures
     /// </summary>
     public double TicksPerFrame { get; init; }
 
+    /// <summary>The mean bytes a frame wrote into memory the device reads (<see cref="FrameParts.WrittenBytes"/>), in kB.</summary>
+    public double WrittenKb { get; init; }
+
     /// <summary>The five phases accumulated over the window, which <see cref="PhaseTimes.MillisecondsPer"/> reads as a mean per tick.</summary>
     public PhaseTimes Phases { get; init; }
 
@@ -200,6 +203,7 @@ internal sealed class FrameMeter
             InterfaceMs = _sum.InterfaceMs * per,
             SubmitMs = _sum.SubmitMs * per,
             TicksPerFrame = _sum.SimTicks * per,
+            WrittenKb = _sum.WrittenBytes * per / 1024d,
             Phases = ticked ? phases : Figures.Phases,
             Sub = ticked ? sub : Figures.Sub,
         };

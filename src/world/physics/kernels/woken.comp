@@ -1,0 +1,166 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// What the frozen bodies woken into the step own (PhysicsWorld.FindContacts, SOL-37a): on the CPU a frozen body a
+// manifold meets is woken onto the end of the owners and gathers its own pairs in the same step — so whatever it is about
+// to be pushed into is in the solve that pushes it, and so on down a row of parked cars. Here narrow.comp listed the ones
+// the awake bodies' pairs woke, and this gathers what those own: the frozen bodies and the furniture they meet
+// (gather.glsl), each pair's manifold, and every frozen body one of them meets woken and listed in turn, round after round
+// until a round wakes nobody. Nothing to do on a step that woke nobody, which is most of them.
+//
+// A pair is gathered once, as the CPU's stamp has it: a woken body takes a frozen one that has not owned its pairs yet —
+// in an earlier round, or as the lower of two in the same one. The pairs that met are the side list, put in the order of
+// their pairs (lower body, then higher, the furniture second) for compact.comp to merge with the awake bodies'.
+//
+// One workgroup, whose barrier ends each round rather than a queue's.
+
+layout(local_size_x = 1024) in;
+
+#include "step.glsl"
+#include "shape.glsl"
+#include "owned.glsl"
+
+const uint Threads = 1024u;
+
+// Where the step's totals keep how many bodies it woke and how many contacts the side list holds (DeviceSolver.Totals).
+const uint WokenAt = 16u;
+const uint SideContactsAt = 3u;
+
+// One contact the woken bodies' pairs met (DeviceSolver.SideContact): the pair, how many points, and its manifold as
+// compact.comp packs a candidate's.
+struct SideContact
+{
+    uvec4 pair;
+    vec4 normalAndDepth;
+    vec4 points;
+};
+
+layout(std430, binding = 0) readonly buffer Bounds { vec4 bounds[]; };
+layout(std430, binding = 1) readonly buffer Filter { uint filter_[]; };
+layout(std430, binding = 2) readonly buffer Pose { vec4 pose[]; };
+layout(std430, binding = 3) readonly buffer ShapeB { vec4 shape[]; };
+layout(std430, binding = 4) coherent buffer State { uint state[]; };
+layout(std430, binding = 5) writeonly buffer Overlap { uint overlap[]; };
+layout(std430, binding = 6) readonly buffer MovingStarts { uint movingStarts[]; };
+layout(std430, binding = 7) readonly buffer MovingItems { uvec2 movingItems[]; };
+layout(std430, binding = 8) readonly buffer StaticCounts { uint staticCounts[]; };
+layout(std430, binding = 9) readonly buffer StaticStarts { uint staticStarts[]; };
+layout(std430, binding = 10) readonly buffer StaticItems { int staticItems[]; };
+layout(std430, binding = 11) coherent buffer WokenList { uint woken[]; };
+layout(std430, binding = 12) coherent buffer Totals { uint totals[]; };
+
+// As the pairs met, then in their order — as many as there is room for (sideRoom).
+layout(std430, binding = 13) coherent buffer Side { SideContact side[]; };
+layout(std430, binding = 14) writeonly buffer Sorted { SideContact sorted[]; };
+
+#include "gather.glsl"
+
+shared uint roundFrom;
+shared uint roundTo;
+shared uint sideCount;
+
+void sync()
+{
+    memoryBarrierBuffer();
+    memoryBarrierShared();
+    barrier();
+}
+
+bool takes(int owner, int other)
+{
+    uint s = state[other];
+    if (other == owner || !frozenAtStart(s) || (s & Asked) != 0u) return false;
+
+    return (s & InRound) == 0u || other > owner;
+}
+
+void wake(uint body)
+{
+    if (!stillFrozen(state[body])) return;
+    if ((atomicOr(state[body], Owned | Woken) & Owned) != 0u) return;
+
+    overlap[body] = 0u;
+    woken[atomicAdd(totals[WokenAt], 1u)] = body;
+}
+
+// A pair gathered, taken lower index first and the furniture second (PhysicsWorld.Narrow), and kept where it met.
+void keep(int owner, int other)
+{
+    bool furniture = (filter_[other] & staticBit) != 0u;
+    uint first = uint(furniture || owner < other ? owner : other);
+    uint second = uint(furniture || owner < other ? other : owner);
+    vec4 a = pose[first];
+    vec4 b = pose[second];
+    vec4 shapeA = shape[first];
+    vec4 shapeB = shape[second];
+
+    Manifold m;
+    if (!shapeCollide(a.xy, a.zw, shapeA.xy, shapeA.z, b.xy, b.zw, shapeB.xy, shapeB.z, speculativeM, m)) return;
+
+    if (!furniture) wake(uint(other));
+    uint at = atomicAdd(sideCount, 1u);
+    if (at < sideRoom)
+    {
+        side[at] = SideContact(
+            uvec4(first, second, uint(m.pointCount), 0u), vec4(m.normal, m.separation0, m.separation1), vec4(m.point0, m.point1));
+    }
+}
+
+bool before(uvec4 a, uvec4 b) { return a.x < b.x || (a.x == b.x && a.y < b.y); }
+
+void main()
+{
+    if (totals[WokenAt] == 0u) return;
+
+    uint thread = gl_LocalInvocationID.x;
+    if (thread == 0u)
+    {
+        roundFrom = 0u;
+        roundTo = totals[WokenAt];
+        sideCount = 0u;
+    }
+
+    sync();
+    while (roundFrom < roundTo)
+    {
+        uint from = roundFrom;
+        uint to = roundTo;
+        for (uint at = from + thread; at < to; at += Threads) atomicOr(state[woken[at]], InRound);
+        sync();
+        for (uint at = from + thread; at < to; at += Threads) gather(int(woken[at]), true);
+        sync();
+        for (uint at = from + thread; at < to; at += Threads) atomicXor(state[woken[at]], InRound | Asked);
+        if (thread == 0u)
+        {
+            roundFrom = to;
+            roundTo = totals[WokenAt];
+        }
+
+        sync();
+    }
+
+    // The side list in its pairs' order: each one's place is how many come before it.
+    uint count = min(sideCount, sideRoom);
+    for (uint at = thread; at < count; at += Threads)
+    {
+        uvec4 pair = side[at].pair;
+        uint place = 0u;
+        for (uint other = 0u; other < count; other++)
+        {
+            if (before(side[other].pair, pair)) place++;
+        }
+
+        sorted[place] = side[at];
+    }
+
+    if (thread != 0u) return;
+
+    // Past the room the step says it lost some (DeviceSolver.Overflowed). The contacts' total and the dispatches over the
+    // contacts and the candidates take the side list in.
+    if (sideCount > sideRoom) totals[OverflowAt] = 0xFFFFFFFFu;
+    totals[SideContactsAt] = count;
+    uint contacts = totals[ContactTotalAt] + count;
+    totals[ContactTotalAt] = contacts;
+    totals[ContactGroupsAt] = max(1u, (min(contacts, contactCapacity) + 63u) / 64u);
+    totals[CandidateGroupsAt] = max(1u, (min(totals[CandidateTotalAt], capacity) + count + 63u) / 64u);
+}

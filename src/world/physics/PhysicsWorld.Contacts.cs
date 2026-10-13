@@ -19,7 +19,6 @@ internal sealed partial class PhysicsWorld
     void ReportBegun()
     {
         _beganCount = 0;
-        _beganClosed = false;
         _heldCount = 0;
 
         var now = 0;
@@ -84,36 +83,6 @@ internal sealed partial class PhysicsWorld
     bool OwnedThisStep(int body) =>
         _ownedInStep[body] == _stepStamp || (_flags[body] & BodyFlags.Enabled) == 0;
 
-    /// <summary>One grid's part of a cast, over the entries carrying <paramref name="live"/> (<see cref="Gather"/>).</summary>
-    void Sweep(CellGrid grid, BodyFlags live, Vector2 fromM, Vector2 travelM, int ignore, ref float nearest, ref int found)
-    {
-        var walk = grid.Walk(fromM, travelM);
-        while (walk.MoveNext())
-        {
-            foreach (var body in walk.Items)
-            {
-                if (body == ignore) continue;
-                if ((_flags[body] & live) != live) continue;
-                if ((_category[body] & LookingMask) == 0 || (_mask[body] & (ulong)LookingAs) == 0) continue;
-                if ((_channels[body] & LookingOn) == 0) continue;
-                if (!Shape.CastSegment(
-                        fromM, travelM, _positionM[body], _rotation[body], _extentM[body],
-                        _cornerRadiusM[body], out var met))
-                {
-                    continue;
-                }
-
-                if (met >= nearest) continue;
-
-                nearest = met;
-                found = body;
-            }
-
-            // Nothing in a later cell can be nearer than what has already been met inside this one.
-            if (nearest <= walk.ExitFraction) return;
-        }
-    }
-
     void RoomForContact()
     {
         if (_contactCount < _contactA.Length) return;
@@ -149,7 +118,6 @@ internal sealed partial class PhysicsWorld
         Array.Resize(ref _beganA, room);
         Array.Resize(ref _beganB, room);
         Array.Resize(ref _beganNormal, room);
-        Array.Resize(ref _beganClosingMps, room);
     }
 
     /// <summary>The walk over one step's begin-touch events. Not a snapshot — it reads the world's own arrays in place.</summary>
@@ -177,8 +145,7 @@ internal sealed partial class PhysicsWorld
             Current = new Touch(
                 BodyTag.Unpack(_physics._tag[_physics._beganA[began]]),
                 BodyTag.Unpack(_physics._tag[_physics._beganB[began]]),
-                _physics._beganNormal[began],
-                _physics._beganClosed ? _physics._beganClosingMps[began] : null);
+                _physics._beganNormal[began]);
             return true;
         }
     }

@@ -25,7 +25,7 @@ namespace TrafficSimulation.Tests.Physics;
 /// so a disagreement here is this engine's to explain rather than a difference to be talked round.
 /// The reference is a test-only package reference and reaches no shipped assembly. Rotations are handed
 /// over as the pair of numbers rather than as an angle for the reason
-/// <see cref="CastDifferenceTests.TheReferenceRoundsAnAngleAndThisEngineDoesNot"/> records.
+/// <see cref="TheReferenceRoundsAnAngleAndThisEngineDoesNot"/> records.
 /// </para>
 /// </remarks>
 [Trait(Tier.Key, Tier.Unit)]
@@ -346,6 +346,28 @@ public class ManifoldDifferenceTests
         }
 
         return deepest;
+    }
+
+    /// <summary>
+    /// Why the poses above are handed to the reference as a rotation and never as an angle. <b>This is a
+    /// difference in the reference and not a defect in either</b>, and it is recorded as a test because
+    /// it is the sort of thing that otherwise reads as a bug in a new solver for a day.
+    /// </summary>
+    [Fact]
+    public void TheReferenceRoundsAnAngleAndThisEngineDoesNot()
+    {
+        var worst = 0f;
+        for (var step = 0; step < 1_000; step++)
+        {
+            var headingRad = step / 1_000f * MathF.Tau - MathF.PI;
+            var theirs = B2MathFunction.b2MakeRot(headingRad);
+            var mine = Shape.Rotation(headingRad);
+            worst = MathF.Max(worst, (new Vector2(theirs.c, theirs.s) - mine).Length());
+        }
+
+        // This engine's is the library's cosine and sine, so it is exact to the float; the reference's
+        // is a polynomial, and a thousandth of a radian is four millimetres at five metres.
+        Assert.InRange(worst, 1e-5f, 1e-2f);
     }
 
     static B2Transform At(Vector2 positionM, Vector2 rotation) =>

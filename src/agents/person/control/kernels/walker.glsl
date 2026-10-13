@@ -3,7 +3,8 @@
 // host, `precise` throughout; the bearing is trig.glsl's arctangent, and nothing else is trigonometry; every quotient and
 // root is rounded.glsl's.
 //
-// The including kernel supplies WALKER_FIGURES' fields: walkSpeedMps, turnRateDegPerS, footGripMps2, slidingGripMps2.
+// The including kernel supplies WALKER_FIGURES' fields: walkSpeedMps, turnRateDegPerS, footGripMps2, slidingGripMps2,
+// aimUnderfootM2.
 
 #include "core/geometry/kernels/trig.glsl"
 #include "core/geometry/kernels/rounded.glsl"
@@ -73,7 +74,7 @@ WalkerStep walkerStep(
     precise vec2 toAim = aimM - positionM;
     float distanceM = walkerLength(toAim);
     precise float distanceSquared = distanceM * distanceM;
-    if (distanceSquared > 1e-8)
+    if (distanceSquared > WALKER_FIGURES.aimUnderfootM2)
     {
         float paceMps = WALKER_FIGURES.walkSpeedMps;
         float bearingRad = trigAtan2(toAim.y, toAim.x);

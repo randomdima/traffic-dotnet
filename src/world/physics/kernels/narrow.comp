@@ -1,14 +1,22 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
 
-// Every candidate's manifold (PhysicsWorld.Narrow), one thread a pair: the owner first and the other second, which
-// is lower index first and the furniture second. What met is flagged for the compaction that follows, so the
-// contacts keep the candidates' order.
+// Every candidate's manifold (PhysicsWorld.Narrow), one thread a pair: the first body and the second, which is lower
+// index first and the furniture second. What met is flagged for the compaction that follows, so the contacts keep the
+// candidates' order.
+//
+// A frozen body a manifold meets is woken into the step (PhysicsWorld.WakeInStep, SOL-37a): owned from here, its
+// overlap cleared for its contacts to find again, and listed for woken.comp to gather what it owns in turn. Every pair
+// here has an awake body, so whichever of the two is frozen is the one woken.
 
 layout(local_size_x = 64) in;
 
 #include "step.glsl"
 #include "shape.glsl"
+#include "owned.glsl"
+
+// Where the step's totals keep how many bodies it has woken (DeviceSolver.Totals).
+const uint WokenAt = 16u;
 
 layout(std430, binding = 0) readonly buffer Candidates { uvec2 candidates[]; };
 layout(std430, binding = 1) readonly buffer Pose { vec4 pose[]; };
@@ -17,7 +25,19 @@ layout(std430, binding = 3) writeonly buffer Met { uint met[]; };
 layout(std430, binding = 4) writeonly buffer Flags { uint flagged[]; };
 layout(std430, binding = 5) writeonly buffer ManifoldA { vec4 manifoldA[]; };
 layout(std430, binding = 6) writeonly buffer ManifoldB { vec4 manifoldB[]; };
-layout(std430, binding = 7) readonly buffer Totals { uint totals[]; };
+layout(std430, binding = 7) buffer Totals { uint totals[]; };
+layout(std430, binding = 8) buffer State { uint state[]; };
+layout(std430, binding = 9) writeonly buffer Overlap { uint overlap[]; };
+layout(std430, binding = 10) writeonly buffer WokenList { uint woken[]; };
+
+void wake(uint body)
+{
+    if (!stillFrozen(state[body])) return;
+    if ((atomicOr(state[body], Owned | Woken) & Owned) != 0u) return;
+
+    overlap[body] = 0u;
+    woken[atomicAdd(totals[WokenAt], 1u)] = body;
+}
 
 void main()
 {
@@ -36,4 +56,8 @@ void main()
     flagged[at] = touching ? 1u : 0u;
     manifoldA[at] = vec4(m.normal, m.separation0, m.separation1);
     manifoldB[at] = vec4(m.point0, m.point1);
+    if (!touching) return;
+
+    wake(pair.x);
+    wake(pair.y);
 }

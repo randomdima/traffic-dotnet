@@ -3,34 +3,41 @@
 
 // A run of cars' whole tyre pass for one tick, one thread a car (TyrePass.Step), off their builds, poses, commands and
 // the state they carry, with which of each car's wheels stood on a way when its body was last laid — and every mark laid
-// appended to a ring as a record carrying its car and wheel, for the host to file in (car, wheel) order.
+// into the ground's ring of marks where it is drawn from (drift_marks.glsl), and, where a test asks for it, appended as
+// a record carrying its car and wheel for the host to file in (car, wheel) order.
 
 layout(local_size_x = 64) in;
 
 struct TyrePassFigures
 {
     float dtS;
-    float standardGravityMps2;
     float wheelSpinFadeMps;
     float wheelSpinAllowanceMps;
     float markSlipMps;
     float markCorneringSlipMps;
     float ploughCrawlMps;
     float engineBrakingMps2;
-    float slipBackOffS;
-    float slipRecoverS;
+    float slipBackOffPerTick;
+    float slipRecoverPerTick;
     float minSlipThrottleFraction;
     float tractionThrottleFraction;
     float nominalGripMps2;
     float markOnsetM;
     float markPloughFloor;
     float markSpacingM;
+    float workingSlipTangent;
+    float alongSlipEpsilonMps;
+    float liftedAxleLoadShare;
+    float ackermannLeastSteerRad;
+    float innerWheelLeastRadiusM;
 };
 
-// How many cars, then the pass's figures (DeviceTyres.PassPush).
+// How many cars, whether each patch's scrub and each mark's record are handed back — a test's question, which the town
+// never asks — then the pass's figures (DeviceTyres.PassPush).
 layout(push_constant) uniform Pass
 {
     uint carCount;
+    uint handsBack;
     TyrePassFigures figures;
 } pass;
 
@@ -65,12 +72,20 @@ layout(std430, binding = 7) writeonly buffer ScrubRows { TyreScrub scrubRows[]; 
 layout(std430, binding = 8) buffer MarkCount { uint markCount; };
 layout(std430, binding = 9) writeonly buffer MarkRows { TyreMarkRow markRows[]; };
 
+#include "world/terrain/kernels/drift_mark_rows.glsl"
+
+layout(std430, binding = 11) writeonly buffer DriftMarkRows { DriftMarkRow driftMarkRows[]; };
+layout(std430, binding = 12) buffer DriftMarkRingB { DriftMarkRing driftMarkRing; };
+
+#define DRIFT_MARK_ROWS driftMarkRows
+#define DRIFT_MARK_RING driftMarkRing
+#include "world/terrain/kernels/drift_marks.glsl"
+
 void main()
 {
     uint car = gl_GlobalInvocationID.x;
     if (car >= pass.carCount) return;
 
-    CarBuildRow build = builds[buildOf[car]];
     TyreCarRow row = carRows[car];
     TyreCarry carry;
     for (int wheel = 0; wheel < TyreWheels; wheel++)
@@ -86,12 +101,28 @@ void main()
     carry.slipThrottle = row.slipThrottle;
     carry.drivenSlipping = (row.flags & 2u) != 0u;
 
+    // What the pass would leave of a settled car is its rows as they stand and nothing spent, so only that is written.
+    TyrePose pose = poses[car];
+    TyreCommand command = commands[car];
+    if (tyrePassSettled(pose, command, carry))
+    {
+        carRows[car].flags = row.flags | 4u;
+        for (uint at = car * 4u; at < car * 4u + 4u; at++)
+        {
+            impulseRows[at] = vec4(0.0);
+            if (pass.handsBack != 0u) scrubRows[at] = TyreScrub(0.0, 0.0, 0.0, 0u);
+        }
+
+        return;
+    }
+
+    CarBuildRow build = builds[buildOf[car]];
     vec4 spent[4];
     TyreScrub scrub[4];
     TyreMark laidMarks[4];
     uint laid;
     bool atRest = tyrePass(
-        build, poses[car], commands[car], (row.flags & 1u) != 0u, row.inertiaKgM2, tyreWheelsOnAWayOf(row), pass.figures.dtS,
+        build, pose, command, (row.flags & 1u) != 0u, row.inertiaKgM2, tyreWheelsOnAWayOf(row), pass.figures.dtS,
         carry, spent, scrub, laidMarks, laid);
 
     carRows[car].slipThrottle = carry.slipThrottle;
@@ -103,13 +134,16 @@ void main()
             carry.markFromM[wheel], carry.spinMps[wheel], carry.scrubTravelM[wheel], carry.markIntensity[wheel],
             carry.marking[wheel] ? 1u : 0u);
         impulseRows[at] = spent[wheel];
-        scrubRows[at] = scrub[wheel];
+        if (pass.handsBack != 0u) scrubRows[at] = scrub[wheel];
         if ((laid & (1u << uint(wheel))) == 0u) continue;
+
+        TyreMark mark = laidMarks[wheel];
+        driftMarkLay(mark.fromM, mark.toM, build.wheelWidthM, mark.intensity, mark.ploughed);
+        if (pass.handsBack == 0u) continue;
 
         uint slot = atomicAdd(markCount, 1u);
         if (slot >= uint(markRows.length())) continue;
 
-        TyreMark mark = laidMarks[wheel];
         markRows[slot] = TyreMarkRow(mark.fromM, mark.toM, build.wheelWidthM, mark.intensity, at, mark.ploughed ? 1u : 0u);
     }
 }

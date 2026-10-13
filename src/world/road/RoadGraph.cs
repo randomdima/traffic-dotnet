@@ -53,8 +53,15 @@ internal sealed class RoadGraph : ILaneEnds
     readonly int[] _junctionInLanes;
     readonly bool[] _breaksTheLine;
 
-    /// <summary>The lanes over a grid, which is the whole of what <see cref="NearestLane"/> is.</summary>
-    readonly ChainIndex _nearest;
+    /// <summary>
+    /// The lanes over a grid, which is the whole of what <see cref="NearestLane"/> and <see cref="LanesAround"/> are —
+    /// <b>laid on the first ask and let go once the town stands</b> (<see cref="LetGoOfTheLayingIndex"/>): only laying
+    /// it and the instruments ask.
+    /// </summary>
+    ChainIndex? _nearest;
+
+    readonly GridLevel _nearestLevel;
+    readonly object _nearestLaying = new();
 
     /// <summary>And the carriageway's alone, which is <see cref="NearestStreetLane(Vector2, out float)"/>.</summary>
     readonly ChainIndex _nearestStreet;
@@ -73,20 +80,18 @@ internal sealed class RoadGraph : ILaneEnds
         _junctionInOffsets = junctionInOffsets;
         _junctionInLanes = junctionInLanes;
         _breaksTheLine = breaksTheLine;
+        _nearestLevel = nearestLevel;
 
-        var builder = new ChainIndex.Builder();
         var streets = new ChainIndex.Builder();
         var onTheirLevels = lines.Levelled ? new[] { new ChainIndex.Builder(), new ChainIndex.Builder() } : [];
         for (var lane = 0; lane < lines.LaneCount; lane++)
         {
-            builder.Add(lane, ArcsOf(lane), lines.LaneLengthM[lane]);
             if (!IsAStreetLane(lane)) continue;
 
             streets.Add(lane, ArcsOf(lane), lines.LaneLengthM[lane]);
             if (onTheirLevels.Length > 0) onTheirLevels[lines.LaneLevel[lane]].Add(lane, ArcsOf(lane), lines.LaneLengthM[lane]);
         }
 
-        _nearest = builder.Seal(nearestLevel);
         _nearestStreet = streets.Seal(nearestLevel);
         _nearestStreetOn = Array.ConvertAll(onTheirLevels, level => level.Seal(nearestLevel));
 
@@ -338,6 +343,13 @@ internal sealed class RoadGraph : ILaneEnds
     /// <summary>The line the lane is driven on, in its own direction of travel, already offset to the driver's side.</summary>
     public ReadOnlySpan<ArcSeg> ArcsOf(int lane) => _lines.ArcsOf(lane);
 
+    /// <summary>
+    /// <b>Every lane's line and every join's, end to end, with where each one's begins</b> (one past the last too) and the
+    /// lane each join leads onto — the tables whole, for a world that reads cars along them (<c>DeviceLanes</c>).
+    /// </summary>
+    public (ReadOnlyMemory<ArcSeg> LaneArcs, int[] LaneArcFrom, ReadOnlyMemory<ArcSeg> JoinArcs, int[] JoinArcFrom, int[] JoinTo)
+        Tables => (_lines.LaneArcs, _lines.LaneArcOffsets, _lines.ConnectorArcs, _lines.ConnectorArcOffsets, _lines.ConnectorToLane);
+
     /// <summary>The lanes leaving one of the plan's junctions (<see cref="JunctionCount"/>).</summary>
     public ReadOnlySpan<int> LanesOutOfJunction(int junction) =>
         _junctionOutLanes.AsSpan(
@@ -485,15 +497,30 @@ internal sealed class RoadGraph : ILaneEnds
     /// </summary>
     public RoadWays Ways => new(this);
 
-    /// <summary>The lane whose line passes nearest a point, and how far along it that is.</summary>
-    /// <remarks>
-    /// <b>It is not only asked of a car being stood up.</b> A car that has lost its line reacquires
-    /// through here, a trip asks it for the lane a building's way out faces, and a bay is staged from
-    /// it — all of which are decisions taken in a tick. Which is why it is <see cref="ChainIndex"/> and
-    /// not a scan: the index is laid with the graph and cannot drift from it, because a graph laid with
-    /// the town is never written to again.
-    /// </remarks>
-    public int NearestLane(Vector2 pointM, out float progressM) => _nearest.Nearest(pointM, out progressM);
+    /// <summary>The lane whose line passes nearest a point, and how far along it that is — bays and roadsides among them.</summary>
+    public int NearestLane(Vector2 pointM, out float progressM) => Nearest.Nearest(pointM, out progressM);
+
+    ChainIndex Nearest
+    {
+        get
+        {
+            lock (_nearestLaying) return _nearest ??= LayTheNearest();
+        }
+    }
+
+    ChainIndex LayTheNearest()
+    {
+        var builder = new ChainIndex.Builder();
+        for (var lane = 0; lane < _lines.LaneCount; lane++) builder.Add(lane, ArcsOf(lane), _lines.LaneLengthM[lane]);
+
+        return builder.Seal(_nearestLevel);
+    }
+
+    /// <summary>Every lane's index let go, once the town stands; asked again, it is laid again.</summary>
+    public void LetGoOfTheLayingIndex()
+    {
+        lock (_nearestLaying) _nearest = null;
+    }
 
     /// <summary>
     /// <b>And the nearest lane of the carriageway</b>, bays and roadsides left out (<see cref="IsAStreetLane"/>) —
@@ -516,14 +543,7 @@ internal sealed class RoadGraph : ILaneEnds
     /// Build-time: it reads the index's own scan, which one caller at a time may use.
     /// </summary>
     /// <returns>How many there are, which may be more than <paramref name="lanes"/> has room for.</returns>
-    public int LanesAround(Vector2 pointM, float radiusM, Span<int> lanes) => _nearest.Around(pointM, radiusM, lanes);
-
-    /// <summary>
-    /// <b>The lane indexes as they stand</b>, for the device to lay once at load (<c>app/devicetick/TownState</c>): every
-    /// lane's, the carriageway's, and the carriageway's a level at a time — none of those in a town on one level.
-    /// </summary>
-    internal (ChainIndex Nearest, ChainIndex NearestStreet, ChainIndex[] NearestStreetOn) LaneIndexes =>
-        (_nearest, _nearestStreet, _nearestStreetOn);
+    public int LanesAround(Vector2 pointM, float radiusM, Span<int> lanes) => Nearest.Around(pointM, radiusM, lanes);
 
     public SplineSample StartOf(int lane) => Spline.SampleAt(ArcsOf(lane), 0f);
 

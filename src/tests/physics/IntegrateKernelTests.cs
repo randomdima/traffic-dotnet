@@ -10,7 +10,7 @@ namespace TrafficSimulation.Tests.Physics;
 
 /// <summary>
 /// <b>The solver's last stage on the device</b> (<c>world/physics/kernels/integrate.comp</c>): what
-/// <c>PhysicsWorld.Integrate</c> does to a body, asked of the kernel.
+/// <c>PhysicsWorld.IntegrateAndCountTheRest</c> does to a body, asked of the kernel.
 /// </summary>
 [Trait(Tier.Key, Tier.Device)]
 [Trait(Priority.Key, Priority.P0)]
@@ -47,14 +47,14 @@ public class IntegrateKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
             var motion = new Vector4[bodies];
             var push = new Vector4[bodies];
             var shape = new Vector4[bodies];
-            var filter = new UInt4[bodies];
+            var filter = new uint[bodies];
             for (var body = 0; body < bodies; body++)
             {
                 pose[body] = new Vector4(PositionM[body], MathF.Cos(HeadingRad[body]), MathF.Sin(HeadingRad[body]));
                 motion[body] = new Vector4(VelocityMps[body], YawRateRadPerS[body], 0f);
                 push[body] = new Vector4(PushMps[body], PushYawRadPerS[body], 0f);
                 shape[body] = new Vector4(ExtentM[body], CornerRadiusM[body], 0f);
-                filter[body] = new UInt4(Flags[body], 0, 0, 0);
+                filter[body] = Flags[body];
             }
 
             _buffers =
@@ -66,8 +66,9 @@ public class IntegrateKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
                 device.Holding<Vector4>(push),
                 device.Holding<Vector4>(shape),
                 device.Sized<Vector4>(bodies),
-                device.Holding<UInt4>(filter),
+                device.Holding<uint>(filter),
                 device.Sized<uint>(bodies),
+                device.Sized<int>(1),
             ];
             return _buffers;
         }
@@ -162,10 +163,10 @@ public class IntegrateKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         table.VelocityMps[2] = new Vector2(1f, 0f);
         Run(device, table.Upload([0, 1]), 2);
 
-        var filter = table.Filter.Span<UInt4>();
-        Assert.Equal(0u, filter[0].X & FiledFrozen);
-        Assert.Equal(FiledFrozen, filter[1].X & FiledFrozen);
-        Assert.Equal(FiledFrozen, filter[2].X & FiledFrozen);
+        var filter = table.Filter.Span<uint>();
+        Assert.Equal(0u, filter[0] & FiledFrozen);
+        Assert.Equal(FiledFrozen, filter[1] & FiledFrozen);
+        Assert.Equal(FiledFrozen, filter[2] & FiledFrozen);
         Assert.Equal(new Vector2(20f, 0f), PositionOf(table, 2));
     }
 }

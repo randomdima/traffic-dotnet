@@ -50,10 +50,12 @@ only chooses it. `app/drive/` sits beside it on the same footing and over `app/p
 `app/hud/` and `app/shot/`: a script at the wheel holds the hand that slice owns, prints the rows that one
 draws and asks this one for its pictures.
 
-**The tick's kernels live in the slice whose rules they are**, in its own `kernels/` — the solver's in
-`world/physics/kernels/` — and **`app/devicetick/` is where they meet the device**: it lays a slice's arrays into
-buffers and records its kernels in the tick's order. The slice hands over its data (`PhysicsWorld.Table`) and never
-learns that a device exists, which is what keeps the World tier off the Machine one.
+**The world layer's kernels live in the slice whose rules they are**, in its own `kernels/` — the solver's in
+`world/physics/kernels/`, the tyres' in `agents/car/body/kernels/`, the step's own in `world/town/kernels/` — and
+**`app/devicetick/` is where they meet the device** (`DeviceWorld`): it lays the world's arrays into buffers once and
+records its kernels in the step's order. A slice hands over its data (`PhysicsWorld.Table`, `WorldLaying`) and never
+learns that a device exists, which is what keeps the World tier off the Machine one; the town speaks to whichever world
+it is handed through `WorldLayer` alone.
 
 **A folder named for a head is a second answer and never a second question.** `runtime/web/`,
 `app/render/web/`, `app/main/web/` and `app/drive/web/` hold the browser's half of something the desktop already has, and

@@ -20,9 +20,6 @@ internal sealed partial class TownWorld
     /// <summary>Whether any bay of this town can be driven into, which is what says its cars park rather than tour.</summary>
     bool _townParks;
 
-    /// <summary>Each car's round and whether the town parks at all, for the device to lay once at load.</summary>
-    internal (ParkedRound Round, bool TownParks) Rounds => (_round, _townParks);
-
     /// <summary>How many times a car on its round has set off from where it stood for a bay somewhere else.</summary>
     public long RoundsSetOff { get; private set; }
 
@@ -63,10 +60,10 @@ internal sealed partial class TownWorld
     void SetOffForAnotherBay(int car)
     {
         ref var draw = ref Cars.Draw[car];
-        var reachM = _config.Driving.RoundReachM * MathF.Sqrt(draw.NextFloat());
-        var placeM = Cars.PositionM[car] + (Heading.Unit(draw.NextFloat() * MathF.Tau) * reachM);
+        var place = DrawnDownTheRoad(RoadPlaceOfCar(car), _config.Driving.RoundReachM, ref draw);
+        if (!place.IsSomewhere) return;
 
-        var bay = FreeBayNear(placeM, _config.PersonWalkWorthM);
+        var bay = FreeBayOff(place, PointOf(place), _config.PersonWalkWorthM);
         if (bay < 0 || bay == _parking.BayOf(car)) return;
 
         RoundsSetOff++;

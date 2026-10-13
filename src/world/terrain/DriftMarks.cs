@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.InteropServices;
 using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.World.Terrain;
@@ -12,6 +13,35 @@ namespace TrafficSimulation.World.Terrain;
 /// surface that is still there. What each kind is drawn as belongs to whatever is drawing it.
 /// </remarks>
 internal readonly record struct DriftMark(Vector2 CentreM, float LengthM, float WidthM, float HeadingRad, float Intensity, bool Ploughed);
+
+/// <summary>
+/// <b>A mark as it is drawn from</b> (<c>drift_mark_rows.glsl</c>'s <c>DriftMarkRow</c>): twenty-four bytes, whether it
+/// ploughed carried as the sign of its strength — a mark is laid only at a strength over nought.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal readonly record struct DriftMarkRow(Vector2 CentreM, float LengthM, float WidthM, float HeadingRad, float Strength)
+{
+    public static DriftMarkRow Of(in DriftMark mark) => new(
+        mark.CentreM, mark.LengthM, mark.WidthM, mark.HeadingRad, mark.Ploughed ? -mark.Intensity : mark.Intensity);
+}
+
+/// <summary>
+/// <b>The words a ring of <see cref="DriftMarkRow"/> is drawn by</b> (<c>DriftMarkRing</c>): the draw first — a
+/// four-cornered quad as many times as there are marks — so the block is the indirect buffer of that draw, then the place
+/// the next mark goes, how many places are written, how many the ring holds, and how many a tick on the device has
+/// claimed. The oldest written is at <see cref="Head"/> once the ring is full and at nought before.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal readonly record struct DriftMarkRing(
+    uint Corners, uint Drawn, uint FirstCorner, uint FirstDrawn, uint Head, uint Laid, uint Capacity, uint Claimed)
+{
+    /// <summary>The ring after <paramref name="total"/> marks laid into <paramref name="capacity"/> places.</summary>
+    public static DriftMarkRing After(long total, int capacity)
+    {
+        var laid = (uint)Math.Min(total, capacity);
+        return new DriftMarkRing(4, laid, 0, 0, (uint)(total % Math.Max(1, capacity)), laid, (uint)capacity, 0);
+    }
+}
 
 /// <summary>
 /// The record the traffic leaves on the ground: wherever a tyre works the surface harder than it can
@@ -68,6 +98,16 @@ internal sealed class DriftMarks
     /// <summary>How many of the ring's places have been written — the whole of it once it has wrapped.</summary>
     public int Count { get; private set; }
 
+    /// <summary>How many places the ring holds.</summary>
+    public int Capacity => _marks.Length;
+
+    /// <summary>
+    /// <b>Every mark laid since the ring was last cleared</b>, the overwritten among them: mark <c>t</c> is at place
+    /// <c>t % Capacity</c> while it is one of the last <see cref="Capacity"/>. What a reader copying the ring as it grows
+    /// asks for what is new since it last looked.
+    /// </summary>
+    public long Total { get; private set; }
+
     public ReadOnlySpan<DriftMark> Laid => _marks.AsSpan(0, Count);
 
     public int RowCount => _oldestInRow.Length;
@@ -102,6 +142,7 @@ internal sealed class DriftMarks
 
         _next = (_next + 1) % _marks.Length;
         Count = Math.Min(Count + 1, _marks.Length);
+        Total++;
     }
 
     /// <summary>Forget the lot, which is what opening another town does.</summary>
@@ -109,6 +150,7 @@ internal sealed class DriftMarks
     {
         _next = 0;
         Count = 0;
+        Total = 0;
         Array.Fill(_oldestInRow, None);
         Array.Fill(_youngestInRow, None);
     }

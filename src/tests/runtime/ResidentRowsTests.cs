@@ -114,7 +114,7 @@ public class ResidentRowsTests(Lavapipe device) : IClassFixture<Lavapipe>
         for (var item = first; item < Items; item += 2)
         {
             expected[item] = (uint)(item + 1);
-            rows.Rows(item)[0] = expected[item];
+            rows.All[item] = expected[item];
             rows.Mark(item);
         }
     }

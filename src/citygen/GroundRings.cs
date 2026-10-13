@@ -164,8 +164,9 @@ internal sealed class GroundRings
     public ChainIndex.Scan NewKerbScan() => Kerb.NewScan();
 
     /// <remarks>
-    /// <b>The gate is taken only while the index is missing.</b> Once laid it is never replaced, so every
-    /// later ask reads it without one — the building stage asks from every thread at once, a point at a time.
+    /// <b>The gate is taken only while the index is missing.</b> Once laid it is never replaced — the rings are let go
+    /// whole once the town stands (<see cref="Paving.LetGoOfTheLayingIndexes"/>) — so every ask reads it without one: the
+    /// building stage asks from every thread at once, a point at a time.
     /// </remarks>
     ChainIndex Kerb => Volatile.Read(ref _kerb) ?? LayTheKerb();
 

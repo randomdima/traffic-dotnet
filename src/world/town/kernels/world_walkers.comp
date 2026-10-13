@@ -1,0 +1,38 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every walker's footing, one thread a walker (WalkerFollower.Step, ManagedWorld.StepTheWalker): at its aim where it
+// faces it, its stance held where it stands where it does not, on its feet or sliding — and the impulse it costs spent at
+// its body's centre. Nothing for a walker inside a container, which has no body in the world. One body a walker.
+
+layout(local_size_x = 64) in;
+
+#include "world/town/kernels/world.glsl"
+#include "agents/person/control/kernels/walker.glsl"
+#include "world/physics/kernels/impulse.glsl"
+
+layout(std430, binding = 0) buffer Walkers { WorldWalker walkers[]; };
+layout(std430, binding = 1) readonly buffer Pose { vec4 pose[]; };
+layout(std430, binding = 2) buffer Motion { vec4 motion[]; };
+layout(std430, binding = 3) readonly buffer Mass { vec2 mass[]; };
+
+void main()
+{
+    uint walker = gl_GlobalInvocationID.x;
+    if (walker >= world.count) return;
+
+    WorldWalker row = walkers[walker];
+    if ((row.flags & WalkerInside) != 0u) return;
+
+    int body = row.body;
+    vec2 positionM = pose[body].xy;
+    vec4 moving = motion[body];
+    vec2 aimM = (row.flags & WalkFaces) != 0u ? row.aimM : positionM;
+    WalkerStep step = walkerStep(
+        row.headingRad, positionM, moving.xy, row.declaredMps, aimM, (row.flags & WalkMoving) != 0u,
+        (row.flags & WalkOnFeet) != 0u, row.massKg, world.dtS);
+
+    walkers[walker].headingRad = step.headingRad;
+    walkers[walker].declaredMps = step.desiredMps;
+    motion[body] = impulsedCentrally(moving, mass[body].x, step.impulseNs);
+}

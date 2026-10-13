@@ -237,9 +237,9 @@ internal sealed partial class DebugOverlay
         }
 
         // Where a light holds the road in front of it (TLT-1), from the nose like the reading above.
-        if (float.IsFinite(cars.LightAheadM[car]))
+        if (world.LightAheadM(car) is var lightAheadM && float.IsFinite(lightAheadM))
         {
-            var stopAt = Spline.SampleAt(line, progressM + build.NoseAheadOfAxleM + cars.LightAheadM[car]);
+            var stopAt = Spline.SampleAt(line, progressM + build.NoseAheadOfAxleM + lightAheadM);
             draw.LineM(
                 stopAt.PositionM - stopAt.Right * build.WidthM * 0.6f,
                 stopAt.PositionM + stopAt.Right * build.WidthM * 0.6f, widthM * 2f, Theme.HeldLine);

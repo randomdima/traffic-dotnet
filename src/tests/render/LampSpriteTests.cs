@@ -33,7 +33,7 @@ public class LampSpriteTests
     static CarFleet Lit(int variant)
     {
         var fleet = new CarFleet(1, arcsPerCar: 1, CarBuilds.OfTheFleet(Config, Catalogue));
-        fleet.Add(default, new Vector2(20f, 5f), HeadingRad, (byte)variant, backsIntoBays: false, new Rng(1, 1));
+        fleet.Add(new Vector2(20f, 5f), HeadingRad, (byte)variant, backsIntoBays: false, new Rng(1, 1));
         fleet.Driven[0] = true;
         fleet.Command[0] = new DriveCommand(0f, 0f, 4f, false, false);
         fleet.BlueLight[0] = true;
@@ -50,29 +50,31 @@ public class LampSpriteTests
     static SpriteInstance[] Drawn(CarFleet fleet, Vector2 viewCentreM, out int written, int handDrivenCar = -1)
     {
         var into = new SpriteInstance[fleet.Count * CarLamps.Most];
+        Ticked(fleet, handDrivenCar);
         written = LampSprites.Fill(
-            fleet, CarSpriteTests.Every(fleet), Catalogue, Config, LensSheet, GlowSheet, elapsedS: 0f, TheHandsOn(handDrivenCar),
-            alsoDrivenCar: -1, viewCentreM, new Vector2(200f, 200f), into);
+            fleet, CarSpriteTests.Every(fleet), Catalogue, Config, LensSheet, GlowSheet, elapsedS: 0f, viewCentreM,
+            new Vector2(200f, 200f), into);
 
         return into;
     }
 
-    /// <summary>The selection a hand is on, as the fill reads it: one car, or nothing at all.</summary>
-    static Selection[] TheHandsOn(int car) =>
-        car >= 0 ? [new Selection(SelectionKind.Car, car)] : [];
+    /// <summary>What each car's lamps say written into the fleet, as its tick writes them (<see cref="CarFleet.Lamps"/>) — a hand on one car, or on none.</summary>
+    static CarFleet Ticked(CarFleet fleet, int handDrivenCar = -1)
+    {
+        for (var car = 0; car < fleet.Count; car++) fleet.Lamps[car] = CarLamps.Showing(fleet, car, Config, car == handDrivenCar);
+
+        return fleet;
+    }
 
     /// <summary>Which cells of the sheet these instances drew, as a column and a row apiece.</summary>
     static HashSet<(int Column, int Row)> CellsOf(SpriteInstance[] drawn, int written)
     {
-        var rows = Catalogue.SheetCount;
         var cells = new HashSet<(int, int)>();
         for (var lamp = 0; lamp < written; lamp++)
         {
             if (drawn[lamp].Sheet == GlowSheet) continue;
 
-            cells.Add((
-                (int)MathF.Round(drawn[lamp].UvMin.X * LampAtlas.Columns),
-                (int)MathF.Round(drawn[lamp].UvMin.Y * rows)));
+            cells.Add((drawn[lamp].Cell.Column, drawn[lamp].Cell.Row));
         }
 
         return cells;
@@ -202,8 +204,8 @@ public class LampSpriteTests
             }
 
             Assert.Equal((uint)LensSheet, drawn[lamp].Sheet);
-            Assert.Equal(1f / LampAtlas.Columns, drawn[lamp].UvSize.X, 1e-5f);
-            Assert.Equal(1f / rows, drawn[lamp].UvSize.Y, 1e-5f);
+            Assert.Equal(LampAtlas.Columns, drawn[lamp].Cell.Columns);
+            Assert.Equal(rows, drawn[lamp].Cell.Rows);
         }
 
         // Every cell is this car's own row, and the lamps lit are the rear pair braking (the first
@@ -246,17 +248,17 @@ public class LampSpriteTests
     [Fact]
     public void TheBeaconsEndsExchangeTheirCells()
     {
-        var ambulance = Lit(Catalogue.Ambulance);
+        var ambulance = Ticked(Lit(Catalogue.Ambulance));
         var halfPeriodS = 0.5f / Config.Lamps.BeaconHz;
 
         var into = new SpriteInstance[CarLamps.Most];
         var first = LampSprites.Fill(
-            ambulance, CarSpriteTests.Every(ambulance), Catalogue, Config, LensSheet, GlowSheet, 0f, TheHandsOn(-1), alsoDrivenCar: -1, ambulance.PositionM[0],
+            ambulance, CarSpriteTests.Every(ambulance), Catalogue, Config, LensSheet, GlowSheet, 0f, ambulance.PositionM[0],
             new Vector2(200f, 200f), into);
         var atStart = CellsOf(into, first).Where(cell => cell.Column >= 8).Select(cell => cell.Column).Order().ToArray();
 
         var swapped = LampSprites.Fill(
-            ambulance, CarSpriteTests.Every(ambulance), Catalogue, Config, LensSheet, GlowSheet, halfPeriodS, TheHandsOn(-1), alsoDrivenCar: -1, ambulance.PositionM[0],
+            ambulance, CarSpriteTests.Every(ambulance), Catalogue, Config, LensSheet, GlowSheet, halfPeriodS, ambulance.PositionM[0],
             new Vector2(200f, 200f), into);
         var later = CellsOf(into, swapped).Where(cell => cell.Column >= 8).Select(cell => cell.Column).Order().ToArray();
 
@@ -298,18 +300,18 @@ public class LampSpriteTests
     }
 
     /// <summary>
-    /// The buffer is laid for <see cref="CarLamps.Most"/> a car (<see cref="TownSprites.CapacityFor"/>),
+    /// The buffer is laid for a glow and a lens of every lens a car carries (<see cref="TownSprites.RoomFor"/>),
     /// and the fill spends it a whole car at a time: a car half written is a body showing its brake
     /// lamps and not the beacon that says why the traffic in front of it is pulling over.
     /// </summary>
     [Fact]
     public void ACarIsWrittenWholeOrNotAtAll()
     {
-        var fleet = Lit(Catalogue.Ambulance);
-        var into = new SpriteInstance[CarLamps.Most - 1];
+        var fleet = Ticked(Lit(Catalogue.Ambulance));
+        var into = new SpriteInstance[(2 * Catalogue.LensesOf(Catalogue.Ambulance).Length) - 1];
         var written = LampSprites.Fill(
-            fleet, CarSpriteTests.Every(fleet), Catalogue, Config, LensSheet, GlowSheet, elapsedS: 0f, TheHandsOn(-1),
-            alsoDrivenCar: -1, fleet.PositionM[0], new Vector2(200f, 200f), into);
+            fleet, CarSpriteTests.Every(fleet), Catalogue, Config, LensSheet, GlowSheet, elapsedS: 0f, fleet.PositionM[0],
+            new Vector2(200f, 200f), into);
 
         Assert.Equal(0, written);
         Assert.All(into, instance => Assert.Equal(default, instance));

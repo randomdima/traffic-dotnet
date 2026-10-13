@@ -319,7 +319,8 @@ internal sealed partial class RibbonAtlas
     public byte ChannelsOf(int way) => _wayChannels.Length > 0 ? _wayChannels[way] : Ground;
 
     /// <summary>How many ways have been dropped for want of room since the town was laid — a gate's figure.</summary>
-    public long Dropped => _dropped;
+    /// <remarks>Counted from the actors' thread and the managed world's step beside it alike (<c>ManagedWorld</c>).</remarks>
+    public long Dropped => Interlocked.Read(ref _dropped);
 
     long _dropped;
 
@@ -499,7 +500,7 @@ internal sealed partial class RibbonAtlas
 
         if (written == found.Length)
         {
-            _dropped++;
+            Interlocked.Increment(ref _dropped);
             return written;
         }
 

@@ -47,33 +47,26 @@ internal static class LampSprites
     /// <summary>What share of the glow's radius is its core rather than the fade around it.</summary>
     const float GlowCoreShare = 0.32f;
 
-    /// <param name="handDriven">
-    /// The units the player has the wheel of, walkers and all: each car among them runs its beacon while
-    /// it is held (CTL-5c), and on a car whose art draws no bar that says nothing.
-    /// </param>
-    /// <param name="alsoDrivenCar">
-    /// The one car a second driver has the wheel of, or −1 (CTL-5d). It wears the beacon for the same
-    /// reason the selection does: a hand is a hand, whoever it belongs to.
-    /// </param>
     /// <param name="leastGlowM">The narrowest glow this frame draws; a lamp whose glow is narrower is left out, lens and all.</param>
     /// <param name="drawn">The cars a frame may show, in the order drawn (<see cref="CarSprites"/>).</param>
+    /// <remarks>
+    /// <b>What each car says is what its tick worked out</b> (<see cref="CarFleet.Lamps"/>), the same set the world is
+    /// handed — hand at the wheel and all (CTL-5c) — so a frame never answers it a second way.
+    /// </remarks>
     public static int Fill(
         CarFleet cars, ReadOnlySpan<int> drawn, CarCatalog catalogue, SimConfig config, int lensSheet, int glowSheet,
-        float elapsedS, ReadOnlySpan<Selection> handDriven, int alsoDrivenCar, Vector2 viewCentreM, Vector2 viewSpanM,
-        Span<SpriteInstance> into, int level = CarSprites.EveryLevel, float leastGlowM = 0f)
+        float elapsedS, Vector2 viewCentreM, Vector2 viewSpanM, Span<SpriteInstance> into, int level = CarSprites.EveryLevel,
+        float leastGlowM = 0f)
     {
         var written = 0;
         var halfView = viewSpanM * 0.5f;
         var lamps = config.Lamps;
         var rows = catalogue.SheetCount;
         var halfCellM = new Vector2(LampAtlas.CellM * 0.5f);
-        var cellSize = LampAtlas.CellSize(rows);
         Span<ShownLamp> shown = stackalloc ShownLamp[CarLamps.MostLenses];
 
         foreach (var car in drawn)
         {
-            if (written + CarLamps.Most > into.Length) break;
-
             // A wreck's art is its own crumpled picture, which the lenses of the car it was are not
             // measured against — and a wreck shows nothing anyway (CAR-14.5).
             if (cars.Broken[car] || !CarSprites.IsOn(cars, car, level)) continue;
@@ -82,21 +75,16 @@ internal static class LampSprites
             var lenses = catalogue.LensesOf(variant);
             if (lenses.IsEmpty) continue;
 
-            // Culled before the car is asked what it is showing: reading the line ahead for a turn is
-            // arithmetic over the arcs in hand, and a town's worth of it a frame is arithmetic for
-            // bodies nobody can see.
+            // A glow and a lens a lens at the most: the room is laid for the catalogue's most lenses on one look.
+            if (written + (2 * lenses.Length) > into.Length) break;
+
             var centreM = cars.PositionM[car];
             ref readonly var build = ref cars.BuildOf(car);
             var reachM = new Vector2(build.LengthM, build.WidthM).Length() * 0.5f;
             var offset = centreM - viewCentreM;
             if (MathF.Abs(offset.X) > halfView.X + reachM || MathF.Abs(offset.Y) > halfView.Y + reachM) continue;
 
-            var count = CarLamps.Shown(
-                lenses,
-                CarLamps.Showing(
-                    cars, car, config, car == alsoDrivenCar || Selection.Holds(handDriven, SelectionKind.Car, car)),
-                config, elapsedS,
-                cars.FuseJitter[car], shown);
+            var count = CarLamps.Shown(lenses, cars.Lamps[car], config, elapsedS, cars.FuseJitter[car], shown);
 
             var headingRad = cars.HeadingRad[car];
             var forward = new Vector2(MathF.Cos(headingRad), MathF.Sin(headingRad));
@@ -116,9 +104,8 @@ internal static class LampSprites
 
                 into[written++] = new SpriteInstance(
                     centreM + (forward * lens.AtBodyM.X) + (right * lens.AtBodyM.Y),
-                    new Vector2(glowM * 0.5f), Vector2.Zero, Vector2.One,
-                    LampAtlas.ColourOf(shown[lamp].Colour) with { W = lamps.GlowStrength },
-                    (uint)glowSheet, headingRad);
+                    new Vector2(glowM * 0.5f), SpriteCell.Whole, GlowTint(shown[lamp].Colour, config), (uint)glowSheet,
+                    headingRad);
             }
 
             // Every glow on the car before any of its lenses, rather than a glow and a lens a lamp at a
@@ -134,8 +121,7 @@ internal static class LampSprites
                 var state = LampAtlas.StateOf(lens.Fitting, shown[lamp].Colour);
                 into[written++] = new SpriteInstance(
                     centreM + (forward * lens.AtBodyM.X) + (right * lens.AtBodyM.Y),
-                    halfCellM, LampAtlas.CellAt(variant, lamp, state, rows), cellSize,
-                    PersonSprites.Plain, (uint)lensSheet, headingRad);
+                    halfCellM, LensCell(variant, lamp, state, rows), SpriteTint.Plain, (uint)lensSheet, headingRad);
             }
         }
 
@@ -148,6 +134,17 @@ internal static class LampSprites
     /// </summary>
     public static float GlowM(in CarLens lens, SimConfig config) =>
         MathF.Max(MathF.Max(lens.SizeM.X, lens.SizeM.Y), config.Lamps.LeastGlowM) * config.Lamps.GlowSpread;
+
+    /// <summary>What a glow burning <paramref name="colour"/> is tinted: the light's own colour at the glow's strength.</summary>
+    public static uint GlowTint(CarLamp colour, SimConfig config) =>
+        SpriteTint.Pack(LampAtlas.ColourOf(colour) with { W = config.Lamps.GlowStrength });
+
+    /// <summary>
+    /// The cell of the lens sheet a lens burning in <paramref name="state"/> is cut into (<see cref="LampAtlas.CellAt"/>):
+    /// a column a lens's state, a row a look.
+    /// </summary>
+    public static SpriteCell LensCell(int variant, int lens, int state, int rows) =>
+        SpriteCell.Of((lens * LampAtlas.StatesPerLens) + state, variant, LampAtlas.Columns, rows);
 
     /// <summary>
     /// The light around a lit one: white, opaque across its core and fading out to nothing at its rim.

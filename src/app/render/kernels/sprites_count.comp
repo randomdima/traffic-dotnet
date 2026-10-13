@@ -3,7 +3,8 @@
 
 // The emit's first pass: how many instances each part of each unit draws this frame, one thread a unit — a walker, a
 // car (its four parts, in whichever run its level is drawn in) or a signal head — into the slot the scan turns into
-// where they start. A car's lit lenses are kept for the second pass, which would otherwise read its line again.
+// where they start. A cull and no more: nothing is built here. A car's lit lenses are kept for the second pass, which
+// would otherwise read its line again.
 
 layout(local_size_x = 64) in;
 
@@ -16,11 +17,9 @@ void countCar(uint car)
     uvec2 shown = uvec2(0u);
     if (run != RunNone)
     {
-        SpriteOut first;
-        SpriteOut second;
-        counts[PartTyres] = spritesTyres(car, first, second);
-        counts[PartBody] = spritesBody(car, first) ? 1u : 0u;
-        counts[PartBeam] = spritesBeam(car, first) ? 1u : 0u;
+        counts[PartTyres] = spritesTyresShown(car);
+        counts[PartBody] = spritesBodyShown(car) ? 1u : 0u;
+        counts[PartBeam] = spritesBeamShown(car) ? 1u : 0u;
         shown = spritesLamps(car);
         counts[PartLamps] = 2u * uint(bitCount(shown.x));
     }
@@ -36,10 +35,9 @@ void countCar(uint car)
 void main()
 {
     uint unit = gl_GlobalInvocationID.x;
-    SpriteOut sprite;
     if (unit < figures.personCapacity)
     {
-        starts[unit] = unit < frame.personCount && spritesPerson(unit, sprite) ? 1u : 0u;
+        starts[unit] = unit < frame.personCount && spritesPersonShown(unit) ? 1u : 0u;
         return;
     }
 
@@ -51,5 +49,5 @@ void main()
     }
 
     unit -= figures.carCapacity;
-    if (unit < figures.headCount) starts[spritesHeadsFrom() + unit] = spritesHead(unit, sprite) ? 1u : 0u;
+    if (unit < figures.headCount) starts[spritesHeadsFrom() + unit] = spritesHeadShown(unit) ? 1u : 0u;
 }

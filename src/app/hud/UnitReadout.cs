@@ -119,7 +119,7 @@ internal static class UnitReadout
         var line = rows.Next("make");
         line.Add(CarCatalog.Shared.Variants[cars.Variant[car]].Id);
         line.Add(", ");
-        line.Add(cars.MassKg[car], "F0");
+        line.Add(cars.MassKgOf(car), "F0");
         line.Add(" kg");
         if (cars.BlueLight[car]) line.Add(", on a call");
         else if (cars.AtWork[car]) line.Add(", at work");
@@ -179,7 +179,7 @@ internal static class UnitReadout
             line = rows.Next("junction");
             line.Add(cars.ToTheBoxM[car], "F1");
             line.Add(cars.TurningAtTheBox[car] ? " m, turning, " : " m, straight on, ");
-            line.Add(cars.BoxIsOurs[car] ? "ours" : "not ours");
+            line.Add(world.BoxIsOurs(car) ? "ours" : "not ours");
             rows.Keep(in line);
         }
 

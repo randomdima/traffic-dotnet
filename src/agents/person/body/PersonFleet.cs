@@ -33,10 +33,9 @@ internal sealed class PersonFleet
 {
     public PersonFleet(int capacity)
     {
-        Body = new BodyId[capacity];
         PositionM = new Vector2[capacity];
         VelocityMps = new Vector2[capacity];
-        DeclaredMps = new Vector2[capacity];
+        Declares = new bool[capacity];
         HeadingRad = new float[capacity];
         DestinationM = new Vector2[capacity];
         Walking = new bool[capacity];
@@ -97,24 +96,22 @@ internal sealed class PersonFleet
 
     public int Count { get; private set; }
 
-    public int Capacity => Body.Length;
-
-    public BodyId[] Body { get; }
+    public int Capacity => PositionM.Length;
 
     public Vector2[] PositionM { get; }
 
     public Vector2[] VelocityMps { get; }
 
     /// <summary>
-    /// <b>The velocity this walker last declared</b> — its own, as against <see cref="VelocityMps"/>, which is
-    /// what the solver made of it. The difference is what a contact did to the body, and the feet take that
-    /// back only at their grip (<see cref="Control.WalkerFollower"/>, PER-3).
+    /// <b>Whether this walker declared a velocity at the world's last step</b> (<see cref="Control.WalkerFollower"/>,
+    /// PER-3): one that declared none stands, whatever it is sliding at. The velocity itself is the world's, which reads
+    /// what a contact did to the body against it.
     /// </summary>
     /// <remarks>
-    /// <b>Zero wherever the body is set down or stopped by anything but its feet</b> — made, put out of a door,
-    /// knocked over: left at a walk, it reads as a shove the feet spend four ticks taking back.
+    /// <b>Cleared wherever the body is set down or stopped by anything but its feet</b> — made, put out of a door,
+    /// knocked over.
     /// </remarks>
-    public Vector2[] DeclaredMps { get; }
+    public bool[] Declares { get; }
 
     /// <summary>Intent, not solver output: rotation is locked, so this is set by code and read by what draws.</summary>
     public float[] HeadingRad { get; }
@@ -315,16 +312,14 @@ internal sealed class PersonFleet
     /// this person's, so adding the habit would silently move every walk in every town.
     /// </param>
     public int Add(
-        BodyId body, Vector2 positionM, float headingRad, float massKg, float radiusM, byte variant, Rng draw,
-        bool reckless)
+        Vector2 positionM, float headingRad, float massKg, float radiusM, byte variant, Rng draw, bool reckless)
     {
         if (Count == Capacity) throw new InvalidOperationException($"The roster was laid for {Capacity} walkers and is full.");
 
         var person = Count++;
-        Body[person] = body;
         PositionM[person] = positionM;
         VelocityMps[person] = Vector2.Zero;
-        DeclaredMps[person] = Vector2.Zero;
+        Declares[person] = false;
         HeadingRad[person] = headingRad;
         DestinationM[person] = positionM;
         Walking[person] = false;

@@ -1,10 +1,8 @@
-// CarLamps on the device (CAR-14): what a car's lamps say, and which of its lenses are lit at one instant — line for
-// line with CarLamps.Showing, OnThePass, Towards, Shown and Phase, `precise` throughout. There is no transcendental and
-// no quotient in a lamp, so every lens is the host's. How far the line bends ahead is handed in, worked out where the
-// line is (CarLamps.TurnAheadRad, lamps_turn.glsl).
+// CarLamps on the device (CAR-14): which of a car's lenses are lit at one instant, given what its lamps say
+// (CarLamps.Showing, worked out on the host) — line for line with CarLamps.Shown and Phase, `precise` throughout. There
+// is no transcendental and no quotient in a lamp, so every lens is the host's.
 //
-// The including kernel supplies LAMP_FIGURES' fields: lampBrakeMps2, stepBackLeadS, junctionAheadM, indicateRad,
-// flashHz, flashOnShare, beaconHz.
+// The including kernel supplies LAMP_FIGURES' fields: flashHz, flashOnShare, beaconHz.
 
 // CarLampSet, by bit.
 const uint LampTurnLeft = 1u;
@@ -27,68 +25,6 @@ const uint LampReverseWhite = 2u;
 const uint LampBeaconRed = 3u;
 const uint LampBeaconBlue = 4u;
 const uint LampBeaconAmber = 5u;
-
-// Everything Showing reads of a car: its command, its priority, its pass, the junction its line enters and how far the
-// line bends over LampFigures.TurnAheadM past where it stands.
-struct CarLampFacts
-{
-    bool broken;
-    bool driven;
-    bool hand;
-    bool reverse;
-    bool blueLight;
-    bool atWork;
-    bool passBegun;
-    bool turningAtTheBox;
-    bool lineIsReverse;
-    float brakeMps2;
-    float progressM;
-    float alongMps;
-    float passSteppedOutM;
-    float passBackM;
-    float passEndsM;
-    float passAsideM;
-    float contextPassAsideM;
-    float toTheBoxM;
-    float turnAheadRad;
-};
-
-// CarLamps.Towards: the indicator on the side of the car something this far across its line is, the right where positive.
-uint lampsTowards(float asideM) { return asideM > 0.0 ? LampTurnRight : LampTurnLeft; }
-
-// CarLamps.OnThePass (CAR-14.7).
-uint lampsOnThePass(CarLampFacts car)
-{
-    if (car.progressM < car.passSteppedOutM) return lampsTowards(car.passAsideM);
-
-    precise float leadM = max(0.0, car.alongMps) * LAMP_FIGURES.stepBackLeadS;
-    precise float backFromM = car.passBackM - leadM;
-    float sayBackFromM = max(car.passSteppedOutM, backFromM);
-    return car.progressM >= sayBackFromM ? lampsTowards(-car.passAsideM) : 0u;
-}
-
-// CarLamps.Showing: what this car's lamps say this tick, as a CarLampSet.
-uint lampsShowing(CarLampFacts car)
-{
-    if (car.broken || (!car.driven && !car.hand)) return 0u;
-
-    uint saying = 0u;
-    if (car.brakeMps2 > LAMP_FIGURES.lampBrakeMps2) saying |= LampBrake;
-    if (car.reverse) saying |= LampReverse;
-    if (car.blueLight || car.hand) saying |= LampBeacon;
-    if (car.atWork) saying |= LampWorks;
-
-    if (car.passBegun && car.progressM < car.passEndsM) return saying | lampsOnThePass(car);
-    if (car.contextPassAsideM != 0.0) return saying | lampsTowards(car.contextPassAsideM);
-    if (!car.turningAtTheBox || car.toTheBoxM > LAMP_FIGURES.junctionAheadM) return saying;
-
-    float turnRad = car.lineIsReverse ? -car.turnAheadRad : car.turnAheadRad;
-
-    if (turnRad >= LAMP_FIGURES.indicateRad) saying |= LampTurnRight;
-    else if (turnRad <= -LAMP_FIGURES.indicateRad) saying |= LampTurnLeft;
-
-    return saying;
-}
 
 // CarLamps.Phase: how far through its own period a flash of this rate is, in [0, 1).
 float lampsPhase(float elapsedS, float rateHz)

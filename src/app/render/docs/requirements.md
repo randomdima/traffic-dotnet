@@ -17,7 +17,7 @@ them is on its types. The one thing stated here is how a sheet is stored.
   strokes along their shells (`TER-3d`), and a deck is the one band (`TER-3b.1`). How a shell is cut — the
   line for the picture and the fill for the kerb, a stroke's corners and hooks — is `GroundMesh`. **A bridge
   over other roads is the stack again, drawn over the bodies on the ground and under the bodies on it**
-  (`TER-7b`, `PHY-1a`): the ground's last part (`GroundPart.Above`) is a second draw, the ground marks of the level
+  (`TER-7b`, `PHY-1a`): the ground's last part (`GroundPart.Above`) is drawn after those bodies, the ground marks of the level
   above — its lanes, joins and claims — a second run of underlay (`TownRenderer.UnderlayAbove`), and the bodies on
   it a second run of instances (`TownRenderer.SpritesAbove`).
 - **Paint** is engine-drawn and governed by [world/road](../../../world/road/docs/requirements.md#markings);
@@ -28,7 +28,8 @@ them is on its types. The one thing stated here is how a sheet is stored.
   `SpriteInstance`, `PersonSprites`, `SignalSprites`, `TownSprites`.
 - **Scenery is drawn and stands nothing** (`GEN-6b`, `CityPlan.Scenery`): under everything that stands, and at most
   `ViewFigures.SceneryMostDrawn` of it a frame — a view holding more draws an even share, the same share as it pans
-  (`ScenerySprites`).
+  (`ScenerySprites`). A prop, standing or scenery, smaller across than `ViewFigures.PropLeastPx` is not drawn
+  (`CameraView.PropCull`).
 - **What reads the picture back** is [app/debug](../../debug/docs/requirements.md)'s wireframe and ground
   page (`OBS-2o`, `OBS-2v`); a picture with no window under it is [app/shot](../../shot/docs/requirements.md)'s
   (`SHT-1`).

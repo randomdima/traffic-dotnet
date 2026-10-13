@@ -29,7 +29,7 @@ namespace TrafficSimulation.Agents.Person.Actions;
 /// </para>
 /// </remarks>
 internal sealed class WalkingGround(
-    PersonFleet people, LaneOccupancy occupancy, RibbonAtlas atlas, TownWays ways, WayLines lines,
+    PersonFleet people, LaneOccupancy occupancy, TownWays ways, WayLines lines,
     WalkingNetwork walking, SimConfig config)
 {
     /// <summary>
@@ -48,8 +48,6 @@ internal sealed class WalkingGround(
     /// <summary>What is laid on the ways: the layer every reader reads, or a laying of the town's own while one lasts.</summary>
     public LaneOccupancy Occupancy { get; internal set; } = occupancy;
 
-    public RibbonAtlas Atlas { get; } = atlas;
-
     public TownWays Ways { get; } = ways;
 
     public WayLines Lines { get; } = lines;
@@ -58,24 +56,8 @@ internal sealed class WalkingGround(
 
     public SimConfig Config { get; } = config;
 
-    /// <summary>
-    /// How many runs one walker's straight is kept in (<see cref="SweptGround"/>). A bound on the table and not a
-    /// figure behaviour reads: a straight is a hop off a route, a walk back onto one, or an officer's across a street.
-    /// </summary>
-    public const int MostRunsOfAStraight = 128;
-
-    /// <summary>The straight each walker walking straight at a place committed to, and the ground under it swept once.</summary>
-    readonly SweptGround _straight = new(people.Capacity, MostRunsOfAStraight);
-
-    /// <summary>The ground under each walker's straight, for the device to lay once at load (<c>app/devicetick/TownState</c>).</summary>
-    internal SweptGround StraightGround => _straight;
-
-    readonly Vector2[] _straightFromM = new Vector2[people.Capacity];
-
-    readonly Vector2[] _straightToM = Unset(people.Capacity);
-
     /// <summary>The hold each walker laid this rebuild, or <see cref="LaneOccupancy.NoHold"/>.</summary>
-    public int[] WalkHold { get; } = new int[people.Capacity];
+    public int[] WalkHold { get; } = LaneOccupancy.NoHolds(people.Capacity);
 
     /// <summary>
     /// <b>Whose ground each walker's is</b>, as the town laid its body this rebuild (<see cref="HoldTheGroundAs"/>): its
@@ -83,18 +65,7 @@ internal sealed class WalkingGround(
     /// the walker's own body is never what refuses it (PER-28).
     /// </summary>
     readonly int[] _heldAs = Own(people.Capacity);
-
     readonly LaneRoster[] _heldAsRoster = Afoot(people.Capacity);
-
-    /// <summary>Whose ground each walker's body was laid as, and in which roster: kept with the layer it was laid into.</summary>
-    internal (int[] Occupant, LaneRoster[] Roster) HeldAsTables => (_heldAs, _heldAsRoster);
-
-    static Vector2[] Unset(int count)
-    {
-        var places = new Vector2[count];
-        Array.Fill(places, new Vector2(float.NaN));
-        return places;
-    }
 
     static int[] Own(int count)
     {
@@ -149,10 +120,6 @@ internal sealed class WalkingGround(
         : WalkingNetwork.IsACorner(code) ? Ways.OfMitre(WalkingNetwork.CornerOf(code))
         : Ways.OfFootway(code);
 
-    /// <summary>How fast this walker is going the way it is facing, which is the only direction it walks in.</summary>
-    public float AlongItsWalkMps(int person) =>
-        Vector2.Dot(People.VelocityMps[person], Heading.Unit(People.HeadingRad[person]));
-
     /// <summary>
     /// <b>Whether the body has walked a way out as far as <paramref name="endM"/></b> — standing within a
     /// tick's walk of it, which is the tick that would carry it there.
@@ -179,10 +146,33 @@ internal sealed class WalkingGround(
     {
         if (People.OnTheLastWay(person)) return People.RouteToM[person];
 
-        Walking.SpanOfWay(
-            People.RouteWayBefore(person), People.CurrentRouteWay(person), People.PeekNextRouteWay(person),
+        SpanOf(
+            person, People.RouteWayBefore(person), People.CurrentRouteWay(person), People.PeekNextRouteWay(person),
             out _, out var endM);
         return endM;
+    }
+
+    /// <summary>One way's span between the ways either side of it (<see cref="WalkingNetwork.SpanOfWay"/>), and which three.</summary>
+    readonly record struct KeptSpan(int Before, int Way, int After, float FromM, float EndM);
+
+    /// <summary>
+    /// <b>The span of the way each walker is walking</b>, kept beside it: asked of it several times a laying, and the
+    /// same until it takes the next way — where reading it off the network is a lookup into whatever corner it is.
+    /// </summary>
+    readonly KeptSpan[] _spans = Enumerable.Repeat(
+        new KeptSpan(WalkingNetwork.NoLane, int.MinValue, WalkingNetwork.NoLane, 0f, 0f), people.Capacity).ToArray();
+
+    /// <summary>The span of the way a walker is walking, off what it keeps where that is of the same three ways.</summary>
+    void SpanOf(int person, int before, int way, int after, out float fromM, out float endM)
+    {
+        ref var kept = ref _spans[person];
+        if (kept.Before != before || kept.Way != way || kept.After != after)
+        {
+            Walking.SpanOfWay(before, way, after, out fromM, out endM);
+            kept = new KeptSpan(before, way, after, fromM, endM);
+        }
+
+        (fromM, endM) = (kept.FromM, kept.EndM);
     }
 
     /// <summary>
@@ -193,14 +183,36 @@ internal sealed class WalkingGround(
     /// <remarks>
     /// <b>It is regularly false for a stretch at the start of a walk</b>, and that is the state and not a
     /// fault: a walker standing on one lane of a pavement may be routed down the other (WLK-8,
-    /// <see cref="WalkingNetwork.EntriesNear"/>), and until it has crossed to it, it is between the two —
+    /// <see cref="WalkingNetwork.EntriesAt"/>), and until it has crossed to it, it is between the two —
     /// holding the ground its centre stands on like any body, and not yet on the way it walks. What it plans
     /// is that way all the same (<see cref="HasAWalkToPlan"/>): where it is going does not wait on its feet.
     /// </remarks>
     public bool IsOnItsWay(int person)
     {
         var way = People.CurrentRouteWay(person);
-        return way != PersonFleet.NoWay && People.OffWayM[person] <= Walking.WayWidthM(way) * 0.5f;
+        return way != PersonFleet.NoWay && People.OffWayM[person] <= FactsOf(person, way).WidthM * 0.5f;
+    }
+
+    /// <summary>What a walker reads of the way it is walking every laying: how wide it is and the zebra it is the paint of.</summary>
+    readonly record struct WayFacts(int Way, float WidthM, int Zebra);
+
+    /// <summary>
+    /// <b>The way each walker is walking, as it reads it</b>, kept beside it until it takes the next — where reading it off
+    /// the network and the town's lines is a lookup into wherever that way is.
+    /// </summary>
+    readonly WayFacts[] _facts = Enumerable.Repeat(new WayFacts(int.MinValue, 0f, RibbonMarks.NoZebra), people.Capacity).ToArray();
+
+    /// <summary>What a walker reads of one way of its walk, off what it keeps where that is the same way.</summary>
+    WayFacts FactsOf(int person, int way)
+    {
+        ref var kept = ref _facts[person];
+        if (kept.Way != way)
+        {
+            var town = WayOf(way);
+            kept = new WayFacts(way, Walking.WayWidthM(way), town == PersonFleet.NoWay ? RibbonMarks.NoZebra : Lines.ZebraOf(town));
+        }
+
+        return kept;
     }
 
     /// <summary>
@@ -264,18 +276,115 @@ internal sealed class WalkingGround(
     /// </param>
     public void PlaceItOnItsWay(int person, float windowM)
     {
-        var arcs = Walking.WayArcs(People.CurrentRouteWay(person));
+        var aroundM = People.OnWayM[person];
+        var arcs = ArcsAbout(
+            person, People.CurrentRouteWay(person), MathF.Max(0f, aroundM - windowM), aroundM + windowM, out var cursor);
         if (arcs.Length == 0)
         {
             People.OffWayM[person] = 0f;
             return;
         }
 
-        var atM = People.PositionM[person];
-        var alongM = Spline.ProjectM(arcs, atM, People.OnWayM[person], windowM);
+        People.OnWayM[person] = Spline.ProjectM(arcs, People.PositionM[person], aroundM, windowM, ref cursor, out var offSq);
+        People.OffWayM[person] = MathF.Sqrt(offSq);
+    }
 
-        People.OnWayM[person] = alongM;
-        People.OffWayM[person] = (Spline.SampleAt(arcs, alongM).PositionM - atM).Length();
+    /// <summary>How many of its way's arcs each walker keeps beside it (<see cref="ArcsAbout"/>).</summary>
+    const int ArcsKept = 4;
+
+    /// <summary>
+    /// <b>The arcs of each walker's way about where it stands, kept beside it</b>: a run of <see cref="ArcsKept"/> of
+    /// them, where on the way the first begins and the last ends, and whether they reach the way's two ends — so placing
+    /// a walker reads its own few arcs, in the order the walkers are taken, rather than the network's, in the order of
+    /// whatever ways they happen to walk.
+    /// </summary>
+    readonly ArcSeg[] _arcs = new ArcSeg[people.Capacity * ArcsKept];
+
+    readonly int[] _arcsWay = Enumerable.Repeat(PersonFleet.NoWay, people.Capacity).ToArray();
+    readonly int[] _arcsCount = new int[people.Capacity];
+    readonly float[] _arcsFromM = new float[people.Capacity];
+    readonly float[] _arcsToM = new float[people.Capacity];
+    readonly bool[] _arcsFromTheHead = new bool[people.Capacity];
+    readonly bool[] _arcsToTheEnd = new bool[people.Capacity];
+
+    /// <summary>
+    /// <b>The arcs of one walker's way that a walk over <c>[fromM, toM]</c> of it reads</b>, and where on the way the first
+    /// of them begins: its own where they are every arc of the way reaching over that stretch, kept again from the way's
+    /// where they are not, and the way's own where that stretch is more than <see cref="ArcsKept"/> of them.
+    /// </summary>
+    /// <remarks>
+    /// <b>The same answer to the bit</b>: where a kept run begins is added up from the way's head, arc by arc, exactly as a
+    /// walk from the head adds it up (<see cref="SplineCursor"/>).
+    /// </remarks>
+    ReadOnlySpan<ArcSeg> ArcsAbout(int person, int way, float fromM, float toM, out SplineCursor cursor)
+    {
+        if (!Holds(person, way, fromM, toM)) KeepTheArcsAbout(person, way, fromM);
+
+        if (!Holds(person, way, fromM, toM))
+        {
+            cursor = default;
+            return Walking.WayArcs(way);
+        }
+
+        cursor = new SplineCursor { PieceStartM = _arcsFromM[person] };
+        return _arcs.AsSpan(person * ArcsKept, _arcsCount[person]);
+    }
+
+    /// <summary>
+    /// <b>Where on its way a walker's walk is <paramref name="atM"/> along it</b> — off the arcs it keeps where they begin
+    /// at the way's head and reach past there, which samples them as the way's own would be, and off the way's otherwise.
+    /// </summary>
+    public SplineSample OnItsWayAt(int person, int way, float atM)
+    {
+        var kept = _arcsWay[person] == way && _arcsFromTheHead[person]
+                   && (_arcsToTheEnd[person] || atM + SampledWithinM < _arcsToM[person]);
+        return Spline.SampleAt(kept ? _arcs.AsSpan(person * ArcsKept, _arcsCount[person]) : Walking.WayArcs(way), atM);
+    }
+
+    /// <summary>
+    /// How far short of the end of a walker's kept arcs a place has to be to be sampled off them: what a way's metres
+    /// counted down arc by arc and added up arc by arc can differ by is a float's rounding, and this is a millimetre.
+    /// </summary>
+    const float SampledWithinM = 1e-3f;
+
+    /// <summary>
+    /// Whether a walker's kept arcs are every one of its way's that reaches over <c>[fromM, toM]</c>: none before them
+    /// ends at or past <paramref name="fromM"/>, and none after them begins at or short of <paramref name="toM"/>.
+    /// </summary>
+    bool Holds(int person, int way, float fromM, float toM) =>
+        _arcsWay[person] == way && (_arcsFromTheHead[person] || _arcsFromM[person] < fromM)
+        && (_arcsToTheEnd[person] || _arcsToM[person] > toM);
+
+    /// <summary>
+    /// <b>A walker's way's arcs kept</b> from the first that reaches <paramref name="fromM"/> — or from further back where
+    /// the way has no more than that left to keep, so a short way is kept whole and is read from its head.
+    /// </summary>
+    void KeepTheArcsAbout(int person, int way, float fromM)
+    {
+        var arcs = Walking.WayArcs(way);
+        var reaching = 0;
+        var reachingM = 0f;
+        while (reaching < arcs.Length - 1 && reachingM + arcs[reaching].LengthM < fromM)
+        {
+            reachingM += arcs[reaching].LengthM;
+            reaching++;
+        }
+
+        var first = Math.Min(reaching, Math.Max(0, arcs.Length - ArcsKept));
+        var startM = 0f;
+        for (var at = 0; at < first; at++) startM += arcs[at].LengthM;
+
+        var count = Math.Min(ArcsKept, arcs.Length - first);
+        arcs.Slice(first, count).CopyTo(_arcs.AsSpan(person * ArcsKept, ArcsKept));
+        var toM = startM;
+        foreach (ref readonly var arc in arcs.Slice(first, count)) toM += arc.LengthM;
+
+        _arcsWay[person] = way;
+        _arcsCount[person] = count;
+        _arcsFromM[person] = startM;
+        _arcsToM[person] = toM;
+        _arcsFromTheHead[person] = first == 0;
+        _arcsToTheEnd[person] = first + count == arcs.Length;
     }
 
     /// <summary>
@@ -329,12 +438,14 @@ internal sealed class WalkingGround(
     {
         var route = People.RouteOf(person);
         var count = People.RouteCount[person];
-        Walking.SpanOfWay(
-            slot > 0 ? route[slot - 1] : WalkingNetwork.NoLane, route[slot],
-            slot + 1 < count ? route[slot + 1] : WalkingNetwork.NoLane, out fromM, out endM);
+        var before = slot > 0 ? route[slot - 1] : WalkingNetwork.NoLane;
+        var after = slot + 1 < count ? route[slot + 1] : WalkingNetwork.NoLane;
+        var walking = slot == People.RouteAt(person);
+        if (walking) SpanOf(person, before, route[slot], after, out fromM, out endM);
+        else Walking.SpanOfWay(before, route[slot], after, out fromM, out endM);
 
         if (slot == count - 1) endM = MathF.Min(endM, People.RouteToM[person]);
-        if (slot == People.RouteAt(person)) fromM = MathF.Max(fromM, People.OnWayM[person]);
+        if (walking) fromM = MathF.Max(fromM, People.OnWayM[person]);
     }
 
     /// <summary>
@@ -388,97 +499,84 @@ internal sealed class WalkingGround(
 
     /// <summary>
     /// <b>A straight walk, planned</b> (PER-25, PER-26) — the hop off the end of the route, the walk back onto it, an
-    /// officer's to their post: every way under the straight from the front of the body towards
-    /// <paramref name="toM"/>, as far as it would take to come to rest — nearest first, each from where the straight
-    /// comes onto it — read off the ground the straight was swept over when the walker set off down it
-    /// (<see cref="CommitTheStraight"/>).
+    /// officer's to their post: <b>the ways the world reads its body on, and the way it lands on</b> — the ground either
+    /// side of the body it would set off into (<see cref="PlansAheadM"/>) on each way under it
+    /// (<paramref name="under"/>), and the stretch of <paramref name="ontoWay"/> from where the body stands abeam of it to
+    /// <paramref name="ontoM"/>, where the straight to <paramref name="toM"/> lands, and as far past both, once the edge
+    /// of the way is inside the reach of its plan.
     /// </summary>
     /// <remarks>
-    /// <b>The ground the network does not walk is still ground somebody may have</b>: the pavement round a door,
-    /// or the carriageway an ordered walk strikes out over. A way the straight crosses rather than runs along is
-    /// held over the stretch the body's width takes of it, which is what the atlas reads a body over too.
+    /// <b>An actor off its ways goes straight back to one</b> (the root decision log, 2026-10-13): what it crosses on the
+    /// way is ground the world reads its body on as it goes (TER-4c.2), held as it stands on it, and a walk planning
+    /// nothing is granted the whole of the straight (<see cref="Claim"/>). A straight run along the way it lands on — a
+    /// hop over a zebra's paint to a place on it — holds the paint it walks.
     /// </remarks>
-    public int TheStraightAhead(int person, Vector2 toM, float frontM, float aheadM, Span<LineWay> into)
+    public int TheStraightAhead(
+        int person, Vector2 toM, int ontoWay, float ontoM, float frontM, float aheadM, ReadOnlySpan<WayCover> under,
+        Span<LineWay> into)
     {
-        if (!IsOnTheStraightTo(person, toM)) CommitTheStraight(person, toM);
-
-        var fromM = _straightFromM[person];
-        var line = toM - fromM;
-        var lengthM = line.Length();
-        var alongM = lengthM > 0f ? Vector2.Dot(People.PositionM[person] - fromM, line / lengthM) : 0f;
-        var nearM = alongM + frontM;
-        var farM = MathF.Min(lengthM, nearM + aheadM);
-        if (farM <= nearM) return 0;
-
-        var strideM = People.RadiusM[person] * 2f;
         var written = 0;
-        foreach (ref readonly var run in _straight.Of(person))
+        foreach (ref readonly var cover in under)
         {
-            if (run.FirstAtM > farM || written == into.Length) break;
-            if (run.LastAtM + strideM < nearM) continue;
+            if (written == into.Length - 1) break;
+            if (cover.Way == ontoWay) continue;
 
-            into[written++] = new LineWay(run.Way, run.FromM, run.ToM, MathF.Max(frontM, run.FirstAtM - alongM));
+            into[written++] = new LineWay(
+                cover.Way, MathF.Max(0f, cover.FromM - PlansAheadM),
+                MathF.Min(Ways.LengthM(cover.Way), cover.ToM + PlansAheadM), frontM);
         }
 
-        return written;
+        return written + TheLanding(person, toM, ontoWay, ontoM, frontM, aheadM, into[written..]);
     }
 
-    /// <summary>
-    /// Whether the walker walks the straight it committed to towards <paramref name="toM"/> — the same place, and its
-    /// body within a stride of the line, since a walker shoved off it is somewhere the straight was not drawn from.
-    /// </summary>
-    bool IsOnTheStraightTo(int person, Vector2 toM)
+    /// <summary>The stretch of the way a straight lands on (<see cref="TheStraightAhead"/>), or nothing.</summary>
+    int TheLanding(int person, Vector2 toM, int ontoWay, float ontoM, float frontM, float aheadM, Span<LineWay> into)
     {
-        if (_straightToM[person] != toM) return false;
+        if (ontoWay == PersonFleet.NoWay || into.IsEmpty) return 0;
 
-        var fromM = _straightFromM[person];
-        var line = toM - fromM;
-        var lengthSquaredM2 = line.LengthSquared();
-        var shareOf = lengthSquaredM2 > 0f
-            ? Math.Clamp(Vector2.Dot(People.PositionM[person] - fromM, line) / lengthSquaredM2, 0f, 1f)
-            : 0f;
-        return (People.PositionM[person] - (fromM + (line * shareOf))).Length() <= AStrideM;
-    }
-
-    /// <summary>
-    /// <b>A straight committed to</b> (TER-4c.8): from where the walker stands to <paramref name="toM"/>, the ground
-    /// under it swept once — a body's width at a time, kept as runs of two (<see cref="SweptGround"/>) — for its plan
-    /// to be read off as it walks. What does not fit is planned no further, which is a walk planning short and never
-    /// one planning through somebody.
-    /// </summary>
-    [SkipLocalsInit]
-    void CommitTheStraight(int person, Vector2 toM)
-    {
-        var fromM = People.PositionM[person];
-        _straightFromM[person] = fromM;
-        _straightToM[person] = toM;
-        _straight.Clear(person);
-
-        var line = toM - fromM;
-        var lengthM = line.Length();
-        var forward = lengthM > 0f ? line / lengthM : Vector2.Zero;
         var radiusM = People.RadiusM[person];
-        var strideM = radiusM * 2f;
-        Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
-        for (var atM = 0f; ; atM += strideM)
-        {
-            var toStationM = MathF.Min(lengthM, atM + strideM);
-            var count = UnderTheStretch(fromM + (forward * atM), fromM + (forward * toStationM), radiusM, under);
-            if (!_straight.Station(person, atM, strideM * 2f, under[..count]) || toStationM >= lengthM) return;
-        }
+        var atM = People.PositionM[person];
+        var line = Lines.LineOf(ontoWay, out var widthM);
+        var abeamM = Spline.ProjectM(line, atM, ontoM, Vector2.Distance(atM, toM) + widthM, out var offSq);
+        var landsAtM = MathF.Max(frontM, MathF.Sqrt(offSq) - radiusM - (widthM * 0.5f));        if (landsAtM > frontM + aheadM) return 0;
+
+        // A body is never level with ground its own plan holds (TER-4c.1), so one standing where it lands holds the ground
+        // either side of it that it would set off into.
+        var pastM = radiusM + PlansAheadM;
+        into[0] = new LineWay(
+            ontoWay, MathF.Max(0f, MathF.Min(abeamM, ontoM) - pastM),
+            MathF.Min(Ways.LengthM(ontoWay), MathF.Max(abeamM, ontoM) + pastM), landsAtM);
+        return 1;
     }
 
     /// <summary>
-    /// The ground a body walking straight from one place to another covers, as the ways the atlas finds under it —
-    /// <paramref name="halfWidthM"/> either side of the straight and past both ends of it.
+    /// <b>The way a hop off the end of a walk lands on</b>, and where on it: the last way of the walk, or a way joined at
+    /// its end — a zebra's paint the place stands on — whichever has <paramref name="toM"/> inside its band. Read off the
+    /// walk's own ways and nothing else; <see cref="PersonFleet.NoWay"/> where the place is off all of them.
     /// </summary>
-    public int UnderTheStretch(Vector2 fromM, Vector2 toM, float halfWidthM, Span<WayCover> under)
+    public int WhereTheHopLands(int person, Vector2 toM, out float ontoM)
     {
-        var along = toM - fromM;
-        var lengthM = along.Length();
-        return lengthM <= 0f
-            ? Atlas.UnderDisc(fromM, halfWidthM, under)
-            : Atlas.UnderBox((fromM + toM) * 0.5f, along / lengthM, (lengthM * 0.5f) + halfWidthM, halfWidthM, under);
+        ontoM = 0f;
+        var code = People.CurrentRouteWay(person);
+        if (code == RouteChain.NoWay || code == WalkingNetwork.NoLane || WalkingNetwork.IsACorner(code)) return PersonFleet.NoWay;
+
+        if (Lands(Ways.OfFootway(code), toM, out ontoM)) return Ways.OfFootway(code);
+
+        foreach (var onto in Walking.TurnsFrom(code))
+        {
+            var way = Ways.OfFootway(onto);
+            if (Lands(way, toM, out ontoM)) return way;
+        }
+
+        return PersonFleet.NoWay;
+    }
+
+    /// <summary>Whether a place stands inside a way's band, and where along it.</summary>
+    bool Lands(int way, Vector2 toM, out float alongM)
+    {
+        var line = Lines.LineOf(way, out var widthM);
+        alongM = Spline.ProjectM(line, toM, 0f, Ways.LengthM(way), out var offSq);
+        return offSq <= widthM * widthM * 0.25f;
     }
 
     /// <summary>
@@ -499,9 +597,9 @@ internal sealed class WalkingGround(
 
     /// <summary>
     /// <b>The ground a walker's body stands on</b> (TER-4c.2), as the stretches the town lays for it in the order it lays
-    /// them: every way under it as a single wheel at its centre, held its radius either side
-    /// (<see cref="RibbonAtlas.UnderAWheel"/>) — and the way it is walking, over the stretch its own body takes of it.
-    /// Whose ground it is is the town's to say.
+    /// them: every way the world read under it as a single wheel at its centre, held its radius either side
+    /// (<paramref name="under"/>) — and the way it is walking, over the stretch its own body takes of it. Whose ground it
+    /// is is the town's to say.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -516,87 +614,52 @@ internal sealed class WalkingGround(
     /// </remarks>
     /// <param name="into">Room for <see cref="MostPiecesOfABody"/>.</param>
     /// <returns>How many were written.</returns>
-    [SkipLocalsInit]
-    public int BodyCover(int person, Span<BodyPiece> into)
+    public int BodyCover(int person, ReadOnlySpan<WayCover> under, Span<WayCover> into)
     {
-        var radiusM = People.RadiusM[person];
-        var walking = People.OnWay[person];
-        var alongMps = AlongItsWalkMps(person);
-        var onward = walking == PersonFleet.NoWay ? LaneOccupancy.NoWay : WayOf(People.PeekNextRouteWay(person));
-
-        // A walker has no acceleration (PER-3): it is walking or it has declared nothing, and a casualty declares
-        // nothing whatever it is sliding at.
-        var still = People.Wounded[person] || People.DeclaredMps[person] == Vector2.Zero;
-
-        Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
-        under = under[..Atlas.UnderAWheel(People.PositionM[person], radiusM, under)];
         var written = 0;
-        foreach (ref readonly var cover in under)
-        {
-            var onItsLine = cover.Way == walking;
-            into[written++] = new BodyPiece(
-                cover.Way, cover.FromM, cover.ToM, onItsLine ? alongMps : 0f, onItsLine,
-                onItsLine ? onward : LaneOccupancy.NoWay, still);
-        }
+        foreach (ref readonly var cover in under) into[written++] = cover;
 
+        var walking = People.OnWay[person];
         if (walking == PersonFleet.NoWay) return written;
 
+        var radiusM = People.RadiusM[person];
         var atM = People.OnWayM[person];
-        into[written++] = new BodyPiece(
-            walking, MathF.Max(0f, atM - radiusM), MathF.Min(Ways.LengthM(walking), atM + radiusM), alongMps, OnItsLine: true,
-            onward, still);
+        into[written++] = new WayCover(
+            walking, MathF.Max(0f, atM - radiusM), MathF.Min(Ways.LengthM(walking), atM + radiusM));
         return written;
     }
 
     /// <summary>
     /// <b>A walker's claim laid</b> (PER-26, TER-4c.8) over the ways its action walks, as one hold held at a walker's
-    /// rung (<see cref="ClaimPriority.Afoot"/>, PER-27) — laid whole and answered with every other plan, as a driver's
-    /// is (<see cref="LaneOccupancy.AnswerThePlans"/>), so nothing is taken off another plan for a walk that then stops
-    /// short of it.
+    /// rung (<see cref="ClaimPriority.Afoot"/>, PER-27) and answered with every other plan, as a driver's is
+    /// (<see cref="LaneOccupancy.Answer"/>).
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>A hold with nothing to lay is still laid</b>: a walk whose ground lies on no way — a lawn, a yard, what is
     /// left of it inside the body's own reach — has claimed all there is of it, where a walker laying none would be
     /// granted nothing.
+    /// </para>
+    /// <para>
+    /// <b>A body its own is level with cuts nothing</b> (TER-4c.1): a straight walk crosses a way along the width of the
+    /// walker's own body as well as ahead of it, and each piece is asked from past that body (<see cref="LaneOccupancy.Ask"/>).
+    /// </para>
     /// </remarks>
     /// <param name="occupant">Whose ground it is held as, as the town names it: the walker's own, or an officer's car's.</param>
-    public void Claim(int person, int occupant, LaneRoster roster, ReadOnlySpan<LineWay> walk)
+    /// <param name="begunOn">
+    /// <b>The hold of a pass the walker has begun</b> (TER-4c.6), which the walk carries on from — so whatever refuses the
+    /// pass holds the walker where it stands — or <see cref="LaneOccupancy.NoHold"/>.
+    /// </param>
+    public void Claim(
+        int person, int occupant, LaneRoster roster, ReadOnlySpan<LineWay> walk, int begunOn = LaneOccupancy.NoHold)
     {
-        var hold = Occupancy.BeginHold(Config.PersonStandstillGapM);
+        var hold = begunOn != LaneOccupancy.NoHold ? begunOn : Occupancy.BeginHold(occupant, roster);
         WalkHold[person] = hold;
         foreach (ref readonly var way in walk)
         {
-            Occupancy.Propose(WalkAsk(person, occupant, roster, hold, way), way.Way, way.ToM, LevelWithM(way, occupant, roster));
+            Occupancy.Ask(hold, way.Way, way.FromM, way.ToM, way.LineFromM, ClaimPriority.Afoot);
         }
-
-        Occupancy.EndHold(hold, float.PositiveInfinity, 0f, LaneClaim.Nothing);
     }
-
-    /// <summary>
-    /// <b>How far along a way of its walk the walker's own body already reaches</b>, which its claim there is answered
-    /// past: <b>a body its own is level with cuts nothing</b> (TER-4c.1) — it is beside the walker or behind it. A
-    /// straight walk crosses a way along the width of the walker's own body as well as ahead of it, so what it is level
-    /// with there is read off where that body lies on the way, and not off where the straight comes onto it.
-    /// </summary>
-    float LevelWithM(in LineWay way, int occupant, LaneRoster roster) =>
-        MathF.Max(way.FromM, Occupancy.BodyReachesToM(way.Way, occupant, roster));
-
-    /// <summary>
-    /// <b>A walker held where it stands by a body inside the ground its pass covers</b> (TER-4c.6): the ground up to
-    /// there is the pass's own, and all it is held by is what stands in it.
-    /// </summary>
-    public void HoldShortOf(int person, in LaneClaim body, int on)
-    {
-        var held = Occupancy.BeginHold(Config.PersonStandstillGapM);
-        WalkHold[person] = held;
-        Occupancy.EndHold(held, People.RadiusM[person], Config.PersonStandstillGapM, body, on);
-    }
-
-    /// <summary>One piece of a walker's plan as the terms it is asked on.</summary>
-    PlannedAsk WalkAsk(int person, int occupant, LaneRoster roster, int hold, in LineWay way) =>
-        new(
-            hold, occupant, roster, ClaimPriority.Afoot, way.FromM, way.LineFromM,
-            way.LineFromM - People.RadiusM[person], float.NegativeInfinity, AlongItsWalkMps(person));
 
     /// <summary>
     /// <b>What the walker got</b>: how far past the front of its body its plan survived, less the gap it keeps
@@ -605,30 +668,15 @@ internal sealed class WalkingGround(
     public void ReadTheGrant(int person)
     {
         var hold = WalkHold[person];
-        var endsAtM = Occupancy.HoldEndsAtM(hold, out var marginM, out _);
-        Grant(person, hold != LaneOccupancy.NoHold, endsAtM, marginM, Occupancy.HoldCutOn(hold));
-    }
-
-    /// <summary>
-    /// <b>What the walker got, as its hold came to</b> wherever that was read (<see cref="ReadTheGrant"/>, or a device's):
-    /// whether its walk laid a hold, where the hold ended, what it keeps off what cut it, and the way it was cut on.
-    /// </summary>
-    public void Grant(int person, bool laidAHold, float endsAtM, float marginM, int cutOn)
-    {
-        People.GrantM[person] = !laidAHold ? 0f
-            : float.IsPositiveInfinity(endsAtM) ? float.PositiveInfinity
-            : endsAtM - marginM - People.RadiusM[person];
-        People.OnCrossing[person] = TheZebraOf(person, cutOn);
+        var cut = Occupancy.CutOf(hold);
+        People.GrantM[person] = hold == LaneOccupancy.NoHold ? 0f
+            : !cut.Refused ? float.PositiveInfinity
+            : cut.CutLineM - Config.PersonStandstillGapM - People.RadiusM[person];
+        People.OnCrossing[person] = TheZebraOf(person, cut.Way);
     }
 
     /// <summary>Whether this walker stands where a light's hold refused its plan — the wait that spends no clock (TLT-2a).</summary>
-    public bool HeldByALight(int person)
-    {
-        if (People.GrantM[person] > 0f) return false;
-
-        Occupancy.HoldEndsAtM(WalkHold[person], out _, out var cutBy);
-        return cutBy.Found && !cutBy.HasBody && cutBy.Of == LaneRoster.Signal;
-    }
+    public bool HeldByALight(int person) => People.GrantM[person] <= 0f && Occupancy.CutOf(WalkHold[person]).ByALight;
 
     /// <summary>
     /// <b>The zebra this walker is walking, or is held off</b>: the paint its route is on, or the paint its plan
@@ -639,26 +687,13 @@ internal sealed class WalkingGround(
     {
         if (People.Inside[person].Any) return PersonFleet.NoCrossing;
 
-        var on = WayOf(People.CurrentRouteWay(person));
-        if (on != PersonFleet.NoWay && Lines.IsTheCrossing(on)) return Lines.ZebraOf(on);
+        var walking = People.CurrentRouteWay(person);
+        if (walking != PersonFleet.NoWay && FactsOf(person, walking).Zebra is var zebra && zebra != RibbonMarks.NoZebra)
+        {
+            return zebra;
+        }
 
         var cutOn = People.GrantM[person] <= 0f ? holdCutOn : PersonFleet.NoWay;
         return cutOn >= 0 && Lines.IsTheCrossing(cutOn) ? Lines.ZebraOf(cutOn) : PersonFleet.NoCrossing;
     }
-
-    /// <summary>Where the straight this walker last committed to was walked from (<see cref="CommitTheStraight"/>).</summary>
-    public Vector2 StraightFromM(int person) => _straightFromM[person];
-
-    /// <summary>And where to — not a number where it never committed to one.</summary>
-    public Vector2 StraightToM(int person) => _straightToM[person];
-
-    /// <summary>And the ground under it, swept once, as the runs its plan is read off.</summary>
-    public ReadOnlySpan<SweptRun> StraightOf(int person) => _straight.Of(person);
 }
-
-/// <summary>
-/// One stretch of one way a walker's body stands on (<see cref="WalkingGround.BodyCover"/>), as the town lays it
-/// (<see cref="LaneOccupancy.LayBody"/>): how fast it is going down the way, whether it is travelling it, where it goes
-/// next from it, and whether it is at rest.
-/// </summary>
-internal readonly record struct BodyPiece(int Way, float FromM, float ToM, float AlongMps, bool OnItsLine, int Onward, bool Still);

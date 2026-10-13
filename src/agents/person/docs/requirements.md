@@ -66,11 +66,11 @@ claimed (TER-4c.8).
 of the second case and it is the common one, not a corner of the rule — a doorway stands off the walk, a
 body shoved off its line is standing on grass, a casualty put back on its feet is wherever the hospital
 left it. The route is laid again from where the body has got to and its first leg is the straight back
-onto the pavement. **The straight is planned like any walk** (PER-26), over whatever ways it crosses: off the
-pavement altogether — in the carriageway, on a verge — the walker claims the lanes between it and its way before
-it steps over them. **A straight is decided once**: where it goes is fixed as the walker sets off down it, and
-the ground under it swept then — a straight back, a hop onto a doorstep, an officer's to their post — and only
-a walker shoved off it, or sent somewhere else, decides it again. **A body between the two lanes of a pavement, or shoved across a corner, walks its route**:
+onto the pavement. **The straight is planned like any walk** (PER-26), off what the walker stands on and where it
+lands, and nothing it crosses is looked up (the root decision log, 2026-10-13): the ways the world reads its body on,
+as far either side of it as it would set off into, and the stretch of its way it steps onto once the edge of that
+way is inside the reach of its plan. Off the pavement altogether — in the carriageway, on a verge — the lane it
+stands in is held as it goes. **A body between the two lanes of a pavement, or shoved across a corner, walks its route**:
 what it steps over getting back onto its way is pavement its own body stands on, and where it goes is its plan's.
 
 **Which of the two it is, is read off the way the route handed it and never searched for**: the body's
@@ -105,9 +105,10 @@ holder is already there.
 
 **The plan runs from the front of the body down the ways of its walk**, for as far as it would take to come
 to rest from its pace, and the gap it keeps — **whether or not the body is on its way's own ground yet**,
-since what it plans is where it is going. **The hop off the end of the route is planned too**: the ways the
-atlas finds under the straight from the body towards where it is walking, so the ground round a door and the
-road an ordered walk strikes out over are held like any other. A body walking no route plans nothing, there
+since what it plans is where it is going. **The hop off the end of the route is planned too**, as any straight is
+(PER-25): the ground it stands on as it goes, and the way the place it walks to stands on — the last way of its
+route or one joined at its end, a zebra's paint — so an ordered walk over the paint holds the paint and the lane
+under it like any other. A body walking no route plans nothing, there
 being no way to plan it on. All of it is held at one rung, wherever it runs (PER-27).
 
 **What comes back is a grant, and a walker spends it the way a driver does, on the tick it is given**: it aims
@@ -165,16 +166,17 @@ is not making its own next movement, on a stretch of pavement with a lane runnin
   stands (PER-3), so no step of it is angled along the route.
 - **A walker on a pass is off its way on purpose**, by as far as the lane beside stands off it, and has not
   lost it (PER-25).
-- **Decided once, and committed to**: drawn and swept where the walker stands, then asked for every
+- **Decided once, and committed to**: drawn where the walker stands, over its own route's ground (TER-4c.6), then asked for every
   `SidestepAskEveryS` (`SimConfig.Person`) — and let go, to be decided afresh, once the one it passes has gone
   or moved, or once it has waited `SidestepPatienceS`.
 
 ## The trip
 
 **PER-9** `P5` Go around the city from building to building. Destinations are drawn from the **agent seed**,
-**near where the person stands**: a place within a trip's reach of them (`SimConfig.PersonTripReachM`), and the
-building whose way in is nearest it. Drawn anywhere in the town, every trip is driven across it down the same
-few arterials.
+**near where the person stands**: a place drawn down the road from them, a lane and a turn at a time, within a
+trip's reach (`SimConfig.PersonTripReachM`), and a building whose street that lane is — so nothing is looked up
+while the town runs (the root decision log, 2026-10-13). Drawn anywhere in the town, every trip is driven across it
+down the same few arterials.
 
 **And a person begins the round where they end one** — inside a building, dwelling (GEN-7). There is no
 first leg that is different from the rest: building, the place they were going, building.

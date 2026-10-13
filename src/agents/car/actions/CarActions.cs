@@ -1,5 +1,4 @@
 using TrafficSimulation.Agents.Car.Control;
-using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.Agents.Car.Actions;
@@ -15,7 +14,19 @@ namespace TrafficSimulation.Agents.Car.Actions;
 /// </remarks>
 internal sealed class CarActions(DrivingGround ground, Manoeuvres manoeuvres)
 {
+    /// <summary>
+    /// How many cars share a room for a pass (<see cref="ActionRooms"/>) — a bound on the tables and not a figure
+    /// behaviour reads. Odesa's six-minute run holds six passes at once among 692 cars at the most.
+    /// </summary>
+    const int CarsToAPassRoom = 16;
+
+    /// <summary>The fewest rooms of each kind laid, so a small town has one for every car that could want one.</summary>
+    const int LeastRooms = 16;
+
     readonly uint[] _entries = new uint[ground.Cars.Capacity];
+
+    /// <summary>Room for the ground a pass sweeps and what it gets past, held from its drawing until the car leaves the overtake and the backing up for it.</summary>
+    public ActionRooms PassRooms { get; } = new(ground.Cars.Capacity, CarsToAPassRoom, LeastRooms);
 
     /// <summary>
     /// <b>How many times this car has been handed to another action</b> — so whoever kept something it worked out
@@ -35,6 +46,7 @@ internal sealed class CarActions(DrivingGround ground, Manoeuvres manoeuvres)
         if (was == action) return;
 
         if (was is CarAction.Overtake or CarAction.Switch) cars.Pass[car] = Overtake.None;
+        if (!IsAboutAPass(action)) PassRooms.Free(car);
         if (IsAtABay(was) && !IsAtABay(action)) manoeuvres.Clear(car);
 
         // <b>A grant is its action's claim</b>, and goes with it (TER-4c.8): the one claim two actions share is a plan
@@ -48,17 +60,13 @@ internal sealed class CarActions(DrivingGround ground, Manoeuvres manoeuvres)
 
         cars.Action[car] = action;
         _entries[car]++;
-        Touched?.Add(car);
     }
-
-    /// <summary>
-    /// Where a car handed over to another action is marked, for a device that walks only what the town set
-    /// (<c>TownWorld.TouchedCars</c>) — or nowhere.
-    /// </summary>
-    public AgentSet? Touched { get; set; }
 
     /// <summary>Whether an action is a car's manoeuvre at a bay, into one or out of it.</summary>
     public static bool IsAtABay(CarAction action) => action is CarAction.Park or CarAction.Unpark;
+
+    /// <summary>Whether an action is about a pass the car has drawn: getting past something, or backing up for the room to.</summary>
+    static bool IsAboutAPass(CarAction action) => action is CarAction.Overtake or CarAction.BackUp;
 
     /// <summary>
     /// <b>Whether a car's action drives the route's own line</b> — and so plans down it (TER-4c.1): following it,

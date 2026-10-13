@@ -5,6 +5,7 @@ using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Containment;
+using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Parking;
 using TrafficSimulation.World.Routing;
 
@@ -30,32 +31,6 @@ internal sealed partial class TownWorld
 {
     /// <summary>How many buildings a draw may look at before the walker stands and draws again next time.</summary>
     const int DrawsPerTrip = 4;
-
-    /// <summary>
-    /// <b>Every way in of every building, filed by where it stands</b> — what a destination drawn near somebody is
-    /// read off (PER-9): the way in nearest a place drawn within reach of them.
-    /// </summary>
-    readonly BucketGrid _doors;
-
-    /// <summary>Which building each way in of <see cref="_doors"/> belongs to.</summary>
-    readonly int[] _buildingOfDoor;
-
-    /// <summary>The ways in filed by where they stand and whose each is, for the device to lay once at load.</summary>
-    internal (BucketGrid Grid, int[] BuildingOf) Doors => (_doors, _buildingOfDoor);
-
-    static int[] BuildingsOfTheDoors(CityPlan.BuildingArrays buildings)
-    {
-        var of = new int[buildings.EntryPointM.Length];
-        for (var building = 0; building < buildings.Count; building++)
-        {
-            for (var entry = buildings.EntryOffsets[building]; entry < buildings.EntryOffsets[building + 1]; entry++)
-            {
-                of[entry] = building;
-            }
-        }
-
-        return of;
-    }
 
     readonly int[] _bayCandidates = new int[BaysConsideredPerLeg];
 
@@ -211,21 +186,26 @@ internal sealed partial class TownWorld
             People.ClearRoute(person);
         }
 
-        if (_doors.Count == 0) return;
+        if (_buildingsOnLane.Length == 0) return;
 
         if (!aboard) CallTheCar(person);
 
         var car = People.Car[person];
-        if (car != PersonFleet.NoCar) TakeTheCarsPoseBack(car);
-
         var carToHand = !aboard && HasTheCarToHand(person);
         var fromM = aboard ? Cars.PositionM[car] : People.PositionM[person];
+        var from = aboard ? RoadPlaceOfCar(car) : RoadPlaceOfWalker(person);
         var reachM = aboard || carToHand ? _config.PersonTripReachM : _config.PersonWalkReachM;
         ref var draw = ref People.Draw[person];
         for (var attempt = 0; attempt < DrawsPerTrip; attempt++)
         {
-            var placeM = fromM + (Heading.Unit(draw.NextFloat() * MathF.Tau) * (reachM * MathF.Sqrt(draw.NextFloat())));
-            var building = _buildingOfDoor[_doors.Nearest(placeM, out _)];
+            // A place drawn down the road within reach, and a building on its street (the root decision log, 2026-10-13).
+            var place = DrawnDownTheRoad(from, reachM, ref draw);
+            if (!place.IsSomewhere) return;
+
+            var onTheStreet = BuildingsOnLane(place.Lane);
+            if (onTheStreet.IsEmpty) continue;
+
+            var building = onTheStreet[draw.NextInt(onTheStreet.Length)];
 
             // Preferring one with room, once the people already walking there are counted — and taking
             // one anyway on the last look, because every building being spoken for is not a reason to
@@ -234,20 +214,22 @@ internal sealed partial class TownWorld
 
             var doorM = DoorOf(building, fromM);
             if ((doorM - fromM).Length() <= _config.WayInTouchingReachM) continue;
-            if (!IsWalkableTo(doorM)) continue;
+
+            var doorPlace = DoorPlaceOf(building, fromM);
+            if (!IsWalkableTo(doorPlace)) continue;
 
             var mode = TripModes.Of(
                 fromM, doorM, aboard, carToHand, carToHand ? Cars.PositionM[car] : fromM, _config.PersonWalkReachM);
             if (mode == TripMode.OutOfReach) continue;
-            if (mode == TripMode.Driven && FreeBayNear(doorM, _config.PersonWalkWorthM) < 0) continue;
+            if (mode == TripMode.Driven && FreeBayOff(_roadPlaceOfBuilding[building], doorM, _config.PersonWalkWorthM) < 0) continue;
 
-            BeginTrip(person, building, doorM, mode);
+            BeginTrip(person, building, doorM, doorPlace, mode);
             return;
         }
     }
 
     /// <summary>The trip drawn: the door claimed, and the walk to it laid — or the walk to the car, or the drive.</summary>
-    void BeginTrip(int person, int building, Vector2 doorM, TripMode mode)
+    void BeginTrip(int person, int building, Vector2 doorM, in FootPlace doorPlace, TripMode mode)
     {
         TripsDrawn++;
         People.DestinationBuilding[person] = building;
@@ -255,7 +237,7 @@ internal sealed partial class TownWorld
         if (mode == TripMode.Walked)
         {
             People.Stage[person] = TripStage.WalkingToTheDoor;
-            WalkTo(person, doorM);
+            WalkTo(person, doorM, doorPlace);
             return;
         }
 
@@ -264,12 +246,12 @@ internal sealed partial class TownWorld
         if (IsAtTheWheel(person))
         {
             People.Stage[person] = TripStage.Driving;
-            DriveToABayNear(car, doorM);
+            DriveToABayNear(car, building, doorM);
             return;
         }
 
         People.Stage[person] = TripStage.WalkingToTheCar;
-        WalkTo(person, WayInOf(car));
+        WalkTo(person, WayInOf(car), PlaceBesideTheCar(car));
     }
 
     /// <summary>
@@ -291,7 +273,8 @@ internal sealed partial class TownWorld
         Contain(person);
         CarsBoarded++;
         People.Stage[person] = TripStage.Driving;
-        DriveToABayNear(car, DoorOf(People.DestinationBuilding[person], Cars.PositionM[car]));
+        var building = People.DestinationBuilding[person];
+        DriveToABayNear(car, building, DoorOf(building, Cars.PositionM[car]));
     }
 
     /// <summary>
@@ -301,7 +284,6 @@ internal sealed partial class TownWorld
     /// </summary>
     Vector2 WayInOf(int car)
     {
-        TakeTheCarsPoseBack(car);
         var bay = _parking.BayOf(car);
         if (bay >= 0)
         {
@@ -317,8 +299,7 @@ internal sealed partial class TownWorld
     /// </summary>
     Vector2 DriverDoorM(int car)
     {
-        TakeTheCarsPoseBack(car);
-        var forward = Heading.Unit(Cars.HeadingRad[car]);
+        var forward = Cars.Forward[car];
         var door = new Vector2(-forward.Y, forward.X) * -_config.RoadSideSign;
         return Cars.PositionM[car] + door * (Cars.BuildOf(car).FlankM + _config.PersonDiameterM);
     }
@@ -378,29 +359,16 @@ internal sealed partial class TownWorld
     /// Whether a place can be walked to at all — the strict question, asked of both ends when a trip is
     /// drawn: the pavement's network has to come within the one short straight hop allowed off it.
     /// </summary>
-    bool IsWalkableTo(Vector2 pointM)
-    {
-        if (!_terrain.Contains(pointM)) return false;
+    /// <remarks>Answered off the way in's own place, laid with the map (<see cref="_entryPlace"/>).</remarks>
+    bool IsWalkableTo(in FootPlace place) => place.IsSomewhere;
 
-        var goals = _walkSearch.Goals;
-        if (_walking.GoalsAt(pointM, goals) == 0) return false;
-
-        return (NetworkPointM(goals[0]) - pointM).Length() <= _config.PersonOffNetworkHopM;
-    }
-
-    /// <summary>Where a place on the walking network actually stands, which is what the hop off it is measured against.</summary>
-    Vector2 NetworkPointM(RouteGoal goal)
-    {
-        var runs = _walking.Runs;
-        var slot = runs.PieceAt(goal.Link, goal.AlongM, out var alongPieceM);
-        var edge = runs.PiecesOf(goal.Link)[slot];
-        return Spline.SampleAt(_foot.ArcsOf(edge), alongPieceM).PositionM;
-    }
 
     /// <summary>One leg: the goal, the line to it, and the clocks that decide whether it is going anywhere.</summary>
-    void WalkTo(int person, Vector2 goalM)
+    /// <param name="goalPlace">Where on the pavement the goal stands, which the walk is laid to.</param>
+    void WalkTo(int person, Vector2 goalM, in FootPlace goalPlace)
     {
         People.GoalM[person] = goalM;
+        _goalPlace[person] = goalPlace;
         LayWalk(person, reachTheGoal: true);
 
         // <b>A walk with no route is not a walk</b> (PER-25). Struck out for the goal regardless, a body

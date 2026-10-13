@@ -8,6 +8,7 @@ using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Runtime;
+using TrafficSimulation.World.Terrain;
 using Image = Silk.NET.Vulkan.Image;
 using Semaphore = Silk.NET.Vulkan.Semaphore;
 // This slice's own device wrapper, not the loader of the same name.
@@ -59,7 +60,27 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     const int SheetPagesBinding = 2;
     const int GlyphBinding = 3;
     const int FirstSurfaceBinding = 4;
-    const int Bindings = FirstSurfaceBinding + Surfaces;
+
+    /// <summary>How the marks are drawn (<see cref="MarkLook"/>), then the ring they are drawn from and its words (<c>mark.vert</c>).</summary>
+    const int MarkLookBinding = FirstSurfaceBinding + Surfaces;
+
+    const int MarkRowsBinding = MarkLookBinding + 1;
+    const int MarkRingBinding = MarkRowsBinding + 1;
+
+    /// <summary>The scenery's pieces and looks, laid once, and the frame's runs of them (<c>scenery.vert</c>).</summary>
+    const int SceneryPiecesBinding = MarkRingBinding + 1;
+
+    const int SceneryLooksBinding = SceneryPiecesBinding + 1;
+    const int ScenerySpansBinding = SceneryLooksBinding + 1;
+    const int Bindings = ScenerySpansBinding + 1;
+
+    /// <summary>The words a frame's scenery runs open with (<c>scenery.vert</c>'s <c>Spans</c>): the draw, the thinning, how many runs.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    readonly record struct SceneryRunsHead(DrawIndirectCommand Draw, uint Every, uint Runs, uint Pad0 = 0, uint Pad1 = 0);
+
+    /// <summary>What a scenery look is drawn as (<c>scenery.vert</c>'s <c>SceneryLook</c>): its half-size for a metre of girth and its sheet.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    readonly record struct SceneryLook(Vector2 HalfSizePerM, uint Sheet, uint Pad = 0);
 
     /// <summary>
     /// How many interface and debug quads a frame may write. The busiest frame is the debug layers
@@ -105,18 +126,44 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     readonly GpuTexture _glyphs;
     readonly GpuBuffer _vertices;
     readonly GpuBuffer _indices;
-    readonly GpuBuffer _indirect;
+
+    /// <summary>The ground's triangles filed by band, the order <see cref="_indices"/> holds them in (<see cref="GroundBands"/>).</summary>
+    readonly GroundBands _bands;
 
     /// <summary>
-    /// <b>The buildings and props, on the device and laid once</b> (<see cref="LayStanding"/>): they never move, so a
+    /// <b>The buildings and props, on the device and laid once</b> (<see cref="LayTown"/>): they never move, so a
     /// frame writes only which stretch of them to draw, and they are one copy rather than one a swapchain image.
     /// </summary>
     readonly GpuBuffer _standing;
 
-    /// <summary>The ground it was laid for, kept so a part switched off can be packed out of the draw and back into it (<see cref="ShowGround"/>).</summary>
+    /// <summary>How the marks are drawn, laid with the town (<see cref="LayTown"/>).</summary>
+    readonly GpuBuffer _markLook;
+
+    /// <summary>
+    /// <b>The scenery's pieces and each look's size and sheet, on the device and laid once</b> (<see cref="LayTown"/>): a
+    /// frame writes only which runs of them the view holds (<see cref="_scenerySpans"/>).
+    /// </summary>
+    readonly GpuBuffer _sceneryPieces;
+
+    readonly GpuBuffer _sceneryLooks;
+
+    /// <summary>The ground it was laid for: its parts' sizes and its surfaces' periods.</summary>
     readonly GroundMesh _mesh;
 
-    uint _indexCount;
+    /// <summary>
+    /// The view a frame culls the ground by, as the last <see cref="FillUnder"/> took it — or none, and the ground is drawn
+    /// whole.
+    /// </summary>
+    (Vector2 CentreM, Vector2 SpanM)? _groundView;
+
+    /// <summary>The scenery whose runs a frame writes, laid with the town.</summary>
+    ScenerySprites _scenery = ScenerySprites.Nothing;
+
+    /// <summary>The prop looks' sheets from and past, and the least half-size one is drawn at this frame (<see cref="CameraView.PropCull"/>).</summary>
+    Vector4 _propCull;
+
+    float _propLeastPx;
+
     uint _shownParts = GroundParts.All;
 
     DescriptorSetLayout _setLayout;
@@ -124,6 +171,10 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     Pipeline _pipeline;
     Pipeline _spritePipeline;
     Pipeline _overlayPipeline;
+    Pipeline _markPipeline;
+    Pipeline _sceneryPipeline;
+    ShaderModule _markVertexShader;
+    ShaderModule _sceneryVertexShader;
     ShaderModule _vertexShader;
     ShaderModule _fragmentShader;
     ShaderModule _spriteVertexShader;
@@ -148,11 +199,33 @@ internal sealed unsafe partial class TownRenderer : IDisposable
 
     GpuBuffer[] _spriteIndirect = [];
 
+    /// <summary>Each image's draws of the ground, a class of a part apiece (<see cref="GroundBands.Draws"/>), written by its frame.</summary>
+    GpuBuffer[] _groundDraws = [];
+
     /// <summary>
-    /// The moving runs where the device writes them, the run above from <c>AboveFrom</c>, and their two draws
-    /// (<see cref="DrawTheMovingFrom"/>) — or none, and they are what a frame fills.
+    /// What emits the moving runs on the device inside each frame (<see cref="DrawTheMovingFrom"/>) — or none, and they
+    /// are what a frame fills.
     /// </summary>
-    (GpuBuffer Instances, GpuBuffer Draws, int AboveFrom)? _moving;
+    IMovingEmit? _emit;
+
+    /// <summary>
+    /// <b>The ground's ring of marks as this image's frame copied it</b>, and its words — the host's ring, of which a frame
+    /// writes only the marks laid since this image last drew (<see cref="_marksCopied"/>) — or none of them read, where
+    /// the device keeps the ring itself (<see cref="_deviceMarks"/>).
+    /// </summary>
+    GpuBuffer[] _markRows = [];
+
+    GpuBuffer[] _markRings = [];
+
+    /// <summary>How many of the host's marks (<see cref="DriftMarks.Total"/>) each image's copy holds.</summary>
+    long[] _marksCopied = [];
+
+    /// <summary>The ring the device lays its marks into and its words (<see cref="DrawTheMarksFrom"/>), the same for every image.</summary>
+    (GpuBuffer Rows, GpuBuffer Ring)? _deviceMarks;
+
+    /// <summary>Each image's runs of the scenery in view, opened by their draw (<see cref="SceneryRunsHead"/>).</summary>
+    GpuBuffer[] _scenerySpans = [];
+
     GpuBuffer[] _overlay = [];
     GpuBuffer[] _overlayIndirect = [];
     GpuBuffer[] _underlay = [];
@@ -160,9 +233,19 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     CommandBuffer[] _commands = [];
     Fence[] _drawn = [];
     Semaphore[] _rendered = [];
+
+    /// <summary>
+    /// <b>The acquire semaphores, one more than the images</b>: an acquire is handed the spare (<see cref="_acquireSpare"/>),
+    /// and the one the image it took was last acquired with becomes the spare. That one's wait was the submit of the image's
+    /// last frame, which the image's fence has said is done, so no acquire is handed a semaphore with a wait pending.
+    /// </summary>
     Semaphore[] _acquired = [];
+
+    /// <summary>Which of <see cref="_acquired"/> each image was last acquired with.</summary>
+    int[] _acquiredBy = [];
+
+    int _acquireSpare;
     long _frame;
-    long _acquires;
     int _acquireSlot;
     uint _image;
     bool _holding;
@@ -178,10 +261,22 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _offscreenSize = offscreenSize;
         // A slot a run at the least: the level above is bound at its own offset, and an offset at the buffer's end
         // is out of it even with nothing drawn there (VUID-vkCmdBindVertexBuffers-pOffsets-00626).
-        Room = room with { Under = Math.Max(1, room.Under), Over = Math.Max(1, room.Over), Above = Math.Max(1, room.Above) };
+        Room = room with
+        {
+            Over = Math.Max(1, room.Over), Above = Math.Max(1, room.Above), Marks = Math.Max(1, room.Marks),
+            SceneryPieces = Math.Max(1, room.SceneryPieces), SceneryRows = Math.Max(1, room.SceneryRows),
+        };
         _standing = vk.CreateBuffer(
             (ulong)(Math.Max(1, room.Standing) * sizeof(SpriteInstance)),
             BufferUsageFlags.VertexBufferBit | BufferUsageFlags.TransferDstBit, hostVisible: false);
+        _markLook = vk.CreateBuffer(
+            (ulong)sizeof(MarkLook), BufferUsageFlags.UniformBufferBit | BufferUsageFlags.TransferDstBit, hostVisible: false);
+        _sceneryPieces = vk.CreateBuffer(
+            (ulong)(Room.SceneryPieces * sizeof(SceneryPiece)), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferDstBit,
+            hostVisible: false);
+        _sceneryLooks = vk.CreateBuffer(
+            (ulong)(SheetSlots * sizeof(SceneryLook)), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferDstBit,
+            hostVisible: false);
 
         _textures = new GpuTexture[surfaceTextures.Count];
         for (var texture = 0; texture < _textures.Length; texture++) _textures[texture] = GpuTexture.Load(vk, surfaceTextures[texture]);
@@ -194,35 +289,34 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _atlas = SheetAtlas.Pack(sheetTextures);
         _sheetPages = GpuTexture.Layered(vk, SheetAtlas.PagePx, SheetAtlas.PagePx, _atlas.Pages, _atlas.FillPage);
 
-        _sheetTable = vk.CreateBuffer((ulong)(SheetSlots * sizeof(SheetPlace)), BufferUsageFlags.UniformBufferBit, hostVisible: true);
-        _atlas.Places.CopyTo(_sheetTable.Span<SheetPlace>());
+        // Read by every sprite's every corner and written once, so it is the device's own memory and not the host's.
+        _sheetTable = vk.CreateBuffer(
+            (ulong)(SheetSlots * sizeof(SheetPlace)), BufferUsageFlags.UniformBufferBit | BufferUsageFlags.TransferDstBit,
+            hostVisible: false);
+        _sheetTable.Upload<SheetPlace>(
+            SheetSlots, into =>
+            {
+                into.Clear();
+                _atlas.Places.CopyTo(into);
+            }, PipelineStageFlags2.VertexShaderBit, AccessFlags2.UniformReadBit);
 
-        // <b>The ground lives on the device, written by a copy</b>: every frame draws all of it, and mapped memory on
-        // a discrete card is the host's, across the bus — which a traced city's ground, hundreds of MB, cannot cross
-        // every frame.
+        // <b>The ground lives on the device, written by a copy</b>: mapped memory on a discrete card is the host's, across
+        // the bus — which a traced city's ground, hundreds of MB, cannot cross every frame. Its triangles are filed by
+        // band inside each part (GroundBands), so a frame draws the rows it sees.
         _mesh = mesh;
-        _indexCount = (uint)mesh.Indices.Length;
+        _bands = GroundBands.Lay(mesh, out var filed);
         _vertices = vk.CreateBuffer(
             (ulong)(mesh.Vertices.Length * sizeof(GroundVertex)), BufferUsageFlags.VertexBufferBit | BufferUsageFlags.TransferDstBit,
             hostVisible: false);
         _indices = vk.CreateBuffer(
-            (ulong)(mesh.Indices.Length * sizeof(uint)), BufferUsageFlags.IndexBufferBit | BufferUsageFlags.TransferDstBit,
+            (ulong)(filed.Length * sizeof(uint)), BufferUsageFlags.IndexBufferBit | BufferUsageFlags.TransferDstBit,
             hostVisible: false);
-        _indirect = vk.CreateBuffer((ulong)(2 * sizeof(DrawIndexedIndirectCommand)), BufferUsageFlags.IndirectBufferBit, hostVisible: true);
         _vertices.Upload<GroundVertex>(
             mesh.Vertices.Length, into => mesh.Vertices.CopyTo(into),
             PipelineStageFlags2.VertexAttributeInputBit, AccessFlags2.VertexAttributeReadBit);
-        _indices.Upload<uint>(
-            mesh.Indices.Length, into => mesh.Indices.CopyTo(into), PipelineStageFlags2.IndexInputBit, AccessFlags2.IndexReadBit);
+        _indices.Upload<uint>(filed.Length, into => filed.CopyTo(into), PipelineStageFlags2.IndexInputBit, AccessFlags2.IndexReadBit);
 
         _glyphs = GpuTexture.LoadEmbedded(vk, GlyphSheet.Resource);
-
-        // The draw's count lives here, in memory, which is what lets the recording be final: a ground
-        // layer switched off changes a number the GPU reads, and not a command buffer. The ground is
-        // written once and rewritten only under a device wait, so unlike what a frame fills it is one
-        // buffer rather than one per image.
-        var above = (uint)mesh.Parts[(int)GroundPart.Above].IndexCount;
-        Count(_indexCount - above, above);
 
         CreatePipeline();
         _target = NewTarget();
@@ -252,59 +346,155 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     /// filling it is a write and not an upload. <b>The one belonging to the image the next frame draws into</b>,
     /// which is the image already taken and waited for — see <see cref="_instances"/>.
     /// </summary>
-    public Span<SpriteInstance> SpritesUnder => _instances[(int)_image].Span<SpriteInstance>()[..Room.Under];
-
-    public Span<SpriteInstance> SpritesOver => _instances[(int)_image].Span<SpriteInstance>().Slice(Room.Under, Room.Over);
+    public Span<SpriteInstance> SpritesOver => _instances[(int)_image].Span<SpriteInstance>()[..Room.Over];
 
     /// <summary>
     /// <b>And the bodies on the level above</b> (PHY-1a): the same buffer past the others, drawn after the bridges
     /// over the ground and so over them, where the first runs are drawn under them.
     /// </summary>
-    public Span<SpriteInstance> SpritesAbove =>
-        _instances[(int)_image].Span<SpriteInstance>().Slice(Room.Under + Room.Over, Room.Above);
+    public Span<SpriteInstance> SpritesAbove => _instances[(int)_image].Span<SpriteInstance>().Slice(Room.Over, Room.Above);
 
     /// <summary>
-    /// The town's buildings and props handed to the device, once, in the order <see cref="StandingSprites"/> files
-    /// them: what <see cref="SpriteCounts.StandingFirst"/> counts from. Called before the first frame of a town is
-    /// drawn, and so under no frame still reading the buffer.
+    /// <b>What of a town is laid on the device once</b>: its buildings and props in the order <see cref="StandingSprites"/>
+    /// files them — what <see cref="SpriteCounts.StandingFirst"/> counts from — its scenery's pieces and each look's size
+    /// and sheet, how its marks are drawn, and which sheets are props for the frame to leave out under
+    /// <paramref name="propLeastPx"/> across. Called before the first frame of a town is drawn, and so under no frame
+    /// still reading the buffers.
     /// </summary>
-    public void LayStanding(ReadOnlyMemory<SpriteInstance> standing)
+    public void LayTown(TownSprites looks, float propLeastPx)
     {
+        var standing = looks.Standing.Instances;
         var count = Math.Min(standing.Length, Math.Max(1, Room.Standing));
         _standing.Upload<SpriteInstance>(
             count, into => standing.Span[..count].CopyTo(into),
             PipelineStageFlags2.VertexAttributeInputBit, AccessFlags2.VertexAttributeReadBit);
+
+        _scenery = looks.Scenery;
+        var scenery = looks.Scenery;
+        _sceneryPieces.Upload<SceneryPiece>(
+            Math.Min(scenery.Count, Room.SceneryPieces), into => scenery.Pieces[..into.Length].CopyTo(into),
+            PipelineStageFlags2.VertexShaderBit, AccessFlags2.ShaderStorageReadBit);
+        _sceneryLooks.Upload<SceneryLook>(
+            SheetSlots, into =>
+            {
+                into.Clear();
+                var sizes = scenery.HalfSizePerM;
+                for (var look = 0; look < Math.Min(sizes.Length, into.Length); look++)
+                {
+                    into[look] = new SceneryLook(sizes[look], (uint)(scenery.FirstSheet + look));
+                }
+            }, PipelineStageFlags2.VertexShaderBit, AccessFlags2.ShaderStorageReadBit);
+
+        var markLook = looks.MarkLook;
+        _markLook.Upload<MarkLook>(1, into => into[0] = markLook, PipelineStageFlags2.VertexShaderBit, AccessFlags2.UniformReadBit);
+
+        _propCull = new Vector4(0f, looks.FirstPropSheet, looks.FirstPropSheet + looks.Props.Count, 0f);
+        _propLeastPx = propLeastPx;
     }
 
     /// <summary>
-    /// <b>What moves drawn where the device writes it</b> — the over run from the first instance of
-    /// <paramref name="instances"/> and the run above from <paramref name="aboveFrom"/>, each as many as the first and
-    /// second of <paramref name="draws"/> say — in place of what a frame fills (<see cref="SpritesOver"/>,
-    /// <see cref="SpritesAbove"/>), whose counts are then not read. Every image's frame is written down again once the
-    /// device has let go of them; the writes are ordered before the frame by whoever submits them.
+    /// <b>What lies under everything that stands, for the frame being filled</b>: the marks laid on the host since this
+    /// image last drew, copied into its ring (none, where the device keeps the ring — <see cref="DrawTheMarksFrom"/>),
+    /// and the runs of the scenery the view holds. <paramref name="pixelsPerMetre"/> is the frame's scale, which says
+    /// which props are too small to draw. Answers how many instances that draws, the device's marks uncounted.
     /// </summary>
-    public void DrawTheMovingFrom(GpuBuffer instances, GpuBuffer draws, int aboveFrom)
+    public int FillUnder(DriftMarks marks, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
+    {
+        _propCull.X = _propLeastPx * 0.5f / pixelsPerMetre;
+        _groundView = (viewCentreM, viewSpanM);
+        var image = (int)_image;
+        if (_deviceMarks is null) CopyTheMarks(marks, image);
+
+        var runs = _scenerySpans[image];
+        var spans = MemoryMarshal.Cast<byte, ScenerySpan>(runs.Span<byte>()[sizeof(SceneryRunsHead)..]);
+        var count = _scenery.Spans(viewCentreM, viewSpanM, int.MaxValue, spans, out var every, out var drawn);
+        runs.Span<SceneryRunsHead>()[0] = new SceneryRunsHead(
+            new DrawIndirectCommand { VertexCount = 4, InstanceCount = (uint)drawn }, (uint)every, (uint)count);
+        _written += sizeof(SceneryRunsHead) + ((long)count * sizeof(ScenerySpan));
+        return drawn + (_deviceMarks is null ? marks.Count : 0);
+    }
+
+    /// <summary>
+    /// The marks laid since this image last drew, from the host's ring into the image's own: <b>only what is new</b>, the
+    /// ring whole only once it has turned over past what the image holds, or been cleared under it.
+    /// </summary>
+    void CopyTheMarks(DriftMarks marks, int image)
+    {
+        var rows = _markRows[image].Span<DriftMarkRow>();
+        var capacity = marks.Capacity;
+        if (capacity > rows.Length) return;
+
+        ref var copied = ref _marksCopied[image];
+        var total = marks.Total;
+        if (copied > total) copied = 0;
+
+        for (var mark = Math.Max(copied, total - capacity); mark < total; mark++)
+        {
+            var slot = (int)(mark % capacity);
+            rows[slot] = DriftMarkRow.Of(marks.At(slot));
+            _written += sizeof(DriftMarkRow);
+        }
+
+        copied = total;
+        _markRings[image].Span<DriftMarkRing>()[0] = DriftMarkRing.After(total, capacity);
+        _written += sizeof(DriftMarkRing);
+    }
+
+    /// <summary>
+    /// <b>The marks drawn from the ring the device lays them into</b> (<c>drift_marks.glsl</c>) and its words, in place of
+    /// the copies a frame fills from the host's — which the host's ring then stays out of. Every image's frame is written
+    /// down again once the device has let go of them.
+    /// </summary>
+    public void DrawTheMarksFrom(GpuBuffer rows, GpuBuffer ring)
     {
         Vk.Count();
         _vk.Api.DeviceWaitIdle(_vk.Device);
-        _moving = (instances, draws, aboveFrom);
+        _deviceMarks = (rows, ring);
+        for (var image = 0; image < _commands.Length; image++)
+        {
+            WriteTheMarkSet(image);
+            Record(image);
+        }
+    }
+
+    /// <summary>
+    /// <b>What moves emitted on the device inside each frame and drawn where it is written</b> — the emit recorded into
+    /// every image's command buffer ahead of the pass, the over run drawn from the first of its instances and the run above
+    /// from its <see cref="IMovingEmit.AboveFrom"/>, each as many as its draws say — in place of what a frame fills
+    /// (<see cref="SpritesOver"/>, <see cref="SpritesAbove"/>), whose counts are then not read. Every image's frame is
+    /// written down again once the device has let go of them; what a frame steers the emit by is written through
+    /// <see cref="ImageIndex"/>.
+    /// </summary>
+    public void DrawTheMovingFrom(IMovingEmit emit)
+    {
+        Vk.Count();
+        _vk.Api.DeviceWaitIdle(_vk.Device);
+        _emit = emit;
         for (var image = 0; image < _commands.Length; image++) Record(image);
     }
 
+    /// <summary>The swapchain image the frame being filled is drawn into, for a writer of memory that image's recording reads.</summary>
+    public int ImageIndex => (int)_image;
+
     /// <summary>How much of each run is to be drawn. The only thing a frame changes about the sprite pass.</summary>
+    /// <remarks><see cref="SpriteCounts.Under"/> is the page's: what lies under is drawn here from its own rows (<see cref="FillUnder"/>).</remarks>
     public void SetSpriteCount(in SpriteCounts counts)
     {
+        var moving = _emit is null ? counts.Over + counts.Above : 0;
+        _written += ((long)moving * sizeof(SpriteInstance)) + (SpriteDraws * sizeof(DrawIndirectCommand));
         var draws = _spriteIndirect[(int)_image].Span<DrawIndirectCommand>();
-        draws[0] = new DrawIndirectCommand { VertexCount = 4, InstanceCount = (uint)Math.Clamp(counts.Under, 0, Room.Under) };
-        draws[1] = new DrawIndirectCommand
+        draws[0] = new DrawIndirectCommand
         {
             VertexCount = 4,
             InstanceCount = (uint)Math.Clamp(counts.StandingCount, 0, Room.Standing),
             FirstInstance = (uint)Math.Clamp(counts.StandingFirst, 0, Room.Standing),
         };
-        draws[2] = new DrawIndirectCommand { VertexCount = 4, InstanceCount = (uint)Math.Clamp(counts.Over, 0, Room.Over) };
-        draws[3] = new DrawIndirectCommand { VertexCount = 4, InstanceCount = (uint)Math.Clamp(counts.Above, 0, Room.Above) };
+        draws[1] = new DrawIndirectCommand { VertexCount = 4, InstanceCount = (uint)Math.Clamp(counts.Over, 0, Room.Over) };
+        draws[2] = new DrawIndirectCommand { VertexCount = 4, InstanceCount = (uint)Math.Clamp(counts.Above, 0, Room.Above) };
     }
+
+    /// <summary>The sprite pass's draws a frame counts: the stretch of what stands, what moves over it, and what moves above.</summary>
+    const int SpriteDraws = 3;
 
     /// <summary>
     /// The interface and the debug layers' own instance buffer, written the same way the sprites'
@@ -316,12 +506,15 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     /// How many overlay quads are to be drawn. <b>A closed panel writes zero and its draw becomes a
     /// no-op the GPU skips</b> — which is the whole reason an interface opening re-records nothing.
     /// </summary>
-    public void SetOverlayCount(int count) =>
+    public void SetOverlayCount(int count)
+    {
+        _written += ((long)Math.Clamp(count, 0, OverlayCapacity) * sizeof(OverlayQuad)) + sizeof(DrawIndirectCommand);
         _overlayIndirect[(int)_image].Span<DrawIndirectCommand>()[0] = new DrawIndirectCommand
         {
             VertexCount = 4,
             InstanceCount = (uint)Math.Clamp(count, 0, OverlayCapacity),
         };
+    }
 
     /// <summary>The same buffer's worth of quads drawn <em>under</em> the bodies — the town's own ground marks.</summary>
     public Span<OverlayQuad> Underlay => _underlay[(int)_image].Span<OverlayQuad>()[..UnderlayCapacity];
@@ -336,6 +529,8 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     /// <summary>And how many of each run are to be drawn, on the same terms.</summary>
     public void SetUnderlayCount(int count, int above)
     {
+        _written += ((long)(Math.Clamp(count, 0, UnderlayCapacity) + Math.Clamp(above, 0, UnderlayAboveCapacity)) * sizeof(OverlayQuad))
+                    + (2 * sizeof(DrawIndirectCommand));
         var draws = _underlayIndirect[(int)_image].Span<DrawIndirectCommand>();
         draws[0] = new DrawIndirectCommand { VertexCount = 4, InstanceCount = (uint)Math.Clamp(count, 0, UnderlayCapacity) };
         draws[1] = new DrawIndirectCommand
@@ -348,63 +543,44 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     /// <summary>Where every sheet was packed, which is what a sprite's quad is shaped by (<see cref="TownSprites.ReadAspects"/>).</summary>
     public SheetAtlas Atlas => _atlas;
 
-    /// <summary>How many triangles of the town's standing ground are being drawn.</summary>
-    public int TriangleCount => (int)(_indexCount / 3);
-
-    /// <summary>
-    /// <b>Which of the ground's own layers are drawn</b> (OBS-2v), as a bit per <see cref="GroundPart"/>.
-    /// The parts asked for are packed to the front of the index buffer and the draw's count is cut to what
-    /// was written, so a layer switched off costs one upload at the moment it is switched and nothing per
-    /// frame — no recording, no pipeline and no ground laid again.
-    /// </summary>
-    /// <remarks>
-    /// <b>The copy is from the mesh and never from the buffer</b>, so a part switched back on comes back
-    /// whole however many times the set has changed. The device is waited on first: the memory being
-    /// rewritten is the memory a frame still in flight is reading its triangles out of.
-    /// </remarks>
-    public void ShowGround(uint parts)
+    /// <summary>How many triangles of the town's standing ground the layers shown hold.</summary>
+    public int TriangleCount
     {
-        if (parts == _shownParts) return;
-
-        _shownParts = parts;
-        _vk.Api.DeviceWaitIdle(_vk.Device);
-
-        var written = 0;
-        for (var part = 0; part < GroundParts.Count; part++)
+        get
         {
-            if ((parts & (1u << part)) != 0) written += _mesh.Parts[part].IndexCount;
-        }
-
-        _indices.Upload<uint>(written, Packed, PipelineStageFlags2.IndexInputBit, AccessFlags2.IndexReadBit);
-
-        // The level above is the last part and so the last run packed: the second draw is whatever of it is shown.
-        _indexCount = (uint)written;
-        var above = (parts & GroundParts.Bit(GroundPart.Above)) != 0 ? (uint)_mesh.Parts[(int)GroundPart.Above].IndexCount : 0u;
-        Count(_indexCount - above, above);
-
-        void Packed(Span<uint> into)
-        {
-            var at = 0;
+            var indices = 0;
             for (var part = 0; part < GroundParts.Count; part++)
             {
-                if ((parts & (1u << part)) == 0) continue;
-
-                var tally = _mesh.Parts[part];
-                _mesh.Indices.Slice(tally.FirstIndex, tally.IndexCount).CopyTo(into[at..]);
-                at += tally.IndexCount;
+                if ((_shownParts & (1u << part)) != 0) indices += _mesh.Parts[part].IndexCount;
             }
+
+            return indices / 3;
         }
     }
 
     /// <summary>
-    /// The ground's two draws: everything on the ground from the first index, and the level above after it
-    /// (<see cref="GroundPart.Above"/>) — the one drawn under the bodies on the ground and the other over them.
+    /// <b>Which of the ground's own layers are drawn</b> (OBS-2v), as a bit per <see cref="GroundPart"/>. A layer
+    /// switched off draws nought in each of its draws from the next frame — no upload, no recording, no pipeline and no
+    /// ground laid again.
     /// </summary>
-    void Count(uint ground, uint above)
+    public void ShowGround(uint parts) => _shownParts = parts;
+
+    /// <summary>
+    /// This image's draws of the ground written: every class of every part shown, the rows the frame's view reaches — or
+    /// every row, where no view was handed over.
+    /// </summary>
+    void WriteTheGround(int image)
     {
-        var draws = _indirect.Span<DrawIndexedIndirectCommand>();
-        draws[0] = new DrawIndexedIndirectCommand { IndexCount = ground, InstanceCount = 1 };
-        draws[1] = new DrawIndexedIndirectCommand { IndexCount = above, InstanceCount = 1, FirstIndex = ground };
+        var draws = _groundDraws[image].Span<DrawIndexedIndirectCommand>();
+        if (_groundView is { } view)
+        {
+            _bands.Write(_shownParts, view.CentreM.Y - (view.SpanM.Y * 0.5f), view.CentreM.Y + (view.SpanM.Y * 0.5f), draws);
+        }
+        else
+        {
+            _bands.WriteWhole(_shownParts, draws);
+        }
+        _written += (long)_bands.Draws * sizeof(DrawIndexedIndirectCommand);
     }
 
     public Extent2D Size => _target.Extent;
@@ -415,6 +591,18 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     /// frame rate under FIFO is made of.
     /// </summary>
     public double BlockedMs { get; private set; }
+
+    /// <summary>
+    /// What the last <see cref="Frame"/> wrote into memory the device reads: the runs and quads its counts say were
+    /// filled, the counts themselves, the camera, and whatever another writer declared (<see cref="Wrote"/>). An
+    /// instrument (<see cref="Debug.FrameParts.WrittenBytes"/>).
+    /// </summary>
+    public long WrittenBytes { get; private set; }
+
+    long _written;
+
+    /// <summary>Bytes a writer other than this renderer put into mapped memory for the frame being filled.</summary>
+    public void Wrote(long bytes) => _written += bytes;
 
     /// <summary>
     /// One frame. Everything that changes between frames is already in mapped memory — the memory of
@@ -431,7 +619,13 @@ internal sealed unsafe partial class TownRenderer : IDisposable
 
         var api = _vk.Api;
         var image = _image;
-        _cameras[image].Span<CameraView>()[0] = view with { SurfacePeriodsM = _mesh.SurfacePeriodsM, WaterPeriodM = _mesh.WaterPeriodM };
+        _cameras[image].Span<CameraView>()[0] = view with
+        {
+            SurfacePeriodsM = _mesh.SurfacePeriodsM, WaterPeriodM = _mesh.WaterPeriodM, PropCull = _propCull,
+        };
+        WriteTheGround((int)image);
+        WrittenBytes = _written + sizeof(CameraView);
+        _written = 0;
 
         var acquired = _acquired[_acquireSlot];
         var commands = _commands[image];
@@ -475,8 +669,8 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         var api = _vk.Api;
         var waitedFrom = Stopwatch.GetTimestamp();
 
-        _acquireSlot = (int)(_acquires++ % _acquired.Length);
-        if (!_target.Acquire(_acquired[_acquireSlot], out _image))
+        var slot = _acquireSpare;
+        if (!_target.Acquire(_acquired[slot], out _image))
         {
             // Out of date: there is no image, and nothing to wait on. The rebuild takes one of its own
             // — and a rebuild already under way is left to finish rather than started again inside
@@ -484,6 +678,10 @@ internal sealed unsafe partial class TownRenderer : IDisposable
             if (!_rebuilding) Recreate();
             return;
         }
+
+        _acquireSpare = _acquiredBy[_image];
+        _acquiredBy[_image] = slot;
+        _acquireSlot = slot;
 
         var fence = _drawn[_image];
         Vk.Count();
@@ -620,7 +818,7 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _vk.Api.DestroyDescriptorSetLayout(_vk.Device, _setLayout, null);
         foreach (var shader in (ReadOnlySpan<ShaderModule>)[
                      _vertexShader, _fragmentShader, _spriteVertexShader, _spriteFragmentShader,
-                     _overlayVertexShader, _overlayFragmentShader])
+                     _overlayVertexShader, _overlayFragmentShader, _markVertexShader, _sceneryVertexShader])
         {
             Vk.Count();
             _vk.Api.DestroyShaderModule(_vk.Device, shader, null);
@@ -628,11 +826,13 @@ internal sealed unsafe partial class TownRenderer : IDisposable
 
         _vertices.Dispose();
         _indices.Dispose();
-        _indirect.Dispose();
         _glyphs.Dispose();
         _sheetTable.Dispose();
         _sheetPages.Dispose();
         _standing.Dispose();
+        _markLook.Dispose();
+        _sceneryPieces.Dispose();
+        _sceneryLooks.Dispose();
         foreach (var texture in _textures) texture.Dispose();
     }
 

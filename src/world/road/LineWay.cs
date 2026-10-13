@@ -12,24 +12,6 @@ namespace TrafficSimulation.World.Road;
 internal readonly record struct LineWay(int Way, float FromM, float ToM, float LineFromM);
 
 /// <summary>
-/// <b>What one agent's plan was answered</b>, read against the reservations and not yet laid: where on its own
-/// line it ends, the ground it keeps off what ended it, what that was, and on which way.
-/// </summary>
-/// <param name="CutLineM">Infinity where it can have all it asked for.</param>
-/// <param name="CutBy"><see cref="LaneClaim.Nothing"/> where nothing ended it.</param>
-/// <param name="CutOn">The way it was refused on, or <see cref="LaneOccupancy.NoHold"/>.</param>
-/// <param name="CutWayM">
-/// Where on that way it was refused — <b>the metre the answer was read at, and the one the piece is cut to</b>.
-/// Carried to the line and back instead, it comes home a hair past where it was refused, and cut there it leaves
-/// that hair lying over whatever refused it (<see cref="LaneOccupancy.EndTheAnswers"/>).
-/// </param>
-internal readonly record struct PlanAnswer(
-    float CutLineM, float MarginM, LaneClaim CutBy, int CutOn, float CutWayM = float.PositiveInfinity)
-{
-    public static PlanAnswer Whole => new(float.PositiveInfinity, 0f, LaneClaim.Nothing, LaneOccupancy.NoHold);
-}
-
-/// <summary>
 /// <b>A line's metres and a way's, carried one to the other</b> — the trips out and home every plan makes between
 /// the line its holder drives or walks and the ways under it.
 /// </summary>

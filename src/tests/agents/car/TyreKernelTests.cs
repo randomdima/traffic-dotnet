@@ -35,8 +35,9 @@ public class TyreKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
 
     [StructLayout(LayoutKind.Sequential)]
     readonly record struct Figures(
-        uint CarCount, float DtS, float StandardGravityMps2, float WheelSpinFadeMps, float WheelSpinAllowanceMps,
-        float MarkSlipMps, float MarkCorneringSlipMps, float PloughCrawlMps, float EngineBrakingMps2);
+        uint CarCount, float DtS, float WheelSpinFadeMps, float WheelSpinAllowanceMps, float MarkSlipMps,
+        float MarkCorneringSlipMps, float PloughCrawlMps, float EngineBrakingMps2, float WorkingSlipTangent,
+        float AlongSlipEpsilonMps, float LiftedAxleLoadShare, float AckermannLeastSteerRad, float InnerWheelLeastRadiusM);
 
     sealed record Car(CarBuild Build, int BuildAt, CarPose Pose, DriveCommand Command, float CeilingMps2, SurfaceUnderWheel[] Ground, float[] Spin);
 
@@ -110,8 +111,10 @@ public class TyreKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         using var batch = new ComputeBatch(device.Vk);
         var recording = batch.Begin();
         kernel.Dispatch(recording, set, (uint)((cars.Length + 63) / 64), new Figures(
-            (uint)cars.Length, dtS, Config.Tyre.StandardGravityMps2, Config.Tyre.WheelSpinFadeMps, Config.Tyre.WheelSpinAllowanceMps,
-            Config.Marks.SlipMps, Config.Marks.CorneringSlipMps, Config.Marks.PloughCrawlMps, Config.CarEngineBrakingMps2));
+            (uint)cars.Length, dtS, Config.Tyre.WheelSpinFadeMps, Config.Tyre.WheelSpinAllowanceMps, Config.Marks.SlipMps,
+            Config.Marks.CorneringSlipMps, Config.Marks.PloughCrawlMps, Config.CarEngineBrakingMps2,
+            Config.Tyre.WorkingSlipTangent, Config.Tyre.AlongSlipEpsilonMps, Config.Tyre.LiftedAxleLoadShare,
+            Config.Tyre.AckermannLeastSteerRad, Config.Tyre.InnerWheelLeastRadiusM));
         batch.SubmitAndWait();
 
         var differ = new List<string>();

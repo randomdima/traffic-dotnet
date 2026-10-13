@@ -25,20 +25,6 @@ internal sealed partial class PhysicsWorld
 
         _filedCount += KeepTheUnfiled(_filed.AsSpan(_filedCount));
         _dynamicGrid.Rebuild(_filed.AsSpan(0, _filedCount), _leastM, _mostM, _config.Grid.Main);
-        _movingIndexStale = false;
-    }
-
-    /// <summary>
-    /// The moving index brought up to date for a query asked outside a step — after a body has been
-    /// contained, released or added since the last one.
-    /// </summary>
-    void EnsureIndex()
-    {
-        if (_staticIndexStale) SettleStatics();
-        if (!_movingIndexStale) return;
-
-        LayTheIndexes();
-        IntegratedBodyCount = _movingCount;
     }
 
     /// <summary>The awake roster taken in and the moving and frozen indexes laid over it, as a step begins by.</summary>
@@ -55,11 +41,8 @@ internal sealed partial class PhysicsWorld
     /// nothing that decides anything.
     /// </summary>
     /// <remarks>
-    /// <b>As they stand, and never brought up to date first.</b> A query outside a step reindexes the moving
-    /// set before answering (<see cref="EnsureIndex"/>) and a picture may not: that call rewrites
-    /// <see cref="IntegratedBodyCount"/>, which the panel beside the picture is reading, and the lattice a step
-    /// was actually priced on is the one it began from — a tick behind the bodies drawn over it. <b>An entry of the
-    /// frozen index is only the truth while its body is</b> <see cref="BodyFlags.FiledFrozen"/>: one woken and
+    /// <b>As they stand, and never brought up to date first</b>: the lattice a step was actually priced on is the
+    /// one it began from — a tick behind the bodies drawn over it. <b>An entry of the frozen index is only the truth while its body is</b> <see cref="BodyFlags.FiledFrozen"/>: one woken and
     /// moved since is left standing there until the index is laid again.
     /// </remarks>
     public CellGrid StaticIndex => _staticGrid;
@@ -85,11 +68,6 @@ internal sealed partial class PhysicsWorld
     /// first cell it shares (<see cref="CellGrid.FirstShared"/>) would judge that cell by bounds a tick newer than the
     /// filing, and a car whose corner had just crossed into a cell it is not filed in yet would be kept in none.
     /// </para>
-    /// <para>
-    /// <b>After a step taken elsewhere the indexes are laid here</b>, the first time a picture asks (<see cref="BeginTheStepTaken"/>):
-    /// nothing in such a step reads them, so they are laid once a frame rather than once a tick — at the poses the step
-    /// left, and with the census left alone.
-    /// </para>
     /// </remarks>
     /// <returns>
     /// How many were written, or −1 where the box spans more than <paramref name="mostCells"/> cells of either grid —
@@ -97,8 +75,6 @@ internal sealed partial class PhysicsWorld
     /// </returns>
     public int InBox(Vector2 leastM, Vector2 mostM, BodyKind kind, int mostCells, Span<int> into)
     {
-        if (_indexedWhenAsked && _movingIndexStale) LayTheIndexes();
-
         var written = InBox(_dynamicGrid, leastM, mostM, kind, mostCells, into);
         if (written < 0) return -1;
 

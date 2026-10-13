@@ -22,9 +22,6 @@ internal readonly record struct BodyTag(BodyKind Kind, int Index)
     public static BodyTag Unpack(int packed) => new((BodyKind)(packed >>> 24), (packed & 0xFFFFFF) - 1);
 }
 
-/// <summary>What a ray found: what it is, where it was met, how fast it is going, and how far along the ray it lay.</summary>
-internal readonly record struct RayHit(BodyTag Tag, Vector2 PointM, Vector2 VelocityMps, float DistanceM);
-
 /// <summary>
 /// Two bodies that <b>began</b> touching in the step just taken, and the contact normal, which points
 /// from the first towards the second — and, where the step was taken elsewhere, how fast the two closed along it on
@@ -129,9 +126,6 @@ internal sealed partial class PhysicsWorld
     /// <summary>Whether a body may freeze at the end of this step: its own rest, then its contacts' (SOL-37b).</summary>
     bool[] _settling = new bool[Room];
 
-    /// <summary>The step a body last froze at (<see cref="FrozeAtStep"/>).</summary>
-    int[] _frozeAtStep = new int[Room];
-
     int[] _static = new int[Room];
 
     int _count;
@@ -169,7 +163,7 @@ internal sealed partial class PhysicsWorld
     public BodyId AddPerson(Vector2 positionM)
     {
         var body = Add(
-            positionM, 0f, Vector2.Zero, _config.PersonDiameterM * 0.5f, CollisionLayer.Person,
+            positionM, 0f, Vector2.Zero, _config.PersonRadiusM, CollisionLayer.Person,
             BodyFlags.Enabled | BodyFlags.RotationLocked, _config.Person.MassKg);
 
         _dynamicCount++;
@@ -214,27 +208,28 @@ internal sealed partial class PhysicsWorld
         cornerRadiusM: 0f, _config.Car.MassKg);
 
     /// <summary>A prop: a static shape with no core, which is the disc its canopy is.</summary>
-    public BodyId AddStaticDisc(Vector2 centreM, float radiusM)
-    {
-        var body = Add(
-            centreM, 0f, Vector2.Zero, radiusM, CollisionLayer.Static,
-            BodyFlags.Enabled | BodyFlags.Static | BodyFlags.RotationLocked, massKg: 0f);
-
-        _static[_staticCount++] = body.Index;
-        _staticIndexStale = true;
-        return body;
-    }
+    public BodyId AddStaticDisc(Vector2 centreM, float radiusM) => AddStatic(centreM, 0f, Vector2.Zero, radiusM);
 
     /// <summary>
     /// One part of a building: a static box turned the way the plan turned it, its corners rounded at
     /// <paramref name="cornerRadiusM"/> inside the size given — square where that is nought, a disc where it is half a
     /// square's side.
     /// </summary>
-    public BodyId AddStaticBox(Vector2 centreM, Vector2 sizeM, float headingRad, float cornerRadiusM = 0f)
+    public BodyId AddStaticBox(Vector2 centreM, Vector2 sizeM, float headingRad, float cornerRadiusM = 0f) => AddStatic(
+        centreM, headingRad, Vector2.Max((sizeM * 0.5f) - new Vector2(cornerRadiusM), Vector2.Zero), cornerRadiusM);
+
+    /// <summary>The town's furniture stood in the table, every row in the order it was laid, and its grid settled.</summary>
+    public void AddStatics(StaticBodies statics)
+    {
+        statics.StandIn(this);
+        SettleStatics();
+    }
+
+    internal BodyId AddStatic(Vector2 centreM, float headingRad, Vector2 extentM, float cornerRadiusM)
     {
         var body = Add(
-            centreM, headingRad, Vector2.Max((sizeM * 0.5f) - new Vector2(cornerRadiusM), Vector2.Zero), cornerRadiusM,
-            CollisionLayer.Static, BodyFlags.Enabled | BodyFlags.Static | BodyFlags.RotationLocked, massKg: 0f);
+            centreM, headingRad, extentM, cornerRadiusM, CollisionLayer.Static,
+            BodyFlags.Enabled | BodyFlags.Static | BodyFlags.RotationLocked, massKg: 0f);
 
         _static[_staticCount++] = body.Index;
         _staticIndexStale = true;
@@ -255,16 +250,10 @@ internal sealed partial class PhysicsWorld
         // Nothing can be inside a body that is not in the world, and the step will not clear this for it.
         _overlapM[index] = 0f;
 
-        // The index is deliberately *not* marked stale. Going into a container only clears a bit that
-        // every reader of the index already tests — the broad phase, the ray sweep and the moving roster
-        // all skip a body that is not enabled — so the entry left behind is filtered rather than found.
-        // Marking it would rebuild the whole moving grid inside phase 3, on the next headway ray any car
-        // cast: a walker getting into a car would cost the town its own broad phase over again.
-        // Coming back out is the other case and does mark it (Release), because a released body stands
-        // somewhere new and the grid would otherwise answer about where it went in.
-        //
-        // The census a rebuild would have retaken is therefore retaken here, and the awake roster is left to
-        // drop it at the next step rather than searched for it now.
+        // The entry left in the index is filtered rather than found: every reader of it — the broad phase,
+        // InBox and the moving roster — skips a body that is not enabled. The census the next lay would retake
+        // is retaken here, and the awake roster is left to drop it at the next step rather than searched for
+        // it now.
         if ((_flags[index] & (BodyFlags.Enabled | BodyFlags.Frozen)) == BodyFlags.Enabled)
         {
             IntegratedBodyCount--;
@@ -274,7 +263,6 @@ internal sealed partial class PhysicsWorld
         Wake(index);
         RestAfresh(index);
         _flags[index] &= ~(BodyFlags.Enabled | BodyFlags.FiledFrozen);
-        Changed(index, RowChange.Motion | RowChange.Filter);
     }
 
     /// <summary>
@@ -290,8 +278,6 @@ internal sealed partial class PhysicsWorld
         _yawRateRadPerS[index] = 0f;
         _flags[index] |= BodyFlags.Enabled;
         Join(index);
-        _movingIndexStale = true;
-        Changed(index, RowChange.Pose | RowChange.Motion | RowChange.Filter);
     }
 
     /// <summary>
@@ -319,7 +305,6 @@ internal sealed partial class PhysicsWorld
         _category[index] = (ulong)layer;
         _mask[index] = MaskOf(layer);
         Wake(index);
-        Changed(index, RowChange.Filter);
     }
 
     /// <summary>
@@ -335,13 +320,12 @@ internal sealed partial class PhysicsWorld
         var index = body.Index;
         _channels[index] = channels;
         Wake(index);
-        Changed(index, RowChange.Filter);
     }
 
     /// <summary>
     /// Lay the grid over the town's furniture, once all of it is standing. Call it after the last static
-    /// body and never in a tick: the grid is built once and read for the rest of the run by every ray,
-    /// every clearance query and every dynamic body's broad phase.
+    /// body and never in a tick: the grid is built once and read for the rest of the run by every
+    /// clearance query and every dynamic body's broad phase.
     /// </summary>
     /// <remarks>
     /// Forgetting it cannot lose a building — adding static geometry marks the grid stale and the next
@@ -362,27 +346,8 @@ internal sealed partial class PhysicsWorld
 
     public float MassOf(BodyId body) => _massKg[body.Index];
 
-    /// <summary>
-    /// <b>What a standing body weighs, changed under it.</b> A body's shape, place and motion are left
-    /// exactly as they are; only what it takes to push it and to turn it moves.
-    /// </summary>
-    /// <remarks>
-    /// It exists for the figures panel and nothing in the simulation calls it: a car's weight is its
-    /// variant's and does not change while it is being driven. An immovable body has no weight to change
-    /// and is left alone.
-    /// </remarks>
-    public void Reweigh(BodyId body, float massKg)
-    {
-        var index = body.Index;
-        if ((_flags[index] & BodyFlags.Static) != 0 || massKg <= 0f) return;
-
-        _massKg[index] = massKg;
-        _inverseMass[index] = 1f / massKg;
-        _inverseInertia[index] = (_flags[index] & BodyFlags.RotationLocked) != 0
-            ? 0f
-            : 1f / (massKg * Shape.InertiaPerKg(_extentM[index], _cornerRadiusM[index]));
-        Changed(index, RowChange.Mass);
-    }
+    /// <summary>The collision channels a body is on (PHY-1a, <see cref="PutOnChannels"/>).</summary>
+    public byte ChannelsOf(BodyId body) => _channels[body.Index];
 
     /// <summary>
     /// <b>What an impulse at a point on this body is actually worth</b> — the two inverses the response is
@@ -412,8 +377,8 @@ internal sealed partial class PhysicsWorld
 
     /// <summary>
     /// What a body is, to whoever finds it: which roster it is on and where on it. Kept in the table
-    /// beside the pose rather than in a user-data field, because it is read off a ray hit in the middle
-    /// of a tick and a lookup by index is a load where a boxed field would be a cast.
+    /// beside the pose rather than in a user-data field, because it is read off a touch begun or a body in a
+    /// box and a lookup by index is a load where a boxed field would be a cast.
     /// </summary>
     public void Tag(BodyId body, BodyTag tag) => _tag[body.Index] = tag.Packed;
 
@@ -429,7 +394,6 @@ internal sealed partial class PhysicsWorld
         Wake(index);
         var byMps = impulseNs * _inverseMass[index];
         _velocityMps[index] += byMps;
-        Pushed(index, byMps, 0f);
     }
 
     /// <summary>
@@ -446,7 +410,6 @@ internal sealed partial class PhysicsWorld
         var byYawRadPerS = _inverseInertia[index] * Shape.Cross(atM - _positionM[index], impulseNs);
         _velocityMps[index] += byMps;
         _yawRateRadPerS[index] += byYawRadPerS;
-        Pushed(index, byMps, byYawRadPerS);
     }
 
     /// <summary>Whether a body is frozen (SOL-37): at rest, with its pose and motion exactly what they were when it froze.</summary>
@@ -455,17 +418,11 @@ internal sealed partial class PhysicsWorld
     /// <summary>
     /// <b>Whether this body was frozen through the whole of the last step</b>, so its pose and motion are to the bit
     /// what they were before it. A body frozen <em>by</em> the last step was moved by it, and one inside a container
-    /// is not frozen at all.
+    /// is not frozen at all — so a body frozen and not through the last step froze at it, which is how whoever kept
+    /// something it worked out at a frozen pose tells that the body has stood there since.
     /// </summary>
     public bool FrozenThroughLastStep(BodyId body) =>
         (_flags[body.Index] & BodyFlags.Frozen) != 0 && _ownedInStep[body.Index] != _stepStamp;
-
-    /// <summary>
-    /// <b>Which freezing a frozen body is in</b>: the step it froze at, the same for as long as it stays frozen and a
-    /// later one each time it freezes again — so whoever kept something it worked out at a frozen pose can tell that
-    /// the body has stood there since. Meaningless for a body that is not frozen (<see cref="IsFrozen"/>).
-    /// </summary>
-    public int FrozeAtStep(BodyId body) => _frozeAtStep[body.Index];
 
     /// <summary>
     /// How deep this body was into everything touching it when the last step was taken, in metres. An
@@ -475,39 +432,16 @@ internal sealed partial class PhysicsWorld
     /// The step's own manifold separations and not a sweep taken afterwards, so it answers about the
     /// geometry the solver acted on rather than giving a second opinion about it. The figure belongs to
     /// the poses the step began at and not to the ones it left behind, which is why the soak counts
-    /// <em>runs</em> of ticks rather than instants. After a step taken elsewhere it is known only where it was handed
-    /// over (<see cref="TakeTheOverlapM"/>), and asking otherwise throws.
+    /// <em>runs</em> of ticks rather than instants.
     /// </remarks>
-    public float OverlapOf(BodyId body) =>
-        _overlapTaken
-            ? _overlapM[body.Index]
-            : throw new InvalidOperationException("The last step was taken elsewhere and how deep its bodies were was not handed over.");
+    public float OverlapOf(BodyId body) => _overlapM[body.Index];
 
     /// <summary>
     /// The one place a layer becomes a body's filter. The mask is the <em>symmetrised</em> one, so the
     /// solver's <c>&amp;&amp;</c> over the two masks answers "either scans the other"
     /// (<see cref="CollisionLayers"/>).
     /// </summary>
-    static ulong MaskOf(CollisionLayer layer) => (ulong)CollisionLayers.MaskOf(layer);
-
-    /// <summary>
-    /// A query from something that is itself on the road: everything a car or a walker would scan. Its
-    /// mask is the layer table's, so what a ray finds is decided by the same matrix that decides what a
-    /// body hits, and not by a filter of the query's own.
-    /// </summary>
-    /// <remarks>
-    /// Whether the town's furniture is in a ray's question is decided by <em>which grids the ray enters</em>
-    /// (<see cref="CastRay"/>) and not by striking a bit out of this. A mask can only reject what has
-    /// already been reached; not entering the static grid is not reaching it.
-    /// </remarks>
-    const CollisionLayer LookingAs = CollisionLayer.Car;
-
-    /// <summary>The channels a ray looks on: the ground's, which is where everything that casts one stands.</summary>
-    const byte LookingOn = CityPlan.RoadArrays.GroundChannel;
-
-    static readonly ulong LookingMask = MaskOf(LookingAs);
-
-    static readonly ulong StaticsOnlyMask = (ulong)CollisionLayer.Static;
+    internal static ulong MaskOf(CollisionLayer layer) => (ulong)CollisionLayers.MaskOf(layer);
 
     /// <param name="extentM">
     /// The half-extents of the shape's <em>core</em>, which <paramref name="cornerRadiusM"/> is rolled
@@ -542,8 +476,6 @@ internal sealed partial class PhysicsWorld
             : 1f / (massKg * Shape.InertiaPerKg(extentM, cornerRadiusM));
 
         Place(index, positionM, headingRad);
-        _movingIndexStale = true;
-        Changed(index, RowChange.Whole);
         return new BodyId(index + 1);
     }
 
@@ -609,14 +541,7 @@ internal sealed partial class PhysicsWorld
         Array.Resize(ref _ownedInStep, room);
         Array.Resize(ref _restTicks, room);
         Array.Resize(ref _settling, room);
-        Array.Resize(ref _frozeAtStep, room);
         Array.Resize(ref _static, room);
-        Array.Resize(ref _changed, room);
-        Array.Resize(ref _changedList, room);
-        Array.Resize(ref _restAfresh, room);
-        Array.Resize(ref _rowChange, room);
-        Array.Resize(ref _pushedMps, room);
-        Array.Resize(ref _pushedYawRadPerS, room);
         ResizeRosters(room);
     }
 }

@@ -26,35 +26,41 @@ public class PersonActionTests
     const int WatchedTicks = 3_600;
 
     /// <summary>
-    /// <b>A walker put down in the carriageway walks back onto the pavement over a claim on the lane it stands in</b>
-    /// (PER-25): it is getting back onto its way, and the straight there is ground its own plan holds before it is
-    /// walked — or, refused, ground it waits for.
+    /// <b>A walker put down in the carriageway walks straight back onto its way over a claim on the stretch of it it steps
+    /// onto</b> (PER-25, the root decision log's 2026-10-13 ruling): where it lands is ground its own plan holds before it
+    /// is walked — or, refused, ground it waits for — and the lane it crosses is the world's to read its body on.
     /// </summary>
     [Fact]
-    public void AWalkerInTheRoadClaimsTheLaneItWalksBackOver()
+    public void AWalkerInTheRoadClaimsTheStretchOfItsWayItStepsBackOnto()
     {
         using var world = new TownWorld(Towns.Built, Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         loop.Advance(WarmUpTicks);
 
-        var (walker, lane) = PutAWalkerInTheRoad(loop);
-        loop.Advance(1);
+        var (walker, way) = PutAWalkerInTheRoad(loop);
 
+        // The world reads where the body was put, and the walker learns it is in the road from that (TER-4c.2).
+        world.LayTheClaims();
         Assert.Equal(PersonAction.Rejoin, world.People.Action[walker]);
 
-        var hold = world.WalkHold(walker);
-        Assert.True(hold != LaneOccupancy.NoHold, $"walker {walker} walking back off lane {lane} laid no hold");
+        var key = LaneOccupancy.KeyOf(world.GroundHeldAs(walker, out var roster), roster);
+        var claimedItsWay = false;
+        for (var tick = 0; tick < WalkBackTicks && world.People.Action[walker] == PersonAction.Rejoin; tick++)
+        {
+            loop.Advance(1);
+            var hold = world.WalkHold(walker);
+            if (!world.ClaimsLaidThisTick || hold == LaneOccupancy.NoHold) continue;
 
-        var way = world.Ways.OfRoadLane(lane);
-        Span<LaneClaim> claims = stackalloc LaneClaim[MostOnAWay];
-        var count = world.Occupancy.CopyPlannedTo(way, claims);
-        var holdsIt = false;
-        for (var at = 0; at < count; at++) holdsIt |= claims[at].Hold == hold && !claims[at].Secondary;
+            foreach (var claim in world.Occupancy.Mains(way)) claimedItsWay |= world.Occupancy.HoldersOf(claim)[0] == key;
+            claimedItsWay |= world.Occupancy.CutOf(hold).Way == way;
+        }
 
-        Assert.True(
-            holdsIt || world.Occupancy.HoldCutOn(hold) == way,
-            $"walker {walker} walking back off lane {lane} neither holds it nor was refused it");
+        Assert.NotEqual(PersonAction.Rejoin, world.People.Action[walker]);
+        Assert.True(claimedItsWay, $"walker {walker} walked back onto way {way} without ever claiming it or being refused it");
     }
+
+    /// <summary>How long a walker a few metres out in the road is given to walk back onto its way.</summary>
+    const int WalkBackTicks = 600;
 
     /// <summary>
     /// <b>No walker is granted ground its action has not claimed</b>: a grant is what survives of the hold its walk
@@ -84,13 +90,13 @@ public class PersonActionTests
 
     /// <summary>
     /// A walker out on a stretch of its route, lifted into the middle of the street lane nearest it and left walking —
-    /// and that lane.
+    /// and the way it was walking.
     /// </summary>
     /// <remarks>
     /// <b>Never one whose decision comes round on the next tick</b>: a walker deciding there lays its walk again from
     /// where it stands, which is the other way back onto the network (PER-25), and walks it for that tick.
     /// </remarks>
-    static (int Walker, int Lane) PutAWalkerInTheRoad(SimLoop<TownWorld> loop)
+    static (int Walker, int Way) PutAWalkerInTheRoad(SimLoop<TownWorld> loop)
     {
         var world = loop.World;
         var people = world.People;
@@ -106,9 +112,9 @@ public class PersonActionTests
             var at = Spline.SampleAt(world.Roads.ArcsOf(lane), alongM);
             if ((at.PositionM - people.PositionM[walker]).Length() > NearALaneM) continue;
 
-            people.PositionM[walker] = at.PositionM;
-            world.PhysicsForInstruments.Release(people.Body[walker], at.PositionM, people.HeadingRad[walker]);
-            return (walker, lane);
+            var way = people.OnWay[walker];
+            world.StandTheWalkerAt(walker, at.PositionM, people.HeadingRad[walker]);
+            return (walker, way);
         }
 
         throw new InvalidOperationException("no walker out on the pavement beside a street lane to put in the road");
@@ -116,7 +122,4 @@ public class PersonActionTests
 
     /// <summary>How near a walker's pavement has to be to a lane for the lane to be the street beside it.</summary>
     const float NearALaneM = 8f;
-
-    /// <summary>How many reservations one way may hold before the reading is a bound rather than the way.</summary>
-    const int MostOnAWay = 128;
 }

@@ -32,7 +32,8 @@ public class WalkerKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
 
     [StructLayout(LayoutKind.Sequential)]
     readonly record struct Figures(
-        uint WalkerCount, float DtS, float WalkSpeedMps, float TurnRateDegPerS, float FootGripMps2, float SlidingGripMps2);
+        uint WalkerCount, float DtS, float WalkSpeedMps, float TurnRateDegPerS, float FootGripMps2, float SlidingGripMps2,
+        float AimUnderfootM2);
 
     /// <summary>Where a walker's aim stands against its body, which is every way the follower's own branches go.</summary>
     enum AimKind
@@ -124,7 +125,7 @@ public class WalkerKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         var recording = batch.Begin();
         kernel.Dispatch(recording, set, (uint)((walkers.Length + 63) / 64), new Figures(
             (uint)walkers.Length, Config.TickSeconds, Config.PersonWalkSpeedMps, Config.PersonTurnRateDegPerS,
-            Config.PersonFootGripMps2, Config.PersonSlidingGripMps2));
+            Config.PersonFootGripMps2, Config.PersonSlidingGripMps2, Config.Person.AimUnderfootM2));
         batch.SubmitAndWait();
 
         return outcomes.Span<OutcomeRow>().ToArray();

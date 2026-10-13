@@ -21,9 +21,6 @@ internal sealed class Rejoining(DrivingGround ground, CarActions actions, Follow
     /// <summary>How long until a car at rest off its line looks for the lane under it again.</summary>
     readonly float[] _looksInS = new float[ground.Cars.Capacity];
 
-    /// <summary>Each car's clock to its next look, for the device to lay once at load (<c>app/devicetick/TownState</c>).</summary>
-    internal float[] LooksInS => _looksInS;
-
     CarFleet Cars => ground.Cars;
 
     /// <summary>
@@ -50,20 +47,14 @@ internal sealed class Rejoining(DrivingGround ground, CarActions actions, Follow
         town.Hold(car, pose, DrivingHold.LostLine);
     }
 
-    /// <summary>
-    /// <b>What losing its line does to a car but stop it</b> (<see cref="LoseTheLine"/>): into Rejoin, and the junction it
-    /// was coming to forgotten — for a car whose tick stopped it elsewhere (a device's).
-    /// </summary>
-    public void Lose(int car)
+    /// <summary>What losing its line does to a car but stop it (<see cref="LoseTheLine"/>): into Rejoin, and the junction it was coming to forgotten.</summary>
+    void Lose(int car)
     {
         if (Cars.Action[car] != CarAction.Rejoin) _looksInS[car] = 0f;
 
         actions.Enter(car, CarAction.Rejoin);
-        Cars.InsideTheBox[car] = false;
-        Cars.LightAheadM[car] = float.PositiveInfinity;
         Cars.ToTheBoxM[car] = float.PositiveInfinity;
         Cars.TurningAtTheBox[car] = false;
-        Cars.BoxIsOurs[car] = false;
     }
 
     /// <summary>
@@ -73,7 +64,7 @@ internal sealed class Rejoining(DrivingGround ground, CarActions actions, Follow
     public void Decide<TTown>(ref TTown town, int car, float sinceLastDecisionS)
         where TTown : struct, ICarTown
     {
-        var forward = Heading.Unit(Cars.HeadingRad[car]);
+        var forward = Cars.Forward[car];
         if (MathF.Abs(Vector2.Dot(Cars.VelocityMps[car], forward)) > ground.Config.Driving.StopSpeedMps) return;
 
         ref var inS = ref _looksInS[car];

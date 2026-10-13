@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using TrafficSimulation.World.Terrain;
 
 namespace TrafficSimulation.App.Render;
@@ -62,6 +63,10 @@ internal static class MarkSprites
     /// <summary>Resolution of the brush across the width of a mark. Small: it is a gradient read through a linear sampler, not a picture.</summary>
     const int BrushSamples = 32;
 
+    /// <summary>How each kind is drawn, for a stage that builds a mark's quad itself (<c>mark.vert</c>): the same figures <see cref="Drawn"/> uses.</summary>
+    public static MarkLook Look(int rubberSheet, int soilSheet) => new(
+        new Vector4(Soil, 1f), (uint)rubberSheet, (uint)soilSheet, RubberBleed, SoilBleed, RubberAlpha, SoilAlpha);
+
     /// <remarks>
     /// <b>The rows the view reaches and not the ring</b> (<see cref="DriftMarks"/>), unless the view reaches more than
     /// half of them, where the ring read straight through is the cheaper walk. A row's own margin covers any mark's
@@ -117,8 +122,8 @@ internal static class MarkSprites
         var alpha = mark.Intensity * (mark.Ploughed ? SoilAlpha : RubberAlpha);
 
         return new SpriteInstance(
-            mark.CentreM, new Vector2(mark.LengthM, mark.WidthM * bleed) * 0.5f, Vector2.Zero, Vector2.One,
-            new Vector4(colour, alpha), (uint)(mark.Ploughed ? soilSheet : rubberSheet), mark.HeadingRad);
+            mark.CentreM, new Vector2(mark.LengthM, mark.WidthM * bleed) * 0.5f, SpriteCell.Whole,
+            SpriteTint.Pack(new Vector4(colour, alpha)), (uint)(mark.Ploughed ? soilSheet : rubberSheet), mark.HeadingRad);
     }
 
     /// <summary>
@@ -151,3 +156,12 @@ internal static class MarkSprites
         return t * t * (3f - (2f * t));
     }
 }
+
+/// <summary>
+/// <b>How a mark of each kind is drawn</b> (<see cref="MarkSprites.Look"/>), as <c>mark.vert</c>'s uniform block lays it:
+/// soil's colour, the two brushes' sheets, then each kind's bleed and opacity.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal readonly record struct MarkLook(
+    Vector4 Soil, uint RubberSheet, uint SoilSheet, float RubberBleed, float SoilBleed, float RubberAlpha, float SoilAlpha,
+    Vector2 Pad = default);

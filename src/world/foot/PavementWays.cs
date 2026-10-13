@@ -43,9 +43,8 @@ internal readonly struct PavementWays(WalkingNetwork walking, int firstFootwayWa
         // The stretch's metres are not the lane's — the lane has the corners at its ends cut off and the one
         // it carries added on — so the share walked is the seed and the lane's own line is what the place is
         // projected onto, exactly as every other lane of the walk is.
-        var edgeLengthM = MathF.Max(1e-4f, walking.Foot.LengthM(edge));
         var laneLengthM = walking.LaneLengthM(edge);
-        var seedM = alongEdgeM / edgeLengthM * laneLengthM;
+        var seedM = walking.ShareAlong(edge, alongEdgeM) * laneLengthM;
         alongM = Spline.ProjectM(walking.LaneOf(edge), atM, seedM, laneLengthM);
         return edge;
     }

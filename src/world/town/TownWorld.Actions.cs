@@ -46,15 +46,6 @@ internal sealed partial class TownWorld
     /// <summary>The manoeuvres, for an instrument or the debug layer; the driver's own and read by nothing else.</summary>
     public Manoeuvres Manoeuvres => _manoeuvres;
 
-    /// <summary>What each car is doing and how often it was handed over, for the device to lay once at load.</summary>
-    internal CarActions CarActions => _carActions;
-
-    /// <summary>Getting back onto the lane under it (CAR-9), for the device to lay once at load.</summary>
-    internal Rejoining Rejoining => _rejoining;
-
-    /// <summary>Getting into a bay (GEN-4f), for a device held to what it answers.</summary>
-    internal ParkingIn ParkingIn => _parkingIn;
-
     bool IsManoeuvring(int car) => _carActions.IsManoeuvring(car);
 
     /// <summary>
@@ -102,6 +93,11 @@ internal sealed partial class TownWorld
     /// </summary>
     void TakeUpTheHands()
     {
+        var anyHeld = _hands.Held || _otherHand.Held;
+        if (!anyHeld && _allHandsLetGo) return;
+
+        // Nothing but this enters a hand, so once a pass with no hand held has let every one go, the next has nothing to do.
+        _allHandsLetGo = !anyHeld;
         for (var person = 0; person < People.Count; person++)
         {
             var action = People.Action[person];
@@ -110,7 +106,6 @@ internal sealed partial class TownWorld
             var held = _hands.Held && _selected.Holds(SelectionKind.Person, person);
             if (held == (action == PersonAction.Hand)) continue;
 
-            Device?.TakeTheWalkerBack(this, person);
             if (held) Enter(person, PersonAction.Hand);
             else Enter(person, People.Walking[person] ? PersonAction.Walk : PersonAction.Stand);
         }
@@ -127,6 +122,9 @@ internal sealed partial class TownWorld
             else LetGoOfTheWheel(car);
         }
     }
+
+    /// <summary>Whether the last pass of <see cref="TakeUpTheHands"/> ran with no hand held, so left no agent under one.</summary>
+    bool _allHandsLetGo;
 
     /// <summary>
     /// <b>A car the hand has let go of</b>: back on its line where the hand left it on one, and otherwise off it —

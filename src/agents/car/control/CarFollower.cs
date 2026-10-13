@@ -19,17 +19,10 @@ internal enum HeadwayKind : byte
     Nothing,
 
     /// <summary>
-    /// A live driver on this car's own line, pointed the way this car is going. <b>A queue however long
-    /// it has stood</b> — the car at its head is held by something, and that something is not this car's
-    /// to drive round.
+    /// <b>A body standing on the road</b> (TER-4c.2) — a car, a walker, a wreck: the claims say where and not whose
+    /// (TER-4c.5).
     /// </summary>
-    Queue,
-
-    /// <summary>
-    /// Something on the road that is not going anywhere: a wreck, a car with nobody in it, a body shoved
-    /// off its own line.
-    /// </summary>
-    Obstruction,
+    Body,
 
     /// <summary>
     /// <b>Ground another holder plans to use</b> (TER-4c.1) — a movement this car gives way to, a bay being
@@ -42,18 +35,6 @@ internal enum HeadwayKind : byte
     /// spends no clock, since the light changes on its own (TLT-2a).
     /// </summary>
     Light,
-
-    /// <summary>
-    /// <b>A person standing in the lane</b> — on the paint or on bare carriageway, it is the same fact to a
-    /// driver, and the body's own reservation is what holds the traffic off it (PER-26, TER-4c.2).
-    /// </summary>
-    Walker,
-
-    /// <summary>
-    /// <b>Somebody getting past something</b> (TER-4c.6): the ground an overtake will cover, which is held
-    /// like a body and is never itself something to get past.
-    /// </summary>
-    Passing,
 }
 
 /// <summary>
@@ -93,8 +74,8 @@ internal enum HeadwayKind : byte
 /// (<see cref="Body.CarFleet.BackRoomM"/>).
 /// </param>
 /// <param name="Blocked">
-/// <b>It can neither get past what stands in front of it nor back up for the room to</b> (CAR-50): the rebuild after
-/// lays its body as one going nowhere, which the traffic behind it may get past in turn.
+/// <b>It can neither get past what stands in front of it nor back up for the room to</b> (CAR-50): it stands where it
+/// is, asking again on the pass's clock.
 /// </param>
 /// <param name="WaitAtM">
 /// <b>How far ahead of the rear axle the car stands until it has the ground for what it does next</b> — where the step
@@ -172,6 +153,7 @@ internal enum DrivingHold : byte
 /// <b>A tick of a car driving a line</b> (<see cref="CarFollower.DriveTheLine"/>): the command, the term that set its
 /// speed, the speed the road alone would have allowed — the ceiling on its next claim — and whether the margin was spent.
 /// </summary>
+/// <param name="PlannedMps"><see cref="float.NaN"/> for a car backing up, which plans nothing down the road.</param>
 internal readonly record struct LineDrive(DriveCommand Command, DrivingHold Hold, float PlannedMps, bool Hazard);
 
 /// <summary>
@@ -200,7 +182,7 @@ internal readonly record struct LineDrive(DriveCommand Command, DrivingHold Hold
 /// </para>
 /// <para>
 /// <b>Speed is the minimum of everything</b>, and every distance in it is measured a reaction lead
-/// ahead of where the car is, or the car arrives at each constraint one decision late.
+/// ahead of where the car is, or the car arrives at each constraint as late as what it read is stale.
 /// </para>
 /// </remarks>
 internal static class CarFollower
@@ -222,14 +204,21 @@ internal static class CarFollower
     public static float ProgressM(in CarBuild car, ReadOnlySpan<ArcSeg> line, Vector2 rearAxleM, float lastProgressM) =>
         Spline.ProjectM(line, rearAxleM, lastProgressM, car.ProjectionWindowM);
 
+    /// <summary>The same, the line walked from where <paramref name="cursor"/> stands and the cursor moved on with the car.</summary>
+    public static float ProgressM(
+        in CarBuild car, ReadOnlySpan<ArcSeg> line, Vector2 rearAxleM, float lastProgressM, ref SplineCursor cursor) =>
+        Spline.ProjectM(line, rearAxleM, lastProgressM, car.ProjectionWindowM, ref cursor);
+
     /// <summary>
     /// How far off its own line the car is, which is what says whether it is still on it at all — measured to
     /// where it is aimed across the line, <paramref name="asideM"/> to the right of it on a pass (CAR-46).
     /// </summary>
-    public static float OffLineM(ReadOnlySpan<ArcSeg> line, Vector2 rearAxleM, float progressM, float asideM = 0f)
+    public static float OffLineM(
+        ReadOnlySpan<ArcSeg> line, Vector2 rearAxleM, float progressM, float asideM = 0f, SplineCursor cursor = default)
     {
-        var on = Spline.SampleAt(line, progressM);
-        return (on.PositionM + (on.Right * asideM) - rearAxleM).Length();
+        var on = Spline.SampleFrom(line, progressM, ref cursor);
+        var aimedM = asideM == 0f ? on.PositionM : on.PositionM + (on.Right * asideM);
+        return (aimedM - rearAxleM).Length();
     }
 
     /// <summary>
@@ -243,30 +232,46 @@ internal static class CarFollower
     /// <param name="laneless">A line with no lanes, which is a manoeuvre's piece and driven at manoeuvring pace (GEN-4f).</param>
     /// <param name="blueLight">On a call (AMB-4): a pace of its own, under every constraint the profile takes.</param>
     /// <param name="paceMps">A pace somebody put on this car, folded in with the profile's own terms.</param>
+    /// <param name="cursor">Where the car's walks of <paramref name="line"/> begin (<see cref="CarFleet.LineCursor"/>), or its head.</param>
+    /// <param name="backsUpByM">
+    /// Where given, the car backs down the line against its metres (CAR-50) to rest this far behind where it is, at its
+    /// own backing pace (<see cref="BackingMps"/>) — the wheel pursuing the line behind it, and nothing of the road ahead
+    /// asked: not its corners, not its grant and not the hazard, which reads the grant ahead.
+    /// </param>
     public static LineDrive DriveTheLine(
         SimConfig config, in CarBuild build, in CarPose pose, ReadOnlySpan<ArcSeg> line, ReadOnlySpan<float> entryM,
         float progressM, float lengthM, in DriveContext context, Vector2 travel, float alongMps, bool reverse,
-        in DriveCommand last, in Overtake pass, bool laneless, bool blueLight, float paceMps)
+        in DriveCommand last, in Overtake pass, bool laneless, bool blueLight, float paceMps,
+        SplineCursor cursor = default, float backsUpByM = float.NaN)
     {
         var rearAxleM = RearAxleM(build, pose.PositionM, pose.Forward);
         var lookaheadM = LookaheadM(build, MathF.Abs(alongMps), config.Driving.LookaheadS);
+        var backing = !float.IsNaN(backsUpByM);
 
         // Pure pursuit asks, or the pass the car is on (CAR-46); the rack answers (CAR-3a). The wheel as it stands is
         // carried into the frame of the gear this tick drives in, since a reverse command is the same wheel with its
         // sign turned round on the way out — whichever gear it was left in, so a change of gear is no jump of the rack.
         var wasRad = reverse ? -last.SteerRad : last.SteerRad;
-        var wantedRad = pass.Begun
-            ? SteerThePass(build, line, pass, progressM, rearAxleM, travel, lookaheadM)
-            : Steer(build, line, progressM, rearAxleM, travel, lookaheadM);
+        var wantedRad = backing ? Steer(build, line, progressM, rearAxleM, travel, -lookaheadM)
+            : pass.Begun ? SteerThePass(build, line, pass, progressM, rearAxleM, travel, lookaheadM)
+            : Steer(build, line, progressM, rearAxleM, travel, lookaheadM, cursor);
         var steerRad = build.WheelWoundTo(wasRad, wantedRad, config.TickSeconds);
 
         // Where the foot already was, so the pedal travels rather than snapping — and the profile plans from
         // there. It is along the direction being driven on both sides of the gear, because the reverse command
         // negates the wheel and nothing else.
         var lastMps2 = PedalMps2(last);
+        if (backing)
+        {
+            var backingPedals = Pedals(
+                config, build, steerRad, BackingMps(build, backsUpByM, alongMps, lastMps2), alongMps, config.TickSeconds,
+                lastMps2);
+            return new LineDrive(InTheGear(backingPedals, reverse), DrivingHold.BackingUp, float.NaN, Hazard: false);
+        }
+
         var targetMps = TargetSpeedMps(
             config, build, line, entryM, progressM, lengthM, steerRad, alongMps, lookaheadM, context, out var hold,
-            out var plannedMps, pass, lastMps2);
+            out var plannedMps, pass, lastMps2, cursor);
 
         // <b>A manoeuvre at a bay is driven at manoeuvring pace</b> whichever gear its piece is in, and the reverse cap
         // is that pace — deliberately off the forward cap's scale, because this is its only use.
@@ -285,8 +290,7 @@ internal static class CarFollower
         capMps = MathF.Min(capMps, paceMps);
         targetMps = MathF.Min(targetMps, capMps);
 
-        var pedals = Pedals(config, build, steerRad, targetMps, alongMps, config.TickSeconds, lastMps2);
-        var command = reverse ? pedals with { SteerRad = -pedals.SteerRad, Reverse = true } : pedals;
+        var command = InTheGear(Pedals(config, build, steerRad, targetMps, alongMps, config.TickSeconds, lastMps2), reverse);
 
         // <b>The margin the profile kept back, spent</b>: the profile plans every stop against usable grip (S-2), and
         // this is the tick where that margin is no longer enough. Asked of the profile's own answer rather than instead
@@ -302,6 +306,10 @@ internal static class CarFollower
         return new LineDrive(command, hold, MathF.Min(plannedMps, capMps), hazard);
     }
 
+    /// <summary>Pedals worked out along the way the car is going, given out in its gear: in reverse, the wheel's sign turned round.</summary>
+    static DriveCommand InTheGear(in DriveCommand pedals, bool reverse) =>
+        reverse ? pedals with { SteerRad = -pedals.SteerRad, Reverse = true } : pedals;
+
     /// <summary>
     /// Pure pursuit: the wheel is turned for the circle through the car's rear axle and a point a
     /// <b>time</b> ahead on the line, floored and ceilinged — too short and the car saws, too long and
@@ -309,8 +317,8 @@ internal static class CarFollower
     /// </summary>
     public static float Steer(
         in CarBuild car, ReadOnlySpan<ArcSeg> line, float progressM, Vector2 rearAxleM, Vector2 forward,
-        float lookaheadM) =>
-        SteerFor(car, PursuitBend(rearAxleM, forward, Spline.SampleAt(line, progressM + lookaheadM).PositionM));
+        float lookaheadM, SplineCursor cursor = default) =>
+        SteerFor(car, PursuitBend(rearAxleM, forward, Spline.SampleFrom(line, progressM + lookaheadM, ref cursor).PositionM));
 
     /// <summary>
     /// <b>The wheel on a pass</b> (CAR-46): turned for how the pass bends where the car is, and corrected by what
@@ -390,9 +398,6 @@ internal static class CarFollower
         return MathF.Min(gripMps, rackMps);
     }
 
-    /// <summary>What the car plans a corner to hold: its tyres' grip, less the margin kept back.</summary>
-    public static float CorneringMps2(SimConfig config, in CarBuild car) => car.GripMps2 * config.Driving.GripMargin;
-
     /// <summary>
     /// The circle through the axle, tangent to the heading, that passes through the lead point: its curvature is
     /// 2·sin α ⁄ reach.
@@ -413,7 +418,7 @@ internal static class CarFollower
         Math.Clamp(MathF.Atan(curvature * car.WheelbaseM), -car.MaxSteerRad, car.MaxSteerRad);
 
     /// <summary>
-    /// <b>How far in front of itself the profile plans</b>: the staleness of the driver's own decision, and
+    /// <b>How far in front of itself the profile plans</b>: the staleness of what the driver reads (<see cref="SimConfig.CarReactionS"/>), and
     /// the time the pedal takes to travel from where it is to the rate that decision asked for.
     /// </summary>
     /// <remarks>
@@ -431,13 +436,28 @@ internal static class CarFollower
     /// </para>
     /// </remarks>
     /// <param name="throttleMps2">What the pedal is asking for now, throttle positive (<see cref="PedalMps2"/>).</param>
-    public static float LeadS(SimConfig config, in CarBuild car, float brakingMps2, float throttleMps2 = 0f)
+    /// <remarks>With the pedal off the throttle it is the build's own (<see cref="CarBuild.RestingLeadS"/>).</remarks>
+    public static float LeadS(in CarBuild car, float throttleMps2 = 0f)
     {
         var onMps2 = MathF.Max(0f, throttleMps2);
         var releaseS = onMps2 / car.PedalRateMps3;
-        return config.CarReactionS + (brakingMps2 / (2f * car.PedalRateMps3))
-               + (releaseS * (1f + (onMps2 / (2f * brakingMps2))));
+        return car.RestingLeadS + (releaseS * (1f + (onMps2 / (2f * car.PlannedBrakingMps2))));
     }
+
+    /// <summary>
+    /// <b>The ground a car doing <paramref name="alongMps"/> covers before it is doing <paramref name="toMps"/></b>, slowed
+    /// as the profile slows it: a lead (<see cref="LeadS"/>) and the braking from there. Where <paramref name="toMps"/> is
+    /// nought it is the ground the car can no longer stop short of.
+    /// </summary>
+    /// <remarks>
+    /// The lead is the one a pedal off the throttle takes, so the ground is the speed's alone: a plan's committed ground
+    /// never recedes as a throttle comes off.
+    /// </remarks>
+    public static float SlowsOverM(in CarBuild car, float alongMps, float toMps = 0f) =>
+        alongMps <= toMps
+            ? 0f
+            : (alongMps * car.RestingLeadS)
+              + (((alongMps * alongMps) - (toMps * toMps)) / (2f * car.PlannedBrakingMps2));
 
     /// <summary>
     /// <b>The pace a car backing up for the room to step out drives at</b> (CAR-50): its reverse cap, and down to
@@ -445,11 +465,10 @@ internal static class CarFollower
     /// </summary>
     /// <param name="alongMps">How fast it is going the way it is backing.</param>
     /// <param name="lastMps2">Where the pedal was left last tick (<see cref="PedalMps2"/>), which the lead travels from.</param>
-    public static float BackingMps(SimConfig config, in CarBuild car, float toGoM, float alongMps, float lastMps2)
+    public static float BackingMps(in CarBuild car, float toGoM, float alongMps, float lastMps2)
     {
-        var brakingMps2 = BrakingMps2(config, car);
-        var leadM = MathF.Abs(alongMps) * LeadS(config, car, brakingMps2, lastMps2);
-        return MathF.Min(car.ReverseMaxMps, ApproachMps(0f, toGoM - leadM, brakingMps2));
+        var leadM = MathF.Abs(alongMps) * LeadS(car, lastMps2);
+        return MathF.Min(car.ReverseMaxMps, ApproachMps(0f, toGoM - leadM, car.PlannedBrakingMps2));
     }
 
     /// <summary>How far ahead the wheel is aimed: a time, floored at the car's own length and ceilinged.</summary>
@@ -476,15 +495,17 @@ internal static class CarFollower
     /// The line's own entry figures (<see cref="World.Road.CornerLimits"/>), one to an arc: every corner past an
     /// arc, folded into what that arc may be entered at.
     /// </param>
+    /// <param name="cursor">Where on the line the car's walks of it begin (<see cref="CarFleet.LineCursor"/>), or its head.</param>
     public static float TargetSpeedMps(
         SimConfig config, in CarBuild car, ReadOnlySpan<ArcSeg> line, ReadOnlySpan<float> entryM, float progressM,
         float lineLengthM, float steerRad, float alongMps, float lookaheadM, in DriveContext context,
-        out DrivingHold hold, out float plannedMps, in Overtake pass = default, float lastMps2 = 0f)
+        out DrivingHold hold, out float plannedMps, in Overtake pass = default, float lastMps2 = 0f,
+        SplineCursor cursor = default)
     {
         hold = DrivingHold.None;
-        var lateralMps2 = CorneringMps2(config, car);
-        var brakingMps2 = BrakingMps2(config, car);
-        var leadM = MathF.Abs(alongMps) * LeadS(config, car, brakingMps2, lastMps2);
+        var lateralMps2 = car.PlannedCorneringMps2;
+        var brakingMps2 = car.PlannedBrakingMps2;
+        var leadM = MathF.Abs(alongMps) * LeadS(car, lastMps2);
 
         var targetMps = car.MaxSpeedMps;
 
@@ -495,8 +516,9 @@ internal static class CarFollower
         // first it has not binds the braking into it: its entry figure already holds every corner past it.
         var gripMps2 = car.UtmostBrakingMps2;
         var reachedM = progressM + leadM + lookaheadM;
-        var startM = 0f;
-        for (var arc = 0; arc < line.Length; arc++)
+        var from = cursor.Piece < line.Length ? cursor.StartingBefore(progressM) : default;
+        var startM = from.PieceStartM;
+        for (var arc = from.Piece; arc < line.Length; arc++)
         {
             var endM = startM + line[arc].LengthM;
             if (endM >= progressM)
@@ -547,8 +569,13 @@ internal static class CarFollower
         // <b>And the end of its own plan</b> (TER-4c.1), where it was held short of what the car wanted: past it is
         // road nobody holds for this car, so ground it could no longer stop short of could run on beyond anything
         // the town can see it coming. Left out of the planned speed, as the grant is, or the plan would shrink to
-        // fit it and let it go.
-        Bind(ref targetMps, ApproachMps(0f, context.HorizonM - leadM, brakingMps2), DrivingHold.Reach, ref hold);
+        // fit it and let it go. <b>Stopped a stand-off short of it and two leads ahead</b>: what is found standing just
+        // past the end is met by the plan only once it has grown into it, cuts the grant a stand-off short of it, and
+        // is read a lead after the end itself was — bound at the bare end, a car cruising at its plan's reach was
+        // already committed past a light's hold by the laying that found it.
+        Bind(
+            ref targetMps, ApproachMps(0f, context.HorizonM - config.Driving.StandOffM - (2f * leadM), brakingMps2),
+            DrivingHold.Reach, ref hold);
 
         // <b>And the grant, which is the whole of following</b> (S-2a). The ground the reservations gave this
         // car to stop in inverts straight into a speed, taken a lead ahead as every stop point above is: what may
@@ -574,20 +601,6 @@ internal static class CarFollower
 
         return MathF.Max(0f, targetMps);
     }
-
-    /// <summary>
-    /// What the car may actually brake at: the pedal's own bound, or what its tyres can put down along the roll,
-    /// whichever gives out first — and nearly all of that
-    /// (<see cref="DrivingFigures.BrakingMargin"/>), because a stop is the one manoeuvre a driver aims the
-    /// whole car at.
-    /// </summary>
-    /// <remarks>
-    /// <b>It is a figure along the roll and takes no notice of what the wheel is doing</b>, and every stop is
-    /// planned at it. The brake a driver actually applies in a bend is less (<see cref="BrakeCeilingMps2"/>), since
-    /// the tyres answer to one ellipse: a stop planned through a corner is made over more ground than it was planned
-    /// in, and what catches the difference is the hazard (<see cref="IsAHazard"/>).
-    /// </remarks>
-    public static float BrakingMps2(SimConfig config, in CarBuild car) => car.UtmostBrakingMps2 * config.Driving.BrakingMargin;
 
     /// <summary>
     /// <b>The tick where the section this car holds cannot be stopped in</b> (S-2) even at what the tyres can
@@ -662,8 +675,12 @@ internal static class CarFollower
             return new DriveCommand(steerRad, 0f, 0f, Handbrake: true, Reverse: false);
         }
 
+        // The pedal left last tick acts on steps the car has not seen yet (SimFigures.WorldStepsAhead): the demand closes
+        // on the speed the car will be doing once it has, or each tick asks again for a gap the last one already closed
+        // and the speed hunts round its target.
+        var willBeMps = alongMps + (lastMps2 * dtS * SimFigures.WorldStepsAhead);
         var travelMps2 = car.PedalRateMps3 * dtS;
-        var wantedMps2 = Math.Clamp((targetMps - alongMps) / dtS, lastMps2 - travelMps2, lastMps2 + travelMps2);
+        var wantedMps2 = Math.Clamp((targetMps - willBeMps) / dtS, lastMps2 - travelMps2, lastMps2 + travelMps2);
 
         return wantedMps2 >= 0f
             ? new DriveCommand(steerRad, MathF.Min(wantedMps2, car.AccelerationMps2), 0f, false, false)
@@ -674,7 +691,7 @@ internal static class CarFollower
     /// <summary>
     /// <b>The most a driver brakes at in the ordinary way</b> (CAR-47): what the tyres have left along the roll once
     /// the corner the wheel is asking for has been paid for, at the share a stop is planned at — so on a straight it
-    /// is the braking every stop is planned against (<see cref="BrakingMps2"/>), and in a bend it is less.
+    /// is the braking every stop is planned against (<see cref="CarBuild.PlannedBrakingMps2"/>), and in a bend it is less.
     /// </summary>
     /// <remarks>
     /// <b>Past it the brake buys a slide and costs the corner</b>: the pedal stands well clear of the tyres, and a

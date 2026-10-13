@@ -88,8 +88,8 @@ to be in and no key to hold: the town under the cursor already says what a drive
 | The pointer is over | The order |
 |---|---|
 | another car | follow it (`CTL-8c`) |
-| a car park | park in it (`CTL-8b`) |
-| ground a car may drive on | drive to that place and stand there (`CTL-8a`) |
+| a bay | park in it (`CTL-8b`) |
+| a street lane, within half its width of its line | drive to that place and stand there (`CTL-8a`) |
 | anything else | park nearest to it, and walk the rest (`CTL-8b`) |
 
 **Every one of them is a goal and nothing else** (CTL-2). What carries an order out is the same leg,

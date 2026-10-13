@@ -94,7 +94,8 @@ internal sealed class WalkingItsRoute(WalkingGround ground, PersonActions action
     /// body's own, at p0 — for as far as it would take to come to rest: down its route, or over the ground of the
     /// hop off the end of it. Empty where it plans nothing.
     /// </summary>
-    public Span<LineWay> WaysOf(int person, Span<LineWay> into)
+    /// <param name="under">The ways the world read the walker's body on (TER-4c.2), which a hop holds as it goes.</param>
+    public Span<LineWay> WaysOf(int person, ReadOnlySpan<WayCover> under, Span<LineWay> into)
     {
         // PHY-7: inside a container there is no body in the world and nothing in anybody's way.
         if (People.Inside[person].Any || !ground.HasAWalkToPlan(person)) return default;
@@ -102,7 +103,9 @@ internal sealed class WalkingItsRoute(WalkingGround ground, PersonActions action
         var frontM = sidestepping.WalkPlannedFromM(person);
         if (ground.IsHopping(person))
         {
-            return into[..ground.TheStraightAhead(person, People.DestinationM[person], frontM, ground.PlansAheadM, into)];
+            var toM = People.DestinationM[person];
+            var onto = ground.WhereTheHopLands(person, toM, out var ontoM);
+            return into[..ground.TheStraightAhead(person, toM, onto, ontoM, frontM, ground.PlansAheadM, under, into)];
         }
 
         var count = ground.WaysAlongTheWalk(person, frontM + ground.PlansAheadM, into);
@@ -166,6 +169,6 @@ internal sealed class WalkingItsRoute(WalkingGround ground, PersonActions action
 
         var strideM = MathF.Min(ground.Config.PersonWalkAheadM, People.GrantM[person]);
         var aheadM = MathF.Min(People.OnWayM[person] + strideM, ground.EndOfTheWayM(person));
-        People.DestinationM[person] = Spline.SampleAt(ground.Walking.WayArcs(way), aheadM).PositionM;
+        People.DestinationM[person] = ground.OnItsWayAt(person, way, aheadM).PositionM;
     }
 }

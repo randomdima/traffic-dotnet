@@ -50,14 +50,13 @@ internal sealed partial class TownWorld
     /// </summary>
     void LayTheFirstLine(int car)
     {
-        TakeTheCarsPoseBack(car);
         _manoeuvres.Clear(car);
 
         // <b>The bay the body is in, whether or not it was registered there</b>: a leg given up on the way
         // into a bay stands the car down in the space it never reached the end of, and the bay under it is not
         // a lane it may take (GEN-53).
         var standingIn = _parking.BayOf(car);
-        if (standingIn < 0) standingIn = _parking.BayHolding(Cars.PositionM[car]);
+        if (standingIn < 0) standingIn = TheBayItStandsIn(car);
         if (standingIn >= 0 && LeaveTheBay(car, standingIn))
         {
             Enter(car, CarAction.Unpark);
@@ -65,6 +64,23 @@ internal sealed partial class TownWorld
         }
 
         TakeTheRoad(car);
+    }
+
+    /// <summary>
+    /// <b>The bay a car's body is in, registered there or not</b>: a bay is a lane of the road (GEN-53), so it is the one
+    /// whose space holds the body among the bays the world reads the car's wheels on (TER-4c.2) — or none.
+    /// </summary>
+    int TheBayItStandsIn(int car)
+    {
+        foreach (ref readonly var cover in CoversOfCar(car))
+        {
+            if (_ways.KindOf(cover.Way) != WayKind.Lane) continue;
+
+            var bay = _bayStreets.BayOnArm(_ways.RoadLaneOf(cover.Way));
+            if (bay >= 0 && _parking.HoldsTheBody(bay, Cars.PositionM[car])) return bay;
+        }
+
+        return ParkingRegistry.NoBay;
     }
 
     /// <summary>
@@ -156,7 +172,7 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>The direction the body is pointing, which every line is read back through.</summary>
-    Vector2 ForwardOf(int car) => Heading.Unit(Cars.HeadingRad[car]);
+    Vector2 ForwardOf(int car) => Cars.Forward[car];
 
     /// <summary>
     /// The lane the car is standing on and pointing along, taken as the front of a line — or the join it is
@@ -170,10 +186,9 @@ internal sealed partial class TownWorld
     /// </remarks>
     bool TakeTheLaneUnderIt(int car)
     {
-        TakeTheCarsPoseBack(car);
         var forward = ForwardOf(car);
         var rearAxleM = CarFollower.RearAxleM(Cars.BuildOf(car), Cars.PositionM[car], forward);
-        var under = TheCarriagewayUnder(rearAxleM, forward, Cars.LevelOf(car));
+        var under = TheCarriagewayUnder(rearAxleM, forward, CoversOfCar(car));
         if (under.Lane < 0) return false;
 
         // Where the body stands on the chain it is handed, before the line is laid over it: the route is searched
@@ -182,6 +197,12 @@ internal sealed partial class TownWorld
         LayLine(car, TheChainFrom(car, under));
         return Cars.Line[car].ArcCount > 0;
     }
+
+    /// <summary>
+    /// The ways the world last read this car's wheels on (TER-4c.2) — none before the world is stood, or before it
+    /// has read them, which a car taking the road is refused on and asks again for on its decision clock.
+    /// </summary>
+    ReadOnlySpan<WayCover> CoversOfCar(int car) => _world is null ? default : _world.View.CoversOfCar(car);
 
     /// <summary>
     /// A line's first lanes as a body standing on the carriageway has them, and how many that is. <b>A chain begun
@@ -199,14 +220,19 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>Where on the carriageway a body stands, as a line is laid from</b>: the lane it is on and pointing
-    /// along — or, <b>standing in a junction's box, where no lane runs, the lane it came off and the one the
-    /// join it stands in leads onto</b> — with how far along a line over them it stands.
+    /// <b>Where on the carriageway a body stands, as a line is laid from</b>: of the street lanes and joins the world
+    /// reads its wheels on (<paramref name="under"/>, TER-4c.2), the lane it is pointing along nearest its rear axle —
+    /// or, <b>standing in a junction's box, where no lane runs, the lane it came off and the one the join it stands in
+    /// leads onto</b> — with how far along a line over them it stands. Nowhere where its wheels are on none of them.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The nearest centreline is as likely to be the oncoming lane as its own, so direction decides, not
-    /// distance.</b>
+    /// <b>Nothing is looked up</b> (the root decision log, 2026-10-13): the world hands the body its ways, on its own
+    /// level (PHY-1a), and only those, their joins and the lane back beside each are read.
+    /// </para>
+    /// <para>
+    /// <b>The lane under a wheel is as likely to be the oncoming one as its own, so direction decides, not
+    /// distance</b>: a lane run the other way is read as the lane back beside it.
     /// </para>
     /// <para>
     /// <b>And in a box, the nearest lane end is as likely to be the one ahead of the body as the one behind
@@ -215,30 +241,60 @@ internal sealed partial class TownWorld
     /// that came to rest in a box stood there for the rest of the run.
     /// </para>
     /// </remarks>
-    /// <param name="level">The level the body is on (PHY-1a): a lane of the road under a bridge is no lane under a car on it.</param>
-    StandingOn TheCarriagewayUnder(Vector2 rearAxleM, Vector2 forward, byte level)
+    StandingOn TheCarriagewayUnder(Vector2 rearAxleM, Vector2 forward, ReadOnlySpan<WayCover> under)
     {
-        var lane = _roads.NearestStreetLane(rearAxleM, level, out var alongM);
-        if (lane < 0) return StandingOn.Nowhere;
-
-        if (Vector2.Dot(Spline.SampleAt(_roads.ArcsOf(lane), alongM).Direction, forward) <= 0f
-            && _roads.LaneReverse[lane] is var back and >= 0)
+        var onLane = StandingOn.Nowhere;
+        var nearestSq = float.PositiveInfinity;
+        foreach (ref readonly var cover in under)
         {
-            lane = back;
-            alongM = Spline.ProjectM(
-                _roads.ArcsOf(lane), rearAxleM, _roads.LaneLengthM[lane] * 0.5f, _roads.LaneLengthM[lane]);
-        }
-
-        var onLane = new StandingOn(lane, CarFleet.NoLane, alongM, Spline.SampleAt(_roads.ArcsOf(lane), alongM));
-        if (alongM >= _roads.LaneLengthM[lane] - LineTolerance.RoundingM)
-        {
-            foreach (var onto in _roads.LanesFrom(lane)) OnTheJoin(lane, onto, rearAxleM, forward, ref onLane);
-        }
-        else if (alongM <= LineTolerance.RoundingM)
-        {
-            foreach (var from in _roads.LanesIntoJunction(_roads.LaneFromJunction[lane]))
+            switch (_ways.KindOf(cover.Way))
             {
-                OnTheJoin(from, lane, rearAxleM, forward, ref onLane);
+                case WayKind.Lane:
+                    var lane = _ways.RoadLaneOf(cover.Way);
+                    if (!_roads.IsAStreetLane(lane)) continue;
+
+                    var aroundM = (cover.FromM + cover.ToM) * 0.5f;
+                    var alongM = Spline.ProjectM(_roads.ArcsOf(lane), rearAxleM, aroundM, cover.ToM - cover.FromM, out var offSq);
+                    if (Vector2.Dot(Spline.SampleAt(_roads.ArcsOf(lane), alongM).Direction, forward) <= 0f)
+                    {
+                        if (_roads.LaneReverse[lane] is not (var back and >= 0)) continue;
+
+                        lane = back;
+                        alongM = Spline.ProjectM(
+                            _roads.ArcsOf(lane), rearAxleM, _roads.LaneLengthM[lane] - aroundM, _roads.LaneLengthM[lane],
+                            out offSq);
+                    }
+
+                    if (offSq >= nearestSq) continue;
+
+                    nearestSq = offSq;
+                    onLane = new StandingOn(lane, CarFleet.NoLane, alongM, Spline.SampleAt(_roads.ArcsOf(lane), alongM));
+                    break;
+
+                case WayKind.Connector:
+                    var join = _ways.RoadConnectorOf(cover.Way);
+                    if (OnTheJoin(_roads.ConnectorFrom(join), _roads.ConnectorTo(join), rearAxleM, forward, ref onLane))
+                    {
+                        nearestSq = (onLane.At.PositionM - rearAxleM).LengthSquared();
+                    }
+
+                    break;
+            }
+        }
+
+        if (onLane.Lane < 0 || onLane.Onward != CarFleet.NoLane) return onLane;
+
+        var standsM = onLane.AlongM;
+        var on = onLane.Lane;
+        if (standsM >= _roads.LaneLengthM[on] - LineTolerance.RoundingM)
+        {
+            foreach (var onto in _roads.LanesFrom(on)) OnTheJoin(on, onto, rearAxleM, forward, ref onLane);
+        }
+        else if (standsM <= LineTolerance.RoundingM)
+        {
+            foreach (var from in _roads.LanesIntoJunction(_roads.LaneFromJunction[on]))
+            {
+                OnTheJoin(from, on, rearAxleM, forward, ref onLane);
             }
         }
 
@@ -247,23 +303,24 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// The join between two lanes, taken over <paramref name="best"/> where the body stands nearer its line
-    /// than that and it runs the way the body points.
+    /// than that and it runs the way the body points — and whether it was.
     /// </summary>
-    void OnTheJoin(int from, int onto, Vector2 rearAxleM, Vector2 forward, ref StandingOn best)
+    bool OnTheJoin(int from, int onto, Vector2 rearAxleM, Vector2 forward, ref StandingOn best)
     {
         var join = _roads.ConnectorBetween(from, onto);
-        if (join == RoadGraph.NoConnector) return;
+        if (join == RoadGraph.NoConnector) return false;
 
         var arcs = _roads.ConnectorArcs(join);
-        if (arcs.Length == 0) return;
+        if (arcs.Length == 0) return false;
 
         var onM = Spline.ProjectM(arcs, rearAxleM, 0f, _roads.ConnectorLengthM(join), out var offSq);
-        if (offSq >= (best.At.PositionM - rearAxleM).LengthSquared()) return;
+        if (best.Lane >= 0 && offSq >= (best.At.PositionM - rearAxleM).LengthSquared()) return false;
 
         var at = Spline.SampleAt(arcs, onM);
-        if (Vector2.Dot(at.Direction, forward) <= 0f) return;
+        if (Vector2.Dot(at.Direction, forward) <= 0f) return false;
 
         best = new StandingOn(from, onto, _roads.LaneLengthM[from] + onM, at);
+        return true;
     }
 
     /// <summary>
@@ -316,7 +373,7 @@ internal sealed partial class TownWorld
         // new route needs is claimed where that route reaches its frontage, like any other.
         GiveUpTheTurn(car);
 
-        var bays = _parking.BaysNear(nearM, _config.PersonWalkWorthM, _bayCandidates);
+        var bays = FreeBaysNear(RoadPlaceOfCar(car), nearM, _config.PersonWalkWorthM, _bayCandidates);
         var fromLane = Cars.LaneOf(car);
         var searched = 0;
         for (var slot = 0; slot < bays && searched < BaysRoutedPerLeg; slot++)
@@ -461,8 +518,10 @@ internal sealed partial class TownWorld
     void GiveUpTheBay(int car) => _parking.Release(car);
 
     /// <summary>
-    /// The nearest free bay a car can be got into within <paramref name="withinM"/> of a place, or −1 —
-    /// where a service vehicle is stood before the first tick and where it is sent home to (AMB-2, SRV-2).
+    /// The nearest free bay a car can be got into within <paramref name="withinM"/> of a place, or −1 — a look-up, and
+    /// asked only while the map is built and for a player's order (the root decision log, 2026-10-13): where a service
+    /// vehicle is stood before the first tick (AMB-2, SRV-2), and where an order names. Everything else asks the lanes
+    /// (<see cref="FreeBayOff"/>).
     /// </summary>
     internal int FreeBayNear(Vector2 ofM, float withinM) => FreeBayNear(ofM, withinM, AnySide);
 

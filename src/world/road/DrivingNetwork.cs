@@ -74,11 +74,25 @@ internal sealed class DrivingNetwork
     /// place stands on are offered, because either may be the one that reaches it first and only the
     /// search can compare them.
     /// </summary>
+    /// <remarks>
+    /// <b>A look-up</b>, and only a player's order makes one while the town runs (the root decision log, 2026-10-13):
+    /// every other leg carries its place on the road (<see cref="GoalsAt(in RoadPlace, Span{RouteGoal})"/>).
+    /// </remarks>
     public int GoalsAt(Vector2 pointM, Span<RouteGoal> into)
     {
         var lane = _roads.NearestStreetLane(pointM, out var alongM);
-        if (lane < 0) return 0;
+        return lane < 0 ? 0 : GoalsAt(new RoadPlace(lane, alongM), into);
+    }
 
+    /// <summary>
+    /// A place on a lane as the search takes it, <b>offered on both lanes of its street</b> as <see cref="GoalsAt(Vector2, Span{RouteGoal})"/>
+    /// offers it.
+    /// </summary>
+    public int GoalsAt(in RoadPlace place, Span<RouteGoal> into)
+    {
+        if (!place.IsSomewhere || into.IsEmpty) return 0;
+
+        var (lane, alongM) = (place.Lane, place.AlongM);
         var count = 0;
         into[count++] = new RouteGoal(_linkOfLane[lane], PlaceOfM(lane, alongM));
 
@@ -207,4 +221,15 @@ internal sealed class DrivingNetwork
     public static float SwitchM(RoadGraph roads, SimConfig config, int fromLane, int besideLane) =>
         Math.Abs(roads.LanesOver(fromLane, besideLane)) * config.Driving.NominalCarLengthM
         * config.Driving.LaneSwitchPriceCarLengths;
+}
+
+/// <summary>
+/// <b>A place on the road</b>: a lane and how far along it — what a leg aimed at a place in the road is sent to, carried
+/// by whoever names it rather than looked for (the root decision log, 2026-10-13).
+/// </summary>
+internal readonly record struct RoadPlace(int Lane, float AlongM)
+{
+    public static RoadPlace Nowhere => new(RoadGraph.NoLane, 0f);
+
+    public bool IsSomewhere => Lane >= 0;
 }

@@ -94,9 +94,7 @@ internal static class ExamProbe
         static string At(int tick, float hz) => tick < 0 ? "-" : $"{tick / hz:F1}";
 
         var person = drive.Lattice.WalkerOf(log.Card, log.Walker);
-        var hold = world.WalkHold(person);
-        var by = LaneClaim.Nothing;
-        if (hold != LaneOccupancy.NoHold) world.Occupancy.HoldEndsAtM(hold, out _, out by);
+        var by = CutSeen.Of(world.Occupancy, world.WalkHold(person));
         return $"walker {log.Walker}: sent {At(log.StartedAt, hz)} s, on the paint {At(log.OnThePaintAt, hz)} s, "
                + $"arrived {At(log.ArrivedAt, hz)} s, sent from {Off(drive, log.Card, log.FromM)} to "
                + $"{Off(drive, log.Card, log.ToM)} over paint {log.Band.SpanM:F1} m across, centred "

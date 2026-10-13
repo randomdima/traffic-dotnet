@@ -1,3 +1,4 @@
+using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.TrafficLight.Control;
 using TrafficSimulation.World.Road;
@@ -24,58 +25,97 @@ internal sealed partial class TownWorld
     void LightTheWays() => _signalHolds.Lay(_occupancy, _signals, _elapsedS);
 
     /// <summary>
-    /// <b>The junction ahead of this car</b>, for the indicator, the read-out and the instruments: how far off
-    /// the box is, whether the movement into it turns, whether the car is in it, could still stop short of it
-    /// and was granted into it — and how far off a light holds its road.
+    /// <b>The junction ahead of this car, for its indicator</b> (CAR-14.1), each tick: how far off the box its own line
+    /// enters stands — nought inside it, infinity where its line enters none — and whether the way through it turns.
     /// </summary>
-    /// <param name="toTheBoxM">
-    /// How far ahead the box the car's own line enters stands, or infinity where its line enters none. It is
-    /// what a car's indicator is read off (CAR-14.1).
-    /// </param>
-    /// <param name="claimed">Whether the road this car was granted reaches into the box, or it is already inside.</param>
-    void ReadTheBoxAhead(int car, float progressM, out float toTheBoxM, out bool claimed)
+    /// <remarks>
+    /// <b>Nothing a car drives by</b>: the box and a light's hold are in its grant (TLT-1). What else is said of the box
+    /// is read where it is asked — <see cref="CommittedToTheBox"/>, <see cref="BoxIsOurs"/>, <see cref="LightAheadM(int)"/>.
+    /// </remarks>
+    void ReadTheBoxAhead(int car, float progressM)
     {
-        var ends = Cars.LaneEndsOf(car);
-        var chain = Cars.ChainOf(car);
-        var noseM = progressM + Cars.BuildOf(car).NoseAheadOfAxleM;
-        toTheBoxM = float.PositiveInfinity;
-        claimed = false;
-        Cars.InsideTheBox[car] = false;
-        Cars.CommittedToTheBox[car] = false;
-        Cars.LightAheadM[car] = LightAheadM(car, noseM);
+        Cars.ToTheBoxM[car] = float.PositiveInfinity;
 
         // Which way through it is comes from the *geometry the car's own line enters*, and never from
         // the lane under the car: mid-turn the nearest lane is already the one leading out.
         var ahead = LaneAheadSlot(car, progressM);
-        var movement = ahead + 1 < Cars.Line[car].LaneCount
-            ? _roads.ConnectorBetween(chain[ahead], chain[ahead + 1])
-            : RoadGraph.NoConnector;
-
-        // CAR-14.1 reads its indicator off this same classification.
+        var movement = Cars.JoinsOf(car)[ahead];
         Cars.TurningAtTheBox[car] = movement != RoadGraph.NoConnector
             && _roads.FirmOnConnector(movement) != ClaimPriority.FirmStraight;
 
-        // A movement with no ground under it is not a movement: two lanes meeting at a point have no box.
-        if (movement == RoadGraph.NoConnector || _roads.ConnectorLengthM(movement) <= 0f) return;
+        if (!HasABox(movement)) return;
 
-        NoteBarCrossing(car, ahead, chain[ahead], progressM);
+        if (CountsRedBarCrossings) NoteBarCrossing(car, ahead, Cars.ChainOf(car)[ahead], progressM);
 
-        if (progressM >= ends[ahead])
-        {
-            Cars.InsideTheBox[car] = true;
-            Cars.CommittedToTheBox[car] = true;
-            toTheBoxM = 0f;
-            claimed = true;
-            return;
-        }
-
-        // The claim's metres are the line's as it was when the claims were laid, so what it committed to is carried
-        // over as a reach from the nose it was laid from, which the ground covered since has walked on.
-        toTheBoxM = ends[ahead] - noseM;
-        var committedM = Cars.CommittedToM[car] - Cars.ClaimFromM[car];
-        Cars.CommittedToTheBox[car] = noseM - Cars.CoveredSinceClaimM[car] + committedM > ends[ahead];
-        claimed = noseM + MathF.Min(Cars.GrantLeftM(car), Cars.HorizonM[car] - Cars.CoveredSinceClaimM[car]) > ends[ahead];
+        var mouthM = Cars.LaneEndsOf(car)[ahead];
+        Cars.ToTheBoxM[car] = progressM >= mouthM ? 0f : mouthM - (progressM + Cars.BuildOf(car).NoseAheadOfAxleM);
     }
+
+    /// <summary>A movement with no ground under it is not a movement: two lanes meeting at a point have no box.</summary>
+    bool HasABox(int movement) => movement != RoadGraph.NoConnector && _roads.ConnectorLengthM(movement) > 0f;
+
+    /// <summary>
+    /// Where on its line the box this car's line enters begins — the end of the lane it is running down — or false where
+    /// its line enters none.
+    /// </summary>
+    bool TheBoxAhead(int car, out float mouthM)
+    {
+        mouthM = float.PositiveInfinity;
+        if (!DrivesTheRouteLine(car)) return false;
+
+        var ahead = LaneAheadSlot(car, Cars.ProgressM[car]);
+        if (!HasABox(Cars.JoinsOf(car)[ahead])) return false;
+
+        mouthM = Cars.LaneEndsOf(car)[ahead];
+        return true;
+    }
+
+    /// <summary>
+    /// <b>Whether this car is in the box ahead or can no longer stop short of it</b>: the claim's metres are the line's
+    /// as it was when the claims were laid, so what it committed to is carried over as a reach from the nose it was laid
+    /// from, which the ground covered since has walked on.
+    /// </summary>
+    internal bool CommittedToTheBox(int car)
+    {
+        if (!TheBoxAhead(car, out var mouthM)) return false;
+
+        var noseM = Cars.ProgressM[car] + Cars.BuildOf(car).NoseAheadOfAxleM;
+        var committedM = Cars.CommittedToM[car] - Cars.ClaimFromM[car];
+        return Cars.ProgressM[car] >= mouthM || noseM - Cars.CoveredSinceClaimM[car] + committedM > mouthM;
+    }
+
+    /// <summary>Whether the road this car was granted reaches into the box ahead, or it is already inside — for the read-out.</summary>
+    internal bool BoxIsOurs(int car)
+    {
+        if (!TheBoxAhead(car, out var mouthM)) return false;
+
+        var noseM = Cars.ProgressM[car] + Cars.BuildOf(car).NoseAheadOfAxleM;
+        return Cars.ProgressM[car] >= mouthM
+            || noseM + MathF.Min(Cars.GrantLeftM(car), Cars.HorizonM[car] - Cars.CoveredSinceClaimM[car]) > mouthM;
+    }
+
+    /// <summary>
+    /// <b>How far in front of this car's nose a light holds its road</b> (<see cref="LightAheadM(int, float)"/>), read where
+    /// it is asked — infinity off the route's own line.
+    /// </summary>
+    internal float LightAheadM(int car) =>
+        DrivesTheRouteLine(car)
+            ? LightAheadM(car, Cars.ProgressM[car] + Cars.BuildOf(car).NoseAheadOfAxleM)
+            : float.PositiveInfinity;
+
+    /// <summary>
+    /// Whether a car is driving the route's own line forwards (<see cref="DriveTheRoute"/>): the one line with a junction
+    /// and a light ahead of it — a manoeuvre's piece has neither, and a car off its line drives none.
+    /// </summary>
+    bool DrivesTheRouteLine(int car) =>
+        Cars.Line[car].LaneCount > 0
+        && Cars.Action[car] is CarAction.Follow or CarAction.Overtake or CarAction.Switch or CarAction.BackUp;
+
+    /// <summary>
+    /// <b>Whether a car crossing a painted bar on a red is counted</b> (<see cref="RedBarCrossings"/>): an instrument's
+    /// question, so the live town does not watch for it.
+    /// </summary>
+    public bool CountsRedBarCrossings { get; set; }
 
     /// <summary>
     /// Which lane of the chain the car is on — the one its own line is running down, which past a
@@ -95,19 +135,100 @@ internal sealed partial class TownWorld
     /// infinity. Read off the planned layer like everything else in front of it (TER-4c.5): a light's hold is
     /// ground on the ways of the car's line, laid under the lights' own roster.
     /// </summary>
+    /// <remarks>
+    /// <b>The hold is found once a laying and a line</b> (<see cref="FindTheLightAhead"/>) and only measured each tick,
+    /// to the bit what reading the ways under the reach every tick answers: a light's hold changes only at a laying, a
+    /// way's list is kept in the order of its near edges, and a nose that has not gone back finds nothing nearer than
+    /// what it found before. A nose that has gone back, or past the far end of what it found, looks again.
+    /// </remarks>
     float LightAheadM(int car, float noseM)
     {
+        var lights = _lightsAhead;
+        if (lights.Laying[car] != _layings || lights.Line[car] != Cars.LinesLaid[car] || noseM < lights.FromNoseM[car])
+        {
+            FindTheLightAhead(car, noseM);
+        }
+
+        if (float.IsNaN(lights.WayFromM[car])) return float.PositiveInfinity;
+
+        // What WaysAlong and AheadPlanned make of the one way the hold is on, for a reach from this nose.
+        var lineFromM = MathF.Max(noseM, lights.WayFromM[car]);
+        var lineToM = MathF.Min(noseM + QueueReachM(car), lights.WayToM[car]);
+        if (!(lineToM > lineFromM)) return float.PositiveInfinity;
+
+        var wayFromM = lineFromM - lights.WayFromM[car];
+        if (lights.HeldToM[car] <= wayFromM)
+        {
+            FindTheLightAhead(car, noseM);
+            return LightAheadM(car, noseM);
+        }
+
+        if (lights.HeldFromM[car] > lineToM - lights.WayFromM[car]) return float.PositiveInfinity;
+
+        return MathF.Max(0f, (lineFromM + (lights.HeldFromM[car] - wayFromM)) - noseM);
+    }
+
+    /// <summary>
+    /// <b>The nearest light's hold on this car's line past its nose</b>, however far — kept with where on the line the way
+    /// it is on runs, for <see cref="LightAheadM"/> to measure until the next laying or the next line.
+    /// </summary>
+    void FindTheLightAhead(int car, float noseM)
+    {
+        var lights = _lightsAhead;
+        lights.Laying[car] = _layings;
+        lights.Line[car] = Cars.LinesLaid[car];
+        lights.FromNoseM[car] = noseM;
+        lights.WayFromM[car] = LightsAhead.None;
+
         Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];
-        var count = WaysAlong(car, noseM, noseM + QueueReachM(car), ways);
+        Span<WaySpan> spans = stackalloc WaySpan[MostWaysAlongALine];
+        var count = _ground.WaysAlong(car, noseM, float.PositiveInfinity, ways, spans);
         for (var index = 0; index < count; index++)
         {
             ref readonly var way = ref ways[index];
-            if (!_occupancy.AheadPlanned(way.Way, way.FromM, way.ToM, LaneRoster.Signal, out var held)) continue;
+            if (!_occupancy.FirstSecondary(way.Way, way.FromM, way.ToM, ClaimPriority.Signal, out var heldFromM, out var heldToM))
+            {
+                continue;
+            }
 
-            return MathF.Max(0f, LineWays.OnTheLineM(way, held.FromM) - noseM);
+            lights.WayFromM[car] = spans[index].StartM;
+            lights.WayToM[car] = spans[index].EndM;
+            lights.HeldFromM[car] = heldFromM;
+            lights.HeldToM[car] = heldToM;
+            return;
         }
+    }
 
-        return float.PositiveInfinity;
+    /// <summary>
+    /// <b>Each car's nearest light's hold, as <see cref="FindTheLightAhead"/> last found it</b>: the laying and the line it
+    /// was found on and the nose it was found from, the line's metres the way under it spans and the way's own metres of
+    /// the hold.
+    /// </summary>
+    internal sealed class LightsAhead(int cars)
+    {
+        /// <summary>A <see cref="WayFromM"/> that says no light holds the line anywhere past the nose, read with <see cref="float.IsNaN"/>.</summary>
+        public const float None = float.NaN;
+
+        public readonly long[] Laying = Filled(cars, -1L);
+
+        public readonly uint[] Line = new uint[cars];
+
+        public readonly float[] FromNoseM = new float[cars];
+
+        public readonly float[] WayFromM = new float[cars];
+
+        public readonly float[] WayToM = new float[cars];
+
+        public readonly float[] HeldFromM = new float[cars];
+
+        public readonly float[] HeldToM = new float[cars];
+
+        static long[] Filled(int count, long value)
+        {
+            var array = new long[count];
+            Array.Fill(array, value);
+            return array;
+        }
     }
 
     /// <summary>

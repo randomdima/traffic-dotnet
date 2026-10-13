@@ -4,6 +4,185 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-10-13 — a line is laid within an arc budget, not room for the town's curviest lane twelve times
+
+**Each car had room for 343 arcs on OdesaOsm** (`LineAssembler.ArcsFor`: twelve of its longest lanes and the joins
+between), and its lines held a median of 8 and at most 57 over 400 layings (`--bench room`): 446 MB of arcs and
+corner entries for the fleet. Now a line has room for `LineAssembler.MostArcs` (96), or two of the town's longest
+lanes where that is more, and `TownWorld.LayLine` asks the route for another lane only while the longest would still
+fit — asking takes it off the route — so a line ends short only past 67 arcs, and the car asks for more as it runs
+out, as it does past `MostLanes`. About 125 MB; O10's digests the same.
+
+## 2026-10-13 — a way's runs are threaded through one table of slots, not packed apart
+
+**Tried at the owner's asking, with a second idea of theirs and one more.** Each claim is a slot in one table in the
+order laid, naming the next of its run by near edge; a way's row holds the first of each run. A body is threaded in
+as it is laid and kept one by one — what overlaps is one claim only where an instrument reads it — and a main or a
+secondary claim as it is taken. That spares the passes that counted each way's room, placed its bodies, sorted and
+merged them and gave its plans room, and a question reads a claim's holder off the claim and not off a second table.
+On `--bench room` against the packed runs, run back to back on all cores and exact on the age probe's digests,
+OdesaOsm laid in 29.1 ms against 32.3 and O10 in 3.85 against 4.36.
+
+**Why it does not lose to pointer-chasing**: a run is a claim or two long. Counted on OdesaOsm, a question walked
+0.2 to 2.6 slots on average, and more than eight in about 1 % of them.
+
+**Tried and refused**:
+
+- *Ten-metre sections*, each naming where a question about it begins: 30.6 ms against 29.0. Indexing them cost
+  1.2 ms a laying, and the extra read cost more than the one or two slots it skips.
+- *Each way's row indexed by the way itself*, marked with the laying instead of a row given at first touch: 31.4 ms
+  against 29.2. The rows of a laying's 94 000 ways packed together stay in cache; a row for each of the town's
+  1.1 million ways does not.
+- *Fetching ahead* (`Sse.Prefetch0`) the rows, hold and first claims of the wish eight and four ahead in turn order:
+  answering took 8.0 ms against 6.3, and the rows and hold alone 6.7. Finding the claims to fetch is itself a read
+  that waits, and the core already overlaps what it can.
+- *A way's row and where its marks begin side by side in one table*, so a piece asked reads one line for both:
+  28.6 ms against 28.6.
+- *`CornerLimits.RestToM` walked from the car's own cursor* (`CarFleet.LineCursor`, exact) rather than the line's
+  head: cars' plans 9.34 and 9.54 ms against 9.68 and 9.41. What it waits on is the first read of the car's line, not
+  the arcs walked.
+
+**A wish and a slot are written field by field where they lie** (`LaneOccupancy.Add`, `NewSlot`). Built on the stack
+and copied in, a wish was 55 % of `AskUp`'s own time and 88 % of `Add`'s, and a slot two thirds of `InsertMain`'s —
+two overlapping 16-byte copies of a record just written. 29.2 → 28.6 ms on OdesaOsm, exact.
+
+**Secondary claims are kept as taken and read merged, as bodies are**: the owner's merge per rung (below) is what a
+reader sees — `FirstSecondary`, `IsTakenByOthers` and the instruments' views — and no pass merges them after
+answering, so no claim names its holders in a second table and a slot is 16 bytes. Answering 6.3 → 5.1 ms on
+OdesaOsm, the laying 28.8 → 27.4, exact; the car tick, which reads the lights' holds, the same.
+
+**A piece is asked with one read of its way's row and its hold, and a mark's cut is worked out only if it is
+refused** (`LaneOccupancy.AskUp`, `CutLineM`): a mark's secondary claim carries its main piece's line and the
+decimetre the mark begins at, and nothing is divided per mark asked. 28.05 → 27.45 ms on OdesaOsm, exact, first with a
+metre kept on each mark — which cost 5.4 MB of marks, and is gone. **A driver's own body is read off its own stretches**
+(`OwnBodyAt`): one stretch of it on the way stands over the decimetre or not, so the way's run — a queue, where it is
+long — is walked only for two. Cars' plans 9.8 → 9.1 ms, the cars' bodies 0.12 dearer for the index, exact; a
+walker, two stretches on a way more often than not, still walks the run, and indexing walkers too lost 0.6 ms on
+their walks. With no own-body check at all asking was 1.7 ms cheaper, which is the bound on this.
+
+**The tables are laid for what a laying uses** (`SlotsPerHolder` and the rest): about twice OdesaOsm's busiest
+laying, against four to eight times before — 139 MB of tables to 52, the marks' 16 MB and the 4.4 MB row of every
+way the most of it. A wish names its way only through its row (24 bytes, was 28), and **what answering reads of a
+hold is apart from what it came to** (`HoldState`, 8 bytes): read off the whole row, the hold was a fifth of
+`Take`'s time. Answering 8.11 → 7.77 ms on a loaded machine, two pairs of four; exact.
+
+**Tried and refused**:
+
+- *A crossed way given its row only when its secondary claim is taken*, not when asked: asking 0.6 ms cheaper,
+  answering 1.1 ms dearer, the row then read cold in `Take`.
+- *Fewer secondary claims*: none to drop. Of a laying's 117 000 a car asks on OdesaOsm, 58 000 are where connectors
+  cross in a box and 45 000 the zebras its lanes cross (3.9 m of lane each); the rest are the same two kinds of
+  ground (`--bench room`, by way kinds).
+- *A car's plan at rest asked again as it was* (`Following.Plan`), where its nose, speeds, line, build and call were
+  all the last laying's — every input a plan at rest reads that is the car's own, so exact: 19 160 plans a laying of
+  19 300 that came out the same. Cars' plans 13.40 ms against 13.05 over four pairs on a loaded machine. Reading
+  the key off seven of the fleet's arrays and the kept pieces costs what a plan at rest does, which reads no
+  corners; its pieces were still asked, as they must be to be answered.
+- *Each turn's pieces linked as they are asked*, instead of sorted by turn before answering: answering 8.52 ms
+  against 8.06. Following the links serialises the reads the sorted order lets the core run ahead on.
+
+## 2026-10-12 — the claims are laid afresh every laying, not kept by their holders
+
+**Tried at the owner's asking and taken out at their ruling.** Holds were kept from laying to laying: each holder
+gave back what it had passed, asked a slack ahead only once it held less than it needed, and a stronger rung took
+held ground that was not committed; bodies were moved in place, lights' holds kept while they stood. On
+`--bench room --map O10` against this tree, run back to back, a laying took 12.1 ms against 9.6 (half the cores),
+and on OdesaOsm 62.6 against 38.4 (all cores); the exam lost cards 81 and 85.
+
+**What is kept did get cheaper, and what moves did not.** Asks fell from 24 000 a laying to 3 700, and answering
+from 1.05 to 0.90 ms. But on O10 every laying still moves some 6 400 bodies and trims some 7 700 plans at their near
+edge — a moving agent's body front and its plan's start move with it whether or not anything is decided — and an
+edit in place in a way's sorted run cost 140–190 ns against about 15 ns for a body appended and sorted with its way.
+Those two edits alone (2.35 ms) cost more than this tree's whole store (2.6 ms). The rest of the difference was work
+done twice: a car's committed ground kept as a second hold and asked again every laying, a body's new ground searched
+for other holders' plans that were its own holder's 8 800 times in 8 900, and 200 manoeuvres a laying still begun
+afresh.
+
+**Why not keep the decisions and lay the positions afresh**: worked through, it reached this tree's cost on O10 and
+beat it only where most agents stand still, at the price of two models in one store. A sort-and-scan laying is also
+the shape the device runs (root decision log: the whole engine on the device), and per-agent edits are not. The
+counts and costs are from a counted copy of the kept tree.
+
+**Tried again on the threaded slots (2026-10-13), at the owner's asking, and taken out.** The kept tree's holding
+ported onto the slot table, a run linked both ways, so a claim is taken out or moved where it lies without shifting
+or walking the run; and with three changes of its own: a car's committed ground marked on its plan's own claims (a
+decimetre each claim is committed short of) rather than kept as a second hold asked every laying, one line shift a
+hold rather than every piece read onto the line again, and a hold kept whole where its holder's nose stands at the
+end of a way (the kept tree gave back the join ahead too, and a cut car waited holding nothing). With the machine
+idle, `--bench room`: O10 5.6 ms against 3.8, OdesaOsm 43.2 against 28.2 (the first port 65.3, before those three).
+Answering was the one stage it won, 4.8 against 5.4, on 57 000 pieces asked a laying against 238 000. What it lost
+is upkeep: bodies 9.0 against 2.7, cars' plans 17.0 against 9.9, walks 6.4 against 4.2. Every moving body and plan is
+still edited every laying, each edit reading its hold, its pieces, its neighbours and its run cold, and a run walked
+from its head ran at 0.09 instructions a cycle. Exam: card 60 passed, 85 failed. A body moved in one pass instead of
+two, and a claim moved past a neighbour threaded again from where it was, gained nothing.
+
+## 2026-10-12 — the claims are runs of decimetres, taken in one pass strongest first, and say nothing of who
+
+**The owner asked for the claims to be simpler and exact**: a claim's edges as `ushort` decimetres from the way's
+start, no floats; claims of a run ordered with no intersections, one ending on the decimetre the next begins;
+overlapping secondary claims merged; a claim storing its holders and its rung and nothing else. Their rulings, in
+order: of one rung, who gets the ground does not matter; a claim may hold several holders; what a body is doing is
+not the claim's to carry; **actors never read who laid a claim** — a claim is what makes others act, not its actor —
+and every feature that did is dropped and tracked; edges round up; every reader is ported, with no branch kept for an
+edge case.
+
+- **Three runs a way** (`LaneOccupancy`): bodies, one claim where they overlap with every one of them a holder; main
+  claims, one holder each and never overlapping; secondary claims, merged per rung. The town's longest way has to fit
+  65 535 dm (6 553.5 m); the constructor refuses a town that does not.
+- **One pass**: bodies laid and merged first; then every piece every hold asked, sorted stably by rung and taken in
+  that order, each against what is down — a main piece refused at the first body, main claim or secondary claim of
+  another holder, a secondary claim refused whole by a main claim. Whatever is down is at least as strong, so
+  nothing taken is freed, nothing is answered twice and no ring can form. The passes, the settling bound
+  (`MostSettlingPasses`) and the comparison (`Beats`) all went.
+- **A holder's own claims never refuse it**, compared by holder inside the claims and never handed to an actor: a
+  car's pass lies over its own plan, and two main claims of one holder over one stretch are merged into one. **A piece
+  begins past its holder's own body** where that stands over its start.
+- **A pass, a step across and a manoeuvre are plans of their own** (TER-4c.6, the owner's point 7): asked at the
+  holder's rung, at p1 once begun, kept where all of it was had. **Before it begins one is a hold had whole**:
+  checked as a whole and taken whole or not at all, after every plan of its rung — so a withdrawn pass keeps no
+  ground from anybody, and it never outranks oncoming traffic asked in the same laying, whichever was asked first.
+  The claims half of the step's and the manoeuvre's own look before asking went with it, being a second gate on
+  what the laying already refuses. **Once begun the holder's plan carries on in the same hold**, and each piece of
+  ground swept off its line names where the holder stops if it is refused (`AskSwept`), so what the hold came to is
+  the grant: the second search for a body inside it (`FirstBodyIn`, the `Asks…` of each manoeuvre, a refusal made up
+  by `Cut`) went.
+- **Every question about one body reads that body** (`FirstBodySeen`): a merged body run was the answer to "is it
+  still there", and a car queuing onto what a pass got past made it gone. The merged runs are what is drawn.
+- **Rounding up needs a grain**: 0.3 m × 10 is 3.0000001 in floats, so a metre read off a claim and asked again
+  rounded to the decimetre after its own; `DmOf` takes 0.001 dm off before rounding up.
+
+**Dropped, because each read what a body was doing or who it was** (`docs/tech-debt.md` brings them back off a reading
+of the bodies themselves): deciding a pass round what cut a grant (CAR-46, `Overtaking.MayGetPastWhatCutIt`), and so
+backing up for one (CAR-50) and a call passing at-rest or slow traffic (AMB-4.4); moving across to get past what holds a
+car up (CAR-53, `Switching.IsHeldUp`); a walker's sidestep (PER-28); the room kept to step out behind a body going
+nowhere (`KeptOffM`); the backing that took the plan of somebody queued behind it (`IsQueuedBehind`); a light's hold
+lying over a body only standing on its way (it now ends at the first body of any kind); the queue / obstruction /
+walker / passing kinds of what cut a grant (`HeadwayKind` is now nothing, body, claimed, light); the arrival
+tie-break (TER-5g's last tier — of one rung, the first asked keeps it); **and "ground its holder already stands on"**
+(TER-5e's second tier), which the plan had not listed. Overtaking, backing up and sidestepping are kept whole but
+for the decision, which nothing calls.
+
+**Tried and refused**: *a secondary claim refused by a body standing in its section* restored that tier for a zebra
+— a car stops short of paint somebody stands on — and failed 34 exam cards, every box deadlocked: a queued car's
+wheel cover reaches a metre into the joins at its mouth, and refused every movement crossing them. *A plan
+committed through every mark its own body stands in* fixed card 69 and failed 29, 46, 52, 53 and 96: a car with a
+wheel cover a metre into a box outranked the right of way.
+
+**Measured** (fixture towns only): unit, town, device and gate tiers pass — the gates once the tables are laid for
+the town's holders at the start (`AllocationGateTests` caught a table growing inside its window). The exam fails 13
+cards against 5 before: 44, 79 and 85 now pass; 60, 69, 70, 80, 82, 84, 86, 88, 89, 91 and 108 now fail, 67 and 109
+still do. 108 and 109 are a pass no longer decided; the zebra cards are a car stopped behind somebody standing at
+the kerb end of the paint, inside the zebra, with no room kept behind them; 60 and 69 are the standing tier.
+
+## 2026-10-12 — the claims stay at 0.05 s: a slower laying is cheaper and brakes harder
+
+**Measured and not taken.** With the driver's lead derived from the interval (`SimConfig.CarReactionS`), laying the
+claims every 0.1 s halved the index on `--bench town --map Odesa` (115.5 → 60.1 µs a tick, the car tick 118.4 → 101.4,
+the whole tick 269.9 → 195.7; one pair against the tree before) — and moved hard brakings under `--bench drive` Odesa
+0 → 10, River 3 → 11, O10 121 → 193, reds River 1 → 2 and O10 11 → 15, mean speed 2–4 % lower. Every 4 ticks
+(0.067 s): Odesa 0 → 11, O10 121 → 177. A grant twice as stale is a car told twice as late that its ground was taken
+back, and the longer lead does not cover the refusal it hears late. What closes it is a cheaper laying, not a rarer one.
+
 ## 2026-10-07 — a body is on the ways its wheels stand on, and a walker is one wheel
 
 **The owner ruled it: one reading of the ground a laying, and no collider read against the ribbons for a body.**
@@ -29,8 +208,8 @@ wheels straddle a zebra narrower than its wheelbase, or whose nose is over a jun
 reached, is no body there. A walker 0.1 m short of a kerb is not on the zebra, so a light holding the paint holds it
 there, where its disc reaching over the paint had made it a body on the crossing the light gave way to.
 
-**Measured on OdesaOsm** (10 013 cars, 10 000 walkers, `--bench devicetown` two runs each, the three builds
-interleaved): before; the cars and their tyres on their wheels alone; and with the walker as one wheel, the car no
+**Measured on OdesaOsm** (10 013 cars, 10 000 walkers, the town ticked on the host and on the device, two runs each,
+the three builds interleaved): before; the cars and their tyres on their wheels alone; and with the walker as one wheel, the car no
 longer asked its ground, and what that left redundant gone (terrain and car logs).
 
 | | before | cars' wheels | all of it |
@@ -54,99 +233,10 @@ collider the town braked hard 714 times, as before. A car is put on a lane its c
 on it brakes for it. Exam card 109 (a car on a call gets past a queue at a red) fails since: the car on the call
 reaches the box after the queue's head.
 
-## 2026-10-07 — the claims are laid on the device in the town's place, and mirrored back
-
-**A town whose device lays the claims (`ITownClaims`, `app/devicetick/DeviceTownClaims`) runs its rebuild stage for stage
-but lays only what it alone lays**: it stations its walkers, names the cars it asks and lays the passes; the device lays
-every body, light, plan and walk, and what each car holds where it stands (root decision log, 2026-10-10), and answers and
-cuts every plan in one submit (`DeviceRebuild.InTheTown`), and the claims are written back into the town's own
-reservations (`LaneOccupancy.MirrorTheSlot` and the rest) — every slot, hold, answer and list, every car's plan and hold,
-every walker's hold, the channels under each car. A town with no such device lays its own exactly as before. The backing
-is the device's too (root decision log, 2026-10-09).
-
-- **A car on a pass is planned past it as though its pass were clear, and the device asks whether a body stands in it**
-  (`rebuild_asks.comp`, `LaneOccupancy.FirstBodyIn`): the town's own question, as data — `TheBodyInThePass` and
-  `TheBodyInTheSwitch` now ask it the same way — so where one does, the plan is never filed and the car's claim is the
-  hold short of the body. On OdesaOsm there are some twenty such cars every rebuild; the plan is the device's own
-  (root decision log, 2026-10-10).
-- **The town lays the rebuild itself** while its agents are held, and where more cars are on a pass than there is room to
-  ask for; counted (`DeviceTownClaims.Rebuilds`) and sent as cut.
-- **What is written back is exact**: a walker's pace along its way is the host's, sent with its row, where the device's own
-  trigonometry put it a last bit off. Held over three towns run twice in step, once with the device laying
-  the claims (`DeviceTownClaimsTests`): 1 800 ticks, every slot, hold, list, car, walker and device grant to the bit, and
-  every car and walker where the other town has it. On OdesaOsm (`--bench devicemirror`) 100 rebuilds held so — 7.65 M
-  slots, 1.52 M holds, a million cars' claims and a million walkers' walks — and 300 ticks' poses, none apart. **What may
-  not be mirrored is counted** (`DeviceRebuild.OnOtherChannelsAtABay`, `StraightsTheTownWouldNotCommit`): a car at a bay
-  the device puts on other channels after its manoeuvre was swept on the old ones, and a straight the device commits a
-  walker to that the town would not. Neither happened there.
-- **What crosses is the host's to bound**: the rows and holds are read back as far as the last rebuild laid and a margin,
-  and anything past that in a second submit, counted (none on OdesaOsm); a hold comes back packed with how far the claim
-  that cut it reached, the rest of that claim being its row. The lines are the car tick's own on the device, and the walkers,
-  what each car is told and the cars' lines are sent only where they changed.
-
-On OdesaOsm (`--bench devicetown`, RX 9070 XT, 78 000 rows, 24 000 of them bodies, and 15 600 holds a rebuild) a claims
-rebuild costs the town 13.3 ms against 20.6 laid by itself: gathering 3.1 (its walkers stationed among it), sending 3.2 MB
-in 2.3, the kernels 2.2, reading 5.1 MB back in 3.7, writing it into the town 1.4. The claims phase is 4.8 ms a tick
-against 6.9, the device tick 12.6–12.8 ms against 15.9, and the town drives as it did to the last braking and touch.
-**The bus is what is left**: 8 MB a rebuild over a link of 1.4 GB/s.
-
-## 2026-10-07 — a whole claims rebuild is chained on the device, in one submit
-
-**Every producer of a rebuild had a kernel held to the host on its own** — bodies, plans, walkers, lights, the answers —
-and the answers were still sent every row and hold the host laid, numbered as the host numbered them.
-`app/devicetick/DeviceRebuild` records them all into one submit, and what each lays is numbered on the device into
-`DeviceClaims`' own rows and holds **exactly as `TownWorld.RebuildLaneOccupancy` numbers its slots and holds**, then
-listed, answered and cut there; every car's grant is read where the car's tick reads it (`CarGrantRow` but the place, the
-cutter's row, `CarToldRow`'s `HasAHold` and `Cut`), and every walker's answer where `walkers_read.comp` reads it.
-
-- **The numbering is the host's laying order, counted, scanned and filed** (`world/town/kernels/rebuild_*.comp`): every
-  walker's body then every car's, the passes, every light's stretch, the claims laid where they stand, every car's claim,
-  every walker's walk, and the backing after the answers. **A piece is grown into its holder's body already on the way
-  exactly where `LaneOccupancy.LayBody` grows it** — the pieces filed under their ways and each way's run sorted into
-  laying order — which is a walker's own way read twice, an owner walking to its car laid as the car, and a tow under its
-  truck: 767 pieces a rebuild on OdesaOsm.
-- **No count crosses.** Every kernel over the rows or the holds stops at, and is dispatched indirectly by, the claims'
-  tally (`claims_tally.glsl`), which the claims' own kernels now read in place of a pushed count; the scans write it.
-- **What only the host lays is sent as host-laid units, each filed at its own place in that order**: the passes of
-  overtakes, switches, bays and sidesteps.
-- **A car's plan begun over no ways is a hold never answered**, since `Propose` is never called — 35 holds a rebuild on
-  OdesaOsm, which the plan kernel did not say. `plan_rows.glsl`'s `PlanOutRow` carries the ways it proposed down.
-- **Each producer is still sent the town as it stands at its own stage**: the chain runs from what they lay, and what
-  one stage of an agent's own state differs by never reaches the claims.
-
-Held to the town (`DeviceRebuildTests`): 400 rebuilds of the walked town, 132 cars and 204 walkers, a car backing up
-behind a wreck into the plan of the car behind and a hand driving another over a red light's bar — 309 045 slots, 142 949
-holds and answers, 52 800 cars' grants, cutters and told bits and 81 600 walkers' readings, every one exact but a pace
-along a heading and where a walker aims, to the device's trigonometry; 2 855 pieces grown, 177 rows and holds of backing,
-130 of the host's cuts. On OdesaOsm (`--bench devicerebuild`, RX 9070 XT, 10 013 cars and 10 000 walkers, 100 rebuilds of a
-median 76 673 slots) the town's whole rebuild took 19.0 ms and the chained kernels 2.85 ms — bodies 1.42, lights, plans and
-walks 0.38, answers and cut 0.95, backing and grants 0.03 — and none of 7.65 M slots, 1.52 M holds and answers, 1.00 M grants
-or 1.00 M walkers' readings differed. **Sending the producers the town's state is the shadow's**: 272 MB and 150 ms a
-rebuild, 124 MB of it every car's line again.
-
-## 2026-10-07 — the plans are answered on the device, held to the host's
-
-**Every plan answered at once** (below) is the device's own arithmetic: `kernels/claims.glsl` is `AnswerThePlans`'
-reach, secondary cut, margin and cut line for line, over the claims as rows (`claims_rows.glsl`, laid by
-`app/devicetick/DeviceClaims`), each way's two lists as runs in the host's order, one thread a hold, one dispatch a
-pass to answer and one to show. **The device runs every pass the host could** — the first and on to the first odd one
-at the bound — since a pass after the answers stop moving answers them the same again.
-
-- **Held to the host bit for bit** (`DeviceClaimsTests`): 400 rebuilds of the fixture town, every hold's end, margin,
-  cut way and cutter and every reservation's extent. On OdesaOsm (`--bench deviceclaims`, RX 9070 XT) the passes and
-  the cut took 0.91 ms on the device against 3.11 ms on the host, and none of 1 518 570 answers differed.
-- **Only what a rebuild laid crosses**: the claims are sized for the town's worst case (35 M reservations on OdesaOsm),
-  and copying all of that every rebuild lost the device.
-- **Of two reservations from one metre, the one laid first stands first** (`LaneOccupancy.Precedes`), where the last
-  one linked used to: a list is then what a stable sort of the slots by near edge makes of them, which the device does
-  for itself (`claims_lists.glsl` — counted, scanned, filed and each way's handful sorted by one thread; the longest
-  list on OdesaOsm is 15). Which of two equal claims is met first decides only what a cut is said to be cut by. Every
-  tier passed unchanged. On OdesaOsm the device lays the lists in 0.18 ms, and lists, passes and cut take 1.11 ms.
-
 ## 2026-10-07 — which ways a body stands over is read on the device off the atlas's own tables
 
-**The tick moves to the device** (root log), and every claims rebuild lays every body onto the ways under it
-(TER-4c.2). `kernels/atlas.glsl` is `RibbonAtlas.Read`, `Grow` and `Widened` line for line, over the very tables the
+**The ribbons each moving body stands on are the world's to read** (root log, 2026-10-11), and every claims laying
+lays every body onto the ways under it (TER-4c.2). `kernels/atlas.glsl` is `RibbonAtlas.Read`, `Grow` and `Widened` line for line, over the very tables the
 host reads (`RibbonAtlas.Table`, laid by `app/devicetick/DeviceAtlas`), so the answer is the host's and never a second
 filing of the ribbons.
 
@@ -160,32 +250,6 @@ Held to the host over 2 400 boxes and 2 400 discs on the fixture town and 2 400 
 channel (`AtlasKernelTests`): the same ways, order, stretches and drops to the bit. On OdesaOsm after 600 ticks
 (`--bench deviceatlas`, RX 9070 XT), 10 013 cars and 3 229 walkers with a body took 5.3–6.1 ms on the host, uncached, and
 0.73–0.80 ms on the device over two runs, and no body differs.
-
-## 2026-10-06 — every plan is answered at once
-
-**The tick moves to the device** (root log), where every holder is a thread and none can be laid before another.
-Plans were laid one at a time in roster order, each answered against what was down so far and taking what it beat
-(`Take`), then settled: every plan another had cut was answered again and laid again until none moved. Which plan
-kept a piece of ground did not turn on the order — the comparison is total and symmetric (TER-5e) — but what each
-was answered against did, until the settling caught up.
-
-- **Every plan is laid whole and answered at once** (`LaneOccupancy.Propose`, `ShowTheAnswers`, TER-4c.3): each
-  pass every hold is answered against what every other came to the pass before; a plan's own reach is cut where a
-  claim beats it, and its secondary claims where a main claim over them beats them, so of two claims that meet
-  exactly one gives the ground up. The first pass is read against the bodies alone, which no answer can be shorter
-  than, so the passes close in from both sides on the layer where every answer is what it was answered against.
-- **Disjoint wherever the passes stop**: a pass read against a layer at least as long as its own is cut wherever
-  anything beats it, so the bound (`MostSettlingPasses`) stops on such a pass and a ring left moving is counted
-  (`Unsettled`) and still disjoint — the gate (`ClaimGateTests`) holds either way.
-- **What a hand or a truck cannot stop short of is laid before the plans and taken by none of them**: it is nobody's
-  plan, answered once against the bodies. A committed plan beat it by arriving first before; now it waits.
-- **The answer is the claims' own** (`LaneOccupancy.AnswerThePlans`): a plan's reach is read off its own pieces, and
-  what its holder keeps off what cut it off terms it gave with the plan (`HolderTerms`), so a pass asks nothing of a car
-  or a walker and the device runs the same arithmetic. Only a hold on a way something moved on is answered again.
-- The suite's unit, town and gate tiers passed unchanged, and the exam failed the same three cards as before (44, 79,
-  85). **On the host it costs about a millisecond a tick** on OdesaOsm (`--bench town`: claims 7.9 ms against 6.9),
-  the plans laid whole and every one answered twice where one answer and a settle did before; the device is where it
-  runs.
 
 ## 2026-10-05 — a lane lost at a node ends there, and a lane gained is moved onto
 
@@ -485,86 +549,6 @@ Five minutes each (`--bench stuck`, against the commit before these changes): Od
 (439), 173 car-ticks spent the braking margin (204), no wreck; River 451 bays (445), 333 walks given up (342), no
 wreck. `CarActionTests` and `PersonActionTests` hold every car and walker of the suite's city to it every tick.
 
-## 2026-09-30 — a holder at rest cannot stop short of its own front
-
-**Five minutes of Odesa left a car and a walker standing at a zebra for the rest of the run**, because a car at
-rest held the paint on some rebuilds and not others. Its committed ground ran from its front by its reaction
-and a stop, so a car settling at a few millimetres a second held a hair past its nose — and at a zebra that hair
-is a metre of the paint, which places both walking lanes committed whole (TER-5c.3). On a rebuild the speed came
-back at exactly nought the walker had the paint and took a stride; on the next it was refused again, a stride
-further out, until it stood on the lane in front of the car that was waiting for it.
-
-**Dropping the hair was tried and refused.** With nothing committed at rest a car let into a box and cut in the
-middle of it lost its way out to the car its own body was holding up, and one stood with its nose on the paint
-lost it to walkers its body stood in the way of — both gridlocked on the first run. What the hair had been doing
-was keeping ground its holder's front already stood in. **So the end metre is committed** (`CannotStopShortOf`):
-at rest the metre at the front is ground the holder cannot stop short of, on every rebuild and not only on those
-the solver left a residue on. **It is the ladder's reading only** — a call's pass still takes the plan of a car
-it passes, and a place a body is put down on is still refused only by ground somebody will cover
-(`LaneClaim.CommittedAt`).
-
-**Read over a secondary claim's whole section, TER-5e's second tier was tried as well and refused.** A zebra's
-marks are whole, so the section on a lane and the section on a walking lane are different ground; standing in
-one was not standing in the other, the car won the meeting on its lane and the walker the meeting on the paint,
-and the rebuilds stopped settling (a tenfold rise in plans laid again).
-
-## 2026-09-30 — what a call's pass gets past moving ends where it can stop
-
-**A call passes traffic that is moving** (TER-4c.6, the ambulance log), and a pass is laid for where what it
-passes ends: made for a body standing where it stands, the step back would come down in front of a car still
-rolling into it. **A moving body is passed to where it can come to rest** (`LaneOccupancy.StopsByM`) — the
-furthest its plan on the way says it can no longer stop short of, read off the planned layer and not off the
-car — and the pass laid past that cuts its plan, so it stops short. **What a pass gets past no longer holds none
-of its ground, for a call's**: a plan of it the pass would lie over is taken only where its holder can still stop
-short (`PassTerms.Takes`), since a moving car cut there drives on into the pass. Every other pass gets past bodies
-at rest alone, whose plans hold nothing they cannot give back, and takes them whole as before.
-
-## 2026-09-29 — a call's pass is asked on terms, and holds a zebra whole
-
-**A pass was ground nobody plans, whoever asked** (TER-4c.6), so a call's rung bought it nothing: the oncoming
-car's reach, a light's hold over the box and the movements crossing it each refused it as a body would. The
-owner asked for a car on a call to overtake with its priority claim (the ambulance log). **A pass is now asked
-on terms** (`PassTerms`): a call's takes a plan its rung beats and whose holder can still stop short of it, and
-every other is asked at no rung and takes nothing — the same ground as before. It is still laid at p0 and never
-given up, so ground an oncoming holder can no longer stop short of refuses it, and the spare it is asked with is
-what keeps that ground clear through the rebuild it is laid in.
-
-**The paint is claimed whole, and whoever is on it is waited for.** A zebra's walking lanes are ribbons the
-atlas reads under a swept body, and not ways the traffic drives, so a pass over one was refused as a pass run
-off the road before the zebra was ever asked about; to a call they are road. Laid on the traffic's ways alone, a
-pass over the paint held nobody on foot, who would step out in front of it — so it lays the paint kerb to kerb on
-every walking lane (`LayThePaintItCrosses`), the one ground off its holder's network it holds, the zebra being
-the one ground the two networks share (TER-5c.3). Somebody already on the paint is not held by it — a pass holds
-nobody standing on its ground — and neither refuses nor withdraws it (`PassTerms.WaitsFor`); the car stands
-short of the paint until it is empty (`TheBodyInThePass`). Held only by a body in its way, as every other pass
-is, it could come to rest with its nose across the walking lane of somebody on the paint in front of it, each
-waiting for the other. A car already over the paint drives on off it.
-
-## 2026-09-29 — a car backing up plans behind itself, at a rung of its own
-
-**The ground a car backs up over is a plan like any other** (TER-4c.7, CAR-50), asked and answered on the one
-comparison (`LaneOccupancy.ReachBack`, `TakeBack`), read down the way from the holder's tail. **It is asked once every
-other plan is settled**: it is weaker than all of them, so nothing it could take would be given back, and laid last
-nothing is weighed against it later in the rebuild — which spares the cut and the settling a hold running against
-its way's metres. **What its holder can no longer stop short of is laid as its own piece**, committed, since a
-piece's committed ground is the stretch below a metre and a car rolling back has it above one.
-
-**It takes the plan of somebody queued behind it** — a hold its holder's body cut — wherever that one could still
-stop short (`LaneOccupancy.IsQueuedBehind`). Weaker than that too, it was a queue locking itself: the owner saw a
-car stand too near a car in front with the lane beside empty, and the car stopped behind it planned every metre up
-to its tail, so no car of a queue could ever back up. The plan is cut with the one cut any taking makes, and the
-backing hold keeps the pass's spare off the body behind, which is now all that is left between them.
-
-## 2026-09-29 — a movement a pass holds whole is held whole against plans, not bodies
-
-**A wreck standing in a box could never be passed** (TER-4c.6). The pass holds every movement its body is swept
-over whole, and the movement the wreck stood on was the car's own, so the pass's ground held the wreck's body and
-was never free. Holding a movement whole is about what is let into it — a car crossing the box let in and cut in
-the middle of it — which is a question of plans and of other passes. **A body is now read only where the pass's
-body goes** (`LaneOccupancy.IsFreeForAPass`, `KeepsItsPass`, `TownWorld.TheBodyInThePass`); a body elsewhere on the
-movement is in nobody's way, and a driven one standing there still plans the room to pull away, which the whole
-movement is held against.
-
 ## 2026-09-29 — a moving car plans no further than its corners let it rest
 
 **A plan drew back on its own as its car slowed for a bend** — the owner saw a car's hold reach round a
@@ -585,19 +569,6 @@ minute of each of the suite's towns, ticks on which a plan nothing cut drew back
 and 31, and to 7 and 8 once a car braking in a bend stopped running out of it (`PlansInATownTests`; the wheel out of
 the planned speed and CAR-47 are the car log's). What is left is a brake applied for a light still coming off the
 pedal, and a car read a few metres back along its line for a tick in a tight arc.
-
-## 2026-09-29 — a plan is laid to the metre it was answered
-
-**Cars were driving reds seconds into the red, at full speed** — the owner saw them "not even trying to stop".
-The light's hold was gone from under them: a plan refused at the bar was answered at the hold's first metre,
-carried to the line and back to be laid, and came home a hair past it. Laid there it took that hair off the hold
-(TER-4c.3), and a secondary claim cut anywhere goes whole (TER-5c.2) — so the whole of the light went, the plan
-was answered again against a road with no light on it, and it did so every tick. On the drive probe three reds
-in five on Odesa and on River were this, and none of them could be told from a car committed when the amber
-ran out without asking how far into the red it was. **The piece a plan was refused on is laid to the
-metre it was answered at** (`PlanAnswer.CutWayM`), for drivers and walkers alike; only the pieces before it are
-carried over from the line, and they end at their own ends. `LightsInATownTests` holds every red's bar tick by
-tick.
 
 ## 2026-09-29 — a plan reaches no further than a plan may
 
@@ -627,21 +598,7 @@ length past the paint. The owner asked for it dropped. A plan over a zebra is no
 like a plan over any other ground, so a car can come to rest on the paint behind a queue standing just past it;
 the exam card that asked otherwise went with it.
 
-## 2026-09-29 — p0 carries a pass as well as a body
-
-**The owner asked for overtaking with the claim at p0 where it can be had** (TER-4c.6): a holder that has left
-its own way cannot safely go back, so the ground it will cover is laid where nothing compares it — p0, beside
-the bodies. It is the one new thing the ladder holds (TER-5g), and it needed three facts a body now says of
-itself, since a reader may not look the holder up (TER-4c.5): **the way its line takes next** (`LaneClaim.Onward`),
-**whether it is at rest** (`Still`), and **whether it is ground a pass covers rather than a collider**
-(`Passing`). Rule 1 of the request — never pass somebody making your own movement in that section or
-intersection — is `LaneClaim.MayBePassedBy`, read off the first and the third.
-
-**Asked, laid, then kept or withdrawn**: two passes asked over one ground on one tick read the same layer and
-would both be laid; the rebuild after, the lower by roster and occupant keeps its own and the other withdraws,
-which is the only way two holders reading one layer can come to one answer without a register of whose turn it
-is. **A pass holds nobody already standing on its ground** (`LaneOccupancy.Reach`): its holder is held off them
-instead, or each waits for the other.
+## 2026-09-29 — a pass's ground is the holder's body swept down it, read off the atlas
 
 **Its ground is swept and read off the atlas** rather than mapped lane to lane. The first cut mapped a car's lane
 onto its reverse and refused any pass that reached a box; the owner saw cars not passing where car parks cut a
@@ -653,11 +610,7 @@ the car — a ring that stood both for as long as the leg's clock let it.
 
 **The swept ground is the holder's own body, from where it stands.** A line moved across and swept a body's
 width wide from the front of the holder left the ground its body swung over as it turned out held by nobody;
-the owner saw the claim begin too far on. A body stood at every place the pass puts it now lays the pass, so one
-way is covered many times over, and `LayPass` grows a stretch of the same pass where it meets another — only
-there, since the lane a pass leaves and comes back to is two stretches with what it passes between them.
-**A movement through a box is held whole**, as a car in a box plans the rest of the join: held in part, a car
-crossing the box was let in and cut in the middle of it, over the pass's ground on the movement beside its own.
+the owner saw the claim begin too far on. A body stood at every place the pass puts it now lays the pass.
 
 ## 2026-09-28 — a box is not remembered
 
@@ -839,46 +792,6 @@ while sections still ran to the touch, the same marks and body reading at the ol
 touches, 265 walks given up and 2561 km, and driven ways alone at their own width 35, 251, 360 and 2439 km:
 what costs is the width, most of it on the driven side. The atlas on Odesa is 3.5 M points and 6.3 M
 entries — 54 MiB — laid in 0.75 s, against 2.7 M, 3.9 M, 30 MiB and 0.7 s.
-
-## 2026-09-26 — what a cut frees goes back inside the tick
-
-Plans were laid once, in the same order every tick — cars by index, then closures, then walkers — and a cut
-only ever shortened a hold. Two faults came of it, and both held for as long as the town stood the same way,
-not for one tick.
-
-- **Refused by ground a later cut took away.** Car A was cut by car B at a box, then a walker on a zebra cut B
-  back short of the box. A still waited on ground nobody held.
-- **Refused by a piece its own taking removed.** A hold is answered way by way before it is laid. A straight
-  movement beat a near-side turn at the mark where their joins merge, and lost to it on the exit lane on
-  arrival. Its taking at the merge then removed the turn's exit-lane piece, and the straight car still braked
-  at the far edge of the box.
-
-**Every plan another plan ended is now answered again once all are down, and laid again where the answer
-moved** (`TownWorld.SettleThePlans`, `LaneOccupancy.ReopenHold`). Chosen over laying the walkers and closures
-first, which would have fixed only the commonest chain.
-
-**The passes are bounded at four, and the bound is not a gate.** Nearly everything moves in the first pass; at
-two, four and eight passes the same seeds give the same crashes and walks. Rebuilds still moving at four
-are still moving at eight. They are rings, where each holder takes from the next, and whether a town has them
-depends on its junctions. On Odesa, over six seeds of a minute each, 0 to 1824 of 4200 rebuilds hit the bound.
-
-**Measured** on Odesa over those six seeds, against the tree before:
-
-- km driven: 2100 → 2542
-- walks given up: 316 → 269
-- wrecked: 30 → 34 (1.43 → 1.34 per 100 km)
-- touches: 195 → 183
-- car-ticks spent past the braking margin, per km: 1.52 → 1.53
-
-Five minutes of `--bench stuck`:
-
-- drive legs given up: 603 → 354
-- walks given up: 1011 → 721
-- cars that ever stood still: 403 → 264
-- in that one run, wrecked 14 → 18 and touches 265 → 355
-
-The exam went from 26 failed cards to 23. Cards 20, 50, 92 and 93 now pass. Card 15 now fails — a straight
-giving way to a left turn from its right, which the ladder does not state.
 
 ## 2026-09-26 — two layers over a ribbon atlas: where the bodies are, and where they mean to be
 

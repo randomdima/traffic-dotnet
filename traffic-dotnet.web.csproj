@@ -55,7 +55,8 @@
 
   <PropertyGroup>
     <!-- The desktop's machine, which has no meaning in a page: the device, the window, the swapchain,
-         the renderer built against them, and the two entries that drive them. Everything else under
+         the renderer built against them — the ground's bands its indirect draws read and the emit it records among
+         them — and the two entries that drive them. Everything else under
          src/ is shared, and there is no #if anywhere in it.
 
          The last two are not the machine but the codec. Texels.cs is the desktop's half of the decode
@@ -80,6 +81,8 @@
       src/app/render/TownRenderer.cs;
       src/app/render/TownRenderer.Pipelines.cs;
       src/app/render/TownRenderer.Recording.cs;
+      src/app/render/GroundBands.cs;
+      src/app/render/IMovingEmit.cs;
       src/app/main/Game.Desktop.cs;
       src/app/main/Game.Vulkan.cs;
       src/app/main/Program.cs;

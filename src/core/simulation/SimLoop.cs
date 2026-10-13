@@ -23,6 +23,12 @@ internal struct PhaseTimes
     /// </summary>
     public long WholeTicks;
 
+    /// <summary>
+    /// The dearest single tick, and the dearest single phase 2 — the peak a frame budget is spent against, where the
+    /// others are means. A maximum, so one preemption by the machine reads as a peak of the town's.
+    /// </summary>
+    public long WorstTickTicks, WorstIndexTicks;
+
     public long Ticks;
 
     public readonly long TotalTicks => InputTicks + IndexTicks + AgentTicks + BodyTicks + ContactTicks;
@@ -32,6 +38,9 @@ internal struct PhaseTimes
 
     public readonly double MillisecondsPer(long phaseTicks) =>
         Ticks <= 0 ? 0d : phaseTicks * 1000d / (Stopwatch.Frequency * (double)Ticks);
+
+    /// <summary>A span of stopwatch ticks in µs, for the worst ticks, which are one tick's and not a mean.</summary>
+    public static double Microseconds(long stopwatchTicks) => stopwatchTicks * 1e6d / Stopwatch.Frequency;
 
     public long Mark(ref long into, long since)
     {
@@ -60,7 +69,7 @@ internal struct TickParts
     public long WalkerTicks;
     public long CarTicks;
 
-    /// <summary>Phase 3's second pass, kept apart from its ticks: the decisions due, which stay the host's on a device tick.</summary>
+    /// <summary>Phase 3's second pass, kept apart from its ticks: the decisions due.</summary>
     public long WalkerDecisionTicks;
 
     public long CarDecisionTicks;
@@ -77,16 +86,6 @@ internal struct TickParts
     }
 
     public void Reset() => this = default;
-}
-
-/// <summary>Where phase 3 has got to, as the loop hands the world to a watcher (<see cref="SimLoop{TWorld}.WatchingTheAgents"/>).</summary>
-internal enum AgentsStage
-{
-    /// <summary>No agent has ticked yet this tick.</summary>
-    Due,
-
-    /// <summary>Every agent has ticked, and no decision is taken yet.</summary>
-    Ticked,
 }
 
 /// <summary>
@@ -130,13 +129,6 @@ internal sealed class SimLoop<TWorld> where TWorld : ISimWorld
 
     public bool Timed { get; set; }
 
-    /// <summary>
-    /// <b>For the instruments</b>: handed the world as phase 3 begins, before any agent ticks, and again once every agent
-    /// has and no decision is taken yet — what a device ticking every agent at once is held to. Nothing that decides
-    /// anything sets it.
-    /// </summary>
-    public Action<TWorld, AgentsStage>? WatchingTheAgents { get; set; }
-
     public void Advance()
     {
         if (Timed)
@@ -160,15 +152,18 @@ internal sealed class SimLoop<TWorld> where TWorld : ISimWorld
         _world.ReadPlayerInput();
         stamp = Phases.Mark(ref Phases.InputTicks, stamp);
         _world.RebuildProximityIndex();
-        stamp = Phases.Mark(ref Phases.IndexTicks, stamp);
+        var indexedAt = Phases.Mark(ref Phases.IndexTicks, stamp);
+        Phases.WorstIndexTicks = Math.Max(Phases.WorstIndexTicks, indexedAt - stamp);
         Decide();
-        stamp = Phases.Mark(ref Phases.AgentTicks, stamp);
+        stamp = Phases.Mark(ref Phases.AgentTicks, indexedAt);
         _world.StepBodies(TickSeconds);
         stamp = Phases.Mark(ref Phases.BodyTicks, stamp);
         _world.ResolveContacts();
 
         // The last mark's own timestamp is the tick's end, so measuring the whole costs no sixth call.
-        Phases.WholeTicks += Phases.Mark(ref Phases.ContactTicks, stamp) - began;
+        var wholeTicks = Phases.Mark(ref Phases.ContactTicks, stamp) - began;
+        Phases.WholeTicks += wholeTicks;
+        Phases.WorstTickTicks = Math.Max(Phases.WorstTickTicks, wholeTicks);
         Phases.Ticks++;
         Tick++;
     }
@@ -177,15 +172,11 @@ internal sealed class SimLoop<TWorld> where TWorld : ISimWorld
     /// Phase 3 as two passes: <b>every agent's tick, then every decision due</b>.
     /// </summary>
     /// <remarks>
-    /// A decision reads what the whole of 3a left, never a roster ticked up to itself. That is the order a tick
-    /// on the device has, where 3a runs for every agent at once and the decisions read what it wrote.
+    /// A decision reads what the whole of 3a left, never a roster ticked up to itself.
     /// </remarks>
     void Decide()
     {
-        WatchingTheAgents?.Invoke(_world, AgentsStage.Due);
         _world.TickTheAgents();
-        _world.AgentsTicked(Tick);
-        WatchingTheAgents?.Invoke(_world, AgentsStage.Ticked);
         _world.DecideTheAgents(Tick, Decisions);
     }
 

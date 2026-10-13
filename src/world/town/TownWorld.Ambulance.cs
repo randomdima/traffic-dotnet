@@ -12,6 +12,7 @@ using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Containment;
 using TrafficSimulation.World.Parking;
 using TrafficSimulation.World.Physics;
+using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Statics;
 
 namespace TrafficSimulation.World.Town;
@@ -67,10 +68,6 @@ internal sealed partial class TownWorld
     /// </summary>
     int _woundedCount;
 
-    /// <inheritdoc cref="_woundedCount"/>
-    /// <remarks>For the device to lay once at load (<c>app/devicetick/TownState</c>).</remarks>
-    internal int WoundedWaiting => _woundedCount;
-
     /// <summary>
     /// <b>A car stood on a hospital's apron becomes that hospital's ambulance</b> (AMB-2, AMB-3): the
     /// hospital it delivers to and the bay held for it, which is where every leg of every call ends.
@@ -107,8 +104,7 @@ internal sealed partial class TownWorld
     {
         if (People.Wounded[person]) return;
 
-        Device?.TakeTheWalkerBack(this, person);
-        _physics.PutOnLayer(People.Body[person], CollisionLayer.Downed);
+        PutTheWalkerOnLayer(person, CollisionLayer.Downed);
         People.Wounded[person] = true;
         _wounded.Add(person);
         People.Walking[person] = false;
@@ -144,11 +140,10 @@ internal sealed partial class TownWorld
     {
         if (person < 0) return;
 
-        TakeTheCarsPoseBack(car);
         var doorM = DriverDoorM(car);
         _containers.Alight(car, person);
         People.Stage[person] = TripStage.StandingBy;
-        Place(person, doorM, MathF.Atan2(doorM.Y - Cars.PositionM[car].Y, doorM.X - Cars.PositionM[car].X));
+        Place(person, doorM, MathF.Atan2(doorM.Y - Cars.PositionM[car].Y, doorM.X - Cars.PositionM[car].X), PlaceBesideTheCar(car));
         RaiseTheCall(person);
     }
 
@@ -234,9 +229,9 @@ internal sealed partial class TownWorld
         var fromM = Cars.PositionM[car];
         var best = RescueDuty.Nobody;
         var bestM = float.PositiveInfinity;
-        for (var person = 0; person < People.Count; person++)
+        for (var person = _wounded.Next(0, People.Count); person >= 0; person = _wounded.Next(person + 1, People.Count))
         {
-            if (!People.Wounded[person] || People.Inside[person].Any) continue;
+            if (People.Inside[person].Any) continue;
 
             // Whether a call is taken is a walk of the fleet, so only a body nearer than the best is asked it.
             var farM = (People.PositionM[person] - fromM).LengthSquared();
@@ -252,7 +247,7 @@ internal sealed partial class TownWorld
         _duty.SinceS[car] = 0f;
         _duty.LoadedForS[car] = 0f;
         EnterTheStage(car, RescueStage.Running);
-        SendTo(car, TheStandoffM(car, best), ParkingRegistry.NoBay);
+        SendTo(car, TheStandoff(best));
         return true;
     }
 
@@ -262,21 +257,15 @@ internal sealed partial class TownWorld
     /// </summary>
     /// <remarks>
     /// <b>Back along the lane and not simply away from the body.</b> The truck's own hitching place
-    /// (<see cref="TheHitchingPlaceM"/>) is measured the same way and for the same reason: a vehicle can only
+    /// (<see cref="TheHitchingPlace"/>) is measured the same way and for the same reason: a vehicle can only
     /// arrive along the road, so the one place it can be made to stand is a place on the road — and a
     /// standoff measured as a radius would regularly land on a pavement, a wall, or the far carriageway.
     /// <b>Behind the body</b>, because that is the side the ambulance is coming from and the side the
-    /// traffic behind it is stopped on.
+    /// traffic behind it is stopped on. <b>Read off where the world reads the body</b> (<see cref="RoadPlaceOfWalker"/>):
+    /// nothing is looked up (the root decision log, 2026-10-13).
     /// </remarks>
-    Vector2 TheStandoffM(int car, int casualty)
-    {
-        var lyingAtM = People.PositionM[casualty];
-        var lane = _roads.NearestStreetLane(lyingAtM, out var alongM);
-        if (lane < 0) return lyingAtM;
-
-        var forward = Spline.SampleAt(_roads.ArcsOf(lane), alongM).Direction;
-        return lyingAtM - (forward * _config.AmbulanceStandoffM);
-    }
+    RoadPlace TheStandoff(int casualty) =>
+        RoadPlaceOfWalker(casualty) is var lying && lying.IsSomewhere ? OnAlong(lying, -_config.AmbulanceStandoffM) : RoadPlace.Nowhere;
 
     /// <summary>
     /// <b>Whether this is the ambulance AMB-5 means</b> — the nearest one with nothing else to do — asked
@@ -300,11 +289,10 @@ internal sealed partial class TownWorld
     /// </remarks>
     bool IsTheNearestFreeAmbulanceTo(int car, int person, float farM)
     {
-        for (var other = 0; other < Cars.Count; other++)
+        foreach (var other in _ambulances)
         {
             if (other == car || !Cars.Ambulance[other] || Cars.Broken[other] || _duty.IsOnACall(other)) continue;
 
-            TakeTheCarsPoseBack(other);
             var otherM = (People.PositionM[person] - Cars.PositionM[other]).LengthSquared();
             if (otherM < farM || (otherM == farM && other < car)) return false;
         }
@@ -315,7 +303,7 @@ internal sealed partial class TownWorld
     /// <summary>Whether some other ambulance has already taken this casualty's call.</summary>
     bool IsSpokenFor(int person)
     {
-        for (var car = 0; car < Cars.Count; car++)
+        foreach (var car in _ambulances)
         {
             if (_duty.Casualty[car] == person) return true;
         }
@@ -331,14 +319,15 @@ internal sealed partial class TownWorld
     {
         if (!TheCallStillStands(car, out var casualty)) return;
 
-        var standoffM = TheStandoffM(car, casualty);
+        var standoff = TheStandoff(casualty);
+        var standoffM = standoff.IsSomewhere ? PointOf(standoff) : People.PositionM[casualty];
 
         // A leg that ended before the standoff was reached — given up, or a bay left and nowhere
         // gone — is begun again from where the car actually stands (CAR-15). The body is shunted by whatever
         // hits it, so the mark is re-read rather than remembered.
         if (!Cars.Driven[car])
         {
-            SendTo(car, standoffM, ParkingRegistry.NoBay);
+            SendTo(car, standoff);
             return;
         }
 
@@ -351,7 +340,7 @@ internal sealed partial class TownWorld
             // <b>Come to rest at the place and still short of the mark</b>: the car overshot it, or stopped
             // on the wrong side of it. A place behind the car is not a place to hold at, so the leg
             // is laid again from the pose it is actually in and the route takes it round.
-            if (atRest && StoppedWhereItWasSent(car)) SendTo(car, standoffM, ParkingRegistry.NoBay);
+            if (atRest && StoppedWhereItWasSent(car)) SendTo(car, standoff);
 
             return;
         }
@@ -439,7 +428,7 @@ internal sealed partial class TownWorld
 
         // A full participant again the moment the hospital has them (PHY-5b), written while the body is
         // still inside: what walks back out of the door is somebody the town can bump into.
-        _physics.PutOnLayer(People.Body[casualty], CollisionLayer.Person);
+        PutTheWalkerOnLayer(casualty, CollisionLayer.Person);
         People.Wounded[casualty] = false;
         _wounded.Remove(casualty);
         People.Stage[casualty] = TripStage.Dwelling;
@@ -506,7 +495,9 @@ internal sealed partial class TownWorld
         {
             // No bay at the hospital: drive to its door and hand over from wherever the leg ends, which is
             // what <see cref="RescueStage.HandingOver"/> is asked from anyway.
-            SendTo(car, hospital >= 0 ? _plan.Buildings.CentreM[hospital] : Cars.PositionM[car], ParkingRegistry.NoBay);
+            if (hospital >= 0) SendTo(car, _roadPlaceOfBuilding[hospital], _plan.Buildings.CentreM[hospital]);
+            else SendTo(car, RoadPlace.Nowhere);
+
             return;
         }
 
@@ -528,7 +519,9 @@ internal sealed partial class TownWorld
         if (home >= 0 && _parking.IsFreeFor(car, home)) return home;
 
         var hospital = _duty.Hospital[car];
-        return hospital >= 0 ? FreeBayNear(_plan.Buildings.CentreM[hospital], _config.AmbulanceHomeM) : -1;
+        return hospital >= 0
+            ? FreeBayOff(_roadPlaceOfBuilding[hospital], _plan.Buildings.CentreM[hospital], _config.AmbulanceHomeM)
+            : -1;
     }
 
     /// <summary>
@@ -541,6 +534,26 @@ internal sealed partial class TownWorld
     /// all — a body in the road, a wreck, a scene, a place a hand named — and the rest is the same machinery.
     /// </remarks>
     void SendTo(int car, Vector2 toM, int bay)
+    {
+        _destinationPlace[car] = RoadPlace.Nowhere;
+        SendOff(car, toM, bay);
+    }
+
+    /// <summary>
+    /// <b>One leg to a place on the road</b>, its lane and metre carried with it (the root decision log, 2026-10-13): the
+    /// route is searched to that place and nothing looks it up. Nowhere is a leg to where the car stands.
+    /// </summary>
+    void SendTo(int car, in RoadPlace place) =>
+        SendTo(car, place, place.IsSomewhere ? PointOf(place) : Cars.PositionM[car]);
+
+    /// <summary>The same, the leg's destination <paramref name="toM"/> — what it is stopped at — beside the place on the road it is routed to.</summary>
+    void SendTo(int car, in RoadPlace place, Vector2 toM)
+    {
+        _destinationPlace[car] = place;
+        SendOff(car, toM, ParkingRegistry.NoBay);
+    }
+
+    void SendOff(int car, Vector2 toM, int bay)
     {
         GiveUpTheBay(car);
         if (bay >= 0) TakeTheBay(car, bay);
@@ -680,13 +693,12 @@ internal sealed partial class TownWorld
         Cars.BlueLight[car] = false;
         if (casualty < 0) return;
 
-        TakeTheCarsPoseBack(car);
         var headingRad = Cars.HeadingRad[car];
         var behind = -Heading.Unit(headingRad);
         var tailM = Cars.PositionM[car] + (behind * (Cars.BuildOf(car).HalfLengthM + _config.PersonDiameterM));
 
         _containers.Unload(car, casualty);
-        Place(casualty, tailM, headingRad);
+        Place(casualty, tailM, headingRad, PlaceBesideTheCar(car));
         _woundedCount++;
     }
 

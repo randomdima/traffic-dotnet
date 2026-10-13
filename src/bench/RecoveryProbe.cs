@@ -235,16 +235,14 @@ internal static class RecoveryProbe
 
     /// <summary>How far the hinge and the point the arm holds have got apart, which is the coupling's own error.</summary>
     static float TheStretchM(TownWorld world, int hauler, int wreck) =>
-        (TowBar.HookM(world.Cars.BuildOf(hauler), PoseOf(world, hauler))
+        (TowBar.HookM(world.Cars.BuildOf(hauler), world.Cars.PositionM[hauler], ForwardOf(world, hauler))
             - TowBar.EyeM(
-                world.Cars.BuildOf(wreck), PoseOf(world, wreck), world.Cars.BuildOf(hauler).TowReachM,
-                world.Recovery.HeldByTheTail[wreck]))
+                world.Cars.BuildOf(wreck), world.Cars.PositionM[wreck], ForwardOf(world, wreck),
+                world.Cars.BuildOf(hauler).TowReachM, world.Recovery.HeldByTheTail[wreck]))
         .Length();
 
-    /// <summary>The body as the tow bar reads it, off the arrays the fleet already publishes.</summary>
-    static CarPose PoseOf(TownWorld world, int car) => new(
-        world.Cars.PositionM[car], world.Cars.HeadingRad[car], world.Cars.VelocityMps[car],
-        world.Cars.YawRateRadPerS[car], world.Cars.MassKg[car], world.Cars.AccelerationMps2[car]);
+    /// <summary>Which way a body points, off the heading the fleet publishes.</summary>
+    static Vector2 ForwardOf(TownWorld world, int car) => Heading.Unit(world.Cars.HeadingRad[car]);
 
     /// <summary>How many yard slots the town's depots actually found room for (EVA-2).</summary>
     static int YardSlots(TownWorld world)

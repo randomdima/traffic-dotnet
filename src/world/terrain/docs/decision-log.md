@@ -1,5 +1,15 @@
 # Terrain — decision log
 
+## 2026-10-12 — a kind of ground is a permission and nothing more
+
+**The owner ruled it: no actor is expected to touch water, and a wheel tells the bridge from what it crosses by the
+lanes it is laid on, not by the ground's shapes.** So the catalogue keeps the two surfaces a wheel stands on — the
+carriageway's and the grass's (`GroundCatalog.Paved`, `Grass`) — and each kind's permissions; water's grip, drag and
+mark threshold, every other kind's surface figures, and the point's coefficient (`GroundSample`) are gone, none of
+them read by anything but tests. The level above's lattice (`GroundShapes.At(point, level)`) went with them: it was
+laid at load for a bench alone. The level above is still drawn (`Paving.Above`, `GroundMesh.Above`); what the ground
+is at a point is the ground level's answer.
+
 ## 2026-10-07 — the ground is a wheel's, read once a laying
 
 **The owner ruled it: a wheel asks which lane ribbon it is on, once each time the claims are laid, and nothing else
@@ -11,13 +21,12 @@ it is kept, and its driver plans on its own rubber (agents/car log). `TER-7b`'s 
 reworded at the owner's word, from *what a wheel stands on is the shell's* to this; `TER-7` and `TER-2` say what
 follows.
 
-- **Read at the laying and kept** (`CarFleet.WheelsOnAWay`, a bit a wheel): the tyres grip on it every tick until
+- **Read at the laying and kept** (`CarView.WheelsOnAWay`, a bit a wheel, the world's beside the body): the tyres grip on it every tick until
   the next laying, so a wheel's answer is up to 0.05 s old, and no tick asks what ground a car is on.
 - **A wheel is read at the lattice point nearest it**, so where it stands is answered to within the lattice's reach
   of a band's edge — 0.35 m at the shipped step.
 - **What the ribbons do not cover is grass to a wheel**: a pocket of paving inside the kerb, a car park's apron, the
-  pavement of a town nobody walks, and water. The kinds' own figures are still the ground's, and are what the walk
-  planner reads (`GroundLocator.At`).
+  pavement of a town nobody walks, and water.
 - **The two grounds are worked out once** for the figures as they stand (`WheelGrounds`) and picked by a wheel's bit,
   on the host and in the kernel alike — the device is laid the two as rows, mark threshold and all, and hands no
   wheel's ground back.

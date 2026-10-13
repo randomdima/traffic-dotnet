@@ -54,9 +54,9 @@ internal static class Program
         var config = SimConfig.Load();
         var options = Options.Parse(args, config.View);
 
-        // A probe, a picture and a scripted drive each stand their own town; the device's tick is a window's.
+        // A probe, a picture and a scripted drive each stand their own town; the device's world is a window's.
         if (options.DeviceTick && (options.Bench ?? options.Shot ?? options.Sheet) is not null)
-            throw new ArgumentException("--device-tick ticks a windowed run's town on the device: --bench devicetown is the probe of it.");
+            throw new ArgumentException("--device-tick steps a windowed run's world on the device.");
 
         if (options.Lamps) return CutTheLamps();
         if (options.Author is not null) return Author(options.Author, config);
@@ -98,7 +98,7 @@ internal static class Program
             fullscreen: !options.Windowed, options.Display)
         {
             TicksOnTheDevice = options.DeviceTick,
-            TicksResident = options.Resident,
+            OpeningViewM = options.ViewM,
         };
 
         // --ui reaches the windowed run as it reaches a shot: a measured run of a town nobody is
@@ -325,6 +325,8 @@ internal static class Program
         {
             case "soak" when map is not null:
                 return Kept(SoakProbe.Run(config, map));
+            case "deviceworld":
+                return Kept(DeviceWorldProbe.Run(map ?? "Odesa", config));
             case "town" when map is not null:
                 TownProbe.Run(config, map);
                 return 0;
@@ -346,55 +348,11 @@ internal static class Program
             case "sprites":
                 SpriteProbe.Run(map ?? Options.FixtureMap, config);
                 return 0;
-            case "devicestep":
-                DeviceStepProbe.Run(map ?? Options.FixtureMap, config);
-                return 0;
-            case "devicetyres":
-                DeviceTyresProbe.Run(map ?? Options.FixtureMap, config);
-                return 0;
             case "deviceatlas":
                 DeviceAtlasProbe.Run(map ?? Options.FixtureMap, config);
                 return 0;
-            case "deviceclaims":
-                DeviceClaimsProbe.Run(map ?? Options.FixtureMap, config);
-                return 0;
-            case "devicewalkers":
-                DeviceWalkersProbe.Run(map ?? Options.FixtureMap, config);
-                return 0;
-            case "devicerebuild":
-                DeviceRebuildProbe.Run(map ?? Options.FixtureMap, config);
-                return 0;
-            case "resident":
-                ResidentTownProbe.Run(map ?? Options.FixtureMap, config);
-                return 0;
-            case "deviceroutes" when map is not null:
-                return Kept(DeviceRoutesProbe.Run(map, config));
-            case "devicesprites":
-                DeviceSpritesProbe.Run(map ?? Options.FixtureMap, config);
-                return 0;
-            case "devicecartick":
-                DeviceCarTickProbe.Run(map ?? Options.FixtureMap, config);
-                return 0;
-            case "devicetick":
-                DeviceTickProbe.Run(map ?? Options.FixtureMap, config);
-                return 0;
-            case "devicetown":
-                DeviceTownProbe.Run(map ?? Options.FixtureMap, config);
-                return 0;
-            case "devicedecide":
-                DeviceDecideProbe.Run(map ?? Options.FixtureMap, config);
-                return 0;
-            case "devicemirror":
-                DeviceMirrorProbe.Run(map ?? Options.FixtureMap, config);
-                return 0;
             case "room":
                 RoomProbe.Run(map ?? Options.FixtureMap, config);
-                return 0;
-            case "devicebodies":
-                DeviceBodiesProbe.Run(map ?? Options.FixtureMap, config);
-                return 0;
-            case "devicephase":
-                DevicePhaseProbe.Run(map ?? Options.FixtureMap, config);
                 return 0;
             case "outset":
                 return Kept(BoundaryProbe.Outset(map ?? Options.FixtureMap, config, atM));
@@ -638,7 +596,7 @@ internal static class Program
         string? Sheet, bool Caption, string? Title, string? Note, bool Lamps,
         bool Windowed, string? Display, string? Drive, string? Frames, string? Out, bool Live, int FrameWidth,
         string? Bot, int BotCar, string? BotFrames, string? BotOut, int BotEyeWidth, float BotViewM,
-        bool BotWaits, string? Author, bool DeviceTick, bool Resident = false)
+        bool BotWaits, string? Author, bool DeviceTick)
     {
         /// <summary>
         /// What every check that is not about a particular town is staged on: a small town laid from a
@@ -675,9 +633,8 @@ internal static class Program
         /// <c>--windowed</c> opens in a window instead of fullscreen, for a run to be looked at beside
         /// something else; <c>--display</c> names the screen to open on, by the desktop's own name for
         /// it or by its index, since a desktop nobody can ask which screen is in front of the person
-        /// leaves the choice a guess; <c>--device-tick</c> ticks a windowed run's agents on the device in step
-        /// (<see cref="App.DeviceTick.DeviceTown"/>); <c>--resident</c> stands the town resident on the device
-        /// (<see cref="App.DeviceTick.ResidentTown"/>); and <c>--check</c> is the dependency read-out.
+        /// leaves the choice a guess; <c>--device-tick</c> steps a windowed run's world on the device
+        /// (<see cref="App.DeviceTick.DeviceWorld"/>); and <c>--check</c> is the dependency read-out.
         /// </summary>
         /// <remarks>
         /// <b>The driving words are their own set too</b> (<see cref="DriveAsk"/>): <c>--drive FILE|-</c>
@@ -728,9 +685,6 @@ internal static class Program
                         break;
                     case "--device-tick":
                         options = options with { DeviceTick = true };
-                        break;
-                    case "--resident":
-                        options = options with { Resident = true };
                         break;
                     case "--display" when i + 1 < args.Length:
                         options = options with { Display = args[i + 1] };
@@ -888,7 +842,7 @@ internal static class Program
                                                     "--at X Y, --shot PATH, --sheet FILE.json|-, --caption, " +
                                                     "--title TEXT, --note TEXT, --ui LAYERS, --rule X1 Y1 X2 Y2, " +
                                                     "--size W H, --ui-scale N, --present fifo|mailbox|immediate, " +
-                                                    "--windowed, --display NAME|N, --device-tick, --resident, --seconds N, --validate, --check, " +
+                                                    "--windowed, --display NAME|N, --device-tick, --seconds N, --validate, --check, " +
                                                     "--bench NAME|all, --lamps, --drive FILE|-, --live, " +
                                                     "--frames DIR, --frame-width PX, --out FILE.md, --author BRIEF|all.");
                 }

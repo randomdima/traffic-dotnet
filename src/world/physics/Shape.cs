@@ -25,7 +25,7 @@ internal struct Manifold
 }
 
 /// <summary>
-/// A shape's arithmetic: where it reaches, what a ray does to it, and what its manifold against another
+/// A shape's arithmetic: where it reaches, how it turns, and what its manifold against another
 /// shape is. <b>Nothing here holds state</b> — a shape is three numbers passed in, which is what lets the
 /// body table stay a structure of arrays with no object per shape.
 /// </summary>
@@ -111,8 +111,8 @@ internal static partial class Shape
     /// </remarks>
     /// <param name="marginM">
     /// How far apart a pair may still be and be given a manifold — the speculative distance. A contact
-    /// that exists slightly before the shapes touch is what lets the solver stop an approach in the tick
-    /// it would otherwise have crossed, and why nothing here has to sweep.
+    /// that exists slightly before the shapes touch lets the solver stop an approach closing by no more than
+    /// that in a step; a faster one is met already overlapping, since nothing is swept (SOL-17).
     /// </param>
     public static bool Collide(
         Vector2 positionA, Vector2 rotationA, Vector2 extentA, float cornerA,
@@ -505,91 +505,4 @@ internal static partial class Shape
     /// are <em>nearest</em> rather than by a face — a fifth of a millimetre, a tenth of the linear slop.
     /// </summary>
     const float ApartM = 0.0005f;
-
-    /// <summary>
-    /// Where a segment first meets a shape, as a fraction of its own length, or false where it does not.
-    /// </summary>
-    /// <remarks>
-    /// A segment whose origin lies inside a shape does not meet that shape: it leaves without ever
-    /// entering, so there is no place along the segment where it arrived, and what it reports is the next
-    /// thing in front of it. Stated and tested rather than assumed (`SOL-19`), because a caster that
-    /// starts inside its own body is the ordinary case and would otherwise find itself. Every ray also
-    /// excludes its caster by name — one comparison, and it makes the guarantee the API's rather than the
-    /// geometry's.
-    /// </remarks>
-    /// <remarks>
-    /// <b>A ray meets the box a rounded one was rounded out of</b>, corners and all: it is measuring what
-    /// a driver can see, and the few centimetres of corner it would otherwise cut through are worth less
-    /// than a second description of the shape. Where the two answers differ the ray is the pessimistic
-    /// one, which is the safe way round for something a stopping distance is drawn from.
-    /// </remarks>
-    public static bool CastSegment(
-        Vector2 fromM, Vector2 travelM, Vector2 centreM, Vector2 rotation, Vector2 extentM,
-        float cornerRadiusM, out float fraction)
-    {
-        return IsPoint(extentM)
-            ? CastDisc(fromM, travelM, centreM, cornerRadiusM, out fraction)
-            : CastBox(fromM, travelM, centreM, rotation, extentM + new Vector2(cornerRadiusM), out fraction);
-    }
-
-    static bool CastDisc(Vector2 fromM, Vector2 travelM, Vector2 centreM, float radiusM, out float fraction)
-    {
-        fraction = 0f;
-
-        var toCentre = fromM - centreM;
-        var travelSquared = travelM.LengthSquared();
-        if (travelSquared < 1e-12f) return false;
-
-        var half = Vector2.Dot(toCentre, travelM);
-        var outside = toCentre.LengthSquared() - radiusM * radiusM;
-        var discriminant = half * half - travelSquared * outside;
-        if (discriminant < 0f) return false;
-
-        // An origin inside the circle puts the near root behind the segment's start, which is how the
-        // shape it is already in falls out of the answer rather than being struck out of it.
-        var met = (-half - MathF.Sqrt(discriminant)) / travelSquared;
-        if (met < 0f || met > 1f) return false;
-
-        fraction = met;
-        return true;
-    }
-
-    static bool CastBox(Vector2 fromM, Vector2 travelM, Vector2 centreM, Vector2 rotation, Vector2 half, out float fraction)
-    {
-        fraction = 0f;
-
-        var origin = InverseRotate(rotation, fromM - centreM);
-        var travel = InverseRotate(rotation, travelM);
-
-        // Inside: the segment leaves without having entered, so there is no place along it where it met
-        // the shape. The slabs below would otherwise call that a meeting at no distance.
-        if (MathF.Abs(origin.X) <= half.X && MathF.Abs(origin.Y) <= half.Y) return false;
-
-        var entered = 0f;
-        var left = 1f;
-        for (var axis = 0; axis < 2; axis++)
-        {
-            var at = axis == 0 ? origin.X : origin.Y;
-            var along = axis == 0 ? travel.X : travel.Y;
-            var reach = axis == 0 ? half.X : half.Y;
-
-            if (MathF.Abs(along) < 1e-9f)
-            {
-                if (at < -reach || at > reach) return false;
-
-                continue;
-            }
-
-            var enters = (-reach - at) / along;
-            var leaves = (reach - at) / along;
-            if (enters > leaves) (enters, leaves) = (leaves, enters);
-
-            entered = MathF.Max(entered, enters);
-            left = MathF.Min(left, leaves);
-            if (left < entered) return false;
-        }
-
-        fraction = entered;
-        return true;
-    }
 }

@@ -57,8 +57,8 @@ is crossed to pass (CAR-6.2b). On a road of more than a lane each way it moves a
   the room is its own.
 - **Decided once, where the car would begin slowing for what it passes**, which is the place it has to choose
   between stepping out and slowing down — **and committed to**: drawn there in two shapes, from rest and, for a
-  car still rolling, for the pace it came up at, each swept once for the ground it covers, and never drawn or
-  swept again. The one drawn for its pace is had only while the car can still come up to where it begins at a
+  car still rolling, for the pace it came up at, each over the lanes it runs down (TER-4c.6), and never drawn
+  again. The one drawn for its pace is had only while the car can still come up to where it begins at a
   pace it may be driven at; after that the car slows gently (`SimConfig.Driving`) and stands where the one from
   rest begins.
 - **Waited for on its own clock**: asked for as it is decided and then every `PassAskEveryS`, and let go —
@@ -125,7 +125,8 @@ lane beside lands back on the route. **The car does not stop to move across**:
   then is, for the pace it is doing, the shortest it can drive at that pace (CAR-46's step), landing inside the lane
   it begins on.
 - **Asked for as a short stretch of the lane beside** — the step and the room to stop in past it at the step's
-  pace — swept as the car's body, held at p0 once laid, and kept or withdrawn once before the car moves: traffic
+  pace — with its own lane up to where it lands (TER-4c.6), held at p1 once begun, and kept or withdrawn once before
+  the car moves: traffic
   coming up the lane beside, whose plan reaches over that stretch, is let by first.
 - **Stood for only where its lane stops going the route's way**: there the line ends, and the car stands short of
   its end by a step from rest, waiting for the room.
@@ -352,8 +353,10 @@ never further than the corner being driven is wide.
 **S-2** `P5` Speed is the minimum of every constraint — the gear cap, the corners, the end of the line,
 **the road the car was granted**, the end of its own plan where that was held short of what it wanted
 (TER-4c.1) and the place the car was sent to — every distance taken a lead ahead of where the car is, against
-*usable* grip. The lead is the staleness of the driver's own decision and the travel of the pedal that answers
-it, from wherever the pedal is. **The corners are read off the line and not walked**: each arc carries, from
+*usable* grip. The lead is the staleness of what the driver reads — a grant as old as the claims, off a world
+stepped on since — and the travel of the pedal that answers it, from wherever the pedal is; **the pedal closes on
+the speed the car will be doing once what it already asked for has acted**, not on the speed it was read at.
+**The corners are read off the line and not walked**: each arc carries, from
 when the line was laid, what it may be entered at and still hold every corner past it, and a car reads the arcs
 its lead point has reached at their own corner and the first it has not at that entry.
 

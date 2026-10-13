@@ -139,9 +139,12 @@ internal static class SoakProbe
     /// about how deep anything got or how long it stayed there.
     /// </summary>
     /// <param name="agentSeed">The agents' own seed, or the plan's where none is given (<see cref="TownWorld"/>).</param>
-    public static TownWatch Sample(string map, SimConfig config, ulong? agentSeed = null)
+    /// <param name="layTheWorld">The world the town is handed to before its first tick, or none for the managed one.</param>
+    public static TownWatch Sample(
+        string map, SimConfig config, ulong? agentSeed = null, Func<WorldLaying, WorldLayer>? layTheWorld = null)
     {
         using var world = new TownWorld(Maps.Plan(map, config, BuildingCatalog.Roofs), config, agentSeed: agentSeed);
+        if (layTheWorld is not null) world.HandTheWorldTo(layTheWorld);
         var loop = new SimLoop<TownWorld>(world, config);
         loop.Advance(WarmupTicks);
 
@@ -170,17 +173,9 @@ internal static class SoakProbe
     /// </summary>
     public static void SweepOverlaps(TownWorld world, Span<float> into)
     {
-        var physics = world.PhysicsForInstruments;
+        for (var person = 0; person < world.People.Count; person++) into[person] = world.OverlapOfWalker(person);
 
-        for (var person = 0; person < world.People.Count; person++)
-        {
-            into[person] = physics.OverlapOf(world.People.Body[person]);
-        }
-
-        for (var car = 0; car < world.Cars.Count; car++)
-        {
-            into[world.People.Count + car] = physics.OverlapOf(world.Cars.Body[car]);
-        }
+        for (var car = 0; car < world.Cars.Count; car++) into[world.People.Count + car] = world.OverlapOfCar(car);
     }
 
     /// <summary>
@@ -211,7 +206,7 @@ internal static class SoakProbe
 
         for (var car = 0; car < world.Cars.Count; car++)
         {
-            into[world.People.Count + car] = PastM(world.GrantLeftM(car));
+            into[world.People.Count + car] = PastM(world.Cars.GrantLeftM(car));
         }
 
         static float PastM(float grantedM) => float.IsFinite(grantedM) ? MathF.Max(0f, -grantedM) : 0f;

@@ -149,19 +149,19 @@ internal sealed partial class TownWorld
     {
         var walking = Walking;
         var search = _paths.Walk;
-        var goalM = People.GoalM[person];
-        var entryCount = walking.EntriesNear(fromM, search.Entries);
-        var goalCount = walking.GoalsAt(goalM, search.Goals);
+        // A picture for the player (the root decision log, 2026-10-13), so where it begins is looked up.
+        var entryCount = walking.EntriesAt(walking.PlaceNearest(fromM), search.Entries);
+        var goalCount = walking.GoalsAt(_goalPlace[person], search.Goals);
         if (entryCount == 0 || goalCount == 0) return 0;
 
         var linkCount = search.Plan(entryCount, goalCount, _walkSurcharges, out var goalSlot);
         if (linkCount == 0 || goalSlot < 0) return 0;
 
         var links = search.Links(linkCount);
-        var entry = WalkingNetwork.SetOffFrom(search.Entries[..entryCount], links[0]);
+        var goal = search.Goals[goalSlot];
+        var entry = WalkingNetwork.SetOffFrom(search.Entries[..entryCount], links, goal);
 
         var runs = walking.Runs;
-        var goal = search.Goals[goalSlot];
         var joins = new WalkingNetwork.FootJoins(walking);
         var ways = _paths.Ways.AsSpan();
         var written = RouteChain.LayInto(

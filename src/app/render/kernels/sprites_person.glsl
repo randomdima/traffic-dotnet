@@ -1,5 +1,5 @@
 // One walker as a frame's emit reads it (app/devicetick/DeviceSprites.PersonRow, field for field): what
-// sprites_buffers.glsl binds a buffer of, and what sprites_walkers.comp lays off the walker tick's own table.
+// sprites_buffers.glsl binds a buffer of, and what sprites_world.comp lays off the world's own state.
 
 #ifndef SPRITES_PERSON_GLSL
 #define SPRITES_PERSON_GLSL
@@ -16,8 +16,5 @@ struct PersonRow
 const uint PersonInside = 1u;
 const uint PersonDown = 2u;
 const uint PersonWalking = 4u;
-
-// Where it stands, which way it faces and how far it has walked are the walker table's, over the town's copy.
-const uint PersonPoseFromTheDevice = 8u;
 
 #endif

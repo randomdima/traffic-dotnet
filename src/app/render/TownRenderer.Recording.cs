@@ -7,6 +7,7 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Runtime;
+using TrafficSimulation.World.Terrain;
 using Image = Silk.NET.Vulkan.Image;
 using Semaphore = Silk.NET.Vulkan.Semaphore;
 using Vk = TrafficSimulation.Runtime.Vk;
@@ -24,15 +25,27 @@ internal sealed unsafe partial class TownRenderer
         CreateGroundPipeline();
         CreateSpritePipeline();
         CreateOverlayPipeline();
+        CreateMarkPipeline();
+        CreateSceneryPipeline();
 
-        var sizes = stackalloc DescriptorPoolSize[2];
-        sizes[0] = new DescriptorPoolSize(DescriptorType.CombinedImageSampler, (uint)((Bindings - SheetPagesBinding) * images));
-        sizes[1] = new DescriptorPoolSize(DescriptorType.UniformBuffer, (uint)(SheetPagesBinding * images));
+        var sizes = stackalloc DescriptorPoolSize[3];
+        for (var type = 0; type < 3; type++)
+        {
+            var kind = (ReadOnlySpan<DescriptorType>)[DescriptorType.CombinedImageSampler, DescriptorType.UniformBuffer, DescriptorType.StorageBuffer];
+            var count = 0;
+            for (var binding = 0; binding < Bindings; binding++)
+            {
+                if (TypeOf(binding) == kind[type]) count++;
+            }
+
+            sizes[type] = new DescriptorPoolSize(kind[type], (uint)(count * images));
+        }
+
         var poolInfo = new DescriptorPoolCreateInfo
         {
             SType = StructureType.DescriptorPoolCreateInfo,
             MaxSets = (uint)images,
-            PoolSizeCount = 2,
+            PoolSizeCount = 3,
             PPoolSizes = sizes,
         };
 
@@ -58,6 +71,11 @@ internal sealed unsafe partial class TownRenderer
         }
 
         _cameras = new GpuBuffer[images];
+        _markRows = new GpuBuffer[images];
+        _markRings = new GpuBuffer[images];
+        _marksCopied = new long[images];
+        _scenerySpans = new GpuBuffer[images];
+        _groundDraws = new GpuBuffer[images];
         _instances = new GpuBuffer[images];
         _spriteIndirect = new GpuBuffer[images];
         _overlay = new GpuBuffer[images];
@@ -67,7 +85,10 @@ internal sealed unsafe partial class TownRenderer
         _commands = _vk.AllocateCommandBuffers(images);
         _drawn = new Fence[images];
         _rendered = new Semaphore[images];
-        _acquired = new Semaphore[images];
+        _acquired = new Semaphore[images + 1];
+        _acquiredBy = new int[images];
+        for (var image = 0; image < images; image++) _acquiredBy[image] = image;
+        _acquireSpare = images;
         _image = 0;
 
         // The pictures, in binding order: the atlas, the glyphs and the five surfaces.
@@ -81,48 +102,41 @@ internal sealed unsafe partial class TownRenderer
                 Picture(_textures[Math.Min(surface, _textures.Length - 1)]);
         }
 
-        var table = new DescriptorBufferInfo(_sheetTable.Handle, 0, _sheetTable.SizeBytes);
-
+        var buffers = stackalloc DescriptorBufferInfo[Bindings];
         var writes = stackalloc WriteDescriptorSet[Bindings];
         for (var image = 0; image < images; image++)
         {
-            _cameras[image] = _vk.CreateBuffer((ulong)sizeof(CameraView), BufferUsageFlags.UniformBufferBit, hostVisible: true);
+            _cameras[image] = _vk.CreateBuffer((ulong)sizeof(CameraView), BufferUsageFlags.UniformBufferBit, HostAccess.Streams);
             CreateFrameBuffers(image);
 
-            var camera = new DescriptorBufferInfo(_cameras[image].Handle, 0, (ulong)sizeof(CameraView));
-            writes[CameraBinding] = new WriteDescriptorSet
+            buffers[CameraBinding] = new DescriptorBufferInfo(_cameras[image].Handle, 0, (ulong)sizeof(CameraView));
+            buffers[SheetTableBinding] = Whole(_sheetTable);
+            buffers[MarkLookBinding] = Whole(_markLook);
+            buffers[SceneryPiecesBinding] = Whole(_sceneryPieces);
+            buffers[SceneryLooksBinding] = Whole(_sceneryLooks);
+            buffers[ScenerySpansBinding] = Whole(_scenerySpans[image]);
+            // The two the marks are drawn from are written apart (WriteTheMarkSet), being the device's own once it keeps the ring.
+            var written = 0;
+            for (var binding = 0; binding < Bindings; binding++)
             {
-                SType = StructureType.WriteDescriptorSet,
-                DstSet = _sets[image],
-                DstBinding = CameraBinding,
-                DescriptorCount = 1,
-                DescriptorType = DescriptorType.UniformBuffer,
-                PBufferInfo = &camera,
-            };
-            writes[SheetTableBinding] = new WriteDescriptorSet
-            {
-                SType = StructureType.WriteDescriptorSet,
-                DstSet = _sets[image],
-                DstBinding = SheetTableBinding,
-                DescriptorCount = 1,
-                DescriptorType = DescriptorType.UniformBuffer,
-                PBufferInfo = &table,
-            };
-            for (var binding = firstPicture; binding < Bindings; binding++)
-            {
-                writes[binding] = new WriteDescriptorSet
+                if (binding is MarkRowsBinding or MarkRingBinding) continue;
+
+                var picture = TypeOf(binding) == DescriptorType.CombinedImageSampler;
+                writes[written++] = new WriteDescriptorSet
                 {
                     SType = StructureType.WriteDescriptorSet,
                     DstSet = _sets[image],
                     DstBinding = (uint)binding,
                     DescriptorCount = 1,
-                    DescriptorType = DescriptorType.CombinedImageSampler,
-                    PImageInfo = pictures + binding - firstPicture,
+                    DescriptorType = TypeOf(binding),
+                    PImageInfo = picture ? pictures + binding - firstPicture : null,
+                    PBufferInfo = picture ? null : buffers + binding,
                 };
             }
 
             Vk.Count();
-            api.UpdateDescriptorSets(_vk.Device, Bindings, writes, 0, null);
+            api.UpdateDescriptorSets(_vk.Device, (uint)written, writes, 0, null);
+            WriteTheMarkSet(image);
 
             var fenceInfo = new FenceCreateInfo { SType = StructureType.FenceCreateInfo, Flags = FenceCreateFlags.SignaledBit };
             Vk.Count();
@@ -137,6 +151,10 @@ internal sealed unsafe partial class TownRenderer
             Record(image);
         }
 
+        var spareInfo = new SemaphoreCreateInfo { SType = StructureType.SemaphoreCreateInfo };
+        Vk.Count();
+        Vk.Check(api.CreateSemaphore(_vk.Device, &spareInfo, null, out _acquired[images]), "vkCreateSemaphore");
+
         // The first image, taken before anything is filled — every one after it is taken at the end of
         // the frame before.
         TakeImage();
@@ -150,14 +168,30 @@ internal sealed unsafe partial class TownRenderer
     void CreateFrameBuffers(int image)
     {
         _instances[image] = _vk.CreateBuffer(
-            (ulong)(Room.Written * sizeof(SpriteInstance)), BufferUsageFlags.VertexBufferBit, hostVisible: true);
+            (ulong)(Room.Moving * sizeof(SpriteInstance)), BufferUsageFlags.VertexBufferBit, HostAccess.Streams);
+
+        // The marks' copy starts empty and is filled whole by the first frame drawn into it; the scenery's runs hold none
+        // until a frame writes them.
+        _markRows[image] = _vk.CreateBuffer(
+            (ulong)(Room.Marks * sizeof(DriftMarkRow)), BufferUsageFlags.StorageBufferBit, HostAccess.Streams);
+        _markRings[image] = _vk.CreateBuffer(
+            (ulong)sizeof(DriftMarkRing), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.IndirectBufferBit, HostAccess.Streams);
+        _markRings[image].Span<DriftMarkRing>()[0] = DriftMarkRing.After(0, Room.Marks);
+        _marksCopied[image] = 0;
+        _scenerySpans[image] = _vk.CreateBuffer(
+            (ulong)(sizeof(SceneryRunsHead) + (Room.SceneryRows * sizeof(ScenerySpan))),
+            BufferUsageFlags.StorageBufferBit | BufferUsageFlags.IndirectBufferBit, HostAccess.Streams);
+        _scenerySpans[image].Span<SceneryRunsHead>()[0] = new SceneryRunsHead(new DrawIndirectCommand { VertexCount = 4 }, 1, 0);
         _overlay[image] = _vk.CreateBuffer(
-            (ulong)(OverlayCapacity * sizeof(OverlayQuad)), BufferUsageFlags.VertexBufferBit, hostVisible: true);
+            (ulong)(OverlayCapacity * sizeof(OverlayQuad)), BufferUsageFlags.VertexBufferBit, HostAccess.Streams);
         _underlay[image] = _vk.CreateBuffer(
             (ulong)((UnderlayCapacity + UnderlayAboveCapacity) * sizeof(OverlayQuad)), BufferUsageFlags.VertexBufferBit,
-            hostVisible: true);
+            HostAccess.Streams);
 
-        _spriteIndirect[image] = Counter(draws: 4);
+        _groundDraws[image] = _vk.CreateBuffer(
+            (ulong)(_bands.Draws * sizeof(DrawIndexedIndirectCommand)), BufferUsageFlags.IndirectBufferBit, HostAccess.Streams);
+        _bands.WriteWhole(_shownParts, _groundDraws[image].Span<DrawIndexedIndirectCommand>());
+        _spriteIndirect[image] = Counter(draws: SpriteDraws);
         _overlayIndirect[image] = Counter(draws: 1);
         _underlayIndirect[image] = Counter(draws: 2);
 
@@ -166,10 +200,43 @@ internal sealed unsafe partial class TownRenderer
         GpuBuffer Counter(int draws)
         {
             var buffer = _vk.CreateBuffer(
-                (ulong)(draws * sizeof(DrawIndirectCommand)), BufferUsageFlags.IndirectBufferBit, hostVisible: true);
+                (ulong)(draws * sizeof(DrawIndirectCommand)), BufferUsageFlags.IndirectBufferBit, HostAccess.Streams);
             buffer.Span<DrawIndirectCommand>().Fill(new DrawIndirectCommand { VertexCount = 4, InstanceCount = 0 });
             return buffer;
         }
+    }
+
+    /// <summary>Which kind of descriptor a binding of the frame's one set is: the three uniform blocks, the pictures, and the storage the marks and the scenery are read out of.</summary>
+    static DescriptorType TypeOf(int binding) => binding switch
+    {
+        CameraBinding or SheetTableBinding or MarkLookBinding => DescriptorType.UniformBuffer,
+        < MarkLookBinding => DescriptorType.CombinedImageSampler,
+        _ => DescriptorType.StorageBuffer,
+    };
+
+    static DescriptorBufferInfo Whole(GpuBuffer buffer) => new(buffer.Handle, 0, buffer.SizeBytes);
+
+    /// <summary>One image's set pointed at the ring its marks are drawn from: its own copy of the host's, or the device's.</summary>
+    void WriteTheMarkSet(int image)
+    {
+        var (rows, ring) = _deviceMarks ?? (_markRows[image], _markRings[image]);
+        var infos = stackalloc DescriptorBufferInfo[2] { Whole(rows), Whole(ring) };
+        var writes = stackalloc WriteDescriptorSet[2];
+        for (var at = 0; at < 2; at++)
+        {
+            writes[at] = new WriteDescriptorSet
+            {
+                SType = StructureType.WriteDescriptorSet,
+                DstSet = _sets[image],
+                DstBinding = (uint)(MarkRowsBinding + at),
+                DescriptorCount = 1,
+                DescriptorType = DescriptorType.StorageBuffer,
+                PBufferInfo = infos + at,
+            };
+        }
+
+        Vk.Count();
+        _vk.Api.UpdateDescriptorSets(_vk.Device, 2, writes, 0, null);
     }
 
     /// <summary>
@@ -184,6 +251,9 @@ internal sealed unsafe partial class TownRenderer
         var begin = new CommandBufferBeginInfo { SType = StructureType.CommandBufferBeginInfo };
         Vk.Count();
         Vk.Check(api.BeginCommandBuffer(commands, &begin), "vkBeginCommandBuffer");
+
+        // What moves, emitted on the device ahead of the pass that draws it, where the device emits it.
+        _emit?.Record(commands, image);
 
         Barrier(commands, _target.Images[image], ImageLayout.Undefined, ImageLayout.ColorAttachmentOptimal);
 
@@ -231,8 +301,9 @@ internal sealed unsafe partial class TownRenderer
         Vk.Count();
         api.CmdBindIndexBuffer(commands, _indices.Handle, 0, IndexType.Uint32);
 
-        Vk.Count();
-        api.CmdDrawIndexedIndirect(commands, _indirect.Handle, 0, 1, (uint)sizeof(DrawIndexedIndirectCommand));
+        // The ground's parts bottom to top (TER-7b), each a draw a class of its rows (GroundBands); the level above is the
+        // last part, drawn after the bodies on the ground.
+        for (var part = 0; part < (int)GroundPart.Above; part++) DrawTheGround(commands, image, part);
 
         // The town's own ground marks, over the ground and under everything that stands on it: the
         // stretches of road somebody has claimed, and the networks under them. They are marks about
@@ -246,25 +317,31 @@ internal sealed unsafe partial class TownRenderer
         Vk.Count();
         api.CmdDrawIndirect(commands, _underlayIndirect[image].Handle, 0, 1, (uint)sizeof(DrawIndirectCommand));
 
+        // What lies under everything that stands, in painter's order: the marks, out of their ring and as many as its
+        // words say (the device's own ring, or this image's copy of the host's), then the scenery, out of its pieces by
+        // the runs this image's frame wrote. Neither has a vertex buffer: each instance reads its own row.
+        var markRing = (_deviceMarks?.Ring ?? _markRings[image]).Handle;
+        Vk.Count();
+        api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _markPipeline);
+        Vk.Count();
+        api.CmdDrawIndirect(commands, markRing, 0, 1, (uint)sizeof(DrawIndirectCommand));
+        Vk.Count();
+        api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _sceneryPipeline);
+        Vk.Count();
+        api.CmdDrawIndirect(commands, _scenerySpans[image].Handle, 0, 1, (uint)sizeof(DrawIndirectCommand));
+
         // The bodies, over the ground: the same set, a different pipeline, and an instance buffer
         // whose contents and count both live in memory the CPU writes. A town that gains five hundred
-        // walkers changes a number here and nothing about this recording. Three runs in painter's order —
-        // what lies under, the buildings and props laid on the device once (where the frame writes only
-        // which stretch), and what moves over them.
+        // walkers changes a number here and nothing about this recording. Two runs in painter's order —
+        // the buildings and props laid on the device once (where the frame writes only which stretch),
+        // and what moves over them.
         Vk.Count();
         api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _spritePipeline);
-        var instanceBuffer = _instances[image].Handle;
-        Vk.Count();
-        api.CmdBindVertexBuffers(commands, 0, 1, &instanceBuffer, &offset);
-        Vk.Count();
-        api.CmdDrawIndirect(commands, _spriteIndirect[image].Handle, 0, 1, (uint)sizeof(DrawIndirectCommand));
-
         var standingBuffer = _standing.Handle;
         Vk.Count();
         api.CmdBindVertexBuffers(commands, 0, 1, &standingBuffer, &offset);
         Vk.Count();
-        api.CmdDrawIndirect(
-            commands, _spriteIndirect[image].Handle, (ulong)sizeof(DrawIndirectCommand), 1, (uint)sizeof(DrawIndirectCommand));
+        api.CmdDrawIndirect(commands, _spriteIndirect[image].Handle, 0, 1, (uint)sizeof(DrawIndirectCommand));
 
         var moving = MovingRunsOf(image);
         Vk.Count();
@@ -280,9 +357,7 @@ internal sealed unsafe partial class TownRenderer
         api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _pipeline);
         Vk.Count();
         api.CmdBindVertexBuffers(commands, 0, 1, &vertexBuffer, &offset);
-        Vk.Count();
-        api.CmdDrawIndexedIndirect(
-            commands, _indirect.Handle, (ulong)sizeof(DrawIndexedIndirectCommand), 1, (uint)sizeof(DrawIndexedIndirectCommand));
+        DrawTheGround(commands, image, (int)GroundPart.Above);
 
         Vk.Count();
         api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _overlayPipeline);
@@ -321,6 +396,18 @@ internal sealed unsafe partial class TownRenderer
         Vk.Check(api.EndCommandBuffer(commands), "vkEndCommandBuffer");
     }
 
+    /// <summary>One part of the ground recorded: a draw a class, each as many triangles from where this image's frame wrote.</summary>
+    void DrawTheGround(CommandBuffer commands, int image, int part)
+    {
+        var stride = (uint)sizeof(DrawIndexedIndirectCommand);
+        for (var @class = 0; @class < _bands.Classes; @class++)
+        {
+            Vk.Count();
+            _vk.Api.CmdDrawIndexedIndirect(
+                commands, _groundDraws[image].Handle, (ulong)(((part * _bands.Classes) + @class) * stride), 1, stride);
+        }
+    }
+
     /// <summary>Where one image's frame draws what moves from: the buffer and where its two runs start in it, and the buffer and where their two draws are.</summary>
     struct MovingRuns
     {
@@ -340,7 +427,7 @@ internal sealed unsafe partial class TownRenderer
     {
         var instance = (ulong)sizeof(SpriteInstance);
         var draw = (ulong)sizeof(DrawIndirectCommand);
-        if (_moving is { } device)
+        if (_emit is { } device)
         {
             return new MovingRuns
             {
@@ -354,11 +441,10 @@ internal sealed unsafe partial class TownRenderer
         return new MovingRuns
         {
             Instances = _instances[image].Handle,
-            OverAt = (ulong)Room.Under * instance,
-            AboveAt = (ulong)(Room.Under + Room.Over) * instance,
+            AboveAt = (ulong)Room.Over * instance,
             Draws = _spriteIndirect[image].Handle,
-            OverDrawAt = 2 * draw,
-            AboveDrawAt = 3 * draw,
+            OverDrawAt = draw,
+            AboveDrawAt = 2 * draw,
         };
     }
 
@@ -415,7 +501,8 @@ internal sealed unsafe partial class TownRenderer
 
         foreach (var camera in _cameras) camera.Dispose();
         foreach (var buffers in (ReadOnlySpan<GpuBuffer[]>)[
-                     _instances, _spriteIndirect, _overlay, _overlayIndirect, _underlay, _underlayIndirect])
+                     _instances, _spriteIndirect, _overlay, _overlayIndirect, _underlay, _underlayIndirect, _markRows, _markRings,
+                     _scenerySpans, _groundDraws])
         {
             foreach (var buffer in buffers) buffer.Dispose();
         }
@@ -457,10 +544,30 @@ internal sealed unsafe partial class TownRenderer
             _overlayPipeline = default;
         }
 
+        if (_markPipeline.Handle != 0)
+        {
+            Vk.Count();
+            api.DestroyPipeline(_vk.Device, _markPipeline, null);
+            _markPipeline = default;
+        }
+
+        if (_sceneryPipeline.Handle != 0)
+        {
+            Vk.Count();
+            api.DestroyPipeline(_vk.Device, _sceneryPipeline, null);
+            _sceneryPipeline = default;
+        }
+
         _drawn = [];
         _rendered = [];
         _acquired = [];
+        _acquiredBy = [];
         _cameras = [];
+        _markRows = [];
+        _markRings = [];
+        _marksCopied = [];
+        _scenerySpans = [];
+        _groundDraws = [];
         _instances = [];
         _spriteIndirect = [];
         _overlay = [];

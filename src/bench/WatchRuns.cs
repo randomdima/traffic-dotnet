@@ -4,8 +4,7 @@ using TrafficSimulation.World.Town;
 namespace TrafficSimulation.Bench;
 
 /// <summary>
-/// <b>The runs every body keeps for a watch over every body</b> (<see cref="TownWatch"/>), stepped on the host off one step's
-/// sweeps — the arithmetic a device keeping the watch itself runs too (<c>app/devicetick/kernels/town_watch.comp</c>).
+/// <b>The runs every body keeps for a watch over every body</b> (<see cref="TownWatch"/>), stepped off one step's sweeps.
 /// Bodies are numbered walkers first, then cars.
 /// </summary>
 internal sealed class WatchRuns(int walkers, int cars, TownWatchTerms terms)
@@ -19,9 +18,6 @@ internal sealed class WatchRuns(int walkers, int cars, TownWatchTerms terms)
 
     /// <summary>How many bodies the runs cover.</summary>
     public int Bodies => _overlapM.Length;
-
-    /// <summary>Every body's runs so far, for a device taking the watch over (<see cref="ITownDevice.WatchesTheTown"/>).</summary>
-    public TownWatchRuns Runs => new(_stuckTicks, _pastM, _pastTicks, _stillFromM, _stillTicks);
 
     /// <summary>
     /// <b>One step</b>: every body's run inside something and run going deeper past its grant carried on or broken, every

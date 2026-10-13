@@ -1,0 +1,35 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Every car read off its body into the pose its tyres read, one thread a car, once, as the world is laid
+// (DeviceWorld), keeping the acceleration it was laid with; and whether its body comes into the first step frozen. From
+// then on the step's view keeps both as each step leaves the body (world_view.comp), and the signals what they do to it
+// between steps (world_signals.comp).
+
+layout(local_size_x = 64) in;
+
+#include "world/town/kernels/world.glsl"
+#include "agents/car/body/kernels/tyre_rows.glsl"
+
+layout(std430, binding = 0) buffer Cars { WorldCar cars[]; };
+layout(std430, binding = 1) buffer Poses { TyrePose poses[]; };
+layout(std430, binding = 2) readonly buffer Pose { vec4 pose[]; };
+layout(std430, binding = 3) readonly buffer HeadingB { float headingRad[]; };
+layout(std430, binding = 4) readonly buffer Motion { vec4 motion[]; };
+layout(std430, binding = 5) readonly buffer Filter { uint filter_[]; };
+
+void main()
+{
+    uint car = gl_GlobalInvocationID.x;
+    if (car >= world.count) return;
+
+    WorldCar row = cars[car];
+    int body = row.body;
+    vec4 placed = pose[body];
+    vec4 moving = motion[body];
+    poses[car] = TyrePose(
+        placed.xy, moving.xy, placed.zw, poses[car].accelerationMps2, headingRad[body], moving.z, row.massKg, 0.0);
+
+    bool frozen = (filter_[body] & world.frozenBit) != 0u;
+    cars[car].flags = (row.flags & ~CarFrozenNext) | (frozen ? CarFrozenNext : 0u);
+}

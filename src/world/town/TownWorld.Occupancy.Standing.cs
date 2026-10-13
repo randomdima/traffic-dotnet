@@ -14,9 +14,6 @@ internal sealed partial class TownWorld
 {
     readonly StandingCars _standing;
 
-    /// <summary>What the last laying kept of the cars that stood, for the device to lay once at load (<c>app/devicetick/TownState</c>).</summary>
-    internal StandingCars StandingKept => _standing;
-
     /// <summary>
     /// <b>What a laying kept of a car that stood</b>: which freezing it was in and how many actions it had been handed by
     /// then — the two things that change when anything that decides its claims does — and, for the passes after the
@@ -26,7 +23,14 @@ internal sealed partial class TownWorld
     {
         public readonly bool[] Kept = new bool[cars];
 
-        public readonly int[] FrozeAtStep = new int[cars];
+        /// <summary>
+        /// Which freezing each car's body is in: the world's step count at the view it froze in (<see cref="CarView"/>),
+        /// the same for as long as it stays frozen and later each time it freezes again. Meaningless while it moves.
+        /// </summary>
+        public readonly long[] Freezing = new long[cars];
+
+        /// <summary>The <see cref="Freezing"/> a kept car was laid in.</summary>
+        public readonly long[] KeptFreezing = new long[cars];
 
         public readonly uint[] Entries = new uint[cars];
 
@@ -39,9 +43,6 @@ internal sealed partial class TownWorld
         public readonly int[] Asked = new int[cars];
 
         public int AskedCount;
-
-        /// <summary>The channels a kept car's body was read on.</summary>
-        public readonly byte[] ReadOn = new byte[cars];
     }
 
     /// <summary>
@@ -53,8 +54,8 @@ internal sealed partial class TownWorld
     {
         if (!_standing.Kept[car]) return false;
 
-        var body = Cars.Body[car];
-        return _physics.IsFrozen(body) && _physics.FrozeAtStep(body) == _standing.FrozeAtStep[car]
+        ref readonly var seen = ref _world.View.Cars[car];
+        return (seen.Flags & CarView.Frozen) != 0 && _standing.Freezing[car] == _standing.KeptFreezing[car]
                                         && _carActions.EntriesOf(car) == _standing.Entries[car]
                                         && Cars.PositionM[car] == _standing.PositionM[car]
                                         && Cars.HeadingRad[car] == _standing.HeadingRad[car]
@@ -76,65 +77,40 @@ internal sealed partial class TownWorld
                 continue;
             }
 
-            var channels = Cars.Channels[car];
             LayTheCarsBody(car);
-            KeepIfStanding(car, channels);
+            KeepIfStanding(car);
             _standing.Asked[_standing.AskedCount++] = car;
         }
     }
-
-    /// <summary>
-    /// <b>The cars a laying whose bodies a device lays asks</b> (<see cref="ITownClaims"/>): the same list
-    /// <see cref="LayTheCarsBodies"/> makes, and the same cars kept.
-    /// </summary>
-    void AskTheCars()
-    {
-        _standing.AskedCount = 0;
-        for (var car = 0; car < Cars.Count; car++)
-        {
-            if (StandsAsLaid(car)) continue;
-
-            KeepIfStanding(car, Cars.Channels[car]);
-            _standing.Asked[_standing.AskedCount++] = car;
-        }
-    }
-
-    /// <summary>
-    /// Whether a car this laying asked was kept standing (<see cref="KeepIfStanding"/>), so the next asks it nothing if it
-    /// stands as laid then.
-    /// </summary>
-    public bool StandsAsLaidNext(int car) => _standing.Kept[car];
 
     /// <summary>The cars this laying asked, which are the only ones whose drive, pass, manoeuvre and grant can be anything but what they were.</summary>
-    ReadOnlySpan<int> CarsAsked => _standing.Asked.AsSpan(0, _standing.AskedCount);
+    internal ReadOnlySpan<int> CarsAsked => _standing.Asked.AsSpan(0, _standing.AskedCount);
 
+    /// <summary>How many actions a car has been handed, which changes whenever anything that decides its claims does — for an instrument.</summary>
+    internal uint ActionEntriesOf(int car) => _carActions.EntriesOf(car);
     /// <summary>
-    /// A standing car is laid as <see cref="LayTheCarsBody"/> lays it: its own body, under its own name, going nowhere
-    /// down any way and still — over every way under its wheels at this same pose, on the channels it was read on.
+    /// A standing car is laid as <see cref="LayTheCarsBody"/> lays it: its own body, under its own name, over every way
+    /// the world read under its wheels.
     /// </summary>
     void LayTheStandingBody(int car)
     {
-        Span<WayCover> into = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
-        foreach (ref readonly var cover in WaysUnderTheWheels(car, _standing.ReadOn[car], into))
+        foreach (ref readonly var cover in _world.View.CoversOfCar(car))
         {
-            _occupancy.LayBody(
-                cover.Way, cover.FromM, cover.ToM, 0f, car, LaneRoster.Driving, onItsLine: false, LaneOccupancy.NoWay,
-                still: true);
+            _occupancy.LayBody(cover.Way, cover.FromM, cover.ToM, car, LaneRoster.Driving);
         }
     }
 
-    /// <param name="readOn">The channels its body was read on.</param>
-    void KeepIfStanding(int car, byte readOn)
+    void KeepIfStanding(int car)
     {
-        var body = Cars.Body[car];
-        var standing = Cars.Action[car] == CarAction.Stand && _recovery.OnTheHookOf[car] < 0 && _physics.IsFrozen(body);
+        ref readonly var seen = ref _world.View.Cars[car];
+        var standing = Cars.Action[car] == CarAction.Stand && _recovery.OnTheHookOf[car] < 0
+                                                          && (seen.Flags & CarView.Frozen) != 0;
         _standing.Kept[car] = standing;
         if (!standing) return;
 
-        _standing.FrozeAtStep[car] = _physics.FrozeAtStep(body);
+        _standing.KeptFreezing[car] = _standing.Freezing[car];
         _standing.Entries[car] = _carActions.EntriesOf(car);
         _standing.PositionM[car] = Cars.PositionM[car];
         _standing.HeadingRad[car] = Cars.HeadingRad[car];
-        _standing.ReadOn[car] = readOn;
     }
 }

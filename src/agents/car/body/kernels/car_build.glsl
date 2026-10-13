@@ -34,6 +34,12 @@ struct CarBuildRow
     float widthM;
     float collisionLengthM;
     float collisionWidthM;
+    float towHingeAheadOfCentreM;
+    float towReachM;
+    float towGripFromTheMiddleM;
+    float inverseWheelRotatingMassPerKg;
+    float wheelbaseWeightM2PerS2;
+    float trackWeightM2PerS2;
 };
 
 // What it may be braking at at all: the pedal's cap, or what its own patch puts down (CarBuild.UtmostBrakingMps2).

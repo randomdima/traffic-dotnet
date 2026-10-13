@@ -14,8 +14,11 @@
 
 #include "core/geometry/kernels/trig.glsl"
 
-// PersonSprites.Plain: the tint everything but a mark and a glow is drawn with.
-const vec4 SpritePlain = vec4(1.0);
+// SpriteTint.Plain: the tint everything but a mark and a glow is drawn with.
+const uint SpritePlain = 0xFFFFFFFFu;
+
+// SpriteCell.Whole: the one cell of a grid of one.
+const uint SpriteWhole = 0x01010000u;
 
 // The corners of the quad every instance is drawn as, which is what each draw is told to draw of it.
 const uint SpriteQuadCorners = 4u;
@@ -79,92 +82,148 @@ vec2 spritesOnBody(vec2 centreM, vec2 forward, vec2 atBodyM)
     return atM;
 }
 
-SpriteOut spritesQuad(vec2 centreM, vec2 halfSizeM, vec2 uvMin, vec2 uvSize, vec4 tint, uint sheet, float headingRad)
+// A float to the nearest half, ties to even, as the host's (Half) conversion rounds it — in integer arithmetic, because
+// packHalf2x16's rounding is the driver's to choose.
+uint spritesHalf(float value)
+{
+    uint bits = floatBitsToUint(value);
+    uint sign = (bits >> 16) & 0x8000u;
+    uint magnitude = bits & 0x7FFFFFFFu;
+
+    // Past the largest finite half once rounded, or not a number: infinity, or a quiet NaN.
+    if (magnitude >= 0x47800000u) return sign | (magnitude > 0x7F800000u ? 0x7E00u : 0x7C00u);
+
+    // Under the least normal half: a subnormal, in units of 2^-24, or nought under half the least of them.
+    if (magnitude < 0x38800000u)
+    {
+        uint exponent = magnitude >> 23;
+        if (exponent < 102u) return sign;
+
+        uint mantissa = (magnitude & 0x7FFFFFu) | 0x800000u;
+        uint shift = 126u - exponent;
+        uint kept = mantissa >> shift;
+        uint rest = mantissa & ((1u << shift) - 1u);
+        uint halfway = 1u << (shift - 1u);
+        if (rest > halfway || (rest == halfway && (kept & 1u) != 0u)) kept += 1u;
+        return sign | kept;
+    }
+
+    // A normal: the exponent rebased, the mantissa cut to ten bits to the nearest, ties to even; a carry into the
+    // exponent is the right answer, up to infinity.
+    uint rebased = magnitude - 0x38000000u;
+    rebased += 0xFFFu + ((rebased >> 13) & 1u);
+    return sign | (rebased >> 13);
+}
+
+uint spritesHalves(vec2 halfSizeM) { return spritesHalf(halfSizeM.x) | (spritesHalf(halfSizeM.y) << 16); }
+
+// SpriteCell: a column and a row of a grid of columns and rows, a byte each from the low.
+uint spritesCell(uint column, uint row, uint columns, uint rows) { return column | (row << 8) | (columns << 16) | (rows << 24); }
+
+SpriteOut spritesQuad(vec2 centreM, vec2 halfSizeM, uint cell, uint tint, uint sheet, float headingRad)
 {
     SpriteOut sprite;
-    sprite.centreM = centreM;
-    sprite.halfSizeM = halfSizeM;
-    sprite.uvMin = uvMin;
-    sprite.uvSize = uvSize;
-    sprite.tintRG = tint.xy;
-    sprite.tintBA = tint.zw;
-    sprite.sheet = sheet;
+    sprite.centreX = centreM.x;
+    sprite.centreY = centreM.y;
+    sprite.halfSize = spritesHalves(halfSizeM);
     sprite.headingRad = headingRad;
+    sprite.cell = cell;
+    sprite.tint = tint;
+    sprite.sheet = sheet;
     return sprite;
 }
 
 SpriteOut spritesPlain(vec2 centreM, vec2 halfSizeM, uint sheet, float headingRad)
 {
-    return spritesQuad(centreM, halfSizeM, vec2(0.0), vec2(1.0), SpritePlain, sheet, headingRad);
+    return spritesQuad(centreM, halfSizeM, SpriteWhole, SpritePlain, sheet, headingRad);
 }
 
-// PersonSprites.Fill for one walker: an upright cell of its facing and stride, or one frame lying along the ground.
-bool spritesPerson(uint person, out SpriteOut sprite)
+// Each part comes in two: whether the host's fill draws it — the count pass's whole question, a cull and nothing built —
+// and the instance itself, which the write pass builds only for a part the count pass counted.
+
+// PersonSprites.Fill's cull for one walker: inside nothing, and its quad in view.
+bool spritesPersonShown(uint person)
 {
     PersonRow row = people[person];
     if ((row.flags & PersonInside) != 0u) return false;
 
+    PersonLook look = personLooks[row.variant % figures.personSheets];
+    bool down = (row.flags & PersonDown) != 0u;
+    return !spritesOutside(row.positionM, down ? vec2(look.downReachM) : look.standingHalfM);
+}
+
+// And its instance: an upright cell of its facing and stride, or one frame lying along the ground.
+SpriteOut spritesPerson(uint person)
+{
+    PersonRow row = people[person];
     uint variant = row.variant % figures.personSheets;
     PersonLook look = personLooks[variant];
-    bool down = (row.flags & PersonDown) != 0u;
-    vec2 halfSizeM = down ? look.downHalfM : look.standingHalfM;
-    if (spritesOutside(row.positionM, down ? vec2(look.downReachM) : halfSizeM)) return false;
-
-    if (down)
-    {
-        sprite = spritesPlain(row.positionM, halfSizeM, figures.firstDownSheet + variant, row.headingRad);
-        return true;
-    }
+    if ((row.flags & PersonDown) != 0u) return spritesPlain(row.positionM, look.downHalfM, figures.firstDownSheet + variant, row.headingRad);
 
     int facing = personFacingRow(row.headingRad, figures.facingFromRad, figures.facingStepRad);
     int column = (row.flags & PersonWalking) != 0u ? personWalkColumn(row.distanceWalkedM, look.heightM) : 0;
-    vec2 cell = vec2(figures.personCellU, figures.personCellV);
-    precise vec2 uvMin = vec2(float(column) * cell.x, float(facing) * cell.y);
-    sprite = spritesQuad(row.positionM, halfSizeM, uvMin, cell, SpritePlain, variant, 0.0);
-    return true;
+    uint cell = spritesCell(uint(column), uint(facing), figures.personColumns, figures.personRows);
+    return spritesQuad(row.positionM, look.standingHalfM, cell, SpritePlain, variant, 0.0);
 }
 
-// CarSprites.FillFrontTyres for one car: the steered pair at the rack's angle, in TyreModel's wheel order, or none.
-uint spritesTyres(uint car, out SpriteOut first, out SpriteOut second)
+// CarSprites.FillFrontTyres' cull for one car: two tyres, or none.
+uint spritesTyresShown(uint car)
 {
     if (figures.widestTyreM < frame.leastPartM) return 0u;
 
     CarRow row = cars[car];
     CarLook look = carLooks[row.variant % figures.carSheets];
-    if (look.wheelWidthM < frame.leastPartM || spritesOutside(row.positionM, vec2(look.tyreReachM))) return 0u;
+    return look.wheelWidthM < frame.leastPartM || spritesOutside(row.positionM, vec2(look.tyreReachM)) ? 0u : 2u;
+}
 
+// And the steered pair at the rack's angle, in TyreModel's wheel order.
+void spritesTyres(uint car, out SpriteOut first, out SpriteOut second)
+{
+    CarRow row = cars[car];
+    CarLook look = carLooks[row.variant % figures.carSheets];
     precise float tyreRad = row.headingRad + row.steerRad;
     first = spritesPlain(spritesOnBody(row.positionM, row.forward, look.firstSteeredM), look.tyreHalfM, figures.rubberSheet, tyreRad);
     second = spritesPlain(spritesOnBody(row.positionM, row.forward, look.secondSteeredM), look.tyreHalfM, figures.rubberSheet, tyreRad);
-    return 2u;
 }
 
-// CarSprites.Fill for one car: its picture, or its wreck's.
-bool spritesBody(uint car, out SpriteOut sprite)
+// CarSprites.Fill's cull for one car: its picture's reach, or its wreck's, in view.
+bool spritesBodyShown(uint car)
 {
     if (figures.carSheets == 0u) return false;
 
     CarRow row = cars[car];
+    CarLook look = carLooks[row.variant % figures.carSheets];
+    bool broken = (row.flags & CarBroken) != 0u;
+    return !spritesOutside(row.positionM, vec2(broken ? look.wreckReachM : look.bodyReachM));
+}
+
+// And its picture, or its wreck's.
+SpriteOut spritesBody(uint car)
+{
+    CarRow row = cars[car];
     uint variant = row.variant % figures.carSheets;
     CarLook look = carLooks[variant];
     bool broken = (row.flags & CarBroken) != 0u;
-    if (spritesOutside(row.positionM, vec2(broken ? look.wreckReachM : look.bodyReachM))) return false;
-
     uint sheet = (broken ? figures.carSheets : 0u) + variant;
-    sprite = spritesPlain(row.positionM, broken ? look.wreckHalfM : look.bodyHalfM, figures.firstCarSheet + sheet, row.headingRad);
-    return true;
+    return spritesPlain(row.positionM, broken ? look.wreckHalfM : look.bodyHalfM, figures.firstCarSheet + sheet, row.headingRad);
 }
 
-// CarSprites.FillBeams for one car: its arm, hinged on its deck and pointing at the fork (TowBar.ForkM), or stowed.
-bool spritesBeam(uint car, out SpriteOut sprite)
+// CarSprites.FillBeams' cull for one car: an arm on an unbroken look, its reach in view.
+bool spritesBeamShown(uint car)
 {
     CarRow row = cars[car];
     CarLook look = carLooks[row.variant % figures.carSheets];
     if ((row.flags & CarBroken) != 0u || look.hasBeam == 0u) return false;
 
-    bool towing = row.towing >= 0;
-    if (spritesOutside(row.positionM, vec2(towing ? look.extendedReachM : look.collapsedReachM))) return false;
+    return !spritesOutside(row.positionM, vec2(row.towing >= 0 ? look.extendedReachM : look.collapsedReachM));
+}
 
+// And the arm, hinged on its deck and pointing at the fork (TowBar.ForkM), or stowed.
+SpriteOut spritesBeam(uint car)
+{
+    CarRow row = cars[car];
+    CarLook look = carLooks[row.variant % figures.carSheets];
+    bool towing = row.towing >= 0;
     vec2 hingeM = spritesOnBody(row.positionM, row.forward, look.pivotM);
     precise vec2 alongTheArm = vec2(0.0);
     if (towing)
@@ -187,23 +246,9 @@ bool spritesBeam(uint car, out SpriteOut sprite)
     float hingeAtM = towing ? look.extendedHingeAtM : look.collapsedHingeAtM;
     precise vec2 backM = pointing * hingeAtM;
     precise vec2 centreM = hingeM - backM;
-    sprite = spritesPlain(
+    return spritesPlain(
         centreM, towing ? look.extendedHalfM : look.collapsedHalfM, towing ? look.extendedSheet : look.collapsedSheet,
         trigAtan2(pointing.y, pointing.x));
-    return true;
-}
-
-// Selection.Holds over the hands at the wheel, and the second hand's car (CTL-5c, CTL-5d).
-bool spritesHandAt(uint car)
-{
-    if (int(car) == frame.alsoDrivenCar) return true;
-
-    for (uint at = 0u; at < frame.handCount; at++)
-    {
-        if (hands[at] == car) return true;
-    }
-
-    return false;
 }
 
 // LampSprites.Fill's verdict for one car: which of its lenses are drawn, as a mask, and the CarLamp each carries in three
@@ -218,28 +263,8 @@ uvec2 spritesLamps(uint car)
     if ((row.flags & CarBroken) != 0u || look.lensCount == 0u) return uvec2(0u);
     if (spritesOutside(row.positionM, vec2(look.lampReachM))) return uvec2(0u);
 
-    CarLampFacts facts;
-    facts.broken = false;
-    facts.driven = (row.flags & CarDriven) != 0u;
-    facts.hand = spritesHandAt(car);
-    facts.reverse = (row.flags & CarReverse) != 0u;
-    facts.blueLight = (row.flags & CarBlueLight) != 0u;
-    facts.atWork = (row.flags & CarAtWork) != 0u;
-    facts.passBegun = (row.flags & CarPassBegun) != 0u;
-    facts.turningAtTheBox = (row.flags & CarTurningAtTheBox) != 0u;
-    facts.lineIsReverse = (row.flags & CarLineIsReverse) != 0u;
-    facts.brakeMps2 = row.brakeMps2;
-    facts.progressM = row.progressM;
-    facts.alongMps = row.alongMps;
-    facts.passSteppedOutM = row.passSteppedOutM;
-    facts.passBackM = row.passBackM;
-    facts.passEndsM = row.passEndsM;
-    facts.passAsideM = row.passAsideM;
-    facts.contextPassAsideM = row.contextPassAsideM;
-    facts.toTheBoxM = row.toTheBoxM;
-    facts.turnAheadRad = row.turnAheadRad;
-
-    CarLampMoment moment = lampsMoment(lampsShowing(facts), frame.elapsedS, row.fuseJitter);
+    // What its lamps say is the car's own, signalled where it changed (CarLamps.Showing, ControlAction.Show).
+    CarLampMoment moment = lampsMoment(row.lamps, frame.elapsedS, row.fuseJitter);
     uvec2 shown = uvec2(0u);
     for (uint lens = 0u; lens < look.lensCount; lens++)
     {
@@ -260,33 +285,33 @@ SpriteOut spritesGlow(CarRow row, LensRow lens, uint colour)
 {
     vec2 halfM = vec2(lens.glowM * 0.5);
     return spritesQuad(
-        spritesOnBody(row.positionM, row.forward, lens.atBodyM), halfM, vec2(0.0), vec2(1.0), lampTints[colour],
-        figures.glowSheet, row.headingRad);
+        spritesOnBody(row.positionM, row.forward, lens.atBodyM), halfM, SpriteWhole, lampTints[colour], figures.glowSheet,
+        row.headingRad);
 }
 
 // And the lens itself, from whichever of its two cells burns that colour (LampAtlas.StateOf).
 SpriteOut spritesLens(CarRow row, LensRow lens, uint colour)
 {
-    vec2 uvMin = colour == (lens.fittingAndFirstColour >> 8) ? lens.firstCellUv : lens.secondCellUv;
+    uint cell = colour == (lens.fittingAndFirstColour >> 8) ? lens.firstCell : lens.secondCell;
     return spritesQuad(
-        spritesOnBody(row.positionM, row.forward, lens.atBodyM), vec2(figures.halfLensCellM), uvMin,
-        vec2(figures.lensCellU, figures.lensCellV), SpritePlain, figures.lensSheet, row.headingRad);
+        spritesOnBody(row.positionM, row.forward, lens.atBodyM), vec2(figures.halfLensCellM), cell, SpritePlain,
+        figures.lensSheet, row.headingRad);
 }
 
-// SignalSprites.Fill for one head: the frame of its strip its approach or crossing is showing.
-bool spritesHead(uint head, out SpriteOut sprite)
+// SignalSprites.Fill's cull for one head.
+bool spritesHeadShown(uint head) { return !spritesOutside(heads[head].centreM, vec2(figures.headReachM)); }
+
+// And the frame of its strip its approach or crossing is showing.
+SpriteOut spritesHead(uint head)
 {
     HeadRow row = heads[head];
-    if (spritesOutside(row.centreM, vec2(figures.headReachM))) return false;
-
     bool forCars = row.forCars != 0u;
     uint colour = signalForStretch(row.subject, forCars, frame.elapsedS);
-    float u;
-    if (forCars) u = colour == SignalRed ? figures.carHeadRedU : colour == SignalAmber ? figures.carHeadAmberU : figures.carHeadGreenU;
-    else u = colour == SignalRed ? figures.walkHeadRedU : colour == SignalAmber ? figures.walkHeadAmberU : figures.walkHeadGreenU;
+    uint column;
+    if (forCars) column = colour == SignalRed ? figures.carHeadRed : colour == SignalAmber ? figures.carHeadAmber : figures.carHeadGreen;
+    else column = colour == SignalRed ? figures.walkHeadRed : colour == SignalAmber ? figures.walkHeadAmber : figures.walkHeadGreen;
 
     vec2 halfM = forCars ? vec2(figures.carHeadHalfX, figures.carHeadHalfY) : vec2(figures.walkHeadHalfX, figures.walkHeadHalfY);
-    vec2 cell = vec2(forCars ? figures.carHeadCellU : figures.walkHeadCellU, 1.0);
-    sprite = spritesQuad(row.centreM, halfM, vec2(u, 0.0), cell, SpritePlain, figures.firstHeadSheet + (forCars ? 0u : 1u), row.headingRad);
-    return true;
+    uint cell = spritesCell(column, 0u, forCars ? figures.carHeadFrames : figures.walkHeadFrames, 1u);
+    return spritesQuad(row.centreM, halfM, cell, SpritePlain, figures.firstHeadSheet + (forCars ? 0u : 1u), row.headingRad);
 }

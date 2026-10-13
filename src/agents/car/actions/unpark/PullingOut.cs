@@ -37,11 +37,14 @@ internal sealed class PullingOut(
 
     /// <summary>
     /// <b>A car waiting in its bay to get out, on its own clock</b>: its manoeuvre asked for where it is not already,
-    /// which sweeps the whole of its ground (<see cref="BayManoeuvring.Ask"/>).
+    /// which sweeps the whole of its ground (<see cref="BayManoeuvring.Ask"/>) — every
+    /// <see cref="Core.Config.DrivingFigures.ManoeuvreAskEveryS"/>.
     /// </summary>
-    public void Decide(int car)
+    /// <param name="sinceLastDecisionS">How much of the town's time this decision answers for, which its clock runs by.</param>
+    public void Decide(int car, float sinceLastDecisionS)
     {
         if (Manoeuvres.IsBegun(car) || Manoeuvres.Stage[car] == ManoeuvreStage.Asked) return;
+        if (!bays.IsTimeToAsk(car, sinceLastDecisionS)) return;
 
         bays.Ask(car);
     }
@@ -78,7 +81,7 @@ internal sealed class PullingOut(
         var turning = parking.TurnOf(car) == bay && lane != CarFleet.NoLane;
 
         ref readonly var build = ref Cars.BuildOf(car);
-        var forward = Heading.Unit(Cars.HeadingRad[car]);
+        var forward = Cars.Forward[car];
         var reverse = BayTemplate.StandsNoseIn(parking.HeadingRad(bay), Cars.HeadingRad[car]);
         var from = new BayManoeuvre.Pose(
             CarFollower.RearAxleM(build, Cars.PositionM[car], forward),
@@ -99,7 +102,7 @@ internal sealed class PullingOut(
             var shape = BayManoeuvre.OutOfTheBay(
                 from, reverse, at.PositionM, reverse ? at.HeadingRad + MathF.PI : at.HeadingRad,
                 build.ParkingTemplateRadiusM, build.ParkingStraightensUpM, ground.Config.LaneWidthM, room);
-            if (!shape.Exists || !bays.WhatTheShapeTakes(car, room, shape, out var streetM)) continue;
+            if (!shape.Exists || !bays.WhatTheShapeTakes(car, bay, room, shape, out var streetM)) continue;
 
             if (bestShape.Exists && (bestOnTheRoute && !onTheRoute || (onTheRoute == bestOnTheRoute && streetM >= bestM)))
             {

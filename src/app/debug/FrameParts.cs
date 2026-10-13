@@ -68,6 +68,12 @@ internal struct FrameParts
     /// <summary>How many fixed ticks the clock was owed this frame. Zero on a frozen town, three at pace 3.</summary>
     public int SimTicks;
 
+    /// <summary>
+    /// The bytes the frame wrote into memory the device reads (<c>TownRenderer.WrittenBytes</c>) — mapped memory on the
+    /// desktop, the page's buffers through <c>writeBuffer</c> in a browser.
+    /// </summary>
+    public long WrittenBytes;
+
     public readonly bool Timed => _timed;
 
     /// <summary>Everything since the last mark, into one of the fields above.</summary>
@@ -96,5 +102,6 @@ internal struct FrameParts
         BlockedMs += frame.BlockedMs;
         WholeMs += frame.WholeMs;
         SimTicks += frame.SimTicks;
+        WrittenBytes += frame.WrittenBytes;
     }
 }

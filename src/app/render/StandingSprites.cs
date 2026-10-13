@@ -65,7 +65,7 @@ internal sealed class StandingSprites
 
     public int Count => _instances.Length;
 
-    /// <summary>Every instance, in the order the grid files them: what the device is handed once (<see cref="TownRenderer.LayStanding"/>).</summary>
+    /// <summary>Every instance, in the order the grid files them: what the device is handed once (<see cref="TownRenderer.LayTown"/>).</summary>
     public ReadOnlyMemory<SpriteInstance> Instances => _instances;
 
     /// <summary>How many instances a town's standing geometry needs, which is what the buffer is laid for.</summary>
@@ -152,8 +152,8 @@ internal sealed class StandingSprites
     {
         var roof = BuildingRoofs.Of(plan, catalogue, uses, building);
         return new SpriteInstance(
-            plan.Buildings.CentreM[building], roof.FootprintM * 0.5f, Vector2.Zero, Vector2.One,
-            PersonSprites.Plain, (uint)(firstSheet + roof.Variant), roof.HeadingRad);
+            plan.Buildings.CentreM[building], roof.FootprintM * 0.5f, SpriteCell.Whole, SpriteTint.Plain,
+            (uint)(firstSheet + roof.Variant), roof.HeadingRad);
     }
 
     static SpriteInstance Look(
@@ -174,7 +174,7 @@ internal sealed class StandingSprites
         // a kerb carries the road's own bearing there, and a look with a front is turned onto it; a tree
         // seen from above has no front, so it is drawn upright and the same look does not read as several.
         return new SpriteInstance(
-            plan.Props.CentreM[prop], sizeM * 0.5f, Vector2.Zero, Vector2.One,
-            PersonSprites.Plain, (uint)(firstSheet + variant), look.Turns ? plan.Props.BearingRad[prop] : 0f);
+            plan.Props.CentreM[prop], sizeM * 0.5f, SpriteCell.Whole, SpriteTint.Plain,
+            (uint)(firstSheet + variant), look.Turns ? plan.Props.BearingRad[prop] : 0f);
     }
 }

@@ -16,10 +16,10 @@ internal readonly ref struct TyreCarry
     public readonly Span<Vector2> MarkFromM;
     public readonly Span<float> MarkIntensity;
 
-    /// <summary>What is left of the throttle after backing off for a slide (<see cref="CarFleet.SlipThrottle"/>).</summary>
+    /// <summary>What is left of the throttle after backing off for a slide (<see cref="TyreCarries.SlipThrottle"/>).</summary>
     public readonly ref float SlipThrottle;
 
-    /// <summary>Whether a wheel the engine turns was past its budget last tick (<see cref="CarFleet.DrivenSlipping"/>).</summary>
+    /// <summary>Whether a wheel the engine turns was past its budget last tick (<see cref="TyreCarries.DrivenSlipping"/>).</summary>
     public readonly ref bool DrivenSlipping;
 
     public TyreCarry(
@@ -73,7 +73,7 @@ internal static class TyrePass
     /// <param name="grounds">What a wheel on a way and off one stands on, for the figures as they stand.</param>
     /// <param name="hand">Whether a hand is at the wheel (<see cref="Actions.CarAction.Hand"/>), which the ceiling reads.</param>
     /// <param name="inertiaKgM2">The body's own moment of inertia about its centre, for the hold of a car its locks keep still.</param>
-    /// <param name="wheelsOnAWay">Which of its wheels stood on a way when its body was last laid (<see cref="CarFleet.WheelsOnAWay"/>).</param>
+    /// <param name="wheelsOnAWay">Which of its wheels stood on a way when the world last read its covers.</param>
     /// <param name="ground">What each wheel stands on, written unless the car was at rest.</param>
     /// <param name="marks">
     /// The marks laid this tick, at most one a wheel and in wheel order — what the caller files, in that order.
@@ -87,10 +87,10 @@ internal static class TyrePass
     {
         marksLaid = 0;
 
-        // Taken before the standstill is answered, because a car parked mid-slide still has a throttle
+        // Wound before the standstill is answered, because a car parked mid-slide still has a throttle
         // to recover: what it may ask for when it pulls away again is not a thing that happens only
         // while the wheels are turning.
-        var ceilingMps2 = DriveCeilingMps2(config, car, hand, pose.AccelerationMps2.Y, carry);
+        WindTheSlipThrottle(config, carry);
         if (AtRest(pose, command, carry))
         {
             // Cleared rather than left, because the four from the tick it stopped on would otherwise be spent
@@ -101,6 +101,7 @@ internal static class TyrePass
             return true;
         }
 
+        var ceilingMps2 = DriveCeilingMps2(config, car, hand, pose.AccelerationMps2.Y, carry.SlipThrottle);
         Span<Vector2> atM = stackalloc Vector2[TyreModel.Wheels];
         TyreModel.WheelPointsM(car, pose, atM);
         for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
@@ -112,7 +113,7 @@ internal static class TyrePass
 
         // Held by its locks with nobody on the throttle, a car that its tyres can hold is held still, whole.
         if ((command.LocksEveryWheel || command.Handbrake) && command.ThrottleMps2 == 0f
-            && TyreModel.HoldStill(config, car, pose, inertiaKgM2, atM, ground, config.TickSeconds, impulses, carry.SpinMps))
+            && TyreModel.HoldStill(car, pose, inertiaKgM2, atM, ground, config.TickSeconds, impulses, carry.SpinMps))
         {
             scrub.Clear();
         }
@@ -148,10 +149,20 @@ internal static class TyrePass
         pose.VelocityMps == Vector2.Zero && pose.YawRateRadPerS == 0f && command.ThrottleMps2 == 0f && carry.WheelsAtRest();
 
     /// <summary>
+    /// <b>Whether this tick's <see cref="Step"/> would clear the car's impulses and scrub and change nothing else</b>:
+    /// at rest (<see cref="AtRest"/>), with the throttle's back-off wound all the way back and no slide to lift for. A
+    /// caller may skip such a car's pass and only clear the two, and the town is the same to the bit — which is what lets
+    /// a parked town's tyres cost a comparison a car, on the host and on the device (<c>kernels/tyre_pass.comp</c>) alike.
+    /// </summary>
+    public static bool Settled(Vector2 velocityMps, float yawRateRadPerS, in DriveCommand command, in TyreCarry carry) =>
+        carry.SlipThrottle == 1f && !carry.DrivenSlipping && velocityMps == Vector2.Zero && yawRateRadPerS == 0f
+        && command.ThrottleMps2 == 0f && carry.WheelsAtRest();
+
+    /// <summary>
     /// The most a driven axle of this car may be asked for: <b>what the friction circle has left along the roll
     /// once the corner it is actually taking has been paid for</b> (CAR-3b). Past that the engine buys no
     /// acceleration and only takes grip off the turn, which is the whole of why a rear-driven car under
-    /// power runs wide. The throttle's back-off is wound on here, every tick, whether or not the wheels turn.
+    /// power runs wide. Spent off the throttle's back-off as <see cref="WindTheSlipThrottle"/> left it this tick.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -175,20 +186,25 @@ internal static class TyrePass
     /// reads no crossings, so nothing about it waits on that.
     /// </para>
     /// </remarks>
-    static float DriveCeilingMps2(SimConfig config, in CarBuild car, bool hand, float acrossMps2, in TyreCarry carry)
+    static float DriveCeilingMps2(SimConfig config, in CarBuild car, bool hand, float acrossMps2, float slipThrottle)
     {
-        carry.SlipThrottle = carry.DrivenSlipping
-            ? MathF.Max(carry.SlipThrottle - (config.TickSeconds / config.Tyre.SlipBackOffS), config.Tyre.MinSlipThrottleFraction)
-            : MathF.Min(carry.SlipThrottle + (config.TickSeconds / config.Tyre.SlipRecoverS), 1f);
-
         if (hand)
         {
             return TyreModel.DriveLeftMps2(car.GripMps2, acrossMps2);
         }
 
         var leftMps2 = TyreModel.DriveLeftMps2(config.TyreGripMps2, acrossMps2);
-        return leftMps2 * config.Tyre.TractionThrottleFraction * carry.SlipThrottle;
+        return leftMps2 * config.Tyre.TractionThrottleFraction * slipThrottle;
     }
+
+    /// <summary>
+    /// <b>The throttle's back-off wound on for this tick</b>, every tick and whether or not the wheels turn: lifted while a
+    /// driven wheel was past its budget last tick, given back while none was.
+    /// </summary>
+    static void WindTheSlipThrottle(SimConfig config, in TyreCarry carry) =>
+        carry.SlipThrottle = carry.DrivenSlipping
+            ? MathF.Max(carry.SlipThrottle - config.TyreSlipBackOffPerTick, config.Tyre.MinSlipThrottleFraction)
+            : MathF.Min(carry.SlipThrottle + config.TyreSlipRecoverPerTick, 1f);
 
     /// <summary>Whether the engine is turning this wheel at all, which is what makes a slide worth lifting for.</summary>
     static bool IsDriven(float drivenFrontShare, int wheel) =>

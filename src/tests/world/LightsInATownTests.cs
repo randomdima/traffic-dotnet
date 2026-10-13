@@ -48,11 +48,16 @@ public class LightsInATownTests
                 var barM = world.Bars.AlongM[bar] - (world.Bars.ThicknessM[bar] * 0.5f);
                 var way = world.Ways.OfRoadLane(lane);
                 var lengthM = world.Roads.LaneLengthM[lane];
-                if (world.Occupancy.AheadTraveller(way, barM, lengthM, out var started) && started.FromM <= barM) continue;
+                if (world.Occupancy.FirstBody(way, barM, lengthM, LaneOccupancy.Nobody, LaneRoster.Signal, out var startedM)
+                    && LaneOccupancy.DmOf(startedM) <= LaneOccupancy.DmOf(barM))
+                {
+                    continue;
+                }
 
                 Assert.True(
                     HeldAt(world.Occupancy, way, barM),
-                    $"{map}: tick {tick}, the bar of lane {lane} at {barM:0.00} m is red and held by nothing that beats the light");
+                    $"{map}: tick {tick}, the bar of lane {lane} at {barM:0.00} m is red and held by nothing that beats the light; "
+                    + $"the way holds {Said(world.Occupancy, way)}");
             }
         }
     }
@@ -62,18 +67,38 @@ public class LightsInATownTests
         world.Signals.ForApproach(lane, world.ElapsedS) != SignalColour.Green
         && world.Signals.ForApproach(lane, world.ElapsedS - Config.TickSeconds) != SignalColour.Green;
 
+    /// <summary>Everything on one way, for a message that has to say why the bar was not held.</summary>
+    static string Said(LaneOccupancy occupancy, int way)
+    {
+        var said = new List<string>();
+        Add(occupancy.Bodies(way));
+        Add(occupancy.Mains(way));
+        Add(occupancy.Secondaries(way));
+        return string.Join(", ", said);
+
+        void Add(ReadOnlySpan<Claim> run)
+        {
+            foreach (var claim in run) said.Add($"{claim.Kind} p{(byte)claim.Rung} {claim.FromM:0.0}–{claim.ToM:0.0}");
+        }
+    }
+
     /// <summary>Whether the metre is the light's own, or planned by a holder that beats a light there (TER-5e).</summary>
     static bool HeldAt(LaneOccupancy occupancy, int way, float atM)
     {
-        if (occupancy.AheadPlanned(way, atM, atM + Hair, LaneRoster.Signal, out var light) && light.FromM <= atM) return true;
+        var atDm = LaneOccupancy.DmOf(atM);
+        if (occupancy.FirstSecondary(way, atM, atM + LaneOccupancy.MetresOf(1), ClaimPriority.Signal, out var lightFromM, out _)
+            && LaneOccupancy.DmOf(lightFromM) <= atDm)
+        {
+            return true;
+        }
 
-        return occupancy.AheadPlanned(way, atM, atM + Hair, LaneRoster.Driving, out var plan)
-               && plan.FromM <= atM
-               && (plan.CommittedAt(atM) || plan.Priority < ClaimPriority.Signal);
+        foreach (var plan in occupancy.Mains(way))
+        {
+            if (plan.FromDm <= atDm && plan.ToDm > atDm && plan.Rung < ClaimPriority.Signal) return true;
+        }
+
+        return false;
     }
-
-    /// <summary>How far past the bar a claim is read for: less than anything a plan is laid in.</summary>
-    const float Hair = 1e-3f;
 
     public static TheoryData<string> Maps => Towns.EveryTown();
 

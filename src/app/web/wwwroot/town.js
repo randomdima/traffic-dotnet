@@ -184,15 +184,15 @@ function buildPipelines(module) {
         vertex: {
             module, entryPoint: 'spriteVertex',
             buffers: [{
-                arrayStride: 56, stepMode: 'instance',
+                // SpriteInstance's packing: centre, half-size as halves, heading, cell bytes, tint bytes, sheet.
+                arrayStride: 28, stepMode: 'instance',
                 attributes: [
                     { shaderLocation: 0, offset: 0, format: float2 },
-                    { shaderLocation: 1, offset: 8, format: float2 },
-                    { shaderLocation: 2, offset: 16, format: float2 },
-                    { shaderLocation: 3, offset: 24, format: float2 },
-                    { shaderLocation: 4, offset: 32, format: 'float32x4' },
-                    { shaderLocation: 5, offset: 48, format: 'uint32' },
-                    { shaderLocation: 6, offset: 52, format: 'float32' },
+                    { shaderLocation: 1, offset: 8, format: 'float16x2' },
+                    { shaderLocation: 2, offset: 12, format: 'float32' },
+                    { shaderLocation: 3, offset: 16, format: 'uint8x4' },
+                    { shaderLocation: 4, offset: 20, format: 'unorm8x4' },
+                    { shaderLocation: 5, offset: 24, format: 'uint32' },
                 ],
             }],
         },

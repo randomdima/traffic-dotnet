@@ -41,7 +41,7 @@ public sealed class StagedTyrePass : IDisposable
     {
         var plan = Towns.Of(Towns.Fixture);
         var shapes = new GroundShapes(plan.Paving(Config), Config);
-        var grounds = WheelGrounds.Of(Config, new GroundLocator(shapes, Config));
+        var grounds = WheelGrounds.Of(Config);
         CarBuild[] builds =
             [CarBuild.Nominal(Config, Config.Car.DrivenFrontShare), .. CarCatalog.Shared.Variants.Select(look => CarBuild.Of(Config, look))];
         Cars = Staged(2000, 7, builds, shapes, plan.WorldSizeM);
@@ -68,7 +68,7 @@ public sealed class StagedTyrePass : IDisposable
 
         HostMarks = [.. marks];
 
-        using var tyres = new DeviceTyres(Device.Vk, Config, grounds, builds, Cars.Length);
+        using var tyres = new DeviceTyres(Device.Vk, Config, grounds, builds, Cars.Length, handsBack: true);
         for (var at = 0; at < Cars.Length; at++)
         {
             var car = Cars[at];

@@ -222,16 +222,16 @@ internal sealed partial class Game : IDisposable
     partial void Shutdown();
 
     /// <summary>
-    /// The town about to stand handed the device's tick, where this run asked for it, and the last town's let go of —
-    /// or nothing, on a head whose town is always ticked by the host. A null town lets the last go of alone. Sets
-    /// <see cref="_movingOnTheDevice"/> where it lays the device's tick.
+    /// The town about to stand handed the device's world, where this run asked for it, and the last town's let go of —
+    /// or nothing, on a head whose world is always managed. A null town lets the last go of alone. Sets
+    /// <see cref="_movingOnTheDevice"/> where it hands the world over.
     /// </summary>
     partial void TickOnTheDevice(TownWorld? world);
 
     /// <summary>
     /// <b>Whether what moves is emitted on the device and drawn where it is written</b>
-    /// (<see cref="EmitTheMoving"/>) rather than filled from the town's copy: a town the device ticks, on a device whose
-    /// kernels have the doubles the emit rounds in.
+    /// (<see cref="EmitTheMoving"/>) rather than filled from the town's copy: a town whose world the device steps, on a
+    /// device whose kernels have the doubles the emit rounds in.
     /// </summary>
     bool _movingOnTheDevice;
 
@@ -241,11 +241,14 @@ internal sealed partial class Game : IDisposable
     /// </summary>
     partial void LayTheMovingOnTheDevice(TownWorld world, SpriteRoom room);
 
-    /// <summary>One tick of a town resident on the device, where this run stands one — <paramref name="ticked"/> set where it was.</summary>
-    partial void TickResident(ref bool ticked);
-
     /// <summary>What moves emitted on the device for the frame about to be drawn, where <see cref="_movingOnTheDevice"/>.</summary>
     partial void EmitTheMoving(Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre);
+
+    /// <summary>
+    /// The ground's triangles let go once every target drawing them holds its own (<see cref="GroundMesh.ForgetTheTriangles"/>).
+    /// Nothing, on a head that draws them out of the host's lists.
+    /// </summary>
+    partial void LetGoOfTheTriangles(GroundMesh ground);
 
     /// <summary>
     /// The map that was still being opened when the run ended, given up before anything it was being
@@ -505,6 +508,7 @@ internal sealed partial class Game : IDisposable
             $"{"",-9}cpu   {frame.CpuMs:F2} ms = sim {frame.SimMs:F2} ({frame.TicksPerFrame:F1} ticks) + " +
             $"sprites {frame.SpritesMs:F2} + interface {frame.InterfaceMs:F2} + submit {frame.SubmitMs:F2} + " +
             $"pump {frame.PumpMs:F2} + input {frame.InputMs:F2} + other {frame.OtherMs:F2}");
+        Console.WriteLine($"{"",-9}written {frame.WrittenKb:F1} kB a frame into memory the device reads");
     }
 
     /// <summary>
@@ -709,11 +713,11 @@ internal sealed partial class Game : IDisposable
         _movingOnTheDevice = false;
         TickOnTheDevice(laid.World);
         _sheets = _looks.Sheets;
-        var room = TownSprites.RoomFor(laid.Plan, _config);
+        var room = _looks.RoomFor(laid.Plan, _config);
         _renderer = NewRenderer(laid.Ground, _movingOnTheDevice ? room with { Over = 0, Above = 0 } : room);
         _looks.ReadAspects(_renderer.Atlas);
         _looks.Lay(laid.Plan, laid.World.Uses, _config);
-        _renderer.LayStanding(_looks.Standing.Instances);
+        _renderer.LayTown(_looks, _config.View.PropLeastPx);
         LayTheMovingOnTheDevice(laid.World, room);
 
         _world?.Dispose();
@@ -740,6 +744,7 @@ internal sealed partial class Game : IDisposable
             : null;
         _clock = new SimClock(_config.TickSeconds, _config.Sim.SoakMaxTimeScale);
         _camera = new Camera2D(_config, laid.Plan.WorldSizeM, _uiPx) { DevicePxPerUiPx = _window.UiScale };
+        if (OpeningViewM > 0f) _camera.SetSpan(OpeningViewM, _uiPx);
         FrameTheTown(laid.World, laid.Plan.WorldSizeM);
         _ui.TownChanged(behindTheMenu);
         _hands.TownChanged();
@@ -749,6 +754,7 @@ internal sealed partial class Game : IDisposable
         _follow.Stop();
         if (_bot is not null) AskToFollow();
 
+        LetGoOfTheTriangles(laid.Ground);
         HandBackTheOpen();
     }
 
@@ -780,10 +786,13 @@ internal sealed partial class Game : IDisposable
     /// in the hole and the road is on screen all the way round; a town shoved aside to clear a panel that
     /// is no longer in a corner would be half off the window instead.
     /// </remarks>
+    /// <summary><c>--view</c>: the span in metres every town this run stands opens on, or nought for the configured one.</summary>
+    public float OpeningViewM { get; init; }
+
     void FrameTheTown(TownWorld world, Vector2 worldSizeM)
     {
         var viewM = _camera.ViewSpanM(_uiPx);
-        _camera.LookAt(Opening.LooksAtM(world.Terrain, _config, worldSizeM, MathF.Min(viewM.X, viewM.Y) * 0.5f));
+        _camera.LookAt(Opening.LooksAtM(world.Roads, worldSizeM, MathF.Min(viewM.X, viewM.Y) * 0.5f));
         _framedAt = (_camera.CentreM, _camera.PixelsPerMetre, _camera.TurnRad);
     }
 
@@ -833,14 +842,6 @@ internal sealed partial class Game : IDisposable
                     _loop.World.HandOnCar(bot.Hands.Car, bot.Hand);
                 }
 
-                // The frame drawn after the last of them reads every car as it leaves it — where it is filled from the
-                // town's copy, a second seat's eye fills one so, or a layer over the town reads the cars it draws.
-                var resident = false;
-                TickResident(ref resident);
-                if (resident) continue;
-
-                _loop.World.ReadsEveryCarAfterTheTick =
-                    tick == due - 1 && (!_movingOnTheDevice || _bot is not null || _ui.Switches.AnyOn);
                 _loop.Advance();
                 foreach (var watch in _scenario) watch.Saw(_loop.World);
             }
@@ -884,16 +885,17 @@ internal sealed partial class Game : IDisposable
             // The cull span and not the view span: a turned town shows a diamond, and a body just outside
             // the upright rectangle is inside the picture (OBS-1c).
             var cullSpanM = _camera.CullSpanM(_uiPx);
+            _renderer.FillUnder(_world.Marks, _camera.CentreM, cullSpanM, _camera.PixelsPerMetre);
             if (_movingOnTheDevice)
             {
-                sprites = looks.FillStill(_world, _camera.CentreM, cullSpanM, _renderer.SpritesUnder);
+                sprites = looks.FillStill(_camera.CentreM, cullSpanM);
                 EmitTheMoving(_camera.CentreM, cullSpanM, _camera.PixelsPerMetre);
             }
             else
             {
                 sprites = looks.Fill(
-                    _world, _config, _camera.CentreM, cullSpanM, _camera.PixelsPerMetre, _renderer.SpritesUnder,
-                    _renderer.SpritesOver, _renderer.SpritesAbove);
+                    _world, _config, _camera.CentreM, cullSpanM, _camera.PixelsPerMetre, _renderer.SpritesOver,
+                    _renderer.SpritesAbove);
             }
         }
 
@@ -920,6 +922,7 @@ internal sealed partial class Game : IDisposable
         // build's. Never below zero — a frame that had to rebuild the swapchain left the last figure
         // standing while doing none of the waiting it describes.
         parts.BlockedMs = _renderer.BlockedMs;
+        parts.WrittenBytes = _renderer.WrittenBytes;
         parts.SubmitMs = Math.Max(0d, parts.SubmitMs - parts.BlockedMs);
 
         // Measured around one steady frame and never around the first: that one carries the

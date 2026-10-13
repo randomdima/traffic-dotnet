@@ -21,28 +21,28 @@ internal sealed partial class TownWorld
     /// </summary>
     void PlanTheDrive(int car, Span<LineWay> ways)
     {
-        var keptOffM = _ground.ClearTheClaim(car);
+        _ground.ClearTheClaim(car);
         switch (Cars.Action[car])
         {
             case CarAction.Hand:
-                _ground.HoldWhatCannotBeStoppedShortOf(car, car);
+                _ground.HoldWhatCannotBeStoppedShortOf(car, car, _world.View.CoversOfCar(car));
                 return;
 
             // EVA-5: a car on a bar is the truck's to move, and what it cannot stop short of is held under the truck.
             case CarAction.Towed:
-                _ground.HoldWhatCannotBeStoppedShortOf(car, LaidAs(car));
+                _ground.HoldWhatCannotBeStoppedShortOf(car, LaidAs(car), _world.View.CoversOfCar(car));
                 return;
         }
 
-        // <b>A car manoeuvring at a bay plans nothing</b> (GEN-4f): the ground it drives is its manoeuvre's, laid as
-        // a body, and all it is held by is a body standing in it — or, before it has that ground, where it stands.
+        // <b>A car manoeuvring at a bay plans nothing</b> (GEN-4f): the ground it drives is its manoeuvre's, and all it
+        // is held by is whatever refused that — or, before it has that ground, where it stands.
         if (IsManoeuvring(car))
         {
             _bays.Hold(car);
             return;
         }
 
-        if (IsUnderWay(car)) _following.Plan(car, keptOffM, ways);
+        if (IsUnderWay(car)) _following.Plan(car, ways);
     }
 
     /// <summary>The hold a car laid this rebuild, for an instrument asking what held it.</summary>

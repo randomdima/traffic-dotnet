@@ -158,27 +158,30 @@ internal sealed partial class DebugOverlay
     {
         var index = world.Occupancy;
         var sagM = PathMarks.SagPx / pixelsPerMetre;
-
-        Span<LaneClaim> slots = stackalloc LaneClaim[MostDrawnSlotsOnAWay];
         foreach (var way in index.OccupiedWays)
         {
             var arcs = world.LineOfWay(way, out var widthM);
             if (arcs.Length == 0) continue;
 
             ref var draw = ref IsAbove(world, way) ? ref above : ref ground;
-            var count = index.CopyTo(way, slots);
-            for (var slot = 0; slot < count; slot++)
-            {
-                // Clamped to the way rather than skipped: a stretch that runs off the end of a lane is a
-                // car halfway into the junction, and the half of it that is on this way is worth seeing.
-                var fromM = MathF.Max(0f, slots[slot].FromM);
-                var toM = MathF.Min(index.WayLengthM(way), slots[slot].ToM);
-                if (toM <= fromM) continue;
+            DrawTheRun(ref draw, index, index.Bodies(way), way, arcs, sagM, widthM, viewCentreM, viewSpanM);
+            DrawTheRun(ref draw, index, index.Mains(way), way, arcs, sagM, widthM, viewCentreM, viewSpanM);
+            DrawTheRun(ref draw, index, index.Secondaries(way), way, arcs, sagM, widthM, viewCentreM, viewSpanM);
+        }
+    }
 
-                Block(
-                    ref draw, arcs, fromM, toM, sagM, widthM, Colour(slots[slot]), slots[slot].Priority,
-                    slots[slot].Secondary, viewCentreM, viewSpanM);
-            }
+    static void DrawTheRun(
+        ref ScreenDraw draw, LaneOccupancy index, ReadOnlySpan<Claim> claims, int way, ReadOnlySpan<ArcSeg> arcs,
+        float sagM, float widthM, Vector2 viewCentreM, Vector2 viewSpanM)
+    {
+        foreach (ref readonly var claim in claims[..Math.Min(claims.Length, MostDrawnSlotsOnAWay)])
+        {
+            var toM = MathF.Min(index.WayLengthM(way), claim.ToM);
+            if (toM <= claim.FromM) continue;
+
+            Block(
+                ref draw, arcs, claim.FromM, toM, sagM, widthM, Colour(index, claim), claim.Rung,
+                claim.Kind == ClaimKind.Secondary, viewCentreM, viewSpanM);
         }
     }
 
@@ -360,9 +363,10 @@ internal sealed partial class DebugOverlay
     /// ground a crossing movement shares with it, and neither is a fan of claims over every way through a box.
     /// </para>
     /// <para>
-    /// What is left with a colour of its own is what belongs to no body at all: the town's own furniture.
+    /// <b>A claim several laid takes its first holder's</b>, the holders being the instruments' to read and nobody's to
+    /// act on.
     /// </para>
     /// </remarks>
-    static Vector4 Colour(in LaneClaim slot) =>
-        slot.Occupant == LaneOccupancy.Nobody ? Theme.LaneObstruction : Theme.AgentLine(slot.Occupant);
+    static Vector4 Colour(LaneOccupancy index, in Claim claim) =>
+        claim.Holders == 0 ? Theme.LaneObstruction : Theme.AgentLine(LaneOccupancy.OccupantOf(index.HoldersOf(claim)[0]));
 }

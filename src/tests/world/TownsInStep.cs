@@ -7,18 +7,21 @@ internal static class TownsInStep
 {
     /// <summary>
     /// Every car and walker of one town against the other's, to the bit: where each stands, moves and faces, and its hold —
-    /// every pose taken back first where a device stepped the town and handed back only what it reads.
+    /// and where its world read each car along its line.
     /// </summary>
     public static void Compare(TownWorld one, TownWorld other, int tick, List<string> unlike)
     {
-        one.TakeEveryPoseBack();
-        other.TakeEveryPoseBack();
         var (cars, otherCars) = (one.Cars, other.Cars);
         for (var car = 0; car < cars.Count; car++)
         {
             var pose = (cars.PositionM[car], cars.VelocityMps[car], cars.HeadingRad[car], one.PlanHoldOf(car));
             var otherPose = (otherCars.PositionM[car], otherCars.VelocityMps[car], otherCars.HeadingRad[car], other.PlanHoldOf(car));
             if (!pose.Equals(otherPose)) unlike.Add($"tick {tick} car {car}: {pose} against {otherPose}");
+
+            var (read, otherRead) = (one.World.View.Cars[car], other.World.View.Cars[car]);
+            var reading = (read.ProgressM, read.OffLineM, read.FollowSerial);
+            var otherReading = (otherRead.ProgressM, otherRead.OffLineM, otherRead.FollowSerial);
+            if (!reading.Equals(otherReading)) unlike.Add($"tick {tick} car {car} read at {reading} against {otherReading}");
         }
 
         var (people, otherPeople) = (one.People, other.People);

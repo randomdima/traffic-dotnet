@@ -332,8 +332,7 @@ internal static class ConnectionPoints
         var betweenM = lengthM - (2f * config.CityGen.ConnectionStandoffM);
         if (betweenM <= 0f) return 0f;
 
-        var floorM = config.CarCorneringRadiusM(
-            config.CityGen.ArterialDesignSpeedMps, config.Terrain.PavedCoefficient);
+        var floorM = config.CarCorneringRadiusM(config.CityGen.ArterialDesignSpeedMps);
 
         return MathF.Min(boundRad, MathF.Atan(TangentShareOfSegment * betweenM / (3f * floorM)));
     }

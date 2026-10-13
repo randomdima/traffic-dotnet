@@ -12,6 +12,7 @@ using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
 
 using TrafficSimulation.World.Statics;
+using TrafficSimulation.World.Terrain;
 
 namespace TrafficSimulation.Bench;
 
@@ -198,9 +199,6 @@ internal static class StuckProbe
             $"{world.LinesReacquired} lines taken again, {world.LegsGivenUp} given up — and " +
             $"{world.HardBrakings} car-ticks spent the braking margin");
         Console.WriteLine(
-            $"plans: {world.PlansLaidAgain} laid again where what another came to moved their answer, " +
-            $"{world.Unsettled} rebuilds left still moving");
-        Console.WriteLine(
             $"passes: cars asked {world.Overtaking.Asked}, withdrew {world.Overtaking.Withdrawn}, made {world.Overtaking.Made}; " +
             $"walkers asked {world.Sidestepping.Asked}, withdrew {world.Sidestepping.Withdrawn}, made {world.Sidestepping.Made}");
         Console.WriteLine(
@@ -325,6 +323,7 @@ internal static class StuckProbe
     static void ReportCars(TownWorld world, SimConfig config, int[] stillTicks, int[] worstTicks)
     {
         var cars = world.Cars;
+        var terrain = new GroundLocator(world.Plan, config);
         var standing = 0;
         var ever = 0;
         var never = 0;
@@ -363,7 +362,7 @@ internal static class StuckProbe
 
         Cycles(world, stillTicks);
 
-        foreach (var car in Worst(stillTicks, worstTicks, cars.Count, body => cars.GrantCutBy[body] != HeadwayKind.Queue))
+        foreach (var car in Worst(stillTicks, worstTicks, cars.Count, body => cars.GrantCutBy[body] != HeadwayKind.Body))
         {
             var rearAxleM = CarFollower.RearAxleM(cars.BuildOf(car), cars.PositionM[car], cars.HeadingRad[car]);
             Console.WriteLine();
@@ -374,7 +373,7 @@ internal static class StuckProbe
             Console.WriteLine(
                 $"    hold {cars.Hold[car]}, getting nowhere for {world.GettingNowhereForS(car):F1} s, reroutes " +
                 $"{cars.Reroutes[car]}, speed {cars.AlongMps[car]:F2} m/s, off-line {cars.OffLineM[car]:F2} m, " +
-                $"drivable ground {world.Terrain.At(rearAxleM).Drivable}");
+                $"drivable ground {terrain.At(rearAxleM).Drivable}");
             Console.WriteLine(
                 $"    grant {cars.GrantLeftM(car):F2} m cut by {cars.GrantCutBy[car]} {WhatHeld(world, world.DriveHold(car))}");
 
@@ -389,8 +388,8 @@ internal static class StuckProbe
                 $"{cars.LaneOf(car)}, plan {cars.ClaimFromM[car]:F1}–{cars.ClaimToM[car]:F1} m " +
                 $"committed to {cars.CommittedToM[car]:F1} m, " +
                 $"stops for bay {cars.StopsForBay[car]}, box in {cars.ToTheBoxM[car]:F1} m " +
-                $"ours {cars.BoxIsOurs[car]}, inside {cars.InsideTheBox[car]}, committed {cars.CommittedToTheBox[car]}, " +
-                $"light in {cars.LightAheadM[car]:F1} m");
+                $"ours {world.BoxIsOurs(car)}, inside {cars.IsInsideTheBox(car)}, committed {world.CommittedToTheBox(car)}, " +
+                $"light in {world.LightAheadM(car):F1} m");
             Console.WriteLine(
                 $"    route {cars.RouteTaken[car]}/{cars.RouteCount[car]} lanes taken, runs out " +
                 $"{cars.RouteRunsOut[car]}, destination {cars.HasDestination[car]} " +
@@ -609,7 +608,7 @@ internal static class StuckProbe
         {
             if (stillTicks[car] < StillTicks) continue;
 
-            if (cars.GrantCutBy[car] is not (HeadwayKind.Queue or HeadwayKind.Obstruction)) continue;
+            if (cars.GrantCutBy[car] != HeadwayKind.Body) continue;
 
             var gapM = cars.GrantLeftM(car);
             if (!float.IsFinite(gapM)) continue;
@@ -667,15 +666,20 @@ internal static class StuckProbe
     /// </summary>
     static string WhatHeld(TownWorld world, int hold)
     {
-        var endsAtM = world.Occupancy.HoldEndsAtM(hold, out _, out var by);
-        if (float.IsPositiveInfinity(endsAtM)) return "(its plan whole)";
+        var claims = world.Occupancy;
+        var by = claims.CutOf(hold);
+        if (!by.Refused) return "(its plan whole)";
 
-        var way = world.Occupancy.HoldCutOn(hold);
+        var way = by.Way;
         var onWay = way < 0 ? "no way" : $"{world.Ways.KindOf(way)} way {way}";
-        return by.Found
-            ? $"(a {(by.HasBody ? "body" : by.Secondary ? "secondary claim" : "main claim")} of {by.Of} {by.Occupant} at " +
-              $"{by.Priority}{(by.OnItsLine ? ", on its line" : "")}, {by.FromM:F1}–{by.ToM:F1} m of {onWay})"
-            : $"(a place, on {onWay})";
+        if (!claims.ClaimAt(by, out var claim)) return $"(a place, on {onWay})";
+
+        var holders = claims.HoldersOf(claim);
+        var whose = holders.Length == 0
+            ? "nobody"
+            : $"{LaneOccupancy.RosterOf(holders[0])} {LaneOccupancy.OccupantOf(holders[0])}"
+              + (holders.Length > 1 ? $" and {holders.Length - 1} more" : "");
+        return $"(a {by.Kind} claim of {whose} at {by.Rung}, {claim.FromM:F1}–{claim.ToM:F1} m of {onWay}, met at {by.AtM:F1} m)";
     }
 
     /// <summary>What is standing round the body, because a body that stopped is usually stopped by another one.</summary>

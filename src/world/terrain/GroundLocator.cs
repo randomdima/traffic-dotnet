@@ -4,11 +4,8 @@ using TrafficSimulation.Core.Config;
 
 namespace TrafficSimulation.World.Terrain;
 
-/// <summary>
-/// What is answered about a point: which ground it stands on, who is permitted there, and what the
-/// surface is worth.
-/// </summary>
-internal readonly record struct GroundSample(Ground Ground, GroundRules Rules, float Coefficient)
+/// <summary>What is answered about a point: which ground it stands on, and who is permitted there.</summary>
+internal readonly record struct GroundSample(Ground Ground, GroundRules Rules)
 {
     public bool Walkable => (Rules & GroundRules.Walkable) != 0;
 
@@ -25,7 +22,7 @@ internal readonly record struct GroundEffect(float Coefficient, float DragMps2, 
 
 /// <summary>
 /// <b>The town's ground as a body meets it</b>: which kind is under a point (<see cref="GroundShapes"/>),
-/// who is permitted on that kind and what it is worth (<see cref="GroundCatalog"/>).
+/// who is permitted on that kind, and what a wheel's ground does to it (<see cref="GroundCatalog"/>).
 /// </summary>
 /// <remarks>
 /// <b>Two halves and one geometry.</b> The shape half is the plan's own and lives with it, so a town can
@@ -51,19 +48,17 @@ internal sealed class GroundLocator
     }
 
     /// <summary>
-    /// What each ground is worth, read again from the figures as they stand now. <b>The shapes do not
+    /// What a wheel's ground does to it, read again from the figures as they stand now. <b>The shapes do not
     /// move</b> — they are the plan's, and a figure cannot relay a town — so this is the whole of what a
     /// changed figure does to the ground under a wheel.
     /// </summary>
     public void FiguresChanged(SimConfig config) => _catalog = new GroundCatalog(config);
 
-    public GroundSample At(Vector2 pointM) => Sample(_shapes.At(pointM));
-
-    /// <summary>The same, for a body on one level (<see cref="GroundShapes.At(GroundShapes.Scan, Vector2, byte)"/>): a car on a bridge is on its deck and not on what the deck passes over.</summary>
-    public GroundSample At(Vector2 pointM, byte level) => Sample(_shapes.At(pointM, level));
-
-    GroundSample Sample(Ground ground) =>
-        new(ground, GroundCatalog.RulesOf(ground), _catalog.Coefficient(ground));
+    public GroundSample At(Vector2 pointM)
+    {
+        var ground = _shapes.At(pointM);
+        return new GroundSample(ground, GroundCatalog.RulesOf(ground));
+    }
 
     public Ground GroundAt(Vector2 pointM) => _shapes.At(pointM);
 
@@ -72,7 +67,7 @@ internal sealed class GroundLocator
     /// of the town (<c>RibbonAtlas.UnderWheels</c>), and the grass's anywhere else. Kept apart from <see cref="At"/>, which is
     /// who is permitted at a point, because a wheel asks no shape what it stands on.
     /// </summary>
-    public GroundEffect UnderAWheel(bool onAWay) => _catalog.EffectOf(onAWay ? Ground.Road : Ground.Grass);
+    public GroundEffect UnderAWheel(bool onAWay) => onAWay ? _catalog.Paved : _catalog.Grass;
 
     /// <summary>Whether the point is inside the town's own box, for a caller that wants to know before it asks.</summary>
     public bool Contains(Vector2 pointM) => _shapes.Contains(pointM);

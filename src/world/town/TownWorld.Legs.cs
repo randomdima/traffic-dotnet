@@ -118,11 +118,11 @@ internal sealed partial class TownWorld
                 return;
 
             case CarAction.Park:
-                _parkingIn.Decide(car);
+                _parkingIn.Decide(car, sinceLastDecisionS);
                 return;
 
             case CarAction.Unpark:
-                _pullingOut.Decide(car);
+                _pullingOut.Decide(car, sinceLastDecisionS);
                 return;
 
             case CarAction.Rejoin:
@@ -217,9 +217,11 @@ internal sealed partial class TownWorld
         var remainingM = RemainingOnTheDriveM(car);
 
         // The one wait that spends no clock is a light, which will change on its own — and it buys the
-        // wait rather than the standing, so the clock is held where it is rather than given back.
-        if (WaitingForAReasonItCanSee(car)) _driveProgress.Hold(car, remainingM);
-        else _driveProgress.Note(car, remainingM, Cars.BuildOf(car).WidthM, elapsedS);
+        // wait rather than the standing, so the clock is held where it is rather than given back. Only a car getting
+        // nowhere is asked whether one is why: one getting somewhere is getting somewhere wherever it is.
+        var widthM = Cars.BuildOf(car).WidthM;
+        if (!_driveProgress.Gains(car, remainingM, widthM) && WaitingForAReasonItCanSee(car)) _driveProgress.Hold(car, remainingM);
+        else _driveProgress.Note(car, remainingM, widthM, elapsedS);
 
         if (!_driveProgress.IsStuck(car, _config.CarPatienceS * Cars.FuseJitter[car])) return;
 
@@ -241,120 +243,6 @@ internal sealed partial class TownWorld
 
         GiveUpTheLeg(car);
     }
-
-    /// <summary>
-    /// <b>Whether this car's decision would do nothing but run its leg's clock</b>: an errand that leaves it to the
-    /// leg, a car following its route with no line to grow, no bay to take up, nothing it may get past that it has come
-    /// up to, no lane beside it means to move across onto and its line not spent — and a clock that will not run out on
-    /// this decision. Asked of nothing it changes.
-    /// </summary>
-    /// <remarks>
-    /// Each refusal is a branch <see cref="DecideNow"/> takes before the clock: a car under orders or on a duty, an owner's
-    /// car its owner is not driving to a bay, <see cref="DecideDriver"/>'s line grown and action decided
-    /// (<see cref="Following.Decide"/>), its next step taken, and the clock's own end of the leg.
-    /// </remarks>
-    public bool TakesOnlyTheClock(int car, float sinceLastDecisionS)
-    {
-        if (!LeavesItsDecisionToItsLine(car) || TheLineIsSpent(car)) return false;
-        if (_overtaking.MayGetPastWhatCutIt(car, out _, out _) && _overtaking.ComesUpTo(car, Cars.AlongMps[car], Cars.Context[car].AuthorityM))
-        {
-            return false;
-        }
-
-        if (_switching.Wants(car, out _)) return false;
-
-        var (patienceS, byM, queueReachM) = ClockTermsOf(car);
-        return !_driveProgress.WouldBeStuck(
-            car, RemainingOnTheDriveM(car), byM, sinceLastDecisionS, Cars.LightAheadM[car] <= queueReachM, patienceS);
-    }
-
-    /// <summary>
-    /// <b>The part of <see cref="TakesOnlyTheClock"/> only the town can answer</b>: no duty or order, an errand that leaves
-    /// the car to its leg, a car following its route with no line to grow and no bay to take up — every other part
-    /// being read off its line, its tick and the claims.
-    /// </summary>
-    public bool LeavesItsDecisionToItsLine(int car) => Cars.Action[car] == CarAction.Follow && LeavesItToItsLeg(car);
-
-    /// <summary>
-    /// <b>The same of a car moving across</b> (<see cref="TakesOnlyItsLook"/>): whose decision, past its errand and its line,
-    /// is its look for room (<see cref="Switching.Consider"/>) and its leg's clock.
-    /// </summary>
-    public bool LeavesItsSwitchToItsLine(int car) => Cars.Action[car] == CarAction.Switch && LeavesItToItsLeg(car);
-
-    /// <summary>
-    /// <b>Whether this switching car's decision would do nothing but look for room and run its leg's clock</b> — what a
-    /// device that takes the look is held to: its errand and line a following car's would leave to it, still meaning to move
-    /// across the same way and finding no step to ask for, and a clock that will not run out on this decision. The look it
-    /// came to is <paramref name="look"/>, its swept ground kept and the ways it asked about marked, as a decision leaves them.
-    /// </summary>
-    public bool TakesOnlyItsLook(int car, float sinceLastDecisionS, out SwitchLook look)
-    {
-        look = default;
-        if (!LeavesItsSwitchToItsLine(car) || TheLineIsSpent(car)) return false;
-
-        look = _switching.Consider(car, sinceLastDecisionS);
-        if (look.Outcome is SwitchOutcome.LetsGo or SwitchOutcome.Asks || look.Turned) return false;
-
-        var (patienceS, byM, queueReachM) = ClockTermsOf(car);
-        return !_driveProgress.WouldBeStuck(
-            car, RemainingOnTheDriveM(car), byM, sinceLastDecisionS, Cars.LightAheadM[car] <= queueReachM, patienceS);
-    }
-
-    /// <summary>
-    /// No duty or order, an errand that leaves the car to its leg, and a car driving its route with no line to grow and no
-    /// bay to take up — whatever its action.
-    /// </summary>
-    bool LeavesItToItsLeg(int car) =>
-        !HoldAgents && !IsUnderOrders(car) && !Cars.Ambulance[car] && !IsAnEvacuator(car) && !IsAPatrolCar(car)
-        && Cars.Driven[car] && !Cars.Broken[car] && ItsErrandLeavesItToTheLeg(car) && !_asksTheRoute[car]
-        && Cars.StopsForBayOf(car) == CarFleet.NoBay;
-
-    /// <summary>
-    /// What a car's leg's clock is run by (<see cref="WatchTheProgress"/>): its patience, how much nearer counts as nearer,
-    /// and how far back a queue at a light reaches.
-    /// </summary>
-    public (float PatienceS, float ByM, float QueueReachM) ClockTermsOf(int car) =>
-        (_config.CarPatienceS * Cars.FuseJitter[car], Cars.BuildOf(car).WidthM, QueueReachM(car));
-
-    /// <summary>Every car's leg's clock (<see cref="LegProgress"/>), for a device that runs the clocks of the cars it decides.</summary>
-    public LegProgress DriveClocks => _driveProgress;
-
-    /// <summary>
-    /// <b>Whether a device decides the cars whose decisions are their clock alone</b> (<see cref="ITownDevice.DecidedOnTheDevice"/>),
-    /// so a car's tick is not handed back for its decision.
-    /// </summary>
-    public bool CarsDecidedOnTheDevice { get; set; }
-
-    /// <summary>
-    /// Whether a driven car's errand leaves it to its leg this decision (<see cref="RunTheOwnersCar"/>,
-    /// <see cref="RunTheRound"/>): an owner's car its owner is driving to a bay, or one its owner is not at the wheel of.
-    /// </summary>
-    bool ItsErrandLeavesItToTheLeg(int car)
-    {
-        if (Cars.Owner[car] == CarFleet.NoOwner || WheelIsHeldOver(car)) return true;
-
-        var owner = Cars.Owner[car];
-        return !IsAtTheWheel(owner) || (People.Stage[owner] != TripStage.StandingBy && BayAimedAt(car) >= 0);
-    }
-
-    /// <summary>
-    /// Whether a car whose decision <see cref="TakesOnlyTheClock"/> is decided by its clock alone (<see cref="WatchTheProgress"/>)
-    /// — which is what the whole decision would have come to.
-    /// </summary>
-    public bool DecidesQuietCarsByTheClock { get; set; }
-
-    /// <summary>How many cars' decisions were their clock alone (<see cref="DecidesQuietCarsByTheClock"/>).</summary>
-    public long DecidedByTheClock { get; private set; }
-
-    /// <summary>Decisions a device found its cars' clock alone without the town putting them off (<see cref="ITownDevice.DecidesItself"/>), counted in.</summary>
-    public void DecidedByTheClockOnTheDevice(int count)
-    {
-        DecidedByTheClock += count;
-        CarDecisionsTaken += count;
-    }
-
-    /// <summary>How many cars' decisions were taken, wherever each was — every car's turn but one held or on a bar.</summary>
-    public long CarDecisionsTaken { get; private set; }
 
     /// <summary>
     /// How long this car has been getting nowhere, which is a reading the instruments print and never a
@@ -446,12 +334,12 @@ internal sealed partial class TownWorld
     /// its way out is a movement across the street like a junction's, and a bay it cannot get out of for
     /// half a minute is a place to give up rather than a wait to be excused.
     /// </remarks>
-    bool WaitingForAReasonItCanSee(int car) => Cars.LightAheadM[car] <= QueueReachM(car);
+    bool WaitingForAReasonItCanSee(int car) => LightAheadM(car) <= QueueReachM(car);
 
     /// <summary>
-    /// How far back a queue at a light reaches, for a car of this length. <b>The test is "a light's hold
-    /// ahead, within a queue's length of it"</b>, so it has to cover the whole queue and not only its front —
-    /// and a body bogged on the verge beside that junction meets it too.
+    /// How far back a queue at a light reaches, for a car of this length (<see cref="CarBuild.LightQueueReachM"/>).
+    /// <b>The test is "a light's hold ahead, within a queue's length of it"</b>, so it has to cover the whole queue and
+    /// not only its front — and a body bogged on the verge beside that junction meets it too.
     /// </summary>
-    float QueueReachM(int car) => Cars.BuildOf(car).LengthM * _config.Patience.LightQueueInCarLengths;
+    float QueueReachM(int car) => Cars.BuildOf(car).LightQueueReachM;
 }

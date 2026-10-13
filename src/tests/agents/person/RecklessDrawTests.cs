@@ -89,7 +89,7 @@ public class RecklessDrawTests
         for (var person = 0; person < Roster; person++)
         {
             people.Add(
-                BodyId.None, Vector2.Zero, 0f, 70f, 0.25f, 0, new Rng(seed, (ulong)person),
+                Vector2.Zero, 0f, 70f, 0.25f, 0, new Rng(seed, (ulong)person),
                 PersonFleet.DrawsReckless(seed, (ulong)person, share));
         }
 

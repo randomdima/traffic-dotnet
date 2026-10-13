@@ -23,29 +23,27 @@ internal sealed class WalkingBack(WalkingGround ground, PersonActions actions)
     /// getting back onto it — to where it decides then, and nowhere else after — and one on it, or hopping off the end
     /// of it onto its goal, walks it.
     /// </summary>
-    public void Consider(int person)
+    /// <param name="under">The ways the world read the walker's body on (TER-4c.2).</param>
+    public void Consider(int person, ReadOnlySpan<WayCover> under)
     {
         if (People.Action[person] is not (PersonAction.Walk or PersonAction.Rejoin) || !People.Walking[person]) return;
 
         var onIt = People.OnWay[person] != PersonFleet.NoWay || ground.IsHopping(person)
-                   || People.CurrentRouteWay(person) == PersonFleet.NoWay || StandsOnThePavement(person);
+                   || People.CurrentRouteWay(person) == PersonFleet.NoWay || StandsOnThePavement(under);
         if (!onIt && People.Action[person] != PersonAction.Rejoin) _backToM[person] = BackOntoItsWayM(person);
 
         actions.Enter(person, onIt ? PersonAction.Walk : PersonAction.Rejoin);
     }
 
-    /// <summary>The ground the walk back covers, nearest first: every way the straight back onto its way crosses.</summary>
-    public Span<LineWay> WaysOf(int person, Span<LineWay> into) =>
-        into[..ground.TheStraightAhead(person, _backToM[person], People.RadiusM[person], ground.PlansAheadM, into)];
+    /// <summary>The ground the walk back covers: what it stands on, and the stretch of its way it steps back onto.</summary>
+    /// <param name="under">The ways the world read the walker's body on (TER-4c.2).</param>
+    public Span<LineWay> WaysOf(int person, ReadOnlySpan<WayCover> under, Span<LineWay> into) =>
+        into[..ground.TheStraightAhead(
+            person, _backToM[person], ground.WayOf(People.CurrentRouteWay(person)), People.OnWayM[person], People.RadiusM[person],
+            ground.PlansAheadM, under, into)];
 
     /// <summary>Aimed down the straight back, no further than it was granted.</summary>
     public void Aim(int person) => ground.AimAlongTheStraight(person, _backToM[person]);
-
-    /// <summary>Where each walker last decided to walk back to — read, for a device walking the same walkers.</summary>
-    public ReadOnlySpan<Vector2> BackToM => _backToM;
-
-    /// <summary>Where a walker walks back to, as it was decided wherever that was (<see cref="Consider"/>, or a device's).</summary>
-    public void WalksBackTo(int person, Vector2 backToM) => _backToM[person] = backToM;
 
     /// <summary>
     /// <b>Where a walker off the ground of its way walks back onto it</b>: the nearest of it, abeam of where the body
@@ -59,20 +57,16 @@ internal sealed class WalkingBack(WalkingGround ground, PersonActions actions)
         Spline.SampleAt(ground.Walking.WayArcs(People.CurrentRouteWay(person)), People.OnWayM[person]).PositionM;
 
     /// <summary>
-    /// <b>Whether a walker's body stands on any of the pavement</b>, its own way or not — read where its body is laid,
-    /// at its centre (TER-4c.2). One between the two lanes of a pavement, or shoved across the corner of one, walks its
+    /// <b>Whether a walker's body stands on any of the pavement</b>, its own way or not — as the world read its body on
+    /// its ways (TER-4c.2). One between the two lanes of a pavement, or shoved across the corner of one, walks its
     /// route: what it steps over getting back onto its way is ground its body stands on, and where it is going is its
-    /// plan's (PER-26). <b>Off the pavement altogether</b> it is walking back over ground only a straight of its own can
-    /// claim.
+    /// plan's (PER-26). <b>Off the pavement altogether</b> it walks straight back onto its way.
     /// </summary>
-    [SkipLocalsInit]
-    bool StandsOnThePavement(int person)
+    bool StandsOnThePavement(ReadOnlySpan<WayCover> under)
     {
-        Span<WayCover> under = stackalloc WayCover[RibbonAtlas.MostWaysUnderABody];
-        var count = ground.Atlas.UnderAWheel(People.PositionM[person], People.RadiusM[person], under);
-        for (var at = 0; at < count; at++)
+        foreach (ref readonly var cover in under)
         {
-            if (!ground.Ways.IsDriven(under[at].Way)) return true;
+            if (!ground.Ways.IsDriven(cover.Way)) return true;
         }
 
         return false;

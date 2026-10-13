@@ -53,14 +53,14 @@ internal static class SpriteProbe
         var looks = TownSprites.Load(config);
         looks.ReadAspects(SheetAtlas.Pack(looks.Sheets));
         looks.Lay(plan, world.Uses, config);
-        var room = TownSprites.RoomFor(plan, config);
+        var room = looks.RoomFor(plan, config);
         var under = new SpriteInstance[room.Under];
         var into = new SpriteInstance[room.Over];
         var above = new SpriteInstance[Math.Max(1, room.Above)];
         var level = world.Levelled ? CityPlan.RoadArrays.Ground : CarSprites.EveryLevel;
         var inView = new int[world.Cars.Capacity];
         var peopleInView = new int[world.People.Capacity];
-        var openingM = Opening.LooksAtM(world.Terrain, config, plan.WorldSizeM, ViewsM[0] * 0.5f);
+        var openingM = Opening.LooksAtM(world.Roads, plan.WorldSizeM, ViewsM[0] * 0.5f);
 
         Console.WriteLine(
             $"sprite probe — {map}, {world.Cars.Count} cars, {world.People.Count} walkers, aged {AgeS:F0} s " +
@@ -68,7 +68,8 @@ internal static class SpriteProbe
         const double PerMb = 1024.0 * 1024.0;
         var instanceBytes = System.Runtime.CompilerServices.Unsafe.SizeOf<SpriteInstance>();
         Console.WriteLine(
-            $"instances written a frame in flight {room.Written} = {room.Written * instanceBytes / PerMb:F1} MB; " +
+            $"instances written a frame in flight {room.Moving} = {room.Moving * instanceBytes / PerMb:F1} MB " +
+            $"(a page's, the marks and scenery too: {room.Written} = {room.Written * instanceBytes / PerMb:F1} MB); " +
             $"buildings and props laid once {room.Standing} = {room.Standing * instanceBytes / PerMb:F1} MB");
         Console.WriteLine(
             $"{"view m",8}{"px/m",7}{"marks",8}{"scenery",8}{"standing",9}{"people",8}{"find",8}{"tyres",8}{"bodies",8}" +
@@ -102,11 +103,11 @@ internal static class SpriteProbe
                 level), out _);
             var lamps = Us(() => looks.WidestGlowM < leastPartM ? 0 : LampSprites.Fill(
                 world.Cars, inView.AsSpan(0, listed), looks.Cars, config, looks.LensSheet, looks.LampGlowSheet,
-                world.ElapsedS, world.HandDriven, world.HandDrivenCar, centreM, spanM, into, level, leastPartM), out _);
+                world.ElapsedS, centreM, spanM, into, level, leastPartM), out _);
             var signals = Us(() => SignalSprites.Fill(world, config, looks.FirstHeadSheet, centreM, spanM, into), out _);
-            var whole = Us(() => looks.Fill(world, config, centreM, spanM, pxPerM, under, into, above).Drawn, out var drawn);
+            var whole = Us(() => looks.Fill(world, config, centreM, spanM, pxPerM, into, above).Drawn, out var drawn);
             var allocatedAt = GC.GetAllocatedBytesForCurrentThread();
-            looks.Fill(world, config, centreM, spanM, pxPerM, under, into, above);
+            looks.Fill(world, config, centreM, spanM, pxPerM, into, above);
             var allocated = GC.GetAllocatedBytesForCurrentThread() - allocatedAt;
 
             Console.WriteLine(

@@ -29,21 +29,24 @@ internal sealed unsafe partial class TownRenderer
         _spriteFragmentShader = _vk.LoadShader("sprite.frag");
         _overlayVertexShader = _vk.LoadShader("overlay.vert");
         _overlayFragmentShader = _vk.LoadShader("overlay.frag");
+        _markVertexShader = _vk.LoadShader("mark.vert");
+        _sceneryVertexShader = _vk.LoadShader("scenery.vert");
 
-        // One set for the whole frame: all three pipelines read the same camera and every picture the
+        // One set for the whole frame: every pipeline reads the same camera and every picture the
         // town is drawn with is bound here once, so nothing is bound twice in a recording. Two
         // uniform blocks the vertex stage reads, then the atlas, the glyphs and the five
-        // surfaces — and not one of them is an array a shader indexes at run time.
+        // surfaces — and not one of them is an array a shader indexes at run time — then what the
+        // marks and the scenery are read out of, by the vertex stage again.
         var bindings = stackalloc DescriptorSetLayoutBinding[Bindings];
         for (var binding = 0; binding < Bindings; binding++)
         {
-            var uniform = binding <= SheetTableBinding;
+            var type = TypeOf(binding);
             bindings[binding] = new DescriptorSetLayoutBinding
             {
                 Binding = (uint)binding,
-                DescriptorType = uniform ? DescriptorType.UniformBuffer : DescriptorType.CombinedImageSampler,
+                DescriptorType = type,
                 DescriptorCount = 1,
-                StageFlags = uniform ? ShaderStageFlags.VertexBit : ShaderStageFlags.FragmentBit,
+                StageFlags = type == DescriptorType.CombinedImageSampler ? ShaderStageFlags.FragmentBit : ShaderStageFlags.VertexBit,
             };
         }
 
@@ -104,17 +107,18 @@ internal sealed unsafe partial class TownRenderer
             InputRate = VertexInputRate.Instance,
         };
 
-        var attributes = stackalloc VertexInputAttributeDescription[7];
+        // SpriteInstance's packing, field for field: the centre, the half-size's two halves, the heading, the cell's four
+        // bytes, the tint's four normalised, the sheet.
+        var attributes = stackalloc VertexInputAttributeDescription[6];
         attributes[0] = new VertexInputAttributeDescription(0, 0, Format.R32G32Sfloat, 0);
-        attributes[1] = new VertexInputAttributeDescription(1, 0, Format.R32G32Sfloat, 8);
-        attributes[2] = new VertexInputAttributeDescription(2, 0, Format.R32G32Sfloat, 16);
-        attributes[3] = new VertexInputAttributeDescription(3, 0, Format.R32G32Sfloat, 24);
-        attributes[4] = new VertexInputAttributeDescription(4, 0, Format.R32G32B32A32Sfloat, 32);
-        attributes[5] = new VertexInputAttributeDescription(5, 0, Format.R32Uint, 48);
-        attributes[6] = new VertexInputAttributeDescription(6, 0, Format.R32Sfloat, 52);
+        attributes[1] = new VertexInputAttributeDescription(1, 0, Format.R16G16Sfloat, 8);
+        attributes[2] = new VertexInputAttributeDescription(2, 0, Format.R32Sfloat, 12);
+        attributes[3] = new VertexInputAttributeDescription(3, 0, Format.R8G8B8A8Uint, 16);
+        attributes[4] = new VertexInputAttributeDescription(4, 0, Format.R8G8B8A8Unorm, 20);
+        attributes[5] = new VertexInputAttributeDescription(5, 0, Format.R32Uint, 24);
 
         _spritePipeline = BuildPipeline(
-            _spriteVertexShader, _spriteFragmentShader, binding, attributes, 7, PrimitiveTopology.TriangleStrip, blended: true);
+            _spriteVertexShader, _spriteFragmentShader, binding, attributes, 6, PrimitiveTopology.TriangleStrip, blended: true);
     }
 
     /// <summary>
@@ -146,10 +150,24 @@ internal sealed unsafe partial class TownRenderer
             blended: true);
     }
 
+    /// <summary>
+    /// The marks, out of the ground's ring (<c>mark.vert</c>): the sprites' quad and fragment stage, blended, with no vertex
+    /// buffer at all — each instance reads its own row.
+    /// </summary>
+    void CreateMarkPipeline() =>
+        _markPipeline = BuildPipeline(
+            _markVertexShader, _spriteFragmentShader, null, null, 0, PrimitiveTopology.TriangleStrip, blended: true);
+
+    /// <summary>The scenery, out of its pieces by the frame's runs (<c>scenery.vert</c>), on the same terms.</summary>
+    void CreateSceneryPipeline() =>
+        _sceneryPipeline = BuildPipeline(
+            _sceneryVertexShader, _spriteFragmentShader, null, null, 0, PrimitiveTopology.TriangleStrip, blended: true);
+
     Pipeline BuildPipeline(
-        ShaderModule vertex, ShaderModule fragment, VertexInputBindingDescription binding,
+        ShaderModule vertex, ShaderModule fragment, VertexInputBindingDescription? binding,
         VertexInputAttributeDescription* attributes, uint attributeCount, PrimitiveTopology topology, bool blended)
     {
+        var bound = binding.GetValueOrDefault();
         var api = _vk.Api;
         var entry = (byte*)SilkMarshal.StringToPtr("main");
         try
@@ -173,8 +191,8 @@ internal sealed unsafe partial class TownRenderer
             var vertexInput = new PipelineVertexInputStateCreateInfo
             {
                 SType = StructureType.PipelineVertexInputStateCreateInfo,
-                VertexBindingDescriptionCount = 1,
-                PVertexBindingDescriptions = &binding,
+                VertexBindingDescriptionCount = binding is null ? 0u : 1u,
+                PVertexBindingDescriptions = binding is null ? null : &bound,
                 VertexAttributeDescriptionCount = attributeCount,
                 PVertexAttributeDescriptions = attributes,
             };

@@ -26,7 +26,7 @@ public class CarSpriteTests
         var fleet = new CarFleet(cars, arcsPerCar: 1, CarBuilds.OfTheFleet(Config, CarCatalog.Shared));
         for (var car = 0; car < cars; car++)
         {
-            fleet.Add(default, new Vector2(car * 10f, 0f), 0f, (byte)car, false, new Rng(1, (ulong)car));
+            fleet.Add(new Vector2(car * 10f, 0f), 0f, (byte)car, false, new Rng(1, (ulong)car));
         }
 
         return fleet;
@@ -107,7 +107,10 @@ public class CarSpriteTests
 
         Assert.Equal(intact.CentreM, wrecked.CentreM);
         Assert.Equal(intact.HeadingRad, wrecked.HeadingRad);
-        Assert.Equal(intact.HalfSizeM * catalogue.Variants[0].WreckScale, wrecked.HalfSizeM);
+        ref readonly var build = ref fleet.BuildOf(0);
+        var intactHalfM = new Vector2(build.LengthM, build.WidthM) * 0.5f;
+        Assert.Equal(SpriteInstance.AsDrawn(intactHalfM), intact.HalfSizeM);
+        Assert.Equal(SpriteInstance.AsDrawn(intactHalfM * catalogue.Variants[0].WreckScale), wrecked.HalfSizeM);
     }
 
     /// <summary>
@@ -150,7 +153,7 @@ public class CarSpriteTests
         for (var car = 0; car < fleet.Count; car++)
         {
             ref readonly var build = ref fleet.BuildOf(car);
-            Assert.Equal(new Vector2(build.LengthM, build.WidthM) * 0.5f * scales[car], drawn[car].HalfSizeM);
+            Assert.Equal(SpriteInstance.AsDrawn(new Vector2(build.LengthM, build.WidthM) * 0.5f * scales[car]), drawn[car].HalfSizeM);
             sizes.Add(new Vector2(build.LengthM, build.WidthM));
         }
 
@@ -305,7 +308,7 @@ public class CarSpriteTests
         var back = -Heading.Unit(0.4f);
         Assert.Single(drawn);
         Assert.Equal(back, Heading.Unit(drawn[0].HeadingRad), Near);
-        Assert.Equal(beam.Collapsed.SizeM * 0.5f, drawn[0].HalfSizeM);
+        Assert.Equal(SpriteInstance.AsDrawn(beam.Collapsed.SizeM * 0.5f), drawn[0].HalfSizeM);
         Assert.Equal((uint)(7 + catalogue.BeamSlotOf(catalogue.Evacuator, towing: false)), drawn[0].Sheet);
 
         // The hinge sits at the pivot its file names, whichever way the quad's own middle fell.
@@ -327,7 +330,7 @@ public class CarSpriteTests
     {
         var catalogue = CarCatalog.Load();
         var fleet = OneEvacuator(catalogue, headingRad: 0f, out var beam);
-        fleet.Add(default, new Vector2(-6f, 3f), 0.9f, 0, false, new Rng(1, 2));
+        fleet.Add(new Vector2(-6f, 3f), 0.9f, 0, false, new Rng(1, 2));
 
         var recovery = new RecoveryDuty(fleet.Count);
         recovery.Towing[0] = 1;
@@ -342,7 +345,7 @@ public class CarSpriteTests
 
         Assert.Single(drawn);
         Assert.Equal(MathF.Atan2(pointing.Y, pointing.X), drawn[0].HeadingRad, 1e-5f);
-        Assert.Equal(beam.Extended.SizeM * 0.5f, drawn[0].HalfSizeM);
+        Assert.Equal(SpriteInstance.AsDrawn(beam.Extended.SizeM * 0.5f), drawn[0].HalfSizeM);
         Assert.Equal((uint)(7 + catalogue.BeamSlotOf(catalogue.Evacuator, towing: true)), drawn[0].Sheet);
         Assert.Equal(hingeM - (pointing * beam.Extended.HingeAtM), drawn[0].CentreM, Near);
     }
@@ -362,7 +365,7 @@ public class CarSpriteTests
     {
         beam = catalogue.BeamOf(catalogue.Evacuator)!.Value;
         var fleet = new CarFleet(2, arcsPerCar: 1, CarBuilds.OfTheFleet(Config, catalogue));
-        fleet.Add(default, new Vector2(2f, 5f), headingRad, (byte)catalogue.Evacuator, false, new Rng(1, 1));
+        fleet.Add(new Vector2(2f, 5f), headingRad, (byte)catalogue.Evacuator, false, new Rng(1, 1));
         return fleet;
     }
 
@@ -411,7 +414,7 @@ public class CarSpriteTests
         for (var wheel = 0; wheel < TyreModel.SteeredWheels; wheel++)
         {
             Assert.Equal(fleet.PositionM[0] + TyreModel.WheelAtM(build, wheel), drawn[wheel].CentreM);
-            Assert.Equal(new Vector2(build.WheelLengthM, build.WheelWidthM) * 0.5f, drawn[wheel].HalfSizeM);
+            Assert.Equal(SpriteInstance.AsDrawn(new Vector2(build.WheelLengthM, build.WheelWidthM) * 0.5f), drawn[wheel].HalfSizeM);
         }
     }
 

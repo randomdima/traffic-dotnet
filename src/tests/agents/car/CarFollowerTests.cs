@@ -137,9 +137,8 @@ public class CarFollowerTests
     [InlineData(25f)]
     public void AGrantOfItsLeadAndItsStopHoldsTheSpeedItIsDoing(float alongMps)
     {
-        var brakingMps2 = CarFollower.BrakingMps2(Figures, Car);
-        var neededM = (alongMps * CarFollower.LeadS(Figures, Car, brakingMps2))
-                      + (alongMps * alongMps / (2f * brakingMps2));
+        var brakingMps2 = Car.PlannedBrakingMps2;
+        var neededM = (alongMps * CarFollower.LeadS(Car)) + (alongMps * alongMps / (2f * brakingMps2));
 
         var held = Target(Straight, 10f, alongMps, DriveContext.Clear with { AuthorityM = neededM }, out var hold);
         var shorter = Target(Straight, 10f, alongMps, DriveContext.Clear with { AuthorityM = neededM - 5f }, out _);
@@ -152,15 +151,13 @@ public class CarFollowerTests
     }
 
     /// <summary>
-    /// <b>What cut the grant is no term of the speed</b>: a queue, a light, a walker and ground somebody claimed
-    /// are all the same distance to a driver, which is the whole of following.
+    /// <b>What cut the grant is no term of the speed</b>: a body, a light and ground somebody claimed are all the same
+    /// distance to a driver, which is the whole of following.
     /// </summary>
     /// <remarks>The kinds are passed as their bytes, the enum being the engine's own and not the suite's.</remarks>
     [Theory]
-    [InlineData((byte)HeadwayKind.Queue)]
-    [InlineData((byte)HeadwayKind.Obstruction)]
+    [InlineData((byte)HeadwayKind.Body)]
     [InlineData((byte)HeadwayKind.Light)]
-    [InlineData((byte)HeadwayKind.Walker)]
     public void WhateverCutTheGrantTheSpeedIsTheSame(byte cutBy)
     {
         var claimed = Target(
@@ -217,6 +214,28 @@ public class CarFollowerTests
         Assert.Equal(openPlannedMps, heldPlannedMps);
     }
 
+    /// <summary>
+    /// <b>The end of its own plan is kept as a hold found standing there would cut it</b> (S-2, TER-4c.1): a stand-off
+    /// short, and a lead later than the end itself is read — so a car whose plan reaches that and its stop holds the
+    /// speed it is doing, and one whose plan reaches less slows.
+    /// </summary>
+    [Theory]
+    [InlineData(8f)]
+    [InlineData(15f)]
+    [InlineData(25f)]
+    public void AHoldFoundAtTheEndOfItsPlanIsOneTheCarCanStillStopFor(float alongMps)
+    {
+        var leadM = alongMps * CarFollower.LeadS(Car);
+        var neededM = Figures.Driving.StandOffM + (2f * leadM) + (alongMps * alongMps / (2f * Car.PlannedBrakingMps2));
+
+        var held = Target(Straight, 10f, alongMps, DriveContext.Clear with { HorizonM = neededM }, out var hold);
+        var shorter = Target(Straight, 10f, alongMps, DriveContext.Clear with { HorizonM = neededM - leadM }, out _);
+
+        Assert.Equal(alongMps, held, 1e-2f);
+        Assert.Equal(DrivingHold.Reach, hold);
+        Assert.True(shorter < alongMps);
+    }
+
     /// <summary>Below the stop speed and with nowhere to go, a car holds itself with the handbrake rather than the pedal.</summary>
     [Fact]
     public void AStoppedCarHoldsItselfOnTheHandbrake()
@@ -250,7 +269,7 @@ public class CarFollowerTests
     public void ACarBrakingInABendKeepsTheBend()
     {
         const float radiusM = 40f;
-        var alongMps = MathF.Sqrt(CarFollower.CorneringMps2(Figures, Car) * radiusM);
+        var alongMps = MathF.Sqrt(Car.PlannedCorneringMps2 * radiusM);
         var steerRad = MathF.Atan(Car.WheelbaseM / radiusM);
 
         var command = CarFollower.Pedals(
@@ -273,7 +292,7 @@ public class CarFollowerTests
     {
         var command = CarFollower.Pedals(Figures, Car, 0f, 0f, 20f,Figures.TickSeconds, -Figures.CarBrakingMps2);
 
-        Assert.Equal(CarFollower.BrakingMps2(Figures, Car), command.BrakeMps2, 1e-4f);
+        Assert.Equal(Car.PlannedBrakingMps2, command.BrakeMps2, 1e-4f);
     }
 
     /// <summary>
@@ -297,6 +316,22 @@ public class CarFollowerTests
             Figures, Car, 0f, 0f, 30f,Figures.TickSeconds, CarFollower.PedalMps2(first));
 
         Assert.Equal(Figures.CarAccelerationMps2 - (2f * travelMps2), CarFollower.PedalMps2(second), 1e-3f);
+    }
+
+    /// <summary>
+    /// <b>The pedal closes on the speed the car will be doing once the pedal it left has acted</b> (S-2): a pedal that
+    /// will bring it up to its target over the step it cannot see yet comes off rather than asking again.
+    /// </summary>
+    [Fact]
+    public void ThePedalClosesOnTheSpeedThePedalItLeftWillBring()
+    {
+        const float alongMps = 10f;
+        const float leftMps2 = 1f;
+        var targetMps = alongMps + (leftMps2 * Figures.TickSeconds * SimFigures.WorldStepsAhead);
+
+        var command = CarFollower.Pedals(Figures, Car, 0f, targetMps, alongMps, Figures.TickSeconds, leftMps2);
+
+        Assert.Equal(0f, CarFollower.PedalMps2(command), 1e-3f);
     }
 
     /// <summary>

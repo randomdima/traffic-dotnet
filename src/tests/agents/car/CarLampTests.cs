@@ -33,7 +33,7 @@ public class CarLampTests
     static CarFleet Rolling(float curvature = 0f, float lengthM = 100f, int variant = 0)
     {
         var fleet = new CarFleet(1, arcsPerCar: 2, CarBuilds.OfTheFleet(Config, Catalogue));
-        fleet.Add(default, Vector2.Zero, 0f, (byte)variant, backsIntoBays: false, new Rng(1, 1));
+        fleet.Add(Vector2.Zero, 0f, (byte)variant, backsIntoBays: false, new Rng(1, 1));
         fleet.Driven[0] = true;
         fleet.Command[0] = DriveCommand.Idle;
         fleet.LineArcsOf(0)[0] = new ArcSeg(Vector2.Zero, 0f, lengthM, curvature);

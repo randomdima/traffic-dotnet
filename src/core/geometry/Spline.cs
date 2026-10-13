@@ -35,6 +35,13 @@ internal struct SplineCursor
 {
     internal int Piece;
     internal float PieceStartM;
+
+    /// <summary>
+    /// <b>Where a walk that passes over every piece ending short of <paramref name="distanceM"/> may begin</b>: here, where
+    /// this piece begins short of it, and the head of the chain otherwise. Its start is the same sum of lengths a walk
+    /// from the head adds up, so a walk begun here answers to the bit what one from the head does.
+    /// </summary>
+    internal readonly SplineCursor StartingBefore(float distanceM) => Piece == 0 || PieceStartM < distanceM ? this : default;
 }
 
 /// <summary>
@@ -276,6 +283,31 @@ internal static class Spline
         }
     }
 
+    /// <summary>
+    /// <b>A chain from its head to a distance along it</b>, each piece copied as it stands and only the one the distance
+    /// falls in cut short — so a stretch of a lane laid into a line is that lane's own pieces, and whoever holds the lane
+    /// lays the same stretch to the bit (<c>LineReading</c>).
+    /// </summary>
+    public static int HeadInto(ReadOnlySpan<ArcSeg> arcs, float toM, Span<ArcSeg> into)
+    {
+        var written = 0;
+        var startM = 0f;
+        for (var index = 0; index < arcs.Length; index++)
+        {
+            ref readonly var arc = ref arcs[index];
+            var endM = startM + arc.LengthM;
+            var takeToM = MathF.Min(toM, endM);
+            if (takeToM > startM && written < into.Length)
+            {
+                into[written++] = takeToM == endM ? arc : arc with { LengthM = takeToM - startM };
+            }
+
+            startM = endM;
+        }
+
+        return written;
+    }
+
     /// <summary>The stretch of a chain between two distances, written into a span of its own as a chain in its own right.</summary>
     public static int SubChainInto(ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, Span<ArcSeg> into)
     {
@@ -399,7 +431,42 @@ internal static class Spline
     /// the projection stood exactly on, so the two readings are not merely the same cost twice.
     /// </remarks>
     public static float ProjectM(
-        ReadOnlySpan<ArcSeg> arcs, Vector2 pointM, float aroundM, float windowM, out float offSq)
+        ReadOnlySpan<ArcSeg> arcs, Vector2 pointM, float aroundM, float windowM, out float offSq) =>
+        ProjectFrom(arcs, pointM, aroundM, windowM, default, out offSq);
+
+    /// <summary>
+    /// <see cref="ProjectM"/> for a caller asking again a little further on each time: the same answer, the walk begun
+    /// from where the cursor stands, and the cursor left on the first piece that reaches the window.
+    /// </summary>
+    public static float ProjectM(ReadOnlySpan<ArcSeg> arcs, Vector2 pointM, float aroundM, float windowM, ref SplineCursor cursor) =>
+        ProjectM(arcs, pointM, aroundM, windowM, ref cursor, out _);
+
+    /// <summary>The same, with how far off it landed (<see cref="ProjectM(ReadOnlySpan{ArcSeg}, Vector2, float, float, out float)"/>).</summary>
+    public static float ProjectM(
+        ReadOnlySpan<ArcSeg> arcs, Vector2 pointM, float aroundM, float windowM, ref SplineCursor cursor, out float offSq)
+    {
+        MoveTheCursor(arcs, aroundM, windowM, ref cursor);
+        return ProjectFrom(arcs, pointM, aroundM, windowM, cursor, out offSq);
+    }
+
+    /// <summary>
+    /// The cursor left where <see cref="ProjectM(ReadOnlySpan{ArcSeg}, Vector2, float, float, ref SplineCursor)"/> leaves it
+    /// for a projection around <paramref name="aroundM"/>, without projecting — for a caller handed the answer.
+    /// </summary>
+    public static void MoveTheCursor(ReadOnlySpan<ArcSeg> arcs, float aroundM, float windowM, ref SplineCursor cursor)
+    {
+        var fromM = MathF.Max(0f, aroundM - windowM);
+        cursor = cursor.Piece < arcs.Length ? cursor.StartingBefore(fromM) : default;
+        while (cursor.Piece < arcs.Length - 1 && cursor.PieceStartM + arcs[cursor.Piece].LengthM < fromM)
+        {
+            cursor.PieceStartM += arcs[cursor.Piece].LengthM;
+            cursor.Piece++;
+        }
+    }
+
+    /// <summary>The projection, walked from a piece every one before which ends short of the window.</summary>
+    static float ProjectFrom(
+        ReadOnlySpan<ArcSeg> arcs, Vector2 pointM, float aroundM, float windowM, SplineCursor from, out float offSq)
     {
         // The window's far end is not clamped to the chain's length, and does not need to be: nothing
         // this loop can offer stands past the last piece's end, so a ceiling above that never bites. The
@@ -410,11 +477,15 @@ internal static class Spline
 
         var bestM = fromM;
         var bestDistanceSq = float.MaxValue;
-        var startM = 0f;
-        foreach (var arc in arcs)
+        var startM = from.PieceStartM;
+        for (var piece = from.Piece; piece < arcs.Length; piece++)
         {
+            // Pieces only begin further on from here, so none past the window's end can offer anything.
+            if (startM > toM) break;
+
+            ref readonly var arc = ref arcs[piece];
             var endM = startM + arc.LengthM;
-            if (endM >= fromM && startM <= toM)
+            if (endM >= fromM)
             {
                 var alongM = NearestOnArc(arc, pointM);
                 alongM = Math.Clamp(startM + alongM, fromM, toM) - startM;

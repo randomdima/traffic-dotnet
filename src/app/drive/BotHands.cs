@@ -158,7 +158,7 @@ internal sealed class BotHands(TownWorld world, SimConfig config, int car, strin
         return $"""
             # The car you are driving
 
-            Car {car} is a {CarCatalog.Shared.Variants[world.Cars.Variant[car]].Id}: {world.Cars.MassKg[car]:F0} kg, {build.LengthM:F2} m long and {build.WidthM:F2} m wide.
+            Car {car} is a {CarCatalog.Shared.Variants[world.Cars.Variant[car]].Id}: {world.Cars.MassKgOf(car):F0} kg, {build.LengthM:F2} m long and {build.WidthM:F2} m wide.
 
             ## What it will do
             top speed        {build.MaxSpeedMps * 3.6f:F0} km/h forward, {build.ReverseMaxMps * 3.6f:F0} km/h in reverse
@@ -179,7 +179,7 @@ internal sealed class BotHands(TownWorld world, SimConfig config, int car, strin
             ## What the town does about you
             These streets are laid for {streetMps * 3.6f:F0} km/h and a turn at a junction for {junctionMps * 3.6f:F0} km/h.
             The traffic is not told you are there: nothing gives way to you and nothing waits for you.
-            A kerb, a wall or a tree stops {world.Cars.MassKg[car]:F0} kg dead, and enough of that wrecks the car —
+            A kerb, a wall or a tree stops {world.Cars.MassKgOf(car):F0} kg dead, and enough of that wrecks the car —
             a wreck takes no hand at all, so the drive is over.
 
             ## What you see
@@ -213,7 +213,7 @@ internal sealed class BotHands(TownWorld world, SimConfig config, int car, strin
     /// <summary>What the car is and whether it is still in one piece — the rest of what a driver has.</summary>
     string[] Rows() =>
     [
-        $"make       {CarCatalog.Shared.Variants[world.Cars.Variant[car]].Id}, {world.Cars.MassKg[car]:F0} kg",
+        $"make       {CarCatalog.Shared.Variants[world.Cars.Variant[car]].Id}, {world.Cars.MassKgOf(car):F0} kg",
         $"state      {(world.Cars.Broken[car] ? "wrecked" : "in one piece")}",
     ];
 

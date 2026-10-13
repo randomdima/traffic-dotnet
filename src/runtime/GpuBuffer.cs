@@ -32,6 +32,7 @@ internal sealed unsafe class GpuBuffer : IDisposable
         Handle = buffer;
         Memory = memory;
         SizeBytes = sizeBytes;
+        vk.Held(host, (long)sizeBytes);
     }
 
     public Buffer Handle { get; private set; }
@@ -73,17 +74,11 @@ internal sealed unsafe class GpuBuffer : IDisposable
         var (buffer, memory, mapped) = _vk.AllocateBuffer(sizeBytes, _usage, _host);
         if (keep) System.Buffer.MemoryCopy(_mapped, (void*)mapped, sizeBytes, SizeBytes);
         _vk.DestroyBuffer(Handle, Memory);
+        _vk.Held(_host, (long)sizeBytes - (long)SizeBytes);
         (Handle, Memory, SizeBytes) = (buffer, memory, sizeBytes);
         _mapped = (void*)mapped;
         _vk.Rebind(CollectionsMarshal.AsSpan(_boundIn), buffer);
-        foreach (var (book, id) in _addressedIn) book.Moved(id, this);
     }
-
-    /// <summary>Every book this buffer's address is written in (<see cref="AddressedIn"/>), told again where it grows.</summary>
-    readonly List<(IAddressBook Book, int Id)> _addressedIn = [];
-
-    /// <summary>A book that holds this buffer's address under an id, told its new one when it grows.</summary>
-    internal void AddressedIn(IAddressBook book, int id) => _addressedIn.Add((book, id));
 
     /// <summary>One binding of a set this buffer was bound in, kept so a growth points it at the new buffer.</summary>
     internal void BoundIn(DescriptorSet set, uint binding) => _boundIn.Add((set, binding));
@@ -122,7 +117,41 @@ internal sealed unsafe class GpuBuffer : IDisposable
         var bytes = (ulong)count * (ulong)sizeof(T);
         using var staging = _vk.CreateBuffer(bytes, BufferUsageFlags.TransferSrcBit, hostVisible: true);
         fill(staging.Span<T>()[..count]);
+        CopyFrom(staging, bytes, readAt, readBy);
+    }
 
+    /// <summary>
+    /// <b>Rows written into a device-local buffer</b> as <see cref="Upload{T}(int, StagedFill{T}, PipelineStageFlags2, AccessFlags2)"/>
+    /// writes them, copied straight into the staging buffer — no second copy of a table held on the host to fill it from.
+    /// </summary>
+    public void Upload<T>(ReadOnlySpan<T> rows, PipelineStageFlags2 readAt, AccessFlags2 readBy) where T : unmanaged
+    {
+        if (rows.IsEmpty) return;
+
+        var bytes = (ulong)rows.Length * (ulong)sizeof(T);
+        using var staging = _vk.CreateBuffer(bytes, BufferUsageFlags.TransferSrcBit, hostVisible: true);
+        rows.CopyTo(staging.Span<T>());
+        CopyFrom(staging, bytes, readAt, readBy);
+    }
+
+    /// <summary>And rows of another kind, each turned into the device's as it is written into the staging buffer.</summary>
+    public void Upload<TFrom, T>(
+        ReadOnlySpan<TFrom> rows, delegate*<in TFrom, T> convert, PipelineStageFlags2 readAt, AccessFlags2 readBy)
+        where TFrom : unmanaged where T : unmanaged
+    {
+        if (rows.IsEmpty) return;
+
+        var bytes = (ulong)rows.Length * (ulong)sizeof(T);
+        using var staging = _vk.CreateBuffer(bytes, BufferUsageFlags.TransferSrcBit, hostVisible: true);
+        var into = staging.Span<T>();
+        for (var at = 0; at < rows.Length; at++) into[at] = convert(rows[at]);
+
+        CopyFrom(staging, bytes, readAt, readBy);
+    }
+
+    /// <summary>A staging buffer's first <paramref name="bytes"/> copied across, waited for, and made visible to its reader.</summary>
+    void CopyFrom(GpuBuffer staging, ulong bytes, PipelineStageFlags2 readAt, AccessFlags2 readBy)
+    {
         var (source, target) = (staging.Handle, Handle);
         _vk.OneShot(commands =>
         {
@@ -151,14 +180,11 @@ internal sealed unsafe class GpuBuffer : IDisposable
         });
     }
 
-    public void Dispose() => _vk.DestroyBuffer(Handle, Memory);
-}
-
-/// <summary>Whatever writes buffers' addresses down by id, so a kernel reaches each through one table of them.</summary>
-internal interface IAddressBook
-{
-    /// <summary>The buffer under this id moved: its address is written again.</summary>
-    void Moved(int id, GpuBuffer buffer);
+    public void Dispose()
+    {
+        _vk.DestroyBuffer(Handle, Memory);
+        _vk.Held(_host, -(long)SizeBytes);
+    }
 }
 
 /// <summary>The elements a staged upload writes, into memory the upload already owns.</summary>
@@ -175,4 +201,12 @@ internal enum HostAccess
 
     /// <summary>Reads it back, mapped and cached where the device has such memory — what an event ring is read out of.</summary>
     Reads,
+
+    /// <summary>
+    /// <b>Writes it every frame for the device to read in that frame</b>, mapped and coherent, and in the device's own
+    /// memory where the device offers it mapped (resizable BAR, or memory the two share): what a frame's instances,
+    /// quads, counts and camera are written into. Where it is not offered, or that heap is spent, it is
+    /// <see cref="Writes"/>.
+    /// </summary>
+    Streams,
 }

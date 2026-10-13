@@ -122,9 +122,10 @@ public class StandingSpriteTests
 
         for (var prop = 0; prop < plan.Props.Count; prop++)
         {
+            // To the half an instance carries its size in (SpriteInstance): eleven bits of it.
             var instance = drawn[plan.Props.CentreM[prop]];
-            Assert.Equal(
-                plan.Props.RadiusM[prop], MathF.Max(instance.HalfSizeM.X, instance.HalfSizeM.Y), 4);
+            var radiusM = plan.Props.RadiusM[prop];
+            Assert.Equal(radiusM, MathF.Max(instance.HalfSizeM.X, instance.HalfSizeM.Y), radiusM / 1024f);
 
             var variant = (int)instance.Sheet - Buildings.Count;
             Assert.InRange(variant, 0, Props.Count - 1);

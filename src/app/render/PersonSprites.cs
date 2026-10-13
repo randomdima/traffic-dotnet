@@ -31,8 +31,6 @@ namespace TrafficSimulation.App.Render;
 /// </remarks>
 internal static class PersonSprites
 {
-    public static readonly Vector4 Plain = Vector4.One;
-
     /// <summary>
     /// Fills <paramref name="into"/> and answers how many instances were written. A roster larger
     /// than the buffer is truncated rather than grown: the buffer is laid at the town's own capacity,
@@ -45,7 +43,6 @@ internal static class PersonSprites
     {
         var written = 0;
         var halfView = viewSpanM * 0.5f;
-        var cell = new Vector2(1f / PersonCatalog.WalkColumns, 1f / PersonCatalog.FacingRows);
 
         foreach (var person in drawn)
         {
@@ -80,7 +77,7 @@ internal static class PersonSprites
                 // One frame turned to the heading, on a car's terms: a body along the ground has a
                 // direction, and the picture is drawn with the head along +x.
                 into[written++] = new SpriteInstance(
-                    centreM, halfSizeM, Vector2.Zero, Vector2.One, Plain, (uint)sheet, headingRad);
+                    centreM, halfSizeM, SpriteCell.Whole, SpriteTint.Plain, (uint)sheet, headingRad);
                 continue;
             }
 
@@ -91,7 +88,8 @@ internal static class PersonSprites
 
             // Upright, always: the art draws every facing and none of it turns with the body.
             into[written++] = new SpriteInstance(
-                centreM, halfSizeM, new Vector2(column * cell.X, row * cell.Y), cell, Plain, (uint)sheet, 0f);
+                centreM, halfSizeM, SpriteCell.Of(column, row, PersonCatalog.WalkColumns, PersonCatalog.FacingRows),
+                SpriteTint.Plain, (uint)sheet, 0f);
         }
 
         return written;

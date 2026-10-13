@@ -49,13 +49,14 @@ Without `--map` the game opens on its start menu with the idle ring running behi
 until a map is picked — the same start in Debug and in Release, and on either head. A windowed
 run opens fullscreen on the display the pointer is on and `F11` toggles it; `--display NAME|N` names
 that display instead, by the desktop's own name for it, and `--windowed` opens in a window, for a run
-to be looked at beside something else. `--device-tick` has the desktop's town tick its cars and walkers on
-the GPU, in step with the rest of its tick (`src/app/devicetick/DeviceTown.cs`). Other
+to be looked at beside something else. `--device-tick` has the desktop's town step its world — the physics,
+the ribbons under each moving body and the drawing of what moves — on the GPU, its cars and walkers still
+deciding on the CPU (`src/app/devicetick/DeviceWorld.cs`). Other
 entries: `--check` prints the dependency read-out, `--shot` takes a picture with no window at all,
 `--ui` opens the panels and the debug layers, and `--bench <name>` runs one of the probes in `src/bench/`
 (`census`, `load`, `sprites`, `shape`, `joints`, `parks`, `shapes`, `outset`, `fill`, `drive`, `trips`, `rescue`,
-`recovery`, `crash`, `soak`, `stuck`, `tick`, `town`, `age`, `solver`, `walk`, and the `device…` probes that hold
-the GPU's tick to the host's, `devicetown` among them); `--bench all` runs the lot, and
+`recovery`, `crash`, `soak`, `stuck`, `tick`, `town`, `age`, `solver`, `walk`, and the `device…` probes:
+`deviceworld`, the GPU's world beside the host's, `deviceatlas` and `devicecopy`); `--bench all` runs the lot, and
 the list itself is [`CheckCatalogue`](src/bench/CheckCatalogue.cs). The map list the menu reads is the map
 list the command line reads; the probes are the command line's alone.
 

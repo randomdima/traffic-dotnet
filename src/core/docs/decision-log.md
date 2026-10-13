@@ -8,26 +8,22 @@ does not.** On the RX 9070 XT, RADV's own `a / b` missed the host's on 28 % of 4
 on the card and none on lavapipe, the same kernels. `rounded.glsl` held the nearest for where a discrete verdict hung on
 one; **now it holds every one**: each quotient (`roundedQuotient`, of a float or a `Vector2`), root (`roundedSqrt`) and
 length (`roundedLength`, the host's `Vector2.Length()`) the arcs, the solver's shapes and masses, the tyres, the
-driver, the pass, the walker, the lights and the bodies' mirrors take, written in the host's own grouping. One kernel
-still took the driver's own `cos` and `sin` for a walker's facing (`walkers_kept_gather.comp`); it takes `trig.glsl`'s.
+walker and the lights take, written in the host's own grouping.
 
 - A double's quotient or root rounded once to a float is the same nearest float for two floats (53 bits ≥ 2 × 24 + 2),
   and missed none of the 4.2 M on the card either; `rounded.glsl` keeps its own walk, which asks a double nothing but
   products.
-- Held on the card, by the probes that hold a device's stage to the host's from the same inputs: OdesaOsm's walkers
-  (`--bench devicewalkers`) 0 of 8 M stations, 4.4 M bodies, 4.4 M walks and 8 M readings apart, where 325 106 stations
-  and 915 readings were a bit off; its car tick (`--bench devicecartick`) 0 of 12.0 M car-ticks, where 57 were; its
-  switching looks (`--bench devicedecide`) none a figure apart, where 415 were. The verdicts' last 23 unlike were a look
-  reading a claim a cut had taken out of its way's list (`claims_free.glsl` skips one now, as every other reader of the
-  lists does, and `ClaimsFreeKernelTests` holds it): 0 of 5.5 M since.
-- **So every check of a kernel against the host asks it to the bit**: the kernel tests, the walkers', the rebuild's and
-  the car tick's shadows, and the sprites' probe each dropped the hundredth and the thousandth they allowed the device's
-  trigonometry, the car tick's shadow its slide's onset, and two staged towns the thresholds they kept their agents off.
+- Held on the card, each stage of the device's tick of the day held to the host's from the same inputs on OdesaOsm:
+  the walkers 0 of 8 M stations, 4.4 M bodies, 4.4 M walks and 8 M readings apart, where 325 106 stations and 915
+  readings were a bit off; the car tick 0 of 12.0 M car-ticks, where 57 were; the switching looks none a figure apart,
+  where 415 were.
+- **So every check of a kernel against the host asks it to the bit**: the kernel tests each dropped the hundredth and
+  the thousandth they allowed the device's trigonometry, and two staged towns the thresholds they kept their agents off.
 
 ## 2026-10-10 — a kernel's trigonometry is the host's to the bit
 
 **A float or two apart was a different town.** A shoved car's heading a float off the host's left a contact 34 µm
-deeper after the push, so the pair froze a step later than the host's (`SOL-37`, `DeviceTownBodiesTests`), and 10 856
+deeper after the push, so the pair froze a step later than the host's (`SOL-37`), and 10 856
 of 136 851 switching cars' looks on OdesaOsm came out a figure apart.
 
 - **Sine and cosine are glibc's own code.** `MathF.Sin`, `Cos` and `SinCos` are glibc's `sinf`, `cosf` and `sincosf`,
@@ -40,19 +36,19 @@ of 136 851 switching cars' looks on OdesaOsm came out a figure apart.
   lies within a double's last bit of a tie. The tangent reduces in doubles below 2^19 quarter turns; past them it is the
   sine over the cosine.
 - **A subnormal argument or answer is nought**, as in every kernel (`world/physics`'s log); NaN and infinity are asked of
-  the bits, which a driver keeping neither folds away. Every kernel that includes it computes in doubles, which every
-  kernel of the device's tick needed already (`DeviceAtlas`).
+  the bits, which a driver keeping neither folds away. Every kernel that includes it computes in doubles, which the
+  atlas's kernels needed already (`DeviceAtlas`).
 - Held: `TrigKernelTests`, 1.65 M angles and 4.2 M bearings, every normal float's answer the host's to the bit on
   lavapipe, and 4.2 M of each on the RX 9070 XT. An unfused reduction fails it; an unfused last sum or a coefficient a
   double apart does not, since rounding to a float hides them.
 - The shoved car park, the town ticking its agents and the device stepping its bodies, stands to the bit as the host's
   for its whole half minute, where it parted by millimetres within seconds. On OdesaOsm the rest moved little: 23 of
-  5.5 M verdicts unlike where 22 were, and 415 looks a figure apart where 10 856 were (`--bench devicedecide`); 57 of
-  12.0 M car-ticks differ (`--bench devicecartick`) and 4.1 % of walkers' stations are not to the bit
-  (`--bench devicewalkers`) — what still parted them was the driver's quotients and roots (above) and, for the
-  verdicts, a look that read a claim a cut had taken out (`claims_free.glsl`), not the trigonometry. `--bench devicetown`: the device's kernels
-  1.71 → 1.91 ms a tick, 0.07 of it the sine and cosine and the rest the tangent and arctangents in doubles; the tick
-  11.67 → 12.04, inside the probe's wander from run to run (tech debt) and on a device idle most of a tick.
+  5.5 M verdicts unlike where 22 were, and 415 looks a figure apart where 10 856 were; 57 of 12.0 M car-ticks differ
+  and 4.1 % of walkers' stations are not to the bit — what still parted them was the driver's quotients and roots
+  (above) and, for the verdicts, a look that read a claim a cut had taken out, not the trigonometry. With the town
+  ticked on the device, its kernels went 1.71 → 1.91 ms a tick, 0.07 of it the sine and cosine and the rest the tangent
+  and arctangents in doubles; the tick 11.67 → 12.04, inside its wander from run to run and on a device idle most of a
+  tick.
 - **Only against the host it was read off**: another C library, or glibc on a machine without FMA (`__sincosf_sse2`),
   rounds sine and cosine otherwise; any correctly rounded library gives the same tangent and arctangents.
 
@@ -62,9 +58,9 @@ of 136 851 switching cars' looks on OdesaOsm came out a figure apart.
 part in a hundred thousand off. An arc is read about a centre a radius away and sampled along a chord, so the error comes
 back multiplied: on OdesaOsm's bends of 8.6 km a car stood a centimetre from where the host read it on its line, and its
 lead point half a millimetre off at the end of a 500 m chord, which the pedal — closing a speed in one tick — turned
-into a hundredth of a m/s². **The arcs, the line, the driver and the tyres take theirs from `geometry/kernels/trig.glsl`**,
-the host's own to the bit (above), on every driver alike. Of 2.93 million car-ticks the device ran beside the town
-(`--bench devicecartick`, RX 9070 XT), 702 answered differently with the driver's own and 21 with the Cephes polynomials
+into a hundredth of a m/s². **Every kernel takes its trigonometry from `geometry/kernels/trig.glsl`**, the host's own
+to the bit (above), on every driver alike. Of 2.93 million car-ticks the device ran beside the town (RX 9070 XT),
+702 answered differently with the driver's own and 21 with the Cephes polynomials
 it held then; the tick costs
 0.13 ms more. Android's drivers bound their trigonometry no tighter than Vulkan does, which is the other half of why the
 kernels carry their own.
@@ -72,8 +68,8 @@ kernels carry their own.
 ## 2026-10-06 — phase 3 is every agent's tick, then every decision
 
 `SimLoop` ran one agent's tick and its decision before the next agent's tick, so a decision read a roster ticked up
-to itself and no further. **On the device 3a runs for every agent at once** (root log), so the loop runs it that way
-already: all the ticks, then the decisions due. What a car's tick used to decide moved onto its decision first (the
+to itself and no further. **Every decision reads one instant of the town**, so the loop runs all the ticks, then the
+decisions due. What a car's tick used to decide moved onto its decision first (the
 car's log), the exam and OdesaOsm's claims came out as before, and the timing stamps a crossing between walkers and
 cars on each pass (`TownWorld.AccountFor`).
 

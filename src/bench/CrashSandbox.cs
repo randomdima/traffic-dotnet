@@ -27,25 +27,39 @@ namespace TrafficSimulation.Bench;
 /// that is the ground's and not the agent's — a corpse and a wreck are still slowed by what they lie on.
 /// </para>
 /// </remarks>
-internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
+internal sealed class CrashSandbox : ISimWorld, IStepRoster, IDisposable
 {
     readonly SimConfig _config;
     readonly PhysicsWorld _physics;
+    readonly TyreCarries _tyres;
     readonly Vector2[] _impulseNs;
+
+    /// <summary>The velocity each walker's feet last declared (<see cref="WalkerFollower.Step"/>), which a casualty's slide is read against.</summary>
+    readonly Vector2[] _declaredMps;
+
     readonly WheelImpulse[] _wheelImpulses;
     readonly SurfaceUnderWheel[] _wheelGround;
     readonly TyreScrub[] _wheelScrub;
     readonly Vector2[] _velocityIntoTickMps;
 
+    /// <summary>What each car's body did last step, in its own frame — the loads its tyres are weighed by.</summary>
+    readonly Vector2[] _accelerationMps2;
+
+    readonly BodyId[] _personBody, _carBody;
+
     public CrashSandbox(SimConfig config, int people = 4, int cars = 4)
     {
         _config = config;
         _physics = new PhysicsWorld(config);
+        _personBody = new BodyId[people];
+        _carBody = new BodyId[cars];
         People = new PersonFleet(people);
         // <b>The rig stands the nominal car</b>: every figure `--bench crash` quotes is quoted against
         // `SimConfig`'s own weight, so a rig that stood the fleet would be reporting a variant.
         Cars = new CarFleet(cars, arcsPerCar: 1, CarBuilds.OfTheNominalCar(config, CarCatalog.Shared));
+        _tyres = new TyreCarries(cars);
         _impulseNs = new Vector2[people];
+        _declaredMps = new Vector2[people];
         _wheelImpulses = new WheelImpulse[cars * TyreModel.Wheels];
         _wheelGround = new SurfaceUnderWheel[cars * TyreModel.Wheels];
         Array.Fill(
@@ -55,6 +69,7 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
                 config.Marks.PowerM2S3 * config.Terrain.PavedMarkFactor, Ploughs: false));
         _wheelScrub = new TyreScrub[cars * TyreModel.Wheels];
         _velocityIntoTickMps = new Vector2[people + cars];
+        _accelerationMps2 = new Vector2[cars];
         PersonOutcome = new DamageOutcome[people];
         CarOutcome = new DamageOutcome[cars];
     }
@@ -100,10 +115,6 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
     {
     }
 
-    public void AgentsTicked(long tick)
-    {
-    }
-
     public void DecideAgent(int agent, float sinceLastDecisionS)
     {
     }
@@ -116,8 +127,9 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
     {
         var body = _physics.AddPerson(atM);
         var person = People.Add(
-            body, atM, 0f, _physics.MassOf(body), _config.PersonDiameterM * 0.5f, 0, new Rng(1, (ulong)People.Count),
+            atM, 0f, _physics.MassOf(body), _config.PersonRadiusM, 0, new Rng(1, (ulong)People.Count),
             PersonFleet.DrawsReckless(1, (ulong)People.Count, _config.Driving.RecklessShare));
+        _personBody[person] = body;
         _physics.Tag(body, new BodyTag(BodyKind.Person, person));
         return person;
     }
@@ -125,7 +137,8 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
     public int AddCar(Vector2 atM, float headingRad)
     {
         var body = _physics.AddNominalCar(atM, headingRad);
-        var car = Cars.Add(body, atM, headingRad, 0, false, new Rng(2, (ulong)Cars.Count));
+        var car = Cars.Add(atM, headingRad, 0, false, new Rng(2, (ulong)Cars.Count));
+        _carBody[car] = body;
         _physics.Tag(body, new BodyTag(BodyKind.Car, car));
 
         // Coasting, not parked: an unmanned car holds its handbrake, and a rig that let it would be
@@ -146,18 +159,18 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
     {
         if (tag.Kind == BodyKind.Person)
         {
-            _physics.ApplyCentralImpulse(People.Body[tag.Index], velocityMps * People.MassKg[tag.Index]);
+            _physics.ApplyCentralImpulse(_personBody[tag.Index], velocityMps * People.MassKg[tag.Index]);
             People.VelocityMps[tag.Index] = velocityMps;
             return;
         }
 
-        _physics.ApplyCentralImpulse(Cars.Body[tag.Index], velocityMps * Cars.MassKg[tag.Index]);
+        _physics.ApplyCentralImpulse(_carBody[tag.Index], velocityMps * Cars.MassKgOf(tag.Index));
         Cars.VelocityMps[tag.Index] = velocityMps;
 
         // <b>A car set moving has its wheels told in the same breath.</b> The rims are state, and four
         // of them left at zero under a body doing 20 m/s are four locked wheels: the case would spend
         // its approach skidding to a halt and arrive at a speed nobody staged.
-        Cars.WheelSpinOf(tag.Index).Fill(
+        _tyres.SpinOf(tag.Index).Fill(
             Vector2.Dot(velocityMps, new Vector2(MathF.Cos(Cars.HeadingRad[tag.Index]), MathF.Sin(Cars.HeadingRad[tag.Index]))));
     }
 
@@ -170,34 +183,35 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
 
         for (var person = 0; person < People.Count; person++)
         {
-            _physics.ApplyCentralImpulse(People.Body[person], _impulseNs[person]);
+            _physics.ApplyCentralImpulse(_personBody[person], _impulseNs[person]);
         }
 
         for (var wheel = 0; wheel < Cars.Count * TyreModel.Wheels; wheel++)
         {
-            _physics.ApplyImpulseAt(Cars.Body[wheel / TyreModel.Wheels], _wheelImpulses[wheel].ImpulseNs, _wheelImpulses[wheel].AtM);
+            _physics.ApplyImpulseAt(_carBody[wheel / TyreModel.Wheels], _wheelImpulses[wheel].ImpulseNs, _wheelImpulses[wheel].AtM);
         }
 
         _physics.Step(dtS);
 
         for (var person = 0; person < People.Count; person++)
         {
-            People.PositionM[person] = _physics.PositionOf(People.Body[person]);
-            People.VelocityMps[person] = _physics.VelocityOf(People.Body[person]);
+            People.PositionM[person] = _physics.PositionOf(_personBody[person]);
+            People.VelocityMps[person] = _physics.VelocityOf(_personBody[person]);
         }
 
         for (var car = 0; car < Cars.Count; car++)
         {
             var was = Cars.VelocityMps[car];
-            var now = _physics.VelocityOf(Cars.Body[car]);
-            Cars.PositionM[car] = _physics.PositionOf(Cars.Body[car]);
-            Cars.HeadingRad[car] = _physics.HeadingOf(Cars.Body[car]);
+            var now = _physics.VelocityOf(_carBody[car]);
+            Cars.PositionM[car] = _physics.PositionOf(_carBody[car]);
+            Cars.HeadingRad[car] = _physics.HeadingOf(_carBody[car]);
+            Cars.Forward[car] = _physics.RotationOf(_carBody[car]);
             Cars.VelocityMps[car] = now;
-            Cars.YawRateRadPerS[car] = _physics.YawRateOf(Cars.Body[car]);
+            Cars.YawRateRadPerS[car] = _physics.YawRateOf(_carBody[car]);
 
             var changeMps = (now - was) / dtS;
             var forward = new Vector2(MathF.Cos(Cars.HeadingRad[car]), MathF.Sin(Cars.HeadingRad[car]));
-            Cars.AccelerationMps2[car] = new Vector2(
+            _accelerationMps2[car] = new Vector2(
                 Vector2.Dot(changeMps, forward), Vector2.Dot(changeMps, new Vector2(-forward.Y, forward.X)));
         }
     }
@@ -213,9 +227,9 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
 
             var positionM = People.PositionM[person];
             var step = WalkerFollower.Step(
-                _config, People.HeadingRad[person], positionM, People.VelocityMps[person], People.DeclaredMps[person],
+                _config, People.HeadingRad[person], positionM, People.VelocityMps[person], _declaredMps[person],
                 positionM, moving: false, onFeet: false, People.MassKg[person], dtS);
-            People.DeclaredMps[person] = step.DesiredMps;
+            _declaredMps[person] = step.DesiredMps;
             _impulseNs[person] = step.ImpulseNs;
         }
 
@@ -224,13 +238,13 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
         {
             var pose = new CarPose(
                 Cars.PositionM[car], Cars.HeadingRad[car], Cars.VelocityMps[car], Cars.YawRateRadPerS[car],
-                Cars.MassKg[car], Cars.AccelerationMps2[car]);
+                Cars.MassKgOf(car), _accelerationMps2[car]);
             ref readonly var build = ref Cars.BuildOf(car);
             TyreModel.WheelPointsM(build, pose, atM);
             TyreModel.Step(
                 _config, build, pose,
                 Cars.Command[car], float.PositiveInfinity, atM,
-                _wheelGround.AsSpan(car * TyreModel.Wheels, TyreModel.Wheels), Cars.WheelSpinOf(car), dtS,
+                _wheelGround.AsSpan(car * TyreModel.Wheels, TyreModel.Wheels), _tyres.SpinOf(car), dtS,
                 _wheelImpulses.AsSpan(car * TyreModel.Wheels, TyreModel.Wheels),
                 _wheelScrub.AsSpan(car * TyreModel.Wheels, TyreModel.Wheels));
         }
@@ -239,7 +253,7 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
     public DamageSubject SubjectOf(BodyTag tag) => tag.Kind switch
     {
         BodyKind.Person => DamageSubject.Person(People.MassKg[tag.Index], People.Wounded[tag.Index]),
-        BodyKind.Car => DamageSubject.Car(Cars.MassKg[tag.Index], Cars.Broken[tag.Index]),
+        BodyKind.Car => DamageSubject.Car(Cars.MassKgOf(tag.Index), Cars.Broken[tag.Index]),
         _ => DamageSubject.Static,
     };
 
@@ -257,7 +271,7 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
             case DamageOutcome.Wounded:
                 // PHY-5b, the town's own line: a body in the road leaves the traffic's layers on the tick
                 // it goes down. A rig that skipped it would stage the pair the town no longer has.
-                _physics.PutOnLayer(People.Body[tag.Index], CollisionLayer.Downed);
+                _physics.PutOnLayer(_personBody[tag.Index], CollisionLayer.Downed);
                 People.Wounded[tag.Index] = true;
                 People.Walking[tag.Index] = false;
                 PersonOutcome[tag.Index] = outcome;
