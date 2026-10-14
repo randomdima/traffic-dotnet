@@ -6,11 +6,10 @@ using Xunit;
 namespace TrafficSimulation.Tests.World;
 
 /// <summary>
-/// <b>Claims kept from one rebuild to the next</b> (the owner's ruling, root decision log): a kept hold holds what it held
-/// and came to what it came to until its holder lets go of it, and one begun for a rebuild is let go of as the next begins;
-/// a stronger piece takes kept ground its holder has not committed to, and of one rung what is held keeps; a body laid on
-/// kept ground cuts the hold there; a cut hold is woken where what cut it changes; and a holder commits, gives back and
-/// lets go of its own ground where it lies.
+/// <b>Claims held until their holder lets go of them</b> (the owner's ruling, root decision log): a hold holds what it held
+/// and came to what it came to; a stronger piece takes held ground its holder has not committed to, and of one rung what is
+/// held keeps; a body laid on held ground cuts the hold there; a cut hold is woken where what cut it changes; and a holder
+/// commits and lets go of its own ground where it lies.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
 [Trait(Priority.Key, Priority.P1)]
@@ -39,13 +38,12 @@ public class LaneOccupancyKeptTests
         return hold;
     }
 
-    /// <summary>A rebuild of one kept hold of one piece, its line metres the way's, answered — and the hold.</summary>
+    /// <summary>One plan of one piece, its line metres the way's, answered — and its hold.</summary>
     static (LaneOccupancy Index, int Way, int Hold) KeptAt(float fromM, float toM, ClaimPriority rung)
     {
         var way = AWay();
         var index = new LaneOccupancy(Ways, WayCrossings.None);
-        index.Begin();
-        var hold = index.BeginKeptHold(1, LaneRoster.Driving);
+        var hold = index.BeginPlan(1, LaneRoster.Driving);
         index.Ask(hold, way, fromM, toM, fromM, rung);
         index.Answer();
         return (index, way, hold);
@@ -59,26 +57,11 @@ public class LaneOccupancyKeptTests
     {
         var (index, way, hold) = KeptAt(20f, 30f, ClaimPriority.Firm);
 
-        index.Begin();
         Assert.True(index.CanKeep(hold, 1, LaneRoster.Driving));
         index.Answer();
 
         Assert.Equal([(200, 300, ClaimPriority.Firm)], MainsOn(index, way));
         Assert.False(index.CutOf(hold).Refused);
-    }
-
-    [Fact]
-    public void AHoldBegunForOneRebuildIsLetGoOfAsTheNextBegins()
-    {
-        var way = AWay();
-        var index = new LaneOccupancy(Ways, WayCrossings.None);
-        index.Begin();
-        Asked(index, 1, way, 20f, 30f, ClaimPriority.Firm);
-        index.Answer();
-
-        index.Begin();
-
-        Assert.Empty(index.Mains(way).ToArray());
     }
 
     [Fact]
@@ -97,7 +80,6 @@ public class LaneOccupancyKeptTests
     {
         var (index, way, kept) = KeptAt(20f, 40f, ClaimPriority.Firm);
 
-        index.Begin();
         var stronger = Asked(index, 2, way, 30f, 50f, ClaimPriority.FirmStraight);
         index.Answer();
 
@@ -112,7 +94,6 @@ public class LaneOccupancyKeptTests
     {
         var (index, way, kept) = KeptAt(20f, 40f, ClaimPriority.Firm);
 
-        index.Begin();
         var asked = Asked(index, 2, way, 30f, 50f, ClaimPriority.Firm);
         index.Answer();
 
@@ -125,7 +106,6 @@ public class LaneOccupancyKeptTests
     {
         var (index, way, kept) = KeptAt(20f, 40f, ClaimPriority.Committed);
 
-        index.Begin();
         var asked = Asked(index, 2, way, 30f, 50f, ClaimPriority.Special);
         index.Answer();
 
@@ -138,7 +118,6 @@ public class LaneOccupancyKeptTests
     {
         var (index, way, kept) = KeptAt(20f, 40f, ClaimPriority.Firm);
 
-        index.Begin();
         index.LayBody(way, 25f, 28f, 2, LaneRoster.Driving);
         index.Answer();
 
@@ -151,19 +130,16 @@ public class LaneOccupancyKeptTests
     {
         var way = AWay();
         var index = new LaneOccupancy(Ways, WayCrossings.None);
-        index.Begin();
-        index.LayBody(way, 30f, 35f, 2, LaneRoster.Driving);
-        var hold = index.BeginKeptHold(1, LaneRoster.Driving);
+        index.PlaceBody(2, LaneRoster.Driving, 2, LaneRoster.Driving, [new WayCover(way, 30f, 35f)]);
+        var hold = index.BeginPlan(1, LaneRoster.Driving);
         index.Ask(hold, way, 20f, 50f, 20f, ClaimPriority.Firm);
         index.Answer();
 
-        index.Begin();
-        index.LayBody(way, 30f, 35f, 2, LaneRoster.Driving);
+        index.PlaceBody(2, LaneRoster.Driving, 2, LaneRoster.Driving, [new WayCover(way, 30f, 35f)]);
         Assert.True(index.CanKeep(hold, 1, LaneRoster.Driving));
         index.Answer();
 
-        index.Begin();
-        index.LayBody(way, 40f, 45f, 2, LaneRoster.Driving);
+        index.PlaceBody(2, LaneRoster.Driving, 2, LaneRoster.Driving, [new WayCover(way, 40f, 45f)]);
         Assert.True(index.IsWoken(hold));
     }
 
@@ -173,7 +149,6 @@ public class LaneOccupancyKeptTests
         var (index, way, kept) = KeptAt(20f, 40f, ClaimPriority.Firm);
         index.CommitTo(kept, 30f);
 
-        index.Begin();
         var asked = Asked(index, 2, way, 25f, 50f, ClaimPriority.Special);
         index.Answer();
 
@@ -187,7 +162,6 @@ public class LaneOccupancyKeptTests
         var (index, way, kept) = KeptAt(20f, 40f, ClaimPriority.Firm);
         index.CommitTo(kept, 30f);
 
-        index.Begin();
         var stronger = Asked(index, 2, way, 32f, 50f, ClaimPriority.Special);
         index.Answer();
 

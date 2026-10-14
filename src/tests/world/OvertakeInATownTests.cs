@@ -765,7 +765,10 @@ public class OvertakeInATownTests
         PutDown(world, car, at.PositionM, at.HeadingRad);
     }
 
-    /// <summary>A car broken where it is put down: nothing drives it, and it holds its ground as a body (TER-4c.2).</summary>
+    /// <summary>
+    /// A car broken where it is put down: nothing drives it, and it holds its ground as a body (TER-4c.2) from now — the
+    /// claims laid at once, since a body is laid where it stands only at its own turn.
+    /// </summary>
     internal static void PutDown(TownWorld world, int car, Vector2 atM, float headingRad)
     {
         world.Cars.Driven[car] = false;
@@ -773,6 +776,7 @@ public class OvertakeInATownTests
         world.Cars.Command[car] = DriveCommand.Locked;
         world.HandOverTheCommand(car);
         world.StandTheCarAt(car, atM, headingRad);
+        world.LayTheClaims();
     }
 
     /// <summary>Long enough for every car the fixture stands to have a line.</summary>

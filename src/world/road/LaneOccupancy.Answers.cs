@@ -20,14 +20,15 @@ internal sealed partial class LaneOccupancy
     bool _answered;
 
     /// <summary>
-    /// <b>Every hold answered</b>: each piece asked taken where nothing already down refuses it, and every hold ended at
-    /// the first piece refused (<see cref="CutOf"/>). Once a rebuild, after the last piece is asked.
+    /// <b>Everything asked since the last answer, answered</b>: each piece taken where nothing already down refuses it, and
+    /// every hold asked ended at the first piece refused (<see cref="CutOf"/>).
     /// </summary>
     public void Answer()
     {
-        CloseTheBodies();
+        Asking();
         TakeThemInOrder();
         _answered = true;
+        _answers++;
     }
 
     /// <summary>
@@ -136,7 +137,7 @@ internal sealed partial class LaneOccupancy
     void Ended(int hold, byte turn, ClaimKind kind, WishLine line)
     {
         ref var life = ref _holdLife[hold];
-        life.AnsweredAt = _laying;
+        life.AnsweredAt = _answers;
         life.CutTurn = turn;
         life.CutSecondary = kind == ClaimKind.Secondary;
         life.CutAgainst = kind == ClaimKind.Main && line == WishLine.Down;
@@ -442,7 +443,7 @@ internal sealed partial class LaneOccupancy
         var (fromDm, toDm) = against ? (Math.Max(claim.FromDm, endDm), claim.ToDm) : (claim.FromDm, Math.Min(claim.ToDm, endDm));
         if (toDm <= fromDm) return false;
 
-        _claimsChangedAt[_owners[slot].Row] = _laying;
+        _claimsChangedAt[_owners[slot].Row] = _answers;
         if (fromDm == claim.FromDm)
         {
             claim.ToDm = toDm;
@@ -460,13 +461,9 @@ internal sealed partial class LaneOccupancy
     void Unthread(int slot)
     {
         ref readonly var owner = ref _owners[slot];
-        _claimsChangedAt[owner.Row] = _laying;
+        _claimsChangedAt[owner.Row] = _answers;
         var next = _slots[slot].Next;
-        if (owner.Prev == NoSlot)
-        {
-            ref var head = ref owner.Kind == ClaimKind.Main ? ref _rows[owner.Row].Mains : ref _rows[owner.Row].Seconds;
-            head = next;
-        }
+        if (owner.Prev == NoSlot) HeadOf(owner.Row, owner.Kind) = next;
         else
         {
             _slots[owner.Prev].Next = next;
@@ -485,8 +482,8 @@ internal sealed partial class LaneOccupancy
     void ThreadAfter(int slot, int after)
     {
         ref var owner = ref _owners[slot];
-        _claimsChangedAt[owner.Row] = _laying;
-        ref var head = ref owner.Kind == ClaimKind.Main ? ref _rows[owner.Row].Mains : ref _rows[owner.Row].Seconds;
+        _claimsChangedAt[owner.Row] = _answers;
+        ref var head = ref HeadOf(owner.Row, owner.Kind);
         var prev = after;
         var next = after == NoSlot ? head : _slots[after].Next;
         while (next != NoSlot && _slots[next].FromDm <= _slots[slot].FromDm) (prev, next) = (next, _slots[next].Next);

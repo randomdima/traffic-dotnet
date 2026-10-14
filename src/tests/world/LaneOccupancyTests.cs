@@ -63,7 +63,6 @@ public class LaneOccupancyTests
     {
         var (way, _) = TwoWays();
         var index = Index();
-        index.Begin();
         index.LayBody(way, 10f, 15f, 1, LaneRoster.Driving);
         index.LayBody(way, 14f, 20f, 2, LaneRoster.Walking);
 
@@ -80,7 +79,6 @@ public class LaneOccupancyTests
     {
         var (way, _) = TwoWays();
         var index = Index();
-        index.Begin();
         index.LayBody(way, 10f, 15f, 1, LaneRoster.Driving);
         index.LayBody(way, 15f, 20f, 2, LaneRoster.Driving);
 
@@ -92,7 +90,6 @@ public class LaneOccupancyTests
     {
         var (way, _) = TwoWays();
         var index = Index();
-        index.Begin();
         index.LayBody(way, 10.01f, 15.04f, 1, LaneRoster.Driving);
 
         var body = index.Bodies(way)[0];
@@ -104,7 +101,6 @@ public class LaneOccupancyTests
     {
         var (way, _) = TwoWays();
         var index = Index();
-        index.Begin();
         index.LayBody(way, 20f, 25f, 9, LaneRoster.Driving);
         var hold = Asked(index, 1, way, 0f, 50f, ClaimPriority.Firm);
         index.Answer();
@@ -120,7 +116,6 @@ public class LaneOccupancyTests
     {
         var (way, _) = TwoWays();
         var index = Index();
-        index.Begin();
         index.LayBody(way, 0f, 6f, 1, LaneRoster.Driving);
         var hold = Asked(index, 1, way, 4f, 50f, ClaimPriority.Firm);
         index.Answer();
@@ -134,7 +129,6 @@ public class LaneOccupancyTests
     {
         var (way, _) = TwoWays();
         var index = Index();
-        index.Begin();
         var weaker = Asked(index, 1, way, 0f, 40f, ClaimPriority.Firm);
         var stronger = Asked(index, 2, way, 10f, 50f, ClaimPriority.FirmStraight);
         index.Answer();
@@ -148,7 +142,6 @@ public class LaneOccupancyTests
     {
         var (way, _) = TwoWays();
         var index = Index();
-        index.Begin();
         var first = Asked(index, 1, way, 10f, 50f, ClaimPriority.Firm);
         var second = Asked(index, 2, way, 0f, 40f, ClaimPriority.Firm);
         index.Answer();
@@ -163,7 +156,6 @@ public class LaneOccupancyTests
     {
         var (way, _) = TwoWays();
         var index = Index();
-        index.Begin();
         var call = Asked(index, 1, way, 0f, 40f, ClaimPriority.Special);
         var committed = Asked(index, 2, way, 20f, 30f, ClaimPriority.Committed);
         index.Answer();
@@ -177,7 +169,6 @@ public class LaneOccupancyTests
     {
         var (a, b) = TwoWays();
         var index = Index(Mark(a, (20f, 24f), b, (30f, 36f)));
-        index.Begin();
         Asked(index, 1, a, 0f, 40f, ClaimPriority.Firm);
         index.Answer();
 
@@ -194,7 +185,6 @@ public class LaneOccupancyTests
     {
         var (a, b) = TwoWays();
         var index = Index(Mark(a, (20f, 24f), b, (30f, 36f)));
-        index.Begin();
         var crossing = Asked(index, 1, a, 0f, 40f, ClaimPriority.Firm);
         Asked(index, 2, b, 0f, 50f, ClaimPriority.FirmStraight);
         index.Answer();
@@ -212,7 +202,6 @@ public class LaneOccupancyTests
     {
         var (a, b) = TwoWays();
         var index = Index(Mark(a, (20f, 24f), b, (30f, 36f)));
-        index.Begin();
         var weaker = Asked(index, 2, b, 0f, 50f, ClaimPriority.Firm);
         Asked(index, 1, a, 0f, 40f, ClaimPriority.FirmStraight);
         index.Answer();
@@ -226,7 +215,6 @@ public class LaneOccupancyTests
     {
         var (way, _) = TwoWays();
         var index = Index();
-        index.Begin();
         index.Place(index.BeginHold(1, LaneRoster.Signal), way, 30f, 36f, ClaimPriority.Signal);
         var weaker = Asked(index, 2, way, 0f, 50f, ClaimPriority.Firm);
         index.Answer();
@@ -240,7 +228,6 @@ public class LaneOccupancyTests
     {
         var (a, b) = TwoWays();
         var index = Index(Mark(a, (20f, 24f), b, (30f, 36f)));
-        index.Begin();
         var one = Asked(index, 1, a, 0f, 40f, ClaimPriority.Firm);
         var other = Asked(index, 2, a, 22f, 30f, ClaimPriority.Afoot);
         var third = index.BeginHold(3, LaneRoster.Walking);
@@ -259,7 +246,6 @@ public class LaneOccupancyTests
     {
         var (a, b) = TwoWays();
         var index = Index();
-        index.Begin();
         index.LayBody(a, 20f, 25f, 9, LaneRoster.Driving);
         var hold = index.BeginHold(1, LaneRoster.Driving);
         index.Ask(hold, a, 0f, 40f, 0f, ClaimPriority.Firm);
@@ -274,7 +260,6 @@ public class LaneOccupancyTests
     {
         var (way, _) = TwoWays();
         var index = Index();
-        index.Begin();
         var one = Asked(index, 1, way, 0f, 40f, ClaimPriority.Firm);
         var other = Asked(index, 1, way, 10f, 50f, ClaimPriority.Firm);
         index.Answer();
@@ -289,7 +274,6 @@ public class LaneOccupancyTests
     {
         var (way, _) = TwoWays();
         var index = Index();
-        index.Begin();
         index.LayBody(way, 10f, 14f, 9, LaneRoster.Driving);
         index.LayBody(way, 20f, 24f, 8, LaneRoster.Driving);
         var hold = index.BeginHold(1, LaneRoster.Driving);
@@ -300,21 +284,56 @@ public class LaneOccupancyTests
         Assert.Equal((240, 400), (index.Mains(way)[0].FromDm, index.Mains(way)[0].ToDm));
     }
 
+    /// <summary>What is held is held until its holder lets go of it, and nothing of it after.</summary>
     [Fact]
-    public void ARebuildKeepsNothingOfTheOneBefore()
+    public void WhatIsHeldStaysUntilItsHolderLetsGoOfIt()
     {
         var (way, _) = TwoWays();
         var index = Index();
-        index.Begin();
         index.LayBody(way, 10f, 15f, 1, LaneRoster.Driving);
-        Asked(index, 2, way, 20f, 30f, ClaimPriority.Firm);
+        var hold = Asked(index, 2, way, 20f, 30f, ClaimPriority.Firm);
         index.Answer();
 
-        index.Begin();
         index.Answer();
+        Assert.Single(index.Bodies(way).ToArray());
+        Assert.Single(index.Mains(way).ToArray());
 
+        index.LiftBody(1, LaneRoster.Driving);
+        index.Release(hold);
         Assert.Empty(index.Bodies(way).ToArray());
         Assert.Empty(index.Mains(way).ToArray());
+    }
+
+    /// <summary>A body placed where it has moved to stands there and nowhere else.</summary>
+    [Fact]
+    public void ABodyPlacedStandsWhereItIsAndNoLongerWhereItWas()
+    {
+        var (way, _) = TwoWays();
+        var index = Index();
+        index.PlaceBody(1, LaneRoster.Driving, 1, LaneRoster.Driving, [new WayCover(way, 10f, 15f)]);
+
+        index.PlaceBody(1, LaneRoster.Driving, 1, LaneRoster.Driving, [new WayCover(way, 12f, 17f)]);
+
+        var body = Assert.Single(index.Bodies(way).ToArray());
+        Assert.Equal((120, 170), (body.FromDm, body.ToDm));
+    }
+
+    /// <summary>
+    /// A walker held as its own car's ground stands as the car does and beside it, and moving one moves nothing of the
+    /// other (PER-29).
+    /// </summary>
+    [Fact]
+    public void TwoBodiesHeldAsOneHolderAreLaidApart()
+    {
+        var (way, _) = TwoWays();
+        var index = Index();
+        index.PlaceBody(1, LaneRoster.Driving, 1, LaneRoster.Driving, [new WayCover(way, 10f, 15f)]);
+        index.PlaceBody(7, LaneRoster.Walking, 1, LaneRoster.Driving, [new WayCover(way, 30f, 31f)]);
+
+        index.PlaceBody(7, LaneRoster.Walking, 1, LaneRoster.Driving, [new WayCover(way, 32f, 33f)]);
+
+        Assert.Equal(
+            [(100, 150), (320, 330)], index.Bodies(way).ToArray().Select(body => ((int)body.FromDm, (int)body.ToDm)).ToArray());
     }
 
     /// <summary>A place a body is put down must be clear of bodies and of ground a holder cannot stop short of, and of nothing else.</summary>
@@ -323,7 +342,6 @@ public class LaneOccupancyTests
     {
         var (way, _) = TwoWays();
         var index = Index();
-        index.Begin();
         index.LayBody(way, 10f, 15f, 1, LaneRoster.Driving);
         Asked(index, 2, way, 20f, 30f, ClaimPriority.Committed);
         Asked(index, 3, way, 40f, 50f, ClaimPriority.Firm);
@@ -340,7 +358,6 @@ public class LaneOccupancyTests
     {
         var (a, b) = TwoWays();
         var index = Index(Mark(a, (20f, 24f), b, (30f, 36f)));
-        index.Begin();
         Asked(index, 1, a, 0f, 40f, ClaimPriority.Committed);
         index.Answer();
 
@@ -353,7 +370,6 @@ public class LaneOccupancyTests
     {
         var (a, b) = TwoWays();
         var index = Index();
-        index.Begin();
         index.LayBody(b, 10f, 15f, 9, LaneRoster.Driving);
         var whole = index.BeginHold(1, LaneRoster.Driving, whole: true);
         index.Ask(whole, a, 0f, 20f, 0f, ClaimPriority.Firm);
@@ -371,7 +387,6 @@ public class LaneOccupancyTests
     {
         var (way, _) = TwoWays();
         var index = Index();
-        index.Begin();
         var whole = index.BeginHold(1, LaneRoster.Driving, whole: true);
         index.Ask(whole, way, 0f, 20f, 0f, ClaimPriority.Firm);
         var plan = Asked(index, 2, way, 10f, 30f, ClaimPriority.Firm);
@@ -386,7 +401,6 @@ public class LaneOccupancyTests
     {
         var (a, b) = TwoWays();
         var index = Index();
-        index.Begin();
         var whole = index.BeginHold(1, LaneRoster.Driving, whole: true);
         index.Ask(whole, a, 0f, 20f, 0f, ClaimPriority.Firm);
         Asked(index, 2, b, 0f, 20f, ClaimPriority.Firm);
@@ -400,7 +414,6 @@ public class LaneOccupancyTests
     {
         var (way, _) = TwoWays();
         var index = Index();
-        index.Begin();
         index.LayBody(way, 20f, 25f, 9, LaneRoster.Driving);
         var hold = index.BeginHold(1, LaneRoster.Driving);
         index.AskSwept(hold, way, 0f, 40f, 3f, ClaimPriority.Committed);
@@ -415,7 +428,6 @@ public class LaneOccupancyTests
     {
         var (way, _) = TwoWays();
         var index = Index();
-        index.Begin();
         index.LayBody(way, 10f, 15f, 1, LaneRoster.Driving);
         index.LayBody(way, 14f, 20f, 2, LaneRoster.Driving);
 
@@ -429,7 +441,6 @@ public class LaneOccupancyTests
     {
         var (way, _) = TwoWays();
         var index = Index();
-        index.Begin();
         index.LayBody(way, 20f, 25f, 9, LaneRoster.Walking);
         var hold = Asked(index, 1, way, 0f, 50f, ClaimPriority.Firm);
         index.Answer();

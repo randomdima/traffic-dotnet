@@ -101,10 +101,9 @@ band, which is the normals off the line and not discs round it.
 
 **The owner set it: an actor's behaviour runs on nothing per tick.** What the tick is for is the physics, the
 player's input and what is drawn; a decision, a look round, a patience run out and the claims are taken on clocks
-of their own — the decision clock, and the claims laid every `Sim.ClaimsIntervalS` (TER-49). What stays the tick's is
-what a body does with what it already holds: the wheel and the pedals at the grant walked in, the reflex that brakes
-for a hazard, a manoeuvre's or a pass's piece ended where it is driven to its end, and an ask answered in the laying
-after it. The decisions are the car and walker slices' logs, and the claims the road slice's.
+of their own — the decision clock, on whose turn an agent claims too (TER-49). What stays the tick's is what a body
+does with what it already holds: the wheel and the pedals at the grant walked in, the reflex that brakes for a hazard,
+and a manoeuvre's or a pass's piece ended where it is driven to its end. The decisions are the car and walker slices' logs, and the claims the road slice's.
 
 ## 2026-10-01 — an index walks each chain once, on every core
 

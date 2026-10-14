@@ -26,9 +26,8 @@ namespace TrafficSimulation.World.Town;
 /// actor layer reads the same world off any of them.
 /// </para>
 /// <para>
-/// <b>The claims clock is the world's</b> (<see cref="SimFigures.ClaimsIntervalS"/>, TER-49): a step reads the covers
-/// where the tick its view is first read in should lay the claims, and the town lays them off any view whose step did
-/// (<see cref="WorldView.CoversRead"/>) — one clock, so no signal says when.
+/// <b>Every step reads the covers</b> (TER-49): some agent takes its turn to claim on every tick, off the view whose step
+/// read them (<see cref="WorldView.CoversRead"/>).
 /// </para>
 /// <para>
 /// A class with virtual per-tick calls and none per agent: a signal is a non-virtual append to a buffer, and a tick is
@@ -37,8 +36,6 @@ namespace TrafficSimulation.World.Town;
 /// </remarks>
 internal abstract class WorldLayer : IDisposable
 {
-    readonly TickGroups _claims;
-
     /// <summary>What the step begun and not yet shown is written into; swapped with <see cref="View"/> once it is.</summary>
     WorldView _ahead;
 
@@ -51,7 +48,6 @@ internal abstract class WorldLayer : IDisposable
         View = new WorldView(laying.Walkers.Length, laying.Cars.Length, slot: 0);
         _ahead = new WorldView(laying.Walkers.Length, laying.Cars.Length, slot: 1);
         Marks = new DriftMarks(laying.Config.Marks.Capacity, laying.Config.Grid.Main, 0f, laying.WorldSizeM.Y);
-        _claims = new TickGroups(laying.Config.Sim.ClaimsIntervalS, laying.Config.Sim.TickRateHz);
     }
 
     protected SimConfig Config { get; }
@@ -82,15 +78,14 @@ internal abstract class WorldLayer : IDisposable
 
     /// <summary>
     /// <b>One step</b>: the step begun last tick waited for and made the <see cref="View"/>, then this tick's signals taken
-    /// and emptied and the next step begun — every body stepped, the touches begun, and, where the tick its view is first
-    /// read in lays the claims, the covers read.
+    /// and emptied and the next step begun — every body stepped, the touches begun, and the covers read.
     /// </summary>
     public void Step(float dtS)
     {
         ShowTheStepAhead();
         _ahead.CoversRead = false;
         _ahead.SignalsTaken = ++SignalsTaken;
-        Begin(dtS, _ahead, readCovers: _claims.Turn(Steps + 1 + StepsAhead, 0));
+        Begin(dtS, _ahead, readCovers: true);
         _stepAhead = true;
         Signals.Clear();
         Steps++;

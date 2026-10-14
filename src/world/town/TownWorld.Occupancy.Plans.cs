@@ -1,35 +1,28 @@
 using TrafficSimulation.Agents.Car.Actions;
-using TrafficSimulation.Core.Config;
-using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Town;
 
 /// <summary>
-/// <b>The planned layer, for the drivers</b> (TER-4c.1, TER-4c.8): each car's claim for this rebuild, laid by its
-/// action — a plan down its line, its manoeuvre's hold, or what a hand or a tow cannot stop short of — and what each
-/// came to.
+/// <b>The planned layer, for the drivers</b> (TER-4c.1, TER-4c.8): each car's claim, laid by its action at its turn — a
+/// plan down its line, its manoeuvre's hold, or what a hand or a tow cannot stop short of — and what each came to.
 /// </summary>
 internal sealed partial class TownWorld
 {
-    /// <summary>The hold each car laid this rebuild, or <see cref="LaneOccupancy.NoHold"/> (<see cref="DrivingGround.PlanHold"/>).</summary>
+    /// <summary>The hold each car's claim is in, or <see cref="LaneOccupancy.NoHold"/> (<see cref="DrivingGround.PlanHold"/>).</summary>
     readonly int[] _carHold;
 
     readonly Following _following;
 
-    /// <summary>The layings each car plans its route at (<see cref="SimFigures.PlanIntervalS"/>), counted in layings.</summary>
-    readonly TickGroups _plans;
-
     /// <summary>
     /// <b>This car's claim, laid by its action</b>: what a hand or a truck cannot stop short of, a manoeuvre's hold,
-    /// or a plan down the route's line — and nothing at all for a car whose action drives nothing. <b>A car on its route
-    /// between two of its turns keeps the plan it holds</b> (<see cref="Following.HoldsBetweenTurns"/>).
+    /// or a plan down the route's line — and nothing at all for a car whose action drives nothing. Whatever it held for
+    /// another action is let go of.
     /// </summary>
-    void PlanTheDrive(int car, Span<LineWay> ways, bool itsTurn)
+    void PlanTheDrive(int car, Span<LineWay> ways)
     {
-        if (!itsTurn && IsUnderWay(car) && _following.HoldsBetweenTurns(car)) return;
-
         _ground.ClearTheClaim(car);
+        _ground.LetGoOfTheHand(car);
         switch (Cars.Action[car])
         {
             case CarAction.Hand:
@@ -57,6 +50,6 @@ internal sealed partial class TownWorld
         else _ground.LetGoOfThePlan(car);
     }
 
-    /// <summary>The hold a car laid this rebuild, for an instrument asking what held it.</summary>
+    /// <summary>The hold a car's claim is in, for an instrument asking what held it.</summary>
     public int DriveHold(int car) => _carHold[car];
 }

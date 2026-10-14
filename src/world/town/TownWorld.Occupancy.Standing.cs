@@ -62,43 +62,32 @@ internal sealed partial class TownWorld
                                         && Cars.VelocityMps[car] == Vector2.Zero && _recovery.OnTheHookOf[car] < 0;
     }
 
+    /// <summary>The first car whose turn it is, and how many on the next one is (<see cref="TheAgentsInTurn"/>).</summary>
+    int _carsInTurnFrom, _carsInTurnStep = 1;
+
     /// <summary>
-    /// <b>Every car's body, and the list of cars the rest of the laying asks</b>: a standing car laid again from its
-    /// last answer, any other laid by asking and kept if it is standing now.
+    /// <b>The body of every car whose turn it is, and the list of them the rest of the turn asks</b>: each laid where the
+    /// world reads it (nothing done where that is where it stood), a standing car asked nothing else, and any other kept
+    /// if it is standing now.
     /// </summary>
     void LayTheCarsBodies()
     {
         _standing.AskedCount = 0;
-        for (var car = 0; car < Cars.Count; car++)
+        for (var car = _carsInTurnFrom; car < Cars.Count; car += _carsInTurnStep)
         {
-            if (StandsAsLaid(car))
-            {
-                LayTheStandingBody(car);
-                continue;
-            }
-
             LayTheCarsBody(car);
+            if (StandsAsLaid(car)) continue;
+
             KeepIfStanding(car);
             _standing.Asked[_standing.AskedCount++] = car;
         }
     }
 
-    /// <summary>The cars this laying asked, which are the only ones whose drive, pass, manoeuvre and grant can be anything but what they were.</summary>
+    /// <summary>The cars whose turn it is and that are not standing as they were — the only ones whose drive, pass, manoeuvre and grant can be anything but what they were.</summary>
     internal ReadOnlySpan<int> CarsAsked => _standing.Asked.AsSpan(0, _standing.AskedCount);
 
     /// <summary>How many actions a car has been handed, which changes whenever anything that decides its claims does — for an instrument.</summary>
     internal uint ActionEntriesOf(int car) => _carActions.EntriesOf(car);
-    /// <summary>
-    /// A standing car is laid as <see cref="LayTheCarsBody"/> lays it: its own body, under its own name, over every way
-    /// the world read under its wheels.
-    /// </summary>
-    void LayTheStandingBody(int car)
-    {
-        foreach (ref readonly var cover in _world.View.CoversOfCar(car))
-        {
-            _occupancy.LayBody(cover.Way, cover.FromM, cover.ToM, car, LaneRoster.Driving, asItWas: true);
-        }
-    }
 
     void KeepIfStanding(int car)
     {

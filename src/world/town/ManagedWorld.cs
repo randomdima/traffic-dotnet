@@ -163,8 +163,9 @@ internal sealed class ManagedWorld : WorldLayer
         Array.Fill(_walkerStoodAt, new Vector2(float.NaN));
         _walkerCoverCount = new int[walkerCount];
         _walkerCoversFrom = new int[walkerCount];
-        _walkerCovers = new WayCover[walkerCount];
-        _walkerCoversBefore = new WayCover[walkerCount];
+        // Two ways a walker, as the view keeps room for: one crossing a zebra stands on its paint and the lane under it.
+        _walkerCovers = new WayCover[2 * walkerCount];
+        _walkerCoversBefore = new WayCover[2 * walkerCount];
         for (var person = 0; person < walkerCount; person++)
         {
             _walkerBody[person] = BodyOf(laying, _roster.AgentOfPerson(person));

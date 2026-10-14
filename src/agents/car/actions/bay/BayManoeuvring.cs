@@ -222,6 +222,7 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     [SkipLocalsInit]
     public void Lay(int car)
     {
+        Occupancy.Release(_holds[car]);
         _holds[car] = LaneOccupancy.NoHold;
         if (!CarActions.IsAtABay(Cars.Action[car])) return;
 

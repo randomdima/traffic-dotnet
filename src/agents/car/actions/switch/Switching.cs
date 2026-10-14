@@ -296,6 +296,7 @@ internal sealed class Switching(DrivingGround ground, CarActions actions)
     [SkipLocalsInit]
     public void Lay(int car, bool underWay)
     {
+        Occupancy.Release(_holds[car]);
         _holds[car] = LaneOccupancy.NoHold;
         var pass = Cars.Pass[car];
         if (Cars.Action[car] != CarAction.Switch || !pass.Any) return;

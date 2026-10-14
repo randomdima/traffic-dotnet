@@ -379,6 +379,7 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     [SkipLocalsInit]
     public void Lay(int car, bool underWay)
     {
+        Occupancy.Release(_holds[car]);
         _holds[car] = LaneOccupancy.NoHold;
         var pass = Cars.Pass[car];
         if (Cars.Action[car] != CarAction.Overtake || !pass.Any) return;

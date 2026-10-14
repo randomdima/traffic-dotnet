@@ -102,7 +102,15 @@ internal sealed class Following(
         var plannedMps = Cars.PlannedMps[car];
         var standOffM = Config.Driving.StandOffM;
 
-        var committedM = CarFollower.SlowsOverM(build, alongMps);
+        // <b>Committed as far as it could not stop short of at any tick until its next turn</b> (root decision log,
+        // 2026-10-14): nothing of its plan is looked at again before then, so what it covers meanwhile at the speed it may
+        // reach, and a stop from there — <b>but never past the grant it drives on meanwhile</b>, which it brakes for at
+        // every tick, unless it cannot stop short of that even now.
+        var turnS = Config.Sim.AgentDecisionIntervalS;
+        var turnMps = MathF.Max(alongMps, MathF.Min(plannedMps, alongMps + (build.AccelerationMps2 * turnS)));
+        var turnReachM = (0.5f * (alongMps + turnMps) * turnS) + CarFollower.SlowsOverM(build, turnMps);
+        var committedM = MathF.Max(
+            CarFollower.SlowsOverM(build, alongMps), MathF.Min(turnReachM, ground.GrantLeftAtTheTurnM(car)));
 
         // Bounded by the pedal: from a standstill, what a reaction interval of the car's own acceleration
         // reaches and a stop from there as the profile stops — the room to pull away, and nothing it could not have
@@ -200,27 +208,6 @@ internal sealed class Following(
             var fromM = MathF.Max(way.FromM, committedOnWayM);
             if (way.ToM > fromM) Occupancy.Ask(hold, way.Way, fromM, way.ToM, OnTheLineM(way, fromM), rungs[index]);
         }
-    }
-
-    /// <summary>
-    /// <b>A car between two of its turns to plan keeps the plan it holds</b> (<see cref="SimFigures.PlanIntervalS"/>),
-    /// committed as far as it can no longer stop short of from where it now is — unless it is on a pass, whose plan is
-    /// the pass's, or holds no plan of its own on its line and action (<see cref="DrivingGround.HoldsBetweenTurns"/>).
-    /// <b>A car its grant would hold short before its next turn plans now</b>, where what cut it has moved on: a stale grant
-    /// behind a car pulling away is braked for.
-    /// </summary>
-    public bool HoldsBetweenTurns(int car)
-    {
-        if (TheHoldOfItsPass(car) != LaneOccupancy.NoHold) return false;
-
-        var alongMps = MathF.Max(0f, Cars.AlongMps[car]);
-        var noseM = Cars.ProgressM[car] + ground.LeadingEdgeAheadOfTheAxleM(car);
-        var committedM = CarFollower.SlowsOverM(Cars.BuildOf(car), alongMps);
-        var binds = Cars.GrantLeftM(car) < committedM + (alongMps * Config.Sim.PlanIntervalS);
-        if (!ground.HoldsBetweenTurns(car, noseM + committedM, binds)) return false;
-
-        Cars.CommittedToM[car] = noseM + committedM;
-        return true;
     }
 
     /// <summary>

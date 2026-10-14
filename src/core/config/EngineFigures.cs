@@ -56,32 +56,12 @@ internal sealed class SimFigures
 {
     public int TickRateHz { get; init; } = 60;
 
-    /// <summary>How stale an agent's decision may be. A floor on the rate, never a ceiling; 0 makes every agent think every tick.</summary>
+    /// <summary>
+    /// <b>How stale an agent's decision and its claims may be</b>: each agent decides and claims on its own turn, this
+    /// often, the agents spread evenly over the ticks (TER-49, root decision log 2026-10-14) — and between two turns holds
+    /// to the grant it was given. A floor on the rate, never a ceiling; 0 makes every agent think every tick.
+    /// </summary>
     public float AgentDecisionIntervalS { get; init; } = 0.1f;
-
-    /// <summary>
-    /// <b>How stale a grant may be</b>: the claims are laid this often and not every tick (TER-4c), and between two
-    /// layings each agent holds to the grant it was given. 0 lays them every tick.
-    /// </summary>
-    /// <remarks>
-    /// Half a decision interval, and not a whole one: a car plans to stop at the very end of its grant, so ground taken
-    /// back from it is overrun by what it covers before it hears — and at a whole interval a car coming out of a stem
-    /// ran its nose onto a zebra somebody had stopped on (the exam's card 89), where at half it stopped short.
-    /// </remarks>
-    public float ClaimsIntervalS { get; init; } = 0.05f;
-
-    /// <summary>
-    /// <b>How often a car on its route plans again</b> (the root decision log, 2026-10-14): each car at its own laying of
-    /// the claims, the cars spread evenly over the layings this spans. Between two of its own a car keeps the hold it
-    /// planned — committed as far as it can no longer stop short of, and cut by whatever takes it — and reads its grant
-    /// off that. At or under <see cref="ClaimsIntervalS"/> every car plans at every laying.
-    /// </summary>
-    /// <remarks>
-    /// <b>Every second laying</b>: at every third, a car behind one pulling away braked hard for the grant it was last
-    /// given a tenth more often (`--bench drive`, OdesaOsm) — those its grant would hold short plan early, and that
-    /// still left it so.
-    /// </remarks>
-    public float PlanIntervalS { get; init; } = 0.1f;
 
     /// <summary>
     /// <b>How many steps the world runs ahead of what the actors read of it</b> (<c>WorldLayer.StepsAhead</c>): a command

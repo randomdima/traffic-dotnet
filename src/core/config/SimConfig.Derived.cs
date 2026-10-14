@@ -612,11 +612,11 @@ internal sealed partial class SimConfig
 
     /// <summary>
     /// The lead every distance the speed profile measures is taken from — how stale what a driver reads can be by the
-    /// time its pedal acts: a grant as old as the claims interval, read off a world that has stepped on since
-    /// (<see cref="SimFigures.WorldStepsAhead"/>). A car that planned from where it is arrives at each constraint that
-    /// much late.
+    /// time its pedal acts: a grant as old as a turn (<see cref="SimFigures.AgentDecisionIntervalS"/>), read off a world
+    /// that has stepped on since (<see cref="SimFigures.WorldStepsAhead"/>). A car that planned from where it is arrives
+    /// at each constraint that much late.
     /// </summary>
-    public float CarReactionS => Sim.ClaimsIntervalS + (SimFigures.WorldStepsAhead * TickSeconds);
+    public float CarReactionS => Sim.AgentDecisionIntervalS + (SimFigures.WorldStepsAhead * TickSeconds);
 
     /// <summary>
     /// <b>What the brake pedal may ask for</b>, which stands well clear of what the tyres will hold

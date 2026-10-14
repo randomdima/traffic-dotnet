@@ -1,24 +1,19 @@
 namespace TrafficSimulation.World.Road;
 
 /// <summary>
-/// <b>A kept hold's own ground</b> (the root decision log, 2026-10-14): how far along its holder's line it is committed
-/// (<see cref="CommitTo"/>), what its holder has driven past let go of (<see cref="TrimBehind"/>), and what a body has come
-/// to stand on cut (<see cref="StrikeTheKeptHolds"/>).
+/// <b>A plan's own ground</b> (<see cref="BeginPlan"/>, root decision log, 2026-10-14): how far along its holder's line it
+/// is committed (<see cref="CommitTo"/>), and what its holder has driven past let go of (<see cref="TrimBehind"/>).
 /// </summary>
 /// <remarks>
 /// <b>Its claims are held at the rung each was planned at</b> (<see cref="Wish.Planned"/>), and how much of each is committed
-/// is read off the hold's committed line where a stronger piece meets it (<see cref="CommittedToDm"/>) — so committing as
-/// its holder moves writes one figure and no claim. <b>Only main claims up their holder's line</b>
-/// (<see cref="WishLine.Up"/>) are kept, each one's marks following it on its hold's list in the order they begin on its
-/// way.
+/// is read off the plan's committed line where a stronger piece meets it (<see cref="CommittedToDm"/>) — so committing as
+/// its holder moves writes one figure and no claim. <b>A plan's main claims run up its holder's line</b>
+/// (<see cref="WishLine.Up"/>), each one's marks following it on its hold's list in the order they begin on its way.
 /// </remarks>
 internal sealed partial class LaneOccupancy
 {
-    /// <summary>The main claims a body laid this rebuild stands on, before each is cut.</summary>
-    int[] _struck = new int[64];
-
     /// <summary>
-    /// <b>A kept hold committed up to <paramref name="lineM"/> on its holder's line</b> (TER-5e): every claim of it before
+    /// <b>A plan committed up to <paramref name="lineM"/> on its holder's line</b> (TER-5e): every claim of it before
     /// there, and every mark that begins before there, held as <see cref="ClaimPriority.Committed"/> ground, which nothing
     /// takes — and everything past it at the rung it was planned at.
     /// </summary>
@@ -26,7 +21,7 @@ internal sealed partial class LaneOccupancy
 
     /// <summary>
     /// <b>Where a held claim's committed ground ends</b>: it is committed from its near edge to there. All of it where it was
-    /// taken at <see cref="ClaimPriority.Committed"/>; on a kept hold, as far as the hold's committed line — a mark all of
+    /// taken at <see cref="ClaimPriority.Committed"/>; on a plan, as far as the plan's committed line — a mark all of
     /// it where it begins short of that, and none of it otherwise; and none of it anywhere else.
     /// </summary>
     ushort CommittedToDm(int slot)
@@ -35,7 +30,7 @@ internal sealed partial class LaneOccupancy
         if (claim.Rung == ClaimPriority.Committed) return claim.ToDm;
 
         ref readonly var owner = ref _owners[slot];
-        if (!_holdLife[owner.Hold].Kept || owner.Line != WishLine.Up) return claim.FromDm;
+        if (!_holdLife[owner.Hold].ByLine || owner.Line != WishLine.Up) return claim.FromDm;
 
         var atDm = DmOf(_holds[owner.Hold].CommittedLineM - owner.LineM);
         if (owner.Kind == ClaimKind.Secondary) return owner.AtDm < atDm ? claim.ToDm : claim.FromDm;
@@ -44,7 +39,7 @@ internal sealed partial class LaneOccupancy
     }
 
     /// <summary>
-    /// <b>What a kept hold's holder has passed, let go of</b>: every main claim of its line behind
+    /// <b>What a plan's holder has passed, let go of</b>: every main claim of its line behind
     /// <paramref name="fromLineM"/> with its marks, the one it falls in begun there, and that one's marks that end by
     /// then — as a plan asked from there would have none of them.
     /// </summary>
@@ -102,55 +97,9 @@ internal sealed partial class LaneOccupancy
         if (row.FirstClaim == NoSlot) row.LastClaim = NoSlot;
     }
 
-    /// <summary>
-    /// <b>Every kept hold a body laid this rebuild stands on, cut there</b> (TER-4c.2) — as a plan asked against that body
-    /// would have been refused at it. Read only on a row whose bodies differ from the rebuild before's: anywhere else the
-    /// claims were taken clear of every body, and have been kept clear of them since.
-    /// </summary>
-    /// <remarks>
-    /// <b>Every claim held at this point is a kept hold's</b>: the rest were let go of as the rebuild began, and nothing is
-    /// taken until it is answered.
-    /// </remarks>
-    void StrikeTheKeptHolds()
-    {
-        var struck = 0;
-        for (var row = 0; row < _touchedCount; row++)
-        {
-            if (_bodiesChangedAt[row] != _laying) continue;
-
-            var bodies = _rows[row].Bodies;
-            for (var main = _rows[row].Mains; main != NoSlot; main = _slots[main].Next)
-            {
-                ref readonly var claim = ref _slots[main];
-                while (bodies != NoSlot && _bodies[bodies].ToDm <= claim.FromDm) bodies = _bodies[bodies].Next;
-
-                for (var body = bodies; body != NoSlot && _bodies[body].FromDm < claim.ToDm; body = _bodies[body].Next)
-                {
-                    if (_bodies[body].Key == claim.Key || _bodies[body].ToDm <= claim.FromDm) continue;
-
-                    if (struck == _struck.Length) Array.Resize(ref _struck, 2 * _struck.Length);
-                    _struck[struck++] = main;
-                    break;
-                }
-            }
-        }
-
-        foreach (var main in _struck.AsSpan(0, struck))
-        {
-            ref readonly var owner = ref _owners[main];
-            if (owner.Hold == NoHold) continue;
-
-            ref readonly var claim = ref _slots[main];
-            if (BodyIn(owner.Row, claim.FromDm, claim.ToDm, claim.Key, owner.Line == WishLine.Down, out _, out var atDm))
-            {
-                CutHeld(main, atDm, atDm, ClaimPriority.Hard, ClaimKind.Body);
-            }
-        }
-    }
-
     bool IsMainUp(int slot) => _owners[slot].Kind == ClaimKind.Main && _owners[slot].Line == WishLine.Up;
 
-    /// <summary>Whether a held claim is a secondary one, which on a kept hold's list is a mark of the main claim before it.</summary>
+    /// <summary>Whether a held claim is a secondary one, which on a plan's list is a mark of the main claim before it.</summary>
     bool IsAMark(int slot) => _owners[slot].Kind == ClaimKind.Secondary;
 
     /// <summary>A main claim's last mark on its hold's list, or the claim itself where it has none.</summary>

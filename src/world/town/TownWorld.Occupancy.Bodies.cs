@@ -37,14 +37,8 @@ internal sealed partial class TownWorld
     /// it stands over as it reads them.
     /// </para>
     /// </remarks>
-    void LayTheCarsBody(int car)
-    {
-        var occupant = LaidAs(car);
-        foreach (ref readonly var cover in _world.View.CoversOfCar(car))
-        {
-            _occupancy.LayBody(cover.Way, cover.FromM, cover.ToM, occupant, LaneRoster.Driving);
-        }
-    }
+    void LayTheCarsBody(int car) =>
+        _occupancy.PlaceBody(car, LaneRoster.Driving, LaidAs(car), LaneRoster.Driving, _world.View.CoversOfCar(car));
 
     /// <summary>
     /// Which of the town's cars this body's ground is held under — <b>itself, or the vehicle pulling it</b>
@@ -62,10 +56,14 @@ internal sealed partial class TownWorld
         var occupant = HoldTheWalkersGround(person, out var roster);
 
         // PHY-7: inside a container there is no body in the world and nothing in anybody's way.
-        if (People.Inside[person].Any) return;
+        if (People.Inside[person].Any)
+        {
+            _occupancy.LiftBody(person, LaneRoster.Walking);
+            return;
+        }
 
         var count = _walkingGround.BodyCover(person, _world.View.CoversOfWalker(person), body);
-        foreach (ref readonly var piece in body[..count]) _occupancy.LayBody(piece.Way, piece.FromM, piece.ToM, occupant, roster);
+        _occupancy.PlaceBody(person, LaneRoster.Walking, occupant, roster, body[..count]);
     }
 
     /// <summary>Whose ground a walker's body is laid as this rebuild (<see cref="GroundHeldAs"/>), held to from here on.</summary>

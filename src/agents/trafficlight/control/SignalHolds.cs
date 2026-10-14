@@ -1,3 +1,4 @@
+using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Road;
 
@@ -46,12 +47,14 @@ internal sealed class SignalHolds
     /// <summary>Which of <see cref="_junctions"/> each stretch's light is at.</summary>
     readonly int[] _junctionAt;
 
-    /// <summary>The lit junctions any stretch is at, each once, and where each one's cycle stood at the last laying.</summary>
+    /// <summary>The lit junctions any stretch is at, each once.</summary>
     readonly int[] _junctions;
-    readonly JunctionPhase[] _phases;
 
     /// <summary>The lane each approach's stretch holds, or −1 for a crossing's.</summary>
     readonly int[] _laneOf;
+
+    /// <summary>The hold each stretch is held in, placed at its last turn, or <see cref="LaneOccupancy.NoHold"/>.</summary>
+    readonly int[] _holds;
 
     /// <summary>What each approach's stretch held as the last laying answered it (<see cref="NoteWhatHolds"/>): whether anything, and where.</summary>
     readonly bool[] _held;
@@ -59,6 +62,9 @@ internal sealed class SignalHolds
 
     /// <summary>The laying at which what any light holds on each lane last changed.</summary>
     readonly long[] _changedAt;
+
+    /// <summary>The tick each approach lane's light last took its turn.</summary>
+    readonly long[] _turnedAt;
 
     SignalHolds(
         int[] way, float[] fromM, float[] toM, bool[] forCars, int[] axis, int[] junctionAt, int[] junctions, int[] laneOf,
@@ -71,12 +77,14 @@ internal sealed class SignalHolds
         _axis = axis;
         _junctionAt = junctionAt;
         _junctions = junctions;
-        _phases = new JunctionPhase[junctions.Length];
         _laneOf = laneOf;
+        _holds = LaneOccupancy.NoHolds(way.Length);
         _held = new bool[way.Length];
         _heldFromM = new float[way.Length];
         _heldToM = new float[way.Length];
         _changedAt = new long[lanes];
+        _turnedAt = new long[lanes];
+        Array.Fill(_turnedAt, -1L);
     }
 
     /// <summary>
@@ -145,33 +153,41 @@ internal sealed class SignalHolds
     }
 
     /// <summary>
-    /// <b>Every stretch whose light is against it, held</b> — an approach on anything but green (TLT-2a: amber
-    /// is not green) and a crossing on red.
+    /// <b>Every stretch whose turn it is, held where its light is against it</b> — an approach on anything but green
+    /// (TLT-2a: amber is not green) and a crossing on red — <b>now or at any time before its next turn</b> (root decision
+    /// log, 2026-10-14): nothing of it is looked at again before then, so a light about to turn holds its bar already,
+    /// and one turned green lets it go at its next turn. What it held before is let go of.
     /// </summary>
     /// <remarks>
-    /// <b>Laid after the bodies and before any plan</b>, and every plan laid after it is answered against it.
+    /// <b>Laid after the bodies and before any plan</b> of a turn, and every plan asked with it is answered against it.
     /// </remarks>
-    public void Lay(LaneOccupancy occupancy, SignalService signals, float timeS)
+    /// <param name="turns">The stretches' turns, by their index, and <paramref name="tick"/> which of them it is.</param>
+    public void Lay(LaneOccupancy occupancy, SignalService signals, float timeS, TickGroups turns, long tick)
     {
-        for (var at = 0; at < _junctions.Length; at++) _phases[at] = signals.PhaseOf(_junctions[at], timeS);
-
-        for (var stretch = 0; stretch < _way.Length; stretch++)
+        for (var stretch = turns.FirstInTurn(tick); stretch < _way.Length; stretch += turns.Groups)
         {
-            if (ColourOf(stretch) == SignalColour.Green) continue;
+            if (_laneOf[stretch] >= 0) _turnedAt[_laneOf[stretch]] = tick;
 
-            HoldTheStretch(occupancy, stretch, _way[stretch], _fromM[stretch], _toM[stretch]);
+            var junction = _junctions[_junctionAt[stretch]];
+            var against = ColourOf(stretch, signals.PhaseOf(junction, timeS)) != SignalColour.Green
+                          || ColourOf(stretch, signals.PhaseOf(junction, timeS + turns.IntervalS)) != SignalColour.Green;
+            occupancy.Release(_holds[stretch]);
+            _holds[stretch] = against
+                ? HoldTheStretch(occupancy, stretch, _way[stretch], _fromM[stretch], _toM[stretch])
+                : LaneOccupancy.NoHold;
         }
     }
 
     /// <summary>
-    /// <b>What every approach's light holds, as this laying answered it</b>, against what the last one did: each lane whose
-    /// hold came out anywhere else is stamped with <paramref name="laying"/> (<see cref="ChangedAt"/>). Read as a driver
-    /// reads it (<see cref="LaneOccupancy.FirstSecondary"/>), so a hold the answer cut — ground a car could no longer stop
-    /// short of, on an amber — is a change too.
+    /// <b>What every approach's light whose turn it is holds, as its turn answered it</b>, against what its last one did:
+    /// each lane whose hold came out anywhere else is stamped with <paramref name="laying"/> (<see cref="ChangedAt"/>).
+    /// Read as a driver reads it (<see cref="LaneOccupancy.FirstSecondary"/>), so a hold the answer cut — ground a car
+    /// could no longer stop short of, on an amber — is a change too.
     /// </summary>
-    public void NoteWhatHolds(LaneOccupancy occupancy, long laying)
+    /// <param name="turns">The stretches' turns, as <see cref="Lay"/> took them.</param>
+    public void NoteWhatHolds(LaneOccupancy occupancy, long laying, TickGroups turns, long tick)
     {
-        for (var stretch = 0; stretch < _way.Length; stretch++)
+        for (var stretch = turns.FirstInTurn(tick); stretch < _way.Length; stretch += turns.Groups)
         {
             var lane = _laneOf[stretch];
             if (lane < 0) continue;
@@ -188,14 +204,16 @@ internal sealed class SignalHolds
     /// <summary>The laying at which what any light holds on this lane last came out otherwise (<see cref="NoteWhatHolds"/>).</summary>
     public long ChangedAt(int lane) => _changedAt[lane];
 
+    /// <summary>The tick the light over an approach lane last took its turn (<see cref="Lay"/>), for an instrument.</summary>
+    public long TurnedAt(int lane) => _turnedAt[lane];
+
     /// <summary>
-    /// What a stretch's light is showing it at the last laying: its approach's colour, or its crossing's
+    /// What a stretch's light shows it at a phase of its junction's cycle: its approach's colour, or its crossing's
     /// (<see cref="SignalService.ForApproach"/>, <see cref="SignalService.ForCrossing"/>). <b>Held on anything but
     /// green</b> (<see cref="Lay"/>).
     /// </summary>
-    SignalColour ColourOf(int stretch)
+    SignalColour ColourOf(int stretch, JunctionPhase phase)
     {
-        var phase = _phases[_junctionAt[stretch]];
         return _forCars[stretch]
             ? SignalCycle.Shown(_axis[stretch], phase)
             : SignalCycle.ShownToTheCrossing(_axis[stretch], phase);
@@ -206,9 +224,12 @@ internal sealed class SignalHolds
     /// (<see cref="LaneOccupancy.FirstBody"/>), or to <paramref name="toM"/>: a body past the bar is one the light let
     /// go, and is held by nothing behind it.
     /// </summary>
-    internal static void HoldTheStretch(LaneOccupancy occupancy, int stretch, int way, float fromM, float toM)
+    /// <returns>The hold it is held in.</returns>
+    internal static int HoldTheStretch(LaneOccupancy occupancy, int stretch, int way, float fromM, float toM)
     {
         var reachM = occupancy.FirstBody(way, fromM, toM, LaneOccupancy.Nobody, LaneRoster.Signal, out var atM) ? atM : toM;
-        occupancy.Place(occupancy.BeginHold(stretch, LaneRoster.Signal), way, fromM, reachM, ClaimPriority.Signal);
+        var hold = occupancy.BeginHold(stretch, LaneRoster.Signal);
+        occupancy.Place(hold, way, fromM, reachM, ClaimPriority.Signal);
+        return hold;
     }
 }

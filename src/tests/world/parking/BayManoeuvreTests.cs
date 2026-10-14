@@ -230,14 +230,8 @@ public class BayManoeuvreTests
     }
 
     /// <summary>A car broken where it is put down: nothing drives it, and it holds its ground as a body (TER-4c.2).</summary>
-    internal static void PutDown(TownWorld world, int car, Vector2 atM, float headingRad)
-    {
-        world.Cars.Driven[car] = false;
-        world.BreakWhereItStands(car);
-        world.Cars.Command[car] = DriveCommand.Locked;
-        world.HandOverTheCommand(car);
-        world.StandTheCarAt(car, atM, headingRad);
-    }
+    internal static void PutDown(TownWorld world, int car, Vector2 atM, float headingRad) =>
+        OvertakeInATownTests.PutDown(world, car, atM, headingRad);
 
     /// <summary>Long enough for every car the city stands to be in its bay and at rest.</summary>
     const int WarmUpTicks = 120;

@@ -18,11 +18,6 @@ namespace TrafficSimulation.World.Town;
 /// </remarks>
 internal sealed partial class TownWorld
 {
-    /// <summary>
-    /// <b>Every light's hold, laid</b> — after the bodies, which end it, and before any plan, which it is laid
-    /// to refuse.
-    /// </summary>
-    void LightTheWays() => _signalHolds.Lay(_occupancy, _signals, _elapsedS);
 
     /// <summary>
     /// <b>The junction ahead of this car, for its indicator</b> (CAR-14.1), each tick: how far off the box its own line

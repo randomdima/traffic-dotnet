@@ -43,7 +43,7 @@ internal sealed partial class LaneOccupancy
     public bool FirstBodySeen(int way, float fromM, float toM, int occupant, LaneRoster of, out BodySeen body)
     {
         var found = BodyIn(RowOf(way), DmOf(fromM), DmOf(toM), KeyOf(occupant, of), false, out var member, out _);
-        body = found ? new BodySeen(way, MetresOf(_bodies[member].FromDm), MetresOf(_bodies[member].ToDm)) : default;
+        body = found ? new BodySeen(way, MetresOf(_slots[member].FromDm), MetresOf(_slots[member].ToDm)) : default;
         return found;
     }
 
@@ -120,14 +120,14 @@ internal sealed partial class LaneOccupancy
         var one = KeyOf(occupant, of);
         var other = KeyOf(alsoOccupant, of);
         var row = RowOf(way);
-        for (var at = BodiesOn(row); at != NoSlot; at = _bodies[at].Next)
+        for (var at = BodiesOn(row); at != NoSlot; at = _slots[at].Next)
         {
-            ref readonly var member = ref _bodies[at];
+            ref readonly var member = ref _slots[at];
             if (member.FromDm >= toDm) break;
             if (member.ToDm > fromDm && member.Key != one && member.Key != other) return true;
         }
 
-        if (!_answered || row == NoRow) return false;
+        if (row == NoRow) return false;
 
         for (var at = _rows[row].Mains; at != NoSlot; at = _slots[at].Next)
         {
@@ -153,7 +153,7 @@ internal sealed partial class LaneOccupancy
         var toDm = DmOf(toM);
         var row = RowOf(way);
         var (heldFromDm, heldToDm, found) = ((ushort)0, (ushort)0, false);
-        for (var at = _answered && row != NoRow ? _rows[row].Seconds : NoSlot; at != NoSlot; at = _slots[at].Next)
+        for (var at = row != NoRow ? _rows[row].Seconds : NoSlot; at != NoSlot; at = _slots[at].Next)
         {
             ref readonly var second = ref _slots[at];
             if (second.FromDm >= (found ? heldToDm : toDm)) break;

@@ -43,7 +43,7 @@ internal sealed partial class TownWorld
     /// them.
     /// </summary>
     /// <remarks>
-    /// <b>Worked out before either network is laid, because both read it</b> (<see cref="RebuildLaneOccupancy"/>):
+    /// <b>Worked out before either network is laid, because both read it</b> (<see cref="TakeTheTurns"/>):
     /// the road needs the way a body on a crossing is walking to know which lane it stands in, and the
     /// statement in front of the body begins from the same place. Asked twice it was the same walk of the
     /// same line, and the two answers were a tick apart.
@@ -76,7 +76,7 @@ internal sealed partial class TownWorld
     /// </summary>
     void PlanTheWalk(int person, Span<LineWay> walk)
     {
-        _walkingGround.WalkHold[person] = LaneOccupancy.NoHold;
+        _walkingGround.LetGoOfTheWalk(person);
         if (!_personActions.WalksOnItsOwnFeet(person)) return;
 
         // <b>A walker on a pass walks on in the pass's hold</b> (TER-4c.6): whatever refuses the pass holds it where it

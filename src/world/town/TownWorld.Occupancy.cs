@@ -2,7 +2,9 @@ using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Person.Actions;
+using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Road;
 using static TrafficSimulation.World.Road.LineWays;
@@ -10,9 +12,9 @@ using static TrafficSimulation.World.Road.LineWays;
 namespace TrafficSimulation.World.Town;
 
 /// <summary>
-/// <b>The lane index</b> (<see cref="LaneOccupancy"/>): every body where its collider stands, every agent's
-/// plan taken strongest first, and the two questions a driver asks of it — what is in front of me on the road I am
-/// driving, and how much of that road is mine.
+/// <b>The claims</b> (<see cref="LaneOccupancy"/>): every agent's body where its collider stands and the ground it plans
+/// to use, held by the agent itself, and the two questions a driver asks of them — what is in front of me on the road I
+/// am driving, and how much of that road is mine.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -22,12 +24,15 @@ namespace TrafficSimulation.World.Town;
 /// </para>
 /// <para>
 /// <b>Following is a grant and not a reading.</b> Every agent plans from its nose to where it means to be
-/// able to stop, and is granted what survives of that once every body and every other plan has been laid —
-/// so nothing has to measure a gap to hold one, and the agent behind simply has less road to stop in.
+/// able to stop, and is granted what survives of that against every body and every other plan held — so nothing has
+/// to measure a gap to hold one, and the agent behind simply has less road to stop in.
 /// </para>
 /// <para>
-/// <b>The steps are in this file, in order</b>: every walker's place on its walk, every body, every pass and
-/// manoeuvre, every light's hold, every plan, every backing, all of them answered, and last what each came to.
+/// <b>There is no laying</b> (root decision log, 2026-10-14): each agent claims on its own turn — its decision's, every
+/// <see cref="SimFigures.AgentDecisionIntervalS"/> — and holds what it claimed until then. Nothing else touches it but
+/// what takes it or comes to stand on it, which it reads at its next turn. <b>The steps of a turn are in this file, in
+/// order</b>: each walker's place on its walk, each body, each pass and manoeuvre, each light's hold, each plan, each
+/// backing, all of them answered, and last what each came to.
 /// </para>
 /// </remarks>
 internal sealed partial class TownWorld
@@ -39,32 +44,38 @@ internal sealed partial class TownWorld
     /// <summary>What every car's action reads of the town (<see cref="DrivingGround"/>).</summary>
     readonly DrivingGround _ground;
 
+    /// <summary>The walkers whose turn it is, in roster order.</summary>
+    readonly int[] _walkersInTurn;
+
+    int _walkersInTurnCount;
+
+    ReadOnlySpan<int> WalkersInTurn => _walkersInTurn.AsSpan(0, _walkersInTurnCount);
+
     /// <summary>
-    /// <b>The index rebuilt from the bodies</b>, in phase 2, before anybody has decided anything. Every reader
-    /// this tick therefore sees the same reservations, whatever tick its own decision clock came round on.
+    /// <b>The agents whose turn it is, claiming</b>, once they have decided (<see cref="DecideTheAgents"/>) — so each
+    /// claims down the line it has just decided on, and reads what it came to before its next tick. Every body first and
+    /// every plan after them (TER-4c.2), the plans asked and answered together, strongest rung first
+    /// (<see cref="LaneOccupancy.Answer"/>), against everything held; what each came to read last.
     /// </summary>
-    /// <remarks>
-    /// <b>Every body first and every plan after all of them</b> (TER-4c.2): a plan is cut at the first body in
-    /// front of it, so what it is laid against is the whole of the town's bodies rather than whichever were
-    /// written first. Plans are asked, then answered in one pass strongest rung first
-    /// (<see cref="LaneOccupancy.Answer"/>), and what each came to is read after that.
-    /// </remarks>
-    void RebuildLaneOccupancy()
+    /// <param name="everyone">
+    /// Every agent and every light at once — the claims laid off their clock (<see cref="LayTheClaims"/>).
+    /// </param>
+    /// <param name="tick">The tick, which says whose turn it is.</param>
+    void TakeTheTurns(bool everyone, long tick)
     {
         var at = System.Diagnostics.Stopwatch.GetTimestamp();
         _layings++;
-        _occupancy.Begin();
+        var (first, step) = everyone ? (0, 1) : (_decisions.FirstInTurn(tick), _decisions.Groups);
+        TheAgentsInTurn(first, step);
 
-        // Where every walker stands on its walk, before anything is laid: its body and its plan both begin
-        // from it.
-        for (var person = 0; person < People.Count; person++) StationTheWalker(person);
+        // Where each walker stands on its walk, before anything is laid: its body and its plan both begin from it.
+        foreach (var person in WalkersInTurn) StationTheWalker(person);
 
         at = Spent(LayingStage.WalkersStationed, at);
         Span<WayCover> body = stackalloc WayCover[WalkingGround.MostPiecesOfABody];
-        for (var person = 0; person < People.Count; person++) LayTheWalkersBody(person, body);
+        foreach (var person in WalkersInTurn) LayTheWalkersBody(person, body);
 
-        // Every car's body, and from here on only the cars that were asked for theirs: a standing car's pass,
-        // manoeuvre, plan, backing and grant are the nothing they were at the last laying.
+        // A standing car's pass, manoeuvre, plan, backing and grant are the nothing they were at its last turn.
         at = Spent(LayingStage.WalkersBodies, at);
         LayTheCarsBodies();
         at = Spent(LayingStage.CarsBodies, at);
@@ -72,16 +83,16 @@ internal sealed partial class TownWorld
 
         // A light's hold is placed where it stands, as far as the first body on its way (TLT-1).
         at = Spent(LayingStage.Passes, at);
-        LightTheWays();
+        var turns = everyone ? new TickGroups(0f, 1) : _decisions;
+        _signalHolds.Lay(_occupancy, _signals, _elapsedS, turns, tick);
 
         at = Spent(LayingStage.Lights, at);
         Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];
-        var laying = _layings / 2;
-        foreach (var car in CarsAsked) PlanTheDrive(car, ways, _plans.Turn(laying, car));
+        foreach (var car in CarsAsked) PlanTheDrive(car, ways);
 
         at = Spent(LayingStage.Drives, at);
         Span<LineWay> walk = stackalloc LineWay[WalkingGround.MostWaysAlongAWalk];
-        for (var person = 0; person < People.Count; person++) PlanTheWalk(person, walk);
+        foreach (var person in WalkersInTurn) PlanTheWalk(person, walk);
 
         // The ground a car backs up over is weaker than every plan (TER-4c.7), so it takes nothing any of them keeps.
         at = Spent(LayingStage.Walks, at);
@@ -89,7 +100,7 @@ internal sealed partial class TownWorld
 
         at = Spent(LayingStage.Backing, at);
         _occupancy.Answer();
-        _signalHolds.NoteWhatHolds(_occupancy, _layings);
+        _signalHolds.NoteWhatHolds(_occupancy, _layings, turns, tick);
 
         at = Spent(LayingStage.Answer, at);
         foreach (var car in CarsAsked) _backingUp.Read(car);
@@ -99,7 +110,18 @@ internal sealed partial class TownWorld
         Spent(LayingStage.Grants, at);
     }
 
-    /// <summary>The stages of a laying, as <see cref="LayingTicks"/> times them.</summary>
+    /// <summary>The walkers of the roster from <paramref name="first"/> on, every <paramref name="step"/>-th, and the cars' first of theirs.</summary>
+    void TheAgentsInTurn(int first, int step)
+    {
+        _walkersInTurnCount = 0;
+        var agent = first;
+        for (; agent < People.Count; agent += step) _walkersInTurn[_walkersInTurnCount++] = agent;
+
+        _carsInTurnFrom = agent - People.Count;
+        _carsInTurnStep = step;
+    }
+
+    /// <summary>The stages of a turn, as <see cref="LayingTicks"/> times them.</summary>
     internal enum LayingStage
     {
         WalkersStationed,
@@ -114,10 +136,10 @@ internal sealed partial class TownWorld
         Grants,
     }
 
-    /// <summary>The <see cref="System.Diagnostics.Stopwatch"/> time every laying has spent in each stage, for an instrument.</summary>
+    /// <summary>The <see cref="System.Diagnostics.Stopwatch"/> time every tick's turns have spent in each stage, for an instrument.</summary>
     public long[] LayingTicks { get; } = new long[Enum.GetValues<LayingStage>().Length];
 
-    /// <summary>How many car plans every laying has kept as they were, asked further, or asked afresh, for an instrument.</summary>
+    /// <summary>How many car plans have been kept as they were, asked further, or asked afresh at a turn, for an instrument.</summary>
     public ReadOnlySpan<long> PlansKept => _ground.PlansKept;
 
     long Spent(LayingStage stage, long from)
@@ -128,28 +150,28 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>How many times the layer has been begun or finished</b> — what a figure read off it and kept is checked against,
-    /// so nothing read off one laying is read again off the next, nor off a laying half done.
+    /// <b>How many times the turns have been begun or finished</b> — what a figure read off the claims and kept is checked
+    /// against, so nothing read off one tick's is read again off the next, nor off turns half taken.
     /// </summary>
     long _layings;
 
     /// <summary>
     /// <b>The ground a pass, a step across or a manoeuvre at a bay will cover, asked as a plan of its own</b> (TER-4c.6,
     /// GEN-4f) — before the plans, which carry on from those begun; one not yet begun is answered after every plan of
-    /// its rung all the same (<see cref="LaneOccupancy.BeginHold"/>).
+    /// its rung asked with it (<see cref="LaneOccupancy.BeginHold"/>).
     /// </summary>
     void LayThePasses()
     {
         foreach (var car in CarsAsked) _overtaking.Lay(car, IsUnderWay(car));
         foreach (var car in CarsAsked) _switching.Lay(car, IsUnderWay(car));
         foreach (var car in CarsAsked) _bays.Lay(car);
-        for (var person = 0; person < People.Count; person++) _sidestepping.Lay(person);
+        foreach (var person in WalkersInTurn) _sidestepping.Lay(person);
     }
 
-    /// <summary>Every walker's grant read off what its walk came to, its pass's word taken, and its aim set on it.</summary>
+    /// <summary>Each walker's grant read off what its walk came to, its pass's word taken, and its aim set on it.</summary>
     void ReadTheWalkersGrants()
     {
-        for (var person = 0; person < People.Count; person++)
+        foreach (var person in WalkersInTurn)
         {
             _walkingGround.ReadTheGrant(person);
             _sidestepping.Consider(person);

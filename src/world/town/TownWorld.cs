@@ -76,8 +76,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     readonly TownWays _ways;
 
     /// <summary>
-    /// <b>Who is on each way of the town</b>, rebuilt from the bodies in phase 2 —
-    /// <see cref="RebuildLaneOccupancy"/>. One set of claims over one set of ways: a car that has mounted a
+    /// <b>Who is on each way of the town</b>, each agent's held by itself and edited on its own turn —
+    /// <see cref="TakeTheTurns"/>. One set of claims over one set of ways: a car that has mounted a
     /// kerb and the walker beside it are two stretches of one footway and not two records in two tables.
     /// </summary>
     readonly LaneOccupancy _occupancy;
@@ -330,8 +330,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _ground = new DrivingGround(Cars, _occupancy, _ways, _roads, _lines, config);
         _carHold = _ground.PlanHold;
         _decisions = new TickGroups(config.Sim.AgentDecisionIntervalS, config.Sim.TickRateHz);
-        var layingTicks = new TickGroups(config.Sim.ClaimsIntervalS, config.Sim.TickRateHz).Groups;
-        _plans = new TickGroups(config.Sim.PlanIntervalS, Math.Max(1, (int)MathF.Round(config.Sim.TickRateHz / (float)layingTicks)));
+        _walkersInTurn = new int[People.Capacity];
         _carActions = new CarActions(_ground, _manoeuvres);
         _overtaking = new Overtaking(_ground, _carActions);
         _switching = new Switching(_ground, _carActions);
@@ -614,6 +613,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// </summary>
     public SignalService Signals => _signals;
 
+    /// <summary>The tick the light over an approach lane last took its turn (<see cref="SignalHolds.TurnedAt"/>), for an instrument.</summary>
+    public long LightTurnedAt(int lane) => _signalHolds.TurnedAt(lane);
+
     /// <summary>The heads, for whoever draws them. No agent reads one.</summary>
     public SignalHeads Heads => _heads;
 
@@ -773,29 +775,29 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     bool _inTheDecisions;
 
     /// <summary>
-    /// <b>When the claims are laid: on a view whose step read the covers</b> (<see cref="WorldView.CoversRead"/>), which
-    /// the world does every <see cref="SimFigures.ClaimsIntervalS"/> on its own clock — between two layings each agent
-    /// holds to the grant it was given, walked in by the ground it has covered since (<see cref="CarFleet.GrantLeftM"/>),
-    /// and an ask is answered in the laying after it. This is the batch of signals (<see cref="WorldView.SignalsTaken"/>)
-    /// of the view last laid off, so a view shown for two ticks is laid off once.
+    /// <b>The agents take their turns on a view whose step read the covers</b> (<see cref="WorldView.CoversRead"/>), which
+    /// every step does — between two of its turns each agent holds to the grant it was given, walked in by the ground it
+    /// has covered since (<see cref="CarFleet.GrantLeftM"/>). This is the batch of signals
+    /// (<see cref="WorldView.SignalsTaken"/>) of the view the turns were last taken off, so a view shown for two ticks is
+    /// taken off once.
     /// </summary>
     long _claimsLaidOff = -1;
 
     /// <summary>
-    /// Whether the claims were laid this tick — so whoever reads what the layer holds against where the bodies are
+    /// Whether the turns were taken this tick — so whoever reads what the layer holds against where the bodies are
     /// reads it on a tick the two are of one instant.
     /// </summary>
     public bool ClaimsLaidThisTick { get; private set; }
 
     /// <summary>
-    /// <b>The claims laid now, off their clock</b> — for whoever has put something down and asks what the layer makes
-    /// of it. The tick lays them on the world's claims clock (<see cref="_claimsLaidOff"/>).
+    /// <b>Every agent's turn taken now, off the clock</b> — for whoever has put something down and asks what the layer
+    /// makes of it. The tick takes the turns of the agents whose turn it is (<see cref="TakeTheTurns"/>).
     /// </summary>
     public void LayTheClaims()
     {
         _world.ReadTheCovers();
         ReadTheWorld();
-        RebuildLaneOccupancy();
+        TakeTheTurns(everyone: true, tick: 0);
         _claimsLaidOff = _world.View.SignalsTaken;
         ClaimsLaidThisTick = true;
     }
@@ -809,11 +811,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
         var view = _world.View;
         ClaimsLaidThisTick = view.CoversRead && view.SignalsTaken != _claimsLaidOff;
-        if (ClaimsLaidThisTick)
-        {
-            _claimsLaidOff = view.SignalsTaken;
-            RebuildLaneOccupancy();
-        }
+        if (ClaimsLaidThisTick) _claimsLaidOff = view.SignalsTaken;
 
         // Phase 3 begins on the walkers' ticks, which is the end of the roster the loop walks first.
         if (!Timed) return;
@@ -882,10 +880,15 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         EveryAgent.Tick(ref world);
     }
 
+    /// <summary>
+    /// <b>The agents whose turn it is decide, then claim</b> (<see cref="TakeTheTurns"/>): what each claims is on the line
+    /// it has just decided on, so a line laid again is planned down the tick it is laid.
+    /// </summary>
     public void DecideTheAgents(long tick, TickGroups decisions)
     {
         var world = this;
         EveryAgent.DecideTheTurn(ref world, tick, decisions);
+        if (ClaimsLaidThisTick) TakeTheTurns(everyone: false, tick);
     }
 
     public void TickAgent(int agent)

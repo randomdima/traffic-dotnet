@@ -139,15 +139,6 @@ cards against 5 before: 44, 79 and 85 now pass; 60, 69, 70, 80, 82, 84, 86, 88, 
 still do. 108 and 109 are a pass no longer decided; the zebra cards are a car stopped behind somebody standing at
 the kerb end of the paint, inside the zebra, with no room kept behind them; 60 and 69 are the standing tier.
 
-## 2026-10-12 — the claims stay at 0.05 s: a slower laying is cheaper and brakes harder
-
-**Measured and not taken.** With the driver's lead derived from the interval (`SimConfig.CarReactionS`), laying the
-claims every 0.1 s halved the index on `--bench town --map Odesa` (115.5 → 60.1 µs a tick, the car tick 118.4 → 101.4,
-the whole tick 269.9 → 195.7; one pair against the tree before) — and moved hard brakings under `--bench drive` Odesa
-0 → 10, River 3 → 11, O10 121 → 193, reds River 1 → 2 and O10 11 → 15, mean speed 2–4 % lower. Every 4 ticks
-(0.067 s): Odesa 0 → 11, O10 121 → 177. A grant twice as stale is a car told twice as late that its ground was taken
-back, and the longer lead does not cover the refusal it hears late. What closes it is a cheaper laying, not a rarer one.
-
 ## 2026-10-07 — a body is on the ways its wheels stand on, and a walker is one wheel
 
 **The owner ruled it: one reading of the ground a laying, and no collider read against the ribbons for a body.**
@@ -422,40 +413,6 @@ The atlas is the same to the bit: every array it keeps hashed equal on O1 and O1
 
 **Not done: filing straight off a second walk of every way**, which would hold no points at all. It is a
 second run of the stage's geometry, and the blocks are now about a sixth of the peak.
-
-## 2026-10-01 — the claims are laid every 0.05 s, not every tick
-
-**The owner set the rule that an actor's behaviour runs on nothing per tick**, and laying the claims was most of
-what still did: 40 % of Odesa's tick, every body and every plan laid and settled sixty times a second. **They are
-laid every `Sim.ClaimsIntervalS` now (TER-49), and between two layings each agent holds to its grant**:
-
-- **Walked in by the ground covered since** (`CarFleet.CoveredSinceClaimM`, `GrantLeftM`): the one correction the
-  per-tick grant made by this tick's travel, made by every tick's since. A claim's own metres stay the line's as
-  they were when it was laid, and what reads them against the line as it is now goes through the nose and the
-  ground covered.
-- **Read only down the lanes it was read down**: a line laid again between two layings cuts the grant at the first
-  lane laid differently, and a chain begun afresh from the lane under a car carries none (`ForgetTheGrant`).
-- **An ask is answered in the laying after it** and never before: a pass and a bay's manoeuvre are kept or withdrawn
-  only once the claims have laid them, and a car backing up for its room keeps asking until they have.
-
-**Half a decision interval, and not a whole one.** At 0.1 s the exam's card 89 failed: a car coming out of a stem
-ran its nose onto a zebra a walker had stopped on in its half. Its follower plans to stop at the very end of its
-grant at full braking, and the grant ended at the paint until the walker stopped in the lane, when it was taken
-back 2.9 m; laid every tick the car already overran by 1.18 m and passed by a hand's breadth, and a tenth of a
-second's staleness took it to 1.28 m. A lead for the grant's age in the speed profile kept card 89 and broke card
-73's queue; at 0.05 s every card goes as it did. Interval 0 lays them every tick and is the town as it was, to the
-bit (`--bench age` digests).
-
-Measured on `--bench age --map Odesa`, µs a tick, two runs each:
-
-| | every tick | every 0.05 s |
-|---|---|---|
-| index, 1 / 3 / 5 min | 367–378 / 473–482 / 426–427 | 138–142 / 177–181 / 158–181 |
-| whole tick, 1 / 3 / 5 min | 714–731 / 990–1004 / 923–925 | 453–468 / 645–656 / 607–638 |
-
-`--bench stuck --map Odesa` (300 s): 534 bays (501), 16 legs rerouted (101), 4 places given up (13), 2 cars standing
-still at the end (26), 7 touches (7), nothing wrecked; 129 car-ticks spent the braking margin (100). `--bench soak
---map Odesa` kept every claim, the deepest past a grant 2.9–4.3 m as before.
 
 ## 2026-10-01 — the atlas keeps a thread's points in blocks, and files them on every thread
 

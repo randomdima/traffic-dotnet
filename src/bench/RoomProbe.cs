@@ -132,20 +132,20 @@ internal static class RoomProbe
         for (var way = 0; way < world.Ways.Count; way++) longestM = MathF.Max(longestM, world.Ways.LengthM(way));
 
         Console.WriteLine(
-            $"room probe — {map}: {world.Cars.Count} cars, {world.People.Count} people; {rebuilds} rebuilds over {MeasuredTicks} ticks " +
+            $"room probe — {map}: {world.Cars.Count} cars, {world.People.Count} people; {rebuilds} ticks of turns over {MeasuredTicks} ticks " +
             $"after {WarmupTicks}");
         Console.WriteLine($"longest way {longestM:F1} m: {LaneOccupancy.DmOf(longestM):N0} of {ushort.MaxValue:N0} dm");
         var msPer = 1000.0 / System.Diagnostics.Stopwatch.Frequency / Math.Max(1, rebuilds);
         var stages = Enum.GetValues<TownWorld.LayingStage>();
         var spentMs = stages.Select(stage => (world.LayingTicks[(int)stage] - layingFrom[(int)stage]) * msPer).ToArray();
         Console.WriteLine(
-            $"a laying {spentMs.Sum():F2} ms: " + string.Join(", ", stages.Select((stage, at) => $"{stage} {spentMs[at]:F2}")));
+            $"a tick's turns {spentMs.Sum():F2} ms: " + string.Join(", ", stages.Select((stage, at) => $"{stage} {spentMs[at]:F2}")));
         var kept = world.PlansKept.ToArray();
         var keptPer = Enum.GetValues<PlanKept>().Select(of => (kept[(int)of] - keptFrom[(int)of]) / Math.Max(1, rebuilds)).ToArray();
         Console.WriteLine(
-            $"car plans a laying: {keptPer[(int)PlanKept.AsItIs]:N0} kept as they were, " +
+            $"car plans a tick: {keptPer[(int)PlanKept.AsItIs]:N0} kept as they were, " +
             $"{keptPer[(int)PlanKept.ToBeAskedFurther]:N0} asked further, {keptPer[(int)PlanKept.No]:N0} let go of");
-        Console.WriteLine($"{"a rebuild",-12}{"average",10}{"most",10}");
+        Console.WriteLine($"{"a tick",-12}{"average",10}{"most",10}");
         driven.Print("cars driven", rebuilds);
         drivenAtRest.Print("  at rest", rebuilds);
         carsAsked.Print("cars asked", rebuilds);

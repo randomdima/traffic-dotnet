@@ -18,32 +18,31 @@ internal sealed partial class LaneOccupancy
     readonly ClaimView _secondView = new();
 
     /// <summary>
-    /// The body claims on one way, nearest first — every body laid, once the first question is asked — each the bodies
-    /// running into one another, with all of them as its holders.
+    /// The body claims on one way, nearest first, each the bodies running into one another, with all of them as its
+    /// holders.
     /// </summary>
     /// <remarks><b>Read into one buffer a kind, which the next call overwrites.</b></remarks>
     public ReadOnlySpan<Claim> Bodies(int way)
     {
-        CloseTheBodies();
         var row = RowOf(way);
-        return row == NoRow ? [] : Read(_bodies, _rows[row].Bodies, ClaimKind.Body, _bodyView);
+        return row == NoRow ? [] : Read(_slots, _rows[row].Bodies, ClaimKind.Body, _bodyView);
     }
 
-    /// <summary>The main claims on one way, nearest first — none until the plans are answered. Read as <see cref="Bodies"/> are.</summary>
+    /// <summary>The main claims held on one way, nearest first. Read as <see cref="Bodies"/> are.</summary>
     public ReadOnlySpan<Claim> Mains(int way)
     {
         var row = RowOf(way);
-        return _answered && row != NoRow ? Read(_slots, _rows[row].Mains, ClaimKind.Main, _mainView) : [];
+        return row != NoRow ? Read(_slots, _rows[row].Mains, ClaimKind.Main, _mainView) : [];
     }
 
     /// <summary>
-    /// The secondary claims on one way by near edge, those of one rung never overlapping — none until the plans are
-    /// answered. Read as <see cref="Bodies"/> are.
+    /// The secondary claims held on one way by near edge, those of one rung never overlapping. Read as
+    /// <see cref="Bodies"/> are.
     /// </summary>
     public ReadOnlySpan<Claim> Secondaries(int way)
     {
         var row = RowOf(way);
-        return _answered && row != NoRow ? Read(_slots, _rows[row].Seconds, ClaimKind.Secondary, _secondView) : [];
+        return row != NoRow ? Read(_slots, _rows[row].Seconds, ClaimKind.Secondary, _secondView) : [];
     }
 
     /// <summary>The holders of one claim as its kind was last read.</summary>

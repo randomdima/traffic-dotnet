@@ -19,9 +19,10 @@ public class LightsInATownTests
     static readonly SimConfig Config = SimConfig.Shipped();
 
     /// <summary>
-    /// <b>A red holds its bar every time the claims are laid while it is red</b> (TLT-1, TER-4c.1): the first metre past
-    /// the bar is the light's, or the ground of a plan that beats it there — one whose holder can no longer stop short
-    /// of it, or a call or a closure — unless a body travelling the lane has already started over it (TLT-2a).
+    /// <b>A red holds its bar every time its light takes its turn while it is red</b> (TLT-1, TER-4c.1): the first metre
+    /// past the bar is the light's, or the ground of a plan that beats it there — one whose holder can no longer stop
+    /// short of it, or a call or a closure — unless a body travelling the lane has already started over it (TLT-2a).
+    /// Between its turns the light looks at nothing (root decision log, 2026-10-14).
     /// </summary>
     /// <remarks>
     /// <b>What it guards is a plan answered at the bar and laid a hair past it.</b> A metre carried to the line and
@@ -43,7 +44,7 @@ public class LightsInATownTests
             for (var bar = 0; bar < world.Bars.Count; bar++)
             {
                 var lane = world.Bars.Lane[bar];
-                if (!RedThroughTheTick(world, lane)) continue;
+                if (world.LightTurnedAt(lane) != tick || !RedThroughTheTick(world, lane)) continue;
 
                 var barM = world.Bars.AlongM[bar] - (world.Bars.ThicknessM[bar] * 0.5f);
                 var way = world.Ways.OfRoadLane(lane);

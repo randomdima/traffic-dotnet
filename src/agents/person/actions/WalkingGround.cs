@@ -653,12 +653,26 @@ internal sealed class WalkingGround(
     public void Claim(
         int person, int occupant, LaneRoster roster, ReadOnlySpan<LineWay> walk, int begunOn = LaneOccupancy.NoHold)
     {
-        var hold = begunOn != LaneOccupancy.NoHold ? begunOn : Occupancy.BeginHold(occupant, roster);
+        LetGoOfTheWalk(person);
+        var hold = begunOn;
+        if (hold == LaneOccupancy.NoHold) hold = _ownWalk[person] = Occupancy.BeginHold(occupant, roster);
+
         WalkHold[person] = hold;
         foreach (ref readonly var way in walk)
         {
             Occupancy.Ask(hold, way.Way, way.FromM, way.ToM, way.LineFromM, ClaimPriority.Afoot);
         }
+    }
+
+    /// <summary>The hold a walker's own walk is in — not a pass's it carries on from — or <see cref="LaneOccupancy.NoHold"/>.</summary>
+    readonly int[] _ownWalk = LaneOccupancy.NoHolds(people.Capacity);
+
+    /// <summary>A walker's walk let go of, where it holds one of its own — before it claims again, or where it walks none.</summary>
+    public void LetGoOfTheWalk(int person)
+    {
+        Occupancy.Release(_ownWalk[person]);
+        _ownWalk[person] = LaneOccupancy.NoHold;
+        WalkHold[person] = LaneOccupancy.NoHold;
     }
 
     /// <summary>

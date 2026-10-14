@@ -20,15 +20,17 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **`ShippedCityTests.NothingItCarriesStandsOffIt(OdesaOsm)`** (maps) fails on the town that stands 40 000 people and
   40 000 cars (2026-10-09, still on 2026-10-12): spawn 37 177 stands at x −0.15 m, off the map's own edge. Spawning on
   the map's edge, or the map's bounds taking its spawns in, closes it.
-- **Thirteen exam cards fail** (2026-10-12, since the claims redesign; 44, 79 and 85 pass since it):
+- **Eleven exam cards fail** (2026-10-14, since every agent claims on its own turn; 60, 80, 88 and 91 pass since it,
+  and 79 since the claims redesign):
+  - 44 and 85, which passed since the claims redesign and fail since the turns: not looked at yet. A card run traced to
+    the turn its car was granted what it should not have been closes it.
   - 108 and 109 (getting past a car stood in its lane; a call past a queue at a red): no pass is decided — the
     "nobody reads what a body is doing" entry below.
-  - 70, 80, 82, 84, 86, 88, 89 and 91 (a car gives way on a zebra): the car stops behind somebody standing at the kerb
+  - 70, 82, 84, 86 and 89 (a car gives way on a zebra): the car stops behind somebody standing at the kerb
     end of the paint, inside the zebra, and is on it when they cross. The room once kept behind a body going nowhere
     held it short; the same entry.
-  - 60 and 69 (waiting behind a left turn into the stem; a right turn on green gives way to somebody crossing): the
-    tier "ground its holder already stands on" went with the comparison — a car in a box loses its way out to a
-    straight its own body holds up, and a walker on the paint is held by a red over its other walking lane. Two ways
+  - 69 (a right turn on green gives way to somebody crossing): the tier "ground its holder already stands on" went
+    with the comparison — a walker on the paint is held by a red over its other walking lane. Two ways
     of keeping it in one pass were tried and refused (road decision log, 2026-10-12).
   - 67 (a left turn on green gives way to the oncoming right turn): driver 1 never gets where it was sent. It failed
     before the redesign too, and nothing has looked at why.
@@ -70,8 +72,8 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     arcs, span, width and zebra beside it, 32.3 before a way's runs were threaded through one table of slots) —
     walkers stationed 3.0, cars' plans 9.6, walks 4.1, answering 5.1, grants 2.2; O10 3.7 (was 5.5). The claims'
     own methods were 38 % of it at 28.6, and what holds them up is the first read of a way's row, a hold and a run's first
-    claim, taken in an order that lands on a new way each time — fetching ahead lost (road decision log). A car's plan
-    is kept from laying to laying since (the entry on kept plans below), and every walker is still planned afresh. The
+    claim, taken in an order that lands on a new way each time — fetching ahead lost (road decision log). There is no
+    laying since: every agent claims on its own turn (the entry on turns below), and none of this is measured since. The
     laying runs on one thread at 1.9 instructions a cycle on OdesaOsm (`qq prof --events`): the claims' store is held
     up by what it does more than by memory, and what waits on memory is what a laying reads by way for an agent taken
     by number — the asked piece's way row, marks and bodies (`LaneOccupancy.AskUp`, `Add`), and a car's line held as
@@ -213,17 +215,21 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 ### Claims laying
 
-- **Kept car plans cost more to keep than they save while everything else is laid for one laying** (2026-10-14, root
-  decision log): `--bench room --map OdesaOsm` 33.3 ms a laying against 30.4 on the tree before. What it adds: the
-  strike over every row a moving body is on (`StrikeTheKeptHolds`, about 1.3 ms), each row's body count (0.5), a car
-  between its turns (`HoldsBetweenTurns` and its `IsWoken`, 1.1), and `Begin` letting go, claim by claim, of the
-  22 000 walkers', the lights' and the passes' holds of the laying before (1.4). Walkers kept as cars are — whose walk's
-  metres are measured from the body, so a kept hold's line metres would have to be read back by way and decimetre — and
-  lights' holds kept while their phase and their first body hold, close most of it.
-- **Reds rose with the kept plans**: OdesaOsm `--bench drive` 114 against 97 on the tree before (2026-10-14), with
-  the hard brakings level (12 855 against 12 708) and fewer stuck (3 645 against 4 021). Planning every car at every
-  laying on kept holds gave 117, so it is the keeping and not the turns; which red is crossed that was not is not
-  traced. A `--bench drive` red traced to the laying it was committed in closes it.
+- **A walker's body costs more to keep than to lay afresh** (2026-10-14, root decision log): `--bench room --map O10`
+  0.26 ms a tick for a sixth of the walkers against 0.70 every third tick for all of them on the laid tree — 1.8 times
+  the work a walker. A moving body is moved in place, but each move reads its slot, its run's neighbours and the main
+  claims on the ground it comes to cold. Walkers are also still asked afresh at every turn (`WalkingGround.Claim`), their
+  walk's metres measured from the body. Keeping a walker's walk as a car's plan is kept closes part of it.
+- **OdesaOsm is not measured on the turns** (2026-10-14): the owner asked for small maps while resources are short, so
+  the root log's figures are O10's and Odesa's, and the drive census's and room probe's OdesaOsm figures above are of
+  trees before. A `--bench room` and `--bench drive` on OdesaOsm close it.
+- **Reds rose with the turns**: `--bench drive` O10 28 against 21, Odesa 3 against 0 on the laid tree (2026-10-14).
+  Which red is crossed that was not is not traced; a `--bench drive` red traced to the turn it was committed in closes
+  it.
+- **A light's hold is placed as its first body stood at its turn** (`SignalHolds.Lay`): a body standing over the bar
+  then leaves the light holding nothing, and the ground it pulls off the bar is held by nothing until the light's next
+  turn — a follower whose turn falls between can plan over the bar. Nothing has been seen to come of it on the small
+  maps' reds; the reds above traced close it or name it.
 - **A kept plan is asked afresh each time its car's nose reaches another piece of its line** (`DrivingGround.KeepsThePlan`):
   a piece's rung is levelled by what lies ahead of it and capped by what lies behind, and passing a piece can raise the
   rest. About 170 plans a laying on OdesaOsm with every car planning at every laying. Levelling the held claims' rungs
@@ -264,10 +270,11 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **A walker's distance walked is its velocity over the step on the device** (`world_view.comp`) and the change in its
   position on the host (`TownWorld.ReadTheWorld`); its gait is drawn off the device's, so a frame of the whole of Odesa
   draws 3 instances of 2 034 otherwise than the host's fill (`--bench deviceworld`, 2026-10-12).
-- **A body put down is laid where it stood** by the claims of the next two ticks: they are laid off covers a view reads
-  two steps behind (`WorldLayer.StepsAhead`), and a placement reaches a view only with the step that took its signal.
-  The fleet keeps the placed pose meanwhile (`TownWorld._carSetBy`), so the body's covers and its pose disagree for
-  that long. Reading the covers again for a body placed since closes it.
+- **A body put down is laid where it stood** until its own next turn, and then off covers a view reads two steps behind
+  (`WorldLayer.StepsAhead`): a placement reaches a view only with the step that took its signal. The fleet keeps the
+  placed pose meanwhile (`TownWorld._carSetBy`), so the body's covers and its pose disagree for that long; a staging
+  lays the claims itself (`TownWorld.LayTheClaims`). Laying a placed body's claims at the turn after its signal is
+  taken closes it.
 - **Two tests of "on its line"**: `Reacquire` takes a lane within `CarOffPathM × OffLineTolerance`, `ReadTheLine` keeps
   a line within `OffTheLineAllowanceM`, which is wider for a tow — so a tow can be refused a lane its line check
   would keep it on. One threshold closes it; it moves tows.

@@ -73,7 +73,6 @@ public class SignalHoldTests
     {
         var (a, _) = TwoWays();
         var index = Index();
-        index.Begin();
         Light(index, a, 10f, 20f);
         var hold = Asked(index, 1, a, 10f, 20f, rung);
         index.Answer();
@@ -115,7 +114,6 @@ public class SignalHoldTests
     {
         var (a, _) = TwoWays();
         var index = Index();
-        index.Begin();
         Light(index, a, 20f, 50f);
         var hold = Asked(index, 1, a, 0f, 60f, ClaimPriority.FirmStraight);
         index.Answer();
@@ -132,7 +130,6 @@ public class SignalHoldTests
     {
         var (a, b) = TwoWays();
         var index = Index(a, b);
-        index.Begin();
         Light(index, a, 0f, 50f);
         index.Answer();
 
@@ -148,7 +145,6 @@ public class SignalHoldTests
     {
         var (a, b) = TwoWays();
         var index = Index(a, b);
-        index.Begin();
         var light = Light(index, a, 0f, 50f);
         var walk = Asked(index, 3, b, 25f, 40f, ClaimPriority.Afoot, LaneRoster.Walking);
         index.Answer();
@@ -166,7 +162,6 @@ public class SignalHoldTests
     {
         var (a, _) = TwoWays();
         var index = Index();
-        index.Begin();
         index.LayBody(a, 10f, 14f, 1, LaneRoster.Driving);
         SignalHolds.HoldTheStretch(index, 0, a, 0f, 50f);
         index.Answer();
@@ -184,7 +179,6 @@ public class SignalHoldTests
     {
         var (a, _) = TwoWays();
         var index = Index();
-        index.Begin();
         Light(index, a, 20f, 50f);
         Asked(index, 1, a, 0f, 60f, ClaimPriority.Special);
         index.Answer();

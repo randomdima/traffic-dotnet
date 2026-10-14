@@ -71,6 +71,7 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     [SkipLocalsInit]
     public void Lay(int person)
     {
+        Occupancy.Release(_holds[person]);
         _holds[person] = LaneOccupancy.NoHold;
         Span<LineWay> left = stackalloc LineWay[WalkingGround.MostWaysAlongAWalk];
         var count = GroundStillToCover(person, left);

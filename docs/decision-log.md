@@ -4,41 +4,41 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
-## 2026-10-14 — a car keeps its plan from laying to laying, and plans at its own
+## 2026-10-14 — no laying: every agent claims on its own turn and holds what it claimed
 
 **The owner (2026-10-14), in their words: "The reason why persistant claims is the way that we want to go - is processing
-offset. We dont want all actors to think at the same time. Actor should think every 10th tick ( approx )" … "I would
-expect it to be faster, since all you need to do is to extend existing claims. Or keep them as is for waiting
-actors."** Their rulings before it: a stronger rung takes held ground its holder has not committed to; committed ground
-and a body's never; of one rung, what is held keeps; a plan is asked past what it needs by a slack. Kept claims were
-tried twice before (2026-10-12 and 13) and taken out: every moving body and plan was still edited every laying, each
-edit reading its hold and its run cold, and a car's committed ground was kept as a second hold, then as a mark on each
-claim. What is different now is what is edited, and that a car does not plan at every laying.
+offset. We dont want all actors to think at the same time" … "Well you dont do that anymore - never. Only actor plan
+exist - they decide to release or prolong the claim on their own Nth tick" … "Its ok that actors dont react instantly -
+neither do real humans / 0.1s reaction is more than enough" … "Dont do anything every tick. We need fix this by actor
+planning better".** Their rulings: a body's ground is its holder's own; a car commits on its turn as far as it could not
+stop short of until its next; a stronger rung takes held ground its holder has not committed to, committed ground and a
+body's never, and of one rung what is held keeps; a plan is asked past what it needs by a slack. Kept claims were tried
+twice before (2026-10-12 and 13, the road log) and taken out because every moving body and plan was still edited at
+every laying; and a rarer laying was measured and not taken because a staler grant braked harder (2026-10-12).
 
-- **A car's plan is a kept hold** (`LaneOccupancy.BeginKeptHold`): its claims stay until the car lets go of it
-  (`DrivingGround.LetGoOfThePlan`) — another line, action or call, a pass, its nose on another piece of its line (a
-  piece's rung is levelled by what lies ahead of it), or more than twice `ClaimSlackM` asked beyond what it needs.
-  Every other hold — walkers, lights, passes, manoeuvres, backing, a hand or a tow — is begun for one laying and let go
-  of as the next begins.
-- **Kept, it is edited at its two ends and nowhere else**: let go of behind the nose past `TrimSlackM`, and asked further
-  from where it ends (`AskFurther`) where the car needs more or what cut it has gone (`IsWoken`) — the further piece
-  made one claim with the one it carries on, since a hold asked further a little at a time otherwise grew a claim a
-  laying and every run with it. A hold cut at a mark is asked afresh, since a further ask asks no mark short of where
-  it begins.
-- **Committed is a line a hold, not a rung on its claims** (`CommitTo`, `CommittedToDm`): one write as the car moves,
-  read only where a stronger piece meets a weaker held claim. Written on the claims — split at the edge, or the edge
-  moved between two — it was 2 % of `--bench room` at 28 700 calls a laying, about 175 ns each in cache misses: what
-  asking a whole plan again had cost.
-- **A body that comes to stand on kept ground cuts it there** (`StrikeTheKeptHolds`), read only on a row whose bodies
-  are not as they were — told by their count and by whether any was laid not as it was, which compares no runs.
-- **A car plans at its own laying, every second** (`Sim.PlanIntervalS`): between, its hold is committed from where it
-  now is and its grant read off it, so what cuts it reaches it at once; one its grant would hold short before its next
-  turn plans early, where what cut it has gone. Hard braking on OdesaOsm (`--bench drive`, car-ticks) was 12 708 on
-  the tree before: 16 645 planning at every third laying, 14 192 with the early plans, 12 855 at every second.
-- **Measured** (OdesaOsm, Release, one machine, against the tree before): `--bench room` 33.3 ms a laying against
-  30.4 — answering 4.9 against 6.5, cars' plans 9.4 against 8.4, the strike and the bodies' counts about 2 more;
-  13 700 plans a laying kept as they were, 8 200 asked further, 1 300 let go of. `--bench drive`: 6.75 m/s against
-  6.71, stuck 3 645 against 4 021, reds 114 against 97. The exam's thirteen failing cards are the same thirteen.
+- **A turn, not a laying** (TER-49, `TownWorld.TakeTheTurns`): the agents whose decision it is this tick decide, then
+  claim — their bodies where the world reads them, their passes, manoeuvres and plans — then everything asked that
+  tick is answered and each reads what it came to. Nobody else is touched; a cut between turns is read at the next. A
+  line laid by the decision is planned down the same tick, or the car would drive a turn on no grant.
+- **Every hold is its holder's until it lets go of it** (`LaneOccupancy.Release`): an actor that asks again lets go of
+  what it asked last. A car's plan (`BeginPlan`) is kept and edited at its two ends — let go of behind the nose past
+  `TrimSlackM`, asked further from where it ends where the car needs more or what cut it has gone (`AskFurther`,
+  `IsWoken`), the further piece made one claim with the one it carries on; a hold cut at a mark is asked afresh.
+- **Committed is a line a hold, not a rung on its claims** (`CommitTo`, `CommittedToDm`), read only where a stronger
+  piece meets a weaker held claim: written on the claims, it cost what asking a whole plan again had.
+- **A body is a hold of the body's own, its stretches held as whoever its ground is** (`PlaceBody`) — a walker going to
+  its car is the car's ground, a car on a bar the truck's — moved in place over the ways it stood on, and laid again
+  where those change; it cuts any other holder's plan on the ground it comes to.
+- **Each actor plans for the whole of a turn.** A car commits what it covers until its next turn at the speed it may
+  reach, and a stop from there, **but never past the grant it drives on meanwhile** unless it cannot stop short of that
+  even now: unbounded, committed ground beat the lights' holds — a light's is whole or nothing — and O10 crossed 681
+  reds against 21. A light holds where it is against now or will be before its next turn, to the first body on its
+  way then.
+- **Measured** (Release, one machine, against the laid tree, 8847e78): `--bench room --map O10` 1.62 ms a tick against
+  6.9 ms every third — walkers' bodies are the one stage dearer, the rest cheaper. `--bench drive`, O10: 9.83 m/s against
+  9.93, waiting 14 % against 15, stuck 92 against 86, hard brakings 69 against 120, reds 28 against 21; Odesa: 10.24
+  against 10.32, stuck 6 and 6, hard 0 against 9, reds 3 against 0. The exam fails eleven cards where it failed thirteen:
+  60, 80, 88 and 91 pass, 44 and 85 fail.
 
 ## 2026-10-14 — the world reads where a car is on its lane
 
@@ -143,14 +143,13 @@ tick's decisions, the claims and the routes onto the device ([goals.md](goals.md
   that took the signal arrives.
 - **The view is read where the world wrote it** (`WorldView.ReadOver`): the device writes each step's rows into one of
   two mapped buffers and the host reads them in place, the step in flight writing the other. A row carries what the
-  actor layer reads every tick and nothing else — a body's covers' ranges come with the covers, on the claims' clock,
-  and the step a car froze at is read off its flags (frozen, and not through the last step), since the town reads every
+  actor layer reads every tick and nothing else — a body's covers' ranges come with the covers, and the step a car froze at is read off its flags (frozen, and not through the last step), since the town reads every
   view.
 - **The tyres and a walker's footing are the world's**: they turn a car's wheel and pedals (`DriveCommand`) and a
   walker's heading and pace into impulses, so they are physics. Which ways a wheel grips on comes off the world's own
   reading of the ribbons.
-- **The ribbons a body stands on are read by the world on the claims' clock** (`Sim.ClaimsIntervalS`, TER-49), which
-  both layers read off the same figures — so it needs no signal. What the actor layer adds to a cover — whether the body
+- **The ribbons a body stands on are read by the world every step**, since some agent takes its turn to claim on every
+  tick (TER-49) — so it needs no signal. What the actor layer adds to a cover — whether the body
   travels that way, where its line goes next — is behaviour, and is the actor layer's.
 - **What is static is laid once and never signalled** — the owner, in their words: "Car weight cannot change in runtime -
   we dont need mechanics for updates of a static properties". A body's mass and shape are its variant's, laid with the

@@ -25,7 +25,6 @@ public class RescuePriorityTests
     static bool Keeps(ClaimPriority mine, ClaimPriority theirs)
     {
         var index = new LaneOccupancy(Ways, WayCrossings.None);
-        index.Begin();
         var other = index.BeginHold(2, LaneRoster.Driving);
         index.Ask(other, 0, 10f, 20f, 10f, theirs);
         var asker = index.BeginHold(1, LaneRoster.Driving);

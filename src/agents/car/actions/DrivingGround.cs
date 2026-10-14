@@ -51,12 +51,12 @@ internal sealed class DrivingGround(
     readonly float[] _planMarginM = new float[cars.Capacity];
 
     /// <summary>
-    /// <b>What a car's kept plan holds</b> (<see cref="LaneOccupancy.BeginKeptHold"/>): the line, the action, the call and
+    /// <b>What a car's kept plan holds</b> (<see cref="LaneOccupancy.BeginPlan"/>): the line, the action, the call and
     /// the piece of line its nose was on when it was asked, and how far along the line it holds from and was asked to.
     /// </summary>
     record struct HeldPlan(int Hold, uint Line, CarAction Action, bool BlueLight, int NoseOn, float FromM, float ToM);
 
-    readonly HeldPlan[] _held = new HeldPlan[cars.Capacity];
+    readonly HeldPlan[] _held = Enumerable.Repeat(new HeldPlan { Hold = LaneOccupancy.NoHold }, cars.Capacity).ToArray();
 
     /// <summary>How many plans have come to each <see cref="PlanKept"/>, for an instrument.</summary>
     public long[] PlansKept { get; } = new long[Enum.GetValues<PlanKept>().Length];
@@ -81,7 +81,7 @@ internal sealed class DrivingGround(
         var driving = Config.Driving;
         if (held.Line != Cars.LinesLaid[car] || held.Action != Cars.Action[car] || held.BlueLight != Cars.BlueLight[car]
             || fromM < held.FromM || held.ToM - toM > 2f * driving.ClaimSlackM || held.NoseOn != PieceOfTheLine(car, fromM)
-            || !Occupancy.IsKeptBy(held.Hold, car, LaneRoster.Driving))
+            || !Occupancy.IsPlanOf(held.Hold, car, LaneRoster.Driving))
         {
             PlansKept[(int)PlanKept.No]++;
             return PlanKept.No;
@@ -107,27 +107,6 @@ internal sealed class DrivingGround(
         PlanHold[car] = held.Hold;
         _planMarginM[car] = marginM;
         return kept;
-    }
-
-    /// <summary>
-    /// <b>A car's kept plan held between two of its turns to plan</b>, where it is still the plan of the car's line, action
-    /// and call: committed to <paramref name="committedToM"/>, and its grant read off it as the laying's is
-    /// (<see cref="ReadTheGrant"/>) — against where the car was when it last planned.
-    /// </summary>
-    /// <param name="binds">Whether its grant holds it short before its next turn — so that it is not held where it is woken.</param>
-    /// <returns>Whether it holds one, and is held by it.</returns>
-    public bool HoldsBetweenTurns(int car, float committedToM, bool binds)
-    {
-        ref readonly var held = ref _held[car];
-        if (held.Line != Cars.LinesLaid[car] || held.Action != Cars.Action[car] || held.BlueLight != Cars.BlueLight[car]
-            || PlanHold[car] != held.Hold || !Occupancy.IsKeptBy(held.Hold, car, LaneRoster.Driving)
-            || (binds && Occupancy.IsWoken(held.Hold)))
-        {
-            return false;
-        }
-
-        Occupancy.CommitTo(held.Hold, committedToM);
-        return true;
     }
 
     /// <summary>How far along its line a kept plan holds: where it was cut, or all it asked for.</summary>
@@ -158,7 +137,7 @@ internal sealed class DrivingGround(
     public void LetGoOfThePlan(int car)
     {
         ref var held = ref _held[car];
-        if (Occupancy.IsKeptBy(held.Hold, car, LaneRoster.Driving)) Occupancy.Release(held.Hold);
+        if (Occupancy.IsPlanOf(held.Hold, car, LaneRoster.Driving)) Occupancy.Release(held.Hold);
 
         held.Hold = LaneOccupancy.NoHold;
     }
@@ -188,11 +167,19 @@ internal sealed class DrivingGround(
     public int BeginThePlan(int car, float marginM, int begunOn = LaneOccupancy.NoHold)
     {
         LetGoOfThePlan(car);
-        var hold = begunOn != LaneOccupancy.NoHold ? begunOn : Occupancy.BeginKeptHold(car, LaneRoster.Driving);
+        var hold = begunOn != LaneOccupancy.NoHold ? begunOn : Occupancy.BeginPlan(car, LaneRoster.Driving);
         PlanHold[car] = hold;
         _planMarginM[car] = marginM;
         return hold;
     }
+
+    readonly float[] _grantLeftM = new float[cars.Capacity];
+
+    /// <summary>
+    /// <b>How much of its grant a car had still in front of its nose as its turn began</b> (<see cref="CarFleet.GrantLeftM"/>)
+    /// — the most it drives on before its next turn but what it can no longer stop short of.
+    /// </summary>
+    public float GrantLeftAtTheTurnM(int car) => _grantLeftM[car];
 
     /// <summary>
     /// <b>A car's claim of the rebuild before, forgotten</b> before its action lays this rebuild's: no hold, a plan
@@ -201,6 +188,7 @@ internal sealed class DrivingGround(
     /// </summary>
     public void ClearTheClaim(int car)
     {
+        _grantLeftM[car] = Cars.GrantLeftM(car);
         PlanHold[car] = LaneOccupancy.NoHold;
 
         var noseM = Cars.ProgressM[car] + LeadingEdgeAheadOfTheAxleM(car);
@@ -255,12 +243,32 @@ internal sealed class DrivingGround(
         Cars.GrantCutBy[car] = KindOf(cut);
     }
 
+    /// <summary>The holds each car nobody is driving holds the road it cannot stop short of in, one a way under it.</summary>
+    readonly int[] _handHolds = new int[cars.Capacity * RibbonAtlas.MostWaysUnderABody];
+
+    readonly byte[] _handHoldCount = new byte[cars.Capacity];
+
+    void HoldTheHand(int car, int hold)
+    {
+        if (_handHoldCount[car] == RibbonAtlas.MostWaysUnderABody) return;
+
+        _handHolds[(car * RibbonAtlas.MostWaysUnderABody) + _handHoldCount[car]++] = hold;
+    }
+
+    /// <summary>What a car nobody is driving held of the road at its last turn, let go of.</summary>
+    public void LetGoOfTheHand(int car)
+    {
+        for (var at = 0; at < _handHoldCount[car]; at++) Occupancy.Release(_handHolds[(car * RibbonAtlas.MostWaysUnderABody) + at]);
+
+        _handHoldCount[car] = 0;
+    }
+
     /// <summary>
     /// <b>A car nobody in the town is driving holds the road it can no longer stop short of</b> (TER-5e, TER-4c.8) —
     /// one under a hand (CTL-5) and one on a bar (EVA-5): on every way the world reads its body on
     /// (<paramref name="under"/>), the stretch past the body its speed carries it down that way before it could be at
-    /// rest, as committed ground under <paramref name="occupant"/> — so the traffic plans round what the hand or the
-    /// truck cannot help, and nothing is said about where either means to go.
+    /// rest, from anywhere it gets to before its next turn, as committed ground under <paramref name="occupant"/> — so the
+    /// traffic plans round what the hand or the truck cannot help, and nothing is said about where either means to go.
     /// </summary>
     /// <remarks>
     /// <b>Down the way and never across it</b>: a body off every way holds nothing, and one leaving its way holds the
@@ -276,13 +284,14 @@ internal sealed class DrivingGround(
         var speedMps = velocity.Length();
         if (speedMps <= Config.Driving.StopSpeedMps) return;
 
-        var committedM = CarFollower.SlowsOverM(Cars.BuildOf(car), speedMps);
+        var committedM = CarFollower.SlowsOverM(Cars.BuildOf(car), speedMps) + (speedMps * Config.Sim.AgentDecisionIntervalS);
         foreach (ref readonly var cover in under)
         {
             var line = Lines.LineOf(cover.Way, out _);
             var lengthM = Ways.LengthM(cover.Way);
             var alongTheWay = Vector2.Dot(Spline.SampleAt(line, (cover.FromM + cover.ToM) * 0.5f).Direction, velocity) >= 0f;
             var hold = Occupancy.BeginHold(occupant, LaneRoster.Driving);
+            HoldTheHand(car, hold);
             if (alongTheWay)
             {
                 Occupancy.Ask(hold, cover.Way, cover.ToM, MathF.Min(lengthM, cover.ToM + committedM), 0f, ClaimPriority.Committed);
@@ -426,7 +435,7 @@ internal sealed class DrivingGround(
 /// </summary>
 internal readonly record struct WaySpan(float StartM, float EndM);
 
-/// <summary>What became of a car's kept plan at a rebuild (<see cref="DrivingGround.KeepsThePlan"/>).</summary>
+/// <summary>What became of a car's kept plan at its turn (<see cref="DrivingGround.KeepsThePlan"/>).</summary>
 internal enum PlanKept : byte
 {
     /// <summary>Let go of, or to be: the plan is asked afresh.</summary>

@@ -86,7 +86,7 @@ it happens and simply wrong in the next.
 player's input and what is drawn; what an agent does about the town is not taken on it. Each agent decides —
 its errand, the next line of its leg, and every choice its action makes — every `AgentDecisionIntervalS`,
 staggered by the agent's own index so the town's thinking spreads across the ticks rather than spiking on
-one; the claims are laid every `ClaimsIntervalS` (TER-49). Three rules hold it honest:
+one; it claims on the same turn, once it has decided (TER-49). Three rules hold it honest:
 
 - **It is stated in seconds, never in ticks**, because what it bounds is how far the world moves under a
   stale answer.

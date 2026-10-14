@@ -130,10 +130,11 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
     /// <param name="underWay">Whether the car is on the route's line, as the town reads it.</param>
     public void Lay(int car, bool underWay)
     {
+        var occupancy = ground.Occupancy;
+        occupancy.Release(_holds[car]);
         _holds[car] = LaneOccupancy.NoHold;
         if (!TakeTheAsk(car, underWay, out var asked)) return;
 
-        var occupancy = ground.Occupancy;
         var hold = _holds[car] = occupancy.BeginHold(car, LaneRoster.Driving);
         _laid[car] = asked;
         var splitM = Math.Clamp(asked.CommittedFromM, asked.FromM, asked.TailM);
