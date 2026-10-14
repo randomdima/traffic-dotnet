@@ -4,6 +4,42 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-14 — a car keeps its plan from laying to laying, and plans at its own
+
+**The owner (2026-10-14), in their words: "The reason why persistant claims is the way that we want to go - is processing
+offset. We dont want all actors to think at the same time. Actor should think every 10th tick ( approx )" … "I would
+expect it to be faster, since all you need to do is to extend existing claims. Or keep them as is for waiting
+actors."** Their rulings before it: a stronger rung takes held ground its holder has not committed to; committed ground
+and a body's never; of one rung, what is held keeps; a plan is asked past what it needs by a slack. Kept claims were
+tried twice before (2026-10-12 and 13) and taken out: every moving body and plan was still edited every laying, each
+edit reading its hold and its run cold, and a car's committed ground was kept as a second hold, then as a mark on each
+claim. What is different now is what is edited, and that a car does not plan at every laying.
+
+- **A car's plan is a kept hold** (`LaneOccupancy.BeginKeptHold`): its claims stay until the car lets go of it
+  (`DrivingGround.LetGoOfThePlan`) — another line, action or call, a pass, its nose on another piece of its line (a
+  piece's rung is levelled by what lies ahead of it), or more than twice `ClaimSlackM` asked beyond what it needs.
+  Every other hold — walkers, lights, passes, manoeuvres, backing, a hand or a tow — is begun for one laying and let go
+  of as the next begins.
+- **Kept, it is edited at its two ends and nowhere else**: let go of behind the nose past `TrimSlackM`, and asked further
+  from where it ends (`AskFurther`) where the car needs more or what cut it has gone (`IsWoken`) — the further piece
+  made one claim with the one it carries on, since a hold asked further a little at a time otherwise grew a claim a
+  laying and every run with it. A hold cut at a mark is asked afresh, since a further ask asks no mark short of where
+  it begins.
+- **Committed is a line a hold, not a rung on its claims** (`CommitTo`, `CommittedToDm`): one write as the car moves,
+  read only where a stronger piece meets a weaker held claim. Written on the claims — split at the edge, or the edge
+  moved between two — it was 2 % of `--bench room` at 28 700 calls a laying, about 175 ns each in cache misses: what
+  asking a whole plan again had cost.
+- **A body that comes to stand on kept ground cuts it there** (`StrikeTheKeptHolds`), read only on a row whose bodies
+  are not as they were — told by their count and by whether any was laid not as it was, which compares no runs.
+- **A car plans at its own laying, every second** (`Sim.PlanIntervalS`): between, its hold is committed from where it
+  now is and its grant read off it, so what cuts it reaches it at once; one its grant would hold short before its next
+  turn plans early, where what cut it has gone. Hard braking on OdesaOsm (`--bench drive`, car-ticks) was 12 708 on
+  the tree before: 16 645 planning at every third laying, 14 192 with the early plans, 12 855 at every second.
+- **Measured** (OdesaOsm, Release, one machine, against the tree before): `--bench room` 33.3 ms a laying against
+  30.4 — answering 4.9 against 6.5, cars' plans 9.4 against 8.4, the strike and the bodies' counts about 2 more;
+  13 700 plans a laying kept as they were, 8 200 asked further, 1 300 let go of. `--bench drive`: 6.75 m/s against
+  6.71, stuck 3 645 against 4 021, reds 114 against 97. The exam's thirteen failing cards are the same thirteen.
+
 ## 2026-10-14 — the world reads where a car is on its lane
 
 **The owner (2026-10-14), in their words: "Wait cpu calculates where the car is on the lane? That was supposed to be done

@@ -369,15 +369,15 @@ public class WalkingTests
     /// <remarks>
     /// <b>Stood on the paint by hand</b>, because no walk a town lays takes a zebra yet
     /// ([the known gaps](../../../../docs/index.md#known-gaps)): what this asks is what a body walking one
-    /// claims, and a case that waited for the router to offer a crossing would be asking about the router.
+    /// claims, and a case that waited for the router to offer a crossing would be asking about the router. <b>Asked of a
+    /// crossing nothing is on</b>: ground a car can no longer stop short of is above a walker (TER-5e), so a car committed
+    /// over the paint is no answer to what the walker plans.
     /// </remarks>
     [Fact]
     public void AWalkerOnAZebraHoldsEveryLaneUnderItWhole()
     {
         using var world = Walking(out var afoot);
-
-        var edge = ACrossingOfTheTown(world);
-        Assert.True(edge >= 0, "the town painted no zebra with a lane under it");
+        Assert.True(AQuietCrossing(world, out var edge, out _), "the town painted no zebra nobody was on");
 
         var person = afoot[0];
         var way = world.Ways.OfFootway(edge);

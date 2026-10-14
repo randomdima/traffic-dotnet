@@ -96,7 +96,7 @@ internal sealed partial class TownWorld
     {
         foreach (ref readonly var cover in _world.View.CoversOfCar(car))
         {
-            _occupancy.LayBody(cover.Way, cover.FromM, cover.ToM, car, LaneRoster.Driving);
+            _occupancy.LayBody(cover.Way, cover.FromM, cover.ToM, car, LaneRoster.Driving, asItWas: true);
         }
     }
 

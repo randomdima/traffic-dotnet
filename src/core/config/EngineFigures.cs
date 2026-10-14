@@ -71,6 +71,19 @@ internal sealed class SimFigures
     public float ClaimsIntervalS { get; init; } = 0.05f;
 
     /// <summary>
+    /// <b>How often a car on its route plans again</b> (the root decision log, 2026-10-14): each car at its own laying of
+    /// the claims, the cars spread evenly over the layings this spans. Between two of its own a car keeps the hold it
+    /// planned — committed as far as it can no longer stop short of, and cut by whatever takes it — and reads its grant
+    /// off that. At or under <see cref="ClaimsIntervalS"/> every car plans at every laying.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every second laying</b>: at every third, a car behind one pulling away braked hard for the grant it was last
+    /// given a tenth more often (`--bench drive`, OdesaOsm) — those its grant would hold short plan early, and that
+    /// still left it so.
+    /// </remarks>
+    public float PlanIntervalS { get; init; } = 0.1f;
+
+    /// <summary>
     /// <b>How many steps the world runs ahead of what the actors read of it</b> (<c>WorldLayer.StepsAhead</c>): a command
     /// acts on the world this many steps after the one it was read off.
     /// </summary>

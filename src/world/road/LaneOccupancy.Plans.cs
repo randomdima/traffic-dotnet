@@ -40,7 +40,13 @@ internal sealed partial class LaneOccupancy
         public ushort AtDm;
 
         /// <summary>A main piece: how many secondary claims follow it.</summary>
-        public ushort Marks;
+        public byte Marks;
+
+        /// <summary>
+        /// The rung it is held at in a kept hold, whose committed line says how much of it is committed
+        /// (<see cref="CommittedToDm"/>).
+        /// </summary>
+        public ClaimPriority Planned;
 
         public ClaimPriority Rung;
         public ClaimKind Kind;
@@ -79,6 +85,9 @@ internal sealed partial class LaneOccupancy
         public int Wishes;
         public int FirstClaim;
         public int LastClaim;
+
+        /// <summary>A kept hold: how far along its holder's line it is committed (<see cref="CommitTo"/>).</summary>
+        public float CommittedLineM;
     }
 
     /// <summary>
@@ -109,9 +118,37 @@ internal sealed partial class LaneOccupancy
     int _holdCount;
 
     /// <summary>
-    /// <b>A hold begun</b> for one holder: the ground it plans to use, asked a piece at a time
-    /// (<see cref="Ask"/>, <see cref="AskDown"/>, <see cref="AskSwept"/>, <see cref="Place"/>) and answered with every
-    /// other (<see cref="Answer"/>).
+    /// <b>A hold's life across rebuilds</b>: whether it holds anything at all, whether it is kept until its holder lets go
+    /// of it (<see cref="BeginKeptHold"/>), and the rebuild it was last answered or cut in.
+    /// </summary>
+    struct HoldLife
+    {
+        public bool Live;
+        public bool Kept;
+        public int AnsweredAt;
+
+        /// <summary>The turn the piece it was cut at was asked at, whether that piece ran down its way, and whether it was a secondary claim.</summary>
+        public byte CutTurn;
+
+        public bool CutAgainst;
+        public bool CutSecondary;
+    }
+
+    HoldLife[] _holdLife;
+
+    /// <summary>Holds let go of, begun again before the table grows.</summary>
+    int[] _freeHolds;
+    int _freeHoldCount;
+
+    /// <summary>The holds begun this rebuild that are not kept, every one let go of when the next begins (<see cref="Begin"/>).</summary>
+    int[] _forOneRebuild;
+
+    int _forOneRebuildCount;
+
+    /// <summary>
+    /// <b>A hold begun for this rebuild</b> for one holder: the ground it plans to use, asked a piece at a time
+    /// (<see cref="Ask"/>, <see cref="AskDown"/>, <see cref="AskSwept"/>, <see cref="Place"/>), answered with every
+    /// other (<see cref="Answer"/>), and let go of when the next rebuild begins.
     /// </summary>
     /// <param name="whole">
     /// <b>Had whole or not at all</b> (TER-4c.6): a pass or a manoeuvre not yet begun. Nothing of it is taken unless all of
@@ -120,45 +157,128 @@ internal sealed partial class LaneOccupancy
     /// </param>
     public int BeginHold(int occupant, LaneRoster of, bool whole = false)
     {
-        if (_holdCount == _holds.Length)
-        {
-            Array.Resize(ref _holds, 2 * _holds.Length);
-            Array.Resize(ref _holdStates, _holds.Length);
-        }
+        var hold = NewHold(occupant, of, whole, kept: false);
+        if (_forOneRebuildCount == _forOneRebuild.Length) Array.Resize(ref _forOneRebuild, 2 * _forOneRebuild.Length);
 
-        _holds[_holdCount] = new HoldRow
-        {
-            Cut = Refusal.Whole, WishFrom = _wishCount, Wishes = 0, FirstClaim = NoSlot, LastClaim = NoSlot,
-        };
-        _holdStates[_holdCount] = new HoldState { Key = KeyOf(occupant, of), Whole = whole };
-        return _holdCount++;
+        _forOneRebuild[_forOneRebuildCount++] = hold;
+        return hold;
     }
 
-    /// <summary>How many holds this rebuild began.</summary>
+    /// <summary>
+    /// <b>A hold kept from one rebuild to the next</b> (the root decision log, 2026-10-14): what it holds and what it came
+    /// to stay as they are until its holder edits its own ground (<see cref="CommitTo"/>, <see cref="TrimBehind"/>,
+    /// <see cref="AskFurther"/>) or lets go of it (<see cref="Release"/>) — or a stronger piece or a body cuts it
+    /// (<see cref="Answer"/>, <see cref="CloseTheBodies"/>).
+    /// </summary>
+    public int BeginKeptHold(int occupant, LaneRoster of) => NewHold(occupant, of, whole: false, kept: true);
+
+    int NewHold(int occupant, LaneRoster of, bool whole, bool kept)
+    {
+        int hold;
+        if (_freeHoldCount > 0)
+        {
+            hold = _freeHolds[--_freeHoldCount];
+        }
+        else
+        {
+            if (_holdCount == _holds.Length)
+            {
+                Array.Resize(ref _holds, 2 * _holds.Length);
+                Array.Resize(ref _holdStates, _holds.Length);
+                Array.Resize(ref _holdLife, _holds.Length);
+                Array.Resize(ref _freeHolds, _holds.Length);
+            }
+
+            hold = _holdCount++;
+        }
+
+        _holds[hold] = new HoldRow
+        {
+            Cut = Refusal.Whole, WishFrom = _wishCount, Wishes = 0, FirstClaim = NoSlot, LastClaim = NoSlot,
+            CommittedLineM = float.NegativeInfinity,
+        };
+        _holdStates[hold] = new HoldState { Key = KeyOf(occupant, of), Whole = whole };
+        _holdLife[hold] = new HoldLife { Live = true, Kept = kept, AnsweredAt = _laying };
+        return hold;
+    }
+
+    /// <summary>How many holds the table has been laid for: every one live now, and those let go of to be begun again.</summary>
     public int HoldCount => _holdCount;
 
     /// <summary>
-    /// <b>Every claim a hold has, let go of</b>: each taken out of its way's run, and the hold left holding nothing and
-    /// answered as nothing (<see cref="CutOf"/>).
+    /// <b>Whether a kept hold of this holder's may be kept through this rebuild as it stands</b>: it is live, and nothing
+    /// has changed where it was cut since (<see cref="IsWoken"/>) — a body on it having cut it already
+    /// (<see cref="CloseTheBodies"/>).
     /// </summary>
-    void LetGoOf(int hold)
+    public bool CanKeep(int hold, int occupant, LaneRoster of) =>
+        IsKeptBy(hold, occupant, of) && !IsWoken(hold);
+
+    /// <summary>
+    /// Whether a hold was cut at one of its marks — whose secondary claim, refused, is one a further ask from the cut
+    /// would not ask again (<see cref="AskFurther"/>).
+    /// </summary>
+    public bool IsCutAtAMark(int hold) => _holds[hold].Cut.Refused && _holdLife[hold].CutSecondary;
+
+    /// <summary>Whether a hold is live, kept and this holder's.</summary>
+    public bool IsKeptBy(int hold, int occupant, LaneRoster of) =>
+        hold != NoHold && hold < _holdCount && _holdLife[hold].Live && _holdLife[hold].Kept
+        && _holdStates[hold].Key == KeyOf(occupant, of);
+
+    /// <summary>
+    /// <b>Whether what cut a hold has gone from where it cut it</b>, so asking again comes to more: nothing that would still
+    /// refuse the piece it was cut at — a body, or a claim answered no later than it — stands on the decimetre it met,
+    /// travelling the way it travelled.
+    /// </summary>
+    public bool IsWoken(int hold)
     {
+        CloseTheBodies();
+        var cut = _holds[hold].Cut;
+        if (!cut.Refused || cut.Way == NoWay) return false;
+
+        var row = RowOf(cut.Way);
+        if (row == NoRow) return true;
+
+        ref readonly var life = ref _holdLife[hold];
+        if (_bodiesChangedAt[row] <= life.AnsweredAt && _claimsChangedAt[row] <= life.AnsweredAt) return false;
+
+        var (fromDm, toDm) = life.CutAgainst
+            ? ((ushort)Math.Max(0, cut.AtDm - 1), cut.AtDm)
+            : (cut.AtDm, (ushort)Math.Min(ushort.MaxValue, cut.AtDm + 1));
+        var key = _holdStates[hold].Key;
+        var against = life.CutAgainst;
+        if (MainIn(row, fromDm, toDm, key, against, life.CutTurn, out _, out _)) return false;
+        if (life.CutSecondary) return true;
+
+        return !BodyIn(row, fromDm, toDm, key, against, out _, out _)
+               && !SecondaryIn(row, fromDm, toDm, key, against, life.CutTurn, out _, out _);
+    }
+
+    /// <summary>
+    /// <b>Every claim a hold has, let go of</b>: each taken out of its way's run, and the hold given back, holding nothing
+    /// and answered as nothing (<see cref="CutOf"/>). A hold already let go of is passed over.
+    /// </summary>
+    public void Release(int hold)
+    {
+        if (hold == NoHold || hold >= _holdCount || !_holdLife[hold].Live) return;
+
         ref var row = ref _holds[hold];
         for (var claim = row.FirstClaim; claim != NoSlot; claim = _owners[claim].HoldNext) LetGo(claim);
 
         row.FirstClaim = row.LastClaim = NoSlot;
         row.Cut = Refusal.Whole;
+        _holdLife[hold].Live = false;
+        _freeHolds[_freeHoldCount++] = hold;
     }
 
-    /// <summary>Every hold let go of, and none kept: the rebuild begins with nothing held but what is laid in it.</summary>
-    void LetGoOfEveryHold()
+    /// <summary>Every hold begun for the rebuild before and not kept, let go of.</summary>
+    void LetGoOfTheHoldsForOneRebuild()
     {
-        for (var hold = 0; hold < _holdCount; hold++) LetGoOf(hold);
+        foreach (var hold in _forOneRebuild.AsSpan(0, _forOneRebuildCount))
+        {
+            if (!_holdLife[hold].Kept) Release(hold);
+        }
 
-        Debug.Assert(_freeSlotCount == _slotCount, "a claim held by no hold");
-        _holdCount = 0;
-        _slotCount = 0;
-        _freeSlotCount = 0;
+        _forOneRebuildCount = 0;
     }
 
     /// <summary>
@@ -171,8 +291,33 @@ internal sealed partial class LaneOccupancy
     /// nothing, and ground it already stands on is no more its own for being asked.
     /// </remarks>
     /// <param name="lineFromM">Where <paramref name="fromM"/> falls on the holder's line.</param>
-    public void Ask(int hold, int way, float fromM, float toM, float lineFromM, ClaimPriority rung) =>
-        AskUp(hold, way, fromM, toM, WishLine.Up, lineFromM - fromM, rung);
+    /// <param name="further">
+    /// <b>Asked past what a kept hold already holds</b> (<see cref="AskFurther"/>): no mark is asked that begins short of
+    /// <paramref name="fromM"/>, since the hold already has it.
+    /// </param>
+    public void Ask(int hold, int way, float fromM, float toM, float lineFromM, ClaimPriority rung, bool further = false) =>
+        AskUp(hold, way, fromM, toM, WishLine.Up, lineFromM - fromM, rung, rung, further);
+
+    /// <summary>
+    /// <see cref="Ask"/> of committed ground (<see cref="ClaimPriority.Committed"/>) in a kept hold, which is held at
+    /// <paramref name="planned"/>, committed as far as its hold's committed line says (<see cref="CommitTo"/>).
+    /// </summary>
+    public void AskCommitted(
+        int hold, int way, float fromM, float toM, float lineFromM, ClaimPriority planned, bool further = false) =>
+        AskUp(hold, way, fromM, toM, WishLine.Up, lineFromM - fromM, ClaimPriority.Committed, planned, further);
+
+    /// <summary>
+    /// <b>A kept hold asked further</b>, from where it is cut or where all it asked for ends: what it came to forgotten
+    /// until what it now asks is answered with every other piece (<see cref="Answer"/>), its claims kept as they are.
+    /// </summary>
+    public void AskFurther(int hold)
+    {
+        _holds[hold].Cut = Refusal.Whole;
+        _holds[hold].WishFrom = _wishCount;
+        _holds[hold].Wishes = 0;
+        _holdStates[hold].Cut = false;
+        _holdStates[hold].Taken = false;
+    }
 
     /// <summary>
     /// <b>Ground a body is swept over off its own line</b> (TER-4c.6) — a pass's, a step's or a manoeuvre's: asked as
@@ -180,9 +325,11 @@ internal sealed partial class LaneOccupancy
     /// since a way's metres there say nothing of the line's.
     /// </summary>
     public void AskSwept(int hold, int way, float fromM, float toM, float stopLineM, ClaimPriority rung) =>
-        AskUp(hold, way, fromM, toM, WishLine.Fixed, stopLineM, rung);
+        AskUp(hold, way, fromM, toM, WishLine.Fixed, stopLineM, rung, rung, further: false);
 
-    void AskUp(int hold, int way, float fromM, float toM, WishLine line, float lineM, ClaimPriority rung)
+    void AskUp(
+        int hold, int way, float fromM, float toM, WishLine line, float lineM, ClaimPriority rung, ClaimPriority planned,
+        bool further)
     {
         if (hold == NoHold) return;
 
@@ -196,20 +343,20 @@ internal sealed partial class LaneOccupancy
         if (toDm <= fromDm) return;
 
         if (row == NoRow) row = Touch(way);
-        var main = Add(ref of, state.Whole, hold, row, fromDm, toDm, 0, rung, ClaimKind.Main, line, lineM);
+        var main = Add(ref of, state.Whole, hold, row, fromDm, toDm, 0, rung, planned, ClaimKind.Main, line, lineM);
         var marks = 0;
         foreach (ref readonly var mark in MarksOf(way))
         {
             if (mark.MineFromDm >= toDm) break;
-            if (mark.MineToDm <= fromDm) continue;
+            if (further ? mark.MineFromDm < fromDm : mark.MineToDm <= fromDm) continue;
 
             Add(
                 ref of, state.Whole, hold, Touch(mark.OnWay), mark.FromDm, mark.ToDm, Math.Max(fromDm, mark.MineFromDm),
-                rung, ClaimKind.Secondary, line, lineM);
+                rung, planned, ClaimKind.Secondary, line, lineM);
             marks++;
         }
 
-        _wishes[main].Marks = (ushort)marks;
+        _wishes[main].Marks = checked((byte)marks);
     }
 
     /// <summary>
@@ -234,7 +381,7 @@ internal sealed partial class LaneOccupancy
         if (row == NoRow) row = Touch(way);
         var lineAtNoughtM = lineAtToM + toM;
         var main = Add(
-            ref of, state.Whole, hold, row, fromDm, toDm, 0, rung, ClaimKind.Main, WishLine.Down, lineAtNoughtM);
+            ref of, state.Whole, hold, row, fromDm, toDm, 0, rung, rung, ClaimKind.Main, WishLine.Down, lineAtNoughtM);
         var count = 0;
         var marks = MarksOf(way);
         for (var index = marks.Length - 1; index >= 0; index--)
@@ -244,12 +391,12 @@ internal sealed partial class LaneOccupancy
 
             var markDm = Math.Min(toDm, mark.MineToDm);
             Add(
-                ref of, state.Whole, hold, Touch(mark.OnWay), mark.FromDm, mark.ToDm, markDm, rung, ClaimKind.Secondary,
-                WishLine.Down, lineAtNoughtM);
+                ref of, state.Whole, hold, Touch(mark.OnWay), mark.FromDm, mark.ToDm, markDm, rung, rung,
+                ClaimKind.Secondary, WishLine.Down, lineAtNoughtM);
             count++;
         }
 
-        _wishes[main].Marks = (ushort)count;
+        _wishes[main].Marks = checked((byte)count);
     }
 
     /// <summary>
@@ -269,8 +416,8 @@ internal sealed partial class LaneOccupancy
         if (toDm <= fromDm) return;
 
         Add(
-            ref _holds[hold], _holdStates[hold].Whole, hold, Touch(way), fromDm, toDm, 0, rung, ClaimKind.Secondary,
-            WishLine.Fixed, fromM);
+            ref _holds[hold], _holdStates[hold].Whole, hold, Touch(way), fromDm, toDm, 0, rung, rung,
+            ClaimKind.Secondary, WishLine.Fixed, fromM);
     }
 
     /// <summary>
@@ -286,7 +433,7 @@ internal sealed partial class LaneOccupancy
     /// <returns>Where it was written.</returns>
     int Add(
         ref HoldRow of, bool whole, int hold, int row, ushort fromDm, ushort toDm, ushort atDm, ClaimPriority rung,
-        ClaimKind kind, WishLine line, float lineM)
+        ClaimPriority planned, ClaimKind kind, WishLine line, float lineM)
     {
         if (whole && (of.WishFrom + of.Wishes != _wishCount || (of.Wishes > 0 && _wishes[of.WishFrom].Rung != rung)))
         {
@@ -302,6 +449,7 @@ internal sealed partial class LaneOccupancy
         wish.AtDm = atDm;
         wish.Marks = 0;
         wish.Rung = rung;
+        wish.Planned = planned;
         wish.Kind = kind;
         wish.Line = line;
         wish.Turn = (byte)((2 * (int)rung) + (whole ? 1 : 0));
@@ -319,9 +467,10 @@ internal sealed partial class LaneOccupancy
     public (int Holds, int Mains, int Secondaries) AskedBy(LaneRoster roster)
     {
         var (holds, mains, seconds) = (0, 0, 0);
-        foreach (ref readonly var hold in _holdStates.AsSpan(0, _holdCount))
+        for (var hold = 0; hold < _holdCount; hold++)
         {
-            if (hold.Key != NoKey && RosterOf(hold.Key) == roster) holds++;
+            var key = _holdStates[hold].Key;
+            if (_holdLife[hold].Live && key != NoKey && RosterOf(key) == roster) holds++;
         }
 
         foreach (ref readonly var wish in _wishes.AsSpan(0, _wishCount))

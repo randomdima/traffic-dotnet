@@ -30,6 +30,7 @@ internal static class RoomProbe
         var marks = world.Atlas.Marks;
         var rebuilds = 0;
         var layingFrom = world.LayingTicks.ToArray();
+        var keptFrom = world.PlansKept.ToArray();
         var (holds, wishes, bodies, mains, seconds, holders) = (new Tally(), new Tally(), new Tally(), new Tally(), new Tally(), new Tally());
         var (laidBodies, ways) = (new Tally(), new Tally());
         var (driven, drivenAtRest, walking, walkingAtRest) = (new Tally(), new Tally(), new Tally(), new Tally());
@@ -139,6 +140,11 @@ internal static class RoomProbe
         var spentMs = stages.Select(stage => (world.LayingTicks[(int)stage] - layingFrom[(int)stage]) * msPer).ToArray();
         Console.WriteLine(
             $"a laying {spentMs.Sum():F2} ms: " + string.Join(", ", stages.Select((stage, at) => $"{stage} {spentMs[at]:F2}")));
+        var kept = world.PlansKept.ToArray();
+        var keptPer = Enum.GetValues<PlanKept>().Select(of => (kept[(int)of] - keptFrom[(int)of]) / Math.Max(1, rebuilds)).ToArray();
+        Console.WriteLine(
+            $"car plans a laying: {keptPer[(int)PlanKept.AsItIs]:N0} kept as they were, " +
+            $"{keptPer[(int)PlanKept.ToBeAskedFurther]:N0} asked further, {keptPer[(int)PlanKept.No]:N0} let go of");
         Console.WriteLine($"{"a rebuild",-12}{"average",10}{"most",10}");
         driven.Print("cars driven", rebuilds);
         drivenAtRest.Print("  at rest", rebuilds);

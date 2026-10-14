@@ -81,41 +81,6 @@ hold is apart from what it came to** (`HoldState`, 8 bytes): read off the whole 
 - *Each turn's pieces linked as they are asked*, instead of sorted by turn before answering: answering 8.52 ms
   against 8.06. Following the links serialises the reads the sorted order lets the core run ahead on.
 
-## 2026-10-12 — the claims are laid afresh every laying, not kept by their holders
-
-**Tried at the owner's asking and taken out at their ruling.** Holds were kept from laying to laying: each holder
-gave back what it had passed, asked a slack ahead only once it held less than it needed, and a stronger rung took
-held ground that was not committed; bodies were moved in place, lights' holds kept while they stood. On
-`--bench room --map O10` against this tree, run back to back, a laying took 12.1 ms against 9.6 (half the cores),
-and on OdesaOsm 62.6 against 38.4 (all cores); the exam lost cards 81 and 85.
-
-**What is kept did get cheaper, and what moves did not.** Asks fell from 24 000 a laying to 3 700, and answering
-from 1.05 to 0.90 ms. But on O10 every laying still moves some 6 400 bodies and trims some 7 700 plans at their near
-edge — a moving agent's body front and its plan's start move with it whether or not anything is decided — and an
-edit in place in a way's sorted run cost 140–190 ns against about 15 ns for a body appended and sorted with its way.
-Those two edits alone (2.35 ms) cost more than this tree's whole store (2.6 ms). The rest of the difference was work
-done twice: a car's committed ground kept as a second hold and asked again every laying, a body's new ground searched
-for other holders' plans that were its own holder's 8 800 times in 8 900, and 200 manoeuvres a laying still begun
-afresh.
-
-**Why not keep the decisions and lay the positions afresh**: worked through, it reached this tree's cost on O10 and
-beat it only where most agents stand still, at the price of two models in one store. A sort-and-scan laying is also
-the shape the device runs (root decision log: the whole engine on the device), and per-agent edits are not. The
-counts and costs are from a counted copy of the kept tree.
-
-**Tried again on the threaded slots (2026-10-13), at the owner's asking, and taken out.** The kept tree's holding
-ported onto the slot table, a run linked both ways, so a claim is taken out or moved where it lies without shifting
-or walking the run; and with three changes of its own: a car's committed ground marked on its plan's own claims (a
-decimetre each claim is committed short of) rather than kept as a second hold asked every laying, one line shift a
-hold rather than every piece read onto the line again, and a hold kept whole where its holder's nose stands at the
-end of a way (the kept tree gave back the join ahead too, and a cut car waited holding nothing). With the machine
-idle, `--bench room`: O10 5.6 ms against 3.8, OdesaOsm 43.2 against 28.2 (the first port 65.3, before those three).
-Answering was the one stage it won, 4.8 against 5.4, on 57 000 pieces asked a laying against 238 000. What it lost
-is upkeep: bodies 9.0 against 2.7, cars' plans 17.0 against 9.9, walks 6.4 against 4.2. Every moving body and plan is
-still edited every laying, each edit reading its hold, its pieces, its neighbours and its run cold, and a run walked
-from its head ran at 0.09 instructions a cycle. Exam: card 60 passed, 85 failed. A body moved in one pass instead of
-two, and a claim moved past a neighbour threaded again from where it was, gained nothing.
-
 ## 2026-10-12 — the claims are runs of decimetres, taken in one pass strongest first, and say nothing of who
 
 **The owner asked for the claims to be simpler and exact**: a claim's edges as `ushort` decimetres from the way's

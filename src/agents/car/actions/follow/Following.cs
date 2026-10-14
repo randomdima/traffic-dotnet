@@ -135,7 +135,8 @@ internal sealed class Following(
         var planFromM = overtaking.PlannedFromM(car);
 
         // <b>No further than a plan may reach</b>, and never short of what the car can no longer stop short of.
-        var planToM = MathF.Min(MathF.Max(committedToM, MathF.Min(wantedToM, HorizonToM(car, planFromM, build))), lengthM);
+        var planToM = MathF.Min(
+            MathF.Max(committedToM, MathF.Min(wantedToM, HorizonToM(car, planFromM, build, out var joinsEndM))), lengthM);
 
         // <b>A box is ground a car cannot give back once it cannot stop short of the mouth</b>: it is going in, so
         // the whole of the join is committed. A car already in one plans the rest of the join and its own length
@@ -153,12 +154,37 @@ internal sealed class Following(
         // A pass that reaches past all the car means to plan is the whole of its ground: whatever refuses that is all
         // that holds the car.
         var passHold = TheHoldOfItsPass(car);
-        if (planToM <= planFromM && passHold == LaneOccupancy.NoHold) return;
+        if (planToM <= planFromM && passHold == LaneOccupancy.NoHold)
+        {
+            ground.LetGoOfThePlan(car);
+            return;
+        }
+
+        // <b>A plan that still holds what the car needs is kept</b> (the root decision log, 2026-10-14) — one carried on
+        // from a pass is the pass's, and asked again with it.
+        var ownPlan = passHold == LaneOccupancy.NoHold;
+
+        // Asked past what it needs by a slack, so it need not ask again until it needs more: never past a join it may not
+        // pass, nor past its line's end.
+        var askedToM = ownPlan
+            ? MathF.Max(planToM, MathF.Min(planToM + Config.Driving.ClaimSlackM, MathF.Min(lengthM, joinsEndM)))
+            : planToM;
+        if (ownPlan)
+        {
+            var kept = ground.KeepsThePlan(car, planFromM, planToM, committedToM, standOffM, out var reachM);
+            if (kept == PlanKept.AsItIs) return;
+            if (kept == PlanKept.ToBeAskedFurther && AskedFurther(car, planFromM, reachM, askedToM, committedToM, ways))
+            {
+                return;
+            }
+        }
 
         var hold = ground.BeginThePlan(car, standOffM, passHold);
         if (planToM <= planFromM) return;
 
-        var count = ground.WaysAlong(car, planFromM, planToM, ways);
+        if (ownPlan) ground.AskedThePlan(car, hold, planFromM, askedToM, committedToM);
+
+        var count = ground.WaysAlong(car, planFromM, askedToM, ways);
         Span<ClaimPriority> rungs = stackalloc ClaimPriority[count];
         LevelTheRungs(car, ways[..count], rungs);
 
@@ -168,12 +194,82 @@ internal sealed class Following(
             var committedOnWayM = OnTheWayM(way, committedToM);
             if (committedOnWayM > way.FromM)
             {
-                Occupancy.Ask(hold, way.Way, way.FromM, committedOnWayM, way.LineFromM, ClaimPriority.Committed);
+                Occupancy.AskCommitted(hold, way.Way, way.FromM, committedOnWayM, way.LineFromM, rungs[index]);
             }
 
             var fromM = MathF.Max(way.FromM, committedOnWayM);
             if (way.ToM > fromM) Occupancy.Ask(hold, way.Way, fromM, way.ToM, OnTheLineM(way, fromM), rungs[index]);
         }
+    }
+
+    /// <summary>
+    /// <b>A car between two of its turns to plan keeps the plan it holds</b> (<see cref="SimFigures.PlanIntervalS"/>),
+    /// committed as far as it can no longer stop short of from where it now is — unless it is on a pass, whose plan is
+    /// the pass's, or holds no plan of its own on its line and action (<see cref="DrivingGround.HoldsBetweenTurns"/>).
+    /// <b>A car its grant would hold short before its next turn plans now</b>, where what cut it has moved on: a stale grant
+    /// behind a car pulling away is braked for.
+    /// </summary>
+    public bool HoldsBetweenTurns(int car)
+    {
+        if (TheHoldOfItsPass(car) != LaneOccupancy.NoHold) return false;
+
+        var alongMps = MathF.Max(0f, Cars.AlongMps[car]);
+        var noseM = Cars.ProgressM[car] + ground.LeadingEdgeAheadOfTheAxleM(car);
+        var committedM = CarFollower.SlowsOverM(Cars.BuildOf(car), alongMps);
+        var binds = Cars.GrantLeftM(car) < committedM + (alongMps * Config.Sim.PlanIntervalS);
+        if (!ground.HoldsBetweenTurns(car, noseM + committedM, binds)) return false;
+
+        Cars.CommittedToM[car] = noseM + committedM;
+        return true;
+    }
+
+    /// <summary>
+    /// <b>A kept plan asked further</b> (the root decision log, 2026-10-14): from <paramref name="reachM"/>, where it is cut
+    /// or all it asked for ends, to <paramref name="askedToM"/> — the ground the car can no longer stop short of committed,
+    /// the rest at the rung each way is levelled to over the whole plan. Not where reaching further would level a piece it
+    /// holds to another rung: that plan is asked afresh.
+    /// </summary>
+    /// <returns>Whether it was asked further, or held all of it already.</returns>
+    bool AskedFurther(int car, float planFromM, float reachM, float askedToM, float committedToM, Span<LineWay> ways)
+    {
+        if (askedToM <= reachM) return true;
+
+        Span<LineWay> held = stackalloc LineWay[DrivingGround.MostWaysAlongALine];
+        var heldCount = ground.WaysAlong(car, planFromM, ground.AskedToM(car), held);
+        var count = ground.WaysAlong(car, planFromM, askedToM, ways);
+        Span<ClaimPriority> heldRungs = stackalloc ClaimPriority[heldCount];
+        Span<ClaimPriority> rungs = stackalloc ClaimPriority[count];
+        LevelTheRungs(car, held[..heldCount], heldRungs);
+        LevelTheRungs(car, ways[..count], rungs);
+        for (var index = 0; index < heldCount; index++)
+        {
+            if (index >= count || heldRungs[index] != rungs[index]) return false;
+        }
+
+        var hold = ground.PlanHold[car];
+        Occupancy.AskFurther(hold);
+        for (var index = 0; index < count; index++)
+        {
+            ref readonly var way = ref ways[index];
+            var fromM = OnTheWayM(way, reachM);
+            if (way.ToM <= fromM) continue;
+
+            var committedOnWayM = OnTheWayM(way, committedToM);
+            if (committedOnWayM > fromM)
+            {
+                Occupancy.AskCommitted(
+                    hold, way.Way, fromM, committedOnWayM, OnTheLineM(way, fromM), rungs[index], further: true);
+            }
+
+            var restFromM = MathF.Max(fromM, committedOnWayM);
+            if (way.ToM > restFromM)
+            {
+                Occupancy.Ask(hold, way.Way, restFromM, way.ToM, OnTheLineM(way, restFromM), rungs[index], further: true);
+            }
+        }
+
+        ground.AskedFurther(car, askedToM);
+        return true;
     }
 
     /// <summary>
@@ -221,18 +317,23 @@ internal sealed class Following(
     /// <b>A join the nose is already past the mouth of is not counted</b>: the car is in it, and a car in a box
     /// plans its way out of it whatever this says.
     /// </remarks>
-    float HorizonToM(int car, float fromM, in CarBuild build)
+    /// <param name="joinsEndM">Where the joins it may pass end it, or infinity where the distance does first.</param>
+    float HorizonToM(int car, float fromM, in CarBuild build, out float joinsEndM)
     {
+        joinsEndM = float.PositiveInfinity;
         var reach = ReachShare(car);
         var toM = fromM + (MathF.Min(Config.Driving.PlanMostM, build.SightM) * reach);
         var ends = Cars.LaneEndsOf(car);
         var breaks = Cars.JoinBreaksOf(car);
         var mostJoins = (int)MathF.Round(Config.Driving.PlanMostJoins * reach);
         var passed = 0;
-        for (var slot = 0; slot + 1 < Cars.Line[car].LaneCount && ends[slot] < toM; slot++)
+        for (var slot = 0; slot + 1 < Cars.Line[car].LaneCount; slot++)
         {
             if (ends[slot] <= fromM || !breaks[slot]) continue;
-            if (++passed > mostJoins) return ends[slot];
+            if (++passed <= mostJoins) continue;
+
+            joinsEndM = ends[slot];
+            return MathF.Min(toM, joinsEndM);
         }
 
         return toM;

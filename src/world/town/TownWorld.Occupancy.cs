@@ -76,7 +76,8 @@ internal sealed partial class TownWorld
 
         at = Spent(LayingStage.Lights, at);
         Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];
-        foreach (var car in CarsAsked) PlanTheDrive(car, ways);
+        var laying = _layings / 2;
+        foreach (var car in CarsAsked) PlanTheDrive(car, ways, _plans.Turn(laying, car));
 
         at = Spent(LayingStage.Drives, at);
         Span<LineWay> walk = stackalloc LineWay[WalkingGround.MostWaysAlongAWalk];
@@ -115,6 +116,9 @@ internal sealed partial class TownWorld
 
     /// <summary>The <see cref="System.Diagnostics.Stopwatch"/> time every laying has spent in each stage, for an instrument.</summary>
     public long[] LayingTicks { get; } = new long[Enum.GetValues<LayingStage>().Length];
+
+    /// <summary>How many car plans every laying has kept as they were, asked further, or asked afresh, for an instrument.</summary>
+    public ReadOnlySpan<long> PlansKept => _ground.PlansKept;
 
     long Spent(LayingStage stage, long from)
     {

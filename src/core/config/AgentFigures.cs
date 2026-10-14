@@ -479,6 +479,19 @@ internal sealed class DrivingFigures
     public int PlanMostJoins { get; init; } = 2;
 
     /// <summary>
+    /// <b>How far past what it needs a car asks for its plan</b> (TER-4c.1), so that it keeps what it holds rather than
+    /// asking again until it needs more than it has, or has this much twice over to spare (the root decision log,
+    /// 2026-10-14). Never past a join its plan may not pass, nor past its line's end.
+    /// </summary>
+    public float ClaimSlackM { get; init; } = 5f;
+
+    /// <summary>
+    /// <b>How far past where its plan begins a car drives before letting go of the ground behind its nose</b>: short of
+    /// the shortest car, so the ground it has driven past and still holds is under its own body.
+    /// </summary>
+    public float TrimSlackM { get; init; } = 2f;
+
+    /// <summary>
     /// <b>How far a join's curvature may depart from the lane it leaves and still carry the road on</b> (TER-4c.1),
     /// as a step in curvature: past it, the join is a turn or a kink and counts against
     /// <see cref="PlanMostJoins"/>.

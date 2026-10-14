@@ -330,6 +330,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _ground = new DrivingGround(Cars, _occupancy, _ways, _roads, _lines, config);
         _carHold = _ground.PlanHold;
         _decisions = new TickGroups(config.Sim.AgentDecisionIntervalS, config.Sim.TickRateHz);
+        var layingTicks = new TickGroups(config.Sim.ClaimsIntervalS, config.Sim.TickRateHz).Groups;
+        _plans = new TickGroups(config.Sim.PlanIntervalS, Math.Max(1, (int)MathF.Round(config.Sim.TickRateHz / (float)layingTicks)));
         _carActions = new CarActions(_ground, _manoeuvres);
         _overtaking = new Overtaking(_ground, _carActions);
         _switching = new Switching(_ground, _carActions);

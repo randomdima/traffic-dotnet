@@ -51,15 +51,144 @@ internal sealed class DrivingGround(
     readonly float[] _planMarginM = new float[cars.Capacity];
 
     /// <summary>
-    /// <b>A car's plan begun</b> for this rebuild: its hold, and the ground it keeps off whatever cuts it.
+    /// <b>What a car's kept plan holds</b> (<see cref="LaneOccupancy.BeginKeptHold"/>): the line, the action, the call and
+    /// the piece of line its nose was on when it was asked, and how far along the line it holds from and was asked to.
+    /// </summary>
+    record struct HeldPlan(int Hold, uint Line, CarAction Action, bool BlueLight, int NoseOn, float FromM, float ToM);
+
+    readonly HeldPlan[] _held = new HeldPlan[cars.Capacity];
+
+    /// <summary>How many plans have come to each <see cref="PlanKept"/>, for an instrument.</summary>
+    public long[] PlansKept { get; } = new long[Enum.GetValues<PlanKept>().Length];
+
+    /// <summary>
+    /// <b>A car's plan kept</b>, where what it holds still serves what the car needs (the root decision log, 2026-10-14):
+    /// the same line, action and call; the nose on the piece of the line it was asked from, so every piece is held at the
+    /// rung a plan asked now would level it to; and what it means to reach short of what was asked by no more than twice
+    /// <see cref="DrivingFigures.ClaimSlackM"/>. Its own ground is then edited where it lies: let go of behind the nose
+    /// once that is <see cref="DrivingFigures.TrimSlackM"/> on, and committed as far as the car now cannot stop short of
+    /// (<see cref="LaneOccupancy.CommitTo"/>).
+    /// </summary>
+    /// <returns>
+    /// <see cref="PlanKept.AsItIs"/> where it holds all the car needs and nothing has changed where it was cut
+    /// (<see cref="LaneOccupancy.IsWoken"/>); <see cref="PlanKept.ToBeAskedFurther"/>, from <paramref name="reachM"/>,
+    /// where it does not; <see cref="PlanKept.No"/> where the plan is to be asked afresh.
+    /// </returns>
+    public PlanKept KeepsThePlan(int car, float fromM, float toM, float committedToM, float marginM, out float reachM)
+    {
+        reachM = float.NaN;
+        ref var held = ref _held[car];
+        var driving = Config.Driving;
+        if (held.Line != Cars.LinesLaid[car] || held.Action != Cars.Action[car] || held.BlueLight != Cars.BlueLight[car]
+            || fromM < held.FromM || held.ToM - toM > 2f * driving.ClaimSlackM || held.NoseOn != PieceOfTheLine(car, fromM)
+            || !Occupancy.IsKeptBy(held.Hold, car, LaneRoster.Driving))
+        {
+            PlansKept[(int)PlanKept.No]++;
+            return PlanKept.No;
+        }
+
+        reachM = HeldToM(held);
+        var further = toM > held.ToM || committedToM > reachM || Occupancy.IsWoken(held.Hold);
+        if (further && Occupancy.IsCutAtAMark(held.Hold))
+        {
+            PlansKept[(int)PlanKept.No]++;
+            return PlanKept.No;
+        }
+
+        var kept = further ? PlanKept.ToBeAskedFurther : PlanKept.AsItIs;
+        PlansKept[(int)kept]++;
+        if (fromM - held.FromM > driving.TrimSlackM)
+        {
+            Occupancy.TrimBehind(held.Hold, fromM);
+            held.FromM = fromM;
+        }
+
+        Occupancy.CommitTo(held.Hold, committedToM);
+        PlanHold[car] = held.Hold;
+        _planMarginM[car] = marginM;
+        return kept;
+    }
+
+    /// <summary>
+    /// <b>A car's kept plan held between two of its turns to plan</b>, where it is still the plan of the car's line, action
+    /// and call: committed to <paramref name="committedToM"/>, and its grant read off it as the laying's is
+    /// (<see cref="ReadTheGrant"/>) — against where the car was when it last planned.
+    /// </summary>
+    /// <param name="binds">Whether its grant holds it short before its next turn — so that it is not held where it is woken.</param>
+    /// <returns>Whether it holds one, and is held by it.</returns>
+    public bool HoldsBetweenTurns(int car, float committedToM, bool binds)
+    {
+        ref readonly var held = ref _held[car];
+        if (held.Line != Cars.LinesLaid[car] || held.Action != Cars.Action[car] || held.BlueLight != Cars.BlueLight[car]
+            || PlanHold[car] != held.Hold || !Occupancy.IsKeptBy(held.Hold, car, LaneRoster.Driving)
+            || (binds && Occupancy.IsWoken(held.Hold)))
+        {
+            return false;
+        }
+
+        Occupancy.CommitTo(held.Hold, committedToM);
+        return true;
+    }
+
+    /// <summary>How far along its line a kept plan holds: where it was cut, or all it asked for.</summary>
+    float HeldToM(in HeldPlan held)
+    {
+        var cut = Occupancy.CutOf(held.Hold);
+        return cut.Refused ? cut.CutLineM : held.ToM;
+    }
+
+    /// <summary>How far along its line a car's kept plan was asked for.</summary>
+    public float AskedToM(int car) => _held[car].ToM;
+
+    /// <summary>
+    /// What a car's kept plan was asked for (<see cref="KeepsThePlan"/>), and the ground it can no longer stop short of
+    /// committed (<see cref="LaneOccupancy.CommitTo"/>).
+    /// </summary>
+    public void AskedThePlan(int car, int hold, float fromM, float toM, float committedToM)
+    {
+        _held[car] = new HeldPlan(
+            hold, Cars.LinesLaid[car], Cars.Action[car], Cars.BlueLight[car], PieceOfTheLine(car, fromM), fromM, toM);
+        Occupancy.CommitTo(hold, committedToM);
+    }
+
+    /// <summary>A car's kept plan asked further, now to <paramref name="toM"/> (<see cref="PlanKept.ToBeAskedFurther"/>).</summary>
+    public void AskedFurther(int car, float toM) => _held[car].ToM = toM;
+
+    /// <summary>A car's kept plan let go of, where it has one — before it asks for another, or where it plans none.</summary>
+    public void LetGoOfThePlan(int car)
+    {
+        ref var held = ref _held[car];
+        if (Occupancy.IsKeptBy(held.Hold, car, LaneRoster.Driving)) Occupancy.Release(held.Hold);
+
+        held.Hold = LaneOccupancy.NoHold;
+    }
+
+    /// <summary>Which piece of a car's line a place on it is on: twice a lane's slot, or one less for the join into it.</summary>
+    int PieceOfTheLine(int car, float lineM)
+    {
+        var starts = Cars.LaneStartsOf(car);
+        var ends = Cars.LaneEndsOf(car);
+        var lanes = Cars.Line[car].LaneCount;
+        for (var slot = 0; slot < lanes; slot++)
+        {
+            if (lineM < ends[slot]) return lineM >= starts[slot] ? 2 * slot : (2 * slot) - 1;
+        }
+
+        return (2 * lanes) - 1;
+    }
+
+    /// <summary>
+    /// <b>A car's plan begun</b>: its hold, and the ground it keeps off whatever cuts it — any plan it kept let go of first.
     /// </summary>
     /// <param name="begunOn">
     /// <b>The hold of a pass or a manoeuvre the car has begun</b>, which the plan carries on from — what it drives first,
-    /// so whatever refuses that ends the plan too — or <see cref="LaneOccupancy.NoHold"/>.
+    /// so whatever refuses that ends the plan too — or <see cref="LaneOccupancy.NoHold"/>, for a hold kept from one
+    /// rebuild to the next (<see cref="KeepsThePlan"/>).
     /// </param>
     public int BeginThePlan(int car, float marginM, int begunOn = LaneOccupancy.NoHold)
     {
-        var hold = begunOn != LaneOccupancy.NoHold ? begunOn : Occupancy.BeginHold(car, LaneRoster.Driving);
+        LetGoOfThePlan(car);
+        var hold = begunOn != LaneOccupancy.NoHold ? begunOn : Occupancy.BeginKeptHold(car, LaneRoster.Driving);
         PlanHold[car] = hold;
         _planMarginM[car] = marginM;
         return hold;
@@ -296,3 +425,16 @@ internal sealed class DrivingGround(
 /// the way's own nought falls at, and the line metre its stretch of the line ends at.
 /// </summary>
 internal readonly record struct WaySpan(float StartM, float EndM);
+
+/// <summary>What became of a car's kept plan at a rebuild (<see cref="DrivingGround.KeepsThePlan"/>).</summary>
+internal enum PlanKept : byte
+{
+    /// <summary>Let go of, or to be: the plan is asked afresh.</summary>
+    No,
+
+    /// <summary>Kept as it is: it holds all the car needs.</summary>
+    AsItIs,
+
+    /// <summary>Kept, and asked further from where it is cut or where all it asked for ends.</summary>
+    ToBeAskedFurther,
+}

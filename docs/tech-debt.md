@@ -70,10 +70,8 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     arcs, span, width and zebra beside it, 32.3 before a way's runs were threaded through one table of slots) —
     walkers stationed 3.0, cars' plans 9.6, walks 4.1, answering 5.1, grants 2.2; O10 3.7 (was 5.5). The claims'
     own methods were 38 % of it at 28.6, and what holds them up is the first read of a way's row, a hold and a run's first
-    claim, taken in an order that lands on a new way each time — fetching ahead lost (road decision log). Every agent is
-    planned afresh every laying, the 20 000 driven cars at rest among them: none is in the standing car's shortcut,
-    which takes only a car in `Stand`, and `--bench room` counts 19 350 a laying asked from the same nose, line,
-    action and planned speed as at the last one, 19 300 of them coming to the same plan. The
+    claim, taken in an order that lands on a new way each time — fetching ahead lost (road decision log). A car's plan
+    is kept from laying to laying since (the entry on kept plans below), and every walker is still planned afresh. The
     laying runs on one thread at 1.9 instructions a cycle on OdesaOsm (`qq prof --events`): the claims' store is held
     up by what it does more than by memory, and what waits on memory is what a laying reads by way for an agent taken
     by number — the asked piece's way row, marks and bodies (`LaneOccupancy.AskUp`, `Add`), and a car's line held as
@@ -215,6 +213,21 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 ### Claims laying
 
+- **Kept car plans cost more to keep than they save while everything else is laid for one laying** (2026-10-14, root
+  decision log): `--bench room --map OdesaOsm` 33.3 ms a laying against 30.4 on the tree before. What it adds: the
+  strike over every row a moving body is on (`StrikeTheKeptHolds`, about 1.3 ms), each row's body count (0.5), a car
+  between its turns (`HoldsBetweenTurns` and its `IsWoken`, 1.1), and `Begin` letting go, claim by claim, of the
+  22 000 walkers', the lights' and the passes' holds of the laying before (1.4). Walkers kept as cars are — whose walk's
+  metres are measured from the body, so a kept hold's line metres would have to be read back by way and decimetre — and
+  lights' holds kept while their phase and their first body hold, close most of it.
+- **Reds rose with the kept plans**: OdesaOsm `--bench drive` 114 against 97 on the tree before (2026-10-14), with
+  the hard brakings level (12 855 against 12 708) and fewer stuck (3 645 against 4 021). Planning every car at every
+  laying on kept holds gave 117, so it is the keeping and not the turns; which red is crossed that was not is not
+  traced. A `--bench drive` red traced to the laying it was committed in closes it.
+- **A kept plan is asked afresh each time its car's nose reaches another piece of its line** (`DrivingGround.KeepsThePlan`):
+  a piece's rung is levelled by what lies ahead of it and capped by what lies behind, and passing a piece can raise the
+  rest. About 170 plans a laying on OdesaOsm with every car planning at every laying. Levelling the held claims' rungs
+  again where the nose leaves a piece closes it.
 - **Walkers' asks are dearer since asking was cheapened** (2026-10-13, road decision log): idle, `--bench room`,
   against the tree before, OdesaOsm 27.1 ms against 27.4 (cars' plans 8.8 against 9.6, walks 4.31 against 4.13,
   answering 5.19 against 5.10) and O10 3.89 against 3.69 (walks 0.77 against 0.66). The walk stage is

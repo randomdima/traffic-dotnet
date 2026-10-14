@@ -53,7 +53,7 @@ internal sealed partial class LaneOccupancy
 
     /// <summary>
     /// Whether a secondary claim over <c>[fromDm, toDm)</c> at <paramref name="rung"/> or stronger, read merged, has a
-    /// holder but the two named.
+    /// holder but the two named — a kept hold's mark read as committed where it is (<see cref="CommittedToDm"/>).
     /// </summary>
     bool HeldByOthers(int head, ushort fromDm, ushort toDm, int one, int other, ClaimPriority rung)
     {
@@ -68,9 +68,15 @@ internal sealed partial class LaneOccupancy
         {
             ref readonly var claim = ref _slots[at];
             if (claim.FromDm >= untilDm) break;
-            if (claim.Rung > rung) continue;
 
             var of = (int)claim.Rung;
+            if (claim.Rung > rung)
+            {
+                if (rung < ClaimPriority.Committed || CommittedToDm(at) <= claim.FromDm) continue;
+
+                of = (int)ClaimPriority.Committed;
+            }
+
             if (claim.FromDm >= reachDm[of]) merged[of] = 0;
 
             reachDm[of] = Math.Max(reachDm[of], claim.ToDm);
@@ -127,7 +133,11 @@ internal sealed partial class LaneOccupancy
         {
             ref readonly var main = ref _slots[at];
             if (main.FromDm >= toDm) break;
-            if (main.ToDm > fromDm && main.Rung == ClaimPriority.Committed && main.Key != one && main.Key != other) return true;
+            if (main.ToDm > fromDm && main.Key != one && main.Key != other
+                && CommittedToDm(at) > Math.Max(fromDm, main.FromDm))
+            {
+                return true;
+            }
         }
 
         return HeldByOthers(_rows[row].Seconds, fromDm, toDm, one, other, ClaimPriority.Committed);

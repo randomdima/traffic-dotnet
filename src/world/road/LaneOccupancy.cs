@@ -195,6 +195,10 @@ internal sealed partial class LaneOccupancy
         public ushort FromDm;
         public ushort ToDm;
         public ClaimPriority Rung;
+
+        /// <summary>A held claim's turn (<see cref="Wish.Turn"/>), in what would be the row's padding.</summary>
+        public byte Turn;
+
         public int Key;
         public int Next;
     }
@@ -222,6 +226,20 @@ internal sealed partial class LaneOccupancy
 
         public int Row;
         public ClaimKind Kind;
+
+        /// <summary>How its place on its holder's line is read, as its wish's was (<see cref="Wish.Line"/>, <see cref="Wish.LineM"/>).</summary>
+        public WishLine Line;
+
+        /// <summary>The rung it is held at once its holder can stop short of it again (<see cref="Wish.Planned"/>).</summary>
+        public ClaimPriority Planned;
+
+        public float LineM;
+
+        /// <summary>A mark's secondary claim: where on its main claim's way the mark begins (<see cref="Wish.AtDm"/>).</summary>
+        public ushort AtDm;
+
+        /// <summary>A mark's secondary claim: the main claim it was taken with; <see cref="NoSlot"/> for anything else.</summary>
+        public int Main;
     }
 
     SlotOwner[] _owners;
@@ -236,6 +254,25 @@ internal sealed partial class LaneOccupancy
     /// </summary>
     Slot[] _bodies;
     int _bodyCount;
+
+    /// <summary>
+    /// How many bodies each row has this rebuild and had the one before, and the last rebuild a body laid on it was not as
+    /// it was — what <see cref="CloseTheBodies"/> tells a row's bodies apart from the rebuild before's by.
+    /// </summary>
+    int[] _bodiesOn;
+
+    int[] _bodiesOnBefore;
+
+    int[] _bodiesMovedAt;
+
+    /// <summary>
+    /// <b>The rebuild each row's bodies last differed from the one before's</b>, and the one anything held on it was last
+    /// taken, cut or let go of — so a hold on a row nothing has changed on is kept without reading it again
+    /// (<see cref="StrikeTheKeptHolds"/>, <see cref="IsWoken"/>).
+    /// </summary>
+    int[] _bodiesChangedAt;
+
+    int[] _claimsChangedAt;
 
     /// <summary>A claim of one holder, linked to nothing yet.</summary>
     int NewSlot(ushort fromDm, ushort toDm, ClaimPriority rung, int key)
@@ -292,12 +329,24 @@ internal sealed partial class LaneOccupancy
 
     /// <summary>
     /// A held claim threaded into one of its way's runs after every one beginning at or before its near edge, and onto the
-    /// end of its hold's own claims.
+    /// end of its hold's own claims, with its wish's place on the holder's line.
     /// </summary>
-    int Hold(int row, ClaimKind kind, int hold, ushort fromDm, ushort toDm, ClaimPriority rung, int key)
+    /// <param name="main">For a mark's secondary claim, the main claim taken with it; otherwise <see cref="NoSlot"/>.</param>
+    int Hold(in Wish wish, ushort fromDm, ushort toDm, int key, int main)
     {
-        var slot = NewSlot(fromDm, toDm, rung, key);
-        ref var head = ref kind == ClaimKind.Main ? ref _rows[row].Mains : ref _rows[row].Seconds;
+        if (wish.Kind == ClaimKind.Main && OnTheEndOf(wish, fromDm) is var end && end != NoSlot)
+        {
+            _slots[end].ToDm = toDm;
+            _claimsChangedAt[wish.Row] = _laying;
+            return end;
+        }
+
+        // A kept hold's claims are held at their planned rung, its committed line saying how much of each is committed.
+        var row = wish.Row;
+        var kept = _holdLife[wish.Hold].Kept;
+        var slot = NewSlot(fromDm, toDm, kept ? wish.Planned : wish.Rung, key);
+        _slots[slot].Turn = kept ? (byte)(2 * (int)wish.Planned) : wish.Turn;
+        ref var head = ref wish.Kind == ClaimKind.Main ? ref _rows[row].Mains : ref _rows[row].Seconds;
         var prev = NoSlot;
         var next = head;
         while (next != NoSlot && _slots[next].FromDm <= fromDm) (prev, next) = (next, _slots[next].Next);
@@ -307,31 +356,47 @@ internal sealed partial class LaneOccupancy
         else _slots[prev].Next = slot;
         if (next != NoSlot) _owners[next].Prev = slot;
 
-        ref var holdRow = ref _holds[hold];
-        _owners[slot] = new SlotOwner { Hold = hold, HoldNext = NoSlot, Prev = prev, Row = row, Kind = kind };
+        ref var holdRow = ref _holds[wish.Hold];
+        _owners[slot] = new SlotOwner
+        {
+            Hold = wish.Hold, HoldNext = NoSlot, Prev = prev, Row = row, Kind = wish.Kind, Line = wish.Line,
+            Planned = wish.Planned, LineM = wish.LineM, AtDm = wish.AtDm, Main = main,
+        };
         if (holdRow.LastClaim == NoSlot) holdRow.FirstClaim = slot;
         else _owners[holdRow.LastClaim].HoldNext = slot;
         holdRow.LastClaim = slot;
+        _claimsChangedAt[row] = _laying;
         return slot;
+    }
+
+    /// <summary>
+    /// <b>The main claim of a kept hold a piece taken carries on</b>: its last, where the piece is taken up its line from
+    /// where that one ends, on the same way and planned alike — so a hold asked further a little at a time
+    /// (<see cref="AskFurther"/>), and its committed piece and the rest of a way, stay one claim. <see cref="NoSlot"/>
+    /// where there is none.
+    /// </summary>
+    int OnTheEndOf(in Wish wish, ushort fromDm)
+    {
+        ref readonly var holdRow = ref _holds[wish.Hold];
+        if (!_holdLife[wish.Hold].Kept || holdRow.LastClaim == NoSlot || wish.Line != WishLine.Up) return NoSlot;
+
+        var last = holdRow.LastClaim;
+        var end = _owners[last].Kind == ClaimKind.Main ? last : _owners[last].Main;
+        if (end == NoSlot) return NoSlot;
+
+        ref readonly var owner = ref _owners[end];
+        ref readonly var claim = ref _slots[end];
+        return owner.Line == WishLine.Up && owner.Row == wish.Row && owner.LineM == wish.LineM
+               && owner.Planned == wish.Planned && claim.Rung == wish.Planned && claim.ToDm == fromDm
+            ? end
+            : NoSlot;
     }
 
     /// <summary>A held claim taken out of its way's run and given back — its hold's own list left to the caller.</summary>
     void LetGo(int slot)
     {
-        ref readonly var owner = ref _owners[slot];
-        var next = _slots[slot].Next;
-        if (owner.Prev == NoSlot)
-        {
-            ref var head = ref owner.Kind == ClaimKind.Main ? ref _rows[owner.Row].Mains : ref _rows[owner.Row].Seconds;
-            head = next;
-        }
-        else
-        {
-            _slots[owner.Prev].Next = next;
-        }
-
-        if (next != NoSlot) _owners[next].Prev = owner.Prev;
-
+        Unthread(slot);
+        _owners[slot].Hold = NoHold;
         if (_freeSlotCount == _freeSlots.Length) Array.Resize(ref _freeSlots, 2 * _freeSlots.Length);
         _freeSlots[_freeSlotCount++] = slot;
     }
@@ -382,6 +447,9 @@ internal sealed partial class LaneOccupancy
         _ownHeads = new OwnHead[room];
         _holds = new HoldRow[2 * room];
         _holdStates = new HoldState[_holds.Length];
+        _holdLife = new HoldLife[_holds.Length];
+        _freeHolds = new int[_holds.Length];
+        _forOneRebuild = new int[_holds.Length];
         _wishes = new Wish[WishesPerHolder * room];
         _order = new int[WishesPerHolder * room];
         for (var way = 0; way < ways.Count; way++)
@@ -405,6 +473,11 @@ internal sealed partial class LaneOccupancy
 
         _rows = new WayRow[Math.Min(ways.Count, WaysPerHolder * room)];
         _touched = new int[_rows.Length];
+        _bodiesOn = new int[_rows.Length];
+        _bodiesOnBefore = new int[_rows.Length];
+        _bodiesMovedAt = new int[_rows.Length];
+        _bodiesChangedAt = new int[_rows.Length];
+        _claimsChangedAt = new int[_rows.Length];
         _rowOf = new int[ways.Count];
         Array.Fill(_rowOf, NoRow);
     }
@@ -426,21 +499,24 @@ internal sealed partial class LaneOccupancy
     public float WayLengthM(int way) => _ways.LengthM(way);
 
     /// <summary>
-    /// <b>A rebuild begun</b>: the bodies laid last time dropped, to be laid again as the world now reads them, and every
-    /// hold let go of.
+    /// <b>A rebuild begun</b>: the bodies laid last time let go of, to be laid again as the world now reads them and told
+    /// apart from those (<see cref="CloseTheBodies"/>), and every hold begun for the rebuild before let go of. A kept hold
+    /// stays (<see cref="BeginKeptHold"/>).
     /// </summary>
     public void Begin()
     {
-        foreach (ref var row in _rows.AsSpan(0, _touchedCount)) row.Bodies = NoSlot;
+        for (var row = 0; row < _touchedCount; row++) _rows[row].Bodies = NoSlot;
 
+        (_bodiesOn, _bodiesOnBefore) = (_bodiesOnBefore, _bodiesOn);
+        Array.Clear(_bodiesOn, 0, _touchedCount);
         _bodyCount = 0;
         _laidCount = 0;
         _ownCount = 0;
         _laying++;
         _bodiesClosed = false;
-        LetGoOfEveryHold();
         _wishCount = 0;
         _answered = false;
+        LetGoOfTheHoldsForOneRebuild();
     }
 
     /// <summary>
@@ -474,12 +550,21 @@ internal sealed partial class LaneOccupancy
         {
             Array.Resize(ref _rows, Math.Min(_rowOf.Length, 2 * _rows.Length));
             Array.Resize(ref _touched, _rows.Length);
+            Array.Resize(ref _bodiesOn, _rows.Length);
+            Array.Resize(ref _bodiesOnBefore, _rows.Length);
+            Array.Resize(ref _bodiesMovedAt, _rows.Length);
+            Array.Resize(ref _bodiesChangedAt, _rows.Length);
+            Array.Resize(ref _claimsChangedAt, _rows.Length);
         }
 
         row = _touchedCount++;
         _rowOf[way] = row;
         _touched[row] = way;
         _rows[row] = new WayRow { Bodies = NoSlot, Mains = NoSlot, Seconds = NoSlot };
+        _bodiesOn[row] = _bodiesOnBefore[row] = 0;
+        _bodiesMovedAt[row] = _laying;
+        _bodiesChangedAt[row] = _laying;
+        _claimsChangedAt[row] = _laying;
         return row;
     }
 

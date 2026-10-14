@@ -36,7 +36,8 @@ internal sealed partial class LaneOccupancy
     /// <b>A body on one way</b> (TER-4c.2), over the stretch its collider covers of it. One holder laying two stretches of
     /// one way stands over both.
     /// </summary>
-    public void LayBody(int way, float fromM, float toM, int occupant, LaneRoster of)
+    /// <param name="asItWas">Whether it is laid where it was laid the rebuild before, which the layer tells no change by.</param>
+    public void LayBody(int way, float fromM, float toM, int occupant, LaneRoster of, bool asItWas = false)
     {
         if (_bodiesClosed) throw new InvalidOperationException("a body laid after the plans began to be asked");
 
@@ -47,6 +48,8 @@ internal sealed partial class LaneOccupancy
         var row = Touch(way);
         var key = KeyOf(occupant, of);
         InsertTheBody(ref _rows[row].Bodies, fromDm, toDm, key);
+        _bodiesOn[row]++;
+        if (!asItWas) _bodiesMovedAt[row] = _laying;
         if (key != NoKey && of == LaneRoster.Driving)
         {
             if (occupant >= _ownHeads.Length) Array.Resize(ref _ownHeads, Math.Max(occupant + 1, 2 * _ownHeads.Length));
@@ -60,8 +63,28 @@ internal sealed partial class LaneOccupancy
         _laidCount++;
     }
 
-    /// <summary>No body is laid once the first question is asked of them, which every plan is.</summary>
-    void CloseTheBodies() => _bodiesClosed = true;
+    /// <summary>
+    /// <b>No body is laid once the first question is asked of them</b>, which every plan is — and each row's bodies are
+    /// then told apart from the rebuild before's (<see cref="_bodiesChangedAt"/>), and every kept hold one now stands on
+    /// cut there (<see cref="StrikeTheKeptHolds"/>).
+    /// </summary>
+    /// <remarks>
+    /// <b>A row's bodies are as they were</b> where every body on it this rebuild and the one before was laid as it was,
+    /// and as many of them: a body that moved off it was not laid as it was the rebuild before, and one that went is
+    /// one fewer.
+    /// </remarks>
+    void CloseTheBodies()
+    {
+        if (_bodiesClosed) return;
+
+        _bodiesClosed = true;
+        for (var row = 0; row < _touchedCount; row++)
+        {
+            if (_bodiesMovedAt[row] >= _laying - 1 || _bodiesOn[row] != _bodiesOnBefore[row]) _bodiesChangedAt[row] = _laying;
+        }
+
+        StrikeTheKeptHolds();
+    }
 
     /// <summary>How many stretches of bodies this rebuild laid, before any were merged, for an instrument.</summary>
     public int BodiesLaid => _laidCount;

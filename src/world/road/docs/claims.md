@@ -8,7 +8,8 @@ crossing *are* is [requirements.md](requirements.md); the ground itself is
 
 **There are two layers over one numbering of ways, and they are the only two things an agent reads of
 another.** The **physical** layer is where the bodies are; the **planned** layer is where they mean to be.
-Both are laid again from the bodies every time the claims are laid (TER-49), both are intervals of one way's
+The first is laid again from the bodies every time the claims are laid (TER-49), and the second asked again by
+whoever plans then — a car's plan kept between its turns (TER-4c.1); both are intervals of one way's
 own metres, and **what two ways share is worked out once, when the town is laid** — so nothing about either
 layer computes geometry while the town runs.
 
@@ -161,9 +162,9 @@ this rule's.
 of its own line it means to use, from its front forward, a way at a time; **every piece of every plan is then taken
 in the order of its rung** (TER-5e) and, within one rung, plans before passes not yet begun (TER-4c.6) and otherwise
 in the order it was asked, each against what is already
-down — which is never weaker than it — so nothing taken is ever given back and no answer turns on another being asked
-again. What comes back is that stretch cut at the first of two things, both read off the way asked about and off
-no other:
+down — which is never weaker than it — so nothing taken in a laying is given back in it and no answer turns on another
+being asked again. What comes back is that stretch cut at the first of two things, both read off the way asked about
+and off no other:
 
 - **the first body in front of it** — a plan is never laid over somebody standing there, and a body beside or
   behind the holder cuts nothing;
@@ -176,6 +177,11 @@ it, and only something that beats it takes it.
 
 - **A plan begins at its holder's front.** Ground behind the nose is ground the body is on or has passed,
   never road it was granted, so nothing behind the nose can be what ends a grant.
+- **A car's plan is kept from one laying to the next** (root decision log, 2026-10-14): between its turns to plan
+  (`Sim.PlanIntervalS`), and at a turn while it still serves — asked further from where it ends where the car needs
+  more or what cut it has gone, and let go of behind the nose as the car drives on. **Ground a laying before granted
+  is cut where a stronger rung takes it** and its holder has not committed to it (TER-5e), or where a body comes to
+  stand on it; of one rung, what is held keeps.
 - **Nothing but the answer stops a plan.** A red is ground: the light holds its bar (`TLT-1`), and a plan
   refused there is one stretch that ends there, so a car waiting at a red holds none of the box beyond it. A
   zebra is ground too, cut where anything on it is like any other (TER-5c.3).

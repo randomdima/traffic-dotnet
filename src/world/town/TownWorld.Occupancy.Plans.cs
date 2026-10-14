@@ -1,4 +1,6 @@
 using TrafficSimulation.Agents.Car.Actions;
+using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Town;
@@ -15,21 +17,29 @@ internal sealed partial class TownWorld
 
     readonly Following _following;
 
+    /// <summary>The layings each car plans its route at (<see cref="SimFigures.PlanIntervalS"/>), counted in layings.</summary>
+    readonly TickGroups _plans;
+
     /// <summary>
     /// <b>This car's claim, laid by its action</b>: what a hand or a truck cannot stop short of, a manoeuvre's hold,
-    /// or a plan down the route's line — and nothing at all for a car whose action drives nothing.
+    /// or a plan down the route's line — and nothing at all for a car whose action drives nothing. <b>A car on its route
+    /// between two of its turns keeps the plan it holds</b> (<see cref="Following.HoldsBetweenTurns"/>).
     /// </summary>
-    void PlanTheDrive(int car, Span<LineWay> ways)
+    void PlanTheDrive(int car, Span<LineWay> ways, bool itsTurn)
     {
+        if (!itsTurn && IsUnderWay(car) && _following.HoldsBetweenTurns(car)) return;
+
         _ground.ClearTheClaim(car);
         switch (Cars.Action[car])
         {
             case CarAction.Hand:
+                _ground.LetGoOfThePlan(car);
                 _ground.HoldWhatCannotBeStoppedShortOf(car, car, _world.View.CoversOfCar(car));
                 return;
 
             // EVA-5: a car on a bar is the truck's to move, and what it cannot stop short of is held under the truck.
             case CarAction.Towed:
+                _ground.LetGoOfThePlan(car);
                 _ground.HoldWhatCannotBeStoppedShortOf(car, LaidAs(car), _world.View.CoversOfCar(car));
                 return;
         }
@@ -38,11 +48,13 @@ internal sealed partial class TownWorld
         // is held by is whatever refused that — or, before it has that ground, where it stands.
         if (IsManoeuvring(car))
         {
+            _ground.LetGoOfThePlan(car);
             _bays.Hold(car);
             return;
         }
 
         if (IsUnderWay(car)) _following.Plan(car, ways);
+        else _ground.LetGoOfThePlan(car);
     }
 
     /// <summary>The hold a car laid this rebuild, for an instrument asking what held it.</summary>

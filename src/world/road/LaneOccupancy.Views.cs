@@ -58,8 +58,11 @@ internal sealed partial class LaneOccupancy
         return view.Holders.AsSpan(claim.HoldersFrom, claim.Holders);
     }
 
-    /// <summary>One run read into a view: of one rung, those overlapping made one claim, its holders in the order laid.</summary>
-    static ReadOnlySpan<Claim> Read(Slot[] slots, int head, ClaimKind kind, ClaimView view)
+    /// <summary>
+    /// One run read into a view: of one rung, those overlapping made one claim, its holders in the order laid — a held
+    /// claim read as the committed ground it begins with and the rest at its own rung (<see cref="CommittedToDm"/>).
+    /// </summary>
+    ReadOnlySpan<Claim> Read(Slot[] slots, int head, ClaimKind kind, ClaimView view)
     {
         Span<int> open = stackalloc int[Rungs];
         open.Fill(-1);
@@ -67,19 +70,9 @@ internal sealed partial class LaneOccupancy
         for (var at = head; at != NoSlot; at = slots[at].Next)
         {
             ref readonly var slot = ref slots[at];
-            ref var into = ref open[(int)slot.Rung];
-            if (into >= 0 && view.Claims[into].ToDm > slot.FromDm)
-            {
-                if (slot.ToDm > view.Claims[into].ToDm) view.Claims[into] = view.Claims[into] with { ToDm = slot.ToDm };
-
-                continue;
-            }
-
-            if (count == view.Claims.Length) Array.Resize(ref view.Claims, 2 * count);
-
-            // Where its holders begin is its first slot until they are named.
-            into = count;
-            view.Claims[count++] = new Claim(slot.FromDm, slot.ToDm, slot.Rung, kind, 0, at);
+            var committedToDm = kind == ClaimKind.Body ? slot.FromDm : CommittedToDm(at);
+            if (committedToDm > slot.FromDm) Open(open, view, ref count, at, slot.FromDm, committedToDm, ClaimPriority.Committed, kind);
+            if (slot.ToDm > committedToDm) Open(open, view, ref count, at, committedToDm, slot.ToDm, slot.Rung, kind);
         }
 
         var holders = 0;
@@ -89,7 +82,7 @@ internal sealed partial class LaneOccupancy
             for (var at = claim.HoldersFrom; at != NoSlot && slots[at].FromDm < claim.ToDm; at = slots[at].Next)
             {
                 var key = slots[at].Key;
-                if (slots[at].Rung != claim.Rung || view.Holders.AsSpan(from, holders - from).Contains(key)) continue;
+                if (!IsOfRung(slots, at, kind, claim) || view.Holders.AsSpan(from, holders - from).Contains(key)) continue;
 
                 if (holders == view.Holders.Length) Array.Resize(ref view.Holders, 2 * holders);
 
@@ -100,6 +93,37 @@ internal sealed partial class LaneOccupancy
         }
 
         return view.Claims.AsSpan(0, count);
+    }
+
+    /// <summary>One stretch of a slot read into a view at one rung: run into the claim of that rung it overlaps, or a claim of its own.</summary>
+    static void Open(
+        Span<int> open, ClaimView view, ref int count, int at, ushort fromDm, ushort toDm, ClaimPriority rung, ClaimKind kind)
+    {
+        ref var into = ref open[(int)rung];
+        if (into >= 0 && view.Claims[into].ToDm > fromDm)
+        {
+            if (toDm > view.Claims[into].ToDm) view.Claims[into] = view.Claims[into] with { ToDm = toDm };
+
+            return;
+        }
+
+        if (count == view.Claims.Length) Array.Resize(ref view.Claims, 2 * count);
+
+        // Where its holders begin is its first slot until they are named.
+        into = count;
+        view.Claims[count++] = new Claim(fromDm, toDm, rung, kind, 0, at);
+    }
+
+    /// <summary>Whether a slot holds some of a claim read at the claim's rung.</summary>
+    bool IsOfRung(Slot[] slots, int at, ClaimKind kind, in Claim claim)
+    {
+        ref readonly var slot = ref slots[at];
+        if (slot.ToDm <= claim.FromDm) return false;
+
+        var committedToDm = kind == ClaimKind.Body ? slot.FromDm : CommittedToDm(at);
+        return claim.Rung == ClaimPriority.Committed
+            ? committedToDm > Math.Max(slot.FromDm, claim.FromDm)
+            : slot.Rung == claim.Rung && slot.ToDm > Math.Max(committedToDm, claim.FromDm);
     }
 
     /// <summary>
