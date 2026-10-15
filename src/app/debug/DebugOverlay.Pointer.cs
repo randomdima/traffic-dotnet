@@ -399,24 +399,24 @@ internal sealed partial class DebugOverlay
     /// <remarks>
     /// <b>Every way is weighed, and most in one comparison.</b> A way further from the place than its own
     /// length and half its width from where it starts cannot reach it, which turns away everything outside a
-    /// street's length of the pointer before anything is projected onto.
+    /// street's length of the pointer before anything is projected onto — <b>asked of two arrays laid once a
+    /// town</b> (<see cref="WayReaches"/>), since a way's line is a switch over four rosters to find.
     /// </remarks>
-    static int WayAt(TownWorld world, Vector2 pointM, out float alongM)
+    int WayAt(TownWorld world, Vector2 pointM, out float alongM)
     {
+        WayReaches(world);
         var ways = world.Ways;
         var best = -1;
         var bestSq = float.MaxValue;
         alongM = 0f;
-        for (var way = 0; way < ways.Count; way++)
+        for (var way = 0; way < _wayStartM.Length; way++)
         {
-            var arcs = world.LineOfWay(way, out var widthM);
-            if (arcs.Length == 0) continue;
+            var reachM = _wayReachM[way];
+            if (Vector2.DistanceSquared(_wayStartM[way], pointM) > reachM * reachM) continue;
 
+            var arcs = world.LineOfWay(way, out var widthM);
             var halfM = widthM * 0.5f;
             var lengthM = ways.LengthM(way);
-            var reachM = lengthM + halfM;
-            if (Vector2.DistanceSquared(arcs[0].StartM, pointM) > reachM * reachM) continue;
-
             var atM = Spline.ProjectM(arcs, pointM, lengthM * 0.5f, reachM, out var offSq);
             if (atM <= 0f || atM >= lengthM || offSq >= halfM * halfM || offSq >= bestSq) continue;
 
@@ -427,6 +427,31 @@ internal sealed partial class DebugOverlay
 
         return best;
     }
+
+    /// <summary>
+    /// Where each of the town's ways starts and how far from there its ground can reach, laid the first time a town is
+    /// pointed at — a way with no line starts at infinity, so nothing is ever near it.
+    /// </summary>
+    void WayReaches(TownWorld world)
+    {
+        if (ReferenceEquals(world.Ways, _reachesOf)) return;
+
+        var count = world.Ways.Count;
+        _wayStartM = new Vector2[count];
+        _wayReachM = new float[count];
+        for (var way = 0; way < count; way++)
+        {
+            var arcs = world.LineOfWay(way, out var widthM);
+            _wayStartM[way] = arcs.Length == 0 ? new Vector2(float.PositiveInfinity) : arcs[0].StartM;
+            _wayReachM[way] = world.Ways.LengthM(way) + (widthM * 0.5f);
+        }
+
+        _reachesOf = world.Ways;
+    }
+
+    Vector2[] _wayStartM = [];
+    float[] _wayReachM = [];
+    TownWays? _reachesOf;
 
     /// <summary>How far along one way a place stands, which is what a pinned way is asked again at every frame.</summary>
     static float AlongWay(TownWorld world, int way, Vector2 pointM)
