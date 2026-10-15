@@ -149,9 +149,19 @@ internal sealed class KerbLines
         Along(pointM, stepM, out at, out _);
 
     /// <summary>The same, with the place it landed at (<see cref="Station"/>) as well as the line there.</summary>
-    public bool Along(Vector2 pointM, float stepM, out SplineSample at, out Station station)
+    public bool Along(Vector2 pointM, float stepM, out SplineSample at, out Station station) =>
+        Stepped(_index.Nearest(pointM, out var alongPieceM), alongPieceM, stepM, out at, out station);
+
+    /// <inheritdoc cref="Along(Vector2, float, out SplineSample, out Station)"/>
+    /// <param name="scan">This caller's own working set (<see cref="NewScan"/>), for a query off its own thread.</param>
+    public bool Along(ChainIndex.Scan scan, Vector2 pointM, float stepM, out SplineSample at, out Station station) =>
+        Stepped(_index.Nearest(scan, pointM, out var alongPieceM), alongPieceM, stepM, out at, out station);
+
+    /// <summary>A scan of this boundary's own index (<see cref="ChainIndex.NewScan"/>), for a caller that means to query it off its own thread.</summary>
+    public ChainIndex.Scan NewScan() => _index.NewScan();
+
+    bool Stepped(int piece, float alongPieceM, float stepM, out SplineSample at, out Station station)
     {
-        var piece = _index.Nearest(pointM, out var alongPieceM);
         if (piece < 0)
         {
             at = default;

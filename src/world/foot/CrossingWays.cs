@@ -2,6 +2,7 @@ using System.Numerics;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Foot;
@@ -263,13 +264,23 @@ internal sealed class CrossingWays
             laid[far] = true;
         }
 
+        // <b>Each place on every core, into a list of its own</b>, and filed afterwards a place at a time — so the
+        // ways come out in the order one thread lays them.
+        var walkM = config.WalkingLaneWidthM;
+        var through = new List<Walked>[places.Count];
+        var unjoinedAt = new int[places.Count];
+        InChunks.Over(
+            places.Count, reading.Another,
+            (own, at) => unjoinedAt[at] = Through(through[at] = [], places[at], mouths, laid, own, walkM));
+
         var unjoined = 0;
         var merged = 0;
-        foreach (var place in places)
+        for (var at = 0; at < places.Count; at++)
         {
-            unjoined += Through(ways, place, mouths, laid, reading, config.WalkingLaneWidthM);
-            File(parting, place);
-            merged += place.Mouths.Count - 1;
+            ways.AddRange(through[at]);
+            unjoined += unjoinedAt[at];
+            File(parting, places[at]);
+            merged += places[at].Mouths.Count - 1;
         }
 
         return new CrossingWays([.. ways], Sorted(parting, config.Network.FootGraphNodeWeldM), refused)
@@ -541,9 +552,27 @@ internal sealed class CrossingWays
     /// The lines one caller reads a junction off: the pavement it is cut into, the boundary the paint stops
     /// at, the walk's outer face its connections keep inside, and the figures that place it.
     /// </summary>
+    /// <remarks>
+    /// <b>A reading belongs to one thread</b>: every line it asks is asked on a scan of its own
+    /// (<see cref="ChainIndex.Scan"/>), made the first time that line is, so a thread of its own takes
+    /// <see cref="Another"/>. The answer is the scan's to compute and never to change — a nearest settles a tie
+    /// on the id.
+    /// </remarks>
     sealed class Reading(
         PavementLanes pavement, KerbLines[] courses, KerbLines boundary, RingSides walk, SimConfig config)
     {
+        ChainIndex.Scan? _boundaryScan;
+        readonly ChainIndex.Scan?[] _courseScans = new ChainIndex.Scan?[courses.Length];
+
+        /// <summary>The same lines, read on scans of its own.</summary>
+        public Reading Another() => new(pavement, courses, boundary, walk, config);
+
+        bool KerbNearest(Vector2 pointM, out SplineSample kerb) =>
+            boundary.Along(_boundaryScan ??= boundary.NewScan(), pointM, 0f, out kerb, out _);
+
+        bool CourseAlong(int lane, Vector2 pointM, float stepM, out SplineSample on, out KerbLines.Station station) =>
+            courses[lane].Along(_courseScans[lane] ??= courses[lane].NewScan(), pointM, stepM, out on, out station);
+
         /// <summary>
         /// <b>One end of one crossing as the mouth it is</b> (WLK-15), or false where the paint stops nowhere
         /// the town has a kerb: the two points on the boundary its lanes hand over at, and the place half a
@@ -830,7 +859,7 @@ internal sealed class CrossingWays
         bool PaintAt(Vector2 mouthM, float intoTheRoadRad, out Paint paint)
         {
             paint = default;
-            if (!boundary.NearestTo(mouthM, out var kerb)) return false;
+            if (!KerbNearest(mouthM, out var kerb)) return false;
 
             var down = Heading.Unit(intoTheRoadRad);
             paint = new Paint(mouthM, down, intoTheRoadRad, MathF.Sign(Vector2.Dot(down, kerb.Right)));
@@ -958,7 +987,7 @@ internal sealed class CrossingWays
         }
 
         bool OnTheRoad(Vector2 pointM, int roadHand) =>
-            boundary.NearestTo(pointM, out var kerb)
+            KerbNearest(pointM, out var kerb)
             && Vector2.Dot(pointM - kerb.PositionM, kerb.Right) * roadHand > config.RibbonTouchM;
 
         /// <summary>
@@ -966,7 +995,7 @@ internal sealed class CrossingWays
         /// the paint it runs down into it (<see cref="BandOffTheRoad"/>), and off the verge.
         /// </summary>
         public bool OnTheWalk(ReadOnlySpan<ArcSeg> line, Vector2 mouthM, float intoTheRoadRad) =>
-            boundary.NearestTo(mouthM, out var kerb)
+            KerbNearest(mouthM, out var kerb)
             && BandOffTheRoad(line, MathF.Sign(Vector2.Dot(Heading.Unit(intoTheRoadRad), kerb.Right)))
             && BandOffTheVerge(line);
 
@@ -996,7 +1025,7 @@ internal sealed class CrossingWays
         bool OnTheKerb(Vector2 paintM, out Vector2 kerbM)
         {
             kerbM = default;
-            if (!boundary.NearestTo(paintM, out var on)) return false;
+            if (!KerbNearest(paintM, out var on)) return false;
             if (Vector2.Distance(on.PositionM, paintM) > config.Road.CrossingMeetsTheWalkWithinM) return false;
 
             kerbM = on.PositionM;
@@ -1016,11 +1045,11 @@ internal sealed class CrossingWays
             // <b>Whose pavement this is, is asked where the course passes the junction</b> and not at the
             // point a setback along it lands on: the setback says where to hand over, and a lane pushed back
             // from a tight corner by its own rounding still runs past the place (WLK-15).
-            if (!courses[lane].NearestTo(centreM, out var beside)) return false;
+            if (!CourseAlong(lane, centreM, 0f, out var beside, out _)) return false;
 
             offM = Vector2.Distance(beside.PositionM, centreM);
             if (offM > config.Road.CrossingMeetsTheWalkWithinM) return false;
-            if (!courses[lane].Along(centreM, stepM, out var on, out var station)) return false;
+            if (!CourseAlong(lane, centreM, stepM, out var on, out var station)) return false;
             if (station.Line >= pavement.RingsOf(lane).Length) return false;
 
             var headingRad = pavement.RunsWithTheRing(lane)
