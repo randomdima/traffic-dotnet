@@ -11,6 +11,16 @@ namespace TrafficSimulation.Agents.Car.Body;
 /// </remarks>
 internal readonly record struct DriveCommand(float SteerRad, float ThrottleMps2, float BrakeMps2, bool Handbrake, bool Reverse)
 {
+    /// <summary>
+    /// Field by field, as the record's own would, but small enough to inline: asked of every car every tick
+    /// (whether a stood car's command moved), and the generated one goes through a comparer a field.
+    /// </summary>
+    public bool Equals(DriveCommand other) =>
+        SteerRad.Equals(other.SteerRad) && ThrottleMps2.Equals(other.ThrottleMps2) && BrakeMps2.Equals(other.BrakeMps2)
+        && Handbrake == other.Handbrake && Reverse == other.Reverse;
+
+    public override int GetHashCode() => HashCode.Combine(SteerRad, ThrottleMps2, BrakeMps2, Handbrake, Reverse);
+
     public static DriveCommand Idle => new(0f, 0f, 0f, false, false);
 
     /// <summary>An unmanned car holds its handbrake, so a parked car stays parked.</summary>

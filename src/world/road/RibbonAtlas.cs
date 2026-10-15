@@ -268,20 +268,24 @@ internal sealed partial class RibbonAtlas
         ReadOnlySpan<Vector2> wheelsM, float aroundAWheelM, Span<WayCover> into, out byte onAWay, byte channels = Ground)
     {
         var found = MemoryMarshal.Cast<WayCover, Found>(into);
+        var wayChannels = _wayChannels;
         var written = 0;
-        onAWay = 0;
+        var dropped = 0;
+        byte wheelsOn = 0;
         for (var wheel = 0; wheel < wheelsM.Length; wheel++)
         {
             var entries = EntriesOfThePointNearest(wheelsM[wheel], out var column);
             foreach (ref readonly var entry in entries)
             {
-                if (!OnTheWay(entry, column, channels)) continue;
+                if (!OnTheWay(entry, column, channels, wayChannels)) continue;
 
-                written = Grow(found, written, entry.Way, entry.Along);
-                onAWay |= (byte)(1 << wheel);
+                written = Grow(found, written, entry.Way, entry.Along, ref dropped);
+                wheelsOn |= (byte)(1 << wheel);
             }
         }
 
+        onAWay = wheelsOn;
+        CountDropped(dropped);
         return Widened(into, written, aroundAWheelM);
     }
 
@@ -294,8 +298,8 @@ internal sealed partial class RibbonAtlas
 
     /// <summary>Whether an entry of a point at this column of its cell is a way on one of the channels whose band holds the point.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    bool OnTheWay(in Entry entry, int column, byte channels) =>
-        entry.Column == column && entry.Outside == 0 && (_wayChannels.Length == 0 || (_wayChannels[entry.Way] & channels) != 0);
+    static bool OnTheWay(in Entry entry, int column, byte channels, byte[] wayChannels) =>
+        entry.Column == column && entry.Outside == 0 && (wayChannels.Length == 0 || (wayChannels[entry.Way] & channels) != 0);
 
     /// <summary>
     /// The entries of the run of points holding the lattice point nearest <paramref name="pointM"/>, and that point's
@@ -314,7 +318,8 @@ internal sealed partial class RibbonAtlas
         if (slot < 0) return default;
 
         var start = (slot * _startsPerCell) + ((pointRow & _mask) << _rowStartsShift) + (column >> _startShift);
-        int from = _pointStart[start], to = _pointStart[start + 1];
+        var run = _pointStart.AsSpan(start, 2);
+        int from = run[0], to = run[1];
         return _entries.AsSpan(_slotFirst[slot] + from, to - from);
     }
 
@@ -447,6 +452,7 @@ internal sealed partial class RibbonAtlas
         var lastRow = _level.LastMiddleTo(body.MostY);
 
         var written = 0;
+        var dropped = 0;
         for (var row = firstRow; row <= lastRow; row++)
         {
             var y = _level.MiddleM(row);
@@ -484,34 +490,45 @@ internal sealed partial class RibbonAtlas
                         if (depthM <= entry.Outside * _metresPerOutside) continue;
                     }
 
-                    written = Grow(found, written, entry.Way, entry.Along);
+                    written = Grow(found, written, entry.Way, entry.Along, ref dropped);
                 }
             }
         }
 
+        CountDropped(dropped);
         return written;
     }
 
+    /// <remarks>
+    /// The tenths are whole numbers, never NaN nor −0, which is the only ground the native least and most
+    /// answer differently from <see cref="MathF.Min(float, float)"/> on — and they are one instruction each.
+    /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    int Grow(Span<Found> found, int written, int way, float alongTenths)
+    static int Grow(Span<Found> found, int written, int way, float alongTenths, ref int dropped)
     {
         for (var slot = 0; slot < written; slot++)
         {
             if (found[slot].Way != way) continue;
 
             found[slot] = new Found(
-                way, MathF.Min(found[slot].FromTenths, alongTenths), MathF.Max(found[slot].ToTenths, alongTenths));
+                way, float.MinNative(found[slot].FromTenths, alongTenths), float.MaxNative(found[slot].ToTenths, alongTenths));
             return written;
         }
 
         if (written == found.Length)
         {
-            Interlocked.Increment(ref _dropped);
+            dropped++;
             return written;
         }
 
         found[written] = new Found(way, alongTenths, alongTenths);
         return written + 1;
+    }
+
+    /// <summary>Counted once a call: an interlocked add inside the walk would be a fence on every entry.</summary>
+    void CountDropped(int dropped)
+    {
+        if (dropped != 0) Interlocked.Add(ref _dropped, dropped);
     }
 
     /// <summary>
@@ -520,17 +537,23 @@ internal sealed partial class RibbonAtlas
     /// gathered in become metres here, once a way.
     /// </summary>
     /// <param name="pastM">How far the body reaches past the points it was read at: nothing for a collider read whole.</param>
+    /// <remarks>
+    /// The reach is positive and the tenths whole, so neither end is NaN nor −0 and the native least and most
+    /// are <see cref="MathF.Min(float, float)"/>'s to the bit.
+    /// </remarks>
     int Widened(Span<WayCover> into, int written, float pastM = 0f)
     {
-        var found = MemoryMarshal.Cast<WayCover, Found>(into);
+        var covers = into[..written];
+        var found = MemoryMarshal.Cast<WayCover, Found>(covers);
+        var lengthM = _lengthM;
         var reachM = (_level.CellM * 0.5f) + pastM;
-        for (var slot = 0; slot < written; slot++)
+        for (var slot = 0; slot < found.Length; slot++)
         {
             var one = found[slot];
-            into[slot] = new WayCover(
+            covers[slot] = new WayCover(
                 one.Way,
-                MathF.Max(0f, (one.FromTenths / AlongPerMetre) - reachM),
-                MathF.Min(_lengthM[one.Way], (one.ToTenths / AlongPerMetre) + reachM));
+                float.MaxNative(0f, (one.FromTenths / AlongPerMetre) - reachM),
+                float.MinNative(lengthM[one.Way], (one.ToTenths / AlongPerMetre) + reachM));
         }
 
         return written;

@@ -47,25 +47,29 @@ internal sealed class WalkingItsRoute(WalkingGround ground, PersonActions action
         }
 
         var walking = ground.Walking;
-        ground.PlaceItOnItsWay(person, ground.AStrideM);
+        var strideM = ground.AStrideM;
+        ground.PlaceItOnItsWay(person, strideM);
 
-        while (ground.HasWalkedOut(person, ground.EndOfTheWayM(person)) && !People.OnTheLastWay(person))
+        var stopsAtM = ground.EndOfTheWayM(person);
+        var walkedOut = ground.HasWalkedOut(person, stopsAtM);
+        while (walkedOut && !People.OnTheLastWay(person))
         {
             var before = People.CurrentRouteWay(person);
             if (!People.TakeNextRouteWay(person, out var next)) break;
 
             walking.SpanOfWay(before, next, People.PeekNextRouteWay(person), out var fromM, out _);
             People.OnWayM[person] = fromM;
-            ground.PlaceItOnItsWay(person, ground.AStrideM);
+            ground.PlaceItOnItsWay(person, strideM);
 
             // Taking a way *is* progress, and the clock that decides a walker has given up is measured
             // against where it is aiming. Left standing it would run up over a long way and call a walker
             // that had just been handed a fresh one stuck.
             progress.Restart(person);
+            stopsAtM = ground.EndOfTheWayM(person);
+            walkedOut = ground.HasWalkedOut(person, stopsAtM);
         }
 
-        var stopsAtM = ground.EndOfTheWayM(person);
-        if (People.OnTheLastWay(person) && ground.HasWalkedOut(person, stopsAtM))
+        if (walkedOut && People.OnTheLastWay(person))
         {
             // The chain is walked out. What is left is the hop onto the goal, over ground the network does
             // not number — or, where the chain stopped for want of room rather than because it arrived,

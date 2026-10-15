@@ -85,13 +85,22 @@ internal static class Trig
 
         var reduced = Reduce(x, out var quadrant);
         var (sine, cosine) = Kernel(reduced);
-        return (quadrant & 3) switch
-        {
-            0 => (sine, cosine),
-            1 => (cosine, -sine),
-            2 => (-sine, -cosine),
-            _ => (-cosine, sine),
-        };
+        return Quadrant(sine, cosine, quadrant & 3);
+    }
+
+    /// <summary>
+    /// The kernel's pair turned through whole quarter turns: (s, c), (c, −s), (−s, −c), (−c, s). In bits rather than
+    /// a switch, because a heading is in any quadrant and a branch on it is a guess; a float's negation is its sign
+    /// bit, so the answer is the switch's to the bit.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static (float Sin, float Cos) Quadrant(float sine, float cosine, int quadrant)
+    {
+        uint s = BitConverter.SingleToUInt32Bits(sine), c = BitConverter.SingleToUInt32Bits(cosine);
+        var swap = (uint)-(quadrant & 1);
+        var sinBits = ((s & ~swap) | (c & swap)) ^ ((uint)(quadrant & 2) << 30);
+        var cosBits = ((c & ~swap) | (s & swap)) ^ ((uint)((quadrant + 1) & 2) << 30);
+        return (BitConverter.UInt32BitsToSingle(sinBits), BitConverter.UInt32BitsToSingle(cosBits));
     }
 
     public static float Sin(float x) => SinCos(x).Sin;
@@ -153,30 +162,38 @@ internal static class Trig
         if (float.IsInfinity(y)) return below ? -HalfPi : HalfPi;
         if (y == 0f) return behind ? (below ? -Pi : Pi) : y;
 
+        // Both folds in bits, as the quadrant is (see Quadrant): x and y are not nought here, so behind and below are
+        // their sign bits, and z is not negative, so its sign bit is y's.
         var z = AtanOfMagnitude(MathF.Abs(y) / MathF.Abs(x));
-        var rad = behind ? Pi - z : z;
-        return below ? -rad : rad;
+        var behindMask = (uint)((int)BitConverter.SingleToUInt32Bits(x) >> 31);
+        var rad = (BitConverter.SingleToUInt32Bits(z) & ~behindMask) | (BitConverter.SingleToUInt32Bits(Pi - z) & behindMask);
+        return BitConverter.UInt32BitsToSingle(rad ^ (BitConverter.SingleToUInt32Bits(y) & SignBit));
     }
 
+    const uint SignBit = 0x8000_0000u;
+
+    /// <summary>Every bit set where <paramref name="condition"/> holds, none where it does not, without a branch.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static uint MaskOf(bool condition) => (uint)-Unsafe.BitCast<bool, byte>(condition);
+
+    /// <summary><paramref name="whenSet"/> where the mask is set and <paramref name="otherwise"/> where it is clear, bit for bit.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    static float Pick(uint mask, float whenSet, float otherwise) => BitConverter.UInt32BitsToSingle(
+        (BitConverter.SingleToUInt32Bits(whenSet) & mask) | (BitConverter.SingleToUInt32Bits(otherwise) & ~mask));
+
+    /// <remarks>
+    /// The three folds — −1/m past tan(3π/8), (m − 1)/(m + 1) past tan(π/8), m below — are one quotient whose two
+    /// sides are picked in bits, the last as m/1, which is m exactly: a bearing's ratio is any size, and a branch on
+    /// it is a guess.
+    /// </remarks>
     static float AtanOfMagnitude(float magnitude)
     {
-        float folded;
-        float offset;
-        if (magnitude > Tan3PiOver8)
-        {
-            folded = -1f / magnitude;
-            offset = HalfPi;
-        }
-        else if (magnitude > TanPiOver8)
-        {
-            folded = (magnitude - 1f) / (magnitude + 1f);
-            offset = QuarterPi;
-        }
-        else
-        {
-            folded = magnitude;
-            offset = 0f;
-        }
+        var far = MaskOf(magnitude > Tan3PiOver8);
+        var middle = MaskOf(magnitude > TanPiOver8) & ~far;
+        var numerator = Pick(far, -1f, Pick(middle, magnitude - 1f, magnitude));
+        var denominator = Pick(far, magnitude, Pick(middle, magnitude + 1f, 1f));
+        var folded = numerator / denominator;
+        var offset = Pick(far, HalfPi, Pick(middle, QuarterPi, 0f));
 
         var squared = folded * folded;
         var series = Atan0 * squared + Atan1;
@@ -221,13 +238,11 @@ internal static class Trig
             reduced = ReduceLarge(BitConverter.SingleToUInt32Bits(magnitude), out quadrant);
         }
 
-        if (x < 0f)
-        {
-            reduced = -reduced;
-            quadrant = -quadrant;
-        }
-
-        return reduced;
+        // x's sign, carried in bits (see Quadrant). A nought never reaches here: both callers answer it first.
+        var sign = BitConverter.SingleToUInt32Bits(x) & SignBit;
+        var negate = (int)sign >> 31;
+        quadrant = (quadrant ^ negate) - negate;
+        return BitConverter.UInt32BitsToSingle(BitConverter.SingleToUInt32Bits(reduced) ^ sign);
     }
 
     /// <summary>

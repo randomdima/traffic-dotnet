@@ -42,6 +42,9 @@ internal sealed class ParkingRegistry
     readonly BayStreets _streets;
     readonly Vector2[] _centreM;
     readonly float[] _headingRad;
+
+    /// <summary>Each bay's heading as a unit vector, kept because a body is asked whether a bay holds it every tick.</summary>
+    readonly Vector2[] _forward;
     readonly Vector2[] _doorM;
     readonly int[] _bayOfCar;
     readonly int[] _carInBay;
@@ -63,6 +66,7 @@ internal sealed class ParkingRegistry
         _spaceWidthM = spaceWidthM;
         _centreM = new Vector2[bays];
         _headingRad = new float[bays];
+        _forward = new Vector2[bays];
         _doorM = new Vector2[bays];
         _carInBay = new int[bays];
         _claimedBy = new int[bays];
@@ -144,7 +148,7 @@ internal sealed class ParkingRegistry
     public bool HoldsTheBody(int bay, Vector2 atM)
     {
         var offsetM = atM - _centreM[bay];
-        var forward = Heading.Unit(_headingRad[bay]);
+        var forward = _forward[bay];
         return MathF.Abs(Vector2.Dot(offsetM, forward)) <= _spaceLengthM * 0.5f
             && MathF.Abs(Vector2.Dot(offsetM, Heading.RightOf(forward))) <= _spaceWidthM * 0.5f;
     }
@@ -392,6 +396,7 @@ internal sealed class ParkingRegistry
             // the offset is carried rather than the point, because a car backed in has its doors on the
             // other flank and turning the body about its middle turns this with it.
             var forward = Heading.Unit(headingRad);
+            registry._forward[bay] = forward;
             var door = new Vector2(-forward.Y, forward.X) * -config.RoadSideSign;
             registry._doorM[bay] = door * ((config.Car.WidthM * 0.5f) + config.PersonDiameterM);
         }

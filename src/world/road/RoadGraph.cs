@@ -60,7 +60,7 @@ internal sealed class RoadGraph : ILaneEnds
     ChainIndex? _nearest;
 
     readonly GridLevel _nearestLevel;
-    readonly object _nearestLaying = new();
+    readonly Lock _nearestLaying = new();
 
     /// <summary>And the carriageway's alone, which is <see cref="NearestStreetLane(Vector2, out float)"/>.</summary>
     readonly ChainIndex _nearestStreet;

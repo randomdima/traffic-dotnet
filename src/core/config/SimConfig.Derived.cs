@@ -30,6 +30,13 @@ internal sealed partial class SimConfig
         public readonly float SlipBackOff = (1f / config.Sim.TickRateHz) / config.Tyre.SlipBackOffS;
 
         public readonly float SlipRecover = (1f / config.Sim.TickRateHz) / config.Tyre.SlipRecoverS;
+
+        // A walker's own figures, read several times a walker a tick. Struck as the getters below strike them, and
+        // never through them: a getter reads Laid, which is still being laid here.
+        public readonly float WalkSpeedMps = config.Person.RealWalkSpeedMps * config.Person.PaceScale;
+
+        public readonly float DiameterM =
+            config.Car.WidthM * config.Prop.DiameterInCarWidths * config.Person.DiameterInPropDiameters;
     }
 
     PerTick? _perTick;
@@ -97,7 +104,7 @@ internal sealed partial class SimConfig
         atMps * atMps / (TyreGripMps2 * Terrain.PavedCoefficient * Driving.GripMargin);
 
     /// <summary>A walk, at <see cref="PersonFigures.PaceScale"/> of life's.</summary>
-    public float PersonWalkSpeedMps => Person.RealWalkSpeedMps * Person.PaceScale;
+    public float PersonWalkSpeedMps => Laid.WalkSpeedMps;
 
     /// <summary>
     /// And the pivot at the same scale, because a body moving at a multiple of a real walk turns at that
@@ -122,7 +129,7 @@ internal sealed partial class SimConfig
 
     public float PropDiameterM => Car.WidthM * Prop.DiameterInCarWidths;
 
-    public float PersonDiameterM => PropDiameterM * Person.DiameterInPropDiameters;
+    public float PersonDiameterM => Laid.DiameterM;
 
     /// <summary>A walker's body as the solver stands it, and as the town and the device read its ground under it.</summary>
     public float PersonRadiusM => PersonDiameterM * 0.5f;

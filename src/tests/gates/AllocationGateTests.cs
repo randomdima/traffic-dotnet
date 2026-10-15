@@ -109,6 +109,40 @@ public class AllocationGateTests
     }
 
     /// <summary>
+    /// <b>And the interface a window draws every frame</b>, as it opens with nothing toggled: the tick's gates
+    /// never draw it, and at a few thousand frames a second a few hundred bytes a frame is megabytes a second.
+    /// </summary>
+    [Fact]
+    public void DrawingTheInterfaceAllocatesNothing()
+    {
+        var config = SimConfig.Shipped();
+        using var world = new TownWorld(Towns.Of(Towns.Fixture), config);
+        var uiPx = new Vector2(1600f, 900f);
+        var ui = new App.Hud.Interface(config.Trim);
+        var quads = new App.Screen.OverlayQuad[App.Render.TownRenderer.OverlayCapacity];
+        var ground = new App.Screen.OverlayQuad[App.Render.TownRenderer.UnderlayCapacity];
+        var groundAbove = new App.Screen.OverlayQuad[App.Render.TownRenderer.UnderlayAboveCapacity];
+        var frame = new App.Hud.InterfaceFrame
+        {
+            World = world,
+            Ground = App.Render.GroundMesh.Build(world.Plan, config),
+            Config = config,
+            Camera = new App.Camera.Camera2D(config, world.Plan.WorldSizeM, uiPx),
+            UiPx = uiPx,
+            PointerPx = uiPx * 0.5f,
+            MapName = world.Plan.Name,
+        };
+
+        // Warmed until tier 1, so a recompilation is not charged to the measured passes.
+        for (var pass = 0; pass < 256; pass++) ui.Draw(quads, ground, groundAbove, frame, out _, out _);
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var pass = 0; pass < 100; pass++) ui.Draw(quads, ground, groundAbove, frame, out _, out _);
+
+        Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());
+    }
+
+    /// <summary>
     /// The rule, asked of the thing it is actually about: a standing town, on every map this engine
     /// ships. <b>Zero, and not nearly zero</b> — the phases this engine wrote touch no allocator at
     /// all, on five walkers and on five hundred and twenty.

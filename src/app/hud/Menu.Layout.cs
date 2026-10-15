@@ -7,7 +7,6 @@ namespace TrafficSimulation.App.Hud;
 /// <summary>Where the popup hangs, how wide it wants to be, and where each row of the page showing lands.</summary>
 internal sealed partial class Menu
 {
-    const float RowPitchPx = Theme.TallRowPx + Theme.GapPx;
     const float LinePitchPx = Theme.RowPx + Theme.GapPx;
 
     /// <summary>

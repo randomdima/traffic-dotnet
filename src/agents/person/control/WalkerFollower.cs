@@ -112,8 +112,6 @@ internal static class WalkerFollower
         if (distanceM * distanceM > config.Person.AimUnderfootM2)
         {
             var paceMps = config.PersonWalkSpeedMps;
-            var bearingRad = Trig.Atan2(toAim.Y, toAim.X);
-            var mostRad = config.PersonTurnRateDegPerS * MathF.PI / 180f * dtS;
 
             // Inside a tick's walk it is a shuffle onto the point and not a turn: the aim of a queue creeping
             // forward, or of a body a hair off its line, swings round it a centimetre away, and a walker
@@ -122,14 +120,19 @@ internal static class WalkerFollower
             {
                 if (moving) desired = toAim / dtS;
             }
-            else if (MathF.Abs(Wrap(bearingRad - headingRad)) > mostRad)
-            {
-                heading = TurnToward(headingRad, bearingRad, mostRad);
-            }
             else
             {
-                heading = bearingRad;
-                if (moving) desired = toAim / distanceM * paceMps;
+                var bearingRad = Trig.Atan2(toAim.Y, toAim.X);
+                var mostRad = config.PersonTurnRateDegPerS * MathF.PI / 180f * dtS;
+                if (MathF.Abs(Wrap(bearingRad - headingRad)) > mostRad)
+                {
+                    heading = TurnToward(headingRad, bearingRad, mostRad);
+                }
+                else
+                {
+                    heading = bearingRad;
+                    if (moving) desired = toAim / distanceM * paceMps;
+                }
             }
         }
 
@@ -158,11 +161,15 @@ internal static class WalkerFollower
     }
 
     /// <summary>Into (−π, π].</summary>
+    /// <remarks>
+    /// The remainder is a call into the C library, and an angle already inside a turn is its own remainder to
+    /// the bit — so only one outside it is sent there.
+    /// </remarks>
     public static float Wrap(float angleRad)
     {
         const float Tau = MathF.PI * 2f;
 
-        angleRad %= Tau;
+        if (!(MathF.Abs(angleRad) < Tau)) angleRad %= Tau;
         if (angleRad > MathF.PI) angleRad -= Tau;
         else if (angleRad <= -MathF.PI) angleRad += Tau;
 

@@ -52,7 +52,7 @@ internal sealed partial class Game
     /// </remarks>
     partial void OpenWhatWasPicked()
     {
-        if (TakeWanted() is { } picked) _laying = Task.Run(() => LaidTown.Lay(picked, _config));
+        if (TakeWanted() is { } picked) _laying = LayAside(picked);
         if (_laying is not { IsCompleted: true } laid) return;
 
         _laying = null;
@@ -61,6 +61,12 @@ internal sealed partial class Game
         // rather than on a thread nobody is watching.
         Stand(laid.GetAwaiter().GetResult());
     }
+
+    /// <summary>
+    /// A method of its own because the lambda's capture is made where its variable's scope begins: written beside
+    /// the pattern above, that is the top of every frame, picked or not.
+    /// </summary>
+    Task<LaidTown> LayAside(string map) => Task.Run(() => LaidTown.Lay(map, _config));
 
     /// <summary>
     /// The town being laid when the run ended, waited out and dropped. <b>Waited out rather than

@@ -96,7 +96,7 @@ internal static class SheetRun
     }
 
     static Image<Rgba32> Compose(
-        IReadOnlyList<string> cellPaths, ShotCaption[] captions, bool captioned, string named)
+        List<string> cellPaths, ShotCaption[] captions, bool captioned, string named)
     {
         // One row count for every cell, or the bands would be different heights and the cells could
         // not be tiled at all.

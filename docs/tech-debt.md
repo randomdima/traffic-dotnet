@@ -105,12 +105,6 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   `AllocationGateTests` and `CrossingGateTests` step the managed world. A tick on the device crosses a fixed count — the world's submit and wait, and the emit's submit a frame —
   but no gate holds it, nor that `DeviceWorld.Step` allocates nothing (its signal buffer grows by doubling past twice the
   bodies). A device gate over the suite's built town closes it.
-- **A window on O30 allocates about 2 MB/s in its steady state** (2026-10-15, `qq prof --counters`, .NET 10 and 11
-  alike): 53–76 MB over 20–30 s sampled, four or five gen0 collections, on the device world and the managed one, with
-  and without `--ui frame` — so it is not the read-out, and the listener's own ~32 kB/s is a sixtieth of it. The rate
-  follows the wall clock more than the frame count. `TownProbe`'s headless tick of the same town allocates only the
-  solver's ~1.9 kB a tick, so it is the window's loop or what it runs aside. A `qq prof --memory` dump by type, or an
-  allocation trace over the loop, names it and closes it.
 - **The page's device world** (2026-10-15, web log), each found standing it up:
   - **no tier runs it**: `qq web` on River, OdesaOsm and O30 is the whole of what has looked at it. A lockstep would not hold to the bit
     in any case — WGSL cannot forbid a driver to fuse (core log), and `fma` in `world_view.comp` may run unfused — so a

@@ -31,7 +31,7 @@ internal readonly struct TickGroups
 
     public TickGroups(float intervalS, int tickRateHz)
     {
-        if (tickRateHz <= 0) throw new ArgumentOutOfRangeException(nameof(tickRateHz));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(tickRateHz);
 
         Groups = intervalS <= 0f ? 1 : Math.Max(1, (int)MathF.Round(intervalS * tickRateHz));
         IntervalS = Groups / (float)tickRateHz;

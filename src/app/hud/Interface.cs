@@ -397,6 +397,19 @@ internal sealed class Interface(TrimFigures trims)
 
     bool _screenAsked;
 
+    /// <summary>
+    /// Whether the map is a scenario, asked once a town: the catalogue asks the disk whether the map is a city and
+    /// builds its path to ask, which a frame must not. The name is the town's own string, so a new one is a new town.
+    /// </summary>
+    bool IsScenario(string map)
+    {
+        if (!ReferenceEquals(map, _scenarioAskedOf)) (_scenarioAskedOf, _isScenario) = (map, MapCatalogue.IsScenario(map));
+        return _isScenario;
+    }
+
+    string? _scenarioAskedOf;
+    bool _isScenario;
+
     /// <summary>The town has changed under everything that held a place in it.</summary>
     /// <param name="behindTheMenu">
     /// Whether the town was stood up <em>behind</em> the menu rather than picked on it (GEN-1b). <b>A menu
@@ -451,7 +464,7 @@ internal sealed class Interface(TrimFigures trims)
         // is watched whichever map it is, so that a headless run has the two claims every town owes; what
         // a place has not got is anybody to show them to. A run somebody opened to play in is not a test,
         // and a laboratory read-out over a city is a read-out with no question behind it.
-        var claimed = MapCatalogue.IsScenario(frame.MapName) ? frame.Scenario : default;
+        var claimed = IsScenario(frame.MapName) ? frame.Scenario : default;
 
         if (world is not null)
         {

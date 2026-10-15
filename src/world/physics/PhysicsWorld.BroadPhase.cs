@@ -16,14 +16,15 @@ internal sealed partial class PhysicsWorld
     /// </remarks>
     void IndexMoving()
     {
-        _filedCount = 0;
-        for (var slot = 0; slot < _movingCount; slot++)
+        var flags = _flags;
+        var filed = _filed;
+        var count = 0;
+        foreach (var body in _moving.AsSpan(0, _movingCount))
         {
-            var body = _moving[slot];
-            if ((_flags[body] & BodyFlags.FiledFrozen) == 0) _filed[_filedCount++] = body;
+            if ((flags[body] & BodyFlags.FiledFrozen) == 0) filed[count++] = body;
         }
 
-        _filedCount += KeepTheUnfiled(_filed.AsSpan(_filedCount));
+        _filedCount = count + KeepTheUnfiled(filed.AsSpan(count));
         _dynamicGrid.Rebuild(_filed.AsSpan(0, _filedCount), _leastM, _mostM, _config.Grid.Main);
     }
 
@@ -168,38 +169,63 @@ internal sealed partial class PhysicsWorld
     /// body's box does not reach, and the bounds are the one thing the narrow phase would read of it anyway. A
     /// body met in several cells is kept in the first of them (<see cref="CellGrid.FirstShared"/>). An entry
     /// without <paramref name="live"/> is one whose body is filed elsewhere now.
+    /// <para>
+    /// <b>Every table is read through a local</b>: the resize is a call, and past a call the JIT reloads each field
+    /// of this on every candidate.
+    /// </para>
     /// </remarks>
     void Gather(CellGrid grid, int body, BodyFlags live)
     {
-        var leastM = _leastM[body];
-        var mostM = _mostM[body];
+        var leastAt = _leastM;
+        var mostAt = _mostM;
+        var leastM = leastAt[body];
+        var mostM = mostAt[body];
         if (!grid.TryRange(leastM, mostM, out var range)) return;
 
+        var ownedInStep = _ownedInStep;
+        var stamp = _stepStamp;
+        var flags = _flags;
+        var category = _category;
+        var mask = _mask;
+        var channels = _channels;
+        var bodyCategory = category[body];
+        var bodyMask = mask[body];
+        var bodyChannels = channels[body];
+        var candidates = _candidate;
+        var count = _candidateCount;
         for (var y = range.FromY; y <= range.ToY; y++)
         {
             for (var x = range.FromX; x <= range.ToX; x++)
             {
                 foreach (var other in grid.Items(x, y))
                 {
-                    if (Apart(other, leastM, mostM)) continue;
-                    if (!grid.FirstShared(range, x, y, _leastM[other])) continue;
-                    if (_ownedInStep[other] == _stepStamp) continue;
-                    if ((_flags[other] & live) != live) continue;
-                    if ((_category[body] & _mask[other]) == 0 || (_category[other] & _mask[body]) == 0) continue;
-                    if ((_channels[body] & _channels[other]) == 0) continue;
+                    if (Apart(leastAt, mostAt, other, leastM, mostM)) continue;
+                    if (!grid.FirstShared(range, x, y, leastAt[other])) continue;
+                    if (ownedInStep[other] == stamp) continue;
+                    if ((flags[other] & live) != live) continue;
+                    if ((bodyCategory & mask[other]) == 0 || (category[other] & bodyMask) == 0) continue;
+                    if ((bodyChannels & channels[other]) == 0) continue;
 
-                    if (_candidateCount == _candidate.Length) Array.Resize(ref _candidate, Math.Max(64, _candidate.Length * 2));
+                    if (count == candidates.Length)
+                    {
+                        Array.Resize(ref _candidate, Math.Max(64, candidates.Length * 2));
+                        candidates = _candidate;
+                    }
 
-                    _candidate[_candidateCount++] = other;
+                    candidates[count++] = other;
                 }
             }
         }
+
+        _candidateCount = count;
     }
 
     /// <summary>Whether a body's bounds miss the box entirely.</summary>
-    bool Apart(int body, Vector2 leastM, Vector2 mostM) =>
-        _mostM[body].X < leastM.X || _leastM[body].X > mostM.X ||
-        _mostM[body].Y < leastM.Y || _leastM[body].Y > mostM.Y;
+    bool Apart(int body, Vector2 leastM, Vector2 mostM) => Apart(_leastM, _mostM, body, leastM, mostM);
+
+    static bool Apart(Vector2[] leastAt, Vector2[] mostAt, int body, Vector2 leastM, Vector2 mostM) =>
+        mostAt[body].X < leastM.X || leastAt[body].X > mostM.X ||
+        mostAt[body].Y < leastM.Y || leastAt[body].Y > mostM.Y;
 
     /// <summary>
     /// A handful of candidates put in index order. An insertion sort because that is what the list

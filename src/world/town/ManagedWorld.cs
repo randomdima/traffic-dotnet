@@ -81,7 +81,15 @@ internal sealed class ManagedWorld : WorldLayer
     int _buildsLaid = 1;
 
     /// <summary>What a car's covers are a function of, besides the atlas and the builds' figures.</summary>
-    readonly record struct CarStands(Vector2 PositionM, Vector2 Forward, byte Channels, int BuildsLaid);
+    /// <remarks>Its equality written out so it inlines: it is asked of every car every step.</remarks>
+    readonly record struct CarStands(Vector2 PositionM, Vector2 Forward, byte Channels, int BuildsLaid)
+    {
+        public bool Equals(CarStands other) =>
+            PositionM.Equals(other.PositionM) && Forward.Equals(other.Forward) && Channels == other.Channels
+            && BuildsLaid == other.BuildsLaid;
+
+        public override int GetHashCode() => HashCode.Combine(PositionM, Forward, Channels, BuildsLaid);
+    }
 
     /// <summary>The car each tractor tows, the tractor each towed car hangs off, or −1; and which end it is held by (EVA-5).</summary>
     readonly int[] _towing, _onTheHookOf;
@@ -407,21 +415,23 @@ internal sealed class ManagedWorld : WorldLayer
         {
             TrailerWheels(car);
         }
-        else if (TyrePass.Settled(_physics.VelocityOf(body), _physics.YawRateOf(body), _command[car], _tyres.Of(car)))
-        {
-            _wheels.Clear(car);
-            return;
-        }
         else
         {
-            Span<TyreMark> marks = stackalloc TyreMark[TyreModel.Wheels];
+            var carry = _tyres.Of(car);
+            if (TyrePass.Settled(_physics.VelocityOf(body), _physics.YawRateOf(body), _command[car], carry))
+            {
+                _wheels.Clear(car);
+                return;
+            }
+
+            // Room for every wheel's mark is made first, so the pass writes them where they are kept.
+            if (_marksLaidCount + TyreModel.Wheels > _marksLaid.Length) Array.Resize(ref _marksLaid, _marksLaid.Length * 2);
+
             TyrePass.Step(
                 Config, _grounds, _build[car], PoseOf(car), _command[car], _underAHand[car],
-                1f / _physics.InverseInertiaOf(body), _wheelsOnAWay[car], _tyres.Of(car), _wheels.GroundUnder(car),
-                _wheels.ImpulsesOf(car), _wheels.ScrubOf(car), marks, out var laid);
-            if (_marksLaidCount + laid > _marksLaid.Length) Array.Resize(ref _marksLaid, _marksLaid.Length * 2);
-
-            marks[..laid].CopyTo(_marksLaid.AsSpan(_marksLaidCount));
+                1f / _physics.InverseInertiaOf(body), _wheelsOnAWay[car], carry, _wheels.GroundUnder(car),
+                _wheels.ImpulsesOf(car), _wheels.ScrubOf(car), _marksLaid.AsSpan(_marksLaidCount, TyreModel.Wheels),
+                out var laid);
             _marksLaidCount += laid;
         }
 
@@ -532,10 +542,12 @@ internal sealed class ManagedWorld : WorldLayer
     void WriteTheView(WorldView view, bool stepped = false)
     {
         var cars = view.Cars;
+        var lookaheadS = Config.Driving.LookaheadS;
         for (var car = 0; car < _carBody.Length; car++)
         {
             var body = _carBody[car];
             ref var row = ref cars[car];
+            ref readonly var build = ref _build[car];
             row.PositionM = _physics.PositionOf(body);
             row.VelocityMps = _physics.VelocityOf(body);
             row.HeadingRad = _physics.HeadingOf(body);
@@ -547,16 +559,16 @@ internal sealed class ManagedWorld : WorldLayer
 
             ref var followed = ref _followed[car];
             if (stepped && !float.IsNaN(followed.ProgressM)) followed.AroundM = followed.ProgressM;
-            var rearAxleM = CarFollower.RearAxleM(_build[car], row.PositionM, row.Forward);
-            LineReading.Read(_roads, ref followed, rearAxleM, _build[car].ProjectionWindowM);
+            var rearAxleM = CarFollower.RearAxleM(build, row.PositionM, row.Forward);
+            LineReading.Read(_roads, ref followed, rearAxleM, build.ProjectionWindowM);
             row.ProgressM = followed.ProgressM;
             row.OffLineM = followed.OffLineM;
             row.FollowSerial = followed.Serial;
 
             var lookaheadM = CarFollower.LookaheadM(
-                _build[car], MathF.Abs(Vector2.Dot(row.VelocityMps, row.Forward)), Config.Driving.LookaheadS);
+                build, MathF.Abs(Vector2.Dot(row.VelocityMps, row.Forward)), lookaheadS);
             var leadM = LineReading.Lead(_roads, followed, lookaheadM, out row.LeadAtM);
-            row.AimRad = float.IsNaN(row.LeadAtM) ? 0f : CarFollower.AimAt(_build[car], rearAxleM, row.Forward, leadM);
+            row.AimRad = float.IsNaN(row.LeadAtM) ? 0f : CarFollower.AimAt(build, rearAxleM, row.Forward, leadM);
         }
 
         var walkers = view.Walkers;

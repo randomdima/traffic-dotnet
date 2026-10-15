@@ -16,6 +16,10 @@
     <ServerGarbageCollection>false</ServerGarbageCollection>
     <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
     <!-- Both measured: server GC is worth nothing here and background GC costs 13 %. -->
+    <!-- The newest rules, and the performance category as warnings: most of it is an allocation a steady state
+         must not make (a constant array argument, an uncached serializer option, a lookup done twice). -->
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisModePerformance>All</AnalysisModePerformance>
   </PropertyGroup>
 
   <ItemGroup>
