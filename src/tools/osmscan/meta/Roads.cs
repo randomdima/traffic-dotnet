@@ -323,18 +323,26 @@ internal static class Roads
 
             near.Clear();
             buildingGrid.Near(Box.Empty.With(at).Grown(FrontageReachM), near);
-            var rings = near.SelectMany(building => buildings[building].RingsM).ToArray();
-            if (Ray(at, right, rings, FrontageReachM) is { } toRight) rights.Add(toRight);
-            if (Ray(at, right * -1, rings, FrontageReachM) is { } toLeft) lefts.Add(toLeft);
+            var (toRight, toLeft) = ((double?)null, (double?)null);
+            foreach (var building in near)
+            {
+                toRight = Nearer(toRight, Ray(at, right, buildings[building].RingsM, FrontageReachM));
+                toLeft = Nearer(toLeft, Ray(at, right * -1, buildings[building].RingsM, FrontageReachM));
+            }
+
+            if (toRight is { } rightM) rights.Add(rightM);
+            if (toLeft is { } leftM) lefts.Add(leftM);
         }
 
         return (Median(widths), Median(lefts), Median(rights), lefts.Count + rights.Count > 0);
 
         static double? Median(List<double> values) => values.Count == 0 ? null : values.Order().ElementAt(values.Count / 2);
+
+        static double? Nearer(double? a, double? b) => a is null || b < a ? b : a;
     }
 
     /// <summary>How far a ray runs from a place before it meets an edge of any ring, within a reach.</summary>
-    static double? Ray(Pt from, Pt direction, IEnumerable<Pt[]> rings, double reachM)
+    static double? Ray(Pt from, Pt direction, ReadOnlySpan<Pt[]> rings, double reachM)
     {
         double? nearest = null;
         foreach (var ring in rings)

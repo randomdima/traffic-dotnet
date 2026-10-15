@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using TrafficSimulation.CityGen.Traced;
 
 namespace TrafficSimulation.Tools.OsmScan.Meta;
@@ -255,19 +256,18 @@ internal static class Shape
 /// </summary>
 internal sealed class Grid(double cellM)
 {
-    readonly Dictionary<long, List<int>> _cells = [];
+    /// <remarks>
+    /// Keyed by the pair and not by the two packed in a long, whose hash is its halves exclusive-or'd: every cell whose
+    /// column and row xor alike would share a bucket — a whole map's cells in a thousand or so.
+    /// </remarks>
+    readonly Dictionary<(int X, int Y), List<int>> _cells = [];
 
     public void Add(int item, Box box)
     {
         var (x0, y0, x1, y1) = Cells(box);
         for (var y = y0; y <= y1; y++)
         {
-            for (var x = x0; x <= x1; x++)
-            {
-                var key = Key(x, y);
-                if (!_cells.TryGetValue(key, out var held)) _cells[key] = held = [];
-                held.Add(item);
-            }
+            for (var x = x0; x <= x1; x++) (CollectionsMarshal.GetValueRefOrAddDefault(_cells, (x, y), out _) ??= []).Add(item);
         }
     }
 
@@ -279,15 +279,38 @@ internal sealed class Grid(double cellM)
         {
             for (var x = x0; x <= x1; x++)
             {
-                if (_cells.TryGetValue(Key(x, y), out var held)) into.UnionWith(held);
+                if (_cells.TryGetValue((x, y), out var held)) into.UnionWith(held);
             }
         }
     }
 
-    (int X0, int Y0, int X1, int Y1) Cells(Box box) =>
-        ((int)Math.Floor(box.MinX / cellM), (int)Math.Floor(box.MinY / cellM), (int)Math.Floor(box.MaxX / cellM), (int)Math.Floor(box.MaxY / cellM));
+    /// <summary>
+    /// Every item filed under the one cell a place stands in: what <see cref="Near"/> gives for a box of that place alone,
+    /// in the same order, without a set to gather it in.
+    /// </summary>
+    public ReadOnlySpan<int> At(Pt at) =>
+        _cells.TryGetValue((Cell(at.X), Cell(at.Y)), out var held) ? CollectionsMarshal.AsSpan(held) : [];
 
-    static long Key(int x, int y) => ((long)x << 32) | (uint)y;
+    /// <summary>
+    /// Every item filed under a cell the box meets, appended in the order <see cref="Near"/> gives them — for a grid of
+    /// places alone, each item filed under the one cell its place stands in, so none is met twice and no set is needed.
+    /// </summary>
+    /// <remarks>A set cleared for every asking costs its whole capacity each time; a list costs what it held.</remarks>
+    public void NearPlaces(Box box, List<int> into)
+    {
+        var (x0, y0, x1, y1) = Cells(box);
+        for (var y = y0; y <= y1; y++)
+        {
+            for (var x = x0; x <= x1; x++)
+            {
+                if (_cells.TryGetValue((x, y), out var held)) into.AddRange(held);
+            }
+        }
+    }
+
+    (int X0, int Y0, int X1, int Y1) Cells(Box box) => (Cell(box.MinX), Cell(box.MinY), Cell(box.MaxX), Cell(box.MaxY));
+
+    int Cell(double atM) => (int)Math.Floor(atM / cellM);
 }
 
 /// <summary>

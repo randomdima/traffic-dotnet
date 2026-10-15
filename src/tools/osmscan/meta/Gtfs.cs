@@ -198,8 +198,8 @@ internal static class Gtfs
             if (line.Length == 0) continue;
 
             var cells = Cells(line);
-            var row = new Dictionary<string, string>(header.Count);
-            for (var at = 0; at < header.Count && at < cells.Count; at++)
+            var row = new Dictionary<string, string>(header.Length);
+            for (var at = 0; at < header.Length && at < cells.Length; at++)
             {
                 if (cells[at].Length > 0) row[header[at]] = cells[at];
             }
@@ -211,8 +211,15 @@ internal static class Gtfs
     }
 
     /// <summary>One CSV line's cells (RFC 4180): a quoted cell may hold commas and doubled quotes.</summary>
-    static List<string> Cells(string line)
+    static string[] Cells(string line)
     {
+        if (!line.Contains('"'))
+        {
+            var split = line.Split(',');
+            for (var at = 0; at < split.Length; at++) split[at] = split[at].Trim();
+            return split;
+        }
+
         var cells = new List<string>();
         var cell = new StringBuilder();
         var quoted = false;
@@ -235,7 +242,7 @@ internal static class Gtfs
         }
 
         cells.Add(cell.ToString().Trim());
-        return cells;
+        return [.. cells];
     }
 }
 

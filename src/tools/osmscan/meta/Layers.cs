@@ -103,7 +103,9 @@ internal static class Layers
 
     public static string Serialize(object value) => JsonSerializer.Serialize(value, value.GetType(), Json);
 
-    public static string Indented(object value) => JsonSerializer.Serialize(value, value.GetType(), new JsonSerializerOptions(Json) { WriteIndented = true });
+    public static string Indented(object value) => JsonSerializer.Serialize(value, value.GetType(), IndentedJson);
+
+    static readonly JsonSerializerOptions IndentedJson = new(Json) { WriteIndented = true };
 }
 
 /// <summary>One layer as written: its name, what it holds, what it was read off, how many items, its size and its summary.</summary>

@@ -17,6 +17,13 @@ internal sealed class Town
     /// is in the cells round it.</summary>
     const double CellM = 40;
 
+    /// <summary>
+    /// The segments <see cref="NearestRoad"/> gathers, one set a thread cleared for each asking rather than one made —
+    /// a layer may ask from many threads at once.
+    /// </summary>
+    [ThreadStatic]
+    static HashSet<int>? _nearSegments;
+
     public Town(OsmExtract extract, Plane plane, Fetched fetched, Sources sources)
     {
         (Extract, Plane, Fetched, Sources) = (extract, plane, fetched, sources);
@@ -156,7 +163,8 @@ internal sealed class Town
     /// </summary>
     public (int Road, double OffM, double AlongM, int Segment)? NearestRoad(Pt at, double withinM, Func<int, bool>? which = null)
     {
-        var near = new HashSet<int>();
+        var near = _nearSegments ??= [];
+        near.Clear();
         RoadGrid.Near(Box.Empty.With(at).Grown(withinM), near);
         (int Road, double OffM, double AlongM, int Segment)? best = null;
         foreach (var segment in near)
