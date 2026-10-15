@@ -351,6 +351,22 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   nothing more — and has a unit test; the second rests on `Following.LevelTheRungs` alone, and a town gate on it, read
   off the pieces each hold asked, closes it.
 
+### The debug layers, while the camera moves
+
+Measured by the review of 2026-10-16 with every layer on (`Test`, `Laid`): nothing allocates, and a still frame is
+kept, but a moving one lays its layers again.
+
+- **A quad is turned by an angle**: `ScreenDraw.Bar`/`BandM` take an `atan2` a quad, most of the nodes layer's 0.1–1.3 ms
+  relay, the perimeter's up to 1.5 ms, the shell's 0.5–0.8 ms and the wireframe's 0.2–0.6 ms. A quad carrying its
+  direction rather than its angle, through its layout and the overlay shader, closes it.
+- **The zones wash asks the zone tree a point at a time**, ~5 000 `ZoneTree.At` a moving frame, 0.5–0.9 ms; a grid of
+  zone kinds laid once a town closes it.
+- **The claims layer samples each claim's ends before culling it** (two `Spline.SampleAt`, ~50 µs at 12–60 cars and
+  growing with the town); culling per way off `ChainBoxes` first closes it.
+- **`SelectionPath.CarPath` draws the whole route left**, unculled by the view.
+- **The zones and collision layers keep a framing only while it is exact**, so a camera following a unit lays them
+  every frame; a kept framing a margin wider than the view closes it.
+
 ### Code kept twice, or kept for nothing
 
 Found by the cleanup of 2026-10-15 (`qq unused`, the analyzers) and left because closing each crosses slices, changes
