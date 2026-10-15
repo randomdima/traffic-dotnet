@@ -19,12 +19,74 @@ internal sealed partial class DebugOverlay
     /// bodies and at the size they were given. The statics are read off the plan rather than the solver:
     /// the same numbers, one step earlier.
     /// </summary>
-    static void CollisionShapes(
+    void CollisionShapes(
         ref ScreenDraw draw, TownWorld world, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
     {
         var lineM = MathF.Max(CollisionLineM, CollisionLineFloorPx / pixelsPerMetre);
-        var plan = world.Plan;
+        Standing(ref draw, world, viewCentreM, viewSpanM, lineM);
 
+        var people = world.People;
+        for (var person = 0; person < people.Count; person++)
+        {
+            var centreM = people.PositionM[person];
+            if (!OnScreen(centreM, viewCentreM, viewSpanM, people.RadiusM[person])) continue;
+
+            draw.RingM(centreM, people.RadiusM[person], lineM, Theme.Collision, segments: 12);
+        }
+
+        var cars = world.Cars;
+        for (var car = 0; car < cars.Count; car++)
+        {
+            var centreM = cars.PositionM[car];
+            ref readonly var build = ref cars.BuildOf(car);
+            if (!OnScreen(centreM, viewCentreM, viewSpanM, build.HalfLengthM)) continue;
+
+            // The shape the solver is given, which is this car's own (CAR-11) — fitted inside its picture
+            // (CAR-12b), so it is inside the bodywork as well as inside the tyres and the mirrors.
+            draw.RoundedBoxM(
+                centreM, build.CollisionSizeM, cars.HeadingRad[car], build.CornerRadiusM, lineM, Theme.Collision);
+        }
+    }
+
+    /// <summary>
+    /// The props' and the buildings' shapes as last laid whole, and the framing they were laid at. <b>They stand
+    /// still</b>, and a building's roof is a search of the catalogue, so a frame at the same framing copies them out —
+    /// a prefix of the same quads wherever the buffer runs out, since every one is written or dropped in order.
+    /// </summary>
+    OverlayQuad[] _standingQuads = [];
+
+    int _standingQuadCount;
+    BuildingUses? _standingOf;
+    Vector2 _standingCentreM;
+    Vector2 _standingSpanM;
+    float _standingLineM;
+
+    void Standing(ref ScreenDraw draw, TownWorld world, Vector2 viewCentreM, Vector2 viewSpanM, float lineM)
+    {
+        if (ReferenceEquals(world.Uses, _standingOf) && viewCentreM == _standingCentreM && viewSpanM == _standingSpanM
+            && lineM == _standingLineM)
+        {
+            draw.Take(_standingQuads.AsSpan(0, _standingQuadCount));
+            return;
+        }
+
+        var from = draw.Written;
+        LayStanding(ref draw, world, viewCentreM, viewSpanM, lineM);
+
+        // A lay the buffer cut short is not the whole of what a roomier frame would draw, so it is not kept.
+        _standingOf = null;
+        if (draw.Full) return;
+
+        var laid = draw.WrittenSince(from);
+        if (_standingQuads.Length < laid.Length) _standingQuads = new OverlayQuad[laid.Length];
+        laid.CopyTo(_standingQuads);
+        (_standingQuadCount, _standingOf) = (laid.Length, world.Uses);
+        (_standingCentreM, _standingSpanM, _standingLineM) = (viewCentreM, viewSpanM, lineM);
+    }
+
+    static void LayStanding(ref ScreenDraw draw, TownWorld world, Vector2 viewCentreM, Vector2 viewSpanM, float lineM)
+    {
+        var plan = world.Plan;
         for (var prop = 0; prop < plan.Props.Count; prop++)
         {
             var centreM = plan.Props.CentreM[prop];
@@ -59,28 +121,6 @@ internal sealed partial class DebugOverlay
                     centreM + (forward * atM.X) + (right * atM.Y), part.SizeM * scale, roof.HeadingRad,
                     lineM, Theme.Collision);
             }
-        }
-
-        var people = world.People;
-        for (var person = 0; person < people.Count; person++)
-        {
-            var centreM = people.PositionM[person];
-            if (!OnScreen(centreM, viewCentreM, viewSpanM, people.RadiusM[person])) continue;
-
-            draw.RingM(centreM, people.RadiusM[person], lineM, Theme.Collision, segments: 12);
-        }
-
-        var cars = world.Cars;
-        for (var car = 0; car < cars.Count; car++)
-        {
-            var centreM = cars.PositionM[car];
-            ref readonly var build = ref cars.BuildOf(car);
-            if (!OnScreen(centreM, viewCentreM, viewSpanM, build.HalfLengthM)) continue;
-
-            // The shape the solver is given, which is this car's own (CAR-11) — fitted inside its picture
-            // (CAR-12b), so it is inside the bodywork as well as inside the tyres and the mirrors.
-            draw.RoundedBoxM(
-                centreM, build.CollisionSizeM, cars.HeadingRad[car], build.CornerRadiusM, lineM, Theme.Collision);
         }
     }
 
