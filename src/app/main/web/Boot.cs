@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Reflection;
 using TrafficSimulation.App.Main;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Runtime;
 
 // The browser's entry, and the counterpart of src/app/main/Program.cs. What it does that the desktop's
@@ -56,7 +57,13 @@ try
         await Data.Map(map, Say);
         Say($"standing {map} up…");
         var stoodAt = Stopwatch.GetTimestamp();
+
+        // Each stage's memory on the console (WEB-8): the page's own, which only grows, and what of it the collector holds.
+        OpenWatch.Watcher = stage => Console.WriteLine(
+            $"  {Stopwatch.GetElapsedTime(stoodAt).TotalSeconds,6:F1} s  {WebGpu.HeapBytes() / (1024 * 1024),5} MiB held, " +
+            $"{GC.GetTotalMemory(forceFullCollection: false) / (1024 * 1024),5} MiB in use — {stage}");
         game.Start(map, behindTheMenu);
+        OpenWatch.Watcher = null;
 
         // What an open cost, on the console: a page keeps the most it was ever given, so the memory is the open's peak.
         Console.WriteLine(

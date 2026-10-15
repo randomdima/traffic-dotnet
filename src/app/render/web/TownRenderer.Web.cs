@@ -146,8 +146,7 @@ internal sealed class TownRenderer : IDisposable
         var count = Math.Min(standing.Length, Math.Max(1, Room.Standing));
         if (count == 0) return;
 
-        var bytes = MemoryMarshal.AsBytes(standing.Span[..count]).ToArray();
-        WebGpu.Buffer(StandingStream, bytes, WebGpu.Vertex);
+        WebGpu.Buffer(StandingStream, Bytes<SpriteInstance>(standing.Span[..count]), WebGpu.Vertex);
         Rebuild();
     }
 
@@ -333,14 +332,13 @@ internal sealed class TownRenderer : IDisposable
     }
 
     /// <summary>
-    /// A copy of what the mesh holds, because what crosses the wall must be memory the browser may
-    /// write a view over and a mesh hands out a read-only one. It is a copy made twice in a run.
+    /// What the mesh holds, as the bytes the wall takes: a view crosses as a writable span and a mesh hands out a
+    /// read-only one, but the page only reads it — and a copy was a traced city's mesh over again at its open's peak.
     /// </summary>
-    static byte[] Bytes<T>(ReadOnlySpan<T> from) where T : unmanaged
+    static Span<byte> Bytes<T>(ReadOnlySpan<T> from) where T : unmanaged
     {
-        var bytes = new byte[from.Length * Marshal.SizeOf<T>()];
-        MemoryMarshal.AsBytes(from).CopyTo(bytes);
-        return bytes;
+        var bytes = MemoryMarshal.AsBytes(from);
+        return MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(bytes), bytes.Length);
     }
 
     /// <summary>One picture from a file: its size off the header, its texels off the page's decoder.</summary>

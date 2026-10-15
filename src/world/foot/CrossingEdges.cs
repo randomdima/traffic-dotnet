@@ -36,27 +36,22 @@ internal sealed class CrossingEdges
     /// The foot graph does not carry the plan's crossing index: a crossing there is a kind of edge and
     /// nothing else, which is what makes crossing at a crossing structural rather than looked-up.
     /// </remarks>
-    public static CrossingEdges Of(Crossings crossings, FootGraph foot)
+    /// <param name="level">The level of the grid the crossings are filed at to be found (SIM-8): asked of every crossing, each edge was the town's crossings times its crossing edges.</param>
+    public static CrossingEdges Of(Crossings crossings, FootGraph foot, GridLevel level)
     {
         var of = new int[foot.EdgeCount];
         Array.Fill(of, CityPlan.NoRecord);
+
+        var centres = new PointCells(level);
+        for (var crossing = 0; crossing < crossings.Count; crossing++) centres.Add(crossings.CentreM[crossing]);
 
         for (var edge = 0; edge < foot.EdgeCount; edge++)
         {
             if (foot.KindOf(edge) != FootEdgeKind.Crossing) continue;
 
             var middleM = Spline.SampleAt(foot.ArcsOf(edge), foot.LengthM(edge) * 0.5f).PositionM;
-            var best = CityPlan.NoRecord;
-            var bestDistanceSq = float.MaxValue;
-            for (var crossing = 0; crossing < crossings.Count; crossing++)
-            {
-                var distanceSq = Vector2.DistanceSquared(middleM, crossings.CentreM[crossing]);
-                if (distanceSq >= bestDistanceSq) continue;
-
-                (best, bestDistanceSq) = (crossing, distanceSq);
-            }
-
-            of[edge] = best;
+            var nearest = centres.Nearest(middleM);
+            of[edge] = nearest < 0 ? CityPlan.NoRecord : nearest;
         }
 
         return new CrossingEdges(of);

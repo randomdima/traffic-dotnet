@@ -505,4 +505,90 @@ public class RibbonAtlasTests
         Assert.InRange(under[0].FromM, AlongM - RadiusM - atlas.StepM, AlongM - RadiusM);
         Assert.InRange(under[0].ToM, AlongM + RadiusM, AlongM + RadiusM + atlas.StepM);
     }
+
+    /// <summary>A few ways reaching across many rows of cells: one up the town, one across it twice, and one corner to corner.</summary>
+    static Lines Tall() => new(
+        Straight(new Vector2(20f, 0f), new Vector2(20f, 200f)),
+        Straight(new Vector2(0f, 60f), new Vector2(120f, 60f)),
+        Straight(new Vector2(0f, 150f), new Vector2(120f, 150f)),
+        Straight(new Vector2(5f, 5f), new Vector2(110f, 190f)));
+
+    /// <summary>Few enough entries a band that the tall town is filed in several.</summary>
+    const int SmallBand = 2000;
+
+    /// <summary>
+    /// <b>An atlas filed a band at a time is the atlas</b> (<c>RibbonAtlas.Stream</c>): its frame and its bands, laid where
+    /// the keeper is told they stand, are every table <c>Lay</c> files, to the bit.
+    /// </summary>
+    [Fact]
+    public void AnAtlasKeptABandAtATimeIsTheAtlasLaidWhole()
+    {
+        var whole = RibbonAtlas.Lay(Tall(), Config.RibbonLevel, Config.RibbonTouchM, anyoneWalks: true);
+        var kept = new Kept();
+
+        RibbonAtlas.Stream(Tall(), Config.RibbonLevel, Config.RibbonTouchM, anyoneWalks: true, SmallBand, kept, static _ => { });
+
+        var table = whole.Table;
+        Assert.True(kept.Bands > 1, "the town was filed in one band");
+        Assert.Equal(table.CellSlot.ToArray(), kept.CellSlot);
+        Assert.Equal(table.SlotFirst.ToArray(), kept.SlotFirst);
+        Assert.Equal(table.PointStart.ToArray(), kept.PointStart);
+        Assert.Equal(table.Entries.ToArray(), kept.Entries);
+    }
+
+    /// <summary>
+    /// <b>A band answers a body inside its rows as the whole does</b>, and over all its bands a body is found on the ways the
+    /// whole finds it on — which is what a town checks its furniture against while the atlas is filed into the device.
+    /// </summary>
+    [Fact]
+    public void TheBandsBetweenThemFindABodyWhereTheWholeDoes()
+    {
+        var whole = RibbonAtlas.Lay(Tall(), Config.RibbonLevel, Config.RibbonTouchM, anyoneWalks: true);
+        var discsM = Enumerable.Range(0, 40).Select(static at => new Vector2(20f + (at % 3), at * 5f)).ToArray();
+        var expected = discsM.Select(atM => Ways(whole, atM)).ToArray();
+        var found = discsM.Select(static _ => new SortedSet<int>()).ToArray();
+
+        RibbonAtlas.Stream(
+            Tall(), Config.RibbonLevel, Config.RibbonTouchM, anyoneWalks: true, SmallBand, new Kept(),
+            band =>
+            {
+                for (var disc = 0; disc < discsM.Length; disc++) found[disc].UnionWith(Ways(band, discsM[disc]));
+            });
+
+        for (var disc = 0; disc < discsM.Length; disc++) Assert.Equal(expected[disc], found[disc]);
+
+        static SortedSet<int> Ways(RibbonAtlas atlas, Vector2 atM)
+        {
+            Span<WayCover> into = stackalloc WayCover[8];
+            var count = atlas.UnderDisc(atM, 1.5f, into);
+            var ways = new SortedSet<int>();
+            foreach (var cover in into[..count]) ways.Add(cover.Way);
+            return ways;
+        }
+    }
+
+    /// <summary>A keeper that lays what it is handed into tables of the whole's size, as the device's does.</summary>
+    sealed class Kept : IAtlasKeeper
+    {
+        public int[] CellSlot = [];
+        public int[] SlotFirst = [];
+        public ushort[] PointStart = [];
+        public RibbonAtlas.Entry[] Entries = [];
+        public int Bands;
+
+        public void Begin(AtlasTable frame, int starts, int entries)
+        {
+            CellSlot = frame.CellSlot.ToArray();
+            SlotFirst = frame.SlotFirst.ToArray();
+            PointStart = new ushort[starts];
+            Entries = new RibbonAtlas.Entry[entries];
+        }
+
+        public void Keep(AtlasTable band)
+        {
+            band.PointStart.CopyTo(PointStart.AsSpan(band.FirstSlot * band.StartsPerCell));
+            band.Entries.CopyTo(Entries.AsSpan(band.FirstEntry));
+            Bands++;
+        }
+    }
 }

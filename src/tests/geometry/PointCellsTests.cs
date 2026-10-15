@@ -36,6 +36,37 @@ public class PointCellsTests
         }
     }
 
+    /// <summary>
+    /// <b>The nearest point is the one a scan keeping only a strictly nearer one names</b> — of two as near, the one added
+    /// first, which a set laid with every point twice over asks at every turn.
+    /// </summary>
+    [Fact]
+    public void TheNearestPointIsTheFirstOfThoseAsNearAsAScanFindsThem()
+    {
+        var draw = new Rng(11, 1);
+        var (_, pointsM) = Scattered(ref draw, 400);
+        var cells = new PointCells(Level);
+        var twice = pointsM.Concat(pointsM).ToArray();
+        foreach (var pointM in twice) cells.Add(pointM);
+
+        for (var ask = 0; ask < 300; ask++)
+        {
+            var atM = ask % 3 == 0 ? pointsM[ask % pointsM.Count] : Somewhere(ref draw);
+
+            var best = -1;
+            var bestSq = float.MaxValue;
+            for (var point = 0; point < twice.Length; point++)
+            {
+                var distanceSq = Vector2.DistanceSquared(twice[point], atM);
+                if (distanceSq >= bestSq) continue;
+
+                (best, bestSq) = (point, distanceSq);
+            }
+
+            Assert.Equal(best, cells.Nearest(atM));
+        }
+    }
+
     [Fact]
     public void TheNearestIsTheNearestOfEveryPoint()
     {

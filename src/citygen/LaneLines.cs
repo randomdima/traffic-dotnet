@@ -1188,29 +1188,30 @@ internal sealed class LaneLines
             return MathF.Sign(turnedRad);
         }
 
-        // How near two lines come, nought where they cross.
+        // How near two lines come, nought where they cross. The other's points are read once and not once a point of the
+        // first, and the nearest is a root taken once: a root keeps the order of what it is taken of.
         static float Apart(ArcSeg[] one, ArcSeg[] other)
         {
             Span<SplineCrossing> found = stackalloc SplineCrossing[2];
             if (Spline.CrossingsM(one, other, 0f, 0f, found) > 0) return 0f;
 
-            var nearestM = float.PositiveInfinity;
+            var otherM = new List<Vector2>();
+            foreach (var otherArc in other)
+            {
+                for (var alongOtherM = 0f; alongOtherM <= otherArc.LengthM; alongOtherM += StrideM) otherM.Add(otherArc.PointAtM(alongOtherM));
+            }
+
+            var nearestM2 = float.PositiveInfinity;
             foreach (var oneArc in one)
             {
                 for (var alongOneM = 0f; alongOneM <= oneArc.LengthM; alongOneM += StrideM)
                 {
                     var atM = oneArc.PointAtM(alongOneM);
-                    foreach (var otherArc in other)
-                    {
-                        for (var alongOtherM = 0f; alongOtherM <= otherArc.LengthM; alongOtherM += StrideM)
-                        {
-                            nearestM = MathF.Min(nearestM, Vector2.Distance(atM, otherArc.PointAtM(alongOtherM)));
-                        }
-                    }
+                    foreach (var pointM in otherM) nearestM2 = MathF.Min(nearestM2, Vector2.DistanceSquared(atM, pointM));
                 }
             }
 
-            return nearestM;
+            return MathF.Sqrt(nearestM2);
         }
     }
 

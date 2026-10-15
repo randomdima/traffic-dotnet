@@ -38,6 +38,14 @@ internal sealed partial class Game
         _movingOnTheDevice = true;
     }
 
+    private partial DeviceWorldMaker? WorldMaker() => TicksOnTheDevice ? new DeviceWorldMaker(_vk) : null;
+
+    partial void TookTheDeviceWorld(TownWorld town, DeviceWorld world)
+    {
+        _deviceWorld = world;
+        _movingOnTheDevice = true;
+    }
+
     partial void LayTheMovingOnTheDevice(TownWorld world, SpriteRoom room)
     {
         if (_deviceWorld is not { } device) return;

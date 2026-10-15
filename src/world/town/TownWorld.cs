@@ -212,7 +212,11 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// same town can be watched with different traffic on it. It defaults to the plan's own, which is
     /// what a map opened from the command line runs at.
     /// </param>
-    public TownWorld(CityPlan plan, SimConfig config, bool standStatics = true, ulong? agentSeed = null)
+    /// <param name="worldMaker">
+    /// The world the town stands on where it is not the managed one, made as the town is laid (<see cref="IWorldMaker"/>).
+    /// </param>
+    public TownWorld(
+        CityPlan plan, SimConfig config, bool standStatics = true, ulong? agentSeed = null, IWorldMaker? worldMaker = null)
     {
         var stoodAt = Stopwatch.GetTimestamp();
         _config = config;
@@ -244,6 +248,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             _driving.Cells, mostEntries: Math.Max(BayStreets.MostLanes, _roads.MostLanesOfAWay), mostGoals: 2, MostRunsInARoute);
         _surcharges = new LinkSurcharges(MostWaysGivenUpOn);
         _walkSurcharges = new LinkSurcharges(MostWaysGivenUpOn);
+        OpenWatch.Passed("town: roads");
 
         // Both networks are read by the tick — cars over one, walkers over the other — so both are laid
         // with the town rather than the first time something asks.
@@ -264,6 +269,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _crossingWays = CrossingWays.Of(plan, _pavementLanes, _zebras, config);
         _foot = FootGraph.Build(_pavementLanes, _crossingWays, config);
         FootMs = Stopwatch.GetElapsedTime(footAt).TotalMilliseconds;
+        OpenWatch.Passed("town: pavement");
 
         var walkingAt = Stopwatch.GetTimestamp();
         _walking = WalkingNetwork.Build(_foot, config);
@@ -280,7 +286,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // bounded by and never on the frame that wants it.
         _paths = new SelectionPaths(_selected.Capacity, _driving.Cells, _walking.Cells, MostRunsInARoute);
         _furniture = LaneFurniture.Project(_bars, _roads);
-        _crossingEdges = CrossingEdges.Of(_zebras, _walking.Foot);
+        _crossingEdges = CrossingEdges.Of(_zebras, _walking.Foot, config.Grid.Main);
         _signalHolds = SignalHolds.Of(_signals, _bars, _crossingEdges, _roads, _ways);
 
         var walkers = PeopleIn(plan);
@@ -304,14 +310,38 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // <b>The ground of every way at once</b> (TER-4c.4): which ribbons cover which ground, and which share
         // it. Laid over the one numbering, so it comes after every network that numbers a way, after the roster it
         // files the walk for — and between two collections (CollectTheLay).
+        OpenWatch.Passed("town: walking, the ways");
         CollectTheLay(plan, config);
+        OpenWatch.Passed("town: collected before the atlas");
         var atlasAt = Stopwatch.GetTimestamp();
         _lines = new WayLines(_roads, _walking, _ways, _crossingEdges, config);
-        _atlas = RibbonAtlas.Lay(
-            _lines, config.RibbonLevel, config.RibbonTouchM, anyoneWalks: walkers > 0, () => CollectTheLay(plan, config));
+        void AfterTheMarks()
+        {
+            OpenWatch.Passed("town: the atlas's marks");
+            CollectTheLay(plan, config);
+            OpenWatch.Passed("town: collected after the marks");
+        }
+
+        // <b>Filed into the world that keeps it, where it has one</b>, a band at a time and the furniture checked against each
+        // as it goes; on the host whole otherwise.
+        WayCrossings marks;
+        if (worldMaker is null)
+        {
+            _atlas = RibbonAtlas.Lay(_lines, config.RibbonLevel, config.RibbonTouchM, anyoneWalks: walkers > 0, AfterTheMarks);
+            marks = _atlas.Marks;
+            RefuseFurnitureOnTheRoad(_atlas);
+        }
+        else
+        {
+            marks = RibbonAtlas.Stream(
+                _lines, config.RibbonLevel, config.RibbonTouchM, anyoneWalks: walkers > 0, config.Sim.AtlasBandEntries,
+                worldMaker.Atlas, RefuseFurnitureOnTheRoad, AfterTheMarks).Marks;
+        }
+
         AtlasMs = Stopwatch.GetElapsedTime(atlasAt).TotalMilliseconds;
+        OpenWatch.Passed("town: the atlas filed");
         CollectTheLay(plan, config);
-        RefuseFurnitureOnTheRoad();
+        OpenWatch.Passed("town: collected after the atlas");
 
         People = new PersonFleet(walkers);
         _progress = new LegProgress(walkers);
@@ -323,7 +353,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _mostArcsOfALane = LineAssembler.MostArcsOfALane(_roads);
         _manoeuvres = new Manoeuvres(drivers);
 
-        _occupancy = new LaneOccupancy(_ways, _atlas.Marks, drivers + walkers + _signalHolds.Count);
+        _occupancy = new LaneOccupancy(_ways, marks, drivers + walkers + _signalHolds.Count);
         _ground = new DrivingGround(Cars, _occupancy, _ways, _roads, _lines, config);
         _carHold = _ground.PlanHold;
         _decisions = new TickGroups(config.Sim.AgentDecisionIntervalS, config.Sim.TickRateHz);
@@ -392,9 +422,11 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _recovery = new RecoveryDuty(drivers);
         _serviceBeat = new ServiceBeat(drivers);
         LayTheDistrictStreets();
+        OpenWatch.Passed("town: fleets and places");
 
         if (standStatics) StandStatics();
         LayTheExits();
+        OpenWatch.Passed("town: furniture and exits");
 
         // The aprons are claimed before the plan's cars are stood and filled after (GEN-4k): a bay a
         // spawned car is already standing in is not a bay a hospital can have, and a bay a hospital has is
@@ -408,11 +440,21 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // hospital with no bay near it stands no ambulance, and a slot nothing was put in is a body the
         // decision loop would hand a tick to and the solver has never heard of.
         Roster = new AgentRoster(People.Count, Cars.Count);
-        _world = new ManagedWorld(LayingForTheWorld);
+        OpenWatch.Passed("town: spawned");
+        if (worldMaker is null)
+        {
+            _world = new ManagedWorld(LayingForTheWorld);
+        }
+        else
+        {
+            _world = worldMaker.Lay(LayingForTheWorld);
+            LetGoOfTheGround();
+        }
 
         // After the world, which reads every body onto its ways as it is stood: a car takes the lane its wheels are on.
         DriveTheEmptyMap();
         SeatTheOwners();
+        OpenWatch.Passed("town: its world");
 
         StoodMs = Stopwatch.GetElapsedTime(stoodAt).TotalMilliseconds;
     }
@@ -427,13 +469,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// which the runtime clears page by page — and a table that is mostly room, laid on pages nothing has written,
     /// holds none of that room in memory (root <c>decision-log.md</c>).
     /// </remarks>
-    /// <summary>
-    /// <b>What the lay and the handover let go of, collected</b> — by a caller whose own frames never held it: a frame still
-    /// standing that held the managed world keeps it, the atlas with it, on a runtime that reads its stack conservatively
-    /// (<see cref="ClearTheStack"/>).
-    /// </summary>
-    public void CollectWhatTheLayLeft() => CollectTheLay(_plan, _config);
-
     static void CollectTheLay(CityPlan plan, SimConfig config)
     {
         if (plan.WorldSizeM.X * plan.WorldSizeM.Y < config.Sim.CollectTheLayAboveKm2 * SquareMetresPerKm2) return;
@@ -460,6 +495,13 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     const int StackClearedBytes = 256 * 1024;
 
     const float SquareMetresPerKm2 = 1e6f;
+
+    /// <summary>
+    /// <b>What the lay and the handover let go of, collected</b> — by a caller whose own frames never held it: a frame still
+    /// standing that held the managed world keeps it, the atlas with it, on a runtime that reads its stack conservatively
+    /// (<see cref="ClearTheStack"/>).
+    /// </summary>
+    public void CollectWhatTheLayLeft() => CollectTheLay(_plan, _config);
 
     /// <summary>
     /// <b>What standing this town up cost</b>, and how much of that went on each of the three graphs that

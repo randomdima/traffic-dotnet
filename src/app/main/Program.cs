@@ -339,6 +339,9 @@ internal static class Program
             case "load":
                 LoadProbe.Run(map ?? Options.FixtureMap, config);
                 return 0;
+            case "deviceload":
+                DeviceLoadProbe.Run(map ?? Options.FixtureMap, config);
+                return 0;
             case "sprites":
                 SpriteProbe.Run(map ?? Options.FixtureMap, config);
                 return 0;

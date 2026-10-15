@@ -148,7 +148,11 @@ internal sealed partial class DeviceWorld : WorldLayer
 
     WorldPush _push;
 
-    public DeviceWorld(Vk vk, WorldLaying laying) : base(laying)
+    /// <param name="atlas">
+    /// The atlas, where the town filed it straight into the device as it was laid (<see cref="DeviceWorldMaker"/>); laid
+    /// here off the host's otherwise.
+    /// </param>
+    public DeviceWorld(Vk vk, WorldLaying laying, DeviceAtlas? atlas = null) : base(laying)
     {
         _vk = vk;
 
@@ -171,7 +175,8 @@ internal sealed partial class DeviceWorld : WorldLayer
 
         _tyres = new DeviceTyres(vk, config, laying.Grounds, BuildsOf(laying.Builds), Math.Max(1, _cars));
         LayTheTyres(stood);
-        _atlas = new DeviceAtlas(vk, laying.Atlas.Table);
+        _atlas = atlas ?? new DeviceAtlas(
+            vk, (laying.Atlas ?? throw new ArgumentException("A world laid with no atlas is handed the device's.", nameof(atlas))).Table);
         _lanes = new DeviceLanes(vk, laying.Roads);
         _batch = new ComputeBatch(vk);
 

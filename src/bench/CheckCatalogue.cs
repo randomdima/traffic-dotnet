@@ -40,6 +40,7 @@ internal static class CheckCatalogue
         new("census", "What is in a town: bodies, buildings, props, lit junctions", Quoted(config => TownCensus.Run("Odesa", config))),
         new("load", "What opening a map costs, stage by stage", Quoted(config => LoadProbe.Run("Odesa", config))),
         new("sprites", "What filling a frame's sprites costs, part by part, from a street to the whole town", Quoted(config => SpriteProbe.Run("Odesa", config))),
+        new("deviceload", "What opening a map costs with its world laid onto the device, as a window opens one", Quoted(config => DeviceLoadProbe.Run("Odesa", config))),
         new("deviceworld", "A town soaked with its world on the device beside the same town's managed world: what each did, how long, and the device's claims", config => DeviceWorldProbe.Run("Odesa", config)),
         new("deviceatlas", "Which ways a running town's bodies stand over, on the device and on the host: time, and one answer", Quoted(config => DeviceAtlasProbe.Run("Odesa", config))),
         new("devicecopy", "What a copy costs the device each way, whole and cut into many runs", Quoted(DeviceCopyProbe.Run)),

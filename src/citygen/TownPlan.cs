@@ -51,6 +51,7 @@ internal static class TownPlan
         void Took(string stage)
         {
             laidMs.Add((stage, clock.Elapsed.TotalMilliseconds));
+            Core.Simulation.OpenWatch.Passed($"plan: {stage}");
             clock.Restart();
         }
 

@@ -22,8 +22,12 @@ internal static class Scenarios
     public static ScenarioWatch[] For(TownWorld world, SimConfig config)
     {
         var town = new TownWatch(world, config);
-        return string.Equals(world.Plan.Name, ExamPlan.Name, StringComparison.Ordinal)
-            ? [ExamWatch.Over(config, world), town]
-            : [town];
+        return Stages(world.Plan.Name) ? [ExamWatch.Over(config, world), town] : [town];
     }
+
+    /// <summary>
+    /// Whether a map's watches stage the town before its first tick — asking the world off the clock, which a world that
+    /// cannot wait cannot answer (a page's device).
+    /// </summary>
+    public static bool Stages(string map) => string.Equals(map, ExamPlan.Name, StringComparison.Ordinal);
 }

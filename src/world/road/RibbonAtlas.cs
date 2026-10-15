@@ -159,16 +159,24 @@ internal sealed partial class RibbonAtlas
     /// </summary>
     readonly ushort[] _pointStart;
 
+    /// <summary>The entries, from the cell slots' firsts on: a band's may be a buffer longer than the band (<see cref="Stream"/>).</summary>
     readonly Entry[] _entries;
+
     readonly float[] _lengthM;
 
     /// <summary>Every way's channels, or empty where every way is on the ground's alone (<see cref="ChannelsOf(IRibbonLines)"/>).</summary>
     readonly byte[] _wayChannels;
 
+    /// <summary>Where this atlas's first slot and first entry stand in the whole's: nought but for a band (<see cref="Stream"/>).</summary>
+    readonly int _firstSlot, _firstEntry;
+
     RibbonAtlas(
         GridLevel level, GridWindow cells, int[] cellSlot, int[] slotFirst, ushort[] pointStart, Entry[] entries,
-        float[] lengthM, byte[] wayChannels, WayCrossings marks, int points, int mostWaysAtAPoint)
+        float[] lengthM, byte[] wayChannels, WayCrossings marks, int points, int mostWaysAtAPoint, int firstSlot = 0,
+        int firstEntry = 0)
     {
+        _firstSlot = firstSlot;
+        _firstEntry = firstEntry;
         _wayChannels = wayChannels;
         _level = level;
         _shift = level.Depth - cells.Level.Depth;
@@ -219,7 +227,7 @@ internal sealed partial class RibbonAtlas
     public int PointCount { get; }
 
     /// <summary>How many (point, way) pairs those points carry, which is the standing cost of the atlas.</summary>
-    public int EntryCount => _entries.Length;
+    public int EntryCount => _slotFirst[^1];
 
     /// <summary>The most ways any one lattice point lies under.</summary>
     public int MostWaysAtAPoint { get; }
@@ -227,7 +235,10 @@ internal sealed partial class RibbonAtlas
     /// <summary>What the atlas holds, in bytes: the figure a town's memory is quoted against.</summary>
     public long Bytes =>
         (4L * (_cellSlot.Length + _slotFirst.Length + _lengthM.Length)) + (2L * _pointStart.Length)
-        + ((long)Unsafe.SizeOf<Entry>() * _entries.Length);
+        + ((long)Unsafe.SizeOf<Entry>() * EntryCount);
+
+    /// <summary>Whether a box of ground reaches any of the cells this atlas files — every cell of a band's rows, for a band.</summary>
+    public bool Reaches(Vector2 leastM, Vector2 mostM) => _cells.TryOverlap(leastM, mostM, out _);
 
     /// <summary>
     /// <b>Every way a box stands over, and the stretch of each</b> — the collider of a car, where a pass, a switch or
@@ -554,6 +565,42 @@ internal sealed partial class RibbonAtlas
     /// </param>
     public static RibbonAtlas Lay(IRibbonLines lines, GridLevel level, float touchM, bool anyoneWalks, Action? betweenStages = null)
     {
+        var (lengthM, cells, marks) = Begun(lines, level, touchM, betweenStages);
+        RibbonAtlas? whole = null;
+        Filed(lines, lengthM, level, cells, anyoneWalks, marks, int.MaxValue, null, band => whole = band);
+        return whole!;
+    }
+
+    /// <summary>
+    /// <b>The atlas laid a band of rows at a time into a world that keeps its own</b> (<paramref name="keeper"/>): each band
+    /// is filed, handed over and let go of, so the host never holds more of the entries than
+    /// <paramref name="mostEntriesABand"/> — on a traced city, the gigabyte that was the open's peak, which a page keeps for
+    /// its whole run (root decision-log.md, 2026-10-15).
+    /// </summary>
+    /// <remarks>
+    /// The same atlas to the bit as <see cref="Lay"/>'s, a band at a time: a band is whole rows of cells, so its slots and
+    /// its entries are a run of the whole's. A way crossing a band's edge is walked once for each band it reaches.
+    /// </remarks>
+    /// <param name="eachBand">
+    /// Each band as an atlas of its own over its rows, before it is let go of: a read of it answers what the whole's would
+    /// for a body inside those rows, and nothing for one outside.
+    /// </param>
+    public static StreamedAtlas Stream(
+        IRibbonLines lines, GridLevel level, float touchM, bool anyoneWalks, int mostEntriesABand, IAtlasKeeper keeper,
+        Action<RibbonAtlas> eachBand, Action? betweenStages = null)
+    {
+        var (lengthM, cells, marks) = Begun(lines, level, touchM, betweenStages);
+        return Filed(lines, lengthM, level, cells, anyoneWalks, marks, mostEntriesABand, keeper, band =>
+        {
+            keeper.Keep(band.Table);
+            eachBand(band);
+        });
+    }
+
+    /// <summary>Every way's length, the cells the ribbons reach, and the marks — what filing the points is laid over.</summary>
+    static (float[] LengthM, GridWindow Cells, WayCrossings Marks) Begun(
+        IRibbonLines lines, GridLevel level, float touchM, Action? betweenStages)
+    {
         static string Longest(ReadOnlySpan<ArcSeg> arcs)
         {
             var longest = arcs[0];
@@ -598,19 +645,14 @@ internal sealed partial class RibbonAtlas
         var cells = GridWindow.Over(main, leastM, mostM);
         var marks = RibbonMarks.Of(lines, lengthM, stepM, touchM, main);
         betweenStages?.Invoke();
-        var filed = Filed(lines, lengthM, level, cells, anyoneWalks);
-
-        return new RibbonAtlas(
-            level, cells, filed.CellSlot, filed.SlotFirst, filed.PointStart, filed.Entries, lengthM, ChannelsOf(lines), marks,
-            filed.Points, filed.MostAtAPoint);
+        return (lengthM, cells, marks);
     }
 
-    /// <summary>What filing every way's points leaves the atlas: its kept cells, their starts and their entries.</summary>
-    readonly record struct FiledCells(
-        int[] CellSlot, int[] SlotFirst, ushort[] PointStart, Entry[] Entries, int Points, int MostAtAPoint);
-
     /// <summary>
-    /// <b>Every way's points found and filed into the cells they fall in</b>, each cell in row, column and way order.
+    /// <b>Every way's points found and filed into the cells they fall in</b>, each cell in row, column and way order, a band
+    /// of rows at a time: each band handed to <paramref name="band"/> as an atlas over its rows, and let go of once it
+    /// returns. A band no larger than <paramref name="mostEntriesABand"/> unless one row of cells is; one band, the whole,
+    /// where that is the town's every entry.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -618,35 +660,44 @@ internal sealed partial class RibbonAtlas
     /// working set (<see cref="RibbonMarks"/>), it was the whole of an open's peak on a traced city.
     /// </para>
     /// <para>
-    /// <b>Every way's points are found twice</b>, once to count each cell's and once to file them: kept from the one to
-    /// the other, they were the entries' size over again at the open's peak — a gigabyte on a traced city, which a page
-    /// keeps for the rest of its run (root <c>decision-log.md</c>, 2026-10-15).
+    /// <b>Every way's points are found once to count each cell's and again to file them</b>, for each band they reach:
+    /// kept from the one to the other, they were the entries' size over again at the open's peak — a gigabyte on a traced
+    /// city, which a page keeps for the rest of its run (root <c>decision-log.md</c>, 2026-10-15).
     /// </para>
+    /// <para>A band's tables are buffers reused from band to band, so <paramref name="band"/> may not keep one.</para>
     /// </remarks>
-    static FiledCells Filed(IRibbonLines lines, float[] lengthM, GridLevel level, GridWindow cells, bool anyoneWalks)
+    /// <param name="keeper">Told the whole's frame before the first band, where one keeps it.</param>
+    static StreamedAtlas Filed(
+        IRibbonLines lines, float[] lengthM, GridLevel level, GridWindow cells, bool anyoneWalks, WayCrossings marks,
+        int mostEntriesABand, IAtlasKeeper? keeper, Action<RibbonAtlas> band)
     {
         var wayCount = lines.WayCount;
         var main = cells.Level;
         var shift = level.Depth - main.Depth;
         var reachM = ReachOf(level.CellM);
         var mask = (1 << shift) - 1;
+        var channels = ChannelsOf(lines);
 
         bool Files(int way) => anyoneWalks || lines.IsDriven(way) || lines.ZebraOf(way) != RibbonMarks.NoZebra;
         int CellOf(in Sample point) => cells.IndexOf(point.X >> shift, point.Y >> shift);
 
-        // Every way's own points, found a way at a time on as many threads as there are, and counted under their cells.
+        // Every way's own points, found a way at a time on as many threads as there are, and counted under their cells —
+        // and the rows of cells the way's points reach, which are its first's and its last's: they come in row order.
         var cellCount = new int[cells.Count];
+        var wayRows = new (int First, int Last)[wayCount];
         InChunks.Over(
             wayCount,
             () => (Found: new List<Sample>(), Places: new List<long>()),
             (working, way) =>
             {
+                wayRows[way] = (int.MaxValue, int.MinValue);
                 if (!Files(way)) return;
 
-                foreach (var point in PointsOf(lines, way, lengthM[way], level, working.Found, working.Places))
-                {
-                    Interlocked.Increment(ref cellCount[CellOf(point)]);
-                }
+                var points = PointsOf(lines, way, lengthM[way], level, working.Found, working.Places);
+                if (points.IsEmpty) return;
+
+                wayRows[way] = (points[0].Y >> shift, points[^1].Y >> shift);
+                foreach (var point in points) Interlocked.Increment(ref cellCount[CellOf(point)]);
             });
 
         // Filed a cell at a time: the cells that hold any given their place, every point put in its cell in
@@ -672,59 +723,142 @@ internal sealed partial class RibbonAtlas
             slotFirst[slot + 1] += slotFirst[slot];
         }
 
-        // An entry's column carries the whole of its point's place in the cell until the cell is sorted on it, and
-        // only then its column: a point's place is a byte (above), and a second table of them is the entries' size
-        // over again.
-        var total = slotFirst[slots];
-        var entries = new Entry[total];
-        var cursor = (int[])slotFirst.Clone();
-        InChunks.Over(
-            wayCount,
-            () => (Found: new List<Sample>(), Places: new List<long>()),
-            (working, way) =>
+        // Where each row of cells begins among the slots: slots are numbered in row order, so a band of rows is a run.
+        var rowSlot = new int[cells.Height + 1];
+        for (var row = 0; row < cells.Height; row++)
+        {
+            rowSlot[row + 1] = rowSlot[row];
+            for (var cell = row * cells.Width; cell < (row + 1) * cells.Width; cell++)
             {
-                if (!Files(way)) return;
+                if (cellSlot[cell] >= 0) rowSlot[row + 1]++;
+            }
+        }
 
-                foreach (var point in PointsOf(lines, way, lengthM[way], level, working.Found, working.Places))
-                {
-                    var at = Interlocked.Increment(ref cursor[cellSlot[CellOf(point)]]) - 1;
-                    var inCell = (byte)(((point.Y & mask) << shift) | (point.X & mask));
-                    entries[at] = new Entry(Outside(point.MarginM, reachM), inCell, Filed(point.AlongM), way);
-                }
-            });
+        var startsPerCell = StartsPerCellOf(shift);
+        var whole = slotFirst[slots] <= mostEntriesABand;
+        if (keeper is not null)
+        {
+            keeper.Begin(
+                new RibbonAtlas(level, cells, cellSlot, slotFirst, [], [], lengthM, channels, marks, 0, 0).TableOver([], []),
+                slots * startsPerCell, slotFirst[slots]);
+        }
 
-        // A cell's sort keys are made on the thread sorting it, in a buffer as long as the fullest cell, rather
-        // than held for every entry of the town at once.
+        // A band's working sets, reused from band to band: its entries, starts and cursors, and the sort keys of its
+        // fullest cell. A whole atlas's are its own and exact.
         var mostInACell = 0;
         for (var slot = 0; slot < slots; slot++) mostInACell = Math.Max(mostInACell, slotFirst[slot + 1] - slotFirst[slot]);
 
-        var startsPerCell = StartsPerCellOf(shift);
-        var pointStart = new ushort[slots * startsPerCell];
-        var census = new (int Points, int MostAtAPoint)[slots];
-        InChunks.Over(
-            slots,
-            () => new long[mostInACell],
-            (keys, slot) =>
-            {
-                var first = slotFirst[slot];
-                var count = slotFirst[slot + 1] - first;
-                var cellKeys = keys.AsSpan(0, count);
-                var cellEntries = entries.AsSpan(first, count);
-                for (var at = 0; at < count; at++) cellKeys[at] = ((long)cellEntries[at].Column << 32) | (uint)cellEntries[at].Way;
-                KeyedSort.Sort(cellKeys, cellEntries);
-                foreach (ref var entry in cellEntries) entry = entry with { Column = (byte)(entry.Column & mask) };
-                census[slot] = Started(cellKeys, pointStart.AsSpan(slot * startsPerCell, startsPerCell), shift);
-            });
+        var bandEntries = whole ? slotFirst[slots] : Math.Max(MostInARun(rowSlot, slotFirst, mostEntriesABand), 1);
+        var entries = new Entry[bandEntries];
+        var allPoints = 0;
+        var mostOfAll = 0;
+        if (cells.Height == 0) FiledBand(0, 0);
 
-        var points = 0;
-        var mostAtAPoint = 0;
-        foreach (var cell in census)
+        for (var fromRow = 0; fromRow < cells.Height;)
         {
-            points += cell.Points;
-            mostAtAPoint = Math.Max(mostAtAPoint, cell.MostAtAPoint);
+            // As many rows as the band holds, and at least one.
+            var toRow = fromRow + 1;
+            while (toRow < cells.Height && slotFirst[rowSlot[toRow + 1]] - slotFirst[rowSlot[fromRow]] <= bandEntries) toRow++;
+
+            var (points, most) = FiledBand(fromRow, toRow);
+            allPoints += points;
+            mostOfAll = Math.Max(mostOfAll, most);
+            fromRow = toRow;
         }
 
-        return new FiledCells(cellSlot, slotFirst, pointStart, entries, points, mostAtAPoint);
+        return new StreamedAtlas(marks, allPoints, slotFirst[slots], mostOfAll);
+
+        // One band of rows [fromRow, toRow), filed and handed over: its points, and the most ways at one of them.
+        (int Points, int MostAtAPoint) FiledBand(int fromRow, int toRow)
+        {
+            var firstSlot = rowSlot[fromRow];
+            var bandSlots = rowSlot[toRow] - firstSlot;
+            var firstEntry = slotFirst[firstSlot];
+            var fromCellRow = cells.FromY + fromRow;
+            var toCellRow = cells.FromY + toRow - 1;
+
+            var window = whole ? cells : GridWindow.Of(main, cells.FromX, fromCellRow, cells.Width, toRow - fromRow);
+            var bandCellSlot = cellSlot;
+            var bandSlotFirst = slotFirst;
+            if (!whole)
+            {
+                bandCellSlot = cellSlot[(fromRow * cells.Width)..(toRow * cells.Width)];
+                for (var cell = 0; cell < bandCellSlot.Length; cell++)
+                {
+                    if (bandCellSlot[cell] >= 0) bandCellSlot[cell] -= firstSlot;
+                }
+
+                bandSlotFirst = slotFirst[firstSlot..(firstSlot + bandSlots + 1)];
+                for (var slot = 0; slot < bandSlotFirst.Length; slot++) bandSlotFirst[slot] -= firstEntry;
+            }
+
+            // An entry's column carries the whole of its point's place in the cell until the cell is sorted on it, and
+            // only then its column: a point's place is a byte (above), and a second table of them is the entries' size
+            // over again.
+            var cursor = (int[])bandSlotFirst.Clone();
+            InChunks.Over(
+                wayCount,
+                () => (Found: new List<Sample>(), Places: new List<long>()),
+                (working, way) =>
+                {
+                    var (firstRow, lastRow) = wayRows[way];
+                    if (lastRow < fromCellRow || firstRow > toCellRow) return;
+
+                    foreach (var point in PointsOf(lines, way, lengthM[way], level, working.Found, working.Places))
+                    {
+                        var cellRow = point.Y >> shift;
+                        if (cellRow < fromCellRow || cellRow > toCellRow) continue;
+
+                        var at = Interlocked.Increment(ref cursor[cellSlot[CellOf(point)] - firstSlot]) - 1;
+                        var inCell = (byte)(((point.Y & mask) << shift) | (point.X & mask));
+                        entries[at] = new Entry(Outside(point.MarginM, reachM), inCell, Filed(point.AlongM), way);
+                    }
+                });
+
+            // A cell's sort keys are made on the thread sorting it, in a buffer as long as the fullest cell, rather
+            // than held for every entry of the town at once.
+            var pointStart = new ushort[bandSlots * startsPerCell];
+            var cellCensus = new (int Points, int MostAtAPoint)[bandSlots];
+            InChunks.Over(
+                bandSlots,
+                () => new long[mostInACell],
+                (keys, slot) =>
+                {
+                    var first = bandSlotFirst[slot];
+                    var count = bandSlotFirst[slot + 1] - first;
+                    var cellKeys = keys.AsSpan(0, count);
+                    var cellEntries = entries.AsSpan(first, count);
+                    for (var at = 0; at < count; at++) cellKeys[at] = ((long)cellEntries[at].Column << 32) | (uint)cellEntries[at].Way;
+                    KeyedSort.Sort(cellKeys, cellEntries);
+                    foreach (ref var entry in cellEntries) entry = entry with { Column = (byte)(entry.Column & mask) };
+                    cellCensus[slot] = Started(cellKeys, pointStart.AsSpan(slot * startsPerCell, startsPerCell), shift);
+                });
+
+            var points = 0;
+            var mostAtAPoint = 0;
+            foreach (var cell in cellCensus)
+            {
+                points += cell.Points;
+                mostAtAPoint = Math.Max(mostAtAPoint, cell.MostAtAPoint);
+            }
+
+            band(new RibbonAtlas(
+                level, window, bandCellSlot, bandSlotFirst, pointStart, entries, lengthM, channels, marks, points, mostAtAPoint,
+                firstSlot, firstEntry));
+            return (points, mostAtAPoint);
+        }
+    }
+
+    /// <summary>The most entries a band of whole rows can need: the most of any run of rows within the bound, or one row's past it.</summary>
+    static int MostInARun(int[] rowSlot, int[] slotFirst, int mostEntries)
+    {
+        var most = 0;
+        for (var row = 0; row + 1 < rowSlot.Length; row++)
+        {
+            most = Math.Max(most, slotFirst[rowSlot[row + 1]] - slotFirst[rowSlot[row]]);
+        }
+
+        return Math.Max(most, Math.Min(mostEntries, slotFirst[^1]));
     }
 
     /// <summary>

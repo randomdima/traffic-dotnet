@@ -34,23 +34,43 @@ internal sealed partial class Game
     /// </remarks>
     public bool TicksOnTheDevice { get; init; }
 
-    partial void TickOnTheDevice(TownWorld? world)
+    /// <summary>
+    /// The device's world, made as the town is laid — unless <c>?managed-world</c> said otherwise or the device cannot hold
+    /// the kernels (WEB-10), when it says so and the town stands the managed world.
+    /// </summary>
+    private partial DeviceWorldMaker? WorldMaker()
     {
-        if (world is null) return;
-
-        // Where a page's open went, on its console: it is the desktop's work on one thread, and nothing else measures it.
-        var planMs = 0.0;
-        foreach (var (_, ms) in world.Plan.LaidMs) planMs += ms;
-        Console.WriteLine(
-            $"{world.Plan.Name}: the plan {planMs / 1000:F1} s, the town {world.StoodMs / 1000:F1} s — of it the pavement " +
-            $"{world.FootMs / 1000:F1} s and the atlas {world.AtlasMs / 1000:F1} s; the page holds {HeldMiB()} MiB");
-        if (!TicksOnTheDevice) return;
+        _handedOver = null;
+        if (!TicksOnTheDevice) return null;
 
         if (!WebGpu.KernelsFit())
         {
             Console.WriteLine("This device cannot hold the world's kernels: the world is stepped in managed code.");
-            return;
+            return null;
         }
+
+        return new DeviceWorldMaker(_kernels ??= new Vk());
+    }
+
+    partial void TookTheDeviceWorld(TownWorld town, DeviceWorld world) => SayWhereTheOpenWent(town);
+
+    /// <summary>Where a page's open went, on its console: it is the desktop's work on one thread, and nothing else measures it.</summary>
+    static void SayWhereTheOpenWent(TownWorld world)
+    {
+        var planMs = 0.0;
+        foreach (var (_, ms) in world.Plan.LaidMs) planMs += ms;
+        Console.WriteLine(
+            $"{world.Plan.Name}: the plan {planMs / 1000:F1} s, the town {world.StoodMs / 1000:F1} s — of it the pavement " +
+            $"{world.FootMs / 1000:F1} s and the atlas {world.AtlasMs / 1000:F1} s");
+    }
+
+    /// <summary>The handover, for a town whose watches staged it on the managed world first (<see cref="LaidTown.Lay"/>).</summary>
+    partial void TickOnTheDevice(TownWorld? world)
+    {
+        if (world is null) return;
+
+        SayWhereTheOpenWent(world);
+        if (!TicksOnTheDevice || !WebGpu.KernelsFit()) return;
 
         var kernels = _kernels ??= new Vk();
         var handedAt = Stopwatch.GetTimestamp();

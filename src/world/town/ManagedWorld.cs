@@ -108,7 +108,8 @@ internal sealed class ManagedWorld : WorldLayer
     {
         if (stepsAside ?? StepsAsideWherever) _aside = new AsideThread(StepTheBodies, "world step");
         _physics = laying.StandTheBodies();
-        _atlas = laying.Atlas;
+        _atlas = laying.Atlas
+                 ?? throw new InvalidOperationException("A managed world reads the host's atlas, and this town's was filed into another world.");
         _grounds = laying.Grounds;
         _heldAroundAWheelM = laying.Config.Road.HeldAroundAWheelM;
         _roster = laying.Roster;

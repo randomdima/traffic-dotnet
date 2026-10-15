@@ -148,5 +148,56 @@ internal sealed class PointCells(GridLevel level)
         return best;
     }
 
+    /// <summary>
+    /// <b>The nearest point, and of two as near the one added first</b> — what a scan of every point in turn keeping only a
+    /// strictly nearer one answers — or −1 where none is finite.
+    /// </summary>
+    /// <remarks>
+    /// The rings stop once the next could hold nothing as near (<see cref="NearestSq"/>'s bound, strictly), or once they
+    /// have read as many cells as there are points, when every point is asked instead.
+    /// </remarks>
+    public int Nearest(Vector2 atM)
+    {
+        if (!IsFinite(atM)) return -1;
+
+        var (x, y) = level.CellOf(atM);
+        var best = -1;
+        var bestSq = float.PositiveInfinity;
+        var cellsRead = 0;
+        for (var ring = 0; cellsRead < _pointM.Count; ring++)
+        {
+            for (var atY = y - ring; atY <= y + ring; atY++)
+            {
+                var step = atY == y - ring || atY == y + ring ? 1 : Math.Max(1, 2 * ring);
+                for (var atX = x - ring; atX <= x + ring; atX += step)
+                {
+                    cellsRead++;
+                    if (!_lastIn.TryGetValue((atX, atY), out var point)) continue;
+
+                    for (; point >= 0; point = _filedBefore[point]) Keep(point);
+                }
+            }
+
+            var clearM = (ring - 1) * level.CellM;
+            if (ring > 0 && bestSq < clearM * clearM) return best;
+        }
+
+        for (var point = 0; point < _pointM.Count; point++)
+        {
+            if (IsFinite(_pointM[point])) Keep(point);
+        }
+
+        return best;
+
+        void Keep(int point)
+        {
+            var distanceSq = Vector2.DistanceSquared(_pointM[point], atM);
+            if (distanceSq < bestSq || (distanceSq == bestSq && point < best))
+            {
+                (best, bestSq) = (point, distanceSq);
+            }
+        }
+    }
+
     static bool IsFinite(Vector2 pointM) => float.IsFinite(pointM.X) && float.IsFinite(pointM.Y);
 }

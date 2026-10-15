@@ -53,12 +53,44 @@ internal readonly ref struct AtlasTable
 
     /// <summary>Every way's channels, or empty where every way is on the ground's alone and no read asks.</summary>
     public required ReadOnlySpan<byte> WayChannels { get; init; }
+
+    /// <summary>
+    /// Where the first of <see cref="SlotFirst"/>' slots stands in the whole atlas's: nought but for a band of one filed a
+    /// band at a time (<see cref="RibbonAtlas.Stream"/>).
+    /// </summary>
+    public int FirstSlot { get; init; }
+
+    /// <summary>And where the first of <see cref="Entries"/> stands in the whole atlas's.</summary>
+    public int FirstEntry { get; init; }
 }
+
+/// <summary>
+/// <b>Where an atlas filed a band at a time is kept</b> (<see cref="RibbonAtlas.Stream"/>) — a world that holds its own copy
+/// and reads it there, so the host never holds the whole.
+/// </summary>
+internal interface IAtlasKeeper
+{
+    /// <summary>
+    /// The atlas's frame before any band: every table of the whole but the entries and their starts, which are empty, and
+    /// how many of each the bands will bring.
+    /// </summary>
+    void Begin(AtlasTable frame, int starts, int entries);
+
+    /// <summary>One band's starts and entries, each at its place in the whole (<see cref="AtlasTable.FirstSlot"/>, <see cref="AtlasTable.FirstEntry"/>).</summary>
+    void Keep(AtlasTable band);
+}
+
+/// <summary>What an atlas filed into a keeper leaves the host: its marks and its census (<see cref="RibbonAtlas.Stream"/>).</summary>
+internal readonly record struct StreamedAtlas(WayCrossings Marks, int PointCount, int EntryCount, int MostWaysAtAPoint);
 
 internal sealed partial class RibbonAtlas
 {
     /// <inheritdoc cref="AtlasTable"/>
-    public AtlasTable Table => new()
+    public AtlasTable Table =>
+        TableOver(_pointStart.AsSpan(0, (_slotFirst.Length - 1) * _startsPerCell), _entries.AsSpan(0, EntryCount));
+
+    /// <summary>The table over these starts and entries — none, for a keeper's frame (<see cref="IAtlasKeeper.Begin"/>).</summary>
+    AtlasTable TableOver(ReadOnlySpan<ushort> pointStart, ReadOnlySpan<Entry> entries) => new()
     {
         Level = _level,
         Cells = _cells,
@@ -71,9 +103,11 @@ internal sealed partial class RibbonAtlas
         AlongPerMetre = AlongPerMetre,
         CellSlot = _cellSlot,
         SlotFirst = _slotFirst,
-        PointStart = _pointStart,
-        Entries = _entries,
+        PointStart = pointStart,
+        Entries = entries,
         LengthM = _lengthM,
         WayChannels = _wayChannels,
+        FirstSlot = _firstSlot,
+        FirstEntry = _firstEntry,
     };
 }

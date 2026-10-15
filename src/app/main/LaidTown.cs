@@ -2,6 +2,7 @@ using TrafficSimulation.App.Render;
 using TrafficSimulation.Bench;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Statics;
 using TrafficSimulation.World.Town;
 
@@ -45,29 +46,40 @@ internal sealed class LaidTown
     /// </summary>
     public ScenarioWatch[] Scenario { get; }
 
-    /// <param name="handTheWorldOver">
-    /// The world handed to the device's, where it is to be and the caller is the thread that may: <b>between the world and
-    /// the ground</b>, because a device world lets go of the host's atlas and the ground is then laid into what it held —
-    /// on a traced city a gigabyte off the open's peak, which a page keeps for its whole run (root decision-log.md,
-    /// 2026-10-15). After the scenario, whose staging asks the world what a page's device cannot answer off the clock.
+    /// <param name="worldMaker">
+    /// The device's world, made as the town is laid where the caller is the thread that may (<see cref="IWorldMaker"/>): the
+    /// atlas filed straight into it, and no managed world stood to be thrown away — on a traced city a gigabyte off the
+    /// open's peak, which a page keeps for its whole run (root decision-log.md, 2026-10-15). <b>Not for a map whose
+    /// watches stage it</b> (<see cref="Scenarios.Stages"/>): that one is handed over after.
     /// </param>
-    public static LaidTown Lay(string map, SimConfig config, Action<TownWorld>? handTheWorldOver = null)
+    /// <param name="handTheWorldOver">
+    /// The world handed to the device's after the scenario has staged the town, where it is to be: <b>between the world and
+    /// the ground</b>, so the ground is laid into what the host's atlas held.
+    /// </param>
+    public static LaidTown Lay(
+        string map, SimConfig config, IWorldMaker? worldMaker = null, Action<TownWorld>? handTheWorldOver = null)
     {
         var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
 
         // The world before the ground, because laying the world's atlas is an open's peak and the mesh laid
         // first stood under it; laid after, it is laid into what the atlas worked in.
-        var world = new TownWorld(plan, config);
+        var made = worldMaker is not null && !Scenarios.Stages(plan.Name);
+        var world = new TownWorld(plan, config, worldMaker: made ? worldMaker : null);
         var scenario = Scenarios.For(world, config);
-        if (handTheWorldOver is not null)
+        var handed = !made && handTheWorldOver is not null;
+        if (handed) handTheWorldOver!(world);
+
+        // From here, a frame that never held what the lay and the handover let go of (TownWorld.CollectWhatTheLayLeft).
+        if (made || handed)
         {
-            handTheWorldOver(world);
             world.CollectWhatTheLayLeft();
+            OpenWatch.Passed("the world the device's, and collected");
         }
 
         var ground = GroundMesh.Build(plan, config);
         plan.Paving(config).LetGoOfTheLayingIndexes();
         world.Roads.LetGoOfTheLayingIndex();
-        return new LaidTown(plan, ground, world, scenario, handTheWorldOver is not null);
+        OpenWatch.Passed("the ground");
+        return new LaidTown(plan, ground, world, scenario, made || handed);
     }
 }

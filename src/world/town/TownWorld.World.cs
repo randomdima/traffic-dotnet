@@ -38,7 +38,7 @@ internal sealed partial class TownWorld
                 walkers[person] = new WalkerLaid(People.PositionM[person], People.HeadingRad[person], People.Inside[person].Any);
             }
 
-            return new WorldLaying(_config, _plan.WorldSizeM, Statics, Atlas, WheelGrounds, _builds, cars, walkers, _roads);
+            return new WorldLaying(_config, _plan.WorldSizeM, Statics, _atlas, WheelGrounds, _builds, cars, walkers, _roads);
         }
     }
 
@@ -61,15 +61,7 @@ internal sealed partial class TownWorld
         _world = lay(LayingForTheWorld);
         _world.Signals.AddRange(signals);
 
-        // <b>The ground and the furniture are the world's from here on</b> (the root decision log, 2026-10-13): a world laid
-        // off them keeps its own, and the town reads neither while it runs — the managed world, which reads both every
-        // step, is the one that keeps the town's.
-        if (_world is not ManagedWorld)
-        {
-            _staticBodyCount = Statics.Count;
-            _atlas = null;
-            _statics = null;
-        }
+        if (_world is not ManagedWorld) LetGoOfTheGround();
 
         // The new world is laid where the fleets have every body, so nothing set is waiting on its signal any more — and
         // follows nothing until each car's is signalled to it again.
@@ -78,6 +70,18 @@ internal sealed partial class TownWorld
         Array.Fill(_followedLaid, NeverFollowed);
         _claimsLaidOff = -1;
         ReadTheWorld();
+    }
+
+    /// <summary>
+    /// <b>The ground and the furniture are the world's from here on</b> (the root decision log, 2026-10-13): a world laid
+    /// off them keeps its own, and the town reads neither while it runs — the managed world, which reads both every step,
+    /// is the one that keeps the town's.
+    /// </summary>
+    void LetGoOfTheGround()
+    {
+        _staticBodyCount = Statics.Count;
+        _atlas = null;
+        _statics = null;
     }
 
     /// <summary>A signal to the world, where there is one yet: while the town is laid, the fleets are the laying.</summary>

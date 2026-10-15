@@ -81,6 +81,13 @@ internal sealed class SimFigures
     public float CollectTheLayAboveKm2 { get; init; } = 16f;
 
     /// <summary>
+    /// <b>How many of the atlas's entries the host holds at once where a world keeps its own</b> (<c>RibbonAtlas.Stream</c>):
+    /// the atlas is filed a band of rows at a time and each band handed over, so this is the most of it standing on
+    /// the host — 64 MiB of entries. Fewer is less held and more of the ways crossing a band's edge walked twice.
+    /// </summary>
+    public int AtlasBandEntries { get; init; } = 1 << 23;
+
+    /// <summary>
     /// <b>How wide the one grid's main cell is</b> (SIM-8), in car widths — the cell every index over the map
     /// numbers its own on, and the one anything asked about a car or a street is binned at.
     /// </summary>

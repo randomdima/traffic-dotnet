@@ -220,7 +220,7 @@ internal sealed class CrossingWays
             stands[At(at, TheFarEnd)] = true;
         }
 
-        var places = Places(mouths, stands, config.Road.FootNodeMergeM);
+        var places = Places(mouths, stands, config.Road.FootNodeMergeM, config.Grid.Main);
         var unreached = 0;
         var unreachedAtM = Vector2.Zero;
         var unreachedOffM = 0f;
@@ -348,22 +348,35 @@ internal sealed class CrossingWays
     /// walker arriving at one place only to hand over at the next; merged, the lanes of both crossings meet
     /// at the one place and connect to each other directly.
     /// </remarks>
-    static List<Place> Places(Mouth[] mouths, bool[] stands, float mergeM)
+    /// <param name="level">
+    /// The level of the grid the mouths are filed at to find their neighbours (SIM-8): asked of every mouth before it,
+    /// the town's mouths squared.
+    /// </param>
+    static List<Place> Places(Mouth[] mouths, bool[] stands, float mergeM, GridLevel level)
     {
         var of = new int[mouths.Length];
         for (var at = 0; at < of.Length; at++) of[at] = at;
 
+        // Every standing mouth before this one within the merge: found a little wider than it, and held to it as the merge
+        // reads it, so the rounding of a distance squared decides nothing.
+        var filed = new PointCells(level);
+        var mouthOf = new List<int>();
+        var near = new List<int>();
         for (var at = 0; at < mouths.Length; at++)
         {
             if (!stands[at]) continue;
 
-            for (var other = 0; other < at; other++)
+            filed.Within(mouths[at].CentreM, mergeM + LineTolerance.JoinedM, near);
+            foreach (var point in near)
             {
-                if (!stands[other]) continue;
+                var other = mouthOf[point];
                 if (Vector2.Distance(mouths[at].CentreM, mouths[other].CentreM) > mergeM) continue;
 
                 of[Root(of, at)] = Root(of, other);
             }
+
+            filed.Add(mouths[at].CentreM);
+            mouthOf.Add(at);
         }
 
         var places = new Dictionary<int, Place>();

@@ -4,6 +4,7 @@ using TrafficSimulation.App.Render;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Statics;
 using TrafficSimulation.World.Town;
@@ -31,10 +32,19 @@ namespace TrafficSimulation.Bench;
 /// </remarks>
 internal static class LoadProbe
 {
-    public static void Run(string map, SimConfig config)
+    /// <param name="worldMaker">
+    /// The world laid onto a device as the town is, as a window lays one (<c>DeviceLoadProbe</c>); the managed world, and
+    /// the host's whole atlas, otherwise.
+    /// </param>
+    public static void Run(string map, SimConfig config, IWorldMaker? worldMaker = null)
     {
         var allocatedAt = GC.GetTotalAllocatedBytes(precise: true);
         var planAt = Stopwatch.GetTimestamp();
+
+        // Each stage's memory as it ends, on the terms a page says it in (Boot.cs): the process's, and the collector's in use.
+        OpenWatch.Watcher = stage => Console.WriteLine(
+            $"  {"",-12}{Stopwatch.GetElapsedTime(planAt).TotalSeconds,6:F1} s  {Environment.WorkingSet / (1024 * 1024),5} MiB resident, " +
+            $"{GC.GetTotalMemory(forceFullCollection: false) / (1024 * 1024),5} MiB in use — {stage}");
         var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
         var planMs = Stopwatch.GetElapsedTime(planAt).TotalMilliseconds;
         var planAllocated = Allocated(ref allocatedAt);
@@ -68,16 +78,29 @@ internal static class LoadProbe
         EndingAt("walk", rings.Walk.Loose);
 
         Allocated(ref allocatedAt);
-        var world = new TownWorld(plan, config);
+        var world = new TownWorld(plan, config, worldMaker: worldMaker);
         Say("world", world.StoodMs,
             $"{world.AgentCount} agents, {world.StaticBodyCount} static bodies; {Allocated(ref allocatedAt)}");
         Say("  roads", world.RoadsMs, $"{world.Roads.LaneCount} lanes");
         Say("  foot", world.FootMs, $"{world.Foot.EdgeCount} lanes");
         Say("  walking", world.WalkingMs, $"{world.Walking.Runs.LinkCount} runs");
-        Say("  atlas", world.AtlasMs,
-            $"{world.Atlas.PointCount} points, {world.Atlas.EntryCount} entries, {world.Atlas.Bytes / 1048576.0:F1} MiB, " +
-            $"at most {world.Atlas.MostWaysAtAPoint} ways at a point of {RibbonAtlas.MostWaysUnderABody} under a body");
-        Console.WriteLine($"  {"digest",-12}{Digest(world.Atlas.Table):x16}   the atlas's tables, equal across processes and builds");
+        if (worldMaker is null)
+        {
+            Say("  atlas", world.AtlasMs,
+                $"{world.Atlas.PointCount} points, {world.Atlas.EntryCount} entries, {world.Atlas.Bytes / 1048576.0:F1} MiB, " +
+                $"at most {world.Atlas.MostWaysAtAPoint} ways at a point of {RibbonAtlas.MostWaysUnderABody} under a body");
+            Console.WriteLine($"  {"digest",-12}{Digest(world.Atlas.Table):x16}   the atlas's tables, equal across processes and builds");
+            var marks = world.Atlas.Marks;
+            var hash = 14695981039346656037UL;
+            Fold(ref hash, marks.All);
+            for (var way = 0; way <= marks.WayCount; way++) Fold(ref hash, (ReadOnlySpan<int>)[way < marks.WayCount ? marks.FirstOf(way) : marks.All.Length]);
+            Console.WriteLine($"  {"digest",-12}{hash:x16}   the marks, on the same terms");
+        }
+        else
+        {
+            Say("  atlas", world.AtlasMs, $"filed onto the device {config.Sim.AtlasBandEntries} entries at a time");
+        }
+
         Say("  the rest", world.StoodMs - world.RoadsMs - world.FootMs - world.WalkingMs - world.AtlasMs,
             "fleets, the tables they are numbered in, the roster and the spawn");
 

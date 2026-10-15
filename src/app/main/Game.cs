@@ -3,6 +3,7 @@ using System.Numerics;
 using Silk.NET.Input;
 using TrafficSimulation.App.Camera;
 using TrafficSimulation.App.Debug;
+using TrafficSimulation.App.DeviceTick;
 using TrafficSimulation.App.Drive;
 using TrafficSimulation.App.Hud;
 using TrafficSimulation.App.PlayerControl;
@@ -225,6 +226,16 @@ internal sealed partial class Game : IDisposable
     /// <see cref="_movingOnTheDevice"/> where it hands the world over.
     /// </summary>
     partial void TickOnTheDevice(TownWorld? world);
+
+    /// <summary>
+    /// <b>The device's world, to be made as the next town is laid</b> (<see cref="LaidTown.Lay"/>), where this run asks
+    /// for one and the device can hold it — or nothing, when the town stands the managed world. Only for a town laid on
+    /// the thread that may submit to the device.
+    /// </summary>
+    private partial DeviceWorldMaker? WorldMaker();
+
+    /// <summary>The device world a town was laid with taken as this head steps and draws it — <see cref="TickOnTheDevice"/>'s other half.</summary>
+    partial void TookTheDeviceWorld(TownWorld town, DeviceWorld world);
 
     /// <summary>
     /// <b>Whether what moves is emitted on the device and drawn where it is written</b>
@@ -691,7 +702,14 @@ internal sealed partial class Game : IDisposable
     /// Whether the menu stays up over the town that has just stood (GEN-1b). It is what the idle map is
     /// opened as and nothing else is: a map somebody clicked is a map they asked to look at.
     /// </param>
-    void Open(string map, bool behindTheMenu = false) => Stand(LaidTown.Lay(map, _config, HandTheWorldOver), behindTheMenu);
+    void Open(string map, bool behindTheMenu = false)
+    {
+        _movingOnTheDevice = false;
+        var maker = WorldMaker();
+        var laid = LaidTown.Lay(map, _config, maker, HandTheWorldOver);
+        if (maker?.Laid is { } made) TookTheDeviceWorld(laid.World, made);
+        Stand(laid, behindTheMenu);
+    }
 
     /// <summary>The town about to stand handed the device's world, where this run asks for one (<see cref="TickOnTheDevice"/>).</summary>
     void HandTheWorldOver(TownWorld world)
@@ -758,6 +776,7 @@ internal sealed partial class Game : IDisposable
         _follow.Stop();
         if (_bot is not null) AskToFollow();
 
+        OpenWatch.Passed("stood: the renderer and the sprites");
         LetGoOfTheTriangles(laid.Ground);
         HandBackTheOpen();
     }

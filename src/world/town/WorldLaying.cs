@@ -20,12 +20,17 @@ internal readonly record struct WalkerLaid(Vector2 PositionM, float HeadingRad, 
 /// layer's own state.
 /// </summary>
 /// <remarks>
+/// <para>
 /// <b>One numbering</b>: a world stands the furniture first, then every walker, then every car, each in roster order
 /// (<see cref="AgentRoster"/>). A signal names an agent (<see cref="ControlSignal.Agent"/>), and only the world knows
 /// which body that is (<see cref="BodyOf"/>).
+/// </para>
+/// <para>
+/// <b>No atlas for a world that keeps its own</b>, filed into it as the town was laid (<see cref="IWorldMaker"/>).
+/// </para>
 /// </remarks>
 internal sealed record WorldLaying(
-    SimConfig Config, Vector2 WorldSizeM, StaticBodies Statics, RibbonAtlas Atlas, WheelGrounds Grounds, CarBuilds Builds,
+    SimConfig Config, Vector2 WorldSizeM, StaticBodies Statics, RibbonAtlas? Atlas, WheelGrounds Grounds, CarBuilds Builds,
     CarLaid[] Cars, WalkerLaid[] Walkers, RoadGraph Roads)
 {
     public AgentRoster Roster => new(Walkers.Length, Cars.Length);
@@ -37,7 +42,7 @@ internal sealed record WorldLaying(
     /// <b>The laying as a world keeps it once it has stood its own ground</b> — its numbering and its agents, and none of the
     /// furniture or the atlas it laid its own tables off, which the town lets go of (the root decision log, 2026-10-13).
     /// </summary>
-    public WorldLaying WithoutTheGround() => this with { Statics = null!, Atlas = null! };
+    public WorldLaying WithoutTheGround() => this with { Statics = null!, Atlas = null };
 
     /// <summary>The row of the body table an agent's body stands in.</summary>
     public int BodyOf(int agent) => FurnitureCount + agent;

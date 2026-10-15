@@ -51,6 +51,32 @@ public class DeviceWorldTests(Lavapipe device) : IClassFixture<Lavapipe>
     }
 
     /// <summary>
+    /// <b>A town laid with its world made on the device is the town handed over to it</b> (<see cref="DeviceWorldMaker"/>):
+    /// its atlas filed onto the device in bands too small to hold a row of the town's cells twice over, and no managed world
+    /// ever stood — and every car and walker where the town laid whole and handed over has it, every tick.
+    /// </summary>
+    [Fact]
+    public void ATownLaidOntoTheDeviceIsTheTownHandedToIt()
+    {
+        var banded = new SimConfig { Sim = new SimFigures { AtlasBandEntries = 4096 } };
+        using var handed = new TownWorld(Towns.Built, Config);
+        handed.HandTheWorldTo(laying => new DeviceWorld(device.Vk, laying));
+        using var laidOnto = new TownWorld(Towns.Built, banded, worldMaker: new DeviceWorldMaker(device.Vk));
+        var handedLoop = new SimLoop<TownWorld>(handed, Config);
+        var laidOntoLoop = new SimLoop<TownWorld>(laidOnto, banded);
+
+        var unlike = new List<string>();
+        for (var tick = 1; tick <= Ticks && unlike.Count == 0; tick++)
+        {
+            handedLoop.Advance();
+            laidOntoLoop.Advance();
+            TownsInStep.Compare(handed, laidOnto, tick, unlike);
+        }
+
+        Assert.True(unlike.Count == 0, string.Join('\n', unlike.Take(8)));
+    }
+
+    /// <summary>
     /// <b>A car is read along its line on the device where the managed world reads it</b> (<c>line_reading.glsl</c>,
     /// <see cref="LineReading"/>): every car of a town put down on a lane, on and off it, told to follow it — on into the
     /// join and the next lane, and cut short — and the same progress, distance off and point the wheel is aimed at read

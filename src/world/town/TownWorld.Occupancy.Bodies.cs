@@ -1,3 +1,4 @@
+using System.Numerics;
 using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
@@ -109,12 +110,16 @@ internal sealed partial class TownWorld
     /// prop there is refused rather than driven round: a prop is not a body, holds no reservation, and a
     /// driver would be told nothing of it.
     /// </summary>
-    void RefuseFurnitureOnTheRoad()
+    /// <remarks>Asked of the whole atlas, or of each band of one filed a band at a time: between them the bands answer as the whole.</remarks>
+    void RefuseFurnitureOnTheRoad(RibbonAtlas atlas)
     {
         Span<WayCover> under = stackalloc WayCover[MostWaysUnderABody];
         for (var prop = 0; prop < _plan.Props.Count; prop++)
         {
-            var count = Atlas.UnderDisc(_plan.Props.CentreM[prop], _plan.Props.RadiusM[prop], under);
+            var reachM = new Vector2(_plan.Props.RadiusM[prop]);
+            if (!atlas.Reaches(_plan.Props.CentreM[prop] - reachM, _plan.Props.CentreM[prop] + reachM)) continue;
+
+            var count = atlas.UnderDisc(_plan.Props.CentreM[prop], _plan.Props.RadiusM[prop], under);
             for (var at = 0; at < count; at++)
             {
                 if (!_ways.IsDriven(under[at].Way)) continue;

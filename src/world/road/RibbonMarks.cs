@@ -65,7 +65,10 @@ internal static class RibbonMarks
         // in plan.
         var channels = RibbonAtlas.ChannelsOf(lines);
         var pairings = new List<Pairing>();
-        new Near(PiecesOf(lines), nearLevel).EachPair(
+        var pieces = PiecesOf(lines);
+        var near = new Near(pieces, nearLevel);
+        OpenWatch.Passed($"town: the marks' {pieces.Length} pieces and their cells");
+        near.EachPair(
             () => new Pairing(),
             (pairing, one, other) =>
             {
@@ -75,14 +78,32 @@ internal static class RibbonMarks
             {
                 lock (pairings) pairings.Add(pairing);
             });
+        OpenWatch.Passed($"town: the marks' {pairings.Sum(static pairing => pairing.Pairs.Count)} pairs weighed");
 
         return Filed(lines, pairings, lengthM);
     }
 
     /// <summary>Every piece of every way's line, swept to half that way's width.</summary>
+    /// <remarks>
+    /// Counted before they are laid, so the table is laid once at its size: a list grown to a traced city's million pieces
+    /// and copied out was three times the table at once.
+    /// </remarks>
     static RibbonPiece[] PiecesOf(IRibbonLines lines)
     {
-        var pieces = new List<RibbonPiece>();
+        var count = 0;
+        for (var way = 0; way < lines.WayCount; way++)
+        {
+            var arcs = lines.LineOf(way, out var widthM);
+            if (widthM <= 0f) continue;
+
+            foreach (var arc in arcs)
+            {
+                if (arc.LengthM > 0f) count++;
+            }
+        }
+
+        var pieces = new RibbonPiece[count];
+        var at = 0;
         for (var way = 0; way < lines.WayCount; way++)
         {
             var arcs = lines.LineOf(way, out var widthM);
@@ -91,12 +112,12 @@ internal static class RibbonMarks
             var fromM = 0f;
             foreach (var arc in arcs)
             {
-                if (arc.LengthM > 0f) pieces.Add(new RibbonPiece(way, fromM, arc, widthM * 0.5f));
+                if (arc.LengthM > 0f) pieces[at++] = new RibbonPiece(way, fromM, arc, widthM * 0.5f);
                 fromM += arc.LengthM;
             }
         }
 
-        return [.. pieces];
+        return pieces;
     }
 
     static long KeyOf(int oneWay, int otherWay) =>
@@ -228,6 +249,9 @@ internal static class RibbonMarks
 
             _window = GridWindow.Over(level, leastM, mostM);
 
+            // Each cell's count summed to where its run ends, then every piece filed walking back from the end — last piece
+            // first, so each run is in piece order — which leaves each cell's entry at where its run begins. No second
+            // table of cursors the window's size.
             _cellFirst = new int[_window.Count + 1];
             foreach (var piece in pieces)
             {
@@ -236,23 +260,22 @@ internal static class RibbonMarks
                 {
                     for (var column = range.FromX; column <= range.ToX; column++)
                     {
-                        _cellFirst[_window.IndexOf(column, row) + 1]++;
+                        _cellFirst[_window.IndexOf(column, row)]++;
                     }
                 }
             }
 
-            for (var cell = 0; cell < _window.Count; cell++) _cellFirst[cell + 1] += _cellFirst[cell];
+            for (var cell = 1; cell <= _window.Count; cell++) _cellFirst[cell] += _cellFirst[cell - 1];
 
             _inCell = new int[_cellFirst[^1]];
-            var cursor = (int[])_cellFirst.Clone();
-            for (var index = 0; index < pieces.Length; index++)
+            for (var index = pieces.Length - 1; index >= 0; index--)
             {
                 var range = Cells(pieces[index]);
                 for (var row = range.FromY; row <= range.ToY; row++)
                 {
                     for (var column = range.FromX; column <= range.ToX; column++)
                     {
-                        _inCell[cursor[_window.IndexOf(column, row)]++] = index;
+                        _inCell[--_cellFirst[_window.IndexOf(column, row)]] = index;
                     }
                 }
             }
@@ -359,57 +382,74 @@ internal static class RibbonMarks
     }
 
     /// <summary>What every thread found, merged, and filed under both ways of every pair.</summary>
+    /// <remarks>
+    /// <b>Merged into the first thread's pairs rather than a fresh set, and filed into one table counted first</b>: a
+    /// set of every pair copied, and a list a way, were a traced city's marks twice over at once.
+    /// </remarks>
     static WayCrossings Filed(IRibbonLines lines, List<Pairing> pairings, float[] lengthM)
     {
         var wayCount = lines.WayCount;
-        var merged = new Pairing();
-        foreach (var pairing in pairings)
+        var merged = pairings.Count > 0 ? pairings[0] : new Pairing();
+        for (var other = 1; other < pairings.Count; other++)
         {
-            foreach (var pair in pairing.Pairs)
+            foreach (var pair in pairings[other].Pairs)
             {
                 Share(merged, pair.One, pair.OneFromM, pair.OneToM, pair.Other, pair.OtherFromM, pair.OtherToM);
             }
+
+            pairings[other] = null!;
         }
 
-        var filed = new List<CrossedSection>[wayCount];
-        foreach (var pair in ZebrasWhole(lines, merged, lengthM).Pairs)
-        {
-            var oneFromM = MathF.Max(0f, pair.OneFromM);
-            var oneToM = MathF.Min(lengthM[pair.One], pair.OneToM);
-            var otherFromM = MathF.Max(0f, pair.OtherFromM);
-            var otherToM = MathF.Min(lengthM[pair.Other], pair.OtherToM);
-
-            // A main claim is answered off its own way only because every mark's other side places a secondary
-            // claim back onto it (WayCrossings), so a pair is ground on both its ways or on neither.
-            if (oneToM <= oneFromM || otherToM <= otherFromM) continue;
-
-            (filed[pair.One] ??= []).Add(new CrossedSection(pair.Other, otherFromM, otherToM, oneFromM, oneToM));
-            (filed[pair.Other] ??= []).Add(new CrossedSection(pair.One, oneFromM, oneToM, otherFromM, otherToM));
-        }
-
+        var pairs = ZebrasWhole(lines, merged, lengthM).Pairs;
         var offsets = new int[wayCount + 1];
+        foreach (var pair in pairs)
+        {
+            if (!Kept(pair, lengthM, out _)) continue;
+
+            offsets[pair.One + 1]++;
+            offsets[pair.Other + 1]++;
+        }
+
         var most = 0;
         for (var way = 0; way < wayCount; way++)
         {
-            var count = filed[way]?.Count ?? 0;
-            offsets[way + 1] = offsets[way] + count;
-            most = Math.Max(most, count);
+            most = Math.Max(most, offsets[way + 1]);
+            offsets[way + 1] += offsets[way];
         }
 
         var sections = new CrossedSection[offsets[wayCount]];
+        var cursor = offsets.AsSpan(0, wayCount).ToArray();
+        foreach (var pair in pairs)
+        {
+            if (!Kept(pair, lengthM, out var held)) continue;
+
+            sections[cursor[pair.One]++] = new CrossedSection(pair.Other, held.OtherFromM, held.OtherToM, held.OneFromM, held.OneToM);
+            sections[cursor[pair.Other]++] = new CrossedSection(pair.One, held.OneFromM, held.OneToM, held.OtherFromM, held.OtherToM);
+        }
+
+        // Ordered by way where two begin together — every mark of a zebra's lane begins at its kerb — so the order
+        // secondary claims are placed in does not turn on which thread found a pair first.
         for (var way = 0; way < wayCount; way++)
         {
-            if (filed[way] is not { } mine) continue;
-
-            // Ordered by way where two begin together — every mark of a zebra's lane begins at its kerb — so the
-            // order secondary claims are placed in does not turn on which thread found a pair first.
-            mine.Sort(static (one, other) => one.MineFromM != other.MineFromM
+            sections.AsSpan(offsets[way], offsets[way + 1] - offsets[way]).Sort(static (one, other) => one.MineFromM != other.MineFromM
                 ? one.MineFromM.CompareTo(other.MineFromM)
                 : one.OnWay.CompareTo(other.OnWay));
-            mine.CopyTo(sections, offsets[way]);
         }
 
         return new WayCrossings(offsets, sections) { MostCrossedByOne = most };
+
+        // A pair held to each of its ways' own ends. A main claim is answered off its own way only because every mark's
+        // other side places a secondary claim back onto it (WayCrossings), so a pair is ground on both its ways or on
+        // neither.
+        static bool Kept(in Shared pair, float[] lengthM, out Shared held)
+        {
+            held = pair;
+            held.OneFromM = MathF.Max(0f, pair.OneFromM);
+            held.OneToM = MathF.Min(lengthM[pair.One], pair.OneToM);
+            held.OtherFromM = MathF.Max(0f, pair.OtherFromM);
+            held.OtherToM = MathF.Min(lengthM[pair.Other], pair.OtherToM);
+            return held.OneToM > held.OneFromM && held.OtherToM > held.OtherFromM;
+        }
     }
 
     /// <summary>
