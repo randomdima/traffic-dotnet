@@ -50,22 +50,23 @@ internal static class OneWayStreets
         for (var edge = 0; edge < laid.Length; edge++) laid[edge] = layout.Edges[edge].Flow;
 
         var chosen = Scattered(layout, config);
+        var town = new Movements(layout);
 
         for (var edge = 0; edge < chosen.Length; edge++)
         {
-            if (chosen[edge] != RoadFlow.BothWays) layout.RunsOneWay(edge, chosen[edge]);
+            if (chosen[edge] != RoadFlow.BothWays) town.RunsOneWay(edge, chosen[edge]);
         }
 
-        if (Stands(layout)) return;
+        if (town.Stands()) return;
 
-        for (var edge = 0; edge < chosen.Length; edge++) layout.RunsOneWay(edge, laid[edge]);
+        for (var edge = 0; edge < chosen.Length; edge++) town.RunsOneWay(edge, laid[edge]);
 
         for (var edge = 0; edge < chosen.Length; edge++)
         {
             if (chosen[edge] == RoadFlow.BothWays) continue;
 
-            layout.RunsOneWay(edge, chosen[edge]);
-            if (!Stands(layout)) layout.RunsOneWay(edge, laid[edge]);
+            town.RunsOneWay(edge, chosen[edge]);
+            if (!town.Stands()) town.RunsOneWay(edge, laid[edge]);
         }
     }
 
@@ -202,228 +203,321 @@ internal static class OneWayStreets
         return false;
     }
 
-    /// <summary>Whether the town keeps both of the things a one-way street can cost it.</summary>
-    static bool Stands(TownLayout layout) => NothingDangles(layout) && CanBeDrivenRound(layout);
-
     /// <summary>
-    /// <b>Whether every movement the layout carries is one a car can both reach and leave</b> (GEN-50).
-    /// <b>A node that forks nothing may not change how many lanes there are</b>: a road of two ways meeting a
-    /// road of one leaves the way back out of that node with nothing that ever arrives on it, which is a lane
-    /// drawn on the town that no car is ever on.
+    /// <b>The layout's movements, laid out once and asked again after every street is directed</b>: every
+    /// movement each junction could ever send off, in edge order, and whether one runs is read off the
+    /// road's flow at the time it is asked.
     /// </summary>
     /// <remarks>
-    /// Asked road by road at each node rather than of the graph as a whole, because the fault is local: a
-    /// movement leaving a node needs some road other than its own arriving there (TER-5f bans the way back
-    /// down its own), and a movement arriving needs some other road leaving. <b>A node of one arm is passed
-    /// over</b> — a dead end is a place only turning round leaves, which is
-    /// <see cref="TownLayout.PruneTheDeadEnds"/>'s to drop and not this pass's to refuse.
+    /// Only the flows change between two questions, so the roads, the movements leaving each junction and
+    /// every working array are kept from one to the next. A movement that does not run is passed over where
+    /// it stands, so a walk meets the ones that do in the order a list of them alone would give.
     /// </remarks>
-    public static bool NothingDangles(TownLayout layout)
+    sealed class Movements
     {
-        var nodes = layout.NodeM.Count;
-        var arms = new int[nodes];
-        var arriving = new int[nodes];
-        var leaving = new int[nodes];
-        foreach (var edge in layout.Edges)
+        readonly TownLayout _layout;
+        readonly int _nodes;
+        readonly int _moves;
+        readonly int[] _from;
+        readonly int[] _to;
+        readonly RoadFlow[] _flow;
+
+        /// <summary>Where each junction's movements start in <see cref="_leaving"/>; one past the last junction's end at <c>[nodes]</c>.</summary>
+        readonly int[] _firstLeaving;
+        readonly int[] _leaving;
+
+        readonly int[] _arms;
+        readonly int[] _arrivingCount;
+        readonly int[] _leavingCount;
+
+        readonly int[] _index;
+        readonly int[] _low;
+        readonly int[] _piece;
+        readonly bool[] _standing;
+        readonly int[] _open;
+        readonly int[] _walkMove;
+        readonly int[] _walkAt;
+
+        readonly bool[] _pieceOpen;
+        readonly int[] _reaches;
+        readonly int[] _seenBy;
+        readonly int[] _firstOfPiece;
+        readonly int[] _order;
+
+        public Movements(TownLayout layout)
         {
-            arms[edge.From]++;
-            arms[edge.To]++;
-            if (edge.Flow != RoadFlow.AgainstTheRoad)
+            _layout = layout;
+            _nodes = layout.NodeM.Count;
+            var edges = layout.Edges.Count;
+            _moves = edges * 2;
+            _from = new int[edges];
+            _to = new int[edges];
+            _flow = new RoadFlow[edges];
+            _firstLeaving = new int[_nodes + 1];
+            for (var edge = 0; edge < edges; edge++)
             {
-                leaving[edge.From]++;
-                arriving[edge.To]++;
+                var road = layout.Edges[edge];
+                _from[edge] = road.From;
+                _to[edge] = road.To;
+                _flow[edge] = road.Flow;
+                _firstLeaving[road.From + 1]++;
+                _firstLeaving[road.To + 1]++;
             }
 
-            if (edge.Flow != RoadFlow.WithTheRoad)
+            for (var node = 1; node <= _nodes; node++) _firstLeaving[node] += _firstLeaving[node - 1];
+
+            _leaving = new int[_moves];
+            var cursor = (int[])_firstLeaving.Clone();
+            for (var edge = 0; edge < edges; edge++)
             {
-                leaving[edge.To]++;
-                arriving[edge.From]++;
+                _leaving[cursor[_from[edge]]++] = edge * 2;
+                _leaving[cursor[_to[edge]]++] = (edge * 2) + 1;
             }
+
+            _arms = new int[_nodes];
+            _arrivingCount = new int[_nodes];
+            _leavingCount = new int[_nodes];
+            _index = new int[_moves];
+            _low = new int[_moves];
+            _piece = new int[_moves];
+            _standing = new bool[_moves];
+            _open = new int[_moves];
+            _walkMove = new int[_moves];
+            _walkAt = new int[_moves];
+            _pieceOpen = new bool[_moves];
+            _reaches = new int[_moves];
+            _seenBy = new int[_nodes];
+            _firstOfPiece = new int[_moves + 1];
+            _order = new int[_moves];
         }
 
-        foreach (var edge in layout.Edges)
+        /// <summary>Directs one road on the layout and here alike.</summary>
+        public void RunsOneWay(int edge, RoadFlow flow)
         {
-            if (!Holds(edge, edge.From, atFromEnd: true) || !Holds(edge, edge.To, atFromEnd: false)) return false;
+            _layout.RunsOneWay(edge, flow);
+            _flow[edge] = flow;
         }
 
-        return true;
+        /// <summary>Whether the town keeps both of the things a one-way street can cost it.</summary>
+        public bool Stands() => NothingDangles() && CanBeDrivenRound();
 
-        bool Holds(LayoutEdge edge, int node, bool atFromEnd)
+        /// <summary>
+        /// <b>Whether every movement the layout carries is one a car can both reach and leave</b> (GEN-50).
+        /// <b>A node that forks nothing may not change how many lanes there are</b>: a road of two ways meeting a
+        /// road of one leaves the way back out of that node with nothing that ever arrives on it, which is a lane
+        /// drawn on the town that no car is ever on.
+        /// </summary>
+        /// <remarks>
+        /// Asked road by road at each node rather than of the graph as a whole, because the fault is local: a
+        /// movement leaving a node needs some road other than its own arriving there (TER-5f bans the way back
+        /// down its own), and a movement arriving needs some other road leaving. <b>A node of one arm is passed
+        /// over</b> — a dead end is a place only turning round leaves, which is
+        /// <see cref="TownLayout.PruneTheDeadEnds"/>'s to drop and not this pass's to refuse.
+        /// </remarks>
+        bool NothingDangles()
         {
-            if (arms[node] < 2) return true;
-
-            var arrivesHere = edge.Flow != (atFromEnd ? RoadFlow.WithTheRoad : RoadFlow.AgainstTheRoad);
-            var leavesHere = edge.Flow != (atFromEnd ? RoadFlow.AgainstTheRoad : RoadFlow.WithTheRoad);
-            if (leavesHere && arriving[node] - (arrivesHere ? 1 : 0) == 0) return false;
-
-            return !arrivesHere || leaving[node] - (leavesHere ? 1 : 0) > 0;
-        }
-    }
-
-    /// <summary>
-    /// Whether every junction of the layout can be driven to from every movement on it. <b>The movements
-    /// are the graph and the roads are not</b>: one runs on to the movements leaving the junction it
-    /// arrives at, less the one back down its own road (TER-5f).
-    /// </summary>
-    /// <remarks>
-    /// A movement that cannot be come back from is one whose own piece of the graph is a sink — nothing
-    /// leaves it — so the question is asked of the sinks alone: from anywhere at all a car ends up in one of
-    /// them, and it is drivable exactly when each of them reaches every junction in the town. <b>A town of
-    /// one loop is drivable and is not one piece</b>: its two directions never meet, and a car on either
-    /// still comes to every junction there is, which is why this asks what the sinks reach and not whether
-    /// there is one of them.
-    /// </remarks>
-    public static bool CanBeDrivenRound(TownLayout layout)
-    {
-        var nodes = layout.NodeM.Count;
-        var moves = layout.Edges.Count * 2;
-        if (moves == 0) return true;
-
-        var leaving = new List<int>[nodes];
-        for (var node = 0; node < nodes; node++) leaving[node] = [];
-        for (var edge = 0; edge < layout.Edges.Count; edge++)
-        {
-            if (layout.Edges[edge].Flow != RoadFlow.AgainstTheRoad) leaving[layout.Edges[edge].From].Add(edge * 2);
-            if (layout.Edges[edge].Flow != RoadFlow.WithTheRoad) leaving[layout.Edges[edge].To].Add((edge * 2) + 1);
-        }
-
-        var piece = Pieces(layout, leaving, moves, out var pieces);
-        if (pieces == 0) return true;
-
-        // A piece nothing leaves is where a car ends up; every one of them has to reach the whole town.
-        var open = new bool[pieces];
-        for (var move = 0; move < moves; move++)
-        {
-            if (piece[move] < 0) continue;
-
-            foreach (var onto in leaving[Arrives(layout, move)])
+            Array.Clear(_arms);
+            Array.Clear(_arrivingCount);
+            Array.Clear(_leavingCount);
+            for (var edge = 0; edge < _flow.Length; edge++)
             {
-                if (onto / 2 != move / 2 && piece[onto] != piece[move]) open[piece[move]] = true;
-            }
-        }
-
-        var reaches = new int[pieces];
-        var seenBy = new int[nodes];
-        Array.Fill(seenBy, -1);
-        var order = Sorted(piece, moves, pieces);
-        foreach (var move in order)
-        {
-            var arrives = Arrives(layout, move);
-            if (seenBy[arrives] == piece[move]) continue;
-
-            seenBy[arrives] = piece[move];
-            reaches[piece[move]]++;
-        }
-
-        for (var at = 0; at < pieces; at++)
-        {
-            if (!open[at] && reaches[at] < nodes) return false;
-        }
-
-        return true;
-    }
-
-    /// <summary>Which junction a movement arrives at: the far end of its road, read the way it is driven.</summary>
-    static int Arrives(TownLayout layout, int move) =>
-        move % 2 == 0 ? layout.Edges[move / 2].To : layout.Edges[move / 2].From;
-
-    /// <summary>
-    /// Every movement's own strongly connected piece of the graph, by Tarjan's, iteratively — a town is
-    /// thousands of movements deep and the recursion is the stack this cannot have.
-    /// </summary>
-    static int[] Pieces(TownLayout layout, List<int>[] leaving, int moves, out int pieces)
-    {
-        var index = new int[moves];
-        var low = new int[moves];
-        var piece = new int[moves];
-        var standing = new bool[moves];
-        Array.Fill(index, -1);
-        Array.Fill(piece, -1);
-
-        var found = 0;
-        var open = new Stack<int>();
-        var walk = new Stack<(int Move, int At)>();
-        pieces = 0;
-
-        for (var root = 0; root < moves; root++)
-        {
-            if (index[root] >= 0 || !Runs(layout, root)) continue;
-
-            Enter(root);
-            while (walk.Count > 0)
-            {
-                var (move, at) = walk.Pop();
-                var onward = leaving[Arrives(layout, move)];
-                if (at < onward.Count)
+                var from = _from[edge];
+                var to = _to[edge];
+                _arms[from]++;
+                _arms[to]++;
+                if (_flow[edge] != RoadFlow.AgainstTheRoad)
                 {
-                    walk.Push((move, at + 1));
-                    var onto = onward[at];
-
-                    // Nothing turns round in the road (TER-5f), so the way back down it is not a movement on.
-                    if (onto / 2 == move / 2) continue;
-
-                    if (index[onto] < 0) Enter(onto);
-                    else if (standing[onto]) low[move] = Math.Min(low[move], index[onto]);
-
-                    continue;
+                    _leavingCount[from]++;
+                    _arrivingCount[to]++;
                 }
 
-                if (low[move] == index[move])
+                if (_flow[edge] != RoadFlow.WithTheRoad)
                 {
-                    int closed;
-                    do
+                    _leavingCount[to]++;
+                    _arrivingCount[from]++;
+                }
+            }
+
+            for (var edge = 0; edge < _flow.Length; edge++)
+            {
+                if (!Holds(edge, _from[edge], atFromEnd: true) || !Holds(edge, _to[edge], atFromEnd: false)) return false;
+            }
+
+            return true;
+        }
+
+        bool Holds(int edge, int node, bool atFromEnd)
+        {
+            if (_arms[node] < 2) return true;
+
+            var flow = _flow[edge];
+            var arrivesHere = flow != (atFromEnd ? RoadFlow.WithTheRoad : RoadFlow.AgainstTheRoad);
+            var leavesHere = flow != (atFromEnd ? RoadFlow.AgainstTheRoad : RoadFlow.WithTheRoad);
+            if (leavesHere && _arrivingCount[node] - (arrivesHere ? 1 : 0) == 0) return false;
+
+            return !arrivesHere || _leavingCount[node] - (leavesHere ? 1 : 0) > 0;
+        }
+
+        /// <summary>
+        /// Whether every junction of the layout can be driven to from every movement on it. <b>The movements
+        /// are the graph and the roads are not</b>: one runs on to the movements leaving the junction it
+        /// arrives at, less the one back down its own road (TER-5f).
+        /// </summary>
+        /// <remarks>
+        /// A movement that cannot be come back from is one whose own piece of the graph is a sink — nothing
+        /// leaves it — so the question is asked of the sinks alone: from anywhere at all a car ends up in one of
+        /// them, and it is drivable exactly when each of them reaches every junction in the town. <b>A town of
+        /// one loop is drivable and is not one piece</b>: its two directions never meet, and a car on either
+        /// still comes to every junction there is, which is why this asks what the sinks reach and not whether
+        /// there is one of them.
+        /// </remarks>
+        bool CanBeDrivenRound()
+        {
+            if (_moves == 0) return true;
+
+            var pieces = Pieces();
+            if (pieces == 0) return true;
+
+            // A piece nothing leaves is where a car ends up; every one of them has to reach the whole town.
+            Array.Clear(_pieceOpen, 0, pieces);
+            for (var move = 0; move < _moves; move++)
+            {
+                var piece = _piece[move];
+                if (piece < 0) continue;
+
+                var arrives = Arrives(move);
+                for (var at = _firstLeaving[arrives]; at < _firstLeaving[arrives + 1]; at++)
+                {
+                    var onto = _leaving[at];
+                    if (Runs(onto) && onto / 2 != move / 2 && _piece[onto] != piece) _pieceOpen[piece] = true;
+                }
+            }
+
+            Array.Clear(_reaches, 0, pieces);
+            Array.Fill(_seenBy, -1);
+            var sorted = Sorted(pieces);
+            for (var at = 0; at < sorted; at++)
+            {
+                var move = _order[at];
+                var arrives = Arrives(move);
+                if (_seenBy[arrives] == _piece[move]) continue;
+
+                _seenBy[arrives] = _piece[move];
+                _reaches[_piece[move]]++;
+            }
+
+            for (var at = 0; at < pieces; at++)
+            {
+                if (!_pieceOpen[at] && _reaches[at] < _nodes) return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>Which junction a movement arrives at: the far end of its road, read the way it is driven.</summary>
+        int Arrives(int move) => move % 2 == 0 ? _to[move / 2] : _from[move / 2];
+
+        /// <summary>Whether the road is driven this way at all, which is what a one-way street says of one of its two.</summary>
+        bool Runs(int move) =>
+            _flow[move / 2] == RoadFlow.BothWays || (_flow[move / 2] == RoadFlow.WithTheRoad) == (move % 2 == 0);
+
+        /// <summary>
+        /// Every movement's own strongly connected piece of the graph into <see cref="_piece"/>, by Tarjan's,
+        /// iteratively — a town is thousands of movements deep and the recursion is the stack this cannot have.
+        /// Returns how many pieces there are.
+        /// </summary>
+        /// <remarks>A walk's place is a position in <see cref="_leaving"/>, not a count of movements met.</remarks>
+        int Pieces()
+        {
+            Array.Fill(_index, -1);
+            Array.Fill(_piece, -1);
+            Array.Clear(_standing);
+
+            var found = 0;
+            var open = 0;
+            var walk = 0;
+            var pieces = 0;
+
+            for (var root = 0; root < _moves; root++)
+            {
+                if (_index[root] >= 0 || !Runs(root)) continue;
+
+                Enter(root);
+                while (walk > 0)
+                {
+                    walk--;
+                    var move = _walkMove[walk];
+                    var at = _walkAt[walk];
+                    if (at < _firstLeaving[Arrives(move) + 1])
                     {
-                        closed = open.Pop();
-                        standing[closed] = false;
-                        piece[closed] = pieces;
+                        _walkAt[walk++] = at + 1;
+                        var onto = _leaving[at];
+                        if (!Runs(onto)) continue;
+
+                        // Nothing turns round in the road (TER-5f), so the way back down it is not a movement on.
+                        if (onto / 2 == move / 2) continue;
+
+                        if (_index[onto] < 0) Enter(onto);
+                        else if (_standing[onto]) _low[move] = Math.Min(_low[move], _index[onto]);
+
+                        continue;
                     }
-                    while (closed != move);
 
-                    pieces++;
-                }
+                    if (_low[move] == _index[move])
+                    {
+                        int closed;
+                        do
+                        {
+                            closed = _open[--open];
+                            _standing[closed] = false;
+                            _piece[closed] = pieces;
+                        }
+                        while (closed != move);
 
-                if (walk.Count > 0)
-                {
-                    var behind = walk.Peek().Move;
-                    low[behind] = Math.Min(low[behind], low[move]);
+                        pieces++;
+                    }
+
+                    if (walk > 0)
+                    {
+                        var behind = _walkMove[walk - 1];
+                        _low[behind] = Math.Min(_low[behind], _low[move]);
+                    }
                 }
+            }
+
+            return pieces;
+
+            void Enter(int move)
+            {
+                _index[move] = _low[move] = found++;
+                _open[open++] = move;
+                _standing[move] = true;
+                _walkMove[walk] = move;
+                _walkAt[walk++] = _firstLeaving[Arrives(move)];
             }
         }
 
-        return piece;
-
-        void Enter(int move)
+        /// <summary>
+        /// The movements gathered piece by piece into <see cref="_order"/>, so what one piece reaches is counted
+        /// in one pass. Returns how many were gathered.
+        /// </summary>
+        int Sorted(int pieces)
         {
-            index[move] = low[move] = found++;
-            open.Push(move);
-            standing[move] = true;
-            walk.Push((move, 0));
+            var first = _firstOfPiece;
+            Array.Clear(first, 0, pieces + 1);
+            for (var move = 0; move < _moves; move++)
+            {
+                if (_piece[move] >= 0) first[_piece[move] + 1]++;
+            }
+
+            for (var at = 1; at <= pieces; at++) first[at] += first[at - 1];
+
+            for (var move = 0; move < _moves; move++)
+            {
+                if (_piece[move] >= 0) _order[first[_piece[move]]++] = move;
+            }
+
+            return first[pieces];
         }
-    }
-
-    /// <summary>Whether the road is driven this way at all, which is what a one-way street says of one of its two.</summary>
-    static bool Runs(TownLayout layout, int move) =>
-        layout.Edges[move / 2].Flow == RoadFlow.BothWays
-        || (layout.Edges[move / 2].Flow == RoadFlow.WithTheRoad) == (move % 2 == 0);
-
-    /// <summary>The movements gathered piece by piece, so what one piece reaches is counted in one pass.</summary>
-    static int[] Sorted(int[] piece, int moves, int pieces)
-    {
-        var first = new int[pieces + 1];
-        for (var move = 0; move < moves; move++)
-        {
-            if (piece[move] >= 0) first[piece[move] + 1]++;
-        }
-
-        for (var at = 1; at <= pieces; at++) first[at] += first[at - 1];
-
-        var order = new int[first[pieces]];
-        var cursor = (int[])first.Clone();
-        for (var move = 0; move < moves; move++)
-        {
-            if (piece[move] >= 0) order[cursor[piece[move]]++] = move;
-        }
-
-        return order;
     }
 }
