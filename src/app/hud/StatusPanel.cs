@@ -153,6 +153,14 @@ internal sealed class StatusPanel
     Rect _title;
 
     /// <summary>
+    /// The title's two figures, formatted when they change rather than every frame: the rate moves once a
+    /// meter window and the pace once a key. Neither is wider than the line it is written into.
+    /// </summary>
+    KeptFigure<double> _titleFps = new("F0", ScenarioTitleLine);
+
+    KeptFigure<float> _titlePace = new("F1", ScenarioTitleLine);
+
+    /// <summary>
     /// Whether the body is showing. <b>Shut by default</b>, so a run nobody asked for figures draws a
     /// title and stamps no timestamps — which is what keeps an instrument that is always on screen
     /// priced as instrumentation (OBS-2b).
@@ -282,7 +290,7 @@ internal sealed class StatusPanel
         var line = new TextBuffer(text);
         line.Add(Open ? "- " : "+ ");
         line.Add("FPS: ");
-        if (frame.Fps > 0d) line.Add(frame.Fps, "F0");
+        if (frame.Fps > 0d) line.Add(_titleFps.Of(frame.Fps));
         else line.Add("--");
 
         line.Add(". ");
@@ -295,7 +303,7 @@ internal sealed class StatusPanel
         else if (run.AgentsHeld) line.Add("held");
         else
         {
-            line.Add(run.TimeScale, "F1");
+            line.Add(_titlePace.Of(run.TimeScale));
             line.Add('x');
         }
 
