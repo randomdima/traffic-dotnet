@@ -1,6 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Routing;
 
@@ -79,14 +80,18 @@ internal sealed class WalkingNetwork
         }
 
         _besideOf = new int[foot.EdgeCount];
-        for (var edge = 0; edge < _besideOf.Length; edge++)
-        {
-            _besideOf[edge] = LaneBeside(edge, _foot.LengthM(edge) * 0.5f, Spline.SampleAt(_foot.ArcsOf(edge), _foot.LengthM(edge) * 0.5f).PositionM, out _);
-        }
+        InChunks.Over(
+            _besideOf.Length,
+            foot.NewScan,
+            (scan, edge) =>
+            {
+                var middle = Spline.SampleAt(foot.ArcsOf(edge), foot.LengthM(edge) * 0.5f);
+                _besideOf[edge] = LaneBeside(scan, edge, middle.Direction, middle.PositionM, out _);
+            });
     }
 
     /// <summary>
-    /// <b>The lane running back past each lane, found once while the map is built</b> (<see cref="LaneBeside(int, float, Vector2, out float)"/>,
+    /// <b>The lane running back past each lane, found once while the map is built</b> (<see cref="LaneBeside(int, Vector2, Vector2, out float)"/>,
     /// at its middle) — or <see cref="NoLane"/>. A walk is entered and aimed on both (<see cref="EntriesAt"/>), and that
     /// is never searched for while the town runs (the root decision log, 2026-10-13).
     /// </summary>
@@ -535,17 +540,29 @@ internal sealed class WalkingNetwork
     /// ground of, which is the nearest of them. <b>A crossing is a candidate like any other</b> — a body
     /// halfway over a zebra may turn back the way it came, if the town laid a way back.
     /// </remarks>
-    int LaneBeside(int edge, float alongM, Vector2 pointM, out float besideAlongM) =>
-        LaneBeside(edge, Spline.SampleAt(_foot.ArcsOf(edge), alongM).Direction, pointM, out besideAlongM);
-
-    /// <summary>The same, for a caller that has the lane's heading at the place already.</summary>
     int LaneBeside(int edge, Vector2 heading, Vector2 pointM, out float besideAlongM)
     {
-        besideAlongM = 0f;
-
         Span<int> near = stackalloc int[MostLanesWithinAPavement];
         Span<float> atM = stackalloc float[MostLanesWithinAPavement];
         var found = _foot.EdgesNear(pointM, _bothWaysWithinM, near, atM);
+        return Opposed(edge, heading, pointM, near, atM, found, out besideAlongM);
+    }
+
+    /// <summary>The same, on a scan of the caller's own (<see cref="FootGraph.NewScan"/>), for a caller off the town's thread.</summary>
+    int LaneBeside(ChainIndex.Scan scan, int edge, Vector2 heading, Vector2 pointM, out float besideAlongM)
+    {
+        Span<int> near = stackalloc int[MostLanesWithinAPavement];
+        Span<float> atM = stackalloc float[MostLanesWithinAPavement];
+        var found = _foot.EdgesNear(scan, pointM, _bothWaysWithinM, near, atM);
+        return Opposed(edge, heading, pointM, near, atM, found, out besideAlongM);
+    }
+
+    /// <summary>Of the lanes found within a pavement of the place, the nearest whose line there heads against <paramref name="heading"/>.</summary>
+    int Opposed(
+        int edge, Vector2 heading, Vector2 pointM, ReadOnlySpan<int> near, ReadOnlySpan<float> atM, int found,
+        out float besideAlongM)
+    {
+        besideAlongM = 0f;
         if (found > near.Length) found = near.Length;
 
         var best = NoLane;

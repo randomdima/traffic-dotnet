@@ -364,8 +364,9 @@ with `--bench age`'s digests unchanged and a probe's figure moved closes it.
   (`DOTNET_JitDisasm=Game:Draw`).
 - **The open** (O30, serial on the main thread): `OneWayStreets.Lay` walks every movement of the town again for each
   of the 1808 streets it tries, though one street takes away one movement (~1.1–1.4 s, measured), `ChainIndex.OfPieces`'s
-  boxes are filled one at a time (~0.8 s), and `CarParks.SiteBook` asks the ring search again for every car park where the ones added since it last asked are all that could be nearer (~1.7 s). Each is a
-  pass into slots of its own merged in order (`InChunks`), or the work kept between asks.
+  boxes are filled one at a time (~0.8 s), and `CarParks.SiteBook` asks the ring search again for every car park where
+  the ones added since it last asked are all that could be nearer (~1.7 s). Each is a pass into slots of its own merged
+  in order (`InChunks`), or the work kept between asks.
 
 ### Code kept twice, or kept for nothing
 

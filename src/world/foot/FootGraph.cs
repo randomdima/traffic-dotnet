@@ -178,6 +178,14 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
     public int EdgesNear(Vector2 pointM, float radiusM, Span<int> into, Span<float> alongM) =>
         _nearest.Near(pointM, radiusM, into, alongM);
 
+    /// <inheritdoc cref="EdgesNear(Vector2, float, Span{int}, Span{float})"/>
+    /// <param name="scan">This caller's own working set (<see cref="NewScan"/>), for a query off its own thread.</param>
+    public int EdgesNear(ChainIndex.Scan scan, Vector2 pointM, float radiusM, Span<int> into, Span<float> alongM) =>
+        _nearest.Near(scan, pointM, radiusM, into, alongM);
+
+    /// <summary>A scan of the index the stretches are found by, for a caller that means to query it off its own thread.</summary>
+    public ChainIndex.Scan NewScan() => _nearest.NewScan();
+
     /// <summary>
     /// <b>Lays the graph off the town's pavement</b> (WLK-1, <see cref="PavementLanes"/>): every lane of
     /// every course, as the pieces its own move came back with and parted where the crossings meet it, and
