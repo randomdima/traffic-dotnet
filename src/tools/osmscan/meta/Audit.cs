@@ -114,6 +114,17 @@ internal sealed class Dataset
     {
         Root = root;
         Folder = Path.Combine(root, "towns", "traced", map);
+
+        // Every layer is a file of its own, read side by side with the rest and the survey, and taken in order.
+        var (roads, junctions, crossings, walk, zones, districts, buildings, levels, overpasses, routes) = (
+            Reading<RoadRecord>("roads"), Reading<JunctionRecord>("junctions"), Reading<CrossingRecord>("crossings"), Reading<WalkRecord>("walk"),
+            Reading<ZoneRecord>("zones"), Reading<ZoneRecord>("districts"), Reading<BuildingRecord>("buildings"), Reading<LevelRecord>("levels"),
+            Reading<OverpassRecord>("overpasses"), Reading<RouteRecord>("routes"));
+        var (stops, tracks, places, furniture, barriers, unbuilt, detected, seen, unmapped, quality) = (
+            Reading<StopRecord>("stops"), Reading<TrackRecord>("tracks"), Reading<PointRecord>("places"), Reading<PointRecord>("furniture"),
+            Reading<PointRecord>("barriers"), Reading<PointRecord>("unbuilt"), Reading<DetectedRecord>("detected"), Reading<SeenRecord>("seen"),
+            Reading<UnmappedRecord>("unmapped"), Reading<FlagRecord>("quality"));
+
         var surveyAt = Path.Combine(root, "towns", "traced", $"{map}.json");
         Survey = JsonSerializer.Deserialize(File.ReadAllBytes(surveyAt), OsmExtractJson.Default.OsmExtract) ?? throw new InvalidDataException($"{map}: no extract");
         Plane = new Plane(Survey.Frame);
@@ -129,26 +140,26 @@ internal sealed class Dataset
             CorrectedWays = [.. corrections.Ways.Keys, .. corrections.DeletedWays];
         }
 
-        Roads = Layer<RoadRecord>("roads");
-        Junctions = Layer<JunctionRecord>("junctions");
-        Crossings = Layer<CrossingRecord>("crossings");
-        Walk = Layer<WalkRecord>("walk");
-        Zones = Layer<ZoneRecord>("zones");
-        Districts = Layer<ZoneRecord>("districts");
-        Buildings = Layer<BuildingRecord>("buildings");
-        Levels = Layer<LevelRecord>("levels");
-        Overpasses = Layer<OverpassRecord>("overpasses");
-        Routes = Layer<RouteRecord>("routes");
-        Stops = Layer<StopRecord>("stops");
-        Tracks = Layer<TrackRecord>("tracks");
-        Places = Layer<PointRecord>("places");
-        Furniture = Layer<PointRecord>("furniture");
-        Barriers = Layer<PointRecord>("barriers");
-        Unbuilt = Layer<PointRecord>("unbuilt");
-        Detected = Layer<DetectedRecord>("detected");
-        Seen = Layer<SeenRecord>("seen");
-        Unmapped = Layer<UnmappedRecord>("unmapped");
-        Quality = Layer<FlagRecord>("quality");
+        Roads = Layer(roads, "roads");
+        Junctions = Layer(junctions, "junctions");
+        Crossings = Layer(crossings, "crossings");
+        Walk = Layer(walk, "walk");
+        Zones = Layer(zones, "zones");
+        Districts = Layer(districts, "districts");
+        Buildings = Layer(buildings, "buildings");
+        Levels = Layer(levels, "levels");
+        Overpasses = Layer(overpasses, "overpasses");
+        Routes = Layer(routes, "routes");
+        Stops = Layer(stops, "stops");
+        Tracks = Layer(tracks, "tracks");
+        Places = Layer(places, "places");
+        Furniture = Layer(furniture, "furniture");
+        Barriers = Layer(barriers, "barriers");
+        Unbuilt = Layer(unbuilt, "unbuilt");
+        Detected = Layer(detected, "detected");
+        Seen = Layer(seen, "seen");
+        Unmapped = Layer(unmapped, "unmapped");
+        Quality = Layer(quality, "quality");
     }
 
     public string Root { get; }
@@ -243,9 +254,11 @@ internal sealed class Dataset
     /// <summary>A survey node's place as lat, lon in 1e-7°.</summary>
     public int[] At(long node) => NodeIndex.TryGetValue(node, out var at) ? [Survey.Nodes.Lat[at], Survey.Nodes.Lon[at]] : [];
 
-    List<T> Layer<T>(string name)
+    Task<LayerFile<T>?> Reading<T>(string name) => Task.Run(() => Layers.Read<T>(Folder, name));
+
+    List<T> Layer<T>(Task<LayerFile<T>?> reading, string name)
     {
-        var file = Layers.Read<T>(Folder, name);
+        var file = reading.GetAwaiter().GetResult();
         Heads[name] = file is null ? null : (file.Count, file.Items.Count);
         return file?.Items ?? [];
     }

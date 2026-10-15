@@ -51,25 +51,33 @@ internal static class Agreement
         var areas = osm.Select(ring => Math.Abs(Shape.SignedArea(ring))).ToArray();
         var centres = osm.Select(Centroid).ToArray();
         var grid = new Grid(100);
-        for (var at = 0; at < osm.Count; at++) grid.Add(at, Box.Of(whole[at].SelectMany(ring => ring).ToArray()));
+        var bounds = new Box[osm.Count];
+        for (var at = 0; at < osm.Count; at++) grid.Add(at, bounds[at] = Box.Of(whole[at].SelectMany(ring => ring).ToArray()));
 
-        var had = new HashSet<int>();
-        var offsets = new List<(Pt Offset, Pt At)>();
-        var ratios = new List<double>();
-        var near = new HashSet<int>();
-        foreach (var (ring, _, _) in ml)
+        // Which OSM building each footprint stands on is its own, found side by side; what is made of it is taken in order.
+        var traced = new (Pt[] Line, Pt Centre, int? Match)[ml.Count];
+        Parallel.For(0, ml.Count, () => new HashSet<int>(), (footprint, _, near) =>
         {
-            var line = data.Plane.Line(ring);
+            var line = data.Plane.Line(ml[footprint].Ring);
             var centre = Centroid(line);
             near.Clear();
             grid.Near(Box.Of(line), near);
             int? match = null;
             foreach (var candidate in near)
             {
-                if (Shape.Inside(centre, [osm[candidate]]) && (match is null || areas[candidate] < areas[match.Value])) match = candidate;
+                if (bounds[candidate].Holds(centre) && Shape.Inside(centre, [osm[candidate]]) && (match is null || areas[candidate] < areas[match.Value])) match = candidate;
             }
 
             match ??= near.Where(candidate => Shape.Inside(centres[candidate], [line])).Select(candidate => (int?)candidate).FirstOrDefault();
+            traced[footprint] = (line, centre, match);
+            return near;
+        }, _ => { });
+
+        var had = new HashSet<int>();
+        var offsets = new List<(Pt Offset, Pt At)>();
+        var ratios = new List<double>();
+        foreach (var (line, centre, match) in traced)
+        {
             if (match is not { } own) continue;
 
             had.Add(own);
@@ -81,16 +89,28 @@ internal static class Agreement
         var laid = data.Buildings.Where(building => building.Source == "ml").ToList();
         bool OnOsm(Pt at)
         {
-            near.Clear();
-            grid.Near(Box.Empty.With(at), near);
-            return near.Any(candidate => Shape.Inside(at, whole[candidate]));
+            foreach (var candidate in grid.At(at))
+            {
+                if (bounds[candidate].Holds(at) && Shape.Inside(at, whole[candidate])) return true;
+            }
+
+            return false;
         }
 
-        foreach (var building in laid)
+        // Each footprint's ground is its own, read side by side; the findings are asked in order.
+        var groundStreet = Buildings.GroundStreets(town);
+        var apart = new bool[laid.Count];
+        Parallel.For(0, laid.Count, building =>
         {
-            var ring = data.Plane.Line(building.Outer[0]);
-            finding.Ask(Buildings.Covered(ring, OnOsm) < Buildings.OverlapShare && Buildings.Covered(ring, at => Buildings.OnCarriageway(town, at)) < Buildings.OverlapShare,
-                () => $"{building.Id} on an OSM building or a street");
+            var ring = data.Plane.Line(laid[building].Outer[0]);
+            apart[building] = Buildings.Covered(ring, OnOsm) < Buildings.OverlapShare
+                              && Buildings.Covered(ring, at => Buildings.OnCarriageway(town, groundStreet, at)) < Buildings.OverlapShare;
+        });
+
+        for (var building = 0; building < laid.Count; building++)
+        {
+            var id = laid[building].Id;
+            finding.Ask(apart[building], () => $"{id} on an OSM building or a street");
         }
 
         finding.Read($"{ml.Count:N0} footprints read; {ratios.Count:N0} ({Share(ratios.Count, ml.Count)}) stand on an OSM building as traced and are taken as it; {laid.Count:N0} are laid as buildings of their own, moved onto OSM's frame, of which {finding.Failed:N0} stand a third or more on an OSM building or a street");
@@ -103,16 +123,17 @@ internal static class Agreement
 
             var cells = new Grid(ShiftReachM);
             for (var at = 0; at < offsets.Count; at++) cells.Add(at, Box.Empty.With(offsets[at].At));
-            var residual = new List<double>();
-            for (var at = 0; at < offsets.Count; at++)
+            var residuals = new double?[offsets.Count];
+            Parallel.For(0, offsets.Count, () => new List<int>(), (pair, _, nearPairs) =>
             {
-                near.Clear();
-                cells.Near(Box.Empty.With(offsets[at].At).Grown(ShiftReachM), near);
-                var local = near.Where(other => other != at && (offsets[other].At - offsets[at].At).Length <= ShiftReachM).Select(other => offsets[other].Offset).ToList();
-                if (local.Count < ShiftPairs) continue;
+                nearPairs.Clear();
+                cells.NearPlaces(Box.Empty.With(offsets[pair].At).Grown(ShiftReachM), nearPairs);
+                var local = nearPairs.Where(other => other != pair && (offsets[other].At - offsets[pair].At).Length <= ShiftReachM).Select(other => offsets[other].Offset).ToList();
+                if (local.Count >= ShiftPairs) residuals[pair] = (offsets[pair].Offset - new Pt(Median(local.Select(offset => offset.X)), Median(local.Select(offset => offset.Y)))).Length;
+                return nearPairs;
+            }, _ => { });
 
-                residual.Add((offsets[at].Offset - new Pt(Median(local.Select(offset => offset.X)), Median(local.Select(offset => offset.Y)))).Length);
-            }
+            List<double> residual = [.. residuals.OfType<double>()];
 
             finding.Read(string.Create(CultureInfo.InvariantCulture,
                 $"moved by the median shift of its neighbours within {ShiftReachM:F0} m, itself left out, a footprint stands {Median(residual):F1} m off its OSM building at the median, {Quantile(residual, 0.9):F1} m at the 90th percentile, over {residual.Count:N0} pairs — the shift a footprint OSM lacks is moved by"));

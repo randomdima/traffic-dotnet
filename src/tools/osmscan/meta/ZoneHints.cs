@@ -109,6 +109,12 @@ internal static class ZoneHints
         public int Depth { get; set; }
     }
 
+    /// <summary>The sides of a street its frontage is probed on, in the order probed: across its way to the one hand, then the other.</summary>
+    static readonly double[] Sides = [-1, 1];
+
+    /// <summary>One probe off a street: the zone it is asked in, the building it met and how far out — −1 for none — and the street's run there.</summary>
+    readonly record struct Probed(int Zone, int Building, double OffM, Pt Along);
+
     /// <summary>What a zone's probes met, and what stands in it.</summary>
     sealed class Tally
     {
@@ -137,10 +143,12 @@ internal static class ZoneHints
     public static TownMap.ZoneArrays Of(string folder, Plane plane, SurveyFootprints buildings, Func<Pt[], bool> keeps, TownMap streets)
     {
         var outlines = new Pt[buildings.Count][];
+        var bounds = new Box[buildings.Count];
         var footprints = new Dictionary<(int, int), List<int>>();
         for (var building = 0; building < buildings.Count; building++)
         {
             outlines[building] = Points(buildings.RingOf(buildings.RingOffsets[building]));
+            bounds[building] = Bounds(buildings, building);
             var box = Box.Of(outlines[building]);
             for (var x = BuildingCell(box.MinX); x <= BuildingCell(box.MaxX); x++)
             {
@@ -155,7 +163,7 @@ internal static class ZoneHints
         var uses = Read(folder, plane, keeps);
         Nest(uses);
         var usesFiled = File(uses);
-        var usesTallied = Tallied(uses.Count, at => Holding(uses, usesFiled, at), streets, buildings, outlines, footprints);
+        var usesTallied = Tallied(uses.Count, at => Holding(uses, usesFiled, at), streets, buildings, outlines, bounds, footprints);
         for (var use = 0; use < uses.Count; use++)
         {
             if (uses[use].Kind == ZoneKind.Residential) uses[use].Kind = Residential(usesTallied[use], uses[use].AreaM2, buildings, outlines);
@@ -169,7 +177,7 @@ internal static class ZoneHints
 
         // The whole map is zone nought here, and every zone one on from where the list holds it.
         var filed = File(zones);
-        var tallied = Tallied(zones.Count + 1, at => Holding(zones, filed, at) + 1, streets, buildings, outlines, footprints);
+        var tallied = Tallied(zones.Count + 1, at => Holding(zones, filed, at) + 1, streets, buildings, outlines, bounds, footprints);
         var ownM2 = new double[zones.Count + 1];
         ownM2[TownMap.ZoneArrays.Root] = widthM * heightM;
         for (var zone = 0; zone < zones.Count; zone++)
@@ -191,7 +199,8 @@ internal static class ZoneHints
     /// <summary>Every building counted to the zone its middle stands in, and every street's frontage probed into the zones.</summary>
     /// <param name="holding">The zone a place stands in, or −1 for none counted.</param>
     static Tally[] Tallied(
-        int count, Func<Pt, int> holding, TownMap streets, SurveyFootprints buildings, Pt[][] outlines, Dictionary<(int, int), List<int>> footprints)
+        int count, Func<Pt, int> holding, TownMap streets, SurveyFootprints buildings, Pt[][] outlines, Box[] bounds,
+        Dictionary<(int, int), List<int>> footprints)
     {
         var tallies = new Tally[count];
         for (var zone = 0; zone < count; zone++) tallies[zone] = new Tally();
@@ -200,8 +209,20 @@ internal static class ZoneHints
             if (holding(Shape.Centroid(outlines[building])) is >= 0 and var standsIn) tallies[standsIn].Standing.Add(building);
         }
 
-        Probe(tallies, holding, streets, buildings, outlines, footprints);
+        Probe(tallies, holding, streets, buildings, outlines, bounds, footprints);
         return tallies;
+    }
+
+    /// <summary>The box round every ring of a building, outside which no ring of it holds a place.</summary>
+    static Box Bounds(SurveyFootprints buildings, int building)
+    {
+        var box = Box.Empty;
+        for (var ring = buildings.RingOffsets[building]; ring < buildings.RingOffsets[building + 1]; ring++)
+        {
+            foreach (var at in buildings.RingOf(ring)) box = box.With(new Pt(at.X, at.Y));
+        }
+
+        return box;
     }
 
     /// <summary>Every land use given its parent — the smallest larger one holding a place inside it.</summary>
@@ -514,68 +535,95 @@ internal static class ZoneHints
     /// how turned and how like the last one along it is.
     /// </summary>
     static void Probe(
-        Tally[] tallies, Func<Pt, int> holding, TownMap streets, SurveyFootprints buildings, Pt[][] outlines, Dictionary<(int, int), List<int>> footprints)
+        Tally[] tallies, Func<Pt, int> holding, TownMap streets, SurveyFootprints buildings, Pt[][] outlines, Box[] bounds,
+        Dictionary<(int, int), List<int>> footprints)
     {
         var area = new double[buildings.Count];
         for (var building = 0; building < buildings.Count; building++) area[building] = Math.Abs(Shape.SignedArea(outlines[building]));
 
-        foreach (var road in streets.Roads)
+        // What each probe is asked in and meets is its street's own, walked side by side; the tallies are kept in order.
+        var walked = new List<Probed>[streets.Roads.Length * Sides.Length];
+        Parallel.For(0, streets.Roads.Length, road =>
         {
-            if (TracedRoad.Rank(road.Highway) == 0) continue;
+            for (var side = 0; side < Sides.Length; side++) walked[(road * Sides.Length) + side] = Walked(streets.Roads[road], Sides[side]);
+        });
 
-            var halfM = (road.WidthM ?? (road.Lanes * LaneM)) * 0.5;
-            foreach (var side in (ReadOnlySpan<double>)[-1, 1])
+        for (var road = 0; road < streets.Roads.Length; road++)
+        {
+            for (var side = 0; side < Sides.Length; side++)
             {
                 var last = -1;
-                for (var at = 1; at < road.Points.Length; at++)
+                foreach (var (zone, building, offM, along) in walked[(road * Sides.Length) + side])
                 {
-                    var (fromM, toM) = (streets.PointM[road.Points[at - 1]], streets.PointM[road.Points[at]]);
-                    var (a, b) = (new Pt(fromM.X, fromM.Y), new Pt(toM.X, toM.Y));
-                    var lengthM = (b - a).Length;
-                    if (lengthM <= 0) continue;
-
-                    var along = (b - a) * (1 / lengthM);
-                    var across = new Pt(-along.Y, along.X) * side;
-                    for (var stepM = ProbeStepM * 0.5; stepM < lengthM; stepM += ProbeStepM)
+                    var asked = tallies[zone];
+                    asked.Asked++;
+                    if (building < 0)
                     {
-                        var edge = a + (along * stepM) + (across * halfM);
-                        if (holding(edge + (across * AskedAtM)) is not (>= 0 and var zone)) continue;
-
-                        var asked = tallies[zone];
-                        asked.Asked++;
-                        if (Met(edge, across) is not (>= 0 and var building, var offM))
-                        {
-                            last = -1;
-                            continue;
-                        }
-
-                        asked.Met++;
-                        asked.FrontM.Add(offM);
-                        if (building == last) continue;
-
-                        if (asked.FrontRow.Add(building)) asked.SkewDeg.Add(Skew(outlines[building], along));
-                        if (last >= 0)
-                        {
-                            asked.Pairs++;
-                            if (buildings.Look[last] == buildings.Look[building] && Math.Abs(area[last] - area[building]) <= AlikeShare * Math.Max(area[last], area[building])) asked.Alike++;
-                        }
-
-                        last = building;
+                        last = -1;
+                        continue;
                     }
+
+                    asked.Met++;
+                    asked.FrontM.Add(offM);
+                    if (building == last) continue;
+
+                    if (asked.FrontRow.Add(building)) asked.SkewDeg.Add(Skew(outlines[building], along));
+                    if (last >= 0)
+                    {
+                        asked.Pairs++;
+                        if (buildings.Look[last] == buildings.Look[building] && Math.Abs(area[last] - area[building]) <= AlikeShare * Math.Max(area[last], area[building])) asked.Alike++;
+                    }
+
+                    last = building;
                 }
             }
+        }
+
+        // Every probe along one side of a street that is asked in a zone, in order.
+        List<Probed> Walked(TracedRoad road, double side)
+        {
+            var probes = new List<Probed>();
+            if (TracedRoad.Rank(road.Highway) == 0) return probes;
+
+            var halfM = (road.WidthM ?? (road.Lanes * LaneM)) * 0.5;
+            for (var at = 1; at < road.Points.Length; at++)
+            {
+                var (fromM, toM) = (streets.PointM[road.Points[at - 1]], streets.PointM[road.Points[at]]);
+                var (a, b) = (new Pt(fromM.X, fromM.Y), new Pt(toM.X, toM.Y));
+                var lengthM = (b - a).Length;
+                if (lengthM <= 0) continue;
+
+                var along = (b - a) * (1 / lengthM);
+                var across = new Pt(-along.Y, along.X) * side;
+                for (var stepM = ProbeStepM * 0.5; stepM < lengthM; stepM += ProbeStepM)
+                {
+                    var edge = a + (along * stepM) + (across * halfM);
+                    if (holding(edge + (across * AskedAtM)) is not (>= 0 and var zone)) continue;
+
+                    var (building, offM) = Met(edge, across);
+                    probes.Add(new Probed(zone, building, offM, along));
+                }
+            }
+
+            return probes;
         }
 
         // The first building a probe meets walking out from the edge, and how far out.
         (int Building, double OffM) Met(Pt edge, Pt across)
         {
+            // A probe's steps are much shorter than a cell, so the cell is looked up again only where a step leaves it.
+            var (cell, near) = ((int.MinValue, int.MinValue), (List<int>?)null);
             for (var offM = 0.0; offM <= ProbeReachM; offM += ProbeWalkM)
             {
                 var at = edge + (across * offM);
-                if (!footprints.TryGetValue((BuildingCell(at.X), BuildingCell(at.Y)), out var near)) continue;
+                var stepCell = (BuildingCell(at.X), BuildingCell(at.Y));
+                if (stepCell != cell) (cell, near) = (stepCell, footprints.GetValueOrDefault(stepCell));
+                if (near is null) continue;
 
                 foreach (var building in near)
                 {
+                    if (!bounds[building].Holds(at)) continue;
+
                     var inside = false;
                     for (var ring = buildings.RingOffsets[building]; ring < buildings.RingOffsets[building + 1]; ring++) inside ^= Encloses(buildings.RingOf(ring), at);
 

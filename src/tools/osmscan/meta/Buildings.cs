@@ -51,6 +51,13 @@ internal static class Buildings
     /// <summary>The uses a building is lived in by, whose storeys are a home's.</summary>
     public static readonly HashSet<string> Homes = ["apartments", "house", "residential", "detached", "semidetached_house", "terrace", "dormitory", "bungalow"];
 
+    /// <summary>
+    /// A footprint OSM lacks once moved: its ring in OSM's units and on the map, the shift it was moved by, and the OSM
+    /// building it then is — else whether it stands on OSM's buildings, or on a street, for <see cref="OverlapShare"/> of
+    /// its ground.
+    /// </summary>
+    readonly record struct Landing(int[] Ring, Pt[] Moved, Pt Shift, int? Building, bool OnOsm, bool OnStreet);
+
     public static BuildingsFound Lay(Town town, ZonesFound zones, WalkFound walk, Flags flags, string into, List<Written> written)
     {
         var found = new BuildingsFound();
@@ -62,6 +69,7 @@ internal static class Buildings
 
         var grid = new Grid(CellM);
         var corners = new Dictionary<(int, int), int>();
+        var partsOnly = new bool[buildings.Count];
         for (var at = 0; at < buildings.Count; at++)
         {
             grid.Add(at, buildings[at].Outline.Bounds);
@@ -69,17 +77,19 @@ internal static class Buildings
             {
                 for (var k = 0; k + 1 < ring.Length; k += 2) corners.TryAdd((ring[k], ring[k + 1]), at);
             }
+
+            var tags = buildings[at].Element.Tags;
+            partsOnly[at] = tags.ContainsKey("building:part") && !tags.ContainsKey("building");
         }
 
         int? Under(Pt at)
         {
-            var near = new HashSet<int>();
-            grid.Near(Box.Empty.With(at), near);
             int? best = null;
-            foreach (var candidate in near)
+            foreach (var candidate in grid.At(at))
             {
-                var (element, outline) = buildings[candidate];
-                if (element.Tags.ContainsKey("building:part") && !element.Tags.ContainsKey("building")) continue;
+                if (partsOnly[candidate]) continue;
+
+                var outline = buildings[candidate].Outline;
                 if (outline.Holds(at) && (best is null || outline.AreaM2 < buildings[best.Value].Outline.AreaM2)) best = candidate;
             }
 
@@ -149,15 +159,23 @@ internal static class Buildings
                 .Select(candidate => (int?)candidate).FirstOrDefault();
         }
 
-        // Pass one: the footprints on an OSM building, and how far each of like size stands off it.
+        // Pass one: the footprints on an OSM building, and how far each of like size stands off it. Where each stands is
+        // its own and is found side by side; what is made of it is taken in order.
         var ml = town.Fetched.MlBuildingsAt is { } kept ? MlBuildings.Read(kept, town.Sources) : [];
+        var traced = new (Pt[] Line, int? Building)[ml.Count];
+        Parallel.For(0, ml.Count, footprint =>
+        {
+            var line = town.Plane.Line(ml[footprint].Ring);
+            traced[footprint] = (line, Match(line));
+        });
+
         var lent = new Dictionary<int, double>();
         var loose = new List<(Pt[] Line, double HeightM, double Confidence)>();
         var pairs = new List<(Pt At, Pt Offset)>();
-        foreach (var (ring, heightM, confidence) in ml)
+        for (var at = 0; at < ml.Count; at++)
         {
-            var line = town.Plane.Line(ring);
-            if (Match(line) is not { } building)
+            var ((_, heightM, confidence), (line, matched)) = (ml[at], traced[at]);
+            if (matched is not { } building)
             {
                 loose.Add((line, heightM, confidence));
                 continue;
@@ -173,33 +191,45 @@ internal static class Buildings
         var shifts = new Grid(ShiftReachM);
         for (var at = 0; at < pairs.Count; at++) shifts.Add(at, Box.Empty.With(pairs[at].At));
         var everywhere = pairs.Count > 0 ? new Pt(Median(pairs.Select(pair => pair.Offset.X)), Median(pairs.Select(pair => pair.Offset.Y))) : default;
-        var records = new List<BuildingRecord>(buildings.Count + loose.Count);
-        var (mlOnly, alignedOnto, overlapping, onStreets) = (0, 0, 0, 0);
-        var nearPairs = new HashSet<int>();
-        foreach (var (line, heightM, confidence) in loose)
+        var groundStreet = GroundStreets(town);
+        var landed = new Landing[loose.Count];
+        Parallel.For(0, loose.Count, () => new List<int>(), (footprint, _, nearPairs) =>
         {
+            var line = loose[footprint].Line;
             var centre = Shape.Centroid(line);
             nearPairs.Clear();
-            shifts.Near(Box.Empty.With(centre).Grown(ShiftReachM), nearPairs);
+            shifts.NearPlaces(Box.Empty.With(centre).Grown(ShiftReachM), nearPairs);
             var local = nearPairs.Where(at => (pairs[at].At - centre).Length <= ShiftReachM).Select(at => pairs[at].Offset).ToList();
             var shift = local.Count >= ShiftPairs ? new Pt(Median(local.Select(offset => offset.X)), Median(local.Select(offset => offset.Y))) : everywhere;
             int[] ring = [.. line.SelectMany(at => town.Plane.Degrees(at - shift))];
             var moved = town.Plane.Line(ring);
-            if (Match(moved) is { } building)
+
+            // OSM's building or street is where the footprint stands; the model traced a part of one, or the street's edge.
+            landed[footprint] = Match(moved) is { } building ? new Landing(ring, moved, shift, building, false, false)
+                : Covered(moved, at => Under(at) is not null) >= OverlapShare ? new Landing(ring, moved, shift, null, true, false)
+                : new Landing(ring, moved, shift, null, false, Covered(moved, at => OnCarriageway(town, groundStreet, at)) >= OverlapShare);
+            return nearPairs;
+        }, _ => { });
+
+        var records = new List<BuildingRecord>(buildings.Count + loose.Count);
+        var (mlOnly, alignedOnto, overlapping, onStreets) = (0, 0, 0, 0);
+        for (var at = 0; at < loose.Count; at++)
+        {
+            var ((_, heightM, confidence), (ring, moved, shift, matched, onOsm, onStreet)) = (loose[at], landed[at]);
+            if (matched is { } building)
             {
                 if (heightM > 0) lent.TryAdd(building, heightM);
                 alignedOnto++;
                 continue;
             }
 
-            // OSM's building or street is where the footprint stands; the model traced a part of one, or the street's edge.
-            if (Covered(moved, at => Under(at) is not null) >= OverlapShare)
+            if (onOsm)
             {
                 overlapping++;
                 continue;
             }
 
-            if (Covered(moved, at => OnCarriageway(town, at)) >= OverlapShare)
+            if (onStreet)
             {
                 onStreets++;
                 continue;
@@ -331,12 +361,27 @@ internal static class Buildings
     }
 
     /// <summary>
-    /// Whether a place is on a street's carriageway at ground level: within half its width of the line of a road that
-    /// is neither a service road nor a track, nor on a bridge, in a tunnel or under cover.
+    /// Whether a place is on a street's carriageway at ground level: within half its width of the line of a road
+    /// <paramref name="groundStreet"/> lets through (<see cref="GroundStreets"/>).
     /// </summary>
-    public static bool OnCarriageway(Town town, Pt at) =>
-        town.NearestRoad(at, CarriagewayReachM, road => town.Highway(road) is not ("service" or "track") && Levels.Layer(town.Roads[road].Tags).Layer == 0 && Levels.Structure(town.Roads[road].Tags) is null)
-            is { } near && near.OffM <= town.Roads[near.Road].Carriageway!.WidthM / 2;
+    public static bool OnCarriageway(Town town, Func<int, bool> groundStreet, Pt at) =>
+        town.NearestRoad(at, CarriagewayReachM, groundStreet) is { } near && near.OffM <= town.Roads[near.Road].Carriageway!.WidthM / 2;
+
+    /// <summary>
+    /// Whether a road is a street at ground level — neither a service road nor a track, nor on a bridge, in a tunnel or
+    /// under cover — read off its tags once for every road rather than for every place asked about.
+    /// </summary>
+    public static Func<int, bool> GroundStreets(Town town)
+    {
+        var streets = new bool[town.Roads.Length];
+        for (var road = 0; road < streets.Length; road++)
+        {
+            var tags = town.Roads[road].Tags;
+            streets[road] = town.Highway(road) is not ("service" or "track") && Levels.Layer(tags).Layer == 0 && Levels.Structure(tags) is null;
+        }
+
+        return road => streets[road];
+    }
 
     static double Median(IEnumerable<double> values)
     {
