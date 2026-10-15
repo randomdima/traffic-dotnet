@@ -1,12 +1,13 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.App.DeviceTick;
 
 /// <summary>
-/// <b>The atlas on the device</b>: <see cref="RibbonAtlas"/>' own tables laid into storage buffers once
+/// <b>The atlas on the device</b>: <see cref="RibbonAtlas"/>' own tables in one storage buffer
 /// (<c>world/road/kernels/atlas.glsl</c>), and which ways a body stands over answered off them — what every claims
 /// rebuild asks of every car's wheels and every walker's disc (TER-4c.2). Laid at load and never written again.
 /// </summary>
@@ -17,11 +18,11 @@ namespace TrafficSimulation.App.DeviceTick;
 /// (<c>core/geometry/kernels/rounded.glsl</c>).
 /// </para>
 /// <para>
-/// <b>Laid whole off the host's atlas, or a band at a time as the host files it</b> (<see cref="IAtlasKeeper"/>,
-/// <c>RibbonAtlas.Stream</c>): the same words either way, and the second never has the host hold the whole.
+/// <b>Laid whole off the host's atlas, or filed here off the ribbons</b> (<see cref="IAtlasFiler"/>,
+/// <c>DeviceAtlas.Filing.cs</c>): the same tables either way, and the second never has the host find a point.
 /// </para>
 /// </remarks>
-internal sealed class DeviceAtlas : IDisposable, IAtlasKeeper
+internal sealed partial class DeviceAtlas : IDisposable
 {
     /// <summary>One entry as the device reads it: outside, column and along packed low to high, and the way.</summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -80,35 +81,96 @@ internal sealed class DeviceAtlas : IDisposable, IAtlasKeeper
     readonly List<GpuBuffer> _owned = [];
     AskPush _push;
 
-    /// <summary>The atlas's tables in binding order, for a kernel that binds them after its own (<c>ATLAS_BINDING</c>).</summary>
-    public GpuBuffer[] Tables { get; private set; } = [];
+    /// <summary>
+    /// The atlas's tables in binding order, for a kernel that binds them after its own (<c>ATLAS_BINDING</c>) — a word
+    /// standing in for them while the device files them (<see cref="Filed"/>).
+    /// </summary>
+    public GpuBuffer[] Tables { get; private set; }
 
-    /// <summary>Where each table begins in the run of words (<see cref="Begin"/>).</summary>
+    /// <summary>Where each table begins in the run of words (<see cref="Lay"/>).</summary>
     readonly uint[] _head = new uint[TableCount];
 
-    /// <summary>How many starts make a kept cell's, which places a band's starts.</summary>
-    int _startsPerCell;
-
-    /// <summary>
-    /// The last start a band brought where it ended half way through a word: the next band's first shares that word, and
-    /// a page writes whole words.
-    /// </summary>
-    ushort _carriedStart;
-
-    /// <summary>An atlas to be kept a band at a time (<see cref="IAtlasKeeper"/>): nothing on the device until it is begun.</summary>
-    public DeviceAtlas(Vk vk) => _vk = vk;
+    /// <summary>An atlas the device will file (<see cref="IAtlasFiler"/>): a word standing in for its tables until it has.</summary>
+    public DeviceAtlas(Vk vk)
+    {
+        _vk = vk;
+        Tables = [Room<uint>(1)];
+    }
 
     /// <summary>The host's whole atlas, laid at once.</summary>
     public DeviceAtlas(Vk vk, AtlasTable table) : this(vk)
     {
-        Begin(table, table.PointStart.Length, table.Entries.Length);
-        Keep(table);
+        Lay(table, table.PointStart.Length, table.Entries.Length);
+        unsafe
+        {
+            Tables[0].Upload<RibbonAtlas.Entry, EntryRow>(table.Entries, &EntryRow.Of, _head[3] * sizeof(uint));
+        }
+
+        Tables[0].Upload(table.PointStart, _head[2] * sizeof(uint));
     }
 
-    public void Begin(AtlasTable frame, int starts, int entries)
+    GridLevel _level;
+    GridWindow _cells;
+
+    /// <summary>
+    /// <b>The tables as the device holds them</b>, copied back and handed to <paramref name="read"/> — for a probe or a test
+    /// that holds the device's filing to the host's. Only on a head that waits.
+    /// </summary>
+    public void ReadBack(Action<AtlasTable> read)
+    {
+        var words = Tables[0];
+        using var copy = _vk.CreateBuffer(words.SizeBytes, BufferUse.Storage | BufferUse.TransferDst, HostAccess.Reads);
+        using var batch = new ComputeBatch(_vk);
+        if (!batch.Waits) throw new NotSupportedException("A device's atlas is read back only where the host can wait for it.");
+
+        var commands = batch.Begin();
+        _vk.BeforeTransfer(commands);
+        _vk.Copy(commands, words, copy, words.SizeBytes);
+        batch.SubmitAndWait();
+
+        var all = copy.Span<uint>();
+        var slotFirst = MemoryMarshal.Cast<uint, int>(all.Slice((int)all[1], (int)(all[2] - all[1])));
+        var slots = slotFirst.Length - 1;
+        var lengthM = MemoryMarshal.Cast<uint, float>(all.Slice((int)all[4], (int)(all[5] - all[4])));
+        var shift = _push.Shift;
+        read(new AtlasTable
+        {
+            Level = _level,
+            Cells = _cells,
+            Shift = shift,
+            Mask = _push.Mask,
+            StartShift = _push.StartShift,
+            RowStartsShift = _push.RowStartsShift,
+            StartsPerCell = _push.StartsPerCell,
+            MetresPerOutside = _push.MetresPerOutside,
+            AlongPerMetre = _push.AlongPerMetre,
+            CellSlot = MemoryMarshal.Cast<uint, int>(all.Slice((int)all[0], _cells.Count)),
+            SlotFirst = slotFirst,
+            PointStart = MemoryMarshal.Cast<uint, ushort>(all.Slice((int)all[2], (int)(all[3] - all[2])))[..(slots * _push.StartsPerCell)],
+            // An entry row is the host's entry, byte for byte.
+            Entries = MemoryMarshal.Cast<uint, RibbonAtlas.Entry>(all.Slice((int)all[3], 2 * slotFirst[slots])),
+            LengthM = lengthM,
+            WayChannels = _push.HasChannels != 0
+                ? MemoryMarshal.Cast<uint, byte>(all.Slice((int)all[5], (int)(words.SizeBytes / sizeof(uint)) - (int)all[5]))[..lengthM.Length]
+                : [],
+        });
+    }
+
+    /// <summary>The push constants an ask of <paramref name="bodies"/> bodies is made with.</summary>
+    public AskPush PushFor(int bodies) => _push with { BodyCount = (uint)bodies };
+
+    /// <summary>How many tables the run of words holds, each one's first word named in the run's own head.</summary>
+    const int TableCount = 6;
+
+    /// <summary>
+    /// The tables laid into one run of words, and the figures an ask is made with: every table but the starts and the
+    /// entries, which are <paramref name="starts"/> and <paramref name="entries"/> long and written after.
+    /// </summary>
+    void Lay(AtlasTable frame, int starts, int entries)
     {
         Tables = [Packed(frame, starts, entries)];
-        _startsPerCell = frame.StartsPerCell;
+        _level = frame.Level;
+        _cells = frame.Cells;
 
         var cells = frame.Cells;
         _push = new AskPush
@@ -130,21 +192,12 @@ internal sealed class DeviceAtlas : IDisposable, IAtlasKeeper
         };
     }
 
-    /// <summary>The push constants an ask of <paramref name="bodies"/> bodies is made with.</summary>
-    public AskPush PushFor(int bodies) => _push with { BodyCount = (uint)bodies };
-
-    /// <summary>How many tables the run of words holds, each one's first word named in the run's own head.</summary>
-    const int TableCount = 6;
-
     /// <summary>
     /// <b>Every table in one run of words</b> (<c>atlas.glsl</c>'s <c>AtlasWords</c>), in the order of its <c>…At</c> head:
     /// the cell slots, the slots' firsts, the point starts two to a word, the entries two words each, the ways' lengths and
     /// their channels four to a word. One binding, where six would take more storage buffers than WebGPU gives a kernel.
     /// </summary>
-    /// <remarks>
-    /// Each table is staged straight into its own stretch of the buffer, as each was into a buffer of its own; the starts
-    /// and the entries a band at a time (<see cref="Keep"/>).
-    /// </remarks>
+    /// <remarks>Each table is staged straight into its own stretch of the buffer, as each was into a buffer of its own.</remarks>
     GpuBuffer Packed(AtlasTable frame, int starts, int entries)
     {
         var head = _head.AsSpan();
@@ -167,46 +220,24 @@ internal sealed class DeviceAtlas : IDisposable, IAtlasKeeper
         return buffer;
     }
 
-    /// <summary>One band's starts and entries, each at its place in the whole's tables.</summary>
-    public unsafe void Keep(AtlasTable band)
-    {
-        var buffer = Tables[0];
-        buffer.Upload<RibbonAtlas.Entry, EntryRow>(band.Entries, &EntryRow.Of, (_head[3] * sizeof(uint)) + ((ulong)band.FirstEntry * (ulong)sizeof(EntryRow)));
-
-        // Two starts a word: a band beginning half way through one sends the start before it again, which the band before
-        // left there.
-        var first = band.FirstSlot * _startsPerCell;
-        var starts = band.PointStart;
-        if (first % 2 != 0)
-        {
-            var whole = new ushort[starts.Length + 1];
-            whole[0] = _carriedStart;
-            starts.CopyTo(whole.AsSpan(1));
-            starts = whole;
-            first--;
-        }
-
-        if (!starts.IsEmpty) _carriedStart = starts[^1];
-        buffer.Upload(starts, (_head[2] * sizeof(uint)) + ((ulong)first * sizeof(ushort)));
-    }
-
     static void Upload<T>(GpuBuffer buffer, ReadOnlySpan<T> rows, uint atWord) where T : unmanaged =>
         buffer.Upload(rows, atWord * sizeof(uint));
 
     /// <summary>How many words hold <paramref name="count"/> of these, the last padded.</summary>
     static uint WordsOf<T>(int count) where T : unmanaged => (uint)((count * Marshal.SizeOf<T>() + sizeof(uint) - 1) / sizeof(uint));
 
-    GpuBuffer Room<T>(int count) where T : unmanaged
+    GpuBuffer Room<T>(int count, HostAccess host = HostAccess.None) where T : unmanaged
     {
         var buffer = _vk.CreateBuffer(
             (ulong)(Math.Max(1, count) * Marshal.SizeOf<T>()),
-            BufferUse.Storage | BufferUse.TransferDst, HostAccess.None);
+            BufferUse.Storage | BufferUse.TransferDst | BufferUse.TransferSrc, host);
         _owned.Add(buffer);
         return buffer;
     }
 
     public void Dispose()
     {
+        _filing?.Dispose();
         foreach (var buffer in _owned) buffer.Dispose();
     }
 }

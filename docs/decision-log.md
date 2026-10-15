@@ -4,13 +4,29 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
-## 2026-10-15 — a device world is made as its town is laid, and its atlas filed onto it a band at a time
+## 2026-10-15 — the atlas's points are found and filed on the device
+
+**The owner (2026-10-15), in their words: "Yes we can move geometry logic to the GPU".** Where a town's world is the
+device's, the device files its atlas (the road log): the host lays the pieces and the slots, and works out the marks
+while the device files — and on a page, which cannot wait for the counts the slots are laid off, the world is laid over a
+word standing in for the tables and reads its first covers once they are filed (`DeviceWorld.Ready`). The device's
+tables are the host's to the bit (`AtlasKernelTests`, and OdesaOsm's digest), and a town laid either way steps alike
+(`DeviceWorldTests`). The furniture is checked on the device against what it filed (`atlas_furniture.comp`).
+
+| OdesaOsm | before | after |
+|---|---|---|
+| the page's open | 63.3 s | 52.3 s (the atlas 17.6 → 7.3 s, all but 0.9 of it the marks) |
+| the page's memory, stood | 1 765 MiB | 1 779 MiB |
+| one desktop core's open, the device's world | 36.8 s | 27.8 s |
+| the desktop's peak resident, the device's world | 1 554 MiB | about 1 070 MiB |
+
+## 2026-10-15 — a device world is made as its town is laid
 
 **The owner, of the page's memory: "Can we keep it under 2Gb at all times? … Ok try to optimize memory usage and load
 times".** The page held 2.8 GB after opening OdesaOsm because the host stood the whole atlas (930 MB of entries in one
 block) and a managed world, only to upload the one and throw the other away. Now a town whose world is the device's is
-laid with it (`IWorldMaker`, `LaidTown.Lay`): the atlas is filed a band of cell rows at a time and each band handed to
-the device and let go of (the road log), and no managed world is stood. **Not for a map whose watches stage it**
+laid with it (`IWorldMaker`, `LaidTown.Lay`): its atlas is filed by the device (above), and no managed world is stood.
+**Not for a map whose watches stage it**
 (`Scenarios.Stages`): a page's device cannot answer off the clock, so that one is still handed over after staging.
 
 - **On a page a car of a map with no bay takes its lane on its decision clock and not at the first tick**: the

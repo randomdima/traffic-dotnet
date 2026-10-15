@@ -4,15 +4,26 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
-## 2026-10-15 — the atlas is filed a band of rows at a time where a world keeps its own
+## 2026-10-15 — the atlas is filed by the device where a world keeps its own
 
-**For a world that keeps its own atlas, the host never holds the whole** (`RibbonAtlas.Stream`, root log): the cells'
-slots and starts are counted as before, then the entries are filed a band of whole cell rows at a time — no more than
-`Sim.AtlasBandEntries` (64 MiB) unless one row is more — and each band handed to the keeper and to the town's furniture
-check as an atlas of its own over its rows, then let go of. A band's slots and entries are a run of the whole's, so the
-keeper lays each where the whole would have it; `Lay` is the same filing as one band, and the two are the same to the
-bit (`RibbonAtlasTests`). A way crossing a band's edge is walked once for each band it reaches: about 0.4 s of
-OdesaOsm's 2.9 s atlas on the desktop.
+**For a world that keeps its own atlas, the host finds no point of it** (`RibbonAtlas.Filing`, `DeviceAtlas.Filing.cs`,
+root log): the host lays every piece of every filed way with the box its search reads, and the device finds, counts,
+files and orders the points (`kernels/atlas_points.glsl`, `atlas_file.comp`, `atlas_starts.comp`, `atlas_sort.comp`) —
+the host's search line for line, so the tables are the host's to the bit wherever the device rounds as the host does
+(`AtlasKernelTests`; OdesaOsm's device digest is the host's).
+
+- **A point's bearing about an arc's centre is `Trig.Atan2` on the host as well**, where it was the library's: the
+  device's is the same code, and the library's is glibc's. The atlas's digest moved once (OdesaOsm 44b18a6c… →
+  15e107f3…, three entries fewer of 116 million); the marks did not.
+- **The host lays the slots** (`RibbonAtlas.SlotsOf`) off the cells' counts, which come back between the device's two
+  batches: the one place the filing waits on an answer, and what sizes the tables.
+- **A row of a piece's box is read over runs worked out in floats, wider than the host's** (`filingRunsAcross`): the
+  host's are in doubles and never narrower than the band as `Foot` reads it, so a column past them is one no test
+  keeps. A way's pieces settle a point two read on the device by asking each other (`filingKept`), as `PointsOf` does by
+  sorting.
+- **A run of points counts its entries in a byte**: more than 255 ways at two points is refused, where the most a
+  traced city has is 32 at one.
+- **The bands are gone**: a host that finds no point holds no band of them.
 
 **The marks hold less at once**, the same marks to the bit (`--bench load`'s marks digest): their pieces laid at their
 size rather than through a list copied out, their cells filed without a table of cursors, the threads' pairs merged into

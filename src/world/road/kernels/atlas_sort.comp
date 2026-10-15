@@ -1,0 +1,86 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Each run of points' entries put in place and way order, one thread a run (RibbonAtlas.InPlaceOrder): atlas_file.comp
+// left them in whatever order its threads reached the run, and no two share a place and a way, so the order is the host's.
+// A run is a few points of a few ways each, put in order where it lies. Then each entry's column is cut to its column in
+// the row, and the run counted into the census: its points, and the most ways at one.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Sorting
+{
+    uint firstRun;
+    uint runCount;
+    int runsPerCell;
+    int startsPerCell;
+    int mask;
+    uint pointStartsAt;
+    uint entriesAt;
+    uint slotFirstsAt;
+} sorting;
+
+layout(std430, binding = 0) buffer AtlasWords { uint atlasWords[]; };
+
+// How many points hold an entry, and the most ways at one of them.
+layout(std430, binding = 1) buffer Census { uint census[]; };
+
+uint startOf(uint at) { return (atlasWords[sorting.pointStartsAt + (at >> 1)] >> ((at & 1u) << 4)) & 0xFFFFu; }
+
+uint placeOf(uint word) { return (word >> 8) & 0xFFu; }
+
+void main()
+{
+    uint asked = sorting.firstRun + gl_GlobalInvocationID.x;
+    if (asked >= sorting.runCount) return;
+
+    uint slot = asked / uint(sorting.runsPerCell);
+    uint run = asked % uint(sorting.runsPerCell);
+    uint startAt = slot * uint(sorting.startsPerCell) + run;
+    uint cellFirst = atlasWords[sorting.slotFirstsAt + slot];
+    uint first = cellFirst + startOf(startAt);
+    uint end = cellFirst + startOf(startAt + 1u);
+    if (first == end) return;
+
+    for (uint at = first + 1u; at < end; at++)
+    {
+        uint word = atlasWords[sorting.entriesAt + 2u * at];
+        uint way = atlasWords[sorting.entriesAt + 2u * at + 1u];
+        uint before = at;
+        while (before > first)
+        {
+            uint beforeWord = atlasWords[sorting.entriesAt + 2u * (before - 1u)];
+            uint beforeWay = atlasWords[sorting.entriesAt + 2u * (before - 1u) + 1u];
+            if (placeOf(beforeWord) < placeOf(word) || (placeOf(beforeWord) == placeOf(word) && int(beforeWay) < int(way))) break;
+
+            atlasWords[sorting.entriesAt + 2u * before] = beforeWord;
+            atlasWords[sorting.entriesAt + 2u * before + 1u] = beforeWay;
+            before--;
+        }
+
+        atlasWords[sorting.entriesAt + 2u * before] = word;
+        atlasWords[sorting.entriesAt + 2u * before + 1u] = way;
+    }
+
+    uint points = 0u;
+    uint most = 0u;
+    uint atThePoint = 0u;
+    uint lastPlace = 0xFFFFFFFFu;
+    for (uint at = first; at < end; at++)
+    {
+        uint word = atlasWords[sorting.entriesAt + 2u * at];
+        uint place = placeOf(word);
+        if (place != lastPlace)
+        {
+            points++;
+            atThePoint = 0u;
+            lastPlace = place;
+        }
+
+        most = max(most, ++atThePoint);
+        atlasWords[sorting.entriesAt + 2u * at] = (word & 0xFFFF00FFu) | ((place & uint(sorting.mask)) << 8);
+    }
+
+    atomicAdd(census[0], points);
+    atomicMax(census[1], most);
+}

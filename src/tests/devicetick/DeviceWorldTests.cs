@@ -52,18 +52,26 @@ public class DeviceWorldTests(Lavapipe device) : IClassFixture<Lavapipe>
 
     /// <summary>
     /// <b>A town laid with its world made on the device is the town handed over to it</b> (<see cref="DeviceWorldMaker"/>):
-    /// its atlas filed onto the device in bands too small to hold a row of the town's cells twice over, and no managed world
-    /// ever stood — and every car and walker where the town laid whole and handed over has it, every tick.
+    /// its atlas filed by the device, and no managed world ever stood — and every car and walker where the town laid whole
+    /// and handed over has it, every tick.
     /// </summary>
-    [Fact]
-    public void ATownLaidOntoTheDeviceIsTheTownHandedToIt()
+    /// <remarks>
+    /// <b>And laid as a page lays it</b>, the world over a word standing in for the atlas while the device files it, and the
+    /// first covers read once it has (<c>DeviceWorld.Ready</c>): the same town, every tick.
+    /// </remarks>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ATownLaidOntoTheDeviceIsTheTownHandedToIt(bool atlasFinishedFirst)
     {
-        var banded = new SimConfig { Sim = new SimFigures { AtlasBandEntries = 4096 } };
         using var handed = new TownWorld(Towns.Built, Config);
         handed.HandTheWorldTo(laying => new DeviceWorld(device.Vk, laying));
-        using var laidOnto = new TownWorld(Towns.Built, banded, worldMaker: new DeviceWorldMaker(device.Vk));
+        using var laidOnto = new TownWorld(Towns.Built, Config, worldMaker: new DeviceWorldMaker(device.Vk, atlasFinishedFirst));
         var handedLoop = new SimLoop<TownWorld>(handed, Config);
-        var laidOntoLoop = new SimLoop<TownWorld>(laidOnto, banded);
+        var laidOntoLoop = new SimLoop<TownWorld>(laidOnto, Config);
+
+        // Asked before the first tick as a window's loop asks it (Game.Advance), which is where a page finishes laying.
+        for (var asked = 0; !laidOnto.World.Ready; asked++) Assert.True(asked < 4, "the world laid on the device never stood ready");
 
         var unlike = new List<string>();
         for (var tick = 1; tick <= Ticks && unlike.Count == 0; tick++)

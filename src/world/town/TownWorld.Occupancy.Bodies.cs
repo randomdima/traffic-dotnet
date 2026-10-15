@@ -110,15 +110,12 @@ internal sealed partial class TownWorld
     /// prop there is refused rather than driven round: a prop is not a body, holds no reservation, and a
     /// driver would be told nothing of it.
     /// </summary>
-    /// <remarks>Asked of the whole atlas, or of each band of one filed a band at a time: between them the bands answer as the whole.</remarks>
+    /// <remarks>A device that files the atlas asks it of its own (<see cref="FurnitureForTheDevice"/>).</remarks>
     void RefuseFurnitureOnTheRoad(RibbonAtlas atlas)
     {
         Span<WayCover> under = stackalloc WayCover[MostWaysUnderABody];
         for (var prop = 0; prop < _plan.Props.Count; prop++)
         {
-            var reachM = new Vector2(_plan.Props.RadiusM[prop]);
-            if (!atlas.Reaches(_plan.Props.CentreM[prop] - reachM, _plan.Props.CentreM[prop] + reachM)) continue;
-
             var count = atlas.UnderDisc(_plan.Props.CentreM[prop], _plan.Props.RadiusM[prop], under);
             for (var at = 0; at < count; at++)
             {
@@ -128,5 +125,26 @@ internal sealed partial class TownWorld
                     $"prop {prop} at {_plan.Props.CentreM[prop]} stands on way {under[at].Way}, which the traffic drives");
             }
         }
+    }
+
+    /// <summary>The same refusal handed to a device that files the atlas itself: every prop, and which ways are driven.</summary>
+    AtlasFurniture FurnitureForTheDevice()
+    {
+        var driven = new bool[_ways.Count];
+        for (var way = 0; way < driven.Length; way++) driven[way] = _ways.IsDriven(way);
+
+        return new AtlasFurniture(_plan.Props.CentreM, _plan.Props.RadiusM, _plan.Props.Count, driven);
+    }
+
+    /// <summary>
+    /// <b>The atlas begun on the device that files it</b>, and the furniture handed over to be checked against it — in a
+    /// method of its own, so the pieces it laid are let go of with its frame. Every way's length, which the marks are worked
+    /// out over.
+    /// </summary>
+    float[] FileTheAtlas(IAtlasFiler filer, SimConfig config, bool anyoneWalks)
+    {
+        var filing = RibbonAtlas.Filing(_lines, config.RibbonLevel, anyoneWalks);
+        filer.File(filing, FurnitureForTheDevice());
+        return filing.LengthM;
     }
 }

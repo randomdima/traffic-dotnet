@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using TrafficSimulation.App.DeviceTick;
 using TrafficSimulation.App.Render;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
@@ -96,9 +97,13 @@ internal static class LoadProbe
             for (var way = 0; way <= marks.WayCount; way++) Fold(ref hash, (ReadOnlySpan<int>)[way < marks.WayCount ? marks.FirstOf(way) : marks.All.Length]);
             Console.WriteLine($"  {"digest",-12}{hash:x16}   the marks, on the same terms");
         }
-        else
+        else if (worldMaker is DeviceWorldMaker device)
         {
-            Say("  atlas", world.AtlasMs, $"filed onto the device {config.Sim.AtlasBandEntries} entries at a time");
+            var (points, entries, most) = device.AtlasCensus;
+            Say("  atlas", world.AtlasMs,
+                $"{points} points, {entries} entries, at most {most} ways at a point — the marks on the host, the points on the device");
+            device.ReadTheAtlas(table => Console.WriteLine(
+                $"  {"digest",-12}{Digest(table):x16}   the atlas's tables as the device filed them"));
         }
 
         Say("  the rest", world.StoodMs - world.RoadsMs - world.FootMs - world.WalkingMs - world.AtlasMs,

@@ -1,0 +1,66 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The town's furniture held off the ground the traffic drives (TER-4c.4, TownWorld.RefuseFurnitureOnTheRoad), asked of the
+// device's own atlas, one thread a prop: each prop's disc read on the ground's channel as the host reads it, and the
+// first prop over a driven way named. `mode` FirstProp names the least such prop; `mode` ItsWay then names the first
+// driven way that prop stands on, as the host's refusal does.
+
+layout(local_size_x = 64) in;
+
+const uint FirstProp = 0u;
+const uint ItsWay = 1u;
+
+layout(push_constant) uniform Ask
+{
+    uint bodyCount;
+    int cellsFromX;
+    int cellsFromY;
+    int cellsWidth;
+    int cellsHeight;
+    float perCellM;
+    float cellM;
+    int shift;
+    int mask;
+    int startShift;
+    int rowStartsShift;
+    int startsPerCell;
+    float metresPerOutside;
+    float alongPerMetre;
+    uint hasChannels;
+    uint mode;
+    uint groundChannel;
+} ask;
+
+#define ATLAS_FIGURES ask
+#define ATLAS_BINDING 3
+#include "core/geometry/kernels/rounded.glsl"
+#include "world/road/kernels/atlas.glsl"
+
+// One prop: its centre and its radius.
+layout(std430, binding = 0) readonly buffer Props { vec4 props[]; };
+
+// Whether each way is driven, a bit a way.
+layout(std430, binding = 1) readonly buffer Driven { uint driven[]; };
+
+// The first prop over a driven way, or every bit set for none; and that prop's first driven way.
+layout(std430, binding = 2) buffer Refused { uint refused[]; };
+
+void main()
+{
+    uint prop = gl_GlobalInvocationID.x;
+    if (prop >= ask.bodyCount) return;
+    if (ask.mode == ItsWay && prop != refused[0]) return;
+
+    uint dropped = 0u;
+    int count = atlasUnderDisc(props[prop].xy, props[prop].z, ask.groundChannel, dropped);
+    for (int at = 0; at < count; at++)
+    {
+        int way = atlasFound[at].way;
+        if ((driven[way >> 5] & (1u << (way & 31))) == 0u) continue;
+
+        if (ask.mode == FirstProp) atomicMin(refused[0], prop);
+        else refused[1] = uint(way);
+        return;
+    }
+}

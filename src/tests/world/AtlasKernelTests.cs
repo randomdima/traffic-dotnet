@@ -174,6 +174,80 @@ public class AtlasKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
     }
 
     /// <summary>
+    /// <b>The atlas the device files is the atlas the host files</b> (<see cref="DeviceAtlas.File"/>), table for table and to
+    /// the bit: every cell's slot, every slot's first, every run's start and every entry — over the fixture town, a city
+    /// laid from its brief, and a deck over a street, whose ways carry channels.
+    /// </summary>
+    [Theory]
+    [InlineData("fixture")]
+    [InlineData("city")]
+    [InlineData("over a street")]
+    public void TheAtlasTheDeviceFilesIsTheAtlasTheHostFiles(string town)
+    {
+        using var world = new TownWorld(
+            town switch
+            {
+                "fixture" => Towns.Of(Towns.Fixture),
+                "city" => Towns.Of(Towns.City),
+                _ => TracedPlanTests.OverAStreet(),
+            },
+            Config);
+        var host = world.Atlas.Table;
+        var (cellSlot, slotFirst, pointStart, entries) =
+            (host.CellSlot.ToArray(), host.SlotFirst.ToArray(), host.PointStart.ToArray(), host.Entries.ToArray());
+
+        using var atlas = Filed(world);
+
+        Assert.NotEmpty(entries);
+        atlas.ReadBack(table =>
+        {
+            Assert.Equal(cellSlot, table.CellSlot.ToArray());
+            Assert.Equal(slotFirst, table.SlotFirst.ToArray());
+            Assert.Equal(pointStart, table.PointStart.ToArray());
+            Assert.Equal(entries, table.Entries.ToArray());
+        });
+        Assert.Equal(((long)world.Atlas.PointCount, entries.Length, world.Atlas.MostWaysAtAPoint), atlas.Census);
+    }
+
+    /// <summary>
+    /// <b>A prop the device finds on a driven way is refused</b>, as the host's check refuses it (TER-4c.4): a prop stood on
+    /// the middle of a lane of the fixture town, named with that lane's way.
+    /// </summary>
+    [Fact]
+    public void APropOnADrivenWayIsRefusedOnTheDeviceAsOnTheHost()
+    {
+        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
+        var lane = Spline.SampleAt(world.Roads.ArcsOf(0), world.Roads.LaneLengthM[0] * 0.5f).PositionM;
+        var furniture = new AtlasFurniture([new Vector2(-1e4f), lane], [0.3f, 0.3f], 2, Driven(world));
+
+        var refused = Assert.Throws<InvalidOperationException>(() => Filed(world, furniture).Dispose());
+
+        Assert.StartsWith($"prop 1 at {lane} stands on way ", refused.Message);
+    }
+
+    /// <summary>The town's atlas filed on the device off its own ways, its furniture checked against it, and waited for.</summary>
+    DeviceAtlas Filed(TownWorld world, AtlasFurniture? furniture = null)
+    {
+        var lines = new WayLines(world.Roads, world.Walking, world.Ways, world.CrossingEdges, Config);
+        var atlas = new DeviceAtlas(device.Vk);
+        try
+        {
+            atlas.File(
+                RibbonAtlas.Filing(lines, Config.RibbonLevel, anyoneWalks: world.People.Capacity > 0),
+                furniture ?? new AtlasFurniture([], [], 0, Driven(world)));
+            atlas.Finish();
+            return atlas;
+        }
+        catch
+        {
+            atlas.Dispose();
+            throw;
+        }
+    }
+
+    static bool[] Driven(TownWorld world) => [.. Enumerable.Range(0, world.Ways.Count).Select(world.Ways.IsDriven)];
+
+    /// <summary>
     /// <b>Two thousand boxes over the fixture town are over exactly the ways the host finds</b> — every heading, on and off
     /// its ways, across its junctions and zebras and square on its lattice, on every channel.
     /// </summary>

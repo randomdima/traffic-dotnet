@@ -1,0 +1,49 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Where each run of points of a kept cell has its entries (RibbonAtlas.Started), one thread a cell: each run's start the
+// count of every run before it, off the run counts atlas_file.comp left, and one past the last the cell's count — which is
+// held to the count the host laid the cell's slot by, and a cell whose runs do not sum to it is reported. Starts are two
+// to a word and a cell's need not begin on one, so each is or-ed into words cleared before.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Starts
+{
+    uint slotCount;
+    int runsPerCell;
+    int startsPerCell;
+    uint pointStartsAt;
+    uint slotFirstsAt;
+} starts;
+
+layout(std430, binding = 0) readonly buffer RunCounts { uint runCounts[]; };
+layout(std430, binding = 1) buffer AtlasWords { uint atlasWords[]; };
+
+// Nought, or one where some cell's runs did not hold what its count said.
+layout(std430, binding = 2) buffer Faults { uint faults[]; };
+
+void writeStart(uint at, uint start)
+{
+    atomicOr(atlasWords[starts.pointStartsAt + (at >> 1)], start << ((at & 1u) << 4));
+}
+
+void main()
+{
+    uint slot = gl_GlobalInvocationID.x;
+    if (slot >= starts.slotCount) return;
+
+    uint firstByte = slot * uint(starts.runsPerCell);
+    uint firstStart = slot * uint(starts.startsPerCell);
+    uint start = 0u;
+    for (uint run = 0u; run < uint(starts.runsPerCell); run++)
+    {
+        writeStart(firstStart + run, start);
+        uint byteAt = firstByte + run;
+        start += (runCounts[byteAt >> 2] >> ((byteAt & 3u) << 3)) & 0xFFu;
+    }
+
+    writeStart(firstStart + uint(starts.runsPerCell), start);
+    uint count = atlasWords[starts.slotFirstsAt + slot + 1u] - atlasWords[starts.slotFirstsAt + slot];
+    if (start != count) atomicOr(faults[0], 1u);
+}

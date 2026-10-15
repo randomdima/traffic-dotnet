@@ -268,7 +268,9 @@ internal sealed partial class DeviceWorld : WorldLayer
             LookaheadS = config.Driving.LookaheadS,
         };
 
-        // Every car read off its body as laid, and the first view and covers off the world as it was laid, before any step.
+        // Every car read off its body as laid, and the first view and covers off the world as it was laid, before any step —
+        // the covers once the atlas they are read off is the device's own (Ready).
+        _coversOwed = !_atlas.Filed;
         using var carsKernel = new ComputeKernel(vk, "world_cars.comp", 6, pushBytes);
         var carsSet = carsKernel.Bind([_carRows, tyres.Poses.Device, pose, heading, motion, filter]);
         var commands = _batch.Begin();
@@ -278,12 +280,41 @@ internal sealed partial class DeviceWorld : WorldLayer
         _vk.AfterTransfer(commands);
         carsKernel.Dispatch(commands, carsSet, Groups(_cars), _push with { Count = (uint)_cars });
         _vk.BetweenKernels(commands);
+        if (!_coversOwed)
+        {
+            RecordTheCovers(commands);
+            _vk.BetweenKernels(commands);
+            RecordTheView(commands, View);
+        }
+
+        _batch.SubmitAndWait();
+        _firstViewOwed = !_coversOwed;
+        TakeTheFirstView();
+    }
+
+    /// <summary>
+    /// Whether the first covers are still to be read, off an atlas the device is still filing: a page lays its world over
+    /// a word standing in for the tables, and reads the covers once they are laid (<see cref="DeviceAtlas.Advance"/>).
+    /// </summary>
+    bool _coversOwed;
+
+    /// <summary>
+    /// The covers set bound to the atlas's own tables, now they are laid, and the first covers and view read off the world as
+    /// it was laid — the queue runs them after the atlas's filing.
+    /// </summary>
+    void ReadTheFirstCovers()
+    {
+        _coversBound[^1] = _atlas.Tables[0];
+        _coversSet = BindTheCovers();
+        var commands = _batch.Begin();
+        _vk.Fill(commands, _counts, 0);
+        _vk.AfterTransfer(commands);
         RecordTheCovers(commands);
         _vk.BetweenKernels(commands);
         RecordTheView(commands, View);
-        _batch.SubmitAndWait();
+        _batch.Submit();
         _firstViewOwed = true;
-        TakeTheFirstView();
+        _coversOwed = false;
     }
 
     /// <summary>Whether the step in flight reads the covers.</summary>
@@ -293,13 +324,24 @@ internal sealed partial class DeviceWorld : WorldLayer
     bool _firstViewOwed;
 
     /// <inheritdoc/>
-    /// <remarks>A page's batch lands between frames, and the first view it answers is taken here once it has.</remarks>
+    /// <remarks>
+    /// A page's batch lands between frames, and the first view it answers is taken here once it has — after the atlas the
+    /// page is still filing is laid and its first covers read (<see cref="ReadTheFirstCovers"/>), and what the filing found
+    /// is checked as it comes back.
+    /// </remarks>
     public override bool Ready
     {
         get
         {
             if (!_batch.Readable) return false;
 
+            if (_coversOwed)
+            {
+                if (_atlas.Advance()) ReadTheFirstCovers();
+                return false;
+            }
+
+            _atlas.Check();
             TakeTheFirstView();
             return true;
         }

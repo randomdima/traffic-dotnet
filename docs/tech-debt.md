@@ -124,16 +124,25 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     `maxStorageBufferBindingSize` is a WebGPU validation error and a dead world rather than the managed world WEB-10
     promises. This machine's adapter gives 4 GB; a default device 128 MB, which OdesaOsm's atlas (930 MB) is past.
     Weighing the laying's largest table against the limit before the handover closes it.
-- **A traced city's open on the page** (2026-10-15, root log; OdesaOsm 65 s at 1.76 GB of 4, the figure varying
-  with where the renderer's last tables find room; O30 170 s at 3.6 GB, not taken since its atlas was filed onto the
+- **A traced city's open on the page** (2026-10-15, root log; OdesaOsm 52 s at 1.78 GB of 4, the figure varying
+  with where the renderer's last tables find room; O30 170 s at 3.6 GB, not taken since its atlas was filed by the
   device):
-  - **OdesaOsm's plan is 31 s of the page's 65** — ground 11.5, buildings 12.7 — and the town's 32 s the pavement's
-    10.7, the marks' 6.3 and the atlas's filing 10.6: single-threaded arithmetic, about twice a desktop core's
-    (`DOTNET_PROCESSOR_COUNT=1 --bench load`, 36.8 s). The page has not been timed since a front's seat stopped
-    projecting every piece near it (buildings 5.8 → 4.6 s on that core). What is left is spread thin: the atlas
-    finding every way's points twice (to count, then to file), a junction's walk re-reading the same course's band
-    for each crossing it serves (`CrossingWays.Reading.BandOffTheVerge`), the outsets' indexes. A page given
-    threads (cross-origin isolation, the host's two headers) is the lever past those;
+  - **OdesaOsm's plan is 29 s of the page's 52** — ground 11.7, buildings 10.5 — and the town's 21.5 s the pavement's
+    10.6 and the marks' 6.4: single-threaded arithmetic, about twice a desktop core's (`DOTNET_PROCESSOR_COUNT=1
+    --bench deviceload`, 27.8 s). What is left is spread thin: a junction's walk re-reading the same course's band for
+    each crossing it serves (`CrossingWays.Reading.BandOffTheVerge`), the outsets' indexes, the index queries that want
+    only the nearest. The marks are the next the device could take, in floats where the host's are doubles, which moves
+    them. A page given threads (cross-origin isolation, the host's two headers) is the lever past those;
+  - **a page's device-filed atlas has not been seen stepping a town on a page**: the driven browser here is given no
+    frames once its window is not on screen, managed world or device's, so no tick ran in any page this was measured
+    on. The page's own path — the world laid over a stand-in and its first covers read once the device has filed — is
+    stepped in lockstep with a handed-over world on lavapipe (`DeviceWorldTests`, the atlas left unfinished). Closes
+    with a page watched on screen ticking OdesaOsm;
+  - **a page's atlas can stand a float off the host's**: WGSL cannot say `precise`, so a browser may fuse what the host
+    rounds twice (`trig.glsl`), and a page has no read-back to hold its digest to the host's. Vulkan's is the host's to
+    the bit;
+  - **a page's atlas is finished only while its clock is due a tick** (`Game.Advance` asks `WorldLayer.Ready` only
+    then): a town opened paused holds the counts' read-back, a word a main cell, until it is let run;
   - **the page keeps what the desktop frees inside the town's lay**: each stage's figure on the page's console
     (`OpenWatch`) has the page using 0.3–0.5 GB more than the desktop after each of the lay's collections, which come
     from frames deep in the lay; the one from the lay's own top frame (`LaidTown.Lay`) frees as the desktop's does.

@@ -322,8 +322,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             OpenWatch.Passed("town: collected after the marks");
         }
 
-        // <b>Filed into the world that keeps it, where it has one</b>, a band at a time and the furniture checked against each
-        // as it goes; on the host whole otherwise.
+        // <b>Filed by the world that keeps it, where it has one</b> — begun before the marks, so the device files while the host
+        // works them out, and the furniture checked on the device against what it filed; on the host whole otherwise.
         WayCrossings marks;
         if (worldMaker is null)
         {
@@ -333,9 +333,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         }
         else
         {
-            marks = RibbonAtlas.Stream(
-                _lines, config.RibbonLevel, config.RibbonTouchM, anyoneWalks: walkers > 0, config.Sim.AtlasBandEntries,
-                worldMaker.Atlas, RefuseFurnitureOnTheRoad, AfterTheMarks).Marks;
+            var lengthM = FileTheAtlas(worldMaker.Atlas, config, anyoneWalks: walkers > 0);
+            marks = RibbonAtlas.MarksOf(_lines, lengthM, config.RibbonLevel, config.RibbonTouchM);
+            AfterTheMarks();
         }
 
         AtlasMs = Stopwatch.GetElapsedTime(atlasAt).TotalMilliseconds;

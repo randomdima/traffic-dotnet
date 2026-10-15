@@ -1,0 +1,147 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The atlas's points found and filed on the device (RibbonAtlas.Filed), one thread a row of one piece's box: every lattice
+// point the piece reads and its way keeps (atlas_points.glsl), and then by `mode` —
+//   CountCells: counted under its main cell, which the host lays the slots off (RibbonAtlas.SlotsOf);
+//   CountRuns:  counted under its run of points in its cell's slot, a byte a run;
+//   Fill:       its entry written into its run's place, taking one of the run's count back as its own.
+// A run's entries land in whatever order the threads reach them, and are put in place and way order after
+// (atlas_sort.comp). A dispatch covers the rows from `firstRow`, so a pass larger than one dispatch is several.
+
+layout(local_size_x = 64) in;
+
+const uint CountCells = 0u;
+const uint CountRuns = 1u;
+const uint Fill = 2u;
+
+layout(push_constant) uniform Filing
+{
+    uint mode;
+    uint firstRow;
+    uint rowCount;
+    uint pieceCount;
+    int cellsFromX;
+    int cellsFromY;
+    int cellsWidth;
+    int shift;
+    int mask;
+    int startShift;
+    int runsPerCell;
+    int startsPerCell;
+    float perCellM;
+    float cellM;
+    float reachM;
+    float alongPerMetre;
+    float outsidePerReach;
+    float straightCurvature;
+    float leastFromCentreM;
+    float tau;
+    uint pointStartsAt;
+    uint entriesAt;
+    uint cellSlotsAt;
+    uint slotFirstsAt;
+} filing;
+
+#define FILING_FIGURES filing
+#define FILING_PIECES_BINDING 0
+#include "core/geometry/kernels/trig.glsl"
+#include "world/road/kernels/atlas_points.glsl"
+
+layout(std430, binding = 1) readonly buffer RowFirsts { int rowFirst[]; };
+layout(std430, binding = 2) buffer CellCounts { uint cellCounts[]; };
+layout(std430, binding = 3) buffer RunCounts { uint runCounts[]; };
+layout(std430, binding = 4) buffer AtlasWords { uint atlasWords[]; };
+
+// The piece whose rows hold this one: the last whose first row is at or before it.
+int pieceOfRow(int row)
+{
+    int least = 0;
+    int most = int(filing.pieceCount) - 1;
+    while (least < most)
+    {
+        int middle = (least + most + 1) >> 1;
+        if (rowFirst[middle] <= row) least = middle;
+        else most = middle - 1;
+    }
+
+    return least;
+}
+
+// RibbonAtlas.Outside and Filed: how far outside its band the point stands, and the metre along its way, as filed.
+uint filingOutside(float marginM)
+{
+    precise float short_ = filing.reachM - marginM;
+    precise float steps = roundedQuotient(short_, filing.reachM) * filing.outsidePerReach;
+    return uint(clamp(ceil(steps), 0.0, filing.outsidePerReach));
+}
+
+uint filingAlong(float alongM)
+{
+    precise float tenths = alongM * filing.alongPerMetre;
+    return uint(clamp(roundEven(tenths), 0.0, 65535.0));
+}
+
+// One point the way keeps, acted on as the pass says.
+void file(int way, int column, int row, FilingSample taken)
+{
+    int cellX = column >> filing.shift;
+    int cellY = row >> filing.shift;
+    int cell = (cellY - filing.cellsFromY) * filing.cellsWidth + (cellX - filing.cellsFromX);
+    if (filing.mode == CountCells)
+    {
+        atomicAdd(cellCounts[cell], 1u);
+        return;
+    }
+
+    int slot = int(atlasWords[filing.cellSlotsAt + uint(cell)]);
+    int place = ((row & filing.mask) << filing.shift) | (column & filing.mask);
+    int run = place >> filing.startShift;
+    uint byteAt = uint(slot * filing.runsPerCell + run);
+    uint byteShift = (byteAt & 3u) << 3;
+    if (filing.mode == CountRuns)
+    {
+        atomicAdd(runCounts[byteAt >> 2], 1u << byteShift);
+        return;
+    }
+
+    // A run's count taken back one at a time, each the place of the entry that took it.
+    uint before = (atomicAdd(runCounts[byteAt >> 2], uint(-(1 << int(byteShift)))) >> byteShift) & 0xFFu;
+    uint startAt = uint(slot * filing.startsPerCell + run);
+    uint start = (atlasWords[filing.pointStartsAt + (startAt >> 1)] >> ((startAt & 1u) << 4)) & 0xFFFFu;
+    uint at = atlasWords[filing.slotFirstsAt + uint(slot)] + start + before - 1u;
+
+    atlasWords[filing.entriesAt + 2u * at] = filingOutside(taken.marginM) | (uint(place) << 8) | (filingAlong(taken.alongM) << 16);
+    atlasWords[filing.entriesAt + 2u * at + 1u] = uint(way);
+}
+
+void main()
+{
+    uint asked = filing.firstRow + gl_GlobalInvocationID.x;
+    if (asked >= filing.rowCount) return;
+
+    int index = pieceOfRow(int(asked));
+    FilingPiece piece = pieces[index];
+    int row = piece.fromRow + (int(asked) - rowFirst[index]);
+    float yM = filingMiddleM(row);
+
+    vec2 runs[2];
+    int across = filingRunsAcross(piece, index, yM, runs[0], runs[1]);
+    int doneTo = piece.fromColumn - 1;
+    for (int run = 0; run < across; run++)
+    {
+        int lastColumn = min(piece.toColumn, filingLastMiddleTo(runs[run].y));
+        int column = max(max(piece.fromColumn, filingFirstMiddleFrom(runs[run].x)), doneTo + 1);
+        for (; column <= lastColumn; column++)
+        {
+            vec2 pointM = vec2(filingMiddleM(column), yM);
+            FilingSample taken;
+            if (!filingReads(piece, index, pointM, taken)) continue;
+            if (!filingKept(index, piece, column, row, pointM, taken)) continue;
+
+            file(piece.way, column, row, taken);
+        }
+
+        doneTo = max(doneTo, lastColumn);
+    }
+}
