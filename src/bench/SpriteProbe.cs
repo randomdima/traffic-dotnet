@@ -116,6 +116,12 @@ internal static class SpriteProbe
         }
     }
 
+    /// <summary>
+    /// Calls between two readings of the clock. <b>A block and not a call</b>: the cheapest parts take a tenth of a
+    /// microsecond or less, and a clock read after each would be part of what they are quoted at.
+    /// </summary>
+    const int CallsABlock = 32;
+
     /// <summary>Microseconds a call, called until <see cref="SettleS"/> has passed, and what the last call wrote.</summary>
     static double Us(Func<int> fill, out int written)
     {
@@ -124,11 +130,12 @@ internal static class SpriteProbe
         written = 0;
         var calls = 0;
         var startedAt = Stopwatch.GetTimestamp();
-        while (Stopwatch.GetElapsedTime(startedAt).TotalSeconds < SettleS)
+        do
         {
-            written = fill();
-            calls++;
+            for (var call = 0; call < CallsABlock; call++) written = fill();
+            calls += CallsABlock;
         }
+        while (Stopwatch.GetElapsedTime(startedAt).TotalSeconds < SettleS);
 
         return Stopwatch.GetElapsedTime(startedAt).TotalMicroseconds / calls;
     }
