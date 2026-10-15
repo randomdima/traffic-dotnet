@@ -632,14 +632,16 @@ internal sealed class ManagedWorld : WorldLayer
                 written = Append(ref _carCovers, written, under[..count]);
                 _carStoodAt[car] = stands;
                 _carCoverCount[car] = count;
+
+                // Only a car read afresh can be put on other channels: one standing where it stood was put on these
+                // ways' channels when it was read there, and a body put on others since does not stand where it stood.
+                byte channels = 0;
+                foreach (ref readonly var cover in under[..count]) channels |= _atlas.ChannelsOf(cover.Way);
+                if (channels != 0 && channels != stands.Channels) _physics.PutOnChannels(body, channels);
             }
 
             var from = written - count;
             _carCoversFrom[car] = from;
-            byte channels = 0;
-            foreach (ref readonly var cover in _carCovers.AsSpan(from, count)) channels |= _atlas.ChannelsOf(cover.Way);
-            if (channels != 0 && channels != _physics.ChannelsOf(body)) _physics.PutOnChannels(body, channels);
-
             view.CarCoverRanges[car] = new CoverRange(from, count);
             ref var row = ref view.Cars[car];
             row.Flags = (row.Flags & ~0xFFFF00u)

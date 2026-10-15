@@ -356,8 +356,8 @@ with `--bench age`'s digests unchanged and a probe's figure moved closes it.
 - **The tick**:
   - the broad phase reads a candidate's bounds from two arrays (`_leastM`, `_mostM`), two misses for every prop it
     rejects; one `Bounds[]` of both corners, with `Table`'s upload spans made strided, about thirty sites;
-  - `ManagedWorld.ReadCovers` ORs a standing car's channels again from covers that cannot have changed, and
-    `WriteTheView` reads a queued car's line, lead and aim afresh every step.
+  - `ManagedWorld.WriteTheView` reads a queued car's line, lead and aim afresh every step, though a car standing where
+    it stood on the same line answers them as it did.
 - **A window's frame**: `ScaleLegend` and the status panel's title format the same figures every frame, a cache keyed
   on what they read closes them; `AppWindow.PointerPx` asks the window eight times a read and is read six times a frame;
   `Game.Draw`'s 20% self time on O30's managed world is unexplained until its listing is read
