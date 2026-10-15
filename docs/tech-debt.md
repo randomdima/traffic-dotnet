@@ -353,6 +353,15 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 ### Found by the .NET 11 performance review and not yet taken
 
+- **osm-scan's transit layers depend on the day it runs** (`meta/Gtfs.cs:79`, `DateTime.UtcNow`): the same feed and the
+  same map write different layers on different days. Reading the day off the feed's own calendar, or a date the survey
+  carries, closes it.
+- **osm-scan reads some of its inputs twice a run** (2026-10-15, `meta` 13 s): the timetable (`Transit.cs:92`,
+  `Agreement.cs:33`) and the machine-traced footprints, ~1.5 s; the zones layer during `import`/`zones`
+  (`Import.cs:97`, `ZoneHints.cs:775`); and `Snapshot.cs:37` parses all 200 MB of cached answers again, ~1 s. A median
+  is a whole sort (`Buildings.cs:386`, `Agreement.cs:665`, ~0.7 s), and `Layers.cs:84` builds a string an item before
+  writing it (~0.4 s). Held once a process, selected rather than sorted, and serialized straight to the stream closes
+  them.
 - **A window's frame culls the whole roster while the managed world steps** (2026-10-15): `ManagedWorld.InBox` answers
   −1 while its step runs on its own thread, so `TownWorld.CarsPlacedIn` and `PeoplePlacedIn` walk every car and person
   every frame — most of `Game.Draw`'s time on O30's managed world, 0.044 ms a frame with its fields read once: a fifth
