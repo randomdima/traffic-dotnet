@@ -362,8 +362,8 @@ with `--bench age`'s digests unchanged and a probe's figure moved closes it.
   on what they read closes them; `AppWindow.PointerPx` asks the window eight times a read and is read six times a frame;
   `Game.Draw`'s 20% self time on O30's managed world is unexplained until its listing is read
   (`DOTNET_JitDisasm=Game:Draw`).
-- **The open** (O30, serial on the main thread): `CrossingWays.Lay` lays a junction's connections one place at a time
-  (~4 s), `ArcOutset.Uncovered` cuts and keeps one piece at a time (~3 s), `TownWorld.Places` lays the bays and doors
+- **The open** (O30, serial on the main thread): `ArcOutset.Uncovered` cuts and keeps one piece at a time (~3 s),
+  `TownWorld.Places` lays the bays and doors
   onto lanes one at a time (~2 s), `OneWayStreets.Lay` walks every movement of the town again for each of the 1808
   streets it tries, though one street takes away one movement (~1.1–1.4 s, measured), `KerbEnds.Of` reads its rings
   one at a time (~1 s), `WalkingNetwork`'s `_besideOf` and
