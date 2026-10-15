@@ -177,7 +177,7 @@ re-taken on the largest town the project can open:
 | `CrossingGateTests` | The frame's managed→native crossings are flat in the size of the town (rule 1) |
 | `OverlapGateTests` | `PHY-1` on a town that is *running*, not on a staged pair |
 | `SolverGateTests` | `SOL-20`, including **across contact churn** as bodies touch and separate |
-| `ClaimGateTests` | `TER-4c.3`, `TER-5c.2`, `TER-5c.1`, `TER-4c.1` and `TER-5g.1` on the planned layer of every way: no metre planned by two holders, no hold in two pieces, no main claim over a mark without its secondary claim, no plan over a body, no rung that grows along a hold — and nothing dropped for want of room. Bodies are free to overlap and are the solver's gates' question |
+| `ClaimGateTests` | `TER-4c.3`, `TER-5c.1` and `TER-4c.1` on the planned layer of every way: no metre planned by two holders, no main claim over a mark without its secondary claim, no plan over a body — and nothing dropped for want of room. Bodies are free to overlap and are the solver's gates' question |
 
 `OverlapGateTests` asserts that no **one** body stays inside another, and not that nothing is ever inside
 anything — the second is not a fact about this town: a soft-step solver answers an approach by letting a
@@ -282,8 +282,8 @@ own run left waiting — a test chooses how long it watches.
 **A scenario may stage what it is about**: a body left to itself does the thing a map was laid to measure
 only by luck, so the map's own watch may order the bodies on the first tick. **What is claimed is what the
 town did with that order** and never that it was given one — and the staging is the watch's, so a run of
-that map in the game stages it exactly as the probe does. **This build ships no such map**: the ones it had
-were laid against the lane layer that has been replaced, and they are named in
+that map in the game stages it exactly as the probe does. **The scenario map is the one such map this build
+ships** (`ExamWatch`); the ones laid against the lane layer that has been replaced are named in
 [the known gaps](index.md#known-gaps).
 
 ## The verification intentions
@@ -406,7 +406,7 @@ staged on.
 **The documents have instruments of their own**, read the same way. `qq doclint` asks whether every rule
 is stated exactly once and every ID the code cites resolves — a citation to a renumbered or retired rule
 compiles, passes and misleads, and nothing else in the suite can see it; it runs inside `qq checks`, which
-builds the game and then takes the same three tiers `qq tests all` does, through that tool rather than
+builds the game and then takes the tiers `qq tests all` does, through that tool rather than
 through a copy of it. `qq doclint --build` also asks the compiler whether every doc comment is
 well-formed XML, which the ordinary build never generates. `qq docstats` measures the documents and what they repeat, `qq reqaudit` weighs every
 rule by what obeys it, and `qq outline`, given no argument, prints the longest files in `src/`, which is

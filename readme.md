@@ -32,8 +32,8 @@ them describes how a class works — that is the XML docs on the class.
 ## Building and running
 
 Needs the .NET 10 SDK, a Vulkan 1.3 driver, and `glslc` (shaderc) on `PATH` — the project file compiles
-`src/runtime/shaders/*` to SPIR-V and embeds them, so a missing `glslc` fails the build rather than the
-run.
+`src/runtime/shaders/*` and every slice's `kernels/*.comp` to SPIR-V and embeds them, so a missing `glslc` fails
+the build rather than the run.
 
 ```
 dotnet build
@@ -41,7 +41,7 @@ qq tests
 dotnet run --project traffic-dotnet.csproj -- --map Odesa
 ```
 
-`qq tests` runs the unit tier; `unit town`, `perf`, `all` and `e2e` name the others, what each is for is
+`qq tests` runs the unit tier and `qq tests <tier>` names another; what each is for is
 [docs/verification.md](docs/verification.md), and what each costs is [CLAUDE.md](CLAUDE.md#verification).
 A plain `dotnet test` runs every tier including the one an agent is paid to judge.
 
@@ -53,12 +53,10 @@ to be looked at beside something else. `--device-tick` has the desktop's town st
 the ribbons under each moving body and the drawing of what moves — on the GPU, its cars and walkers still
 deciding on the CPU (`src/app/devicetick/DeviceWorld.cs`). Other
 entries: `--check` prints the dependency read-out, `--shot` takes a picture with no window at all,
-`--ui` opens the panels and the debug layers, and `--bench <name>` runs one of the probes in `src/bench/`
-(`census`, `load`, `sprites`, `shape`, `joints`, `parks`, `shapes`, `outset`, `fill`, `drive`, `trips`, `rescue`,
-`recovery`, `crash`, `soak`, `stuck`, `tick`, `town`, `age`, `solver`, `walk`, and the `device…` probes:
-`deviceworld`, the GPU's world beside the host's, `deviceatlas` and `devicecopy`); `--bench all` runs the lot, and
-the list itself is [`CheckCatalogue`](src/bench/CheckCatalogue.cs). The map list the menu reads is the map
-list the command line reads; the probes are the command line's alone.
+`--ui` opens the panels and the debug layers, and `--bench <name>` runs one of the probes in `src/bench/`;
+`--bench all` runs the lot, an unknown name prints the list, and the list itself is
+[`CheckCatalogue`](src/bench/CheckCatalogue.cs). The map list the menu reads is the map list the command line
+reads; the probes are the command line's alone.
 
 **The menu's `Debug` page is cut into sections, one a thing a session is opened to look at** (`OBS-2y`):
 `Cars`, `Walkers`, `Junctions`, `Physics`, `Road shape`, `Ground mesh` and `Tools`, and `--ui menu-cars`,
@@ -212,15 +210,13 @@ change, and commit the picture. The line it prints per lens is the instrument fo
 arithmetic cannot answer — a rectangle over bodywork nobody painted a lamp on cuts the paint around it
 and comes back undistinguished.
 
-**One map is laid in code**, and it is laid to be looked at rather than to measure anything. **What it is
-is [citygen](src/citygen/docs/requirements.md#the-maps)**; what follows is only which command reads it.
+**Two maps are laid in code. What each is is [citygen](src/citygen/docs/requirements.md#the-maps)**; what
+follows is only which command reads it.
 
 | Map | Is | Read by |
 |---|---|---|
 | `Idle` | one loop of road and nothing else — a square with rounded corners, an armoured car between two police running it one way and a sports car the other — the picture the game idles on, and what a run that names no map opens over | `--map Idle` |
-
-**No laboratory map ships** — the ones there were went with the lane layer they were laid against
-([known gaps](docs/index.md#known-gaps)).
+| `Exam` | the scenario map, above — the one laboratory map that ships; the others went with the lane layer they were laid against ([known gaps](docs/index.md#known-gaps)) | `--map Exam`, `--bench exam`, `qq tests exam` |
 
 **Every other map is its own file, `towns/<Map>.map`, and a town is laid off it when it is opened**
 ([citygen](src/citygen/docs/requirements.md#where-a-town-comes-from), `GEN-58`): what the map fixes — its water, its
@@ -248,7 +244,7 @@ metre over 10 × 24 km, its roads running off at the map's edge — with its bui
 measure there. The prefabs are `assets/world/building/prefabs/`, each with its look, corner radius, tags and a line of
 what its roof shows, drawn as plain blocks of their look's colour until their art is; `--bench fit` says how the walk
 was built, look by look, and `--bench zones` how close the zones build the town to the place's own buildings, kind by
-kind and square by square. **It is laid from `towns/OdesaOsm.map` and nothing else**: one binary file of 0.55 MB,
+kind and square by square. **It is laid from `towns/OdesaOsm.map` and nothing else**: one binary file of 0.4 MB,
 read and surveyed in some 40 ms, holding only what lays the place — each road's line, class, level, OSM's lane counts
 and its width as measured, the coast, and its zones — so a road's lanes are all one width, what it was measured wider than them is a roadside
 of parked cars' width behind a solid line, it has as many lanes as its width holds where OSM only assumes a count, a
@@ -372,7 +368,7 @@ src/        every line of C#, and nothing else — the nine slices below
             the legs of a trip are run for
   runtime/  the machine: the window, raw Vulkan, the swapchain, the shaders — and web/ and android/, the
             other heads' halves
-  app/      screen, render, camera, hud, debug, playercontrol, shot, drive, web, android, main — the shell
+  app/      screen, render, camera, hud, debug, playercontrol, shot, drive, web, android, devicetick, main — the shell
   bench/    the census and the probes
   tests/    the unit suite, laid out folder for folder as the tree it tests
   tools/    workshop tools, which may depend on what the runtime may not

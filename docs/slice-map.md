@@ -33,9 +33,9 @@ thing may stand, and what that kind of ground *permits* is `world/terrain/`'s, b
 rule about agents and the plan does not know what an agent is (TER-2a). **The lines a car is driven on are
 split the same way and for the same reason**: the lanes and the connectors between them are the plan's
 (`citygen/LaneLines`), because they are what the tarmac is drawn from, and the rules laid over them — where
-they meet, what each movement takes off the others — are `world/road/`'s. Inside `agents/`, it is `ambulance/` and `service/` → `world/statics/` and
-nothing else, and `evacuator/` → nothing at all: each is a roster of buildings and what stands at them, and
-the driving they ask for is the car's own leg, reached from the composition seam like every other one.
+they meet, what each movement takes off the others — are `world/road/`'s. Inside `agents/`, `ambulance/` and `evacuator/` depend on nothing at all and
+`service/` on `world/road/` alone, for the lanes a closure holds: each is a duty's state, one array a field keyed by
+the car, and the driving they ask for is the car's own leg, reached from the composition seam like every other one.
 **An errand's slice never depends on `agents/car/`**, which is why the arithmetic of a tow is `TowBar` in
 `agents/car/body/` beside the tyre model and not in the slice whose rules it serves: what happens to a car
 on a hook is a fact about a car. **What a car or a walker does is `actions/` in its slice**, a folder per
@@ -98,15 +98,12 @@ Named here so they are not mistaken for breaks:
   `World.Routing`, and `RunNetwork` takes `World.Road.LanePlaces` back — a cycle the World row forbids.
   It closes when `LanePlaces` moves into `world/routing/`, which every network already points at.
 
-## The three seams that keep the tiers apart
+## The seams that keep the tiers apart
 
-Each of these exists because a lower slice needed something a higher one has, and **handing over the data
-rather than the type is what keeps the arrow pointing down**:
+Each exists because a lower slice needed something a higher one has, and **handing over the data rather than
+the type is what keeps the arrow pointing down**. One is the world's arrays handed to the device (above); the
+other is the roofs:
 
-- **`ExitSpots.Standing`** — the containment slice places a body without learning what an agent is. The
-  caller hands over three spans (`PHY-7a`).
-- **`TownRenderer.SheetFrameAspect(sheet, columns, rows)`** — the renderer knows how big an image is;
-  what it is cut into is a fact about the thing it draws, so the grid comes from the caller.
 - **`BuildingCatalog.Roofs`** — a building is sized by the roof it will wear (`GEN-54`), and the roofs are
   read off the sheets by a slice above the plan. What crosses is the measurements (`CityGen.BuildingSizes`),
   handed to `Maps.Plan` by whoever opens a map, so the generator never learns that a catalogue exists.

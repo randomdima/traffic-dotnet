@@ -64,8 +64,9 @@ improvements. Ones that natually fit."**
 - **The clock owes one tick a frame at the game's own speed** (`SimClock.MostTicksPerCall`), and as many as the speed asks
   past it. It caught up on up to eight before: a tick a tenth over its 16.7 ms ran every frame eight ticks long, so the
   device's state was drawn once in eight steps while it sat idle in between.
-- **A tick slower than real time slows the town** instead. The whole ticks owed past the cap are dropped and the part of
-  one kept, so a frame a little late keeps its phase against the display.
+- **A tick slower than real time slows the town** instead. Of the ticks owed past the cap one is kept for the next call
+  and the rest dropped: a display beating against the tick's period owes none on a frame a hair early and two on the
+  next, and dropping that second one ran a town with time to spare a tenth slow.
 - **Measured** (O30 at 40 000 cars, every owner set off at the wheel, the device world, 30 s windows): 7 fps at 8 ticks a
   frame (146 ms) against 54 fps at one (18.65 ms), the tick 18.3 and 18.5 ms, the town at 0.92 of real time either way.
 
@@ -371,14 +372,6 @@ until the owner says otherwise).
 - **Not indexes, and left alone**: the mesh's weld key, a texture's period, and lattices that are the town's
   content rather than a way of finding it (a district's streets, the exam's cards).
 
-## 2026-09-26 — rules reworded to what the code does
-
-The owner ruled the code the source of truth for the documentation audit.
-
-- `OBJ-2`: four kinds, not five — a traffic light has no body, its heads being drawn and never collided.
-- `SIM-6`: a lifted ban is performed by whatever performs the act elsewhere; the manoeuvres it named are gone.
-- `VER-2`: one way round, a bay; the dead-end shunt it cited (`P-19`) is gone.
-
 ## 2026-09-20 — every town claims two things, and the clock is a leg's rather than a claim's
 
 `VER-11` had every town claim that nothing stands still with no clock running for it. The claim went from
@@ -466,12 +459,10 @@ given room rather than when the rule breaks — and a soak's subject is now stag
 
 ## 2026-09-07 — the purpose was written twice, and the copy that nothing cites is the one that goes
 
-`PUR-1`…`PUR-4` restated [goals.md](goals.md) sentence for sentence — the quality bar verbatim — and
-`AGT-1`…`AGT-4`, `OBJ-1`, `OBJ-3`, `SIM-5` and `TEC-3` were definitions, pointers to other rules, or a
-constraint on a grid the terrain has never had. Nothing but this page's own ID map named any of them, so
-what a reader loses is a second copy that could disagree with the first. `VER-4`, `VER-5` and `VER-7` are
-retired with them, as intentions no tier answers and that `VER-3`, `SIM-4` and `SOL-35` already carry.
-Retired: `PUR-1`…`PUR-4`, `AGT-1`…`AGT-4`, `OBJ-1`, `OBJ-3`, `SIM-5`, `TEC-3`, `VER-4`, `VER-5`, `VER-7`.
+Retired, and named by nothing but the ID map: `PUR-1`…`PUR-4`, which restated [goals.md](goals.md) sentence for
+sentence; `AGT-1`…`AGT-4`, `OBJ-1`, `OBJ-3`, `SIM-5` and `TEC-3`, which were definitions, pointers to other rules, or a
+constraint on a grid the terrain has never had; and `VER-4`, `VER-5` and `VER-7`, intentions no tier answers and that
+`VER-3`, `SIM-4` and `SOL-35` already carry.
 
 ## 2026-08-29 — six more figures were relations, and four of them said so themselves
 
