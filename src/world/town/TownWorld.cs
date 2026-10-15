@@ -242,7 +242,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // Laid with the town rather than on demand: a structure the tick reads belongs to the town's
         // own standing cost.
         _driving = DrivingNetwork.Build(
-            _roads, BayStreets.WhereALegMayTurn(_roads, _bayStreets, config.TurnAtALotWithinM), plan, config);
+            _roads, BayStreets.WhereALegMayTurn(_roads, _bayStreets, config.TurnAtALotWithinM), config);
         _driveSearch = new RouteSearch(
             _driving.Cells, mostEntries: Math.Max(BayStreets.MostLanes, _roads.MostLanesOfAWay), mostGoals: 2, MostRunsInARoute);
         _surcharges = new LinkSurcharges(MostWaysGivenUpOn);
@@ -282,7 +282,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // The interface's own room to plan a whole route into (CTL-1a), laid with the selection it is
         // bounded by and never on the frame that wants it.
         _paths = new SelectionPaths(_selected.Capacity, _driving.Cells, _walking.Cells, MostRunsInARoute);
-        _furniture = LaneFurniture.Project(_bars, _zebras, _roads);
+        _furniture = LaneFurniture.Project(_bars, _roads);
         _crossingEdges = CrossingEdges.Of(_zebras, _walking.Foot);
         _signalHolds = SignalHolds.Of(_signals, _bars, _crossingEdges, _roads, _ways);
 

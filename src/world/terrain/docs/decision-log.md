@@ -5,15 +5,14 @@
 **The owner ruled it: no actor is expected to touch water, and a wheel tells the bridge from what it crosses by the
 lanes it is laid on, not by the ground's shapes.** So the catalogue keeps the two surfaces a wheel stands on — the
 carriageway's and the grass's (`GroundCatalog.Paved`, `Grass`) — and each kind's permissions; water's grip, drag and
-mark threshold, every other kind's surface figures, and the point's coefficient (`GroundSample`) are gone, none of
+mark threshold, every other kind's surface figures, and the point's coefficient on `GroundSample` are gone, none of
 them read by anything but tests. The level above's lattice (`GroundShapes.At(point, level)`) went with them: it was
 laid at load for a bench alone. The level above is still drawn (`Paving.Above`, `GroundMesh.Above`); what the ground
 is at a point is the ground level's answer.
 
-## 2026-10-07 — the ground is a wheel's, read once a laying
+## 2026-10-07 — the ground is a wheel's, read off the lane ribbons
 
-**The owner ruled it: a wheel asks which lane ribbon it is on, once each time the claims are laid, and nothing else
-asks the ground for a car.** On any way the atlas holds under it a wheel grips as on the carriageway, on none as on
+**The owner ruled it: a wheel asks which lane ribbon it is on, and nothing else asks the ground for a car.** On any way the atlas holds under it a wheel grips as on the carriageway, on none as on
 grass (`GroundLocator.UnderAWheel`), and the same reading puts the car's body on those ways at p0 (TER-4c.2) — where
 a car's grip and its reservations had been two readings of the ground every tick, the shell's under each wheel and
 the atlas's under its collider. **The car itself does not care what ground it is on**: no figure for the ground under
@@ -21,8 +20,8 @@ it is kept, and its driver plans on its own rubber (agents/car log). `TER-7b`'s 
 reworded at the owner's word, from *what a wheel stands on is the shell's* to this; `TER-7` and `TER-2` say what
 follows.
 
-- **Read at the laying and kept** (`CarView.WheelsOnAWay`, a bit a wheel, the world's beside the body): the tyres grip on it every tick until
-  the next laying, so a wheel's answer is up to 0.05 s old, and no tick asks what ground a car is on.
+- **Read with the body's covers and kept** (`CarView.WheelsOnAWay`, a bit a wheel, the world's beside the body): the
+  tyres grip on what the step's reading left, and nothing else asks what ground a car is on.
 - **A wheel is read at the lattice point nearest it**, so where it stands is answered to within the lattice's reach
   of a band's edge — 0.35 m at the shipped step.
 - **What the ribbons do not cover is grass to a wheel**: a pocket of paving inside the kerb, a car park's apron, the
@@ -30,16 +29,16 @@ follows.
 - **The two grounds are worked out once** for the figures as they stand (`WheelGrounds`) and picked by a wheel's bit,
   on the host and in the kernel alike — the device is laid the two as rows, mark threshold and all, and hands no
   wheel's ground back.
-- **The device is handed the bits** with each car's tyre row, read where its own claims laying read them
-  (`car_bodies.glsl`, mirrored back with the channels), so the tyre pass binds neither the atlas nor the shell.
+- **The device is handed the bits** with each car's tyre row, read where it reads the body's covers
+  (`world_covers.comp`), so the tyre pass binds neither the atlas nor the shell.
 - **Nothing on the device asks the shell**: the kernel that read it under each car's middle (`car_ground.comp`) went,
   and with it the shell's tables laid on the device and the query over them (`DeviceGround`, `ground_at.comp`,
   `--bench deviceground`), which tyres and that middle were the only askers of.
 
 On OdesaOsm 62 of 40 052 wheels stand otherwise than the shell has them — 29 on the carriageway's kind and on no way,
-29 of 245 on the pavement's and on one, 4 of 23 on grass and on one (`--bench deviceatlas`). With the wheels read at
-the laying, the whole fleet's tyre pass went 4.93 → 2.13 ms a tick on the host and 0.704 → 0.015 ms on the device
-(`--bench devicetyres`); with the two grounds worked out once and none handed back it reads 2.04 ms on the host and
+29 of 245 on the pavement's and on one, 4 of 23 on grass and on one (`--bench deviceatlas`). With the wheels read
+off the ribbons, the whole fleet's tyre pass went 4.93 → 2.13 ms a tick on the host and 0.704 → 0.015 ms on the
+device; with the two grounds worked out once and none handed back it reads 2.04 ms on the host and
 0.018 on the device, and taking the rows in and handing them back 3.18 → 2.68 ms.
 
 ## 2026-10-04 — a bridge over a road is a level of the ground of its own, drawn above

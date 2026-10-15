@@ -74,9 +74,6 @@ internal sealed class FootJunctions
 
     public int NodeCount => _atM.Length;
 
-    /// <summary>How many road ends the town has, which is two per road and a pair of nodes at each.</summary>
-    public int EndCount => _standsAtEnd.Length;
-
     /// <summary>How many pedestrian junctions the merge left, which is what a walk has places to choose at.</summary>
     public int JunctionCount => _hubM.Length;
 

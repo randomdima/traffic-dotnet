@@ -103,10 +103,8 @@ internal sealed class TownWays
     /// </summary>
     public static int WayOfRoadConnector(int laneCount, int connector) => laneCount + connector;
 
-    /// <summary>Where the pavement's two blocks begin, for the network that has to name its own ways.</summary>
+    /// <summary>Where the pavement's two blocks begin: every way from here on is walked.</summary>
     public int FirstFootwayWay => _firstFootway;
-
-    public int FirstMitreWay => _firstMitre;
 
     public int Count => _lengthM.Length;
 

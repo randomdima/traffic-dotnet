@@ -2,7 +2,6 @@ using System.Numerics;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
-using TrafficSimulation.Core.Simulation;
 
 namespace TrafficSimulation.World.Road;
 
@@ -412,9 +411,6 @@ internal sealed class RoadGraph : ILaneEnds
     /// </summary>
     public int WayOfConnector(int connector) => TownWays.WayOfRoadConnector(LaneCount, connector);
 
-    /// <summary>And the trip back, for a caller holding a section's <see cref="CrossedSection.OnWay"/>.</summary>
-    public int ConnectorOfWay(int way) => way - LaneCount;
-
     /// <summary>
     /// <b>The right of way a movement through a box has</b> (TER-5e) — a fact about the turn its connector
     /// makes, so it is read off the road like the connector itself and is never worked out from the car
@@ -490,12 +486,6 @@ internal sealed class RoadGraph : ILaneEnds
 
     /// <summary>How wide the ground a movement is driven over is: the narrower of the two lanes it joins (TER-5d.1).</summary>
     public float ConnectorWidthM(int connector) => _lines.ConnectorWidthM(connector);
-
-    /// <summary>
-    /// The network in the words a walk over ground is written in (<see cref="IWayNetwork"/>) — a view and
-    /// not a second structure, so it is taken wherever it is wanted rather than kept.
-    /// </summary>
-    public RoadWays Ways => new(this);
 
     /// <summary>The lane whose line passes nearest a point, and how far along it that is — bays and roadsides among them.</summary>
     public int NearestLane(Vector2 pointM, out float progressM) => Nearest.Nearest(pointM, out progressM);

@@ -85,10 +85,10 @@ internal sealed partial class RouteCells
     /// <summary>Every link's cell, by link — what a window reads on every relaxation.</summary>
     public ReadOnlySpan<int> CellsOfLinks => _cellOf;
 
-    /// <summary>Whether a link is in its cell's core (<see cref="AimWithinM"/>).</summary>
-    public bool IsCore(int link) => _nearM[link] <= AimWithinM;
-
-    /// <summary>How far each link stands from its cell's middle, read both ways round — what <see cref="IsCore"/> asks.</summary>
+    /// <summary>
+    /// How far each link stands from its cell's middle, read both ways round — what a link's place in its cell's core
+    /// (<see cref="AimWithinM"/>) is read off.
+    /// </summary>
     public ReadOnlySpan<float> NearMiddlesOfLinks => _nearM;
 
     /// <summary>The link a cell was grown about.</summary>

@@ -1,5 +1,3 @@
-using System.Numerics;
-
 namespace TrafficSimulation.World.Physics;
 
 /// <summary>The contact roster across steps — what began touching this step, and the room the manifolds are kept in.</summary>

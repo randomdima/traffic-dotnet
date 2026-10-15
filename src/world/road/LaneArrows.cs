@@ -84,10 +84,6 @@ internal sealed class LaneArrows
     /// <summary>And which of the three turns each branch is there to say.</summary>
     public ReadOnlySpan<LaneTurn> BranchTurn => _branchTurn;
 
-    /// <summary>The branches of one arrow, in the order they are read across the lane.</summary>
-    public ReadOnlySpan<ArcSeg> BranchesOf(int arrow) =>
-        _branch.AsSpan(_branchAt[arrow], _branchAt[arrow + 1] - _branchAt[arrow]);
-
     /// <summary>
     /// Every arrow the town is painted with, laid off the lanes and the bars they hold at.
     /// </summary>

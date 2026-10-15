@@ -306,8 +306,7 @@ internal sealed class FootMovements
         }
 
         // <b>And the pivot where neither is worth walking</b>: a body that stands, turns and walks the
-        // straight, which is the line whose heading is exactly what its two ends ask for
-        // (<see cref="Spline.PivotedM"/>). <b>How many turns a town comes to this on is the census's to
+        // straight, which is the line whose heading is exactly what its two ends ask for. <b>How many turns a town comes to this on is the census's to
         // report.</b>
         held = false;
         return Step(fromM, ontoM);

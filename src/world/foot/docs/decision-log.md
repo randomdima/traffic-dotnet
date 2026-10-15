@@ -59,7 +59,7 @@ The owner ruled the code the source of truth for this audit.
 
 ## 2026-09-20 — a walker joins the network both ways, and could not before
 
-`EntriesNear` and `GoalsAt` offered the way back only where the fine graph had a reverse, and
+The walk's entries and goals offered the way back only where the fine graph had a reverse, and
 `FootGraph.Reverse` is `-1` for everything by design (WLK-8) — so the branch never ran, and a walker could
 only set off whichever way the single nearest lane happened to run: **anything behind it cost a lap of the
 ring**. Measured: one entry, always, for all 8611 edges of the suite's city.
@@ -138,7 +138,7 @@ across the carriageway instead.
 **The paint runs kerb to kerb**, so the ground a walker asks the road about (TER-5c.1) is the carriageway and
 not a metre of footway at each end. **The walk is parted and never laid again**: the move is the whole
 town's (WLK-1), so a stretch struck a second time folds wherever the shape swallowed more than its
-neighbours could see — the course is cut at the hand-over metres instead, as a car park is cut into a street
+neighbours could see — the course is cut at the hand-over metres instead, as a junction is cut into a street
 (GEN-52).
 
 **A connection is the curve between two poses, not the straight between two points** (WLK-14, TER-5d). As
@@ -192,12 +192,13 @@ no line would join without a pivot fell from 535 to 473.
 **Moving the node to the mouth of the street was tried and is not here**: the mouth is 0.19 m into the
 street on average over 534 ends. What a fork gets wrong is how far the node stands *aside*, not how far back.
 
-## 2026-09-18 — a car park is a hole in the pavement and not a corner of it
+## 2026-09-18 — a junction cut into a street stands no node, and the street's walk runs through it
 
-A car park's junction stood no node and the street it was cut into carried no walk either side of the cut:
-Odesa laid 184 road walks over 507 streets, and 486 of its 1 022 street ends stood nothing. **A rank is a
-hole in the pavement a walk goes round, not a place a street stops** — so the junction stands nothing and
-**the walk down the street runs through it** (WLK-2), one side of a street being one lane end to end.
+A junction cut into a street (GEN-52) stood no node, and the street carried no walk either side of the cut:
+Odesa, whose car parks were then such cuts, laid 184 road walks over 507 streets, and 486 of its 1 022 street
+ends stood nothing. **A cut is not a place a street stops** — so the junction stands nothing and **the walk
+down the street runs through it** (WLK-2, `FootJunctions.DownTheRoad`), one side of a street being one lane
+end to end.
 
 **Standing the pair and dropping only its crossing was tried and is not here**: it puts a corner where the
 street has none. Odesa's 239 ranks stood 956 of 2 028 nodes, and the walk past a rank came back as three ways

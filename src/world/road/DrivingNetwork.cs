@@ -1,7 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Routing;
 
 namespace TrafficSimulation.World.Road;
@@ -124,7 +123,7 @@ internal sealed class DrivingNetwork
     /// the car parks, which stand beside the road and are above it (<see cref="Parking.BayStreets.WhereALegMayTurn"/>).
     /// </param>
     public static DrivingNetwork Build(
-        RoadGraph roads, ReadOnlySpan<bool> turnsAtALot, CityPlan plan, SimConfig config)
+        RoadGraph roads, ReadOnlySpan<bool> turnsAtALot, SimConfig config)
     {
         // <b>The graph's own places and not a second reading of them</b> (SIM-7): where the lanes meet is the
         // network that laid them to answer, and the router and the claims reading two answers is how they come

@@ -1,5 +1,3 @@
-using System.Diagnostics;
-
 namespace TrafficSimulation.World.Road;
 
 /// <summary>

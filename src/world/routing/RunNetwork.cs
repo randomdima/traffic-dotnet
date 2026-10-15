@@ -62,8 +62,6 @@ internal interface IEdgeTurnPricer
 /// </remarks>
 internal sealed class RunNetwork
 {
-    public const int NoEdge = -1;
-
     readonly int[] _pieceOffsets;
     readonly int[] _pieces;
     readonly float[] _stationM;

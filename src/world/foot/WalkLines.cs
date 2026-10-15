@@ -82,9 +82,6 @@ internal sealed class WalkLines
         return new WalkLines(KerbLines.Of(shell, config), courses, rings, loose);
     }
 
-    /// <summary>How many courses there are, which is how many lanes a pavement is walked at (WLK-8).</summary>
-    public int CourseCount => _courses.Length;
-
     /// <summary>The course one lane of a pavement is walked on.</summary>
     public KerbLines Course(int lane) => _courses[lane];
 

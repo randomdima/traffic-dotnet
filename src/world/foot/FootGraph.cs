@@ -136,12 +136,6 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
     /// </summary>
     public ReadOnlySpan<int> Onward(int lane) => EdgesOut(_edgeTo[lane]);
 
-    /// <summary>
-    /// <b>Every stretch a walker may leave for begins where it is joined</b>, so the two ends of a join are
-    /// one place (TER-5i) — a walker turns round where it likes, and nothing here is carried on through.
-    /// </summary>
-    public ReadOnlySpan<float> OnwardEntersAtM(int lane) => default;
-
     public Vector2 StartsAtM(int lane) => _nodeM[_edgeFrom[lane]];
 
     public Vector2 EndsAtM(int lane) => _nodeM[_edgeTo[lane]];

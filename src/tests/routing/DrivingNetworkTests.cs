@@ -27,7 +27,7 @@ public class DrivingNetworkTests
         var config = SimConfig.Shipped();
         var roads = RoadGraph.Build(plan, config);
         return (roads, DrivingNetwork.Build(
-            roads, BayStreets.WhereALegMayTurn(roads, BayStreets.Build(plan, roads), config.TurnAtALotWithinM), plan, config));
+            roads, BayStreets.WhereALegMayTurn(roads, BayStreets.Build(plan, roads), config.TurnAtALotWithinM), config));
     }
 
     /// <summary>Every road still belongs to some run, exactly once, in one place along it.</summary>

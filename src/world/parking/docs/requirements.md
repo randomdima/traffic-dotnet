@@ -56,8 +56,8 @@ bay — a spawn, a service vehicle on its apron, a wreck set down in a yard slot
 it ends at (`GEN-4f`), and where the walk to that car is aimed (`GEN-4e`) is off the body at that pose. **The
 space is the deepest bay-length of its road**, behind the apron it stands back from the street by
 (`CityGenFigures.BaySetbackM`). **The body stands over the same ground either way round and the axle does not**
-(`GEN-4j`, `BayTemplate.RearAxleIntoTheBayM`): nose in, the rear axle is half a wheelbase short of the middle of
-the space, and backed in, half a wheelbase past it.
+(`GEN-4j`, `ParkingIn.NoseInPose`, `ParkingIn.BackedInPose`): nose in, the rear axle stands short of the middle of
+the space by as far as the body's centre stands ahead of it, and backed in, as far past it.
 
 **GEN-4d** `P6` A lot keeps its distance, both figures measured **along the kerb it hangs off**: clear of a
 junction, on top of everything the junction already takes, so a car park's flank is not in the face of
@@ -79,10 +79,10 @@ wide circle makes a different manoeuvre into the same bay than a small car does.
 
 - **Into a bay there are two shapes, and the least street wins.** Nose first — on down the lane, a swing away
   from the bay where the car stands nearer it than its circle, the turn in, and straight into the space — or
-  backwards: on past the bay forwards, and back into it on one turn in reverse. Each is the car's body swept
-  down it and read off the ground (`TER-4c.4`), a shape whose body leaves the driven ground or lies over a
-  zebra's paint is no shape at all, and **of those left, the one whose body is swept over less of the street's
-  own ways is the one made** (`TownWorld.ShapeTheWayIn`). The driver's habit settles a tie (`GEN-4j`).
+  backwards: on past the bay forwards, and back into it on one turn in reverse. Each is read off the lanes the
+  bay is worked off (`TER-4c.6`), a shape whose body lies over a zebra's paint is no shape at all, and **of
+  those left, the one whose body stands over less of the street's own lanes is the one made**
+  (`ParkingIn.ShapeTheWayIn`, `BayManoeuvring.WhatTheShapeTakes`). The driver's habit settles a tie (`GEN-4j`).
 - **Out of a bay there is one shape to each lane of its street**: straight out of the space, one turn, and a
   little straight along the lane the way the car will then drive it — reversing out of a space it stands nose
   first in, and driving out of one it stands backed into. **A car standing nearer a lane than its own circle
@@ -96,8 +96,9 @@ wide circle makes a different manoeuvre into the same bay than a small car does.
 
 **Its ground is a pass's, and nothing else holds the street for it** (`TER-4c.6`, `SIM-7`):
 
-- **Asked for whole, laid as a plan of its own, kept or withdrawn once.** Its ground is the car's body swept down
-  every piece still to be driven, and it is asked for only where all of that is free — no body on it but the car's
+- **Asked for whole, laid as a plan of its own, kept or withdrawn once.** Its ground is what the car's body stands
+  over of the lanes the bay is worked off, down every piece still to be driven (`BayManoeuvring.StreetUnder`), and
+  it is asked for only where all of that is free — no body on it but the car's
   own, and no plan over it — with the pass's own room to spare, and kept only where all of it was had. Short of that
   the car lays nothing and waits, holding no more of the street than its body does.
 - **Once begun it holds that ground until it has driven it**, at p1 where it is taken before every right of way,

@@ -58,7 +58,7 @@ as its own record, or it is ground that is drawn from nothing and answered for b
 readers of that record, the picture and the query, take it off the one array.
 
 **A wheel is the one asker that reads no shape** (TER-7b): it is answered off the ribbons, to within the atlas's
-lattice and as of its car's last laying, so a wheel on paving no ribbon covers — a pocket inside the kerb, a car
+lattice and as of the world's last step, so a wheel on paving no ribbon covers — a pocket inside the kerb, a car
 park's apron, the pavement of a town nobody walks — grips as on grass, and so does a wheel in the water.
 
 **A raster is scratch and never an answer.** The generator keeps one of what its statics have taken

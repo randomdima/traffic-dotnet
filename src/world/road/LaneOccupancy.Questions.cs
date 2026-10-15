@@ -90,8 +90,8 @@ internal sealed partial class LaneOccupancy
     }
 
     /// <summary>
-    /// <b>Whether one holder's body stands on a way at all</b> — which of the town's lanes a scene lies across (SRV-9),
-    /// read off the ground the body was laid on rather than measured again.
+    /// <b>Whether one holder's body stands on a way at all</b>, read off the ground the body was laid on rather than
+    /// measured again.
     /// </summary>
     public bool HasTheBodyOf(int way, int occupant, LaneRoster of) => OwnBody(way, KeyOf(occupant, of), out _, out _);
 

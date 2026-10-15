@@ -25,7 +25,7 @@ public class LaneSwitchRoutingTests
     {
         var plan = TracedPlanTests.TwoLanesIntoATee();
         var roads = RoadGraph.Build(plan, Config);
-        var network = DrivingNetwork.Build(roads, new bool[roads.LaneCount], plan, Config);
+        var network = DrivingNetwork.Build(roads, new bool[roads.LaneCount], Config);
 
         var kerb = roads.NearestStreetLane(KerbLaneM, out _);
         var inner = roads.LaneBeside(kerb, inward: true);

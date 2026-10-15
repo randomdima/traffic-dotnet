@@ -94,16 +94,6 @@ internal sealed class WalkingNetwork
 
     public FootGraph Foot => _foot;
 
-    /// <summary>
-    /// The pavement in the words a walk over ground is written in (<see cref="IWayNetwork"/>) — a view and
-    /// not a second structure, so it is taken wherever it is wanted rather than kept.
-    /// </summary>
-    /// <remarks>
-    /// <b>It needs the town's numbering to name its own ways</b> (<see cref="TownWays"/>), and the town is
-    /// laid over this network rather than under it — so the table is handed in rather than reached for.
-    /// </remarks>
-    public PavementWays WaysIn(TownWays town) => new(this, town.FirstFootwayWay, town.FirstMitreWay);
-
     public RunNetwork Runs { get; }
 
     public TravelGraph Graph => Runs.Graph;
@@ -183,9 +173,6 @@ internal sealed class WalkingNetwork
     public ReadOnlySpan<int> TurnsFrom(int edge) =>
         _joins.ToEdge.AsSpan(_joins.TurnOffsets[edge], _joins.TurnOffsets[edge + 1] - _joins.TurnOffsets[edge]);
 
-    /// <summary>Where the <paramref name="turn"/>th way out of a stretch stands in the town's own turn table.</summary>
-    public int TurnSlotAt(int edge, int turn) => _joins.TurnOffsets[edge] + turn;
-
     /// <summary>
     /// The stretch a mitre leads onto. <b>A mitre is the arriving lane's ground</b>, so its width and its
     /// offset are that lane's, exactly as a junction's join takes the width of the lane it arrives on.
@@ -249,23 +236,6 @@ internal sealed class WalkingNetwork
     public float JoinToM(int slot) => _joins.ToM[slot];
 
     public float JoinLengthM(int slot) => _joins.LengthM[slot];
-
-    /// <summary>
-    /// <b>The span of this stretch's lane any walk covers</b>: from where the first mitre onto it rejoins,
-    /// to where the last mitre off it hands over. Outside that span the ground is under a mitre or under
-    /// nothing at all.
-    /// </summary>
-    /// <remarks>
-    /// The corners at a stretch's two ends take their ground before the lane is stationed
-    /// (<see cref="WalkedLine"/>), so the last stretch of a lane into a node and the first of the lane out
-    /// of it are under a mitre and under no lane at all (<see cref="Margins"/>). A reader that draws
-    /// the whole lane and the mitres beside it therefore draws that ground twice and leaves a spur running
-    /// past every corner into the node — <b>which is a picture of a walk nobody walks</b>, and is why the
-    /// span is answered here rather than worked out by whoever is drawing.
-    /// </remarks>
-    public float WalkedFromM(int edge) => _joins.LaneFromM[edge];
-
-    public float WalkedToM(int edge) => _joins.LaneToM[edge];
 
     /// <summary>How far into its own run a place on a stretch stands.</summary>
     public float PlaceOfM(int edge, float alongEdgeM) =>
@@ -830,10 +800,10 @@ internal sealed class WalkingNetwork
 
                 var backM = takenAtTheEndM[edge];
                 var forwardM = takenAtTheStartM[onto];
-                // <b>Turning round on the spot lays no ground</b>, exactly as it is no way off a lane
-                // (<see cref="WalkedFromM"/>): a body that turns round is already standing where it ends
-                // up. Laid, it was a numbered way per stretch in the town that nothing walks and no
-                // layer draws — and one every body standing at a node was written onto (OBS-2d).
+                // <b>Turning round on the spot lays no ground</b>: a body that turns round is already
+                // standing where it ends up. Laid, it would be a numbered way per stretch in the town that
+                // nothing walks and no layer draws — and one every body standing at a node was written onto
+                // (OBS-2d).
                 var laid = 0;
                 if (onto != foot.Reverse(edge) && lane.Length > 0 && onward.Length > 0
                     && !SamePlaceAt(lane, laneM - backM, onward, forwardM))

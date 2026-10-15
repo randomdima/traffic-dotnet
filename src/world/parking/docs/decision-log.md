@@ -27,13 +27,13 @@ the town, in and out of each bay off each lane.
 - **The manoeuvre is shaped from where the car stands, on its own circle** (GEN-4f, `BayManoeuvre`,
   `ParkingIn.ShapeTheWayIn`, `PullingOut.ShapeTheWayOut`): `CarBuild.ParkingTemplateRadiusM`, `ParkingStraightensUpM` and
   the car's own body. Into a bay there are two shapes — nose in, with a swing away first where the car stands
-  nearer the bay than its circle, and on past the bay and back in — and **the one whose swept body takes less of
-  the street wins**, read off the atlas as a pass's ground is (`WhatTheShapeTakes`); the driver's habit settles
+  nearer the bay than its circle, and on past the bay and back in — and **the one whose body takes less of
+  the street wins**, read off the lanes the bay is worked off (`WhatTheShapeTakes`); the driver's habit settles
   a tie. Out of a bay there is one shape per lane of the street, and the car takes the one its route sets off down
   (below). Nose in takes less street almost everywhere: Odesa parked 558 nose in and 11 backed in over 300 s.
-- **Its ground is laid as a pass's** (TER-4c.6, `OverTheGround`): the body swept down the shape, asked for where
-  all of it is free with the pass's spare, laid at p0, kept or withdrawn once, and given back as it is driven.
-  A car that has begun a manoeuvre holds the street it swept and nothing takes it; one waiting for it holds none.
+- **Its ground is a plan of its own, as a pass's is** (TER-4c.6): the street the shape stands over, asked for
+  where all of it is free, kept or withdrawn once, and given back as it is driven. A car that has begun a
+  manoeuvre holds the street it asked for and nothing takes it; one waiting for it holds none.
   This replaces the claim-whole-or-not-begun rule a bay's way needed, and the same protocol now does both jobs.
 - **Reversing into a bay is allowed again**, which it was not while a car backed in over a way the follower had
   already stopped on: the whole manoeuvre is asked for before the car pulls past the bay, so whoever follows
@@ -48,7 +48,7 @@ the town, in and out of each bay off each lane.
   parked and left the same frontage five times over. **The cost is turns**: a car park that is not near its
   lane's end is no longer somewhere a leg may turn, where every car park was one while it was a junction.
 - **A body standing in a box takes the join it stands in** (`TownWorld.TheCarriagewayUnder`) and **a body in a
-  bay is found by the bay whose space holds it** (`ParkingRegistry.BayHolding`), both still: a car stood down
+  bay is found by the bay whose space holds it** (`TownWorld.TheBayItStandsIn`), both still: a car stood down
   anywhere in a space it was never written into still leaves by that space's manoeuvre.
 
 Load (`--bench load`, Release): Odesa opens in 2 968 → 1 522 ms and River in 2 122 → 1 250 ms — the world

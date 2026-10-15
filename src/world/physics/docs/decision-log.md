@@ -126,7 +126,7 @@ flags in every view, and a car put down between steps.
 **The device says how fast each pair that began touching closed** (`Touch.ClosingMps`, `kernels/touches.comp`), so
 phase 5 no longer reads every agent's motion into the tick off the town's fleets. The device keeps that motion itself
 (`DeviceSolver._motionIntoTick`): what the last step left once frozen bodies were stilled, plus what the town set
-outright since (`RowChange.Motion`: a body put down, added or contained). A push is left out, as the town's fleets leave
+outright since (a body put down, added or contained). A push is left out, as the town's fleets leave
 it out. The closing speed is the host's own dot product on those figures, to the bit.
 
 ## 2026-10-10 — the device settles what it steps
@@ -208,15 +208,15 @@ was on both.
 
 - **A mask beside the layer and not more layers.** A layer is what a body is and a channel is where it is; the
   product of the two in one mask would be a bit per kind per level, and the broad phase pays one more `&` instead.
-- **Read off the laying and never worked out again**: the ways under a car's wheels are already read for its
-  claims (TER-4c.2), so its channels are what those ways are on, taken as they are laid. The claims and the
+- **Read with the ways under it and never worked out again**: the ways under a car's wheels are already read for
+  its claims (TER-4c.2), so its channels are what those ways are on, taken as they are read. The claims and the
   collisions are one reading of the ground.
 - **Read on its own channels**, which is what keeps a car on a bridge off the road under it, and **kept over
   none**. So a body only changes level through a way on both, and one put down somewhere new is put on the
   channels of whatever put it there — a wreck set down takes its truck's.
 - **A connector is on both its lanes' channels**, and a bridgehead is where they meet. Every one on Odesa's survey
-  is 2.5 m long or more, so each of a car's axles is read standing on one on its way off a bridge — the claims are
-  laid every 0.05 s, and an axle takes longer than that to cross 2.5 m below 50 m/s.
+  is 2.5 m long or more, so each of a car's axles is read standing on one on its way off a bridge — the covers are
+  read every step, and an axle takes longer than one to cross 2.5 m.
 - One channel per level and two levels: a bridge over a bridge is on the one above's, which is rarer than a
   third channel is cheap, and is named as a gap.
 

@@ -35,7 +35,7 @@ internal readonly record struct BuildingVariant(
 /// building off this same catalogue, so "nearest" is all but exact on a shipped map.
 /// </para>
 /// <para>
-/// <b>Three lists and one array</b>, on the terms <see cref="Car.Body.CarCatalog"/> keeps its fleet and its
+/// <b>Three lists and one array</b>, on the terms <c>CarCatalog</c> keeps its fleet and its
 /// service vehicles on. A civic roof names the use its building was drawn for (AMB-1a, SRV-1a) and is
 /// found by id (<see cref="Hospital"/>, <see cref="PoliceStation"/>, <see cref="RepairShop"/>);
 /// <see cref="Match"/> cannot reach it,
@@ -86,7 +86,7 @@ internal sealed class BuildingCatalog
     public int RepairShop { get; }
 
     /// <summary>
-    /// The roofs, read once, on the terms <see cref="Car.Body.CarCatalog.Shared"/> is: immutable, on
+    /// The roofs, read once, on the terms <c>CarCatalog.Shared</c> is: immutable, on
     /// disk, and the same for every town. A town's walls are stood from it as well as its pictures
     /// (OBJ-5a), so it is read where a town is stood up and not only where one is drawn.
     /// </summary>
