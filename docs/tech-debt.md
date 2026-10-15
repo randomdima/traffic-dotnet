@@ -133,12 +133,17 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **A traced city's open on the page** (2026-10-15, root log; OdesaOsm 52 s at 1.78 GB of 4, the figure varying
   with where the renderer's last tables find room; O30 170 s at 3.6 GB, not taken since its atlas was filed by the
   device):
-  - **OdesaOsm's plan is 29 s of the page's 52** — ground 11.7, buildings 10.5 — and the town's 21.5 s the pavement's
-    10.6 and the marks' 6.4: single-threaded arithmetic, about twice a desktop core's (`DOTNET_PROCESSOR_COUNT=1
-    --bench deviceload`, 27.8 s). What is left is spread thin: a junction's walk re-reading the same course's band for
-    each crossing it serves (`CrossingWays.Reading.BandOffTheVerge`), the outsets' indexes, the index queries that want
-    only the nearest. The marks are the next the device could take, in floats where the host's are doubles, which moves
-    them. A page given threads (cross-origin isolation, the host's two headers) is the lever past those;
+  - **OdesaOsm's plan is 28 s of the page's 52 and the town 20.5** (`qq web --cpu`, 2026-10-15, after the staged open),
+    single-threaded arithmetic at about twice a desktop core's (`DOTNET_PROCESSOR_COUNT=1 --bench deviceload`, 27.8 s).
+    Inclusive: the walk's outer face (`Paving.Rings`) 10.4 s, of it the band shells' outsets 6.8 and their merge 6.1;
+    the zones' buildings 10.1, of it `ZoneBuildings.Face.Nearest` 3.5; the props 3.1; the traced streets 2.8; the marks'
+    pairs 5.9, of it `RibbonMarks.Stretch` 4.5; `CrossingWays.Of` 4.9, of it `OntoThePaint` 3.8; `PavementLanes.Of`
+    3.2; `ArcRings.Places` 2.3, three quarters of it a `Dictionary` over tuple keys; the walking network 1.5; the ground's
+    mesh 1.8; the collector about 1.4. By self time nothing passes 6 %: `Spline.ProjectFrom` 2.9 s and
+    `ChainIndex.Offer` 2.8, both under the index's near queries; `RingSides.WindingAt` 2.1, under `GroundShapes.At`
+    and `BandOffTheVerge`; `Trig.SinCos` 1.9. The marks are the next the device could take, in floats where the host's
+    are doubles, which moves them. A page given threads (cross-origin isolation, the host's two headers) is the lever
+    past those;
   - **OdesaOsm runs at half real time on the page** (deployed, 2026-10-15): 27.2 ms a tick, of it the cars' own
     24.5, so 0.5 ticks a frame at 60 fps — the desktop's 6.0 ms car tick on one thread, at the page's single core and
     about twice a desktop core's cost. The cars' ticks over workers (the desktop entry above) wants a page given
@@ -153,10 +158,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     from frames deep in the lay; the one from the lay's own top frame (`LaidTown.Lay`) frees as the desktop's does.
     Whether it is a standing frame's stale slot or the collector's lazy sweep is not known;
   - **the framework's sorts and dictionaries over value types still run interpreted** where the open uses them outside
-    the atlas: about 4.5 s of OdesaOsm's 63 on the page (`qq web --cpu --focus mono_interp_exec_method --managed`).
-    `Dictionary` over tuple keys is 3.3 s of it — `ArcRings.Place` 1.7, `FootGraph.Builder.NodeAt` 0.5,
-    `ZoneBuildings.Standing` 0.7, `TownProps` 0.2 — and `Array.Sort` of floats, `ChainIndex.Builder.SortedOnce` and
-    `InChunks`' delegates the rest. Whether a key packed into a `long`, or a grid's own index in place of the dictionary,
+    the atlas: about 3.3 s of OdesaOsm's 52 on the page (2026-10-15, `qq web --cpu --focus mono_interp_exec_method
+    --managed`). `Dictionary` over tuple keys is 1.7 s of it, and with the lookups' own compiled time 2.9 s —
+    `ArcRings.Place` 1.7, `FootGraph.Builder.NodeAt` 0.5, `ZoneBuildings.Standing` 0.7, `TownProps` 0.2 — and
+    `Array.Sort` of floats, `ChainIndex.Builder.SortedOnce` and `InChunks`' delegates the rest. Whether a key packed into a `long`, or a grid's own index in place of the dictionary,
     runs compiled is not measured;
   - **the town itself is one block of the open** (`TownWorld`'s constructor, 21 s of OdesaOsm's 52): the card pauses
     at the plan's stages, after the town and after the ground (`Staged`), and through the town its bar moves on the
