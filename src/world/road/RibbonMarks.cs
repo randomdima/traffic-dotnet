@@ -39,7 +39,7 @@ namespace TrafficSimulation.World.Road;
 /// whole of what the zebra covers of that way — so it is held as one piece of ground from both sides.
 /// </para>
 /// </remarks>
-internal static class RibbonMarks
+internal static partial class RibbonMarks
 {
     /// <summary>What <see cref="IRibbonLines.ZebraOf"/> answers for a way that paints no zebra.</summary>
     public const int NoZebra = -1;
@@ -265,6 +265,15 @@ internal static class RibbonMarks
         readonly GridWindow _window;
         readonly int[] _cellFirst;
         readonly int[] _inCell;
+
+        /// <summary>The cells the pieces are filed over.</summary>
+        public GridWindow Window => _window;
+
+        /// <summary>Where each cell's run of pieces begins, and one past the last cell.</summary>
+        public ReadOnlySpan<int> CellFirst => _cellFirst;
+
+        /// <summary>Each cell's pieces, in piece order.</summary>
+        public ReadOnlySpan<int> InCell => _inCell;
 
         public Near(RibbonPiece[] pieces, GridLevel level)
         {

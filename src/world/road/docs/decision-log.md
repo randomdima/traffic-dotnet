@@ -4,6 +4,25 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-10-15 — the marks are worked out by the device where a world keeps its own, in floats
+
+**The owner asked for the open's remaining speed-ups, the marks on the device among them, moving them.** Where a world
+files its own atlas, the host lays the marks' pieces and their cells as `RibbonMarks.Of` does (`RibbonMarks.Filing`), and
+`kernels/ribbon_marks.comp` weighs every pair a thread an entry of the cells, `RibbonMarks.Weigh` line for line; the host
+merges and files what it found (`RibbonMarks.OfRows`). OdesaOsm's marks 1.4 s of the page's open from 6.3, and its open
+40–43 s from 48.6.
+
+- **In floats, each pair in its own frame**: the start of the piece whose ground is asked about, and an arc's circle asked
+  through that start rather than its centre, which a road's gentlest bend stands a thousand kilometres off — so the ends
+  stand within a millimetre of the host's doubles (`MarksKernelTests`).
+- **But for touches**: two ways leaving one place touch along their trimmed ends' lines, and whether that is ground in
+  common falls to the rounding, the host's and the device's either side of it — a section then begins at the trimmed end
+  or a lattice step on. 2 % of OdesaOsm's sections; a slack on the device's ends was tried and made it 7 %.
+- **The managed world keeps the host's**, to the bit, and a device's world its device's: a town laid both ways differs at
+  those touches. A test that holds the two in lockstep may lay its device world with the host's marks
+  (`DeviceWorldMaker(marksOnTheDevice: false)`).
+- **A page waits on the device a stage at a time** (`TownWorld.Groundwork`), a frame each.
+
 ## 2026-10-15 — the atlas is filed by the device where a world keeps its own
 
 **For a world that keeps its own atlas, the host finds no point of it** (`RibbonAtlas.Filing`, `DeviceAtlas.Filing.cs`,

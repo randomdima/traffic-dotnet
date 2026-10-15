@@ -199,10 +199,23 @@ internal sealed partial class TownWorld
                 Marks = Atlas.Marks;
                 RefuseFurnitureOnTheRoad(Atlas);
             }
-            else
+            else if (worldMaker.Marker is not { } marker)
             {
                 var lengthM = FileTheAtlas(worldMaker.Atlas, anyoneWalks: Walkers > 0);
                 Marks = RibbonAtlas.MarksOf(Lines, lengthM, config.RibbonLevel, config.RibbonTouchM);
+                AfterTheMarks();
+            }
+            else
+            {
+                // <b>And the marks worked out there too</b>, the host waiting on the device's answer a stage at a time — a
+                // frame each on a page, which cannot wait.
+                var lengthM = FileTheAtlas(worldMaker.Atlas, anyoneWalks: Walkers > 0);
+                using var marking = marker.Mark(
+                    RibbonMarks.Filing(Lines, config.RibbonLevel.CellM, config.RibbonTouchM, config.RibbonLevel.Grid.Main));
+                yield return OpenWatch.Passed("town: the marks on the device");
+                while (!marking.Answered()) yield return "town: the marks on the device";
+
+                Marks = RibbonMarks.OfRows(Lines, marking.Rows, lengthM);
                 AfterTheMarks();
             }
 

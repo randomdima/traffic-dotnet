@@ -91,6 +91,11 @@ internal readonly struct RibbonPiece
 
     public Vector2 MostM { get; }
 
+    /// <summary>The piece as <c>ribbon_marks.comp</c> reads it, its heading's sine and cosine those taken here.</summary>
+    public MarkPiece ForTheDevice() => new(
+        new Vector2((float)_startX, (float)_startY), (float)_headingRad, (float)_curvature, (float)_headingCos, (float)_headingSin,
+        LengthM, HalfM, LeastM, MostM, Way, WayFromM, IsStraight ? 1u : 0u, 0f);
+
     public bool BoxMeets(in RibbonPiece other) =>
         LeastM.X <= other.MostM.X && other.LeastM.X <= MostM.X
         && LeastM.Y <= other.MostM.Y && other.LeastM.Y <= MostM.Y;

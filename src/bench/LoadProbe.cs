@@ -101,7 +101,8 @@ internal static class LoadProbe
         {
             var (points, entries, most) = device.AtlasCensus;
             Say("  atlas", world.AtlasMs,
-                $"{points} points, {entries} entries, at most {most} ways at a point — the marks on the host, the points on the device");
+                $"{points} points, {entries} entries, at most {most} ways at a point — the points on the device, and the marks " +
+                (device.Marker is null ? "on the host" : "there too"));
             device.ReadTheAtlas(table => Console.WriteLine(
                 $"  {"digest",-12}{Digest(table):x16}   the atlas's tables as the device filed them"));
         }

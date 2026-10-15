@@ -42,29 +42,30 @@ function fillTo(share, seconds) {
 }
 
 /// **How far through a town's open each stage it pauses after is**, as a share of the whole, and what the
-/// work up to it is called — OdesaOsm's open on the page (49 s, 2026-10-15), the longest a page ships. A
+/// work up to it is called — OdesaOsm's open on the page (43 s, 2026-10-15), the longest a page ships. A
 /// smaller town's stages pass sooner and in the same order; a stage not named here moves nothing.
 const STANDING = [
     ['plan: zones', 0.002, 'reading the map'],
-    ['plan: water', 0.010, 'laying the water'],
-    ['plan: streets', 0.091, 'laying the streets'],
-    ['plan: paving', 0.097, 'paving the streets'],
-    ['plan: ground', 0.298, 'shaping the ground'],
-    ['plan: buildings', 0.479, 'putting up the buildings'],
-    ['plan: props', 0.535, 'setting out the props'],
-    ['plan: roster', 0.535, 'finding everyone a place'],
-    ['town: roads', 0.539, 'joining up the roads'],
-    ['town: pavement', 0.739, 'laying the pavements, the zebras and the lights'],
-    ['town: walking, the ways', 0.776, 'routing the walks'],
-    ['town: the atlas filed', 0.922, 'marking where the ways meet'],
-    ["the town's watches", 0.955, 'standing everyone in the town'],
-    ["the world the device's", 0.957, 'handing the town to the GPU'],
-    ['the ground', 0.994, 'drawing the ground'],
+    ['plan: water', 0.005, 'laying the water'],
+    ['plan: streets', 0.072, 'laying the streets'],
+    ['plan: paving', 0.079, 'paving the streets'],
+    ['plan: ground', 0.306, 'shaping the ground'],
+    ['plan: buildings', 0.471, 'putting up the buildings'],
+    ['plan: props', 0.534, 'setting out the props'],
+    ['plan: roster', 0.534, 'finding everyone a place'],
+    ['town: roads', 0.541, 'joining up the roads'],
+    ['town: pavement', 0.763, 'laying the pavements, the zebras and the lights'],
+    ['town: walking, the ways', 0.803, 'routing the walks'],
+    ['town: the marks on the device', 0.826, 'laying the ways out for the GPU'],
+    ['town: the atlas filed', 0.863, 'marking where the ways meet, on the GPU'],
+    ["the town's watches", 0.942, 'standing everyone in the town'],
+    ["the world the device's", 0.942, 'handing the town to the GPU'],
+    ['the ground', 0.993, 'drawing the ground'],
 ];
 
 /// The open measured above, which the first stages' shares are guessed against until enough has passed to
 /// guess the open's own length from how long it has taken to get there.
-const STANDING_S = 49;
+const STANDING_S = 43;
 const GUESSED_PAST_SHARE = 0.05;
 
 let standingFrom = 0;

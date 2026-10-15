@@ -130,26 +130,25 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     `maxStorageBufferBindingSize` is a WebGPU validation error and a dead world rather than the managed world WEB-10
     promises. This machine's adapter gives 4 GB; a default device 128 MB, which OdesaOsm's atlas (930 MB) is past.
     Weighing the laying's largest table against the limit before the handover closes it.
-- **A traced city's open on the page** (2026-10-15, root log; OdesaOsm 49 s at 1.81 GB of 4, the figure varying
+- **A traced city's open on the page** (2026-10-15, root log; OdesaOsm 40–43 s at 1.87–1.95 GB of 4, the figure varying
   with where the renderer's last tables find room; O30 170 s at 3.6 GB, not taken since its atlas was filed by the
   device):
-  - **OdesaOsm's plan is 23.4 s of the page's 48.6 and the town 19.4** (`qq web --cpu`, 2026-10-15, after the open was
-    kept out of the interpreter), single-threaded arithmetic at about twice a desktop core's. Inclusive: the walk's outer
-    face (`Paving.Rings`) 8.5 s, most of it the band shells' outsets and their merge; the zones' buildings 8.3, of it
-    `ZoneBuildings.Face.Nearest` about 3.5; the props 2.6; the traced streets 2.7; the marks' pairs 6.3, of it
-    `RibbonMarks.Stretch` about 4.5; `CrossingWays.Of` 5.0, of it `OntoThePaint` about 3.8; `PavementLanes.Of` 2.5; the
-    ground's mesh 1.8; the interpreter 0.5. By self time nothing passes 6 %: `Spline.ProjectFrom` and `ChainIndex.Offer`
-    under the index's near queries, `RingSides.WindingAt` under `GroundShapes.At` and `BandOffTheVerge`, `Trig.SinCos`.
-    Two are known and not taken:
-    - **the marks on the device** move them — floats where the host's are doubles — and a page cannot wait for them
-      inside `TownWorld`'s constructor, which hands them to `LaneOccupancy` at once: it wants the constructor laid a
-      stage at a time first (the entry below on the town as one block);
-    - **`CrossingWays.Reading.OntoThePaint` reads a walk's band a touch apart along it** — two windings a station —
-      and steps the course a centimetre at a time for the first metre a turn leaves from (`DepartsAt`): 5 % of the
-      desktop's open CPU. Sharing the course's stations between the mouths of one place was tried (2026-10-15) and
-      moved nothing: few places have two mouths. A station far inside the walk's face that skipped the stations the
-      face could not reach before would;
-    A page given threads (cross-origin isolation, the host's two headers) is the lever past all of them;
+  - **OdesaOsm's plan is 21.8 s of the page's 43** (`qq web --cpu`, 2026-10-15, after the marks went to the device),
+    single-threaded arithmetic at about twice a desktop core's. Inclusive: the walk's outer face (`Paving.Rings`) 8.5 s,
+    most of it the band shells' outsets and their merge; the zones' buildings 6.8, of it `ZoneBuildings.Face.Nearest`
+    1.8; the props 2.6; the traced streets 2.7; `CrossingWays.Of` 5.0, of it `OntoThePaint` about 3.8;
+    `PavementLanes.Of` 2.5; the ground's mesh 1.8; the marks laid out for the device 0.4 and filed off its rows 0.2; the
+    interpreter 0.5. By self time nothing passes 6 %. **`CrossingWays.Reading.OntoThePaint` reads a walk's band a touch
+    apart along it** — two windings a station — and steps the course a centimetre at a time for the first metre a turn
+    leaves from (`DepartsAt`): 5 % of the desktop's open CPU. Sharing the course's stations between the mouths of one
+    place was tried and moved nothing, few places having two; a station far inside the walk's face that skipped the
+    stations the face could not reach before would. A page given threads (cross-origin isolation, the host's two
+    headers) is the lever past the rest;
+  - **the device's marks are read back whole**: rows laid for twice the pieces (a traced city's 45 MB), all of which a
+    page copies back, where 658 000 used are 16 MB; and a town that finds more rows than that runs the pass again, which
+    no town has been seen to. Counting before writing, or reading back only the rows counted, closes the first;
+  - **a device's marks cannot be read off its world for a digest**: `--bench deviceload` prints the atlas's but not the
+    marks', which `MarksKernelTests` holds to the host's within a millimetre but for touches;
   - **OdesaOsm runs at half real time on the page** (deployed, 2026-10-15): 27.2 ms a tick, of it the cars' own
     24.5, so 0.5 ticks a frame at 60 fps — the desktop's 6.0 ms car tick on one thread, at the page's single core and
     about twice a desktop core's cost. The cars' ticks over workers (the desktop entry above) wants a page given

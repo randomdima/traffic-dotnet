@@ -1,0 +1,486 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The marks worked out on the device (RibbonMarks.Weigh, TER-5c), one thread an entry of the pieces' cells: the entry's
+// piece weighed against every later piece of the same cell whose box meets it, once a pair — in the cell the corner of
+// the two boxes' overlap falls in (RibbonMarks.Near.EachPair) — and what the two share appended as a row. A dispatch
+// covers the entries from `entryFrom`.
+//
+// In floats where the host works in doubles (RibbonPiece), so each pair is worked in its own frame — the start of the piece
+// whose ground is asked about — and an arc's centre, which can stand a thousand kilometres off on a road's gentlest bend,
+// is never subtracted: its circle is asked about through the start, as |F|² − 2·turn·n·F against the radius moved by the
+// half-width (ringConstant). What comes back stands within millimetres of the host's.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Marks
+{
+    uint entryFrom;
+    uint entryCount;
+    int windowFromX;
+    int windowFromY;
+    int windowWidth;
+    int windowHeight;
+    float perCellM;
+    float stepM;
+    float touchM;
+    float roundingM;
+    uint rowRoom;
+    uint hasChannels;
+} marks;
+
+#include "core/geometry/kernels/trig.glsl"
+
+// One piece of a way's line as the ground it covers (RibbonPiece.ForTheDevice).
+struct MarkPiece
+{
+    vec2 startM;
+    float headingRad;
+    float curvature;
+    float headingCos;
+    float headingSin;
+    float lengthM;
+    float halfM;
+    vec2 leastM;
+    vec2 mostM;
+    int way;
+    float wayFromM;
+    uint straight;
+    float pad;
+};
+
+// What two pieces share, in each way's own metres (RibbonMarks.Shared).
+struct MarkRow
+{
+    int one;
+    int other;
+    float oneFromM;
+    float oneToM;
+    float otherFromM;
+    float otherToM;
+};
+
+layout(std430, binding = 0) readonly buffer Pieces { MarkPiece pieces[]; };
+layout(std430, binding = 1) readonly buffer EntryCells { uint entryCell[]; };
+layout(std430, binding = 2) readonly buffer CellFirsts { uint cellFirst[]; };
+layout(std430, binding = 3) readonly buffer InCells { uint inCell[]; };
+
+// Every way's channels, four ways a word.
+layout(std430, binding = 4) readonly buffer Channels { uint channels[]; };
+layout(std430, binding = 5) writeonly buffer Rows { MarkRow rows[]; };
+
+// How many rows were found — past the room where there were more, which the host lays room for and asks again.
+layout(std430, binding = 6) buffer RowCount { uint rowCount; };
+
+const int Halvings = 20;
+const float Tau = 6.28318530717958647692;
+const float Pi = 3.14159265358979323846;
+
+float cross2(vec2 a, vec2 b) { return a.x * b.y - a.y * b.x; }
+
+// sin(x) / x, whole near nought.
+float sinc(float x)
+{
+    if (abs(x) < 1e-4) return 1.0 - x * x / 6.0;
+
+    float sine;
+    float cosine;
+    trigSinCos(x, sine, cosine);
+    return sine / x;
+}
+
+// The right of a heading given as its cosine and sine (Heading.RightOf).
+vec2 rightOf(float cosine, float sine) { return vec2(-sine, cosine); }
+
+// The run [least, most] held to where value + step·t ≥ 0 (RibbonPiece.Clip).
+bool clipRun(float value, float stepT, inout float least, inout float most)
+{
+    if (stepT == 0.0) return value >= 0.0 && least <= most;
+
+    float at = -value / stepT;
+    if (stepT > 0.0) least = max(least, at);
+    else most = min(most, at);
+    return least <= most;
+}
+
+// Where square·t² + linear·t + constant is at or under nothing, for a square that is not negative (RibbonPiece.Roots).
+bool rootsOf(float square, float linear, float constant, out float fromT, out float toT)
+{
+    if (square == 0.0)
+    {
+        fromT = -1e30;
+        toT = 1e30;
+        return constant <= 0.0;
+    }
+
+    float discriminant = linear * linear - 4.0 * square * constant;
+    if (discriminant < 0.0)
+    {
+        fromT = 0.0;
+        toT = 0.0;
+        return false;
+    }
+
+    float root = sqrt(discriminant);
+    float farRoot = -0.5 * (linear + (linear < 0.0 ? -root : root));
+    if (farRoot == 0.0)
+    {
+        fromT = 0.0;
+        toT = 0.0;
+        return true;
+    }
+
+    float one = farRoot / square;
+    float other = constant / farRoot;
+    fromT = min(one, other);
+    toT = max(one, other);
+    return true;
+}
+
+// The slice across a metre of a piece at a half-width, from the piece's start given in the pair's frame (RibbonPiece.SliceAt).
+void sliceAt(MarkPiece piece, vec2 startM, float onM, float halfM, out vec2 fromM, out vec2 toM)
+{
+    vec2 along = vec2(piece.headingCos, piece.headingSin);
+    vec2 right;
+    vec2 atM;
+    float leftM = -halfM;
+    float rightM = halfM;
+    if (piece.straight != 0u)
+    {
+        right = rightOf(piece.headingCos, piece.headingSin);
+        atM = startM + onM * along;
+    }
+    else
+    {
+        float k = piece.curvature;
+        float sine;
+        float cosine;
+        trigSinCos(piece.headingRad + k * onM, sine, cosine);
+        right = rightOf(cosine, sine);
+
+        // An arc's metre off its start in the start's own frame: along by s·sinc(ks), across by ks²/2·sinc²(ks/2).
+        float halfTurn = sinc(k * onM * 0.5);
+        atM = startM + along * (onM * sinc(k * onM))
+              + rightOf(piece.headingCos, piece.headingSin) * (k * onM * onM * 0.5 * halfTurn * halfTurn);
+        float radiusM = 1.0 / abs(k);
+        if (k > 0.0) rightM = min(halfM, radiusM);
+        else leftM = -min(halfM, radiusM);
+    }
+
+    fromM = atM + leftM * right;
+    toM = atM + rightM * right;
+}
+
+// How far a segment stands off a box at least (RibbonPiece.OffTheBoxM).
+float offTheBoxM(vec2 leastM, vec2 mostM, vec2 fromM, vec2 toM)
+{
+    vec2 middleM = (fromM + toM) * 0.5;
+    vec2 off = max(max(leastM - middleM, middleM - mostM), vec2(0.0));
+    return length(off) - length(toM - fromM) * 0.5;
+}
+
+// The squared distance of a point from the nearest point of a segment.
+float squareOff(vec2 atM, vec2 fromM, vec2 toM)
+{
+    vec2 along = toM - fromM;
+    float square = dot(along, along);
+    float t = square == 0.0 ? 0.0 : clamp(dot(atM - fromM, along) / square, 0.0, 1.0);
+    vec2 off = atM - (fromM + t * along);
+    return dot(off, off);
+}
+
+float sideOf(vec2 fromM, vec2 toM, vec2 atM) { return cross2(toM - fromM, atM - fromM); }
+
+// Whether two straights' lines stand further apart than apartM at their nearest (RibbonPiece.StraightsFurtherApart).
+bool straightsFurtherApart(MarkPiece one, vec2 oneStartM, MarkPiece other, vec2 otherStartM, float apartM)
+{
+    vec2 oneToM = oneStartM + one.lengthM * vec2(one.headingCos, one.headingSin);
+    vec2 otherToM = otherStartM + other.lengthM * vec2(other.headingCos, other.headingSin);
+    if (sideOf(oneStartM, oneToM, otherStartM) * sideOf(oneStartM, oneToM, otherToM) < 0.0
+        && sideOf(otherStartM, otherToM, oneStartM) * sideOf(otherStartM, otherToM, oneToM) < 0.0)
+    {
+        return false;
+    }
+
+    float square = apartM * apartM;
+    return squareOff(otherStartM, oneStartM, oneToM) > square && squareOff(otherToM, oneStartM, oneToM) > square
+           && squareOff(oneStartM, otherStartM, otherToM) > square && squareOff(oneToM, otherStartM, otherToM) > square;
+}
+
+// What a ring's circle is asked through, for the piece whose ground it is with its start at nought: the signed turn of
+// its arc, its radius, the unit right of its start, and which way it turns.
+struct Ring
+{
+    float turnM;
+    float radiusM;
+    vec2 right;
+    float sense;
+    vec2 first;
+    vec2 last;
+    float pastFirstAtM;
+    float shortOfLastAtM;
+    float sweepRad;
+};
+
+// The arc's sector less a trim off each end (RibbonPiece.Sector), with what the radii through its ends cross the
+// centre at moved onto the start: R·sin of the trimmed turn, as a length times a sinc so nothing huge is formed.
+Ring ringOf(MarkPiece piece, float trimM)
+{
+    Ring ring;
+    float k = piece.curvature;
+    ring.turnM = 1.0 / k;
+    ring.radiusM = abs(ring.turnM);
+    ring.sense = sign(k);
+    ring.right = rightOf(piece.headingCos, piece.headingSin);
+    ring.sweepRad = abs(k) * piece.lengthM - 2.0 * abs(k) * trimM;
+
+    vec2 first = -ring.sense * ring.right;
+    float sine;
+    float cosine;
+    trigSinCos(k * trimM, sine, cosine);
+    ring.first = vec2(first.x * cosine - first.y * sine, first.x * sine + first.y * cosine);
+    trigSinCos(k * (piece.lengthM - trimM), sine, cosine);
+    ring.last = vec2(first.x * cosine - first.y * sine, first.x * sine + first.y * cosine);
+    ring.pastFirstAtM = ring.sense * trimM * sinc(k * trimM);
+    ring.shortOfLastAtM = ring.sense * (piece.lengthM - trimM) * sinc(k * (piece.lengthM - trimM));
+    return ring;
+}
+
+// Whether any of the run [least, most] of a segment lies in the sector (RibbonPiece.Sector.Holds), from the start.
+bool sectorHolds(Ring ring, vec2 fromM, vec2 along, float least, float most)
+{
+    if (least > most) return false;
+    if (ring.sweepRad >= Tau) return true;
+
+    float pastFirst = ring.sense * (cross2(ring.first, fromM) - ring.pastFirstAtM);
+    float pastFirstStep = ring.sense * cross2(ring.first, along);
+    float shortOfLast = ring.sense * (cross2(fromM, ring.last) + ring.shortOfLastAtM);
+    float shortOfLastStep = ring.sense * cross2(along, ring.last);
+    if (ring.sweepRad <= Pi)
+    {
+        return clipRun(pastFirst, pastFirstStep, least, most) && clipRun(shortOfLast, shortOfLastStep, least, most);
+    }
+
+    float otherLeast = least;
+    float otherMost = most;
+    return clipRun(pastFirst, pastFirstStep, least, most) || clipRun(shortOfLast, shortOfLastStep, otherLeast, otherMost);
+}
+
+// |F − C|² less a circle's radius about the centre squared, for the circle the ring's radius moved by widthM: through the
+// start, |F|² − w² − 2R·(sense·n·F + w), which forms nothing as large as the centre is far.
+float ringConstant(Ring ring, vec2 fromM, float widthM)
+{
+    return dot(fromM, fromM) - widthM * widthM - 2.0 * ring.radiusM * (ring.sense * dot(ring.right, fromM) + widthM);
+}
+
+// Whether a segment meets the ground a piece covers at a half-width, its trim off each end (RibbonPiece.Meets) — the
+// segment given in the piece's own start's frame.
+bool meets(MarkPiece piece, vec2 fromM, vec2 toM, float halfM, Ring ring, float trimM)
+{
+    vec2 along = toM - fromM;
+    float least = 0.0;
+    float most = 1.0;
+    if (piece.straight != 0u)
+    {
+        float cosine = piece.headingCos;
+        float sine = piece.headingSin;
+        float onM = fromM.x * cosine + fromM.y * sine;
+        float onStep = along.x * cosine + along.y * sine;
+        float asideM = cosine * fromM.y - sine * fromM.x;
+        float asideStep = cosine * along.y - sine * along.x;
+        return clipRun(onM - trimM, onStep, least, most) && clipRun(piece.lengthM - trimM - onM, -onStep, least, most)
+               && clipRun(halfM - asideM, -asideStep, least, most) && clipRun(halfM + asideM, asideStep, least, most);
+    }
+
+    float square = dot(along, along);
+    float linear = 2.0 * dot(along, fromM) - 2.0 * ring.radiusM * ring.sense * dot(along, ring.right);
+    float inFromT;
+    float inToT;
+    if (!rootsOf(square, linear, ringConstant(ring, fromM, halfM), inFromT, inToT)) return false;
+
+    least = max(least, inFromT);
+    most = min(most, inToT);
+    if (least > most) return false;
+    if (ring.sweepRad < 0.0) return false;
+
+    float holeFromT;
+    float holeToT;
+    if (ring.radiusM - halfM <= 0.0 || !rootsOf(square, linear, ringConstant(ring, fromM, -halfM), holeFromT, holeToT))
+    {
+        return sectorHolds(ring, fromM, along, least, most);
+    }
+
+    return sectorHolds(ring, fromM, along, least, min(most, holeFromT))
+           || sectorHolds(ring, fromM, along, max(least, holeToT), most);
+}
+
+// Whether the slice across a metre of a piece meets the other's ground, and how far it stands off the other's box
+// (RibbonMarks.MeetsAt) — the piece's start given in the other's frame.
+bool meetsAt(
+    MarkPiece piece, vec2 startM, MarkPiece other, Ring ring, float halfM, float otherHalfM, float onM, out float offM)
+{
+    vec2 fromM;
+    vec2 toM;
+    sliceAt(piece, startM, onM, halfM, fromM, toM);
+    offM = offTheBoxM(other.leastM - other.startM, other.mostM - other.startM, fromM, toM);
+    return offM <= marks.roundingM && meets(other, fromM, toM, otherHalfM, ring, marks.touchM);
+}
+
+// One axis of a straight's slice against a box, the metres held to where they overlap (RibbonMarks.Near.Reaching).
+bool within(float sliceLeast, float sliceMost, float stepM, float boxLeast, float boxMost, inout float fromM, inout float toM)
+{
+    if (stepM == 0.0) return sliceMost >= boxLeast && sliceLeast <= boxMost && fromM <= toM;
+
+    float reachesM = (boxLeast - sliceMost) / stepM;
+    float passesM = (boxMost - sliceLeast) / stepM;
+    fromM = max(fromM, min(reachesM, passesM));
+    toM = min(toM, max(reachesM, passesM));
+    return fromM <= toM;
+}
+
+bool reaching(MarkPiece piece, vec2 startM, MarkPiece other, float halfM, inout float fromM, inout float toM)
+{
+    if (piece.straight == 0u) return fromM <= toM;
+
+    vec2 sliceFrom;
+    vec2 sliceTo;
+    vec2 onFrom;
+    vec2 onTo;
+    sliceAt(piece, startM, 0.0, halfM, sliceFrom, sliceTo);
+    sliceAt(piece, startM, 1.0, halfM, onFrom, onTo);
+    vec2 leastM = other.leastM - other.startM;
+    vec2 mostM = other.mostM - other.startM;
+    return within(min(sliceFrom.x, sliceTo.x), max(sliceFrom.x, sliceTo.x), onFrom.x - sliceFrom.x, leastM.x, mostM.x, fromM, toM)
+           && within(min(sliceFrom.y, sliceTo.y), max(sliceFrom.y, sliceTo.y), onFrom.y - sliceFrom.y, leastM.y, mostM.y, fromM, toM);
+}
+
+float stepAt(float fromM, float toM, int step, int steps) { return fromM + (toM - fromM) * float(step) / float(steps); }
+
+// Where a piece's ground stops meeting the other's, closed in on by halving (RibbonMarks.Edge).
+float edgeOf(MarkPiece piece, vec2 startM, MarkPiece other, Ring ring, float halfM, float otherHalfM, float meetsM, float missesM)
+{
+    for (int halving = 0; halving < Halvings; halving++)
+    {
+        float midM = (meetsM + missesM) * 0.5;
+        float offM;
+        if (meetsAt(piece, startM, other, ring, halfM, otherHalfM, midM, offM)) meetsM = midM;
+        else missesM = midM;
+    }
+
+    return meetsM;
+}
+
+// The first and last metre of [fromM, toM] of a piece whose slice meets the other's ground (RibbonMarks.Stretch).
+bool stretch(MarkPiece piece, MarkPiece other, float halfM, float otherHalfM, float fromM, float toM, out float firstM, out float lastM)
+{
+    firstM = 0.0;
+    lastM = 0.0;
+    vec2 startM = piece.startM - other.startM;
+    if (!reaching(piece, startM, other, halfM, fromM, toM)) return false;
+
+    Ring ring;
+    if (other.straight == 0u) ring = ringOf(other, marks.touchM);
+
+    float sweepPerM = piece.straight != 0u ? 1.0 : 1.0 + halfM * abs(piece.curvature);
+    int steps = max(1, int(ceil((toM - fromM) / marks.stepM)));
+    int first = -1;
+    float offTheBoxToM = -1e30;
+    for (int step = 0; step <= steps; step++)
+    {
+        float onM = stepAt(fromM, toM, step, steps);
+        if (onM < offTheBoxToM) continue;
+
+        float offM;
+        if (meetsAt(piece, startM, other, ring, halfM, otherHalfM, onM, offM))
+        {
+            first = step;
+            break;
+        }
+
+        offTheBoxToM = onM + (offM - marks.roundingM) / sweepPerM;
+    }
+
+    if (first < 0) return false;
+
+    int last = first;
+    float offTheBoxFromM = 1e30;
+    for (int step = steps; step > first; step--)
+    {
+        float onM = stepAt(fromM, toM, step, steps);
+        if (onM > offTheBoxFromM) continue;
+
+        float offM;
+        if (meetsAt(piece, startM, other, ring, halfM, otherHalfM, onM, offM))
+        {
+            last = step;
+            break;
+        }
+
+        offTheBoxFromM = onM - (offM - marks.roundingM) / sweepPerM;
+    }
+
+    firstM = first == 0 ? fromM : edgeOf(piece, startM, other, ring, halfM, otherHalfM, stepAt(fromM, toM, first, steps), stepAt(fromM, toM, first - 1, steps));
+    lastM = last == steps ? toM : edgeOf(piece, startM, other, ring, halfM, otherHalfM, stepAt(fromM, toM, last, steps), stepAt(fromM, toM, last + 1, steps));
+    return true;
+}
+
+uint channelsOf(int way) { return (channels[uint(way) >> 2] >> ((uint(way) & 3u) << 3)) & 0xFFu; }
+
+int cellOf(float atM) { return int(floor(atM * marks.perCellM)); }
+
+// Where the cell a point is held in is stored — its own, or the rim's nearest (GridWindow.IndexAt).
+uint indexAt(vec2 pointM)
+{
+    int x = clamp(cellOf(pointM.x), marks.windowFromX, marks.windowFromX + marks.windowWidth - 1);
+    int y = clamp(cellOf(pointM.y), marks.windowFromY, marks.windowFromY + marks.windowHeight - 1);
+    return uint((y - marks.windowFromY) * marks.windowWidth + (x - marks.windowFromX));
+}
+
+bool boxesMeet(MarkPiece one, MarkPiece other)
+{
+    return one.leastM.x <= other.mostM.x && other.leastM.x <= one.mostM.x
+           && one.leastM.y <= other.mostM.y && other.leastM.y <= one.mostM.y;
+}
+
+void main()
+{
+    uint entry = marks.entryFrom + gl_GlobalInvocationID.x;
+    if (entry >= marks.entryCount) return;
+
+    uint cell = entryCell[entry];
+    MarkPiece one = pieces[inCell[entry]];
+    float halfM = one.halfM - marks.touchM;
+    for (uint next = entry + 1u; next < cellFirst[cell + 1u]; next++)
+    {
+        MarkPiece other = pieces[inCell[next]];
+        if (one.way == other.way || !boxesMeet(one, other)) continue;
+        if (indexAt(max(one.leastM, other.leastM)) != cell) continue;
+        if (marks.hasChannels != 0u && (channelsOf(one.way) & channelsOf(other.way)) == 0u) continue;
+
+        // What two pieces of two ways share, each worn back by the touch (RibbonMarks.Weigh).
+        float otherHalfM = other.halfM - marks.touchM;
+        if (halfM <= 0.0 || otherHalfM <= 0.0) continue;
+        if (one.straight != 0u && other.straight != 0u
+            && straightsFurtherApart(one, one.startM - other.startM, other, vec2(0.0), halfM + otherHalfM))
+        {
+            continue;
+        }
+
+        float oneFromM;
+        float oneToM;
+        float otherFromM;
+        float otherToM;
+        if (!stretch(one, other, halfM, otherHalfM, marks.touchM, one.lengthM - marks.touchM, oneFromM, oneToM)
+            || !stretch(other, one, otherHalfM, halfM, marks.touchM, other.lengthM - marks.touchM, otherFromM, otherToM))
+        {
+            continue;
+        }
+
+        uint at = atomicAdd(rowCount, 1u);
+        if (at >= marks.rowRoom) continue;
+
+        rows[at] = MarkRow(
+            one.way, other.way, one.wayFromM + oneFromM, one.wayFromM + oneToM, other.wayFromM + otherFromM,
+            other.wayFromM + otherToM);
+    }
+}
