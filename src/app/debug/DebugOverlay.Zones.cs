@@ -47,13 +47,45 @@ internal sealed partial class DebugOverlay
     }
 
     /// <summary>
-    /// <b>The wash, then the outlines</b>: a square of the view at a time, washed in the hue of the zone its middle stands
-    /// in — the whole map's own ground left clear — and every zone whose box meets the view outlined, edge by edge.
+    /// The layer as last laid, and what it was laid for. <b>A still frame copies it out</b> rather than asking the tree a
+    /// few thousand places again, which is most of a millisecond; laid from the same offset, the copy is the same quads.
     /// </summary>
+    OverlayQuad[] _zoneQuads = [];
+
+    int _zoneQuadCount;
+    ZoneTree? _zonesKeptOf;
+    int _zonesKeptFrom;
+    Vector2 _zonesKeptCentreM;
+    Vector2 _zonesKeptSpanM;
+    float _zonesKeptPixelsPerMetre;
+
     void Zones(ref ScreenDraw draw, TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
     {
         if (ZonesOf(world, config) is not { } zones) return;
 
+        var from = draw.Written;
+        if (ReferenceEquals(zones, _zonesKeptOf) && from == _zonesKeptFrom && viewCentreM == _zonesKeptCentreM
+            && viewSpanM == _zonesKeptSpanM && pixelsPerMetre == _zonesKeptPixelsPerMetre)
+        {
+            draw.Take(_zoneQuads.AsSpan(0, _zoneQuadCount));
+            return;
+        }
+
+        LayZones(ref draw, zones, viewCentreM, viewSpanM, pixelsPerMetre);
+
+        var laid = draw.WrittenSince(from);
+        if (_zoneQuads.Length < laid.Length) _zoneQuads = new OverlayQuad[laid.Length];
+        laid.CopyTo(_zoneQuads);
+        (_zoneQuadCount, _zonesKeptOf, _zonesKeptFrom) = (laid.Length, zones, from);
+        (_zonesKeptCentreM, _zonesKeptSpanM, _zonesKeptPixelsPerMetre) = (viewCentreM, viewSpanM, pixelsPerMetre);
+    }
+
+    /// <summary>
+    /// <b>The wash, then the outlines</b>: a square of the view at a time, washed in the hue of the zone its middle stands
+    /// in — the whole map's own ground left clear — and every zone whose box meets the view outlined, edge by edge.
+    /// </summary>
+    static void LayZones(ref ScreenDraw draw, ZoneTree zones, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
+    {
         var cellM = MathF.Max(viewSpanM.X, viewSpanM.Y) / ZoneWashAcross;
         var leastM = viewCentreM - (viewSpanM * 0.5f);
         var (across, down) = ((int)MathF.Ceiling(viewSpanM.X / cellM), (int)MathF.Ceiling(viewSpanM.Y / cellM));

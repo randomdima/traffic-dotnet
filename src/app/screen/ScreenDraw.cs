@@ -28,6 +28,9 @@ internal ref struct ScreenDraw(Span<OverlayQuad> into)
 
     public readonly bool Full => Written >= _into.Length;
 
+    /// <summary>The quads written from <paramref name="from"/> on, for a caller keeping what it laid to <see cref="Take"/> again.</summary>
+    public readonly ReadOnlySpan<OverlayQuad> WrittenSince(int from) => _into[from..Written];
+
     /// <summary>How many times <see cref="OutlinedText"/> writes each glyph, for a caller sizing a buffer to hold its quads.</summary>
     public const int OutlinedTextPasses = 5;
 
