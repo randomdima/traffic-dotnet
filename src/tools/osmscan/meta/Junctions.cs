@@ -96,7 +96,7 @@ internal static class Junctions
             var group = members[cluster[node]];
             var clustered = group.SelectMany(member => held.GetValueOrDefault(member) ?? []).ToList();
             var (control, from, rule, main, evidence) = Control(town, node, arms, clustered);
-            var movements = Movements(town, node, arms, restrictions[node], links[node], conditional[node], relations);
+            var movements = Movements(town, arms, restrictions[node], links[node], conditional[node], relations);
             string[]? hints = null;
             if (control is not ("signals" or "blinking"))
             {
@@ -462,7 +462,7 @@ internal static class Junctions
     }
 
     static MovementRecord[] Movements(
-        Town town, int node, List<Arm> arms, IEnumerable<OsmTurnRestriction> restrictions, IEnumerable<OsmLaneLink> links,
+        Town town, List<Arm> arms, IEnumerable<OsmTurnRestriction> restrictions, IEnumerable<OsmLaneLink> links,
         IEnumerable<(long From, long To, string Said, long Relation)> conditional, Dictionary<long, OsmRelation> relations)
     {
         var bearings = arms.Select(arm => arm.BearingDeg(town, BearingReachM)).ToArray();

@@ -9,7 +9,7 @@ namespace TrafficSimulation.CityGen.Gen;
 /// <b>One car park for every few of the buildings the brief plans, laid off the kerb of a street that stays
 /// whole</b> (GEN-53, <see cref="SimConfig.CarParksFor"/>). A car park is a rank of bays — on one side of the
 /// street or both — and <b>every bay is a short road of its own joined to nothing</b>: the street is not parted,
-/// no junction is cut and no movement is drawn between the street and a bay. What gets a car in and out of one
+/// no junction stands at it and no movement is drawn between the street and a bay. What gets a car in and out of one
 /// is the car's own manoeuvre (GEN-4f), laid when it parks and not with the town.
 /// </summary>
 /// <remarks>
@@ -21,7 +21,7 @@ namespace TrafficSimulation.CityGen.Gen;
 /// are one piece of tarmac (TER-3c.8) and not ground the two share (TER-5c).
 /// </para>
 /// <para>
-/// <b>A bay's line is its own</b> (<see cref="CityPlan.RoadArrays.WasCut"/>): it is laid here, where the kerb
+/// <b>A bay's line is its own</b> (<see cref="CityPlan.RoadArrays.IsABay"/>): it is laid here, where the kerb
 /// is, and the arms at its two nodes are read off it rather than drawn to them (GEN-52's reading).
 /// </para>
 /// <para>
@@ -381,8 +381,8 @@ internal static class CarParks
     /// <b>The ranking is kept rather than sorted again.</b> A site's distance from the nearest car park only
     /// ever falls, so each is kept with the distance it had and how many car parks that counted; the one at the
     /// head is brought up to date as it comes up, and it is the furthest once its distance has not fallen.
-    /// Read afresh and sorted for every car park, the stage was the car parks squared times the sites — a
-    /// brief of Odesa ten times over each way was still here after ten minutes.
+    /// Read afresh and sorted for every car park, the stage would be the car parks squared times the sites — a
+    /// brief of Odesa ten times over each way would still be here after ten minutes.
     /// </para>
     /// </remarks>
     sealed class SiteBook

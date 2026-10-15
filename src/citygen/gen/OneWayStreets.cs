@@ -71,7 +71,7 @@ internal static class OneWayStreets
 
     /// <summary>
     /// The streets proposed to run one way, and which way each of them runs: <b>no two at one junction, none
-    /// within <paramref name="apartM"/> of one already taken, and every one of them arriving somewhere the
+    /// within <see cref="CityGenFigures.OneWayApartMinM"/> of one already taken, and every one of them arriving somewhere the
     /// traffic already there still has a choice</b> (GEN-18).
     /// </summary>
     /// <remarks>

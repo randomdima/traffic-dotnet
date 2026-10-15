@@ -1,4 +1,3 @@
-using System.Numerics;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 
@@ -13,11 +12,11 @@ namespace TrafficSimulation.CityGen;
 /// <remarks>
 /// <para>
 /// <b>It is a step and not a derivation two readers each do for themselves.</b> The shape of the pavement
-/// used to be written down twice — once as the draw calls that lay it (<c>GroundMesh.Build</c>) and once as
-/// the coverage tests that answer what the ground is at a point (<see cref="GroundShapes"/>) — in two
-/// slices, at two tiers, kept in step by nobody but whoever remembered. That is the figure that exists in
-/// two places and eventually disagrees with itself: a band widened in the picture and not in the answer is
-/// a walker refused ground it can see it is standing on. Laid here, the two read one list.
+/// is read by the draw calls that lay it (<c>GroundMesh.Build</c>) and by the coverage tests that answer what
+/// the ground is at a point (<see cref="GroundShapes"/>) — two slices, at two tiers. Written down by each, it
+/// would be the figure that exists in two places and eventually disagrees with itself: a band widened in the
+/// picture and not in the answer is a walker refused ground it can see it is standing on. Laid here, the two
+/// read one list.
 /// </para>
 /// <para>
 /// <b>The pavement is the ground within one figure of the driven ground's boundary, and it is nothing

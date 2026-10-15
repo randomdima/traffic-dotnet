@@ -665,8 +665,7 @@ internal sealed class LaneLines
     /// <para>
     /// <b>And a turn the plan forbids is not a turn the node makes</b> (<see cref="CityPlan.RoadArrays.BannedTurns"/>,
     /// TER-5j): it is left out before the arm's lanes are shared between the turns there are, so the lanes go to
-    /// those. A turn whose lanes the plan names (<see cref="CityPlan.RoadArrays.LaneLinks"/>) joins those, and an
-    /// arm with arrows painted on it is made from as they say (<see cref="LaneUse"/>).
+    /// those.
     /// </para>
     /// <para>
     /// <b>A lane joins the lane of its own number, and one with none there joins nothing</b> (<see cref="LaneUse"/>,
@@ -707,8 +706,6 @@ internal sealed class LaneLines
         var kerbwardM = new float[turns.Length];
         var uTurns = new bool[turns.Length];
         var banned = roads.BannedTurns.ToHashSet();
-        var links = roads.LaneLinks.ToHashSet();
-        var linked = roads.LaneLinks.Select(link => new RoadTurn(link.Junction, link.FromRoad, link.ToRoad)).ToHashSet();
 
         for (var lane = 0; lane < laneCount; lane++)
         {
@@ -766,7 +763,6 @@ internal sealed class LaneLines
             }
 
             var lanesHere = LanesOfItsWay(roads, laneRoad[lane], laneForward[lane]);
-            var marked = roads.MarkedTurnsOf(laneRoad[lane], laneForward[lane]);
             for (var slot = 0; slot < leavingLanes.Length; slot++)
             {
                 if (turns[slot] is not { } turn) continue;
@@ -774,15 +770,11 @@ internal sealed class LaneLines
                 var leaving = leavingLanes[slot];
                 var lanesThere = LanesOfItsWay(roads, laneRoad[leaving], laneForward[leaving]);
 
-                // A turn whose lanes the survey names is made between those and no others.
-                var named = linked.Contains(new RoadTurn(node, laneRoad[lane], laneRoad[leaving]));
-                var joins = named
-                    ? links.Contains(new LaneLink(node, laneRoad[lane], laneFromKerb[lane], laneRoad[leaving], laneFromKerb[leaving]))
-                    : uTurns[slot]
-                        ? laneFromKerb[lane] == lanesHere - 1 && laneFromKerb[leaving] == lanesThere - 1
-                        : LaneUse.Joins(
-                            offered, turn, marked, laneFromKerb[lane], lanesHere, laneFromKerb[leaving], lanesThere,
-                            bearsToTheKerb[slot]);
+                var joins = uTurns[slot]
+                    ? laneFromKerb[lane] == lanesHere - 1 && laneFromKerb[leaving] == lanesThere - 1
+                    : LaneUse.Joins(
+                        offered, turn, laneFromKerb[lane], lanesHere, laneFromKerb[leaving], lanesThere,
+                        bearsToTheKerb[slot]);
                 if (joins)
                 {
                     toLane.Add(leaving);
@@ -792,16 +784,16 @@ internal sealed class LaneLines
                     continue;
                 }
 
-                if (named || uTurns[slot]) continue;
+                if (uTurns[slot]) continue;
 
                 if (offered.Forks && turn == LaneTurn.Straight
-                         && LaneUse.Joins(offered with { Forks = false }, turn, marked, laneFromKerb[lane], lanesHere, laneFromKerb[leaving], lanesThere, bearsToTheKerb[slot]))
+                         && LaneUse.Joins(offered with { Forks = false }, turn, laneFromKerb[lane], lanesHere, laneFromKerb[leaving], lanesThere, bearsToTheKerb[slot]))
                 {
                     // The ground between a fork's branches is the arm's own until they part, and what paved it was
                     // every lane carried onto both.
                     spread.Add((lane, leaving, true));
                 }
-                else if (LaneUse.Eases(offered, turn, marked, laneFromKerb[lane], lanesHere, laneFromKerb[leaving], lanesThere, bearsToTheKerb[slot]))
+                else if (LaneUse.Eases(offered, turn, laneFromKerb[lane], lanesHere, laneFromKerb[leaving], lanesThere, bearsToTheKerb[slot]))
                 {
                     spread.Add((lane, leaving, false));
                 }

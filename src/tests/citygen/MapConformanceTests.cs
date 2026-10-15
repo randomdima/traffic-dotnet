@@ -18,7 +18,7 @@ namespace TrafficSimulation.Tests.CityGen;
 /// city to the same one without a second copy of it.
 /// </para>
 /// <para>
-/// <b>Drivability is not asked here and used to be.</b> Whether a generated town can be driven round is
+/// <b>Drivability is not asked here.</b> Whether a generated town can be driven round is
 /// <see cref="GeneratorTests"/>' over four seeds, of which the suite's own town is one arrangement — asking
 /// it again of that one town is the same question with a smaller sample. It stays on
 /// <see cref="ShippedCityTests"/>, where the subject is a map somebody authored rather than the generator.

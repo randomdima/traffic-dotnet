@@ -1,6 +1,5 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
-using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.CityGen.Gen;
@@ -113,9 +112,6 @@ internal sealed class TownLayout(
     public IReadOnlyList<Vector2> NodeM => _nodeM;
 
     public IReadOnlyList<LayoutEdge> Edges => _edges;
-
-    /// <summary>How far off each other a node's arms must stand (GEN-13), for a stage laying its own.</summary>
-    public float ArmsApartMinRad => armsApartMinRad;
 
     /// <summary>Whether a node could stand here at all, which is the one thing the ground refuses (GEN-14).</summary>
     public bool Dry(Vector2 atM) => !water.Wet(atM);
@@ -320,8 +316,8 @@ internal sealed class TownLayout(
 
     /// <summary>
     /// <b>Whether a line the caller drew itself is one the town can have</b> (GEN-49,
-    /// <see cref="RoadLines.Clear"/>) — what a cut has to ask, its pieces being the ground a road already
-    /// stood on rather than anything drawn here.
+    /// <see cref="RoadLines.Clear"/>) — what a car park's bay has to ask, its line being laid where the kerb
+    /// is rather than drawn here (GEN-53).
     /// </summary>
     public bool Clear(ArcSeg[] line, in LayoutEdge edge, ReadOnlySpan<int> instead) =>
         lines.Clear(line, edge, instead);
@@ -741,39 +737,6 @@ internal sealed class TownLayout(
         lines.Reset(_edges, _lineOf);
         for (var node = 0; node < _nodeM.Count; node++) _armsAt.Add([]);
         foreach (var edge in _edges) Joined(edge);
-    }
-
-    /// <summary>
-    /// <b>One road parted at a node of its own, with arms laid off that node</b> (GEN-52,
-    /// <see cref="CutJunctions.Into"/>), done where the layout stands. The piece before the node keeps the
-    /// road's number, the piece after it and then each arm take the next ones, and the node and then each
-    /// arm's far node are appended.
-    /// </summary>
-    /// <remarks>
-    /// <b>It leaves the layout <see cref="Rebuilt"/> would over the same lists</b> and touches only what the cut
-    /// touched: rebuilt, every road in the town was copied and filed again for every car park, which made
-    /// cutting a town's car parks the square of the town.
-    /// </remarks>
-    public void Part(
-        int road, in LayoutEdge before, ArcSeg[] beforeLine, in LayoutEdge after, ArcSeg[] afterLine,
-        Vector2 nodeM, ReadOnlySpan<Vector2> armM, ReadOnlySpan<LayoutEdge> arms, ReadOnlySpan<ArcSeg[]> armLines)
-    {
-        var was = _edges[road];
-        var (wasOutOfFrom, wasOutOfTo) = BearingsOf(was);
-        _armsAt[was.From].Remove(wasOutOfFrom);
-        _armsAt[was.To].Remove(wasOutOfTo);
-        _joined.Remove(was.From < was.To ? (was.From, was.To) : (was.To, was.From));
-
-        Appended(nodeM);
-        foreach (var atM in armM) Appended(atM);
-
-        _edges[road] = before;
-        _lineOf[road] = beforeLine;
-        lines.Refile(road, before, beforeLine);
-        Joined(before);
-
-        Added(after, afterLine);
-        for (var arm = 0; arm < arms.Length; arm++) Added(arms[arm], armLines[arm]);
     }
 
     /// <summary>

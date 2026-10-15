@@ -763,7 +763,7 @@ internal sealed class KerbEnds
         /// <summary>What a lane this reading answered is, as the three answers a handover is weighed in.</summary>
         public int Road(int lane) => RoadOf(lanes, roads, lane);
 
-        /// <inheritdoc cref="OutM(LaneLines, CityPlan.JunctionArrays, int, Vector2)"/>
+        /// <inheritdoc cref="KerbEnds.OutM(LaneLines, CityPlan.JunctionArrays, int, Vector2)"/>
         public float OutM(int lane, Vector2 pointM) => KerbEnds.OutM(lanes, junctions, lane, pointM);
 
         /// <inheritdoc cref="KerbEnds.JunctionOf"/>

@@ -30,8 +30,6 @@ internal sealed class ExamLattice
 
     public const int Columns = 11;
 
-    public const int NoWalker = -1;
-
     readonly SimConfig _config;
     readonly ExamCard[] _cards;
     readonly int[] _cell;
@@ -89,9 +87,6 @@ internal sealed class ExamLattice
 
     /// <summary>The cell a card was given.</summary>
     public int CellOf(int card) => _cell[card];
-
-    /// <summary>The card on a cell, or −1 where the cell carries none.</summary>
-    public int CardAt(int cell) => _cardAt[cell];
 
     /// <summary>A bearing of the card's own frame, as the lattice's.</summary>
     public ExamArm Arm(int card, ExamArm inTheCard) => ExamGround.Turned(inTheCard, _quarters[card]);

@@ -39,8 +39,8 @@ public class ConnectionPointTests
 
                 // <b>An arm whose lead bends stands its points a chord out and not a standoff</b> — a ring
                 // arm, which is a piece of the circle GEN-19 sized rather than a straight off its tangent,
-                // and an arm read off a road a junction was cut into on a bend (GEN-52). Both are that arm's
-                // own construction and neither is this rule's subject.
+                // and a bay's arm, read off its own line (GEN-52). Both are that arm's own construction and
+                // neither is this rule's subject.
                 if (arm.Curvature != 0f) continue;
 
                 var count = ConnectionPoints.At(ground, Config, arm, road, points);

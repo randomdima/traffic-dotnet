@@ -96,7 +96,7 @@ internal static class WheelStreets
         layout.KeepTheLargestComponent();
         layout.PruneTheDeadEnds();
         took("prune");
-        ThroughRoads.Lay(layout, config);
+        ThroughRoads.Lay(layout);
         took("through");
         Roundabouts.Lay(layout, districts, rules, config, worldSizeM, marginM);
         took("roundabouts");

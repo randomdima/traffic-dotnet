@@ -1,6 +1,4 @@
 using System.Numerics;
-using System.Runtime.InteropServices;
-using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.CityGen.Gen;
@@ -48,7 +46,7 @@ internal static class ThroughRoads
     /// Every run of roads through nodes nothing meets at, joined into the one road it is, and the nodes it
     /// emptied dropped.
     /// </summary>
-    public static void Lay(TownLayout layout, SimConfig config)
+    public static void Lay(TownLayout layout)
     {
         var was = (List<LayoutEdge>)[.. layout.Edges];
         var edgesAt = new List<int>[layout.NodeM.Count];

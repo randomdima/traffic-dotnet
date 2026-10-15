@@ -1,26 +1,7 @@
 namespace TrafficSimulation.CityGen;
 
-/// <summary>
-/// <b>The turns a lane is marked for</b> (TER-5j) — the arrows on it — at the junction it runs into, in this
-/// engine's own words: straight on, to the near side, across to the far side, and a slight turn, which is its
-/// side's turn where the junction makes one and straight on where it makes none.
-/// </summary>
-[Flags]
-internal enum MarkedTurns : byte
-{
-    None = 0,
-    Straight = 1 << 0,
-    NearSide = 1 << 1,
-    FarSide = 1 << 2,
-    BearNearSide = 1 << 3,
-    BearFarSide = 1 << 4,
-}
-
 /// <summary>A turn at one junction from one road into another.</summary>
 internal readonly record struct RoadTurn(int Junction, int FromRoad, int ToRoad);
-
-/// <summary>A turn at one junction from one lane of a road onto one lane of another, each counted from its kerb.</summary>
-internal readonly record struct LaneLink(int Junction, int FromRoad, int FromKerb, int ToRoad, int ToKerb);
 
 /// <summary>
 /// <b>Which lanes of an arm a movement is made from, and which lanes of the road it takes it reaches</b>
@@ -54,9 +35,7 @@ internal readonly record struct LaneLink(int Junction, int FromRoad, int FromKer
 /// the inner lane at once, so it is offered every turn its node makes and reaches the one lane each takes.
 /// </para>
 /// <para>
-/// <b>A painted arm is made from as it is painted</b> (a traced map's, GEN-57): a lane with arrows makes what they
-/// name, and is joined onward as any other. What a node does not make at all — a restriction's turn, a turn whose
-/// lanes OSM names — is the caller's (<c>LaneLines</c>).
+/// <b>What a node does not make at all</b> — a turn the plan forbids — is the caller's (<c>LaneLines</c>).
 /// </para>
 /// </remarks>
 internal static class LaneUse
@@ -76,16 +55,14 @@ internal static class LaneUse
     }
 
     /// <summary>
-    /// Whether the lane <paramref name="fromKerb"/> in from the kerb of an arm of <paramref name="lanes"/>, painted
-    /// with <paramref name="arrows"/> (from the kerb, or none), is joined by a turn of this kind to the lane
-    /// <paramref name="ontoFromKerb"/> in from the kerb of a road taking it in <paramref name="ontoLanes"/>: lane for
-    /// lane, both numbered from the kerb where the movement <paramref name="bearsToTheKerb"/> and from the line where
-    /// it bears away from it.
+    /// Whether the lane <paramref name="fromKerb"/> in from the kerb of an arm of <paramref name="lanes"/> is joined
+    /// by a turn of this kind to the lane <paramref name="ontoFromKerb"/> in from the kerb of a road taking it in
+    /// <paramref name="ontoLanes"/>: lane for lane, both numbered from the kerb where the movement
+    /// <paramref name="bearsToTheKerb"/> and from the line where it bears away from it.
     /// </summary>
     public static bool Joins(
-        Offered offered, LaneTurn turn, ReadOnlySpan<MarkedTurns> arrows, int fromKerb, int lanes, int ontoFromKerb,
-        int ontoLanes, bool bearsToTheKerb) =>
-        Makes(offered, turn, arrows, fromKerb, lanes, bearsToTheKerb)
+        Offered offered, LaneTurn turn, int fromKerb, int lanes, int ontoFromKerb, int ontoLanes, bool bearsToTheKerb) =>
+        Makes(offered, turn, fromKerb, lanes, bearsToTheKerb)
         && FromItsSide(ontoFromKerb, ontoLanes, bearsToTheKerb) == FromItsSide(fromKerb, lanes, bearsToTheKerb);
 
     /// <summary>
@@ -95,14 +72,13 @@ internal static class LaneUse
     /// one of the two ending or unreached — which is the caller's (<c>LaneLines</c>).
     /// </summary>
     public static bool Eases(
-        Offered offered, LaneTurn turn, ReadOnlySpan<MarkedTurns> arrows, int fromKerb, int lanes, int ontoFromKerb, int ontoLanes,
-        bool bearsToTheKerb)
+        Offered offered, LaneTurn turn, int fromKerb, int lanes, int ontoFromKerb, int ontoLanes, bool bearsToTheKerb)
     {
         var at = -1;
         var of = 0;
         for (var lane = 0; lane < lanes; lane++)
         {
-            if (!Makes(offered, turn, arrows, lane, lanes, bearsToTheKerb)) continue;
+            if (!Makes(offered, turn, lane, lanes, bearsToTheKerb)) continue;
 
             if (lane == fromKerb) at = of;
             of++;
@@ -125,41 +101,12 @@ internal static class LaneUse
         return ontoFromKerb >= lowest && ontoFromKerb <= highest;
     }
 
-    /// <summary>
-    /// <b>Whether a lane makes a turn of this kind</b>: the turns its arrows name that the node offers, or — with none,
-    /// none the node offers, or an arm painted for some other count of lanes — what a lane of an unmarked arm would.
-    /// A turn no lane of the arm makes is not made from it.
-    /// </summary>
-    static bool Makes(Offered offered, LaneTurn turn, ReadOnlySpan<MarkedTurns> arrows, int lane, int lanes, bool bearsToTheKerb)
+    /// <summary><b>Whether a lane makes a turn of this kind</b>. A turn no lane of the arm makes is not made from it.</summary>
+    static bool Makes(Offered offered, LaneTurn turn, int lane, int lanes, bool bearsToTheKerb)
     {
-        var admitted = arrows.Length == lanes ? Admitted(arrows[lane], offered) : MarkedTurns.None;
-        if (admitted != MarkedTurns.None) return (admitted & Arrow(turn)) != 0;
-
         var (first, last) = MadeFrom(offered, turn, lanes, bearsToTheKerb);
         return lane >= first && lane <= last;
     }
-
-    /// <summary>The turns a lane's arrows name that the node offers, each slight one read as its side's or straight on.</summary>
-    static MarkedTurns Admitted(MarkedTurns arrows, Offered offered)
-    {
-        var admitted = MarkedTurns.None;
-        if (arrows.HasFlag(MarkedTurns.Straight) && offered.Straight) admitted |= MarkedTurns.Straight;
-        if (arrows.HasFlag(MarkedTurns.NearSide) && offered.NearSide) admitted |= MarkedTurns.NearSide;
-        if (arrows.HasFlag(MarkedTurns.FarSide) && offered.FarSide) admitted |= MarkedTurns.FarSide;
-        if (arrows.HasFlag(MarkedTurns.BearNearSide)) admitted |= Bearing(offered.NearSide, MarkedTurns.NearSide, offered);
-        if (arrows.HasFlag(MarkedTurns.BearFarSide)) admitted |= Bearing(offered.FarSide, MarkedTurns.FarSide, offered);
-        return admitted;
-
-        static MarkedTurns Bearing(bool sideOffered, MarkedTurns side, Offered offered) =>
-            sideOffered ? side : offered.Straight ? MarkedTurns.Straight : MarkedTurns.None;
-    }
-
-    static MarkedTurns Arrow(LaneTurn turn) => turn switch
-    {
-        LaneTurn.Straight => MarkedTurns.Straight,
-        LaneTurn.NearSide => MarkedTurns.NearSide,
-        _ => MarkedTurns.FarSide,
-    };
 
     /// <summary>
     /// The lanes of an arm a turn of this kind is made from, counted in from the kerb, first and last — where straight on

@@ -1,6 +1,5 @@
 using System.Numerics;
 using TrafficSimulation.Core.Geometry;
-using TrafficSimulation.Core.Simulation;
 
 namespace TrafficSimulation.CityGen.Gen;
 

@@ -288,7 +288,7 @@ internal sealed partial class GroundShapes
     }
 
     /// <remarks>
-    /// <b>A kerb fillet is not among them any more.</b> The wedge between two kerbs is what the boundary
+    /// <b>A kerb fillet is not among them.</b> The wedge between two kerbs is what the boundary
     /// has left over once every movement has taken what it sweeps, and the boundary turns that corner
     /// itself (<see cref="LaneShell"/>) — so the shape the plan carries for it is drawn by nobody
     /// and answered by nobody, and the ground there is whichever side of that boundary it stands on.

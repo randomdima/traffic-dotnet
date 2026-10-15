@@ -64,14 +64,14 @@ internal static class Zones
             if (zones[at].Outline is not { } outline) continue;
 
             grid.Add(at, outline.Bounds);
-            if (zones[at].Kind == "bridge") found.Bridges.Add((Key(zones[at].Element), zones[at].Element.Tag("name"), outline));
+            if (zones[at].Kind == "bridge") found.Bridges.Add((zones[at].Element.Key,zones[at].Element.Tag("name"), outline));
         }
 
         var waysIn = new Dictionary<int, List<long>>();
         for (var road = 0; road < town.Roads.Length; road++)
         {
             var (zone, landUse, edges) = Inside(town, road, zones, grid);
-            if (zone is { } held) found.ZoneOf[road] = (Key(zones[held].Element), zones[held].Kind, zones[held].Sub);
+            if (zone is { } held) found.ZoneOf[road] = (zones[held].Element.Key,zones[held].Kind, zones[held].Sub);
 
             foreach (var edge in edges) (waysIn.TryGetValue(edge, out var list) ? list : waysIn[edge] = []).Add(town.Roads[road].Id);
             if (landUse is { } use) found.LandUseOf[road] = zones[use].Sub ?? zones[use].Kind;
@@ -91,7 +91,7 @@ internal static class Zones
                 : 0;
             records.Add(new ZoneRecord
             {
-                Id = Key(element),
+                Id = element.Key,
                 Kind = kind,
                 Sub = sub,
                 Name = element.Tag("name"),
@@ -100,7 +100,7 @@ internal static class Zones
                 Outer = outline?.Outer,
                 Inner = outline is { Inner.Length: > 0 } ? outline.Inner : null,
                 AreaM2 = outline is null ? null : Math.Round(outline.AreaM2),
-                Roads = roadsOf.GetValueOrDefault(Key(element)),
+                Roads = roadsOf.GetValueOrDefault(element.Key),
                 WaysIn = waysIn.TryGetValue(at, out var ways) ? [.. ways.Distinct()] : null,
                 Spaces = inside > 0 ? inside : null,
                 Tags = element.Tags,
@@ -221,7 +221,7 @@ internal static class Zones
                 districts.Add((outline, element.Tag("name") ?? "", level));
                 records.Add(new ZoneRecord
                 {
-                    Id = Key(element), Kind = "district", Sub = $"admin_level_{level}", Name = element.Tag("name"), Mapped = true,
+                    Id = element.Key, Kind = "district", Sub = $"admin_level_{level}", Name = element.Tag("name"), Mapped = true,
                     Outer = outline.Outer, Inner = outline.Inner.Length > 0 ? outline.Inner : null, AreaM2 = Math.Round(outline.AreaM2), Tags = element.Tags,
                 });
             }
@@ -229,7 +229,7 @@ internal static class Zones
             {
                 records.Add(new ZoneRecord
                 {
-                    Id = Key(element), Kind = "place", Sub = place, Name = element.Tag("name"), Mapped = true, At = [element.Lat, element.Lon], Tags = element.Tags,
+                    Id = element.Key, Kind = "place", Sub = place, Name = element.Tag("name"), Mapped = true, At = [element.Lat, element.Lon], Tags = element.Tags,
                 });
             }
         }
@@ -241,8 +241,6 @@ internal static class Zones
             new { levels = records.GroupBy(record => record.Sub ?? "").ToDictionary(g => g.Key, g => g.Count()) }));
         return districts;
     }
-
-    public static string Key(Element element) => element.Key;
 
     /// <summary>A zone's kind and, where its tags say, what of that kind; null for an element that is no zone.</summary>
     static (string Kind, string? Sub)? Kind(Dictionary<string, string> tags)

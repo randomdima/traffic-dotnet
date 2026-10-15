@@ -21,15 +21,15 @@ namespace TrafficSimulation.Tests.CityGen;
 /// seeds, of the town that comes out. A failure is a defect in the arrangement rather than a seed to skip.
 /// </para>
 /// <para>
-/// <b>This is where a shipped city used to be asked its questions</b>, and it is why nothing else in the
-/// suite asks one (<see cref="Tier.Maps"/>). Whether a brief and a seed make a sound town is answered here,
+/// <b>This is where the questions a shipped city could be asked are asked instead</b>, and it is why nothing
+/// else in the suite asks one (<see cref="Tier.Maps"/>). Whether a brief and a seed make a sound town is answered here,
 /// over four unrelated seeds and both kinds of water, of towns laid for the purpose — so a build may ship
 /// any number of cities without any of them being a subject the suite has an opinion about.
 /// </para>
 /// <para>
 /// <b>The town is <see cref="Towns.LaidFrom"/>'s and is laid once a seed.</b> Twenty-six properties over
-/// four seeds is a hundred and nine cases and eight towns; a lay per case was three quarters of the tier
-/// this project runs after every edit, which is why the class is in the town tier now — eight towns is not
+/// four seeds is a hundred and nine cases and eight towns; a lay per case would be three quarters of the
+/// tier this project runs after every edit. The class is in the town tier because eight towns is not
 /// engine-free arithmetic however carefully it is memoised.
 /// </para>
 /// </remarks>
@@ -42,7 +42,7 @@ public class GeneratorTests
     /// <summary>
     /// The brief and the town are <see cref="Towns"/>'s: the suite lays one town per seed and every property
     /// below reads it. <b>Twenty-six properties over four seeds is a hundred and nine cases and eight
-    /// towns</b>, and a lay per case was three quarters of the tier this project runs after every edit.
+    /// towns</b>, and a lay per case would be three quarters of the tier this project runs after every edit.
     /// </summary>
     static CityPlan Lay(TownBrief brief) => Towns.LaidFrom(brief.Seed, brief.Water);
 

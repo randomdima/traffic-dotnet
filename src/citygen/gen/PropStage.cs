@@ -257,11 +257,6 @@ internal static class PropStage
     /// <summary>
     /// What a prop on a verge is (GEN-6b): a share of the street's furniture, and planting for the rest.
     /// </summary>
-    /// <remarks>
-    /// <b>It used to depend on whether a car park stood behind the verge</b>, and there is no answer to that
-    /// question any more — the subject is gone — so the rule it fed is what changed rather than being
-    /// worked around with a second source for the same answer.
-    /// </remarks>
     static PropKind OnAVerge(SimConfig config, ref Rng draw)
     {
         if (draw.NextFloat() < config.CityGen.PropFurnitureShare) return PropKind.UrbanFurniture;

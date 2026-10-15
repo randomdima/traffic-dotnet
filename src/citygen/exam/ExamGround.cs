@@ -62,7 +62,7 @@ internal readonly record struct ExamRoad(
 /// </para>
 /// <para>
 /// <b>Every road is laid the way the generator lays one</b> (TER-5d, <c>RoadLines</c>): each end is given the
-/// arm the town's own draw gives it (<see cref="ConnectionPoints.ArmOf(ulong, SimConfig, int, Vector2, Vector2, bool, float)"/>),
+/// arm the town's own draw gives it (<see cref="ConnectionPoints.ArmOf(ulong, SimConfig, int, Vector2, Vector2, bool, float, bool)"/>),
 /// and the road runs from the stand point of one to the stand point of the other, arriving on both bearings.
 /// The lanes are read off the plan by that same draw, so a road laid straight from centre to centre would be
 /// a road whose lanes end somewhere its line does not go — and a junction whose movements are never laid.
@@ -248,18 +248,6 @@ internal sealed class ExamGround
         if (row < 0 || column < 0 || row >= Rows || column >= Columns) return -1;
 
         return (row * Columns) + column;
-    }
-
-    /// <summary>How many of the lattice's own arms a cell has, before any spur is laid.</summary>
-    public int LatticeArms(int cell)
-    {
-        var arms = 0;
-        for (var arm = 0; arm < 4; arm++)
-        {
-            if (Neighbour(cell, (ExamArm)arm) >= 0) arms++;
-        }
-
-        return arms;
     }
 
     /// <summary>Whether a cell has an arm on a bearing, the spur included.</summary>

@@ -27,9 +27,9 @@ internal readonly record struct ConnectionPoint(Vector2 AtM, Vector2 DrivenUnit,
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>This is the inversion.</b> A lane used to be what was left of a road's own curve once the junction
-/// discs had bitten it, so the bearing a car entered a box on was whatever the chord happened to leave.
-/// Here the points come first: each arm of each node is given a bearing and a standoff, the movements
+/// <b>This is the inversion.</b> A lane is not what is left of a road's own curve once the junction discs
+/// have bitten it, which would leave the bearing a car enters a box on to whatever the chord happened to leave.
+/// The points come first: each arm of each node is given a bearing and a standoff, the movements
 /// through the box are laid between the points that produces, and <em>then</em> the road is splined to
 /// arrive on the bearings its two ends were drawn with.
 /// </para>
@@ -52,11 +52,10 @@ internal readonly record struct ConnectionPoint(Vector2 AtM, Vector2 DrivenUnit,
 /// Jittering a bridgehead would be jittering off a deck that cannot move.
 /// </para>
 /// <para>
-/// <b>And one kind is read off the road rather than drawn at all</b> (GEN-52). A junction cut into a road
-/// that already stands inverts the inversion: the line was there first, so both arms of a cut road are the
-/// line's own ends and the lead is the arc that joins the node to each of them
-/// (<see cref="ReadOff"/>). It is the one place the causality runs the other way, and it runs that way
-/// because the whole point of a cut is that the road does not move.
+/// <b>And one kind is read off the road rather than drawn at all</b> (GEN-52). A car park's bay inverts the
+/// inversion: its line is laid where the kerb is (GEN-53), so both of its arms are the line's own ends and
+/// the lead is the arc that joins the node to each of them (<see cref="ReadOff"/>). It is the one place the
+/// causality runs the other way.
 /// </para>
 /// </remarks>
 internal static class ConnectionPoints
@@ -116,10 +115,9 @@ internal static class ConnectionPoints
         var junction = atFrom ? roads.FromJunction[road] : roads.ToJunction[road];
         var other = atFrom ? roads.ToJunction[road] : roads.FromJunction[road];
 
-        // <b>A cut road's arms are read off its own line</b> (GEN-52): its line stood before the junction at
-        // one of its ends did, so there is nothing left to draw here and the bearing is what the line
-        // already carries.
-        if (roads.WasCut(road)) return ReadOff(ground, junction, road, atFrom);
+        // <b>A bay's arms are read off its own line</b> (GEN-52): its line stood before the nodes at its ends
+        // did, so there is nothing left to draw here and the bearing is what the line already carries.
+        if (roads.IsABay(road)) return ReadOff(ground, junction, road, atFrom);
 
         // <b>A road leaves its junction for the first place it passes</b> (GEN-51). Where it passes
         // nowhere that is its other junction, and where it does, aiming the arm at the far end would point
@@ -138,23 +136,12 @@ internal static class ConnectionPoints
     }
 
     /// <summary>
-    /// <b>The arm of a cut road, read off the line it already carries</b> (GEN-52): the stand point is where
+    /// <b>The arm of a bay, read off the line it already carries</b> (GEN-52): the stand point is where
     /// that line ends, the bearing there is the line's own, and the lead is <b>the one arc that joins the
-    /// node to it</b> (<see cref="Spline.ArcThrough"/>).
+    /// node to it</b> (<see cref="Spline.ArcThrough"/>) — asked as "which arc joins these two poses", so both
+    /// ends come out of one line of arithmetic and the lead is the ground the bay was laid on rather than a
+    /// curve fitted through it.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>One reading for both ends, and no case for either.</b> The end a junction was cut at stands a
-    /// standoff along the road's own bend, so the arc back to the node is that bend; the end the road always
-    /// had stands a standoff along a straight lead, so the arc back to the node is that straight. Asked as
-    /// "which arc joins these two poses", the two come out of one line of arithmetic.
-    /// </para>
-    /// <para>
-    /// <b>It is exact rather than near</b>, which is what the cut is held to (GEN-52): the node is placed a
-    /// standoff of the road's <em>own</em> arc back from where the line was parted, so the lead this reads
-    /// is the ground the road was already laid on and not a curve fitted through it.
-    /// </para>
-    /// </remarks>
     static Arm ReadOff(GroundPieces ground, int junction, int road, bool atFrom)
     {
         var arcs = ground.Roads.SegmentsOf(road);

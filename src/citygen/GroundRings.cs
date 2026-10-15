@@ -118,9 +118,6 @@ internal sealed class GroundRings
     /// </summary>
     public ReadOnlySpan<GroundLayer> Layers => _layers;
 
-    /// <summary>How many runs no distance could close, which is nought in a town with nothing wrong with it.</summary>
-    public int LooseCount => Carriageway.Loose.Length + Walk.Loose.Length;
-
     ChainIndex? _kerb;
 
     /// <summary>

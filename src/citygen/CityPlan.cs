@@ -86,8 +86,8 @@ internal sealed class CityPlan
     public required PropArrays Props { get; init; }
 
     /// <summary>
-    /// <b>What is drawn and stands nothing</b> (<see cref="SceneryArrays"/>): empty in every town but a traced one,
-    /// whose open ground is a city of it.
+    /// <b>What is drawn and stands nothing</b> (<see cref="SceneryArrays"/>): the second pass of a town's props
+    /// (GEN-6b), empty only where the map is laid in code.
     /// </summary>
     public SceneryArrays Scenery { get; init; } = SceneryArrays.None;
 
@@ -234,8 +234,10 @@ internal sealed class CityPlan
         public int LanesOn(int road) => LanesWithTheRoad(road) + LanesAgainstTheRoad(road);
 
         /// <summary>
-        /// <b>Which roads are a car park's bays</b> (GEN-53), each the space itself and joined to nothing.
-        /// <b>Empty where the town lays none.</b>
+        /// <b>Which roads are a car park's bays</b> (GEN-53), each the space itself and joined to nothing — and
+        /// the roads whose arms are read off their own line (GEN-52) rather than drawn for it
+        /// (<see cref="ConnectionPoints.ArmOf"/>), a bay's line being laid where the kerb is. <b>Empty where the
+        /// town lays none.</b>
         /// </summary>
         public bool[] Bay { get; init; } = [];
 
@@ -326,38 +328,11 @@ internal sealed class CityPlan
             LanesWithTheRoad(road) == 1 && LanesAgainstTheRoad(road) == 1 && !DrivenOverOneLine(road);
 
         /// <summary>
-        /// <b>The turns each lane is marked for where it runs into its junction</b> (TER-5j) — a traced map's arrows
-        /// (GEN-57): a road's lanes with it from the kerb, then those against it, or nothing for a road with none
-        /// marked (<see cref="MarkedTurnsOf"/>). <b>Empty where the town marks none</b>, which is every town the
-        /// generator lays.
-        /// </summary>
-        public MarkedTurns[] MarkedTurns { get; init; } = [];
-
-        /// <summary>Count + 1 entries where <see cref="MarkedTurns"/> is filled: road <c>i</c>'s run starts at entry <c>i</c>.</summary>
-        public int[] MarkedTurnOffsets { get; init; } = [];
-
-        /// <summary>The turns a road's lanes one way are marked for, from the kerb, or none where none is marked.</summary>
-        public ReadOnlySpan<MarkedTurns> MarkedTurnsOf(int road, bool withTheRoad)
-        {
-            if (MarkedTurnOffsets.Length == 0 || MarkedTurnOffsets[road] == MarkedTurnOffsets[road + 1]) return default;
-
-            var with = LanesWithTheRoad(road);
-            return withTheRoad
-                ? MarkedTurns.AsSpan(MarkedTurnOffsets[road], with)
-                : MarkedTurns.AsSpan(MarkedTurnOffsets[road] + with, LanesAgainstTheRoad(road));
-        }
-
-        /// <summary>
-        /// <b>The turns a junction does not make</b>, from one road into another (TER-5j): a traced map's turn
-        /// restrictions (GEN-57). <b>Empty where the town forbids none</b>, which is every town the generator lays.
+        /// <b>The turns a junction does not make</b>, from one road into another (TER-5j): the movements a traced
+        /// map's gathered junction's roads never made (GEN-57). <b>Empty where the town forbids none</b>, which is every
+        /// town whose streets its zones lay.
         /// </summary>
         public RoadTurn[] BannedTurns { get; init; } = [];
-
-        /// <summary>
-        /// <b>The lanes a turn joins, where the survey says which</b> (TER-5j): a traced map's lane connectivity
-        /// (GEN-57). A turn with any is made between those lanes and no others. <b>Empty where the town says none.</b>
-        /// </summary>
-        public LaneLink[] LaneLinks { get; init; } = [];
 
         /// <summary>A town whose every road runs both ways, which is every map that lays no one-way street.</summary>
         public static RoadFlow[] AllBothWays(int roads) => new RoadFlow[roads];
@@ -383,23 +358,6 @@ internal sealed class CityPlan
 
         /// <inheritdoc cref="ThroughOffsets"/>
         public Vector2[] ThroughM { get; init; } = [];
-
-        /// <summary>
-        /// <b>Which roads were cut</b> (GEN-52): ones whose line stood before the junction at one of their
-        /// ends did, so <b>both</b> their arms are read off that line rather than drawn for it
-        /// (<see cref="ConnectionPoints.ArmOf"/>). A car park's bays are read the same way, their lines being
-        /// laid where the kerb is (GEN-53). <b>Empty where the town cut none</b>, which is every map that lays
-        /// no car park.
-        /// </summary>
-        /// <remarks>
-        /// <b>Both ends and not the cut one.</b> An arm is drawn toward the far end of its own road
-        /// (GEN-46), and a cut moves that far end onto the new node — so a road whose other end went on
-        /// drawing its bearing would draw a different one than the line it already carries was laid to.
-        /// </remarks>
-        public bool[] Cut { get; init; } = [];
-
-        /// <inheritdoc cref="Cut"/>
-        public bool WasCut(int road) => Cut.Length > 0 && Cut[road];
 
         /// <summary>
         /// <b>Which roads were laid straight</b> (GEN-47): their arms leave on the chord rather than jittered
@@ -530,13 +488,6 @@ internal sealed class CityPlan
 
             return bays;
         }
-
-        /// <summary>
-        /// The longer of a car park's two ranks, which is how far along the street it reaches
-        /// (GEN-53, <see cref="SimConfig.CarParkFrontageM"/>).
-        /// </summary>
-        public int MostBaysOnASide(int carPark) =>
-            Math.Max(BaysOn(carPark, right: true), BaysOn(carPark, right: false));
     }
 
     internal sealed class PavedAreaArrays

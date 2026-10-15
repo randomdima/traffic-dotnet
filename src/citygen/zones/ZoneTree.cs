@@ -80,9 +80,6 @@ internal sealed class ZoneTree
     /// <summary>What a zone is laid by.</summary>
     public ZoneSettings this[int zone] => _settings[zone];
 
-    /// <summary>How many zones a zone stands inside.</summary>
-    public int DepthOf(int zone) => _depth[zone];
-
     /// <summary>
     /// The ground a zone holds, in square metres: its outline's less its holes and less the zones inside it, which hold
     /// their own.

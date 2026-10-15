@@ -89,7 +89,7 @@ internal static class Levels
             structures.Add(record);
         }
 
-        var separations = Separations(town, lines, levels, flags);
+        var separations = Separations(town, lines, flags);
         written.Add(Layers.Write(into, "levels",
             "Every road, railway and way for feet that is not on the ground: its layer and where that came from, the structure it is on, the outlined bridge holding it and the building over it.",
             ["survey", "osm-transit", "osm-walk", "osm-zones", "osm-buildings"], structures,
@@ -133,7 +133,7 @@ internal static class Levels
 
     static List<OverpassRecord> Separations(
         Town town, List<(long Way, string Class, string Kind, Dictionary<string, string> Tags, long[] Nodes, Pt[] LineM, int[] Geometry)> lines,
-        Dictionary<long, LevelRecord> levels, Flags flags)
+        Flags flags)
     {
         var grid = new Grid(CellM);
         var segments = new List<(int Line, int At)>();

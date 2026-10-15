@@ -271,7 +271,7 @@ internal sealed class RoadsideLanes
 
         if (straightOn)
         {
-            var along = AlongTheMovement(road, withTheRoad, junction, arms[next], facesWith, side, arriving, atM, stripM, into);
+            var along = AlongTheMovement(road, withTheRoad, junction, arms[next], facesWith, arriving, atM, stripM, into);
             if (along >= 0) return along;
         }
 
@@ -296,7 +296,7 @@ internal sealed class RoadsideLanes
     /// end, and the two halves meet in the one place on it.
     /// </remarks>
     int AlongTheMovement(
-        int road, bool withTheRoad, int junction, in ArmEnd nextArm, bool facesWith, float side, bool arriving,
+        int road, bool withTheRoad, int junction, in ArmEnd nextArm, bool facesWith, bool arriving,
         Vector2 atM, float stripM, Span<ArcSeg> into)
     {
         if (!Joining(road, withTheRoad, junction, nextArm, facesWith, out var mine, out var leavesMine, out var movement)) return -1;

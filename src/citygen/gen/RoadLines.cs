@@ -101,9 +101,8 @@ internal sealed class RoadLines(
 
     /// <summary>
     /// <b>Whether a line the caller already has is one the town can have</b> — the half of
-    /// <see cref="CanLay"/> that is not the drawing. <b>A cut carries its own line</b> (GEN-52,
-    /// <see cref="CutJunctions"/>): the pieces of a road parted at a node are the ground that road was
-    /// already laid on, so drawing them again would move the carriageway the cut exists not to move.
+    /// <see cref="CanLay"/> that is not the drawing. <b>A bay carries its own line</b> (GEN-52, GEN-53,
+    /// <see cref="CarParks"/>): it is laid where the kerb is, so there is nothing to draw.
     /// </summary>
     public bool Clear(ArcSeg[] chain, in LayoutEdge edge, ReadOnlySpan<int> without) =>
         chain.Length > 0 && !OffTheGround(chain, edge.Class) && !SharesGround(chain, edge, without);
@@ -149,8 +148,9 @@ internal sealed class RoadLines(
     /// </summary>
     /// <remarks>
     /// <b>Only a road whose number now names other nodes or another line is filed again</b>, and the roads past
-    /// the old count are kept as new: a cut parts one road and adds its arms, and walking every road's cells
-    /// again for each one would make cutting a town's car parks the square of the town. <b>The index answers as one
+    /// the old count are kept as new: a ring keeps its arms' numbers and adds its pieces after them, and walking
+    /// every road's cells again for each one would make opening a town's roundabouts the square of the town.
+    /// <b>The index answers as one
     /// laid afresh</b>, since what a cell is asked for is which roads it holds and never in what order
     /// (<see cref="SharesGround"/>).
     /// </remarks>
@@ -180,18 +180,6 @@ internal sealed class RoadLines(
         }
 
         for (var road = carried; road < kept.Count; road++) Keep(edges[road], kept[road]);
-    }
-
-    /// <summary>
-    /// One road's line replaced by the one it now stands on, under the same number — what <see cref="Reset"/>
-    /// does for a road a renumbering moved, asked of the one road a cut parted (<see cref="TownLayout.Part"/>).
-    /// </summary>
-    public void Refile(int road, in LayoutEdge edge, ArcSeg[] chain)
-    {
-        File(road, add: false);
-        _laid[road] = chain;
-        _between[road] = (edge.From, edge.To);
-        File(road, add: true);
     }
 
     /// <summary>The roads <see cref="Reset"/> files again, kept rather than made again.</summary>
@@ -467,8 +455,8 @@ internal sealed class RoadLines(
         {
             var ontoM = piece + 1 < throughM.Length ? throughM[piece + 1] : lastM;
             var onward = piece + 2 < throughM.Length
-                ? Through(throughM[piece], throughM[piece + 1], throughM[piece + 2])
-                : piece + 2 == throughM.Length ? Through(throughM[piece], throughM[piece + 1], lastM)
+                ? Through(throughM[piece], throughM[piece + 2])
+                : piece + 2 == throughM.Length ? Through(throughM[piece], lastM)
                 : arrives;
 
             var laid = Spline.BiarcInto(throughM[piece], Facing(at), ontoM, Facing(onward), drawn);
@@ -495,7 +483,7 @@ internal sealed class RoadLines(
     }
 
     /// <summary>The bearing a line passes an interior point on: the direction its two neighbours leave it in.</summary>
-    static Vector2 Through(Vector2 beforeM, Vector2 atM, Vector2 afterM)
+    static Vector2 Through(Vector2 beforeM, Vector2 afterM)
     {
         var run = afterM - beforeM;
         return run.LengthSquared() > 0f ? Vector2.Normalize(run) : Vector2.UnitX;

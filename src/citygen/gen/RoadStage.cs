@@ -69,15 +69,12 @@ internal static class RoadStage
 
         OntoTheDrivenHalf(layout, chains, widthM, config);
 
-        // <b>A bay reads its arms off its own line</b> (GEN-52's reading): it was laid where the kerb is and no
-        // road was cut to make it, so the bays are the whole of what the plan marks cut.
         return new Laid(
-            Roads(layout, chains, widthM, bay, bay),
+            Roads(layout, chains, widthM, bay),
             Junctions(centreM, config, LitJunctions.Draw(layout, unregulatedShare, config, ref signals)),
 
             // <b>A junction turns no kerb corner and strikes no crossing.</b> A fillet is kerb geometry and the
-            // kerb is not laid here any more; the zebras and the bars are the town's, laid off its kerb ends
-            // (TER-6).
+            // kerb is not laid here; the zebras and the bars are the town's, laid off its kerb ends (TER-6).
             new CityPlan.JunctionCornerArrays
             {
                 CornerM = [], ArcCentreM = [], RadiusM = [], TangentAM = [], TangentBM = [],
@@ -217,7 +214,6 @@ internal static class RoadStage
         return new CityPlan.RoundaboutArrays { RingOffsets = offsets, Road = [.. flat] };
     }
 
-
     /// <summary>
     /// <b>Which roads are a car park's bays</b> (GEN-53), as the flag per road the plan carries — <b>empty
     /// where the town lays none.</b>
@@ -233,7 +229,7 @@ internal static class RoadStage
     }
 
     static CityPlan.RoadArrays Roads(
-        TownLayout layout, ArcSeg[][] chains, float[] widthM, bool[] cut, bool[] bay)
+        TownLayout layout, ArcSeg[][] chains, float[] widthM, bool[] bay)
     {
         var fromJunction = new int[chains.Length];
         var toJunction = new int[chains.Length];
@@ -257,7 +253,7 @@ internal static class RoadStage
             FromJunction = fromJunction, ToJunction = toJunction, WidthM = widthM, Flow = flow,
             SegmentOffsets = offsets, Segments = [.. segments],
             ThroughOffsets = throughOffsets, ThroughM = [.. throughM],
-            Cut = cut, Bay = bay, LaidStraight = LaidStraight(layout),
+            Bay = bay, LaidStraight = LaidStraight(layout),
         };
     }
 

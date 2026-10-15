@@ -1,7 +1,6 @@
 using System.Text.Json;
 using TrafficSimulation.CityGen.Map;
 using TrafficSimulation.CityGen.Traced;
-using TrafficSimulation.CityGen.Zones;
 using TrafficSimulation.Tools.OsmScan.Meta;
 
 namespace TrafficSimulation.Tools.OsmScan;

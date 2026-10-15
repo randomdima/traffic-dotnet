@@ -153,7 +153,7 @@ internal static partial class TracedStreets
             var through = new Vector2[roads.Count][];
             foreach (var road in roadOf) (lines[road], through[road]) = chosen[road];
 
-            return Arrays(survey, junctionOf, config, roads, lines, through, centreM, standoffM, runsOff, shared, gathered);
+            return Arrays(junctionOf, config, roads, lines, through, centreM, standoffM, runsOff, shared, gathered);
         });
     }
 
@@ -961,7 +961,7 @@ internal static partial class TracedStreets
 
     /// <param name="gathered">What <see cref="Gathered"/> made of the junctions standing close together.</param>
     static Laid Arrays(
-        Survey survey, int[] junctionOf, SimConfig config, List<Road> roads, ArcSeg[][] lines, Vector2[][] through,
+        int[] junctionOf, SimConfig config, List<Road> roads, ArcSeg[][] lines, Vector2[][] through,
         List<Vector2> centreM, (float[] FromM, float[] ToM) standoffM, bool[] runsOff, SharedLaid shared,
         (int[] Into, List<Unmade> Unmade, GatheredLaid Tally) gathered)
     {

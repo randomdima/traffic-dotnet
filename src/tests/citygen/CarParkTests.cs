@@ -277,8 +277,6 @@ public class CarParkTests
         var openRad = RoadStage.CreaseRad(Config);
         foreach (var road in plan.CarParks.Road)
         {
-            Assert.True(ground.Roads.WasCut(road));
-
             var arcs = ground.Roads.SegmentsOf(road);
             var from = ConnectionPoints.ArmOf(ground, Config, road, atFrom: true);
             var to = ConnectionPoints.ArmOf(ground, Config, road, atFrom: false);

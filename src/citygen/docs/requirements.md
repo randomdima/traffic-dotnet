@@ -62,8 +62,8 @@ on the open ground (`TownProps`), and who stands in the town as the whole map co
   of the town built alike** — it has no name, and none stands past the map's edge.
 - **What a zone builds is as much of its street frontage as it says, as far back, as turned and as varied as it
   says** — each building a prefab of a look drawn at the zone's shares, leaning to the zone's own footprint — **and
-  as much of the ground behind it as it says**, square to its bearing where it gives one. A town that plans fewer
-  buildings than its zones stand (`ZoneParam.Buildings`) thins them evenly, the frontage before the ground behind.
+  as much of the ground behind it as it says**, square to its bearing where it gives one, thinned to what the town
+  plans (GEN-54).
 - **No precision is given up for a file.** A line's places are millimetres; a wheel's own figures and a course's
   places are a float's own bytes, so a brief's map lays the very streets its brief always laid; a zone's outline is
   whole metres and a setting is held to its own step, so a map in memory is the map it reads back as.
@@ -206,11 +206,7 @@ cars its whole map's zone asks for** (GEN-7). A road OSM draws as an area is a s
   drawn as and the ground they cover on average; **and the ground behind it**, what of the zone the buildings no probe
   met cover, their size and the bearing they share. A zone met too few times says nothing and is laid as its kind; the
   whole map's zone is measured off what no land use holds. **The footprints stay the survey's**: the map holds no outline
-  of a building, and the scanner writes them beside the layers only for `--bench zones` to weigh the town against.
-- **Its props' second pass lays scenery** (`CityPlan.Scenery`, GEN-6b) — a whole city's yards, parks and waste ground,
-  drawn and standing no body, as thickly as each zone grows — and none of its verge props stands whose crown comes
-  within a lattice step of driven ground (TER-4c.4): a road's carriageway, or a junction's disc and its widest arm,
-  which a traced junction's movements can reach past its tarmac. Its map holds no tree.
+  of a building and no tree, and the scanner writes the footprints beside the layers only for `--bench zones` (GEN-58).
 - **Its roundabouts are the ways OSM tags as circulating** (GEN-19), a ring of those that meet at their
   junctions, so its kerb ends stand no station on one and its walk does not run round one.
 - **A bridge is a road of its own on the level above** (GEN-14a, PHY-1a): a way OSM carries on a bridge is cut
@@ -326,8 +322,8 @@ four are fronted on the same terms.
   it will wear** (`CityGen.BuildingSizes`), so the picture drawn on it is the size the plan stood rather than the
   nearest thing to it. A building behind the frontage is square to its zone's bearing, or to the nearest street, and
   its way in is on that street's walk.
-- **What the zones stand is thinned evenly to what a town plans** (`ZoneParam.Buildings`), never cut off at the last
-  rings walked: thinned ring by ring instead, a town that plans fewer buildings than its frontage affords is built
+- **What the zones stand is thinned evenly to what a town plans** (`ZoneParam.Buildings`), the frontage before the
+  ground behind, and never cut off at the last rings walked: thinned ring by ring instead, a town that plans fewer buildings than its frontage affords is built
   solid along whichever rings came first and empty everywhere else.
 - **It runs after every stage that lays driven ground and before the props** (`GEN-10`, `GEN-6b`): a
   building is cleared against the ground the finished map answers with, and a verge crowded by buildings
@@ -360,17 +356,19 @@ margin on top would only hold the verge back from the street it is a verge of.
 **GEN-6b** `P6` **A prop's kind is a placement and not a picture, and the pass that laid it is what decides
 which.** A stump and a planter are different kinds because they stand in different places, not because they
 look unalike. **The props are laid in two passes**, and everything they need — the roads, the pavement, the
-bays and the buildings — was laid before either of them runs. **On a traced town what the second lays is scenery**
-(GEN-57, `CityPlan.Scenery`): drawn, and standing no body.
+bays and the buildings — was laid before either of them runs. **What the second lays is scenery**
+(`CityPlan.Scenery`): drawn, and standing no body, as thickly as each zone grows (GEN-58). **And no verge prop
+stands whose crown comes within a lattice step of driven ground** (TER-4c.4): a road's carriageway, or a
+junction's disc and its widest arm, which a junction's movements can reach past its tarmac.
 
 - **First the walk's outer face is walked**, because a verge is a line and not an area. A candidate stands
   out in the **verge** — the band of grass between `SimConfig.CityGen.PropVergeNearM` and `PropVergeFarM`
   beyond that face — and it is **furniture** or **planting** by the share the town furnishes its streets at
   (`PropFurnitureShare`).
-- **The face is the town's own boundary moved by the figure the pavement is struck at** (TER-7b,
-  `GroundRings.WalkEdge`) and never a line laid again beside a road. A road's half-width is the ground its
-  lanes were laid inside and says nothing about where the concrete ends; the face says it everywhere at
-  once, so a junction, a roundabout's island and a bay are lined by the same walk that lines a straight.
+- **The face is the one buildings front** (GEN-54) and never a line laid again beside a road. A road's
+  half-width is the ground its lanes were laid inside and says nothing about where the concrete ends; the face
+  says it everywhere at once, so a junction, a roundabout's island and a bay are lined by the same walk that
+  lines a straight.
 - **The band is measured to the prop's own near rim**, so what holds a prop off the walk is the distance it
   was placed at: a narrow look reaches the near edge of the band and a wide one is pushed out by its own
   width.
@@ -625,38 +623,17 @@ to be a road between. It is shortened by one place and the rest of it is still j
 awkward the pair is to merge a boundary through — a merge that cannot close round a shape the town lays is
 the merge's to answer for (TER-7b, `LaneShell`) and not a licence to lay the town differently.
 
-**GEN-52** `P3` **A junction may be cut into a road that already stands, and the road does not move.** The
-road is parted at a place along its own line into the stretch before the junction and the stretch after it,
-the node stands between them, and the town gains whatever arms the cut asked for. **Every metre that was
-driven is still driven**: the two pieces are the arcs the road was laid as, cut, and the movement the new
-junction draws straight across is a biarc between two poses of one arc, which is that arc. It is the one
-place the plan is changed after it is laid, and it is allowed because it changes nothing.
+**GEN-52** `P3` **A road laid where the ground already says it goes has both its arms read off its own line, and
+nothing already standing moves.** Everywhere else the arms are drawn first and the road is laid to them (GEN-46);
+a car park's bay is laid where the kerb is (GEN-53), so **both its arms are read off the line it carries** — the
+stand point is where that line ends, the bearing there is the line's own, and the lead is the one arc joining the
+node to it (`CityPlan.RoadArrays.Bay`, `ConnectionPoints`). **Both and not one**: an arm drawn for either end
+would be one its line was never laid to. No street is parted for it and no junction is cut into one.
 
-**It inverts the inversion, and the plan says which roads it inverted.** Everywhere else the arms are drawn
-first and the road is laid to them (GEN-46); here the road came first, so **both arms of a cut road are read
-off the line it already carries** — the stand point is where that line ends, the bearing there is the line's
-own, and the lead is the one arc joining the node to it (`CityPlan.RoadArrays.Cut`, `ConnectionPoints`).
-**Both and not the cut one**: an arm is drawn toward the far end of its own road, and a cut moves that far
-end, so a piece that went on drawing its other bearing would draw one its line was never laid to.
-
-- **A cut lands inside one arc of the road, with the cut's own standoff of that arc either side of it.** A
-  lead is one arc, so a node placed across a joint in the line would be one whose arms stand where the road
-  does not go — and that is what makes the reading exact rather than a curve fitted through the ground.
-  **How far back the road is parted is the cut's to ask for** and not the standoff every other junction
-  keeps: a junction whose arms are spread along the street has to stand off the whole of them (GEN-53).
-- **A cut node is a junction like any other**: it stands a locality clear of every node that is not the
-  cut's own (GEN-16), its arms stand square enough to be a junction (GEN-13), every piece and every arm is
-  held to the ground the town already holds (GEN-49), and nothing it lays stands on water or off the map
-  (GEN-14, GEN-2b). **The cut's own nodes are exempt from the locality**, on the terms a roundabout's are:
-  they are one place laid out with a stub rather than two spacings that landed on the same ground.
-- **Nothing is laid and taken back** (GEN-10). Every piece and every arm is drawn and asked about before any
-  of it is installed, and a cut that fails one of those leaves the road exactly as it was.
-- **It is the last thing done to a layout.** A cut road's arms are its line's own, so an offer weighed
-  against the chord it was joined on would be weighed against a bearing it does not leave on.
-
-**No stage cuts one any more**: a car park stands beside its street rather than in it (GEN-53). What is kept is
-the reading — a road laid where it already stands has its arms read off its own line — which a car park's bays
-are laid by.
+- **A place offered along a street lands inside one arc of it, a standoff of that arc either side**
+  (`CutJunctions.SitesOn`), so what stands off it faces one tangent rather than a curve fitted through a joint.
+  **How far that standoff reaches is the caller's**: a car park whose bays are spread along the street stands
+  off the whole of them (GEN-53).
 
 **GEN-53** `P6` **A car park is a rank of bays laid off the kerb of a street that stays whole, and every bay is a
 short road of its own joined to nothing.** The street is not parted and no junction stands at a car park; a bay
@@ -692,8 +669,8 @@ manoeuvre (GEN-4f), and nothing downstream carries a rule about how a car park i
   far end, and a bay's ground is held to the ground every road already holds (GEN-49) but its own street's.
   **A car park's own nodes are exempt from each other**, on the terms a roundabout's are: one car park laid out
   along a kerb rather than spacings that landed on the same ground.
-- **A bay's arms are read off its own line** (GEN-52's reading, `CityPlan.RoadArrays.WasCut`): it was laid where
-  the kerb is, and each node stands a lead off an end of it.
+- **A bay's arms are read off its own line** (GEN-52, `CityPlan.RoadArrays.IsABay`), and each node stands a lead
+  off an end of it.
 - **How many bays a side carries is a handful or none** (GEN-4b), and **not none on both sides** — a car park
   with no bay either side is no car park.
 - **A road that runs one way carries car parks like any other** (GEN-18, TER-4d): each bay is reached the one way

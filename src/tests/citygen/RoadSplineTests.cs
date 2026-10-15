@@ -13,8 +13,8 @@ namespace TrafficSimulation.Tests.CityGen;
 /// tighter than its class's design speed affords on the way.
 /// </summary>
 /// <remarks>
-/// <b>This is the inversion, asked of the town.</b> The bearing used to be whatever the chord happened to
-/// leave; here it is drawn first and the road is the thing that has to satisfy it, so what these cases guard
+/// <b>This is the inversion, asked of the town.</b> The bearing is not whatever the chord happens to leave:
+/// it is drawn first and the road is the thing that has to satisfy it, so what these cases guard
 /// is that the satisfying really happened rather than being approached.
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]

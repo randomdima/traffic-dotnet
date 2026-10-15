@@ -34,8 +34,6 @@ internal sealed class Element
 
     public string? Tag(string key) => Tags.GetValueOrDefault(key);
 
-    public bool Is(string key, string value) => Tags.TryGetValue(key, out var tagged) && tagged == value;
-
     public bool Closed => Geometry.Length >= 8 && Geometry[0] == Geometry[^2] && Geometry[1] == Geometry[^1];
 
     /// <summary>

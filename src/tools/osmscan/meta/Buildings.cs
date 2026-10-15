@@ -102,12 +102,12 @@ internal static class Buildings
                 if (covered)
                 {
                     (passages.TryGetValue(building, out var list) ? list : passages[building] = []).Add(way.Id);
-                    found.Over[way.Id] = Key(buildings[building].Element);
+                    found.Over[way.Id] = buildings[building].Element.Key;
                 }
                 else if (!raised && town.Highway(road) is not ("service" or "track") && through.Add((road, building)))
                 {
                     flags.Raise("road_through_building", town, middle, $"{town.Highway(road)} runs through a building with no tunnel, covered or layer tag",
-                        $"w{way.Id}", Key(buildings[building].Element));
+                        $"w{way.Id}", buildings[building].Element.Key);
                 }
             }
         }
@@ -120,7 +120,7 @@ internal static class Buildings
             if (Under(Shape.Along(line, Shape.Length(line) / 2)) is { } building)
             {
                 (passages.TryGetValue(building, out var list) ? list : passages[building] = []).Add(record.Way);
-                found.Over[record.Way] = Key(buildings[building].Element);
+                found.Over[record.Way] = buildings[building].Element.Key;
             }
         }
 
@@ -239,11 +239,11 @@ internal static class Buildings
                 if (renamed.TryGetValue(Names.Street(street), out var now))
                 {
                     streetNow = now;
-                    flags.Raise("address_names_old_street", town, centre, $"addr:street {street}, now {now}", Key(element));
+                    flags.Raise("address_names_old_street", town, centre, $"addr:street {street}, now {now}", element.Key);
                 }
                 else
                 {
-                    flags.Raise("address_street_not_drawn", town, centre, $"addr:street {street} names no street, square or place OSM draws", Key(element));
+                    flags.Raise("address_street_not_drawn", town, centre, $"addr:street {street} names no street, square or place OSM draws", element.Key);
                 }
             }
 
@@ -252,13 +252,13 @@ internal static class Buildings
                 var storeyM = (storeysM - (Metres(tags.GetValueOrDefault("min_height")) ?? 0)) / levels.Value;
                 if (storeyM < LowestStoreyM || (storeyM > HighestHomeStoreyM && Homes.Contains(tags.GetValueOrDefault("building") ?? "")))
                 {
-                    flags.Raise("height_and_levels_disagree", town, centre, string.Create(CultureInfo.InvariantCulture, $"height {storeysM} m over {levels} levels makes a storey {storeyM:F1} m; the height is taken"), Key(element));
+                    flags.Raise("height_and_levels_disagree", town, centre, string.Create(CultureInfo.InvariantCulture, $"height {storeysM} m over {levels} levels makes a storey {storeyM:F1} m; the height is taken"), element.Key);
                 }
             }
 
             records.Add(new BuildingRecord
             {
-                Id = Key(element),
+                Id = element.Key,
                 Source = "osm",
                 Part = tags.ContainsKey("building:part") && !tags.ContainsKey("building") ? true : null,
                 Use = tags.GetValueOrDefault("building") ?? tags.GetValueOrDefault("building:part"),
@@ -308,8 +308,6 @@ internal static class Buildings
             }));
         return found;
     }
-
-    static string Key(Element element) => element.Key;
 
     /// <summary>The share of a ring's ground a test holds at, sampled on a grid over it.</summary>
     public static double Covered(Pt[] ring, Func<Pt, bool> holds)

@@ -7,8 +7,8 @@ using SixLabors.ImageSharp.Processing;
 namespace TrafficSimulation.Tools.GlyphSheet;
 
 /// <summary>
-/// Writes the engine's one typeface: a fixed-pitch sheet of the printable ASCII range, plus one
-/// solid cell so that a plain rectangle is a glyph quad like any other.
+/// Writes the engine's one typeface: a fixed-pitch sheet of the printable ASCII range, plus a solid
+/// cell and a disc so that a plain rectangle or circle is a glyph quad like any other.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -21,7 +21,7 @@ namespace TrafficSimulation.Tools.GlyphSheet;
 internal static class Program
 {
     /// <summary>
-    /// Sixteen columns of the printable range, then one row holding the solid cell. Cell height is
+    /// Sixteen columns of the printable range, then one row holding the solid cell and the disc. Cell height is
     /// chosen so the sheet is sampled at about one to one at the size panel text is drawn.
     /// </summary>
     const int Columns = 16;
