@@ -178,12 +178,16 @@ internal sealed class ChainIndex
     /// </remarks>
     public static ChainIndex OfPieces(ReadOnlySpan<ArcSeg> pieces, GridLevel level)
     {
-        var building = new Builder();
+        var arcStart = new int[pieces.Length + 1];
+        var lengthM = new float[pieces.Length];
         for (var at = 0; at < pieces.Length; at++)
         {
-            building.Add(at, pieces.Slice(at, 1), MathF.Abs(pieces[at].LengthM));
+            arcStart[at + 1] = at + 1;
+            lengthM[at] = MathF.Abs(pieces[at].LengthM);
         }
 
+        var building = new Builder();
+        building.Adopt(pieces.ToArray(), arcStart, lengthM);
         return building.Seal(level);
     }
 
@@ -599,20 +603,38 @@ internal sealed class ChainIndex
         ArcSeg[]? _keptArcs;
         int[]? _keptArcStart;
         float[]? _keptLengthM;
+        int[]? _keptChainId;
+        Vector2[]? _keptLeastM;
+        Vector2[]? _keptMostM;
 
+        int Slots => _keptChainId?.Length ?? _chainId.Count;
+
+        /// <remarks>
+        /// <b>Each chain is boxed on every core, into a slot of its own</b>, and the set's box grown by them afterwards
+        /// in slot order — the order <see cref="Add"/> grows it in.
+        /// </remarks>
         public void Adopt(ArcSeg[] arcs, int[] arcStart, float[] lengthM)
         {
-            if (_chainId.Count > 0) throw new InvalidOperationException("a builder adopts chains only while it holds none");
+            if (Slots > 0) throw new InvalidOperationException("a builder adopts chains only while it holds none");
 
-            for (var chain = 0; chain < lengthM.Length; chain++)
+            var chains = lengthM.Length;
+            var chainId = new int[chains];
+            for (var chain = 0; chain < chains; chain++)
             {
                 if (arcStart[chain + 1] == arcStart[chain]) throw new ArgumentException($"chain {chain} has no arcs", nameof(arcStart));
 
-                _chainId.Add(chain);
-                Bound(arcs.AsSpan(arcStart[chain], arcStart[chain + 1] - arcStart[chain]));
+                chainId[chain] = chain;
             }
 
+            var leastM = new Vector2[chains];
+            var mostM = new Vector2[chains];
+            InChunks.Over(chains, static () => 0, (_, chain) =>
+                (leastM[chain], mostM[chain]) = BoxOf(arcs.AsSpan(arcStart[chain], arcStart[chain + 1] - arcStart[chain])));
+
+            for (var chain = 0; chain < chains; chain++) Grow(leastM[chain], mostM[chain]);
+
             (_keptArcs, _keptArcStart, _keptLengthM) = (arcs, arcStart, lengthM);
+            (_keptChainId, _keptLeastM, _keptMostM) = (chainId, leastM, mostM);
         }
 
         /// <param name="id">What <see cref="Nearest"/> hands back for this chain — the caller's own numbering, never a slot.</param>
@@ -624,30 +646,36 @@ internal sealed class ChainIndex
             _chainId.Add(id);
             _lengthM.Add(lengthM);
             foreach (var arc in arcs) _arcs.Add(arc);
-            Bound(arcs);
+            var (leastM, mostM) = BoxOf(arcs);
+            _slotLeastM.Add(leastM);
+            _slotMostM.Add(mostM);
+            Grow(leastM, mostM);
             _arcStart.Add(_arcs.Count);
         }
 
         /// <summary>
-        /// One chain's own box, and the set's grown by it: the same walk (<see cref="Box"/>), because the index
-        /// keeps the first to refuse candidates and the second to lay the lattice, and taking them apart would be
-        /// two answers to where a chain stands.
+        /// One chain's own box: the same walk as the set's (<see cref="Box"/>), because the index keeps the first to
+        /// refuse candidates and the second to lay the lattice, and taking them apart would be two answers to where a
+        /// chain stands.
         /// </summary>
-        void Bound(ReadOnlySpan<ArcSeg> arcs)
+        static (Vector2 LeastM, Vector2 MostM) BoxOf(ReadOnlySpan<ArcSeg> arcs)
         {
             var leastM = new Vector2(float.MaxValue);
             var mostM = new Vector2(float.MinValue);
             foreach (var arc in arcs) Box(arc, ref leastM, ref mostM);
 
-            _slotLeastM.Add(leastM);
-            _slotMostM.Add(mostM);
+            return (leastM, mostM);
+        }
+
+        void Grow(Vector2 leastM, Vector2 mostM)
+        {
             _leastM = Vector2.Min(_leastM, leastM);
             _mostM = Vector2.Max(_mostM, mostM);
         }
 
         public ChainIndex Seal(GridLevel level)
         {
-            var slots = _chainId.Count;
+            var slots = Slots;
             if (slots == 0) return new ChainIndex([], [0], [], [], [], [], GridWindow.Of(level, 0, 0, 0, 0), [0], []);
 
             // <b>A window of one level of the grid, so the lattice belongs to the map</b> (SIM-8) — two
@@ -689,8 +717,8 @@ internal sealed class ChainIndex
             }
 
             return new ChainIndex(
-                arcs, arcStart, _keptLengthM ?? [.. _lengthM], [.. _chainId], [.. _slotLeastM], [.. _slotMostM], window,
-                start, entries);
+                arcs, arcStart, _keptLengthM ?? [.. _lengthM], _keptChainId ?? [.. _chainId],
+                _keptLeastM ?? [.. _slotLeastM], _keptMostM ?? [.. _slotMostM], window, start, entries);
         }
 
         /// <summary>
