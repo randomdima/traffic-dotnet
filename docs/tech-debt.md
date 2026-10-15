@@ -354,13 +354,8 @@ Each read off the code and the O30 profiles (2026-10-15) and none measured; bit-
 with `--bench age`'s digests unchanged and a probe's figure moved closes it.
 
 - **The tick**:
-  - `RibbonAtlas.UnderWheels` looks up the next wheel's run only after scanning this one's, so its cache miss (a third of
-    the method) never overlaps the scan; prefetching it as `LaneOccupancy.PrefetchTheBody` does;
   - the broad phase reads a candidate's bounds from two arrays (`_leastM`, `_mostM`), two misses for every prop it
     rejects; one `Bounds[]` of both corners, with `Table`'s upload spans made strided, about thirty sites;
-  - `TyreModel.Step` reloads the pose, grip and command through its `in` parameters after every store, and checks every
-    span it indexes; locals and spans sliced to the four wheels;
-  - `SignalHolds.Lay` and the actions' `Lay` entries call `LaneOccupancy.Release` on `NoHold`, which does nothing;
   - `ManagedWorld.ReadCovers` ORs a standing car's channels again from covers that cannot have changed, and
     `WriteTheView` reads a queued car's line, lead and aim afresh every step.
 - **A window's frame**: `ScaleLegend` and the status panel's title format the same figures every frame, a cache keyed

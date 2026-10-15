@@ -272,9 +272,17 @@ internal sealed partial class RibbonAtlas
         var written = 0;
         var dropped = 0;
         byte wheelsOn = 0;
+
+        // Each wheel's run is found, and asked of memory, before the wheel ahead of it is read: the run is a cell's
+        // table away and nothing in the read before it depends on it, so the miss is taken while that read runs.
+        var column = 0;
+        var entries = wheelsM.IsEmpty ? default : EntriesOfThePointNearest(wheelsM[0], out column);
         for (var wheel = 0; wheel < wheelsM.Length; wheel++)
         {
-            var entries = EntriesOfThePointNearest(wheelsM[wheel], out var column);
+            var nextColumn = 0;
+            var next = wheel + 1 < wheelsM.Length ? EntriesOfThePointNearest(wheelsM[wheel + 1], out nextColumn) : default;
+            Prefetch(next);
+
             foreach (ref readonly var entry in entries)
             {
                 if (!OnTheWay(entry, column, channels, wayChannels)) continue;
@@ -282,6 +290,9 @@ internal sealed partial class RibbonAtlas
                 written = Grow(found, written, entry.Way, entry.Along, ref dropped);
                 wheelsOn |= (byte)(1 << wheel);
             }
+
+            entries = next;
+            column = nextColumn;
         }
 
         onAWay = wheelsOn;
@@ -523,6 +534,13 @@ internal sealed partial class RibbonAtlas
 
         found[written] = new Found(way, alongTenths, alongTenths);
         return written + 1;
+    }
+
+    static unsafe void Prefetch(ReadOnlySpan<Entry> run)
+    {
+        if (!System.Runtime.Intrinsics.X86.Sse.IsSupported || run.IsEmpty) return;
+
+        System.Runtime.Intrinsics.X86.Sse.Prefetch0(Unsafe.AsPointer(ref MemoryMarshal.GetReference(run)));
     }
 
     /// <summary>Counted once a call: an interlocked add inside the walk would be a fence on every entry.</summary>

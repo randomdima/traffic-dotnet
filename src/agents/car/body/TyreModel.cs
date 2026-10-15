@@ -69,6 +69,22 @@ internal static partial class TyreModel
         var forward = pose.Forward;
         var drivenFrontShare = car.DrivenFrontShare;
 
+        // Every table cut to the four wheels and every figure the loop reads taken out of what it was handed by
+        // reference: a store into a span may be the same memory to the JIT, which then reads each again every wheel.
+        atM = atM[..Wheels];
+        ground = ground[..Wheels];
+        spinMps = spinMps[..Wheels];
+        into = into[..Wheels];
+        scrub = scrub[..Wheels];
+        var positionM = pose.PositionM;
+        var bodyVelocityMps = pose.VelocityMps;
+        var yawRateRadPerS = pose.YawRateRadPerS;
+        var massKg = pose.MassKg;
+        var carGripMps2 = car.GripMps2;
+        var locksEveryWheel = command.LocksEveryWheel;
+        var handbrake = command.Handbrake;
+        var pedalBrakeMps2 = command.BrakeMps2;
+
         Span<float> loadFraction = stackalloc float[Wheels];
         Loads(car, pose, loadFraction);
 
@@ -93,8 +109,8 @@ internal static partial class TyreModel
         for (var wheel = 0; wheel < Wheels; wheel++)
         {
             // The body's motion plus what the yaw rate carries that corner round by.
-            var fromCentreM = atM[wheel] - pose.PositionM;
-            var velocityMps = pose.VelocityMps + pose.YawRateRadPerS * new Vector2(-fromCentreM.Y, fromCentreM.X);
+            var fromCentreM = atM[wheel] - positionM;
+            var velocityMps = bodyVelocityMps + yawRateRadPerS * new Vector2(-fromCentreM.Y, fromCentreM.X);
             // An unturned wheel points where the car does, to the bit; a turned one is the car's direction turned by its
             // own share of the rack.
             var wheelForward = steered && wheel < SteeredWheels ? Turned(forward, turnedBy[wheel]) : forward;
@@ -103,14 +119,14 @@ internal static partial class TyreModel
             var rear = wheel >= 2;
             // The handbrake holds the rear pair while the front keeps rolling and steering, so a car can
             // be turned into its stop; a wreck is locked as a block because nobody is deciding on it.
-            var locked = command.LocksEveryWheel || (rear && command.Handbrake);
+            var locked = locksEveryWheel || (rear && handbrake);
             var surface = ground[wheel];
             // This car's own rubber on this wheel's own ground: what a variant is worth through a corner
             // is the difference between a supercar and a truck on the same tarmac. One coefficient at any
             // load, so what a corner can hold is simply what it is carrying — the loads are where a light
             // inside wheel or a rear gone light under the brakes gets its answer.
-            var gripMps2 = car.GripMps2 * surface.Coefficient;
-            var loadKg = pose.MassKg * loadFraction[wheel];
+            var gripMps2 = carGripMps2 * surface.Coefficient;
+            var loadKg = massKg * loadFraction[wheel];
 
             var alongMps = Vector2.Dot(velocityMps, wheelForward);
             var acrossMps = Vector2.Dot(velocityMps, wheelRight);
@@ -119,7 +135,7 @@ internal static partial class TyreModel
             // it against the tyre for as long as it is on.
             if (locked) spinMps[wheel] = 0f;
             var spin = spinMps[wheel];
-            var brakeMps2 = command.BrakeMps2 + (rear ? rearEngineMps2 : frontEngineMps2);
+            var brakeMps2 = pedalBrakeMps2 + (rear ? rearEngineMps2 : frontEngineMps2);
 
             // What the patch is asked to absorb, and what that ask is worth as an impulse if it can
             // simply hold it. Two questions: pulling a light rim back into step is a slip of metres a

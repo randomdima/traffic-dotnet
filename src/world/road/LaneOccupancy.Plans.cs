@@ -265,9 +265,19 @@ internal sealed partial class LaneOccupancy
     /// <b>Every claim a hold has, let go of</b>: each taken out of its way's run, and the hold given back, holding nothing
     /// and answered as nothing (<see cref="CutOf"/>). A hold already let go of is passed over.
     /// </summary>
+    /// <remarks>
+    /// Most of the town's asks are <see cref="NoHold"/> — a light on green, an action laying nothing — so that answer is
+    /// inlined at every caller and only a hold is a call.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Release(int hold)
     {
-        if (hold == NoHold || hold >= _holdCount || !_holdLife[hold].Live) return;
+        if (hold != NoHold) ReleaseHeld(hold);
+    }
+
+    void ReleaseHeld(int hold)
+    {
+        if (hold >= _holdCount || !_holdLife[hold].Live) return;
 
         ref var row = ref _holds[hold];
         for (var claim = row.FirstClaim; claim != NoSlot; claim = _owners[claim].HoldNext) LetGo(claim);
