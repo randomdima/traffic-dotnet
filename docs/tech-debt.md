@@ -124,13 +124,16 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     `maxStorageBufferBindingSize` is a WebGPU validation error and a dead world rather than the managed world WEB-10
     promises. This machine's adapter gives 4 GB; a default device 128 MB, which OdesaOsm's atlas (930 MB) is past.
     Weighing the laying's largest table against the limit before the handover closes it.
-- **A traced city's open on the page** (2026-10-15, root log; OdesaOsm 83 s at 1.8–1.9 GB of 4, the figure varying
+- **A traced city's open on the page** (2026-10-15, root log; OdesaOsm 65 s at 1.76 GB of 4, the figure varying
   with where the renderer's last tables find room; O30 170 s at 3.6 GB, not taken since its atlas was filed onto the
   device):
-  - **the plan is 36 s of OdesaOsm's 83 and 95 s of O30's 170** on the page, the pavement and the atlas most of the
-    rest — single-threaded arithmetic, about 1.6× a desktop core's (`DOTNET_PROCESSOR_COUNT=1 qq prof --bench
-    deviceload`). `qq web --cpu` says where; the page has not been timed since three of its scans were made a cell's
-    (the desktop's open 22.5 → 19.5 s);
+  - **OdesaOsm's plan is 31 s of the page's 65** — ground 11.5, buildings 12.7 — and the town's 32 s the pavement's
+    10.7, the marks' 6.3 and the atlas's filing 10.6: single-threaded arithmetic, about twice a desktop core's
+    (`DOTNET_PROCESSOR_COUNT=1 --bench load`, 36.8 s). The page has not been timed since a front's seat stopped
+    projecting every piece near it (buildings 5.8 → 4.6 s on that core). What is left is spread thin: the atlas
+    finding every way's points twice (to count, then to file), a junction's walk re-reading the same course's band
+    for each crossing it serves (`CrossingWays.Reading.BandOffTheVerge`), the outsets' indexes. A page given
+    threads (cross-origin isolation, the host's two headers) is the lever past those;
   - **the page keeps what the desktop frees inside the town's lay**: each stage's figure on the page's console
     (`OpenWatch`) has the page using 0.3–0.5 GB more than the desktop after each of the lay's collections, which come
     from frames deep in the lay; the one from the lay's own top frame (`LaidTown.Lay`) frees as the desktop's does.
