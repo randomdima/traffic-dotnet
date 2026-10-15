@@ -29,30 +29,38 @@ namespace TrafficSimulation.CityGen;
 internal static class TownPlan
 {
     /// <summary>A map read off its file and laid, the reading of it the plan's first stage.</summary>
-    public static CityPlan Read(string path, SimConfig config, BuildingSizes sizes)
+    public static CityPlan Read(string path, SimConfig config, BuildingSizes sizes) => Reading(path, config, sizes).Through();
+
+    /// <summary><see cref="Read"/> a stage at a time: each of the plan's own stages one it may pause after.</summary>
+    public static Staged<CityPlan> Reading(string path, SimConfig config, BuildingSizes sizes) =>
+        new(made => Reading(path, config, sizes, made));
+
+    static IEnumerable<string> Reading(string path, SimConfig config, BuildingSizes sizes, Action<CityPlan> made)
     {
         var clock = Stopwatch.StartNew();
         var survey = Survey.Of(TownMap.Read(path), config);
-        return Lay(survey, config, sizes, [("map", clock.Elapsed.TotalMilliseconds)]);
+        foreach (var stage in Laying(survey, config, sizes, [("map", clock.Elapsed.TotalMilliseconds)], made)) yield return stage;
     }
 
     /// <param name="sizes">
     /// The prefabs its buildings are stood as and the roofs its services wear, handed down from the catalogue that read
     /// them (<see cref="BuildingSizes"/>). A town handed none stands no building.
     /// </param>
-    public static CityPlan Lay(TownMap map, SimConfig config, BuildingSizes sizes) => Lay(Survey.Of(map, config), config, sizes, []);
+    public static CityPlan Lay(TownMap map, SimConfig config, BuildingSizes sizes) => Lay(Survey.Of(map, config), config, sizes);
 
-    public static CityPlan Lay(Survey survey, SimConfig config, BuildingSizes sizes) => Lay(survey, config, sizes, []);
+    public static CityPlan Lay(Survey survey, SimConfig config, BuildingSizes sizes) =>
+        new Staged<CityPlan>(made => Laying(survey, config, sizes, [], made)).Through();
 
-    static CityPlan Lay(Survey survey, SimConfig config, BuildingSizes sizes, (string Stage, double Ms)[] before)
+    static IEnumerable<string> Laying(
+        Survey survey, SimConfig config, BuildingSizes sizes, (string Stage, double Ms)[] before, Action<CityPlan> made)
     {
         var laidMs = new List<(string Stage, double Ms)>(before);
         var clock = Stopwatch.StartNew();
-        void Took(string stage)
+        string Took(string stage)
         {
             laidMs.Add((stage, clock.Elapsed.TotalMilliseconds));
-            Core.Simulation.OpenWatch.Passed($"plan: {stage}");
             clock.Restart();
+            return OpenWatch.Passed($"plan: {stage}");
         }
 
         var worldSizeM = new Vector2(survey.WidthM, survey.HeightM);
@@ -60,7 +68,7 @@ internal static class TownPlan
         var zones = new ZoneTree(zoned, config.Zones);
         var wheel = zoned.Kind[TownMap.ZoneArrays.Root] == ZoneKind.Wheel;
         if (wheel && survey.Ways.Length > 0) throw new InvalidDataException($"{survey.Name}: a wheel whose map holds roads of its own.");
-        Took("zones");
+        yield return Took("zones");
 
         var water = TracedSea.Lay(survey, config);
         for (var course = 0; course < survey.Courses.Count; course++)
@@ -70,12 +78,13 @@ internal static class TownPlan
                 worldSizeM, config));
         }
 
-        Took("water");
+        yield return Took("water");
 
+        // A wheel's streets say their own stages, and are not paused in.
         var streets = wheel
-            ? Laid(WheelStreets.Lay(zoned, survey.Seed, worldSizeM, water, survey.Bridgeable, config, sizes, Took))
+            ? Laid(WheelStreets.Lay(zoned, survey.Seed, worldSizeM, water, survey.Bridgeable, config, sizes, stage => Took(stage)))
             : Laid(TracedStreets.Lay(survey, config), config);
-        if (!wheel) Took("streets");
+        if (!wheel) yield return Took("streets");
 
         var lots = Lots(survey.Lots);
         var paving = Paving.Lay(
@@ -83,13 +92,13 @@ internal static class TownPlan
                 survey.Seed, worldSizeM, config.PavementWidthM, streets.Roads, streets.Bridges, streets.Junctions, streets.Corners,
                 streets.Roundabouts, lots, CityPlan.PavedAreaArrays.None, streets.Crosswalks, water),
             config);
-        Took("paving");
+        yield return Took("paving");
 
         // <b>The walk's outer face and the ground answered off it</b>, which everything stood from here on is cleared
         // against — the boundary the finished town answers with, and nothing below adds driven ground.
         paving.Rings(config).NewKerbScan();
         var ground = new GroundShapes(paving, config);
-        Took("ground");
+        yield return Took("ground");
 
         // <b>The buildings stand against the walk the finished town is laid with</b> (GEN-54): what the map sets down,
         // then the services on their yards (GEN-55), then whatever the zones build.
@@ -97,11 +106,11 @@ internal static class TownPlan
             ? BuildingStage.Lay(streets.CarParks, streets.Roads, paving, ground, worldSizeM, sizes, config)
             : BuildingStage.Yards.None(config);
         var buildings = ZoneBuildings.Lay(zones, survey, yards, paving, ground, sizes, config);
-        Took("buildings");
+        yield return Took("buildings");
 
         // <b>The props stand on what is left beside what is built</b> (GEN-6b), so they are laid last.
         var (props, scenery) = TownProps.Lay(survey, zones, streets.Roads, streets.Junctions, paving, ground, buildings, config);
-        Took("props");
+        yield return Took("props");
 
         // <b>The roster stands at the doors and on the lanes</b>, so it is laid once both are.
         var spawn = new Rng(survey.Seed, Streams.Spawn);
@@ -109,9 +118,9 @@ internal static class TownPlan
         var spawns = SpawnStage.Lay(
             (int)(zoned.Own(root, ZoneParam.People) ?? 0f), (int)(zoned.Own(root, ZoneParam.Cars) ?? 0f), streets.BridgeCars,
             paving, streets.CarParks, buildings, config, ref spawn);
-        Took("roster");
+        yield return Took("roster");
 
-        return new CityPlan
+        made(new CityPlan
         {
             Seed = survey.Seed,
             Name = survey.Name,
@@ -139,7 +148,7 @@ internal static class TownPlan
             Zones = zoned,
             PavingLaidWithIt = paving,
             LaidMs = [.. laidMs],
-        };
+        });
     }
 
     /// <summary>The streets a town laid, whichever laid them, as the rest of the town is laid against them.</summary>

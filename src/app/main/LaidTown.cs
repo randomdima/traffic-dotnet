@@ -57,15 +57,32 @@ internal sealed class LaidTown
     /// the ground</b>, so the ground is laid into what the host's atlas held.
     /// </param>
     public static LaidTown Lay(
-        string map, SimConfig config, IWorldMaker? worldMaker = null, Action<TownWorld>? handTheWorldOver = null)
+        string map, SimConfig config, IWorldMaker? worldMaker = null, Action<TownWorld>? handTheWorldOver = null) =>
+        Laying(map, config, worldMaker, handTheWorldOver).Through();
+
+    /// <summary>
+    /// <see cref="Lay"/> a stage at a time: the plan's own stages (<see cref="Maps.Planning"/>), then the town, the
+    /// handover and the ground, each one block.
+    /// </summary>
+    public static Staged<LaidTown> Laying(
+        string map, SimConfig config, IWorldMaker? worldMaker = null, Action<TownWorld>? handTheWorldOver = null) =>
+        new(made => Laying(map, config, worldMaker, handTheWorldOver, made));
+
+    static IEnumerable<string> Laying(
+        string map, SimConfig config, IWorldMaker? worldMaker, Action<TownWorld>? handTheWorldOver, Action<LaidTown> laid)
     {
-        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
+        var planning = Maps.Planning(map, config, BuildingCatalog.Roofs);
+        foreach (var stage in planning.Stages) yield return stage;
+
+        var plan = planning.Made;
 
         // The world before the ground, because laying the world's atlas is an open's peak and the mesh laid
         // first stood under it; laid after, it is laid into what the atlas worked in.
         var made = worldMaker is not null && !Scenarios.Stages(plan.Name);
         var world = new TownWorld(plan, config, worldMaker: made ? worldMaker : null);
         var scenario = Scenarios.For(world, config);
+        yield return OpenWatch.Passed("the town's watches");
+
         var handed = !made && handTheWorldOver is not null;
         if (handed) handTheWorldOver!(world);
 
@@ -73,13 +90,13 @@ internal sealed class LaidTown
         if (made || handed)
         {
             world.CollectWhatTheLayLeft();
-            OpenWatch.Passed("the world the device's, and collected");
+            yield return OpenWatch.Passed("the world the device's, and collected");
         }
 
         var ground = GroundMesh.Build(plan, config);
         plan.Paving(config).LetGoOfTheLayingIndexes();
         world.Roads.LetGoOfTheLayingIndex();
-        OpenWatch.Passed("the ground");
-        return new LaidTown(plan, ground, world, scenario, made || handed);
+        yield return OpenWatch.Passed("the ground");
+        laid(new LaidTown(plan, ground, world, scenario, made || handed));
     }
 }

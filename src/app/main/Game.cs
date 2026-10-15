@@ -704,9 +704,24 @@ internal sealed partial class Game : IDisposable
     /// </param>
     void Open(string map, bool behindTheMenu = false)
     {
+        foreach (var _ in OpenInStages(map, behindTheMenu))
+        {
+        }
+    }
+
+    /// <summary>
+    /// <see cref="Open"/> a stage at a time (<see cref="LaidTown.Laying"/>), for a head that hands the thread back between
+    /// two — a page, whose opening card moves only then (WEB-8). <b>The town on screen goes on being stepped and drawn in
+    /// between</b>, as a desktop's does beside a lay on another thread: nothing it reads is touched until the stand.
+    /// </summary>
+    public IEnumerable<string> OpenInStages(string map, bool behindTheMenu = false)
+    {
         _movingOnTheDevice = false;
         var maker = WorldMaker();
-        var laid = LaidTown.Lay(map, _config, maker, HandTheWorldOver);
+        var laying = LaidTown.Laying(map, _config, maker, HandTheWorldOver);
+        foreach (var stage in laying.Stages) yield return stage;
+
+        var laid = laying.Made;
         if (maker?.Laid is { } made) TookTheDeviceWorld(laid.World, made);
         Stand(laid, behindTheMenu);
     }

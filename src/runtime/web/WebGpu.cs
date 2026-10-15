@@ -125,6 +125,33 @@ internal static partial class WebGpu
     }
 
     /// <summary>
+    /// A town about to be stood up, said on the opening card (WEB-8) — brought back over the canvas, so a map picked on the
+    /// menu is opened behind it as the first one was.
+    /// </summary>
+    public static void StandUp(string map)
+    {
+        Count();
+        StandUpJs(map);
+    }
+
+    /// <summary>A stage of standing the town up passed (<c>OpenWatch</c>), for the card to say how far the open has got.</summary>
+    public static void Standing(string stage)
+    {
+        Count();
+        StandingJs(stage);
+    }
+
+    /// <summary>
+    /// Once the browser has painted a frame: what an open done a stage at a time (<c>Staged</c>) awaits between two, the
+    /// one way a page's card moves while the thread is the town's. At once in a tab nobody can see, which paints nothing.
+    /// </summary>
+    public static Task Painted()
+    {
+        Count();
+        return PaintedJs();
+    }
+
+    /// <summary>
     /// The tab, closed. <b>A browser grants this only to a page it opened itself</b>, so a tab somebody
     /// followed a link into stays open and the banner is what says the run has stopped
     /// (<see cref="AppWindow.Close"/>).
@@ -417,6 +444,15 @@ internal static partial class WebGpu
 
     [JSImport("town.progress", "town.js")]
     static partial void ProgressJs(int done, int total);
+
+    [JSImport("town.standUp", "town.js")]
+    static partial void StandUpJs(string map);
+
+    [JSImport("town.standing", "town.js")]
+    static partial void StandingJs(string stage);
+
+    [JSImport("town.painted", "town.js")]
+    private static partial Task PaintedJs();
 
     [JSImport("town.shut", "town.js")]
     static partial void ShutJs();

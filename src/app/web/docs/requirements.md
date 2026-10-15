@@ -140,7 +140,10 @@ canvas ([`loading.js`](../wwwroot/loading.js)): the name, what this is, a bar an
 nought while the runtime comes down reads as a page that has stopped. **`say` writes there while it is up
 and into the banner under the canvas once it is gone**, so an empty line is the boot saying the town is
 standing — and **what the opening cost is said on the way out**, because it is the one figure a picture
-cannot carry and the one every change to the boot is judged on.
+cannot carry and the one every change to the boot is judged on. **Every town but the idle ring is stood up
+behind the card**, a stage at a time with a frame painted between two: the bar stands at the share of the
+open each stage ends at and moves on toward the next at the pace the open has kept so far, on the browser's
+compositor, so a stage that holds the page's one thread for seconds is still a bar that moves.
 
 ## What a publish holds
 

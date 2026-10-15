@@ -50,19 +50,27 @@ try
     // why the menu's click only writes the name down (Game.Web.cs) and this is what acts on it — the one
     // place in a browser run where waiting for a fetch is allowed. A map laid in code is not on the wire,
     // but every other map's file is, and it comes down beside the art.
+    // **A stage at a time, with a painted frame between two** (WEB-8): the page has one thread, and an open handed it whole
+    // is a minute of a card that cannot move. The town behind the card goes on being stepped and drawn in between.
     async Task Open(string map, bool behindTheMenu = false)
     {
+        if (!behindTheMenu) WebGpu.StandUp(map);
         Data.ExpectMap(map);
         await Data.Art(Say);
         await Data.Map(map, Say);
         Say($"standing {map} up…");
         var stoodAt = Stopwatch.GetTimestamp();
 
-        // Each stage's memory on the console (WEB-8): the page's own, which only grows, and what of it the collector holds.
-        OpenWatch.Watcher = stage => Console.WriteLine(
-            $"  {Stopwatch.GetElapsedTime(stoodAt).TotalSeconds,6:F1} s  {WebGpu.HeapBytes() / (1024 * 1024),5} MiB held, " +
-            $"{GC.GetTotalMemory(forceFullCollection: false) / (1024 * 1024),5} MiB in use — {stage}");
-        game.Start(map, behindTheMenu);
+        // Each stage's memory on the console: the page's own, which only grows, and what of it the collector holds.
+        OpenWatch.Watcher = stage =>
+        {
+            Console.WriteLine(
+                $"  {Stopwatch.GetElapsedTime(stoodAt).TotalSeconds,6:F1} s  {WebGpu.HeapBytes() / (1024 * 1024),5} MiB held, " +
+                $"{GC.GetTotalMemory(forceFullCollection: false) / (1024 * 1024),5} MiB in use — {stage}");
+            WebGpu.Standing(stage);
+        };
+
+        foreach (var _ in game.OpenInStages(map, behindTheMenu)) await WebGpu.Painted();
         OpenWatch.Watcher = null;
 
         // What an open cost, on the console: a page keeps the most it was ever given, so the memory is the open's peak.

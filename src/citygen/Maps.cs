@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using TrafficSimulation.CityGen.Exam;
 using TrafficSimulation.CityGen.Map;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Simulation;
 
 namespace TrafficSimulation.CityGen;
 
@@ -109,16 +110,27 @@ internal static class Maps
     /// above this slice and handed down as data (<see cref="BuildingSizes"/>, GEN-54, GEN-58). A map laid in code stands
     /// what its own code stands and never reads this.
     /// </param>
-    public static CityPlan Plan(string name, SimConfig config, BuildingSizes sizes)
-    {
-        if (_kept is { } kept && kept.Is(name, config)) return kept.Plan;
+    public static CityPlan Plan(string name, SimConfig config, BuildingSizes sizes) => Planning(name, config, sizes).Through();
 
-        var plan = Lay(name, config, sizes);
+    /// <summary><see cref="Plan"/> a stage at a time (<see cref="TownPlan.Reading"/>): a map laid in code is one block.</summary>
+    public static Staged<CityPlan> Planning(string name, SimConfig config, BuildingSizes sizes) =>
+        new(made => Planning(name, config, sizes, made));
+
+    static IEnumerable<string> Planning(string name, SimConfig config, BuildingSizes sizes, Action<CityPlan> made)
+    {
+        if (_kept is { } kept && kept.Is(name, config))
+        {
+            made(kept.Plan);
+            yield break;
+        }
+
+        var laying = Lay(name, config, sizes);
+        foreach (var stage in laying.Stages) yield return stage;
 
         // A reference is written whole, so a reader takes the town before or the town after and never half
         // of either. Two callers laying the same map at once lay it twice, which is what they did anyway.
-        _kept = new Kept(name, config, plan);
-        return plan;
+        _kept = new Kept(name, config, laying.Made);
+        made(laying.Made);
     }
 
     /// <summary>The town most recently laid, against the name and the figures it was laid from.</summary>
@@ -130,14 +142,14 @@ internal static class Maps
 
     static Kept? _kept;
 
-    static CityPlan Lay(string name, SimConfig config, BuildingSizes sizes)
+    static Staged<CityPlan> Lay(string name, SimConfig config, BuildingSizes sizes)
     {
         foreach (var (laid, lay) in Laid)
         {
-            if (string.Equals(laid, name, StringComparison.Ordinal)) return lay(config);
+            if (string.Equals(laid, name, StringComparison.Ordinal)) return Staged<CityPlan>.Whole(() => lay(config));
         }
 
-        if (IsCity(name)) return TownPlan.Read(ProjectPaths.MapFile(name), config, sizes);
+        if (IsCity(name)) return TownPlan.Reading(ProjectPaths.MapFile(name), config, sizes);
 
         throw new FileNotFoundException(
             $"No map called {name}: this build knows {string.Join(", ", Shipped())}.");

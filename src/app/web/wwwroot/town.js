@@ -792,7 +792,7 @@ export { useHeap } from './compute.js'
 export const town = {
     ...compute,
     start, reserve, buffer, texture, rebuild, release, frame, pump, fullscreen, shut, say,
-    progress: opening.progress, prefetch, unpack, grab, grabHeld, park, take, picture, decode, texels,
+    progress: opening.progress, standUp: opening.standUp, standing: opening.standing, painted: opening.painted, prefetch, unpack, grab, grabHeld, park, take, picture, decode, texels,
     ticker: step => {
         const next = () => {
             if (step()) requestAnimationFrame(next);
