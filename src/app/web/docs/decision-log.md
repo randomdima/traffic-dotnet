@@ -19,6 +19,9 @@ The root log says what an open was cut by; these are the page's own halves of it
 - **`qq web --cpu` samples the page's CPU over its open** with the module's function names (`WasmEmitSymbolMap`, kept in
   the intermediate tree and never published), which is how the interpreted loops and sorts were found: nothing on the
   desktop runs them interpreted.
+- **The compiler's flags are left at the SDK's**: the managed code's bitcode is compiled at `-O2` on a Release publish
+  (`WasmBitcodeCompileOptimizationFlag`), and `-Oz` is only the runtime's own C. Published at `-O3` instead, OdesaOsm
+  stood in 63.3 s against 63.4 and the module was the same size.
 - **Mono's jiterpreter logs a failed trampoline once the heap is past two gigabytes** ("extra bits in varint"): a constant
   it encodes signed, and it falls back to the interpreter. It costs nothing measurable and is not ours to mend.
 

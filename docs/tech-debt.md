@@ -139,8 +139,11 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     from frames deep in the lay; the one from the lay's own top frame (`LaidTown.Lay`) frees as the desktop's does.
     Whether it is a standing frame's stale slot or the collector's lazy sweep is not known;
   - **the framework's sorts and dictionaries over value types still run interpreted** where the open uses them outside
-    the atlas (`ChainIndex.Builder.SortedOnce`, `Array.Sort` of floats, `Dictionary` over tuple keys): about 3 % of
-    OdesaOsm's open on the page (`qq web --cpu --focus mono_interp_exec_method --managed`);
+    the atlas: about 4.5 s of OdesaOsm's 63 on the page (`qq web --cpu --focus mono_interp_exec_method --managed`).
+    `Dictionary` over tuple keys is 3.3 s of it — `ArcRings.Place` 1.7, `FootGraph.Builder.NodeAt` 0.5,
+    `ZoneBuildings.Standing` 0.7, `TownProps` 0.2 — and `Array.Sort` of floats, `ChainIndex.Builder.SortedOnce` and
+    `InChunks`' delegates the rest. Whether a key packed into a `long`, or a grid's own index in place of the dictionary,
+    runs compiled is not measured;
   - **the managed world's covers and the ground** are laid on a frozen tab with no word between "standing OdesaOsm
     up" and the town: WEB-8 holds for the stages a page fetches and not for the ones it computes.
 - **Nobody holds what no wheel stands on**: across a lane's end a car on two ways leaves its wheelbase less two
