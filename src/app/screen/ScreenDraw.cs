@@ -28,6 +28,9 @@ internal ref struct ScreenDraw(Span<OverlayQuad> into)
 
     public readonly bool Full => Written >= _into.Length;
 
+    /// <summary>How many times <see cref="OutlinedText"/> writes each glyph, for a caller sizing a buffer to hold its quads.</summary>
+    public const int OutlinedTextPasses = 5;
+
     /// <summary>A filled rectangle in interface pixels, given by its top-left corner and its size.</summary>
     public void Rect(Vector2 atPx, Vector2 sizePx, Vector4 colour) =>
         Solid(atPx + sizePx * 0.5f, sizePx * 0.5f, 0f, colour, screen: true);
@@ -102,6 +105,7 @@ internal ref struct ScreenDraw(Span<OverlayQuad> into)
     /// </remarks>
     public void OutlinedText(Vector2 atPx, scoped ReadOnlySpan<char> text, float heightPx)
     {
+        // OutlinedTextPasses counts these.
         Text(atPx + new Vector2(-1f, 0f), text, heightPx, Theme.LegendShadow);
         Text(atPx + new Vector2(1f, 0f), text, heightPx, Theme.LegendShadow);
         Text(atPx + new Vector2(0f, -1f), text, heightPx, Theme.LegendShadow);

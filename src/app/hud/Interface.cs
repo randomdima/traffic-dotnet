@@ -119,6 +119,8 @@ internal sealed class Interface(TrimFigures trims)
 
     public Ruler Ruler { get; } = new();
 
+    readonly ScaleLegend _legend = new();
+
     /// <summary>What the pointer is over, and the one thing a click has pinned (OBS-2t).</summary>
     public DebugPick Pick { get; } = new();
 
@@ -515,7 +517,7 @@ internal sealed class Interface(TrimFigures trims)
                 Unit.Draw(ref draw, frame.UiPx, frame.PointerPx, world, claimed);
 
                 // The legend is furniture, has no switch, and is drawn from the moment a town is standing.
-                ScaleLegend.Draw(ref draw, frame.UiPx, frame.Camera.PixelsPerMetre);
+                _legend.Draw(ref draw, frame.UiPx, frame.Camera.PixelsPerMetre);
             }
         }
 

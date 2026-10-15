@@ -90,7 +90,7 @@ public class ScaleLegendTests
         var quads = new OverlayQuad[512];
         var draw = new ScreenDraw(quads);
 
-        ScaleLegend.Draw(ref draw, uiPx, pixelsPerMetre: 8f);
+        new ScaleLegend().Draw(ref draw, uiPx, pixelsPerMetre: 8f);
 
         Assert.True(draw.Written > 0);
         for (var quad = 0; quad < draw.Written; quad++)
@@ -110,9 +110,30 @@ public class ScaleLegendTests
     {
         var quads = new OverlayQuad[512];
         var draw = new ScreenDraw(quads);
-        ScaleLegend.Draw(ref draw, new Vector2(1024f, 768f), pixelsPerMetre);
+        new ScaleLegend().Draw(ref draw, new Vector2(1024f, 768f), pixelsPerMetre);
 
         // The bar is the first pair of quads: the shadow behind it, then the bar itself.
         return quads[1].HalfSize.X * 2f;
+    }
+
+    /// <summary>A legend that has drawn one zoom draws the next one exactly as a legend that never drew the first.</summary>
+    [Fact]
+    public void ALegendKeptFromTheLastFrameIsRelaidWhenTheZoomMoves()
+    {
+        var uiPx = new Vector2(1024f, 768f);
+        var kept = new ScaleLegend();
+        var discarded = new OverlayQuad[512];
+        var first = new ScreenDraw(discarded);
+        kept.Draw(ref first, uiPx, pixelsPerMetre: 2f);
+
+        var keptQuads = new OverlayQuad[512];
+        var keptDraw = new ScreenDraw(keptQuads);
+        kept.Draw(ref keptDraw, uiPx, pixelsPerMetre: 40f);
+
+        var freshQuads = new OverlayQuad[512];
+        var freshDraw = new ScreenDraw(freshQuads);
+        new ScaleLegend().Draw(ref freshDraw, uiPx, pixelsPerMetre: 40f);
+
+        Assert.Equal(freshQuads.AsSpan(0, freshDraw.Written), keptQuads.AsSpan(0, keptDraw.Written));
     }
 }

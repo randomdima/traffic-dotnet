@@ -21,8 +21,13 @@ namespace TrafficSimulation.App.Hud;
 /// bar and the text carry their own outline against the town instead of a panel, because a panel in
 /// the corner of every frame is a piece of the town nobody can see.
 /// </para>
+/// <para>
+/// <b>What it lays is a function of the frame's size and the zoom alone</b>, so the quads are kept in
+/// an array of its own and copied out while neither has moved — never read back from the frame's
+/// buffer, which is write-combined memory the device reads.
+/// </para>
 /// </remarks>
-internal static class ScaleLegend
+internal sealed class ScaleLegend
 {
     /// <summary>About how long the bar is meant to come out. It ends on a large mark, so it lands near this rather than on it.</summary>
     const float TargetPx = 190f;
@@ -54,7 +59,35 @@ internal static class ScaleLegend
     /// </summary>
     const int WantedMarks = 4;
 
-    public static void Draw(ref ScreenDraw draw, Vector2 uiPx, float pixelsPerMetre)
+    const int MostMarks = 8;
+
+    /// <summary>The longest figure the buffer it is written into holds.</summary>
+    const int MostFigureChars = 16;
+
+    /// <summary>The most the legend can lay: the bar, every graduation, and every figure at its longest, outlined.</summary>
+    const int MostQuads = 2 * (1 + (MostMarks * SmallPerLarge) + 1)
+                          + ((MostMarks + 1) * MostFigureChars * ScreenDraw.OutlinedTextPasses);
+
+    readonly OverlayQuad[] _laid = new OverlayQuad[MostQuads];
+    int _laidQuads;
+    Vector2 _laidForUiPx;
+    float _laidForPixelsPerMetre = float.NaN;
+
+    public void Draw(ref ScreenDraw draw, Vector2 uiPx, float pixelsPerMetre)
+    {
+        if (uiPx != _laidForUiPx || pixelsPerMetre != _laidForPixelsPerMetre)
+        {
+            var laying = new ScreenDraw(_laid);
+            Lay(ref laying, uiPx, pixelsPerMetre);
+            _laidQuads = laying.Written;
+            _laidForUiPx = uiPx;
+            _laidForPixelsPerMetre = pixelsPerMetre;
+        }
+
+        draw.Take(_laid.AsSpan(0, _laidQuads));
+    }
+
+    static void Lay(ref ScreenDraw draw, Vector2 uiPx, float pixelsPerMetre)
     {
         if (pixelsPerMetre <= 0f) return;
 
@@ -71,7 +104,7 @@ internal static class ScaleLegend
         // Whichever whole number of marks lands nearest the held length, rather than the largest that
         // fits under it: a step twice as coarse as the last one would otherwise halve the bar.
         var spacingPerMarkPx = stepM * pixelsPerMetre;
-        var marks = Math.Clamp((int)MathF.Round(TargetPx / spacingPerMarkPx), 1, 8);
+        var marks = Math.Clamp((int)MathF.Round(TargetPx / spacingPerMarkPx), 1, MostMarks);
         while (marks > 1 && marks * spacingPerMarkPx > TargetPx * MostOverPx) marks--;
 
         var barPx = marks * stepM * pixelsPerMetre;
@@ -99,7 +132,7 @@ internal static class ScaleLegend
         // distance rather than as a decoration. Written from the right, because the figure that has to
         // survive is the one carrying the unit: the last is also the widest and the only one pulled off
         // its own mark, so a run written left to right is a run whose last two collide.
-        Span<char> text = stackalloc char[16];
+        Span<char> text = stackalloc char[MostFigureChars];
         var placedLeftPx = float.MaxValue;
         var textTopY = barTopY - LargeMarkPx - Theme.SmallTextPx - 3f;
         for (var mark = marks; mark >= 0; mark--)
