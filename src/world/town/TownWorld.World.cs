@@ -135,8 +135,10 @@ internal sealed partial class TownWorld
     /// </summary>
     void SignalTheFollow(int car)
     {
+        // A laneless line — a manoeuvre at a bay — is read along by nothing (<see cref="LineFollowed.None"/>), so its
+        // progress moving is nothing to tell the world, and only its laying is.
         var laid = Cars.LinesLaid[car];
-        if (laid == _followedLaid[car] && Cars.ProgressM[car] == _progressRead[car]) return;
+        if (laid == _followedLaid[car] && (Cars.Line[car].LaneCount == 0 || Cars.ProgressM[car] == _progressRead[car])) return;
 
         _followedLaid[car] = laid;
         _progressRead[car] = Cars.ProgressM[car];

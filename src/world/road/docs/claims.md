@@ -180,9 +180,10 @@ it, and only something that beats it takes it.
 
 - **A plan begins at its holder's front.** Ground behind the nose is ground the body is on or has passed,
   never road it was granted, so nothing behind the nose can be what ends a grant.
-- **A car's plan is kept from one laying to the next** (root decision log, 2026-10-14): between its turns to plan
-  (TER-49), and at a turn while it still serves — asked further from where it ends where the car needs
-  more or what cut it has gone, and let go of behind the nose as the car drives on. **Ground a laying before granted
+- **A car's plan, and a walker's walk down its route, is kept from one laying to the next** (root decision log,
+  2026-10-14): between its turns to plan (TER-49), and at a turn while it still serves — asked further from where it
+  ends where its holder needs more or what cut it has gone, and let go of behind the front as its holder goes on. A
+  light's hold is kept while it would be placed as it stands. **Ground a laying before granted
   is cut where a stronger rung takes it** and its holder has not committed to it (TER-5e), or where a body comes to
   stand on it; of one rung, what is held keeps.
 - **Nothing but the answer stops a plan.** A red is ground: the light holds its bar (`TLT-1`), and a plan

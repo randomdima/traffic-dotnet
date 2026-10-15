@@ -32,12 +32,13 @@ public class TickGroupsTests
 
     /// <summary>
     /// The stagger is what stops the town's work spiking on one tick: over any window of a whole
-    /// interval, each member takes exactly one turn and the load is spread evenly across the ticks.
+    /// interval, each member takes exactly one turn and the load is spread evenly across the ticks —
+    /// to the member where the roster is whole runs of every group, and to a run where it is not.
     /// </summary>
     [Fact]
     public void TheTownsWorkIsSpreadAcrossTheTicksRatherThanSpikingOnOne()
     {
-        const int Members = 600;
+        const int Members = 960;
         var groups = new TickGroups(0.1f, 60);
 
         var perTick = new int[groups.Groups];
@@ -57,20 +58,34 @@ public class TickGroupsTests
         Assert.All(perTick, count => Assert.Equal(Members / groups.Groups, count));
     }
 
-    /// <summary>The decide loop steps from <see cref="TickGroups.FirstInTurn"/> by the groups, so that is every member whose turn it is.</summary>
-    [Theory]
-    [InlineData(0.1f)]
-    [InlineData(0f)]
-    public void SteppingFromTheFirstInTurnFindsExactlyTheMembersWhoseTurnItIs(float intervalS)
+    [Fact]
+    public void ARosterOfPartRunsIsSpreadToWithinARun()
     {
-        const int Members = 40;
+        const int Members = 1000;
+        var groups = new TickGroups(0.1f, 60);
+        var perTick = new int[groups.Groups];
+        for (var tick = 0; tick < groups.Groups; tick++)
+        {
+            foreach (var _ in groups.InTurn(tick, Members)) perTick[tick]++;
+        }
+
+        Assert.InRange(perTick.Max() - perTick.Min(), 0, TickGroups.RunOfMembers);
+    }
+
+    /// <summary>The decide loop walks <see cref="TickGroups.InTurn"/>, so that is every member whose turn it is.</summary>
+    [Theory]
+    [InlineData(0.1f, 40)]
+    [InlineData(0.1f, 250)]
+    [InlineData(0f, 40)]
+    public void WalkingTheTurnFindsExactlyTheMembersWhoseTurnItIs(float intervalS, int members)
+    {
         var groups = new TickGroups(intervalS, 60);
         for (var tick = 0L; tick < 3 * groups.Groups; tick++)
         {
             var stepped = new List<int>();
-            for (var member = groups.FirstInTurn(tick); member < Members; member += groups.Groups) stepped.Add(member);
+            foreach (var member in groups.InTurn(tick, members)) stepped.Add(member);
 
-            Assert.Equal(Enumerable.Range(0, Members).Where(member => groups.Turn(tick, member)), stepped);
+            Assert.Equal(Enumerable.Range(0, members).Where(member => groups.Turn(tick, member)), stepped);
         }
     }
 

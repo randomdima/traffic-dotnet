@@ -89,6 +89,25 @@ internal static class LineReading
         followed.OffLineM = (sample.PointM - rearAxleM).Length();
     }
 
+    /// <summary>
+    /// <b>The point the wheel is aimed at</b> (S-1): what follows sampled a lookahead past the reading, as
+    /// <c>CarFollower.Steer</c> samples the car's own line — <paramref name="atM"/> where it was, and NaN where the
+    /// lookahead runs past the end of what the car follows, whose line may run on past it.
+    /// </summary>
+    public static Vector2 Lead(RoadGraph roads, in LineFollowed followed, float lookaheadM, out float atM)
+    {
+        atM = float.NaN;
+        if (followed.Lane < 0 || float.IsNaN(followed.ProgressM)) return default;
+
+        var aheadM = followed.ProgressM + lookaheadM;
+        var sample = new Sample(aheadM);
+        Walk(roads, followed, ref sample);
+        if (sample.RunsPast) return default;
+
+        atM = aheadM;
+        return sample.PointM;
+    }
+
     interface IPieces
     {
         /// <returns>Whether the walk goes on.</returns>
@@ -169,6 +188,9 @@ internal static class LineReading
         bool _held;
 
         public readonly Vector2 PointM => _piece.PointAtM(MathF.Min(_remainingM - _pieceStartM, _piece.LengthM));
+
+        /// <summary>Whether the distance lies past the last piece, where the point is held at its end.</summary>
+        public readonly bool RunsPast => _remainingM - _pieceStartM > _piece.LengthM;
 
         public bool Take(in ArcSeg piece)
         {

@@ -41,6 +41,15 @@ internal struct CarView
     /// <summary>Which follow the reading was taken against (<see cref="LineFollowed.Serial"/>).</summary>
     public uint FollowSerial;
 
+    /// <summary>
+    /// How far along the line the wheel was aimed at (<see cref="AimRad"/>): the reading and the lookahead at the speed the
+    /// step left (<see cref="LineReading.Lead"/>), or NaN where that runs past what the car follows.
+    /// </summary>
+    public float LeadAtM;
+
+    /// <summary>The wheel pure pursuit asks for to pass through that point of the line (S-1, <c>CarFollower.AimAt</c>).</summary>
+    public float AimRad;
+
     readonly uint _pad;
 
     public const uint Frozen = 1, FrozenThroughLastStep = 2;

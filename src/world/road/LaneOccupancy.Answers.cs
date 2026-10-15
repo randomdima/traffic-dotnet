@@ -117,6 +117,9 @@ internal sealed partial class LaneOccupancy
             main = Insert(wish, fromDm, toDm, key);
         }
 
+        // A piece refused where it begins has nothing of it had, and no mark with it.
+        if (main == NoSlot) marksTaken = 0;
+
         foreach (ref readonly var mark in _wishes.AsSpan(index + 1, marksTaken))
         {
             TakeOver(mark, mark.FromDm, mark.ToDm, key);
@@ -387,7 +390,9 @@ internal sealed partial class LaneOccupancy
         var last = NoSlot;
         for (var at = row.FirstClaim; at != from; at = _owners[at].HoldNext) last = at;
 
-        // The shortened main claim, then the marks taken with it short of where it now ends; nothing past the cut claim.
+        // The shortened main claim, then the marks taken with it short of where it now ends; nothing past the cut claim, and
+        // no mark of a main claim nothing is left of — a plan trimmed behind its holder keeps the marks it still stands
+        // in, which begin short of its main claim's near edge, and none of them is ground it plans from there.
         var mainLeft = false;
         var past = false;
         for (var at = from; at != NoSlot;)
@@ -400,10 +405,9 @@ internal sealed partial class LaneOccupancy
                 if (mainLeft) last = Link(hold, last, at);
                 else LetGo(at);
             }
-            else if (!past && shortened != NoSlot && _owners[at].Main == shortened
+            else if (!past && mainLeft && _owners[at].Main == shortened
                      && (against ? _owners[at].AtDm >= endDm : _owners[at].AtDm <= endDm))
             {
-                if (!mainLeft) _owners[at].Main = NoSlot;
                 last = Link(hold, last, at);
             }
             else

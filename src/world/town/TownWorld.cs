@@ -331,6 +331,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _carHold = _ground.PlanHold;
         _decisions = new TickGroups(config.Sim.AgentDecisionIntervalS, config.Sim.TickRateHz);
         _walkersInTurn = new int[People.Capacity];
+        _carsInTurn = new int[Cars.Capacity];
         _carActions = new CarActions(_ground, _manoeuvres);
         _overtaking = new Overtaking(_ground, _carActions);
         _switching = new Switching(_ground, _carActions);
@@ -346,8 +347,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _stoodTick = new StoodTick[drivers];
         _refusedALane = new bool[drivers];
         _exitRefusedAtS = new float[drivers];
-        Array.Fill(_exitRefusedAtS, float.NegativeInfinity);
-        _asksTheRoute = new bool[drivers];
+        Array.Fill(_exitRefusedAtS, float.NegativeInfinity);        _asksTheRoute = new bool[drivers];
         _wounded = new AgentSet(walkers);
         _wrecked = new AgentSet(drivers);
         _standing = new StandingCars(drivers);
@@ -414,6 +414,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
         // After the world, which reads every body onto its ways as it is stood: a car takes the lane its wheels are on.
         DriveTheEmptyMap();
+        SeatTheOwners();
 
         StoodMs = Stopwatch.GetElapsedTime(stoodAt).TotalMilliseconds;
     }
@@ -919,16 +920,21 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <summary><b>A car's own tick by the town</b>, nothing for one that stands parked.</summary>
     public void TickTheCar(int car)
     {
+        // The roster ticks its cars in order, and each car's line is a block of its own that order meets cold.
+        var ahead = car + PrefetchAhead;
+        if (ahead < Cars.Count && !_standsParked[ahead]) Cars.PrefetchTheLine(ahead);
+
         if (StandsParked(car)) return;
 
         _standsParked[car] = false;
         if (TicksAsBefore(car)) return;
 
         var commandWas = Cars.Command[car];
+        var progressWasM = Cars.ProgressM[car];
         TickCar(car);
         SignalTheShow(car);
         SignalTheFollow(car);
-        KeepTheTick(car, commandWas);
+        KeepTheTick(car, commandWas, progressWasM);
     }
 
     /// <summary>

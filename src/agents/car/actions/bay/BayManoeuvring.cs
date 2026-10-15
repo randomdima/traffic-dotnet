@@ -51,6 +51,30 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     /// <summary>The hold each car's manoeuvre was asked in this rebuild, or <see cref="LaneOccupancy.NoHold"/>.</summary>
     readonly int[] _holds = LaneOccupancy.NoHolds(manoeuvres.Piece.Length);
 
+    /// <summary>
+    /// <b>The street under each piece of a car's manoeuvre, whole</b> (<see cref="StreetUnder"/> from its start, no room
+    /// to spare): a shape's own until it is shaped again, which is only ever followed by an ask — so it is swept once an
+    /// ask (<see cref="_sweptFor"/>), not at every rebuild it is laid in. <see cref="BayStreets.MostLanes"/> runs a piece.
+    /// </summary>
+    readonly StreetRun[] _swept = new StreetRun[manoeuvres.Piece.Length * BayManoeuvre.MostPieces * BayStreets.MostLanes];
+
+    readonly byte[] _sweptRuns = new byte[manoeuvres.Piece.Length * BayManoeuvre.MostPieces];
+
+    /// <summary>The ask each car's <see cref="_swept"/> was swept for; none before its first.</summary>
+    readonly long[] _sweptFor = new long[manoeuvres.Piece.Length];
+
+    /// <summary>
+    /// <b>The street under each piece of a car's shape, with room to spare</b> (<see cref="OverTheGround"/>): the shape's
+    /// own until it is shaped again (<see cref="Manoeuvres.ShapedAs"/>), so a car waiting in its bay to pull out, asking the
+    /// same shape every <see cref="DrivingFigures.ManoeuvreAskEveryS"/>, sweeps it once.
+    /// </summary>
+    readonly StreetRun[] _spared = new StreetRun[manoeuvres.Piece.Length * BayManoeuvre.MostPieces * BayStreets.MostLanes];
+
+    readonly byte[] _sparedRuns = new byte[manoeuvres.Piece.Length * BayManoeuvre.MostPieces];
+
+    /// <summary>The shape each car's <see cref="_spared"/> was swept for; none before its first.</summary>
+    readonly uint[] _sparedFor = new uint[manoeuvres.Piece.Length];
+
     CarFleet Cars => ground.Cars;
 
     LaneOccupancy Occupancy => ground.Occupancy;
@@ -250,16 +274,40 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
         Span<StreetRun> runs = stackalloc StreetRun[BayStreets.MostLanes];
         for (var piece = firstPiece; piece < shape.Pieces; piece++)
         {
-            var line = manoeuvres.PieceOf(car, piece);
-            var fromM = begun && piece == firstPiece ? progressM : 0f;
-            var count = StreetUnder(car, manoeuvres.Bay[car], line, shape.IsReverse(piece), fromM, 0f, runs);
-            foreach (ref readonly var run in runs[..count])
+            var under = begun && piece == firstPiece
+                ? runs[..StreetUnder(
+                    car, manoeuvres.Bay[car], manoeuvres.PieceOf(car, piece), shape.IsReverse(piece), progressM, 0f, runs)]
+                : SweptWhole(car, piece);
+            foreach (ref readonly var run in under)
             {
                 var stopsAtM = piece > firstPiece ? endsM : ground.StopsShortOfM(car, run.FirstAtM);
                 Occupancy.AskSwept(hold, run.Way, run.FromM, run.ToM, stopsAtM, rung);
             }
         }
     }
+
+    /// <summary>The street under one piece of a car's manoeuvre from its start (<see cref="_swept"/>), swept at the first ask that needs it.</summary>
+    ReadOnlySpan<StreetRun> SweptWhole(int car, int piece)
+    {
+        if (_sweptFor[car] != _askedAs[car])
+        {
+            var shape = manoeuvres.Shape[car];
+            for (var each = 0; each < shape.Pieces; each++)
+            {
+                _sweptRuns[(car * BayManoeuvre.MostPieces) + each] = (byte)StreetUnder(
+                    car, manoeuvres.Bay[car], manoeuvres.PieceOf(car, each), shape.IsReverse(each), 0f, 0f, SweptOf(car, each));
+            }
+
+            _sweptFor[car] = _askedAs[car];
+        }
+
+        return SweptOf(car, piece)[.._sweptRuns[(car * BayManoeuvre.MostPieces) + piece]];
+    }
+
+    Span<StreetRun> SweptOf(int car, int piece) => RunsOf(_swept, car, piece);
+
+    static Span<StreetRun> RunsOf(StreetRun[] table, int car, int piece) =>
+        table.AsSpan(((car * BayManoeuvre.MostPieces) + piece) * BayStreets.MostLanes, BayStreets.MostLanes);
 
     /// <summary>
     /// <b>What a car's manoeuvre grants it</b>: once begun, the whole of its ground short of whatever refuses its hold
@@ -282,17 +330,24 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     /// not asked one rebuild and withdrawn the next. False at the first stretch that is not. Whether a plan holds any of
     /// it is answered when it is laid, after every plan of its rung.
     /// </summary>
-    [SkipLocalsInit]
     bool OverTheGround(int car)
     {
         var shape = manoeuvres.Shape[car];
-        Span<StreetRun> runs = stackalloc StreetRun[BayStreets.MostLanes];
+        if (_sparedFor[car] != manoeuvres.ShapedAs[car])
+        {
+            for (var piece = 0; piece < shape.Pieces; piece++)
+            {
+                _sparedRuns[(car * BayManoeuvre.MostPieces) + piece] = (byte)StreetUnder(
+                    car, manoeuvres.Bay[car], manoeuvres.PieceOf(car, piece), shape.IsReverse(piece), 0f,
+                    Config.Driving.PassSpareM, RunsOf(_spared, car, piece));
+            }
+
+            _sparedFor[car] = manoeuvres.ShapedAs[car];
+        }
+
         for (var piece = 0; piece < shape.Pieces; piece++)
         {
-            var count = StreetUnder(
-                car, manoeuvres.Bay[car], manoeuvres.PieceOf(car, piece), shape.IsReverse(piece), 0f, Config.Driving.PassSpareM,
-                runs);
-            foreach (ref readonly var run in runs[..count])
+            foreach (ref readonly var run in RunsOf(_spared, car, piece)[.._sparedRuns[(car * BayManoeuvre.MostPieces) + piece]])
             {
                 if (Occupancy.AnyBodyOver(run.Way, run.FromM, run.ToM, car, LaneRoster.Driving)) return false;
             }

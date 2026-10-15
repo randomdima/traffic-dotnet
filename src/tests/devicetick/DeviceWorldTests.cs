@@ -53,7 +53,8 @@ public class DeviceWorldTests(Lavapipe device) : IClassFixture<Lavapipe>
     /// <summary>
     /// <b>A car is read along its line on the device where the managed world reads it</b> (<c>line_reading.glsl</c>,
     /// <see cref="LineReading"/>): every car of a town put down on a lane, on and off it, told to follow it — on into the
-    /// join and the next lane, and cut short — and the same progress and distance off read back, to the bit.
+    /// join and the next lane, and cut short — and the same progress, distance off and point the wheel is aimed at read
+    /// back, to the bit.
     /// </summary>
     [Fact]
     public void ACarIsReadAlongItsLineOnTheDeviceAsInTheManagedWorld()
@@ -97,9 +98,15 @@ public class DeviceWorldTests(Lavapipe device) : IClassFixture<Lavapipe>
         for (var car = 0; car < cars; car++)
         {
             var (one, other) = (managed.View.Cars[car], onTheDevice.View.Cars[car]);
-            var reading = (Bits(one.ProgressM), Bits(one.OffLineM), one.FollowSerial);
-            var otherReading = (Bits(other.ProgressM), Bits(other.OffLineM), other.FollowSerial);
-            if (!reading.Equals(otherReading)) unlike.Add($"car {car}: {one.ProgressM} {one.OffLineM} against {other.ProgressM} {other.OffLineM}");
+            var reading = (Bits(one.ProgressM), Bits(one.OffLineM), one.FollowSerial, Bits(one.LeadAtM), Bits(one.AimRad));
+            var otherReading = (
+                Bits(other.ProgressM), Bits(other.OffLineM), other.FollowSerial, Bits(other.LeadAtM), Bits(other.AimRad));
+            if (!reading.Equals(otherReading))
+            {
+                unlike.Add(
+                    $"car {car}: {one.ProgressM} {one.OffLineM} {one.LeadAtM} {one.AimRad} against " +
+                    $"{other.ProgressM} {other.OffLineM} {other.LeadAtM} {other.AimRad}");
+            }
             read += float.IsNaN(one.ProgressM) ? 0 : 1;
         }
 

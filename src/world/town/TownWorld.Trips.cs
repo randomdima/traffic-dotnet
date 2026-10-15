@@ -193,7 +193,7 @@ internal sealed partial class TownWorld
         var car = People.Car[person];
         var carToHand = !aboard && HasTheCarToHand(person);
         var fromM = aboard ? Cars.PositionM[car] : People.PositionM[person];
-        var from = aboard ? RoadPlaceOfCar(car) : RoadPlaceOfWalker(person);
+        var from = aboard ? SetsOffFrom(car) : RoadPlaceOfWalker(person);
         var reachM = aboard || carToHand ? _config.PersonTripReachM : _config.PersonWalkReachM;
         ref var draw = ref People.Draw[person];
         for (var attempt = 0; attempt < DrawsPerTrip; attempt++)

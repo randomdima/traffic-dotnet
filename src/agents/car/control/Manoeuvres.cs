@@ -49,6 +49,7 @@ internal sealed class Manoeuvres
         Lane = new int[cars];
         Piece = new int[cars];
         StreetM = new float[cars];
+        ShapedAs = new uint[cars];
         Array.Fill(Bay, NoBay);
         Array.Fill(Lane, NoLane);
     }
@@ -62,6 +63,12 @@ internal sealed class Manoeuvres
     public ManoeuvreKind[] Kind { get; }
 
     public ManoeuvreStage[] Stage { get; }
+
+    /// <summary>
+    /// How many shapes each car has been handed (<see cref="Shaped"/>) — what says a sweep of one is a sweep of the shape in
+    /// hand. None before the first.
+    /// </summary>
+    public uint[] ShapedAs { get; }
 
     /// <summary>The bay the manoeuvre is into or out of.</summary>
     public int[] Bay { get; }
@@ -107,6 +114,7 @@ internal sealed class Manoeuvres
         Lane[car] = lane;
         Piece[car] = 0;
         StreetM[car] = streetM;
+        ShapedAs[car]++;
     }
 
     public void Clear(int car)

@@ -553,6 +553,12 @@ internal sealed class ManagedWorld : WorldLayer
             row.ProgressM = followed.ProgressM;
             row.OffLineM = followed.OffLineM;
             row.FollowSerial = followed.Serial;
+
+            var lookaheadM = CarFollower.LookaheadM(
+                _build[car], MathF.Abs(Vector2.Dot(row.VelocityMps, row.Forward)), Config.Driving.LookaheadS);
+            var rearAxleM = CarFollower.RearAxleM(_build[car], row.PositionM, row.Forward);
+            var leadM = LineReading.Lead(_roads, followed, lookaheadM, out row.LeadAtM);
+            row.AimRad = float.IsNaN(row.LeadAtM) ? 0f : CarFollower.AimAt(_build[car], rearAxleM, row.Forward, leadM);
         }
 
         var walkers = view.Walkers;

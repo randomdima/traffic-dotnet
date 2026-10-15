@@ -63,16 +63,14 @@ internal static class LineReader
     }
 
     /// <summary>
-    /// <b>Whether the line has run short of the car's sight</b> with road past its end to grow it over — what its next
-    /// decision lays the rest of. A line ending where the leg does is not grown, and neither is one already as long as a
-    /// line is laid.
+    /// <b>Whether the line has run short of the car's sight</b>, and could be grown — what its next decision lays the rest of,
+    /// where road runs on past its end. A line ending where the leg does is not grown, and neither is one already as long
+    /// as a line is laid.
     /// </summary>
-    /// <param name="roadRunsOn">Whether any lane leaves the line's last one.</param>
-    public static bool RunsShort(CarFleet cars, int car, float progressM, bool roadRunsOn) =>
+    public static bool RunsShort(CarFleet cars, int car, float progressM) =>
         cars.Line[car].LengthM - progressM < cars.BuildOf(car).SightM
         && cars.Line[car].LaneCount < LineAssembler.MostLanes
-        && !EndsWhereTheLegDoes(cars, car)
-        && roadRunsOn;
+        && !EndsWhereTheLegDoes(cars, car);
 
     /// <summary>Whether the line ends where the leg does — at the bay it stops for, or the place it was sent to.</summary>
     public static bool EndsWhereTheLegDoes(CarFleet cars, int car) =>

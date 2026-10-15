@@ -79,6 +79,7 @@ internal sealed class DeviceWorld : WorldLayer
         public float HitchSideShare;
         public float OnTheTrailerAxleShare;
         public uint CarCount;
+        public float LookaheadS;
     }
 
     /// <summary>The covers kernel's push constants (<c>world_covers.comp</c>): the atlas's, then the bodies'.</summary>
@@ -265,6 +266,7 @@ internal sealed class DeviceWorld : WorldLayer
             HitchSideShare = config.Evacuator.HitchSideShare,
             OnTheTrailerAxleShare = config.Evacuator.OnTheTrailerAxleShare,
             CarCount = (uint)_cars,
+            LookaheadS = config.Driving.LookaheadS,
         };
 
         // Every car read off its body as laid, and the first view and covers off the world as it was laid, before any step.

@@ -1,5 +1,13 @@
 # The kernel — decision log
 
+## 2026-10-15 — a tick owed past a frame's cap waits for the next frame
+
+**Dropped, it cost a town with time to spare a tenth of real time.** Once O30's frame fitted inside the display's
+period (13.5 ms of 16.7), the window ran 60 fps and 0.9 ticks a frame: vsync beating against the tick's own period left
+the clock's remainder on a tick's edge, so a frame a hair early was owed none and the next owed two, and the clock
+dropped the second (SIM-9's cap). **One tick past the cap is now kept** and the rest still dropped: at real time a frame
+still runs one tick at most and draws it, and a tick slower than its time still slows the town by what it is late.
+
 ## 2026-10-10 — every quotient and root a kernel shares with the host is the nearest float
 
 **The suite runs its kernels on lavapipe, which rounds a quotient and a root to the nearest as the host does; the GPU

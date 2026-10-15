@@ -96,6 +96,8 @@ struct CarViewRow
     float progressM;
     float offLineM;
     uint followSerial;
+    float leadAtM;
+    float aimRad;
     uint pad;
 };
 

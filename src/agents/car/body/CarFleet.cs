@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Geometry;
@@ -568,6 +569,25 @@ internal sealed class CarFleet
         RouteRunsOut[car] = false;
         RouteEndsOn[car] = NoLane;
         TurnsBackOn[car] = NoLane;
+    }
+
+    /// <summary>
+    /// <b>A car's line asked of memory ahead of its reading</b> — where its walks begin (<see cref="LineCursor"/>), its
+    /// lanes' metres, its chain and its joins: each car's line is a block of its own, which a walk of the fleet in order
+    /// meets cold. A hint and nothing else.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public unsafe void PrefetchTheLine(int car)
+    {
+        if (!System.Runtime.Intrinsics.X86.Sse.IsSupported || (uint)car >= (uint)Count) return;
+
+        var arc = (car * _arcsPerCar) + Math.Min(LineCursor[car].Piece, _arcsPerCar - 1);
+        System.Runtime.Intrinsics.X86.Sse.Prefetch0(Unsafe.AsPointer(ref LineArcs[arc]));
+        System.Runtime.Intrinsics.X86.Sse.Prefetch0(Unsafe.AsPointer(ref LineEntryM[arc]));
+        System.Runtime.Intrinsics.X86.Sse.Prefetch0(Unsafe.AsPointer(ref LaneStartM[car * LineAssembler.MostLanes]));
+        System.Runtime.Intrinsics.X86.Sse.Prefetch0(Unsafe.AsPointer(ref LaneEndM[car * LineAssembler.MostLanes]));
+        System.Runtime.Intrinsics.X86.Sse.Prefetch0(Unsafe.AsPointer(ref Joins[car * LineAssembler.MostLanes]));
+        System.Runtime.Intrinsics.X86.Sse.Prefetch0(Unsafe.AsPointer(ref LaneChain[car * LineAssembler.MostLanes]));
     }
 
     public Span<ArcSeg> LineArcsOf(int car) => LineArcs.AsSpan(car * _arcsPerCar, _arcsPerCar);

@@ -205,6 +205,41 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
+    /// The owners laid at their wheel (<see cref="Core.Config.PersonFigures.StartsAtTheWheelShare"/>). <b>After the
+    /// world</b>: a trip drawn at a wheel is drawn from the ways the car stands on, which the world reads.
+    /// </summary>
+    void SeatTheOwners()
+    {
+        if (_config.Person.StartsAtTheWheelShare <= 0f) return;
+
+        for (var person = 0; person < People.Count; person++)
+        {
+            if (StartsAtTheWheel(person)) SeatAtTheWheel(person);
+        }
+    }
+
+    /// <summary>Whether an owner is one of those laid at their wheel.</summary>
+    /// <remarks>Drawn only where the share is set: a draw taken at none would move every later draw of the person's stream.</remarks>
+    bool StartsAtTheWheel(int person) =>
+        People.Car[person] != PersonFleet.NoCar
+        && _config.Person.StartsAtTheWheelShare > 0f
+        && People.Draw[person].NextFloat() < _config.Person.StartsAtTheWheelShare;
+
+    /// <summary>
+    /// An owner laid out of their dwell and in at their own wheel (<see cref="Core.Config.PersonFigures.StartsAtTheWheelShare"/>),
+    /// the trip drawn from the bay as a trip begun at a wheel is (PER-29).
+    /// </summary>
+    void SeatAtTheWheel(int person)
+    {
+        var car = People.Car[person];
+        if (!_containers.IsFree(car)) return;
+
+        _containers.LeaveBuilding(_containers.WhereIs(person).Index, person);
+        _containers.TryBoard(car, person);
+        DrawTrip(person);
+    }
+
+    /// <summary>
     /// The building whose way in this body is standing at, or −1 — the nearest one within touching reach
     /// of the door, which on a street of terraces is the difference between somebody's own house and
     /// their neighbour's. <b>Read off the pose the plan left it in</b> (GEN-7): a plan says somebody lives

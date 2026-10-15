@@ -288,4 +288,43 @@ void lineRead(inout LineFollowedRow followed, vec2 rearAxleM, float windowM)
     followed.offLineM = roundedLength(offLine);
 }
 
+// LineReading.Lead: the point a lookahead past the reading, and how far along it was taken — NaN where that runs past the
+// last piece of the stretch.
+vec2 lineLead(LineFollowedRow followed, float lookaheadM, out float atM)
+{
+    // float.NaN's own bits, as the managed world writes it.
+    atM = uintBitsToFloat(0xffc00000u);
+    if (followed.lane < 0 || isnan(followed.progressM)) return vec2(0.0);
+
+    precise float aheadM = followed.progressM + lookaheadM;
+    float remainingM = lineMax(0.0, aheadM);
+    LaneArc held = LaneArc(vec2(0.0), vec2(0.0), 0.0, 0.0, 0.0, 0.0);
+    float heldStartM = 0.0;
+    bool holds = false;
+    LaneArc piece;
+    LinePieces pieces = lineBegin(followed);
+    while (lineNext(pieces, followed, piece))
+    {
+        if (!holds)
+        {
+            held = piece;
+            holds = true;
+            continue;
+        }
+
+        precise float pastM = remainingM - heldStartM;
+        if (pastM <= held.lengthM) break;
+
+        precise float nextStartM = heldStartM + held.lengthM;
+        heldStartM = nextStartM;
+        held = piece;
+    }
+
+    precise float intoM = remainingM - heldStartM;
+    if (intoM > held.lengthM) return vec2(0.0);
+
+    atM = aheadM;
+    return linePointAt(held, lineMin(intoM, held.lengthM));
+}
+
 #endif

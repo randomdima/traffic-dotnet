@@ -29,6 +29,9 @@ internal struct PhaseTimes
     /// </summary>
     public long WorstTickTicks, WorstIndexTicks;
 
+    /// <summary>Which tick of the loop's <see cref="WorstTickTicks"/> was, so a peak can be told from the turn it fell on.</summary>
+    public long WorstTickAt;
+
     public long Ticks;
 
     public readonly long TotalTicks => InputTicks + IndexTicks + AgentTicks + BodyTicks + ContactTicks;
@@ -163,7 +166,7 @@ internal sealed class SimLoop<TWorld> where TWorld : ISimWorld
         // The last mark's own timestamp is the tick's end, so measuring the whole costs no sixth call.
         var wholeTicks = Phases.Mark(ref Phases.ContactTicks, stamp) - began;
         Phases.WholeTicks += wholeTicks;
-        Phases.WorstTickTicks = Math.Max(Phases.WorstTickTicks, wholeTicks);
+        if (wholeTicks > Phases.WorstTickTicks) (Phases.WorstTickTicks, Phases.WorstTickAt) = (wholeTicks, Tick);
         Phases.Ticks++;
         Tick++;
     }

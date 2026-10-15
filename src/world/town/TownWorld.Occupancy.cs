@@ -51,6 +51,13 @@ internal sealed partial class TownWorld
 
     ReadOnlySpan<int> WalkersInTurn => _walkersInTurn.AsSpan(0, _walkersInTurnCount);
 
+    /// <summary>The cars whose turn it is, in roster order.</summary>
+    readonly int[] _carsInTurn;
+
+    int _carsInTurnCount;
+
+    ReadOnlySpan<int> CarsInTurn => _carsInTurn.AsSpan(0, _carsInTurnCount);
+
     /// <summary>
     /// <b>The agents whose turn it is, claiming</b>, once they have decided (<see cref="DecideTheAgents"/>) — so each
     /// claims down the line it has just decided on, and reads what it came to before its next tick. Every body first and
@@ -65,8 +72,8 @@ internal sealed partial class TownWorld
     {
         var at = System.Diagnostics.Stopwatch.GetTimestamp();
         _layings++;
-        var (first, step) = everyone ? (0, 1) : (_decisions.FirstInTurn(tick), _decisions.Groups);
-        TheAgentsInTurn(first, step);
+        var turns = everyone ? new TickGroups(0f, 1) : _decisions;
+        TheAgentsInTurn(turns, tick);
 
         // Where each walker stands on its walk, before anything is laid: its body and its plan both begin from it.
         foreach (var person in WalkersInTurn) StationTheWalker(person);
@@ -83,12 +90,21 @@ internal sealed partial class TownWorld
 
         // A light's hold is placed where it stands, as far as the first body on its way (TLT-1).
         at = Spent(LayingStage.Passes, at);
-        var turns = everyone ? new TickGroups(0f, 1) : _decisions;
         _signalHolds.Lay(_occupancy, _signals, _elapsedS, turns, tick);
 
         at = Spent(LayingStage.Lights, at);
         Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];
-        foreach (var car in CarsAsked) PlanTheDrive(car, ways);
+        var asked = CarsAsked;
+        for (var slot = 0; slot < asked.Length; slot++)
+        {
+            if (slot + PrefetchAhead < asked.Length)
+            {
+                _occupancy.Prefetch(_carHold[asked[slot + PrefetchAhead]]);
+                Cars.PrefetchTheLine(asked[slot + PrefetchAhead]);
+            }
+
+            PlanTheDrive(asked[slot], ways);
+        }
 
         at = Spent(LayingStage.Drives, at);
         Span<LineWay> walk = stackalloc LineWay[WalkingGround.MostWaysAlongAWalk];
@@ -110,15 +126,23 @@ internal sealed partial class TownWorld
         Spent(LayingStage.Grants, at);
     }
 
-    /// <summary>The walkers of the roster from <paramref name="first"/> on, every <paramref name="step"/>-th, and the cars' first of theirs.</summary>
-    void TheAgentsInTurn(int first, int step)
+    /// <summary>
+    /// How many cars ahead of the one being ticked, laid or planned a walk of the fleet asks memory for what that car's will
+    /// read (<see cref="CarFleet.PrefetchTheLine"/>, <see cref="LaneOccupancy.Prefetch"/>) — eight, measured against four
+    /// and sixteen on O30.
+    /// </summary>
+    const int PrefetchAhead = 8;
+
+    /// <summary>The walkers and the cars of the roster whose turn <paramref name="tick"/> is.</summary>
+    void TheAgentsInTurn(TickGroups turns, long tick)
     {
         _walkersInTurnCount = 0;
-        var agent = first;
-        for (; agent < People.Count; agent += step) _walkersInTurn[_walkersInTurnCount++] = agent;
-
-        _carsInTurnFrom = agent - People.Count;
-        _carsInTurnStep = step;
+        _carsInTurnCount = 0;
+        foreach (var agent in turns.InTurn(tick, Roster.Count))
+        {
+            if (Roster.IsCar(agent)) _carsInTurn[_carsInTurnCount++] = Roster.CarIndex(agent);
+            else _walkersInTurn[_walkersInTurnCount++] = agent;
+        }
     }
 
     /// <summary>The stages of a turn, as <see cref="LayingTicks"/> times them.</summary>
@@ -141,6 +165,9 @@ internal sealed partial class TownWorld
 
     /// <summary>How many car plans have been kept as they were, asked further, or asked afresh at a turn, for an instrument.</summary>
     public ReadOnlySpan<long> PlansKept => _ground.PlansKept;
+
+    /// <summary>How many walks have been kept as they were, asked further, or asked afresh at a turn, for an instrument.</summary>
+    public ReadOnlySpan<long> WalksKept => _walkingGround.WalksKept;
 
     long Spent(LayingStage stage, long from)
     {

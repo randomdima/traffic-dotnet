@@ -56,6 +56,9 @@ internal sealed class SignalHolds
     /// <summary>The hold each stretch is held in, placed at its last turn, or <see cref="LaneOccupancy.NoHold"/>.</summary>
     readonly int[] _holds;
 
+    /// <summary>How far each stretch's hold was placed, to the first body as it stood then (<see cref="ReachOf"/>).</summary>
+    readonly float[] _reachM;
+
     /// <summary>What each approach's stretch held as the last laying answered it (<see cref="NoteWhatHolds"/>): whether anything, and where.</summary>
     readonly bool[] _held;
     readonly float[] _heldFromM, _heldToM;
@@ -79,6 +82,7 @@ internal sealed class SignalHolds
         _junctions = junctions;
         _laneOf = laneOf;
         _holds = LaneOccupancy.NoHolds(way.Length);
+        _reachM = new float[way.Length];
         _held = new bool[way.Length];
         _heldFromM = new float[way.Length];
         _heldToM = new float[way.Length];
@@ -156,7 +160,8 @@ internal sealed class SignalHolds
     /// <b>Every stretch whose turn it is, held where its light is against it</b> — an approach on anything but green
     /// (TLT-2a: amber is not green) and a crossing on red — <b>now or at any time before its next turn</b> (root decision
     /// log, 2026-10-14): nothing of it is looked at again before then, so a light about to turn holds its bar already,
-    /// and one turned green lets it go at its next turn. What it held before is let go of.
+    /// and one turned green lets it go at its next turn. <b>A hold that would be placed as it stands is kept</b> — uncut,
+    /// and ending at the same first body — so nothing waiting at the bar is woken by a light that did not change.
     /// </summary>
     /// <remarks>
     /// <b>Laid after the bodies and before any plan</b> of a turn, and every plan asked with it is answered against it.
@@ -164,17 +169,27 @@ internal sealed class SignalHolds
     /// <param name="turns">The stretches' turns, by their index, and <paramref name="tick"/> which of them it is.</param>
     public void Lay(LaneOccupancy occupancy, SignalService signals, float timeS, TickGroups turns, long tick)
     {
-        for (var stretch = turns.FirstInTurn(tick); stretch < _way.Length; stretch += turns.Groups)
+        foreach (var stretch in turns.InTurn(tick, _way.Length))
         {
             if (_laneOf[stretch] >= 0) _turnedAt[_laneOf[stretch]] = tick;
 
             var junction = _junctions[_junctionAt[stretch]];
             var against = ColourOf(stretch, signals.PhaseOf(junction, timeS)) != SignalColour.Green
                           || ColourOf(stretch, signals.PhaseOf(junction, timeS + turns.IntervalS)) != SignalColour.Green;
-            occupancy.Release(_holds[stretch]);
-            _holds[stretch] = against
-                ? HoldTheStretch(occupancy, stretch, _way[stretch], _fromM[stretch], _toM[stretch])
-                : LaneOccupancy.NoHold;
+            var hold = _holds[stretch];
+            if (!against)
+            {
+                occupancy.Release(hold);
+                _holds[stretch] = LaneOccupancy.NoHold;
+                continue;
+            }
+
+            var reachM = ReachOf(occupancy, _way[stretch], _fromM[stretch], _toM[stretch]);
+            if (hold != LaneOccupancy.NoHold && reachM == _reachM[stretch] && !occupancy.CutOf(hold).Refused) continue;
+
+            occupancy.Release(hold);
+            _holds[stretch] = HoldTheStretch(occupancy, stretch, _way[stretch], _fromM[stretch], reachM);
+            _reachM[stretch] = reachM;
         }
     }
 
@@ -187,7 +202,7 @@ internal sealed class SignalHolds
     /// <param name="turns">The stretches' turns, as <see cref="Lay"/> took them.</param>
     public void NoteWhatHolds(LaneOccupancy occupancy, long laying, TickGroups turns, long tick)
     {
-        for (var stretch = turns.FirstInTurn(tick); stretch < _way.Length; stretch += turns.Groups)
+        foreach (var stretch in turns.InTurn(tick, _way.Length))
         {
             var lane = _laneOf[stretch];
             if (lane < 0) continue;
@@ -220,14 +235,17 @@ internal sealed class SignalHolds
     }
 
     /// <summary>
-    /// <b>One stretch held</b>, from <paramref name="fromM"/> to the first body on the way in front of it
-    /// (<see cref="LaneOccupancy.FirstBody"/>), or to <paramref name="toM"/>: a body past the bar is one the light let
+    /// <b>How far a stretch is held</b>: from <paramref name="fromM"/> to the first body on the way in front of it
+    /// (<see cref="LaneOccupancy.FirstBody"/>), or to <paramref name="toM"/>. A body past the bar is one the light let
     /// go, and is held by nothing behind it.
     /// </summary>
+    internal static float ReachOf(LaneOccupancy occupancy, int way, float fromM, float toM) =>
+        occupancy.FirstBody(way, fromM, toM, LaneOccupancy.Nobody, LaneRoster.Signal, out var atM) ? atM : toM;
+
+    /// <summary><b>One stretch held</b> over [<paramref name="fromM"/>, <paramref name="reachM"/>) of its way.</summary>
     /// <returns>The hold it is held in.</returns>
-    internal static int HoldTheStretch(LaneOccupancy occupancy, int stretch, int way, float fromM, float toM)
+    internal static int HoldTheStretch(LaneOccupancy occupancy, int stretch, int way, float fromM, float reachM)
     {
-        var reachM = occupancy.FirstBody(way, fromM, toM, LaneOccupancy.Nobody, LaneRoster.Signal, out var atM) ? atM : toM;
         var hold = occupancy.BeginHold(stretch, LaneRoster.Signal);
         occupancy.Place(hold, way, fromM, reachM, ClaimPriority.Signal);
         return hold;

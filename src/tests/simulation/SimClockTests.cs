@@ -10,14 +10,39 @@ public class SimClockTests
 {
     static SimClock Clock() => new(SimConfig.Shipped().TickSeconds, SimConfig.Shipped().Sim.SoakMaxTimeScale);
 
-    /// <summary>A stall owes several ticks, never one long one, and never more than it can catch up on.</summary>
+    /// <summary>SIM-9: at the game's own speed a frame late by several ticks runs one, so every tick is drawn.</summary>
     [Fact]
-    public void ACatchUpIsBoundedRatherThanASpiral()
+    public void ALateFrameAtRealTimeRunsOneTick()
     {
         var clock = Clock();
         Thread.Sleep(60);
 
-        Assert.InRange(clock.TicksDue(), 1, clock.MaxTicksPerCall);
+        Assert.Equal(1, clock.TicksDue());
+    }
+
+    /// <summary>
+    /// SIM-9: a tick owed past the cap is run by the next frame and not dropped, so a display beating against the tick's
+    /// period — none owed on a frame a hair early, two on the next — does not slow the town.
+    /// </summary>
+    [Fact]
+    public void ATickOwedPastTheCapIsRunByTheNextFrame()
+    {
+        var clock = Clock();
+        Thread.Sleep(TimeSpan.FromSeconds(2.5 * SimConfig.Shipped().TickSeconds));
+
+        Assert.Equal(1, clock.TicksDue());
+        Assert.Equal(1, clock.TicksDue());
+    }
+
+    /// <summary>SIM-9: a town watched faster runs as many ticks to a late frame as its speed asks, and no more.</summary>
+    [Fact]
+    public void ALateFrameWatchedFasterRunsItsSpeedsTicks()
+    {
+        var clock = Clock();
+        clock.TimeScale = 3f;
+        Thread.Sleep(60);
+
+        Assert.Equal(3, clock.TicksDue());
     }
 
     /// <summary>

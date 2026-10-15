@@ -242,7 +242,7 @@ internal static class CarFollower
         SimConfig config, in CarBuild build, in CarPose pose, ReadOnlySpan<ArcSeg> line, ReadOnlySpan<float> entryM,
         float progressM, float lengthM, in DriveContext context, Vector2 travel, float alongMps, bool reverse,
         in DriveCommand last, in Overtake pass, bool laneless, bool blueLight, float paceMps,
-        SplineCursor cursor = default, float backsUpByM = float.NaN)
+        SplineCursor cursor = default, float backsUpByM = float.NaN, float leadAtM = float.NaN, float aimRad = 0f)
     {
         var rearAxleM = RearAxleM(build, pose.PositionM, pose.Forward);
         var lookaheadM = LookaheadM(build, MathF.Abs(alongMps), config.Driving.LookaheadS);
@@ -254,7 +254,7 @@ internal static class CarFollower
         var wasRad = reverse ? -last.SteerRad : last.SteerRad;
         var wantedRad = backing ? Steer(build, line, progressM, rearAxleM, travel, -lookaheadM)
             : pass.Begun ? SteerThePass(build, line, pass, progressM, rearAxleM, travel, lookaheadM)
-            : Steer(build, line, progressM, rearAxleM, travel, lookaheadM, cursor);
+            : Steer(build, line, progressM, rearAxleM, travel, lookaheadM, cursor, leadAtM, aimRad);
         var steerRad = build.WheelWoundTo(wasRad, wantedRad, config.TickSeconds);
 
         // Where the foot already was, so the pedal travels rather than snapping — and the profile plans from
@@ -317,10 +317,21 @@ internal static class CarFollower
     /// <b>time</b> ahead on the line, floored and ceilinged — too short and the car saws, too long and
     /// it cuts the corner.
     /// </summary>
+    /// <param name="leadAtM">
+    /// Where along the line the world aimed the wheel at (<c>CarView.LeadAtM</c>): its <paramref name="aimRad"/> where that
+    /// is the lookahead past this very progress, and the line sampled here anywhere else.
+    /// </param>
     public static float Steer(
         in CarBuild car, ReadOnlySpan<ArcSeg> line, float progressM, Vector2 rearAxleM, Vector2 forward,
-        float lookaheadM, SplineCursor cursor = default) =>
-        SteerFor(car, PursuitBend(rearAxleM, forward, Spline.SampleFrom(line, progressM + lookaheadM, ref cursor).PositionM));
+        float lookaheadM, SplineCursor cursor = default, float leadAtM = float.NaN, float aimRad = 0f)
+    {
+        var aheadM = progressM + lookaheadM;
+        return leadAtM == aheadM ? aimRad : AimAt(car, rearAxleM, forward, Spline.SampleFrom(line, aheadM, ref cursor).PositionM);
+    }
+
+    /// <summary>The wheel pure pursuit asks for to pass through a point of the line (S-1), the world's and the driver's alike.</summary>
+    public static float AimAt(in CarBuild car, Vector2 rearAxleM, Vector2 forward, Vector2 leadM) =>
+        SteerFor(car, PursuitBend(rearAxleM, forward, leadM));
 
     /// <summary>
     /// <b>The wheel on a pass</b> (CAR-46): turned for how the pass bends where the car is, and corrected by what
@@ -516,11 +527,13 @@ internal static class CarFollower
         // car, and the wheel is already turning into it by then — counting the lookahead as well as the reaction
         // lead is what stops a car arriving at the corner speed a lookahead too late, which is a car on the pavement
         // at the exit of every tight bend. So each arc the lead point has reached binds at its own corner, and the
-        // first it has not binds the braking into it: its entry figure already holds every corner past it.
+        // first it has not binds the braking into it: its entry figure already holds every corner past it. The arcs
+        // reached bind as their tightest does — a root and a quotient are monotone and rounded, so to the bit.
         var gripMps2 = car.UtmostBrakingMps2;
         var reachedM = progressM + leadM + lookaheadM;
         var from = cursor.Piece < line.Length ? cursor.StartingBefore(progressM) : default;
         var startM = from.PieceStartM;
+        var tightest = 0f;
         for (var arc = from.Piece; arc < line.Length; arc++)
         {
             var endM = startM + line[arc].LengthM;
@@ -534,11 +547,13 @@ internal static class CarFollower
                     break;
                 }
 
-                Bind(ref targetMps, CornerMps(line[arc].Curvature, lateralMps2), DrivingHold.Corner, ref hold);
+                tightest = MathF.Max(tightest, MathF.Abs(line[arc].Curvature));
             }
 
             startM = endM;
         }
+
+        Bind(ref targetMps, CornerMps(tightest, lateralMps2), DrivingHold.Corner, ref hold);
 
         // Each step of a pass no faster than it was drawn for — come up to at that pace where the car has its pass short
         // of where the step out begins — and the straight between them the car's own, which it pulls away along, as far

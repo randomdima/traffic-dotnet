@@ -474,6 +474,33 @@ internal sealed class WalkingGround(
     }
 
     /// <summary>
+    /// <b>How far down its walk a walker has come from a place on its chain, in the walk's own measure</b>
+    /// (<see cref="WaysAlongTheWalk"/>): a way whose stretch of the walk is empty counts nothing, and a body walked past
+    /// its way's end no further than that end — so a walk asked from that place and one asked from the body now put every
+    /// way at the same distance apart.
+    /// </summary>
+    /// <param name="startM">Where the walk now begins on the way the body is walking.</param>
+    float WalkedAlong(int person, int slot, float atM, out float startM)
+    {
+        var at = People.RouteAt(person);
+        WalkedOfSlot(person, at, out startM, out var endM);
+        if (at == slot) return MathF.Min(startM, MathF.Max(endM, atM)) - atM;
+
+        var walkedM = 0f;
+        for (var passed = slot; passed < at; passed++)
+        {
+            WalkedOfSlot(person, passed, out var fromM, out var toM);
+            walkedM += MathF.Max(0f, toM - (passed == slot ? atM : fromM));
+        }
+
+        var route = People.RouteOf(person);
+        Walking.SpanOfWay(
+            route[at - 1], route[at], at + 1 < People.RouteCount[person] ? route[at + 1] : WalkingNetwork.NoLane,
+            out var spanFromM, out _);
+        return walkedM + Math.Clamp(startM - spanFromM, 0f, MathF.Max(0f, endM - spanFromM));
+    }
+
+    /// <summary>
     /// <b>Where the walk is a distance down it</b> from the body's own place, over the pavement's lanes and the
     /// mitres at its corners alike. False where the route does not reach that far.
     /// </summary>
@@ -655,7 +682,7 @@ internal sealed class WalkingGround(
     {
         LetGoOfTheWalk(person);
         var hold = begunOn;
-        if (hold == LaneOccupancy.NoHold) hold = _ownWalk[person] = Occupancy.BeginHold(occupant, roster);
+        if (hold == LaneOccupancy.NoHold) hold = _ownWalk[person] = Occupancy.BeginPlan(occupant, roster);
 
         WalkHold[person] = hold;
         foreach (ref readonly var way in walk)
@@ -673,6 +700,107 @@ internal sealed class WalkingGround(
         Occupancy.Release(_ownWalk[person]);
         _ownWalk[person] = LaneOccupancy.NoHold;
         WalkHold[person] = LaneOccupancy.NoHold;
+        _kept[person].Hold = LaneOccupancy.NoHold;
+        _walkedSinceAskedM[person] = 0f;
+    }
+
+    /// <summary>
+    /// <b>What a walker's kept walk holds</b>: its hold, the chain it was asked down, a place on that chain and how far
+    /// down the walk that place is in the walk's own metres — which are measured from where the walk was asked — and how
+    /// far down the walk it holds from and was asked to.
+    /// </summary>
+    record struct KeptWalk(int Hold, uint Route, int Slot, float AtM, float WalkedM, float FromM, float ToM);
+
+    readonly KeptWalk[] _kept = Enumerable.Repeat(new KeptWalk { Hold = LaneOccupancy.NoHold }, people.Capacity).ToArray();
+
+    /// <summary>How far each walker has come down its kept walk since it was asked — what its walk's metres are less.</summary>
+    readonly float[] _walkedSinceAskedM = new float[people.Capacity];
+
+    /// <summary>How many walks have come to each <see cref="WalkKept"/>, for an instrument.</summary>
+    public long[] WalksKept { get; } = new long[Enum.GetValues<WalkKept>().Length];
+
+    /// <summary>
+    /// <b>A walker's walk kept</b>, as a car's plan is (the root decision log, 2026-10-14): asked down the same chain, by
+    /// the same holder, and walked no way back. The ground walked past is let go of once that is
+    /// <see cref="SimConfig.PersonTrimSlackM"/> on.
+    /// </summary>
+    /// <param name="frontM">Where the walk begins in front of the body now, in the walk's metres from the body.</param>
+    /// <param name="walkedM">How far it has come since the walk was asked: the kept walk's metres less the body's.</param>
+    /// <param name="reachM">How far down the kept walk it holds, in its own metres: where it is cut, or all it asked for.</param>
+    /// <returns>
+    /// <see cref="WalkKept.AsItIs"/> where it holds all the walker needs and nothing has changed where it was cut;
+    /// <see cref="WalkKept.ToBeAskedFurther"/> where it does not; <see cref="WalkKept.No"/> where it is to be asked afresh.
+    /// </returns>
+    public WalkKept KeepsTheWalk(
+        int person, int occupant, LaneRoster roster, float frontM, out float walkedM, out float reachM)
+    {
+        walkedM = reachM = float.NaN;
+        ref var kept = ref _kept[person];
+        if (kept.Route != People.RoutesLaid[person] || People.RouteAt(person) < kept.Slot
+            || !Occupancy.IsPlanOf(kept.Hold, occupant, roster))
+        {
+            WalksKept[(int)WalkKept.No]++;
+            return WalkKept.No;
+        }
+
+        walkedM = kept.WalkedM + WalkedAlong(person, kept.Slot, kept.AtM, out var startM);
+        var at = People.RouteAt(person);
+        if (at != kept.Slot) (kept.Slot, kept.AtM, kept.WalkedM) = (at, startM, walkedM);
+
+        var fromM = walkedM + frontM;
+        var further = fromM + PlansAheadM > kept.ToM || Occupancy.IsWoken(kept.Hold);
+        if (fromM < kept.FromM || (further && Occupancy.IsCutAtAMark(kept.Hold)))
+        {
+            WalksKept[(int)WalkKept.No]++;
+            return WalkKept.No;
+        }
+
+        var cut = Occupancy.CutOf(kept.Hold);
+        reachM = cut.Refused ? cut.CutLineM : kept.ToM;
+        if (fromM - kept.FromM > Config.PersonTrimSlackM)
+        {
+            Occupancy.TrimBehind(kept.Hold, fromM);
+            kept.FromM = fromM;
+        }
+
+        WalkHold[person] = kept.Hold;
+        _walkedSinceAskedM[person] = walkedM;
+        var keptAs = further ? WalkKept.ToBeAskedFurther : WalkKept.AsItIs;
+        WalksKept[(int)keptAs]++;
+        return keptAs;
+    }
+
+    /// <summary>
+    /// What a walker's own walk down its chain was asked for (<see cref="Claim"/>), in the walk's metres from the body:
+    /// kept from here on, and measured from where it begins on the way the body is walking.
+    /// </summary>
+    public void AskedTheWalk(int person, float fromM, float toM)
+    {
+        var at = People.RouteAt(person);
+        WalkedOfSlot(person, at, out var atM, out _);
+        _kept[person] = new KeptWalk(_ownWalk[person], People.RoutesLaid[person], at, atM, 0f, fromM, toM);
+    }
+
+    /// <summary>
+    /// <b>A kept walk asked further</b> (<see cref="WalkKept.ToBeAskedFurther"/>), from <paramref name="reachM"/> on, over
+    /// the ways of <paramref name="walk"/> — in the walk's metres from the body, <paramref name="walkedM"/> short of the
+    /// kept walk's own — now to <paramref name="toM"/> of the body's.
+    /// </summary>
+    public void AskFurther(int person, ReadOnlySpan<LineWay> walk, float walkedM, float reachM, float toM)
+    {
+        ref var kept = ref _kept[person];
+        Occupancy.AskFurther(kept.Hold);
+        foreach (ref readonly var way in walk)
+        {
+            var lineFromM = way.LineFromM + walkedM;
+            var fromM = way.FromM + MathF.Max(0f, reachM - lineFromM);
+            if (way.ToM <= fromM) continue;
+
+            Occupancy.Ask(
+                kept.Hold, way.Way, fromM, way.ToM, lineFromM + (fromM - way.FromM), ClaimPriority.Afoot, further: true);
+        }
+
+        kept.ToM = toM + walkedM;
     }
 
     /// <summary>
@@ -685,7 +813,7 @@ internal sealed class WalkingGround(
         var cut = Occupancy.CutOf(hold);
         People.GrantM[person] = hold == LaneOccupancy.NoHold ? 0f
             : !cut.Refused ? float.PositiveInfinity
-            : cut.CutLineM - Config.PersonStandstillGapM - People.RadiusM[person];
+            : cut.CutLineM - _walkedSinceAskedM[person] - Config.PersonStandstillGapM - People.RadiusM[person];
         People.OnCrossing[person] = TheZebraOf(person, cut.Way);
     }
 
@@ -710,4 +838,17 @@ internal sealed class WalkingGround(
         var cutOn = People.GrantM[person] <= 0f ? holdCutOn : PersonFleet.NoWay;
         return cutOn >= 0 && Lines.IsTheCrossing(cutOn) ? Lines.ZebraOf(cutOn) : PersonFleet.NoCrossing;
     }
+}
+
+/// <summary>What became of a walker's kept walk at its turn (<see cref="WalkingGround.KeepsTheWalk"/>).</summary>
+internal enum WalkKept : byte
+{
+    /// <summary>Let go of, or to be: the walk is asked afresh.</summary>
+    No,
+
+    /// <summary>Kept as it is: it holds all the walker needs.</summary>
+    AsItIs,
+
+    /// <summary>Kept, and asked further from where it is cut or where all it asked for ends.</summary>
+    ToBeAskedFurther,
 }

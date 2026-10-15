@@ -52,6 +52,7 @@ internal sealed class PersonFleet
         RouteCount = new int[capacity];
         RouteTaken = new int[capacity];
         RouteRunsOut = new bool[capacity];
+        RoutesLaid = new uint[capacity];
         RouteToM = new float[capacity];
         OnWay = new int[capacity];
         Array.Fill(OnWay, NoWay);
@@ -245,6 +246,9 @@ internal sealed class PersonFleet
     /// </remarks>
     public bool[] RouteRunsOut { get; }
 
+    /// <summary>How many times each walker's chain has been cleared to be laid again — what a walk kept down it is checked against.</summary>
+    public uint[] RoutesLaid { get; }
+
     public bool[] Walking { get; }
 
     /// <summary>
@@ -407,6 +411,7 @@ internal sealed class PersonFleet
     {
         // A pass is a stretch of the route it was asked for on, and goes with it (PER-28).
         Pass[person] = Sidestep.None;
+        RoutesLaid[person]++;
         RouteCount[person] = 0;
         RouteTaken[person] = 0;
         RouteRunsOut[person] = false;

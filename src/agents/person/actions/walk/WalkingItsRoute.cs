@@ -108,21 +108,73 @@ internal sealed class WalkingItsRoute(WalkingGround ground, PersonActions action
             return into[..ground.TheStraightAhead(person, toM, onto, ontoM, frontM, ground.PlansAheadM, under, into)];
         }
 
-        var count = ground.WaysAlongTheWalk(person, frontM + ground.PlansAheadM, into);
+        var needToM = frontM + ground.PlansAheadM;
+        return Within(into[..ground.WaysAlongTheWalk(person, needToM, into)], frontM, needToM);
+    }
 
-        var first = 0;
-        while (first < count && into[first].LineFromM + (into[first].ToM - into[first].FromM) <= frontM) first++;
-        if (first == count) return default;
+    /// <summary>
+    /// <b>A walker's own walk down its route, claimed and kept</b> (<see cref="WalkingGround.KeepsTheWalk"/>): asked a
+    /// slack past what it needs (<see cref="SimConfig.PersonClaimSlackM"/>), and asked again only once it needs more than
+    /// it holds or what cut it has gone.
+    /// </summary>
+    /// <returns>Whether it was, or is the hop off the end of the chain or nothing at all, which are asked afresh.</returns>
+    public bool PlansTheWalk(int person, int occupant, LaneRoster roster, Span<LineWay> into)
+    {
+        if (People.Inside[person].Any || !ground.HasAWalkToPlan(person) || ground.IsHopping(person)) return false;
 
-        if (into[first].LineFromM < frontM)
+        var frontM = sidestepping.WalkPlannedFromM(person);
+        var kept = ground.KeepsTheWalk(person, occupant, roster, frontM, out var walkedM, out var reachM);
+        if (kept == WalkKept.AsItIs) return true;
+
+        var needToM = frontM + ground.PlansAheadM;
+        var count = ground.WaysAlongTheWalk(person, needToM + ground.Config.PersonClaimSlackM, into);
+        var toM = AskedToM(into[..count], needToM);
+        var walk = Within(into[..count], frontM, toM);
+        if (kept == WalkKept.ToBeAskedFurther)
         {
-            into[first] = into[first] with
-            {
-                FromM = into[first].FromM + (frontM - into[first].LineFromM), LineFromM = frontM,
-            };
+            ground.AskFurther(person, walk, walkedM, reachM, toM);
+            return true;
         }
 
-        return into[first..count];
+        ground.Claim(person, occupant, roster, walk);
+        ground.AskedTheWalk(person, frontM, toM);
+        return true;
+    }
+
+    /// <summary>
+    /// <b>How far a walk is asked</b>: a slack past what it needs, and never onto a crossing's paint it does not need yet —
+    /// so the lanes under it are held from when the walker comes to it and not before (TER-5c.3).
+    /// </summary>
+    float AskedToM(ReadOnlySpan<LineWay> ways, float needToM)
+    {
+        var toM = needToM + ground.Config.PersonClaimSlackM;
+        foreach (ref readonly var way in ways)
+        {
+            if (way.LineFromM >= toM) break;
+            if (way.LineFromM >= needToM && ground.Lines.IsTheCrossing(way.Way)) return way.LineFromM;
+        }
+
+        return toM;
+    }
+
+    /// <summary>The stretch of a walk's ways over [<paramref name="fromM"/>, <paramref name="toM"/>) of it.</summary>
+    static Span<LineWay> Within(Span<LineWay> ways, float fromM, float toM)
+    {
+        var first = 0;
+        while (first < ways.Length && ways[first].LineFromM + (ways[first].ToM - ways[first].FromM) <= fromM) first++;
+
+        var end = first;
+        while (end < ways.Length && ways[end].LineFromM < toM) end++;
+        if (first == end) return default;
+
+        ref var head = ref ways[first];
+        if (head.LineFromM < fromM) head = head with { FromM = head.FromM + (fromM - head.LineFromM), LineFromM = fromM };
+
+        ref var tail = ref ways[end - 1];
+        var overM = tail.LineFromM + (tail.ToM - tail.FromM) - toM;
+        if (overM > 0f) tail = tail with { ToM = tail.ToM - overM };
+
+        return ways[first..end];
     }
 
     /// <summary>

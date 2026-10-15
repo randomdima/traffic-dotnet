@@ -98,9 +98,32 @@ void viewTheCar(uint car, bool stepped)
     lineRead(followed, rearAxleM, build.projectionWindowM);
     follows[car] = followed;
 
+    // What the wheel is aimed at (LineReading.Lead): a lookahead at the speed along the car's own way (CarFollower.LookaheadM),
+    // and the wheel pure pursuit asks for through it (CarFollower.AimAt: PursuitBend, SteerFor).
+    precise float alongMps = moving.x * forward.x + moving.y * forward.y;
+    precise float timedM = abs(alongMps) * world.lookaheadS;
+    float leadAtM;
+    vec2 leadM = lineLead(followed, lineClamp(timedM, build.lookaheadFloorM, build.lookaheadCeilingM), leadAtM);
+    float aimRad = 0.0;
+    if (!isnan(leadAtM))
+    {
+        precise vec2 toLead = leadM - rearAxleM;
+        float reachM = roundedLength(toLead);
+        float bend = 0.0;
+        if (!(reachM < 1e-3))
+        {
+            precise float twiceSin = 2.0 * lineCross(forward, toLead);
+            precise float reachSq = reachM * reachM;
+            bend = roundedQuotient(twiceSin, reachSq);
+        }
+
+        precise float wheel = bend * build.wheelbaseM;
+        aimRad = lineClamp(trigAtan(wheel), -build.maxSteerRad, build.maxSteerRad);
+    }
+
     carViews[car] = CarViewRow(
         placed.xy, moving.xy, heading, moving.z, flags, uintBitsToFloat(overlap[body]), forward, followed.progressM,
-        followed.offLineM, followed.serial, 0u);
+        followed.offLineM, followed.serial, leadAtM, aimRad, 0u);
 }
 
 void viewTheWalker(uint walker, bool stepped)

@@ -66,14 +66,31 @@ internal sealed partial class TownWorld
         && Cars.VelocityMps[car] == Vector2.Zero && Cars.YawRateRadPerS[car] == 0f;
 
     /// <summary>
-    /// <b>What a car following its line read on a tick that left its command as it found it, standing still</b> — its
-    /// pose, its line and action, its grant and the stop it was sent to. The same again on a tick it was frozen through the
-    /// step before is the same tick (<see cref="TicksAsBefore"/>): a car queueing for its grant.
+    /// <b>What a car driving its line read on a tick that left its command and its progress as it found them, standing
+    /// still</b> — its pose, its line, progress and action, its manoeuvre's stage, its grant and the stop it was sent to.
+    /// The same again on a tick it was frozen through the step before is the same tick (<see cref="TicksAsBefore"/>): a car
+    /// queueing for its grant, or waiting at a bay for the ground to make its manoeuvre.
     /// </summary>
     readonly record struct StoodTick(
-        Vector2 PositionM, float HeadingRad, uint Line, uint Entries, DriveCommand Command, float AuthorityM,
-        float CoveredSinceClaimM, float HorizonM, float GrantMarginM, HeadwayKind GrantCutBy, float SceneM, float PaceMps,
-        bool BlueLight);
+        Vector2 PositionM, float HeadingRad, uint Line, float ProgressM, uint Entries, ManoeuvreStage Stage,
+        DriveCommand Command, float AuthorityM, float CoveredSinceClaimM, float HorizonM, float GrantMarginM,
+        HeadwayKind GrantCutBy, float SceneM, float PaceMps, bool BlueLight, bool AtWork, bool Broken)
+    {
+        /// <summary>
+        /// Field by field as a record compares them, but with no comparer: an enum's is made the first time it is asked
+        /// for, which a tick could be.
+        /// </summary>
+        public bool Equals(StoodTick other) =>
+            PositionM.Equals(other.PositionM) && HeadingRad.Equals(other.HeadingRad) && Line == other.Line
+            && ProgressM.Equals(other.ProgressM) && Entries == other.Entries && Stage == other.Stage
+            && Command.Equals(other.Command) && AuthorityM.Equals(other.AuthorityM)
+            && CoveredSinceClaimM.Equals(other.CoveredSinceClaimM) && HorizonM.Equals(other.HorizonM)
+            && GrantMarginM.Equals(other.GrantMarginM) && GrantCutBy == other.GrantCutBy && SceneM.Equals(other.SceneM)
+            && PaceMps.Equals(other.PaceMps) && BlueLight == other.BlueLight && AtWork == other.AtWork
+            && Broken == other.Broken;
+
+        public override int GetHashCode() => HashCode.Combine(PositionM, Line, ProgressM, Entries);
+    }
 
     /// <summary>Each car's last tick, where it is one to take again unread (<see cref="StoodTick"/>), and whether it is.</summary>
     readonly StoodTick[] _stoodTick;
@@ -81,26 +98,40 @@ internal sealed partial class TownWorld
     readonly bool[] _stood;
 
     StoodTick StoodTickOf(int car) => new(
-        Cars.PositionM[car], Cars.HeadingRad[car], Cars.LinesLaid[car], _carActions.EntriesOf(car), Cars.Command[car],
-        Cars.AuthorityM[car], Cars.CoveredSinceClaimM[car], Cars.HorizonM[car], Cars.GrantMarginM[car],
-        Cars.GrantCutBy[car], ToTheSceneM(car), Cars.PaceMps[car], Cars.BlueLight[car]);
+        Cars.PositionM[car], Cars.HeadingRad[car], Cars.LinesLaid[car], Cars.ProgressM[car], _carActions.EntriesOf(car),
+        _manoeuvres.Stage[car], Cars.Command[car], Cars.AuthorityM[car], Cars.CoveredSinceClaimM[car], Cars.HorizonM[car],
+        Cars.GrantMarginM[car], Cars.GrantCutBy[car], ToTheSceneM(car), Cars.PaceMps[car], Cars.BlueLight[car],
+        Cars.AtWork[car], Cars.Broken[car]);
 
     /// <summary>
     /// <b>Whether this car's tick would be its last one again</b>: it stood still through the step, and nothing it reads —
-    /// its pose, line, action, grant, pace or the stop it was sent to — has changed since a tick that changed nothing.
+    /// its pose, line, progress, action, manoeuvre, grant, pace or the stop it was sent to — has changed since a tick that
+    /// changed nothing.
     /// </summary>
     bool TicksAsBefore(int car) =>
         _stood[car] && (_world.View.Cars[car].Flags & CarView.FrozenThroughLastStep) != 0
                     && StoodTickOf(car) == _stoodTick[car];
 
-    /// <summary>A tick just taken kept, where it changed nothing of a car following its line at a standstill.</summary>
-    void KeepTheTick(int car, in DriveCommand commandWas)
+    /// <summary>A tick just taken kept, where it changed nothing of a car driving its line at a standstill.</summary>
+    void KeepTheTick(int car, in DriveCommand commandWas, float progressWasM)
     {
-        _stood[car] = Cars.Action[car] == CarAction.Follow && Cars.Driven[car] && Cars.Command[car] == commandWas
+        _stood[car] = TicksOnlyToDrive(car) && Cars.Driven[car] && Cars.Command[car] == commandWas
+                      && Cars.ProgressM[car] == progressWasM
                       && (_world.View.Cars[car].Flags & CarView.FrozenThroughLastStep) != 0
                       && Cars.VelocityMps[car] == Vector2.Zero && Cars.YawRateRadPerS[car] == 0f;
         if (_stood[car]) _stoodTick[car] = StoodTickOf(car);
     }
+
+    /// <summary>
+    /// Whether all this car's tick does is drive its line: following its route, or at a bay — but not while a manoeuvre it
+    /// asked for waits on the laying, whose tick is what keeps or withdraws it (<see cref="BayManoeuvring.KeepOrWithdraw"/>).
+    /// </summary>
+    bool TicksOnlyToDrive(int car) => Cars.Action[car] switch
+    {
+        CarAction.Follow => true,
+        CarAction.Park or CarAction.Unpark => _manoeuvres.Stage[car] != ManoeuvreStage.Asked,
+        _ => false,
+    };
 
     /// <summary>One tick of one car's body: where it is, what it can see, and what the pedals and the wheel are asked for.</summary>
     void TickCar(int car)
@@ -241,8 +272,11 @@ internal sealed partial class TownWorld
         // from its far end on the car's next decision, so nothing already laid moves and the car's progress is
         // untouched; the sight distance is a stop from the car's top speed, so what it covers before then is road
         // it still sees the end of in time.
-        var lastLane = Cars.ChainOf(car)[Cars.Line[car].LaneCount - 1];
-        if (LineReader.RunsShort(Cars, car, progressM, _roads.LanesFrom(lastLane).Length > 0)) _asksTheRoute[car] = true;
+        if (LineReader.RunsShort(Cars, car, progressM)
+            && _roads.LanesFrom(Cars.ChainOf(car)[Cars.Line[car].LaneCount - 1]).Length > 0)
+        {
+            _asksTheRoute[car] = true;
+        }
 
         return true;
     }
@@ -257,9 +291,13 @@ internal sealed partial class TownWorld
         float passAsideM = 0f, float backUpM = 0f, bool blocked = false, float waitAtM = float.PositiveInfinity)
     {
         var context = SetTheContext(car, progressM, coveredM, waitsToPass, passAsideM, backUpM, blocked, waitAtM);
+
+        // The wheel the world aimed down the line, where its reading is of this very line (S-1, LineReading.Lead).
+        ref readonly var read = ref _world.View.Cars[car];
+        var leadAtM = float.IsNaN(ReadProgressM(car)) ? float.NaN : read.LeadAtM;
         Drive(
             car, Cars.BuildOf(car), pose, Cars.LineOf(car), progressM, Cars.Line[car].LengthM, context, pose.Forward,
-            alongMps, reverse: false, Cars.LineCursor[car]);
+            alongMps, reverse: false, Cars.LineCursor[car], leadAtM: leadAtM, aimRad: read.AimRad);
     }
 
     /// <summary>What a car on the route's line is told about the world this tick, and the junction ahead of it read.</summary>
@@ -292,15 +330,16 @@ internal sealed partial class TownWorld
     /// </summary>
     /// <param name="cursor">Where the car's walks of <paramref name="line"/> begin, where it is the car's own (<see cref="CarFleet.LineCursor"/>).</param>
     /// <param name="backsUpByM">Where given, the car backs down the line to rest this far behind (<see cref="CarFollower.DriveTheLine"/>).</param>
+    /// <param name="leadAtM">Where the world aimed the wheel down this line (<see cref="CarFollower.Steer"/>), and <paramref name="aimRad"/> what at.</param>
     void Drive(
         int car, in CarBuild build, in CarPose pose, ReadOnlySpan<ArcSeg> line, float progressM, float lengthM,
         in DriveContext context, Vector2 travel, float alongMps, bool reverse, SplineCursor cursor = default,
-        float backsUpByM = float.NaN)
+        float backsUpByM = float.NaN, float leadAtM = float.NaN, float aimRad = 0f)
     {
         var drive = CarFollower.DriveTheLine(
             _config, build, pose, line, Cars.EntriesOf(car), progressM, lengthM, context, travel, alongMps, reverse,
             Cars.Command[car], Cars.Pass[car], Cars.Line[car].LaneCount == 0, Cars.BlueLight[car], Cars.PaceMps[car],
-            cursor, backsUpByM);
+            cursor, backsUpByM, leadAtM, aimRad);
 
         // A car backing up keeps the speed it planned down the road before it began.
         if (!float.IsNaN(drive.PlannedMps)) Cars.PlannedMps[car] = drive.PlannedMps;

@@ -16,7 +16,7 @@ internal readonly record struct DriveCommand(float SteerRad, float ThrottleMps2,
     public static DriveCommand Idle => new(0f, 0f, 0f, false, false);
 
     /// <summary>An unmanned car holds its handbrake, so a parked car stays parked.</summary>
-    public static DriveCommand Parked => new(0f, 0f, 0f, true, false);
+    public static readonly DriveCommand Parked = new(0f, 0f, 0f, true, false);
 
     /// <summary>
     /// Everything the car has, against the way it is going. The handbrake alone is what holds a car

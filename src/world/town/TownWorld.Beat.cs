@@ -118,7 +118,9 @@ internal sealed partial class TownWorld
     /// got to and the middle of a junction is the one place standing still is being driven into — aimed at the
     /// junction centres, the fixture town's patrol was wrecked inside the first box it reached. <b>And a street
     /// and never a bay</b> (GEN-4h), a bay being a space joined to nothing. A district with no street of its
-    /// own draws from the town's.
+    /// own draws from the town's. <b>And never the lane it is on</b>, which the next of the district's is drawn in place
+    /// of: a place there is as likely behind it as ahead, and one moved to the lane's middle is where it stopped at the
+    /// last — either a leg round the block to come back to the car's own back bumper.
     /// </remarks>
     bool DriveTheBeat(int car)
     {
@@ -137,6 +139,8 @@ internal sealed partial class TownWorld
         // district's: a place drawn there is moved to the street's middle, which is this district's.
         ref var draw = ref Cars.Draw[car];
         var at = from + draw.NextInt(to - from);
+        if (_districtLanes[at] == Cars.LaneOf(car)) at = at + 1 < to ? at + 1 : from;
+
         var lane = _districtLanes[at];
         var alongM = draw.NextFloat() * _roads.LaneLengthM[lane];
         if (district >= 0 && (alongM < _inTheDistrictFromM[at] || alongM > _inTheDistrictToM[at]))

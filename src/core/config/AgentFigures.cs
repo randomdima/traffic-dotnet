@@ -662,10 +662,33 @@ internal sealed class PersonFigures
     public float WalkAheadInDiameters { get; init; } = 2f;
 
     /// <summary>
+    /// <b>How far past what it needs a walker asks for its walk</b>, in bodies (PER-26), so it keeps what it holds rather
+    /// than asking again until it needs more than it has (the root decision log, 2026-10-14). Never onto a zebra's paint
+    /// it does not need yet.
+    /// </summary>
+    public float ClaimSlackInDiameters { get; init; } = 2f;
+
+    /// <summary>
+    /// <b>How far past where its walk begins a walker walks before letting go of the ground behind it</b>, in bodies:
+    /// no more than half of one, so what it still holds behind its front is in front of its middle (PER-26).
+    /// </summary>
+    public float TrimSlackInDiameters { get; init; } = 0.5f;
+
+    /// <summary>
     /// The brief random idle before drawing a destination, so a town's worth of people do not all set off
     /// on the same tick. A stagger and not a wait: longer than the decision interval, far shorter than a dwell.
     /// </summary>
     public float StandByIdleMaxS { get; init; } = 1f;
+
+    /// <summary>
+    /// The share of car owners a town is laid with already at their wheel and setting off on a driven trip, rather
+    /// than indoors part way through a dwell (GEN-7). Drawn per person; none by default.
+    /// </summary>
+    /// <remarks>
+    /// A load figure: a town laid with every owner indoors puts its traffic on the road a dwell at a time, so a
+    /// measurement of the tick taken in its first minutes is of a town that is mostly parked.
+    /// </remarks>
+    public float StartsAtTheWheelShare { get; init; }
 
     /// <summary>
     /// How far a bay a car is aiming at may stand from where that leg is going, in block spacings — one

@@ -119,6 +119,12 @@ internal sealed partial class TownWorld
 
     int[] _bayLanesNear = [];
 
+    /// <summary>
+    /// The box round the centres of the bays off each lane, which a search for a free bay within a distance passes a lane
+    /// by on (<see cref="FreeBaysNear"/>): nothing inside a box is nearer than the box.
+    /// </summary>
+    Vector2[] _bayLaneLeastM = [], _bayLaneMostM = [];
+
     /// <summary>The buildings whose street is each lane (<see cref="_roadPlaceOfBuilding"/>), <c>[of[lane], of[lane + 1])</c> of <see cref="_buildingsOnLane"/>.</summary>
     int[] _buildingsOnLaneOf = [0];
 
@@ -139,10 +145,16 @@ internal sealed partial class TownWorld
         var lanes = _roads.LaneCount;
         var near = new List<int>[lanes];
         var around = new int[256];
+        _bayLaneLeastM = new Vector2[lanes];
+        _bayLaneMostM = new Vector2[lanes];
         for (var bayLane = 0; bayLane < lanes; bayLane++)
         {
+            _bayLaneLeastM[bayLane] = new Vector2(float.PositiveInfinity);
+            _bayLaneMostM[bayLane] = new Vector2(float.NegativeInfinity);
             foreach (var bay in _bayStreets.BaysOffLane(bayLane))
             {
+                _bayLaneLeastM[bayLane] = Vector2.Min(_bayLaneLeastM[bayLane], _parking.CentreM(bay));
+                _bayLaneMostM[bayLane] = Vector2.Max(_bayLaneMostM[bayLane], _parking.CentreM(bay));
                 var found = _roads.LanesAround(_parking.CentreM(bay), BaysNearReach, around);
                 if (found > around.Length)
                 {
@@ -196,6 +208,12 @@ internal sealed partial class TownWorld
         var count = 0;
         foreach (var bayLane in _bayLanesNear.AsSpan(_bayLanesNearOf[near.Lane], _bayLanesNearOf[near.Lane + 1] - _bayLanesNearOf[near.Lane]))
         {
+            if (!_parking.AnyFreeOff(bayLane)) continue;
+
+            // Measured as each bay is, so a box no nearer than the distance holds no bay that is.
+            var outsideM = Vector2.Max(Vector2.Max(_bayLaneLeastM[bayLane] - ofM, ofM - _bayLaneMostM[bayLane]), Vector2.Zero);
+            if (outsideM.Length() > withinM) continue;
+
             foreach (var bay in _bayStreets.BaysOffLane(bayLane))
             {
                 var distanceM = Vector2.Distance(_parking.CentreM(bay), ofM);
@@ -411,6 +429,12 @@ internal sealed partial class TownWorld
         RoadPlaceOf(_world.View.CoversOfWalker(person), People.PositionM[person], _placeOf[person]);
 
     RoadPlace RoadPlaceOfCar(int car) => RoadPlaceOf(CoversOfCar(car), Cars.PositionM[car], FootPlace.Nowhere);
+
+    /// <summary>
+    /// Where a car sets off from: its bay's street where it stands in its bay, whose ways are the car park's and no
+    /// street's, and the ways under it anywhere else.
+    /// </summary>
+    RoadPlace SetsOffFrom(int car) => StandsInItsBay(car) ? RoadPlaceOfBay(_parking.BayOf(car)) : RoadPlaceOfCar(car);
 
     /// <summary>The street a bay is worked off, at its mouth (<see cref="BayStreets"/>).</summary>
     RoadPlace RoadPlaceOfBay(int bay)

@@ -163,7 +163,7 @@ public class SignalHoldTests
         var (a, _) = TwoWays();
         var index = Index();
         index.LayBody(a, 10f, 14f, 1, LaneRoster.Driving);
-        SignalHolds.HoldTheStretch(index, 0, a, 0f, 50f);
+        SignalHolds.HoldTheStretch(index, 0, a, 0f, SignalHolds.ReachOf(index, a, 0f, 50f));
         index.Answer();
 
         var held = Assert.Single(index.Secondaries(a).ToArray());

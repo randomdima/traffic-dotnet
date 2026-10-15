@@ -4,6 +4,103 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-15 — a walk of the fleet asks memory for the car eight ahead
+
+**The owner (2026-10-15), in their words: "Go thought top hot paths one by one and consider improvements … test them
+implementation. Keep what is reasonable".**
+
+- **Where agents are walked in order and each reads scattered rows of its own, the walk fetches the eighth one on
+  ahead** (`Sse.Prefetch0`, `TownWorld.PrefetchAhead`): the car's line at its cursor, its lanes' metres, chain and joins
+  on every tick (`CarFleet.PrefetchTheLine`), and with it the plan's hold in the drives stage and the body's hold, then
+  its first slot four on, in the bodies stage (`LaneOccupancy.Prefetch`, `PrefetchTheBody`). A hint, so exact.
+- **Measured** (O30, 40 000 moving cars, device world): every car's tick 6.92 → 6.17–6.34 ms, alternated twice; with
+  the chain and joins as well 5.91–5.96 (four and sixteen on: 5.93–6.19). `--bench room` drives 2.37 → 2.11 ms, bodies
+  1.06 → 1.02. `DriveTheRoute` went from 0.85 to 2.2 instructions a cycle.
+- **Where it lost or gained nothing**, and is not done: the answer (the road log's refusal stands — 0.51 → 0.51 here),
+  the lights' stretches (0.36 → 0.37), a decision's car (1.43 → 1.40–1.44), the cut way's row a plan reads, and the
+  body's hold alone.
+
+## 2026-10-15 — a turn is runs of neighbours
+
+**The owner (2026-10-15), in their words: "actors act in some offset groups, so they dont plan all at once" … "Try
+potential improvementa".**
+
+- **A turn takes runs of `TickGroups.RunOfMembers` neighbouring members, every `Groups`-th run**, where it took every
+  `Groups`-th member: the agents, and a light's stretches. A member's row in every per-member array sits beside its
+  neighbours', and a turn of every sixth brought every cache line of every array in to read a sixth of it. Runs and not
+  one block a group, because the roster lays people before cars: blocks would put the walkers on some ticks and the
+  cars on others, and the peak is what the stagger is for.
+- **It is a change to the town**: which agents decide together moved, so every digest moved once. What it showed was a
+  beat place drawn on the lane the patrol stood on, moved to the lane's middle where the patrol had stopped, and driven
+  to round the block (`TownWorld.DriveTheBeat`, now never the lane it is on).
+- **Measured** (O30 at 40 000 moving cars, device world): `--bench room` turns 6.59 → 6.27 ms, plans 2.75 → 2.41; the
+  frame 17.45 → 16.99 ms with the two changes beside it that move nothing (a manoeuvre's later pieces swept once an ask,
+  a car standing as laid not laid again). O10's `--bench age` car phase −1 to −10 % over the three windows. Sorting a
+  turn's cars by their lane on top gained nothing (6.20 → 6.52 ms): what the claims miss on is a hold's chains.
+
+## 2026-10-15 — the world aims each car's wheel down its line
+
+**The owner (2026-10-15), in their words: "We were supposed to be doing some precalculation for this on gpu. Since it
+already knows the car, position, lanes … Can it also do that lane projection? In a simple manner" … "lets do all logical
+improvements. Ones that natually fit."**
+
+- **The view's reading carries the wheel pure pursuit asks for** (`CarView.LeadAtM`, `CarView.AimRad`): the stretch the car
+  follows sampled a lookahead past the reading, at the speed along its way the step left (`LineReading.Lead`), and the
+  circle through it (`CarFollower.AimAt`) — in the same pass that reads it along the line, on the device and in the
+  managed world alike, to the bit (`DeviceWorldTests`).
+- **The driver takes it only where it is its own sum**: the metre it was aimed at equal to its progress and its lookahead,
+  off a reading of the line in hand. A lookahead past the stretch — the line runs on past the next lane — is sampled
+  on the host as before, so a town ticks the same to the bit (`--bench age` digests unchanged).
+- **A manoeuvre at a bay is still read on the host**: its pieces are no lanes, and the world holds nothing of them to read
+  along. Handing it them is a channel of its own, not a reading of what it already has (tech debt).
+- **Measured** (O30 at 40 000 moving cars, device world, 30 s): the tick 18.4–18.5 ms against 17.6–17.9, the cars' own
+  ticks 8.4 against 7.8–7.9, `sincosf` and `atanf` off the driving path.
+
+## 2026-10-14 — every physics tick is drawn
+
+**The owner (2026-10-14), in their words: "atomic tick is physics tick, render happens every physics tick up to vsync"
+… "Render should happen on each physics tick." … "I mean that depends on game speed control, but yeah".** SIM-9.
+
+- **The clock owes one tick a frame at the game's own speed** (`SimClock.MostTicksPerCall`), and as many as the speed asks
+  past it. It caught up on up to eight before: a tick a tenth over its 16.7 ms ran every frame eight ticks long, so the
+  device's state was drawn once in eight steps while it sat idle in between.
+- **A tick slower than real time slows the town** instead. The whole ticks owed past the cap are dropped and the part of
+  one kept, so a frame a little late keeps its phase against the display.
+- **Measured** (O30 at 40 000 cars, every owner set off at the wheel, the device world, 30 s windows): 7 fps at 8 ticks a
+  frame (146 ms) against 54 fps at one (18.65 ms), the tick 18.3 and 18.5 ms, the town at 0.92 of real time either way.
+
+## 2026-10-14 — a walker's walk and a light's hold are kept as a car's plan is
+
+**The owner (2026-10-14): "Review the CPU bottlenet and continue improvements"**, on small maps while resources are short.
+On O10 the turns were the largest share of the CPU tick, and walkers and lights the largest share of the turns — each
+walker let go of its walk and asked it afresh at every turn, and each light its hold.
+
+- **A walker's walk down its route is a plan** (`WalkingGround.KeepsTheWalk`, `WalkingItsRoute.PlansTheWalk`): kept while
+  it is asked down the same chain by the same holder, let go of behind the walker's front half a body on
+  (`Person.TrimSlackInDiameters`, so what it still holds behind is in front of its middle, PER-26), asked further where it
+  needs more or what cut it has gone. A pass, a hop off the chain's end, a rejoin and a walk to a post are asked afresh.
+- **Its metres are measured from a place on its chain**, kept beside it and moved on to the way the walker is on, as the
+  walk itself measures them (`WalkingGround.WalkedAlong`); measured from the body, as an afresh walk is, every kept piece
+  would move with it.
+- **It is asked a slack past what it needs** (`Person.ClaimSlackInDiameters`, 1 m), never onto a crossing's paint it does
+  not need yet — so the lanes under a zebra are held from when the walker comes to it, as before. Slack 0 kept almost
+  nothing as it was (967 of 998 asked further a tick) and cost what asking afresh did.
+- **A light's hold is kept while it would be placed as it stands** (`SignalHolds.Lay`): against, uncut, and ending at the
+  same first body. Placed again every turn it woke every car waiting at its bar for nothing; `--bench trips` on O10 and
+  Odesa came out identical with and without.
+- **A plan held across turns must hold nothing it could not ask** (`LaneOccupancy.Take`, `CutHeld`): a piece refused where
+  it begins takes no mark, and a cut that leaves nothing of a main claim lets its marks go. Asked afresh each turn, such a
+  mark — a lane under a zebra with no ground of its holder's leading to it — lived one turn; kept, it headed its hold's
+  claims, `TrimBehind` stopped there, and the hold kept everything its walker walked over (one of 48 claims). Eleven walks
+  on O10 in a run held lanes so, and cars parked 2 % fewer and rerouted three times as often.
+- **Measured** (Release, one machine, against 6078de5, back to back): `--bench room --map O10` 0.78 ms a tick against
+  0.99 — walks 0.12 against 0.22, lights 0.05 against 0.10, answering 0.03 against 0.09; 872 walks a tick kept as they
+  were, 123 asked further, 3 afresh. `--bench trips`, O10: 15 087 walks arrived and 15 087, 7 345 cars parked against
+  7 338, 8 225 given up against 8 397; Odesa: 768 against 767, 84 given up against 80 (a 0.001 m/s change of pace moves
+  O10's by ±40 and Odesa's by ±2), one car wrecked against none. `--bench drive`, O10: 9.98 m/s against 9.83, reds 21
+  against 28, stuck 93 against 92, hard brakings 69 and 69; Odesa: 10.29 against 10.24, the rest the same. The exam fails
+  nine cards: 69 and 70 pass.
+
 ## 2026-10-14 — no laying: every agent claims on its own turn and holds what it claimed
 
 **The owner (2026-10-14), in their words: "The reason why persistant claims is the way that we want to go - is processing

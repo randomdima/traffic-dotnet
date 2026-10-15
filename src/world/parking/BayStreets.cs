@@ -41,6 +41,9 @@ internal sealed class BayStreets
 
     public int BayCount => _lane.Length / MostLanes;
 
+    /// <summary>The lanes of the road, which <see cref="BaysOffLane"/> is asked by.</summary>
+    public int LaneCount => _firstBayOfLane.Length - 1;
+
     /// <summary>The street lanes this bay is worked off — one on a street driven one way, two on one driven both.</summary>
     public ReadOnlySpan<int> LanesOf(int bay)
     {

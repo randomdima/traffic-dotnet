@@ -34,13 +34,11 @@ internal static class EveryAgent
 
     /// <summary>
     /// <see cref="Decide"/> for a world none of whose agents decides every tick: the same agents in the same order, found
-    /// by stepping <see cref="TickGroups.Groups"/> from the first whose turn it is rather than by asking every agent.
+    /// by walking the turn's runs (<see cref="TickGroups.InTurn"/>) rather than by asking every agent.
     /// </summary>
     public static void DecideTheTurn<TWorld>(ref TWorld world, long tick, TickGroups decisions) where TWorld : ISimWorld
     {
-        var agents = world.AgentCount;
-        var groups = decisions.Groups;
-        for (var agent = decisions.FirstInTurn(tick); agent < agents; agent += groups)
+        foreach (var agent in decisions.InTurn(tick, world.AgentCount))
         {
             if (!world.IsTerminal(agent)) world.DecideAgent(agent, decisions.IntervalS);
         }

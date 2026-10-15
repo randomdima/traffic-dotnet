@@ -282,6 +282,12 @@ internal sealed partial class SimConfig
     /// </summary>
     public float PersonWalkAheadM => PersonDiameterM * Person.WalkAheadInDiameters;
 
+    /// <summary>How far past what it needs a walker asks for its walk (<see cref="PersonFigures.ClaimSlackInDiameters"/>) — 2 m at the shipped figures.</summary>
+    public float PersonClaimSlackM => PersonDiameterM * Person.ClaimSlackInDiameters;
+
+    /// <summary>How far a walker walks before letting go of what it holds behind it (<see cref="PersonFigures.TrimSlackInDiameters"/>).</summary>
+    public float PersonTrimSlackM => PersonDiameterM * Person.TrimSlackInDiameters;
+
     /// <summary>
     /// <b>How far a walker covers in one tick at its pace</b> — 0.044 m at the shipped figures. A walker has no
     /// acceleration of its own (PER-3), so it is also the whole of what one takes to come to rest.

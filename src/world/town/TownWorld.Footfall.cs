@@ -76,14 +76,23 @@ internal sealed partial class TownWorld
     /// </summary>
     void PlanTheWalk(int person, Span<LineWay> walk)
     {
-        _walkingGround.LetGoOfTheWalk(person);
-        if (!_personActions.WalksOnItsOwnFeet(person)) return;
+        if (!_personActions.WalksOnItsOwnFeet(person))
+        {
+            _walkingGround.LetGoOfTheWalk(person);
+            return;
+        }
 
         // <b>A walker on a pass walks on in the pass's hold</b> (TER-4c.6): whatever refuses the pass holds it where it
-        // stands.
-        var ways = WaysOfTheWalk(person, walk);
+        // stands. Its own walk down its route is kept from turn to turn.
         var occupant = _walkingGround.HeldAs(person, out var roster);
-        _walkingGround.Claim(person, occupant, roster, ways, _sidestepping.HoldOf(person));
+        var pass = _sidestepping.HoldOf(person);
+        if (pass == LaneOccupancy.NoHold && People.Action[person] == PersonAction.Walk
+            && _walkingItsRoute.PlansTheWalk(person, occupant, roster, walk))
+        {
+            return;
+        }
+
+        _walkingGround.Claim(person, occupant, roster, WaysOfTheWalk(person, walk), pass);
     }
 
     /// <summary>The ground a walker's action walks, nearest first, as that action has it.</summary>

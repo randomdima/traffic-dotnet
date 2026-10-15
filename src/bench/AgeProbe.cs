@@ -43,7 +43,7 @@ internal static class AgeProbe
         var loop = new SimLoop<TownWorld>(world, config);
 
         Console.WriteLine($"age probe — {map}, {world.People.Count} walkers, {world.Cars.Count} cars, {WindowTicks} ticks a window, µs per tick with the timing on");
-        Console.WriteLine($"{"from s",8}{"tick",8}{"index",8}{"agents",8}{"walkers",9}{"cars",8}{"bodies",8}{"solver",8}{"contacts",10}{"awake",8}{"frozen",8}{"wall s",8}{"worst",8}{"worst ix",10}  digest");
+        Console.WriteLine($"{"from s",8}{"tick",8}{"index",8}{"agents",8}{"walkers",9}{"cars",8}{"bodies",8}{"solver",8}{"contacts",10}{"awake",8}{"frozen",8}{"wall s",8}{"worst",8}{"at tick",9}{"worst ix",10}  digest");
 
         var started = Stopwatch.GetTimestamp();
         foreach (var fromS in WindowAtS)
@@ -65,7 +65,8 @@ internal static class AgeProbe
                 $"{Micro(phases, sub.CarTicks + sub.CarDecisionTicks),8:F1}" +
                 $"{Micro(phases, phases.BodyTicks),8:F1}{Micro(phases, sub.SolverTicks),8:F1}{Micro(phases, phases.ContactTicks),10:F1}" +
                 $"{world.IntegratedBodyCount,8}{world.FrozenBodyCount,8}{Stopwatch.GetElapsedTime(started).TotalSeconds,8:F1}" +
-                $"{PhaseTimes.Microseconds(phases.WorstTickTicks),8:F1}{PhaseTimes.Microseconds(phases.WorstIndexTicks),10:F1}  {Digest(world):x16}");
+                $"{PhaseTimes.Microseconds(phases.WorstTickTicks),8:F1}{phases.WorstTickAt,9}" +
+                $"{PhaseTimes.Microseconds(phases.WorstIndexTicks),10:F1}  {Digest(world):x16}");
         }
     }
 

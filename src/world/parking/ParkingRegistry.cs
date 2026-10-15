@@ -79,9 +79,29 @@ internal sealed class ParkingRegistry
         Array.Fill(_bayOfCar, NoBay);
         Array.Fill(_claimedBayOfCar, NoBay);
         Array.Fill(_turnOfCar, NoBay);
+        _freeOffLane = new int[streets.LaneCount];
+        for (var bay = 0; bay < bays; bay++) Counted(bay, wasFree: false);
     }
 
     public const int NoBay = -1;
+
+    /// <summary>
+    /// <b>How many free bays each lane has off it</b> (<see cref="BayStreets.BaysOffLane"/>, <see cref="IsFree"/>), kept with
+    /// every change to the register — so a search for a free bay passes over a lane with none without asking its bays.
+    /// </summary>
+    readonly int[] _freeOffLane;
+
+    /// <summary>Whether any bay off this lane is free (<see cref="IsFree"/>).</summary>
+    public bool AnyFreeOff(int lane) => _freeOffLane[lane] > 0;
+
+    /// <summary>One bay's change to the register counted into <see cref="_freeOffLane"/>, against whether it was free before it.</summary>
+    void Counted(int bay, bool wasFree)
+    {
+        var isFree = IsFree(bay);
+        if (isFree == wasFree) return;
+
+        foreach (var lane in _streets.LanesOf(bay)) _freeOffLane[lane] += isFree ? 1 : -1;
+    }
 
     /// <summary>Nobody standing in a bay, nobody on their way to one and nobody holding one.</summary>
     public const int Nobody = -1;
@@ -178,14 +198,21 @@ internal sealed class ParkingRegistry
     /// of an apron's hold. Held this way it is free to nobody at all, which is what lets an apron be
     /// claimed before the plan's own cars are stood and still be there when they have been.
     /// </summary>
-    public void HoldTheApron(int bay) => _heldFor[bay] = Claimed;
+    public void HoldTheApron(int bay) => HoldFor(bay, Claimed);
+
+    void HoldFor(int bay, int holder)
+    {
+        var wasFree = IsFree(bay);
+        _heldFor[bay] = holder;
+        Counted(bay, wasFree);
+    }
 
     /// <summary>
     /// And the second half: <b>the bay kept for one named vehicle for the whole run</b>. It is a hold on a
     /// place and not a leg's claim — that is what a leg under way has, and this outlives every leg the
     /// vehicle drives.
     /// </summary>
-    public void HoldForTheCar(int bay, int car) => _heldFor[bay] = car;
+    public void HoldForTheCar(int bay, int car) => HoldFor(bay, car);
 
     /// <summary>Which vehicle this bay is held for, <see cref="Claimed"/>, or <see cref="Nobody"/>.</summary>
     public int HeldFor(int bay) => _heldFor[bay];
@@ -205,7 +232,7 @@ internal sealed class ParkingRegistry
     public const int TheYard = -3;
 
     /// <summary>A slot of the yard taken out of the town for the whole run, whatever happens to be standing in it.</summary>
-    public void HoldForTheYard(int bay) => _heldFor[bay] = TheYard;
+    public void HoldForTheYard(int bay) => HoldFor(bay, TheYard);
 
     /// <summary>
     /// <b>A bay claimed for a leg</b>, and the one that leg held before it given back — a car is aimed at one
@@ -216,8 +243,10 @@ internal sealed class ParkingRegistry
         if (!IsFreeFor(car, bay)) return false;
 
         Release(car);
+        var wasFree = IsFree(bay);
         _claimedBayOfCar[car] = bay;
         _claimedBy[bay] = car;
+        Counted(bay, wasFree);
         return true;
     }
 
@@ -230,8 +259,10 @@ internal sealed class ParkingRegistry
         var bay = _claimedBayOfCar[car];
         if (bay == NoBay) return;
 
+        var wasFree = IsFree(bay);
         _claimedBayOfCar[car] = NoBay;
         _claimedBy[bay] = Nobody;
+        Counted(bay, wasFree);
     }
 
     /// <summary>
@@ -249,8 +280,10 @@ internal sealed class ParkingRegistry
         if (!IsFreeFor(car, bay)) return false;
 
         LeaveTheTurn(car);
+        var wasFree = IsFree(bay);
         _turnOfCar[car] = bay;
         _turningIn[bay] = car;
+        Counted(bay, wasFree);
         return true;
     }
 
@@ -260,8 +293,10 @@ internal sealed class ParkingRegistry
         var bay = _turnOfCar[car];
         if (bay == NoBay) return;
 
+        var wasFree = IsFree(bay);
         _turnOfCar[car] = NoBay;
         _turningIn[bay] = Nobody;
+        Counted(bay, wasFree);
     }
 
     /// <summary>
@@ -273,8 +308,10 @@ internal sealed class ParkingRegistry
         Vacate(car);
         Release(car);
         LeaveTheTurn(car);
+        var wasFree = IsFree(bay);
         _bayOfCar[car] = bay;
         _carInBay[bay] = car;
+        Counted(bay, wasFree);
     }
 
     public void Vacate(int car)
@@ -282,8 +319,10 @@ internal sealed class ParkingRegistry
         var bay = _bayOfCar[car];
         if (bay == NoBay) return;
 
+        var wasFree = IsFree(bay);
         _bayOfCar[car] = NoBay;
         _carInBay[bay] = Nobody;
+        Counted(bay, wasFree);
     }
 
     /// <summary>

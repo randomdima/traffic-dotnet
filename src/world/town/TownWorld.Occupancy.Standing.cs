@@ -62,22 +62,26 @@ internal sealed partial class TownWorld
                                         && Cars.VelocityMps[car] == Vector2.Zero && _recovery.OnTheHookOf[car] < 0;
     }
 
-    /// <summary>The first car whose turn it is, and how many on the next one is (<see cref="TheAgentsInTurn"/>).</summary>
-    int _carsInTurnFrom, _carsInTurnStep = 1;
-
     /// <summary>
     /// <b>The body of every car whose turn it is, and the list of them the rest of the turn asks</b>: each laid where the
-    /// world reads it (nothing done where that is where it stood), a standing car asked nothing else, and any other kept
-    /// if it is standing now.
+    /// world reads it (nothing done where that is where it stood), a car standing as laid not even read again and asked
+    /// nothing else, and any other kept if it is standing now.
     /// </summary>
     void LayTheCarsBodies()
     {
         _standing.AskedCount = 0;
-        for (var car = _carsInTurnFrom; car < Cars.Count; car += _carsInTurnStep)
+        var inTurn = CarsInTurn;
+        for (var slot = 0; slot < inTurn.Length; slot++)
         {
-            LayTheCarsBody(car);
+            if (slot + PrefetchAhead < inTurn.Length) _occupancy.PrefetchTheBody(inTurn[slot + PrefetchAhead], LaneRoster.Driving, slots: false);
+            if (slot + (PrefetchAhead / 2) < inTurn.Length) _occupancy.PrefetchTheBody(inTurn[slot + (PrefetchAhead / 2)], LaneRoster.Driving, slots: true);
+
+            var car = inTurn[slot];
+
+            // Frozen at the pose it was laid at, its body would be read off the same covers onto the same stretches.
             if (StandsAsLaid(car)) continue;
 
+            LayTheCarsBody(car);
             KeepIfStanding(car);
             _standing.Asked[_standing.AskedCount++] = car;
         }

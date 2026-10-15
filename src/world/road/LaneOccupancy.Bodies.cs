@@ -58,6 +58,28 @@ internal sealed partial class LaneOccupancy
         _bodyHoldOf[key] = NoHold;
     }
 
+    /// <summary>A body's hold asked of memory ahead of its laying (<see cref="Prefetch"/>).</summary>
+    public unsafe void PrefetchTheBody(int body, LaneRoster of, bool slots)
+    {
+        var key = KeyOf(body, of);
+        if ((uint)key >= (uint)_bodyHoldOf.Length) return;
+
+        var hold = _bodyHoldOf[key];
+        if (!slots)
+        {
+            Prefetch(hold);
+            return;
+        }
+
+        if (!System.Runtime.Intrinsics.X86.Sse.IsSupported || (uint)hold >= (uint)_holdCount) return;
+
+        var first = _holds[hold].FirstClaim;
+        if (first == NoSlot) return;
+
+        System.Runtime.Intrinsics.X86.Sse.Prefetch0(System.Runtime.CompilerServices.Unsafe.AsPointer(ref _slots[first]));
+        System.Runtime.Intrinsics.X86.Sse.Prefetch0(System.Runtime.CompilerServices.Unsafe.AsPointer(ref _owners[first]));
+    }
+
     /// <summary>
     /// <b>One body laid where it now stands</b>, over every way under it (<paramref name="covers"/>) and held as
     /// <paramref name="occupant"/>: nothing done where it stands where it stood, as the same holder, and what it stood on

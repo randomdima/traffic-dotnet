@@ -11,7 +11,7 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **`StopBarsTests.ABarStandsASetbackBehindItsCrossing`** (unit) fails, and fails on the tree before the wheel
   claims too. Nothing has looked at why.
 - **The unit tier's allocation tests flake** (2026-10-13): in 6 runs of 10 one of `InspectorTests`,
-  `RoutePlannerTests`, `RouteSearchTests` or the panels' `…AllocatesNothing` counts 3–7 KB on its thread, though the
+  `RoutePlannerTests`, `RouteSearchTests`, `ScreenDrawTests` or the panels' `…AllocatesNothing` counts 3–7 KB on its thread, though the
   routing ones read nothing the change before it touched (secondary claims read merged; 0 in 8 on the tree before).
   With `DOTNET_GCgen0size=0x20000000` none does in 8 runs, so it is a collection landing in the window, set off by
   whatever runs beside it, and not a byte allocated. Each of the ten files reads
@@ -20,18 +20,15 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **`ShippedCityTests.NothingItCarriesStandsOffIt(OdesaOsm)`** (maps) fails on the town that stands 40 000 people and
   40 000 cars (2026-10-09, still on 2026-10-12): spawn 37 177 stands at x −0.15 m, off the map's own edge. Spawning on
   the map's edge, or the map's bounds taking its spawns in, closes it.
-- **Eleven exam cards fail** (2026-10-14, since every agent claims on its own turn; 60, 80, 88 and 91 pass since it,
-  and 79 since the claims redesign):
+- **Nine exam cards fail** (2026-10-14, since every agent claims on its own turn; 60, 80, 88 and 91 pass since it, 69
+  and 70 since a plan held across turns holds no mark it could not ask, and 79 since the claims redesign):
   - 44 and 85, which passed since the claims redesign and fail since the turns: not looked at yet. A card run traced to
     the turn its car was granted what it should not have been closes it.
   - 108 and 109 (getting past a car stood in its lane; a call past a queue at a red): no pass is decided — the
     "nobody reads what a body is doing" entry below.
-  - 70, 82, 84, 86 and 89 (a car gives way on a zebra): the car stops behind somebody standing at the kerb
+  - 82, 84, 86 and 89 (a car gives way on a zebra): the car stops behind somebody standing at the kerb
     end of the paint, inside the zebra, and is on it when they cross. The room once kept behind a body going nowhere
     held it short; the same entry.
-  - 69 (a right turn on green gives way to somebody crossing): the tier "ground its holder already stands on" went
-    with the comparison — a walker on the paint is held by a red over its other walking lane. Two ways
-    of keeping it in one pass were tried and refused (road decision log, 2026-10-12).
   - 67 (a left turn on green gives way to the oncoming right turn): driver 1 never gets where it was sent. It failed
     before the redesign too, and nothing has looked at why.
 - **Sixteen town tests are skipped** for the decisions no claim can make any more: all fourteen of
@@ -49,6 +46,9 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     `StatusPanelTests.DrawingThePanelAllocatesNothing` (unit), at 4–8 KB. These count on the test's own thread, so something on that thread allocates now and then; a
     rejit is the guess.
   - `ScenarioTests.WatchingATownAllocatesNothing(Exam)` (town), once, at 6.5 KB.
+  - `AllocationGateTests.AWholeTickOfAWholeTownAllocatesNothing(Laid)`, and once `(Test)` (perf), at 24 B over the
+    600 ticks — one small object — in about half of the tier's runs on 2026-10-15, and in 1 of 3 on the committed tree
+    (6078de5); never run alone (`--name`, 0 of 3).
   - `AllocationGateTests.ThisEnginesOwnPhasesAllocateNothingOverAWholeTown(Test)` (perf), five times in about twenty
     runs at 2–8 B a tick. A per-agent trace of phases 1–3 found no allocation. A `P0` gate that flickers is either a
     real allocation on a rare path or a measurement that counts something it should not; which is not known.
@@ -58,9 +58,25 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 ## Regressions and figures not taken
 
-- **OdesaOsm runs at 3 fps and a third of real time** (`qq prof --map OdesaOsm --frame`, 16 cores, RX 9070 XT,
-  2026-10-12): every frame spends the clock's cap of 8 ticks. Managed world: 47.6 ms a tick, 1.47 cores busy. Device
-  world: 37.5 ms a tick, 1.02 cores busy, the card 3 % busy. The actor layer is the whole of the device tick, on
+- **A town of 40 000 moving cars ticks slower than real time** (device world, 16 cores, RX 9070 XT, 2026-10-14): OdesaOsm
+  18.9 ms a tick in its first minute, not taken since; O30 at 40 000 cars with every owner set off at the wheel
+  (`Person.StartsAtTheWheelShare` 1, a root under `.tmp/`) now keeps up: the main thread is busy 13.9 ms a frame
+  (2026-10-15; 15.9 that morning, 17.0 a frame before a turn took runs of neighbours, root log), so the window runs at
+  the display's 59–60 fps, one tick a frame (SIM-9), and the main thread's busy time and not the frame is what a change
+  moves. The device steps in about 1.7 ms and is 11 % busy; it waits on the host's tick, on the main thread alone at
+  1.6 instructions a cycle. Every tick every car's own tick is 6.0 ms (7.3 before a car waiting at a bay took its tick
+  again unread and the fleet's walk fetched the eighth car on, 8.4 before the world aimed the wheel); every tick a sixth
+  of the agents take their turn, 6.2 ms — claiming 4.3 and answering 0.4, deciding 1.5 (a free-bay hunt passes by the
+  bay lanes with no bay free, `FreeBaysNear` 0.35 → 0.15 ms; a car waiting to pull out sweeps its shape once,
+  `PullingOut.Decide` 0.37 → 0.06); the device's begin and read 0.6 and the watch 0.5. `--bench room` times the turns at
+  5.71 ms (6.59 that morning). Run to run the tick moves by ±0.3 ms, and `--bench age` on O10 by ±3 %. The turns wait on
+  memory, not arithmetic: the claims' own methods 0.2–0.8 instructions a cycle at 10–47 last-level misses a thousand
+  instructions, chasing a hold's slots and owners through some 40 MB of tables; fetching the next cars' holds ahead
+  took 0.3 ms of it (root log). Visiting a turn's cars in the order of the lanes they stand on gained nothing (6.20 → 6.52 ms
+  with the sort), so what misses is the chains and not the lanes' rows. A shipped town's own figures say
+  little: OdesaOsm is free-running empty cars that jam within three minutes, and O30 as authored is 95 % parked.
+  Before (2026-10-12, OdesaOsm, then at 3 fps on the clock's old catch-up): managed world 47.6 ms a tick, 1.47 cores
+  busy; device world 37.5 ms, 1.02 cores, the card 3 % busy. The actor layer was the whole of the device tick, on
   the main thread alone:
   - the claims laying, every third tick, is 43 % of the samples, about 48 ms a laying. Answering the plans took 18 %
     of that, `Following.Plan` 11 % and the walkers' station, plan and grants 6 % — before the claims redesign. Since
@@ -151,7 +167,48 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   and drawn again to the same car. What holds it there and why its leg's clock does not end the walk is not known.
   Others did the same for shorter stretches (walker 160, minutes 27–33). Finding what refuses it closes it.
 
+- **`qq prof --memory` quotes a frame rate the window it sampled did not have** (`.qq/prof.py`): the game's read-out is
+  its last window at exit, which `--memory` puts 120 s after the samples end, and every `ms/frame` is divided by that
+  rate. OdesaOsm sampled at 7 fps was quoted at 60, because by the exit the town had jammed. Reading the frame meter
+  over the sampled window, or naming the read-out's own window beside it, closes it.
+- **`Person.StartsAtTheWheelShare` has no test** (2026-10-14): owners laid at their wheel and set off on a driven trip
+  (`TownWorld.SeatTheOwners`), a load figure, none by default. A town test that an owner laid so is aboard with a driven
+  trip under way, and one that a share of none moves no person's draws, closes it.
+
 ## Redundant work left in place
+
+### A car's tick
+
+- **A car's tick works out again what only changes at its turn** (2026-10-15, O30 at 40 000 moving cars: the cars' own
+  ticks 6.0 ms of the main thread's 13.9 a tick). Of `CarFollower.DriveTheLine`, `TownWorld.ReadTheLine` and the gate
+  round them:
+  - the walk of the arcs ahead for the tightest and the `sqrt` of the next one's entry figure (`TargetSpeedMps`), fixed
+    while the line is;
+  - the grant, the place and the wait-at, each a stop metre a lead ahead, which share one lead and one braking;
+  - `ToTheSceneM` up to three times a tick (`SetTheContext`, `TicksAsBefore`, `KeepTheTick`), a projection over twice the
+    sight for a car on an errand;
+  - `LineReader.RunsShort`, the lost-the-line test and `IsOffTheLaneOfItsPass`, which only a decision reads or which only
+    change at a lane handed over;
+  - `CarLamps.Showing` past the brake bit, and `TurnAheadRad` inside a junction's reach;
+  - `StandsParked`, `TicksAsBefore` and `KeepTheTick` over every car, parked or not, where a list of the woken would do;
+  - the speed along the line, which the world's view already holds, and the cursor walked on (`Spline.MoveTheCursor`,
+    0.3 ms) only so the speed profile's walk of the arcs begins where the world's reading already is;
+  - about thirty per-car arrays read a tick, where one record written at the turn would be one line of cache.
+
+  `Drive`'s own time is spread over its whole body, no block over a ninth of it, so each item is worth tenths of a
+  millisecond; the record is the largest. Each moved to the turn, with `--bench age`'s digests equal, closes it.
+- **A car manoeuvring at a bay is read along its piece on the host every tick** (`BayManoeuvring.DriveThePiece`, about
+  0.3 ms a tick on O30 since a car waiting at its bay takes its tick again unread, 1.6 before): its pieces are no lanes, so it follows nothing the world reads (`LineFollowed.None`)
+  and the host projects it from the piece's first arc and aims its wheel itself. A car following its lanes is read and
+  aimed by the world (root log 2026-10-15). Handing the world a piece's arcs when it is laid, for the view to read along as
+  it reads lanes, closes it.
+- **`BayManoeuvring.Lay` sweeps the piece a begun manoeuvre is on at every turn** (`StreetUnder` 0.3 ms a tick on O30,
+  `sincosf` 0.18 more, 2026-10-15): from where the car stands on it, each station a flank on from there, so no two
+  turns sweep the same stations. The pieces after it are swept once an ask (`SweptWhole`), which on O30 is little —
+  most manoeuvres laid are on their last piece. Stations on the piece's own grid from its start, the ones the car is past
+  dropped, would be the whole-piece sweep cut short and kept from the ask; it moves where a manoeuvre's ground begins by
+  up to a flank, so it is a change to the town and not only to the cost. Kept from a turn the car had not moved since,
+  exact, it gained nothing (`--bench room` passes 0.90 → 0.90 ms): a begun manoeuvre is a car moving.
 
 ### The world layer
 
@@ -218,14 +275,17 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **A walker's body costs more to keep than to lay afresh** (2026-10-14, root decision log): `--bench room --map O10`
   0.26 ms a tick for a sixth of the walkers against 0.70 every third tick for all of them on the laid tree — 1.8 times
   the work a walker. A moving body is moved in place, but each move reads its slot, its run's neighbours and the main
-  claims on the ground it comes to cold. Walkers are also still asked afresh at every turn (`WalkingGround.Claim`), their
-  walk's metres measured from the body. Keeping a walker's walk as a car's plan is kept closes part of it.
+  claims on the ground it comes to cold. It is now the largest stage of a turn but the walkers' stationing (0.15 ms and
+  0.19 of 0.78 on O10, root log 2026-10-14, a walker's walk kept).
+- **One car wrecked on Odesa in `--bench trips` since walkers' walks are kept** (2026-10-14, root log), against none on
+  6078de5 and none with walking pace moved by 0.001 m/s. Not traced; the stuck probe's first-wreck trace on Odesa closes
+  it or shows it chaotic.
 - **OdesaOsm is not measured on the turns** (2026-10-14): the owner asked for small maps while resources are short, so
   the root log's figures are O10's and Odesa's, and the drive census's and room probe's OdesaOsm figures above are of
   trees before. A `--bench room` and `--bench drive` on OdesaOsm close it.
-- **Reds rose with the turns**: `--bench drive` O10 28 against 21, Odesa 3 against 0 on the laid tree (2026-10-14).
-  Which red is crossed that was not is not traced; a `--bench drive` red traced to the turn it was committed in closes
-  it.
+- **Reds rose with the turns on Odesa**: `--bench drive` 3 against 0 on the laid tree (2026-10-14); O10 is back at 21,
+  as on the laid tree, since walkers' walks and lights' holds are kept. Which red is crossed that was not is not traced;
+  a `--bench drive` red traced to the turn it was committed in closes it.
 - **A light's hold is placed as its first body stood at its turn** (`SignalHolds.Lay`): a body standing over the bar
   then leaves the light holding nothing, and the ground it pulls off the bar is held by nothing until the light's next
   turn — a follower whose turn falls between can plan over the bar. Nothing has been seen to come of it on the small
@@ -234,12 +294,6 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   a piece's rung is levelled by what lies ahead of it and capped by what lies behind, and passing a piece can raise the
   rest. About 170 plans a laying on OdesaOsm with every car planning at every laying. Levelling the held claims' rungs
   again where the nose leaves a piece closes it.
-- **Walkers' asks are dearer since asking was cheapened** (2026-10-13, road decision log): idle, `--bench room`,
-  against the tree before, OdesaOsm 27.1 ms against 27.4 (cars' plans 8.8 against 9.6, walks 4.31 against 4.13,
-  answering 5.19 against 5.10) and O10 3.89 against 3.69 (walks 0.77 against 0.66). The walk stage is
-  `WalkingGround.Claim`, into which `AskUp` was inlined: the drivers' own-body branch (`OwnBodyAt`) or the larger
-  `AskUp` is the suspect. An annotation of `WalkingGround.Claim` against the tree before, and the walk stage back at
-  0.66 ms on O10, close it — and the entry above takes the figures then.
 
 - **Nobody reads what a body is doing, so every decision that turned on it is dropped** (since the claims redesign,
   2026-10-12; road decision log): the claims say where a body is and never who or what it is doing (TER-4c.5), and
@@ -310,4 +364,13 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   on the device's host would read the ring back.
 
 ## Waiting on the owner
+
+- **The physics step waits on the actors' planning** _owner_ (2026-10-14): the owner's model is the physics tick as the
+  atom, drawn every tick, and the actors planning on their own every `AgentDecisionIntervalS` of game time in staggered
+  groups, with only the holding of the lane taken every tick. A step needs only that tick's `DriveCommand`s, yet
+  `SimLoop.Advance` takes the turns and the decisions (8.2 ms of O30's 18.5 ms tick) before `StepBodies` submits it, all
+  on the main thread. Planning off the step's path closes it, once the owner rules what gives way when a group's plans
+  are late (the step waits at a fixed lag, keeping a run reproducible; the interval stretches; or plans land when
+  ready) — and the lane holding taken every tick made cheap: the speed profile evaluated at the car's progress rather
+  than walked down the arcs again, and the cars' ticks spread over cores.
 

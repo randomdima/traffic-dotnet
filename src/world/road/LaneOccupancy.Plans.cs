@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace TrafficSimulation.World.Road;
 
@@ -216,6 +217,18 @@ internal sealed partial class LaneOccupancy
     /// </summary>
     public bool IsCutAtAMark(int hold) => _holds[hold].Cut.Refused && _holdLife[hold].CutSecondary;
 
+    /// <summary>
+    /// <b>A hold's rows asked of memory ahead of their reading</b> — a hint and nothing else, for a caller about to walk
+    /// holds in an order the cache cannot guess.
+    /// </summary>
+    public unsafe void Prefetch(int hold)
+    {
+        if (!System.Runtime.Intrinsics.X86.Sse.IsSupported || (uint)hold >= (uint)_holdCount) return;
+
+        System.Runtime.Intrinsics.X86.Sse.Prefetch0(Unsafe.AsPointer(ref _holds[hold]));
+        System.Runtime.Intrinsics.X86.Sse.Prefetch0(Unsafe.AsPointer(ref _holdStates[hold]));
+        System.Runtime.Intrinsics.X86.Sse.Prefetch0(Unsafe.AsPointer(ref _holdLife[hold]));
+    }
     /// <summary>Whether a hold is a live plan of this holder's (<see cref="BeginPlan"/>).</summary>
     public bool IsPlanOf(int hold, int occupant, LaneRoster of) =>
         hold != NoHold && hold < _holdCount && _holdLife[hold].Live && _holdLife[hold].ByLine

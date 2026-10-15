@@ -1,4 +1,5 @@
 using TrafficSimulation.Agents.Car.Actions;
+using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
@@ -31,6 +32,7 @@ internal static class RoomProbe
         var rebuilds = 0;
         var layingFrom = world.LayingTicks.ToArray();
         var keptFrom = world.PlansKept.ToArray();
+        var walksFrom = world.WalksKept.ToArray();
         var (holds, wishes, bodies, mains, seconds, holders) = (new Tally(), new Tally(), new Tally(), new Tally(), new Tally(), new Tally());
         var (laidBodies, ways) = (new Tally(), new Tally());
         var (driven, drivenAtRest, walking, walkingAtRest) = (new Tally(), new Tally(), new Tally(), new Tally());
@@ -134,8 +136,7 @@ internal static class RoomProbe
         Console.WriteLine(
             $"room probe — {map}: {world.Cars.Count} cars, {world.People.Count} people; {rebuilds} ticks of turns over {MeasuredTicks} ticks " +
             $"after {WarmupTicks}");
-        Console.WriteLine($"longest way {longestM:F1} m: {LaneOccupancy.DmOf(longestM):N0} of {ushort.MaxValue:N0} dm");
-        var msPer = 1000.0 / System.Diagnostics.Stopwatch.Frequency / Math.Max(1, rebuilds);
+        Console.WriteLine($"longest way {longestM:F1} m: {LaneOccupancy.DmOf(longestM):N0} of {ushort.MaxValue:N0} dm");        var msPer = 1000.0 / System.Diagnostics.Stopwatch.Frequency / Math.Max(1, rebuilds);
         var stages = Enum.GetValues<TownWorld.LayingStage>();
         var spentMs = stages.Select(stage => (world.LayingTicks[(int)stage] - layingFrom[(int)stage]) * msPer).ToArray();
         Console.WriteLine(
@@ -145,7 +146,11 @@ internal static class RoomProbe
         Console.WriteLine(
             $"car plans a tick: {keptPer[(int)PlanKept.AsItIs]:N0} kept as they were, " +
             $"{keptPer[(int)PlanKept.ToBeAskedFurther]:N0} asked further, {keptPer[(int)PlanKept.No]:N0} let go of");
-        Console.WriteLine($"{"a tick",-12}{"average",10}{"most",10}");
+        var walks = world.WalksKept.ToArray();
+        var walksPer = Enum.GetValues<WalkKept>().Select(of => (walks[(int)of] - walksFrom[(int)of]) / Math.Max(1, rebuilds)).ToArray();
+        Console.WriteLine(
+            $"walks a tick: {walksPer[(int)WalkKept.AsItIs]:N0} kept as they were, " +
+            $"{walksPer[(int)WalkKept.ToBeAskedFurther]:N0} asked further, {walksPer[(int)WalkKept.No]:N0} asked afresh");        Console.WriteLine($"{"a tick",-12}{"average",10}{"most",10}");
         driven.Print("cars driven", rebuilds);
         drivenAtRest.Print("  at rest", rebuilds);
         carsAsked.Print("cars asked", rebuilds);

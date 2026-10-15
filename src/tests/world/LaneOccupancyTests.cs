@@ -447,4 +447,39 @@ public class LaneOccupancyTests
 
         Assert.Equal(LaneOccupancy.KeyOf(9, LaneRoster.Walking), index.HolderAt(index.CutOf(hold)));
     }
+
+    /// <summary>A piece refused where it begins has none of itself had, and so none of the marks over it.</summary>
+    [Fact]
+    public void APieceRefusedWhereItBeginsHoldsNoMark()
+    {
+        var (a, b) = TwoWays();
+        var index = Index(Mark(a, (20f, 24f), b, (30f, 36f)));
+        index.LayBody(a, 18f, 25f, 9, LaneRoster.Driving);
+        var hold = Asked(index, 1, a, 20f, 50f, ClaimPriority.Firm);
+        index.Answer();
+
+        Assert.Equal((20f, ClaimKind.Body), (index.CutOf(hold).AtM, index.CutOf(hold).Kind));
+        Assert.Empty(index.Secondaries(b).ToArray());
+    }
+
+    /// <summary>
+    /// A plan cut where its trimmed main claim begins keeps nothing of that claim, and none of the marks it still stood in
+    /// behind it.
+    /// </summary>
+    [Fact]
+    public void ACutThatLeavesNothingOfAMainClaimLetsItsMarksGo()
+    {
+        var (a, b) = TwoWays();
+        var index = Index(Mark(a, (20f, 30f), b, (30f, 36f)));
+        var hold = index.BeginPlan(1, LaneRoster.Driving);
+        index.Ask(hold, a, 15f, 50f, 15f, ClaimPriority.Firm);
+        index.Answer();
+        index.TrimBehind(hold, 25f);
+        Assert.Single(index.Secondaries(b).ToArray());
+
+        index.LayBody(a, 22f, 28f, 9, LaneRoster.Driving);
+
+        Assert.Empty(index.Mains(a).ToArray());
+        Assert.Empty(index.Secondaries(b).ToArray());
+    }
 }
