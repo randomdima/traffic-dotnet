@@ -73,6 +73,26 @@ public class BandShellTests
         Assert.Equal((1, 0), (shell.Chains.Length, shell.Loose.Length));
     }
 
+    /// <summary>
+    /// <b>A merge that cuts more than it holds cuts again, and comes to the same shape</b>: holding the cuts it counts
+    /// saves cutting twice, and the shape cannot tell which of the two filed them.
+    /// </summary>
+    [Fact]
+    public void AMergeThatCutsTwiceComesToTheShapeItHeld()
+    {
+        ArcSeg[][] lines =
+        [
+            Across(-20f), Across(0f), Across(20f), Along(-20f), Along(0f), Along(20f),
+            [new ArcSeg(new Vector2(-ReachM, -ReachM), MathF.PI * 0.25f, 2f * ReachM, 0.01f)],
+        ];
+
+        var held = Shell(lines);
+        var cutTwice = Shell(lines, mostCutsHeld: 0);
+
+        Assert.Equal(held.Chains.Length, cutTwice.Chains.Length);
+        for (var ring = 0; ring < held.Chains.Length; ring++) Assert.Equal(held.Chains[ring], cutTwice.Chains[ring]);
+    }
+
     static float BoundaryM(BandShell shell)
     {
         var lengthM = 0f;
@@ -86,7 +106,7 @@ public class BandShellTests
     static ArcSeg[] Along(float atM) =>
         [new ArcSeg(new Vector2(atM, -ReachM), MathF.PI * 0.5f, 2f * ReachM, 0f)];
 
-    static BandShell Shell(ArcSeg[][] lines)
+    static BandShell Shell(ArcSeg[][] lines, int mostCutsHeld = int.MaxValue)
     {
         var widthM = new float[lines.Length];
         Array.Fill(widthM, WidthM);
@@ -97,6 +117,6 @@ public class BandShellTests
             building.Add(line, lines[line], Spline.TotalLengthM(lines[line]));
         }
 
-        return BandShell.Of(lines, widthM, building.Seal(new WorldGrid(CellM).Main));
+        return BandShell.Of(lines, widthM, building.Seal(new WorldGrid(CellM).Main), mostCutsHeld);
     }
 }

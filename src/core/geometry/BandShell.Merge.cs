@@ -117,6 +117,15 @@ internal sealed partial class BandShell
         /// <summary>Two circles cross at two places and two lines at one, so a pair of pieces has no more than two.</summary>
         const int MostCrossings = 2;
 
+        /// <summary>
+        /// <b>The most cuts a pass holds while it counts them</b> (<see cref="Filing"/>) — 128 MiB of them. A traced
+        /// city's passes fit, and are run once; more than this and the pass is run again to write them.
+        /// </summary>
+        internal const int MostCutsHeld = 1 << 24;
+
+        /// <summary>How many cuts a thread takes of that bound at a time, so that threads seldom ask for more.</summary>
+        const int HeldBlock = 1 << 12;
+
         /// <summary>The lines the bands are laid along, which is what a cover test is really asked of.</summary>
         readonly ArcSeg[][] _along;
 
@@ -171,14 +180,51 @@ internal sealed partial class BandShell
         readonly Vector2[] _leastM;
         readonly Vector2[] _mostM;
 
-        /// <summary>One thread's working set for cutting: what it may ask the index of pieces, and where its cuts are filed.</summary>
+        /// <summary>
+        /// One thread's working set for cutting: what it may ask the index of pieces, where its cuts are filed, and the
+        /// cuts it holds while they are only being counted (<see cref="Filing"/>).
+        /// </summary>
         sealed class Cutting(int pieces, ChainIndex.Scan scan, Filing filing)
         {
+            readonly List<(int At, float AtM)[]> _held = [];
+            int _inLastBlock = HeldBlock;
+
             public ChainIndex.Scan Scan { get; } = scan;
 
             public int[] Candidate { get; } = new int[Math.Max(1, pieces)];
 
-            public Filing Filing { get; } = filing;
+            public void Cut(int at, float atM)
+            {
+                if (!filing.Count(at))
+                {
+                    filing.Write(at, atM);
+                    return;
+                }
+
+                if (filing.HeldOver) return;
+
+                if (_inLastBlock == HeldBlock)
+                {
+                    if (!filing.Reserve()) return;
+
+                    _held.Add(new (int, float)[HeldBlock]);
+                    _inLastBlock = 0;
+                }
+
+                _held[^1][_inLastBlock++] = (at, atM);
+            }
+
+            /// <summary>The cuts held, written where they were counted to go.</summary>
+            public void WriteHeld()
+            {
+                for (var block = 0; block < _held.Count; block++)
+                {
+                    var cuts = block == _held.Count - 1 ? _held[block].AsSpan(0, _inLastBlock) : _held[block];
+                    foreach (var (at, atM) in cuts) filing.Write(at, atM);
+                }
+
+                _held.Clear();
+            }
         }
 
         /// <summary>
@@ -194,32 +240,46 @@ internal sealed partial class BandShell
         }
 
         /// <summary>
-        /// <b>Where a pass files its cuts: counted the first time it is run, and written the second</b>
-        /// (<see cref="Cuts"/>). A cut lands on whichever piece stands at the place, which is any piece in the
+        /// <b>Where a pass files its cuts: counted the first time it is run, and written from what was held then, or
+        /// written the second time it is run where more were cut than are held</b> (<see cref="Cuts"/>,
+        /// <see cref="MostCutsHeld"/>). A cut lands on whichever piece stands at the place, which is any piece in the
         /// town, so each thread takes its own slot of that piece's run.
         /// </summary>
         /// <remarks>
-        /// <b>Run twice rather than held</b>: held a thread at a time and then filed a list a piece, the cuts
-        /// of Odesa's brief ten times over each way were a billion and a quarter pairs held twice at once, and
-        /// thirty of the fifty gigabytes the town took to open. <b>The order they are written in cannot reach
-        /// the shape</b>: every run is sorted before it is read, and the same cuts in any order sort alike.
+        /// <b>Never held without bound</b>: held a thread at a time and then filed a list a piece, the cuts of
+        /// Odesa's brief ten times over each way were a billion and a quarter pairs held twice at once, and thirty of
+        /// the fifty gigabytes the town took to open. <b>The order they are written in cannot reach the shape</b>:
+        /// every run is sorted before it is read, and the same cuts in any order sort alike.
         /// </remarks>
-        sealed class Filing(int pieces)
+        sealed class Filing(int pieces, int mostHeld)
         {
             readonly int[] _count = new int[pieces];
             int[]? _cursor;
             float[]? _atM;
+            long _blocksLeft = mostHeld / HeldBlock;
 
-            public void Cut(int at, float atM)
+            /// <summary>Whether the pass cut more than is held, so has to be run again to write what it cut.</summary>
+            public bool HeldOver { get; private set; }
+
+            /// <summary>One cut counted against its piece — or false once the counts are laid, and cuts are written.</summary>
+            public bool Count(int at)
             {
-                if (_atM is null)
-                {
-                    Interlocked.Increment(ref _count[at]);
-                    return;
-                }
+                if (_atM is not null) return false;
 
-                _atM[Interlocked.Increment(ref _cursor![at]) - 1] = atM;
+                Interlocked.Increment(ref _count[at]);
+                return true;
             }
+
+            /// <summary>One more block of cuts held, or false where the bound is spent — and from then, none.</summary>
+            public bool Reserve()
+            {
+                if (Interlocked.Decrement(ref _blocksLeft) >= 0) return true;
+
+                HeldOver = true;
+                return false;
+            }
+
+            public void Write(int at, float atM) => _atM![Interlocked.Increment(ref _cursor![at]) - 1] = atM;
 
             /// <summary>The counts laid out as runs, for the pass to be run again and write into them.</summary>
             public int[] Laid()
@@ -292,8 +352,9 @@ internal sealed partial class BandShell
 
         public Merge(
             ArcSeg[][] along, ChainIndex lines, ArcSeg[][] ribbons, float[] halfM, float[] lengthM,
-            float mostHalfM, Vector2 originM, WorldGrid grid)
+            float mostHalfM, Vector2 originM, WorldGrid grid, int mostCutsHeld)
         {
+            _mostCutsHeld = mostCutsHeld;
             _originM = originM;
             _along = along;
             _ribbons = ribbons;
@@ -339,20 +400,31 @@ internal sealed partial class BandShell
 
         readonly int _pieces;
 
+        readonly int _mostCutsHeld;
+
         Weighing NewWeighing() => new(_ribbons.Length, _lines.NewScan());
 
         /// <summary>
-        /// <b>One cutting pass over a count, filed a run a piece</b>: run on as many threads as there are,
-        /// once to count what each piece is cut at and once to write it (<see cref="Filing"/>), and every run
-        /// sorted.
+        /// <b>One cutting pass over a count, filed a run a piece</b>: run on as many threads as there are, once to
+        /// count what each piece is cut at and hold it, and again to write it only where more was cut than is held
+        /// (<see cref="Filing"/>) — and every run sorted.
         /// </summary>
         Cuts Filed(int count, Action<Cutting, int> pass)
         {
-            var filing = new Filing(_pieces);
-            InChunks.Over(count, () => new Cutting(_pieces, _edges.NewScan(), filing), pass);
+            var filing = new Filing(_pieces, _mostCutsHeld);
+            var cuttings = new List<Cutting>();
+            InChunks.Over(
+                count,
+                () => new Cutting(_pieces, _edges.NewScan(), filing),
+                pass,
+                cutting =>
+                {
+                    lock (cuttings) cuttings.Add(cutting);
+                });
 
             var from = filing.Laid();
-            InChunks.Over(count, () => new Cutting(_pieces, _edges.NewScan(), filing), pass);
+            if (filing.HeldOver) InChunks.Over(count, () => new Cutting(_pieces, _edges.NewScan(), filing), pass);
+            else foreach (var cutting in cuttings) cutting.WriteHeld();
 
             var atM = filing.Written;
             InChunks.Over(_pieces, () => 0, (_, piece) => Array.Sort(atM, from[piece], from[piece + 1] - from[piece]));
@@ -745,7 +817,7 @@ internal sealed partial class BandShell
             && _leastM[ours].Y - WeldM <= _mostM[theirs].Y && _mostM[ours].Y + WeldM >= _leastM[theirs].Y;
 
         /// <summary>One crossing filed against the piece it cuts.</summary>
-        static void Cut(Cutting cutting, int at, float atM) => cutting.Filing.Cut(at, atM);
+        static void Cut(Cutting cutting, int at, float atM) => cutting.Cut(at, atM);
 
         /// <summary>
         /// The stretches one ribbon's pieces are left in by their cuts, each kept where the ground a hair

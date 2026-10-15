@@ -162,7 +162,9 @@ internal sealed partial class BandShell
     /// lines.
     /// </para>
     /// </remarks>
-    public static BandShell Of(ReadOnlySpan<ArcSeg[]> lines, ReadOnlySpan<float> widthM, ChainIndex index)
+    /// <param name="mostCutsHeld">The most cuts the merge holds while it counts them, past which it cuts twice.</param>
+    public static BandShell Of(
+        ReadOnlySpan<ArcSeg[]> lines, ReadOnlySpan<float> widthM, ChainIndex index, int mostCutsHeld = Merge.MostCutsHeld)
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThan(index.ChainCount, lines.Length);
 
@@ -200,7 +202,7 @@ internal sealed partial class BandShell
             ribbons[line] = ArcRibbon.Of(along[line], halfM[line], LineTolerance.RoundingM);
         }
 
-        var merge = new Merge(along, index, ribbons, halfM, lengthM, mostHalfM, originM, grid);
+        var merge = new Merge(along, index, ribbons, halfM, lengthM, mostHalfM, originM, grid, mostCutsHeld);
         var (chains, loose) = merge.Run();
         return new BandShell(loose.Length == 0 ? chains : [.. chains, .. ArcRings.Shut(loose)], loose, originM, grid);
     }
