@@ -350,23 +350,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 ### Found by the .NET 11 performance review and not yet taken
 
-Each read off the code and the O30 profiles (2026-10-15) and none measured; bit-identical as described, and taking one
-with `--bench age`'s digests unchanged and a probe's figure moved closes it.
-
-- **The tick**:
-  - the broad phase reads a candidate's bounds from two arrays (`_leastM`, `_mostM`), two misses for every prop it
-    rejects; one `Bounds[]` of both corners, with `Table`'s upload spans made strided, about thirty sites;
-  - `ManagedWorld.WriteTheView` reads a queued car's line, lead and aim afresh every step, though a car standing where
-    it stood on the same line answers them as it did.
-- **A window's frame**: `ScaleLegend` and the status panel's title format the same figures every frame, a cache keyed
-  on what they read closes them; `AppWindow.PointerPx` asks the window eight times a read and is read six times a frame;
-  `Game.Draw`'s 20% self time on O30's managed world is unexplained until its listing is read
-  (`DOTNET_JitDisasm=Game:Draw`).
-- **The open** (O30, serial on the main thread): `OneWayStreets.Lay` walks every movement of the town again for each
-  of the 1808 streets it tries, though one street takes away one movement (~1.1–1.4 s, measured), `ChainIndex.OfPieces`'s
-  boxes are filled one at a time (~0.8 s), and `CarParks.SiteBook` asks the ring search again for every car park where
-  the ones added since it last asked are all that could be nearer (~1.7 s). Each is a pass into slots of its own merged
-  in order (`InChunks`), or the work kept between asks.
+- **A window's frame culls the whole roster while the managed world steps** (2026-10-15): `ManagedWorld.InBox` answers
+  −1 while its step runs on its own thread, so `TownWorld.CarsPlacedIn` and `PeoplePlacedIn` walk every car and person
+  every frame — most of `Game.Draw`'s time on O30's managed world. The walk's fields are read once now; the moving and
+  frozen indexes asked between steps, or a cull filed off the last step's view, closes it.
 
 ### Code kept twice, or kept for nothing
 
