@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using TrafficSimulation.Agents.Ambulance;
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
@@ -306,7 +307,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         CollectTheLay(plan, config);
         var atlasAt = Stopwatch.GetTimestamp();
         _lines = new WayLines(_roads, _walking, _ways, _crossingEdges, config);
-        _atlas = RibbonAtlas.Lay(_lines, config.RibbonLevel, config.RibbonTouchM, anyoneWalks: walkers > 0);
+        _atlas = RibbonAtlas.Lay(
+            _lines, config.RibbonLevel, config.RibbonTouchM, anyoneWalks: walkers > 0, () => CollectTheLay(plan, config));
         AtlasMs = Stopwatch.GetElapsedTime(atlasAt).TotalMilliseconds;
         CollectTheLay(plan, config);
         RefuseFurnitureOnTheRoad();
@@ -425,12 +427,37 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// which the runtime clears page by page — and a table that is mostly room, laid on pages nothing has written,
     /// holds none of that room in memory (root <c>decision-log.md</c>).
     /// </remarks>
+    /// <summary>
+    /// <b>What the lay and the handover let go of, collected</b> — by a caller whose own frames never held it: a frame still
+    /// standing that held the managed world keeps it, the atlas with it, on a runtime that reads its stack conservatively
+    /// (<see cref="ClearTheStack"/>).
+    /// </summary>
+    public void CollectWhatTheLayLeft() => CollectTheLay(_plan, _config);
+
     static void CollectTheLay(CityPlan plan, SimConfig config)
     {
         if (plan.WorldSizeM.X * plan.WorldSizeM.Y < config.Sim.CollectTheLayAboveKm2 * SquareMetresPerKm2) return;
 
+        ClearTheStack();
         GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
     }
+
+    /// <summary>
+    /// <b>The stack below the caller written over before a collection</b>: a page's runtime reads its stack conservatively,
+    /// so a table a returned call last pointed at is kept for as long as nothing writes over the slot — and the
+    /// collector's own frames leave most of them as they were. On a traced city that was the gigabyte of atlas a device
+    /// world had just been laid off (root decision-log.md, 2026-10-15).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    static int ClearTheStack()
+    {
+        Span<byte> below = stackalloc byte[StackClearedBytes];
+        below.Clear();
+        return below[^1];
+    }
+
+    /// <summary>How much of the stack below a collection's caller is written over: deeper than an open's calls reach.</summary>
+    const int StackClearedBytes = 256 * 1024;
 
     const float SquareMetresPerKm2 = 1e6f;
 

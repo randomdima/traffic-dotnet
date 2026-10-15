@@ -351,6 +351,24 @@ internal sealed class ChainIndex
     }
 
     /// <summary>
+    /// The chain nearest the point, as <see cref="Nearest(Vector2, out float)"/> answers it, where it passes within
+    /// <paramref name="withinM"/> — and −1 where none does, <b>which is one ring and not a search</b>: a point far from a
+    /// sparse set grows its ring across the town before it meets one.
+    /// </summary>
+    public int Nearest(Vector2 pointM, float withinM, out float alongM)
+    {
+        alongM = 0f;
+        if (ChainCount == 0) return -1;
+
+        Gather(_own, pointM, withinM);
+        var best = Weigh(_own, pointM, out var bestAlongM, out var bestDistanceSq);
+        if (best < 0 || bestDistanceSq > withinM * withinM) return -1;
+
+        alongM = bestAlongM;
+        return best;
+    }
+
+    /// <summary>
     /// <b>Every</b> chain passing within <paramref name="radiusM"/> of the point, and how far along each of
     /// them that is — for a caller that has to weigh all of them rather than take the nearest. Returns how
     /// many there are.

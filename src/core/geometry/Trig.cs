@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace TrafficSimulation.Core.Geometry;
 
 /// <summary>
@@ -185,6 +187,7 @@ internal static class Trig
     }
 
     /// <summary>Sine and cosine of an argument within π/4 of nought.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     static (float Sin, float Cos) Kernel(float reduced)
     {
         var squared = reduced * reduced;
@@ -199,6 +202,7 @@ internal static class Trig
     }
 
     /// <summary><paramref name="x"/> less its nearest whole number of quarter turns, which is <paramref name="quadrant"/>.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     static float Reduce(float x, out int quadrant)
     {
         var magnitude = MathF.Abs(x);
@@ -230,6 +234,7 @@ internal static class Trig
     /// glibc's <c>reduce_large</c> in 32-bit words, as the kernel takes it: the 62-bit fraction of a quadrant past the
     /// nearest whole one, turned to radians in floats.
     /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
     static float ReduceLarge(uint bits, out int quadrant)
     {
         var at = (int)((bits >> 26) & 15u);

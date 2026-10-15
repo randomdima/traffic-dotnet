@@ -229,7 +229,7 @@ internal sealed partial class Game : IDisposable
     /// <summary>
     /// <b>Whether what moves is emitted on the device and drawn where it is written</b>
     /// (<see cref="EmitTheMoving"/>) rather than filled from the town's copy: a town whose world the device steps, on a
-    /// device whose kernels have the doubles the emit rounds in.
+    /// head that draws with the emit.
     /// </summary>
     bool _movingOnTheDevice;
 
@@ -691,7 +691,14 @@ internal sealed partial class Game : IDisposable
     /// Whether the menu stays up over the town that has just stood (GEN-1b). It is what the idle map is
     /// opened as and nothing else is: a map somebody clicked is a map they asked to look at.
     /// </param>
-    void Open(string map, bool behindTheMenu = false) => Stand(LaidTown.Lay(map, _config), behindTheMenu);
+    void Open(string map, bool behindTheMenu = false) => Stand(LaidTown.Lay(map, _config, HandTheWorldOver), behindTheMenu);
+
+    /// <summary>The town about to stand handed the device's world, where this run asks for one (<see cref="TickOnTheDevice"/>).</summary>
+    void HandTheWorldOver(TownWorld world)
+    {
+        _movingOnTheDevice = false;
+        TickOnTheDevice(world);
+    }
 
     /// <summary>
     /// A town laid, put on screen: the renderer rebuilt for its ground, its sprites laid out, and the
@@ -708,8 +715,7 @@ internal sealed partial class Game : IDisposable
         _looks ??= TownSprites.Load(_config);
 
         _renderer.Dispose();
-        _movingOnTheDevice = false;
-        TickOnTheDevice(laid.World);
+        if (!laid.WorldHandedOver) HandTheWorldOver(laid.World);
         _sheets = _looks.Sheets;
         var room = _looks.RoomFor(laid.Plan, _config);
         _renderer = NewRenderer(laid.Ground, _movingOnTheDevice ? room with { Over = 0, Above = 0 } : room);

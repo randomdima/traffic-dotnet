@@ -678,6 +678,17 @@ async function grab(path) {
     return parked.byteLength;
 }
 
+/// One file already here, parked as `grab` parks it — or −1 where it is still on the wire or was never asked for, which
+/// `grab` waits for. **Synchronous**, so a batch already unpacked is laid without a turn of the event loop a file.
+function grabHeld(path) {
+    const batched = held.get(path);
+    if (!(batched instanceof Uint8Array)) return -1;
+
+    held.delete(path);
+    parked = batched;
+    return parked.byteLength;
+}
+
 async function file(path) {
     const response = await fetch(path);
     if (!response.ok) throw new Error(`${response.status} ${response.statusText} — ${path}`);
@@ -781,7 +792,7 @@ export { useHeap } from './compute.js'
 export const town = {
     ...compute,
     start, reserve, buffer, texture, rebuild, release, frame, pump, fullscreen, shut, say,
-    progress: opening.progress, prefetch, unpack, grab, park, take, picture, decode, texels,
+    progress: opening.progress, prefetch, unpack, grab, grabHeld, park, take, picture, decode, texels,
     ticker: step => {
         const next = () => {
             if (step()) requestAnimationFrame(next);

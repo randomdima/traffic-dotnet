@@ -75,6 +75,11 @@ function kernelsFit() {
     return kernels.fits;
 }
 
+/// How much memory the run has been given, which a page never hands back: the most it ever needed at once.
+function heapBytes() {
+    return kernels.heap().byteLength;
+}
+
 function view(memoryView) {
     return memoryView._unsafe_create_view ? memoryView._unsafe_create_view() : memoryView.slice();
 }
@@ -86,7 +91,8 @@ function kernelBuffer(id, byteLength, host) {
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST | GPUBufferUsage.INDIRECT,
         label: `kernel buffer ${id}`,
     });
-    kernels.buffers.set(id, { buffer, size, byteLength, host, staging: null });
+    // An address crosses as a 32-bit int, and past two gigabytes of heap that is a negative one.
+    kernels.buffers.set(id, { buffer, size, byteLength, host: host >>> 0, staging: null });
 }
 
 function kernelBufferGone(id) {
@@ -293,7 +299,7 @@ function land(reads, serial, landedAddress) {
     }).catch(() => {}));
 
     Promise.all(landing).then(() => {
-        new DataView(kernels.heap().buffer).setUint32(landedAddress, serial >>> 0, true);
+        new DataView(kernels.heap().buffer).setUint32(landedAddress >>> 0, serial >>> 0, true);
     });
 }
 
@@ -334,4 +340,4 @@ function fill(encoder, buffer, offset, bytes, word) {
     pass.end();
 }
 
-export const compute = { kernelsFit, kernelBuffer, kernelBufferGone, kernelWrite, kernelPipeline, kernelBind, kernelSubmit };
+export const compute = { kernelsFit, heapBytes, kernelBuffer, kernelBufferGone, kernelWrite, kernelPipeline, kernelBind, kernelSubmit };

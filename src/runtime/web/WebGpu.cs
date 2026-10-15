@@ -202,6 +202,17 @@ internal static partial class WebGpu
     }
 
     /// <summary>
+    /// <b>The same, for a file already on this side</b> — unpacked, or prefetched and arrived — answering −1 for one that
+    /// is not, which <see cref="Grab"/> waits for. Synchronous, because every await is a turn of the page's event loop,
+    /// and the art's nine hundred files a turn apiece were seconds of an open.
+    /// </summary>
+    public static int GrabHeld(string path)
+    {
+        Count();
+        return GrabHeldJs(path);
+    }
+
+    /// <summary>
     /// The bytes the last <see cref="Grab"/> parked, into memory this side made at the length it
     /// answered. <b>Two calls and not one</b>: a <see cref="JSType.MemoryView"/> is a window onto this
     /// heap handed out, and there is no shape that hands one back.
@@ -280,6 +291,16 @@ internal static partial class WebGpu
     }
 
     /// <summary>
+    /// <b>The memory the run has been given</b>, in bytes: a page's only grows, so this is the most it has ever needed at
+    /// once — an open's peak, read after it.
+    /// </summary>
+    public static long HeapBytes()
+    {
+        Count();
+        return (long)HeapBytesJs();
+    }
+
+    /// <summary>
     /// <b>A buffer a kernel may bind</b>, made once with what reads it and never between steps; where the host writes or
     /// reads it, <paramref name="hostAddress"/> is the pinned memory of its own it does so in (<see cref="GpuBuffer"/>).
     /// </summary>
@@ -332,6 +353,10 @@ internal static partial class WebGpu
 
     [JSImport("town.kernelsFit", "town.js")]
     private static partial bool KernelsFitJs();
+
+    [JSImport("town.heapBytes", "town.js")]
+    [return: JSMarshalAs<JSType.Number>]
+    private static partial double HeapBytesJs();
 
     [JSImport("town.kernelBuffer", "town.js")]
     static partial void KernelBufferJs(int id, int byteLength, int hostAddress);
@@ -407,6 +432,9 @@ internal static partial class WebGpu
 
     [JSImport("town.grab", "town.js")]
     private static partial Task<int> GrabJs(string path);
+
+    [JSImport("town.grabHeld", "town.js")]
+    private static partial int GrabHeldJs(string path);
 
     [JSImport("town.take", "town.js")]
     static partial void TakeJs([JSMarshalAs<JSType.MemoryView>] Span<byte> into);

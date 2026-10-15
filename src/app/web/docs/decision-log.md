@@ -2,6 +2,26 @@
 
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md).
 
+## 2026-10-15 — a traced city on the page
+
+The root log says what an open was cut by; these are the page's own halves of it.
+
+- **A write to a kernel's buffer crosses sixteen megabytes at a time** (`GpuBuffer.Web.cs`), and a conversion is made a
+  write's worth at a time: the atlas converted whole was a 930 MB copy beside the 930 MB it was copied from, which is
+  what ran OdesaOsm out of memory, and a browser stages each write whole in memory of its own.
+- **An address in the heap crosses as a signed word** and is read unsigned (`compute.js`): past two gigabytes it was a
+  negative offset, and `writeBuffer` refused it.
+- **A file already unpacked is taken without an await** (`WebGpu.GrabHeld`): every await is a turn of the event loop, and
+  the art's 886 files a turn apiece were 3.6 s of every page's open; they are 0.1 s.
+- **An open says where it went on the console** (WEB-8): the plan, the town and its two largest stages, the handover, the
+  memory held after each, and whether the handover's leavings were let go — the one fact about the conservative stack
+  nothing else shows.
+- **`qq web --cpu` samples the page's CPU over its open** with the module's function names (`WasmEmitSymbolMap`, kept in
+  the intermediate tree and never published), which is how the interpreted loops and sorts were found: nothing on the
+  desktop runs them interpreted.
+- **Mono's jiterpreter logs a failed trampoline once the heap is past two gigabytes** ("extra bits in varint"): a constant
+  it encodes signed, and it falls back to the interpreter. It costs nothing measurable and is not ours to mend.
+
 ## 2026-10-15 — the page steps its world on its own device
 
 **The owner (2026-10-15), in their words: "Make hybrid gpu default mode. And lets make it work in web."** A page's town

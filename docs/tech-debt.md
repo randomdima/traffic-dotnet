@@ -105,8 +105,8 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   `AllocationGateTests` and `CrossingGateTests` step the managed world. A tick on the device crosses a fixed count — the world's submit and wait, and the emit's submit a frame —
   but no gate holds it, nor that `DeviceWorld.Step` allocates nothing (its signal buffer grows by doubling past twice the
   bodies). A device gate over the suite's built town closes it.
-- **The page's device world** (2026-10-15, web log), each found standing it up and none measured on a big town:
-  - **no tier runs it**: `qq web` on River is the whole of what has looked at it. A lockstep would not hold to the bit
+- **The page's device world** (2026-10-15, web log), each found standing it up:
+  - **no tier runs it**: `qq web` on River, OdesaOsm and O30 is the whole of what has looked at it. A lockstep would not hold to the bit
     in any case — WGSL cannot forbid a driver to fuse (core log), and `fma` in `world_view.comp` may run unfused — so a
     tolerance probe of the page's world against the managed one, driven by `qq web --ask`, closes it;
   - **what moves is drawn off the CPU's fill and no tyre mark is drawn**: `sprites_count.comp` and `sprites_write.comp`
@@ -119,7 +119,27 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     them again and waits; a page goes a tick without the turns those covers would have fed;
   - **a fill of any word but nought makes a uniform buffer and a bind group each time** (`compute.js`'s `fill`), which
     the solver's laying and `FillRows` ask for. A fill pipeline holding one window per fill closes it;
-  - **the page's Debug build stands River in three minutes**, interpreted; only a published page is worth timing.
+  - **the page's Debug build stands River in three minutes**, interpreted; only a published page is worth timing;
+  - **nothing asks whether the device can hold the town's tables**: a buffer past the adapter's
+    `maxStorageBufferBindingSize` is a WebGPU validation error and a dead world rather than the managed world WEB-10
+    promises. This machine's adapter gives 4 GB; a default device 128 MB, which OdesaOsm's atlas (930 MB) is past.
+    Weighing the laying's largest table against the limit before the handover closes it.
+- **A traced city's open on the page** (2026-10-15, root log; OdesaOsm 84 s at 2.8 GB, O30 170 s at 3.6 GB of 4):
+  - **O30 stands 0.5 GB under the page's ceiling**, and the town lay's peak is the host atlas (1.6 GB) beside what the
+    lay holds; the page reached 3.6 GB where the desktop's resident set is 2.9 GB. Laying the atlas on the device closes
+    most of it (the entry above);
+  - **the plan is 37 s of OdesaOsm's 84 and 95 s of O30's 170** on the page, the pavement and the atlas most of the
+    rest; on one desktop core the open is 51 s against the page's 84 (`DOTNET_PROCESSOR_COUNT=1 qq prof --bench
+    load`). `qq web --cpu` says where, and nothing has been cut from the plan;
+  - **the collections inside the town's lay** (`TownWorld.CollectTheLay` either side of the atlas and between its
+    marks and its filing) are called from deep frames, so on the page a standing frame may still hold what they are
+    meant to free: the town lay's peak on the page (2.6–2.8 GB on OdesaOsm, varying run to run) is 0.7 GB over the
+    desktop's resident set. Collecting from the lay's own top frame, as the handover's now is, would say;
+  - **the framework's sorts and dictionaries over value types still run interpreted** where the open uses them outside
+    the atlas (`ChainIndex.Builder.SortedOnce`, `Array.Sort` of floats, `Dictionary` over tuple keys): about 3 % of
+    OdesaOsm's open on the page (`qq web --cpu --focus mono_interp_exec_method --managed`);
+  - **the managed world's covers and the ground** are laid on a frozen tab with no word between "standing OdesaOsm
+    up" and the town: WEB-8 holds for the stages a page fetches and not for the ones it computes.
 - **Nobody holds what no wheel stands on**: across a lane's end a car on two ways leaves its wheelbase less two
   metres and two half steps unclaimed; a car straddling a zebra narrower than its wheelbase, or nosing over a junction
   its front wheels have not reached, is no body there. Measuring the gap per car model closes the reading.
@@ -226,9 +246,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **What the host keeps on a device-ticked town that it does not read while the town runs** (OdesaOsm, `qq prof
   --memory`, 2026-10-13: a 685 MB host heap, 839 MB resident and 3.36 GB at the load's peak, beside
   1.44 GB on the device):
-  - a `ManagedWorld` is stood and thrown away (`TownWorld`'s constructor ends in one, and `HandTheWorldTo` builds the
-    device world while it is still held): about 150 MB of solver tables twice over at the handover, and the atlas laid
-    on the host only to be uploaded — most of the load's peak. Handing the town its world kind before it stands one,
+  - a `ManagedWorld` is stood and thrown away (`TownWorld`'s constructor ends in one, which reads the bodies onto their
+    ways for the empty map's drive and the owners' seats): let go of before the device world is laid now, but stood
+    and stepped once for nothing; and the atlas is laid on the host only to be uploaded — the town lay's peak, 1 GB on
+    OdesaOsm and 1.6 GB on O30, which on a page is the open's. Handing the town its world kind before it stands one,
     and laying the atlas on the device, close it;
   - the nearest-point indexes kept for a player's order and the camera's opening alone (`RoadGraph`'s street indexes,
     43 MB; `FootGraph`'s, 33 MB; `ParkingRegistry`'s bay grid), which the 2026-10-13 ruling lets a player use — laid

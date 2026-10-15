@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using TrafficSimulation.App.Main;
 using TrafficSimulation.Core.Config;
@@ -54,7 +55,14 @@ try
         await Data.Art(Say);
         await Data.Map(map, Say);
         Say($"standing {map} up…");
+        var stoodAt = Stopwatch.GetTimestamp();
         game.Start(map, behindTheMenu);
+
+        // What an open cost, on the console: a page keeps the most it was ever given, so the memory is the open's peak.
+        Console.WriteLine(
+            $"{map} stood in {Stopwatch.GetElapsedTime(stoodAt).TotalSeconds:F1} s: the page holds " +
+            $"{WebGpu.HeapBytes() / (1024 * 1024)} MiB, {GC.GetTotalMemory(forceFullCollection: false) / (1024 * 1024)} MiB of it live" +
+            game.WhatTheHandoverLeft);
         Say(string.Empty);
     }
 

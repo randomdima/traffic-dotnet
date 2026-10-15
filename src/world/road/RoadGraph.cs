@@ -109,10 +109,15 @@ internal sealed class RoadGraph : ILaneEnds
 
             MostLanesOfAWay = Math.Max(MostLanesOfAWay, lines.LaneFromKerb[lane] + 1);
         }
+
+        foreach (var widthM in lines.LaneWidthM) WidestLaneM = MathF.Max(WidestLaneM, widthM);
     }
 
     /// <summary>The most lanes any one road is driven in one way — how many a car can stand beside on one stretch.</summary>
     public int MostLanesOfAWay { get; }
+
+    /// <summary>The widest lane in the town.</summary>
+    public float WidestLaneM { get; }
 
     /// <summary>
     /// <b>Where the carriageway's lanes meet</b>, worked out from the connectors (<see cref="LanePlaces"/>).
@@ -526,6 +531,12 @@ internal sealed class RoadGraph : ILaneEnds
         _nearestStreetOn.Length > 0
             ? _nearestStreetOn[level].Nearest(pointM, out progressM)
             : _nearestStreet.Nearest(pointM, out progressM);
+
+    /// <summary>And the nearest within <paramref name="withinM"/> of the point, or −1 where none of the level's passes that near.</summary>
+    public int NearestStreetLane(Vector2 pointM, byte level, float withinM, out float progressM) =>
+        _nearestStreetOn.Length > 0
+            ? _nearestStreetOn[level].Nearest(pointM, withinM, out progressM)
+            : _nearestStreet.Nearest(pointM, withinM, out progressM);
 
     /// <summary>
     /// <b>Every lane that could pass within <paramref name="radiusM"/> of a point</b>, and possibly some that

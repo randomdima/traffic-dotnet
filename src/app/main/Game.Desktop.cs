@@ -32,12 +32,10 @@ internal sealed partial class Game
         _deviceWorld = null;
         if (world is null || !TicksOnTheDevice) return;
 
+        // What the town lets go of with the handover is collected by the handover where the town is big enough to want it,
+        // and given back to the machine by the stand's own collection (HandBackTheOpen).
         world.HandTheWorldTo(laying => _deviceWorld = new DeviceWorld(_vk, laying));
         _movingOnTheDevice = true;
-
-        // What the town let go of with the handover — its atlas, its furniture and the managed world — given back once,
-        // before the first frame, rather than held committed for the run.
-        GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
     }
 
     partial void LayTheMovingOnTheDevice(TownWorld world, SpriteRoom room)

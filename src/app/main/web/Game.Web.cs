@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using TrafficSimulation.App.DeviceTick;
 using TrafficSimulation.App.Drive;
 using TrafficSimulation.App.Render;
@@ -35,7 +36,15 @@ internal sealed partial class Game
 
     partial void TickOnTheDevice(TownWorld? world)
     {
-        if (world is null || !TicksOnTheDevice) return;
+        if (world is null) return;
+
+        // Where a page's open went, on its console: it is the desktop's work on one thread, and nothing else measures it.
+        var planMs = 0.0;
+        foreach (var (_, ms) in world.Plan.LaidMs) planMs += ms;
+        Console.WriteLine(
+            $"{world.Plan.Name}: the plan {planMs / 1000:F1} s, the town {world.StoodMs / 1000:F1} s — of it the pavement " +
+            $"{world.FootMs / 1000:F1} s and the atlas {world.AtlasMs / 1000:F1} s; the page holds {HeldMiB()} MiB");
+        if (!TicksOnTheDevice) return;
 
         if (!WebGpu.KernelsFit())
         {
@@ -44,8 +53,30 @@ internal sealed partial class Game
         }
 
         var kernels = _kernels ??= new Vk();
+        var handedAt = Stopwatch.GetTimestamp();
+        _handedOver = Watched(world);
         world.HandTheWorldTo(laying => new DeviceWorld(kernels, laying));
+        Console.WriteLine(
+            $"the world handed to the device in {Stopwatch.GetElapsedTime(handedAt).TotalSeconds:F1} s; the page holds {HeldMiB()} MiB");
     }
+
+    /// <summary>The host's atlas and the managed world the last handover replaced, watched without being held.</summary>
+    (WeakReference Atlas, WeakReference World)? _handedOver;
+
+    /// <summary>
+    /// Whether the last handover's leavings are gone, for the line a page's open ends on: <b>a runtime that reads its stack
+    /// conservatively keeps what a standing frame once pointed at</b>, and on a traced city that is a gigabyte.
+    /// </summary>
+    public string WhatTheHandoverLeft => _handedOver is not var (atlas, world)
+        ? string.Empty
+        : $"; the host's atlas {(atlas.IsAlive ? "still held" : "let go")}, the managed world {(world.IsAlive ? "still held" : "let go")}";
+
+    /// <summary>What the handover is to let go of, watched without holding it — made in a frame of its own, so no slot of the caller's does.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    static (WeakReference Atlas, WeakReference World) Watched(TownWorld world) => (new(world.Atlas), new(world.World));
+
+    /// <summary>The page's memory, which only grows, so the most an open has needed so far.</summary>
+    static long HeldMiB() => WebGpu.HeapBytes() / (1024 * 1024);
 
     private partial AppWindow Boot(
         int width, int height, bool validate, float uiScale, Pacing pacing, bool fullscreen, string? display) =>

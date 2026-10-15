@@ -61,36 +61,54 @@ internal sealed class GpuBuffer : IDisposable
         Upload<T>(rows);
     }
 
+    /// <summary>
+    /// The most bytes one write crosses with. <b>A browser stages a write whole</b>, in its own memory, before the device
+    /// has any of it — so a traced city's atlas sent in one would be a second gigabyte for a moment, and on a 32-bit page
+    /// a converted copy of it a third.
+    /// </summary>
+    const int WriteBytes = 16 << 20;
+
     /// <inheritdoc cref="Upload{T}(int, StagedFill{T})"/>
     public void Upload<T>(ReadOnlySpan<T> rows, ulong atBytes = 0) where T : unmanaged
     {
         if (rows.IsEmpty) return;
 
         var bytes = MemoryMarshal.AsBytes(rows);
-
-        // A page writes whole words: the last is padded with what the buffer holds past the rows, which nothing reads.
-        if (bytes.Length % sizeof(uint) != 0)
+        var words = bytes.Length & ~(sizeof(uint) - 1);
+        for (var at = 0; at < words; at += WriteBytes)
         {
-            var padded = new byte[(bytes.Length + sizeof(uint) - 1) / sizeof(uint) * sizeof(uint)];
-            bytes.CopyTo(padded);
-            WebGpu.KernelWrite(Id, checked((int)atBytes), padded);
-            return;
+            Send(bytes.Slice(at, Math.Min(WriteBytes, words - at)), atBytes + (ulong)at);
         }
 
-        // The page only reads it; a view crosses as a writable span.
-        WebGpu.KernelWrite(Id, checked((int)atBytes), MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(bytes), bytes.Length));
+        // A page writes whole words: the last is padded with what the buffer holds past the rows, which nothing reads.
+        if (words < bytes.Length)
+        {
+            var padded = new byte[sizeof(uint)];
+            bytes[words..].CopyTo(padded);
+            Send(padded, atBytes + (ulong)words);
+        }
     }
 
-    /// <summary>And rows of another kind, each turned into the device's.</summary>
+    /// <summary>And rows of another kind, each turned into the device's a write's worth at a time.</summary>
     public unsafe void Upload<TFrom, T>(ReadOnlySpan<TFrom> rows, delegate*<in TFrom, T> convert, ulong atBytes = 0)
         where TFrom : unmanaged where T : unmanaged
     {
         if (rows.IsEmpty) return;
 
-        var into = new T[rows.Length];
-        for (var at = 0; at < rows.Length; at++) into[at] = convert(rows[at]);
-        Upload<T>(into, atBytes);
+        // A whole number of words a write, whatever a row weighs, so no write but the last is padded.
+        var rowsAWrite = Math.Max(sizeof(uint), WriteBytes / sizeof(T) / sizeof(uint) * sizeof(uint));
+        var into = new T[Math.Min(rowsAWrite, rows.Length)];
+        for (var first = 0; first < rows.Length; first += into.Length)
+        {
+            var count = Math.Min(into.Length, rows.Length - first);
+            for (var at = 0; at < count; at++) into[at] = convert(rows[first + at]);
+            Upload<T>(into.AsSpan(0, count), atBytes + ((ulong)first * (ulong)sizeof(T)));
+        }
     }
+
+    /// <summary>The page only reads it; a view crosses as a writable span.</summary>
+    void Send(ReadOnlySpan<byte> bytes, ulong atBytes) =>
+        WebGpu.KernelWrite(Id, checked((int)atBytes), MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(bytes), bytes.Length));
 
     public void Dispose()
     {

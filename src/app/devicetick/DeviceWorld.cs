@@ -800,7 +800,7 @@ internal sealed partial class DeviceWorld : WorldLayer
     {
         var buffer = Own(_vk.CreateBuffer(
             Bytes<T>(Math.Max(1, rows.Length)), BufferUse.Storage | BufferUse.TransferDst, HostAccess.None));
-        buffer.Upload<T>(rows.Length, into => rows.CopyTo(into));
+        buffer.Upload<T>(rows);
         return buffer;
     }
 

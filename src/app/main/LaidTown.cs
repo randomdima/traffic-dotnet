@@ -21,13 +21,17 @@ namespace TrafficSimulation.App.Main;
 /// </remarks>
 internal sealed class LaidTown
 {
-    LaidTown(CityPlan plan, GroundMesh ground, TownWorld world, ScenarioWatch[] scenario)
+    LaidTown(CityPlan plan, GroundMesh ground, TownWorld world, ScenarioWatch[] scenario, bool worldHandedOver)
     {
         Plan = plan;
         Ground = ground;
         World = world;
         Scenario = scenario;
+        WorldHandedOver = worldHandedOver;
     }
+
+    /// <summary>Whether the world was handed over as the town was laid, so standing it hands nothing over.</summary>
+    public bool WorldHandedOver { get; }
 
     public CityPlan Plan { get; }
 
@@ -41,16 +45,29 @@ internal sealed class LaidTown
     /// </summary>
     public ScenarioWatch[] Scenario { get; }
 
-    public static LaidTown Lay(string map, SimConfig config)
+    /// <param name="handTheWorldOver">
+    /// The world handed to the device's, where it is to be and the caller is the thread that may: <b>between the world and
+    /// the ground</b>, because a device world lets go of the host's atlas and the ground is then laid into what it held —
+    /// on a traced city a gigabyte off the open's peak, which a page keeps for its whole run (root decision-log.md,
+    /// 2026-10-15). After the scenario, whose staging asks the world what a page's device cannot answer off the clock.
+    /// </param>
+    public static LaidTown Lay(string map, SimConfig config, Action<TownWorld>? handTheWorldOver = null)
     {
         var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
 
         // The world before the ground, because laying the world's atlas is an open's peak and the mesh laid
         // first stood under it; laid after, it is laid into what the atlas worked in.
         var world = new TownWorld(plan, config);
+        var scenario = Scenarios.For(world, config);
+        if (handTheWorldOver is not null)
+        {
+            handTheWorldOver(world);
+            world.CollectWhatTheLayLeft();
+        }
+
         var ground = GroundMesh.Build(plan, config);
         plan.Paving(config).LetGoOfTheLayingIndexes();
         world.Roads.LetGoOfTheLayingIndex();
-        return new LaidTown(plan, ground, world, Scenarios.For(world, config));
+        return new LaidTown(plan, ground, world, scenario, handTheWorldOver is not null);
     }
 }

@@ -262,7 +262,10 @@ internal static class Data
     /// </summary>
     static async Task<byte[]> Read(string path)
     {
-        var content = new byte[await Runtime.WebGpu.Grab(path)];
+        var length = Runtime.WebGpu.GrabHeld(path);
+        if (length < 0) length = await Runtime.WebGpu.Grab(path);
+
+        var content = new byte[length];
         Runtime.WebGpu.Take(content);
         return content;
     }

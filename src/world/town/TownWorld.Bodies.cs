@@ -104,7 +104,8 @@ internal sealed partial class TownWorld
         var alignedBest = 0f;
         foreach (var each in (ReadOnlySpan<byte>)[CityPlan.RoadArrays.Ground, CityPlan.RoadArrays.Over])
         {
-            var lane = _roads.NearestStreetLane(rearAxleM, each, out var alongM);
+            // A lane further off than the widest is wide is one the test below refuses, so it is not searched for.
+            var lane = _roads.NearestStreetLane(rearAxleM, each, _roads.WidestLaneM + LineTolerance.JoinedM, out var alongM);
             if (lane < 0) continue;
 
             var on = Spline.SampleAt(_roads.ArcsOf(lane), alongM);

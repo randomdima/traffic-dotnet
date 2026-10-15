@@ -64,6 +64,7 @@ internal sealed partial class TownWorld
 
     void Spawn()
     {
+        var doors = new Doors(_plan.Buildings, _config.Grid.Main);
         var variants = 0;
         var fleet = 0;
         for (var spawn = 0; spawn < _plan.Spawns.Count; spawn++)
@@ -89,7 +90,7 @@ internal sealed partial class TownWorld
             // Where on the pavement the plan stood it, found while the map is built (the root decision log, 2026-10-13).
             _placeOf[person] = _walking.PlaceNearest(positionM);
             _progress.Restart(person);
-            MoveIn(person, positionM);
+            MoveIn(person, positionM, doors);
             if (People.Inside[person].Any) HandThemTheirCar(person, spawn, positionM);
         }
 
@@ -176,9 +177,9 @@ internal sealed partial class TownWorld
     /// standing outside it, which is the state <see cref="TripStage.StandingBy"/> already names.
     /// </para>
     /// </remarks>
-    void MoveIn(int person, Vector2 positionM)
+    void MoveIn(int person, Vector2 positionM, Doors doors)
     {
-        var building = BuildingWithADoorAt(positionM);
+        var building = doors.BuildingWithADoorAt(positionM, _config.WayInTouchingReachM);
         if (building < 0 || !_containers.TryAdmit(building, person)) return;
 
         Contain(person);
@@ -238,31 +239,52 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// The building whose way in this body is standing at, or −1 — the nearest one within touching reach
-    /// of the door, which on a street of terraces is the difference between somebody's own house and
-    /// their neighbour's. <b>Read off the pose the plan left it in</b> (GEN-7): a plan says somebody lives
-    /// here by standing them at the door, and nothing in the format has to name it.
+    /// <b>Every building's ways in, filed by cell</b> (SIM-8) for the spawn's one question of each person the plan stood:
+    /// asked of every door in the town, it was a traced city's forty thousand people times its doors.
     /// </summary>
-    int BuildingWithADoorAt(Vector2 positionM)
+    sealed class Doors
     {
-        var buildings = _plan.Buildings;
-        var best = -1;
-        var bestM = _config.WayInTouchingReachM * _config.WayInTouchingReachM;
-        for (var building = 0; building < buildings.Count; building++)
-        {
-            var first = buildings.EntryOffsets[building];
-            var last = buildings.EntryOffsets[building + 1];
-            for (var entry = first; entry < last; entry++)
-            {
-                var farM = (buildings.EntryPointM[entry] - positionM).LengthSquared();
-                if (farM > bestM) continue;
+        readonly PointCells _doors;
+        readonly int[] _buildingOf;
+        readonly List<int> _near = [];
 
-                best = building;
-                bestM = farM;
+        public Doors(CityPlan.BuildingArrays buildings, GridLevel level)
+        {
+            _doors = new PointCells(level);
+            _buildingOf = new int[buildings.EntryOffsets[buildings.Count]];
+            for (var building = 0; building < buildings.Count; building++)
+            {
+                for (var entry = buildings.EntryOffsets[building]; entry < buildings.EntryOffsets[building + 1]; entry++)
+                {
+                    _doors.Add(buildings.EntryPointM[entry]);
+                    _buildingOf[entry] = building;
+                }
             }
         }
 
-        return best;
+        /// <summary>
+        /// The building whose way in this body is standing at, or −1 — the nearest one within touching reach
+        /// of the door, which on a street of terraces is the difference between somebody's own house and
+        /// their neighbour's. <b>Read off the pose the plan left it in</b> (GEN-7): a plan says somebody lives
+        /// here by standing them at the door, and nothing in the format has to name it.
+        /// </summary>
+        /// <remarks>Of two doors as near, the one filed later, as a scan of every door in turn would answer.</remarks>
+        public int BuildingWithADoorAt(Vector2 positionM, float reachM)
+        {
+            _doors.Within(positionM, reachM, _near);
+            var best = -1;
+            var bestM = reachM * reachM;
+            foreach (var entry in _near)
+            {
+                var farM = (_doors[entry] - positionM).LengthSquared();
+                if (farM > bestM) continue;
+
+                best = _buildingOf[entry];
+                bestM = farM;
+            }
+
+            return best;
+        }
     }
 
     /// <summary>

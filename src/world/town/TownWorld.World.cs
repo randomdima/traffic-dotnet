@@ -51,10 +51,15 @@ internal sealed partial class TownWorld
     {
         if (_world.Steps > 0) throw new InvalidOperationException("A world is handed over before the town's first tick.");
 
-        var replaced = _world;
+        // <b>The one it replaces is let go of first</b>: its solver's tables are the new one's size, and a page keeps the
+        // most it was ever given (the root decision log, 2026-10-15).
+        var signals = _world.Signals.Written.ToArray();
+        _world.Dispose();
+        _world = null!;
+        CollectTheLay(_plan, _config);
+
         _world = lay(LayingForTheWorld);
-        _world.Signals.AddRange(replaced.Signals.Written);
-        replaced.Dispose();
+        _world.Signals.AddRange(signals);
 
         // <b>The ground and the furniture are the world's from here on</b> (the root decision log, 2026-10-13): a world laid
         // off them keeps its own, and the town reads neither while it runs — the managed world, which reads both every

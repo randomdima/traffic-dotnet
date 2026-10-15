@@ -196,9 +196,9 @@ owning slice's log; this list says only what is absent now and what closes it.
   street of lanes each way that OSM ends nowhere ends so in the town — a lane both ways share never does, being
   run one way or taken out — so a leg routed into one stands there until its clock gives it up. It is not asked
   whether it can be driven round, and it stands nobody yet.
-- **A traced city reaches the page on a desktop browser alone.** Opening OdesaOsm grows the page's heap past the
-  2 GB the runtime gives a page by default, to 2.4 GB of the 4 GB a 32-bit page can address, which a phone's browser
-  does not give a page, and stands it up on the page's one thread with the tab frozen meanwhile.
+- **A traced city reaches the page on a desktop browser alone.** Opening OdesaOsm grows the page's heap to 2.8 GB and
+  O30 to 3.6 GB of the 4 GB a 32-bit page can address, which a phone's browser does not give a page, and stands it up
+  on the page's one thread — 84 s and 170 s — with the tab frozen meanwhile.
 - **A deck's pavement is not drawn.** The walk across a bridge is the driven ground's own boundary moved
   like anywhere else (`WLK-1`, `TER-3b.1`), and the ground answers walk there — but the ground stack is laid
   under the deck rather than across it, so the concrete is not drawn. What is owed is a boundary that knows

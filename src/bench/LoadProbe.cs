@@ -33,9 +33,11 @@ internal static class LoadProbe
 {
     public static void Run(string map, SimConfig config)
     {
+        var allocatedAt = GC.GetTotalAllocatedBytes(precise: true);
         var planAt = Stopwatch.GetTimestamp();
         var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
         var planMs = Stopwatch.GetElapsedTime(planAt).TotalMilliseconds;
+        var planAllocated = Allocated(ref allocatedAt);
 
         // <b>Each stage is printed as it finishes</b>, so a town that fails further on still says what
         // laying it cost and which plan it was.
@@ -46,7 +48,7 @@ internal static class LoadProbe
             $"{plan.Crosswalks.Count} zebras of its own, {plan.Bridges.Count} bridges " +
             $"({plan.Roads.Level.Count(level => level != CityPlan.RoadArrays.Ground)} on the level above), " +
             $"{plan.Roundabouts.Count} roundabouts, " +
-            $"{plan.Props.Count} props and {plan.Scenery.Count} of scenery, {plan.Buildings.Count} buildings");
+            $"{plan.Props.Count} props and {plan.Scenery.Count} of scenery, {plan.Buildings.Count} buildings; {planAllocated}");
         foreach (var (stage, ms) in plan.LaidMs) Say($"  {stage}", ms, string.Empty);
         Console.WriteLine($"  {"digest",-12}{Digest(plan):x16}   the plan's shapes, equal across processes and builds");
         // The paving's rings and its merge are laid on first asking, by whichever of the town and the ground asks first,
@@ -65,17 +67,21 @@ internal static class LoadProbe
         EndingAt("carriageway", rings.Carriageway.Loose);
         EndingAt("walk", rings.Walk.Loose);
 
+        Allocated(ref allocatedAt);
         var world = new TownWorld(plan, config);
-        Say("world", world.StoodMs, $"{world.AgentCount} agents, {world.StaticBodyCount} static bodies");
+        Say("world", world.StoodMs,
+            $"{world.AgentCount} agents, {world.StaticBodyCount} static bodies; {Allocated(ref allocatedAt)}");
         Say("  roads", world.RoadsMs, $"{world.Roads.LaneCount} lanes");
         Say("  foot", world.FootMs, $"{world.Foot.EdgeCount} lanes");
         Say("  walking", world.WalkingMs, $"{world.Walking.Runs.LinkCount} runs");
         Say("  atlas", world.AtlasMs,
             $"{world.Atlas.PointCount} points, {world.Atlas.EntryCount} entries, {world.Atlas.Bytes / 1048576.0:F1} MiB, " +
             $"at most {world.Atlas.MostWaysAtAPoint} ways at a point of {RibbonAtlas.MostWaysUnderABody} under a body");
+        Console.WriteLine($"  {"digest",-12}{Digest(world.Atlas.Table):x16}   the atlas's tables, equal across processes and builds");
         Say("  the rest", world.StoodMs - world.RoadsMs - world.FootMs - world.WalkingMs - world.AtlasMs,
             "fleets, the tables they are numbered in, the roster and the spawn");
 
+        Allocated(ref allocatedAt);
         var groundAt = Stopwatch.GetTimestamp();
         var ground = GroundMesh.Build(plan, config);
         var groundMs = Stopwatch.GetElapsedTime(groundAt).TotalMilliseconds;
@@ -88,7 +94,7 @@ internal static class LoadProbe
             triangles += part.Triangles;
         }
 
-        Say("ground", groundMs, $"{triangles} triangles over {corners} corners");
+        Say("ground", groundMs, $"{triangles} triangles over {corners} corners; {Allocated(ref allocatedAt)}");
         Say("  merge", ground.MergeMs, "every driven band cut against every band near it");
         Say("  boundary", ground.BoundaryMs - ground.MergeMs, "that shape moved into each layer's own rings");
         Say("  lines", ground.LinesMs, "each layer's line read off its rings, and thinned for its fill");
@@ -105,6 +111,18 @@ internal static class LoadProbe
 
     /// <summary>How many places a run the boundary could not close is named at.</summary>
     const int Listed = 8;
+
+    /// <summary>
+    /// What a stage allocated since the last reading, all of it garbage but what it keeps: <b>on a page, which never hands
+    /// memory back, the churn and not the standing set is what grows the heap</b>.
+    /// </summary>
+    static string Allocated(ref long since)
+    {
+        var now = GC.GetTotalAllocatedBytes(precise: true);
+        var mib = (now - since) / (1024 * 1024);
+        since = now;
+        return $"{mib} MiB allocated";
+    }
 
     static void Say(string stage, double ms, string beside) =>
         Console.WriteLine($"  {stage,-12}{ms,8:F0} ms   {beside}");
@@ -138,6 +156,19 @@ internal static class LoadProbe
         Fold(ref hash, plan.Props.CentreM);
         Fold(ref hash, plan.Scenery.CentreM);
         Fold(ref hash, plan.Spawns.PositionM);
+        return hash;
+    }
+
+    /// <summary>The atlas's tables as one number, on the plan's terms: what says a change to how it is filed filed the same.</summary>
+    static ulong Digest(AtlasTable table)
+    {
+        var hash = 14695981039346656037UL;
+        Fold(ref hash, table.CellSlot);
+        Fold(ref hash, table.SlotFirst);
+        Fold(ref hash, table.PointStart);
+        Fold(ref hash, table.Entries);
+        Fold(ref hash, table.LengthM);
+        Fold(ref hash, table.WayChannels);
         return hash;
     }
 

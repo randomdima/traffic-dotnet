@@ -4,6 +4,34 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-10-15 — the atlas files off a second walk of every way, after the marks
+
+**Making a traced city open in a page** (root log, same date) found the atlas's lay to be the open's peak, holding at
+once every point between being found and being filed (eight bytes an entry), the entries themselves, and the marks'
+own working set. A page keeps the most it was ever given.
+
+- **Every way's points are found twice** (`RibbonAtlas.Filed`): once to count each cell's, once to file them straight
+  into their cells. The blocks they waited in are gone — a gigabyte on OdesaOsm — for a second run of the geometry,
+  about 7 CPU s there and nothing on the wall's clock.
+- **The marks are laid before the filing** (`RibbonAtlas.Lay`), and the town collects between the two
+  (`TownWorld.CollectTheLay`): each working set is about the entries' size, and laid the other way round both stood at
+  once.
+- **A way's readings are sorted by their place alone** (`RibbonAtlas.PointsOf`), a 64-bit key a reading, and a point's
+  kept reading is chosen in the scan after: through a comparison of the whole reading the sort was a twentieth of a
+  page's open. **Two readings tied on every figure are settled by the nearer the way's start**, where the sort's own
+  order settled them before; on OdesaOsm some were, and the atlas's digest moved (`--bench load`).
+- **Both sorts are `KeyedSort`'s and not the framework's**: a page's runtime interprets the framework's sort over a
+  pair of value types.
+
+Measured with `qq prof --bench load --memory`, OdesaOsm (the world's peak is the resident set's most inside the stage;
+the CPU every thread's, so it carries the door and lane fixes of the root log's entry too):
+
+| | before | after |
+|---|---|---|
+| atlas | 2.8 s | 2.8 s |
+| the world's peak | 3 243 MiB | 1 959 MiB |
+| the open's CPU | 88 s | 75 s |
+
 ## 2026-10-13 — a line is laid within an arc budget, not room for the town's curviest lane twelve times
 
 **Each car had room for 343 arcs on OdesaOsm** (`LineAssembler.ArcsFor`: twelve of its longest lanes and the joins
@@ -360,8 +388,6 @@ ways and every extra point read is all of them, and two points holds it to about
 between being found and being filed (16 bytes an entry, 920 MB) and a sort key for every entry of the town
 (8 bytes, 460 MB).
 
-- **A point is kept in its block as what filing it needs** (`RibbonAtlas.Filing`): its main cell, which point
-  of the cell, and its entry's two figures, worked out where the point is found rather than where it is filed.
 - **A cell's sort keys are made on the thread that sorts it**, in a buffer as long as the fullest cell, from a
   byte an entry naming its point; the key and so the order are what they were.
 
@@ -373,9 +399,6 @@ The atlas is the same to the bit: every array it keeps hashed equal on O1 and O1
 | O1 (Odesa) | 199 ms | 203 ms | 354 MiB | 336 MiB |
 | O10 | 2158 ms | 2057 ms | 3159 MiB | 2490 MiB |
 
-**Not done: filing straight off a second walk of every way**, which would hold no points at all. It is a
-second run of the stage's geometry, and the blocks are now about a sixth of the peak.
-
 ## 2026-10-01 — the atlas keeps a thread's points in blocks, and files them on every thread
 
 **The atlas was the largest stage of Odesa's load, about 300 ms of 1.5 s, and most of it was not geometry.**
@@ -384,8 +407,6 @@ from every thread at once, and the workstation heap hands out room under one loc
 CPU was waiting on it. Filing the points into their cells, and building the entries after the sort, were
 then two passes over five million entries on one thread.
 
-- **A way's points are a stretch of its thread's block** (`RibbonAtlas.Laying`), deduplicated in place, and
-  each cell's share is counted as they are found.
 - **A point is filed by whichever thread reaches it**, at a place taken atomically from its cell's cursor,
   and its entry is built there. The order points land in is lost to the cell's sort, whose key — point,
   then way — no two entries share, so the atlas is the same to the bit: every array it keeps hashed equal

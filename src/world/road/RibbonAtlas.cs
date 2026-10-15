@@ -548,7 +548,11 @@ internal sealed partial class RibbonAtlas
     /// traced city it is half of every point. The marks are worked out from the ribbons, so they hold every way
     /// either way.
     /// </param>
-    public static RibbonAtlas Lay(IRibbonLines lines, GridLevel level, float touchM, bool anyoneWalks)
+    /// <param name="betweenStages">
+    /// Called between the marks and the filing — where a caller laying a town large enough to want it collects what the
+    /// marks worked in.
+    /// </param>
+    public static RibbonAtlas Lay(IRibbonLines lines, GridLevel level, float touchM, bool anyoneWalks, Action? betweenStages = null)
     {
         static string Longest(ReadOnlySpan<ArcSeg> arcs)
         {
@@ -589,9 +593,12 @@ internal sealed partial class RibbonAtlas
             throw new InvalidOperationException($"{1 << shift} points across a main cell are more than a filing can name");
         }
 
+        // The marks before the filing, and what they worked in let go of between: the two working sets are each the
+        // size of the entries, and laid the other way round both stood at once at the open's peak.
         var cells = GridWindow.Over(main, leastM, mostM);
-        var filed = Filed(lines, lengthM, level, cells, anyoneWalks);
         var marks = RibbonMarks.Of(lines, lengthM, stepM, touchM, main);
+        betweenStages?.Invoke();
+        var filed = Filed(lines, lengthM, level, cells, anyoneWalks);
 
         return new RibbonAtlas(
             level, cells, filed.CellSlot, filed.SlotFirst, filed.PointStart, filed.Entries, lengthM, ChannelsOf(lines), marks,
@@ -606,9 +613,15 @@ internal sealed partial class RibbonAtlas
     /// <b>Every way's points found and filed into the cells they fall in</b>, each cell in row, column and way order.
     /// </summary>
     /// <remarks>
-    /// <b>A method of its own so that what filing works in is gone when it returns</b>: the blocks every point waits
-    /// in (<see cref="Laying"/>) are as large as the entries, and held through the marks' own working set
-    /// (<see cref="RibbonMarks"/>) the three together were the whole of an open's peak on a traced city.
+    /// <para>
+    /// <b>A method of its own so that what filing works in is gone when it returns</b>: held through the marks' own
+    /// working set (<see cref="RibbonMarks"/>), it was the whole of an open's peak on a traced city.
+    /// </para>
+    /// <para>
+    /// <b>Every way's points are found twice</b>, once to count each cell's and once to file them: kept from the one to
+    /// the other, they were the entries' size over again at the open's peak — a gigabyte on a traced city, which a page
+    /// keeps for the rest of its run (root <c>decision-log.md</c>, 2026-10-15).
+    /// </para>
     /// </remarks>
     static FiledCells Filed(IRibbonLines lines, float[] lengthM, GridLevel level, GridWindow cells, bool anyoneWalks)
     {
@@ -616,21 +629,24 @@ internal sealed partial class RibbonAtlas
         var main = cells.Level;
         var shift = level.Depth - main.Depth;
         var reachM = ReachOf(level.CellM);
+        var mask = (1 << shift) - 1;
 
-        // Every way's own points, found a way at a time on as many threads as there are, kept as what filing
-        // them needs, and counted under their cells as they are found.
-        var perWay = new ArraySegment<Filing>[wayCount];
+        bool Files(int way) => anyoneWalks || lines.IsDriven(way) || lines.ZebraOf(way) != RibbonMarks.NoZebra;
+        int CellOf(in Sample point) => cells.IndexOf(point.X >> shift, point.Y >> shift);
+
+        // Every way's own points, found a way at a time on as many threads as there are, and counted under their cells.
         var cellCount = new int[cells.Count];
         InChunks.Over(
             wayCount,
-            () => new Laying(cells, shift, reachM),
-            (laying, way) =>
+            () => (Found: new List<Sample>(), Places: new List<long>()),
+            (working, way) =>
             {
-                if (!anyoneWalks && !lines.IsDriven(way) && lines.ZebraOf(way) == RibbonMarks.NoZebra) return;
+                if (!Files(way)) return;
 
-                var laid = laying.Kept(PointsOf(lines, way, lengthM[way], level, laying.Found));
-                perWay[way] = laid;
-                foreach (var filing in laid.AsSpan()) Interlocked.Increment(ref cellCount[filing.Cell]);
+                foreach (var point in PointsOf(lines, way, lengthM[way], level, working.Found, working.Places))
+                {
+                    Interlocked.Increment(ref cellCount[CellOf(point)]);
+                }
             });
 
         // Filed a cell at a time: the cells that hold any given their place, every point put in its cell in
@@ -660,18 +676,20 @@ internal sealed partial class RibbonAtlas
         // only then its column: a point's place is a byte (above), and a second table of them is the entries' size
         // over again.
         var total = slotFirst[slots];
-        var mask = (1 << shift) - 1;
         var entries = new Entry[total];
         var cursor = (int[])slotFirst.Clone();
         InChunks.Over(
             wayCount,
-            () => 0,
-            (_, way) =>
+            () => (Found: new List<Sample>(), Places: new List<long>()),
+            (working, way) =>
             {
-                foreach (var filing in perWay[way].AsSpan())
+                if (!Files(way)) return;
+
+                foreach (var point in PointsOf(lines, way, lengthM[way], level, working.Found, working.Places))
                 {
-                    var at = Interlocked.Increment(ref cursor[cellSlot[filing.Cell]]) - 1;
-                    entries[at] = new Entry(filing.Outside, filing.InCell, filing.Along, way);
+                    var at = Interlocked.Increment(ref cursor[cellSlot[CellOf(point)]]) - 1;
+                    var inCell = (byte)(((point.Y & mask) << shift) | (point.X & mask));
+                    entries[at] = new Entry(Outside(point.MarginM, reachM), inCell, Filed(point.AlongM), way);
                 }
             });
 
@@ -693,7 +711,7 @@ internal sealed partial class RibbonAtlas
                 var cellKeys = keys.AsSpan(0, count);
                 var cellEntries = entries.AsSpan(first, count);
                 for (var at = 0; at < count; at++) cellKeys[at] = ((long)cellEntries[at].Column << 32) | (uint)cellEntries[at].Way;
-                cellKeys.Sort(cellEntries);
+                KeyedSort.Sort(cellKeys, cellEntries);
                 foreach (ref var entry in cellEntries) entry = entry with { Column = (byte)(entry.Column & mask) };
                 census[slot] = Started(cellKeys, pointStart.AsSpan(slot * startsPerCell, startsPerCell), shift);
             });
@@ -768,59 +786,6 @@ internal sealed partial class RibbonAtlas
     }
 
     /// <summary>
-    /// <b>One thread's lattice points</b>: every way it has laid, back to back in blocks and as they will be
-    /// filed, so a way's points are a stretch of a block rather than an array of their own.
-    /// </summary>
-    /// <remarks>
-    /// An array a way is tens of thousands of small allocations from every thread at once, and the workstation
-    /// heap hands out room under one lock: on Odesa a third of the pass's CPU went to waiting for it.
-    /// </remarks>
-    sealed class Laying(GridWindow cells, int shift, float reachM)
-    {
-        /// <summary>How many points a block holds, unless one way's own need more.</summary>
-        const int BlockPoints = 1 << 16;
-
-        /// <summary>The one way being laid, found before it is kept.</summary>
-        public readonly List<Sample> Found = [];
-
-        readonly int _mask = (1 << shift) - 1;
-        Filing[] _block = [];
-        int _used;
-
-        /// <summary>A way's points, filed into this thread's block, and where they now stand.</summary>
-        public ArraySegment<Filing> Kept(ReadOnlySpan<Sample> points)
-        {
-            if (_used + points.Length > _block.Length)
-            {
-                _block = GC.AllocateUninitializedArray<Filing>(Math.Max(BlockPoints, points.Length));
-                _used = 0;
-            }
-
-            var kept = _block.AsSpan(_used, points.Length);
-            for (var at = 0; at < points.Length; at++)
-            {
-                var point = points[at];
-                kept[at] = new Filing(
-                    cells.IndexOf(point.X >> shift, point.Y >> shift),
-                    (byte)(((point.Y & _mask) << shift) | (point.X & _mask)),
-                    Outside(point.MarginM, reachM),
-                    Filed(point.AlongM));
-            }
-
-            var segment = new ArraySegment<Filing>(_block, _used, points.Length);
-            _used += points.Length;
-            return segment;
-        }
-    }
-
-    /// <summary>
-    /// <b>One point as it is filed</b>: its main cell, which point of that cell, and its entry's two figures
-    /// already worked out — under half a <see cref="Sample"/>, which is what every point of the town costs while it
-    /// waits between being found and being filed.
-    /// </summary>
-    readonly record struct Filing(int Cell, byte InCell, byte Outside, ushort Along);
-
-    /// <summary>
     /// One lattice point a way's ribbon covers: which cell of the points' level it is the middle of, how far
     /// along the way, how far inside its edges, and whether its foot fell on the piece that read it rather than
     /// past one of that piece's ends.
@@ -843,7 +808,58 @@ internal sealed partial class RibbonAtlas
     /// many times over.
     /// <para>What it returns is a view of <paramref name="found"/>, good until that list is next used.</para>
     /// </remarks>
-    static ReadOnlySpan<Sample> PointsOf(IRibbonLines lines, int way, float lengthM, GridLevel level, List<Sample> found)
+    static ReadOnlySpan<Sample> PointsOf(
+        IRibbonLines lines, int way, float lengthM, GridLevel level, List<Sample> found, List<long> places)
+    {
+        Find(lines, way, lengthM, level, found);
+
+        // A piece finds its points in order, so a way of one piece, or of pieces that never reach one another's
+        // points, is in row and column order already, each point once.
+        var sorted = CollectionsMarshal.AsSpan(found);
+        var inOrder = true;
+        for (var at = 1; at < sorted.Length && inOrder; at++) inOrder = PlaceOf(sorted[at - 1]) < PlaceOf(sorted[at]);
+        if (inOrder) return sorted;
+
+        // Sorted by place alone, a key a sample, and of a place's readings the one that keeps is chosen below: through a
+        // comparison of the whole reading the sort was a twentieth of a page's open.
+        places.Clear();
+        foreach (var sample in sorted) places.Add(PlaceOf(sample));
+        var keys = CollectionsMarshal.AsSpan(places);
+        KeyedSort.Sort(keys, sorted);
+
+        var kept = 0;
+        for (var at = 0; at < sorted.Length; at++)
+        {
+            if (kept > 0 && keys[at] == keys[at - 1])
+            {
+                if (Deeper(sorted[at], sorted[kept - 1])) sorted[kept - 1] = sorted[at];
+                continue;
+            }
+
+            sorted[kept++] = sorted[at];
+        }
+
+        return sorted[..kept];
+    }
+
+    /// <summary>A point's row and column as one number that orders them: the row, then the column, each signed.</summary>
+    static long PlaceOf(in Sample sample) => ((long)sample.Y << 32) | (uint)(sample.X ^ int.MinValue);
+
+    /// <summary>
+    /// Whether one reading of a point is kept over another: <b>the one whose foot fell on the piece that read it</b>, then
+    /// the one the point lies deeper inside, then — read as deep, which only a joint's two pieces can — the nearer the
+    /// way's start, so no order the readings were sorted in decides it.
+    /// </summary>
+    static bool Deeper(in Sample one, in Sample other) =>
+        one.OnItsPiece != other.OnItsPiece ? one.OnItsPiece
+        : one.MarginM != other.MarginM ? one.MarginM > other.MarginM
+        : one.AlongM < other.AlongM;
+
+    /// <summary>
+    /// <b>Every reading of a lattice point one way's pieces make</b>, in the order the pieces make them: a point two
+    /// pieces reach is read twice (<see cref="PointsOf"/> keeps one).
+    /// </summary>
+    static ReadOnlySpan<Sample> Find(IRibbonLines lines, int way, float lengthM, GridLevel level, List<Sample> found)
     {
         found.Clear();
         var arcs = lines.LineOf(way, out var widthM);
@@ -894,29 +910,7 @@ internal sealed partial class RibbonAtlas
             startM += arc.LengthM;
         }
 
-        static int Order(Sample one, Sample other) =>
-            one.Y != other.Y ? one.Y.CompareTo(other.Y)
-            : one.X != other.X ? one.X.CompareTo(other.X)
-            : one.OnItsPiece != other.OnItsPiece ? other.OnItsPiece.CompareTo(one.OnItsPiece)
-            : other.MarginM.CompareTo(one.MarginM);
-
-        // A piece finds its points in order, so a way of one piece, or of pieces that never reach one another's
-        // points, is in order already. Only where no two points are equal can that skip the sort: one that is
-        // handed equal points leaves them in an order of its own.
-        var sorted = CollectionsMarshal.AsSpan(found);
-        var inOrder = true;
-        for (var at = 1; at < sorted.Length && inOrder; at++) inOrder = Order(sorted[at - 1], sorted[at]) < 0;
-        if (!inOrder) found.Sort(Order);
-
-        var kept = 0;
-        foreach (var sample in sorted)
-        {
-            if (kept > 0 && sorted[kept - 1].X == sample.X && sorted[kept - 1].Y == sample.Y) continue;
-
-            sorted[kept++] = sample;
-        }
-
-        return sorted[..kept];
+        return CollectionsMarshal.AsSpan(found);
     }
 
     /// <summary>

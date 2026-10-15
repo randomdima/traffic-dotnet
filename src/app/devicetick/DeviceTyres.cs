@@ -333,7 +333,7 @@ internal sealed class DeviceTyres : IDisposable
     {
         var buffer = Own(_vk.CreateBuffer(
             Bytes<T>(rows.Length), BufferUse.Storage | BufferUse.TransferDst, HostAccess.None));
-        buffer.Upload<T>(rows.Length, into => rows.CopyTo(into));
+        buffer.Upload<T>(rows);
         return buffer;
     }
 

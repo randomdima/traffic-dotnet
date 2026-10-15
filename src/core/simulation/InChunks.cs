@@ -43,7 +43,18 @@ internal static class InChunks
     {
         if (count <= 0) return;
 
-        var chunk = Math.Max(1, count / (Environment.ProcessorCount * ChunksPerProcessor));
+        // <b>One processor is one loop</b>: a page's runtime has one thread, and its ahead-of-time compiler leaves the
+        // loop machinery's generic delegates to the interpreter — a tenth of a traced city's open on the page.
+        if (Environment.ProcessorCount == 1)
+        {
+            var own = working();
+            for (var at = 0; at < count; at++) pass(own, at);
+
+            spent?.Invoke(own);
+            return;
+        }
+
+        var chunk =Math.Max(1, count / (Environment.ProcessorCount * ChunksPerProcessor));
         Parallel.ForEach(
             Partitioner.Create(0, count, chunk),
             working,

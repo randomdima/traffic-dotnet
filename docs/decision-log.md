@@ -4,6 +4,38 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-15 — a traced city opens in a page, and an open's peak is what it is judged on
+
+**The owner (2026-10-15), in their words: "Make sure big maps also able to load on web. Try to optimize how we load them
+in terms of both speed and memory usage".** OdesaOsm ran the page out of memory in `DeviceWorld`'s constructor after
+105 s; it now stands in 84 s at 2.8 GB of the 4 GB a 32-bit page can address, and O30 in 170 s at 3.6 GB. A page keeps
+the most it was ever given, so what was cut is the open's peak and its churn as well as its time:
+
+- **The world is handed to the device between the world and the ground** (`LaidTown.Lay`), where the caller is the thread
+  that may (`Game.Open`; a desktop's map picked on the menu is laid off the loop and handed over as it stands): the device
+  world lets go of the host's atlas, and the ground is laid into what it held.
+- **The managed world is let go of before the device's is laid** (`TownWorld.HandTheWorldTo`), and **what both left is
+  collected from a frame that never held them, with the stack below written over** (`TownWorld.CollectWhatTheLayLeft`,
+  `ClearTheStack`): a page's runtime reads its stack conservatively, and a standing frame that once held the managed
+  world kept it and the gigabyte of atlas with it.
+- **The atlas files without holding its points twice, and after its marks** (the road log).
+- **What a whole-town scan asked of every agent is asked of a cell**: a person's door (`TownWorld.Doors`, forty thousand
+  people times every door in the town) and a parked car's level (`ChainIndex.Nearest` within a reach — a car on the
+  ground searched the whole town for one of 39 bridges).
+- **A page's one thread is one loop** (`InChunks`), and **the sorts an open leans on are this assembly's**
+  (`KeyedSort`): its ahead-of-time compiler leaves the framework's parallel loop and its sort over a pair of value types
+  to the interpreter, and the two were a sixth of the page's open.
+
+Measured on the published page (Chromium, `qq web --map OdesaOsm`, the page's own figures on its console) and the
+desktop's `--bench load` (every thread's CPU, and the resident set's most):
+
+| OdesaOsm | before | after |
+|---|---|---|
+| the page's open | out of memory at 105 s | 84 s |
+| the page's memory | past 4 GB | 2 805 MiB |
+| the desktop's open | 35.7 s, 88 CPU s | 22.5 s, 75 CPU s |
+| the desktop's peak | 3 246 MiB | 2 523 MiB |
+
 ## 2026-10-15 — a page steps its world on its device too
 
 **The owner (2026-10-15), in their words: "lets make it work in web"**, and of the doubles the kernels computed in:
