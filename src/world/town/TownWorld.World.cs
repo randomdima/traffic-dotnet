@@ -224,6 +224,7 @@ internal sealed partial class TownWorld
     /// <summary><b>A walker put down</b> out of whatever held it, at rest, facing a heading.</summary>
     void PlaceTheWalker(int person, Vector2 atM, float headingRad)
     {
+        _placements++;
         People.PositionM[person] = atM;
         People.HeadingRad[person] = headingRad;
         People.VelocityMps[person] = Vector2.Zero;
@@ -236,6 +237,7 @@ internal sealed partial class TownWorld
     /// <summary><b>A walker taken out of the world</b> into a container (PHY-7).</summary>
     void ContainTheWalker(int person)
     {
+        _placements++;
         People.VelocityMps[person] = Vector2.Zero;
         People.Declares[person] = false;
         _sentWalk[person] = NeverSent;
@@ -245,6 +247,7 @@ internal sealed partial class TownWorld
     /// <summary><b>A car put down</b> where something set it, at rest.</summary>
     void PlaceTheCar(int car, Vector2 atM, float headingRad)
     {
+        _placements++;
         Cars.PositionM[car] = atM;
         Cars.HeadingRad[car] = headingRad;
         Cars.Forward[car] = Heading.Unit(headingRad);

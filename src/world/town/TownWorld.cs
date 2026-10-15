@@ -551,17 +551,62 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             }
         }
 
+        var reachM = _carReachM;
+        if (_carsCulled.Holds(_clockTicks, _placements, Cars.Count, reachM, leastM, mostM)) return _carsCulled.Into(into);
+
         // The roster's fields read once: a store into the caller's span is a store the JIT cannot tell from one into
         // them, and read in the loop they were read again a car.
         var kept = 0;
-        var reachM = _carReachM;
         var positions = Cars.PositionM.AsSpan(0, Cars.Count);
         for (var car = 0; car < positions.Length; car++)
         {
             if (Meets(positions[car], reachM, leastM, mostM)) into[kept++] = car;
         }
 
-        return into[..kept];
+        return _carsCulled.Keep(_clockTicks, _placements, Cars.Count, reachM, leastM, mostM, into[..kept], Cars.Capacity);
+    }
+
+    readonly KeptCull _carsCulled = new(), _peopleCulled = new();
+
+    /// <summary>Counted on wherever a body is put down out of a tick, which is the one place one moves between two.</summary>
+    int _placements;
+
+    /// <summary>
+    /// <b>A roster's cull kept for the frames between two ticks</b>: nothing moves a body or puts one away between them
+    /// but a placement, so the same box asked again before the next tick or placement is answered as it was — at a
+    /// window's uncapped rate, eighty frames a tick that would each walk the whole roster.
+    /// </summary>
+    sealed class KeptCull
+    {
+        int[] _bodies = [];
+        int _count;
+        long _clockTicks = -1;
+        int _placements, _roster;
+        float _reachM;
+        Vector2 _leastM, _mostM;
+
+        public bool Holds(long clockTicks, int placements, int roster, float reachM, Vector2 leastM, Vector2 mostM) =>
+            clockTicks == _clockTicks && placements == _placements && roster == _roster && reachM.Equals(_reachM)
+            && leastM.Equals(_leastM) && mostM.Equals(_mostM);
+
+        public ReadOnlySpan<int> Into(Span<int> into)
+        {
+            _bodies.AsSpan(0, _count).CopyTo(into);
+            return into[.._count];
+        }
+
+        /// <param name="capacity">The roster's room, which the kept cull is laid at once so it never grows.</param>
+        public ReadOnlySpan<int> Keep(
+            long clockTicks, int placements, int roster, float reachM, Vector2 leastM, Vector2 mostM, ReadOnlySpan<int> culled,
+            int capacity)
+        {
+            if (_bodies.Length < capacity) _bodies = new int[capacity];
+
+            culled.CopyTo(_bodies);
+            (_count, _clockTicks, _placements, _roster, _reachM, _leastM, _mostM) =
+                (culled.Length, clockTicks, placements, roster, reachM, leastM, mostM);
+            return culled;
+        }
     }
 
     /// <summary>The widest half-diagonal of any build of the fleet, found the first time a box is asked of the fleet itself.</summary>
@@ -571,6 +616,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     ReadOnlySpan<int> PeoplePlacedIn(Vector2 leastM, Vector2 mostM, Span<int> into)
     {
         var reachM = _config.PersonDiameterM * 0.5f;
+        if (_peopleCulled.Holds(_clockTicks, _placements, People.Count, reachM, leastM, mostM)) return _peopleCulled.Into(into);
+
         var kept = 0;
         var positions = People.PositionM.AsSpan(0, People.Count);
         var inside = People.Inside.AsSpan(0, positions.Length);
@@ -579,7 +626,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             if (!inside[person].Any && Meets(positions[person], reachM, leastM, mostM)) into[kept++] = person;
         }
 
-        return into[..kept];
+        return _peopleCulled.Keep(
+            _clockTicks, _placements, People.Count, reachM, leastM, mostM, into[..kept], People.Capacity);
     }
 
     static bool Meets(Vector2 atM, float reachM, Vector2 leastM, Vector2 mostM) =>

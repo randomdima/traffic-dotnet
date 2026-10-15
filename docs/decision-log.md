@@ -4,6 +4,18 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-16 — a town follows the runtime's arithmetic, and ImageSharp stays at 3.1.12
+
+**The owner (2026-10-16), asked both: "Follow the runtime" and "Leave as is".**
+
+- **A town is laid off the runtime's own conversions** (`float.DegreesToRadians` and the like) rather than the
+  engine's: a runtime that rounds one otherwise moves the towns it lays, as .NET 11 moved O30 once
+  (`ConnectionPoints.BoundRad`, 391 more static bodies), and the digests are what say so. Only the world layer's
+  trigonometry is the engine's own (`Trig`), because the device has to answer it to the bit.
+- **`SixLabors.ImageSharp` stays at 3.1.12**, the last 3.1.x, with the three high and two moderate advisories NuGet's
+  audit prints on every build (GHSA-jjfr-hcj7-qf5w, -j9gm-c75j-xc9q, -j3p4-wp97-rph4, -wmxv-xphr-5c9g, -gwg2-r3hj-4w44):
+  it decodes the project's own art and the frames its own runs wrote, and 4.x wants a licence key.
+
 ## 2026-10-15 — branches a heading cannot predict are taken in bits, and an open's independent pieces run side by side
 
 **Asked for by the owner (2026-10-15): the codebase reviewed for .NET 11's practice, performance first.** The review
@@ -27,7 +39,9 @@ atlas and marks digests are unchanged — and what was not is [tech-debt.md](tec
   exact, because any route through the movement taken passed through one of those first (checked against the whole
   town's answer on every street of O30, Odesa, River and Test).
 - **A queued car's line reading and aim are kept** while every figure they read is the same to the bit, and a frame
-  keeps the scale legend's quads, the status title's figures and the window's pointer while what they read holds.
+  keeps the scale legend's quads, the status title's figures and the window's pointer while what they read holds. A
+  roster's cull is kept for the frames between two ticks: nothing moves a body between them but a placement, which
+  counts itself (`TownWorld.KeptCull`).
 - **The performance analyzers are warnings** (`AnalysisModePerformance`), so an allocation they know the shape of —
   a constant array argument, an uncached serializer option — fails nothing but is in every build's output.
 - **A body's two corners stay in two arrays.** One array of both, a cache line a candidate, measured 3% slower in the

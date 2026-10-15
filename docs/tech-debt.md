@@ -362,12 +362,6 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   is a whole sort (`Buildings.cs:386`, `Agreement.cs:665`, ~0.7 s), and `Layers.cs:84` builds a string an item before
   writing it (~0.4 s). Held once a process, selected rather than sorted, and serialized straight to the stream closes
   them.
-- **A window's frame culls the whole roster while the managed world steps** (2026-10-15): `ManagedWorld.InBox` answers
-  −1 while its step runs on its own thread, so `TownWorld.CarsPlacedIn` and `PeoplePlacedIn` walk every car and person
-  every frame — most of `Game.Draw`'s time on O30's managed world, 0.044 ms a frame with its fields read once: a fifth
-  of a core at an uncapped present, under a hundredth at a display's rate, and nothing on the device's world. An index
-  of the view laid once a tick and asked by the frames between, which costs about what it saves at a display's rate,
-  closes it.
 
 ### Code kept twice, or kept for nothing
 
@@ -472,17 +466,6 @@ a layout or changes behaviour.
 - **The ground rule TER-7b, a P0, still says it is taken "once a laying (TER-49)"** _owner_: there is no laying, and the
   wheels' ground is read on every world step (`WorldLayer.Step`). The code meets the rule more often than it says; the
   wording is the owner's.
-- **`SixLabors.ImageSharp` 3.1.12 carries three high and two moderate advisories** _owner_ (2026-10-15, NuGet audit
-  `NU1902`/`NU1903` on every build): GHSA-jjfr-hcj7-qf5w, -j9gm-c75j-xc9q, -j3p4-wp97-rph4, -wmxv-xphr-5c9g and
-  -gwg2-r3hj-4w44. 3.1.12 is the last 3.1.x, and the csproj keeps off 4.x for its licence key. It decodes the
-  project's art and the frames its own runs wrote; moving to 4.x with a key, or to another decoder, closes it.
-- **An authored town is laid off the runtime's `DegreesToRadians`** _owner_ (2026-10-15, root log): .NET 11 rounds
-  `float.DegreesToRadians` and `double.DegreesToRadians` differently from .NET 10, and through
-  `ConnectionPoints.BoundRad` alone that moved O30's plan, atlas and marks digests once (391 more static bodies). .NET 10
-  is no longer built for (the owner, 2026-10-16), so that move stands; what is open is the next runtime that rounds it
-  otherwise. Whether a town may move with the runtime it runs on, or the conversion is the engine's own (as the
-  trigonometry became `Trig`), is the owner's; the traced import
-  (`TransverseMercator`, `TracedStreets.Evened`) reads the same two.
 - **`TER-5j` was retired and its number given to another rule** _owner_ (road log, 2026-09-14), against "a retired
   number is never reused". The log no longer cites the old one; renumbering the new one is the owner's.
 
