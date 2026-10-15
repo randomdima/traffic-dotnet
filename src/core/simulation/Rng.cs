@@ -1,7 +1,7 @@
 namespace TrafficSimulation.Core.Simulation;
 
 /// <summary>
-/// One agent's own stream of numbers. PCG32 rather than <see cref="System.Random"/> for two
+/// One agent's own stream of numbers (SIM-4, AGT-6). PCG32 rather than <see cref="System.Random"/> for two
 /// reproducibility reasons: it is value-typed, so five hundred streams live in one array and drawing
 /// from one allocates nothing; and its state is two <c>ulong</c>s, so a run can be resumed at a tick
 /// rather than only replayed from the start.

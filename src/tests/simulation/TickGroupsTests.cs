@@ -15,7 +15,6 @@ public class TickGroupsTests
 
         Assert.Equal(6, groups.Groups);
         Assert.Equal(0.1f, groups.IntervalS, tolerance: 1e-6f);
-        Assert.False(groups.EveryTick);
     }
 
     [Fact]
@@ -23,7 +22,7 @@ public class TickGroupsTests
     {
         var groups = new TickGroups(0f, 60);
 
-        Assert.True(groups.EveryTick);
+        Assert.Equal(1, groups.Groups);
         for (var tick = 0; tick < 12; tick++)
         {
             for (var member = 0; member < 5; member++) Assert.True(groups.Turn(tick, member));
@@ -92,7 +91,7 @@ public class TickGroupsTests
     [Fact]
     public void ARateBelowOneTickIsRoundedUpToEveryTick()
     {
-        Assert.True(new TickGroups(0.001f, 60).EveryTick);
+        Assert.Equal(1, new TickGroups(0.001f, 60).Groups);
     }
 
     [Fact]

@@ -272,8 +272,7 @@ internal sealed class RoadFigures
     /// </summary>
     /// <remarks>
     /// <b>A gap and not a distance to the bar's middle</b>, which is what makes the arm's whole bundle of
-    /// paint one sum (<see cref="SimConfig.ArmPaintM"/>) rather than a figure with the bar's thickness
-    /// folded into it twice.
+    /// paint one sum of its four figures rather than a sum with the bar's thickness folded into it twice.
     /// </remarks>
     public float StopBarSetbackM { get; init; } = 1f;
 
@@ -1000,14 +999,14 @@ internal sealed class CityGenFigures
     /// <remarks>
     /// <b>Five metres, which is the clearance and nothing else</b> — a bay square to the street is driven
     /// straight into off its own turn and straight out of again, where what sizes the parallel bay on a kerb
-    /// is the reverse into it (<see cref="ParkingSpaceMarginInCarWidths"/>). A bay any longer is tarmac laid
+    /// is the reverse into it (<see cref="RoadFigures.ParkingSpaceMarginInCarWidths"/>). A bay any longer is tarmac laid
     /// for nothing and an arm that much further out into the ground behind the street.
     /// </remarks>
     public float BayLengthM { get; init; } = 5f;
 
     /// <summary>
     /// <b>How far off the lane it is following a car on its way to a bay may be carried</b> (GEN-53). A
-    /// movement holds the street straight until it turns in (<see cref="Spline.StraightArcStraightInto"/>)
+    /// movement holds the street straight until it turns in (<see cref="Geometry.Spline.StraightArcStraightInto"/>)
     /// and a street is free to bend, so the two part company across a car park's box by the sagitta between
     /// them. This is how much of that is tolerable, and <b>everything about how straight a road has to be to
     /// carry a car park is read off it</b> (<see cref="SimConfig.CarParkCurvatureMax"/>).

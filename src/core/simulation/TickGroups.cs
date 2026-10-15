@@ -43,8 +43,6 @@ internal readonly struct TickGroups
     /// <summary>How much world one turn is answerable for, which is what whoever takes it integrates over.</summary>
     public float IntervalS { get; }
 
-    public bool EveryTick => Groups == 1;
-
     /// <summary>Whether this tick is this member's turn.</summary>
     public bool Turn(long tick, int member) => Groups == 1 || (tick + member / RunOfMembers) % Groups == 0;
 

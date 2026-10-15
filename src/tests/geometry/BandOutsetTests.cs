@@ -64,7 +64,7 @@ public class BandOutsetTests
 
         Assert.Equal(0, shell.Loose.Length);
         Assert.NotEmpty(rings);
-        Assert.Equal(0, loose.Length);
+        Assert.Empty(loose);
     }
 
     /// <summary>

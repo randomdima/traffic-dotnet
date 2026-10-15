@@ -9,9 +9,6 @@ namespace TrafficSimulation.Core.Geometry;
 /// </summary>
 internal readonly record struct ArcSeg(Vector2 StartM, float HeadingRad, float LengthM, float Curvature)
 {
-    /// <summary>Below this the arc's centre is further away than any town is wide, and it is a straight.</summary>
-    const float StraightCurvature = 1e-6f;
-
     /// <summary>
     /// <b><see cref="HeadingRad"/> as the direction it is</b>, reduced once when the piece is made rather
     /// than every time it is walked. A town's pieces are made once and projected onto by every scan of

@@ -307,7 +307,7 @@ public class JunctionClaimTests
 
         var halfM = world.Cars.BuildOf(car).CollisionSizeM * 0.5f;
         var cornerM = halfM.Length();
-        var overM = Config.IntersectionReachM;
+        var overM = Config.RoadWidthM;
 
         for (var down = -overM; down <= overM; down += halfM.X)
         {

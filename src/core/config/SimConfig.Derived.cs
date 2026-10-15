@@ -179,7 +179,6 @@ internal sealed partial class SimConfig
     /// </summary>
     public float WalkerTightestTurnM => PersonWalkSpeedMps / (PersonTurnRateDegPerS * MathF.PI / 180f);
 
-
     /// <summary>
     /// One walking lane, two bodies wide (<see cref="RoadFigures.WalkingLaneInPersonDiameters"/>) — the
     /// width every stretch of pavement in the town is walked at.
@@ -294,7 +293,6 @@ internal sealed partial class SimConfig
     /// </summary>
     public float PersonStepM => PersonWalkSpeedMps * TickSeconds;
 
-
     /// <summary>
     /// How far off a pavement lane's own line a body is still standing on that lane: a quarter of the band,
     /// which is the half of the lane's ground it has either side of the line it is held on.
@@ -318,18 +316,6 @@ internal sealed partial class SimConfig
     public float LaneWidthM => Car.WidthM * Road.LaneWidthInCarWidths;
 
     public float RoadWidthM => LaneWidthM * LanesPerCarriageway;
-
-    /// <summary>
-    /// <b>How far off the kerb the roadside perimeter stands</b> — half a lane, 1.8 m at the shipped car.
-    /// <b>Nothing reads it</b>: the ground's layers (<c>CityGen.GroundLayer</c>) are the carriageway and the
-    /// walk, and no roadside line is struck off the boundary.
-    /// </summary>
-    /// <remarks>
-    /// <b>Half a lane and not half a walk</b>, which is the point of naming it: it is quoted against the
-    /// carriageway the boundary is the edge of (GEN-15) rather than against the pavement, so it means the
-    /// same thing on a street whose pavement is the map's own figure as on one whose pavement is the town's.
-    /// </remarks>
-    public float RoadsidePerimeterOutM => LaneWidthM * 0.5f;
 
     /// <summary>
     /// The whole width of ground a road takes: its carriageway and the walk either side of it. <b>It is
@@ -358,9 +344,6 @@ internal sealed partial class SimConfig
 
     /// <summary>Half the carriageway is one direction's, and a lane's own line is the middle of that.</summary>
     public float LaneOffsetM => LaneWidthM * 0.5f;
-
-    /// <summary>The ground the roads share: one road width.</summary>
-    public float IntersectionReachM => RoadWidthM;
 
     public float IntersectionCornerRadiusM => Car.WidthM * Road.IntersectionCornerRadiusInCarWidths;
 
@@ -451,15 +434,6 @@ internal sealed partial class SimConfig
 
     /// <summary>The furthest that ever is: the reach at the sharpest corner a junction may turn (GEN-13).</summary>
     public float JunctionArmReachMaxM => JunctionArmReachM(ArmsApartMinRad);
-
-    /// <summary>
-    /// <b>How much road the paint on one arm would take</b>, measured back from the line that arm's lanes
-    /// hand over to the junction on (TER-5d): the margin in front of the crossing, its band, the clear road
-    /// behind it and the bar itself. <b>Nothing reads it</b>: the paint an arm carries is measured off the
-    /// band actually laid there (<c>CentrelineRuns.PaintedM</c>).
-    /// </summary>
-    public float ArmPaintM =>
-        Road.CrossingSetbackM + Road.CrossingDepthM + Road.StopBarSetbackM + Road.StopBarThicknessM;
 
     /// <summary>
     /// The tightest circle a roundabout may be driven round (GEN-19): what its own design speed affords on
@@ -608,8 +582,6 @@ internal sealed partial class SimConfig
     /// <summary>Half a pavement band plus the front gap plus a person: how close a door counts as reached.</summary>
     public float WayInTouchingReachM => PavementWidthM * 0.5f + Building.FrontGapM + PersonDiameterM;
 
-    public float CarJunctionClaimM => Driving.NominalCarLengthM * Driving.JunctionClaimInCarLengths;
-
     /// <summary>
     /// How far off its line a car is no longer on it: half a lane, which is the width of ground the lane
     /// it is meant to be in actually has to spare.
@@ -646,17 +618,6 @@ internal sealed partial class SimConfig
     /// full throttle, over the time that travel takes.
     /// </summary>
     public float CarPedalRateMps3 => (CarAccelerationMps2 + CarBrakingMps2) / Driving.PedalTravelS;
-
-    /// <summary>
-    /// <b>How far ahead a car has to be able to see</b>: its stopping distance from its top speed, against
-    /// what the tyres can put down and not what the pedal asks for, because that is the figure the profile
-    /// brakes with. A line laid to the pedal's stopping distance is two and a half times too short.
-    /// <b>The nominal car's, and nothing reads it</b>: what a car's line is laid out to is its own
-    /// (<see cref="Agents.Car.Body.CarBuild.SightM"/>).
-    /// </summary>
-    public float CarSightM =>
-        Car.MaxSpeedMps * Car.MaxSpeedMps
-        / (2f * MathF.Min(CarBrakingMps2, TyreGripMps2) * Driving.GripMargin);
 
     /// <summary>The patience a drive leg is given up after, 30 s at the shipped figures — four full red phases.</summary>
     public float CarPatienceS => Signals.CycleS * Patience.BlockedRoadInLightCycles;

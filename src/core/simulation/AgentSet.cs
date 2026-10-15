@@ -19,14 +19,6 @@ internal sealed class AgentSet(int capacity)
 
     public bool Has(int agent) => (_words[agent >> 6] & (1UL << (agent & 63))) != 0;
 
-    /// <summary>Every agent below <paramref name="count"/> added.</summary>
-    public void AddFirst(int count)
-    {
-        var whole = count >> 6;
-        _words.AsSpan(0, whole).Fill(ulong.MaxValue);
-        if ((count & 63) != 0) _words[whole] |= (1UL << (count & 63)) - 1;
-    }
-
     public void Clear() => Array.Clear(_words);
 
     /// <summary>Every agent of <paramref name="other"/> added.</summary>

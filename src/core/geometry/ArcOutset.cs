@@ -97,6 +97,27 @@ internal static class ArcOutset
     const float SlackM = LineTolerance.RoundingM;
 
     /// <summary>
+    /// <b>What a rounding may do to a corner the shape turns away at.</b> A corner turning <em>in</em> is a
+    /// notch the fold cut and is filled either way; this is the other hand.
+    /// </summary>
+    internal enum Corners
+    {
+        /// <summary>
+        /// <b>Rolled on both hands</b>: a corner the shape turns away at tighter than the radius is cut, so
+        /// the answer is the line a ball of that radius rolls round rather than the shape moved.
+        /// </summary>
+        Rolled,
+
+        /// <summary>
+        /// <b>Filled and never cut</b>, whatever the radius: a corner the shape turns away at comes back as
+        /// the arc of the distance moved, as it does with no rounding at all. <b>It is what a line a body is
+        /// held on wants</b> — the answer never stands nearer the shape than it was moved, so no radius can
+        /// pull a walk towards the ground it was placed off (WLK-1).
+        /// </summary>
+        Filled,
+    }
+
+    /// <summary>
     /// <b>One closed shape moved <paramref name="outwardM"/> off its own ground, and no corner of the answer
     /// left turning tighter than <paramref name="roundedM"/></b> — a radius in metres and not a share of the
     /// distance, so a shape can be rounded as hard as a reader likes at any distance at all, including none.
@@ -144,28 +165,6 @@ internal static class ArcOutset
     /// move hands its own back</b>, and what one could not close is not offered to the next.
     /// </para>
     /// </remarks>
-    /// <summary>
-    /// <b>What a rounding may do to a corner the shape turns away at.</b> A corner turning <em>in</em> is a
-    /// notch the fold cut and is filled either way; this is the other hand.
-    /// </summary>
-    internal enum Corners
-    {
-        /// <summary>
-        /// <b>Rolled on both hands</b>: a corner the shape turns away at tighter than the radius is cut, so
-        /// the answer is the line a ball of that radius rolls round rather than the shape moved.
-        /// </summary>
-        Rolled,
-
-        /// <summary>
-        /// <b>Filled and never cut</b>, whatever the radius: a corner the shape turns away at comes back as
-        /// the arc of the distance moved, as it does with no rounding at all. <b>It is what a line a body is
-        /// held on wants</b> — the answer never stands nearer the shape than it was moved, so no radius can
-        /// pull a walk towards the ground it was placed off (WLK-1).
-        /// </summary>
-        Filled,
-    }
-
-    /// <inheritdoc cref="Of(ReadOnlySpan{ArcSeg[]}, float, float, WorldGrid, Corners)"/>
     public static (ArcSeg[][] Rings, ArcSeg[][] Loose) Of(
         ReadOnlySpan<ArcSeg[]> rings, float outwardM, float roundedM, WorldGrid grid) =>
         Of(rings, outwardM, roundedM, grid, Corners.Rolled);

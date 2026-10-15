@@ -41,19 +41,10 @@ public class AgentSetTests
     public void NoAgentAtOrPastTheCountIsWalked()
     {
         var set = new AgentSet(200);
-        set.AddFirst(200);
+        for (var agent = 0; agent < 200; agent++) set.Add(agent);
 
         Span<int> walked = stackalloc int[200];
 
         Assert.Equal(70, set.CopyTo(70, walked));
-    }
-
-    [Fact]
-    public void AddingTheFirstAddsNoneAtOrPastThem()
-    {
-        var set = new AgentSet(200);
-        set.AddFirst(70);
-
-        Assert.Equal(70, set.CountBelow(200));
     }
 }

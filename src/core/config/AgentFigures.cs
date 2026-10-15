@@ -115,15 +115,6 @@ internal sealed class CarFigures
     public float DrivenFrontShare { get; init; } = 1f;
 
     /// <summary>
-    /// Whether a car with nobody in it stands on its handbrake, so one shoved by a collision drags
-    /// rather than rolling away. Off is a debug switch for looking at the rolling model: nothing then
-    /// keeps the town's parked cars where the plan put them.
-    /// </summary>
-    public bool ParkedHandbrake { get; init; } = true;
-
-    public float ReverseBoundM { get; init; } = 8f;
-
-    /// <summary>
     /// How much wider than the car's own turning circle the turn into a bay is taken, so the steering is
     /// not sitting on its stop for the whole of an arc a car has to hold in both gears. What reads it is the
     /// circle each car's manoeuvre at a bay is shaped on (<c>CarBuild.ParkingTemplateRadiusM</c>).
@@ -529,9 +520,6 @@ internal sealed class DrivingFigures
     /// <summary>How far either side of its last progress a car looks for itself on its own line.</summary>
     public float ProjectionWindowInCarLengths { get; init; } = 2f;
 
-    /// <summary>The cap on how early the junction ahead is claimed, over and above being within stopping distance.</summary>
-    public float JunctionClaimInCarLengths { get; init; } = 3f;
-
     /// <summary>What the route prices are quoted in, and not any actual car's length.</summary>
     public float NominalCarLengthM { get; init; } = 4.5f;
 
@@ -644,7 +632,6 @@ internal sealed class PersonFigures
     /// touching a parked car is a fatal contact.
     /// </remarks>
     public float SlidingGripInFootGrips { get; init; } = 0.9f;
-    public float FleeDistanceM { get; init; } = 8f;
 
     /// <summary>
     /// The clear ground a walker keeps between where it will have stopped and whatever it is stopping

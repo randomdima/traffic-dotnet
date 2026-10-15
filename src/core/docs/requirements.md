@@ -68,7 +68,8 @@ shift the draws of the passes after it.
 1. read the player's direct input, so the keys land before the decisions they feed;
 2. on the ticks the claims are laid (TER-49), rebuild from the body roster what the town knows about where
    bodies are and mean to be — the walkers' **proximity index** and the lanes' **occupancy**;
-3. `Decide` for every non-terminal agent, in a stable roster order;
+3. every agent's tick, then `Decide` for every non-terminal agent whose turn it is, both in a stable roster
+   order;
 4. `Step` every body — this is where impulses are applied;
 5. end-of-tick contact arbitration → damage.
 

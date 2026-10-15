@@ -30,12 +30,9 @@ internal static partial class ShellFill
     /// close on themselves, and turning one lays a triangle over its neighbour and another over the grass.
     /// </para>
     /// <para>
-    /// <b>Nothing here bounds how many edges meet at a corner and nothing needs to.</b> A pass that turned
-    /// edges away from hubs used to follow this one, from when the boundary was read as chords alone and a
-    /// clipper's fan left corners with sixty-four edges on them. Thinning the boundary first takes the
-    /// near-collinear corners those fans grew from out of the shape altogether, and Delaunay by itself now
-    /// leaves twelve at the busiest corner of a town — so the pass was two edges' worth of relief and a
-    /// second traversal, and it is gone.
+    /// <b>Nothing here bounds how many edges meet at a corner and nothing needs to.</b> Thinning the boundary
+    /// first takes the near-collinear corners a clipper's fans grow from out of the shape altogether, and
+    /// Delaunay by itself leaves twelve at the busiest corner of a town.
     /// </para>
     /// </remarks>
     static void Relax(ReadOnlySpan<Vector2> pointsM, int[] triangles)

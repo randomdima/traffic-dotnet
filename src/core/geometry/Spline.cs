@@ -154,25 +154,6 @@ internal static class Spline
     }
 
     /// <summary>
-    /// How much of a chain's own end is curved, which is nil for one that ends straight. <b>What a road
-    /// leaves a node with no fork on</b> (TER-5b), and so how far along that arm anything laid across a
-    /// straight has to stand.
-    /// </summary>
-    public static float BendAtTheEndM(ReadOnlySpan<ArcSeg> arcs, bool atStart)
-    {
-        var bendM = 0f;
-        for (var index = 0; index < arcs.Length; index++)
-        {
-            var arc = arcs[atStart ? index : arcs.Length - 1 - index];
-            if (MathF.Abs(arc.Curvature) <= StraightCurvature) break;
-
-            bendM += arc.LengthM;
-        }
-
-        return bendM;
-    }
-
-    /// <summary>
     /// The chain at one distance from its start, clamped to its own ends — a caller past either end
     /// gets the end pose rather than an exception, because a car shoved off the end of its line still
     /// has to be told something this tick.
@@ -469,9 +450,9 @@ internal static class Spline
         ReadOnlySpan<ArcSeg> arcs, Vector2 pointM, float aroundM, float windowM, SplineCursor from, out float offSq)
     {
         // The window's far end is not clamped to the chain's length, and does not need to be: nothing
-        // this loop can offer stands past the last piece's end, so a ceiling above that never bites. The
-        // clamp is what used to make this cost a whole extra walk of the chain to measure it — which the
-        // nearest-edge scans pay once per edge in the town.
+        // this loop can offer stands past the last piece's end, so a ceiling above that never bites. A
+        // clamp would cost a whole extra walk of the chain to measure it — which the nearest-edge scans
+        // would pay once per edge in the town.
         var fromM = MathF.Max(0f, aroundM - windowM);
         var toM = aroundM + windowM;
 
@@ -543,8 +524,8 @@ internal static class Spline
             for (var otherPiece = 0; otherPiece < other.Length; otherPiece++)
             {
                 var found = AlongBoth(
-                    one[onePiece], other[otherPiece], Behind(onePiece, one.Length, beyondM),
-                    Past(onePiece, one.Length, beyondM), Behind(otherPiece, other.Length, beyondM),
+                    one[onePiece], other[otherPiece], Behind(onePiece, beyondM),
+                    Past(onePiece, one.Length, beyondM), Behind(otherPiece, beyondM),
                     Past(otherPiece, other.Length, beyondM), alongOneM, alongOtherM);
                 for (var at = 0; at < found; at++)
                 {
@@ -634,7 +615,7 @@ internal static class Spline
     /// How far a piece may be run on behind and past itself: only the chain's own two ends run on, since a
     /// crossing beyond the end of a piece in the middle of one is the next piece's to answer for.
     /// </summary>
-    static float Behind(int piece, int pieces, float beyondM) => piece == 0 ? beyondM : 0f;
+    static float Behind(int piece, float beyondM) => piece == 0 ? beyondM : 0f;
 
     static float Past(int piece, int pieces, float beyondM) => piece == pieces - 1 ? beyondM : 0f;
 
@@ -929,48 +910,6 @@ internal static class Spline
 
     /// <summary>How far past a piece's own ends a crossing may stand and still be that piece's: a tenth of a millimetre.</summary>
     const float OnThePieceM = 1e-4f;
-
-    /// <summary>
-    /// A polyline laid as a chain, with every corner it turns at <b>rounded over a margin either side of
-    /// the point</b> rather than laid as the point itself. A right angle laid as a point is a standstill:
-    /// whatever follows the line has to stop turning before it can go on.
-    /// </summary>
-    /// <remarks>
-    /// The margin is bounded by half of each of the two segments the corner stands between, so two corners
-    /// a stride apart share the ground rather than overrunning one another, and a corner that has no room
-    /// for its full margin gets the room it has.
-    /// </remarks>
-    public static int FilletedInto(ReadOnlySpan<Vector2> pointsM, float marginM, Span<ArcSeg> into)
-    {
-        var written = 0;
-        var cursorM = pointsM[0];
-
-        for (var corner = 1; corner < pointsM.Length - 1; corner++)
-        {
-            var arriving = pointsM[corner] - pointsM[corner - 1];
-            var leaving = pointsM[corner + 1] - pointsM[corner];
-            var arrivingM = arriving.Length();
-            var leavingM = leaving.Length();
-            if (arrivingM < 1e-4f || leavingM < 1e-4f) continue;
-
-            arriving /= arrivingM;
-            leaving /= leavingM;
-            var turnRad = MathF.Atan2(Cross(arriving, leaving), Vector2.Dot(arriving, leaving));
-            if (MathF.Abs(turnRad) < 1e-4f) continue;
-
-            var reachM = MathF.Min(marginM, MathF.Min(arrivingM, leavingM) * 0.5f);
-            var radiusM = reachM / MathF.Tan(MathF.Abs(turnRad) * 0.5f);
-            var enterM = pointsM[corner] - arriving * reachM;
-
-            written += Straight(cursorM, enterM, into[written..]);
-            var headingRad = MathF.Atan2(arriving.Y, arriving.X);
-            var sign = turnRad < 0f ? -1f : 1f;
-            into[written++] = new ArcSeg(enterM, headingRad, radiusM * MathF.Abs(turnRad), sign / radiusM);
-            cursorM = pointsM[corner] + leaving * reachM;
-        }
-
-        return written + Straight(cursorM, pointsM[^1], into[written..]);
-    }
 
     /// <summary>
     /// <b>A polyline laid as straights, with every corner it turns at rounded at one radius</b> — or, where the

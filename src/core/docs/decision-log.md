@@ -239,7 +239,7 @@ every count `--bench outset` and `--bench census` print are identical on all thr
 - **The merge's index is of pieces at `ChainIndex.FinestCellM`**, not of ribbons at the lanes' lattice, which
   handed a place every piece through seventy square metres of junction. The merge fell 2 700 → 2 200 ms.
 - **A query may name its own working set** (`ChainIndex.Scan`), so two threads can ask at once and the merge
-  runs its three passes on every core, holding its writes and filing them in order (`Merge.Held`). Laid five
+  runs its three passes on every core, filing its writes in order. Laid five
   times, and once on three cores instead of sixteen, the city comes back byte for byte.
 
 ## 2026-09-16 — a line beside a line is an offset, and an offset has corners

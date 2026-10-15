@@ -106,11 +106,11 @@ public class SimConfigTests
     [Fact]
     public void TheSharedFileIsAppliedOverTheShippedFigures()
     {
-        var path = Scratch.Write("one-figure.json", """{ "car": { "parkedHandbrake": false } }""");
+        var path = Scratch.Write("one-figure.json", """{ "road": { "trafficKeepsRight": false } }""");
         var applied = SharedFiguresReader.Apply(SimConfig.Shipped(), path);
 
-        Assert.False(applied.Car.ParkedHandbrake);
-        Assert.True(SimConfig.Shipped().Car.ParkedHandbrake);
+        Assert.False(applied.Road.TrafficKeepsRight);
+        Assert.True(SimConfig.Shipped().Road.TrafficKeepsRight);
         Assert.Equal(SimConfig.Shipped().Car.LengthM, applied.Car.LengthM);
     }
 
@@ -133,8 +133,8 @@ public class SimConfigTests
     [Fact]
     public void TheFiguresTheGameRunsOnAreTheSharedFileAppliedToTheShippedOnes() =>
         Assert.Equal(
-            SharedFiguresReader.Apply(SimConfig.Shipped(), ProjectPaths.SharedFiguresFile).Car.ParkedHandbrake,
-            SimConfig.Load().Car.ParkedHandbrake);
+            SharedFiguresReader.Apply(SimConfig.Shipped(), ProjectPaths.SharedFiguresFile).Road.TrafficKeepsRight,
+            SimConfig.Load().Road.TrafficKeepsRight);
 
     [Fact]
     public void AFigureThisEngineDoesNotHoldIsRefusedRatherThanIgnored()
