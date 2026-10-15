@@ -47,6 +47,19 @@ jobs:
       - run: dotnet workload install wasm-tools
         working-directory: ${{ runner.temp }}
 
+      # The world's kernels, GLSL taken to SPIR-V by glslc and on to WGSL by naga (Kernels.Web.targets). naga is
+      # the version the kernels are written against, built once and kept: a cargo build of it is minutes.
+      - run: sudo apt-get install -y --no-install-recommends glslc
+
+      - uses: actions/cache@v4
+        id: naga
+        with:
+          path: ~/.cargo/bin/naga
+          key: naga-cli-30.0.1-${{ runner.os }}
+
+      - if: steps.naga.outputs.cache-hit != 'true'
+        run: cargo install naga-cli --version 30.0.1 --locked
+
       - run: dotnet publish traffic-dotnet.web.csproj -c Release
 
       - uses: actions/upload-pages-artifact@v3
