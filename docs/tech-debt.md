@@ -138,6 +138,13 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **`Person.StartsAtTheWheelShare` has no test** (2026-10-14): owners laid at their wheel and set off on a driven trip
   (`TownWorld.SeatTheOwners`), a load figure, none by default. A town test that an owner laid so is aboard with a driven
   trip under way, and one that a share of none moves no person's draws, closes it.
+- **An owner can be kept at the wheel for over a minute in the suite's built town** (person log, 2026-10-02): two
+  owners stayed seated because every exit spot near the door was within their own car's panels or held by someone else.
+  The door point is a person's breadth off a nominal car's flank, which a wider car reaches past. Checking that the
+  spots past it lie on the next bay's way closes it.
+- **The unit read-out misreads a driver's car** (`UnitReadout`, drive log "the second watched drive"): a wrecked car
+  still prints `wheel` *in the player's hand* off the selection, `off line` reads 0.00 m for a car with no line, and
+  `ahead` reads *clear* against a held or hand-driven agent, which takes no claims. A row for each closes it.
 
 ## Redundant work left in place
 
@@ -259,8 +266,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     still worked out and read by nothing, and `Driving.SlowerToSwitchMps` and `Ambulance.SlowerToPassMps` are figures
     nothing reads;
   - a walker's sidestep (PER-28): `Sidestepping.DrawThePass` is called by nothing;
-  - the room kept to step out behind a body going nowhere — the zebra cards above;
-  - a light's hold lying over a body only standing on its way: it now ends at the first body of any kind (TLT-1);
+  - the room kept to step out behind a body going nowhere (S-2a, CAR-50's "says it is going nowhere") — the zebra
+    cards above;
+  - a light's hold lying over a body only standing on its way: it now ends at the first body of any kind (TLT-1's
+    second bullet);
   - TER-5e's tier "ground its holder already stands on".
 
   A reading of the bodies ahead off the world view, by place — at rest or not, travelling which way — handed to the
@@ -269,6 +278,34 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   (TER-5c.2) and "the rung never grows along a hold" (TER-5g.1). The first holds by construction — a refused hold asks
   nothing more — and has a unit test; the second rests on `Following.LevelTheRungs` alone, and a town gate on it, read
   off the pieces each hold asked, closes it.
+
+### Code kept twice, or kept for nothing
+
+Found by the cleanup of 2026-10-15 (`qq unused`, the analyzers) and left because closing each crosses slices, changes
+a layout or changes behaviour.
+
+- **The device helpers are copied file to file**: `Groups`, `Kernel`, `Device<T>`, `Own`, `Laid<T>`, `Room<T>` and
+  `Readback<T>` in `DeviceSolver`, `DeviceWorld`, `DeviceTyres`, `DeviceSprites`, `DeviceAtlas` and `DeviceLanes`;
+  `DeviceSolver.Groups` divides by a literal 64. The `CarBuildRow` array is built twice in `DeviceTyres`, and
+  `DeviceSolver.CopyRows` copies past `Vk.Copy`. One shared helper in `app/devicetick/` closes it.
+- **Rows the device carries and no kernel or host reads**: nine fields of `car_build.glsl`'s row and their
+  `CarBuildRow` mirror (`maxSpeedMps`, `turningRadiusM`, `sightM` among them), `DeviceSprites.Figures.LensColumns` and
+  `LensRows`, and `PersonFleet.Declares` / `WalkerView.Declares` (written by `TownWorld.World`, `ManagedWorld` and
+  `world_view.comp`'s `ViewDeclares`). Each goes with its std430 layout on both sides.
+- **`InUiPx` is written three times** (desktop, web, Android heads) and only the desktop's is tested; `InterfaceScale`
+  is the one home it would have.
+- **The town repeats itself**: `StandCarIn` / `StandAServiceVehicle`, `SendHome` / `GoBackToTheDepot`,
+  `IsTheNearestFree{Ambulance,Patrol,Evacuator}To`, the nose-in test and the yard-slot test.
+- **One union-find root, three copies** (`FootJunctions`, `CrossingWays`, `LanePlaces`); **three `Median`s and two
+  `Units(string)`** in osmscan (`Corrections`, `Gtfs`); **three `Spread`/`Percentile`/`Median`** in the bench
+  (`TownShape`, `ConnectorShape`, `ZoneFidelity`), which print differently, so one copy moves probe output.
+- **Names of a design that is gone**: the claims' "laying" (`_layings`, `LayingStage`, `LayingTicks`,
+  `ClaimsLaidThisTick`, "this rebuild" in the occupancy and footfall docs) though `TownWorld.Occupancy` says there is
+  none, and `CutJunctions`, which now only finds sites. A rename across town, bench and tests closes it.
+- **Kept for nothing a run reaches**: `ArcSubtract` (295 lines) and its tests, kept "as tooling" by the render log of
+  2026-09-16 though no tool calls it _owner_; `CityPlan.ZebraAtEveryStation` is false only in `CrossingsTests`, so no
+  map lays the `Crosswalks` path; `ParkingRegistry.Takes`, named by CAR-11b as answerable and asked by nothing;
+  `PhysicsWorld.RoomForBodies`, named only by a `DeviceSolver` cref.
 
 ## Inconsistencies
 
@@ -313,6 +350,20 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   `TownWorld.Marks` — a page's fill, `--bench sprites` — sees none there, and a tick's marks land in the order its
   threads claimed places rather than the host's (car, wheel) order. Nothing decides on a mark; a reader that needs them
   on the device's host would read the ring back.
+- **The metre↔pixel conversion has no one site** (CLAUDE.md, SIM-3): `WorldScale` claimed it and nothing called it, so
+  it went with the cleanup of 2026-10-15; the screen's factor is `Camera2D`'s and the art grid is `qq art`'s. Naming
+  `Camera2D` as the site, or routing both through one, closes it _owner_ (the wording is the working agreement's).
+- **`Road.CrossingSetbackM` is an owner's figure nothing applies**: its only reader was `IntersectionReachM`, read by one
+  test and removed with it. Whether a zebra stands that margin off the junction's movements in the code (WLK-10) or the
+  figure goes is the owner's _owner_.
+- **The self-driver's throttle ceiling is the nominal car's** (`TyrePass.DriveCeilingMps2`) where CAR-11 has a car
+  decide on its own figures; the reason it was nominal (`CrossingOnTheTemplate`) went on 2026-09-28. Moving it moves
+  behaviour; measure first.
+- **osmscan has two answers for a metres tag**: `Roads.Metres` refuses 0 and `Buildings.Metres` takes it. One answer
+  changes what a trace keeps _owner_.
+- **The claims say two things about held ground**: `claims.md` ("nothing taken is freed") and the road log of
+  2026-10-12 against the root log of 2026-10-14 (a stronger rung takes held ground not yet committed). Reading which
+  the code does and correcting the other closes it.
 
 ## Waiting on the owner
 
@@ -328,4 +379,9 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   the body's pose fed a view a step stale — the world's job by the 2026-10-11 ruling's own terms — and the world already
   reads each car along its line and aims its wheel (root log, 2026-10-14 and 2026-10-15). Handing it each turn's stop
   points as well would leave a car the claims and its lines; the ruling keeps behaviour on the CPU.
+- **The ground rule TER-7b, a P0, still says it is taken "once a laying (TER-49)"** _owner_: there is no laying, and the
+  wheels' ground is read on every world step (`WorldLayer.Step`). The code meets the rule more often than it says; the
+  wording is the owner's.
+- **`TER-5j` was retired and its number given to another rule** _owner_ (road log, 2026-09-14), against "a retired
+  number is never reused". The log no longer cites the old one; renumbering the new one is the owner's.
 
