@@ -290,6 +290,17 @@ internal sealed class WalkingNetwork
         return edge < 0 ? FootPlace.Nowhere : new FootPlace(edge, alongM);
     }
 
+    /// <inheritdoc cref="PlaceNearest(Vector2)"/>
+    /// <param name="scan">This caller's own working set over the pavement (<see cref="NewScan"/>), for an ask off its own thread.</param>
+    public FootPlace PlaceNearest(ChainIndex.Scan scan, Vector2 pointM)
+    {
+        var edge = _foot.NearestEdge(scan, pointM, out var alongM);
+        return edge < 0 ? FootPlace.Nowhere : new FootPlace(edge, alongM);
+    }
+
+    /// <summary>A working set over the pavement, for a caller that means to ask <see cref="PlaceNearest(ChainIndex.Scan, Vector2)"/> off its own thread.</summary>
+    public ChainIndex.Scan NewScan() => _foot.NewScan();
+
     /// <summary>
     /// <b>The lane running back past a place, and the place abeam of it there</b> (<see cref="_besideOf"/>): the same
     /// share of that lane's length from its far end, the two being one stretch walked both ways.

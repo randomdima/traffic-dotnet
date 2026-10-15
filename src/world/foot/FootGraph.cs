@@ -162,6 +162,13 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
     /// </remarks>
     public int NearestEdge(Vector2 pointM, out float alongM) => _nearest.Nearest(pointM, out alongM);
 
+    /// <inheritdoc cref="NearestEdge(Vector2, out float)"/>
+    /// <param name="scan">This caller's own working set over the stretches (<see cref="NewScan"/>), for an ask off its own thread.</param>
+    public int NearestEdge(ChainIndex.Scan scan, Vector2 pointM, out float alongM) => _nearest.Nearest(scan, pointM, out alongM);
+
+    /// <summary>A working set over the stretches, for a caller that means to ask <see cref="NearestEdge(ChainIndex.Scan, Vector2, out float)"/> off its own thread.</summary>
+    public ChainIndex.Scan NewScan() => _nearest.NewScan();
+
     /// <summary>
     /// <b>Every lane passing within <paramref name="radiusM"/> of a place</b>, and how far along each of them
     /// that place stands. It is how the lane beside one is found (<see cref="Reverse"/> being none): the two

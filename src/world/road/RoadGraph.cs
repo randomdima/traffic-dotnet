@@ -523,6 +523,14 @@ internal sealed class RoadGraph : ILaneEnds
     /// </summary>
     public int NearestStreetLane(Vector2 pointM, out float progressM) => _nearestStreet.Nearest(pointM, out progressM);
 
+    /// <inheritdoc cref="NearestStreetLane(Vector2, out float)"/>
+    /// <param name="scan">This caller's own working set over the carriageway (<see cref="NewStreetScan"/>), for an ask off its own thread.</param>
+    public int NearestStreetLane(ChainIndex.Scan scan, Vector2 pointM, out float progressM) =>
+        _nearestStreet.Nearest(scan, pointM, out progressM);
+
+    /// <summary>A working set over the carriageway, for a caller that means to ask <see cref="NearestStreetLane(ChainIndex.Scan, Vector2, out float)"/> off its own thread.</summary>
+    public ChainIndex.Scan NewStreetScan() => _nearestStreet.NewScan();
+
     /// <summary>
     /// <b>And the nearest of one level's</b> (PHY-1a): a car on a bridge takes a lane of the bridge however near the
     /// road under it runs, and a car on the ground one of the ground's however near a deck passes over it.
@@ -545,6 +553,14 @@ internal sealed class RoadGraph : ILaneEnds
     /// </summary>
     /// <returns>How many there are, which may be more than <paramref name="lanes"/> has room for.</returns>
     public int LanesAround(Vector2 pointM, float radiusM, Span<int> lanes) => Nearest.Around(pointM, radiusM, lanes);
+
+    /// <summary>The same, on this caller's own working set over every lane (<see cref="NewLaneScan"/>) — an ask off its own thread.</summary>
+    /// <returns>How many there are, which may be more than <paramref name="lanes"/> has room for.</returns>
+    public int LanesAround(ChainIndex.Scan scan, Vector2 pointM, float radiusM, Span<int> lanes) =>
+        Nearest.Around(scan, pointM, radiusM, lanes);
+
+    /// <summary>A working set over every lane, for a caller that means to ask <see cref="LanesAround(ChainIndex.Scan, Vector2, float, Span{int})"/> off its own thread.</summary>
+    public ChainIndex.Scan NewLaneScan() => Nearest.NewScan();
 
     public SplineSample StartOf(int lane) => Spline.SampleAt(ArcsOf(lane), 0f);
 

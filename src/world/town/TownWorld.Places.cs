@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Numerics;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
@@ -53,35 +54,49 @@ internal sealed partial class TownWorld
         _destinationPlace = new RoadPlace[drivers];
         Array.Fill(_destinationPlace, RoadPlace.Nowhere);
 
+        // <b>Every item writes its own slot</b>, so each pass runs side by side; a thread's scans go back to be taken up by
+        // the next pass rather than laid again, the pavement's being the size of every lane of it.
+        var spare = new ConcurrentBag<PlaceScans>();
+        Func<PlaceScans> taken = () => spare.TryTake(out var own) ? own : new PlaceScans(_roads.NewStreetScan(), _walking.NewScan());
+        Action<PlaceScans> given = spare.Add;
+
         var buildings = _plan.Buildings;
         _roadPlaceOfBuilding = new RoadPlace[buildings.Count];
-        for (var building = 0; building < buildings.Count; building++)
-        {
-            _roadPlaceOfBuilding[building] = StreetNearest(DoorOf(building, buildings.CentreM[building]));
-        }
+        InChunks.Over(
+            buildings.Count, taken,
+            (scans, building) => _roadPlaceOfBuilding[building] =
+                StreetNearest(scans.Street, DoorOf(building, buildings.CentreM[building])),
+            given);
 
         _streetBesideFootway = new RoadPlace[_foot.EdgeCount];
-        for (var edge = 0; edge < _foot.EdgeCount; edge++)
-        {
-            _streetBesideFootway[edge] = StreetNearest(Spline.SampleAt(_foot.ArcsOf(edge), _foot.LengthM(edge) * 0.5f).PositionM);
-        }
+        InChunks.Over(
+            _foot.EdgeCount, taken,
+            (scans, edge) => _streetBesideFootway[edge] =
+                StreetNearest(scans.Street, Spline.SampleAt(_foot.ArcsOf(edge), _foot.LengthM(edge) * 0.5f).PositionM),
+            given);
 
         var entries = _plan.Buildings.EntryPointM;
         _entryPlace = new FootPlace[entries.Length];
-        for (var entry = 0; entry < entries.Length; entry++)
-        {
-            var place = _walking.PlaceNearest(entries[entry]);
-            _entryPlace[entry] = place.IsSomewhere && (PointOf(place) - entries[entry]).Length() <= _config.PersonOffNetworkHopM
-                ? place
-                : FootPlace.Nowhere;
-        }
+        InChunks.Over(
+            entries.Length, taken,
+            (scans, entry) =>
+            {
+                var place = _walking.PlaceNearest(scans.Foot, entries[entry]);
+                _entryPlace[entry] = place.IsSomewhere && (PointOf(place) - entries[entry]).Length() <= _config.PersonOffNetworkHopM
+                    ? place
+                    : FootPlace.Nowhere;
+            },
+            given);
 
         _wayInPlace = new FootPlace[_parking.BayCount * 2];
-        for (var bay = 0; bay < _parking.BayCount; bay++)
-        {
-            _wayInPlace[2 * bay] = _walking.PlaceNearest(_parking.WayInM(bay, noseIn: false));
-            _wayInPlace[(2 * bay) + 1] = _walking.PlaceNearest(_parking.WayInM(bay, noseIn: true));
-        }
+        InChunks.Over(
+            _parking.BayCount, taken,
+            (scans, bay) =>
+            {
+                _wayInPlace[2 * bay] = _walking.PlaceNearest(scans.Foot, _parking.WayInM(bay, noseIn: false));
+                _wayInPlace[(2 * bay) + 1] = _walking.PlaceNearest(scans.Foot, _parking.WayInM(bay, noseIn: true));
+            },
+            given);
 
         var stepM = _config.LaneWidthM;
         _kerbOfLane = new int[_roads.LaneCount + 1];
@@ -94,15 +109,20 @@ internal sealed partial class TownWorld
 
         _kerbOfLane[_roads.LaneCount] = count;
         _kerbPlace = new FootPlace[count];
-        for (var lane = 0; lane < _roads.LaneCount; lane++)
+        InChunks.Over(_roads.LaneCount, taken, (scans, lane) => LayTheKerbOf(lane, stepM, scans.Foot), given);
+    }
+
+    /// <summary>One thread's working sets over the carriageway and the pavement while the places are laid.</summary>
+    sealed record PlaceScans(ChainIndex.Scan Street, ChainIndex.Scan Foot);
+
+    void LayTheKerbOf(int lane, float stepM, ChainIndex.Scan foot)
+    {
+        var arcs = _roads.ArcsOf(lane);
+        for (var step = 0; step < KerbStepsOf(lane, stepM); step++)
         {
-            var arcs = _roads.ArcsOf(lane);
-            for (var step = 0; step < KerbStepsOf(lane, stepM); step++)
-            {
-                var at = Spline.SampleAt(arcs, MathF.Min(step * stepM, _roads.LaneLengthM[lane]));
-                var kerbM = at.PositionM + (at.Right * _config.RoadSideSign * _roads.LaneWidthM[lane]);
-                _kerbPlace[_kerbOfLane[lane] + step] = _walking.PlaceNearest(kerbM);
-            }
+            var at = Spline.SampleAt(arcs, MathF.Min(step * stepM, _roads.LaneLengthM[lane]));
+            var kerbM = at.PositionM + (at.Right * _config.RoadSideSign * _roads.LaneWidthM[lane]);
+            _kerbPlace[_kerbOfLane[lane] + step] = _walking.PlaceNearest(foot, kerbM);
         }
     }
 
@@ -141,31 +161,18 @@ internal sealed partial class TownWorld
     void LayTheBaysAndDoorsOntoTheLanes()
     {
         var lanes = _roads.LaneCount;
-        var near = new List<int>[lanes];
-        var around = new int[256];
+        var lanesNearBayLane = new int[]?[lanes];
         _bayLaneLeastM = new Vector2[lanes];
         _bayLaneMostM = new Vector2[lanes];
+        InChunks.Over(
+            lanes, () => new BayReach(_roads.NewLaneScan(), lanes),
+            (reach, bayLane) => lanesNearBayLane[bayLane] = LanesNearTheBaysOff(bayLane, reach));
+
+        // Filed a bay lane at a time and in order, so each lane's bay lanes stand ascending and once each.
+        var near = new List<int>[lanes];
         for (var bayLane = 0; bayLane < lanes; bayLane++)
         {
-            _bayLaneLeastM[bayLane] = new Vector2(float.PositiveInfinity);
-            _bayLaneMostM[bayLane] = new Vector2(float.NegativeInfinity);
-            foreach (var bay in _bayStreets.BaysOffLane(bayLane))
-            {
-                _bayLaneLeastM[bayLane] = Vector2.Min(_bayLaneLeastM[bayLane], _parking.CentreM(bay));
-                _bayLaneMostM[bayLane] = Vector2.Max(_bayLaneMostM[bayLane], _parking.CentreM(bay));
-                var found = _roads.LanesAround(_parking.CentreM(bay), BaysNearReach, around);
-                if (found > around.Length)
-                {
-                    around = new int[found];
-                    found = _roads.LanesAround(_parking.CentreM(bay), BaysNearReach, around);
-                }
-
-                foreach (var lane in around.AsSpan(0, found))
-                {
-                    near[lane] ??= [];
-                    if (near[lane].Count == 0 || near[lane][^1] != bayLane) near[lane].Add(bayLane);
-                }
-            }
+            foreach (var lane in lanesNearBayLane[bayLane] ?? []) (near[lane] ??= []).Add(bayLane);
         }
 
         (_bayLanesNearOf, _bayLanesNear) = Flattened(near);
@@ -191,6 +198,54 @@ internal sealed partial class TownWorld
 
             return (of, all);
         }
+    }
+
+    /// <summary>
+    /// <b>The lanes within <see cref="BaysNearReach"/> of any bay off one lane</b>, each once — null for a lane with no
+    /// bays — and that lane's box round its bays (<see cref="_bayLaneLeastM"/>), which is its own slot.
+    /// </summary>
+    int[]? LanesNearTheBaysOff(int bayLane, BayReach reach)
+    {
+        _bayLaneLeastM[bayLane] = new Vector2(float.PositiveInfinity);
+        _bayLaneMostM[bayLane] = new Vector2(float.NegativeInfinity);
+        var bays = _bayStreets.BaysOffLane(bayLane);
+        if (bays.IsEmpty) return null;
+
+        reach.Found.Clear();
+        foreach (var bay in bays)
+        {
+            _bayLaneLeastM[bayLane] = Vector2.Min(_bayLaneLeastM[bayLane], _parking.CentreM(bay));
+            _bayLaneMostM[bayLane] = Vector2.Max(_bayLaneMostM[bayLane], _parking.CentreM(bay));
+            var found = _roads.LanesAround(reach.Scan, _parking.CentreM(bay), BaysNearReach, reach.Around);
+            if (found > reach.Around.Length)
+            {
+                reach.Around = new int[found];
+                found = _roads.LanesAround(reach.Scan, _parking.CentreM(bay), BaysNearReach, reach.Around);
+            }
+
+            foreach (var lane in reach.Around.AsSpan(0, found))
+            {
+                if (reach.MetFor[lane] == bayLane + 1) continue;
+
+                reach.MetFor[lane] = bayLane + 1;
+                reach.Found.Add(lane);
+            }
+        }
+
+        return [.. reach.Found];
+    }
+
+    /// <summary>One thread's working set for <see cref="LanesNearTheBaysOff"/>.</summary>
+    sealed class BayReach(ChainIndex.Scan scan, int lanes)
+    {
+        public ChainIndex.Scan Scan => scan;
+
+        public int[] Around { get; set; } = new int[256];
+
+        /// <summary>The bay lane, one up so that nought is none, each lane was last found for.</summary>
+        public int[] MetFor { get; } = new int[lanes];
+
+        public List<int> Found { get; } = [];
     }
 
     /// <summary>
@@ -390,9 +445,9 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>The street lane nearest a point and where along it — a look-up, made only while the map is built.</summary>
-    RoadPlace StreetNearest(Vector2 pointM)
+    RoadPlace StreetNearest(ChainIndex.Scan scan, Vector2 pointM)
     {
-        var lane = _roads.NearestStreetLane(pointM, out var alongM);
+        var lane = _roads.NearestStreetLane(scan, pointM, out var alongM);
         return lane < 0 ? RoadPlace.Nowhere : new RoadPlace(lane, alongM);
     }
 
