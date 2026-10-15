@@ -1,6 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.Core.Simulation;
 
 namespace TrafficSimulation.CityGen;
 
@@ -266,23 +267,32 @@ internal sealed class KerbEnds
     {
         var lanes = paving.Lanes;
         var index = paving.DrivenLines(config);
-        var reachM = ReachM(lanes);
+        var reachM = ReachM(lanes) + OffTheLineM;
+        var arms = paving.Of.ArmsPerJunction();
+        var circulating = Circulating(paving.Of);
+        Reading NewReading() => new(lanes, paving.Of.Roads, paving.Of.Junctions, arms, circulating, index, reachM);
 
-        var reading = new Reading(
-            lanes, paving.Of.Roads, paving.Of.Junctions, paving.Of.ArmsPerJunction(),
-            Circulating(paving.Of), index, reachM + OffTheLineM);
-        var changes = new List<(Vector2 AtM, int Left, int Taken)>();
+        // <b>A ring's changes are its own</b>, so the rings are read side by side, a reading to a thread; they are filed as
+        // ends a ring at a time and in order, which is the order the ends are ranked in.
+        var rings = paving.Rings(config).Carriageway.Rings;
+        var changesOf = new List<(Vector2 AtM, int Left, int Taken)>?[rings.Length];
+        InChunks.Over(
+            rings.Length, NewReading,
+            (reading, at) =>
+            {
+                if (rings[at].Length < 2) return;
+
+                Changes(reading, rings[at], changesOf[at] = []);
+            });
+
+        var filing = NewReading();
         var marks = new List<Mark>();
-
-        foreach (var ring in paving.Rings(config).Carriageway.Rings)
+        foreach (var changes in changesOf)
         {
-            if (ring.Length < 2) continue;
-
-            Changes(reading, ring, changes);
-            Marks(reading, changes, marks);
+            if (changes is not null) Marks(filing, changes, marks);
         }
 
-        var (further, nearer, heldM, crossedM) = Ranked(reading, marks, config.Road);
+        var (further, nearer, heldM, crossedM) = Ranked(filing, marks, config.Road);
         return new KerbEnds(further, nearer, heldM, crossedM);
     }
 
