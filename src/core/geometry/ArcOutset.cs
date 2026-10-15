@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
+using TrafficSimulation.Core.Simulation;
 
 namespace TrafficSimulation.Core.Geometry;
 
@@ -593,65 +594,96 @@ internal static class ArcOutset
     /// case in it: a fold, a collapse and two rings running together are one answer to one question.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>Asked at the stretch's own middle, which is what the cutting is for.</b> Whether a place is inside
     /// the distance changes exactly where the moved lines cross, so a stretch between two crossings is
     /// inside along all of it or outside along all of it — and one station settles it. Asked of a piece that
     /// was not cut, the same station answers for a stretch that is half of each.
+    /// </para>
+    /// <para>
+    /// <b>Both passes run a piece at a time on as many threads as there are, and each piece's answer is a run
+    /// of its own</b> (<see cref="Held{T}"/>), read back in piece order — so every piece's cuts are listed,
+    /// and every stretch kept, in exactly the order one thread would have come to.
+    /// </para>
     /// </remarks>
     static List<ArcSeg> Uncovered(
         ArcSeg[] moved, ChainIndex crossing, ArcSeg[] source, ChainIndex standing, float keepM,
         float outwardM)
     {
+        var cutsOf = new Held<(int Piece, float AtM)>[moved.Length];
+        InChunks.Over(
+            moved.Length,
+            () => new Cutting(crossing, moved.Length),
+            (cutting, at) => cutsOf[at] = Cut(cutting, moved, at));
+
         var cutAtM = new List<float>?[moved.Length];
-        var candidate = new int[moved.Length];
-        Span<float> here = stackalloc float[2];
-        Span<float> there = stackalloc float[2];
-
-        for (var at = 0; at < moved.Length; at++)
+        foreach (var cuts in cutsOf)
         {
-            if (moved[at].LengthM <= ArcRings.LeastPieceM) continue;
-
-            var offered = crossing.Crossing(moved.AsSpan(at, 1), 0f, candidate);
-            for (var n = 0; n < offered && n < candidate.Length; n++)
-            {
-                // Each pair solved once and both sides cut by it: solved twice, the two readings of one
-                // crossing stop a hair apart and the ring breaks there.
-                var other = candidate[n];
-                if (other <= at || moved[other].LengthM <= ArcRings.LeastPieceM) continue;
-
-                var found = Spline.CrossingsOf(moved[at], moved[other], here, there);
-                for (var cut = 0; cut < found; cut++)
-                {
-                    (cutAtM[at] ??= []).Add(here[cut]);
-                    (cutAtM[other] ??= []).Add(there[cut]);
-                }
-
-                // <b>And where one's end stands on the other</b>, which no crossing finds: a moved piece that
-                // runs on past the start of the next along one line, and the chord back across the gap the
-                // move left, lie on that line at exactly the distance and cross nowhere — and the stretch they
-                // both walk is a seam the stringing can only cancel where the two of them are cut alike.
-                EndOn(cutAtM, at, moved[at], moved[other]);
-                EndOn(cutAtM, other, moved[other], moved[at]);
-            }
+            foreach (var (piece, atM) in cuts.Span) (cutAtM[piece] ??= []).Add(atM);
         }
+
+        var keptOf = new Held<ArcSeg>[moved.Length];
+        InChunks.Over(
+            moved.Length,
+            () => new Keeping(standing, source.Length),
+            (keeping, at) =>
+            {
+                if (moved[at].LengthM <= ArcRings.LeastPieceM) return;
+
+                cutAtM[at]?.Sort();
+                var from = keeping.Kept.Count;
+                Stretches(keeping, moved[at], cutAtM[at], source, standing, keepM, outwardM);
+                keptOf[at] = new(keeping.Kept, from, keeping.Kept.Count - from);
+            });
 
         var kept = new List<ArcSeg>(moved.Length);
-        var near = new int[source.Length];
-        var alongM = new float[source.Length];
-        var edges = new List<float>();
-        for (var at = 0; at < moved.Length; at++)
-        {
-            if (moved[at].LengthM <= ArcRings.LeastPieceM) continue;
-
-            cutAtM[at]?.Sort();
-            Stretches(kept, moved[at], cutAtM[at], source, standing, keepM, outwardM, near, alongM, edges);
-        }
+        foreach (var piece in keptOf) kept.AddRange(piece.Span);
 
         return kept;
     }
 
+    /// <summary>
+    /// <b>Every cut one piece's crossings put on it and on the pieces after it</b>, listed in the order they
+    /// are found.
+    /// </summary>
+    static Held<(int Piece, float AtM)> Cut(Cutting cutting, ArcSeg[] moved, int at)
+    {
+        if (moved[at].LengthM <= ArcRings.LeastPieceM) return default;
+
+        var cuts = cutting.Cuts;
+        var from = cuts.Count;
+        var candidate = cutting.Candidate;
+        Span<float> here = stackalloc float[2];
+        Span<float> there = stackalloc float[2];
+
+        var offered = cutting.Index.Crossing(cutting.Scan, moved.AsSpan(at, 1), 0f, candidate);
+        for (var n = 0; n < offered && n < candidate.Length; n++)
+        {
+            // Each pair solved once and both sides cut by it: solved twice, the two readings of one
+            // crossing stop a hair apart and the ring breaks there.
+            var other = candidate[n];
+            if (other <= at || moved[other].LengthM <= ArcRings.LeastPieceM) continue;
+
+            var found = Spline.CrossingsOf(moved[at], moved[other], here, there);
+            for (var cut = 0; cut < found; cut++)
+            {
+                cuts.Add((at, here[cut]));
+                cuts.Add((other, there[cut]));
+            }
+
+            // <b>And where one's end stands on the other</b>, which no crossing finds: a moved piece that
+            // runs on past the start of the next along one line, and the chord back across the gap the
+            // move left, lie on that line at exactly the distance and cross nowhere — and the stretch they
+            // both walk is a seam the stringing can only cancel where the two of them are cut alike.
+            EndOn(cuts, at, moved[at], moved[other]);
+            EndOn(cuts, other, moved[other], moved[at]);
+        }
+
+        return new(cuts, from, cuts.Count - from);
+    }
+
     /// <summary>A piece cut where either end of another stands on it, within a weld (<see cref="ArcRings.WeldM"/>).</summary>
-    static void EndOn(List<float>?[] cutAtM, int at, in ArcSeg piece, in ArcSeg other)
+    static void EndOn(List<(int Piece, float AtM)> cuts, int at, in ArcSeg piece, in ArcSeg other)
     {
         Span<ArcSeg> one = [piece];
         foreach (var endM in (ReadOnlySpan<Vector2>)[other.StartM, other.EndM])
@@ -660,8 +692,43 @@ internal static class ArcOutset
             if (alongM <= 0f || alongM >= piece.LengthM) continue;
             if (Vector2.DistanceSquared(piece.PointAtM(alongM), endM) > ArcRings.WeldM * ArcRings.WeldM) continue;
 
-            (cutAtM[at] ??= []).Add(alongM);
+            cuts.Add((at, alongM));
         }
+    }
+
+    /// <summary>
+    /// <b>What one piece's pass wrote, as a run of the list of the thread that ran it</b> — read back once
+    /// every thread is done, never while one is still writing.
+    /// </summary>
+    readonly record struct Held<T>(List<T>? By, int From, int Count)
+    {
+        public ReadOnlySpan<T> Span => CollectionsMarshal.AsSpan(By).Slice(From, Count);
+    }
+
+    /// <summary>One thread's working set for finding the cuts (<see cref="Cut"/>), and the cuts it found.</summary>
+    sealed class Cutting(ChainIndex index, int pieces)
+    {
+        public ChainIndex Index { get; } = index;
+
+        public ChainIndex.Scan Scan { get; } = index.NewScan();
+
+        public int[] Candidate { get; } = new int[pieces];
+
+        public List<(int Piece, float AtM)> Cuts { get; } = [];
+    }
+
+    /// <summary>One thread's working set for weighing the stretches (<see cref="Stretches"/>), and what it kept.</summary>
+    sealed class Keeping(ChainIndex standing, int sourcePieces)
+    {
+        public ChainIndex.Scan Scan { get; } = standing.NewScan();
+
+        public int[] Near { get; } = new int[sourcePieces];
+
+        public float[] AlongM { get; } = new float[sourcePieces];
+
+        public List<float> Edges { get; } = [];
+
+        public List<ArcSeg> Kept { get; } = [];
     }
 
     /// <summary>
@@ -678,9 +745,10 @@ internal static class ArcOutset
     /// closes across. <b>Coalesced instead, the cut is moved by a hair and no boundary is lost at all.</b>
     /// </remarks>
     static void Stretches(
-        List<ArcSeg> kept, in ArcSeg piece, List<float>? cutAtM, ArcSeg[] source, ChainIndex standing,
-        float keepM, float outwardM, int[] near, float[] alongM, List<float> edges)
+        Keeping keeping, in ArcSeg piece, List<float>? cutAtM, ArcSeg[] source, ChainIndex standing,
+        float keepM, float outwardM)
     {
+        var edges = keeping.Edges;
         edges.Clear();
         edges.Add(0f);
         var cuts = cutAtM?.Count ?? 0;
@@ -699,12 +767,9 @@ internal static class ArcOutset
         {
             var fromM = edges[at - 1];
             var toM = edges[at];
-            if (Nearer(source, standing, piece.PointAtM((fromM + toM) * 0.5f), keepM, outwardM, near, alongM))
-            {
-                continue;
-            }
+            if (Nearer(keeping, source, standing, piece.PointAtM((fromM + toM) * 0.5f), keepM, outwardM)) continue;
 
-            kept.Add(
+            keeping.Kept.Add(
                 new ArcSeg(piece.PointAtM(fromM), piece.HeadingAtRad(fromM), toM - fromM, piece.Curvature));
         }
     }
@@ -736,11 +801,12 @@ internal static class ArcOutset
     /// </para>
     /// </remarks>
     static bool Nearer(
-        ArcSeg[] source, ChainIndex standing, Vector2 pointM, float keepM, float outwardM, int[] near,
-        float[] alongM)
+        Keeping keeping, ArcSeg[] source, ChainIndex standing, Vector2 pointM, float keepM, float outwardM)
     {
+        var near = keeping.Near;
+        var alongM = keeping.AlongM;
         var insideM = keepM - LineTolerance.At(SlackM, pointM);
-        var found = standing.Near(pointM, keepM, near, alongM);
+        var found = standing.Near(keeping.Scan, pointM, keepM, near, alongM);
         if (found > near.Length) found = near.Length;
 
         var nearestM = float.PositiveInfinity;
