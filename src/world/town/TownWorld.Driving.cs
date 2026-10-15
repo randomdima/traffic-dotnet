@@ -79,14 +79,17 @@ internal sealed partial class TownWorld
         /// Field by field as a record compares them, but with no comparer: an enum's is made the first time it is asked
         /// for, which a tick could be.
         /// </summary>
-        public bool Equals(StoodTick other) =>
-            PositionM.Equals(other.PositionM) && HeadingRad.Equals(other.HeadingRad) && Line == other.Line
-            && ProgressM.Equals(other.ProgressM) && Entries == other.Entries && Stage == other.Stage
-            && Command.Equals(other.Command) && AuthorityM.Equals(other.AuthorityM)
-            && CoveredSinceClaimM.Equals(other.CoveredSinceClaimM) && HorizonM.Equals(other.HorizonM)
-            && GrantMarginM.Equals(other.GrantMarginM) && GrantCutBy == other.GrantCutBy && SceneM.Equals(other.SceneM)
-            && PaceMps.Equals(other.PaceMps) && BlueLight == other.BlueLight && AtWork == other.AtWork
-            && Broken == other.Broken;
+        public bool Equals(StoodTick other) => Same(this, other);
+
+        /// <summary><see cref="Equals(StoodTick)"/> with neither side copied: it is asked of every standing car every tick.</summary>
+        public static bool Same(in StoodTick a, in StoodTick b) =>
+            a.PositionM.Equals(b.PositionM) && a.HeadingRad.Equals(b.HeadingRad) && a.Line == b.Line
+            && a.ProgressM.Equals(b.ProgressM) && a.Entries == b.Entries && a.Stage == b.Stage
+            && a.Command.Equals(b.Command) && a.AuthorityM.Equals(b.AuthorityM)
+            && a.CoveredSinceClaimM.Equals(b.CoveredSinceClaimM) && a.HorizonM.Equals(b.HorizonM)
+            && a.GrantMarginM.Equals(b.GrantMarginM) && a.GrantCutBy == b.GrantCutBy && a.SceneM.Equals(b.SceneM)
+            && a.PaceMps.Equals(b.PaceMps) && a.BlueLight == b.BlueLight && a.AtWork == b.AtWork
+            && a.Broken == b.Broken;
 
         public override int GetHashCode() => HashCode.Combine(PositionM, Line, ProgressM, Entries);
     }
@@ -96,10 +99,10 @@ internal sealed partial class TownWorld
 
     readonly bool[] _stood;
 
-    StoodTick StoodTickOf(int car) => new(
+    StoodTick StoodTickOf(int car, float sceneM) => new(
         Cars.PositionM[car], Cars.HeadingRad[car], Cars.LinesLaid[car], Cars.ProgressM[car], _carActions.EntriesOf(car),
         _manoeuvres.Stage[car], Cars.Command[car], Cars.AuthorityM[car], Cars.CoveredSinceClaimM[car], Cars.HorizonM[car],
-        Cars.GrantMarginM[car], Cars.GrantCutBy[car], ToTheSceneM(car), Cars.PaceMps[car], Cars.BlueLight[car],
+        Cars.GrantMarginM[car], Cars.GrantCutBy[car], sceneM, Cars.PaceMps[car], Cars.BlueLight[car],
         Cars.AtWork[car], Cars.Broken[car]);
 
     /// <summary>
@@ -107,9 +110,17 @@ internal sealed partial class TownWorld
     /// its pose, line, progress, action, manoeuvre, grant, pace or the stop it was sent to — has changed since a tick that
     /// changed nothing.
     /// </summary>
-    bool TicksAsBefore(int car) =>
-        _stood[car] && (_world.View.Cars[car].Flags & CarView.FrozenThroughLastStep) != 0
-                    && StoodTickOf(car) == _stoodTick[car];
+    /// <remarks>
+    /// The stop it was sent to is asked last, of a car standing as it stood in every other respect: it can project onto
+    /// the line, and it reads and writes nothing else, so asking it only then answers the same.
+    /// </remarks>
+    bool TicksAsBefore(int car)
+    {
+        if (!_stood[car] || (_world.View.Cars[car].Flags & CarView.FrozenThroughLastStep) == 0) return false;
+
+        ref readonly var before = ref _stoodTick[car];
+        return StoodTick.Same(StoodTickOf(car, before.SceneM), before) && ToTheSceneM(car).Equals(before.SceneM);
+    }
 
     /// <summary>A tick just taken kept, where it changed nothing of a car driving its line at a standstill.</summary>
     void KeepTheTick(int car, in DriveCommand commandWas, float progressWasM)
@@ -118,7 +129,7 @@ internal sealed partial class TownWorld
                       && Cars.ProgressM[car] == progressWasM
                       && (_world.View.Cars[car].Flags & CarView.FrozenThroughLastStep) != 0
                       && Cars.VelocityMps[car] == Vector2.Zero && Cars.YawRateRadPerS[car] == 0f;
-        if (_stood[car]) _stoodTick[car] = StoodTickOf(car);
+        if (_stood[car]) _stoodTick[car] = StoodTickOf(car, ToTheSceneM(car));
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.InteropServices;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Person.Control;
@@ -108,6 +109,34 @@ internal sealed class ManagedWorld : WorldLayer
     /// <summary>What each car follows as last signalled, and where it was read along it (<see cref="LineReading"/>).</summary>
     readonly LineFollowed[] _followed;
 
+    /// <summary>
+    /// What each car's reading along its line and its aim were last worked out from, and what they came to — so a car read
+    /// again off all of it as it was, to the bit, keeps the answer rather than walking its lanes again.
+    /// </summary>
+    /// <remarks>
+    /// Nothing else is read: the lanes and joins walked are laid once with the town and never written again, and the
+    /// build's figures change only with <see cref="_buildsLaid"/>.
+    /// </remarks>
+    readonly LineReadOff[] _lineReadOff;
+
+    readonly LineReadAs[] _lineReadAs;
+
+    /// <summary>What a car's line reading and aim are a function of, compared as bits.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    struct LineReadOff
+    {
+        public Vector2 PositionM, Forward;
+        public int Lane, Join;
+        public float StopsAtM, AroundM, LookaheadM;
+        public int BuildsLaid;
+
+        public static bool Same(in LineReadOff a, in LineReadOff b) =>
+            MemoryMarshal.AsBytes(new ReadOnlySpan<LineReadOff>(in a))
+                .SequenceEqual(MemoryMarshal.AsBytes(new ReadOnlySpan<LineReadOff>(in b)));
+    }
+
+    readonly record struct LineReadAs(float ProgressM, float OffLineM, float LeadAtM, float AimRad);
+
     /// <summary>The motion each car and walker carried into the step: what a contact is read against (phase 5).</summary>
     readonly Vector2[] _carIntoMps, _walkerIntoMps;
 
@@ -146,6 +175,8 @@ internal sealed class ManagedWorld : WorldLayer
         _roads = laying.Roads;
         _followed = new LineFollowed[count];
         Array.Fill(_followed, LineFollowed.None);
+        _lineReadOff = new LineReadOff[count];
+        _lineReadAs = new LineReadAs[count];
         Array.Fill(_towing, -1);
         Array.Fill(_onTheHookOf, -1);
 
@@ -559,16 +590,26 @@ internal sealed class ManagedWorld : WorldLayer
 
             ref var followed = ref _followed[car];
             if (stepped && !float.IsNaN(followed.ProgressM)) followed.AroundM = followed.ProgressM;
-            var rearAxleM = CarFollower.RearAxleM(build, row.PositionM, row.Forward);
-            LineReading.Read(_roads, ref followed, rearAxleM, build.ProjectionWindowM);
-            row.ProgressM = followed.ProgressM;
-            row.OffLineM = followed.OffLineM;
             row.FollowSerial = followed.Serial;
+            var readOff = new LineReadOff
+            {
+                PositionM = row.PositionM, Forward = row.Forward, Lane = followed.Lane, Join = followed.Join,
+                StopsAtM = followed.StopsAtM, AroundM = followed.AroundM, BuildsLaid = _buildsLaid,
+                LookaheadM = CarFollower.LookaheadM(build, MathF.Abs(Vector2.Dot(row.VelocityMps, row.Forward)), lookaheadS),
+            };
+            ref var readAs = ref _lineReadAs[car];
+            if (!LineReadOff.Same(readOff, _lineReadOff[car]))
+            {
+                var rearAxleM = CarFollower.RearAxleM(build, row.PositionM, row.Forward);
+                LineReading.Read(_roads, ref followed, rearAxleM, build.ProjectionWindowM);
+                var leadM = LineReading.Lead(_roads, followed, readOff.LookaheadM, out var leadAtM);
+                var aimRad = float.IsNaN(leadAtM) ? 0f : CarFollower.AimAt(build, rearAxleM, row.Forward, leadM);
+                readAs = new LineReadAs(followed.ProgressM, followed.OffLineM, leadAtM, aimRad);
+                _lineReadOff[car] = readOff;
+            }
 
-            var lookaheadM = CarFollower.LookaheadM(
-                build, MathF.Abs(Vector2.Dot(row.VelocityMps, row.Forward)), lookaheadS);
-            var leadM = LineReading.Lead(_roads, followed, lookaheadM, out row.LeadAtM);
-            row.AimRad = float.IsNaN(row.LeadAtM) ? 0f : CarFollower.AimAt(build, rearAxleM, row.Forward, leadM);
+            (followed.ProgressM, followed.OffLineM) = (readAs.ProgressM, readAs.OffLineM);
+            (row.ProgressM, row.OffLineM, row.LeadAtM, row.AimRad) = readAs;
         }
 
         var walkers = view.Walkers;
