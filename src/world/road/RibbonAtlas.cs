@@ -815,21 +815,21 @@ internal sealed partial class RibbonAtlas
                     }
                 });
 
-            // A cell's sort keys are made on the thread sorting it, in a buffer as long as the fullest cell, rather
-            // than held for every entry of the town at once.
+            // A cell's working sets are made on the thread sorting it, as long as the fullest cell, rather than held for
+            // every entry of the town at once.
             var pointStart = new ushort[bandSlots * startsPerCell];
             var cellCensus = new (int Points, int MostAtAPoint)[bandSlots];
             InChunks.Over(
                 bandSlots,
-                () => new long[mostInACell],
-                (keys, slot) =>
+                () => (Keys: new long[mostInACell], Sorted: new Entry[mostInACell], PlaceFrom: new int[(1 << (2 * shift)) + 1]),
+                (working, slot) =>
                 {
                     var first = bandSlotFirst[slot];
                     var count = bandSlotFirst[slot + 1] - first;
-                    var cellKeys = keys.AsSpan(0, count);
+                    var cellKeys = working.Keys.AsSpan(0, count);
                     var cellEntries = entries.AsSpan(first, count);
+                    InPlaceOrder(cellEntries, working.Sorted.AsSpan(0, count), working.PlaceFrom);
                     for (var at = 0; at < count; at++) cellKeys[at] = ((long)cellEntries[at].Column << 32) | (uint)cellEntries[at].Way;
-                    KeyedSort.Sort(cellKeys, cellEntries);
                     foreach (ref var entry in cellEntries) entry = entry with { Column = (byte)(entry.Column & mask) };
                     cellCensus[slot] = Started(cellKeys, pointStart.AsSpan(slot * startsPerCell, startsPerCell), shift);
                 });
@@ -847,6 +847,34 @@ internal sealed partial class RibbonAtlas
                 firstSlot, firstEntry));
             return (points, mostAtAPoint);
         }
+    }
+
+    /// <summary>
+    /// <b>One cell's entries put in place and way order</b>, while each entry's column still carries its whole place in
+    /// the cell — the order any sort on the two gives, since no two entries share both. Counted out by place, which is a
+    /// byte, and then each place's few ways put in order: they come in out of it only where threads filed the cell at
+    /// once, and in it where one did.
+    /// </summary>
+    static void InPlaceOrder(Span<Entry> entries, Span<Entry> sorted, Span<int> placeFrom)
+    {
+        placeFrom.Clear();
+        foreach (var entry in entries) placeFrom[entry.Column + 1]++;
+        for (var place = 1; place < placeFrom.Length; place++) placeFrom[place] += placeFrom[place - 1];
+        foreach (var entry in entries) sorted[placeFrom[entry.Column]++] = entry;
+
+        for (var at = 1; at < sorted.Length; at++)
+        {
+            var entry = sorted[at];
+            var before = at - 1;
+            for (; before >= 0 && sorted[before].Column == entry.Column && sorted[before].Way > entry.Way; before--)
+            {
+                sorted[before + 1] = sorted[before];
+            }
+
+            sorted[before + 1] = entry;
+        }
+
+        sorted.CopyTo(entries);
     }
 
     /// <summary>The most entries a band of whole rows can need: the most of any run of rows within the bound, or one row's past it.</summary>

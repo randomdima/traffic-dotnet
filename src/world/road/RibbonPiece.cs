@@ -96,6 +96,27 @@ internal readonly struct RibbonPiece
         && LeastM.Y <= other.MostM.Y && other.LeastM.Y <= MostM.Y;
 
     /// <summary>
+    /// How far a segment stands off this piece's box at least: its middle's distance off the box less half its length —
+    /// nought or below where it may reach it.
+    /// </summary>
+    public double OffTheBoxM(double fromX, double fromY, double toX, double toY)
+    {
+        var middleX = (fromX + toX) * 0.5;
+        var middleY = (fromY + toY) * 0.5;
+        var offX = Math.Max(Math.Max(LeastM.X - middleX, middleX - MostM.X), 0.0);
+        var offY = Math.Max(Math.Max(LeastM.Y - middleY, middleY - MostM.Y), 0.0);
+        var alongX = toX - fromX;
+        var alongY = toY - fromY;
+        return Math.Sqrt((offX * offX) + (offY * offY)) - (Math.Sqrt((alongX * alongX) + (alongY * alongY)) * 0.5);
+    }
+
+    /// <summary>
+    /// The furthest the slice at a half-width of <paramref name="halfM"/> moves for a metre along the piece: a metre on
+    /// a straight, and on an arc its outer end's metre, which goes round a radius the half-width wider.
+    /// </summary>
+    public double SweepPerM(double halfM) => IsStraight ? 1.0 : 1.0 + (halfM * Math.Abs(_curvature));
+
+    /// <summary>
     /// <b>Whether two straights' lines stand further apart than <paramref name="apartM"/></b> at their nearest
     /// — so that no ground within half of that of either line can meet the other's.
     /// </summary>

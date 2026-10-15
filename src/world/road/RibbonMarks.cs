@@ -79,7 +79,6 @@ internal static class RibbonMarks
                 lock (pairings) pairings.Add(pairing);
             });
         OpenWatch.Passed($"town: the marks' {pairings.Sum(static pairing => pairing.Pairs.Count)} pairs weighed");
-
         return Filed(lines, pairings, lengthM);
     }
 
@@ -166,6 +165,13 @@ internal static class RibbonMarks
     /// <b>The first and last metre of <c>[fromM, toM]</c> of a piece whose slice meets the other's
     /// ground</b> — false where none does.
     /// </summary>
+    /// <remarks>
+    /// <b>A step whose slice cannot reach the other's box is passed over unread</b>: a slice that stands off the box
+    /// stays off it for as far along as its furthest end can move in that distance (<see cref="RibbonPiece.SweepPerM"/>),
+    /// and the box holds the other's ground (<see cref="MeetsAt"/>). So the steps read are the ones that could meet, and
+    /// the first and last that do are the ones every step read would have found — an arc is walked whole, and most of
+    /// the arcs a junction's boxes overlap meet nothing.
+    /// </remarks>
     static bool Stretch(
         in RibbonPiece piece, in RibbonPiece other, Ground ground, float fromM, float toM, float stepM,
         out float firstM, out float lastM)
@@ -174,25 +180,40 @@ internal static class RibbonMarks
         if (!Near.Reaching(piece, other, ground.HalfM, ref fromM, ref toM)) return false;
 
         var trimmed = other.Trimmed(ground.TrimM);
+        var sweepPerM = piece.SweepPerM(ground.HalfM);
         var steps = Math.Max(1, (int)MathF.Ceiling((toM - fromM) / stepM));
         var first = -1;
+        var offTheBoxToM = double.NegativeInfinity;
         for (var step = 0; step <= steps; step++)
         {
-            if (!MeetsAt(piece, other, trimmed, ground, At(step))) continue;
+            var onM = At(step);
+            if (onM < offTheBoxToM) continue;
 
-            first = step;
-            break;
+            if (MeetsAt(piece, other, trimmed, ground, onM, out var offTheBoxM))
+            {
+                first = step;
+                break;
+            }
+
+            offTheBoxToM = onM + ((offTheBoxM - LineTolerance.RoundingM) / sweepPerM);
         }
 
         if (first < 0) return false;
 
         var last = first;
+        var offTheBoxFromM = double.PositiveInfinity;
         for (var step = steps; step > first; step--)
         {
-            if (!MeetsAt(piece, other, trimmed, ground, At(step))) continue;
+            var onM = At(step);
+            if (onM > offTheBoxFromM) continue;
 
-            last = step;
-            break;
+            if (MeetsAt(piece, other, trimmed, ground, onM, out var offTheBoxM))
+            {
+                last = step;
+                break;
+            }
+
+            offTheBoxFromM = onM - ((offTheBoxM - LineTolerance.RoundingM) / sweepPerM);
         }
 
         firstM = first == 0 ? fromM : Edge(piece, other, trimmed, ground, At(first), At(first - 1));
@@ -213,17 +234,25 @@ internal static class RibbonMarks
         for (var halving = 0; halving < Halvings; halving++)
         {
             var midM = (meetsM + missesM) * 0.5f;
-            if (MeetsAt(piece, other, trimmed, ground, midM)) meetsM = midM;
+            if (MeetsAt(piece, other, trimmed, ground, midM, out _)) meetsM = midM;
             else missesM = midM;
         }
 
         return meetsM;
     }
 
-    static bool MeetsAt(in RibbonPiece piece, in RibbonPiece other, in RibbonPiece.Sector trimmed, Ground ground, float onM)
+    /// <summary>
+    /// Whether the slice across a metre of a piece meets the other's ground — and how far at least the slice stands off
+    /// the other's box, which is never nearer than its ground: <b>the box is swept at the other's whole half-width and
+    /// the ground at that worn by the touch</b>, which is centimetres more than a float's rounding of the box.
+    /// </summary>
+    static bool MeetsAt(
+        in RibbonPiece piece, in RibbonPiece other, in RibbonPiece.Sector trimmed, Ground ground, float onM,
+        out double offTheBoxM)
     {
         piece.SliceAt(onM, ground.HalfM, out var fromX, out var fromY, out var toX, out var toY);
-        return other.Meets(fromX, fromY, toX, toY, ground.OtherHalfM, trimmed);
+        offTheBoxM = other.OffTheBoxM(fromX, fromY, toX, toY);
+        return offTheBoxM <= LineTolerance.RoundingM && other.Meets(fromX, fromY, toX, toY, ground.OtherHalfM, trimmed);
     }
 
     /// <summary>
