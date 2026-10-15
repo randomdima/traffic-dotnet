@@ -217,8 +217,14 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// </param>
     public TownWorld(
         CityPlan plan, SimConfig config, bool standStatics = true, ulong? agentSeed = null, IWorldMaker? worldMaker = null)
+        : this(Groundwork.Through(plan, config, worldMaker), standStatics, agentSeed)
     {
-        var stoodAt = Stopwatch.GetTimestamp();
+    }
+
+    /// <summary>The town stood on what was laid for it (<see cref="Laying"/>).</summary>
+    TownWorld(Groundwork laid, bool standStatics, ulong? agentSeed)
+    {
+        var (plan, config, worldMaker) = (laid.Plan, laid.Config, laid.WorldMaker);
         _config = config;
         _plan = plan;
         _agentSeed = agentSeed ?? plan.Seed;
@@ -230,118 +236,41 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _selected = new SelectionSet(config.View.SelectionMaxUnits);
         _orderedPeople = new int[_selected.Capacity];
         _orderedToM = new Vector2[_selected.Capacity];
-        var roadsAt = Stopwatch.GetTimestamp();
-        _roads = RoadGraph.Build(plan, config);
-        _levelled = Array.Exists(plan.Roads.Level, level => level != CityPlan.RoadArrays.Ground);
-        RoadsMs = Stopwatch.GetElapsedTime(roadsAt).TotalMilliseconds;
-
-        // The bays' streets come before the network that prices them: the one movement a route may make that
-        // no junction admits is a turn back — at a car park (GEN-4l) or at a dead end — and whether a frontage
-        // has a bay to make one in is a question about which bays it works.
-        _bayStreets = BayStreets.Build(plan, _roads);
-
-        // Laid with the town rather than on demand: a structure the tick reads belongs to the town's
-        // own standing cost.
-        _driving = DrivingNetwork.Build(
-            _roads, BayStreets.WhereALegMayTurn(_roads, _bayStreets, config.TurnAtALotWithinM), config);
+        _roads = laid.Roads;
+        _levelled = laid.Levelled;
+        RoadsMs = laid.RoadsMs;
+        _bayStreets = laid.BayStreets;
+        _driving = laid.Driving;
         _driveSearch = new RouteSearch(
             _driving.Cells, mostEntries: Math.Max(BayStreets.MostLanes, _roads.MostLanesOfAWay), mostGoals: 2, MostRunsInARoute);
         _surcharges = new LinkSurcharges(MostWaysGivenUpOn);
         _walkSurcharges = new LinkSurcharges(MostWaysGivenUpOn);
-        OpenWatch.Passed("town: roads");
 
-        // Both networks are read by the tick — cars over one, walkers over the other — so both are laid
-        // with the town rather than the first time something asks.
-        var footAt = Stopwatch.GetTimestamp();
-        _pavementLanes = PavementLanes.Of(plan, config);
-
-        // <b>The town's zebras, once</b> (TER-6): where the walk is crossed is where the road is crossed,
-        // so the walk that is cut at them, the lanes that carry them and the bands under them are all read
-        // off this one laying.
-        var ends = plan.Paving(config).RoadEnds(config);
-        _zebras = Crossings.Lay(plan, config, ends.CrossedM);
-
-        // <b>And its bars, off what each arm holds behind</b> rather than where it is crossed (WLK-10a): a street
-        // crossed once midway is still held at both of its ends.
-        _bars = StopBars.Lay(plan.Paving(config).Lanes, Crossings.Lay(plan, config, ends.HeldM), config);
-        _signals = SignalService.Build(plan, _roads, _zebras, config);
-        _heads = SignalHeads.Place(_bars, _zebras, _signals, config);
-        _crossingWays = CrossingWays.Of(plan, _pavementLanes, _zebras, config);
-        _foot = FootGraph.Build(_pavementLanes, _crossingWays, config);
-        FootMs = Stopwatch.GetElapsedTime(footAt).TotalMilliseconds;
-        OpenWatch.Passed("town: pavement");
-
-        var walkingAt = Stopwatch.GetTimestamp();
-        _walking = WalkingNetwork.Build(_foot, config);
-        WalkingMs = Stopwatch.GetElapsedTime(walkingAt).TotalMilliseconds;
-
+        _pavementLanes = laid.PavementLanes;
+        _zebras = laid.Zebras;
+        _bars = laid.Bars;
+        _signals = laid.Signals;
+        _heads = laid.Heads;
+        _crossingWays = laid.CrossingWays;
+        _foot = laid.Foot;
+        FootMs = laid.FootMs;
+        _walking = laid.Walking;
+        WalkingMs = laid.WalkingMs;
         _walkSearch = new RouteSearch(_walking.Cells, mostEntries: 2, mostGoals: 2, MostRunsInARoute);
-
-        // <b>And then the one table all of them are numbered in</b> (TER-4c.2, <see cref="TownWays"/>). It is
-        // laid last of the networks because it is laid over them: what it takes from each is a run of
-        // lengths, so no network below it learns that the others are there.
-        _ways = TownWays.Of(_roads, PavementLengthsM(_walking, out var mitreLengthM), mitreLengthM);
+        _ways = laid.Ways;
 
         // The interface's own room to plan a whole route into (CTL-1a), laid with the selection it is
         // bounded by and never on the frame that wants it.
         _paths = new SelectionPaths(_selected.Capacity, _driving.Cells, _walking.Cells, MostRunsInARoute);
-        _furniture = LaneFurniture.Project(_bars, _roads);
-        _crossingEdges = CrossingEdges.Of(_zebras, _walking.Foot, config.Grid.Main);
-        _signalHolds = SignalHolds.Of(_signals, _bars, _crossingEdges, _roads, _ways);
-
-        var walkers = PeopleIn(plan);
-        var drivers = CarsOfThePlan(plan);
-
-        // The service vehicles are laid on top of the plan's own spawns: a vehicle for every bay of every
-        // hospital's, station's and depot's apron (AMB-2, SRV-2), which is why the counts have to be answerable
-        // from the plan alone. A building that turns out to have no bay near it leaves its slots unused, which
-        // is what makes the rosters the fleets' own counts rather than these capacities. Which buildings they
-        // are is the map's (GEN-9).
-        _uses = BuildingUses.Of(plan);
-
-        var served = (_uses.Hospitals.Count + _uses.PoliceStations.Count + _uses.Depots.Count)
-                     * config.Service.ApronBays;
-
-        // <b>The car roster grows by the vehicles, and the walker roster by the crew each one carries</b>
-        // (SRV-3) — laid now, since a roster is never grown once the town stands.
-        walkers += served * CrewAboard(config);
-        drivers += served;
-
-        // <b>The ground of every way at once</b> (TER-4c.4): which ribbons cover which ground, and which share
-        // it. Laid over the one numbering, so it comes after every network that numbers a way, after the roster it
-        // files the walk for — and between two collections (CollectTheLay).
-        OpenWatch.Passed("town: walking, the ways");
-        CollectTheLay(plan, config);
-        OpenWatch.Passed("town: collected before the atlas");
-        var atlasAt = Stopwatch.GetTimestamp();
-        _lines = new WayLines(_roads, _walking, _ways, _crossingEdges, config);
-        void AfterTheMarks()
-        {
-            OpenWatch.Passed("town: the atlas's marks");
-            CollectTheLay(plan, config);
-            OpenWatch.Passed("town: collected after the marks");
-        }
-
-        // <b>Filed by the world that keeps it, where it has one</b> — begun before the marks, so the device files while the host
-        // works them out, and the furniture checked on the device against what it filed; on the host whole otherwise.
-        WayCrossings marks;
-        if (worldMaker is null)
-        {
-            _atlas = RibbonAtlas.Lay(_lines, config.RibbonLevel, config.RibbonTouchM, anyoneWalks: walkers > 0, AfterTheMarks);
-            marks = _atlas.Marks;
-            RefuseFurnitureOnTheRoad(_atlas);
-        }
-        else
-        {
-            var lengthM = FileTheAtlas(worldMaker.Atlas, config, anyoneWalks: walkers > 0);
-            marks = RibbonAtlas.MarksOf(_lines, lengthM, config.RibbonLevel, config.RibbonTouchM);
-            AfterTheMarks();
-        }
-
-        AtlasMs = Stopwatch.GetElapsedTime(atlasAt).TotalMilliseconds;
-        OpenWatch.Passed("town: the atlas filed");
-        CollectTheLay(plan, config);
-        OpenWatch.Passed("town: collected after the atlas");
+        _furniture = laid.Furniture;
+        _crossingEdges = laid.CrossingEdges;
+        _signalHolds = laid.SignalHolds;
+        _uses = laid.Uses;
+        var (walkers, drivers) = (laid.Walkers, laid.Drivers);
+        _lines = laid.Lines;
+        _atlas = laid.Atlas;
+        var marks = laid.Marks;
+        AtlasMs = laid.AtlasMs;
 
         People = new PersonFleet(walkers);
         _progress = new LegProgress(walkers);
@@ -456,7 +385,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         SeatTheOwners();
         OpenWatch.Passed("town: its world");
 
-        StoodMs = Stopwatch.GetElapsedTime(stoodAt).TotalMilliseconds;
+        StoodMs = Stopwatch.GetElapsedTime(laid.StartedAt).TotalMilliseconds;
     }
 
     /// <summary>

@@ -79,7 +79,10 @@ internal sealed class LaidTown
         // The world before the ground, because laying the world's atlas is an open's peak and the mesh laid
         // first stood under it; laid after, it is laid into what the atlas worked in.
         var made = worldMaker is not null && !Scenarios.Stages(plan.Name);
-        var world = new TownWorld(plan, config, worldMaker: made ? worldMaker : null);
+        var standing = TownWorld.Laying(plan, config, made ? worldMaker : null);
+        foreach (var stage in standing.Stages) yield return stage;
+
+        var world = standing.Made;
         var scenario = Scenarios.For(world, config);
         yield return OpenWatch.Passed("the town's watches");
 

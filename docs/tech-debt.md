@@ -163,11 +163,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     (`OpenWatch`) has the page using 0.3–0.5 GB more than the desktop after each of the lay's collections, which come
     from frames deep in the lay; the one from the lay's own top frame (`LaidTown.Lay`) frees as the desktop's does.
     Whether it is a standing frame's stale slot or the collector's lazy sweep is not known;
-  - **the town itself is one block of the open** (`TownWorld`'s constructor, 21 s of OdesaOsm's 52): the card pauses
-    at the plan's stages, after the town and after the ground (`Staged`), and through the town its bar moves on the
-    compositor at the pace guessed off the plan while its words stand still. The bar's shares are OdesaOsm's
-    (`loading.js`), so another city's bar moves unevenly. Laying the town's networks and atlas ahead of the
-    constructor, a stage at a time, closes the first; shares the page learns from each open, the second;
+  - **the open's longest stages are each one block**: the plan's ground and buildings and the town's pavement are
+    about 10 s each on OdesaOsm, through which the card's bar moves on the compositor at the pace guessed so far while
+    its words stand still. The bar's shares are OdesaOsm's (`loading.js`), so another city's bar moves unevenly; shares
+    the page learns from each open close that;
   - **the bar's moving through a block is not seen by any tier or tool**: `qq web`'s picture waits for the page's
     thread, so it is taken between stages and never in one.
 - **Nobody holds what no wheel stands on**: across a lane's end a car on two ways leaves its wheelbase less two
