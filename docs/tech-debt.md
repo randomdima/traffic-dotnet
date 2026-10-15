@@ -120,6 +120,12 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   - **a fill of any word but nought makes a uniform buffer and a bind group each time** (`compute.js`'s `fill`), which
     the solver's laying and `FillRows` ask for. A fill pipeline holding one window per fill closes it;
   - **the page's Debug build stands River in three minutes**, interpreted; only a published page is worth timing;
+  - **the Pages build translates the kernels with another glslc than the one they are written against**: Ubuntu's
+    apt package in `pages.yml`, years behind this machine's shaderc 2026.1. Its SPIR-V left `touches.comp`'s
+    read-only `WasCount` writable in naga's WGSL, the browser refused a barrier behind a loop on it, and the deployed
+    page stood every town with no step (2026-10-15). Nothing after the deploy asks whether a kernel parsed:
+    pinning the same shaderc in the workflow, and a `qq web --url` of the deployed page that fails on a WebGPU error,
+    close it;
   - **nothing asks whether the device can hold the town's tables**: a buffer past the adapter's
     `maxStorageBufferBindingSize` is a WebGPU validation error and a dead world rather than the managed world WEB-10
     promises. This machine's adapter gives 4 GB; a default device 128 MB, which OdesaOsm's atlas (930 MB) is past.
@@ -133,11 +139,6 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     each crossing it serves (`CrossingWays.Reading.BandOffTheVerge`), the outsets' indexes, the index queries that want
     only the nearest. The marks are the next the device could take, in floats where the host's are doubles, which moves
     them. A page given threads (cross-origin isolation, the host's two headers) is the lever past those;
-  - **a page's device-filed atlas has not been seen stepping a town on a page**: the driven browser here is given no
-    frames once its window is not on screen, managed world or device's, so no tick ran in any page this was measured
-    on. The page's own path — the world laid over a stand-in and its first covers read once the device has filed — is
-    stepped in lockstep with a handed-over world on lavapipe (`DeviceWorldTests`, the atlas left unfinished). Closes
-    with a page watched on screen ticking OdesaOsm;
   - **a page's atlas can stand a float off the host's**: WGSL cannot say `precise`, so a browser may fuse what the host
     rounds twice (`trig.glsl`), and a page has no read-back to hold its digest to the host's. Vulkan's is the host's to
     the bit;

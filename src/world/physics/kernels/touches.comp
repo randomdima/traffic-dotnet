@@ -119,15 +119,19 @@ uint prefix(bool flag)
     return mine;
 }
 
-// Which workgroup this is and how many there are, as its first thread read them: naga hands a page's WGSL the built-ins
-// through variables WGSL cannot tell are every thread's alike, so they are shared and read as workgroupUniformLoads
-// (solve.comp, town.js).
+// Which workgroup this is and how many there are, and how many pairs were touching, as its first thread read them: naga
+// hands a page's WGSL the built-ins through variables WGSL cannot tell are every thread's alike, and an older glslc
+// leaves WasCount writable, which WGSL takes as every thread's own — so they are shared and read as
+// workgroupUniformLoads (solve.comp, town.js).
 shared uint workgroupAt;
 shared uint workgroupCount;
+shared uint wasCountShared;
 
 uint workgroupUniformAt() { return workgroupAt; }
 
 uint workgroupUniformCount() { return workgroupCount; }
+
+uint workgroupUniformWasCount() { return wasCountShared; }
 
 void main()
 {
@@ -137,11 +141,13 @@ void main()
     {
         workgroupAt = gl_WorkGroupID.x;
         workgroupCount = gl_NumWorkGroups.x;
+        wasCountShared = wasCount;
     }
 
     barrier();
     uint group = workgroupUniformAt();
     uint groups = workgroupUniformCount();
+    uint wasPairs = workgroupUniformWasCount();
     uint contacts = min(totals[ContactTotalAt], contactCapacity);
 
     // Where the held blocks' counts start: past one count for each workgroup the contacts can take.
@@ -152,7 +158,7 @@ void main()
     if (mode == 0u)
     {
         if (thread == 63u) counted[group] = begunUpTo;
-        for (uint block = group; block * 64u < wasCount; block += groups)
+        for (uint block = group; block * 64u < wasPairs; block += groups)
         {
             uint heldUpTo = prefix(held(block * 64u + thread));
             if (thread == 63u) counted[heldFrom + block] = heldUpTo;
@@ -195,7 +201,7 @@ void main()
         }
     }
 
-    for (uint block = group; block * 64u < wasCount; block += groups)
+    for (uint block = group; block * 64u < wasPairs; block += groups)
     {
         uint slot = block * 64u + thread;
         bool kept = held(slot);
