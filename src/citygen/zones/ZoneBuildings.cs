@@ -455,16 +455,17 @@ internal static class ZoneBuildings
             (onM, direction) = (default, default);
             var found = Math.Min(_index.Near(own.FaceScan, atM, reachM, own.Ids, own.AlongM), own.Ids.Length);
             float? bestM = null;
+            var best = -1;
             for (var at = 0; at < found; at++)
             {
-                var piece = _pieces[own.Ids[at]];
-                var pointM = piece.PointAtM(own.AlongM[at]);
+                var pointM = _pieces[own.Ids[at]].PointAtM(own.AlongM[at]);
                 var offM = Vector2.Distance(pointM, atM);
                 if (bestM is { } nearer && offM >= nearer) continue;
 
-                (bestM, onM, direction) = (offM, pointM, Heading.Unit(piece.HeadingAtRad(own.AlongM[at])));
+                (bestM, onM, best) = (offM, pointM, at);
             }
 
+            if (best >= 0) direction = Heading.Unit(_pieces[own.Ids[best]].HeadingAtRad(own.AlongM[best]));
             return bestM;
         }
     }

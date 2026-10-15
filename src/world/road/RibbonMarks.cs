@@ -173,11 +173,12 @@ internal static class RibbonMarks
         firstM = lastM = 0f;
         if (!Near.Reaching(piece, other, ground.HalfM, ref fromM, ref toM)) return false;
 
+        var trimmed = other.Trimmed(ground.TrimM);
         var steps = Math.Max(1, (int)MathF.Ceiling((toM - fromM) / stepM));
         var first = -1;
         for (var step = 0; step <= steps; step++)
         {
-            if (!MeetsAt(piece, other, ground, At(step))) continue;
+            if (!MeetsAt(piece, other, trimmed, ground, At(step))) continue;
 
             first = step;
             break;
@@ -188,14 +189,14 @@ internal static class RibbonMarks
         var last = first;
         for (var step = steps; step > first; step--)
         {
-            if (!MeetsAt(piece, other, ground, At(step))) continue;
+            if (!MeetsAt(piece, other, trimmed, ground, At(step))) continue;
 
             last = step;
             break;
         }
 
-        firstM = first == 0 ? fromM : Edge(piece, other, ground, At(first), At(first - 1));
-        lastM = last == steps ? toM : Edge(piece, other, ground, At(last), At(last + 1));
+        firstM = first == 0 ? fromM : Edge(piece, other, trimmed, ground, At(first), At(first - 1));
+        lastM = last == steps ? toM : Edge(piece, other, trimmed, ground, At(last), At(last + 1));
         return true;
 
         float At(int step) => fromM + ((toM - fromM) * step / steps);
@@ -205,22 +206,24 @@ internal static class RibbonMarks
     /// Where a piece's ground stops meeting the other's, closed in on from a metre that meets towards one that
     /// does not — and the metre that meets is the one kept.
     /// </summary>
-    static float Edge(in RibbonPiece piece, in RibbonPiece other, Ground ground, float meetsM, float missesM)
+    static float Edge(
+        in RibbonPiece piece, in RibbonPiece other, in RibbonPiece.Sector trimmed, Ground ground, float meetsM,
+        float missesM)
     {
         for (var halving = 0; halving < Halvings; halving++)
         {
             var midM = (meetsM + missesM) * 0.5f;
-            if (MeetsAt(piece, other, ground, midM)) meetsM = midM;
+            if (MeetsAt(piece, other, trimmed, ground, midM)) meetsM = midM;
             else missesM = midM;
         }
 
         return meetsM;
     }
 
-    static bool MeetsAt(in RibbonPiece piece, in RibbonPiece other, Ground ground, float onM)
+    static bool MeetsAt(in RibbonPiece piece, in RibbonPiece other, in RibbonPiece.Sector trimmed, Ground ground, float onM)
     {
         piece.SliceAt(onM, ground.HalfM, out var fromX, out var fromY, out var toX, out var toY);
-        return other.Meets(fromX, fromY, toX, toY, ground.OtherHalfM, ground.TrimM);
+        return other.Meets(fromX, fromY, toX, toY, ground.OtherHalfM, trimmed);
     }
 
     /// <summary>

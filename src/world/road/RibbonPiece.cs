@@ -144,7 +144,8 @@ internal readonly struct RibbonPiece
     /// </summary>
     public void SliceAt(double onM, double halfM, out double fromX, out double fromY, out double toX, out double toY)
     {
-        var (sin, cos) = Math.SinCos(_headingRad + (_curvature * onM));
+        // A straight's heading is the one its sine and cosine were taken of when it was made.
+        var (sin, cos) = IsStraight ? (_headingSin, _headingCos) : Math.SinCos(_headingRad + (_curvature * onM));
 
         // The right of the heading (Heading.RightOf), which is the side an arc of positive curvature
         // turns towards and has its centre on.
@@ -175,12 +176,19 @@ internal readonly struct RibbonPiece
     }
 
     /// <summary>
+    /// The piece with <paramref name="trimM"/> taken off each end, as <see cref="Meets"/> reads it — made once for
+    /// every segment weighed against the piece at that trim.
+    /// </summary>
+    public Sector Trimmed(double trimM) => new(this, trimM);
+
+    /// <summary>
     /// <b>Whether a segment meets the ground this piece covers at a half-width of <paramref name="halfM"/></b>,
-    /// with <paramref name="trimM"/> taken off each end — edges and ends included, so ground that only
+    /// with the trim of <paramref name="sector"/> taken off each end — edges and ends included, so ground that only
     /// touches it meets it.
     /// </summary>
-    public bool Meets(double fromX, double fromY, double toX, double toY, double halfM, double trimM = 0.0)
+    public bool Meets(double fromX, double fromY, double toX, double toY, double halfM, in Sector sector)
     {
+        var trimM = sector.TrimM;
         var alongX = toX - fromX;
         var alongY = toY - fromY;
         var least = 0.0;
@@ -219,7 +227,6 @@ internal readonly struct RibbonPiece
         most = Math.Min(most, inToT);
         if (least > most) return false;
 
-        var sector = new Sector(this, trimM);
         if (sector.SweepRad < 0.0) return false;
 
         var innerM = _radiusM - halfM;
@@ -234,7 +241,7 @@ internal readonly struct RibbonPiece
     }
 
     /// <summary>The sector an arc sweeps between the radii through its two ends, less a trim off each.</summary>
-    readonly struct Sector
+    public readonly struct Sector
     {
         readonly double _sense;
         readonly double _firstX;
@@ -244,18 +251,22 @@ internal readonly struct RibbonPiece
 
         public Sector(in RibbonPiece piece, double trimM)
         {
+            TrimM = trimM;
             _sense = Math.Sign(piece._curvature);
             SweepRad = piece._sweepRad - (2.0 * Math.Abs(piece._curvature) * trimM);
             _firstX = piece._firstRadialX;
             _firstY = piece._firstRadialY;
             _lastX = piece._lastRadialX;
             _lastY = piece._lastRadialY;
-            if (trimM == 0.0) return;
+            if (trimM == 0.0 || piece.IsStraight) return;
 
             var (sin, cos) = Math.SinCos(piece._curvature * trimM);
             (_firstX, _firstY) = ((_firstX * cos) - (_firstY * sin), (_firstX * sin) + (_firstY * cos));
             (_lastX, _lastY) = ((_lastX * cos) + (_lastY * sin), (_lastY * cos) - (_lastX * sin));
         }
+
+        /// <summary>How far in from each of the piece's ends its ground begins.</summary>
+        public double TrimM { get; }
 
         public double SweepRad { get; }
 

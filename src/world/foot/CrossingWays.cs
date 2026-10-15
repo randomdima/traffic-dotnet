@@ -849,19 +849,34 @@ internal sealed class CrossingWays
         }
 
         /// <summary>The first metre of a course one turn leaves from onto the paint (<see cref="Leaves"/>), closed in on — or false where none does.</summary>
+        /// <remarks>
+        /// <b>A metre too far off the paint's line for any turn to reach it is passed over unread</b>, with every metre
+        /// after it the course cannot carry back in reach: a turn no wider than half the band lands within a band of
+        /// where it leaves, the course comes no nearer than a metre a metre, and a second band is the rounding's. So
+        /// the metres read are the ones a turn could leave from, and the first that does is the one every metre read
+        /// would have found.
+        /// </remarks>
         bool DepartsAt(ArcSeg[] course, in Paint paint, out float leavesM)
         {
             leavesM = float.NaN;
             var beforeM = 0f;
             var lengthM = Spline.TotalLengthM(course);
+            var outOfReachToM = float.NegativeInfinity;
             for (var atM = 0f; atM <= lengthM; atM += LineTolerance.JoinedM)
             {
-                if (Leaves(course, atM, paint, out _))
+                if (atM < outOfReachToM)
+                {
+                    beforeM = atM;
+                    continue;
+                }
+
+                if (Leaves(course, atM, paint, out _, out var offTheLineM))
                 {
                     leavesM = atM;
                     break;
                 }
 
+                outOfReachToM = atM + MathF.Abs(offTheLineM) - (2f * config.WalkingLaneWidthM);
                 beforeM = atM;
             }
 
@@ -870,7 +885,7 @@ internal sealed class CrossingWays
             for (var halving = 0; leavesM > 0f && halving < Halvings; halving++)
             {
                 var midM = (beforeM + leavesM) * 0.5f;
-                if (Leaves(course, midM, paint, out _)) leavesM = midM;
+                if (Leaves(course, midM, paint, out _, out _)) leavesM = midM;
                 else beforeM = midM;
             }
 
@@ -880,7 +895,7 @@ internal sealed class CrossingWays
         /// <summary>The turn off a course at a metre of it and the straight down the paint to the mouth, as many of the two as there are.</summary>
         int OntoItFrom(ArcSeg[] course, float leavesM, in Paint paint, Span<ArcSeg> into)
         {
-            Leaves(course, leavesM, paint, out var round);
+            Leaves(course, leavesM, paint, out var round, out _);
             into[0] = round;
 
             var downM = Vector2.Dot(paint.MouthM - round.EndM, paint.Down);
@@ -893,12 +908,14 @@ internal sealed class CrossingWays
         /// <summary>
         /// <b>The one arc that leaves a course at a metre of it and arrives on the paint's own line heading down
         /// it</b> — false where that arc is tighter than the feet can hold, wider than half the walk's band, or
-        /// arrives past the mouth.
+        /// arrives past the mouth. <paramref name="offTheLineM"/> is how far the metre stands off the paint's line,
+        /// signed.
         /// </summary>
-        bool Leaves(ArcSeg[] course, float atM, in Paint paint, out ArcSeg round)
+        bool Leaves(ArcSeg[] course, float atM, in Paint paint, out ArcSeg round, out float offTheLineM)
         {
             round = default;
             var at = Spline.SampleAt(course, atM);
+            offTheLineM = -Spline.Cross(paint.Down, at.PositionM - paint.MouthM);
             var turnRad = Spline.WrapRad(paint.DownRad - at.HeadingRad);
 
             // An arc's end is its start moved by its radius times the end of the same turn on a unit circle, so
@@ -907,7 +924,7 @@ internal sealed class CrossingWays
             var across = Spline.Cross(paint.Down, unit.EndM);
             if (across == 0f) return false;
 
-            var radiusM = -Spline.Cross(paint.Down, at.PositionM - paint.MouthM) / across;
+            var radiusM = offTheLineM / across;
             if (radiusM < config.WalkerTightestTurnM || radiusM > config.WalkingLaneWidthM * 0.5f) return false;
 
             round = new ArcSeg(at.PositionM, at.HeadingRad, MathF.Abs(turnRad) * radiusM, MathF.Sign(turnRad) / radiusM);
