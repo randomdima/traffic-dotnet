@@ -719,10 +719,11 @@ internal sealed partial class BandShell
         /// dropped by whatever its own middle happened to be, and the ring steps sideways by the length of
         /// the overlap.
         /// </remarks>
-        static void Ends(Cutting cutting, int at, in ArcSeg mine, in ArcSeg theirs)
+        /// <remarks>Weighed against the piece's own box first, as <see cref="Alongside"/> is: an end outside it by more than a weld is no cut of it.</remarks>
+        void Ends(Cutting cutting, int at, in ArcSeg mine, in ArcSeg theirs)
         {
-            On(cutting, at, mine, theirs.StartM);
-            On(cutting, at, mine, theirs.EndM);
+            if (Within(at, theirs.StartM)) On(cutting, at, mine, theirs.StartM);
+            if (Within(at, theirs.EndM)) On(cutting, at, mine, theirs.EndM);
         }
 
         /// <summary>One place cut into a piece, where it stands on it at all.</summary>

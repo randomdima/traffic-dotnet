@@ -130,20 +130,27 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     `maxStorageBufferBindingSize` is a WebGPU validation error and a dead world rather than the managed world WEB-10
     promises. This machine's adapter gives 4 GB; a default device 128 MB, which OdesaOsm's atlas (930 MB) is past.
     Weighing the laying's largest table against the limit before the handover closes it.
-- **A traced city's open on the page** (2026-10-15, root log; OdesaOsm 52 s at 1.78 GB of 4, the figure varying
+- **A traced city's open on the page** (2026-10-15, root log; OdesaOsm 49 s at 1.81 GB of 4, the figure varying
   with where the renderer's last tables find room; O30 170 s at 3.6 GB, not taken since its atlas was filed by the
   device):
-  - **OdesaOsm's plan is 28 s of the page's 52 and the town 20.5** (`qq web --cpu`, 2026-10-15, after the staged open),
-    single-threaded arithmetic at about twice a desktop core's (`DOTNET_PROCESSOR_COUNT=1 --bench deviceload`, 27.8 s).
-    Inclusive: the walk's outer face (`Paving.Rings`) 10.4 s, of it the band shells' outsets 6.8 and their merge 6.1;
-    the zones' buildings 10.1, of it `ZoneBuildings.Face.Nearest` 3.5; the props 3.1; the traced streets 2.8; the marks'
-    pairs 5.9, of it `RibbonMarks.Stretch` 4.5; `CrossingWays.Of` 4.9, of it `OntoThePaint` 3.8; `PavementLanes.Of`
-    3.2; `ArcRings.Places` 2.3, three quarters of it a `Dictionary` over tuple keys; the walking network 1.5; the ground's
-    mesh 1.8; the collector about 1.4. By self time nothing passes 6 %: `Spline.ProjectFrom` 2.9 s and
-    `ChainIndex.Offer` 2.8, both under the index's near queries; `RingSides.WindingAt` 2.1, under `GroundShapes.At`
-    and `BandOffTheVerge`; `Trig.SinCos` 1.9. The marks are the next the device could take, in floats where the host's
-    are doubles, which moves them. A page given threads (cross-origin isolation, the host's two headers) is the lever
-    past those;
+  - **OdesaOsm's plan is 23.4 s of the page's 48.6 and the town 19.4** (`qq web --cpu`, 2026-10-15, after the open was
+    kept out of the interpreter), single-threaded arithmetic at about twice a desktop core's. Inclusive: the walk's outer
+    face (`Paving.Rings`) 8.5 s, most of it the band shells' outsets and their merge; the zones' buildings 8.3, of it
+    `ZoneBuildings.Face.Nearest` about 3.5; the props 2.6; the traced streets 2.7; the marks' pairs 6.3, of it
+    `RibbonMarks.Stretch` about 4.5; `CrossingWays.Of` 5.0, of it `OntoThePaint` about 3.8; `PavementLanes.Of` 2.5; the
+    ground's mesh 1.8; the interpreter 0.5. By self time nothing passes 6 %: `Spline.ProjectFrom` and `ChainIndex.Offer`
+    under the index's near queries, `RingSides.WindingAt` under `GroundShapes.At` and `BandOffTheVerge`, `Trig.SinCos`.
+    Three are known and not taken:
+    - **the marks on the device** move them — floats where the host's are doubles — and a page cannot wait for them
+      inside `TownWorld`'s constructor, which hands them to `LaneOccupancy` at once: it wants the constructor laid a
+      stage at a time first (the entry below on the town as one block);
+    - **`ChainIndex.NearestNear` reads every piece within its reach** to hand back the nearest of the first 64 in the
+      grid's order, so a faster search for the nearest — out from the place a ring of cells at a time — answers
+      differently wherever more than 64 pieces stand within reach, and moves buildings;
+    - **`CrossingWays.Reading.OntoThePaint` walks a lane's course once for each mouth at a place** (`DepartsAt`, and
+      `BandOffTheVerge` over the course again); the course's samples kept between the mouths would halve it, if the
+      samples of a course cut short at a metre are held to the bit to the whole course's.
+    A page given threads (cross-origin isolation, the host's two headers) is the lever past all of them;
   - **OdesaOsm runs at half real time on the page** (deployed, 2026-10-15): 27.2 ms a tick, of it the cars' own
     24.5, so 0.5 ticks a frame at 60 fps — the desktop's 6.0 ms car tick on one thread, at the page's single core and
     about twice a desktop core's cost. The cars' ticks over workers (the desktop entry above) wants a page given
@@ -157,12 +164,6 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     (`OpenWatch`) has the page using 0.3–0.5 GB more than the desktop after each of the lay's collections, which come
     from frames deep in the lay; the one from the lay's own top frame (`LaidTown.Lay`) frees as the desktop's does.
     Whether it is a standing frame's stale slot or the collector's lazy sweep is not known;
-  - **the framework's sorts and dictionaries over value types still run interpreted** where the open uses them outside
-    the atlas: about 3.3 s of OdesaOsm's 52 on the page (2026-10-15, `qq web --cpu --focus mono_interp_exec_method
-    --managed`). `Dictionary` over tuple keys is 1.7 s of it, and with the lookups' own compiled time 2.9 s —
-    `ArcRings.Place` 1.7, `FootGraph.Builder.NodeAt` 0.5, `ZoneBuildings.Standing` 0.7, `TownProps` 0.2 — and
-    `Array.Sort` of floats, `ChainIndex.Builder.SortedOnce` and `InChunks`' delegates the rest. Whether a key packed into a `long`, or a grid's own index in place of the dictionary,
-    runs compiled is not measured;
   - **the town itself is one block of the open** (`TownWorld`'s constructor, 21 s of OdesaOsm's 52): the card pauses
     at the plan's stages, after the town and after the ground (`Staged`), and through the town its bar moves on the
     compositor at the pace guessed off the plan while its words stand still. The bar's shares are OdesaOsm's
