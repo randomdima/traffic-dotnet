@@ -353,9 +353,6 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 ### Found by the .NET 11 performance review and not yet taken
 
-- **osm-scan's transit layers depend on the day it runs** (`meta/Gtfs.cs:79`, `DateTime.UtcNow`): the same feed and the
-  same map write different layers on different days. Reading the day off the feed's own calendar, or a date the survey
-  carries, closes it.
 - **osm-scan reads some of its inputs twice a run** (2026-10-15, `meta` 13 s): the timetable (`Transit.cs:92`,
   `Agreement.cs:33`) and the machine-traced footprints, ~1.5 s; the zones layer during `import`/`zones`
   (`Import.cs:97`, `ZoneHints.cs:775`); and `Snapshot.cs:37` parses all 200 MB of cached answers again, ~1 s. A median

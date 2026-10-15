@@ -17,8 +17,9 @@ namespace TrafficSimulation.Tools.OsmScan.Meta;
 /// </para>
 /// <para>
 /// <b>A day is a Wednesday, a Saturday or a Sunday</b>: a trip runs on one where its service runs that day and is in
-/// force on the day the feed is read. Some operators publish only a route's weekend service. A headway is the median
-/// gap between trips setting out between 07:00 and 19:00.
+/// force on the day the feed is read on, which its own calendar decides (<see cref="ReadOn"/>) and never the clock.
+/// Some operators publish only a route's weekend service. A headway is the median gap between trips setting out between
+/// 07:00 and 19:00.
 /// </para>
 /// <para>
 /// The producer's own download wants a key, issued from a page behind a browser check, so its terms could not be
@@ -76,15 +77,15 @@ internal static class Gtfs
             if (!trips.TryAdd(row["trip_id"], row)) Drop("trips listed twice");
         }
 
-        var today = DateTime.UtcNow.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+        var calendar = Table(zip, "calendar.txt");
+        var readOn = ReadOn(calendar);
         var runs = new Dictionary<string, HashSet<string>>();
         var (from, to) = ("", "");
-        foreach (var service in Table(zip, "calendar.txt"))
+        foreach (var service in calendar)
         {
-            var (start, end) = (service.GetValueOrDefault("start_date") ?? "", service.GetValueOrDefault("end_date") ?? "");
+            var (start, end) = Span(service);
             (from, to) = (from.Length == 0 || string.CompareOrdinal(start, from) < 0 ? start : from, string.CompareOrdinal(end, to) > 0 ? end : to);
-            var inForce = string.CompareOrdinal(start, today) <= 0 && string.CompareOrdinal(end, today) >= 0;
-            runs[service["service_id"]] = inForce ? [.. Days.Where(day => service.GetValueOrDefault(day.Column) == "1").Select(day => day.Day)] : [];
+            runs[service["service_id"]] = Covers(start, end, readOn) ? [.. Days.Where(day => service.GetValueOrDefault(day.Column) == "1").Select(day => day.Day)] : [];
         }
 
         var calls = new Dictionary<string, SortedDictionary<int, (string Stop, int DepartS)>>();
@@ -161,6 +162,29 @@ internal static class Gtfs
 
         return new Timetable { Routes = read, Stops = stops, Dropped = dropped, InForce = $"{from} … {to}" };
     }
+
+    /// <summary>
+    /// The day a feed is read on, as yyyyMMdd: the first on which the most of its services are in force — read off the
+    /// feed alone, so the same feed reads alike whatever day it is read; empty for a feed without a calendar.
+    /// </summary>
+    /// <remarks>The most are in force on some service's first day, so only those are weighed.</remarks>
+    static string ReadOn(List<Dictionary<string, string>> calendar)
+    {
+        var (best, most) = ("", 0);
+        foreach (var service in calendar)
+        {
+            var day = Span(service).Start;
+            var inForce = calendar.Count(other => Covers(Span(other).Start, Span(other).End, day));
+            if (inForce > most || (inForce == most && string.CompareOrdinal(day, best) < 0)) (best, most) = (day, inForce);
+        }
+
+        return best;
+    }
+
+    static (string Start, string End) Span(Dictionary<string, string> service) =>
+        (service.GetValueOrDefault("start_date") ?? "", service.GetValueOrDefault("end_date") ?? "");
+
+    static bool Covers(string start, string end, string day) => string.CompareOrdinal(start, day) <= 0 && string.CompareOrdinal(end, day) >= 0;
 
     /// <summary>A route type as OSM's <c>route</c> names the mode, the basic types and the extended ones alike.</summary>
     static string Mode(string? type) => int.TryParse(type, out var code) ? code switch
