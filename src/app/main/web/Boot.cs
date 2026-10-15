@@ -38,7 +38,11 @@ try
 
     using var game = new Game(
         config, width: 0, height: 0, validate: false, options.UiScale, Pacing.Fifo,
-        fullscreen: false, display: null);
+        fullscreen: false, display: null)
+    {
+        TicksOnTheDevice = !options.ManagedWorld,
+        OpeningViewM = options.ViewM,
+    };
 
     // A map, fetched and then stood up. The art is not in the file system until this has run, which is
     // why the menu's click only writes the name down (Game.Web.cs) and this is what acts on it — the one
@@ -125,13 +129,15 @@ static string Shader(string resource)
 }
 
 /// <summary>What the query string asked for. The words are the desktop's, and the ones a page cannot answer are not offered.</summary>
-file readonly record struct Options(string? Map, string[] Ui, float UiScale)
+file readonly record struct Options(string? Map, string[] Ui, float UiScale, bool ManagedWorld, float ViewM)
 {
     public static Options Read(string[] args)
     {
         string? map = null;
         var ui = Array.Empty<string>();
         var uiScale = 0f;
+        var viewM = 0f;
+        var managedWorld = args.Contains("--managed-world");
         for (var at = 0; at < args.Length - 1; at++)
         {
             switch (args[at])
@@ -145,9 +151,12 @@ file readonly record struct Options(string? Map, string[] Ui, float UiScale)
                 case "--ui-scale":
                     uiScale = float.Parse(args[at + 1]);
                     break;
+                case "--view":
+                    viewM = float.Parse(args[at + 1]);
+                    break;
             }
         }
 
-        return new Options(map, ui, uiScale);
+        return new Options(map, ui, uiScale, managedWorld, viewM);
     }
 }

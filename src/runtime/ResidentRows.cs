@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using Silk.NET.Vulkan;
 
 namespace TrafficSimulation.Runtime;
 
@@ -38,12 +37,12 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
     readonly Vk _vk;
     readonly GpuBuffer _staging;
     readonly GpuBuffer? _readback;
-    readonly BufferCopy[] _runs;
+    readonly CopyRun[] _runs;
 
     /// <summary>The kernel that copies a send of many runs, its set over the mapped copy and the device's, and its runs in words.</summary>
     readonly ComputeKernel? _runCopy;
 
-    readonly DescriptorSet _runCopySet;
+    readonly BoundSet _runCopySet;
     readonly GpuBuffer? _wordRuns;
 
     /// <summary>
@@ -67,13 +66,13 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
         _bridges = hostOnly;
         var bytes = (ulong)(Math.Max(1, items * rowsPerItem) * sizeof(T));
         Device = vk.CreateBuffer(
-            bytes, BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferSrcBit | BufferUsageFlags.TransferDstBit, HostAccess.None);
-        _staging = vk.CreateBuffer(bytes, BufferUsageFlags.TransferSrcBit | BufferUsageFlags.StorageBufferBit, HostAccess.Writes);
-        if (readsBack) _readback = vk.CreateBuffer(bytes, BufferUsageFlags.TransferDstBit, HostAccess.Reads);
-        _runs = new BufferCopy[Math.Max(1, items)];
+            bytes, BufferUse.Storage | BufferUse.TransferSrc | BufferUse.TransferDst, HostAccess.None);
+        _staging = vk.CreateBuffer(bytes, BufferUse.TransferSrc | BufferUse.Storage, HostAccess.Writes);
+        if (readsBack) _readback = vk.CreateBuffer(bytes, BufferUse.TransferDst, HostAccess.Reads);
+        _runs = new CopyRun[Math.Max(1, items)];
         if (sizeof(T) % sizeof(uint) == 0 && items > CopiedRunsAtMost)
         {
-            _wordRuns = vk.CreateBuffer((ulong)(_runs.Length * sizeof(WordRun)), BufferUsageFlags.StorageBufferBit, HostAccess.Writes);
+            _wordRuns = vk.CreateBuffer((ulong)(_runs.Length * sizeof(WordRun)), BufferUse.Storage, HostAccess.Writes);
             _runCopy = new ComputeKernel(vk, "copy_runs.comp", 3, sizeof(uint));
             _runCopySet = _runCopy.Bind([_staging, Device, _wordRuns]);
         }
@@ -82,7 +81,7 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
 
         // The device and the mapped copy both begin as zeros, so a gap a run is carried over sends what the device holds.
         All.Clear();
-        Device.Upload<T>(items * rowsPerItem, static into => into.Clear(), PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit);
+        Device.Upload<T>(items * rowsPerItem, static into => into.Clear());
     }
 
     public int Items { get; }
@@ -111,17 +110,17 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
         if (_runCount > 0)
         {
             ref var last = ref _runs[_runCount - 1];
-            var end = last.DstOffset + last.Size;
+            var end = last.ToBytes + last.Bytes;
             if (offset == end || (_bridges && offset > end && offset - end <= BridgedGapBytes))
             {
-                last.Size = offset + size - last.DstOffset;
+                last = last with { Bytes = offset + size - last.ToBytes };
                 return;
             }
         }
 
         if (_runCount == _runs.Length) throw new InvalidOperationException("An item was marked twice between sends.");
 
-        _runs[_runCount++] = new BufferCopy(offset, offset, size);
+        _runs[_runCount++] = new CopyRun(offset, offset, size);
     }
 
     /// <summary>
@@ -129,7 +128,7 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
     /// the caller barriers before a kernel reads them (<see cref="Vk.AfterTransfer"/>), and after any that wrote them
     /// (<see cref="Vk.BeforeTransfer"/>).
     /// </summary>
-    public void Send(CommandBuffer commands)
+    public void Send(Recording commands)
     {
         if (_runCopy is null || _runCount <= CopiedRunsAtMost || _copiedByKernelIn == ComputeBatch.Begun)
         {
@@ -142,7 +141,7 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
             for (var run = 0; run < _runCount; run++)
             {
                 ref readonly var copy = ref _runs[run];
-                words[run] = new WordRun((uint)(copy.SrcOffset / sizeof(uint)), (uint)(copy.DstOffset / sizeof(uint)), (uint)(copy.Size / sizeof(uint)), 0u);
+                words[run] = new WordRun((uint)(copy.FromBytes / sizeof(uint)), (uint)(copy.ToBytes / sizeof(uint)), (uint)(copy.Bytes / sizeof(uint)), 0u);
             }
 
             _runCopy.Dispatch(commands, _runCopySet, (uint)_runCount, (uint)_runCount);
@@ -152,7 +151,7 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
     }
 
     /// <summary>The first <paramref name="items"/> items copied back, recorded; read once the submit is waited for.</summary>
-    public void Read(CommandBuffer commands, int items) =>
+    public void Read(Recording commands, int items) =>
         _vk.Copy(commands, Device, _readback!, (ulong)(items * RowsPerItem * sizeof(T)));
 
     public void Dispose()

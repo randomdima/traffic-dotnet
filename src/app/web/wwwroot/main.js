@@ -7,7 +7,7 @@
 // megabytes of engine to be told the engine cannot start. Everything checked here is checked in
 // milliseconds and against no download at all.
 
-import { adapter, prefetch, town } from './town.js'
+import { adapter, prefetch, town, useHeap } from './town.js'
 import { counting, detail, stage, trouble } from './loading.js'
 
 /// What every run asks for whatever else it does, started before the engine that will ask for it: the
@@ -59,11 +59,14 @@ if (refused) {
         const stop = counting();
 
         const { dotnet } = await engine;
-        const { setModuleImports, runMain } = await dotnet.withApplicationArguments(...args).create();
+        const { setModuleImports, runMain, localHeapViewU8 } = await dotnet.withApplicationArguments(...args).create();
 
         stop();
         detail('');
         setModuleImports('town.js', { town });
+
+        // Where a device world's read-backs land, between frames (compute.js).
+        useHeap(localHeapViewU8);
 
         await runMain();
     }

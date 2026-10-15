@@ -96,6 +96,28 @@ internal sealed unsafe class GpuBuffer : IDisposable
     }
 
     /// <summary>
+    /// The uploads the device world makes, in words both heads take (<c>GpuBuffer.Web.cs</c>): each made visible to
+    /// whatever reads a laid table — a kernel, an indirect draw or a vertex fetch — since a table is laid once.
+    /// </summary>
+    public void Upload<T>(int count, StagedFill<T> fill) where T : unmanaged =>
+        Upload(count, fill, LaidTableReaders, LaidTableReads);
+
+    /// <inheritdoc cref="Upload{T}(int, StagedFill{T})"/>
+    public void Upload<T>(ReadOnlySpan<T> rows, ulong atBytes = 0) where T : unmanaged =>
+        Upload(rows, LaidTableReaders, LaidTableReads, atBytes);
+
+    /// <inheritdoc cref="Upload{T}(int, StagedFill{T})"/>
+    public void Upload<TFrom, T>(ReadOnlySpan<TFrom> rows, delegate*<in TFrom, T> convert, ulong atBytes = 0)
+        where TFrom : unmanaged where T : unmanaged =>
+        Upload(rows, convert, LaidTableReaders, LaidTableReads, atBytes);
+
+    const PipelineStageFlags2 LaidTableReaders =
+        PipelineStageFlags2.ComputeShaderBit | PipelineStageFlags2.DrawIndirectBit | PipelineStageFlags2.VertexAttributeInputBit;
+
+    const AccessFlags2 LaidTableReads =
+        AccessFlags2.ShaderStorageReadBit | AccessFlags2.IndirectCommandReadBit | AccessFlags2.VertexAttributeReadBit;
+
+    /// <summary>
     /// A staging buffer's first <paramref name="bytes"/> copied across to <paramref name="atBytes"/>, waited for, and made
     /// visible to its reader.
     /// </summary>

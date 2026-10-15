@@ -105,6 +105,21 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   `AllocationGateTests` and `CrossingGateTests` step the managed world. A tick on the device crosses a fixed count — the world's submit and wait, and the emit's submit a frame —
   but no gate holds it, nor that `DeviceWorld.Step` allocates nothing (its signal buffer grows by doubling past twice the
   bodies). A device gate over the suite's built town closes it.
+- **The page's device world** (2026-10-15, web log), each found standing it up and none measured on a big town:
+  - **no tier runs it**: `qq web` on River is the whole of what has looked at it. A lockstep would not hold to the bit
+    in any case — WGSL cannot forbid a driver to fuse (core log), and `fma` in `world_view.comp` may run unfused — so a
+    tolerance probe of the page's world against the managed one, driven by `qq web --ask`, closes it;
+  - **what moves is drawn off the CPU's fill and no tyre mark is drawn**: `sprites_count.comp` and `sprites_write.comp`
+    bind 19 storage buffers, and the marks' ring is never read back. Packing the emit's tables as the atlas's were, and
+    a web half of `DeviceSprites` feeding `TownRenderer.Web`, closes it;
+  - **every touched host buffer crosses whole every batch** (`ComputeBatch.Web.cs`): the signals, the resident rows'
+    staging, the views and the covers' lists, a few megabytes a tick on OdesaOsm where only the rows marked or written
+    need to. Sending marked runs (`ResidentRows`) and reading back the counted rows closes it;
+  - **covers that ran past their lists leave that view without covers** (`DeviceWorld.Finish`): the desktop reads
+    them again and waits; a page goes a tick without the turns those covers would have fed;
+  - **a fill of any word but nought makes a uniform buffer and a bind group each time** (`compute.js`'s `fill`), which
+    the solver's laying and `FillRows` ask for. A fill pipeline holding one window per fill closes it;
+  - **the page's Debug build stands River in three minutes**, interpreted; only a published page is worth timing.
 - **Nobody holds what no wheel stands on**: across a lane's end a car on two ways leaves its wheelbase less two
   metres and two half steps unclaimed; a car straddling a zebra narrower than its wheelbase, or nosing over a junction
   its front wheels have not reached, is no body there. Measuring the gap per car model closes the reading.
@@ -291,8 +306,8 @@ a layout or changes behaviour.
 
 - **The device helpers are copied file to file**: `Groups`, `Kernel`, `Device<T>`, `Own`, `Laid<T>`, `Room<T>` and
   `Readback<T>` in `DeviceSolver`, `DeviceWorld`, `DeviceTyres`, `DeviceSprites`, `DeviceAtlas` and `DeviceLanes`;
-  `DeviceSolver.Groups` divides by a literal 64. The `CarBuildRow` array is built twice in `DeviceTyres`, and
-  `DeviceSolver.CopyRows` copies past `Vk.Copy`. One shared helper in `app/devicetick/` closes it.
+  `DeviceSolver.Groups` divides by a literal 64, and the `CarBuildRow` array is built twice in `DeviceTyres`. One
+  shared helper in `app/devicetick/` closes it.
 - **Rows the device carries and no kernel or host reads**: nine fields of `car_build.glsl`'s row and their
   `CarBuildRow` mirror (`maxSpeedMps`, `turningRadiusM`, `sightM` among them), `DeviceSprites.Figures.LensColumns` and
   `LensRows`, and `PersonFleet.Declares` / `WalkerView.Declares` (written by `TownWorld.World`, `ManagedWorld` and

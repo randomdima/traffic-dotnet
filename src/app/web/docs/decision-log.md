@@ -2,6 +2,29 @@
 
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md).
 
+## 2026-10-15 — the page steps its world on its own device
+
+**The owner (2026-10-15), in their words: "Make hybrid gpu default mode. And lets make it work in web."** A page's town
+is stepped by the same device world the desktop's window is (`DeviceWorld`), from the same GLSL kernels.
+
+- **The kernels are translated, not written twice**: glslc to SPIR-V and naga (`cargo install naga-cli`) to WGSL
+  (`Kernels.Web.targets`) — the owner's choice over a hand port and over an npm build of naga nobody vouches for. What
+  naga writes that no browser takes is mended where the page lays a pipeline (`compute.js`): the push block read as a
+  uniform at a dynamic offset, `@coherent` dropped, and the loads in the kernels' `workgroupUniform…` functions made
+  `workgroupUniformLoad`, without which WGSL refuses every barrier under a loop on a shared figure.
+- **The kernels were made to fit, on both heads alike**: floats alone (core log), sixteen storage buffers a kernel
+  at most (the atlas's and the lanes' tables packed, the view in two passes), NaN and infinity made at run time, and
+  no buffer bound twice — a page refuses a dispatch that writes one, and `ComputeKernel.Bind` refuses it on the desktop
+  too, so a kernel cannot be written that only one head runs. A dispatch whose indirect arguments it also writes reads
+  them from a copy (`compute.js`), which is the page's business and nobody else's.
+- **The device world is one source, and the runtime has two halves** (WEB-1): its buffers, kernels and batches name
+  `Recording`, `BoundSet`, `BufferUse` and `CopyRun` instead of Vulkan's types, the desktop's being Vulkan's own under
+  those names. The emit that draws what moves (`DeviceSprites`) stays the desktop's: it binds nineteen buffers.
+- **A page cannot wait**, so a step's read-backs land in pinned memory between frames with the batch's serial after
+  them, and a tick that comes first is not taken (`WorldLayer.Ready`, WEB-10). A batch is one crossing (WEB-2).
+- **Measured** (River, Debug build, RX 9070 XT under Chromium): the town ticks 0.9 a frame at 60 fps with every body
+  integrated on the device, and no WebGPU error over five minutes.
+
 ## 2026-09-26 — rules reworded to what the code does
 
 The owner ruled the code the source of truth for this audit.

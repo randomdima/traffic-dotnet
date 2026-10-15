@@ -1,10 +1,8 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
-using Silk.NET.Vulkan;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Road;
-using Vk = TrafficSimulation.Runtime.Vk;
 
 namespace TrafficSimulation.App.DeviceTick;
 
@@ -40,10 +38,8 @@ internal sealed class DeviceLanes : IDisposable
         _vk = vk;
         var (laneArcs, laneArcFrom, joinArcs, joinArcFrom, joinTo) = roads.Tables;
         var arcs = Room<ArcRow>(laneArcs.Length + joinArcs.Length);
-        arcs.Upload<ArcSeg, ArcRow>(laneArcs.Span, &ArcRow.Of, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit);
-        arcs.Upload<ArcSeg, ArcRow>(
-            joinArcs.Span, &ArcRow.Of, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit,
-            (ulong)(laneArcs.Length * Marshal.SizeOf<ArcRow>()));
+        arcs.Upload<ArcSeg, ArcRow>(laneArcs.Span, &ArcRow.Of);
+        arcs.Upload<ArcSeg, ArcRow>(joinArcs.Span, &ArcRow.Of, (ulong)(laneArcs.Length * Marshal.SizeOf<ArcRow>()));
 
         var lengths = MemoryMarshal.Cast<float, int>(roads.LaneLengthM.AsSpan());
         Span<int> head =
@@ -61,13 +57,13 @@ internal sealed class DeviceLanes : IDisposable
     }
 
     static void Upload(GpuBuffer words, ReadOnlySpan<int> rows, int atWord) =>
-        words.Upload(rows, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit, (ulong)atWord * sizeof(int));
+        words.Upload(rows, (ulong)atWord * sizeof(int));
 
     GpuBuffer Room<T>(int count) where T : unmanaged
     {
         var buffer = _vk.CreateBuffer(
             (ulong)(Math.Max(1, count) * Marshal.SizeOf<T>()),
-            BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferDstBit, HostAccess.None);
+            BufferUse.Storage | BufferUse.TransferDst, HostAccess.None);
         _owned.Add(buffer);
         return buffer;
     }

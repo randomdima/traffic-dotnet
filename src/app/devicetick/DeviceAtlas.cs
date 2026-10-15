@@ -1,9 +1,7 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
-using Silk.NET.Vulkan;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Road;
-using Vk = TrafficSimulation.Runtime.Vk;
 
 namespace TrafficSimulation.App.DeviceTick;
 
@@ -136,15 +134,14 @@ internal sealed class DeviceAtlas : IDisposable
         Upload(buffer, table.CellSlot, head[0]);
         Upload(buffer, table.SlotFirst, head[1]);
         Upload(buffer, table.PointStart, head[2]);
-        buffer.Upload<RibbonAtlas.Entry, EntryRow>(
-            table.Entries, &EntryRow.Of, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit, head[3] * sizeof(uint));
+        buffer.Upload<RibbonAtlas.Entry, EntryRow>(table.Entries, &EntryRow.Of, head[3] * sizeof(uint));
         Upload(buffer, table.LengthM, head[4]);
         Upload(buffer, table.WayChannels, head[5]);
         return buffer;
     }
 
     static void Upload<T>(GpuBuffer buffer, ReadOnlySpan<T> rows, uint atWord) where T : unmanaged =>
-        buffer.Upload(rows, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit, atWord * sizeof(uint));
+        buffer.Upload(rows, atWord * sizeof(uint));
 
     /// <summary>How many words hold <paramref name="count"/> of these, the last padded.</summary>
     static uint WordsOf<T>(int count) where T : unmanaged => (uint)((count * Marshal.SizeOf<T>() + sizeof(uint) - 1) / sizeof(uint));
@@ -153,7 +150,7 @@ internal sealed class DeviceAtlas : IDisposable
     {
         var buffer = _vk.CreateBuffer(
             (ulong)(Math.Max(1, count) * Marshal.SizeOf<T>()),
-            BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferDstBit, HostAccess.None);
+            BufferUse.Storage | BufferUse.TransferDst, HostAccess.None);
         _owned.Add(buffer);
         return buffer;
     }

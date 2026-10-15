@@ -1,12 +1,10 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Silk.NET.Vulkan;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Physics;
-using Vk = TrafficSimulation.Runtime.Vk;
 using static TrafficSimulation.Runtime.GpuBuffer;
 
 namespace TrafficSimulation.App.DeviceTick;
@@ -229,19 +227,19 @@ internal sealed class DeviceSolver : IDisposable
     readonly ComputeKernel _settleSpread;
     readonly ComputeKernel _touches;
 
-    readonly DescriptorSet _movingCountSet;
-    readonly DescriptorSet _movingFillSet;
-    readonly DescriptorSet _pairsSet;
-    readonly DescriptorSet _narrowSet;
-    readonly DescriptorSet _wokenSet;
-    readonly DescriptorSet _compactSet;
-    readonly DescriptorSet _solveSet;
-    readonly DescriptorSet _integrateSet;
-    readonly DescriptorSet _settleSet;
-    readonly DescriptorSet _settleSpreadSet;
+    readonly BoundSet _movingCountSet;
+    readonly BoundSet _movingFillSet;
+    readonly BoundSet _pairsSet;
+    readonly BoundSet _narrowSet;
+    readonly BoundSet _wokenSet;
+    readonly BoundSet _compactSet;
+    readonly BoundSet _solveSet;
+    readonly BoundSet _integrateSet;
+    readonly BoundSet _settleSet;
+    readonly BoundSet _settleSpreadSet;
 
     /// <summary>The touches' sets, one a way round: the step reading the pairs in <c>_touched[n]</c> uses set n.</summary>
-    readonly DescriptorSet[] _touchesSets;
+    readonly BoundSet[] _touchesSets;
 
     readonly PrefixScan _movingScan;
     readonly PrefixScan _candidateScan;
@@ -320,7 +318,7 @@ internal sealed class DeviceSolver : IDisposable
         _sideInOrder = Device<SideContact>(SideRoom);
         _restTicks = Device<uint>(_bodies);
         _restIn = Staging<uint>(_bodies);
-        _afresh = Own(_vk.CreateBuffer(Bytes<int>(Math.Max(1, _moving.Length)), BufferUsageFlags.StorageBufferBit, HostAccess.Writes));
+        _afresh = Own(_vk.CreateBuffer(Bytes<int>(Math.Max(1, _moving.Length)), BufferUse.Storage, HostAccess.Writes));
         _listedAfresh = new bool[_bodies];
         _settledOut = Readback<uint>(2 + (2 * _moving.Length));
         _wokeAt = Device<uint>(Math.Max(1, _moving.Length));
@@ -350,8 +348,8 @@ internal sealed class DeviceSolver : IDisposable
         var staticItems = Device<int>(_staticItems);
 
         // Only the furniture's filing reads these, once.
-        using var staticCursor = _vk.CreateBuffer(Bytes<uint>(cells), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferDstBit, HostAccess.None);
-        using var statics = _vk.CreateBuffer(Bytes<int>(_statics), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferDstBit, HostAccess.None);
+        using var staticCursor = _vk.CreateBuffer(Bytes<uint>(cells), BufferUse.Storage | BufferUse.TransferDst, HostAccess.None);
+        using var statics = _vk.CreateBuffer(Bytes<int>(_statics), BufferUse.Storage | BufferUse.TransferDst, HostAccess.None);
 
         _candidateCounts = Device<uint>(Math.Max(1, _moving.Length));
         _candidateStarts = Device<uint>(Math.Max(1, _moving.Length));
@@ -367,7 +365,7 @@ internal sealed class DeviceSolver : IDisposable
         _impulses = Device<Vector4>(ContactCapacity * 2);
         _lowest = Device<uint>(_bodies);
         _order = Device<uint>(ContactCapacity);
-        _totals = Device<uint>(Totals.Count, BufferUsageFlags.IndirectBufferBit);
+        _totals = Device<uint>(Totals.Count, BufferUse.Indirect);
         _blockSums = Device<uint>(ScanKernels.Block);
         _totalsOut = Readback<uint>(Totals.Count);
 
@@ -769,7 +767,7 @@ internal sealed class DeviceSolver : IDisposable
     }
 
     /// <summary>What was laid since the last send copied across, recorded; nothing if nothing was. The caller barriers after.</summary>
-    public void Send(CommandBuffer commands)
+    public void Send(Recording commands)
     {
         if (_wholeLaid)
         {
@@ -801,7 +799,7 @@ internal sealed class DeviceSolver : IDisposable
     /// <b>The step recorded</b> over the table as the device holds it. What came before it is made visible to it here; the
     /// caller barriers what reads its answer.
     /// </summary>
-    public void Record(CommandBuffer commands, float dtS)
+    public void Record(Recording commands, float dtS)
     {
         var count = Owners;
         var push = Push(dtS) with { RosterCount = (uint)count };
@@ -857,7 +855,7 @@ internal sealed class DeviceSolver : IDisposable
     /// (<c>settle_spread.comp</c>) only where its parallel pass changed anything — the freezing, and the two lists where
     /// asked for (<see cref="ListsWhatSettled"/>).
     /// </summary>
-    void RecordTheSettling(CommandBuffer commands, StepPush push)
+    void RecordTheSettling(Recording commands, StepPush push)
     {
         var vk = _vk;
         var roster = Owners;
@@ -904,7 +902,7 @@ internal sealed class DeviceSolver : IDisposable
     /// motion and the contacts; read once the submit is waited for. The caller barriers before it.
     /// </summary>
     /// <remarks>A settling step hands its totals back from its last kernel (<c>kernels/touches.comp</c>), so only the rest is copied.</remarks>
-    public void RecordReadBack(CommandBuffer commands, bool everything)
+    public void RecordReadBack(Recording commands, bool everything)
     {
         var vk = _vk;
         if (!Settles) vk.Copy(commands, _totals, _totalsOut, _totals.SizeBytes);
@@ -1002,21 +1000,22 @@ internal sealed class DeviceSolver : IDisposable
     ];
 
     /// <summary>The moving rows of one field filled with one word: the furniture's are never written, and never read.</summary>
-    void FillRows(CommandBuffer commands, GpuBuffer buffer, uint word)
+    void FillRows(Recording commands, GpuBuffer buffer, uint word)
     {
         var stride = buffer.SizeBytes / (ulong)_bodies;
         if (_movingRows > 0) _vk.Fill(commands, buffer, (ulong)_firstMoving * stride, (ulong)_movingRows * stride, word);
     }
 
     /// <summary>The moving rows of one field copied across, which is every row the step can have changed.</summary>
-    unsafe void CopyRows(CommandBuffer commands, GpuBuffer from, GpuBuffer to)
+    void CopyRows(Recording commands, GpuBuffer from, GpuBuffer to)
     {
         var stride = from.SizeBytes / (ulong)_bodies;
-        var region = new BufferCopy((ulong)_firstMoving * stride, (ulong)_firstMoving * stride, (ulong)_movingRows * stride);
-        if (region.Size == 0) return;
+        var bytes = (ulong)_movingRows * stride;
+        if (bytes == 0) return;
 
-        Vk.Count();
-        _vk.Api.CmdCopyBuffer(commands, from.Handle, to.Handle, 1, &region);
+        Span<CopyRun> run = stackalloc CopyRun[1];
+        run[0] = new CopyRun((ulong)_firstMoving * stride, (ulong)_firstMoving * stride, bytes);
+        _vk.Copy(commands, from, to, run);
     }
 
     static uint Groups(int count) => (uint)Math.Max(1, (count + 63) / 64);
@@ -1028,23 +1027,21 @@ internal sealed class DeviceSolver : IDisposable
         return kernel;
     }
 
-    GpuBuffer Device<T>(int count, BufferUsageFlags extra = 0) where T : unmanaged => Own(
+    GpuBuffer Device<T>(int count, BufferUse extra = 0) where T : unmanaged => Own(
         _vk.CreateBuffer(
-            Bytes<T>(count),
-            BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferSrcBit | BufferUsageFlags.TransferDstBit | extra,
-            HostAccess.None));
+            Bytes<T>(count), BufferUse.Storage | BufferUse.TransferSrc | BufferUse.TransferDst | extra, HostAccess.None));
 
     GpuBuffer Staging<T>(int count) where T : unmanaged =>
-        Own(_vk.CreateBuffer(Bytes<T>(count), BufferUsageFlags.TransferSrcBit, HostAccess.Writes));
+        Own(_vk.CreateBuffer(Bytes<T>(count), BufferUse.TransferSrc, HostAccess.Writes));
 
     /// <summary>Memory the host reads back, written by a copy or — a kernel handing back only what it found — by a kernel.</summary>
     GpuBuffer Readback<T>(int count) where T : unmanaged =>
-        Own(_vk.CreateBuffer(Bytes<T>(count), BufferUsageFlags.TransferDstBit | BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
+        Own(_vk.CreateBuffer(Bytes<T>(count), BufferUse.TransferDst | BufferUse.Storage, HostAccess.Reads));
 
     /// <summary>A staging buffer for <paramref name="count"/> ints, handed back as the span to write them into.</summary>
     Span<int> StagingFor(int count, out GpuBuffer staging)
     {
-        staging = _vk.CreateBuffer(Bytes<int>(Math.Max(1, count)), BufferUsageFlags.TransferSrcBit, HostAccess.Writes);
+        staging = _vk.CreateBuffer(Bytes<int>(Math.Max(1, count)), BufferUse.TransferSrc, HostAccess.Writes);
         return staging.Span<int>()[..count];
     }
 

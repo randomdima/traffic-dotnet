@@ -1,13 +1,10 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
-using Silk.NET.Vulkan;
 using TrafficSimulation.Agents.Car.Body;
-using TrafficSimulation.App.Render;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Physics;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
-using Vk = TrafficSimulation.Runtime.Vk;
 using static TrafficSimulation.Runtime.GpuBuffer;
 
 namespace TrafficSimulation.App.DeviceTick;
@@ -39,7 +36,7 @@ namespace TrafficSimulation.App.DeviceTick;
 /// a layer's mask — and what a begun touch is, is the laying's numbering (<see cref="WorldLaying.TagOf"/>).
 /// </para>
 /// </remarks>
-internal sealed class DeviceWorld : WorldLayer
+internal sealed partial class DeviceWorld : WorldLayer
 {
     /// <summary>A control signal as the device takes it (<c>WorldSignal</c>): the agent's body row, never the agent.</summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -130,14 +127,14 @@ internal sealed class DeviceWorld : WorldLayer
     int _carRoom, _walkerRoom;
 
     readonly ComputeKernel _signalsKernel, _walkersKernel, _towKernel, _coversKernel, _viewKernel, _walkersViewKernel;
-    DescriptorSet _signalsSet, _coversSet;
-    readonly DescriptorSet _walkersSet, _towSet;
+    BoundSet _signalsSet, _coversSet;
+    readonly BoundSet _walkersSet, _towSet;
 
     /// <summary>
     /// The view's two passes, cars' and walkers', each bound to each of the two views' rows (<see cref="WorldView.Slot"/>),
     /// which the host reads where they are written: the step in flight writes the one not shown.
     /// </summary>
-    readonly DescriptorSet[] _viewSets = new DescriptorSet[2], _walkersViewSets = new DescriptorSet[2];
+    readonly BoundSet[] _viewSets = new BoundSet[2], _walkersViewSets = new BoundSet[2];
 
     /// <summary>The two views' rows, by slot, which the host reads where they are written.</summary>
     readonly GpuBuffer[] _carViews = new GpuBuffer[2];
@@ -280,23 +277,49 @@ internal sealed class DeviceWorld : WorldLayer
         _vk.BetweenKernels(commands);
         RecordTheView(commands, View);
         _batch.SubmitAndWait();
-        TakeTheView(View, coversRead: true);
+        _firstViewOwed = true;
+        TakeTheFirstView();
     }
 
     /// <summary>Whether the step in flight reads the covers.</summary>
     bool _readingCovers;
 
+    /// <summary>Whether the view the world was laid with is still to be taken, on a head whose answer comes later.</summary>
+    bool _firstViewOwed;
+
+    /// <inheritdoc/>
+    /// <remarks>A page's batch lands between frames, and the first view it answers is taken here once it has.</remarks>
+    public override bool Ready
+    {
+        get
+        {
+            if (!_batch.Readable) return false;
+
+            TakeTheFirstView();
+            return true;
+        }
+    }
+
+    void TakeTheFirstView()
+    {
+        if (!_firstViewOwed || !_batch.Readable) return;
+
+        _batch.Wait();
+        TakeTheView(View, coversRead: true);
+        _firstViewOwed = false;
+    }
+
     readonly GpuBuffer[] _signalsBound;
     readonly GpuBuffer[] _coversBound;
 
     /// <summary>The signals' set over the buffers as they now are, rewritten in place once there is one.</summary>
-    DescriptorSet BindTheSignals()
+    BoundSet BindTheSignals()
     {
         _signalsBound[0] = _signalsIn;
         return _signalsKernel.Bind(_signalsBound, _signalsSet);
     }
 
-    DescriptorSet BindTheCovers()
+    BoundSet BindTheCovers()
     {
         _coversBound[7] = _carCovers;
         _coversBound[8] = _walkerCovers;
@@ -369,8 +392,11 @@ internal sealed class DeviceWorld : WorldLayer
     const uint WalkerInside = 8u;
 
     /// <summary>The signals, the covers and the view in one submit and one wait.</summary>
+    /// <exception cref="NotSupportedException">On a head that cannot wait: off the clock the answer is wanted at once.</exception>
     protected override void TakeTheSignalsAndReadCovers(WorldView into)
     {
+        if (!_batch.Waits) throw new NotSupportedException("The covers are read off the clock only where the host can wait for them.");
+
         var signals = WriteTheSignals();
         var commands = _batch.Begin();
         _solver.Send(commands);
@@ -398,6 +424,10 @@ internal sealed class DeviceWorld : WorldLayer
         if (TakeTheView(into, coversRead: true)) ReadCovers(into);
     }
 
+    /// <remarks>
+    /// Covers that ran past their lists are read again into lists grown to hold them; on a head that cannot wait, the view
+    /// goes without them (<see cref="WorldView.CoversRead"/>) and the next step reads into the grown lists.
+    /// </remarks>
     /// <exception cref="InvalidOperationException">The step found more candidate pairs or contacts than the solver holds, and so lost some.</exception>
     protected override void Finish(WorldView into)
     {
@@ -409,7 +439,7 @@ internal sealed class DeviceWorld : WorldLayer
                 "the device holds, and lost some.");
         }
 
-        if (TakeTheView(into, _readingCovers)) ReadCovers(into);
+        if (TakeTheView(into, _readingCovers) && _batch.Waits) ReadCovers(into);
         TakeTheTouches(into);
     }
 
@@ -603,20 +633,20 @@ internal sealed class DeviceWorld : WorldLayer
     }
 
     /// <summary>The rows <see cref="WriteTheSignals"/> wrote copied to where the device reads them, recorded; the caller barriers after.</summary>
-    void SendTheSignals(CommandBuffer commands, SignalCounts signals)
+    void SendTheSignals(Recording commands, SignalCounts signals)
     {
         var rowBytes = (ulong)Marshal.SizeOf<SignalRow>();
         var eventsFromBytes = (ulong)(RoomForSignals - signals.Events) * rowBytes;
-        Span<BufferCopy> runs = stackalloc BufferCopy[2];
-        runs[0] = new BufferCopy(0, 0, (ulong)signals.Commands * rowBytes);
-        runs[1] = new BufferCopy(eventsFromBytes, eventsFromBytes, (ulong)signals.Events * rowBytes);
+        Span<CopyRun> runs = stackalloc CopyRun[2];
+        runs[0] = new CopyRun(0, 0, (ulong)signals.Commands * rowBytes);
+        runs[1] = new CopyRun(eventsFromBytes, eventsFromBytes, (ulong)signals.Events * rowBytes);
         var from = signals.Commands > 0 ? 0 : 1;
         var to = signals.Events > 0 ? 2 : 1;
         if (from < to) _vk.Copy(commands, _signalsWritten, _signalsIn, runs[from..to]);
     }
 
     /// <summary>The signals' kernels recorded, each only where it has any; whether any was.</summary>
-    bool RecordTheSignals(CommandBuffer commands, SignalCounts signals)
+    bool RecordTheSignals(Recording commands, SignalCounts signals)
     {
         if (signals.Commands > 0)
         {
@@ -633,7 +663,7 @@ internal sealed class DeviceWorld : WorldLayer
         return signals.Any;
     }
 
-    void RecordTheCovers(CommandBuffer commands) => _coversKernel.Dispatch(
+    void RecordTheCovers(Recording commands) => _coversKernel.Dispatch(
         commands, _coversSet, Groups(_cars + _walkers),
         new CoversPush
         {
@@ -654,7 +684,7 @@ internal sealed class DeviceWorld : WorldLayer
     /// Whether the pass is the step's own, keeping what the step settled; a view written again off the clock only reads
     /// (<c>world_view.comp</c>), so writing it twice moves nothing.
     /// </param>
-    void RecordTheView(CommandBuffer commands, WorldView into, bool stepped = false)
+    void RecordTheView(Recording commands, WorldView into, bool stepped = false)
     {
         var mode = stepped ? ViewStepped : 0u;
         if (_cars > 0) _viewKernel.Dispatch(commands, _viewSets[into.Slot], Groups(_cars), _push with { Count = (uint)_cars, Mode = mode });
@@ -742,24 +772,6 @@ internal sealed class DeviceWorld : WorldLayer
 
     public override int FrozenBodyCount => 0;
 
-    /// <summary>What moves, drawn off the device's own state; none until <see cref="DrawWith"/> lays it.</summary>
-    public DeviceSprites? Sprites { get; private set; }
-
-    /// <summary>What moves drawn off this world's own state from here on, by the emit laid for it.</summary>
-    public DeviceSprites DrawWith(TownWorld town, TownSprites looks, SpriteRoom room)
-    {
-        Sprites?.Dispose();
-        return Sprites = DeviceSprites.For(_vk, Config, town, looks, room, this);
-    }
-
-    /// <summary>
-    /// <b>What the emit reads of the world</b> (<c>sprites_world.comp</c>): each car's and walker's own row, the cars'
-    /// commands, and the two views' rows by slot (<see cref="WorldView.Slot"/>) — where every body stands and points, and a
-    /// car's channels, as the view the host is showing has them.
-    /// </summary>
-    public (GpuBuffer Cars, GpuBuffer Walkers, GpuBuffer Commands, GpuBuffer[] CarViews, GpuBuffer[] WalkerViews) Drawn =>
-        (_carRows, _walkerRows, _tyres.Table.Commands.Device, _carViews, _walkerViews);
-
     static uint Groups(int count) => (uint)Math.Max(1, (count + Group - 1) / Group);
 
     ComputeKernel Kernel(string shader, int buffers, uint pushBytes, int sets = 1)
@@ -774,24 +786,21 @@ internal sealed class DeviceWorld : WorldLayer
     {
         var bytes = Bytes<SignalRow>(Math.Max(Group, count));
         return (
-            Own(_vk.CreateBuffer(bytes, BufferUsageFlags.TransferSrcBit, HostAccess.Writes)),
-            Own(_vk.CreateBuffer(bytes, BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferDstBit, HostAccess.None)));
+            Own(_vk.CreateBuffer(bytes, BufferUse.TransferSrc, HostAccess.Writes)),
+            Own(_vk.CreateBuffer(bytes, BufferUse.Storage | BufferUse.TransferDst, HostAccess.None)));
     }
 
     GpuBuffer Mapped<T>(int count) where T : unmanaged =>
-        Own(_vk.CreateBuffer(Bytes<T>(Math.Max(1, count)), BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
+        Own(_vk.CreateBuffer(Bytes<T>(Math.Max(1, count)), BufferUse.Storage, HostAccess.Reads));
 
     GpuBuffer Device<T>(int count) where T : unmanaged => Own(
-        _vk.CreateBuffer(
-            Bytes<T>(count), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferSrcBit | BufferUsageFlags.TransferDstBit,
-            HostAccess.None));
+        _vk.CreateBuffer(Bytes<T>(count), BufferUse.Storage | BufferUse.TransferSrc | BufferUse.TransferDst, HostAccess.None));
 
     GpuBuffer Laid<T>(T[] rows) where T : unmanaged
     {
         var buffer = Own(_vk.CreateBuffer(
-            Bytes<T>(Math.Max(1, rows.Length)), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferDstBit,
-            HostAccess.None));
-        buffer.Upload<T>(rows.Length, into => rows.CopyTo(into), PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit);
+            Bytes<T>(Math.Max(1, rows.Length)), BufferUse.Storage | BufferUse.TransferDst, HostAccess.None));
+        buffer.Upload<T>(rows.Length, into => rows.CopyTo(into));
         return buffer;
     }
 
@@ -803,8 +812,8 @@ internal sealed class DeviceWorld : WorldLayer
 
     public override void Dispose()
     {
-        _vk.Api.DeviceWaitIdle(_vk.Device);
-        Sprites?.Dispose();
+        _vk.WaitIdle();
+        DisposeTheSprites();
         foreach (var kernel in _kernels) kernel.Dispose();
         _batch.Dispose();
         _atlas.Dispose();
@@ -813,4 +822,7 @@ internal sealed class DeviceWorld : WorldLayer
         _solver.Dispose();
         foreach (var buffer in _owned) buffer.Dispose();
     }
+
+    /// <summary>What draws off this world let go of, by the head that draws it (<c>DeviceWorld.Sprites.cs</c>).</summary>
+    partial void DisposeTheSprites();
 }

@@ -44,8 +44,9 @@ The town is split in two, and **each layer keeps its own state and is never sent
 - **Static things are never communicated.** Both layers lay them off the same map: the ground, the buildings,
   the ribbons and their atlas.
 
-The browser head, which has no compute, runs the same world layer in managed code behind the same signals and
-the same shallow state, so the actor layer cannot tell which world it is driving.
+The browser head runs the same world layer on its WebGPU device, from the same kernels translated to WGSL, and in
+managed code where the device cannot hold them — behind the same signals and the same shallow state either way, so
+the actor layer cannot tell which world it is driving.
 
 ## The quality bar
 

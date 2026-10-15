@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using Silk.NET.Vulkan;
 
 namespace TrafficSimulation.Runtime;
 
@@ -21,7 +20,7 @@ internal sealed class ScanKernels(Vk vk) : IDisposable
     /// <summary><c>scan.comp</c>'s push constants, field for field.</summary>
     [StructLayout(LayoutKind.Sequential)]
     internal readonly record struct ScanPush(
-        uint Count, uint SumAt, uint GroupsAt, uint Capacity, uint CountAt, uint CountShift, uint ArgsAt, uint Pad0 = 0);
+        uint Count, uint SumAt, uint GroupsAt, uint Capacity, uint CountAt, uint CountShift, uint ArgsAt, uint Aliases = 0);
 
     /// <summary><c>scan_add.comp</c>'s push constants.</summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -31,10 +30,21 @@ internal sealed class ScanKernels(Vk vk) : IDisposable
 
     public ComputeKernel Add { get; } = new(vk, "scan_add.comp", buffers: 3, pushBytes: 8, sets: 32);
 
+    /// <summary>
+    /// What the starts' binding holds where they are written over the counts, and the source's where the count is read
+    /// out of the sums: nothing the kernel touches (<c>scan.comp</c>'s aliases). Two, since one buffer is bound once.
+    /// </summary>
+    public GpuBuffer NoStarts { get; } = vk.CreateBuffer(sizeof(uint) * 4, BufferUse.Storage, HostAccess.None);
+
+    /// <inheritdoc cref="NoStarts"/>
+    public GpuBuffer NoSource { get; } = vk.CreateBuffer(sizeof(uint) * 4, BufferUse.Storage, HostAccess.None);
+
     public void Dispose()
     {
         Scan.Dispose();
         Add.Dispose();
+        NoStarts.Dispose();
+        NoSource.Dispose();
     }
 }
 
@@ -65,12 +75,21 @@ internal sealed class PrefixScan
     /// <summary>A scan whose count is the push constant's alone (<c>scan.comp</c>'s <c>NoCount</c>).</summary>
     const uint NoCount = uint.MaxValue;
 
+    /// <summary>
+    /// <b>Which bindings stand for another's buffer</b> (<c>scan.comp</c>'s <c>aliases</c>): the starts written over the
+    /// counts, and the count read out of the sums. A page refuses one buffer bound twice where either is written, so the
+    /// twin binds <see cref="ScanKernels.NoStarts"/> or <see cref="ScanKernels.NoSource"/> and the kernel goes to the other.
+    /// </summary>
+    const uint StartsAreCounts = 1u, SourceIsSums = 2u;
+
+    readonly uint _blocksAliases, _wholeAliases;
+
     readonly Vk _vk;
     readonly ScanKernels _kernels;
-    readonly DescriptorSet _blocksSet;
-    readonly DescriptorSet _totalSet;
-    readonly DescriptorSet _wholeSet;
-    readonly DescriptorSet _addSet;
+    readonly BoundSet _blocksSet;
+    readonly BoundSet _totalSet;
+    readonly BoundSet _wholeSet;
+    readonly BoundSet _addSet;
     readonly GpuBuffer _totals;
     readonly uint _totalAt;
     readonly uint _groupsAt;
@@ -108,28 +127,33 @@ internal sealed class PrefixScan
         _groupsAt = groupsAt;
         _capacity = capacity;
         _argsAt = argsAt;
-        _blocksSet = kernels.Scan.Bind([counts, starts, blockSums, totals]);
-        _totalSet = kernels.Scan.Bind([blockSums, blockSums, totals, totals]);
-        _wholeSet = kernels.Scan.Bind([counts, starts, totals, totals]);
+        var inPlace = counts == starts;
+        var startsBound = inPlace ? kernels.NoStarts : starts;
+        _blocksAliases = inPlace ? StartsAreCounts : 0u;
+        _wholeAliases = _blocksAliases | SourceIsSums;
+        _blocksSet = kernels.Scan.Bind([counts, startsBound, blockSums, totals]);
+        _totalSet = kernels.Scan.Bind([blockSums, kernels.NoStarts, totals, kernels.NoSource]);
+        _wholeSet = kernels.Scan.Bind([counts, startsBound, totals, kernels.NoSource]);
         _addSet = kernels.Add.Bind([starts, blockSums, totals]);
     }
 
     /// <summary>The scan of the first <paramref name="count"/> counts recorded, made visible to whatever reads it next.</summary>
-    public void Record(CommandBuffer commands, int count)
+    public void Record(Recording commands, int count)
     {
         if (count > ScanKernels.MostCounts) throw new ArgumentOutOfRangeException(nameof(count), count, "more counts than one scan covers");
 
         var blocks = (uint)Math.Max(1, (count + ScanKernels.Block - 1) / ScanKernels.Block);
         if (blocks == 1)
         {
-            _kernels.Scan.Dispatch(commands, _wholeSet, 1, Total((uint)count));
+            _kernels.Scan.Dispatch(commands, _wholeSet, 1, Total((uint)count) with { Aliases = _wholeAliases });
             _vk.BetweenKernels(commands);
             return;
         }
 
-        _kernels.Scan.Dispatch(commands, _blocksSet, blocks, new ScanKernels.ScanPush((uint)count, 0, NoGroups, 0, NoCount, 0, NoGroups));
+        _kernels.Scan.Dispatch(
+            commands, _blocksSet, blocks, new ScanKernels.ScanPush((uint)count, 0, NoGroups, 0, NoCount, 0, NoGroups, _blocksAliases));
         _vk.BetweenKernels(commands);
-        _kernels.Scan.Dispatch(commands, _totalSet, 1, Total(blocks));
+        _kernels.Scan.Dispatch(commands, _totalSet, 1, Total(blocks) with { Aliases = StartsAreCounts | SourceIsSums });
         _vk.BetweenKernels(commands);
         _kernels.Add.Dispatch(commands, _addSet, (uint)((count + 255) / 256), new ScanKernels.AddPush((uint)count, NoCount));
         _vk.BetweenKernels(commands);
@@ -140,15 +164,18 @@ internal sealed class PrefixScan
     /// <paramref name="most"/>, recorded off the dispatches an earlier scan wrote at <paramref name="argsAt"/> for the
     /// same figure — three dispatches whatever it comes to, and none of them over the counts past it.
     /// </summary>
-    public void RecordIndirect(CommandBuffer commands, uint countAt, uint argsAt, int most)
+    public void RecordIndirect(Recording commands, uint countAt, uint argsAt, int most)
     {
         if (most > ScanKernels.MostCounts) throw new ArgumentOutOfRangeException(nameof(most), most, "more counts than one scan covers");
 
         var bound = (uint)most;
         _kernels.Scan.DispatchIndirect(
-            commands, _blocksSet, _totals, argsAt * sizeof(uint), new ScanKernels.ScanPush(bound, 0, NoGroups, 0, countAt, 0, NoGroups));
+            commands, _blocksSet, _totals, argsAt * sizeof(uint),
+            new ScanKernels.ScanPush(bound, 0, NoGroups, 0, countAt, 0, NoGroups, _blocksAliases));
         _vk.BetweenKernels(commands);
-        _kernels.Scan.Dispatch(commands, _totalSet, 1, Total(bound) with { CountAt = countAt, CountShift = ScanKernels.BlockShift });
+        _kernels.Scan.Dispatch(
+            commands, _totalSet, 1,
+            Total(bound) with { CountAt = countAt, CountShift = ScanKernels.BlockShift, Aliases = StartsAreCounts | SourceIsSums });
         _vk.BetweenKernels(commands);
         _kernels.Add.DispatchIndirect(commands, _addSet, _totals, (argsAt + 3) * sizeof(uint), new ScanKernels.AddPush(bound, countAt));
         _vk.BetweenKernels(commands);

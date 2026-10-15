@@ -1,8 +1,10 @@
+using TrafficSimulation.App.DeviceTick;
 using TrafficSimulation.App.Drive;
 using TrafficSimulation.App.Render;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Runtime;
+using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.App.Main;
 
@@ -17,6 +19,34 @@ namespace TrafficSimulation.App.Main;
 /// </remarks>
 internal sealed partial class Game
 {
+    /// <summary>The page's device as the world's kernels see it, made the first time a town is handed to it.</summary>
+    Vk? _kernels;
+
+    /// <summary>
+    /// Every town this page stands has its world stepped on the device (<see cref="DeviceWorld"/>), as a desktop window's
+    /// is — unless <c>?managed-world</c> said otherwise, or the device cannot hold the kernels, when it is stepped here
+    /// (WEB-10).
+    /// </summary>
+    /// <remarks>
+    /// What moves is still drawn off the host's fill and the tyres' marks are not drawn: the emit's kernels bind more
+    /// storage buffers than a page is given, and nothing reads the marks' ring back.
+    /// </remarks>
+    public bool TicksOnTheDevice { get; init; }
+
+    partial void TickOnTheDevice(TownWorld? world)
+    {
+        if (world is null || !TicksOnTheDevice) return;
+
+        if (!WebGpu.KernelsFit())
+        {
+            Console.WriteLine("This device cannot hold the world's kernels: the world is stepped in managed code.");
+            return;
+        }
+
+        var kernels = _kernels ??= new Vk();
+        world.HandTheWorldTo(laying => new DeviceWorld(kernels, laying));
+    }
+
     private partial AppWindow Boot(
         int width, int height, bool validate, float uiScale, Pacing pacing, bool fullscreen, string? display) =>
         new AppWindow(uiScale);

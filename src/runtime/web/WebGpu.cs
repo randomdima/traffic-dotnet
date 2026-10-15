@@ -272,8 +272,86 @@ internal static partial class WebGpu
         return TexelsJs(path);
     }
 
+    /// <summary>Whether the device the page was given can run the world's kernels (<c>compute.js</c>'s <c>NEEDED</c>).</summary>
+    public static bool KernelsFit()
+    {
+        Count();
+        return KernelsFitJs();
+    }
+
+    /// <summary>
+    /// <b>A buffer a kernel may bind</b>, made once with what reads it and never between steps; where the host writes or
+    /// reads it, <paramref name="hostAddress"/> is the pinned memory of its own it does so in (<see cref="GpuBuffer"/>).
+    /// </summary>
+    public static void KernelBuffer(int id, int byteLength, int hostAddress)
+    {
+        Count();
+        KernelBufferJs(id, byteLength, hostAddress);
+    }
+
+    public static void KernelBufferGone(int id)
+    {
+        Count();
+        KernelBufferGoneJs(id);
+    }
+
+    /// <summary>Bytes laid into a kernel's buffer from <paramref name="offsetBytes"/> on, ahead of every step submitted after.</summary>
+    public static void KernelWrite(int id, int offsetBytes, Span<byte> data)
+    {
+        Count();
+        KernelWriteJs(id, offsetBytes, data);
+    }
+
+    /// <summary>One kernel's pipeline, off the WGSL the build wrote for it (<c>Kernels.Web.targets</c>).</summary>
+    public static void KernelPipeline(int id, string name, string wgsl, int pushBytes)
+    {
+        Count();
+        KernelPipelineJs(id, name, wgsl, pushBytes);
+    }
+
+    /// <summary>A kernel's buffers bound as one group, by their ids in binding order; made again in place under the same id.</summary>
+    public static void KernelBind(int id, int kernel, Span<int> buffers)
+    {
+        Count();
+        KernelBindJs(id, kernel, buffers);
+    }
+
+    /// <summary>
+    /// <b>A batch of kernels, recorded on this side and submitted in one call</b> (<see cref="ComputeBatch"/>): the
+    /// operations, the push constants they are run with, and where the page writes <paramref name="serial"/> once
+    /// everything the batch reads back has landed in the host's own memory.
+    /// </summary>
+    public static void KernelSubmit(Span<int> operations, Span<byte> push, int serial, int landedAddress)
+    {
+        Count();
+        KernelSubmitJs(operations, push, serial, landedAddress);
+    }
+
     [Conditional("DEBUG")]
     static void Count() => _crossings++;
+
+    [JSImport("town.kernelsFit", "town.js")]
+    private static partial bool KernelsFitJs();
+
+    [JSImport("town.kernelBuffer", "town.js")]
+    static partial void KernelBufferJs(int id, int byteLength, int hostAddress);
+
+    [JSImport("town.kernelBufferGone", "town.js")]
+    static partial void KernelBufferGoneJs(int id);
+
+    [JSImport("town.kernelWrite", "town.js")]
+    static partial void KernelWriteJs(int id, int offsetBytes, [JSMarshalAs<JSType.MemoryView>] Span<byte> data);
+
+    [JSImport("town.kernelPipeline", "town.js")]
+    static partial void KernelPipelineJs(int id, string name, string wgsl, int pushBytes);
+
+    [JSImport("town.kernelBind", "town.js")]
+    static partial void KernelBindJs(int id, int kernel, [JSMarshalAs<JSType.MemoryView>] Span<int> buffers);
+
+    [JSImport("town.kernelSubmit", "town.js")]
+    static partial void KernelSubmitJs(
+        [JSMarshalAs<JSType.MemoryView>] Span<int> operations, [JSMarshalAs<JSType.MemoryView>] Span<byte> push, int serial,
+        int landedAddress);
 
     [JSImport("town.start", "town.js")]
     private static partial Task<string> StartJs(string wgsl);

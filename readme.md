@@ -33,7 +33,8 @@ them describes how a class works — that is the XML docs on the class.
 
 Needs the .NET 10 SDK, a Vulkan 1.3 driver, and `glslc` (shaderc) on `PATH` — the project file compiles
 `src/runtime/shaders/*` and every slice's `kernels/*.comp` to SPIR-V and embeds them, so a missing `glslc` fails
-the build rather than the run.
+the build rather than the run. The browser head (`traffic-dotnet.web.csproj`) also wants `naga` (`cargo install
+naga-cli`), which takes the same kernels on from SPIR-V to WGSL.
 
 ```
 dotnet build

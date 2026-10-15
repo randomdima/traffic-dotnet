@@ -18,6 +18,7 @@
 // reason: a town that gains five hundred walkers must change a number and not a recording.
 
 import * as opening from './loading.js'
+import { compute, kernelLimits, useDevice } from './compute.js'
 
 const SLOT = { ground: 0, indices: 1, sprites: 2, overlay: 3, underlay: 4, camera: 5, table: 6, standing: 7 };
 const TEXTURE = { pages: 0, glyphs: 1, surfaces: 2 };
@@ -108,7 +109,9 @@ async function start(wgsl) {
     state.firstInstance = found.features.has('indirect-first-instance');
     state.device = await found.requestDevice({
         requiredFeatures: state.firstInstance ? ['indirect-first-instance'] : [],
+        requiredLimits: kernelLimits(found),
     });
+    useDevice(state.device);
     state.device.addEventListener('uncapturederror', e => console.error('WebGPU:', e.error.message));
     state.device.lost.then(info => console.error('WebGPU device lost:', info.message));
 
@@ -773,7 +776,10 @@ function texels(path) {
     return parked.byteLength;
 }
 
+export { useHeap } from './compute.js'
+
 export const town = {
+    ...compute,
     start, reserve, buffer, texture, rebuild, release, frame, pump, fullscreen, shut, say,
     progress: opening.progress, prefetch, unpack, grab, park, take, picture, decode, texels,
     ticker: step => {

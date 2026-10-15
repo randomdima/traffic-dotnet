@@ -66,9 +66,10 @@
          BotEye and DriveRun draw through the shot's stage, which is the desktop's offscreen target;
          src/app/drive/web/BotEye.Web.cs is the eye a page names and never opens.
 
-         The tick on the device is Vulkan's compute: the runtime's kernels and the tables they keep,
-         app/devicetick, the probes that run it, and the command line's catalogue of checks that names
-         them — which only the desktop's entry reads. -->
+         The world on the device is one source for both heads: the runtime's kernels, batches and buffers have
+         halves under src/runtime/web/, and what is left out is the desktop's own — its recording types and its
+         timer, the emit that draws what moves (DeviceSprites, which binds more storage buffers than a page is
+         given), the probes that run the device, and the command line's catalogue of checks that names them. -->
 
     <DesktopOnly>
       src/runtime/Vk.cs;
@@ -93,10 +94,10 @@
       src/app/drive/DriveRun.cs;
       src/runtime/ComputeBatch.cs;
       src/runtime/ComputeKernel.cs;
+      src/runtime/Recording.cs;
       src/runtime/GpuTimer.cs;
-      src/runtime/PrefixScan.cs;
-      src/runtime/ResidentRows.cs;
-      src/app/devicetick/**;
+      src/app/devicetick/DeviceSprites.cs;
+      src/app/devicetick/DeviceWorld.Sprites.cs;
       src/bench/Device*Probe.cs;
       src/bench/CheckCatalogue.cs
     </DesktopOnly>
@@ -253,6 +254,7 @@
 
   <!-- The other half of the Sdk= attribute this file does without. It stays last, so the SDK's own
        targets are still imported after the body — which is what NameTheArtPack relies on. -->
+  <Import Project="src/runtime/web/Kernels.Web.targets" />
   <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk.WebAssembly" />
 
 </Project>

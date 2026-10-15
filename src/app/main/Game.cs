@@ -821,8 +821,10 @@ internal sealed partial class Game : IDisposable
 
             // A tick at a time, because what the watches count is a tick's own: a peak speed, a lift onto
             // the brakes and a body a tick deeper into another all happen inside one decision interval,
-            // and a frame is several ticks.
-            for (var tick = 0; tick < due; tick++)
+            // and a frame is several ticks. **A page's device answers between frames**, so a tick that would
+            // read a step it has not answered yet is dropped as a slow frame's are (WorldLayer.Ready).
+            var ran = 0;
+            for (; ran < due && _loop.World.World.Ready; ran++)
             {
                 // DRV-7: the drive is followed inside the tick loop and not once a frame, so a step that
                 // asks for a second of the town gets a second of it however many ticks this frame runs.
@@ -844,7 +846,7 @@ internal sealed partial class Game : IDisposable
                 foreach (var watch in _scenario) watch.Saw(_loop.World);
             }
 
-            parts.SimTicks = due;
+            parts.SimTicks = ran;
         }
 
         // Marked whether or not a town is standing, so the menu's own frames leave the cursor where

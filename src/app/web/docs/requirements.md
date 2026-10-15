@@ -18,6 +18,7 @@ The halves, and nothing else, are:
 | The desktop's | The browser's |
 |---|---|
 | [`Vk`](../../../runtime/Vk.cs), [`Swapchain`](../../../runtime/Swapchain.cs), [`GpuBuffer`](../../../runtime/GpuBuffer.cs), [`GpuTexture`](../../../runtime/GpuTexture.cs) | [`WebGpu`](../../../runtime/web/WebGpu.cs) and [`town.js`](../wwwroot/town.js) |
+| The world's kernels: [`Vk`](../../../runtime/Vk.cs)'s compute, [`GpuBuffer`](../../../runtime/GpuBuffer.cs), [`ComputeKernel`](../../../runtime/ComputeKernel.cs), [`ComputeBatch`](../../../runtime/ComputeBatch.cs), [`Recording`](../../../runtime/Recording.cs), and the SPIR-V [`Shaders.targets`](../../../runtime/shaders/Shaders.targets) compiles | [`Vk.Web.cs`](../../../runtime/web/Vk.Web.cs), [`GpuBuffer.Web.cs`](../../../runtime/web/GpuBuffer.Web.cs), [`ComputeKernel.Web.cs`](../../../runtime/web/ComputeKernel.Web.cs), [`ComputeBatch.Web.cs`](../../../runtime/web/ComputeBatch.Web.cs), [`Recording.Web.cs`](../../../runtime/web/Recording.Web.cs), [`compute.js`](../wwwroot/compute.js), and the WGSL [`Kernels.Web.targets`](../../../runtime/web/Kernels.Web.targets) translates from the same GLSL |
 | [`AppWindow`](../../../runtime/AppWindow.cs) | [`AppWindow.Web.cs`](../../../runtime/web/AppWindow.Web.cs) |
 | [`TownRenderer`](../../render/TownRenderer.cs) | [`TownRenderer.Web.cs`](../../render/web/TownRenderer.Web.cs) |
 | [`Texels`](../../render/Texels.cs) | [`Texels.Web.cs`](../../render/web/Texels.Web.cs) |
@@ -29,10 +30,14 @@ the page's copy back over it. [`AppWindow.IsClosing`](../../../runtime/web/AppWi
 such thing, a latch beside the arrays rather than a slot in them.
 
 **WEB-2** `P2` **The crossing budget holds, in the browser's own terms.** A standing town crosses the wall
-between managed code and the page **three times a frame** and never a fourth: the animation callback
-coming in, the input going out, and the frame. Everything inside a frame — the render pass, the
-bundle, the queue, the submit — is on the far side of one call, and none of the three takes the size of
-the town as an argument. This is rule 1 of [goals.md](../../../../docs/goals.md).
+between managed code and the page **three times a frame, and once more a tick its world steps on the device**:
+the animation callback coming in, the input going out, the frame, and the world's step. Everything inside a
+frame — the render pass, the bundle, the queue, the submit — is on the far side of one call, and so is everything
+inside a step — its dispatches, copies and fills, written as words on this side ([`ComputeBatch`](../../../runtime/web/ComputeBatch.Web.cs))
+— and none of them takes the size of the town as an argument. **What a step hands back crosses no call**: the
+page writes it, and the step's serial after it, into this side's own pinned memory between frames, and a tick asks
+that memory whether it has landed ([`WorldLayer.Ready`](../../../world/town/WorldLayer.cs)). This is rule 1 of
+[goals.md](../../../../docs/goals.md).
 [`WebGpu.Crossings`](../../../runtime/web/WebGpu.cs) counts the calls going out, and not the callback
 coming in; the figure a frame prints is taken round the frame call alone (`Game.Draw`), so it reads one.
 
@@ -200,3 +205,10 @@ WebAssembly, WebAssembly SIMD, the WebGPU API, and an adapter it will actually h
 imports the runtime, and tells a reader on a browser that cannot run this which browsers can. **The
 refusal inside the run stays**: `WebGpu.Start` can still fail on a device that was there a moment ago —
 one question is about the browser and the other about the device it gave out.
+
+**WEB-10** `P4` **A page steps its world on its device where the device can hold the kernels, and in managed code
+where it cannot.** The kernels want sixteen storage buffers a stage and a workgroup of 1 024 threads
+([`compute.js`](../wwwroot/compute.js)'s `NEEDED`), which a desktop's browser gives and a handset's often does not;
+a device short of either steps the managed world and says so, and `?managed-world` asks for it by name. **And a page
+never waits on its device**: a tick whose step has not been answered is not taken that frame, as a slow frame's
+ticks are not ([`Game`](../../main/Game.cs)), so a device that answers late slows the town and stalls nothing.

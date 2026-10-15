@@ -240,6 +240,10 @@ internal sealed unsafe partial class Vk : IDisposable
         CreateBuffer(sizeBytes, usage, hostVisible ? HostAccess.Writes : HostAccess.None);
 
     /// <inheritdoc cref="CreateBuffer(ulong, BufferUsageFlags, bool)"/>
+    public GpuBuffer CreateBuffer(ulong sizeBytes, BufferUse usage, HostAccess host) =>
+        CreateBuffer(sizeBytes, (BufferUsageFlags)usage, host);
+
+    /// <inheritdoc cref="CreateBuffer(ulong, BufferUsageFlags, bool)"/>
     public GpuBuffer CreateBuffer(ulong sizeBytes, BufferUsageFlags usage, HostAccess host)
     {
         var (buffer, memory, mapped) = AllocateBuffer(sizeBytes, usage, host);
@@ -402,6 +406,18 @@ internal sealed unsafe partial class Vk : IDisposable
 
         Count();
         fixed (BufferCopy* first = runs) _api.CmdCopyBuffer(commands, from.Handle, to.Handle, (uint)runs.Length, first);
+    }
+
+    /// <inheritdoc cref="Copy(CommandBuffer, GpuBuffer, GpuBuffer, ReadOnlySpan{BufferCopy})"/>
+    /// <remarks>A <see cref="CopyRun"/> is a <see cref="BufferCopy"/> field for field.</remarks>
+    public void Copy(CommandBuffer commands, GpuBuffer from, GpuBuffer to, ReadOnlySpan<CopyRun> runs) =>
+        Copy(commands, from, to, MemoryMarshal.Cast<CopyRun, BufferCopy>(runs));
+
+    /// <summary>Everything submitted, finished: what a device's tables are let go of after.</summary>
+    public void WaitIdle()
+    {
+        Count();
+        _api.DeviceWaitIdle(_device);
     }
 
     /// <summary>A whole buffer filled with one 32-bit word, recorded.</summary>

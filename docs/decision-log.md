@@ -4,6 +4,14 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-15 — a page steps its world on its device too
+
+**The owner (2026-10-15), in their words: "lets make it work in web"**, and of the doubles the kernels computed in:
+**"Try f32 everywhere. We want builds to ne the same in the end. Keep track on sideeffects."** The kernels are one GLSL
+source for Vulkan and, translated by naga, for WebGPU; they compute in floats alone (the core log), and the world's
+trigonometry is `Trig` on both sides. How the page does it is the web log; what it cost is
+[tech-debt.md](tech-debt.md).
+
 ## 2026-10-15 — a window steps its world on the device by default
 
 **The owner (2026-10-15), in their words: "Make hybrid gpu default mode."** A windowed desktop run hands its town's

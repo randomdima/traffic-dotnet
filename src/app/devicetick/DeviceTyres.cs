@@ -1,11 +1,9 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
-using Silk.NET.Vulkan;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Terrain;
-using Vk = TrafficSimulation.Runtime.Vk;
 using static TrafficSimulation.Runtime.GpuBuffer;
 
 namespace TrafficSimulation.App.DeviceTick;
@@ -109,7 +107,7 @@ internal sealed class DeviceTyres : IDisposable
     readonly Figures _figures;
     readonly List<GpuBuffer> _owned = [];
     readonly ComputeKernel _kernel;
-    readonly DescriptorSet _set;
+    readonly BoundSet _set;
     readonly ComputeBatch _batch;
     readonly ResidentRows<uint> _buildOf;
     readonly ResidentRows<PoseRow> _poses;
@@ -158,19 +156,14 @@ internal sealed class DeviceTyres : IDisposable
         _impulses = new ResidentRows<Vector4>(vk, capacity, WheelsACar, readsBack: handsBack);
         _scrubs = new ResidentRows<ScrubRow>(vk, capacity, WheelsACar, readsBack: handsBack);
         _markCount = Device<uint>(1);
-        _marks = Own(_vk.CreateBuffer(Bytes<MarkRow>(handsBack ? wheels : 1), BufferUsageFlags.StorageBufferBit, HostAccess.Reads));
+        _marks = Own(_vk.CreateBuffer(Bytes<MarkRow>(handsBack ? wheels : 1), BufferUse.Storage, HostAccess.Reads));
         _markCountOut = Readback<uint>(1);
 
         var drawnCapacity = Math.Max(1, config.Marks.Capacity);
-        GroundMarks = Own(_vk.CreateBuffer(
-            Bytes<DriftMarkRow>(drawnCapacity), BufferUsageFlags.StorageBufferBit, HostAccess.None));
+        GroundMarks = Own(_vk.CreateBuffer(Bytes<DriftMarkRow>(drawnCapacity), BufferUse.Storage, HostAccess.None));
         GroundMarkRing = Own(_vk.CreateBuffer(
-            Bytes<DriftMarkRing>(1), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.IndirectBufferBit | BufferUsageFlags.TransferDstBit,
-            HostAccess.None));
-        GroundMarkRing.Upload<DriftMarkRing>(
-            1, into => into[0] = DriftMarkRing.After(0, drawnCapacity),
-            PipelineStageFlags2.ComputeShaderBit | PipelineStageFlags2.DrawIndirectBit,
-            AccessFlags2.ShaderStorageReadBit | AccessFlags2.IndirectCommandReadBit);
+            Bytes<DriftMarkRing>(1), BufferUse.Storage | BufferUse.Indirect | BufferUse.TransferDst, HostAccess.None));
+        GroundMarkRing.Upload<DriftMarkRing>(1, into => into[0] = DriftMarkRing.After(0, drawnCapacity));
 
         Table = (buildBuffer, _buildOf, _poses, _commands, _carRows, _wheels);
         GpuBuffer[] bound =
@@ -210,13 +203,9 @@ internal sealed class DeviceTyres : IDisposable
         var buildRows = new CarBuildRow[builds.Length];
         for (var build = 0; build < buildRows.Length; build++) buildRows[build] = CarBuildRow.Of(builds[build]);
 
-        Table.Builds.Upload<CarBuildRow>(
-            buildRows.Length, into => buildRows.CopyTo(into), PipelineStageFlags2.ComputeShaderBit,
-            AccessFlags2.ShaderStorageReadBit);
+        Table.Builds.Upload<CarBuildRow>(buildRows.Length, into => buildRows.CopyTo(into));
         SurfaceRow[] surfaces = [SurfaceRow.Of(grounds.OffAWay), SurfaceRow.Of(grounds.OnAWay)];
-        WheelGrounds.Upload<SurfaceRow>(
-            surfaces.Length, into => surfaces.CopyTo(into), PipelineStageFlags2.ComputeShaderBit,
-            AccessFlags2.ShaderStorageReadBit);
+        WheelGrounds.Upload<SurfaceRow>(surfaces.Length, into => surfaces.CopyTo(into));
     }
 
     /// <summary>
@@ -228,7 +217,7 @@ internal sealed class DeviceTyres : IDisposable
         ResidentRows<CarRow> Cars, ResidentRows<WheelRow> Wheels) Table { get; }
 
     /// <summary>How many marks the last pass laid, copied back where <see cref="MarkCount"/> reads it, recorded; the caller barriers before it.</summary>
-    void RecordReadTheMarkCount(CommandBuffer commands) => _vk.Copy(commands, _markCount, _markCountOut, sizeof(uint));
+    void RecordReadTheMarkCount(Recording commands) => _vk.Copy(commands, _markCount, _markCountOut, sizeof(uint));
 
     /// <summary>
     /// Each wheel's impulse and where it is spent, as the pass leaves it on the device — four a car in the tyre model's
@@ -291,7 +280,7 @@ internal sealed class DeviceTyres : IDisposable
     }
 
     /// <summary>The rows written for the first <paramref name="cars"/> cars taken in and the ring emptied, recorded; the caller barriers after.</summary>
-    void Send(CommandBuffer commands, int cars)
+    void Send(Recording commands, int cars)
     {
         if (cars > Capacity) throw new ArgumentOutOfRangeException(nameof(cars), $"The pass holds {Capacity} cars, not {cars}.");
 
@@ -304,7 +293,7 @@ internal sealed class DeviceTyres : IDisposable
     }
 
     /// <summary>Only the rows marked in <see cref="Table"/> taken in and the ring emptied, recorded; the caller barriers after.</summary>
-    public void SendMarked(CommandBuffer commands)
+    public void SendMarked(Recording commands)
     {
         _buildOf.Send(commands);
         _poses.Send(commands);
@@ -315,7 +304,7 @@ internal sealed class DeviceTyres : IDisposable
     }
 
     /// <summary>The pass over the first <paramref name="cars"/> cars of the table, recorded; the caller barriers after.</summary>
-    public void Run(CommandBuffer commands, int cars)
+    public void Run(Recording commands, int cars)
     {
         _cars = cars;
         var push = new PassPush { CarCount = (uint)cars, HandsBack = _handsBack ? 1u : 0u, Figures = _figures };
@@ -323,7 +312,7 @@ internal sealed class DeviceTyres : IDisposable
     }
 
     /// <summary>What the last <see cref="Run"/> wrote, recorded to be handed back where <see cref="CarsAfter"/> and the rest read it.</summary>
-    void Read(CommandBuffer commands)
+    void Read(Recording commands)
     {
         _carRows.Read(commands, _cars);
         _wheels.Read(commands, _cars);
@@ -334,18 +323,17 @@ internal sealed class DeviceTyres : IDisposable
 
     GpuBuffer Device<T>(int count) where T : unmanaged => Own(
         _vk.CreateBuffer(
-            Bytes<T>(count), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferSrcBit | BufferUsageFlags.TransferDstBit,
-            HostAccess.None));
+            Bytes<T>(count), BufferUse.Storage | BufferUse.TransferSrc | BufferUse.TransferDst, HostAccess.None));
 
     GpuBuffer Readback<T>(int count) where T : unmanaged =>
-        Own(_vk.CreateBuffer(Bytes<T>(count), BufferUsageFlags.TransferDstBit, HostAccess.Reads));
+        Own(_vk.CreateBuffer(Bytes<T>(count), BufferUse.TransferDst, HostAccess.Reads));
 
     /// <summary>A device-local buffer holding these rows, sent once.</summary>
     GpuBuffer Laid<T>(T[] rows) where T : unmanaged
     {
         var buffer = Own(_vk.CreateBuffer(
-            Bytes<T>(rows.Length), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferDstBit, HostAccess.None));
-        buffer.Upload<T>(rows.Length, into => rows.CopyTo(into), PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit);
+            Bytes<T>(rows.Length), BufferUse.Storage | BufferUse.TransferDst, HostAccess.None));
+        buffer.Upload<T>(rows.Length, into => rows.CopyTo(into));
         return buffer;
     }
 

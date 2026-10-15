@@ -24,23 +24,36 @@ layout(push_constant) uniform Scan
     uint countAt;
     uint countShift;
     uint argsAt;
-    uint pad0;
+    uint aliases;
 };
 
 // PrefixScan.NoGroups, and a count given by the push constant alone.
 const uint NoGroups = 0xFFFFFFFFu;
 const uint NoCount = 0xFFFFFFFFu;
 
-// The two may be one buffer: every thread reads its own two counts before the first barrier and writes their starts
-// after the last.
-layout(std430, binding = 0) readonly buffer Counts { uint counts[]; };
+// Which bindings stand for another's buffer (PrefixScan.StartsAreCounts, SourceIsSums): a page refuses one buffer bound
+// twice where either is written, so the twin's binding holds nothing and the kernel goes to the other.
+const uint StartsAreCounts = 1u;
+const uint SourceIsSums = 2u;
+
+// The starts may be written over the counts: every thread reads its own two counts before the first barrier and writes
+// their starts after the last.
+layout(std430, binding = 0) buffer Counts { uint counts[]; };
 layout(std430, binding = 1) writeonly buffer Starts { uint starts[]; };
 layout(std430, binding = 2) buffer Sums { uint sums[]; };
 
-// Where a scan sized on the device reads its count. May be the sums' own buffer, read at a slot no pass of this scan writes.
+// Where a scan sized on the device reads its count. May be the sums, read at a slot no pass of this scan writes.
 layout(std430, binding = 3) readonly buffer Source { uint source[]; };
 
 shared uint running[2048];
+
+uint sourceAt(uint at) { return (aliases & SourceIsSums) != 0u ? sums[at] : source[at]; }
+
+void writeStart(uint at, uint start)
+{
+    if ((aliases & StartsAreCounts) != 0u) counts[at] = start;
+    else starts[at] = start;
+}
 
 void writeDispatch(uint at, uint groups)
 {
@@ -51,7 +64,7 @@ void writeDispatch(uint at, uint groups)
 
 void main()
 {
-    uint n = countAt == NoCount ? count : (min(source[countAt], count) + (1u << countShift) - 1u) >> countShift;
+    uint n = countAt == NoCount ? count : (min(sourceAt(countAt), count) + (1u << countShift) - 1u) >> countShift;
     uint thread = gl_LocalInvocationID.x;
     uint first = gl_WorkGroupID.x * 2048 + 2 * thread;
     running[2 * thread] = first < n ? counts[first] : 0;
@@ -101,6 +114,6 @@ void main()
     }
 
     barrier();
-    if (first < n) starts[first] = running[2 * thread];
-    if (first + 1 < n) starts[first + 1] = running[2 * thread + 1];
+    if (first < n) writeStart(first, running[2 * thread]);
+    if (first + 1 < n) writeStart(first + 1, running[2 * thread + 1]);
 }

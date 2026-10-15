@@ -133,6 +133,18 @@ internal sealed unsafe class ComputeKernel : IDisposable
     {
         if (buffers.Length != Buffers) throw new ArgumentException($"The kernel binds {Buffers} buffers, not {buffers.Length}.");
 
+        // WebGPU refuses a dispatch that writes a buffer bound twice, and the kernels are one source for both heads.
+        for (var binding = 1; binding < buffers.Length; binding++)
+        {
+            for (var earlier = 0; earlier < binding; earlier++)
+            {
+                if (buffers[binding] == buffers[earlier])
+                {
+                    throw new ArgumentException($"Bindings {earlier} and {binding} are one buffer: a page refuses a buffer bound twice.");
+                }
+            }
+        }
+
         var api = _vk.Api;
         var set = into;
         if (set.Handle == 0)

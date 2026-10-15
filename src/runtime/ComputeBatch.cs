@@ -73,6 +73,15 @@ internal sealed unsafe class ComputeBatch : IDisposable
     /// </summary>
     public bool InFlight { get; private set; }
 
+    /// <summary>Whether <see cref="Wait"/> holds the host until the submit is done: on the desktop it does.</summary>
+    public bool Waits => true;
+
+    /// <summary>
+    /// Whether what the last submit writes is the host's to read once <see cref="Wait"/> returns: always, on a head that
+    /// waits. A page's is only once it has landed (<c>ComputeBatch.Web.cs</c>).
+    /// </summary>
+    public bool Readable => true;
+
     /// <summary>What was recorded, submitted and left running: the host goes on and waits for it later (<see cref="Wait"/>).</summary>
     public void Submit()
     {
