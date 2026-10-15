@@ -166,8 +166,6 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
     /// <param name="scan">This caller's own working set over the stretches (<see cref="NewScan"/>), for an ask off its own thread.</param>
     public int NearestEdge(ChainIndex.Scan scan, Vector2 pointM, out float alongM) => _nearest.Nearest(scan, pointM, out alongM);
 
-    /// <summary>A working set over the stretches, for a caller that means to ask <see cref="NearestEdge(ChainIndex.Scan, Vector2, out float)"/> off its own thread.</summary>
-    public ChainIndex.Scan NewScan() => _nearest.NewScan();
 
     /// <summary>
     /// <b>Every lane passing within <paramref name="radiusM"/> of a place</b>, and how far along each of them
@@ -183,7 +181,11 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
     public int EdgesNear(ChainIndex.Scan scan, Vector2 pointM, float radiusM, Span<int> into, Span<float> alongM) =>
         _nearest.Near(scan, pointM, radiusM, into, alongM);
 
-    /// <summary>A scan of the index the stretches are found by, for a caller that means to query it off its own thread.</summary>
+    /// <summary>
+    /// A scan of the index the stretches are found by, for a caller that means to ask
+    /// <see cref="NearestEdge(ChainIndex.Scan, Vector2, out float)"/> or
+    /// <see cref="EdgesNear(ChainIndex.Scan, Vector2, float, Span{int}, Span{float})"/> off its own thread.
+    /// </summary>
     public ChainIndex.Scan NewScan() => _nearest.NewScan();
 
     /// <summary>
