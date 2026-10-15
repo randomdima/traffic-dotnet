@@ -36,6 +36,8 @@ atlas and marks digests are unchanged — and what was not is [tech-debt.md](tec
 
 **Asked for by the owner (2026-10-15).** Every head, the suite and the two workshop tools target `net11.0`
 (`net11.0-android` for the handset), built by SDK 11.0.100-rc.2; TEC-1 says so. Nothing in the engine changed for it.
+**The owner (2026-10-16): the page builds on the newest .NET 11, and .NET 10 is no longer built for** — CI installs the
+newest 11.0 published and `global.json` rolls forward to it.
 On O30 the tick and the open are a few percent cheaper and nothing else moved past the noise between runs:
 
 | O30, 16 cores, RX 9070 XT | .NET 10.0.13 | .NET 11.0 rc.2 |

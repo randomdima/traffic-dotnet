@@ -478,9 +478,10 @@ a layout or changes behaviour.
   project's art and the frames its own runs wrote; moving to 4.x with a key, or to another decoder, closes it.
 - **An authored town is laid off the runtime's `DegreesToRadians`** _owner_ (2026-10-15, root log): .NET 11 rounds
   `float.DegreesToRadians` and `double.DegreesToRadians` differently from .NET 10, and through
-  `ConnectionPoints.BoundRad` alone that moved O30's plan, atlas and marks digests (391 more static bodies). Written as
-  .NET 10's `(deg * π) / 180`, 11 lays O30 to the bit as 10 did. Whether a town may move with the runtime it runs on, or
-  the conversion is the engine's own (as the trigonometry became `Trig`), is the owner's; the traced import
+  `ConnectionPoints.BoundRad` alone that moved O30's plan, atlas and marks digests once (391 more static bodies). .NET 10
+  is no longer built for (the owner, 2026-10-16), so that move stands; what is open is the next runtime that rounds it
+  otherwise. Whether a town may move with the runtime it runs on, or the conversion is the engine's own (as the
+  trigonometry became `Trig`), is the owner's; the traced import
   (`TransverseMercator`, `TracedStreets.Evened`) reads the same two.
 - **`TER-5j` was retired and its number given to another rule** _owner_ (road log, 2026-09-14), against "a retired
   number is never reused". The log no longer cites the old one; renumbering the new one is the owner's.
