@@ -13,9 +13,9 @@ namespace TrafficSimulation.App.DeviceTick;
 /// rebuild asks of every car's wheels and every walker's disc (TER-4c.2). Laid at load and never written again.
 /// </summary>
 /// <remarks>
-/// <b>It needs doubles on the device</b> (<see cref="Vk.HasFloat64"/>): a box's edge and a disc's are a quotient and a
-/// root the device is allowed to round its own way, and which lattice point an edge reaches is decided on their last bit,
-/// so both are put right in doubles (<c>core/geometry/kernels/rounded.glsl</c>).
+/// A box's edge and a disc's are a quotient and a root the device is allowed to round its own way, and which lattice
+/// point an edge reaches is decided on their last bit, so both are put right to the nearest float
+/// (<c>core/geometry/kernels/rounded.glsl</c>).
 /// </remarks>
 internal sealed class DeviceAtlas : IDisposable
 {
@@ -81,8 +81,6 @@ internal sealed class DeviceAtlas : IDisposable
 
     public DeviceAtlas(Vk vk, AtlasTable table)
     {
-        if (!vk.HasFloat64) throw new NotSupportedException($"{vk.DeviceName} has no doubles in its kernels, and a body's edges are put right in them.");
-
         _vk = vk;
         Tables =
         [

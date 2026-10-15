@@ -70,9 +70,6 @@ internal sealed unsafe partial class Vk : IDisposable
 
     public uint DeviceApiVersion { get; }
 
-    /// <summary>Whether a kernel may compute in doubles on this device — which the ground's kernels need.</summary>
-    public bool HasFloat64 { get; private set; }
-
     /// <summary>What one tick of the device's timestamp counter is, in nanoseconds.</summary>
     public float TimestampPeriodNs
     {
@@ -611,19 +608,14 @@ internal sealed unsafe partial class Vk : IDisposable
         };
 
         // An indirect draw that starts part way into its buffer: the stretch of a town's buildings and props a
-        // frame can see is a first instance the CPU writes, and the recording never changes. And doubles in a
-        // kernel where the device has them: the ground is answered in them (RingSides), as on the host.
+        // frame can see is a first instance the CPU writes, and the recording never changes. No kernel asks for doubles:
+        // WebGPU has none, and the kernels are one source for both (core/geometry/kernels/rounded.glsl).
         Count();
-        _api.GetPhysicalDeviceFeatures(Physical, out var offered);
-        HasFloat64 = offered.ShaderFloat64;
         var features = new PhysicalDeviceFeatures2
         {
             SType = StructureType.PhysicalDeviceFeatures2,
             PNext = &twelve,
-            Features = new PhysicalDeviceFeatures
-            {
-                DrawIndirectFirstInstance = true, ShaderFloat64 = offered.ShaderFloat64,
-            },
+            Features = new PhysicalDeviceFeatures { DrawIndirectFirstInstance = true },
         };
 
         var extensionsPtr = withSwapchain ? SilkMarshal.StringArrayToPtr(new[] { KhrSwapchain.ExtensionName }) : 0;

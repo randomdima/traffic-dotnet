@@ -27,11 +27,16 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **Sixteen town tests are skipped** for the decisions no claim can make any more: all fourteen of
   `OvertakeInATownTests` (CAR-46, CAR-50, PER-28) and two of `LaneSwitchInATownTests` (getting past a wreck and slower
   traffic, CAR-53). They come back with the entry below.
-- **`TrigKernelTests.EveryAnglesSineAndCosineIsTheHostsToTheBit` fails on the RX 9070 XT** (RADV, the device tier pointed
-  at it by hand, 2026-10-12; it passes on lavapipe, where the suite runs it): 6 of 2 098 667 angles differ by one float in
-  the component next to nought — ±58.119465, ±64.40265, ±116.23893, the device 1.5657128E-06 where the host has
-  1.5657129E-06. Every kernel that turns a heading on such a driver is a float off the host there. Finding which step of
-  `trig.glsl` rounds otherwise on RADV closes it.
+- **Two town rules broke when the world's trigonometry became `Trig`** (2026-10-15, core log; both pass on 5a973d8):
+  `Heading.Unit` lays the town as well as turning it, so the suite's town stands a float off where it stood, and each
+  rule was kept by less than that:
+  - `BuildingsTests.NoBuildingFrontsTheRoundingOfACarPark` (GEN-55): building 28 stands 1.3 m off the middle of a rank
+    reaching 9.0 m with 7.8 m of frontage either side — 0.1 m onto the rounding;
+  - `WalkingTests.TheWalkDrawnForAWalkerSetsOffTheWayTheBodyIsWalking` (CTL-1a): walker 47's walk sets off 9 cm behind
+    the body.
+  Each traced to the margin the generator or the re-plan keeps (or does not) closes it; neither is the trigonometry's.
+- **The kernels have not been held to `Trig` on a GPU** (2026-10-15): `TrigKernelTests` and `RoundedKernelTests` pass
+  on lavapipe, which the suite runs. The device tier pointed at the RX 9070 XT by hand closes it.
 - **Allocation tests fail now and then in a full run and pass alone**:
   - `InspectorTests.AnInspectedFrameAllocatesNothing` and `UnitPanelTests.DrawingThePanelAllocatesNothing` (unit), at
     3–8 KB. Both read the whole process's counter while the tier runs classes side by side.

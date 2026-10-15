@@ -7,17 +7,17 @@ namespace TrafficSimulation.Core.Geometry;
 /// heading becomes a direction</b>, so that the pair costs one argument reduction rather than two.
 /// </summary>
 /// <remarks>
-/// <c>MathF.Cos(x)</c> and <c>MathF.Sin(x)</c> are two calls into libm that reduce the same argument
-/// twice; <c>MathF.SinCos</c> is one that reduces it once, and measures a third cheaper for the pair.
-/// The tick asks for a direction thousands of times — every arc sampled, every wheel steered, every
-/// pose read off a body — so the saving is the tick's rather than a micro-optimisation's.
+/// A sine and a cosine asked apart reduce the same argument twice; <see cref="Trig.SinCos"/> reduces it once. The tick
+/// asks for a direction thousands of times — every arc sampled, every wheel steered, every pose read off a body — so
+/// the saving is the tick's rather than a micro-optimisation's. <see cref="Trig"/> and not <c>MathF</c>, since the
+/// kernels' <c>trigUnit</c> is the same arithmetic.
 /// </remarks>
 internal static class Heading
 {
     /// <summary>The unit vector a heading points along.</summary>
     public static Vector2 Unit(float headingRad)
     {
-        var (sin, cos) = MathF.SinCos(headingRad);
+        var (sin, cos) = Trig.SinCos(headingRad);
         return new Vector2(cos, sin);
     }
 

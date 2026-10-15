@@ -428,7 +428,7 @@ internal static class CarFollower
     /// (CAR-11).
     /// </summary>
     static float SteerFor(in CarBuild car, float curvature) =>
-        Math.Clamp(MathF.Atan(curvature * car.WheelbaseM), -car.MaxSteerRad, car.MaxSteerRad);
+        Math.Clamp(Trig.Atan(curvature * car.WheelbaseM), -car.MaxSteerRad, car.MaxSteerRad);
 
     /// <summary>
     /// <b>How far in front of itself the profile plans</b>: the staleness of what the driver reads (<see cref="SimConfig.CarReactionS"/>), and

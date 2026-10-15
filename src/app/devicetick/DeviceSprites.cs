@@ -202,8 +202,6 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         Vk vk, SimConfig config, TownSprites looks, SpriteRoom room, CarFleet cars, PersonFleet people, SignalHeads heads,
         SignalTable signals, bool levelled, DeviceWorld world)
     {
-        if (!vk.HasFloat64) throw new NotSupportedException($"{vk.DeviceName} has no doubles in its kernels, and a walker's cell is rounded in them.");
-
         _vk = vk;
         _config = config;
         _room = room;

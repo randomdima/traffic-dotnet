@@ -1,6 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.App.Render;
 
@@ -86,7 +87,7 @@ internal static class LampSprites
             var count = CarLamps.Shown(lenses, cars.Lamps[car], config, elapsedS, cars.FuseJitter[car], shown);
 
             var headingRad = cars.HeadingRad[car];
-            var forward = new Vector2(MathF.Cos(headingRad), MathF.Sin(headingRad));
+            var forward = Heading.Unit(headingRad);
             var right = new Vector2(-forward.Y, forward.X);
 
             // The glow under the lens rather than over it: a lamp is a lit lens with light around it,

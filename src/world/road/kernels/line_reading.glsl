@@ -4,8 +4,7 @@
 // cut short (Spline.HeadInto), the join's whole, the next lane's — never off a copy of the car's line.
 //
 // The includer names the first of six bindings (LINE_READING_BINDING): the lanes' arcs, where each lane's begin, the lanes'
-// lengths, the joins' arcs, where each join's begin, and the lane each join leads onto. It gets trig.glsl and rounded.glsl,
-// and 64-bit floats with them.
+// lengths, the joins' arcs, where each join's begin, and the lane each join leads onto. It gets trig.glsl and rounded.glsl.
 
 #ifndef LINE_READING_GLSL
 #define LINE_READING_GLSL

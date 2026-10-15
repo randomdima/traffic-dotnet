@@ -8,6 +8,29 @@ the clock's remainder on a tick's edge, so a frame a hair early was owed none an
 dropped the second (SIM-9's cap). **One tick past the cap is now kept** and the rest still dropped: at real time a frame
 still runs one tick at most and draws it, and a tick slower than its time still slows the town by what it is late.
 
+## 2026-10-15 — the kernels compute in floats alone, and the world turns its angles by `Trig`
+
+**The owner (2026-10-15), in their words: "Try f32 everywhere. We want builds to ne the same in the end. Keep track on
+sideeffects."** WebGPU has no doubles, and the kernels are to be one source for the desktop and the page. Doubles were
+there for one reason: to give the host's own float to the bit. The quotients and roots keep that by asking integers
+instead (`rounded.glsl`, above). The trigonometry cannot: glibc's `sincosf` sums in doubles, and its tangent and
+arctangents are correctly rounded only by settling a double's last bits.
+
+- **So the world layer's trigonometry is no longer glibc's but `Trig`'s** (`core/geometry/Trig.cs`, `trig.glsl`):
+  Cephes' single-precision series, reduced by three parts of π/2 below 4096 rad and by 4/π's bits in integers past it,
+  every step a float sum, product or quotient both sides round alike. A float or two apart was a different town (a
+  shoved car's heading a float off left a contact 34 µm deeper, and the pair froze a step later, `SOL-37`), so it is
+  the arithmetic the host world uses where a kernel mirrors it — `Heading.Unit`, `ArcSeg.Sinc`, `Spline.NearestOnArc`,
+  the tyres' steer, the wheel's aim, a walker's bearing and the sprites' — and nowhere else: the citygen, the ground's
+  mesh and the interface keep `MathF`.
+- **Within three floats of exact** (`TrigTests`) where glibc's is within half of one. Held: `TrigKernelTests`, every
+  normal float's answer `Trig`'s to the bit on lavapipe, and `DeviceWorldTests`' lockstep.
+- **What moved** (side effects, [tech-debt](../../../docs/tech-debt.md)): `Heading.Unit` lays the town as well as turning
+  its bodies, so a laid town stands a float off where it stood, and two rules a town kept by a margin under a float's
+  worth of layout broke — GEN-55's building at the rounding of a car park and CTL-1a's walk drawn for a walker.
+- **A page's kernels may stand a float off this**: WGSL cannot forbid a driver to fuse a product into the sum after it,
+  which is all `precise` is here for. The quotients and roots are exact on it, being integers.
+
 ## 2026-10-10 — every quotient and root a kernel shares with the host is the nearest float
 
 **The suite runs its kernels on lavapipe, which rounds a quotient and a root to the nearest as the host does; the GPU
@@ -18,47 +41,14 @@ one; **now it holds every one**: each quotient (`roundedQuotient`, of a float or
 length (`roundedLength`, the host's `Vector2.Length()`) the arcs, the solver's shapes and masses, the tyres, the
 walker and the lights take, written in the host's own grouping.
 
-- A double's quotient or root rounded once to a float is the same nearest float for two floats (53 bits ≥ 2 × 24 + 2),
-  and missed none of the 4.2 M on the card either; `rounded.glsl` keeps its own walk, which asks a double nothing but
-  products.
+- Which side of a midpoint the exact answer lies is asked of the significands in integers (2026-10-15, above): a
+  midpoint's 25 bits times a float's 24, or squared, held whole in two 32-bit words (`RoundedKernelTests`).
 - Held on the card, each stage of the device's tick of the day held to the host's from the same inputs on OdesaOsm:
   the walkers 0 of 8 M stations, 4.4 M bodies, 4.4 M walks and 8 M readings apart, where 325 106 stations and 915
   readings were a bit off; the car tick 0 of 12.0 M car-ticks, where 57 were; the switching looks none a figure apart,
   where 415 were.
 - **So every check of a kernel against the host asks it to the bit**: the kernel tests each dropped the hundredth and
   the thousandth they allowed the device's trigonometry, and two staged towns the thresholds they kept their agents off.
-
-## 2026-10-10 — a kernel's trigonometry is the host's to the bit
-
-**A float or two apart was a different town.** A shoved car's heading a float off the host's left a contact 34 µm
-deeper after the push, so the pair froze a step later than the host's (`SOL-37`), and 10 856
-of 136 851 switching cars' looks on OdesaOsm came out a figure apart.
-
-- **Sine and cosine are glibc's own code.** `MathF.Sin`, `Cos` and `SinCos` are glibc's `sinf`, `cosf` and `sincosf`,
-  which on x86-64 with FMA run `__sincosf_fma`: reduced and summed in doubles, every sum fused with the product before
-  it, rounded to a float once. `trig.glsl`'s are that code — its tables to the bit, its sums fused where that build fuses
-  them, read off its disassembly — and the large arguments' 64-bit reduction is taken in 32-bit halves.
-- **Tangent, arctangent and bearing are correctly rounded**, as glibc's `tanf`, `atanf` and `atan2f` are since 2.41
-  (CORE-MATH): 20 M arguments each matched a double's answer rounded once, where `sinf` missed 1.1 %. So no port is
-  wanted: fdlibm's double `tan`, `atan` and `atan2`, rounded to a float, give the same float but where the exact answer
-  lies within a double's last bit of a tie. The tangent reduces in doubles below 2^19 quarter turns; past them it is the
-  sine over the cosine.
-- **A subnormal argument or answer is nought**, as in every kernel (`world/physics`'s log); NaN and infinity are asked of
-  the bits, which a driver keeping neither folds away. Every kernel that includes it computes in doubles, which the
-  atlas's kernels needed already (`DeviceAtlas`).
-- Held: `TrigKernelTests`, 1.65 M angles and 4.2 M bearings, every normal float's answer the host's to the bit on
-  lavapipe, and 4.2 M of each on the RX 9070 XT. An unfused reduction fails it; an unfused last sum or a coefficient a
-  double apart does not, since rounding to a float hides them.
-- The shoved car park, the town ticking its agents and the device stepping its bodies, stands to the bit as the host's
-  for its whole half minute, where it parted by millimetres within seconds. On OdesaOsm the rest moved little: 23 of
-  5.5 M verdicts unlike where 22 were, and 415 looks a figure apart where 10 856 were; 57 of 12.0 M car-ticks differ
-  and 4.1 % of walkers' stations are not to the bit — what still parted them was the driver's quotients and roots
-  (above) and, for the verdicts, a look that read a claim a cut had taken out, not the trigonometry. With the town
-  ticked on the device, its kernels went 1.71 → 1.91 ms a tick, 0.07 of it the sine and cosine and the rest the tangent
-  and arctangents in doubles; the tick 11.67 → 12.04, inside its wander from run to run and on a device idle most of a
-  tick.
-- **Only against the host it was read off**: another C library, or glibc on a machine without FMA (`__sincosf_sse2`),
-  rounds sine and cosine otherwise; any correctly rounded library gives the same tangent and arctangents.
 
 ## 2026-10-07 — a kernel's trigonometry is its own, not the driver's
 

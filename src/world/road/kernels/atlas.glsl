@@ -6,7 +6,7 @@
 //
 // The including kernel defines ATLAS_BINDING (the tables bind from there on, AtlasBindings of them), supplies the figures
 // as ATLAS_FIGURES' fields — cellsFromX, cellsFromY, cellsWidth, cellsHeight, perCellM, cellM, shift, mask, startShift,
-// rowStartsShift, startsPerCell, metresPerOutside, alongPerMetre, hasChannels — enables 64-bit floats and includes
+// rowStartsShift, startsPerCell, metresPerOutside, alongPerMetre, hasChannels — and includes
 // core/geometry/kernels/rounded.glsl first.
 
 // RibbonAtlas.MostWaysUnderABody: a body's room, past which a way is dropped and counted.

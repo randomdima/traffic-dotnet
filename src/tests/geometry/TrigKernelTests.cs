@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.Tests.Runtime;
 using Xunit;
@@ -7,20 +8,19 @@ namespace TrafficSimulation.Tests.Geometry;
 
 /// <summary>
 /// <b>The device's trigonometry is the host's to the bit</b> (<c>core/geometry/kernels/trig.glsl</c>): every angle's sine,
-/// cosine, tangent and arctangent and every point's bearing, as <see cref="MathF"/> answers them — glibc's on the machine
-/// the suite runs on.
+/// cosine, tangent and arctangent and every point's bearing, as <see cref="Trig"/> answers them.
 /// </summary>
 [Trait(Tier.Key, Tier.Device)]
 [Trait(Priority.Key, Priority.P4)]
 public class TrigKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
 {
-    /// <summary>How far the tangent's own reduction reaches: 2^19 quarter turns (<c>TrigTanReducedBelow</c>).</summary>
-    const float TanReducedBelow = 823549.6f;
+    /// <summary>Where the reduction turns from the parts of π/2 to 4/π's bits (<c>TrigShortWayBelow</c>).</summary>
+    const float ShortWayBelow = 4096f;
 
     /// <summary>
     /// A heading's worth and an arc's either side of nought, every exponent a float has, and every edge the reductions
-    /// turn at — tiny, π/4, the long way at 120, the tangent's reach, a whole number of quarter turns — a float either
-    /// side; each with a second figure, a point's other, drawn the same ways.
+    /// turn at — tiny, π/4, the long way, a whole number of quarter turns — a float either side; each with a second
+    /// figure, a point's other, drawn the same ways.
     /// </summary>
     static Vector2[] Asked()
     {
@@ -33,7 +33,7 @@ public class TrigKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
             if (float.IsFinite(BitConverter.UInt32BitsToSingle(bits))) angles.Add(BitConverter.UInt32BitsToSingle(bits));
         }
 
-        foreach (var edge in (ReadOnlySpan<float>)[0f, 1f / 4096f, MathF.PI / 4f, 120f, TanReducedBelow, float.Epsilon, float.MaxValue])
+        foreach (var edge in (ReadOnlySpan<float>)[0f, 1f / 4096f, MathF.PI / 4f, ShortWayBelow, float.Epsilon, float.MaxValue])
         {
             for (var step = -4; step <= 4; step++)
             {
@@ -89,20 +89,22 @@ public class TrigKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         var (values, _) = OnTheDevice(asked);
 
         var differ = new List<string>();
+        var count = 0;
         for (var at = 0; at < asked.Length; at++)
         {
             var angle = asked[at].X;
-            var (sine, cosine) = MathF.SinCos(angle);
-            var (deviceSine, deviceCosine) = (values[at].X, values[at].Y);
-            if (Same(deviceSine, MathF.Sin(angle)) && Same(deviceCosine, MathF.Cos(angle)) && Same(deviceSine, sine) && Same(deviceCosine, cosine)) continue;
+            var (sine, cosine) = Trig.SinCos(angle);
+            if (Flushed(angle) || Flushed(sine) || Flushed(cosine)) continue;
 
-            differ.Add($"{Bits(angle)}: host {MathF.Sin(angle):R}, {MathF.Cos(angle):R}; device {deviceSine:R}, {deviceCosine:R}");
+            count++;
+            if (Same(values[at].X, sine) && Same(values[at].Y, cosine)) continue;
+
+            differ.Add($"{Bits(angle)}: host {sine:R}, {cosine:R}; device {values[at].X:R}, {values[at].Y:R}");
         }
 
-        Assert.True(differ.Count == 0, $"{differ.Count} of {asked.Length} differ: {string.Join("; ", differ.Take(8))}");
+        Assert.True(differ.Count == 0, $"{differ.Count} of {count} differ: {string.Join("; ", differ.Take(8))}");
     }
 
-    /// <summary>Within the tangent's own reduction; past it the tangent is the sine over the cosine, and asked nothing.</summary>
     [Fact]
     public void EveryAnglesTangentIsTheHostsToTheBit()
     {
@@ -114,10 +116,11 @@ public class TrigKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         for (var at = 0; at < asked.Length; at++)
         {
             var angle = asked[at].X;
-            if (MathF.Abs(angle) >= TanReducedBelow || Flushed(angle) || Flushed(MathF.Tan(angle))) continue;
+            var tangent = Trig.Tan(angle);
+            if (Flushed(angle) || Flushed(tangent)) continue;
 
             count++;
-            if (!Same(values[at].Z, MathF.Tan(angle))) differ.Add($"{Bits(angle)}: host {MathF.Tan(angle):R}, device {values[at].Z:R}");
+            if (!Same(values[at].Z, tangent)) differ.Add($"{Bits(angle)}: host {tangent:R}, device {values[at].Z:R}");
         }
 
         Assert.True(differ.Count == 0, $"{differ.Count} of {count} differ: {string.Join("; ", differ.Take(8))}");
@@ -133,14 +136,16 @@ public class TrigKernelTests(Lavapipe device) : IClassFixture<Lavapipe>
         for (var at = 0; at < asked.Length; at++)
         {
             var (x, y) = (asked[at].X, asked[at].Y);
-            if (!Flushed(x) && !Flushed(MathF.Atan(x)) && !Same(values[at].W, MathF.Atan(x)))
+            var arctangent = Trig.Atan(x);
+            if (!Flushed(x) && !Flushed(arctangent) && !Same(values[at].W, arctangent))
             {
-                differ.Add($"atan {Bits(x)}: host {MathF.Atan(x):R}, device {values[at].W:R}");
+                differ.Add($"atan {Bits(x)}: host {arctangent:R}, device {values[at].W:R}");
             }
 
-            if (!Flushed(x) && !Flushed(y) && !Flushed(MathF.Atan2(y, x)) && !Same(bearings[at], MathF.Atan2(y, x)))
+            var bearing = Trig.Atan2(y, x);
+            if (!Flushed(x) && !Flushed(y) && !Flushed(bearing) && !Same(bearings[at], bearing))
             {
-                differ.Add($"atan2 {Bits(y)}, {Bits(x)}: host {MathF.Atan2(y, x):R}, device {bearings[at]:R}");
+                differ.Add($"atan2 {Bits(y)}, {Bits(x)}: host {bearing:R}, device {bearings[at]:R}");
             }
         }
 

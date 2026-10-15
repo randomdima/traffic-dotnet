@@ -61,15 +61,14 @@ internal readonly record struct ArcSeg(Vector2 StartM, float HeadingRad, float L
     /// sin x ⁄ x, by series over the half-turn a road arc actually subtends and by the library beyond it.
     /// </summary>
     /// <remarks>
-    /// The series is the reason this is not one <c>MathF.Sin</c>: a straight subtends nothing and a
+    /// The series is the reason this is not one <see cref="Trig.Sin"/>: a straight subtends nothing and a
     /// road's bends subtend a fraction of a degree, so nearly every sample taken in a tick lands under
-    /// <see cref="SeriesLimitRad"/> — and the call into libm it replaces costs four times what the six
-    /// multiplies do. Above the limit the library answers, because the series is only accurate where it
-    /// is truncated tightly.
+    /// <see cref="SeriesLimitRad"/> — and the reduction it replaces costs more than the six multiplies do.
+    /// Above the limit the sine answers, because the series is only accurate where it is truncated tightly.
     /// </remarks>
     public static float Sinc(float x)
     {
-        if (MathF.Abs(x) >= SeriesLimitRad) return MathF.Sin(x) / x;
+        if (MathF.Abs(x) >= SeriesLimitRad) return Trig.Sin(x) / x;
 
         // 1 − x²/6 + x⁴/120 − x⁶/5040, whose first dropped term at the limit is under a float's own
         // resolution — so inside the limit this is the answer and not an approximation to it.

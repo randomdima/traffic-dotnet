@@ -1,0 +1,26 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// Each pair's quotient and the first's root, one thread a pair — rounded.glsl asked on its own, which is how the device's
+// answer is held to the host's.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Ask
+{
+    uint pairCount;
+};
+
+layout(std430, binding = 0) readonly buffer Asked { vec2 asked[]; };
+layout(std430, binding = 1) writeonly buffer Values { vec2 values[]; };
+
+#include "rounded.glsl"
+
+void main()
+{
+    uint at = gl_GlobalInvocationID.x;
+    if (at >= pairCount) return;
+
+    vec2 pair = asked[at];
+    values[at] = vec2(roundedQuotient(pair.x, pair.y), roundedSqrt(pair.x));
+}

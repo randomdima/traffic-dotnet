@@ -1612,7 +1612,7 @@ internal static class Spline
         var toPoint = pointM - centreM;
         if (toPoint.LengthSquared() < 1e-10f) return 0f;
 
-        var turnRad = MathF.Atan2(Cross(fromCentre, toPoint), Vector2.Dot(fromCentre, toPoint));
+        var turnRad = Trig.Atan2(Cross(fromCentre, toPoint), Vector2.Dot(fromCentre, toPoint));
         var alongM = turnRad / arc.Curvature;
 
         // The far half of the circle is behind the start as easily as past the end; whichever end the

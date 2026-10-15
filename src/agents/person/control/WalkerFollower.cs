@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.Agents.Person.Control;
 
@@ -111,7 +112,7 @@ internal static class WalkerFollower
         if (distanceM * distanceM > config.Person.AimUnderfootM2)
         {
             var paceMps = config.PersonWalkSpeedMps;
-            var bearingRad = MathF.Atan2(toAim.Y, toAim.X);
+            var bearingRad = Trig.Atan2(toAim.Y, toAim.X);
             var mostRad = config.PersonTurnRateDegPerS * MathF.PI / 180f * dtS;
 
             // Inside a tick's walk it is a shuffle onto the point and not a turn: the aim of a queue creeping

@@ -540,7 +540,7 @@ internal static class CarSprites
             into[written++] = new SpriteInstance(
                 hingeM - (pointing * arm.HingeAtM), halfSizeM, SpriteCell.Whole, SpriteTint.Plain,
                 (uint)(firstBeamSheet + catalogue.BeamSlotOf(cars.Variant[car], towed >= 0)),
-                MathF.Atan2(pointing.Y, pointing.X));
+                Trig.Atan2(pointing.Y, pointing.X));
         }
 
         return written;

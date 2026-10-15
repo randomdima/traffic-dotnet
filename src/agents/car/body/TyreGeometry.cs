@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.Agents.Car.Body;
 
@@ -92,7 +93,7 @@ internal static partial class TyreModel
             return;
         }
 
-        var radiusM = MathF.Abs(car.WheelbaseM / MathF.Tan(steerRad));
+        var radiusM = MathF.Abs(car.WheelbaseM / Trig.Tan(steerRad));
         var inner = WheelTurn(MathF.Max(config.Tyre.InnerWheelLeastRadiusM, radiusM - car.HalfTrackM), car.WheelbaseM);
         var outer = WheelTurn(radiusM + car.HalfTrackM, car.WheelbaseM);
 
@@ -130,9 +131,9 @@ internal static partial class TyreModel
             return;
         }
 
-        var radiusM = MathF.Abs(car.WheelbaseM / MathF.Tan(steerRad));
-        var innerRad = MathF.Atan(car.WheelbaseM / MathF.Max(config.Tyre.InnerWheelLeastRadiusM, radiusM - car.HalfTrackM));
-        var outerRad = MathF.Atan(car.WheelbaseM / (radiusM + car.HalfTrackM));
+        var radiusM = MathF.Abs(car.WheelbaseM / Trig.Tan(steerRad));
+        var innerRad = Trig.Atan(car.WheelbaseM / MathF.Max(config.Tyre.InnerWheelLeastRadiusM, radiusM - car.HalfTrackM));
+        var outerRad = Trig.Atan(car.WheelbaseM / (radiusM + car.HalfTrackM));
 
         // Turning to the driver's right puts the right-hand wheels on the inside of the circle.
         var sign = MathF.Sign(steerRad);
