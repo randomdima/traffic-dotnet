@@ -1170,15 +1170,11 @@ public class GeneratorTests
                 var offsetM = new Vector2(overM, downM);
                 if (offsetM.LengthSquared() > standM * standM) continue;
 
-                // The message is composed only on a failure: the nearest face is a search over every edge sample.
                 var onM = atM + offsetM;
-                var ground = GroundAt(plan, onM);
-                if (ground != Ground.Grass)
-                {
-                    Assert.Fail(
-                        $"a prop at {atM.X:F1},{atM.Y:F1} reaches {ground} at " +
-                        $"{onM.X:F1},{onM.Y:F1} within {standM:F2} m — r {radiusM:F2}, nearest face {edges.NearestM(atM):F2} m");
-                }
+                Assert.True(
+                    GroundAt(plan, onM) == Ground.Grass,
+                    $"a prop at {atM.X:F1},{atM.Y:F1} reaches {GroundAt(plan, onM)} at " +
+                    $"{onM.X:F1},{onM.Y:F1} within {standM:F2} m — r {radiusM:F2}, nearest face {edges.NearestM(atM):F2} m");
             }
         }
     }
