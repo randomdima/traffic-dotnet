@@ -194,12 +194,19 @@ internal sealed partial class DebugOverlay
         // is ground it holds and no part of it is drawn under a join as well. <b>A roadside is drawn bare</b>, with
         // no way along it marked: nobody is driven down it (<see cref="RoadGraph.IsARoadside"/>).
         var roads = world.Roads;
+        if (!_laneBoxes.LaidFor(roads, roads.LaneCount))
+        {
+            for (var lane = 0; lane < roads.LaneCount; lane++) _laneBoxes.Lay(lane, roads.ArcsOf(lane));
+        }
+
         for (var lane = 0; lane < roads.LaneCount; lane++)
         {
+            if (!_laneBoxes.OnScreen(lane, viewCentreM, viewSpanM)) continue;
+
             ref var into = ref roads.LaneLevel[lane] != CityGen.CityPlan.RoadArrays.Ground ? ref above : ref draw;
             Chain(
                 ref into, roads.ArcsOf(lane), sagM, roads.IsARoadside(lane) ? null : pitch, roads.LaneOverOneLine[lane],
-                Theme.DrivingNodes, viewCentreM, viewSpanM, _marks);
+                Theme.DrivingNodes, _marks);
         }
 
         Movements(ref draw, ref above, roads, config, sagM, pitch, Theme.DrivingNodes, viewCentreM, viewSpanM, _marks);
@@ -315,15 +322,20 @@ internal sealed partial class DebugOverlay
     /// the line is the one that tells the truth about it. <b>Read off the graph and not off the shape it was
     /// cut from</b>, because what a reader of this layer is asking is what a body may be held on.
     /// </remarks>
-    static void PavementLanes(
+    void PavementLanes(
         ref ScreenDraw draw, FootGraph foot, float sagM, GridLevel? pitch, Vector2 viewCentreM, Vector2 viewSpanM,
         MarkClaims claims)
     {
+        if (!_footBoxes.LaidFor(foot, foot.EdgeCount))
+        {
+            for (var lane = 0; lane < foot.EdgeCount; lane++) _footBoxes.Lay(lane, foot.ArcsOf(lane));
+        }
+
         for (var lane = 0; lane < foot.EdgeCount; lane++)
         {
-            Chain(
-                ref draw, foot.ArcsOf(lane), sagM, pitch, bothWays: false, Theme.WalkingNodes, viewCentreM,
-                viewSpanM, claims);
+            if (!_footBoxes.OnScreen(lane, viewCentreM, viewSpanM)) continue;
+
+            Chain(ref draw, foot.ArcsOf(lane), sagM, pitch, bothWays: false, Theme.WalkingNodes, claims);
         }
     }
 
@@ -361,10 +373,18 @@ internal sealed partial class DebugOverlay
     /// would show two dots where there is one.
     /// </para>
     /// </remarks>
-    static void Movements(
+    void Movements(
         ref ScreenDraw draw, ref ScreenDraw above, RoadGraph roads, SimConfig config, float sagM, GridLevel? pitch,
         Vector4 colour, Vector2 viewCentreM, Vector2 viewSpanM, MarkClaims claims)
     {
+        if (!_connectorBoxes.LaidFor(roads, roads.ConnectorCount))
+        {
+            for (var connector = 0; connector < roads.ConnectorCount; connector++)
+            {
+                _connectorBoxes.Lay(connector, roads.ConnectorArcs(connector));
+            }
+        }
+
         for (var lane = 0; lane < roads.LaneCount; lane++)
         {
             var end = roads.EndOf(lane);
@@ -372,13 +392,20 @@ internal sealed partial class DebugOverlay
 
             foreach (var connector in roads.ConnectorsFrom(lane))
             {
+                if (!_connectorBoxes.OnScreen(connector, viewCentreM, viewSpanM)) continue;
+
                 ref var into = ref roads.ConnectorLevel(connector) != CityGen.CityPlan.RoadArrays.Ground ? ref above : ref draw;
-                Link(
-                    ref into, roads.ConnectorArcs(connector), sagM, pitch, bothWays: false, colour,
-                    viewCentreM, viewSpanM, claims);
+                Link(ref into, roads.ConnectorArcs(connector), sagM, pitch, bothWays: false, colour, claims);
             }
         }
     }
+
+    /// <summary>The boxes of the town's lanes, its junctions' joins and its pavement's lanes, which every relay culls by.</summary>
+    readonly ChainBoxes _laneBoxes = new();
+
+    readonly ChainBoxes _connectorBoxes = new();
+
+    readonly ChainBoxes _footBoxes = new();
 
     /// <summary>
     /// <b>Every manoeuvre a car has in hand at a bay</b> (GEN-4f) — each piece of the shape it laid for itself,
@@ -404,9 +431,13 @@ internal sealed partial class DebugOverlay
             var shape = manoeuvres.Shape[car];
             for (var piece = manoeuvres.Piece[car]; piece < shape.Pieces; piece++)
             {
+                var arcs = manoeuvres.PieceOf(car, piece);
+                var (leastM, mostM) = ChainBoxes.Of(arcs);
+                if (!ChainBoxes.Meets(leastM, mostM, viewCentreM, viewSpanM)) continue;
+
                 Link(
-                    ref draw, manoeuvres.PieceOf(car, piece), sagM, pitch, bothWays: false,
-                    shape.IsReverse(piece) ? Theme.DrivingReverse : colour, viewCentreM, viewSpanM, claims);
+                    ref draw, arcs, sagM, pitch, bothWays: false, shape.IsReverse(piece) ? Theme.DrivingReverse : colour,
+                    claims);
             }
         }
     }
@@ -417,16 +448,14 @@ internal sealed partial class DebugOverlay
     /// and the place it meets the one ahead, at the size an agent dots the same places on its own route.
     /// </summary>
     /// <remarks>
-    /// The cull is the link's and not the line's: a dot drawn outside it is one quad, and there are two
-    /// per movement in the town.
+    /// The cull is the caller's, on the link's box and not the line's: a dot drawn outside it is one quad, and there
+    /// are two per movement in the town.
     /// </remarks>
     static void Link(
         ref ScreenDraw draw, ReadOnlySpan<ArcSeg> arcs, float sagM, GridLevel? pitch, bool bothWays, Vector4 colour,
-        Vector2 viewCentreM, Vector2 viewSpanM, MarkClaims claims)
+        MarkClaims claims)
     {
         if (arcs.Length == 0) return;
-
-        if (!OnScreen(arcs, viewCentreM, viewSpanM)) return;
 
         PathMarks.Chained(ref draw, arcs, 0f, Spline.TotalLengthM(arcs), pitch, bothWays, sagM, colour, claims);
         draw.DiscM(arcs[0].StartM, PathMarks.JoinDiscM, colour);
@@ -434,60 +463,19 @@ internal sealed partial class DebugOverlay
     }
 
     /// <summary>
-    /// A chain of arcs as the line it is, with marks down it at a pitch on the ground. A cull that
-    /// admits a body is not a cull that admits its whole line, so the chain is rejected on the box it fits
-    /// in before it is sampled finely.
+    /// A chain of arcs as the line it is, with marks down it at a pitch on the ground, once the caller has culled it
+    /// on the box it fits in (<see cref="ChainBoxes"/>). The marks stand where it crosses the town's grid
+    /// (<see cref="MarkGrid"/>), which is the same grid an agent's own layer marks the same ground on.
     /// </summary>
     static void Chain(
         ref ScreenDraw draw, ReadOnlySpan<ArcSeg> arcs, float sagM, GridLevel? pitch, bool bothWays, Vector4 colour,
-        Vector2 viewCentreM, Vector2 viewSpanM, MarkClaims claims)
+        MarkClaims claims)
     {
         if (arcs.Length == 0) return;
 
-        Chain(
-            ref draw, arcs, 0f, Spline.TotalLengthM(arcs), sagM, pitch, bothWays, colour, viewCentreM, viewSpanM,
-            claims);
-    }
+        var toM = Spline.TotalLengthM(arcs);
+        if (toM <= 0f) return;
 
-    /// <summary>
-    /// <b>Whether any part of a chain could be on screen</b>, asked of the box the chain fits in
-    /// (<see cref="ChainIndex.Box"/>) and never of the circle over its own two ends.
-    /// </summary>
-    /// <remarks>
-    /// <b>A chain is not inside the circle over its ends, and a town's pavement is full of the case.</b> A
-    /// walking lane that runs down one side of the wedge between two roads and back up the other stands its
-    /// two ends beside each other with a hundred and fifty metres of line between them, so that circle
-    /// rejects it at every framing that shows the wedge — and a frame taken there drew the concrete with no
-    /// line on it at all, which is a picture claiming the town has a hole it has not got. <b>A cull may cost
-    /// a quad and may never cost a line.</b>
-    /// </remarks>
-    static bool OnScreen(ReadOnlySpan<ArcSeg> arcs, Vector2 viewCentreM, Vector2 viewSpanM)
-    {
-        var leastM = new Vector2(float.MaxValue);
-        var mostM = new Vector2(float.MinValue);
-        foreach (ref readonly var arc in arcs) ChainIndex.Box(arc, ref leastM, ref mostM);
-
-        var halfM = viewSpanM * 0.5f;
-        return leastM.X <= viewCentreM.X + halfM.X && mostM.X >= viewCentreM.X - halfM.X
-               && leastM.Y <= viewCentreM.Y + halfM.Y && mostM.Y >= viewCentreM.Y - halfM.Y;
-    }
-
-    /// <summary>
-    /// The same, between two stations along it — which is what a lane comes to once the corners at its two
-    /// ends have taken their ground. How much of the chain is drawn does not move a single mark: they stand
-    /// where it crosses the town's grid (<see cref="MarkGrid"/>), which is the same grid an agent's own
-    /// layer marks the same ground on.
-    /// </summary>
-    static void Chain(
-        ref ScreenDraw draw, ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float sagM, GridLevel? pitch,
-        bool bothWays, Vector4 colour, Vector2 viewCentreM, Vector2 viewSpanM, MarkClaims claims)
-    {
-        if (arcs.Length == 0 || toM <= fromM) return;
-
-        // The whole chain's box and not the span's, which is a superset of it: what the span leaves out is
-        // a corner's margin at either end, and boxing it apart would be a second reading of one line.
-        if (!OnScreen(arcs, viewCentreM, viewSpanM)) return;
-
-        PathMarks.Chained(ref draw, arcs, fromM, toM, pitch, bothWays, sagM, colour, claims);
+        PathMarks.Chained(ref draw, arcs, 0f, toM, pitch, bothWays, sagM, colour, claims);
     }
 }
