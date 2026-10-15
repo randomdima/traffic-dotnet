@@ -15,6 +15,10 @@ namespace TrafficSimulation.Runtime;
 /// <para>It owns the one number the desktop's scale factor may reach the rest of the engine through,
 /// <see cref="UiScale"/>, and hands out <see cref="UiPx"/>. Everything above this class works in
 /// interface pixels; the framebuffer's own go to the swapchain and the viewport and nowhere else.</para>
+/// <para><b>The scale, the interface's size and the pointer are read once a pump</b> and served from
+/// there: each is several calls into the platform, a frame asks for the pointer half a dozen times, and
+/// the platform's answers only move when its events are pumped. The page's half reads its own pumped
+/// copy the same way, and the handset's are fields its listener writes.</para>
 /// </remarks>
 internal sealed class AppWindow : IDisposable
 {
@@ -46,6 +50,10 @@ internal sealed class AppWindow : IDisposable
     Vector2 _clickedAtPx;
     Vector2D<int> _lastFramebufferSize;
     bool _fullscreen;
+    Vector2 _leastUiPx;
+    float _uiScale;
+    Vector2 _uiPx;
+    Vector2 _pointerPx;
 
     AppWindow(IWindow window, IInputContext input, float wantedUiScale, bool fullscreen)
     {
@@ -56,6 +64,7 @@ internal sealed class AppWindow : IDisposable
         _keyboard = input.Keyboards.Count > 0 ? input.Keyboards[0] : null;
         _mouse = input.Mice.Count > 0 ? input.Mice[0] : null;
         _lastFramebufferSize = window.FramebufferSize;
+        ReadThePlatform();
 
         if (_keyboard is not null)
         {
@@ -71,16 +80,19 @@ internal sealed class AppWindow : IDisposable
 
         _mouse.Scroll += (_, wheel) => _scroll += wheel.Y;
 
-        _mouse.MouseDown += (mouse, button) =>
+        // Mid-pump, so what the last pump read may already be behind the press.
+        _mouse.MouseDown += (_, button) =>
         {
+            ReadThePlatform();
             _clicked = button;
-            _clickedAtPx = InUiPx(mouse.Position);
+            _clickedAtPx = _pointerPx;
         };
     }
 
     /// <summary>
     /// A pointer position, in the pixels the interface is laid out in — which is the space everything
-    /// above this class works in.
+    /// above this class works in — as arithmetic over three vectors and a factor, so it can be checked
+    /// without a window.
     /// </summary>
     /// <remarks>
     /// Three spaces meet here, and on a scaled desktop no two are the same: a 2× display hands back a
@@ -88,9 +100,6 @@ internal sealed class AppWindow : IDisposable
     /// <c>--ui-scale</c> names a third. Converting once here is what keeps the interface's hit tests
     /// and the camera's zoom-about-pointer from each solving it separately.
     /// </remarks>
-    Vector2 InUiPx(Vector2 windowPx) => InUiPx(windowPx, _window.Size, _window.FramebufferSize, UiScale);
-
-    /// <summary>The conversion itself, as arithmetic over three vectors and a factor, so it can be checked without a window.</summary>
     public static Vector2 InUiPx(
         Vector2 windowPx, Vector2D<int> windowSize, Vector2D<int> framebufferSize, float uiScale)
     {
@@ -108,7 +117,15 @@ internal sealed class AppWindow : IDisposable
     /// The window the interface is never laid out on fewer pixels than (OBS-2k), or zero for no cap.
     /// Set once by the composition root, off the figures, before the first frame is laid.
     /// </summary>
-    public Vector2 LeastUiPx { get; set; }
+    public Vector2 LeastUiPx
+    {
+        get => _leastUiPx;
+        set
+        {
+            _leastUiPx = value;
+            ReadThePlatform();
+        }
+    }
 
     /// <summary>The display the window is on, by the name the desktop knows it by.</summary>
     public string DisplayName => _window.Monitor?.Name ?? "an unnamed display";
@@ -120,21 +137,29 @@ internal sealed class AppWindow : IDisposable
     /// call unscaled. Without it a 4K screen draws a 15-pixel label at a third of its designed size.
     /// The town is unaffected: the camera opens on a span in metres.
     /// </summary>
-    public float UiScale => InterfaceScale.Fitted(
-        _wantedUiScale,
-        _window.Size.X > 0 ? (float)_window.FramebufferSize.X / _window.Size.X : 1f,
-        new Vector2(_window.FramebufferSize.X, _window.FramebufferSize.Y),
-        LeastUiPx);
+    public float UiScale => _uiScale;
 
     /// <summary>The window, in the pixels the interface and the camera are laid out in.</summary>
-    public Vector2 UiPx => new Vector2(_window.FramebufferSize.X, _window.FramebufferSize.Y) / UiScale;
+    public Vector2 UiPx => _uiPx;
 
     /// <summary>The window's own Vulkan surface: the one place the graphics API and the window meet.</summary>
     public IVkSurface VkSurface =>
         _window.VkSurface ?? throw new InvalidOperationException("The window was not created for Vulkan.");
 
     /// <summary>Where the pointer is, <b>in interface pixels</b> — the space the interface is laid out in.</summary>
-    public Vector2 PointerPx => _mouse is null ? Vector2.Zero : InUiPx(_mouse.Position);
+    public Vector2 PointerPx => _pointerPx;
+
+    /// <summary>The scale, the interface's size and the pointer, as the platform now has them.</summary>
+    void ReadThePlatform()
+    {
+        var windowSize = _window.Size;
+        var framebufferSize = _window.FramebufferSize;
+        var framebufferPx = new Vector2(framebufferSize.X, framebufferSize.Y);
+        _uiScale = InterfaceScale.Fitted(
+            _wantedUiScale, windowSize.X > 0 ? (float)framebufferSize.X / windowSize.X : 1f, framebufferPx, _leastUiPx);
+        _uiPx = framebufferPx / _uiScale;
+        _pointerPx = _mouse is null ? Vector2.Zero : InUiPx(_mouse.Position, windowSize, framebufferSize, _uiScale);
+    }
 
     /// <summary>
     /// Where the fingers on the glass are, in interface pixels, and how many were written (CTL-9).
@@ -258,8 +283,12 @@ internal sealed class AppWindow : IDisposable
         }
     }
 
-    /// <summary>One pump of the platform's event queue. Allocates nothing.</summary>
-    public void PumpEvents() => _window.DoEvents();
+    /// <summary>One pump of the platform's event queue, and what it moved read back. Allocates nothing.</summary>
+    public void PumpEvents()
+    {
+        _window.DoEvents();
+        ReadThePlatform();
+    }
 
     public bool IsKeyDown(Key key) => _keyboard?.IsKeyPressed(key) ?? false;
 
@@ -314,6 +343,7 @@ internal sealed class AppWindow : IDisposable
         if (_window.FramebufferSize == _lastFramebufferSize) return false;
 
         _lastFramebufferSize = _window.FramebufferSize;
+        ReadThePlatform();
         return true;
     }
 
