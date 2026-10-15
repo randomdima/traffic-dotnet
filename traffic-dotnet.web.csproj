@@ -18,7 +18,7 @@
        src/app/web/docs/requirements.md and nowhere else. -->
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -119,6 +119,14 @@
        (src/app/render/web/Texels.Web.cs) and a size is read off the file's own header on both machines
        (src/core/config/ImageHeader.cs). The desktop keeps ImageSharp because it *writes* pictures: a
        shot is a PNG and the lamp atlas is a WebP, and nothing in a page writes either. -->
+
+  <ItemGroup>
+    <!-- This assembly runs in a page and nowhere else. Since .NET 11 a [JSImport] is browser-only, and
+         without this every call into one is CA1416. -->
+    <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
+      <_Parameter1>browser</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
 
   <ItemGroup>
     <!-- The figures are applied over SimConfig by name at run time, and a trimmer takes a setter

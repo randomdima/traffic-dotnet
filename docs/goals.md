@@ -17,7 +17,7 @@ Everything else is detail on one idea: **the town's behaviour is emergent, so th
 and the failures have to be recoverable.** A build that reaches the same picture by any other route has
 built something that looks like this and is not it.
 
-And it is written with **no engine under it**: C# on .NET 10, and this project's own compute kernels. The
+And it is written with **no engine under it**: C# on .NET 11, and this project's own compute kernels. The
 unmanaged boundary is at the graphics driver and the window and nowhere else. No Godot, no MonoGame, no Unity, no
 retained renderer, no ECS framework — nothing that wants to own the loop, the window, the update order or
 the object model. The physics is not a package either: [world/physics/](../src/world/physics/) is this

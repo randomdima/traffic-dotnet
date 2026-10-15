@@ -105,6 +105,12 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   `AllocationGateTests` and `CrossingGateTests` step the managed world. A tick on the device crosses a fixed count — the world's submit and wait, and the emit's submit a frame —
   but no gate holds it, nor that `DeviceWorld.Step` allocates nothing (its signal buffer grows by doubling past twice the
   bodies). A device gate over the suite's built town closes it.
+- **A window on O30 allocates about 2 MB/s in its steady state** (2026-10-15, `qq prof --counters`, .NET 10 and 11
+  alike): 53–76 MB over 20–30 s sampled, four or five gen0 collections, on the device world and the managed one, with
+  and without `--ui frame` — so it is not the read-out, and the listener's own ~32 kB/s is a sixtieth of it. The rate
+  follows the wall clock more than the frame count. `TownProbe`'s headless tick of the same town allocates only the
+  solver's ~1.9 kB a tick, so it is the window's loop or what it runs aside. A `qq prof --memory` dump by type, or an
+  allocation trace over the loop, names it and closes it.
 - **The page's device world** (2026-10-15, web log), each found standing it up:
   - **no tier runs it**: `qq web` on River, OdesaOsm and O30 is the whole of what has looked at it. A lockstep would not hold to the bit
     in any case — WGSL cannot forbid a driver to fuse (core log), and `fma` in `world_view.comp` may run unfused — so a
@@ -451,6 +457,16 @@ a layout or changes behaviour.
 - **The ground rule TER-7b, a P0, still says it is taken "once a laying (TER-49)"** _owner_: there is no laying, and the
   wheels' ground is read on every world step (`WorldLayer.Step`). The code meets the rule more often than it says; the
   wording is the owner's.
+- **`SixLabors.ImageSharp` 3.1.12 carries three high and two moderate advisories** _owner_ (2026-10-15, NuGet audit
+  `NU1902`/`NU1903` on every build): GHSA-jjfr-hcj7-qf5w, -j9gm-c75j-xc9q, -j3p4-wp97-rph4, -wmxv-xphr-5c9g and
+  -gwg2-r3hj-4w44. 3.1.12 is the last 3.1.x, and the csproj keeps off 4.x for its licence key. It decodes the
+  project's art and the frames its own runs wrote; moving to 4.x with a key, or to another decoder, closes it.
+- **An authored town is laid off the runtime's `DegreesToRadians`** _owner_ (2026-10-15, root log): .NET 11 rounds
+  `float.DegreesToRadians` and `double.DegreesToRadians` differently from .NET 10, and through
+  `ConnectionPoints.BoundRad` alone that moved O30's plan, atlas and marks digests (391 more static bodies). Written as
+  .NET 10's `(deg * π) / 180`, 11 lays O30 to the bit as 10 did. Whether a town may move with the runtime it runs on, or
+  the conversion is the engine's own (as the trigonometry became `Trig`), is the owner's; the traced import
+  (`TransverseMercator`, `TracedStreets.Evened`) reads the same two.
 - **`TER-5j` was retired and its number given to another rule** _owner_ (road log, 2026-09-14), against "a retired
   number is never reused". The log no longer cites the old one; renumbering the new one is the owner's.
 

@@ -3,7 +3,7 @@ namespace TrafficSimulation.Core.Config;
 /// <summary>
 /// Where <c>assets/</c> and <c>towns/</c> are. Found by walking up from wherever the binary landed
 /// rather than by assuming a working directory — a run from an IDE, from <c>dotnet run</c> and from
-/// <c>bin/Debug/net10.0/</c> all start somewhere different.
+/// <c>bin/Debug/net11.0/</c> all start somewhere different.
 /// </summary>
 internal static class ProjectPaths
 {

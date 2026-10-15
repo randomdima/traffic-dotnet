@@ -1,7 +1,7 @@
 # traffic-dotnet
 
 A top-down traffic simulation of a small town — pedestrians, cars and traffic lights as agents — with
-no game engine under it: C# on .NET 10, managed from the decision loop to the bytes the GPU reads, with
+no game engine under it: C# on .NET 11, managed from the decision loop to the bytes the GPU reads, with
 the unmanaged boundary at the graphics driver and the window and nowhere else.
 
 Two rules decide everything else:
@@ -31,7 +31,7 @@ them describes how a class works — that is the XML docs on the class.
 
 ## Building and running
 
-Needs the .NET 10 SDK, a Vulkan 1.3 driver, and `glslc` (shaderc) on `PATH` — the project file compiles
+Needs the .NET 11 SDK (11.0.100-rc.2 or later), a Vulkan 1.3 driver, and `glslc` (shaderc) on `PATH` — the project file compiles
 `src/runtime/shaders/*` and every slice's `kernels/*.comp` to SPIR-V and embeds them, so a missing `glslc` fails
 the build rather than the run. The browser head (`traffic-dotnet.web.csproj`) also wants `naga` (`cargo install
 naga-cli`), which takes the same kernels on from SPIR-V to WGSL.
@@ -296,7 +296,7 @@ the shared half, and the machine's two halves named file by file in
 ```
 dotnet workload install wasm-tools wasm-experimental
 dotnet publish traffic-dotnet.web.csproj -c Release
-cd bin/web/Release/net10.0/publish/wwwroot && python3 -m http.server 8080
+cd bin/web/Release/net11.0/publish/wwwroot && python3 -m http.server 8080
 ```
 
 Then `http://localhost:8080/` — **the query string is the command line**, so `?map=Odesa&ui=nodes`
@@ -389,7 +389,7 @@ what is written by a person never share a folder.
 
 `assets/` and `towns/` are found by walking up from wherever the binary landed
 (`src/core/config/ProjectPaths.cs`), so a run from an IDE, from `dotnet run` and from
-`bin/Debug/net10.0/` all resolve the same.
+`bin/Debug/net11.0/` all resolve the same.
 
 ## Where a figure lives
 

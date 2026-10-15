@@ -15,7 +15,7 @@ bending one costs ([priority.md](priority.md)).
 are [goals.md](goals.md)** — stated there and nowhere else, because a purpose written twice is two
 purposes within a month.
 
-**TEC-1** `P2` The spec constrains no engine, language or renderer; this project settles it as C# on .NET 10
+**TEC-1** `P2` The spec constrains no engine, language or renderer; this project settles it as C# on .NET 11
 with nothing under it ([goals.md](goals.md)).
 
 **TEC-2** `P3` The physics layer provides collision, contact resolution **and motion integration**. Every

@@ -45,6 +45,7 @@ public class SheetRequestTests
         Assert.Equal("Test", second.Map);
         Assert.Equal(30f, second.ViewM);
         Assert.Equal(0, second.Seconds);
+        Assert.NotNull(second.Ui);
         Assert.Equal(["nodes"], second.Ui);
     }
 

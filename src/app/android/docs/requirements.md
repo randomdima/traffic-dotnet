@@ -78,7 +78,7 @@ sdkmanager --install "platform-tools" "emulator" "system-images;android-35;googl
 avdmanager create avd -n town -k "system-images;android-35;google_apis;x86_64" -d pixel_6
 emulator -avd town -gpu host -no-window        # -gpu host, or the guest has no Vulkan 1.3 to open
 dotnet build traffic-dotnet.android.csproj -c Debug -t:SignAndroidPackage -p:EmbedAssembliesIntoApk=true
-adb install -r bin/android/Debug/net10.0-android/*-Signed.apk
+adb install -r bin/android/Debug/net11.0-android/*-Signed.apk
 adb shell am start -n dev.trafficdotnet.town/.TownActivity -e map Test -e ui nodes
 adb exec-out screencap -p > .tmp/handset.png
 ```
@@ -96,7 +96,7 @@ the whole of a city being generated on one core). It is the desktop's own semant
 testing affordance; **the menu is the way in that never waits**, and what it shows while a city is laid
 is the card (OBS-2n).
 
-**The tiers do not reach this head, because the suite is `net10.0`** and compiles against the desktop head
+**The tiers do not reach this head, because the suite is `net11.0`** and compiles against the desktop head
 ([tests](../../../tests/)), so a test cannot construct an activity or a handset window. Everything above
 the bootstrap is checked through the other two heads; **what is left to a device is the bootstrap itself**
 — a surface, a size, a density, fingers, and the pictures a reader takes of it.

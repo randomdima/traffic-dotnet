@@ -1,6 +1,6 @@
 # traffic-dotnet — working agreement
 
-A top-down multi-agent traffic simulation of a small town with **no engine under it**: C# on .NET 10,
+A top-down multi-agent traffic simulation of a small town with **no engine under it**: C# on .NET 11,
 managed from the decision loop to the bytes the GPU reads. What it is for is
 [docs/goals.md](docs/goals.md); what it is made of and how to run it is [readme.md](readme.md); every
 document is indexed by [docs/index.md](docs/index.md).

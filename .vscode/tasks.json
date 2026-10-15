@@ -33,7 +33,7 @@
     },
     {
       // Publishes the browser head ahead-of-time compiled and serves it from
-      // bin/web/Release/net10.0/publish/wwwroot.
+      // bin/web/Release/net11.0/publish/wwwroot.
       //
       // **It costs about ten minutes, and the alternative costs more.** `qq web --debug` lays the same
       // tree in ten seconds, but the ahead-of-time step happens on publish and never on build, so what

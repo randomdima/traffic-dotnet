@@ -4,7 +4,30 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
-## 2026-10-15 — the atlas's points are found and filed on the device
+## 2026-10-15 — the engine runs on .NET 11
+
+**Asked for by the owner (2026-10-15).** Every head, the suite and the two workshop tools target `net11.0`
+(`net11.0-android` for the handset), built by SDK 11.0.100-rc.2; TEC-1 says so. Nothing in the engine changed for it.
+On O30 the tick and the open are a few percent cheaper and nothing else moved past the noise between runs:
+
+| O30, 16 cores, RX 9070 XT | .NET 10.0.13 | .NET 11.0 rc.2 |
+|---|---|---|
+| the town probe's tick, µs (window 1 / the timed window) | 8 436 / 7 260 | 8 179 / 7 208 |
+| allocated a tick, B (the solver's; the engine's own) | 1 945; 0 | 1 887; 0 |
+| the open (`--bench load`) / the CPU it spent | 36.7 s / 92.2 s | 35.4 s / 87.6 s |
+| a window's frames a second uncapped, the device's world / the managed one | 3 767 / 5 445 | 3 706 / 5 025 |
+| peak resident, the open / a window on the device's world | 3 875 / 2 453 MiB | 3 943 / 2 373 MiB |
+
+Three things the move found:
+
+- **`float.DegreesToRadians` rounds differently**, and through `ConnectionPoints.BoundRad` it moved O30's plan, atlas
+  and marks digests once (`f8820717f063b85a` → `005be742f9d398de`; 391 more static bodies). With .NET 10's
+  `(deg * π) / 180` written there, 11 lays O30 to the bit as 10 did, so it is the only arithmetic the runtime changed
+  under the town; whether it stays the runtime's is the owner's ([tech-debt.md](tech-debt.md#waiting-on-the-owner)).
+- **The call-counting delay is still read** under its undocumented name: O30 opens in 34.9 s with it at nothing and
+  42.7 s with the runtime's default put back (`DOTNET_TC_CallCountingDelayMs=100`).
+- **A float cast to a narrower integer now saturates** on CoreCLR and not on the page's Mono. Every such cast here is
+  clamped first, which is why they stay clamped.
 
 **The owner (2026-10-15), in their words: "Yes we can move geometry logic to the GPU".** Where a town's world is the
 device's, the device files its atlas (the road log): the host lays the pieces and the slots, and works out the marks
