@@ -132,9 +132,13 @@ internal static class Towns
         WaterShare = water == WaterKind.Coast ? 0.2f : 0.06f,
     };
 
-    static readonly ConcurrentDictionary<string, CityPlan> Shared = new();
+    /// <summary>
+    /// Lazily, because <see cref="ConcurrentDictionary{TKey,TValue}.GetOrAdd(TKey, Func{TKey,TValue})"/> runs its factory
+    /// on every thread that misses at once: the classes that start together and all ask for the city would each lay it.
+    /// </summary>
+    static readonly ConcurrentDictionary<string, Lazy<CityPlan>> Shared = new();
 
-    static readonly ConcurrentDictionary<(ulong Seed, WaterKind Water), CityPlan> Laid = new();
+    static readonly ConcurrentDictionary<(ulong Seed, WaterKind Water), Lazy<CityPlan>> Laid = new();
 
     /// <summary>The shipped set: the map files, and the maps this build lays in code.</summary>
     public static IEnumerable<string> Shipped => Maps.Shipped();
@@ -152,7 +156,7 @@ internal static class Towns
     /// asks a shared town a geometry question joins <see cref="TownGeometryCollection"/></b>, and one that
     /// really needs a town of its own has <see cref="Fresh"/>.
     /// </remarks>
-    public static CityPlan Of(string map) => Shared.GetOrAdd(map, Fresh);
+    public static CityPlan Of(string map) => Shared.GetOrAdd(map, named => new(() => Fresh(named))).Value;
 
     /// <summary>A copy of a town nobody else holds — for the one test that writes into a plan.</summary>
     public static CityPlan Fresh(string map) =>
@@ -166,7 +170,7 @@ internal static class Towns
     /// laying one per case was three quarters of the tier this project runs after every edit.
     /// </summary>
     public static CityPlan LaidFrom(ulong seed, WaterKind water = WaterKind.River) =>
-        Laid.GetOrAdd((seed, water), key => LayFresh(key.Seed, key.Water));
+        Laid.GetOrAdd((seed, water), key => new(() => LayFresh(key.Seed, key.Water))).Value;
 
     /// <summary>
     /// The same town, laid again and shared with nobody. <b>Only the determinism cases want this</b>: handed
