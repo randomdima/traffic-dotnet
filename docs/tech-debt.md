@@ -39,7 +39,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   on lavapipe, which the suite runs. The device tier pointed at the RX 9070 XT by hand closes it.
 - **Allocation tests fail now and then in a full run and pass alone**:
   - `InspectorTests.AnInspectedFrameAllocatesNothing` and `UnitPanelTests.DrawingThePanelAllocatesNothing` (unit), at
-    3–8 KB. Both read the whole process's counter while the tier runs classes side by side.
+    3–8 KB. Both read the whole process's counter while the tier runs classes side by side: the inspector's failed one
+    unit run in six on 2026-10-15, and two in three with the suite's shared towns laid behind `Lazy` (which would lay
+    each once where `Towns`' `GetOrAdd` lays one on every class that misses at the same moment, and is not taken for
+    this).
   - `RouteSearchTests.SectionedPlanningAllocatesNothing`, `RoutePlannerTests`, `ScreenDrawTests`,
     `StatusPanelClaimsTests.DrawingTheClaimsAllocatesNothing` and `StatusPanelTests.DrawingThePanelAllocatesNothing`
     (unit), at 3–8 KB on the test's own thread — one of them in 6 runs of 10 (2026-10-13). With
