@@ -66,12 +66,7 @@ the heading to the bit except where a walker takes the bearing, which is the dev
 reservation round the door, and a reservation has no across, so the car's own claim on its bay was over every place
 beside it: on Odesa 99.8 % of exits were refused, every one of those would have been granted with the car's own
 claim set aside, and the owners waiting grew all run. **The car's own ground is no objection now and its panels
-are** (`TownWorld.BesideTheCar`), which is how the walk to and from it is already held (`GroundHeldAs`).
-
-**Still open**: in the suite's built town two owners stay at the wheel for over a minute — every place within the
-exit search of their door is either reached by their own car's panels or held by somebody else, and with the panels
-not asked both get out. The door point is the bay's (GEN-4e), a person's breadth off a *nominal* car's flank, which
-a wider car reaches; not yet checked is that the places past it are on the next bay's way.
+are** (`TownWorld.TryPutDownOff`), which is how the walk to and from it is already held (`GroundHeldAs`).
 
 ## 2026-10-02 — a stay indoors is short, and mostly shorter
 
@@ -205,8 +200,7 @@ and round a corner.
 **Straight across, along, and straight back**: the owner asked for the shortest pass, and a walker turns where
 it stands. Aimed a stride ahead at the lane beside, a walker had closed on it along a curve, over ground between
 the two lanes its pass did not hold — the claim began a lane over from where the walker was. Now each leg is
-walked straight at its end, and the ground is the walker's disc swept down all three from where it stands: on a
-straight, 2.0 m across, 3.9 m along and 2.0 m back in 1.3 s. **Which leg it is on is read off where it stands**,
+walked straight at its end: on a straight, 2.0 m across, 3.9 m along and 2.0 m back in 1.3 s. **Which leg it is on is read off where it stands**,
 to within its own radius across: to within a tick's walk, a body the solver shoved off the lane beside was sent
 back across it.
 
@@ -254,8 +248,8 @@ where it cannot, the car keeps the ground (TER-5e), as it did before.
 **Two walkers planned nothing and walked on an unbounded grant** (PER-26): one not yet on its way's own
 ground — regularly the first stretch of a leg, crossing to the far lane of a pavement — and one on the hop off
 the end of its route, onto a door or, under an order, straight across a carriageway. Both plan now: the first
-down the way it is walking, the second over the ways the atlas finds under the straight in front of it, and
-the hop is aimed no further than it was granted.
+down the way it is walking, the second over the straight in front of it, and the hop is aimed no further than
+it was granted.
 
 **A light holding the crossing is a wait that spends no clock** (TLT-2a), as it is for a driver: a walker at a
 red kerb gave up its trip after twenty seconds.

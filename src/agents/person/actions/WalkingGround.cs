@@ -6,7 +6,6 @@ using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Routing;
-using static TrafficSimulation.World.Road.LineWays;
 
 namespace TrafficSimulation.Agents.Person.Actions;
 

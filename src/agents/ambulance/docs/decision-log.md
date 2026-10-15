@@ -1,5 +1,12 @@
 # The ambulance — decision log
 
+## 2026-10-15 — `AMB-4.3` said what `TER-5g` and `AMB-4.4` say, and is retired
+
+`AMB-4.3` held that a body on the paint refuses a call as any body does, and that a walker is granted nothing of
+its own. The first half is the ladder's own (TER-5g: a rung takes a claim and never a body) and AMB-4.4's — whoever
+is already on the paint is waited for short of it; the second stopped being true when a walker came to plan at
+a rung of its own (PER-27), which a call's outranks. Nothing cited it. Retired: `AMB-4.3`.
+
 ## 2026-09-30 — a call passes traffic slower than it by more than a pedal's hunting
 
 **The escort on the idle ring stopped dead a lap in** (AMB-4.4). A call passed traffic going any slower than it
@@ -15,11 +22,11 @@ jam a call is held up by.
 **The owner asked for a call to get to its incident as soon as it can, whatever it takes, and to claim twice as
 far** (AMB-4.4, AMB-4.5). A call behind a jam that crept waited for as long as it crept, since only a body at
 rest could be passed — the second of the owner's four passing rules, which the owner now lifted for a call.
-**It passes traffic going slower than it means to** (`TownWorld.MayGetPast`, the car's own `PlannedMps`): what
-goes as fast is no hindrance, and without it an escort on the idle ring, held under its charge's pace and so
-never catching it, came to a standstill (`IdleRingTests`). What it passes moving it clears where that can come to rest
-(`LaneOccupancy.StopsByM`), and a car that cannot stop short of the pass refuses it (`PassTerms.Takes`), so the
-traffic it passes is held short of it rather than driven into it. Nobody on foot who is moving is passed.
+**It passes traffic going slower than it means to** (the car's own `PlannedMps`): what goes as fast is no
+hindrance, and without it an escort on the idle ring, held under its charge's pace and so never catching it, came to
+a standstill (`IdleRingTests`). What it passes moving it clears where that can come to rest, and a car that cannot
+stop short of the pass refuses it, so the traffic it passes is held short of it rather than driven into it. Nobody
+on foot who is moving is passed.
 
 **It plans `CallReachShare` times as far** — what it means to use and how far a plan may reach, and not what it
 can no longer stop short of, which is its speed's and would take from everybody ground the call could still

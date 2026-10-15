@@ -1,7 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
-using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.Core.Config;
 
 namespace TrafficSimulation.Agents.Car.Actions;
 

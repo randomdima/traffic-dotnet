@@ -54,7 +54,7 @@ rung, and a car that can no longer stop beats it as it beats every rung, which i
   is placed and meets no other.
 - **A connector is not held.** Only a car already in the box could meet a claim there, and that car has
   started.
-- **Its rung is a new one, p4**, between a closed road and the paint: "not higher than police or ambulance"
+- **Its rung is a new one, p4**, below a call's: "not higher than police or ambulance"
   put it below both, and holding the zebras put it above the walker it holds.
 - **The grant a light cuts is read at the reaction lead** (`CarFollower`), as the stop term it replaced was.
   Read at the grant alone, a car pulling away towards a red was still accelerating when the ground it could

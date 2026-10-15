@@ -20,12 +20,12 @@ internal sealed class CarActions(DrivingGround ground, Manoeuvres manoeuvres)
     /// </summary>
     const int CarsToAPassRoom = 16;
 
-    /// <summary>The fewest rooms of each kind laid, so a small town has one for every car that could want one.</summary>
+    /// <summary>The fewest rooms laid, so a small town has one for every car that could want one.</summary>
     const int LeastRooms = 16;
 
     readonly uint[] _entries = new uint[ground.Cars.Capacity];
 
-    /// <summary>Room for the ground a pass sweeps and what it gets past, held from its drawing until the car leaves the overtake and the backing up for it.</summary>
+    /// <summary>Room for what a pass gets past, held from its drawing until the car leaves the overtake and the backing up for it.</summary>
     public ActionRooms PassRooms { get; } = new(ground.Cars.Capacity, CarsToAPassRoom, LeastRooms);
 
     /// <summary>

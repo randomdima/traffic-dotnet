@@ -78,12 +78,11 @@ moment arm — the contact solver's own arithmetic asked about a coupling. The s
 small fraction because across the drawbar the same impulse buys several times the yaw, all of it landing
 on the truck: uncapped, a corner at walking pace spun the tractor through fifty degrees in two seconds.
 
-## 2026-08-26 — a towed wreck lays no ground, and the truck's claim reaches back over it
+## 2026-08-26 — a towed wreck's ground is its truck's
 
 The first tow ever run stopped dead, because the trailer's own stretch cut the grant of the truck towing
 it. A second exclusion threaded through every question the lane index answers was refused; the pair is
-instead what it looks like — one movement, one stretch (`TER-5c.2`) — with the truck asking for the ground
-both stand on and the wreck for none.
+instead what it looks like — one movement — with the ground the wreck stands on held under the truck's number.
 
 ## 2026-08-26 — the wreck is winched onto the hook and set down in the slot, and both are placements
 

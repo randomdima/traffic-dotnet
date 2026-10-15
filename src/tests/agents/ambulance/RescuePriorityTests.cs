@@ -34,9 +34,8 @@ public class RescuePriorityTests
     }
 
     /// <summary>
-    /// A rescue outranks every ordinary movement, the paint and <b>a closed road</b> (SRV-6), so none of their
-    /// plans keeps ground a rescue asks for — the last of those is the whole of "the officer lets the other
-    /// services through".
+    /// A rescue outranks every ordinary movement, a light's hold and a walker's plan, so none of them keeps ground
+    /// a rescue asks for.
     /// </summary>
     /// <remarks>
     /// <b>The movements are named by their byte</b>, because a theory's parameters are as public as the test

@@ -139,7 +139,7 @@ internal static class LampSprites
         SpriteTint.Pack(LampAtlas.ColourOf(colour) with { W = config.Lamps.GlowStrength });
 
     /// <summary>
-    /// The cell of the lens sheet a lens burning in <paramref name="state"/> is cut into (<see cref="LampAtlas.CellAt"/>):
+    /// The cell of the lens sheet a lens burning in <paramref name="state"/> is cut into (<see cref="LampAtlas"/>):
     /// a column a lens's state, a row a look.
     /// </summary>
     public static SpriteCell LensCell(int variant, int lens, int state, int rows) =>

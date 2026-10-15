@@ -1,5 +1,3 @@
-using System.Numerics;
-
 namespace TrafficSimulation.Agents.Car.Body;
 
 /// <summary>

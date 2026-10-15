@@ -1,4 +1,3 @@
-using System.Numerics;
 using TrafficSimulation.Core.Config;
 
 namespace TrafficSimulation.Agents.Car.Body;

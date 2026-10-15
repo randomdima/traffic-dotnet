@@ -437,7 +437,7 @@ internal static class CarFollower
     /// <remarks>
     /// <para>
     /// <b>Both halves are delays and neither is a margin.</b> A pedal that travels rather than snapping
-    /// (<see cref="SimConfig.CarPedalRateMps3"/>) reaches the planned rate after a ramp, and a car that
+    /// (<see cref="CarBuild.PedalRateMps3"/>) reaches the planned rate after a ramp, and a car that
     /// planned as though it arrived at once brakes over less ground than it asked for and makes up the
     /// difference by braking harder than it planned. The ramp costs half of itself, which is the area a
     /// triangle of it has against the rectangle it is standing in.
@@ -673,7 +673,7 @@ internal static class CarFollower
     /// against a body the solver has already settled.
     /// </summary>
     /// <remarks>
-    /// <b>The pedal moves at a bounded rate</b> (<see cref="SimConfig.CarPedalRateMps3"/>). What closes the
+    /// <b>The pedal moves at a bounded rate</b> (<see cref="CarBuild.PedalRateMps3"/>). What closes the
     /// speed error in one tick is a demand of sixty times that error, so anything past a fifth of a metre a
     /// second saturates it and a car merely holding a speed snaps between the two stops several times a
     /// second — which the tyre model then answers with a load transfer apiece. Bounding the rate keeps the

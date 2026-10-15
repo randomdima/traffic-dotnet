@@ -58,7 +58,7 @@ officer standing there is what blocks one (SRV-9), a scene across both lanes get
   bay's way, a patrol leaving its yard took its stale queue up at the end of the way and drove into the officer.
 - **A police car is stopped at its stand only in the entrance lane** — within half that lane. At the
   ambulance's working reach it stopped in the other lane beside its stand.
-- **The officer is laid with the car** (`StandTheOfficer`), in a crew seat and in uniform, since the walker
+- **The officer is laid with the car** (`StandTheCrew`), in a crew seat and in uniform, since the walker
   roster is never grown once a town stands. On the road they walk straight at their post under their own stage
   (`TripStage.OnDuty`), with no route and no clock: the trip's machinery stood them still for want of a way of
   the network and would have given the walk up.

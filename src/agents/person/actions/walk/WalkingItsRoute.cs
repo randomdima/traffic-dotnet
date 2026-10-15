@@ -1,6 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Person.Body;
-using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.Core.Config;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Routing;
 

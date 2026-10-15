@@ -2,6 +2,7 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
+using TrafficSimulation.Core.Config;
 using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Road;
 using static TrafficSimulation.World.Road.LineWays;

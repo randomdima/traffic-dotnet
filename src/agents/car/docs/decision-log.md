@@ -3,6 +3,12 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-10-15 — `CAR-13.2` said what `CAR-13.1` says, and is retired
+
+`CAR-13.2` held that a body binds a reckless driver as it binds anybody. `CAR-13.1` already closes the list at
+nothing dropped, so a driver who keeps no courtesy is exempt from no rule, a body's among them. Nothing cited it.
+Retired: `CAR-13.2`.
+
 ## 2026-10-13 — a pass, a step across and a manoeuvre ask the lanes they run down, and nothing is swept
 
 **At the owner's ruling that the host looks nothing up** (the root log, 2026-10-13): every action's ground had been a
@@ -105,8 +111,8 @@ worst tick 18.9 → 1.0 ms (two pairs against the tree before).
   the pedal's travel in the lead, as a plan's committed ground already was.
 - **Backing up is driven by the follower** (`CarFollower.DriveTheLine`'s `backsUpByM`) and not by a second copy of it.
   Without the hazard: the hazard reads the grant ahead, and backing has none.
-- **What a pass, a step across and a manoeuvre sweep is kept in rooms laid for a share of the fleet** (`ActionRooms`):
-  about 21 KB a car before, 2.2 KB after. A car that finds none left is refused as one whose ground does not fit.
+- **What a pass gets past is kept in rooms laid for a share of the fleet** (`ActionRooms`), not in a table a car. A
+  car that finds none left is refused as one whose ground does not fit.
 - **The quiet decision by the clock alone is gone**, its test with it: switched on, it saved nothing (57.4 against
   58.2 µs of car decisions), the full decision having become as cheap as asking whether it could be skipped.
 
@@ -243,8 +249,8 @@ junction. Cars keep to the kerb lane unless getting past something or switching 
 lanes, a car may not get past into the oncoming lane. **The owner chose** that a car switches to get past slower
 traffic as well as something at rest, and only over the lane toward the line.
 
-- **The step is a pass's step out with no step back** (`Overtake`, `BackM` at infinity), so the step, the drive down it,
-  the sweep and the p0 claim are the pass's own. **What differs is the decision**: a pass is decided once where the car
+- **The step is a pass's step out with no step back** (`Overtake`, `BackM` at infinity), so the step, the drive down it
+  and the claim are the pass's own. **What differs is the decision**: a pass is decided once where the car
   would begin slowing, and committed to; a switch is drawn again at every look from where the car then is
   (`LaneSwitchAskEveryS`), because the car is still driving. The room swept past the step is a stop at the step's pace,
   which is what the car is granted on the lane beside until its plan is laid down it.
@@ -309,7 +315,7 @@ Measured on `--bench age --map Odesa`, µs a tick, two runs each:
 ## 2026-10-01 — a car's pass and its way back onto its line are decided on its own clock
 
 **The rest of what the car's actions decided every tick is the car's decision now** (`DecideTheAction`): drawing a
-pass (`Overtaking.DrawThePass`, from `Following.Decide`), looking round for it, asking for it and giving up past its
+pass (`Overtaking.DrawThePass`), looking round for it, asking for it and giving up past its
 patience (`Overtaking.Decide`), the look a car backing up for its room takes (read once by its next tick,
 `Overtaking.TakeTheLook`), and a car off its line looking for the lane under it (`Rejoining.Decide`). Every one of
 their clocks runs by the interval a decision answers for. A pass drawn is looked round for in the same decision, as
@@ -396,7 +402,7 @@ shaped from — first the end of its line, where a nose-in could not be made fro
 length short of it, where one nearly always could. Either way the traffic it held filled the ground the shape
 needed, and shaped again from the same place the shape was the same. Over 24 minutes of Odesa it parked 20 cars a
 minute by the end where it had parked 51, with 541 standing to 440. **Shaped from where the car is, as it comes
-up**, the car tries a different shape every tick and has one it can make before it stops; that stays until a
+up**, the car tries a different shape at each of its decisions and has one it can make before it stops; that stays until a
 manoeuvre can be committed to without standing in the lane it needs.
 
 ## 2026-09-30 — a pass is decided once and committed to
@@ -410,7 +416,7 @@ would then ask for; the follower asked it again to decide, and a car backing up 
 how near it stood. Late in Odesa's run a hundred cars were doing that every tick: the cars' share of the tick went
 from 1 050 µs to 1 900, and to 3 900 in the minute one fast call waited behind a queue.
 
-- **Two shapes, drawn once, when the pass is decided** (`Overtaking.Decide`): one for the pace the car came
+- **Two shapes, drawn once, when the pass is decided** (`Overtaking.DrawThePass`): one for the pace the car came
   up at, had only while it can still come up to where that one begins at a pace it may be driven at, and one from
   rest, where it waits and what it backs up for. One shape would not do: drawn for the pace, the car waited behind
   a step too long to leave a straight alongside what it passed; drawn from rest, a car on a free road would have
@@ -423,8 +429,6 @@ from 1 050 µs to 1 900, and to 3 900 in the minute one fast call waited behind 
   gone, has moved or can no longer be passed, and after `PassPatienceS` (10 s), to be decided afresh from where the
   car then stands. A body that has moved is a new state of the road, and a pass drawn round moving traffic by a call
   is let go at its next look.
-- **The room to step out from rest is drawn once a lane and a ground** (`KeptOffM`), which were sampled again for
-  every car standing behind something going nowhere, every rebuild.
 - **A car past where its step from rest begins is driven on its grant alone**: stopped short of where it stood, the
   escort on the idle ring braked to a stand and backed up behind the car it escorts.
 
@@ -486,8 +490,8 @@ the same wedge the walk had before, found at other places by a town with other s
 ## 2026-09-29 — a car on a call keeps room behind what it may pass
 
 **A call gets past a queue at rest and slower traffic** (CAR-46, AMB-4.4), so either is something it may come to
-pass and it keeps back with room to step out from a standstill (`KeptOffM`), as every car does behind a body
-going nowhere. At the stand-off it would stand too near to step out and back up for the room first (CAR-50).
+pass and it keeps back with room to step out from a standstill, as every car does behind a body going nowhere. At
+the stand-off it would stand too near to step out and back up for the room first (CAR-50).
 
 ## 2026-09-29 — a car nothing drives runs its own round from bay to bay
 
@@ -510,8 +514,8 @@ that close to back up a little over a claim of the lowest rung behind it — and
 stuck and be something the traffic behind gets past in turn (CAR-50, TER-4c.7).
 
 **Why a car was ever too near**: it keeps room to step out only behind a body already going nowhere when it comes
-up (`KeptOffM`). Behind anything else it may pass — a queue making another movement, a car backing out of a bay, the
-head of a queue then stood down — it closes to the stand-off, and no step out from rest clears that: a reservation
+up. Behind anything else it may pass — a queue making another movement, a car backing out of a bay, the head of a
+queue then stood down — it closes to the stand-off, and no step out from rest clears that: a reservation
 has no across (TER-4c), so the whole body has to be off its lane before it is level with what it passes, and reading
 the other body's shape instead is reading another agent (TER-4c.5). At rest the car asked anyway, its swept body was
 over the metres of what it passed, and it was decided — indicating — for ever. On the stuck probe's five minutes of
@@ -639,9 +643,7 @@ it, and further back only behind something it may come to pass, to keep the room
 out behind a body going nowhere — and the third was read wrongly: **a body's line ending on the way it is on
 was taken for a body going nowhere**. A line is laid a sight distance ahead, about 120 m, and grown a lane at a
 time, so every car on the first stretch of a long lane was on the last lane of its line, and a queue there was
-waited behind 4.5 m back, moving or not. A body now says its line runs on (`LaneOccupancy.RunsOn`) until it is at
-the line's end, and only a body at rest is going nowhere (`LaneClaim.GoesNowhere`). A line not yet laid past a way
-makes every movement on it, so such a queue is never passed either.
+waited behind 4.5 m back, moving or not. Only a body at rest, at the end of its line, is going nowhere.
 
 **The gap was floored at a body's width** because a claim once read a body as one interval of a way, the road's
 width thrown away. Bodies are read off their colliders now (TER-4c.2), and the floor went with that reading.
@@ -703,8 +705,7 @@ sides on the ask (`PassSpareM`), none are withdrawn.
 was laid was cut in the middle of it, its body over the pass's ground on the movement beside its own, and the
 two waited on each other for the rest of the minute the town test gives it.
 
-**A car waits behind a body going nowhere with room to step out from a standstill, and no more**
-(`KeptOffM`). Waiting at its stand-off, a car asked for a step it could not drive, clipped what it was passing
+**A car waits behind a body going nowhere with room to step out from a standstill, and no more.** Waiting at its stand-off, a car asked for a step it could not drive, clipped what it was passing
 and stood half out, holding its pass: in 100 s of Odesa 14 cars stalled that way. Waiting a whole step and its
 margin back, 8.6 m off the claim, it stood where the owner called the gap ridiculous; the room the step out
 needs is 4.5 m in the fixture. **A car whose line ends where it stands is going nowhere too**: the scenario
@@ -783,18 +784,13 @@ at the call's rung, which nothing below it can take — for a pace it never drov
 driver's own reading of them went: the stop term the profile braked for (`DriveContext.StopAtM`), the stop
 point its plan was laid short of, and the two exemptions that lifted it — a blue light's, which is now its
 rung, and a reckless driver's. **The reckless driver's was dropped rather than moved** (`CAR-13.1`):
-reinstated, it would be an exemption the ladder does not state, for a habit no driver has while nobody
-boards a car (`CAR-1`). The red-crossing count stays, counting what the ladder lets over a bar.
-
-**A grant a light cut is read at the reaction lead** (`S-2a`), and every other grant still at the following
-time — the one place the grant's own reading changed, for the reason the trafficlight log gives.
+reinstated, it would be an exemption the ladder does not state. The red-crossing count stays, counting what
+the ladder lets over a bar.
 
 ## 2026-09-26 — rules reworded to what the code does
 
 The owner ruled the code the source of truth for this audit.
 
-- `CAR-1`: a car acted while it contained a driver → while something drives it (an errand, an order, a
-  hand, the tour); nobody boards a car.
 - `CAR-8`: a car's destination was its driver's → it is whatever drives it, and on a map with no reachable
   bay the tour, with none.
 - `CAR-9a`: the driver continued on foot → the car is stood down where the leg's clock ends it, and nobody
@@ -1065,14 +1061,3 @@ The tyre model has always spent the variant's drivetrain and the fleet has alway
 only the nominal figure ever reached it, so every car in every town was front-wheel drive whatever it was
 drawn as. What it bought was a comparison: a front-drive car tops out a sixth under the other two down the
 straight and takes a quarter longer to get back up to speed.
-
-## 2026-08-20 — which procedure runs is the line's question
-
-The standing rules pick the route procedure or the bay-way one off the line itself, because anything keyed
-on what the car was last told to do can hand a car to the route procedure with no lanes under its line.
-
-## 2026-08-19 — a car at a standstill has no tyres to work out
-
-A standstill has no slip to resolve and no mark to leave, so the whole four-wheel solve is skipped below a
-threshold — the largest single saving in the car's tick, and free because the result it skips is
-arithmetically zero.

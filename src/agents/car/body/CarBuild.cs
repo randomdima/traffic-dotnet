@@ -210,9 +210,9 @@ internal readonly record struct CarBuild
     /// <remarks>
     /// <para>
     /// <b>It is a figure along the roll and takes no notice of what the wheel is doing</b>, and every stop is planned at
-    /// it. The brake a driver actually applies in a bend is less (<see cref="CarFollower.BrakeCeilingMps2"/>), since the
+    /// it. The brake a driver actually applies in a bend is less (<c>CarFollower.BrakeCeilingMps2</c>), since the
     /// tyres answer to one ellipse: a stop planned through a corner is made over more ground than it was planned in, and
-    /// what catches the difference is the hazard (<see cref="CarFollower.IsAHazard"/>).
+    /// what catches the difference is the hazard (<c>CarFollower.IsAHazard</c>).
     /// </para>
     /// <para>
     /// This and the three figures below are derived when the build is resolved, each the very expression its readers
@@ -226,7 +226,7 @@ internal readonly record struct CarBuild
 
     /// <summary>
     /// <b>How far in front of itself the profile plans with the pedal off the throttle</b>
-    /// (<see cref="CarFollower.LeadS"/>): the staleness of what the driver reads, and half the brake pedal's travel to
+    /// (<c>CarFollower.LeadS</c>): the staleness of what the driver reads, and half the brake pedal's travel to
     /// <see cref="PlannedBrakingMps2"/> — the lead every committed stretch of ground is taken at.
     /// </summary>
     public required float RestingLeadS { get; init; }

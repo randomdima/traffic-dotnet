@@ -4,7 +4,6 @@ using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
-using TrafficSimulation.World.Physics;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.Agents.Car.Body;

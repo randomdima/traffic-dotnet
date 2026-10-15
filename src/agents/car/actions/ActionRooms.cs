@@ -1,14 +1,13 @@
 namespace TrafficSimulation.Agents.Car.Actions;
 
 /// <summary>
-/// <b>Room for what only a few cars hold at once</b> — the ground a pass, a step across or a manoeuvre at a bay was swept
-/// for, and what a pass gets past: laid with the town for a share of the fleet, taken by a car when its action first
-/// needs it and given back when the car leaves the action (<see cref="CarActions.Enter"/>).
+/// <b>Room for what only a few cars hold at once</b> — what a pass gets past: laid with the town for a share of the
+/// fleet, taken by a car when its action first needs it and given back when the car leaves the action
+/// (<see cref="CarActions.Enter"/>).
 /// </summary>
 /// <remarks>
 /// <b>A bound on the tables and not a figure behaviour reads</b>: a car that finds no room left is answered as one whose
-/// ground does not fit its table — a pass the road does not offer, a step not asked, a manoeuvre withdrawn — and asks
-/// again on its clock. <see cref="Refused"/> counts it, so an instrument can say whether a town ever came near.
+/// ground does not fit its table — a pass the road does not offer — and asks again on its clock. <see cref="Refused"/> counts it, so an instrument can say whether a town ever came near.
 /// </remarks>
 internal sealed class ActionRooms
 {

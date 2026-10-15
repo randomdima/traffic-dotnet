@@ -37,9 +37,6 @@ the service list. The rest of what it is made of is `SRV-3`.
   movement has merely *claimed* is not ground it is refused by.
 - **AMB-4.2** `P5` **A light's hold is below its rung** (TLT-1, TER-5g), so a red holds it nowhere, and a red it
   crosses is not a violation.
-- **AMB-4.3** `P5` A body on the paint refuses it exactly as any other body does — which is the ladder's own
-  answer (TER-5g) and not a courtesy this rule grants. **There is nothing else at a crossing for a blue
-  light to outrank**, a walker being granted nothing of its own.
 - **AMB-4.4** `P5` It crosses the centreline to get past what stands in front of it as any car does
   (CAR-46), which spends no patience first — **and its pass is asked at its rung** (TER-4c.6), through a box
   as along a street. A queue at rest making its own movement is something it gets past, since what the queue

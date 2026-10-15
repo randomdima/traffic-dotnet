@@ -15,8 +15,8 @@ is showing red, one over the paint of that crossing, from either kerb. **It take
 no detection loops, no demand, no adaptive timing.
 
 - **It holds at a rung of its own** (TER-5g): above a walker and every movement a box admits, and below a
-  closed road and a call. So a police car closing a road and anything answering a call go through, and
-  ground its holder can no longer stop short of beats it as it beats every rung.
+  call. So anything answering a call goes through — a police car on its way to close a road among them
+  (SRV-6) — and ground its holder can no longer stop short of beats it as it beats every rung.
 - **It is a secondary claim** (TER-5c.1): placed on the way it governs and following no mark, it meets the
   main claims laid on that way and no secondary claim placed there. A light holding an approach costs
   nobody the zebra across it, and one holding the zebra costs no car the lane under it.

@@ -1,7 +1,6 @@
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.Agents.Car.Actions;

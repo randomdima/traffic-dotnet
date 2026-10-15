@@ -318,12 +318,8 @@ wheel, and the share is `SimConfig.Driving`.
 **CAR-13.1** `P5` **Nothing is dropped.** The one courtesy the habit could drop is **CAR-6.3**, the red, and a
 red is ground a light holds on the road (TLT-1) rather than a courtesy a driver pays: the ladder answers it,
 and has no rung for a habit (TER-5g). The list is closed — a driver who does not keep the rules is not
-thereby exempt from them.
-
-**CAR-13.2** `P3` **A body is never one of them.** Somebody already on the paint, a wreck, a queue, the ground
-another movement has committed to and the hazard the profile brakes for all bind a reckless driver exactly
-as they bind anybody else. What the habit removes is a courtesy owed to whoever has not started; what
-follows from it is a matter for the geometry and the tyres, and never a licence.
+thereby exempt from them — a body, the ground another movement has committed to and the hazard the profile
+brakes for least of all.
 
 **CAR-13.3** `P8` **A red crossed is counted**, whatever carried the car over the bar — ground it could no
 longer stop short of when the amber ran out, or a shunt (`TownWorld.RedBarCrossings`). A car on a call is

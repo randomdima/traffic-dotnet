@@ -5,8 +5,8 @@ namespace TrafficSimulation.Agents.Car.Body;
 /// <summary>
 /// Where a lit lamp's picture is in the town's one lamp sheet, and what colour each lamp burns.
 /// <b>A lit lamp is the car's own texels driven emissive</b> (CAR-14a) — cut from the variant's sprite
-/// at the sprite's own resolution by <see cref="LampAtlasBake"/> — so the arithmetic that indexes the
-/// sheet and the arithmetic that cuts it are this one file.
+/// at the sprite's own resolution by <see cref="LampAtlasBake"/> — so the layout the sheet is indexed by
+/// and the layout it is cut by are this one file.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -86,12 +86,4 @@ internal static class LampAtlas
 
     /// <summary>Which of a lens's cells is the one showing this colour, read off <see cref="ColourAt"/> so the two cannot drift.</summary>
     public static int StateOf(CarLampFitting fitting, CarLamp colour) => ColourAt(fitting, 0) == colour ? 0 : 1;
-
-    /// <summary>Where a lens's cell starts in the sheet, in texture coordinates.</summary>
-    /// <param name="rows">The sheet's rows, which is every look a car is drawn in (<c>CarCatalog.SheetCount</c>).</param>
-    public static Vector2 CellAt(int variant, int lens, int state, int rows) =>
-        new((((lens * StatesPerLens) + state) / (float)Columns), variant / (float)rows);
-
-    /// <summary>And how big one is, which is the same for every lamp in the town.</summary>
-    public static Vector2 CellSize(int rows) => new(1f / Columns, 1f / rows);
 }

@@ -102,13 +102,6 @@ internal static class TowBar
         -tractor.TowHingeAheadOfCentreM + tractor.TowReachM + towed.TowGripFromTheMiddleM;
 
     /// <summary>
-    /// And how much further back than its own tail a tractor with this car on the arm reaches, which is the
-    /// stretch of road the pair asks for as one movement (TER-5c.2).
-    /// </summary>
-    public static float BehindTheTailM(in CarBuild tractor, in CarBuild towed) =>
-        SetDownBehindM(tractor, towed) + towed.HalfLengthM - tractor.HalfLengthM;
-
-    /// <summary>
     /// <b>What the bar is worth this tick</b>, spent <em>on the towed car at its eye</em> and taken back
     /// from the tractor at its hook. One impulse and its opposite: a coupling adds no momentum to the pair,
     /// so whatever hauls the wreck forward slows the vehicle hauling it by exactly as much.

@@ -3,7 +3,6 @@ using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Containment;
-using TrafficSimulation.World.Physics;
 
 namespace TrafficSimulation.Agents.Person.Body;
 
