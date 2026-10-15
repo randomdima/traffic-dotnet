@@ -124,17 +124,17 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     `maxStorageBufferBindingSize` is a WebGPU validation error and a dead world rather than the managed world WEB-10
     promises. This machine's adapter gives 4 GB; a default device 128 MB, which OdesaOsm's atlas (930 MB) is past.
     Weighing the laying's largest table against the limit before the handover closes it.
-- **A traced city's open on the page** (2026-10-15, root log; OdesaOsm 84 s at 2.8 GB, O30 170 s at 3.6 GB of 4):
-  - **O30 stands 0.5 GB under the page's ceiling**, and the town lay's peak is the host atlas (1.6 GB) beside what the
-    lay holds; the page reached 3.6 GB where the desktop's resident set is 2.9 GB. Laying the atlas on the device closes
-    most of it (the entry above);
-  - **the plan is 37 s of OdesaOsm's 84 and 95 s of O30's 170** on the page, the pavement and the atlas most of the
-    rest; on one desktop core the open is 51 s against the page's 84 (`DOTNET_PROCESSOR_COUNT=1 qq prof --bench
-    load`). `qq web --cpu` says where, and nothing has been cut from the plan;
-  - **the collections inside the town's lay** (`TownWorld.CollectTheLay` either side of the atlas and between its
-    marks and its filing) are called from deep frames, so on the page a standing frame may still hold what they are
-    meant to free: the town lay's peak on the page (2.6–2.8 GB on OdesaOsm, varying run to run) is 0.7 GB over the
-    desktop's resident set. Collecting from the lay's own top frame, as the handover's now is, would say;
+- **A traced city's open on the page** (2026-10-15, root log; OdesaOsm 83 s at 1.8–1.9 GB of 4, the figure varying
+  with where the renderer's last tables find room; O30 170 s at 3.6 GB, not taken since its atlas was filed onto the
+  device):
+  - **the plan is 36 s of OdesaOsm's 83 and 95 s of O30's 170** on the page, the pavement and the atlas most of the
+    rest — single-threaded arithmetic, about 1.6× a desktop core's (`DOTNET_PROCESSOR_COUNT=1 qq prof --bench
+    deviceload`). `qq web --cpu` says where; the page has not been timed since three of its scans were made a cell's
+    (the desktop's open 22.5 → 19.5 s);
+  - **the page keeps what the desktop frees inside the town's lay**: each stage's figure on the page's console
+    (`OpenWatch`) has the page using 0.3–0.5 GB more than the desktop after each of the lay's collections, which come
+    from frames deep in the lay; the one from the lay's own top frame (`LaidTown.Lay`) frees as the desktop's does.
+    Whether it is a standing frame's stale slot or the collector's lazy sweep is not known;
   - **the framework's sorts and dictionaries over value types still run interpreted** where the open uses them outside
     the atlas (`ChainIndex.Builder.SortedOnce`, `Array.Sort` of floats, `Dictionary` over tuple keys): about 3 % of
     OdesaOsm's open on the page (`qq web --cpu --focus mono_interp_exec_method --managed`);
@@ -246,11 +246,11 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **What the host keeps on a device-ticked town that it does not read while the town runs** (OdesaOsm, `qq prof
   --memory`, 2026-10-13: a 685 MB host heap, 839 MB resident and 3.36 GB at the load's peak, beside
   1.44 GB on the device):
-  - a `ManagedWorld` is stood and thrown away (`TownWorld`'s constructor ends in one, which reads the bodies onto their
-    ways for the empty map's drive and the owners' seats): let go of before the device world is laid now, but stood
-    and stepped once for nothing; and the atlas is laid on the host only to be uploaded — the town lay's peak, 1 GB on
-    OdesaOsm and 1.6 GB on O30, which on a page is the open's. Handing the town its world kind before it stands one,
-    and laying the atlas on the device, close it;
+  - **a map picked on a desktop's menu still stands a `ManagedWorld` and the whole host atlas** and hands them over
+    (`Game.Vulkan.OpenWhatWasPicked`): it is laid off the loop's thread, which may not submit to the device, so it
+    cannot have its world made as it is laid (`IWorldMaker`). The open's peak there is the 2.5 GB the command line's
+    open no longer pays (1.55 GB, `--bench deviceload`). Making the maker's device work wait for the loop's thread
+    closes it; the exam map (`Scenarios.Stages`) is handed over the same way, and is small;
   - the nearest-point indexes kept for a player's order and the camera's opening alone (`RoadGraph`'s street indexes,
     43 MB; `FootGraph`'s, 33 MB; `ParkingRegistry`'s bay grid), which the 2026-10-13 ruling lets a player use — laid
     again on the first order rather than kept closes it;

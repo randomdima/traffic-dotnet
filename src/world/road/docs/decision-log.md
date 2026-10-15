@@ -4,6 +4,21 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-10-15 — the atlas is filed a band of rows at a time where a world keeps its own
+
+**For a world that keeps its own atlas, the host never holds the whole** (`RibbonAtlas.Stream`, root log): the cells'
+slots and starts are counted as before, then the entries are filed a band of whole cell rows at a time — no more than
+`Sim.AtlasBandEntries` (64 MiB) unless one row is more — and each band handed to the keeper and to the town's furniture
+check as an atlas of its own over its rows, then let go of. A band's slots and entries are a run of the whole's, so the
+keeper lays each where the whole would have it; `Lay` is the same filing as one band, and the two are the same to the
+bit (`RibbonAtlasTests`). A way crossing a band's edge is walked once for each band it reaches: about 0.4 s of
+OdesaOsm's 2.9 s atlas on the desktop.
+
+**The marks hold less at once**, the same marks to the bit (`--bench load`'s marks digest): their pieces laid at their
+size rather than through a list copied out, their cells filed without a table of cursors, the threads' pairs merged into
+the first's rather than a fresh set, and the sections filed into one table counted first rather than a list a way —
+340 MB off the marks' peak on OdesaOsm.
+
 ## 2026-10-15 — the atlas files off a second walk of every way, after the marks
 
 **Making a traced city open in a page** (root log, same date) found the atlas's lay to be the open's peak, holding at

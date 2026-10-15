@@ -4,6 +4,32 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-15 — a device world is made as its town is laid, and its atlas filed onto it a band at a time
+
+**The owner, of the page's memory: "Can we keep it under 2Gb at all times? … Ok try to optimize memory usage and load
+times".** The page held 2.8 GB after opening OdesaOsm because the host stood the whole atlas (930 MB of entries in one
+block) and a managed world, only to upload the one and throw the other away. Now a town whose world is the device's is
+laid with it (`IWorldMaker`, `LaidTown.Lay`): the atlas is filed a band of cell rows at a time and each band handed to
+the device and let go of (the road log), and no managed world is stood. **Not for a map whose watches stage it**
+(`Scenarios.Stages`): a page's device cannot answer off the clock, so that one is still handed over after staging.
+
+- **On a page a car of a map with no bay takes its lane on its decision clock and not at the first tick**: the
+  device's first view lands a frame later, and the empty map's drive asks it (`TownWorld.DriveTheEmptyMap`). Every
+  other map, and every desktop, stands as before; the two ways of laying a town step to the bit alike
+  (`DeviceWorldTests`).
+- **Each stage of an open says the memory it ended at** (`OpenWatch`): on the page's console, the page's own memory
+  and what the collector holds, and in `--bench load` and `--bench deviceload` the process's.
+
+| OdesaOsm | before | after |
+|---|---|---|
+| the page's memory, stood | 2 804 MiB | 1 775–1 889 MiB |
+| the desktop's peak resident, as a window opens it | 2 523 MiB | 1 554 MiB |
+| the desktop's open | 22.5 s | 19.5 s, with three scans made a cell's (below) |
+
+**Three scans of every thing for every thing are a cell's** (SIM-8), each the same answer to the bit: two turns' lines
+read apart (`LaneLines.Apart`, the other's points read once), crossing mouths merged (`CrossingWays.Places`) and the
+crossing an edge is (`CrossingEdges.Of`, `PointCells.Nearest`).
+
 ## 2026-10-15 — a traced city opens in a page, and an open's peak is what it is judged on
 
 **The owner (2026-10-15), in their words: "Make sure big maps also able to load on web. Try to optimize how we load them
