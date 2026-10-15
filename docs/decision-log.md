@@ -22,14 +22,22 @@ atlas and marks digests are unchanged — and what was not is [tech-debt.md](tec
   movement table laid once rather than the road graph built again for every street.
 - **No `stackalloc` is zeroed** (`[module: SkipLocalsInit]`): every buffer was audited, and the two read before
   written — a census's counts, a road's wander along an edge of no length — clear themselves.
+- **What the open asks again is kept**: a car park site is measured against the car parks laid since it last was,
+  and a street made one way is checked against the movements that ran onto the one it took, not the whole town —
+  exact, because any route through the movement taken passed through one of those first (checked against the whole
+  town's answer on every street of O30, Odesa, River and Test).
+- **A queued car's line reading and aim are kept** while every figure they read is the same to the bit, and a frame
+  keeps the scale legend's quads, the status title's figures and the window's pointer while what they read holds.
 - **The performance analyzers are warnings** (`AnalysisModePerformance`), so an allocation they know the shape of —
   a constant array argument, an uncached serializer option — fails nothing but is in every build's output.
+- **A body's two corners stay in two arrays.** One array of both, a cache line a candidate, measured 3% slower in the
+  solver over three interleaved pairs: the broad phase's first test reads the far corner's x alone.
 
-| O30, 16 cores, two runs each | .NET 11, before | after |
+| O30, 16 cores, interleaved | .NET 11, before | after |
 |---|---|---|
-| the town probe's tick, µs (window 1 / the timed window) | 7 977 / 7 032 | 7 733 / 6 920 |
-| the open / plan / world / ground, s | 34.8 / 14.0 / 15.9 / 4.9 | 22.1 / 10.7 / 8.0 / 3.5 |
-| the open's CPU / peak resident | 86.5 s / 3 951 MiB | 92.6 s / 3 999 MiB |
+| the town probe's tick, µs (window 1 / the timed window; three runs) | 8 128 / 7 141 | 7 949 / 7 060 |
+| the open / plan / world / ground, s (two runs) | 35.0 / 14.0 / 15.9 / 5.0 | 20.5 / 8.4 / 8.5 / 3.6 |
+| the open's CPU / peak resident | 86.9 s / 3 965 MiB | 90.8 s / 4 072 MiB |
 | a window's allocation, the device's world | ~2.1 MB/s | the counters' own ~31 kB/s |
 
 ## 2026-10-15 — the engine runs on .NET 11
