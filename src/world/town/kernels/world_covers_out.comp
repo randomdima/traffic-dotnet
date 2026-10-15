@@ -1,0 +1,34 @@
+#version 460
+
+// The covers world_covers.comp gathered on the device copied into the lists the host reads, a word a thread and the
+// threads striding the lists together. The gathering appends each body's covers whole, a thread's run apart from its
+// neighbours', and so many small runs written straight across the bus cost the step more than this pass does: the host's
+// memory is written here in whole lines.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform CoversOut
+{
+    uint carRoom;
+    uint walkerRoom;
+} coversOut;
+
+// A cover's words (AtlasCover, WayCover): its way and its stretch.
+const uint CoverWords = 3u;
+
+// How many covers each list holds, then how many were dropped past its room (world_covers.comp).
+layout(std430, binding = 0) readonly buffer Counts { uint counts[4]; };
+layout(std430, binding = 1) readonly buffer CarCovers { uint carCovers[]; };
+layout(std430, binding = 2) readonly buffer WalkerCovers { uint walkerCovers[]; };
+layout(std430, binding = 3) writeonly buffer CarCoversOut { uint carCoversOut[]; };
+layout(std430, binding = 4) writeonly buffer WalkerCoversOut { uint walkerCoversOut[]; };
+
+void main()
+{
+    uint stride = gl_NumWorkGroups.x * gl_WorkGroupSize.x;
+    uint carWords = min(counts[0], coversOut.carRoom) * CoverWords;
+    for (uint word = gl_GlobalInvocationID.x; word < carWords; word += stride) carCoversOut[word] = carCovers[word];
+
+    uint walkerWords = min(counts[1], coversOut.walkerRoom) * CoverWords;
+    for (uint word = gl_GlobalInvocationID.x; word < walkerWords; word += stride) walkerCoversOut[word] = walkerCovers[word];
+}

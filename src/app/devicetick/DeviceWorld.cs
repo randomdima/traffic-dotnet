@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using TrafficSimulation.Agents.Car.Body;
@@ -123,11 +124,17 @@ internal sealed partial class DeviceWorld : WorldLayer
 
     readonly GpuBuffer _carRows, _walkerRows, _carRanges, _walkerRanges, _counts, _countsOut;
     GpuBuffer _signalsWritten, _signalsIn;
-    GpuBuffer _carCovers, _walkerCovers;
+
+    /// <summary>
+    /// The covers as the device gathers them, and the lists the host reads them from (<c>world_covers_out.comp</c>): a
+    /// body's covers written straight across the bus, a run a thread, cost the step several times their copy in whole lines.
+    /// </summary>
+    GpuBuffer _carCoversGathered, _walkerCoversGathered, _carCovers, _walkerCovers;
+
     int _carRoom, _walkerRoom;
 
-    readonly ComputeKernel _signalsKernel, _walkersKernel, _towKernel, _coversKernel, _viewKernel, _walkersViewKernel;
-    BoundSet _signalsSet, _coversSet;
+    readonly ComputeKernel _signalsKernel, _walkersKernel, _towKernel, _coversKernel, _coversOutKernel, _viewKernel, _walkersViewKernel;
+    BoundSet _signalsSet, _coversSet, _coversOutSet;
     readonly BoundSet _walkersSet, _towSet;
 
     /// <summary>
@@ -197,8 +204,7 @@ internal sealed partial class DeviceWorld : WorldLayer
         _countsOut = Mapped<uint>(CountsOut);
         _carRoom = Math.Max(Group, _cars * CarCoversEach);
         _walkerRoom = Math.Max(Group, _walkers * WalkerCoversEach);
-        _carCovers = Mapped<WayCover>(_carRoom);
-        _walkerCovers = Mapped<WayCover>(_walkerRoom);
+        LayTheCovers();
         (_signalsWritten, _signalsIn) = SignalBuffers(Signals.Capacity);
 
         var (pose, heading, motion, mass, filter) = _solver.Bodies;
@@ -230,6 +236,7 @@ internal sealed partial class DeviceWorld : WorldLayer
             _carRows, _walkerRows, tyres.Builds, tyres.BuildOf.Device, pose, filter, tyres.Cars.Device, null!, null!,
             _counts, _carRanges, _walkerRanges, .. _atlas.Tables,
         ];
+        _coversOutKernel = Kernel("world_covers_out.comp", 5, (uint)Marshal.SizeOf<CoversOutPush>());
         _coversSet = BindTheCovers();
 
         _viewKernel = Kernel("world_view.comp", 13 + _lanes.Tables.Length, pushBytes, sets: _viewSets.Length);
@@ -284,7 +291,7 @@ internal sealed partial class DeviceWorld : WorldLayer
         {
             RecordTheCovers(commands);
             _vk.BetweenKernels(commands);
-            RecordTheView(commands, View);
+            RecordTheView(commands, View, coversRead: true);
         }
 
         _batch.SubmitAndWait();
@@ -311,7 +318,7 @@ internal sealed partial class DeviceWorld : WorldLayer
         _vk.AfterTransfer(commands);
         RecordTheCovers(commands);
         _vk.BetweenKernels(commands);
-        RecordTheView(commands, View);
+        RecordTheView(commands, View, coversRead: true);
         _batch.Submit();
         _firstViewOwed = true;
         _coversOwed = false;
@@ -366,11 +373,24 @@ internal sealed partial class DeviceWorld : WorldLayer
         return _signalsKernel.Bind(_signalsBound, _signalsSet);
     }
 
+    /// <summary>The covers' set and their copy's over the lists as they now are, each rewritten in place once there is one.</summary>
     BoundSet BindTheCovers()
     {
-        _coversBound[7] = _carCovers;
-        _coversBound[8] = _walkerCovers;
+        _coversBound[7] = _carCoversGathered;
+        _coversBound[8] = _walkerCoversGathered;
+        _coversOutSet = _coversOutKernel.Bind(
+            [_counts, _carCoversGathered, _walkerCoversGathered, _carCovers, _walkerCovers], _coversOutSet);
         return _coversKernel.Bind(_coversBound, _coversSet);
+    }
+
+    /// <summary>Both lists of covers, the device's and the host's, at the rooms as they now stand.</summary>
+    [MemberNotNull(nameof(_carCoversGathered), nameof(_walkerCoversGathered), nameof(_carCovers), nameof(_walkerCovers))]
+    void LayTheCovers()
+    {
+        _carCoversGathered = Device<WayCover>(_carRoom);
+        _walkerCoversGathered = Device<WayCover>(_walkerRoom);
+        _carCovers = Mapped<WayCover>(_carRoom);
+        _walkerCovers = Mapped<WayCover>(_walkerRoom);
     }
 
     int BodyOfCar(int car) => _laying.BodyOf(_laying.Roster.AgentOfCar(car));
@@ -453,7 +473,7 @@ internal sealed partial class DeviceWorld : WorldLayer
         if (RecordTheSignals(commands, signals)) _vk.BetweenKernels(commands);
         RecordTheCovers(commands);
         _vk.BetweenKernels(commands);
-        RecordTheView(commands, into);
+        RecordTheView(commands, into, coversRead: true);
         _batch.SubmitAndWait();
         if (TakeTheView(into, coversRead: true)) ReadCovers(into);
     }
@@ -466,7 +486,7 @@ internal sealed partial class DeviceWorld : WorldLayer
         _vk.AfterTransfer(commands);
         RecordTheCovers(commands);
         _vk.BetweenKernels(commands);
-        RecordTheView(commands, into);
+        RecordTheView(commands, into, coversRead: true);
         _batch.SubmitAndWait();
         if (TakeTheView(into, coversRead: true)) ReadCovers(into);
     }
@@ -530,7 +550,7 @@ internal sealed partial class DeviceWorld : WorldLayer
             _vk.BetweenKernels(commands);
         }
 
-        RecordTheView(commands, into, stepped: true);
+        RecordTheView(commands, into, readCovers, stepped: true);
         _batch.Submit();
         _readingCovers = readCovers;
     }
@@ -725,19 +745,30 @@ internal sealed partial class DeviceWorld : WorldLayer
 
     /// <summary>
     /// Every car's view and every walker's, in two dispatches that need nothing of each other, into the rows
-    /// <paramref name="into"/> reads, and the counts beside it.
+    /// <paramref name="into"/> reads, and the counts beside it — and, beside them, the covers copied to the host's lists.
     /// </summary>
+    /// <param name="coversRead">Whether the covers were read ahead of the view, and so are copied out with it.</param>
     /// <param name="stepped">
     /// Whether the pass is the step's own, keeping what the step settled; a view written again off the clock only reads
     /// (<c>world_view.comp</c>), so writing it twice moves nothing.
     /// </param>
-    void RecordTheView(Recording commands, WorldView into, bool stepped = false)
+    void RecordTheView(Recording commands, WorldView into, bool coversRead, bool stepped = false)
     {
+        if (coversRead)
+        {
+            _coversOutKernel.Dispatch(
+                commands, _coversOutSet, Groups(_cars + _walkers), new CoversOutPush((uint)_carRoom, (uint)_walkerRoom));
+        }
+
         var mode = stepped ? ViewStepped : 0u;
         if (_cars > 0) _viewKernel.Dispatch(commands, _viewSets[into.Slot], Groups(_cars), _push with { Count = (uint)_cars, Mode = mode });
         _walkersViewKernel.Dispatch(
             commands, _walkersViewSets[into.Slot], Groups(_walkers), _push with { Count = (uint)_walkers, Mode = mode });
     }
+
+    /// <summary><c>world_covers_out.comp</c>'s push constants: each list's room.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    readonly record struct CoversOutPush(uint CarRoom, uint WalkerRoom);
 
     /// <summary><c>world_view.comp</c>'s mode bit for the step's own pass (<c>ViewStepped</c>).</summary>
     const uint ViewStepped = 2u;
@@ -774,14 +805,13 @@ internal sealed partial class DeviceWorld : WorldLayer
     {
         _carRoom = Math.Max(_carRoom, carCovers * 2);
         _walkerRoom = Math.Max(_walkerRoom, walkerCovers * 2);
-        foreach (var buffer in (ReadOnlySpan<GpuBuffer>)[_carCovers, _walkerCovers])
+        foreach (var buffer in (ReadOnlySpan<GpuBuffer>)[_carCoversGathered, _walkerCoversGathered, _carCovers, _walkerCovers])
         {
             _owned.Remove(buffer);
             buffer.Dispose();
         }
 
-        _carCovers = Mapped<WayCover>(_carRoom);
-        _walkerCovers = Mapped<WayCover>(_walkerRoom);
+        LayTheCovers();
         _coversSet = BindTheCovers();
     }
 

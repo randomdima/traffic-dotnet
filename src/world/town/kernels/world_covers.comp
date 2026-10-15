@@ -6,7 +6,8 @@
 // channels, which of them stand on a way kept for its tyres, and put on the channels of every way it stands over
 // (PHY-1a); a walker under its centre as one wheel, held its own radius; a body out of the world on none. Each body's
 // covers are appended whole where an atomic puts them, and where they begin is its range — so a list's order is the
-// device's, and each body's own covers are its own, in the atlas's order.
+// device's, and each body's own covers are its own, in the atlas's order. The lists are the device's own, copied to the
+// host's by world_covers_out.comp.
 
 layout(local_size_x = 64) in;
 
