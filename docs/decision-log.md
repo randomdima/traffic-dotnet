@@ -4,6 +4,13 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-15 — a window steps its world on the device by default
+
+**The owner (2026-10-15), in their words: "Make hybrid gpu default mode."** A windowed desktop run hands its town's
+world to the device (`DeviceWorld`) unless `--managed-world` is named; `--device-tick` is gone. A picture, a sheet, a
+probe and an unwatched drive keep the managed world — each stands its own town to be measured, and the suite's figures
+are the managed world's — and so does a device with no doubles in its kernels, which cannot lay the atlas.
+
 ## 2026-10-15 — a walk of the fleet asks memory for the car eight ahead
 
 **The owner (2026-10-15), in their words: "Go thought top hot paths one by one and consider improvements … test them

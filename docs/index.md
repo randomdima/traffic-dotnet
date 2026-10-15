@@ -97,11 +97,13 @@ retired number, which the owning slice's log records.
 Absences that are gaps rather than decisions, and none of them is silent. Why each came about is the
 owning slice's log; this list says only what is absent now and what closes it.
 
-- **The world layer runs in managed code unless the device is asked for.** [goals.md](goals.md) puts it on the
-  device. A desktop run with `--device-tick` steps it there ([decision-log.md](decision-log.md)); every other run — the
-  default window, `--shot`, and every tier of the suite but `device` — steps the managed world, and the renderer is fed
-  by the CPU's sprite fill. **The browser head keeps the managed world**, by the owner's choice: its kernels wait on a
-  shader path that writes WGSL from the same source as the SPIR-V.
+- **The world layer runs on the device only in a desktop window.** [goals.md](goals.md) puts it on the device. A
+  windowed desktop run steps it there by default ([decision-log.md](decision-log.md)); `--managed-world`, `--shot`,
+  `--sheet`, `--bench`, an unwatched `--drive`, a device with no doubles in its kernels, and every tier of the suite
+  but `device` step the managed world, and the renderer is fed by the CPU's sprite fill. **The browser head keeps the
+  managed world**: its kernels wait on a shader path that writes WGSL from the same source as the SPIR-V, and the
+  kernels themselves on doubles (`trig.glsl`, the atlas), more storage buffers a stage than a page is given (24 in
+  `world_view.comp`), and push constants, none of which WebGPU has.
 - **A lot's own arithmetic is not reworded**: `GEN-4b` and `GEN-4d` still describe kerbside lots laid along a
   chord, which the plan partly reads (`CarParks.BaysPerLotMost`). A car park is a rank of bays laid off a street
   that stays whole (`GEN-53`, `GEN-4h`), and the rules that size and space one are `GEN-53`'s and the

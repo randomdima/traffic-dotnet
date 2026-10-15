@@ -22,18 +22,25 @@ internal sealed partial class Game
     DeviceWorld? _deviceWorld;
 
     /// <summary>
-    /// <c>--device-tick</c>: every town this run stands has its world stepped on the device that draws it
-    /// (<see cref="DeviceWorld"/>), and what moves in it drawn off the device's own state.
+    /// Every town this run stands has its world stepped on the device that draws it (<see cref="DeviceWorld"/>), and
+    /// what moves in it drawn off the device's own state — a window's default, which <c>--managed-world</c> turns off.
     /// </summary>
+    /// <remarks>A device with no doubles in its kernels cannot lay the atlas (<see cref="DeviceAtlas"/>), and keeps the
+    /// managed world whatever is asked.</remarks>
     public bool TicksOnTheDevice { get; init; }
 
     partial void TickOnTheDevice(TownWorld? world)
     {
         _deviceWorld = null;
         if (world is null || !TicksOnTheDevice) return;
+        if (!_vk.HasFloat64)
+        {
+            Console.WriteLine($"{_vk.DeviceName} has no doubles in its kernels: the world is stepped in managed code.");
+            return;
+        }
 
         world.HandTheWorldTo(laying => _deviceWorld = new DeviceWorld(_vk, laying));
-        _movingOnTheDevice = _vk.HasFloat64;
+        _movingOnTheDevice = true;
 
         // What the town let go of with the handover — its atlas, its furniture and the managed world — given back once,
         // before the first frame, rather than held committed for the run.

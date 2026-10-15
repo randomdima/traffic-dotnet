@@ -96,8 +96,8 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   step's held pairs are taken a block of 64 at a time by as many workgroups as its contacts need — one, on a step with a
   handful — so a town holding thousands of frozen touches walks them in one workgroup, twice a step. How many a shipped
   city holds is not measured; dispatching that walk off the held count closes it.
-- **The device world is not measured for allocation or crossings**: `AllocationGateTests` and `CrossingGateTests` step the
-  managed world. A tick on the device crosses a fixed count — the world's submit and wait, and the emit's submit a frame —
+- **The device world is not measured for allocation or crossings**, though it is a window's default since 2026-10-15:
+  `AllocationGateTests` and `CrossingGateTests` step the managed world. A tick on the device crosses a fixed count — the world's submit and wait, and the emit's submit a frame —
   but no gate holds it, nor that `DeviceWorld.Step` allocates nothing (its signal buffer grows by doubling past twice the
   bodies). A device gate over the suite's built town closes it.
 - **Nobody holds what no wheel stands on**: across a lane's end a car on two ways leaves its wheelbase less two
@@ -204,7 +204,7 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   row answers guarded (a static second's push, motion into the tick and state), and laying the furniture's rows through
   a staging buffer freed after, closes it.
 - **What the host keeps on a device-ticked town that it does not read while the town runs** (OdesaOsm, `qq prof
-  --memory --device-tick`, 2026-10-13: a 685 MB host heap, 839 MB resident and 3.36 GB at the load's peak, beside
+  --memory`, 2026-10-13: a 685 MB host heap, 839 MB resident and 3.36 GB at the load's peak, beside
   1.44 GB on the device):
   - a `ManagedWorld` is stood and thrown away (`TownWorld`'s constructor ends in one, and `HandTheWorldTo` builds the
     device world while it is still held): about 150 MB of solver tables twice over at the handover, and the atlas laid
