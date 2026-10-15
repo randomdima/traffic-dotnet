@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using TrafficSimulation.Runtime;
 
@@ -28,8 +29,8 @@ internal static class Texels
     public static void Decode(string path, Span<Texel> into)
     {
         var bytes = WebGpu.Texels(path);
-        if (bytes != into.Length * Marshal.SizeOf<Texel>()) throw new InvalidDataException(
-            $"{path}: {bytes} bytes of texels into room for {into.Length * Marshal.SizeOf<Texel>()}.");
+        if (bytes != into.Length * Unsafe.SizeOf<Texel>()) throw new InvalidDataException(
+            $"{path}: {bytes} bytes of texels into room for {into.Length * Unsafe.SizeOf<Texel>()}.");
 
         WebGpu.Take(MemoryMarshal.AsBytes(into));
     }

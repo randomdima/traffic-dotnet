@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Core.Config;
@@ -83,16 +84,16 @@ internal sealed class TownRenderer : IDisposable
             $"{sheetTextures.Count} sheets, and the sprite shader's table holds {SheetSlots}.");
 
         Room = room with { Under = Math.Max(1, room.Under), Over = Math.Max(1, room.Over), Above = Math.Max(0, room.Above) };
-        _sprites = new byte[Room.Written * Marshal.SizeOf<SpriteInstance>()];
-        _overlay = new byte[OverlayCapacity * Marshal.SizeOf<OverlayQuad>()];
-        _underlay = new byte[(UnderlayCapacity + UnderlayAboveCapacity) * Marshal.SizeOf<OverlayQuad>()];
+        _sprites = new byte[Room.Written * Unsafe.SizeOf<SpriteInstance>()];
+        _overlay = new byte[OverlayCapacity * Unsafe.SizeOf<OverlayQuad>()];
+        _underlay = new byte[(UnderlayCapacity + UnderlayAboveCapacity) * Unsafe.SizeOf<OverlayQuad>()];
 
         _mesh = mesh;
         _indexCount = mesh.Indices.Length;
         WebGpu.Buffer(GroundStream, Bytes(mesh.Vertices), WebGpu.Vertex);
         WebGpu.Buffer(IndexStream, Bytes(mesh.Indices), WebGpu.Index);
         WebGpu.Reserve(SpriteStream, _sprites.Length, WebGpu.Vertex);
-        WebGpu.Reserve(StandingStream, Math.Max(1, Room.Standing) * Marshal.SizeOf<SpriteInstance>(), WebGpu.Vertex);
+        WebGpu.Reserve(StandingStream, Math.Max(1, Room.Standing) * Unsafe.SizeOf<SpriteInstance>(), WebGpu.Vertex);
         WebGpu.Reserve(OverlayStream, _overlay.Length, WebGpu.Vertex);
         WebGpu.Reserve(UnderlayStream, _underlay.Length, WebGpu.Vertex);
         WebGpu.Reserve(CameraStream, CameraBytes, WebGpu.Uniform);
@@ -158,7 +159,7 @@ internal sealed class TownRenderer : IDisposable
     int _underCount;
 
     /// <summary>The recording again, over the buffers as they now are: a buffer given anew is a buffer the last recording does not read.</summary>
-    void Rebuild() => WebGpu.Rebuild(_indexCount, Room.Under * Marshal.SizeOf<SpriteInstance>());
+    void Rebuild() => WebGpu.Rebuild(_indexCount, Room.Under * Unsafe.SizeOf<SpriteInstance>());
 
     public Span<OverlayQuad> Overlay => MemoryMarshal.Cast<byte, OverlayQuad>(_overlay.AsSpan());
 
@@ -229,14 +230,14 @@ internal sealed class TownRenderer : IDisposable
     public void Frame(CameraView view)
     {
         // The bodies above moved down to follow the ground's, so the page's run over the buildings is both.
-        var size = Marshal.SizeOf<SpriteInstance>();
+        var size = Unsafe.SizeOf<SpriteInstance>();
         var counts = _spriteCounts;
         var overAt = Room.Under * size;
         _sprites.AsSpan((Room.Under + Room.Over) * size, counts.Above * size).CopyTo(_sprites.AsSpan(overAt + (counts.Over * size)));
         var over = counts.Over + counts.Above;
 
         // And the marks above after the ground's, the same way.
-        var quad = Marshal.SizeOf<OverlayQuad>();
+        var quad = Unsafe.SizeOf<OverlayQuad>();
         _underlay.AsSpan(UnderlayCapacity * quad, _underlayAboveCount * quad).CopyTo(_underlay.AsSpan(_underlayCount * quad));
         var marks = _underlayCount + _underlayAboveCount;
 
@@ -281,7 +282,7 @@ internal sealed class TownRenderer : IDisposable
     /// </summary>
     void Pages()
     {
-        var page = new byte[SheetAtlas.PagePx * SheetAtlas.PagePx * Marshal.SizeOf<Texel>()];
+        var page = new byte[SheetAtlas.PagePx * SheetAtlas.PagePx * Unsafe.SizeOf<Texel>()];
         var texels = MemoryMarshal.Cast<byte, Texel>(page.AsSpan());
         for (var at = 0; at < _atlas.Pages; at++)
         {
