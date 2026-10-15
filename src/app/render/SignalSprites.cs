@@ -52,22 +52,23 @@ internal static class SignalSprites
         var written = 0;
         for (var row = fromRow; row <= toRow; row++)
         {
-            foreach (var head in byRow.Row(row))
+            foreach (var at in byRow.Row(row))
             {
                 if (written >= into.Length) return written;
 
-                var centreM = heads[head].CentreM;
+                ref readonly var head = ref heads[at];
+                var centreM = head.CentreM;
                 var offset = centreM - viewCentreM;
                 if (MathF.Abs(offset.X) > halfView.X + reachM || MathF.Abs(offset.Y) > halfView.Y + reachM) continue;
 
-                var forCars = heads[head].ForCars;
+                var forCars = head.ForCars;
                 var colour = forCars
-                    ? world.Signals.ForApproach(heads[head].Subject, timeS)
-                    : world.Signals.ForCrossing(heads[head].Subject, timeS);
+                    ? world.Signals.ForApproach(head.Subject, timeS)
+                    : world.Signals.ForCrossing(head.Subject, timeS);
 
                 into[written++] = new SpriteInstance(
                     centreM, forCars ? carHalfM : walkHalfM, CellOf(forCars, colour), SpriteTint.Plain,
-                    (uint)(firstSheet + (forCars ? 0 : 1)), heads[head].HeadingRad);
+                    (uint)(firstSheet + (forCars ? 0 : 1)), head.HeadingRad);
             }
         }
 

@@ -51,6 +51,9 @@ internal sealed class ScenerySprites
     /// <summary>A frame's spans as <see cref="Fill"/> walks them, laid a row of cells each the first time it is asked.</summary>
     ScenerySpan[] _spans = [];
 
+    /// <summary>Each row's run in view as <see cref="Spans"/> counted it, so the pass that lays the spans does not search for it again.</summary>
+    (int Start, int End)[] _rowsInView = [];
+
     ScenerySprites(
         SceneryPiece[] pieces, int[] rowOffsets, GridWindow window, float reachM, Vector2[] halfSizePerM, int firstSheet,
         int mostDrawn)
@@ -151,10 +154,11 @@ internal sealed class ScenerySprites
         var half = (viewSpanM * 0.5f) + new Vector2(_reachM);
         _window.TryRange(viewCentreM - half, viewCentreM + half, out var inView);
 
+        if (_rowsInView.Length < Rows) _rowsInView = new (int, int)[Rows];
         var inViewCount = 0L;
         for (var row = inView.FromY; row <= inView.ToY; row++)
         {
-            var (start, end) = InView(row, inView);
+            var (start, end) = _rowsInView[row - inView.FromY] = InView(row, inView);
             inViewCount += end - start;
         }
 
@@ -163,7 +167,7 @@ internal sealed class ScenerySprites
         var spans = 0;
         for (var row = inView.FromY; row <= inView.ToY && drawn < most && spans < into.Length; row++)
         {
-            var (start, end) = InView(row, inView);
+            var (start, end) = _rowsInView[row - inView.FromY];
             var first = (start + every - 1) / every * every;
             if (first >= end) continue;
 

@@ -551,11 +551,14 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             }
         }
 
+        // The roster's fields read once: a store into the caller's span is a store the JIT cannot tell from one into
+        // them, and read in the loop they were read again a car.
         var kept = 0;
-        var positions = Cars.PositionM;
-        for (var car = 0; car < Cars.Count; car++)
+        var reachM = _carReachM;
+        var positions = Cars.PositionM.AsSpan(0, Cars.Count);
+        for (var car = 0; car < positions.Length; car++)
         {
-            if (Meets(positions[car], _carReachM, leastM, mostM)) into[kept++] = car;
+            if (Meets(positions[car], reachM, leastM, mostM)) into[kept++] = car;
         }
 
         return into[..kept];
@@ -569,9 +572,11 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     {
         var reachM = _config.PersonDiameterM * 0.5f;
         var kept = 0;
-        for (var person = 0; person < People.Count; person++)
+        var positions = People.PositionM.AsSpan(0, People.Count);
+        var inside = People.Inside.AsSpan(0, positions.Length);
+        for (var person = 0; person < positions.Length; person++)
         {
-            if (!People.Inside[person].Any && Meets(People.PositionM[person], reachM, leastM, mostM)) into[kept++] = person;
+            if (!inside[person].Any && Meets(positions[person], reachM, leastM, mostM)) into[kept++] = person;
         }
 
         return into[..kept];

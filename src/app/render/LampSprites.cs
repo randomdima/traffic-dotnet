@@ -64,6 +64,7 @@ internal static class LampSprites
         var rows = catalogue.SheetCount;
         var halfCellM = new Vector2(LampAtlas.CellM * 0.5f);
         Span<ShownLamp> shown = stackalloc ShownLamp[CarLamps.MostLenses];
+        Span<float> glowsM = stackalloc float[CarLamps.MostLenses];
 
         foreach (var car in drawn)
         {
@@ -99,7 +100,7 @@ internal static class LampSprites
                 if (!shown[lamp].Lit) continue;
 
                 var lens = shown[lamp].Lens;
-                var glowM = GlowM(lens, config);
+                var glowM = glowsM[lamp] = GlowM(lens, config);
                 if (glowM < leastGlowM) continue;
 
                 into[written++] = new SpriteInstance(
@@ -113,7 +114,7 @@ internal static class LampSprites
             // lamps a hand's width apart came out one washed and one crisp.
             for (var lamp = 0; lamp < count; lamp++)
             {
-                if (!shown[lamp].Lit || GlowM(shown[lamp].Lens, config) < leastGlowM) continue;
+                if (!shown[lamp].Lit || glowsM[lamp] < leastGlowM) continue;
 
                 // The cell carries the lamp's colour and its shading both, so the lens is drawn
                 // untinted: what a lit lamp looks like is the car's own art and not a tint over it.
