@@ -108,10 +108,14 @@ void keep(int owner, int other)
 
 bool before(uvec4 a, uvec4 b) { return a.x < b.x || (a.x == b.x && a.y < b.y); }
 
+// Shared figures every thread reads alike, each read right after a sync; a page's WGSL takes each load as a
+// workgroupUniformLoad (solve.comp, town.js).
+uint workgroupUniformRoundFrom() { return roundFrom; }
+
+uint workgroupUniformRoundTo() { return roundTo; }
+
 void main()
 {
-    if (totals[WokenAt] == 0u) return;
-
     uint thread = gl_LocalInvocationID.x;
     if (thread == 0u)
     {
@@ -121,7 +125,9 @@ void main()
     }
 
     sync();
-    while (roundFrom < roundTo)
+    if (workgroupUniformRoundTo() == 0u) return;
+
+    while (workgroupUniformRoundFrom() < workgroupUniformRoundTo())
     {
         uint from = roundFrom;
         uint to = roundTo;

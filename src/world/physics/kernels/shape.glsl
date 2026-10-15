@@ -185,7 +185,7 @@ bool shapeNearest(
     shapeCorners(centreA, rotationA, halfA, cornersA);
     shapeCorners(centreB, rotationB, halfB, cornersB);
 
-    float apartSquared = 3.402823466e+38;
+    float apartSquared = floatGreatest();
     vec2 onA = vec2(0.0);
     vec2 onB = vec2(0.0);
     for (int corner = 0; corner < 4; corner++)

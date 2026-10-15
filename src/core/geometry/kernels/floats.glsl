@@ -13,8 +13,14 @@ bool floatIsInfinite(float x) { return (floatBitsToUint(x) & 0x7fffffffu) == 0x7
 // Neither NaN nor infinite.
 bool floatIsFinite(float x) { return (floatBitsToUint(x) & 0x7f800000u) != 0x7f800000u; }
 
-float floatNaN() { return uintBitsToFloat(0x7fc00000u | (gl_LocalInvocationIndex & 0u)); }
+// The float of these bits, made at run time: naga writes a constant of the greatest float as a decimal past it, which
+// WGSL refuses too.
+float floatOfBits(uint bits) { return uintBitsToFloat(bits | (gl_LocalInvocationIndex & 0u)); }
 
-float floatInfinity() { return uintBitsToFloat(0x7f800000u | (gl_LocalInvocationIndex & 0u)); }
+float floatNaN() { return floatOfBits(0x7fc00000u); }
+
+float floatInfinity() { return floatOfBits(0x7f800000u); }
+
+float floatGreatest() { return floatOfBits(0x7f7fffffu); }
 
 #endif

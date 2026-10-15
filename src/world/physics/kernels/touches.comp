@@ -119,12 +119,29 @@ uint prefix(bool flag)
     return mine;
 }
 
+// Which workgroup this is and how many there are, as its first thread read them: naga hands a page's WGSL the built-ins
+// through variables WGSL cannot tell are every thread's alike, so they are shared and read as workgroupUniformLoads
+// (solve.comp, town.js).
+shared uint workgroupAt;
+shared uint workgroupCount;
+
+uint workgroupUniformAt() { return workgroupAt; }
+
+uint workgroupUniformCount() { return workgroupCount; }
+
 void main()
 {
     uint at = gl_GlobalInvocationID.x;
     uint thread = gl_LocalInvocationID.x;
-    uint group = gl_WorkGroupID.x;
-    uint groups = gl_NumWorkGroups.x;
+    if (thread == 0u)
+    {
+        workgroupAt = gl_WorkGroupID.x;
+        workgroupCount = gl_NumWorkGroups.x;
+    }
+
+    barrier();
+    uint group = workgroupUniformAt();
+    uint groups = workgroupUniformCount();
     uint contacts = min(totals[ContactTotalAt], contactCapacity);
 
     // Where the held blocks' counts start: past one count for each workgroup the contacts can take.
@@ -183,10 +200,14 @@ void main()
         uint slot = block * 64u + thread;
         bool kept = held(slot);
         uint heldUpTo = prefix(kept);
-        if (!kept) continue;
 
-        uint rank = counted[heldFrom + block] - begunTotal + heldUpTo - 1u;
-        uint into = rank + contactsBefore(was[slot], contacts);
-        if (into < room) now[into] = was[slot];
+        // Not `continue`: WGSL takes a thread that skips the rest of an iteration as leaving the next one's barriers
+        // out of step.
+        if (kept)
+        {
+            uint rank = counted[heldFrom + block] - begunTotal + heldUpTo - 1u;
+            uint into = rank + contactsBefore(was[slot], contacts);
+            if (into < room) now[into] = was[slot];
+        }
     }
 }

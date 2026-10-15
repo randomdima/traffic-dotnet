@@ -85,6 +85,21 @@ void sync()
     barrier();
 }
 
+// How many contacts the round left uncoloured, as thread 0 read `remaining` once the round was over: a copy that is no
+// atomic, so every thread can read it as one figure.
+shared uint unfinished;
+
+// Shared figures every thread reads alike, each read right after a sync. A page's WGSL takes a load in a function named
+// workgroupUniform… as a workgroupUniformLoad (town.js), without which it cannot tell that a loop on one is every
+// thread's alike.
+uint workgroupUniformUnfinished() { return unfinished; }
+
+uint workgroupUniformColours() { return colours; }
+
+bool workgroupUniformAnyDeep() { return anyDeep; }
+
+bool workgroupUniformLeftOver() { uint from = colourStart[MostColours]; uint to = colourStart[MostColours + 1u]; return from < to; }
+
 vec2 crossYaw(float yaw, vec2 arm) { precise vec2 r = vec2(-yaw * arm.y, yaw * arm.x); return r; }
 
 // How fast B's surface closes on A's at the point, from motion (velocity) or from the push accumulator.
@@ -219,11 +234,16 @@ void main()
             if (moves(c.y)) lowest[c.y] = Nobody;
         }
 
-        if (thread == 0u) colours = colouring + 1u;
+        if (thread == 0u)
+        {
+            colours = colouring + 1u;
+            unfinished = remaining;
+        }
+
         sync();
 
         // Read by every thread before the next round's first one clears it, or threads would leave on different rounds.
-        bool done = remaining == 0u;
+        bool done = workgroupUniformUnfinished() == 0u;
         sync();
         if (done) break;
     }
@@ -269,10 +289,12 @@ void main()
 
     // Whether one thread runs any contacts after the colours: where none is left over, a pass ends with its last colour.
     sync();
-    bool leftOver = colourStart[MostColours] < colourStart[MostColours + 1u];
+    bool leftOver = workgroupUniformLeftOver();
+    uint colourCount = workgroupUniformColours();
+    bool deep = workgroupUniformAnyDeep();
     for (uint pass = 0u; pass < velocityIterations; pass++)
     {
-        for (uint colour = 0u; colour < colours; colour++)
+        for (uint colour = 0u; colour < colourCount; colour++)
         {
             for (uint at = colourStart[colour] + thread; at < colourStart[colour + 1u]; at += 1024u) solveVelocity(order[at]);
             sync();
@@ -290,9 +312,9 @@ void main()
 
     for (uint slot = thread; slot < rosterCount; slot += 1024u) push_[owners[slot]] = vec4(0.0);
     sync();
-    for (uint pass = 0u; pass < (anyDeep ? positionIterations : 0u); pass++)
+    for (uint pass = 0u; pass < (deep ? positionIterations : 0u); pass++)
     {
-        for (uint colour = 0u; colour < colours; colour++)
+        for (uint colour = 0u; colour < colourCount; colour++)
         {
             for (uint at = colourStart[colour] + thread; at < colourStart[colour + 1u]; at += 1024u) solvePush(order[at]);
             sync();

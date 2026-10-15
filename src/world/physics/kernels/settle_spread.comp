@@ -13,6 +13,9 @@ const uint Threads = 1024u;
 
 shared bool changed;
 
+// The step's unsettled count, as thread 0 read it, for every thread to read as one figure.
+shared uint unsettled;
+
 void sync()
 {
     memoryBarrierBuffer();
@@ -20,11 +23,19 @@ void sync()
     barrier();
 }
 
+// Shared figures every thread reads alike, each read right after a sync; a page's WGSL takes each load as a
+// workgroupUniformLoad (solve.comp, town.js).
+uint workgroupUniformUnsettled() { return unsettled; }
+
+bool workgroupUniformChanged() { return changed; }
+
 void main()
 {
-    if (totals[UnsettledAt] == 0u) return;
-
     uint thread = gl_LocalInvocationID.x;
+    if (thread == 0u) unsettled = totals[UnsettledAt];
+    sync();
+    if (workgroupUniformUnsettled() == 0u) return;
+
     uint contacts = contactCount();
     bool passing;
     do
@@ -38,7 +49,7 @@ void main()
         }
 
         sync();
-        passing = changed;
+        passing = workgroupUniformChanged();
     }
     while (passing);
 }

@@ -61,7 +61,7 @@ float lineSixth() { return uintBitsToFloat(0x3e2aaaabu); }
 float lineHundredTwentieth() { return uintBitsToFloat(0x3c088889u); }
 float lineFiveThousandFortieth() { return uintBitsToFloat(0x39500d01u); }
 float lineTau() { return uintBitsToFloat(0x40c90fdbu); }
-float lineMostFloat() { return uintBitsToFloat(0x7f7fffffu); }
+float lineMostFloat() { return floatGreatest(); }
 
 // MathF.Max and MathF.Min: NaN wins, and of two zeros the positive is the greater.
 float lineMax(float a, float b)
@@ -311,7 +311,7 @@ void lineRead(inout LineFollowedRow followed, vec2 rearAxleM, float windowM)
 vec2 lineLead(LineFollowedRow followed, float lookaheadM, out float atM)
 {
     // float.NaN's own bits, as the managed world writes it.
-    atM = uintBitsToFloat(0xffc00000u);
+    atM = floatOfBits(0xffc00000u);
     if (followed.lane < 0 || floatIsNaN(followed.progressM)) return vec2(0.0);
 
     precise float aheadM = followed.progressM + lookaheadM;

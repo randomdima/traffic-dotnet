@@ -1,0 +1,39 @@
+<Project>
+
+  <!-- The world's kernels for a page: the same GLSL the desktop compiles (Shaders.targets), taken to SPIR-V by glslc
+       and on to WGSL by naga (the wgpu project's translator, `cargo install naga-cli`), and embedded by file name as
+       Shaders/<kernel>.comp.wgsl. **One source for both heads**: nothing here is written in WGSL by hand.
+
+       Three things differ from the desktop's compile, each because WGSL or naga will not take what SPIR-V allows:
+       * `writeonly` is defined away — WGSL has no write-only storage;
+       * SPIR-V 1.3 (vulkan1.1) and not 1.6 — glslang copies a buffer's struct into a local by OpCopyLogical from 1.4
+         on, which naga does not read;
+       * no -O — spirv-opt folds a NaN or an infinity made at run time (floats.glsl) back into a constant, which WGSL
+         refuses.
+       What naga writes still carries push constants as `var<immediate>`; town.js reads them from a uniform buffer
+       instead, and lays each kernel's bindings off the WGSL it is given. -->
+  <PropertyGroup>
+    <Naga Condition="'$(Naga)' == '' and Exists('$(HOME)/.cargo/bin/naga')">$(HOME)/.cargo/bin/naga</Naga>
+    <Naga Condition="'$(Naga)' == ''">naga</Naga>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <KernelSource Include="$(MSBuildThisFileDirectory)../shaders/*.comp" />
+    <KernelSource Include="$(MSBuildThisFileDirectory)../../**/kernels/*.comp" />
+    <KernelInclude Include="$(MSBuildThisFileDirectory)../../**/kernels/*.glsl" />
+  </ItemGroup>
+
+  <Target Name="CompileKernelsToWgsl" BeforeTargets="AssignTargetPaths"
+          Inputs="@(KernelSource);@(KernelInclude)" Outputs="@(KernelSource->'$(IntermediateOutputPath)Kernels/%(Filename)%(Extension).wgsl')">
+    <MakeDir Directories="$(IntermediateOutputPath)Kernels" />
+    <Exec Command="rm -f &quot;$(IntermediateOutputPath)Kernels/%(KernelSource.Filename)%(KernelSource.Extension).wgsl&quot; &amp;&amp; glslc -Dwriteonly= --target-env=vulkan1.1 -I &quot;$(MSBuildThisFileDirectory)../..&quot; &quot;%(KernelSource.FullPath)&quot; -o &quot;$(IntermediateOutputPath)Kernels/%(KernelSource.Filename)%(KernelSource.Extension).spv&quot; &amp;&amp; &quot;$(Naga)&quot; &quot;$(IntermediateOutputPath)Kernels/%(KernelSource.Filename)%(KernelSource.Extension).spv&quot; &quot;$(IntermediateOutputPath)Kernels/%(KernelSource.Filename)%(KernelSource.Extension).wgsl&quot; 2&gt;&amp;1 | grep -v NoContraction; test -s &quot;$(IntermediateOutputPath)Kernels/%(KernelSource.Filename)%(KernelSource.Extension).wgsl&quot;" />
+  </Target>
+
+  <Target Name="EmbedKernels" AfterTargets="CompileKernelsToWgsl" BeforeTargets="AssignTargetPaths">
+    <ItemGroup>
+      <EmbeddedResource Include="$(IntermediateOutputPath)Kernels/%(KernelSource.Filename)%(KernelSource.Extension).wgsl"
+                        LogicalName="Shaders/%(KernelSource.Filename)%(KernelSource.Extension).wgsl" />
+    </ItemGroup>
+  </Target>
+
+</Project>
