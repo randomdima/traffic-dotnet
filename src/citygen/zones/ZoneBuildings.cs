@@ -370,9 +370,13 @@ internal static class ZoneBuildings
         public ChainIndex.Scan FaceScan { get; } = face.NewScan();
         public GroundShapes.Scan Ground { get; } = ground.NewScan();
         public List<int> Near { get; } = [];
-        public int[] Ids { get; } = new int[64];
-        public float[] AlongM { get; } = new float[64];
     }
+
+    /// <summary>
+    /// How many pieces of the face near a place are weighed for the nearest: the first so many the index hands back
+    /// (<see cref="ChainIndex.NearestNear"/>).
+    /// </summary>
+    const int MostNearAPlace = 64;
 
     /// <summary>
     /// <b>The walk's outer face</b> (<see cref="GroundRings.WalkEdge"/>), piece by piece over the town's grid, asked
@@ -453,20 +457,11 @@ internal static class ZoneBuildings
         public float? Nearest(Working own, Vector2 atM, float reachM, out Vector2 onM, out Vector2 direction)
         {
             (onM, direction) = (default, default);
-            var found = Math.Min(_index.Near(own.FaceScan, atM, reachM, own.Ids, own.AlongM), own.Ids.Length);
-            float? bestM = null;
-            var best = -1;
-            for (var at = 0; at < found; at++)
-            {
-                var pointM = _pieces[own.Ids[at]].PointAtM(own.AlongM[at]);
-                var offM = Vector2.Distance(pointM, atM);
-                if (bestM is { } nearer && offM >= nearer) continue;
+            var best = _index.NearestNear(own.FaceScan, atM, reachM, MostNearAPlace, out var alongM, out var offM);
+            if (best < 0) return null;
 
-                (bestM, onM, best) = (offM, pointM, at);
-            }
-
-            if (best >= 0) direction = Heading.Unit(_pieces[own.Ids[best]].HeadingAtRad(own.AlongM[best]));
-            return bestM;
+            (onM, direction) = (_pieces[best].PointAtM(alongM), Heading.Unit(_pieces[best].HeadingAtRad(alongM)));
+            return offM;
         }
     }
 

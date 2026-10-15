@@ -104,6 +104,46 @@ public class ChainIndexTests
     }
 
     /// <summary>
+    /// <b>The nearest of what <see cref="ChainIndex.Near"/> hands back is the one a walk of it keeping only a strictly
+    /// nearer chain names</b> — at the same distance along and off it, and over only the first so many where the room
+    /// given is less than what is near.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(CellSizes))]
+    public void TheNearestNearIsTheOneAWalkOfNearsAnswerKeeps(float cellSizeM)
+    {
+        var roads = RoadGraph.Build(Towns.Of(Towns.Fixture), new SimConfig());
+        var pieces = new List<ArcSeg>();
+        for (var lane = 0; lane < roads.LaneCount; lane++) pieces.AddRange(roads.ArcsOf(lane));
+
+        var index = ChainIndex.OfPieces(pieces.ToArray(), Level(cellSizeM));
+        var scan = index.NewScan();
+        var rng = new Random(2);
+        foreach (var pointM in Probes(roads, rng))
+        {
+            foreach (var room in (int[])[2, pieces.Count])
+            {
+                var ids = new int[room];
+                var alongM = new float[room];
+                var found = Math.Min(index.Near(scan, pointM, 25f, ids, alongM), room);
+                var (walked, walkedAlongM, walkedOffM) = (-1, 0f, 0f);
+                for (var at = 0; at < found; at++)
+                {
+                    var offM = Vector2.Distance(pieces[ids[at]].PointAtM(alongM[at]), pointM);
+                    if (walked >= 0 && offM >= walkedOffM) continue;
+
+                    (walked, walkedAlongM, walkedOffM) = (ids[at], alongM[at], offM);
+                }
+
+                var nearest = index.NearestNear(scan, pointM, 25f, room, out var nearestAlongM, out var nearestOffM);
+
+                Assert.Equal(walked, nearest);
+                if (walked >= 0) Assert.Equal((walkedAlongM, walkedOffM), (nearestAlongM, nearestOffM));
+            }
+        }
+    }
+
+    /// <summary>
     /// <b>And nothing that crosses a line is left out of what could cross it</b> — asked of a lattice of
     /// lines whose crossings are known by construction rather than of a town, since what is being checked
     /// is that the answer holds every one of them and not that a town has any.

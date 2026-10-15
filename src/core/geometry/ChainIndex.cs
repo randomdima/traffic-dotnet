@@ -412,6 +412,55 @@ internal sealed class ChainIndex
         return found;
     }
 
+    /// <summary>
+    /// <b>The one of <see cref="Near(Scan, Vector2, float, Span{int}, Span{float})"/>'s answer nearest the point</b>, as a
+    /// caller giving it <paramref name="room"/> and walking what comes back finds it — keeping a chain only where it is
+    /// strictly nearer, so of two as near the first in Near's order — with how far along it and how far off it the point
+    /// is. −1 where none is within reach.
+    /// </summary>
+    /// <remarks>
+    /// <b>A chain whose box stands further off than one already measured is never projected onto</b>: nothing on it is
+    /// as near. Where more chains could be in reach than <paramref name="room"/> holds, Near's answer is the first of them,
+    /// and each is measured.
+    /// </remarks>
+    public int NearestNear(Scan scan, Vector2 pointM, float radiusM, int room, out float alongM, out float offM)
+    {
+        alongM = offM = 0f;
+        if (ChainCount == 0) return -1;
+
+        Gather(scan, pointM, radiusM);
+        var reachSq = radiusM * radiusM;
+        var mayReach = 0;
+        for (var index = 0; index < scan.Count; index++)
+        {
+            if (OffTheBoxSq(scan.Candidate[index], pointM) <= reachSq) mayReach++;
+        }
+
+        var passesOver = mayReach <= room;
+        var best = -1;
+        var found = 0;
+        for (var index = 0; index < scan.Count && found < room; index++)
+        {
+            var slot = scan.Candidate[index];
+            var offTheBoxSq = OffTheBoxSq(slot, pointM);
+            if (offTheBoxSq > reachSq) continue;
+            if (passesOver && best >= 0 && MathF.Sqrt(offTheBoxSq) > offM + LineTolerance.RoundingM) continue;
+
+            var arcs = _arcs.AsSpan(_arcStart[slot], _arcStart[slot + 1] - _arcStart[slot]);
+            var lengthM = _lengthM[slot];
+            var atM = Spline.ProjectM(arcs, pointM, lengthM * 0.5f, lengthM, out var offSq);
+            if (offSq > reachSq) continue;
+
+            found++;
+            var thisOffM = MathF.Sqrt(offSq);
+            if (best >= 0 && thisOffM >= offM) continue;
+
+            (best, alongM, offM) = (_chainId[slot], atM, thisOffM);
+        }
+
+        return best;
+    }
+
     /// <summary>The slots whose pieces reach the ring, each once, in whatever order the cells gave them.</summary>
     /// <remarks>
     /// <b>The order is not load-bearing and they are deliberately not sorted.</b> The grid hands cells
