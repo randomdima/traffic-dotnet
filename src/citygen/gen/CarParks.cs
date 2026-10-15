@@ -418,7 +418,7 @@ internal static class CarParks
 
                 if (_parksCounted[entry] < _parks.Count)
                 {
-                    var nearestSq = _parks.NearestSq(site.AtM, _nearestSq[entry]);
+                    var nearestSq = _parks.NearestSq(site.AtM, _nearestSq[entry], _parksCounted[entry]);
                     _parksCounted[entry] = _parks.Count;
                     if (nearestSq < _nearestSq[entry])
                     {

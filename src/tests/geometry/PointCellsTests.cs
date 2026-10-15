@@ -101,6 +101,40 @@ public class PointCellsTests
         }
     }
 
+    /// <summary>
+    /// <b>Handed the nearest of the points before some count, the answer is the nearest of every point</b> —
+    /// however many came after. Asked over the whole town and over a corner of it a few cells across, so the newer
+    /// points are both asked in turn and found by the rings.
+    /// </summary>
+    [Theory]
+    [InlineData(AcrossM)]
+    [InlineData(AcrossM / 1000f)]
+    public void TheNearestOfThoseBeforeAndThoseSinceIsTheNearestOfEveryPoint(float acrossM)
+    {
+        var draw = new Rng(7, 4);
+        var cells = new PointCells(Level);
+        var pointsM = new List<Vector2>();
+        for (var point = 0; point < 300; point++)
+        {
+            var pointM = Within(ref draw, acrossM);
+            pointsM.Add(pointM);
+            cells.Add(pointM);
+        }
+
+        for (var ask = 0; ask < 300; ask++)
+        {
+            var atM = Within(ref draw, acrossM);
+            var since = draw.NextInt(pointsM.Count + 1);
+            var beforeSq = float.PositiveInfinity;
+            for (var point = 0; point < since; point++) beforeSq = MathF.Min(beforeSq, Vector2.DistanceSquared(pointsM[point], atM));
+
+            var nearestSq = beforeSq;
+            for (var point = since; point < pointsM.Count; point++) nearestSq = MathF.Min(nearestSq, Vector2.DistanceSquared(pointsM[point], atM));
+
+            Assert.Equal(nearestSq, cells.NearestSq(atM, beforeSq, since));
+        }
+    }
+
     static (PointCells Cells, List<Vector2> PointsM) Scattered(ref Rng draw, int count)
     {
         var cells = new PointCells(Level);
@@ -115,5 +149,7 @@ public class PointCellsTests
         return (cells, pointsM);
     }
 
-    static Vector2 Somewhere(ref Rng draw) => new(draw.NextFloat(0f, AcrossM), draw.NextFloat(0f, AcrossM));
+    static Vector2 Somewhere(ref Rng draw) => Within(ref draw, AcrossM);
+
+    static Vector2 Within(ref Rng draw, float acrossM) => new(draw.NextFloat(0f, acrossM), draw.NextFloat(0f, acrossM));
 }

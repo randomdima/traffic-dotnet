@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.InteropServices;
 
 namespace TrafficSimulation.Core.Geometry;
 
@@ -141,7 +142,38 @@ internal sealed class PointCells(GridLevel level)
             if (ring > 0 && best <= clearM * clearM) return best;
         }
 
-        foreach (var pointM in _pointM)
+        return NearestSqFrom(0, atM, best);
+    }
+
+    /// <summary>
+    /// <b>The squared distance to the nearest point, for a caller whose <paramref name="boundSq"/> is already the
+    /// nearest of the points added before <paramref name="since"/></b> — only the ones added since can be nearer.
+    /// </summary>
+    /// <remarks>
+    /// <b>Those are asked in turn where there are no more of them than cells the rings would read before they could
+    /// stop at the bound</b>, and the rings run otherwise. The answer is a minimum either way, so it is
+    /// <see cref="NearestSq(Vector2, float)"/>'s to the bit.
+    /// </remarks>
+    public float NearestSq(Vector2 atM, float boundSq, int since)
+    {
+        if (!IsFinite(atM)) return boundSq;
+
+        return _pointM.Count - since <= CellsReadToClear(boundSq)
+            ? NearestSqFrom(since, atM, boundSq)
+            : NearestSq(atM, boundSq);
+    }
+
+    /// <summary>The cells the rings read through the first one that clears a nearest at <paramref name="boundSq"/>.</summary>
+    double CellsReadToClear(float boundSq)
+    {
+        var rings = Math.Ceiling(Math.Sqrt(boundSq) / level.CellM) + 1;
+        var across = (2 * rings) + 1;
+        return across * across;
+    }
+
+    float NearestSqFrom(int since, Vector2 atM, float best)
+    {
+        foreach (var pointM in CollectionsMarshal.AsSpan(_pointM)[since..])
         {
             if (IsFinite(pointM)) best = MathF.Min(best, Vector2.DistanceSquared(pointM, atM));
         }
