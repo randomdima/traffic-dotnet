@@ -352,8 +352,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 - **A window's frame culls the whole roster while the managed world steps** (2026-10-15): `ManagedWorld.InBox` answers
   −1 while its step runs on its own thread, so `TownWorld.CarsPlacedIn` and `PeoplePlacedIn` walk every car and person
-  every frame — most of `Game.Draw`'s time on O30's managed world. The walk's fields are read once now; the moving and
-  frozen indexes asked between steps, or a cull filed off the last step's view, closes it.
+  every frame — most of `Game.Draw`'s time on O30's managed world, 0.044 ms a frame with its fields read once: a fifth
+  of a core at an uncapped present, under a hundredth at a display's rate, and nothing on the device's world. An index
+  of the view laid once a tick and asked by the frames between, which costs about what it saves at a display's rate,
+  closes it.
 
 ### Code kept twice, or kept for nothing
 
