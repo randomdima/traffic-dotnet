@@ -179,6 +179,8 @@ internal static class FillProbe
     }
 
     /// <summary>What the cut came to, on every one of the four readings.</summary>
+    /// <param name="BackwardsM2">The ground covered by triangles laid inside out, which is ground covered twice.</param>
+    /// <param name="MissedM">How much of the true boundary had no edge of the cut anywhere near it.</param>
     readonly record struct Reading(
         int Corners,
         int Triangles,
@@ -192,14 +194,10 @@ internal static class FillProbe
         int MostEdges,
         float LongestM,
         double FilledM2,
-
-        /// <summary>The ground covered by triangles laid inside out, which is ground covered twice.</summary>
         double BackwardsM2,
         double GoneM2,
         float StrayM,
         float MeanStrayM,
-
-        /// <summary>How much of the true boundary had no edge of the cut anywhere near it.</summary>
         float MissedM);
 
     static Reading Read(BandShell shell, float kerbM)

@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using Silk.NET.Core.Native;
 using Silk.NET.Vulkan;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -9,7 +8,6 @@ using SixLabors.ImageSharp.Processing;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Terrain;
-using Image = Silk.NET.Vulkan.Image;
 using Semaphore = Silk.NET.Vulkan.Semaphore;
 // This slice's own device wrapper, not the loader of the same name.
 using Vk = TrafficSimulation.Runtime.Vk;

@@ -3,17 +3,13 @@ using System.Numerics;
 using System.Reflection;
 using System.Runtime;
 using System.Runtime.InteropServices;
-using Silk.NET.Input;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
-using TrafficSimulation.Agents.Ambulance;
 using TrafficSimulation.Agents.Car.Body;
-using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Service;
 using TrafficSimulation.App.Camera;
 using TrafficSimulation.App.Debug;
 using TrafficSimulation.App.Drive;
-using TrafficSimulation.App.Hud;
 using TrafficSimulation.App.Render;
 using TrafficSimulation.App.Shot;
 using TrafficSimulation.Bench;
@@ -21,10 +17,8 @@ using TrafficSimulation.Runtime;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.CityGen.Gen;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Statics;
 using TrafficSimulation.World.Terrain;
-using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.App.Main;
 

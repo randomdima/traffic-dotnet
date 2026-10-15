@@ -29,14 +29,12 @@ internal sealed class BotEye : IDisposable
 {
     readonly ShotStage _stage;
     readonly Hud.Interface _bare;
-    readonly SimConfig _config;
     readonly int _widthPx;
     readonly int _heightPx;
 
     public BotEye(
         Vk vk, CityPlan plan, GroundMesh ground, TownSprites looks, SimConfig config, int widthPx, int heightPx)
     {
-        _config = config;
         _widthPx = widthPx;
         _heightPx = heightPx;
         _stage = ShotStage.On(vk, plan, ground, looks, config, widthPx, heightPx);

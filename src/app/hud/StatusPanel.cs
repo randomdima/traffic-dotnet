@@ -2,7 +2,6 @@ using System.Numerics;
 using TrafficSimulation.App.Debug;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Bench;
-using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.App.Hud;

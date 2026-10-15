@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Numerics;
 using System.Text;
 using TrafficSimulation.CityGen;
-using TrafficSimulation.CityGen.Map;
 using TrafficSimulation.CityGen.Traced;
 using TrafficSimulation.CityGen.Zones;
 using TrafficSimulation.Core.Config;

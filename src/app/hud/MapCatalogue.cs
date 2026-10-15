@@ -1,6 +1,5 @@
 using TrafficSimulation.CityGen;
 using TrafficSimulation.CityGen.Exam;
-using TrafficSimulation.Core.Config;
 
 namespace TrafficSimulation.App.Hud;
 

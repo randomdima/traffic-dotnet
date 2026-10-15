@@ -22,7 +22,7 @@ internal sealed partial class DebugOverlay
     /// </para>
     /// <para>
     /// <b>The band is the ribbon and not a drawing of it.</b> A ribbon is the line's own curve offset half a
-    /// width either side and cut square at both ends (<see cref="ArcRibbon"/>), and that is exactly the
+    /// width either side and cut square at both ends (<see cref="Core.Geometry.ArcRibbon"/>), and that is exactly the
     /// shape a band down the line at the full width is (<see cref="PathMarks.Banded"/>) — so nothing here
     /// lays a second copy of the geometry to draw the first one with.
     /// </para>

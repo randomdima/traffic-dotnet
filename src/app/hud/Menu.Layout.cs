@@ -1,8 +1,6 @@
 using System.Numerics;
-using TrafficSimulation.App.Debug;
 using TrafficSimulation.App.Render;
 using TrafficSimulation.App.Screen;
-using TrafficSimulation.Core.Config;
 
 namespace TrafficSimulation.App.Hud;
 
@@ -11,9 +9,6 @@ internal sealed partial class Menu
 {
     const float RowPitchPx = Theme.TallRowPx + Theme.GapPx;
     const float LinePitchPx = Theme.RowPx + Theme.GapPx;
-
-    /// <summary>A group's own header, which is a row that says what is under it rather than one that opens a town.</summary>
-    const float GroupPitchPx = Theme.RowPx + Theme.GapPx;
 
     /// <summary>
     /// The room the start menu lays its rows in: <b>a share of the window's short side less the panel's own
@@ -294,8 +289,8 @@ internal sealed partial class Menu
         //
         // **The window is the last word** (OBS-2k): what the rows want is what they are laid at until the
         // window has not got it, and then they are laid narrower. A panel that held its wanted width on a
-        // window too narrow for it would be a panel with an edge off the glass — which is what the density
-        // used to be dropped to prevent, at the cost of an interface nobody could read on a handset.
+        // window too narrow for it would be a panel with an edge off the glass, and dropping the density to fit
+        // it is an interface nobody can read on a handset.
         var contentWidthPx = MathF.Min(
             WidestContentPx(uiPx) + Theme.InsetPx * 2f + ScrollBarPx + Theme.GapPx,
             uiPx.X - (Theme.MarginPx * 2f) - (Theme.PaddingPx * 2f));

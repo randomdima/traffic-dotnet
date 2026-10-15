@@ -5,7 +5,6 @@ using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Bench;
 using TrafficSimulation.World.Containment;
-using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.App.Hud;

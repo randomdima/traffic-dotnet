@@ -58,7 +58,7 @@ internal static class PathMarks
 
     /// <summary>
     /// <b>How long a barb off a line is, and how far apart barbs stand down it</b>
-    /// (<see cref="Barbed"/>). Longer than a mark and further apart: a barb is read one at a time, being an
+    /// (<see cref="Normals"/>). Longer than a mark and further apart: a barb is read one at a time, being an
     /// answer about one side of the line rather than a direction the run as a whole has, and a row of them
     /// as fine as the marks reads as a band drawn beside the line instead of as a row of answers.
     /// </summary>
@@ -174,33 +174,8 @@ internal static class PathMarks
     }
 
     /// <summary>
-    /// <b>The barbs down one stretch of a chain</b>: at each place on the grid, a short dash square off the
-    /// line and standing to one side of it — <b>which side being the whole of what a barb says</b>.
-    /// </summary>
-    /// <remarks>
-    /// It is drawn for a line that divides rather than for one that leads, where what a reader has to be
-    /// able to see is which of the two sides the line claims. A chevron cannot say it: a chevron is about
-    /// the line's own direction, and reading a side off a direction asks the reader to know which hand the
-    /// thing that drew it keeps its answer on.
-    /// </remarks>
-    public static void Barbed(
-        ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, GridLevel? pitch,
-        bool toTheRight, float widthM, Vector4 colour)
-    {
-        if (arcs.Length == 0 || pitch is not { } level) return;
-
-        var grid = new MarkGrid(fromM, toM, level);
-        while (grid.MoveNext(arcs))
-        {
-            var barb = Spline.SampleAt(arcs, grid.AtM);
-            var across = toTheRight ? barb.Right : -barb.Right;
-            draw.LineM(barb.PositionM, barb.PositionM + (across * BarbM), widthM, colour);
-        }
-    }
-
-    /// <summary>
     /// <b>The normals down one stretch of a chain</b>: at each place on the grid, an arrow square off the
-    /// line and pointing to the side the chain claims — the barb (<see cref="Barbed"/>) with a head on it.
+    /// line and pointing to the side the chain claims — a barb (<see cref="BarbM"/>) with a head on it.
     /// </summary>
     /// <remarks>
     /// <b>The head is what makes it a normal rather than a barb.</b> A barb answers <em>which side</em> and

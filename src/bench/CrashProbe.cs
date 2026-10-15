@@ -1,5 +1,4 @@
 using System.Numerics;
-using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.World.Physics;
 using TrafficSimulation.Core.Simulation;

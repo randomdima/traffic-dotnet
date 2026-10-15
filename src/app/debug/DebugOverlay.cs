@@ -1,10 +1,7 @@
 using System.Numerics;
-using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.App.Render;
 using TrafficSimulation.App.Screen;
-using TrafficSimulation.Runtime;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
 
@@ -160,7 +157,7 @@ internal sealed partial class DebugOverlay
 
         if (switches.CarLines) CarLines(ref draw, world, config, viewCentreM, viewSpanM, pixelsPerMetre);
 
-        if (switches.Collision) CollisionShapes(ref draw, world, config, viewCentreM, viewSpanM, pixelsPerMetre);
+        if (switches.Collision) CollisionShapes(ref draw, world, viewCentreM, viewSpanM, pixelsPerMetre);
 
         // Last, so the construction stands over the lines and the shapes: what it is read against is the
         // track written on the ground under all of them, and a chevron through the arc reads as the arc.

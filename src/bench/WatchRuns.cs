@@ -1,5 +1,4 @@
 using System.Numerics;
-using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.Bench;
 

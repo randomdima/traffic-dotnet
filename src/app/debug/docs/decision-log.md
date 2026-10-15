@@ -46,8 +46,8 @@ strong.
 
 The question that asked for the layer was whether the broad phase bins bodies the way the road bins lines,
 and it does not and may not: the two indexes are laid over different things from different corners, and
-the lanes' own claims are intervals along a way rather than cells at all. **So the layer draws both of the
-solver's grids, in a hue each** (OBS-2x), and the two rulings standing offset from one another is half of
+the lanes' own claims are intervals along a way rather than cells at all. **So the layer draws the
+solver's own grids, in a hue each** (OBS-2x), and the two rulings standing offset from one another is half of
 what it says.
 
 **Only live cells, because that is what the index holds.** Neither grid clears anything between rebuilds —
@@ -55,8 +55,8 @@ a cell is live while its stamp matches — so a full ruling like the geometry gr
 lattice invented for the drawing. It is also what makes the moving half affordable: a few hundred bodies
 light a few hundred cells, where a ruling is every cell in view.
 
-**And it is read without `EnsureIndex`**, the call every query makes first, which would have made a layer
-switched on change the figures on the panel beside it.
+**And it is read as it stands, never brought up to date first** (`PhysicsWorld.StaticIndex`), which would have
+made a layer switched on change the figures on the panel beside it.
 
 ## 2026-09-18 — the shape the reader strikes is a layer of its own, not a figure on the perimeter's
 

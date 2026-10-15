@@ -131,7 +131,7 @@ internal static class BoundaryProbe
 
             var tailM = loose[run][^1].EndM;
             var headM = loose[run][0].StartM;
-            var (pairedWith, apartM) = Nearest(loose, run, tailM);
+            var (pairedWith, apartM) = Nearest(loose, tailM);
             // <b>What stands at the middle of the hole says which kind it is.</b> A middle the distance
             // moved off the boundary is a length of offset the construction never made; a middle nearer
             // than that is a place the offset really does touch itself, and the hole is the walk's.
@@ -557,10 +557,10 @@ internal static class BoundaryProbe
     }
 
     /// <summary>
-    /// The run whose head stands nearest one run's tail, and how far off that is. <b>Its own head counts</b>:
+    /// The run whose head stands nearest a run's tail, and how far off that is. <b>The tail's own head counts</b>:
     /// a ring broken in one place comes back as the one run whose two ends are the two sides of that hole.
     /// </summary>
-    static (int Run, float ApartM) Nearest(ArcSeg[][] loose, int run, Vector2 tailM)
+    static (int Run, float ApartM) Nearest(ArcSeg[][] loose, Vector2 tailM)
     {
         var best = -1;
         var apartM = float.MaxValue;
@@ -582,7 +582,7 @@ internal static class BoundaryProbe
         var count = 0;
         for (var run = 0; run < loose.Length; run++)
         {
-            if (Nearest(loose, run, loose[run][^1].EndM).ApartM <= withinM) count++;
+            if (Nearest(loose, loose[run][^1].EndM).ApartM <= withinM) count++;
         }
 
         return count;

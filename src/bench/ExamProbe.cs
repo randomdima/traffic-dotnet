@@ -3,7 +3,6 @@ using TrafficSimulation.CityGen;
 using TrafficSimulation.CityGen.Exam;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
-using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Statics;
 using TrafficSimulation.World.Town;
 

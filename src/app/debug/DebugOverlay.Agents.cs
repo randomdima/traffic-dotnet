@@ -1,13 +1,10 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
-using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.App.Render;
 using TrafficSimulation.App.Screen;
-using TrafficSimulation.Runtime;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Foot;
-using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.App.Debug;

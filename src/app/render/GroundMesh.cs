@@ -4,9 +4,7 @@ using System.Runtime.InteropServices;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Road;
-using TrafficSimulation.World.Terrain;
 
 namespace TrafficSimulation.App.Render;
 
@@ -489,9 +487,9 @@ internal sealed partial class GroundMesh
         // A deck is drawn out to its own half-width, with a rim rather than a stroke: the piece at full size
         // in the edge shade, then a line's width smaller in its own. A ribbon about a road's line has no
         // shell of its own to strike a kerb along, which is the one place a rim is what is left.
-        // <b>And nothing but the deck</b> — the pavement that used to be carried across one at the width it
-        // has on land was the last line beside a road struck by arithmetic of its own (TER-3c.3), so it is
-        // gone and the margin outside the carriageway is deck all the way out. <b>The ground's decks only</b>:
+        // <b>And nothing but the deck</b> — a pavement carried across one at the width it has on land would be
+        // a line beside a road struck by arithmetic of its own (TER-3c.3), so the margin outside the
+        // carriageway is deck all the way out. <b>The ground's decks only</b>:
         // a bridge over other roads is drawn over them (<see cref="Above"/>).
         var decks = mesh.Starting();
         mesh.Decks(plan, paving.Lanes, CityPlan.RoadArrays.Ground, config);

@@ -104,7 +104,7 @@ internal static class DeviceWorldProbe
 
         // The step ahead shown, so the fleets the host fills from stand where the device draws (WorldLayer.StepsAhead).
         device.LayTheClaims();
-        Drawn(device, config, plan, vk);
+        Drawn(device, config, plan);
     }
 
     /// <summary>
@@ -129,7 +129,7 @@ internal static class DeviceWorldProbe
     /// fill of the same town and view, which reads the fleets the view was read into: how many instances each drew and how
     /// many differ, at a street and at the whole town.
     /// </summary>
-    static void Drawn(TownWorld town, SimConfig config, CityPlan plan, Vk vk)
+    static void Drawn(TownWorld town, SimConfig config, CityPlan plan)
     {
         var looks = TownSprites.Load(config);
         looks.ReadAspects(SheetAtlas.Pack(looks.Sheets));

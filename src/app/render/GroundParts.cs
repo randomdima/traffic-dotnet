@@ -75,10 +75,4 @@ internal static class GroundParts
     ];
 
     public static uint Bit(GroundPart part) => 1u << (int)part;
-
-    /// <summary>
-    /// <b>The parts drawn under the bodies on the ground</b>: every one but <see cref="GroundPart.Above"/>, which is
-    /// drawn over them and under the bodies on it.
-    /// </summary>
-    public const uint OnTheGround = All & ~(1u << (int)GroundPart.Above);
 }

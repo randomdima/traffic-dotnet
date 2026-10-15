@@ -14,8 +14,6 @@ using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Town;
 
-using TrafficSimulation.World.Statics;
-
 namespace TrafficSimulation.App.Main;
 
 /// <summary>
@@ -89,7 +87,7 @@ internal sealed partial class Game : IDisposable
     /// The sheets the next renderer is laid for. <b>Empty until a town is opened</b>: the menu is
     /// glyphs and quads over a ground and draws no sprite at all, so packing the whole atlas to show
     /// one is work done twice on a desktop — and on a page it is every one of the town's sheets
-    /// fetched before anything can be clicked (<see cref="Main.Data.Art"/>).
+    /// fetched before anything can be clicked (the page's <c>Data.Art</c>).
     /// </summary>
     IReadOnlyList<SheetSource> _sheets = [];
 
@@ -187,7 +185,7 @@ internal sealed partial class Game : IDisposable
     /// ends by drawing the card, and what acts on the name is the head's own
     /// <see cref="OpenWhatWasPicked"/>: a thread of its own on the desktop, and the boot's own
     /// <c>await</c> in a page, which is the one place there where waiting is allowed
-    /// (<see cref="Main.Data.Art"/>).
+    /// (the page's <c>Data.Art</c>).
     /// </summary>
     void PickMap(string map)
     {
@@ -209,7 +207,7 @@ internal sealed partial class Game : IDisposable
 
     /// <summary>
     /// The map a click asked for, once. <b>The browser's boot loop is what drains it</b>: that is the only
-    /// place in a page where waiting for a fetch is allowed (<see cref="Main.Data.Art"/>).
+    /// place in a page where waiting for a fetch is allowed (the page's <c>Data.Art</c>).
     /// </summary>
     public string? TakeWanted()
     {

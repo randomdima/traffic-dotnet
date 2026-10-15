@@ -53,6 +53,8 @@ internal static class CheckCatalogue
         new("fidelity", "How far a traced town's lanes stand off its map's own, both ways", Quoted(config => TracedFidelity.Run("OdesaOsm", config))),
         new("fit", "How a town's walk was built as its zones say, look by look", Quoted(config => TracedFit.Run("OdesaOsm", config, null))),
         new("zones", "How close a traced town's zones build it to the place's own buildings, kind by kind and square by square", Quoted(config => ZoneFidelity.Run("OdesaOsm", config, null))),
+        new("close", "Every road between two junctions of three arms or more standing nearer than a traced map lays two", Quoted(config => TownShape.Close("OdesaOsm", config))),
+        new("connectors", "What shape a town's movements came out, and every one that stops being a corner", Quoted(config => ConnectorShape.Run("OdesaOsm", config))),
     ];
 
     /// <summary>

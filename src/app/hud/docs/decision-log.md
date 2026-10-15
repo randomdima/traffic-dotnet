@@ -2,12 +2,6 @@
 
 Why the panels read as they do. What they must be is [requirements.md](requirements.md).
 
-## 2026-09-26 — rules reworded to what the code does
-
-The owner ruled the code the source of truth for this audit.
-
-- `OBS-2n`: opening a map is a plan laid from its brief, not a plan read.
-
 ## 2026-09-19 — the panel's allocation gate warms until the draw is tier-1 code
 
 **It was failing for the runtime and not for the panel.** Two warm-up passes compiled the draw and did not

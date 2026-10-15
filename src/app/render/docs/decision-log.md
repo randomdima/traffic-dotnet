@@ -85,8 +85,6 @@ emit took 25–29 µs at every framing, 14 of them the scan, where the fill took
 whole town; no instance differed. **A head's colour is `signal.glsl`'s, whose quotients are the device's own**: on RADV
 a head at a cycle's edge could turn a frame early, and none did there.
 
-**Not yet:** the marks, which are a ring on the host (`DriftMarks`).
-
 ## 2026-10-06 — a frame asks the grid what it can see, and the buildings are laid once
 
 The owner asked that a frame do as little as it can, and pointed at the grid: the town already knows what stands in
@@ -242,8 +240,8 @@ town already knows, so the mark is struck off the line the pair was offset from 
 road's own centreline; between two bays, one way's line moved half its own width**, with which pairs
 touch measured rather than read off the order they were emitted in.
 
-**Which roads carry two ribbons is asked once** (`RoadArrays.LanesMeetOnItsLine`, read by the lane offset
-and by the paint alike), or the picture and the lanes could disagree about it. **Where a run of paint stops,
+**Which roads carry two ribbons is asked once** (`RoadArrays.LinesBetweenLanes`, beside the lane offset it
+shares its arithmetic with), or the picture and the lanes could disagree about it. **Where a run of paint stops,
 and how far short of an arm's zebra and bar, is the road's** (`CentrelineRuns`, `Crossings`, `StopBars`);
 this pass decides the pitch, the width and the shade.
 

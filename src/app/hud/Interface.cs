@@ -5,7 +5,6 @@ using TrafficSimulation.App.Render;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Bench;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.App.Hud;

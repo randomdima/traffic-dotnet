@@ -1,12 +1,9 @@
 using System.Numerics;
-using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.App.Render;
 using TrafficSimulation.App.Screen;
-using TrafficSimulation.Runtime;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Foot;
-using TrafficSimulation.World.Parking;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Statics;
 using TrafficSimulation.World.Town;
@@ -23,8 +20,7 @@ internal sealed partial class DebugOverlay
     /// the same numbers, one step earlier.
     /// </summary>
     static void CollisionShapes(
-        ref ScreenDraw draw, TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM,
-        float pixelsPerMetre)
+        ref ScreenDraw draw, TownWorld world, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
     {
         var lineM = MathF.Max(CollisionLineM, CollisionLineFloorPx / pixelsPerMetre);
         var plan = world.Plan;
@@ -164,9 +160,8 @@ internal sealed partial class DebugOverlay
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>There is no disc for a junction, because the town holds none.</b> What the layer used to draw
-    /// there was the anchor of a contracted travel node, and a picture with a dot in the middle of every
-    /// box says the router plans between intersections when it plans between ways
+    /// <b>There is no disc for a junction, because the town holds none.</b> A picture with a dot in the
+    /// middle of every box says the router plans between intersections when it plans between ways
     /// (<see cref="World.Routing.TravelGraph"/>). What is left is the lanes and the connectors, which is
     /// what a body actually chooses between.
     /// </para>

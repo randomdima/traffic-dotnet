@@ -1,6 +1,5 @@
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.Bench;
@@ -67,6 +66,11 @@ internal sealed class TownWatch : ScenarioWatch
     long _gaveUpBefore = -1;
     long _setDownBefore = -1;
 
+    /// <summary>
+    /// <b>The longest any one walker has gone on walking without getting anywhere</b> — the reading that
+    /// says whether the give-up clock is doing its work. A body wedged where its straight back to the
+    /// pavement runs through a wall reports the whole run here, and nothing else in the town notices it.
+    /// </summary>
     int _longestStillTicks;
 
     /// <summary>How long one tick is, which is what turns a speed into the metres a car covered in it.</summary>
@@ -113,8 +117,6 @@ internal sealed class TownWatch : ScenarioWatch
     /// </summary>
     public float FurthestPastTheGrantM => _furthestPastM;
 
-    public int FurthestPastBody => _furthestPastBody;
-
     public int LongestPastTicks => _longestPastTicks;
 
     public int PastBody => _pastBody;
@@ -134,13 +136,6 @@ internal sealed class TownWatch : ScenarioWatch
 
     /// <summary>And how many of those had to be lifted back onto the pavement to walk at all (PER-8).</summary>
     public long WalkersSetDown { get; private set; }
-
-    /// <summary>
-    /// <b>The longest any one walker has gone on walking without getting anywhere</b> — the reading that
-    /// says whether the give-up clock is doing its work. A body wedged where its straight back to the
-    /// pavement runs through a wall reports the whole run here, and nothing else in the town notices it.
-    /// </summary>
-    public int LongestStillTicks => _longestStillTicks;
 
     public long Touches { get; private set; }
 

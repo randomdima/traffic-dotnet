@@ -1,9 +1,7 @@
 using System.Numerics;
-using System.Text;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Person.Body;
-using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;

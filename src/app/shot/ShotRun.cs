@@ -140,7 +140,7 @@ internal sealed class TownStanding : IDisposable
 /// What to photograph. <see cref="ViewM"/> is the span across the frame's <b>short</b> side, as
 /// <c>--view</c> asks for it, and <see cref="AtM"/> is where the camera is pinned — a named place of
 /// the map, never a search of the town. <see cref="Ui"/> is the <c>--ui</c> word list, matched whole
-/// by <see cref="Interface.Apply"/>: <c>none</c> is a bare frame of the town, an empty list is the
+/// by <see cref="Hud.Interface.Apply"/>: <c>none</c> is a bare frame of the town, an empty list is the
 /// ordinary interface, and the rest name a layer or a menu page.
 /// </summary>
 /// <param name="Seconds">How far into a seeded run the frame is taken. Zero is the plan rather than
@@ -167,6 +167,8 @@ internal readonly record struct ShotRequest(
     bool Validate = false);
 
 /// <summary>What the frame turned out to be — the census a caller prints or asserts on.</summary>
+/// <param name="InterfaceQuads">Both buffers' worth: the ground marks drawn under the bodies and everything drawn over them.</param>
+/// <param name="Seed">The plan's own seed, which is what makes the picture reproducible from the caption alone.</param>
 internal readonly record struct ShotReport(
     string Map,
     string Path,
@@ -178,12 +180,8 @@ internal readonly record struct ShotReport(
     int Sprites,
     int SpriteCapacity,
     long Tick,
-
-    /// <summary>Both buffers' worth: the ground marks drawn under the bodies and everything drawn over them.</summary>
     int InterfaceQuads,
     long Crossings,
-
-    /// <summary>The plan's own seed, which is what makes the picture reproducible from the caption alone.</summary>
     ulong Seed)
 {
     /// <summary>
