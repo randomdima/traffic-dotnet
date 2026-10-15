@@ -85,7 +85,7 @@ internal static class ZoneBuildings
         var rings = paving.Rings(config);
         var faces = rings.WalkEdge;
         var face = new Face(rings, config);
-        var prefabs = new Prefabs(sizes);
+        var prefabs = new Prefabs(sizes, config.CityGen.ZoneFootprintSpread);
         SetDown(survey.Buildings, prefabs, new Working(face, ground), standing, built, stoodByLook, sizes, config);
 
         var room = zones.Zones.Own(Map.TownMap.ZoneArrays.Root, ZoneParam.Buildings) is { } planned ? (int)planned - built.Count : int.MaxValue;
@@ -248,7 +248,7 @@ internal static class ZoneBuildings
             var tries = Math.Min(wears.Count, figures.ZonePrefabsTried) + (again >= 0 ? 1 : 0);
             for (var tried = 0; tried < tries; tried++)
             {
-                var prefab = again >= 0 && tried == 0 ? again : wears[prefabs.Drawn(look, said.FootprintM2, figures.ZoneFootprintSpread, ref draw)];
+                var prefab = again >= 0 && tried == 0 ? again : wears[prefabs.Drawn(look, said.FootprintM2, ref draw)];
                 var sizeM = prefabs.SizeM(prefab);
                 if (!yards.Allows(faceM + (along * (sizeM.X * 0.5f)), sizeM.X * 0.5f, own.Near)) continue;
                 if (own.Face.Seat(own, faceM + (along * (sizeM.X * 0.5f)), along, sizeM.X, config) is not var (lineWallM, seated)) continue;
@@ -307,7 +307,7 @@ internal static class ZoneBuildings
         {
             var atM = Vector2.Lerp(leastM, mostM, new Vector2(draw.NextFloat(), draw.NextFloat()));
             var look = said.Look(draw.NextFloat());
-            var prefab = prefabs.Of(look)[prefabs.Drawn(look, said.BehindM2, figures.ZoneFootprintSpread, ref draw)];
+            var prefab = prefabs.Of(look)[prefabs.Drawn(look, said.BehindM2, ref draw)];
             if (zones.At(atM) != zone || own.Face.Nearest(own, atM, figures.ZoneBehindClearM, out _, out _) is not null) continue;
             if (Walked(atM) is not var (onM, street)) continue;
 
@@ -466,22 +466,30 @@ internal static class ZoneBuildings
     }
 
     /// <summary>The prefabs by look (<see cref="BuildingSizes.PrefabM"/>): a look's own, or every one where the catalogue draws nothing of it.</summary>
-    sealed class Prefabs
+    /// <param name="spread">How many times bigger or smaller than a zone's footprint a prefab is drawn about three-fifths as often (<see cref="Drawn"/>).</param>
+    sealed class Prefabs(BuildingSizes sizes, float spread)
     {
-        readonly Vector2[] _sizeM;
-        readonly List<int>[] _byLook;
-        readonly List<int> _all = [];
+        readonly Vector2[] _sizeM = sizes.PrefabM;
+        readonly List<int>[] _byLook = ByLook(sizes);
+        readonly List<int> _all = [.. Enumerable.Range(0, sizes.PrefabM.Length)];
 
-        public Prefabs(BuildingSizes sizes)
+        /// <summary>
+        /// <b>Each look's weights at each footprint a zone asks for</b>, worked out once: a city draws hundreds of thousands
+        /// of prefabs over a handful of footprints, and a draw weighed afresh is a logarithm and an exponential a prefab,
+        /// twice. Filed by look and footprint together (<see cref="GridLevel.KeyOf(int, int)"/>), from any thread.
+        /// </summary>
+        readonly System.Collections.Concurrent.ConcurrentDictionary<long, Weights> _weights = new();
+
+        /// <summary>A look's prefabs weighed at one footprint, in <see cref="Of"/>'s order, and their sum taken in that order.</summary>
+        sealed record Weights(float[] Each, float Total);
+
+        static List<int>[] ByLook(BuildingSizes sizes)
         {
-            _sizeM = sizes.PrefabM;
-            _byLook = new List<int>[ZoneParams.Looks];
-            for (var look = 0; look < _byLook.Length; look++) _byLook[look] = [];
-            for (var prefab = 0; prefab < _sizeM.Length; prefab++)
-            {
-                _byLook[(int)sizes.PrefabLook[prefab]].Add(prefab);
-                _all.Add(prefab);
-            }
+            var byLook = new List<int>[ZoneParams.Looks];
+            for (var look = 0; look < byLook.Length; look++) byLook[look] = [];
+            for (var prefab = 0; prefab < sizes.PrefabM.Length; prefab++) byLook[(int)sizes.PrefabLook[prefab]].Add(prefab);
+
+            return byLook;
         }
 
         public List<int> Of(BuildingLook look) => _byLook[(int)look].Count > 0 ? _byLook[(int)look] : _all;
@@ -491,31 +499,40 @@ internal static class ZoneBuildings
         /// <summary>
         /// <b>Which of a look's prefabs is drawn</b>, as its place in <see cref="Of"/>: any alike where the zone says no
         /// footprint, and else each the more often the nearer its ground is to the zone's — by a bell over the ratio of
-        /// the two, a prefab <paramref name="spread"/> times bigger or smaller drawn about three-fifths as often.
+        /// the two, a prefab <c>spread</c> times bigger or smaller drawn about three-fifths as often.
         /// </summary>
-        public int Drawn(BuildingLook look, float footprintM2, float spread, ref Rng draw)
+        public int Drawn(BuildingLook look, float footprintM2, ref Rng draw)
         {
             var wears = Of(look);
             if (footprintM2 <= 0f) return draw.NextInt(wears.Count);
 
-            var width = MathF.Log(spread);
-            var total = 0f;
-            foreach (var prefab in wears) total += Weight(prefab);
+            var key = GridLevel.KeyOf((int)look, BitConverter.SingleToInt32Bits(footprintM2));
+            if (!_weights.TryGetValue(key, out var weights)) weights = _weights.GetOrAdd(key, WeightsOf(wears, footprintM2));
 
-            var left = draw.NextFloat() * total;
+            var left = draw.NextFloat() * weights.Total;
             for (var at = 0; at < wears.Count; at++)
             {
-                left -= Weight(wears[at]);
+                left -= weights.Each[at];
                 if (left < 0f) return at;
             }
 
             return wears.Count - 1;
+        }
 
-            float Weight(int prefab)
+        Weights WeightsOf(List<int> wears, float footprintM2)
+        {
+            var width = MathF.Log(spread);
+            var each = new float[wears.Count];
+            var total = 0f;
+            for (var at = 0; at < wears.Count; at++)
             {
+                var prefab = wears[at];
                 var off = MathF.Log(_sizeM[prefab].X * _sizeM[prefab].Y / footprintM2) / width;
-                return MathF.Exp(-0.5f * off * off);
+                each[at] = MathF.Exp(-0.5f * off * off);
+                total += each[at];
             }
+
+            return new Weights(each, total);
         }
 
         /// <summary>The ground a building of a mix of looks covers on average, each look's prefabs alike.</summary>
@@ -559,7 +576,7 @@ internal static class ZoneBuildings
     sealed class Standing(float partyWallM, float cellM)
     {
         readonly List<(Vector2 CentreM, Vector2 Along, Vector2 HalfM)> _boxes = [];
-        readonly Dictionary<(int, int), List<int>> _cells = [];
+        readonly Dictionary<long, List<int>> _cells = [];
 
         public bool Clear(Vector2 centreM, float headingRad, Vector2 sizeM)
         {
@@ -570,7 +587,7 @@ internal static class ZoneBuildings
             {
                 for (var y = least.Y; y <= most.Y; y++)
                 {
-                    if (!_cells.TryGetValue((x, y), out var filed)) continue;
+                    if (!_cells.TryGetValue(GridLevel.KeyOf(x, y), out var filed)) continue;
 
                     foreach (var index in filed)
                     {
@@ -592,7 +609,8 @@ internal static class ZoneBuildings
             {
                 for (var y = least.Y; y <= most.Y; y++)
                 {
-                    if (!_cells.TryGetValue((x, y), out var filed)) _cells[(x, y)] = filed = [];
+                    var key = GridLevel.KeyOf(x, y);
+                    if (!_cells.TryGetValue(key, out var filed)) _cells[key] = filed = [];
                     filed.Add(index);
                 }
             }

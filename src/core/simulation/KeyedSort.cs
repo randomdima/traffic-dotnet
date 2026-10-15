@@ -28,6 +28,56 @@ internal static class KeyedSort
         Intro(keys, rows, 2 * (BitOperations.Log2((uint)keys.Length) + 1));
     }
 
+    /// <summary>
+    /// <b>Keys alone, sorted in place</b> — the short runs a build-time pass sorts a great many of, which is what this is
+    /// for: a run below <see cref="InsertionBelow"/> by insertion, and a longer one as a heap.
+    /// </summary>
+    public static void Sort<TKey>(Span<TKey> keys) where TKey : struct, IComparable<TKey>
+    {
+        if (keys.Length < InsertionBelow)
+        {
+            for (var at = 1; at < keys.Length; at++)
+            {
+                var key = keys[at];
+                var before = at - 1;
+                while (before >= 0 && keys[before].CompareTo(key) > 0)
+                {
+                    keys[before + 1] = keys[before];
+                    before--;
+                }
+
+                keys[before + 1] = key;
+            }
+
+            return;
+        }
+
+        var count = keys.Length;
+        for (var at = count >> 1; at >= 1; at--) Sift(keys, at, count);
+
+        for (var at = count; at > 1; at--)
+        {
+            (keys[0], keys[at - 1]) = (keys[at - 1], keys[0]);
+            Sift(keys, 1, at - 1);
+        }
+    }
+
+    static void Sift<TKey>(Span<TKey> keys, int at, int count) where TKey : struct, IComparable<TKey>
+    {
+        var key = keys[at - 1];
+        while (at <= count >> 1)
+        {
+            var child = 2 * at;
+            if (child < count && keys[child - 1].CompareTo(keys[child]) < 0) child++;
+            if (key.CompareTo(keys[child - 1]) >= 0) break;
+
+            keys[at - 1] = keys[child - 1];
+            at = child;
+        }
+
+        keys[at - 1] = key;
+    }
+
     /// <summary>Quicksort on the smaller side and a loop on the larger, until the depth runs out and a heap takes over.</summary>
     static void Intro<T>(Span<long> keys, Span<T> rows, int depth)
     {

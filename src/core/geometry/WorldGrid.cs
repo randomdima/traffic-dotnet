@@ -140,6 +140,20 @@ internal readonly struct GridLevel
 
     public (int X, int Y) CellOf(Vector2 pointM) => (CellOf(pointM.X), CellOf(pointM.Y));
 
+    /// <summary>
+    /// <b>A cell as one key</b>, for an index that files cells in a dictionary: a page's ahead-of-time compile runs a
+    /// dictionary over a tuple's equality interpreted, and one over a <see langword="long"/> compiled.
+    /// </summary>
+    /// <remarks>
+    /// <b>Packed, then multiplied by an odd constant</b>, which is a bijection on 64 bits, so two cells are never one key:
+    /// a <see langword="long"/> hashes as its two halves xor-ed, and a cell packed bare hashes as x xor y — every
+    /// diagonal one bucket, which made a city's open several times slower.
+    /// </remarks>
+    public static long KeyOf(int x, int y) => (long)((((ulong)(uint)x << 32) | (uint)y) * 0x9E3779B97F4A7C15UL);
+
+    /// <inheritdoc cref="KeyOf(int, int)"/>
+    public long KeyOf(Vector2 pointM) => KeyOf(CellOf(pointM.X), CellOf(pointM.Y));
+
     /// <summary>Where a cell begins, on either axis.</summary>
     public float EdgeM(int cell) => cell * CellM;
 

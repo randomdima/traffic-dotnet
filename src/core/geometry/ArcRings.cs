@@ -579,12 +579,12 @@ internal sealed class ArcRings
     /// </remarks>
     void Lost(int[] next, int[] previous)
     {
-        var starts = new Dictionary<(int X, int Y), List<int>>();
+        var starts = new Dictionary<long, List<int>>();
         for (var at = 0; at < _kept.Count; at++)
         {
             if (previous[at] >= 0) continue;
 
-            var cell = _lostLevel.CellOf(_kept[at].StartM);
+            var cell = _lostLevel.KeyOf(_kept[at].StartM);
             if (!starts.TryGetValue(cell, out var here)) starts[cell] = here = [];
 
             here.Add(at);
@@ -612,7 +612,7 @@ internal sealed class ArcRings
 
     /// <summary>Every start within a lost length of where one stretch ends, gathered as the pairs they would make.</summary>
     void Reaching(
-        List<(float OffSq, int From, int Onto)> pairs, Dictionary<(int X, int Y), List<int>> starts, int from)
+        List<(float OffSq, int From, int Onto)> pairs, Dictionary<long, List<int>> starts, int from)
     {
         var endM = _kept[from].EndM;
         var (cellX, cellY) = _lostLevel.CellOf(endM);
@@ -621,7 +621,7 @@ internal sealed class ArcRings
         {
             for (var x = -reach; x <= reach; x++)
             {
-                if (!starts.TryGetValue((cellX + x, cellY + y), out var here)) continue;
+                if (!starts.TryGetValue(GridLevel.KeyOf(cellX + x, cellY + y), out var here)) continue;
 
                 foreach (var onto in here)
                 {
@@ -663,7 +663,7 @@ internal sealed class ArcRings
     /// </summary>
     int Places(out int[] arrivingAt, out int[] leavingAt)
     {
-        var at = new Dictionary<(int X, int Y), List<int>>(_kept.Count * 2);
+        var at = new Dictionary<long, List<int>>(_kept.Count * 2);
         var standing = new List<Vector2>();
         arrivingAt = new int[_kept.Count];
         leavingAt = new int[_kept.Count];
@@ -709,7 +709,7 @@ internal sealed class ArcRings
     /// </para>
     /// </remarks>
     static int Place(
-        GridLevel level, Dictionary<(int X, int Y), List<int>> at, List<Vector2> standing, Vector2 pointM,
+        GridLevel level, Dictionary<long, List<int>> at, List<Vector2> standing, Vector2 pointM,
         int[]? waiting)
     {
         var (cellX, cellY) = level.CellOf(pointM);
@@ -721,7 +721,7 @@ internal sealed class ArcRings
         {
             for (var x = -reach; x <= reach; x++)
             {
-                if (!at.TryGetValue((cellX + x, cellY + y), out var here)) continue;
+                if (!at.TryGetValue(GridLevel.KeyOf(cellX + x, cellY + y), out var here)) continue;
 
                 foreach (var place in here)
                 {
@@ -740,7 +740,8 @@ internal sealed class ArcRings
 
         if (best >= 0) return best;
 
-        if (!at.TryGetValue((cellX, cellY), out var cell)) at[(cellX, cellY)] = cell = [];
+        var key = GridLevel.KeyOf(cellX, cellY);
+        if (!at.TryGetValue(key, out var cell)) at[key] = cell = [];
 
         cell.Add(standing.Count);
         standing.Add(pointM);
@@ -770,14 +771,14 @@ internal sealed class ArcRings
     {
         Places(out var arrivingAt, out var leavingAt);
 
-        var said = new HashSet<(int From, int To)>(_kept.Count);
+        var said = new HashSet<long>(_kept.Count);
         var arriving = new Dictionary<int, List<ArcSeg>>();
         var leaving = new Dictionary<int, List<ArcSeg>>();
         var kept = 0;
         for (var at = 0; at < _kept.Count; at++)
         {
             var stretch = _kept[at];
-            if (!said.Add((leavingAt[at], arrivingAt[at]))
+            if (!said.Add(Between(leavingAt[at], arrivingAt[at]))
                 || SaidAlready(arriving, arrivingAt[at], stretch, stretch.StartM, static said => said.StartM)
                 || SaidAlready(leaving, leavingAt[at], stretch, stretch.EndM, static said => said.EndM))
             {
@@ -808,10 +809,10 @@ internal sealed class ArcRings
     /// </remarks>
     void Unsaid(int[] arrivingAt, int[] leavingAt)
     {
-        var from = new Dictionary<(int From, int To), List<int>>();
+        var from = new Dictionary<long, List<int>>();
         for (var at = 0; at < _kept.Count; at++)
         {
-            var key = (leavingAt[at], arrivingAt[at]);
+            var key = Between(leavingAt[at], arrivingAt[at]);
             if (!from.TryGetValue(key, out var list)) from[key] = list = [];
 
             list.Add(at);
@@ -821,7 +822,7 @@ internal sealed class ArcRings
         var any = false;
         for (var at = 0; at < _kept.Count; at++)
         {
-            if (unsaid[at] || !from.TryGetValue((arrivingAt[at], leavingAt[at]), out var back)) continue;
+            if (unsaid[at] || !from.TryGetValue(Between(arrivingAt[at], leavingAt[at]), out var back)) continue;
 
             var middleM = _kept[at].PointAtM(_kept[at].LengthM * 0.5f);
             foreach (var other in back)
@@ -867,6 +868,9 @@ internal sealed class ArcRings
 
         return false;
     }
+
+    /// <summary>A stretch from one place to another as one key (<see cref="GridLevel.KeyOf(int, int)"/>).</summary>
+    static long Between(int fromPlace, int toPlace) => GridLevel.KeyOf(fromPlace, toPlace);
 
     static void Filed(Dictionary<int, List<ArcSeg>> at, int place, in ArcSeg stretch)
     {

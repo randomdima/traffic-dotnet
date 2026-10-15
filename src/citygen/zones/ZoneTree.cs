@@ -1,6 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.CityGen.Map;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.CityGen.Zones;
 
@@ -28,7 +29,7 @@ internal sealed class ZoneTree
     readonly float[] _ownM2;
     readonly int[] _depth;
     readonly (Vector2 LeastM, Vector2 MostM)[] _box;
-    readonly Dictionary<(int X, int Y), int[]> _cells;
+    readonly Dictionary<long, int[]> _cells;
     readonly ZoneSettings[] _settings;
 
     public ZoneTree(TownMap.ZoneArrays zones, ZoneFigures figures)
@@ -39,7 +40,7 @@ internal sealed class ZoneTree
         _depth = new int[zones.Count];
         _box = new (Vector2, Vector2)[zones.Count];
         _settings = new ZoneSettings[zones.Count];
-        var filing = new Dictionary<(int X, int Y), List<int>>();
+        var filing = new Dictionary<long, List<int>>();
         for (var zone = 0; zone < zones.Count; zone++)
         {
             var (first, past) = (zones.RingOffsets[zone], zones.RingOffsets[zone + 1]);
@@ -61,7 +62,8 @@ internal sealed class ZoneTree
             {
                 for (var y = least.Y; y <= most.Y; y++)
                 {
-                    if (!filing.TryGetValue((x, y), out var here)) filing[(x, y)] = here = [];
+                    var key = GridLevel.KeyOf(x, y);
+                    if (!filing.TryGetValue(key, out var here)) filing[key] = here = [];
                     here.Add(zone);
                 }
             }
@@ -92,7 +94,8 @@ internal sealed class ZoneTree
     /// <summary>The zone a place stands in: the deepest holding it, else the whole map.</summary>
     public int At(Vector2 atM)
     {
-        if (!_cells.TryGetValue(Cell(atM), out var here)) return TownMap.ZoneArrays.Root;
+        var (x, y) = Cell(atM);
+        if (!_cells.TryGetValue(GridLevel.KeyOf(x, y), out var here)) return TownMap.ZoneArrays.Root;
 
         foreach (var zone in here)
         {

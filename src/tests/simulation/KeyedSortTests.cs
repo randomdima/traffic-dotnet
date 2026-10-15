@@ -31,6 +31,21 @@ public class KeyedSortTests
         }
     }
 
+    [Theory]
+    [MemberData(nameof(Shapes))]
+    public void KeysAloneComeOutAsTheFrameworkSortsThem(string shape)
+    {
+        foreach (var count in (ReadOnlySpan<int>)[0, 1, 2, 3, 15, 16, 17, 100, 4099])
+        {
+            var keys = Keys(shape, count);
+            var expected = keys.Order().ToArray();
+
+            KeyedSort.Sort(keys.AsSpan());
+
+            Assert.Equal(expected, keys);
+        }
+    }
+
     static long[] Keys(string shape, int count)
     {
         var draw = new Random(count);

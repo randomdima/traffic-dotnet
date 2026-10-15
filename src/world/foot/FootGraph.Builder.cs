@@ -23,7 +23,7 @@ internal sealed partial class FootGraph
     {
         readonly GridLevel _weldLevel = grid.Covering(weldM);
         readonly List<Vector2> _nodeM = [];
-        readonly Dictionary<(int X, int Y), List<int>> _welds = [];
+        readonly Dictionary<long, List<int>> _welds = [];
         readonly List<int> _edgeFrom = [];
         readonly List<int> _edgeTo = [];
         readonly List<float> _edgeLengthM = [];
@@ -74,7 +74,7 @@ internal sealed partial class FootGraph
             {
                 for (var x = -reach; x <= reach; x++)
                 {
-                    if (!_welds.TryGetValue((cell.X + x, cell.Y + y), out var here)) continue;
+                    if (!_welds.TryGetValue(GridLevel.KeyOf(cell.X + x, cell.Y + y), out var here)) continue;
 
                     foreach (var node in here)
                     {
@@ -84,7 +84,8 @@ internal sealed partial class FootGraph
             }
 
             _nodeM.Add(pointM);
-            if (!_welds.TryGetValue(cell, out var bucket)) _welds[cell] = bucket = [];
+            var key = GridLevel.KeyOf(cell.X, cell.Y);
+            if (!_welds.TryGetValue(key, out var bucket)) _welds[key] = bucket = [];
 
             bucket.Add(_nodeM.Count - 1);
             return _nodeM.Count - 1;

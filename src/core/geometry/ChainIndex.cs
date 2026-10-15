@@ -798,7 +798,7 @@ internal sealed class ChainIndex
         /// <summary>The cells sorted, each kept once at the front, and how many that is.</summary>
         static int SortedOnce(Span<int> cells)
         {
-            cells.Sort();
+            KeyedSort.Sort(cells);
             var kept = 0;
             foreach (var cell in cells)
             {

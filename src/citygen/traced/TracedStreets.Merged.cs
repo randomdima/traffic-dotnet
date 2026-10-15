@@ -1,6 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.Core.Simulation;
 
 namespace TrafficSimulation.CityGen.Traced;
 
@@ -78,7 +79,7 @@ internal static partial class TracedStreets
         var asSurveyed = Movements(survey, config, unmerged);
 
         // Every road's own and none of the others', so laid side by side; the steps after ask for few.
-        Parallel.ForEach(roadOf, road => merging[road].Merged(Kept.Least.AtStart, Kept.Least.AtEnd));
+        InChunks.Over(roadOf.Length, () => merging, (all, at) => all[roadOf[at]].Merged(Kept.Least.AtStart, Kept.Least.AtEnd));
 
         var kept = Filled(merging.Length, Kept.Least);
         while (true)

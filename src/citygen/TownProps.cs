@@ -108,7 +108,7 @@ internal static class TownProps
             {
                 for (var down = row - 1; down <= row + 1; down++)
                 {
-                    if (!discs.TryGetValue((across, down), out var here)) continue;
+                    if (!discs.TryGetValue(GridLevel.KeyOf(across, down), out var here)) continue;
 
                     foreach (var junction in here)
                     {
@@ -150,15 +150,16 @@ internal static class TownProps
     /// Every junction filed under the square cell its centre stands in, a cell as wide as the furthest any reaches and
     /// a crown beyond — so the cells round a prop's own hold every junction it could stand too near.
     /// </summary>
-    static Dictionary<(int, int), List<int>> Discs(CityPlan.JunctionArrays junctions, float[] reachM, float beyondM, out float cellM)
+    static Dictionary<long, List<int>> Discs(CityPlan.JunctionArrays junctions, float[] reachM, float beyondM, out float cellM)
     {
         cellM = 1f;
         foreach (var reach in reachM) cellM = MathF.Max(cellM, reach + beyondM);
 
-        var discs = new Dictionary<(int, int), List<int>>();
+        var discs = new Dictionary<long, List<int>>();
         for (var junction = 0; junction < junctions.Count; junction++)
         {
-            var key = ((int)MathF.Floor(junctions.CentreM[junction].X / cellM), (int)MathF.Floor(junctions.CentreM[junction].Y / cellM));
+            var key = GridLevel.KeyOf(
+                (int)MathF.Floor(junctions.CentreM[junction].X / cellM), (int)MathF.Floor(junctions.CentreM[junction].Y / cellM));
             if (!discs.TryGetValue(key, out var here)) discs[key] = here = [];
             here.Add(junction);
         }

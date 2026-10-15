@@ -427,7 +427,7 @@ internal sealed partial class BandShell
             else foreach (var cutting in cuttings) cutting.WriteHeld();
 
             var atM = filing.Written;
-            InChunks.Over(_pieces, () => 0, (_, piece) => Array.Sort(atM, from[piece], from[piece + 1] - from[piece]));
+            InChunks.Over(_pieces, () => atM, (cuts, piece) => KeyedSort.Sort(cuts.AsSpan(from[piece], from[piece + 1] - from[piece])));
             return new Cuts(from, atM);
         }
 
