@@ -30,21 +30,21 @@ internal sealed class Rejoining(DrivingGround ground, CarActions actions, Follow
     public void Tick<TTown>(ref TTown town, int car, in CarPose pose)
         where TTown : struct, ICarTown
     {
-        if (!town.ReadTheLine(car, pose, out var progressM, out var alongMps, out var coveredM)) return;
+        if (!town.ReadTheLine(car, pose, out var progressM, out var alongMps)) return;
 
         actions.Enter(car, CarAction.Follow);
-        following.Tick(ref town, car, pose, progressM, alongMps, coveredM);
+        following.Tick(ref town, car, pose, progressM, alongMps);
     }
 
     /// <summary>
     /// <b>A car found off its line</b> (CAR-10a): the junction it was coming to forgotten and the car held. Taking the
     /// lane under it is the car's decision (<see cref="Decide"/>).
     /// </summary>
-    public void LoseTheLine<TTown>(ref TTown town, int car, in CarPose pose)
+    public void LoseTheLine<TTown>(ref TTown town, int car)
         where TTown : struct, ICarTown
     {
         Lose(car);
-        town.Hold(car, pose, DrivingHold.LostLine);
+        town.Hold(car, DrivingHold.LostLine);
     }
 
     /// <summary>What losing its line does to a car but stop it (<see cref="LoseTheLine"/>): into Rejoin, and the junction it was coming to forgotten.</summary>

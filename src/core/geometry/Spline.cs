@@ -1525,31 +1525,6 @@ internal static class Spline
     public static readonly float HalfATurnOfItsChord = HalfATurnRad * 0.5f / MathF.Sin(HalfATurnRad * 0.5f);
 
     /// <summary>
-    /// <b>What turning on the spot costs between two poses, in metres of the ground a curve would cover</b> —
-    /// the straight between them plus the heading a body standing still has to spend to walk it and arrive
-    /// facing the right way.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>A pivot is priced in metres and the exchange rate is exact.</b> The tightest circle anything holds
-    /// is its pace over its turn rate, so a radian turned on the spot takes exactly as long as
-    /// <paramref name="tightestM"/> of walking — which makes the tightest arc and the pivot cost the same for
-    /// the same change of heading, and every wider arc a trade of heading for ground. The comparison needs no
-    /// clock and no speed: at one pace, time and distance are the same figure.
-    /// </para>
-    /// <para>
-    /// <b>The heading is what the two poses ask for and not what facing the straight would take.</b> A body
-    /// that turns to face a two-metre step, walks it and turns again spends more than that, and it is free not
-    /// to: it may cover a short step without committing to a heading. Priced at the least any plan could
-    /// spend, this is <b>the figure a curve has to beat to be worth curving</b>, which is the only honest
-    /// bar to hold a curve to.
-    /// </para>
-    /// </remarks>
-    public static float PivotedM(
-        Vector2 fromM, float fromHeadingRad, Vector2 toM, float toHeadingRad, float tightestM) =>
-        (toM - fromM).Length() + (MathF.Abs(WrapRad(toHeadingRad - fromHeadingRad)) * tightestM);
-
-    /// <summary>
     /// The single arc a pair of poses gets when no biarc joins them — two antiparallel tangents a lane
     /// apart, for which the equal-tangent construction has no positive root. The one arc through both
     /// points is the semicircle between them, which is the right answer and not a fallback in any sense

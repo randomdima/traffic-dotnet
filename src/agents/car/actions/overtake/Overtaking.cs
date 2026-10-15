@@ -130,7 +130,7 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// <b>The pass ends in the tick the car drives past its end</b>, as a manoeuvre's piece does: past there it is ground
     /// the pass never held, and a car still on a pass there is one standing on ground it has not claimed (TER-4c.8).
     /// </remarks>
-    public void Tick<TTown>(ref TTown town, int car, in CarPose pose, float progressM, float alongMps, float coveredM)
+    public void Tick<TTown>(ref TTown town, int car, in CarPose pose, float progressM, float alongMps)
         where TTown : struct, ICarTown
     {
         var pass = Cars.Pass[car];
@@ -138,14 +138,14 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
         {
             if (progressM >= pass.EndsM) DrivenToItsEnd(car);
 
-            town.DriveOnTheLine(car, pose, progressM, alongMps, coveredM);
+            town.DriveOnTheLine(car, pose, progressM, alongMps);
             return;
         }
 
         // Asked for and laid since: kept, or withdrawn and asked for again when the car next looks.
         if (pass.Any && LaidSinceAsked(car)) KeepOrWithdrawThePass(car, pass);
 
-        WaitAtTheStep(ref town, car, pose, progressM, alongMps, coveredM);
+        WaitAtTheStep(ref town, car, pose, progressM, alongMps);
     }
 
     /// <summary>A pass driven to its end: made, and the car following again.</summary>
@@ -193,7 +193,7 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// would stand in the road for a place it has left behind, and come to rest too near it backs up (CAR-50).
     /// </summary>
     public void WaitAtTheStep<TTown>(
-        ref TTown town, int car, in CarPose pose, float progressM, float alongMps, float coveredM, float backUpM = 0f,
+        ref TTown town, int car, in CarPose pose, float progressM, float alongMps, float backUpM = 0f,
         bool blocked = false)
         where TTown : struct, ICarTown
     {
@@ -201,7 +201,7 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
         var waits = !Cars.Pass[car].Begun;
         var toTheStepM = fromRest.OutM - progressM;
         town.DriveOnTheLine(
-            car, pose, progressM, alongMps, coveredM, waits, fromRest.AsideM, backUpM, blocked,
+            car, pose, progressM, alongMps, waits, fromRest.AsideM, backUpM, blocked,
             waits && toTheStepM >= 0f ? toTheStepM : float.PositiveInfinity);
     }
 

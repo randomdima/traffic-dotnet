@@ -251,7 +251,7 @@ internal sealed class Switching(DrivingGround ground, CarActions actions)
     /// lane beside once it is on it, or driven on down its own lane while it waits — its step begun or withdrawn in the
     /// tick after it was asked for.
     /// </summary>
-    public void Tick<TTown>(ref TTown town, int car, in CarPose pose, float progressM, float alongMps, float coveredM)
+    public void Tick<TTown>(ref TTown town, int car, in CarPose pose, float progressM, float alongMps)
         where TTown : struct, ICarTown
     {
         var pass = Cars.Pass[car];
@@ -260,17 +260,17 @@ internal sealed class Switching(DrivingGround ground, CarActions actions)
             if (progressM >= pass.SteppedOutM)
             {
                 SteppedOut(ref town, car, progressM);
-                town.DriveOnTheLine(car, pose, Cars.ProgressM[car], alongMps, 0f);
+                town.DriveOnTheLine(car, pose, Cars.ProgressM[car], alongMps);
                 return;
             }
 
-            town.DriveOnTheLine(car, pose, progressM, alongMps, coveredM);
+            town.DriveOnTheLine(car, pose, progressM, alongMps);
             return;
         }
 
         if (pass.Any && LaidSinceAsked(car)) KeepOrWithdraw(car, pass, progressM);
 
-        town.DriveOnTheLine(car, pose, progressM, alongMps, coveredM, passAsideM: _asideM[car], waitAtM: WaitAtM(car, progressM));
+        town.DriveOnTheLine(car, pose, progressM, alongMps, passAsideM: _asideM[car], waitAtM: WaitAtM(car, progressM));
     }
 
     /// <summary>

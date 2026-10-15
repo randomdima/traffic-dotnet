@@ -1,7 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Ambulance;
 using TrafficSimulation.Agents.Car.Actions;
-using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Evacuator;
 using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.Agents.Person.Control;

@@ -259,7 +259,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // crossed once midway is still held at both of its ends.
         _bars = StopBars.Lay(plan.Paving(config).Lanes, Crossings.Lay(plan, config, ends.HeldM), config);
         _signals = SignalService.Build(plan, _roads, _zebras, config);
-        _heads = SignalHeads.Place(_bars, _zebras, _roads, _signals, config);
+        _heads = SignalHeads.Place(_bars, _zebras, _signals, config);
         _crossingWays = CrossingWays.Of(plan, _pavementLanes, _zebras, config);
         _foot = FootGraph.Build(_pavementLanes, _crossingWays, config);
         FootMs = Stopwatch.GetElapsedTime(footAt).TotalMilliseconds;

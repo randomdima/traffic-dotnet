@@ -38,7 +38,7 @@ internal sealed class ParkingIn(
             return;
         }
 
-        if (!town.ReadTheLine(car, pose, out var progressM, out var alongMps, out var coveredM)) return;
+        if (!town.ReadTheLine(car, pose, out var progressM, out var alongMps)) return;
 
         if (Manoeuvres.Stage[car] == ManoeuvreStage.Asked && bays.KeepOrWithdraw(car))
         {
@@ -46,7 +46,7 @@ internal sealed class ParkingIn(
             return;
         }
 
-        town.DriveOnTheLine(car, pose, progressM, alongMps, coveredM);
+        town.DriveOnTheLine(car, pose, progressM, alongMps);
     }
 
     /// <summary>

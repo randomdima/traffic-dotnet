@@ -62,7 +62,7 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
     /// where its pass's step out begins, and blocked where the ground behind it was refused — then, at rest, handed back
     /// to the overtake with the room made, or to following once what it passes has gone.
     /// </summary>
-    public void Tick<TTown>(ref TTown town, int car, in CarPose pose, float progressM, float alongMps, float coveredM)
+    public void Tick<TTown>(ref TTown town, int car, in CarPose pose, float progressM, float alongMps)
         where TTown : struct, ICarTown
     {
         // Looked round on the pass's clock, which the car's decision runs: what it passes gone, or the room past it held
@@ -86,7 +86,7 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
         var stillRollingBack = alongMps < -Config.Driving.StopSpeedMps;
         if (backsUp || stillRollingBack)
         {
-            var context = town.SetTheContext(car, progressM, coveredM, stillThere, overtaking.AsideOfItsPassM(car), asksM, blocked);
+            var context = town.SetTheContext(car, progressM, stillThere, overtaking.AsideOfItsPassM(car), asksM, blocked);
             var travel = -pose.Forward;
             town.Drive(
                 car, Cars.BuildOf(car), pose, Cars.LineOf(car), progressM, Cars.Line[car].LengthM, context, travel,
@@ -98,7 +98,7 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
         if (!stillThere)
         {
             actions.Enter(car, CarAction.Follow);
-            town.DriveOnTheLine(car, pose, progressM, alongMps, coveredM);
+            town.DriveOnTheLine(car, pose, progressM, alongMps);
             return;
         }
 
@@ -108,7 +108,7 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
             overtaking.LookNow(car);
         }
 
-        overtaking.WaitAtTheStep(ref town, car, pose, progressM, alongMps, coveredM, asksM, blocked);
+        overtaking.WaitAtTheStep(ref town, car, pose, progressM, alongMps, asksM, blocked);
     }
 
     /// <summary>

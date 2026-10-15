@@ -21,7 +21,7 @@ internal interface ICarTown
     /// chain and the chain grown to its sight. False where the car is off it past what it may be (CAR-10a), which has
     /// handed it to getting back onto its line.
     /// </summary>
-    bool ReadTheLine(int car, in CarPose pose, out float progressM, out float alongMps, out float coveredM);
+    bool ReadTheLine(int car, in CarPose pose, out float progressM, out float alongMps);
 
     /// <summary>
     /// <b>A car driven forwards down the route's own line</b>: the junction ahead of it, the paint across it and what the
@@ -29,12 +29,12 @@ internal interface ICarTown
     /// up for.
     /// </summary>
     void DriveOnTheLine(
-        int car, in CarPose pose, float progressM, float alongMps, float coveredM, bool waitsToPass = false,
+        int car, in CarPose pose, float progressM, float alongMps, bool waitsToPass = false,
         float passAsideM = 0f, float backUpM = 0f, bool blocked = false, float waitAtM = float.PositiveInfinity);
 
     /// <summary>What a car on the route's line is told about the world this tick, and the junction ahead of it read.</summary>
     DriveContext SetTheContext(
-        int car, float progressM, float coveredM, bool waitsToPass, float passAsideM, float backUpM, bool blocked,
+        int car, float progressM, bool waitsToPass, float passAsideM, float backUpM, bool blocked,
         float waitAtM = float.PositiveInfinity);
 
     /// <summary>
@@ -46,7 +46,7 @@ internal interface ICarTown
         in DriveContext context, Vector2 travel, float alongMps, bool reverse, float backsUpByM = float.NaN);
 
     /// <summary>A car that is doing nothing this tick, and the one reason it is not.</summary>
-    void Hold(int car, in CarPose pose, DrivingHold why);
+    void Hold(int car, DrivingHold why);
 
     /// <summary>The command a car was left with, handed on to be spent on its four patches.</summary>
     void Tyres(int car);

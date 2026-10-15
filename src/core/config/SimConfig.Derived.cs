@@ -613,12 +613,6 @@ internal sealed partial class SimConfig
     public float CarAccelerationMps2 =>
         TyreGripMps2 * (1f - Car.StaticFrontShare) * Car.DrivePedalInDrivenGrips;
 
-    /// <summary>
-    /// How fast the commanded acceleration may change: the whole travel of the pedal, from full brake to
-    /// full throttle, over the time that travel takes.
-    /// </summary>
-    public float CarPedalRateMps3 => (CarAccelerationMps2 + CarBrakingMps2) / Driving.PedalTravelS;
-
     /// <summary>The patience a drive leg is given up after, 30 s at the shipped figures — four full red phases.</summary>
     public float CarPatienceS => Signals.CycleS * Patience.BlockedRoadInLightCycles;
 

@@ -234,7 +234,7 @@ public class SignalTests
         var roads = RoadGraph.Build(plan, Config);
         var (zebras, bars) = Paint(plan);
         var signals = SignalService.Build(plan, roads, zebras, Config);
-        var heads = SignalHeads.Place(bars, zebras, roads, signals, Config);
+        var heads = SignalHeads.Place(bars, zebras, signals, Config);
 
         var litCrossings = 0;
         for (var crossing = 0; crossing < zebras.Count; crossing++)

@@ -5,7 +5,6 @@ using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Containment;
 using TrafficSimulation.World.Foot;
-using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Town;
 

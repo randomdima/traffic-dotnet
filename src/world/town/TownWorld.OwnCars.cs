@@ -1,8 +1,6 @@
 using System.Numerics;
-using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
-using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Town;
 

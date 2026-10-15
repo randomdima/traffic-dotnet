@@ -1,8 +1,6 @@
-using System.Numerics;
 using System.Runtime.InteropServices;
 using Silk.NET.Core.Native;
 using Silk.NET.Vulkan;
-using SixLabors.ImageSharp.PixelFormats;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Terrain;

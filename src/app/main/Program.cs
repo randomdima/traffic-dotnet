@@ -6,7 +6,6 @@ using System.Runtime.InteropServices;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using TrafficSimulation.Agents.Car.Body;
-using TrafficSimulation.Agents.Service;
 using TrafficSimulation.App.Camera;
 using TrafficSimulation.App.Debug;
 using TrafficSimulation.App.Drive;

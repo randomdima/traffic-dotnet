@@ -28,9 +28,9 @@ internal sealed class Following(
     /// ground it was granted. Into its bay's manoeuvre or across onto the lane beside is decided on the car's own clock
     /// (<see cref="Decide"/>).
     /// </summary>
-    public void Tick<TTown>(ref TTown town, int car, in CarPose pose, float progressM, float alongMps, float coveredM)
+    public void Tick<TTown>(ref TTown town, int car, in CarPose pose, float progressM, float alongMps)
         where TTown : struct, ICarTown =>
-        town.DriveOnTheLine(car, pose, progressM, alongMps, coveredM);
+        town.DriveOnTheLine(car, pose, progressM, alongMps);
 
     /// <summary>
     /// <b>A car following its route, on its own clock</b>: where the line stops for its bay and the car is near enough,
@@ -42,9 +42,7 @@ internal sealed class Following(
     /// what the body is doing, which the claims do not say (TER-4c.5). <see cref="Overtaking"/> waits on a reading of it
     /// that does.
     /// </remarks>
-    /// <param name="sinceLastDecisionS">How much of the town's time this decision answers for, which its clocks run by.</param>
-    public void Decide<TTown>(ref TTown town, int car, float sinceLastDecisionS)
-        where TTown : struct, ICarTown
+    public void Decide(int car)
     {
         var progressM = Cars.ProgressM[car];
         var alongMps = Cars.AlongMps[car];

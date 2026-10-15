@@ -87,7 +87,7 @@ internal sealed class SignalHeads
     /// <param name="bars">The town's own bars (<see cref="StopBars"/>): a car head stands past every one a lit junction's lane arrives at.</param>
     /// <param name="zebras">The town's own crossings, which <paramref name="signals"/> numbers its crossings by.</param>
     public static SignalHeads Place(
-        StopBars bars, Crossings zebras, RoadGraph roads, SignalService signals, SimConfig config)
+        StopBars bars, Crossings zebras, SignalService signals, SimConfig config)
     {
         var heads = new List<SignalHead>();
 

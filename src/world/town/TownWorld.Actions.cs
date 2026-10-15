@@ -1,7 +1,6 @@
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Person.Actions;
-using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Town;
 

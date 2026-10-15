@@ -1,6 +1,5 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
-using TrafficSimulation.App.Render;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;

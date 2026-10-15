@@ -151,7 +151,7 @@ internal sealed partial class TownWorld
         if (!Cars.Driven[car])
         {
             // The next tick of a car nobody drives does exactly this again.
-            Hold(car, pose, DrivingHold.None);
+            Hold(car, DrivingHold.None);
             _standsParked[car] = true;
             return;
         }
@@ -165,9 +165,9 @@ internal sealed partial class TownWorld
         switch (Cars.Action[car])
         {
             case CarAction.Follow or CarAction.Overtake or CarAction.Switch or CarAction.BackUp:
-                if (ReadTheLine(car, pose, out var progressM, out var alongMps, out var coveredM))
+                if (ReadTheLine(car, pose, out var progressM, out var alongMps))
                 {
-                    DriveTheRoute(car, pose, progressM, alongMps, coveredM);
+                    DriveTheRoute(car, pose, progressM, alongMps);
                 }
 
                 break;
@@ -185,7 +185,7 @@ internal sealed partial class TownWorld
                 break;
 
             default:
-                Hold(car, pose, DrivingHold.None);
+                Hold(car, DrivingHold.None);
                 break;
         }
     }
@@ -194,25 +194,25 @@ internal sealed partial class TownWorld
     /// <b>The tick of a car driving the route's own line</b>, once the line has been read — handed to whichever action
     /// the car is in after reading it, since a pass the car is no longer on the lane of is over.
     /// </summary>
-    void DriveTheRoute(int car, in CarPose pose, float progressM, float alongMps, float coveredM)
+    void DriveTheRoute(int car, in CarPose pose, float progressM, float alongMps)
     {
         var town = new CarTown(this);
         switch (Cars.Action[car])
         {
             case CarAction.Overtake:
-                _overtaking.Tick(ref town, car, pose, progressM, alongMps, coveredM);
+                _overtaking.Tick(ref town, car, pose, progressM, alongMps);
                 return;
 
             case CarAction.Switch:
-                _switching.Tick(ref town, car, pose, progressM, alongMps, coveredM);
+                _switching.Tick(ref town, car, pose, progressM, alongMps);
                 return;
 
             case CarAction.BackUp:
-                _backingUp.Tick(ref town, car, pose, progressM, alongMps, coveredM);
+                _backingUp.Tick(ref town, car, pose, progressM, alongMps);
                 return;
 
             default:
-                _following.Tick(ref town, car, pose, progressM, alongMps, coveredM);
+                _following.Tick(ref town, car, pose, progressM, alongMps);
                 return;
         }
     }
@@ -222,7 +222,7 @@ internal sealed partial class TownWorld
     /// it has passed shifted off it. False where the car is off it past what it may be (CAR-10a), which hands it to
     /// <see cref="Rejoining"/>, stopping.
     /// </summary>
-    bool ReadTheLine(int car, in CarPose pose, out float progressM, out float alongMps, out float coveredM)
+    bool ReadTheLine(int car, in CarPose pose, out float progressM, out float alongMps)
     {
         ref readonly var build = ref Cars.BuildOf(car);
         var forward = pose.Forward;
@@ -231,8 +231,8 @@ internal sealed partial class TownWorld
         var town = new CarTown(this);
         if (Cars.Line[car].LaneCount == 0)
         {
-            progressM = coveredM = 0f;
-            _rejoining.LoseTheLine(ref town, car, pose);
+            progressM = 0f;
+            _rejoining.LoseTheLine(ref town, car);
             return false;
         }
 
@@ -241,8 +241,7 @@ internal sealed partial class TownWorld
         var readM = ReadProgressM(car);
         var advance = LineReader.Advance(Cars, car, rearAxleM, readM);
         progressM = advance.ProgressM;
-        coveredM = advance.CoveredM;
-        Cars.CoveredSinceClaimM[car] += coveredM;
+        Cars.CoveredSinceClaimM[car] += advance.CoveredM;
         if (advance.Shifted) AdvanceLane(car, advance.ShiftM);
 
         Cars.ProgressM[car] = _progressRead[car] = progressM;
@@ -262,7 +261,7 @@ internal sealed partial class TownWorld
         // driving the line at all.
         if (Cars.OffLineM[car] > OffTheLineAllowanceM(car))
         {
-            _rejoining.LoseTheLine(ref town, car, pose);
+            _rejoining.LoseTheLine(ref town, car);
             return false;
         }
 
@@ -286,10 +285,10 @@ internal sealed partial class TownWorld
     /// to back up for.
     /// </summary>
     void DriveOnTheLine(
-        int car, in CarPose pose, float progressM, float alongMps, float coveredM, bool waitsToPass = false,
+        int car, in CarPose pose, float progressM, float alongMps, bool waitsToPass = false,
         float passAsideM = 0f, float backUpM = 0f, bool blocked = false, float waitAtM = float.PositiveInfinity)
     {
-        var context = SetTheContext(car, progressM, coveredM, waitsToPass, passAsideM, backUpM, blocked, waitAtM);
+        var context = SetTheContext(car, progressM, waitsToPass, passAsideM, backUpM, blocked, waitAtM);
 
         // The wheel the world aimed down the line, where its reading is of this very line (S-1, LineReading.Lead).
         ref readonly var read = ref _world.View.Cars[car];
@@ -301,7 +300,7 @@ internal sealed partial class TownWorld
 
     /// <summary>What a car on the route's line is told about the world this tick, and the junction ahead of it read.</summary>
     DriveContext SetTheContext(
-        int car, float progressM, float coveredM, bool waitsToPass, float passAsideM, float backUpM, bool blocked,
+        int car, float progressM, bool waitsToPass, float passAsideM, float backUpM, bool blocked,
         float waitAtM = float.PositiveInfinity)
     {
         // S-4: the junction ahead, for the indicator. Whether the box is this car's is its grant's to say, and a light is
@@ -431,7 +430,7 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>A car that is doing nothing this tick, and the one reason it is not.</summary>
-    void Hold(int car, in CarPose pose, DrivingHold why)
+    void Hold(int car, DrivingHold why)
     {
         Cars.Command[car] = why == DrivingHold.None
             ? DriveCommand.Parked

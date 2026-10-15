@@ -15,26 +15,25 @@ internal sealed partial class TownWorld
     /// <summary>The town as an action asks things of it, handed to one by reference so every call is bound when it compiles.</summary>
     readonly struct CarTown(TownWorld town) : ICarTown
     {
-        public bool ReadTheLine(int car, in CarPose pose, out float progressM, out float alongMps, out float coveredM) =>
-            town.ReadTheLine(car, pose, out progressM, out alongMps, out coveredM);
+        public bool ReadTheLine(int car, in CarPose pose, out float progressM, out float alongMps) =>
+            town.ReadTheLine(car, pose, out progressM, out alongMps);
 
         public void DriveOnTheLine(
-            int car, in CarPose pose, float progressM, float alongMps, float coveredM, bool waitsToPass = false,
+            int car, in CarPose pose, float progressM, float alongMps, bool waitsToPass = false,
             float passAsideM = 0f, float backUpM = 0f, bool blocked = false, float waitAtM = float.PositiveInfinity) =>
-            town.DriveOnTheLine(
-                car, pose, progressM, alongMps, coveredM, waitsToPass, passAsideM, backUpM, blocked, waitAtM);
+            town.DriveOnTheLine(car, pose, progressM, alongMps, waitsToPass, passAsideM, backUpM, blocked, waitAtM);
 
         public DriveContext SetTheContext(
-            int car, float progressM, float coveredM, bool waitsToPass, float passAsideM, float backUpM, bool blocked,
+            int car, float progressM, bool waitsToPass, float passAsideM, float backUpM, bool blocked,
             float waitAtM = float.PositiveInfinity) =>
-            town.SetTheContext(car, progressM, coveredM, waitsToPass, passAsideM, backUpM, blocked, waitAtM);
+            town.SetTheContext(car, progressM, waitsToPass, passAsideM, backUpM, blocked, waitAtM);
 
         public void Drive(
             int car, in CarBuild build, in CarPose pose, ReadOnlySpan<ArcSeg> line, float progressM, float lengthM,
             in DriveContext context, Vector2 travel, float alongMps, bool reverse, float backsUpByM = float.NaN) =>
             town.Drive(car, build, pose, line, progressM, lengthM, context, travel, alongMps, reverse, default, backsUpByM);
 
-        public void Hold(int car, in CarPose pose, DrivingHold why) => town.Hold(car, pose, why);
+        public void Hold(int car, DrivingHold why) => town.Hold(car, why);
 
         public void Tyres(int car) => town.Tyres(car);
 
