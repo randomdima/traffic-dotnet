@@ -2,13 +2,10 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using Silk.NET.Vulkan;
 using TrafficSimulation.Agents.Car.Body;
-using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.App.Render;
-using TrafficSimulation.Core.Config;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Physics;
 using TrafficSimulation.World.Road;
-using TrafficSimulation.World.Terrain;
 using TrafficSimulation.World.Town;
 using Vk = TrafficSimulation.Runtime.Vk;
 using static TrafficSimulation.Runtime.GpuBuffer;
@@ -19,8 +16,8 @@ namespace TrafficSimulation.App.DeviceTick;
 /// <b>The world layer on the device</b> (<see cref="WorldLayer"/>; root <c>decision-log.md</c>, 2026-10-11): the solver
 /// (<see cref="DeviceSolver"/>), the tyres (<see cref="DeviceTyres"/>), a walker's footing, the tow bars, the lane
 /// ribbons each body stands on and where each car stands along the lanes it follows (<see cref="DeviceLanes"/>), all
-/// resident and stepped from what the last step left. A tick crosses the signals in and
-/// the shallow state out, and nothing else.
+/// kept on the device and stepped from what the last step left. A tick crosses the signals in and the shallow state
+/// out, and nothing else.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -155,7 +152,7 @@ internal sealed class DeviceWorld : WorldLayer
     {
         _vk = vk;
 
-        // The furniture and the atlas are read here, to stand the device's own, and never again: kept, they were the
+        // The furniture and the atlas are read here, to stand the device's own, and never again: kept, they would be the
         // host's largest tables for the run (the root decision log, 2026-10-13).
         _laying = laying.WithoutTheGround();
         _cars = laying.Cars.Length;
@@ -582,8 +579,8 @@ internal sealed class DeviceWorld : WorldLayer
                 return new SignalRow(
                     body, actionAndFlags,
                     new Vector2(
-                        BitConverter.UInt32BitsToSingle(DeviceSolver.FilterWordOf((ulong)layer)),
-                        BitConverter.UInt32BitsToSingle(DeviceSolver.FilterWordOf(PhysicsWorld.MaskOf(layer)))),
+                        BitConverter.UInt32BitsToSingle(DeviceSolver.LayerByte((ulong)layer)),
+                        BitConverter.UInt32BitsToSingle(DeviceSolver.LayerByte(PhysicsWorld.MaskOf(layer)))),
                     default, default);
 
             case ControlAction.Tow:

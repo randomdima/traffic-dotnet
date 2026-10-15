@@ -2,9 +2,7 @@ using System.Numerics;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Foot;
-using TrafficSimulation.World.Parking;
 using TrafficSimulation.World.Road;
-using TrafficSimulation.World.Routing;
 
 namespace TrafficSimulation.World.Town;
 
@@ -197,8 +195,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>The free bays within <paramref name="withinM"/> of a place a car can be got into</b>, nearest first, off the bay
-    /// lanes near the lane the place is on (<see cref="_bayLanesNear"/>) — and, where <paramref name="sameSideAsM"/> is
-    /// given, none across the carriageway from it (GEN-4k).
+    /// lanes near the lane the place is on (<see cref="_bayLanesNear"/>).
     /// </summary>
     int FreeBaysNear(in RoadPlace near, Vector2 ofM, float withinM, Span<int> into)
     {
@@ -344,7 +341,7 @@ internal sealed partial class TownWorld
     /// <param name="beside">
     /// The car the body gets out of, or −1: <b>its own ground is no objection and its panels are one</b> — the walk to and
     /// from it is held as the car's (<see cref="GroundHeldAs"/>), and asked of the car's own claim, every place beside a
-    /// car in a bay was taken by the car standing in it, so its owner could never get out.
+    /// car in a bay would be taken by the car standing in it, so its owner could never get out.
     /// </param>
     bool TryPutDownOff(in FootPlace place, uint free, int beside, out Vector2 spotM, out FootPlace spotPlace)
     {

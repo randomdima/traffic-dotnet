@@ -1,11 +1,9 @@
-using System.Numerics;
 using TrafficSimulation.Agents.Ambulance;
 using TrafficSimulation.Agents.Evacuator;
 using TrafficSimulation.Agents.Service;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Containment;
-using TrafficSimulation.World.Parking;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Town;
@@ -115,8 +113,7 @@ internal sealed partial class TownWorld
     /// <remarks>
     /// <b>Drawn and never searched for</b>: nothing in the town asks for a patrol, so a beat is aimed at nothing.
     /// <b>Somewhere along a lane and never a junction's middle</b>, because a leg ends by the car standing where it
-    /// got to and the middle of a junction is the one place standing still is being driven into — aimed at the
-    /// junction centres, the fixture town's patrol was wrecked inside the first box it reached. <b>And a street
+    /// got to and the middle of a junction is the one place standing still is being driven into. <b>And a street
     /// and never a bay</b> (GEN-4h), a bay being a space joined to nothing. A district with no street of its
     /// own draws from the town's. <b>And never the lane it is on</b>, which the next of the district's is drawn in place
     /// of: a place there is as likely behind it as ahead, and one moved to the lane's middle is where it stopped at the

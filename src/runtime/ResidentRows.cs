@@ -15,8 +15,7 @@ namespace TrafficSimulation.Runtime;
 /// extending it, so a dense pass is one run and the list of them — laid for every item at construction — never grows.
 /// </para>
 /// <para>
-/// <b>Rows only the host writes</b> (<c>hostOnly</c>) may be laid with <see cref="LayEvery"/>, which marks a block only
-/// where it differs from the last laid, and a run is carried over a gap of unmarked rows shorter than
+/// <b>Rows only the host writes</b> (<c>hostOnly</c>) carry a run over a gap of unmarked rows shorter than
 /// <see cref="BridgedGapBytes"/>: those rows' mapped copy is what the device holds, so sending them again changes nothing
 /// and saves a region.
 /// </para>
@@ -52,7 +51,6 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
     /// a second send in the same recording is a copy.
     /// </summary>
     long _copiedByKernelIn = -1;
-    readonly T[]? _laid;
 
     /// <summary>Whether a run is carried over a gap of unmarked rows (<see cref="BridgedGapBytes"/>): only the host writes them.</summary>
     readonly bool _bridges;
@@ -82,8 +80,7 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
 
         if (!hostOnly) return;
 
-        // The device, the mapped copy and the last laid all begin as zeros, so a row laid as zeros needs no sending.
-        _laid = new T[items * rowsPerItem];
+        // The device and the mapped copy both begin as zeros, so a gap a run is carried over sends what the device holds.
         All.Clear();
         Device.Upload<T>(items * rowsPerItem, static into => into.Clear(), PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit);
     }
@@ -103,50 +100,20 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
 
     public void Mark(int item) => Mark(item, 1);
 
-    /// <summary>
-    /// <b>The first <c>rows.Length</c> items' single rows laid at once</b>, compared a block of <see cref="BlockItems"/> at
-    /// a time: a block bit for bit what was last laid sends nothing, and any other is written and marked whole. Only for a
-    /// table of a row an item that only the host writes.
-    /// </summary>
-    public void LayEvery(ReadOnlySpan<T> rows)
-    {
-        if (RowsPerItem != 1 || !_bridges) throw new InvalidOperationException("Only a host-written table of a row an item is laid a block at a time.");
-
-        var laid = _laid.AsSpan(0, rows.Length);
-        for (var first = 0; first < rows.Length; first += BlockItems)
-        {
-            var count = Math.Min(BlockItems, rows.Length - first);
-            var block = rows.Slice(first, count);
-            if (MemoryMarshal.AsBytes(block).SequenceEqual(MemoryMarshal.AsBytes(laid.Slice(first, count)))) continue;
-
-            block.CopyTo(laid[first..]);
-            block.CopyTo(All[first..]);
-            Mark(first, count);
-        }
-    }
-
-    /// <summary>How many items <see cref="LayEvery"/> compares at once: about the gap a run is carried over.</summary>
-    static int BlockItems => Math.Max(1, (int)(BridgedGapBytes / (ulong)sizeof(T)));
-
     /// <summary>A run of items to be sent, joined to the last run where it begins at that run's end.</summary>
     public void Mark(int first, int count) =>
         MarkBytes((ulong)first * (ulong)(RowsPerItem * sizeof(T)), (ulong)count * (ulong)(RowsPerItem * sizeof(T)));
-
-    /// <summary>How many bytes the marks so far will send.</summary>
-    public ulong MarkedBytes { get; private set; }
 
     void MarkBytes(ulong offset, ulong size)
     {
         if (size == 0) return;
 
-        MarkedBytes += size;
         if (_runCount > 0)
         {
             ref var last = ref _runs[_runCount - 1];
             var end = last.DstOffset + last.Size;
             if (offset == end || (_bridges && offset > end && offset - end <= BridgedGapBytes))
             {
-                MarkedBytes += offset - end;
                 last.Size = offset + size - last.DstOffset;
                 return;
             }
@@ -182,7 +149,6 @@ internal sealed unsafe class ResidentRows<T> : IDisposable where T : unmanaged
         }
 
         _runCount = 0;
-        MarkedBytes = 0;
     }
 
     /// <summary>The first <paramref name="items"/> items copied back, recorded; read once the submit is waited for.</summary>

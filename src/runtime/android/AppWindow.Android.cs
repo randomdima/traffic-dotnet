@@ -27,8 +27,8 @@ namespace TrafficSimulation.Runtime;
 /// </para>
 /// <para>
 /// <b>Two spaces meet here rather than three.</b> A touch arrives in the surface's own pixels, which is
-/// the framebuffer's, so what is left is the scale — and that is <see cref="InUiPx"/>, the desktop's own
-/// arithmetic checked by the desktop's own test.
+/// the framebuffer's, so what is left is the scale — and that is <see cref="InUiPx"/>, a copy of the
+/// desktop's arithmetic, which only the desktop's test checks.
 /// </para>
 /// </remarks>
 internal sealed class AppWindow : IDisposable
@@ -130,9 +130,6 @@ internal sealed class AppWindow : IDisposable
         _fingers = 0;
         _pressing = false;
     }
-
-    /// <summary>Whether the run has let go of the glass, so the activity may release the window it acquired.</summary>
-    public static bool Standing => !_lost && !_closed;
 
     /// <summary>
     /// A finger down, in the surface's own pixels. <b>Only the first is a button</b> (CTL-9): a second

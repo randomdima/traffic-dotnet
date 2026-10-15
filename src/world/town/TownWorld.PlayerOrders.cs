@@ -1,11 +1,8 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Actions;
-using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Geometry;
-using TrafficSimulation.World.Containment;
 using TrafficSimulation.World.Parking;
-using TrafficSimulation.World.Terrain;
 
 namespace TrafficSimulation.World.Town;
 

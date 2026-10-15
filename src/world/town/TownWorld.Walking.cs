@@ -3,7 +3,6 @@ using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
-using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Routing;
 
@@ -254,9 +253,9 @@ internal sealed partial class TownWorld
     /// <remarks>
     /// <b>A chain that ran out of room moves nothing</b> (<see cref="PersonFleet.RouteRunsOut"/>). Where the
     /// walk goes is still the door; what is bounded is how much of the way there fits in one chain, and the
-    /// rest is laid again from where the body has got to (PER-25). Moved, the door was lost — a walker then
-    /// reached the end of a chain, was found to have arrived at the goal it was carrying, and walked into a
-    /// building it was nowhere near.
+    /// rest is laid again from where the body has got to (PER-25). Moved, the door would be lost — a walker reaching
+    /// the end of a chain would be found to have arrived at the goal it was carrying, and walk into a building it was
+    /// nowhere near.
     /// </remarks>
     void MoveTheGoalOntoTheWalk(int person, bool reachTheGoal, WalkingNetwork walking, ReadOnlySpan<int> ways)
     {

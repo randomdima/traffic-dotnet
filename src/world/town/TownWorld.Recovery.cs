@@ -1,5 +1,4 @@
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
@@ -8,7 +7,6 @@ using TrafficSimulation.Agents.Evacuator;
 using TrafficSimulation.Agents.Service;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Parking;
-using TrafficSimulation.World.Physics;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Town;
@@ -374,8 +372,6 @@ internal sealed partial class TownWorld
     /// to. What that costs is stated with the rest of what a tow cannot do (EVA-5): a car left lying across
     /// its lane is one the fork arrives at an angle to, and the leg is laid again until `EVA-8`'s bound ends
     /// the recovery.
-    /// </remarks>
-    /// <remarks>
     /// <b>Read off where the world reads the wreck</b> (<see cref="RoadPlaceOfCar"/>): nothing is looked up (the root
     /// decision log, 2026-10-13).
     /// </remarks>
@@ -939,7 +935,7 @@ internal sealed partial class TownWorld
         IsAnEvacuator(car) && _recovery.IsOnARecovery(car) && _recovery.Stage[car] != RecoveryStage.GoingHome;
 
     /// <summary>
-    /// <b>Where this evacuator is to be stopped</b>, and infinity when nothing is asking it to: the wreck
+    /// <b>Where this evacuator is to be stopped</b>, and false when nothing is asking it to: the wreck
     /// while it is being fetched, and the slot the haul was aimed at while it is being brought in and
     /// unhitched. <b>The place has to outlast the arrival</b> — a stop point that went away the moment the
     /// truck reached it would let it roll off part way through the hitch.

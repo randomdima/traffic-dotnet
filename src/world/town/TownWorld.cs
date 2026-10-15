@@ -26,9 +26,6 @@ using TrafficSimulation.World.Terrain;
 
 namespace TrafficSimulation.World.Town;
 
-/// <summary>A car that drove through a painted stop line its own approach was showing red at.</summary>
-internal readonly record struct RedBarCrossing(int Car, Vector2 AtM, float SpeedMps);
-
 /// <summary>
 /// The town as a running simulation: the plan stood up as bodies, the roster the five phases walk,
 /// and the one place the phases of <see cref="ISimWorld"/> mean something other than nothing.
@@ -116,7 +113,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     /// <summary>
     /// <b>And the walking network's own</b>, which nothing marks. A link is an index into its own network, so
-    /// a table shared with the drivers priced whichever walking link had a blocked driving link's number.
+    /// a table shared with the drivers would price whichever walking link had a blocked driving link's number.
     /// </summary>
     readonly LinkSurcharges _walkSurcharges;
 
@@ -177,8 +174,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <b>The zebras this town paints, laid once and read by both networks</b> (TER-6, WLK-10): the walk is
     /// cut and joined at them, the lanes they are painted across carry them as furniture, and the bands
     /// under each stretch of paint are projected off them. <b>One source</b> — laid twice, the paint a body
-    /// walks and the paint a driver knows about were two different sets of zebras and the town agreed with
-    /// neither.
+    /// walks and the paint a driver knows about would be two different sets of zebras.
     /// </summary>
     readonly Crossings _zebras;
 
@@ -318,8 +314,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         People = new PersonFleet(walkers);
         _progress = new LegProgress(walkers);
 
-        // <b>A town stands the fleet</b> (CAR-11a). The maps that stood one look apiece were laid to compare
-        // one thing against itself, and they were parked with the layer they were laid on.
+        // <b>A town stands the fleet</b> (CAR-11a).
         _builds = CarBuilds.OfTheFleet(config, CarCatalog.Shared);
 
         Cars = new CarFleet(drivers, Math.Max(LineAssembler.ArcsFor(_roads), BayManoeuvre.MostArcsPerPiece), _builds);
@@ -347,7 +342,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _stoodTick = new StoodTick[drivers];
         _refusedALane = new bool[drivers];
         _exitRefusedAtS = new float[drivers];
-        Array.Fill(_exitRefusedAtS, float.NegativeInfinity);        _asksTheRoute = new bool[drivers];
+        Array.Fill(_exitRefusedAtS, float.NegativeInfinity);
+        _asksTheRoute = new bool[drivers];
         _wounded = new AgentSet(walkers);
         _wrecked = new AgentSet(drivers);
         _standing = new StandingCars(drivers);
@@ -467,8 +463,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     const int MostRunsInARoute = 256;
 
     /// <summary>
-    /// How many ways may be priced up at once. Nothing marks one yet, so the table stands empty; it is
-    /// here because a search with no table would be a second code path.
+    /// How many ways each network's table may price up at once. The walking network's is never marked and stands
+    /// empty; it is there because a search with no table would be a second code path.
     /// </summary>
     const int MostWaysGivenUpOn = 64;
 
@@ -639,30 +635,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     public long RedBarCrossings { get; private set; }
 
     /// <summary>
-    /// <b>How many of this town's people do not keep the driver's courtesies</b> (CAR-13). Nothing reads the
-    /// habit while a light is a hold on the road, which no driver's habit is a rung of (CAR-13.1).
-    /// </summary>
-    public int RecklessDrivers { get; private set; }
-
-    /// <summary>
-    /// The last one of them, so a count above zero has somewhere to be looked at. Two crossings at one
-    /// place and one instant are a pair of cars in contact — one shunting the other over the paint —
-    /// and a single one at walking pace is a car that crept.
-    /// </summary>
-    public RedBarCrossing LastRedBarCrossing { get; private set; }
-
-    /// <summary>
-    /// How many times a car's route has run out on the lane its bay is entered from, or the lane its place
-    /// stands on — the last thing the search has to say about a leg, after which the leg is that bay's own
-    /// way in or the stop at that place.
-    /// </summary>
-    /// <remarks>
-    /// Not how many drive legs finished — a car reaches its bay by coming to rest in it, which is
-    /// <see cref="BaysParkedIn"/>. This is an instrument about the router.
-    /// </remarks>
-    public long RouteArrivals { get; private set; }
-
-    /// <summary>
     /// How many times the driving network has been searched at all — the bay screened before it is
     /// claimed, and the route laid from where a car stands.
     /// </summary>
@@ -689,8 +661,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     public CityPlan Plan => _plan;
 
     /// <summary>
-    /// The pavement's own fine graph, and the two contracted networks over it and the roads — laid
-    /// the first time something asks for them and kept.
+    /// The pavement's own fine graph, and the two contracted networks over it and the roads.
     /// </summary>
     /// <remarks>
     /// All three are laid with the town because the tick reads all three, and a structure the tick needs
@@ -1028,8 +999,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // the end of it</b>, which is the same laying from the same place (<see cref="ComesToTheEndOfItsChain"/>).
         //
         // <b>Never for one already walking back</b> (PER-25): its walk is laid from where it last stood on the pavement
-        // (<see cref="_placeOf"/>), and the straight back there is what it is doing — laid again, it was handed back to
-        // its route each decision and walked back to it the laying after.
+        // (<see cref="_placeOf"/>), and the straight back there is what it is doing — laid again, it would be handed back
+        // to its route each decision and walked back to it the laying after.
         if ((HasLostItsLine(agent) && People.Action[agent] != PersonAction.Rejoin) || ComesToTheEndOfItsChain(agent))
         {
             LayWalkAgain(
@@ -1042,11 +1013,10 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             SetWalking(agent, People.RouteCount[agent] > 0);
         }
 
-        // <b>And the clock runs through that</b>, which is the half that was missing. A body that has lost
-        // its line is a body that has got nowhere, and a line laid again from the same place is the same
-        // answer: restarted here, a walker wedged against a wall with the pavement four metres through it
-        // re-laid, restarted and re-laid for the rest of the run, never walking and never giving up — and
-        // the leg it could not finish was the one thing nothing in the town was counting.
+        // <b>And the clock runs through that.</b> A body that has lost its line is a body that has got nowhere, and a
+        // line laid again from the same place is the same answer: restarted here, a walker wedged against a wall with
+        // the pavement four metres through it would be re-laid and restarted for the rest of the run, never walking
+        // and never giving up.
         //
         // <b>A light holding the crossing in front is the one wait that spends no clock</b>, as it is a driver's
         // (TLT-2a): it will change on its own, so the wait is bought and the standing is not given back.
@@ -1088,15 +1058,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         StandingStill(agent, sinceLastDecisionS);
     }
 
-
-
-
-
-
-
-
-
     /// <summary>The world let go of: the thread a managed world steps on, or the device's buffers.</summary>
     public void Dispose() => _world.Dispose();
-
 }

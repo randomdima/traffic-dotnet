@@ -5,7 +5,6 @@ using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Physics;
 using TrafficSimulation.World.Road;
-using TrafficSimulation.World.Terrain;
 
 namespace TrafficSimulation.World.Town;
 

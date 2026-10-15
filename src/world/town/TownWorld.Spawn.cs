@@ -5,7 +5,6 @@ using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.CityGen;
-using TrafficSimulation.World.Physics;
 using TrafficSimulation.World.Statics;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
@@ -86,7 +85,6 @@ internal sealed partial class TownWorld
                 (byte)(variants % PersonCatalog.Shared.Count), new Rng(_agentSeed, (ulong)spawn),
                 PersonFleet.DrawsReckless(_agentSeed, (ulong)spawn, _config.Driving.RecklessShare));
             variants++;
-            if (People.Reckless[person]) RecklessDrivers++;
 
             // Where on the pavement the plan stood it, found while the map is built (the root decision log, 2026-10-13).
             _placeOf[person] = _walking.PlaceNearest(positionM);

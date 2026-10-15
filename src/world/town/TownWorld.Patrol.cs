@@ -228,14 +228,13 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>Whether this is the patrol SRV-6 means</b> — the nearest one with nothing else to do — asked of
-    /// the scene it was about to take. <see cref="IsTheNearestFreeAmbulanceTo"/>'s own argument said of a
-    /// station: the call belongs to the scene and the choice belongs to the patrol, and asking them the other
+    /// the scene it is about to take. As for an ambulance (<see cref="IsTheNearestFreeAmbulanceTo"/>): the call belongs to the scene and the choice belongs to the patrol, and asking them the other
     /// way round sends whichever car's decision happened to run first.
     /// </summary>
     /// <remarks>
     /// <b>Free is a patrol that would take the call</b> — standing, on its beat or on its way home, with its
-    /// officer aboard and no hand on it. Counted as free while it would not, it held back every patrol behind it
-    /// and the scene was taken by nobody.
+    /// officer aboard and no hand on it. Counted as free while it would not, it would hold back every patrol behind it
+    /// and the scene be taken by nobody.
     /// </remarks>
     bool IsTheNearestFreePatrolTo(int car, Vector2 sceneM, float farM)
     {

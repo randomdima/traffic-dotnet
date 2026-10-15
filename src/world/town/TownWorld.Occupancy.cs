@@ -1,13 +1,11 @@
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
-using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Road;
-using static TrafficSimulation.World.Road.LineWays;
 
 namespace TrafficSimulation.World.Town;
 
@@ -222,8 +220,4 @@ internal sealed partial class TownWorld
 
     /// <summary>The zebra one of the town's ways is the paint of, or <see cref="RibbonMarks.NoZebra"/>.</summary>
     int ZebraOf(int way) => _lines.ZebraOf(way);
-
-    /// <summary>The town's ways under a stretch of one car's line (<see cref="DrivingGround.WaysAlong"/>).</summary>
-    public int WaysAlong(int car, float fromLineM, float toLineM, Span<LineWay> into) =>
-        _ground.WaysAlong(car, fromLineM, toLineM, into);
 }

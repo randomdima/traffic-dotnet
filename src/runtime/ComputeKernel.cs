@@ -12,8 +12,8 @@ namespace TrafficSimulation.Runtime;
 /// <b>A set is written once and bound for ever</b> (<see cref="Bind"/>): a kernel's buffers are the town's and are
 /// laid with it, so nothing is written into a descriptor after load. Which of a pair of swapped buffers is the current
 /// one is a word a kernel reads, never a set rebound — a set rebound per tick is a recording that changes. <b>The one
-/// exception is a buffer that grows</b> (<see cref="GpuBuffer.Grow"/>), whose sets are pointed at the new buffer with the
-/// device idle: what the set binds is still the same <see cref="GpuBuffer"/>.
+/// exception is a buffer replaced by a larger one</b>, whose set is written again in place with the device idle
+/// (<see cref="Bind(ReadOnlySpan{GpuBuffer}, DescriptorSet)"/>).
 /// </para>
 /// <para>
 /// Every call here is setup or recording. Recording into a buffer the frame submits costs no crossing of its own
@@ -28,9 +28,6 @@ internal sealed unsafe class ComputeKernel : IDisposable
     readonly Pipeline _pipeline;
     readonly DescriptorPool _pool;
     readonly uint _pushBytes;
-
-    /// <summary>Every buffer a set of this kernel binds, and the set — forgotten by each buffer as the kernel goes.</summary>
-    readonly List<(GpuBuffer Buffer, DescriptorSet Set)> _bound = [];
 
     /// <param name="shader">The embedded SPIR-V's name, as <see cref="Vk.LoadShader"/> takes it: <c>integrate.comp</c>.</param>
     /// <param name="buffers">How many storage buffers the kernel binds.</param>
@@ -138,16 +135,7 @@ internal sealed unsafe class ComputeKernel : IDisposable
 
         var api = _vk.Api;
         var set = into;
-        if (set.Handle != 0)
-        {
-            foreach (var (buffer, boundSet) in _bound)
-            {
-                if (boundSet.Handle == set.Handle) buffer.Unbound(set);
-            }
-
-            _bound.RemoveAll(bound => bound.Set.Handle == set.Handle);
-        }
-        else
+        if (set.Handle == 0)
         {
             var setLayout = _setLayout;
             var allocate = new DescriptorSetAllocateInfo
@@ -179,12 +167,6 @@ internal sealed unsafe class ComputeKernel : IDisposable
 
         Vk.Count();
         api.UpdateDescriptorSets(_vk.Device, (uint)Buffers, writes, 0, null);
-        for (var binding = 0; binding < Buffers; binding++)
-        {
-            buffers[binding].BoundIn(set, (uint)binding);
-            _bound.Add((buffers[binding], set));
-        }
-
         return set;
     }
 
@@ -235,8 +217,6 @@ internal sealed unsafe class ComputeKernel : IDisposable
 
     public void Dispose()
     {
-        foreach (var (buffer, set) in _bound) buffer.Unbound(set);
-
         var api = _vk.Api;
         Vk.Count();
         api.DestroyDescriptorPool(_vk.Device, _pool, null);

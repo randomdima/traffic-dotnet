@@ -1,12 +1,10 @@
 using System.Numerics;
-using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Agents.Service;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Containment;
 using TrafficSimulation.World.Parking;
-using TrafficSimulation.World.Physics;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Routing;
 

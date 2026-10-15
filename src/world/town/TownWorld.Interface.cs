@@ -169,7 +169,7 @@ internal sealed partial class TownWorld
     /// The two shapes are a rotated box and an upright one, so it is four axes and no more: each box's
     /// pair, with the other's extent projected onto them. <b>Both are taken in the selection box's own
     /// frame</b>, which is what lets the box be turned without a second shape test: the car's heading
-    /// arrives already turned into it, and everything below is the arithmetic that was already here.
+    /// arrives already turned into it.
     /// </remarks>
     bool OverlapsTheBox(int car, Vector2 centreM, Vector2 boxHalfM, Vector2 alongBox, Vector2 acrossBox)
     {
@@ -277,7 +277,7 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>A figure has been turned under the town</b> (<see cref="TrimFigures"/>): every look is built
+    /// <b>A figure has been turned under the town</b> (<c>app/hud/TrimFigures</c>): every look is built
     /// again and the ground is worth what it is now worth. Nothing else moves — the plan, the roads, the bodies,
     /// where each of them is and what it was in the middle of are all left exactly as they were.
     /// </summary>
@@ -388,7 +388,7 @@ internal sealed partial class TownWorld
             && MathF.Abs(Vector2.Dot(offset, Heading.RightOf(forward))) <= build.FlankM;
     }
 
-    /// <summary>The walker under a point, or −1. The fine test the proximity index's superset was for.</summary>
+    /// <summary>The walker under a point, or −1.</summary>
     public int PersonAt(Vector2 pointM)
     {
         var best = -1;
@@ -440,7 +440,7 @@ internal sealed partial class TownWorld
     /// the follower produces one, so the per-gear speed caps, the steering lock and the friction ellipse
     /// all still bind. The traffic is told, though — a hand-driven car holds the road it can no longer stop
     /// short of, straight ahead of it on whatever ways that crosses, so the cars around it give way to what
-    /// the hand cannot help as they would to any other car going in (<see cref="HoldWhatCannotBeStoppedShortOf"/>).
+    /// the hand cannot help as they would to any other car going in (<see cref="Agents.Car.Actions.DrivingGround.HoldWhatCannotBeStoppedShortOf"/>).
     /// </remarks>
     void HandDrive(int car, in CarPose pose)
     {

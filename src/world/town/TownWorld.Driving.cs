@@ -4,7 +4,6 @@ using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Parking;
-using TrafficSimulation.World.Physics;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Routing;
 
@@ -375,8 +374,8 @@ internal sealed partial class TownWorld
     /// off down the oncoming lane is a head-on rather than a recovery — but refusing the nearest lane on
     /// that ground and stopping there leaves the one case this is most needed for with no answer at all: a
     /// body shoved across the centreline stands nearest the oncoming line, pointing the way it always was,
-    /// and the lane it wants is that one's reverse. Refusing it left the car standing in the other stream
-    /// on ground a car may drive on, and nothing but the leg's own clock had anything to say about it.
+    /// and the lane it wants is that one's reverse. Refusing it would leave the car standing in the other stream
+    /// on ground a car may drive on, with nothing but the leg's own clock to say anything about it.
     /// </remarks>
     /// <returns>Whether a line was laid over the lane under it.</returns>
     bool Reacquire(int car, Vector2 rearAxleM)
@@ -634,8 +633,7 @@ internal sealed partial class TownWorld
     /// </summary>
     /// <remarks>
     /// Arriving is a route with nothing left in it, and not a radius: a car park stands off the kerb, so
-    /// the distance from a lane's end to a destination is metres even when the car could not be nearer. A
-    /// route the search could not find at all is a different answer and is not counted as an arrival.
+    /// the distance from a lane's end to a destination is metres even when the car could not be nearer.
     /// </remarks>
     void PlanRoute(int car, int fromLane)
     {
@@ -662,19 +660,7 @@ internal sealed partial class TownWorld
 
         // A route with no lanes left is a car already on the lane its bay is entered from, so the line
         // stops at the staging place and the plan's next step takes over there.
-        if (TryPlan(car, fromLane) == RouteFound.Arrived) RouteArrivals++;
-    }
-
-    internal enum RouteFound
-    {
-        /// <summary>Lanes were laid into the queue.</summary>
-        Route,
-
-        /// <summary>A route exists and has nothing left of it: the car is where it was going.</summary>
-        Arrived,
-
-        /// <summary>The search found nothing — a lane it cannot leave, a hole in the network. The tour carries the car.</summary>
-        Nowhere,
+        TryPlan(car, fromLane);
     }
 
     /// <summary>
@@ -703,16 +689,20 @@ internal sealed partial class TownWorld
             : _driving.GoalsAt(Cars.DestinationM[car], into);
     }
 
-    internal RouteFound TryPlan(int car, int fromLane)
+    /// <summary>
+    /// The route searched for and expanded into the car's queue; nothing laid where the search finds nothing — a lane it
+    /// cannot leave, a hole in the network — and the tour carries the car.
+    /// </summary>
+    void TryPlan(int car, int fromLane)
     {
         var driving = Driving;
 
         var goalCount = RouteGoalsFor(car, _driveSearch.Goals);
-        if (goalCount == 0) return RouteFound.Nowhere;
+        if (goalCount == 0) return;
 
         var alongM = AlongTheEntryM(car, fromLane);
         _driveSearch.Entries[0] = driving.EntryOnLane(fromLane, alongM);
-        if (_driveSearch.Entries[0].Link == TravelGraph.NoLink) return RouteFound.Nowhere;
+        if (_driveSearch.Entries[0].Link == TravelGraph.NoLink) return;
 
         var entryCount = 1 + EntriesBeside(fromLane, alongM, _driveSearch.Entries[1..]);
 
@@ -720,13 +710,9 @@ internal sealed partial class TownWorld
         // for rather than counted as reached: the route round the block is what a driver who has overshot
         // the turn-in actually does.
         var linkCount = SearchTheDrivingNetwork(entryCount, goalCount, ClosedLinksFor(car), out var goalSlot);
-        if (linkCount == 0 || goalSlot < 0) return RouteFound.Nowhere;
+        if (linkCount == 0 || goalSlot < 0) return;
 
         ExpandRoute(car, fromLane, _driveSearch.Links(linkCount), _driveSearch.Goals[goalSlot], _driveSearch.StopsShort);
-
-        // A route with nothing left in it is an arrival; one that stops at a frontage to turn (GEN-4l) is
-        // a leg with a turn in a bay still in front of it, whether or not it has a lane left to drive first.
-        return Cars.RouteCount[car] > 0 || Cars.TurnsBackOn[car] >= 0 ? RouteFound.Route : RouteFound.Arrived;
     }
 
     /// <summary>
@@ -769,9 +755,8 @@ internal sealed partial class TownWorld
     /// <para>
     /// <b>Read off the car's progress, which whoever lays a line sets for the chain it hands over before laying
     /// it</b>: the line the car holds is the old one until the new one is assembled, so its lane count says
-    /// nothing about where the body stands — read off it, every car that had just pulled out of a bay was placed at
-    /// the far end of its lane, and one that had turned in a bay to come back down that lane was told its place
-    /// was behind it and turned again.
+    /// nothing about where the body stands — read off it, a car just pulled out of a bay would be placed at the far
+    /// end of its lane, and one that had turned in a bay to come back down that lane told its place was behind it.
     /// </para>
     /// <para>
     /// <b>A car standing in a box is handed the lane it came off and the one its join leads onto</b>
@@ -997,8 +982,8 @@ internal sealed partial class TownWorld
         Cars.LineIsReverse[car] = false;
 
         // <b>A line whose last lane is the one the car's own bay is worked off stops where the car waits for
-        // its manoeuvre into it</b> (GEN-4f, <see cref="StopForTheBayM"/>), and the manoeuvre is what the car
-        // drives next once it has the ground for it (<see cref="Park"/>). It is not threaded onto the
+        // its manoeuvre into it</b> (GEN-4f, <see cref="ParkingIn.StopForTheBayM"/>), and the manoeuvre is what the car
+        // drives next once it has the ground for it (<see cref="CarAction.Park"/>). It is not threaded onto the
         // end of this line: a manoeuvre is shaped from where the car is when it gets there, in whichever gear
         // each of its pieces is driven. <b>A line whose last lane holds the place the leg is aimed at in the road
         // stops at that place</b>, and the car stands there (<see cref="ThePlaceTheLineStopsAtM"/>).

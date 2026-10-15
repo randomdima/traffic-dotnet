@@ -9,25 +9,16 @@ namespace TrafficSimulation.Runtime;
 /// so writing into it is a <see cref="Span{T}"/> over memory the driver already owns: no copy, no pin,
 /// no marshalling and no allocation.
 /// </summary>
-/// <remarks>
-/// <b>It may grow</b> (<see cref="Grow"/>): the same object over a bigger buffer, every set a kernel bound it in pointed at
-/// the new one — so whoever holds it, and every kernel, goes on reading it with nothing rebound by hand.
-/// </remarks>
 internal sealed unsafe class GpuBuffer : IDisposable
 {
     readonly Vk _vk;
-    readonly BufferUsageFlags _usage;
     readonly HostAccess _host;
-    void* _mapped;
+    readonly void* _mapped;
 
-    /// <summary>Every binding of every set a kernel bound this buffer in (<see cref="ComputeKernel.Bind"/>), pointed again where it grows.</summary>
-    readonly List<(DescriptorSet Set, uint Binding)> _boundIn = [];
-
-    public GpuBuffer(Vk vk, Buffer buffer, DeviceMemory memory, ulong sizeBytes, nint mapped, BufferUsageFlags usage, HostAccess host)
+    public GpuBuffer(Vk vk, Buffer buffer, DeviceMemory memory, ulong sizeBytes, nint mapped, HostAccess host)
     {
         _vk = vk;
         _mapped = (void*)mapped;
-        _usage = usage;
         _host = host;
         Handle = buffer;
         Memory = memory;
@@ -35,56 +26,11 @@ internal sealed unsafe class GpuBuffer : IDisposable
         vk.Held(host, (long)sizeBytes);
     }
 
-    public Buffer Handle { get; private set; }
+    public Buffer Handle { get; }
 
-    public DeviceMemory Memory { get; private set; }
+    public DeviceMemory Memory { get; }
 
-    public ulong SizeBytes { get; private set; }
-
-    /// <summary>
-    /// <b>Where a kernel reaches the buffer by address</b> (<c>GL_EXT_buffer_reference</c>), storage buffers only. A buffer
-    /// that grows moves (<see cref="Grow"/>), so whoever wrote this down writes it again.
-    /// </summary>
-    public ulong Address
-    {
-        get
-        {
-            var info = new BufferDeviceAddressInfo { SType = StructureType.BufferDeviceAddressInfo, Buffer = Handle };
-            Vk.Count();
-            return _vk.Api.GetBufferDeviceAddress(_vk.Device, &info);
-        }
-    }
-
-    /// <summary>
-    /// <b>The buffer made at least <paramref name="sizeBytes"/> long</b>: a new buffer and memory of the same use under this
-    /// object, and every set it was bound in pointed at it. Nothing where it is that long already.
-    /// </summary>
-    /// <param name="keep">
-    /// Whether what it holds is kept, copied by the host — mapped memory only. Otherwise the new buffer holds nothing yet.
-    /// </param>
-    /// <remarks>
-    /// <b>Nothing on the device may be reading it</b>, nor any recording still to be submitted bind it: a set is rewritten in
-    /// place, which no pending submit may hold (<see cref="Vk.WaitIdle"/>). A span taken of it before is of memory freed.
-    /// </remarks>
-    public void Grow(ulong sizeBytes, bool keep = false)
-    {
-        if (sizeBytes <= SizeBytes) return;
-        if (keep && _mapped is null) throw new InvalidOperationException("Only mapped memory is kept as it grows: the host copies it.");
-
-        var (buffer, memory, mapped) = _vk.AllocateBuffer(sizeBytes, _usage, _host);
-        if (keep) System.Buffer.MemoryCopy(_mapped, (void*)mapped, sizeBytes, SizeBytes);
-        _vk.DestroyBuffer(Handle, Memory);
-        _vk.Held(_host, (long)sizeBytes - (long)SizeBytes);
-        (Handle, Memory, SizeBytes) = (buffer, memory, sizeBytes);
-        _mapped = (void*)mapped;
-        _vk.Rebind(CollectionsMarshal.AsSpan(_boundIn), buffer);
-    }
-
-    /// <summary>One binding of a set this buffer was bound in, kept so a growth points it at the new buffer.</summary>
-    internal void BoundIn(DescriptorSet set, uint binding) => _boundIn.Add((set, binding));
-
-    /// <summary>Every binding of a set no longer in use forgotten, as its kernel goes.</summary>
-    internal void Unbound(DescriptorSet set) => _boundIn.RemoveAll(bound => bound.Set.Handle == set.Handle);
+    public ulong SizeBytes { get; }
 
     /// <summary>The mapped memory as the type being written into it. Host-visible buffers only.</summary>
     public Span<T> Span<T>() where T : unmanaged
@@ -199,7 +145,7 @@ internal enum HostAccess
     /// <summary>Writes it, mapped and coherent — what a frame's instances and a tick's commands are written into.</summary>
     Writes,
 
-    /// <summary>Reads it back, mapped and cached where the device has such memory — what an event ring is read out of.</summary>
+    /// <summary>Reads it back, mapped and cached where the device has such memory — what an instrument or a test reads.</summary>
     Reads,
 
     /// <summary>

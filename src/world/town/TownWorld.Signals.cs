@@ -1,5 +1,4 @@
 using TrafficSimulation.Agents.Car.Actions;
-using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.TrafficLight.Control;
 using TrafficSimulation.World.Road;
 
@@ -147,7 +146,8 @@ internal sealed partial class TownWorld
 
         if (float.IsNaN(lights.WayFromM[car])) return float.PositiveInfinity;
 
-        // What WaysAlong and AheadPlanned make of the one way the hold is on, for a reach from this nose.
+        // What reading the ways under the reach (DrivingGround.WaysAlong) makes of the one way the hold is on, for a
+        // reach from this nose.
         var lineFromM = MathF.Max(noseM, lights.WayFromM[car]);
         var lineToM = MathF.Min(noseM + QueueReachM(car), lights.WayToM[car]);
         if (!(lineToM > lineFromM)) return float.PositiveInfinity;
@@ -300,7 +300,6 @@ internal sealed partial class TownWorld
             _signals.ForApproach(lane, _elapsedS) == SignalColour.Red)
         {
             RedBarCrossings++;
-            LastRedBarCrossing = new RedBarCrossing(car, Cars.PositionM[car], Cars.VelocityMps[car].Length());
         }
 
         _behindTheBar[car] = behind;

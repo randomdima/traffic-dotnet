@@ -45,8 +45,8 @@ internal sealed partial class TownWorld
     /// <remarks>
     /// <b>Worked out before either network is laid, because both read it</b> (<see cref="TakeTheTurns"/>):
     /// the road needs the way a body on a crossing is walking to know which lane it stands in, and the
-    /// statement in front of the body begins from the same place. Asked twice it was the same walk of the
-    /// same line, and the two answers were a tick apart.
+    /// statement in front of the body begins from the same place. Asked twice it would be the same walk of the
+    /// same line, and the two answers a tick apart.
     /// </remarks>
     void StationTheWalker(int person)
     {
@@ -57,8 +57,8 @@ internal sealed partial class TownWorld
 
         // <b>Where the walk has got to, worked out once and written once</b> (SIM-7): the body's place on
         // the way it is walking, and the next way off the chain where it has walked this one out. Split
-        // between here and the agent's own tick, the way and the metre along it were written at two different
-        // moments and disagreed at the end of every one.
+        // between here and the agent's own tick, the way and the metre along it would be written at two different
+        // moments and disagree at the end of every one.
         _walkingItsRoute.WalkTheWay(person);
 
         if (_walkingGround.IsAfoot(person, out var way)) People.OnWay[person] = way;

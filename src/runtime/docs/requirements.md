@@ -20,7 +20,7 @@ this is the layer that gets it there.
 - **A re-recording renderer is the failure mode**, not a slower version of the same thing. It is what the
   gate in `src/tests/gates/CrossingGateTests.cs` exists to catch.
 
-**A tick of the world on the device is one submit and one wait** (`DeviceWorld.Step`, root log 2026-10-11): the
+**A tick of the world on the device is one submit and one wait** (`WorldLayer.Step`, root log 2026-10-11): the
 signals in, every kernel of the step, the view out — never a crossing a body. A kernel's buffers are bound in a set
 written once (`ComputeKernel.Bind`) and bound again only where a buffer grows past its room.
 

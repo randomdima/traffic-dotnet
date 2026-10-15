@@ -2,7 +2,6 @@ using System.Numerics;
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
-using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Parking;
 using TrafficSimulation.World.Road;
@@ -445,11 +444,7 @@ internal sealed partial class TownWorld
             bestM = atM;
         }
 
-        if (best != BayStreets.NoBay && _parking.TakeTheTurn(car, best))
-        {
-            TurnsAtALotBegun++;
-            return true;
-        }
+        if (best != BayStreets.NoBay && _parking.TakeTheTurn(car, best)) return true;
 
         MarkTheFrontageFull(car, fromLane);
         return false;
@@ -485,12 +480,12 @@ internal sealed partial class TownWorld
     /// compares is the metre against the one this car's axle stands at, projected onto the same lane — <b>and only for
     /// the lane the car is on</b>. Every lane further down the chain is ahead of it by construction, and projected onto
     /// one of those a car streets away lands wherever that lane passes nearest it: a car coming round the block to its
-    /// bay passes the far end of the bay's lane first, and read there it had overshot a bay it had not reached, and was
-    /// sent round the block again every time it came back.
+    /// bay passes the far end of the bay's lane first, and read there it would have overshot a bay it had not reached,
+    /// and be sent round the block again every time it came back.
     /// <para>
     /// <b>The axle and not the nose</b>, because the line is laid again as the car comes onto its last lane: asked of
-    /// the nose there, a stop in that lane's first metres was one the car's own bonnet had already covered, and the car
-    /// was sent round the block from its own stop.
+    /// the nose there, a stop in that lane's first metres would be one the car's own bonnet had already covered, and the
+    /// car sent round the block from its own stop.
     /// </para>
     /// </remarks>
     bool StandsShortOf(int car, int lane, float atM)
@@ -596,8 +591,8 @@ internal sealed partial class TownWorld
     /// <remarks>
     /// <b>Any driver stops where it decides to</b>, and a car sent to a place in the road decided that when it was
     /// sent: it needs no bay to stand in and no errand's own stop point to hold it there. Laid past the place, the
-    /// line was asked for again from the far end of the lane the place stands on, the place read as behind the car,
-    /// and the car was sent round the block to it — and round again, every lap, for as long as the leg lasted.
+    /// line would be asked for again from the far end of the lane the place stands on, the place read as behind the
+    /// car, and the car sent round the block to it — and round again, every lap, for as long as the leg lasted.
     /// <para>
     /// <b>One already behind the body is overshot</b> (<see cref="StandsShortOf"/>), as a bay's turn-in is, and is
     /// driven round to.

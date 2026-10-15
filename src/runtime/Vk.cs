@@ -18,8 +18,8 @@ namespace TrafficSimulation.Runtime;
 /// <remarks>
 /// The frame's crossing count is O(1) in the size of the town — five, on a town of twelve cars and on
 /// one of five hundred. Setup is not counted against that and is not held down: it happens once.
-/// Memory is allocated per resource rather than out of a sub-allocator, because this engine makes
-/// about ten allocations in its life and all are large and long-lived.
+/// Memory is allocated per resource rather than out of a sub-allocator, because every allocation is made as the town
+/// is laid, or as a table outgrows its room, and is kept.
 /// </remarks>
 internal sealed unsafe partial class Vk : IDisposable
 {
@@ -43,12 +43,6 @@ internal sealed unsafe partial class Vk : IDisposable
 
     /// <summary>Crossings of this wall since the process started. DEBUG only, and free in a measured run.</summary>
     public static long Crossings { get; private set; }
-
-    /// <summary>
-    /// Copy regions recorded since the process started — what a transfer costs besides its bytes: about 0.85 µs a region
-    /// on the PCIe link of 5 GT/s × 4 it was measured on (<c>--bench devicecopy</c>).
-    /// </summary>
-    public static long RegionsCopied { get; private set; }
 
     /// <summary>Dispatches recorded since the process started, direct or indirect. DEBUG only.</summary>
     public static long Dispatches { get; private set; }
@@ -79,9 +73,6 @@ internal sealed unsafe partial class Vk : IDisposable
     /// <summary>Whether a kernel may compute in doubles on this device — which the ground's kernels need.</summary>
     public bool HasFloat64 { get; private set; }
 
-    /// <summary>Whether a kernel may hold 64-bit integers on this device — which reaching a table by its address needs.</summary>
-    public bool HasInt64 { get; private set; }
-
     /// <summary>What one tick of the device's timestamp counter is, in nanoseconds.</summary>
     public float TimestampPeriodNs
     {
@@ -97,8 +88,6 @@ internal sealed unsafe partial class Vk : IDisposable
         $"{DeviceApiVersion >> 22}.{(DeviceApiVersion >> 12) & 0x3FF}.{DeviceApiVersion & 0xFFF}";
 
     public Silk.NET.Vulkan.Vk Api => _api;
-
-    public Instance Instance => _instance;
 
     public PhysicalDevice Physical { get; }
 
@@ -257,16 +246,12 @@ internal sealed unsafe partial class Vk : IDisposable
     public GpuBuffer CreateBuffer(ulong sizeBytes, BufferUsageFlags usage, HostAccess host)
     {
         var (buffer, memory, mapped) = AllocateBuffer(sizeBytes, usage, host);
-        return new GpuBuffer(this, buffer, memory, sizeBytes, mapped, usage, host);
+        return new GpuBuffer(this, buffer, memory, sizeBytes, mapped, host);
     }
 
-    /// <summary>A buffer and the memory under it, mapped where the host reaches it — what a <see cref="GpuBuffer"/> is made of, or grown into.</summary>
-    internal (Buffer Buffer, DeviceMemory Memory, nint Mapped) AllocateBuffer(ulong sizeBytes, BufferUsageFlags usage, HostAccess host)
+    /// <summary>A buffer and the memory under it, mapped where the host reaches it — what a <see cref="GpuBuffer"/> is made of.</summary>
+    (Buffer Buffer, DeviceMemory Memory, nint Mapped) AllocateBuffer(ulong sizeBytes, BufferUsageFlags usage, HostAccess host)
     {
-        // Every storage buffer is reachable by its address, so a kernel may read any table the town holds (GpuBuffer.Address).
-        var addressed = (usage & BufferUsageFlags.StorageBufferBit) != 0;
-        if (addressed) usage |= BufferUsageFlags.ShaderDeviceAddressBit;
-
         var info = new BufferCreateInfo
         {
             SType = StructureType.BufferCreateInfo,
@@ -292,15 +277,9 @@ internal sealed unsafe partial class Vk : IDisposable
             HostAccess.Streams => TryMemoryTypeIndex(requirements.MemoryTypeBits, Mapped | MemoryPropertyFlags.DeviceLocalBit) ?? plain,
             _ => TryMemoryTypeIndex(requirements.MemoryTypeBits, Mapped | MemoryPropertyFlags.HostCachedBit) ?? plain,
         };
-        var flags = new MemoryAllocateFlagsInfo
-        {
-            SType = StructureType.MemoryAllocateFlagsInfo,
-            Flags = MemoryAllocateFlags.DeviceAddressBit,
-        };
         var allocation = new MemoryAllocateInfo
         {
             SType = StructureType.MemoryAllocateInfo,
-            PNext = addressed ? &flags : null,
             AllocationSize = requirements.Size,
             MemoryTypeIndex = type,
         };
@@ -329,40 +308,6 @@ internal sealed unsafe partial class Vk : IDisposable
         }
 
         return (buffer, memory, (nint)mapped);
-    }
-
-    /// <summary>
-    /// <b>Every submit on the device finished</b> — for whatever must change what a recording reads, as a buffer growing
-    /// does (<see cref="GpuBuffer.Grow"/>). A stall: never a frame's.
-    /// </summary>
-    public void WaitIdle()
-    {
-        Count();
-        Check(_api.DeviceWaitIdle(_device), "vkDeviceWaitIdle");
-    }
-
-    /// <summary>One binding of each set pointed at a buffer, as a buffer that grew is bound over again.</summary>
-    internal void Rebind(ReadOnlySpan<(DescriptorSet Set, uint Binding)> bindings, Buffer buffer)
-    {
-        if (bindings.IsEmpty) return;
-
-        var info = new DescriptorBufferInfo(buffer, 0, Silk.NET.Vulkan.Vk.WholeSize);
-        var writes = stackalloc WriteDescriptorSet[bindings.Length];
-        for (var at = 0; at < bindings.Length; at++)
-        {
-            writes[at] = new WriteDescriptorSet
-            {
-                SType = StructureType.WriteDescriptorSet,
-                DstSet = bindings[at].Set,
-                DstBinding = bindings[at].Binding,
-                DescriptorCount = 1,
-                DescriptorType = DescriptorType.StorageBuffer,
-                PBufferInfo = &info,
-            };
-        }
-
-        Count();
-        _api.UpdateDescriptorSets(_device, (uint)bindings.Length, writes, 0, null);
     }
 
     public void DestroyBuffer(Buffer buffer, DeviceMemory memory)
@@ -450,7 +395,6 @@ internal sealed unsafe partial class Vk : IDisposable
 
         var region = new BufferCopy { Size = bytes };
         Count();
-        RegionsCopied++;
         _api.CmdCopyBuffer(commands, from.Handle, to.Handle, 1, &region);
     }
 
@@ -460,7 +404,6 @@ internal sealed unsafe partial class Vk : IDisposable
         if (runs.IsEmpty) return;
 
         Count();
-        RegionsCopied += runs.Length;
         fixed (BufferCopy* first = runs) _api.CmdCopyBuffer(commands, from.Handle, to.Handle, (uint)runs.Length, first);
     }
 
@@ -665,7 +608,6 @@ internal sealed unsafe partial class Vk : IDisposable
             DescriptorIndexing = true,
             ShaderSampledImageArrayNonUniformIndexing = true,
             RuntimeDescriptorArray = true,
-            BufferDeviceAddress = true,
         };
 
         // An indirect draw that starts part way into its buffer: the stretch of a town's buildings and props a
@@ -674,14 +616,13 @@ internal sealed unsafe partial class Vk : IDisposable
         Count();
         _api.GetPhysicalDeviceFeatures(Physical, out var offered);
         HasFloat64 = offered.ShaderFloat64;
-        HasInt64 = offered.ShaderInt64;
         var features = new PhysicalDeviceFeatures2
         {
             SType = StructureType.PhysicalDeviceFeatures2,
             PNext = &twelve,
             Features = new PhysicalDeviceFeatures
             {
-                DrawIndirectFirstInstance = true, ShaderFloat64 = offered.ShaderFloat64, ShaderInt64 = offered.ShaderInt64,
+                DrawIndirectFirstInstance = true, ShaderFloat64 = offered.ShaderFloat64,
             },
         };
 
@@ -762,8 +703,8 @@ internal sealed unsafe partial class Vk : IDisposable
     }
 
     /// <summary>
-    /// One family that can draw, run the tick's kernels and, where there is a surface, present to it — so the tick
-    /// rides the frame's one submit on the frame's one queue.
+    /// One family that can draw, run the tick's kernels and, where there is a surface, present to it — so the tick and
+    /// the frame share one queue.
     /// </summary>
     static uint? PickQueueFamily(Silk.NET.Vulkan.Vk api, PhysicalDevice device, KhrSurface? surfaceApi, SurfaceKHR surface)
     {

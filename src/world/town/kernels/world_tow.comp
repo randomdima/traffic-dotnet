@@ -1,7 +1,7 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
 
-// Every car's wheels and every tow bar (EVA-5, TowBar; ManagedWorld.TrailerWheels, HaulOnTheBars, TownWorld.StepBodies),
+// Every car's wheels and every tow bar (EVA-5, TowBar; ManagedWorld.TrailerWheels, HaulOnTheBars, StepTheBodies),
 // one thread a car, the car on the bar answering for its pair. Mode 0, after the tyre pass: a car on a bar rolls on the
 // pair at the far end from the fork — the lifted pair spends nothing, the pair down holds what it can of its sideways slip
 // and drags at the ground's drag, and turns with the road — and then every car's wheels are spent on its body in wheel

@@ -1,6 +1,5 @@
 using System.Runtime.InteropServices;
 using Silk.NET.Vulkan;
-using SixLabors.ImageSharp;
 using Image = Silk.NET.Vulkan.Image;
 
 // The library is named here and in nothing the browser's head compiles: this is the desktop's decoder,

@@ -1,8 +1,6 @@
 using System.Numerics;
-using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
-using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Containment;
 using TrafficSimulation.World.Foot;
@@ -335,7 +333,7 @@ internal sealed partial class TownWorld
     /// <b>The metre and not a node.</b> A destination has always been a place on a link (<see cref="RouteGoal"/>),
     /// and the bay's mouth is where the leg stops driving the road — so the search, the price, the reroute and the
     /// line all name that one place. The route's line stops short of it where the car waits for its manoeuvre
-    /// (<see cref="StopForTheBayM"/>), and the manoeuvre is what covers the rest of the distance.
+    /// (<see cref="Agents.Car.Actions.ParkingIn.StopForTheBayM"/>), and the manoeuvre is what covers the rest of the distance.
     /// </remarks>
     int BayGoals(int bay, Span<RouteGoal> into)
     {

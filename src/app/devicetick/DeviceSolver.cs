@@ -275,22 +275,18 @@ internal sealed class DeviceSolver : IDisposable
     /// <summary>How many of the table's touching pairs were laid since the last send (<see cref="LayTheTouching"/>), or none.</summary>
     int _touchingLaid = -1;
 
-    /// <param name="room">
-    /// How many bodies the table may come to hold (<see cref="PhysicsWorld.RoomForBodies"/>), every one past what it holds
-    /// now a moving body — or none, for a table laid as it stands.
-    /// </param>
-    public DeviceSolver(Vk vk, SimConfig config, BodyTable table, int room = 0)
+    public DeviceSolver(Vk vk, SimConfig config, BodyTable table)
     {
         _vk = vk;
         _config = config;
-        _bodies = Math.Max(table.Count, room);
+        _bodies = table.Count;
         _scans = new ScanKernels(vk);
         var level = config.Grid.Main;
 
         var moving = new List<int>();
         for (var body = 0; body < _bodies; body++)
         {
-            if (body >= table.Count || (table.Flags[body] & BodyFlags.Static) == 0) moving.Add(body);
+            if ((table.Flags[body] & BodyFlags.Static) == 0) moving.Add(body);
         }
 
         _moving = [.. moving];
@@ -450,10 +446,9 @@ internal sealed class DeviceSolver : IDisposable
 
         _batch = new ComputeBatch(vk);
 
-        // The whole table once, the furniture's rows for good, and the furniture filed. A row to come is out of the world.
+        // The whole table once, the furniture's rows for good, and the furniture filed.
         _uploads = Uploads();
         WriteRows(table, 0, table.Count);
-        ClearRows(table.Count, _bodies - table.Count);
         table.Statics.CopyTo(StagingFor(table.Statics.Length, out var staticsIn));
         var commands = _batch.Begin();
         foreach (var (from, to) in _uploads) vk.Copy(commands, from, to, from.SizeBytes);
@@ -661,9 +656,6 @@ internal sealed class DeviceSolver : IDisposable
     /// corner radius, reach), its bounds, and the motion the next step reads its touches' closing speed off.
     /// </summary>
     public (GpuBuffer Shape, GpuBuffer Bounds, GpuBuffer MotionIntoTick) Rows => (_shape, _bounds, _motionIntoTick);
-
-    /// <summary>A layer mask in the byte of a body's filter the kernels read it in (<see cref="LayerByte"/>).</summary>
-    public static uint FilterWordOf(ulong mask) => LayerByte(mask);
 
     /// <summary>
     /// <b>One step of the table the CPU is about to step</b>: its moving rows sent, the step run, and — where asked — the
@@ -992,17 +984,6 @@ internal sealed class DeviceSolver : IDisposable
     }
 
     /// <summary>Rows no body holds yet, written as nothing: out of the world, and on no layer.</summary>
-    void ClearRows(int from, int rows)
-    {
-        _poseIn.Span<Vector4>().Slice(from, rows).Clear();
-        _headingIn.Span<float>().Slice(from, rows).Clear();
-        _motionIn.Span<Vector4>().Slice(from, rows).Clear();
-        _massIn.Span<Vector2>().Slice(from, rows).Clear();
-        _shapeIn.Span<Vector4>().Slice(from, rows).Clear();
-        _boundsIn.Span<Vector4>().Slice(from, rows).Clear();
-        _filterIn.Span<uint>().Slice(from, rows).Clear();
-    }
-
     /// <summary>
     /// A body's filter in the one word the kernels read it in (<c>kernels/filter.glsl</c>): its flags, then its category,
     /// its mask and its channels, a byte each.
@@ -1012,7 +993,7 @@ internal sealed class DeviceSolver : IDisposable
         | ((uint)table.Channels[body] << 24);
 
     /// <summary>A layer mask in the byte the kernels read it in: every layer this town has is in its low bits.</summary>
-    static uint LayerByte(ulong mask) =>
+    public static uint LayerByte(ulong mask) =>
         mask >> 8 == 0 ? (uint)mask : throw new InvalidOperationException("A collision layer past the 8th is not laid on the device.");
 
     (GpuBuffer From, GpuBuffer To)[] Uploads() =>
@@ -1114,25 +1095,16 @@ internal sealed class DeviceSolver : IDisposable
 
     /// <summary>
     /// The most cells the moving bodies' boxes can cover however they turn: a box no wider than its own diagonal and
-    /// radius twice over, set down anywhere on the grid — and a body still to come as much as the most any covers.
+    /// radius twice over, set down anywhere on the grid.
     /// </summary>
-    /// <param name="bodies">In index order, so every body still to come is after every body the table holds.</param>
     static int MostCells(GridLevel level, BodyTable table, ReadOnlySpan<int> bodies)
     {
         var cells = 0;
-        var most = 0;
         foreach (var body in bodies)
         {
-            if (body >= table.Count)
-            {
-                cells += most;
-                continue;
-            }
-
             var reachM = table.ExtentM[body].Length() + table.CornerRadiusM[body];
             var across = (int)MathF.Ceiling(2f * reachM * level.PerCellM) + 1;
             cells += across * across;
-            most = Math.Max(most, across * across);
         }
 
         return cells;

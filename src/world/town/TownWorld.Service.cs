@@ -1,6 +1,4 @@
-using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
-using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Agents.Service;
@@ -8,7 +6,6 @@ using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Containment;
 using TrafficSimulation.World.Parking;
-using TrafficSimulation.World.Physics;
 using TrafficSimulation.World.Statics;
 
 namespace TrafficSimulation.World.Town;

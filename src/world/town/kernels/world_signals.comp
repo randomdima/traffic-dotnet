@@ -152,7 +152,7 @@ void takeAnEvent(WorldSignal s)
 
     if (action == SignalLayer)
     {
-        // p01: the category's and the mask's bits, as the host derives them (PhysicsWorld.MaskOf, DeviceSolver.FilterWordOf).
+        // p01: the category's and the mask's bits, as the host derives them (PhysicsWorld.MaskOf, DeviceSolver.LayerByte).
         filter_[body] = filterOnLayer(filter_[body], floatBitsToUint(s.p01.x), floatBitsToUint(s.p01.y));
         thaw(body, car);
         return;

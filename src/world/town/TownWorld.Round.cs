@@ -1,5 +1,4 @@
 using TrafficSimulation.Agents.Car.Control;
-using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.World.Town;
 

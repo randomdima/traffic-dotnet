@@ -2,7 +2,6 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using Silk.NET.Vulkan;
 using TrafficSimulation.Agents.Car.Body;
-using TrafficSimulation.Agents.Evacuator;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.TrafficLight.Body;
 using TrafficSimulation.Agents.TrafficLight.Control;

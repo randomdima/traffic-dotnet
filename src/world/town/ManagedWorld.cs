@@ -6,7 +6,6 @@ using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Physics;
 using TrafficSimulation.World.Road;
-using TrafficSimulation.World.Terrain;
 
 namespace TrafficSimulation.World.Town;
 
@@ -547,16 +546,14 @@ internal sealed class ManagedWorld : WorldLayer
 
             ref var followed = ref _followed[car];
             if (stepped && !float.IsNaN(followed.ProgressM)) followed.AroundM = followed.ProgressM;
-            LineReading.Read(
-                _roads, ref followed, CarFollower.RearAxleM(_build[car], row.PositionM, row.Forward),
-                _build[car].ProjectionWindowM);
+            var rearAxleM = CarFollower.RearAxleM(_build[car], row.PositionM, row.Forward);
+            LineReading.Read(_roads, ref followed, rearAxleM, _build[car].ProjectionWindowM);
             row.ProgressM = followed.ProgressM;
             row.OffLineM = followed.OffLineM;
             row.FollowSerial = followed.Serial;
 
             var lookaheadM = CarFollower.LookaheadM(
                 _build[car], MathF.Abs(Vector2.Dot(row.VelocityMps, row.Forward)), Config.Driving.LookaheadS);
-            var rearAxleM = CarFollower.RearAxleM(_build[car], row.PositionM, row.Forward);
             var leadM = LineReading.Lead(_roads, followed, lookaheadM, out row.LeadAtM);
             row.AimRad = float.IsNaN(row.LeadAtM) ? 0f : CarFollower.AimAt(_build[car], rearAxleM, row.Forward, leadM);
         }

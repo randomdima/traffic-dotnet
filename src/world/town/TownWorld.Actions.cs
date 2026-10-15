@@ -1,7 +1,6 @@
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Person.Actions;
-using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Town;
@@ -61,8 +60,6 @@ internal sealed partial class TownWorld
     }
 
     void Enter(int car, CarAction action) => _carActions.Enter(car, action);
-
-    static bool IsAtABay(CarAction action) => CarActions.IsAtABay(action);
 
     bool DrivesTheRoute(int car) => _carActions.DrivesTheRoute(car);
 

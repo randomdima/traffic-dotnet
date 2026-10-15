@@ -1,4 +1,3 @@
-using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Person.Actions;
 using TrafficSimulation.Agents.Person.Body;

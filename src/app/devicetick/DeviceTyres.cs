@@ -131,7 +131,7 @@ internal sealed class DeviceTyres : IDisposable
 
     /// <param name="grounds">What a wheel on a way and off one stands on, laid once.</param>
     /// <param name="builds">Every build a car may be, indexed as <see cref="BuildOf"/> names them.</param>
-    /// <param name="capacity">The most cars a pass is asked of; the ring holds a mark for every wheel of them.</param>
+    /// <param name="capacity">The most cars a pass is asked of; a pass that hands back keeps a mark record for every wheel of them.</param>
     /// <param name="handsBack">
     /// Whether a pass hands its rows and each patch's scrub back to the host (<see cref="Step"/>) — a test's question: the
     /// town reads only the marks.
@@ -260,7 +260,7 @@ internal sealed class DeviceTyres : IDisposable
 
     public ReadOnlySpan<ScrubRow> Scrub => _scrubs.AllRead[..(_cars * WheelsACar)];
 
-    /// <summary>How many marks the last <see cref="Step"/> laid, which may be more than the ring held (<see cref="Capacity"/> × 4).</summary>
+    /// <summary>How many marks the last <see cref="Step"/> laid, which may be more than the records hold (<see cref="Capacity"/> × 4).</summary>
     public int MarkCount => (int)_markCountOut.Span<uint>()[0];
 
     /// <summary>

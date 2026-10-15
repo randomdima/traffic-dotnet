@@ -20,8 +20,8 @@ namespace TrafficSimulation.Runtime;
 /// "toggle" cannot toggle sixty times a second while it is held.
 /// </para>
 /// <para>
-/// <b>Three spaces meet here too</b>, and the arithmetic is the desktop's — <see cref="InUiPx"/> is
-/// the same static method checked by the same test. The page hands the pointer over already in the
+/// <b>Three spaces meet here too</b>, and the arithmetic is the desktop's — <see cref="InUiPx"/> is a
+/// copy of its static method, which only the desktop's test checks. The page hands the pointer over already in the
 /// canvas's own pixels, so what is left is the scale.
 /// </para>
 /// </remarks>

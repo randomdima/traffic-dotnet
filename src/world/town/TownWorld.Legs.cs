@@ -1,7 +1,6 @@
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Person.Actions;
-using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.World.Parking;
 using TrafficSimulation.World.Routing;
 
@@ -45,9 +44,6 @@ internal sealed partial class TownWorld
     /// <summary>And how many gave the place they were going to up for another one nearer where they got to.</summary>
     public long PlacesGivenUp { get; private set; }
 
-    /// <summary>How many legs have claimed a bay to come back the other way from (GEN-4l).</summary>
-    public long TurnsAtALotBegun { get; private set; }
-
     /// <summary>How many times a driver took the lane it was standing on after losing the line it was given.</summary>
     public long LinesReacquired { get; internal set; }
 
@@ -63,7 +59,7 @@ internal sealed partial class TownWorld
     /// and the clock that decides this leg is not getting anywhere.
     /// </summary>
     /// <remarks>
-    /// <b>The sensing is not on this clock and never was.</b> A body moves every physics tick, the claims
+    /// <b>The sensing is not on this clock.</b> A body moves every physics tick, the claims
     /// are laid and answered every tick, and the speed profile is taken every tick; what runs here is the
     /// leg's own arithmetic, which is about distances of tens of metres.
     /// </remarks>
@@ -103,8 +99,7 @@ internal sealed partial class TownWorld
             case CarAction.Follow:
                 _following.Decide(ref town, car, sinceLastDecisionS);
 
-                // A pass drawn now is looked round for at once, as it was on the tick after it was drawn — and so is the
-                // room to move across.
+                // A pass drawn now is looked round for at once — and so is the room to move across.
                 if (Cars.Action[car] == CarAction.Overtake) _overtaking.Decide(car, 0f);
                 if (Cars.Action[car] == CarAction.Switch) _switching.Decide(car, 0f);
                 return;
@@ -163,7 +158,7 @@ internal sealed partial class TownWorld
         // so no clock is run against it. What it does there is its errand's to say (<see cref="StandsAtItsPlace"/>).
         if (Cars.StopsAtItsPlaceOf(car)) return true;
 
-        // A line that stops for a bay waits there for the manoeuvre into it (<see cref="Park"/>),
+        // A line that stops for a bay waits there for the manoeuvre into it (<see cref="CarAction.Park"/>),
         // which is not a line run out.
         if (IsOnTheFinalApproach(car)) return false;
 

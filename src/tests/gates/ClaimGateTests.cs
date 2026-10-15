@@ -19,8 +19,8 @@ namespace TrafficSimulation.Tests.Gates;
 /// metre is a collision for the solver's gates, not a claim gone wrong (TER-4c.2).
 /// </para>
 /// <para>
-/// <b>Asked every tick and not at the end</b>, since the claims are laid afresh and a laying that gave two plans one
-/// metre is one somebody drove on.
+/// <b>Asked on every tick the turns are taken and not at the end</b>, since each agent claims afresh on its own turn
+/// and a turn that gave two plans one metre is one somebody drove on.
 /// </para>
 /// </remarks>
 [Trait(Tier.Key, Tier.Perf)]
@@ -71,7 +71,7 @@ public class ClaimGateTests
         Assert.Equal(0, world.Atlas.Dropped);
     }
 
-    /// <summary>A town ticked, and every laying's claims handed to one question, which counts what it looked at.</summary>
+    /// <summary>A town ticked, and the claims after every tick's turns handed to one question, which counts what it looked at.</summary>
     static void Watch(string map, Func<TownWorld, string, int, long> ask)
     {
         var config = SimConfig.Shipped();
