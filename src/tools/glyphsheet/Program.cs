@@ -56,14 +56,17 @@ internal static class Program
             VerticalAlignment = VerticalAlignment.Center,
         };
 
-        for (var code = FirstChar; code < LastChar; code++)
+        sheet.Mutate(canvas =>
         {
-            var cell = code - FirstChar;
-            options.Origin = new PointF(
-                (cell % Columns + 0.5f) * CellWidthPx,
-                (cell / Columns + 0.5f) * CellHeightPx);
-            sheet.Mutate(canvas => canvas.DrawText(options, ((char)code).ToString(), Color.White));
-        }
+            for (var code = FirstChar; code < LastChar; code++)
+            {
+                var cell = code - FirstChar;
+                options.Origin = new PointF(
+                    (cell % Columns + 0.5f) * CellWidthPx,
+                    (cell / Columns + 0.5f) * CellHeightPx);
+                canvas.DrawText(options, ((char)code).ToString(), Color.White);
+            }
+        });
 
         // The solid cell: what every panel, bar, tape and debug line is drawn with, so the whole
         // interface is one pipeline reading one image and nothing branches on what a quad is.
