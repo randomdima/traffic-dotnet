@@ -34,8 +34,9 @@ internal static class Snapshot
         foreach (var (name, standsAt, keptAt) in data.Sources(name => name.StartsWith("osm-", StringComparison.Ordinal)))
         {
             moments.Ask(standsAt == survey, () => $"{name} at {standsAt}");
-            var answers = keptAt.Where(File.Exists).Select(path => JsonDocument.Parse(File.ReadAllBytes(path))).ToList();
-            foreach (var element in Element.Read(answers))
+            var answers = keptAt.Where(File.Exists)
+                .Select(path => Sources.Answered(path) is { } held ? (Document: held, Own: false) : (Document: JsonDocument.Parse(File.ReadAllBytes(path)), Own: true)).ToList();
+            foreach (var element in Element.Read(answers.Select(answer => answer.Document)))
             {
                 if (element.Type == 'n')
                 {
@@ -69,7 +70,10 @@ internal static class Snapshot
                 }
             }
 
-            foreach (var answer in answers) answer.Dispose();
+            foreach (var (document, own) in answers)
+            {
+                if (own) document.Dispose();
+            }
         }
 
         return [moments, places, tagged, ways];

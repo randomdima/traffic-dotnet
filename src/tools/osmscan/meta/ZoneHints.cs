@@ -138,9 +138,10 @@ internal static class ZoneHints
         public bool On(int x, int y) => (uint)x < (uint)Across && (uint)y < (uint)Down;
     }
 
+    /// <param name="layer">The zones layer's records.</param>
     /// <param name="keeps">Whether a land use is kept, read off its outline's places on the map.</param>
     /// <param name="streets">The map whose streets the frontage is read along.</param>
-    public static TownMap.ZoneArrays Of(string folder, Plane plane, SurveyFootprints buildings, Func<Pt[], bool> keeps, TownMap streets)
+    public static TownMap.ZoneArrays Of(List<ZoneRecord> layer, Plane plane, SurveyFootprints buildings, Func<Pt[], bool> keeps, TownMap streets)
     {
         var outlines = new Pt[buildings.Count][];
         var bounds = new Box[buildings.Count];
@@ -160,7 +161,7 @@ internal static class ZoneHints
             }
         }
 
-        var uses = Read(folder, plane, keeps);
+        var uses = Uses(layer, plane, keeps);
         Nest(uses);
         var usesFiled = File(uses);
         var usesTallied = Tallied(uses.Count, at => Holding(uses, usesFiled, at), streets, buildings, outlines, bounds, footprints);
@@ -769,10 +770,10 @@ internal static class ZoneHints
     static int BuildingCell(double atM) => (int)Math.Floor(atM / BuildingCellM);
 
     /// <summary>Every land use of the zones layer of a kind that says what is built or grows on it.</summary>
-    static List<Zone> Read(string folder, Plane plane, Func<Pt[], bool> keeps)
+    static List<Zone> Uses(List<ZoneRecord> layer, Plane plane, Func<Pt[], bool> keeps)
     {
         var uses = new List<Zone>();
-        foreach (var record in Layers.Read<ZoneRecord>(folder, "zones")?.Items ?? [])
+        foreach (var record in layer)
         {
             if (record.Outer is null || KindOf(record.Kind, record.Sub) is not { } kind) continue;
 

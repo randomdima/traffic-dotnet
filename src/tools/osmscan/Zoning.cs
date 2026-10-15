@@ -35,8 +35,9 @@ internal static class Zoning
         var folder = Laid(root, map, traced);
         var plane = new Plane(traced.Frame);
         var meets = Meets(traced.Frame);
-        var buildings = Import.Footprints(folder, plane, outline => meets([.. outline.Select(atM => new Pt(atM.X, atM.Y))]));
-        var zones = ZoneHints.Of(folder, plane, buildings, meets, traced);
+        var uses = Import.Layer<ZoneRecord>(folder, "zones");
+        var buildings = Import.Footprints(folder, uses, plane, outline => meets([.. outline.Select(atM => new Pt(atM.X, atM.Y))]));
+        var zones = ZoneHints.Of(uses, plane, buildings, meets, traced);
         for (var at = traced.Zones.ParamOffsets[TownMap.ZoneArrays.Root]; at < traced.Zones.ParamOffsets[TownMap.ZoneArrays.Root + 1]; at++)
         {
             zones = zones.With(TownMap.ZoneArrays.Root, traced.Zones.ParamKey[at], traced.Zones.ParamValue[at]);

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text.Json;
 using TrafficSimulation.CityGen.Traced;
@@ -56,6 +57,9 @@ internal sealed class Sources
 
     public const string OsmLicence = "© OpenStreetMap contributors, ODbL 1.0 — https://www.openstreetmap.org/copyright";
 
+    /// <summary>Every family's answers this process has read, by the full path each is kept at: <see cref="Snapshot"/> reads them again.</summary>
+    static readonly ConcurrentDictionary<string, JsonDocument> Answers = new();
+
     readonly string _kept;
     readonly string _city;
     readonly bool _refetch;
@@ -95,6 +99,9 @@ internal sealed class Sources
     public List<SourceNote> Fetched { get; } = [];
 
     public string Kept(string name) => Path.Combine(_kept, $"{_city}-meta-{name}");
+
+    /// <summary>The family's answer kept at a path, as this process already read it; null where it has not. Shared, so never disposed by its reader.</summary>
+    public static JsonDocument? Answered(string keptAt) => Answers.GetValueOrDefault(Path.GetFullPath(keptAt));
 
     /// <summary>Buildings and their parts: ways with their geometry, multipolygons with their members'.</summary>
     public List<JsonDocument> Buildings() => Ask("buildings", 3, 8, box =>
@@ -203,6 +210,7 @@ internal sealed class Sources
                 var kept = Kept($"{name}-at-{stamp}.json");
                 var answer = Overpass.Answer(kept, head + query(box), _refetch, Tries, Servers);
                 answers.Add(answer);
+                Answers[Path.GetFullPath(kept)] = answer;
                 Fetched.Add(new SourceNote
                 {
                     Name = $"osm-{family}",

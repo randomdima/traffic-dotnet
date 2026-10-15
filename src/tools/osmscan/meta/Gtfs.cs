@@ -45,7 +45,10 @@ internal static class Gtfs
             : $"calendar in force {services.Select(service => service.GetValueOrDefault("start_date") ?? "").Min(StringComparer.Ordinal)} … {services.Select(service => service.GetValueOrDefault("end_date") ?? "").Max(StringComparer.Ordinal)}";
     }
 
-    public static Timetable Read(string keptAt)
+    /// <summary>The feed kept at a path, read once a process (<see cref="Held"/>): the layers and their audit both read it.</summary>
+    public static Timetable Read(string keptAt) => Held.Once(Held.Files([keptAt]), () => ReadFeed(keptAt));
+
+    static Timetable ReadFeed(string keptAt)
     {
         using var zip = ZipFile.OpenRead(keptAt);
         var dropped = new Dictionary<string, int>();

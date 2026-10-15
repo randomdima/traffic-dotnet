@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
@@ -45,10 +46,15 @@ internal static class MlBuildings
 
     /// <summary>Every footprint in the rectangle: its outer ring as lat, lon pairs in 1e-7°, its height and confidence.</summary>
     /// <remarks>
-    /// A line is read by a reader of its own rather than parsed into a document: the files hold near a million lines, and
-    /// a document a line costs more in renting and returning its buffers than in reading them.
+    /// Read once a process (<see cref="Held"/>): the layers and their audit both read it. A line is read by a reader of
+    /// its own rather than parsed into a document: the files hold near a million lines, and a document a line costs more in
+    /// renting and returning its buffers than in reading them.
     /// </remarks>
-    public static List<(int[] Ring, double HeightM, double Confidence)> Read(string[] kept, Sources sources)
+    public static List<(int[] Ring, double HeightM, double Confidence)> Read(string[] kept, Sources sources) =>
+        Held.Once(string.Create(CultureInfo.InvariantCulture, $"{Held.Files(kept)}\n{sources.SouthDeg:R},{sources.WestDeg:R},{sources.NorthDeg:R},{sources.EastDeg:R}"),
+            () => ReadFiles(kept, sources));
+
+    static List<(int[] Ring, double HeightM, double Confidence)> ReadFiles(string[] kept, Sources sources)
     {
         var read = new List<(int[] Ring, double HeightM, double Confidence)>();
         byte[] utf8 = [];

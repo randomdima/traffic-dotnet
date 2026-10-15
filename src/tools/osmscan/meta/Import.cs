@@ -66,7 +66,7 @@ internal static class Import
         return 0;
     }
 
-    static List<T> Layer<T>(string folder, string layer) =>
+    public static List<T> Layer<T>(string folder, string layer) =>
         Layers.Read<T>(folder, layer)?.Items ?? throw new InvalidOperationException($"no {layer} layer in {folder}; `qq osm --meta` writes it");
 
     static PlaceFacts.WidthArrays Widths(List<RoadRecord> roads)
@@ -94,7 +94,12 @@ internal static class Import
     /// <summary>Every building's footprints and what each is for (<see cref="FootprintUses"/>), off the layers in <paramref name="folder"/>.</summary>
     /// <param name="keeps">Whether an outline is kept, read off its own places on the map.</param>
     public static SurveyFootprints Footprints(string folder, Plane plane, Func<Vector2[], bool> keeps) =>
-        Footprints(Layer<BuildingRecord>(folder, "buildings"), new FootprintUses(Layer<ZoneRecord>(folder, "zones"), plane), plane, keeps);
+        Footprints(folder, Layer<ZoneRecord>(folder, "zones"), plane, keeps);
+
+    /// <inheritdoc cref="Footprints(string, Plane, Func{Vector2[], bool})"/>
+    /// <param name="zones">The zones layer, as the caller already read it.</param>
+    public static SurveyFootprints Footprints(string folder, List<ZoneRecord> zones, Plane plane, Func<Vector2[], bool> keeps) =>
+        Footprints(Layer<BuildingRecord>(folder, "buildings"), new FootprintUses(zones, plane), plane, keeps);
 
     static SurveyFootprints Footprints(List<BuildingRecord> buildings, FootprintUses uses, Plane plane, Func<Vector2[], bool> keeps)
     {
