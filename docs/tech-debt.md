@@ -139,6 +139,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     each crossing it serves (`CrossingWays.Reading.BandOffTheVerge`), the outsets' indexes, the index queries that want
     only the nearest. The marks are the next the device could take, in floats where the host's are doubles, which moves
     them. A page given threads (cross-origin isolation, the host's two headers) is the lever past those;
+  - **OdesaOsm runs at half real time on the page** (deployed, 2026-10-15): 27.2 ms a tick, of it the cars' own
+    24.5, so 0.5 ticks a frame at 60 fps — the desktop's 6.0 ms car tick on one thread, at the page's single core and
+    about twice a desktop core's cost. The cars' ticks over workers (the desktop entry above) wants a page given
+    threads, which wants cross-origin isolation and so headers GitHub Pages cannot send;
   - **a page's atlas can stand a float off the host's**: WGSL cannot say `precise`, so a browser may fuse what the host
     rounds twice (`trig.glsl`), and a page has no read-back to hold its digest to the host's. Vulkan's is the host's to
     the bit;
