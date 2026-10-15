@@ -1,0 +1,21 @@
+#version 460
+
+// One run of a buffer filled with one word, the threads striding it together (runtime/WordKernels): the fill a step records
+// every time, as a kernel of the run's own rather than the driver's.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Fill
+{
+    uint atWord;
+    uint words;
+    uint word;
+} fill;
+
+layout(std430, binding = 0) writeonly buffer Words { uint words[]; };
+
+void main()
+{
+    uint stride = gl_NumWorkGroups.x * gl_WorkGroupSize.x;
+    for (uint at = gl_GlobalInvocationID.x; at < fill.words; at += stride) words[fill.atWord + at] = fill.word;
+}

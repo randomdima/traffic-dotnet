@@ -250,6 +250,12 @@ internal sealed class DeviceSolver : IDisposable
 
     readonly ComputeBatch _batch;
 
+    /// <summary>The copy and the fill every settling step records (<see cref="WordKernels"/>), and their sets.</summary>
+    readonly WordKernels _words;
+
+    readonly BoundSet _motionIntoTickCopy;
+    readonly BoundSet _begunGroupsFill;
+
     /// <summary>Each field's staging buffer and the device's, in one list so a step walks it without an iterator.</summary>
     readonly (GpuBuffer From, GpuBuffer To)[] _uploads;
 
@@ -440,6 +446,9 @@ internal sealed class DeviceSolver : IDisposable
         _frozeScan = new PrefixScan(vk, _scans, _frozeAt, _blockSums, _totals, Totals.FrozeCountAt);
         _begunScan = new PrefixScan(vk, _scans, _begunGroups, _blockSums, _totals, Totals.BegunCountAt);
         var staticScan = new PrefixScan(vk, _scans, _staticCounts, _staticStarts, _blockSums, _totals, Totals.StaticCellsAt);
+        _words = new WordKernels(vk, sets: 1);
+        _motionIntoTickCopy = _words.BindCopy(_motion, _motionIntoTick);
+        _begunGroupsFill = _words.BindFill(_begunGroups);
 
         _batch = new ComputeBatch(vk);
 
@@ -805,7 +814,7 @@ internal sealed class DeviceSolver : IDisposable
         var push = Push(dtS) with { RosterCount = (uint)count };
         var vk = _vk;
         vk.Fill(commands, _totals, 0);
-        if (Settles) vk.Fill(commands, _begunGroups, 0);
+        if (Settles) _words.Fill(commands, _begunGroupsFill, 0, _begunGroups.SizeBytes, 0);
         vk.AfterTransfer(commands);
 
         var hashed = push with { Buckets = (uint)_buckets };
@@ -887,8 +896,8 @@ internal sealed class DeviceSolver : IDisposable
         _touchedWas ^= 1;
 
         // The motion the next step finds, before anything is spent on it: this one's, the frozen stilled.
-        vk.BeforeTransfer(commands);
-        CopyRows(commands, _motion, _motionIntoTick);
+        vk.BetweenKernels(commands);
+        _words.Copy(commands, _motionIntoTickCopy, MovingRowsOf(_motion));
     }
 
     // The settling's passes (kernels/settle.glsl).
@@ -1009,13 +1018,16 @@ internal sealed class DeviceSolver : IDisposable
     /// <summary>The moving rows of one field copied across, which is every row the step can have changed.</summary>
     void CopyRows(Recording commands, GpuBuffer from, GpuBuffer to)
     {
-        var stride = from.SizeBytes / (ulong)_bodies;
-        var bytes = (ulong)_movingRows * stride;
-        if (bytes == 0) return;
-
         Span<CopyRun> run = stackalloc CopyRun[1];
-        run[0] = new CopyRun((ulong)_firstMoving * stride, (ulong)_firstMoving * stride, bytes);
-        _vk.Copy(commands, from, to, run);
+        run[0] = MovingRowsOf(from);
+        if (run[0].Bytes > 0) _vk.Copy(commands, from, to, run);
+    }
+
+    /// <summary>Where a field's moving rows stand, as a run copied to the same place in another buffer of the field.</summary>
+    CopyRun MovingRowsOf(GpuBuffer field)
+    {
+        var stride = field.SizeBytes / (ulong)_bodies;
+        return new CopyRun((ulong)_firstMoving * stride, (ulong)_firstMoving * stride, (ulong)_movingRows * stride);
     }
 
     static uint Groups(int count) => (uint)Math.Max(1, (count + 63) / 64);
@@ -1110,6 +1122,7 @@ internal sealed class DeviceSolver : IDisposable
     {
         _batch.Dispose();
         foreach (var kernel in _kernels) kernel.Dispose();
+        _words.Dispose();
         _scans.Dispose();
         foreach (var buffer in _owned) buffer.Dispose();
     }

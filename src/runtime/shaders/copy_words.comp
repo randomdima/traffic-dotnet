@@ -1,0 +1,25 @@
+#version 460
+
+// One run of words copied from one buffer into another, the threads striding it together (runtime/WordKernels): the copy a
+// step records every time, as a kernel of the run's own rather than the driver's.
+
+layout(local_size_x = 64) in;
+
+layout(push_constant) uniform Copy
+{
+    uint fromWord;
+    uint toWord;
+    uint words;
+} copy;
+
+layout(std430, binding = 0) readonly buffer From { uint fromWords[]; };
+layout(std430, binding = 1) writeonly buffer To { uint toWords[]; };
+
+void main()
+{
+    uint stride = gl_NumWorkGroups.x * gl_WorkGroupSize.x;
+    for (uint word = gl_GlobalInvocationID.x; word < copy.words; word += stride)
+    {
+        toWords[copy.toWord + word] = fromWords[copy.fromWord + word];
+    }
+}
