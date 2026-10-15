@@ -140,16 +140,15 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     `RibbonMarks.Stretch` about 4.5; `CrossingWays.Of` 5.0, of it `OntoThePaint` about 3.8; `PavementLanes.Of` 2.5; the
     ground's mesh 1.8; the interpreter 0.5. By self time nothing passes 6 %: `Spline.ProjectFrom` and `ChainIndex.Offer`
     under the index's near queries, `RingSides.WindingAt` under `GroundShapes.At` and `BandOffTheVerge`, `Trig.SinCos`.
-    Three are known and not taken:
+    Two are known and not taken:
     - **the marks on the device** move them — floats where the host's are doubles — and a page cannot wait for them
       inside `TownWorld`'s constructor, which hands them to `LaneOccupancy` at once: it wants the constructor laid a
       stage at a time first (the entry below on the town as one block);
-    - **`ChainIndex.NearestNear` reads every piece within its reach** to hand back the nearest of the first 64 in the
-      grid's order, so a faster search for the nearest — out from the place a ring of cells at a time — answers
-      differently wherever more than 64 pieces stand within reach, and moves buildings;
-    - **`CrossingWays.Reading.OntoThePaint` walks a lane's course once for each mouth at a place** (`DepartsAt`, and
-      `BandOffTheVerge` over the course again); the course's samples kept between the mouths would halve it, if the
-      samples of a course cut short at a metre are held to the bit to the whole course's.
+    - **`CrossingWays.Reading.OntoThePaint` reads a walk's band a touch apart along it** — two windings a station —
+      and steps the course a centimetre at a time for the first metre a turn leaves from (`DepartsAt`): 5 % of the
+      desktop's open CPU. Sharing the course's stations between the mouths of one place was tried (2026-10-15) and
+      moved nothing: few places have two mouths. A station far inside the walk's face that skipped the stations the
+      face could not reach before would;
     A page given threads (cross-origin isolation, the host's two headers) is the lever past all of them;
   - **OdesaOsm runs at half real time on the page** (deployed, 2026-10-15): 27.2 ms a tick, of it the cars' own
     24.5, so 0.5 ticks a frame at 60 fps — the desktop's 6.0 ms car tick on one thread, at the page's single core and

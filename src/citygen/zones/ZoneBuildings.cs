@@ -373,12 +373,6 @@ internal static class ZoneBuildings
     }
 
     /// <summary>
-    /// How many pieces of the face near a place are weighed for the nearest: the first so many the index hands back
-    /// (<see cref="ChainIndex.NearestNear"/>).
-    /// </summary>
-    const int MostNearAPlace = 64;
-
-    /// <summary>
     /// <b>The walk's outer face</b> (<see cref="GroundRings.WalkEdge"/>), piece by piece over the town's grid, asked
     /// whether a front laid on it lies straight along it.
     /// </summary>
@@ -457,7 +451,7 @@ internal static class ZoneBuildings
         public float? Nearest(Working own, Vector2 atM, float reachM, out Vector2 onM, out Vector2 direction)
         {
             (onM, direction) = (default, default);
-            var best = _index.NearestNear(own.FaceScan, atM, reachM, MostNearAPlace, out var alongM, out var offM);
+            var best = _index.Nearest(own.FaceScan, atM, reachM, out var alongM, out var offM);
             if (best < 0) return null;
 
             (onM, direction) = (_pieces[best].PointAtM(alongM), Heading.Unit(_pieces[best].HeadingAtRad(alongM)));

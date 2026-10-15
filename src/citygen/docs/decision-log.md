@@ -1,5 +1,17 @@
 # CityGen — decision log
 
+## 2026-10-15 — a front is seated on the face's true nearest, searched outward from the place
+
+**The owner asked for the open's remaining speed-ups, buildings moving among them.** `ZoneBuildings.Face.Nearest` took
+the nearest of the first 64 pieces the face's index handed back within the reach, in the grid's order, which read every
+piece within 25 m of every place asked — a third of the zones' buildings on the page. It now asks
+`ChainIndex.Nearest(scan, place, reach)`: the true nearest within the reach, ties to the lower piece, searched a ring of
+cells at a time from the place out, so it reads the few cells round a place on the walk.
+
+- **Buildings move where more than 64 pieces stood within reach**: OdesaOsm's plan digest is `576f5705a48bb58f` (was
+  `379f2bd66ccda21d`), 117 896 buildings as before, its atlas and marks unchanged.
+- **What it costs**: OdesaOsm's buildings 3.2 s on one desktop core, from 4.1.
+
 ## 2026-10-08 — past one a lane, a town stands more cars on its long lanes
 
 **The owner asked for 20 000 people and 20 000 cars on `OdesaOsm`.** Its lanes clear of the bridges' cars number

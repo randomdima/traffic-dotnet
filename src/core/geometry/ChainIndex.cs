@@ -352,20 +352,40 @@ internal sealed class ChainIndex
 
     /// <summary>
     /// The chain nearest the point, as <see cref="Nearest(Vector2, out float)"/> answers it, where it passes within
-    /// <paramref name="withinM"/> — and −1 where none does, <b>which is one ring and not a search</b>: a point far from a
-    /// sparse set grows its ring across the town before it meets one.
+    /// <paramref name="withinM"/> — and −1 where none does, <b>which is never a search past that reach</b>: a point far
+    /// from a sparse set grows its ring across the town before it meets one.
     /// </summary>
-    public int Nearest(Vector2 pointM, float withinM, out float alongM)
+    public int Nearest(Vector2 pointM, float withinM, out float alongM) => Nearest(_own, pointM, withinM, out alongM, out _);
+
+    /// <inheritdoc cref="Nearest(Vector2, float, out float)"/>
+    /// <param name="scan">This caller's own working set (<see cref="NewScan"/>), for a query off its own thread.</param>
+    /// <param name="offM">How far off that chain the point stands.</param>
+    /// <remarks>
+    /// <b>Out from the point a ring at a time, as the unbounded search is</b>, from one cell to the reach: nothing nearer
+    /// than a chain inside a ring lies outside it, and of two as near the lower id is kept whatever order they were met
+    /// in (<see cref="Measure"/>) — so the first ring that holds an answer holds the reach's whole answer, and a place on
+    /// a busy face reads the few cells round it rather than every piece within the reach.
+    /// </remarks>
+    public int Nearest(Scan scan, Vector2 pointM, float withinM, out float alongM, out float offM)
     {
-        alongM = 0f;
+        alongM = offM = 0f;
         if (ChainCount == 0) return -1;
 
-        Gather(_own, pointM, withinM);
-        var best = Weigh(_own, pointM, out var bestAlongM, out var bestDistanceSq);
-        if (best < 0 || bestDistanceSq > withinM * withinM) return -1;
+        var radiusM = MathF.Min(_window.Level.CellM, withinM);
+        while (true)
+        {
+            Gather(scan, pointM, radiusM);
+            var best = Weigh(scan, pointM, out var bestAlongM, out var bestDistanceSq);
+            if ((best >= 0 && bestDistanceSq <= radiusM * radiusM) || radiusM >= withinM)
+            {
+                if (best < 0 || bestDistanceSq > withinM * withinM) return -1;
 
-        alongM = bestAlongM;
-        return best;
+                (alongM, offM) = (bestAlongM, MathF.Sqrt(bestDistanceSq));
+                return best;
+            }
+
+            radiusM = MathF.Min(withinM, MathF.Max(best >= 0 ? MathF.Sqrt(bestDistanceSq) : 0f, radiusM * 2f));
+        }
     }
 
     /// <summary>
@@ -410,55 +430,6 @@ internal sealed class ChainIndex
         }
 
         return found;
-    }
-
-    /// <summary>
-    /// <b>The one of <see cref="Near(Scan, Vector2, float, Span{int}, Span{float})"/>'s answer nearest the point</b>, as a
-    /// caller giving it <paramref name="room"/> and walking what comes back finds it — keeping a chain only where it is
-    /// strictly nearer, so of two as near the first in Near's order — with how far along it and how far off it the point
-    /// is. −1 where none is within reach.
-    /// </summary>
-    /// <remarks>
-    /// <b>A chain whose box stands further off than one already measured is never projected onto</b>: nothing on it is
-    /// as near. Where more chains could be in reach than <paramref name="room"/> holds, Near's answer is the first of them,
-    /// and each is measured.
-    /// </remarks>
-    public int NearestNear(Scan scan, Vector2 pointM, float radiusM, int room, out float alongM, out float offM)
-    {
-        alongM = offM = 0f;
-        if (ChainCount == 0) return -1;
-
-        Gather(scan, pointM, radiusM);
-        var reachSq = radiusM * radiusM;
-        var mayReach = 0;
-        for (var index = 0; index < scan.Count; index++)
-        {
-            if (OffTheBoxSq(scan.Candidate[index], pointM) <= reachSq) mayReach++;
-        }
-
-        var passesOver = mayReach <= room;
-        var best = -1;
-        var found = 0;
-        for (var index = 0; index < scan.Count && found < room; index++)
-        {
-            var slot = scan.Candidate[index];
-            var offTheBoxSq = OffTheBoxSq(slot, pointM);
-            if (offTheBoxSq > reachSq) continue;
-            if (passesOver && best >= 0 && MathF.Sqrt(offTheBoxSq) > offM + LineTolerance.RoundingM) continue;
-
-            var arcs = _arcs.AsSpan(_arcStart[slot], _arcStart[slot + 1] - _arcStart[slot]);
-            var lengthM = _lengthM[slot];
-            var atM = Spline.ProjectM(arcs, pointM, lengthM * 0.5f, lengthM, out var offSq);
-            if (offSq > reachSq) continue;
-
-            found++;
-            var thisOffM = MathF.Sqrt(offSq);
-            if (best >= 0 && thisOffM >= offM) continue;
-
-            (best, alongM, offM) = (_chainId[slot], atM, thisOffM);
-        }
-
-        return best;
     }
 
     /// <summary>The slots whose pieces reach the ring, each once, in whatever order the cells gave them.</summary>

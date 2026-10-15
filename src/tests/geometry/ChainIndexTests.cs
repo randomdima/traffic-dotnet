@@ -104,43 +104,38 @@ public class ChainIndexTests
     }
 
     /// <summary>
-    /// <b>The nearest of what <see cref="ChainIndex.Near"/> hands back is the one a walk of it keeping only a strictly
-    /// nearer chain names</b> — at the same distance along and off it, and over only the first so many where the room
-    /// given is less than what is near.
+    /// <b>The nearest within a reach is the scan's nearest where that passes within it, and none where it does not</b> —
+    /// the same chain at the same distance along, however many rings the search grew through to find it.
     /// </summary>
     [Theory]
     [MemberData(nameof(CellSizes))]
-    public void TheNearestNearIsTheOneAWalkOfNearsAnswerKeeps(float cellSizeM)
+    public void TheNearestWithinAReachIsTheScansWhereItPassesWithin(float cellSizeM)
     {
         var roads = RoadGraph.Build(Towns.Of(Towns.Fixture), new SimConfig());
-        var pieces = new List<ArcSeg>();
-        for (var lane = 0; lane < roads.LaneCount; lane++) pieces.AddRange(roads.ArcsOf(lane));
-
-        var index = ChainIndex.OfPieces(pieces.ToArray(), Level(cellSizeM));
+        var index = Laid(roads, cellSizeM);
         var scan = index.NewScan();
         var rng = new Random(2);
+        var within = 0;
         foreach (var pointM in Probes(roads, rng))
         {
-            foreach (var room in (int[])[2, pieces.Count])
+            foreach (var reachM in (float[])[2f, 25f, 400f])
             {
-                var ids = new int[room];
-                var alongM = new float[room];
-                var found = Math.Min(index.Near(scan, pointM, 25f, ids, alongM), room);
-                var (walked, walkedAlongM, walkedOffM) = (-1, 0f, 0f);
-                for (var at = 0; at < found; at++)
+                var wanted = Scan(roads, pointM, out var wantedAlongM);
+                var wantedOffM = Vector2.Distance(Spline.SampleAt(roads.ArcsOf(wanted), wantedAlongM).PositionM, pointM);
+                var got = index.Nearest(scan, pointM, reachM, out var gotAlongM, out _);
+                if (wantedOffM > reachM)
                 {
-                    var offM = Vector2.Distance(pieces[ids[at]].PointAtM(alongM[at]), pointM);
-                    if (walked >= 0 && offM >= walkedOffM) continue;
-
-                    (walked, walkedAlongM, walkedOffM) = (ids[at], alongM[at], offM);
+                    Assert.Equal(-1, got);
+                    continue;
                 }
 
-                var nearest = index.NearestNear(scan, pointM, 25f, room, out var nearestAlongM, out var nearestOffM);
-
-                Assert.Equal(walked, nearest);
-                if (walked >= 0) Assert.Equal((walkedAlongM, walkedOffM), (nearestAlongM, nearestOffM));
+                Assert.Equal(wanted, got);
+                Assert.Equal(wantedAlongM, gotAlongM);
+                within++;
             }
         }
+
+        Assert.True(within > 8, $"only {within} points had a lane within reach");
     }
 
     /// <summary>
