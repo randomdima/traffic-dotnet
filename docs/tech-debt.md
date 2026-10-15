@@ -351,15 +351,6 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   nothing more — and has a unit test; the second rests on `Following.LevelTheRungs` alone, and a town gate on it, read
   off the pieces each hold asked, closes it.
 
-### Found by the .NET 11 performance review and not yet taken
-
-- **osm-scan reads some of its inputs twice a run** (2026-10-15, `meta` 13 s): the timetable (`Transit.cs:92`,
-  `Agreement.cs:33`) and the machine-traced footprints, ~1.5 s; the zones layer during `import`/`zones`
-  (`Import.cs:97`, `ZoneHints.cs:775`); and `Snapshot.cs:37` parses all 200 MB of cached answers again, ~1 s. A median
-  is a whole sort (`Buildings.cs:386`, `Agreement.cs:665`, ~0.7 s), and `Layers.cs:84` builds a string an item before
-  writing it (~0.4 s). Held once a process, selected rather than sorted, and serialized straight to the stream closes
-  them.
-
 ### Code kept twice, or kept for nothing
 
 Found by the cleanup of 2026-10-15 (`qq unused`, the analyzers) and left because closing each crosses slices, changes

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -60,32 +61,41 @@ internal static class Layers
     public static Written Write<T>(string into, string layer, string about, IEnumerable<string> readOff, IReadOnlyCollection<T> items, object? summary = null)
     {
         var path = Path.Combine(into, layer + ".json");
-        using (var file = new StreamWriter(path, false, new UTF8Encoding(false)))
+        using (var file = File.Create(path))
+        using (var json = new Utf8JsonWriter(file, new JsonWriterOptions { Encoder = Json.Encoder }))
         {
-            file.Write("{\"layer\":");
-            file.Write(JsonSerializer.Serialize(layer, Json));
-            file.Write(",\"about\":");
-            file.Write(JsonSerializer.Serialize(about, Json));
-            file.Write(",\"readOff\":");
-            file.Write(JsonSerializer.Serialize(readOff.ToArray(), Json));
-            file.Write(",\"count\":");
-            file.Write(items.Count);
-            if (summary is not null)
+            // Each value is a JSON document of its own to the writer, flushed and reset before the text between them.
+            void Value<TValue>(TValue value, Type? type = null)
             {
-                file.Write(",\"summary\":");
-                file.Write(JsonSerializer.Serialize(summary, summary.GetType(), Json));
+                JsonSerializer.Serialize(json, value, type ?? typeof(TValue), Json);
+                json.Flush();
+                json.Reset();
             }
 
-            file.Write(",\"items\":[");
+            file.Write("{\"layer\":"u8);
+            Value(layer);
+            file.Write(",\"about\":"u8);
+            Value(about);
+            file.Write(",\"readOff\":"u8);
+            Value(readOff.ToArray());
+            file.Write(",\"count\":"u8);
+            file.Write(Encoding.UTF8.GetBytes(items.Count.ToString(CultureInfo.InvariantCulture)));
+            if (summary is not null)
+            {
+                file.Write(",\"summary\":"u8);
+                Value(summary, summary.GetType());
+            }
+
+            file.Write(",\"items\":["u8);
             var first = true;
             foreach (var item in items)
             {
-                file.Write(first ? "\n" : ",\n");
-                file.Write(JsonSerializer.Serialize(item, Json));
+                file.Write(first ? "\n"u8 : ",\n"u8);
+                Value(item);
                 first = false;
             }
 
-            file.Write("\n]}\n");
+            file.Write("\n]}\n"u8);
         }
 
         return new Written(layer, about, readOff.ToArray(), items.Count, new FileInfo(path).Length, summary);
