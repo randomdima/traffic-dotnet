@@ -6,7 +6,8 @@
       "WebFetch",
       "WebFetch(domain:gee-community-catalog.org)",
       "WebFetch(domain:data.gov.ua)",
-      "WebFetch(domain:mobilitydatabase.org)"
+      "WebFetch(domain:mobilitydatabase.org)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }

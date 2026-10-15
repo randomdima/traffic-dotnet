@@ -916,6 +916,10 @@ internal sealed class CrossingWays
             round = default;
             var at = Spline.SampleAt(course, atM);
             offTheLineM = -Spline.Cross(paint.Down, at.PositionM - paint.MouthM);
+
+            // A turn no wider than half the band lands within a band of where it leaves (DepartsAt).
+            if (MathF.Abs(offTheLineM) > config.WalkingLaneWidthM + LineTolerance.RoundingM) return false;
+
             var turnRad = Spline.WrapRad(paint.DownRad - at.HeadingRad);
 
             // An arc's end is its start moved by its radius times the end of the same turn on a unit circle, so
