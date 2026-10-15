@@ -1,6 +1,7 @@
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.Core.Simulation;
 
 namespace TrafficSimulation.World.Foot;
 
@@ -72,7 +73,9 @@ internal sealed class PavementLanes
         var loose = new ArcSeg[count][][];
         var offsetM = new float[count];
         var runsWithTheRing = new bool[count];
-        for (var lane = 0; lane < count; lane++)
+
+        // Each lane's move reads the shell and writes its own slots, so the lanes are moved side by side.
+        InChunks.Over(count, static () => 0, (_, lane) =>
         {
             offsetM[lane] = config.WalkingLaneAtM(lane);
             (rings[lane], loose[lane]) = shell.Outset(
@@ -81,7 +84,7 @@ internal sealed class PavementLanes
             // The lane against the kerb keeps the hand the traffic beside it keeps, and the one beyond it
             // takes the other: a pair walked both ways is what makes a pavement two-way (WLK-8).
             runsWithTheRing[lane] = (lane == 0) == (config.RoadSideSign > 0f);
-        }
+        });
 
         return new PavementLanes(rings, loose, offsetM, runsWithTheRing);
     }

@@ -406,9 +406,12 @@ internal sealed partial class GroundMesh
     /// ones the kerb's own line needs.
     /// </para>
     /// </remarks>
-    void Shell(ReadOnlySpan<Vector2[]> outline, Surface surface, Vector3 tint)
+    void Shell(ReadOnlySpan<Vector2[]> outline, Surface surface, Vector3 tint) => Shell(ShellFill.Of(outline), surface, tint);
+
+    /// <summary>The same, of a fill already cut.</summary>
+    void Shell((Vector2[] PointsM, int[] Triangles) filled, Surface surface, Vector3 tint)
     {
-        var (pointsM, triangles) = ShellFill.Of(outline);
+        var (pointsM, triangles) = filled;
         if (triangles.Length == 0) return;
 
         var corners = new int[pointsM.Length];

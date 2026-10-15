@@ -126,7 +126,7 @@ internal static class LoadProbe
         Say("ground", groundMs, $"{triangles} triangles over {corners} corners; {Allocated(ref allocatedAt)}");
         Say("  merge", ground.MergeMs, "every driven band cut against every band near it");
         Say("  boundary", ground.BoundaryMs - ground.MergeMs, "that shape moved into each layer's own rings");
-        Say("  lines", ground.LinesMs, "each layer's line read off its rings, and thinned for its fill");
+        Say("  lines", ground.LinesMs, "each layer's line read off its rings, thinned, and the walk and carriageway filled side by side");
         Say("  ends", ground.EndsMs, "the kerb ends, the bands across them and the bars behind");
         Say("  layers", ground.LaidMs - ground.BoundaryMs - ground.LinesMs - ground.EndsMs, $"{GroundParts.Count} layers cut and welded");
         for (var part = 0; part < GroundParts.Count; part++)

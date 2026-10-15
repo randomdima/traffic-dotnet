@@ -54,7 +54,7 @@ internal static class InChunks
             return;
         }
 
-        var chunk =Math.Max(1, count / (Environment.ProcessorCount * ChunksPerProcessor));
+        var chunk = Math.Max(1, count / (Environment.ProcessorCount * ChunksPerProcessor));
         Parallel.ForEach(
             Partitioner.Create(0, count, chunk),
             working,
@@ -65,5 +65,19 @@ internal static class InChunks
                 return own;
             },
             spent ?? (_ => { }));
+    }
+
+    /// <summary>
+    /// <b>Two jobs that share nothing, run side by side</b>, each answer in its own slot — so what they come to is
+    /// the same whichever finishes first. A build-time stage with two large pieces and nothing to cut either into is
+    /// this rather than a pass; one after the other on one processor, as <see cref="Over{TWorking}"/> is.
+    /// </summary>
+    public static (TFirst First, TSecond Second) Both<TFirst, TSecond>(Func<TFirst> first, Func<TSecond> second)
+    {
+        if (Environment.ProcessorCount == 1) return (first(), second());
+
+        var aside = Task.Run(first);
+        var own = second();
+        return (aside.GetAwaiter().GetResult(), own);
     }
 }

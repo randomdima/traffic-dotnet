@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.App.Render;
@@ -451,6 +452,11 @@ internal sealed partial class GroundMesh
         var carriagewayLine = MapCut.Rings(Line(rings.Carriageway.Rings), worldM);
         var walkFill = Filled(walkLine, kerbM);
         var carriagewayFill = Filled(carriagewayLine, kerbM);
+
+        // <b>And both cut into triangles side by side</b>: each is one outer ring holding all its holes, which no
+        // pass splits, and the two share nothing (<see cref="InChunks.Both{TFirst, TSecond}"/>).
+        var (walkShell, carriagewayShell) = InChunks.Both(
+            () => ShellFill.Of(walkFill), () => ShellFill.Of(carriagewayFill));
         mesh.LinesMs = Stopwatch.GetElapsedTime(linesFrom).TotalMilliseconds;
 
         // <b>The pavement and the kerb along its outer face, under the water and the decks</b> (TER-7b): a
@@ -464,7 +470,7 @@ internal sealed partial class GroundMesh
         // the concrete it bounds, darkened</b> (<see cref="Stone"/>): the same surface as the walk, told
         // from it by the light on the stone alone.
         var walk = mesh.Starting();
-        mesh.Shell(walkFill, Surface.Pavement, Plain);
+        mesh.Shell(walkShell, Surface.Pavement, Plain);
         mesh.Laid(GroundPart.Walk, walk);
 
         var walkKerb = mesh.Starting();
@@ -499,7 +505,7 @@ internal sealed partial class GroundMesh
         // walk that reaches under it, and struck after the decks because a bridge carries its carriageway
         // over its own surface and not over the land's.
         var carriageway = mesh.Starting();
-        mesh.Shell(carriagewayFill, Surface.Tarmac, Plain);
+        mesh.Shell(carriagewayShell, Surface.Tarmac, Plain);
         mesh.Laid(GroundPart.Carriageway, carriageway);
 
         // <b>Between the stroke and the carriageway, the tarmac that is not a road</b>: a slab. It is where

@@ -1,6 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.Core.Simulation;
 
 namespace TrafficSimulation.CityGen;
 
@@ -199,8 +200,9 @@ internal sealed class GroundRings
     {
         var roundedM = config.Road.LineRoundedM;
         var walkM = config.WalkOuterM;
-        var (inner, innerLoose) = shell.Outset(0f, roundedM, ArcOutset.Corners.Filled);
-        var (outer, loose) = shell.Outset(walkM, roundedM);
+        // The two moves read the shell and nothing else, so they run side by side.
+        var ((inner, innerLoose), (outer, loose)) = InChunks.Both(
+            () => shell.Outset(0f, roundedM, ArcOutset.Corners.Filled), () => shell.Outset(walkM, roundedM));
 
         // <b>A layer is a region, so it is filled from rings shut across whatever its move left open</b>
         // (<see cref="ArcRings.Shut"/>), and the open runs are handed back beside them as the fault they are.

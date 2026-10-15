@@ -4,6 +4,29 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-15 — branches a heading cannot predict are taken in bits, and an open's independent pieces run side by side
+
+**Asked for by the owner (2026-10-15): the codebase reviewed for .NET 11's practice, performance first.** The review
+read every slice against the O30 profiles; what was taken changes no answer — `--bench age`'s digests and O30's plan,
+atlas and marks digests are unchanged — and what was not is [tech-debt.md](tech-debt.md).
+
+- **`Trig` selects in bits** where it branched on a quadrant, a sign or a fold. A heading is in any quadrant, so each
+  branch was a guess: on random headings `SinCos` is 4.1 ns (was 14.4) and `Atan2` 4.0 (was 12.3), the same to the bit
+  over every float.
+- **`EveryAgent`'s passes inline into the world's own method**: a class world is shared generic code, which called
+  each agent through the interface.
+- **Independent build-time pieces run side by side** (`InChunks.Both`): the walk's and the carriageway's fills, the
+  two outsets of the ground's rings, the pavement's lanes.
+- **The performance analyzers are warnings** (`AnalysisModePerformance`), so an allocation they know the shape of —
+  a constant array argument, an uncached serializer option — fails nothing but is in every build's output.
+
+| O30, 16 cores | before | after |
+|---|---|---|
+| the town probe's tick, µs (window 1 / the timed window) | 8 177 / 7 203 | 7 972 / 7 072 |
+| the open / plan / world / ground, s | 35.2 / 14.1 / 16.2 / 4.8 | 29.1 / 11.9 / 13.7 / 3.4 |
+| the open's peak resident (the paired pieces now stand at once) | 3 857 MiB | 3 993 MiB |
+| a window's allocation, the device's world | ~2.7 MB/s | the counters' own ~31 kB/s |
+
 ## 2026-10-15 — the engine runs on .NET 11
 
 **Asked for by the owner (2026-10-15).** Every head, the suite and the two workshop tools target `net11.0`

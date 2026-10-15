@@ -21,7 +21,8 @@ namespace TrafficSimulation.Core.Geometry;
 /// </remarks>
 internal sealed class PointCells(GridLevel level)
 {
-    readonly Dictionary<(int X, int Y), int> _lastIn = [];
+    /// <summary>Keyed as <see cref="GridLevel.KeyOf(int, int)"/>: a tuple key hashes through a combiner on every ask.</summary>
+    readonly Dictionary<long, int> _lastIn = [];
     readonly List<int> _filedBefore = [];
     readonly List<Vector2> _pointM = [];
 
@@ -40,7 +41,7 @@ internal sealed class PointCells(GridLevel level)
             return point;
         }
 
-        var cell = level.CellOf(pointM);
+        var cell = level.KeyOf(pointM);
         _filedBefore.Add(_lastIn.TryGetValue(cell, out var last) ? last : -1);
         _lastIn[cell] = point;
         return point;
@@ -59,7 +60,7 @@ internal sealed class PointCells(GridLevel level)
         {
             for (var atX = x - rings; atX <= x + rings; atX++)
             {
-                if (!_lastIn.TryGetValue((atX, atY), out var point)) continue;
+                if (!_lastIn.TryGetValue(GridLevel.KeyOf(atX, atY), out var point)) continue;
 
                 for (; point >= 0; point = _filedBefore[point])
                 {
@@ -86,7 +87,7 @@ internal sealed class PointCells(GridLevel level)
         {
             for (var atX = x - rings; atX <= x + rings; atX++)
             {
-                if (!_lastIn.TryGetValue((atX, atY), out var point)) continue;
+                if (!_lastIn.TryGetValue(GridLevel.KeyOf(atX, atY), out var point)) continue;
 
                 for (; point >= 0; point = _filedBefore[point])
                 {
@@ -125,7 +126,7 @@ internal sealed class PointCells(GridLevel level)
                 for (var atX = x - ring; atX <= x + ring; atX += step)
                 {
                     cellsRead++;
-                    if (!_lastIn.TryGetValue((atX, atY), out var point)) continue;
+                    if (!_lastIn.TryGetValue(GridLevel.KeyOf(atX, atY), out var point)) continue;
 
                     for (; point >= 0; point = _filedBefore[point])
                     {
@@ -172,7 +173,7 @@ internal sealed class PointCells(GridLevel level)
                 for (var atX = x - ring; atX <= x + ring; atX += step)
                 {
                     cellsRead++;
-                    if (!_lastIn.TryGetValue((atX, atY), out var point)) continue;
+                    if (!_lastIn.TryGetValue(GridLevel.KeyOf(atX, atY), out var point)) continue;
 
                     for (; point >= 0; point = _filedBefore[point]) Keep(point);
                 }
