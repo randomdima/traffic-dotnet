@@ -22,8 +22,9 @@ is stepped by the same device world the desktop's window is (`DeviceWorld`), fro
   those names. The emit that draws what moves (`DeviceSprites`) stays the desktop's: it binds nineteen buffers.
 - **A page cannot wait**, so a step's read-backs land in pinned memory between frames with the batch's serial after
   them, and a tick that comes first is not taken (`WorldLayer.Ready`, WEB-10). A batch is one crossing (WEB-2).
-- **Measured** (River, Debug build, RX 9070 XT under Chromium): the town ticks 0.9 a frame at 60 fps with every body
-  integrated on the device, and no WebGPU error over five minutes.
+- **Measured** (RX 9070 XT under Chromium, `qq web --ui frame`): the published page keeps Odesa at real time, 0.5
+  ticks a frame at 114 fps on a 120 Hz display, the main thread's tick 0.30 ms against the managed world's 0.46; a
+  Debug page stands River in three minutes and then ticks 0.9 a frame at 60 fps. No WebGPU error over five minutes.
 
 ## 2026-09-26 — rules reworded to what the code does
 
