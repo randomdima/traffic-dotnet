@@ -61,12 +61,13 @@ internal static class OneWayStreets
 
         for (var edge = 0; edge < chosen.Length; edge++) town.RunsOneWay(edge, laid[edge]);
 
+        var stands = town.Stands();
         for (var edge = 0; edge < chosen.Length; edge++)
         {
             if (chosen[edge] == RoadFlow.BothWays) continue;
 
-            town.RunsOneWay(edge, chosen[edge]);
-            if (!town.Stands()) town.RunsOneWay(edge, laid[edge]);
+            if (town.StandsDirected(edge, chosen[edge], stands)) stands = true;
+            else town.RunsOneWay(edge, laid[edge]);
         }
     }
 
@@ -244,6 +245,16 @@ internal static class OneWayStreets
         readonly int[] _firstOfPiece;
         readonly int[] _order;
 
+        /// <summary>Stamped with <see cref="_asked"/> for the movements a taken one ran onto.</summary>
+        readonly int[] _onwardIn;
+
+        /// <summary>Stamped with <see cref="_searched"/> for the movements and junctions one search has come to.</summary>
+        readonly int[] _reachedIn;
+        readonly int[] _arrivedIn;
+        readonly int[] _queue;
+        int _asked;
+        int _searched;
+
         public Movements(TownLayout layout)
         {
             _layout = layout;
@@ -277,6 +288,13 @@ internal static class OneWayStreets
             _arms = new int[_nodes];
             _arrivingCount = new int[_nodes];
             _leavingCount = new int[_nodes];
+            for (var edge = 0; edge < edges; edge++)
+            {
+                _arms[_from[edge]]++;
+                _arms[_to[edge]]++;
+                Count(edge, 1);
+            }
+
             _index = new int[_moves];
             _low = new int[_moves];
             _piece = new int[_moves];
@@ -289,17 +307,69 @@ internal static class OneWayStreets
             _seenBy = new int[_nodes];
             _firstOfPiece = new int[_moves + 1];
             _order = new int[_moves];
+            _onwardIn = new int[_moves];
+            _reachedIn = new int[_moves];
+            _arrivedIn = new int[_nodes];
+            _queue = new int[_moves];
         }
 
         /// <summary>Directs one road on the layout and here alike.</summary>
         public void RunsOneWay(int edge, RoadFlow flow)
         {
             _layout.RunsOneWay(edge, flow);
+            Count(edge, -1);
             _flow[edge] = flow;
+            Count(edge, 1);
+        }
+
+        /// <summary>One road's movements counted into, or out of, the ends they leave and arrive at.</summary>
+        void Count(int edge, int by)
+        {
+            if (_flow[edge] != RoadFlow.AgainstTheRoad)
+            {
+                _leavingCount[_from[edge]] += by;
+                _arrivingCount[_to[edge]] += by;
+            }
+
+            if (_flow[edge] != RoadFlow.WithTheRoad)
+            {
+                _leavingCount[_to[edge]] += by;
+                _arrivingCount[_from[edge]] += by;
+            }
         }
 
         /// <summary>Whether the town keeps both of the things a one-way street can cost it.</summary>
         public bool Stands() => NothingDangles() && CanBeDrivenRound();
+
+        /// <summary>
+        /// <b>Directs one road and answers <see cref="Stands"/></b> — asked only of what the change can have moved
+        /// where the town stood before it and the change only took one movement away, and of the whole town
+        /// otherwise.
+        /// </summary>
+        /// <param name="stoodBefore"><see cref="Stands"/> of the town as it is before the change.</param>
+        /// <remarks>
+        /// <b>A movement taken away moves only its own two ends' counts</b>, so nothing dangles anywhere else; and
+        /// <b>where every movement reached every junction before, every one still does exactly when each movement
+        /// that ran onto the one taken away still does</b> (<see cref="StillReachesEverything"/>): a way from anywhere
+        /// that ran over it ran through one of those first.
+        /// </remarks>
+        public bool StandsDirected(int edge, RoadFlow flow, bool stoodBefore)
+        {
+            var withBefore = Runs(edge * 2);
+            var againstBefore = Runs((edge * 2) + 1);
+            RunsOneWay(edge, flow);
+            var withAfter = Runs(edge * 2);
+            var againstAfter = Runs((edge * 2) + 1);
+
+            if (withAfter == withBefore && againstAfter == againstBefore) return stoodBefore;
+
+            // A road runs at least one way, so a change that adds nothing takes exactly one movement away.
+            var adds = (withAfter && !withBefore) || (againstAfter && !againstBefore);
+            if (!stoodBefore || adds) return Stands();
+
+            var taken = withBefore && !withAfter ? edge * 2 : (edge * 2) + 1;
+            return NothingDanglesAt(_from[edge]) && NothingDanglesAt(_to[edge]) && StillReachesEverything(taken);
+        }
 
         /// <summary>
         /// <b>Whether every movement the layout carries is one a car can both reach and leave</b> (GEN-50).
@@ -316,31 +386,21 @@ internal static class OneWayStreets
         /// </remarks>
         bool NothingDangles()
         {
-            Array.Clear(_arms);
-            Array.Clear(_arrivingCount);
-            Array.Clear(_leavingCount);
-            for (var edge = 0; edge < _flow.Length; edge++)
-            {
-                var from = _from[edge];
-                var to = _to[edge];
-                _arms[from]++;
-                _arms[to]++;
-                if (_flow[edge] != RoadFlow.AgainstTheRoad)
-                {
-                    _leavingCount[from]++;
-                    _arrivingCount[to]++;
-                }
-
-                if (_flow[edge] != RoadFlow.WithTheRoad)
-                {
-                    _leavingCount[to]++;
-                    _arrivingCount[from]++;
-                }
-            }
-
             for (var edge = 0; edge < _flow.Length; edge++)
             {
                 if (!Holds(edge, _from[edge], atFromEnd: true) || !Holds(edge, _to[edge], atFromEnd: false)) return false;
+            }
+
+            return true;
+        }
+
+        /// <summary><see cref="NothingDangles"/> asked of the roads at one node, at that node.</summary>
+        bool NothingDanglesAt(int node)
+        {
+            for (var at = _firstLeaving[node]; at < _firstLeaving[node + 1]; at++)
+            {
+                var move = _leaving[at];
+                if (!Holds(move / 2, node, atFromEnd: move % 2 == 0)) return false;
             }
 
             return true;
@@ -412,6 +472,83 @@ internal static class OneWayStreets
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// <b>Whether every movement that ran onto <paramref name="taken"/> still reaches every junction</b> now it no
+        /// longer runs — which, where every movement reached every junction while it did, is
+        /// <see cref="CanBeDrivenRound"/>'s answer.
+        /// </summary>
+        /// <remarks>
+        /// A search from each of them stops once it has come to every movement <paramref name="taken"/> ran onto and to
+        /// the junction it arrived at: what a way over it reached is reached from there without it. A search that never
+        /// does has read all it reaches, and counts the junctions.
+        /// </remarks>
+        bool StillReachesEverything(int taken)
+        {
+            _asked++;
+            var arrives = Arrives(taken);
+            var onward = 0;
+            for (var at = _firstLeaving[arrives]; at < _firstLeaving[arrives + 1]; at++)
+            {
+                var onto = _leaving[at];
+                if (!Runs(onto) || onto / 2 == taken / 2 || _onwardIn[onto] == _asked) continue;
+
+                _onwardIn[onto] = _asked;
+                onward++;
+            }
+
+            // A movement arriving where one leaves is the other way down a road that leaves there.
+            var departs = Arrives(taken ^ 1);
+            for (var at = _firstLeaving[departs]; at < _firstLeaving[departs + 1]; at++)
+            {
+                var before = _leaving[at] ^ 1;
+                if (!Runs(before) || before / 2 == taken / 2) continue;
+
+                if (!ReachesEverything(before, onward, arrives)) return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>Whether one movement reaches every junction, searched out until it has come to every movement marked onward and to <paramref name="end"/>.</summary>
+        bool ReachesEverything(int start, int onward, int end)
+        {
+            _searched++;
+            var found = 0;
+            var atTheEnd = false;
+            var junctions = 0;
+            var head = 0;
+            var tail = 0;
+            Visit(start);
+            while (head < tail)
+            {
+                if (found == onward && atTheEnd) return true;
+
+                var move = _queue[head++];
+                var arrives = Arrives(move);
+                for (var at = _firstLeaving[arrives]; at < _firstLeaving[arrives + 1]; at++)
+                {
+                    var onto = _leaving[at];
+                    if (Runs(onto) && onto / 2 != move / 2 && _reachedIn[onto] != _searched) Visit(onto);
+                }
+            }
+
+            return junctions == _nodes;
+
+            void Visit(int move)
+            {
+                _reachedIn[move] = _searched;
+                _queue[tail++] = move;
+                if (_onwardIn[move] == _asked) found++;
+
+                var arrives = Arrives(move);
+                atTheEnd |= arrives == end;
+                if (_arrivedIn[arrives] == _searched) return;
+
+                _arrivedIn[arrives] = _searched;
+                junctions++;
+            }
         }
 
         /// <summary>Which junction a movement arrives at: the far end of its road, read the way it is driven.</summary>
