@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Geometry;
@@ -114,7 +113,6 @@ internal sealed class ParkingIn(
     /// run straight back from there to the lane's start, since a car park stands on a street straight enough to
     /// square a rank to (GEN-53).
     /// </remarks>
-    [SkipLocalsInit]
     public float StopForTheBayM(int car, int bay, int lane)
     {
         var roads = ground.Roads;
@@ -154,7 +152,6 @@ internal sealed class ParkingIn(
     /// whichever of the two it can make takes less street, and its driver's habit where they take the same.
     /// False where it can make neither from here.
     /// </summary>
-    [SkipLocalsInit]
     bool ShapeTheWayIn(int car, int bay, int lane)
     {
         ref readonly var build = ref Cars.BuildOf(car);

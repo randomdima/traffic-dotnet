@@ -48,6 +48,7 @@ internal static class TownCensus
         var stepM = sampled.Level.CellM;
         var kindAt = new byte[sampled.Count];
         Span<int> samplesPerGround = stackalloc int[GroundCatalog.Kinds];
+        samplesPerGround.Clear();
         var samples = 0;
         for (var y = sampled.FromY; y <= sampled.ToY; y++)
         {

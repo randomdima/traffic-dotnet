@@ -1,5 +1,4 @@
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
@@ -503,7 +502,6 @@ internal sealed class WalkingGround(
     /// <b>Where the walk is a distance down it</b> from the body's own place, over the pavement's lanes and the
     /// mitres at its corners alike. False where the route does not reach that far.
     /// </summary>
-    [SkipLocalsInit]
     public bool OnTheWalkAt(int person, float aheadM, out SplineSample at)
     {
         at = default;

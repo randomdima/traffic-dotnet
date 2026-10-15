@@ -252,6 +252,8 @@ internal sealed class RoadLines(
             : WanderNodes(edge, ref draw);
 
         Span<Vector2> pointsM = stackalloc Vector2[wanderNodes + 2];
+        // Cleared because a wander along an edge of no length writes none of the points between its ends.
+        pointsM.Clear();
         pointsM[0] = from.StandM;
         pointsM[^1] = to.StandM;
         if (edge.ThroughM.Length > 0)

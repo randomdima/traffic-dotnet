@@ -1,5 +1,4 @@
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 
@@ -84,7 +83,6 @@ internal sealed partial class GroundShapes
     /// frame is a kilobyte of stores a query pays and never reads, on the path a tick asks most.
     /// </para>
     /// </remarks>
-    [SkipLocalsInit]
     RoadGround Roads(ChainIndex.Scan scan, Vector2 pointM)
     {
         Span<int> near = stackalloc int[MostRoadsNear];

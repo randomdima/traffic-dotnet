@@ -1,5 +1,4 @@
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Core.Config;
@@ -69,7 +68,6 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     /// route's ground (<see cref="GroundStillToCover"/>) — at a walker's rung, and at <see cref="ClaimPriority.Committed"/>
     /// once begun.
     /// </summary>
-    [SkipLocalsInit]
     public void Lay(int person)
     {
         Occupancy.Release(_holds[person]);
@@ -317,7 +315,6 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     /// (TER-4c.5) — <c>docs/tech-debt.md</c>.
     /// </para>
     /// </remarks>
-    [SkipLocalsInit]
     public bool DrawThePass(int person, float sinceLastDecisionS, int cutOn, float cutAtM)
     {
         var code = People.CurrentRouteWay(person);
@@ -362,7 +359,6 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     /// the walker and the one it passes, the gap it keeps past where it steps back included, so it never steps back in
     /// front of somebody. Whether a plan holds any of it is answered when the pass is laid.
     /// </summary>
-    [SkipLocalsInit]
     bool IsTheSidestepFree(int person)
     {
         var passed = new ReadOnlySpan<BodySeen>(in _passed[person]);

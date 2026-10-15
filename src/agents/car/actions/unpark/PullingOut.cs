@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Geometry;
@@ -75,7 +74,6 @@ internal sealed class PullingOut(
     /// out onto the other one it is back on the lane it came down, and the route that turned it sends it round to
     /// turn here again.
     /// </remarks>
-    [SkipLocalsInit]
     public bool ShapeTheWayOut(int car, int bay, int lane)
     {
         var turning = parking.TurnOf(car) == bay && lane != CarFleet.NoLane;

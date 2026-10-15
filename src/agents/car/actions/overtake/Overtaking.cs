@@ -1,5 +1,4 @@
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Config;
@@ -245,7 +244,6 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// comes back there once that has gone, and until then it waits where it is rather than backing up for a pass it
     /// could not have anyway.
     /// </summary>
-    [SkipLocalsInit]
     public bool IsTheRoomHeld(int car)
     {
         ref readonly var shape = ref _shapes[Holder(car, FromRest)];
@@ -376,7 +374,6 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// (<see cref="HoldOf"/>).
     /// </remarks>
     /// <param name="underWay">Whether the car is on the route's line, as the town reads it.</param>
-    [SkipLocalsInit]
     public void Lay(int car, bool underWay)
     {
         Occupancy.Release(_holds[car]);
@@ -621,7 +618,6 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// </para>
     /// </remarks>
     /// <param name="drawnAs">The car's shape this is drawn as, which its bodies passed are kept under.</param>
-    [SkipLocalsInit]
     bool Shape(int car, int drawnAs, float progressM, float speedMps, int cutOn, float cutAtM, out Overtake pass)
     {
         var holder = Table(car, drawnAs);
@@ -956,7 +952,6 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// <b>Whether the ground a pass would cover is road a pass may be had on</b> (TER-4c.6): clear of every zebra, but for
     /// a car on a call, whose rung is above everybody on foot (TER-5g): the paint it crosses is road to it.
     /// </summary>
-    [SkipLocalsInit]
     bool IsThePassOnTheRoad(int car, in Overtake pass, float toLineM)
     {
         if (Cars.BlueLight[car]) return true;
@@ -981,7 +976,6 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// is laid and kept without it: a pass that cleared what it passes by a hair was asked for one tick and withdrawn
     /// the next, as that body settled a hair nearer.
     /// </remarks>
-    [SkipLocalsInit]
     bool IsThePassUnheld(int car, int shape, float progressM)
     {
         var table = Table(car, shape);

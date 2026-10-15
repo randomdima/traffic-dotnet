@@ -1,5 +1,4 @@
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Config;
@@ -243,7 +242,6 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     /// rebuild after it is begun, from where the car stands on its piece to the end of its last. <b>A manoeuvre into a bay
     /// the line stops for no longer is given up here</b>, for the road.
     /// </summary>
-    [SkipLocalsInit]
     public void Lay(int car)
     {
         Occupancy.Release(_holds[car]);
@@ -362,7 +360,6 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     /// the car is getting into or out of. <b>False where it lies over a zebra's paint</b> (TER-4c.6): a shape run through
     /// a crossing is not one the car makes.
     /// </summary>
-    [SkipLocalsInit]
     public bool WhatTheShapeTakes(int car, int bay, ReadOnlySpan<ArcSeg> arcs, in BayManoeuvre.Shape shape, out float streetM)
     {
         streetM = 0f;

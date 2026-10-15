@@ -61,6 +61,7 @@ internal sealed partial class LaneOccupancy
         Span<ushort> reachDm = stackalloc ushort[Rungs];
         Span<byte> merged = stackalloc byte[Rungs];
         reachDm.Clear();
+        merged.Clear();
 
         // A merged claim over the stretch takes in whatever begins short of its reach, though past the stretch.
         var untilDm = toDm;

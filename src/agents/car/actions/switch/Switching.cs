@@ -1,5 +1,4 @@
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Config;
@@ -293,7 +292,6 @@ internal sealed class Switching(DrivingGround ground, CarActions actions)
     /// <see cref="ClaimPriority.Committed"/> after. A step the car is no longer on its line for, or no longer on the lane
     /// of, is let go.
     /// </summary>
-    [SkipLocalsInit]
     public void Lay(int car, bool underWay)
     {
         Occupancy.Release(_holds[car]);
@@ -554,7 +552,6 @@ internal sealed class Switching(DrivingGround ground, CarActions actions)
     /// <summary>
     /// <b>Whether the ground a step would cover is road a step may be had on</b> (TER-4c.6): clear of every zebra.
     /// </summary>
-    [SkipLocalsInit]
     bool IsOnTheRoad(int car, in Overtake step, bool inward, float progressM, float toLineM)
     {
         Span<LineWay> stretches = stackalloc LineWay[MostStretchesOfAStep];
@@ -571,7 +568,6 @@ internal sealed class Switching(DrivingGround ground, CarActions actions)
     /// Whether a plan holds any of it is answered when the step is laid, after every plan of its rung — so traffic coming
     /// up the lane beside, whose plan reaches over it, is let by first.
     /// </summary>
-    [SkipLocalsInit]
     bool IsUnheld(int car, in Overtake step, bool inward, float toLineM)
     {
         Span<LineWay> stretches = stackalloc LineWay[MostStretchesOfAStep];
