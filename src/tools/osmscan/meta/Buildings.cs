@@ -385,8 +385,8 @@ internal static class Buildings
 
     static double Median(IEnumerable<double> values)
     {
-        var sorted = values.Order().ToArray();
-        return sorted.Length == 0 ? 0 : sorted[sorted.Length / 2];
+        var all = values.ToArray();
+        return all.Length == 0 ? 0 : Ranked.At(all, all.Length / 2);
     }
 
     public static double? Number(string? value) =>

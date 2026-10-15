@@ -664,8 +664,8 @@ internal static class Agreement
 
     static double Quantile(IEnumerable<double> values, double q)
     {
-        var sorted = values.Order().ToArray();
-        return sorted.Length == 0 ? double.NaN : sorted[Math.Min(sorted.Length - 1, (int)(q * sorted.Length))];
+        var all = values.ToArray();
+        return all.Length == 0 ? double.NaN : Ranked.At(all, Math.Min(all.Length - 1, (int)(q * all.Length)));
     }
 
     static string Share(int part, int whole) => whole == 0 ? "—" : ((double)part / whole).ToString("P1", CultureInfo.InvariantCulture);
