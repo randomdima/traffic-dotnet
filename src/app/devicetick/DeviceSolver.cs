@@ -200,8 +200,8 @@ internal sealed class DeviceSolver : IDisposable
     readonly GpuBuffer _candidates;
     readonly GpuBuffer _met;
     readonly GpuBuffer _contactStarts;
-    readonly GpuBuffer _manifoldA;
-    readonly GpuBuffer _manifoldB;
+    /// <summary>Each candidate's manifold in two rows (<c>narrow.comp</c>): its normal and separations, then its points.</summary>
+    readonly GpuBuffer _manifolds;
     readonly GpuBuffer _contact;
     readonly GpuBuffer _contactNormal;
     readonly GpuBuffer _contactPoints;
@@ -358,8 +358,7 @@ internal sealed class DeviceSolver : IDisposable
         _candidates = Device<UInt2>(CandidateCapacity);
         _met = Device<uint>(CandidateCapacity);
         _contactStarts = Device<uint>(CandidateCapacity);
-        _manifoldA = Device<Vector4>(CandidateCapacity);
-        _manifoldB = Device<Vector4>(CandidateCapacity);
+        _manifolds = Device<Vector4>(2 * CandidateCapacity);
         _contact = Device<UInt4>(ContactCapacity);
         _contactNormal = Device<Vector4>(ContactCapacity);
         _contactPoints = Device<Vector4>(ContactCapacity);
@@ -375,9 +374,9 @@ internal sealed class DeviceSolver : IDisposable
         _gridCount = Kernel("grid_count.comp", 7, sets: 2);
         _gridFill = Kernel("grid_fill.comp", 6, sets: 2);
         _pairs = Kernel("pairs.comp", 13);
-        _narrow = Kernel("narrow.comp", 11);
+        _narrow = Kernel("narrow.comp", 10);
         _wokenKernel = Kernel("woken.comp", 15);
-        _compact = Kernel("compact.comp", 17);
+        _compact = Kernel("compact.comp", 16);
         _solve = Kernel("solve.comp", 13);
         _integrate = Kernel("integrate.comp", 10);
         _settle = Kernel("settle.comp", 12);
@@ -394,7 +393,7 @@ internal sealed class DeviceSolver : IDisposable
             _candidateCounts, _candidateStarts, _candidates, _totals, _state,
         ]);
         _narrowSet = _narrow.Bind(
-            [_candidates, _pose, _shape, _met, _contactStarts, _manifoldA, _manifoldB, _totals, _state, _overlap, _woken]);
+            [_candidates, _pose, _shape, _met, _contactStarts, _manifolds, _totals, _state, _overlap, _woken]);
         _wokenSet = _wokenKernel.Bind(
         [
             _bounds, _filter, _pose, _shape, _state, _overlap, _movingStarts, _movingItemsBuffer, _staticCounts, _staticStarts,
@@ -402,7 +401,7 @@ internal sealed class DeviceSolver : IDisposable
         ]);
         _compactSet = _compact.Bind(
         [
-            _candidates, _met, _contactStarts, _manifoldA, _manifoldB, _contact, _contactNormal, _contactPoints, _overlap,
+            _candidates, _met, _contactStarts, _manifolds, _contact, _contactNormal, _contactPoints, _overlap,
             _filter, _totals, _pose, _mass, _arms, _pointMass, _impulses, _sideInOrder,
         ]);
         _solveSet = _solve.Bind(

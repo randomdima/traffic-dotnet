@@ -25,33 +25,43 @@ internal sealed class DeviceLanes : IDisposable
     readonly Vk _vk;
     readonly List<GpuBuffer> _owned = [];
 
-    /// <summary>In <c>line_reading.glsl</c>'s order: the lanes' arcs, where each begins, their lengths, the joins' arcs, where each begins, and where each leads.</summary>
+    /// <summary>
+    /// In <c>line_reading.glsl</c>'s order: the lanes' arcs then the joins', and the words — where each lane's arcs begin,
+    /// the lanes' lengths, where each join's begin and where each join leads, under a head naming where each table and the
+    /// joins' first arc stand (<c>LineWords</c>). Two bindings where six would take more than WebGPU gives a kernel.
+    /// </summary>
     public GpuBuffer[] Tables { get; }
 
-    public DeviceLanes(Vk vk, RoadGraph roads)
+    /// <summary>How many words the head of the words takes: a table's start each, and the joins' first arc.</summary>
+    const int HeadWords = 5;
+
+    public unsafe DeviceLanes(Vk vk, RoadGraph roads)
     {
         _vk = vk;
         var (laneArcs, laneArcFrom, joinArcs, joinArcFrom, joinTo) = roads.Tables;
-        Tables =
+        var arcs = Room<ArcRow>(laneArcs.Length + joinArcs.Length);
+        arcs.Upload<ArcSeg, ArcRow>(laneArcs.Span, &ArcRow.Of, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit);
+        arcs.Upload<ArcSeg, ArcRow>(
+            joinArcs.Span, &ArcRow.Of, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit,
+            (ulong)(laneArcs.Length * Marshal.SizeOf<ArcRow>()));
+
+        var lengths = MemoryMarshal.Cast<float, int>(roads.LaneLengthM.AsSpan());
+        Span<int> head =
         [
-            LaidArcs(laneArcs.Span), Laid<int>(laneArcFrom), Laid<float>(roads.LaneLengthM), LaidArcs(joinArcs.Span),
-            Laid<int>(joinArcFrom), Laid<int>(joinTo),
+            HeadWords, HeadWords + laneArcFrom.Length, HeadWords + laneArcFrom.Length + lengths.Length,
+            HeadWords + laneArcFrom.Length + lengths.Length + joinArcFrom.Length, laneArcs.Length,
         ];
+        var words = Room<int>(head[3] + joinTo.Length);
+        Upload(words, (ReadOnlySpan<int>)head, 0);
+        Upload(words, laneArcFrom, head[0]);
+        Upload(words, lengths, head[1]);
+        Upload(words, joinArcFrom, head[2]);
+        Upload(words, joinTo, head[3]);
+        Tables = [arcs, words];
     }
 
-    GpuBuffer Laid<T>(ReadOnlySpan<T> rows) where T : unmanaged
-    {
-        var buffer = Room<T>(rows.Length);
-        buffer.Upload(rows, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit);
-        return buffer;
-    }
-
-    unsafe GpuBuffer LaidArcs(ReadOnlySpan<ArcSeg> arcs)
-    {
-        var buffer = Room<ArcRow>(arcs.Length);
-        buffer.Upload<ArcSeg, ArcRow>(arcs, &ArcRow.Of, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit);
-        return buffer;
-    }
+    static void Upload(GpuBuffer words, ReadOnlySpan<int> rows, int atWord) =>
+        words.Upload(rows, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit, (ulong)atWord * sizeof(int));
 
     GpuBuffer Room<T>(int count) where T : unmanaged
     {

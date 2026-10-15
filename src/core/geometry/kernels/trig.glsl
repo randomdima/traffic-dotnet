@@ -11,6 +11,7 @@
 #ifndef TRIG_GLSL
 #define TRIG_GLSL
 
+#include "core/geometry/kernels/floats.glsl"
 #include "core/geometry/kernels/rounded.glsl"
 
 const float TrigPi = 3.14159265358979323846;
@@ -51,23 +52,6 @@ const float TrigAtan0 = 8.05374449538e-2;
 const float TrigAtan1 = -1.38776856032e-1;
 const float TrigAtan2Coefficient = 1.99777106478e-1;
 const float TrigAtan3 = -3.33329491539e-1;
-
-// NaN and infinity asked of the bits, since a driver that keeps neither folds them away (Vulkan keeps them only where a
-// kernel asks for it).
-bool trigIsNaN(float x)
-{
-    return (floatBitsToUint(x) & 0x7fffffffu) > 0x7f800000u;
-}
-
-bool trigIsInfinite(float x)
-{
-    return (floatBitsToUint(x) & 0x7fffffffu) == 0x7f800000u;
-}
-
-float trigNaN()
-{
-    return uintBitsToFloat(0x7fc00000u);
-}
 
 // Trig.ReduceLarge: a large magnitude's 62-bit fraction of a quadrant past the nearest whole one, in radians, and the
 // quadrant.
@@ -127,9 +111,9 @@ float trigReduce(float x, out int quadrant)
 // sin and cos of x, each as Trig.SinCos gives it.
 void trigSinCos(float x, out float sine, out float cosine)
 {
-    if (trigIsNaN(x) || trigIsInfinite(x))
+    if (floatIsNaN(x) || floatIsInfinite(x))
     {
-        sine = cosine = trigNaN();
+        sine = cosine = floatNaN();
         return;
     }
 
@@ -207,7 +191,7 @@ float trigAtanOfMagnitude(float magnitude)
 // atan(x), as Trig.Atan.
 float trigAtan(float x)
 {
-    if (trigIsNaN(x)) return trigNaN();
+    if (floatIsNaN(x)) return floatNaN();
 
     float rad = trigAtanOfMagnitude(abs(x));
     return x < 0.0 ? -rad : rad;
@@ -216,7 +200,7 @@ float trigAtan(float x)
 // atan2(y, x), as Trig.Atan2, quadrant by quadrant and signed zero by signed zero.
 float trigAtan2(float y, float x)
 {
-    if (trigIsNaN(x) || trigIsNaN(y)) return trigNaN();
+    if (floatIsNaN(x) || floatIsNaN(y)) return floatNaN();
 
     bool below = (floatBitsToUint(y) >> 31) != 0u;
     bool behind = (floatBitsToUint(x) >> 31) != 0u;
@@ -226,13 +210,13 @@ float trigAtan2(float y, float x)
         return below ? -TrigHalfPi : TrigHalfPi;
     }
 
-    if (trigIsInfinite(x))
+    if (floatIsInfinite(x))
     {
-        float far = trigIsInfinite(y) ? (behind ? 3.0 * TrigQuarterPi : TrigQuarterPi) : (behind ? TrigPi : 0.0);
+        float far = floatIsInfinite(y) ? (behind ? 3.0 * TrigQuarterPi : TrigQuarterPi) : (behind ? TrigPi : 0.0);
         return below ? -far : far;
     }
 
-    if (trigIsInfinite(y)) return below ? -TrigHalfPi : TrigHalfPi;
+    if (floatIsInfinite(y)) return below ? -TrigHalfPi : TrigHalfPi;
     if (y == 0.0) return behind ? (below ? -TrigPi : TrigPi) : y;
 
     float z = trigAtanOfMagnitude(roundedQuotient(abs(y), abs(x)));
@@ -243,7 +227,7 @@ float trigAtan2(float y, float x)
 // tan(x), as Trig.Tan: past the short way, the sine over the cosine.
 float trigTan(float x)
 {
-    if (trigIsNaN(x) || trigIsInfinite(x)) return trigNaN();
+    if (floatIsNaN(x) || floatIsInfinite(x)) return floatNaN();
     if (abs(x) < TrigTinyBelow) return x;
 
     if (abs(x) >= TrigShortWayBelow)

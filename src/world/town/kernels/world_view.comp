@@ -1,17 +1,16 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
 
-// The shallow state handed back behind every step (WorldView; ManagedWorld.WriteTheView), one thread a car and then one a
-// walker, written straight into memory the host reads. A car is read off its body: whether it is frozen and whether it
-// was through the whole step, which wheels stand on a way, its channels and how deep it was into what it touched; a
-// walker the same, and whether it declared a velocity. The first thread hands back the covers listed beside the view,
-// and on a step takes the marks the tyres laid into the ground's ring (drift_marks.glsl).
+// The cars' half of the shallow state handed back behind every step (WorldView; ManagedWorld.WriteTheView), one thread a
+// car, written straight into memory the host reads: whether it is frozen and whether it was through the whole step,
+// which wheels stand on a way, its channels and how deep it was into what it touched, where it stands on what it follows
+// and where its wheel is aimed. The walkers' half, the covers' counts and the marks are world_view_walkers.comp's — two
+// passes, since one would bind more storage buffers than WebGPU gives a kernel.
 //
 // With ViewStepped in the mode the pass is the step's own and keeps what the step settled — the acceleration a car
-// settles onto its springs with, lagged toward what its patches spent this tick, and the distance walked — and each car's
-// pose as its tyres read it at the next step, and whether it comes into that step frozen, until a signal moves its body
-// (world_signals.comp). Without it (the view written again off the clock, DeviceWorld.ReadCovers) it only reads, so a
-// second pass moves nothing.
+// settles onto its springs with, lagged toward what its patches spent this tick — and each car's pose as its tyres read
+// it at the next step, and whether it comes into that step frozen, until a signal moves its body (world_signals.comp).
+// Without it (the view written again off the clock, DeviceWorld.ReadCovers) it only reads, so a second pass moves nothing.
 
 layout(local_size_x = 64) in;
 
@@ -21,42 +20,32 @@ layout(local_size_x = 64) in;
 #include "world/physics/kernels/filter.glsl"
 
 layout(std430, binding = 0) buffer Cars { WorldCar cars[]; };
-layout(std430, binding = 1) buffer Walkers { WorldWalker walkers[]; };
-layout(std430, binding = 2) readonly buffer ImpulseRows { vec4 impulseRows[]; };
-layout(std430, binding = 3) buffer Poses { TyrePose poses[]; };
-layout(std430, binding = 4) readonly buffer CarRows { TyreCarRow carRows[]; };
-layout(std430, binding = 5) readonly buffer Pose { vec4 pose[]; };
-layout(std430, binding = 6) readonly buffer HeadingB { float headingRad[]; };
-layout(std430, binding = 7) readonly buffer Motion { vec4 motion[]; };
-layout(std430, binding = 8) readonly buffer Filter { uint filter_[]; };
-layout(std430, binding = 9) readonly buffer Overlap { uint overlap[]; };
-layout(std430, binding = 10) writeonly buffer CarViews { CarViewRow carViews[]; };
-layout(std430, binding = 11) writeonly buffer WalkerViews { WalkerViewRow walkerViews[]; };
-
-// The covers kernel's counts (DeviceWorld._counts) and where the host reads them, and the ground's ring of marks the tyre
-// pass laid the step's into.
-layout(std430, binding = 12) readonly buffer CoverCounts { uint coverCounts[4]; };
-
-#include "world/terrain/kernels/drift_mark_rows.glsl"
-
-layout(std430, binding = 13) buffer DriftMarkRingB { DriftMarkRing driftMarkRing; };
-layout(std430, binding = 14) writeonly buffer CountsOut { uint countsOut[4]; };
-
-#define DRIFT_MARK_RING driftMarkRing
-#include "world/terrain/kernels/drift_marks.glsl"
+layout(std430, binding = 1) readonly buffer ImpulseRows { vec4 impulseRows[]; };
+layout(std430, binding = 2) buffer Poses { TyrePose poses[]; };
+layout(std430, binding = 3) readonly buffer CarRows { TyreCarRow carRows[]; };
+layout(std430, binding = 4) readonly buffer Pose { vec4 pose[]; };
+layout(std430, binding = 5) readonly buffer HeadingB { float headingRad[]; };
+layout(std430, binding = 6) readonly buffer Motion { vec4 motion[]; };
+layout(std430, binding = 7) readonly buffer Filter { uint filter_[]; };
+layout(std430, binding = 8) readonly buffer Overlap { uint overlap[]; };
+layout(std430, binding = 9) writeonly buffer CarViews { CarViewRow carViews[]; };
 
 // What each car follows (world_signals.comp), its build, and the lanes it is read along (line_reading.glsl).
 #include "agents/car/body/kernels/car_build.glsl"
 #include "world/road/kernels/line_followed.glsl"
-layout(std430, binding = 15) buffer Follows { LineFollowedRow follows[]; };
-layout(std430, binding = 16) readonly buffer Builds { CarBuildRow builds[]; };
-layout(std430, binding = 17) readonly buffer BuildOf { uint buildOf[]; };
+layout(std430, binding = 10) buffer Follows { LineFollowedRow follows[]; };
+layout(std430, binding = 11) readonly buffer Builds { CarBuildRow builds[]; };
+layout(std430, binding = 12) readonly buffer BuildOf { uint buildOf[]; };
 
-#define LINE_READING_BINDING 18
+#define LINE_READING_BINDING 13
 #include "world/road/kernels/line_reading.glsl"
 
-void viewTheCar(uint car, bool stepped)
+void main()
 {
+    uint car = gl_GlobalInvocationID.x;
+    if (car >= world.count) return;
+
+    bool stepped = (world.mode & ViewStepped) != 0u;
     WorldCar row = cars[car];
     int body = row.body;
     vec4 placed = pose[body];
@@ -92,7 +81,7 @@ void viewTheCar(uint car, bool stepped)
     // Where the rear axle stands on what the car follows (LineReading), read on from where the last step's view read it;
     // a view written again off the clock reads around the same place, and answers the same.
     LineFollowedRow followed = follows[car];
-    if (stepped && !isnan(followed.progressM)) followed.aroundM = followed.progressM;
+    if (stepped && !floatIsNaN(followed.progressM)) followed.aroundM = followed.progressM;
     CarBuildRow build = builds[buildOf[car]];
     precise vec2 rearAxleM = placed.xy - forward * build.centreAheadOfAxleM;
     lineRead(followed, rearAxleM, build.projectionWindowM);
@@ -105,7 +94,7 @@ void viewTheCar(uint car, bool stepped)
     float leadAtM;
     vec2 leadM = lineLead(followed, lineClamp(timedM, build.lookaheadFloorM, build.lookaheadCeilingM), leadAtM);
     float aimRad = 0.0;
-    if (!isnan(leadAtM))
+    if (!floatIsNaN(leadAtM))
     {
         precise vec2 toLead = leadM - rearAxleM;
         float reachM = roundedLength(toLead);
@@ -124,37 +113,4 @@ void viewTheCar(uint car, bool stepped)
     carViews[car] = CarViewRow(
         placed.xy, moving.xy, heading, moving.z, flags, uintBitsToFloat(overlap[body]), forward, followed.progressM,
         followed.offLineM, followed.serial, leadAtM, aimRad, 0u);
-}
-
-void viewTheWalker(uint walker, bool stepped)
-{
-    WorldWalker row = walkers[walker];
-    int body = row.body;
-    vec2 velocityMps = motion[body].xy;
-
-    // What its gait is drawn off: the step's own travel, which is its velocity over the step (PersonFleet.DistanceWalkedM).
-    if (stepped && (row.flags & WalkerInside) == 0u)
-    {
-        walkers[walker].distanceWalkedM = row.distanceWalkedM + length(velocityMps) * world.dtS;
-    }
-
-    uint flags = any(notEqual(row.declaredMps, vec2(0.0))) ? ViewDeclares : 0u;
-    walkerViews[walker] = WalkerViewRow(
-        pose[body].xy, velocityMps, row.headingRad, flags, uintBitsToFloat(overlap[body]), 0);
-}
-
-void main()
-{
-    uint at = gl_GlobalInvocationID.x;
-    bool stepped = (world.mode & ViewStepped) != 0u;
-    if (at == 0u)
-    {
-        for (uint count = 0u; count < 4u; count++) countsOut[count] = coverCounts[count];
-        if (stepped) driftMarksSettle();
-    }
-
-    if (at >= world.count) return;
-
-    if (at < world.carCount) viewTheCar(at, stepped);
-    else viewTheWalker(at - world.carCount, stepped);
 }

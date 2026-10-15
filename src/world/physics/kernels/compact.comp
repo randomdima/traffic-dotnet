@@ -31,20 +31,20 @@ struct SideContact
 layout(std430, binding = 0) readonly buffer Candidates { uvec2 candidates[]; };
 layout(std430, binding = 1) readonly buffer Met { uint met[]; };
 layout(std430, binding = 2) readonly buffer Starts { uint starts[]; };
-layout(std430, binding = 3) readonly buffer ManifoldA { vec4 manifoldA[]; };
-layout(std430, binding = 4) readonly buffer ManifoldB { vec4 manifoldB[]; };
-layout(std430, binding = 5) writeonly buffer Contact { uvec4 contact[]; };
-layout(std430, binding = 6) writeonly buffer ContactNormal { vec4 contactNormal[]; };
-layout(std430, binding = 7) writeonly buffer ContactPoints { vec4 contactPoints[]; };
-layout(std430, binding = 8) buffer Overlap { uint overlap[]; };
-layout(std430, binding = 9) readonly buffer Filter { uint filter_[]; };
-layout(std430, binding = 10) readonly buffer Totals { uint totals[]; };
-layout(std430, binding = 11) readonly buffer Pose { vec4 pose[]; };
-layout(std430, binding = 12) readonly buffer Mass { vec2 mass[]; };
-layout(std430, binding = 13) writeonly buffer Arms { vec4 arms[]; };
-layout(std430, binding = 14) writeonly buffer PointMass { vec2 pointMass[]; };
-layout(std430, binding = 15) writeonly buffer Impulses { vec4 impulses[]; };
-layout(std430, binding = 16) readonly buffer Side { SideContact side[]; };
+// A candidate's manifold in two rows (narrow.comp): its normal and separations, then its points.
+layout(std430, binding = 3) readonly buffer Manifolds { vec4 manifolds[]; };
+layout(std430, binding = 4) writeonly buffer Contact { uvec4 contact[]; };
+layout(std430, binding = 5) writeonly buffer ContactNormal { vec4 contactNormal[]; };
+layout(std430, binding = 6) writeonly buffer ContactPoints { vec4 contactPoints[]; };
+layout(std430, binding = 7) buffer Overlap { uint overlap[]; };
+layout(std430, binding = 8) readonly buffer Filter { uint filter_[]; };
+layout(std430, binding = 9) readonly buffer Totals { uint totals[]; };
+layout(std430, binding = 10) readonly buffer Pose { vec4 pose[]; };
+layout(std430, binding = 11) readonly buffer Mass { vec2 mass[]; };
+layout(std430, binding = 12) writeonly buffer Arms { vec4 arms[]; };
+layout(std430, binding = 13) writeonly buffer PointMass { vec2 pointMass[]; };
+layout(std430, binding = 14) writeonly buffer Impulses { vec4 impulses[]; };
+layout(std430, binding = 15) readonly buffer Side { SideContact side[]; };
 
 float effectiveMass(vec2 massA, vec2 massB, vec2 armA, vec2 armB, vec2 direction)
 {
@@ -135,7 +135,7 @@ void main()
         if (points == 0u) return;
 
         uvec2 pair = candidates[at];
-        pack(starts[at] + sidesBefore(pair, sides), pair, points, manifoldA[at], manifoldB[at]);
+        pack(starts[at] + sidesBefore(pair, sides), pair, points, manifolds[2u * at], manifolds[2u * at + 1u]);
         return;
     }
 

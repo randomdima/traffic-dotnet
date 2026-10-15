@@ -15,28 +15,29 @@
 
 layout(local_size_x = 64) in;
 
+#include "core/geometry/kernels/floats.glsl"
 #include "world/town/kernels/world.glsl"
 #include "agents/car/body/kernels/tyre_rows.glsl"
 #include "world/physics/kernels/filter.glsl"
 #include "world/road/kernels/line_followed.glsl"
 
 layout(std430, binding = 0) readonly buffer Signals { WorldSignal signals[]; };
-layout(std430, binding = 1) readonly buffer CarOf { int carOf[]; };
-layout(std430, binding = 2) readonly buffer WalkerOf { int walkerOf[]; };
-layout(std430, binding = 3) buffer Commands { TyreCommand commands[]; };
-layout(std430, binding = 4) buffer CarRows { TyreCarRow carRows[]; };
-layout(std430, binding = 5) buffer WheelRows { TyreWheelRow wheelRows[]; };
-layout(std430, binding = 6) buffer Cars { WorldCar cars[]; };
-layout(std430, binding = 7) buffer Walkers { WorldWalker walkers[]; };
-layout(std430, binding = 8) buffer Pose { vec4 pose[]; };
-layout(std430, binding = 9) buffer HeadingB { float headingRad[]; };
-layout(std430, binding = 10) buffer Motion { vec4 motion[]; };
-layout(std430, binding = 11) buffer MotionIntoTick { vec4 motionIntoTick[]; };
-layout(std430, binding = 12) readonly buffer ShapeB { vec4 shape[]; };
-layout(std430, binding = 13) buffer Bounds { vec4 bounds[]; };
-layout(std430, binding = 14) buffer Filter { uint filter_[]; };
-layout(std430, binding = 15) buffer Poses { TyrePose poses[]; };
-layout(std430, binding = 16) buffer Follows { LineFollowedRow follows[]; };
+// Which car and which walker each body is, or −1 (DeviceWorld.AgentOf).
+layout(std430, binding = 1) readonly buffer AgentOf { ivec2 agentOf[]; };
+layout(std430, binding = 2) buffer Commands { TyreCommand commands[]; };
+layout(std430, binding = 3) buffer CarRows { TyreCarRow carRows[]; };
+layout(std430, binding = 4) buffer WheelRows { TyreWheelRow wheelRows[]; };
+layout(std430, binding = 5) buffer Cars { WorldCar cars[]; };
+layout(std430, binding = 6) buffer Walkers { WorldWalker walkers[]; };
+layout(std430, binding = 7) buffer Pose { vec4 pose[]; };
+layout(std430, binding = 8) buffer HeadingB { float headingRad[]; };
+layout(std430, binding = 9) buffer Motion { vec4 motion[]; };
+layout(std430, binding = 10) buffer MotionIntoTick { vec4 motionIntoTick[]; };
+layout(std430, binding = 11) readonly buffer ShapeB { vec4 shape[]; };
+layout(std430, binding = 12) buffer Bounds { vec4 bounds[]; };
+layout(std430, binding = 13) buffer Filter { uint filter_[]; };
+layout(std430, binding = 14) buffer Poses { TyrePose poses[]; };
+layout(std430, binding = 15) buffer Follows { LineFollowedRow follows[]; };
 
 void thaw(int body, int car)
 {
@@ -70,7 +71,7 @@ void takeACommandOrAnAim(WorldSignal s)
     uint flags = signalFlags(s);
     if (signalAction(s) == SignalDrive)
     {
-        int car = carOf[s.body];
+        int car = agentOf[s.body].x;
         commands[car] = TyreCommand(
             s.p01.x, s.p01.y, s.p23.x, ((flags & DriveHandbrake) != 0u ? 1u : 0u) | ((flags & DriveReverse) != 0u ? 2u : 0u));
         carRows[car].flags = (carRows[car].flags & ~1u) | ((flags & DriveUnderAHand) != 0u ? 1u : 0u);
@@ -79,7 +80,7 @@ void takeACommandOrAnAim(WorldSignal s)
 
     if (signalAction(s) == SignalShow)
     {
-        int car = carOf[s.body];
+        int car = agentOf[s.body].x;
         cars[car].flags = (cars[car].flags & ~CarShows) | ((flags << CarShowsShift) & CarShows);
         return;
     }
@@ -87,14 +88,14 @@ void takeACommandOrAnAim(WorldSignal s)
     // p01: the lane's and the join's bits; p23: where the stretch stops, and where along it the car is (ControlSignal.Follow).
     if (signalAction(s) == SignalFollow)
     {
-        follows[carOf[s.body]] = LineFollowedRow(
-            floatBitsToInt(s.p01.x), floatBitsToInt(s.p01.y), s.p23.x, s.p23.y, s.p23.y, uintBitsToFloat(0x7fc00000u), flags, 0u);
+        follows[agentOf[s.body].x] = LineFollowedRow(
+            floatBitsToInt(s.p01.x), floatBitsToInt(s.p01.y), s.p23.x, s.p23.y, s.p23.y, floatNaN(), flags, 0u);
         return;
     }
 
     if (signalAction(s) == SignalWalk)
     {
-        int walker = walkerOf[s.body];
+        int walker = agentOf[s.body].y;
         walkers[walker].aimM = s.p01;
         walkers[walker].flags = (walkers[walker].flags & WalkerInside) | (flags & (WalkMoving | WalkOnFeet | WalkFaces));
     }
@@ -105,8 +106,8 @@ void takeAnEvent(WorldSignal s)
     int body = s.body;
     uint action = signalAction(s);
     uint flags = signalFlags(s);
-    int walker = walkerOf[body];
-    int car = carOf[body];
+    int walker = agentOf[body].y;
+    int car = agentOf[body].x;
 
     if (action == SignalPlace)
     {

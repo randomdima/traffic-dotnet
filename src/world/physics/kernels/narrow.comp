@@ -23,12 +23,12 @@ layout(std430, binding = 1) readonly buffer Pose { vec4 pose[]; };
 layout(std430, binding = 2) readonly buffer ShapeB { vec4 shape[]; };
 layout(std430, binding = 3) writeonly buffer Met { uint met[]; };
 layout(std430, binding = 4) writeonly buffer Flags { uint flagged[]; };
-layout(std430, binding = 5) writeonly buffer ManifoldA { vec4 manifoldA[]; };
-layout(std430, binding = 6) writeonly buffer ManifoldB { vec4 manifoldB[]; };
-layout(std430, binding = 7) buffer Totals { uint totals[]; };
-layout(std430, binding = 8) buffer State { uint state[]; };
-layout(std430, binding = 9) writeonly buffer Overlap { uint overlap[]; };
-layout(std430, binding = 10) writeonly buffer WokenList { uint woken[]; };
+// A candidate's manifold in two rows (DeviceSolver.Manifolds): its normal and separations, then its points.
+layout(std430, binding = 5) writeonly buffer Manifolds { vec4 manifolds[]; };
+layout(std430, binding = 6) buffer Totals { uint totals[]; };
+layout(std430, binding = 7) buffer State { uint state[]; };
+layout(std430, binding = 8) writeonly buffer Overlap { uint overlap[]; };
+layout(std430, binding = 9) writeonly buffer WokenList { uint woken[]; };
 
 void wake(uint body)
 {
@@ -54,8 +54,8 @@ void main()
     bool touching = shapeCollide(a.xy, a.zw, shapeA.xy, shapeA.z, b.xy, b.zw, shapeB.xy, shapeB.z, speculativeM, m);
     met[at] = touching ? uint(m.pointCount) : 0u;
     flagged[at] = touching ? 1u : 0u;
-    manifoldA[at] = vec4(m.normal, m.separation0, m.separation1);
-    manifoldB[at] = vec4(m.point0, m.point1);
+    manifolds[2u * at] = vec4(m.normal, m.separation0, m.separation1);
+    manifolds[2u * at + 1u] = vec4(m.point0, m.point1);
     if (!touching) return;
 
     wake(pair.x);

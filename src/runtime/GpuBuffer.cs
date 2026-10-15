@@ -67,21 +67,22 @@ internal sealed unsafe class GpuBuffer : IDisposable
 
     /// <summary>
     /// <b>Rows written into a device-local buffer</b> as <see cref="Upload{T}(int, StagedFill{T}, PipelineStageFlags2, AccessFlags2)"/>
-    /// writes them, copied straight into the staging buffer — no second copy of a table held on the host to fill it from.
+    /// writes them, copied straight into the staging buffer — no second copy of a table held on the host to fill it from —
+    /// from <paramref name="atBytes"/> on.
     /// </summary>
-    public void Upload<T>(ReadOnlySpan<T> rows, PipelineStageFlags2 readAt, AccessFlags2 readBy) where T : unmanaged
+    public void Upload<T>(ReadOnlySpan<T> rows, PipelineStageFlags2 readAt, AccessFlags2 readBy, ulong atBytes = 0) where T : unmanaged
     {
         if (rows.IsEmpty) return;
 
         var bytes = (ulong)rows.Length * (ulong)sizeof(T);
         using var staging = _vk.CreateBuffer(bytes, BufferUsageFlags.TransferSrcBit, hostVisible: true);
         rows.CopyTo(staging.Span<T>());
-        CopyFrom(staging, bytes, readAt, readBy);
+        CopyFrom(staging, bytes, readAt, readBy, atBytes);
     }
 
     /// <summary>And rows of another kind, each turned into the device's as it is written into the staging buffer.</summary>
     public void Upload<TFrom, T>(
-        ReadOnlySpan<TFrom> rows, delegate*<in TFrom, T> convert, PipelineStageFlags2 readAt, AccessFlags2 readBy)
+        ReadOnlySpan<TFrom> rows, delegate*<in TFrom, T> convert, PipelineStageFlags2 readAt, AccessFlags2 readBy, ulong atBytes = 0)
         where TFrom : unmanaged where T : unmanaged
     {
         if (rows.IsEmpty) return;
@@ -91,16 +92,19 @@ internal sealed unsafe class GpuBuffer : IDisposable
         var into = staging.Span<T>();
         for (var at = 0; at < rows.Length; at++) into[at] = convert(rows[at]);
 
-        CopyFrom(staging, bytes, readAt, readBy);
+        CopyFrom(staging, bytes, readAt, readBy, atBytes);
     }
 
-    /// <summary>A staging buffer's first <paramref name="bytes"/> copied across, waited for, and made visible to its reader.</summary>
-    void CopyFrom(GpuBuffer staging, ulong bytes, PipelineStageFlags2 readAt, AccessFlags2 readBy)
+    /// <summary>
+    /// A staging buffer's first <paramref name="bytes"/> copied across to <paramref name="atBytes"/>, waited for, and made
+    /// visible to its reader.
+    /// </summary>
+    void CopyFrom(GpuBuffer staging, ulong bytes, PipelineStageFlags2 readAt, AccessFlags2 readBy, ulong atBytes = 0)
     {
         var (source, target) = (staging.Handle, Handle);
         _vk.OneShot(commands =>
         {
-            var region = new BufferCopy { Size = bytes };
+            var region = new BufferCopy { DstOffset = atBytes, Size = bytes };
             Vk.Count();
             _vk.Api.CmdCopyBuffer(commands, source, target, 1, &region);
 
@@ -112,6 +116,7 @@ internal sealed unsafe class GpuBuffer : IDisposable
                 DstStageMask = readAt,
                 DstAccessMask = readBy,
                 Buffer = target,
+                Offset = atBytes,
                 Size = bytes,
             };
             var dependency = new DependencyInfo

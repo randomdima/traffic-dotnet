@@ -1,0 +1,58 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+// The walkers' half of the shallow state handed back behind every step (WorldView; ManagedWorld.WriteTheView), one thread
+// a walker: where it stands and how it moves, how deep it was into what it touched, and whether it declared a velocity.
+// Its first thread hands back the covers' counts beside the view, and on a step takes the marks the tyres laid into the
+// ground's ring (drift_marks.glsl) — so this pass runs on every view, a walker or none. The cars' half is world_view.comp.
+//
+// With ViewStepped in the mode the pass is the step's own and keeps the distance each walker walked.
+
+layout(local_size_x = 64) in;
+
+#include "world/town/kernels/world.glsl"
+
+layout(std430, binding = 0) buffer Walkers { WorldWalker walkers[]; };
+layout(std430, binding = 1) readonly buffer Pose { vec4 pose[]; };
+layout(std430, binding = 2) readonly buffer Motion { vec4 motion[]; };
+layout(std430, binding = 3) readonly buffer Overlap { uint overlap[]; };
+layout(std430, binding = 4) writeonly buffer WalkerViews { WalkerViewRow walkerViews[]; };
+
+// The covers kernel's counts (DeviceWorld._counts) and where the host reads them, and the ground's ring of marks the tyre
+// pass laid the step's into.
+layout(std430, binding = 5) readonly buffer CoverCounts { uint coverCounts[4]; };
+
+#include "world/terrain/kernels/drift_mark_rows.glsl"
+
+layout(std430, binding = 6) buffer DriftMarkRingB { DriftMarkRing driftMarkRing; };
+layout(std430, binding = 7) writeonly buffer CountsOut { uint countsOut[4]; };
+
+#define DRIFT_MARK_RING driftMarkRing
+#include "world/terrain/kernels/drift_marks.glsl"
+
+void main()
+{
+    uint walker = gl_GlobalInvocationID.x;
+    bool stepped = (world.mode & ViewStepped) != 0u;
+    if (walker == 0u)
+    {
+        for (uint count = 0u; count < 4u; count++) countsOut[count] = coverCounts[count];
+        if (stepped) driftMarksSettle();
+    }
+
+    if (walker >= world.count) return;
+
+    WorldWalker row = walkers[walker];
+    int body = row.body;
+    vec2 velocityMps = motion[body].xy;
+
+    // What its gait is drawn off: the step's own travel, which is its velocity over the step (PersonFleet.DistanceWalkedM).
+    if (stepped && (row.flags & WalkerInside) == 0u)
+    {
+        walkers[walker].distanceWalkedM = row.distanceWalkedM + length(velocityMps) * world.dtS;
+    }
+
+    uint flags = any(notEqual(row.declaredMps, vec2(0.0))) ? ViewDeclares : 0u;
+    walkerViews[walker] = WalkerViewRow(
+        pose[body].xy, velocityMps, row.headingRad, flags, uintBitsToFloat(overlap[body]), 0);
+}

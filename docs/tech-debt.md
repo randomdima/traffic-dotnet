@@ -205,7 +205,7 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   (`DeviceSolver`'s push, overlap, motion into the tick, rest, state and lowest): about 19 MB on OdesaOsm that no
   furniture row uses — and the staging rows the table is laid from (`_poseIn` and the six beside it), 35 MB of mapped
   memory written whole once and only the moving rows after. Indexing the first by moving row (`body − _firstMoving`) in
-  every kernel that reads them — the solver's, `world_view.comp` and `world_signals.comp` — with the reads a furniture
+  every kernel that reads them — the solver's, the view's two passes and `world_signals.comp` — with the reads a furniture
   row answers guarded (a static second's push, motion into the tick and state), and laying the furniture's rows through
   a staging buffer freed after, closes it.
 - **What the host keeps on a device-ticked town that it does not read while the town runs** (OdesaOsm, `qq prof
@@ -296,7 +296,7 @@ a layout or changes behaviour.
 - **Rows the device carries and no kernel or host reads**: nine fields of `car_build.glsl`'s row and their
   `CarBuildRow` mirror (`maxSpeedMps`, `turningRadiusM`, `sightM` among them), `DeviceSprites.Figures.LensColumns` and
   `LensRows`, and `PersonFleet.Declares` / `WalkerView.Declares` (written by `TownWorld.World`, `ManagedWorld` and
-  `world_view.comp`'s `ViewDeclares`). Each goes with its std430 layout on both sides.
+  `world_view_walkers.comp`'s `ViewDeclares`). Each goes with its std430 layout on both sides.
 - **`InUiPx` is written three times** (desktop, web, Android heads) and only the desktop's is tested; `InterfaceScale`
   is the one home it would have.
 - **The town repeats itself**: `StandCarIn` / `StandAServiceVehicle`, `SendHome` / `GoBackToTheDepot`,
@@ -314,7 +314,7 @@ a layout or changes behaviour.
 
 ## Inconsistencies
 
-- **A walker's distance walked is its velocity over the step on the device** (`world_view.comp`) and the change in its
+- **A walker's distance walked is its velocity over the step on the device** (`world_view_walkers.comp`) and the change in its
   position on the host (`TownWorld.ReadTheWorld`); its gait is drawn off the device's, so a frame of the whole of Odesa
   draws 3 instances of 2 034 otherwise than the host's fill (`--bench deviceworld`, 2026-10-12).
 - **A body put down is laid where it stood** until its own next turn, and then off covers a view reads two steps behind

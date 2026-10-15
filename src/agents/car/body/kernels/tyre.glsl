@@ -33,7 +33,7 @@ struct TyreScrub
     uint flags;
 };
 
-bool tyreLocksEveryWheel(TyreCommand command) { return isinf(command.brakeMps2) && command.brakeMps2 > 0.0; }
+bool tyreLocksEveryWheel(TyreCommand command) { return floatIsInfinite(command.brakeMps2) && command.brakeMps2 > 0.0; }
 bool tyreHandbrake(TyreCommand command) { return (command.handbrakeAndReverse & 1u) != 0u; }
 float tyreGearSign(TyreCommand command) { return (command.handbrakeAndReverse & 2u) != 0u ? -1.0 : 1.0; }
 

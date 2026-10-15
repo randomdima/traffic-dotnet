@@ -82,15 +82,7 @@ internal sealed class DeviceAtlas : IDisposable
     public DeviceAtlas(Vk vk, AtlasTable table)
     {
         _vk = vk;
-        Tables =
-        [
-            Laid(table.CellSlot),
-            Laid(table.SlotFirst),
-            Laid<uint>(InWords(table.PointStart)),
-            LaidEntries(table.Entries),
-            Laid(table.LengthM),
-            Laid<uint>(InWords(table.WayChannels)),
-        ];
+        Tables = [Packed(table)];
 
         var cells = table.Cells;
         _push = new AskPush
@@ -115,31 +107,47 @@ internal sealed class DeviceAtlas : IDisposable
     /// <summary>The push constants an ask of <paramref name="bodies"/> bodies is made with.</summary>
     public AskPush PushFor(int bodies) => _push with { BodyCount = (uint)bodies };
 
-    /// <summary>Narrow values packed into words, low first, the last word padded: a kernel reads a word and shifts.</summary>
-    static uint[] InWords<T>(ReadOnlySpan<T> values) where T : unmanaged
-    {
-        var bytes = MemoryMarshal.AsBytes(values);
-        var words = new uint[(bytes.Length + sizeof(uint) - 1) / sizeof(uint)];
-        bytes.CopyTo(MemoryMarshal.AsBytes(words.AsSpan()));
-        return words;
-    }
+    /// <summary>How many tables the run of words holds, each one's first word named in the run's own head.</summary>
+    const int TableCount = 6;
 
-    /// <summary>A device-local buffer holding these rows, sent once through a staging buffer and no copy of them besides.</summary>
-    GpuBuffer Laid<T>(ReadOnlySpan<T> rows) where T : unmanaged
+    /// <summary>
+    /// <b>Every table in one run of words</b> (<c>atlas.glsl</c>'s <c>AtlasWords</c>), in the order of its <c>…At</c> head:
+    /// the cell slots, the slots' firsts, the point starts two to a word, the entries two words each, the ways' lengths and
+    /// their channels four to a word. One binding, where six would take more storage buffers than WebGPU gives a kernel.
+    /// </summary>
+    /// <remarks>Each table is staged straight into its own stretch of the buffer, as each was into a buffer of its own.</remarks>
+    unsafe GpuBuffer Packed(AtlasTable table)
     {
-        var buffer = Room<T>(rows.Length);
-        buffer.Upload(rows, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit);
-        return buffer;
-    }
+        Span<uint> head =
+        [
+            WordsOf<int>(table.CellSlot.Length),
+            WordsOf<int>(table.SlotFirst.Length),
+            WordsOf<ushort>(table.PointStart.Length),
+            WordsOf<EntryRow>(table.Entries.Length),
+            WordsOf<float>(table.LengthM.Length),
+            WordsOf<byte>(table.WayChannels.Length),
+        ];
 
-    /// <summary>The entries, each turned into the device's row as it is staged (<see cref="EntryRow.Of"/>).</summary>
-    unsafe GpuBuffer LaidEntries(ReadOnlySpan<RibbonAtlas.Entry> entries)
-    {
-        var buffer = Room<EntryRow>(entries.Length);
+        var at = (uint)TableCount;
+        for (var section = 0; section < TableCount; section++) (head[section], at) = (at, at + head[section]);
+
+        var buffer = Room<uint>((int)at);
+        Upload(buffer, (ReadOnlySpan<uint>)head, 0);
+        Upload(buffer, table.CellSlot, head[0]);
+        Upload(buffer, table.SlotFirst, head[1]);
+        Upload(buffer, table.PointStart, head[2]);
         buffer.Upload<RibbonAtlas.Entry, EntryRow>(
-            entries, &EntryRow.Of, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit);
+            table.Entries, &EntryRow.Of, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit, head[3] * sizeof(uint));
+        Upload(buffer, table.LengthM, head[4]);
+        Upload(buffer, table.WayChannels, head[5]);
         return buffer;
     }
+
+    static void Upload<T>(GpuBuffer buffer, ReadOnlySpan<T> rows, uint atWord) where T : unmanaged =>
+        buffer.Upload(rows, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit, atWord * sizeof(uint));
+
+    /// <summary>How many words hold <paramref name="count"/> of these, the last padded.</summary>
+    static uint WordsOf<T>(int count) where T : unmanaged => (uint)((count * Marshal.SizeOf<T>() + sizeof(uint) - 1) / sizeof(uint));
 
     GpuBuffer Room<T>(int count) where T : unmanaged
     {

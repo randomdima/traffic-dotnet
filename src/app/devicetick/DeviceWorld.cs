@@ -75,7 +75,6 @@ internal sealed class DeviceWorld : WorldLayer
         public float HitchMostMps2;
         public float HitchSideShare;
         public float OnTheTrailerAxleShare;
-        public uint CarCount;
         public float LookaheadS;
     }
 
@@ -91,6 +90,10 @@ internal sealed class DeviceWorld : WorldLayer
         public uint WalkerRoom;
         public uint EnabledBit;
     }
+
+    /// <summary>Which car and which walker a body is, or −1 (<c>world_signals.comp</c>'s <c>agentOf</c>).</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal record struct AgentOf(int Car, int Walker);
 
     /// <summary>A tick's signals as written for the device: the commands, aims and shows from the front, the rest from the back.</summary>
     readonly record struct SignalCounts(int Commands, int Events)
@@ -126,15 +129,15 @@ internal sealed class DeviceWorld : WorldLayer
     GpuBuffer _carCovers, _walkerCovers;
     int _carRoom, _walkerRoom;
 
-    readonly ComputeKernel _signalsKernel, _walkersKernel, _towKernel, _coversKernel, _viewKernel;
+    readonly ComputeKernel _signalsKernel, _walkersKernel, _towKernel, _coversKernel, _viewKernel, _walkersViewKernel;
     DescriptorSet _signalsSet, _coversSet;
     readonly DescriptorSet _walkersSet, _towSet;
 
     /// <summary>
-    /// The view kernel bound to each of the two views' rows (<see cref="WorldView.Slot"/>), which the host reads where
-    /// they are written: the step in flight writes the one not shown.
+    /// The view's two passes, cars' and walkers', each bound to each of the two views' rows (<see cref="WorldView.Slot"/>),
+    /// which the host reads where they are written: the step in flight writes the one not shown.
     /// </summary>
-    readonly DescriptorSet[] _viewSets = new DescriptorSet[2];
+    readonly DescriptorSet[] _viewSets = new DescriptorSet[2], _walkersViewSets = new DescriptorSet[2];
 
     /// <summary>The two views' rows, by slot, which the host reads where they are written.</summary>
     readonly GpuBuffer[] _carViews = new GpuBuffer[2];
@@ -180,15 +183,11 @@ internal sealed class DeviceWorld : WorldLayer
         Array.Fill(followsNothing, LineFollowed.None);
         _follows = Laid(followsNothing);
         _walkerRows = Laid(WalkerRowsOf(stood));
-        var bodies = table.Count;
-        var carOf = new int[bodies];
-        var walkerOf = new int[bodies];
-        Array.Fill(carOf, -1);
-        Array.Fill(walkerOf, -1);
-        for (var car = 0; car < _cars; car++) carOf[BodyOfCar(car)] = car;
-        for (var person = 0; person < _walkers; person++) walkerOf[laying.BodyOf(person)] = person;
-        var carOfBuffer = Laid(carOf);
-        var walkerOfBuffer = Laid(walkerOf);
+        var agentOf = new AgentOf[table.Count];
+        Array.Fill(agentOf, new AgentOf(-1, -1));
+        for (var car = 0; car < _cars; car++) agentOf[BodyOfCar(car)].Car = car;
+        for (var person = 0; person < _walkers; person++) agentOf[laying.BodyOf(person)].Walker = person;
+        var agentOfBuffer = Laid(agentOf);
 
         _carRanges = Mapped<CoverRange>(_cars);
         _walkerRanges = Mapped<CoverRange>(_walkers);
@@ -205,10 +204,10 @@ internal sealed class DeviceWorld : WorldLayer
         var tyres = _tyres.Table;
 
         var pushBytes = (uint)Marshal.SizeOf<WorldPush>();
-        _signalsKernel = Kernel("world_signals.comp", 17, pushBytes);
+        _signalsKernel = Kernel("world_signals.comp", 16, pushBytes);
         _signalsBound =
         [
-            null!, carOfBuffer, walkerOfBuffer, tyres.Commands.Device, tyres.Cars.Device, tyres.Wheels.Device, _carRows,
+            null!, agentOfBuffer, tyres.Commands.Device, tyres.Cars.Device, tyres.Wheels.Device, _carRows,
             _walkerRows, pose, heading, motion, motionIntoTick, shape, bounds, filter, tyres.Poses.Device, _follows,
         ];
         _signalsSet = BindTheSignals();
@@ -231,7 +230,8 @@ internal sealed class DeviceWorld : WorldLayer
         ];
         _coversSet = BindTheCovers();
 
-        _viewKernel = Kernel("world_view.comp", 18 + _lanes.Tables.Length, pushBytes, sets: _viewSets.Length);
+        _viewKernel = Kernel("world_view.comp", 13 + _lanes.Tables.Length, pushBytes, sets: _viewSets.Length);
+        _walkersViewKernel = Kernel("world_view_walkers.comp", 8, pushBytes, sets: _walkersViewSets.Length);
         for (var slot = 0; slot < _viewSets.Length; slot++)
         {
             var carViews = _carViews[slot] = Mapped<CarView>(_cars);
@@ -239,10 +239,11 @@ internal sealed class DeviceWorld : WorldLayer
             ViewInSlot(slot).ReadOver(carViews.Span<CarView>(), walkerViews.Span<WalkerView>());
             _viewSets[slot] = _viewKernel.Bind(
             [
-                _carRows, _walkerRows, _tyres.ImpulseTable, tyres.Poses.Device, tyres.Cars.Device, pose, heading, motion,
-                filter, _solver.Overlap, carViews, walkerViews, _counts, _tyres.GroundMarkRing, _countsOut, _follows,
-                tyres.Builds, tyres.BuildOf.Device, .. _lanes.Tables,
+                _carRows, _tyres.ImpulseTable, tyres.Poses.Device, tyres.Cars.Device, pose, heading, motion, filter,
+                _solver.Overlap, carViews, _follows, tyres.Builds, tyres.BuildOf.Device, .. _lanes.Tables,
             ]);
+            _walkersViewSets[slot] = _walkersViewKernel.Bind(
+                [_walkerRows, pose, motion, _solver.Overlap, walkerViews, _counts, _tyres.GroundMarkRing, _countsOut]);
         }
 
         _push = new WorldPush
@@ -262,7 +263,6 @@ internal sealed class DeviceWorld : WorldLayer
             HitchMostMps2 = config.EvacuatorHitchMostMps2,
             HitchSideShare = config.Evacuator.HitchSideShare,
             OnTheTrailerAxleShare = config.Evacuator.OnTheTrailerAxleShare,
-            CarCount = (uint)_cars,
             LookaheadS = config.Driving.LookaheadS,
         };
 
@@ -646,14 +646,21 @@ internal sealed class DeviceWorld : WorldLayer
             EnabledBit = (uint)BodyFlags.Enabled,
         });
 
-    /// <summary>Every car's and then every walker's view, in one dispatch, into the rows <paramref name="into"/> reads, and the counts beside it.</summary>
+    /// <summary>
+    /// Every car's view and every walker's, in two dispatches that need nothing of each other, into the rows
+    /// <paramref name="into"/> reads, and the counts beside it.
+    /// </summary>
     /// <param name="stepped">
     /// Whether the pass is the step's own, keeping what the step settled; a view written again off the clock only reads
     /// (<c>world_view.comp</c>), so writing it twice moves nothing.
     /// </param>
-    void RecordTheView(CommandBuffer commands, WorldView into, bool stepped = false) => _viewKernel.Dispatch(
-        commands, _viewSets[into.Slot], Groups(_cars + _walkers),
-        _push with { Count = (uint)(_cars + _walkers), Mode = stepped ? ViewStepped : 0u });
+    void RecordTheView(CommandBuffer commands, WorldView into, bool stepped = false)
+    {
+        var mode = stepped ? ViewStepped : 0u;
+        if (_cars > 0) _viewKernel.Dispatch(commands, _viewSets[into.Slot], Groups(_cars), _push with { Count = (uint)_cars, Mode = mode });
+        _walkersViewKernel.Dispatch(
+            commands, _walkersViewSets[into.Slot], Groups(_walkers), _push with { Count = (uint)_walkers, Mode = mode });
+    }
 
     /// <summary><c>world_view.comp</c>'s mode bit for the step's own pass (<c>ViewStepped</c>).</summary>
     const uint ViewStepped = 2u;

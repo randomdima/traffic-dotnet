@@ -26,23 +26,37 @@ struct AtlasCover
 // every entry of the room on every call whatever a read found.
 AtlasCover atlasFound[AtlasMostWaysUnderABody];
 
-layout(std430, binding = ATLAS_BINDING + 0) readonly buffer AtlasCellSlots { int atlasCellSlot[]; };
-layout(std430, binding = ATLAS_BINDING + 1) readonly buffer AtlasSlotFirsts { int atlasSlotFirst[]; };
-layout(std430, binding = ATLAS_BINDING + 2) readonly buffer AtlasPointStarts { uint atlasPointStarts[]; };
-layout(std430, binding = ATLAS_BINDING + 3) readonly buffer AtlasEntries { uvec2 atlasEntries[]; };
-layout(std430, binding = ATLAS_BINDING + 4) readonly buffer AtlasWayLengths { float atlasLengthM[]; };
-layout(std430, binding = ATLAS_BINDING + 5) readonly buffer AtlasWayChannels { uint atlasWayChannels[]; };
+// The tables in one run of words (DeviceAtlas.Packed), each table's first word named in the run's own head — one binding
+// where six would take more than WebGPU gives a kernel.
+layout(std430, binding = ATLAS_BINDING) readonly buffer AtlasWords { uint atlasWords[]; };
 
 // How many bindings the tables take, for whatever a kernel binds after them.
-const int AtlasBindings = 6;
+const int AtlasBindings = 1;
+
+// Where each table begins (DeviceAtlas.Table): the run's first words.
+const uint AtlasCellSlotsAt = 0u;
+const uint AtlasSlotFirstsAt = 1u;
+const uint AtlasPointStartsAt = 2u;
+const uint AtlasEntriesAt = 3u;
+const uint AtlasLengthsAt = 4u;
+const uint AtlasChannelsAt = 5u;
+
+uint atlasWord(uint table, int at) { return atlasWords[atlasWords[table] + uint(at)]; }
+
+int atlasCellSlot(int cell) { return int(atlasWord(AtlasCellSlotsAt, cell)); }
+
+int atlasSlotFirst(int slot) { return int(atlasWord(AtlasSlotFirstsAt, slot)); }
+
+uvec2 atlasEntry(int at) { return uvec2(atlasWord(AtlasEntriesAt, 2 * at), atlasWord(AtlasEntriesAt, 2 * at + 1)); }
+
+float atlasLengthM(int way) { return uintBitsToFloat(atlasWord(AtlasLengthsAt, way)); }
 
 // A point start is a ushort, two to a word.
-uint atlasPointStart(int at) { return (atlasPointStarts[at >> 1] >> ((at & 1) << 4)) & 0xFFFFu; }
+uint atlasPointStart(int at) { return (atlasWord(AtlasPointStartsAt, at >> 1) >> ((at & 1) << 4)) & 0xFFFFu; }
 
 // A way's channels are a byte, four to a word.
-uint atlasChannelsOf(int way) { return (atlasWayChannels[way >> 2] >> ((way & 3) << 3)) & 0xFFu; }
+uint atlasChannelsOf(int way) { return (atlasWord(AtlasChannelsAt, way >> 2) >> ((way & 3) << 3)) & 0xFFu; }
 
-float atlasInfinity() { return uintBitsToFloat(0x7F800000u); }
 
 // GridLevel.FirstMiddleFrom, LastMiddleTo and MiddleM at the points' level.
 int atlasFirstMiddleFrom(float atM)
@@ -190,8 +204,8 @@ bool atlasAcross(AtlasBody body, float y, out float fromX, out float toX)
         return true;
     }
 
-    fromX = atlasInfinity();
-    toX = -atlasInfinity();
+    fromX = floatInfinity();
+    toX = -floatInfinity();
     atlasCross(body.a, body.b, y, fromX, toX);
     atlasCross(body.b, body.c, y, fromX, toX);
     atlasCross(body.c, body.d, y, fromX, toX);
@@ -248,12 +262,12 @@ int atlasRead(AtlasBody body, uint channels, inout uint dropped)
             if (uint(cellColumn - ATLAS_FIGURES.cellsFromX) >= uint(ATLAS_FIGURES.cellsWidth)
                 || uint(cellRow - ATLAS_FIGURES.cellsFromY) >= uint(ATLAS_FIGURES.cellsHeight)) continue;
 
-            int slot = atlasCellSlot[
-                (cellRow - ATLAS_FIGURES.cellsFromY) * ATLAS_FIGURES.cellsWidth + (cellColumn - ATLAS_FIGURES.cellsFromX)];
+            int slot = atlasCellSlot(
+                (cellRow - ATLAS_FIGURES.cellsFromY) * ATLAS_FIGURES.cellsWidth + (cellColumn - ATLAS_FIGURES.cellsFromX));
             if (slot < 0) continue;
 
             int cellFirstColumn = cellColumn << ATLAS_FIGURES.shift;
-            int first = atlasSlotFirst[slot];
+            int first = atlasSlotFirst(slot);
             int starts = slot * ATLAS_FIGURES.startsPerCell + rowFirstStart;
             int firstColumn = max(fromColumn - cellFirstColumn, 0);
             int lastColumn = min(toColumn - cellFirstColumn, ATLAS_FIGURES.mask);
@@ -261,7 +275,7 @@ int atlasRead(AtlasBody body, uint channels, inout uint dropped)
             int end = first + int(atlasPointStart(starts + (lastColumn >> ATLAS_FIGURES.startShift) + 1));
             for (int at = first + int(atlasPointStart(starts + (firstColumn >> ATLAS_FIGURES.startShift))); at < end; at++)
             {
-                uvec2 entry = atlasEntries[at];
+                uvec2 entry = atlasEntry(at);
                 int column = int((entry.x >> 8) & 0xFFu);
                 if (uint(column - firstColumn) > columns) continue;
 
@@ -295,7 +309,7 @@ void atlasWidened(int written, float pastM)
         AtlasCover one = atlasFound[held];
         precise float fromM = roundedQuotient(one.fromM, ATLAS_FIGURES.alongPerMetre) - reachM;
         precise float toM = roundedQuotient(one.toM, ATLAS_FIGURES.alongPerMetre) + reachM;
-        atlasFound[held] = AtlasCover(one.way, max(0.0, fromM), min(atlasLengthM[one.way], toM));
+        atlasFound[held] = AtlasCover(one.way, max(0.0, fromM), min(atlasLengthM(one.way), toM));
     }
 }
 
@@ -316,7 +330,7 @@ int atlasUnderDisc(vec2 centreM, float radiusM, uint channels, inout uint droppe
     return written;
 }
 
-// The entries of the run of points holding the lattice point nearest a point, as [first, end) of atlasEntries, and that
+// The entries of the run of points holding the lattice point nearest a point, as [first, end) of the entries, and that
 // point's column in its cell — an entry of the run in another column is passed over. An empty run where no ribbon
 // covers the point's cell (RibbonAtlas.EntriesOfThePointNearest).
 void atlasPointNearest(vec2 pointM, out int first, out int end, out int column)
@@ -334,13 +348,13 @@ void atlasPointNearest(vec2 pointM, out int first, out int end, out int column)
     if (uint(cellColumn - ATLAS_FIGURES.cellsFromX) >= uint(ATLAS_FIGURES.cellsWidth)
         || uint(cellRow - ATLAS_FIGURES.cellsFromY) >= uint(ATLAS_FIGURES.cellsHeight)) return;
 
-    int slot = atlasCellSlot[(cellRow - ATLAS_FIGURES.cellsFromY) * ATLAS_FIGURES.cellsWidth + (cellColumn - ATLAS_FIGURES.cellsFromX)];
+    int slot = atlasCellSlot((cellRow - ATLAS_FIGURES.cellsFromY) * ATLAS_FIGURES.cellsWidth + (cellColumn - ATLAS_FIGURES.cellsFromX));
     if (slot < 0) return;
 
     int start = slot * ATLAS_FIGURES.startsPerCell + ((pointRow & ATLAS_FIGURES.mask) << ATLAS_FIGURES.rowStartsShift)
                 + (column >> ATLAS_FIGURES.startShift);
-    first = atlasSlotFirst[slot] + int(atlasPointStart(start));
-    end = atlasSlotFirst[slot] + int(atlasPointStart(start + 1));
+    first = atlasSlotFirst(slot) + int(atlasPointStart(start));
+    end = atlasSlotFirst(slot) + int(atlasPointStart(start + 1));
 }
 
 // Whether an entry of a point at this column of its cell is a way on one of the channels whose band holds the point
@@ -363,7 +377,7 @@ bool atlasGrowUnderAWheel(vec2 wheelM, uint channels, inout int written, inout u
     bool onAWay = false;
     for (int at = first; at < end; at++)
     {
-        uvec2 entry = atlasEntries[at];
+        uvec2 entry = atlasEntry(at);
         if (!atlasOnTheWay(entry, column, channels)) continue;
 
         written = atlasGrow(written, int(entry.y), float(entry.x >> 16), dropped);

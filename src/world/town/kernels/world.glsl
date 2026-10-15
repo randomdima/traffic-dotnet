@@ -37,9 +37,6 @@ layout(push_constant) uniform World
     float hitchSideShare;
     float onTheTrailerAxleShare;
 
-    // How many of a run over cars then walkers are cars (world_view.comp).
-    uint carCount;
-
     // How far ahead the wheel is aimed, as a time (DrivingFigures.LookaheadS).
     float lookaheadS;
 } world;

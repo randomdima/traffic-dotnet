@@ -11,6 +11,7 @@
 #ifndef ROUNDED_GLSL
 #define ROUNDED_GLSL
 
+#include "core/geometry/kernels/floats.glsl"
 #include "core/geometry/kernels/wide.glsl"
 
 // How far off the device's own answer is looked for, in floats either way: past the bound either API allows.
@@ -62,7 +63,7 @@ bool roundedIsNormal(float x) { int exponent = roundedExponent(x); return expone
 float roundedQuotient(float a, float b)
 {
     precise float q = a / b;
-    if (q == 0.0 || isinf(q) || isnan(q)) return q;
+    if (q == 0.0 || !floatIsFinite(q)) return q;
 
     float dividend = abs(a);
     float divisor = abs(b);
@@ -89,7 +90,7 @@ float roundedQuotient(float a, float b)
 float roundedSqrt(float x)
 {
     precise float s = sqrt(x);
-    if (!(x > 0.0) || isinf(x) || s == 0.0) return s;
+    if (!(x > 0.0) || floatIsInfinite(x) || s == 0.0) return s;
     if (!roundedIsNormal(x) || !roundedIsNormal(s)) return s;
 
     for (int step = 0; step < RoundedMostSteps; step++)

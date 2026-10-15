@@ -3,8 +3,8 @@
 // stretch is walked off the lanes as LineAssembler lays it — a lane's arcs as they stand and the one its stretch stops in
 // cut short (Spline.HeadInto), the join's whole, the next lane's — never off a copy of the car's line.
 //
-// The includer names the first of six bindings (LINE_READING_BINDING): the lanes' arcs, where each lane's begin, the lanes'
-// lengths, the joins' arcs, where each join's begin, and the lane each join leads onto. It gets trig.glsl and rounded.glsl.
+// The includer names the first of two bindings (LINE_READING_BINDING): the arcs, and the words that say where each lane's
+// and join's begin, the lanes' lengths and the lane each join leads onto. It gets trig.glsl and rounded.glsl.
 
 #ifndef LINE_READING_GLSL
 #define LINE_READING_GLSL
@@ -24,12 +24,31 @@ struct LaneArc
     float pad;
 };
 
-layout(std430, binding = LINE_READING_BINDING) readonly buffer LaneArcs { LaneArc laneArcs[]; };
-layout(std430, binding = LINE_READING_BINDING + 1) readonly buffer LaneArcFrom { int laneArcFrom[]; };
-layout(std430, binding = LINE_READING_BINDING + 2) readonly buffer LaneLengths { float laneLengthM[]; };
-layout(std430, binding = LINE_READING_BINDING + 3) readonly buffer JoinArcs { LaneArc joinArcs[]; };
-layout(std430, binding = LINE_READING_BINDING + 4) readonly buffer JoinArcFrom { int joinArcFrom[]; };
-layout(std430, binding = LINE_READING_BINDING + 5) readonly buffer JoinTo { int joinTo[]; };
+// The lanes' arcs and then the joins'; and where each lane's arcs begin, the lanes' lengths, where each join's begin and the
+// lane each join leads onto, in one run of words whose head names where each table and the joins' arcs begin
+// (DeviceLanes.Words) — two bindings, where six would take more storage buffers than WebGPU gives a kernel.
+layout(std430, binding = LINE_READING_BINDING) readonly buffer LineArcs { LaneArc lineArcs[]; };
+layout(std430, binding = LINE_READING_BINDING + 1) readonly buffer LineWords { int lineWords[]; };
+
+const int LineLaneArcFromAt = 0;
+const int LineLaneLengthsAt = 1;
+const int LineJoinArcFromAt = 2;
+const int LineJoinToAt = 3;
+const int LineJoinArcsAt = 4;
+
+int lineWord(int table, int at) { return lineWords[lineWords[table] + at]; }
+
+int laneArcFrom(int lane) { return lineWord(LineLaneArcFromAt, lane); }
+
+float laneLengthM(int lane) { return intBitsToFloat(lineWord(LineLaneLengthsAt, lane)); }
+
+int joinArcFrom(int join) { return lineWord(LineJoinArcFromAt, join); }
+
+int joinTo(int join) { return lineWord(LineJoinToAt, join); }
+
+LaneArc laneArc(int at) { return lineArcs[at]; }
+
+LaneArc joinArc(int at) { return lineArcs[lineWords[LineJoinArcsAt] + at]; }
 
 // ArcSeg's and Spline's figures, and C#'s 1f / 6f, 1f / 120f and 1f / 5040f and MathF.Tau to the bit.
 const float LineStraightCurvature = 1e-6;
@@ -47,16 +66,16 @@ float lineMostFloat() { return uintBitsToFloat(0x7f7fffffu); }
 // MathF.Max and MathF.Min: NaN wins, and of two zeros the positive is the greater.
 float lineMax(float a, float b)
 {
-    if (isnan(a)) return a;
-    if (isnan(b)) return b;
+    if (floatIsNaN(a)) return a;
+    if (floatIsNaN(b)) return b;
     if (a == b) return (floatBitsToUint(a) & 0x80000000u) != 0u ? b : a;
     return a > b ? a : b;
 }
 
 float lineMin(float a, float b)
 {
-    if (isnan(a)) return a;
-    if (isnan(b)) return b;
+    if (floatIsNaN(a)) return a;
+    if (floatIsNaN(b)) return b;
     if (a == b) return (floatBitsToUint(a) & 0x80000000u) != 0u ? a : b;
     return a < b ? a : b;
 }
@@ -168,8 +187,8 @@ struct LinePieces
 LinePieces lineBegin(LineFollowedRow followed)
 {
     return LinePieces(
-        0, laneArcFrom[followed.lane], laneArcFrom[followed.lane + 1], 0.0,
-        followed.join < 0 ? followed.stopsAtM : laneLengthM[followed.lane]);
+        0, laneArcFrom(followed.lane), laneArcFrom(followed.lane + 1), 0.0,
+        followed.join < 0 ? followed.stopsAtM : laneLengthM(followed.lane));
 }
 
 bool lineNext(inout LinePieces pieces, LineFollowedRow followed, out LaneArc piece)
@@ -180,14 +199,14 @@ bool lineNext(inout LinePieces pieces, LineFollowedRow followed, out LaneArc pie
         {
             if (pieces.part == 0 && followed.join >= 0)
             {
-                pieces = LinePieces(1, joinArcFrom[followed.join], joinArcFrom[followed.join + 1], 0.0, 0.0);
+                pieces = LinePieces(1, joinArcFrom(followed.join), joinArcFrom(followed.join + 1), 0.0, 0.0);
                 continue;
             }
 
             if (pieces.part == 1)
             {
-                int lane = joinTo[followed.join];
-                pieces = LinePieces(2, laneArcFrom[lane], laneArcFrom[lane + 1], 0.0, followed.stopsAtM);
+                int lane = joinTo(followed.join);
+                pieces = LinePieces(2, laneArcFrom(lane), laneArcFrom(lane + 1), 0.0, followed.stopsAtM);
                 continue;
             }
 
@@ -196,11 +215,11 @@ bool lineNext(inout LinePieces pieces, LineFollowedRow followed, out LaneArc pie
 
         if (pieces.part == 1)
         {
-            piece = joinArcs[pieces.at++];
+            piece = joinArc(pieces.at++);
             return true;
         }
 
-        LaneArc arc = laneArcs[pieces.at++];
+        LaneArc arc = laneArc(pieces.at++);
         float startM = pieces.inLaneM;
         precise float endM = startM + arc.lengthM;
         float takeToM = lineMin(pieces.toM, endM);
@@ -224,8 +243,8 @@ void lineRead(inout LineFollowedRow followed, vec2 rearAxleM, float windowM)
 {
     if (followed.lane < 0)
     {
-        followed.progressM = uintBitsToFloat(0x7fc00000u);
-        followed.offLineM = uintBitsToFloat(0x7fc00000u);
+        followed.progressM = floatNaN();
+        followed.offLineM = floatNaN();
         return;
     }
 
@@ -293,7 +312,7 @@ vec2 lineLead(LineFollowedRow followed, float lookaheadM, out float atM)
 {
     // float.NaN's own bits, as the managed world writes it.
     atM = uintBitsToFloat(0xffc00000u);
-    if (followed.lane < 0 || isnan(followed.progressM)) return vec2(0.0);
+    if (followed.lane < 0 || floatIsNaN(followed.progressM)) return vec2(0.0);
 
     precise float aheadM = followed.progressM + lookaheadM;
     float remainingM = lineMax(0.0, aheadM);
