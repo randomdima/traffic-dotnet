@@ -27,16 +27,16 @@ jobs:
     # page keeps up with a 60 Hz loop.
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           # The newest .NET 11 published, whatever it is: an RC until GA ships, GA and its patches after.
           # global.json rolls forward to it, and the workload below is installed for it.
           dotnet-version: '11.0.x'
           dotnet-quality: 'preview'
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.nuget/packages
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
@@ -54,7 +54,7 @@ jobs:
       # the version the kernels are written against, built once and kept: a cargo build of it is minutes.
       - run: sudo apt-get install -y --no-install-recommends glslc
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         id: naga
         with:
           path: ~/.cargo/bin/naga
@@ -65,7 +65,7 @@ jobs:
 
       - run: dotnet publish traffic-dotnet.web.csproj -c Release
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: bin/web/Release/net11.0/publish/wwwroot
 
@@ -77,4 +77,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
