@@ -175,7 +175,7 @@ internal sealed partial class PhysicsWorld
 
         _filedFrozenCount = kept;
         _unfiledCount = 0;
-        _frozenGrid.Rebuild(_filedFrozen.AsSpan(0, _filedFrozenCount), _leastM, _mostM, _config.Grid.Main);
+        _frozenGrid.Rebuild(_filedFrozen.AsSpan(0, _filedFrozenCount), _bounds, _config.Grid.Main);
     }
 
     /// <summary>The bodies waiting for the frozen index that still are: in the world, frozen and not filed there.</summary>

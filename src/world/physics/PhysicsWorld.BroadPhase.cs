@@ -25,7 +25,7 @@ internal sealed partial class PhysicsWorld
         }
 
         _filedCount = count + KeepTheUnfiled(filed.AsSpan(count));
-        _dynamicGrid.Rebuild(_filed.AsSpan(0, _filedCount), _leastM, _mostM, _config.Grid.Main);
+        _dynamicGrid.Rebuild(_filed.AsSpan(0, _filedCount), _bounds, _config.Grid.Main);
     }
 
     /// <summary>The awake roster taken in and the moving and frozen indexes laid over it, as a step begins by.</summary>
@@ -176,10 +176,8 @@ internal sealed partial class PhysicsWorld
     /// </remarks>
     void Gather(CellGrid grid, int body, BodyFlags live)
     {
-        var leastAt = _leastM;
-        var mostAt = _mostM;
-        var leastM = leastAt[body];
-        var mostM = mostAt[body];
+        var boundsAt = _bounds;
+        var (leastM, mostM) = boundsAt[body];
         if (!grid.TryRange(leastM, mostM, out var range)) return;
 
         var ownedInStep = _ownedInStep;
@@ -199,8 +197,9 @@ internal sealed partial class PhysicsWorld
             {
                 foreach (var other in grid.Items(x, y))
                 {
-                    if (Apart(leastAt, mostAt, other, leastM, mostM)) continue;
-                    if (!grid.FirstShared(range, x, y, leastAt[other])) continue;
+                    ref readonly var otherBounds = ref boundsAt[other];
+                    if (otherBounds.Misses(leastM, mostM)) continue;
+                    if (!grid.FirstShared(range, x, y, otherBounds.LeastM)) continue;
                     if (ownedInStep[other] == stamp) continue;
                     if ((flags[other] & live) != live) continue;
                     if ((bodyCategory & mask[other]) == 0 || (category[other] & bodyMask) == 0) continue;
@@ -221,11 +220,7 @@ internal sealed partial class PhysicsWorld
     }
 
     /// <summary>Whether a body's bounds miss the box entirely.</summary>
-    bool Apart(int body, Vector2 leastM, Vector2 mostM) => Apart(_leastM, _mostM, body, leastM, mostM);
-
-    static bool Apart(Vector2[] leastAt, Vector2[] mostAt, int body, Vector2 leastM, Vector2 mostM) =>
-        mostAt[body].X < leastM.X || leastAt[body].X > mostM.X ||
-        mostAt[body].Y < leastM.Y || leastAt[body].Y > mostM.Y;
+    bool Apart(int body, Vector2 leastM, Vector2 mostM) => _bounds[body].Misses(leastM, mostM);
 
     /// <summary>
     /// A handful of candidates put in index order. An insertion sort because that is what the list

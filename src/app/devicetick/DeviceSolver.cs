@@ -975,7 +975,7 @@ internal sealed class DeviceSolver : IDisposable
             motion[body] = new Vector4(table.VelocityMps[body], table.YawRateRadPerS[body], 0f);
             mass[body] = new Vector2(table.InverseMass[body], table.InverseInertia[body]);
             shape[body] = new Vector4(table.ExtentM[body], table.CornerRadiusM[body], table.ReachM[body]);
-            bounds[body] = new Vector4(table.LeastM[body], table.MostM[body].X, table.MostM[body].Y);
+            bounds[body] = new Vector4(table.Bounds[body].LeastM, table.Bounds[body].MostM.X, table.Bounds[body].MostM.Y);
             filter[body] = FilterOf(table, body);
         }
     }
@@ -1061,8 +1061,8 @@ internal sealed class DeviceSolver : IDisposable
         var most = new Vector2(float.MinValue);
         for (var body = 0; body < table.Count; body++)
         {
-            least = Vector2.Min(least, table.LeastM[body]);
-            most = Vector2.Max(most, table.MostM[body]);
+            least = Vector2.Min(least, table.Bounds[body].LeastM);
+            most = Vector2.Max(most, table.Bounds[body].MostM);
         }
 
         if (table.Count == 0) return GridWindow.Of(level, 0, 0, 1, 1);
@@ -1082,7 +1082,7 @@ internal sealed class DeviceSolver : IDisposable
         var cells = 0;
         foreach (var body in bodies)
         {
-            _window.TryRange(table.LeastM[body], table.MostM[body], out var range);
+            _window.TryRange(table.Bounds[body].LeastM, table.Bounds[body].MostM, out var range);
             cells += (range.ToX - range.FromX + 1) * (range.ToY - range.FromY + 1);
         }
 
