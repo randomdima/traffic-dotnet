@@ -111,7 +111,8 @@ internal sealed partial class PhysicsWorld
     /// <summary>The collision channels each body is on (<see cref="PutOnChannels"/>).</summary>
     byte[] _channels = new byte[Room];
     int[] _tag = new int[Room];
-    Bounds[] _bounds = new Bounds[Room];
+    Vector2[] _leastM = new Vector2[Room];
+    Vector2[] _mostM = new Vector2[Room];
     float[] _overlapM = new float[Room];
     Vector2[] _pushMps = new Vector2[Room];
     float[] _pushYawRadPerS = new float[Room];
@@ -334,7 +335,7 @@ internal sealed partial class PhysicsWorld
     /// </remarks>
     public void SettleStatics()
     {
-        _staticGrid.Rebuild(_static.AsSpan(0, _staticCount), _bounds, _config.Grid.Main);
+        _staticGrid.Rebuild(_static.AsSpan(0, _staticCount), _leastM, _mostM, _config.Grid.Main);
         _staticGrid.ForgetTheRebuild();
         _staticIndexStale = false;
     }
@@ -490,7 +491,8 @@ internal sealed partial class PhysicsWorld
     void Bound(int index)
     {
         var half = Shape.HalfBoundsM(_rotation[index], _extentM[index], _cornerRadiusM[index]);
-        _bounds[index] = new Bounds(_positionM[index] - half, _positionM[index] + half);
+        _leastM[index] = _positionM[index] - half;
+        _mostM[index] = _positionM[index] + half;
     }
 
     /// <summary>
@@ -531,7 +533,8 @@ internal sealed partial class PhysicsWorld
         Array.Resize(ref _mask, room);
         Array.Resize(ref _channels, room);
         Array.Resize(ref _tag, room);
-        Array.Resize(ref _bounds, room);
+        Array.Resize(ref _leastM, room);
+        Array.Resize(ref _mostM, room);
         Array.Resize(ref _overlapM, room);
         Array.Resize(ref _pushMps, room);
         Array.Resize(ref _pushYawRadPerS, room);

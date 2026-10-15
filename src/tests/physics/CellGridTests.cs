@@ -27,16 +27,14 @@ public class CellGridTests
 
         leastM = new Vector2[centresM.Length];
         mostM = new Vector2[centresM.Length];
-        var bounds = new Bounds[centresM.Length];
         for (var body = 0; body < centresM.Length; body++)
         {
             leastM[body] = centresM[body] - halfM[body];
             mostM[body] = centresM[body] + halfM[body];
-            bounds[body] = new Bounds(leastM[body], mostM[body]);
         }
 
         var grid = new CellGrid();
-        grid.Rebuild([0, 1, 2, 3], bounds, Level);
+        grid.Rebuild([0, 1, 2, 3], leastM, mostM, Level);
         return grid;
     }
 

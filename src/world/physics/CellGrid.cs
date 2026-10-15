@@ -70,7 +70,8 @@ internal sealed class CellGrid
     /// </summary>
     CellBlock[] _block = [];
 
-    Bounds[] _bounds = [];
+    Vector2[] _leastM = [];
+    Vector2[] _mostM = [];
 
     int _touchedCount;
     int _generation;
@@ -84,12 +85,13 @@ internal sealed class CellGrid
     public GridWindow Window => _window;
 
     /// <summary>
-    /// Lay the grid over the bodies named, at their bounding boxes as they now stand. The bounds array
-    /// is the world's own and is kept by reference: an index that copied it would be a second truth.
+    /// Lay the grid over the bodies named, at their bounding boxes as they now stand. The bound arrays
+    /// are the world's own and are kept by reference: an index that copied them would be a second truth.
     /// </summary>
-    public void Rebuild(ReadOnlySpan<int> bodies, Bounds[] bounds, GridLevel level)
+    public void Rebuild(ReadOnlySpan<int> bodies, Vector2[] leastM, Vector2[] mostM, GridLevel level)
     {
-        _bounds = bounds;
+        _leastM = leastM;
+        _mostM = mostM;
         _entryCount = 0;
         _touchedCount = 0;
         NextGeneration();
@@ -104,8 +106,8 @@ internal sealed class CellGrid
         var most = new Vector2(float.MinValue);
         foreach (var body in bodies)
         {
-            least = Vector2.Min(least, bounds[body].LeastM);
-            most = Vector2.Max(most, bounds[body].MostM);
+            least = Vector2.Min(least, leastM[body]);
+            most = Vector2.Max(most, mostM[body]);
         }
 
         Size(level, least, most);
@@ -246,7 +248,7 @@ internal sealed class CellGrid
 
     void Span(int body, out int fromX, out int fromY, out int toX, out int toY)
     {
-        _window.TryRange(_bounds[body].LeastM, _bounds[body].MostM, out var range);
+        _window.TryRange(_leastM[body], _mostM[body], out var range);
         (fromX, fromY, toX, toY) = (range.FromX, range.FromY, range.ToX, range.ToY);
     }
 

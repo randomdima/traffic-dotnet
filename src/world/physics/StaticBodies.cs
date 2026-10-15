@@ -16,7 +16,8 @@ internal sealed class StaticBodies(GridLevel level)
     Vector2[] _rotation = new Vector2[Room];
     Vector2[] _extentM = new Vector2[Room];
     float[] _cornerRadiusM = new float[Room];
-    Bounds[] _bounds = new Bounds[Room];
+    Vector2[] _leastM = new Vector2[Room];
+    Vector2[] _mostM = new Vector2[Room];
     int[] _rows = [];
     readonly CellGrid _grid = new();
     bool _stale;
@@ -47,7 +48,8 @@ internal sealed class StaticBodies(GridLevel level)
         _extentM[row] = extentM;
         _cornerRadiusM[row] = cornerRadiusM;
         var half = Shape.HalfBoundsM(_rotation[row], extentM, cornerRadiusM);
-        _bounds[row] = new Bounds(centreM - half, centreM + half);
+        _leastM[row] = centreM - half;
+        _mostM[row] = centreM + half;
         _stale = true;
     }
 
@@ -83,7 +85,11 @@ internal sealed class StaticBodies(GridLevel level)
             {
                 foreach (var row in _grid.Items(x, y))
                 {
-                    if (_bounds[row].Misses(leastM, mostM)) continue;
+                    if (_mostM[row].X < leastM.X || _leastM[row].X > mostM.X
+                        || _mostM[row].Y < leastM.Y || _leastM[row].Y > mostM.Y)
+                    {
+                        continue;
+                    }
 
                     if (Shape.Collide(
                             centreM, square, halfM, 0f, _centreM[row], _rotation[row], _extentM[row], _cornerRadiusM[row],
@@ -106,7 +112,7 @@ internal sealed class StaticBodies(GridLevel level)
             for (var row = 0; row < Count; row++) _rows[row] = row;
         }
 
-        _grid.Rebuild(_rows, _bounds, level);
+        _grid.Rebuild(_rows, _leastM, _mostM, level);
         _grid.ForgetTheRebuild();
         _stale = false;
     }
@@ -119,6 +125,7 @@ internal sealed class StaticBodies(GridLevel level)
         Array.Resize(ref _rotation, room);
         Array.Resize(ref _extentM, room);
         Array.Resize(ref _cornerRadiusM, room);
-        Array.Resize(ref _bounds, room);
+        Array.Resize(ref _leastM, room);
+        Array.Resize(ref _mostM, room);
     }
 }

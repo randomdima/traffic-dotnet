@@ -29,7 +29,8 @@ internal readonly ref struct BodyTable
     public required ReadOnlySpan<ulong> Category { get; init; }
     public required ReadOnlySpan<ulong> Mask { get; init; }
     public required ReadOnlySpan<byte> Channels { get; init; }
-    public required ReadOnlySpan<Bounds> Bounds { get; init; }
+    public required ReadOnlySpan<Vector2> LeastM { get; init; }
+    public required ReadOnlySpan<Vector2> MostM { get; init; }
 
     /// <summary>The awake roster in index order, as the next step will own it (SOL-37): every enabled body not frozen.</summary>
     public required ReadOnlySpan<int> Moving { get; init; }
@@ -74,7 +75,8 @@ internal sealed partial class PhysicsWorld
         Category = _category.AsSpan(0, _count),
         Mask = _mask.AsSpan(0, _count),
         Channels = _channels.AsSpan(0, _count),
-        Bounds = _bounds.AsSpan(0, _count),
+        LeastM = _leastM.AsSpan(0, _count),
+        MostM = _mostM.AsSpan(0, _count),
         Moving = _moving.AsSpan(0, _movingCount),
         Statics = _static.AsSpan(0, _staticCount),
     };
