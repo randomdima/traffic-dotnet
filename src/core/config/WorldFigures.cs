@@ -56,15 +56,6 @@ internal sealed class RoadFigures
     public float IntersectionCornerRadiusInCarWidths { get; init; } = 2.5f;
 
     /// <summary>
-    /// How far back along an arm a kerb fillet may run from the carriageway's own edge, in car widths.
-    /// <b>It is what bounds a corner at a skew junction</b>: two arms meeting at an angle have kerbs that
-    /// cross far outside the mouth, so a fillet turned on the full radius there lets go of the kerb tens of
-    /// metres down the road — and the crossing, the bar and the straight they stand on all follow it out.
-    /// A square junction is nowhere near this and keeps the full radius.
-    /// </summary>
-    public float JunctionFilletReachInCarWidths { get; init; } = 3f;
-
-    /// <summary>
     /// One walking lane, in bodies — the pavement's own lane, and the pavement is two of them, one each way
     /// (<see cref="SimConfig.PavementWidthM"/>). Two bodies wide, so somebody stepping round somebody coming
     /// the other way does it inside the walk rather than over the kerb.
@@ -863,8 +854,7 @@ internal sealed class CityGenFigures
     /// How far off each other a junction's arms must stand (GEN-13). <b>Sixty degrees</b>: below it two
     /// carriageways meeting at a node lie against each other rather than crossing, and the fillet, the
     /// crossing and the bar on one arm are laid over the other. It is also the sharpest corner any junction
-    /// turns, so it is what a road's straight stub has to be long enough for
-    /// (<see cref="SimConfig.JunctionArmReachM"/>).
+    /// turns.
     /// </summary>
     public float ArmsApartMinDeg { get; init; } = 60f;
 

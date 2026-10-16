@@ -46,8 +46,6 @@ namespace TrafficSimulation.World.Road;
 internal sealed class RoadGraph : ILaneEnds
 {
     readonly LaneLines _lines;
-    readonly int[] _junctionOutOffsets;
-    readonly int[] _junctionOutLanes;
     readonly int[] _junctionInOffsets;
     readonly int[] _junctionInLanes;
     readonly bool[] _breaksTheLine;
@@ -69,13 +67,11 @@ internal sealed class RoadGraph : ILaneEnds
     readonly ChainIndex[] _nearestStreetOn;
 
     RoadGraph(
-        LaneLines lines, int[] junctionOutOffsets, int[] junctionOutLanes, int[] junctionInOffsets,
-        int[] junctionInLanes, LanePlaces places, GridLevel nearestLevel, bool[] breaksTheLine)
+        LaneLines lines, int[] junctionInOffsets, int[] junctionInLanes, LanePlaces places, GridLevel nearestLevel,
+        bool[] breaksTheLine)
     {
         _lines = lines;
         Places = places;
-        _junctionOutOffsets = junctionOutOffsets;
-        _junctionOutLanes = junctionOutLanes;
         _junctionInOffsets = junctionInOffsets;
         _junctionInLanes = junctionInLanes;
         _breaksTheLine = breaksTheLine;
@@ -354,12 +350,7 @@ internal sealed class RoadGraph : ILaneEnds
     public (ReadOnlyMemory<ArcSeg> LaneArcs, int[] LaneArcFrom, ReadOnlyMemory<ArcSeg> JoinArcs, int[] JoinArcFrom, int[] JoinTo)
         Tables => (_lines.LaneArcs, _lines.LaneArcOffsets, _lines.ConnectorArcs, _lines.ConnectorArcOffsets, _lines.ConnectorToLane);
 
-    /// <summary>The lanes leaving one of the plan's junctions (<see cref="JunctionCount"/>).</summary>
-    public ReadOnlySpan<int> LanesOutOfJunction(int junction) =>
-        _junctionOutLanes.AsSpan(
-            _junctionOutOffsets[junction], _junctionOutOffsets[junction + 1] - _junctionOutOffsets[junction]);
-
-    /// <summary>And the lanes arriving at one.</summary>
+    /// <summary>The lanes arriving at one of the plan's junctions (<see cref="JunctionCount"/>).</summary>
     public ReadOnlySpan<int> LanesIntoJunction(int junction) =>
         _junctionInLanes.AsSpan(
             _junctionInOffsets[junction], _junctionInOffsets[junction + 1] - _junctionInOffsets[junction]);
@@ -590,16 +581,12 @@ internal sealed class RoadGraph : ILaneEnds
     /// </remarks>
     public static RoadGraph Build(LaneLines lines, SimConfig config)
     {
-        var joined = lines.FirstRoadside;
-        var (junctionOutOffsets, junctionOutLanes) =
-            LaneLines.Adjacency(lines.JunctionCount, new ArraySegment<int>(lines.LaneFromJunction, 0, joined));
-        var (junctionInOffsets, junctionInLanes) =
-            LaneLines.Adjacency(lines.JunctionCount, new ArraySegment<int>(lines.LaneToJunction, 0, joined));
+        var (junctionInOffsets, junctionInLanes) = LaneLines.Adjacency(
+            lines.JunctionCount, new ArraySegment<int>(lines.LaneToJunction, 0, lines.FirstRoadside));
         var places = LanePlaces.Of(new Ends(lines));
 
         return new RoadGraph(
-            lines, junctionOutOffsets, junctionOutLanes, junctionInOffsets, junctionInLanes, places,
-            config.Grid.Main, JoinsThatBreakTheLine(lines, config.Driving.JoinBendStepPerM));
+            lines, junctionInOffsets, junctionInLanes, places, config.Grid.Main, JoinsThatBreakTheLine(lines, config.Driving.JoinBendStepPerM));
     }
 
     /// <summary>Every connector's <see cref="BreaksTheLine"/>, read off the arcs either side of it once.</summary>

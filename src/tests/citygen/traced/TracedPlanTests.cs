@@ -468,7 +468,6 @@ public class TracedPlanTests
         for (var junction = 0; junction < roads.JunctionCount; junction++)
         {
             joined.AddRange(roads.LanesIntoJunction(junction));
-            joined.AddRange(roads.LanesOutOfJunction(junction));
         }
 
         Assert.Equal(8, lanes.LaneCount - lanes.FirstRoadside);

@@ -82,7 +82,7 @@ public class TownWorldTests
         Assert.False(world.Cars.BlueLight[0], "a hand at the wheel granted itself the road");
 
         // A change of selection gives up the wheel, so nothing drives on out of sight.
-        world.SelectNone();
+        world.Select(default);
         Assert.False(world.HandsOn);
         Assert.True(world.HandDriven.IsEmpty);
     }

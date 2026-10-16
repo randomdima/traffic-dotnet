@@ -44,7 +44,7 @@ public class SelectionPathTests
     public void NothingSelectedIsNothingDrawn()
     {
         using var world = Town();
-        world.SelectNone();
+        world.Select(default);
 
         Assert.Empty(Marks(world));
     }

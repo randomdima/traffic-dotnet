@@ -65,7 +65,7 @@ public class UnitPanelTests(StandingTown town) : IClassFixture<StandingTown>
     public void NothingPickedOutIsNothingDrawn()
     {
         var world = town.World;
-        world.SelectNone();
+        world.Select(default);
 
         var panel = Drawn(world, out var quads);
 

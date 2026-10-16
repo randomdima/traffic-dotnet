@@ -179,7 +179,7 @@ public class SelectionTests
         Assert.False(world.HandsOn, "a unit added to the selection left the hand where it was");
 
         world.Hands(held);
-        world.SelectNone();
+        world.Select(default);
         Assert.False(world.HandsOn);
     }
 }

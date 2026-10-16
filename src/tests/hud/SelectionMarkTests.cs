@@ -45,7 +45,7 @@ public class SelectionMarkTests(StandingTown town) : IClassFixture<StandingTown>
     public void NothingSelectedIsNothingDrawn()
     {
         var world = town.World;
-        world.SelectNone();
+        world.Select(default);
 
         Assert.Empty(Marks(world));
     }
@@ -133,7 +133,7 @@ public class SelectionMarkTests(StandingTown town) : IClassFixture<StandingTown>
     public void ACarUnderASecondHandWearsAMarkOfItsOwn()
     {
         using var world = Town();
-        world.SelectNone();
+        world.Select(default);
         world.HandOnCar(1, new HandInput(Held: true, Throttle: 0f, Steer: 0f, Handbrake: false, WalkDirection: Vector2.Zero));
 
         var marks = Marks(world);

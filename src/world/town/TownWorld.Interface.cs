@@ -54,11 +54,6 @@ internal sealed partial class TownWorld
         GaveUpTheWheel();
     }
 
-    public void SelectNone()
-    {
-        if (_selected.Clear()) GaveUpTheWheel();
-    }
-
     /// <summary>
     /// <b>Every unit inside a box on the ground</b> — what a drag over the town asks (CTL-1b). Cars
     /// first and then walkers, up to the bound, and a box that catches nothing deselects exactly as a
