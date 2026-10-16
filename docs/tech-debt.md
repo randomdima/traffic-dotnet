@@ -414,8 +414,6 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
   the measured window; none has failed in five consecutive unit runs.
 - **`Towns.Built` is three seconds to lay, not "a fraction of a second"** as `Towns.PeopleBuilt` says.
 - **`ScenarioTests.AtRest` keeps a `TownWorld` per map in a static and never disposes it.**
-- **`SixLabors.ImageSharp` 3.1.12 carries known moderate and high advisories** (NU1902, NU1903 on every build); a bump
-  through the configured registry closes it.
 
 ## Inconsistencies
 
