@@ -37,28 +37,6 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   Each traced to the margin the generator or the re-plan keeps (or does not) closes it; neither is the trigonometry's.
 - **The kernels have not been held to `Trig` on a GPU** (2026-10-15): `TrigKernelTests` and `RoundedKernelTests` pass
   on lavapipe, which the suite runs. The device tier pointed at the RX 9070 XT by hand closes it.
-- **Allocation tests fail now and then in a full run and pass alone**:
-  - `InspectorTests.AnInspectedFrameAllocatesNothing` and `UnitPanelTests.DrawingThePanelAllocatesNothing` (unit), at
-    3–8 KB. Both read the whole process's counter while the tier runs classes side by side: the inspector's failed one
-    unit run in six on 2026-10-15, and two in three with the suite's shared towns laid behind `Lazy` (which would lay
-    each once where `Towns`' `GetOrAdd` lays one on every class that misses at the same moment, and is not taken for
-    this).
-  - `RouteSearchTests.SectionedPlanningAllocatesNothing`, `RoutePlannerTests`, `ScreenDrawTests`,
-    `StatusPanelClaimsTests.DrawingTheClaimsAllocatesNothing` and `StatusPanelTests.DrawingThePanelAllocatesNothing`
-    (unit), at 3–8 KB on the test's own thread — one of them in 6 runs of 10 (2026-10-13). With
-    `DOTNET_GCgen0size=0x20000000` none does in 8 runs, so it is a collection landing in the window, set off by whatever
-    runs beside it, and not a byte allocated.
-  - `ScenarioTests.WatchingATownAllocatesNothing(Exam)` (town), once, at 6.5 KB.
-  - `AllocationGateTests.AWholeTickOfAWholeTownAllocatesNothing(Laid)`, and once `(Test)` (perf), at 24 B over the
-    600 ticks — one small object — in about half of the tier's runs on 2026-10-15, and in 1 of 3 on the committed tree
-    (6078de5); never run alone (`--name`, 0 of 3).
-  - `AllocationGateTests.ThisEnginesOwnPhasesAllocateNothingOverAWholeTown(Test)` (perf), five times in about twenty
-    runs at 2–8 B a tick. A per-agent trace of phases 1–3 found no allocation. A `P0` gate that flickers is either a
-    real allocation on a rare path or a measurement that counts something it should not; which is not known.
-
-  Each file reads its counter around its window by hand. One helper that counts on the test's own thread and measures
-  again when `GC.CollectionCount(0)` moved inside the window closes the unit and town ones; what allocates closes the
-  gates'.
 
 ## Regressions and figures not taken
 

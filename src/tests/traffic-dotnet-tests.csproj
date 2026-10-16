@@ -7,6 +7,12 @@
     <IsPackable>false</IsPackable>
     <RootNamespace>TrafficSimulation.Tests</RootNamespace>
     <AssemblyName>traffic-dotnet-tests</AssemblyName>
+    <!-- The collector the game ships with (traffic-dotnet.csproj), and the one the allocation tests' counter is
+         exact under. With background GC on, a gen2 collection drops what was left of each thread's allocation
+         context while GC.GetAllocatedBytesForCurrentThread goes on counting it, so a window a gen2 landed in read
+         up to the 8 KB quantum allocated with nothing allocated: tests that allocate beside each other make gen2s,
+         and the windows failed now and then in a full run and never alone. -->
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
   </PropertyGroup>
 
   <ItemGroup>
