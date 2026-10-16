@@ -69,6 +69,10 @@ internal static class Roads
             foreach (var (road, _) in uses) (calmingOn.TryGetValue(road, out var list) ? list : calmingOn[road] = []).Add($"n{town.NodeId(node)} {calming}");
         }
 
+        // Each road's surface and frontage are its own, measured side by side; what is made of them is taken in order.
+        var measured = new (double? WidthM, double? LeftM, double? RightM, bool Fronted)[town.Roads.Length];
+        Parallel.For(0, town.Roads.Length, road => measured[road] = Measure(town, road, surfaces, surfaceGrid, buildings.Outlines, buildingGrid));
+
         var records = new List<RoadRecord>(town.Roads.Length);
         for (var road = 0; road < town.Roads.Length; road++)
         {
@@ -77,7 +81,7 @@ internal static class Roads
             var line = town.RoadLineM[road];
             var carriageway = way.Carriageway!;
             var zone = zones.ZoneOf.TryGetValue(road, out var held) ? held : default;
-            var (measuredM, leftM, rightM, fronted) = Measure(town, road, surfaces, surfaceGrid, buildings.Outlines, buildingGrid);
+            var (measuredM, leftM, rightM, fronted) = measured[road];
             var middle = Shape.Along(line, town.RoadLengthM[road] / 2);
             var district = zones.Districts.Where(d => d.Outline.Holds(middle)).OrderByDescending(d => d.Level).Select(d => d.Name).FirstOrDefault();
             var level = levels.GetValueOrDefault(way.Id);

@@ -64,14 +64,18 @@ internal static class Zones
             if (zones[at].Outline is not { } outline) continue;
 
             grid.Add(at, outline.Bounds);
-            if (zones[at].Kind == "bridge") found.Bridges.Add((zones[at].Element.Key,zones[at].Element.Tag("name"), outline));
+            if (zones[at].Kind == "bridge") found.Bridges.Add((zones[at].Element.Key, zones[at].Element.Tag("name"), outline));
         }
+
+        // Which zones each road runs in is its own, found side by side; what is made of it is taken in order.
+        var runsIn = new (int? Zone, int? LandUse, List<int> Edges)[town.Roads.Length];
+        Parallel.For(0, town.Roads.Length, road => runsIn[road] = Inside(town, road, zones, grid));
 
         var waysIn = new Dictionary<int, List<long>>();
         for (var road = 0; road < town.Roads.Length; road++)
         {
-            var (zone, landUse, edges) = Inside(town, road, zones, grid);
-            if (zone is { } held) found.ZoneOf[road] = (zones[held].Element.Key,zones[held].Kind, zones[held].Sub);
+            var (zone, landUse, edges) = runsIn[road];
+            if (zone is { } held) found.ZoneOf[road] = (zones[held].Element.Key, zones[held].Kind, zones[held].Sub);
 
             foreach (var edge in edges) (waysIn.TryGetValue(edge, out var list) ? list : waysIn[edge] = []).Add(town.Roads[road].Id);
             if (landUse is { } use) found.LandUseOf[road] = zones[use].Sub ?? zones[use].Kind;
