@@ -78,7 +78,7 @@ internal sealed partial class DeviceAtlas : IDisposable
     }
 
     readonly Vk _vk;
-    readonly List<GpuBuffer> _owned = [];
+    readonly DeviceHoldings _held;
     AskPush _push;
 
     /// <summary>
@@ -94,7 +94,8 @@ internal sealed partial class DeviceAtlas : IDisposable
     public DeviceAtlas(Vk vk)
     {
         _vk = vk;
-        Tables = [Room<uint>(1)];
+        _held = new DeviceHoldings(vk);
+        Tables = [_held.Device<uint>(1)];
     }
 
     /// <summary>The host's whole atlas, laid at once.</summary>
@@ -211,7 +212,7 @@ internal sealed partial class DeviceAtlas : IDisposable
         var at = (uint)TableCount;
         for (var section = 0; section < TableCount; section++) (head[section], at) = (at, at + head[section]);
 
-        var buffer = Room<uint>((int)at);
+        var buffer = _held.Device<uint>((int)at);
         Upload(buffer, (ReadOnlySpan<uint>)head, 0);
         Upload(buffer, frame.CellSlot, head[0]);
         Upload(buffer, frame.SlotFirst, head[1]);
@@ -226,18 +227,9 @@ internal sealed partial class DeviceAtlas : IDisposable
     /// <summary>How many words hold <paramref name="count"/> of these, the last padded.</summary>
     static uint WordsOf<T>(int count) where T : unmanaged => (uint)((count * Marshal.SizeOf<T>() + sizeof(uint) - 1) / sizeof(uint));
 
-    GpuBuffer Room<T>(int count, HostAccess host = HostAccess.None) where T : unmanaged
-    {
-        var buffer = _vk.CreateBuffer(
-            (ulong)(Math.Max(1, count) * Marshal.SizeOf<T>()),
-            BufferUse.Storage | BufferUse.TransferDst | BufferUse.TransferSrc, host);
-        _owned.Add(buffer);
-        return buffer;
-    }
-
     public void Dispose()
     {
         _filing?.Dispose();
-        foreach (var buffer in _owned) buffer.Dispose();
+        _held.Dispose();
     }
 }

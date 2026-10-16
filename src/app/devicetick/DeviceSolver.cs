@@ -5,6 +5,7 @@ using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Physics;
+using static TrafficSimulation.App.DeviceTick.DeviceHoldings;
 using static TrafficSimulation.Runtime.GpuBuffer;
 
 namespace TrafficSimulation.App.DeviceTick;
@@ -131,8 +132,7 @@ internal sealed class DeviceSolver : IDisposable
     readonly int _staticItems;
     readonly int _statics;
 
-    readonly List<GpuBuffer> _owned = [];
-    readonly List<ComputeKernel> _kernels = [];
+    readonly DeviceHoldings _held;
 
     // The body table, one buffer a field.
     readonly GpuBuffer _pose;
@@ -282,6 +282,7 @@ internal sealed class DeviceSolver : IDisposable
     public DeviceSolver(Vk vk, SimConfig config, BodyTable table)
     {
         _vk = vk;
+        _held = new DeviceHoldings(vk);
         _config = config;
         _bodies = table.Count;
         _scans = new ScanKernels(vk);
@@ -306,86 +307,87 @@ internal sealed class DeviceSolver : IDisposable
         WithinTheScans();
         var cells = _window.Count;
 
-        _pose = Device<Vector4>(_bodies);
-        _heading = Device<float>(_bodies);
-        _motion = Device<Vector4>(_bodies);
-        _push = Device<Vector4>(_bodies);
-        _mass = Device<Vector2>(_bodies);
-        _shape = Device<Vector4>(_bodies);
-        _bounds = Device<Vector4>(_bodies);
-        _filter = Device<uint>(_bodies);
-        _owners = Device<int>(Math.Max(1, _moving.Length));
-        _overlap = Device<uint>(_bodies);
-        _motionIntoTick = Device<Vector4>(_bodies);
-        _state = Device<uint>(_bodies);
-        _woken = Device<uint>(Math.Max(1, _moving.Length));
+        _pose = _held.Device<Vector4>(_bodies);
+        _heading = _held.Device<float>(_bodies);
+        _motion = _held.Device<Vector4>(_bodies);
+        _push = _held.Device<Vector4>(_bodies);
+        _mass = _held.Device<Vector2>(_bodies);
+        _shape = _held.Device<Vector4>(_bodies);
+        _bounds = _held.Device<Vector4>(_bodies);
+        _filter = _held.Device<uint>(_bodies);
+        _owners = _held.Device<int>(Math.Max(1, _moving.Length));
+        _overlap = _held.Device<uint>(_bodies);
+        _motionIntoTick = _held.Device<Vector4>(_bodies);
+        _state = _held.Device<uint>(_bodies);
+        _woken = _held.Device<uint>(Math.Max(1, _moving.Length));
         SideRoom = Math.Max(1024, _moving.Length / SideShare);
-        _side = Device<SideContact>(SideRoom);
-        _sideInOrder = Device<SideContact>(SideRoom);
-        _restTicks = Device<uint>(_bodies);
-        _restIn = Staging<uint>(_bodies);
-        _afresh = Own(_vk.CreateBuffer(Bytes<int>(Math.Max(1, _moving.Length)), BufferUse.Storage, HostAccess.Writes));
+        _side = _held.Device<SideContact>(SideRoom);
+        _sideInOrder = _held.Device<SideContact>(SideRoom);
+        _restTicks = _held.Device<uint>(_bodies);
+        _restIn = _held.Staging<uint>(_bodies);
+        _afresh = _held.Own(_vk.CreateBuffer(Bytes<int>(Math.Max(1, _moving.Length)), BufferUse.Storage, HostAccess.Writes));
         _listedAfresh = new bool[_bodies];
-        _settledOut = Readback<uint>(2 + (2 * _moving.Length));
-        _wokeAt = Device<uint>(Math.Max(1, _moving.Length));
-        _frozeAt = Device<uint>(Math.Max(1, _moving.Length));
-        _touched = [Device<UInt2>(ContactCapacity), Device<UInt2>(ContactCapacity)];
-        _touchedCount = [Device<uint>(1), Device<uint>(1)];
-        _begunGroups = Device<uint>(2 * BegunGroups);
+        _settledOut = _held.Readback<uint>(2 + (2 * _moving.Length), BufferUse.Storage);
+        _wokeAt = _held.Device<uint>(Math.Max(1, _moving.Length));
+        _frozeAt = _held.Device<uint>(Math.Max(1, _moving.Length));
+        _touched = [_held.Device<UInt2>(ContactCapacity), _held.Device<UInt2>(ContactCapacity)];
+        _touchedCount = [_held.Device<uint>(1), _held.Device<uint>(1)];
+        _begunGroups = _held.Device<uint>(2 * BegunGroups);
         BegunRoom = Math.Max(1024, _moving.Length);
-        _begunOut = Readback<BegunRow>(BegunRoom);
-        _touchedIn = Staging<UInt2>(Math.Max(1, _moving.Length));
+        _begunOut = _held.Readback<BegunRow>(BegunRoom, BufferUse.Storage);
+        _touchedIn = _held.Staging<UInt2>(Math.Max(1, _moving.Length));
 
-        _poseIn = Staging<Vector4>(_bodies);
-        _headingIn = Staging<float>(_bodies);
-        _motionIn = Staging<Vector4>(_bodies);
-        _massIn = Staging<Vector2>(_bodies);
-        _shapeIn = Staging<Vector4>(_bodies);
-        _boundsIn = Staging<Vector4>(_bodies);
-        _filterIn = Staging<uint>(_bodies);
-        _ownersIn = Staging<int>(Math.Max(1, _moving.Length));
+        _poseIn = _held.Staging<Vector4>(_bodies);
+        _headingIn = _held.Staging<float>(_bodies);
+        _motionIn = _held.Staging<Vector4>(_bodies);
+        _massIn = _held.Staging<Vector2>(_bodies);
+        _shapeIn = _held.Staging<Vector4>(_bodies);
+        _boundsIn = _held.Staging<Vector4>(_bodies);
+        _filterIn = _held.Staging<uint>(_bodies);
+        _ownersIn = _held.Staging<int>(Math.Max(1, _moving.Length));
 
         // A slot past the last bucket, never counted, so a bucket's run ends where the next one's starts.
-        _movingCounts = Device<uint>(_buckets + 1);
-        _movingStarts = Device<uint>(_buckets + 1);
-        _movingItemsBuffer = Device<UInt2>(_movingItems);
-        _staticCounts = Device<uint>(cells);
-        _staticStarts = Device<uint>(cells);
-        var staticItems = Device<int>(_staticItems);
+        _movingCounts = _held.Device<uint>(_buckets + 1);
+        _movingStarts = _held.Device<uint>(_buckets + 1);
+        _movingItemsBuffer = _held.Device<UInt2>(_movingItems);
+        _staticCounts = _held.Device<uint>(cells);
+        _staticStarts = _held.Device<uint>(cells);
+        var staticItems = _held.Device<int>(_staticItems);
 
         // Only the furniture's filing reads these, once.
         using var staticCursor = _vk.CreateBuffer(Bytes<uint>(cells), BufferUse.Storage | BufferUse.TransferDst, HostAccess.None);
         using var statics = _vk.CreateBuffer(Bytes<int>(_statics), BufferUse.Storage | BufferUse.TransferDst, HostAccess.None);
 
-        _candidateCounts = Device<uint>(Math.Max(1, _moving.Length));
-        _candidateStarts = Device<uint>(Math.Max(1, _moving.Length));
-        _candidates = Device<UInt2>(CandidateCapacity);
-        _met = Device<uint>(CandidateCapacity);
-        _contactStarts = Device<uint>(CandidateCapacity);
-        _manifolds = Device<Vector4>(2 * CandidateCapacity);
-        _contact = Device<UInt4>(ContactCapacity);
-        _contactNormal = Device<Vector4>(ContactCapacity);
-        _contactPoints = Device<Vector4>(ContactCapacity);
-        _arms = Device<Vector4>(ContactCapacity * 2);
-        _pointMass = Device<Vector2>(ContactCapacity * 2);
-        _impulses = Device<Vector4>(ContactCapacity * 2);
-        _lowest = Device<uint>(_bodies);
-        _order = Device<uint>(ContactCapacity);
-        _totals = Device<uint>(Totals.Count, BufferUse.Indirect);
-        _blockSums = Device<uint>(ScanKernels.Block);
-        _totalsOut = Readback<uint>(Totals.Count);
+        _candidateCounts = _held.Device<uint>(Math.Max(1, _moving.Length));
+        _candidateStarts = _held.Device<uint>(Math.Max(1, _moving.Length));
+        _candidates = _held.Device<UInt2>(CandidateCapacity);
+        _met = _held.Device<uint>(CandidateCapacity);
+        _contactStarts = _held.Device<uint>(CandidateCapacity);
+        _manifolds = _held.Device<Vector4>(2 * CandidateCapacity);
+        _contact = _held.Device<UInt4>(ContactCapacity);
+        _contactNormal = _held.Device<Vector4>(ContactCapacity);
+        _contactPoints = _held.Device<Vector4>(ContactCapacity);
+        _arms = _held.Device<Vector4>(ContactCapacity * 2);
+        _pointMass = _held.Device<Vector2>(ContactCapacity * 2);
+        _impulses = _held.Device<Vector4>(ContactCapacity * 2);
+        _lowest = _held.Device<uint>(_bodies);
+        _order = _held.Device<uint>(ContactCapacity);
+        _totals = _held.Device<uint>(Totals.Count, BufferUse.Indirect);
+        _blockSums = _held.Device<uint>(ScanKernels.Block);
+        _totalsOut = _held.Readback<uint>(Totals.Count, BufferUse.Storage);
 
-        _gridCount = Kernel("grid_count.comp", 7, sets: 2);
-        _gridFill = Kernel("grid_fill.comp", 6, sets: 2);
-        _pairs = Kernel("pairs.comp", 13);
-        _narrow = Kernel("narrow.comp", 10);
-        _wokenKernel = Kernel("woken.comp", 15);
-        _compact = Kernel("compact.comp", 16);
-        _solve = Kernel("solve.comp", 13);
-        _integrate = Kernel("integrate.comp", 10);
-        _settle = Kernel("settle.comp", 12);
-        _settleSpread = Kernel("settle_spread.comp", 12);
-        _touches = Kernel("touches.comp", 12, sets: 2);
+        var pushBytes = (uint)Marshal.SizeOf<StepPush>();
+        _gridCount = _held.Kernel("grid_count.comp", 7, pushBytes, sets: 2);
+        _gridFill = _held.Kernel("grid_fill.comp", 6, pushBytes, sets: 2);
+        _pairs = _held.Kernel("pairs.comp", 13, pushBytes);
+        _narrow = _held.Kernel("narrow.comp", 10, pushBytes);
+        _wokenKernel = _held.Kernel("woken.comp", 15, pushBytes);
+        _compact = _held.Kernel("compact.comp", 16, pushBytes);
+        _solve = _held.Kernel("solve.comp", 13, pushBytes);
+        _integrate = _held.Kernel("integrate.comp", 10, pushBytes);
+        _settle = _held.Kernel("settle.comp", 12, pushBytes);
+        _settleSpread = _held.Kernel("settle_spread.comp", 12, pushBytes);
+        _touches = _held.Kernel("touches.comp", 12, pushBytes, sets: 2);
 
         _movingCountSet = _gridCount.Bind([_owners, _bounds, _movingCounts, _motion, _filter, _state, _overlap]);
         _movingFillSet = _gridFill.Bind([_owners, _bounds, _movingStarts, _movingCounts, _movingItemsBuffer, _filter]);
@@ -516,15 +518,7 @@ internal sealed class DeviceSolver : IDisposable
     const int SideShare = 4;
 
     /// <summary>What the step's own buffers hold, device-local and mapped together — its share of <see cref="Vk.BufferBytes"/>.</summary>
-    public long BytesHeld
-    {
-        get
-        {
-            var bytes = 0L;
-            foreach (var buffer in _owned) bytes += (long)buffer.SizeBytes;
-            return bytes;
-        }
-    }
+    public long BytesHeld => _held.BytesHeld;
 
     /// <summary>One contact the woken bodies' pairs met (<c>kernels/woken.comp</c>): the pair and how many points, the normal and the two separations, the two points.</summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -672,8 +666,9 @@ internal sealed class DeviceSolver : IDisposable
         if (readBack)
         {
             _readBacks ??= new ReadBacks(
-                Readback<Vector4>(_bodies), Readback<Vector4>(_bodies), Readback<UInt4>(ContactCapacity),
-                Readback<Vector4>(ContactCapacity), Readback<Vector4>(ContactCapacity));
+                _held.Readback<Vector4>(_bodies, BufferUse.Storage), _held.Readback<Vector4>(_bodies, BufferUse.Storage),
+                _held.Readback<UInt4>(ContactCapacity, BufferUse.Storage), _held.Readback<Vector4>(ContactCapacity, BufferUse.Storage),
+                _held.Readback<Vector4>(ContactCapacity, BufferUse.Storage));
         }
 
         Lay(table);
@@ -735,9 +730,8 @@ internal sealed class DeviceSolver : IDisposable
 
         if ((ulong)keys.Length > _touchedIn.SizeBytes / (ulong)Unsafe.SizeOf<UInt2>())
         {
-            _owned.Remove(_touchedIn);
-            _touchedIn.Dispose();
-            _touchedIn = Staging<UInt2>(keys.Length);
+            _held.Release(_touchedIn);
+            _touchedIn = _held.Staging<UInt2>(keys.Length);
         }
 
         var pairs = _touchedIn.Span<UInt2>();
@@ -1029,39 +1023,11 @@ internal sealed class DeviceSolver : IDisposable
         return new CopyRun((ulong)_firstMoving * stride, (ulong)_firstMoving * stride, (ulong)_movingRows * stride);
     }
 
-    const int Group = 64;
-
-    static uint Groups(int count) => (uint)Math.Max(1, (count + Group - 1) / Group);
-
-    ComputeKernel Kernel(string shader, int buffers, int sets = 1)
-    {
-        var kernel = new ComputeKernel(_vk, shader, buffers, (uint)Marshal.SizeOf<StepPush>(), sets);
-        _kernels.Add(kernel);
-        return kernel;
-    }
-
-    GpuBuffer Device<T>(int count, BufferUse extra = 0) where T : unmanaged => Own(
-        _vk.CreateBuffer(
-            Bytes<T>(count), BufferUse.Storage | BufferUse.TransferSrc | BufferUse.TransferDst | extra, HostAccess.None));
-
-    GpuBuffer Staging<T>(int count) where T : unmanaged =>
-        Own(_vk.CreateBuffer(Bytes<T>(count), BufferUse.TransferSrc, HostAccess.Writes));
-
-    /// <summary>Memory the host reads back, written by a copy or — a kernel handing back only what it found — by a kernel.</summary>
-    GpuBuffer Readback<T>(int count) where T : unmanaged =>
-        Own(_vk.CreateBuffer(Bytes<T>(count), BufferUse.TransferDst | BufferUse.Storage, HostAccess.Reads));
-
     /// <summary>A staging buffer for <paramref name="count"/> ints, handed back as the span to write them into.</summary>
     Span<int> StagingFor(int count, out GpuBuffer staging)
     {
         staging = _vk.CreateBuffer(Bytes<int>(Math.Max(1, count)), BufferUse.TransferSrc, HostAccess.Writes);
         return staging.Span<int>()[..count];
-    }
-
-    GpuBuffer Own(GpuBuffer buffer)
-    {
-        _owned.Add(buffer);
-        return buffer;
     }
 
     /// <summary>
@@ -1122,10 +1088,10 @@ internal sealed class DeviceSolver : IDisposable
     public void Dispose()
     {
         _batch.Dispose();
-        foreach (var kernel in _kernels) kernel.Dispose();
+        _held.DisposeTheKernels();
         _words.Dispose();
         _scans.Dispose();
-        foreach (var buffer in _owned) buffer.Dispose();
+        _held.Dispose();
     }
 }
 

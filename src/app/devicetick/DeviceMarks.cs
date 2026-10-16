@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Road;
+using static TrafficSimulation.App.DeviceTick.DeviceHoldings;
 
 namespace TrafficSimulation.App.DeviceTick;
 
@@ -48,12 +49,10 @@ internal sealed class DeviceMarks(Vk vk) : IMarker
         /// <summary>The most threads one dispatch runs: WebGPU's most workgroups along an axis, of 64.</summary>
         const int MostThreads = Group * 65535;
 
-        const int Group = 64;
-
         readonly Vk _vk;
         readonly ComputeBatch _batch;
         readonly ComputeKernel _kernel;
-        readonly List<GpuBuffer> _buffers = [];
+        readonly DeviceHoldings _held;
         readonly GpuBuffer _pieces, _entryCell, _cellFirst, _inCell, _channels;
         readonly int _entries;
         MarksPush _push;
@@ -66,11 +65,12 @@ internal sealed class DeviceMarks(Vk vk) : IMarker
             _entries = filing.EntryCell.Length;
             _batch = new ComputeBatch(vk);
             _kernel = new ComputeKernel(vk, "ribbon_marks.comp", 7, (uint)Marshal.SizeOf<MarksPush>());
-            _pieces = Laid(filing.Pieces);
-            _entryCell = Laid(filing.EntryCell);
-            _cellFirst = Laid(filing.CellFirst);
-            _inCell = Laid(filing.InCell);
-            _channels = Laid(filing.Channels.Length > 0 ? filing.Channels : [0u]);
+            _held = new DeviceHoldings(vk);
+            _pieces = _held.Laid<MarkPiece>(filing.Pieces, BufferUse.TransferSrc);
+            _entryCell = _held.Laid<uint>(filing.EntryCell, BufferUse.TransferSrc);
+            _cellFirst = _held.Laid<uint>(filing.CellFirst, BufferUse.TransferSrc);
+            _inCell = _held.Laid<uint>(filing.InCell, BufferUse.TransferSrc);
+            _channels = _held.Laid<uint>(filing.Channels.Length > 0 ? filing.Channels : [0u], BufferUse.TransferSrc);
             var window = filing.Window;
             _push = new MarksPush
             {
@@ -112,10 +112,10 @@ internal sealed class DeviceMarks(Vk vk) : IMarker
         /// <summary>Every entry's pairs weighed into rows laid for so many, and the rows and their count copied back.</summary>
         void Weigh(int room)
         {
-            _rows = Device<MarkRow>(room);
-            _count = Device<uint>(1);
-            _rowsOut = Buffer<MarkRow>(room, HostAccess.Reads);
-            _countOut = Buffer<uint>(1, HostAccess.Reads);
+            _rows = _held.Device<MarkRow>(room);
+            _count = _held.Device<uint>(1);
+            _rowsOut = _held.Readback<MarkRow>(room, BufferUse.Storage | BufferUse.TransferSrc);
+            _countOut = _held.Readback<uint>(1, BufferUse.Storage | BufferUse.TransferSrc);
             _push.RowRoom = (uint)room;
             var set = _kernel.Bind([_pieces, _entryCell, _cellFirst, _inCell, _channels, _rows, _count]);
 
@@ -133,31 +133,11 @@ internal sealed class DeviceMarks(Vk vk) : IMarker
             _batch.Submit();
         }
 
-        static uint Groups(int threads) => (uint)Math.Max(1, (threads + Group - 1) / Group);
-
-        GpuBuffer Laid<T>(T[] rows) where T : unmanaged
-        {
-            var buffer = Device<T>(rows.Length);
-            buffer.Upload<T>(rows);
-            return buffer;
-        }
-
-        GpuBuffer Device<T>(int count) where T : unmanaged => Buffer<T>(count, HostAccess.None);
-
-        GpuBuffer Buffer<T>(int count, HostAccess host) where T : unmanaged
-        {
-            var buffer = _vk.CreateBuffer(
-                (ulong)(Math.Max(1, count) * Marshal.SizeOf<T>()),
-                BufferUse.Storage | BufferUse.TransferDst | BufferUse.TransferSrc, host);
-            _buffers.Add(buffer);
-            return buffer;
-        }
-
         public void Dispose()
         {
             _batch.Dispose();
             _kernel.Dispose();
-            foreach (var buffer in _buffers) buffer.Dispose();
+            _held.Dispose();
         }
     }
 }

@@ -11,6 +11,7 @@ using TrafficSimulation.Core.Config;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Town;
 using Vk = TrafficSimulation.Runtime.Vk;
+using static TrafficSimulation.App.DeviceTick.DeviceHoldings;
 using static TrafficSimulation.Runtime.GpuBuffer;
 
 namespace TrafficSimulation.App.DeviceTick;
@@ -164,11 +165,9 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     /// <summary>The binding of the counts the scan turns into starts (<c>Starts</c>), its totals the next.</summary>
     const int StartsAt = 14;
 
-    const int Group = 64;
-
     readonly Vk _vk;
     readonly SimConfig _config;
-    readonly List<GpuBuffer> _owned = [];
+    readonly DeviceHoldings _held;
     readonly int _units;
     readonly int _slots;
     readonly int _cars;
@@ -201,6 +200,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         SignalTable signals, bool levelled, DeviceWorld world)
     {
         _vk = vk;
+        _held = new DeviceHoldings(vk);
         _config = config;
         _room = room;
         _cars = cars.Count;
@@ -210,11 +210,11 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         if (_slots > ScanKernels.MostCounts) throw new ArgumentOutOfRangeException(nameof(cars), _slots, "more sprite slots than one scan covers");
 
         var figures = FiguresOf(config, looks, room, cars.Capacity, people.Capacity, heads.Count, signals, levelled);
-        var personRows = Device<PersonRow>(Math.Max(1, people.Capacity));
-        var carRows = Device<CarRow>(Math.Max(1, cars.Capacity));
+        var personRows = _held.Device<PersonRow>(Math.Max(1, people.Capacity));
+        var carRows = _held.Device<CarRow>(Math.Max(1, cars.Capacity));
         GpuBuffer[] set =
         [
-            _frame = Device<FrameRow>(1),
+            _frame = _held.Device<FrameRow>(1),
             Laid<Figures>([figures]),
             Laid<PersonLook>(PersonLooks(looks)),
             Laid<CarLook>(CarLooks(looks, cars)),
@@ -228,20 +228,20 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
             Laid<float>(signals.OffsetS),
             Laid<int>(signals.CrossingAxis),
             Laid<int>(signals.CrossingJunction),
-            Device<uint>(_slots),
-            Device<uint>(4),
-            Device<UInt2>(Math.Max(1, cars.Capacity)),
+            _held.Device<uint>(_slots),
+            _held.Device<uint>(4),
+            _held.Device<UInt2>(Math.Max(1, cars.Capacity)),
             // A slot above at the least: a frame binds the run above at its own offset, which may not be the buffer's end.
-            _instances = Device<SpriteInstance>(room.Over + Math.Max(1, room.Above), BufferUsageFlags.VertexBufferBit),
-            _draws = Device<DrawIndirectCommand>(2, BufferUsageFlags.IndirectBufferBit),
+            _instances = _held.Device<SpriteInstance>(room.Over + Math.Max(1, room.Above), BufferUse.Vertex),
+            _draws = _held.Device<DrawIndirectCommand>(2, BufferUse.Indirect),
         ];
 
-        _frameIn = Own(_vk.CreateBuffer(
+        _frameIn = _held.Own(_vk.CreateBuffer(
             Bytes<FrameWords>(1), BufferUsageFlags.TransferSrcBit | BufferUsageFlags.IndirectBufferBit, HostAccess.Writes));
-        _drawsOut = Own(_vk.CreateBuffer(Bytes<DrawIndirectCommand>(2), BufferUsageFlags.TransferDstBit, HostAccess.Reads));
+        _drawsOut = _held.Readback<DrawIndirectCommand>(2);
 
         _scans = new ScanKernels(vk);
-        _scan = new PrefixScan(vk, _scans, set[StartsAt], Device<uint>(ScanKernels.Block), set[StartsAt + 1], TotalAt);
+        _scan = new PrefixScan(vk, _scans, set[StartsAt], _held.Device<uint>(ScanKernels.Block), set[StartsAt + 1], TotalAt);
         _count = new ComputeKernel(vk, "sprites_count.comp", set.Length, pushBytes: 0);
         _write = new ComputeKernel(vk, "sprites_write.comp", set.Length, pushBytes: 0);
         _countSet = _count.Bind(set);
@@ -306,7 +306,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         var commands = _batch.Begin();
         RecordTheEmit(commands, _frameIn);
         _vk.BeforeTransfer(commands);
-        _instancesOut ??= Own(_vk.CreateBuffer(_instances.SizeBytes, BufferUsageFlags.TransferDstBit, HostAccess.Reads));
+        _instancesOut ??= _held.Own(_vk.CreateBuffer(_instances.SizeBytes, BufferUsageFlags.TransferDstBit, HostAccess.Reads));
         _vk.Copy(commands, _instances, _instancesOut, _instances.SizeBytes);
         _vk.Copy(commands, _draws, _drawsOut, _draws.SizeBytes);
         _batch.SubmitAndWait();
@@ -322,7 +322,7 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
     {
         while (_frames.Count <= image)
         {
-            var words = Own(_vk.CreateBuffer(
+            var words = _held.Own(_vk.CreateBuffer(
                 Bytes<FrameWords>(1), BufferUsageFlags.TransferSrcBit | BufferUsageFlags.IndirectBufferBit, HostAccess.Streams));
             words.Span<FrameWords>()[0] = default;
             _frames.Add(words);
@@ -377,8 +377,6 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         _scan.Record(commands, _slots);
         _write.Dispatch(commands, _writeSet, groups, default(NoPush));
     }
-
-    static uint Groups(int count) => (uint)Math.Max(1, (count + Group - 1) / Group);
 
     /// <summary>A car's four parts, and four again where there is a level above to draw them in.</summary>
     static int CarParts(bool levelled) => levelled ? 8 : 4;
@@ -534,24 +532,14 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         return rows;
     }
 
-    /// <summary>A device-local buffer holding these rows, sent once through a staging buffer.</summary>
+    /// <summary>
+    /// A <see cref="DeviceHoldings.Room{T}"/> holding these rows, sent once and made visible to the kernels alone, which are
+    /// all that read them.
+    /// </summary>
     GpuBuffer Laid<T>(ReadOnlySpan<T> rows) where T : unmanaged
     {
-        var buffer = Own(_vk.CreateBuffer(
-            Bytes<T>(Math.Max(1, rows.Length)), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferDstBit, HostAccess.None));
-        var copy = rows.ToArray();
-        buffer.Upload<T>(copy.Length, into => copy.CopyTo(into), PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit);
-        return buffer;
-    }
-
-    GpuBuffer Device<T>(int count, BufferUsageFlags also = 0) where T : unmanaged => Own(
-        _vk.CreateBuffer(
-            Bytes<T>(count), BufferUsageFlags.StorageBufferBit | BufferUsageFlags.TransferSrcBit | BufferUsageFlags.TransferDstBit | also,
-            HostAccess.None));
-
-    GpuBuffer Own(GpuBuffer buffer)
-    {
-        _owned.Add(buffer);
+        var buffer = _held.Room<T>(rows.Length);
+        buffer.Upload(rows, PipelineStageFlags2.ComputeShaderBit, AccessFlags2.ShaderStorageReadBit);
         return buffer;
     }
 
@@ -564,6 +552,6 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         _count.Dispose();
         _write.Dispose();
         _scans.Dispose();
-        foreach (var buffer in _owned) buffer.Dispose();
+        _held.Dispose();
     }
 }

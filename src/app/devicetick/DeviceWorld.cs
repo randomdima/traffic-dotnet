@@ -7,7 +7,7 @@ using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Physics;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
-using static TrafficSimulation.Runtime.GpuBuffer;
+using static TrafficSimulation.App.DeviceTick.DeviceHoldings;
 
 namespace TrafficSimulation.App.DeviceTick;
 
@@ -100,7 +100,6 @@ internal sealed partial class DeviceWorld : WorldLayer
         public bool Any => Commands > 0 || Events > 0;
     }
 
-    const int Group = 64;
     const int CarCoversEach = 16;
     const int WalkerCoversEach = 8;
 
@@ -111,8 +110,7 @@ internal sealed partial class DeviceWorld : WorldLayer
     readonly WorldLaying _laying;
     readonly int _cars, _walkers;
     readonly float _heldAroundAWheelM;
-    readonly List<GpuBuffer> _owned = [];
-    readonly List<ComputeKernel> _kernels = [];
+    readonly DeviceHoldings _held;
 
     readonly DeviceSolver _solver;
     readonly DeviceTyres _tyres;
@@ -163,6 +161,7 @@ internal sealed partial class DeviceWorld : WorldLayer
     public DeviceWorld(Vk vk, WorldLaying laying, DeviceAtlas? atlas = null) : base(laying)
     {
         _vk = vk;
+        _held = new DeviceHoldings(vk);
 
         // The furniture and the atlas are read here, to stand the device's own, and never again: kept, they would be the
         // host's largest tables for the run (the root decision log, 2026-10-13).
@@ -188,21 +187,21 @@ internal sealed partial class DeviceWorld : WorldLayer
         _lanes = new DeviceLanes(vk, laying.Roads);
         _batch = new ComputeBatch(vk);
 
-        _carRows = Laid(CarRowsOf());
+        _carRows = _held.Laid<CarRow>(CarRowsOf());
         var followsNothing = new LineFollowed[_cars];
         Array.Fill(followsNothing, LineFollowed.None);
-        _follows = Laid(followsNothing);
-        _walkerRows = Laid(WalkerRowsOf(stood));
+        _follows = _held.Laid<LineFollowed>(followsNothing);
+        _walkerRows = _held.Laid<WalkerRow>(WalkerRowsOf(stood));
         var agentOf = new AgentOf[table.Count];
         Array.Fill(agentOf, new AgentOf(-1, -1));
         for (var car = 0; car < _cars; car++) agentOf[BodyOfCar(car)].Car = car;
         for (var person = 0; person < _walkers; person++) agentOf[laying.BodyOf(person)].Walker = person;
-        var agentOfBuffer = Laid(agentOf);
+        var agentOfBuffer = _held.Laid<AgentOf>(agentOf);
 
-        _carRanges = Mapped<CoverRange>(_cars);
-        _walkerRanges = Mapped<CoverRange>(_walkers);
-        _counts = Device<uint>(4);
-        _countsOut = Mapped<uint>(CountsOut);
+        _carRanges = _held.Mapped<CoverRange>(_cars);
+        _walkerRanges = _held.Mapped<CoverRange>(_walkers);
+        _counts = _held.Device<uint>(4);
+        _countsOut = _held.Mapped<uint>(CountsOut);
         _carRoom = Math.Max(Group, _cars * CarCoversEach);
         _walkerRoom = Math.Max(Group, _walkers * WalkerCoversEach);
         LayTheCovers();
@@ -213,7 +212,7 @@ internal sealed partial class DeviceWorld : WorldLayer
         var tyres = _tyres.Table;
 
         var pushBytes = (uint)Marshal.SizeOf<WorldPush>();
-        _signalsKernel = Kernel("world_signals.comp", 16, pushBytes);
+        _signalsKernel = _held.Kernel("world_signals.comp", 16, pushBytes);
         _signalsBound =
         [
             null!, agentOfBuffer, tyres.Commands.Device, tyres.Cars.Device, tyres.Wheels.Device, _carRows,
@@ -221,31 +220,31 @@ internal sealed partial class DeviceWorld : WorldLayer
         ];
         _signalsSet = BindTheSignals();
 
-        _walkersKernel = Kernel("world_walkers.comp", 4, pushBytes);
+        _walkersKernel = _held.Kernel("world_walkers.comp", 4, pushBytes);
         _walkersSet = _walkersKernel.Bind([_walkerRows, pose, motion, mass]);
 
-        _towKernel = Kernel("world_tow.comp", 11, pushBytes);
+        _towKernel = _held.Kernel("world_tow.comp", 11, pushBytes);
         _towSet = _towKernel.Bind(
         [
             _carRows, tyres.Builds, tyres.BuildOf.Device, tyres.Poses.Device, tyres.Cars.Device, _tyres.WheelGrounds,
             _tyres.ImpulseTable, tyres.Wheels.Device, pose, motion, mass,
         ]);
 
-        _coversKernel = Kernel("world_covers.comp", 12 + _atlas.Tables.Length, (uint)Marshal.SizeOf<CoversPush>());
+        _coversKernel = _held.Kernel("world_covers.comp", 12 + _atlas.Tables.Length, (uint)Marshal.SizeOf<CoversPush>());
         _coversBound =
         [
             _carRows, _walkerRows, tyres.Builds, tyres.BuildOf.Device, pose, filter, tyres.Cars.Device, null!, null!,
             _counts, _carRanges, _walkerRanges, .. _atlas.Tables,
         ];
-        _coversOutKernel = Kernel("world_covers_out.comp", 5, (uint)Marshal.SizeOf<CoversOutPush>());
+        _coversOutKernel = _held.Kernel("world_covers_out.comp", 5, (uint)Marshal.SizeOf<CoversOutPush>());
         _coversSet = BindTheCovers();
 
-        _viewKernel = Kernel("world_view.comp", 13 + _lanes.Tables.Length, pushBytes, sets: _viewSets.Length);
-        _walkersViewKernel = Kernel("world_view_walkers.comp", 8, pushBytes, sets: _walkersViewSets.Length);
+        _viewKernel = _held.Kernel("world_view.comp", 13 + _lanes.Tables.Length, pushBytes, sets: _viewSets.Length);
+        _walkersViewKernel = _held.Kernel("world_view_walkers.comp", 8, pushBytes, sets: _walkersViewSets.Length);
         for (var slot = 0; slot < _viewSets.Length; slot++)
         {
-            var carViews = _carViews[slot] = Mapped<CarView>(_cars);
-            var walkerViews = _walkerViews[slot] = Mapped<WalkerView>(_walkers);
+            var carViews = _carViews[slot] = _held.Mapped<CarView>(_cars);
+            var walkerViews = _walkerViews[slot] = _held.Mapped<WalkerView>(_walkers);
             ViewInSlot(slot).ReadOver(carViews.Span<CarView>(), walkerViews.Span<WalkerView>());
             _viewSets[slot] = _viewKernel.Bind(
             [
@@ -388,10 +387,10 @@ internal sealed partial class DeviceWorld : WorldLayer
     [MemberNotNull(nameof(_carCoversGathered), nameof(_walkerCoversGathered), nameof(_carCovers), nameof(_walkerCovers))]
     void LayTheCovers()
     {
-        _carCoversGathered = Device<WayCover>(_carRoom);
-        _walkerCoversGathered = Device<WayCover>(_walkerRoom);
-        _carCovers = Mapped<WayCover>(_carRoom);
-        _walkerCovers = Mapped<WayCover>(_walkerRoom);
+        _carCoversGathered = _held.Device<WayCover>(_carRoom);
+        _walkerCoversGathered = _held.Device<WayCover>(_walkerRoom);
+        _carCovers = _held.Mapped<WayCover>(_carRoom);
+        _walkerCovers = _held.Mapped<WayCover>(_walkerRoom);
     }
 
     int BodyOfCar(int car) => _laying.BodyOf(_laying.Roster.AgentOfCar(car));
@@ -589,12 +588,8 @@ internal sealed partial class DeviceWorld : WorldLayer
         var written = Signals.Written;
         if (written.Length > RoomForSignals)
         {
-            foreach (var buffer in (ReadOnlySpan<GpuBuffer>)[_signalsWritten, _signalsIn])
-            {
-                _owned.Remove(buffer);
-                buffer.Dispose();
-            }
-
+            _held.Release(_signalsWritten);
+            _held.Release(_signalsIn);
             (_signalsWritten, _signalsIn) = SignalBuffers(written.Length * 2);
             _signalsSet = BindTheSignals();
         }
@@ -806,11 +801,7 @@ internal sealed partial class DeviceWorld : WorldLayer
     {
         _carRoom = Math.Max(_carRoom, carCovers * 2);
         _walkerRoom = Math.Max(_walkerRoom, walkerCovers * 2);
-        foreach (var buffer in (ReadOnlySpan<GpuBuffer>)[_carCoversGathered, _walkerCoversGathered, _carCovers, _walkerCovers])
-        {
-            _owned.Remove(buffer);
-            buffer.Dispose();
-        }
+        foreach (var buffer in (ReadOnlySpan<GpuBuffer>)[_carCoversGathered, _walkerCoversGathered, _carCovers, _walkerCovers]) _held.Release(buffer);
 
         LayTheCovers();
         _coversSet = BindTheCovers();
@@ -850,55 +841,24 @@ internal sealed partial class DeviceWorld : WorldLayer
 
     public override int FrozenBodyCount => 0;
 
-    static uint Groups(int count) => (uint)Math.Max(1, (count + Group - 1) / Group);
-
-    ComputeKernel Kernel(string shader, int buffers, uint pushBytes, int sets = 1)
-    {
-        var kernel = new ComputeKernel(_vk, shader, buffers, pushBytes, sets);
-        _kernels.Add(kernel);
-        return kernel;
-    }
-
     /// <summary>Where the host writes a tick's signals, and the device-local copy the kernel reads, each holding <paramref name="count"/>.</summary>
     (GpuBuffer Written, GpuBuffer In) SignalBuffers(int count)
     {
-        var bytes = Bytes<SignalRow>(Math.Max(Group, count));
-        return (
-            Own(_vk.CreateBuffer(bytes, BufferUse.TransferSrc, HostAccess.Writes)),
-            Own(_vk.CreateBuffer(bytes, BufferUse.Storage | BufferUse.TransferDst, HostAccess.None)));
-    }
-
-    GpuBuffer Mapped<T>(int count) where T : unmanaged =>
-        Own(_vk.CreateBuffer(Bytes<T>(Math.Max(1, count)), BufferUse.Storage, HostAccess.Reads));
-
-    GpuBuffer Device<T>(int count) where T : unmanaged => Own(
-        _vk.CreateBuffer(Bytes<T>(count), BufferUse.Storage | BufferUse.TransferSrc | BufferUse.TransferDst, HostAccess.None));
-
-    GpuBuffer Laid<T>(T[] rows) where T : unmanaged
-    {
-        var buffer = Own(_vk.CreateBuffer(
-            Bytes<T>(Math.Max(1, rows.Length)), BufferUse.Storage | BufferUse.TransferDst, HostAccess.None));
-        buffer.Upload<T>(rows);
-        return buffer;
-    }
-
-    GpuBuffer Own(GpuBuffer buffer)
-    {
-        _owned.Add(buffer);
-        return buffer;
+        var room = Math.Max(Group, count);
+        return (_held.Staging<SignalRow>(room), _held.Room<SignalRow>(room));
     }
 
     public override void Dispose()
     {
         _vk.WaitIdle();
         DisposeTheSprites();
-        foreach (var kernel in _kernels) kernel.Dispose();
+        _held.DisposeTheKernels();
         _batch.Dispose();
         _atlas.Dispose();
         _lanes.Dispose();
         _tyres.Dispose();
         _solver.Dispose();
-        foreach (var buffer in _owned) buffer.Dispose();
+        _held.Dispose();
     }
 
     /// <summary>What draws off this world let go of, by the head that draws it (<c>DeviceWorld.Sprites.cs</c>).</summary>

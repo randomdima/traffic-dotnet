@@ -20,8 +20,7 @@ internal sealed class DeviceLanes : IDisposable
         public static ArcRow Of(in ArcSeg arc) => new(arc.StartM, arc.StartUnit, arc.HeadingRad, arc.LengthM, arc.Curvature, 0f);
     }
 
-    readonly Vk _vk;
-    readonly List<GpuBuffer> _owned = [];
+    readonly DeviceHoldings _held;
 
     /// <summary>
     /// In <c>line_reading.glsl</c>'s order: the lanes' arcs then the joins', and the words — where each lane's arcs begin,
@@ -35,9 +34,9 @@ internal sealed class DeviceLanes : IDisposable
 
     public unsafe DeviceLanes(Vk vk, RoadGraph roads)
     {
-        _vk = vk;
+        _held = new DeviceHoldings(vk);
         var (laneArcs, laneArcFrom, joinArcs, joinArcFrom, joinTo) = roads.Tables;
-        var arcs = Room<ArcRow>(laneArcs.Length + joinArcs.Length);
+        var arcs = _held.Room<ArcRow>(laneArcs.Length + joinArcs.Length);
         arcs.Upload<ArcSeg, ArcRow>(laneArcs.Span, &ArcRow.Of);
         arcs.Upload<ArcSeg, ArcRow>(joinArcs.Span, &ArcRow.Of, (ulong)(laneArcs.Length * Marshal.SizeOf<ArcRow>()));
 
@@ -47,7 +46,7 @@ internal sealed class DeviceLanes : IDisposable
             HeadWords, HeadWords + laneArcFrom.Length, HeadWords + laneArcFrom.Length + lengths.Length,
             HeadWords + laneArcFrom.Length + lengths.Length + joinArcFrom.Length, laneArcs.Length,
         ];
-        var words = Room<int>(head[3] + joinTo.Length);
+        var words = _held.Room<int>(head[3] + joinTo.Length);
         Upload(words, (ReadOnlySpan<int>)head, 0);
         Upload(words, laneArcFrom, head[0]);
         Upload(words, lengths, head[1]);
@@ -59,17 +58,5 @@ internal sealed class DeviceLanes : IDisposable
     static void Upload(GpuBuffer words, ReadOnlySpan<int> rows, int atWord) =>
         words.Upload(rows, (ulong)atWord * sizeof(int));
 
-    GpuBuffer Room<T>(int count) where T : unmanaged
-    {
-        var buffer = _vk.CreateBuffer(
-            (ulong)(Math.Max(1, count) * Marshal.SizeOf<T>()),
-            BufferUse.Storage | BufferUse.TransferDst, HostAccess.None);
-        _owned.Add(buffer);
-        return buffer;
-    }
-
-    public void Dispose()
-    {
-        foreach (var buffer in _owned) buffer.Dispose();
-    }
+    public void Dispose() => _held.Dispose();
 }

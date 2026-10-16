@@ -105,7 +105,7 @@ internal sealed class DeviceTyres : IDisposable
 
     readonly Vk _vk;
     readonly Figures _figures;
-    readonly List<GpuBuffer> _owned = [];
+    readonly DeviceHoldings _held;
     readonly ComputeKernel _kernel;
     readonly BoundSet _set;
     readonly ComputeBatch _batch;
@@ -137,13 +137,14 @@ internal sealed class DeviceTyres : IDisposable
     public DeviceTyres(Vk vk, SimConfig config, in WheelGrounds grounds, ReadOnlySpan<CarBuild> builds, int capacity, bool handsBack = false)
     {
         _vk = vk;
+        _held = new DeviceHoldings(vk);
         _figures = Figures.Of(config);
         _handsBack = handsBack;
         Capacity = capacity;
 
         var wheels = capacity * WheelsACar;
-        var buildBuffer = Laid<CarBuildRow>(CarBuildRow.Of(builds));
-        var wheelGroundsBuffer = Laid<SurfaceRow>([SurfaceRow.Of(grounds.OffAWay), SurfaceRow.Of(grounds.OnAWay)]);
+        var buildBuffer = _held.Laid<CarBuildRow>(CarBuildRow.Of(builds));
+        var wheelGroundsBuffer = _held.Laid<SurfaceRow>([SurfaceRow.Of(grounds.OffAWay), SurfaceRow.Of(grounds.OnAWay)]);
         WheelGrounds = wheelGroundsBuffer;
         _buildOf = new ResidentRows<uint>(vk, capacity, 1, hostOnly: true);
         _poses = new ResidentRows<PoseRow>(vk, capacity, 1);
@@ -152,13 +153,13 @@ internal sealed class DeviceTyres : IDisposable
         _wheels = new ResidentRows<WheelRow>(vk, capacity, WheelsACar, readsBack: handsBack);
         _impulses = new ResidentRows<Vector4>(vk, capacity, WheelsACar, readsBack: handsBack);
         _scrubs = new ResidentRows<ScrubRow>(vk, capacity, WheelsACar, readsBack: handsBack);
-        _markCount = Device<uint>(1);
-        _marks = Own(_vk.CreateBuffer(Bytes<MarkRow>(handsBack ? wheels : 1), BufferUse.Storage, HostAccess.Reads));
-        _markCountOut = Readback<uint>(1);
+        _markCount = _held.Device<uint>(1);
+        _marks = _held.Mapped<MarkRow>(handsBack ? wheels : 1);
+        _markCountOut = _held.Readback<uint>(1);
 
         var drawnCapacity = Math.Max(1, config.Marks.Capacity);
-        GroundMarks = Own(_vk.CreateBuffer(Bytes<DriftMarkRow>(drawnCapacity), BufferUse.Storage, HostAccess.None));
-        GroundMarkRing = Own(_vk.CreateBuffer(
+        GroundMarks = _held.Own(_vk.CreateBuffer(Bytes<DriftMarkRow>(drawnCapacity), BufferUse.Storage, HostAccess.None));
+        GroundMarkRing = _held.Own(_vk.CreateBuffer(
             Bytes<DriftMarkRing>(1), BufferUse.Storage | BufferUse.Indirect | BufferUse.TransferDst, HostAccess.None));
         GroundMarkRing.Upload<DriftMarkRing>(1, into => into[0] = DriftMarkRing.After(0, drawnCapacity));
 
@@ -303,7 +304,7 @@ internal sealed class DeviceTyres : IDisposable
     {
         _cars = cars;
         var push = new PassPush { CarCount = (uint)cars, HandsBack = _handsBack ? 1u : 0u, Figures = _figures };
-        _kernel.Dispatch(commands, _set, (uint)Math.Max(1, (cars + 63) / 64), push);
+        _kernel.Dispatch(commands, _set, DeviceHoldings.Groups(cars), push);
     }
 
     /// <summary>What the last <see cref="Run"/> wrote, recorded to be handed back where <see cref="CarsAfter"/> and the rest read it.</summary>
@@ -314,28 +315,6 @@ internal sealed class DeviceTyres : IDisposable
         _impulses.Read(commands, _cars);
         _scrubs.Read(commands, _cars);
         RecordReadTheMarkCount(commands);
-    }
-
-    GpuBuffer Device<T>(int count) where T : unmanaged => Own(
-        _vk.CreateBuffer(
-            Bytes<T>(count), BufferUse.Storage | BufferUse.TransferSrc | BufferUse.TransferDst, HostAccess.None));
-
-    GpuBuffer Readback<T>(int count) where T : unmanaged =>
-        Own(_vk.CreateBuffer(Bytes<T>(count), BufferUse.TransferDst, HostAccess.Reads));
-
-    /// <summary>A device-local buffer holding these rows, sent once.</summary>
-    GpuBuffer Laid<T>(T[] rows) where T : unmanaged
-    {
-        var buffer = Own(_vk.CreateBuffer(
-            Bytes<T>(rows.Length), BufferUse.Storage | BufferUse.TransferDst, HostAccess.None));
-        buffer.Upload<T>(rows);
-        return buffer;
-    }
-
-    GpuBuffer Own(GpuBuffer buffer)
-    {
-        _owned.Add(buffer);
-        return buffer;
     }
 
     public void Dispose()
@@ -349,6 +328,6 @@ internal sealed class DeviceTyres : IDisposable
         _wheels.Dispose();
         _impulses.Dispose();
         _scrubs.Dispose();
-        foreach (var buffer in _owned) buffer.Dispose();
+        _held.Dispose();
     }
 }

@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Road;
+using static TrafficSimulation.App.DeviceTick.DeviceHoldings;
 
 namespace TrafficSimulation.App.DeviceTick;
 
@@ -123,8 +124,6 @@ internal sealed partial class DeviceAtlas : IAtlasFiler
         /// <summary>The most threads one dispatch runs: WebGPU's most workgroups along an axis, of 64.</summary>
         const int MostThreads = Group * 65535;
 
-        const int Group = 64;
-
         /// <summary>The answers copied back after the filing: the fault, the census's two, and the refused prop and its way.</summary>
         const int Answers = 5;
 
@@ -134,7 +133,7 @@ internal sealed partial class DeviceAtlas : IAtlasFiler
         readonly AtlasFurniture _furniture;
         readonly ComputeBatch _batch;
         readonly ComputeKernel _file, _starts, _sort, _check;
-        readonly List<GpuBuffer> _buffers = [];
+        readonly DeviceHoldings _held;
         readonly GpuBuffer _pieces, _rowFirst, _cellCounts, _cellCountsOut;
         readonly BoundSet _countSet;
         readonly int _pieceCount, _rowCount;
@@ -165,13 +164,14 @@ internal sealed partial class DeviceAtlas : IAtlasFiler
             _sort = new ComputeKernel(_vk, "atlas_sort.comp", 2, (uint)Marshal.SizeOf<SortPush>());
             _check = new ComputeKernel(_vk, "atlas_furniture.comp", 4, (uint)Marshal.SizeOf<FurniturePush>());
 
-            _pieces = Device<FilingPiece>(_pieceCount);
+            _held = new DeviceHoldings(_vk);
+            _pieces = _held.Device<FilingPiece>(_pieceCount);
             _pieces.Upload<FilingPiece>(filing.Pieces);
-            _rowFirst = Device<int>(filing.RowFirst.Length);
+            _rowFirst = _held.Device<int>(filing.RowFirst.Length);
             _rowFirst.Upload<int>(filing.RowFirst);
-            _cellCounts = Device<uint>(filing.Cells.Count);
-            _cellCountsOut = Buffer<uint>(filing.Cells.Count, HostAccess.Reads);
-            _countSet = _file.Bind([_pieces, _rowFirst, _cellCounts, Device<uint>(1), Device<uint>(1)]);
+            _cellCounts = _held.Device<uint>(filing.Cells.Count);
+            _cellCountsOut = _held.Readback<uint>(filing.Cells.Count, BufferUse.Storage | BufferUse.TransferSrc);
+            _countSet = _file.Bind([_pieces, _rowFirst, _cellCounts, _held.Device<uint>(1), _held.Device<uint>(1)]);
 
             var cells = filing.Cells;
             _push = new FilePush
@@ -230,17 +230,17 @@ internal sealed partial class DeviceAtlas : IAtlasFiler
             _push.EntriesAt = head[3];
 
             var runs = slots * _frame.RunsPerCell;
-            var runCounts = Device<uint>((runs + 3) / 4);
-            var faults = Device<uint>(1);
-            var census = Device<uint>(2);
-            var refused = Device<uint>(2);
-            _answers = Buffer<uint>(Answers, HostAccess.Reads);
-            var props = Device<System.Numerics.Vector4>(_furniture.Count);
+            var runCounts = _held.Device<uint>((runs + 3) / 4);
+            var faults = _held.Device<uint>(1);
+            var census = _held.Device<uint>(2);
+            var refused = _held.Device<uint>(2);
+            _answers = _held.Readback<uint>(Answers, BufferUse.Storage | BufferUse.TransferSrc);
+            var props = _held.Device<System.Numerics.Vector4>(_furniture.Count);
             props.Upload<System.Numerics.Vector4>(PropsOf(_furniture));
-            var driven = Device<uint>((_furniture.DrivenWay.Length + 31) / 32);
+            var driven = _held.Device<uint>((_furniture.DrivenWay.Length + 31) / 32);
             driven.Upload<uint>(DrivenOf(_furniture.DrivenWay));
 
-            var fillSet = _file.Bind([_pieces, _rowFirst, Device<uint>(1), runCounts, words]);
+            var fillSet = _file.Bind([_pieces, _rowFirst, _held.Device<uint>(1), runCounts, words]);
             var startsSet = _starts.Bind([runCounts, words, faults]);
             var sortSet = _sort.Bind([words, census]);
             var checkSet = _check.Bind([props, driven, refused, words]);
@@ -326,8 +326,6 @@ internal sealed partial class DeviceAtlas : IAtlasFiler
             _vk.BetweenKernels(commands);
         }
 
-        static uint Groups(int threads) => (uint)Math.Max(1, (threads + Group - 1) / Group);
-
         static System.Numerics.Vector4[] PropsOf(AtlasFurniture furniture)
         {
             var props = new System.Numerics.Vector4[furniture.Count];
@@ -350,17 +348,6 @@ internal sealed partial class DeviceAtlas : IAtlasFiler
             return bits;
         }
 
-        GpuBuffer Device<T>(int count) where T : unmanaged => Buffer<T>(count, HostAccess.None);
-
-        GpuBuffer Buffer<T>(int count, HostAccess host) where T : unmanaged
-        {
-            var buffer = _vk.CreateBuffer(
-                (ulong)(Math.Max(1, count) * Marshal.SizeOf<T>()),
-                BufferUse.Storage | BufferUse.TransferDst | BufferUse.TransferSrc, host);
-            _buffers.Add(buffer);
-            return buffer;
-        }
-
         public void Dispose()
         {
             _batch.Dispose();
@@ -368,7 +355,7 @@ internal sealed partial class DeviceAtlas : IAtlasFiler
             _starts.Dispose();
             _sort.Dispose();
             _check.Dispose();
-            foreach (var buffer in _buffers) buffer.Dispose();
+            _held.Dispose();
         }
     }
 }

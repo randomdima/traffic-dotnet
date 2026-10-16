@@ -398,9 +398,6 @@ kept, but a moving one lays its layers again.
 Found by the cleanup of 2026-10-15 (`qq unused`, the analyzers) and left because closing each crosses slices, changes
 a layout or changes behaviour.
 
-- **The device helpers are copied file to file**: `Groups`, `Kernel`, `Device<T>`, `Own`, `Laid<T>`, `Room<T>` and
-  `Readback<T>` in `DeviceSolver`, `DeviceWorld`, `DeviceTyres`, `DeviceSprites`, `DeviceAtlas` and `DeviceLanes`, each
-  file with its own `Group` of 64. One shared helper in `app/devicetick/` closes it.
 - **One union-find root, three copies** (`FootJunctions`, `CrossingWays`, `LanePlaces`) — only the root: each join
   keeps a different representative (the first, the lower, the other), which the order of what they lay rests on, and
   no folder of `core/` is a home for four lines; **three `Spread`/`Percentile`/`Median`** in the bench
