@@ -338,10 +338,11 @@ internal sealed class Following(
     void LevelTheRungs(int car, ReadOnlySpan<LineWay> ways, Span<ClaimPriority> rungs)
     {
         var next = ClaimPriority.Firm;
+        var onACall = Cars.BlueLight[car];
         for (var index = ways.Length - 1; index >= 0; index--)
         {
             if (ground.Ways.KindOf(ways[index].Way) == WayKind.Connector) next = ground.RungOn(ways[index].Way);
-            rungs[index] = Cars.BlueLight[car] ? ClaimPriority.Special : next;
+            rungs[index] = onACall ? ClaimPriority.Special : next;
         }
 
         for (var index = 1; index < ways.Length; index++)
