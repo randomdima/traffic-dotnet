@@ -116,12 +116,7 @@ struct WalkerViewRow
     vec2 positionM;
     vec2 velocityMps;
     float headingRad;
-    uint flags;
     float overlapM;
-    int pad;
 };
-
-// It declared a velocity this step (WalkerView.Declares).
-const uint ViewDeclares = 1u;
 
 #endif

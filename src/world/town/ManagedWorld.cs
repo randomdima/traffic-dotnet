@@ -620,7 +620,6 @@ internal sealed class ManagedWorld : WorldLayer
             row.PositionM = _physics.PositionOf(body);
             row.VelocityMps = _physics.VelocityOf(body);
             row.HeadingRad = _headingRad[person];
-            row.Flags = _declaredMps[person] != Vector2.Zero ? WalkerView.Declares : 0u;
             row.OverlapM = _physics.OverlapOf(body);
         }
     }

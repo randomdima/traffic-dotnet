@@ -26,7 +26,7 @@ namespace TrafficSimulation.CityGen.Gen;
 /// </para>
 /// <para>
 /// <b>So the bays are counted before the place is chosen.</b> How much street a car park takes is what the sites
-/// are found with (<see cref="SimConfig.CarParkFrontageM"/>, <see cref="CutJunctions.Sites"/>): the rank and the
+/// are found with (<see cref="SimConfig.CarParkFrontageM"/>, <see cref="RoadsideSites.Sites"/>): the rank and the
 /// street a car manoeuvres over past either end of it, on a stretch straight enough to square a rank to
 /// (<see cref="SimConfig.CarParkCurvatureMax"/>) — rather than a place being taken and the bays that did not fit
 /// on it taken back off again (GEN-10).
@@ -124,11 +124,11 @@ internal static class CarParks
             var reach = use == BuildingUse.Ordinary ? default : YardReach.Of(config, sizes, use);
 
             int[]? bays = null;
-            CutJunctions.Site laidAt = default;
+            RoadsideSites.Site laidAt = default;
             if (parks.Count == 0)
             {
                 // <b>The first one is drawn</b>, there being nothing yet to stand away from.
-                var sites = CutJunctions.Sites(layout, config, frontageM, curvatureMax);
+                var sites = RoadsideSites.Sites(layout, config, frontageM, curvatureMax);
                 if (sites.Count == 0) break;
 
                 var first = draw.NextInt(sites.Count);
@@ -199,7 +199,7 @@ internal static class CarParks
     /// asked of the road alone, a yard laid on one stood its building in the district over the road, and a yard
     /// on one facing into the district is that district's.
     /// </summary>
-    static bool IsIn(TownLayout layout, CutJunctions.Site site, DistrictWheel districts, int district, YardReach reach)
+    static bool IsIn(TownLayout layout, RoadsideSites.Site site, DistrictWheel districts, int district, YardReach reach)
     {
         if (district == AnyDistrict) return true;
 
@@ -230,7 +230,7 @@ internal static class CarParks
     /// </summary>
     /// <param name="facingM">Where a yard's rank faces (<see cref="FaceTheTown"/>), or nothing for the town's own car park.</param>
     static int[]? At(
-        TownLayout layout, SimConfig config, CutJunctions.Site site, ReadOnlySpan<int> perSide, Vector2? facingM,
+        TownLayout layout, SimConfig config, RoadsideSites.Site site, ReadOnlySpan<int> perSide, Vector2? facingM,
         bool[] onTheRight)
     {
         Span<int> sides = stackalloc int[Sides.Length];
@@ -325,7 +325,7 @@ internal static class CarParks
     /// Drawn instead, a yard laid on a road along the edge of the map faced off it half the time and its
     /// building stood nowhere.
     /// </summary>
-    static void FaceTheTown(TownLayout layout, CutJunctions.Site site, Vector2 townM, Span<int> perSide)
+    static void FaceTheTown(TownLayout layout, RoadsideSites.Site site, Vector2 townM, Span<int> perSide)
     {
         var at = Spline.SampleAt(layout.LineOf(site.Road), site.AlongM);
         var rank = Math.Max(perSide[0], perSide[1]);
@@ -390,7 +390,7 @@ internal static class CarParks
         readonly TownLayout _layout;
         readonly PointCells _parks;
 
-        readonly List<CutJunctions.Site> _site = [];
+        readonly List<RoadsideSites.Site> _site = [];
         readonly List<float> _nearestSq = [];
 
         /// <summary>How many car parks each site's <see cref="_nearestSq"/> was measured against.</summary>
@@ -403,10 +403,10 @@ internal static class CarParks
             _layout = layout;
             _parks = parks;
 
-            foreach (var site in CutJunctions.Sites(layout, config, frontageM, curvatureMax)) Enter(site);
+            foreach (var site in RoadsideSites.Sites(layout, config, frontageM, curvatureMax)) Enter(site);
         }
 
-        public CutJunctions.Site this[int entry] => _site[entry];
+        public RoadsideSites.Site this[int entry] => _site[entry];
 
         /// <summary>The furthest site that still stands, taken out of the book, or −1 where none is left.</summary>
         public int Next()
@@ -438,7 +438,7 @@ internal static class CarParks
         public void Queue(int entry) =>
             _queue.Enqueue(entry, new SiteOrder(_nearestSq[entry], _site[entry].Road, _site[entry].AlongM));
 
-        void Enter(CutJunctions.Site site)
+        void Enter(RoadsideSites.Site site)
         {
             var entry = _site.Count;
             _site.Add(site);

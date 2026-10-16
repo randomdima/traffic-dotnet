@@ -134,7 +134,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// Whether all this car's tick does is drive its line: following its route, or at a bay — but not while a manoeuvre it
-    /// asked for waits on the laying, whose tick is what keeps or withdraws it (<see cref="BayManoeuvring.KeepOrWithdraw"/>).
+    /// asked for waits to be laid and answered, which is what keeps or withdraws it (<see cref="BayManoeuvring.KeepOrWithdraw"/>).
     /// </summary>
     bool TicksOnlyToDrive(int car) => Cars.Action[car] switch
     {
@@ -1025,8 +1025,8 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>A grant holds only down the lanes it was read down</b> (TER-4c.8): where a line is laid again between two
-    /// layings of the claims, the grant ends where the first lane laid differently begins — past there is ground
-    /// nothing claimed, and the claims laid next say what of it the car may have.
+    /// of the car's turns, the grant ends where the first lane laid differently begins — past there is ground
+    /// nothing claimed, and the claims laid at its next turn say what of it the car may have.
     /// </summary>
     void KeepTheGrantOnTheLanesKept(int car, ReadOnlySpan<int> was)
     {

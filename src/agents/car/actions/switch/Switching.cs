@@ -76,7 +76,7 @@ internal sealed class Switching(DrivingGround ground, CarActions actions)
     /// <summary>Steps across asked for since the town was laid (CAR-53).</summary>
     public long Asked { get; private set; }
 
-    /// <summary>And withdrawn in the rebuild after, because a body or a pass had the ground by then.</summary>
+    /// <summary>And withdrawn once laid, because a body or a pass had the ground by then.</summary>
     public long Withdrawn { get; private set; }
 
     /// <summary>And driven, the car on the lane beside.</summary>
@@ -320,10 +320,10 @@ internal sealed class Switching(DrivingGround ground, CarActions actions)
         _laidFor[car] = _askedAs[car];
     }
 
-    /// <summary>The hold each car's step was asked in this rebuild, or <see cref="LaneOccupancy.NoHold"/>.</summary>
+    /// <summary>The hold each car's step was asked in at its last turn, or <see cref="LaneOccupancy.NoHold"/>.</summary>
     readonly int[] _holds = LaneOccupancy.NoHolds(ground.Cars.Capacity);
 
-    /// <summary>The hold this car's step was asked in this rebuild, or <see cref="LaneOccupancy.NoHold"/>.</summary>
+    /// <summary>The hold this car's step was asked in at its last turn, or <see cref="LaneOccupancy.NoHold"/>.</summary>
     public int HoldOf(int car) => _holds[car];
 
     /// <summary>The step measured again from the next lane of the chain, which begins <paramref name="shiftM"/> along the line.</summary>
@@ -580,7 +580,7 @@ internal sealed class Switching(DrivingGround ground, CarActions actions)
     }
 
     /// <summary>
-    /// <b>A step laid in this rebuild, kept or withdrawn</b> before the car moves across: kept where the whole of its
+    /// <b>A step laid at the car's last turn, kept or withdrawn</b> before the car moves across: kept where the whole of its
     /// ground was had (<see cref="DrivingGround.IsKept"/>) — and only while the car can still come up to where it begins.
     /// </summary>
     void KeepOrWithdraw(int car, in Overtake step, float progressM)

@@ -68,7 +68,7 @@ internal sealed partial class TownWorld
         Array.Clear(_carSetBy);
         Array.Clear(_walkerSetBy);
         Array.Fill(_followedLaid, NeverFollowed);
-        _claimsLaidOff = -1;
+        _turnsTakenOff = -1;
         ReadTheWorld();
     }
 
@@ -228,7 +228,6 @@ internal sealed partial class TownWorld
         People.PositionM[person] = atM;
         People.HeadingRad[person] = headingRad;
         People.VelocityMps[person] = Vector2.Zero;
-        People.Declares[person] = false;
         _sentWalk[person] = NeverSent;
         _walkerSetBy[person] = NextBatch;
         Signal(ControlSignal.Place(Roster.AgentOfPerson(person), atM, headingRad));
@@ -239,7 +238,6 @@ internal sealed partial class TownWorld
     {
         _placements++;
         People.VelocityMps[person] = Vector2.Zero;
-        People.Declares[person] = false;
         _sentWalk[person] = NeverSent;
         Signal(ControlSignal.Contain(Roster.AgentOfPerson(person)));
     }
@@ -356,7 +354,6 @@ internal sealed partial class TownWorld
             People.DistanceWalkedM[person] += (row.PositionM - People.PositionM[person]).Length();
             People.PositionM[person] = row.PositionM;
             People.VelocityMps[person] = row.VelocityMps;
-            People.Declares[person] = (row.Flags & WalkerView.Declares) != 0;
             People.HeadingRad[person] = row.HeadingRad;
         }
     }

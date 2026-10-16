@@ -11,7 +11,7 @@ namespace TrafficSimulation.Agents.Car.Actions;
 
 /// <summary>
 /// <b>The town as a car's action reads it</b>: the fleet, the ways and the ground each covers, what is laid on them
-/// this rebuild — and the questions every action asks of them, about a car's own line over the ways and about the
+/// at its turn — and the questions every action asks of them, about a car's own line over the ways and about the
 /// ground a body swept down a pass or a manoeuvre stands on.
 /// </summary>
 /// <remarks>
@@ -30,8 +30,8 @@ internal sealed class DrivingGround(
 
     public CarFleet Cars { get; } = cars;
 
-    /// <summary>What is laid on the ways: the layer every reader reads, or a laying of the town's own while one lasts.</summary>
-    public LaneOccupancy Occupancy { get; internal set; } = occupancy;
+    /// <summary>What is laid on the ways: the one layer every reader reads.</summary>
+    public LaneOccupancy Occupancy { get; } = occupancy;
 
     public TownWays Ways { get; } = ways;
 
@@ -42,7 +42,7 @@ internal sealed class DrivingGround(
     public SimConfig Config { get; } = config;
 
     /// <summary>
-    /// <b>The plan each car laid down its own line this rebuild</b>, or <see cref="LaneOccupancy.NoHold"/> — the one
+    /// <b>The plan each car laid down its own line at its last turn</b>, or <see cref="LaneOccupancy.NoHold"/> — the one
     /// claim two actions share (TER-4c.8), and what a car was cut at is read off.
     /// </summary>
     public int[] PlanHold { get; } = LaneOccupancy.NoHolds(cars.Capacity);
@@ -162,7 +162,7 @@ internal sealed class DrivingGround(
     /// <param name="begunOn">
     /// <b>The hold of a pass or a manoeuvre the car has begun</b>, which the plan carries on from — what it drives first,
     /// so whatever refuses that ends the plan too — or <see cref="LaneOccupancy.NoHold"/>, for a hold kept from one
-    /// rebuild to the next (<see cref="KeepsThePlan"/>).
+    /// turn to the next (<see cref="KeepsThePlan"/>).
     /// </param>
     public int BeginThePlan(int car, float marginM, int begunOn = LaneOccupancy.NoHold)
     {
@@ -182,9 +182,9 @@ internal sealed class DrivingGround(
     public float GrantLeftAtTheTurnM(int car) => _grantLeftM[car];
 
     /// <summary>
-    /// <b>A car's claim of the rebuild before, forgotten</b> before its action lays this rebuild's: no hold, a plan
-    /// from its nose to its nose, and <b>nothing granted</b> (TER-4c.8) — a car moves over ground its action has
-    /// claimed this rebuild and over no other, so what the action lays is the only thing that grants it road.
+    /// <b>A car's claim of its turn before, forgotten</b> before its action lays this turn's: no hold, a plan from
+    /// its nose to its nose, and <b>nothing granted</b> (TER-4c.8) — a car moves over ground its action has claimed
+    /// at its turn and over no other, so what the action lays is the only thing that grants it road.
     /// </summary>
     public void ClearTheClaim(int car)
     {

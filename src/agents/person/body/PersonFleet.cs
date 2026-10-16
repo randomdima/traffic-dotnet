@@ -25,7 +25,7 @@ namespace TrafficSimulation.Agents.Person.Body;
 /// <para>
 /// <b>The ground is not kept here</b> (PER-26). A walker holds the ground it stands on and plans the ground in
 /// front of it, and both of those live on the ways rather than in this roster; what comes back to it is one
-/// distance, <see cref="GrantM"/>, written once a rebuild and read by everything that asks how far it may go.
+/// distance, <see cref="GrantM"/>, written at each of its turns and read by everything that asks how far it may go.
 /// </para>
 /// </remarks>
 internal sealed class PersonFleet
@@ -34,7 +34,6 @@ internal sealed class PersonFleet
     {
         PositionM = new Vector2[capacity];
         VelocityMps = new Vector2[capacity];
-        Declares = new bool[capacity];
         HeadingRad = new float[capacity];
         DestinationM = new Vector2[capacity];
         Walking = new bool[capacity];
@@ -101,17 +100,6 @@ internal sealed class PersonFleet
     public Vector2[] PositionM { get; }
 
     public Vector2[] VelocityMps { get; }
-
-    /// <summary>
-    /// <b>Whether this walker declared a velocity at the world's last step</b> (<see cref="Control.WalkerFollower"/>,
-    /// PER-3): one that declared none stands, whatever it is sliding at. The velocity itself is the world's, which reads
-    /// what a contact did to the body against it.
-    /// </summary>
-    /// <remarks>
-    /// <b>Cleared wherever the body is set down or stopped by anything but its feet</b> — made, put out of a door,
-    /// knocked over.
-    /// </remarks>
-    public bool[] Declares { get; }
 
     /// <summary>Intent, not solver output: rotation is locked, so this is set by code and read by what draws.</summary>
     public float[] HeadingRad { get; }
@@ -322,7 +310,6 @@ internal sealed class PersonFleet
         var person = Count++;
         PositionM[person] = positionM;
         VelocityMps[person] = Vector2.Zero;
-        Declares[person] = false;
         HeadingRad[person] = headingRad;
         DestinationM[person] = positionM;
         Walking[person] = false;

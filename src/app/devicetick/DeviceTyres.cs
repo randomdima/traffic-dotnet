@@ -141,11 +141,8 @@ internal sealed class DeviceTyres : IDisposable
         _handsBack = handsBack;
         Capacity = capacity;
 
-        var buildRows = new CarBuildRow[builds.Length];
-        for (var build = 0; build < buildRows.Length; build++) buildRows[build] = CarBuildRow.Of(builds[build]);
-
         var wheels = capacity * WheelsACar;
-        var buildBuffer = Laid<CarBuildRow>(buildRows);
+        var buildBuffer = Laid<CarBuildRow>(CarBuildRow.Of(builds));
         var wheelGroundsBuffer = Laid<SurfaceRow>([SurfaceRow.Of(grounds.OffAWay), SurfaceRow.Of(grounds.OnAWay)]);
         WheelGrounds = wheelGroundsBuffer;
         _buildOf = new ResidentRows<uint>(vk, capacity, 1, hostOnly: true);
@@ -200,9 +197,7 @@ internal sealed class DeviceTyres : IDisposable
     /// </summary>
     public void Retune(in WheelGrounds grounds, ReadOnlySpan<CarBuild> builds)
     {
-        var buildRows = new CarBuildRow[builds.Length];
-        for (var build = 0; build < buildRows.Length; build++) buildRows[build] = CarBuildRow.Of(builds[build]);
-
+        var buildRows = CarBuildRow.Of(builds);
         Table.Builds.Upload<CarBuildRow>(buildRows.Length, into => buildRows.CopyTo(into));
         SurfaceRow[] surfaces = [SurfaceRow.Of(grounds.OffAWay), SurfaceRow.Of(grounds.OnAWay)];
         WheelGrounds.Upload<SurfaceRow>(surfaces.Length, into => surfaces.CopyTo(into));

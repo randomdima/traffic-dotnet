@@ -8,8 +8,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 ## Failing tests
 
-- **`StopBarsTests.ABarStandsASetbackBehindItsCrossing`** (unit) fails, and fails on the tree before the wheel
-  claims too. Nothing has looked at why.
+- **`StopBarsTests.ABarStandsASetbackBehindItsCrossing`** (unit) fails: the worst bar's gap is 0.0426 m off the setback
+  against `FramesM`, a 0.04 m bound measured on the fixture. It fails on 5a973d8, 2b8936c7 and 9f5c05af (2026-09-30)
+  alike, so the fixture outgrew the measurement before the claims redesign. Finding which bar and whether its arm's
+  bend accounts for it — then re-measuring the bound or reading the gap in the lane's own metres — closes it.
 - **`AllocationGateTests.AWholeTickOfAWholeTownAllocatesNothing(Laid)`** (perf, `P0`) failed once at 120 B over 600
   ticks on 2026-10-16, with the machine at a load of ~25 and the test host already on the shipped collector; it has
   passed every run since, five in a row on a quiet machine. What allocated under load is not known; an allocation
@@ -86,10 +88,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   step's held pairs are taken a block of 64 at a time by as many workgroups as its contacts need — one, on a step with a
   handful — so a town holding thousands of frozen touches walks them in one workgroup, twice a step. How many a shipped
   city holds is not measured; dispatching that walk off the held count closes it.
-- **The device world is not measured for allocation or crossings**, though it is a window's default since 2026-10-15:
-  `AllocationGateTests` and `CrossingGateTests` step the managed world. A tick on the device crosses a fixed count — the world's submit and wait, and the emit's submit a frame —
-  but no gate holds it, nor that `DeviceWorld.Step` allocates nothing (its signal buffer grows by doubling past twice the
-  bodies). A device gate over the suite's built town closes it.
+- **The device world allocates once, about a hundred bytes, some seconds past a 600-tick warm-up** of the built town
+  (lavapipe, 2026-10-16), and nothing in the 2 400 ticks after; no field of the town or the world grew on that tick, so
+  it is the runtime's or a static's first time. `DeviceAllocationGateTests` warms past it as the managed gate does
+  (`Towns.SettleTicks`). An allocation trace of that tick names it.
 - **The page's device world** (2026-10-15, web log), each found standing it up:
   - **no tier runs it**: `qq web` on River, OdesaOsm and O30 is the whole of what has looked at it. A lockstep would not hold to the bit
     in any case — WGSL cannot forbid a driver to fuse (core log), and `fma` in `world_view.comp` may run unfused — so a
@@ -102,8 +104,9 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     need to. Sending marked runs (`ResidentRows`) and reading back the counted rows closes it;
   - **covers that ran past their lists leave that view without covers** (`DeviceWorld.Finish`): the desktop reads
     them again and waits; a page goes a tick without the turns those covers would have fed;
-  - **a fill of any word but nought makes a uniform buffer and a bind group each time** (`compute.js`'s `fill`), which
-    the solver's laying and `FillRows` ask for. A fill pipeline holding one window per fill closes it;
+  - **a fill of any word but nought makes a uniform buffer and a bind group each time** (`compute.js`'s `fill`), and
+    never frees the buffer — twice a town laid (the solver's `_lowest` and the atlas filing's `refused`), not a tick. A
+    fill pipeline holding one window per fill closes it;
   - **the page's Debug build stands River in three minutes**, interpreted; only a published page is worth timing;
   - **the Pages build translates the kernels with another glslc than the one they are written against**: Ubuntu's
     apt package in `pages.yml`, years behind this machine's shaderc 2026.1. Its SPIR-V left `touches.comp`'s
@@ -183,21 +186,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   off the way it walks, its plan refused by the crossing's light about half its decisions, and its walk given up on once
   and drawn again to the same car. What holds it there and why its leg's clock does not end the walk is not known.
   Others did the same for shorter stretches (walker 160, minutes 27–33). Finding what refuses it closes it.
-
-- **`qq prof --memory` quotes a frame rate the window it sampled did not have** (`.qq/prof.py`): the game's read-out is
-  its last window at exit, which `--memory` puts 120 s after the samples end, and every `ms/frame` is divided by that
-  rate. OdesaOsm sampled at 7 fps was quoted at 60, because by the exit the town had jammed. Reading the frame meter
-  over the sampled window, or naming the read-out's own window beside it, closes it.
-- **`Person.StartsAtTheWheelShare` has no test** (2026-10-14): owners laid at their wheel and set off on a driven trip
-  (`TownWorld.SeatTheOwners`), a load figure, none by default. A town test that an owner laid so is aboard with a driven
-  trip under way, and one that a share of none moves no person's draws, closes it.
 - **An owner can be kept at the wheel for over a minute in the suite's built town** (person log, 2026-10-02): two
   owners stayed seated because every exit spot near the door was within their own car's panels or held by someone else.
   The door point is a person's breadth off a nominal car's flank, which a wider car reaches past. Checking that the
   spots past it lie on the next bay's way closes it.
-- **The unit read-out misreads a driver's car** (`UnitReadout`, drive log "the second watched drive"): a wrecked car
-  still prints `wheel` *in the player's hand* off the selection, `off line` reads 0.00 m for a car with no line, and
-  `ahead` reads *clear* against a held or hand-driven agent, which takes no claims. A row for each closes it.
 
 ## Redundant work left in place
 
@@ -369,11 +361,8 @@ applied is in the log, and each of these was judged not worth its cost, or not p
     road shape only because that cache's key misses a lane's shift; `Overtaking`/`Switching` copy the 40-byte
     `Overtake` where reading it in place would alias the row they write back.
 - **A frame**: `PersonSprites`/`TownSprites` read the fleet's arrays again a sprite (the managed world, the page, a
-  shot); `Camera2D.Facing` takes cos and sin every conversion; the web and handset windows work `UiScale` out every
-  pointer read where the desktop keeps it a pump; the page's `CameraBytes = 80` is written out rather than taken off
-  `CameraView`'s size.
-- **Setup and the open**: `Vk.TryMemoryTypeIndex` asks the device's memory properties every allocation;
-  `GlyphStamp.Blend` goes through the image's indexer a pixel; `KerbLines.Of` copies its pieces three times and keeps
+  shot); the web and handset windows work `UiScale` out every pointer read where the desktop keeps it a pump.
+- **Setup and the open**: `GlyphStamp.Blend` goes through the image's indexer a pixel; `KerbLines.Of` copies its pieces three times and keeps
   two; `ShellFill.Ears` allocates a `Node` a corner; `Spline.RoundedInto` a `float[]` a road; `TownLayout.StandsClear`
   a delegate a call; `ArcRings.Of`'s stringing is one thread; `TownWorld.Places.LayTheExits` stays serial until
   `StaticBodies.InBox` is laid before it rather than on its first ask; `ZoneTree.Holds` files nothing by row as
@@ -410,38 +399,23 @@ Found by the cleanup of 2026-10-15 (`qq unused`, the analyzers) and left because
 a layout or changes behaviour.
 
 - **The device helpers are copied file to file**: `Groups`, `Kernel`, `Device<T>`, `Own`, `Laid<T>`, `Room<T>` and
-  `Readback<T>` in `DeviceSolver`, `DeviceWorld`, `DeviceTyres`, `DeviceSprites`, `DeviceAtlas` and `DeviceLanes`;
-  `DeviceSolver.Groups` divides by a literal 64, and the `CarBuildRow` array is built twice in `DeviceTyres`. One
-  shared helper in `app/devicetick/` closes it.
-- **Rows the device carries and no kernel or host reads**: nine fields of `car_build.glsl`'s row and their
-  `CarBuildRow` mirror (`maxSpeedMps`, `turningRadiusM`, `sightM` among them), `DeviceSprites.Figures.LensColumns` and
-  `LensRows`, and `PersonFleet.Declares` / `WalkerView.Declares` (written by `TownWorld.World`, `ManagedWorld` and
-  `world_view_walkers.comp`'s `ViewDeclares`). Each goes with its std430 layout on both sides.
-- **`InUiPx` is written three times** (desktop, web, Android heads) and only the desktop's is tested; `InterfaceScale`
-  is the one home it would have.
+  `Readback<T>` in `DeviceSolver`, `DeviceWorld`, `DeviceTyres`, `DeviceSprites`, `DeviceAtlas` and `DeviceLanes`, each
+  file with its own `Group` of 64. One shared helper in `app/devicetick/` closes it.
 - **The town repeats itself**: `StandCarIn` / `StandAServiceVehicle`, `SendHome` / `GoBackToTheDepot`,
   `IsTheNearestFree{Ambulance,Patrol,Evacuator}To`, the nose-in test and the yard-slot test.
-- **One union-find root, three copies** (`FootJunctions`, `CrossingWays`, `LanePlaces`); **three `Median`s and two
+- **One union-find root, three copies** (`FootJunctions`, `CrossingWays`, `LanePlaces`) — only the root: each join
+  keeps a different representative (the first, the lower, the other), which the order of what they lay rests on, and
+  no folder of `core/` is a home for four lines; **three `Median`s and two
   `Units(string)`** in osmscan (`Corrections`, `Gtfs`); **three `Spread`/`Percentile`/`Median`** in the bench
   (`TownShape`, `ConnectorShape`, `ZoneFidelity`), which print differently, so one copy moves probe output.
-- **Names of a design that is gone**: the claims' "laying" (`_layings`, `LayingStage`, `LayingTicks`,
-  `ClaimsLaidThisTick`, "this rebuild" in the occupancy and footfall docs) though `TownWorld.Occupancy` says there is
-  none, and `CutJunctions`, which now only finds sites. A rename across town, bench and tests closes it.
 - **Kept for nothing a run reaches**: `ArcSubtract` (295 lines) and its tests, kept "as tooling" by the render log of
   2026-09-16 though no tool calls it _owner_; `CityPlan.ZebraAtEveryStation` is false only in `CrossingsTests`, so no
-  map lays the `Crosswalks` path; `ParkingRegistry.Takes`, named by CAR-11b as answerable and asked by nothing;
-  `PhysicsWorld.RoomForBodies`, named only by a `DeviceSolver` cref.
+  map lays the `Crosswalks` path; `ParkingRegistry.Takes`, named by CAR-11b as answerable and asked by nothing.
 
 ### The suite's own runs
 
 What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its assertions as they are:
 
-- **`ClaimGateTests` runs one town four times a map** (perf tier): its four questions each tick the same 1 800 ticks of
-  `Towns.Of(map)` and read only. One run asking all four, recording each question's first failure, closes it.
-- **`LightsInATownTests` and `PlansInATownTests` each run the same 3 600 ticks of each town** (about 2.8 s of test
-  threads). One run per map feeding both watches, as `BuiltTownWatched` does, closes it.
-- **`JunctionClaimTests`' watch allocates a list per car held at a red per occupied way, every tick** (`TheJoinItPlans`,
-  8.9 s on the city): one pass a tick naming each car's planned join closes it.
 - **`LaneOccupancyInATownTests` stands the city seven times** (about 1 s apiece): each case moves car 1 by hand, so
   sharing needs each case to stand a car of its own.
 - **Read-only fixtures still laid per case in the unit tier**, tenths of a second each: `FootWays`/`FootMovements` in
@@ -454,8 +428,6 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 - **Three allocation tests warm their draw two passes before measuring** (`InspectorTests`, `UnitPanelTests`,
   `StatusPanelClaimsTests`), the count `StatusPanelTests` records as failing now and then when the draw tiers up inside
   the measured window; none has failed in five consecutive unit runs.
-- **`Towns.Built` is three seconds to lay, not "a fraction of a second"** as `Towns.PeopleBuilt` says.
-- **`ScenarioTests.AtRest` keeps a `TownWorld` per map in a static and never disposes it.**
 
 ## Inconsistencies
 

@@ -1,4 +1,5 @@
 using System.Numerics;
+using Silk.NET.Maths;
 
 namespace TrafficSimulation.Runtime;
 
@@ -41,5 +42,27 @@ internal static class InterfaceScale
         if (leastUiPx.Y > 0f && framebufferPx.Y > 0f) scale = MathF.Min(scale, framebufferPx.Y / leastUiPx.Y);
 
         return MathF.Max(LeastScale, scale);
+    }
+
+    /// <summary>
+    /// A pointer position, in the pixels the interface is laid out in — which is the space everything
+    /// above the window works in — as arithmetic over three vectors and a factor, so it can be checked
+    /// without a window.
+    /// </summary>
+    /// <remarks>
+    /// Three spaces meet here, and on a scaled desktop no two are the same: a 2× display hands back a
+    /// 1800 × 1400 framebuffer for a 900 × 700 window while the pointer still arrives in 0…900, and
+    /// <c>--ui-scale</c> names a third. Converting once here is what keeps the interface's hit tests
+    /// and the camera's zoom-about-pointer from each solving it separately. A page and a handset hand
+    /// the pointer over in the framebuffer's own pixels, so they pass the framebuffer as the window and
+    /// what is left is the scale.
+    /// </remarks>
+    public static Vector2 InUiPx(
+        Vector2 windowPx, Vector2D<int> windowSize, Vector2D<int> framebufferSize, float uiScale)
+    {
+        if (windowSize.X <= 0 || windowSize.Y <= 0 || uiScale <= 0f) return windowPx;
+
+        return new Vector2(
+            windowPx.X * framebufferSize.X / windowSize.X, windowPx.Y * framebufferSize.Y / windowSize.Y) / uiScale;
     }
 }

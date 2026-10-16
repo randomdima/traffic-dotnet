@@ -5,19 +5,19 @@ using TrafficSimulation.World.Road;
 namespace TrafficSimulation.World.Town;
 
 /// <summary>
-/// <b>The cars whose claims are what they were at the last laying</b> (TER-4c.2, SOL-37): standing, frozen through every
-/// step since, and in no other action in between. Each is laid again from the ways under its wheels on the channels it
-/// was read on then and asked nothing else, and no other pass of the laying visits it — what each would do with a
-/// standing car is clear what it cleared last time.
+/// <b>The cars whose claims are what they were at their last turn</b> (TER-4c.2, SOL-37): standing, frozen through every
+/// step since, and in no other action in between. Each keeps what it holds, its body not read again and nothing else
+/// asked, and no other pass of its turn visits it — what each would do with a standing car is clear what it cleared
+/// last time.
 /// </summary>
 internal sealed partial class TownWorld
 {
     readonly StandingCars _standing;
 
     /// <summary>
-    /// <b>What a laying kept of a car that stood</b>: which freezing it was in and how many actions it had been handed by
+    /// <b>What a turn kept of a car that stood</b>: which freezing it was in and how many actions it had been handed by
     /// then — the two things that change when anything that decides its claims does — and, for the passes after the
-    /// bodies, the cars this laying did ask.
+    /// bodies, the cars this turn did ask.
     /// </summary>
     internal sealed class StandingCars(int cars)
     {

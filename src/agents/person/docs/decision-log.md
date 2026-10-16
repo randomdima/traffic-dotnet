@@ -224,7 +224,7 @@ acceleration for its own move — and neither a walker that braces against a car
 (PER-3). So what it declares it has on the next tick, and only what a contact did to it is taken back at the
 foot grip, which now sizes that and not the walker's own starts and stops; the last of a walk, short of a
 tick's, is stepped onto whatever way it faces. That needed the velocity it declared kept per walker, which the
-world keeps (`WalkerFollower.Step`'s caller); the town is told only whether it declared one (`PersonFleet.Declares`).
+world keeps (`WalkerFollower.Step`'s caller).
 Its aim is where the middle of its body gets to — its place plus the grant, where
 it had been the grant and a radius, harmless only while the aim was a direction — and it plans a tick's walk
 and the gap, that being what it takes to stop. Over the same minute: no walker circles, walks given up

@@ -8,8 +8,8 @@ namespace TrafficSimulation.App.DeviceTick;
 
 /// <summary>
 /// <b>The atlas on the device</b>: <see cref="RibbonAtlas"/>' own tables in one storage buffer
-/// (<c>world/road/kernels/atlas.glsl</c>), and which ways a body stands over answered off them — what every claims
-/// rebuild asks of every car's wheels and every walker's disc (TER-4c.2). Laid at load and never written again.
+/// (<c>world/road/kernels/atlas.glsl</c>), and which ways a body stands over answered off them — what a car's turn asks of
+/// its wheels and a walker's of its disc (TER-4c.2). Laid at load and never written again.
 /// </summary>
 /// <remarks>
 /// <para>

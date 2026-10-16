@@ -65,7 +65,7 @@ internal sealed partial class TownWorld
         _occupancy.PlaceBody(person, LaneRoster.Walking, occupant, roster, body[..count]);
     }
 
-    /// <summary>Whose ground a walker's body is laid as this rebuild (<see cref="GroundHeldAs"/>), held to from here on.</summary>
+    /// <summary>Whose ground a walker's body is laid as this turn (<see cref="GroundHeldAs"/>), held to from here on.</summary>
     int HoldTheWalkersGround(int person, out LaneRoster roster)
     {
         var occupant = GroundHeldAs(person, out roster);

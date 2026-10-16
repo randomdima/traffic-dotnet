@@ -74,7 +74,7 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
 
     readonly int[] _passedCount = new int[actions.PassRooms.Count * Shapes];
 
-    /// <summary>The hold each car's pass was asked in this rebuild, or <see cref="LaneOccupancy.NoHold"/>.</summary>
+    /// <summary>The hold each car's pass was asked in at its last turn, or <see cref="LaneOccupancy.NoHold"/>.</summary>
     readonly int[] _holds = LaneOccupancy.NoHolds(ground.Cars.Capacity);
 
     /// <summary>Which of its shapes a car asked for — what is laid, kept and driven while it has a pass.</summary>
@@ -114,7 +114,7 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
     /// <summary>Passes asked for since the town was laid (CAR-46).</summary>
     public long Asked { get; private set; }
 
-    /// <summary>And withdrawn in the rebuild after, because a body or another pass had the ground by then.</summary>
+    /// <summary>And withdrawn once laid, because a body or another pass had the ground by then.</summary>
     public long Withdrawn { get; private set; }
 
     /// <summary>And driven to the end, the car back in its own lane.</summary>
@@ -254,7 +254,7 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
         return TheNextBodyPast(car, ways[..count], shape.ClearsM, reachM, Passed(Table(car, FromRest)), ref clearedM);
     }
 
-    /// <summary>One of the car's shapes asked for, where all its ground is free — laid in the rebuild after.</summary>
+    /// <summary>One of the car's shapes asked for, where all its ground is free — laid when the car next claims.</summary>
     void Ask(int car, int shape, float progressM)
     {
         if (!IsThePassUnheld(car, shape, progressM)) return;
@@ -449,7 +449,7 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
         return count;
     }
 
-    /// <summary>The hold this car's pass was asked in this rebuild, or <see cref="LaneOccupancy.NoHold"/>.</summary>
+    /// <summary>The hold this car's pass was asked in at its last turn, or <see cref="LaneOccupancy.NoHold"/>.</summary>
     public int HoldOf(int car) => _holds[car];
 
     /// <summary>
@@ -499,8 +499,8 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
         roads.LaneReverse[lane] >= 0 && !roads.LaneOverOneLine[lane] && roads.LaneCrossesToPass[lane];
 
     /// <summary>
-    /// <b>A pass laid in this rebuild, kept or withdrawn</b> before the car moves over: kept where the whole of its ground
-    /// was had (<see cref="DrivingGround.IsKept"/>).
+    /// <b>A pass laid at the car's last turn, kept or withdrawn</b> before the car moves over: kept where the whole of its
+    /// ground was had (<see cref="DrivingGround.IsKept"/>).
     /// </summary>
     void KeepOrWithdrawThePass(int car, in Overtake pass)
     {

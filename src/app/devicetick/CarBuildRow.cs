@@ -10,19 +10,23 @@ namespace TrafficSimulation.App.DeviceTick;
 [StructLayout(LayoutKind.Sequential)]
 internal readonly record struct CarBuildRow(
     float WheelbaseM, float CentreAheadOfAxleM, float HalfTrackM, float CgHeightM, float FrontWeightShare, float GripMps2,
-    float WheelRotatingMassKg, float AccelerationMps2, float DrivenFrontShare, float MaxSpeedMps, float ReverseMaxMps,
-    float BrakingMps2, float MaxSteerRad, float PedalRateMps3, float LookaheadFloorM, float LookaheadCeilingM,
-    float ProjectionWindowM, float SteerRateRadPerS, float TurningRadiusM, float MassKg, float SightM, float WheelWidthM,
-    float LengthM, float NoseAheadOfAxleM, float TailBehindAxleM, float WidthM, float CollisionLengthM, float CollisionWidthM,
-    float TowHingeAheadOfCentreM, float TowReachM, float TowGripFromTheMiddleM, float InverseWheelRotatingMassPerKg,
-    float WheelbaseWeightM2PerS2, float TrackWeightM2PerS2)
+    float WheelRotatingMassKg, float AccelerationMps2, float DrivenFrontShare, float BrakingMps2, float MaxSteerRad,
+    float LookaheadFloorM, float LookaheadCeilingM, float ProjectionWindowM, float SteerRateRadPerS, float MassKg,
+    float WheelWidthM, float LengthM, float WidthM, float TowHingeAheadOfCentreM, float TowReachM,
+    float TowGripFromTheMiddleM, float InverseWheelRotatingMassPerKg, float WheelbaseWeightM2PerS2, float TrackWeightM2PerS2)
 {
     public static CarBuildRow Of(in CarBuild car) => new(
         car.WheelbaseM, car.CentreAheadOfAxleM, car.HalfTrackM, car.CgHeightM, car.FrontWeightShare, car.GripMps2,
-        car.WheelRotatingMassKg, car.AccelerationMps2, car.DrivenFrontShare, car.MaxSpeedMps, car.ReverseMaxMps,
-        car.BrakingMps2, car.MaxSteerRad, car.PedalRateMps3, car.LookaheadFloorM, car.LookaheadCeilingM,
-        car.ProjectionWindowM, car.SteerRateRadPerS, car.TurningRadiusM, car.MassKg, car.SightM, car.WheelWidthM,
-        car.LengthM, car.NoseAheadOfAxleM, car.TailBehindAxleM, car.WidthM, car.CollisionSizeM.X, car.CollisionSizeM.Y,
-        car.TowHingeAheadOfCentreM, car.TowReachM, car.TowGripFromTheMiddleM, car.InverseWheelRotatingMassPerKg,
-        car.WheelbaseWeightM2PerS2, car.TrackWeightM2PerS2);
+        car.WheelRotatingMassKg, car.AccelerationMps2, car.DrivenFrontShare, car.BrakingMps2, car.MaxSteerRad,
+        car.LookaheadFloorM, car.LookaheadCeilingM, car.ProjectionWindowM, car.SteerRateRadPerS, car.MassKg,
+        car.WheelWidthM, car.LengthM, car.WidthM, car.TowHingeAheadOfCentreM, car.TowReachM,
+        car.TowGripFromTheMiddleM, car.InverseWheelRotatingMassPerKg, car.WheelbaseWeightM2PerS2, car.TrackWeightM2PerS2);
+
+    /// <summary>Every build as its row, in the order <c>BuildOf</c> names them.</summary>
+    public static CarBuildRow[] Of(ReadOnlySpan<CarBuild> builds)
+    {
+        var rows = new CarBuildRow[builds.Length];
+        for (var build = 0; build < rows.Length; build++) rows[build] = Of(builds[build]);
+        return rows;
+    }
 }

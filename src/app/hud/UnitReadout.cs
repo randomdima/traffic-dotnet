@@ -61,12 +61,12 @@ internal static class UnitReadout
         else if (unit.Kind == SelectionKind.Car) Car(ref rows, world, unit.Index);
         else Walker(ref rows, world, unit.Index);
 
-        // CTL-5: whose hands the units are in is a fact about the selection rather than about any one body,
-        // so it is the one row a group and a single unit both write.
-        if (world.HandsOn)
+        // CTL-5: whose hands the units are in is the one row a group and a single unit both write. A group's is
+        // the selection's; one unit's is its own, since a wreck in the hand's selection is refused it.
+        if (group ? world.HandsOn : world.HandsOn || world.IsHanded(unit))
         {
             var held = rows.Next("wheel");
-            held.Add(group ? "in the player's hands" : "in the player's hand");
+            held.Add(group ? "in the player's hands" : world.IsHanded(unit) ? "in hand" : "refused, wrecked");
             rows.Keep(in held);
         }
 
@@ -153,9 +153,13 @@ internal static class UnitReadout
         }
 
         // How much room the reservations left it to stop in, and what ended it — the one reading a car drives
-        // by (S-2a).
+        // by (S-2a). A car in a hand drives no line, so no grant is read back to it (S-7) and its figures are stale.
         line = rows.Next("room");
-        if (float.IsFinite(cars.AuthorityM[car]))
+        if (world.IsHanded(new Selection(SelectionKind.Car, car)))
+        {
+            line.Add("no grant, driven by hand");
+        }
+        else if (float.IsFinite(cars.AuthorityM[car]))
         {
             line.Add(cars.GrantLeftM(car), "F1");
             line.Add(" m, cut by ");
@@ -169,8 +173,16 @@ internal static class UnitReadout
         rows.Keep(in line);
 
         line = rows.Next("off line");
-        line.Add(cars.OffLineM[car], "F2");
-        line.Add(" m");
+        if (cars.Line[car].ArcCount > 0)
+        {
+            line.Add(cars.OffLineM[car], "F2");
+            line.Add(" m");
+        }
+        else
+        {
+            line.Add("no line");
+        }
+
         rows.Keep(in line);
 
         if (float.IsFinite(cars.ToTheBoxM[car]))

@@ -89,26 +89,6 @@ internal sealed class AppWindow : IDisposable
         };
     }
 
-    /// <summary>
-    /// A pointer position, in the pixels the interface is laid out in — which is the space everything
-    /// above this class works in — as arithmetic over three vectors and a factor, so it can be checked
-    /// without a window.
-    /// </summary>
-    /// <remarks>
-    /// Three spaces meet here, and on a scaled desktop no two are the same: a 2× display hands back a
-    /// 1800 × 1400 framebuffer for a 900 × 700 window while the pointer still arrives in 0…900, and
-    /// <c>--ui-scale</c> names a third. Converting once here is what keeps the interface's hit tests
-    /// and the camera's zoom-about-pointer from each solving it separately.
-    /// </remarks>
-    public static Vector2 InUiPx(
-        Vector2 windowPx, Vector2D<int> windowSize, Vector2D<int> framebufferSize, float uiScale)
-    {
-        if (windowSize.X <= 0 || windowSize.Y <= 0 || uiScale <= 0f) return windowPx;
-
-        return new Vector2(
-            windowPx.X * framebufferSize.X / windowSize.X, windowPx.Y * framebufferSize.Y / windowSize.Y) / uiScale;
-    }
-
     public bool IsClosing => _window.IsClosing;
 
     public Vector2D<int> FramebufferSize => _window.FramebufferSize;
@@ -158,7 +138,7 @@ internal sealed class AppWindow : IDisposable
         _uiScale = InterfaceScale.Fitted(
             _wantedUiScale, windowSize.X > 0 ? (float)framebufferSize.X / windowSize.X : 1f, framebufferPx, _leastUiPx);
         _uiPx = framebufferPx / _uiScale;
-        _pointerPx = _mouse is null ? Vector2.Zero : InUiPx(_mouse.Position, windowSize, framebufferSize, _uiScale);
+        _pointerPx = _mouse is null ? Vector2.Zero : InterfaceScale.InUiPx(_mouse.Position, windowSize, framebufferSize, _uiScale);
     }
 
     /// <summary>

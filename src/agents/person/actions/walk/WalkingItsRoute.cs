@@ -182,7 +182,7 @@ internal sealed class WalkingItsRoute(WalkingGround ground, PersonActions action
     }
 
     /// <summary>
-    /// <b>Where a walker on its way aims, on the grant this rebuild gave it</b> (PER-26): a stride down the
+    /// <b>Where a walker on its way aims, on the grant its turn gave it</b> (PER-26): a stride down the
     /// way, or along the hop off the end of it towards where that is walked (<see cref="WalkTheWay"/>), and never
     /// past the road it was granted — so a walker with none granted stands where it is.
     /// </summary>

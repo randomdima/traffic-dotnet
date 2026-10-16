@@ -62,21 +62,24 @@ public class JunctionClaimTests
     static Watched Of(string map) => Runs.GetOrAdd(map, Watch);
 
     /// <summary>
-    /// The town ticked, with the reservations laid again before they are read each tick — so that what is
-    /// read is one rebuild and the fleet it was laid from, and not a rebuild and the tick driven after it.
+    /// The town ticked, with every turn taken again before the claims are read each tick — so that what is
+    /// read is the claims and the fleet they were laid from, and not the claims and the tick driven after them.
     /// </summary>
     static Watched Watch(string map)
     {
         using var world = new TownWorld(Towns.Of(map), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         var found = new Watched();
+        var joinOf = new int[world.Cars.Count];
 
         for (var tick = 0; tick < Ticks; tick++)
         {
             loop.Advance(1);
             world.LayTheClaims();
 
-            NothingStoppedAtARedHoldsTheBox(world, map, tick, found);
+            if (joinOf.Length < world.Cars.Count) Array.Resize(ref joinOf, world.Cars.Count);
+            TheJoinsPlanned(world, joinOf);
+            NothingStoppedAtARedHoldsTheBox(world, map, tick, found, joinOf);
             APlanReachesIntoTheBoxFromItsMouth(world, map, tick, found);
             NoPieceIsLaidOnAWayOnlyCrossed(world, map, tick, found);
             NoPlanCutsAGrantFromBehindTheNose(world, map, tick, found);
@@ -101,7 +104,7 @@ public class JunctionClaimTests
         Assert.True(run.PastARed is null, run.PastARed);
     }
 
-    static void NothingStoppedAtARedHoldsTheBox(TownWorld world, string map, int tick, Watched found)
+    static void NothingStoppedAtARedHoldsTheBox(TownWorld world, string map, int tick, Watched found, int[] joinOf)
     {
         for (var car = 0; car < world.Cars.Count; car++)
         {
@@ -111,7 +114,7 @@ public class JunctionClaimTests
             found.AtARed++;
             if (found.PastARed is not null) continue;
 
-            var join = TheJoinItPlans(world, car);
+            var join = joinOf[car];
             if (join < 0) continue;
 
             found.PastARed =
@@ -120,15 +123,27 @@ public class JunctionClaimTests
         }
     }
 
-    /// <summary>A join this car holds a main claim on, or −1 — which is what having a movement through a box is.</summary>
-    static int TheJoinItPlans(TownWorld world, int car)
+    /// <summary>
+    /// For each car, the first occupied join it holds a main claim on, or −1 — which is what having a movement through
+    /// a box is.
+    /// </summary>
+    static void TheJoinsPlanned(TownWorld world, int[] joinOf)
     {
-        foreach (var way in world.Occupancy.OccupiedWays)
+        Array.Fill(joinOf, -1);
+        var claims = world.Occupancy;
+        foreach (var way in claims.OccupiedWays)
         {
-            if (world.Ways.KindOf(way) == WayKind.Connector && MainsOf(world, way, car).Count > 0) return way;
-        }
+            if (world.Ways.KindOf(way) != WayKind.Connector) continue;
 
-        return -1;
+            foreach (var main in claims.Mains(way))
+            {
+                var holder = claims.HoldersOf(main)[0];
+                if (LaneOccupancy.RosterOf(holder) != LaneRoster.Driving) continue;
+
+                var car = LaneOccupancy.OccupantOf(holder);
+                if (joinOf[car] < 0) joinOf[car] = way;
+            }
+        }
     }
 
     /// <summary>Every main claim one car holds on one way.</summary>

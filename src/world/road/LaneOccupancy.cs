@@ -143,7 +143,7 @@ internal sealed partial class LaneOccupancy
     /// </summary>
     const float DmGrain = 1e-3f;
 
-    /// <summary>One hold an agent, every one <see cref="NoHold"/> until its first laying.</summary>
+    /// <summary>One hold an agent, every one <see cref="NoHold"/> until its first turn.</summary>
     public static int[] NoHolds(int agents)
     {
         var holds = new int[agents];
@@ -176,7 +176,7 @@ internal sealed partial class LaneOccupancy
 
     ReadOnlySpan<MarkDm> MarksOf(int way) => _marksDm.AsSpan(_marks.FirstOf(way), _marks.Of(way).Length);
 
-    /// <summary><b>One way laid on this rebuild</b>: the first slot of each of its runs.</summary>
+    /// <summary><b>One way anything has been laid on</b>: the first slot of each of its runs.</summary>
     struct WayRow
     {
         public int Bodies;
@@ -370,7 +370,7 @@ internal sealed partial class LaneOccupancy
 
     /// <summary>
     /// <b>The ways anything has been laid on, each once, and a row each</b> — numbered as they were first laid on and kept,
-    /// so what a laying reads of a way is a few megabytes and not a row of every way in the town.
+    /// so what answering reads of the ways is a few megabytes and not a row of every way in the town.
     /// </summary>
     int[] _touched;
     WayRow[] _rows;
@@ -382,8 +382,8 @@ internal sealed partial class LaneOccupancy
     const int NoRow = -1;
 
     /// <summary>
-    /// <b>How many rows of each table are first laid for a holder</b> — about twice what OdesaOsm's busiest laying used
-    /// (`--bench room`, 2026-10-13): 3.5 slots and 3.1 wishes a holder. A start and not a bound.
+    /// <b>How many rows of each table are first laid for a holder</b> — about twice what OdesaOsm's claims used at their
+    /// busiest (`--bench room`, 2026-10-13): 3.5 slots and 3.1 wishes a holder. A start and not a bound.
     /// </summary>
     const int SlotsPerHolder = 6;
 
@@ -404,7 +404,7 @@ internal sealed partial class LaneOccupancy
     /// </param>
     /// <param name="holders">
     /// How many holders the town has — drivers, walkers and lights — which the tables are first laid for, a few claims
-    /// each. <b>A start and not a bound</b>: a laying that needs more grows them, and they are kept.
+    /// each. <b>A start and not a bound</b>: a turn that needs more grows them, and they are kept.
     /// </param>
     public LaneOccupancy(TownWays ways, WayCrossings marks, int holders = 16)
     {

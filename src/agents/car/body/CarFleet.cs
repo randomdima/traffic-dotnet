@@ -321,7 +321,7 @@ internal sealed class CarFleet
 
     /// <summary>
     /// <b>The stretch of its own line this car plans to use</b> (TER-4c.1): from its nose to where it means
-    /// to be able to stop, in the line's metres, as the last rebuild asked for it — the grant taken off it is
+    /// to be able to stop, in the line's metres, as its last turn asked for it — the grant taken off it is
     /// <see cref="AuthorityM"/>. Both are the nose for a car that plans nothing.
     /// </summary>
     public float[] ClaimFromM { get; }
@@ -380,7 +380,7 @@ internal sealed class CarFleet
     /// </summary>
     /// <remarks>
     /// <b>Why a car is held, and never how fast it may go</b>: the speed is the grant's distance whatever cut
-    /// it (S-2a). The laying knew it when it made the cut, so anything that has to say <em>why</em> a car is
+    /// it (S-2a). The turn knew it when it made the cut, so anything that has to say <em>why</em> a car is
     /// held reads it rather than searching for the answer again — the read-out, the leg's clock and the stuck
     /// probe.
     /// </remarks>

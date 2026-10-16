@@ -48,7 +48,7 @@ class in no tier's filter is never run again and nothing says so.
 | `Unit` | engine-free arithmetic, and the fixture map where a question needs a place | Release | yes |
 | `Town` | a question asked of a town that is stood up — read, laid out over, or ticked | Release | yes |
 | `Perf` | the five gates below: what is measured over a whole town | Release, and Debug for one class | yes |
-| `Device` | the tick's kernels: staged buffers dispatched on lavapipe, the CPU's own Vulkan, and read back | Release | yes |
+| `Device` | the tick's kernels: staged buffers dispatched on lavapipe, the CPU's own Vulkan, and read back; and the two rules' gates on the device world | Release, and Debug for one class | yes |
 | `Maps` | the shipped cities, asked for by name | Release | **no** |
 | `Exam` | the scenario map, one case a card | Release | **no** |
 | `E2E` | the visual tier, tier 4 above | Debug | **no** |
@@ -103,9 +103,9 @@ and by this tier for the cities somebody ships, so the two cannot disagree about
 it is put under, so what it wants is the worst load this build can stand up — `Towns.EveryMapWorthAGate`,
 which is the suite's own two.
 
-**Two things want Debug and neither is a tier.** `CrossingGateTests` reads a counter that is
-`[Conditional("DEBUG")]`, so `qq tests perf` takes that one class in Debug and the rest of the gates in
-Release; the e2e tier stays in Debug for the same counter, which the shot path prints beside every
+**Two things want Debug and neither is a tier.** `CrossingGateTests` and `DeviceCrossingGateTests` read a
+counter that is `[Conditional("DEBUG")]`, so `qq tests perf` and `qq tests device` each take that one class in
+Debug and the rest in Release; the e2e tier stays in Debug for the same counter, which the shot path prints beside every
 frame. Everything else is measured in Release, where it asserts the same things four times faster —
 allocation is counted by `GC.GetAllocatedBytesForCurrentThread`, which counts the same bytes in either
 configuration, and this engine has no `Debug.Assert` anywhere.
@@ -178,6 +178,10 @@ re-taken on the largest town the project can open:
 | `OverlapGateTests` | `PHY-1` on a town that is *running*, not on a staged pair |
 | `SolverGateTests` | `SOL-20`, including **across contact churn** as bodies touch and separate |
 | `ClaimGateTests` | `TER-4c.3`, `TER-5c.1` and `TER-4c.1` on the planned layer of every way: no metre planned by two holders, no main claim over a mark without its secondary claim, no plan over a body — and nothing dropped for want of room. Bodies are free to overlap and are the solver's gates' question |
+
+Rules 1 and 2 are asked of the device world too, in the device tier since they need lavapipe:
+`DeviceAllocationGateTests` (a warmed tick on the device allocates nothing) and `DeviceCrossingGateTests` (a tick's
+most crossings are the same for the built town and for it with four times its people).
 
 `OverlapGateTests` asserts that no **one** body stays inside another, and not that nothing is ever inside
 anything — the second is not a fact about this town: a soft-step solver answers an approach by letting a

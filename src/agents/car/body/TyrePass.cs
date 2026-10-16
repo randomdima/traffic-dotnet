@@ -65,7 +65,7 @@ internal readonly ref struct TyreCarry
 /// The ground is asked under each wheel and never under the car: a car with two wheels off the road grips
 /// asymmetrically, and that asymmetry is a yaw the solver produces out of four impulses at four places rather than
 /// anything decided here. <b>What a wheel stands on is whether it was on a way when the car's body was last laid</b>
-/// (TER-7b) — the very reading that put the body on the ways it stands on (TER-4c.2), taken once a laying and not a tick.
+/// (TER-7b) — the very reading that put the body on the ways it stands on (TER-4c.2), taken once a turn and not a tick.
 /// </remarks>
 internal static class TyrePass
 {

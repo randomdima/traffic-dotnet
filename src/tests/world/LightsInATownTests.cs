@@ -1,6 +1,5 @@
 using TrafficSimulation.Agents.TrafficLight.Control;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Tests.CityGen;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
@@ -33,13 +32,18 @@ public class LightsInATownTests
     [MemberData(nameof(Maps))]
     public void ARedHoldsItsBarEveryTimeTheClaimsAreLaid(string map)
     {
-        using var world = new TownWorld(Towns.Of(map), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
+        var unheld = TownsWatched.Lights(map).Unheld;
+        Assert.True(unheld is null, unheld);
+    }
 
-        for (var tick = 0; tick < TicksWatched; tick++)
+    /// <summary>Every bar of a running town, read after each tick: the first red bar found held by nothing that beats the light.</summary>
+    internal sealed class Watch(TownWorld world, string map)
+    {
+        public string? Unheld { get; private set; }
+
+        public void Saw(long tick)
         {
-            loop.Advance();
-            if (!world.ClaimsLaidThisTick) continue;
+            if (Unheld is not null || !world.TurnsTakenThisTick) return;
 
             for (var bar = 0; bar < world.Bars.Count; bar++)
             {
@@ -55,10 +59,11 @@ public class LightsInATownTests
                     continue;
                 }
 
-                Assert.True(
-                    HeldAt(world.Occupancy, way, barM),
-                    $"{map}: tick {tick}, the bar of lane {lane} at {barM:0.00} m is red and held by nothing that beats the light; "
-                    + $"the way holds {Said(world.Occupancy, way)}");
+                if (HeldAt(world.Occupancy, way, barM)) continue;
+
+                Unheld = $"{map}: tick {tick}, the bar of lane {lane} at {barM:0.00} m is red and held by nothing that beats "
+                         + $"the light; the way holds {Said(world.Occupancy, way)}";
+                return;
             }
         }
     }
@@ -102,7 +107,4 @@ public class LightsInATownTests
     }
 
     public static TheoryData<string> Maps => Towns.EveryTown();
-
-    /// <summary>A minute of town: every light round its cycle four times with the traffic coming up to it.</summary>
-    const int TicksWatched = 3_600;
 }

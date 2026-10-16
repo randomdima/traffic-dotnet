@@ -325,6 +325,12 @@ internal sealed partial class TownWorld
     public bool HandsOn => _hands.Held && _selected.Any;
 
     /// <summary>
+    /// Whether somebody has this one unit's wheel — <see cref="HandsOn"/> is about the selection, and a wreck in it
+    /// is refused the hand (<see cref="Handed"/>).
+    /// </summary>
+    public bool IsHanded(Selection unit) => Handed(unit.Kind == SelectionKind.Car ? Roster.AgentOfCar(unit.Index) : unit.Index);
+
+    /// <summary>
     /// The units the player has the wheel of, or nothing — the one thing outside a car that a hand at its
     /// wheel changes, since a beacon runs while it is held (CTL-5c).
     /// </summary>

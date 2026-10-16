@@ -1,6 +1,5 @@
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Tests.CityGen;
 using TrafficSimulation.World.Town;
 using Xunit;
@@ -36,44 +35,56 @@ public class PlansInATownTests
     [MemberData(nameof(Maps))]
     public void APlanNothingCutNeverDrawsBack(string map)
     {
-        using var world = new TownWorld(Towns.Of(map), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
-        var cars = world.Cars;
-        var was = new Laid[cars.Count];
-        var uncutS = new float[cars.Count];
+        var drawnBack = TownsWatched.Plans(map).DrawnBack;
+        Assert.True(drawnBack is null, drawnBack);
+    }
 
-        for (var tick = 0; tick < TicksWatched; tick++)
+    /// <summary>Every car's plan of a running town, read either side of each tick: the first drawn back with nothing cutting it.</summary>
+    internal sealed class Watch(TownWorld world, string map)
+    {
+        Laid[] _was = new Laid[world.Cars.Count];
+        float[] _uncutS = new float[world.Cars.Count];
+        Laid[] _frame = [];
+
+        public string? DrawnBack { get; private set; }
+
+        /// <summary>The line each car's plan is laid on, before the tick moves it.</summary>
+        public void Before()
         {
-            var frame = new Laid[cars.Count];
-            for (var car = 0; car < frame.Length; car++) frame[car] = FrameOf(cars, car);
-            if (was.Length < frame.Length)
+            var cars = world.Cars;
+            _frame = new Laid[cars.Count];
+            for (var car = 0; car < _frame.Length; car++) _frame[car] = FrameOf(cars, car);
+            if (_was.Length < _frame.Length)
             {
-                Array.Resize(ref was, frame.Length);
-                Array.Resize(ref uncutS, frame.Length);
+                Array.Resize(ref _was, _frame.Length);
+                Array.Resize(ref _uncutS, _frame.Length);
             }
+        }
 
-            loop.Advance();
-            for (var car = 0; car < frame.Length; car++)
+        public void Saw(long tick)
+        {
+            if (DrawnBack is not null) return;
+
+            var cars = world.Cars;
+            for (var car = 0; car < _frame.Length; car++)
             {
                 var uncut = float.IsPositiveInfinity(cars.AuthorityM[car]) && cars.ClaimToM[car] > cars.ClaimFromM[car]
                                                                           && !cars.Pass[car].Any;
-                var now = frame[car] with { FromM = cars.ClaimFromM[car], ToM = cars.ClaimToM[car] };
+                var now = _frame[car] with { FromM = cars.ClaimFromM[car], ToM = cars.ClaimToM[car] };
                 ref readonly var build = ref cars.BuildOf(car);
                 var releasedS = build.BrakingMps2 / build.PedalRateMps3;
 
-                if (uncut && uncutS[car] >= releasedS
-                    && InOneFrame(was[car], now, out var shiftM) && now.FromM >= was[car].FromM - shiftM)
+                if (uncut && _uncutS[car] >= releasedS
+                    && InOneFrame(_was[car], now, out var shiftM) && now.FromM >= _was[car].FromM - shiftM
+                    && !(now.ToM >= _was[car].ToM - shiftM - Tolerance))
                 {
-                    if (!(now.ToM >= was[car].ToM - shiftM - Tolerance))
-                    {
-                        Assert.Fail(
-                            $"{map}: tick {tick}, car {car} drew its plan back {was[car].ToM - shiftM - now.ToM:0.00} m with "
-                            + $"nothing cutting it, doing {cars.AlongMps[car]:0.0} m/s");
-                    }
+                    DrawnBack = $"{map}: tick {tick}, car {car} drew its plan back {_was[car].ToM - shiftM - now.ToM:0.00} m with "
+                                + $"nothing cutting it, doing {cars.AlongMps[car]:0.0} m/s";
+                    return;
                 }
 
-                uncutS[car] = uncut ? uncutS[car] + Config.TickSeconds : 0f;
-                was[car] = now;
+                _uncutS[car] = uncut ? _uncutS[car] + Config.TickSeconds : 0f;
+                _was[car] = now;
             }
         }
     }
@@ -107,7 +118,4 @@ public class PlansInATownTests
     const float Tolerance = 1e-2f;
 
     public static TheoryData<string> Maps => Towns.EveryTown();
-
-    /// <summary>A minute of town: long enough for every car to have come up to a bend and a junction.</summary>
-    const int TicksWatched = 3_600;
 }

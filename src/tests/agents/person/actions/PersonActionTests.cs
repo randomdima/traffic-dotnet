@@ -49,7 +49,7 @@ public class PersonActionTests
         {
             loop.Advance(1);
             var hold = world.WalkHold(walker);
-            if (!world.ClaimsLaidThisTick || hold == LaneOccupancy.NoHold) continue;
+            if (!world.TurnsTakenThisTick || hold == LaneOccupancy.NoHold) continue;
 
             foreach (var claim in world.Occupancy.Mains(way)) claimedItsWay |= world.Occupancy.HoldersOf(claim)[0] == key;
             claimedItsWay |= world.Occupancy.CutOf(hold).Way == way;

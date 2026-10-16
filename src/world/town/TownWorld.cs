@@ -804,13 +804,13 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// (<see cref="WorldView.SignalsTaken"/>) of the view the turns were last taken off, so a view shown for two ticks is
     /// taken off once.
     /// </summary>
-    long _claimsLaidOff = -1;
+    long _turnsTakenOff = -1;
 
     /// <summary>
     /// Whether the turns were taken this tick — so whoever reads what the layer holds against where the bodies are
     /// reads it on a tick the two are of one instant.
     /// </summary>
-    public bool ClaimsLaidThisTick { get; private set; }
+    public bool TurnsTakenThisTick { get; private set; }
 
     /// <summary>
     /// <b>Every agent's turn taken now, off the clock</b> — for whoever has put something down and asks what the layer
@@ -821,8 +821,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _world.ReadTheCovers();
         ReadTheWorld();
         TakeTheTurns(everyone: true, tick: 0);
-        _claimsLaidOff = _world.View.SignalsTaken;
-        ClaimsLaidThisTick = true;
+        _turnsTakenOff = _world.View.SignalsTaken;
+        TurnsTakenThisTick = true;
     }
 
     public void RebuildProximityIndex()
@@ -833,8 +833,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         MendTheYards(_config.TickSeconds);
 
         var view = _world.View;
-        ClaimsLaidThisTick = view.CoversRead && view.SignalsTaken != _claimsLaidOff;
-        if (ClaimsLaidThisTick) _claimsLaidOff = view.SignalsTaken;
+        TurnsTakenThisTick = view.CoversRead && view.SignalsTaken != _turnsTakenOff;
+        if (TurnsTakenThisTick) _turnsTakenOff = view.SignalsTaken;
 
         // Phase 3 begins on the walkers' ticks, which is the end of the roster the loop walks first.
         if (!Timed) return;
@@ -911,7 +911,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     {
         var world = this;
         EveryAgent.DecideTheTurn(ref world, tick, decisions);
-        if (ClaimsLaidThisTick) TakeTheTurns(everyone: false, tick);
+        if (TurnsTakenThisTick) TakeTheTurns(everyone: false, tick);
     }
 
     public void TickAgent(int agent)

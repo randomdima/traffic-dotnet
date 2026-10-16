@@ -141,8 +141,6 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
         public float FlashOnShare;
         public float BeaconHz;
         public float HalfLensCellM;
-        public uint LensColumns;
-        public uint LensRows;
         public float CarHeadHalfX;
         public float CarHeadHalfY;
         public float WalkHeadHalfX;
@@ -423,8 +421,6 @@ internal sealed class DeviceSprites : IMovingEmit, IDisposable
             FlashOnShare = lamps.FlashOnShare,
             BeaconHz = lamps.BeaconHz,
             HalfLensCellM = LampAtlas.CellM * 0.5f,
-            LensColumns = LampAtlas.Columns,
-            LensRows = (uint)looks.Cars.SheetCount,
             CarHeadHalfX = carHeadHalfM.X,
             CarHeadHalfY = carHeadHalfM.Y,
             WalkHeadHalfX = walkHeadHalfM.X,

@@ -132,7 +132,7 @@ internal sealed partial class TownWorld
     /// <remarks>
     /// <b>The hold is found once a line and kept while the lights stand as they did</b> (<see cref="FindTheLightAhead"/>,
     /// <see cref="LightsStandAsFound"/>), and only measured each tick, to the bit what reading the ways under the reach
-    /// every tick answers: a light's hold changes only at a laying, a way's list is kept in the order of its near edges,
+    /// every tick answers: a light's hold changes only at its turn, a way's list is kept in the order of its near edges,
     /// and a nose that has not gone back finds nothing nearer than what it found before. A nose that has gone back, or
     /// past the far end of what it found, looks again.
     /// </remarks>
@@ -166,12 +166,12 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>The nearest light's hold on this car's line past its nose</b>, however far — kept with where on the line the way
-    /// it is on runs, for <see cref="LightAheadM"/> to measure until the next laying or the next line.
+    /// it is on runs, for <see cref="LightAheadM"/> to measure until the lights it looked down change or the next line.
     /// </summary>
     void FindTheLightAhead(int car, float noseM)
     {
         var lights = _lightsAhead;
-        lights.Laying[car] = _layings;
+        lights.TurnEdge[car] = _turnEdges;
         lights.Line[car] = Cars.LinesLaid[car];
         lights.FromNoseM[car] = noseM;
         lights.WayFromM[car] = LightsAhead.None;
@@ -201,13 +201,13 @@ internal sealed partial class TownWorld
     /// <summary>
     /// <b>Whether what the lights hold on the lanes a car looked down for its light is as it was when it looked</b>
     /// (<see cref="SignalHolds.ChangedAt"/>): from the lane its nose was on to the one the hold was found on, or to the
-    /// line's end where none was — so the same look now finds the same hold. A look taken while a laying stood
-    /// unanswered is no look.
+    /// line's end where none was — so the same look now finds the same hold. A look taken while the turns stood half
+    /// taken is no look.
     /// </summary>
     bool LightsStandAsFound(int car)
     {
         var lights = _lightsAhead;
-        var foundAt = lights.Laying[car];
+        var foundAt = lights.TurnEdge[car];
         if (foundAt < 0 || (foundAt & 1) != 0) return false;
 
         var chain = Cars.ChainOf(car);
@@ -233,8 +233,8 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>Each car's nearest light's hold, as <see cref="FindTheLightAhead"/> last found it</b>: the laying and the line it
-    /// was found on, the nose it was found from and the lanes it looked down, the line's metres the way under it spans
+    /// <b>Each car's nearest light's hold, as <see cref="FindTheLightAhead"/> last found it</b>: the turn edge
+    /// (<see cref="_turnEdges"/>) and the line it was found on, the nose it was found from and the lanes it looked down, the line's metres the way under it spans
     /// and the way's own metres of the hold.
     /// </summary>
     internal sealed class LightsAhead(int cars)
@@ -242,7 +242,7 @@ internal sealed partial class TownWorld
         /// <summary>A <see cref="WayFromM"/> that says no light holds the line anywhere past the nose, read with <see cref="float.IsNaN"/>.</summary>
         public const float None = float.NaN;
 
-        public readonly long[] Laying = Filled(cars, -1L);
+        public readonly long[] TurnEdge = Filled(cars, -1L);
 
         public readonly uint[] Line = new uint[cars];
 

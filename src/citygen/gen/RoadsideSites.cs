@@ -10,7 +10,7 @@ namespace TrafficSimulation.CityGen.Gen;
 /// each inside one arc of the road's own line, so what is laid there reads its bearing off that arc rather than
 /// off a curve fitted through it.
 /// </summary>
-internal static class CutJunctions
+internal static class RoadsideSites
 {
     /// <summary>One place something could be laid off a road: which road, how far along its line, and where that is.</summary>
     internal readonly record struct Site(int Road, float AlongM, Vector2 AtM);

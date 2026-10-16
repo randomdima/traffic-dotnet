@@ -59,11 +59,11 @@ internal sealed class SignalHolds
     /// <summary>How far each stretch's hold was placed, to the first body as it stood then (<see cref="ReachOf"/>).</summary>
     readonly float[] _reachM;
 
-    /// <summary>What each approach's stretch held as the last laying answered it (<see cref="NoteWhatHolds"/>): whether anything, and where.</summary>
+    /// <summary>What each approach's stretch held as its last turn answered it (<see cref="NoteWhatHolds"/>): whether anything, and where.</summary>
     readonly bool[] _held;
     readonly float[] _heldFromM, _heldToM;
 
-    /// <summary>The laying at which what any light holds on each lane last changed.</summary>
+    /// <summary>The turn edge at which what any light holds on each lane last changed.</summary>
     readonly long[] _changedAt;
 
     /// <summary>The tick each approach lane's light last took its turn.</summary>
@@ -195,12 +195,13 @@ internal sealed class SignalHolds
 
     /// <summary>
     /// <b>What every approach's light whose turn it is holds, as its turn answered it</b>, against what its last one did:
-    /// each lane whose hold came out anywhere else is stamped with <paramref name="laying"/> (<see cref="ChangedAt"/>).
+    /// each lane whose hold came out anywhere else is stamped with <paramref name="turnEdge"/> (<see cref="ChangedAt"/>).
     /// Read as a driver reads it (<see cref="LaneOccupancy.FirstSecondary"/>), so a hold the answer cut — ground a car
     /// could no longer stop short of, on an amber — is a change too.
     /// </summary>
+    /// <param name="turnEdge">How many times the town's turns have been begun or finished, odd while these are under way.</param>
     /// <param name="turns">The stretches' turns, as <see cref="Lay"/> took them.</param>
-    public void NoteWhatHolds(LaneOccupancy occupancy, long laying, TickGroups turns, long tick)
+    public void NoteWhatHolds(LaneOccupancy occupancy, long turnEdge, TickGroups turns, long tick)
     {
         foreach (var stretch in turns.InTurn(tick, _way.Length))
         {
@@ -212,11 +213,11 @@ internal sealed class SignalHolds
             if (held == _held[stretch] && heldFromM == _heldFromM[stretch] && heldToM == _heldToM[stretch]) continue;
 
             (_held[stretch], _heldFromM[stretch], _heldToM[stretch]) = (held, heldFromM, heldToM);
-            _changedAt[lane] = laying;
+            _changedAt[lane] = turnEdge;
         }
     }
 
-    /// <summary>The laying at which what any light holds on this lane last came out otherwise (<see cref="NoteWhatHolds"/>).</summary>
+    /// <summary>The turn edge at which what any light holds on this lane last came out otherwise (<see cref="NoteWhatHolds"/>).</summary>
     public long ChangedAt(int lane) => _changedAt[lane];
 
     /// <summary>The tick the light over an approach lane last took its turn (<see cref="Lay"/>), for an instrument.</summary>

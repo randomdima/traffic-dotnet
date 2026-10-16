@@ -69,28 +69,28 @@ internal sealed partial class TownWorld
     void TakeTheTurns(bool everyone, long tick)
     {
         var at = System.Diagnostics.Stopwatch.GetTimestamp();
-        _layings++;
+        _turnEdges++;
         var turns = everyone ? new TickGroups(0f, 1) : _decisions;
         TheAgentsInTurn(turns, tick);
 
         // Where each walker stands on its walk, before anything is laid: its body and its plan both begin from it.
         foreach (var person in WalkersInTurn) StationTheWalker(person);
 
-        at = Spent(LayingStage.WalkersStationed, at);
+        at = Spent(TurnStage.WalkersStationed, at);
         Span<WayCover> body = stackalloc WayCover[WalkingGround.MostPiecesOfABody];
         foreach (var person in WalkersInTurn) LayTheWalkersBody(person, body);
 
         // A standing car's pass, manoeuvre, plan, backing and grant are the nothing they were at its last turn.
-        at = Spent(LayingStage.WalkersBodies, at);
+        at = Spent(TurnStage.WalkersBodies, at);
         LayTheCarsBodies();
-        at = Spent(LayingStage.CarsBodies, at);
+        at = Spent(TurnStage.CarsBodies, at);
         LayThePasses();
 
         // A light's hold is placed where it stands, as far as the first body on its way (TLT-1).
-        at = Spent(LayingStage.Passes, at);
+        at = Spent(TurnStage.Passes, at);
         _signalHolds.Lay(_occupancy, _signals, _elapsedS, turns, tick);
 
-        at = Spent(LayingStage.Lights, at);
+        at = Spent(TurnStage.Lights, at);
         Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];
         var asked = CarsAsked;
         for (var slot = 0; slot < asked.Length; slot++)
@@ -104,24 +104,24 @@ internal sealed partial class TownWorld
             PlanTheDrive(asked[slot], ways);
         }
 
-        at = Spent(LayingStage.Drives, at);
+        at = Spent(TurnStage.Drives, at);
         Span<LineWay> walk = stackalloc LineWay[WalkingGround.MostWaysAlongAWalk];
         foreach (var person in WalkersInTurn) PlanTheWalk(person, walk);
 
         // The ground a car backs up over is weaker than every plan (TER-4c.7), so it takes nothing any of them keeps.
-        at = Spent(LayingStage.Walks, at);
+        at = Spent(TurnStage.Walks, at);
         foreach (var car in CarsAsked) _backingUp.Lay(car, IsUnderWay(car));
 
-        at = Spent(LayingStage.Backing, at);
+        at = Spent(TurnStage.Backing, at);
         _occupancy.Answer();
-        _signalHolds.NoteWhatHolds(_occupancy, _layings, turns, tick);
+        _signalHolds.NoteWhatHolds(_occupancy, _turnEdges, turns, tick);
 
-        at = Spent(LayingStage.Answer, at);
+        at = Spent(TurnStage.Answer, at);
         foreach (var car in CarsAsked) _backingUp.Read(car);
         foreach (var car in CarsAsked) _ground.ReadTheGrant(car);
         ReadTheWalkersGrants();
-        _layings++;
-        Spent(LayingStage.Grants, at);
+        _turnEdges++;
+        Spent(TurnStage.Grants, at);
     }
 
     /// <summary>
@@ -143,8 +143,8 @@ internal sealed partial class TownWorld
         }
     }
 
-    /// <summary>The stages of a turn, as <see cref="LayingTicks"/> times them.</summary>
-    internal enum LayingStage
+    /// <summary>The stages of a turn, as <see cref="TurnStageTicks"/> times them.</summary>
+    internal enum TurnStage
     {
         WalkersStationed,
         WalkersBodies,
@@ -159,7 +159,7 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>The <see cref="System.Diagnostics.Stopwatch"/> time every tick's turns have spent in each stage, for an instrument.</summary>
-    public long[] LayingTicks { get; } = new long[Enum.GetValues<LayingStage>().Length];
+    public long[] TurnStageTicks { get; } = new long[Enum.GetValues<TurnStage>().Length];
 
     /// <summary>How many car plans have been kept as they were, asked further, or asked afresh at a turn, for an instrument.</summary>
     public ReadOnlySpan<long> PlansKept => _ground.PlansKept;
@@ -167,10 +167,10 @@ internal sealed partial class TownWorld
     /// <summary>How many walks have been kept as they were, asked further, or asked afresh at a turn, for an instrument.</summary>
     public ReadOnlySpan<long> WalksKept => _walkingGround.WalksKept;
 
-    long Spent(LayingStage stage, long from)
+    long Spent(TurnStage stage, long from)
     {
         var now = System.Diagnostics.Stopwatch.GetTimestamp();
-        LayingTicks[(int)stage] += now - from;
+        TurnStageTicks[(int)stage] += now - from;
         return now;
     }
 
@@ -178,7 +178,7 @@ internal sealed partial class TownWorld
     /// <b>How many times the turns have been begun or finished</b> — what a figure read off the claims and kept is checked
     /// against, so nothing read off one tick's is read again off the next, nor off turns half taken.
     /// </summary>
-    long _layings;
+    long _turnEdges;
 
     /// <summary>
     /// <b>The ground a pass, a step across or a manoeuvre at a bay will cover, asked as a plan of its own</b> (TER-4c.6,

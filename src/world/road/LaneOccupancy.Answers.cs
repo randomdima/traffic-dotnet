@@ -321,7 +321,7 @@ internal sealed partial class LaneOccupancy
     /// <b>Held ground a stronger piece takes</b> (the owner's ruling, root decision log): every claim of another holder
     /// over <c>[fromDm, toDm)</c> answered at a later turn than the piece — a main claim, or for a main piece a secondary
     /// one too — cut from there on as that holder would have been refused had it asked after (<see cref="CutHeld"/>).
-    /// Claims taken this rebuild never are, being taken in turn; only a hold kept from an earlier one can be.
+    /// Claims taken in the same answer never are, being taken in turn; only a hold kept from an earlier answer can be.
     /// </summary>
     void TakeOver(in Wish wish, ushort fromDm, ushort toDm, int key)
     {

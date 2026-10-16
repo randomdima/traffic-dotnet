@@ -50,8 +50,7 @@ internal sealed class TownRenderer : IDisposable
     const int GlyphTexture = 1;
     const int FirstSurfaceTexture = 2;
 
-    /// <summary>A uniform block is a multiple of sixteen bytes wide, and the camera is four pairs of floats and three fours.</summary>
-    const int CameraBytes = 80;
+    static readonly int CameraBytes = Unsafe.SizeOf<CameraView>();
 
     public const int OverlayCapacity = 65536;
 

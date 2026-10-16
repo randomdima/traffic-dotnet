@@ -159,7 +159,7 @@ internal sealed partial class LaneOccupancy
     public int HolderAt(in Refusal refusal) =>
         ClaimAt(refusal, out var claim) && claim.Holders > 0 ? HoldersOf(claim)[0] : NoKey;
 
-    /// <summary>How many claims of each kind the last rebuild laid, and how many holders they name between them.</summary>
+    /// <summary>How many claims of each kind are held, and how many holders they name between them.</summary>
     public (int Bodies, int Mains, int Secondaries, int Holders) Laid()
     {
         var (bodies, mains, seconds, holders) = (0, 0, 0, 0);

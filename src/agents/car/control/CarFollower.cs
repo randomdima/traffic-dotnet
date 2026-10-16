@@ -70,7 +70,7 @@ internal enum HeadwayKind : byte
 /// </param>
 /// <param name="BackUpM">
 /// <b>How far behind its tail this car means to back up</b> for the room to step out round what it has decided to
-/// get past (CAR-50), or zero. Asked for in the rebuild after, which says how much of it was had
+/// get past (CAR-50), or zero. Asked for at the car's next turn, which says how much of it was had
 /// (<see cref="Body.CarFleet.BackRoomM"/>).
 /// </param>
 /// <param name="Blocked">
@@ -591,7 +591,7 @@ internal static class CarFollower
         // fit it and let it go. <b>Stopped a stand-off short of it and two leads ahead</b>: what is found standing just
         // past the end is met by the plan only once it has grown into it, cuts the grant a stand-off short of it, and
         // is read a lead after the end itself was — bound at the bare end, a car cruising at its plan's reach was
-        // already committed past a light's hold by the laying that found it.
+        // already committed past a light's hold by the turn that found it.
         Bind(
             ref targetMps, ApproachMps(0f, context.HorizonM - config.Driving.StandOffM - (2f * leadM), brakingMps2),
             DrivingHold.Reach, ref hold);

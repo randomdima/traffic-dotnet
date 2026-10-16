@@ -10,7 +10,7 @@ namespace TrafficSimulation.Agents.Person.Actions;
 
 /// <summary>
 /// <b>The town as a walker's action reads it</b>: the fleet, the pavement's network, the ways and the ground each
-/// covers, what is laid on them this rebuild — the walker's place on its route and the walk ahead of it, and <b>the
+/// covers, what is laid on them at its turn — the walker's place on its route and the walk ahead of it, and <b>the
 /// claim every walking action lays</b> (PER-26, TER-4c.8): its walk ahead, answered and laid like a driver's road,
 /// and the grant it comes back as.
 /// </summary>
@@ -43,8 +43,8 @@ internal sealed class WalkingGround(
 
     public PersonFleet People { get; } = people;
 
-    /// <summary>What is laid on the ways: the layer every reader reads, or a laying of the town's own while one lasts.</summary>
-    public LaneOccupancy Occupancy { get; internal set; } = occupancy;
+    /// <summary>What is laid on the ways: the one layer every reader reads.</summary>
+    public LaneOccupancy Occupancy { get; } = occupancy;
 
     public TownWays Ways { get; } = ways;
 
@@ -54,12 +54,12 @@ internal sealed class WalkingGround(
 
     public SimConfig Config { get; } = config;
 
-    /// <summary>The hold each walker laid this rebuild, or <see cref="LaneOccupancy.NoHold"/>.</summary>
+    /// <summary>The hold each walker laid at its last turn, or <see cref="LaneOccupancy.NoHold"/>.</summary>
     public int[] WalkHold { get; } = LaneOccupancy.NoHolds(people.Capacity);
 
     /// <summary>
-    /// <b>Whose ground each walker's is</b>, as the town laid its body this rebuild (<see cref="HoldTheGroundAs"/>): its
-    /// own, or that of the car it is one occupant with. Its pass is laid, kept and asked for as that same ground, so
+    /// <b>Whose ground each walker's is</b>, as the town laid its body at its last turn (<see cref="HoldTheGroundAs"/>):
+    /// its own, or that of the car it is one occupant with. Its pass is laid, kept and asked for as that same ground, so
     /// the walker's own body is never what refuses it (PER-28).
     /// </summary>
     readonly int[] _heldAs = Own(people.Capacity);
@@ -154,7 +154,7 @@ internal sealed class WalkingGround(
     readonly record struct KeptSpan(int Before, int Way, int After, float FromM, float EndM);
 
     /// <summary>
-    /// <b>The span of the way each walker is walking</b>, kept beside it: asked of it several times a laying, and the
+    /// <b>The span of the way each walker is walking</b>, kept beside it: asked of it several times a turn, and the
     /// same until it takes the next way — where reading it off the network is a lookup into whatever corner it is.
     /// </summary>
     readonly KeptSpan[] _spans = Enumerable.Repeat(
@@ -191,7 +191,7 @@ internal sealed class WalkingGround(
         return way != PersonFleet.NoWay && People.OffWayM[person] <= FactsOf(person, way).WidthM * 0.5f;
     }
 
-    /// <summary>What a walker reads of the way it is walking every laying: how wide it is and the zebra it is the paint of.</summary>
+    /// <summary>What a walker reads of the way it is walking every turn: how wide it is and the zebra it is the paint of.</summary>
     readonly record struct WayFacts(int Way, float WidthM, int Zebra);
 
     /// <summary>

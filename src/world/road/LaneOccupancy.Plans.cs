@@ -65,8 +65,8 @@ internal sealed partial class LaneOccupancy
         public float LineM;
 
         /// <summary>
-        /// The way's row this rebuild, given it as it is asked (<see cref="Touch"/>) — and the way read back off it
-        /// (<see cref="_touched"/>), so a wish is 24 bytes.
+        /// The way's row, kept from the first thing laid on it and given it as it is asked (<see cref="Touch"/>) — and
+        /// the way read back off it (<see cref="_touched"/>), so a wish is 24 bytes.
         /// </summary>
         public int Row;
     }
@@ -95,7 +95,7 @@ internal sealed partial class LaneOccupancy
     /// whether it is answered yet.
     /// </summary>
     /// <remarks>
-    /// <b>Eight bytes, apart from <see cref="HoldRow"/></b>, so a laying's holds stay in cache while their pieces are
+    /// <b>Eight bytes, apart from <see cref="HoldRow"/></b>, so an answer's holds stay in cache while their pieces are
     /// taken: read off the 28-byte row, the hold was a fifth of <see cref="Take"/>'s time.
     /// </remarks>
     struct HoldState
@@ -469,10 +469,13 @@ internal sealed partial class LaneOccupancy
         return at;
     }
 
-    /// <summary>How many pieces this rebuild asked for, for an instrument.</summary>
+    /// <summary>How many pieces the turns asked for the last answer, for an instrument.</summary>
     public int WishCount => _wishCount;
 
-    /// <summary>How many holds and main and secondary pieces one roster asked this rebuild, for an instrument.</summary>
+    /// <summary>
+    /// How many holds one roster has live, and how many main and secondary pieces it asked for the last answer, for an
+    /// instrument.
+    /// </summary>
     public (int Holds, int Mains, int Secondaries) AskedBy(LaneRoster roster)
     {
         var (holds, mains, seconds) = (0, 0, 0);
@@ -495,9 +498,9 @@ internal sealed partial class LaneOccupancy
     }
 
     /// <summary>
-    /// How many secondary pieces one roster asked this rebuild, into <paramref name="byKinds"/> at the kind of way of the
-    /// main piece they follow times <see cref="WayKind"/>'s count plus the kind of way they lie on, for an instrument. One
-    /// placed on its own is counted as following its own way's kind.
+    /// How many secondary pieces one roster asked for the last answer, into <paramref name="byKinds"/> at the kind of way
+    /// of the main piece they follow times <see cref="WayKind"/>'s count plus the kind of way they lie on, for an
+    /// instrument. One placed on its own is counted as following its own way's kind.
     /// </summary>
     public void SecondariesAskedAcross(LaneRoster roster, Span<int> byKinds)
     {
@@ -520,7 +523,7 @@ internal sealed partial class LaneOccupancy
         }
     }
 
-    /// <summary>How many stretches of bodies one roster laid this rebuild, for an instrument.</summary>
+    /// <summary>How many stretches of bodies one roster holds, for an instrument.</summary>
     public int BodiesLaidBy(LaneRoster roster)
     {
         var count = 0;

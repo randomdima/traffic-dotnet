@@ -47,13 +47,13 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     /// </summary>
     readonly long[] _laidFor = new long[manoeuvres.Piece.Length];
 
-    /// <summary>The hold each car's manoeuvre was asked in this rebuild, or <see cref="LaneOccupancy.NoHold"/>.</summary>
+    /// <summary>The hold each car's manoeuvre was asked in at its last turn, or <see cref="LaneOccupancy.NoHold"/>.</summary>
     readonly int[] _holds = LaneOccupancy.NoHolds(manoeuvres.Piece.Length);
 
     /// <summary>
     /// <b>The street under each piece of a car's manoeuvre, whole</b> (<see cref="StreetUnder"/> from its start, no room
     /// to spare): a shape's own until it is shaped again, which is only ever followed by an ask — so it is swept once an
-    /// ask (<see cref="_sweptFor"/>), not at every rebuild it is laid in. <see cref="BayStreets.MostLanes"/> runs a piece.
+    /// ask (<see cref="_sweptFor"/>), not at every turn it is laid at. <see cref="BayStreets.MostLanes"/> runs a piece.
     /// </summary>
     readonly StreetRun[] _swept = new StreetRun[manoeuvres.Piece.Length * BayManoeuvre.MostPieces * BayStreets.MostLanes];
 
@@ -86,7 +86,7 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     /// <summary>Manoeuvres whose ground was asked for since the town was laid (GEN-4f).</summary>
     public long Asked { get; private set; }
 
-    /// <summary>And withdrawn in the rebuild after, because a body or another pass had the ground by then.</summary>
+    /// <summary>And withdrawn once laid, because a body or another pass had the ground by then.</summary>
     public long Withdrawn { get; private set; }
 
     /// <summary>And begun: ground the car then held until it had driven it.</summary>
@@ -122,7 +122,10 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
         return true;
     }
 
-    /// <summary>A shaped manoeuvre asked for where every metre of its ground is free (TER-4c.6), to be laid in the next rebuild.</summary>
+    /// <summary>
+    /// A shaped manoeuvre asked for where every metre of its ground is free (TER-4c.6), to be laid when the car next
+    /// claims.
+    /// </summary>
     public void Ask(int car)
     {
         _asksInS[car] = Config.Driving.ManoeuvreAskEveryS;
@@ -134,10 +137,10 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     }
 
     /// <summary>
-    /// <b>A manoeuvre laid in this rebuild, kept or withdrawn</b> before the car moves on it — kept where the whole of its
-    /// ground was had, as a pass is (<see cref="DrivingGround.IsKept"/>). <b>Kept, the whole of its ground is the car's
-    /// from this tick</b>, and a car getting into a bay takes up its first piece in place of the route's line. One the
-    /// claims have not been laid for since it was asked waits for them.
+    /// <b>A manoeuvre laid at the car's last turn, kept or withdrawn</b> before the car moves on it — kept where the
+    /// whole of its ground was had, as a pass is (<see cref="DrivingGround.IsKept"/>). <b>Kept, the whole of its ground
+    /// is the car's from this tick</b>, and a car getting into a bay takes up its first piece in place of the route's
+    /// line. One the claims have not been laid for since it was asked waits for them.
     /// </summary>
     public bool KeepOrWithdraw(int car)
     {
@@ -173,8 +176,8 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     /// that is not the route's is written, and the piece it is is written with it.
     /// </summary>
     /// <remarks>
-    /// <b>Taken, it grants nothing</b> until its ground is read again against it — in the rebuild after, or where the
-    /// manoeuvre is kept (<see cref="KeepOrWithdraw"/>): the grant the last rebuild read was down another line.
+    /// <b>Taken, it grants nothing</b> until its ground is read again against it — at the car's next turn, or where the
+    /// manoeuvre is kept (<see cref="KeepOrWithdraw"/>): the grant its last turn read was down another line.
     /// </remarks>
     public void TakeThePiece(int car, int piece)
     {
@@ -239,7 +242,7 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
 
     /// <summary>
     /// <b>The ground a car's manoeuvre will cover, asked as a plan of its own</b> (TER-4c.6) — once asked and every
-    /// rebuild after it is begun, from where the car stands on its piece to the end of its last. <b>A manoeuvre into a bay
+    /// turn after it is begun, from where the car stands on its piece to the end of its last. <b>A manoeuvre into a bay
     /// the line stops for no longer is given up here</b>, for the road.
     /// </summary>
     public void Lay(int car)
@@ -325,8 +328,8 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     /// <summary>
     /// <b>Whether nobody stands on any stretch of a shaped manoeuvre's ground</b>, grown by room to spare — asked before
     /// it is laid, as a pass is (<see cref="DrivingFigures.PassSpareM"/>), so a manoeuvre clearing something by a hair is
-    /// not asked one rebuild and withdrawn the next. False at the first stretch that is not. Whether a plan holds any of
-    /// it is answered when it is laid, after every plan of its rung.
+    /// not asked only to be withdrawn once laid. False at the first stretch that is not. Whether a plan holds any of it
+    /// is answered when it is laid, after every plan of its rung.
     /// </summary>
     bool OverTheGround(int car)
     {

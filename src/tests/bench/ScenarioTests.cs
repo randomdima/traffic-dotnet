@@ -22,13 +22,11 @@ namespace TrafficSimulation.Tests.Bench;
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
 [Trait(Priority.Key, Priority.P7)]
-public class ScenarioTests
+public class ScenarioTests(ScenarioTests.AtRest atRest) : IClassFixture<ScenarioTests.AtRest>
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
     public static TheoryData<string> Maps => Towns.EveryLaidMap();
-
-    static readonly ConcurrentDictionary<string, TownWorld> AtRest = new();
 
     /// <summary>
     /// <b>The town before its first tick, stood up once per map.</b> Standing a city up is the whole cost of
@@ -39,7 +37,21 @@ public class ScenarioTests
     /// and <see cref="Scenarios.For"/> hands out a new set on every call, so one town at rest answers as many
     /// questions about its table as are put to it. A claim that has to watch the ticks go by stands its own.
     /// </remarks>
-    static TownWorld Standing(string map) => AtRest.GetOrAdd(map, opened => new TownWorld(Towns.Of(opened), Config));
+    public sealed class AtRest : IDisposable
+    {
+        readonly ConcurrentDictionary<string, Lazy<TownWorld>> _standing = new();
+
+        internal TownWorld Of(string map) =>
+            _standing.GetOrAdd(map, opened => new Lazy<TownWorld>(() => new TownWorld(Towns.Of(opened), Config))).Value;
+
+        public void Dispose()
+        {
+            foreach (var town in _standing.Values)
+                if (town.IsValueCreated) town.Value.Dispose();
+        }
+    }
+
+    TownWorld Standing(string map) => atRest.Of(map);
 
     /// <summary>
     /// <b>Every town this build opens is watched.</b> A map with no claims at all would open with a panel

@@ -39,7 +39,12 @@ internal sealed unsafe partial class Vk : IDisposable
         Physical = physical;
         DeviceName = deviceName;
         DeviceApiVersion = deviceApiVersion;
+        Count();
+        api.GetPhysicalDeviceMemoryProperties(physical, out _memoryTypes);
     }
+
+    /// <summary>The physical device's memory types, asked once: they are fixed for the device's life.</summary>
+    readonly PhysicalDeviceMemoryProperties _memoryTypes;
 
     /// <summary>Crossings of this wall since the process started. DEBUG only, and free in a measured run.</summary>
     public static long Crossings { get; private set; }
@@ -550,12 +555,10 @@ internal sealed unsafe partial class Vk : IDisposable
 
     uint? TryMemoryTypeIndex(uint allowed, MemoryPropertyFlags wanted)
     {
-        Count();
-        _api.GetPhysicalDeviceMemoryProperties(Physical, out var properties);
-        for (var type = 0; type < properties.MemoryTypeCount; type++)
+        for (var type = 0; type < _memoryTypes.MemoryTypeCount; type++)
         {
             var usable = (allowed & (1u << type)) != 0;
-            if (usable && (properties.MemoryTypes[type].PropertyFlags & wanted) == wanted) return (uint)type;
+            if (usable && (_memoryTypes.MemoryTypes[type].PropertyFlags & wanted) == wanted) return (uint)type;
         }
 
         return null;

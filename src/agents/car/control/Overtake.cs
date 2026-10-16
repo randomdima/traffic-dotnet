@@ -28,7 +28,7 @@ namespace TrafficSimulation.Agents.Car.Control;
 /// away along it.
 /// </para>
 /// <para>
-/// <b>Asked for, then begun</b>: a pass is laid a rebuild before the car moves over (TER-4c.6), so that two
+/// <b>Asked for, then begun</b>: a pass is laid and answered before the car moves over (TER-4c.6), so that two
 /// asked for over the same ground on one tick are settled before either leaves its lane.
 /// </para>
 /// </remarks>
@@ -44,7 +44,7 @@ namespace TrafficSimulation.Agents.Car.Control;
 /// <param name="OutMps">The most the step out may be driven at: what its bend and the rack allow.</param>
 /// <param name="BackMps">And the step back.</param>
 /// <param name="ClearsM">Where along the line what is being passed ends, which is where the ground the car comes back into begins.</param>
-/// <param name="Begun">Whether the pass has been kept past the rebuild it was laid in, and the car is moving over.</param>
+/// <param name="Begun">Whether the pass has been kept once answered, and the car is moving over.</param>
 internal readonly record struct Overtake(
     int Lane, float OutM, float OutStepM, float BackM, float BackStepM, float AsideM, float OutMps, float BackMps,
     float ClearsM, bool Begun)

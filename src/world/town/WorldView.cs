@@ -64,7 +64,7 @@ internal struct CarView
 }
 
 /// <summary>One walker as the world's last step left it.</summary>
-/// <remarks>Padded to 32 B: the device's row holds a <c>vec2</c>, which std430 rounds a row to 8 B for.</remarks>
+/// <remarks>24 B, a whole number of the 8 B std430 aligns the device's row to for its <c>vec2</c>s.</remarks>
 [StructLayout(LayoutKind.Sequential)]
 internal struct WalkerView
 {
@@ -74,19 +74,8 @@ internal struct WalkerView
     /// <summary>The way it faces: its own, turned towards its aim at its turn rate (PER-3).</summary>
     public float HeadingRad;
 
-    /// <summary><see cref="Declares"/>.</summary>
-    public uint Flags;
-
     /// <inheritdoc cref="CarView.OverlapM"/>
     public float OverlapM;
-
-    readonly int _pad;
-
-    /// <summary>
-    /// It declared a velocity this step (<c>WalkerFollower.Step</c>): a walker that declared none stands, whatever it is
-    /// sliding at (PER-3).
-    /// </summary>
-    public const uint Declares = 1;
 }
 
 /// <summary>Where one body's covers are in its kind's list (<see cref="WorldView.CarCovers"/>), and how many.</summary>

@@ -139,9 +139,6 @@ internal sealed partial class PhysicsWorld
 
     public int StaticBodyCount => _staticCount;
 
-    /// <summary>How many bodies the table has room for before it grows (<see cref="Fit"/>).</summary>
-    public int RoomForBodies => _positionM.Length;
-
     /// <summary>Every body with a mass, whether or not it is in the world this instant: a contained walker is still one of these.</summary>
     public int DynamicBodyCount => _dynamicCount;
 

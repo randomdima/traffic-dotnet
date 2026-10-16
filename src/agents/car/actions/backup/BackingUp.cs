@@ -34,9 +34,9 @@ internal readonly record struct BackingAsk(
 /// for the pass it has and never draws another, and the pass is asked for by the overtake once the car is at rest there.
 /// </para>
 /// <para>
-/// <b>What it asks for rides on its <see cref="DriveContext"/> to the rebuild after</b> — which lays the ground and
-/// says how much of it was had (<see cref="CarFleet.BackRoomM"/>): every rebuild while it rolls back, and when its
-/// clock comes round while it is blocked.
+/// <b>What it asks for rides on its <see cref="DriveContext"/> to its next turn</b> — which lays the ground and says
+/// how much of it was had (<see cref="CarFleet.BackRoomM"/>): every tick while it rolls back, and when its clock comes
+/// round while it is blocked.
 /// </para>
 /// </remarks>
 internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overtaking overtaking)
@@ -46,7 +46,7 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
 
     SimConfig Config => ground.Config;
 
-    /// <summary>The most ground behind it each car has asked for since the claims were last laid, which laying them reads.</summary>
+    /// <summary>The most ground behind it each car has asked for since its last turn, which its next turn lays.</summary>
     readonly float[] _askedM = new float[ground.Cars.Capacity];
 
     /// <summary>Car-ticks spent backing up for the room to step out (CAR-50), since the town was laid.</summary>
@@ -77,8 +77,8 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
         var blocked = backUpM > 0f && !backsUp;
         if (blocked) CarTicksBlocked++;
 
-        // Asked for every rebuild while it rolls back, and on its clock while it is refused — and kept until the claims
-        // are next laid, which is not every tick.
+        // Asked for every tick while it rolls back, and on its clock while it is refused — and kept until its next turn
+        // lays it, which is not every tick.
         var asksM = backsUp || (blocked && looks) ? backUpM : 0f;
         _askedM[car] = MathF.Max(_askedM[car], asksM);
 
@@ -159,15 +159,15 @@ internal sealed class BackingUp(DrivingGround ground, CarActions actions, Overta
         Had(asked, reachM);
     }
 
-    /// <summary>The hold each car's backing was asked in this rebuild, or <see cref="LaneOccupancy.NoHold"/>.</summary>
+    /// <summary>The hold each car's backing was asked in at its last turn, or <see cref="LaneOccupancy.NoHold"/>.</summary>
     readonly int[] _holds = LaneOccupancy.NoHolds(ground.Cars.Capacity);
 
     /// <summary>And what it asked, which <see cref="Read"/> reads back.</summary>
     readonly BackingAsk[] _laid = new BackingAsk[ground.Cars.Capacity];
 
     /// <summary>
-    /// <b>The ground this car asks to back up over this laying, taken</b> — what it asked for since the claims were last
-    /// laid cleared, and what it was had left unknown until the ground is laid (<see cref="Had"/>), or nought where the lane
+    /// <b>The ground this car asks to back up over at this turn, taken</b> — what it asked for since its last turn
+    /// cleared, and what it was had left unknown until the ground is laid (<see cref="Had"/>), or nought where the lane
     /// has none of it behind the car. False where it asks for none.
     /// </summary>
     /// <param name="underWay">Whether the car is on the route's line, as the town reads it.</param>

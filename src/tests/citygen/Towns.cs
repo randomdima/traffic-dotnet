@@ -202,16 +202,15 @@ internal static class Towns
 
     /// <summary>
     /// How many buildings that town plans. <b>Enough that every service the roster asks for has a yard</b>
-    /// (AMB-1, SRV-1) and that the frontage is genuinely competed for, and small enough that laying it is a
-    /// fraction of a second.
+    /// (AMB-1, SRV-1) and that the frontage is genuinely competed for. Laying the town is about three seconds,
+    /// and it is laid once a run.
     /// </summary>
     public const int BuildingsBuilt = 200;
 
     /// <summary>
     /// And how many people stand at their doors (GEN-7). <b>It is the one town the suite asks the walking
     /// its questions of</b>, because a walker begins inside a building and the fixture has none — enough
-    /// that a pavement carries more than one body and few enough that the town is laid in a fraction of a
-    /// second.
+    /// that a pavement carries more than one body.
     /// </summary>
     public const int PeopleBuilt = 60;
 

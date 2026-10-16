@@ -17,7 +17,7 @@ namespace TrafficSimulation.Tests.Hud;
 /// display hands back an 1800 × 1400 framebuffer for a 900 × 700 window; an interface laid out in the
 /// framebuffer's pixels is therefore clicked in the top-left quarter of itself — and one centred on
 /// the screen can never be hit at all. The interface now lays itself out in interface pixels, which
-/// is what <see cref="AppWindow.InUiPx"/> puts the pointer into. Nothing downstream can detect a
+/// is what <see cref="InterfaceScale.InUiPx"/> puts the pointer into. Nothing downstream can detect a
 /// mistake here: every coordinate is a plausible one.
 /// </remarks>
 [Trait(Tier.Key, Tier.Unit)]
@@ -32,9 +32,9 @@ public class PointerSpaceTests
 
         // The desktop's factor and the interface's are the same 2× here, so the two cancel and the
         // pointer arrives where it already was: the window's own pixels.
-        Assert.Equal(new Vector2(450f, 350f), AppWindow.InUiPx(new Vector2(450f, 350f), window, framebuffer, 2f));
-        Assert.Equal(Vector2.Zero, AppWindow.InUiPx(Vector2.Zero, window, framebuffer, 2f));
-        Assert.Equal(new Vector2(900f, 700f), AppWindow.InUiPx(new Vector2(900f, 700f), window, framebuffer, 2f));
+        Assert.Equal(new Vector2(450f, 350f), InterfaceScale.InUiPx(new Vector2(450f, 350f), window, framebuffer, 2f));
+        Assert.Equal(Vector2.Zero, InterfaceScale.InUiPx(Vector2.Zero, window, framebuffer, 2f));
+        Assert.Equal(new Vector2(900f, 700f), InterfaceScale.InUiPx(new Vector2(900f, 700f), window, framebuffer, 2f));
     }
 
     /// <summary>
@@ -48,7 +48,7 @@ public class PointerSpaceTests
         var window = new Vector2D<int>(900, 700);
         var framebuffer = new Vector2D<int>(1800, 1400);
 
-        Assert.Equal(new Vector2(225f, 175f), AppWindow.InUiPx(new Vector2(450f, 350f), window, framebuffer, 4f));
+        Assert.Equal(new Vector2(225f, 175f), InterfaceScale.InUiPx(new Vector2(450f, 350f), window, framebuffer, 4f));
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public class PointerSpaceTests
     {
         var size = new Vector2D<int>(1600, 900);
 
-        Assert.Equal(new Vector2(123f, 456f), AppWindow.InUiPx(new Vector2(123f, 456f), size, size, 1f));
+        Assert.Equal(new Vector2(123f, 456f), InterfaceScale.InUiPx(new Vector2(123f, 456f), size, size, 1f));
     }
 
     /// <summary>A window with no size yet — minimised, or between a resize and its first frame — divides by nothing.</summary>
@@ -65,7 +65,7 @@ public class PointerSpaceTests
     {
         Assert.Equal(
             new Vector2(5f, 6f),
-            AppWindow.InUiPx(new Vector2(5f, 6f), new Vector2D<int>(0, 0), new Vector2D<int>(800, 600), 1f));
+            InterfaceScale.InUiPx(new Vector2(5f, 6f), new Vector2D<int>(0, 0), new Vector2D<int>(800, 600), 1f));
     }
 
     /// <summary>

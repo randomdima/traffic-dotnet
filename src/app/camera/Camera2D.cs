@@ -52,14 +52,24 @@ internal sealed class Camera2D
     /// How far the town is turned on screen, clockwise, from north-up (OBS-1c). Zero is north up, which
     /// is where a run opens and where <see cref="FaceNorth"/> puts it back.
     /// </summary>
-    public float TurnRad { get; private set; }
+    public float TurnRad
+    {
+        get => _turnRad;
+        private set
+        {
+            _turnRad = value;
+            Facing = new Vector2(MathF.Cos(value), MathF.Sin(value));
+        }
+    }
+
+    float _turnRad;
 
     /// <summary>
-    /// The turn as the pair everything that applies it wants: the cosine and the sine, taken once.
-    /// <b>It is what the shaders are handed too</b>, so the trigonometry is paid once a frame rather
-    /// than once a vertex.
+    /// The turn as the pair everything that applies it wants: the cosine and the sine, taken once a turn.
+    /// <b>It is what the shaders are handed too</b>, so the trigonometry is paid once a turn rather
+    /// than once a vertex or a conversion.
     /// </summary>
-    public Vector2 Facing => new(MathF.Cos(TurnRad), MathF.Sin(TurnRad));
+    public Vector2 Facing { get; private set; } = Vector2.UnitX;
 
     /// <summary>
     /// The view rectangle in the camera's own axes — what is across the window and what is down it. It

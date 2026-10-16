@@ -20,9 +20,8 @@ namespace TrafficSimulation.Runtime;
 /// "toggle" cannot toggle sixty times a second while it is held.
 /// </para>
 /// <para>
-/// <b>Three spaces meet here too</b>, and the arithmetic is the desktop's — <see cref="InUiPx"/> is a
-/// copy of its static method, which only the desktop's test checks. The page hands the pointer over already in the
-/// canvas's own pixels, so what is left is the scale.
+/// <b>Three spaces meet here too</b>, and the arithmetic is the desktop's (<see cref="InterfaceScale.InUiPx"/>).
+/// The page hands the pointer over already in the canvas's own pixels, so what is left is the scale.
 /// </para>
 /// </remarks>
 internal sealed class AppWindow : IDisposable
@@ -120,16 +119,6 @@ internal sealed class AppWindow : IDisposable
         return count;
     }
 
-    /// <summary>The conversion itself, as arithmetic over three vectors and a factor, so it can be checked without a page.</summary>
-    public static Vector2 InUiPx(
-        Vector2 windowPx, Vector2D<int> windowSize, Vector2D<int> framebufferSize, float uiScale)
-    {
-        if (windowSize.X <= 0 || windowSize.Y <= 0 || uiScale <= 0f) return windowPx;
-
-        return new Vector2(
-            windowPx.X * framebufferSize.X / windowSize.X, windowPx.Y * framebufferSize.Y / windowSize.Y) / uiScale;
-    }
-
     /// <summary>
     /// What the page has seen since the last frame asked. The edges — a press, a click, a notch, a
     /// resize — are handed over and forgotten by the page here, and cleared again as each is read, so
@@ -196,7 +185,7 @@ internal sealed class AppWindow : IDisposable
 
     public void Dispose() => Close();
 
-    Vector2 InUiPx(Vector2 canvasPx) => InUiPx(canvasPx, FramebufferSize, FramebufferSize, UiScale);
+    Vector2 InUiPx(Vector2 canvasPx) => InterfaceScale.InUiPx(canvasPx, FramebufferSize, FramebufferSize, UiScale);
 
     /// <summary>
     /// The town's keys, as <c>town.js</c> indexes them. A key the page does not name is a key nothing

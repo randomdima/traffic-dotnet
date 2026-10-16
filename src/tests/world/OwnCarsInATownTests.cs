@@ -52,6 +52,43 @@ public class OwnCarsInATownTests
         Assert.Equal(world.Cars.Count - world.Ambulances - world.PoliceCars - world.Evacuators, owned);
     }
 
+    /// <summary>
+    /// <b>An owner laid at their wheel is in at the wheel of their own car, and not on foot</b>
+    /// (<see cref="PersonFigures.StartsAtTheWheelShare"/>): the trip is drawn from the car as one begun at a wheel is
+    /// (PER-29), so it is driven, or standing by for a draw that found nowhere yet — never a walk.
+    /// </summary>
+    [Fact]
+    public void AnOwnerLaidAtTheWheelSetsOffInTheirOwnCar()
+    {
+        var config = new SimConfig { Person = new PersonFigures { StartsAtTheWheelShare = 1f } };
+        using var world = new TownWorld(Towns.Built, config);
+
+        for (var person = 0; person < world.People.Count; person++)
+        {
+            var car = world.People.Car[person];
+            if (car == PersonFleet.NoCar) continue;
+
+            Assert.Equal(person, world.Containment.DriverOf(car));
+            var stage = world.People.Stage[person];
+            Assert.True(stage is TripStage.Driving or TripStage.StandingBy, $"person {person}, laid at the wheel, is {stage}");
+        }
+    }
+
+    /// <summary>At a share of none, every owner is laid indoors.</summary>
+    [Fact]
+    public void AtAShareOfNoneEveryOwnerIsLaidIndoors()
+    {
+        var config = new SimConfig { Person = new PersonFigures { StartsAtTheWheelShare = 0f } };
+        using var world = new TownWorld(Towns.Built, config);
+
+        for (var person = 0; person < world.People.Count; person++)
+        {
+            if (world.People.Car[person] == PersonFleet.NoCar) continue;
+
+            Assert.Equal(ContainerKind.Building, world.Containment.WhereIs(person).Kind);
+        }
+    }
+
     /// <summary>A trip walked is to a door within a walk of where it set off.</summary>
     [Fact]
     public void AWalkedTripIsToADoorWithinAWalk() => Assert.Empty(Watched.WalkedTooFar);

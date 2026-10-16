@@ -17,7 +17,7 @@ namespace TrafficSimulation.Agents.Person.Control;
 /// one measure that carries on from one way to the next.
 /// </para>
 /// <para>
-/// <b>Asked for, then begun</b>, as a car's pass is (TER-4c.6): laid a rebuild before the walker steps over, so
+/// <b>Asked for, then begun</b>, as a car's pass is (TER-4c.6): laid and answered before the walker steps over, so
 /// that two asked for over the same ground on one tick are settled before either leaves its way.
 /// </para>
 /// </remarks>
@@ -25,7 +25,7 @@ namespace TrafficSimulation.Agents.Person.Control;
 /// <param name="FromM">And how far along that way it stood — where the pass is measured from.</param>
 /// <param name="ClearM">How far down the route its middle is clear of what it passes by the gap it keeps, and it steps back.</param>
 /// <param name="AsideM">How far across the lane beside stands, along the walker's right; nought for no pass.</param>
-/// <param name="Begun">Whether the pass has been kept past the rebuild it was laid in, and the walker is stepping over.</param>
+/// <param name="Begun">Whether the pass has been kept once answered, and the walker is stepping over.</param>
 internal readonly record struct Sidestep(int Slot, float FromM, float ClearM, float AsideM, bool Begun)
 {
     public static Sidestep None => default;

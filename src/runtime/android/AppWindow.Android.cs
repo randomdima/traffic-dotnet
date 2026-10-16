@@ -27,8 +27,8 @@ namespace TrafficSimulation.Runtime;
 /// </para>
 /// <para>
 /// <b>Two spaces meet here rather than three.</b> A touch arrives in the surface's own pixels, which is
-/// the framebuffer's, so what is left is the scale — and that is <see cref="InUiPx"/>, a copy of the
-/// desktop's arithmetic, which only the desktop's test checks.
+/// the framebuffer's, so what is left is the scale — the desktop's arithmetic
+/// (<see cref="InterfaceScale.InUiPx"/>).
 /// </para>
 /// </remarks>
 internal sealed class AppWindow : IDisposable
@@ -216,16 +216,6 @@ internal sealed class AppWindow : IDisposable
         return count;
     }
 
-    /// <summary>The conversion itself, as arithmetic over three vectors and a factor, so it can be checked without a handset.</summary>
-    public static Vector2 InUiPx(
-        Vector2 windowPx, Vector2D<int> windowSize, Vector2D<int> framebufferSize, float uiScale)
-    {
-        if (windowSize.X <= 0 || windowSize.Y <= 0 || uiScale <= 0f) return windowPx;
-
-        return new Vector2(
-            windowPx.X * framebufferSize.X / windowSize.X, windowPx.Y * framebufferSize.Y / windowSize.Y) / uiScale;
-    }
-
     /// <summary>
     /// Nothing. The listener writes where the frame reads, so there is no queue on this side to drain —
     /// and the edges are cleared as each is taken rather than at the top of a frame.
@@ -288,5 +278,5 @@ internal sealed class AppWindow : IDisposable
 
     public void Dispose() => Close();
 
-    Vector2 InUiPx(Vector2 surfacePx) => InUiPx(surfacePx, FramebufferSize, FramebufferSize, UiScale);
+    Vector2 InUiPx(Vector2 surfacePx) => InterfaceScale.InUiPx(surfacePx, FramebufferSize, FramebufferSize, UiScale);
 }

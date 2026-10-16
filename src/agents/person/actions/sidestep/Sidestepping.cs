@@ -38,7 +38,7 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     /// <summary>The body each decided pass gets past, where it stood.</summary>
     readonly BodySeen[] _passed = new BodySeen[ground.People.Capacity];
 
-    /// <summary>The hold each walker's pass was asked in this rebuild, or <see cref="LaneOccupancy.NoHold"/>.</summary>
+    /// <summary>The hold each walker's pass was asked in at its last turn, or <see cref="LaneOccupancy.NoHold"/>.</summary>
     readonly int[] _holds = LaneOccupancy.NoHolds(ground.People.Capacity);
 
     /// <summary>How long until a walker waiting on its pass looks round again (<see cref="PersonFigures.SidestepAskEveryS"/>).</summary>
@@ -57,7 +57,7 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     /// <summary>Walkers' passes asked for since the town was laid (PER-28).</summary>
     public long Asked { get; private set; }
 
-    /// <summary>And withdrawn in the rebuild after, because a body or another pass had the ground by then.</summary>
+    /// <summary>And withdrawn once laid, because a body or another pass had the ground by then.</summary>
     public long Withdrawn { get; private set; }
 
     /// <summary>And walked to the end, the walker back on its own route.</summary>
@@ -119,10 +119,10 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
         ground.WaysAlongTheWalk(person, MathF.Max(0f, pass.ClearM - walkedM) + People.RadiusM[person] + roomM, into);
 
     /// <summary>
-    /// <b>This rebuild's word on a walker's pass</b>, read once its grant is: begun or withdrawn in the rebuild after it
-    /// was asked for, and over once the walker is back on its route past the one it passed — in the rebuild it gets
-    /// there, since past there is ground the pass never held (TER-4c.8). Everything else about the pass is the walker's
-    /// decision (<see cref="Decide"/>).
+    /// <b>Its turn's word on a walker's pass</b>, read once its grant is: begun or withdrawn at the turn it was asked
+    /// at, and over once the walker is back on its route past the one it passed — at its first turn there, since past
+    /// there is ground the pass never held (TER-4c.8). Everything else about the pass is the walker's decision
+    /// (<see cref="Decide"/>).
     /// </summary>
     public void Consider(int person)
     {
@@ -283,7 +283,7 @@ internal sealed class Sidestepping(WalkingGround ground, PersonActions actions)
     }
 
     /// <summary>
-    /// <b>A walker's pass laid in this rebuild, kept where it still has its ground to itself</b>, and withdrawn
+    /// <b>A walker's pass laid at this turn, kept where it still has its ground to itself</b>, and withdrawn
     /// otherwise — to be asked for again when the walker next looks round.
     /// </summary>
     void KeepOrWithdrawTheSidestep(int person, in Sidestep pass)

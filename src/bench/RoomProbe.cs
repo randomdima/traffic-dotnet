@@ -30,7 +30,7 @@ internal static class RoomProbe
         var claims = world.Occupancy;
         var marks = world.Atlas.Marks;
         var rebuilds = 0;
-        var layingFrom = world.LayingTicks.ToArray();
+        var stagesFrom = world.TurnStageTicks.ToArray();
         var keptFrom = world.PlansKept.ToArray();
         var walksFrom = world.WalksKept.ToArray();
         var (holds, wishes, bodies, mains, seconds, holders) = (new Tally(), new Tally(), new Tally(), new Tally(), new Tally(), new Tally());
@@ -50,7 +50,7 @@ internal static class RoomProbe
         for (var tick = 0; tick < MeasuredTicks; tick++)
         {
             loop.Advance();
-            if (!world.ClaimsLaidThisTick) continue;
+            if (!world.TurnsTakenThisTick) continue;
 
             rebuilds++;
             for (var car = 0; car < world.Cars.Count; car++) lineArcs.Add(world.Cars.Line[car].ArcCount);
@@ -139,8 +139,8 @@ internal static class RoomProbe
             $"after {WarmupTicks}");
         Console.WriteLine($"longest way {longestM:F1} m: {LaneOccupancy.DmOf(longestM):N0} of {ushort.MaxValue:N0} dm");
         var msPer = 1000.0 / System.Diagnostics.Stopwatch.Frequency / Math.Max(1, rebuilds);
-        var stages = Enum.GetValues<TownWorld.LayingStage>();
-        var spentMs = stages.Select(stage => (world.LayingTicks[(int)stage] - layingFrom[(int)stage]) * msPer).ToArray();
+        var stages = Enum.GetValues<TownWorld.TurnStage>();
+        var spentMs = stages.Select(stage => (world.TurnStageTicks[(int)stage] - stagesFrom[(int)stage]) * msPer).ToArray();
         Console.WriteLine(
             $"a tick's turns {spentMs.Sum():F2} ms: " + string.Join(", ", stages.Select((stage, at) => $"{stage} {spentMs[at]:F2}")));
         var kept = world.PlansKept.ToArray();

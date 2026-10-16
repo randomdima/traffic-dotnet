@@ -1029,7 +1029,9 @@ internal sealed class DeviceSolver : IDisposable
         return new CopyRun((ulong)_firstMoving * stride, (ulong)_firstMoving * stride, (ulong)_movingRows * stride);
     }
 
-    static uint Groups(int count) => (uint)Math.Max(1, (count + 63) / 64);
+    const int Group = 64;
+
+    static uint Groups(int count) => (uint)Math.Max(1, (count + Group - 1) / Group);
 
     ComputeKernel Kernel(string shader, int buffers, int sets = 1)
     {

@@ -104,7 +104,7 @@ internal sealed partial class TownWorld
     };
 
     /// <summary>
-    /// <b>Where a walker aims, on the grant this rebuild gave it</b>, as the action it is doing has it — and never past
+    /// <b>Where a walker aims, on the grant its turn gave it</b>, as the action it is doing has it — and never past
     /// the ground it was granted, so a walker with none granted stands where it is (PER-26).
     /// </summary>
     void AimTheWalker(int person)
@@ -127,7 +127,7 @@ internal sealed partial class TownWorld
         }
     }
 
-    /// <summary>The hold a walker laid this rebuild, for an instrument asking what held it.</summary>
+    /// <summary>The hold a walker laid at its last turn, for an instrument asking what held it.</summary>
     public int WalkHold(int person) => _walkingGround.WalkHold[person];
 
     /// <summary>Whether one of the town's ways is the paint of a zebra, walked from one kerb to the other.</summary>

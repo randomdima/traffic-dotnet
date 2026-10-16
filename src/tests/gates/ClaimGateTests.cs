@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Tests.CityGen;
@@ -22,11 +23,15 @@ namespace TrafficSimulation.Tests.Gates;
 /// <b>Asked on every tick the turns are taken and not at the end</b>, since each agent claims afresh on its own turn
 /// and a turn that gave two plans one metre is one somebody drove on.
 /// </para>
+/// <para>
+/// <b>One run of a map answers all four</b> (<see cref="Runs"/>): each question only reads the town, so the first
+/// failure of each is kept and the run goes on for the others.
+/// </para>
 /// </remarks>
 [Trait(Tier.Key, Tier.Perf)]
 [Trait(Priority.Key, Priority.P0)]
 [Collection(Simulation.SolverCollection.Name)]
-public class ClaimGateTests
+public class ClaimGateTests(ClaimGateTests.Runs runs) : IClassFixture<ClaimGateTests.Runs>
 {
     /// <summary>Long enough for the queues, the junctions and the crossings to be busy at once.</summary>
     const int Ticks = 1_800;
@@ -37,7 +42,7 @@ public class ClaimGateTests
     /// </summary>
     [Theory]
     [MemberData(nameof(Towns.EveryMapWorthAGate), MemberType = typeof(Towns))]
-    public void NoMetreOfAnyWayIsPlannedTwice(string map) => Watch(map, Disjoint);
+    public void NoMetreOfAnyWayIsPlannedTwice(string map) => runs.Of(map).Kept(Question.Disjoint);
 
     /// <summary>
     /// <b>A main claim over a mark places the whole of its secondary claim</b> (TER-5c.1): wherever a holder's main claim
@@ -46,7 +51,7 @@ public class ClaimGateTests
     /// </summary>
     [Theory]
     [MemberData(nameof(Towns.EveryMapWorthAGate), MemberType = typeof(Towns))]
-    public void EveryMainClaimOverAMarkPlacesItsSecondaryClaim(string map) => Watch(map, Seconded);
+    public void EveryMainClaimOverAMarkPlacesItsSecondaryClaim(string map) => runs.Of(map).Kept(Question.Seconded);
 
     /// <summary>
     /// <b>No plan is laid over a body</b> (TER-4c.1): a main piece is cut at the first body in front of it, so none lies
@@ -54,7 +59,7 @@ public class ClaimGateTests
     /// </summary>
     [Theory]
     [MemberData(nameof(Towns.EveryMapWorthAGate), MemberType = typeof(Towns))]
-    public void NoPlanIsLaidOverABody(string map) => Watch(map, ClearOfTheBodies);
+    public void NoPlanIsLaidOverABody(string map) => runs.Of(map).Kept(Question.ClearOfTheBodies);
 
     /// <summary>
     /// <b>Nothing is dropped for want of room</b>: a way the atlas had no room for under a body is one nobody could see it
@@ -62,35 +67,69 @@ public class ClaimGateTests
     /// </summary>
     [Theory]
     [MemberData(nameof(Towns.EveryMapWorthAGate), MemberType = typeof(Towns))]
-    public void NothingIsDroppedForWantOfRoom(string map)
-    {
-        var config = SimConfig.Shipped();
-        using var world = new TownWorld(Towns.Of(map), config);
-        new SimLoop<TownWorld>(world, config).Advance(Ticks);
+    public void NothingIsDroppedForWantOfRoom(string map) => Assert.Equal(0L, runs.Of(map).Dropped);
 
-        Assert.Equal(0, world.Atlas.Dropped);
+    public enum Question
+    {
+        Disjoint,
+        Seconded,
+        ClearOfTheBodies,
     }
 
-    /// <summary>A town ticked, and the claims after every tick's turns handed to one question, which counts what it looked at.</summary>
-    static void Watch(string map, Func<TownWorld, string, int, long> ask)
-    {
-        var config = SimConfig.Shipped();
-        using var world = new TownWorld(Towns.Of(map), config);
-        var loop = new SimLoop<TownWorld>(world, config);
+    /// <summary>A question asked of the claims after a tick's turns: what it looked at, and its failure or null.</summary>
+    delegate long Asking(TownWorld world, string map, int tick, out string? failure);
 
-        var looked = 0L;
-        for (var tick = 0; tick < Ticks; tick++)
+    static readonly Asking[] Asked = [Disjoint, Seconded, ClearOfTheBodies];
+
+    /// <summary>Each map's one run, taken when a case first asks for it.</summary>
+    public sealed class Runs
+    {
+        readonly ConcurrentDictionary<string, Lazy<Run>> _runs = new();
+
+        internal Run Of(string map) => _runs.GetOrAdd(map, named => new Lazy<Run>(() => new Run(named))).Value;
+    }
+
+    /// <summary>A town ticked, and the claims after every tick's turns handed to each question still unfailed.</summary>
+    internal sealed class Run
+    {
+        readonly string _map;
+        readonly long[] _looked = new long[Asked.Length];
+        readonly string?[] _failure = new string?[Asked.Length];
+
+        public Run(string map)
         {
-            loop.Advance();
-            if (world.ClaimsLaidThisTick) looked += ask(world, map, tick);
+            _map = map;
+            var config = SimConfig.Shipped();
+            using var world = new TownWorld(Towns.Of(map), config);
+            var loop = new SimLoop<TownWorld>(world, config);
+            for (var tick = 0; tick < Ticks; tick++)
+            {
+                loop.Advance();
+                if (!world.TurnsTakenThisTick) continue;
+
+                for (var question = 0; question < Asked.Length; question++)
+                {
+                    if (_failure[question] is null) _looked[question] += Asked[question](world, map, tick, out _failure[question]);
+                }
+            }
+
+            Dropped = world.Atlas.Dropped;
         }
 
-        // The census, without which a town that planned nothing would keep every one of these perfectly.
-        Assert.True(looked > 0, $"{map}: nothing was planned in {Ticks} ticks");
+        public long Dropped { get; }
+
+        public void Kept(Question question)
+        {
+            Assert.True(_failure[(int)question] is null, _failure[(int)question]);
+
+            // The census, without which a town that planned nothing would keep every one of these perfectly.
+            Assert.True(_looked[(int)question] > 0, $"{_map}: nothing was planned in {Ticks} ticks");
+        }
     }
 
-    static long Disjoint(TownWorld world, string map, int tick)
+    static long Disjoint(TownWorld world, string map, int tick, out string? failure)
     {
+        failure = null;
         var claims = world.Occupancy;
         var looked = 0L;
         foreach (var way in claims.OccupiedWays)
@@ -104,14 +143,16 @@ public class ClaimGateTests
                 {
                     if (claims.HoldersOf(other)[0] == holder || !Overlap(main, other)) continue;
 
-                    Assert.Fail($"{map}: at tick {tick}, {world.Ways.KindOf(way)} way {way} is planned twice — {Named(claims, main)} and {Named(claims, other)}");
+                    failure = $"{map}: at tick {tick}, {world.Ways.KindOf(way)} way {way} is planned twice — {Named(claims, main)} and {Named(claims, other)}";
+                    return looked;
                 }
 
                 foreach (var second in claims.Secondaries(way))
                 {
                     if (!Overlap(main, second) || (second.Holders == 1 && claims.HoldersOf(second)[0] == holder)) continue;
 
-                    Assert.Fail($"{map}: at tick {tick}, {world.Ways.KindOf(way)} way {way} is planned twice — {Named(claims, main)} and {Named(claims, second)}");
+                    failure = $"{map}: at tick {tick}, {world.Ways.KindOf(way)} way {way} is planned twice — {Named(claims, main)} and {Named(claims, second)}";
+                    return looked;
                 }
             }
         }
@@ -119,8 +160,9 @@ public class ClaimGateTests
         return looked;
     }
 
-    static long Seconded(TownWorld world, string map, int tick)
+    static long Seconded(TownWorld world, string map, int tick, out string? failure)
     {
+        failure = null;
         var claims = world.Occupancy;
         var looked = 0L;
         foreach (var way in claims.OccupiedWays)
@@ -140,13 +182,13 @@ public class ClaimGateTests
                         held |= second.FromDm <= fromDm && second.ToDm >= toDm && claims.HoldersOf(second).IndexOf(holder) >= 0;
                     }
 
-                    if (!held)
-                    {
-                        Assert.Fail(
-                            $"{map}: at tick {tick} {Named(claims, main)} on {world.Ways.KindOf(way)} way {way} lies over the mark "
-                            + $"at {mark.MineFromM:0.0}–{mark.MineToM:0.0} m and does not hold {mark.FromM:0.0}–{mark.ToM:0.0} m of "
-                            + $"{world.Ways.KindOf(mark.OnWay)} way {mark.OnWay}");
-                    }
+                    if (held) continue;
+
+                    failure =
+                        $"{map}: at tick {tick} {Named(claims, main)} on {world.Ways.KindOf(way)} way {way} lies over the mark "
+                        + $"at {mark.MineFromM:0.0}–{mark.MineToM:0.0} m and does not hold {mark.FromM:0.0}–{mark.ToM:0.0} m of "
+                        + $"{world.Ways.KindOf(mark.OnWay)} way {mark.OnWay}";
+                    return looked;
                 }
             }
         }
@@ -154,8 +196,9 @@ public class ClaimGateTests
         return looked;
     }
 
-    static long ClearOfTheBodies(TownWorld world, string map, int tick)
+    static long ClearOfTheBodies(TownWorld world, string map, int tick, out string? failure)
     {
+        failure = null;
         var claims = world.Occupancy;
         var looked = 0L;
         foreach (var way in claims.OccupiedWays)
@@ -170,7 +213,8 @@ public class ClaimGateTests
                     continue;
                 }
 
-                Assert.Fail($"{map}: at tick {tick} {Named(claims, main)} on {world.Ways.KindOf(way)} way {way} lies over a body at {atM:0.0} m");
+                failure = $"{map}: at tick {tick} {Named(claims, main)} on {world.Ways.KindOf(way)} way {way} lies over a body at {atM:0.0} m";
+                return looked;
             }
         }
 
