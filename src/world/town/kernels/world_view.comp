@@ -2,9 +2,9 @@
 #extension GL_GOOGLE_include_directive : require
 
 // The cars' half of the shallow state handed back behind every step (WorldView; ManagedWorld.WriteTheView), one thread a
-// car, written straight into memory the host reads: whether it is frozen and whether it was through the whole step,
-// which wheels stand on a way, its channels and how deep it was into what it touched, where it stands on what it follows
-// and where its wheel is aimed. The walkers' half, the covers' counts and the marks are world_view_walkers.comp's — two
+// car, written into memory the host reads a workgroup's rows at a time: whether it is frozen and whether it was through
+// the whole step, which wheels stand on a way, its channels and how deep it was into what it touched, where it stands on
+// what it follows and where its wheel is aimed. The walkers' half, the covers' counts and the marks are world_view_walkers.comp's — two
 // passes, since one would bind more storage buffers than WebGPU gives a kernel.
 //
 // With ViewStepped in the mode the pass is the step's own and keeps what the step settled — the acceleration a car
@@ -28,7 +28,9 @@ layout(std430, binding = 5) readonly buffer HeadingB { float headingRad[]; };
 layout(std430, binding = 6) readonly buffer Motion { vec4 motion[]; };
 layout(std430, binding = 7) readonly buffer Filter { uint filter_[]; };
 layout(std430, binding = 8) readonly buffer Overlap { uint overlap[]; };
-layout(std430, binding = 9) writeonly buffer CarViews { CarViewRow carViews[]; };
+// The rows as words (CarViewRow's), written a workgroup's rows at a time in whole lines: memory the host reads is across
+// the bus, where a row a thread is a store a row apart and the step waits on every one of them.
+layout(std430, binding = 9) writeonly buffer CarViews { uint carViewWords[]; };
 
 // What each car follows (world_signals.comp), its build, and the lanes it is read along (line_reading.glsl).
 #include "agents/car/body/kernels/car_build.glsl"
@@ -40,11 +42,8 @@ layout(std430, binding = 12) readonly buffer BuildOf { uint buildOf[]; };
 #define LINE_READING_BINDING 13
 #include "world/road/kernels/line_reading.glsl"
 
-void main()
+CarViewRow viewOf(uint car)
 {
-    uint car = gl_GlobalInvocationID.x;
-    if (car >= world.count) return;
-
     bool stepped = (world.mode & ViewStepped) != 0u;
     WorldCar row = cars[car];
     int body = row.body;
@@ -110,7 +109,45 @@ void main()
         aimRad = lineClamp(trigAtan(wheel), -build.maxSteerRad, build.maxSteerRad);
     }
 
-    carViews[car] = CarViewRow(
+    return CarViewRow(
         placed.xy, moving.xy, heading, moving.z, flags, uintBitsToFloat(overlap[body]), forward, followed.progressM,
         followed.offLineM, followed.serial, leadAtM, aimRad, 0u);
+}
+
+// The workgroup's rows as words, gathered before any is written out (local_size_x of them).
+shared uint stagedWords[64u * CarViewWords];
+
+void stage(uint row, CarViewRow view)
+{
+    uint at = row * CarViewWords;
+    stagedWords[at] = floatBitsToUint(view.positionM.x);
+    stagedWords[at + 1u] = floatBitsToUint(view.positionM.y);
+    stagedWords[at + 2u] = floatBitsToUint(view.velocityMps.x);
+    stagedWords[at + 3u] = floatBitsToUint(view.velocityMps.y);
+    stagedWords[at + 4u] = floatBitsToUint(view.headingRad);
+    stagedWords[at + 5u] = floatBitsToUint(view.yawRateRadPerS);
+    stagedWords[at + 6u] = view.flags;
+    stagedWords[at + 7u] = floatBitsToUint(view.overlapM);
+    stagedWords[at + 8u] = floatBitsToUint(view.forward.x);
+    stagedWords[at + 9u] = floatBitsToUint(view.forward.y);
+    stagedWords[at + 10u] = floatBitsToUint(view.progressM);
+    stagedWords[at + 11u] = floatBitsToUint(view.offLineM);
+    stagedWords[at + 12u] = view.followSerial;
+    stagedWords[at + 13u] = floatBitsToUint(view.leadAtM);
+    stagedWords[at + 14u] = floatBitsToUint(view.aimRad);
+    stagedWords[at + 15u] = view.pad;
+}
+
+void main()
+{
+    uint car = gl_GlobalInvocationID.x;
+    if (car < world.count) stage(gl_LocalInvocationID.x, viewOf(car));
+    barrier();
+
+    uint first = gl_WorkGroupID.x * gl_WorkGroupSize.x;
+    uint words = (min(world.count, first + gl_WorkGroupSize.x) - first) * CarViewWords;
+    for (uint word = gl_LocalInvocationID.x; word < words; word += gl_WorkGroupSize.x)
+    {
+        carViewWords[first * CarViewWords + word] = stagedWords[word];
+    }
 }

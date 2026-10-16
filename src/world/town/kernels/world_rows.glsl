@@ -101,6 +101,9 @@ struct CarViewRow
     uint pad;
 };
 
+// Its words, as world_view.comp writes the rows out.
+const uint CarViewWords = 16u;
+
 const uint ViewFrozen = 1u;
 const uint ViewFrozenThroughLastStep = 2u;
 
