@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text.Json;
 
@@ -70,6 +71,7 @@ internal static class SharedFiguresReader
         }
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2075", Justification = "figures.trim.xml keeps every figure group whole.")]
     static PropertyInfo Property(object owner, string name, string key, string path) =>
         owner.GetType().GetProperty(name, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase)
         ?? throw new FormatException(

@@ -69,6 +69,8 @@ internal static class TickProbe
     static (double Microseconds, double BytesPerTick, double DecisionsPerTick) Measure(
         SimConfig config, int agents, bool timed)
     {
+        if (OperatingSystem.IsBrowser()) throw new PlatformNotSupportedException("A page has no CPU clock to time the loop by.");
+
         var loop = new SimLoop<EmptyWorld>(new EmptyWorld(agents), config) { Timed = timed };
         loop.Advance(WarmupTicks);
 

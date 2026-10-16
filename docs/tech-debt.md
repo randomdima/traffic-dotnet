@@ -483,10 +483,6 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 - **The claims say two things about held ground**: `claims.md` ("nothing taken is freed") and the road log of
   2026-10-12 against the root log of 2026-10-14 (a stronger rung takes held ground not yet committed). Reading which
   the code does and correcting the other closes it.
-- **The web head builds with three warnings the desktop does not** (`traffic-dotnet.web.csproj`, Debug, 2026-10-16):
-  CA1416 twice on `Environment.CpuUsage` in `bench/TickProbe.cs`, which the browser does not support, and IL2075 on
-  `GetType().GetProperty` in `core/config/SharedFiguresReader.cs`, which trimming cannot see. A platform guard on the
-  probe's CPU read and an annotated type on the reader close it.
 
 ## Waiting on the owner
 
