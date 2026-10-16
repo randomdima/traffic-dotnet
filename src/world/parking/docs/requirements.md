@@ -82,7 +82,8 @@ wide circle makes a different manoeuvre into the same bay than a small car does.
   backwards: on past the bay forwards, and back into it on one turn in reverse. Each is read off the lanes the
   bay is worked off (`TER-4c.6`), a shape whose body lies over a zebra's paint is no shape at all, and **of
   those left, the one whose body stands over less of the street's own lanes is the one made**
-  (`ParkingIn.ShapeTheWayIn`, `BayManoeuvring.WhatTheShapeTakes`). The driver's habit settles a tie (`GEN-4j`).
+  (`ParkingIn.ShapeTheWayIn`, `BayManoeuvring.WhatTheShapeTakes`) — unless a body stands on that one's ground and
+  not on the other's, which is never had while it stands there. The driver's habit settles a tie (`GEN-4j`).
 - **Out of a bay there is one shape to each lane of its street**: straight out of the space, one turn, and a
   little straight along the lane the way the car will then drive it — reversing out of a space it stands nose
   first in, and driving out of one it stands backed into. **A car standing nearer a lane than its own circle
@@ -92,7 +93,9 @@ wide circle makes a different manoeuvre into the same bay than a small car does.
   (`TownWorld.LeaveTheBay`). Of two it could make with no route to choose, the one taking less street.
 - **A car waits for its manoeuvre into a bay where its own turn in would begin** (`TownWorld.StopForTheBayM`):
   the line of a leg aimed at a bay stops there, on the lane the bay is worked off, and is what the car drives
-  until the manoeuvre is had.
+  until the manoeuvre is had. **It shapes the manoeuvre only once it is near enough to stop for it and that place
+  lies along its heading** (`ParkingIn.TakeUpTheBay`): shaped off a bend, the first straight runs on along the
+  car's heading while the street curves away.
 
 **Its ground is a pass's, and nothing else holds the street for it** (`TER-4c.6`, `SIM-7`):
 

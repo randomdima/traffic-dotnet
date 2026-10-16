@@ -1,6 +1,7 @@
 using TrafficSimulation.Agents.Car.Actions;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Person.Actions;
+using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Routing;
 
 namespace TrafficSimulation.World.Town;
@@ -219,7 +220,10 @@ internal sealed partial class TownWorld
 
         if (!_driveProgress.IsStuck(car, _config.CarPatienceS * Cars.FuseJitter[car])) return;
 
-        if (Cars.Reroutes[car] < _config.Patience.ReroutesPerLeg && MarkTheWayBlocked(car))
+        // A car waiting at its bay for the street its way in needs has no road to route round: laid again, the route
+        // ends where it stands. What holds it is at the bay, so the bay is what is given up.
+        var waitsAtItsBay = Cars.Action[car] == CarAction.Park && !Manoeuvres.IsBegun(car);
+        if (!waitsAtItsBay && Cars.Reroutes[car] < _config.Patience.ReroutesPerLeg && MarkTheWayBlocked(car))
         {
             ReroutesTaken++;
             _driveProgress.Restart(car);
@@ -227,9 +231,12 @@ internal sealed partial class TownWorld
         }
 
         // The road was not the problem, so the place this leg is going to might be: another bay near where
-        // the car has actually got to, and the route to that one. It is the destination's own last chance.
-        if (RetargetTheBay(car, Cars.PositionM[car], BayAimedAt(car)))
+        // the car has actually got to, and the route to that one. It is the destination's own last chance — <b>and
+        // only one</b>, spent as the last reroute is: a town with a free bay near every jam otherwise gave the place up
+        // for the next one a patience at a time, and the leg never ended (CAR-15a).
+        if (Cars.Reroutes[car] <= _config.Patience.ReroutesPerLeg && RetargetTheBay(car, Cars.PositionM[car], BayAimedAt(car)))
         {
+            Cars.Reroutes[car] = (byte)(_config.Patience.ReroutesPerLeg + 1);
             PlacesGivenUp++;
             _driveProgress.Restart(car);
             return;
@@ -326,9 +333,46 @@ internal sealed partial class TownWorld
     /// junction somebody else is in is correct right up until it has been correct for half a minute, and
     /// after that it is a jam rather than traffic. <b>A car waiting to leave a bay is one of those</b> —
     /// its way out is a movement across the street like a junction's, and a bay it cannot get out of for
-    /// half a minute is a place to give up rather than a wait to be excused.
+    /// half a minute is a place to give up rather than a wait to be excused. <b>And so is a car with a light
+    /// somewhere ahead and open road between</b>: the light is a reason only for a queue that reaches it
+    /// (<see cref="QueuedUpTo"/>), and a car stood behind a wreck or in a jammed box within sight of a red
+    /// spent its clock on the greens alone.
     /// </remarks>
-    bool WaitingForAReasonItCanSee(int car) => LightAheadM(car) <= QueueReachM(car);
+    bool WaitingForAReasonItCanSee(int car)
+    {
+        var lightM = LightAheadM(car);
+        return lightM <= QueueReachM(car) && QueuedUpTo(car, lightM);
+    }
+
+    /// <summary>
+    /// <b>Whether the road from this car's nose to <paramref name="aheadM"/> in front of it is a queue</b>: bodies on its
+    /// own ways all the way there, none with a gap in front of it another car of this one's length could stand in.
+    /// </summary>
+    bool QueuedUpTo(int car, float aheadM)
+    {
+        ref readonly var build = ref Cars.BuildOf(car);
+        var roomM = build.LengthM + (2f * _config.Driving.StandOffM);
+        var noseM = Cars.ProgressM[car] + build.NoseAheadOfAxleM;
+        var clearFromM = noseM;
+        Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];
+        var count = _ground.WaysAlong(car, noseM, noseM + aheadM, ways);
+        for (var index = 0; index < count; index++)
+        {
+            ref readonly var way = ref ways[index];
+            var fromM = way.FromM;
+            while (_occupancy.FirstBodySeen(way.Way, fromM, way.ToM, car, LaneRoster.Driving, out var body))
+            {
+                if (LineWays.OnTheLineM(way, body.FromM) - clearFromM >= roomM) return false;
+
+                clearFromM = MathF.Max(clearFromM, LineWays.OnTheLineM(way, body.ToM));
+                if (body.ToM <= fromM) break;
+
+                fromM = body.ToM;
+            }
+        }
+
+        return noseM + aheadM - clearFromM < roomM;
+    }
 
     /// <summary>
     /// How far back a queue at a light reaches, for a car of this length (<see cref="CarBuild.LightQueueReachM"/>).

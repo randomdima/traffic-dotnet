@@ -57,7 +57,8 @@ picture, probe and test does. Other
 entries: `--check` prints the dependency read-out, `--shot` takes a picture with no window at all,
 `--ui` opens the panels and the debug layers, and `--bench <name>` runs one of the probes in `src/bench/`;
 `--bench all` runs the lot, an unknown name prints the list, and the list itself is
-[`CheckCatalogue`](src/bench/CheckCatalogue.cs). The map list the menu reads is the map list the command line
+[`CheckCatalogue`](src/bench/CheckCatalogue.cs). `--bench stuck --map NAME --seconds N` runs the stuck probe on that
+town for N seconds rather than five minutes. The map list the menu reads is the map list the command line
 reads; the probes are the command line's alone.
 
 **The menu's `Debug` page is cut into sections, one a thing a session is opened to look at** (`OBS-2y`):

@@ -4,6 +4,15 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-16 — a box is road to whoever asks where on the road a body is
+
+`TownWorld.RoadPlaceOf` read only street lanes and pavements, so a body standing in a junction on nothing but its
+joins was nowhere on the road. A car stood down there — a leg given up in a jammed box — was never sent anywhere
+again (CAR-8's "sets off for a bay at once"), and Odesa's junction queued round it for the rest of the run.
+**Decided**: a body on joins alone stands at the start of the lane the first of them leads onto — for a car being
+sent on, a wreck being fetched and a casualty being reached alike, each of which needs a place on the road and had
+none.
+
 ## 2026-10-16 — the desktop head is not published ReadyToRun until a build of it is handed out
 
 **The owner (2026-10-16), shown the figures below: "go"** — on recording them and leaving the project file as it is.

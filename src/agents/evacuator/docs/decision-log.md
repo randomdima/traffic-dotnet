@@ -1,5 +1,13 @@
 # The evacuator — decision log
 
+## 2026-10-16 — a wreck beside no road is not taken
+
+A wreck with no hitching place (`TownWorld.TheHitchingPlace`) was taken, given up at the next decision for want of
+one, and taken again at the decision after: a patrolling evacuator was sent to it and back to its beat every
+decision, its leg laid afresh each time. Odesa's stuck probe caught one reversing down a street into the car
+behind it. **Decided**: `TakeAWreck` passes over a wreck it has no hitching place for, which is what giving the
+recovery up would have concluded anyway; one lying in the road again is taken at the next decision.
+
 ## 2026-09-26 — rules reworded to what the code does
 
 The owner ruled the code the source of truth for this audit.

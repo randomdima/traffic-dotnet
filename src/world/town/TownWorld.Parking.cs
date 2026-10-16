@@ -53,8 +53,16 @@ internal sealed partial class TownWorld
 
         // <b>The bay the body is in, whether or not it was registered there</b>: a leg given up on the way
         // into a bay stands the car down in the space it never reached the end of, and the bay under it is not
-        // a lane it may take (GEN-53).
+        // a lane it may take (GEN-53). <b>And never a bay it is registered in and has left</b> — a manoeuvre out
+        // given up half way, a leg re-sent mid-manoeuvre: shaped out of that bay from the road, the way out is a
+        // reverse down the street into whatever follows the car (<see cref="ParkingRegistry.HoldsTheBody"/>).
         var standingIn = _parking.BayOf(car);
+        if (standingIn >= 0 && !_parking.HoldsTheBody(standingIn, Cars.PositionM[car]))
+        {
+            _parking.Vacate(car);
+            standingIn = ParkingRegistry.NoBay;
+        }
+
         if (standingIn < 0) standingIn = TheBayItStandsIn(car);
         if (standingIn >= 0 && LeaveTheBay(car, standingIn))
         {

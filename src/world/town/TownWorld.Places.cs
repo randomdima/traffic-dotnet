@@ -453,8 +453,13 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>Where on the road a body is</b>: the first street lane the world reads it on (TER-4c.2) and where along it its
-    /// centre stands — or, for somebody on the pavement, the street beside the pavement it is on, or last stood on.
+    /// centre stands — standing in a box on nothing but its joins, the start of the lane the first of them leads onto —
+    /// or, for somebody on the pavement, the street beside the pavement it is on, or last stood on.
     /// </summary>
+    /// <remarks>
+    /// <b>A box is road</b>: read as nowhere, a car stood down in the middle of a junction was never sent anywhere again,
+    /// and stood in it for the rest of the run with the junction queued round it.
+    /// </remarks>
     RoadPlace RoadPlaceOf(ReadOnlySpan<WayCover> under, Vector2 atM, in FootPlace footPlace)
     {
         foreach (ref readonly var cover in under)
@@ -467,6 +472,14 @@ internal sealed partial class TownWorld
             var alongM = Spline.ProjectM(
                 _roads.ArcsOf(lane), atM, (cover.FromM + cover.ToM) * 0.5f, cover.ToM - cover.FromM + _roads.LaneWidthM[lane]);
             return new RoadPlace(lane, alongM);
+        }
+
+        foreach (ref readonly var cover in under)
+        {
+            if (_ways.KindOf(cover.Way) != WayKind.Connector) continue;
+
+            var onto = _roads.ConnectorTo(_ways.RoadConnectorOf(cover.Way));
+            if (_roads.IsAStreetLane(onto)) return new RoadPlace(onto, 0f);
         }
 
         foreach (ref readonly var cover in under)

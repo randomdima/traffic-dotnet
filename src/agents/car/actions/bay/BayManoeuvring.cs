@@ -360,12 +360,14 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
     /// <summary>
     /// <b>How much street a shape takes</b> — the metres of the lanes the bay is worked off that its body stands over,
     /// each lane's stretch once however many pieces lie on it, and an aisle of a car park left out, since that is what
-    /// the car is getting into or out of. <b>False where it lies over a zebra's paint</b> (TER-4c.6): a shape run through
-    /// a crossing is not one the car makes.
+    /// the car is getting into or out of — <b>and whether a body stands on any of it</b>. <b>False where it lies over a
+    /// zebra's paint</b> (TER-4c.6): a shape run through a crossing is not one the car makes.
     /// </summary>
-    public bool WhatTheShapeTakes(int car, int bay, ReadOnlySpan<ArcSeg> arcs, in BayManoeuvre.Shape shape, out float streetM)
+    public bool WhatTheShapeTakes(
+        int car, int bay, ReadOnlySpan<ArcSeg> arcs, in BayManoeuvre.Shape shape, out float streetM, out bool stoodOn)
     {
         streetM = 0f;
+        stoodOn = false;
         Span<StreetRun> runs = stackalloc StreetRun[BayStreets.MostLanes];
         Span<WayCover> taken = stackalloc WayCover[MostStreetWaysTaken];
         var takenCount = 0;
@@ -375,6 +377,8 @@ internal sealed class BayManoeuvring(DrivingGround ground, CarActions actions, M
             foreach (ref readonly var run in runs[..StreetUnder(car, bay, line, shape.IsReverse(piece), 0f, 0f, runs)])
             {
                 if (ground.CrossesAZebra(run.Way, run.FromM, run.ToM)) return false;
+
+                stoodOn = stoodOn || Occupancy.AnyBodyOver(run.Way, run.FromM, run.ToM, car, LaneRoster.Driving);
                 if (ground.Roads.IsABayArm(ground.Ways.RoadLaneOf(run.Way))) continue;
 
                 TakenOnce(taken, ref takenCount, new WayCover(run.Way, run.FromM, run.ToM), ref streetM);

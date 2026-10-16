@@ -467,7 +467,10 @@ internal sealed class CarFleet
 
     public bool[] HasDestination { get; }
 
-    /// <summary>Reroutes spent on this leg, which is what bounds the road being the thing that is wrong with it.</summary>
+    /// <summary>
+    /// Reroutes spent on this leg, which is what bounds the road being the thing that is wrong with it — and the place
+    /// given up for another, counted past the last of them (<c>TownWorld.WatchTheProgress</c>).
+    /// </summary>
     public byte[] Reroutes { get; }
 
     /// <summary>

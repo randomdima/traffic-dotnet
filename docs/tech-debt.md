@@ -19,13 +19,18 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 - **`ShippedCityTests.NothingItCarriesStandsOffIt(OdesaOsm)`** (maps) fails on the town that stands 40 000 people and
   40 000 cars (2026-10-09, still on 2026-10-12): spawn 37 177 stands at x −0.15 m, off the map's own edge. Spawning on
   the map's edge, or the map's bounds taking its spawns in, closes it.
-- **Nine exam cards fail** (2026-10-14, since every agent claims on its own turn; 60, 80, 88 and 91 pass since it, 69
-  and 70 since a plan held across turns holds no mark it could not ask, and 79 since the claims redesign):
-  - 44 and 85, which passed since the claims redesign and fail since the turns: not looked at yet. A card run traced to
-    the turn its car was granted what it should not have been closes it.
+- **Seven exam cards fail** (2026-10-16; 60, 82, 85 and 86 pass since a car short of a box plans none of one it could
+  not get out of, and yields what it holds there at rest, the road log):
+  - 69, the standing tier (road log, the claims redesign). Not traced.
+  - 70 (a left turn on green gives way to somebody crossing): the car now waits at the box's mouth until the walker is
+    off its lane, then crosses the paint behind them; its committed plan takes the paint whole (TER-5c.3), the walker
+    stops a second, and their crossing turns red with them 0.7 m short of the far kerb, cut by "light stretch 40". TLT-2a
+    walks a walker already on the paint off it, so whichever stretch 40 holds is laid over ground in front of them.
+    Before, the car stood on the zebra beside the walker the whole crossing and the card passed. Tracing which way
+    stretch 40 holds, and from which end, closes it.
   - 108 and 109 (getting past a car stood in its lane; a call past a queue at a red): no pass is decided — the
     "nobody reads what a body is doing" entry below.
-  - 82, 84, 86 and 89 (a car gives way on a zebra): the car stops behind somebody standing at the kerb
+  - 84 and 89 (a car gives way on a zebra): the car stops behind somebody standing at the kerb
     end of the paint, inside the zebra, and is on it when they cross. The room once kept behind a body going nowhere
     held it short; the same entry.
   - 67 (a left turn on green gives way to the oncoming right turn): driver 1 never gets where it was sent. It failed
@@ -499,6 +504,33 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 - **The claims say two things about held ground**: `claims.md` ("nothing taken is freed") and the road log of
   2026-10-12 against the root log of 2026-10-14 (a stronger rung takes held ground not yet committed). Reading which
   the code does and correcting the other closes it.
+- **A movement laid tighter than a vehicle can steer wedges it** (`LaneLines` connectors, `SimConfig.JunctionTurnRoomM`):
+  where two arms meet at an acute angle the far-side turn between them gets only the room the lane ends leave — Odesa's
+  fork at (1953, 521), connector 331, is 2.49 m against the nominal car's 3.94 m and an evacuator's 5.4 m. Odesa's
+  stuck probe (2026-10-16) has evacuator 675, on no tow, run wide onto the pavement there at ~55 s and car 590 behind
+  it wedge against it, both at full throttle, for ~150 s, holding a car at the box mouth and a walker on the
+  pavement. 85 of Odesa's 1 150 connectors (65 of River's 764) are tighter than the nominal car steers, nearly all
+  near-side corners ridden wide without harm, so refusing them to every route would move the town. Laying such a
+  turn with the room the car needs, or refusing it per vehicle where its own circle is wider (an exact search for
+  those few), closes it. **Once the wedge clears, car 590 stands on the pavement for the rest of a 20-minute run**:
+  `Rejoining` takes only a lane within twice `CarOffPathM` pointing its way (`TownWorld.Reacquire`), so a car left
+  3.6 m off one is sent on leg after leg, each given up where it stands — the two of them are 51 of the 55 legs Odesa
+  gives up over 20 minutes (`--bench stuck --seconds 1200`). A way back onto the nearest lane closes that.
+- **A call may be taken for a casualty with no standoff**, as a wreck with no hitching place was (evacuator log,
+  2026-10-16): `TakeACall` does not ask `TheStandoff` before taking it. Not seen in a run — a casualty on a pavement
+  has its street — and not traced.
+- **A bay is driven into and out of at the reverse cap**, 8 m/s (`CarFollower.DriveTheLine`'s `laneless` cap,
+  `Car.ReverseMaxMps`): one figure is both what a hand may reverse at and the pace of every manoeuvre at a bay, so a
+  car swings into a space at 29 km/h. A manoeuvring pace of its own on `SimConfig.Driving` closes it.
+- **Two cars inside one box can still hold each other** (TER-4c.1, `Following.Plan`): over 20 minutes of Odesa
+  (2026-10-16) one ring stood ~100 s at (905, 1504) — car 639 at rest on connector 5290, cut by car 666's body, holding
+  4.4–5.5 m of that connector at `FirmStraight`, which 666 crosses to get out. A car at rest inside a box with a body
+  in its way could yield what it plans as one short of a box does, but `DrivingGround.PlanHold` is released before
+  `Plan` runs, so the cut is not there to read; carrying the last answer's cut kind on the car closes it.
+- **No town the suite lays has a bay off a bend** (`LegEndsInATownTests.ACarDrivesIntoABayOverTheRoad`): the test
+  states GEN-4f's way in kept on the road and passes with `ParkingIn.TheStopIsDeadAhead` taken out, so what holds the
+  rule is Odesa's and River's stuck probes (decision log of the parking slice, 2026-10-16). A fixture street with a
+  car park just past a bend closes it.
 
 ## Waiting on the owner
 

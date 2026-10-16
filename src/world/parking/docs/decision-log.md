@@ -4,6 +4,31 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-10-16 — a manoeuvre is shaped only with its stop dead ahead, and only out of a bay the car stands in
+
+**What the stuck probe found** (Odesa, 300 s, six wrecks): four were bay manoeuvres. Two shaped their way in at
+22–24 m/s from 40 m out on a bend, so the first straight ran on along the car's heading — across the grass into a
+shed, and diagonally through the rank opposite into a parked car. One was an evacuator registered in the bay it had
+left: laid again from the road, its leg shaped a reverse out of that bay down the street, at full reverse
+throttle, into the car behind.
+
+**Decided**: the way in is shaped only once the place the car waits for it lies along the car's heading, within the
+room its lane leaves beside its body (`ParkingIn.TheStopIsDeadAhead`), and a leg begins out of the registered bay
+only where the body stands in it — a registration it has left is given back (`TownWorld.LayTheFirstLine`,
+`ParkingRegistry.HoldsTheBody`). **Measured** over 300 s: Odesa wrecks 6 → 0, bays 354 → 363; River wrecks 2 → 0,
+cars ever standing a minute 1 → 0.
+
+**Refused: shaping only at manoeuvring pace** (`CarBuild.ReverseMaxMps`). It stopped the wrecks, since a slow car
+is near its stop, but a car then shaped only once it had all but stopped, where the decision of 2026-09-30 (car log)
+had it trying a shape at every decision on the way up. Two cars stopped abreast on a street of perpendicular bays,
+each swinging its nose-in over the other's lane, and neither asked until the leg's clock gave the place up: River
+had 13 cars standing a minute against 1.
+
+**And a shape a body stands on is shaped last** (`ParkingIn.ShapeTheWayIn`, `BayManoeuvring.WhatTheShapeTakes`): two
+cars abreast still met that way over 20 minutes of River, each nose-in over the other, and backing in from past the bay
+was the shape neither tried, since it took more street. Of the two, one nobody stands on is taken first, the least
+street settling it only where both are or neither is: a shape a body stands on is never asked while it stands there.
+
 ## 2026-09-30 — a car leaves a bay knowing its route
 
 **The owner asked why a car moves before its route is known** (GEN-4f): select the direction, then unpark. The lane

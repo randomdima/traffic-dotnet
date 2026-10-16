@@ -68,7 +68,8 @@ internal enum ClaimPriority : byte
 
     /// <summary>
     /// <b>p9 — a car backing up for the room to step out round what stands in its lane</b> (TER-4c.7, CAR-50): below every
-    /// movement, so whatever else wants the ground behind it has it.
+    /// movement, so whatever else wants the ground behind it has it. <b>And a car at rest short of a box it could not get
+    /// out of</b> (TER-4c.1): what it plans of its lane, which the movements inside cross.
     /// </summary>
     Backing = 9,
 }

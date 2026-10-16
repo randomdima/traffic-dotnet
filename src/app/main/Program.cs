@@ -54,7 +54,7 @@ internal static class Program
 
         if (options.Lamps) return CutTheLamps();
         if (options.Author is not null) return Author(options.Author, config);
-        if (options.Bench is not null) return RunBench(options.Bench, options.Map, options.AtM, options.Out, config);
+        if (options.Bench is not null) return RunBench(options.Bench, options.Map, options.AtM, options.Out, options.Seconds, config);
         if (options.Check) return RunCheck(options, config);
         if (options.Sheet is not null) return RunSheet(options, config);
 
@@ -308,13 +308,13 @@ internal static class Program
     /// <b>A name spelled here and left out there is a check nothing lists and the menu cannot open</b>,
     /// and nothing but this comment stops one: a switch is source, and the suite reads objects.
     /// </summary>
-    static int RunBench(string name, string? map, Vector2? atM, string? outPath, SimConfig config)
+    static int RunBench(string name, string? map, Vector2? atM, string? outPath, double seconds, SimConfig config)
     {
         if (string.Equals(name, "all", StringComparison.Ordinal)) return Kept(CheckCatalogue.RunAll(config));
 
         // These checks are about a particular town, so the command line's --map reaches them; those that run every
-        // shipped town run the one it names, and the stuck probe runs it instead of its own; every other check builds
-        // the world it needs.
+        // shipped town run the one it names, and the stuck probe runs it instead of its own, for --seconds where named;
+        // every other check builds the world it needs.
         switch (name)
         {
             case "soak" when map is not null:
@@ -330,8 +330,8 @@ internal static class Program
             case "drive" when map is not null:
                 DriveProbe.Run(config, map);
                 return 0;
-            case "stuck" when map is not null:
-                StuckProbe.Run(map, config);
+            case "stuck" when map is not null || seconds > 0:
+                StuckProbe.Run(map ?? "Odesa", config, seconds);
                 return 0;
             case "trips" when map is not null:
                 TripProbe.Run(config, map);

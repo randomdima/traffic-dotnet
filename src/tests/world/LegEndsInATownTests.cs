@@ -9,6 +9,7 @@ using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Tests.CityGen;
 using TrafficSimulation.World.Road;
+using TrafficSimulation.World.Terrain;
 using TrafficSimulation.World.Town;
 using Xunit;
 
@@ -17,11 +18,11 @@ namespace TrafficSimulation.Tests.World;
 /// <summary>
 /// <b>Where a leg begins and where it ends</b> (GEN-4f, SRV-5): a car leaves its bay knowing which way it is going,
 /// turns into the bay it was sent to the first time it comes onto that bay's street, and a patrol stops on the
-/// place it was sent to rather than driving through it.
+/// place it was sent to rather than driving through it — and drives into a bay over the road.
 /// </summary>
 /// <remarks>
 /// <b>One run of <see cref="Towns.Built"/>, watched every tick</b> — the one town the suite lays with service
-/// buildings, so the one with patrols — and read by each claim: all three hold at every tick of it.
+/// buildings, so the one with patrols — and read by each claim: every one holds at every tick of it.
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
 [Trait(Priority.Key, Priority.P2)]
@@ -53,6 +54,15 @@ public class LegEndsInATownTests
     [Fact]
     public void APatrolStopsOnThePlaceItWasSentTo() => Assert.Empty(Watched.DroveThroughThePlace);
 
+    /// <summary>
+    /// GEN-4f: <b>a car driving the first straight of its manoeuvre into a bay keeps both axles on drivable ground</b> —
+    /// the straight is along the street, and what leaves it is the turn in. Shaped off a bend, the first straight ran
+    /// on along the car's heading while the street curved away, across the pavement and into a shed.
+    /// </summary>
+    [Fact]
+    public void ACarDrivesIntoABayOverTheRoad() =>
+        Assert.True(Watched.ParkedOffTheRoad.Count == 0, string.Join(Environment.NewLine, Watched.ParkedOffTheRoad));
+
     static Watch Watched => BuiltTownWatched.Legs;
 
     /// <summary>
@@ -68,9 +78,12 @@ public class LegEndsInATownTests
         public readonly List<string> LeftTheWrongWay = [];
         public readonly List<string> DroveByTheBay = [];
         public readonly List<string> DroveThroughThePlace = [];
+        public readonly List<string> ParkedOffTheRoad = [];
 
         readonly TownWorld _world;
+        readonly GroundLocator _ground;
         readonly CarAction[] _wasDoing;
+        readonly bool[] _wasOffTheRoad;
         readonly int[] _wasOnLane;
         readonly int[] _cameOntoTheStreetOf;
         readonly Vector2[] _placeM;
@@ -80,8 +93,10 @@ public class LegEndsInATownTests
         internal Watch(TownWorld world)
         {
             _world = world;
+            _ground = new GroundLocator(world.Plan, Config);
             var cars = world.Cars.Count;
             _wasDoing = new CarAction[cars];
+            _wasOffTheRoad = new bool[cars];
             _wasOnLane = new int[cars];
             _cameOntoTheStreetOf = new int[cars];
             _placeM = new Vector2[cars];
@@ -100,6 +115,7 @@ public class LegEndsInATownTests
                 LeavingItsBay(car);
                 OnItsBaysStreet(car);
                 OnItsBeat(car);
+                IntoItsBay(car);
                 _wasDoing[car] = _world.Cars.Action[car];
                 _wasOnLane[car] = _world.Cars.LaneOf(car);
             }
@@ -123,6 +139,28 @@ public class LegEndsInATownTests
                     $"car {car} pulled out of bay {_world.Manoeuvres.Bay[car]} onto lane {lane} holding " +
                     (holdsARoute ? $"a route that does not set off down it" : "no route"));
             }
+        }
+
+        /// <summary>Said once a stretch off the road, where it left it.</summary>
+        void IntoItsBay(int car)
+        {
+            var cars = _world.Cars;
+            var manoeuvres = _world.Manoeuvres;
+            var parking = cars.Action[car] == CarAction.Park && manoeuvres.IsBegun(car) && manoeuvres.Piece[car] == 0
+                          && manoeuvres.PieceOf(car, 0)[0] is { Curvature: 0f } straight && cars.ProgressM[car] < straight.LengthM;
+            ref readonly var build = ref cars.BuildOf(car);
+            var forward = cars.Forward[car];
+            var rearM = CarFollower.RearAxleM(build, cars.PositionM[car], forward);
+            var frontM = rearM + (forward * build.WheelbaseM);
+            var off = parking && (!_ground.At(rearM).Drivable || !_ground.At(frontM).Drivable);
+            if (off && !_wasOffTheRoad[car])
+            {
+                ParkedOffTheRoad.Add(
+                    $"car {car} into bay {manoeuvres.Bay[car]} on piece {manoeuvres.Piece[car]} left the road at " +
+                    $"({cars.PositionM[car].X:F1}, {cars.PositionM[car].Y:F1})");
+            }
+
+            _wasOffTheRoad[car] = off;
         }
 
         void OnItsBaysStreet(int car)

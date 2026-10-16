@@ -100,7 +100,7 @@ internal sealed class PullingOut(
             var shape = BayManoeuvre.OutOfTheBay(
                 from, reverse, at.PositionM, reverse ? at.HeadingRad + MathF.PI : at.HeadingRad,
                 build.ParkingTemplateRadiusM, build.ParkingStraightensUpM, ground.Config.LaneWidthM, room);
-            if (!shape.Exists || !bays.WhatTheShapeTakes(car, bay, room, shape, out var streetM)) continue;
+            if (!shape.Exists || !bays.WhatTheShapeTakes(car, bay, room, shape, out var streetM, out _)) continue;
 
             if (bestShape.Exists && (bestOnTheRoute && !onTheRoute || (onTheRoute == bestOnTheRoute && streetM >= bestM)))
             {

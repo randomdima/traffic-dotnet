@@ -186,8 +186,10 @@ internal sealed partial class TownWorld
         for (var wreck = _wrecked.Next(0, Cars.Count); wreck >= 0; wreck = _wrecked.Next(wreck + 1, Cars.Count))
         {
             // Whether a wreck is taken is a walk of the evacuators, so only one nearer than the best is asked it.
+            // A wreck lying beside no road has no hitching place, and taking it is a recovery given up at the
+            // next decision and the same wreck taken again at the one after — a leg laid afresh every decision.
             var farM = (Cars.PositionM[wreck] - fromM).LengthSquared();
-            if (farM >= bestM || !IsAWreckWorthFetching(wreck)) continue;
+            if (farM >= bestM || !IsAWreckWorthFetching(wreck) || !TheHitchingPlace(car, wreck, out _)) continue;
 
             best = wreck;
             bestM = farM;

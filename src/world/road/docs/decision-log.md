@@ -4,6 +4,28 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-10-16 — a car short of a box plans none of one it could not get out of
+
+**What the stuck probe found** (Odesa, 300 s): every ring of cars left standing at the end was two cars at one box.
+One stood at the mouth at rest, its plan the room to pull away — a metre or two into the join, cut there by the
+body of a car whose nose was already in the box. That car needed the crossing section of the same join whole
+(TER-5c.1) and was refused it by the first car's sliver. Neither moved again; legs given up and laid afresh put the
+next car in the same place.
+
+**Decided** (TER-4c.1): short of a box, a plan reaches no further than the mouth while any body stands on the car's
+own ways from the mouth to its own length and a stand-off past the far side — read off the bodies on its own ways
+(`Following.TheWayOutIsClear`), unless the car can no longer stop short of the mouth. **Measured**: Odesa's cars
+still at the end 11 → 0, rings 2 → 0, reroutes 47 → 12, bays parked 353 → 364; exam cards 82, 85 and 86 pass (a car stood in the box
+and then on the zebra with the walker on it), and 70 fails (`docs/tech-debt.md`).
+
+**Then, over 20 minutes** (`--bench stuck --seconds 1200`): the car held at the mouth still asked its slack a few metres
+into the box, at its movement's rung, and a car already inside crossing those metres was refused there while its body
+stood on the first car's way out. **Decided**: at rest there, a car asks no slack past the mouth and holds its plan at
+the bottom rung (`ClaimPriority.Backing`); still coming up, it keeps both — without them cards 30 and 52 failed, the
+right of way through a box going to the turn across it while the straight car closed on the car ahead. **Measured**
+with the parking slice's change of the day: Odesa's cars ever standing a minute 32 → 9, reroutes 211 → 31; River's
+68 → 5 and 355 → 19; card 60 passes.
+
 ## 2026-10-15 — the marks are worked out by the device where a world keeps its own, in floats
 
 **The owner asked for the open's remaining speed-ups, the marks on the device among them, moving them.** Where a world

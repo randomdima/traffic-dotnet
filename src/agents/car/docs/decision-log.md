@@ -3,6 +3,23 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-10-16 — a leg gives its place up once, and a light excuses only a queue that reaches it
+
+**What the stuck probe found** (Odesa, 300 s): a car in a jam stood 232 s against a patience of 30 s over three
+reroutes. Past the last reroute it gave its bay up for the nearest free one, which restarted the clock — and the next
+patience did the same, bay after bay, so CAR-15a's "past that the leg is over" never came. And the clock was held
+whenever a red stood within twenty car lengths, whatever stood between: a car behind a wreck with open road to the
+light spent its patience on the greens alone.
+
+**Decided**: the place given up counts past the last reroute (`CarFleet.Reroutes`), so it is given up once; and the
+light holds the clock only for a queue — bodies on the car's own ways from its nose to the hold, no gap a car of
+its length could stand in (`TownWorld.QueuedUpTo`, TLT-2a's "the queue standing at one").
+
+**Then River**: two cars stopped abreast on opposite lanes, each waiting for the street its way into a bay needed and
+each standing on the other's, spent three reroutes apiece laying the route back to where they stood — 90 s of clock
+before either gave its bay up. **Decided**: a car waiting at its bay for its manoeuvre's street is not rerouted; its
+first patience gives the bay up (`TownWorld.WatchTheProgress`).
+
 ## 2026-10-15 — `CAR-13.2` said what `CAR-13.1` says, and is retired
 
 `CAR-13.2` held that a body binds a reckless driver as it binds anybody. `CAR-13.1` already closes the list at

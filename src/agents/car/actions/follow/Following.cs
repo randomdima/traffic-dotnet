@@ -23,6 +23,9 @@ internal sealed class Following(
 
     SimConfig Config => ground.Config;
 
+    /// <summary>Whether each car's plan was last asked yielding (<see cref="Plan"/>), which a plan is kept only as.</summary>
+    readonly bool[] _askedYielding = new bool[ground.Cars.Capacity];
+
     /// <summary>
     /// <b>This tick of a car following its route</b>, once the line under it has been read: on down the line on the
     /// ground it was granted. Into its bay's manoeuvre or across onto the lane beside is decided on the car's own clock
@@ -147,10 +150,22 @@ internal sealed class Following(
         // <b>A box is ground a car cannot give back once it cannot stop short of the mouth</b>: it is going in, so
         // the whole of the join is committed. A car already in one plans the rest of the join and its own length
         // of the way out, however slowly it is going — a body standing in a box is what everything crossing it is
-        // waiting on — and holds it at its movement's rung, since a car refused inside a box can still stop there.
-        if (TheNextBox(car, noseM, out var mouthM, out var boxEndsAtM) && noseM >= mouthM)
+        // waiting on — and holds it at its movement's rung, since a car refused inside a box can still stop there. <b>A
+        // car short of one plans none of it while it could not get out again</b> (TER-4c.1, <see cref="TheWayOutIsClear"/>).
+        // <b>At rest there it yields</b>: no slack asked into the box and what it plans held below every movement, asked
+        // afresh as it comes to rest — the lane's last metres are crossed by the movements inside, and one of those is
+        // what it is waiting on. Still coming up, it keeps its slack at its movement's rung, which is what holds a weaker
+        // movement off the box it has the right of way through.
+        var yields = false;
+        if (TheNextBox(car, noseM, out var mouthM, out var boxEndsAtM))
         {
-            planToM = MathF.Max(planToM, MathF.Min(boxEndsAtM + build.LengthM + standOffM, lengthM));
+            var wayOutToM = MathF.Min(boxEndsAtM + build.LengthM + standOffM, lengthM);
+            if (noseM >= mouthM) planToM = MathF.Max(planToM, wayOutToM);
+            else if (planToM > mouthM && committedToM <= mouthM && !TheWayOutIsClear(car, mouthM, wayOutToM, ways))
+            {
+                planToM = mouthM;
+                yields = !moving;
+            }
         }
 
         Cars.ClaimToM[car] = planToM;
@@ -172,27 +187,28 @@ internal sealed class Following(
 
         // Asked past what it needs by a slack, so it need not ask again until it needs more: never past a join it may not
         // pass, nor past its line's end.
-        var askedToM = ownPlan
+        var askedToM = ownPlan && !yields
             ? MathF.Max(planToM, MathF.Min(planToM + Config.Driving.ClaimSlackM, MathF.Min(lengthM, joinsEndM)))
             : planToM;
-        if (ownPlan)
+        if (ownPlan && yields == _askedYielding[car])
         {
             var kept = ground.KeepsThePlan(car, planFromM, planToM, committedToM, standOffM, out var reachM);
             if (kept == PlanKept.AsItIs) return;
-            if (kept == PlanKept.ToBeAskedFurther && AskedFurther(car, planFromM, reachM, askedToM, committedToM, ways))
+            if (kept == PlanKept.ToBeAskedFurther && AskedFurther(car, planFromM, reachM, askedToM, committedToM, yields, ways))
             {
                 return;
             }
         }
 
         var hold = ground.BeginThePlan(car, standOffM, passHold);
+        _askedYielding[car] = yields;
         if (planToM <= planFromM) return;
 
         if (ownPlan) ground.AskedThePlan(car, hold, planFromM, askedToM, committedToM);
 
         var count = ground.WaysAlong(car, planFromM, askedToM, ways);
         Span<ClaimPriority> rungs = stackalloc ClaimPriority[count];
-        LevelTheRungs(car, ways[..count], rungs);
+        LevelTheRungs(car, ways[..count], rungs, yields);
 
         for (var index = 0; index < count; index++)
         {
@@ -215,7 +231,8 @@ internal sealed class Following(
     /// holds to another rung: that plan is asked afresh.
     /// </summary>
     /// <returns>Whether it was asked further, or held all of it already.</returns>
-    bool AskedFurther(int car, float planFromM, float reachM, float askedToM, float committedToM, Span<LineWay> ways)
+    bool AskedFurther(
+        int car, float planFromM, float reachM, float askedToM, float committedToM, bool yields, Span<LineWay> ways)
     {
         if (askedToM <= reachM) return true;
 
@@ -224,8 +241,8 @@ internal sealed class Following(
         var count = ground.WaysAlong(car, planFromM, askedToM, ways);
         Span<ClaimPriority> heldRungs = stackalloc ClaimPriority[heldCount];
         Span<ClaimPriority> rungs = stackalloc ClaimPriority[count];
-        LevelTheRungs(car, held[..heldCount], heldRungs);
-        LevelTheRungs(car, ways[..count], rungs);
+        LevelTheRungs(car, held[..heldCount], heldRungs, yields);
+        LevelTheRungs(car, ways[..count], rungs, yields);
         for (var index = 0; index < heldCount; index++)
         {
             if (index >= count || heldRungs[index] != rungs[index]) return false;
@@ -333,10 +350,17 @@ internal sealed class Following(
     /// <summary>
     /// <b>The rung each piece of a plan is held at</b> (TER-5e, TER-5g.1): the movement's own on a join, and
     /// on a lane the rung of the next movement the plan makes — never stronger than anything the plan holds
-    /// before it. A car on a call holds all of it at a call's (AMB-4).
+    /// before it. A car on a call holds all of it at a call's (AMB-4); one that <paramref name="yields"/> holds all of it
+    /// below every movement (<see cref="Plan"/>).
     /// </summary>
-    void LevelTheRungs(int car, ReadOnlySpan<LineWay> ways, Span<ClaimPriority> rungs)
+    void LevelTheRungs(int car, ReadOnlySpan<LineWay> ways, Span<ClaimPriority> rungs, bool yields)
     {
+        if (yields)
+        {
+            rungs.Fill(ClaimPriority.Backing);
+            return;
+        }
+
         var next = ClaimPriority.Firm;
         var onACall = Cars.BlueLight[car];
         for (var index = ways.Length - 1; index >= 0; index--)
@@ -349,6 +373,28 @@ internal sealed class Following(
         {
             if (rungs[index] < rungs[index - 1]) rungs[index] = rungs[index - 1];
         }
+    }
+
+    /// <summary>
+    /// <b>Whether nobody stands on this car's own ways from a box's mouth to its own length past the far side</b> — the
+    /// room it needs to be out of the box again. A car short of a box plans none of it while that room is not there.
+    /// </summary>
+    /// <remarks>
+    /// <b>A body standing in a box is what everything crossing it waits on</b>, and a car that plans into a box it cannot
+    /// leave holds the box's mouth on its own way, which is ground the body in there may need whole to get out: two cars,
+    /// each holding what the other needs, and neither of them ever moving again (TER-5c.1's section had whole or not at
+    /// all). Read off the bodies on the car's own ways and nothing else (TER-4c.5).
+    /// </remarks>
+    bool TheWayOutIsClear(int car, float mouthM, float wayOutToM, Span<LineWay> ways)
+    {
+        var count = ground.WaysAlong(car, mouthM, wayOutToM, ways);
+        for (var index = 0; index < count; index++)
+        {
+            ref readonly var way = ref ways[index];
+            if (Occupancy.AnyBodyOver(way.Way, way.FromM, way.ToM, car, LaneRoster.Driving)) return false;
+        }
+
+        return true;
     }
 
     /// <summary>

@@ -85,14 +85,17 @@ internal sealed class ParkingIn(
     /// and asked for where all of its ground is free. True where it was shaped.
     /// </summary>
     /// <remarks>
-    /// <b>Only once the car is near enough to stop for it</b>: a shape laid from further off is one the car would
-    /// drive a street of before it began, holding that street as it went.
+    /// <b>Only near enough to stop for it, and only once the stop lies dead ahead</b> (<see cref="TheStopIsDeadAhead"/>):
+    /// a shape laid from further off is one the car would drive a street of before it began, holding that street as it
+    /// went — and, laid off a bend, its first straight runs on along the car's heading while the street curves away,
+    /// across the pavement and into whatever stands beyond it.
     /// </remarks>
     public bool TakeUpTheBay(int car, int bay, float progressM, float alongMps)
     {
         ref readonly var build = ref Cars.BuildOf(car);
         var toTheStopM = Cars.Line[car].LengthM - progressM;
         if (toTheStopM > DrivingGround.StoppingM(MathF.Max(0f, alongMps), build.PlannedBrakingMps2) + build.LengthM) return false;
+        if (!TheStopIsDeadAhead(car)) return false;
 
         var lane = Cars.ChainOf(car)[Cars.Line[car].LaneCount - 1];
         if (!ShapeTheWayIn(car, bay, lane)) return false;
@@ -131,6 +134,19 @@ internal sealed class ParkingIn(
         return room[0].Curvature == 0f ? MathF.Min(room[0].LengthM, roads.LaneLengthM[lane]) : 0f;
     }
 
+    /// <summary>
+    /// <b>Whether the place the car waits for its bay lies along its heading</b>, within the room its lane leaves beside
+    /// its body — which is where a shape's first straight, laid along that heading, stays on the lane to.
+    /// </summary>
+    bool TheStopIsDeadAhead(int car)
+    {
+        ref readonly var build = ref Cars.BuildOf(car);
+        var forward = Cars.Forward[car];
+        var stop = Spline.SampleAt(Cars.LineOf(car), Cars.Line[car].LengthM);
+        var asideM = MathF.Abs(Spline.Cross(forward, stop.PositionM - CarFollower.RearAxleM(build, Cars.PositionM[car], forward)));
+        return asideM <= (ground.Config.LaneWidthM - build.WidthM) * 0.5f;
+    }
+
     /// <summary>The axle's pose in a bay standing nose in, heading into it (GEN-4i).</summary>
     BayManoeuvre.Pose NoseInPose(int car, int bay)
     {
@@ -149,8 +165,8 @@ internal sealed class ParkingIn(
 
     /// <summary>
     /// <b>The shape into a bay from where the car stands on its lane</b>: nose first, or on past it and backwards —
-    /// whichever of the two it can make takes less street, and its driver's habit where they take the same.
-    /// False where it can make neither from here.
+    /// the one nobody stands on where only one is, else whichever takes less street, and its driver's habit where
+    /// they take the same. False where it can make neither from here.
     /// </summary>
     bool ShapeTheWayIn(int car, int bay, int lane)
     {
@@ -167,11 +183,16 @@ internal sealed class ParkingIn(
 
         var noseM = float.PositiveInfinity;
         var backM = float.PositiveInfinity;
-        if (noseShape.Exists && !bays.WhatTheShapeTakes(car, bay, noseIn, noseShape, out noseM)) noseM = float.PositiveInfinity;
-        if (backShape.Exists && !bays.WhatTheShapeTakes(car, bay, backIn, backShape, out backM)) backM = float.PositiveInfinity;
+        var noseStoodOn = false;
+        var backStoodOn = false;
+        if (noseShape.Exists && !bays.WhatTheShapeTakes(car, bay, noseIn, noseShape, out noseM, out noseStoodOn)) noseM = float.PositiveInfinity;
+        if (backShape.Exists && !bays.WhatTheShapeTakes(car, bay, backIn, backShape, out backM, out backStoodOn)) backM = float.PositiveInfinity;
         if (float.IsPositiveInfinity(noseM) && float.IsPositiveInfinity(backM)) return false;
 
-        var backs = backM < noseM || (backM == noseM && Cars.BacksIntoBays[car]);
+        // One a body stands on is never had while it stands there, so one nobody stands on is taken first.
+        var backs = backStoodOn != noseStoodOn && !float.IsPositiveInfinity(noseM) && !float.IsPositiveInfinity(backM)
+            ? noseStoodOn
+            : backM < noseM || (backM == noseM && Cars.BacksIntoBays[car]);
         var chosen = backs ? backIn : noseIn;
         chosen.CopyTo(Manoeuvres.RoomOf(car));
         Manoeuvres.Shaped(car, ManoeuvreKind.Park, bay, lane, backs ? backShape : noseShape, backs ? backM : noseM);

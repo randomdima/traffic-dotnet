@@ -205,6 +205,12 @@ it, and only something that beats it takes it.
   to stop by the end of it** (S-2), so the ground it can no longer stop short of never runs past ground it holds.
 - **A car in a box plans its way out of it**: at least to the far side of the join its nose is on and its
   own length past that, however slowly it is going.
+- **A car short of a box plans none of one it could not get out of**: while a body stands on its own ways
+  from the box's mouth to its own length and a stand-off past the far side, it plans to the mouth and no
+  further, unless it can no longer stop short of the mouth. Planned in, it holds the mouth of the box on its
+  own way — ground the body in there may need whole to get out (TER-5c.1) — and the two stand for good. **At
+  rest there it asks no slack past the mouth, and holds what it plans below every movement**: the movements
+  inside cross the last metres of its lane, and one of them is what it is waiting on.
 - **A car refused ground waits short of it, wherever that is.** Refused inside a box, it waits in the box,
   over ground it was given: its body there is on every way it stands over, and what crosses that ground is
   held off it as it is held off any body. Nothing but the answer says where a car waits.

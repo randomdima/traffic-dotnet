@@ -147,6 +147,62 @@ public class BayManoeuvreTests
     }
 
     /// <summary>
+    /// GEN-4f, GEN-4j: <b>a car still registered in a bay it is no longer standing in sets off from where it stands,
+    /// and gives the bay back</b>. Shaped out of that bay from the street, its way out was a reverse down the road into
+    /// whatever followed it, laid again at every leg it was sent on.
+    /// </summary>
+    [Fact]
+    public void ACarSentFromABayItHasLeftSetsOffFromWhereItStands()
+    {
+        using var world = new TownWorld(Towns.Built, Config);
+        var loop = new SimLoop<TownWorld>(world, Config);
+        loop.Advance(WarmUpTicks);
+
+        var cars = world.Cars;
+        var car = Enumerable.Range(0, cars.Count).First(each =>
+            world.Parking.BayOf(each) >= 0 && !cars.Driven[each] && !cars.Broken[each]);
+        var bay = world.Parking.BayOf(car);
+        var lane = world.BayStreets.LanesOf(bay)[0];
+        var onTheStreet = Spline.SampleAt(
+            world.Roads.ArcsOf(lane), MathF.Min(world.BayStreets.AtLaneM(bay, lane) + OffTheBayM, world.Roads.LaneLengthM[lane]));
+        world.StandTheCarAt(car, onTheStreet.PositionM, onTheStreet.HeadingRad);
+        loop.Advance(1);
+
+        Assert.True(world.OrderCar(car, TheFarthestBayFrom(world, cars.PositionM[car])), $"car {car} took no order");
+        Assert.True(
+            world.Manoeuvres.Kind[car] != ManoeuvreKind.Leave && world.Parking.BayOf(car) != bay,
+            $"car {car} put down on lane {lane} was sent out of bay {bay}: manoeuvre {world.Manoeuvres.Kind[car]}, " +
+            $"registered in {world.Parking.BayOf(car)}");
+    }
+
+    /// <summary>How far down its street from its bay's mouth a car is put down to be off it: more than a car's length.</summary>
+    const float OffTheBayM = 15f;
+
+    /// <summary>
+    /// CAR-8: <b>a car left standing in the middle of a junction, with nobody in it, sets off for a bay</b>. A box was
+    /// read as nowhere on the road, so a car stood down in one was never sent anywhere again and the junction queued
+    /// round it for the rest of the run.
+    /// </summary>
+    [Fact]
+    public void ACarLeftInABoxSetsOffForABay()
+    {
+        using var world = new TownWorld(Towns.Built, Config);
+        var loop = new SimLoop<TownWorld>(world, Config);
+        loop.Advance(WarmUpTicks);
+
+        var cars = world.Cars;
+        var car = Enumerable.Range(0, cars.Count).First(each =>
+            world.Parking.BayOf(each) >= 0 && !cars.Driven[each] && !cars.Broken[each]);
+        var join = Enumerable.Range(0, world.Roads.ConnectorCount).MaxBy(world.Roads.ConnectorLengthM);
+        var inTheBox = Spline.SampleAt(world.Roads.ConnectorArcs(join), world.Roads.ConnectorLengthM(join) * 0.5f);
+        world.StandTheCarAt(car, inTheBox.PositionM, inTheBox.HeadingRad);
+
+        for (var tick = 0; tick < WatchedTicks && !cars.Driven[car]; tick++) loop.Advance(1);
+
+        Assert.True(cars.Driven[car], $"car {car} put down in the box of join {join} at {inTheBox.PositionM} was never sent on");
+    }
+
+    /// <summary>
     /// A car standing in a bay — nose in where <paramref name="noseIn"/> asks it — sent across the town, with the
     /// first piece of its way out as its line.
     /// </summary>
