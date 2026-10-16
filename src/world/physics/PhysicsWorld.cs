@@ -505,11 +505,7 @@ internal sealed partial class PhysicsWorld
     /// </remarks>
     public void Fit(int bodies)
     {
-        if (bodies < _count)
-        {
-            throw new ArgumentOutOfRangeException(nameof(bodies), $"{bodies} is fewer than the {_count} bodies already held");
-        }
-
+        ArgumentOutOfRangeException.ThrowIfLessThan(bodies, _count);
         Resize(bodies);
     }
 
