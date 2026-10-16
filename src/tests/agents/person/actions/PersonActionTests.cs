@@ -80,10 +80,12 @@ public class PersonActionTests
             {
                 if (people.GrantM[person] <= 0f) continue;
 
-                Assert.True(
-                    world.WalkHold(person) != LaneOccupancy.NoHold,
-                    $"at tick {tick}, walker {person} ({people.Action[person]}) was granted "
-                    + $"{people.GrantM[person]:F2} m and holds nothing");
+                if (world.WalkHold(person) == LaneOccupancy.NoHold)
+                {
+                    Assert.Fail(
+                        $"at tick {tick}, walker {person} ({people.Action[person]}) was granted "
+                        + $"{people.GrantM[person]:F2} m and holds nothing");
+                }
             }
         }
     }

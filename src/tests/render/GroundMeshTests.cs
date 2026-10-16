@@ -40,12 +40,19 @@ public class GroundMeshTests
 
         Assert.True(mesh.Indices.Length > 0, $"{map} lays no ground at all");
         Assert.Equal(0, mesh.Indices.Length % 3);
-        foreach (var index in mesh.Indices) Assert.InRange(index, 0u, (uint)mesh.Vertices.Length - 1);
+        // Asserted only where it fails: InRange's comparer and the message are each a cost a corner.
+        var lastCorner = (uint)mesh.Vertices.Length - 1;
+        foreach (var index in mesh.Indices)
+        {
+            if (index > lastCorner) Assert.InRange(index, 0u, lastCorner);
+        }
 
         foreach (var vertex in mesh.Vertices)
         {
-            Assert.True(float.IsFinite(vertex.PositionM.X) && float.IsFinite(vertex.PositionM.Y),
-                $"{map} lays a corner at {vertex.PositionM}");
+            if (!(float.IsFinite(vertex.PositionM.X) && float.IsFinite(vertex.PositionM.Y)))
+            {
+                Assert.Fail($"{map} lays a corner at {vertex.PositionM}");
+            }
         }
     }
 

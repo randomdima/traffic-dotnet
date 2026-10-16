@@ -206,10 +206,13 @@ public class CrossingWaysTests
                 var at = Spline.SampleAt(way.Arcs, atM);
                 foreach (var edgeM in (ReadOnlySpan<Vector2>)[at.PositionM + (at.Right * inM), at.PositionM - (at.Right * inM)])
                 {
-                    Assert.True(
-                        ground.At(edgeM) is not (Ground.Grass or Ground.Water),
-                        $"the connection from {way.FromM.X:F1},{way.FromM.Y:F1} to {way.OntoM.X:F1},{way.OntoM.Y:F1} "
-                        + $"stands on {ground.At(edgeM)} at {edgeM.X:F1},{edgeM.Y:F1}");
+                    var under = ground.At(edgeM);
+                    if (under is Ground.Grass or Ground.Water)
+                    {
+                        Assert.Fail(
+                            $"the connection from {way.FromM.X:F1},{way.FromM.Y:F1} to {way.OntoM.X:F1},{way.OntoM.Y:F1} "
+                            + $"stands on {under} at {edgeM.X:F1},{edgeM.Y:F1}");
+                    }
                 }
             }
         }

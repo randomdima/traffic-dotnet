@@ -143,8 +143,10 @@ public class GroundLocatorTests
                 for (var distanceM = 0f; distanceM <= segment.LengthM; distanceM += 2f)
                 {
                     var onTheLaneM = segment.PointAtM(distanceM);
-                    Assert.True(ground.At(onTheLaneM).Drivable,
-                        $"{map}: lane {lane} at {onTheLaneM} runs over {ground.GroundAt(onTheLaneM)}");
+                    if (!ground.At(onTheLaneM).Drivable)
+                    {
+                        Assert.Fail($"{map}: lane {lane} at {onTheLaneM} runs over {ground.GroundAt(onTheLaneM)}");
+                    }
                 }
             }
         }
@@ -188,9 +190,12 @@ public class GroundLocatorTests
                     if (ground.GroundAt(outsideM) is not (Ground.Sidewalk or Ground.Grass)) continue;
 
                     asked++;
-                    Assert.False(ground.At(outsideM).Drivable,
-                        $"{map}: road {road} at {alongM:F0} m is still drivable {hairM * 100f:F0} cm past " +
-                        $"its own kerb, on {ground.GroundAt(outsideM)}");
+                    if (ground.At(outsideM).Drivable)
+                    {
+                        Assert.Fail(
+                            $"{map}: road {road} at {alongM:F0} m is still drivable {hairM * 100f:F0} cm past " +
+                            $"its own kerb, on {ground.GroundAt(outsideM)}");
+                    }
                 }
             }
         }
@@ -293,9 +298,12 @@ public class GroundLocatorTests
                 for (var alongM = 0f; alongM <= lengthM; alongM += 2f)
                 {
                     var atM = Spline.SampleAt(line, MathF.Min(alongM, lengthM)).PositionM;
-                    Assert.True(ground.At(atM).Preferred,
-                        $"{map}: a walk {ways.KindOf(way)} runs over {ground.GroundAt(atM)} at " +
-                        $"{atM.X:F0},{atM.Y:F0}, {alongM:F0} m along its own lane");
+                    if (!ground.At(atM).Preferred)
+                    {
+                        Assert.Fail(
+                            $"{map}: a walk {ways.KindOf(way)} runs over {ground.GroundAt(atM)} at " +
+                            $"{atM.X:F0},{atM.Y:F0}, {alongM:F0} m along its own lane");
+                    }
                 }
             }
         }
@@ -351,7 +359,9 @@ public class GroundLocatorTests
         {
             for (var x = stepM * 0.5f; x < plan.WorldSizeM.X; x += stepM)
             {
-                Assert.InRange((int)ground.GroundAt(new Vector2(x, y)), 0, GroundCatalog.Kinds - 1);
+                // Asserted only out of range: InRange allocates a comparer a call, over every metre of the town.
+                var kind = (int)ground.GroundAt(new Vector2(x, y));
+                if ((uint)kind >= (uint)GroundCatalog.Kinds) Assert.InRange(kind, 0, GroundCatalog.Kinds - 1);
             }
         }
     }

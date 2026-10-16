@@ -47,9 +47,10 @@ public class CarActionTests
                 var holdsAPlan = world.DriveHold(car) != LaneOccupancy.NoHold;
                 var holdsAPass = action == CarAction.Overtake && cars.Pass[car].Begun;
                 var holdsAManoeuvre = action is CarAction.Park or CarAction.Unpark && world.Manoeuvres.IsBegun(car);
-                Assert.True(
-                    holdsAPlan || holdsAPass || holdsAManoeuvre,
-                    $"at tick {tick}, car {car} ({action}) was granted {cars.AuthorityM[car]:F2} m and holds nothing");
+                if (!(holdsAPlan || holdsAPass || holdsAManoeuvre))
+                {
+                    Assert.Fail($"at tick {tick}, car {car} ({action}) was granted {cars.AuthorityM[car]:F2} m and holds nothing");
+                }
             }
         }
     }

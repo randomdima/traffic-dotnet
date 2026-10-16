@@ -124,7 +124,10 @@ public class TownPropsTests
                         - (plan.Buildings.SizeM[building] * 0.5f);
             var outsideM = Vector2.Max(pastM, Vector2.Zero).Length() + MathF.Min(MathF.Max(pastM.X, pastM.Y), 0f);
             var intoM = radiusM - outsideM;
-            Assert.True(intoM <= Config.CityGen.ClaimCellM, $"a crown at {centreM} reaches {intoM:F2} m into building {building}");
+            if (!(intoM <= Config.CityGen.ClaimCellM))
+            {
+                Assert.Fail($"a crown at {centreM} reaches {intoM:F2} m into building {building}");
+            }
         }
     }
 

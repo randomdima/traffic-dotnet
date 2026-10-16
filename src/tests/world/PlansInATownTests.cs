@@ -64,10 +64,12 @@ public class PlansInATownTests
                 if (uncut && uncutS[car] >= releasedS
                     && InOneFrame(was[car], now, out var shiftM) && now.FromM >= was[car].FromM - shiftM)
                 {
-                    Assert.True(
-                        now.ToM >= was[car].ToM - shiftM - Tolerance,
-                        $"{map}: tick {tick}, car {car} drew its plan back {was[car].ToM - shiftM - now.ToM:0.00} m with "
-                        + $"nothing cutting it, doing {cars.AlongMps[car]:0.0} m/s");
+                    if (!(now.ToM >= was[car].ToM - shiftM - Tolerance))
+                    {
+                        Assert.Fail(
+                            $"{map}: tick {tick}, car {car} drew its plan back {was[car].ToM - shiftM - now.ToM:0.00} m with "
+                            + $"nothing cutting it, doing {cars.AlongMps[car]:0.0} m/s");
+                    }
                 }
 
                 uncutS[car] = uncut ? uncutS[car] + Config.TickSeconds : 0f;

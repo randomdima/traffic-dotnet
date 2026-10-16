@@ -151,9 +151,11 @@ public class ManifoldDifferenceTests
             var reference = b2CollidePolygons(
                 ref boxA, At(Vector2.Zero, rotationA), ref boxB, At(betweenM, rotationB));
 
-            Assert.True(
-                met == reference.pointCount > 0,
-                $"pose {pose}: this engine {(met ? "met" : "missed")}, the reference found {reference.pointCount} points");
+            if (met != reference.pointCount > 0)
+            {
+                Assert.Fail($"pose {pose}: this engine {(met ? "met" : "missed")}, the reference found {reference.pointCount} points");
+            }
+
             if (met) touching++;
         }
 
@@ -300,9 +302,10 @@ public class ManifoldDifferenceTests
         if (!metShortcut) return 1;
 
         Assert.Equal(Deepest(general), Deepest(shortcut), 2e-3f);
-        Assert.True(
-            Vector2.Dot(shortcut.Normal, general.Normal) > 0.999f,
-            $"pose {pose}: the shortcut's normal {shortcut.Normal} against the general shape's {general.Normal}");
+        if (!(Vector2.Dot(shortcut.Normal, general.Normal) > 0.999f))
+        {
+            Assert.Fail($"pose {pose}: the shortcut's normal {shortcut.Normal} against the general shape's {general.Normal}");
+        }
 
         return 1;
     }
@@ -313,9 +316,10 @@ public class ManifoldDifferenceTests
     /// </summary>
     static void Same(int pose, bool met, in Manifold manifold, in B2Manifold reference, ref int agreed, ref int touching)
     {
-        Assert.True(
-            met == reference.pointCount > 0,
-            $"pose {pose}: this engine {(met ? "met" : "missed")}, the reference found {reference.pointCount} points");
+        if (met != reference.pointCount > 0)
+        {
+            Assert.Fail($"pose {pose}: this engine {(met ? "met" : "missed")}, the reference found {reference.pointCount} points");
+        }
 
         if (!met)
         {
@@ -325,10 +329,12 @@ public class ManifoldDifferenceTests
 
         touching++;
         var theirNormal = new Vector2(reference.normal.X, reference.normal.Y);
-        Assert.True(
-            Vector2.Dot(manifold.Normal, theirNormal) > 0.999f,
-            $"pose {pose}: normal {manifold.Normal} at {Deepest(manifold):F5} m against the reference's " +
-            $"{theirNormal} at {Deepest(reference):F5} m");
+        if (!(Vector2.Dot(manifold.Normal, theirNormal) > 0.999f))
+        {
+            Assert.Fail(
+                $"pose {pose}: normal {manifold.Normal} at {Deepest(manifold):F5} m against the reference's " +
+                $"{theirNormal} at {Deepest(reference):F5} m");
+        }
 
         Assert.Equal(Deepest(reference), Deepest(manifold), ToleranceM);
         agreed++;

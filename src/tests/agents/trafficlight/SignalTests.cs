@@ -116,8 +116,10 @@ public class SignalTests
 
                         var here = signals.ForApproach(arm, atS);
                         var there = signals.ForApproach(other, atS);
-                        Assert.True(here == SignalColour.Red || there == SignalColour.Red,
-                            $"{map}: junction {junction} shows {here} and {there} on conflicting arms at {atS:F2} s");
+                        if (here != SignalColour.Red && there != SignalColour.Red)
+                        {
+                            Assert.Fail($"{map}: junction {junction} shows {here} and {there} on conflicting arms at {atS:F2} s");
+                        }
                     }
                 }
             }

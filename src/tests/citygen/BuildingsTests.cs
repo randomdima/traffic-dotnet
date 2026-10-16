@@ -60,10 +60,13 @@ public class BuildingsTests
                 for (var acrossM = -halfM.Y; acrossM <= halfM.Y; acrossM += stepM)
                 {
                     var atM = centreM + (axis * alongM) + (side * acrossM);
-                    Assert.True(
-                        OffTheBoundaryM(atM) >= Config.WalkOuterM,
-                        $"building {building} at {centreM} reaches {OffTheBoundaryM(atM):F2} m off the " +
-                        $"boundary at {atM}, inside the {Config.WalkOuterM:F2} m the walk is struck at");
+                    var offM = OffTheBoundaryM(atM);
+                    if (!(offM >= Config.WalkOuterM))
+                    {
+                        Assert.Fail(
+                            $"building {building} at {centreM} reaches {offM:F2} m off the " +
+                            $"boundary at {atM}, inside the {Config.WalkOuterM:F2} m the walk is struck at");
+                    }
                 }
             }
         }

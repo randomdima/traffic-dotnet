@@ -140,11 +140,13 @@ public class ClaimGateTests
                         held |= second.FromDm <= fromDm && second.ToDm >= toDm && claims.HoldersOf(second).IndexOf(holder) >= 0;
                     }
 
-                    Assert.True(
-                        held,
-                        $"{map}: at tick {tick} {Named(claims, main)} on {world.Ways.KindOf(way)} way {way} lies over the mark "
-                        + $"at {mark.MineFromM:0.0}–{mark.MineToM:0.0} m and does not hold {mark.FromM:0.0}–{mark.ToM:0.0} m of "
-                        + $"{world.Ways.KindOf(mark.OnWay)} way {mark.OnWay}");
+                    if (!held)
+                    {
+                        Assert.Fail(
+                            $"{map}: at tick {tick} {Named(claims, main)} on {world.Ways.KindOf(way)} way {way} lies over the mark "
+                            + $"at {mark.MineFromM:0.0}–{mark.MineToM:0.0} m and does not hold {mark.FromM:0.0}–{mark.ToM:0.0} m of "
+                            + $"{world.Ways.KindOf(mark.OnWay)} way {mark.OnWay}");
+                    }
                 }
             }
         }

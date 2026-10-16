@@ -238,8 +238,9 @@ public class CarParkTests
                 if (other == junction || ownedBy[junction] == ownedBy[other]) continue;
 
                 var apartM = Vector2.Distance(plan.Junctions.CentreM[junction], plan.Junctions.CentreM[other]);
-                Assert.True(
-                    apartM >= Config.CityGen.LocalityM,
+                if (apartM >= Config.CityGen.LocalityM) continue;
+
+                Assert.Fail(
                     $"junctions {junction} (car park {ownedBy[junction]}) and {other} (car park "
                     + $"{ownedBy[other]}) stand {apartM:F1} m apart, inside a locality of "
                     + $"{Config.CityGen.LocalityM:F0} m");

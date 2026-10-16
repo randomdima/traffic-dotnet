@@ -136,7 +136,8 @@ public class GeneratorTests
         {
             for (var ring = 0; ring < rings.Count; ring++)
             {
-                foreach (var pointM in rings.RingOf(ring)) OnTheMap(plan, pointM, $"{what} {ring}");
+                var named = $"{what} {ring}";
+                foreach (var pointM in rings.RingOf(ring)) OnTheMap(plan, pointM, named);
             }
         }
 
@@ -149,9 +150,10 @@ public class GeneratorTests
         {
             var chain = plan.Roads.SegmentsOf(road);
             var lengthM = Spline.TotalLengthM(chain);
+            var named = $"road {road}";
             for (var alongM = 0f; alongM <= lengthM; alongM += 1f)
             {
-                OnTheMap(plan, Spline.SampleAt(chain, alongM).PositionM, $"road {road}");
+                OnTheMap(plan, Spline.SampleAt(chain, alongM).PositionM, named);
             }
         }
 
@@ -183,9 +185,9 @@ public class GeneratorTests
         var standsM = new Vector2(reachM, reachM);
         var leastM = standsM;
         var mostM = plan.WorldSizeM - standsM;
-        Assert.True(
-            pointM.X >= leastM.X && pointM.Y >= leastM.Y && pointM.X <= mostM.X && pointM.Y <= mostM.Y,
-            $"{what} stands at {pointM}, off a map of {plan.WorldSizeM}");
+        if (pointM.X >= leastM.X && pointM.Y >= leastM.Y && pointM.X <= mostM.X && pointM.Y <= mostM.Y) return;
+
+        Assert.Fail($"{what} stands at {pointM}, off a map of {plan.WorldSizeM}");
     }
 
     /// <summary>
@@ -727,8 +729,9 @@ public class GeneratorTests
                 if (ringOf[junction] >= 0 && ringOf[junction] == ringOf[other]) continue;
 
                 var apartM = (plan.Junctions.CentreM[junction] - plan.Junctions.CentreM[other]).Length();
-                Assert.True(
-                    apartM >= Config.CityGen.LocalityM,
+                if (apartM >= Config.CityGen.LocalityM) continue;
+
+                Assert.Fail(
                     $"junctions {junction} at {plan.Junctions.CentreM[junction]} (ring {ringOf[junction]}, " +
                     $"{ArmsOf(plan)[junction]} arms) and {other} at {plan.Junctions.CentreM[other]} " +
                     $"(ring {ringOf[other]}, {ArmsOf(plan)[other]} arms) stand {apartM:F1} m apart, inside " +
@@ -942,7 +945,7 @@ public class GeneratorTests
             for (var alongM = 0f; alongM <= lengthM; alongM += 1f)
             {
                 var atM = Spline.SampleAt(chain, alongM).PositionM;
-                Assert.False(InTheWater(plan, atM), $"road {road} stands at {atM}, in the water, and is no bridge");
+                if (InTheWater(plan, atM)) Assert.Fail($"road {road} stands at {atM}, in the water, and is no bridge");
             }
         }
     }
@@ -1204,9 +1207,10 @@ public class GeneratorTests
             // The wild pass keeps its stand-off off the ground's <em>cells</em>, whose outer centres stand
             // half a cell inside the edge this measures to; the verge band carries the sampling's own
             // tolerance. What is left between the two is still metres of strip.
-            Assert.True(
-                edges.InAVerge(atM, plan.Props.RadiusM[prop], Config)
-                || edges.NearestM(atM) > Config.CityGen.PropWildStandOffM - Config.Terrain.GroundStepM,
+            if (edges.InAVerge(atM, plan.Props.RadiusM[prop], Config)
+                || edges.NearestM(atM) > Config.CityGen.PropWildStandOffM - Config.Terrain.GroundStepM) continue;
+
+            Assert.Fail(
                 $"the prop at {atM.X:F1},{atM.Y:F1} stands {edges.NearestM(atM):F2} m off the nearest " +
                 $"paving, which is neither a verge nor clear of one " +
                 $"({Config.CityGen.PropWildStandOffM:F1} m)");

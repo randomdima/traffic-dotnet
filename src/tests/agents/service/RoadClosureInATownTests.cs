@@ -201,13 +201,16 @@ public class RoadClosureInATownTests
                 letIn[car] |= world.Cars.BlueLight[car];
                 if (car == patrol || letIn[car]) continue;
 
-                Assert.False(
-                    world.Cars.LaneOf(car) == entrance,
-                    $"car {car} turned into closed lane {entrance} at tick {tick} of the closure: " +
-                    $"patrol {world.Beat.Stage[car]} station {world.Beat.Station[car]}, came off lane {was[car]}, " +
-                    $"chain {string.Join(",", world.Cars.ChainOf(car)[..world.Cars.Line[car].LaneCount].ToArray())}, " +
-                    $"route {string.Join(",", world.Cars.RouteOf(car)[..world.Cars.RouteCount[car]].ToArray())}, " +
-                    $"destination {world.Cars.DestinationM[car]}, committed {world.CommittedToTheBox(car)}");
+                if (world.Cars.LaneOf(car) == entrance)
+                {
+                    Assert.Fail(
+                        $"car {car} turned into closed lane {entrance} at tick {tick} of the closure: " +
+                        $"patrol {world.Beat.Stage[car]} station {world.Beat.Station[car]}, came off lane {was[car]}, " +
+                        $"chain {string.Join(",", world.Cars.ChainOf(car)[..world.Cars.Line[car].LaneCount].ToArray())}, " +
+                        $"route {string.Join(",", world.Cars.RouteOf(car)[..world.Cars.RouteCount[car]].ToArray())}, " +
+                        $"destination {world.Cars.DestinationM[car]}, committed {world.CommittedToTheBox(car)}");
+                }
+
                 was[car] = world.Cars.LaneOf(car);
             }
         }

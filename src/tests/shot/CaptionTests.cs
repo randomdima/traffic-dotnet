@@ -42,9 +42,10 @@ public class CaptionTests
 
         Assert.Equal(frame.Width, composed.Width);
         Assert.Equal(frame.Height + Caption.HeightPx(frame.Width, 2), composed.Height);
+        // Asserted only where a pixel differs: xUnit's comparer a pixel was most of the case.
         for (var y = 0; y < frame.Height; y++)
             for (var x = 0; x < frame.Width; x++)
-                Assert.Equal(frame[x, y], composed[x, y]);
+                if (frame[x, y] != composed[x, y]) Assert.Equal(frame[x, y], composed[x, y]);
     }
 
     /// <summary>A cell with a note is one row taller, and every cell of a sheet is given the taller
