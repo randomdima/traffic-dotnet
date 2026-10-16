@@ -78,16 +78,20 @@ internal static partial class TracedStreets
         var unmerged = laidAs(chosen);
         var asSurveyed = Movements(survey, config, unmerged);
 
-        // Every road's own and none of the others', so laid side by side; the steps after ask for few.
+        // Every road's own and none of the others', so laid side by side, and so is each step after: a road asked for a
+        // way it was not yet merged lays it then.
         InChunks.Over(roadOf.Length, () => merging, (all, at) => all[roadOf[at]].Merged(Kept.Least.AtStart, Kept.Least.AtEnd));
 
         var kept = Filled(merging.Length, Kept.Least);
         while (true)
         {
-            foreach (var road in roadOf)
-            {
-                chosen[road] = kept[road].Unmerged ? merging[road].Unmerged : merging[road].Merged(kept[road].AtStart, kept[road].AtEnd);
-            }
+            InChunks.Over(
+                roadOf.Length, () => merging,
+                (all, at) =>
+                {
+                    var road = roadOf[at];
+                    chosen[road] = kept[road].Unmerged ? all[road].Unmerged : all[road].Merged(kept[road].AtStart, kept[road].AtEnd);
+                });
 
             var laid = laidAs(chosen);
             var movements = Movements(survey, config, laid);
