@@ -165,7 +165,7 @@ internal sealed partial class BandShell
         Cuts _alike = Cuts.None;
 
         /// <summary>
-        /// <b>The box each piece stands in</b>, which is the index's own (<see cref="ChainIndex.Box"/>) and
+        /// <b>The box each piece stands in</b>, which is the index's own (<see cref="ChainIndex.SlotLeastM"/>) and
         /// never a second reading of the same piece. Two pieces whose boxes do not meet within a weld have
         /// neither a crossing nor an end on one another, and a place outside one is a place no cut of that
         /// piece can be at — so both are skipped without being approximated.
@@ -372,29 +372,18 @@ internal sealed partial class BandShell
 
             var pieces = _firstPiece[^1];
             _lineOfPiece = new int[pieces];
-            _leastM = new Vector2[pieces];
-            _mostM = new Vector2[pieces];
-
-            var building = new ChainIndex.Builder();
             for (var line = 0; line < ribbons.Length; line++)
             {
-                for (var piece = 0; piece < ribbons[line].Length; piece++)
-                {
-                    var at = _firstPiece[line] + piece;
-                    _lineOfPiece[at] = line;
-                    building.Add(at, ribbons[line].AsSpan(piece, 1), MathF.Abs(ribbons[line][piece].LengthM));
-
-                    _leastM[at] = new Vector2(float.MaxValue);
-                    _mostM[at] = new Vector2(float.MinValue);
-                    ChainIndex.Box(ribbons[line][piece], ref _leastM[at], ref _mostM[at]);
-                }
+                _lineOfPiece.AsSpan(_firstPiece[line], ribbons[line].Length).Fill(line);
             }
 
             // <b>Binned at the finest level the walk that bins it can tell apart</b> (<see cref="ChainIndex.FinestCellM"/>)
             // and never at the caller's level for the lines. What is asked of this index is which pieces
             // stand <em>at</em> a place, within a weld; a cell a road wide hands back every piece running
             // through seventy square metres of a junction and each is then rejected by its own box.
-            _edges = building.Seal(grid.Covering(ChainIndex.FinestCellM));
+            _edges = ChainIndex.OfPieces(ArcRings.Flat(ribbons), grid.Covering(ChainIndex.FinestCellM));
+            _leastM = _edges.SlotLeastM;
+            _mostM = _edges.SlotMostM;
             _pieces = pieces;
         }
 

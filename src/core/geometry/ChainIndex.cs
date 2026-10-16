@@ -167,6 +167,16 @@ internal sealed class ChainIndex
     public int ChainCount => _chainId.Length;
 
     /// <summary>
+    /// <b>Each chain's own box, by slot</b> (<see cref="Box"/>) — which for an index of pieces (<see cref="OfPieces"/>) is
+    /// the piece's own number, so a caller weighing pieces against their boxes reads the walk the binning took.
+    /// </summary>
+    /// <remarks>The index's own arrays, never written to again by anyone.</remarks>
+    internal Vector2[] SlotLeastM => _slotLeastM;
+
+    /// <inheritdoc cref="SlotLeastM"/>
+    internal Vector2[] SlotMostM => _slotMostM;
+
+    /// <summary>
     /// <b>Every piece over the lattice as a chain of its own</b>, numbered by where it stands in
     /// <paramref name="pieces"/> — so that what is near a place is measured against the pieces near it
     /// rather than against every piece of whatever ring they belong to.
@@ -562,10 +572,10 @@ internal sealed class ChainIndex
     /// query cells and never an answer.
     /// </summary>
     /// <remarks>
-    /// <b>Offered to whoever sorts the candidates this index hands back</b> (<c>BandShell.Merge</c>), for
-    /// the same reason the query reads its cells by it: a piece's own box is the cheapest thing that can
-    /// be trusted to hold the whole of it, and a second way of boxing a piece is a second answer about
-    /// which pieces a place could stand on.
+    /// <b>Offered to whoever sorts the candidates this index hands back</b> (<c>BandShell.Merge</c>, through
+    /// <see cref="SlotLeastM"/>), for the same reason the query reads its cells by it: a piece's own box is the
+    /// cheapest thing that can be trusted to hold the whole of it, and a second way of boxing a piece is a second
+    /// answer about which pieces a place could stand on.
     /// </remarks>
     public static void Box(ArcSeg arc, ref Vector2 leastM, ref Vector2 mostM)
     {
