@@ -280,7 +280,9 @@ internal sealed partial class Menu
         _laidPage = Page;
         _laidSection = Section;
 
-        FillRows();
+        // Read once a lay: the listing is the disk's, asked of the folder and of every map file it names.
+        var shipped = MapCatalogue.Shipped();
+        FillRows(shipped);
 
         // **The width is settled before the heights**, because on the start menu a description wraps to it
         // and a row is as tall as the lines that wrap came to. The popup's own width is what its widest row
@@ -291,7 +293,7 @@ internal sealed partial class Menu
         // window too narrow for it would be a panel with an edge off the glass, and dropping the density to fit
         // it is an interface nobody can read on a handset.
         var contentWidthPx = MathF.Min(
-            WidestContentPx(uiPx) + Theme.InsetPx * 2f + ScrollBarPx + Theme.GapPx,
+            WidestContentPx(uiPx, shipped) + Theme.InsetPx * 2f + ScrollBarPx + Theme.GapPx,
             uiPx.X - (Theme.MarginPx * 2f) - (Theme.PaddingPx * 2f));
 
         // The bar's room comes off the rows on every start-menu lay, scrolling or not: a description that
@@ -430,7 +432,7 @@ internal sealed partial class Menu
         return Math.Max(1, rows);
     }
 
-    void FillRows()
+    void FillRows(MapEntry[] shipped)
     {
         _rowCount = 0;
         if (Page != Maps) return;
@@ -440,7 +442,11 @@ internal sealed partial class Menu
             AddGroup(group);
             if (!_groupOpen[group]) continue;
 
-            foreach (var map in MapCatalogue.On(KindOf(group))) AddMap(map.Name, map.Description);
+            var kind = KindOf(group);
+            foreach (var map in shipped)
+            {
+                if (map.Kind == kind) AddMap(map.Name, map.Description);
+            }
         }
     }
 
@@ -454,7 +460,7 @@ internal sealed partial class Menu
     /// the picture behind it rather than the longest sentence in the catalogue. What it is still measured
     /// against is its own furniture — the title, and the way out standing on the title's line.
     /// </remarks>
-    float WidestContentPx(Vector2 uiPx)
+    float WidestContentPx(Vector2 uiPx, MapEntry[] shipped)
     {
         if (AtTheStart)
         {
@@ -463,7 +469,7 @@ internal sealed partial class Menu
         }
 
         var wantedPx = LeastContentPx;
-        foreach (var map in MapCatalogue.Shipped())
+        foreach (var map in shipped)
         {
             wantedPx = MathF.Max(wantedPx, RowWidthPx(map.Name, map.Description, atTheStart: false));
         }
