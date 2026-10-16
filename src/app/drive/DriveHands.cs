@@ -188,6 +188,8 @@ internal sealed class DriveHands(
             case DriveVerb.Pace:
                 if (Pace is not { } pace) throw new ArgumentException(
                     $"drive step at line {step.Line}: this run has no clock to pace — it runs as fast as it can.");
+                if (step.Seconds > world.Config.Sim.SoakMaxTimeScale) throw new ArgumentException(
+                    $"drive step at line {step.Line}: the clock runs at {world.Config.Sim.SoakMaxTimeScale:F2}x real time at most.");
 
                 pace(step.Seconds);
                 _told.Add($"the town runs at {step.Seconds:F2}x real time");

@@ -77,10 +77,11 @@ Nothing in the index survives a laying of the claims and no body moves before st
 in a tick is taken against the same instant of the world** — the last laying's. A host with no index — a test
 fixture, a single-agent rig — reports "nothing nearby" rather than crashing.
 
-**SIM-9** `P2` **Every physics tick is drawn, up to the display's rate.** At the game's own speed a frame runs one
-tick at most and draws after it; a tick slower than the time it stands for slows the town and never batches ticks
-into fewer frames. Only a town watched faster runs several ticks to a frame, as many as its speed asks, and draws
-the last.
+**SIM-9** `P2` **Every physics tick is drawn up to the display's rate, and the town keeps real time below it.** A
+frame runs the ticks its span owes and draws the last, so a display slower than the tick rate costs pictures and
+never the town's pace — and a tick a world cannot take before the frame ends is taken when it can. Only a tick slower than the time it stands for slows the town: it is not caught up on, and a
+frame runs as many ticks as its speed asks however slow they are. A frame longer than `LongestCaughtUpFrameS` — a
+hitch, or a display slower than that — is caught up on only that far.
 
 **Never place a body at a velocity it did not accelerate into.** Drive it up to speed instead; a tyre model
 reading a velocity no wheel produced reports an acceleration no tyre could have caused — silent in the tick

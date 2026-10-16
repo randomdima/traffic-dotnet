@@ -114,6 +114,10 @@ internal sealed partial class Game : IDisposable
     /// </summary>
     ScenarioWatch[] _scenario = [];
     SimClock _clock;
+
+    /// <summary>The ticks run since the last frame closed and their time (<see cref="TickBetweenFrames"/>), for the next frame to count.</summary>
+    FrameParts _betweenFrames;
+
     string _map = string.Empty;
 
     /// <summary>The map the menu was clicked on and this run has not stood up yet.</summary>
@@ -157,7 +161,7 @@ internal sealed partial class Game : IDisposable
 
         _uiPx = _window.UiPx;
         _camera = new Camera2D(config, Vector2.One, _uiPx) { DevicePxPerUiPx = _window.UiScale };
-        _clock = new SimClock(config.TickSeconds, config.Sim.SoakMaxTimeScale);
+        _clock = new SimClock(config);
 
         Console.WriteLine($"{_window.FramebufferSize.X}x{_window.FramebufferSize.Y} framebuffer on " +
                           $"{_window.DisplayName} at {_window.UiScale:F2}x desktop scale, so the interface is " +
@@ -397,7 +401,10 @@ internal sealed partial class Game : IDisposable
         // time it was never asked to simulate.
         if (waitedMs > FrameMeter.LongestFrameMs) _clock.Resynchronise();
 
-        var parts = new FrameParts(_ui.Status.Open);
+        // What ran between the frames is this frame's to count, and was spent inside the wait it measured.
+        var parts = new FrameParts(_ui.Status.Open) { SimTicks = _betweenFrames.SimTicks, SimMs = _betweenFrames.SimMs };
+        var tickedWhileWaitingMs = _betweenFrames.SimMs;
+        _betweenFrames = default;
 
         _window.PumpEvents();
         if (_window.TakeResized())
@@ -444,7 +451,7 @@ internal sealed partial class Game : IDisposable
         // the town is drawn at rather than the rate this build could draw it at. The hands are read
         // over the same span for the same reason: a pan is metres of real time, not of work.
         _frameClosedAt = Stopwatch.GetTimestamp();
-        parts.BlockedMs += waitedMs;
+        parts.BlockedMs += waitedMs - tickedWhileWaitingMs;
         _lastFrame = Stopwatch.GetElapsedTime(startedAt, _frameClosedAt) + TimeSpan.FromMilliseconds(waitedMs);
         parts.WholeMs = _lastFrame.TotalMilliseconds;
         Measure(in parts);
@@ -779,7 +786,7 @@ internal sealed partial class Game : IDisposable
                 NewEye(laid.Plan, laid.Ground, botting.EyeWidthPx, botting.EyeHeightPx),
                 held => _ui.Run.AgentsHeld = held, _ui.Run.SetPace)
             : null;
-        _clock = new SimClock(_config.TickSeconds, _config.Sim.SoakMaxTimeScale);
+        _clock = new SimClock(_config);
         _camera = new Camera2D(_config, laid.Plan.WorldSizeM, _uiPx) { DevicePxPerUiPx = _window.UiScale };
         if (OpeningViewM > 0f) _camera.SetSpan(OpeningViewM, _uiPx);
         FrameTheTown(laid.World, laid.Plan.WorldSizeM);
@@ -838,9 +845,32 @@ internal sealed partial class Game : IDisposable
     }
 
     /// <summary>
-    /// Every tick the clock is owed, and how many that was. <b>The count is what makes the frame's
-    /// simulation row and the tick's own figures answerable to each other</b> — at pace 3 a frame runs
-    /// three ticks, and on a stalled one it runs none.
+    /// <b>The ticks a frame could not take, taken as the world's answer lands</b> (SIM-9): a page's device answers between
+    /// frames, so a frame runs the one tick it can and puts the rest off to here. A head whose world never makes a tick
+    /// wait has nothing to call it for.
+    /// </summary>
+    /// <remarks>
+    /// Not past the longest a frame may be: a hidden tab is asked for no frames, and a town ticked on behind it by its own
+    /// answers would be a town nobody sees run on, where a frame's stall is forgotten (<see cref="Step"/>).
+    /// </remarks>
+    public void TickBetweenFrames()
+    {
+        if (_window.IsClosing || _frameClosedAt == 0
+            || Stopwatch.GetElapsedTime(_frameClosedAt).TotalMilliseconds > FrameMeter.LongestFrameMs)
+        {
+            return;
+        }
+
+        var parts = new FrameParts(_ui.Status.Open);
+        Advance(ref parts);
+        _betweenFrames.SimTicks += parts.SimTicks;
+        _betweenFrames.SimMs += parts.SimMs;
+    }
+
+    /// <summary>
+    /// Every tick the clock is owed and lets run, and how many that was. <b>The count is what makes the
+    /// frame's simulation row and the tick's own figures answerable to each other</b> — at pace 3 a frame
+    /// runs three ticks at least, on a 30 Hz display two at pace 1, and on a stalled one none.
     /// </summary>
     void Advance(ref FrameParts parts)
     {
@@ -865,10 +895,18 @@ internal sealed partial class Game : IDisposable
             // A tick at a time, because what the watches count is a tick's own: a peak speed, a lift onto
             // the brakes and a body a tick deeper into another all happen inside one decision interval,
             // and a frame is several ticks. **A page's device answers between frames**, so a tick that would
-            // read a step it has not answered yet is dropped as a slow frame's are (WorldLayer.Ready).
+            // read a step it has not answered yet is put off until it has (WorldLayer.Ready, TickBetweenFrames).
+            var ticksFrom = Stopwatch.GetTimestamp();
             var ran = 0;
-            for (; ran < due && _loop.World.World.Ready; ran++)
+            var waiting = false;
+            for (; ran < due && _clock.MayRunAnother(ran, Stopwatch.GetElapsedTime(ticksFrom).TotalSeconds); ran++)
             {
+                if (!_loop.World.World.Ready)
+                {
+                    waiting = true;
+                    break;
+                }
+
                 // DRV-7: the drive is followed inside the tick loop and not once a frame, so a step that
                 // asks for a second of the town gets a second of it however many ticks this frame runs.
                 if (_drive is { } drive)
@@ -889,7 +927,10 @@ internal sealed partial class Game : IDisposable
                 foreach (var watch in _scenario) watch.Saw(_loop.World);
             }
 
-            parts.SimTicks = ran;
+            if (waiting) _clock.Postpone(due - ran);
+            else _clock.Unrun(due - ran);
+
+            parts.SimTicks += ran;
         }
 
         // Marked whether or not a town is standing, so the menu's own frames leave the cursor where

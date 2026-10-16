@@ -43,6 +43,18 @@ public class FrameMeterTests
         Assert.Equal(50d, meter.Figures.Fps, 6);
     }
 
+    /// <summary>OBS-2: the pace the town kept is the ticks the window ran over the wall time it took, at any frame rate.</summary>
+    [Fact]
+    public void TheTicksASecondAreTheWindowsTicksOverItsWallTime()
+    {
+        var meter = new FrameMeter();
+        meter.Frame(Frame(25d, simTicks: 3), OverTicks(1), default);
+
+        meter.Frame(Frame(25d, simTicks: 3), OverTicks(1), default);
+
+        Assert.Equal(120d, meter.Figures.TicksPerSecond, 6);
+    }
+
     /// <summary>Within a window nothing is republished, however much the frames themselves move.</summary>
     [Fact]
     public void TheFiguresHoldStillUntilTheWindowCloses()

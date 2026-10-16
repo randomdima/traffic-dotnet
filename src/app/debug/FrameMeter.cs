@@ -74,6 +74,12 @@ internal readonly record struct FrameFigures
     /// </summary>
     public double TicksPerFrame { get; init; }
 
+    /// <summary>
+    /// How many fixed ticks the window ran a second of wall time: <b>the pace the town kept</b>, against the one asked for
+    /// (OBS-2). Ticks run between two frames count toward the second.
+    /// </summary>
+    public double TicksPerSecond { get; init; }
+
     /// <summary>The mean bytes a frame wrote into memory the device reads (<see cref="FrameParts.WrittenBytes"/>), in kB.</summary>
     public double WrittenKb { get; init; }
 
@@ -203,6 +209,7 @@ internal sealed class FrameMeter
             InterfaceMs = _sum.InterfaceMs * per,
             SubmitMs = _sum.SubmitMs * per,
             TicksPerFrame = _sum.SimTicks * per,
+            TicksPerSecond = _sum.WholeMs > 0d ? _sum.SimTicks * 1000d / _sum.WholeMs : 0d,
             WrittenKb = _sum.WrittenBytes * per / 1024d,
             Phases = ticked ? phases : Figures.Phases,
             Sub = ticked ? sub : Figures.Sub,

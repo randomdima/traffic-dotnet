@@ -116,6 +116,20 @@ public class BotSeatTests(StandingTown town) : IClassFixture<StandingTown>
     }
 
     /// <summary>
+    /// A pace past what the clock runs is refused rather than told the driver and run slower: the clock holds the town
+    /// to <c>SoakMaxTimeScale</c> whatever it is asked.
+    /// </summary>
+    [Fact]
+    public void APacePastTheClocksIsRefused()
+    {
+        var paced = 0f;
+        var hands = new BotHands(town.World, Config, 0, ".tmp/bot", viewM: 45f) { Pace = pace => paced = pace };
+
+        Assert.Throws<ArgumentException>(() => hands.Take(DriveScript.Read($"pace {Config.Sim.SoakMaxTimeScale * 2f}")[0]));
+        Assert.Equal(0f, paced);
+    }
+
+    /// <summary>
     /// DRV-8: <b>the wheel is where the driver left it until a line names it.</b> A step is a burst of
     /// pedals, so one that says nothing about the wheel leaves it wound where it was — and <c>steer=0</c> is
     /// an angle asked for, which is why the two are told apart by the line and not by the figure.

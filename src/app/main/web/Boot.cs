@@ -95,7 +95,7 @@ try
     // blank canvas for the whole of that wait (WEB-6, WEB-9) — and a desktop run, whose art is on the
     // disk it started from, opens the two together.
     var step = game.Step;
-    WebGpu.Ticker(step);
+    WebGpu.Ticker(step, game.TickBetweenFrames);
 
     // **And now that something is being looked at, the town behind it.** GEN-1b: a page that named no
     // map opens on the menu with the idle ring standing behind it, and one that named a map opens on

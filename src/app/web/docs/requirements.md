@@ -31,7 +31,8 @@ such thing, a latch beside the arrays rather than a slot in them.
 
 **WEB-2** `P2` **The crossing budget holds, in the browser's own terms.** A standing town crosses the wall
 between managed code and the page **three times a frame, and once more a tick its world steps on the device**:
-the animation callback coming in, the input going out, the frame, and the world's step. Everything inside a
+the animation callback coming in, the input going out, the frame, and the world's step — and a landed step's callback
+coming in, to take a tick put off for it (`Game.TickBetweenFrames`). Everything inside a
 frame — the render pass, the bundle, the queue, the submit — is on the far side of one call, and so is everything
 inside a step — its dispatches, copies and fills, written as words on this side ([`ComputeBatch`](../../../runtime/web/ComputeBatch.Web.cs))
 — and none of them takes the size of the town as an argument. **What a step hands back crosses no call**: the

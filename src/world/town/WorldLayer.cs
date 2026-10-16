@@ -93,7 +93,7 @@ internal abstract class WorldLayer : IDisposable
     /// <summary>
     /// <b>Whether a <see cref="Step"/> may be taken now</b>: whether what the step ahead hands back is the host's to read.
     /// Always, for a world that steps here or on a device the host can wait on; a page's device answers between frames,
-    /// so a tick that comes before it has is not taken (<c>Game</c>'s tick loop).
+    /// so a tick that comes before it has is put off until it lands (<c>Game.TickBetweenFrames</c>).
     /// </summary>
     public virtual bool Ready => true;
 

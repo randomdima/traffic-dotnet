@@ -6,7 +6,8 @@ layers and the switches are [app/debug](../../debug/docs/requirements.md) — **
 and does not own one**; the camera is [app/camera](../../camera/docs/requirements.md).
 
 **OBS-2** `P7` The **menu picks the map**, and **what a run is stays visible while it runs**: its frame rate,
-its town and its pace, in one line that is never not on screen.
+its town and its pace, in one line that is never not on screen — **the pace the town keeps** beside the one asked
+for whenever it falls short of it, so a machine that cannot keep up is not quoted the key that was pressed.
 
 **OBS-2a** `P7` Every map the project ships is **reachable from the menu**, not only from the command line, and
 **the list the menu reads is the list the command line reads**. Guard the list in both directions: every

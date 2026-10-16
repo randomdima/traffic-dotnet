@@ -4,6 +4,33 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-17 — the town keeps real time whatever the display's rate
+
+**The owner (2026-10-14): "atomic tick is physics tick, render happens every physics tick up to vsync" … "I mean that
+depends on game speed control, but yeah"; (2026-10-17): "on 30 fps game is running slower than on 60 … we want game
+clock to be synced with real clock".** SIM-9.
+
+- **A frame runs every tick its span owes and draws the last.** The clock had owed one tick a frame at pace 1, read off
+  "every physics tick" without its "up to vsync": a 30 Hz display ran the 60 Hz town at half speed, and every pace with it.
+- **A tick slower than the time it stands for is still not caught up on** (`SimClock.MayRunAnother`): past the ticks its
+  pace asks, a frame runs another only while the ones it ran kept real time. Catching up on slow ticks never wins the
+  time back — O30 at 40 000 cars, the device world, 30 s windows: 7 fps at 8 ticks a frame (146 ms) against 54 fps at
+  one (18.65 ms), the tick 18.3 and 18.5 ms, the town at 0.92 of real time either way.
+- **Of the ticks owed and not run one is kept for the next frame** and the rest dropped (`SimClock.Unrun`): a display
+  beating against the tick's period owes none on a frame a hair early and two on the next, and dropping the second ran
+  a town with time to spare a tenth slow (2026-10-15).
+- **A frame catches up over `LongestCaughtUpFrameS` at most** (0.1 s), so a hitch is not repaid as one frame many ticks
+  long.
+- **A page runs the ticks a frame could not take as its device's answer lands** (`Game.TickBetweenFrames`), not at the
+  next frame. WebGPU cannot be waited on: a read-back lands only once the run has handed the thread back to the browser,
+  so a page's frame can step its device once, where a desktop's waits on a fence and steps it as often as it is owed. The
+  pacing — the clock, the tick loop, `WorldLayer.Ready` — is one path on both heads; the page alone is woken between
+  frames, and a tick put off for an unready world is kept whole (`SimClock.Postpone`) where a slow one is not. Waiting
+  on the device instead would want the run on a worker with `Atomics.wait`, so cross-origin isolation, which GitHub
+  Pages cannot send the headers for.
+- **Measured** (published page, Test, the device world, `qq web --ui frame --hz N`, 40 s): 60 Hz 1.0 tick a frame,
+  30 Hz 2.0, 20 Hz 3.0, the town at 2 385–2 470 ticks over each run — real time at every rate.
+
 ## 2026-10-16 — a box is road to whoever asks where on the road a body is
 
 `TownWorld.RoadPlaceOf` read only street lanes and pavements, so a body standing in a junction on nothing but its
@@ -255,20 +282,6 @@ improvements. Ones that natually fit."**
   along. Handing it them is a channel of its own, not a reading of what it already has (tech debt).
 - **Measured** (O30 at 40 000 moving cars, device world, 30 s): the tick 18.4–18.5 ms against 17.6–17.9, the cars' own
   ticks 8.4 against 7.8–7.9, `sincosf` and `atanf` off the driving path.
-
-## 2026-10-14 — every physics tick is drawn
-
-**The owner (2026-10-14), in their words: "atomic tick is physics tick, render happens every physics tick up to vsync"
-… "Render should happen on each physics tick." … "I mean that depends on game speed control, but yeah".** SIM-9.
-
-- **The clock owes one tick a frame at the game's own speed** (`SimClock.MostTicksPerCall`), and as many as the speed asks
-  past it. It caught up on up to eight before: a tick a tenth over its 16.7 ms ran every frame eight ticks long, so the
-  device's state was drawn once in eight steps while it sat idle in between.
-- **A tick slower than real time slows the town** instead. Of the ticks owed past the cap one is kept for the next call
-  and the rest dropped: a display beating against the tick's period owes none on a frame a hair early and two on the
-  next, and dropping that second one ran a town with time to spare a tenth slow.
-- **Measured** (O30 at 40 000 cars, every owner set off at the wheel, the device world, 30 s windows): 7 fps at 8 ticks a
-  frame (146 ms) against 54 fps at one (18.65 ms), the tick 18.3 and 18.5 ms, the town at 0.92 of real time either way.
 
 ## 2026-10-14 — a walker's walk and a light's hold are kept as a car's plan is
 

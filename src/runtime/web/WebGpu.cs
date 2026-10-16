@@ -174,13 +174,14 @@ internal static partial class WebGpu
     }
 
     /// <summary>
-    /// The frame callback. <b>This and not a loop is how a browser is driven</b>: the page paints
-    /// between the calls, and a run that blocked would be a page that never painted at all.
+    /// The frame callback, and the one run each time a batch of the device's lands. <b>This and not a loop is how a
+    /// browser is driven</b>: the page paints between the calls, and a run that blocked would be a page that never
+    /// painted at all — nor could it wait for the device, whose answer only lands once the run has handed the thread back.
     /// </summary>
-    public static void Ticker(Func<bool> step)
+    public static void Ticker(Func<bool> step, Action between)
     {
         Count();
-        TickerJs(step);
+        TickerJs(step, between);
     }
 
     /// <summary>
@@ -488,5 +489,6 @@ internal static partial class WebGpu
     private static partial int TexelsJs(string path);
 
     [JSImport("town.ticker", "town.js")]
-    static partial void TickerJs([JSMarshalAs<JSType.Function<JSType.Boolean>>] Func<bool> step);
+    static partial void TickerJs(
+        [JSMarshalAs<JSType.Function<JSType.Boolean>>] Func<bool> step, [JSMarshalAs<JSType.Function>] Action between);
 }

@@ -74,6 +74,12 @@ internal sealed class SimFigures
     public float SoakMaxTimeScale { get; init; } = 5f;
 
     /// <summary>
+    /// <b>The longest frame a windowed run catches up over</b> (SIM-9, <c>SimClock</c>): a display down to this frame's
+    /// length keeps real time, and a slower one — or a hitch — slows the town rather than running one frame many ticks long.
+    /// </summary>
+    public float LongestCaughtUpFrameS { get; init; } = 0.1f;
+
+    /// <summary>
     /// <b>How large a town has to be for its open to collect either side of the atlas</b> (<c>TownWorld.CollectTheLay</c>).
     /// A smaller one leaves too little behind to be worth a full collection, and a suite that lays a town a test
     /// would pay for every one.

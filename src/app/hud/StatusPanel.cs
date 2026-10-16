@@ -78,7 +78,7 @@ internal sealed class StatusPanel
 
     /// <summary>
     /// What the title is sized on, in characters: the marker, a three-figure rate, the longest map name
-    /// this build ships and the longest thing the pace can say. <b>The shut panel is the width of its
+    /// this build ships and the longest thing the pace can say (<c>0.4/1.0x</c>). <b>The shut panel is the width of its
     /// own line and not of the body behind it</b> — a bar four words long that reached a third of the
     /// way across the town was a bar the size of what it was hiding.
     /// </summary>
@@ -87,7 +87,7 @@ internal sealed class StatusPanel
     /// pace goes from <c>1.0x</c> to <c>held</c>: the line is fitted into it, and a map named past the
     /// end of it is the one thing here that gets an ellipsis.
     /// </remarks>
-    const int TitleLine = 24;
+    const int TitleLine = 12 + 8 + 2 + 8; // "- FPS: 999. ", "OdesaOsm", ". ", "0.4/1.0x"
 
     /// <summary>
     /// What a scenario map's title is sized on instead: the same line with room for the one thing it has
@@ -153,12 +153,14 @@ internal sealed class StatusPanel
     Rect _title;
 
     /// <summary>
-    /// The title's two figures, formatted when they change rather than every frame: the rate moves once a
-    /// meter window and the pace once a key. Neither is wider than the line it is written into.
+    /// The title's figures, formatted when they change rather than every frame: the rate and the pace kept
+    /// move once a meter window and the pace asked once a key. None is wider than the line it is written into.
     /// </summary>
     KeptFigure<double> _titleFps = new("F0", ScenarioTitleLine);
 
     KeptFigure<float> _titlePace = new("F1", ScenarioTitleLine);
+
+    KeptFigure<float> _titleKept = new("F1", ScenarioTitleLine);
 
     /// <summary>
     /// Whether the body is showing. <b>Shut by default</b>, so a run nobody asked for figures draws a
@@ -244,7 +246,7 @@ internal sealed class StatusPanel
         Theme.Frame(ref draw, Box);
 
         Span<char> text = stackalloc char[200];
-        Title(ref draw, pointerPx, text, mapName, run, frame, claims);
+        Title(ref draw, pointerPx, text, mapName, run, frame, world.Config.TickSeconds, claims);
 
         Rows = 0;
         if (!Open)
@@ -270,7 +272,9 @@ internal sealed class StatusPanel
     /// <summary>
     /// <b>What a run is, in one line that is never not on screen</b>: how fast it is going, which town
     /// it is, and at what pace. Frozen and held are named in the pace's place rather than beside it —
-    /// they are what the pace <em>is</em> while either holds.
+    /// they are what the pace <em>is</em> while either holds. <b>A pace the town falls short of is
+    /// quoted as kept over asked</b> (<c>0.4/1.0x</c>), where the two differ at the precision shown: a
+    /// machine that cannot keep up says so rather than repeating the key.
     /// </summary>
     /// <remarks>
     /// <b>And whether the map has broken one of its own claims</b>, which is the one thing here that is not
@@ -280,7 +284,7 @@ internal sealed class StatusPanel
     /// </remarks>
     void Title(
         ref ScreenDraw draw, Vector2 pointerPx, scoped Span<char> text, string mapName, RunState run,
-        in FrameFigures frame, ReadOnlySpan<ScenarioWatch> claims)
+        in FrameFigures frame, float tickSeconds, ReadOnlySpan<ScenarioWatch> claims)
     {
         _title = new Rect(
             Box.AtPx + new Vector2(Theme.EdgePx, Theme.GapPx),
@@ -303,6 +307,13 @@ internal sealed class StatusPanel
         else if (run.AgentsHeld) line.Add("held");
         else
         {
+            var kept = (float)(frame.TicksPerSecond * tickSeconds);
+            if (frame.TicksPerSecond > 0d && MathF.Round(kept, 1) < MathF.Round(run.TimeScale, 1))
+            {
+                line.Add(_titleKept.Of(kept));
+                line.Add('/');
+            }
+
             line.Add(_titlePace.Of(run.TimeScale));
             line.Add('x');
         }

@@ -111,6 +111,8 @@ internal sealed class BotHands(TownWorld world, SimConfig config, int car, strin
 
             case DriveVerb.Pace:
                 if (Pace is not { } pace) throw Refused(step, "this run has no clock to pace");
+                if (step.Seconds > config.Sim.SoakMaxTimeScale)
+                    throw Refused(step, $"the clock runs at {config.Sim.SoakMaxTimeScale:F2}x real time at most");
 
                 pace(step.Seconds);
                 _told.Add($"the town runs at {step.Seconds:F2}x real time");

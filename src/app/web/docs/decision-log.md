@@ -53,7 +53,8 @@ is stepped by the same device world the desktop's window is (`DeviceWorld`), fro
   `Recording`, `BoundSet`, `BufferUse` and `CopyRun` instead of Vulkan's types, the desktop's being Vulkan's own under
   those names. The emit that draws what moves (`DeviceSprites`) stays the desktop's: it binds nineteen buffers.
 - **A page cannot wait**, so a step's read-backs land in pinned memory between frames with the batch's serial after
-  them, and a tick that comes first is not taken (`WorldLayer.Ready`, WEB-10). A batch is one crossing (WEB-2).
+  them, and a tick that comes first is put off until they have (`WorldLayer.Ready`, WEB-10; `Game.TickBetweenFrames`,
+  root log 2026-10-17). A batch is one crossing (WEB-2).
 - **Measured** (RX 9070 XT under Chromium, `qq web --ui frame`): the published page keeps Odesa at real time, 0.5
   ticks a frame at 114 fps on a 120 Hz display, the main thread's tick 0.30 ms against the managed world's 0.46; a
   Debug page stands River in three minutes and then ticks 0.9 a frame at 60 fps. No WebGPU error over five minutes.

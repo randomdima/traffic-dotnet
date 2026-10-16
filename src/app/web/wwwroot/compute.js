@@ -46,7 +46,13 @@ const kernels = {
     pushGroup: null,
     scratch: null,
     fill: null,
+    landed: null,
 };
+
+/// What runs each time a batch has landed: the ticks a frame put off until the device answered (town.js `ticker`).
+export function onLanded(then) {
+    kernels.landed = then;
+}
 
 /// The limits to ask the adapter for: what the kernels need, where it has it, and as much room as it has.
 export function kernelLimits(adapter) {
@@ -300,6 +306,7 @@ function land(reads, serial, landedAddress) {
 
     Promise.all(landing).then(() => {
         new DataView(kernels.heap().buffer).setUint32(landedAddress >>> 0, serial >>> 0, true);
+        kernels.landed?.();
     });
 }
 
