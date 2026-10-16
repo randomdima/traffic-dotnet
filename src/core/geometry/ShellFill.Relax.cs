@@ -52,26 +52,28 @@ internal static partial class ShellFill
     /// boundary once only, so pairing the walk by direction says which is which without the rings being
     /// consulted. <b>The slit a bridged hole leaves pairs like any other edge</b>, and it should: it is a
     /// line of no width through ground the shell covers, and a turn across it is as legal as any.
+    /// <b>Keyed as <see cref="GridLevel.KeyOf(int, int)"/></b>: a tuple key hashes through a combiner on every ask,
+    /// and a page's ahead-of-time compile runs its equality interpreted.
     /// </remarks>
     static int[] Twins(int[] triangles)
     {
         var twin = new int[triangles.Length];
         Array.Fill(twin, -1);
 
-        var walked = new Dictionary<(int From, int To), int>(triangles.Length);
+        var walked = new Dictionary<long, int>(triangles.Length);
         for (var edge = 0; edge < triangles.Length; edge++)
         {
             var fromCorner = triangles[edge];
             var toCorner = triangles[Along(edge)];
 
-            if (walked.TryGetValue((toCorner, fromCorner), out var other) && twin[other] < 0)
+            if (walked.TryGetValue(GridLevel.KeyOf(toCorner, fromCorner), out var other) && twin[other] < 0)
             {
                 twin[edge] = other;
                 twin[other] = edge;
                 continue;
             }
 
-            walked.TryAdd((fromCorner, toCorner), edge);
+            walked.TryAdd(GridLevel.KeyOf(fromCorner, toCorner), edge);
         }
 
         return twin;
