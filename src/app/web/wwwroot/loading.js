@@ -6,7 +6,15 @@
 // **Everything it can refuse, it refuses before the runtime is downloaded.** A page that spends four
 // megabytes and half a minute to say "no WebGPU here" has wasted the one thing the reader had.
 
+import { build } from './build.js'
+
 const card = () => document.getElementById('opening');
+
+// What this build is, from the stamp the build writes (traffic-dotnet.web.csproj): the runtime and the version are
+// never typed into the page, so they cannot fall behind it.
+document.getElementById('opening-runtime').textContent = build.runtime;
+document.getElementById('opening-version').textContent =
+    build.commit ? `v${build.version} · ${build.commit}` : `v${build.version}`;
 
 /// Whether the opening is up. `say` writes here while it is and into the banner under the canvas
 /// once it is gone, so a town that shuts down says so where a standing town's messages go.

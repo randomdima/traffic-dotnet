@@ -18,6 +18,7 @@
   <link rel="modulepreload" href="town.js">
   <link rel="modulepreload" href="compute.js">
   <link rel="modulepreload" href="loading.js">
+  <link rel="modulepreload" href="build.js">
   <link rel="modulepreload" href="_framework/dotnet.js">
   <script type='module' src="main.js"></script>
   <style>
@@ -51,6 +52,7 @@
     #opening h1 { margin: 0; font-size: 1.6rem; font-weight: 600; color: #e8c26a; letter-spacing: 0.02em; }
     #opening p { margin: 0; }
     #opening-about { color: #8a8f98; max-width: 34rem; }
+    #opening-version { color: #6f747d; font-size: 12px; }
     #opening-stage { color: #cfcfcf; min-height: 1.5em; }
     #opening-detail { color: #6f747d; min-height: 1.5em; font-size: 13px; max-width: 34rem; }
     #opening-bar {
@@ -86,7 +88,8 @@
   <div id="banner" style="display: none"></div>
   <div id="opening">
     <h1>traffic-dotnet</h1>
-    <p id="opening-about">A small town driving itself — C# on .NET&nbsp;10 over WebGPU, with no engine under it.</p>
+    <p id="opening-about">A small town driving itself — C# on <span id="opening-runtime">.NET</span> over WebGPU, with no engine under it.</p>
+    <p id="opening-version"></p>
     <div id="opening-bar" class="sweeping"><div id="opening-fill"></div></div>
     <p id="opening-stage">checking what this browser can do…</p>
     <p id="opening-detail"></p>

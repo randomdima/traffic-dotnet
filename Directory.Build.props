@@ -1,0 +1,8 @@
+<Project>
+  <!-- **The game's version, once**, for every head that ships it — the desktop, the page and the phone —
+       and stamped on each assembly. Raised by hand at a release; what build it is between releases is the
+       commit, which the page prints beside it (traffic-dotnet.web.csproj, `WriteTheBuildStamp`). -->
+  <PropertyGroup>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+</Project>

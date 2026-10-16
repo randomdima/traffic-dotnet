@@ -163,6 +163,29 @@
     <Copy SourceFiles="@(WebShell)" DestinationFolder="$(PublishDir)wwwroot/%(RecursiveDir)" SkipUnchangedFiles="true" />
   </Target>
 
+  <!-- **What the page says it is, read off the build rather than written into the page**: the runtime from
+       the target framework, the game's version (Directory.Build.props) and the commit, as a module the
+       opening imports (loading.js), so neither can fall behind the build. No semicolon may stand in a line:
+       WriteLinesToFile splits on them. -->
+  <Target Name="StampTheBuild">
+    <Exec Command="git rev-parse --short HEAD" ConsoleToMSBuild="true" IgnoreExitCode="true"
+          StandardErrorImportance="low" StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="BuildCommit" />
+    </Exec>
+    <ItemGroup>
+      <BuildStamp Include="// Written by the build (traffic-dotnet.web.csproj, StampTheBuild), never by hand." />
+      <BuildStamp Include="export const build = { runtime: '.NET $([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)', 1))', version: '$(Version)', commit: '$(BuildCommit)' }" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="WriteTheBuildStamp" AfterTargets="LayTheWebShell" DependsOnTargets="StampTheBuild">
+    <WriteLinesToFile File="$(OutDir)wwwroot/build.js" Lines="@(BuildStamp)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+  </Target>
+
+  <Target Name="PublishTheBuildStamp" AfterTargets="PublishTheWebShell" DependsOnTargets="StampTheBuild">
+    <WriteLinesToFile File="$(PublishDir)wwwroot/build.js" Lines="@(BuildStamp)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+  </Target>
+
   <!-- What the page fetches, prepared by the build so that a file added to assets/ is a file the
        browser gets without anybody remembering to say so.
 

@@ -2,6 +2,13 @@
 
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md).
 
+## 2026-10-16 — the opening says its runtime and version from the build
+
+**The owner asked for the title to stop naming the wrong .NET**: the opening's prose said .NET 10 a release after the
+move to 11. The runtime, the game's version and the commit are now a module the build writes (`build.js`, the web
+project's `StampTheBuild`) and the opening fills in; the version is authored once for every head, in the root
+`Directory.Build.props`, at 0.1.0.
+
 ## 2026-10-15 — a traced city on the page
 
 The root log says what an open was cut by; these are the page's own halves of it.
