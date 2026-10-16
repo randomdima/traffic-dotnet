@@ -390,6 +390,33 @@ a layout or changes behaviour.
   map lays the `Crosswalks` path; `ParkingRegistry.Takes`, named by CAR-11b as answerable and asked by nothing;
   `PhysicsWorld.RoomForBodies`, named only by a `DeviceSolver` cref.
 
+### The suite's own runs
+
+What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its assertions as they are:
+
+- **`ClaimGateTests` runs one town four times a map** (perf tier): its four questions each tick the same 1 800 ticks of
+  `Towns.Of(map)` and read only. One run asking all four, recording each question's first failure, closes it.
+- **`LightsInATownTests` and `PlansInATownTests` each run the same 3 600 ticks of each town** (about 2.8 s of test
+  threads). One run per map feeding both watches, as `BuiltTownWatched` does, closes it.
+- **`JunctionClaimTests`' watch allocates a list per car held at a red per occupied way, every tick** (`TheJoinItPlans`,
+  8.9 s on the city): one pass a tick naming each car's planned join closes it.
+- **`LaneOccupancyInATownTests` stands the city seven times** (about 1 s apiece): each case moves car 1 by hand, so
+  sharing needs each case to stand a car of its own.
+- **Read-only fixtures still laid per case in the unit tier**, tenths of a second each: `FootWays`/`FootMovements` in
+  `PedestrianWaysTests`/`PedestrianMovementsTests`, the lanes and arrows in `LaneArrowsTests`, the brute-force half
+  of `RingSidesTests` per cell size, `SelectionTests`' world, `ChannelsInATownTests`' 900-tick watch twice.
+- **The device tier redraws and redispatches the same seeded samples** in `TrigKernelTests` and `RoundedKernelTests`, and
+  `AtlasKernelTests` stands the fixture and the street-over-a-street worlds once a case though none ticks them.
+- **`VisualShotTests` lays and runs a town once a cell** of a multi-cell sheet (`ShotRun.Take`, 600 ticks a cell):
+  sharing a run needs `app/shot`, not the test.
+- **Three allocation tests warm their draw two passes before measuring** (`InspectorTests`, `UnitPanelTests`,
+  `StatusPanelClaimsTests`), the count `StatusPanelTests` records as failing now and then when the draw tiers up inside
+  the measured window; none has failed in five consecutive unit runs.
+- **`Towns.Built` is three seconds to lay, not "a fraction of a second"** as `Towns.PeopleBuilt` says.
+- **`ScenarioTests.AtRest` keeps a `TownWorld` per map in a static and never disposes it.**
+- **`SixLabors.ImageSharp` 3.1.12 carries known moderate and high advisories** (NU1902, NU1903 on every build); a bump
+  through the configured registry closes it.
+
 ## Inconsistencies
 
 - **A walker's distance walked is its velocity over the step on the device** (`world_view_walkers.comp`) and the change in its
