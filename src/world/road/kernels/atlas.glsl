@@ -330,31 +330,48 @@ int atlasUnderDisc(vec2 centreM, float radiusM, uint channels, inout uint droppe
     return written;
 }
 
-// The entries of the run of points holding the lattice point nearest a point, as [first, end) of the entries, and that
-// point's column in its cell — an entry of the run in another column is passed over. An empty run where no ribbon
-// covers the point's cell (RibbonAtlas.EntriesOfThePointNearest).
-void atlasPointNearest(vec2 pointM, out int first, out int end, out int column)
+// The run of points holding the lattice point nearest a point is two lookups deep, split here so a body asking at several
+// points has every point's first lookup in flight before any second one waits on it (atlasUnderWheels).
+
+// The first: the slot of the cell holding the lattice point nearest the point, or −1 where no ribbon covers it — with the
+// point's column in its cell, and where its run's start is among the slot's starts.
+int atlasNearestSlot(vec2 pointM, out int column, out int startInSlot)
 {
     precise float x = pointM.x * ATLAS_FIGURES.perCellM;
     precise float y = pointM.y * ATLAS_FIGURES.perCellM;
     int pointColumn = int(floor(x));
     int pointRow = int(floor(y));
     column = pointColumn & ATLAS_FIGURES.mask;
-    first = 0;
-    end = 0;
+    startInSlot = ((pointRow & ATLAS_FIGURES.mask) << ATLAS_FIGURES.rowStartsShift) + (column >> ATLAS_FIGURES.startShift);
 
     int cellColumn = pointColumn >> ATLAS_FIGURES.shift;
     int cellRow = pointRow >> ATLAS_FIGURES.shift;
     if (uint(cellColumn - ATLAS_FIGURES.cellsFromX) >= uint(ATLAS_FIGURES.cellsWidth)
-        || uint(cellRow - ATLAS_FIGURES.cellsFromY) >= uint(ATLAS_FIGURES.cellsHeight)) return;
+        || uint(cellRow - ATLAS_FIGURES.cellsFromY) >= uint(ATLAS_FIGURES.cellsHeight)) return -1;
 
-    int slot = atlasCellSlot((cellRow - ATLAS_FIGURES.cellsFromY) * ATLAS_FIGURES.cellsWidth + (cellColumn - ATLAS_FIGURES.cellsFromX));
+    return atlasCellSlot((cellRow - ATLAS_FIGURES.cellsFromY) * ATLAS_FIGURES.cellsWidth + (cellColumn - ATLAS_FIGURES.cellsFromX));
+}
+
+// The second: that run's entries, as [first, end) of the entries; empty for no slot.
+void atlasRunIn(int slot, int startInSlot, out int first, out int end)
+{
+    first = 0;
+    end = 0;
     if (slot < 0) return;
 
-    int start = slot * ATLAS_FIGURES.startsPerCell + ((pointRow & ATLAS_FIGURES.mask) << ATLAS_FIGURES.rowStartsShift)
-                + (column >> ATLAS_FIGURES.startShift);
+    int start = slot * ATLAS_FIGURES.startsPerCell + startInSlot;
     first = atlasSlotFirst(slot) + int(atlasPointStart(start));
     end = atlasSlotFirst(slot) + int(atlasPointStart(start + 1));
+}
+
+// The entries of the run of points holding the lattice point nearest a point, as [first, end) of the entries, and that
+// point's column in its cell — an entry of the run in another column is passed over. An empty run where no ribbon
+// covers the point's cell (RibbonAtlas.EntriesOfThePointNearest).
+void atlasPointNearest(vec2 pointM, out int first, out int end, out int column)
+{
+    int startInSlot;
+    int slot = atlasNearestSlot(pointM, column, startInSlot);
+    atlasRunIn(slot, startInSlot, first, end);
 }
 
 // Whether an entry of a point at this column of its cell is a way on one of the channels whose band holds the point
@@ -366,18 +383,17 @@ bool atlasOnTheWay(uvec2 entry, int column, uint channels)
     return ATLAS_FIGURES.hasChannels == 0u || (atlasChannelsOf(int(entry.y)) & channels) != 0u;
 }
 
-// Every way whose band holds the lattice point nearest a wheel, grown into atlasFound at the metre that point stands at;
-// whether there was any.
-bool atlasGrowUnderAWheel(vec2 wheelM, uint channels, inout int written, inout uint dropped)
+// Every way of a run whose band holds the lattice point at this column, grown into atlasFound at the metre that point
+// stands at; whether there was any.
+bool atlasGrowOverTheRun(int first, int end, int column, uint channels, inout int written, inout uint dropped)
 {
-    int first;
-    int end;
-    int column;
-    atlasPointNearest(wheelM, first, end, column);
     bool onAWay = false;
+    uvec2 next = first < end ? atlasEntry(first) : uvec2(0u);
     for (int at = first; at < end; at++)
     {
-        uvec2 entry = atlasEntry(at);
+        // Each entry asked for before the last is weighed, so its read is in flight meanwhile.
+        uvec2 entry = next;
+        if (at + 1 < end) next = atlasEntry(at + 1);
         if (!atlasOnTheWay(entry, column, channels)) continue;
 
         written = atlasGrow(written, int(entry.y), float(entry.x >> 16), dropped);
@@ -387,16 +403,35 @@ bool atlasGrowUnderAWheel(vec2 wheelM, uint channels, inout int written, inout u
     return onAWay;
 }
 
+// The same for the lattice point nearest a wheel.
+bool atlasGrowUnderAWheel(vec2 wheelM, uint channels, inout int written, inout uint dropped)
+{
+    int first;
+    int end;
+    int column;
+    atlasPointNearest(wheelM, first, end, column);
+    return atlasGrowOverTheRun(first, end, column, channels, written, dropped);
+}
+
 // Which of a car's four wheels stand on a way, a bit a wheel in `onAWay`, and every way they stand on, in wheel order,
 // with the stretch its body holds of each — the least and most metre its wheels stand at, widened by half a step and by
-// `aroundAWheelM`; how many (RibbonAtlas.UnderWheels).
+// `aroundAWheelM`; how many (RibbonAtlas.UnderWheels). Each lookup is asked for all four wheels before the next.
 int atlasUnderWheels(vec2 wheelsM[4], float aroundAWheelM, uint channels, inout uint dropped, out uint onAWay)
 {
+    int slots[4];
+    int columns[4];
+    int startsInSlot[4];
+    for (int wheel = 0; wheel < 4; wheel++) slots[wheel] = atlasNearestSlot(wheelsM[wheel], columns[wheel], startsInSlot[wheel]);
+
+    int firsts[4];
+    int ends[4];
+    for (int wheel = 0; wheel < 4; wheel++) atlasRunIn(slots[wheel], startsInSlot[wheel], firsts[wheel], ends[wheel]);
+
     int written = 0;
     onAWay = 0u;
     for (int wheel = 0; wheel < 4; wheel++)
     {
-        if (atlasGrowUnderAWheel(wheelsM[wheel], channels, written, dropped)) onAWay |= 1u << uint(wheel);
+        if (atlasGrowOverTheRun(firsts[wheel], ends[wheel], columns[wheel], channels, written, dropped)) onAWay |= 1u << uint(wheel);
     }
 
     atlasWidened(written, aroundAWheelM);
