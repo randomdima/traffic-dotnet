@@ -191,14 +191,14 @@ internal static class ArcOutset
         var movedM = MathF.Abs(outwardM);
         if (radiusM <= LineTolerance.RoundingM)
         {
-            return movedM <= LineTolerance.RoundingM ? (rings.ToArray(), []) : Struck(rings, outwardM, grid, originM);
+            return movedM <= LineTolerance.RoundingM ? (rings.ToArray(), []) : Struck(rings.ToArray(), outwardM, grid, originM);
         }
 
         // Which way the series runs is the distance's, and a rounding asked for without one still runs
         // outward — the shape grows by the radius and comes back, rather than the other way about.
         var stepM = outwardM < -LineTolerance.RoundingM ? -radiusM : radiusM;
 
-        var (wide, loose) = Struck(rings, outwardM + stepM, grid, originM);
+        var (wide, loose) = Struck(rings.ToArray(), outwardM + stepM, grid, originM);
         if (wide.Length == 0) return ([], loose);
 
         // Two moves where the third would be the identity (r <= d), and where the caller will not have a
@@ -225,17 +225,26 @@ internal static class ArcOutset
     /// <b>One closed shape moved off its own ground, once</b>: every ring offset whole, every corner joined,
     /// and every stretch of that kept where nothing of the shape stands nearer to it than the distance.
     /// </summary>
+    /// <remarks>
+    /// <b>Each ring tightened and moved on as many threads as there are</b>, into a slot of its own, and flattened in
+    /// ring order — the pieces one thread would have laid.
+    /// </remarks>
     static (ArcSeg[][] Rings, ArcSeg[][] Loose) Struck(
-        ReadOnlySpan<ArcSeg[]> rings, float outwardM, WorldGrid grid, Vector2 originM)
+        ArcSeg[][] rings, float outwardM, WorldGrid grid, Vector2 originM)
     {
         // The pieces of a ring the stringing handed back already meet (<see cref="ArcRings.Tightened"/>);
         // this is for the caller that hands over a ring of its own, since a corner at exactly the distance
         // moved has no headroom for two vertices a centimetre apart.
         var tight = new ArcSeg[rings.Length][];
-        for (var at = 0; at < rings.Length; at++) tight[at] = ArcRings.Tightened(rings[at]);
+        var movedRings = new ArcSeg[rings.Length][];
+        InChunks.Over(rings.Length, static () => 0, (_, at) =>
+        {
+            tight[at] = ArcRings.Tightened(rings[at]);
+            movedRings[at] = Moved(tight[at], outwardM);
+        });
 
         var source = ArcRings.Flat(tight);
-        var moved = ArcRings.Flat(Moved(tight, outwardM));
+        var moved = ArcRings.Flat(movedRings);
         if (moved.Length == 0 || source.Length == 0) return ([], []);
 
         // <b>The level is the question's own radius.</b> Every query this makes asks what stands within the
