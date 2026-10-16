@@ -1,6 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.Core.Simulation;
 
 namespace TrafficSimulation.CityGen;
 
@@ -1120,8 +1121,14 @@ internal sealed class LaneLines
             }
         }
 
+        // <b>A junction at a time, on as many threads as there are</b>: a connector is one junction's, so each junction's
+        // pairs read and write lines of its own alone, in the order they always were.
         var radiusM = config.JunctionTurnRoomM;
-        foreach (var turns in across.Values)
+        var junctions = new List<int>[across.Count];
+        across.Values.CopyTo(junctions, 0);
+        InChunks.Over(junctions.Length, static () => 0, (_, junction) => TurnedApart(junctions[junction]));
+
+        void TurnedApart(List<int> turns)
         {
             for (var one = 0; one < turns.Count; one++)
             {
