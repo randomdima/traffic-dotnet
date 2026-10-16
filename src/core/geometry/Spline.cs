@@ -996,8 +996,6 @@ internal static class Spline
         return MathF.Tan(MathF.Abs(MathF.Atan2(Cross(arriving, leaving), Vector2.Dot(arriving, leaving))) * 0.5f);
     }
 
-    static int Straight(Vector2 fromM, Vector2 toM, Span<ArcSeg> into) => Straight(fromM, toM, Vector2.Zero, into);
-
     /// <param name="along">
     /// The bearing of the leg the straight lies on, or zero to read it off the two ends. Given, the length is
     /// the run's along it, so a sliver the floats leave pointing back down the leg is no straight at all.
@@ -1490,15 +1488,6 @@ internal static class Spline
     /// </summary>
     public static float CarriedOnByM(float radiusM, Vector2 atM) =>
         MathF.Sqrt(2f * LineTolerance.At(LineTolerance.RoundingM, atM) * radiusM);
-
-    /// <summary>The tightest circle anywhere in a chain, and none on a straight.</summary>
-    static float TightestM(ReadOnlySpan<ArcSeg> arcs)
-    {
-        var bend = 0f;
-        foreach (var arc in arcs) bend = MathF.Max(bend, MathF.Abs(arc.Curvature));
-
-        return bend <= StraightCurvature ? float.PositiveInfinity : 1f / bend;
-    }
 
     /// <summary>The most arcs <see cref="MovementInto"/> writes: a jog's straight, arc, straight, arc and straight.</summary>
     public const int MostMovementArcs = 5;
