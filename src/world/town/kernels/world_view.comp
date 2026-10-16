@@ -83,7 +83,8 @@ CarViewRow viewOf(uint car)
     if (stepped && !floatIsNaN(followed.progressM)) followed.aroundM = followed.progressM;
     CarBuildRow build = builds[buildOf[car]];
     precise vec2 rearAxleM = placed.xy - forward * build.centreAheadOfAxleM;
-    lineRead(followed, rearAxleM, build.projectionWindowM);
+    LineHeld walk;
+    lineRead(followed, rearAxleM, build.projectionWindowM, walk);
     follows[car] = followed;
 
     // What the wheel is aimed at (LineReading.Lead): a lookahead at the speed along the car's own way (CarFollower.LookaheadM),
@@ -91,7 +92,7 @@ CarViewRow viewOf(uint car)
     precise float alongMps = moving.x * forward.x + moving.y * forward.y;
     precise float timedM = abs(alongMps) * world.lookaheadS;
     float leadAtM;
-    vec2 leadM = lineLead(followed, lineClamp(timedM, build.lookaheadFloorM, build.lookaheadCeilingM), leadAtM);
+    vec2 leadM = lineLead(followed, lineClamp(timedM, build.lookaheadFloorM, build.lookaheadCeilingM), walk, leadAtM);
     float aimRad = 0.0;
     if (!floatIsNaN(leadAtM))
     {

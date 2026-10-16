@@ -238,15 +238,67 @@ bool lineNext(inout LinePieces pieces, LineFollowedRow followed, out LaneArc pie
     }
 }
 
-// LineReading.Read: the reading around followed.aroundM written into it.
-void lineRead(inout LineFollowedRow followed, vec2 rearAxleM, float windowM)
+// A walk to the piece a distance along the stretch falls in: the first whose end it does not pass, or the last. It stops
+// with the piece held, where that piece starts and the pieces after it — so a walk to a further distance goes on from it,
+// and passes over nothing a walk from the first piece would not.
+struct LineHeld
+{
+    LinePieces pieces;
+    LaneArc held;
+    float heldStartM;
+    float remainingM;
+    bool holds;
+};
+
+LineHeld lineHeldAtTheStart(LineFollowedRow followed)
+{
+    return LineHeld(lineBegin(followed), LaneArc(vec2(0.0), vec2(0.0), 0.0, 0.0, 0.0, 0.0), 0.0, 0.0, false);
+}
+
+// The walk taken on to the piece remainingM falls in. From where it stopped where that is no shorter than the distance it
+// stopped for — every piece it went past ends short of this distance too — and otherwise from the first piece.
+void lineHoldTo(inout LineHeld walk, LineFollowedRow followed, float remainingM)
+{
+    if (!floatIsNaN(remainingM) && !(remainingM >= walk.remainingM)) walk = lineHeldAtTheStart(followed);
+    walk.remainingM = remainingM;
+
+    LaneArc piece;
+    LinePieces beforeNext = walk.pieces;
+    while (lineNext(walk.pieces, followed, piece))
+    {
+        if (!walk.holds)
+        {
+            walk.held = piece;
+            walk.holds = true;
+            beforeNext = walk.pieces;
+            continue;
+        }
+
+        precise float pastM = remainingM - walk.heldStartM;
+        if (pastM <= walk.held.lengthM) break;
+
+        precise float nextStartM = walk.heldStartM + walk.held.lengthM;
+        walk.heldStartM = nextStartM;
+        walk.held = piece;
+        beforeNext = walk.pieces;
+    }
+
+    // The piece looked at past the one held is left to be looked at again.
+    walk.pieces = beforeNext;
+}
+
+// LineReading.Read: the reading around followed.aroundM written into it, and the walk to the piece it fell in.
+void lineRead(inout LineFollowedRow followed, vec2 rearAxleM, float windowM, out LineHeld walk)
 {
     if (followed.lane < 0)
     {
+        walk = LineHeld(LinePieces(0, 0, 0, 0.0, 0.0), LaneArc(vec2(0.0), vec2(0.0), 0.0, 0.0, 0.0, 0.0), 0.0, 0.0, false);
         followed.progressM = floatNaN();
         followed.offLineM = floatNaN();
         return;
     }
+
+    walk = lineHeldAtTheStart(followed);
 
     precise float fromM = lineMax(0.0, followed.aroundM - windowM);
     precise float toM = followed.aroundM + windowM;
@@ -279,36 +331,17 @@ void lineRead(inout LineFollowedRow followed, vec2 rearAxleM, float windowM)
     }
 
     float remainingM = lineMax(0.0, bestM);
-    LaneArc held = LaneArc(vec2(0.0), vec2(0.0), 0.0, 0.0, 0.0, 0.0);
-    float heldStartM = 0.0;
-    bool holds = false;
-    pieces = lineBegin(followed);
-    while (lineNext(pieces, followed, piece))
-    {
-        if (!holds)
-        {
-            held = piece;
-            holds = true;
-            continue;
-        }
+    lineHoldTo(walk, followed, remainingM);
 
-        precise float pastM = remainingM - heldStartM;
-        if (pastM <= held.lengthM) break;
-
-        precise float nextStartM = heldStartM + held.lengthM;
-        heldStartM = nextStartM;
-        held = piece;
-    }
-
-    precise float intoM = remainingM - heldStartM;
-    precise vec2 offLine = linePointAt(held, lineMin(intoM, held.lengthM)) - rearAxleM;
+    precise float intoM = remainingM - walk.heldStartM;
+    precise vec2 offLine = linePointAt(walk.held, lineMin(intoM, walk.held.lengthM)) - rearAxleM;
     followed.progressM = bestM;
     followed.offLineM = roundedLength(offLine);
 }
 
 // LineReading.Lead: the point a lookahead past the reading, and how far along it was taken — NaN where that runs past the
-// last piece of the stretch.
-vec2 lineLead(LineFollowedRow followed, float lookaheadM, out float atM)
+// last piece of the stretch. The walk is the reading's (lineRead), taken on from where it stopped.
+vec2 lineLead(LineFollowedRow followed, float lookaheadM, inout LineHeld walk, out float atM)
 {
     // float.NaN's own bits, as the managed world writes it.
     atM = floatOfBits(0xffc00000u);
@@ -316,33 +349,13 @@ vec2 lineLead(LineFollowedRow followed, float lookaheadM, out float atM)
 
     precise float aheadM = followed.progressM + lookaheadM;
     float remainingM = lineMax(0.0, aheadM);
-    LaneArc held = LaneArc(vec2(0.0), vec2(0.0), 0.0, 0.0, 0.0, 0.0);
-    float heldStartM = 0.0;
-    bool holds = false;
-    LaneArc piece;
-    LinePieces pieces = lineBegin(followed);
-    while (lineNext(pieces, followed, piece))
-    {
-        if (!holds)
-        {
-            held = piece;
-            holds = true;
-            continue;
-        }
+    lineHoldTo(walk, followed, remainingM);
 
-        precise float pastM = remainingM - heldStartM;
-        if (pastM <= held.lengthM) break;
-
-        precise float nextStartM = heldStartM + held.lengthM;
-        heldStartM = nextStartM;
-        held = piece;
-    }
-
-    precise float intoM = remainingM - heldStartM;
-    if (intoM > held.lengthM) return vec2(0.0);
+    precise float intoM = remainingM - walk.heldStartM;
+    if (intoM > walk.held.lengthM) return vec2(0.0);
 
     atM = aheadM;
-    return linePointAt(held, lineMin(intoM, held.lengthM));
+    return linePointAt(walk.held, lineMin(intoM, walk.held.lengthM));
 }
 
 #endif
