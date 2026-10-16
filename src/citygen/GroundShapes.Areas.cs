@@ -8,10 +8,10 @@ namespace TrafficSimulation.CityGen;
 /// paving is, and the rings the water and its shore are cut from.
 /// </summary>
 /// <remarks>
-/// <b>A small ring is not indexed, and that is the reading.</b> A generated town's slabs are a few dozen
-/// boxes and its water a handful of rings of sixty-odd points, each tested against its own bounding box
-/// first — a lattice over either would be a rebuild and a lookup to narrow a walk that is already shorter
-/// than the narrowing. <b>A traced town's sea is not</b>: its shore is one ring of thousands of points whose
+/// <b>A small ring is filed by row, and that is the reading.</b> A generated town's slabs are a few dozen
+/// boxes and its water a handful of rings of a few hundred points at most, each tested against its own bounding box
+/// first; but a coast's box is half the map, so a point inside it asks only the edges whose heights cross its own row
+/// (<see cref="EdgeRows"/>). <b>A traced town's sea is filed by cell</b>: its shore is one ring of thousands of points whose
 /// box is most of the city, so a ring longer than <see cref="Rings.FiledFrom"/> has its edges filed by the
 /// cells of the town's grid (<see cref="EdgeCells"/>).
 /// </remarks>
@@ -23,8 +23,8 @@ internal sealed partial class GroundShapes
     Rings _water;
     Rings _shore;
 
-    /// <summary>A set of closed rings, the box each of them fits in, and the edges of each long one by cell.</summary>
-    readonly record struct Rings(CityPlan.RingArrays Of, Vector2[] LeastM, Vector2[] MostM, EdgeCells?[] Cells)
+    /// <summary>A set of closed rings, the box each of them fits in, and the edges of each long one by cell and of every other by row.</summary>
+    readonly record struct Rings(CityPlan.RingArrays Of, Vector2[] LeastM, Vector2[] MostM, EdgeCells?[] Cells, EdgeRows?[] Rows)
     {
         /// <summary>The fewest points a ring is filed by cell at: past them, a walk of its edges costs more than finding the few near a point.</summary>
         public const int FiledFrom = 256;
@@ -39,7 +39,7 @@ internal sealed partial class GroundShapes
             {
                 if (pointM.X < LeastM[ring].X || pointM.X > MostM[ring].X) continue;
                 if (pointM.Y < LeastM[ring].Y || pointM.Y > MostM[ring].Y) continue;
-                if (Cells[ring] is { } cells ? cells.Inside(Of.RingOf(ring), pointM) : Inside(Of.RingOf(ring), pointM)) return true;
+                if (Cells[ring] is { } cells ? cells.Inside(Of.RingOf(ring), pointM) : Rows[ring]!.Inside(Of.RingOf(ring), pointM)) return true;
             }
 
             return false;
@@ -50,6 +50,7 @@ internal sealed partial class GroundShapes
             var leastM = new Vector2[rings.Count];
             var mostM = new Vector2[rings.Count];
             var cells = new EdgeCells?[rings.Count];
+            var rows = new EdgeRows?[rings.Count];
             for (var ring = 0; ring < rings.Count; ring++)
             {
                 var least = new Vector2(float.MaxValue);
@@ -63,14 +64,15 @@ internal sealed partial class GroundShapes
                 leastM[ring] = least;
                 mostM[ring] = most;
                 if (rings.RingOf(ring).Length >= FiledFrom) cells[ring] = new EdgeCells(rings.RingOf(ring), least, most, cellM);
+                else rows[ring] = new EdgeRows(rings.RingOf(ring), least.Y, most.Y, cellM);
             }
 
-            return new Rings(rings, leastM, mostM, cells);
+            return new Rings(rings, leastM, mostM, cells, rows);
         }
 
         /// <summary>
         /// Whether a point stands inside any of them or within reach of one. The edge distance is measured
-        /// segment by segment, which a ring of sixty-odd points makes cheap — and the box, grown by the
+        /// segment by segment over the rows within reach — and the box, grown by the
         /// reach, is what keeps a query on dry land off that cost.
         /// </summary>
         public bool Within(Vector2 pointM, float reachM)
@@ -88,12 +90,7 @@ internal sealed partial class GroundShapes
                     continue;
                 }
 
-                if (Inside(edgeM, pointM)) return true;
-
-                for (int here = 0, there = edgeM.Length - 1; here < edgeM.Length; there = here++)
-                {
-                    if (OffTheEdgeM(edgeM[there], edgeM[here], pointM) <= reachM) return true;
-                }
+                if (Rows[ring]!.Inside(edgeM, pointM) || Rows[ring]!.Near(edgeM, pointM, reachM)) return true;
             }
 
             return false;
@@ -108,19 +105,78 @@ internal sealed partial class GroundShapes
                 : 0f;
             return (pointM - (fromM + (runM * alongM))).Length();
         }
+    }
 
-        static bool Inside(ReadOnlySpan<Vector2> ringM, Vector2 pointM)
+    /// <summary>
+    /// <b>One ring's edges filed by the rows of the town's grid their heights span</b>, edge <c>e</c> running from point
+    /// <c>e</c> to the one before it: whether a point is inside asks only the edges of its own row, and how near it comes
+    /// only those of the rows within reach of it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The walk of every edge answered by fewer of them, to the bit</b>: an edge a ray along a point's height crosses
+    /// spans that height and so is filed in its row, each is asked with the arithmetic the walk asked it with, and which
+    /// order the crossings are counted in leaves their parity alone. An edge within reach spans a height within reach,
+    /// and the row either side of those is read as well, a row being far wider than anything a float rounds a reach by.
+    /// </remarks>
+    internal sealed class EdgeRows
+    {
+        readonly float _leastY;
+        readonly float _cellM;
+        readonly int _rows;
+        readonly int[] _start;
+        readonly int[] _edges;
+
+        public EdgeRows(ReadOnlySpan<Vector2> ringM, float leastY, float mostY, float cellM)
         {
-            var inside = false;
+            (_leastY, _cellM) = (leastY, cellM);
+            _rows = Math.Max(1, (int)MathF.Ceiling((mostY - leastY) / cellM));
+            _start = new int[_rows + 1];
             for (int here = 0, there = ringM.Length - 1; here < ringM.Length; there = here++)
             {
+                for (var row = Row(MathF.Min(ringM[here].Y, ringM[there].Y)); row <= Row(MathF.Max(ringM[here].Y, ringM[there].Y)); row++) _start[row + 1]++;
+            }
+
+            for (var row = 0; row < _rows; row++) _start[row + 1] += _start[row];
+
+            _edges = new int[_start[^1]];
+            var filled = new int[_rows];
+            for (int here = 0, there = ringM.Length - 1; here < ringM.Length; there = here++)
+            {
+                for (var row = Row(MathF.Min(ringM[here].Y, ringM[there].Y)); row <= Row(MathF.Max(ringM[here].Y, ringM[there].Y)); row++)
+                {
+                    _edges[_start[row] + filled[row]++] = here;
+                }
+            }
+        }
+
+        int Row(float yM) => Math.Clamp((int)MathF.Floor((yM - _leastY) / _cellM), 0, _rows - 1);
+
+        public bool Inside(ReadOnlySpan<Vector2> ringM, Vector2 pointM)
+        {
+            var inside = false;
+            var row = Row(pointM.Y);
+            for (var at = _start[row]; at < _start[row + 1]; at++)
+            {
+                var here = _edges[at];
                 var a = ringM[here];
-                var b = ringM[there];
+                var b = ringM[here == 0 ? ringM.Length - 1 : here - 1];
                 if (a.Y > pointM.Y == b.Y > pointM.Y) continue;
                 if (pointM.X < ((b.X - a.X) * (pointM.Y - a.Y) / (b.Y - a.Y)) + a.X) inside = !inside;
             }
 
             return inside;
+        }
+
+        public bool Near(ReadOnlySpan<Vector2> ringM, Vector2 pointM, float reachM)
+        {
+            var (first, last) = (Math.Max(0, Row(pointM.Y - reachM) - 1), Math.Min(_rows - 1, Row(pointM.Y + reachM) + 1));
+            for (var at = _start[first]; at < _start[last + 1]; at++)
+            {
+                var here = _edges[at];
+                if (Rings.OffTheEdgeM(ringM[here == 0 ? ringM.Length - 1 : here - 1], ringM[here], pointM) <= reachM) return true;
+            }
+
+            return false;
         }
     }
 
