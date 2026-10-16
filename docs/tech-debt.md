@@ -405,6 +405,21 @@ a layout or changes behaviour.
 - **Kept for nothing a run reaches**: `ArcSubtract` (295 lines) and its tests, kept "as tooling" by the render log of
   2026-09-16 though no tool calls it _owner_; `CityPlan.ZebraAtEveryStation` is false only in `CrossingsTests`, so no
   map lays the `Crosswalks` path; `ParkingRegistry.Takes`, named by CAR-11b as answerable and asked by nothing.
+- **Read by the tests alone, and not plainly a seam** (the 2026-10-16 sweep of what `qq unused` lists as test-only):
+  `ConnectionPoints`' `ConnectionPoint`, both `At`s, `Point`, `ArmOf(GroundPieces…)` and `MostPerArm` work out where
+  lanes end a second time, beside `RoadLines`, as `ConnectionPointTests`' yardstick — whether that may live in `src/`
+  is VER-12's question; `RoadStage.CreaseRad` is a test tolerance production never reads; `TownMap`'s water kind
+  `Lake` is written by nothing (whether a shipped `.map` holds it decides); `CarFigures.LongestLengthM` is authored and
+  read only by two tests, where GEN-53 could be asked of the catalogue directly; `SpriteInstance.AsDrawn` repeats
+  `Halves`' cast.
+- **`WorldLayer.StepsAhead` is a second name for `SimFigures.WorldStepsAhead`**, read only by crefs, while the car's
+  follower reads the figure itself. One name in the docs closes it.
+- **`figures.trim.xml` says only the browser head reads it**, and the handset's project file includes it too — where it
+  names the web assembly and so keeps nothing. Naming both assemblies, or the handset not including it, closes it.
+- **The instruments miss two kinds of stale name**: `qq unused` counts by spelling, so an overload sharing a live name
+  and a chain of members only calling each other read as used (the junction corner reach, removed 2026-10-16, was
+  one); `qq doclint` resolves crefs and IDs but not a backticked `Type.Member` in prose, which is how
+  `CutJunctions.SitesOn` outlived its rename in the citygen requirements.
 
 ### The suite's own runs
 
