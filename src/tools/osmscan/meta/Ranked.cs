@@ -48,6 +48,16 @@ internal static class Ranked
         }
     }
 
+    /// <summary>The value at <paramref name="share"/> of the way up the set, or NaN for an empty one.</summary>
+    public static double Quantile(IEnumerable<double> values, double share)
+    {
+        var all = values.ToArray();
+        return all.Length == 0 ? double.NaN : At(all, Math.Min(all.Length - 1, (int)(share * all.Length)));
+    }
+
+    /// <summary>The upper median — the value at half the count — or NaN for an empty set.</summary>
+    public static double Median(IEnumerable<double> values) => Quantile(values, 0.5);
+
     /// <summary>Hoare's selection, ordered as <see cref="double.CompareTo(double)"/> orders: NaN least, −0 equal to +0.</summary>
     static double Select(Span<double> values, int rank)
     {

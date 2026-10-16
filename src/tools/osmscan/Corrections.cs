@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Xml.Linq;
+using static TrafficSimulation.Tools.OsmScan.Meta.OsmDegrees;
 
 namespace TrafficSimulation.Tools.OsmScan;
 
@@ -35,8 +36,6 @@ internal sealed class Corrections
     public required Dictionary<long, Way> Ways { get; init; }
 
     public required HashSet<long> DeletedWays { get; init; }
-
-    const decimal UnitsPerDegree = 10_000_000m;
 
     /// <summary>The corrections in the file at <paramref name="path"/>, or null where there is none.</summary>
     public static Corrections? Read(string path, string root)
@@ -126,7 +125,4 @@ internal sealed class Corrections
 
     static Dictionary<string, string> Tags(XElement element, string file) =>
         element.Elements("tag").ToDictionary(tag => Attribute(tag, "k", file), tag => Attribute(tag, "v", file));
-
-    /// <summary>A coordinate in OSM's integer 1e-7°, read exactly as the decimal it is written as.</summary>
-    static int Units(string degrees) => (int)Math.Round(decimal.Parse(degrees, CultureInfo.InvariantCulture) * UnitsPerDegree);
 }

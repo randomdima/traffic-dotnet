@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
+using static TrafficSimulation.Tools.OsmScan.Meta.Ranked;
 
 namespace TrafficSimulation.Tools.OsmScan.Meta;
 
@@ -205,12 +206,6 @@ internal static class MlRoads
                 meetingTheSurvey = networks.Records.Count(network => network.Meets is not null),
             }));
         return widths;
-    }
-
-    static double Median(IEnumerable<double> values)
-    {
-        var sorted = values.Order().ToArray();
-        return sorted[sorted.Length / 2];
     }
 
     /// <summary>

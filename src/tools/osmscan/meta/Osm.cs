@@ -1,4 +1,5 @@
 using System.Text.Json;
+using static TrafficSimulation.Tools.OsmScan.Meta.OsmDegrees;
 
 namespace TrafficSimulation.Tools.OsmScan.Meta;
 
@@ -115,9 +116,6 @@ internal sealed class Element
 
         return [.. places];
     }
-
-    /// <summary>Overpass prints OSM's stored integer as seven decimals, so the decimal read back is exact.</summary>
-    public static int Units(JsonElement degrees) => (int)Math.Round(degrees.GetDecimal() * 10_000_000m);
 }
 
 internal sealed class Member

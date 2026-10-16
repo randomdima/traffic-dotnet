@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.IO.Compression;
 using System.Text;
+using static TrafficSimulation.Tools.OsmScan.Meta.OsmDegrees;
 
 namespace TrafficSimulation.Tools.OsmScan.Meta;
 
@@ -201,8 +202,6 @@ internal static class Gtfs
         7 or 1400 => "funicular",
         _ => type!,
     } : type ?? "";
-
-    static int Units(string degrees) => (int)Math.Round(decimal.Parse(degrees, CultureInfo.InvariantCulture) * 10_000_000m);
 
     /// <summary>A GTFS time — which runs past 24:00 for a trip after midnight — in seconds.</summary>
     static int Seconds(string time)

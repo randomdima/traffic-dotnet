@@ -1,4 +1,5 @@
 using System.Globalization;
+using static TrafficSimulation.Tools.OsmScan.Meta.Ranked;
 
 namespace TrafficSimulation.Tools.OsmScan.Meta;
 
@@ -35,9 +36,9 @@ internal static class Buildings
     const double CellM = 100;
 
     /// <summary>How far round a footprint the shift it is moved by is read, and the fewest pairs it is read off.</summary>
-    const double ShiftReachM = 500;
+    internal const double ShiftReachM = 500;
 
-    const int ShiftPairs = 10;
+    internal const int ShiftPairs = 10;
 
     /// <summary>The share of a footprint OSM lacks that may stand on an OSM building or a street before it is taken for part of one.</summary>
     public const double OverlapShare = 1.0 / 3;
@@ -381,12 +382,6 @@ internal static class Buildings
         }
 
         return road => streets[road];
-    }
-
-    static double Median(IEnumerable<double> values)
-    {
-        var all = values.ToArray();
-        return all.Length == 0 ? 0 : Ranked.At(all, all.Length / 2);
     }
 
     public static double? Number(string? value) =>

@@ -405,8 +405,7 @@ a layout or changes behaviour.
   `IsTheNearestFree{Ambulance,Patrol,Evacuator}To`, the nose-in test and the yard-slot test.
 - **One union-find root, three copies** (`FootJunctions`, `CrossingWays`, `LanePlaces`) — only the root: each join
   keeps a different representative (the first, the lower, the other), which the order of what they lay rests on, and
-  no folder of `core/` is a home for four lines; **three `Median`s and two
-  `Units(string)`** in osmscan (`Corrections`, `Gtfs`); **three `Spread`/`Percentile`/`Median`** in the bench
+  no folder of `core/` is a home for four lines; **three `Spread`/`Percentile`/`Median`** in the bench
   (`TownShape`, `ConnectorShape`, `ZoneFidelity`), which print differently, so one copy moves probe output.
 - **Kept for nothing a run reaches**: `ArcSubtract` (295 lines) and its tests, kept "as tooling" by the render log of
   2026-09-16 though no tool calls it _owner_; `CityPlan.ZebraAtEveryStation` is false only in `CrossingsTests`, so no

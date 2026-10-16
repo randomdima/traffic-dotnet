@@ -340,7 +340,7 @@ internal static class Roads
 
         return (Median(widths), Median(lefts), Median(rights), lefts.Count + rights.Count > 0);
 
-        static double? Median(List<double> values) => values.Count == 0 ? null : values.Order().ElementAt(values.Count / 2);
+        static double? Median(List<double> values) => values.Count == 0 ? null : Ranked.Median(values);
 
         static double? Nearer(double? a, double? b) => a is null || b < a ? b : a;
     }

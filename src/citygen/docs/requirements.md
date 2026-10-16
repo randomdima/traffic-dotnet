@@ -631,7 +631,7 @@ node to it (`CityPlan.RoadArrays.Bay`, `ConnectionPoints`). **Both and not one**
 would be one its line was never laid to. No street is parted for it and no junction is cut into one.
 
 - **A place offered along a street lands inside one arc of it, a standoff of that arc either side**
-  (`CutJunctions.SitesOn`), so what stands off it faces one tangent rather than a curve fitted through a joint.
+  (`RoadsideSites.SitesOn`), so what stands off it faces one tangent rather than a curve fitted through a joint.
   **How far that standoff reaches is the caller's**: a car park whose bays are spread along the street stands
   off the whole of them (GEN-53).
 
@@ -754,7 +754,7 @@ one-way road the scatter took (GEN-18) can be told from one nobody chose.
   drive against, so a car goes round it turning away from its own kerb.
 - **Nothing on the ring is lit** (TLT-3). A timetable over a ring node stops the circle to let an arm in,
   which is the one thing a roundabout is laid instead of.
-- **No car park stands on one** (`CutJunctions.SitesOn`, GEN-53). A ring is one junction's worth of ground,
+- **No car park stands on one** (`RoadsideSites.SitesOn`, GEN-53). A ring is one junction's worth of ground,
   and a bay off it would be one a car turns into off circulating traffic. A building fronts one on the terms
   it fronts any street, off the walk round it (GEN-54).
 - **Every piece of the ring is one arc of one circle, node to node**, so the ring is smooth: there is no

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using static TrafficSimulation.Tools.OsmScan.Meta.Ranked;
 
 namespace TrafficSimulation.Tools.OsmScan.Meta;
 
@@ -22,9 +23,9 @@ internal static class Agreement
     const double LineStepM = 20, LineOnM = 15, LineReachM = 60;
 
     /// <summary>How far round a footprint pair its neighbours' shift is read, and the fewest it is read off: <see cref="Buildings"/>'.</summary>
-    const double ShiftReachM = 500;
+    const double ShiftReachM = Buildings.ShiftReachM;
 
-    const int ShiftPairs = 10;
+    const int ShiftPairs = Buildings.ShiftPairs;
 
     public static List<Finding> Measure(Dataset data)
     {
@@ -659,14 +660,6 @@ internal static class Agreement
     static string[] Kept(Dataset data, Func<string, bool> which) => [.. data.Sources(which).SelectMany(source => source.KeptAt).Where(File.Exists)];
 
     static Pt Centroid(Pt[] ring) => Shape.Centroid(ring);
-
-    static double Median(IEnumerable<double> values) => Quantile(values, 0.5);
-
-    static double Quantile(IEnumerable<double> values, double q)
-    {
-        var all = values.ToArray();
-        return all.Length == 0 ? double.NaN : Ranked.At(all, Math.Min(all.Length - 1, (int)(q * all.Length)));
-    }
 
     static string Share(int part, int whole) => whole == 0 ? "—" : ((double)part / whole).ToString("P1", CultureInfo.InvariantCulture);
 }
