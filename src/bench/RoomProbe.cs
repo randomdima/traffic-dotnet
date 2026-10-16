@@ -113,7 +113,8 @@ internal static class RoomProbe
             askedAtRest.Add(atRest);
             askedFollowing.Add(following);
             askedAsBefore.Add(asBefore);
-            plannedAsBefore.Add(plannedSame);            driven.Add(cars);
+            plannedAsBefore.Add(plannedSame);
+            driven.Add(cars);
             drivenAtRest.Add(carsAtRest);
             walking.Add(people);
             walkingAtRest.Add(peopleAtRest);
@@ -136,7 +137,8 @@ internal static class RoomProbe
         Console.WriteLine(
             $"room probe — {map}: {world.Cars.Count} cars, {world.People.Count} people; {rebuilds} ticks of turns over {MeasuredTicks} ticks " +
             $"after {WarmupTicks}");
-        Console.WriteLine($"longest way {longestM:F1} m: {LaneOccupancy.DmOf(longestM):N0} of {ushort.MaxValue:N0} dm");        var msPer = 1000.0 / System.Diagnostics.Stopwatch.Frequency / Math.Max(1, rebuilds);
+        Console.WriteLine($"longest way {longestM:F1} m: {LaneOccupancy.DmOf(longestM):N0} of {ushort.MaxValue:N0} dm");
+        var msPer = 1000.0 / System.Diagnostics.Stopwatch.Frequency / Math.Max(1, rebuilds);
         var stages = Enum.GetValues<TownWorld.LayingStage>();
         var spentMs = stages.Select(stage => (world.LayingTicks[(int)stage] - layingFrom[(int)stage]) * msPer).ToArray();
         Console.WriteLine(
@@ -150,14 +152,16 @@ internal static class RoomProbe
         var walksPer = Enum.GetValues<WalkKept>().Select(of => (walks[(int)of] - walksFrom[(int)of]) / Math.Max(1, rebuilds)).ToArray();
         Console.WriteLine(
             $"walks a tick: {walksPer[(int)WalkKept.AsItIs]:N0} kept as they were, " +
-            $"{walksPer[(int)WalkKept.ToBeAskedFurther]:N0} asked further, {walksPer[(int)WalkKept.No]:N0} asked afresh");        Console.WriteLine($"{"a tick",-12}{"average",10}{"most",10}");
+            $"{walksPer[(int)WalkKept.ToBeAskedFurther]:N0} asked further, {walksPer[(int)WalkKept.No]:N0} asked afresh");
+        Console.WriteLine($"{"a tick",-12}{"average",10}{"most",10}");
         driven.Print("cars driven", rebuilds);
         drivenAtRest.Print("  at rest", rebuilds);
         carsAsked.Print("cars asked", rebuilds);
         askedAtRest.Print("  at rest", rebuilds);
         askedFollowing.Print("  following", rebuilds);
         askedAsBefore.Print("  as before", rebuilds);
-        plannedAsBefore.Print("  same plan", rebuilds);        walking.Print("walking", rebuilds);
+        plannedAsBefore.Print("  same plan", rebuilds);
+        walking.Print("walking", rebuilds);
         walkingAtRest.Print("  at rest", rebuilds);
         ways.Print("ways", rebuilds);
         holds.Print("holds", rebuilds);

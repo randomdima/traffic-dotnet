@@ -390,20 +390,16 @@ internal static class BoundaryProbe
 
     /// <summary>
     /// <b>How many joins of the answer still turn in on the town</b> — the notches a fold cut left that the
-    /// smoothing did not take out, each a place the line turns through a corner rather than a radius.
+    /// smoothing did not take out, each a place the line turns through a corner rather than a radius — with
+    /// <b>the sharpest of them and where it stands</b>, since how many notches are left says nothing about
+    /// whether a frame shows one: a degree of kink at the grain of the ring and a right angle in the middle of
+    /// a pavement are both one notch.
     /// </summary>
     /// <remarks>
     /// <b>It is the half of the work the distance cannot do</b>: a corner turning the other way is the offset
     /// of a corner of the town and is an arc of the distance moved already, until the radius asked for passes
     /// that distance. At no rounding it counts every notch the offset has; the figure is how many are left.
     /// </remarks>
-    static int Notched(ArcSeg[][] rings) => Notched(rings, out _, out _);
-
-    /// <summary>
-    /// The same count with <b>the sharpest of them and where it stands</b>, since how many notches are left
-    /// says nothing about whether a frame shows one: a degree of kink at the grain of the ring and a right
-    /// angle in the middle of a pavement are both one notch.
-    /// </summary>
     static int Notched(ArcSeg[][] rings, out float worstDeg, out Vector2 worstAtM) =>
         Cornered(rings, inward: true, out worstDeg, out worstAtM);
 

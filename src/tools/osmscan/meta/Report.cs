@@ -40,7 +40,7 @@ internal static class Report
             survey = $"towns/traced/{town.Extract.Name}.json",
             surveyOsmBase = town.Extract.Source.OsmBase,
             osmAsOf = town.Sources.Moment,
-            written =DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture),
+            written = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture),
             places = "every lat, lon is in OSM's integer units of 1e-7 degrees; read into the map's metres by the survey's own frame",
             frame = town.Extract.Frame,
             rectangleDeg = new { south = town.Sources.SouthDeg, west = town.Sources.WestDeg, north = town.Sources.NorthDeg, east = town.Sources.EastDeg },

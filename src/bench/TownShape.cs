@@ -104,17 +104,6 @@ internal static class TownShape
     }
 
     /// <summary>
-    /// <b>Every junction only two roads meet at, where it stands and what kept it</b> (GEN-51). A joint is a
-    /// place the town's own arithmetic stopped a line, so what matters is not how many are left but which of
-    /// the rule's two structures each one answers to — a bridgehead, a ring node, or a run that comes back
-    /// where it set off.
-    /// </summary>
-    /// <remarks>
-    /// <b>Anything else is a refusal and is named as one</b>: the joined road the layout could not lay, cut
-    /// back at the place it was refused over. The plan carries no record that a join was offered, so what
-    /// this says is that neither structure kept it and never why.
-    /// </remarks>
-    /// <summary>
     /// <b>Every car park the town laid off a kerb</b> (GEN-53): where the middle of its rank stands, how many bays
     /// stand each side of its street — which is what a reader needs to frame a picture of one (<c>--at</c>,
     /// SHT-1) — which street that is and which way it runs, and how far the bays' mouths run back over it.
@@ -191,6 +180,17 @@ internal static class TownShape
         return found;
     }
 
+    /// <summary>
+    /// <b>Every junction only two roads meet at, where it stands and what kept it</b> (GEN-51). A joint is a
+    /// place the town's own arithmetic stopped a line, so what matters is not how many are left but which of
+    /// the rule's two structures each one answers to — a bridgehead, a ring node, or a run that comes back
+    /// where it set off.
+    /// </summary>
+    /// <remarks>
+    /// <b>Anything else is a refusal and is named as one</b>: the joined road the layout could not lay, cut
+    /// back at the place it was refused over. The plan carries no record that a join was offered, so what
+    /// this says is that neither structure kept it and never why.
+    /// </remarks>
     public static void Joints(string map, SimConfig config)
     {
         var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
