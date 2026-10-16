@@ -4,6 +4,26 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-10-16 — the desktop head is not published ReadyToRun until a build of it is handed out
+
+**The owner (2026-10-16), shown the figures below: "go"** — on recording them and leaving the project file as it is.
+
+- **ReadyToRun was measured against the plain JIT** (`dotnet publish -r linux-x64`, one with `PublishReadyToRun`,
+  Odesa, 8 cores, alternated): the open (`--bench load`) 1 147–1 151 ms against 1 059–1 062, five runs each, −8 %;
+  `--bench age` 4–6 % cheaper in its windows 0.8–2.5 s into the process; the steady tick (`--bench town`, a 60 s window)
+  71.8, 70.9 and 72.9 µs against 69.9, 70.0 and 70.1, −2.6 %, at 1.6 B a tick both; every `--bench age` digest equal.
+  The image doubles, 5.1 → 9.9 MB.
+- **One stage of the open got dearer**: fleets, the tables, the roster and the spawn, 795 → 921 ms. Code laid ahead of
+  time and run once is never tiered up, so a long loop called once keeps the precompiled code and Dynamic PGO never
+  sees it; the rest of the open gained more than that.
+- **It is not taken because it would reach nothing that runs**: crossgen acts only on a publish, and nothing publishes
+  this head — every run, tier, probe and profile is the build's own output. The day a desktop build is handed out, it
+  is `PublishReadyToRun` and a runtime identifier for that publish. A `.mibc` profile on top wants `dotnet-pgo`, which
+  the SDK does not carry.
+- **The browser head has no counterpart**: Mono compiles it whole ahead of time and nothing tiers it, and the SDK's AOT
+  profile (`WasmAotProfilePath`), as Mono's profile-driven AOT is documented, chooses which methods are compiled
+  rather than how, leaving the rest to the interpreter — what .NET 11's targets do with it was not tried.
+
 ## 2026-10-16 — a town follows the runtime's arithmetic, and ImageSharp stays at 3.1.12
 
 **The owner (2026-10-16), asked both: "Follow the runtime" and "Leave as is".**

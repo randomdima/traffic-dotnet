@@ -46,6 +46,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 ## Regressions and figures not taken
 
+- **Most of Odesa's open is one stage nothing has broken down** (`--bench load`, 2026-10-16): fleets, the tables they
+  are numbered in, the roster and the spawn take ~795 ms of the 1 150 ms open — "fleets and places" in its timeline —
+  for a town of 12 agents at that stage and 2 494 static bodies. A profile of that stage (`qq prof --load`) closes it.
+
 - **A town of 40 000 moving cars ticks at or past real time on one thread** (device world, 16 cores, RX 9070 XT,
   2026-10-14): OdesaOsm 18.9 ms a tick in its first minute, not taken since; O30 at 40 000 cars with every owner set off at the wheel
   (`Person.StartsAtTheWheelShare` 1, a root under `.tmp/`) now keeps up: the main thread is busy 13.9 ms a frame
