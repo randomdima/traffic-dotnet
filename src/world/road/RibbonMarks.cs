@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.InteropServices;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 
@@ -70,7 +71,7 @@ internal static partial class RibbonMarks
         OpenWatch.Passed($"town: the marks' {pieces.Length} pieces and their cells");
         near.EachPair(
             () => new Pairing(),
-            (pairing, one, other) =>
+            (Pairing pairing, in RibbonPiece one, in RibbonPiece other) =>
             {
                 if (channels.Length == 0 || (channels[one.Way] & channels[other.Way]) != 0) Weigh(pairing, one, other, stepM, touchM);
             },
@@ -326,20 +327,26 @@ internal static partial class RibbonMarks
         /// Every two pieces of two ways whose boxes meet, once each — in the cell the corner of the two boxes'
         /// overlap falls in — on as many threads as there are.
         /// </summary>
-        public void EachPair<TWorking>(
-            Func<TWorking> working, Action<TWorking, RibbonPiece, RibbonPiece> pass, Action<TWorking> spent)
+        /// <remarks>
+        /// <b>The pieces are read where they lie and handed on by reference</b>: one is fourteen doubles, and nearly every
+        /// pair a cell holds is turned away at its box.
+        /// </remarks>
+        public void EachPair<TWorking>(Func<TWorking> working, PairPass<TWorking> pass, Action<TWorking> spent)
         {
+            var pieces = _pieces;
+            var inCell = _inCell;
             InChunks.Over(
                 _window.Count,
                 working,
                 (own, cell) =>
                 {
-                    for (var at = _cellFirst[cell]; at < _cellFirst[cell + 1]; at++)
+                    var end = _cellFirst[cell + 1];
+                    for (var at = _cellFirst[cell]; at < end; at++)
                     {
-                        var one = _pieces[_inCell[at]];
-                        for (var next = at + 1; next < _cellFirst[cell + 1]; next++)
+                        ref readonly var one = ref pieces[inCell[at]];
+                        for (var next = at + 1; next < end; next++)
                         {
-                            var other = _pieces[_inCell[next]];
+                            ref readonly var other = ref pieces[inCell[next]];
                             if (one.Way == other.Way || !one.BoxMeets(other)) continue;
                             if (_window.IndexAt(Vector2.Max(one.LeastM, other.LeastM)) != cell) continue;
 
@@ -389,6 +396,9 @@ internal static partial class RibbonMarks
             return range;
         }
     }
+
+    /// <summary>One pair of pieces whose boxes meet, handed to the thread's working set it is weighed into.</summary>
+    delegate void PairPass<in TWorking>(TWorking working, in RibbonPiece one, in RibbonPiece other);
 
     /// <summary>What one pair of ribbons was found to share, in each one's own metres.</summary>
     struct Shared
@@ -530,10 +540,8 @@ internal static partial class RibbonMarks
                 continue;
             }
 
-            var key = ((long)zebra << 32) | (uint)driven;
-            under[key] = under.TryGetValue(key, out var was)
-                ? (MathF.Min(was.FromM, fromM), MathF.Max(was.ToM, toM))
-                : (fromM, toM);
+            ref var stretch = ref CollectionsMarshal.GetValueRefOrAddDefault(under, ((long)zebra << 32) | (uint)driven, out var was);
+            stretch = was ? (MathF.Min(stretch.FromM, fromM), MathF.Max(stretch.ToM, toM)) : (fromM, toM);
         }
 
         foreach (var (key, stretch) in under)
@@ -580,10 +588,10 @@ internal static partial class RibbonMarks
             (oneToM, otherToM) = (otherToM, oneToM);
         }
 
-        var key = KeyOf(oneWay, otherWay);
-        if (!pairing.At.TryGetValue(key, out var at))
+        ref var at = ref CollectionsMarshal.GetValueRefOrAddDefault(pairing.At, KeyOf(oneWay, otherWay), out var known);
+        if (!known)
         {
-            pairing.At[key] = pairing.Pairs.Count;
+            at = pairing.Pairs.Count;
             pairing.Pairs.Add(new Shared
             {
                 One = oneWay, Other = otherWay, OneFromM = oneFromM, OneToM = oneToM, OtherFromM = otherFromM,
@@ -592,11 +600,10 @@ internal static partial class RibbonMarks
             return;
         }
 
-        var shared = pairing.Pairs[at];
+        ref var shared = ref CollectionsMarshal.AsSpan(pairing.Pairs)[at];
         shared.OneFromM = MathF.Min(shared.OneFromM, oneFromM);
         shared.OneToM = MathF.Max(shared.OneToM, oneToM);
         shared.OtherFromM = MathF.Min(shared.OtherFromM, otherFromM);
         shared.OtherToM = MathF.Max(shared.OtherToM, otherToM);
-        pairing.Pairs[at] = shared;
     }
 }
