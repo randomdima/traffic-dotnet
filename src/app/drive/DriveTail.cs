@@ -27,28 +27,43 @@ internal sealed class DriveTail(string path)
     int _lines;
 
     /// <summary>Whatever has been appended since the last look, as steps. Empty while nothing has.</summary>
+    /// <remarks>
+    /// <b>Asked every tick, so a look that finds nothing new reads the file's length and nothing else</b>, and one that
+    /// does reads only what was appended.
+    /// </remarks>
     public DriveStep[] More()
     {
         if (!File.Exists(path)) return [];
 
-        var whole = File.ReadAllBytes(path);
-        if (whole.LongLength == _taken) return [];
+        using var file = File.OpenHandle(path);
+        var length = RandomAccess.GetLength(file);
+        if (length == _taken) return [];
 
-        if (whole.LongLength < _taken)
+        if (length < _taken)
         {
             throw new ArgumentException(
                 $"{path} got shorter while it was being driven, so it is not the script this run started on. " +
                 "A live drive is appended to.");
         }
 
-        // Up to the last newline, and never past it: the rest is a line still being written.
-        var end = Array.LastIndexOf(whole, (byte)'\n') + 1;
-        if (end <= _taken) return [];
+        var grown = new byte[length - _taken];
+        var read = 0;
+        while (read < grown.Length)
+        {
+            var got = RandomAccess.Read(file, grown.AsSpan(read), _taken + read);
+            if (got == 0) break;
 
-        var text = Encoding.UTF8.GetString(whole, (int)_taken, (int)(end - _taken));
+            read += got;
+        }
+
+        // Up to the last newline, and never past it: the rest is a line still being written.
+        var end = grown.AsSpan(0, read).LastIndexOf((byte)'\n') + 1;
+        if (end == 0) return [];
+
+        var text = Encoding.UTF8.GetString(grown, 0, end);
         var steps = DriveScript.Steps(text, _lines);
-        _taken = end;
-        _lines += text.Count(letter => letter == '\n');
+        _taken += end;
+        _lines += text.AsSpan().Count('\n');
         return steps;
     }
 }
