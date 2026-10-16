@@ -329,6 +329,23 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
   nothing more — and has a unit test; the second rests on `Following.LevelTheRungs` alone, and a town gate on it, read
   off the pieces each hold asked, closes it.
 
+### The device world's step
+
+Measured by the kernel review of 2026-10-16 on the RX 9070 XT (O30, a device step 0.75 ms after it); each untaken.
+
+- **`world_covers.comp` is the dearest kernel, 178 µs**: each wheel is a chain of dependent atlas reads passing over
+  other columns' entries. An atlas laid a run a lattice point closes it, with the host's `RibbonAtlas` alike.
+- **The covers cross to the host every tick**: 77 µs of the device's and ~1.4 MB copied on the host. A covers list a
+  view slot, as the views already are, closes it.
+- **The signal rows cross every step, ~55 µs**; reading them in place cost the same. Sending fewer — a `Drive` the same
+  as the last one sent left out — closes it.
+- **`tyre_pass.comp` holds 168 registers a thread, 67 µs**, so eight waves a SIMD; carrying less state raises that.
+- **`world_view.comp`'s `lineLead` walks the line again from where `lineRead` began** (~10 µs); resuming it closes it.
+- **The scans are eight dispatches of ~3.5 µs**, mostly barrier latency; a subgroup scan closes it where the page's
+  WGSL has subgroups.
+- **A window's sprites are counted, scanned and written every frame over every unit**, which is what bounds O30's
+  frame rate on the device world now that the step is not.
+
 ### The debug layers, while the camera moves
 
 Measured by the review of 2026-10-16 with every layer on (`Test`, `Laid`): nothing allocates, and a still frame is

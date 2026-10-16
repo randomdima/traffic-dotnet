@@ -44,6 +44,13 @@ atlas and marks digests are unchanged — and what was not is [tech-debt.md](tec
   counts itself (`TownWorld.KeptCull`).
 - **The performance analyzers are warnings** (`AnalysisModePerformance`), so an allocation they know the shape of —
   a constant array argument, an uncached serializer option — fails nothing but is in every build's output.
+- **The device's step writes nothing scattered into host-visible memory** (2026-10-16): the covers are gathered in
+  device-local lists and copied out in whole lines, the cars' view is written a workgroup's rows at a time, and the
+  step's copy and clear are kernels of the run's own rather than the driver's 4 kB copy path. O30's device step 0.90 →
+  0.75 ms, the host's recording of it 0.19 → 0.06 ms a tick.
+- **The aside thread blocks on a gate of its own** that each side has blocked on once before the first run: a
+  `ManualResetEventSlim`'s first blocking wait allocated, on whichever tick the machine was slow. The suite runs the
+  collector the game ships with, under which an allocation window counts only what was allocated.
 - **A body's two corners stay in two arrays.** One array of both, a cache line a candidate, measured 3% slower in the
   solver over three interleaved pairs: the broad phase's first test reads the far corner's x alone.
 
