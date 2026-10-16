@@ -196,7 +196,7 @@ internal sealed class Overtaking(DrivingGround ground, CarActions actions)
         bool blocked = false)
         where TTown : struct, ICarTown
     {
-        var fromRest = _shapes[Holder(car, FromRest)];
+        ref readonly var fromRest = ref _shapes[Holder(car, FromRest)];
         var waits = !Cars.Pass[car].Begun;
         var toTheStepM = fromRest.OutM - progressM;
         town.DriveOnTheLine(

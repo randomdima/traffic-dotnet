@@ -250,7 +250,7 @@ internal sealed class CarCatalog
     /// <summary>The lenses the variant at this index draws (CAR-14a), on the same wrap.</summary>
     public ReadOnlySpan<CarLens> LensesOf(int variant) => At(variant).Lenses;
 
-    CarVariant At(int variant) => Variants[Wrapped(variant)];
+    ref readonly CarVariant At(int variant) => ref Variants[Wrapped(variant)];
 
     int Wrapped(int variant) => (variant % SheetCount) + (variant < 0 ? SheetCount : 0);
 

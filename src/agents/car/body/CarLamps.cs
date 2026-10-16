@@ -158,7 +158,7 @@ internal static class CarLamps
 
         // CAR-14.7: a pass is the whole of what the indicator says until the car is back in its lane, dark
         // alongside what it passes included — a junction past it is announced once it is over.
-        var pass = cars.Pass[car];
+        ref readonly var pass = ref cars.Pass[car];
         if (pass.Begun && cars.ProgressM[car] < pass.EndsM)
         {
             return set | OnThePass(pass, cars.ProgressM[car], cars.AlongMps[car], config.Lamps.StepBackLeadS);
