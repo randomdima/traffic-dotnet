@@ -346,6 +346,41 @@ Measured by the kernel review of 2026-10-16 on the RX 9070 XT (O30, a device ste
 - **A window's sprites are counted, scanned and written every frame over every unit**, which is what bounds O30's
   frame rate on the device world now that the step is not.
 
+### Found by the per-file sweep and left (2026-10-16)
+
+Every file of `src/` was read against .NET 11 practice and performance (`.tmp/coverage/*.md` names each); what was
+applied is in the log, and each of these was judged not worth its cost, or not provably bit-identical, and left.
+
+- **The tick**:
+  - `CarBuilds.Of` takes an integer modulo on every `BuildOf`, many times a car a tick; unmeasured, and an A/B on
+    `--bench age`'s cars column decides it;
+  - `PhysicsWorld.FindContacts` inlines `Gather` three times into 7 KB of code that spills its loop locals; keeping
+    `Gather` out of line is to be measured on a quiet machine;
+  - `SignalHolds.Lay` asks `PhaseOf` twice a stretch, and again for every stretch of one junction; a junction's phase
+    kept a turn closes it;
+  - `Switching.WaitAtM` works `TheLineStopsToMoveAcross` out again every tick for a switching car — kept off the cached
+    road shape only because that cache's key misses a lane's shift; `Overtaking`/`Switching` copy the 40-byte
+    `Overtake` where reading it in place would alias the row they write back.
+- **A frame**: `PersonSprites`/`TownSprites` read the fleet's arrays again a sprite (the managed world, the page, a
+  shot); `Camera2D.Facing` takes cos and sin every conversion; the web and handset windows work `UiScale` out every
+  pointer read where the desktop keeps it a pump; the page's `CameraBytes = 80` is written out rather than taken off
+  `CameraView`'s size.
+- **Setup and the open**: `Vk.TryMemoryTypeIndex` asks the device's memory properties every allocation;
+  `GlyphStamp.Blend` goes through the image's indexer a pixel; `KerbLines.Of` copies its pieces three times and keeps
+  two; `ShellFill.Ears` allocates a `Node` a corner; `Spline.RoundedInto` a `float[]` a road; `TownLayout.StandsClear`
+  a delegate a call; `ArcRings.Of`'s stringing is one thread; `TownWorld.Places.LayTheExits` stays serial until
+  `StaticBodies.InBox` is laid before it rather than on its first ask; `ZoneTree.Holds` files nothing by row as
+  `EdgeRows` now does; `Roundabouts`/`TownLayout.ArmsAt` scan every edge a node (~40 ms on O30).
+- **Serial because order is the answer**: `FootGraph.Builder`'s welding numbers nodes in order (~0.4 s on O30),
+  `PropStage.OverWhatIsLeft`'s draws read the ground before them (~0.9 s), `CarParks.Lay` places each against the last.
+- **Faster only with a digest moved**: `KerbLines.Stepped` and `RoadLines` sample a ring from its start
+  (`Spline.SampleAt`), and jumping to the piece rounds otherwise (a large part of `CrossingWays`' ~0.5 s on O30);
+  `BayManoeuvre`'s `Sin` and `Cos` of one angle are not proven the bits of one `SinCos`.
+- **osm-scan**: `MlRoads.Lay` is one thread (~0.7 s; each thread wants its own lookup sets), and `Gtfs.Table` makes a
+  dictionary a row of the timetable (~1.4 s with transit).
+- **The probes**: `SpriteProbe.Us` calls its part through a `Func<int>`, 1–2 ns against parts of ~0.1 µs; a struct
+  functor closes it.
+
 ### The debug layers, while the camera moves
 
 Measured by the review of 2026-10-16 with every layer on (`Test`, `Laid`): nothing allocates, and a still frame is
