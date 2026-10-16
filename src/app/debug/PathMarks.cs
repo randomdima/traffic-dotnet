@@ -124,23 +124,27 @@ internal static class PathMarks
 
         var previousM = Spline.SampleAt(arcs, fromM).PositionM;
         var pieceStartM = 0f;
-        foreach (var arc in arcs)
+        foreach (ref readonly var arc in arcs)
         {
             var lastM = MathF.Min(toM, pieceStartM + arc.LengthM);
-
-            // Never shorter than the line is wide: a chord that fine says nothing a quad can show, and a
-            // curvature out of a degenerate arc would otherwise ask for chords of no length at all.
-            var stepM = MathF.Max(PathLineM, Spline.ChordForSagM(arc.Curvature, sagM));
-            for (var atM = MathF.Max(fromM, pieceStartM); atM < lastM;)
+            var atM = MathF.Max(fromM, pieceStartM);
+            if (atM < lastM)
             {
-                var onwardM = MathF.Min(lastM, atM + stepM);
-                var onM = arc.PointAtM(onwardM - pieceStartM);
-                draw.BandM(previousM, onM, arc.Curvature * (onwardM - atM), widthM, colour);
-                previousM = onM;
-                atM = onwardM;
+                // Never shorter than the line is wide: a chord that fine says nothing a quad can show, and a
+                // curvature out of a degenerate arc would otherwise ask for chords of no length at all.
+                var stepM = MathF.Max(PathLineM, Spline.ChordForSagM(arc.Curvature, sagM));
+                while (atM < lastM)
+                {
+                    var onwardM = MathF.Min(lastM, atM + stepM);
+                    var onM = arc.PointAtM(onwardM - pieceStartM);
+                    draw.BandM(previousM, onM, arc.Curvature * (onwardM - atM), widthM, colour);
+                    previousM = onM;
+                    atM = onwardM;
+                }
             }
 
             pieceStartM = pieceStartM + arc.LengthM;
+            if (pieceStartM >= toM) return;
         }
     }
 

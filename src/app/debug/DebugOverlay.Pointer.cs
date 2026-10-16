@@ -907,12 +907,21 @@ internal sealed partial class DebugOverlay
     /// pointer would be a stretch of a line nobody can see.
     /// </para>
     /// </remarks>
-    static Picked BoundaryAt(Paving paving, SimConfig config, Vector2 pointM, float pixelsPerMetre)
+    Picked BoundaryAt(Paving paving, SimConfig config, Vector2 pointM, float pixelsPerMetre)
     {
         var shell = paving.Perimeter(config);
         var rings = paving.Rings(config);
-        var found = new Picked { OffM = ReachPx / MathF.Max(pixelsPerMetre, 0.001f) };
+        var reachM = ReachPx / MathF.Max(pixelsPerMetre, 0.001f);
+        foreach (ref readonly var asked in _boundaryAsks.AsSpan())
+        {
+            if (ReferenceEquals(asked.Shell, shell) && ReferenceEquals(asked.Rings, rings) && asked.AtM == pointM
+                && asked.ReachM == reachM)
+            {
+                return asked.Found;
+            }
+        }
 
+        var found = new Picked { OffM = reachM };
         Nearest(rings.Carriageway.Rings, rings.Carriageway.Named, Ring, pointM, ref found);
         Nearest(shell.Loose, rings.Carriageway.Named, OpenRun, pointM, ref found);
         foreach (var layer in rings.Layers)
@@ -921,8 +930,20 @@ internal sealed partial class DebugOverlay
             Nearest(layer.Loose, layer.Named, OpenRun, pointM, ref found);
         }
 
+        _boundaryAsks[_nextBoundaryAsk] = new BoundaryAsk(shell, rings, pointM, reachM, found);
+        _nextBoundaryAsk ^= 1;
         return found;
     }
+
+    /// <summary>
+    /// The last two boundary searches and what each found: a frame asks one place for the pointer's find, its mark and
+    /// its card, and another for the pin's, and each search is every stretch of a city's boundary.
+    /// </summary>
+    readonly BoundaryAsk[] _boundaryAsks = new BoundaryAsk[2];
+
+    int _nextBoundaryAsk;
+
+    readonly record struct BoundaryAsk(BandShell? Shell, GroundRings? Rings, Vector2 AtM, float ReachM, Picked Found);
 
     /// <summary>
     /// <b>A stretch and not the whole chain</b>, drawn at the picked weight with a disc at each of its ends. A
@@ -930,7 +951,7 @@ internal sealed partial class DebugOverlay
     /// wants is which piece they are on and where that piece stops — which is the whole of the question at an
     /// open run's two ends, and at every corner an outset put in.
     /// </summary>
-    static void FocusBoundary(ref ScreenDraw draw, in Focus focus, Vector2 atM)
+    void FocusBoundary(ref ScreenDraw draw, in Focus focus, Vector2 atM)
     {
         var found = BoundaryAt(focus.Paving, focus.Config, atM, focus.PixelsPerMetre);
         if (found.Chain is null) return;
@@ -941,7 +962,7 @@ internal sealed partial class DebugOverlay
         draw.DiscM(stretch.EndM, PathMarks.JoinDiscM * 2f, Theme.DebugPicked);
     }
 
-    static void DescribeBoundary(ref InfoCard card, in Focus focus, Vector2 atM)
+    void DescribeBoundary(ref InfoCard card, in Focus focus, Vector2 atM)
     {
         var found = BoundaryAt(focus.Paving, focus.Config, atM, focus.PixelsPerMetre);
         if (found.Chain is null) return;
