@@ -1,0 +1,15 @@
+<Project>
+  <!-- **The version's last figure is the commits to this tree** (Directory.Build.props), read before the SDK
+       derives the assembly's versions from it. A checkout that holds one commit counts one: CI fetches the
+       whole history for it (.github/workflows/pages.yml). -->
+  <Target Name="CountTheCommits" BeforeTargets="GetAssemblyVersion">
+    <Exec Command="git rev-list --count HEAD" ConsoleToMSBuild="true" IgnoreExitCode="true"
+          StandardOutputImportance="low" StandardErrorImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="CommitCount" />
+      <Output TaskParameter="ExitCode" PropertyName="CommitCountExit" />
+    </Exec>
+    <PropertyGroup Condition="'$(CommitCountExit)' == '0'">
+      <Version>$(GameRelease).$(CommitCount)</Version>
+    </PropertyGroup>
+  </Target>
+</Project>

@@ -28,6 +28,9 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The whole history: the version's last figure is the count of commits (Directory.Build.targets).
+          fetch-depth: 0
 
       - uses: actions/setup-dotnet@v6
         with:

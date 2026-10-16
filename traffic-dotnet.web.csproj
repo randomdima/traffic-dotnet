@@ -167,7 +167,7 @@
        the target framework, the game's version (Directory.Build.props) and the commit, as a module the
        opening imports (loading.js), so neither can fall behind the build. No semicolon may stand in a line:
        WriteLinesToFile splits on them. -->
-  <Target Name="StampTheBuild">
+  <Target Name="StampTheBuild" DependsOnTargets="CountTheCommits">
     <Exec Command="git rev-parse --short HEAD" ConsoleToMSBuild="true" IgnoreExitCode="true"
           StandardErrorImportance="low" StandardOutputImportance="low">
       <Output TaskParameter="ConsoleOutput" PropertyName="BuildCommit" />

@@ -6,8 +6,10 @@ Why this slice reads as it does. The rules themselves are [requirements.md](requ
 
 **The owner asked for the title to stop naming the wrong .NET**: the opening's prose said .NET 10 a release after the
 move to 11. The runtime, the game's version and the commit are now a module the build writes (`build.js`, the web
-project's `StampTheBuild`) and the opening fills in; the version is authored once for every head, in the root
-`Directory.Build.props`, at 0.1.0.
+project's `StampTheBuild`) and the opening fills in. The version is one for every head: the release authored in the
+root `Directory.Build.props` (0.1) and, at the owner's asking that it climb by itself, the count of commits to the
+tree as its last figure (`Directory.Build.targets`) — the same on every head built from one commit, which a CI run
+number would not be, at the price of the Pages job fetching the whole history.
 
 ## 2026-10-15 — a traced city on the page
 

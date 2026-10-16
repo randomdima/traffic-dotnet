@@ -1,8 +1,10 @@
 <Project>
   <!-- **The game's version, once**, for every head that ships it — the desktop, the page and the phone —
-       and stamped on each assembly. Raised by hand at a release; what build it is between releases is the
-       commit, which the page prints beside it (traffic-dotnet.web.csproj, `WriteTheBuildStamp`). -->
+       and stamped on each assembly. The release is raised by hand; the last figure is the count of commits
+       to the tree it was built from (Directory.Build.targets, `CountTheCommits`), so it climbs on every push.
+       A tree with no git history builds as the release's zeroth. -->
   <PropertyGroup>
-    <Version>0.1.0</Version>
+    <GameRelease>0.1</GameRelease>
+    <Version>$(GameRelease).0</Version>
   </PropertyGroup>
 </Project>
