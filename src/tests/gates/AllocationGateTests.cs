@@ -236,7 +236,10 @@ public class AllocationGateTests
     {
         var config = SimConfig.Shipped();
         using var world = new TownWorld(Towns.LayFresh(Towns.Brief(Towns.CitySeed, cars: CrowdedCars)), config);
-        new SimLoop<TownWorld>(world, config).Advance(21_600);
+        var loop = new SimLoop<TownWorld>(world, config);
+
+        // Stopped at the first touch: the count only ever grows, so the ticks after it cannot change the answer.
+        for (var tick = 0; tick < 21_600 && world.Touches == 0; tick++) loop.Advance();
 
         Assert.True(world.Touches > 0);
     }
