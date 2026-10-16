@@ -814,6 +814,9 @@ internal sealed partial class Game : IDisposable
     /// </remarks>
     static partial void HandBackTheOpen();
 
+    /// <summary><c>--view</c>: the span in metres every town this run stands opens on, or nought for the configured one.</summary>
+    public float OpeningViewM { get; init; }
+
     /// <summary>
     /// <b>Where a run opens looking</b> (OBS-1b): the middle of the town or the nearest road to it. What it
     /// left the camera at is kept, so a resize can tell this framing from one the reader has since moved.
@@ -824,9 +827,6 @@ internal sealed partial class Game : IDisposable
     /// in the hole and the road is on screen all the way round; a town shoved aside to clear a panel that
     /// is no longer in a corner would be half off the window instead.
     /// </remarks>
-    /// <summary><c>--view</c>: the span in metres every town this run stands opens on, or nought for the configured one.</summary>
-    public float OpeningViewM { get; init; }
-
     void FrameTheTown(TownWorld world, Vector2 worldSizeM)
     {
         var viewM = _camera.ViewSpanM(_uiPx);

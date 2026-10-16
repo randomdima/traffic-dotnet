@@ -989,7 +989,6 @@ internal sealed class DeviceSolver : IDisposable
         }
     }
 
-    /// <summary>Rows no body holds yet, written as nothing: out of the world, and on no layer.</summary>
     /// <summary>
     /// A body's filter in the one word the kernels read it in (<c>kernels/filter.glsl</c>): its flags, then its category,
     /// its mask and its channels, a byte each.
