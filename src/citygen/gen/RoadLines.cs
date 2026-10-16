@@ -63,9 +63,9 @@ internal sealed class RoadLines(
 
     /// <summary>
     /// Which roads have a piece in each cell of the grid's main level (SIM-8), so that what a candidate has to
-    /// be asked about is the handful of roads near it (GEN-49).
+    /// be asked about is the handful of roads near it (GEN-49). Keyed by <see cref="GridLevel.KeyOf(int, int)"/>.
     /// </summary>
-    readonly Dictionary<(int X, int Y), List<int>> _inCell = [];
+    readonly Dictionary<long, List<int>> _inCell = [];
 
     readonly GridLevel _level = config.Grid.Main;
 
@@ -136,8 +136,8 @@ internal sealed class RoadLines(
         Cells(chain, _cells);
         foreach (var cell in _cells)
         {
-            if (!_inCell.TryGetValue(cell, out var here)) _inCell[cell] = here = [];
-
+            ref var here = ref CollectionsMarshal.GetValueRefOrAddDefault(_inCell, GridLevel.KeyOf(cell.X, cell.Y), out _);
+            here ??= [];
             if (here.Count == 0 || here[^1] != road) here.Add(road);
         }
     }
@@ -191,13 +191,15 @@ internal sealed class RoadLines(
         Cells(_laid[road], _cells);
         foreach (var cell in _cells)
         {
+            var key = GridLevel.KeyOf(cell.X, cell.Y);
             if (!add)
             {
-                if (_inCell.TryGetValue(cell, out var held)) held.Remove(road);
+                if (_inCell.TryGetValue(key, out var held)) held.Remove(road);
                 continue;
             }
 
-            if (!_inCell.TryGetValue(cell, out var here)) _inCell[cell] = here = [];
+            ref var here = ref CollectionsMarshal.GetValueRefOrAddDefault(_inCell, key, out _);
+            here ??= [];
             if (!here.Contains(road)) here.Add(road);
         }
     }
@@ -352,17 +354,22 @@ internal sealed class RoadLines(
     {
         var apartM = config.RoadFootprintM;
 
+        // A cell the square round the walk's last cell held was asked there, and the set it filled already holds its roads.
         _near.Clear();
         Cells(chain, _cells);
+        var last = (X: int.MinValue / 2, Y: int.MinValue / 2);
         foreach (var cell in _cells)
         {
             for (var atX = cell.X - _reach; atX <= cell.X + _reach; atX++)
             {
                 for (var atY = cell.Y - _reach; atY <= cell.Y + _reach; atY++)
                 {
-                    if (_inCell.TryGetValue((atX, atY), out var here)) _near.UnionWith(here);
+                    if (Math.Abs(atX - last.X) <= _reach && Math.Abs(atY - last.Y) <= _reach) continue;
+                    if (_inCell.TryGetValue(GridLevel.KeyOf(atX, atY), out var here)) _near.UnionWith(here);
                 }
             }
+
+            last = cell;
         }
 
         foreach (var other in _near)
