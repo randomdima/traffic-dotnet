@@ -17,10 +17,12 @@ under a microscope. **Which of them a menu opens on is a property of which menu 
 the gear opens on the places alone: a menu of cities should not read as a menu of cities and a laboratory,
 and a mis-click on the row under a city should not lose somebody's game. **The start menu opens on both**
 (`GEN-1b`): nothing is running behind it, and reading the whole catalogue is what somebody is at it for.
+**Either says which build it is**, beside its title — the game's version and the commit (`GameVersion`), read
+off the build and never written into the interface — and so does the card a map opens behind (OBS-2n).
 
 **OBS-2n** `P7` **A map picked says so until it is standing.** Opening one is a plan laid off its map, a
 ground laid and a fleet stood up — and in a page a fetch before any of that — so the click is answered by a card in the
-middle of the window naming the map, from the press until the town it names is running.
+middle of the window naming the map, and the build under it, from the press until the town it names is running.
 
 - **The frame that took the click draws the card and opens nothing.** What acts on the name is the loop's
   next turn, or in a page the boot's own wait.

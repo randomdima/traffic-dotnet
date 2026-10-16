@@ -29,6 +29,13 @@ internal sealed partial class Menu
             Box.AtPx + new Vector2(Theme.PaddingPx, Theme.PaddingPx + titlePx), Title, Theme.HeadingPx,
             Theme.Heading);
 
+        // Which build this is, beside the name and on the same band (GameVersion).
+        draw.Text(
+            Box.AtPx + new Vector2(
+                Theme.PaddingPx + NameWidthPx + Theme.GapPx,
+                Theme.PaddingPx + ((TitleHeightPx(AtTheStart) - Theme.TextPx) * 0.5f)),
+            GameVersion.Text, Theme.TextPx, Theme.Dim);
+
         Theme.Separator(
             ref draw, Box.AtPx + new Vector2(Theme.PaddingPx, RuleTopPx(AtTheStart)),
             Box.SizePx.X - Theme.PaddingPx * 2f);

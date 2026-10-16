@@ -152,6 +152,11 @@ internal sealed partial class Menu
     /// <summary>What the panel calls itself, which is the widest thing on a page of few short rows.</summary>
     const string Title = "traffic-dotnet";
 
+    static readonly float NameWidthPx = GlyphSheet.WidthPx(Title.Length, Theme.HeadingPx);
+
+    /// <summary>The title's band as far as its own words reach: the name, and the build beside it (<see cref="GameVersion"/>).</summary>
+    static readonly float TitleWidthPx = NameWidthPx + Theme.GapPx + GlyphSheet.WidthPx(GameVersion.Text.Length, Theme.TextPx);
+
     /// <summary>The mark ahead of an open group's name, which is also the room a shut one's takes.</summary>
     const string GroupMark = "- ";
 

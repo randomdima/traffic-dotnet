@@ -46,8 +46,9 @@ internal sealed class MapOpening
     public void Stood() => Map = null;
 
     /// <summary>
-    /// The card, centred in the window. <b>As wide as its own line until the window is narrower than
-    /// that</b>, which is the rule every panel here answers to (OBS-2k).
+    /// The card, centred in the window, with which build this is under the map's name (<see cref="GameVersion"/>). <b>As
+    /// wide as its own lines until the window is narrower than that</b>, which is the rule every panel here answers to
+    /// (OBS-2k).
     /// </summary>
     public void Draw(ref ScreenDraw draw, Vector2 uiPx)
     {
@@ -59,17 +60,22 @@ internal sealed class MapOpening
         written.Add(map);
         written.Add(Trailing);
 
+        var linesWidthPx = MathF.Max(
+            GlyphSheet.WidthPx(written.Length, Theme.HeadingPx), GlyphSheet.WidthPx(GameVersion.Text.Length, Theme.TextPx));
         var contentWidthPx = MathF.Min(
-            GlyphSheet.WidthPx(written.Length, Theme.HeadingPx),
-            MathF.Max(Theme.HeadingPx, uiPx.X - ((Theme.MarginPx + Theme.PaddingPx) * 2f)));
+            linesWidthPx, MathF.Max(Theme.HeadingPx, uiPx.X - ((Theme.MarginPx + Theme.PaddingPx) * 2f)));
         var sizePx = new Vector2(
-            contentWidthPx + (Theme.PaddingPx * 2f), Theme.HeadingPx + (Theme.PaddingPx * 2f));
+            contentWidthPx + (Theme.PaddingPx * 2f),
+            Theme.HeadingPx + Theme.GapPx + Theme.TextPx + (Theme.PaddingPx * 2f));
 
         Box = new Rect((uiPx - sizePx) * 0.5f, sizePx);
         Theme.Frame(ref draw, Box);
         draw.TextFitted(
             Box.AtPx + new Vector2(Theme.PaddingPx), written.Written, Theme.HeadingPx, Theme.Heading,
             contentWidthPx);
+        draw.TextFitted(
+            Box.AtPx + new Vector2(Theme.PaddingPx, Theme.PaddingPx + Theme.HeadingPx + Theme.GapPx), GameVersion.Text,
+            Theme.TextPx, Theme.Dim, contentWidthPx);
     }
 
     /// <summary>Every string it draws that is its own, for the suite that holds the interface to the glyph sheet's range.</summary>

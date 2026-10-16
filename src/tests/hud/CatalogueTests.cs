@@ -100,6 +100,7 @@ public class CatalogueTests
         foreach (var line in ControlsCard.Strings) Printable(line);
 
         foreach (var line in MapOpening.Strings) Printable(line);
+        Printable(GameVersion.Text);
     }
 
     /// <summary>

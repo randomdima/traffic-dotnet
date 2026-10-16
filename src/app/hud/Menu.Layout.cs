@@ -464,11 +464,11 @@ internal sealed partial class Menu
     {
         if (AtTheStart)
         {
-            var furniturePx = GlyphSheet.WidthPx(Title.Length, Theme.HeadingPx) + Theme.GapPx + ExitWidthPx;
+            var furniturePx = TitleWidthPx + Theme.GapPx + ExitWidthPx;
             return MathF.Max(furniturePx, MathF.Min(uiPx.X, uiPx.Y) * StartWidthShare);
         }
 
-        var wantedPx = LeastContentPx;
+        var wantedPx = MathF.Max(LeastContentPx, TitleWidthPx);
         foreach (var map in shipped)
         {
             wantedPx = MathF.Max(wantedPx, RowWidthPx(map.Name, map.Description, atTheStart: false));
