@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Numerics;
 using System.Reflection;
 using TrafficSimulation.App.Main;
 using TrafficSimulation.Core.Config;
@@ -44,6 +45,7 @@ try
     {
         TicksOnTheDevice = !options.ManagedWorld,
         OpeningViewM = options.ViewM,
+        OpeningAtM = options.AtM,
     };
 
     // A map, fetched and then stood up. The art is not in the file system until this has run, which is
@@ -152,7 +154,7 @@ static string Shader(string resource)
 }
 
 /// <summary>What the query string asked for. The words are the desktop's, and the ones a page cannot answer are not offered.</summary>
-file readonly record struct Options(string? Map, string[] Ui, float UiScale, bool ManagedWorld, float ViewM)
+file readonly record struct Options(string? Map, string[] Ui, float UiScale, bool ManagedWorld, float ViewM, Vector2? AtM)
 {
     public static Options Read(string[] args)
     {
@@ -160,6 +162,7 @@ file readonly record struct Options(string? Map, string[] Ui, float UiScale, boo
         var ui = Array.Empty<string>();
         var uiScale = 0f;
         var viewM = 0f;
+        Vector2? atM = null;
         var managedWorld = args.Contains("--managed-world");
         for (var at = 0; at < args.Length - 1; at++)
         {
@@ -177,9 +180,12 @@ file readonly record struct Options(string? Map, string[] Ui, float UiScale, boo
                 case "--view":
                     viewM = float.Parse(args[at + 1]);
                     break;
+                case "--at" when at + 2 < args.Length:
+                    atM = new Vector2(float.Parse(args[at + 1]), float.Parse(args[at + 2]));
+                    break;
             }
         }
 
-        return new Options(map, ui, uiScale, managedWorld, viewM);
+        return new Options(map, ui, uiScale, managedWorld, viewM, atM);
     }
 }

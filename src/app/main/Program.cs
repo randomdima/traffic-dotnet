@@ -93,6 +93,7 @@ internal static class Program
         {
             TicksOnTheDevice = !options.ManagedWorld,
             OpeningViewM = options.ViewM,
+            OpeningAtM = options.AtM,
         };
 
         // --ui reaches the windowed run as it reaches a shot: a measured run of a town nobody is

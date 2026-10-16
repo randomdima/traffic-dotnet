@@ -109,8 +109,9 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     bind 19 storage buffers, and the marks' ring is never read back. Packing the emit's tables as the atlas's were, and
     a web half of `DeviceSprites` feeding `TownRenderer.Web`, closes it;
   - **every touched host buffer crosses whole every batch** (`ComputeBatch.Web.cs`): the signals, the resident rows'
-    staging, the views and the covers' lists, a few megabytes a tick on OdesaOsm where only the rows marked or written
-    need to. Sending marked runs (`ResidentRows`) and reading back the counted rows closes it;
+    staging, the views and the covers' lists, on OdesaOsm 677–851 MiB through `writeBuffer` in six seconds at about
+    80 submits a second (River 37 MiB; a hook on `GPUQueue` through `qq web --ask`, 2026-10-16), where only the rows
+    marked or written need to. In the first seconds stood it is 1–13 fps with 74 ms of each frame waiting. Sending marked runs (`ResidentRows`) and reading back the counted rows closes it;
   - **covers that ran past their lists leave that view without covers** (`DeviceWorld.Finish`): the desktop reads
     them again and waits; a page goes a tick without the turns those covers would have fed;
   - **a fill of any word but nought makes a uniform buffer and a bind group each time** (`compute.js`'s `fill`), and
@@ -146,10 +147,19 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
     no town has been seen to. Counting before writing, or reading back only the rows counted, closes the first;
   - **a device's marks cannot be read off its world for a digest**: `--bench deviceload` prints the atlas's but not the
     marks', which `MarksKernelTests` holds to the host's within a millimetre but for touches;
-  - **OdesaOsm runs at half real time on the page** (deployed, 2026-10-15): 27.2 ms a tick, of it the cars' own
-    24.5, so 0.5 ticks a frame at 60 fps — the desktop's 6.0 ms car tick on one thread, at the page's single core and
-    about twice a desktop core's cost. The cars' ticks over workers (the desktop entry above) wants a page given
-    threads, which wants cross-origin isolation and so headers GitHub Pages cannot send;
+  - **OdesaOsm runs at under half real time on the page** (deployed and local, 2026-10-16): 28.5–29.0 ms a tick, of
+    it the cars' own 25.9–26.3, so 0.3–0.4 ticks a frame at 57–60 fps (27.2 ms and 0.5 on 2026-10-15) — the desktop's
+    6.0 ms car tick on one thread, at the page's single core and about twice a desktop core's cost. The cars'
+    ticks over workers (the desktop entry above) wants a page given threads, which wants cross-origin isolation and so
+    headers GitHub Pages cannot send;
+  - **the page lays another town than the desktop** (WEB-1; OdesaOsm, 2026-10-16): at the port pier OBS-1b opens on
+    (5094,12760, `--view 300`) the zones' undrawn prefabs stand elsewhere and at other sizes — one 40 m square on the
+    desktop is three rounded blocks along the road on the page — the coast's edge is drawn otherwise, and a taxi stands
+    at tick 0 where the desktop has none; desktop Debug and Release agree. Not traced; the likeliest cause is the
+    citygen's `MathF` (core log, 2026-10-15) — glibc on the desktop, emscripten's libm on the page, which may part by a
+    float — and `ZoneBuildings` weighs its prefabs by `MathF.Exp`/`Log` and turns them by `Atan2`/`Cos`. A plan digest
+    each head prints after each stage of the lay, finding the first that parts, closes the tracing; the fix is that
+    stage's arithmetic made the same on both;
   - **a page's atlas can stand a float off the host's**: WGSL cannot say `precise`, so a browser may fuse what the host
     rounds twice (`trig.glsl`), and a page has no read-back to hold its digest to the host's. Vulkan's is the host's to
     the bit;

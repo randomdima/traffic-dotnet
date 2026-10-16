@@ -817,6 +817,9 @@ internal sealed partial class Game : IDisposable
     /// <summary><c>--view</c>: the span in metres every town this run stands opens on, or nought for the configured one.</summary>
     public float OpeningViewM { get; init; }
 
+    /// <summary><c>--at</c>: where in the town's metres every town this run stands opens looking, or nothing for OBS-1b's own.</summary>
+    public Vector2? OpeningAtM { get; init; }
+
     /// <summary>
     /// <b>Where a run opens looking</b> (OBS-1b): the middle of the town or the nearest road to it. What it
     /// left the camera at is kept, so a resize can tell this framing from one the reader has since moved.
@@ -830,7 +833,7 @@ internal sealed partial class Game : IDisposable
     void FrameTheTown(TownWorld world, Vector2 worldSizeM)
     {
         var viewM = _camera.ViewSpanM(_uiPx);
-        _camera.LookAt(Opening.LooksAtM(world.Roads, worldSizeM, MathF.Min(viewM.X, viewM.Y) * 0.5f));
+        _camera.LookAt(OpeningAtM ?? Opening.LooksAtM(world.Roads, worldSizeM, MathF.Min(viewM.X, viewM.Y) * 0.5f));
         _framedAt = (_camera.CentreM, _camera.PixelsPerMetre, _camera.TurnRad);
     }
 
