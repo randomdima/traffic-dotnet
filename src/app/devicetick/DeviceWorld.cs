@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Runtime;
@@ -646,7 +647,7 @@ internal sealed partial class DeviceWorld : WorldLayer
     }
 
     /// <summary>How many signal rows the buffers hold, the events counted from the last of them back.</summary>
-    int RoomForSignals => (int)(_signalsIn.SizeBytes / (ulong)Marshal.SizeOf<SignalRow>());
+    int RoomForSignals => (int)(_signalsIn.SizeBytes / (ulong)Unsafe.SizeOf<SignalRow>());
 
     ref LastInBatch LastOf(int agent, long batch)
     {
@@ -702,7 +703,7 @@ internal sealed partial class DeviceWorld : WorldLayer
     /// <summary>The rows <see cref="WriteTheSignals"/> wrote copied to where the device reads them, recorded; the caller barriers after.</summary>
     void SendTheSignals(Recording commands, SignalCounts signals)
     {
-        var rowBytes = (ulong)Marshal.SizeOf<SignalRow>();
+        var rowBytes = (ulong)Unsafe.SizeOf<SignalRow>();
         var eventsFromBytes = (ulong)(RoomForSignals - signals.Events) * rowBytes;
         Span<CopyRun> runs = stackalloc CopyRun[2];
         runs[0] = new CopyRun(0, 0, (ulong)signals.Commands * rowBytes);
