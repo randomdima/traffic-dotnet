@@ -10,6 +10,10 @@ owning slice's `decision-log.md`; an absence big enough to be structural is a
 
 - **`StopBarsTests.ABarStandsASetbackBehindItsCrossing`** (unit) fails, and fails on the tree before the wheel
   claims too. Nothing has looked at why.
+- **`AllocationGateTests.AWholeTickOfAWholeTownAllocatesNothing(Laid)`** (perf, `P0`) failed once at 120 B over 600
+  ticks on 2026-10-16, with the machine at a load of ~25 and the test host already on the shipped collector; it has
+  passed every run since, five in a row on a quiet machine. What allocated under load is not known; an allocation
+  trace (`dotnet-trace`'s GC allocation ticks) of a failing run closes it.
 - **`ShippedCityTests.NothingItCarriesStandsOffIt(OdesaOsm)`** (maps) fails on the town that stands 40 000 people and
   40 000 cars (2026-10-09, still on 2026-10-12): spawn 37 177 stands at x −0.15 m, off the map's own edge. Spawning on
   the map's edge, or the map's bounds taking its spawns in, closes it.
