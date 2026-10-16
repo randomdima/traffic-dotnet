@@ -401,8 +401,6 @@ a layout or changes behaviour.
 - **The device helpers are copied file to file**: `Groups`, `Kernel`, `Device<T>`, `Own`, `Laid<T>`, `Room<T>` and
   `Readback<T>` in `DeviceSolver`, `DeviceWorld`, `DeviceTyres`, `DeviceSprites`, `DeviceAtlas` and `DeviceLanes`, each
   file with its own `Group` of 64. One shared helper in `app/devicetick/` closes it.
-- **The town repeats itself**: `StandCarIn` / `StandAServiceVehicle`, `SendHome` / `GoBackToTheDepot`,
-  `IsTheNearestFree{Ambulance,Patrol,Evacuator}To`, the nose-in test and the yard-slot test.
 - **One union-find root, three copies** (`FootJunctions`, `CrossingWays`, `LanePlaces`) — only the root: each join
   keeps a different representative (the first, the lower, the other), which the order of what they lay rests on, and
   no folder of `core/` is a home for four lines; **three `Spread`/`Percentile`/`Median`** in the bench
@@ -485,6 +483,10 @@ What a 2026-10-16 sweep of `src/tests/` found and did not take, each keeping its
 - **The claims say two things about held ground**: `claims.md` ("nothing taken is freed") and the road log of
   2026-10-12 against the root log of 2026-10-14 (a stronger rung takes held ground not yet committed). Reading which
   the code does and correcting the other closes it.
+- **The web head builds with three warnings the desktop does not** (`traffic-dotnet.web.csproj`, Debug, 2026-10-16):
+  CA1416 twice on `Environment.CpuUsage` in `bench/TickProbe.cs`, which the browser does not support, and IL2075 on
+  `GetType().GetProperty` in `core/config/SharedFiguresReader.cs`, which trimming cannot see. A platform guard on the
+  probe's CPU read and an annotated type on the reader close it.
 
 ## Waiting on the owner
 

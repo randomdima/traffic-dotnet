@@ -522,7 +522,7 @@ internal sealed partial class TownWorld
         var bay = _parking.BayOf(car);
         if (bay >= 0)
         {
-            var wayIn = (2 * bay) + (BayTemplate.StandsNoseIn(_parking.HeadingRad(bay), Cars.HeadingRad[car]) ? 1 : 0);
+            var wayIn = (2 * bay) + (_parking.StandsNoseIn(bay, Cars.HeadingRad[car]) ? 1 : 0);
             return (_wayInPlace[wayIn], _wayInFree[wayIn]);
         }
 

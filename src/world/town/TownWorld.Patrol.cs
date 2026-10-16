@@ -186,7 +186,7 @@ internal sealed partial class TownWorld
         }
 
         if (casualty < 0 && wreck < 0) return false;
-        if (!IsTheNearestFreePatrolTo(car, TheSceneM(casualty, wreck), bestM)) return false;
+        if (!IsTheNearestFree(Errand.Patrol, car, TheSceneM(casualty, wreck), bestM)) return false;
         if (!TakeALaneOfTheScene(car, casualty, wreck)) return false;
 
         _beat.Casualty[car] = casualty;
@@ -227,29 +227,13 @@ internal sealed partial class TownWorld
         casualty >= 0 ? People.PositionM[casualty] : Cars.PositionM[wreck];
 
     /// <summary>
-    /// <b>Whether this is the patrol SRV-6 means</b> — the nearest one with nothing else to do — asked of
-    /// the scene it is about to take. As for an ambulance (<see cref="IsTheNearestFreeAmbulanceTo"/>): the call belongs to the scene and the choice belongs to the patrol, and asking them the other
-    /// way round sends whichever car's decision happened to run first.
+    /// A patrol that would take a call now, which is what <see cref="IsTheNearestFree"/> counts as free (SRV-6).
     /// </summary>
     /// <remarks>
     /// <b>Free is a patrol that would take the call</b> — standing, on its beat or on its way home, with its
     /// officer aboard and no hand on it. Counted as free while it would not, it would hold back every patrol behind it
     /// and the scene be taken by nobody.
     /// </remarks>
-    bool IsTheNearestFreePatrolTo(int car, Vector2 sceneM, float farM)
-    {
-        foreach (var other in _patrols)
-        {
-            if (other == car || !TakesCalls(other)) continue;
-
-            var otherM = (sceneM - Cars.PositionM[other]).LengthSquared();
-            if (otherM < farM || (otherM == farM && other < car)) return false;
-        }
-
-        return true;
-    }
-
-    /// <summary>A patrol that would take a call now, which is what <see cref="IsTheNearestFreePatrolTo"/> counts as free.</summary>
     bool TakesCalls(int car) =>
         IsAPatrolCar(car) && !Cars.Broken[car] && !_beat.IsOnACall(car) && !IsUnderOrders(car)
         && HasItsOfficerAboard(car)
@@ -311,13 +295,6 @@ internal sealed partial class TownWorld
     /// </summary>
     void SendHome(int car)
     {
-        var home = _beat.HomeBay[car];
-        if (home < 0 || _parking.BayOf(car) == home || !_parking.IsFreeFor(car, home))
-        {
-            StandBy(car);
-            return;
-        }
-
-        SendTo(car, _parking.CentreM(home), home);
+        if (!SendToItsOwnBay(car, _beat.HomeBay[car])) StandBy(car);
     }
 }

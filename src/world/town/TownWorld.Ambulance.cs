@@ -237,7 +237,7 @@ internal sealed partial class TownWorld
             bestM = farM;
         }
 
-        if (best < 0 || !IsTheNearestFreeAmbulanceTo(car, best, bestM)) return false;
+        if (best < 0 || !IsTheNearestFree(Errand.Rescue, car, People.PositionM[best], bestM)) return false;
 
         _duty.Casualty[car] = best;
         _duty.SinceS[car] = 0f;
@@ -262,39 +262,6 @@ internal sealed partial class TownWorld
     /// </remarks>
     RoadPlace TheStandoff(int casualty) =>
         RoadPlaceOfWalker(casualty) is var lying && lying.IsSomewhere ? OnAlong(lying, -_config.AmbulanceStandoffM) : RoadPlace.Nowhere;
-
-    /// <summary>
-    /// <b>Whether this is the ambulance AMB-5 means</b> — the nearest one with nothing else to do — asked
-    /// of the casualty it was about to take.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>The call belongs to the casualty and the choice above belongs to the ambulance</b>, and the two have
-    /// to be asked in that order. <see cref="TakeACall"/> alone answers "the nearest body to <em>me</em>", which
-    /// is not AMB-5: the ambulance that gets the call is then whichever one's decision happened to run
-    /// first, and on a city with four ambulances at each of six hospitals that is regularly one two
-    /// kilometres away while an idle one stands a street from the body — which is the whole of a shipped
-    /// city's deliveries.
-    /// </para>
-    /// <para>
-    /// <b>Deferring is not a deadlock</b>: an ambulance that is not the nearest takes nothing and asks again on
-    /// its next decision, by which time the nearest has either taken this call or taken a nearer one of its
-    /// own. The tie is broken on the car's index so two ambulances equidistant from one body cannot each
-    /// wait for the other.
-    /// </para>
-    /// </remarks>
-    bool IsTheNearestFreeAmbulanceTo(int car, int person, float farM)
-    {
-        foreach (var other in _ambulances)
-        {
-            if (other == car || !Cars.Ambulance[other] || Cars.Broken[other] || _duty.IsOnACall(other)) continue;
-
-            var otherM = (People.PositionM[person] - Cars.PositionM[other]).LengthSquared();
-            if (otherM < farM || (otherM == farM && other < car)) return false;
-        }
-
-        return true;
-    }
 
     /// <summary>Whether some other ambulance has already taken this casualty's call.</summary>
     bool IsSpokenFor(int person)

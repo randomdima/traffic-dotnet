@@ -80,7 +80,7 @@ internal sealed class PullingOut(
 
         ref readonly var build = ref Cars.BuildOf(car);
         var forward = Cars.Forward[car];
-        var reverse = BayTemplate.StandsNoseIn(parking.HeadingRad(bay), Cars.HeadingRad[car]);
+        var reverse = parking.StandsNoseIn(bay, Cars.HeadingRad[car]);
         var from = new BayManoeuvre.Pose(
             CarFollower.RearAxleM(build, Cars.PositionM[car], forward),
             reverse ? Cars.HeadingRad[car] + MathF.PI : Cars.HeadingRad[car]);

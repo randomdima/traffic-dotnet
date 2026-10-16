@@ -157,7 +157,7 @@ public class BayManoeuvreTests
         {
             var bay = world.Parking.BayOf(car);
             if (bay < 0 || cars.Driven[car] || cars.Broken[car]) continue;
-            if (noseIn is { } wanted && BayTemplate.StandsNoseIn(world.Parking.HeadingRad(bay), cars.HeadingRad[car]) != wanted) continue;
+            if (noseIn is { } wanted && world.Parking.StandsNoseIn(bay, cars.HeadingRad[car]) != wanted) continue;
             if (!world.OrderCar(car, TheFarthestBayFrom(world, cars.PositionM[car]))) continue;
             if (world.Manoeuvres.Kind[car] != ManoeuvreKind.Leave) continue;
 

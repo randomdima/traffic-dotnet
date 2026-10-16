@@ -1,3 +1,4 @@
+using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
@@ -66,6 +67,13 @@ internal sealed partial class TownWorld
     /// </summary>
     int YardSlot(int yard, int slot) =>
         _apronBays[((TheFirstYard + yard) * _apronStride) + _config.Service.ApronBays + slot];
+
+    /// <summary>
+    /// The same slot where nothing is standing in it, and <see cref="ParkingRegistry.NoBay"/> where something is or
+    /// the map had nowhere to put it — the one test every question of a yard's room asks (EVA-2, EVA-3).
+    /// </summary>
+    int EmptyYardSlot(int yard, int slot) =>
+        YardSlot(yard, slot) is var bay and >= 0 && _parking.CarInBay(bay) == ParkingRegistry.Nobody ? bay : ParkingRegistry.NoBay;
 
     /// <summary>How many bays this building's apron asks for: a shift of vehicles, and a depot's yard besides.</summary>
     int ApronBaysWantedBy(int entry) =>
@@ -226,11 +234,22 @@ internal sealed partial class TownWorld
         return first;
     }
 
+    /// <summary>
+    /// One service vehicle standing in its bay (SRV-3), and the bay held for it. <b>The same pose a spawned car comes
+    /// to rest in</b> (GEN-4i, <see cref="StandSquareIn"/>): every manoeuvre out of the bay is shaped from it, so the
+    /// first thing it does when it is given something to do is drive rather than recover.
+    /// </summary>
+    /// <remarks>
+    /// <b>What makes it a car that acts is the errand rather than a seat</b> (SRV-3), and what keeps it out of
+    /// anybody else's hands is the building it stands on the strength of (<see cref="IsAServiceVehicle"/>). A
+    /// crew rides in its crew seats and is stood with it (<see cref="StandTheCrew"/>).
+    /// </remarks>
     int FillAnApronBay(int bay, byte variant, ulong stream)
     {
         if (bay < 0) return NoCar;
 
-        var car = StandAServiceVehicle(bay, variant, stream);
+        // Its own stream, off the bay it stands in, so standing one cannot move what any spawn draws.
+        var car = StandSquareIn(bay, variant, new Rng(_agentSeed, stream + (ulong)bay));
         _parking.HoldForTheCar(bay, car);
         return car;
     }
@@ -267,27 +286,6 @@ internal sealed partial class TownWorld
     readonly int[] _crewOf;
 
     /// <summary>
-    /// One service vehicle standing in its bay (SRV-3). <b>The same pose a spawned car comes
-    /// to rest in</b> (GEN-4i): every manoeuvre out of the bay is shaped from it, so the first thing it does
-    /// when it is given something to do is drive rather than recover.
-    /// </summary>
-    /// <remarks>
-    /// <b>What makes it a car that acts is the errand rather than a seat</b> (SRV-3), and what keeps it out of
-    /// anybody else's hands is the building it stands on the strength of (<see cref="IsAServiceVehicle"/>). A
-    /// crew rides in its crew seats and is stood with it (<see cref="StandTheCrew"/>).
-    /// </remarks>
-    int StandAServiceVehicle(int bay, byte variant, ulong stream)
-    {
-        // Its own stream, off the bay it stands in, so standing one cannot move what any spawn draws.
-        var draw = new Rng(_agentSeed, stream + (ulong)bay);
-        var backsIn = draw.NextFloat() < _config.Driving.BacksIntoBaysShare;
-        var headingRad = BayTemplate.StandingHeadingRad(_parking.HeadingRad(bay), !backsIn);
-        var car = Cars.Add(_parking.CentreM(bay), headingRad, variant, backsIn, draw);
-        _parking.Occupy(bay, car);
-        return car;
-    }
-
-    /// <summary>
     /// Whether this car is one a town stood on purpose (SRV-3), which is what says the reset hands it back to
     /// its errand rather than standing it down (<see cref="ReleaseOrderOfCar"/>). <b>It is the look
     /// <em>and</em> the building it is on the strength of</b>: the fleet's wrap cannot reach a service look,
@@ -297,6 +295,76 @@ internal sealed partial class TownWorld
     bool IsAServiceVehicle(int car) =>
         CarCatalog.Shared.IsService(Cars.Variant[car]) &&
         (_duty.Hospital[car] >= 0 || _beat.Station[car] >= 0 || IsAnEvacuator(car));
+
+    /// <summary>The errands a call is taken on, which says the fleet a call is weighed against and what is free in it.</summary>
+    enum Errand { Rescue, Patrol, Recovery }
+
+    /// <summary>
+    /// <b>Whether this is the vehicle AMB-5, SRV-6 and EVA-3 mean</b> — the nearest one of its errand's fleet with
+    /// nothing else to do — asked of the scene it was about to take, <paramref name="farM"/> being the square of its
+    /// own distance to <paramref name="sceneM"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The call belongs to the scene and the choice of the nearest belongs to the vehicle</b>, and the two have
+    /// to be asked in that order. Its own search alone answers "the nearest scene to <em>me</em>", which is none of
+    /// the three: the vehicle that gets the call is then whichever one's decision happened to run first, and on a
+    /// city with four ambulances at each of six hospitals that is regularly one two kilometres away while an idle
+    /// one stands a street from the body — which is the whole of a shipped city's deliveries.
+    /// </para>
+    /// <para>
+    /// <b>Deferring is not a deadlock</b>: a vehicle that is not the nearest takes nothing and asks again on its next
+    /// decision, by which time the nearest has either taken this call or taken a nearer one of its own. The tie is
+    /// broken on the car's index so two vehicles equidistant from one scene cannot each wait for the other. <b>Free
+    /// is asked only of a nearer one</b>, because an evacuator's reads its whole yard.
+    /// </para>
+    /// </remarks>
+    bool IsTheNearestFree(Errand errand, int car, Vector2 sceneM, float farM)
+    {
+        foreach (var other in FleetOf(errand))
+        {
+            if (other == car) continue;
+
+            var otherM = (sceneM - Cars.PositionM[other]).LengthSquared();
+            if ((otherM < farM || (otherM == farM && other < car)) && WouldTakeACall(errand, other)) return false;
+        }
+
+        return true;
+    }
+
+    int[] FleetOf(Errand errand) => errand switch
+    {
+        Errand.Rescue => _ambulances,
+        Errand.Patrol => _patrols,
+        Errand.Recovery => _evacuators,
+        _ => throw new ArgumentOutOfRangeException(nameof(errand), errand, "an errand with no fleet"),
+    };
+
+    /// <summary>
+    /// What <see cref="IsTheNearestFree"/> counts as free: an ambulance with no call, a patrol that would take one
+    /// (<see cref="TakesCalls"/>), and an evacuator with no recovery <b>and a slot in its yard to put one in</b>
+    /// (<see cref="HasRoomInItsYard"/>) — none of them wrecked.
+    /// </summary>
+    bool WouldTakeACall(Errand errand, int car) => errand switch
+    {
+        Errand.Rescue => Cars.Ambulance[car] && !Cars.Broken[car] && !_duty.IsOnACall(car),
+        Errand.Patrol => TakesCalls(car),
+        Errand.Recovery => IsAnEvacuator(car) && !Cars.Broken[car] && !_recovery.IsOnARecovery(car) && HasRoomInItsYard(car),
+        _ => throw new ArgumentOutOfRangeException(nameof(errand), errand, "an errand with no fleet"),
+    };
+
+    /// <summary>
+    /// <b>One attempt at the drive back to a service vehicle's own bay on its apron</b> (GEN-4k), and false where there
+    /// is no leg to drive: a car already standing in it, one whose building never had an apron to give, or one whose
+    /// bay is not free for it.
+    /// </summary>
+    bool SendToItsOwnBay(int car, int home)
+    {
+        if (home < 0 || _parking.BayOf(car) == home || !_parking.IsFreeFor(car, home)) return false;
+
+        SendTo(car, _parking.CentreM(home), home);
+        return true;
+    }
 
     /// <summary>The world seed's streams a police car, an evacuator and a crew are drawn from, each belonging to nothing else.</summary>
     const ulong PoliceStream = 0x504C4341;

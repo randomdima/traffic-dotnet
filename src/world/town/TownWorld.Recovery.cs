@@ -193,7 +193,7 @@ internal sealed partial class TownWorld
             bestM = farM;
         }
 
-        if (best < 0 || !IsTheNearestFreeEvacuatorTo(car, best, bestM)) return false;
+        if (best < 0 || !IsTheNearestFree(Errand.Recovery, car, Cars.PositionM[best], bestM)) return false;
 
         _recovery.Wreck[car] = best;
         _recovery.SinceS[car] = 0f;
@@ -223,27 +223,6 @@ internal sealed partial class TownWorld
         }
 
         return false;
-    }
-
-    /// <summary>
-    /// <b>Whether this is the evacuator EVA-3 means</b> — the nearest one with nothing else to do and a slot
-    /// to put it in — asked of the wreck it was about to take. It is <see cref="IsTheNearestFreeAmbulanceTo"/>
-    /// said of a depot, and it is asked for the same reason: the recovery belongs to the wreck and the choice
-    /// belongs to the evacuator, so a town with two depots cannot send the far one because its decision ran
-    /// first.
-    /// </summary>
-    bool IsTheNearestFreeEvacuatorTo(int car, int wreck, float farM)
-    {
-        foreach (var other in _evacuators)
-        {
-            if (other == car || !IsAnEvacuator(other) || Cars.Broken[other] || _recovery.IsOnARecovery(other)) continue;
-
-            var otherM = (Cars.PositionM[wreck] - Cars.PositionM[other]).LengthSquared();
-            var nearer = otherM < farM || (otherM == farM && other < car);
-            if (nearer && HasRoomInItsYard(other)) return false;
-        }
-
-        return true;
     }
 
     /// <summary>
@@ -775,15 +754,7 @@ internal sealed partial class TownWorld
         }
 
         EnterTheRecoveryStage(car, RecoveryStage.GoingHome);
-
-        var home = _recovery.HomeBay[car];
-        if (home < 0 || _parking.BayOf(car) == home || !_parking.IsFreeFor(car, home))
-        {
-            StandTheEvacuatorDown(car);
-            return;
-        }
-
-        SendTo(car, _parking.CentreM(home), home);
+        if (!SendToItsOwnBay(car, _recovery.HomeBay[car])) StandTheEvacuatorDown(car);
     }
 
     /// <summary>Off duty: standing wherever the leg ended, with the recovery cleared and both bars out.</summary>
@@ -820,8 +791,7 @@ internal sealed partial class TownWorld
         var room = 0;
         for (var slot = 0; slot < _config.Evacuator.YardSlots; slot++)
         {
-            var bay = YardSlot(yard, slot);
-            if (bay >= 0 && _parking.CarInBay(bay) == ParkingRegistry.Nobody) room++;
+            if (EmptyYardSlot(yard, slot) >= 0) room++;
         }
 
         foreach (var other in _evacuators)
@@ -840,8 +810,8 @@ internal sealed partial class TownWorld
 
         for (var slot = 0; slot < _config.Evacuator.YardSlots; slot++)
         {
-            var bay = YardSlot(yard, slot);
-            if (bay >= 0 && _parking.CarInBay(bay) == ParkingRegistry.Nobody) return bay;
+            var bay = EmptyYardSlot(yard, slot);
+            if (bay >= 0) return bay;
         }
 
         return -1;
@@ -858,8 +828,8 @@ internal sealed partial class TownWorld
         var bestM = _config.EvacuatorYardReachM * _config.EvacuatorYardReachM;
         for (var slot = 0; slot < _config.Evacuator.YardSlots; slot++)
         {
-            var bay = YardSlot(yard, slot);
-            if (bay < 0 || _parking.CarInBay(bay) != ParkingRegistry.Nobody) continue;
+            var bay = EmptyYardSlot(yard, slot);
+            if (bay < 0) continue;
 
             var farM = (_parking.CentreM(bay) - fromM).LengthSquared();
             if (farM >= bestM) continue;

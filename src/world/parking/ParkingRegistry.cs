@@ -117,6 +117,12 @@ internal sealed class ParkingRegistry
     public float HeadingRad(int bay) => _headingRad[bay];
 
     /// <summary>
+    /// Whether a car pointing this way stands nose in to this bay rather than backed in (GEN-4j) — <b>read off the
+    /// pose and never off the register</b>: which way round the body stands is where it points.
+    /// </summary>
+    public bool StandsNoseIn(int bay, float carHeadingRad) => BayTemplate.StandsNoseIn(_headingRad[bay], carHeadingRad);
+
+    /// <summary>
     /// The ground beside the driver's door of a car standing in this bay: what a walk to it aims at.
     /// <b>Which flank of the space that is is the standing's</b> (GEN-4j) — a car backed in has its doors on
     /// the other side — and it is still the bay's own fact rather than the parked body's (GEN-4e).

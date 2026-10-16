@@ -390,21 +390,28 @@ internal sealed partial class TownWorld
         StandOnItsLevel(AddCar(positionM, _plan.Spawns.HeadingRad[spawn], variant, backsIn, draw));
     }
 
+    /// <summary>A car stood in a bay (<see cref="StandSquareIn"/>) and its first stand begun there (CAR-8).</summary>
+    int StandCarIn(int bay, byte variant, Rng draw)
+    {
+        var car = StandSquareIn(bay, variant, draw);
+        BeginTheStand(car);
+        return car;
+    }
+
     /// <summary>
-    /// A car stood square in a bay at the pose its driver's habit parks in (GEN-4i, GEN-4j), the bay its own and
-    /// its first stand begun there (CAR-8).
+    /// A car stood square in a bay at the pose its driver's habit parks in (GEN-4i, GEN-4j), the bay its own — a
+    /// spawned car's and a service vehicle's alike, since every manoeuvre out of the bay is shaped from that pose.
     /// </summary>
     /// <remarks>
     /// <b>The habit before the pose</b>, because the pose a car starts standing in is what its habit would have
     /// put it in — drawn from the car's own stream, which then goes on to the fleet as it stands.
     /// </remarks>
-    int StandCarIn(int bay, byte variant, Rng draw)
+    int StandSquareIn(int bay, byte variant, Rng draw)
     {
         var backsIn = draw.NextFloat() < _config.Driving.BacksIntoBaysShare;
         var headingRad = BayTemplate.StandingHeadingRad(_parking.HeadingRad(bay), !backsIn);
         var car = AddCar(_parking.CentreM(bay), headingRad, variant, backsIn, draw);
         _parking.Occupy(bay, car);
-        BeginTheStand(car);
         return car;
     }
 
