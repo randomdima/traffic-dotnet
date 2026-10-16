@@ -941,12 +941,16 @@ internal sealed class LaneLines
         var connectorCount = connectorToLane.Length;
         var lines = new ArcSeg[connectorCount][];
         var poses = new (SplineSample From, SplineSample To)[connectorCount];
-        var drawn = new ArcSeg[Spline.MostMovementArcs];
-        var joined = new ArcSeg[Spline.MostMovementArcs];
         var straightRad = config.Road.TurnStraightToleranceDeg * MathF.PI / 180f;
         var bendsOnly = movements is { } table ? BendsOnly(table.LaneFromJunction, table.LaneToJunction, table.LaneRoad) : [];
 
-        for (var lane = 0; lane < laneLengthM.Count; lane++)
+        // A lane's movements are its own slots, so the lanes are drawn side by side, each thread on scratch of its own.
+        InChunks.Over(
+            laneLengthM.Count,
+            static () => (Drawn: new ArcSeg[Spline.MostMovementArcs], Joined: new ArcSeg[Spline.MostMovementArcs]),
+            (scratch, lane) => OutOf(lane, scratch.Drawn, scratch.Joined));
+
+        void OutOf(int lane, ArcSeg[] drawn, ArcSeg[] joined)
         {
             for (var connector = connectorAt[lane]; connector < connectorAt[lane + 1]; connector++)
             {
