@@ -6,7 +6,7 @@ using TrafficSimulation.App.Screen;
 using TrafficSimulation.Bench;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
-using TrafficSimulation.Tests.CityGen;
+using TrafficSimulation.Tests.World;
 using TrafficSimulation.World.Town;
 using Xunit;
 
@@ -24,7 +24,7 @@ namespace TrafficSimulation.Tests.Hud;
 /// </remarks>
 [Trait(Tier.Key, Tier.Unit)]
 [Trait(Priority.Key, Priority.P6)]
-public class StatusPanelClaimsTests
+public class StatusPanelClaimsTests(StandingTown town) : IClassFixture<StandingTown>
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
@@ -42,8 +42,6 @@ public class StatusPanelClaimsTests
         {
         }
     }
-
-    static TownWorld Town() => new(Towns.Of(Towns.Fixture), Config);
 
     static FrameFigures Measured() => new()
     {
@@ -77,7 +75,7 @@ public class StatusPanelClaimsTests
     [Fact]
     public void NothingClaimedIsNothingDrawn()
     {
-        using var world = Town();
+        var world = town.World;
         var panel = Opened();
 
         var bare = Draw(panel, world, default);
@@ -119,7 +117,7 @@ public class StatusPanelClaimsTests
     [Fact]
     public void ABrokenClaimShowsOnTheShutBar()
     {
-        using var world = Town();
+        var world = town.World;
         var panel = new StatusPanel();
 
         var kept = Draw(panel, world, new ScenarioWatch[] { new StubWatch(ClaimVerdict.Kept) });
@@ -136,7 +134,7 @@ public class StatusPanelClaimsTests
     [Fact]
     public void TheBarIsOneWidthBrokenOrKept()
     {
-        using var world = Town();
+        var world = town.World;
         var panel = new StatusPanel();
 
         Draw(panel, world, new ScenarioWatch[] { new StubWatch(ClaimVerdict.Waiting) });
@@ -164,7 +162,7 @@ public class StatusPanelClaimsTests
     [Fact]
     public void ThePanelIsExactlyAsTallAsTheClaimsItWrote()
     {
-        using var world = Town();
+        var world = town.World;
         var panel = Opened();
         var watching = Scenarios.For(world, Config);
 
@@ -185,7 +183,7 @@ public class StatusPanelClaimsTests
     [Fact]
     public void DrawingTheClaimsAllocatesNothing()
     {
-        using var world = Town();
+        var world = town.World;
         var panel = Opened();
         var watching = Scenarios.For(world, Config);
         var quads = new OverlayQuad[TownRenderer.OverlayCapacity];

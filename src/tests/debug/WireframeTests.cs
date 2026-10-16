@@ -4,6 +4,7 @@ using TrafficSimulation.App.Render;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Tests.CityGen;
+using TrafficSimulation.Tests.World;
 using TrafficSimulation.World.Town;
 using Xunit;
 
@@ -15,7 +16,7 @@ namespace TrafficSimulation.Tests.Debug;
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
 [Trait(Priority.Key, Priority.P9)]
-public class WireframeTests
+public class WireframeTests(StandingTown town) : IClassFixture<StandingTown>
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
@@ -72,7 +73,7 @@ public class WireframeTests
     [Fact]
     public void AMeshTooSmallToReadIsNotDrawn()
     {
-        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
+        var world = town.World;
 
         Assert.NotEqual(0, Drawn(new DebugOverlay(), world, pixelsPerMetre: 20f));
 
@@ -89,7 +90,7 @@ public class WireframeTests
     [Fact]
     public void ALayerTakenOutOfTheGroundIsTakenOutOfTheWireframe()
     {
-        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
+        var world = town.World;
 
         var apiece = 0;
         for (var part = 0; part < GroundParts.Count; part++)
@@ -110,7 +111,7 @@ public class WireframeTests
     [Fact]
     public void AFrameThatHasNotMovedRelaysNoTriangles()
     {
-        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
+        var world = town.World;
         var overlay = new DebugOverlay();
 
         var first = Drawn(overlay, world, pixelsPerMetre: 20f);

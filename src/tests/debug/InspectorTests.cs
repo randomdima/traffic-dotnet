@@ -4,7 +4,7 @@ using TrafficSimulation.App.Render;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
-using TrafficSimulation.Tests.CityGen;
+using TrafficSimulation.Tests.World;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
 using Xunit;
@@ -17,7 +17,7 @@ namespace TrafficSimulation.Tests.Debug;
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
 [Trait(Priority.Key, Priority.P8)]
-public class InspectorTests
+public class InspectorTests(StandingTown town) : IClassFixture<StandingTown>
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
@@ -55,7 +55,7 @@ public class InspectorTests
     [Fact]
     public void AClickOnACarPinsThatCarAndPointingAloneDoesNot()
     {
-        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
+        var world = town.World;
         var overlay = new DebugOverlay();
         var switches = On(DebugLayer.CarLines);
         var pick = new DebugPick();
@@ -77,7 +77,7 @@ public class InspectorTests
     [Fact]
     public void ABodyIsFoundBeforeTheWayItStandsOn()
     {
-        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
+        var world = town.World;
         var overlay = new DebugOverlay();
         var pick = new DebugPick();
 
@@ -91,7 +91,7 @@ public class InspectorTests
     [Fact]
     public void AClickOnALaneWithTheClaimsOnPinsItsWay()
     {
-        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
+        var world = town.World;
         var (way, atM) = EmptyLane(world);
         var overlay = new DebugOverlay();
         var pick = new DebugPick();
@@ -106,7 +106,7 @@ public class InspectorTests
     [Fact]
     public void AClickOnNothingLetsThePinGo()
     {
-        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
+        var world = town.World;
         var overlay = new DebugOverlay();
         var switches = On(DebugLayer.CarLines);
         var pick = new DebugPick();
@@ -128,7 +128,7 @@ public class InspectorTests
     [Fact]
     public void APinNoLayerThatIsOnCouldFindIsLetGo()
     {
-        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
+        var world = town.World;
         var overlay = new DebugOverlay();
         var switches = On(DebugLayer.CarLines);
         var pick = new DebugPick();
@@ -150,7 +150,7 @@ public class InspectorTests
     [Fact]
     public void AnInspectedFrameAllocatesNothing()
     {
-        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
+        var world = town.World;
         var (_, atM) = EmptyLane(world);
         var overlay = new DebugOverlay();
         var switches = On(DebugLayer.CarLines, DebugLayer.WalkerLines, DebugLayer.Claims);

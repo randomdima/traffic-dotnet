@@ -3,6 +3,7 @@ using TrafficSimulation.App.Drive;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Tests.CityGen;
+using TrafficSimulation.Tests.World;
 using TrafficSimulation.World.Town;
 using Xunit;
 
@@ -19,10 +20,11 @@ namespace TrafficSimulation.Tests.Drive;
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
 [Trait(Priority.Key, Priority.P6)]
-public class BotSeatTests
+public class BotSeatTests(StandingTown town) : IClassFixture<StandingTown>
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
+    /// <summary>A town of the case's own, for a case that seats a hand in it, selects in it or runs it.</summary>
     static TownWorld Open() => new(Towns.Of(Towns.Fixture), Config);
 
     /// <summary>The hand a seat holds after one step, pushed through the seam the way a run pushes it.</summary>
@@ -106,7 +108,7 @@ public class BotSeatTests
     [InlineData("look 10 10")]
     public void AWordThatBelongsToTheReaderIsRefused(string step)
     {
-        using var world = Open();
+        var world = town.World;
         var hands = new BotHands(world, Config, 0, ".tmp/bot", viewM: 45f);
 
         var refused = Assert.Throws<ArgumentException>(() => hands.Take(DriveScript.Read(step)[0]));
@@ -121,7 +123,7 @@ public class BotSeatTests
     [Fact]
     public void AWheelStandsWhereItWasPutUntilAStepMovesIt()
     {
-        using var world = Open();
+        var world = town.World;
         var hands = new BotHands(world, Config, 0, ".tmp/bot", viewM: 45f);
 
         hands.Take(DriveScript.Read("drive 1 throttle=0.5 steer=-0.4")[0]);
@@ -174,7 +176,7 @@ public class BotSeatTests
     [Fact]
     public void TheHandbookQuotesTheCarTheSolverDrives()
     {
-        using var world = Open();
+        var world = town.World;
         var hands = new BotHands(world, Config, 0, ".tmp/bot", viewM: 45f);
 
         ref readonly var build = ref world.Cars.BuildOf(0);

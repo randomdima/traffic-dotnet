@@ -4,9 +4,8 @@ using TrafficSimulation.App.Hud;
 using TrafficSimulation.App.Render;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Bench;
-using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
-using TrafficSimulation.Tests.CityGen;
+using TrafficSimulation.Tests.World;
 using TrafficSimulation.World.Town;
 using Xunit;
 
@@ -19,7 +18,7 @@ namespace TrafficSimulation.Tests.Hud;
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
 [Trait(Priority.Key, Priority.P6)]
-public class StatusPanelTests
+public class StatusPanelTests(StandingTown town) : IClassFixture<StandingTown>
 {
     const float TitleRowPx = Theme.TextPx + 10f;
 
@@ -53,8 +52,6 @@ public class StatusPanelTests
         return draw.Written;
     }
 
-    static TownWorld Town() => new(Towns.Of(Towns.Fixture), SimConfig.Shipped());
-
     /// <summary>The middle of the title band, which is what opens and shuts the body under it.</summary>
     static Vector2 TitlePx(StatusPanel panel) =>
         panel.Box.AtPx + new Vector2(panel.Box.SizePx.X * 0.5f, Theme.GapPx + TitleRowPx * 0.5f);
@@ -67,7 +64,7 @@ public class StatusPanelTests
     [Fact]
     public void ItStartsShutAndOpensOnItsOwnTitle()
     {
-        using var world = Town();
+        var world = town.World;
         var panel = new StatusPanel();
         var figures = Measured();
 
@@ -93,7 +90,7 @@ public class StatusPanelTests
     [Fact]
     public void TheShutBarIsOneWidthWhateverItSays()
     {
-        using var world = Town();
+        var world = town.World;
         var panel = new StatusPanel();
 
         Draw(panel, world, -Vector2.One, Measured());
@@ -119,7 +116,7 @@ public class StatusPanelTests
     [Fact]
     public void TheBarIsNarrowerThanTheBodyItOpens()
     {
-        using var world = Town();
+        var world = town.World;
         var panel = new StatusPanel();
         var figures = Measured();
 
@@ -145,7 +142,7 @@ public class StatusPanelTests
     [Fact]
     public void AHeaderShutsItsOwnSectionAndOpensItAgain()
     {
-        using var world = Town();
+        var world = town.World;
         var panel = Opened();
         var figures = Measured();
         Draw(panel, world, -Vector2.One, figures);
@@ -167,7 +164,7 @@ public class StatusPanelTests
     [Fact]
     public void CollapsingASectionDrawsLessOfIt()
     {
-        using var world = Town();
+        var world = town.World;
         var panel = Opened();
         var figures = Measured();
 
@@ -189,7 +186,7 @@ public class StatusPanelTests
     [Fact]
     public void TheWholePanelTakesAClickAndTheTownDoesNot()
     {
-        using var world = Town();
+        var world = town.World;
         var panel = Opened();
         Draw(panel, world, -Vector2.One, Measured());
 
@@ -204,7 +201,7 @@ public class StatusPanelTests
     [Fact]
     public void AnUnmeasuredFrameSaysSoInsteadOfPrintingZeroes()
     {
-        using var world = Town();
+        var world = town.World;
         var panel = Opened();
 
         var measured = Draw(panel, world, -Vector2.One, Measured());
@@ -227,7 +224,7 @@ public class StatusPanelTests
     [InlineData(StatusPanel.Town)]
     public void ThePanelIsExactlyAsTallAsTheRowsItWrote(int section)
     {
-        using var world = Town();
+        var world = town.World;
         var panel = Opened();
         var figures = Measured();
 
@@ -251,7 +248,7 @@ public class StatusPanelTests
     [Fact]
     public void DrawingThePanelAllocatesNothing()
     {
-        using var world = Town();
+        var world = town.World;
         var panel = Opened();
         var figures = Measured();
         var quads = new OverlayQuad[TownRenderer.OverlayCapacity];

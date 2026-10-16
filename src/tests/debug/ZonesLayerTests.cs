@@ -3,7 +3,7 @@ using TrafficSimulation.App.Debug;
 using TrafficSimulation.App.Render;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.Tests.CityGen;
+using TrafficSimulation.Tests.World;
 using TrafficSimulation.World.Town;
 using Xunit;
 
@@ -15,7 +15,7 @@ namespace TrafficSimulation.Tests.Debug;
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
 [Trait(Priority.Key, Priority.P8)]
-public class ZonesLayerTests
+public class ZonesLayerTests(StandingTown town) : IClassFixture<StandingTown>
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
@@ -61,7 +61,7 @@ public class ZonesLayerTests
     [Fact]
     public void AStillFrameDrawsWhatAFreshOverlayLays()
     {
-        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
+        var world = town.World;
         var centreM = world.Plan.WorldSizeM * 0.5f;
 
         var laid = Under.AsSpan(0, Frame(new DebugOverlay(), world, centreM)).ToArray();
@@ -80,7 +80,7 @@ public class ZonesLayerTests
     [Fact]
     public void DrawingTheZonesAllocatesNothing()
     {
-        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
+        var world = town.World;
         var overlay = new DebugOverlay();
         var centreM = world.Plan.WorldSizeM * 0.5f;
         for (var pass = 0; pass < 4; pass++) Pan(overlay, world, centreM);

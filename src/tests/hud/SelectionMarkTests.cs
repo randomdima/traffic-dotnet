@@ -6,6 +6,7 @@ using TrafficSimulation.App.Screen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Tests.CityGen;
+using TrafficSimulation.Tests.World;
 using TrafficSimulation.World.Town;
 using Xunit;
 
@@ -18,13 +19,14 @@ namespace TrafficSimulation.Tests.Hud;
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
 [Trait(Priority.Key, Priority.P6)]
-public class SelectionMarkTests
+public class SelectionMarkTests(StandingTown town) : IClassFixture<StandingTown>
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
     /// <summary>A street framing: the marks are a screen weight, so the zoom decides how thick they come out.</summary>
     const float PixelsPerMetre = 24f;
 
+    /// <summary>A town of the case's own, for a case that turns a body or puts a hand on one.</summary>
     static TownWorld Town() => new(Towns.Of(Towns.Fixture), Config);
 
     static OverlayQuad[] Marks(TownWorld world)
@@ -42,7 +44,7 @@ public class SelectionMarkTests
     [Fact]
     public void NothingSelectedIsNothingDrawn()
     {
-        using var world = Town();
+        var world = town.World;
         world.SelectNone();
 
         Assert.Empty(Marks(world));
@@ -55,7 +57,7 @@ public class SelectionMarkTests
     [Fact]
     public void EverySelectedUnitWearsItsOwnBrackets()
     {
-        using var world = Town();
+        var world = town.World;
         Assert.True(world.Cars.Count >= 2, "the fixture stands fewer cars than a group needs");
 
         world.Select(new Selection(SelectionKind.Car, 0));
@@ -74,7 +76,7 @@ public class SelectionMarkTests
     [Fact]
     public void ACarIsWrappedByFourBracketsStandingOutsideItsOwnFootprint()
     {
-        using var world = Town();
+        var world = town.World;
         world.Select(new Selection(SelectionKind.Car, 0));
 
         var marks = Marks(world);

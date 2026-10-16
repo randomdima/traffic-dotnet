@@ -3,8 +3,7 @@ using TrafficSimulation.App.Hud;
 using TrafficSimulation.App.Render;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Bench;
-using TrafficSimulation.Core.Config;
-using TrafficSimulation.Tests.CityGen;
+using TrafficSimulation.Tests.World;
 using TrafficSimulation.World.Containment;
 using TrafficSimulation.World.Town;
 using Xunit;
@@ -18,10 +17,8 @@ namespace TrafficSimulation.Tests.Hud;
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
 [Trait(Priority.Key, Priority.P6)]
-public class UnitPanelTests
+public class UnitPanelTests(StandingTown town) : IClassFixture<StandingTown>
 {
-    static readonly SimConfig Config = SimConfig.Shipped();
-
     static readonly Vector2 Window = new(1600f, 900f);
 
     /// <summary>The pointer parked off every panel, so nothing is drawn hovered by accident.</summary>
@@ -50,8 +47,6 @@ public class UnitPanelTests
         }
     }
 
-    static TownWorld Town() => new(Towns.Of(Towns.Fixture), Config);
-
     static UnitPanel Drawn(TownWorld world, out int quads)
     {
         var panel = new UnitPanel();
@@ -69,7 +64,7 @@ public class UnitPanelTests
     [Fact]
     public void NothingPickedOutIsNothingDrawn()
     {
-        using var world = Town();
+        var world = town.World;
         world.SelectNone();
 
         var panel = Drawn(world, out var quads);
@@ -85,7 +80,7 @@ public class UnitPanelTests
     [Fact]
     public void AGroupIsCountedAndNotDescribed()
     {
-        using var world = Town();
+        var world = town.World;
         Assert.True(world.Cars.Count >= 2, "the fixture stands fewer cars than a group needs");
 
         world.Select(new Selection(SelectionKind.Car, 0));
@@ -107,7 +102,7 @@ public class UnitPanelTests
     [Fact]
     public void AWatchsNoteAboutThisBodyIsOnThePanelAndNotOnAGroups()
     {
-        using var world = Town();
+        var world = town.World;
         world.Select(new Selection(SelectionKind.Car, 0));
         ScenarioWatch[] watching = [new TalkativeWatch()];
 
@@ -130,7 +125,7 @@ public class UnitPanelTests
     [Fact]
     public void ItStandsInTheBottomLeftCorner()
     {
-        using var world = Town();
+        var world = town.World;
         world.Select(new Selection(SelectionKind.Car, 0));
 
         var box = Drawn(world, out _).Box;
@@ -143,7 +138,7 @@ public class UnitPanelTests
     [Fact]
     public void TheTitleShutsTheBodyAndTheRowsGoWithIt()
     {
-        using var world = Town();
+        var world = town.World;
         world.Select(new Selection(SelectionKind.Car, 0));
 
         var panel = new UnitPanel();
@@ -166,7 +161,7 @@ public class UnitPanelTests
     [Fact]
     public void AClickOnThePanelIsTakenAndOneOffItIsNot()
     {
-        using var world = Town();
+        var world = town.World;
         world.Select(new Selection(SelectionKind.Car, 0));
 
         var panel = Drawn(world, out _);
@@ -179,7 +174,7 @@ public class UnitPanelTests
     [Fact]
     public void DrawingThePanelAllocatesNothing()
     {
-        using var world = Town();
+        var world = town.World;
         world.Select(new Selection(SelectionKind.Car, 0));
 
         var panel = new UnitPanel();
