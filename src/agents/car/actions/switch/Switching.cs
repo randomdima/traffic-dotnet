@@ -243,7 +243,8 @@ internal sealed class Switching(DrivingGround ground, CarActions actions)
 
         Cars.Pass[car] = look.Step;
         _askedAs[car]++;
-        Asked++;    }
+        Asked++;
+    }
 
     /// <summary>
     /// <b>This tick of a car moving across</b>, once the line under it has been read: driven down its step and handed the
@@ -332,7 +333,6 @@ internal sealed class Switching(DrivingGround ground, CarActions actions)
 
         _roomToM[car] -= shiftM;
     }
-
 
     /// <summary>
     /// <b>Whether the car's line stops where its route moves across</b>: the next lane the route queues is joined to the
@@ -445,7 +445,6 @@ internal sealed class Switching(DrivingGround ground, CarActions actions)
 
         return false;
     }
-
 
     /// <summary>
     /// <b>Where a car meaning to move across for its route stands</b>: short of the line's end by the step it takes from

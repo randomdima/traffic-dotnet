@@ -562,7 +562,8 @@ internal sealed class WalkingGround(
         var atM = People.PositionM[person];
         var line = Lines.LineOf(ontoWay, out var widthM);
         var abeamM = Spline.ProjectM(line, atM, ontoM, Vector2.Distance(atM, toM) + widthM, out var offSq);
-        var landsAtM = MathF.Max(frontM, MathF.Sqrt(offSq) - radiusM - (widthM * 0.5f));        if (landsAtM > frontM + aheadM) return 0;
+        var landsAtM = MathF.Max(frontM, MathF.Sqrt(offSq) - radiusM - (widthM * 0.5f));
+        if (landsAtM > frontM + aheadM) return 0;
 
         // A body is never level with ground its own plan holds (TER-4c.1), so one standing where it lands holds the ground
         // either side of it that it would set off into.
