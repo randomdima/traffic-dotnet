@@ -590,9 +590,10 @@ internal sealed partial class GroundMesh
         }
 
         var at = ((int)MathF.Round(positionM.X / OnePointM), (int)MathF.Round(positionM.Y / OnePointM), shade);
-        if (_welds.TryGetValue(at, out var already)) return already;
+        ref var weld = ref CollectionsMarshal.GetValueRefOrAddDefault(_welds, at, out var already);
+        if (already) return weld;
 
-        _welds[at] = _vertices.Count;
+        weld = _vertices.Count;
         _vertices.Add(new GroundVertex(positionM, shade));
         return _vertices.Count - 1;
     }
